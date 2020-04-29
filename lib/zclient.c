@@ -958,6 +958,51 @@ done:
 	return ret;
 }
 
+extern void zclient_nhg_del(struct zclient *zclient, uint32_t id)
+{
+	struct stream *s = zclient->obuf;
+
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_NHG_DEL, VRF_DEFAULT);
+
+	stream_putw(s, zclient->redist_default);
+	stream_putl(s, id);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+}
+
+static void zclient_nhg_writer(struct stream *s, uint16_t proto, int cmd,
+			       uint32_t id, size_t nhops,
+			       struct zapi_nexthop *znh)
+{
+	size_t i;
+
+	stream_reset(s);
+
+	zapi_nexthop_group_sort(znh, nhops);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+
+	stream_putw(s, proto);
+	stream_putl(s, id);
+	stream_putw(s, nhops);
+	for (i = 0; i < nhops; i++) {
+		zapi_nexthop_encode(s, znh, 0);
+		znh++;
+	}
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+}
+
+extern void zclient_nhg_add(struct zclient *zclient, uint32_t id,
+			    size_t nhops, struct zapi_nexthop *znh)
+{
+	struct stream *s = zclient->obuf;
+
+	zclient_nhg_writer(s, zclient->redist_default, ZEBRA_NHG_ADD, id, nhops,
+			   znh);
+}
+
 int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 {
 	struct zapi_nexthop *api_nh;
@@ -1108,8 +1153,8 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 /*
  * Decode a single zapi nexthop object
  */
-static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
-			       uint32_t api_flags)
+int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
+			uint32_t api_flags)
 {
 	int ret = -1;
 
@@ -1352,6 +1397,22 @@ int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s, struct pbr_rule *zrule)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return 0;
+}
+
+bool zapi_nhg_notify_decode(struct stream *s, uint32_t *id,
+			    enum zapi_nhg_notify_owner *note)
+{
+	uint16_t read_id;
+
+	STREAM_GETL(s, read_id);
+	STREAM_GET(note, s, sizeof(*note));
+
+	*id = read_id;
+
+	return true;
+
+stream_failure:
+	return false;
 }
 
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
@@ -3563,6 +3624,11 @@ static int zclient_read(struct thread *thread)
 		if (zclient->rule_notify_owner)
 			(*zclient->rule_notify_owner)(command, zclient, length,
 						      vrf_id);
+		break;
+	case ZEBRA_NHG_NOTIFY_OWNER:
+		if (zclient->nhg_notify_owner)
+			(*zclient->nhg_notify_owner)(command, zclient, length,
+						     vrf_id);
 		break;
 	case ZEBRA_GET_LABEL_CHUNK:
 		if (zclient->label_chunk)

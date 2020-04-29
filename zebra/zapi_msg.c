@@ -711,6 +711,34 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	return zserv_send_message(client, s);
 }
 
+static int nhg_notify(uint16_t type, uint16_t instance, uint16_t id,
+		      enum zapi_nhg_notify_owner note)
+{
+	struct zserv *client;
+	struct stream *s;
+
+	client = zserv_find_client(type, instance);
+	if (!client) {
+		if (IS_ZEBRA_DEBUG_PACKET) {
+			zlog_debug("Not Notifying Owner: %u(%u) about %u(%d)",
+				   type, instance, id, note);
+		}
+		return 0;
+	}
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_NHG_NOTIFY_OWNER, VRF_DEFAULT);
+
+	stream_putw(s, id);
+	stream_put(s, &note, sizeof(note));
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zserv_send_message(client, s);
+}
+
 /*
  * Common utility send route notification, called from a path using a
  * route_entry and from a path using a dataplane context.
@@ -1412,9 +1440,9 @@ bool zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 /*
  * Create a new nexthop based on a zapi nexthop.
  */
-static struct nexthop *nexthop_from_zapi(struct route_entry *re,
-					 const struct zapi_nexthop *api_nh,
-					 const struct zapi_route *api)
+static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
+					 uint32_t flags, struct prefix *p,
+					 uint16_t nexthop_num)
 {
 	struct nexthop *nexthop = NULL;
 	struct ipaddr vtep_ip;
@@ -1451,14 +1479,14 @@ static struct nexthop *nexthop_from_zapi(struct route_entry *re,
 		/* Special handling for IPv4 routes sourced from EVPN:
 		 * the nexthop and associated MAC need to be installed.
 		 */
-		if (CHECK_FLAG(api->flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
 			memset(&vtep_ip, 0, sizeof(struct ipaddr));
 			vtep_ip.ipa_type = IPADDR_V4;
 			memcpy(&(vtep_ip.ipaddr_v4), &(api_nh->gate.ipv4),
 			       sizeof(struct in_addr));
 			zebra_vxlan_evpn_vrf_route_add(
 				api_nh->vrf_id, &api_nh->rmac,
-				&vtep_ip, &api->prefix);
+				&vtep_ip, p);
 		}
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1485,14 +1513,14 @@ static struct nexthop *nexthop_from_zapi(struct route_entry *re,
 		/* Special handling for IPv6 routes sourced from EVPN:
 		 * the nexthop and associated MAC need to be installed.
 		 */
-		if (CHECK_FLAG(api->flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
 			memset(&vtep_ip, 0, sizeof(struct ipaddr));
 			vtep_ip.ipa_type = IPADDR_V6;
 			memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 			       sizeof(struct in6_addr));
 			zebra_vxlan_evpn_vrf_route_add(
 				api_nh->vrf_id, &api_nh->rmac,
-				&vtep_ip, &api->prefix);
+				&vtep_ip, p);
 		}
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
@@ -1524,7 +1552,7 @@ static struct nexthop *nexthop_from_zapi(struct route_entry *re,
 		nexthop->weight = api_nh->weight;
 
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
-		if (api_nh->backup_idx < api->backup_nexthop_num) {
+		if (api_nh->backup_idx < nexthop_num) {
 			/* Capture backup info */
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
 			nexthop->backup_idx = api_nh->backup_idx;
@@ -1539,33 +1567,28 @@ done:
 	return nexthop;
 }
 
-static bool zapi_read_nexthops(struct zserv *client, struct zapi_route *api,
-			       struct route_entry *re,
+static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
+			       struct zapi_nexthop *nhops,
+			       uint32_t flags, uint16_t nexthop_num, uint16_t backup_nh_num,
 			       struct nexthop_group **png,
 			       struct nhg_backup_info **pbnhg)
 {
 	struct nexthop_group *ng = NULL;
 	struct nhg_backup_info *bnhg = NULL;
-	uint16_t nexthop_num, i;;
-	struct zapi_nexthop *nhops;
+	uint16_t i;
 	struct nexthop *last_nh = NULL;
 
 	assert(!(png && pbnhg));
 
-	if (png) {
+	if (png)
 		*png = ng = nexthop_group_new();
-		nexthop_num = api->nexthop_num;
-		nhops = api->nexthops;
-	}
 
-	if (pbnhg && api->backup_nexthop_num > 0) {
+	if (pbnhg && nexthop_num > 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("%s: adding %d backup nexthops",
-				   __func__, api->backup_nexthop_num);
+				   __func__, nexthop_num);
 
-		nexthop_num = api->backup_nexthop_num;
 		*pbnhg = bnhg = zebra_nhg_backup_alloc();
-		nhops = api->backup_nexthops;
 	}
 
 	/*
@@ -1581,7 +1604,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct zapi_route *api,
 		struct zapi_nexthop *api_nh = &nhops[i];
 
 		/* Convert zapi nexthop */
-		nexthop = nexthop_from_zapi(re, api_nh, api);
+		nexthop = nexthop_from_zapi(api_nh, flags, p, backup_nh_num);
 		if (!nexthop) {
 			flog_warn(
 				EC_ZEBRA_NEXTHOP_CREATION_FAILED,
@@ -1661,6 +1684,84 @@ static bool zapi_read_nexthops(struct zserv *client, struct zapi_route *api,
 	return true;
 }
 
+static void zread_nhg_del(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s = msg;
+	uint32_t id;
+	uint16_t proto;
+
+	STREAM_GETW(s, proto);
+	STREAM_GETL(s, id);
+
+	/*
+	 * Delete the received nhg id
+	 * id is incremented to make compiler happy right now
+	 * it should be removed in future code work.
+	 */
+	nhg_notify(proto, client->instance, id, ZAPI_NHG_REMOVED);
+
+	return;
+
+stream_failure:
+	flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+		  "%s: Nexthop group deletion failed", __func__);
+	return;
+}
+
+static void zread_nhg_reader(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	uint32_t id;
+	size_t nhops, i;
+	struct zapi_nexthop zapi_nexthops[MULTIPATH_NUM];
+	struct nexthop_group *nhg = NULL;
+	struct prefix p;
+	uint16_t proto;
+
+	memset(&p, 0, sizeof(p));
+
+	s = msg;
+
+	STREAM_GETW(s, proto);
+	STREAM_GETL(s, id);
+	STREAM_GETW(s, nhops);
+
+	if (zserv_nexthop_num_warn(__func__, &p, nhops))
+		return;
+
+	for (i = 0; i < nhops; i++) {
+		struct zapi_nexthop *znh = &zapi_nexthops[i];
+
+		if (zapi_nexthop_decode(s, znh, 0) != 0) {
+			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+				  "%s: Nexthop creation failed",
+				  __func__);
+			return;
+		}
+	}
+
+	if (!zapi_read_nexthops(client, &p, zapi_nexthops, 0, nhops, 0,
+				&nhg, NULL)) {
+		flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+			  "%s: Nexthop Group Creation failed",
+			  __func__);
+		return;
+
+	}
+	/*
+	 * Install the nhg
+	 */
+	nhg_notify(proto, client->instance, id, ZAPI_NHG_INSTALLED);
+
+	return;
+
+stream_failure:
+	flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+		  "%s: Nexthop Group creation failed with some sort of stream read failure",
+		  __func__);
+	return;
+}
+
 static void zread_route_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
@@ -1724,8 +1825,10 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				zebra_route_string(client->proto), &api.prefix);
 	}
 
-	if (!zapi_read_nexthops(client, &api, re, &ng, NULL) ||
-	    !zapi_read_nexthops(client, &api, re, NULL, &bnhg)) {
+	if (!zapi_read_nexthops(client, &api.prefix, api.nexthops, api.flags,
+				api.nexthop_num, api.backup_nexthop_num, &ng, NULL) ||
+	    !zapi_read_nexthops(client, &api.prefix, api.backup_nexthops, api.flags,
+				api.backup_nexthop_num, api.backup_nexthop_num, NULL, &bnhg)) {
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -2822,7 +2925,9 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MLAG_CLIENT_REGISTER] = zebra_mlag_client_register,
 	[ZEBRA_MLAG_CLIENT_UNREGISTER] = zebra_mlag_client_unregister,
 	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
-	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities
+	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities,
+	[ZEBRA_NHG_ADD] = zread_nhg_reader,
+	[ZEBRA_NHG_DEL] = zread_nhg_del,
 };
 
 #if defined(HANDLE_ZAPI_FUZZING)
