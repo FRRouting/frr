@@ -180,7 +180,7 @@ int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
 }
 
 void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
-				 uint8_t instance,
+				 uint8_t instance, uint32_t nhgid,
 				 const struct nexthop_group *nhg,
 				 const struct nexthop_group *backup_nhg,
 				 uint32_t routes)
@@ -202,7 +202,7 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 
 	monotime(&sg.r.t_start);
 	for (i = 0; i < routes; i++) {
-		route_add(p, vrf_id, (uint8_t)instance, nhg, backup_nhg);
+		route_add(p, vrf_id, (uint8_t)instance, nhgid, nhg, backup_nhg);
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
 		else
@@ -251,6 +251,7 @@ static void handle_repeated(bool installed)
 	if (!installed) {
 		sg.r.installed_routes = 0;
 		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
+					    sg.r.nhgid,
 					    &sg.r.nhop_group,
 					    &sg.r.backup_nhop_group,
 					    sg.r.total_routes);
@@ -320,8 +321,34 @@ void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 	zclient_send_vrf_label(zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
 }
 
+void nhg_add(uint32_t id, const struct nexthop_group *nhg)
+{
+	struct zapi_nexthop nh_array[MULTIPATH_NUM];
+	struct zapi_nexthop *api_nh;
+	uint16_t nexthop_num = 0;
+	struct nexthop *nh;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+		api_nh = &nh_array[nexthop_num];
+
+		zapi_nexthop_from_nexthop(api_nh, nh);
+		nexthop_num++;
+	}
+
+	zclient_nhg_add(zclient, id, nexthop_num, nh_array);
+
+	zclient_send_message(zclient);
+}
+
+void nhg_del(uint32_t id)
+{
+	zclient_nhg_del(zclient, id);
+	zclient_send_message(zclient);
+}
+
 void route_add(const struct prefix *p, vrf_id_t vrf_id,
-	       uint8_t instance, const struct nexthop_group *nhg,
+	       uint8_t instance, uint32_t nhgid,
+	       const struct nexthop_group *nhg,
 	       const struct nexthop_group *backup_nhg)
 {
 	struct zapi_route api;
@@ -339,14 +366,19 @@ void route_add(const struct prefix *p, vrf_id_t vrf_id,
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
-	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
-		api_nh = &api.nexthops[i];
+	if (nhgid) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_NHG);
+		api.nhgid = nhgid;
+	} else {
+		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+			api_nh = &api.nexthops[i];
 
-		zapi_nexthop_from_nexthop(api_nh, nh);
+			zapi_nexthop_from_nexthop(api_nh, nh);
 
-		i++;
+			i++;
+		}
+		api.nexthop_num = i;
 	}
-	api.nexthop_num = i;
 
 	/* Include backup nexthops, if present */
 	if (backup_nhg && backup_nhg->nexthop) {
