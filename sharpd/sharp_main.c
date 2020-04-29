@@ -47,6 +47,7 @@
 #include "sharp_zebra.h"
 #include "sharp_vty.h"
 #include "sharp_globals.h"
+#include "sharp_nht.h"
 
 DEFINE_MGROUP(SHARPD, "sharpd")
 
@@ -161,7 +162,7 @@ int main(int argc, char **argv, char **envp)
 
 	sharp_global_init();
 
-	nexthop_group_init(NULL, NULL, NULL, NULL);
+	sharp_nhgroup_init();
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 
 	access_list_init();
