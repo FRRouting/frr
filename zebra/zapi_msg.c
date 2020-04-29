@@ -1538,23 +1538,140 @@ done:
 	return nexthop;
 }
 
+static bool zapi_read_nexthops(struct zserv *client, struct zapi_route *api,
+			       struct route_entry *re,
+			       struct nexthop_group **png,
+			       struct nhg_backup_info **pbnhg)
+{
+	struct nexthop_group *ng = NULL;
+	struct nhg_backup_info *bnhg = NULL;
+	uint16_t nexthop_num, i;;
+	struct zapi_nexthop *nhops;
+	struct nexthop *last_nh = NULL;
+
+	assert(!(png && pbnhg));
+
+	if (png) {
+		*png = ng = nexthop_group_new();
+		nexthop_num = api->nexthop_num;
+		nhops = api->nexthops;
+	}
+
+	if (pbnhg && api->backup_nexthop_num > 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: adding %d backup nexthops",
+				   __func__, api->backup_nexthop_num);
+
+		nexthop_num = api->backup_nexthop_num;
+		*pbnhg = bnhg = zebra_nhg_backup_alloc();
+		nhops = api->backup_nexthops;
+	}
+
+	/*
+	 * TBD should _all_ of the nexthop add operations use
+	 * api_nh->vrf_id instead of re->vrf_id ? I only changed
+	 * for cases NEXTHOP_TYPE_IPV4 and NEXTHOP_TYPE_IPV6.
+	 */
+	for (i = 0; i < nexthop_num; i++) {
+		struct nexthop *nexthop;
+		enum lsp_types_t label_type;
+		char nhbuf[NEXTHOP_STRLEN];
+		char labelbuf[MPLS_LABEL_STRLEN];
+		struct zapi_nexthop *api_nh = &nhops[i];
+
+		/* Convert zapi nexthop */
+		nexthop = nexthop_from_zapi(re, api_nh, api);
+		if (!nexthop) {
+			flog_warn(
+				EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+				"%s: Nexthops Specified: %u(%u) but we failed to properly create one",
+				__func__, nexthop_num, i);
+			if (ng)
+				nexthop_group_delete(&ng);
+			if (bnhg)
+				zebra_nhg_backup_free(&bnhg);
+			return false;
+		}
+
+		if (bnhg && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+			if (IS_ZEBRA_DEBUG_RECV) {
+				nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
+				zlog_debug("%s: backup nh %s with BACKUP flag!",
+					   __func__, nhbuf);
+			}
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
+			nexthop->backup_idx = 0;
+		}
+
+		/* MPLS labels for BGP-LU or Segment Routing */
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)
+		    && api_nh->type != NEXTHOP_TYPE_IFINDEX
+		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE
+		    && api_nh->label_num > 0) {
+
+			label_type = lsp_type_from_re_type(client->proto);
+			nexthop_add_labels(nexthop, label_type,
+					   api_nh->label_num,
+					   &api_nh->labels[0]);
+		}
+
+		if (IS_ZEBRA_DEBUG_RECV) {
+			labelbuf[0] = '\0';
+			nhbuf[0] = '\0';
+
+			nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
+
+			if (nexthop->nh_label &&
+			    nexthop->nh_label->num_labels > 0) {
+				mpls_label2str(nexthop->nh_label->num_labels,
+					       nexthop->nh_label->label,
+					       labelbuf, sizeof(labelbuf),
+					       false);
+			}
+
+			zlog_debug("%s: nh=%s, vrf_id=%d %s",
+				   __func__, nhbuf, api_nh->vrf_id, labelbuf);
+		}
+
+		if (png) {
+			/* Add new nexthop to temporary list. This list is
+			 * canonicalized - sorted - so that it can be hashed later
+			 * in route processing. We expect that the sender has sent
+			 * the list sorted, and the zapi client api attempts to enforce
+			 * that, so this should be inexpensive - but it is necessary
+			 * to support shared nexthop-groups.
+			 */
+			nexthop_group_add_sorted(ng, nexthop);
+		}
+		if (bnhg) {
+			/* Note that the order of the backup nexthops is significant,
+			 * so we don't sort this list as we do the primary nexthops,
+			 * we just append.
+			 */
+			if (last_nh)
+				NEXTHOP_APPEND(last_nh, nexthop);
+			else
+				bnhg->nhe->nhg.nexthop = nexthop;
+
+			last_nh = nexthop;
+		}
+	}
+
+	return true;
+}
+
 static void zread_route_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct zapi_route api;
-	struct zapi_nexthop *api_nh;
 	afi_t afi;
 	struct prefix_ipv6 *src_p = NULL;
 	struct route_entry *re;
-	struct nexthop *nexthop = NULL, *last_nh;
 	struct nexthop_group *ng = NULL;
 	struct nhg_backup_info *bnhg = NULL;
-	int i, ret;
+	int ret;
 	vrf_id_t vrf_id;
 	struct nhg_hash_entry nhe;
-	enum lsp_types_t label_type;
-	char nhbuf[NEXTHOP_STRLEN];
-	char labelbuf[MPLS_LABEL_STRLEN];
 
 	s = msg;
 	if (zapi_route_decode(s, &api) < 0) {
@@ -1606,148 +1723,10 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				zebra_route_string(client->proto), &api.prefix);
 	}
 
-	/* Use temporary list of nexthops */
-	ng = nexthop_group_new();
-
-	/*
-	 * TBD should _all_ of the nexthop add operations use
-	 * api_nh->vrf_id instead of re->vrf_id ? I only changed
-	 * for cases NEXTHOP_TYPE_IPV4 and NEXTHOP_TYPE_IPV6.
-	 */
-	for (i = 0; i < api.nexthop_num; i++) {
-		api_nh = &api.nexthops[i];
-
-		/* Convert zapi nexthop */
-		nexthop = nexthop_from_zapi(re, api_nh, &api);
-		if (!nexthop) {
-			flog_warn(
-				EC_ZEBRA_NEXTHOP_CREATION_FAILED,
-				"%s: Nexthops Specified: %d but we failed to properly create one",
-				__func__, api.nexthop_num);
-			nexthop_group_delete(&ng);
-			XFREE(MTYPE_RE, re);
-			return;
-		}
-
-		/* MPLS labels for BGP-LU or Segment Routing */
-		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)
-		    && api_nh->type != NEXTHOP_TYPE_IFINDEX
-		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE
-		    && api_nh->label_num > 0) {
-
-			label_type = lsp_type_from_re_type(client->proto);
-			nexthop_add_labels(nexthop, label_type,
-					   api_nh->label_num,
-					   &api_nh->labels[0]);
-		}
-
-		if (IS_ZEBRA_DEBUG_RECV) {
-			labelbuf[0] = '\0';
-			nhbuf[0] = '\0';
-
-			nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
-
-			if (nexthop->nh_label &&
-			    nexthop->nh_label->num_labels > 0) {
-				mpls_label2str(nexthop->nh_label->num_labels,
-					       nexthop->nh_label->label,
-					       labelbuf, sizeof(labelbuf),
-					       false);
-			}
-
-			zlog_debug("%s: nh=%s, vrf_id=%d %s",
-				   __func__, nhbuf, api_nh->vrf_id, labelbuf);
-		}
-
-		/* Add new nexthop to temporary list. This list is
-		 * canonicalized - sorted - so that it can be hashed later
-		 * in route processing. We expect that the sender has sent
-		 * the list sorted, and the zapi client api attempts to enforce
-		 * that, so this should be inexpensive - but it is necessary
-		 * to support shared nexthop-groups.
-		 */
-		nexthop_group_add_sorted(ng, nexthop);
-	}
-
-	/* Allocate temporary list of backup nexthops, if necessary */
-	if (api.backup_nexthop_num > 0) {
-		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: adding %d backup nexthops",
-				   __func__, api.backup_nexthop_num);
-
-		bnhg = zebra_nhg_backup_alloc();
-		nexthop = NULL;
-		last_nh = NULL;
-	}
-
-	/* Copy backup nexthops also, if present */
-	for (i = 0; i < api.backup_nexthop_num; i++) {
-		api_nh = &api.backup_nexthops[i];
-
-		/* Convert zapi backup nexthop */
-		nexthop = nexthop_from_zapi(re, api_nh, &api);
-		if (!nexthop) {
-			flog_warn(
-				EC_ZEBRA_NEXTHOP_CREATION_FAILED,
-				"%s: Backup Nexthops Specified: %d but we failed to properly create one",
-				__func__, api.backup_nexthop_num);
-			nexthop_group_delete(&ng);
-			zebra_nhg_backup_free(&bnhg);
-			XFREE(MTYPE_RE, re);
-			return;
-		}
-
-		/* Backup nexthops can't have backups; that's not valid. */
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
-			if (IS_ZEBRA_DEBUG_RECV) {
-				nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
-				zlog_debug("%s: backup nh %s with BACKUP flag!",
-					   __func__, nhbuf);
-			}
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
-			nexthop->backup_idx = 0;
-		}
-
-		/* MPLS labels for BGP-LU or Segment Routing */
-		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)
-		    && api_nh->type != NEXTHOP_TYPE_IFINDEX
-		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE
-		    && api_nh->label_num > 0) {
-
-			label_type = lsp_type_from_re_type(client->proto);
-			nexthop_add_labels(nexthop, label_type,
-					   api_nh->label_num,
-					   &api_nh->labels[0]);
-		}
-
-		if (IS_ZEBRA_DEBUG_RECV) {
-			labelbuf[0] = '\0';
-			nhbuf[0] = '\0';
-
-			nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
-
-			if (nexthop->nh_label &&
-			    nexthop->nh_label->num_labels > 0) {
-				mpls_label2str(nexthop->nh_label->num_labels,
-					       nexthop->nh_label->label,
-					       labelbuf, sizeof(labelbuf),
-					       false);
-			}
-
-			zlog_debug("%s: backup nh=%s, vrf_id=%d %s",
-				   __func__, nhbuf, api_nh->vrf_id, labelbuf);
-		}
-
-		/* Note that the order of the backup nexthops is significant,
-		 * so we don't sort this list as we do the primary nexthops,
-		 * we just append.
-		 */
-		if (last_nh)
-			NEXTHOP_APPEND(last_nh, nexthop);
-		else
-			bnhg->nhe->nhg.nexthop = nexthop;
-
-		last_nh = nexthop;
+	if (!zapi_read_nexthops(client, &api, re, &ng, NULL) ||
+	    !zapi_read_nexthops(client, &api, re, NULL, &bnhg)) {
+		XFREE(MTYPE_RE, re);
+		return;
 	}
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
