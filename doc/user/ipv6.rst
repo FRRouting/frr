@@ -91,6 +91,18 @@ Router Advertisement
    Default: enabled
 
 .. index::
+   single: ipv6 nd ra-retrans-interval (0-4294967295)
+   single: no ipv6 nd retrans-interval [(0-4294967295)]
+.. clicmd:: [no] ipv6 nd ra-retrans-interval [(0-4294967295)]
+
+   The value to be placed in the retrans timer field of router advertisements
+   sent from the interface, in msec. Indicates the interval between router
+   advertisement retransmissions. Setting the value to zero indicates that
+   the value is unspecified by this router. Must be between zero or 4294967295
+   msec.
+   Default: ``0``
+
+.. index::
    single: ipv6 nd ra-hop-limit (0-255)
    single: no ipv6 nd ra-hop-limit [(0-255)]
 .. clicmd:: [no] ipv6 nd ra-hop-limit [(0-255)]
