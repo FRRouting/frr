@@ -399,14 +399,10 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 	THREAD_OFF(fnc->t_read);
 	THREAD_OFF(fnc->t_write);
 
-	if (fnc->t_ribreset)
-		thread_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
-	if (fnc->t_ribwalk)
-		thread_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
-	if (fnc->t_rmacreset)
-		thread_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
-	if (fnc->t_rmacwalk)
-		thread_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
 
 	/* FPM is disabled, don't attempt to connect. */
 	if (fnc->disabled)
