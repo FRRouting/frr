@@ -186,8 +186,8 @@ DEFPY(
 	int64_t sseq;
 	char ipmask[64];
 	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
-	char xpath_value[XPATH_MAXLEN + 64];
+	char xpath_entry[XPATH_MAXLEN + 128];
+	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -315,8 +315,8 @@ DEFPY(
 	int64_t sseq;
 	char ipmask[64];
 	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
-	char xpath_value[XPATH_MAXLEN + 64];
+	char xpath_entry[XPATH_MAXLEN + 128];
+	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -588,8 +588,8 @@ DEFPY(
 	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
-	char xpath_value[XPATH_MAXLEN + 64];
+	char xpath_entry[XPATH_MAXLEN + 128];
+	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -767,8 +767,8 @@ DEFPY(
 	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
-	char xpath_value[XPATH_MAXLEN + 64];
+	char xpath_entry[XPATH_MAXLEN + 128];
+	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -949,8 +949,8 @@ DEFPY(
 	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
-	char xpath_value[XPATH_MAXLEN + 64];
+	char xpath_entry[XPATH_MAXLEN + 128];
+	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -1258,8 +1258,8 @@ DEFPY(
 	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
-	char xpath_value[XPATH_MAXLEN + 128];
+	char xpath_entry[XPATH_MAXLEN + 128];
+	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
@@ -1438,8 +1438,8 @@ DEFPY(
 	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
-	char xpath_entry[XPATH_MAXLEN + 32];
-	char xpath_value[XPATH_MAXLEN + 128];
+	char xpath_entry[XPATH_MAXLEN + 128];
+	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
