@@ -460,7 +460,7 @@ static int zebra_nhrp_call_redirect(struct interface *ifp, int on)
 	/* a retry mechanism should be put in place */
 	snprintf(buf, sizeof(buf), "%sip6tables %s OUTPUT -o %s -p icmpv6 --icmpv6-type redirect -j DROP",
 		 vrfstr, on ? "-A" : "-D", ifp->name);
-	return zebra_nhrp_call_only(buf, ifp->vrf_id, retstr, strlen(retstr));
+	return zebra_nhrp_call_only(buf, ifp->vrf_id, NULL, 0);
 }
 
 
