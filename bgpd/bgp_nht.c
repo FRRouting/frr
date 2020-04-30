@@ -962,6 +962,9 @@ void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer)
 	for (nhop = bnc->nexthop; nhop; nhop = nhop->next) {
 		ifp = if_lookup_by_index(nhop->ifindex, nhop->vrf_id);
 
+		if (!ifp)
+			continue;
+
 		zclient_send_interface_radv_req(zclient, nhop->vrf_id, ifp, 0,
 						0);
 	}
