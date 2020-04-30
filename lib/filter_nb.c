@@ -39,6 +39,65 @@ ipv4_network_addr(in_addr_t hostaddr, int masklen)
 	return hostaddr & mask.s_addr;
 }
 
+static enum nb_error
+prefix_list_length_validate(const struct lyd_node *dnode)
+{
+	int type = yang_dnode_get_enum(dnode, "../../type");
+	const char *xpath_le = NULL, *xpath_ge = NULL;
+	struct prefix p;
+	uint8_t le, ge;
+
+	if (type == 0 /* ipv4 */) {
+		yang_dnode_get_prefix(&p, dnode, "../ipv4-prefix");
+		xpath_le = "../ipv4-prefix-length-lesser-or-equal";
+		xpath_ge = "../ipv4-prefix-length-greater-or-equal";
+	} else {
+		yang_dnode_get_prefix(&p, dnode, "../ipv6-prefix");
+		xpath_le = "../ipv6-prefix-length-lesser-or-equal";
+		xpath_ge = "../ipv6-prefix-length-greater-or-equal";
+	}
+
+	/*
+	 * Check rule:
+	 * prefix length <= le.
+	 */
+	if (yang_dnode_exists(dnode, xpath_le)) {
+		le = yang_dnode_get_uint8(dnode, xpath_le);
+		if (p.prefixlen > le)
+			goto log_and_fail;
+
+	}
+
+	/*
+	 * Check rule:
+	 * prefix length < ge.
+	 */
+	if (yang_dnode_exists(dnode, xpath_ge)) {
+		ge = yang_dnode_get_uint8(dnode, xpath_ge);
+		if (p.prefixlen >= ge)
+			goto log_and_fail;
+	}
+
+	/*
+	 * Check rule:
+	 * ge <= le.
+	 */
+	if (yang_dnode_exists(dnode, xpath_le) &&
+	    yang_dnode_exists(dnode, xpath_ge)) {
+		le = yang_dnode_get_uint8(dnode, xpath_le);
+		ge = yang_dnode_get_uint8(dnode, xpath_ge);
+		if (ge > le)
+			goto log_and_fail;
+	}
+
+	return NB_OK;
+
+  log_and_fail:
+	zlog_info("prefix-list: invalid prefix range for %pFX: "
+		  "Make sure that mask length < ge <= le", &p);
+	return NB_ERR_VALIDATION;
+}
+
 /*
  * XPath: /frr-filter:lib/access-list-legacy
  */
@@ -857,6 +916,10 @@ static int lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_modify(
 {
 	struct prefix_list_entry *ple;
 
+	if (args->event == NB_EV_VALIDATE &&
+	    prefix_list_length_validate(args->dnode) != NB_OK)
+		return NB_ERR_VALIDATION;
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -887,6 +950,10 @@ static int lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct prefix_list_entry *ple;
+
+	if (args->event == NB_EV_VALIDATE &&
+	    prefix_list_length_validate(args->dnode) != NB_OK)
+		return NB_ERR_VALIDATION;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
