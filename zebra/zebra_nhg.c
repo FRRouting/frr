@@ -958,30 +958,6 @@ static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
 	return ctx;
 }
 
-static bool zebra_nhg_contains_unhashable(struct nhg_hash_entry *nhe)
-{
-	struct nhg_connected *rb_node_dep = NULL;
-
-	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
-		if (CHECK_FLAG(rb_node_dep->nhe->flags,
-			       NEXTHOP_GROUP_UNHASHABLE))
-			return true;
-	}
-
-	return false;
-}
-
-static void zebra_nhg_set_unhashable(struct nhg_hash_entry *nhe)
-{
-	SET_FLAG(nhe->flags, NEXTHOP_GROUP_UNHASHABLE);
-	SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-
-	flog_warn(
-		EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
-		"Nexthop Group with ID (%d) is a duplicate, therefore unhashable, ignoring",
-		nhe->id);
-}
-
 static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe)
 {
 	struct nhg_connected *rb_node_dep;
@@ -1036,10 +1012,10 @@ static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 		if_nhg_dependents_del(nhe->ifp, nhe);
 
 	/*
-	 * If its unhashable, we didn't store it here and have to be
+	 * If its not zebra created, we didn't store it here and have to be
 	 * sure we don't clear one thats actually being used.
 	 */
-	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_UNHASHABLE))
+	if (nhe->type == ZEBRA_ROUTE_NHG)
 		hash_release(zrouter.nhgs, nhe);
 
 	hash_release(zrouter.nhgs_id, nhe);
@@ -1125,60 +1101,19 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		nhe = zebra_nhg_find_nexthop(id, nhg_ctx_get_nh(ctx), afi,
 					     type);
 
-	if (nhe) {
-		if (id != nhe->id) {
-			struct nhg_hash_entry *kernel_nhe = NULL;
-
-			/* Duplicate but with different ID from
-			 * the kernel
-			 */
-
-			/* The kernel allows duplicate nexthops
-			 * as long as they have different IDs.
-			 * We are ignoring those to prevent
-			 * syncing problems with the kernel
-			 * changes.
-			 *
-			 * We maintain them *ONLY* in the ID hash table to
-			 * track them and set the flag to indicated
-			 * their attributes are unhashable.
-			 */
-
-			kernel_nhe = zebra_nhe_copy(nhe, id);
-
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: copying kernel nhe (%u), dup of %u",
-					   __func__, id, nhe->id);
-
-			zebra_nhg_insert_id(kernel_nhe);
-			zebra_nhg_set_unhashable(kernel_nhe);
-		} else if (zebra_nhg_contains_unhashable(nhe)) {
-			/* The group we got contains an unhashable/duplicated
-			 * depend, so lets mark this group as unhashable as well
-			 * and release it from the non-ID hash.
-			 */
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: nhe %p (%u) unhashable",
-					   __func__, nhe, nhe->id);
-
-			hash_release(zrouter.nhgs, nhe);
-			zebra_nhg_set_unhashable(nhe);
-		} else {
-			/* It actually created a new nhe */
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: nhe %p (%u) is new",
-					   __func__, nhe, nhe->id);
-
-			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
-			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-		}
-	} else {
+	if (!nhe) {
 		flog_err(
 			EC_ZEBRA_TABLE_LOOKUP_FAILED,
 			"Zebra failed to find or create a nexthop hash entry for ID (%u)",
 			id);
 		return -1;
 	}
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: nhe %p (%u) is new", __func__, nhe, nhe->id);
+
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 
 	return 0;
 }
