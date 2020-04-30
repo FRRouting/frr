@@ -1304,9 +1304,6 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	vty_out(vty, "     RefCnt: %d\n", nhe->refcnt);
 	vty_out(vty, "     VRF: %s\n", vrf_id_to_name(nhe->vrf_id));
 
-	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_UNHASHABLE))
-		vty_out(vty, "     Duplicate - from kernel not hashable\n");
-
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
 		vty_out(vty, "     Valid");
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED))
