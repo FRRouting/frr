@@ -1,0 +1,190 @@
+{
+  "cmd_element": {
+    "fields": [
+      {
+        "name": "string",
+        "offset": 0,
+        "size": 8,
+        "type": "const char  *"
+      },
+      {
+        "name": "doc",
+        "offset": 8,
+        "size": 8,
+        "type": "const char  *"
+      },
+      {
+        "name": "daemon",
+        "offset": 16,
+        "size": 4,
+        "type": "int"
+      },
+      {
+        "name": "attr",
+        "offset": 20,
+        "size": 1,
+        "type": "uint8_t"
+      },
+      {
+        "name": "func",
+        "offset": 24,
+        "size": 8,
+        "type": "int *"
+      },
+      {
+        "name": "name",
+        "offset": 32,
+        "size": 8,
+        "type": "const char  *"
+      },
+      {
+        "name": "xref",
+        "offset": 40,
+        "size": 32,
+        "type": "struct xref"
+      }
+    ]
+  },
+  "xref": {
+    "fields": [
+      {
+        "name": "xrefdata",
+        "offset": 0,
+        "size": 8,
+        "type": "struct xrefdata *"
+      },
+      {
+        "name": "type",
+        "offset": 8,
+        "size": 4,
+        "type": "enum xref_type"
+      },
+      {
+        "name": "line",
+        "offset": 12,
+        "size": 4,
+        "type": "int"
+      },
+      {
+        "name": "file",
+        "offset": 16,
+        "size": 8,
+        "type": "const char  *"
+      },
+      {
+        "name": "func",
+        "offset": 24,
+        "size": 8,
+        "type": "const char  *"
+      }
+    ]
+  },
+  "xref_install_element": {
+    "fields": [
+      {
+        "name": "xref",
+        "offset": 0,
+        "size": 32,
+        "type": "struct xref"
+      },
+      {
+        "name": "cmd_element",
+        "offset": 32,
+        "size": 8,
+        "type": "const struct cmd_element  *"
+      },
+      {
+        "name": "node_type",
+        "offset": 40,
+        "size": 4,
+        "type": "enum node_type"
+      }
+    ]
+  },
+  "xref_logmsg": {
+    "fields": [
+      {
+        "name": "xref",
+        "offset": 0,
+        "size": 32,
+        "type": "struct xref"
+      },
+      {
+        "name": "fmtstring",
+        "offset": 32,
+        "size": 8,
+        "type": "const char  *"
+      },
+      {
+        "name": "priority",
+        "offset": 40,
+        "size": 4,
+        "type": "uint32_t"
+      },
+      {
+        "name": "ec",
+        "offset": 44,
+        "size": 4,
+        "type": "uint32_t"
+      }
+    ]
+  },
+  "xref_threadsched": {
+    "fields": [
+      {
+        "name": "xref",
+        "offset": 0,
+        "size": 32,
+        "type": "struct xref"
+      },
+      {
+        "name": "funcname",
+        "offset": 32,
+        "size": 8,
+        "type": "const char  *"
+      },
+      {
+        "name": "dest",
+        "offset": 40,
+        "size": 8,
+        "type": "const char  *"
+      },
+      {
+        "name": "thread_type",
+        "offset": 48,
+        "size": 4,
+        "type": "uint32_t"
+      }
+    ]
+  },
+  "xrefdata": {
+    "fields": [
+      {
+        "name": "xref",
+        "offset": 0,
+        "size": 8,
+        "type": "const struct xref  *"
+      },
+      {
+        "array": 16,
+        "name": "uid",
+        "offset": 8,
+        "size": 16,
+        "type": "char"
+      },
+      {
+        "name": "hashstr",
+        "offset": 24,
+        "size": 8,
+        "type": "const char  *"
+      },
+      {
+        "array": 2,
+        "name": "hashu32",
+        "offset": 32,
+        "size": 8,
+        "type": "uint32_t"
+      }
+    ]
+  }
+}
