@@ -418,7 +418,7 @@ static int zebra_nhrp_6wind_nflog_walker(struct hash_bucket *b, void *data)
 
 static int zebra_nhrp_call_redirect(struct interface *ifp, int on)
 {
-	char buf[200], vrfstr[100], retstr[100];
+	char buf[200], vrfstr[100];
 	struct vrf *vrf;
 
 	vrf = vrf_lookup_by_id(ifp->vrf->vrf_id);
@@ -430,7 +430,8 @@ static int zebra_nhrp_call_redirect(struct interface *ifp, int on)
 	/* a retry mechanism should be put in place */
 	snprintf(buf, sizeof(buf), "%sip6tables %s OUTPUT -o %s -p icmpv6 --icmpv6-type redirect -j DROP",
 		 vrfstr, on ? "-A" : "-D", ifp->name);
-	return zebra_nhrp_call_only(buf, ifp->vrf->vrf_id, retstr, strlen(retstr));
+
+	return zebra_nhrp_call_only(buf, ifp->vrf->vrf_id, NULL, 0);
 }
 
 
