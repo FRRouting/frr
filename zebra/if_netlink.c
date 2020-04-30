@@ -310,22 +310,25 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 	nl_table_id = *(uint32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]);
 
 	if (h->nlmsg_type == RTM_NEWLINK) {
-		vrf_id_t exist_id;
-
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("RTM_NEWLINK for VRF %s(%u) table %u", name,
 				   ifi->ifi_index, nl_table_id);
 
-		exist_id = vrf_lookup_by_table(nl_table_id, ns_id);
-		if (exist_id != VRF_DEFAULT) {
-			vrf = vrf_lookup_by_id(exist_id);
+		if (!vrf_lookup_by_id((vrf_id_t)ifi->ifi_index)) {
+			vrf_id_t exist_id;
 
-			flog_err(
-				EC_ZEBRA_VRF_MISCONFIGURED,
-				"VRF %s id %u table id overlaps existing vrf %s, misconfiguration exiting",
-				name, ifi->ifi_index, vrf->name);
-			exit(-1);
+			exist_id = vrf_lookup_by_table(nl_table_id, ns_id);
+			if (exist_id != VRF_DEFAULT) {
+				vrf = vrf_lookup_by_id(exist_id);
+
+				flog_err(
+					EC_ZEBRA_VRF_MISCONFIGURED,
+					"VRF %s id %u table id overlaps existing vrf %s, misconfiguration exiting",
+					name, ifi->ifi_index, vrf->name);
+				exit(-1);
+			}
 		}
+
 		/*
 		 * vrf_get is implied creation if it does not exist
 		 */
