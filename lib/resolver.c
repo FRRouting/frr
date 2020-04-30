@@ -19,6 +19,9 @@
 #include "lib_errors.h"
 #include "resolver.h"
 #include "command.h"
+#include "xref.h"
+
+XREF_SETUP()
 
 struct resolver_state {
 	ares_channel channel;
