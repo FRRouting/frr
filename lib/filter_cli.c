@@ -132,6 +132,38 @@ static void concat_addr_mask_v4(const char *addr, const char *mask, char *dst,
 }
 
 /*
+ * Helper function to generate a sequence number for legacy commands.
+ */
+static int acl_get_seq_cb(const struct lyd_node *dnode, void *arg)
+{
+	int64_t *seq = arg;
+	int64_t cur_seq = yang_dnode_get_uint32(dnode, "sequence");
+
+	if (cur_seq > *seq)
+		*seq = cur_seq;
+
+	return YANG_ITER_CONTINUE;
+}
+
+/**
+ * Helper function that iterates over the XPath `xpath` on the candidate
+ * configuration in `vty->candidate_config`.
+ *
+ * \param[in] vty shell context with the candidate configuration.
+ * \param[in] xpath the XPath to look for the sequence leaf.
+ * \returns next unused sequence number.
+ */
+static long acl_get_seq(struct vty *vty, const char *xpath)
+{
+	int64_t seq = 0;
+
+	yang_dnode_iterate(acl_get_seq_cb, &seq, vty->candidate_config->dnode,
+			   "%s/entry", xpath);
+
+	return seq + 5;
+}
+
+/*
  * Cisco (legacy) access lists.
  */
 DEFPY(
@@ -148,8 +180,6 @@ DEFPY(
 	"Wildcard bits\n"
 	"Any source host\n")
 {
-	struct access_list *acl;
-	struct lyd_node *dnode;
 	int rv;
 	int64_t sseq;
 	char ipmask[64];
@@ -168,11 +198,9 @@ DEFPY(
 	if (rv != CMD_SUCCESS)
 		return rv;
 
-	/* Use access-list data structure to generate sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	acl = nb_running_get_entry(dnode, NULL, true);
 	if (seq_str == NULL) {
-		sseq = filter_new_seq_get(acl);
+		/* Use XPath to find the next sequence number. */
+		sseq = acl_get_seq(vty, xpath);
 		snprintf(xpath_entry, sizeof(xpath_entry),
 			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
@@ -281,8 +309,6 @@ DEFPY(
 	"Destination address to match\n"
 	"Any destination host\n")
 {
-	struct access_list *acl;
-	struct lyd_node *dnode;
 	int rv;
 	int64_t sseq;
 	char ipmask[64];
@@ -301,11 +327,9 @@ DEFPY(
 	if (rv != CMD_SUCCESS)
 		return rv;
 
-	/* Use access-list data structure to generate sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	acl = nb_running_get_entry(dnode, NULL, true);
 	if (seq_str == NULL) {
-		sseq = filter_new_seq_get(acl);
+		/* Use XPath to find the next sequence number. */
+		sseq = acl_get_seq(vty, xpath);
 		snprintf(xpath_entry, sizeof(xpath_entry),
 			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
@@ -507,8 +531,6 @@ DEFPY(
 	"Exact match of the prefixes\n"
 	"Match any IPv4\n")
 {
-	struct access_list *acl;
-	struct lyd_node *dnode;
 	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
@@ -526,11 +548,9 @@ DEFPY(
 	if (rv != CMD_SUCCESS)
 		return rv;
 
-	/* Use access-list data structure to generate sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	acl = nb_running_get_entry(dnode, NULL, true);
 	if (seq_str == NULL) {
-		sseq = filter_new_seq_get(acl);
+		/* Use XPath to find the next sequence number. */
+		sseq = acl_get_seq(vty, xpath);
 		snprintf(xpath_entry, sizeof(xpath_entry),
 			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
@@ -694,8 +714,6 @@ DEFPY(
 	"Exact match of the prefixes\n"
 	"Match any IPv6\n")
 {
-	struct access_list *acl;
-	struct lyd_node *dnode;
 	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
@@ -713,11 +731,9 @@ DEFPY(
 	if (rv != CMD_SUCCESS)
 		return rv;
 
-	/* Use access-list data structure to generate sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	acl = nb_running_get_entry(dnode, NULL, true);
 	if (seq_str == NULL) {
-		sseq = filter_new_seq_get(acl);
+		/* Use XPath to find the next sequence number. */
+		sseq = acl_get_seq(vty, xpath);
 		snprintf(xpath_entry, sizeof(xpath_entry),
 			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
@@ -884,8 +900,6 @@ DEFPY(
 	"MAC address\n"
 	"Match any MAC address\n")
 {
-	struct access_list *acl;
-	struct lyd_node *dnode;
 	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
@@ -903,11 +917,9 @@ DEFPY(
 	if (rv != CMD_SUCCESS)
 		return rv;
 
-	/* Use access-list data structure to generate sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	acl = nb_running_get_entry(dnode, NULL, true);
 	if (seq_str == NULL) {
-		sseq = filter_new_seq_get(acl);
+		/* Use XPath to find the next sequence number. */
+		sseq = acl_get_seq(vty, xpath);
 		snprintf(xpath_entry, sizeof(xpath_entry),
 			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
@@ -1120,8 +1132,6 @@ DEFPY(
 	"Maximum prefix length to be matched\n"
 	"Maximum prefix length\n")
 {
-	struct prefix_list *pl;
-	struct lyd_node *dnode;
 	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
@@ -1139,11 +1149,9 @@ DEFPY(
 	if (rv != CMD_SUCCESS)
 		return rv;
 
-	/* Use prefix-list data structure to generate sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	pl = nb_running_get_entry(dnode, NULL, true);
 	if (seq_str == NULL) {
-		sseq = prefix_new_seq_get(pl);
+		/* Use XPath to find the next sequence number. */
+		sseq = acl_get_seq(vty, xpath);
 		snprintf(xpath_entry, sizeof(xpath_entry),
 			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
@@ -1304,8 +1312,6 @@ DEFPY(
 	"Minimum prefix length to be matched\n"
 	"Minimum prefix length\n")
 {
-	struct prefix_list *pl;
-	struct lyd_node *dnode;
 	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
@@ -1323,11 +1329,9 @@ DEFPY(
 	if (rv != CMD_SUCCESS)
 		return rv;
 
-	/* Use prefix-list data structure to generate sequence. */
-	dnode = yang_dnode_get(running_config->dnode, xpath);
-	pl = nb_running_get_entry(dnode, NULL, true);
 	if (seq_str == NULL) {
-		sseq = prefix_new_seq_get(pl);
+		/* Use XPath to find the next sequence number. */
+		sseq = acl_get_seq(vty, xpath);
 		snprintf(xpath_entry, sizeof(xpath_entry),
 			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
