@@ -55,10 +55,10 @@
 #define SRGB_LOWER_BOUND               16000
 #define SRGB_UPPER_BOUND               23999
 
-PREDECL_RBTREE_UNIQ(tree_sr_node)
-PREDECL_RBTREE_UNIQ(tree_sr_node_prefix)
-PREDECL_RBTREE_UNIQ(tree_sr_area_prefix)
-PREDECL_RBTREE_UNIQ(tree_sr_prefix_cfg)
+PREDECL_RBTREE_UNIQ(srdb_node)
+PREDECL_RBTREE_UNIQ(srdb_node_prefix)
+PREDECL_RBTREE_UNIQ(srdb_area_prefix)
+PREDECL_RBTREE_UNIQ(srdb_prefix_cfg)
 
 /* SR Adj-SID type. */
 enum sr_adj_type {
@@ -100,11 +100,19 @@ struct sr_nexthop_info {
 	time_t uptime;
 };
 
+/* State of Object (SR-Node and SR-Prefix) stored in SRDB */
+enum srdb_state {
+	SRDB_STATE_VALIDATED = 0,
+	SRDB_STATE_NEW,
+	SRDB_STATE_MODIFIED,
+	SRDB_STATE_UNCHANGED
+};
+
 /* SR Prefix-SID. */
 struct sr_prefix {
 	/* RB-tree entries. */
-	struct tree_sr_node_prefix_item node_entry;
-	struct tree_sr_area_prefix_item area_entry;
+	struct srdb_node_prefix_item node_entry;
+	struct srdb_area_prefix_item area_entry;
 
 	/* IP prefix. */
 	struct prefix prefix;
@@ -131,17 +139,14 @@ struct sr_prefix {
 	/* Backpointer to SR node. */
 	struct sr_node *srn;
 
-	/* Flags used while the LSPDB is being parsed. */
-	uint8_t parse_flags;
-#define F_ISIS_SR_PREFIX_SID_NEW	0x01
-#define F_ISIS_SR_PREFIX_SID_MODIFIED	0x02
-#define F_ISIS_SR_PREFIX_SID_UNCHANGED	0x04
+	/* SR-Prefix State used while the LSPDB is being parsed. */
+	enum srdb_state state;
 };
 
 /* SR node. */
 struct sr_node {
 	/* RB-tree entry. */
-	struct tree_sr_node_item entry;
+	struct srdb_node_item entry;
 
 	/* IS-IS level: ISIS_LEVEL1 or ISIS_LEVEL2. */
 	int level;
@@ -153,16 +158,13 @@ struct sr_node {
 	struct isis_router_cap cap;
 
 	/* List of Prefix-SIDs advertised by this node. */
-	struct tree_sr_node_prefix_head prefix_sids;
+	struct srdb_node_prefix_head prefix_sids;
 
 	/* Backpointer to IS-IS area. */
 	struct isis_area *area;
 
-	/* Flags used while the LSPDB is being parsed. */
-	uint8_t parse_flags;
-#define F_ISIS_SR_NODE_NEW		0x01
-#define F_ISIS_SR_NODE_MODIFIED		0x02
-#define F_ISIS_SR_NODE_UNCHANGED	0x04
+	/* SR-Node State used while the LSPDB is being parsed. */
+	enum srdb_state state;
 };
 
 /* NOTE: these values must be in sync with the YANG module. */
@@ -181,7 +183,7 @@ enum sr_last_hop_behavior {
 /* SR Prefix-SID configuration. */
 struct sr_prefix_cfg {
 	/* RB-tree entry. */
-	struct tree_sr_prefix_cfg_item entry;
+	struct srdb_prefix_cfg_item entry;
 
 	/* IP prefix. */
 	struct prefix prefix;
@@ -211,10 +213,10 @@ struct isis_sr_db {
 	struct list *adj_sids;
 
 	/* SR information from all nodes. */
-	struct tree_sr_node_head sr_nodes[ISIS_LEVELS];
+	struct srdb_node_head sr_nodes[ISIS_LEVELS];
 
 	/* Prefix-SIDs. */
-	struct tree_sr_area_prefix_head prefix_sids[ISIS_LEVELS];
+	struct srdb_area_prefix_head prefix_sids[ISIS_LEVELS];
 
 	/* Area SR configuration. */
 	struct {
@@ -229,7 +231,7 @@ struct isis_sr_db {
 		uint8_t msd;
 
 		/* Prefix-SID mappings. */
-		struct tree_sr_prefix_cfg_head prefix_sids;
+		struct srdb_prefix_cfg_head prefix_sids;
 	} config;
 };
 

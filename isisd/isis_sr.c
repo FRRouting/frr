@@ -61,9 +61,9 @@ static inline int sr_prefix_sid_compare(const struct sr_prefix *a,
 {
 	return prefix_cmp(&a->prefix, &b->prefix);
 }
-DECLARE_RBTREE_UNIQ(tree_sr_node_prefix, struct sr_prefix, node_entry,
+DECLARE_RBTREE_UNIQ(srdb_node_prefix, struct sr_prefix, node_entry,
 		    sr_prefix_sid_compare)
-DECLARE_RBTREE_UNIQ(tree_sr_area_prefix, struct sr_prefix, area_entry,
+DECLARE_RBTREE_UNIQ(srdb_area_prefix, struct sr_prefix, area_entry,
 		    sr_prefix_sid_compare)
 
 static inline int sr_prefix_sid_cfg_compare(const struct sr_prefix_cfg *a,
@@ -71,7 +71,7 @@ static inline int sr_prefix_sid_cfg_compare(const struct sr_prefix_cfg *a,
 {
 	return prefix_cmp(&a->prefix, &b->prefix);
 }
-DECLARE_RBTREE_UNIQ(tree_sr_prefix_cfg, struct sr_prefix_cfg, entry,
+DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry,
 		    sr_prefix_sid_cfg_compare)
 
 static inline int sr_node_compare(const struct sr_node *a,
@@ -79,7 +79,7 @@ static inline int sr_node_compare(const struct sr_node *a,
 {
 	return memcmp(a->sysid, b->sysid, ISIS_SYS_ID_LEN);
 }
-DECLARE_RBTREE_UNIQ(tree_sr_node, struct sr_node, entry, sr_node_compare)
+DECLARE_RBTREE_UNIQ(srdb_node, struct sr_node, entry, sr_node_compare)
 
 /*----------------------------------------------------------------------------*/
 
@@ -116,7 +116,7 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 
 		/* Reinstall local Prefix-SIDs to update their input labels. */
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
-			frr_each (tree_sr_area_prefix,
+			frr_each (srdb_area_prefix,
 				  &area->srdb.prefix_sids[level - 1], srp) {
 				isis_sr_prefix_reinstall(srp, false);
 			}
@@ -161,7 +161,7 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 		pcfg->node_sid = true;
 
 	/* Save prefix-sid configuration. */
-	tree_sr_prefix_cfg_add(&area->srdb.config.prefix_sids, pcfg);
+	srdb_prefix_cfg_add(&area->srdb.config.prefix_sids, pcfg);
 
 	return pcfg;
 }
@@ -172,7 +172,7 @@ void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg)
 	struct isis_area *area;
 
 	area = pcfg->area;
-	tree_sr_prefix_cfg_del(&area->srdb.config.prefix_sids, pcfg);
+	srdb_prefix_cfg_del(&area->srdb.config.prefix_sids, pcfg);
 	XFREE(MTYPE_ISIS_SR_INFO, pcfg);
 }
 
@@ -183,7 +183,7 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_find(struct isis_area *area,
 	struct sr_prefix_cfg pcfg = {};
 
 	prefix_copy(&pcfg.prefix, prefix.p);
-	return tree_sr_prefix_cfg_find(&area->srdb.config.prefix_sids, &pcfg);
+	return srdb_prefix_cfg_find(&area->srdb.config.prefix_sids, &pcfg);
 }
 
 /* Fill in Prefix-SID Sub-TLV according to the corresponding configuration. */
@@ -244,9 +244,9 @@ static struct sr_prefix *isis_sr_prefix_add(struct isis_area *area,
 		srp->u.remote.rinfo = NULL;
 	}
 	srp->srn = srn;
-	tree_sr_node_prefix_add(&srn->prefix_sids, srp);
+	srdb_node_prefix_add(&srn->prefix_sids, srp);
 	/* TODO: this might fail if we have Anycast SIDs in the IS-IS area. */
-	tree_sr_area_prefix_add(&area->srdb.prefix_sids[srn->level - 1], srp);
+	srdb_area_prefix_add(&area->srdb.prefix_sids[srn->level - 1], srp);
 
 	return srp;
 }
@@ -255,8 +255,8 @@ static void isis_sr_prefix_del(struct isis_area *area, struct sr_node *srn,
 			       struct sr_prefix *srp)
 {
 	isis_sr_prefix_uninstall(srp);
-	tree_sr_node_prefix_del(&srn->prefix_sids, srp);
-	tree_sr_area_prefix_del(&area->srdb.prefix_sids[srn->level - 1], srp);
+	srdb_node_prefix_del(&srn->prefix_sids, srp);
+	srdb_area_prefix_del(&area->srdb.prefix_sids[srn->level - 1], srp);
 	XFREE(MTYPE_ISIS_SR_INFO, srp);
 }
 
@@ -267,7 +267,7 @@ static struct sr_prefix *isis_sr_prefix_find_area(struct isis_area *area,
 	struct sr_prefix srp = {};
 
 	prefix_copy(&srp.prefix, prefix.p);
-	return tree_sr_area_prefix_find(&area->srdb.prefix_sids[level - 1],
+	return srdb_area_prefix_find(&area->srdb.prefix_sids[level - 1],
 					&srp);
 }
 
@@ -277,7 +277,7 @@ static struct sr_prefix *isis_sr_prefix_find_node(struct sr_node *srn,
 	struct sr_prefix srp = {};
 
 	prefix_copy(&srp.prefix, prefix.p);
-	return tree_sr_node_prefix_find(&srn->prefix_sids, &srp);
+	return srdb_node_prefix_find(&srn->prefix_sids, &srp);
 }
 
 static struct sr_node *isis_sr_node_add(struct isis_area *area, int level,
@@ -291,8 +291,8 @@ static struct sr_node *isis_sr_node_add(struct isis_area *area, int level,
 	memcpy(srn->sysid, sysid, ISIS_SYS_ID_LEN);
 	srn->cap = *cap;
 	srn->area = area;
-	tree_sr_node_prefix_init(&srn->prefix_sids);
-	tree_sr_node_add(&area->srdb.sr_nodes[level - 1], srn);
+	srdb_node_prefix_init(&srn->prefix_sids);
+	srdb_node_add(&area->srdb.sr_nodes[level - 1], srn);
 
 	return srn;
 }
@@ -301,14 +301,14 @@ static void isis_sr_node_del(struct isis_area *area, int level,
 			     struct sr_node *srn)
 {
 	/* Remove and uninstall Prefix-SIDs. */
-	while (tree_sr_node_prefix_count(&srn->prefix_sids) > 0) {
+	while (srdb_node_prefix_count(&srn->prefix_sids) > 0) {
 		struct sr_prefix *srp;
 
-		srp = tree_sr_node_prefix_first(&srn->prefix_sids);
+		srp = srdb_node_prefix_first(&srn->prefix_sids);
 		isis_sr_prefix_del(area, srn, srp);
 	}
 
-	tree_sr_node_del(&area->srdb.sr_nodes[level - 1], srn);
+	srdb_node_del(&area->srdb.sr_nodes[level - 1], srn);
 	XFREE(MTYPE_ISIS_SR_INFO, srn);
 }
 
@@ -318,7 +318,7 @@ static struct sr_node *isis_sr_node_find(struct isis_area *area, int level,
 	struct sr_node srn = {};
 
 	memcpy(srn.sysid, sysid, ISIS_SYS_ID_LEN);
-	return tree_sr_node_find(&area->srdb.sr_nodes[level - 1], &srn);
+	return srdb_node_find(&area->srdb.sr_nodes[level - 1], &srn);
 }
 
 static void isis_sr_adj_srgb_update(struct isis_area *area, uint8_t *sysid,
@@ -326,7 +326,7 @@ static void isis_sr_adj_srgb_update(struct isis_area *area, uint8_t *sysid,
 {
 	struct sr_prefix *srp;
 
-	frr_each (tree_sr_area_prefix, &area->srdb.prefix_sids[level - 1],
+	frr_each (srdb_area_prefix, &area->srdb.prefix_sids[level - 1],
 		  srp) {
 		struct listnode *node;
 		struct isis_nexthop *nh;
@@ -688,12 +688,12 @@ isis_sr_parse_router_cap_tlv(struct isis_area *area, int level,
 	if (srn) {
 		if (memcmp(&srn->cap, router_cap, sizeof(srn->cap)) != 0) {
 			srn->cap = *router_cap;
-			SET_FLAG(srn->parse_flags, F_ISIS_SR_NODE_MODIFIED);
+			srn->state = SRDB_STATE_MODIFIED;
 		} else
-			SET_FLAG(srn->parse_flags, F_ISIS_SR_NODE_UNCHANGED);
+			srn->state = SRDB_STATE_UNCHANGED;
 	} else {
 		srn = isis_sr_node_add(area, level, sysid, router_cap);
-		SET_FLAG(srn->parse_flags, F_ISIS_SR_NODE_NEW);
+		srn->state = SRDB_STATE_NEW;
 	}
 
 	return srn;
@@ -721,15 +721,13 @@ static void isis_sr_parse_prefix_sid_subtlvs(struct sr_node *srn,
 			    || srp->sid.algorithm != psid->algorithm
 			    || srp->sid.value != psid->value) {
 				srp->sid = *psid;
-				SET_FLAG(srp->parse_flags,
-					 F_ISIS_SR_PREFIX_SID_MODIFIED);
+				srp->state = SRDB_STATE_MODIFIED;
 			} else
-				SET_FLAG(srp->parse_flags,
-					 F_ISIS_SR_PREFIX_SID_UNCHANGED);
+				srp->state = SRDB_STATE_UNCHANGED;
 		} else {
 			srp = isis_sr_prefix_add(area, srn, prefix, local,
 						 psid);
-			SET_FLAG(srp->parse_flags, F_ISIS_SR_PREFIX_SID_NEW);
+			srp->state = SRDB_STATE_NEW;
 		}
 		/*
 		 * Stop the Prefix-SID iteration since we only support the SPF
@@ -819,19 +817,17 @@ static void isis_sr_process_prefix_changes(struct sr_node *srn,
 
 	/* Log any Prefix-SID change in the LSPDB. */
 	if (IS_DEBUG_ISIS(DEBUG_SR)) {
-		if (CHECK_FLAG(srp->parse_flags, F_ISIS_SR_PREFIX_SID_NEW))
+		if (srp->state == SRDB_STATE_NEW)
 			zlog_debug(
 				"ISIS-SR (%s) Prefix-SID created: %pFX (sysid %s)",
 				area->area_tag, &srp->prefix,
 				sysid_print(srn->sysid));
-		else if (CHECK_FLAG(srp->parse_flags,
-				    F_ISIS_SR_PREFIX_SID_MODIFIED))
+		else if (srp->state == SRDB_STATE_MODIFIED)
 			zlog_debug(
 				"ISIS-SR (%s) Prefix-SID modified: %pFX (sysid %s)",
 				area->area_tag, &srp->prefix,
 				sysid_print(srn->sysid));
-		else if (!CHECK_FLAG(srp->parse_flags,
-				     F_ISIS_SR_PREFIX_SID_UNCHANGED))
+		else if (srp->state != SRDB_STATE_UNCHANGED)
 			zlog_debug(
 				"ISIS-SR (%s) Prefix-SID removed: %pFX (sysid %s)",
 				area->area_tag, &srp->prefix,
@@ -839,17 +835,21 @@ static void isis_sr_process_prefix_changes(struct sr_node *srn,
 	}
 
 	/* Install/reinstall/uninstall Prefix-SID if necessary. */
-	if (CHECK_FLAG(srp->parse_flags, F_ISIS_SR_PREFIX_SID_NEW))
+	switch (srp->state) {
+	case SRDB_STATE_NEW:
 		isis_sr_prefix_install(srp);
-	else if (CHECK_FLAG(srp->parse_flags, F_ISIS_SR_PREFIX_SID_MODIFIED))
+		break;
+	case SRDB_STATE_MODIFIED:
 		isis_sr_prefix_reinstall(srp, false);
-	else if (!CHECK_FLAG(srp->parse_flags,
-			     F_ISIS_SR_PREFIX_SID_UNCHANGED)) {
+		break;
+	case SRDB_STATE_UNCHANGED:
+		break;
+	default:
 		isis_sr_prefix_del(area, srn, srp);
 		return;
 	}
 
-	srp->parse_flags = 0;
+	srp->state = SRDB_STATE_VALIDATED;
 }
 
 /* Process any new/deleted/modified SRGB in the LSPDB. */
@@ -864,14 +864,13 @@ static void isis_sr_process_node_changes(struct isis_area *area, int level,
 
 	/* Log any SRGB change in the LSPDB. */
 	if (IS_DEBUG_ISIS(DEBUG_SR)) {
-		if (CHECK_FLAG(srn->parse_flags, F_ISIS_SR_NODE_NEW))
+		if (srn->state == SRDB_STATE_NEW)
 			zlog_debug("ISIS-SR (%s) SRGB created (sysid %s)",
 				   area->area_tag, sysid_print(sysid));
-		else if (CHECK_FLAG(srn->parse_flags, F_ISIS_SR_NODE_MODIFIED))
+		else if (srn->state == SRDB_STATE_MODIFIED)
 			zlog_debug("ISIS-SR (%s) SRGB modified (sysid %s)",
 				   area->area_tag, sysid_print(sysid));
-		else if (!CHECK_FLAG(srn->parse_flags,
-				     F_ISIS_SR_NODE_UNCHANGED))
+		else if (srn->state != SRDB_STATE_UNCHANGED)
 			zlog_debug("ISIS-SR (%s) SRGB removed (sysid %s)",
 				   area->area_tag, sysid_print(sysid));
 	}
@@ -881,11 +880,15 @@ static void isis_sr_process_node_changes(struct isis_area *area, int level,
 	 * all Prefix-SIDs from all nodes.
 	 */
 	adjacent = isis_adj_exists(area, level, sysid);
-	if (CHECK_FLAG(srn->parse_flags,
-		       F_ISIS_SR_NODE_NEW | F_ISIS_SR_NODE_MODIFIED)) {
+	switch (srn->state) {
+	case SRDB_STATE_NEW:
+	case SRDB_STATE_MODIFIED:
 		if (adjacent)
 			isis_sr_adj_srgb_update(area, sysid, level);
-	} else if (!CHECK_FLAG(srn->parse_flags, F_ISIS_SR_NODE_UNCHANGED)) {
+		break;
+	case SRDB_STATE_UNCHANGED:
+		break;
+	default:
 		isis_sr_node_del(area, level, srn);
 
 		if (adjacent)
@@ -893,9 +896,9 @@ static void isis_sr_process_node_changes(struct isis_area *area, int level,
 		return;
 	}
 
-	srn->parse_flags = 0;
+	srn->state = SRDB_STATE_VALIDATED;
 
-	frr_each_safe (tree_sr_node_prefix, &srn->prefix_sids, srp)
+	frr_each_safe (srdb_node_prefix, &srn->prefix_sids, srp)
 		isis_sr_process_prefix_changes(srn, srp);
 }
 
@@ -912,7 +915,7 @@ void isis_area_verify_sr(struct isis_area *area)
 
 	/* Process possible SR-related changes in the LDPSB. */
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
-		frr_each_safe (tree_sr_node, &area->srdb.sr_nodes[level - 1],
+		frr_each_safe (srdb_node, &area->srdb.sr_nodes[level - 1],
 			       srn)
 			isis_sr_process_node_changes(area, level, srn);
 	}
@@ -1305,7 +1308,7 @@ static void isis_sr_show_prefix_sids(struct vty *vty, struct isis_area *area,
 	struct sr_prefix *srp;
 	struct ttable *tt;
 
-	if (tree_sr_area_prefix_count(&area->srdb.prefix_sids[level - 1]) == 0)
+	if (srdb_area_prefix_count(&area->srdb.prefix_sids[level - 1]) == 0)
 		return;
 
 	vty_out(vty, " IS-IS %s Prefix-SIDs:\n\n", circuit_t2string(level));
@@ -1318,7 +1321,7 @@ static void isis_sr_show_prefix_sids(struct vty *vty, struct isis_area *area,
 	ttable_restyle(tt);
 	ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
-	frr_each (tree_sr_area_prefix, &area->srdb.prefix_sids[level - 1],
+	frr_each (srdb_area_prefix, &area->srdb.prefix_sids[level - 1],
 		  srp) {
 		switch (srp->type) {
 		case ISIS_SR_PREFIX_LOCAL:
@@ -1440,10 +1443,10 @@ void isis_sr_stop(struct isis_area *area)
 
 	/* Uninstall Prefix-SIDs. */
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
-		while (tree_sr_node_count(&srdb->sr_nodes[level - 1]) > 0) {
+		while (srdb_node_count(&srdb->sr_nodes[level - 1]) > 0) {
 			struct sr_node *srn;
 
-			srn = tree_sr_node_first(&srdb->sr_nodes[level - 1]);
+			srn = srdb_node_first(&srdb->sr_nodes[level - 1]);
 			isis_sr_node_del(area, level, srn);
 		}
 	}
@@ -1465,8 +1468,8 @@ void isis_sr_area_init(struct isis_area *area)
 	srdb->adj_sids = list_new();
 
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
-		tree_sr_node_init(&srdb->sr_nodes[level - 1]);
-		tree_sr_area_prefix_init(&srdb->prefix_sids[level - 1]);
+		srdb_node_init(&srdb->sr_nodes[level - 1]);
+		srdb_area_prefix_init(&srdb->prefix_sids[level - 1]);
 	}
 
 	/* Pull defaults from the YANG module. */
@@ -1482,7 +1485,7 @@ void isis_sr_area_init(struct isis_area *area)
 	srdb->config.srgb_upper_bound = SRGB_UPPER_BOUND;
 #endif
 	srdb->config.msd = 0;
-	tree_sr_prefix_cfg_init(&srdb->config.prefix_sids);
+	srdb_prefix_cfg_init(&srdb->config.prefix_sids);
 }
 
 void isis_sr_area_term(struct isis_area *area)
@@ -1494,10 +1497,10 @@ void isis_sr_area_term(struct isis_area *area)
 		isis_sr_stop(area);
 
 	/* Clear Prefix-SID configuration. */
-	while (tree_sr_prefix_cfg_count(&srdb->config.prefix_sids) > 0) {
+	while (srdb_prefix_cfg_count(&srdb->config.prefix_sids) > 0) {
 		struct sr_prefix_cfg *pcfg;
 
-		pcfg = tree_sr_prefix_cfg_first(&srdb->config.prefix_sids);
+		pcfg = srdb_prefix_cfg_first(&srdb->config.prefix_sids);
 		isis_sr_cfg_prefix_del(pcfg);
 	}
 }
