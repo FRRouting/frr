@@ -103,3 +103,4 @@ compile_commands.json
 refix
 .vscode
 .kitchen
+.emacs.desktop*
