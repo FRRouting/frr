@@ -185,6 +185,14 @@ static void nhrp_interface_interface_notifier(struct notifier_block *n,
 	}
 }
 
+static void nhrp_interface_update_config(struct interface *ifp)
+{
+	if (ifp->ll_type != ZEBRA_LLT_IPGRE)
+		return;
+	/* get gre settings */
+	nhrp_send_zebra_gre_request(ifp);
+}
+
 void nhrp_interface_update_nbma(struct interface *ifp,
 				struct nhrp_gre_info *gre_info)
 {
@@ -420,6 +428,7 @@ int nhrp_ifp_create(struct interface *ifp)
 	       ifp->name, ifp->ifindex, ifp->ll_type,
 	       if_link_type_str(ifp->ll_type));
 
+	nhrp_interface_update_config(ifp);
 	nhrp_interface_update_nbma(ifp, NULL);
 
 	return 0;
