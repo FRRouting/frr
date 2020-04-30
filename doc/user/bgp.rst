@@ -1489,6 +1489,17 @@ AS path access list is user defined AS path.
 .. index:: no bgp as-path access-list WORD permit|deny LINE
 .. clicmd:: no bgp as-path access-list WORD permit|deny LINE
 
+.. _bgp-bogon-filter-example:
+
+Bogon ASN filter policy configuration example
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: frr
+
+   bgp as-path access-list 99 permit _0_
+   bgp as-path access-list 99 permit _23456_
+   bgp as-path access-list 99 permit _1310[0-6][0-9]_|_13107[0-1]_
+
 .. _bgp-using-as-path-in-route-map:
 
 Using AS Path in Route Map
