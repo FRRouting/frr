@@ -1252,104 +1252,6 @@ DEFPY (clear_ipv6_prefix_list,
 	return vty_clear_prefix_list(vty, AFI_IP6, prefix_list, prefix_str);
 }
 
-/* Configuration write function. */
-static int config_write_prefix_afi(afi_t afi, struct vty *vty)
-{
-	struct prefix_list *plist;
-	struct prefix_list_entry *pentry;
-	struct prefix_master *master;
-	int write = 0;
-
-	master = prefix_master_get(afi, 0);
-	if (master == NULL)
-		return 0;
-
-	if (!master->seqnum) {
-		vty_out(vty, "no ip%s prefix-list sequence-number\n",
-			afi == AFI_IP ? "" : "v6");
-		vty_out(vty, "!\n");
-	}
-
-	for (plist = master->num.head; plist; plist = plist->next) {
-		if (plist->desc) {
-			vty_out(vty, "ip%s prefix-list %s description %s\n",
-				afi == AFI_IP ? "" : "v6", plist->name,
-				plist->desc);
-			write++;
-		}
-
-		for (pentry = plist->head; pentry; pentry = pentry->next) {
-			vty_out(vty, "ip%s prefix-list %s ",
-				afi == AFI_IP ? "" : "v6", plist->name);
-
-			if (master->seqnum)
-				vty_out(vty, "seq %" PRId64 " ", pentry->seq);
-
-			vty_out(vty, "%s ", prefix_list_type_str(pentry));
-
-			if (pentry->any)
-				vty_out(vty, "any");
-			else {
-				struct prefix *p = &pentry->prefix;
-				char buf[BUFSIZ];
-
-				vty_out(vty, "%s/%d",
-					inet_ntop(p->family, p->u.val, buf,
-						  BUFSIZ),
-					p->prefixlen);
-
-				if (pentry->ge)
-					vty_out(vty, " ge %d", pentry->ge);
-				if (pentry->le)
-					vty_out(vty, " le %d", pentry->le);
-			}
-			vty_out(vty, "\n");
-			write++;
-		}
-		/* vty_out (vty, "!\n"); */
-	}
-
-	for (plist = master->str.head; plist; plist = plist->next) {
-		if (plist->desc) {
-			vty_out(vty, "ip%s prefix-list %s description %s\n",
-				afi == AFI_IP ? "" : "v6", plist->name,
-				plist->desc);
-			write++;
-		}
-
-		for (pentry = plist->head; pentry; pentry = pentry->next) {
-			vty_out(vty, "ip%s prefix-list %s ",
-				afi == AFI_IP ? "" : "v6", plist->name);
-
-			if (master->seqnum)
-				vty_out(vty, "seq %" PRId64 " ", pentry->seq);
-
-			vty_out(vty, "%s", prefix_list_type_str(pentry));
-
-			if (pentry->any)
-				vty_out(vty, " any");
-			else {
-				struct prefix *p = &pentry->prefix;
-				char buf[BUFSIZ];
-
-				vty_out(vty, " %s/%d",
-					inet_ntop(p->family, p->u.val, buf,
-						  BUFSIZ),
-					p->prefixlen);
-
-				if (pentry->ge)
-					vty_out(vty, " ge %d", pentry->ge);
-				if (pentry->le)
-					vty_out(vty, " le %d", pentry->le);
-			}
-			vty_out(vty, "\n");
-			write++;
-		}
-	}
-
-	return write;
-}
-
 struct stream *prefix_bgp_orf_entry(struct stream *s, struct prefix_list *plist,
 				    uint8_t init_flag, uint8_t permit_flag,
 				    uint8_t deny_flag)
@@ -1545,20 +1447,12 @@ static void prefix_list_reset_afi(afi_t afi, int orf)
 	master->recent = NULL;
 }
 
-
-static int config_write_prefix_ipv4(struct vty *vty);
 /* Prefix-list node. */
 static struct cmd_node prefix_node = {
 	.name = "ipv4 prefix list",
 	.node = PREFIX_NODE,
 	.prompt = "",
-	.config_write = config_write_prefix_ipv4,
 };
-
-static int config_write_prefix_ipv4(struct vty *vty)
-{
-	return config_write_prefix_afi(AFI_IP, vty);
-}
 
 static void plist_autocomplete_afi(afi_t afi, vector comps,
 				   struct cmd_token *token)
@@ -1603,19 +1497,12 @@ static void prefix_list_init_ipv4(void)
 	install_element(ENABLE_NODE, &clear_ip_prefix_list_cmd);
 }
 
-static int config_write_prefix_ipv6(struct vty *vty);
 /* Prefix-list node. */
 static struct cmd_node prefix_ipv6_node = {
 	.name = "ipv6 prefix list",
 	.node = PREFIX_IPV6_NODE,
 	.prompt = "",
-	.config_write = config_write_prefix_ipv6,
 };
-
-static int config_write_prefix_ipv6(struct vty *vty)
-{
-	return config_write_prefix_afi(AFI_IP6, vty);
-}
 
 static void prefix_list_init_ipv6(void)
 {

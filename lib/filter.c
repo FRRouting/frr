@@ -29,6 +29,7 @@
 #include "log.h"
 #include "routemap.h"
 #include "libfrr.h"
+#include "northbound_cli.h"
 
 DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST, "Access List")
 DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST_STR, "Access List Str")
@@ -775,85 +776,11 @@ static void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
 	vty_out(vty, "\n");
 }
 
-static int config_write_access(struct vty *vty, afi_t afi)
-{
-	struct access_list *access;
-	struct access_master *master;
-	struct filter *mfilter;
-	int write = 0;
-
-	master = access_master_get(afi);
-	if (master == NULL)
-		return 0;
-
-	for (access = master->num.head; access; access = access->next) {
-		if (access->remark) {
-			vty_out(vty, "%saccess-list %s remark %s\n",
-				(afi == AFI_IP) ? ("")
-						: ((afi == AFI_IP6) ? ("ipv6 ")
-								    : ("mac ")),
-				access->name, access->remark);
-			write++;
-		}
-
-		for (mfilter = access->head; mfilter; mfilter = mfilter->next) {
-			vty_out(vty, "%saccess-list %s seq %" PRId64 " %s",
-				(afi == AFI_IP) ? ("")
-						: ((afi == AFI_IP6) ? ("ipv6 ")
-								    : ("mac ")),
-				access->name, mfilter->seq,
-				filter_type_str(mfilter));
-
-			if (mfilter->cisco)
-				config_write_access_cisco(vty, mfilter);
-			else
-				config_write_access_zebra(vty, mfilter);
-
-			write++;
-		}
-	}
-
-	for (access = master->str.head; access; access = access->next) {
-		if (access->remark) {
-			vty_out(vty, "%saccess-list %s remark %s\n",
-				(afi == AFI_IP) ? ("")
-						: ((afi == AFI_IP6) ? ("ipv6 ")
-								    : ("mac ")),
-				access->name, access->remark);
-			write++;
-		}
-
-		for (mfilter = access->head; mfilter; mfilter = mfilter->next) {
-			vty_out(vty, "%saccess-list %s seq %" PRId64 " %s",
-				(afi == AFI_IP) ? ("")
-						: ((afi == AFI_IP6) ? ("ipv6 ")
-								    : ("mac ")),
-				access->name, mfilter->seq,
-				filter_type_str(mfilter));
-
-			if (mfilter->cisco)
-				config_write_access_cisco(vty, mfilter);
-			else
-				config_write_access_zebra(vty, mfilter);
-
-			write++;
-		}
-	}
-	return write;
-}
-
-static int config_write_access_mac(struct vty *vty);
 static struct cmd_node access_mac_node = {
 	.name = "MAC access list",
 	.node = ACCESS_MAC_NODE,
 	.prompt = "",
-	.config_write = config_write_access_mac,
 };
-
-static int config_write_access_mac(struct vty *vty)
-{
-	return config_write_access(vty, AFI_L2VPN);
-}
 
 static void access_list_reset_mac(void)
 {
@@ -891,17 +818,26 @@ static void access_list_init_mac(void)
 }
 
 /* Access-list node. */
-static int config_write_access_ipv4(struct vty *vty);
+static int config_write_access(struct vty *vty);
 static struct cmd_node access_node = {
 	.name = "ipv4 access list",
 	.node = ACCESS_NODE,
 	.prompt = "",
-	.config_write = config_write_access_ipv4,
+	.config_write = config_write_access,
 };
 
-static int config_write_access_ipv4(struct vty *vty)
+static int config_write_access(struct vty *vty)
 {
-	return config_write_access(vty, AFI_IP);
+	struct lyd_node *dnode;
+	int written = 0;
+
+	dnode = yang_dnode_get(running_config->dnode, "/frr-filter:lib");
+	if (dnode) {
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+		written = 1;
+	}
+
+	return written;
 }
 
 static void access_list_reset_ipv4(void)
@@ -939,18 +875,11 @@ static void access_list_init_ipv4(void)
 	install_element(ENABLE_NODE, &show_ip_access_list_name_cmd);
 }
 
-static int config_write_access_ipv6(struct vty *vty);
 static struct cmd_node access_ipv6_node = {
 	.name = "ipv6 access list",
 	.node = ACCESS_IPV6_NODE,
 	.prompt = "",
-	.config_write = config_write_access_ipv6,
 };
-
-static int config_write_access_ipv6(struct vty *vty)
-{
-	return config_write_access(vty, AFI_IP6);
-}
 
 static void access_list_reset_ipv6(void)
 {

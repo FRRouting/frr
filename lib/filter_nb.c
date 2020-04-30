@@ -1007,6 +1007,7 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.modify = lib_access_list_legacy_remark_modify,
 				.destroy = lib_access_list_legacy_remark_destroy,
+				.cli_show = access_list_legacy_remark_show,
 			}
 		},
 		{
@@ -1014,6 +1015,7 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.create = lib_access_list_legacy_entry_create,
 				.destroy = lib_access_list_legacy_entry_destroy,
+				.cli_show = access_list_legacy_show,
 			}
 		},
 		{
@@ -1076,6 +1078,7 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.modify = lib_access_list_remark_modify,
 				.destroy = lib_access_list_remark_destroy,
+				.cli_show = access_list_remark_show,
 			}
 		},
 		{
@@ -1083,6 +1086,7 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.create = lib_access_list_entry_create,
 				.destroy = lib_access_list_entry_destroy,
+				.cli_show = access_list_show,
 			}
 		},
 		{
@@ -1145,6 +1149,7 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.modify = lib_prefix_list_description_modify,
 				.destroy = lib_prefix_list_description_destroy,
+				.cli_show = prefix_list_remark_show,
 			}
 		},
 		{
@@ -1152,6 +1157,7 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.create = lib_prefix_list_entry_create,
 				.destroy = lib_prefix_list_entry_destroy,
+				.cli_show = prefix_list_show,
 			}
 		},
 		{
