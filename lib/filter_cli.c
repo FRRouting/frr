@@ -908,7 +908,7 @@ DEFPY(
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	snprintf(xpath_remark, sizeof(xpath_remark), "%s/remark", xpath);
-	remark = argv_concat(argv, argc, 3);
+	remark = argv_concat(argv, argc, 4);
 	nb_cli_enqueue_change(vty, xpath_remark, NB_OP_CREATE, remark);
 	rv = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, remark);
@@ -1084,7 +1084,7 @@ DEFPY(
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	snprintf(xpath_remark, sizeof(xpath_remark), "%s/remark", xpath);
-	remark = argv_concat(argv, argc, 3);
+	remark = argv_concat(argv, argc, 4);
 	nb_cli_enqueue_change(vty, xpath_remark, NB_OP_CREATE, remark);
 	rv = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, remark);
@@ -1366,7 +1366,7 @@ DEFPY(
 
 DEFPY(
 	ip_prefix_list_remark, ip_prefix_list_remark_cmd,
-	"ip prefix-list WORD$name remark LINE...",
+	"ip prefix-list WORD$name description LINE...",
 	IP_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1393,7 +1393,7 @@ DEFPY(
 
 DEFPY(
 	no_ip_prefix_list_remark, no_ip_prefix_list_remark_cmd,
-	"no ip prefix-list WORD$name remark",
+	"no ip prefix-list WORD$name description",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1412,7 +1412,7 @@ DEFPY(
 
 ALIAS(
 	no_ip_prefix_list_remark, no_ip_prefix_list_remark_line_cmd,
-	"no ip prefix-list WORD remark LINE...",
+	"no ip prefix-list WORD description LINE...",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1546,7 +1546,7 @@ DEFPY(
 
 DEFPY(
 	ipv6_prefix_list_remark, ipv6_prefix_list_remark_cmd,
-	"ipv6 prefix-list WORD$name remark LINE...",
+	"ipv6 prefix-list WORD$name description LINE...",
 	IPV6_STR
 	PREFIX_LIST_STR
 	PREFIX_LIST_NAME_STR
@@ -1573,7 +1573,7 @@ DEFPY(
 
 DEFPY(
 	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_cmd,
-	"no ipv6 prefix-list WORD$name remark",
+	"no ipv6 prefix-list WORD$name description",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1592,7 +1592,7 @@ DEFPY(
 
 ALIAS(
 	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_line_cmd,
-	"no ipv6 prefix-list WORD remark LINE...",
+	"no ipv6 prefix-list WORD description LINE...",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1673,7 +1673,7 @@ void prefix_list_remark_show(struct vty *vty, struct lyd_node *dnode,
 		break;
 	}
 
-	vty_out(vty, "prefix-list %s remark %s\n",
+	vty_out(vty, "prefix-list %s description %s\n",
 		yang_dnode_get_string(dnode, "../name"),
 		yang_dnode_get_string(dnode, NULL));
 }

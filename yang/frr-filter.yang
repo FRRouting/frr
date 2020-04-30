@@ -299,7 +299,7 @@ module frr-filter {
         type access-list-name;
       }
 
-      leaf description {
+      leaf remark {
         description "Prefix list user description";
         type string;
       }

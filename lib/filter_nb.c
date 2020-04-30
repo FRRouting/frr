@@ -724,9 +724,9 @@ static int lib_prefix_list_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-filter:lib/prefix-list/description
+ * XPath: /frr-filter:lib/prefix-list/remark
  */
-static int lib_prefix_list_description_modify(struct nb_cb_modify_args *args)
+static int lib_prefix_list_remark_modify(struct nb_cb_modify_args *args)
 {
 	struct prefix_list *pl;
 	const char *remark;
@@ -744,7 +744,7 @@ static int lib_prefix_list_description_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-static int lib_prefix_list_description_destroy(struct nb_cb_destroy_args *args)
+static int lib_prefix_list_remark_destroy(struct nb_cb_destroy_args *args)
 {
 	struct prefix_list *pl;
 
@@ -778,7 +778,7 @@ static int lib_prefix_list_entry_create(struct nb_cb_create_args *args)
 	ple = prefix_list_entry_new();
 	ple->pl = pl;
 	ple->any = 1;
-	ple->seq = yang_dnode_get_int64(args->dnode, "./sequence");
+	ple->seq = yang_dnode_get_uint32(args->dnode, "./sequence");
 
 	return NB_OK;
 }
@@ -808,7 +808,7 @@ static int lib_prefix_list_entry_action_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	ple = nb_running_get_entry(args->dnode, NULL, true);
-	action_str = yang_dnode_get_string(args->dnode, "./action");
+	action_str = yang_dnode_get_string(args->dnode, NULL);
 	if (strcmp(action_str, "permit") == 0)
 		ple->type = PREFIX_PERMIT;
 	else
@@ -1145,10 +1145,10 @@ const struct frr_yang_module_info frr_filter_info = {
 			}
 		},
 		{
-			.xpath = "/frr-filter:lib/prefix-list/description",
+			.xpath = "/frr-filter:lib/prefix-list/remark",
 			.cbs = {
-				.modify = lib_prefix_list_description_modify,
-				.destroy = lib_prefix_list_description_destroy,
+				.modify = lib_prefix_list_remark_modify,
+				.destroy = lib_prefix_list_remark_destroy,
 				.cli_show = prefix_list_remark_show,
 			}
 		},
