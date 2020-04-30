@@ -448,7 +448,7 @@ static int zebra_nhrp_6wind_nflog_walker(struct hash_bucket *b, void *data)
 
 static int zebra_nhrp_call_redirect(struct interface *ifp, int on)
 {
-	char buf[200], vrfstr[100], retstr[100];
+	char buf[200], vrfstr[100];
 	struct vrf *vrf;
 
 	vrf = vrf_lookup_by_id(ifp->vrf_id);
