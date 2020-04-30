@@ -34,6 +34,7 @@
 #include "stream.h"
 #include "log.h"
 #include "memory.h"
+#include "xref.h"
 
 /* work around gcc bug 69981, disable MTYPEs in libospf */
 #define _QUAGGA_OSPF_MEMORY_H
@@ -55,6 +56,8 @@
 /* *sigh* ... can't find a better way to hammer this into automake */
 #include "ospfd/ospf_dump_api.c"
 #include "ospfd/ospf_api.c"
+
+XREF_SETUP()
 
 DEFINE_MGROUP(OSPFCLIENT, "libospfapiclient")
 DEFINE_MTYPE_STATIC(OSPFCLIENT, OSPF_APICLIENT, "OSPF-API client")
