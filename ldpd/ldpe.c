@@ -42,6 +42,7 @@ static int	 ldpe_dispatch_pfkey(struct thread *);
 static void	 ldpe_setup_sockets(int, int, int, int);
 static void	 ldpe_close_sockets(int);
 static void	 ldpe_iface_af_ctl(struct ctl_conn *c, int af, ifindex_t ifidx);
+static void	 ldpe_check_filter_af(int, struct ldpd_af_conf *, const char *);
 
 struct ldpd_conf	*leconf;
 #ifdef __OpenBSD__
@@ -292,7 +293,8 @@ ldpe_dispatch_main(struct thread *thread)
 	struct nbr_params	*nbrp;
 #endif
 	int			 n, shut = 0;
-
+	struct ldp_access       *laccess;
+	
 	iev->ev_read = NULL;
 
 	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
@@ -544,6 +546,18 @@ ldpe_dispatch_main(struct thread *thread)
 			}
 			memcpy(&ldp_debug, imsg.data, sizeof(ldp_debug));
 			break;
+		case IMSG_FILTER_UPDATE:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct ldp_access)) {
+				log_warnx("%s: wrong imsg len", __func__);
+				break;
+			}
+			laccess = imsg.data;
+			ldpe_check_filter_af(AF_INET, &leconf->ipv4,
+				laccess->name);
+			ldpe_check_filter_af(AF_INET6, &leconf->ipv6,
+				laccess->name);
+			break;
 		default:
 			log_debug("ldpe_dispatch_main: error handling imsg %d",
 			    imsg.hdr.type);
@@ -679,6 +693,17 @@ ldpe_dispatch_lde(struct thread *thread)
 		case IMSG_CTL_SHOW_L2VPN_PW:
 		case IMSG_CTL_SHOW_L2VPN_BINDING:
 			control_imsg_relay(&imsg);
+			break;
+		case IMSG_NBR_SHUTDOWN:
+			nbr = nbr_find_peerid(imsg.hdr.peerid);
+			if (nbr == NULL) {
+				log_debug("ldpe_dispatch_lde: cannot find "
+				    "neighbor");
+				break;
+			}
+			if (nbr->state != NBR_STA_OPER)
+				break;
+			session_shutdown(nbr,S_SHUTDOWN,0,0);
 			break;
 		default:
 			log_debug("ldpe_dispatch_lde: error handling imsg %d",
@@ -979,4 +1004,12 @@ mapping_list_clr(struct mapping_head *mh)
 		assert(me != TAILQ_FIRST(mh));
 		free(me);
 	}
+}
+
+void
+ldpe_check_filter_af(int af, struct ldpd_af_conf *af_conf,
+    const char *filter_name)
+{
+	if (strcmp(af_conf->acl_thello_accept_from, filter_name) == 0)
+		ldpe_remove_dynamic_tnbrs(af);
 }

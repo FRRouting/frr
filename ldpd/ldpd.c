@@ -1374,8 +1374,7 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 	}
 
 	/* update ACLs */
-	if (strcmp(af_conf->acl_label_allocate_for,
-	    xa->acl_label_allocate_for))
+	if (strcmp(af_conf->acl_label_allocate_for, xa->acl_label_allocate_for))
 		change_host_label = 1;
 
 	if (strcmp(af_conf->acl_label_advertise_to,
@@ -1412,7 +1411,7 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 		if (change_egress_label)
 			lde_change_egress_label(af);
 		if (change_host_label)
-			lde_change_host_label(af);
+			lde_change_allocate_filter(af);
 		break;
 	case PROC_LDP_ENGINE:
 		if (stop_init_backoff)

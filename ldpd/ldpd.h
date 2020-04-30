@@ -151,7 +151,9 @@ enum imsg_type {
 	IMSG_LOG,
 	IMSG_ACL_CHECK,
 	IMSG_INIT,
-	IMSG_PW_UPDATE
+	IMSG_PW_UPDATE,
+	IMSG_FILTER_UPDATE,
+	IMSG_NBR_SHUTDOWN
 };
 
 struct ldpd_init {
@@ -160,6 +162,11 @@ struct ldpd_init {
 	char		 ctl_sock_path[MAXPATHLEN];
 	char		 zclient_serv_path[MAXPATHLEN];
 	unsigned short instance;
+};
+
+struct ldp_access {
+	char			 name[ACL_NAMSIZ];
+	enum access_type	 type;
 };
 
 union ldpd_addr {
