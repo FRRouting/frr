@@ -838,6 +838,7 @@ static int lib_prefix_list_entry_create(struct nb_cb_create_args *args)
 	ple->pl = pl;
 	ple->any = 1;
 	ple->seq = yang_dnode_get_uint32(args->dnode, "./sequence");
+	nb_running_set_entry(args->dnode, ple);
 
 	return NB_OK;
 }
@@ -850,7 +851,10 @@ static int lib_prefix_list_entry_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	ple = nb_running_unset_entry(args->dnode);
-	prefix_list_entry_delete(ple->pl, ple, 1);
+	if (ple->installed)
+		prefix_list_entry_delete(ple->pl, ple, 0);
+	else
+		prefix_list_entry_free(ple);
 
 	return NB_OK;
 }
@@ -867,11 +871,18 @@ static int lib_prefix_list_entry_action_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
 	action_str = yang_dnode_get_string(args->dnode, NULL);
 	if (strcmp(action_str, "permit") == 0)
 		ple->type = PREFIX_PERMIT;
 	else
 		ple->type = PREFIX_DENY;
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
 
 	return NB_OK;
 }
@@ -888,7 +899,14 @@ lib_prefix_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
 	yang_dnode_get_prefix(&ple->prefix, args->dnode, NULL);
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
 
 	return NB_OK;
 }
@@ -902,8 +920,15 @@ lib_prefix_list_entry_ipv4_prefix_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
 	memset(&ple->prefix, 0, sizeof(ple->prefix));
 	ple->any = 1;
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
 
 	return NB_OK;
 }
@@ -924,7 +949,14 @@ static int lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_modify(
 		return NB_OK;
 
 	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
 	ple->ge = yang_dnode_get_uint8(args->dnode, NULL);
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
 
 	return NB_OK;
 }
@@ -938,7 +970,14 @@ static int lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_destroy(
 		return NB_OK;
 
 	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
 	ple->ge = 0;
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
 
 	return NB_OK;
 }
@@ -959,7 +998,14 @@ static int lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_modify(
 		return NB_OK;
 
 	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
 	ple->le = yang_dnode_get_uint8(args->dnode, NULL);
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
 
 	return NB_OK;
 }
@@ -973,7 +1019,14 @@ static int lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_destroy(
 		return NB_OK;
 
 	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
 	ple->le = 0;
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
 
 	return NB_OK;
 }
@@ -1038,8 +1091,15 @@ static int lib_prefix_list_entry_any_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
 	memset(&ple->prefix, 0, sizeof(ple->prefix));
 	ple->any = 1;
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
 
 	return NB_OK;
 }
@@ -1052,8 +1112,15 @@ static int lib_prefix_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
 	memset(&ple->prefix, 0, sizeof(ple->prefix));
 	ple->any = 1;
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
 
 	return NB_OK;
 }

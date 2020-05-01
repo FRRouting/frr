@@ -187,7 +187,7 @@ struct prefix_list_entry *prefix_list_entry_new(void)
 	return new;
 }
 
-static void prefix_list_entry_free(struct prefix_list_entry *pentry)
+void prefix_list_entry_free(struct prefix_list_entry *pentry)
 {
 	XFREE(MTYPE_PREFIX_LIST_ENTRY, pentry);
 }
@@ -644,6 +644,58 @@ static void prefix_list_entry_add(struct prefix_list *plist,
 
 	route_map_notify_dependencies(plist->name, RMAP_EVENT_PLIST_ADDED);
 	plist->master->recent = plist;
+}
+
+/**
+ * Prefix list entry update start procedure:
+ * Remove entry from previosly installed tries and notify observers..
+ *
+ * \param[in] ple prefix list entry.
+ */
+void prefix_list_entry_update_start(struct prefix_list_entry *ple)
+{
+	struct prefix_list *pl = ple->pl;
+
+	/* Not installed, nothing to do. */
+	if (!ple->installed)
+		return;
+
+	prefix_list_trie_del(pl, ple);
+	route_map_notify_pentry_dependencies(pl->name, ple,
+					     RMAP_EVENT_PLIST_DELETED);
+	pl->count--;
+
+	ple->installed = false;
+}
+
+/**
+ * Prefix list entry update finish procedure:
+ * Add entry back to trie, notify observers and call master hook.
+ *
+ * \param[in] ple prefix list entry.
+ */
+void prefix_list_entry_update_finish(struct prefix_list_entry *ple)
+{
+	struct prefix_list *pl = ple->pl;
+
+	/* Already installed, nothing to do. */
+	if (ple->installed)
+		return;
+
+	prefix_list_trie_add(pl, ple);
+	pl->count++;
+
+	route_map_notify_pentry_dependencies(pl->name, ple,
+					     RMAP_EVENT_PLIST_ADDED);
+
+	/* Run hook function. */
+	if (pl->master->add_hook)
+		(*pl->master->add_hook)(pl);
+
+	route_map_notify_dependencies(pl->name, RMAP_EVENT_PLIST_ADDED);
+	pl->master->recent = pl;
+
+	ple->installed = true;
 }
 
 /* Return string of prefix_list_type. */
