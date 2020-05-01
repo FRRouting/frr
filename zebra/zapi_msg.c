@@ -1761,6 +1761,16 @@ stream_failure:
 	return;
 }
 
+static bool zapi_msg_get_nhg(struct zapi_route *api, struct nexthop_group **ng)
+{
+	if (!CHECK_FLAG(api->message, ZAPI_MESSAGE_NHG))
+		return false;
+
+	/* TODO lookup the ng from api->nhgid */
+	*ng = NULL;
+	return true;
+}
+
 static void zread_route_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
@@ -1804,8 +1814,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	else
 		re->table = zvrf->table_id;
 
-	if (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)
-	    || api.nexthop_num == 0) {
+	if (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG)
+	    && (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)
+		|| api.nexthop_num == 0)) {
 		flog_warn(EC_ZEBRA_RX_ROUTE_NO_NEXTHOPS,
 			  "%s: received a route without nexthops for prefix %pFX from client %s",
 			  __func__, &api.prefix,
@@ -1824,10 +1835,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				zebra_route_string(client->proto), &api.prefix);
 	}
 
-	if (!zapi_read_nexthops(client, &api.prefix, api.nexthops, api.flags,
-				api.nexthop_num, api.backup_nexthop_num, &ng, NULL) ||
-	    !zapi_read_nexthops(client, &api.prefix, api.backup_nexthops, api.flags,
-				api.backup_nexthop_num, api.backup_nexthop_num, NULL, &bnhg)) {
+	if (zapi_msg_get_nhg(&api, &ng)
+	    || !zapi_read_nexthops(client, &api.prefix, api.nexthops,
+				   api.flags, api.nexthop_num,
+				   api.backup_nexthop_num, &ng, NULL)
+	    || !zapi_read_nexthops(client, &api.prefix, api.backup_nexthops,
+				   api.flags, api.backup_nexthop_num,
+				   api.backup_nexthop_num, NULL, &bnhg)) {
 		XFREE(MTYPE_RE, re);
 		return;
 	}
