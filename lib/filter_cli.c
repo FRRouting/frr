@@ -505,14 +505,16 @@ void access_list_legacy_show(struct vty *vty, struct lyd_node *dnode,
 		vty_out(vty, " any");
 
 	if (extended) {
-		if (yang_dnode_exists(dnode, "./network")) {
-			yang_dnode_get_prefix(&p, dnode, "./network");
+		if (yang_dnode_exists(dnode, "./destination-network")) {
+			yang_dnode_get_prefix(&p, dnode,
+					      "./destination-network");
 			masklen2ip(p.prefixlen, &mask);
 			vty_out(vty, " %pI4 %pI4", &p.u.prefix4, &mask);
-		} else if (yang_dnode_exists(dnode, "./host"))
+		} else if (yang_dnode_exists(dnode, "./destination-host"))
 			vty_out(vty, " host %s",
-				yang_dnode_get_string(dnode, "./host"));
-		else if (yang_dnode_exists(dnode, "./any"))
+				yang_dnode_get_string(dnode,
+						      "./destination-host"));
+		else if (yang_dnode_exists(dnode, "./destination-any"))
 			vty_out(vty, " any");
 	}
 
@@ -1259,6 +1261,7 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 		return CMD_WARNING;
 
 	/* Use access-list data structure to fetch sequence. */
+	assert(action != NULL);
 	if (strcmp(action, "permit") == 0)
 		plt = PREFIX_PERMIT;
 	else
