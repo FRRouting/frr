@@ -1044,6 +1044,9 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 		stream_write(s, (uint8_t *)&api->src_prefix.prefix, psize);
 	}
 
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NHG))
+		stream_putl(s, api->nhgid);
+
 	/* Nexthops.  */
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
 		/* limit the number of nexthops if necessary */
@@ -1298,6 +1301,9 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 			return -1;
 		}
 	}
+
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NHG))
+		STREAM_GETL(s, api->nhgid);
 
 	/* Nexthops. */
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
