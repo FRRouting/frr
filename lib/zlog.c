@@ -672,6 +672,28 @@ void vzlog_blk_debug_ref(const struct xref_logmsg *xref, struct zlog_blk *blk,
 	vzlogx_blk(xref, blk, LOG_DEBUG, fmt, ap);
 }
 
+void vzlogdbg(const struct xref_logdebug *xref, bool filter, const char *fmt,
+	      va_list ap)
+{
+	int prio = LOG_DEBUG;
+	struct zlog_tls *zlog_tls;
+	struct xrefdata_logdebug *xrddbg;
+
+	xrddbg = container_of(xref->xref.xrefdata, struct xrefdata_logdebug,
+			      xrefdata);
+
+	if (xrddbg->logmsg.fl_disable)
+		return;
+	if (!filter && !xrddbg->logmsg.fl_enable)
+		return;
+
+	zlog_tls = zlog_tls_get();
+	if (zlog_tls)
+		vzlog_tls(zlog_tls, &xref->logmsg, NULL, prio, fmt, ap);
+	else
+		vzlog_notls(&xref->logmsg, NULL, prio, fmt, ap);
+}
+
 void zlog_sigsafe(const char *text, size_t len)
 {
 	struct zlog_target *zt;

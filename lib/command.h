@@ -96,6 +96,7 @@ enum node_type {
 	AUTH_ENABLE_NODE,	/* Authentication mode for change enable. */
 	ENABLE_NODE,		 /* Enable node. */
 	CONFIG_NODE,		 /* Config node. Default mode of config file. */
+	LIB_DEBUG_NODE,		 /* libfrr debug node */
 	DEBUG_NODE,		 /* Debug node. */
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
 	NORTHBOUND_DEBUG_NODE,	 /* Northbound Debug node. */
