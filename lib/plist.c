@@ -648,7 +648,8 @@ static void prefix_list_entry_add(struct prefix_list *plist,
 
 /**
  * Prefix list entry update start procedure:
- * Remove entry from previosly installed tries and notify observers..
+ * Remove entry from previosly installed master list, tries and notify
+ * observers.
  *
  * \param[in] ple prefix list entry.
  */
@@ -660,6 +661,16 @@ void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 	if (!ple->installed)
 		return;
 
+	/* List manipulation: shameless copy from `prefix_list_entry_delete`. */
+	if (ple->prev)
+		ple->prev->next = ple->next;
+	else
+		pl->head = ple->next;
+	if (ple->next)
+		ple->next->prev = ple->prev;
+	else
+		pl->tail = ple->prev;
+
 	prefix_list_trie_del(pl, ple);
 	route_map_notify_pentry_dependencies(pl->name, ple,
 					     RMAP_EVENT_PLIST_DELETED);
@@ -670,17 +681,50 @@ void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 
 /**
  * Prefix list entry update finish procedure:
- * Add entry back to trie, notify observers and call master hook.
+ * Add entry back master list, to the trie, notify observers and call master
+ * hook.
  *
  * \param[in] ple prefix list entry.
  */
 void prefix_list_entry_update_finish(struct prefix_list_entry *ple)
 {
 	struct prefix_list *pl = ple->pl;
+	struct prefix_list_entry *point;
 
 	/* Already installed, nothing to do. */
 	if (ple->installed)
 		return;
+
+	/* List manipulation: shameless copy from `prefix_list_entry_add`. */
+	if (pl->tail && ple->seq > pl->tail->seq)
+		point = NULL;
+	else {
+		/* Check insert point. */
+		for (point = pl->head; point; point = point->next)
+			if (point->seq >= ple->seq)
+				break;
+	}
+
+	/* In case of this is the first element of the list. */
+	ple->next = point;
+
+	if (point) {
+		if (point->prev)
+			point->prev->next = ple;
+		else
+			pl->head = ple;
+
+		ple->prev = point->prev;
+		point->prev = ple;
+	} else {
+		if (pl->tail)
+			pl->tail->next = ple;
+		else
+			pl->head = ple;
+
+		ple->prev = pl->tail;
+		pl->tail = ple;
+	}
 
 	prefix_list_trie_add(pl, ple);
 	pl->count++;

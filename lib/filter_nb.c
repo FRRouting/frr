@@ -409,8 +409,8 @@ static int lib_access_list_legacy_entry_destination_network_modify(
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
 	yang_dnode_get_prefix(&p, args->dnode, NULL);
-	fc->addr.s_addr = ipv4_network_addr(p.u.prefix4.s_addr, p.prefixlen);
-	masklen2ip(p.prefixlen, &fc->addr_mask);
+	fc->mask.s_addr = ipv4_network_addr(p.u.prefix4.s_addr, p.prefixlen);
+	masklen2ip(p.prefixlen, &fc->mask_mask);
 
 	return NB_OK;
 }
@@ -904,6 +904,7 @@ lib_prefix_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
 	prefix_list_entry_update_start(ple);
 
 	yang_dnode_get_prefix(&ple->prefix, args->dnode, NULL);
+	ple->any = 0;
 
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
