@@ -45,7 +45,23 @@ extern int set_cloexec(int fd);
 extern float htonf(float);
 extern float ntohf(float);
 
-extern long frr_weak_random(void);
+/**
+ * Helper function that returns a random long value. The main purpose of
+ * this function is to hide a `random()` call that gets flagged by coverity
+ * scan and put it into one place.
+ *
+ * The main usage of this function should be for generating jitter or weak
+ * random values for simple purposes.
+ *
+ * See 'man 3 random' for more information.
+ *
+ * \returns random long integer.
+ */
+static inline long frr_weak_random(void)
+{
+	/* coverity[dont_call] */
+	return random();
+}
 
 #ifdef __cplusplus
 }
