@@ -11,6 +11,7 @@ import subprocess
 import re
 import argparse
 from string import Template
+from makevars import MakeReVars
 
 argp = argparse.ArgumentParser(description = 'FRR Makefile extensions')
 argp.add_argument('--dev-build', action = 'store_const', const = True,
@@ -20,13 +21,9 @@ args = argp.parse_args()
 with open('Makefile', 'r') as fd:
     before = fd.read()
 
-nolinecont = before.replace('\\\n', '')
-m = re.search('^clippy_scan\s*=([^#]*)(?:#.*)?$', nolinecont, flags=re.MULTILINE)
-if m is None:
-    sys.stderr.write('failed to parse Makefile.in\n')
-    sys.exit(2)
+mv = MakeReVars(before)
 
-clippy_scan = m.group(1).strip().split()
+clippy_scan = mv['clippy_scan'].strip().split()
 for clippy_file in clippy_scan:
     assert clippy_file.endswith('.c')
 
