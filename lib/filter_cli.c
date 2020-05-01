@@ -1020,7 +1020,7 @@ DEFPY(
 
 DEFPY(
 	no_mac_access_list, no_mac_access_list_cmd,
-	"no mac access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
+	"no mac access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$prefix|any>",
 	NO_STR
 	MAC_STR
 	ACCESS_LIST_STR
@@ -1028,7 +1028,6 @@ DEFPY(
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"MAC address\n"
-	"Exact match of the prefixes\n"
 	"Match any MAC address\n")
 {
 	struct access_list *acl;
@@ -1062,10 +1061,10 @@ DEFPY(
 	if (prefix == NULL) {
 		memset(&pany, 0, sizeof(pany));
 		pany.family = AF_ETHERNET;
-		sseq = acl_zebra_get_seq(acl, action, &pany, exact);
+		sseq = acl_zebra_get_seq(acl, action, &pany, false);
 	} else
 		sseq = acl_zebra_get_seq(acl, action, (struct prefix *)prefix,
-					 exact);
+					 false);
 	if (sseq == -1)
 		return CMD_WARNING;
 
