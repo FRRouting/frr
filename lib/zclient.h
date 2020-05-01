@@ -374,6 +374,7 @@ struct zclient {
 #define ZAPI_MESSAGE_SRCPFX   0x20
 /* Backup nexthops are present */
 #define ZAPI_MESSAGE_BACKUP_NEXTHOPS 0x40
+#define ZAPI_MESSAGE_NHG      0x80
 
 /*
  * This should only be used by a DAEMON that needs to communicate
@@ -517,6 +518,8 @@ struct zapi_route {
 	/* Support backup routes for IP FRR, TI-LFA, traffic engineering */
 	uint16_t backup_nexthop_num;
 	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
+
+	uint32_t nhgid;
 
 	uint8_t distance;
 
