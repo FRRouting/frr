@@ -563,6 +563,15 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+ALIAS(
+	no_access_list_legacy_remark, no_access_list_legacy_remark_line_cmd,
+	"no access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)>$number remark LINE...",
+	NO_STR
+	ACCESS_LIST_STR
+	ACCESS_LIST_XLEG_STR
+	ACCESS_LIST_REMARK_STR
+	ACCESS_LIST_REMARK_LINE_STR)
+
 void access_list_legacy_remark_show(struct vty *vty, struct lyd_node *dnode,
 				    bool show_defaults)
 {
@@ -752,6 +761,15 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+ALIAS(
+	no_access_list_remark, no_access_list_remark_line_cmd,
+	"no access-list WORD$name remark LINE...",
+	NO_STR
+	ACCESS_LIST_STR
+	ACCESS_LIST_ZEBRA_STR
+	ACCESS_LIST_REMARK_STR
+	ACCESS_LIST_REMARK_LINE_STR)
+
 DEFPY(
 	ipv6_access_list, ipv6_access_list_cmd,
 	"ipv6 access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
@@ -935,6 +953,16 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+ALIAS(
+	no_ipv6_access_list_remark, no_ipv6_access_list_remark_line_cmd,
+	"no ipv6 access-list WORD$name remark LINE...",
+	NO_STR
+	IPV6_STR
+	ACCESS_LIST_STR
+	ACCESS_LIST_ZEBRA_STR
+	ACCESS_LIST_REMARK_STR
+	ACCESS_LIST_REMARK_LINE_STR)
+
 DEFPY(
 	mac_access_list, mac_access_list_cmd,
 	"mac access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$mac|any>",
@@ -1110,6 +1138,16 @@ DEFPY(
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+ALIAS(
+	no_mac_access_list_remark, no_mac_access_list_remark_line_cmd,
+	"no mac access-list WORD$name remark LINE...",
+	NO_STR
+	MAC_STR
+	ACCESS_LIST_STR
+	ACCESS_LIST_ZEBRA_STR
+	ACCESS_LIST_REMARK_STR
+	ACCESS_LIST_REMARK_LINE_STR)
 
 void access_list_show(struct vty *vty, struct lyd_node *dnode,
 		      bool show_defaults)
@@ -1412,7 +1450,7 @@ DEFPY(
 
 ALIAS(
 	no_ip_prefix_list_remark, no_ip_prefix_list_remark_line_cmd,
-	"no ip prefix-list WORD description LINE...",
+	"no ip prefix-list WORD$name description LINE...",
 	NO_STR
 	IP_STR
 	PREFIX_LIST_STR
@@ -1592,7 +1630,7 @@ DEFPY(
 
 ALIAS(
 	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_line_cmd,
-	"no ipv6 prefix-list WORD description LINE...",
+	"no ipv6 prefix-list WORD$name description LINE...",
 	NO_STR
 	IPV6_STR
 	PREFIX_LIST_STR
@@ -1688,6 +1726,7 @@ void filter_cli_init(void)
 	install_element(CONFIG_NODE, &no_access_list_legacy_cmd);
 	install_element(CONFIG_NODE, &access_list_legacy_remark_cmd);
 	install_element(CONFIG_NODE, &no_access_list_legacy_remark_cmd);
+	install_element(CONFIG_NODE, &no_access_list_legacy_remark_line_cmd);
 
 	/* access-list zebra-style. */
 	install_element(CONFIG_NODE, &access_list_cmd);
@@ -1695,18 +1734,21 @@ void filter_cli_init(void)
 	install_element(CONFIG_NODE, &no_access_list_all_cmd);
 	install_element(CONFIG_NODE, &access_list_remark_cmd);
 	install_element(CONFIG_NODE, &no_access_list_remark_cmd);
+	install_element(CONFIG_NODE, &no_access_list_remark_line_cmd);
 
 	install_element(CONFIG_NODE, &ipv6_access_list_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_access_list_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_access_list_all_cmd);
 	install_element(CONFIG_NODE, &ipv6_access_list_remark_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_access_list_remark_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_access_list_remark_line_cmd);
 
 	install_element(CONFIG_NODE, &mac_access_list_cmd);
 	install_element(CONFIG_NODE, &no_mac_access_list_cmd);
 	install_element(CONFIG_NODE, &no_mac_access_list_all_cmd);
 	install_element(CONFIG_NODE, &mac_access_list_remark_cmd);
 	install_element(CONFIG_NODE, &no_mac_access_list_remark_cmd);
+	install_element(CONFIG_NODE, &no_mac_access_list_remark_line_cmd);
 
 	/* prefix lists. */
 	install_element(CONFIG_NODE, &ip_prefix_list_cmd);
