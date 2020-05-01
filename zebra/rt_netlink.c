@@ -2091,8 +2091,8 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 nexthop_done:
 
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("%s: ID (%u): %pNHv vrf %s(%u) %s ",
-					   __func__, id, nh,
+				zlog_debug("%s: ID (%u): %pNHv(%d) vrf %s(%u) %s ",
+					   __func__, id, nh, nh->ifindex,
 					   vrf_id_to_name(nh->vrf_id),
 					   nh->vrf_id, label_buf);
 		}
