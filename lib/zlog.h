@@ -20,7 +20,9 @@
 #include "frrcu.h"
 #include "memory.h"
 #include "hook.h"
+#include "typesafe.h"
 #include "printfrr.h"
+#include "zlog_debug.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,14 +45,34 @@ struct xref_logmsg {
 	const char *args;
 };
 
-/* whether flag was added in config mode or enable mode */
-#define LOGMSG_FLAG_EPHEMERAL	(1 << 0)
-#define LOGMSG_FLAG_PERSISTENT	(1 << 1)
+struct xref_logdebug {
+	union {
+		/* make xref directly accessible */
+		struct xref xref;
+		struct xref_logmsg logmsg;
+	};
+
+	struct zlog_debugflag *debugflag;
+};
 
 struct xrefdata_logmsg {
 	struct xrefdata xrefdata;
 
 	uint8_t fl_print_bt;
+
+	/* disable/enable specific messages regardless of priority setting */
+	uint8_t fl_enable;
+	uint8_t fl_disable;
+};
+
+struct xrefdata_logdebug {
+	union {
+		/* make xrefdata directly accessible */
+		struct xrefdata xrefdata;
+		struct xrefdata_logmsg logmsg;
+	};
+
+	/* nothing further here */
 };
 
 /* These functions are set up to write to stdout/stderr without explicit
@@ -65,6 +87,21 @@ extern void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt,
 #define vzlog(prio, ...) vzlogx(NULL, prio, __VA_ARGS__)
 
 extern void ezlog(int prio, const char *fmt, ...) PRINTFRR(2, 3);
+
+/* this primarily exists because varargs calling conventions lead to suboptimal
+ * code generation due to pushing floating point args around when there is no
+ * need to do so.  This is quite costly, especially if we just ditch the debug
+ * call immediately after due to it being disabled.  So, call this first
+ * (without varargs) to see if we even want the varargs call.
+ */
+extern bool zlog_dbgpre(const struct xrefdata_logdebug *xrddbg, bool filter);
+
+PRINTFRR(3, 0)
+extern void vzlog_dbgref(const struct xrefdata_logdebug *xrddbg, bool filter,
+			 const char *fmt, va_list ap);
+PRINTFRR(3, 4)
+extern void zlog_dbgref(const struct xrefdata_logdebug *xrddbg, bool filter,
+			const char *fmt, ...);
 
 PRINTFRR(2, 3)
 static inline void zlog(int prio, const char *fmt, ...)
@@ -114,6 +151,38 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 		_zlog_make_xref(ec_, prio, msg, (#__VA_ARGS__));               \
 		zlog_ref(&_xref, (msg), ##__VA_ARGS__);                        \
 	} while (0)
+
+#define _dbg_expand(zdf, msg, ...) do {                                        \
+		static struct xrefdata_logdebug _xrefdata = {                  \
+			.xrefdata =                                            \
+				{                                              \
+					.xref = NULL,                          \
+					.uid = {},                             \
+					.hashstr = (msg),                      \
+					.hashu32 = {LOG_DEBUG, 0},             \
+				},                                             \
+		};                                                             \
+		static const struct xref_logdebug _xref __attribute__(         \
+			(used)) = {                                            \
+			.logmsg = {                                            \
+				.xref = XREF_INIT(XREFT_LOGDBG,                \
+						  &_xrefdata.xrefdata,         \
+						  __func__),                   \
+				.fmtstring = (msg),                            \
+				.priority = LOG_DEBUG,                         \
+				.ec = 0,                                       \
+				.args = (#__VA_ARGS__),                        \
+			},                                                     \
+			.debugflag = &_dbg_##zdf->common,                      \
+		};                                                             \
+		XREF_LINK(_xref.logmsg.xref);                                  \
+		bool _filter = _dbg_##zdf->common.fl_enable &&                 \
+			_dbg_filter_##zdf;                                     \
+		if (zlog_dbgpre(&_xrefdata, _filter))                          \
+			zlog_dbgref(&_xrefdata, _filter, (msg), ##__VA_ARGS__);\
+	} while (0)
+
+#define dbg(zdf, msg, ...) _dbg_expand(zdf, msg, ##__VA_ARGS__)
 
 #define zlog_err(...)    _zlog_ecref(0, LOG_ERR, __VA_ARGS__)
 #define zlog_warn(...)   _zlog_ecref(0, LOG_WARNING, __VA_ARGS__)

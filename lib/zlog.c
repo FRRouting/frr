@@ -774,6 +774,61 @@ void vzlog_blk_debug_ref(const struct xref_logmsg *xref, struct zlog_blk *blk,
 	vzlogx_blk(xref, blk, LOG_DEBUG, fmt, ap);
 }
 
+bool zlog_dbgpre(const struct xrefdata_logdebug *xrddbg, bool filter)
+{
+	if (xrddbg->logmsg.fl_disable)
+		return false;
+	if (!filter && !xrddbg->logmsg.fl_enable)
+		return false;
+
+	return true;
+}
+
+void vzlog_dbgref(const struct xrefdata_logdebug *xrddbg, bool filter,
+		  const char *fmt, va_list ap)
+{
+	int prio = LOG_DEBUG;
+	struct zlog_tls *zlog_tls;
+	const struct xref_logdebug *xref;
+
+	if (xrddbg->logmsg.fl_disable)
+		return;
+	if (!filter && !xrddbg->logmsg.fl_enable)
+		return;
+
+	xref = container_of(xrddbg->xrefdata.xref, struct xref_logdebug, xref);
+
+	zlog_tls = zlog_tls_get();
+	if (zlog_tls)
+		vzlog_tls(zlog_tls, &xref->logmsg, NULL, prio, fmt, ap);
+	else
+		vzlog_notls(&xref->logmsg, NULL, prio, fmt, ap);
+}
+
+__attribute__((flatten))
+void zlog_dbgref(const struct xrefdata_logdebug *xrddbg, bool filter,
+		 const char *fmt, ...)
+{
+	va_list ap;
+	int prio = LOG_DEBUG;
+	struct zlog_tls *zlog_tls;
+	const struct xref_logdebug *xref;
+
+	if (likely(xrddbg->logmsg.fl_disable
+		   || (!filter && !xrddbg->logmsg.fl_enable)))
+		return;
+
+	xref = container_of(xrddbg->xrefdata.xref, struct xref_logdebug, xref);
+
+	zlog_tls = zlog_tls_get();
+	va_start(ap, fmt);
+	if (zlog_tls)
+		vzlog_tls(zlog_tls, &xref->logmsg, NULL, prio, fmt, ap);
+	else
+		vzlog_notls(&xref->logmsg, NULL, prio, fmt, ap);
+	va_end(ap);
+}
+
 void zlog_sigsafe(const char *text, size_t len)
 {
 	struct zlog_target *zt;

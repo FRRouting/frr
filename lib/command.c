@@ -2620,6 +2620,7 @@ void cmd_init(int terminal)
 
 		log_cmd_init();
 		vrf_install_commands();
+		zlog_debug_init_cmd();
 	}
 
 #ifdef DEV_BUILD
