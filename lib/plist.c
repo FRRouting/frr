@@ -661,6 +661,8 @@ void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 	if (!ple->installed)
 		return;
 
+	prefix_list_trie_del(pl, ple);
+
 	/* List manipulation: shameless copy from `prefix_list_entry_delete`. */
 	if (ple->prev)
 		ple->prev->next = ple->next;
@@ -671,10 +673,16 @@ void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 	else
 		pl->tail = ple->prev;
 
-	prefix_list_trie_del(pl, ple);
 	route_map_notify_pentry_dependencies(pl->name, ple,
 					     RMAP_EVENT_PLIST_DELETED);
 	pl->count--;
+
+	route_map_notify_dependencies(pl->name, RMAP_EVENT_PLIST_DELETED);
+	if (pl->master->delete_hook)
+		(*pl->master->delete_hook)(pl);
+
+	if (pl->head || pl->tail || pl->desc)
+		pl->master->recent = pl;
 
 	ple->installed = false;
 }
@@ -693,6 +701,14 @@ void prefix_list_entry_update_finish(struct prefix_list_entry *ple)
 
 	/* Already installed, nothing to do. */
 	if (ple->installed)
+		return;
+
+	/*
+	 * Check if the entry is installable:
+	 * We can only install entry if at least the prefix is provided (IPv4
+	 * or IPv6).
+	 */
+	if (ple->prefix.family != AF_INET && ple->prefix.family != AF_INET6)
 		return;
 
 	/* List manipulation: shameless copy from `prefix_list_entry_add`. */
@@ -740,6 +756,21 @@ void prefix_list_entry_update_finish(struct prefix_list_entry *ple)
 	pl->master->recent = pl;
 
 	ple->installed = true;
+}
+
+/**
+ * Same as `prefix_list_entry_delete` but without `free()`ing the list if its
+ * empty.
+ *
+ * \param[in] ple prefix list entry.
+ */
+void prefix_list_entry_delete2(struct prefix_list_entry *ple)
+{
+	/* Does the boiler plate list removal and entry removal notification. */
+	prefix_list_entry_update_start(ple);
+
+	/* Effective `free()` memory. */
+	prefix_list_entry_free(ple);
 }
 
 /* Return string of prefix_list_type. */

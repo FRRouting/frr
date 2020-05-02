@@ -78,6 +78,7 @@ struct prefix_list_entry {
 };
 
 extern void prefix_list_entry_free(struct prefix_list_entry *pentry);
+extern void prefix_list_entry_delete2(struct prefix_list_entry *ple);
 extern void prefix_list_entry_update_start(struct prefix_list_entry *ple);
 extern void prefix_list_entry_update_finish(struct prefix_list_entry *ple);
 

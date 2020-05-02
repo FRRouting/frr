@@ -98,6 +98,19 @@ prefix_list_length_validate(const struct lyd_node *dnode)
 	return NB_ERR_VALIDATION;
 }
 
+/**
+ * Sets prefix list entry to blank value.
+ *
+ * \param[out] ple prefix list entry to modify.
+ */
+static void prefix_list_entry_set_empty(struct prefix_list_entry *ple)
+{
+	ple->any = false;
+	memset(&ple->prefix, 0, sizeof(ple->prefix));
+	ple->ge = 0;
+	ple->le = 0;
+}
+
 /*
  * XPath: /frr-filter:lib/access-list-legacy
  */
@@ -836,8 +849,8 @@ static int lib_prefix_list_entry_create(struct nb_cb_create_args *args)
 	pl = nb_running_get_entry(args->dnode, NULL, true);
 	ple = prefix_list_entry_new();
 	ple->pl = pl;
-	ple->any = 1;
 	ple->seq = yang_dnode_get_uint32(args->dnode, "./sequence");
+	prefix_list_entry_set_empty(ple);
 	nb_running_set_entry(args->dnode, ple);
 
 	return NB_OK;
@@ -852,7 +865,7 @@ static int lib_prefix_list_entry_destroy(struct nb_cb_destroy_args *args)
 
 	ple = nb_running_unset_entry(args->dnode);
 	if (ple->installed)
-		prefix_list_entry_delete(ple->pl, ple, 0);
+		prefix_list_entry_delete2(ple);
 	else
 		prefix_list_entry_free(ple);
 
@@ -904,7 +917,6 @@ lib_prefix_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
 	prefix_list_entry_update_start(ple);
 
 	yang_dnode_get_prefix(&ple->prefix, args->dnode, NULL);
-	ple->any = 0;
 
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
@@ -926,7 +938,6 @@ lib_prefix_list_entry_ipv4_prefix_destroy(struct nb_cb_destroy_args *args)
 	prefix_list_entry_update_start(ple);
 
 	memset(&ple->prefix, 0, sizeof(ple->prefix));
-	ple->any = 1;
 
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
@@ -1087,6 +1098,7 @@ static int lib_prefix_list_entry_ipv6_prefix_length_lesser_or_equal_destroy(
 static int lib_prefix_list_entry_any_create(struct nb_cb_create_args *args)
 {
 	struct prefix_list_entry *ple;
+	int type;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1096,8 +1108,24 @@ static int lib_prefix_list_entry_any_create(struct nb_cb_create_args *args)
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
 
+	ple->any = true;
+
+	/* Fill prefix struct from scratch. */
 	memset(&ple->prefix, 0, sizeof(ple->prefix));
-	ple->any = 1;
+
+	type = yang_dnode_get_enum(args->dnode, "../../type");
+	switch (type) {
+	case 0: /* ipv4 */
+		ple->prefix.family = AF_INET;
+		ple->ge = 0;
+		ple->le = IPV4_MAX_BITLEN;
+		break;
+	case 1: /* ipv6 */
+		ple->prefix.family = AF_INET6;
+		ple->ge = 0;
+		ple->le = IPV6_MAX_BITLEN;
+		break;
+	}
 
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
@@ -1117,8 +1145,7 @@ static int lib_prefix_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
 
-	memset(&ple->prefix, 0, sizeof(ple->prefix));
-	ple->any = 1;
+	prefix_list_entry_set_empty(ple);
 
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
