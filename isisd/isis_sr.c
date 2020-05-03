@@ -50,8 +50,8 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information")
 
-static void isis_sr_prefix_uninstall(struct sr_prefix *srp);
-static void isis_sr_prefix_reinstall(struct sr_prefix *srp,
+static void sr_prefix_uninstall(struct sr_prefix *srp);
+static void sr_prefix_reinstall(struct sr_prefix *srp,
 				     bool replace_semantics);
 
 /*----------------------------------------------------------------------------*/
@@ -84,8 +84,8 @@ DECLARE_RBTREE_UNIQ(srdb_node, struct sr_node, entry, sr_node_compare)
 /*----------------------------------------------------------------------------*/
 
 /* Returns true if the interface/address pair corresponds to a Node-SID. */
-static bool isis_sr_prefix_is_node_sid(const struct interface *ifp,
-				       const struct prefix *prefix)
+static bool sr_prefix_is_node_sid(const struct interface *ifp,
+				  const struct prefix *prefix)
 {
 	return (if_is_loopback(ifp) && is_host_route(prefix));
 }
@@ -118,7 +118,7 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 			frr_each (srdb_area_prefix,
 				  &area->srdb.prefix_sids[level - 1], srp) {
-				isis_sr_prefix_reinstall(srp, false);
+				sr_prefix_reinstall(srp, false);
 			}
 		}
 
@@ -157,7 +157,7 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 
 	/* Set the N-flag when appropriate. */
 	ifp = if_lookup_prefix(prefix, VRF_DEFAULT);
-	if (ifp && isis_sr_prefix_is_node_sid(ifp, prefix))
+	if (ifp && sr_prefix_is_node_sid(ifp, prefix))
 		pcfg->node_sid = true;
 
 	/* Save prefix-sid configuration. */
@@ -224,18 +224,17 @@ void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg, bool external,
 
 /*----------------------------------------------------------------------------*/
 
-static struct sr_prefix *isis_sr_prefix_add(struct isis_area *area,
-					    struct sr_node *srn,
-					    union prefixconstptr prefix,
-					    bool local,
-					    const struct isis_prefix_sid *psid)
+static struct sr_prefix *sr_prefix_add(struct isis_area *area,
+				       struct sr_node *srn,
+				       union prefixconstptr prefix, bool local,
+				       const struct isis_prefix_sid *psid)
 {
 	struct sr_prefix *srp;
 
 	srp = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*srp));
 	prefix_copy(&srp->prefix, prefix.p);
 	srp->sid = *psid;
-	srp->local_label = MPLS_INVALID_LABEL;
+	srp->input_label = MPLS_INVALID_LABEL;
 	if (local) {
 		srp->type = ISIS_SR_PREFIX_LOCAL;
 		isis_sr_nexthop_reset(&srp->u.local.info);
@@ -251,18 +250,18 @@ static struct sr_prefix *isis_sr_prefix_add(struct isis_area *area,
 	return srp;
 }
 
-static void isis_sr_prefix_del(struct isis_area *area, struct sr_node *srn,
-			       struct sr_prefix *srp)
+static void sr_prefix_del(struct isis_area *area, struct sr_node *srn,
+			  struct sr_prefix *srp)
 {
-	isis_sr_prefix_uninstall(srp);
+	sr_prefix_uninstall(srp);
 	srdb_node_prefix_del(&srn->prefix_sids, srp);
 	srdb_area_prefix_del(&area->srdb.prefix_sids[srn->level - 1], srp);
 	XFREE(MTYPE_ISIS_SR_INFO, srp);
 }
 
-static struct sr_prefix *isis_sr_prefix_find_area(struct isis_area *area,
-						  int level,
-						  union prefixconstptr prefix)
+static struct sr_prefix *sr_prefix_find_by_area(struct isis_area *area,
+						int level,
+						union prefixconstptr prefix)
 {
 	struct sr_prefix srp = {};
 
@@ -271,8 +270,8 @@ static struct sr_prefix *isis_sr_prefix_find_area(struct isis_area *area,
 					&srp);
 }
 
-static struct sr_prefix *isis_sr_prefix_find_node(struct sr_node *srn,
-						  union prefixconstptr prefix)
+static struct sr_prefix *sr_prefix_find_by_node(struct sr_node *srn,
+						union prefixconstptr prefix)
 {
 	struct sr_prefix srp = {};
 
@@ -280,9 +279,9 @@ static struct sr_prefix *isis_sr_prefix_find_node(struct sr_node *srn,
 	return srdb_node_prefix_find(&srn->prefix_sids, &srp);
 }
 
-static struct sr_node *isis_sr_node_add(struct isis_area *area, int level,
-					const uint8_t *sysid,
-					const struct isis_router_cap *cap)
+static struct sr_node *sr_node_add(struct isis_area *area, int level,
+				   const uint8_t *sysid,
+				   const struct isis_router_cap *cap)
 {
 	struct sr_node *srn;
 
@@ -297,23 +296,22 @@ static struct sr_node *isis_sr_node_add(struct isis_area *area, int level,
 	return srn;
 }
 
-static void isis_sr_node_del(struct isis_area *area, int level,
-			     struct sr_node *srn)
+static void sr_node_del(struct isis_area *area, int level, struct sr_node *srn)
 {
 	/* Remove and uninstall Prefix-SIDs. */
 	while (srdb_node_prefix_count(&srn->prefix_sids) > 0) {
 		struct sr_prefix *srp;
 
 		srp = srdb_node_prefix_first(&srn->prefix_sids);
-		isis_sr_prefix_del(area, srn, srp);
+		sr_prefix_del(area, srn, srp);
 	}
 
 	srdb_node_del(&area->srdb.sr_nodes[level - 1], srn);
 	XFREE(MTYPE_ISIS_SR_INFO, srn);
 }
 
-static struct sr_node *isis_sr_node_find(struct isis_area *area, int level,
-					 const uint8_t *sysid)
+static struct sr_node *sr_node_find(struct isis_area *area, int level,
+				    const uint8_t *sysid)
 {
 	struct sr_node srn = {};
 
@@ -321,13 +319,12 @@ static struct sr_node *isis_sr_node_find(struct isis_area *area, int level,
 	return srdb_node_find(&area->srdb.sr_nodes[level - 1], &srn);
 }
 
-static void isis_sr_adj_srgb_update(struct isis_area *area, uint8_t *sysid,
-				    int level)
+static void sr_node_srgb_update(struct isis_area *area, int level,
+				uint8_t *sysid)
 {
 	struct sr_prefix *srp;
 
-	frr_each (srdb_area_prefix, &area->srdb.prefix_sids[level - 1],
-		  srp) {
+	frr_each (srdb_area_prefix, &area->srdb.prefix_sids[level - 1], srp) {
 		struct listnode *node;
 		struct isis_nexthop *nh;
 
@@ -346,7 +343,7 @@ static void isis_sr_adj_srgb_update(struct isis_area *area, uint8_t *sysid,
 			 * Reinstall all Prefix-SID nexthops using route replace
 			 * semantics.
 			 */
-			isis_sr_prefix_reinstall(srp, true);
+			sr_prefix_reinstall(srp, true);
 			break;
 		}
 	}
@@ -368,9 +365,9 @@ void isis_sr_nexthop_reset(struct sr_nexthop_info *srnh)
 /*----------------------------------------------------------------------------*/
 
 /* Lookup IS-IS route in the SPT. */
-static struct isis_route_info *
-isis_sr_prefix_lookup_route(struct isis_area *area, enum spf_tree_id tree_id,
-			    struct sr_prefix *srp)
+static struct isis_route_info *sr_prefix_lookup_route(struct isis_area *area,
+						      enum spf_tree_id tree_id,
+						      struct sr_prefix *srp)
 {
 	struct route_node *rn;
 	int level = srp->srn->level;
@@ -387,7 +384,7 @@ isis_sr_prefix_lookup_route(struct isis_area *area, enum spf_tree_id tree_id,
 }
 
 /* Calculate Prefix-SID input label. */
-static mpls_label_t isis_sr_prefix_in_label(const struct sr_prefix *srp)
+static mpls_label_t sr_prefix_in_label(const struct sr_prefix *srp)
 {
 	const struct sr_node *srn = srp->srn;
 	struct isis_area *area = srn->area;
@@ -410,9 +407,9 @@ static mpls_label_t isis_sr_prefix_in_label(const struct sr_prefix *srp)
 }
 
 /* Calculate Prefix-SID output label. */
-static mpls_label_t isis_sr_prefix_out_label(const struct sr_prefix *srp,
-					     const struct sr_node *srn_nexthop,
-					     const uint8_t *sysid)
+static mpls_label_t sr_prefix_out_label(const struct sr_prefix *srp,
+					const struct sr_node *srn_nexthop,
+					const uint8_t *sysid)
 {
 	const struct sr_node *srn = srp->srn;
 
@@ -454,11 +451,11 @@ static mpls_label_t isis_sr_prefix_out_label(const struct sr_prefix *srp,
 }
 
 /* Process local Prefix-SID and install it if possible. */
-static int isis_sr_prefix_install_local(struct sr_prefix *srp)
+static int sr_prefix_install_local(struct sr_prefix *srp)
 {
 	const struct sr_node *srn = srp->srn;
 	struct isis_area *area = srn->area;
-	mpls_label_t local_label;
+	mpls_label_t input_label;
 
 	/*
 	 * No need to install LSP to local Prefix-SID unless the
@@ -479,12 +476,12 @@ static int isis_sr_prefix_install_local(struct sr_prefix *srp)
 	}
 
 	/* Calculate local label. */
-	local_label = isis_sr_prefix_in_label(srp);
-	if (local_label == MPLS_INVALID_LABEL)
+	input_label = sr_prefix_in_label(srp);
+	if (input_label == MPLS_INVALID_LABEL)
 		return -1;
 
 	/* Update internal state. */
-	srp->local_label = local_label;
+	srp->input_label = input_label;
 	isis_sr_nexthop_update(&srp->u.local.info, MPLS_LABEL_IMPLICIT_NULL);
 
 	/* Install Prefix-SID in the forwarding plane. */
@@ -494,19 +491,19 @@ static int isis_sr_prefix_install_local(struct sr_prefix *srp)
 }
 
 /* Process remote Prefix-SID and install it if possible. */
-static int isis_sr_prefix_install_remote(struct sr_prefix *srp)
+static int sr_prefix_install_remote(struct sr_prefix *srp)
 {
 	const struct sr_node *srn = srp->srn;
 	struct isis_area *area = srn->area;
 	enum spf_tree_id tree_id;
 	struct listnode *node;
 	struct isis_nexthop *nexthop;
-	mpls_label_t local_label;
+	mpls_label_t input_label;
 	size_t nexthop_num = 0;
 
 	/* Lookup associated IS-IS route. */
 	tree_id = (srp->prefix.family == AF_INET) ? SPFTREE_IPV4 : SPFTREE_IPV6;
-	srp->u.remote.rinfo = isis_sr_prefix_lookup_route(area, tree_id, srp);
+	srp->u.remote.rinfo = sr_prefix_lookup_route(area, tree_id, srp);
 	if (!srp->u.remote.rinfo)
 		/* SPF hasn't converged for this route yet. */
 		return -1;
@@ -520,18 +517,17 @@ static int isis_sr_prefix_install_remote(struct sr_prefix *srp)
 			   srp->sid.value, circuit_t2string(srn->level));
 
 	/* Calculate local label. */
-	local_label = isis_sr_prefix_in_label(srp);
-	if (local_label == MPLS_INVALID_LABEL)
+	input_label = sr_prefix_in_label(srp);
+	if (input_label == MPLS_INVALID_LABEL)
 		return -1;
 
 	for (ALL_LIST_ELEMENTS_RO(srp->u.remote.rinfo->nexthops, node,
 				  nexthop)) {
 		struct sr_node *srn_nexthop;
-		mpls_label_t remote_label;
+		mpls_label_t output_label;
 
 		/* Check if the nexthop advertised a SRGB. */
-		srn_nexthop =
-			isis_sr_node_find(area, srn->level, nexthop->sysid);
+		srn_nexthop = sr_node_find(area, srn->level, nexthop->sysid);
 		if (!srn_nexthop)
 			goto next;
 
@@ -545,9 +541,9 @@ static int isis_sr_prefix_install_remote(struct sr_prefix *srp)
 			&& !IS_SR_IPV6(srn_nexthop->cap.srgb)))
 			goto next;
 
-		remote_label = isis_sr_prefix_out_label(srp, srn_nexthop,
+		output_label = sr_prefix_out_label(srp, srn_nexthop,
 							nexthop->sysid);
-		if (remote_label == MPLS_INVALID_LABEL)
+		if (output_label == MPLS_INVALID_LABEL)
 			goto next;
 
 		if (IS_DEBUG_ISIS(DEBUG_SR)) {
@@ -555,10 +551,10 @@ static int isis_sr_prefix_install_remote(struct sr_prefix *srp)
 
 			inet_ntop(nexthop->family, &nexthop->ip, buf,
 				  sizeof(buf));
-			zlog_debug("  nexthop %s label %u", buf, remote_label);
+			zlog_debug("  nexthop %s label %u", buf, output_label);
 		}
 
-		isis_sr_nexthop_update(&nexthop->sr, remote_label);
+		isis_sr_nexthop_update(&nexthop->sr, output_label);
 		nexthop_num++;
 		continue;
 	next:
@@ -571,7 +567,7 @@ static int isis_sr_prefix_install_remote(struct sr_prefix *srp)
 	}
 
 	/* Update internal state. */
-	srp->local_label = local_label;
+	srp->input_label = input_label;
 
 	/* Install Prefix-SID in the forwarding plane. */
 	isis_zebra_install_prefix_sid(srp);
@@ -580,7 +576,7 @@ static int isis_sr_prefix_install_remote(struct sr_prefix *srp)
 }
 
 /* Process local or remote Prefix-SID and install it if possible. */
-static void isis_sr_prefix_install(struct sr_prefix *srp)
+static void sr_prefix_install(struct sr_prefix *srp)
 {
 	const struct sr_node *srn = srp->srn;
 	struct isis_area *area = srn->area;
@@ -592,14 +588,14 @@ static void isis_sr_prefix_install(struct sr_prefix *srp)
 
 		switch (srn->level) {
 		case ISIS_LEVEL1:
-			srp_l2 = isis_sr_prefix_find_area(area, ISIS_LEVEL2,
-							  &srp->prefix);
+			srp_l2 = sr_prefix_find_by_area(area, ISIS_LEVEL2,
+							&srp->prefix);
 			if (srp_l2)
-				isis_sr_prefix_uninstall(srp_l2);
+				sr_prefix_uninstall(srp_l2);
 			break;
 		case ISIS_LEVEL2:
-			srp_l1 = isis_sr_prefix_find_area(area, ISIS_LEVEL1,
-							  &srp->prefix);
+			srp_l1 = sr_prefix_find_by_area(area, ISIS_LEVEL1,
+							&srp->prefix);
 			if (srp_l1)
 				return;
 			break;
@@ -609,21 +605,21 @@ static void isis_sr_prefix_install(struct sr_prefix *srp)
 	}
 
 	if (srp->type == ISIS_SR_PREFIX_LOCAL)
-		ret = isis_sr_prefix_install_local(srp);
+		ret = sr_prefix_install_local(srp);
 	else
-		ret = isis_sr_prefix_install_remote(srp);
+		ret = sr_prefix_install_remote(srp);
 	if (ret != 0)
-		isis_sr_prefix_uninstall(srp);
+		sr_prefix_uninstall(srp);
 }
 
 /* Uninstall local or remote Prefix-SID. */
-static void isis_sr_prefix_uninstall(struct sr_prefix *srp)
+static void sr_prefix_uninstall(struct sr_prefix *srp)
 {
 	const struct sr_node *srn = srp->srn;
 	struct listnode *node;
 	struct isis_nexthop *nexthop;
 
-	if (srp->local_label == MPLS_INVALID_LABEL)
+	if (srp->input_label == MPLS_INVALID_LABEL)
 		return;
 
 	if (IS_DEBUG_ISIS(DEBUG_SR))
@@ -640,7 +636,7 @@ static void isis_sr_prefix_uninstall(struct sr_prefix *srp)
 	isis_zebra_uninstall_prefix_sid(srp);
 
 	/* Reset internal state. */
-	srp->local_label = MPLS_INVALID_LABEL;
+	srp->input_label = MPLS_INVALID_LABEL;
 	switch (srp->type) {
 	case ISIS_SR_PREFIX_LOCAL:
 		isis_sr_nexthop_reset(&srp->u.local.info);
@@ -656,8 +652,7 @@ static void isis_sr_prefix_uninstall(struct sr_prefix *srp)
 }
 
 /* Reinstall local or remote Prefix-SID. */
-static void isis_sr_prefix_reinstall(struct sr_prefix *srp,
-				     bool replace_semantics)
+static void sr_prefix_reinstall(struct sr_prefix *srp, bool replace_semantics)
 {
 	/*
 	 * Route replace semantics can be used only when we know for sure that
@@ -666,25 +661,24 @@ static void isis_sr_prefix_reinstall(struct sr_prefix *srp,
 	 * reinstalling it.
 	 */
 	if (!replace_semantics)
-		isis_sr_prefix_uninstall(srp);
+		sr_prefix_uninstall(srp);
 
-	isis_sr_prefix_install(srp);
+	sr_prefix_install(srp);
 }
 
 /*----------------------------------------------------------------------------*/
 
 /* Parse all SR-related information from the given Router Capabilities TLV. */
 static struct sr_node *
-isis_sr_parse_router_cap_tlv(struct isis_area *area, int level,
-			     const uint8_t *sysid,
-			     const struct isis_router_cap *router_cap)
+parse_router_cap_tlv(struct isis_area *area, int level, const uint8_t *sysid,
+		     const struct isis_router_cap *router_cap)
 {
 	struct sr_node *srn;
 
 	if (!router_cap || router_cap->srgb.range_size == 0)
 		return NULL;
 
-	srn = isis_sr_node_find(area, level, sysid);
+	srn = sr_node_find(area, level, sysid);
 	if (srn) {
 		if (memcmp(&srn->cap, router_cap, sizeof(srn->cap)) != 0) {
 			srn->cap = *router_cap;
@@ -692,7 +686,7 @@ isis_sr_parse_router_cap_tlv(struct isis_area *area, int level,
 		} else
 			srn->state = SRDB_STATE_UNCHANGED;
 	} else {
-		srn = isis_sr_node_add(area, level, sysid, router_cap);
+		srn = sr_node_add(area, level, sysid, router_cap);
 		srn->state = SRDB_STATE_NEW;
 	}
 
@@ -700,10 +694,9 @@ isis_sr_parse_router_cap_tlv(struct isis_area *area, int level,
 }
 
 /* Parse list of Prefix-SID Sub-TLVs. */
-static void isis_sr_parse_prefix_sid_subtlvs(struct sr_node *srn,
-					     union prefixconstptr prefix,
-					     bool local,
-					     struct isis_item_list *prefix_sids)
+static void parse_prefix_sid_subtlvs(struct sr_node *srn,
+				     union prefixconstptr prefix, bool local,
+				     struct isis_item_list *prefix_sids)
 {
 	struct isis_area *area = srn->area;
 	struct isis_item *i;
@@ -715,7 +708,7 @@ static void isis_sr_parse_prefix_sid_subtlvs(struct sr_node *srn,
 		if (psid->algorithm != SR_ALGORITHM_SPF)
 			continue;
 
-		srp = isis_sr_prefix_find_node(srn, prefix);
+		srp = sr_prefix_find_by_node(srn, prefix);
 		if (srp) {
 			if (srp->sid.flags != psid->flags
 			    || srp->sid.algorithm != psid->algorithm
@@ -725,8 +718,7 @@ static void isis_sr_parse_prefix_sid_subtlvs(struct sr_node *srn,
 			} else
 				srp->state = SRDB_STATE_UNCHANGED;
 		} else {
-			srp = isis_sr_prefix_add(area, srn, prefix, local,
-						 psid);
+			srp = sr_prefix_add(area, srn, prefix, local, psid);
 			srp->state = SRDB_STATE_NEW;
 		}
 		/*
@@ -738,8 +730,8 @@ static void isis_sr_parse_prefix_sid_subtlvs(struct sr_node *srn,
 }
 
 /* Parse all SR-related information from the given LSP. */
-static void isis_sr_parse_lsp(struct isis_area *area, int level,
-			      struct sr_node **srn, struct isis_lsp *lsp)
+static void parse_lsp(struct isis_area *area, int level, struct sr_node **srn,
+		      struct isis_lsp *lsp)
 {
 	struct isis_item_list *items;
 	struct isis_item *i;
@@ -752,7 +744,7 @@ static void isis_sr_parse_lsp(struct isis_area *area, int level,
 
 	/* Parse the Router Capability TLV. */
 	if (*srn == NULL) {
-		*srn = isis_sr_parse_router_cap_tlv(
+		*srn = parse_router_cap_tlv(
 			area, level, lsp->hdr.lsp_id, lsp->tlvs->router_cap);
 		if (!*srn)
 			return;
@@ -767,8 +759,8 @@ static void isis_sr_parse_lsp(struct isis_area *area, int level,
 		if (!ir->subtlvs)
 			continue;
 
-		isis_sr_parse_prefix_sid_subtlvs(*srn, &ir->prefix, local,
-						 &ir->subtlvs->prefix_sids);
+		parse_prefix_sid_subtlvs(*srn, &ir->prefix, local,
+					 &ir->subtlvs->prefix_sids);
 	}
 
 	/* Parse Multi Topology Reachable IPv6 Prefixes TLV. */
@@ -781,13 +773,13 @@ static void isis_sr_parse_lsp(struct isis_area *area, int level,
 		if (!ir->subtlvs)
 			continue;
 
-		isis_sr_parse_prefix_sid_subtlvs(*srn, &ir->prefix, local,
-						 &ir->subtlvs->prefix_sids);
+		parse_prefix_sid_subtlvs(*srn, &ir->prefix, local,
+					 &ir->subtlvs->prefix_sids);
 	}
 }
 
 /* Parse all SR-related information from the entire LSPDB. */
-static void isis_sr_parse_lspdb(struct isis_area *area)
+static void parse_lspdb(struct isis_area *area)
 {
 	struct isis_lsp *lsp;
 
@@ -802,16 +794,15 @@ static void isis_sr_parse_lspdb(struct isis_area *area)
 			if (!lsp->tlvs)
 				continue;
 
-			isis_sr_parse_lsp(area, level, &srn, lsp);
+			parse_lsp(area, level, &srn, lsp);
 			for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag))
-				isis_sr_parse_lsp(area, level, &srn, frag);
+				parse_lsp(area, level, &srn, frag);
 		}
 	}
 }
 
 /* Process any new/deleted/modified Prefix-SID in the LSPDB. */
-static void isis_sr_process_prefix_changes(struct sr_node *srn,
-					   struct sr_prefix *srp)
+static void process_prefix_changes(struct sr_node *srn, struct sr_prefix *srp)
 {
 	struct isis_area *area = srn->area;
 
@@ -837,15 +828,15 @@ static void isis_sr_process_prefix_changes(struct sr_node *srn,
 	/* Install/reinstall/uninstall Prefix-SID if necessary. */
 	switch (srp->state) {
 	case SRDB_STATE_NEW:
-		isis_sr_prefix_install(srp);
+		sr_prefix_install(srp);
 		break;
 	case SRDB_STATE_MODIFIED:
-		isis_sr_prefix_reinstall(srp, false);
+		sr_prefix_reinstall(srp, false);
 		break;
 	case SRDB_STATE_UNCHANGED:
 		break;
 	default:
-		isis_sr_prefix_del(area, srn, srp);
+		sr_prefix_del(area, srn, srp);
 		return;
 	}
 
@@ -853,8 +844,8 @@ static void isis_sr_process_prefix_changes(struct sr_node *srn,
 }
 
 /* Process any new/deleted/modified SRGB in the LSPDB. */
-static void isis_sr_process_node_changes(struct isis_area *area, int level,
-					 struct sr_node *srn)
+static void process_node_changes(struct isis_area *area, int level,
+				 struct sr_node *srn)
 {
 	struct sr_prefix *srp;
 	uint8_t sysid[ISIS_SYS_ID_LEN];
@@ -884,22 +875,22 @@ static void isis_sr_process_node_changes(struct isis_area *area, int level,
 	case SRDB_STATE_NEW:
 	case SRDB_STATE_MODIFIED:
 		if (adjacent)
-			isis_sr_adj_srgb_update(area, sysid, level);
+			sr_node_srgb_update(area, sysid, level);
 		break;
 	case SRDB_STATE_UNCHANGED:
 		break;
 	default:
-		isis_sr_node_del(area, level, srn);
+		sr_node_del(area, level, srn);
 
 		if (adjacent)
-			isis_sr_adj_srgb_update(area, sysid, level);
+			sr_node_srgb_update(area, level, sysid);
 		return;
 	}
 
 	srn->state = SRDB_STATE_VALIDATED;
 
 	frr_each_safe (srdb_node_prefix, &srn->prefix_sids, srp)
-		isis_sr_process_prefix_changes(srn, srp);
+		process_prefix_changes(srn, srp);
 }
 
 /* Parse and process all SR-related Sub-TLVs after running the SPF algorithm. */
@@ -911,13 +902,12 @@ void isis_area_verify_sr(struct isis_area *area)
 		return;
 
 	/* Parse LSPDB to detect new/deleted/modified SR (sub-)TLVs. */
-	isis_sr_parse_lspdb(area);
+	parse_lspdb(area);
 
 	/* Process possible SR-related changes in the LDPSB. */
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
-		frr_each_safe (srdb_node, &area->srdb.sr_nodes[level - 1],
-			       srn)
-			isis_sr_process_node_changes(area, level, srn);
+		frr_each_safe (srdb_node, &area->srdb.sr_nodes[level - 1], srn)
+			process_node_changes(area, level, srn);
 	}
 }
 
@@ -925,8 +915,8 @@ void isis_area_verify_sr(struct isis_area *area)
  * Once a route is updated in the SPT, reinstall or uninstall its corresponding
  * Prefix-SID (if any).
  */
-static int isis_sr_route_update(struct isis_area *area, struct prefix *prefix,
-				struct isis_route_info *route_info)
+static int sr_route_update(struct isis_area *area, struct prefix *prefix,
+			   struct isis_route_info *route_info)
 {
 	struct sr_prefix *srp;
 
@@ -935,16 +925,15 @@ static int isis_sr_route_update(struct isis_area *area, struct prefix *prefix,
 
 	switch (area->is_type) {
 	case IS_LEVEL_1:
-		srp = isis_sr_prefix_find_area(area, ISIS_LEVEL1, prefix);
+		srp = sr_prefix_find_by_area(area, ISIS_LEVEL1, prefix);
 		break;
 	case IS_LEVEL_2:
-		srp = isis_sr_prefix_find_area(area, ISIS_LEVEL2, prefix);
+		srp = sr_prefix_find_by_area(area, ISIS_LEVEL2, prefix);
 		break;
 	case IS_LEVEL_1_AND_2:
-		srp = isis_sr_prefix_find_area(area, ISIS_LEVEL1, prefix);
+		srp = sr_prefix_find_by_area(area, ISIS_LEVEL1, prefix);
 		if (!srp)
-			srp = isis_sr_prefix_find_area(area, ISIS_LEVEL2,
-						       prefix);
+			srp = sr_prefix_find_by_area(area, ISIS_LEVEL2, prefix);
 		break;
 	default:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: unknown area level",
@@ -956,10 +945,10 @@ static int isis_sr_route_update(struct isis_area *area, struct prefix *prefix,
 		return 0;
 
 	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ACTIVE)) {
-		isis_sr_prefix_reinstall(srp, true);
+		sr_prefix_reinstall(srp, true);
 		srp->u.remote.rinfo = route_info;
 	} else {
-		isis_sr_prefix_uninstall(srp);
+		sr_prefix_uninstall(srp);
 		srp->u.remote.rinfo = NULL;
 	}
 
@@ -969,8 +958,8 @@ static int isis_sr_route_update(struct isis_area *area, struct prefix *prefix,
 /*----------------------------------------------------------------------------*/
 
 /* Install or uninstall (LAN)-Adj-SID. */
-static void isis_sr_adj_sid_install_uninstall(bool install,
-					      const struct sr_adjacency *sra)
+static void sr_adj_sid_install_uninstall(bool install,
+					 const struct sr_adjacency *sra)
 {
 	struct zapi_labels zl;
 	struct zapi_nexthop *znh;
@@ -995,8 +984,8 @@ static void isis_sr_adj_sid_install_uninstall(bool install,
 }
 
 /* Add new local Adj-SID. */
-static void isis_sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
-				       bool backup)
+static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
+				  bool backup)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
@@ -1005,7 +994,7 @@ static void isis_sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 	struct isis_lan_adj_sid *ladj_sid;
 	union g_addr nexthop = {};
 	uint8_t flags;
-	mpls_label_t local_label;
+	mpls_label_t input_label;
 
 	switch (family) {
 	case AF_INET:
@@ -1032,7 +1021,7 @@ static void isis_sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 	if (backup)
 		SET_FLAG(flags, EXT_SUBTLV_LINK_ADJ_SID_BFLG);
 
-	local_label = isis_zebra_request_dynamic_label();
+	input_label = isis_zebra_request_dynamic_label();
 	if (circuit->ext == NULL)
 		circuit->ext = isis_alloc_ext_subtlvs();
 
@@ -1042,14 +1031,14 @@ static void isis_sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 		inet_ntop(family, &nexthop, buf, sizeof(buf));
 		zlog_debug("ISIS-SR (%s) installing Adj-SID %s%%%s label %u",
 			   area->area_tag, buf, circuit->interface->name,
-			   local_label);
+			   input_label);
 	}
 
 	sra = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*sra));
 	sra->type = backup ? ISIS_SR_LAN_BACKUP : ISIS_SR_ADJ_NORMAL;
 	sra->nexthop.family = family;
 	sra->nexthop.address = nexthop;
-	sra->nexthop.label = local_label;
+	sra->nexthop.label = input_label;
 	switch (circuit->circ_type) {
 	case CIRCUIT_T_BROADCAST:
 		ladj_sid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*ladj_sid));
@@ -1058,7 +1047,7 @@ static void isis_sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 		ladj_sid->weight = 0;
 		memcpy(ladj_sid->neighbor_id, adj->sysid,
 		       sizeof(ladj_sid->neighbor_id));
-		ladj_sid->sid = local_label;
+		ladj_sid->sid = input_label;
 		isis_tlvs_add_lan_adj_sid(circuit->ext, ladj_sid);
 		sra->u.ladj_sid = ladj_sid;
 		break;
@@ -1067,7 +1056,7 @@ static void isis_sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 		adj_sid->family = family;
 		adj_sid->flags = flags;
 		adj_sid->weight = 0;
-		adj_sid->sid = local_label;
+		adj_sid->sid = input_label;
 		isis_tlvs_add_adj_sid(circuit->ext, adj_sid);
 		sra->u.adj_sid = adj_sid;
 		break;
@@ -1080,17 +1069,17 @@ static void isis_sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 	listnode_add(area->srdb.adj_sids, sra);
 	listnode_add(adj->adj_sids, sra);
 
-	isis_sr_adj_sid_install_uninstall(true, sra);
+	sr_adj_sid_install_uninstall(true, sra);
 }
 
-static void isis_sr_adj_sid_add(struct isis_adjacency *adj, int family)
+static void sr_adj_sid_add(struct isis_adjacency *adj, int family)
 {
-	isis_sr_adj_sid_add_single(adj, family, false);
-	isis_sr_adj_sid_add_single(adj, family, true);
+	sr_adj_sid_add_single(adj, family, false);
+	sr_adj_sid_add_single(adj, family, true);
 }
 
 /* Delete local Adj-SID. */
-static void isis_sr_adj_sid_del(struct sr_adjacency *sra)
+static void sr_adj_sid_del(struct sr_adjacency *sra)
 {
 	struct isis_circuit *circuit = sra->adj->circuit;
 	struct isis_area *area = circuit->area;
@@ -1104,7 +1093,7 @@ static void isis_sr_adj_sid_del(struct sr_adjacency *sra)
 			   area->area_tag, buf, circuit->interface->name);
 	}
 
-	isis_sr_adj_sid_install_uninstall(false, sra);
+	sr_adj_sid_install_uninstall(false, sra);
 
 	switch (circuit->circ_type) {
 	case CIRCUIT_T_BROADCAST:
@@ -1127,7 +1116,7 @@ static void isis_sr_adj_sid_del(struct sr_adjacency *sra)
 }
 
 /* Remove all Adj-SIDs associated to an adjacency that is going down. */
-static int isis_sr_adj_state_change(struct isis_adjacency *adj)
+static int sr_adj_state_change(struct isis_adjacency *adj)
 {
 	struct sr_adjacency *sra;
 	struct listnode *node, *nnode;
@@ -1139,7 +1128,7 @@ static int isis_sr_adj_state_change(struct isis_adjacency *adj)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(adj->adj_sids, node, nnode, sra))
-		isis_sr_adj_sid_del(sra);
+		sr_adj_sid_del(sra);
 
 	return 0;
 }
@@ -1148,12 +1137,12 @@ static int isis_sr_adj_state_change(struct isis_adjacency *adj)
  * Adjacency now has one or more IPv4/IPv6 addresses. Add new IPv4 or IPv6
  * Adj-SID accordingly.
  */
-static int isis_sr_adj_ip_enabled(struct isis_adjacency *adj, int family)
+static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family)
 {
 	if (!adj->circuit->area->srdb.enabled)
 		return 0;
 
-	isis_sr_adj_sid_add(adj, family);
+	sr_adj_sid_add(adj, family);
 
 	return 0;
 }
@@ -1162,7 +1151,7 @@ static int isis_sr_adj_ip_enabled(struct isis_adjacency *adj, int family)
  * Adjacency doesn't have any IPv4 or IPv6 addresses anymore. Delete the
  * corresponding Adj-SID(s) accordingly.
  */
-static int isis_sr_adj_ip_disabled(struct isis_adjacency *adj, int family)
+static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family)
 {
 	struct sr_adjacency *sra;
 	struct listnode *node, *nnode;
@@ -1172,12 +1161,12 @@ static int isis_sr_adj_ip_disabled(struct isis_adjacency *adj, int family)
 
 	for (ALL_LIST_ELEMENTS(adj->adj_sids, node, nnode, sra))
 		if (sra->nexthop.family == family)
-			isis_sr_adj_sid_del(sra);
+			sr_adj_sid_del(sra);
 
 	return 0;
 }
 
-static int isis_sr_if_new_hook(struct interface *ifp)
+static int sr_if_new_hook(struct interface *ifp)
 {
 	struct isis_circuit *circuit;
 	struct isis_area *area;
@@ -1204,7 +1193,7 @@ static int isis_sr_if_new_hook(struct interface *ifp)
 		if (!pcfg)
 			continue;
 
-		if (isis_sr_prefix_is_node_sid(ifp, &pcfg->prefix)
+		if (sr_prefix_is_node_sid(ifp, &pcfg->prefix)
 		    && !pcfg->node_sid) {
 			pcfg->node_sid = true;
 			lsp_regenerate_schedule(area, area->is_type, 0);
@@ -1216,9 +1205,9 @@ static int isis_sr_if_new_hook(struct interface *ifp)
 
 /*----------------------------------------------------------------------------*/
 
-static void isis_sr_show_prefix_sid_local(struct vty *vty, struct ttable *tt,
-					  const struct isis_area *area,
-					  const struct sr_prefix *srp)
+static void show_prefix_sid_local(struct vty *vty, struct ttable *tt,
+				  const struct isis_area *area,
+				  const struct sr_prefix *srp)
 {
 	const struct sr_nexthop_info *srnh = &srp->u.local.info;
 	char buf_prefix[BUFSIZ];
@@ -1226,8 +1215,8 @@ static void isis_sr_show_prefix_sid_local(struct vty *vty, struct ttable *tt,
 	char buf_rlabel[BUFSIZ];
 	char buf_uptime[BUFSIZ];
 
-	if (srp->local_label != MPLS_INVALID_LABEL)
-		label2str(srp->local_label, buf_llabel, sizeof(buf_llabel));
+	if (srp->input_label != MPLS_INVALID_LABEL)
+		label2str(srp->input_label, buf_llabel, sizeof(buf_llabel));
 	else
 		snprintf(buf_llabel, sizeof(buf_llabel), "-");
 	if (srnh->label != MPLS_INVALID_LABEL) {
@@ -1243,9 +1232,9 @@ static void isis_sr_show_prefix_sid_local(struct vty *vty, struct ttable *tt,
 		       srp->sid.value, buf_llabel, buf_rlabel, buf_uptime);
 }
 
-static void isis_sr_show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
-					   const struct isis_area *area,
-					   const struct sr_prefix *srp)
+static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
+				   const struct isis_area *area,
+				   const struct sr_prefix *srp)
 {
 	struct isis_nexthop *nexthop;
 	struct listnode *node;
@@ -1258,8 +1247,8 @@ static void isis_sr_show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 	bool first = true;
 
 	(void)prefix2str(&srp->prefix, buf_prefix, sizeof(buf_prefix));
-	if (srp->local_label != MPLS_INVALID_LABEL)
-		label2str(srp->local_label, buf_llabel, sizeof(buf_llabel));
+	if (srp->input_label != MPLS_INVALID_LABEL)
+		label2str(srp->input_label, buf_llabel, sizeof(buf_llabel));
 	else
 		snprintf(buf_llabel, sizeof(buf_llabel), "-");
 
@@ -1302,8 +1291,7 @@ static void isis_sr_show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 	}
 }
 
-static void isis_sr_show_prefix_sids(struct vty *vty, struct isis_area *area,
-				     int level)
+static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
 {
 	struct sr_prefix *srp;
 	struct ttable *tt;
@@ -1321,14 +1309,13 @@ static void isis_sr_show_prefix_sids(struct vty *vty, struct isis_area *area,
 	ttable_restyle(tt);
 	ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
-	frr_each (srdb_area_prefix, &area->srdb.prefix_sids[level - 1],
-		  srp) {
+	frr_each (srdb_area_prefix, &area->srdb.prefix_sids[level - 1], srp) {
 		switch (srp->type) {
 		case ISIS_SR_PREFIX_LOCAL:
-			isis_sr_show_prefix_sid_local(vty, tt, area, srp);
+			show_prefix_sid_local(vty, tt, area, srp);
 			break;
 		case ISIS_SR_PREFIX_REMOTE:
-			isis_sr_show_prefix_sid_remote(vty, tt, area, srp);
+			show_prefix_sid_remote(vty, tt, area, srp);
 			break;
 		}
 	}
@@ -1358,7 +1345,7 @@ DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
 			area->area_tag ? area->area_tag : "null");
 
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
-			isis_sr_show_prefix_sids(vty, area, level);
+			show_prefix_sids(vty, area, level);
 	}
 
 	return CMD_SUCCESS;
@@ -1400,20 +1387,18 @@ int isis_sr_start(struct isis_area *area)
 					     circuit->u.bc.adjdb[level - 1],
 					     anode, adj)) {
 					if (adj->ipv4_address_count > 0)
-						isis_sr_adj_sid_add(adj,
-								    AF_INET);
+						sr_adj_sid_add(adj, AF_INET);
 					if (adj->ipv6_address_count > 0)
-						isis_sr_adj_sid_add(adj,
-								    AF_INET6);
+						sr_adj_sid_add(adj, AF_INET6);
 				}
 			}
 			break;
 		case CIRCUIT_T_P2P:
 			adj = circuit->u.p2p.neighbor;
 			if (adj && adj->ipv4_address_count > 0)
-				isis_sr_adj_sid_add(adj, AF_INET);
+				sr_adj_sid_add(adj, AF_INET);
 			if (adj && adj->ipv6_address_count > 0)
-				isis_sr_adj_sid_add(adj, AF_INET6);
+				sr_adj_sid_add(adj, AF_INET6);
 			break;
 		default:
 			break;
@@ -1439,7 +1424,7 @@ void isis_sr_stop(struct isis_area *area)
 
 	/* Uninstall Adj-SIDs. */
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))
-		isis_sr_adj_sid_del(sra);
+		sr_adj_sid_del(sra);
 
 	/* Uninstall Prefix-SIDs. */
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
@@ -1447,7 +1432,7 @@ void isis_sr_stop(struct isis_area *area)
 			struct sr_node *srn;
 
 			srn = srdb_node_first(&srdb->sr_nodes[level - 1]);
-			isis_sr_node_del(area, level, srn);
+			sr_node_del(area, level, srn);
 		}
 	}
 
@@ -1510,19 +1495,19 @@ void isis_sr_init(void)
 	install_element(VIEW_NODE, &show_sr_prefix_sids_cmd);
 
 	/* Register hooks. */
-	hook_register(isis_adj_state_change_hook, isis_sr_adj_state_change);
-	hook_register(isis_adj_ip_enabled_hook, isis_sr_adj_ip_enabled);
-	hook_register(isis_adj_ip_disabled_hook, isis_sr_adj_ip_disabled);
-	hook_register(isis_route_update_hook, isis_sr_route_update);
-	hook_register(isis_if_new_hook, isis_sr_if_new_hook);
+	hook_register(isis_adj_state_change_hook, sr_adj_state_change);
+	hook_register(isis_adj_ip_enabled_hook, sr_adj_ip_enabled);
+	hook_register(isis_adj_ip_disabled_hook, sr_adj_ip_disabled);
+	hook_register(isis_route_update_hook, sr_route_update);
+	hook_register(isis_if_new_hook, sr_if_new_hook);
 }
 
 void isis_sr_term(void)
 {
 	/* Unregister hooks. */
-	hook_unregister(isis_adj_state_change_hook, isis_sr_adj_state_change);
-	hook_unregister(isis_adj_ip_enabled_hook, isis_sr_adj_ip_enabled);
-	hook_unregister(isis_adj_ip_disabled_hook, isis_sr_adj_ip_disabled);
-	hook_unregister(isis_route_update_hook, isis_sr_route_update);
-	hook_unregister(isis_if_new_hook, isis_sr_if_new_hook);
+	hook_unregister(isis_adj_state_change_hook, sr_adj_state_change);
+	hook_unregister(isis_adj_ip_enabled_hook, sr_adj_ip_enabled);
+	hook_unregister(isis_adj_ip_disabled_hook, sr_adj_ip_disabled);
+	hook_unregister(isis_route_update_hook, sr_route_update);
+	hook_unregister(isis_if_new_hook, sr_if_new_hook);
 }

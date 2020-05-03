@@ -265,7 +265,7 @@ void isis_zebra_install_prefix_sid(const struct sr_prefix *srp)
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
 	zl.type = ZEBRA_LSP_ISIS_SR;
-	zl.local_label = srp->local_label;
+	zl.local_label = srp->input_label;
 
 	switch (srp->type) {
 	case ISIS_SR_PREFIX_LOCAL:
@@ -322,7 +322,7 @@ void isis_zebra_uninstall_prefix_sid(const struct sr_prefix *srp)
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
 	zl.type = ZEBRA_LSP_ISIS_SR;
-	zl.local_label = srp->local_label;
+	zl.local_label = srp->input_label;
 
 	if (srp->type == ISIS_SR_PREFIX_REMOTE) {
 		/* Update route in the RIB too. */

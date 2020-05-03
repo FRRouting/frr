@@ -120,8 +120,8 @@ struct sr_prefix {
 	/* SID value, algorithm and flags. */
 	struct isis_prefix_sid sid;
 
-	/* Local label value. */
-	mpls_label_t local_label;
+	/* Input label value. */
+	mpls_label_t input_label;
 
 	/* Prefix-SID type. */
 	enum sr_prefix_type type;
