@@ -686,6 +686,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	OSPF_TIMER_OFF(ospf->t_lsa_refresher);
 	OSPF_TIMER_OFF(ospf->t_opaque_lsa_self);
 	OSPF_TIMER_OFF(ospf->t_sr_update);
+	OSPF_TIMER_OFF(ospf->t_default_routemap_timer);
 
 	LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
 		ospf_discard_from_db(ospf, ospf->lsdb, lsa);

@@ -2032,18 +2032,22 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 static struct external_info *ospf_default_external_info(struct ospf *ospf)
 {
 	int type;
-	struct route_node *rn;
 	struct prefix_ipv4 p;
+	struct external_info *default_ei;
+	int ret = 0;
 
 	p.family = AF_INET;
 	p.prefix.s_addr = 0;
 	p.prefixlen = 0;
 
+	default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE,
+					       ospf->instance, &p);
+	if (!default_ei)
+		return NULL;
+
 	/* First, lookup redistributed default route. */
 	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 		struct list *ext_list;
-		struct listnode *node;
-		struct ospf_external *ext;
 
 		if (type == ZEBRA_ROUTE_OSPF)
 			continue;
@@ -2052,17 +2056,10 @@ static struct external_info *ospf_default_external_info(struct ospf *ospf)
 		if (!ext_list)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
-			rn = route_node_lookup(ext->external_info,
-					       (struct prefix *)&p);
-			if (rn != NULL) {
-				route_unlock_node(rn);
-				assert(rn->info);
-				if (ospf_redistribute_check(ospf, rn->info,
-							    NULL))
-					return rn->info;
-			}
-		}
+		ret = ospf_external_default_routemap_apply_walk(ospf, ext_list,
+								default_ei);
+		if (ret)
+			return default_ei;
 	}
 
 	return NULL;
