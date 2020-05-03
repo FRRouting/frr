@@ -249,6 +249,8 @@ struct ospf {
 
 	struct thread *t_write;
 #define OSPF_WRITE_INTERFACE_COUNT_DEFAULT    20
+	struct thread *t_default_routemap_timer;
+
 	int write_oi_count; /* Num of packets sent per thread invocation */
 	struct thread *t_read;
 	int fd;

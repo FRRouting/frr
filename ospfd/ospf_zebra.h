@@ -92,5 +92,10 @@ extern int ospf_distance_unset(struct vty *, struct ospf *, const char *,
 extern void ospf_zebra_init(struct thread_master *, unsigned short);
 extern void ospf_zebra_vrf_register(struct ospf *ospf);
 extern void ospf_zebra_vrf_deregister(struct ospf *ospf);
-
+bool ospf_external_default_routemap_apply_walk(
+	struct ospf *ospf, struct list *ext_list,
+	struct external_info *default_ei);
+int ospf_external_info_apply_default_routemap(struct ospf *ospf,
+					      struct external_info *ei,
+					      struct external_info *default_ei);
 #endif /* _ZEBRA_OSPF_ZEBRA_H */
