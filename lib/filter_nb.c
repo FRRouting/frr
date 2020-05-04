@@ -761,8 +761,6 @@ static int lib_prefix_list_create(struct nb_cb_create_args *args)
 	const char *name;
 	int type;
 
-	/* TODO: validate prefix_entry_dup_check() passes. */
-
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -907,6 +905,20 @@ static int
 lib_prefix_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
 {
 	struct prefix_list_entry *ple;
+	struct prefix p;
+
+	if (args->event == NB_EV_VALIDATE) {
+		/*
+		 * TODO: validate prefix_entry_dup_check() passes.
+		 *
+		 * This needs to be implemented using YANG lyd_node
+		 * navigation, because the `priv` data structures are not
+		 * available at `NB_EV_VALIDATE` phase. An easier
+		 * alternative would be mark `ipvx-prefix` as unique
+		 * (see RFC 7950, Section 7.8.3. The list "unique" Statement).
+		 */
+		return NB_OK;
+	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -917,6 +929,16 @@ lib_prefix_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
 	prefix_list_entry_update_start(ple);
 
 	yang_dnode_get_prefix(&ple->prefix, args->dnode, NULL);
+
+	/* Apply mask and correct original address if necessary. */
+	prefix_copy(&p, &ple->prefix);
+	apply_mask(&p);
+	if (!prefix_same(&ple->prefix, &p)) {
+		zlog_info("%s: bad network %pFX correcting it to %pFX",
+			  __func__, &ple->prefix, &p);
+		prefix_copy(&ple->prefix, &p);
+	}
+
 
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
