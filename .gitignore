@@ -57,6 +57,8 @@
 *_clippy.c
 *.bc
 *.cg.json
+*.cg.dot
+*.cg.svg
 
 ### gcov outputs
 
