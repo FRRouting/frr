@@ -284,7 +284,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		sbuf_push(buf, indent,
 			  "Unidir. Utilized Bandwidth: %g (Bytes/sec)\n",
 			  exts->use_bw);
-	/* Segment Routing Adjacency */
+	/* Segment Routing Adjacency  as per RFC8667 section #2.2.1 */
 	if (IS_SUBTLV(exts, EXT_ADJ_SID)) {
 		struct isis_adj_sid *adj;
 
@@ -315,6 +315,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					: '0');
 		}
 	}
+	/* Segment Routing LAN-Adjacency as per RFC8667 section #2.2.2 */
 	if (IS_SUBTLV(exts, EXT_LAN_ADJ_SID)) {
 		struct isis_lan_adj_sid *lan;
 
@@ -476,6 +477,7 @@ static int pack_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		stream_putc(s, ISIS_SUBTLV_DEF_SIZE);
 		stream_putf(s, exts->use_bw);
 	}
+	/* Segment Routing Adjacency as per RFC8667 section #2.2.1 */
 	if (IS_SUBTLV(exts, EXT_ADJ_SID)) {
 		struct isis_adj_sid *adj;
 
@@ -495,6 +497,7 @@ static int pack_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 
 		}
 	}
+	/* Segment Routing LAN-Adjacency as per RFC8667 section #2.2.2 */
 	if (IS_SUBTLV(exts, EXT_LAN_ADJ_SID)) {
 		struct isis_lan_adj_sid *lan;
 
@@ -721,7 +724,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				SET_SUBTLV(exts, EXT_USE_BW);
 			}
 			break;
-		/* Segment Routing Adjacency */
+		/* Segment Routing Adjacency as per RFC8667 section #2.2.1 */
 		case ISIS_SUBTLV_ADJ_SID:
 			if (subtlv_len != ISIS_SUBTLV_ADJ_SID_SIZE
 			    && subtlv_len != ISIS_SUBTLV_ADJ_SID_SIZE + 1) {
@@ -749,6 +752,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				SET_SUBTLV(exts, EXT_ADJ_SID);
 			}
 			break;
+		/* Segment Routing LAN-Adjacency as per RFC8667 section 2.2.2 */
 		case ISIS_SUBTLV_LAN_ADJ_SID:
 			if (subtlv_len != ISIS_SUBTLV_LAN_ADJ_SID_SIZE
 			    && subtlv_len != ISIS_SUBTLV_LAN_ADJ_SID_SIZE + 1) {
@@ -789,7 +793,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 	return 0;
 }
 
-/* Functions for Sub-TLV 3 SR Prefix-SID */
+/* Functions for Sub-TLV 3 SR Prefix-SID as per RFC8667 section 2.1 */
 static struct isis_item *copy_item_prefix_sid(struct isis_item *i)
 {
 	struct isis_prefix_sid *sid = (struct isis_prefix_sid *)i;
@@ -2585,7 +2589,7 @@ out:
 	return 1;
 }
 
-/* Functions related to TLV 242 Router Capability */
+/* Functions related to TLV 242 Router Capability as per RFC7981 */
 static struct isis_router_cap *copy_tlv_router_cap(
 			       const struct isis_router_cap *router_cap)
 {
@@ -2614,7 +2618,7 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 		  router_cap->flags & ISIS_ROUTER_CAP_FLAG_D ? '1' : '0',
 		  router_cap->flags & ISIS_ROUTER_CAP_FLAG_S ? '1' : '0');
 
-	/* SR Global Block */
+	/* Segment Routing Global Block as per RFC8667 section #3.1 */
 	if (router_cap->srgb.range_size != 0)
 		sbuf_push(buf, indent,
 			"  Segment Routing: I:%s V:%s, SRGB Base: %d Range: %d\n",
@@ -2623,7 +2627,7 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 			router_cap->srgb.lower_bound,
 			router_cap->srgb.range_size);
 
-	/* SR Algorithms */
+	/* Segment Routing Algorithms as per RFC8667 section #3.2 */
 	if (router_cap->algo[0] != SR_ALGORITHM_UNSET) {
 		sbuf_push(buf, indent, "    Algorithm: %s",
 			  router_cap->algo[0] == 0 ? "0: SPF"
@@ -2637,7 +2641,7 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 		sbuf_push(buf, indent, "\n");
 	}
 
-	/* SR Node MSSD */
+	/* Segment Routing Node MSD as per RFC8491 section #2 */
 	if (router_cap->msd != 0)
 		sbuf_push(buf, indent, "    Node MSD: %d\n", router_cap->msd);
 }
@@ -2674,7 +2678,7 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 	stream_put_ipv4(s, router_cap->router_id.s_addr);
 	stream_putc(s, router_cap->flags);
 
-	/* Add SRGB if set */
+	/* Add SRGB if set as per RFC8667 section #3.1 */
 	if ((router_cap->srgb.range_size != 0)
 	    && (router_cap->srgb.lower_bound != 0)) {
 		stream_putc(s, ISIS_SUBTLV_SID_LABEL_RANGE);
@@ -2685,7 +2689,7 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 		stream_putc(s, ISIS_SUBTLV_SID_LABEL_SIZE);
 		stream_put3(s, router_cap->srgb.lower_bound);
 
-		/* Then SR Algorithm if set */
+		/* Then SR Algorithm if set as per RFC8667 section #3.2 */
 		for (nb_algo = 0; nb_algo < SR_ALGORITHM_COUNT; nb_algo++)
 			if (router_cap->algo[nb_algo] == SR_ALGORITHM_UNSET)
 				break;
@@ -2695,7 +2699,7 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 			for (int i = 0; i < nb_algo; i++)
 				stream_putc(s, router_cap->algo[i]);
 		}
-		/* And finish with MSD if set */
+		/* And finish with MSD if set as per RFC8491 section #2 */
 		if (router_cap->msd != 0) {
 			stream_putc(s, ISIS_SUBTLV_NODE_MSD);
 			stream_putc(s, ISIS_SUBTLV_NODE_MSD_SIZE);
@@ -4602,6 +4606,7 @@ void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs,
 	append_item(&tlvs->oldstyle_ip_reach, (struct isis_item *)r);
 }
 
+/* Add IS-IS SR Adjacency-SID subTLVs */
 void isis_tlvs_add_adj_sid(struct isis_ext_subtlvs *exts,
 			   struct isis_adj_sid *adj)
 {
@@ -4609,6 +4614,7 @@ void isis_tlvs_add_adj_sid(struct isis_ext_subtlvs *exts,
 	SET_SUBTLV(exts, EXT_ADJ_SID);
 }
 
+/* Delete IS-IS SR Adjacency-SID subTLVs */
 void isis_tlvs_del_adj_sid(struct isis_ext_subtlvs *exts,
 			   struct isis_adj_sid *adj)
 {
@@ -4618,6 +4624,7 @@ void isis_tlvs_del_adj_sid(struct isis_ext_subtlvs *exts,
 		UNSET_SUBTLV(exts, EXT_ADJ_SID);
 }
 
+/* Add IS-IS SR LAN-Adjacency-SID subTLVs */
 void isis_tlvs_add_lan_adj_sid(struct isis_ext_subtlvs *exts,
 			       struct isis_lan_adj_sid *lan)
 {
@@ -4625,6 +4632,7 @@ void isis_tlvs_add_lan_adj_sid(struct isis_ext_subtlvs *exts,
 	SET_SUBTLV(exts, EXT_LAN_ADJ_SID);
 }
 
+/* Delete IS-IS SR LAN-Adjacency-SID subTLVs */
 void isis_tlvs_del_lan_adj_sid(struct isis_ext_subtlvs *exts,
 			       struct isis_lan_adj_sid *lan)
 {

@@ -1,8 +1,7 @@
 /*
- * This is an implementation of Segment Routing for IS-IS
- * as per draft draft-ietf-isis-segment-routing-extensions-25
+ * This is an implementation of Segment Routing for IS-IS as per RFC 8667
  *
- * Copyright (C) 2019 Orange Labs http://www.orange.com
+ * Copyright (C) 2019 Orange http://www.orange.com
  *
  * Author: Olivier Dugeon <olivier.dugeon@orange.com>
  * Contributor: Renato Westphal <renato@opensourcerouting.org> for NetDEF
@@ -48,13 +47,22 @@
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_errors.h"
 
+/* Local variables and functions */
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information")
 
 static void sr_prefix_uninstall(struct sr_prefix *srp);
 static void sr_prefix_reinstall(struct sr_prefix *srp, bool make_before_break);
 
-/*----------------------------------------------------------------------------*/
+/* --- RB-Tree Management functions ----------------------------------------- */
 
+/**
+ * SR Prefix comparison for RB-Tree.
+ *
+ * @param a	First SR prefix
+ * @param b	Second SR prefix
+ *
+ * @return	-1 (a < b), 0 (a == b) or +1 (a > b)
+ */
 static inline int sr_prefix_sid_compare(const struct sr_prefix *a,
 					const struct sr_prefix *b)
 {
@@ -65,6 +73,14 @@ DECLARE_RBTREE_UNIQ(srdb_node_prefix, struct sr_prefix, node_entry,
 DECLARE_RBTREE_UNIQ(srdb_area_prefix, struct sr_prefix, area_entry,
 		    sr_prefix_sid_compare)
 
+/**
+ * Configured SR Prefix comparison for RB-Tree.
+ *
+ * @param a	First SR prefix
+ * @param b	Second SR prefix
+ *
+ * @return	-1 (a < b), 0 (a == b) or +1 (a > b)
+ */
 static inline int sr_prefix_sid_cfg_compare(const struct sr_prefix_cfg *a,
 					    const struct sr_prefix_cfg *b)
 {
@@ -73,6 +89,14 @@ static inline int sr_prefix_sid_cfg_compare(const struct sr_prefix_cfg *a,
 DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry,
 		    sr_prefix_sid_cfg_compare)
 
+/**
+ * SR Node comparison for RB-Tree.
+ *
+ * @param a	First SR node
+ * @param b	Second SR node
+ *
+ * @return	-1 (a < b), 0 (a == b) or +1 (a > b)
+ */
 static inline int sr_node_compare(const struct sr_node *a,
 				  const struct sr_node *b)
 {
@@ -80,16 +104,32 @@ static inline int sr_node_compare(const struct sr_node *a,
 }
 DECLARE_RBTREE_UNIQ(srdb_node, struct sr_node, entry, sr_node_compare)
 
-/*----------------------------------------------------------------------------*/
+/* --- Functions used for Yang model and CLI to configure Segment Routing --- */
 
-/* Returns true if the interface/address pair corresponds to a Node-SID. */
+/**
+ * Check if prefix correspond to a Node SID.
+ *
+ * @param ifp	  Interface
+ * @param prefix  Prefix to be checked
+ *
+ * @return	  True if the interface/address pair corresponds to a Node-SID
+ */
 static bool sr_prefix_is_node_sid(const struct interface *ifp,
 				  const struct prefix *prefix)
 {
 	return (if_is_loopback(ifp) && is_host_route(prefix));
 }
 
-/* Handle changes in the local SRGB configuration. */
+/**
+ * Update local SRGB configuration. SRGB is reserved though Label Manager.
+ * This function trigger the update of local Prefix-SID installation.
+ *
+ * @param area		IS-IS area
+ * @param lower_bound	Lower bound of SRGB
+ * @param upper_bound	Upper bound of SRGB
+ *
+ * @return		0 on success, -1 otherwise
+ */
 int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 			    uint32_t upper_bound)
 {
@@ -137,7 +177,14 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 	return 0;
 }
 
-/* Handle new Prefix-SID configuration. */
+/**
+ * Add new Prefix-SID configuration to the SRDB.
+ *
+ * @param area	  IS-IS area
+ * @param prefix  Prefix to be added
+ *
+ * @return	  Newly added Prefix-SID configuration structure
+ */
 struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 					     const struct prefix *prefix)
 {
@@ -167,7 +214,11 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 	return pcfg;
 }
 
-/* Handle removal of locally configured Prefix-SID. */
+/**
+ * Removal of locally configured Prefix-SID.
+ *
+ * @param pcfg	Configured Prefix-SID
+ */
 void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg)
 {
 	struct isis_area *area = pcfg->area;
@@ -181,7 +232,14 @@ void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg)
 	XFREE(MTYPE_ISIS_SR_INFO, pcfg);
 }
 
-/* Lookup Prefix-SID in the local configuration. */
+/**
+ * Lookup for Prefix-SID in the local configuration.
+ *
+ * @param area	  IS-IS area
+ * @param prefix  Prefix to lookup
+ *
+ * @return	  Configured Prefix-SID structure if found, NULL otherwise
+ */
 struct sr_prefix_cfg *isis_sr_cfg_prefix_find(struct isis_area *area,
 					      union prefixconstptr prefix)
 {
@@ -191,7 +249,13 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_find(struct isis_area *area,
 	return srdb_prefix_cfg_find(&area->srdb.config.prefix_sids, &pcfg);
 }
 
-/* Fill in Prefix-SID Sub-TLV according to the corresponding configuration. */
+/**
+ * Fill in Prefix-SID Sub-TLV according to the corresponding configuration.
+ *
+ * @param pcfg	    Prefix-SID configuration
+ * @param external  False if prefix is locally configured, true otherwise
+ * @param psid	    Prefix-SID sub-TLV to be updated
+ */
 void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg, bool external,
 			       struct isis_prefix_sid *psid)
 {
@@ -227,8 +291,19 @@ void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg, bool external,
 	}
 }
 
-/*----------------------------------------------------------------------------*/
+/* --- Segment Routing Prefix Management functions -------------------------- */
 
+/**
+ * Add Segment Routing Prefix to a given Segment Routing Node.
+ *
+ * @param area	  IS-IS area
+ * @param srn	  Segment Routing Node
+ * @param prefix  Prefix to be added
+ * @param local	  True if prefix is locally configured, false otherwise
+ * @param psid	  Prefix-SID sub-TLVs
+ *
+ * @return	  New Segment Routing Prefix structure
+ */
 static struct sr_prefix *sr_prefix_add(struct isis_area *area,
 				       struct sr_node *srn,
 				       union prefixconstptr prefix, bool local,
@@ -259,6 +334,14 @@ static struct sr_prefix *sr_prefix_add(struct isis_area *area,
 	return srp;
 }
 
+/**
+ * Remove given Segment Prefix from given Segment Routing Node.
+ * Prefix-SID is un-installed first.
+ *
+ * @param area	IS-IS area
+ * @param srn	Segment Routing Node
+ * @param srp	Segment Routing Prefix
+ */
 static void sr_prefix_del(struct isis_area *area, struct sr_node *srn,
 			  struct sr_prefix *srp)
 {
@@ -272,6 +355,15 @@ static void sr_prefix_del(struct isis_area *area, struct sr_node *srn,
 	XFREE(MTYPE_ISIS_SR_INFO, srp);
 }
 
+/**
+ * Find Segment Routing Prefix by Area.
+ *
+ * @param area	  IS-IS area
+ * @param level	  IS-IS level
+ * @param prefix  Prefix to lookup
+ *
+ * @return	  Segment Routing Prefix structure if found, NULL otherwise
+ */
 static struct sr_prefix *sr_prefix_find_by_area(struct isis_area *area,
 						int level,
 						union prefixconstptr prefix)
@@ -279,10 +371,17 @@ static struct sr_prefix *sr_prefix_find_by_area(struct isis_area *area,
 	struct sr_prefix srp = {};
 
 	prefix_copy(&srp.prefix, prefix.p);
-	return srdb_area_prefix_find(&area->srdb.prefix_sids[level - 1],
-					&srp);
+	return srdb_area_prefix_find(&area->srdb.prefix_sids[level - 1], &srp);
 }
 
+/**
+ * Find Segment Routing Prefix by Segment Routing Node.
+ *
+ * @param srn	  Segment Routing Node
+ * @param prefix  Prefix to lookup
+ *
+ * @return	  Segment Routing Prefix structure if found, NULL otherwise
+ */
 static struct sr_prefix *sr_prefix_find_by_node(struct sr_node *srn,
 						union prefixconstptr prefix)
 {
@@ -292,6 +391,18 @@ static struct sr_prefix *sr_prefix_find_by_node(struct sr_node *srn,
 	return srdb_node_prefix_find(&srn->prefix_sids, &srp);
 }
 
+/* --- Segment Routing Node Management functions ---------------------------- */
+
+/**
+ * Add Segment Routing Node to the Segment Routing Data Base.
+ *
+ * @param area	 IS-IS area
+ * @param level	 IS-IS level
+ * @param sysid	 Node System ID
+ * @param cap	 Segment Routing Capability sub-TLVs
+ *
+ * @return	 New Segment Routing Node structure
+ */
 static struct sr_node *sr_node_add(struct isis_area *area, int level,
 				   const uint8_t *sysid,
 				   const struct isis_router_cap *cap)
@@ -312,6 +423,14 @@ static struct sr_node *sr_node_add(struct isis_area *area, int level,
 }
 
 static void sr_node_del(struct isis_area *area, int level, struct sr_node *srn)
+/**
+ * Remove Segment Routing Node from the Segment Routing Data Base.
+ * All Prefix-SID attached to this Segment Routing Node are removed first.
+ *
+ * @param area	 IS-IS area
+ * @param level	 IS-IS level
+ * @param srn	 Segment Routing Node to be deleted
+ */
 {
 
 	sr_debug("  |- Delete SR Node %s", sysid_print(srn->sysid));
@@ -328,6 +447,15 @@ static void sr_node_del(struct isis_area *area, int level, struct sr_node *srn)
 	XFREE(MTYPE_ISIS_SR_INFO, srn);
 }
 
+/**
+ * Find Segment Routing Node in the Segment Routing Data Base per system ID.
+ *
+ * @param area	 IS-IS area
+ * @param level	 IS-IS level
+ * @param sysid	 Node System ID to lookup
+ *
+ * @return	 Segment Routing Node structure if found, NULL otherwise
+ */
 static struct sr_node *sr_node_find(struct isis_area *area, int level,
 				    const uint8_t *sysid)
 {
@@ -337,6 +465,14 @@ static struct sr_node *sr_node_find(struct isis_area *area, int level,
 	return srdb_node_find(&area->srdb.sr_nodes[level - 1], &srn);
 }
 
+/**
+ * Update Segment Routing Node following an SRGB update. This function
+ * is called when a neighbor SR Node has updated its SRGB.
+ *
+ * @param area	 IS-IS area
+ * @param level	 IS-IS level
+ * @param sysid	 Segment Routing Node system ID
+ */
 static void sr_node_srgb_update(struct isis_area *area, int level,
 				uint8_t *sysid)
 {
@@ -372,6 +508,14 @@ static void sr_node_srgb_update(struct isis_area *area, int level,
 	}
 }
 
+/* --- Segment Routing Nexthop information Management functions ------------- */
+
+/**
+ * Update Segment Routing Nexthop.
+ *
+ * @param srnh	 Segment Routing next hop
+ * @param label	 Output MPLS label
+ */
 void isis_sr_nexthop_update(struct sr_nexthop_info *srnh, mpls_label_t label)
 {
 	srnh->label = label;
@@ -379,15 +523,28 @@ void isis_sr_nexthop_update(struct sr_nexthop_info *srnh, mpls_label_t label)
 		srnh->uptime = time(NULL);
 }
 
+/**
+ * Reset Segment Routing Nexthop.
+ *
+ * @param srnh	Segment Routing Nexthop
+ */
 void isis_sr_nexthop_reset(struct sr_nexthop_info *srnh)
 {
 	srnh->label = MPLS_INVALID_LABEL;
 	srnh->uptime = 0;
 }
 
-/*----------------------------------------------------------------------------*/
+/* --- Segment Routing Prefix-SID Management functions to configure LFIB ---- */
 
-/* Lookup IS-IS route in the SPT. */
+/**
+ * Lookup IS-IS route in the Shortest Path Tree.
+ *
+ * @param area	   IS-IS area
+ * @param tree_id  Shortest Path Tree identifier
+ * @param srp	   Segment Routing Prefix to lookup
+ *
+ * @return	   Route Information for this prefix if found, NULL otherwise
+ */
 static struct isis_route_info *sr_prefix_lookup_route(struct isis_area *area,
 						      enum spf_tree_id tree_id,
 						      struct sr_prefix *srp)
@@ -406,18 +563,24 @@ static struct isis_route_info *sr_prefix_lookup_route(struct isis_area *area,
 	return NULL;
 }
 
-/* Calculate Prefix-SID input label. */
+/**
+ * Compute input label for the given Prefix-SID.
+ *
+ * @param srp	Segment Routing Prefix
+ *
+ * @return	MPLS label or MPLS_INVALID_LABEL in case of SRGB overflow
+ */
 static mpls_label_t sr_prefix_in_label(const struct sr_prefix *srp)
 {
 	const struct sr_node *srn = srp->srn;
 	struct isis_area *area = srn->area;
 
-	/* Absolute SID value. */
+	/* Return SID value as MPLS label if it is an Absolute SID */
 	if (CHECK_FLAG(srp->sid.flags,
 		       ISIS_PREFIX_SID_VALUE | ISIS_PREFIX_SID_LOCAL))
 		return srp->sid.value;
 
-	/* Index SID value. */
+	/* Check that SID index falls inside the SRGB */
 	if (srp->sid.value >= (area->srdb.config.srgb_upper_bound
 			       - area->srdb.config.srgb_lower_bound + 1)) {
 		flog_warn(EC_ISIS_SID_OVERFLOW,
@@ -426,21 +589,32 @@ static mpls_label_t sr_prefix_in_label(const struct sr_prefix *srp)
 		return MPLS_INVALID_LABEL;
 	}
 
+	/* Return MPLS label as SID index + SRGB_lower_bound as per RFC 8667 */
 	return (area->srdb.config.srgb_lower_bound + srp->sid.value);
 }
 
-/* Calculate Prefix-SID output label. */
+/**
+ * Compute output label for the given Prefix-SID.
+ *
+ * @param srp		Segment Routing Prefix
+ * @param srn_nexthop	Segment Routing nexthop node
+ * @param sysid		System ID of the SR node which advertised the Prefix-SID
+ *
+ * @return		MPLS label or MPLS_INVALID_LABEL in case of error
+ */
 static mpls_label_t sr_prefix_out_label(const struct sr_prefix *srp,
 					const struct sr_node *srn_nexthop,
 					const uint8_t *sysid)
 {
 	const struct sr_node *srn = srp->srn;
 
-	/* Is the adjacency the last hop? */
+	/* Check if the nexthop SR Node is the last hop? */
 	if (memcmp(sysid, srn->sysid, ISIS_SYS_ID_LEN) == 0) {
+		/* SR-Node doesn't request NO-PHP. Return Implicit NULL label */
 		if (!CHECK_FLAG(srp->sid.flags, ISIS_PREFIX_SID_NO_PHP))
 			return MPLS_LABEL_IMPLICIT_NULL;
 
+		/* SR-Node requests Implicit NULL Label */
 		if (CHECK_FLAG(srp->sid.flags, ISIS_PREFIX_SID_EXPLICIT_NULL)) {
 			if (srp->prefix.family == AF_INET)
 				return MPLS_LABEL_IPV4_EXPLICIT_NULL;
@@ -450,19 +624,19 @@ static mpls_label_t sr_prefix_out_label(const struct sr_prefix *srp,
 		/* Fallthrough */
 	}
 
-	/* Absolute SID value. */
+	/* Return SID value as MPLS label if it is an Absolute SID */
 	if (CHECK_FLAG(srp->sid.flags,
 		       ISIS_PREFIX_SID_VALUE | ISIS_PREFIX_SID_LOCAL)) {
 		/*
 		 * V/L SIDs have local significance, so only adjacent routers
-		 * can use them.
+		 * can use them (RFC8667 section #2.1.1.1)
 		 */
 		if (srp->srn != srn_nexthop)
 			return MPLS_INVALID_LABEL;
 		return srp->sid.value;
 	}
 
-	/* Index SID value. */
+	/* Check that SID index falls inside the SRGB */
 	if (srp->sid.value >= srn_nexthop->cap.srgb.range_size) {
 		flog_warn(EC_ISIS_SID_OVERFLOW,
 			  "%s: SID index %u falls outside remote SRGB range",
@@ -470,17 +644,25 @@ static mpls_label_t sr_prefix_out_label(const struct sr_prefix *srp,
 		return MPLS_INVALID_LABEL;
 	}
 
+	/* Return MPLS label as SID index + SRGB_lower_bound as per RFC 8667 */
 	return (srn_nexthop->cap.srgb.lower_bound + srp->sid.value);
 }
 
-/* Process local Prefix-SID and install it if possible. */
+/**
+ * Process local Prefix-SID and install it if possible. Input label is
+ * computed before installing it in LFIB.
+ *
+ * @param srp	Segment Routing Prefix
+ *
+ * @return	0 on success, -1 otherwise
+ */
 static int sr_prefix_install_local(struct sr_prefix *srp)
 {
 	mpls_label_t input_label;
 	const struct sr_node *srn = srp->srn;
 
 	/*
-	 * No need to install LSP to local Prefix-SID unless the
+	 * No need to install Label for local Prefix-SID unless the
 	 * no-PHP option is configured.
 	 */
 	if (!CHECK_FLAG(srp->sid.flags, ISIS_PREFIX_SID_NO_PHP)
@@ -491,7 +673,7 @@ static int sr_prefix_install_local(struct sr_prefix *srp)
 		 &srp->prefix, IS_SID_VALUE(srp->sid.flags) ? "label" : "index",
 		 srp->sid.value, circuit_t2string(srn->level));
 
-	/* Calculate local label. */
+	/* Compute input label and check that is valid. */
 	input_label = sr_prefix_in_label(srp);
 	if (input_label == MPLS_INVALID_LABEL)
 		return -1;
@@ -506,7 +688,14 @@ static int sr_prefix_install_local(struct sr_prefix *srp)
 	return 0;
 }
 
-/* Process remote Prefix-SID and install it if possible. */
+/**
+ * Process remote Prefix-SID and install it if possible. Input and Output
+ * labels are computed before installing them in LFIB.
+ *
+ * @param srp	Segment Routing Prefix
+ *
+ * @return	0 on success, -1 otherwise
+ */
 static int sr_prefix_install_remote(struct sr_prefix *srp)
 {
 	const struct sr_node *srn = srp->srn;
@@ -517,14 +706,14 @@ static int sr_prefix_install_remote(struct sr_prefix *srp)
 	mpls_label_t input_label;
 	size_t nexthop_num = 0;
 
-	/* Lookup associated IS-IS route. */
+	/* Lookup to associated IS-IS route. */
 	tree_id = (srp->prefix.family == AF_INET) ? SPFTREE_IPV4 : SPFTREE_IPV6;
 	srp->u.remote.rinfo = sr_prefix_lookup_route(area, tree_id, srp);
 	if (!srp->u.remote.rinfo)
 		/* SPF hasn't converged for this route yet. */
 		return -1;
 
-	/* Calculate local label. */
+	/* Compute input label and check that is valid. */
 	input_label = sr_prefix_in_label(srp);
 	if (input_label == MPLS_INVALID_LABEL)
 		return -1;
@@ -533,6 +722,7 @@ static int sr_prefix_install_remote(struct sr_prefix *srp)
 		 IS_SID_VALUE(srp->sid.flags) ? "label" : "index",
 		 srp->sid.value, circuit_t2string(srn->level));
 
+	/* Process all SPF nexthops */
 	for (ALL_LIST_ELEMENTS_RO(srp->u.remote.rinfo->nexthops, node,
 				  nexthop)) {
 		struct sr_node *srn_nexthop;
@@ -553,6 +743,7 @@ static int sr_prefix_install_remote(struct sr_prefix *srp)
 			&& !IS_SR_IPV6(srn_nexthop->cap.srgb)))
 			goto next;
 
+		/* Compute output label and check if it is valid */
 		output_label =
 			sr_prefix_out_label(srp, srn_nexthop, nexthop->sysid);
 		if (output_label == MPLS_INVALID_LABEL)
@@ -573,6 +764,8 @@ static int sr_prefix_install_remote(struct sr_prefix *srp)
 	next:
 		isis_sr_nexthop_reset(&nexthop->sr);
 	}
+
+	/* Check that we found at least one valid nexthop */
 	if (nexthop_num == 0) {
 		sr_debug("    |- no valid nexthops");
 		return -1;
@@ -587,7 +780,11 @@ static int sr_prefix_install_remote(struct sr_prefix *srp)
 	return 0;
 }
 
-/* Process local or remote Prefix-SID and install it if possible. */
+/**
+ * Process local or remote Prefix-SID and install it if possible.
+ *
+ * @param srp	Segment Routing Prefix
+ */
 static void sr_prefix_install(struct sr_prefix *srp)
 {
 	const struct sr_node *srn = srp->srn;
@@ -620,6 +817,7 @@ static void sr_prefix_install(struct sr_prefix *srp)
 		}
 	}
 
+	/* Install corresponding LFIB entry */
 	if (srp->type == ISIS_SR_PREFIX_LOCAL)
 		ret = sr_prefix_install_local(srp);
 	else
@@ -628,12 +826,17 @@ static void sr_prefix_install(struct sr_prefix *srp)
 		sr_prefix_uninstall(srp);
 }
 
-/* Uninstall local or remote Prefix-SID. */
+/**
+ * Uninstall local or remote Prefix-SID.
+ *
+ * @param srp	Segment Routing Prefix
+ */
 static void sr_prefix_uninstall(struct sr_prefix *srp)
 {
 	struct listnode *node;
 	struct isis_nexthop *nexthop;
 
+	/* Check that Input Label is valid */
 	if (srp->input_label == MPLS_INVALID_LABEL)
 		return;
 
@@ -660,7 +863,11 @@ static void sr_prefix_uninstall(struct sr_prefix *srp)
 	}
 }
 
-/* Reinstall local or remote Prefix-SID. */
+/**
+ * Reinstall local or remote Prefix-SID.
+ *
+ * @param srp	Segment Routing Prefix
+ */
 static inline void sr_prefix_reinstall(struct sr_prefix *srp,
 				       bool make_before_break)
 {
@@ -673,12 +880,22 @@ static inline void sr_prefix_reinstall(struct sr_prefix *srp,
 	if (!make_before_break)
 		sr_prefix_uninstall(srp);
 
+	/* New input label is computed in sr_prefix_install() function */
 	sr_prefix_install(srp);
 }
 
-/*----------------------------------------------------------------------------*/
+/* --- IS-IS LSP Parse functions -------------------------------------------- */
 
-/* Parse all SR-related information from the given Router Capabilities TLV. */
+/**
+ * Parse all SR-related information from the given Router Capabilities TLV.
+ *
+ * @param area		IS-IS area
+ * @param level		IS-IS level
+ * @param sysid		System ID of the LSP
+ * @param router_cap	Router Capability subTLVs
+ *
+ * @return		Segment Routing Node structure for this System ID
+ */
 static struct sr_node *
 parse_router_cap_tlv(struct isis_area *area, int level, const uint8_t *sysid,
 		     const struct isis_router_cap *router_cap)
@@ -709,7 +926,14 @@ parse_router_cap_tlv(struct isis_area *area, int level, const uint8_t *sysid,
 	return srn;
 }
 
-/* Parse list of Prefix-SID Sub-TLVs. */
+/**
+ * Parse list of Prefix-SID Sub-TLVs.
+ *
+ * @param srn		Segment Routing Node
+ * @param prefix	Prefix to be parsed
+ * @param local		True if prefix comes from own LSP, false otherwise
+ * @param prefix_sids	Prefix SID subTLVs
+ */
 static void parse_prefix_sid_subtlvs(struct sr_node *srn,
 				     union prefixconstptr prefix, bool local,
 				     struct isis_item_list *prefix_sids)
@@ -719,13 +943,16 @@ static void parse_prefix_sid_subtlvs(struct sr_node *srn,
 
 	sr_debug("ISIS-Sr (%s): Parse Prefix SID TLV", area->area_tag);
 
+	/* Parse list of Prefix SID subTLVs */
 	for (i = prefix_sids->head; i; i = i->next) {
 		struct isis_prefix_sid *psid = (struct isis_prefix_sid *)i;
 		struct sr_prefix *srp;
 
+		/* Only SPF algorithm is supported right now */
 		if (psid->algorithm != SR_ALGORITHM_SPF)
 			continue;
 
+		/* Compute corresponding Segment Routing Prefix */
 		srp = sr_prefix_find_by_node(srn, prefix);
 		if (srp) {
 			if (srp->sid.flags != psid->flags
@@ -753,7 +980,14 @@ static void parse_prefix_sid_subtlvs(struct sr_node *srn,
 	}
 }
 
-/* Parse all SR-related information from the given LSP. */
+/**
+ * Parse all SR-related information from the given LSP.
+ *
+ * @param area	IS-IS area
+ * @param level	IS-IS level
+ * @param srn	Segment Routing Node
+ * @param lsp	IS-IS LSP
+ */
 static void parse_lsp(struct isis_area *area, int level, struct sr_node **srn,
 		      struct isis_lsp *lsp)
 {
@@ -761,6 +995,7 @@ static void parse_lsp(struct isis_area *area, int level, struct sr_node **srn,
 	struct isis_item *i;
 	bool local = lsp->own_lsp;
 
+	/* Check LSP sequence number */
 	if (lsp->hdr.seqno == 0) {
 		zlog_warn("%s: lsp with 0 seq_num - ignore", __func__);
 		return;
@@ -805,24 +1040,31 @@ static void parse_lsp(struct isis_area *area, int level, struct sr_node **srn,
 	}
 }
 
-/* Parse all SR-related information from the entire LSPDB. */
+/**
+ * Parse all SR-related information from the entire LSPDB.
+ *
+ * @param area	IS-IS area
+ */
 static void parse_lspdb(struct isis_area *area)
 {
 	struct isis_lsp *lsp;
 
 	sr_debug("ISIS-Sr (%s): Parse LSP Data Base", area->area_tag);
 
+	/* Process all LSP from Level 1 & 2 */
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 		frr_each (lspdb, &area->lspdb[level - 1], lsp) {
 			struct isis_lsp *frag;
 			struct listnode *node;
 			struct sr_node *srn = NULL;
 
+			/* Skip Pseudo ID LSP and LSP without TLVs */
 			if (LSP_PSEUDO_ID(lsp->hdr.lsp_id))
 				continue;
 			if (!lsp->tlvs)
 				continue;
 
+			/* Parse LSP, then fragment */
 			parse_lsp(area, level, &srn, lsp);
 			for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag))
 				parse_lsp(area, level, &srn, frag);
@@ -830,7 +1072,12 @@ static void parse_lspdb(struct isis_area *area)
 	}
 }
 
-/* Process any new/deleted/modified Prefix-SID in the LSPDB. */
+/**
+ * Process any new/deleted/modified Prefix-SID in the LSPDB.
+ *
+ * @param srn	Segment Routing Node
+ * @param srp	Segment Routing Prefix
+ */
 static void process_prefix_changes(struct sr_node *srn, struct sr_prefix *srp)
 {
 	struct isis_area *area = srn->area;
@@ -857,10 +1104,17 @@ static void process_prefix_changes(struct sr_node *srn, struct sr_prefix *srp)
 		return;
 	}
 
+	/* Validate SRDB State for next LSPDB parsing */
 	srp->state = SRDB_STATE_VALIDATED;
 }
 
-/* Process any new/deleted/modified SRGB in the LSPDB. */
+/**
+ * Process any new/deleted/modified SRGB in the LSPDB.
+ *
+ * @param area	IS-IS area
+ * @param level	IS-IS level
+ * @param srn	Segment Routing Node
+ */
 static void process_node_changes(struct isis_area *area, int level,
 				 struct sr_node *srn)
 {
@@ -871,8 +1125,8 @@ static void process_node_changes(struct isis_area *area, int level,
 	memcpy(sysid, srn->sysid, sizeof(sysid));
 
 	/*
-	 * If an adjacent router's SRGB was changed or created, then reinstall
-	 * all Prefix-SIDs from all nodes.
+	 * If an neighbor router's SRGB was changed or created, then reinstall
+	 * all Prefix-SIDs from all nodes that use this neighbor as nexthop.
 	 */
 	adjacent = isis_adj_exists(area, level, sysid);
 	switch (srn->state) {
@@ -886,22 +1140,30 @@ static void process_node_changes(struct isis_area *area, int level,
 	case SRDB_STATE_UNCHANGED:
 		break;
 	default:
+		/* SR capabilities have been removed. Delete SR-Node */
 		sr_debug("ISIS-Sr (%s): Remove SR node %s", area->area_tag,
 			 sysid_print(srn->sysid));
-		sr_node_del(area, level, srn);
 
+		sr_node_del(area, level, srn);
+		/* and Update remaining Prefix-SID from all remaining SR Node */
 		if (adjacent)
 			sr_node_srgb_update(area, level, sysid);
 		return;
 	}
 
+	/* Validate SRDB State for next LSPDB parsing */
 	srn->state = SRDB_STATE_VALIDATED;
 
+	/* Finally, process all Prefix-SID of this SR Node */
 	frr_each_safe (srdb_node_prefix, &srn->prefix_sids, srp)
 		process_prefix_changes(srn, srp);
 }
 
-/* Parse and process all SR-related Sub-TLVs after running the SPF algorithm. */
+/**
+ * Parse and process all SR-related Sub-TLVs after running the SPF algorithm.
+ *
+ * @param area	IS-IS area
+ */
 void isis_area_verify_sr(struct isis_area *area)
 {
 	struct sr_node *srn;
@@ -919,9 +1181,15 @@ void isis_area_verify_sr(struct isis_area *area)
 	}
 }
 
-/*
+/**
  * Once a route is updated in the SPT, reinstall or uninstall its corresponding
  * Prefix-SID (if any).
+ *
+ * @param area		IS-IS area
+ * @param prefix	Prefix to be updated
+ * @param route_info	New Route Information
+ *
+ * @return		0
  */
 static int sr_route_update(struct isis_area *area, struct prefix *prefix,
 			   struct isis_route_info *route_info)
@@ -934,6 +1202,7 @@ static int sr_route_update(struct isis_area *area, struct prefix *prefix,
 	sr_debug("ISIS-Sr (%s): Update route for prefix %pFX", area->area_tag,
 		 prefix);
 
+	/* Lookup to Segment Routing Prefix for this prefix */
 	switch (area->is_type) {
 	case IS_LEVEL_1:
 		srp = sr_prefix_find_by_area(area, ISIS_LEVEL1, prefix);
@@ -952,9 +1221,11 @@ static int sr_route_update(struct isis_area *area, struct prefix *prefix,
 		exit(1);
 	}
 
+	/* Skip NULL or local Segment Routing Prefix */
 	if (!srp || srp->type == ISIS_SR_PREFIX_LOCAL)
 		return 0;
 
+	/* Install or unintall Prefix-SID if route is Active or not */
 	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ACTIVE)) {
 		/*
 		 * The Prefix-SID input label hasn't changed. We could use the
@@ -971,9 +1242,15 @@ static int sr_route_update(struct isis_area *area, struct prefix *prefix,
 	return 0;
 }
 
-/*----------------------------------------------------------------------------*/
+/* --- Segment Routing Adjacency-SID management functions ------------------- */
 
-/* Add new local Adj-SID. */
+/**
+ * Add new local Adjacency-SID.
+ *
+ * @param adj	  IS-IS Adjacency
+ * @param family  Inet Family (IPv4 or IPv6)
+ * @param backup  True to initialize backup Adjacency SID
+ */
 static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 				  bool backup)
 {
@@ -989,6 +1266,7 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 	sr_debug("ISIS-Sr (%s): Add %s Adjacency SID", area->area_tag,
 		 backup ? "Backup" : "Primary");
 
+	/* Determine nexthop IP address */
 	switch (family) {
 	case AF_INET:
 		if (!circuit->ip_router)
@@ -1008,6 +1286,7 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 		exit(1);
 	}
 
+	/* Prepare Segment Routing Adjacency as per RFC8667 section #2.2 */
 	flags = EXT_SUBTLV_LINK_ADJ_SID_VFLG | EXT_SUBTLV_LINK_ADJ_SID_LFLG;
 	if (family == AF_INET6)
 		SET_FLAG(flags, EXT_SUBTLV_LINK_ADJ_SID_FFLG);
@@ -1024,6 +1303,7 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 	sra->nexthop.address = nexthop;
 	sra->nexthop.label = input_label;
 	switch (circuit->circ_type) {
+	/* LAN Adjacency-SID for Broadcast interface section #2.2.2 */
 	case CIRCUIT_T_BROADCAST:
 		ladj_sid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*ladj_sid));
 		ladj_sid->family = family;
@@ -1035,6 +1315,7 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 		isis_tlvs_add_lan_adj_sid(circuit->ext, ladj_sid);
 		sra->u.ladj_sid = ladj_sid;
 		break;
+	/* Adjacency-SID for Point to Point interface section #2.2.1 */
 	case CIRCUIT_T_P2P:
 		adj_sid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*adj_sid));
 		adj_sid->family = family;
@@ -1049,6 +1330,8 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 			 __func__, circuit->circ_type);
 		exit(1);
 	}
+
+	/* Add Adjacency-SID in SRDB */
 	sra->adj = adj;
 	listnode_add(area->srdb.adj_sids, sra);
 	listnode_add(adj->adj_sids, sra);
@@ -1056,13 +1339,23 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 	isis_zebra_send_adjacency_sid(ZEBRA_MPLS_LABELS_ADD, sra);
 }
 
+/**
+ * Add Primary and Backup local Adjacency SID.
+ *
+ * @param adj	  IS-IS Adjacency
+ * @param family  Inet Family (IPv4 or IPv6)
+ */
 static void sr_adj_sid_add(struct isis_adjacency *adj, int family)
 {
 	sr_adj_sid_add_single(adj, family, false);
 	sr_adj_sid_add_single(adj, family, true);
 }
 
-/* Delete local Adj-SID. */
+/**
+ * Delete local Adj-SID.
+ *
+ * @param sra	Segment Routing Adjacency
+ */
 static void sr_adj_sid_del(struct sr_adjacency *sra)
 {
 	struct isis_circuit *circuit = sra->adj->circuit;
@@ -1072,6 +1365,7 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
 
 	isis_zebra_send_adjacency_sid(ZEBRA_MPLS_LABELS_DELETE, sra);
 
+	/* Release dynamic label and remove subTLVs */
 	switch (circuit->circ_type) {
 	case CIRCUIT_T_BROADCAST:
 		isis_zebra_release_dynamic_label(sra->u.ladj_sid->sid);
@@ -1087,12 +1381,19 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
 		exit(1);
 	}
 
+	/* Remove Adjacency-SID from the SRDB */
 	listnode_delete(area->srdb.adj_sids, sra);
 	listnode_delete(sra->adj->adj_sids, sra);
 	XFREE(MTYPE_ISIS_SR_INFO, sra);
 }
 
-/* Remove all Adj-SIDs associated to an adjacency that is going down. */
+/**
+ * Remove all Adjacency-SIDs associated to an adjacency that is going down.
+ *
+ * @param adj	IS-IS Adjacency
+ *
+ * @return	0
+ */
 static int sr_adj_state_change(struct isis_adjacency *adj)
 {
 	struct sr_adjacency *sra;
@@ -1110,9 +1411,14 @@ static int sr_adj_state_change(struct isis_adjacency *adj)
 	return 0;
 }
 
-/*
- * Adjacency now has one or more IPv4/IPv6 addresses. Add new IPv4 or IPv6
- * Adj-SID accordingly.
+/**
+ * When IS-IS Adjacency got one or more IPv4/IPv6 addresses, add new IPv4 or
+ * IPv6 address to corresponding Adjacency-SID accordingly.
+ *
+ * @param adj	  IS-IS Adjacency
+ * @param family  Inet Family (IPv4 or IPv6)
+ *
+ * @return	  0
  */
 static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family)
 {
@@ -1124,9 +1430,14 @@ static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family)
 	return 0;
 }
 
-/*
- * Adjacency doesn't have any IPv4 or IPv6 addresses anymore. Delete the
- * corresponding Adj-SID(s) accordingly.
+/**
+ * When IS-IS Adjacency doesn't have any IPv4 or IPv6 addresses anymore,
+ * delete the corresponding Adjacency-SID(s) accordingly.
+ *
+ * @param adj	  IS-IS Adjacency
+ * @param family  Inet Family (IPv4 or IPv6)
+ *
+ * @return	  0
  */
 static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family)
 {
@@ -1143,6 +1454,13 @@ static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family)
 	return 0;
 }
 
+/**
+ * Activate local Prefix-SID when loopback interface goes up for IS-IS.
+ *
+ * @param ifp	Loopback Interface
+ *
+ * @return	0
+ */
 static int sr_if_new_hook(struct interface *ifp)
 {
 	struct isis_circuit *circuit;
@@ -1150,6 +1468,7 @@ static int sr_if_new_hook(struct interface *ifp)
 	struct connected *connected;
 	struct listnode *node;
 
+	/* Get corresponding circuit */
 	circuit = circuit_scan_by_ifp(ifp);
 	if (!circuit)
 		return 0;
@@ -1180,8 +1499,16 @@ static int sr_if_new_hook(struct interface *ifp)
 	return 0;
 }
 
-/*----------------------------------------------------------------------------*/
+/* --- Segment Routing Show information functions --------------------------- */
 
+/**
+ * Show Local Prefix-SID.
+ *
+ * @param vty	VTY output
+ * @param tt	Table format
+ * @param area	IS-IS area
+ * @param srp	Segment Routing Prefix
+ */
 static void show_prefix_sid_local(struct vty *vty, struct ttable *tt,
 				  const struct isis_area *area,
 				  const struct sr_prefix *srp)
@@ -1209,6 +1536,14 @@ static void show_prefix_sid_local(struct vty *vty, struct ttable *tt,
 		       srp->sid.value, buf_llabel, buf_rlabel, buf_uptime);
 }
 
+/**
+ * Show Remote Prefix-SID.
+ *
+ * @param vty	VTY output
+ * @param tt	Table format
+ * @param area	IS-IS area
+ * @param srp	Segment Routing Prefix
+ */
 static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 				   const struct isis_area *area,
 				   const struct sr_prefix *srp)
@@ -1268,6 +1603,13 @@ static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 	}
 }
 
+/**
+ * Show Prefix-SIDs.
+ *
+ * @param vty	VTY output
+ * @param area	IS-IS area
+ * @param level	IS-IS level
+ */
 static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
 {
 	struct sr_prefix *srp;
@@ -1286,6 +1628,7 @@ static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
 	ttable_restyle(tt);
 	ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
+	/* Process all Prefix-SID from the SRDB */
 	frr_each (srdb_area_prefix, &area->srdb.prefix_sids[level - 1], srp) {
 		switch (srp->type) {
 		case ISIS_SR_PREFIX_LOCAL:
@@ -1308,6 +1651,9 @@ static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
 	ttable_del(tt);
 }
 
+/**
+ * Declaration of new show command.
+ */
 DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
       "show isis segment-routing prefix-sids",
       SHOW_STR PROTO_HELP
@@ -1328,9 +1674,15 @@ DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
 	return CMD_SUCCESS;
 }
 
-/*----------------------------------------------------------------------------*/
+/* --- IS-IS Segment Routing Management function ---------------------------- */
 
-/* Try to enable SR on the given IS-IS area. */
+/**
+ * Enable SR on the given IS-IS area.
+ *
+ * @param area	IS-IS area
+ *
+ * @return	0 on success, -1 otherwise
+ */
 int isis_sr_start(struct isis_area *area)
 {
 	struct isis_sr_db *srdb = &area->srdb;
@@ -1350,7 +1702,7 @@ int isis_sr_start(struct isis_area *area)
 	sr_debug("ISIS-Sr: Starting Segment Routing for area %s",
 		 area->area_tag);
 
-	/* Create Adj-SIDs for existing adjacencies. */
+	/* Create Adjacency-SIDs from existing IS-IS Adjacencies. */
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
 		struct isis_adjacency *adj;
 		struct listnode *anode;
@@ -1381,13 +1733,17 @@ int isis_sr_start(struct isis_area *area)
 		}
 	}
 
-	/* Regenerate LSPs. */
+	/* Regenerate LSPs to advertise Segment Routing capabilities. */
 	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return 0;
 }
 
-/* Disable SR on the given IS-IS area. */
+/**
+ * Disable SR on the given IS-IS area.
+ *
+ * @param area	IS-IS area
+ */
 void isis_sr_stop(struct isis_area *area)
 {
 	struct isis_sr_db *srdb = &area->srdb;
@@ -1397,11 +1753,11 @@ void isis_sr_stop(struct isis_area *area)
 	sr_debug("ISIS-Sr: Stopping Segment Routing for area %s",
 		 area->area_tag);
 
-	/* Uninstall Adj-SIDs. */
+	/* Uninstall all local Adjacency-SIDs. */
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))
 		sr_adj_sid_del(sra);
 
-	/* Uninstall Prefix-SIDs. */
+	/* Uninstall all Prefix-SIDs from all SR Node. */
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 		while (srdb_node_count(&srdb->sr_nodes[level - 1]) > 0) {
 			struct sr_node *srn;
@@ -1415,10 +1771,15 @@ void isis_sr_stop(struct isis_area *area)
 	isis_zebra_release_label_range(srdb->config.srgb_lower_bound,
 				       srdb->config.srgb_upper_bound);
 
-	/* Regenerate LSPs. */
+	/* Regenerate LSPs to advertise that the Node is no more SR enable. */
 	lsp_regenerate_schedule(area, area->is_type, 0);
 }
 
+/**
+ * IS-IS Segment Routing initialization for given area.
+ *
+ * @param area	IS-IS area
+ */
 void isis_sr_area_init(struct isis_area *area)
 {
 	struct isis_sr_db *srdb = &area->srdb;
@@ -1426,6 +1787,7 @@ void isis_sr_area_init(struct isis_area *area)
 	sr_debug("ISIS-Sr (%s): Initialize Segment Routing SRDB",
 		 area->area_tag);
 
+	/* Initialize Segment Routing Data Base */
 	memset(srdb, 0, sizeof(*srdb));
 	srdb->enabled = false;
 	srdb->adj_sids = list_new();
@@ -1451,6 +1813,11 @@ void isis_sr_area_init(struct isis_area *area)
 	srdb_prefix_cfg_init(&srdb->config.prefix_sids);
 }
 
+/**
+ * Terminate IS-IS Segment Routing for the given area.
+ *
+ * @param area	IS-IS area
+ */
 void isis_sr_area_term(struct isis_area *area)
 {
 	struct isis_sr_db *srdb = &area->srdb;
@@ -1468,6 +1835,9 @@ void isis_sr_area_term(struct isis_area *area)
 	}
 }
 
+/**
+ * IS-IS Segment Routing global initialization.
+ */
 void isis_sr_init(void)
 {
 	install_element(VIEW_NODE, &show_sr_prefix_sids_cmd);
@@ -1480,6 +1850,9 @@ void isis_sr_init(void)
 	hook_register(isis_if_new_hook, sr_if_new_hook);
 }
 
+/**
+ * IS-IS Segment Routing global terminate.
+ */
 void isis_sr_term(void)
 {
 	/* Unregister hooks. */

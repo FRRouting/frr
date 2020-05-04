@@ -1,8 +1,7 @@
 /*
- * This is an implementation of Segment Routing for IS-IS
- * as per draft draft-ietf-isis-segment-routing-extensions-25
+ * This is an implementation of Segment Routing for IS-IS as per RFC 8667
  *
- * Copyright (C) 2019 Orange Labs http://www.orange.com
+ * Copyright (C) 2019 Orange http://www.orange.com
  *
  * Author: Olivier Dugeon <olivier.dugeon@orange.com>
  * Contributor: Renato Westphal <renato@opensourcerouting.org> for NetDEF
@@ -55,30 +54,31 @@
 #define SRGB_LOWER_BOUND               16000
 #define SRGB_UPPER_BOUND               23999
 
+/* Segment Routing Data Base (SRDB) RB-Tree structure */
 PREDECL_RBTREE_UNIQ(srdb_node)
 PREDECL_RBTREE_UNIQ(srdb_node_prefix)
 PREDECL_RBTREE_UNIQ(srdb_area_prefix)
 PREDECL_RBTREE_UNIQ(srdb_prefix_cfg)
 
-/* SR Adj-SID type. */
+/* Segment Routing Adjacency-SID type. */
 enum sr_adj_type {
 	ISIS_SR_ADJ_NORMAL = 0,
 	ISIS_SR_LAN_BACKUP,
 };
 
-/* SR Adjacency. */
+/* Segment Routing Adjacency. */
 struct sr_adjacency {
 	/* Adjacency type. */
 	enum sr_adj_type type;
 
-	/* Adj-SID nexthop information. */
+	/* Adjacency-SID nexthop information. */
 	struct {
 		int family;
 		union g_addr address;
 		mpls_label_t label;
 	} nexthop;
 
-	/* (LAN-)Adj-SID Sub-TLV. */
+	/* (LAN-)Adjacency-SID Sub-TLV. */
 	union {
 		struct isis_adj_sid *adj_sid;
 		struct isis_lan_adj_sid *ladj_sid;
@@ -88,13 +88,13 @@ struct sr_adjacency {
 	struct isis_adjacency *adj;
 };
 
-/* SR Prefix-SID type. */
+/* Segment Routing Prefix-SID type. */
 enum sr_prefix_type {
 	ISIS_SR_PREFIX_LOCAL = 0,
 	ISIS_SR_PREFIX_REMOTE,
 };
 
-/* SR Nexthop Information. */
+/* Segment Routing Nexthop Information. */
 struct sr_nexthop_info {
 	mpls_label_t label;
 	time_t uptime;
@@ -108,16 +108,16 @@ enum srdb_state {
 	SRDB_STATE_UNCHANGED
 };
 
-/* SR Prefix-SID. */
+/* Segment Routing Prefix-SID. */
 struct sr_prefix {
-	/* RB-tree entries. */
+	/* SRDB RB-tree entries. */
 	struct srdb_node_prefix_item node_entry;
 	struct srdb_area_prefix_item area_entry;
 
 	/* IP prefix. */
 	struct prefix prefix;
 
-	/* SID value, algorithm and flags. */
+	/* SID value, algorithm and flags subTLVs. */
 	struct isis_prefix_sid sid;
 
 	/* Input label value. */
@@ -136,16 +136,16 @@ struct sr_prefix {
 		} remote;
 	} u;
 
-	/* Backpointer to SR node. */
+	/* Backpointer to Segment Routing node. */
 	struct sr_node *srn;
 
 	/* SR-Prefix State used while the LSPDB is being parsed. */
 	enum srdb_state state;
 };
 
-/* SR node. */
+/* Segment Routing node. */
 struct sr_node {
-	/* RB-tree entry. */
+	/* SRDB RB-tree entry. */
 	struct srdb_node_item entry;
 
 	/* IS-IS level: ISIS_LEVEL1 or ISIS_LEVEL2. */
@@ -154,7 +154,7 @@ struct sr_node {
 	/* IS-IS node identifier. */
 	uint8_t sysid[ISIS_SYS_ID_LEN];
 
-	/* IS-IS node capabilities (SRGB, SR Algorithms, etc). */
+	/* Segment Routing node capabilities (SRGB, SR Algorithms) subTLVs. */
 	struct isis_router_cap cap;
 
 	/* List of Prefix-SIDs advertised by this node. */
@@ -167,7 +167,7 @@ struct sr_node {
 	enum srdb_state state;
 };
 
-/* NOTE: these values must be in sync with the YANG module. */
+/* SID type. NOTE: these values must be in sync with the YANG module. */
 enum sr_sid_value_type {
 	SR_SID_VALUE_TYPE_INDEX = 0,
 	SR_SID_VALUE_TYPE_ABSOLUTE = 1,
@@ -175,16 +175,16 @@ enum sr_sid_value_type {
 
 #define IS_SID_VALUE(flag) CHECK_FLAG(flag, ISIS_PREFIX_SID_VALUE)
 
-/* NOTE: these values must be in sync with the YANG module. */
+/* Last Hop Behavior. NOTE: these values must be in sync with the YANG module */
 enum sr_last_hop_behavior {
 	SR_LAST_HOP_BEHAVIOR_EXP_NULL = 0,
 	SR_LAST_HOP_BEHAVIOR_NO_PHP = 1,
 	SR_LAST_HOP_BEHAVIOR_PHP = 2,
 };
 
-/* SR Prefix-SID configuration. */
+/* Segment Routing Prefix-SID configuration. */
 struct sr_prefix_cfg {
-	/* RB-tree entry. */
+	/* SRDB RB-tree entry. */
 	struct srdb_prefix_cfg_item entry;
 
 	/* IP prefix. */
@@ -206,21 +206,21 @@ struct sr_prefix_cfg {
 	struct isis_area *area;
 };
 
-/* Per-area IS-IS Segment Routing information. */
+/* Per-area IS-IS Segment Routing Data Base (SRDB). */
 struct isis_sr_db {
-	/* Operational status of Segment Routing. */
+	/* Global Operational status of Segment Routing. */
 	bool enabled;
 
-	/* Adj-SIDs. */
+	/* List of local Adjacency-SIDs. */
 	struct list *adj_sids;
 
-	/* SR information from all nodes. */
+	/* Segment Routing Node information per IS-IS level. */
 	struct srdb_node_head sr_nodes[ISIS_LEVELS];
 
-	/* Prefix-SIDs. */
+	/* Segment Routing Prefix-SIDs per IS-IS level. */
 	struct srdb_area_prefix_head prefix_sids[ISIS_LEVELS];
 
-	/* Area SR configuration. */
+	/* Area Segment Routing configuration. */
 	struct {
 		/* Administrative status of Segment Routing. */
 		bool enabled;
