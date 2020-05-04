@@ -1230,6 +1230,39 @@ void access_list_remark_show(struct vty *vty, struct lyd_node *dnode,
 /*
  * Prefix lists.
  */
+
+/**
+ * Remove main data structure prefix list if there are no more entries or
+ * remark. This fixes compatibility with old CLI and tests.
+ */
+static int plist_remove_if_empty(struct vty *vty, const char *iptype,
+				 const char *name)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/prefix-list[type='%s'][name='%s']/remark",
+		 iptype, name);
+	/* List is not empty if there is a remark, check that: */
+	if (yang_dnode_exists(vty->candidate_config->dnode, xpath))
+		return CMD_SUCCESS;
+
+	/* Check if we have any entries: */
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/prefix-list[type='%s'][name='%s']", iptype,
+		 name);
+	/*
+	 * NOTE: if the list is empty it will return the first sequence
+	 * number: 5.
+	 */
+	if (acl_get_seq(vty, xpath) != 5)
+		return CMD_SUCCESS;
+
+	/* Nobody is using this list, lets remove it. */
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 			const char *seq, const char *action, struct prefix *p,
 			long ge, long le)
@@ -1240,6 +1273,7 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 	struct lyd_node *dnode;
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 32];
+	int rv;
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq != NULL) {
@@ -1248,7 +1282,12 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 			"/frr-filter:lib/prefix-list[type='%s'][name='%s']/entry[sequence='%s']",
 			iptype, name, seq);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-		return nb_cli_apply_changes(vty, NULL);
+
+		rv = nb_cli_apply_changes(vty, NULL);
+		if (rv == CMD_SUCCESS)
+			return plist_remove_if_empty(vty, iptype, name);
+
+		return rv;
 	}
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
@@ -1277,7 +1316,11 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 		 "%s/entry[sequence='%" PRId64 "']", xpath, pentry->seq);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv == CMD_SUCCESS)
+		return plist_remove_if_empty(vty, iptype, name);
+
+	return rv;
 }
 
 DEFPY(
