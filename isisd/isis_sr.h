@@ -173,6 +173,8 @@ enum sr_sid_value_type {
 	SR_SID_VALUE_TYPE_ABSOLUTE = 1,
 };
 
+#define IS_SID_VALUE(flag) CHECK_FLAG(flag, ISIS_PREFIX_SID_VALUE)
+
 /* NOTE: these values must be in sync with the YANG module. */
 enum sr_last_hop_behavior {
 	SR_LAST_HOP_BEHAVIOR_EXP_NULL = 0,

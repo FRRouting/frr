@@ -254,6 +254,12 @@ extern struct thread_master *master;
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 
+#define sr_debug(...)                                                          \
+	do {                                                                   \
+		if (IS_DEBUG_ISIS(DEBUG_SR))                                   \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
+
 #define DEBUG_TE                         DEBUG_LSP_GEN
 
 #define IS_DEBUG_ISIS(x)                 (isis->debugs & x)
