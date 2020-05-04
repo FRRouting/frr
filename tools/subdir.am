@@ -36,9 +36,9 @@ tools_gen_yang_deviations_LDADD = lib/libfrr.la $(LIBYANG_LIBS)
 tools_ssd_SOURCES = tools/start-stop-daemon.c
 
 # don't bother autoconf'ing these for a simple optional tool
-llvm_config = llvm-config-$(shell echo __clang_major__ | $(CC) -xc -P -E -)
-tools_frr_llvm_cg_CFLAGS = $(AM_CFLAGS) `$(llvm_config) --cflags`
-tools_frr_llvm_cg_LDFLAGS = `$(llvm_config) --ldflags --libs`
+llvm_version = $(shell echo __clang_major__ | $(CC) -xc -P -E -)
+tools_frr_llvm_cg_CFLAGS = $(AM_CFLAGS) `llvm-config-$(llvm_version) --cflags`
+tools_frr_llvm_cg_LDFLAGS = `llvm-config-$(llvm_version) --ldflags --libs`
 tools_frr_llvm_cg_SOURCES = \
 	tools/frr-llvm-cg.c \
 	# end

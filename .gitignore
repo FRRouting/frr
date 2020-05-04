@@ -55,6 +55,8 @@
 *.pb-c.c
 *.pb.cc
 *_clippy.c
+*.bc
+*.cg.json
 
 ### gcov outputs
 

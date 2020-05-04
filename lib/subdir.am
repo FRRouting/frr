@@ -415,7 +415,7 @@ am__v_CLIPPY_1 =
 
 CLIPPY_DEPS = $(CLIPPY) $(top_srcdir)/python/clidef.py
 
-SUFFIXES = _clippy.c .proto .pb-c.c .pb-c.h .pb.h .pb.cc .grpc.pb.cc
+SUFFIXES += _clippy.c
 .c_clippy.c:
 	$(AM_V_CLIPPY) $(CLIPPY) $(top_srcdir)/python/clidef.py -o $@ $<
 

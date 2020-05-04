@@ -54,6 +54,7 @@ ${target}: ${clippybase}_clippy.c
 lines = before.splitlines()
 autoderp = '#AUTODERP# '
 out_lines = []
+bcdeps = []
 make_rule_re = re.compile('^([^:\s]+):\s*([^:\s]+)\s*($|\n)')
 
 while lines:
@@ -77,6 +78,12 @@ while lines:
         out_lines.append(line)
         continue
 
+    target, dep = m.group(1), m.group(2)
+
+    if target.endswith('.lo') or target.endswith('.o'):
+        if not dep.endswith('.h'):
+            bcdeps.append('%s.bc: %s' % (target, target))
+            bcdeps.append('\t$(AM_V_LLVM_BC)$(COMPILE) -emit-llvm -c -o $@ %s' % (dep))
     if m.group(2) in clippy_scan:
         out_lines.append(clippyauxdep.substitute(target=m.group(1), clippybase=m.group(2)[:-2]))
 
@@ -85,6 +92,24 @@ while lines:
 out_lines.append('# clippy{\n# main clippy targets')
 for clippy_file in clippy_scan:
     out_lines.append(clippydep.substitute(clippybase = clippy_file[:-2]))
+
+out_lines.append('')
+out_lines.extend(bcdeps)
+out_lines.append('')
+bc_targets = []
+for varname in ['bin_PROGRAMS', 'sbin_PROGRAMS', 'lib_LTLIBRARIES', 'module_LTLIBRARIES', 'noinst_LIBRARIES']:
+    bc_targets.extend(mv[varname].strip().split())
+for target in bc_targets:
+    amtgt = target.replace('/', '_').replace('.', '_').replace('-', '_')
+    objs = mv[amtgt + '_OBJECTS'].strip().split()
+    objs = [obj + '.bc' for obj in objs]
+    deps = mv.get(amtgt + '_DEPENDENCIES', '').strip().split()
+    deps = [d + '.bc' for d in deps if d.endswith('.a')]
+    objs.extend(deps)
+    out_lines.append('%s.bc: %s' % (target, ' '.join(objs)))
+    out_lines.append('\t$(AM_V_LLVM_LD)$(LLVM_LINK) -o $@ $^')
+    out_lines.append('')
+
 out_lines.append('# }clippy')
 out_lines.append('')
 
