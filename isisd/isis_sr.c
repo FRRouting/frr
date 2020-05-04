@@ -51,8 +51,7 @@
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information")
 
 static void sr_prefix_uninstall(struct sr_prefix *srp);
-static void sr_prefix_reinstall(struct sr_prefix *srp,
-				     bool replace_semantics);
+static void sr_prefix_reinstall(struct sr_prefix *srp, bool make_before_break);
 
 /*----------------------------------------------------------------------------*/
 
@@ -136,12 +135,6 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 	}
 
 	return 0;
-}
-
-/* Handle changes in the local MSD configuration. */
-void isis_sr_cfg_msd_update(struct isis_area *area)
-{
-	lsp_regenerate_schedule(area, area->is_type, 0);
 }
 
 /* Handle new Prefix-SID configuration. */
@@ -368,8 +361,10 @@ static void sr_node_srgb_update(struct isis_area *area, int level,
 				continue;
 
 			/*
-			 * Reinstall all Prefix-SID nexthops using route replace
-			 * semantics.
+			 * The Prefix-SID input label hasn't changed. We could
+			 * re-install all Prefix-SID with "Make Before Break"
+			 * option. Zebra layer will update output label(s) by
+			 * adding new entry before removing the old one(s).
 			 */
 			sr_prefix_reinstall(srp, true);
 			break;
@@ -506,7 +501,7 @@ static int sr_prefix_install_local(struct sr_prefix *srp)
 	isis_sr_nexthop_update(&srp->u.local.info, MPLS_LABEL_IMPLICIT_NULL);
 
 	/* Install Prefix-SID in the forwarding plane. */
-	isis_zebra_install_prefix_sid(srp);
+	isis_zebra_send_prefix_sid(ZEBRA_MPLS_LABELS_REPLACE, srp);
 
 	return 0;
 }
@@ -587,7 +582,7 @@ static int sr_prefix_install_remote(struct sr_prefix *srp)
 	srp->input_label = input_label;
 
 	/* Install Prefix-SID in the forwarding plane. */
-	isis_zebra_install_prefix_sid(srp);
+	isis_zebra_send_prefix_sid(ZEBRA_MPLS_LABELS_REPLACE, srp);
 
 	return 0;
 }
@@ -647,7 +642,7 @@ static void sr_prefix_uninstall(struct sr_prefix *srp)
 		 srp->sid.value);
 
 	/* Uninstall Prefix-SID from the forwarding plane. */
-	isis_zebra_uninstall_prefix_sid(srp);
+	isis_zebra_send_prefix_sid(ZEBRA_MPLS_LABELS_DELETE, srp);
 
 	/* Reset internal state. */
 	srp->input_label = MPLS_INVALID_LABEL;
@@ -666,15 +661,16 @@ static void sr_prefix_uninstall(struct sr_prefix *srp)
 }
 
 /* Reinstall local or remote Prefix-SID. */
-static void sr_prefix_reinstall(struct sr_prefix *srp, bool replace_semantics)
+static inline void sr_prefix_reinstall(struct sr_prefix *srp,
+				       bool make_before_break)
 {
 	/*
-	 * Route replace semantics can be used only when we know for sure that
+	 * Make Before Break can be used only when we know for sure that
 	 * the Prefix-SID input label hasn't changed. Otherwise we need to
 	 * uninstall the Prefix-SID first using the old input label before
 	 * reinstalling it.
 	 */
-	if (!replace_semantics)
+	if (!make_before_break)
 		sr_prefix_uninstall(srp);
 
 	sr_prefix_install(srp);
@@ -960,6 +956,11 @@ static int sr_route_update(struct isis_area *area, struct prefix *prefix,
 		return 0;
 
 	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ACTIVE)) {
+		/*
+		 * The Prefix-SID input label hasn't changed. We could use the
+		 * "Make Before Break" option. Zebra layer will update output
+		 * label by adding new label(s) before removing old one(s).
+		 */
 		sr_prefix_reinstall(srp, true);
 		srp->u.remote.rinfo = route_info;
 	} else {
@@ -971,36 +972,6 @@ static int sr_route_update(struct isis_area *area, struct prefix *prefix,
 }
 
 /*----------------------------------------------------------------------------*/
-
-/* Install or uninstall (LAN)-Adj-SID. */
-static void sr_adj_sid_install_uninstall(bool install,
-					 const struct sr_adjacency *sra)
-{
-	struct zapi_labels zl;
-	struct zapi_nexthop *znh;
-	int cmd;
-
-	cmd = install ? ZEBRA_MPLS_LABELS_ADD : ZEBRA_MPLS_LABELS_DELETE;
-
-	sr_debug("  |- %s label %u for interface %s",
-		 install ? "Add" : "Delete", sra->nexthop.label,
-		 sra->adj->circuit->interface->name);
-
-	memset(&zl, 0, sizeof(zl));
-	zl.type = ZEBRA_LSP_ISIS_SR;
-	zl.local_label = sra->nexthop.label;
-	zl.nexthop_num = 1;
-	znh = &zl.nexthops[0];
-	znh->gate = sra->nexthop.address;
-	znh->type = (sra->nexthop.family == AF_INET)
-			    ? NEXTHOP_TYPE_IPV4_IFINDEX
-			    : NEXTHOP_TYPE_IPV6_IFINDEX;
-	znh->ifindex = sra->adj->circuit->interface->ifindex;
-	znh->label_num = 1;
-	znh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
-
-	(void)zebra_send_mpls_labels(zclient, cmd, &zl);
-}
 
 /* Add new local Adj-SID. */
 static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
@@ -1082,7 +1053,7 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 	listnode_add(area->srdb.adj_sids, sra);
 	listnode_add(adj->adj_sids, sra);
 
-	sr_adj_sid_install_uninstall(true, sra);
+	isis_zebra_send_adjacency_sid(ZEBRA_MPLS_LABELS_ADD, sra);
 }
 
 static void sr_adj_sid_add(struct isis_adjacency *adj, int family)
@@ -1099,7 +1070,7 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
 
 	sr_debug("ISIS-Sr (%s): Delete Adjacency SID", area->area_tag);
 
-	sr_adj_sid_install_uninstall(false, sra);
+	isis_zebra_send_adjacency_sid(ZEBRA_MPLS_LABELS_DELETE, sra);
 
 	switch (circuit->circ_type) {
 	case CIRCUIT_T_BROADCAST:

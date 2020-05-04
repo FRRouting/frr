@@ -240,7 +240,6 @@ struct isis_sr_db {
 /* Prototypes. */
 extern int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 				   uint32_t upper_bound);
-extern void isis_sr_cfg_msd_update(struct isis_area *area);
 extern struct sr_prefix_cfg *
 isis_sr_cfg_prefix_add(struct isis_area *area, const struct prefix *prefix);
 extern void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg);
