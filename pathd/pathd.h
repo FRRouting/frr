@@ -154,9 +154,23 @@ struct srte_candidate {
 #define F_CANDIDATE_METRIC_TE_BOUND 0x1000
 #define F_CANDIDATE_METRIC_TE_COMPUTED 0x2000
 
-	/* Metrics */
+	/* Metrics Configured Value */
 	float metric_abc; /* Agreggate Bandwidth Consumption */
 	float metric_te;
+
+	/* FIXME: This should be removed when the configuration/yang model is
+	 * refactored, runtime data should be somewhere else */
+
+#define F_CANDIDATE_HAS_METRIC_ABC_RT 0x010000
+#define F_CANDIDATE_METRIC_ABC_BOUND_RT 0x20000
+#define F_CANDIDATE_METRIC_ABC_COMPUTED_RT 0x40000
+#define F_CANDIDATE_HAS_METRIC_TE_RT 0x080000
+#define F_CANDIDATE_METRIC_TE_BOUND_RT 0x100000
+#define F_CANDIDATE_METRIC_TE_COMPUTED_RT 0x200000
+
+	/* Metrics Runtime Value */
+	float metric_abc_rt; /* Agreggate Bandwidth Consumption */
+	float metric_te_rt;
 };
 
 uint32_t attributes;
@@ -232,7 +246,8 @@ struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 void srte_candidate_del(struct srte_candidate *candidate);
 void srte_candidate_set_metric(struct srte_candidate *candidate,
 			       enum srte_candidate_metric_type type,
-			       float value, bool is_cound, bool is_computed);
+			       float value, bool is_cound, bool is_computed,
+			       bool is_config);
 void srte_candidate_unset_metric(struct srte_candidate *candidate,
 				 enum srte_candidate_metric_type type);
 struct srte_candidate *srte_candidate_find(struct srte_policy *policy,

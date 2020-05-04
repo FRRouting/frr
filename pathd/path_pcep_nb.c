@@ -174,27 +174,27 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 	} else {
 		status = PCEP_LSP_OPERATIONAL_DOWN;
 	}
-	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC)) {
+	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC_RT)) {
 		struct path_metric *new_metric = pcep_new_metric();
 		new_metric->next = metric;
 		metric = new_metric;
 		metric->type = PCEP_METRIC_AGGREGATE_BW;
-		metric->value = candidate->metric_abc;
+		metric->value = candidate->metric_abc_rt;
 		metric->is_bound = CHECK_FLAG(candidate->flags,
-					      F_CANDIDATE_METRIC_ABC_BOUND);
+					      F_CANDIDATE_METRIC_ABC_BOUND_RT);
 		metric->is_computed = CHECK_FLAG(
-			candidate->flags, F_CANDIDATE_METRIC_ABC_COMPUTED);
+			candidate->flags, F_CANDIDATE_METRIC_ABC_COMPUTED_RT);
 	}
-	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE)) {
+	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE_RT)) {
 		struct path_metric *new_metric = pcep_new_metric();
 		new_metric->next = metric;
 		metric = new_metric;
 		metric->type = PCEP_METRIC_TE;
-		metric->value = candidate->metric_te;
+		metric->value = candidate->metric_te_rt;
 		metric->is_bound = CHECK_FLAG(candidate->flags,
-					      F_CANDIDATE_METRIC_TE_BOUND);
+					      F_CANDIDATE_METRIC_TE_BOUND_RT);
 		metric->is_computed = CHECK_FLAG(
-			candidate->flags, F_CANDIDATE_METRIC_TE_COMPUTED);
+			candidate->flags, F_CANDIDATE_METRIC_TE_COMPUTED_RT);
 	}
 	*path = (struct path){
 		.nbkey = (struct lsp_nb_key){.color = policy->color,

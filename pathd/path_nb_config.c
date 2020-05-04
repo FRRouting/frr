@@ -437,7 +437,10 @@ void pathd_te_sr_policy_candidate_path_metrics_apply_finish(
 	struct srte_candidate *candidate;
 	enum srte_candidate_metric_type type;
 	float value;
-	bool is_bound = false, is_computed = false;
+	bool is_bound = false, is_computed = false, is_config;
+
+	assert(args->context != NULL);
+	is_config = args->context->client == NB_CLIENT_CLI;
 
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
 
@@ -448,8 +451,8 @@ void pathd_te_sr_policy_candidate_path_metrics_apply_finish(
 	if (yang_dnode_exists(args->dnode, "./is-computed"))
 		is_computed = yang_dnode_get_bool(args->dnode, "./is-computed");
 
-	srte_candidate_set_metric(candidate, type, value, is_bound,
-				  is_computed);
+	srte_candidate_set_metric(candidate, type, value, is_bound, is_computed,
+				  is_config);
 }
 
 /*

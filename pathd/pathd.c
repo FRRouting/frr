@@ -347,32 +347,53 @@ void srte_candidate_del(struct srte_candidate *candidate)
 
 void srte_candidate_set_metric(struct srte_candidate *candidate,
 			       enum srte_candidate_metric_type type,
-			       float value, bool is_bound, bool is_computed)
+			       float value, bool is_bound, bool is_computed,
+			       bool is_config)
 {
 	struct srte_policy *policy = candidate->policy;
 	char endpoint[46];
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	zlog_debug(
-		"SR-TE(%s, %u): candidate %s metric %s (%u) set to %f (is-bound: %s; is_computed: %s)",
+		"SR-TE(%s, %u): candidate %s metric %s (%u) set to %f "
+		"(is-bound: %s; is_computed: %s; is_config: %s)",
 		endpoint, policy->color, candidate->name,
 		srte_candidate_metric_name(type), type, value,
-		is_bound ? "true" : "false", is_computed ? "true" : "false");
+		is_bound ? "true" : "false", is_computed ? "true" : "false",
+		is_config ? "true" : "false");
 	switch (type) {
 	case SRTE_CANDIDATE_METRIC_TYPE_ABC:
-		SET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC);
-		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_ABC_BOUND,
+		SET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC_RT);
+		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_ABC_BOUND_RT,
 			  is_bound);
-		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_ABC_COMPUTED,
+		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_ABC_COMPUTED_RT,
 			  is_computed);
-		candidate->metric_abc = value;
+		candidate->metric_abc_rt = value;
+		/* FIXME: Should be fixed by refactoring the data model */
+		if (is_config) {
+			SET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC);
+			COND_FLAG(candidate->flags,
+				  F_CANDIDATE_METRIC_ABC_BOUND, is_bound);
+			COND_FLAG(candidate->flags,
+				  F_CANDIDATE_METRIC_ABC_COMPUTED, is_computed);
+			candidate->metric_abc = value;
+		}
 		break;
 	case SRTE_CANDIDATE_METRIC_TYPE_TE:
-		SET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE);
-		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_BOUND,
+		SET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE_RT);
+		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_BOUND_RT,
 			  is_bound);
-		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_COMPUTED,
+		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_COMPUTED_RT,
 			  is_computed);
-		candidate->metric_te = value;
+		candidate->metric_te_rt = value;
+		/* FIXME: Should be fixed by refactoring the data model */
+		if (is_config) {
+			SET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE);
+			COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_BOUND,
+				  is_bound);
+			COND_FLAG(candidate->flags,
+				  F_CANDIDATE_METRIC_TE_COMPUTED, is_computed);
+			candidate->metric_te = value;
+		}
 		break;
 	default:
 		break;

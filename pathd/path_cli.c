@@ -560,35 +560,43 @@ static const char *metric_type_name(enum srte_candidate_metric_type type)
 	}
 }
 
-static int config_write_metric(const struct lyd_node *dnode, void *arg)
+static void config_write_metric(struct vty *vty,
+				enum srte_candidate_metric_type type,
+				float value, bool is_bound)
 {
-	struct vty *vty = arg;
-	enum srte_candidate_metric_type type;
-	bool is_bound = false;
-	float value;
-
-	type = yang_dnode_get_enum(dnode, "./type");
-	value = (float)yang_dnode_get_dec64(dnode, "./value");
-	if (yang_dnode_exists(dnode, "./is-bound"))
-		is_bound = yang_dnode_get_bool(dnode, "./is-bound");
-
 	if (fabs(value) <= FLT_EPSILON) {
 		vty_out(vty, " %s%s", is_bound ? "bound " : "",
 			metric_type_name(type));
-		return YANG_ITER_CONTINUE;
+		return;
 	}
 
 	if (fabs(truncf(value) - value) < FLT_EPSILON) {
 		vty_out(vty, " %s%s %d", is_bound ? "bound " : "",
 			metric_type_name(type), (int)value);
-		return YANG_ITER_CONTINUE;
+		return;
 	}
 
 	vty_out(vty, " %s%s %f", is_bound ? "bound " : "",
 		metric_type_name(type), value);
-
-	return YANG_ITER_CONTINUE;
 }
+
+/* FIXME: Enable this back when the candidate path are only containing
+ * configuration data */
+// static int config_write_metric_cb(const struct lyd_node *dnode, void *arg)
+// {
+// 	struct vty *vty = arg;
+// 	enum srte_candidate_metric_type type;
+// 	bool is_bound = false;
+// 	float value;
+
+// 	type = yang_dnode_get_enum(dnode, "./type");
+// 	value = (float)yang_dnode_get_dec64(dnode, "./value");
+// 	if (yang_dnode_exists(dnode, "./is-bound"))
+// 		is_bound = yang_dnode_get_bool(dnode, "./is-bound");
+
+// 	config_write_metric(vty, type, value, is_bound);
+// 	return YANG_ITER_CONTINUE;
+// }
 
 void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
 					       struct lyd_node *dnode,
@@ -604,8 +612,26 @@ void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
 			yang_dnode_get_string(dnode, "./segment-list-name"));
 	if (yang_dnode_exists(dnode, "./metrics"))
 		vty_out(vty, " metrics");
-	yang_dnode_iterate(config_write_metric, vty, dnode, "./metrics");
 
+	/* FIXME: Candidate path contains both configuration and transient
+	 * data. This is not what we want os until it is fixed we need to
+	 * hack around it */
+	// yang_dnode_iterate(config_write_metric_cb, vty, dnode, "./metrics");
+	struct srte_candidate *candidate;
+	bool is_bound;
+	candidate = nb_running_get_entry(dnode, NULL, true);
+	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC)) {
+		is_bound = CHECK_FLAG(candidate->flags,
+				      F_CANDIDATE_METRIC_ABC_BOUND);
+		config_write_metric(vty, SRTE_CANDIDATE_METRIC_TYPE_ABC,
+				    candidate->metric_abc, is_bound);
+	}
+	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE)) {
+		is_bound = CHECK_FLAG(candidate->flags,
+				      F_CANDIDATE_METRIC_TE_BOUND);
+		config_write_metric(vty, SRTE_CANDIDATE_METRIC_TYPE_TE,
+				    candidate->metric_te, is_bound);
+	}
 	vty_out(vty, "\n");
 }
 
