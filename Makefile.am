@@ -89,6 +89,7 @@ clippy-only: Makefile lib/clippy config.h
 #AUTODERP# endif
 
 EXTRA_DIST =
+EXTRA_PROGRAMS =
 BUILT_SOURCES =
 CLEANFILES =
 DISTCLEANFILES =
