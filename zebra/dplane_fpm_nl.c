@@ -74,6 +74,7 @@ struct fpm_nl_ctx {
 	bool connecting;
 	bool rib_complete;
 	bool rmac_complete;
+	bool use_nhg;
 	struct sockaddr_storage addr;
 
 	/* data plane buffers. */
@@ -146,6 +147,8 @@ enum fpm_nl_events {
 	FNE_DISABLE,
 	/* Reset counters. */
 	FNE_RESET_COUNTERS,
+	/* Toggle next hop group feature. */
+	FNE_TOGGLE_NHG,
 };
 
 /*
@@ -256,6 +259,37 @@ DEFUN(no_fpm_set_address, no_fpm_set_address_cmd,
 {
 	thread_add_event(gfnc->fthread->master, fpm_process_event, gfnc,
 			 FNE_DISABLE, &gfnc->t_event);
+	return CMD_SUCCESS;
+}
+
+DEFUN(fpm_use_nhg, fpm_use_nhg_cmd,
+      "fpm use-next-hop-groups",
+      FPM_STR
+      "Use netlink next hop groups feature.\n")
+{
+	/* Already enabled. */
+	if (gfnc->use_nhg)
+		return CMD_SUCCESS;
+
+	thread_add_event(gfnc->fthread->master, fpm_process_event, gfnc,
+			 FNE_TOGGLE_NHG, &gfnc->t_event);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_fpm_use_nhg, no_fpm_use_nhg_cmd,
+      "no fpm use-next-hop-groups",
+      NO_STR
+      FPM_STR
+      "Use netlink next hop groups feature.\n")
+{
+	/* Already disabled. */
+	if (!gfnc->use_nhg)
+		return CMD_SUCCESS;
+
+	thread_add_event(gfnc->fthread->master, fpm_process_event, gfnc,
+			 FNE_TOGGLE_NHG, &gfnc->t_event);
+
 	return CMD_SUCCESS;
 }
 
@@ -370,6 +404,11 @@ static int fpm_write_config(struct vty *vty)
 
 	default:
 		break;
+	}
+
+	if (!gfnc->use_nhg) {
+		vty_out(vty, "no fpm use-next-hop-groups\n");
+		written = 1;
 	}
 
 	return written;
@@ -492,9 +531,25 @@ static int fpm_write(struct thread *t)
 
 		fnc->connecting = false;
 
-		/* Ask zebra main thread to start walking the RIB table. */
-		thread_add_timer(zrouter.master, fpm_nhg_send, fnc, 0,
-				 &fnc->t_nhgwalk);
+		/*
+		 * Walk the route tables to send old information before starting
+		 * to send updated information.
+		 *
+		 * NOTE 1:
+		 * RIB table walk is called after the next group table walk
+		 * ends.
+		 *
+		 * NOTE 2:
+		 * Don't attempt to go through next hop group table if we were
+		 * explictly told to not use it.
+		 */
+		if (fnc->use_nhg)
+			thread_add_timer(zrouter.master, fpm_nhg_send, fnc, 0,
+					 &fnc->t_nhgwalk);
+		else
+			thread_add_timer(zrouter.master, fpm_rib_send, fnc, 0,
+					 &fnc->t_ribwalk);
+
 		thread_add_timer(zrouter.master, fpm_rmac_send, fnc, 0,
 				 &fnc->t_rmacwalk);
 	}
@@ -636,16 +691,27 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	size_t nl_buf_len;
 	ssize_t rv;
 	uint64_t obytes, obytes_peak;
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+
+	/*
+	 * If we were configured to not use next hop groups, then quit as soon
+	 * as possible.
+	 */
+	if ((!fnc->use_nhg)
+	    && (op == DPLANE_OP_NH_DELETE || op == DPLANE_OP_NH_INSTALL
+		|| op == DPLANE_OP_NH_UPDATE))
+		return 0;
 
 	nl_buf_len = 0;
 
 	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
 
-	switch (dplane_ctx_get_op(ctx)) {
+	switch (op) {
 	case DPLANE_OP_ROUTE_UPDATE:
 	case DPLANE_OP_ROUTE_DELETE:
 		rv = netlink_route_multipath(RTM_DELROUTE, ctx, nl_buf,
-					     sizeof(nl_buf), true);
+					     sizeof(nl_buf), true,
+					     fnc->use_nhg);
 		if (rv <= 0) {
 			zlog_err("%s: netlink_route_multipath failed",
 				 __func__);
@@ -655,14 +721,14 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		nl_buf_len = (size_t)rv;
 
 		/* UPDATE operations need a INSTALL, otherwise just quit. */
-		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE)
+		if (op == DPLANE_OP_ROUTE_DELETE)
 			break;
 
 		/* FALL THROUGH */
 	case DPLANE_OP_ROUTE_INSTALL:
-		rv = netlink_route_multipath(RTM_NEWROUTE, ctx,
-					     &nl_buf[nl_buf_len],
-					     sizeof(nl_buf) - nl_buf_len, true);
+		rv = netlink_route_multipath(
+			RTM_NEWROUTE, ctx, &nl_buf[nl_buf_len],
+			sizeof(nl_buf) - nl_buf_len, true, fnc->use_nhg);
 		if (rv <= 0) {
 			zlog_err("%s: netlink_route_multipath failed",
 				 __func__);
@@ -1098,6 +1164,12 @@ static int fpm_process_event(struct thread *t)
 		memset(&fnc->counters, 0, sizeof(fnc->counters));
 		break;
 
+	case FNE_TOGGLE_NHG:
+		zlog_info("%s: toggle next hop groups support", __func__);
+		fnc->use_nhg = !fnc->use_nhg;
+		fpm_reconnect(fnc);
+		break;
+
 	default:
 		if (IS_ZEBRA_DEBUG_FPM)
 			zlog_debug("%s: unhandled event %d", __func__, event);
@@ -1125,6 +1197,9 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 	fnc->prov = prov;
 	TAILQ_INIT(&fnc->ctxqueue);
 	pthread_mutex_init(&fnc->ctxqueue_mutex, NULL);
+
+	/* Set default values. */
+	fnc->use_nhg = true;
 
 	return 0;
 }
@@ -1248,6 +1323,8 @@ static int fpm_nl_new(struct thread_master *tm)
 	install_element(ENABLE_NODE, &fpm_reset_counters_cmd);
 	install_element(CONFIG_NODE, &fpm_set_address_cmd);
 	install_element(CONFIG_NODE, &no_fpm_set_address_cmd);
+	install_element(CONFIG_NODE, &fpm_use_nhg_cmd);
+	install_element(CONFIG_NODE, &no_fpm_use_nhg_cmd);
 
 	return 0;
 }
