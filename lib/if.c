@@ -621,8 +621,11 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
 	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
 		ifp = if_lookup_by_name(name, vrf_id);
-		if (ifp)
+		if (ifp) {
+			if (ifp->vrf_id == VRF_UNKNOWN)
+				ifp->vrf_id = vrf_id;
 			return ifp;
+		}
 		return if_create_name(name, vrf_id);
 	case VRF_BACKEND_VRF_LITE:
 		ifp = if_lookup_by_name_all_vrf(name);
