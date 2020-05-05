@@ -322,6 +322,8 @@ struct vrf *vrf_lookup_by_id(vrf_id_t vrf_id)
  */
 int vrf_enable(struct vrf *vrf)
 {
+	struct interface *ifp;
+
 	if (vrf_is_enabled(vrf))
 		return 1;
 
@@ -329,6 +331,11 @@ int vrf_enable(struct vrf *vrf)
 		zlog_debug("VRF %s(%u) is enabled.", vrf->name, vrf->vrf_id);
 
 	SET_FLAG(vrf->status, VRF_ACTIVE);
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		if (ifp->vrf_id == VRF_UNKNOWN)
+			ifp->vrf_id = vrf->vrf_id;
+	}
 
 	if (vrf_master.vrf_enable_hook)
 		(*vrf_master.vrf_enable_hook)(vrf);
