@@ -1502,6 +1502,45 @@ static int sr_if_new_hook(struct interface *ifp)
 /* --- Segment Routing Show information functions --------------------------- */
 
 /**
+ * Show LFIB operation in human readable format.
+ *
+ * @param buf	     Buffer to store string output. Must be pre-allocate
+ * @param size	     Size of the buffer
+ * @param label_in   Input Label
+ * @param label_out  Output Label
+ *
+ * @return	     String containing LFIB operation in human readable format
+ */
+static char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
+		       mpls_label_t label_out)
+{
+	if (size < 24)
+		return NULL;
+
+	if (label_in == MPLS_INVALID_LABEL) {
+		snprintf(buf, size, "no-op.");
+		return buf;
+	}
+
+	switch (label_out) {
+	case MPLS_LABEL_IMPLICIT_NULL:
+		snprintf(buf, size, "Pop(%u)", label_in);
+		break;
+	case MPLS_LABEL_IPV4_EXPLICIT_NULL:
+	case MPLS_LABEL_IPV6_EXPLICIT_NULL:
+		snprintf(buf, size, "Swap(%u, null)", label_in);
+		break;
+	case MPLS_INVALID_LABEL:
+		snprintf(buf, size, "no-op.");
+		break;
+	default:
+		snprintf(buf, size, "Swap(%u, %u)", label_in, label_out);
+		break;
+	}
+	return buf;
+}
+
+/**
  * Show Local Prefix-SID.
  *
  * @param vty	VTY output
@@ -1515,25 +1554,28 @@ static void show_prefix_sid_local(struct vty *vty, struct ttable *tt,
 {
 	const struct sr_nexthop_info *srnh = &srp->u.local.info;
 	char buf_prefix[BUFSIZ];
-	char buf_llabel[BUFSIZ];
-	char buf_rlabel[BUFSIZ];
+	char buf_oper[BUFSIZ];
+	char buf_iface[BUFSIZ];
 	char buf_uptime[BUFSIZ];
 
-	if (srp->input_label != MPLS_INVALID_LABEL)
-		label2str(srp->input_label, buf_llabel, sizeof(buf_llabel));
-	else
-		snprintf(buf_llabel, sizeof(buf_llabel), "-");
 	if (srnh->label != MPLS_INVALID_LABEL) {
-		label2str(srnh->label, buf_rlabel, sizeof(buf_rlabel));
+		struct interface *ifp;
+		ifp = if_lookup_prefix(&srp->prefix, VRF_DEFAULT);
+		if (ifp)
+			strlcpy(buf_iface, ifp->name, sizeof(buf_iface));
+		else
+			snprintf(buf_iface, sizeof(buf_iface), "-");
 		log_uptime(srnh->uptime, buf_uptime, sizeof(buf_uptime));
 	} else {
-		snprintf(buf_rlabel, sizeof(buf_rlabel), "-");
+		snprintf(buf_iface, sizeof(buf_iface), "-");
 		snprintf(buf_uptime, sizeof(buf_uptime), "-");
 	}
+	sr_op2str(buf_oper, sizeof(buf_oper), srp->input_label,
+		  MPLS_LABEL_IMPLICIT_NULL);
 
-	ttable_add_row(tt, "%s|%u|%s|local|%s|%s",
+	ttable_add_row(tt, "%s|%u|%s|-|%s|%s",
 		       prefix2str(&srp->prefix, buf_prefix, sizeof(buf_prefix)),
-		       srp->sid.value, buf_llabel, buf_rlabel, buf_uptime);
+		       srp->sid.value, buf_oper, buf_iface, buf_uptime);
 }
 
 /**
@@ -1551,22 +1593,19 @@ static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 	struct isis_nexthop *nexthop;
 	struct listnode *node;
 	char buf_prefix[BUFSIZ];
-	char buf_llabel[BUFSIZ];
+	char buf_oper[BUFSIZ];
 	char buf_nhop[BUFSIZ];
 	char buf_iface[BUFSIZ];
-	char buf_rlabel[BUFSIZ];
 	char buf_uptime[BUFSIZ];
 	bool first = true;
 
 	(void)prefix2str(&srp->prefix, buf_prefix, sizeof(buf_prefix));
-	if (srp->input_label != MPLS_INVALID_LABEL)
-		label2str(srp->input_label, buf_llabel, sizeof(buf_llabel));
-	else
-		snprintf(buf_llabel, sizeof(buf_llabel), "-");
 
 	if (!srp->u.remote.rinfo) {
 		ttable_add_row(tt, "%s|%u|%s|-|-|-", buf_prefix, srp->sid.value,
-			       buf_llabel);
+			       sr_op2str(buf_oper, sizeof(buf_oper),
+					 srp->input_label,
+					 MPLS_LABEL_IMPLICIT_NULL));
 		return;
 	}
 
@@ -1582,23 +1621,21 @@ static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 		else
 			snprintf(buf_iface, sizeof(buf_iface), "ifindex %u",
 				 nexthop->ifindex);
-		if (nexthop->sr.label == MPLS_INVALID_LABEL) {
-			snprintf(buf_rlabel, sizeof(buf_rlabel), "-");
+		if (nexthop->sr.label == MPLS_INVALID_LABEL)
 			snprintf(buf_uptime, sizeof(buf_uptime), "-");
-		} else {
-			label2str(nexthop->sr.label, buf_rlabel,
-				  sizeof(buf_rlabel));
+		else
 			log_uptime(nexthop->sr.uptime, buf_uptime,
 				   sizeof(buf_uptime));
-		}
+		sr_op2str(buf_oper, sizeof(buf_oper), srp->input_label,
+			  nexthop->sr.label);
 
 		if (first)
-			ttable_add_row(tt, "%s|%u|%s|%s, %s|%s|%s", buf_prefix,
-				       srp->sid.value, buf_llabel, buf_nhop,
-				       buf_iface, buf_rlabel, buf_uptime);
+			ttable_add_row(tt, "%s|%u|%s|%s|%s|%s", buf_prefix,
+				       srp->sid.value, buf_oper, buf_nhop,
+				       buf_iface, buf_uptime);
 		else
-			ttable_add_row(tt, "|||%s, %s|%s|%s", buf_nhop,
-				       buf_iface, buf_rlabel, buf_uptime);
+			ttable_add_row(tt, "|||%s|%s|%s|%s", buf_oper, buf_nhop,
+				       buf_iface, buf_uptime);
 		first = false;
 	}
 }
@@ -1622,7 +1659,7 @@ static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
 
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-	ttable_add_row(tt, "Prefix|SID|In Label|Nexthop|Out Label|Uptime");
+	ttable_add_row(tt, "Prefix|SID|Label Op.|Nexthop|Interface|Uptime");
 	tt->style.cell.rpad = 2;
 	tt->style.corner = '+';
 	ttable_restyle(tt);
@@ -1652,7 +1689,7 @@ static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
 }
 
 /**
- * Declaration of new show command.
+ * Declaration of new show commands.
  */
 DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
       "show isis segment-routing prefix-sids",
@@ -1673,6 +1710,74 @@ DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
 
 	return CMD_SUCCESS;
 }
+
+/**
+ * Show Segment Routing Node.
+ *
+ * @param vty	VTY output
+ * @param area	IS-IS area
+ * @param level	IS-IS level
+ */
+static void show_node(struct vty *vty, struct isis_area *area, int level)
+{
+	struct sr_node *srn;
+	struct ttable *tt;
+
+	if (srdb_area_prefix_count(&area->srdb.prefix_sids[level - 1]) == 0)
+		return;
+
+	vty_out(vty, " IS-IS %s SR-Node:\n\n", circuit_t2string(level));
+
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "System ID|SRGB|Algorithm|MSD");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	/* Process all SR-Node from the SRDB */
+	frr_each (srdb_node, &area->srdb.sr_nodes[level - 1], srn) {
+		ttable_add_row(tt, "%s|%u - %u|%s|%u", sysid_print(srn->sysid),
+			       srn->cap.srgb.lower_bound,
+			       srn->cap.srgb.lower_bound
+				       + srn->cap.srgb.range_size - 1,
+			       srn->cap.algo[0] == SR_ALGORITHM_SPF ? "SPF"
+								    : "S-SPF",
+			       srn->cap.msd);
+	}
+
+	/* Dump the generated table. */
+	if (tt->nrows > 1) {
+		char *table;
+
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+	}
+	ttable_del(tt);
+}
+
+DEFUN(show_sr_node, show_sr_node_cmd,
+      "show isis segment-routing node",
+      SHOW_STR PROTO_HELP
+      "Segment-Routing\n"
+      "Segment-Routing node\n")
+{
+	struct listnode *node;
+	struct isis_area *area;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		vty_out(vty, "Area %s:\n",
+			area->area_tag ? area->area_tag : "null");
+
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
+			show_node(vty, area, level);
+	}
+
+	return CMD_SUCCESS;
+}
+
 
 /* --- IS-IS Segment Routing Management function ---------------------------- */
 
@@ -1841,6 +1946,7 @@ void isis_sr_area_term(struct isis_area *area)
 void isis_sr_init(void)
 {
 	install_element(VIEW_NODE, &show_sr_prefix_sids_cmd);
+	install_element(VIEW_NODE, &show_sr_node_cmd);
 
 	/* Register hooks. */
 	hook_register(isis_adj_state_change_hook, sr_adj_state_change);
