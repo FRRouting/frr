@@ -59,6 +59,9 @@ static void if_zebra_speed_update(struct event *thread)
 	bool changed = false;
 	int error = 0;
 
+	if (!ifp->vrf || ifp->vrf->vrf_id == VRF_UNKNOWN)
+		return;
+
 	new_speed = kernel_get_speed(ifp, &error);
 
 	/* error may indicate vrf not available or
