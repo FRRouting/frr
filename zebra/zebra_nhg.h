@@ -117,6 +117,10 @@ struct nhg_hash_entry {
  */
 #define NEXTHOP_GROUP_BACKUP (1 << 5)
 
+/*
+ * Track FPM installation status..
+ */
+#define NEXTHOP_GROUP_FPM (1 << 6)
 };
 
 /* Was this one we created, either this session or previously? */

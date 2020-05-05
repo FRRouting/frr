@@ -99,6 +99,8 @@ struct fpm_nl_ctx {
 	struct thread *t_dequeue;
 
 	/* zebra events. */
+	struct thread *t_nhgreset;
+	struct thread *t_nhgwalk;
 	struct thread *t_ribreset;
 	struct thread *t_ribwalk;
 	struct thread *t_rmacreset;
@@ -151,6 +153,8 @@ enum fpm_nl_events {
  */
 static int fpm_process_event(struct thread *t);
 static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx);
+static int fpm_nhg_send(struct thread *t);
+static int fpm_nhg_reset(struct thread *t);
 static int fpm_rib_send(struct thread *t);
 static int fpm_rib_reset(struct thread *t);
 static int fpm_rmac_send(struct thread *t);
@@ -399,6 +403,8 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 	THREAD_OFF(fnc->t_read);
 	THREAD_OFF(fnc->t_write);
 
+	thread_cancel_async(zrouter.master, &fnc->t_nhgreset, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_nhgwalk, NULL);
 	thread_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
 	thread_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
 	thread_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
@@ -487,8 +493,8 @@ static int fpm_write(struct thread *t)
 		fnc->connecting = false;
 
 		/* Ask zebra main thread to start walking the RIB table. */
-		thread_add_timer(zrouter.master, fpm_rib_send, fnc, 0,
-				 &fnc->t_ribwalk);
+		thread_add_timer(zrouter.master, fpm_nhg_send, fnc, 0,
+				 &fnc->t_nhgwalk);
 		thread_add_timer(zrouter.master, fpm_rmac_send, fnc, 0,
 				 &fnc->t_rmacwalk);
 	}
@@ -606,6 +612,8 @@ static int fpm_connect(struct thread *t)
 			 &fnc->t_write);
 
 	/* Mark all routes as unsent. */
+	thread_add_timer(zrouter.master, fpm_nhg_reset, fnc, 0,
+			 &fnc->t_nhgreset);
 	thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
 			 &fnc->t_ribreset);
 	thread_add_timer(zrouter.master, fpm_rmac_reset, fnc, 0,
@@ -777,6 +785,65 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	return 0;
 }
 
+/*
+ * Next hop walk/send functions.
+ */
+struct fpm_nhg_arg {
+	struct zebra_dplane_ctx *ctx;
+	struct fpm_nl_ctx *fnc;
+	bool complete;
+};
+
+static int fpm_nhg_send_cb(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe = bucket->data;
+	struct fpm_nhg_arg *fna = arg;
+
+	/* This entry was already sent, skip it. */
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_FPM))
+		return HASHWALK_CONTINUE;
+
+	/* Reset ctx to reuse allocated memory, take a snapshot and send it. */
+	dplane_ctx_reset(fna->ctx);
+	dplane_ctx_nexthop_init(fna->ctx, DPLANE_OP_NH_INSTALL, nhe);
+	if (fpm_nl_enqueue(fna->fnc, fna->ctx) == -1) {
+		/* Our buffers are full, lets give it some cycles. */
+		fna->complete = false;
+		return HASHWALK_ABORT;
+	}
+
+	/* Mark group as sent, so it doesn't get sent again. */
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_FPM);
+
+	return HASHWALK_CONTINUE;
+}
+
+static int fpm_nhg_send(struct thread *t)
+{
+	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nhg_arg fna;
+
+	fna.fnc = fnc;
+	fna.ctx = dplane_ctx_alloc();
+	fna.complete = true;
+
+	/* Send next hops. */
+	hash_walk(zrouter.nhgs_id, fpm_nhg_send_cb, &fna);
+
+	/* `free()` allocated memory. */
+	dplane_ctx_fini(&fna.ctx);
+
+	/* We are done sending next hops, lets install the routes now. */
+	if (fna.complete)
+		thread_add_timer(zrouter.master, fpm_rib_send, fnc, 0,
+				 &fnc->t_ribwalk);
+	else /* Otherwise reschedule next hop group again. */
+		thread_add_timer(zrouter.master, fpm_nhg_send, fnc, 0,
+				 &fnc->t_nhgwalk);
+
+	return 0;
+}
+
 /**
  * Send all RIB installed routes to the connected data plane.
  */
@@ -888,6 +955,23 @@ static int fpm_rmac_send(struct thread *t)
 	hash_iterate(zrouter.l3vni_table, fpm_enqueue_l3vni_table, &fra);
 	dplane_ctx_fini(&fra.ctx);
 
+	return 0;
+}
+
+/*
+ * Resets the next hop FPM flags so we send all next hops again.
+ */
+static void fpm_nhg_reset_cb(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe = bucket->data;
+
+	/* Unset FPM installation flag so it gets installed again. */
+	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_FPM);
+}
+
+static int fpm_nhg_reset(struct thread *t)
+{
+	hash_iterate(zrouter.nhgs_id, fpm_nhg_reset_cb, NULL);
 	return 0;
 }
 
@@ -1048,6 +1132,8 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 {
 	/* Disable all events and close socket. */
+	THREAD_OFF(fnc->t_nhgreset);
+	THREAD_OFF(fnc->t_nhgwalk);
 	THREAD_OFF(fnc->t_ribreset);
 	THREAD_OFF(fnc->t_ribwalk);
 	THREAD_OFF(fnc->t_rmacreset);
