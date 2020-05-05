@@ -90,6 +90,18 @@ struct gw_family_t {
 static const char ipv4_ll_buf[16] = "169.254.0.1";
 static struct in_addr ipv4_ll;
 
+/* Is this a ipv4 over ipv6 route? */
+static bool is_route_v4_over_v6(unsigned char rtm_family,
+				enum nexthop_types_t nexthop_type)
+{
+	if (rtm_family == AF_INET
+	    && (nexthop_type == NEXTHOP_TYPE_IPV6
+		|| nexthop_type == NEXTHOP_TYPE_IPV6_IFINDEX))
+		return true;
+
+	return false;
+}
+
 /* Helper to control use of kernel-level nexthop ids */
 static bool kernel_nexthops_supported(void)
 {
@@ -1165,9 +1177,7 @@ static void _netlink_route_build_singlepath(const struct prefix *p,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
 		rtmsg->rtm_flags |= RTNH_F_ONLINK;
 
-	if (rtmsg->rtm_family == AF_INET
-	    && (nexthop->type == NEXTHOP_TYPE_IPV6
-		|| nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)) {
+	if (is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type)) {
 		rtmsg->rtm_flags |= RTNH_F_ONLINK;
 		addattr_l(nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4);
 		addattr32(nlmsg, req_size, RTA_OIF, nexthop->ifindex);
@@ -1342,9 +1352,7 @@ _netlink_route_build_multipath(const struct prefix *p, const char *routedesc,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
 		rtnh->rtnh_flags |= RTNH_F_ONLINK;
 
-	if (rtmsg->rtm_family == AF_INET
-	    && (nexthop->type == NEXTHOP_TYPE_IPV6
-		|| nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)) {
+	if (is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type)) {
 		bytelen = 4;
 		rtnh->rtnh_flags |= RTNH_F_ONLINK;
 		rta_addattr_l(rta, NL_PKT_BUF_SIZE, RTA_GATEWAY, &ipv4_ll,
