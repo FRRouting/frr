@@ -303,7 +303,7 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 	int i;
 
 	nhs->t_resolve = NULL;
-	if (n < 0) {
+	if (n < 0 || nhs->ifp->vrf_id == VRF_UNKNOWN) {
 		/* Failed, retry in a moment */
 		thread_add_timer(master, nhrp_nhs_resolve, nhs, 5,
 				 &nhs->t_resolve);
