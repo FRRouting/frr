@@ -59,6 +59,9 @@ void ecommunity_strfree(char **s)
 /* Allocate ecommunities.  */
 void ecommunity_free(struct ecommunity **ecom)
 {
+	if (!(*ecom))
+		return;
+
 	XFREE(MTYPE_ECOMMUNITY_VAL, (*ecom)->val);
 	XFREE(MTYPE_ECOMMUNITY_STR, (*ecom)->str);
 	XFREE(MTYPE_ECOMMUNITY, *ecom);
