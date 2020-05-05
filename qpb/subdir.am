@@ -29,6 +29,7 @@ CLEANFILES += \
 	# end
 
 EXTRA_DIST += qpb/qpb.proto
+SUFFIXES += .proto .pb-c.c .pb-c.h
 
 if HAVE_PROTOBUF
 
