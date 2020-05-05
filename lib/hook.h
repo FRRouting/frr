@@ -145,7 +145,7 @@ extern void _hook_register(struct hook *hook, struct hookent *stackent,
  */
 #define _hook_reg_svar(hook, funcptr, arg, has_arg, module, funcname, prio)    \
 	do {                                                                   \
-		static struct hookent stack_hookent = { .ent_on_heap = 0, };   \
+		static struct hookent stack_hookent = {};                      \
 		_hook_register(hook, &stack_hookent, funcptr, arg, has_arg,    \
 			       module, funcname, prio);                        \
 	} while (0)
