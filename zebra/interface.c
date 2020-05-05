@@ -3704,16 +3704,14 @@ static int if_config_write(struct vty *vty)
 			struct listnode *addrnode;
 			struct connected *ifc;
 			struct prefix *p;
-			struct vrf *vrf;
 
 			if_data = ifp->info;
-			vrf = vrf_lookup_by_id(ifp->vrf_id);
 
 			if (ifp->vrf_id == VRF_DEFAULT)
 				vty_frame(vty, "interface %s\n", ifp->name);
 			else
 				vty_frame(vty, "interface %s vrf %s\n",
-					  ifp->name, vrf->name);
+					  ifp->name, vrf0->name);
 
 			if (if_data) {
 				if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
