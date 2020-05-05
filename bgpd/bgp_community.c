@@ -40,6 +40,9 @@ static struct community *community_new(void)
 /* Free communities value.  */
 void community_free(struct community **com)
 {
+	if (!(*com))
+		return;
+
 	XFREE(MTYPE_COMMUNITY_VAL, (*com)->val);
 	XFREE(MTYPE_COMMUNITY_STR, (*com)->str);
 
