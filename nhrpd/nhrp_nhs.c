@@ -267,7 +267,7 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 	struct nhrp_registration *reg;
 	int i;
 
-	if (n < 0) {
+	if (n < 0 || nhs->ifp->vrf->vrf_id == VRF_UNKNOWN) {
 		/* Failed, retry in a moment */
 		event_add_timer(master, nhrp_nhs_resolve, nhs, 5,
 				&nhs->t_resolve);
