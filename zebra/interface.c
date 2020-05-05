@@ -77,6 +77,9 @@ static int if_zebra_speed_update(struct thread *thread)
 
 	zif->speed_update = NULL;
 
+	if (ifp->vrf_id == VRF_UNKNOWN)
+		return 1;
+
 	new_speed = kernel_get_speed(ifp, &error);
 
 	/* error may indicate vrf not available or
