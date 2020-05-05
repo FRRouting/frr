@@ -420,6 +420,23 @@ Require policy on EBGP
 
    This is enabled by default.
 
+   When the incoming or outgoing filter is missing you will see
+   "(Policy)" sign under ``show bgp summary``:
+
+   .. code-block:: frr
+
+      exit1# show bgp summary
+
+      IPv4 Unicast Summary:
+      BGP router identifier 10.10.10.1, local AS number 65001 vrf-id 0
+      BGP table version 4
+      RIB entries 7, using 1344 bytes of memory
+      Peers 2, using 43 KiB of memory
+
+      Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt
+      192.168.0.2     4      65002         8        10        0    0    0 00:03:09            5 (Policy)
+      fe80:1::2222    4      65002         9        11        0    0    0 00:03:09     (Policy) (Policy)
+
 Reject routes with AS_SET or AS_CONFED_SET types
 ------------------------------------------------
 

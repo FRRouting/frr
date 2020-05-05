@@ -8766,6 +8766,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	json_object *json_peer = NULL;
 	json_object *json_peers = NULL;
 	struct peer_af *paf;
+	struct bgp_filter *filter;
 
 	/* labeled-unicast routes are installed in the unicast table so in order
 	 * to
@@ -9066,6 +9067,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		}
 
 		paf = peer_af_find(peer, afi, pfx_rcd_safi);
+		filter = &peer->filter[afi][safi];
 
 		count++;
 		/* Works for both failed & successful cases */
@@ -9208,18 +9210,39 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						    BGP_UPTIME_LEN, 0, NULL));
 
 				if (peer->status == Established) {
-					if (peer->afc_recv[afi][safi])
-						vty_out(vty, " %12" PRIu32,
-							peer->pcount
-								[afi]
-								[pfx_rcd_safi]);
-					else
+					if (peer->afc_recv[afi][safi]) {
+						if (CHECK_FLAG(
+							    bgp->flags,
+							    BGP_FLAG_EBGP_REQUIRES_POLICY)
+						    && !bgp_inbound_policy_exists(
+							    peer, filter))
+							vty_out(vty, " %12s",
+								"(Policy)");
+						else
+							vty_out(vty,
+								" %12" PRIu32,
+								peer->pcount
+									[afi]
+									[pfx_rcd_safi]);
+					} else {
 						vty_out(vty, " NoNeg");
+					}
 
-					if (paf && PAF_SUBGRP(paf))
-						vty_out(vty, " %8" PRIu32,
-							(PAF_SUBGRP(paf))
-								->scount);
+					if (paf && PAF_SUBGRP(paf)) {
+						if (CHECK_FLAG(
+							    bgp->flags,
+							    BGP_FLAG_EBGP_REQUIRES_POLICY)
+						    && !bgp_outbound_policy_exists(
+							    peer, filter))
+							vty_out(vty, " %8s",
+								"(Policy)");
+						else
+							vty_out(vty,
+								" %8" PRIu32,
+								(PAF_SUBGRP(
+									 paf))
+									->scount);
+					}
 				} else {
 					if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 						vty_out(vty, " Idle (Admin)");
