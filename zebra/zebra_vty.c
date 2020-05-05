@@ -1300,7 +1300,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nexthop_group *backup_nhg;
 
-	vty_out(vty, "ID: %u\n", nhe->id);
+	vty_out(vty, "ID: %u (%s)\n", nhe->id, zebra_route_string(nhe->type));
 	vty_out(vty, "     RefCnt: %d\n", nhe->refcnt);
 	vty_out(vty, "     VRF: %s\n", vrf_id_to_name(nhe->vrf_id));
 

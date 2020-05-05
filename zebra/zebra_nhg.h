@@ -102,29 +102,25 @@ struct nhg_hash_entry {
  * Is this a nexthop that is recursively resolved?
  */
 #define NEXTHOP_GROUP_RECURSIVE (1 << 3)
-/*
- * This is a nexthop group we got from the kernel, it is identical to
- * one we already have. (The kernel allows duplicate nexthops, we don't
- * since we hash on them). We are only tracking it in our ID table,
- * it is unusable by our created routes but may be used by routes we get
- * from the kernel. Therefore, it is unhashable.
- */
-#define NEXTHOP_GROUP_UNHASHABLE (1 << 4)
 
 /*
  * Backup nexthop support - identify groups that are backups for
  * another group.
  */
-#define NEXTHOP_GROUP_BACKUP (1 << 5)
+#define NEXTHOP_GROUP_BACKUP (1 << 4)
 
 /*
  * Track FPM installation status..
  */
-#define NEXTHOP_GROUP_FPM (1 << 6)
+#define NEXTHOP_GROUP_FPM (1 << 5)
 };
 
 /* Was this one we created, either this session or previously? */
-#define ZEBRA_NHG_CREATED(NHE) ((NHE->type) == ZEBRA_ROUTE_NHG)
+#define ZEBRA_NHG_CREATED(NHE)                                                 \
+	(((NHE->type) <= ZEBRA_ROUTE_MAX) && (NHE->type != ZEBRA_ROUTE_KERNEL))
+
+/* Is this an NHE owned by zebra and not an upper level protocol? */
+#define ZEBRA_OWNED(NHE) (NHE->type == ZEBRA_ROUTE_NHG)
 
 /*
  * Backup nexthops: this is a group object itself, so
@@ -249,12 +245,50 @@ extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
 
 /* Find an nhe based on a nexthop_group */
-extern struct nhg_hash_entry *
-zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi);
+extern struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id,
+						 struct nexthop_group *nhg,
+						 afi_t rt_afi, int type);
 
 /* Find an nhe based on a route's nhe, used during route creation */
 struct nhg_hash_entry *
 zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
+
+
+/**
+ * Functions for Add/Del/Replace via protocol NHG creation.
+ *
+ * The NHEs will not be hashed. They will only be present in the
+ * ID table and therefore not sharable.
+ *
+ * It is the owning protocols job to manage these.
+ */
+
+/*
+ * Add NHE.
+ *
+ * Returns allocated NHE on success, otherwise NULL.
+ */
+struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
+					   struct nexthop_group *nhg,
+					   afi_t afi);
+
+
+/*
+ * Del NHE.
+ *
+ * Returns deleted NHE on success, otherwise NULL.
+ *
+ * Caller must free the NHE.
+ */
+struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id);
+
+/*
+ * Replace NHE.
+ *
+ * Returns new NHE on success, otherwise NULL.
+ */
+struct nhg_hash_entry *
+zebra_nhg_proto_replace(uint32_t id, struct nexthop_group *nhg, afi_t afi);
 
 /* Reference counter functions */
 extern void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
