@@ -1119,7 +1119,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	struct vrf *nhe_vrf = vrf_lookup_by_id(nhe->vrf_id);
 	struct nexthop_group *backup_nhg;
 
-	vty_out(vty, "ID: %u\n", nhe->id);
+	vty_out(vty, "ID: %u (%s)\n", nhe->id, zebra_route_string(nhe->type));
 	vty_out(vty, "     RefCnt: %d\n", nhe->refcnt);
 
 	if (nhe_vrf)
