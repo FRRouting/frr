@@ -676,9 +676,28 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		nl_buf_len = (size_t)rv;
 		break;
 
+	case DPLANE_OP_NH_DELETE:
+		rv = netlink_nexthop_encode(RTM_DELNEXTHOP, ctx, nl_buf,
+					    sizeof(nl_buf));
+		if (rv <= 0) {
+			zlog_err("%s: netlink_nexthop_encode failed", __func__);
+			return 0;
+		}
+
+		nl_buf_len = (size_t)rv;
+		break;
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
-	case DPLANE_OP_NH_DELETE:
+		rv = netlink_nexthop_encode(RTM_NEWNEXTHOP, ctx, nl_buf,
+					    sizeof(nl_buf));
+		if (rv <= 0) {
+			zlog_err("%s: netlink_nexthop_encode failed", __func__);
+			return 0;
+		}
+
+		nl_buf_len = (size_t)rv;
+		break;
+
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
 	case DPLANE_OP_LSP_DELETE:
