@@ -1648,6 +1648,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 			/* Update link. */
 			zebra_if_update_link(ifp, link_ifindex, ns_id);
+			ifp->ll_type = netlink_to_zebra_link_type(ifi->ifi_type);
 
 			ifp->ll_type =
 				netlink_to_zebra_link_type(ifi->ifi_type);
