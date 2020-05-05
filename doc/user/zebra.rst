@@ -852,6 +852,20 @@ FPM Commands
    will not attempt to connect to it anymore.
 
 
+.. index:: fpm use-next-hop-groups
+.. clicmd:: fpm use-next-hop-groups
+
+   Use the new netlink messages ``RTM_NEWNEXTHOP`` / ``RTM_DELNEXTHOP`` to
+   group repeated route next hop information.
+
+
+.. index:: no fpm use-next-hop-groups
+.. clicmd:: no fpm use-next-hop-groups
+
+   Use the old known FPM behavior of including next hop information in the
+   route (e.g. ``RTM_NEWROUTE``) messages.
+
+
 .. index:: show fpm counters [json]
 .. clicmd:: show fpm counters [json]
 
