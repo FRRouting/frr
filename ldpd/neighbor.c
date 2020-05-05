@@ -619,6 +619,16 @@ nbr_establish_connection(struct nbr *nbr)
 #endif
 	}
 
+	if (nbr->af == AF_INET) {
+		if (sock_set_ipv4_tos(nbr->fd, IPTOS_PREC_INTERNETCONTROL) == -1)
+			log_warn("%s: lsr-id %s, sock_set_ipv4_tos error",
+				__func__, inet_ntoa(nbr->id));
+	} else if (nbr->af == AF_INET6) {
+		if (sock_set_ipv6_dscp(nbr->fd, IPTOS_PREC_INTERNETCONTROL) == -1)
+			log_warn("%s: lsr-id %s, sock_set_ipv6_dscp error",
+				__func__, inet_ntoa(nbr->id));
+	}
+
 	addr2sa(nbr->af, &nbr->laddr, 0, &local_su);
 	addr2sa(nbr->af, &nbr->raddr, LDP_PORT, &remote_su);
 	if (nbr->af == AF_INET6 && nbr->raddr_scope)
