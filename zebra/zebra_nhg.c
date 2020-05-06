@@ -1793,20 +1793,13 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 					nexthop->vrf_id);
 			return 0;
 		}
-		if (connected_is_unnumbered(ifp)) {
-			if (if_is_operative(ifp))
-				return 1;
 
+		if (if_is_operative(ifp))
+			return 1;
+		else {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"        %s: Onlink and interface %s is not operative",
-					__func__, ifp->name);
-			return 0;
-		}
-		if (!if_is_operative(ifp)) {
-			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-				zlog_debug(
-					"        %s: Interface %s is not unnumbered",
 					__func__, ifp->name);
 			return 0;
 		}
