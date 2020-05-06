@@ -37,6 +37,8 @@
 #include "jhash.h"
 
 #include "pathd/pathd.h"
+#include "pathd/path_util.h"
+#include "pathd/path_zebra.h"
 #include "pathd/path_errors.h"
 #include "pathd/path_pcep_memory.h"
 #include "pathd/path_pcep.h"
@@ -64,10 +66,9 @@ static void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 				   struct pcep_message *msg);
 
 /* Internal Functions */
-static void update_tag(struct ctrl_state *ctrl_state,
-		       struct pcc_state *pcc_state);
-static void update_originator(struct ctrl_state *ctrl_state,
-			      struct pcc_state *pcc_state);
+static void select_pcc_address(struct pcc_state *pcc_state);
+static void update_tag(struct pcc_state *pcc_state);
+static void update_originator(struct pcc_state *pcc_state);
 static void schedule_reconnect(struct ctrl_state *ctrl_state,
 			       struct pcc_state *pcc_state);
 static void send_pcep_message(struct ctrl_state *ctrl_state,
@@ -119,8 +120,8 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 	pcc_state->next_reqid = 1;
 	pcc_state->next_plspid = 1;
 
-	update_tag(ctrl_state, pcc_state);
-	update_originator(ctrl_state, pcc_state);
+	update_tag(pcc_state);
+	update_originator(pcc_state);
 
 	PCEP_DEBUG("%s PCC initialized", pcc_state->tag);
 
@@ -172,8 +173,8 @@ int pcep_pcc_update(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 	pcc_state->pcc_opts = pcc_opts;
 	pcc_state->pce_opts = pce_opts;
 
-	update_tag(ctrl_state, pcc_state);
-	update_originator(ctrl_state, pcc_state);
+	update_tag(pcc_state);
+	update_originator(pcc_state);
 
 	return pcep_pcc_enable(ctrl_state, pcc_state);
 }
@@ -186,6 +187,9 @@ void pcep_pcc_reconnect(struct ctrl_state *ctrl_state,
 
 int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 {
+	char pcc_buff[40];
+	char pce_buff[40];
+
 	assert(pcc_state->status == PCEP_PCC_DISCONNECTED);
 	assert(pcc_state->sess == NULL);
 
@@ -194,29 +198,35 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		pcc_state->t_reconnect = NULL;
 	}
 
-	PCEP_DEBUG("%s PCC connecting", pcc_state->tag);
+	select_pcc_address(pcc_state);
 
+	if (pcc_state->pcc_addr.ipa_type == IPADDR_NONE) {
+		flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
+			  "skipping connection to PCE %s:%d due to missing PCC address",
+			  ipaddr2str(&pcc_state->pce_opts->addr, pce_buff,
+				     sizeof(pce_buff)),
+			  pcc_state->pce_opts->port);
+		schedule_reconnect(ctrl_state, pcc_state);
+		return 0;
+	}
+
+	PCEP_DEBUG("%s PCC connecting", pcc_state->tag);
 	pcc_state->sess =
-		pcep_lib_connect(pcc_state->pcc_opts, pcc_state->pce_opts);
+		pcep_lib_connect(&pcc_state->pcc_addr,
+		                 pcc_state->pcc_opts->port,
+				 &pcc_state->pce_opts->addr,
+				 pcc_state->pce_opts->port,
+				 pcc_state->pce_opts->draft07);
 
 	if (pcc_state->sess == NULL) {
-		if (IS_IPADDR_V6(&pcc_state->pce_opts->addr)) {
-			flog_warn(
-				EC_PATH_PCEP_LIB_CONNECT,
-				"failed to connect to PCE %pI6:%d from %pI6:%d",
-				&pcc_state->pce_opts->addr.ipaddr_v6,
-				pcc_state->pce_opts->port,
-				&pcc_state->pcc_opts->addr.ipaddr_v6,
-				pcc_state->pcc_opts->port);
-		} else {
-			flog_warn(
-				EC_PATH_PCEP_LIB_CONNECT,
-				"failed to connect to PCE %pI4:%d from %pI4:%d",
-				&pcc_state->pce_opts->addr.ipaddr_v4,
-				pcc_state->pce_opts->port,
-				&pcc_state->pcc_opts->addr.ipaddr_v4,
-				pcc_state->pcc_opts->port);
-		}
+		flog_warn(EC_PATH_PCEP_LIB_CONNECT,
+			  "failed to connect to PCE %s:%d from %s:%d",
+			  ipaddr2str(&pcc_state->pce_opts->addr, pce_buff,
+				     sizeof(pce_buff)),
+			  pcc_state->pce_opts->port,
+			  ipaddr2str(&pcc_state->pcc_addr, pcc_buff,
+				     sizeof(pcc_buff)),
+			  pcc_state->pcc_opts->port);
 		schedule_reconnect(ctrl_state, pcc_state);
 		return 0;
 	}
@@ -297,7 +307,7 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 {
 	if (pcc_state->caps.is_stateful) {
 		PCEP_DEBUG("%s Send report for candidate path %s",
-		           pcc_state->tag, path->name);
+			   pcc_state->tag, path->name);
 		send_report(ctrl_state, pcc_state, path);
 	}
 }
@@ -466,7 +476,16 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 
 /* ------------ Internal Functions ------------ */
 
-void update_tag(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
+void select_pcc_address(struct pcc_state *pcc_state)
+{
+	if (pcc_state->pcc_opts->addr.ipa_type == IPADDR_NONE) {
+		get_router_id(&pcc_state->pcc_addr);
+	} else {
+		IPADDR_COPY(&pcc_state->pcc_addr, &pcc_state->pcc_opts->addr);
+	}
+}
+
+void update_tag(struct pcc_state *pcc_state)
 {
 	if (pcc_state->pce_opts != NULL) {
 		assert(!IS_IPADDR_NONE(&pcc_state->pce_opts->addr));
@@ -487,8 +506,7 @@ void update_tag(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	}
 }
 
-void update_originator(struct ctrl_state *ctrl_state,
-		       struct pcc_state *pcc_state)
+void update_originator(struct pcc_state *pcc_state)
 {
 	char *originator;
 	if (pcc_state->originator != NULL) {
@@ -547,17 +565,7 @@ void specialize_output_path(struct pcc_state *pcc_state, struct path *path)
 	bool was_created = false;
 
 	lookup_plspid(pcc_state, path);
-
-	if (IS_IPADDR_V6(&pcc_state->pcc_opts->addr)) {
-		path->sender.ipa_type = IPADDR_V6;
-		memcpy(&path->sender.ipaddr_v6,
-		       &pcc_state->pcc_opts->addr.ipaddr_v6,
-		       sizeof(struct in6_addr));
-
-	} else {
-		path->sender.ipa_type = IPADDR_V4;
-		path->sender.ipaddr_v4 = pcc_state->pcc_opts->addr.ipaddr_v4;
-	}
+	IPADDR_COPY(&path->sender, &pcc_state->pcc_addr);
 
 	if ((path->originator == NULL)
 	    || (strcmp(path->originator, pcc_state->originator) == 0)) {
@@ -596,37 +604,24 @@ void specialize_input_path(struct pcc_state *pcc_state, struct path *path)
 void send_comp_request(struct ctrl_state *ctrl_state,
 		       struct pcc_state *pcc_state, struct lsp_nb_key *nbkey)
 {
+	char pcc_buff[40];
+	char pce_buff[40];
 	uint32_t reqid;
 	struct pcep_message *msg;
-	struct ipaddr src;
-
-	/* The source address need to be defined explicitly for now */
-	if (IS_IPADDR_V6(&pcc_state->pcc_opts->addr)) {
-		assert(memcmp(&in6addr_any,
-			      &pcc_state->pcc_opts->addr.ipaddr_v6,
-			      sizeof(struct in6_addr) != 0));
-	} else {
-		assert(pcc_state->pcc_opts->addr.ipaddr_v4.s_addr
-		       != INADDR_ANY);
-	}
 
 	reqid = push_req(pcc_state, nbkey);
 	/* TODO: Add a timer to retry the computation request */
 
-	PCEP_DEBUG("%s Sending computation request for path from %pI4 to %pI4",
-		   pcc_state->tag, &pcc_state->pcc_opts->addr.ipaddr_v4,
-		   &nbkey->endpoint.ipaddr_v4);
+	PCEP_DEBUG("%s Sending computation request for path from "
+		   "%s:%d to %s:%d", pcc_state->tag,
+		   ipaddr2str(&pcc_state->pce_opts->addr, pce_buff,
+			      sizeof(pce_buff)),
+		   pcc_state->pce_opts->port,
+		   ipaddr2str(&pcc_state->pcc_addr, pcc_buff, sizeof(pcc_buff)),
+		   pcc_state->pcc_opts->port);
 
-	src.ipa_type = pcc_state->pcc_opts->addr.ipa_type;
-	if (IS_IPADDR_V6(&pcc_state->pcc_opts->addr)) {
-		memcpy(&src.ipaddr_v6, &pcc_state->pcc_opts->addr.ipaddr_v6,
-		       sizeof(struct in6_addr));
-	} else {
-		src.ipaddr_v4.s_addr =
-			pcc_state->pcc_opts->addr.ipaddr_v4.s_addr;
-	}
-
-	msg = pcep_lib_format_request(reqid, &src, &nbkey->endpoint);
+	msg = pcep_lib_format_request(reqid, &pcc_state->pcc_addr,
+				      &nbkey->endpoint);
 	send_pcep_message(ctrl_state, pcc_state, msg);
 }
 

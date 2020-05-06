@@ -62,6 +62,12 @@ static struct log_ref ferr_path_warn[] = {
                 .suggestion = "Check the connectivity between the PCC and the PCE"
         },
         {
+                .code = EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
+                .title = "PCC connection error",
+                .description = "The PCEP module did not try to connect because it is missing a source address",
+                .suggestion = "Wait for the router ID to be defined or set the PCC source address in the configuration"
+        },
+        {
                 .code = EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
                 .title = "Recoverable internal error",
                 .description = "Some recoverable internal error",

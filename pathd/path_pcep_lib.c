@@ -75,25 +75,23 @@ void pcep_lib_finalize(void)
 }
 
 
-pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
-			       struct pce_opts *pce_opts)
+pcep_session *pcep_lib_connect(struct ipaddr *src_addr, int src_port,
+                               struct ipaddr *dst_addr, int dst_port,
+                               bool draft07)
 {
-	assert(pcc_opts != NULL);
-	assert(pce_opts != NULL);
-
 	pcep_configuration *config;
 	pcep_session *sess;
 
 	config = create_default_pcep_configuration();
-	config->dst_pcep_port = pce_opts->port;
-	config->src_pcep_port = pcc_opts->port;
-	if (IS_IPADDR_V6(&pcc_opts->addr)) {
+	config->dst_pcep_port = dst_port;
+	config->src_pcep_port = src_port;
+	if (IS_IPADDR_V6(src_addr)) {
 		config->is_src_ipv6 = true;
-		memcpy(&config->src_ip.src_ipv6, &pcc_opts->addr.ipaddr_v6,
+		memcpy(&config->src_ip.src_ipv6, &src_addr->ipaddr_v6,
 		       sizeof(struct in6_addr));
 	} else {
 		config->is_src_ipv6 = false;
-		config->src_ip.src_ipv4 = pcc_opts->addr.ipaddr_v4;
+		config->src_ip.src_ipv4 = src_addr->ipaddr_v4;
 	}
 
 	config->support_stateful_pce_lsp_update = true;
@@ -105,13 +103,12 @@ pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
 	config->support_sr_te_pst = true;
 	config->pcc_can_resolve_nai_to_sid = false;
 
-	config->pcep_msg_versioning->draft_ietf_pce_segment_routing_07 =
-		pce_opts->draft07;
+	config->pcep_msg_versioning->draft_ietf_pce_segment_routing_07 = draft07;
 
-	if (IS_IPADDR_V6(&pce_opts->addr)) {
-		sess = connect_pce_ipv6(config, &pce_opts->addr.ipaddr_v6);
+	if (IS_IPADDR_V6(dst_addr)) {
+		sess = connect_pce_ipv6(config, &dst_addr->ipaddr_v6);
 	} else {
-		sess = connect_pce(config, &pce_opts->addr.ipaddr_v4);
+		sess = connect_pce(config, &dst_addr->ipaddr_v4);
 	}
 	destroy_pcep_configuration(config);
 	return sess;

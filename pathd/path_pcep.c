@@ -31,6 +31,7 @@
 #include "termtable.h"
 
 #include "pathd/pathd.h"
+#include "pathd/path_util.h"
 #include "pathd/path_errors.h"
 #include "pathd/path_pcep_memory.h"
 #include "pathd/path_pcep.h"
@@ -303,7 +304,7 @@ DEFUN(show_pcep_counters, show_pcep_counters_cmd, "show pcep counters",
 }
 
 DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
-	   "pcc <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)]",
+	   "pcc [<ip A.B.C.D | ipv6 X:X::X:X>] [port (1024-65535)]",
 	   "PCC configuration\n"
 	   "PCC source ip\n"
 	   "PCC source IPv4 address\n"
@@ -318,32 +319,35 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 	struct pcc_opts *opts, *opts_copy;
 	int i = 1;
 
-	/* Get the first argument, should be either ip or ipv6 */
-	pcc_addr.ipa_type = IPADDR_V4;
-	if (strcmp("ipv6", argv[i]->arg) == 0) {
-		pcc_addr.ipa_type = IPADDR_V6;
-	} else if (strcmp("ip", argv[i]->arg) != 0) {
-		return CMD_ERR_NO_MATCH;
-	}
-
-	/* Get the first argument value */
-	i++;
-	if (i >= argc) {
-		return CMD_ERR_NO_MATCH;
-	}
-	if (IS_IPADDR_V6(&pcc_addr)) {
-		if (!inet_pton(AF_INET6, argv[i]->arg, &pcc_addr.ipaddr_v6)) {
-			return CMD_ERR_INCOMPLETE;
-		}
-	} else {
-		if (!inet_pton(AF_INET, argv[i]->arg, &pcc_addr.ipaddr_v4)) {
-			return CMD_ERR_INCOMPLETE;
-		}
-	}
+	pcc_addr.ipa_type = IPADDR_NONE;
 
 	/* Handle the rest of the arguments */
-	i++;
 	while (i < argc) {
+		if (strcmp("ip", argv[i]->arg) == 0) {
+			pcc_addr.ipa_type = IPADDR_V4;
+			i++;
+			if (i >= argc)
+				return CMD_ERR_NO_MATCH;
+			if (!inet_pton(AF_INET, argv[i]->arg,
+			               &pcc_addr.ipaddr_v4))
+				return CMD_ERR_INCOMPLETE;
+			i++;
+			continue;
+
+		}
+
+		if (strcmp("ipv6", argv[i]->arg) == 0) {
+			pcc_addr.ipa_type = IPADDR_V6;
+			i++;
+			if (i >= argc)
+				return CMD_ERR_NO_MATCH;
+			if (!inet_pton(AF_INET6, argv[i]->arg,
+			               &pcc_addr.ipaddr_v6))
+				return CMD_ERR_INCOMPLETE;
+			i++;
+			continue;
+		}
+
 		if (strcmp("port", argv[i]->arg) == 0) {
 			i++;
 			if (i >= argc)
@@ -354,16 +358,11 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 			i++;
 			continue;
 		}
+		return CMD_ERR_NO_MATCH;
 	}
 
 	opts = XCALLOC(MTYPE_PCEP, sizeof(*opts));
-	opts->addr.ipa_type = pcc_addr.ipa_type;
-	if (IS_IPADDR_V6(&pcc_addr)) {
-		memcpy(&opts->addr.ipaddr_v6, &pcc_addr.ipaddr_v6,
-		       sizeof(struct in6_addr));
-	} else {
-		opts->addr.ipaddr_v4.s_addr = pcc_addr.ipaddr_v4.s_addr;
-	}
+	IPADDR_COPY(&opts->addr, &pcc_addr);
 	opts->port = pcc_port;
 
 	if (pcep_ctrl_update_pcc_options(pcep_g->fpt, opts))
@@ -459,13 +458,7 @@ DEFUN(pcep_cli_pce, pcep_cli_pce_cmd,
 	}
 
 	pce_opts = XCALLOC(MTYPE_PCEP, sizeof(*pce_opts));
-	pce_opts->addr.ipa_type = pce_addr.ipa_type;
-	if (IS_IPADDR_V6(&pce_addr)) {
-		memcpy(&pce_opts->addr.ipaddr_v6, &pce_addr.ipaddr_v6,
-		       sizeof(struct in6_addr));
-	} else {
-		pce_opts->addr.ipaddr_v4 = pce_addr.ipaddr_v4;
-	}
+	IPADDR_COPY(&pce_opts->addr, &pce_addr);
 	pce_opts->port = pce_port;
 	pce_opts->draft07 = draft07;
 

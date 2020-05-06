@@ -26,8 +26,9 @@
 
 int pcep_lib_initialize(void);
 void pcep_lib_finalize(void);
-pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
-			       struct pce_opts *pce_opts);
+pcep_session *pcep_lib_connect(struct ipaddr *src_addr, int src_port,
+			       struct ipaddr *dst_addr, int dst_port,
+			       bool draft07);
 void pcep_lib_disconnect(pcep_session *sess);
 struct pcep_message *pcep_lib_format_report(struct path *path);
 struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,

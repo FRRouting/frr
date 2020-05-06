@@ -32,9 +32,23 @@
 #include "typesafe.h"
 
 #include "pathd/pathd.h"
+#include "pathd/path_zebra.h"
+#include "pathd/path_util.h"
 
 static struct zclient *zclient;
 static struct zclient *zclient_sync;
+
+/* Global Variables */
+struct ipaddr g_router_id = { .ipa_type = IPADDR_NONE};
+pthread_mutex_t g_router_id_mtx = PTHREAD_MUTEX_INITIALIZER;
+
+void get_router_id(struct ipaddr *router_id)
+{
+	assert(router_id != NULL);
+	pthread_mutex_lock(&g_router_id_mtx);
+	IPADDR_COPY(router_id, &g_router_id);
+	pthread_mutex_unlock(&g_router_id_mtx);
+}
 
 static void path_zebra_connected(struct zclient *zclient)
 {
@@ -79,6 +93,30 @@ static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 	srte_candidate_status_update(policy, best_candidate_path,
 				     zapi_sr_policy.status);
 
+	return 0;
+}
+
+/* Router-id update message from zebra. */
+static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
+{
+	struct prefix pref;
+	char buf[PREFIX2STR_BUFFER];
+	pthread_mutex_lock(&g_router_id_mtx);
+	zebra_router_id_update_read(zclient->ibuf, &pref);
+	memset(&g_router_id, 0, sizeof(struct ipaddr));
+	g_router_id.ipa_type = IPADDR_NONE;
+	if (pref.family == AF_INET) {
+		g_router_id.ipa_type = IPADDR_V4;
+		memcpy(&g_router_id.ipaddr_v4, &pref.u.prefix4,
+		       sizeof(struct in_addr));
+	} else if (pref.family == AF_INET6) {
+		g_router_id.ipa_type = IPADDR_V6;
+		memcpy(&g_router_id.ipaddr_v6, &pref.u.prefix6,
+		       sizeof(struct in6_addr));
+	}
+	pthread_mutex_unlock(&g_router_id_mtx);
+	ipaddr2str(&g_router_id, buf, sizeof(buf));
+	zlog_info("Router Id updated for VRF %u: %s", vrf_id, buf);
 	return 0;
 }
 
@@ -173,6 +211,7 @@ void path_zebra_init(struct thread_master *master)
 	zclient_init(zclient, ZEBRA_ROUTE_SRTE, 0, &pathd_privs);
 	zclient->zebra_connected = path_zebra_connected;
 	zclient->sr_policy_notify_status = path_zebra_sr_policy_notify_status;
+	zclient->router_id_update = path_zebra_router_id_update;
 
 	/* Initialize special zclient for synchronous message exchanges. */
 	zclient_sync = zclient_new(master, &options);

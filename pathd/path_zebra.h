@@ -19,4 +19,6 @@
 #ifndef _FRR_PATH_MPLS_H_
 #define _FRR_PATH_MPLS_H_
 
+void get_router_id(struct ipaddr *router_id);
+
 #endif /* _FRR_PATH_MPLS_H_ */
