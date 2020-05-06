@@ -93,6 +93,10 @@ static void lsp_processq_del(struct work_queue *wq, void *data);
 static void lsp_processq_complete(struct work_queue *wq);
 static int lsp_processq_add(zebra_lsp_t *lsp);
 static void *lsp_alloc(void *p);
+
+/* Check whether lsp can be freed - no nhlfes, e.g., and call free api */
+static void lsp_check_free(struct hash *lsp_table, zebra_lsp_t **plsp);
+
 /* Free lsp; sets caller's pointer to NULL */
 static void lsp_free(struct hash *lsp_table, zebra_lsp_t **plsp);
 
@@ -256,9 +260,9 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	if (added || changed) {
 		if (lsp_processq_add(lsp))
 			return -1;
-	} else if ((nhlfe_list_first(&lsp->nhlfe_list) == NULL)
-		   && !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED))
-		lsp_free(lsp_table, &lsp);
+	} else {
+		lsp_check_free(lsp_table, &lsp);
+	}
 
 	return 0;
 }
@@ -312,9 +316,9 @@ static int lsp_uninstall(struct zebra_vrf *zvrf, mpls_label_t label)
 	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
 		if (lsp_processq_add(lsp))
 			return -1;
-	} else if ((nhlfe_list_first(&lsp->nhlfe_list) == NULL)
-		   && !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED))
-		lsp_free(lsp_table, &lsp);
+	} else {
+		lsp_check_free(lsp_table, &lsp);
+	}
 
 	return 0;
 }
@@ -1039,8 +1043,12 @@ static void lsp_processq_del(struct work_queue *wq, void *data)
 			nhlfe_del(nhlfe);
 	}
 
-	if (nhlfe_list_first(&lsp->nhlfe_list) == NULL)
-		lsp_free(lsp_table, &lsp);
+	frr_each_safe(nhlfe_list, &lsp->backup_nhlfe_list, nhlfe) {
+		if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED))
+			nhlfe_del(nhlfe);
+	}
+
+	lsp_check_free(lsp_table, &lsp);
 }
 
 /*
@@ -1089,6 +1097,24 @@ static void *lsp_alloc(void *p)
 		zlog_debug("Alloc LSP in-label %u", lsp->ile.in_label);
 
 	return ((void *)lsp);
+}
+
+/*
+ * Check whether lsp can be freed - no nhlfes, e.g., and call free api
+ */
+static void lsp_check_free(struct hash *lsp_table, zebra_lsp_t **plsp)
+{
+	zebra_lsp_t *lsp;
+
+	if (plsp == NULL || *plsp == NULL)
+		return;
+
+	lsp = *plsp;
+
+	if ((nhlfe_list_first(&lsp->nhlfe_list) == NULL) &&
+	    (nhlfe_list_first(&lsp->backup_nhlfe_list) == NULL) &&
+	    !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED))
+		lsp_free(lsp_table, plsp);
 }
 
 /*
@@ -1413,9 +1439,9 @@ static int mpls_lsp_uninstall_all(struct hash *lsp_table, zebra_lsp_t *lsp,
 	if (schedule_lsp) {
 		if (lsp_processq_add(lsp))
 			return -1;
-	} else if ((nhlfe_list_first(&lsp->nhlfe_list) == NULL)
-		   && !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED))
-		lsp_free(lsp_table, &lsp);
+	} else {
+		lsp_check_free(lsp_table, &lsp);
+	}
 
 	return 0;
 }
