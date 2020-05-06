@@ -107,6 +107,7 @@ static int nhrp_if_delete_hook(struct interface *ifp)
 		free(nifp->source);
 
 	XFREE(MTYPE_NHRP_IF, ifp->info);
+	ifp->info = NULL;
 	return 0;
 }
 
@@ -434,13 +435,24 @@ int nhrp_ifp_create(struct interface *ifp)
 	return 0;
 }
 
+void nhrp_interface_delete_context(struct interface *ifp)
+{
+	struct nhrp_interface *nifp = ifp->info;
+
+	nhrp_interface_update_cache_config(ifp, false, AF_INET);
+	nhrp_interface_update_cache_config(ifp, false, AF_INET6);
+
+	if (nifp->nbmaifp)
+		notifier_del(&nifp->nbmanifp_notifier);
+	nhrp_interface_update(ifp);
+	if_set_index(ifp, IFINDEX_INTERNAL);
+}
+
 int nhrp_ifp_destroy(struct interface *ifp)
 {
 	debugf(NHRP_DEBUG_IF, "if-delete: %s", ifp->name);
 
-	nhrp_interface_update_cache_config(ifp, false, AF_INET);
-	nhrp_interface_update_cache_config(ifp, false, AF_INET6);
-	nhrp_interface_update(ifp);
+	nhrp_interface_delete_context(ifp);
 
 	return 0;
 }

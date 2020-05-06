@@ -192,6 +192,7 @@ static int nhrp_vrf_enable(struct vrf *vrf)
 static int nhrp_vrf_disable(struct vrf *vrf)
 {
 	struct nhrp_vrf *nhrp_vrf;
+	struct interface *ifp;
 
 	debugf(NHRP_DEBUG_VRF, "VRF disable %s id %u", vrf->name, vrf->vrf_id);
 
@@ -201,6 +202,10 @@ static int nhrp_vrf_disable(struct vrf *vrf)
 		nhrp_vrf = find_nhrp_vrf(vrf->name);
 
 	if (nhrp_vrf && nhrp_vrf->vrf_id != VRF_UNKNOWN) {
+		/* delete interface from this vrf */
+		FOR_ALL_INTERFACES (vrf, ifp)
+			nhrp_interface_delete_context(ifp);
+
 		/* stop contexts */
 		nhrp_instance_register(nhrp_vrf, false);
 		nhrp_stop_context(nhrp_vrf);

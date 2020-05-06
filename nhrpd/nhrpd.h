@@ -425,6 +425,7 @@ extern int nhrp_ifp_destroy(struct interface *ifp);
 
 int nhrp_interface_is_ptop(struct nhrp_vrf *nhrp_vrf, int ifindex,
 			   uint8_t *addr, size_t *addrlen);
+void nhrp_interface_delete_context(struct interface *ifp);
 
 int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		 const char *nbma_fqdn);
