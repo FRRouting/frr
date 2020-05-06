@@ -7679,10 +7679,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 			json_object_string_add(json_nexthop_global, "ip",
 					       nexthop);
 
-			if (nexthop_hostname)
+			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
 						       "hostname",
-						       nexthop_hostname);
+						       path->peer->hostname);
 
 			json_object_string_add(json_nexthop_global, "afi",
 					       (af == AF_INET) ? "ipv4"
@@ -7709,10 +7709,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 			json_object_string_add(json_nexthop_global, "ip",
 					       inet_ntoa(attr->nexthop));
 
-			if (nexthop_hostname)
+			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
 						       "hostname",
-						       nexthop_hostname);
+						       path->peer->hostname);
 
 			json_object_string_add(json_nexthop_global, "afi",
 					       "ipv4");
@@ -7743,10 +7743,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 					json_nexthop_global, "ip",
 					inet_ntoa(attr->nexthop));
 
-				if (nexthop_hostname)
+				if (path->peer->hostname)
 					json_object_string_add(
 						json_nexthop_global, "hostname",
-						nexthop_hostname);
+						path->peer->hostname);
 
 				json_object_boolean_true_add(
 							json_nexthop_global,
@@ -7776,10 +7776,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 			json_object_string_add(json_nexthop_global, "ip",
 					       inet_ntoa(attr->nexthop));
 
-			if (nexthop_hostname)
+			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
 						       "hostname",
-						       nexthop_hostname);
+						       path->peer->hostname);
 
 			json_object_string_add(json_nexthop_global, "afi",
 					       "ipv4");
@@ -7812,10 +7812,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 				inet_ntop(AF_INET6, &attr->mp_nexthop_global,
 					  buf, BUFSIZ));
 
-			if (nexthop_hostname)
+			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
 						       "hostname",
-						       nexthop_hostname);
+						       path->peer->hostname);
 
 			json_object_string_add(json_nexthop_global, "afi",
 					       "ipv6");
@@ -7834,10 +7834,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 						  &attr->mp_nexthop_local, buf,
 						  BUFSIZ));
 
-				if (nexthop_hostname)
+				if (path->peer->hostname)
 					json_object_string_add(
 						json_nexthop_ll, "hostname",
-						nexthop_hostname);
+						path->peer->hostname);
 
 				json_object_string_add(json_nexthop_ll, "afi",
 						       "ipv6");
@@ -8866,10 +8866,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					json_nexthop_global, "ip",
 					inet_ntoa(attr->mp_nexthop_global_in));
 
-				if (nexthop_hostname)
+				if (path->peer->hostname)
 					json_object_string_add(
 						json_nexthop_global, "hostname",
-						nexthop_hostname);
+						path->peer->hostname);
 			} else {
 				if (nexthop_hostname)
 					vty_out(vty, "    %pI4(%s)",
@@ -8885,10 +8885,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					json_nexthop_global, "ip",
 					inet_ntoa(attr->nexthop));
 
-				if (nexthop_hostname)
+				if (path->peer->hostname)
 					json_object_string_add(
 						json_nexthop_global, "hostname",
-						nexthop_hostname);
+						path->peer->hostname);
 			} else {
 				if (nexthop_hostname)
 					vty_out(vty, "    %pI4(%s)",
@@ -8910,10 +8910,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				inet_ntop(AF_INET6, &attr->mp_nexthop_global,
 					  buf, INET6_ADDRSTRLEN));
 
-			if (nexthop_hostname)
+			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
 						       "hostname",
-						       nexthop_hostname);
+						       path->peer->hostname);
 
 			json_object_string_add(json_nexthop_global, "afi",
 					       "ipv6");
@@ -9104,10 +9104,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				inet_ntop(AF_INET6, &attr->mp_nexthop_local,
 					  buf, INET6_ADDRSTRLEN));
 
-			if (nexthop_hostname)
+			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_ll,
 						       "hostname",
-						       nexthop_hostname);
+						       path->peer->hostname);
 
 			json_object_string_add(json_nexthop_ll, "afi", "ipv6");
 			json_object_string_add(json_nexthop_ll, "scope",
