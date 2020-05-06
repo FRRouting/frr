@@ -84,6 +84,10 @@ FRR_CFG_DEFAULT_BOOL(BGP_SHOW_HOSTNAME,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
 )
+FRR_CFG_DEFAULT_BOOL(BGP_SHOW_NEXTHOP_HOSTNAME,
+	{ .val_bool = true, .match_profile = "datacenter", },
+	{ .val_bool = false },
+)
 FRR_CFG_DEFAULT_BOOL(BGP_LOG_NEIGHBOR_CHANGES,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
@@ -422,6 +426,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_IMPORT_CHECK);
 		if (DFLT_BGP_SHOW_HOSTNAME)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_SHOW_HOSTNAME);
+		if (DFLT_BGP_SHOW_NEXTHOP_HOSTNAME)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME);
 		if (DFLT_BGP_LOG_NEIGHBOR_CHANGES)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
 		if (DFLT_BGP_DETERMINISTIC_MED)
@@ -3097,6 +3103,32 @@ DEFUN (no_bgp_default_show_hostname,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	UNSET_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME);
+	return CMD_SUCCESS;
+}
+
+/* Display hostname in certain command outputs */
+DEFUN (bgp_default_show_nexthop_hostname,
+       bgp_default_show_nexthop_hostname_cmd,
+       "bgp default show-nexthop-hostname",
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "Show hostname for nexthop in certain command outputs\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	SET_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_default_show_nexthop_hostname,
+       no_bgp_default_show_nexthop_hostname_cmd,
+       "no bgp default show-nexthop-hostname",
+       NO_STR
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "Show hostname for nexthop in certain command outputs\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME);
 	return CMD_SUCCESS;
 }
 
@@ -15190,6 +15222,15 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
+		/* BGP default show-nexthop-hostname */
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME)
+		    != SAVE_BGP_SHOW_HOSTNAME)
+			vty_out(vty, " %sbgp default show-nexthop-hostname\n",
+				CHECK_FLAG(bgp->flags,
+					   BGP_FLAG_SHOW_NEXTHOP_HOSTNAME)
+					? ""
+					: "no ");
+
 		/* BGP default subgroup-pkt-queue-max. */
 		if (bgp->default_subgroup_pkt_queue_max
 		    != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
@@ -15814,6 +15855,10 @@ void bgp_vty_init(void)
 	/* bgp default show-hostname */
 	install_element(BGP_NODE, &bgp_default_show_hostname_cmd);
 	install_element(BGP_NODE, &no_bgp_default_show_hostname_cmd);
+
+	/* bgp default show-nexthop-hostname */
+	install_element(BGP_NODE, &bgp_default_show_nexthop_hostname_cmd);
+	install_element(BGP_NODE, &no_bgp_default_show_nexthop_hostname_cmd);
 
 	/* "bgp default subgroup-pkt-queue-max" commands. */
 	install_element(BGP_NODE, &bgp_default_subgroup_pkt_queue_max_cmd);
