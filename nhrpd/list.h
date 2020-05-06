@@ -198,9 +198,12 @@ static inline int list_empty(const struct list_head *n)
 	     pos = list_entry(pos->member.next, typeof(*pos), member))
 
 #define list_for_each_entry_safe(pos, n, head, member)                         \
-	for (pos = list_entry((head)->next, typeof(*pos), member),             \
-	    n = list_entry(pos->member.next, typeof(*pos), member);            \
-	     &pos->member != (head);                                           \
+	for (pos = ((head)->next != head ?                                     \
+		    list_entry((head)->next, typeof(*pos), member) :	       \
+		    NULL),			                               \
+	     n = (pos ?                                                        \
+		  list_entry(pos->member.next, typeof(*pos), member) : NULL);  \
+	     pos && (&pos->member != (head));                                  \
 	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
 
 #endif
