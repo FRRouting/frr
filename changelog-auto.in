@@ -6,6 +6,12 @@ frr (@VERSION@-0) UNRELEASED; urgency=medium
 
  -- FRRouting-Dev <dev@lists.frrouting.org>  Thu, 25 Oct 2018 16:36:50 +0200
 
+frr (7.3.1-0) testing; urgency=medium
+
+  * upstream 7.3.1 release
+
+ -- David Lamparter <equinox@opensourcerouting.org>  Wed, 06 May 2020 13:40:53 +0200
+
 frr (7.3-0) testing; urgency=medium
 
   * BGPd
