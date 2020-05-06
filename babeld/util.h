@@ -122,7 +122,7 @@ void uchar_to_inaddr(struct in_addr *dest, const unsigned char *src);
 void in6addr_to_uchar(unsigned char *dest, const struct in6_addr *src);
 void uchar_to_in6addr(struct in6_addr *dest, const unsigned char *src);
 int daemonise(void);
-const unsigned char v4prefix[16];
+extern const unsigned char v4prefix[16];
 
 /* If debugging is disabled, we want to avoid calling format_address
    for every omitted debugging message.  So debug is a macro.  But
