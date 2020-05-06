@@ -154,10 +154,10 @@ static void nhrp_stop_context(struct nhrp_vrf *nhrp_vrf)
 		return;
 	nhrp_shortcut_terminate(nhrp_vrf);
 	nhrp_nhs_terminate(nhrp_vrf);
-	nhrp_zebra_terminate(nhrp_vrf);
 	vici_terminate(nhrp_vrf, true);
 	evmgr_terminate(nhrp_vrf);
 	nhrp_vc_terminate(nhrp_vrf);
+	nhrp_zebra_terminate(nhrp_vrf);
 }
 
 static int nhrp_vrf_new(struct vrf *vrf)
