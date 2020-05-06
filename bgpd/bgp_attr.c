@@ -1405,9 +1405,10 @@ static int bgp_attr_aspath(struct bgp_attr_parser_args *args)
 
 	/* Codification of AS 0 Processing */
 	if (aspath_check_as_zero(attr->aspath)) {
-		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
-			 "Malformed AS path, contains BGP_AS_ZERO(0) from %s",
-			 peer->host);
+		flog_err(
+			EC_BGP_ATTR_MAL_AS_PATH,
+			"Malformed AS path, AS number is 0 in the path from %s",
+			peer->host);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
 					  0);
 	}
@@ -1485,9 +1486,10 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 
 	/* Codification of AS 0 Processing */
 	if (aspath_check_as_zero(*as4_path)) {
-		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
-			 "Malformed AS4 path, contains BGP_AS_ZERO(0) from %s",
-			 peer->host);
+		flog_err(
+			EC_BGP_ATTR_MAL_AS_PATH,
+			"Malformed AS path, AS number is 0 in the path from %s",
+			peer->host);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
 					  0);
 	}
