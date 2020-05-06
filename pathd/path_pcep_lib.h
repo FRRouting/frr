@@ -29,7 +29,7 @@ int pcep_lib_initialize(struct frr_pthread *fpt);
 void pcep_lib_finalize(void);
 pcep_session *pcep_lib_connect(struct ipaddr *src_addr, int src_port,
 			       struct ipaddr *dst_addr, int dst_port,
-			       bool draft07);
+			       bool draft07, short msd);
 void pcep_lib_disconnect(pcep_session *sess);
 struct pcep_message *pcep_lib_format_report(struct path *path);
 struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,

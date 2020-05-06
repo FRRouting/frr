@@ -279,7 +279,8 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		                 pcc_state->pcc_opts->port,
 				 &pcc_state->pce_opts->addr,
 				 pcc_state->pce_opts->port,
-				 pcc_state->pce_opts->draft07);
+				 pcc_state->pce_opts->draft07,
+				 pcc_state->pcc_opts->msd);
 
 	if (pcc_state->sess == NULL) {
 		flog_warn(EC_PATH_PCEP_LIB_CONNECT,

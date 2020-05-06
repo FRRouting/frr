@@ -114,7 +114,7 @@ void pcep_lib_finalize(void)
 
 pcep_session *pcep_lib_connect(struct ipaddr *src_addr, int src_port,
 			       struct ipaddr *dst_addr, int dst_port,
-			       bool draft07)
+			       bool draft07, short msd)
 {
 	pcep_configuration *config;
 	pcep_session *sess;
@@ -141,7 +141,7 @@ pcep_session *pcep_lib_connect(struct ipaddr *src_addr, int src_port,
 	config->pcc_can_resolve_nai_to_sid = false;
 
 	config->pcep_msg_versioning->draft_ietf_pce_segment_routing_07 = draft07;
-	config->max_sid_depth = pcc_opts->msd;
+	config->max_sid_depth = msd;
 
 	if (IS_IPADDR_V6(dst_addr)) {
 		sess = connect_pce_ipv6(config, &dst_addr->ipaddr_v6);
