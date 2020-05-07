@@ -171,7 +171,7 @@ static int rtadv_recv_packet(struct zebra_vrf *zvrf, int sock, uint8_t *buf,
 
 /* Send router advertisement packet. */
 static void rtadv_send_packet(int sock, struct interface *ifp,
-			      ipv6_nd_suppress_ra_status stop)
+			      enum ipv6_nd_suppress_ra_status stop)
 {
 	struct msghdr msg;
 	struct iovec iov;
@@ -1003,7 +1003,7 @@ void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p)
 }
 
 static void ipv6_nd_suppress_ra_set(struct interface *ifp,
-				    ipv6_nd_suppress_ra_status status)
+				    enum ipv6_nd_suppress_ra_status status)
 {
 	struct zebra_if *zif;
 	struct zebra_vrf *zvrf;
