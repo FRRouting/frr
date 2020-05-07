@@ -102,4 +102,5 @@ extern struct route_node *route_prev(struct route_node *node);
 extern void ospf6_debug(void);
 extern void ospf6_init(void);
 
+extern const struct frr_yang_module_info frr_ospf_route_map_info;
 #endif /* OSPF6D_H */

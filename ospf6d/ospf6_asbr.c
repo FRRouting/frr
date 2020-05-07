@@ -30,6 +30,7 @@
 #include "plist.h"
 #include "thread.h"
 #include "linklist.h"
+#include "lib/northbound_cli.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -1586,99 +1587,83 @@ ospf6_routemap_rule_set_tag(void *rule, const struct prefix *p,
 	return RMAP_OKAY;
 }
 
-static const struct route_map_rule_cmd
-		ospf6_routemap_rule_set_tag_cmd = {
+static const struct route_map_rule_cmd ospf6_routemap_rule_set_tag_cmd = {
 	"tag",
 	ospf6_routemap_rule_set_tag,
 	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
-static int route_map_command_status(struct vty *vty, enum rmap_compile_rets ret)
-{
-	switch (ret) {
-	case RMAP_RULE_MISSING:
-		vty_out(vty, "OSPF6 Can't find rule.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	case RMAP_COMPILE_ERROR:
-		vty_out(vty, "OSPF6 Argument is malformed.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	case RMAP_COMPILE_SUCCESS:
-		break;
-	}
-
-	return CMD_SUCCESS;
-}
-
 /* add "set metric-type" */
-DEFUN (ospf6_routemap_set_metric_type,
-       ospf6_routemap_set_metric_type_cmd,
-       "set metric-type <type-1|type-2>",
-       "Set value\n"
-       "Type of metric\n"
-       "OSPF6 external type 1 metric\n"
-       "OSPF6 external type 2 metric\n")
+DEFUN(ospf6_routemap_set_metric_type, ospf6_routemap_set_metric_type_cmd,
+      "set metric-type <type-1|type-2>",
+      "Set value\n"
+      "Type of metric\n"
+      "OSPF6 external type 1 metric\n"
+      "OSPF6 external type 2 metric\n")
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
-	int idx_external = 2;
-	enum rmap_compile_rets ret = route_map_add_set(route_map_index,
-						       "metric-type",
-						       argv[idx_external]->arg);
+	char *ext = argv[2]->text;
 
-	return route_map_command_status(vty, ret);
+	const char *xpath =
+		"./set-action[action='frr-ospf-route-map:metric-type']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-ospf-route-map:metric-type", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ext);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* delete "set metric-type" */
-DEFUN (ospf6_routemap_no_set_metric_type,
-       ospf6_routemap_no_set_metric_type_cmd,
-       "no set metric-type [<type-1|type-2>]",
-       NO_STR
-       "Set value\n"
-       "Type of metric\n"
-       "OSPF6 external type 1 metric\n"
-       "OSPF6 external type 2 metric\n")
+DEFUN(ospf6_routemap_no_set_metric_type, ospf6_routemap_no_set_metric_type_cmd,
+      "no set metric-type [<type-1|type-2>]",
+      NO_STR
+      "Set value\n"
+      "Type of metric\n"
+      "OSPF6 external type 1 metric\n"
+      "OSPF6 external type 2 metric\n")
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
-	char *ext = (argc == 4) ? argv[3]->text : NULL;
-	enum rmap_compile_rets ret = route_map_delete_set(route_map_index,
-							  "metric-type", ext);
+	const char *xpath =
+		"./set-action[action='frr-ospf-route-map:metric-type']";
 
-	return route_map_command_status(vty, ret);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* add "set forwarding-address" */
-DEFUN (ospf6_routemap_set_forwarding,
-       ospf6_routemap_set_forwarding_cmd,
-       "set forwarding-address X:X::X:X",
-       "Set value\n"
-       "Forwarding Address\n"
-       "IPv6 Address\n")
+DEFUN(ospf6_routemap_set_forwarding, ospf6_routemap_set_forwarding_cmd,
+      "set forwarding-address X:X::X:X",
+      "Set value\n"
+      "Forwarding Address\n"
+      "IPv6 Address\n")
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
 	int idx_ipv6 = 2;
-	enum rmap_compile_rets ret = route_map_add_set(route_map_index,
-						       "forwarding-address",
-						       argv[idx_ipv6]->arg);
+	const char *xpath =
+		"./set-action[action='frr-ospf-route-map:forwarding-address']";
+	char xpath_value[XPATH_MAXLEN];
 
-	return route_map_command_status(vty, ret);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-ospf-route-map:ipv6-address", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_ipv6]->arg);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* delete "set forwarding-address" */
-DEFUN (ospf6_routemap_no_set_forwarding,
-       ospf6_routemap_no_set_forwarding_cmd,
-       "no set forwarding-address X:X::X:X",
-       NO_STR
-       "Set value\n"
-       "Forwarding Address\n"
-       "IPv6 Address\n")
+DEFUN(ospf6_routemap_no_set_forwarding, ospf6_routemap_no_set_forwarding_cmd,
+      "no set forwarding-address [X:X::X:X]",
+      NO_STR
+      "Set value\n"
+      "Forwarding Address\n"
+      "IPv6 Address\n")
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
-	int idx_ipv6 = 3;
-	enum rmap_compile_rets ret = route_map_delete_set(route_map_index,
-							  "forwarding-address",
-							  argv[idx_ipv6]->arg);
+	const char *xpath =
+		"./set-action[action='frr-ospf-route-map:forwarding-address']";
 
-	return route_map_command_status(vty, ret);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static void ospf6_routemap_init(void)
