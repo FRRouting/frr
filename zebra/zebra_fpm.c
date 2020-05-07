@@ -120,7 +120,7 @@ struct zfpm_stats {
 /*
  * States for the FPM state machine.
  */
-typedef enum {
+enum zfpm_state {
 
 	/*
 	 * In this state we are not yet ready to connect to the FPM. This
@@ -146,7 +146,7 @@ typedef enum {
 	 */
 	ZFPM_STATE_ESTABLISHED
 
-} zfpm_state_t;
+};
 
 /*
  * Message format to be used to communicate with the FPM.
@@ -173,7 +173,7 @@ typedef struct zfpm_glob_t_ {
 
 	struct thread_master *master;
 
-	zfpm_state_t state;
+	enum zfpm_state state;
 
 	in_addr_t fpm_server;
 	/*
@@ -283,7 +283,7 @@ static int zfpm_trigger_update(struct route_node *rn, const char *reason);
 static int zfpm_read_cb(struct thread *thread);
 static int zfpm_write_cb(struct thread *thread);
 
-static void zfpm_set_state(zfpm_state_t state, const char *reason);
+static void zfpm_set_state(enum zfpm_state state, const char *reason);
 static void zfpm_start_connect_timer(const char *reason);
 static void zfpm_start_stats_timer(void);
 static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac);
@@ -299,7 +299,7 @@ static inline int zfpm_thread_should_yield(struct thread *t)
 /*
  * zfpm_state_to_str
  */
-static const char *zfpm_state_to_str(zfpm_state_t state)
+static const char *zfpm_state_to_str(enum zfpm_state state)
 {
 	switch (state) {
 
@@ -1310,9 +1310,9 @@ static int zfpm_connect_cb(struct thread *t)
  *
  * Move state machine into the given state.
  */
-static void zfpm_set_state(zfpm_state_t state, const char *reason)
+static void zfpm_set_state(enum zfpm_state state, const char *reason)
 {
-	zfpm_state_t cur_state = zfpm_g->state;
+	enum zfpm_state cur_state = zfpm_g->state;
 
 	if (!reason)
 		reason = "Unknown";
