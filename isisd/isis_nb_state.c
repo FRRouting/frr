@@ -36,7 +36,7 @@ const void *lib_interface_isis_adjacencies_adjacency_get_next(
 {
 	struct interface *ifp;
 	struct isis_circuit *circuit;
-	struct isis_adjacency *adj, *adj_next = NULL;
+	struct isis_adjacency *adj = NULL, *adj_next = NULL;
 	struct list *list;
 	struct listnode *node, *node_next;
 
@@ -54,17 +54,20 @@ const void *lib_interface_isis_adjacencies_adjacency_get_next(
 		case CIRCUIT_T_BROADCAST:
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
 			     level++) {
-				adj = listnode_head(
-					circuit->u.bc.adjdb[level - 1]);
-				if (adj)
-					break;
+				struct list *adjdb;
+
+				adjdb = circuit->u.bc.adjdb[level - 1];
+				if (adjdb) {
+					adj = listnode_head(adjdb);
+					if (adj)
+						break;
+				}
 			}
 			break;
 		case CIRCUIT_T_P2P:
 			adj = circuit->u.p2p.neighbor;
 			break;
 		default:
-			adj = NULL;
 			break;
 		}
 
