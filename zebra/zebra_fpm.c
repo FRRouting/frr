@@ -76,10 +76,10 @@ static void zfpm_iterate_rmac_table(struct hash_bucket *backet, void *args);
  * Structure that holds state for iterating over all route_node
  * structures that are candidates for being communicated to the FPM.
  */
-typedef struct zfpm_rnodes_iter_t_ {
+struct zfpm_rnodes_iter {
 	rib_tables_iter_t tables_iter;
 	route_table_iter_t iter;
-} zfpm_rnodes_iter_t;
+};
 
 /*
  * Statistics.
@@ -231,7 +231,7 @@ typedef struct zfpm_glob_t_ {
 	struct thread *t_conn_down;
 
 	struct {
-		zfpm_rnodes_iter_t iter;
+		struct zfpm_rnodes_iter iter;
 	} t_conn_down_state;
 
 	/*
@@ -241,7 +241,7 @@ typedef struct zfpm_glob_t_ {
 	struct thread *t_conn_up;
 
 	struct {
-		zfpm_rnodes_iter_t iter;
+		struct zfpm_rnodes_iter iter;
 	} t_conn_up_state;
 
 	unsigned long connect_calls;
@@ -343,7 +343,7 @@ static time_t zfpm_get_elapsed_time(time_t reference)
 /*
  * zfpm_rnodes_iter_init
  */
-static inline void zfpm_rnodes_iter_init(zfpm_rnodes_iter_t *iter)
+static inline void zfpm_rnodes_iter_init(struct zfpm_rnodes_iter *iter)
 {
 	memset(iter, 0, sizeof(*iter));
 	rib_tables_iter_init(&iter->tables_iter);
@@ -360,7 +360,8 @@ static inline void zfpm_rnodes_iter_init(zfpm_rnodes_iter_t *iter)
 /*
  * zfpm_rnodes_iter_next
  */
-static inline struct route_node *zfpm_rnodes_iter_next(zfpm_rnodes_iter_t *iter)
+static inline struct route_node *
+zfpm_rnodes_iter_next(struct zfpm_rnodes_iter *iter)
 {
 	struct route_node *rn;
 	struct route_table *table;
@@ -389,7 +390,7 @@ static inline struct route_node *zfpm_rnodes_iter_next(zfpm_rnodes_iter_t *iter)
 /*
  * zfpm_rnodes_iter_pause
  */
-static inline void zfpm_rnodes_iter_pause(zfpm_rnodes_iter_t *iter)
+static inline void zfpm_rnodes_iter_pause(struct zfpm_rnodes_iter *iter)
 {
 	route_table_iter_pause(&iter->iter);
 }
@@ -397,7 +398,7 @@ static inline void zfpm_rnodes_iter_pause(zfpm_rnodes_iter_t *iter)
 /*
  * zfpm_rnodes_iter_cleanup
  */
-static inline void zfpm_rnodes_iter_cleanup(zfpm_rnodes_iter_t *iter)
+static inline void zfpm_rnodes_iter_cleanup(struct zfpm_rnodes_iter *iter)
 {
 	route_table_iter_cleanup(&iter->iter);
 	rib_tables_iter_cleanup(&iter->tables_iter);
@@ -512,7 +513,7 @@ static inline void zfpm_connect_off(void)
 static int zfpm_conn_up_thread_cb(struct thread *thread)
 {
 	struct route_node *rnode;
-	zfpm_rnodes_iter_t *iter;
+	struct zfpm_rnodes_iter *iter;
 	rib_dest_t *dest;
 
 	zfpm_g->t_conn_up = NULL;
@@ -626,7 +627,7 @@ static void zfpm_connect_check(void)
 static int zfpm_conn_down_thread_cb(struct thread *thread)
 {
 	struct route_node *rnode;
-	zfpm_rnodes_iter_t *iter;
+	struct zfpm_rnodes_iter *iter;
 	rib_dest_t *dest;
 	struct fpm_mac_info_t *mac = NULL;
 
