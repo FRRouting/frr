@@ -247,6 +247,13 @@ struct nb_cb_lookup_entry_args {
 
 	/* Structure containing the keys of the list entry. */
 	const struct yang_list_keys *keys;
+
+	/*
+	 * Specify whether an exact match should be performed or not. When set
+	 * to false, the callback should return the first list entry greater
+	 * than or equal to the search keys.
+	 */
+	bool exact_match;
 };
 
 struct nb_cb_rpc_args {
@@ -540,6 +547,8 @@ struct nb_node {
 #define F_NB_NODE_CONFIG_ONLY 0x01
 /* The YANG list doesn't contain key leafs. */
 #define F_NB_NODE_KEYLESS_LIST 0x02
+/* The YANG node is nested inside one or more keyless lists. */
+#define F_NB_NODE_INSIDE_KEYLESS_LIST 0x04
 
 /*
  * HACK: old gcc versions (< 5.x) have a bug that prevents C99 flexible arrays
@@ -651,6 +660,11 @@ struct nb_transaction {
 	struct nb_config_cbs changes;
 };
 
+/* Return values of the 'nb_oper_data_cb' callback. */
+#define NB_ITER_CONTINUE 0
+#define NB_ITER_STOP 1
+#define NB_ITER_ABORT -1
+
 /* Callback function used by nb_oper_data_iterate(). */
 typedef int (*nb_oper_data_cb)(const struct lys_node *snode,
 			       struct yang_translator *translator,
@@ -673,6 +687,15 @@ struct nb_oper_data_iter_input {
 	/* YANG module translator (might be NULL). */
 	struct yang_translator *translator;
 
+	/* Maximum number of elements to fetch (0 means unlimited). */
+	uint32_t max_elements;
+
+	/*
+	 * Base iteration offset (used when F_NB_OPER_DATA_ITER_OFFSET is set).
+	 */
+	char offset_path[XPATH_MAXLEN];
+	char offset_node[64];
+
 	/*
 	 * F_NB_OPER_DATA_ITER_ flags to control how the iteration is performed.
 	 */
@@ -680,6 +703,18 @@ struct nb_oper_data_iter_input {
 };
 /* Iterate over direct child nodes only. */
 #define F_NB_OPER_DATA_ITER_NORECURSE 0x0001
+/* Start iteration from a given offset. */
+#define F_NB_OPER_DATA_ITER_OFFSET 0x0002
+
+/* Northbound operational-data iteration output parameters. */
+struct nb_oper_data_iter_output {
+	/* Number of retrieved elements. */
+	uint32_t num_elements;
+
+	/* Offset where the iteration stopped. */
+	char offset_path[XPATH_MAXLEN];
+	char offset_node[64];
+};
 
 /* Hooks. */
 DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
@@ -709,7 +744,8 @@ extern int nb_callback_get_keys(const struct nb_node *nb_node,
 				struct yang_list_keys *keys);
 extern const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 					    const void *parent_list_entry,
-					    const struct yang_list_keys *keys);
+					    const struct yang_list_keys *keys,
+					    bool exact_match);
 extern int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 			   const struct list *input, struct list *output);
 
@@ -1064,10 +1100,14 @@ extern int nb_running_lock_check(enum nb_client client, const void *user);
  * input
  *    Iteration input parameters.
  *
+ * output
+ *    Iteration output parameters.
+ *
  * Returns:
  *    NB_OK on success, NB_ERR otherwise.
  */
-extern int nb_oper_data_iterate(struct nb_oper_data_iter_input *input);
+extern int nb_oper_data_iterate(struct nb_oper_data_iter_input *input,
+				struct nb_oper_data_iter_output *output);
 
 /*
  * Validate if the northbound operation is valid for the given node.

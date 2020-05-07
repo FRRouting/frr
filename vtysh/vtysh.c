@@ -2569,6 +2569,7 @@ DEFUN (show_yang_operational_data,
          [{\
 	   format <json|xml>\
 	   |translate WORD\
+	   |max-elements (1-1000000) [repeat]\
 	 }]" DAEMONS_LIST,
        SHOW_STR
        "YANG information\n"
@@ -2579,6 +2580,9 @@ DEFUN (show_yang_operational_data,
        "Extensible Markup Language\n"
        "Translate operational data\n"
        "YANG module translator\n"
+       "Maximum number of elements to fetch at once\n"
+       "Maximum number of elements to fetch at once\n"
+       "Fetch all data using batches of the provided size\n"
        DAEMONS_STR)
 {
 	int idx_protocol = argc - 1;

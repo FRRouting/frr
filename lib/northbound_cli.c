@@ -1407,11 +1407,11 @@ static int nb_cli_oper_data_cb(const struct lys_node *snode,
 
 exit:
 	yang_data_free(data);
-	return NB_OK;
+	return NB_ITER_CONTINUE;
 
 error:
 	yang_data_free(data);
-	return NB_ERR;
+	return NB_ITER_ABORT;
 }
 
 DEFPY (show_yang_operational_data,
@@ -1420,6 +1420,7 @@ DEFPY (show_yang_operational_data,
          [{\
 	   format <json$json|xml$xml>\
 	   |translate WORD$translator_family\
+	   |max-elements (1-1000000)$max_elements [repeat$repeat]\
 	 }]",
        SHOW_STR
        "YANG information\n"
@@ -1429,13 +1430,18 @@ DEFPY (show_yang_operational_data,
        "JavaScript Object Notation\n"
        "Extensible Markup Language\n"
        "Translate operational data\n"
-       "YANG module translator\n")
+       "YANG module translator\n"
+       "Maximum number of elements to fetch at once\n"
+       "Maximum number of elements to fetch at once\n"
+       "Fetch all data using batches of the provided size\n")
 {
 	struct nb_oper_data_iter_input iter_input = {};
+	struct nb_oper_data_iter_output iter_output = {};
 	LYD_FORMAT format;
 	struct ly_ctx *ly_ctx;
 	struct lyd_node *dnode;
 	char *strp;
+	int ret;
 
 	if (xml)
 		format = LYD_XML;
@@ -1459,11 +1465,26 @@ DEFPY (show_yang_operational_data,
 	iter_input.xpath = xpath;
 	iter_input.cb = nb_cli_oper_data_cb;
 	iter_input.cb_arg = dnode;
-	if (nb_oper_data_iterate(&iter_input) != NB_OK) {
+	if (max_elements_str)
+		iter_input.max_elements = max_elements;
+
+	for (;;) {
+		ret = nb_oper_data_iterate(&iter_input, &iter_output);
+		if (!repeat || ret != NB_ITER_STOP)
+			break;
+
+		SET_FLAG(iter_input.flags, F_NB_OPER_DATA_ITER_OFFSET);
+		strlcpy(iter_input.offset_path, iter_output.offset_path,
+			sizeof(iter_input.offset_path));
+		strlcpy(iter_input.offset_node, iter_output.offset_node,
+			sizeof(iter_input.offset_node));
+	}
+	if (ret == NB_ITER_ABORT) {
 		vty_out(vty, "%% Failed to fetch operational data.\n");
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}
+
 	lyd_validate(&dnode, LYD_OPT_GET, ly_ctx);
 
 	/* Display the data. */

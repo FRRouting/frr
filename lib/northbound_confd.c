@@ -143,7 +143,7 @@ static int frr_confd_hkeypath_get_list_entry(const confd_hkeypath_t *kp,
 		/* Obtain list entry. */
 		if (!CHECK_FLAG(nb_node_list->flags, F_NB_NODE_KEYLESS_LIST)) {
 			*list_entry = nb_callback_lookup_entry(
-				nb_node, *list_entry, &keys);
+				nb_node, *list_entry, &keys, true);
 			if (*list_entry == NULL)
 				return -1;
 		} else {

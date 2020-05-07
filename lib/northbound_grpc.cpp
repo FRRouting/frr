@@ -1189,13 +1189,14 @@ class NorthboundImpl
 	static struct lyd_node *get_dnode_state(const std::string &path)
 	{
 		struct nb_oper_data_iter_input iter_input = {};
+		struct nb_oper_data_iter_output iter_output = {};
 		struct lyd_node *dnode;
 
 		dnode = yang_dnode_new(ly_native_ctx, false);
 		iter_input.xpath = path.c_str();
 		iter_input.cb = get_oper_data_cb;
 		iter_input.cb_arg = dnode;
-		if (nb_oper_data_iterate(&iter_input) != NB_OK) {
+		if (nb_oper_data_iterate(&iter_input, &iter_output) != NB_OK) {
 			yang_dnode_free(dnode);
 			return NULL;
 		}
