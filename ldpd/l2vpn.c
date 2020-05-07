@@ -303,6 +303,7 @@ l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
 	if (fnh->remote_label == NO_LABEL) {
 		log_warnx("%s: pseudowire %s: no remote label", __func__,
 			  pw->ifname);
+		pw->reason = F_PW_NO_REMOTE_LABEL;
 		return (0);
 	}
 
@@ -310,6 +311,7 @@ l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
 	if (pw->l2vpn->mtu != pw->remote_mtu) {
 		log_warnx("%s: pseudowire %s: MTU mismatch detected", __func__,
 			  pw->ifname);
+		pw->reason = F_PW_MTU_MISMATCH;
 		return (0);
 	}
 
@@ -318,9 +320,11 @@ l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
 	    pw->remote_status != PW_FORWARDING) {
 		log_warnx("%s: pseudowire %s: remote end is down", __func__,
 			  pw->ifname);
+		pw->reason = F_PW_REMOTE_NOT_FWD;
 		return (0);
 	}
 
+	pw->reason = F_PW_NO_ERR;
 	return (1);
 }
 
@@ -517,10 +521,13 @@ l2vpn_pw_status_update(struct zapi_pw_status *zpw)
 		return (1);
 	}
 
-	if (zpw->status == PW_STATUS_UP)
+	if (zpw->status == PW_STATUS_UP) {
 		local_status = PW_FORWARDING;
-	else
+		pw->reason = F_PW_NO_ERR;
+	} else {
 		local_status = PW_NOT_FORWARDING;
+		pw->reason = F_PW_LOCAL_NOT_FWD;
+	}
 
 	/* local status didn't change */
 	if (pw->local_status == local_status)
@@ -604,6 +611,7 @@ l2vpn_binding_ctl(pid_t pid)
 			pwctl.local_ifmtu = pw->l2vpn->mtu;
 			pwctl.local_cword = (pw->flags & F_PW_CWORD_CONF) ?
 			    1 : 0;
+			pwctl.reason = pw->reason;
 		} else
 			pwctl.local_label = NO_LABEL;
 
