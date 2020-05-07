@@ -173,11 +173,6 @@ struct srte_candidate {
 	float metric_te_rt;
 };
 
-uint32_t attributes;
-float metric_abc;
-float metric_te;
-float bandwidth_whatever;
-
 RB_HEAD(srte_candidate_head, srte_candidate);
 RB_PROTOTYPE(srte_candidate_head, srte_candidate, entry, srte_candidate_compare)
 
@@ -249,7 +244,8 @@ void srte_candidate_set_metric(struct srte_candidate *candidate,
 			       float value, bool is_cound, bool is_computed,
 			       bool is_config);
 void srte_candidate_unset_metric(struct srte_candidate *candidate,
-				 enum srte_candidate_metric_type type);
+				 enum srte_candidate_metric_type type,
+				 bool is_config);
 struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
 					   uint32_t preference);
 void srte_candidate_status_update(struct srte_policy *policy,

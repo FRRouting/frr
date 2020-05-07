@@ -419,14 +419,17 @@ int pathd_te_sr_policy_candidate_path_metrics_destroy(
 {
 	struct srte_candidate *candidate;
 	enum srte_candidate_metric_type type;
+	bool is_config;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+	assert(args->context != NULL);
+	is_config = args->context->client == NB_CLIENT_CLI;
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
 
 	type = yang_dnode_get_enum(args->dnode, "./type");
-	srte_candidate_unset_metric(candidate, type);
+	srte_candidate_unset_metric(candidate, type, is_config);
 
 	return NB_OK;
 }

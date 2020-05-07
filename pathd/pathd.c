@@ -401,26 +401,50 @@ void srte_candidate_set_metric(struct srte_candidate *candidate,
 }
 
 void srte_candidate_unset_metric(struct srte_candidate *candidate,
-				 enum srte_candidate_metric_type type)
+				 enum srte_candidate_metric_type type,
+				 bool is_config)
 {
 	struct srte_policy *policy = candidate->policy;
 	char endpoint[46];
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-	zlog_debug("SR-TE(%s, %u): candidate %s metric %s (%u) unset", endpoint,
-		   policy->color, candidate->name,
-		   srte_candidate_metric_name(type), type);
+	zlog_debug(
+		"SR-TE(%s, %u): candidate %s metric %s (%u) unset "
+		"(is_config: %s)",
+		endpoint, policy->color, candidate->name,
+		srte_candidate_metric_name(type), type,
+		is_config ? "true" : "false");
 	switch (type) {
 	case SRTE_CANDIDATE_METRIC_TYPE_ABC:
-		UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC);
-		UNSET_FLAG(candidate->flags, F_CANDIDATE_METRIC_ABC_BOUND);
-		UNSET_FLAG(candidate->flags, F_CANDIDATE_METRIC_ABC_COMPUTED);
-		candidate->metric_abc = 0;
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC_RT);
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_METRIC_ABC_BOUND_RT);
+		UNSET_FLAG(candidate->flags,
+			   F_CANDIDATE_METRIC_ABC_COMPUTED_RT);
+		candidate->metric_abc_rt = 0;
+		/* FIXME: Should be fixed by refactoring the data model */
+		if (is_config) {
+			UNSET_FLAG(candidate->flags,
+				   F_CANDIDATE_HAS_METRIC_ABC);
+			UNSET_FLAG(candidate->flags,
+				   F_CANDIDATE_METRIC_ABC_BOUND);
+			UNSET_FLAG(candidate->flags,
+				   F_CANDIDATE_METRIC_ABC_COMPUTED);
+			candidate->metric_abc = 0;
+		}
 		break;
 	case SRTE_CANDIDATE_METRIC_TYPE_TE:
-		UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE);
-		UNSET_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_BOUND);
-		UNSET_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_COMPUTED);
-		candidate->metric_te = 0;
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE_RT);
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_BOUND_RT);
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_COMPUTED_RT);
+		candidate->metric_te_rt = 0;
+		/* FIXME: Should be fixed by refactoring the data model */
+		if (is_config) {
+			UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE);
+			UNSET_FLAG(candidate->flags,
+				   F_CANDIDATE_METRIC_TE_BOUND);
+			UNSET_FLAG(candidate->flags,
+				   F_CANDIDATE_METRIC_TE_COMPUTED);
+			candidate->metric_te = 0;
+		}
 		break;
 	default:
 		break;
