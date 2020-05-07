@@ -638,48 +638,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/frr-zebra:ipv4-prefix-length",
-			.cbs = {
-				.modify = lib_route_map_entry_match_condition_ipv4_prefix_length_modify,
-				.destroy = lib_route_map_entry_match_condition_ipv4_prefix_length_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/frr-zebra:ipv6-prefix-length",
-			.cbs = {
-				.modify = lib_route_map_entry_match_condition_ipv6_prefix_length_modify,
-				.destroy = lib_route_map_entry_match_condition_ipv6_prefix_length_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/frr-zebra:source-protocol",
-			.cbs = {
-				.modify = lib_route_map_entry_match_condition_source_protocol_modify,
-				.destroy = lib_route_map_entry_match_condition_source_protocol_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/frr-zebra:source-instance",
-			.cbs = {
-				.modify = lib_route_map_entry_match_condition_source_instance_modify,
-				.destroy = lib_route_map_entry_match_condition_source_instance_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/frr-zebra:source-v4",
-			.cbs = {
-				.modify = lib_route_map_entry_set_action_source_v4_modify,
-				.destroy = lib_route_map_entry_set_action_source_v4_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/frr-zebra:source-v6",
-			.cbs = {
-				.modify = lib_route_map_entry_set_action_source_v6_modify,
-				.destroy = lib_route_map_entry_set_action_source_v6_destroy,
-			}
-		},
-		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/weight",
 			.cbs = {
 				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_weight_get_elem,

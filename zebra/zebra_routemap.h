@@ -57,4 +57,6 @@ zebra_nht_route_map_check(afi_t afi, int client_proto, const struct prefix *p,
 #endif
 
 extern void zebra_routemap_finish(void);
+
+extern const struct frr_yang_module_info frr_zebra_route_map_info;
 #endif
