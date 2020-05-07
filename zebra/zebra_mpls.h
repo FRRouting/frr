@@ -302,12 +302,11 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
 			  struct prefix *p);
 
 /*
- * Install/uninstall a FEC-To-NHLFE (FTN) binding.
+ * Handle zapi request to install/uninstall LSP and
+ * (optionally) FEC-To-NHLFE (FTN) bindings.
  */
-int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
-		    struct prefix *prefix, enum nexthop_types_t gtype,
-		    union g_addr *gate, ifindex_t ifindex, uint8_t route_type,
-		    unsigned short route_instance, mpls_label_t out_label);
+int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+			     const struct zapi_labels *zl);
 
 /*
  * Uninstall all NHLFEs bound to a single FEC.
@@ -325,18 +324,6 @@ int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		     mpls_label_t in_label, uint8_t num_out_labels,
 		     const mpls_label_t *out_labels, enum nexthop_types_t gtype,
 		     const union g_addr *gate, ifindex_t ifindex);
-
-/* Version using a zapi nexthop directly */
-int mpls_lsp_znh_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
-			 mpls_label_t in_label,
-			 const struct zapi_nexthop *znh);
-
-/*
- * Install/update backup NHLFE for an LSP, using zapi nexthop info.
- */
-int mpls_lsp_backup_znh_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
-				mpls_label_t in_label,
-				const struct zapi_nexthop *znh);
 
 /*
  * Uninstall a particular NHLFE in the forwarding table. If this is
