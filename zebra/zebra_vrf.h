@@ -33,10 +33,10 @@ extern "C" {
 #endif
 
 /* MPLS (Segment Routing) global block */
-typedef struct mpls_srgb_t_ {
+struct mpls_srgb {
 	uint32_t start_label;
 	uint32_t end_label;
-} mpls_srgb_t;
+};
 
 struct zebra_rmap {
 	char *name;
@@ -111,7 +111,7 @@ struct zebra_vrf {
 	struct route_table *fec_table[AFI_MAX];
 
 	/* MPLS Segment Routing Global block */
-	mpls_srgb_t mpls_srgb;
+	struct mpls_srgb mpls_srgb;
 
 	/* Pseudowires. */
 	struct zebra_pw_head pseudowires;
