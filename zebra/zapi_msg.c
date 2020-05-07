@@ -3365,6 +3365,7 @@ static inline void zebra_gre_get(ZAPI_HANDLER_ARGS)
 		stream_putl(s, IFINDEX_INTERNAL);
 		stream_putl(s, VRF_UNKNOWN);
 		stream_putl(s, 0);
+		stream_putl(s, 0);
 	}
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
