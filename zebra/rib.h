@@ -276,7 +276,7 @@ struct rtadv {
  * Structure that is hung off of a route_table that holds information about
  * the table.
  */
-typedef struct rib_table_info_t_ {
+struct rib_table_info {
 
 	/*
 	 * Back pointer to zebra_vrf.
@@ -284,8 +284,7 @@ typedef struct rib_table_info_t_ {
 	struct zebra_vrf *zvrf;
 	afi_t afi;
 	safi_t safi;
-
-} rib_table_info_t;
+};
 
 enum rib_tables_iter_state {
 	RIB_TABLES_ITER_S_INIT,
@@ -412,9 +411,9 @@ extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq);
 /*
  * rib_table_info
  */
-static inline rib_table_info_t *rib_table_info(struct route_table *table)
+static inline struct rib_table_info *rib_table_info(struct route_table *table)
 {
-	return (rib_table_info_t *)route_table_get_info(table);
+	return (struct rib_table_info *)route_table_get_info(table);
 }
 
 /*

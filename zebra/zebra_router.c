@@ -93,7 +93,7 @@ struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 {
 	struct zebra_router_table finder;
 	struct zebra_router_table *zrt;
-	rib_table_info_t *info;
+	struct rib_table_info *info;
 
 	memset(&finder, 0, sizeof(finder));
 	finder.afi = afi;
@@ -133,7 +133,7 @@ void zebra_router_show_table_summary(struct vty *vty)
 	vty_out(vty,
 		"---------------------------------------------------------------------------\n");
 	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
-		rib_table_info_t *info = route_table_get_info(zrt->table);
+		struct rib_table_info *info = route_table_get_info(zrt->table);
 
 		vty_out(vty, "%-16s%5d %9d %7s %15s %8d %10lu\n", info->zvrf->vrf->name,
 			zrt->ns_id, info->zvrf->vrf->vrf_id,

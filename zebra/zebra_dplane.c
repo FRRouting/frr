@@ -1530,7 +1530,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 {
 	int ret = EINVAL;
 	const struct route_table *table = NULL;
-	const rib_table_info_t *info;
+	const struct rib_table_info *info;
 	const struct prefix *p, *src_p;
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;

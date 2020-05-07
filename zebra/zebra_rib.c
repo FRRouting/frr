@@ -125,7 +125,7 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
 	va_end(ap);
 
 	if (rn) {
-		rib_table_info_t *info = srcdest_rnode_table_info(rn);
+		struct rib_table_info *info = srcdest_rnode_table_info(rn);
 		srcdest_rnode2str(rn, buf, sizeof(buf));
 
 		if (info->safi == SAFI_MULTICAST)
@@ -420,7 +420,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 			struct route_entry *old)
 {
 	struct nexthop *nexthop;
-	rib_table_info_t *info = srcdest_rnode_table_info(rn);
+	struct rib_table_info *info = srcdest_rnode_table_info(rn);
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
 	const struct prefix *p, *src_p;
 	enum zebra_dplane_result ret;
@@ -503,7 +503,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 {
 	struct nexthop *nexthop;
-	rib_table_info_t *info = srcdest_rnode_table_info(rn);
+	struct rib_table_info *info = srcdest_rnode_table_info(rn);
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
 
 	if (info->safi != SAFI_UNICAST) {
@@ -546,7 +546,7 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 /* Uninstall the route from kernel. */
 static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 {
-	rib_table_info_t *info = srcdest_rnode_table_info(rn);
+	struct rib_table_info *info = srcdest_rnode_table_info(rn);
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct nexthop *nexthop;
 
@@ -3133,13 +3133,14 @@ void rib_update_table(struct route_table *table, rib_update_event_t event)
 		struct zebra_vrf *zvrf;
 		struct vrf *vrf;
 
-		zvrf = table->info ? ((rib_table_info_t *)table->info)->zvrf
-				   : NULL;
+		zvrf = table->info
+			       ? ((struct rib_table_info *)table->info)->zvrf
+			       : NULL;
 		vrf = zvrf ? zvrf->vrf : NULL;
 
 		zlog_debug("%s: %s VRF %s Table %u event %s", __func__,
 			   table->info ? afi2str(
-				   ((rib_table_info_t *)table->info)->afi)
+				   ((struct rib_table_info *)table->info)->afi)
 				       : "Unknown",
 			   VRF_LOGNAME(vrf), zvrf ? zvrf->table_id : 0,
 			   rib_update_event2str(event));
@@ -3425,7 +3426,7 @@ unsigned long rib_score_proto(uint8_t proto, unsigned short instance)
 void rib_close_table(struct route_table *table)
 {
 	struct route_node *rn;
-	rib_table_info_t *info;
+	struct rib_table_info *info;
 	rib_dest_t *dest;
 
 	if (!table)
