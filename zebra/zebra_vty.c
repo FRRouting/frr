@@ -1059,7 +1059,7 @@ DEFPY (show_ip_nht,
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	struct prefix prefix, *p = NULL;
-	rnh_type_t rtype;
+	enum rnh_type rtype;
 
 	if (strcmp(type, "nht") == 0)
 		rtype = RNH_NEXTHOP_TYPE;

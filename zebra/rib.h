@@ -41,7 +41,7 @@
 extern "C" {
 #endif
 
-typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
+enum rnh_type { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE };
 
 PREDECL_LIST(rnh_list)
 
@@ -58,7 +58,7 @@ struct rnh {
 
 	afi_t afi;
 
-	rnh_type_t type;
+	enum rnh_type type;
 
 	uint32_t seqno;
 
