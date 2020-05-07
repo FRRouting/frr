@@ -287,11 +287,11 @@ typedef struct rib_table_info_t_ {
 
 } rib_table_info_t;
 
-typedef enum {
+enum rib_tables_iter_state {
 	RIB_TABLES_ITER_S_INIT,
 	RIB_TABLES_ITER_S_ITERATING,
 	RIB_TABLES_ITER_S_DONE
-} rib_tables_iter_state_t;
+};
 
 /*
  * Structure that holds state for iterating over all tables in the
@@ -301,7 +301,7 @@ typedef struct rib_tables_iter_t_ {
 	vrf_id_t vrf_id;
 	int afi_safi_ix;
 
-	rib_tables_iter_state_t state;
+	enum rib_tables_iter_state state;
 } rib_tables_iter_t;
 
 /* Events/reasons triggering a RIB update. */
