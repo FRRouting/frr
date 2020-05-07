@@ -151,11 +151,12 @@ enum zfpm_state {
 /*
  * Message format to be used to communicate with the FPM.
  */
-typedef enum {
+enum zfpm_msg_format {
 	ZFPM_MSG_FORMAT_NONE,
 	ZFPM_MSG_FORMAT_NETLINK,
 	ZFPM_MSG_FORMAT_PROTOBUF,
-} zfpm_msg_format_e;
+};
+
 /*
  * Globals.
  */
@@ -169,7 +170,7 @@ typedef struct zfpm_glob_t_ {
 	/*
 	 * Message format to be used to communicate with the fpm.
 	 */
-	zfpm_msg_format_e message_format;
+	enum zfpm_msg_format message_format;
 
 	struct thread_master *master;
 
