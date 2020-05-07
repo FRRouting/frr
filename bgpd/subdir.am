@@ -90,6 +90,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_regex.c \
 	bgpd/bgp_route.c \
 	bgpd/bgp_routemap.c \
+	bgpd/bgp_routemap_northbound.c \
 	bgpd/bgp_table.c \
 	bgpd/bgp_updgrp.c \
 	bgpd/bgp_updgrp_adv.c \
@@ -225,4 +226,9 @@ clippy_scan += \
 	bgpd/bgp_routemap.c \
 	bgpd/bgp_rpki.c \
 	bgpd/bgp_vty.c \
+	# end
+
+nodist_bgpd_bgpd_SOURCES = \
+	yang/frr-bgp-filter.yang.c \
+	yang/frr-bgp-route-map.yang.c \
 	# end

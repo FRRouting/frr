@@ -1437,65 +1437,37 @@ DEFUN (no_debug_rpki,
 	return CMD_SUCCESS;
 }
 
-DEFUN (match_rpki,
-       match_rpki_cmd,
-       "match rpki <valid|invalid|notfound>",
-       MATCH_STR
-       RPKI_OUTPUT_STRING
-       "Valid prefix\n"
-       "Invalid prefix\n"
-       "Prefix not found\n")
+DEFUN(match_rpki, match_rpki_cmd, "match rpki <valid|invalid|notfound>",
+      MATCH_STR RPKI_OUTPUT_STRING
+      "Valid prefix\n"
+      "Invalid prefix\n"
+      "Prefix not found\n")
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
-	enum rmap_compile_rets ret;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:rpki']";
+	char xpath_value[XPATH_MAXLEN];
 
-	ret = route_map_add_match(index, "rpki", argv[2]->arg,
-				  RMAP_EVENT_MATCH_ADDED);
-	switch (ret) {
-	case RMAP_RULE_MISSING:
-		vty_out(vty, "%% BGP Can't find rule.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	case RMAP_COMPILE_ERROR:
-		vty_out(vty, "%% BGP Argument is malformed.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	case RMAP_COMPILE_SUCCESS:
-		return CMD_SUCCESS;
-		break;
-	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:rpki", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[2]->arg);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_rpki,
-       no_match_rpki_cmd,
-       "no match rpki <valid|invalid|notfound>",
-       NO_STR
-       MATCH_STR
-       RPKI_OUTPUT_STRING
-       "Valid prefix\n"
-       "Invalid prefix\n"
-       "Prefix not found\n")
+DEFUN(no_match_rpki, no_match_rpki_cmd,
+      "no match rpki <valid|invalid|notfound>",
+      NO_STR MATCH_STR RPKI_OUTPUT_STRING
+      "Valid prefix\n"
+      "Invalid prefix\n"
+      "Prefix not found\n")
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
-	enum rmap_compile_rets ret;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:rpki']";
+	char xpath_value[XPATH_MAXLEN];
 
-	ret = route_map_delete_match(index, "rpki", argv[3]->arg,
-				     RMAP_EVENT_MATCH_DELETED);
-	switch (ret) {
-	case RMAP_RULE_MISSING:
-		vty_out(vty, "%% BGP Can't find rule.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-		break;
-	case RMAP_COMPILE_ERROR:
-		vty_out(vty, "%% BGP Argument is malformed.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-		break;
-	case RMAP_COMPILE_SUCCESS:
-		return CMD_SUCCESS;
-		break;
-	}
-
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static void install_cli_commands(void)

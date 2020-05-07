@@ -30,6 +30,7 @@
 #include "vrf.h"
 #include "vty.h"
 #include "iana_afi.h"
+#include "lib/northbound.h"
 
 /* For union sockunion.  */
 #include "queue.h"
@@ -2150,4 +2151,11 @@ extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 DECLARE_HOOK(peer_status_changed, (struct peer * peer), (peer))
 void peer_nsf_stop(struct peer *peer);
 
+extern const struct frr_yang_module_info frr_bgp_route_map_info;
+int bgp_route_match_add(struct vty *vty, struct route_map_index *index,
+			const char *command, const char *arg,
+			route_map_event_t type);
+int bgp_route_match_delete(struct vty *vty, struct route_map_index *index,
+			   const char *command, const char *arg,
+			   route_map_event_t type);
 #endif /* _QUAGGA_BGPD_H */

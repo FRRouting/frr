@@ -241,6 +241,146 @@ struct route_map {
 };
 DECLARE_QOBJ_TYPE(route_map)
 
+/* Route-map match conditions */
+#define IS_MATCH_INTERFACE(C)                                                  \
+	(strncmp(C, "frr-route-map:interface", strlen(C)) == 0)
+#define IS_MATCH_IPv4_ADDRESS_LIST(C)                                          \
+	(strncmp(C, "frr-route-map:ipv4-address-list", strlen(C)) == 0)
+#define IS_MATCH_IPv6_ADDRESS_LIST(C)                                          \
+	(strncmp(C, "frr-route-map:ipv6-address-list", strlen(C)) == 0)
+#define IS_MATCH_IPv4_NEXTHOP_LIST(C)                                          \
+	(strncmp(C, "frr-route-map:ipv4-next-hop-list", strlen(C)) == 0)
+#define IS_MATCH_IPv4_PREFIX_LIST(C)                                           \
+	(strncmp(C, "frr-route-map:ipv4-prefix-list", strlen(C)) == 0)
+#define IS_MATCH_IPv6_PREFIX_LIST(C)                                           \
+	(strncmp(C, "frr-route-map:ipv6-prefix-list", strlen(C)) == 0)
+#define IS_MATCH_IPv4_NEXTHOP_PREFIX_LIST(C)                                   \
+	(strncmp(C, "frr-route-map:ipv4-next-hop-prefix-list", strlen(C)) == 0)
+#define IS_MATCH_IPv4_NEXTHOP_TYPE(C)                                          \
+	(strncmp(C, "frr-route-map:ipv4-next-hop-type", strlen(C)) == 0)
+#define IS_MATCH_IPv6_NEXTHOP_TYPE(C)                                          \
+	(strncmp(C, "frr-route-map:ipv6-next-hop-type", strlen(C)) == 0)
+#define IS_MATCH_METRIC(C)                                                     \
+	(strncmp(C, "frr-route-map:match-metric", strlen(C)) == 0)
+#define IS_MATCH_TAG(C) (strncmp(C, "frr-route-map:match-tag", strlen(C)) == 0)
+/* Zebra route-map match conditions */
+#define IS_MATCH_IPv4_PREFIX_LEN(C)                                            \
+	(strncmp(C, "frr-zebra-route-map:ipv4-prefix-length", strlen(C)) == 0)
+#define IS_MATCH_IPv6_PREFIX_LEN(C)                                            \
+	(strncmp(C, "frr-zebra-route-map:ipv6-prefix-length", strlen(C)) == 0)
+#define IS_MATCH_IPv4_NH_PREFIX_LEN(C)                                         \
+	(strncmp(C, "frr-zebra-route-map:ipv4-next-hop-prefix-length",         \
+		 strlen(C))                                                    \
+	 == 0)
+#define IS_MATCH_SRC_PROTO(C)                                                  \
+	(strncmp(C, "frr-zebra-route-map:source-protocol", strlen(C)) == 0)
+#define IS_MATCH_SRC_INSTANCE(C)                                               \
+	(strncmp(C, "frr-zebra-route-map:source-instance", strlen(C)) == 0)
+/* BGP route-map match conditions */
+#define IS_MATCH_LOCAL_PREF(C)                                                 \
+	(strncmp(C, "frr-bgp-route-map:match-local-preference", strlen(C)) == 0)
+#define IS_MATCH_ORIGIN(C)                                                     \
+	(strncmp(C, "frr-bgp-route-map:match-origin", strlen(C)) == 0)
+#define IS_MATCH_RPKI(C) (strncmp(C, "frr-bgp-route-map:rpki", strlen(C)) == 0)
+#define IS_MATCH_PROBABILITY(C)                                                \
+	(strncmp(C, "frr-bgp-route-map:probability", strlen(C)) == 0)
+#define IS_MATCH_SRC_VRF(C)                                                    \
+	(strncmp(C, "frr-bgp-route-map:source-vrf", strlen(C)) == 0)
+#define IS_MATCH_PEER(C) (strncmp(C, "frr-bgp-route-map:peer", strlen(C)) == 0)
+#define IS_MATCH_AS_LIST(C)                                                    \
+	(strncmp(C, "frr-bgp-route-map:as-path-list", strlen(C)) == 0)
+#define IS_MATCH_MAC_LIST(C)                                                   \
+	(strncmp(C, "frr-bgp-route-map:mac-address-list", strlen(C)) == 0)
+#define IS_MATCH_EVPN_ROUTE_TYPE(C)                                            \
+	(strncmp(C, "frr-bgp-route-map:evpn-route-type", strlen(C)) == 0)
+#define IS_MATCH_EVPN_DEFAULT_ROUTE(C)                                         \
+	(strncmp(C, "frr-bgp-route-map:evpn-default-route", strlen(C)) == 0)
+#define IS_MATCH_EVPN_VNI(C)                                                   \
+	(strncmp(C, "frr-bgp-route-map:evpn-vni", strlen(C)) == 0)
+#define IS_MATCH_EVPN_DEFAULT_ROUTE(C)                                         \
+	(strncmp(C, "frr-bgp-route-map:evpn-default-route", strlen(C)) == 0)
+#define IS_MATCH_EVPN_RD(C)                                                    \
+	(strncmp(C, "frr-bgp-route-map:evpn-rd", strlen(C)) == 0)
+#define IS_MATCH_ROUTE_SRC(C)                                                  \
+	(strncmp(C, "frr-bgp-route-map:ip-route-source", strlen(C)) == 0)
+#define IS_MATCH_ROUTE_SRC_PL(C)                                               \
+	(strncmp(C, "frr-bgp-route-map:ip-route-source-prefix-list",           \
+		 strlen(C))                                                    \
+	 == 0)
+#define IS_MATCH_COMMUNITY(C)                                                  \
+	(strncmp(C, "frr-bgp-route-map:match-community", strlen(C)) == 0)
+#define IS_MATCH_LCOMMUNITY(C)                                                 \
+	(strncmp(C, "frr-bgp-route-map:match-large-community", strlen(C)) == 0)
+#define IS_MATCH_EXTCOMMUNITY(C)                                               \
+	(strncmp(C, "frr-bgp-route-map:match-extcommunity", strlen(C)) == 0)
+#define IS_MATCH_IPV4_NH(C)                                                    \
+	(strncmp(C, "frr-bgp-route-map:ipv4-nexthop", strlen(C)) == 0)
+#define IS_MATCH_IPV6_NH(C)                                                    \
+	(strncmp(C, "frr-bgp-route-map:ipv6-nexthop", strlen(C)) == 0)
+
+/* Route-map set actions */
+#define IS_SET_IPv4_NH(A)                                                      \
+	(strncmp(A, "frr-route-map:ipv4-next-hop", strlen(A)) == 0)
+#define IS_SET_IPv6_NH(A)                                                      \
+	(strncmp(A, "frr-route-map:ipv6-next-hop", strlen(A)) == 0)
+#define IS_SET_METRIC(A)                                                       \
+	(strncmp(A, "frr-route-map:set-metric", strlen(A)) == 0)
+#define IS_SET_TAG(A) (strncmp(A, "frr-route-map:set-tag", strlen(A)) == 0)
+/* Zebra route-map set actions */
+#define IS_SET_SRC(A)                                                          \
+	(strncmp(A, "frr-zebra-route-map:src-address", strlen(A)) == 0)
+/* OSPF route-map set actions */
+#define IS_SET_METRIC_TYPE(A)                                                  \
+	(strncmp(A, "frr-ospf-route-map:metric-type", strlen(A)) == 0)
+#define IS_SET_FORWARDING_ADDR(A)                                              \
+	(strncmp(A, "frr-ospf-route-map:forwarding-address", strlen(A)) == 0)
+/* BGP route-map_set actions */
+#define IS_SET_WEIGHT(A)                                                       \
+	(strncmp(A, "frr-bgp-route-map:weight", strlen(A)) == 0)
+#define IS_SET_TABLE(A) (strncmp(A, "frr-bgp-route-map:table", strlen(A)) == 0)
+#define IS_SET_LOCAL_PREF(A)                                                   \
+	(strncmp(A, "frr-bgp-route-map:set-local-preference", strlen(A)) == 0)
+#define IS_SET_LABEL_INDEX(A)                                                  \
+	(strncmp(A, "frr-bgp-route-map:label-index", strlen(A)) == 0)
+#define IS_SET_DISTANCE(A)                                                     \
+	(strncmp(A, "frr-bgp-route-map:distance", strlen(A)) == 0)
+#define IS_SET_ORIGIN(A)                                                       \
+	(strncmp(A, "frr-bgp-route-map:set-origin", strlen(A)) == 0)
+#define IS_SET_ATOMIC_AGGREGATE(A)                                             \
+	(strncmp(A, "frr-bgp-route-map:atomic-aggregate", strlen(A)) == 0)
+#define IS_SET_ORIGINATOR_ID(A)                                                \
+	(strncmp(A, "frr-bgp-route-map:originator-id", strlen(A)) == 0)
+#define IS_SET_COMM_LIST_DEL(A)                                                \
+	(strncmp(A, "frr-bgp-route-map:comm-list-delete", strlen(A)) == 0)
+#define IS_SET_LCOMM_LIST_DEL(A)                                               \
+	(strncmp(A, "frr-bgp-route-map:large-comm-list-delete", strlen(A)) == 0)
+#define IS_SET_LCOMMUNITY(A)                                                   \
+	(strncmp(A, "frr-bgp-route-map:set-large-community", strlen(A)) == 0)
+#define IS_SET_COMMUNITY(A)                                                    \
+	(strncmp(A, "frr-bgp-route-map:set-community", strlen(A)) == 0)
+#define IS_SET_EXTCOMMUNITY_RT(A)                                              \
+	(strncmp(A, "frr-bgp-route-map:set-extcommunity-rt", strlen(A)) == 0)
+#define IS_SET_EXTCOMMUNITY_SOO(A)                                             \
+	(strncmp(A, "frr-bgp-route-map:set-extcommunity-soo", strlen(A)) == 0)
+#define IS_SET_AGGREGATOR(A)                                                   \
+	(strncmp(A, "frr-bgp-route-map:aggregator", strlen(A)) == 0)
+#define IS_SET_AS_PREPEND(A)                                                   \
+	(strncmp(A, "frr-bgp-route-map:as-path-prepend", strlen(A)) == 0)
+#define IS_SET_AS_EXCLUDE(A)                                                   \
+	(strncmp(A, "frr-bgp-route-map:as-path-exclude", strlen(A)) == 0)
+#define IS_SET_IPV6_NH_GLOBAL(A)                                               \
+	(strncmp(A, "frr-bgp-route-map:ipv6-nexthop-global", strlen(A)) == 0)
+#define IS_SET_IPV6_VPN_NH(A)                                                  \
+	(strncmp(A, "frr-bgp-route-map:ipv6-vpn-address", strlen(A)) == 0)
+#define IS_SET_IPV6_PEER_ADDR(A)                                               \
+	(strncmp(A, "frr-bgp-route-map:ipv6-peer-address", strlen(A)) == 0)
+#define IS_SET_IPV6_PREFER_GLOBAL(A)                                           \
+	(strncmp(A, "frr-bgp-route-map:ipv6-prefer-global", strlen(A)) == 0)
+#define IS_SET_IPV4_VPN_NH(A)                                                  \
+	(strncmp(A, "frr-bgp-route-map:ipv4-vpn-address", strlen(A)) == 0)
+#define IS_SET_BGP_IPV4_NH(A)                                                  \
+	(strncmp(A, "frr-bgp-route-map:set-ipv4-nexthop", strlen(A)) == 0)
+
 /* Prototypes. */
 extern void route_map_init(void);
 
