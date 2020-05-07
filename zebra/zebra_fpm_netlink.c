@@ -143,13 +143,13 @@ struct fpm_nh_encap_info_t {
 };
 
 /*
- * netlink_nh_info_t
+ * netlink_nh_info
  *
  * Holds information about a single nexthop for netlink. These info
  * structures are transient and may contain pointers into rib
  * data structures for convenience.
  */
-typedef struct netlink_nh_info_t_ {
+struct netlink_nh_info {
 	uint32_t if_index;
 	union g_addr *gateway;
 
@@ -160,7 +160,7 @@ typedef struct netlink_nh_info_t_ {
 	int recursive;
 	enum nexthop_types_t type;
 	struct fpm_nh_encap_info_t encap_info;
-} netlink_nh_info_t;
+};
 
 /*
  * netlink_route_info_t
@@ -180,7 +180,7 @@ typedef struct netlink_route_info_t_ {
 	/*
 	 * Nexthop structures
 	 */
-	netlink_nh_info_t nhs[MULTIPATH_NUM];
+	struct netlink_nh_info nhs[MULTIPATH_NUM];
 	union g_addr *pref_src;
 } netlink_route_info_t;
 
@@ -196,7 +196,7 @@ static int netlink_route_info_add_nh(netlink_route_info_t *ri,
 				     struct nexthop *nexthop,
 				     struct route_entry *re)
 {
-	netlink_nh_info_t nhi;
+	struct netlink_nh_info nhi;
 	union g_addr *src;
 	zebra_l3vni_t *zl3vni = NULL;
 
@@ -359,7 +359,7 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 	size_t bytelen;
 	unsigned int nexthop_num = 0;
 	size_t buf_offset;
-	netlink_nh_info_t *nhi;
+	struct netlink_nh_info *nhi;
 	enum fpm_nh_encap_type_t encap;
 	struct rtattr *nest;
 	struct vxlan_encap_info_t *vxlan;
@@ -522,7 +522,7 @@ done:
  */
 static void zfpm_log_route_info(netlink_route_info_t *ri, const char *label)
 {
-	netlink_nh_info_t *nhi;
+	struct netlink_nh_info *nhi;
 	unsigned int i;
 
 	zfpm_debug("%s : %s %s/%d, Proto: %s, Metric: %u", label,
