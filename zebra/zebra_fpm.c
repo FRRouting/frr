@@ -84,7 +84,7 @@ struct zfpm_rnodes_iter {
 /*
  * Statistics.
  */
-typedef struct zfpm_stats_t_ {
+struct zfpm_stats {
 	unsigned long connect_calls;
 	unsigned long connect_no_sock;
 
@@ -115,8 +115,7 @@ typedef struct zfpm_stats_t_ {
 	unsigned long t_conn_up_yields;
 	unsigned long t_conn_up_aborts;
 	unsigned long t_conn_up_finishes;
-
-} zfpm_stats_t;
+};
 
 /*
  * States for the FPM state machine.
@@ -251,18 +250,18 @@ typedef struct zfpm_glob_t_ {
 	 * Stats from the start of the current statistics interval up to
 	 * now. These are the counters we typically update in the code.
 	 */
-	zfpm_stats_t stats;
+	struct zfpm_stats stats;
 
 	/*
 	 * Statistics that were gathered in the last collection interval.
 	 */
-	zfpm_stats_t last_ivl_stats;
+	struct zfpm_stats last_ivl_stats;
 
 	/*
 	 * Cumulative stats from the last clear to the start of the current
 	 * statistics interval.
 	 */
-	zfpm_stats_t cumulative_stats;
+	struct zfpm_stats cumulative_stats;
 
 	/*
 	 * Stats interval timer.
@@ -409,7 +408,7 @@ static inline void zfpm_rnodes_iter_cleanup(struct zfpm_rnodes_iter *iter)
  *
  * Initialize a statistics block.
  */
-static inline void zfpm_stats_init(zfpm_stats_t *stats)
+static inline void zfpm_stats_init(struct zfpm_stats *stats)
 {
 	memset(stats, 0, sizeof(*stats));
 }
@@ -417,7 +416,7 @@ static inline void zfpm_stats_init(zfpm_stats_t *stats)
 /*
  * zfpm_stats_reset
  */
-static inline void zfpm_stats_reset(zfpm_stats_t *stats)
+static inline void zfpm_stats_reset(struct zfpm_stats *stats)
 {
 	zfpm_stats_init(stats);
 }
@@ -425,7 +424,8 @@ static inline void zfpm_stats_reset(zfpm_stats_t *stats)
 /*
  * zfpm_stats_copy
  */
-static inline void zfpm_stats_copy(const zfpm_stats_t *src, zfpm_stats_t *dest)
+static inline void zfpm_stats_copy(const struct zfpm_stats *src,
+				   struct zfpm_stats *dest)
 {
 	memcpy(dest, src, sizeof(*dest));
 }
@@ -441,8 +441,9 @@ static inline void zfpm_stats_copy(const zfpm_stats_t *src, zfpm_stats_t *dest)
  * structure is composed entirely of counters. This can easily be
  * changed when necessary.
  */
-static void zfpm_stats_compose(const zfpm_stats_t *s1, const zfpm_stats_t *s2,
-			       zfpm_stats_t *result)
+static void zfpm_stats_compose(const struct zfpm_stats *s1,
+			       const struct zfpm_stats *s2,
+			       struct zfpm_stats *result)
 {
 	const unsigned long *p1, *p2;
 	unsigned long *result_p;
@@ -452,7 +453,7 @@ static void zfpm_stats_compose(const zfpm_stats_t *s1, const zfpm_stats_t *s2,
 	p2 = (const unsigned long *)s2;
 	result_p = (unsigned long *)result;
 
-	num_counters = (sizeof(zfpm_stats_t) / sizeof(unsigned long));
+	num_counters = (sizeof(struct zfpm_stats) / sizeof(unsigned long));
 
 	for (i = 0; i < num_counters; i++) {
 		result_p[i] = p1[i] + p2[i];
@@ -1650,7 +1651,7 @@ static void zfpm_iterate_rmac_table(struct hash_bucket *backet, void *args)
 }
 
 /*
- * zfpm_stats_timer_cb
+ * struct zfpm_statsimer_cb
  */
 static int zfpm_stats_timer_cb(struct thread *t)
 {
@@ -1715,7 +1716,7 @@ void zfpm_start_stats_timer(void)
  */
 static void zfpm_show_stats(struct vty *vty)
 {
-	zfpm_stats_t total_stats;
+	struct zfpm_stats total_stats;
 	time_t elapsed;
 
 	vty_out(vty, "\n%-40s %10s     Last %2d secs\n\n", "Counter", "Total",
