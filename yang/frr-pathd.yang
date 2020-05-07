@@ -230,6 +230,13 @@ module frr-pathd {
           description
             "The name of the Segment List to use as LSP.";
         }
+        leaf bandwidth {
+          type decimal64 {
+            fraction-digits 6;
+          }
+          description
+            "The bandwidth required by the candidate path.";
+        }
         list metrics {
           key "type";
           leaf type {

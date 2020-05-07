@@ -597,3 +597,40 @@ int pathd_te_sr_policy_candidate_path_segment_list_name_destroy(
 
 	return NB_OK;
 }
+
+/*
+ * XPath: /frr-pathd:pathd/sr-policy/candidate-path/bandwidth
+ */
+int pathd_te_sr_policy_candidate_path_bandwidth_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct srte_candidate *candidate;
+	float value;
+	bool is_config;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	assert(args->context != NULL);
+	is_config = args->context->client == NB_CLIENT_CLI;
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	value = (float)yang_dnode_get_dec64(args->dnode, NULL);
+	srte_candidate_set_bandwidth(candidate, value, is_config);
+	return NB_OK;
+}
+
+int pathd_te_sr_policy_candidate_path_bandwidth_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct srte_candidate *candidate;
+	bool is_config;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	assert(args->context != NULL);
+	is_config = args->context->client == NB_CLIENT_CLI;
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	srte_candidate_unset_bandwidth(candidate, is_config);
+	return NB_OK;
+}

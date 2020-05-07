@@ -440,10 +440,14 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
 	  explicit$type segment-list WORD$list_name\
 	  |dynamic$type\
 	>\
-	[[no$no_metrics] metrics\
-	{\
-	  [bound$bound_abc] abc$metric_abc [METRIC$metric_abc_value]\
-	  |[bound$bound_te] te$metric_te [METRIC$metric_te_value]\
+	[{\
+	  [no$no_metrics] metrics\
+	  {\
+	    [bound$bound_abc] abc$metric_abc [METRIC$metric_abc_value]\
+	    |[bound$bound_te] te$metric_te [METRIC$metric_te_value]\
+	  }\
+	|\
+	  [no$no_bandwidth] bandwidth$bandwidth_tag [BANDWIDTH$bandwidth_value]\
 	}]",
       "Segment Routing Policy Candidate Path\n"
       "Segment Routing Policy Candidate Path Preference\n"
@@ -461,13 +465,23 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
       "Agreggate Bandwidth Consumption metric value\n"
       "Bound Traffic engineering metric\n"
       "Traffic engineering metric\n"
-      "Traffic engineering metric value\n")
+      "Traffic engineering metric value\n"
+      "No bandwidth requirements\n"
+      "Candidate path bandwidth requirements\n"
+      "Bandwidth value in bytes per second\n")
 {
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, preference_str);
 	nb_cli_enqueue_change(vty, "./name", NB_OP_MODIFY, name);
 	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "local");
 	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "config");
 	nb_cli_enqueue_change(vty, "./type", NB_OP_MODIFY, type);
+
+	if (no_bandwidth != NULL) {
+		nb_cli_enqueue_change(vty, "./bandwidth", NB_OP_DESTROY, NULL);
+	} else if (bandwidth_tag != NULL) {
+		nb_cli_enqueue_change(vty, "./bandwidth", NB_OP_MODIFY,
+		      (bandwidth_value != NULL) ? bandwidth_value : "0");
+	}
 
 	if (no_metrics != NULL) {
 		if (metric_abc != NULL) {

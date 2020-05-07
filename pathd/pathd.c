@@ -345,6 +345,44 @@ void srte_candidate_del(struct srte_candidate *candidate)
 	XFREE(MTYPE_PATH_SR_CANDIDATE, candidate);
 }
 
+void srte_candidate_set_bandwidth(struct srte_candidate *candidate,
+				  float bandwidth, bool is_config)
+{
+	struct srte_policy *policy = candidate->policy;
+	char endpoint[46];
+	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+	zlog_debug(
+		"SR-TE(%s, %u): candidate %s bandwidth set to %f B/s"
+		"(is_config: %s)",
+		endpoint, policy->color, candidate->name, bandwidth,
+		is_config ? "true" : "false");
+	SET_FLAG(candidate->flags, F_CANDIDATE_HAS_BANDWIDTH_RT);
+	candidate->bandwidth_rt = bandwidth;
+	if (is_config) {
+		SET_FLAG(candidate->flags, F_CANDIDATE_HAS_BANDWIDTH);
+		candidate->bandwidth = bandwidth;
+	}
+}
+
+void srte_candidate_unset_bandwidth(struct srte_candidate *candidate,
+				    bool is_config)
+{
+	struct srte_policy *policy = candidate->policy;
+	char endpoint[46];
+	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+	zlog_debug(
+		"SR-TE(%s, %u): candidate %s bandwidth unset "
+		"(is_config: %s)",
+		endpoint, policy->color, candidate->name,
+		is_config ? "true" : "false");
+	UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_BANDWIDTH_RT);
+	candidate->bandwidth_rt = 0;
+	if (is_config) {
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_BANDWIDTH);
+		candidate->bandwidth = 0;
+	}
+}
+
 void srte_candidate_set_metric(struct srte_candidate *candidate,
 			       enum srte_candidate_metric_type type,
 			       float value, bool is_bound, bool is_computed,
