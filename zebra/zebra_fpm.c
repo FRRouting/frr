@@ -160,7 +160,7 @@ enum zfpm_msg_format {
 /*
  * Globals.
  */
-typedef struct zfpm_glob_t_ {
+struct zfpm_glob {
 
 	/*
 	 * True if the FPM module has been enabled.
@@ -273,11 +273,10 @@ typedef struct zfpm_glob_t_ {
 	 * If non-zero, the last time when statistics were cleared.
 	 */
 	time_t last_stats_clear_time;
+};
 
-} zfpm_glob_t;
-
-static zfpm_glob_t zfpm_glob_space;
-static zfpm_glob_t *zfpm_g = &zfpm_glob_space;
+static struct zfpm_glob zfpm_glob_space;
+static struct zfpm_glob *zfpm_g = &zfpm_glob_space;
 
 static int zfpm_trigger_update(struct route_node *rn, const char *reason);
 
