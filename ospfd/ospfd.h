@@ -578,4 +578,6 @@ const char *ospf_vrf_id_to_name(vrf_id_t vrf_id);
 int ospf_area_nssa_no_summary_set(struct ospf *, struct in_addr);
 
 const char *ospf_get_name(const struct ospf *ospf);
+
+extern const struct frr_yang_module_info frr_ospf_route_map_info;
 #endif /* _ZEBRA_OSPFD_H */

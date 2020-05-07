@@ -48,6 +48,7 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_ri.c \
 	ospfd/ospf_route.c \
 	ospfd/ospf_routemap.c \
+	ospfd/ospf_routemap_northbound.c \
 	ospfd/ospf_spf.c \
 	ospfd/ospf_sr.c \
 	ospfd/ospf_te.c \
@@ -109,4 +110,8 @@ ospfd_ospfd_snmp_la_LIBADD = lib/libfrrsnmp.la
 
 EXTRA_DIST += \
 	ospfd/ChangeLog.opaque.txt \
+	# end
+
+nodist_ospfd_ospfd_SOURCES = \
+	yang/frr-ospf-route-map.yang.c \
 	# end
