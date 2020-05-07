@@ -304,12 +304,12 @@ typedef struct rib_tables_iter_t_ {
 } rib_tables_iter_t;
 
 /* Events/reasons triggering a RIB update. */
-typedef enum {
+enum rib_update_event {
 	RIB_UPDATE_KERNEL,
 	RIB_UPDATE_RMAP_CHANGE,
 	RIB_UPDATE_OTHER,
 	RIB_UPDATE_MAX
-} rib_update_event_t;
+};
 
 extern void route_entry_copy_nexthops(struct route_entry *re,
 				      struct nexthop *nh);
@@ -373,10 +373,10 @@ extern struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
 extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
 					   vrf_id_t vrf_id);
 
-extern void rib_update(rib_update_event_t event);
-extern void rib_update_vrf(vrf_id_t vrf_id, rib_update_event_t event);
+extern void rib_update(enum rib_update_event event);
+extern void rib_update_vrf(vrf_id_t vrf_id, enum rib_update_event event);
 extern void rib_update_table(struct route_table *table,
-			     rib_update_event_t event);
+			     enum rib_update_event event);
 extern int rib_sweep_route(struct thread *t);
 extern void rib_sweep_table(struct route_table *table);
 extern void rib_close_table(struct route_table *table);
