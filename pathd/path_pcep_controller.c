@@ -33,7 +33,6 @@
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_controller.h"
 #include "pathd/path_pcep_pcc.h"
-#include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_nb.h"
 #include "pathd/path_pcep_debug.h"
 
@@ -74,17 +73,6 @@ struct pcep_main_event_data {
 	void *payload;
 };
 
-/* Timer handling data structures */
-
-enum pcep_ctrl_timer_type { TM_POLL = 1, TM_RECONNECT_PCC, TM_PCEPLIB_TIMER };
-
-struct pcep_ctrl_timer_data {
-	struct ctrl_state *ctrl_state;
-	enum pcep_ctrl_timer_type type;
-	int pcc_id;
-	void *payload;
-};
-
 /* Synchronous call arguments */
 
 struct get_counters_args {
@@ -110,11 +98,20 @@ static int pcep_thread_get_counters_callback(struct thread *t);
 static int pcep_thread_send_report_callback(struct thread *t);
 
 /* Controller Thread Timer Handler */
-static int schedule_thread(struct ctrl_state *ctrl_state, int pcc_id,
-			   enum pcep_ctrl_timer_type type, uint32_t delay,
-			   void *payload, struct thread **thread);
+static int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
+				 enum pcep_ctrl_timer_type type, uint32_t delay,
+				 void *payload, struct thread **thread);
+static int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state,
+        int pcc_id, enum pcep_ctrl_timer_type type, uint32_t delay,
+        void *payload, struct thread **thread, pcep_ctrl_thread_callback timer_cb);
 static int pcep_thread_timer_handler(struct thread *thread);
 static int pcep_thread_timer_poll(struct ctrl_state *ctrl_state);
+
+/* Controller Thread Socket read/write Handler */
+static int schedule_thread_socket(struct ctrl_state *ctrl_state, int pcc_id,
+				  enum pcep_ctrl_socket_type type, bool is_read,
+				  void *payload, int fd, struct thread **thread,
+				  pcep_ctrl_thread_callback cb);
 
 /* Controller Thread Event Handler */
 static int send_to_thread(struct ctrl_state *ctrl_state, int pcc_id,
@@ -316,21 +313,38 @@ void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
 	uint32_t delay = backoff_delay(MAX_RECONNECT_DELAY, 1, retry_count);
 	PCEP_DEBUG("Schedule reconnection in %us (retry %u)", delay,
 		   retry_count);
-	schedule_thread(ctrl_state, pcc_id, TM_RECONNECT_PCC, delay, NULL,
-			thread);
+	schedule_thread_timer(ctrl_state, pcc_id, TM_RECONNECT_PCC, delay, NULL,
+			      thread);
 }
 
 void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
-				    int delay, void *payload, struct thread **thread)
+				    int delay, void *payload, struct thread **thread,
+				    pcep_ctrl_thread_callback timer_cb)
 {
 	PCEP_DEBUG("Schedule pceplib timer for %us", delay);
-	schedule_thread(ctrl_state, 0, TM_PCEPLIB_TIMER, delay, payload, thread);
+	schedule_thread_timer_with_cb(
+	        ctrl_state, 0, TM_PCEPLIB_TIMER, delay, payload, thread,
+	        timer_cb);
 }
 
-void pcep_thread_cancel_pceplib_timer(struct thread *thread)
+void pcep_thread_cancel_pceplib_timer(struct thread **thread)
 {
 	PCEP_DEBUG("Cancel pceplib timer");
-	thread_cancel_async(thread->master, &thread, NULL);
+
+	if (thread == NULL) {
+		return;
+	}
+
+	struct pcep_ctrl_timer_data *data = THREAD_ARG(*thread);
+	if (data != NULL) {
+		XFREE(MTYPE_PCEP, data);
+	}
+
+	if ((*thread)->master->owner == pthread_self()) {
+		thread_cancel(*thread);
+	} else {
+		thread_cancel_async((*thread)->master, thread, NULL);
+	}
 }
 
 /* ------------ Internal Functions Called From Controller Thread ------------ */
@@ -363,8 +377,8 @@ int pcep_thread_finish_event_handler(struct thread *thread)
 void pcep_thread_schedule_poll(struct ctrl_state *ctrl_state)
 {
 	assert(ctrl_state->t_poll == NULL);
-	schedule_thread(ctrl_state, 0, TM_POLL, POLL_INTERVAL, NULL,
-			&ctrl_state->t_poll);
+	schedule_thread_timer(ctrl_state, 0, TM_POLL, POLL_INTERVAL, NULL,
+			      &ctrl_state->t_poll);
 }
 
 int pcep_thread_get_counters_callback(struct thread *t)
@@ -409,9 +423,10 @@ int pcep_thread_send_report_callback(struct thread *t)
 
 /* ------------ Controller Thread Timer Handler ------------ */
 
-int schedule_thread(struct ctrl_state *ctrl_state, int pcc_id,
-		    enum pcep_ctrl_timer_type type, uint32_t delay,
-		    void *payload, struct thread **thread)
+int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
+			  enum pcep_ctrl_timer_type type, uint32_t delay,
+			  void *payload, struct thread **thread,
+			  pcep_ctrl_thread_callback timer_cb)
 {
 	assert(thread != NULL);
 
@@ -423,10 +438,19 @@ int schedule_thread(struct ctrl_state *ctrl_state, int pcc_id,
 	data->pcc_id = pcc_id;
 	data->payload = payload;
 
-	thread_add_timer(ctrl_state->self, pcep_thread_timer_handler,
+	thread_add_timer(ctrl_state->self, timer_cb,
 			 (void *)data, delay, thread);
 
 	return 0;
+}
+
+int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
+			  enum pcep_ctrl_timer_type type, uint32_t delay,
+			  void *payload, struct thread **thread)
+{
+    return schedule_thread_timer_with_cb(
+            ctrl_state, pcc_id, type, delay, payload, thread,
+            pcep_thread_timer_handler);
 }
 
 int pcep_thread_timer_handler(struct thread *thread)
@@ -438,7 +462,6 @@ int pcep_thread_timer_handler(struct thread *thread)
 	assert(ctrl_state != NULL);
 	enum pcep_ctrl_timer_type type = data->type;
 	int pcc_id = data->pcc_id;
-    void *payload = data->payload;
 	XFREE(MTYPE_PCEP, data);
 
 	int ret = 0;
@@ -452,9 +475,6 @@ int pcep_thread_timer_handler(struct thread *thread)
 		pcc_state = get_pcc_state(ctrl_state, pcc_id);
 		pcep_pcc_reconnect(ctrl_state, pcc_state);
 		break;
-	case TM_PCEPLIB_TIMER:
-        pcep_lib_timer_expire(payload);
-	    break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unknown controller timer triggered: %u", type);
@@ -463,7 +483,6 @@ int pcep_thread_timer_handler(struct thread *thread)
 
 	return ret;
 }
-
 
 int pcep_thread_timer_poll(struct ctrl_state *ctrl_state)
 {
@@ -489,6 +508,53 @@ int pcep_thread_timer_poll(struct ctrl_state *ctrl_state)
 	return 0;
 }
 
+/* ------------ Controller Thread Socket Functions ------------ */
+
+int schedule_thread_socket(struct ctrl_state *ctrl_state, int pcc_id,
+			   enum pcep_ctrl_socket_type type, bool is_read,
+			   void *payload, int fd, struct thread **thread,
+			   pcep_ctrl_thread_callback socket_cb)
+{
+	assert(thread != NULL);
+
+	struct pcep_ctrl_socket_data *data;
+
+	data = XCALLOC(MTYPE_PCEP, sizeof(*data));
+	data->ctrl_state = ctrl_state;
+	data->type = type;
+	data->is_read = is_read;
+	data->fd = fd;
+	data->pcc_id = pcc_id;
+	data->payload = payload;
+
+	if (is_read) {
+		thread_add_read(ctrl_state->self, socket_cb,
+				(void *)data, fd, thread);
+	} else {
+		thread_add_write(ctrl_state->self, socket_cb,
+				 (void *)data, fd, thread);
+	}
+
+	return 0;
+}
+
+int pcep_thread_socket_write(void *fpt, void **thread, int fd, void *payload,
+        pcep_ctrl_thread_callback socket_cb)
+{
+	struct ctrl_state *ctrl_state = ((struct frr_pthread *)fpt)->data;
+
+	return schedule_thread_socket(ctrl_state, 0, SOCK_PCEPLIB, false,
+				      payload, fd, (struct thread **)thread, socket_cb);
+}
+
+int pcep_thread_socket_read(void *fpt, void **thread, int fd, void *payload,
+        pcep_ctrl_thread_callback socket_cb)
+{
+	struct ctrl_state *ctrl_state = ((struct frr_pthread *)fpt)->data;
+
+	return schedule_thread_socket(ctrl_state, 0, SOCK_PCEPLIB, true,
+				      payload, fd, (struct thread **)thread, socket_cb);
+}
 
 /* ------------ Controller Thread Event Handler ------------ */
 

@@ -40,6 +40,5 @@ void pcep_lib_parse_capabilities(struct pcep_message *msg,
 				 struct pcep_caps *caps);
 struct counters_group *pcep_lib_copy_counters(pcep_session *sess);
 void pcep_lib_free_counters(struct counters_group *counters);
-void pcep_lib_timer_expire(void *payload);
 
 #endif // _PATH_PCEP_LIB_H_

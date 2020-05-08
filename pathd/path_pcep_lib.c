@@ -32,8 +32,19 @@
 /* pceplib logging callback */
 static int pceplib_logging_cb(int level, const char *fmt, va_list args);
 
-static void *pcep_lib_pceplib_timer_create_cb(void *fpt, int delay, void *payload);
-static void pcep_lib_pceplib_timer_cancel_cb(void *thread);
+/* Timer callbacks */
+static void pcep_lib_pceplib_timer_create_cb(void *fpt, void **thread,
+					     int delay, void *payload);
+static void pcep_lib_pceplib_timer_cancel_cb(void **thread);
+static int pcep_lib_timer_expire(struct thread *thread);
+
+/* Socket callbacks */
+static int pcep_lib_pceplib_socket_read_cb(void *fpt, void **thread, int fd,
+				    void *payload);
+static int pcep_lib_pceplib_socket_write_cb(void *fpt, void **thread, int fd,
+				     void *payload);
+static int pcep_lib_socket_read_ready(struct thread *thread);
+static int pcep_lib_socket_write_ready(struct thread *thread);
 
 /* Internal functions */
 static double_linked_list *pcep_lib_format_path(struct path *path);
@@ -68,18 +79,21 @@ int pcep_lib_initialize(struct frr_pthread *fpt)
 	/* Its ok that this object goes out of scope, as it
 	 * wont be stored, and its values will be copied */
 	struct pceplib_infra_config infra = {
-            /* Memory infrastructure */
-		.pceplib_infra_mt    = MTYPE_PCEPLIB_INFRA,
+		/* Memory infrastructure */
+		.pceplib_infra_mt = MTYPE_PCEPLIB_INFRA,
 		.pceplib_messages_mt = MTYPE_PCEPLIB_MESSAGES,
-		.malloc_func =  (pceplib_malloc_func)  qmalloc,
-		.calloc_func =  (pceplib_calloc_func)  qcalloc,
-		.realloc_func = (pceplib_realloc_func) qrealloc,
-		.strdup_func =  (pceplib_strdup_func)  qstrdup,
-		.free_func =    (pceplib_free_func)    qfree,
-            /* Timers infrastructure */
-	    .external_timer_infra_data = fpt,
-	    .timer_create_func   = pcep_lib_pceplib_timer_create_cb,
-	    .timer_cancel_func   = pcep_lib_pceplib_timer_cancel_cb
+		.malloc_func = (pceplib_malloc_func)qmalloc,
+		.calloc_func = (pceplib_calloc_func)qcalloc,
+		.realloc_func = (pceplib_realloc_func)qrealloc,
+		.strdup_func = (pceplib_strdup_func)qstrdup,
+		.free_func = (pceplib_free_func)qfree,
+		/* Timers infrastructure */
+		.external_infra_data = fpt,
+		.timer_create_func = pcep_lib_pceplib_timer_create_cb,
+		.timer_cancel_func = pcep_lib_pceplib_timer_cancel_cb,
+		/* Timers infrastructure */
+		.socket_read_func = pcep_lib_pceplib_socket_read_cb,
+		.socket_write_func = pcep_lib_pceplib_socket_write_cb
 	};
 	if (!initialize_pcc_infra(&infra)) {
 		flog_err(EC_PATH_PCEP_PCC_INIT, "failed to initialize pceplib");
@@ -143,24 +157,84 @@ void pcep_lib_disconnect(pcep_session *sess)
 	disconnect_pce(sess);
 }
 
-void *pcep_lib_pceplib_timer_create_cb(void *fpt, int delay, void *payload)
+/* Callback passed to pceplib to create a timer.
+ * When the timer expires, pcep_lib_timer_expire() will be called */
+
+void pcep_lib_pceplib_timer_create_cb(void *fpt, void **thread, int delay,
+				      void *payload)
 {
 	struct ctrl_state *ctrl_state = ((struct frr_pthread *) fpt)->data;
-    struct thread *thread = NULL;
 
-	pcep_thread_schedule_pceplib_timer(ctrl_state, delay, payload, &thread);
-
-    return thread;
+	pcep_thread_schedule_pceplib_timer(
+	        ctrl_state, delay, payload, (struct thread **) thread,
+	        pcep_lib_timer_expire);
 }
 
-void pcep_lib_pceplib_timer_cancel_cb(void *thread)
+/* Callback passed to pceplib to cancel a timer */
+
+void pcep_lib_pceplib_timer_cancel_cb(void **thread)
 {
-    pcep_thread_cancel_pceplib_timer(thread);
+	pcep_thread_cancel_pceplib_timer((struct thread **)thread);
 }
 
-void pcep_lib_timer_expire(void *payload)
+/* Callback called by path_pcep_controller when a timer expires */
+
+int pcep_lib_timer_expire(struct thread *thread)
 {
-    pceplib_external_timer_expire_handler(payload);
+    struct pcep_ctrl_timer_data *data = THREAD_ARG(thread);
+    assert(data != NULL);
+
+    pceplib_external_timer_expire_handler(data->payload);
+
+    XFREE(MTYPE_PCEP, data);
+
+    return 0;
+}
+
+/* Callback passed to pceplib to write to a socket.
+ * When the socket is ready to be written to,
+ * pcep_lib_socket_write_ready() will be called */
+
+int pcep_lib_pceplib_socket_write_cb(void *fpt, void **thread, int fd,
+				     void *payload)
+{
+	return pcep_thread_socket_write(fpt, thread, fd, payload,
+	        pcep_lib_socket_write_ready);
+}
+
+/* Callback passed to pceplib to read from a socket.
+ * When the socket is ready to be read from,
+ * pcep_lib_socket_read_ready() will be called */
+
+int pcep_lib_pceplib_socket_read_cb(void *fpt, void **thread, int fd,
+				    void *payload)
+{
+	return pcep_thread_socket_read(fpt, thread, fd, payload,
+	        pcep_lib_socket_read_ready);
+}
+
+/* Callbacks called by path_pcep_controller when a socket is ready to read/write */
+
+int pcep_lib_socket_write_ready(struct thread *thread)
+{
+    struct pcep_ctrl_socket_data *data = THREAD_ARG(thread);
+    assert(data != NULL);
+
+    int retval = pceplib_external_socket_write(data->fd, data->payload);
+    XFREE(MTYPE_PCEP, data);
+
+    return retval;
+}
+
+int pcep_lib_socket_read_ready(struct thread *thread)
+{
+    struct pcep_ctrl_socket_data *data = THREAD_ARG(thread);
+    assert(data != NULL);
+
+    int retval = pceplib_external_socket_read(data->fd, data->payload);
+    XFREE(MTYPE_PCEP, data);
+
+    return retval;
 }
 
 struct pcep_message *pcep_lib_format_report(struct path *path)

@@ -49,6 +49,32 @@ struct ctrl_state {
 	struct pcc_state *pcc[MAX_PCC];
 };
 
+/* Timer handling data structures */
+
+enum pcep_ctrl_timer_type { TM_POLL = 1, TM_RECONNECT_PCC, TM_PCEPLIB_TIMER };
+
+struct pcep_ctrl_timer_data {
+    struct ctrl_state *ctrl_state;
+    enum pcep_ctrl_timer_type type;
+    int pcc_id;
+    void *payload;
+};
+
+/* Socket handling data structures */
+
+enum pcep_ctrl_socket_type { SOCK_PCEPLIB = 1 };
+
+struct pcep_ctrl_socket_data {
+	struct ctrl_state *ctrl_state;
+	enum pcep_ctrl_socket_type type;
+	bool is_read;
+	int fd;
+	int pcc_id;
+	void *payload;
+};
+
+typedef int (*pcep_ctrl_thread_callback)(struct thread *);
+
 /* Functions called from the main thread */
 int pcep_ctrl_initialize(struct thread_master *main_thread,
 			 struct frr_pthread **fpt,
@@ -78,7 +104,12 @@ void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
 				    int retry_count, struct thread **thread);
 
 void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
-        int delay, void *payload, struct thread **thread);
-void pcep_thread_cancel_pceplib_timer(struct thread *thread);
+        int delay, void *payload, struct thread **thread,
+        pcep_ctrl_thread_callback cb);
+void pcep_thread_cancel_pceplib_timer(struct thread **thread);
+int pcep_thread_socket_read(void *fpt, void **thread, int fd,
+        void *payload, pcep_ctrl_thread_callback cb);
+int pcep_thread_socket_write(void *fpt, void **thread, int fd,
+        void *payload, pcep_ctrl_thread_callback cb);
 
 #endif // _PATH_PCEP_CONTROLLER_H_
