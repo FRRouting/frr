@@ -523,7 +523,8 @@ static int lib_route_map_entry_match_condition_access_list_num_modify(
 {
 	struct routemap_hook_context *rhc;
 	const char *acl;
-	int condition, rv;
+	int rv;
+	const char *condition;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -532,28 +533,26 @@ static int lib_route_map_entry_match_condition_access_list_num_modify(
 	rv = CMD_SUCCESS;
 	acl = yang_dnode_get_string(args->dnode, NULL);
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	condition = yang_dnode_get_enum(args->dnode, "../condition");
-	switch (condition) {
-	case 1: /* ipv4-address-list */
+	condition = yang_dnode_get_string(args->dnode, "../../condition");
+
+	if (IS_MATCH_IPv4_ADDRESS_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_address == NULL)
-			break;
+			return NB_OK;
 		rhc->rhc_mhook = rmap_match_set_hook.no_match_ip_address;
 		rhc->rhc_rule = "ip address";
 		rhc->rhc_event = RMAP_EVENT_FILTER_DELETED;
 		rv = rmap_match_set_hook.match_ip_address(
 			NULL, rhc->rhc_rmi, "ip address", acl,
 			RMAP_EVENT_FILTER_ADDED);
-		break;
-	case 3: /* ipv4-next-hop-list */
+	} else if (IS_MATCH_IPv4_NEXTHOP_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_next_hop == NULL)
-			break;
+			return NB_OK;
 		rhc->rhc_mhook = rmap_match_set_hook.no_match_ip_next_hop;
 		rhc->rhc_rule = "ip next-hop";
 		rhc->rhc_event = RMAP_EVENT_FILTER_DELETED;
 		rv = rmap_match_set_hook.match_ip_next_hop(
 			NULL, rhc->rhc_rmi, "ip next-hop", acl,
 			RMAP_EVENT_FILTER_ADDED);
-		break;
 	}
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_mhook = NULL;
@@ -594,7 +593,7 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 {
 	struct routemap_hook_context *rhc;
 	const char *acl;
-	int condition;
+	const char *condition;
 	int rv;
 
 	if (args->event != NB_EV_APPLY)
@@ -603,9 +602,9 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 	/* Check for hook installation, otherwise we can just stop. */
 	acl = yang_dnode_get_string(args->dnode, NULL);
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	condition = yang_dnode_get_enum(args->dnode, "../condition");
-	switch (condition) {
-	case 1: /* ipv4-address-list */
+	condition = yang_dnode_get_string(args->dnode, "../../condition");
+
+	if (IS_MATCH_IPv4_ADDRESS_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_address == NULL)
 			return NB_OK;
 		rhc->rhc_mhook = rmap_match_set_hook.no_match_ip_address;
@@ -614,8 +613,7 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 		rv = rmap_match_set_hook.match_ip_address(
 			NULL, rhc->rhc_rmi, "ip address", acl,
 			RMAP_EVENT_FILTER_ADDED);
-		break;
-	case 2: /* ipv4-prefix-list */
+	} else if (IS_MATCH_IPv4_PREFIX_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_address_prefix_list == NULL)
 			return NB_OK;
 		rhc->rhc_mhook =
@@ -625,8 +623,7 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 		rv = rmap_match_set_hook.match_ip_address_prefix_list(
 			NULL, rhc->rhc_rmi, "ip address prefix-list", acl,
 			RMAP_EVENT_PLIST_ADDED);
-		break;
-	case 3: /* ipv4-next-hop-list */
+	} else if (IS_MATCH_IPv4_NEXTHOP_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_next_hop == NULL)
 			return NB_OK;
 		rhc->rhc_mhook = rmap_match_set_hook.no_match_ip_next_hop;
@@ -635,8 +632,7 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 		rv = rmap_match_set_hook.match_ip_next_hop(
 			NULL, rhc->rhc_rmi, "ip next-hop", acl,
 			RMAP_EVENT_FILTER_ADDED);
-		break;
-	case 4: /* ipv4-next-hop-prefix-list */
+	} else if (IS_MATCH_IPv4_NEXTHOP_PREFIX_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_next_hop_prefix_list == NULL)
 			return NB_OK;
 		rhc->rhc_mhook =
@@ -646,8 +642,7 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 		rv = rmap_match_set_hook.match_ip_next_hop_prefix_list(
 			NULL, rhc->rhc_rmi, "ip next-hop prefix-list", acl,
 			RMAP_EVENT_PLIST_ADDED);
-		break;
-	case 6: /* ipv6-address-list */
+	} else if (IS_MATCH_IPv6_ADDRESS_LIST(condition)) {
 		if (rmap_match_set_hook.match_ipv6_address == NULL)
 			return NB_OK;
 		rhc->rhc_mhook = rmap_match_set_hook.no_match_ipv6_address;
@@ -656,8 +651,7 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 		rv = rmap_match_set_hook.match_ipv6_address(
 			NULL, rhc->rhc_rmi, "ipv6 address", acl,
 			RMAP_EVENT_FILTER_ADDED);
-		break;
-	case 7: /* ipv6-prefix-list */
+	} else if (IS_MATCH_IPv6_PREFIX_LIST(condition)) {
 		if (rmap_match_set_hook.match_ipv6_address_prefix_list == NULL)
 			return NB_OK;
 		rhc->rhc_mhook =
@@ -667,11 +661,9 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 		rv = rmap_match_set_hook.match_ipv6_address_prefix_list(
 			NULL, rhc->rhc_rmi, "ipv6 address prefix-list", acl,
 			RMAP_EVENT_PLIST_ADDED);
-		break;
-	default:
+	} else
 		rv = CMD_ERR_NO_MATCH;
-		break;
-	}
+
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_mhook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -1238,56 +1230,56 @@ const struct frr_yang_module_info frr_route_map_info = {
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/interface",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/interface",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_interface_modify,
 				.destroy = lib_route_map_entry_match_condition_interface_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/access-list-num",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/access-list-num",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_access_list_num_modify,
 				.destroy = lib_route_map_entry_match_condition_access_list_num_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/access-list-num-extended",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/access-list-num-extended",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_access_list_num_extended_modify,
 				.destroy = lib_route_map_entry_match_condition_access_list_num_extended_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/list-name",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/list-name",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_list_name_modify,
 				.destroy = lib_route_map_entry_match_condition_list_name_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/ipv4-next-hop-type",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/ipv4-next-hop-type",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_ipv4_next_hop_type_modify,
 				.destroy = lib_route_map_entry_match_condition_ipv4_next_hop_type_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/ipv6-next-hop-type",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/ipv6-next-hop-type",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_ipv6_next_hop_type_modify,
 				.destroy = lib_route_map_entry_match_condition_ipv6_next_hop_type_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/metric",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_metric_modify,
 				.destroy = lib_route_map_entry_match_condition_metric_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/tag",
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/tag",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_tag_modify,
 				.destroy = lib_route_map_entry_match_condition_tag_destroy,
@@ -1302,63 +1294,63 @@ const struct frr_yang_module_info frr_route_map_info = {
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/ipv4-address",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/ipv4-address",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_ipv4_address_modify,
 				.destroy = lib_route_map_entry_set_action_ipv4_address_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/ipv6-address",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/ipv6-address",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_ipv6_address_modify,
 				.destroy = lib_route_map_entry_set_action_ipv6_address_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/value",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/value",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_value_modify,
 				.destroy = lib_route_map_entry_set_action_value_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/add-metric",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/add-metric",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_add_metric_modify,
 				.destroy = lib_route_map_entry_set_action_add_metric_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/subtract-metric",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/subtract-metric",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_subtract_metric_modify,
 				.destroy = lib_route_map_entry_set_action_subtract_metric_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/use-round-trip-time",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/use-round-trip-time",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_use_round_trip_time_modify,
 				.destroy = lib_route_map_entry_set_action_use_round_trip_time_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/add-round-trip-time",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/add-round-trip-time",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_add_round_trip_time_modify,
 				.destroy = lib_route_map_entry_set_action_add_round_trip_time_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/subtract-round-trip-time",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/subtract-round-trip-time",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_subtract_round_trip_time_modify,
 				.destroy = lib_route_map_entry_set_action_subtract_round_trip_time_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-route-map:lib/route-map/entry/set-action/tag",
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/tag",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_tag_modify,
 				.destroy = lib_route_map_entry_set_action_tag_destroy,
