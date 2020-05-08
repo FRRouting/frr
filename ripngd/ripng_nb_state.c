@@ -36,6 +36,39 @@
 #include "ripngd/ripng_route.h"
 
 /*
+ * XPath: /frr-ripngd:ripngd/instance
+ */
+const void *ripngd_instance_get_next(struct nb_cb_get_next_args *args)
+{
+	struct ripng *ripng = (struct ripng *)args->list_entry;
+
+	if (args->list_entry == NULL)
+		ripng = RB_MIN(ripng_instance_head, &ripng_instances);
+	else
+		ripng = RB_NEXT(ripng_instance_head, ripng);
+
+	return ripng;
+}
+
+int ripngd_instance_get_keys(struct nb_cb_get_keys_args *args)
+{
+	const struct ripng *ripng = args->list_entry;
+
+	args->keys->num = 1;
+	strlcpy(args->keys->key[0], ripng->vrf_name,
+		sizeof(args->keys->key[0]));
+
+	return NB_OK;
+}
+
+const void *ripngd_instance_lookup_entry(struct nb_cb_lookup_entry_args *args)
+{
+	const char *vrf_name = args->keys->key[0];
+
+	return ripng_lookup_by_vrf_name(vrf_name);
+}
+
+/*
  * XPath: /frr-ripngd:ripngd/instance/state/neighbors/neighbor
  */
 const void *ripngd_instance_state_neighbors_neighbor_get_next(
