@@ -143,13 +143,13 @@ struct fpm_nh_encap_info_t {
 };
 
 /*
- * netlink_nh_info_t
+ * netlink_nh_info
  *
  * Holds information about a single nexthop for netlink. These info
  * structures are transient and may contain pointers into rib
  * data structures for convenience.
  */
-typedef struct netlink_nh_info_t_ {
+struct netlink_nh_info {
 	uint32_t if_index;
 	union g_addr *gateway;
 
@@ -160,14 +160,14 @@ typedef struct netlink_nh_info_t_ {
 	int recursive;
 	enum nexthop_types_t type;
 	struct fpm_nh_encap_info_t encap_info;
-} netlink_nh_info_t;
+};
 
 /*
- * netlink_route_info_t
+ * netlink_route_info
  *
  * A structure for holding information for a netlink route message.
  */
-typedef struct netlink_route_info_t_ {
+struct netlink_route_info {
 	uint16_t nlmsg_type;
 	uint8_t rtm_type;
 	uint32_t rtm_table;
@@ -180,9 +180,9 @@ typedef struct netlink_route_info_t_ {
 	/*
 	 * Nexthop structures
 	 */
-	netlink_nh_info_t nhs[MULTIPATH_NUM];
+	struct netlink_nh_info nhs[MULTIPATH_NUM];
 	union g_addr *pref_src;
-} netlink_route_info_t;
+};
 
 /*
  * netlink_route_info_add_nh
@@ -192,11 +192,11 @@ typedef struct netlink_route_info_t_ {
  *
  * Returns true if a nexthop was added, false otherwise.
  */
-static int netlink_route_info_add_nh(netlink_route_info_t *ri,
+static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 				     struct nexthop *nexthop,
 				     struct route_entry *re)
 {
-	netlink_nh_info_t nhi;
+	struct netlink_nh_info nhi;
 	union g_addr *src;
 	zebra_l3vni_t *zl3vni = NULL;
 
@@ -275,7 +275,7 @@ static uint8_t netlink_proto_from_route_type(int type)
  *
  * Returns true on success and false on failure.
  */
-static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
+static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)
 {
 	struct nexthop *nexthop;
@@ -353,13 +353,13 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
  * Returns the number of bytes written to the buffer. 0 or a negative
  * value indicates an error.
  */
-static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
-				     size_t in_buf_len)
+static int netlink_route_info_encode(struct netlink_route_info *ri,
+				     char *in_buf, size_t in_buf_len)
 {
 	size_t bytelen;
 	unsigned int nexthop_num = 0;
 	size_t buf_offset;
-	netlink_nh_info_t *nhi;
+	struct netlink_nh_info *nhi;
 	enum fpm_nh_encap_type_t encap;
 	struct rtattr *nest;
 	struct vxlan_encap_info_t *vxlan;
@@ -520,9 +520,10 @@ done:
  *
  * Helper function to log the information in a route_info structure.
  */
-static void zfpm_log_route_info(netlink_route_info_t *ri, const char *label)
+static void zfpm_log_route_info(struct netlink_route_info *ri,
+				const char *label)
 {
-	netlink_nh_info_t *nhi;
+	struct netlink_nh_info *nhi;
 	unsigned int i;
 
 	zfpm_debug("%s : %s %s/%d, Proto: %s, Metric: %u", label,
@@ -554,7 +555,7 @@ static void zfpm_log_route_info(netlink_route_info_t *ri, const char *label)
 int zfpm_netlink_encode_route(int cmd, rib_dest_t *dest, struct route_entry *re,
 			      char *in_buf, size_t in_buf_len)
 {
-	netlink_route_info_t ri_space, *ri;
+	struct netlink_route_info ri_space, *ri;
 
 	ri = &ri_space;
 

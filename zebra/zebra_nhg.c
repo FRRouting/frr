@@ -2092,7 +2092,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	 * in every case.
 	 */
 	if (!family) {
-		rib_table_info_t *info;
+		struct rib_table_info *info;
 
 		info = srcdest_rnode_table_info(rn);
 		family = info->afi;

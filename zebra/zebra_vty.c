@@ -357,7 +357,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 
 		const char *mcast_info = "";
 		if (mcast) {
-			rib_table_info_t *info = srcdest_rnode_table_info(rn);
+			struct rib_table_info *info =
+				srcdest_rnode_table_info(rn);
 			mcast_info = (info->safi == SAFI_MULTICAST)
 					     ? " using Multicast RIB"
 					     : " using Unicast RIB";
@@ -978,7 +979,7 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
 				 unsigned short ospf_instance_id)
 {
 	struct zebra_router_table *zrt;
-	rib_table_info_t *info;
+	struct rib_table_info *info;
 
 	RB_FOREACH (zrt, zebra_router_table_head,
 		    &zrouter.tables) {
@@ -1059,7 +1060,7 @@ DEFPY (show_ip_nht,
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	struct prefix prefix, *p = NULL;
-	rnh_type_t rtype;
+	enum rnh_type rtype;
 
 	if (strcmp(type, "nht") == 0)
 		rtype = RNH_NEXTHOP_TYPE;
@@ -1832,8 +1833,8 @@ static void vty_show_ip_route_summary(struct vty *vty,
 	if (!use_json)
 		vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source",
 			"Routes", "FIB",
-			zvrf_name(((rib_table_info_t *)route_table_get_info(
-					   table))
+			zvrf_name(((struct rib_table_info *)
+					   route_table_get_info(table))
 					  ->zvrf));
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
@@ -1980,8 +1981,8 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 	if (!use_json)
 		vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source",
 			"Prefix Routes", "FIB",
-			zvrf_name(((rib_table_info_t *)route_table_get_info(
-					   table))
+			zvrf_name(((struct rib_table_info *)
+					   route_table_get_info(table))
 					  ->zvrf));
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {

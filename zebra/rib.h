@@ -41,7 +41,7 @@
 extern "C" {
 #endif
 
-typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
+enum rnh_type { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE };
 
 PREDECL_LIST(rnh_list)
 
@@ -58,7 +58,7 @@ struct rnh {
 
 	afi_t afi;
 
-	rnh_type_t type;
+	enum rnh_type type;
 
 	uint32_t seqno;
 
@@ -276,7 +276,7 @@ struct rtadv {
  * Structure that is hung off of a route_table that holds information about
  * the table.
  */
-typedef struct rib_table_info_t_ {
+struct rib_table_info {
 
 	/*
 	 * Back pointer to zebra_vrf.
@@ -284,14 +284,13 @@ typedef struct rib_table_info_t_ {
 	struct zebra_vrf *zvrf;
 	afi_t afi;
 	safi_t safi;
+};
 
-} rib_table_info_t;
-
-typedef enum {
+enum rib_tables_iter_state {
 	RIB_TABLES_ITER_S_INIT,
 	RIB_TABLES_ITER_S_ITERATING,
 	RIB_TABLES_ITER_S_DONE
-} rib_tables_iter_state_t;
+};
 
 /*
  * Structure that holds state for iterating over all tables in the
@@ -301,16 +300,16 @@ typedef struct rib_tables_iter_t_ {
 	vrf_id_t vrf_id;
 	int afi_safi_ix;
 
-	rib_tables_iter_state_t state;
+	enum rib_tables_iter_state state;
 } rib_tables_iter_t;
 
 /* Events/reasons triggering a RIB update. */
-typedef enum {
+enum rib_update_event {
 	RIB_UPDATE_KERNEL,
 	RIB_UPDATE_RMAP_CHANGE,
 	RIB_UPDATE_OTHER,
 	RIB_UPDATE_MAX
-} rib_update_event_t;
+};
 
 extern void route_entry_copy_nexthops(struct route_entry *re,
 				      struct nexthop *nh);
@@ -374,10 +373,10 @@ extern struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
 extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
 					   vrf_id_t vrf_id);
 
-extern void rib_update(rib_update_event_t event);
-extern void rib_update_vrf(vrf_id_t vrf_id, rib_update_event_t event);
+extern void rib_update(enum rib_update_event event);
+extern void rib_update_vrf(vrf_id_t vrf_id, enum rib_update_event event);
 extern void rib_update_table(struct route_table *table,
-			     rib_update_event_t event);
+			     enum rib_update_event event);
 extern int rib_sweep_route(struct thread *t);
 extern void rib_sweep_table(struct route_table *table);
 extern void rib_close_table(struct route_table *table);
@@ -412,9 +411,9 @@ extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq);
 /*
  * rib_table_info
  */
-static inline rib_table_info_t *rib_table_info(struct route_table *table)
+static inline struct rib_table_info *rib_table_info(struct route_table *table)
 {
-	return (rib_table_info_t *)route_table_get_info(table);
+	return (struct rib_table_info *)route_table_get_info(table);
 }
 
 /*

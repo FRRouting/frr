@@ -76,15 +76,15 @@ static void zfpm_iterate_rmac_table(struct hash_bucket *backet, void *args);
  * Structure that holds state for iterating over all route_node
  * structures that are candidates for being communicated to the FPM.
  */
-typedef struct zfpm_rnodes_iter_t_ {
+struct zfpm_rnodes_iter {
 	rib_tables_iter_t tables_iter;
 	route_table_iter_t iter;
-} zfpm_rnodes_iter_t;
+};
 
 /*
  * Statistics.
  */
-typedef struct zfpm_stats_t_ {
+struct zfpm_stats {
 	unsigned long connect_calls;
 	unsigned long connect_no_sock;
 
@@ -115,13 +115,12 @@ typedef struct zfpm_stats_t_ {
 	unsigned long t_conn_up_yields;
 	unsigned long t_conn_up_aborts;
 	unsigned long t_conn_up_finishes;
-
-} zfpm_stats_t;
+};
 
 /*
  * States for the FPM state machine.
  */
-typedef enum {
+enum zfpm_state {
 
 	/*
 	 * In this state we are not yet ready to connect to the FPM. This
@@ -147,20 +146,21 @@ typedef enum {
 	 */
 	ZFPM_STATE_ESTABLISHED
 
-} zfpm_state_t;
+};
 
 /*
  * Message format to be used to communicate with the FPM.
  */
-typedef enum {
+enum zfpm_msg_format {
 	ZFPM_MSG_FORMAT_NONE,
 	ZFPM_MSG_FORMAT_NETLINK,
 	ZFPM_MSG_FORMAT_PROTOBUF,
-} zfpm_msg_format_e;
+};
+
 /*
  * Globals.
  */
-typedef struct zfpm_glob_t_ {
+struct zfpm_glob {
 
 	/*
 	 * True if the FPM module has been enabled.
@@ -170,11 +170,11 @@ typedef struct zfpm_glob_t_ {
 	/*
 	 * Message format to be used to communicate with the fpm.
 	 */
-	zfpm_msg_format_e message_format;
+	enum zfpm_msg_format message_format;
 
 	struct thread_master *master;
 
-	zfpm_state_t state;
+	enum zfpm_state state;
 
 	in_addr_t fpm_server;
 	/*
@@ -231,7 +231,7 @@ typedef struct zfpm_glob_t_ {
 	struct thread *t_conn_down;
 
 	struct {
-		zfpm_rnodes_iter_t iter;
+		struct zfpm_rnodes_iter iter;
 	} t_conn_down_state;
 
 	/*
@@ -241,7 +241,7 @@ typedef struct zfpm_glob_t_ {
 	struct thread *t_conn_up;
 
 	struct {
-		zfpm_rnodes_iter_t iter;
+		struct zfpm_rnodes_iter iter;
 	} t_conn_up_state;
 
 	unsigned long connect_calls;
@@ -251,18 +251,18 @@ typedef struct zfpm_glob_t_ {
 	 * Stats from the start of the current statistics interval up to
 	 * now. These are the counters we typically update in the code.
 	 */
-	zfpm_stats_t stats;
+	struct zfpm_stats stats;
 
 	/*
 	 * Statistics that were gathered in the last collection interval.
 	 */
-	zfpm_stats_t last_ivl_stats;
+	struct zfpm_stats last_ivl_stats;
 
 	/*
 	 * Cumulative stats from the last clear to the start of the current
 	 * statistics interval.
 	 */
-	zfpm_stats_t cumulative_stats;
+	struct zfpm_stats cumulative_stats;
 
 	/*
 	 * Stats interval timer.
@@ -273,18 +273,17 @@ typedef struct zfpm_glob_t_ {
 	 * If non-zero, the last time when statistics were cleared.
 	 */
 	time_t last_stats_clear_time;
+};
 
-} zfpm_glob_t;
-
-static zfpm_glob_t zfpm_glob_space;
-static zfpm_glob_t *zfpm_g = &zfpm_glob_space;
+static struct zfpm_glob zfpm_glob_space;
+static struct zfpm_glob *zfpm_g = &zfpm_glob_space;
 
 static int zfpm_trigger_update(struct route_node *rn, const char *reason);
 
 static int zfpm_read_cb(struct thread *thread);
 static int zfpm_write_cb(struct thread *thread);
 
-static void zfpm_set_state(zfpm_state_t state, const char *reason);
+static void zfpm_set_state(enum zfpm_state state, const char *reason);
 static void zfpm_start_connect_timer(const char *reason);
 static void zfpm_start_stats_timer(void);
 static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac);
@@ -300,7 +299,7 @@ static inline int zfpm_thread_should_yield(struct thread *t)
 /*
  * zfpm_state_to_str
  */
-static const char *zfpm_state_to_str(zfpm_state_t state)
+static const char *zfpm_state_to_str(enum zfpm_state state)
 {
 	switch (state) {
 
@@ -343,7 +342,7 @@ static time_t zfpm_get_elapsed_time(time_t reference)
 /*
  * zfpm_rnodes_iter_init
  */
-static inline void zfpm_rnodes_iter_init(zfpm_rnodes_iter_t *iter)
+static inline void zfpm_rnodes_iter_init(struct zfpm_rnodes_iter *iter)
 {
 	memset(iter, 0, sizeof(*iter));
 	rib_tables_iter_init(&iter->tables_iter);
@@ -360,7 +359,8 @@ static inline void zfpm_rnodes_iter_init(zfpm_rnodes_iter_t *iter)
 /*
  * zfpm_rnodes_iter_next
  */
-static inline struct route_node *zfpm_rnodes_iter_next(zfpm_rnodes_iter_t *iter)
+static inline struct route_node *
+zfpm_rnodes_iter_next(struct zfpm_rnodes_iter *iter)
 {
 	struct route_node *rn;
 	struct route_table *table;
@@ -389,7 +389,7 @@ static inline struct route_node *zfpm_rnodes_iter_next(zfpm_rnodes_iter_t *iter)
 /*
  * zfpm_rnodes_iter_pause
  */
-static inline void zfpm_rnodes_iter_pause(zfpm_rnodes_iter_t *iter)
+static inline void zfpm_rnodes_iter_pause(struct zfpm_rnodes_iter *iter)
 {
 	route_table_iter_pause(&iter->iter);
 }
@@ -397,7 +397,7 @@ static inline void zfpm_rnodes_iter_pause(zfpm_rnodes_iter_t *iter)
 /*
  * zfpm_rnodes_iter_cleanup
  */
-static inline void zfpm_rnodes_iter_cleanup(zfpm_rnodes_iter_t *iter)
+static inline void zfpm_rnodes_iter_cleanup(struct zfpm_rnodes_iter *iter)
 {
 	route_table_iter_cleanup(&iter->iter);
 	rib_tables_iter_cleanup(&iter->tables_iter);
@@ -408,7 +408,7 @@ static inline void zfpm_rnodes_iter_cleanup(zfpm_rnodes_iter_t *iter)
  *
  * Initialize a statistics block.
  */
-static inline void zfpm_stats_init(zfpm_stats_t *stats)
+static inline void zfpm_stats_init(struct zfpm_stats *stats)
 {
 	memset(stats, 0, sizeof(*stats));
 }
@@ -416,7 +416,7 @@ static inline void zfpm_stats_init(zfpm_stats_t *stats)
 /*
  * zfpm_stats_reset
  */
-static inline void zfpm_stats_reset(zfpm_stats_t *stats)
+static inline void zfpm_stats_reset(struct zfpm_stats *stats)
 {
 	zfpm_stats_init(stats);
 }
@@ -424,7 +424,8 @@ static inline void zfpm_stats_reset(zfpm_stats_t *stats)
 /*
  * zfpm_stats_copy
  */
-static inline void zfpm_stats_copy(const zfpm_stats_t *src, zfpm_stats_t *dest)
+static inline void zfpm_stats_copy(const struct zfpm_stats *src,
+				   struct zfpm_stats *dest)
 {
 	memcpy(dest, src, sizeof(*dest));
 }
@@ -440,8 +441,9 @@ static inline void zfpm_stats_copy(const zfpm_stats_t *src, zfpm_stats_t *dest)
  * structure is composed entirely of counters. This can easily be
  * changed when necessary.
  */
-static void zfpm_stats_compose(const zfpm_stats_t *s1, const zfpm_stats_t *s2,
-			       zfpm_stats_t *result)
+static void zfpm_stats_compose(const struct zfpm_stats *s1,
+			       const struct zfpm_stats *s2,
+			       struct zfpm_stats *result)
 {
 	const unsigned long *p1, *p2;
 	unsigned long *result_p;
@@ -451,7 +453,7 @@ static void zfpm_stats_compose(const zfpm_stats_t *s1, const zfpm_stats_t *s2,
 	p2 = (const unsigned long *)s2;
 	result_p = (unsigned long *)result;
 
-	num_counters = (sizeof(zfpm_stats_t) / sizeof(unsigned long));
+	num_counters = (sizeof(struct zfpm_stats) / sizeof(unsigned long));
 
 	for (i = 0; i < num_counters; i++) {
 		result_p[i] = p1[i] + p2[i];
@@ -512,7 +514,7 @@ static inline void zfpm_connect_off(void)
 static int zfpm_conn_up_thread_cb(struct thread *thread)
 {
 	struct route_node *rnode;
-	zfpm_rnodes_iter_t *iter;
+	struct zfpm_rnodes_iter *iter;
 	rib_dest_t *dest;
 
 	zfpm_g->t_conn_up = NULL;
@@ -626,7 +628,7 @@ static void zfpm_connect_check(void)
 static int zfpm_conn_down_thread_cb(struct thread *thread)
 {
 	struct route_node *rnode;
-	zfpm_rnodes_iter_t *iter;
+	struct zfpm_rnodes_iter *iter;
 	rib_dest_t *dest;
 	struct fpm_mac_info_t *mac = NULL;
 
@@ -1308,9 +1310,9 @@ static int zfpm_connect_cb(struct thread *t)
  *
  * Move state machine into the given state.
  */
-static void zfpm_set_state(zfpm_state_t state, const char *reason)
+static void zfpm_set_state(enum zfpm_state state, const char *reason)
 {
-	zfpm_state_t cur_state = zfpm_g->state;
+	enum zfpm_state cur_state = zfpm_g->state;
 
 	if (!reason)
 		reason = "Unknown";
@@ -1649,7 +1651,7 @@ static void zfpm_iterate_rmac_table(struct hash_bucket *backet, void *args)
 }
 
 /*
- * zfpm_stats_timer_cb
+ * struct zfpm_statsimer_cb
  */
 static int zfpm_stats_timer_cb(struct thread *t)
 {
@@ -1714,7 +1716,7 @@ void zfpm_start_stats_timer(void)
  */
 static void zfpm_show_stats(struct vty *vty)
 {
-	zfpm_stats_t total_stats;
+	struct zfpm_stats total_stats;
 	time_t elapsed;
 
 	vty_out(vty, "\n%-40s %10s     Last %2d secs\n\n", "Counter", "Total",

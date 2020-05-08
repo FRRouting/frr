@@ -57,8 +57,8 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 static void copy_state(struct rnh *rnh, const struct route_entry *re,
 		       struct route_node *rn);
 static int compare_state(struct route_entry *r1, struct route_entry *r2);
-static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
-		       vrf_id_t vrf_id);
+static int send_client(struct rnh *rnh, struct zserv *client,
+		       enum rnh_type type, vrf_id_t vrf_id);
 static void print_rnh(struct route_node *rn, struct vty *vty);
 static int zebra_client_cleanup_rnh(struct zserv *client);
 
@@ -68,7 +68,7 @@ void zebra_rnh_init(void)
 }
 
 static inline struct route_table *get_rnh_table(vrf_id_t vrfid, afi_t afi,
-						rnh_type_t type)
+						enum rnh_type type)
 {
 	struct zebra_vrf *zvrf;
 	struct route_table *t = NULL;
@@ -148,7 +148,7 @@ static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 	route_unlock_node(rn);
 }
 
-struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
+struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, enum rnh_type type,
 			  bool *exists)
 {
 	struct route_table *table;
@@ -207,7 +207,8 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
 	return (rn->info);
 }
 
-struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
+struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,
+			     enum rnh_type type)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -258,7 +259,7 @@ void zebra_free_rnh(struct rnh *rnh)
 	XFREE(MTYPE_RNH, rnh);
 }
 
-static void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type)
+static void zebra_delete_rnh(struct rnh *rnh, enum rnh_type type)
 {
 	struct route_node *rn;
 
@@ -289,7 +290,7 @@ static void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type)
  * and as such it will have a resolved rnh.
  */
 void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
-			  rnh_type_t type, vrf_id_t vrf_id)
+			  enum rnh_type type, vrf_id_t vrf_id)
 {
 	if (IS_ZEBRA_DEBUG_NHT) {
 		char buf[PREFIX2STR_BUFFER];
@@ -308,7 +309,7 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 }
 
 void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
-			     rnh_type_t type)
+			     enum rnh_type type)
 {
 	if (IS_ZEBRA_DEBUG_NHT) {
 		char buf[PREFIX2STR_BUFFER];
@@ -804,7 +805,7 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 /* Evaluate one tracked entry */
 static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
-				     int force, rnh_type_t type,
+				     int force, enum rnh_type type,
 				     struct route_node *nrn)
 {
 	struct rnh *rnh;
@@ -851,7 +852,7 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
  * covers multiple nexthops we are interested in.
  */
 static void zebra_rnh_clear_nhc_flag(struct zebra_vrf *zvrf, afi_t afi,
-				     rnh_type_t type, struct route_node *nrn)
+				     enum rnh_type type, struct route_node *nrn)
 {
 	struct rnh *rnh;
 	struct route_entry *re;
@@ -875,7 +876,7 @@ static void zebra_rnh_clear_nhc_flag(struct zebra_vrf *zvrf, afi_t afi,
  * of a particular VRF and address-family or a specific prefix.
  */
 void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
-			rnh_type_t type, struct prefix *p)
+			enum rnh_type type, struct prefix *p)
 {
 	struct route_table *rnh_table;
 	struct route_node *nrn;
@@ -911,7 +912,7 @@ void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 }
 
 void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
-			   rnh_type_t type, struct prefix *p)
+			   enum rnh_type type, struct prefix *p)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -997,8 +998,8 @@ static int compare_state(struct route_entry *r1, struct route_entry *r2)
 	return 0;
 }
 
-static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
-		       vrf_id_t vrf_id)
+static int send_client(struct rnh *rnh, struct zserv *client,
+		       enum rnh_type type, vrf_id_t vrf_id)
 {
 	struct stream *s;
 	struct route_entry *re;
@@ -1134,7 +1135,7 @@ static void print_rnh(struct route_node *rn, struct vty *vty)
 }
 
 static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, afi_t afi,
-				    struct zserv *client, rnh_type_t type)
+				    struct zserv *client, enum rnh_type type)
 {
 	struct route_table *ntable;
 	struct route_node *nrn;
