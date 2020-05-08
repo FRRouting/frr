@@ -721,6 +721,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && !memcmp(&attr1->esi, &attr2->esi, sizeof(esi_t))
 		    && attr1->es_flags == attr2->es_flags
 		    && attr1->mm_sync_seqnum == attr2->mm_sync_seqnum
+		    && attr1->df_pref == attr2->df_pref
+		    && attr1->df_alg == attr2->df_alg
 		    && attr1->nh_ifindex == attr2->nh_ifindex
 		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex
 		    && attr1->distance == attr2->distance
@@ -2224,6 +2226,9 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 					  args->total);
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
+
+	/* Extract DF election preference and  mobility sequence number */
+	attr->df_pref = bgp_attr_df_pref_from_ec(attr, &attr->df_alg);
 
 	/* Extract MAC mobility sequence number, if any. */
 	attr->mm_seqnum = bgp_attr_mac_mobility_seqnum(attr, &sticky);

@@ -836,6 +836,26 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					(flags &
 					 ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG) ?
 					"SA":"AA");
+			} else if (*pnt
+				   == ECOMMUNITY_EVPN_SUBTYPE_DF_ELECTION) {
+				uint8_t alg;
+				uint16_t pref;
+				uint16_t bmap;
+
+				alg = *(pnt + 1);
+				memcpy(&bmap, pnt + 2, 2);
+				bmap = ntohs(bmap);
+				memcpy(&pref, pnt + 5, 2);
+				pref = ntohs(pref);
+
+				if (bmap)
+					snprintf(encbuf, sizeof(encbuf),
+						"DF: (alg: %u, bmap: 0x%x pref: %u)",
+						alg, bmap, pref);
+				else
+					snprintf(encbuf, sizeof(encbuf),
+						"DF: (alg: %u, pref: %u)",
+						alg, pref);
 			} else
 				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_REDIRECT_IP_NH) {

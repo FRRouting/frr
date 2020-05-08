@@ -29,6 +29,7 @@
 #include "jhash.h"
 #include "lib_errors.h"
 #include "printfrr.h"
+#include "vxlan.h"
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix")
 DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec")
@@ -1314,6 +1315,29 @@ char *esi_to_str(const esi_t *esi, char *buf, int size)
 		 esi->val[6], esi->val[7], esi->val[8],
 		 esi->val[9]);
 	return ptr;
+}
+
+char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
+{
+	switch (df_alg) {
+	case EVPN_MH_DF_ALG_SERVICE_CARVING:
+		snprintf(buf, buf_len, "service-carving");
+		break;
+
+	case EVPN_MH_DF_ALG_HRW:
+		snprintf(buf, buf_len, "HRW");
+		break;
+
+	case EVPN_MH_DF_ALG_PREF:
+		snprintf(buf, buf_len, "preference");
+		break;
+
+	default:
+		snprintf(buf, buf_len, "unknown %u", df_alg);
+		break;
+	}
+
+	return buf;
 }
 
 printfrr_ext_autoreg_p("I4", printfrr_i4)

@@ -110,6 +110,9 @@ struct bgp_evpn_es {
 	 */
 	uint32_t incons_evi_vtep_cnt;
 
+	/* preference config for BUM-DF election. advertised via the ESR. */
+	uint16_t df_pref;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(bgp_evpn_es)
@@ -130,6 +133,10 @@ struct bgp_evpn_es_vtep {
 #define BGP_EVPNES_VTEP_ACTIVE (1 << 1)
 
 	uint32_t evi_cnt; /* es_evis referencing this vtep as an active path */
+
+	/* Algorithm and preference for DF election. Rxed via the ESR */
+	uint8_t df_alg;
+	uint16_t df_pref;
 
 	/* memory used for adding the entry to es->es_vtep_list */
 	struct listnode es_listnode;
@@ -264,6 +271,11 @@ static inline bool bgp_evpn_attr_is_local_es(struct attr *attr)
 	return attr ? !!(attr->es_flags & ATTR_ES_IS_LOCAL) : false;
 }
 
+static inline uint32_t bgp_evpn_attr_get_df_pref(struct attr *attr)
+{
+	return (attr) ? attr->df_pref : 0;
+}
+
 /****************************************************************************/
 extern int bgp_evpn_es_route_install_uninstall(struct bgp *bgp,
 		struct bgp_evpn_es *es, afi_t afi, safi_t safi,
@@ -276,7 +288,7 @@ int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		struct attr *attr, uint8_t *pfx, int psize,
 		uint32_t addpath_id);
 extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
-		struct in_addr originator_ip, bool oper_up);
+		struct in_addr originator_ip, bool oper_up, uint16_t df_pref);
 extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi);
 extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni);
