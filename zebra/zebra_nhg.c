@@ -1926,8 +1926,13 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 			return 1;
 		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
+			struct nexthop_group *nhg;
+
 			resolved = 0;
-			for (ALL_NEXTHOPS(match->nhe->nhg, newhop)) {
+
+			/* Examine installed nexthops */
+			nhg = &match->nhe->nhg;
+			for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					continue;
@@ -1945,6 +1950,29 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				resolved = 1;
 			}
 
+			/* Examine installed backup nexthops, if any */
+			nhg = zebra_nhg_get_backup_nhg(match->nhe);
+			if (nhg == NULL)
+				goto done_with_match;
+
+			for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
+				if (!CHECK_FLAG(match->status,
+						ROUTE_ENTRY_INSTALLED))
+					continue;
+				if (!nexthop_valid_resolve(nexthop, newhop))
+					continue;
+
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: RECURSIVE match backup %p (%u), newhop %pNHv",
+						   __func__, match,
+						   match->nhe->id, newhop);
+
+				SET_FLAG(nexthop->flags,
+					 NEXTHOP_FLAG_RECURSIVE);
+				nexthop_set_resolved(afi, newhop, nexthop);
+				resolved = 1;
+			}
+done_with_match:
 			if (resolved)
 				re->nexthop_mtu = match->mtu;
 			else if (IS_ZEBRA_DEBUG_RIB_DETAILED)
@@ -2143,17 +2171,20 @@ done:
 }
 
 /*
- * Process a list of nexthops, given the head of the list, determining
+ * Process a list of nexthops, given an nhg, determining
  * whether each one is ACTIVE/installable at this time.
  */
 static uint32_t nexthop_list_active_update(struct route_node *rn,
 					   struct route_entry *re,
-					   struct nexthop *nexthop)
+					   struct nexthop_group *nhg)
 {
 	union g_addr prev_src;
 	unsigned int prev_active, new_active;
 	ifindex_t prev_index;
 	uint32_t counter = 0;
+	struct nexthop *nexthop;
+
+	nexthop = nhg->nexthop;
 
 	/* Process nexthops one-by-one */
 	for ( ; nexthop; nexthop = nexthop->next) {
@@ -2236,7 +2267,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	curr_nhe->id = 0;
 
 	/* Process nexthops */
-	curr_active = nexthop_list_active_update(rn, re, curr_nhe->nhg.nexthop);
+	curr_active = nexthop_list_active_update(rn, re, &curr_nhe->nhg);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: re %p curr_active %u", __func__, re,
@@ -2247,7 +2278,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		goto backups_done;
 
 	backup_active = nexthop_list_active_update(
-		rn, re, zebra_nhg_get_backup_nhg(curr_nhe)->nexthop);
+		rn, re, zebra_nhg_get_backup_nhg(curr_nhe));
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: re %p backup_active %u", __func__, re,
