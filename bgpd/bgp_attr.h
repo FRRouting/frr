@@ -294,6 +294,10 @@ struct attr {
 
 	/* SR-TE Color */
 	uint32_t srte_color;
+
+	/* EVPN DF preference and algorithm for DF election on local ESs */
+	uint16_t df_pref;
+	uint8_t df_alg;
 };
 
 /* rmap_change_flags definition */
