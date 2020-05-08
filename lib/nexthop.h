@@ -209,6 +209,8 @@ extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
 extern bool nexthop_same_no_labels(const struct nexthop *nh1,
 				   const struct nexthop *nh2);
 extern int nexthop_cmp(const struct nexthop *nh1, const struct nexthop *nh2);
+extern int nexthop_cmp_no_labels(const struct nexthop *next1,
+				 const struct nexthop *next2);
 extern int nexthop_g_addr_cmp(enum nexthop_types_t type,
 			      const union g_addr *addr1,
 			      const union g_addr *addr2);

@@ -166,7 +166,8 @@ const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 		afi = AFI_IP;
 		safi = SAFI_UNICAST;
 
-		zrt = zebra_router_find_zrt(zvrf, zvrf->table_id, afi, safi);
+		zrt = zebra_router_find_zrt(zvrf, zvrf->table_id, afi, safi,
+					    true);
 		if (zrt == NULL)
 			return NULL;
 	} else {
@@ -210,7 +211,8 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	if (!table_id)
 		table_id = zvrf->table_id;
 
-	return zebra_router_find_zrt(zvrf, table_id, afi, safi);
+	return zebra_router_find_zrt(zvrf, table_id, afi, safi,
+				     args->exact_match);
 }
 
 /*
@@ -258,8 +260,9 @@ lib_vrf_zebra_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	yang_str2prefix(args->keys->key[0], &p);
 
 	rn = route_node_lookup(zrt->table, &p);
-
-	if (!rn)
+	if ((!rn || !rn->info) && !args->exact_match)
+		rn = route_table_get_next(zrt->table, &p);
+	if (!rn || !rn->info)
 		return NULL;
 
 	route_unlock_node(rn);
@@ -320,8 +323,13 @@ const void *lib_vrf_zebra_ribs_rib_route_route_entry_lookup_entry(
 	proto_type = proto_redistnum(afi, args->keys->key[0]);
 
 	RNODE_FOREACH_RE (rn, re) {
-		if (proto_type == re->type)
-			return re;
+		if (args->exact_match) {
+			if (proto_type == re->type)
+				return re;
+		} else {
+			if (proto_type >= re->type)
+				return re;
+		}
 	}
 
 	return NULL;
@@ -648,9 +656,15 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_lookup_entry(
 
 	/* Lookup requested nexthop (ignore weight and metric). */
 	for (ALL_NEXTHOPS(nhe->nhg, nexthop)) {
+		int cmp;
+
 		nexthop_lookup.weight = nexthop->weight;
 		nexthop_lookup.src = nexthop->src;
-		if (nexthop_same_no_labels(&nexthop_lookup, nexthop))
+
+		cmp = nexthop_cmp_no_labels(nexthop, &nexthop_lookup);
+		if (args->exact_match && cmp == 0)
+			return nexthop;
+		if (!args->exact_match && cmp >= 0)
 			return nexthop;
 	}
 

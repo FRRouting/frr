@@ -62,8 +62,12 @@ int ripd_instance_get_keys(struct nb_cb_get_keys_args *args)
 const void *ripd_instance_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
 	const char *vrf_name = args->keys->key[0];
+	struct rip rip;
 
-	return rip_lookup_by_vrf_name(vrf_name);
+	rip.vrf_name = (char *)vrf_name;
+	return args->exact_match
+		       ? RB_FIND(rip_instance_head, &rip_instances, &rip)
+		       : RB_NFIND(rip_instance_head, &rip_instances, &rip);
 }
 
 /*
@@ -107,8 +111,13 @@ const void *ripd_instance_state_neighbors_neighbor_lookup_entry(
 	yang_str2ipv4(args->keys->key[0], &address);
 
 	for (ALL_LIST_ELEMENTS_RO(rip->peer_list, node, peer)) {
-		if (IPV4_ADDR_SAME(&peer->addr, &address))
-			return node;
+		if (args->exact_match) {
+			if (IPV4_ADDR_SAME(&peer->addr, &address))
+				return node;
+		} else {
+			if (IPV4_ADDR_CMP(&peer->addr, &address) >= 0)
+				return node;
+		}
 	}
 
 	return NULL;
@@ -203,6 +212,8 @@ const void *ripd_instance_state_routes_route_lookup_entry(
 	yang_str2ipv4p(args->keys->key[0], &prefix);
 
 	rn = route_node_lookup(rip->table, &prefix);
+	if ((!rn || !rn->info) && !args->exact_match)
+		rn = route_table_get_next(rip->table, &prefix);
 	if (!rn || !rn->info)
 		return NULL;
 

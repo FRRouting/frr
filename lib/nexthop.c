@@ -100,8 +100,8 @@ static int _nexthop_source_cmp(const struct nexthop *nh1,
 	return nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
 }
 
-static int _nexthop_cmp_no_labels(const struct nexthop *next1,
-				  const struct nexthop *next2)
+int nexthop_cmp_no_labels(const struct nexthop *next1,
+			  const struct nexthop *next2)
 {
 	int ret = 0;
 
@@ -193,7 +193,7 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 {
 	int ret = 0;
 
-	ret = _nexthop_cmp_no_labels(next1, next2);
+	ret = nexthop_cmp_no_labels(next1, next2);
 	if (ret != 0)
 		return ret;
 
@@ -335,7 +335,7 @@ bool nexthop_same_no_labels(const struct nexthop *nh1,
 	if (nh1 == nh2)
 		return true;
 
-	if (_nexthop_cmp_no_labels(nh1, nh2) != 0)
+	if (nexthop_cmp_no_labels(nh1, nh2) != 0)
 		return false;
 
 	return true;

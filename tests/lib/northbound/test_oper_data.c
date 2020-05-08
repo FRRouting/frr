@@ -83,8 +83,13 @@ frr_test_module_vrfs_vrf_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	vrfname = args->keys->key[0];
 
 	for (ALL_LIST_ELEMENTS_RO(vrfs, node, vrf)) {
-		if (strmatch(vrf->name, vrfname))
-			return node;
+		if (args->exact_match) {
+			if (strmatch(vrf->name, vrfname))
+				return node;
+		} else {
+			if (strcmp(vrf->name, vrfname) >= 0)
+				return node;
+		}
 	}
 
 	return NULL;

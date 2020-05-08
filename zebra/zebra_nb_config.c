@@ -1153,7 +1153,7 @@ int lib_vrf_zebra_ribs_rib_create(struct nb_cb_create_args *args)
 	afi_safi_name = yang_dnode_get_string(args->dnode, "./afi-safi-name");
 	yang_afi_safi_identity2value(afi_safi_name, &afi, &safi);
 
-	zrt = zebra_router_find_zrt(zvrf, table_id, afi, safi);
+	zrt = zebra_router_find_zrt(zvrf, table_id, afi, safi, true);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:

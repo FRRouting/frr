@@ -134,6 +134,8 @@ lib_interface_vrrp_vrrp_group_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	uint32_t vrid = strtoul(args->keys->key[0], NULL, 10);
 	const struct interface *ifp = args->parent_list_entry;
 
+	/* TODO: take args->exact_match into account. */
+
 	return vrrp_lookup(ifp, vrid);
 }
 

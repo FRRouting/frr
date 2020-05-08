@@ -1644,8 +1644,16 @@ lib_interface_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	const char *ifname = args->keys->key[0];
 	const char *vrfname = args->keys->key[1];
 	struct vrf *vrf = vrf_lookup_by_name(vrfname);
+	struct interface interface;
 
-	return vrf ? if_lookup_by_name(ifname, vrf->vrf_id) : NULL;
+	if (!vrf)
+		return NULL;
+
+	strlcpy(interface.name, ifname, sizeof(interface.name));
+	return args->exact_match
+		       ? RB_FIND(if_name_head, &vrf->ifaces_by_name, &interface)
+		       : RB_NFIND(if_name_head, &vrf->ifaces_by_name,
+				  &interface);
 }
 
 /*

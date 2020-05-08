@@ -1122,10 +1122,11 @@ static int lib_vrf_get_keys(struct nb_cb_get_keys_args *args)
 static const void *lib_vrf_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
 	const char *vrfname = args->keys->key[0];
+	struct vrf vrf;
 
-	struct vrf *vrf = vrf_lookup_by_name(vrfname);
-
-	return vrf;
+	strlcpy(vrf.name, vrfname, sizeof(vrf.name));
+	return args->exact_match ? RB_FIND(vrf_name_head, &vrfs_by_name, &vrf)
+				 : RB_NFIND(vrf_name_head, &vrfs_by_name, &vrf);
 }
 
 /*

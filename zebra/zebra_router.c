@@ -68,7 +68,7 @@ zebra_router_table_entry_compare(const struct zebra_router_table *e1,
 
 struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
 						 uint32_t tableid, afi_t afi,
-						 safi_t safi)
+						 safi_t safi, bool exact_match)
 {
 	struct zebra_router_table finder;
 	struct zebra_router_table *zrt;
@@ -78,7 +78,13 @@ struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
 	finder.safi = safi;
 	finder.tableid = tableid;
 	finder.ns_id = zvrf->zns->ns_id;
-	zrt = RB_FIND(zebra_router_table_head, &zrouter.tables, &finder);
+
+	if (exact_match)
+		zrt = RB_FIND(zebra_router_table_head, &zrouter.tables,
+			      &finder);
+	else
+		zrt = RB_NFIND(zebra_router_table_head, &zrouter.tables,
+			       &finder);
 
 	return zrt;
 }

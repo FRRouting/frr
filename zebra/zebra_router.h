@@ -194,7 +194,8 @@ extern void zebra_router_terminate(void);
 
 extern struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
 							uint32_t tableid,
-							afi_t afi, safi_t safi);
+							afi_t afi, safi_t safi,
+							bool exact_match);
 extern struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
 						   uint32_t tableid, afi_t afi,
 						   safi_t safi);

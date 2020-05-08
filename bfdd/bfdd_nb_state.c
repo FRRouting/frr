@@ -62,6 +62,8 @@ bfdd_bfd_sessions_single_hop_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	struct sockaddr_any psa, lsa;
 	struct bfd_key bk;
 
+	/* TODO: take args->exact_match into account. */
+
 	strtosa(dest_addr, &psa);
 	memset(&lsa, 0, sizeof(lsa));
 	gen_bfd_key(&bk, &psa, &lsa, false, ifname, vrf);
@@ -367,6 +369,8 @@ bfdd_bfd_sessions_multi_hop_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	const char *vrf = args->keys->key[3];
 	struct sockaddr_any psa, lsa;
 	struct bfd_key bk;
+
+	/* TODO: take args->exact_match into account. */
 
 	strtosa(dest_addr, &psa);
 	strtosa(source_addr, &lsa);
