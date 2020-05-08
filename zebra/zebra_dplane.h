@@ -144,6 +144,9 @@ enum dplane_op_e {
 	/* EVPN VTEP updates */
 	DPLANE_OP_VTEP_ADD,
 	DPLANE_OP_VTEP_DELETE,
+
+	/* bridge port update */
+	DPLANE_OP_BR_PORT_UPDATE,
 };
 
 /*
@@ -173,6 +176,8 @@ enum dplane_op_e {
 #define DPLANE_NEIGH_WAS_STATIC   (1 << 1)
 #define DPLANE_NEIGH_SET_STATIC   (1 << 2)
 #define DPLANE_NEIGH_SET_INACTIVE (1 << 3)
+
+#define DPLANE_BR_PORT_NON_DF (1 << 0)
 
 /* Enable system route notifications */
 void dplane_enable_sys_route_notifs(void);
@@ -385,6 +390,16 @@ uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_neigh_get_state(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_update_flags(const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for bridge port information */
+uint32_t dplane_ctx_get_br_port_flags(
+		const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_br_port_sph_filter_cnt(
+		const struct zebra_dplane_ctx *ctx);
+const struct in_addr *dplane_ctx_get_br_port_sph_filters(
+		const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_br_port_backup_nhg_id(
+		const struct zebra_dplane_ctx *ctx);
+
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
@@ -420,6 +435,13 @@ enum zebra_dplane_result dplane_route_notif_update(
 	enum dplane_op_e op,
 	struct zebra_dplane_ctx *ctx);
 
+/*
+ * Enqueue bridge port changes for the dataplane.
+ */
+enum zebra_dplane_result dplane_br_port_update(const struct interface *ifp,
+					bool non_df, uint32_t sph_filter_cnt,
+					const struct in_addr *sph_filters,
+					uint32_t backup_nhg_id);
 
 /* Forward ref of nhg_hash_entry */
 struct nhg_hash_entry;
