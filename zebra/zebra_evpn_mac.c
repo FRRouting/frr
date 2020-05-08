@@ -155,7 +155,8 @@ int zebra_evpn_rem_mac_install(zebra_evpn_t *zevpn, zebra_mac_t *mac,
 /*
  * Uninstall remote MAC from the forwarding plane.
  */
-int zebra_evpn_rem_mac_uninstall(zebra_evpn_t *zevpn, zebra_mac_t *mac)
+int zebra_evpn_rem_mac_uninstall(zebra_evpn_t *zevpn, zebra_mac_t *mac,
+				 bool force)
 {
 	const struct zebra_if *zif, *br_zif;
 	const struct zebra_l2info_vxlan *vxl;
@@ -166,6 +167,10 @@ int zebra_evpn_rem_mac_uninstall(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 
 	if (!(mac->flags & ZEBRA_MAC_REMOTE))
 		return 0;
+
+	/* If the MAC was not installed there is no need to uninstall it */
+	if (!force && mac->es && !(mac->es->flags & ZEBRA_EVPNES_NHG_ACTIVE))
+		return -1;
 
 	if (!zevpn->vxlan_if) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -216,7 +221,7 @@ void zebra_evpn_deref_ip2mac(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 	 */
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)
 	    && remote_neigh_count(mac) == 0) {
-		zebra_evpn_rem_mac_uninstall(zevpn, mac);
+		zebra_evpn_rem_mac_uninstall(zevpn, mac, false /*force*/);
 		zebra_evpn_es_mac_deref_entry(mac);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 	}
@@ -1076,7 +1081,8 @@ static void zebra_evpn_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 					__func__);
 
 			if (mac->flags & ZEBRA_MAC_REMOTE)
-				zebra_evpn_rem_mac_uninstall(wctx->zevpn, mac);
+				zebra_evpn_rem_mac_uninstall(wctx->zevpn, mac,
+							     false /*force*/);
 		}
 
 		zebra_evpn_mac_del(wctx->zevpn, mac);
@@ -1694,7 +1700,7 @@ void zebra_evpn_rem_mac_del(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 	 * go away, we need to uninstall the MAC.
 	 */
 	if (remote_neigh_count(mac) == 0) {
-		zebra_evpn_rem_mac_uninstall(zevpn, mac);
+		zebra_evpn_rem_mac_uninstall(zevpn, mac, false /*force*/);
 		zebra_evpn_es_mac_deref_entry(mac);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 	}

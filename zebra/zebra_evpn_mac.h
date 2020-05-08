@@ -204,7 +204,8 @@ static inline void zebra_evpn_mac_clear_sync_info(zebra_mac_t *mac)
 struct hash *zebra_mac_db_create(const char *desc);
 uint32_t num_valid_macs(zebra_evpn_t *zevi);
 uint32_t num_dup_detected_macs(zebra_evpn_t *zevi);
-int zebra_evpn_rem_mac_uninstall(zebra_evpn_t *zevi, zebra_mac_t *mac);
+int zebra_evpn_rem_mac_uninstall(zebra_evpn_t *zevi, zebra_mac_t *mac,
+				 bool force);
 int zebra_evpn_rem_mac_install(zebra_evpn_t *zevi, zebra_mac_t *mac,
 			       bool was_static);
 void zebra_evpn_deref_ip2mac(zebra_evpn_t *zevi, zebra_mac_t *mac);
