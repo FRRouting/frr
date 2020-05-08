@@ -351,178 +351,174 @@ static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 	return CMD_SUCCESS;
 }
 
-DEFPY(
-	match_ip_address_prefix_len, match_ip_address_prefix_len_cmd,
-	"match ip address prefix-len (0-32)$length",
-	MATCH_STR
-	IP_STR
-	"Match prefix length of IP address\n"
-	"Match prefix length of IP address\n"
-	"Prefix length\n")
-{
-	const char *xpath = "./match-condition[condition='ipv4-prefix-length']";
-	char xpath_value[XPATH_MAXLEN];
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/frr-zebra:ipv4-prefix-length", xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY(
-	no_match_ip_address_prefix_len, no_match_ip_address_prefix_len_cmd,
-	"no match ip address prefix-len [(0-32)]",
-	NO_STR
-	MATCH_STR
-	IP_STR
-	"Match prefix length of IP address\n"
-	"Match prefix length of IP address\n"
-	"Prefix length\n")
-{
-	const char *xpath = "./match-condition[condition='ipv4-prefix-length']";
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY(
-	match_ipv6_address_prefix_len, match_ipv6_address_prefix_len_cmd,
-	"match ipv6 address prefix-len (0-128)$length",
-	MATCH_STR
-	IPV6_STR
-	"Match prefix length of IPv6 address\n"
-	"Match prefix length of IPv6 address\n"
-	"Prefix length\n")
-{
-	const char *xpath = "./match-condition[condition='ipv6-prefix-length']";
-	char xpath_value[XPATH_MAXLEN];
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/frr-zebra:ipv6-prefix-length", xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY(
-	no_match_ipv6_address_prefix_len, no_match_ipv6_address_prefix_len_cmd,
-	"no match ipv6 address prefix-len [(0-128)]",
-	NO_STR
-	MATCH_STR
-	IPV6_STR
-	"Match prefix length of IPv6 address\n"
-	"Match prefix length of IPv6 address\n"
-	"Prefix length\n")
-{
-	const char *xpath = "./match-condition[condition='ipv6-prefix-length']";
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY(
-	match_ip_nexthop_prefix_len, match_ip_nexthop_prefix_len_cmd,
-	"match ip next-hop prefix-len (0-32)$length",
-	MATCH_STR
-	IP_STR
-	"Match prefixlen of nexthop IP address\n"
-	"Match prefixlen of given nexthop\n"
-	"Prefix length\n")
+DEFPY(match_ip_address_prefix_len, match_ip_address_prefix_len_cmd,
+      "match ip address prefix-len (0-32)$length",
+      MATCH_STR IP_STR
+      "Match prefix length of IP address\n"
+      "Match prefix length of IP address\n"
+      "Prefix length\n")
 {
 	const char *xpath =
-		"./match-condition[condition='ipv4-next-hop-prefix-length']";
+		"./match-condition[condition='frr-zebra-route-map:ipv4-prefix-length']";
 	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/frr-zebra:ipv4-prefix-length", xpath);
+	snprintf(
+		xpath_value, sizeof(xpath_value),
+		"%s/rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length",
+		xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
-	no_match_ip_nexthop_prefix_len, no_match_ip_nexthop_prefix_len_cmd,
-	"no match ip next-hop prefix-len [(0-32)]",
-	NO_STR
-	MATCH_STR
-	IP_STR
-	"Match prefixlen of nexthop IP address\n"
-	"Match prefix length of nexthop\n"
-	"Prefix length\n")
+DEFPY(no_match_ip_address_prefix_len, no_match_ip_address_prefix_len_cmd,
+      "no match ip address prefix-len [(0-32)]",
+      NO_STR MATCH_STR IP_STR
+      "Match prefix length of IP address\n"
+      "Match prefix length of IP address\n"
+      "Prefix length\n")
 {
 	const char *xpath =
-		"./match-condition[condition='ipv4-next-hop-prefix-length']";
+		"./match-condition[condition='frr-zebra-route-map:ipv4-prefix-length']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
-	match_source_protocol, match_source_protocol_cmd,
-	"match source-protocol " FRR_REDIST_STR_ZEBRA "$proto",
-	MATCH_STR
-	"Match protocol via which the route was learnt\n"
-	FRR_REDIST_HELP_STR_ZEBRA)
+DEFPY(match_ipv6_address_prefix_len, match_ipv6_address_prefix_len_cmd,
+      "match ipv6 address prefix-len (0-128)$length",
+      MATCH_STR IPV6_STR
+      "Match prefix length of IPv6 address\n"
+      "Match prefix length of IPv6 address\n"
+      "Prefix length\n")
 {
-	const char *xpath = "./match-condition[condition='source-protocol']";
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv6-prefix-length']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(
+		xpath_value, sizeof(xpath_value),
+		"%s/rmap-match-condition/frr-zebra-route-map:ipv6-prefix-length",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_match_ipv6_address_prefix_len, no_match_ipv6_address_prefix_len_cmd,
+      "no match ipv6 address prefix-len [(0-128)]",
+      NO_STR MATCH_STR IPV6_STR
+      "Match prefix length of IPv6 address\n"
+      "Match prefix length of IPv6 address\n"
+      "Prefix length\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv6-prefix-length']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(match_ip_nexthop_prefix_len, match_ip_nexthop_prefix_len_cmd,
+      "match ip next-hop prefix-len (0-32)$length",
+      MATCH_STR IP_STR
+      "Match prefixlen of nexthop IP address\n"
+      "Match prefixlen of given nexthop\n"
+      "Prefix length\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv4-next-hop-prefix-length']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(
+		xpath_value, sizeof(xpath_value),
+		"%s/rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_match_ip_nexthop_prefix_len, no_match_ip_nexthop_prefix_len_cmd,
+      "no match ip next-hop prefix-len [(0-32)]",
+      NO_STR MATCH_STR IP_STR
+      "Match prefixlen of nexthop IP address\n"
+      "Match prefix length of nexthop\n"
+      "Prefix length\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv4-next-hop-prefix-length']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(match_source_protocol, match_source_protocol_cmd,
+      "match source-protocol " FRR_REDIST_STR_ZEBRA "$proto",
+      MATCH_STR
+      "Match protocol via which the route was "
+      "learnt\n" FRR_REDIST_HELP_STR_ZEBRA)
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:source-protocol']";
 	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/frr-zebra:source-protocol", xpath);
+		 "%s/rmap-match-condition/frr-zebra-route-map:source-protocol",
+		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, proto);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
-	no_match_source_protocol, no_match_source_protocol_cmd,
-	"no match source-protocol [" FRR_REDIST_STR_ZEBRA "]",
-	NO_STR
-	MATCH_STR
-	"Match protocol via which the route was learnt\n"
-	FRR_REDIST_HELP_STR_ZEBRA)
+DEFPY(no_match_source_protocol, no_match_source_protocol_cmd,
+      "no match source-protocol [" FRR_REDIST_STR_ZEBRA "]",
+      NO_STR MATCH_STR
+      "Match protocol via which the route was "
+      "learnt\n" FRR_REDIST_HELP_STR_ZEBRA)
 {
-	const char *xpath = "./match-condition[condition='source-protocol']";
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:source-protocol']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
-	match_source_instance, match_source_instance_cmd,
-	"match source-instance (0-255)$instance",
-	MATCH_STR
-	"Match the protocol's instance number\n"
-	"The instance number\n")
+DEFPY(match_source_instance, match_source_instance_cmd,
+      "match source-instance (0-255)$instance",
+      MATCH_STR
+      "Match the protocol's instance number\n"
+      "The instance number\n")
 {
-	const char *xpath = "./match-condition[condition='source-instance']";
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:source-instance']";
 	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/frr-zebra:source-instance", xpath);
+		 "%s/rmap-match-condition/frr-zebra-route-map:source-instance",
+		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, instance_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
-	no_match_source_instance, no_match_source_instance_cmd,
-	"no match source-instance [(0-255)]",
-	NO_STR MATCH_STR
-	"Match the protocol's instance number\n"
-	"The instance number\n")
+DEFPY(no_match_source_instance, no_match_source_instance_cmd,
+      "no match source-instance [(0-255)]",
+      NO_STR MATCH_STR
+      "Match the protocol's instance number\n"
+      "The instance number\n")
 {
-	const char *xpath = "./match-condition[condition='source-instance']";
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:source-instance']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
@@ -531,26 +527,29 @@ DEFPY(
 
 /* set functions */
 
-DEFPY(
-	set_src, set_src_cmd,
-	"set src <A.B.C.D$addrv4|X:X::X:X$addrv6>",
-	SET_STR
-	"src address for route\n"
-	"IPv4 src address\n"
-	"IPv6 src address\n")
+DEFPY(set_src, set_src_cmd, "set src <A.B.C.D$addrv4|X:X::X:X$addrv6>",
+      SET_STR
+      "src address for route\n"
+      "IPv4 src address\n"
+      "IPv6 src address\n")
 {
-	const char *xpath = "./set-action[action='source']";
+	const char *xpath =
+		"./set-action[action='frr-zebra-route-map:src-address']";
 	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (addrv4_str) {
-		snprintf(xpath_value, sizeof(xpath_value),
-			 "%s/frr-zebra:source-v4", xpath);
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-set-action/frr-zebra-route-map:ipv4-src-address",
+			xpath);
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 				      addrv4_str);
 	} else {
-		snprintf(xpath_value, sizeof(xpath_value),
-			 "%s/frr-zebra:source-v6", xpath);
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-set-action/frr-zebra-route-map:ipv6-src-address",
+			xpath);
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 				      addrv6_str);
 	}
@@ -558,29 +557,26 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
-	no_set_src, no_set_src_cmd,
-	"no set src [<A.B.C.D|X:X::X:X>]",
-	NO_STR
-	SET_STR
-	"Source address for route\n"
-	"IPv4 address\n"
-	"IPv6 address\n")
+DEFPY(no_set_src, no_set_src_cmd, "no set src [<A.B.C.D|X:X::X:X>]",
+      NO_STR SET_STR
+      "Source address for route\n"
+      "IPv4 address\n"
+      "IPv6 address\n")
 {
-	const char *xpath = "./set-action[action='source']";
+	const char *xpath =
+		"./set-action[action='frr-zebra-route-map:src-address']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (zebra_route_map_timer,
-       zebra_route_map_timer_cmd,
-       "zebra route-map delay-timer (0-600)",
-       ZEBRA_STR
-       "Set route-map parameters\n"
-       "Time to wait before route-map updates are processed\n"
-       "0 means event-driven updates are disabled\n")
+DEFUN(zebra_route_map_timer, zebra_route_map_timer_cmd,
+      "zebra route-map delay-timer (0-600)",
+      ZEBRA_STR
+      "Set route-map parameters\n"
+      "Time to wait before route-map updates are processed\n"
+      "0 means event-driven updates are disabled\n")
 {
 	int idx_number = 3;
 	uint32_t rmap_delay_timer;

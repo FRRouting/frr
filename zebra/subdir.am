@@ -105,6 +105,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_router.c \
 	zebra/zebra_rnh.c \
 	zebra/zebra_routemap.c \
+	zebra/zebra_routemap_northbound.c \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
@@ -198,6 +199,7 @@ endif
 
 nodist_zebra_zebra_SOURCES = \
 	yang/frr-zebra.yang.c \
+	yang/frr-zebra-route-map.yang.c \
 	# end
 
 zebra_zebra_cumulus_mlag_la_SOURCES = zebra/zebra_mlag_private.c

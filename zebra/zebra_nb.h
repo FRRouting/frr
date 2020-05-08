@@ -119,30 +119,6 @@ int lib_interface_zebra_shutdown_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_shutdown_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_bandwidth_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args);
-int lib_route_map_entry_match_condition_ipv4_prefix_length_modify(
-	struct nb_cb_modify_args *args);
-int lib_route_map_entry_match_condition_ipv4_prefix_length_destroy(
-	struct nb_cb_destroy_args *args);
-int lib_route_map_entry_match_condition_ipv6_prefix_length_modify(
-	struct nb_cb_modify_args *args);
-int lib_route_map_entry_match_condition_ipv6_prefix_length_destroy(
-	struct nb_cb_destroy_args *args);
-int lib_route_map_entry_match_condition_source_protocol_modify(
-	struct nb_cb_modify_args *args);
-int lib_route_map_entry_match_condition_source_protocol_destroy(
-	struct nb_cb_destroy_args *args);
-int lib_route_map_entry_match_condition_source_instance_modify(
-	struct nb_cb_modify_args *args);
-int lib_route_map_entry_match_condition_source_instance_destroy(
-	struct nb_cb_destroy_args *args);
-int lib_route_map_entry_set_action_source_v4_modify(
-	struct nb_cb_modify_args *args);
-int lib_route_map_entry_set_action_source_v4_destroy(
-	struct nb_cb_destroy_args *args);
-int lib_route_map_entry_set_action_source_v6_modify(
-	struct nb_cb_modify_args *args);
-int lib_route_map_entry_set_action_source_v6_destroy(
-	struct nb_cb_destroy_args *args);
 struct yang_data *
 lib_interface_zebra_state_up_count_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *
