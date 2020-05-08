@@ -1953,33 +1953,6 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 					__func__);
 
 			return resolved;
-		} else if (re->type == ZEBRA_ROUTE_STATIC) {
-			resolved = 0;
-			for (ALL_NEXTHOPS(match->nhe->nhg, newhop)) {
-				if (!CHECK_FLAG(match->status,
-						ROUTE_ENTRY_INSTALLED))
-					continue;
-				if (!nexthop_valid_resolve(nexthop, newhop))
-					continue;
-
-				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-					zlog_debug("%s: STATIC match %p (%u), newhop %pNHv",
-						   __func__, match,
-						   match->nhe->id, newhop);
-
-				SET_FLAG(nexthop->flags,
-					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, newhop, nexthop);
-				resolved = 1;
-			}
-			if (resolved)
-				re->nexthop_mtu = match->mtu;
-
-			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
-				zlog_debug(
-					"        %s: Static route unable to resolve",
-					__func__);
-			return resolved;
 		} else {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 				zlog_debug(
