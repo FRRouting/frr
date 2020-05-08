@@ -852,6 +852,24 @@ static void zebra_evpn_nhid_free(uint32_t nh_id)
 	bf_release_index(zmh_info->nh_id_bitmap, id);
 }
 
+/* update remote macs associated with the ES */
+static void zebra_evpn_nhg_mac_update(struct zebra_evpn_es *es)
+{
+	zebra_mac_t *mac;
+	struct listnode	*node;
+
+	for (ALL_LIST_ELEMENTS_RO(es->mac_list, node, mac)) {
+		if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
+			continue;
+
+		if (es->flags & ZEBRA_EVPNES_NHG_ACTIVE)
+			zebra_evpn_rem_mac_install(mac->zevpn, mac,
+					false /*was_static*/);
+		else
+			zebra_evpn_rem_mac_uninstall(mac->zevpn, mac, true /*force*/);
+	}
+}
+
 /* The MAC ECMP group is activated on the first VTEP */
 static void zebra_evpn_nhg_update(struct zebra_evpn_es *es)
 {
@@ -888,19 +906,22 @@ static void zebra_evpn_nhg_update(struct zebra_evpn_es *es)
 					es->esi_str, es->nhg_id, nh_str);
 		}
 
-		es->flags |= ZEBRA_EVPNES_NHG_ACTIVE;
 		kernel_upd_mac_nhg(es->nhg_id, nh_cnt, nh_ids);
+		if (!(es->flags & ZEBRA_EVPNES_NHG_ACTIVE)) {
+			es->flags |= ZEBRA_EVPNES_NHG_ACTIVE;
+			zebra_evpn_nhg_mac_update(es);
+		}
 	} else {
 		if (es->flags & ZEBRA_EVPNES_NHG_ACTIVE) {
 			if (IS_ZEBRA_DEBUG_EVPN_MH_NH)
 				zlog_debug("es %s nhg 0x%x del",
 						es->esi_str, es->nhg_id);
 			es->flags &= ~ZEBRA_EVPNES_NHG_ACTIVE;
+			zebra_evpn_nhg_mac_update(es);
 			kernel_del_mac_nhg(es->nhg_id);
 		}
 	}
 
-	/* XXX - update remote macs associated with the ES */
 }
 
 static void zebra_evpn_nh_add(struct zebra_evpn_es_vtep *es_vtep)
