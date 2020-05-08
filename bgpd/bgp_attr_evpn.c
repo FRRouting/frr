@@ -26,6 +26,7 @@
 #include "log.h"
 #include "memory.h"
 #include "stream.h"
+#include "vxlan.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -143,6 +144,43 @@ uint8_t bgp_attr_default_gw(struct attr *attr)
 	}
 
 	return 0;
+}
+
+/*
+ * Fetch and return the DF preference and algorithm from
+ * DF election extended community, if present, else 0.
+ */
+uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg)
+{
+	struct ecommunity *ecom;
+	int i;
+	uint16_t df_pref = 0;
+
+	*alg = EVPN_MH_DF_ALG_SERVICE_CARVING;
+	ecom = attr->ecommunity;
+	if (!ecom || !ecom->size)
+		return 0;
+
+	for (i = 0; i < ecom->size; i++) {
+		uint8_t *pnt;
+		uint8_t type, sub_type;
+
+		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		type = *pnt++;
+		sub_type = *pnt++;
+		if (!(type == ECOMMUNITY_ENCODE_EVPN
+		      && sub_type == ECOMMUNITY_EVPN_SUBTYPE_DF_ELECTION))
+			continue;
+
+		*alg = (*pnt++) & ECOMMUNITY_EVPN_SUBTYPE_DF_ALG_BITS;
+
+		pnt += 3;
+		pnt = ptr_get_be16(pnt, &df_pref);
+		(void)pnt; /* consume value */
+		break;
+	}
+
+	return df_pref;
 }
 
 /*

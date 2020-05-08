@@ -612,6 +612,12 @@ zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
  * to allocate past 0x80
  */
 
+/* Zebra ES VTEP flags (ZEBRA_REMOTE_ES_VTEP_ADD) */
+/* ESR has been rxed from the VTEP. Only VTEPs that have advertised the
+ * Type-4 route can participate in DF election.
+ */
+#define ZAPI_ES_VTEP_FLAG_ESR_RXED (1 << 0)
+
 enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
 
 struct zclient_options {
