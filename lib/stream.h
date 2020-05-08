@@ -381,6 +381,16 @@ static inline const uint8_t *ptr_get_be32(const uint8_t *ptr, uint32_t *out)
 	return ptr + 4;
 }
 
+static inline uint8_t *ptr_get_be16(uint8_t *ptr, uint16_t *out)
+{
+	uint16_t tmp;
+
+	memcpy(&tmp, ptr, sizeof(tmp));
+	*out = ntohs(tmp);
+
+	return ptr + 2;
+}
+
 /*
  * so Normal stream_getX functions assert.  Which is anathema
  * to keeping a daemon up and running when something goes south
