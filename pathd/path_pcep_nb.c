@@ -227,7 +227,7 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 
 	path->has_bandwidth = CHECK_FLAG(candidate->flags,
 					 F_CANDIDATE_HAS_BANDWIDTH_RT);
-	path->bandwidth = candidate->bandwidth;
+	path->bandwidth = candidate->bandwidth_rt;
 
 	return path;
 }

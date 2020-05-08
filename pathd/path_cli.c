@@ -574,24 +574,23 @@ static const char *metric_type_name(enum srte_candidate_metric_type type)
 	}
 }
 
+static void config_write_float(struct vty *vty, float value)
+{
+        if (fabs(truncf(value) - value) < FLT_EPSILON) {
+                vty_out(vty, " %d", (int)value);
+                return;
+        } else {
+                vty_out(vty, " %f", value);
+        }
+}
+
+
 static void config_write_metric(struct vty *vty,
 				enum srte_candidate_metric_type type,
 				float value, bool is_bound)
 {
-	if (fabs(value) <= FLT_EPSILON) {
-		vty_out(vty, " %s%s", is_bound ? "bound " : "",
-			metric_type_name(type));
-		return;
-	}
-
-	if (fabs(truncf(value) - value) < FLT_EPSILON) {
-		vty_out(vty, " %s%s %d", is_bound ? "bound " : "",
-			metric_type_name(type), (int)value);
-		return;
-	}
-
-	vty_out(vty, " %s%s %f", is_bound ? "bound " : "",
-		metric_type_name(type), value);
+        vty_out(vty, " %s%s", is_bound ? "bound " : "", metric_type_name(type));
+        config_write_float(vty, value);
 }
 
 /* FIXME: Enable this back when the candidate path are only containing
@@ -646,6 +645,11 @@ void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
 		config_write_metric(vty, SRTE_CANDIDATE_METRIC_TYPE_TE,
 				    candidate->metric_te, is_bound);
 	}
+        if (CHECK_FLAG(candidate->flags, F_CANDIDATE_HAS_BANDWIDTH)) {
+                vty_out(vty, " bandwidth");
+                config_write_float(vty, candidate->bandwidth);
+        }
+
 	vty_out(vty, "\n");
 }
 
