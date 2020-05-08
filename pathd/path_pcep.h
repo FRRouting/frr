@@ -208,6 +208,10 @@ struct path {
 	/* Indicate the path is part of the synchronization process.
 	   See draft-ietf-pce-stateful-pce, section-7.3, flag S */
 	bool is_synching;
+	/* Indicate if the path bandwidth requirment is defined */
+	bool has_bandwidth;
+	/* Path required bandwidth if defined */
+	float bandwidth;
 	/* Specify the list of hop defining the path */
 	struct path_hop *first_hop;
 	/* Specify the list of metrics */

@@ -64,6 +64,7 @@ static void
 _format_pcep_object_ipv4_endpoint(int ps,
 				  struct pcep_object_endpoints_ipv4 *obj);
 static void _format_pcep_object_metric(int ps, struct pcep_object_metric *obj);
+static void _format_pcep_object_bandwidth(int ps, struct pcep_object_bandwidth *obj);
 static void _format_pcep_object_ro(int ps, struct pcep_object_ro *obj);
 static void _format_pcep_object_ro_details(int ps,
 					   struct pcep_object_ro_subobj *ro);
@@ -418,6 +419,8 @@ const char *pcep_object_type_name(enum pcep_object_classes obj_class,
 		return "BANDWIDTH_REQ";
 	case TUP(PCEP_OBJ_CLASS_BANDWIDTH, PCEP_OBJ_TYPE_BANDWIDTH_TELSP):
 		return "BANDWIDTH_TELSP";
+	case TUP(PCEP_OBJ_CLASS_BANDWIDTH, PCEP_OBJ_TYPE_BANDWIDTH_CISCO):
+		return "BANDWIDTH_CISCO";
 	case TUP(PCEP_OBJ_CLASS_METRIC, PCEP_OBJ_TYPE_METRIC):
 		return "METRIC";
 	case TUP(PCEP_OBJ_CLASS_ERO, PCEP_OBJ_TYPE_ERO):
@@ -815,6 +818,12 @@ void _format_path(int ps, struct path *path)
 		PCEP_FORMAT("%*sis_synching: %u\n", ps2, "", path->is_synching);
 		PCEP_FORMAT("%*sis_delegated: %u\n", ps2, "",
 			    path->is_delegated);
+		PCEP_FORMAT("%*shas_bandwidth: %u\n", ps2, "",
+			    path->has_bandwidth);
+		if (path->has_bandwidth) {
+			PCEP_FORMAT("%*sbandwidth: %f\n", ps2, "",
+			            path->bandwidth);
+		}
 
 		if (path->first_hop == NULL) {
 			PCEP_FORMAT("%*shops: []\n", ps2, "");
@@ -1022,6 +1031,11 @@ void _format_pcep_object_details(int ps, struct pcep_object_header *obj)
 		_format_pcep_object_metric(ps,
 					   (struct pcep_object_metric *)obj);
 		break;
+	case TUP(PCEP_OBJ_CLASS_BANDWIDTH, PCEP_OBJ_TYPE_BANDWIDTH_REQ):
+	case TUP(PCEP_OBJ_CLASS_BANDWIDTH, PCEP_OBJ_TYPE_BANDWIDTH_CISCO):
+		_format_pcep_object_bandwidth(ps,
+					   (struct pcep_object_bandwidth *)obj);
+		break;
 	default:
 		PCEP_FORMAT("%*s...\n", ps, "");
 		break;
@@ -1090,6 +1104,11 @@ void _format_pcep_object_metric(int ps, struct pcep_object_metric *obj)
 	PCEP_FORMAT("%*sflag_b: %u\n", ps, "", obj->flag_b);
 	PCEP_FORMAT("%*sflag_c: %u\n", ps, "", obj->flag_c);
 	PCEP_FORMAT("%*svalue: %f\n", ps, "", obj->value);
+}
+
+void _format_pcep_object_bandwidth(int ps, struct pcep_object_bandwidth *obj)
+{
+	PCEP_FORMAT("%*sbandwidth: %f\n", ps, "", obj->bandwidth);
 }
 
 void _format_pcep_object_ro(int ps, struct pcep_object_ro *obj)

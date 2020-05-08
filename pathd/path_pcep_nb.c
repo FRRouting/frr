@@ -48,8 +48,8 @@ static void path_nb_edit_candidate_config(struct nb_config *candidate_config,
 					  enum nb_operation operation,
 					  const char *value);
 static void path_nb_delete_candidate_segment_list(struct nb_config *config,
-                                                  struct lsp_nb_key *key,
-                                                  const char* originator);
+						  struct lsp_nb_key *key,
+						  const char* originator);
 static void path_nb_add_segment_list_segment(struct nb_config *config,
 					     const char *segment_list_name,
 					     uint32_t index, uint32_t label);
@@ -85,6 +85,11 @@ path_nb_add_candidate_path_metric(struct nb_config *config, uint32_t color,
 				  struct ipaddr *endpoint, uint32_t preference,
 				  enum pcep_metric_types type, float value,
 				  bool is_bound, bool is_computed);
+static void
+path_nb_set_candidate_path_bandwidth(struct nb_config *config,
+				     uint32_t color,
+				     struct ipaddr *endpoint,
+				     uint32_t preference, float value);
 
 static struct srte_candidate* lookup_candidate(struct lsp_nb_key *key);
 static char *candidate_name(struct srte_candidate *candidate);
@@ -220,6 +225,10 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 		.first_hop = hop,
 		.first_metric = metric};
 
+	path->has_bandwidth = CHECK_FLAG(candidate->flags,
+					 F_CANDIDATE_HAS_BANDWIDTH_RT);
+	path->bandwidth = candidate->bandwidth;
+
 	return path;
 }
 
@@ -286,7 +295,7 @@ int path_nb_update_path(struct path *path)
 
 	if (path->first_hop != NULL) {
 		path_nb_delete_candidate_segment_list(config, &path->nbkey,
-		                                      path->originator);
+						      path->originator);
 
 		snprintf(segment_list_name_buff, sizeof(segment_list_name_buff),
 			 "%s-%u", path->name, path->plsp_id);
@@ -354,6 +363,13 @@ int path_nb_update_path(struct path *path)
 			metric->is_bound, metric->is_computed);
 	}
 
+	if (path->has_bandwidth) {
+		path_nb_set_candidate_path_bandwidth(config, path->nbkey.color,
+						     &path->nbkey.endpoint,
+						     path->nbkey.preference,
+						     path->bandwidth);
+	}
+
 	ret = path_nb_commit_candidate_config(config, "SR Policy Candidate Path");
 	nb_config_free(config);
 	return ret;
@@ -401,8 +417,8 @@ void path_nb_edit_candidate_config(struct nb_config *candidate_config,
 /* Delete the candidate path segment list if it was created through PCEP
    and by the given originator */
 void path_nb_delete_candidate_segment_list(struct nb_config *config,
-                                           struct lsp_nb_key *key,
-                                           const char* originator)
+					   struct lsp_nb_key *key,
+					   const char* originator)
 {
 	struct srte_candidate *candidate = lookup_candidate(key);
 	struct srte_segment_list *sl;
@@ -425,12 +441,12 @@ void path_nb_delete_candidate_segment_list(struct nb_config *config,
 	/* Checks we can destroy the segment list */
 	if (sl->protocol_origin != SRTE_ORIGIN_PCEP) {
 		zlog_warn("Prevented from deleting segment list %s because it "
-		          "wasn't created through PCEP", sl->name);
+			  "wasn't created through PCEP", sl->name);
 		return;
 	}
 	if (strcmp(originator, sl->originator) != 0) {
-	    	zlog_warn("Prevented from deleting segment list %s because it "
-	    	          "was created by a different originator", sl->name);
+		zlog_warn("Prevented from deleting segment list %s because it "
+			  "was created by a different originator", sl->name);
 		return;
 	}
 
@@ -660,6 +676,25 @@ void path_nb_add_candidate_path_metric(struct nb_config *config, uint32_t color,
 	snprintf(xpath, sizeof(xpath), "%s/is-computed", base_xpath);
 	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
 				      is_computed ? "true" : "false");
+}
+
+void path_nb_set_candidate_path_bandwidth(struct nb_config *config,
+					  uint32_t color,
+					  struct ipaddr *endpoint,
+					  uint32_t preference, float value)
+{
+	char xpath[XPATH_MAXLEN];
+	char endpoint_str[INET_ADDRSTRLEN];
+	char value_str[MAX_FLOAT_LEN];
+
+	ipaddr2str(endpoint, endpoint_str, sizeof(endpoint_str));
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-pathd:pathd/sr-policy[color='%u'][endpoint='%s']/candidate-path[preference='%u']/bandwidth",
+		color, endpoint_str, preference);
+	snprintf(value_str, sizeof(value_str), "%.6f", value);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, value_str);
 }
 
 struct srte_candidate* lookup_candidate(struct lsp_nb_key *key)

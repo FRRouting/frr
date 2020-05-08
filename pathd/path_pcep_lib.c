@@ -89,8 +89,8 @@ void pcep_lib_finalize(void)
 
 
 pcep_session *pcep_lib_connect(struct ipaddr *src_addr, int src_port,
-                               struct ipaddr *dst_addr, int dst_port,
-                               bool draft07)
+			       struct ipaddr *dst_addr, int dst_port,
+			       bool draft07)
 {
 	pcep_configuration *config;
 	pcep_session *sess;
@@ -178,6 +178,7 @@ struct path *pcep_lib_parse_path(struct pcep_message *msg)
 	struct pcep_object_lsp *lsp = NULL;
 	struct pcep_object_ro *ero = NULL;
 	struct pcep_object_metric *metric = NULL;
+	struct pcep_object_bandwidth *bandwidth = NULL;
 
 	path = pcep_new_path();
 
@@ -209,6 +210,14 @@ struct path *pcep_lib_parse_path(struct pcep_message *msg)
 		case CLASS_TYPE(PCEP_OBJ_CLASS_METRIC, PCEP_OBJ_TYPE_METRIC):
 			metric = (struct pcep_object_metric *)obj;
 			pcep_lib_parse_metric(path, metric);
+			break;
+		case CLASS_TYPE(PCEP_OBJ_CLASS_BANDWIDTH,
+				PCEP_OBJ_TYPE_BANDWIDTH_REQ):
+		case CLASS_TYPE(PCEP_OBJ_CLASS_BANDWIDTH,
+				PCEP_OBJ_TYPE_BANDWIDTH_CISCO):
+			bandwidth = (struct pcep_object_bandwidth *)obj;
+			path->has_bandwidth = true;
+			path->bandwidth = bandwidth->bandwidth;
 			break;
 		default:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_OBJECT,
@@ -293,6 +302,7 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	struct pcep_object_lsp *lsp;
 	struct pcep_object_ro *ero;
 	struct pcep_object_metric *metric;
+	struct pcep_object_bandwidth *bandwidth;
 	uint32_t encoded_binding_sid;
 	char binding_sid_lsp_tlv_data[6];
 
@@ -458,6 +468,19 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 
 	if (path->plsp_id == 0) {
 		return objs;
+	}
+
+	/* Bandwidth Objects */
+	if (path->has_bandwidth) {
+		/* Requested Bandwidth */
+		bandwidth = pcep_obj_create_bandwidth(path->bandwidth);
+		assert(bandwidth != NULL);
+		dll_append(objs, bandwidth);
+		/* Cisco Custom Bandwidth */
+		bandwidth = pcep_obj_create_bandwidth(path->bandwidth);
+		assert(bandwidth != NULL);
+		bandwidth->header.object_type = PCEP_OBJ_TYPE_BANDWIDTH_CISCO;
+		dll_append(objs, bandwidth);
 	}
 
 	/* Metric Objects */
