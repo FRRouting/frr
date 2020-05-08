@@ -33,6 +33,7 @@
 #include "plist.h"
 #include "vrf.h"
 #include "frrstr.h"
+#include "northbound_cli.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
@@ -568,31 +569,37 @@ static const struct route_map_rule_cmd route_set_tag_cmd = {
 	route_map_rule_tag_free,
 };
 
-DEFUN (set_metric_type,
-       set_metric_type_cmd,
-       "set metric-type <type-1|type-2>",
-       SET_STR
-       "Type of metric for destination routing protocol\n"
-       "OSPF[6] external type 1 metric\n"
-       "OSPF[6] external type 2 metric\n")
+DEFUN(set_metric_type, set_metric_type_cmd, "set metric-type <type-1|type-2>",
+      SET_STR
+      "Type of metric for destination routing protocol\n"
+      "OSPF[6] external type 1 metric\n"
+      "OSPF[6] external type 2 metric\n")
 {
 	char *ext = argv[2]->text;
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "metric-type", ext);
+
+	const char *xpath =
+		"./set-action[action='frr-ospf-route-map:metric-type']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-ospf-route-map:metric-type", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ext);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_set_metric_type,
-       no_set_metric_type_cmd,
-       "no set metric-type [<type-1|type-2>]",
-       NO_STR
-       SET_STR
-       "Type of metric for destination routing protocol\n"
-       "OSPF[6] external type 1 metric\n"
-       "OSPF[6] external type 2 metric\n")
+DEFUN(no_set_metric_type, no_set_metric_type_cmd,
+      "no set metric-type [<type-1|type-2>]",
+      NO_STR SET_STR
+      "Type of metric for destination routing protocol\n"
+      "OSPF[6] external type 1 metric\n"
+      "OSPF[6] external type 2 metric\n")
 {
-	char *ext = (argc == 4) ? argv[3]->text : NULL;
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "metric-type", ext);
+	const char *xpath =
+		"./set-action[action='frr-ospf-route-map:metric-type']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* Route-map init */
