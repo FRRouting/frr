@@ -124,11 +124,19 @@ struct zebra_evpn_es_vtep {
 	struct zebra_evpn_es *es; /* parent ES */
 	struct in_addr vtep_ip;
 
+	uint32_t flags;
+	/* Rxed Type-4 route from this VTEP */
+#define ZEBRA_EVPNES_VTEP_RXED_ESR (1 << 0)
+
 	/* memory used for adding the entry to es->es_vtep_list */
 	struct listnode es_listnode;
 
 	/* MAC nexthop */
 	uint32_t nh_id;
+
+	/* Parameters for DF election */
+	uint8_t df_alg;
+	uint32_t df_pref;
 
 	/* XXX - maintain a backpointer to zebra_vtep_t */
 };

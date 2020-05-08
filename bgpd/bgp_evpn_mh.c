@@ -1177,9 +1177,11 @@ static int bgp_zebra_send_remote_es_vtep(struct bgp *bgp,
 		bgp->vrf_id);
 	stream_put(s, &es->esi, sizeof(esi_t));
 	stream_put_ipv4(s, es_vtep->vtep_ip.s_addr);
-	stream_putl(s, flags);
-	stream_putc(s, es_vtep->df_alg);
-	stream_putw(s, es_vtep->df_pref);
+	if (add) {
+		stream_putl(s, flags);
+		stream_putc(s, es_vtep->df_alg);
+		stream_putw(s, es_vtep->df_pref);
+	}
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
