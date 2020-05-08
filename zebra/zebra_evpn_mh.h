@@ -51,6 +51,10 @@ struct zebra_evpn_es {
 #define ZEBRA_EVPNES_OPER_UP       (1 << 2) /* es->ifp is oper-up */
 #define ZEBRA_EVPNES_READY_FOR_BGP (1 << 3) /* ready to be sent to BGP */
 #define ZEBRA_EVPNES_NHG_ACTIVE    (1 << 4) /* NHG has been installed */
+/* This flag is only applicable to local ESs and signifies that this
+ * VTEP is not the DF
+ */
+#define ZEBRA_EVPNES_NON_DF (1 << 5)
 
 	/* memory used for adding the es to zmh_info->es_rb_tree */
 	RB_ENTRY(zebra_evpn_es) rb_node;
@@ -74,6 +78,11 @@ struct zebra_evpn_es {
 
 	/* Nexthop group id */
 	uint32_t nhg_id;
+
+	/* Preference config for BUM-DF election. Sent to BGP and
+	 * advertised via the ESR
+	 */
+	uint16_t df_pref;
 };
 RB_HEAD(zebra_es_rb_head, zebra_evpn_es);
 RB_PROTOTYPE(zebra_es_rb_head, zebra_evpn_es, rb_node, zebra_es_rb_cmp);
@@ -115,11 +124,19 @@ struct zebra_evpn_es_vtep {
 	struct zebra_evpn_es *es; /* parent ES */
 	struct in_addr vtep_ip;
 
+	uint32_t flags;
+	/* Rxed Type-4 route from this VTEP */
+#define ZEBRA_EVPNES_VTEP_RXED_ESR (1 << 0)
+
 	/* memory used for adding the entry to es->es_vtep_list */
 	struct listnode es_listnode;
 
 	/* MAC nexthop */
 	uint32_t nh_id;
+
+	/* Parameters for DF election */
+	uint8_t df_alg;
+	uint32_t df_pref;
 
 	/* XXX - maintain a backpointer to zebra_vtep_t */
 };
