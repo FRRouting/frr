@@ -287,6 +287,10 @@ struct attr {
 
 	/* EVPN ES */
 	esi_t esi;
+
+	/* EVPN DF preference and algorithm for DF election on local ESs */
+	uint16_t df_pref;
+	uint8_t df_alg;
 };
 
 /* rmap_change_flags definition */

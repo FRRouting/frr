@@ -306,6 +306,17 @@ static inline void encode_es_rt_extcomm(struct ecommunity_val *eval,
 	memcpy(&eval->val[2], mac, ETH_ALEN);
 }
 
+static inline void encode_df_elect_extcomm(struct ecommunity_val *eval,
+					uint16_t pref)
+{
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;
+	eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_DF_ELECTION;
+	eval->val[2] = EVPN_MH_DF_ALG_PREF;
+	eval->val[6] = (pref >> 8) & 0xff;
+	eval->val[7] = pref & 0xff;
+}
+
 static inline void encode_esi_label_extcomm(struct ecommunity_val *eval,
 					bool single_active)
 {

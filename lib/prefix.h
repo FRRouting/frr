@@ -56,6 +56,7 @@ extern "C" {
 
 #define ESI_BYTES 10
 #define ESI_STR_LEN (3 * ESI_BYTES)
+#define EVPN_DF_ALG_STR_LEN 24
 
 /* Maximum number of VTEPs per-ES -
  * XXX - temporary limit for allocating strings etc.
@@ -504,6 +505,7 @@ extern unsigned prefix_hash_key(const void *pp);
 
 extern int str_to_esi(const char *str, esi_t *esi);
 extern char *esi_to_str(const esi_t *esi, char *buf, int size);
+extern char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len);
 extern void prefix_evpn_hexdump(const struct prefix_evpn *p);
 
 static inline int ipv6_martian(struct in6_addr *addr)
