@@ -195,10 +195,25 @@ struct zebra_evpn_mh_info {
 #define EVPN_NHG_ID_TYPE_BIT (2 << EVPN_NH_ID_TYPE_POS)
 
 	/* XXX - re-visit the default hold timer value */
-#define EVPN_MH_MAC_HOLD_TIME_DEF (18 * 60)
-	long mac_hold_time;
-#define EVPN_MH_NEIGH_HOLD_TIME_DEF (18 * 60)
-	long neigh_hold_time;
+	int mac_hold_time;
+#define ZEBRA_EVPN_MH_MAC_HOLD_TIME_DEF (18 * 60)
+	int neigh_hold_time;
+#define ZEBRA_EVPN_MH_NEIGH_HOLD_TIME_DEF (18 * 60)
+
+	/* During this period access ports will be held in a protodown
+	 * state
+	 */
+	int startup_delay_time; /* seconds */
+#define ZEBRA_EVPN_MH_STARTUP_DELAY_DEF (3 * 60)
+	struct thread *startup_delay_timer;
+
+	/* Number of configured uplinks */
+	uint32_t uplink_cfg_cnt;
+	/* Number of operationally-up uplinks */
+	uint32_t uplink_oper_up_cnt;
+
+	/* These protodown bits are inherited by all ES bonds */
+	enum protodown_reasons protodown_rc;
 };
 
 static inline bool zebra_evpn_mac_is_es_local(zebra_mac_t *mac)
@@ -258,5 +273,16 @@ void zebra_evpn_mh_config_write(struct vty *vty);
 int zebra_evpn_mh_neigh_holdtime_update(struct vty *vty,
 		uint32_t duration, bool set_default);
 void zebra_evpn_es_local_br_port_update(struct zebra_if *zif);
+extern int zebra_evpn_mh_startup_delay_update(struct vty *vty,
+					      uint32_t duration,
+					      bool set_default);
+extern void zebra_evpn_mh_uplink_oper_update(struct zebra_if *zif);
+extern void zebra_evpn_mh_update_protodown_bond_mbr(struct zebra_if *zif,
+						    bool clear,
+						    const char *caller);
+extern bool zebra_evpn_is_es_bond(struct interface *ifp);
+extern bool zebra_evpn_is_es_bond_member(struct interface *ifp);
+extern void zebra_evpn_mh_print(struct vty *vty);
+extern void zebra_evpn_mh_json(json_object *json);
 
 #endif /* _ZEBRA_EVPN_MH_H */

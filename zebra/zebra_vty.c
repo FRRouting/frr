@@ -2433,6 +2433,20 @@ DEFPY (evpn_mh_neigh_holdtime,
 			no ? true : false);
 }
 
+DEFPY (evpn_mh_startup_delay,
+       evpn_mh_startup_delay_cmd,
+       "[no] evpn mh startup-delay(0-3600)$duration",
+       NO_STR
+       "EVPN\n"
+       "Multihoming\n"
+       "Startup delay\n"
+       "duration in seconds\n")
+{
+
+	return zebra_evpn_mh_startup_delay_update(vty, duration,
+			no ? true : false);
+}
+
 DEFUN (default_vrf_vni_mapping,
        default_vrf_vni_mapping_cmd,
        "vni " CMD_VNI_RANGE "[prefix-routes-only]",
@@ -3990,6 +4004,7 @@ void zebra_vty_init(void)
 
 	install_element(CONFIG_NODE, &evpn_mh_mac_holdtime_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_neigh_holdtime_cmd);
+	install_element(CONFIG_NODE, &evpn_mh_startup_delay_cmd);
 	install_element(CONFIG_NODE, &default_vrf_vni_mapping_cmd);
 	install_element(CONFIG_NODE, &no_default_vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &vrf_vni_mapping_cmd);

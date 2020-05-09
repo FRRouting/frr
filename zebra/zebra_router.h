@@ -61,6 +61,29 @@ enum multicast_mode {
 			      /* on equal value, MRIB wins for last 2 */
 };
 
+/* An interface can be error-disabled if a protocol (such as EVPN or
+ * VRRP) detects a problem with keeping it operationally-up.
+ * If any of the protodown bits are set protodown-on is programmed
+ * in the dataplane. This results in a carrier/L1 down on the
+ * physical device.
+ */
+enum protodown_reasons {
+	/* On startup local ESs are held down for some time to
+	 * allow the underlay to converge and EVPN routes to
+	 * get learnt
+	 */
+	ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY = (1 << 0),
+	/* If all the uplinks are down the switch has lost access
+	 * to the VxLAN overlay and must shut down the access
+	 * ports to allow servers to re-direct their traffic to
+	 * other switches on the Ethernet Segment
+	 */
+	ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN = (1 << 1),
+	ZEBRA_PROTODOWN_EVPN_ALL = (ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN
+				    | ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY)
+};
+#define ZEBRA_PROTODOWN_RC_STR_LEN 80
+
 struct zebra_mlag_info {
 	/* Role this zebra router is playing */
 	enum mlag_role role;
