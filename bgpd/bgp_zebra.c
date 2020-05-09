@@ -1198,6 +1198,8 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 	int nh_updated;
 	bool do_wt_ecmp;
 	uint64_t cum_bw = 0;
+	uint32_t nhg_id = 0;
+	bool is_add;
 
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
@@ -1274,7 +1276,13 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 	if (do_wt_ecmp)
 		cum_bw = bgp_path_info_mpath_cumbw(info);
 
-	for (mpinfo = info; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
+	/* EVPN MAC-IP routes are installed with a L3 NHG id */
+	if (bgp_evpn_path_es_use_nhg(bgp, info, &nhg_id))
+		mpinfo = NULL;
+	else
+		mpinfo = info;
+
+	for ( ; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
 		uint32_t nh_weight;
 
 		if (valid_nh_count >= multipath_num)
@@ -1407,6 +1415,8 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 		valid_nh_count++;
 	}
 
+	is_add = (valid_nh_count || nhg_id) ? true : false;
+
 	/*
 	 * When we create an aggregate route we must also
 	 * install a Null0 route in the RIB, so overwrite
@@ -1441,9 +1451,10 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 
 		prefix2str(&api.prefix, prefix_buf, sizeof(prefix_buf));
 		zlog_debug("Tx route %s VRF %u %s metric %u tag %" ROUTE_TAG_PRI
-			   " count %d",
-			   valid_nh_count ? "add" : "delete", bgp->vrf_id,
-			   prefix_buf, api.metric, api.tag, api.nexthop_num);
+			   " count %d nhg 0x%x",
+			   is_add ? "add" : "delete", bgp->vrf_id,
+			   prefix_buf, api.metric, api.tag, api.nexthop_num,
+			   nhg_id);
 		for (i = 0; i < api.nexthop_num; i++) {
 			api_nh = &api.nexthops[i];
 
@@ -1500,7 +1511,7 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 			__func__, buf_prefix,
 			(recursion_flag ? "" : "NOT "));
 	}
-	zclient_route_send(valid_nh_count ? ZEBRA_ROUTE_ADD
+	zclient_route_send(is_add ? ZEBRA_ROUTE_ADD
 					  : ZEBRA_ROUTE_DELETE,
 			   zclient, &api);
 }
@@ -1786,7 +1797,6 @@ int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
 			return CMD_WARNING;
 		vrf_bitmap_unset(zclient->redist[afi][type], bgp->vrf_id);
 	}
-
 
 	if (bgp_install_info_to_zebra(bgp)) {
 		/* Send distribute delete message to zebra. */
