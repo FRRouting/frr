@@ -1003,4 +1003,43 @@ void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer)
 		zclient_send_interface_radv_req(zclient, nhop->vrf_id, ifp, 0,
 						0);
 	}
+
+}
+
+/****************************************************************************
+ * L3 NHGs are used for fast failover of nexthops in the dplane. These are
+ * the APIs for allocating L3 NHG ids. Management of the L3 NHG itself is
+ * left to the application using it.
+ * PS: Currently EVPN host routes is the only app using L3 NHG for fast
+ * failover of remote ES links.
+ ***************************************************************************/
+static bitfield_t bgp_nh_id_bitmap;
+
+uint32_t bgp_l3nhg_id_alloc(void)
+{
+	uint32_t nhg_id = 0;
+
+	bf_assign_index(bgp_nh_id_bitmap, nhg_id);
+
+	return nhg_id;
+}
+
+void bgp_l3nhg_id_free(uint32_t nhg_id)
+{
+	if (!nhg_id)
+		return;
+
+	bf_release_index(bgp_nh_id_bitmap, nhg_id);
+}
+
+void bgp_l3nhg_init(void)
+{
+#define BGP_NH_ID_MAX (16*1024)
+	bf_init(bgp_nh_id_bitmap, BGP_NH_ID_MAX);
+	bf_assign_zero_index(bgp_nh_id_bitmap);
+}
+
+void bgp_l3nhg_finish(void)
+{
+	bf_free(bgp_nh_id_bitmap);
 }

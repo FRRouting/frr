@@ -90,4 +90,10 @@ extern void bgp_nht_register_nexthops(struct bgp *bgp);
 extern void bgp_nht_reg_enhe_cap_intfs(struct peer *peer);
 extern void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer);
 
+/* APIs for setting up and allocating L3 nexthop group ids */
+extern uint32_t bgp_l3nhg_id_alloc(void);
+extern void bgp_l3nhg_id_free(uint32_t nhg_id);
+extern void bgp_l3nhg_init(void);
+void bgp_l3nhg_finish(void);
+
 #endif /* _BGP_NHT_H */
