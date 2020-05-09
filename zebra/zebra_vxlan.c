@@ -3815,7 +3815,7 @@ int zebra_vxlan_check_readd_vtep(struct interface *ifp,
  * us, this must involve a multihoming scenario. Treat this as implicit delete
  * of any prior local MAC.
  */
-int zebra_vxlan_check_del_local_mac(struct interface *ifp,
+static int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 				    struct interface *br_if,
 				    struct ethaddr *macaddr, vlanid_t vid)
 {
@@ -3874,12 +3874,50 @@ int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 	return 0;
 }
 
-/*
- * Handle remote MAC delete by kernel; readd the remote MAC if we have it.
- * This can happen because the remote MAC entries are also added as "dynamic",
- * so the kernel can ageout the entry.
+/* MAC notification from the dataplane with a network dest port -
+ * 1. This can be a local MAC on a down ES (if fast-failover is not possible
+ * 2. Or it can be a remote MAC
  */
-int zebra_vxlan_check_readd_remote_mac(struct interface *ifp,
+int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
+		struct interface *br_if, struct ethaddr *macaddr,
+		vlanid_t vid, uint32_t nhg_id, bool sticky, bool dp_static)
+{
+	struct zebra_evpn_es *es;
+	struct interface *acc_ifp;
+	char buf[ETHER_ADDR_STRLEN];
+
+	/* if remote mac delete the local entry */
+	if (!nhg_id || !zebra_evpn_nhg_is_local_es(nhg_id, &es) ||
+			!zebra_evpn_es_local_mac_via_network_port(es)) {
+		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			zlog_debug("dpAdd remote MAC %s VID %u",
+					prefix_mac2str(macaddr, buf,
+						sizeof(buf)), vid);
+		return zebra_vxlan_check_del_local_mac(ifp, br_if,
+				macaddr, vid);
+	}
+
+	/* If local MAC on a down local ES translate the network-mac-add
+	 * to a local-inactive-mac-add
+	 */
+	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		zlog_debug("dpAdd local-nw-MAC %s VID %u",
+				prefix_mac2str(macaddr, buf, sizeof(buf)),
+				vid);
+	acc_ifp = es->zif->ifp;
+	return zebra_vxlan_local_mac_add_update(acc_ifp,
+			br_if, macaddr, vid,
+			sticky, false /* local_inactive */,
+			dp_static);
+}
+
+/*
+ * Handle network MAC delete by kernel -
+ * 1. readd the remote MAC if we have it
+ * 2. local MAC with does ES may also need to be re-installed
+ */
+static int zebra_vxlan_do_local_mac_del(zebra_evpn_t *zevpn, zebra_mac_t *mac);
+int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 				       struct interface *br_if,
 				       struct ethaddr *macaddr, vlanid_t vid)
 {
@@ -3915,16 +3953,94 @@ int zebra_vxlan_check_readd_remote_mac(struct interface *ifp,
 	if (!mac)
 		return 0;
 
-	/* Is it a remote entry? */
-	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
-		return 0;
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
+		/* If remote entry simply re-install */
+		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			zlog_debug("dpDel remote MAC %s intf %s(%u) VNI %u - readd",
+				prefix_mac2str(macaddr, buf, sizeof(buf)),
+				ifp->name, ifp->ifindex, vni);
+		zebra_evpn_rem_mac_install(zevpn, mac, false /* was_static */);
+	} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL) &&
+			mac->es &&
+			zebra_evpn_es_local_mac_via_network_port(mac->es)) {
+		/* If local entry via nw-port call local-del which will
+		 * re-install entry in the dataplane is needed
+		 */
+		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			zlog_debug("dpDel local-nw-MAC %s VNI %u",
+				prefix_mac2str(macaddr, buf, sizeof(buf)),
+				vni);
+		zebra_vxlan_do_local_mac_del(zevpn, mac);
+	}
+
+	return 0;
+}
+
+static int zebra_vxlan_do_local_mac_del(zebra_evpn_t *zevpn, zebra_mac_t *mac)
+{
+	char buf[ETHER_ADDR_STRLEN];
+	bool old_bgp_ready;
+	bool new_bgp_ready;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Del remote MAC %s intf %s(%u) VNI %u - readd",
-			   prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
-			   ifp->ifindex, vni);
+		zlog_debug("DEL MAC %s VNI %u seq %u flags 0x%x nbr count %u",
+				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+				zevpn->vni, mac->loc_seq,
+				mac->flags, listcount(mac->neigh_list));
 
-	zebra_evpn_rem_mac_install(zevpn, mac, false /* was_static */);
+	old_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
+	if (zebra_evpn_mac_is_static(mac)) {
+		/* this is a synced entry and can only be removed when the
+		 * es-peers stop advertising it.
+		 */
+		memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
+
+		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			zlog_debug("re-add sync-mac vni %u mac %s es %s seq %d f 0x%x",
+					zevpn->vni,
+					prefix_mac2str(&mac->macaddr,
+						buf, sizeof(buf)),
+					mac->es ? mac->es->esi_str : "-",
+					mac->loc_seq,
+					mac->flags);
+
+		/* inform-bgp about change in local-activity if any */
+		if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE)) {
+			SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE);
+			new_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
+			zebra_evpn_mac_send_add_del_to_client(mac,
+					old_bgp_ready, new_bgp_ready);
+		}
+
+		/* re-install the entry in the kernel */
+		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
+				false /* force_clear_static */,
+				__func__);
+
+		return 0;
+	}
+
+	/* Update all the neigh entries associated with this mac */
+	zebra_evpn_process_neigh_on_local_mac_del(zevpn, mac);
+
+	/* Remove MAC from BGP. */
+	zebra_evpn_mac_send_del_to_client(zevpn->vni, &mac->macaddr,
+			mac->flags, false /* force */);
+
+	zebra_evpn_es_mac_deref_entry(mac);
+
+	/*
+	 * If there are no neigh associated with the mac delete the mac
+	 * else mark it as AUTO for forward reference
+	 */
+	if (!listcount(mac->neigh_list)) {
+		zebra_evpn_mac_del(zevpn, mac);
+	} else {
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_ALL_LOCAL_FLAGS);
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
+		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
+	}
+
 	return 0;
 }
 
@@ -3935,6 +4051,7 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 			      struct ethaddr *macaddr, vlanid_t vid)
 {
 	zebra_evpn_t *zevpn;
+	zebra_mac_t *mac;
 
 	/* We are interested in MACs only on ports or (port, VLAN) that
 	 * map to a VNI.
@@ -3949,7 +4066,16 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 		return -1;
 	}
 
-	return zebra_evpn_del_local_mac(zevpn, macaddr, ifp);
+	/* If entry doesn't exist, nothing to do. */
+	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+	if (!mac)
+		return 0;
+
+	/* Is it a local entry? */
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
+		return 0;
+
+	return zebra_vxlan_do_local_mac_del(zevpn, mac);
 }
 
 /*

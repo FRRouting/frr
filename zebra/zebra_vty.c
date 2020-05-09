@@ -2234,6 +2234,21 @@ DEFPY (evpn_mh_neigh_holdtime,
 			duration, set_default);
 }
 
+DEFPY (evpn_mh_redirect_off,
+	   evpn_mh_redirect_off_cmd,
+	   "[no$no] evpn mh redirect-off",
+	   NO_STR
+	   "EVPN\n"
+	   "Multihoming\n"
+	   "ES bond redirect for fast-failover off\n")
+{
+	bool redirect_off;
+
+	redirect_off = no ? false : true;
+
+	return zebra_evpn_mh_redirect_off(vty, redirect_off);
+}
+
 DEFUN (default_vrf_vni_mapping,
        default_vrf_vni_mapping_cmd,
        "vni " CMD_VNI_RANGE "[prefix-routes-only]",
@@ -3741,6 +3756,7 @@ void zebra_vty_init(void)
 
 	install_element(CONFIG_NODE, &evpn_mh_mac_holdtime_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_neigh_holdtime_cmd);
+	install_element(CONFIG_NODE, &evpn_mh_redirect_off_cmd);
 	install_element(CONFIG_NODE, &default_vrf_vni_mapping_cmd);
 	install_element(CONFIG_NODE, &no_default_vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &vrf_vni_mapping_cmd);
