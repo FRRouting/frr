@@ -172,6 +172,7 @@ struct bgp_evpn_es_vrf {
 	struct listnode es_listnode;
 
 	uint32_t nhg_id;
+	uint32_t v6_nhg_id;
 
 	/* Number of ES-EVI entries associated with this ES-VRF */
 	uint32_t ref_cnt;
@@ -256,6 +257,7 @@ struct bgp_evpn_mh_info {
 	bool ead_evi_adv_for_down_links;
 	/* Enable ES consistency checking */
 	bool consistency_checking;
+	bool host_routes_use_l3nhg;
 };
 
 /****************************************************************************/
@@ -354,5 +356,7 @@ extern void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info);
 extern void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni,
 				  esi_t *esi);
 extern bool bgp_evpn_es_is_vtep_active(esi_t *esi, struct in_addr nh);
+extern bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf,
+				     struct bgp_path_info *pi, uint32_t *nhg_p);
 
 #endif /* _FRR_BGP_EVPN_MH_H */
