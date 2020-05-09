@@ -99,6 +99,11 @@ struct bgp_evpn_es {
 	/* List of ES-VRFs associated with this ES */
 	struct list *es_vrf_list;
 
+	/* List of MAC-IP global routes using this ES as destination -
+	 * element is bgp_path_info_extra->es_info
+	 */
+	struct list *macip_path_list;
+
 	/* Number of remote VNIs referencing this ES */
 	uint32_t remote_es_evi_cnt;
 
@@ -342,5 +347,10 @@ extern bool bgp_evpn_is_esi_local(esi_t *esi);
 extern void bgp_evpn_es_vrf_deref(struct bgp_evpn_es_evi *es_evi);
 extern void bgp_evpn_es_vrf_ref(struct bgp_evpn_es_evi *es_evi,
 		struct bgp *bgp_vrf);
+extern void bgp_evpn_path_es_info_free(struct bgp_path_es_info *es_info);
+extern void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info);
+extern void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni,
+		esi_t *esi);
+extern bool bgp_evpn_es_is_vtep_active(esi_t *esi, struct in_addr nh);
 
 #endif /* _FRR_BGP_EVPN_MH_H */

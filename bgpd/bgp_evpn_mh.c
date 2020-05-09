@@ -62,6 +62,10 @@ static void bgp_evpn_es_cons_checks_pend_del(struct bgp_evpn_es *es);
 static void bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi);
 static uint32_t bgp_evpn_es_get_active_vtep_cnt(struct bgp_evpn_es *es);
 static void bgp_evpn_l3nhg_update_on_vtep_chg(struct bgp_evpn_es *es);
+static struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi);
+static void bgp_evpn_es_free(struct bgp_evpn_es *es);
+static void bgp_evpn_es_path_all_update(struct bgp_evpn_es_vtep *es_vtep,
+			bool active);
 
 esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
 
@@ -1226,8 +1230,21 @@ static void bgp_evpn_es_vtep_re_eval_active(struct bgp *bgp,
 		/* send remote ES to zebra */
 		bgp_zebra_send_remote_es_vtep(bgp, es_vtep, new_active);
 
-		/* update L3NHG associated with the ES */
-		bgp_evpn_l3nhg_update_on_vtep_chg(es_vtep->es);
+		/* If VTEP becomes active update the NHG first and then
+		 * the exploded routes. If VTEP becomes inactive update
+		 * routes first. This ordering is done to avoid deleting
+		 * the NHG while there are dependent routes against
+		 * it.
+		 */
+		if (new_active) {
+			bgp_evpn_l3nhg_update_on_vtep_chg(es_vtep->es);
+			bgp_evpn_es_path_all_update(es_vtep,
+					true /*active*/);
+		} else {
+			bgp_evpn_es_path_all_update(es_vtep,
+					false /*active*/);
+			bgp_evpn_l3nhg_update_on_vtep_chg(es_vtep->es);
+		}
 
 		/* queue up the es for background consistency checks */
 		bgp_evpn_es_cons_checks_pend_add(es_vtep->es);
@@ -1306,6 +1323,168 @@ static void bgp_evpn_es_vtep_del(struct bgp *bgp,
 		bgp_evpn_es_vtep_do_del(bgp, es_vtep, esr);
 }
 
+bool bgp_evpn_es_is_vtep_active(esi_t *esi, struct in_addr nh)
+{
+	struct bgp_evpn_es *es;
+	struct bgp_evpn_es_vtep *es_vtep;
+	struct listnode *node = NULL;
+	bool rc = false;
+
+	if (!memcmp(esi, zero_esi, sizeof(*esi)) || !nh.s_addr)
+		return true;
+
+	es = bgp_evpn_es_find(esi);
+	if (!es)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
+		if (es_vtep->vtep_ip.s_addr == nh.s_addr) {
+			if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE))
+				rc = true;
+			break;
+		}
+	}
+	return rc;
+}
+
+/********************** ES MAC-IP paths *************************************
+ * MAC-IP routes in the VNI routing table are linked to the destination
+ * ES for efficient updates on ES changes (such as VTEP add/del).
+ ****************************************************************************/
+void bgp_evpn_path_es_info_free(struct bgp_path_es_info *es_info)
+{
+	bgp_evpn_path_es_unlink(es_info);
+	XFREE(MTYPE_BGP_EVPN_PATH_ES_INFO, es_info);
+}
+
+static struct bgp_path_es_info *bgp_evpn_path_es_info_new(
+		struct bgp_path_info *pi, vni_t vni)
+{
+	struct bgp_path_info_extra *e;
+
+	e = bgp_path_info_extra_get(pi);
+
+	/* If es_info doesn't exist allocate it */
+	if (!e->es_info) {
+		e->es_info = XCALLOC(MTYPE_BGP_EVPN_PATH_ES_INFO,
+				sizeof(struct bgp_path_es_info));
+		e->es_info->pi = pi;
+		e->es_info->vni = vni;
+	}
+
+	return e->es_info;
+}
+
+void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info)
+{
+	struct bgp_evpn_es *es = es_info->es;
+	struct bgp_path_info *pi;
+	char prefix_buf[PREFIX_STRLEN];
+
+	if (!es)
+		return;
+
+	pi = es_info->pi;
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+		zlog_debug("path %s unlinked from es %s",
+			prefix2str(&pi->net->p,
+				prefix_buf, sizeof(prefix_buf)),
+			es->esi_str);
+
+	list_delete_node(es->macip_path_list, &es_info->es_listnode);
+	es_info->es = NULL;
+
+	/* if there are no other references against the ES it
+	 * needs to be freed
+	 */
+	bgp_evpn_es_free(es);
+
+	/* Note we don't free the path es_info on unlink; it will be freed up
+	 * along with the path.
+	 */
+}
+
+void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
+{
+	struct bgp_path_es_info *es_info;
+	struct bgp_evpn_es *es;
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	char prefix_buf[PREFIX_STRLEN];
+
+	es_info = pi->extra ? pi->extra->es_info : NULL;
+	/* if the esi is zero just unlink the path from the old es */
+	if (!esi || !memcmp(esi, zero_esi, sizeof(*esi))) {
+		if (es_info)
+			bgp_evpn_path_es_unlink(es_info);
+		return;
+	}
+
+	if (!bgp_evpn)
+		return;
+
+	/* setup es_info against the path if it doesn't aleady exist */
+	if (!es_info)
+		es_info = bgp_evpn_path_es_info_new(pi, vni);
+
+	/* find-create ES */
+	es = bgp_evpn_es_find(esi);
+	if (!es)
+		bgp_evpn_es_new(bgp_evpn, esi);
+
+	/* dup check */
+	if (es_info->es == es)
+		return;
+
+	/* unlink old ES if any */
+	bgp_evpn_path_es_unlink(es_info);
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+		zlog_debug("path %s linked to es %s",
+			prefix2str(&pi->net->p,
+				prefix_buf, sizeof(prefix_buf)),
+			es->esi_str);
+
+	/* link mac-ip path to the new destination ES */
+	es_info->es = es;
+	listnode_init(&es_info->es_listnode, es_info);
+	listnode_add_sort(es->macip_path_list, &es_info->es_listnode);
+}
+
+static void bgp_evpn_es_path_all_update(struct bgp_evpn_es_vtep *es_vtep,
+			bool active)
+{
+	struct listnode *node;
+	struct bgp_path_es_info *es_info;
+	struct bgp_path_info *pi;
+	struct bgp_path_info *parent_pi;
+	struct bgp_evpn_es *es = es_vtep->es;
+	char prefix_buf[PREFIX_STRLEN];
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+		zlog_debug("update all paths linked to es %s",
+				es->esi_str);
+
+	for (ALL_LIST_ELEMENTS_RO(es->macip_path_list, node, es_info)) {
+		pi = es_info->pi;
+		if (pi->sub_type != BGP_ROUTE_IMPORTED)
+			continue;
+
+		parent_pi = pi->extra ? pi->extra->parent : NULL;
+		if (!parent_pi || !parent_pi->attr)
+			continue;
+
+		if (es_vtep->vtep_ip.s_addr != parent_pi->attr->nexthop.s_addr)
+			continue;
+
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+			zlog_debug("update path %s linked to es %s",
+				prefix2str(&parent_pi->net->p,
+					prefix_buf, sizeof(prefix_buf)),
+				es->esi_str);
+		bgp_evpn_import_route_in_vrfs(parent_pi, active ? 1 : 0);
+	}
+}
+
 /* compare ES-IDs for the global ES RB tree */
 static int bgp_es_rb_cmp(const struct bgp_evpn_es *es1,
 		const struct bgp_evpn_es *es2)
@@ -1358,6 +1537,10 @@ static struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi)
 	es->es_vrf_list = list_new();
 	listset_app_node_mem(es->es_vrf_list);
 
+	/* Initialise the route list used for efficient event handling */
+	es->macip_path_list = list_new();
+	listset_app_node_mem(es->macip_path_list);
+
 	QOBJ_REG(es, bgp_evpn_es);
 
 	return es;
@@ -1369,13 +1552,15 @@ static struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi)
  */
 static void bgp_evpn_es_free(struct bgp_evpn_es *es)
 {
-	if (es->flags & (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE))
+	if ((es->flags & (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE)) ||
+			listcount(es->macip_path_list))
 		return;
 
 	/* cleanup resources maintained against the ES */
 	list_delete(&es->es_evi_list);
 	list_delete(&es->es_vrf_list);
 	list_delete(&es->es_vtep_list);
+	list_delete(&es->macip_path_list);
 	bgp_table_unlock(es->route_table);
 
 	/* remove the entry from various databases */
