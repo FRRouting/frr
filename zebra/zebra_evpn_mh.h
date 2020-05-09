@@ -165,6 +165,11 @@ struct zebra_evpn_access_bd {
 #define zmh_info (zrouter.mh_info)
 struct zebra_evpn_mh_info {
 	uint32_t flags;
+/* If the dataplane is not capable of handling a backup NHG on an access
+ * port we will need to explicitly failover each MAC entry on
+ * local ES down
+ */
+#define ZEBRA_EVPN_MH_REDIRECT_OFF (1 << 0)
 /* DAD support for EVPN-MH is yet to be added. So on detection of
  * first local ES, DAD is turned off
  */
@@ -199,6 +204,8 @@ struct zebra_evpn_mh_info {
  */
 #define EVPN_NH_ID_TYPE_BIT  (1 << EVPN_NH_ID_TYPE_POS)
 #define EVPN_NHG_ID_TYPE_BIT (2 << EVPN_NH_ID_TYPE_POS)
+	/* L2-NHG table - key: nhg_id, data: zebra_evpn_es */
+	struct hash *nhg_table;
 
 	/* XXX - re-visit the default hold timer value */
 	int mac_hold_time;
@@ -234,11 +241,17 @@ static inline bool zebra_evpn_mh_is_fdb_nh(uint32_t id)
 			(id & EVPN_NH_ID_TYPE_BIT));
 }
 
+static inline bool
+zebra_evpn_es_local_mac_via_network_port(struct zebra_evpn_es *es)
+{
+	return !(es->flags & ZEBRA_EVPNES_OPER_UP)
+	       && (zmh_info->flags & ZEBRA_EVPN_MH_REDIRECT_OFF);
+}
+
 static inline bool zebra_evpn_mh_do_dup_addr_detect(void)
 {
 	return !(zmh_info->flags & ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF);
 }
-
 
 /*****************************************************************************/
 extern esi_t *zero_esi;
@@ -296,5 +309,8 @@ extern bool zebra_evpn_is_es_bond(struct interface *ifp);
 extern bool zebra_evpn_is_es_bond_member(struct interface *ifp);
 extern void zebra_evpn_mh_print(struct vty *vty);
 extern void zebra_evpn_mh_json(json_object *json);
+extern bool zebra_evpn_nhg_is_local_es(uint32_t nhg_id,
+				       struct zebra_evpn_es **local_es);
+extern int zebra_evpn_mh_redirect_off(struct vty *vty, bool redirect_off);
 
 #endif /* _ZEBRA_EVPN_MH_H */
