@@ -8018,11 +8018,21 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		vty_out(vty, "\n");
 
 		if (safi == SAFI_EVPN) {
+			struct bgp_path_es_info *path_es_info = NULL;
+
+			if (path->extra)
+				path_es_info = path->extra->es_info;
+
 			if (bgp_evpn_is_esi_valid(&attr->esi)) {
+				/* XXX - add these params to the json out */
 				vty_out(vty, "%*s", 20, " ");
-				vty_out(vty, "ESI:%s\n",
+				vty_out(vty, "ESI:%s",
 						esi_to_str(&attr->esi,
 						esi_buf, sizeof(esi_buf)));
+				if (path_es_info && path_es_info->es)
+					vty_out(vty, " VNI: %u",
+							path_es_info->vni);
+				vty_out(vty, "\n");
 			}
 			if (attr->flag &
 				ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) {
@@ -8679,7 +8689,8 @@ static const char *bgp_path_selection_reason2str(
 }
 
 static void route_vty_out_detail_es_info(struct vty *vty,
-			  struct attr *attr, json_object *json_path)
+		struct bgp_path_info *pi,
+		struct attr *attr, json_object *json_path)
 {
 	char esi_buf[ESI_STR_LEN];
 	bool es_local = !!CHECK_FLAG(attr->es_flags, ATTR_ES_IS_LOCAL);
@@ -8689,7 +8700,6 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 			ATTR_ES_PEER_ACTIVE);
 	bool peer_proxy = !!CHECK_FLAG(attr->es_flags,
 			ATTR_ES_PEER_PROXY);
-
 	esi_to_str(&attr->esi, esi_buf, sizeof(esi_buf));
 	if (json_path) {
 		json_object *json_es_info = NULL;
@@ -9200,7 +9210,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 
 	if (safi == SAFI_EVPN &&
 			bgp_evpn_is_esi_valid(&attr->esi)) {
-		route_vty_out_detail_es_info(vty, attr, json_path);
+		route_vty_out_detail_es_info(vty, path, attr, json_path);
 	}
 
 	/* Line 3 display Origin, Med, Locpref, Weight, Tag, valid,
