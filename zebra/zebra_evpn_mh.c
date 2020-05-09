@@ -2776,8 +2776,7 @@ void zebra_evpn_mh_update_protodown_bond_mbr(struct zebra_if *zif, bool clear,
 		zlog_debug("%s protodown %s",
 			zif->ifp->name, new_protodown ? "on" : "off");
 
-	/* XXX - switch to dplane */
-	netlink_protodown(zif->ifp, new_protodown);
+	zebra_if_set_protodown(zif->ifp, new_protodown);
 }
 
 /* The bond members inherit the protodown reason code from the bond */
