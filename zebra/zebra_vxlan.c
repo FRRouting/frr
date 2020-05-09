@@ -3341,7 +3341,7 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		json_object_int_add(json, "detectionTime", zvrf->dad_time);
 		json_object_int_add(json, "detectionFreezeTime",
 				    zvrf->dad_freeze_time);
-
+		zebra_evpn_mh_json(json);
 	} else {
 		vty_out(vty, "L2 VNIs: %u\n", num_l2vnis);
 		vty_out(vty, "L3 VNIs: %u\n", num_l3vnis);
@@ -3361,6 +3361,7 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 				vty_out(vty, "  Detection freeze %s\n",
 					"permanent");
 		}
+		zebra_evpn_mh_print(vty);
 	}
 
 	if (uj) {

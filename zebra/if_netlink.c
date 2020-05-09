@@ -692,6 +692,32 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 	return 0;
 }
 
+/* If the interface is and es bond member then it must follow EVPN's
+ * protodown setting
+ */
+static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
+		bool protodown)
+{
+	bool zif_protodown;
+
+	if (zebra_evpn_is_es_bond_member(zif->ifp)) {
+		zif_protodown = !!(zif->flags & ZIF_FLAG_PROTODOWN);
+		if (protodown != zif_protodown) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_ES ||
+					IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("bond mbr %s re-instate protdown %s in the dplane",
+					zif->ifp->name,
+					zif_protodown ? "on" : "off");
+			netlink_protodown(zif->ifp, zif_protodown);
+		}
+	} else {
+		if (protodown)
+			zif->flags |= ZIF_FLAG_PROTODOWN;
+		else
+			zif->flags &= ~ZIF_FLAG_PROTODOWN;
+	}
+}
+
 /*
  * Called from interface_lookup_netlink().  This function is only used
  * during bootstrap.
@@ -848,10 +874,19 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	 */
 	netlink_interface_update_l2info(ifp, linkinfo[IFLA_INFO_DATA],
 					1, link_nsid);
+	if (IS_ZEBRA_IF_BOND(ifp))
+		zebra_l2if_update_bond(ifp, true);
 	if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
 		zebra_l2if_update_bridge_slave(ifp, bridge_ifindex);
 	else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 		zebra_l2if_update_bond_slave(ifp, bond_ifindex);
+
+	if (tb[IFLA_PROTO_DOWN]) {
+		uint8_t protodown;
+
+		protodown = *(uint8_t *)RTA_DATA(tb[IFLA_PROTO_DOWN]);
+		netlink_proc_dplane_if_protodown(zif, !!protodown);
+	}
 
 	return 0;
 }
@@ -1267,6 +1302,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	uint8_t old_hw_addr[INTERFACE_HWADDR_MAX];
 	struct zebra_if *zif;
 	ns_id_t link_nsid = ns_id;
+	ifindex_t master_infindex = IFINDEX_INTERNAL;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -1355,16 +1391,17 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			if (slave_kind && (strcmp(slave_kind, "vrf") == 0)
 			    && !vrf_is_backend_netns()) {
 				zif_slave_type = ZEBRA_IF_SLAVE_VRF;
-				vrf_id = *(uint32_t *)RTA_DATA(tb[IFLA_MASTER]);
+				master_infindex = vrf_id =
+					*(uint32_t *)RTA_DATA(tb[IFLA_MASTER]);
 			} else if (slave_kind
 				   && (strcmp(slave_kind, "bridge") == 0)) {
 				zif_slave_type = ZEBRA_IF_SLAVE_BRIDGE;
-				bridge_ifindex =
+				master_infindex = bridge_ifindex =
 					*(ifindex_t *)RTA_DATA(tb[IFLA_MASTER]);
 			} else if (slave_kind
 				   && (strcmp(slave_kind, "bond") == 0)) {
 				zif_slave_type = ZEBRA_IF_SLAVE_BOND;
-				bond_ifindex =
+				master_infindex = bond_ifindex =
 					*(ifindex_t *)RTA_DATA(tb[IFLA_MASTER]);
 			} else
 				zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
@@ -1379,7 +1416,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					"RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d "
 					"sl_type %d master %u flags 0x%x",
 					name, ifi->ifi_index, vrf_id, zif_type,
-					zif_slave_type, bridge_ifindex,
+					zif_slave_type, master_infindex,
 					ifi->ifi_flags);
 
 			if (ifp == NULL) {
@@ -1428,6 +1465,14 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 							       bridge_ifindex);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
+
+			if (tb[IFLA_PROTO_DOWN]) {
+				uint8_t protodown;
+
+				protodown = *(uint8_t *)RTA_DATA(tb[IFLA_PROTO_DOWN]);
+				netlink_proc_dplane_if_protodown(ifp->info,
+						!!protodown);
+			}
 		} else if (ifp->vrf_id != vrf_id) {
 			/* VRF change for an interface. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1447,7 +1492,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					"RTM_NEWLINK update for %s(%u) "
 					"sl_type %d master %u flags 0x%x",
 					name, ifp->ifindex, zif_slave_type,
-					bridge_ifindex, ifi->ifi_flags);
+					master_infindex, ifi->ifi_flags);
 
 			set_ifindex(ifp, ifi->ifi_index, zns);
 			if (!tb[IFLA_MTU]) {
@@ -1526,6 +1571,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			netlink_interface_update_l2info(
 				ifp, linkinfo[IFLA_INFO_DATA],
 				0, link_nsid);
+			if (IS_ZEBRA_IF_BOND(ifp))
+				zebra_l2if_update_bond(ifp, true);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) || was_bridge_slave)
 				zebra_l2if_update_bridge_slave(ifp,
 							       bridge_ifindex);
@@ -1555,6 +1602,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 		UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
+		if (IS_ZEBRA_IF_BOND(ifp))
+			zebra_l2if_update_bond(ifp, false);
 		/* Special handling for bridge or VxLAN interfaces. */
 		if (IS_ZEBRA_IF_BRIDGE(ifp))
 			zebra_l2_bridge_del(ifp);
