@@ -39,6 +39,10 @@ struct zebra_l2info_brslave {
 	struct interface *br_if;  /* Pointer to master */
 };
 
+struct zebra_l2info_bond {
+	struct list *mbr_zifs; /* slaves using this bond as a master */
+};
+
 /* zebra L2 interface information - bridge interface */
 struct zebra_l2info_bridge {
 	uint8_t vlan_aware; /* VLAN-aware bridge? */
@@ -84,10 +88,6 @@ union zebra_l2if_info {
 extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave);
 extern void
 zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave);
-extern void
-zebra_l2_map_slave_to_bond(struct zebra_l2info_bondslave *bond_slave, vrf_id_t);
-extern void
-zebra_l2_unmap_slave_from_bond(struct zebra_l2info_bondslave *bond_slave);
 extern void zebra_l2_bridge_add_update(struct interface *ifp,
 				       struct zebra_l2info_bridge *bridge_info,
 				       int add);
@@ -109,6 +109,7 @@ extern void zebra_vlan_bitmap_compute(struct interface *ifp,
 		uint32_t vid_start, uint16_t vid_end);
 extern void zebra_vlan_mbr_re_eval(struct interface *ifp,
 		bitfield_t vlan_bitmap);
+extern void zebra_l2if_update_bond(struct interface *ifp, bool add);
 
 #ifdef __cplusplus
 }
