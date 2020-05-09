@@ -393,9 +393,7 @@ module frr-zebra {
     }
 
     leaf vrf {
-      type string {
-        length "1..36";
-      }
+      type frr-vrf:vrf-ref;
       description
         "The tenant VRF.";
     }
@@ -715,9 +713,7 @@ module frr-zebra {
       choice vrf-choice {
         case single {
           leaf vrf {
-            type string {
-              length "1..36";
-            }
+            type frr-vrf:vrf-ref;
             description
               "Retrieve routes in a non-default vrf.";
           }
@@ -815,9 +811,7 @@ module frr-zebra {
       choice vrf-choice {
         case single {
           leaf vrf {
-            type string {
-              length "1..36";
-            }
+            type frr-vrf:vrf-ref;
             description
               "Retrieve routes in a non-default vrf.";
           }
@@ -853,9 +847,7 @@ module frr-zebra {
     output {
       list vrf-list {
         leaf name {
-          type string {
-            length "1..36";
-          }
+          type frr-vrf:vrf-ref;
           description
             "The VRF name";
         }
@@ -910,9 +902,7 @@ module frr-zebra {
     output {
       list vrf-vni-list {
         leaf vrf-name {
-          type string {
-            length "1..36";
-          }
+          type frr-vrf:vrf-ref;
           description
             "The VRF name.";
         }
