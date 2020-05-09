@@ -2840,6 +2840,29 @@ static int bgp_evpn_route_rmac_self_check(struct bgp *bgp_vrf,
 	return 0;
 }
 
+/* don't import hosts that are locally attached */
+static inline bool bgp_evpn_skip_vrf_import_of_local_es(
+		const struct prefix_evpn *evp, struct bgp_path_info *pi,
+		int install)
+{
+	if ((evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) &&
+			bgp_evpn_attr_is_local_es(pi->attr)) {
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT)) {
+			char esi_buf[ESI_STR_LEN];
+			char prefix_buf[PREFIX_STRLEN];
+
+			zlog_debug("vrf %s of evpn prefix %s skipped, local es %s",
+				install ? "import" : "unimport",
+				prefix2str(evp, prefix_buf,
+					sizeof(prefix_buf)),
+				esi_to_str(bgp_evpn_attr_get_esi(pi->attr),
+					esi_buf, sizeof(esi_buf)));
+		}
+		return true;
+	}
+	return false;
+}
+
 /*
  * Install or uninstall mac-ip routes are appropriate for this
  * particular VRF.
@@ -2893,6 +2916,11 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf, int install)
 				if (!(CHECK_FLAG(pi->flags, BGP_PATH_VALID)
 				      && pi->type == ZEBRA_ROUTE_BGP
 				      && pi->sub_type == BGP_ROUTE_NORMAL))
+					continue;
+
+				/* don't import hosts that are locally attached */
+				if (bgp_evpn_skip_vrf_import_of_local_es(
+							evp, pi, install))
 					continue;
 
 				if (is_route_matching_for_vrf(bgp_vrf, pi)) {
@@ -3095,6 +3123,10 @@ static int install_uninstall_route_in_vrfs(struct bgp *bgp_def, afi_t afi,
 	if ((evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
 	    && !(is_evpn_prefix_ipaddr_v4(evp)
 		 || is_evpn_prefix_ipaddr_v6(evp)))
+		return 0;
+
+	/* don't import hosts that are locally attached */
+	if (bgp_evpn_skip_vrf_import_of_local_es(evp, pi, install))
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(vrfs, node, nnode, bgp_vrf)) {
