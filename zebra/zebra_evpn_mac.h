@@ -171,7 +171,6 @@ struct sync_mac_ip_ctx {
 };
 
 /**************************** SYNC MAC handling *****************************/
-/**************************** SYNC MAC handling *****************************/
 /* if the mac has been added of a mac-route from the peer
  * or if it is being referenced by a neigh added by the
  * peer we cannot let it age out i.e. we set the static bit
@@ -216,7 +215,7 @@ int zebra_evpn_macip_send_msg_to_client(uint32_t id, struct ethaddr *macaddr,
 void zebra_evpn_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json);
 void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt);
-void zebra_evpn_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
+int zebra_evpn_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
 				    bool force_clear_static,
 				    const char *caller);
 void zebra_evpn_mac_send_add_del_to_client(zebra_mac_t *mac, bool old_bgp_ready,
