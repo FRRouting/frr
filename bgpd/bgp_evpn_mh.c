@@ -47,6 +47,7 @@
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_mpath.h"
 
 static void bgp_evpn_local_es_down(struct bgp *bgp,
 		struct bgp_evpn_es *es);
@@ -2385,6 +2386,72 @@ void bgp_evpn_es_evi_vrf_ref(struct bgpevpn *vpn)
 
 	RB_FOREACH(es_evi, bgp_es_evi_rb_head, &vpn->es_evi_rb_tree)
 		bgp_evpn_es_vrf_ref(es_evi, vpn->bgp_vrf);
+}
+
+/* returns false if legacy-exploded mp needs to be used for route install */
+bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf,
+		struct bgp_path_info *pi, uint32_t *nhg_p)
+{
+	esi_t *esi;
+	struct bgp_evpn_es *es;
+	struct bgp_evpn_es_vrf *es_vrf;
+	struct bgp_path_info *parent_pi;
+	struct bgp_node *rn;
+	struct prefix_evpn *evp;
+	struct bgp_path_info *mpinfo;
+
+	*nhg_p = 0;
+
+	parent_pi = get_route_parent_evpn(pi);
+	if (!parent_pi)
+		return false;
+
+	rn = parent_pi->net;
+	if (!rn)
+		return false;
+
+	evp = (struct prefix_evpn *)&rn->p;
+	if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
+		return false;
+
+	/* L3NHG support is disabled, use legacy-exploded multipath */
+	if (!bgp_mh_info->host_routes_use_l3nhg)
+		return false;
+
+	/* non-es path, use legacy-exploded multipath */
+	esi = bgp_evpn_attr_get_esi(parent_pi->attr);
+	if (!memcmp(esi, zero_esi, sizeof(*esi)))
+		return false;
+
+	/* if the ES-VRF is not setup or if the NHG has not been installed
+	 * we cannot install the route yet, return a 0-NHG to indicate
+	 * that
+	 */
+	es = bgp_evpn_es_find(esi);
+	if (!es)
+		return true;
+	es_vrf = bgp_evpn_es_vrf_find(es, bgp_vrf);
+	if (!es_vrf || !(es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE))
+		return true;
+
+	/* this needs to be set the v6NHG if v6route */
+	if (evp->family == AF_INET6)
+		*nhg_p = es_vrf->v6_nhg_id;
+	else
+		*nhg_p = es_vrf->nhg_id;
+
+	for (mpinfo = bgp_path_info_mpath_next(pi); mpinfo;
+			mpinfo = bgp_path_info_mpath_next(mpinfo)) {
+		/* if any of the paths of have a different ESI we can't use
+		 * the NHG associated with the ES. fallback to legacy-exploded
+		 * multipath
+		 */
+		if (memcmp(esi, bgp_evpn_attr_get_esi(mpinfo->attr),
+					sizeof(*esi)))
+			return false;
+	}
+
+	return true;
 }
 
 /*****************************************************************************/
