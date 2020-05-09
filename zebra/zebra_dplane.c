@@ -1149,6 +1149,37 @@ void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh)
 	nexthop_group_copy_nh_sorted(&(ctx->u.rinfo.zd_ng), nh);
 }
 
+/*
+ * Set the list of backup nexthops; their ordering is preserved (they're not
+ * re-sorted.)
+ */
+void dplane_ctx_set_backup_nhg(struct zebra_dplane_ctx *ctx,
+			       const struct nexthop_group *nhg)
+{
+	struct nexthop *nh, *last_nh, *nexthop;
+
+	DPLANE_CTX_VALID(ctx);
+
+	if (ctx->u.rinfo.backup_ng.nexthop) {
+		nexthops_free(ctx->u.rinfo.backup_ng.nexthop);
+		ctx->u.rinfo.backup_ng.nexthop = NULL;
+	}
+
+	last_nh = NULL;
+
+	/* Be careful to preserve the order of the backup list */
+	for (nh = nhg->nexthop; nh; nh = nh->next) {
+		nexthop = nexthop_dup(nh, NULL);
+
+		if (last_nh)
+			NEXTHOP_APPEND(last_nh, nexthop);
+		else
+			ctx->u.rinfo.backup_ng.nexthop = nexthop;
+
+		last_nh = nexthop;
+	}
+}
+
 uint32_t dplane_ctx_get_nhg_id(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
