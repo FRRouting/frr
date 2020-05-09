@@ -1082,6 +1082,9 @@ void if_up(struct interface *ifp)
 
 	if (zif->es_info.es)
 		zebra_evpn_es_if_oper_state_change(zif, true /*up*/);
+
+	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
+		zebra_evpn_mh_uplink_oper_update(zif);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -1118,6 +1121,9 @@ void if_down(struct interface *ifp)
 
 	if (zif->es_info.es)
 		zebra_evpn_es_if_oper_state_change(zif, false /*up*/);
+
+	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
+		zebra_evpn_mh_uplink_oper_update(zif);
 
 	/* Notify to the protocol daemons. */
 	zebra_interface_down_update(ifp);
@@ -1169,6 +1175,20 @@ void zebra_if_update_all_links(void)
 		if (!ifp)
 			continue;
 		zif = ifp->info;
+		/* update bond slave to master linkages */
+		if ((IS_ZEBRA_IF_BOND_SLAVE(ifp)) &&
+			(zif->bondslave_info.bond_ifindex
+			 != IFINDEX_INTERNAL) &&
+			!zif->bondslave_info.bond_if) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_ES ||
+					IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("bond mbr %s map to bond %d",
+					zif->ifp->name,
+					zif->bondslave_info.bond_ifindex);
+			zebra_l2_map_slave_to_bond(zif, ifp->vrf_id);
+		}
+
+		/* update SVI linkages */
 		if ((zif->link_ifindex != IFINDEX_INTERNAL) && !zif->link) {
 			zif->link = if_lookup_by_index_per_ns(ns,
 							 zif->link_ifindex);
@@ -1380,6 +1400,42 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 	vty_out(vty, "\n");
 }
 
+char *zebra_protodown_rc_str(enum protodown_reasons protodown_rc,
+		char *pd_buf, uint32_t pd_buf_len)
+{
+	bool first = true;
+
+	pd_buf[0] = '\0';
+
+	snprintf(pd_buf + strlen(pd_buf),
+			pd_buf_len - strlen(pd_buf), "(");
+
+	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY) {
+		if (first)
+			first = false;
+		else
+			snprintf(pd_buf + strlen(pd_buf),
+					pd_buf_len - strlen(pd_buf), ",");
+		snprintf(pd_buf + strlen(pd_buf),
+				pd_buf_len - strlen(pd_buf), "startup-delay");
+	}
+
+	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN) {
+		if (first)
+			first = false;
+		else
+			snprintf(pd_buf + strlen(pd_buf),
+					pd_buf_len - strlen(pd_buf), ",");
+		snprintf(pd_buf + strlen(pd_buf),
+			pd_buf_len - strlen(pd_buf), "uplinks-down");
+	}
+
+	snprintf(pd_buf + strlen(pd_buf),
+			pd_buf_len - strlen(pd_buf), ")");
+
+	return pd_buf;
+}
+
 /* Interface's information print out to vty interface. */
 static void if_dump_vty(struct vty *vty, struct interface *ifp)
 {
@@ -1389,6 +1445,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	struct route_node *rn;
 	struct zebra_if *zebra_if;
 	struct vrf *vrf;
+	char pd_buf[ZEBRA_PROTODOWN_RC_STR_LEN];
 
 	zebra_if = ifp->info;
 
@@ -1529,6 +1586,15 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	}
 
 	zebra_evpn_if_es_print(vty, zebra_if);
+	vty_out(vty, "  protodown: %s",
+		(zebra_if->flags & ZIF_FLAG_PROTODOWN) ?
+		"on" : "off");
+	if (zebra_if->protodown_rc)
+		vty_out(vty, " rc: %s\n",
+			zebra_protodown_rc_str(zebra_if->protodown_rc,
+				pd_buf, sizeof(pd_buf)));
+	else
+		vty_out(vty, "\n");
 
 	if (zebra_if->link_ifindex != IFINDEX_INTERNAL) {
 		if (zebra_if->link)
