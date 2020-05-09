@@ -669,16 +669,23 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 {
 	bool zif_protodown;
 
+	zif_protodown = !!(zif->flags & ZIF_FLAG_PROTODOWN);
+	if (protodown == zif_protodown)
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES ||
+			IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("interface %s dplane change, protdown %s",
+				zif->ifp->name,
+				protodown ? "on" : "off");
+
 	if (zebra_evpn_is_es_bond_member(zif->ifp)) {
-		zif_protodown = !!(zif->flags & ZIF_FLAG_PROTODOWN);
-		if (protodown != zif_protodown) {
-			if (IS_ZEBRA_DEBUG_EVPN_MH_ES ||
-					IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("bond mbr %s re-instate protdown %s in the dplane",
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES ||
+				IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("bond mbr %s re-instate protdown %s in the dplane",
 					zif->ifp->name,
 					zif_protodown ? "on" : "off");
-			netlink_protodown(zif->ifp, zif_protodown);
-		}
+		netlink_protodown(zif->ifp, zif_protodown);
 	} else {
 		if (protodown)
 			zif->flags |= ZIF_FLAG_PROTODOWN;
@@ -1536,6 +1543,14 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 							       bridge_ifindex);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp) || was_bond_slave)
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
+
+			if (tb[IFLA_PROTO_DOWN]) {
+				uint8_t protodown;
+
+				protodown = *(uint8_t *)RTA_DATA(tb[IFLA_PROTO_DOWN]);
+				netlink_proc_dplane_if_protodown(ifp->info,
+						!!protodown);
+			}
 		}
 
 		zif = ifp->info;
