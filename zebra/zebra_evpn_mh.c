@@ -3090,4 +3090,5 @@ void zebra_evpn_mh_terminate(void)
 	hash_iterate(zmh_info->evpn_vlan_table,
 			zebra_evpn_acc_vl_cleanup_all, NULL);
 	hash_free(zmh_info->evpn_vlan_table);
+	bf_free(zmh_info->nh_id_bitmap);
 }
