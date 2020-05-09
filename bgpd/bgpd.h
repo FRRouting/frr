@@ -301,6 +301,10 @@ enum bgp_link_bw_handling {
 	BGP_LINK_BW_DEFWT_4_MISSING
 };
 
+RB_HEAD(bgp_es_vrf_rb_head, bgp_evpn_es_vrf);
+RB_PROTOTYPE(bgp_es_vrf_rb_head, bgp_evpn_es_vrf, rb_node,
+		bgp_es_vrf_rb_cmp);
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -629,6 +633,9 @@ struct bgp {
 
 	/* SVI associated with the L3-VNI corresponding to this vrf */
 	ifindex_t l3vni_svi_ifindex;
+
+	/* RB tree of ES-VRFs */
+	struct bgp_es_vrf_rb_head es_vrf_rb_tree;
 
 	/* vrf flags */
 	uint32_t vrf_flags;
