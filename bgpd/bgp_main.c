@@ -63,6 +63,7 @@
 #include "lib/routing_nb.h"
 #include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_nht.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -209,6 +210,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 		bgp_delete(bgp_default);
 
 	bgp_evpn_mh_finish();
+	bgp_l3nhg_finish();
 
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();

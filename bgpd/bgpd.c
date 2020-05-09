@@ -3156,6 +3156,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 				 sizeof(struct bgp_evpn_info));
 
 	bgp_evpn_init(bgp);
+	bgp_evpn_vrf_es_init(bgp);
 	bgp_pbr_init(bgp);
 
 	/*initilize global GR FSM */
@@ -7327,6 +7328,7 @@ void bgp_master_init(struct thread_master *master, const int buffer_size)
 	/* mpls label dynamic allocation pool */
 	bgp_lp_init(bm->master, &bm->labelpool);
 
+	bgp_l3nhg_init();
 	bgp_evpn_mh_init();
 	QOBJ_REG(bm, bgp_master);
 }
