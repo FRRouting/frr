@@ -830,28 +830,93 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
  *   A L2 NH entry is programmed in the kernel for every ES-VTEP entry. This
  * NH is then added to the L2-ECMP-NHG associated with the ES.
  */
-static uint32_t zebra_evpn_nhid_alloc(bool is_nhg)
+static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
 {
 	uint32_t id;
-	int type;
+	uint32_t nh_id;
 
 	bf_assign_index(zmh_info->nh_id_bitmap, id);
 
 	if (!id)
 		return 0;
 
-	type = is_nhg ? EVPN_NHG_ID_TYPE_BIT : EVPN_NH_ID_TYPE_BIT;
-	return (id | type);
+	if (es) {
+		nh_id = id | EVPN_NHG_ID_TYPE_BIT;
+		/* Add to NHG hash */
+		es->nhg_id = nh_id;
+		if (!hash_get(zmh_info->nhg_table, es, hash_alloc_intern)) {
+			bf_release_index(zmh_info->nh_id_bitmap, id);
+			return 0;
+		}
+	} else {
+		nh_id = id | EVPN_NH_ID_TYPE_BIT;
+	}
+
+	return nh_id;
 }
 
-static void zebra_evpn_nhid_free(uint32_t nh_id)
+static void zebra_evpn_nhid_free(uint32_t nh_id, struct zebra_evpn_es *es)
 {
 	uint32_t id = (nh_id & EVPN_NH_ID_VAL_MASK);
 
 	if (!id)
 		return;
 
+	if (es) {
+		hash_release(zmh_info->nhg_table, es);
+		es->nhg_id = 0;
+	}
+
 	bf_release_index(zmh_info->nh_id_bitmap, id);
+}
+
+static unsigned int zebra_evpn_nhg_hash_keymake(const void *p)
+{
+	const struct zebra_evpn_es *es = p;
+
+	return jhash_1word(es->nhg_id, 0);
+}
+
+static bool zebra_evpn_nhg_cmp(const void *p1, const void *p2)
+{
+	const struct zebra_evpn_es *es1 = p1;
+	const struct zebra_evpn_es *es2 = p2;
+
+	if (es1 == NULL && es2 == NULL)
+		return true;
+
+	if (es1 == NULL || es2 == NULL)
+	return false;
+
+	return (es1->nhg_id == es2->nhg_id);
+}
+
+/* Lookup ES using the NHG id associated with it */
+static struct zebra_evpn_es *zebra_evpn_nhg_find(uint32_t nhg_id)
+{
+	struct zebra_evpn_es *es;
+	struct zebra_evpn_es tmp;
+
+	tmp.nhg_id = nhg_id;
+	es = hash_lookup(zmh_info->nhg_table, &tmp);
+
+	return es;
+}
+
+/* Returns TRUE if the NHG is associated with a local ES */
+bool zebra_evpn_nhg_is_local_es(uint32_t nhg_id,
+		struct zebra_evpn_es **local_es)
+{
+	struct zebra_evpn_es *es;
+
+	es = zebra_evpn_nhg_find(nhg_id);
+	if (es && (es->flags & ZEBRA_EVPNES_LOCAL)) {
+		*local_es = es;
+		return true;
+	}
+
+	*local_es = NULL;
+	return false;
 }
 
 /* update remote macs associated with the ES */
@@ -859,16 +924,44 @@ static void zebra_evpn_nhg_mac_update(struct zebra_evpn_es *es)
 {
 	zebra_mac_t *mac;
 	struct listnode	*node;
+	bool local_via_nw;
+	char macbuf[ETHER_ADDR_STRLEN];
+
+	local_via_nw = zebra_evpn_es_local_mac_via_network_port(es);
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		zlog_debug("mac update on es %s nhg %s",
+			es->esi_str,
+			(es->flags & ZEBRA_EVPNES_NHG_ACTIVE) ?
+			"activate" : "de-activate");
 
 	for (ALL_LIST_ELEMENTS_RO(es->mac_list, node, mac)) {
-		if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
-			continue;
-
-		if (es->flags & ZEBRA_EVPNES_NHG_ACTIVE)
-			zebra_evpn_rem_mac_install(mac->zevpn, mac,
-					false /*was_static*/);
-		else
-			zebra_evpn_rem_mac_uninstall(mac->zevpn, mac, true /*force*/);
+		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) ||
+				(local_via_nw &&
+				 CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL) &&
+				 zebra_evpn_mac_is_static(mac))) {
+			if (es->flags & ZEBRA_EVPNES_NHG_ACTIVE) {
+				if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+					zlog_debug("%smac %s install via es %s nhg 0x%x",
+						(mac->flags & ZEBRA_MAC_REMOTE) ?
+						"rem" : "local-nw",
+						prefix_mac2str(&mac->macaddr,
+							macbuf, sizeof(macbuf)),
+						es->esi_str,
+						es->nhg_id);
+				zebra_evpn_rem_mac_install(mac->zevpn, mac,
+						false /*was_static*/);
+			} else {
+				if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+					zlog_debug("%smac %s un-install es %s",
+						(mac->flags & ZEBRA_MAC_REMOTE) ?
+						"rem" : "local-nw",
+						prefix_mac2str(&mac->macaddr,
+							macbuf, sizeof(macbuf)),
+						es->esi_str);
+				zebra_evpn_rem_mac_uninstall(mac->zevpn, mac,
+						true /*force*/);
+			}
+		}
 	}
 }
 
@@ -939,7 +1032,7 @@ static void zebra_evpn_nh_add(struct zebra_evpn_es_vtep *es_vtep)
 	if (es_vtep->nh_id)
 		return;
 
-	es_vtep->nh_id = zebra_evpn_nhid_alloc(false);
+	es_vtep->nh_id = zebra_evpn_nhid_alloc(NULL /*NHG-es*/);
 
 	if (!es_vtep->nh_id)
 		return;
@@ -973,7 +1066,7 @@ static void zebra_evpn_nh_del(struct zebra_evpn_es_vtep *es_vtep)
 	zebra_evpn_nhg_update(es_vtep->es);
 	/* uninstall the NH */
 	kernel_del_mac_nh(nh_id);
-	zebra_evpn_nhid_free(nh_id);
+	zebra_evpn_nhid_free(nh_id, NULL /*NHG-es*/);
 
 }
 
@@ -1308,7 +1401,7 @@ static struct zebra_evpn_es *zebra_evpn_es_new(esi_t *esi)
 	listset_app_node_mem(es->mac_list);
 
 	/* reserve a NHG  */
-	es->nhg_id = zebra_evpn_nhid_alloc(true);
+	es->nhg_id = zebra_evpn_nhid_alloc(es);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s nhg 0x%x new", es->esi_str, es->nhg_id);
@@ -1338,7 +1431,7 @@ static struct zebra_evpn_es *zebra_evpn_es_free(struct zebra_evpn_es *es)
 		es->flags &= ~ZEBRA_EVPNES_NHG_ACTIVE;
 		kernel_del_mac_nhg(es->nhg_id);
 	}
-	zebra_evpn_nhid_free(es->nhg_id);
+	zebra_evpn_nhid_free(es->nhg_id, es);
 
 	/* cleanup resources maintained against the ES */
 	list_delete(&es->es_evi_list);
@@ -2029,6 +2122,69 @@ void zebra_evpn_if_es_print(struct vty *vty, struct zebra_if *zif)
 					buf, sizeof(buf)));
 }
 
+static void zebra_evpn_local_mac_oper_state_change(struct zebra_evpn_es *es)
+{
+	zebra_mac_t *mac;
+	struct listnode	*node;
+	char macbuf[ETHER_ADDR_STRLEN];
+
+	/* If fast-failover is supported by the dataplane via the use
+	 * of an ES backup NHG there is nothing to be done in the
+	 * control plane
+	 */
+	if (!(zmh_info->flags & ZEBRA_EVPN_MH_REDIRECT_OFF))
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		zlog_debug("mac slow-fail on es %s %s ",
+			es->esi_str,
+			(es->flags & ZEBRA_EVPNES_OPER_UP) ?
+			"up" : "down");
+
+	for (ALL_LIST_ELEMENTS_RO(es->mac_list, node, mac)) {
+		if (!(mac->flags & ZEBRA_MAC_LOCAL) ||
+				!zebra_evpn_mac_is_static(mac))
+			continue;
+
+		if (es->flags & ZEBRA_EVPNES_OPER_UP) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+				zlog_debug("mac %s move to acc %s es %s %s ",
+					prefix_mac2str(&mac->macaddr, macbuf,
+						sizeof(macbuf)),
+					es->zif->ifp->name,
+					es->esi_str,
+					(es->flags & ZEBRA_EVPNES_OPER_UP) ?
+					"up" : "down");
+			/* switch the local macs to access port */
+			if (zebra_evpn_sync_mac_dp_install(mac,
+						false /*set_inactive*/,
+						false /*force_clear_static*/,
+						__func__) < 0)
+				/* if the local mac install fails get rid of the
+				 * old rem entry
+				 */
+				zebra_evpn_rem_mac_uninstall(mac->zevpn, mac,
+						true /*force*/);
+		} else {
+			/* switch the local macs to network port. if there
+			 * is no active NHG we don't bother deleting the MAC;
+			 * that is left up to the dataplane to handle.
+			 */
+			if (!(es->flags & ZEBRA_EVPNES_NHG_ACTIVE))
+				continue;
+			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+				zlog_debug("mac %s move to nw 0x%x es %s %s ",
+					prefix_mac2str(&mac->macaddr, macbuf,
+						sizeof(macbuf)),
+					es->nhg_id, es->esi_str,
+					(es->flags & ZEBRA_EVPNES_OPER_UP) ?
+					"up" : "down");
+			zebra_evpn_rem_mac_install(mac->zevpn, mac,
+					true /*was_static*/);
+		}
+	}
+}
+
 void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up)
 {
 	struct zebra_evpn_es *es = zif->es_info.es;
@@ -2047,6 +2203,7 @@ void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up)
 		es->flags &= ~ZEBRA_EVPNES_OPER_UP;
 
 	zebra_evpn_es_run_df_election(es, __func__);
+	zebra_evpn_local_mac_oper_state_change(es);
 
 	/* inform BGP of the ES oper state change */
 	if (es->flags & ZEBRA_EVPNES_READY_FOR_BGP)
@@ -2460,6 +2617,9 @@ void zebra_evpn_mh_config_write(struct vty *vty)
 	if (zmh_info->neigh_hold_time != EVPN_MH_NEIGH_HOLD_TIME_DEF)
 		vty_out(vty, "evpn mh neigh-holdtime %ld\n",
 			zmh_info->neigh_hold_time);
+
+	if (zmh_info->flags & ZEBRA_EVPN_MH_REDIRECT_OFF)
+		vty_out(vty, "evpn mh redirect-off\n");
 }
 
 int zebra_evpn_mh_neigh_holdtime_update(struct vty *vty,
@@ -2484,6 +2644,19 @@ int zebra_evpn_mh_mac_holdtime_update(struct vty *vty,
 	return 0;
 }
 
+int zebra_evpn_mh_redirect_off(struct vty *vty, bool redirect_off)
+{
+	/* This knob needs to be set before ESs are configured
+	 * i.e. cannot be changed on the fly
+	 */
+	if (redirect_off)
+		zmh_info->flags |= ZEBRA_EVPN_MH_REDIRECT_OFF;
+	else
+		zmh_info->flags &= ~ZEBRA_EVPN_MH_REDIRECT_OFF;
+
+	return 0;
+}
+
 void zebra_evpn_interface_init(void)
 {
 	install_element(INTERFACE_NODE, &zebra_evpn_es_id_cmd);
@@ -2504,6 +2677,8 @@ void zebra_evpn_mh_init(void)
 
 	bf_init(zmh_info->nh_id_bitmap, EVPN_NH_ID_MAX);
 	bf_assign_zero_index(zmh_info->nh_id_bitmap);
+	zmh_info->nhg_table = hash_create(zebra_evpn_nhg_hash_keymake,
+			zebra_evpn_nhg_cmp, "l2 NHG table");
 
 	/* setup broadcast domain tables */
 	zmh_info->evpn_vlan_table = hash_create(zebra_evpn_acc_vl_hash_keymake,

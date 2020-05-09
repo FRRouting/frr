@@ -164,6 +164,13 @@ struct zebra_evpn_access_bd {
 /* multihoming information stored in zrouter */
 #define zmh_info (zrouter.mh_info)
 struct zebra_evpn_mh_info {
+	uint32_t flags;
+/* If the dataplane is not capable of handling a backup NHG on an access
+ * port we will need to explicitly failover each MAC entry on
+ * local ES down
+ */
+#define ZEBRA_EVPN_MH_REDIRECT_OFF (1 << 0)
+
 	/* RB tree of Ethernet segments (used for EVPN-MH)  */
 	struct zebra_es_rb_head es_rb_tree;
 	/* List of local ESs */
@@ -193,6 +200,8 @@ struct zebra_evpn_mh_info {
  */
 #define EVPN_NH_ID_TYPE_BIT  (1 << EVPN_NH_ID_TYPE_POS)
 #define EVPN_NHG_ID_TYPE_BIT (2 << EVPN_NH_ID_TYPE_POS)
+	/* L2-NHG table - key: nhg_id, data: zebra_evpn_es */
+	struct hash *nhg_table;
 
 	/* XXX - re-visit the default hold timer value */
 #define EVPN_MH_MAC_HOLD_TIME_DEF (18 * 60)
@@ -211,6 +220,13 @@ static inline bool zebra_evpn_mh_is_fdb_nh(uint32_t id)
 {
 	return ((id & EVPN_NHG_ID_TYPE_BIT) ||
 			(id & EVPN_NH_ID_TYPE_BIT));
+}
+
+static inline bool zebra_evpn_es_local_mac_via_network_port(
+		struct zebra_evpn_es *es)
+{
+	return !(es->flags & ZEBRA_EVPNES_OPER_UP) &&
+		(zmh_info->flags & ZEBRA_EVPN_MH_REDIRECT_OFF);
 }
 
 /*****************************************************************************/
@@ -258,5 +274,8 @@ void zebra_evpn_mh_config_write(struct vty *vty);
 int zebra_evpn_mh_neigh_holdtime_update(struct vty *vty,
 		uint32_t duration, bool set_default);
 void zebra_evpn_es_local_br_port_update(struct zebra_if *zif);
+extern bool zebra_evpn_nhg_is_local_es(uint32_t nhg_id,
+		struct zebra_evpn_es **local_es);
+extern int zebra_evpn_mh_redirect_off(struct vty *vty, bool redirect_off);
 
 #endif /* _ZEBRA_EVPN_MH_H */
