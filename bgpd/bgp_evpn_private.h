@@ -619,4 +619,6 @@ extern struct bgp_node *bgp_global_evpn_node_get(
 extern struct bgp_node *bgp_global_evpn_node_lookup(
 		struct bgp_table *table, afi_t afi, safi_t safi,
 		const struct prefix_evpn *evp, struct prefix_rd *prd);
+extern void bgp_evpn_import_route_in_vrfs(struct bgp_path_info *pi,
+		int import);
 #endif /* _BGP_EVPN_PRIVATE_H */

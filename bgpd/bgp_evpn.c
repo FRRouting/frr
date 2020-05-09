@@ -1471,7 +1471,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 				   afi_t afi, safi_t safi, struct bgp_node *rn,
 				   struct attr *attr, int add,
 				   struct bgp_path_info **pi, uint8_t flags,
-				   uint32_t seq, bool setup_sync,
+				   uint32_t seq, bool vpn_rt,
 				   bool *old_is_sync)
 {
 	struct bgp_path_info *tmp_pi;
@@ -1503,7 +1503,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	/* if a local path is being added with a non-zero esi look
 	 * for SYNC paths from ES peers and bubble up the sync-info
 	 */
-	update_evpn_route_entry_sync_info(bgp, rn, attr, seq, setup_sync);
+	update_evpn_route_entry_sync_info(bgp, rn, attr, seq, vpn_rt);
 
 	/* For non-GW MACs, update MAC mobility seq number, if needed. */
 	if (seq && !CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW))
@@ -1594,6 +1594,14 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 			tmp_pi->uptime = bgp_clock();
 		}
 	}
+
+	/* MAC-IP routes in the VNI route table are linked to the
+	 * destination ES
+	 */
+	if (route_change && vpn_rt &&
+			(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE))
+		bgp_evpn_path_es_link(tmp_pi, vpn->vni,
+				bgp_evpn_attr_get_esi(tmp_pi->attr));
 
 	/* Return back the route entry. */
 	*pi = tmp_pi;
@@ -2513,6 +2521,11 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		pi->uptime = bgp_clock();
 	}
 
+	/* MAC-IP routes in the VNI table are linked to the destination ES */
+	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
+		bgp_evpn_path_es_link(pi, vpn->vni,
+				bgp_evpn_attr_get_esi(pi->attr));
+
 	/* Perform route selection and update zebra, if required. */
 	ret = evpn_route_select_install(bgp, vpn, rn);
 
@@ -2834,20 +2847,50 @@ static inline bool bgp_evpn_skip_vrf_import_of_local_es(
 		const struct prefix_evpn *evp, struct bgp_path_info *pi,
 		int install)
 {
-	if ((evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) &&
-			bgp_evpn_attr_is_local_es(pi->attr)) {
-		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT)) {
-			char esi_buf[ESI_STR_LEN];
-			char prefix_buf[PREFIX_STRLEN];
+	esi_t *esi;
+	struct in_addr nh;
 
-			zlog_debug("vrf %s of evpn prefix %s skipped, local es %s",
-				install ? "import" : "unimport",
-				prefix2str(evp, prefix_buf,
-					sizeof(prefix_buf)),
-				esi_to_str(bgp_evpn_attr_get_esi(pi->attr),
-					esi_buf, sizeof(esi_buf)));
+	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
+		esi = bgp_evpn_attr_get_esi(pi->attr);
+
+		/* Don't import routes that point to a local destination */
+		if (bgp_evpn_attr_is_local_es(pi->attr)) {
+			if (BGP_DEBUG(evpn_mh, EVPN_MH_RT)) {
+				char esi_buf[ESI_STR_LEN];
+				char prefix_buf[PREFIX_STRLEN];
+
+				zlog_debug("vrf %s of evpn prefix %s skipped, local es %s",
+					install ? "import" : "unimport",
+					prefix2str(evp, prefix_buf,
+						sizeof(prefix_buf)),
+					esi_to_str(esi, esi_buf,
+						sizeof(esi_buf)));
+			}
+			return true;
 		}
-		return true;
+
+		/* Don't import routes with ES as destination if the nexthop
+		 * has not been advertised via the EAD-ES
+		 */
+		if (pi->attr)
+			nh = pi->attr->nexthop;
+		else
+			nh.s_addr = 0;
+		if (!bgp_evpn_es_is_vtep_active(esi, nh)) {
+			if (BGP_DEBUG(evpn_mh, EVPN_MH_RT)) {
+				char esi_buf[ESI_STR_LEN];
+				char prefix_buf[PREFIX_STRLEN];
+
+				zlog_debug("vrf %s of evpn prefix %s skipped, nh %s inactive in es %s",
+					install ? "import" : "unimport",
+					prefix2str(evp, prefix_buf,
+						sizeof(prefix_buf)),
+					inet_ntoa(nh),
+					esi_to_str(esi,
+						esi_buf, sizeof(esi_buf)));
+			}
+			return true;
+		}
 	}
 	return false;
 }
@@ -3181,9 +3224,10 @@ static int install_uninstall_route_in_vnis(struct bgp *bgp, afi_t afi,
 /*
  * Install or uninstall route for appropriate VNIs/ESIs.
  */
-static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
-					const struct prefix *p,
-					struct bgp_path_info *pi, int import)
+static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
+					safi_t safi, const struct prefix *p,
+					struct bgp_path_info *pi, int import,
+					bool in_vni_rt, bool in_vrf_rt)
 {
 	struct prefix_evpn *evp = (struct prefix_evpn *)p;
 	struct attr *attr = pi->attr;
@@ -3247,13 +3291,13 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 		    evp->prefix.route_type == BGP_EVPN_AD_ROUTE ||
 		    evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 
-			irt = lookup_import_rt(bgp, eval);
+			irt = in_vni_rt ? lookup_import_rt(bgp, eval) : NULL;
 			if (irt)
 				install_uninstall_route_in_vnis(
 					bgp, afi, safi, evp, pi, irt->vnis,
 					import);
 
-			vrf_irt = lookup_vrf_import_rt(eval);
+			vrf_irt = in_vrf_rt ? lookup_vrf_import_rt(eval) : NULL;
 			if (vrf_irt)
 				install_uninstall_route_in_vrfs(
 					bgp, afi, safi, evp, pi, vrf_irt->vrfs,
@@ -3272,8 +3316,10 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 			    || type == ECOMMUNITY_ENCODE_IP) {
 				memcpy(&eval_tmp, eval, ECOMMUNITY_SIZE);
 				mask_ecom_global_admin(&eval_tmp, eval);
-				irt = lookup_import_rt(bgp, &eval_tmp);
-				vrf_irt = lookup_vrf_import_rt(&eval_tmp);
+				if (in_vni_rt)
+					irt = lookup_import_rt(bgp, &eval_tmp);
+				if (in_vrf_rt)
+					vrf_irt = lookup_vrf_import_rt(&eval_tmp);
 			}
 
 			if (irt)
@@ -3300,6 +3346,30 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 	}
 
 	return 0;
+}
+
+/*
+ * Install or uninstall route for appropriate VNIs/ESIs.
+ */
+static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
+					const struct prefix *p,
+					struct bgp_path_info *pi, int import)
+{
+	return bgp_evpn_install_uninstall_table(bgp, afi, safi,
+			p, pi, import, true, true);
+}
+
+/* Import the pi into vrf routing tables */
+void bgp_evpn_import_route_in_vrfs(struct bgp_path_info *pi, int import)
+{
+	struct bgp *bgp_evpn;
+
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn)
+		return;
+
+	bgp_evpn_install_uninstall_table(bgp_evpn, AFI_L2VPN, SAFI_EVPN,
+			&pi->net->p, pi, import, false /*vpn*/, true /*vrf*/);
 }
 
 /*
