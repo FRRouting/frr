@@ -2939,8 +2939,9 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		}
 
 		if (IS_ZEBRA_IF_VXLAN(ifp))
-			return zebra_vxlan_check_del_local_mac(ifp, br_if, &mac,
-							       vid);
+			return zebra_vxlan_dp_network_mac_add(ifp, br_if, &mac,
+					vid, nhg_id, sticky,
+					!!(ndm->ndm_flags & NTF_EXT_LEARNED));
 
 		return zebra_vxlan_local_mac_add_update(ifp, br_if, &mac, vid,
 				sticky, local_inactive, dp_static);
@@ -2968,7 +2969,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	}
 
 	if (IS_ZEBRA_IF_VXLAN(ifp))
-		return zebra_vxlan_check_readd_remote_mac(ifp, br_if, &mac,
+		return zebra_vxlan_dp_network_mac_del(ifp, br_if, &mac,
 							  vid);
 
 	return zebra_vxlan_local_mac_del(ifp, br_if, &mac, vid);
