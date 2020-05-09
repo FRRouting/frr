@@ -1387,7 +1387,8 @@ void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info)
 
 	pi = es_info->pi;
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
-		zlog_debug("path %s unlinked from es %s",
+		zlog_debug("vni %u path %s unlinked from es %s",
+			es_info->vni,
 			prefix2str(&pi->net->p,
 				prefix_buf, sizeof(prefix_buf)),
 			es->esi_str);
@@ -1440,15 +1441,15 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 	bgp_evpn_path_es_unlink(es_info);
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
-		zlog_debug("path %s linked to es %s",
-			prefix2str(&pi->net->p,
+		zlog_debug("vni %u %p path %s linked to es %s",
+			vni, pi, prefix2str(&pi->net->p,
 				prefix_buf, sizeof(prefix_buf)),
 			es->esi_str);
 
 	/* link mac-ip path to the new destination ES */
 	es_info->es = es;
 	listnode_init(&es_info->es_listnode, es_info);
-	listnode_add_sort(es->macip_path_list, &es_info->es_listnode);
+	listnode_add(es->macip_path_list, &es_info->es_listnode);
 }
 
 static void bgp_evpn_es_path_all_update(struct bgp_evpn_es_vtep *es_vtep,
@@ -1467,6 +1468,9 @@ static void bgp_evpn_es_path_all_update(struct bgp_evpn_es_vtep *es_vtep,
 
 	for (ALL_LIST_ELEMENTS_RO(es->macip_path_list, node, es_info)) {
 		pi = es_info->pi;
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+			continue;
+
 		if (pi->sub_type != BGP_ROUTE_IMPORTED)
 			continue;
 
@@ -1996,6 +2000,10 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 				inet_ntoa(es->originator_ip));
 		json_object_int_add(json, "remoteVniCount",
 				es->remote_es_evi_cnt);
+		json_object_int_add(json, "vrfCount",
+				listcount(es->es_vrf_list));
+		json_object_int_add(json, "macipPathCount",
+				listcount(es->macip_path_list));
 		json_object_int_add(json, "inconsistentVniVtepCount",
 				es->incons_evi_vtep_cnt);
 		if (listcount(es->es_vtep_list)) {
@@ -2041,6 +2049,10 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		vty_out(vty, " VNI Count: %d\n", listcount(es->es_evi_list));
 		vty_out(vty, " Remote VNI Count: %d\n",
 				es->remote_es_evi_cnt);
+		vty_out(vty, " VRF Count: %d\n",
+				listcount(es->es_vrf_list));
+		vty_out(vty, " MACIP Path Count: %d\n",
+				listcount(es->macip_path_list));
 		vty_out(vty, " Inconsistent VNI VTEP Count: %d\n",
 				es->incons_evi_vtep_cnt);
 		if (es->inconsistencies) {
@@ -2402,6 +2414,10 @@ bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf,
 
 	*nhg_p = 0;
 
+	/* L3NHG support is disabled, use legacy-exploded multipath */
+	if (!bgp_mh_info->host_routes_use_l3nhg)
+		return false;
+
 	parent_pi = get_route_parent_evpn(pi);
 	if (!parent_pi)
 		return false;
@@ -2412,10 +2428,6 @@ bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf,
 
 	evp = (struct prefix_evpn *)&rn->p;
 	if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
-		return false;
-
-	/* L3NHG support is disabled, use legacy-exploded multipath */
-	if (!bgp_mh_info->host_routes_use_l3nhg)
 		return false;
 
 	/* non-es path, use legacy-exploded multipath */
@@ -2452,6 +2464,107 @@ bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf,
 	}
 
 	return true;
+}
+
+static void bgp_evpn_es_vrf_show_entry(struct vty *vty,
+		struct bgp_evpn_es_vrf *es_vrf, json_object *json)
+{
+	struct bgp_evpn_es *es = es_vrf->es;
+	struct bgp *bgp_vrf = es_vrf->bgp_vrf;
+
+	if (json) {
+		json_object *json_types;
+
+		json_object_string_add(json, "esi", es->esi_str);
+		json_object_string_add(json, "vrf", bgp_vrf->name);
+
+		if (es_vrf->flags & (BGP_EVPNES_VRF_NHG_ACTIVE)) {
+			json_types = json_object_new_array();
+			if (es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE)
+				json_array_string_add(json_types, "active");
+			json_object_object_add(json, "flags", json_types);
+		}
+
+		json_object_int_add(json, "ipv4NHG", es_vrf->nhg_id);
+		json_object_int_add(json, "ipv6NHG", es_vrf->v6_nhg_id);
+		json_object_int_add(json, "refCount", es_vrf->ref_cnt);
+	} else {
+		char flags_str[4];
+
+		flags_str[0] = '\0';
+		if (es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE)
+			strcpy(flags_str + strlen(flags_str), "A");
+
+		vty_out(vty,
+			"%-30s %-15s %-5s %-8u %-8u %u\n",
+			es->esi_str, bgp_vrf->name, flags_str, es_vrf->nhg_id,
+			es_vrf->v6_nhg_id, es_vrf->ref_cnt);
+	}
+}
+
+static void bgp_evpn_es_vrf_show_es(struct vty *vty, json_object *json_array,
+		struct bgp_evpn_es *es)
+{
+	json_object *json = NULL;
+	struct listnode *es_vrf_node;
+	struct bgp_evpn_es_vrf *es_vrf;
+
+	for (ALL_LIST_ELEMENTS_RO(es->es_vrf_list,
+				es_vrf_node, es_vrf)) {
+		/* create a separate json object for each ES-VRF */
+		if (json_array)
+			json = json_object_new_object();
+		bgp_evpn_es_vrf_show_entry(vty, es_vrf, json);
+		/* add ES-VRF to the json array */
+		if (json_array)
+			json_object_array_add(json_array, json);
+	}
+}
+
+/* Display all ES VRFs */
+void bgp_evpn_es_vrf_show(struct vty *vty, bool uj, struct bgp_evpn_es *es)
+{
+	json_object *json_array = NULL;
+
+	if (uj) {
+		/* create an array of ESs */
+		json_array = json_object_new_array();
+	} else {
+		vty_out(vty,
+			"ES-VRF Flags: A Active\n");
+		vty_out(vty,
+			"%-30s %-15s %-5s %-8s %-8s %s\n",
+			"ESI", "VRF", "Flags", "IPv4-NHG",
+			"IPv6-NHG", "Ref");
+	}
+
+	if (es) {
+		bgp_evpn_es_vrf_show_es(vty, json_array, es);
+	} else {
+		RB_FOREACH(es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree)
+			bgp_evpn_es_vrf_show_es(vty, json_array, es);
+	}
+
+	/* print the array of json-ESs */
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					json_array, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_array);
+	}
+}
+
+/* Display specific ES VRF */
+void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj)
+{
+	struct bgp_evpn_es *es;
+
+	es = bgp_evpn_es_find(esi);
+	if (es) {
+		bgp_evpn_es_vrf_show(vty, uj, es);
+	} else {
+		if (!uj)
+			vty_out(vty, "ESI not found\n");
+	}
 }
 
 /*****************************************************************************/
