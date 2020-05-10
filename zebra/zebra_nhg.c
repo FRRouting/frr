@@ -728,7 +728,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE))
 		SET_FLAG(newnhe->flags, NEXTHOP_GROUP_VALID);
 
-	if (nh->next == NULL) {
+	if (nh->next == NULL && newnhe->id < zclient_get_nhg_lower_bound()) {
 		if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
 			/* Single recursive nexthop */
 			handle_recursive_depend(&newnhe->nhg_depends,
@@ -737,6 +737,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 			recursive = true;
 		}
 	} else {
+		/* Proto-owned are groups by default */
 		/* List of nexthops */
 		for (nh = newnhe->nhg.nexthop; nh; nh = nh->next) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
@@ -1022,17 +1023,21 @@ done:
 		zebra_nhg_set_invalid(nhe);
 }
 
+static void zebra_nhg_release_all_deps(struct nhg_hash_entry *nhe)
+{
+	/* Remove it from any lists it may be on */
+	zebra_nhg_depends_release(nhe);
+	zebra_nhg_dependents_release(nhe);
+	if (nhe->ifp)
+		if_nhg_dependents_del(nhe->ifp, nhe);
+}
 
 static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 {
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: nhe %p (%u)", __func__, nhe, nhe->id);
 
-	/* Remove it from any lists it may be on */
-	zebra_nhg_depends_release(nhe);
-	zebra_nhg_dependents_release(nhe);
-	if (nhe->ifp)
-		if_nhg_dependents_del(nhe->ifp, nhe);
+	zebra_nhg_release_all_deps(nhe);
 
 	/*
 	 * If its not zebra owned, we didn't store it here and have to be
@@ -2404,7 +2409,8 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 	}
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)
-	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
+	    && (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
+		|| nhe->id >= zclient_get_nhg_lower_bound())
 	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
 		/* Change its type to us since we are installing it */
 		if (!ZEBRA_NHG_CREATED(nhe))
@@ -2589,7 +2595,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 					   struct nexthop_group *nhg, afi_t afi)
 {
 	struct nhg_hash_entry lookup;
-	struct nhg_hash_entry *new;
+	struct nhg_hash_entry *new, *old;
 	struct nhg_connected *rb_node_dep = NULL;
 
 	zebra_nhe_init(&lookup, afi, nhg->nexthop);
@@ -2597,7 +2603,22 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	lookup.id = id;
 	lookup.type = type;
 
+	old = zebra_nhg_lookup_id(id);
+
+	if (old) {
+		/*
+		 * This is a replace, just release NHE from ID for now, The
+		 * depends/dependents may still be used in the replacement.
+		 */
+		hash_release(zrouter.nhgs_id, old);
+	}
+
 	new = zebra_nhg_rib_find_nhe(&lookup, afi);
+
+	if (old) {
+		/* Now release depends/dependents in old one */
+		zebra_nhg_release_all_deps(old);
+	}
 
 	if (!new)
 		return NULL;
@@ -2611,9 +2632,9 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	}
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: added nhe %p (%u), vrf %d, type %s", __func__,
-			   new, new->id, new->vrf_id,
-			   zebra_route_string(new->type));
+		zlog_debug("%s: %s nhe %p (%u), vrf %d, type %s", __func__,
+			   (old ? "replaced" : "added"), new, new->id,
+			   new->vrf_id, zebra_route_string(new->type));
 
 	return new;
 }
