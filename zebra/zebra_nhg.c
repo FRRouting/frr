@@ -674,7 +674,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	if (lookup->id == 0)
 		lookup->id = ++id_counter;
 
-	if (ZEBRA_OWNED(lookup)) {
+	if (lookup->id < zclient_get_nhg_lower_bound()) {
 		/*
 		 * This is a zebra hashed/owned NHG.
 		 *
