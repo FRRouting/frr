@@ -7147,8 +7147,8 @@ void bgp_terminate(void)
 		BGP_TIMER_OFF(bm->t_rmap_update);
 
 	bgp_mac_finish();
-	bgp_l3nhg_finish();
 	bgp_evpn_mh_finish();
+	bgp_l3nhg_finish();
 }
 
 struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
