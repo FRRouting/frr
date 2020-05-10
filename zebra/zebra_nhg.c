@@ -1244,7 +1244,7 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 		zlog_debug("%s: nh %pNHv, id %u, count %d",
 			   __func__, nh, id, (int)count);
 
-	if (id > id_counter)
+	if (id > id_counter && id < zclient_get_nhg_lower_bound())
 		/* Increase our counter so we don't try to create
 		 * an ID that already exists
 		 */
