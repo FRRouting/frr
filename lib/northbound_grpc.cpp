@@ -179,10 +179,9 @@ class NorthboundImpl
 			zlog_debug("received RPC GetCapabilities()");
 
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC(GetCapabilities);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
 
 			// Response: string frr_version = 1;
@@ -303,10 +302,9 @@ class NorthboundImpl
 			zlog_debug("received RPC CreateCandidate()");
 
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC(CreateCandidate);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
 			struct candidate *candidate = create_candidate();
 			if (!candidate) {
@@ -336,10 +334,9 @@ class NorthboundImpl
 					    frr::DeleteCandidateResponse> *tag)
 	{
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC(DeleteCandidate);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
 
 			// Request: uint32 candidate_id = 1;
@@ -380,10 +377,9 @@ class NorthboundImpl
 					    frr::UpdateCandidateResponse> *tag)
 	{
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC(UpdateCandidate);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
 
 			// Request: uint32 candidate_id = 1;
@@ -438,10 +434,9 @@ class NorthboundImpl
 					  frr::EditCandidateResponse> *tag)
 	{
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC(EditCandidate);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
 
 			// Request: uint32 candidate_id = 1;
@@ -531,12 +526,10 @@ class NorthboundImpl
 					    frr::LoadToCandidateResponse> *tag)
 	{
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC(LoadToCandidate);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
-
 			// Request: uint32 candidate_id = 1;
 			uint32_t candidate_id = tag->request.candidate_id();
 
@@ -610,12 +603,10 @@ class NorthboundImpl
 	HandleCommit(RpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 	{
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC(Commit);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
-
 			// Request: uint32 candidate_id = 1;
 			uint32_t candidate_id = tag->request.candidate_id();
 			if (nb_dbg_client_grpc)
@@ -782,14 +773,13 @@ class NorthboundImpl
 			zlog_debug("received RPC ListTransactions()");
 
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC_STREAMING(ListTransactions);
 			tag->context = new std::list<std::tuple<
 				int, std::string, std::string, std::string>>();
 			nb_db_transactions_iterate(list_transactions_cb,
 						   tag->context);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
 			auto list = static_cast<std::list<std::tuple<
 				int, std::string, std::string, std::string>> *>(
@@ -834,10 +824,9 @@ class NorthboundImpl
 					   frr::GetTransactionResponse> *tag)
 	{
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC(GetTransaction);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
 			// Request: uint32 transaction_id = 1;
 			uint32_t transaction_id = tag->request.transaction_id();
@@ -900,22 +889,14 @@ class NorthboundImpl
 	void HandleLockConfig(
 		RpcState<frr::LockConfigRequest, frr::LockConfigResponse> *tag)
 	{
+		if (nb_dbg_client_grpc)
+			zlog_debug("received RPC LockConfig()");
+
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC(LockConfig);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
-			auto rpcState = new RpcState<frr::LockConfigRequest,
-						     frr::LockConfigResponse>(
-				this, &NorthboundImpl::HandleLockConfig);
-			_service->RequestLockConfig(
-				&rpcState->ctx, &rpcState->request,
-				&rpcState->responder, _cq, _cq, rpcState);
-
-			if (nb_dbg_client_grpc)
-				zlog_debug("received RPC LockConfig()");
-
 			if (nb_running_lock(NB_CLIENT_GRPC, NULL)) {
 				tag->responder.Finish(
 					tag->response,
@@ -941,16 +922,14 @@ class NorthboundImpl
 	void HandleUnlockConfig(RpcState<frr::UnlockConfigRequest,
 					 frr::UnlockConfigResponse> *tag)
 	{
+		if (nb_dbg_client_grpc)
+			zlog_debug("received RPC UnlockConfig()");
+
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC(UnlockConfig);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
-
-			if (nb_dbg_client_grpc)
-				zlog_debug("received RPC UnlockConfig()");
-
 			if (nb_running_unlock(NB_CLIENT_GRPC, NULL)) {
 				tag->responder.Finish(
 					tag->response,
@@ -984,12 +963,10 @@ class NorthboundImpl
 		const char *xpath;
 
 		switch (tag->state) {
-		case CREATE: {
+		case CREATE:
 			REQUEST_RPC(Execute);
 			tag->state = PROCESS;
-		}
 		case PROCESS: {
-
 			// Request: string path = 1;
 			xpath = tag->request.path().c_str();
 
