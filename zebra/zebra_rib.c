@@ -2683,14 +2683,14 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 	if (!table)
 		return -1;
 
-	if (re_nhe->id > 0) {
-		nhe = zebra_nhg_lookup_id(re_nhe->id);
+	if (re->nhe_id > 0) {
+		nhe = zebra_nhg_lookup_id(re->nhe_id);
 
 		if (!nhe) {
 			flog_err(
 				EC_ZEBRA_TABLE_LOOKUP_FAILED,
 				"Zebra failed to find the nexthop hash entry for id=%u in a route entry",
-				re_nhe->id);
+				re->nhe_id);
 
 			return -1;
 		}

@@ -1787,16 +1787,6 @@ stream_failure:
 	return;
 }
 
-static bool zapi_msg_get_nhg(struct zapi_route *api, struct nexthop_group **ng)
-{
-	if (!CHECK_FLAG(api->message, ZAPI_MESSAGE_NHG))
-		return false;
-
-	/* TODO lookup the ng from api->nhgid */
-	*ng = NULL;
-	return true;
-}
-
 static void zread_route_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
@@ -1861,10 +1851,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				zebra_route_string(client->proto), &api.prefix);
 	}
 
-	if (zapi_msg_get_nhg(&api, &ng)
-	    || !zapi_read_nexthops(client, &api.prefix, api.nexthops,
-				   api.flags, api.nexthop_num,
-				   api.backup_nexthop_num, &ng, NULL)
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG))
+		re->nhe_id = api.nhgid;
+
+	if (!re->nhe_id
+	    || !zapi_read_nexthops(client, &api.prefix, api.nexthops, api.flags,
+				   api.nexthop_num, api.backup_nexthop_num, &ng,
+				   NULL)
 	    || !zapi_read_nexthops(client, &api.prefix, api.backup_nexthops,
 				   api.flags, api.backup_nexthop_num,
 				   api.backup_nexthop_num, NULL, &bnhg)) {
@@ -1904,13 +1897,21 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	/* Include backup info with the route. We use a temporary nhe here;
+	/*
+	 * If we have an ID, this proto owns the NHG it sent along with the
+	 * route, so we just send the ID into rib code with it.
+	 *
+	 * Havent figured out how to handle backup NHs with this yet, so lets
+	 * keep that separate.
+	 * Include backup info with the route. We use a temporary nhe here;
 	 * if this is a new/unknown nhe, a new copy will be allocated
 	 * and stored.
 	 */
-	zebra_nhe_init(&nhe, afi, ng->nexthop);
-	nhe.nhg.nexthop = ng->nexthop;
-	nhe.backup_info = bnhg;
+	if (!re->nhe_id) {
+		zebra_nhe_init(&nhe, afi, ng->nexthop);
+		nhe.nhg.nexthop = ng->nexthop;
+		nhe.backup_info = bnhg;
+	}
 	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p,
 				    re, &nhe);
 
