@@ -170,6 +170,10 @@ struct zebra_evpn_mh_info {
  * local ES down
  */
 #define ZEBRA_EVPN_MH_REDIRECT_OFF (1 << 0)
+/* DAD support for EVPN-MH is yet to be added. So on detection of
+ * first local ES, DAD is turned off
+ */
+#define ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF (1 << 1)
 
 	/* RB tree of Ethernet segments (used for EVPN-MH)  */
 	struct zebra_es_rb_head es_rb_tree;
@@ -243,6 +247,12 @@ static inline bool zebra_evpn_es_local_mac_via_network_port(
 	return !(es->flags & ZEBRA_EVPNES_OPER_UP) &&
 		(zmh_info->flags & ZEBRA_EVPN_MH_REDIRECT_OFF);
 }
+
+static inline bool zebra_evpn_mh_do_dup_addr_detect(void)
+{
+	return !(zmh_info->flags & ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF);
+}
+
 
 /*****************************************************************************/
 extern esi_t *zero_esi;

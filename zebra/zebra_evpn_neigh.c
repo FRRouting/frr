@@ -979,7 +979,8 @@ void zebra_evpn_process_neigh_on_local_mac_change(zebra_evpn_t *zevpn,
 			    || es_change) {
 				ZEBRA_NEIGH_SET_ACTIVE(n);
 				n->loc_seq = zmac->loc_seq;
-				if (!(zvrf->dup_addr_detect && zvrf->dad_freeze
+				if (!(zebra_evpn_do_dup_addr_detect(zvrf)
+						&& zvrf->dad_freeze
 				      && !!CHECK_FLAG(n->flags,
 						      ZEBRA_NEIGH_DUPLICATE)))
 					zebra_evpn_neigh_send_add_to_client(
@@ -1130,7 +1131,7 @@ static int zebra_evpn_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 	bool is_old_mac_dup = false;
 	bool is_new_mac_dup = false;
 
-	if (!zvrf->dup_addr_detect)
+	if (!zebra_evpn_do_dup_addr_detect(zvrf))
 		return 0;
 	/* Check old or new MAC is detected as duplicate
 	 * mark this neigh as duplicate
@@ -1227,7 +1228,7 @@ zebra_evpn_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf, zebra_neigh_t *nbr,
 	char buf1[INET6_ADDRSTRLEN];
 	bool reset_params = false;
 
-	if (!zvrf->dup_addr_detect)
+	if (!zebra_evpn_do_dup_addr_detect(zvrf))
 		return;
 
 	/* IP is detected as duplicate or inherit dup
@@ -1480,7 +1481,7 @@ int zebra_evpn_local_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 				 * is enabled, do not send update to client.
 				 */
 				is_neigh_freezed =
-					(zvrf->dup_addr_detect
+					(zebra_evpn_do_dup_addr_detect(zvrf)
 					 && zvrf->dad_freeze
 					 && CHECK_FLAG(n->flags,
 						       ZEBRA_NEIGH_DUPLICATE));
