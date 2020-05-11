@@ -28,6 +28,7 @@
 #include "pathd/pathd.h"
 #include "pathd/path_pcep_memory.h"
 
+#define PCC_DEFAULT_MSD 4
 #define PCEP_DEFAULT_PORT 4189
 #define MAX_PCC 1
 #define MAX_TAG_SIZE 50
@@ -88,6 +89,7 @@ struct pce_opts {
 struct pcc_opts {
 	struct ipaddr addr;
 	short port;
+	short msd;
 };
 
 struct lsp_nb_key {

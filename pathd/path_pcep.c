@@ -304,18 +304,21 @@ DEFUN(show_pcep_counters, show_pcep_counters_cmd, "show pcep counters",
 }
 
 DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
-	   "pcc [<ip A.B.C.D | ipv6 X:X::X:X>] [port (1024-65535)]",
+	   "pcc [<ip A.B.C.D | ipv6 X:X::X:X>] [port (1024-65535)] [msd (1-16)]",
 	   "PCC configuration\n"
 	   "PCC source ip\n"
 	   "PCC source IPv4 address\n"
 	   "PCC source ip\n"
 	   "PCC source IPv6 address\n"
 	   "PCC source port\n"
-	   "PCC source port value\n")
+	   "PCC source port value\n"
+	   "PCC maximum SID depth \n"
+	   "PCC maximum SID depth value\n")
 {
 
 	struct ipaddr pcc_addr;
 	uint32_t pcc_port = PCEP_DEFAULT_PORT;
+	uint32_t pcc_msd = PCC_DEFAULT_MSD;
 	struct pcc_opts *opts, *opts_copy;
 	int i = 1;
 
@@ -358,12 +361,23 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 			i++;
 			continue;
 		}
+		if (strcmp("msd", argv[i]->arg) == 0) {
+			i++;
+			if (i >= argc)
+				return CMD_ERR_NO_MATCH;
+			pcc_msd = atoi(argv[i]->arg);
+			if (pcc_msd <= 0 || pcc_msd >= 16)
+				return CMD_ERR_INCOMPLETE;
+			i++;
+			continue;
+		}
 		return CMD_ERR_NO_MATCH;
 	}
 
 	opts = XCALLOC(MTYPE_PCEP, sizeof(*opts));
 	IPADDR_COPY(&opts->addr, &pcc_addr);
 	opts->port = pcc_port;
+  opts->msd = pcc_msd;
 
 	if (pcep_ctrl_update_pcc_options(pcep_g->fpt, opts))
 		return CMD_WARNING;
@@ -588,6 +602,9 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 		if (pcep_g->pcc_opts->port != PCEP_DEFAULT_PORT)
 			csnprintfrr(buff, sizeof(buff), " port %d",
 				    pcep_g->pcc_opts->port);
+		if (pcep_g->pcc_opts->msd != PCC_DEFAULT_MSD)
+			csnprintfrr(buff, sizeof(buff), " msd %d",
+				    pcep_g->pcc_opts->msd);
 		vty_out(vty, "pcc%s\n", buff);
 		buff[0] = 0;
 		lines++;

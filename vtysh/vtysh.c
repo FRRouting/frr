@@ -1952,14 +1952,16 @@ DEFUNSH(VTYSH_PATHD, te_path_sr_policy, te_path_sr_policy_cmd,
 }
 
 DEFUNSH(VTYSH_PATHD, pcep_cli_pcc, pcep_cli_pcc_cmd,
-	"pcc [<ip A.B.C.D | ipv6 X:X::X:X>] [port (1024-65535)]",
+	"pcc [<ip A.B.C.D | ipv6 X:X::X:X>] [port (1024-65535)] [msd (1-16)]",
 	"PCC configuration\n"
 	"PCC source ip\n"
 	"PCC source IPv4 address\n"
 	"PCC source ip\n"
 	"PCC source IPv6 address\n"
 	"PCC source port\n"
-	"PCC source port value\n")
+	"PCC source port value\n"
+	"PCC maximum SID depth \n"
+	"PCC maximum SID depth value\n")
 {
 	vty->node = PCC_NODE;
 	return CMD_SUCCESS;
