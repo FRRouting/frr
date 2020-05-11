@@ -344,7 +344,7 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 	char buf1[INET6_ADDRSTRLEN];
 	bool reset_params = false;
 
-	if (!(zvrf->dup_addr_detect && do_dad))
+	if (!(zebra_evpn_do_dup_addr_detect(zvrf) && do_dad))
 		return;
 
 	/* MAC is detected as duplicate,

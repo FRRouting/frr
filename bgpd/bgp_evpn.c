@@ -5832,8 +5832,7 @@ void bgp_evpn_init(struct bgp *bgp)
 	 * and freeze time (auto-recovery) is disabled.
 	 */
 	if (bgp->evpn_info) {
-		/* XXX - temporarily disable dad for evpn-mh testing */
-		bgp->evpn_info->dup_addr_detect = false;
+		bgp->evpn_info->dup_addr_detect = true;
 		bgp->evpn_info->dad_time = EVPN_DAD_DEFAULT_TIME;
 		bgp->evpn_info->dad_max_moves = EVPN_DAD_DEFAULT_MAX_MOVES;
 		bgp->evpn_info->dad_freeze = false;
