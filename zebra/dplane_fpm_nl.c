@@ -184,31 +184,6 @@ static int fpm_rmac_send(struct thread *t);
 static int fpm_rmac_reset(struct thread *t);
 
 /*
- * Helper functions.
- */
-
-/**
- * Reorganizes the data on the buffer so it can fit more data.
- *
- * @param s stream pointer.
- */
-static void stream_pulldown(struct stream *s)
-{
-	size_t rlen = STREAM_READABLE(s);
-
-	/* No more data, so just move the pointers. */
-	if (rlen == 0) {
-		stream_reset(s);
-		return;
-	}
-
-	/* Move the available data to the beginning. */
-	memmove(s->data, &s->data[s->getp], rlen);
-	s->getp = 0;
-	s->endp = rlen;
-}
-
-/*
  * CLI.
  */
 #define FPM_STR "Forwarding Plane Manager configuration\n"
