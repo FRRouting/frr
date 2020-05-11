@@ -24,6 +24,7 @@ VTYSH="@vtysh_bin@" # /usr/bin/vtysh
 FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
 FRR_VTY_GROUP="@enable_vty_group@" # frrvty
+FRR_CONFIG_MODE="@enable_configfile_mask@" # 0600
 FRR_DEFAULT_PROFILE="@DFLT_NAME@" # traditional / datacenter
 
 # ORDER MATTERS FOR $DAEMONS!
@@ -53,6 +54,7 @@ debug() {
 chownfrr() {
 	[ -n "$FRR_USER" ] && chown "$FRR_USER" "$1"
 	[ -n "$FRR_GROUP" ] && chgrp "$FRR_GROUP" "$1"
+	[ -n "$FRR_CONFIG_MODE" ] && chmod "$FRR_CONFIG_MODE" "$1"
 }
 
 vtysh_b () {
