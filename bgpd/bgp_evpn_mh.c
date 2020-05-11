@@ -1440,6 +1440,9 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 	/* unlink old ES if any */
 	bgp_evpn_path_es_unlink(es_info);
 
+	if (!es)
+		return;
+
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 		zlog_debug("vni %u %p path %s linked to es %s",
 			vni, pi, prefix2str(&pi->net->p,
