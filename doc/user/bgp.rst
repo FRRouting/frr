@@ -3041,8 +3041,8 @@ certainly contains silly mistakes, if not serious flaws.
    ip prefix-list pl-peer2-network permit 192.168.2.0/24
    ip prefix-list pl-peer2-network permit 172.16.1/24
    !
-   ip as-path access-list asp-own-as permit ^$
-   ip as-path access-list asp-own-as permit _64512_
+   bgp as-path access-list asp-own-as permit ^$
+   bgp as-path access-list asp-own-as permit _64512_
    !
    ! #################################################################
    ! Match communities we provide actions for, on routes receives from

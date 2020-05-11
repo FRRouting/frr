@@ -548,15 +548,6 @@ DEFUN (no_as_path_all,
 	return CMD_SUCCESS;
 }
 
-ALIAS (no_as_path_all,
-       no_ip_as_path_all_cmd,
-       "no ip as-path access-list WORD",
-       NO_STR
-       IP_STR
-       "BGP autonomous system path filter\n"
-       "Specify an access list name\n"
-       "Regular expression access list name\n")
-
 static void as_list_show(struct vty *vty, struct as_list *aslist)
 {
 	struct as_filter *asfilter;
@@ -683,7 +674,6 @@ void bgp_filter_init(void)
 	install_element(CONFIG_NODE, &bgp_as_path_cmd);
 	install_element(CONFIG_NODE, &no_bgp_as_path_cmd);
 	install_element(CONFIG_NODE, &no_bgp_as_path_all_cmd);
-	install_element(CONFIG_NODE, &no_ip_as_path_all_cmd);
 
 	install_element(VIEW_NODE, &show_bgp_as_path_access_list_cmd);
 	install_element(VIEW_NODE, &show_ip_as_path_access_list_cmd);
