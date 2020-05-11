@@ -119,6 +119,11 @@ static void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
 				struct in_addr mcast_grp);
 static void zebra_vxlan_sg_cleanup(struct hash_bucket *bucket, void *arg);
 
+bool zebra_evpn_do_dup_addr_detect(struct zebra_vrf *zvrf)
+{
+	return zvrf->dup_addr_detect && zebra_evpn_mh_do_dup_addr_detect();
+}
+
 /* Private functions */
 static int host_rb_entry_compare(const struct host_rb_entry *hle1,
 				 const struct host_rb_entry *hle2)
@@ -3331,7 +3336,7 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		json_object_int_add(json, "numVnis", num_vnis);
 		json_object_int_add(json, "numL2Vnis", num_l2vnis);
 		json_object_int_add(json, "numL3Vnis", num_l3vnis);
-		if (zvrf->dup_addr_detect)
+		if (zebra_evpn_do_dup_addr_detect(zvrf))
 			json_object_boolean_true_add(json,
 						"isDuplicateAddrDetection");
 		else
@@ -3350,7 +3355,8 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		vty_out(vty, "Advertise svi mac-ip: %s\n",
 			zvrf->advertise_svi_macip ? "Yes" : "No");
 		vty_out(vty, "Duplicate address detection: %s\n",
-			zvrf->dup_addr_detect ? "Enable" : "Disable");
+			zebra_evpn_do_dup_addr_detect(zvrf) ?
+			"Enable" : "Disable");
 		vty_out(vty, "  Detection max-moves %u, time %d\n",
 			zvrf->dad_max_moves, zvrf->dad_time);
 		if (zvrf->dad_freeze) {
@@ -3419,6 +3425,7 @@ void zebra_vxlan_dup_addr_detection(ZAPI_HANDLER_ARGS)
 	uint32_t freeze_time = 0;
 	bool dup_addr_detect = false;
 	bool freeze = false;
+	bool old_addr_detect;
 
 	s = msg;
 	STREAM_GETL(s, dup_addr_detect);
@@ -3427,13 +3434,16 @@ void zebra_vxlan_dup_addr_detection(ZAPI_HANDLER_ARGS)
 	STREAM_GETL(s, freeze);
 	STREAM_GETL(s, freeze_time);
 
+	old_addr_detect = zebra_evpn_do_dup_addr_detect(zvrf);
+	zvrf->dup_addr_detect = dup_addr_detect;
+	dup_addr_detect = zebra_evpn_do_dup_addr_detect(zvrf);
+
 	/* DAD previous state was enabled, and new state is disable,
 	 * clear all duplicate detected addresses.
 	 */
-	if (zvrf->dup_addr_detect && !dup_addr_detect)
+	if (old_addr_detect && !dup_addr_detect)
 		zebra_vxlan_clear_dup_detect_vni_all(zvrf);
 
-	zvrf->dup_addr_detect = dup_addr_detect;
 	zvrf->dad_time = time;
 	zvrf->dad_max_moves = max_moves;
 	zvrf->dad_freeze = freeze;
@@ -3443,7 +3453,7 @@ void zebra_vxlan_dup_addr_detection(ZAPI_HANDLER_ARGS)
 		zlog_debug(
 			"VRF %s duplicate detect %s max_moves %u timeout %u freeze %s freeze_time %u",
 			vrf_id_to_name(zvrf->vrf->vrf_id),
-			zvrf->dup_addr_detect ? "enable" : "disable",
+			dup_addr_detect ? "enable" : "disable",
 			zvrf->dad_max_moves,
 			zvrf->dad_time,
 			zvrf->dad_freeze ? "enable" : "disable",
