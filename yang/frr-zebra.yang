@@ -632,12 +632,6 @@ module frr-zebra {
         "RIBs supported by FRR.";
       list rib {
         key "afi-safi-name table-id";
-        leaf table-id {
-          type uint32;
-          description
-            "Routing Table id (default id - 254).";
-        }
-
         leaf afi-safi-name {
           type identityref {
             base afi-safi-type;
@@ -646,29 +640,36 @@ module frr-zebra {
             "AFI, SAFI name.";
         }
 
+        leaf table-id {
+          type uint32;
+          description
+            "Routing Table id (default id - 254).";
+        }
+
         list route {
           key "prefix";
           config false;
           leaf prefix {
-             type inet:ip-prefix;
-             description
-                "The route's prefix.";
+            type inet:ip-prefix;
+            description
+              "The route's prefix.";
           }
 
           list route-entry {
             key "protocol";
             leaf protocol {
-               type frr-route-types:frr-route-types;
-               description
-                  "The protocol owning the route.";
+              type frr-route-types:frr-route-types;
+              description
+                "The protocol owning the route.";
             }
 
             leaf instance {
               type uint16;
               must "../protocol = \"ospf\"";
               description
-              "Retrieve routes from a specific OSPF instance.";
+                "Retrieve routes from a specific OSPF instance.";
             }
+
             uses route-common;
           }
         }
