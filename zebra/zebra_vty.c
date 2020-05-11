@@ -1522,7 +1522,7 @@ DEFPY (show_route,
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct vrf *vrf;
 	int type = 0;
-	struct zebra_vrf *zvrf;
+	struct zebra_vrf *zvrf = NULL;
 
 	if (!vrf_is_backend_netns()) {
 		if ((vrf_all || vrf_name) && (table || table_all)) {
