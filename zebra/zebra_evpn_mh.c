@@ -363,7 +363,7 @@ void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj, vni_t vni, int detail)
 		}
 	} else {
 		if (!uj)
-			vty_out(vty, "VNI %d doesn't exist\n", zevpn->vni);
+			vty_out(vty, "VNI %d doesn't exist\n", vni);
 	}
 	zebra_evpn_es_evi_show_one_evpn(zevpn, vty, json, detail);
 }
@@ -1776,7 +1776,7 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es *es)
 	list_delete_node(zmh_info->local_es_list, &es->local_es_listnode);
 
 	/* free up the ES if there is no remote reference */
-	es = zebra_evpn_es_free(es);
+	zebra_evpn_es_free(es);
 }
 
 /* Delete an ethernet segment and inform BGP */
