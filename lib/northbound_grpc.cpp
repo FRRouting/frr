@@ -1406,6 +1406,8 @@ static int frr_grpc_module_very_late_init(struct thread *thread)
 	if (frr_grpc_init(&port) < 0)
 		goto error;
 
+	return 0;
+
 error:
 	flog_err(EC_LIB_GRPC_INIT, "failed to initialize the gRPC module");
 	return -1;
