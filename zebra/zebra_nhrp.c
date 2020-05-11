@@ -79,6 +79,7 @@ struct zebra_nhrp_ctx {
 	int disable_redirect_ipv6_retry;
 	struct event *zebra_nhrp_retry_event;
 	int retry[AFI_MAX];
+	uint32_t vrid_fastpath; /* val used by fast path */
 };
 
 #define ZEBRA_GRE_NHRP_6WIND_PORT 36344
@@ -96,7 +97,7 @@ static int zebra_nhrp_6wind_redirect_set(struct interface *ifp, int family, int 
 /* internal */
 static int zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
 				bool on, struct interface *ifp,
-				int nflog_group);
+				int nflog_group, uint32_t *vrid_fastpath);
 static int zebra_nhrp_call_only(const char *script, vrf_id_t vrf_id,
 				char *buf_response, int len_buf);
 static void zebra_nhrp_6wind_notify_differ(struct event *event);
@@ -297,13 +298,15 @@ static void zebra_nhrp_flush_entry(struct zebra_nhrp_ctx *ctx)
 	for (afi = 0; afi < AFI_MAX; afi++) {
 		if (ctx->nhrp_6wind_notify[afi]) {
 			zebra_nhrp_configure(true, afi == AFI_IP ? true : false,
-					     false, ctx->ifp, ctx->nflog_group);
+					     false, ctx->ifp, ctx->nflog_group,
+					     &ctx->vrid_fastpath);
 			ctx->nhrp_6wind_notify[afi] = false;
 			ctx->nhrp_6wind_notify_differ[afi] = false;
 		}
 		if (ctx->nflog_notify[afi]) {
 			zebra_nhrp_configure(false, afi == AFI_IP ? true : false,
-					     false, ctx->ifp, ctx->nflog_group);
+					     false, ctx->ifp, ctx->nflog_group,
+					     &ctx->vrid_fastpath);
 			ctx->nflog_notify[afi] = false;
 		}
 	}
@@ -358,6 +361,51 @@ static struct zebra_nhrp_ctx *zebra_nhrp_lookup(struct interface *ifp)
 	return hash_lookup(zebra_nhrp_list, &ctx);
 }
 
+struct zebra_nhrp_walker {
+	ifindex_t idx;
+	uint32_t vrid_fastpath;
+	struct zebra_nhrp_ctx *ctx;
+};
+
+static int zebra_nhrp_lookup_walker(struct hash_bucket *b, void *data)
+{
+	struct zebra_nhrp_walker *znw = data;
+	struct zebra_nhrp_ctx *ctx = b->data;
+
+	if (!ctx->ifp)
+		return HASHWALK_CONTINUE;
+
+	if (znw->idx == ctx->ifp->ifindex &&
+	    znw->vrid_fastpath == ctx->vrid_fastpath) {
+		znw->ctx = ctx;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
+static struct interface *zebra_nhrp_lookup_interface(uint32_t vrid_fastpath, ifindex_t idx)
+{
+	struct zebra_nhrp_walker znw;
+	struct zebra_nhrp_ctx *ctx;
+	struct interface *ifp;
+
+	/* case vrid is 0 => VRF_DEFAULT */
+	if (!vrid_fastpath) {
+		ifp = if_lookup_by_index(idx, VRF_DEFAULT);
+		if (ifp)
+			return ifp;
+	}
+	memset(&znw, 0, sizeof(struct zebra_nhrp_walker));
+	znw.idx = idx;
+	znw.vrid_fastpath = vrid_fastpath;
+
+	hash_walk(zebra_nhrp_list, &zebra_nhrp_lookup_walker, &znw);
+	if (!znw.ctx)
+		return NULL;
+	ctx = znw.ctx;
+	return ctx->ifp;
+}
+
 static void *zebra_nhrp_alloc(void *arg)
 {
 	void *ctx_to_allocate;
@@ -386,7 +434,8 @@ static void zebra_nhrp_update_nfgroup(int nflog_group,
 		/* suppress */
 		if (ctxt->nflog_notify[afi])
 			zebra_nhrp_configure(false, afi == AFI_IP ? true : false,
-					     false, ctxt->ifp, ctxt->nflog_group);
+					     false, ctxt->ifp, ctxt->nflog_group,
+					     &ctxt->vrid_fastpath);
 	}
 	ctxt->nflog_group = nflog_group;
 	if (!nflog_group)
@@ -395,7 +444,8 @@ static void zebra_nhrp_update_nfgroup(int nflog_group,
 		/* readd */
 		if (ctxt->nflog_notify[afi])
 			zebra_nhrp_configure(false, afi == AFI_IP ? true : false,
-					     true, ctxt->ifp, ctxt->nflog_group);
+					     true, ctxt->ifp, ctxt->nflog_group,
+					     &ctxt->vrid_fastpath);
 	}
 }
 
@@ -493,7 +543,8 @@ static bool zebra_nhrp_6wind_action_ctx(struct zebra_nhrp_ctx *ctx)
 		if (ctx->nhrp_6wind_notify_differ[i]) {
 			ctx->retry[i]++;
 			ret = zebra_nhrp_configure(true, i == AFI_IP ? true : false,
-						   true, ctx->ifp, ctx->nflog_group);
+						   true, ctx->ifp, ctx->nflog_group,
+						   &ctx->vrid_fastpath);
 			if (ret) {
 				if (ctx->retry[i] == NHRP_RETRY_MAX) {
 					zlog_debug("%s(): failed to configure nhrp 6wind for afi %d, if %s",
@@ -567,7 +618,8 @@ static int zebra_nhrp_6wind_if_new_hook(struct interface *ifp)
 		for (i = 0; i < AFI_MAX; i++) {
 			if (ptr->nhrp_6wind_notify_differ[i])
 				ret = zebra_nhrp_configure(true, i == AFI_IP ? true : false,
-						     true, ifp, ptr->nflog_group);
+							   true, ifp, ptr->nflog_group,
+							   &ptr->vrid_fastpath);
 			if (ret && ptr->nhrp_6wind_notify[i]) {
 				ptr->nhrp_6wind_notify_differ[i] = ptr->nhrp_6wind_notify[i];
 				replay = true;
@@ -609,7 +661,7 @@ void zebra_nhrp_6wind_log_recv(struct event *t)
 	uint32_t strip_size;
 	uint32_t protocol_type;
 	uint8_t *data;
-	vrf_id_t vrf_id;
+	uint32_t vrid_fastpath;
 	struct interface *ifp;
 
 	zebra_nhrp_log_event = NULL;
@@ -633,15 +685,16 @@ void zebra_nhrp_6wind_log_recv(struct event *t)
 		return;
 	}
 	iface_idx = (ifindex_t)ntohl(ctxt->iface_idx);
-	vrf_id = (vrf_id_t)(ctxt->vrfid);
-	protocol_type = ntohs(ctxt->protocol_type);
-	data = (uint8_t *)(ctxt + 1);
-	ifp = if_lookup_by_index(iface_idx, vrf_id);
+	vrid_fastpath = ntohs(ctxt->vrfid);
+	/* search interface with vrid_fastpath and iface_idx */
+	ifp = zebra_nhrp_lookup_interface(vrid_fastpath, iface_idx);
 	if (!ifp) {
 		zlog_err("%s(): unknown interface idx %u vrf_id %u",
-			 __func__, iface_idx, vrf_id);
+			 __func__, iface_idx, vrid_fastpath);
 		return;
 	}
+	protocol_type = ntohs(ctxt->protocol_type);
+	data = (uint8_t *)(ctxt + 1);
 	zsend_nflog_notify(ZEBRA_NFLOG_TRAFFIC_INDICATION, ifp,
 			   protocol_type, data,
 			   packet_length - strip_size);
@@ -703,7 +756,7 @@ void zebra_nhrp_6wind_connection(bool on, uint16_t port)
 
 static int zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
 				bool on, struct interface *ifp,
-				int nflog_group)
+				int nflog_group, uint32_t *vrid)
 {
 	char buf[500], buf2[100], buf3[110], buf4_ipv4[100], buf4_ipv6[100], buf5_vrf[55];
 	struct vrf *vrf = NULL;
@@ -744,7 +797,7 @@ static int zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
 			 nflog_group,
 			 buf2, buf3, is_ipv4 ? buf4_ipv4 : buf4_ipv6);
 	} else {
-		uint32_t vrid = 0;
+		uint32_t vrid_fastpath = 0;
 
 		if (vrf->vrf_id != VRF_DEFAULT) {
 			snprintf(buf, sizeof(buf), "/usr/bin/vrfctl list vrfname %s",
@@ -752,18 +805,20 @@ static int zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
 			memset(buf_vrf, 0, sizeof(buf_vrf));
 			zebra_nhrp_call_only(buf, ifp->vrf->vrf_id, buf_vrf, sizeof(buf_vrf));
 			if (memcmp(buf_vrf, "vrf", 3) == 0)
-				vrid = atoi(&buf_vrf[3]);
+				vrid_fastpath = atoi(&buf_vrf[3]);
 			else {
 				zlog_err("%s(): could not retrieve id from vrf %s (%s)",
 					 __func__, vrf->name, buf_vrf);
 				return -1;
 			}
+			if (vrid)
+				*vrid = vrid_fastpath;
 		}
 		snprintf(buf, sizeof(buf), "/usr/bin/fp-cli nhrp-iface-set %s %s %s %u 2>&1",
 			 ifp->name,
 			 is_ipv4 ? "ipv4" : "ipv6",
 			 on ? "on" : "off",
-			 vrid);
+			 vrid_fastpath);
 	}
 	memset(retstr, 0, sizeof(retstr));
 	ret = zebra_nhrp_call_only(buf, ifp->vrf->vrf_id, retstr, sizeof(retstr));
@@ -792,7 +847,7 @@ void zebra_nhrp_interface_configure(struct interface *ifp, bool nhrp_6wind,
 
 	/* retry mechanism */
 	ret = zebra_nhrp_configure(nhrp_6wind, afi == AFI_IP, enabled, ifp,
-		     ctx->nflog_group);
+		     ctx->nflog_group, &ctx->vrid_fastpath);
 
 	if (ret && ctx->nhrp_6wind_notify[afi]) {
 		ctx->nhrp_6wind_notify_differ[afi] = ctx->nhrp_6wind_notify[afi];
