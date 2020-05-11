@@ -2502,7 +2502,7 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 	if (!pi) {
 		/* Create an info */
-		(void)bgp_create_evpn_bgp_path_info(parent_pi, rn,
+		pi = bgp_create_evpn_bgp_path_info(parent_pi, rn,
 						    parent_pi->attr);
 	} else {
 		if (attrhash_cmp(pi->attr, parent_pi->attr)
