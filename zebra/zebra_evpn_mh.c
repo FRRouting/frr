@@ -1660,6 +1660,36 @@ void zebra_evpn_es_local_br_port_update(struct zebra_if *zif)
 		zebra_evpn_es_br_port_dplane_update(es, __func__);
 }
 
+/* On config of first local-ES turn off DAD */
+static void zebra_evpn_mh_dup_addr_detect_off(void)
+{
+	struct zebra_vrf *zvrf;
+	bool old_detect;
+	bool new_detect;
+
+	if (zmh_info->flags & ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF)
+		return;
+
+	zvrf = zebra_vrf_get_evpn();
+	if (!zvrf) {
+		zmh_info->flags |= ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF;
+		return;
+	}
+
+	old_detect = zebra_evpn_do_dup_addr_detect(zvrf);
+	zmh_info->flags |= ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF;
+	new_detect = zebra_evpn_do_dup_addr_detect(zvrf);
+
+	if (old_detect && !new_detect) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug(
+				"evpn-mh config caused DAD addr detect chg from %s to %s",
+				old_detect ? "on" : "off",
+				new_detect ? "on" : "off");
+		zebra_vxlan_clear_dup_detect_vni_all(zvrf);
+	}
+}
+
 static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 		struct zebra_if *zif)
 {
@@ -1669,6 +1699,8 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("local es %s add; nhg 0x%x if %s",
 				es->esi_str, es->nhg_id, zif->ifp->name);
+
+	zebra_evpn_mh_dup_addr_detect_off();
 
 	es->flags |= ZEBRA_EVPNES_LOCAL;
 	listnode_init(&es->local_es_listnode, es);

@@ -164,6 +164,12 @@ struct zebra_evpn_access_bd {
 /* multihoming information stored in zrouter */
 #define zmh_info (zrouter.mh_info)
 struct zebra_evpn_mh_info {
+	uint32_t flags;
+/* DAD support for EVPN-MH is yet to be added. So on detection of
+ * first local ES, DAD is turned off
+ */
+#define ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF (1 << 1)
+
 	/* RB tree of Ethernet segments (used for EVPN-MH)  */
 	struct zebra_es_rb_head es_rb_tree;
 	/* List of local ESs */
@@ -227,6 +233,12 @@ static inline bool zebra_evpn_mh_is_fdb_nh(uint32_t id)
 	return ((id & EVPN_NHG_ID_TYPE_BIT) ||
 			(id & EVPN_NH_ID_TYPE_BIT));
 }
+
+static inline bool zebra_evpn_mh_do_dup_addr_detect(void)
+{
+	return !(zmh_info->flags & ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF);
+}
+
 
 /*****************************************************************************/
 extern esi_t *zero_esi;
