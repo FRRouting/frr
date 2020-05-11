@@ -395,7 +395,14 @@ MPLS
 - :rfc:`7552`
   :t:`Updates to LDP for IPv6, R. Asati, C. Pignataro, K. Raza, V. Manral, and R. Papneja. June 2015.`
 
+VRRP
+----
 
+- :rfc:`3768`
+  :t:`Virtual Router Redundancy Protocol (VRRP). R. Hinden. April 2004.`
+- :rfc:`5798`
+  :t:`Virtual Router Redundancy Protocol (VRRP) Version 3 for IPv4 and IPv6. S. Nadas. June 2000.`
+  
 SNMP
 ----
 
