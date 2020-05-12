@@ -22,6 +22,40 @@
 #include "libfrr.h"
 #include "zebra_nb.h"
 
+const char *zebra_afi_safi_value2identity(afi_t afi, safi_t safi)
+{
+	if (afi == AFI_IP && safi == SAFI_UNICAST)
+		return "ipv4-unicast";
+	if (afi == AFI_IP6 && safi == SAFI_UNICAST)
+		return "ipv6-unicast";
+	if (afi == AFI_IP && safi == SAFI_MULTICAST)
+		return "ipv4-multicast";
+	if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
+		return "ipv6-multicast";
+
+	return " ";
+}
+
+void zebra_afi_safi_identity2value(const char *key, afi_t *afi, safi_t *safi)
+{
+	if (strmatch(key, "frr-zebra:ipv4-unicast")) {
+		*afi = AFI_IP;
+		*safi = SAFI_UNICAST;
+	} else if (strmatch(key, "frr-zebra:ipv6-unicast")) {
+		*afi = AFI_IP6;
+		*safi = SAFI_UNICAST;
+	} else if (strmatch(key, "frr-zebra:ipv4-multicast")) {
+		*afi = AFI_IP;
+		*safi = SAFI_MULTICAST;
+	} else if (strmatch(key, "frr-zebra:ipv6-multicast")) {
+		*afi = AFI_IP6;
+		*safi = SAFI_MULTICAST;
+	} else {
+		*afi = AFI_UNSPEC;
+		*safi = SAFI_UNSPEC;
+	}
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_zebra_info = {
 	.name = "frr-zebra",
