@@ -143,7 +143,7 @@ BFD peers and profiles share the same BFD session configuration commands.
 .. clicmd:: transmit-interval (10-60000)
 
    The minimum transmission interval (less jitter) that this system
-   wants to use to send BFD control packets.
+   wants to use to send BFD control packets. Defaults to 300ms.
 
 .. index:: echo-interval (10-60000)
 .. clicmd:: echo-interval (10-60000)
@@ -159,7 +159,7 @@ BFD peers and profiles share the same BFD session configuration commands.
 
    It is recommended that the transmission interval of control packets
    to be increased after enabling echo-mode to reduce bandwidth usage.
-   For example: `transmission-interval 2000`.
+   For example: `transmit-interval 2000`.
 
    Echo mode is not supported on multi-hop setups (see :rfc:`5883`
    section 3).
@@ -244,6 +244,30 @@ The following commands are available inside the BGP configuration node.
 .. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
 
    Removes the BFD profile configuration from peer session(s).
+
+
+.. _bfd-isis-peer-config:
+
+IS-IS BFD Configuration
+-----------------------
+
+The following commands are available inside the interface configuration node.
+
+.. index:: isis bfd
+.. clicmd:: ip isis bfd
+
+   Listen for BFD events on peers created on the interface. Every time
+   a new neighbor is found a BFD peer is created to monitor the link
+   status for fast convergence.
+
+.. index:: no isis bfd
+.. clicmd:: no isis bfd
+
+   Removes any notification registration for this interface peers.
+
+   Note that there will be just one BFD session per interface. In case both
+   IPv4 and IPv6 support are configured then just a IPv6 based session is
+   created.
 
 
 .. _bfd-ospf-peer-config:
