@@ -9087,7 +9087,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			}
 		}
 
-		paf = peer_af_find(peer, afi, pfx_rcd_safi);
+		paf = peer_af_find(peer, afi, safi);
 		filter = &peer->filter[afi][safi];
 
 		count++;
