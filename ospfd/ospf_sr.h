@@ -312,6 +312,10 @@ extern void ospf_sr_ext_link_lsa_update(struct ospf_lsa *lsa);
 extern void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa);
 extern void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa);
 extern void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa);
+/* Segment Routing Extending Link management */
+struct ext_itf;
+extern void ospf_sr_ext_itf_add(struct ext_itf *exti);
+extern void ospf_sr_ext_itf_delete(struct ext_itf *exti);
 /* Segment Routing configuration functions */
 extern uint32_t get_ext_link_label_value(void);
 extern void ospf_sr_config_write_router(struct vty *vty);

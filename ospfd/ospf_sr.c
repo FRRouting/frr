@@ -286,6 +286,8 @@ static void ospf_sr_stop(void)
 	 * be remove though list_delete() call. See sr_node_del()
 	 */
 	hash_clean(OspfSR.neighbors, (void *)sr_node_del);
+	OspfSR.self = NULL;
+	OspfSR.enabled = false;
 }
 
 /*
@@ -352,9 +354,6 @@ void ospf_sr_term(void)
 	/* Clear Prefix Table */
 	if (OspfSR.prefix)
 		route_table_finish(OspfSR.prefix);
-
-	OspfSR.enabled = false;
-	OspfSR.self = NULL;
 }
 
 /*
@@ -367,8 +366,6 @@ void ospf_sr_finish(void)
 {
 	/* Stop Segment Routing */
 	ospf_sr_stop();
-
-	OspfSR.enabled = false;
 }
 
 /*
@@ -1345,6 +1342,136 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 	}
 }
 
+/* Add (LAN)Adjacency-SID from Extended Link Information */
+void ospf_sr_ext_itf_add(struct ext_itf *exti)
+{
+	struct sr_node *srn = OspfSR.self;
+	struct sr_link *srl;
+
+	osr_debug("SR (%s): Add Extended Link LSA 8.0.0.%u from self", __func__,
+		  exti->instance);
+
+	/* Sanity check */
+	if (srn == NULL)
+		return;
+
+	/* Initialize new Segment Routing Link */
+	srl = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_link));
+	srl->srn = srn;
+	srl->adv_router = srn->adv_router;
+	srl->itf_addr = exti->link.link_data;
+	srl->instance =
+		SET_OPAQUE_LSID(OPAQUE_TYPE_EXTENDED_LINK_LSA, exti->instance);
+	switch (exti->stype) {
+	case ADJ_SID:
+		srl->type = ADJ_SID;
+		/* Primary information */
+		srl->flags[0] = exti->adj_sid[0].flags;
+		if (CHECK_FLAG(exti->adj_sid[0].flags,
+			       EXT_SUBTLV_LINK_ADJ_SID_VFLG))
+			srl->sid[0] = GET_LABEL(ntohl(exti->adj_sid[0].value));
+		else
+			srl->sid[0] = ntohl(exti->adj_sid[0].value);
+		if (exti->rmt_itf_addr.header.type == 0)
+			srl->nhlfe[0].nexthop = exti->link.link_id;
+		else
+			srl->nhlfe[0].nexthop = exti->rmt_itf_addr.value;
+		/* Backup Information if set */
+		if (exti->adj_sid[1].header.type == 0)
+			break;
+		srl->flags[1] = exti->adj_sid[1].flags;
+		if (CHECK_FLAG(exti->adj_sid[1].flags,
+			       EXT_SUBTLV_LINK_ADJ_SID_VFLG))
+			srl->sid[1] = GET_LABEL(ntohl(exti->adj_sid[1].value));
+		else
+			srl->sid[1] = ntohl(exti->adj_sid[1].value);
+		if (exti->rmt_itf_addr.header.type == 0)
+			srl->nhlfe[1].nexthop = exti->link.link_id;
+		else
+			srl->nhlfe[1].nexthop = exti->rmt_itf_addr.value;
+		break;
+	case LAN_ADJ_SID:
+		srl->type = LAN_ADJ_SID;
+		/* Primary information */
+		srl->flags[0] = exti->lan_sid[0].flags;
+		if (CHECK_FLAG(exti->lan_sid[0].flags,
+			       EXT_SUBTLV_LINK_ADJ_SID_VFLG))
+			srl->sid[0] = GET_LABEL(ntohl(exti->lan_sid[0].value));
+		else
+			srl->sid[0] = ntohl(exti->lan_sid[0].value);
+		if (exti->rmt_itf_addr.header.type == 0)
+			srl->nhlfe[0].nexthop = exti->lan_sid[0].neighbor_id;
+		else
+			srl->nhlfe[0].nexthop = exti->rmt_itf_addr.value;
+		/* Backup Information if set */
+		if (exti->lan_sid[1].header.type == 0)
+			break;
+		srl->flags[1] = exti->lan_sid[1].flags;
+		if (CHECK_FLAG(exti->lan_sid[1].flags,
+			       EXT_SUBTLV_LINK_ADJ_SID_VFLG))
+			srl->sid[1] = GET_LABEL(ntohl(exti->lan_sid[1].value));
+		else
+			srl->sid[1] = ntohl(exti->lan_sid[1].value);
+		if (exti->rmt_itf_addr.header.type == 0)
+			srl->nhlfe[1].nexthop = exti->lan_sid[1].neighbor_id;
+		else
+			srl->nhlfe[1].nexthop = exti->rmt_itf_addr.value;
+		break;
+	default:
+		/* Wrong SID Type. Abort! */
+		XFREE(MTYPE_OSPF_SR_PARAMS, srl);
+		return;
+	}
+
+	/* Segment Routing Link is ready, update it */
+	update_ext_link_sid(srn, srl, OSPF_LSA_SELF);
+}
+
+/* Delete Prefix or (LAN)Adjacency-SID from Extended Link Information */
+void ospf_sr_ext_itf_delete(struct ext_itf *exti)
+{
+	struct listnode *node;
+	struct sr_node *srn = OspfSR.self;
+	struct sr_prefix *srp = NULL;
+	struct sr_link *srl = NULL;
+	uint32_t instance;
+
+	osr_debug("SR (%s): Remove Extended LSA %u.0.0.%u from self",
+		  __func__, exti->stype == PREF_SID ? 7 : 8, exti->instance);
+
+	/* Sanity check: SR-Node and Extended Prefix/Link list may have been
+	 * removed earlier when stopping OSPF or OSPF-SR */
+	if (srn == NULL || srn->ext_prefix == NULL || srn->ext_link == NULL)
+		return;
+
+	if (exti->stype == PREF_SID) {
+		instance = SET_OPAQUE_LSID(OPAQUE_TYPE_EXTENDED_PREFIX_LSA,
+					   exti->instance);
+		for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, srp))
+			if (srp->instance == instance)
+				break;
+
+		/* Uninstall Segment Prefix SID if found */
+		if ((srp != NULL) && (srp->instance == instance))
+			delete_prefix_sid(srp);
+	} else {
+		/* Search for corresponding Segment Link for self SR-Node */
+		instance = SET_OPAQUE_LSID(OPAQUE_TYPE_EXTENDED_LINK_LSA,
+					   exti->instance);
+		for (ALL_LIST_ELEMENTS_RO(srn->ext_link, node, srl))
+			if (srl->instance == instance)
+				break;
+
+		/* Remove Segment Link if found */
+		if ((srl != NULL) && (srl->instance == instance)) {
+			del_adj_sid(srl->nhlfe[0]);
+			del_adj_sid(srl->nhlfe[1]);
+			listnode_delete(srn->ext_link, srl);
+			XFREE(MTYPE_OSPF_SR_PARAMS, srl);
+		}
+	}
+}
+
 /* Update Segment Routing from Extended Prefix LSA */
 void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa)
 {
@@ -1700,7 +1827,6 @@ DEFUN (no_ospf_sr_enable,
 
 	/* Finally, stop Segment Routing */
 	ospf_sr_stop();
-	OspfSR.enabled = false;
 
 	return CMD_SUCCESS;
 }
