@@ -60,10 +60,10 @@
 /* control socket */
 struct zebra_nhrp_header {
 	uint32_t iface_idx;
-	uint16_t packet_length; /* size of the whole packet */
-	uint16_t strip_size;    /* size of the non copy data */
+	uint16_t data_length; /* size of the whole packet */
 	uint16_t protocol_type;
 	uint16_t vrfid;
+	uint16_t dummy; /* used to align structure with 4 byte multiple */
 }zebra_nhrp_header_t;
 
 struct zebra_nhrp_ctx {
@@ -723,8 +723,7 @@ int zebra_nhrp_6wind_log_recv(struct thread *t)
 	unsigned int len;
 	struct zebra_nhrp_header *ctxt;
 	ifindex_t iface_idx;
-	uint32_t packet_length;
-	uint32_t strip_size;
+	uint32_t data_length;
 	uint32_t protocol_type;
 	uint8_t *data;
 	uint32_t vrid_fastpath;
@@ -741,13 +740,12 @@ int zebra_nhrp_6wind_log_recv(struct thread *t)
 		return 0;
 	}
 	ctxt = (struct zebra_nhrp_header *)buf;
-	packet_length = ntohs(ctxt->packet_length);
-	strip_size = ntohs(ctxt->strip_size);
-	if (len != sizeof(struct zebra_nhrp_header) + packet_length - strip_size) {
+	data_length = ntohs(ctxt->data_length);
+	if (len != sizeof(struct zebra_nhrp_header) + data_length) {
 		zlog_err("%s(): %u bytes received on nhrp 6wind port, expected %u",
 			 __func__, len,
 			 (unsigned int)(sizeof(struct zebra_nhrp_header) +
-					packet_length - strip_size));
+					data_length));
 		return 0;
 	}
 	iface_idx = (ifindex_t)ntohl(ctxt->iface_idx);
@@ -762,8 +760,7 @@ int zebra_nhrp_6wind_log_recv(struct thread *t)
 	protocol_type = ntohs(ctxt->protocol_type);
 	data = (uint8_t *)(ctxt + 1);
 	zsend_nflog_notify(ZEBRA_NFLOG_TRAFFIC_INDICATION, ifp,
-			   protocol_type, data,
-			   packet_length - strip_size);
+			   protocol_type, data, data_length);
 	return 0;
 }
 
