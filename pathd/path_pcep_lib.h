@@ -33,6 +33,7 @@ void pcep_lib_disconnect(pcep_session *sess);
 struct pcep_message *pcep_lib_format_report(struct path *path);
 struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
 					     struct ipaddr *dst);
+struct pcep_message *pcep_lib_reject_message(int error_type, int error_value);
 struct path *pcep_lib_parse_path(struct pcep_message *msg);
 void pcep_lib_parse_capabilities(struct pcep_message *msg,
 				 struct pcep_caps *caps);

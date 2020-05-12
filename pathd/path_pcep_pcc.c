@@ -450,8 +450,17 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state,
 			      struct pcep_message *msg)
 {
+	struct pcep_message *error;
+
 	PCEP_DEBUG("%s Received LSP initiate, not supported yet",
 		   pcc_state->tag);
+
+	/* TODO when we support both PCC and PCE initiated sessions,
+	 *      we should first check the session type before
+	 *      rejecting this message. */
+	error = pcep_lib_reject_message(PCEP_ERRT_INVALID_OPERATION,
+					PCEP_ERRV_LSP_NOT_PCE_INITIATED);
+	send_pcep_message(ctrl_state, pcc_state, error);
 }
 
 void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,

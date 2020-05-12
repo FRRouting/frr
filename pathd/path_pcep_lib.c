@@ -166,6 +166,11 @@ struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
 	}
 }
 
+struct pcep_message *pcep_lib_reject_message(int error_type, int error_value)
+{
+	return pcep_msg_create_error(error_type, error_value);
+}
+
 struct path *pcep_lib_parse_path(struct pcep_message *msg)
 {
 	struct path *path;
