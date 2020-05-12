@@ -751,7 +751,6 @@ lde_update_label(struct fec_node *fn)
 				return (MPLS_LABEL_IMPLICIT_NULL);
 			return MPLS_LABEL_IPV6_EXPLICIT_NULL;
 		default:
-			fatalx("lde_update_label: unexpected fec type");
 			break;
 		}
 	}
@@ -1421,8 +1420,10 @@ lde_nbr_del(struct lde_nbr *ln)
 				if (f->u.pwid.lsr_id.s_addr != ln->id.s_addr)
 					continue;
 				pw = (struct l2vpn_pw *) fn->data;
-				if (pw)
+				if (pw) {
+					pw->reason = F_PW_NO_REMOTE_LABEL;
 					l2vpn_pw_reset(pw);
+				}
 				break;
 			default:
 				break;

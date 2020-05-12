@@ -422,6 +422,7 @@ struct l2vpn_pw {
 	uint32_t		 local_status;
 	uint32_t		 remote_status;
 	uint8_t			 flags;
+	uint8_t			 reason;
 	QOBJ_FIELDS
 };
 RB_HEAD(l2vpn_pw_head, l2vpn_pw);
@@ -432,6 +433,12 @@ DECLARE_QOBJ_TYPE(l2vpn_pw)
 #define F_PW_CWORD_CONF		0x04	/* control word configured */
 #define F_PW_CWORD		0x08	/* control word negotiated */
 #define F_PW_STATIC_NBR_ADDR	0x10	/* static neighbor address configured */
+
+#define F_PW_NO_ERR             0x00	/* no error reported */
+#define F_PW_LOCAL_NOT_FWD      0x01	/* locally can't forward over PW */
+#define F_PW_REMOTE_NOT_FWD     0x02	/* remote end of PW reported fwd error*/
+#define F_PW_NO_REMOTE_LABEL    0x03	/* have not recvd label from peer */
+#define F_PW_MTU_MISMATCH       0x04	/* mtu mismatch between peers */
 
 struct l2vpn {
 	RB_ENTRY(l2vpn)		 entry;
@@ -662,6 +669,7 @@ struct ctl_pw {
 	uint16_t		 remote_ifmtu;
 	uint8_t			 remote_cword;
 	uint32_t		 status;
+	uint8_t			 reason;
 };
 
 extern struct ldpd_conf		*ldpd_conf, *vty_conf;
@@ -808,6 +816,7 @@ const char	*if_type_name(enum iface_type);
 const char	*msg_name(uint16_t);
 const char	*status_code_name(uint32_t);
 const char	*pw_type_name(uint16_t);
+const char	*pw_error_code(uint8_t);
 
 /* quagga */
 extern struct thread_master	*master;
