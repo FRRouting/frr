@@ -1681,17 +1681,37 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 
 	/* Copy labels of the resolved route and the parent resolving to it */
 	if (newhop->nh_label) {
-		for (i = 0; i < newhop->nh_label->num_labels; i++)
+		for (i = 0; i < newhop->nh_label->num_labels; i++) {
+			/* Be a bit picky about overrunning the local array */
+			if (num_labels >= MPLS_MAX_LABELS) {
+				if (IS_ZEBRA_DEBUG_NHG || IS_ZEBRA_DEBUG_RIB)
+					zlog_debug("%s: too many labels in newhop %pNHv",
+						   __func__, newhop);
+				break;
+			}
 			labels[num_labels++] = newhop->nh_label->label[i];
+		}
+		/* Use the "outer" type */
 		label_type = newhop->nh_label_type;
 	}
 
 	if (nexthop->nh_label) {
-		for (i = 0; i < nexthop->nh_label->num_labels; i++)
+		for (i = 0; i < nexthop->nh_label->num_labels; i++) {
+			/* Be a bit picky about overrunning the local array */
+			if (num_labels >= MPLS_MAX_LABELS) {
+				if (IS_ZEBRA_DEBUG_NHG || IS_ZEBRA_DEBUG_RIB)
+					zlog_debug("%s: too many labels in nexthop %pNHv",
+						   __func__, nexthop);
+				break;
+			}
 			labels[num_labels++] = nexthop->nh_label->label[i];
+		}
 
-		/* If the parent has labels, use its type */
-		label_type = nexthop->nh_label_type;
+		/* If the parent has labels, use its type if
+		 * we don't already have one.
+		 */
+		if (label_type == ZEBRA_LSP_NONE)
+			label_type = nexthop->nh_label_type;
 	}
 
 	if (num_labels)
