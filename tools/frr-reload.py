@@ -155,7 +155,7 @@ class Config(object):
         try:
             config_text = subprocess.check_output(
                 bindir + "/vtysh --config_dir " + confdir + " -c 'show run " + daemon + "' | /usr/bin/tail -n +4 | " + bindir + "/vtysh --config_dir " + confdir + " -m -f -",
-                shell=True)
+                shell=True, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             ve = VtyshMarkException(e)
             ve.output = e.output
@@ -1136,7 +1136,7 @@ def vtysh_config_available(bindir, confdir):
 
     try:
         cmd = [str(bindir + '/vtysh'), '--config_dir', confdir, '-c', 'conf t']
-        output = subprocess.check_output(cmd).strip()
+        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).strip()
 
         if 'VTY configuration is locked by other VTY' in output.decode('utf-8'):
             print(output)
@@ -1394,7 +1394,7 @@ if __name__ == '__main__':
 
                     while True:
                         try:
-                            _ = subprocess.check_output(cmd)
+                            _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
 
                         except subprocess.CalledProcessError:
 
@@ -1444,7 +1444,7 @@ if __name__ == '__main__':
                             fh.write(line + '\n')
 
                     try:
-                        subprocess.check_output([str(args.bindir + '/vtysh'), '--config_dir', args.confdir, '-f', filename])
+                        subprocess.check_output([str(args.bindir + '/vtysh'), '--config_dir', args.confdir, '-f', filename], stderr=subprocess.STDOUT)
                     except subprocess.CalledProcessError as e:
                         log.warning("frr-reload.py failed due to\n%s" % e.output)
                         reload_ok = False
