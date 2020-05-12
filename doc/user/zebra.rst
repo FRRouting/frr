@@ -708,6 +708,24 @@ that sets the preferred source address, and applies the route-map to all
 
    ip protocol rip route-map RM1
 
+IPv6 example for OSPFv3.
+
+.. code-block:: frr
+
+   ipv6 prefix-list ANY seq 10 permit any
+   route-map RM6 permit 10
+       match ipv6 address prefix-list ANY
+       set src 2001:db8:425:1000::3
+
+   ipv6 protocol ospf6 route-map RM6
+
+
+.. note::
+
+   For both IPv4 and IPv6, the IP address has to exist at the point the
+   route-map is created.  Be wary of race conditions if the interface is
+   not created at startup.  On Debian, FRR might start before ifupdown
+   completes. Consider a reboot test.
 
 .. _zebra-fib-push-interface:
 
