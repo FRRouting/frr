@@ -53,6 +53,7 @@ uint32_t id_counter;
 
 /*  */
 static bool g_nexthops_enabled = true;
+static bool proto_nexthops_only = false;
 
 static struct nhg_hash_entry *depends_find(const struct nexthop *nh, afi_t afi,
 					   int type);
@@ -2659,6 +2660,24 @@ void zebra_nhg_enable_kernel_nexthops(bool set)
 bool zebra_nhg_kernel_nexthops_enabled(void)
 {
 	return g_nexthops_enabled;
+}
+
+/*
+ * Global control to only use kernel nexthops for protocol created NHGs.
+ * There are some use cases where you may not want zebra to implicitly
+ * create kernel nexthops for all routes and only create them for NHGs
+ * passed down by upper level protos.
+ *
+ * Default is off.
+ */
+void zebra_nhg_set_proto_nexthops_only(bool set)
+{
+	proto_nexthops_only = set;
+}
+
+bool zebra_nhg_proto_nexthops_only(void)
+{
+	return proto_nexthops_only;
 }
 
 /* Add NHE from upper level proto */
