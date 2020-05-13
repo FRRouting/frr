@@ -382,7 +382,7 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 DEFUN(pcep_cli_no_pcc, pcep_cli_no_pcc_cmd, "no pcc",
       NO_STR "PCC configuration\n")
 {
-	pcep_ctrl_disconnect_pcc(pcep_g->fpt, 1);
+	pcep_ctrl_remove_pcc(pcep_g->fpt, 1);
 	if (pcep_g->pce_opts[0] != NULL) {
 		XFREE(MTYPE_PCEP, pcep_g->pce_opts[0]);
 		pcep_g->pce_opts[0] = NULL;
@@ -487,7 +487,7 @@ DEFUN(pcep_cli_no_pce, pcep_cli_no_pce_cmd,
 {
 	/* TODO: Add support for multiple PCE */
 
-	pcep_ctrl_disconnect_pcc(pcep_g->fpt, 1);
+	pcep_ctrl_remove_pcc(pcep_g->fpt, 1);
 	if (pcep_g->pce_opts[0] != NULL) {
 		XFREE(MTYPE_PCEP, pcep_g->pce_opts[0]);
 		pcep_g->pce_opts[0] = NULL;

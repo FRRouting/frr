@@ -53,7 +53,7 @@ enum pcep_ctrl_event_type {
 	EV_INITIALIZE = 1,
 	EV_UPDATE_PCC_OPTS,
 	EV_UPDATE_PCE_OPTS,
-	EV_DISCONNECT_PCC,
+	EV_REMOVE_PCC,
 	EV_PATHD_EVENT,
 	EV_SYNC_PATH,
 	EV_SYNC_DONE
@@ -126,8 +126,8 @@ static int pcep_thread_event_update_pcc_options(struct ctrl_state *ctrl_state,
 static int pcep_thread_event_update_pce_options(struct ctrl_state *ctrl_state,
 						int pcc_id,
 						struct pce_opts *opts);
-static int pcep_thread_event_disconnect_pcc(struct ctrl_state *ctrl_state,
-					    int pcc_id);
+static int pcep_thread_event_remove_pcc(struct ctrl_state *ctrl_state,
+					int pcc_id);
 static int pcep_thread_event_sync_path(struct ctrl_state *ctrl_state,
 				       int pcc_id, struct path *path);
 static int pcep_thread_event_sync_done(struct ctrl_state *ctrl_state,
@@ -149,6 +149,8 @@ static struct pcc_state *get_pcc_state(struct ctrl_state *ctrl_state,
 				       int pcc_id);
 static void set_pcc_state(struct ctrl_state *ctrl_state,
 			  struct pcc_state *pcc_state);
+static void remove_pcc_state(struct ctrl_state *ctrl_state,
+			     struct pcc_state *pcc_state);
 static uint32_t backoff_delay(uint32_t max, uint32_t base, uint32_t attempt);
 
 
@@ -235,10 +237,10 @@ int pcep_ctrl_update_pce_options(struct frr_pthread *fpt, int pcc_id,
 	return send_to_thread(ctrl_state, pcc_id, EV_UPDATE_PCE_OPTS, 0, opts);
 }
 
-int pcep_ctrl_disconnect_pcc(struct frr_pthread *fpt, int pcc_id)
+int pcep_ctrl_remove_pcc(struct frr_pthread *fpt, int pcc_id)
 {
 	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
-	return send_to_thread(ctrl_state, pcc_id, EV_DISCONNECT_PCC, 0, NULL);
+	return send_to_thread(ctrl_state, pcc_id, EV_REMOVE_PCC, 0, NULL);
 }
 
 int pcep_ctrl_pathd_event(struct frr_pthread *fpt,
@@ -272,7 +274,7 @@ struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 }
 
 void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
-                           struct path *path)
+			   struct path *path)
 {
 	/* Sends a report stynchronously */
 	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
@@ -382,7 +384,7 @@ int pcep_thread_send_report_callback(struct thread *t)
 	if (args->pcc_id == 0) {
 		for (int i = 0; i < ctrl_state->pcc_count; i++) {
 			pcep_pcc_send_report(ctrl_state, ctrl_state->pcc[i],
-			                     args->path);
+					     args->path);
 		}
 	} else {
 		pcc_state = get_pcc_state(ctrl_state, args->pcc_id);
@@ -531,8 +533,8 @@ int pcep_thread_event_handler(struct thread *thread)
 		ret = pcep_thread_event_update_pce_options(ctrl_state, pcc_id,
 							   pce_opts);
 		break;
-	case EV_DISCONNECT_PCC:
-		ret = pcep_thread_event_disconnect_pcc(ctrl_state, pcc_id);
+	case EV_REMOVE_PCC:
+		ret = pcep_thread_event_remove_pcc(ctrl_state, pcc_id);
 		break;
 	case EV_PATHD_EVENT:
 		assert(payload != NULL);
@@ -595,13 +597,14 @@ int pcep_thread_event_update_pce_options(struct ctrl_state *ctrl_state,
 	return 0;
 }
 
-int pcep_thread_event_disconnect_pcc(struct ctrl_state *ctrl_state, int pcc_id)
+int pcep_thread_event_remove_pcc(struct ctrl_state *ctrl_state, int pcc_id)
 {
 	struct pcc_state *pcc_state;
 
 	if (pcc_id <= ctrl_state->pcc_count) {
 		pcc_state = get_pcc_state(ctrl_state, pcc_id);
-		pcep_pcc_disable(ctrl_state, pcc_state);
+		remove_pcc_state(ctrl_state, pcc_state);
+		pcep_pcc_finalize(ctrl_state, pcc_state);
 	}
 
 	return 0;
@@ -715,6 +718,21 @@ void set_pcc_state(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 
 	ctrl_state->pcc[pcc_state->id - 1] = pcc_state;
 	ctrl_state->pcc_count = pcc_state->id;
+}
+
+void remove_pcc_state(struct ctrl_state *ctrl_state,
+		      struct pcc_state *pcc_state)
+{
+	assert(ctrl_state != NULL);
+	assert(pcc_state->id >= 0);
+	assert(pcc_state->id <= MAX_PCC);
+	/* FIXME: Can only remove the last PCC for now,
+	 * we have only one anyway */
+	assert(pcc_state->id == ctrl_state->pcc_count);
+	assert(ctrl_state->pcc[pcc_state->id - 1] != NULL);
+
+	ctrl_state->pcc[pcc_state->id - 1] = NULL;
+	ctrl_state->pcc_count--;
 }
 
 uint32_t backoff_delay(uint32_t max, uint32_t base, uint32_t retry_count)
