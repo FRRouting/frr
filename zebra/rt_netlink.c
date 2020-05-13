@@ -113,6 +113,31 @@ static bool kernel_nexthops_supported(void)
 }
 
 /*
+ * Some people may only want to use NHGs created by protos and not
+ * implicitly created by Zebra. This check accounts for that.
+ */
+static bool proto_nexthops_only(void)
+{
+	return zebra_nhg_proto_nexthops_only();
+}
+
+/* Is this a proto created NHG? */
+static bool is_proto_nhg(uint32_t id, int type)
+{
+	/* If type is available, use it as the source of truth */
+	if (type) {
+		if (type != ZEBRA_ROUTE_NHG)
+			return true;
+		return false;
+	}
+
+	if (id >= zclient_get_nhg_lower_bound())
+		return true;
+
+	return false;
+}
+
+/*
  * The ipv4_ll data structure is used for all 5549
  * additions to the kernel.  Let's figure out the
  * correct value one time instead for every
@@ -1680,7 +1705,9 @@ ssize_t netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 			  RTA_PAYLOAD(rta));
 	}
 
-	if (kernel_nexthops_supported()) {
+	if (kernel_nexthops_supported()
+	    && (!proto_nexthops_only()
+		|| is_proto_nhg(dplane_ctx_get_nhe_id(ctx), 0))) {
 		/* Kernel supports nexthop objects */
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -1979,8 +2006,14 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 	int num_labels = 0;
 	size_t req_size = sizeof(req);
 
-	/* Nothing to do if the kernel doesn't support nexthop objects */
-	if (!kernel_nexthops_supported())
+	/*
+	 * Nothing to do if the kernel doesn't support nexthop objects or
+	 * we dont want to install this type of NHG
+	 */
+	if (!kernel_nexthops_supported()
+	    || (proto_nexthops_only()
+		&& !is_proto_nhg(dplane_ctx_get_nhe_id(ctx),
+				 dplane_ctx_get_nhe_type(ctx))))
 		return 0;
 
 	label_buf[0] = '\0';

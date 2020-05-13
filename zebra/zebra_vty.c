@@ -1399,6 +1399,19 @@ DEFPY_HIDDEN(nexthop_group_use_enable,
 	return CMD_SUCCESS;
 }
 
+DEFPY_HIDDEN (proto_nexthop_group_only,
+              proto_nexthop_group_only_cmd,
+              "[no] zebra nexthop proto only",
+              NO_STR
+              ZEBRA_STR
+              "Nexthop configuration\n"
+              "Configure exclusive use of proto nexthops\n"
+              "Only use proto nexthops\n")
+{
+	zebra_nhg_set_proto_nexthops_only(!no);
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_ip_nht_default_route,
        no_ip_nht_default_route_cmd,
        "no ip nht resolve-via-default",
@@ -3313,6 +3326,9 @@ static int config_write_protocol(struct vty *vty)
 	if (!zebra_nhg_kernel_nexthops_enabled())
 		vty_out(vty, "no zebra nexthop kernel enable\n");
 
+	if (zebra_nhg_proto_nexthops_only())
+		vty_out(vty, "zebra nexthop proto only\n");
+
 	return 1;
 }
 
@@ -3705,6 +3721,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &nexthop_group_use_enable_cmd);
+	install_element(CONFIG_NODE, &proto_nexthop_group_only_cmd);
 
 	install_element(VIEW_NODE, &show_nexthop_group_cmd);
 	install_element(VIEW_NODE, &show_interface_nexthop_group_cmd);
