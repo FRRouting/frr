@@ -1658,8 +1658,7 @@ done:
  *
  * Return:	Result status
  */
-int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
-			    enum dplane_op_e op,
+int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			    struct nhg_hash_entry *nhe)
 {
 	struct zebra_vrf *zvrf = NULL;

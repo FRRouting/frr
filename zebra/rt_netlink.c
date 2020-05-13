@@ -1956,9 +1956,8 @@ static void _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
  *
  * \returns -1 on failure or the number of bytes written to buf.
  */
-ssize_t
-netlink_nexthop_encode(uint16_t cmd, const struct zebra_dplane_ctx *ctx,
-		       void *buf, size_t buflen)
+ssize_t netlink_nexthop_encode(uint16_t cmd, const struct zebra_dplane_ctx *ctx,
+			       void *buf, size_t buflen)
 {
 	struct {
 		struct nlmsghdr n;
@@ -2224,8 +2223,8 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 	}
 
 	if (!RSYSTEM_ROUTE(dplane_ctx_get_type(ctx))) {
-		netlink_route_multipath(cmd, ctx, nl_pkt, sizeof(nl_pkt),
-					false, false);
+		netlink_route_multipath(cmd, ctx, nl_pkt, sizeof(nl_pkt), false,
+					false);
 		ret = netlink_talk_info(netlink_talk_filter,
 					(struct nlmsghdr *)nl_pkt,
 					dplane_ctx_get_ns(ctx), 0);

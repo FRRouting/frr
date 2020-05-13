@@ -500,8 +500,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			  struct route_node *rn, struct route_entry *re);
 
 /* Encode next hop information into data plane context. */
-int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
-			    enum dplane_op_e op,
+int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			    struct nhg_hash_entry *nhe);
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */

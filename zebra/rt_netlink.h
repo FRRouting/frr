@@ -67,8 +67,8 @@ void rt_netlink_init(void);
 extern int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx);
 
 extern ssize_t netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
-				       uint8_t *data, size_t datalen,
-				       bool fpm, bool force_nhg);
+				       uint8_t *data, size_t datalen, bool fpm,
+				       bool force_nhg);
 extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx,
 					 uint8_t *data, size_t datalen);
 
