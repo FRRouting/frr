@@ -639,6 +639,8 @@ void nhrp_instance_register(struct nhrp_vrf *nhrp_vrf, bool on)
 					ZEBRA_ROUTE_ALL, 0, nhrp_vrf->vrf_id);
 		nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP, true);
 		nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP6, true);
+		if (nhrp_vrf->netlink_nflog_group)
+			nhrp_zebra_register_log(nhrp_vrf->vrf_id, nhrp_vrf->netlink_nflog_group, true);
 	} else {
 		nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP, false);
 		nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP6, false);
@@ -647,5 +649,7 @@ void nhrp_instance_register(struct nhrp_vrf *nhrp_vrf, bool on)
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP6,
 					ZEBRA_ROUTE_ALL, 0, nhrp_vrf->vrf_id);
 		zclient_send_dereg_requests(zclient, nhrp_vrf->vrf_id);
+		if (nhrp_vrf->netlink_nflog_group)
+			nhrp_zebra_register_log(nhrp_vrf->vrf_id, nhrp_vrf->netlink_nflog_group, false);
 	}
 }
