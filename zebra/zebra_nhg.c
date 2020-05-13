@@ -67,6 +67,35 @@ static void depends_decrement_free(struct nhg_connected_tree_head *head);
 static struct nhg_backup_info *
 nhg_backup_copy(const struct nhg_backup_info *orig);
 
+/* Helper function for getting the next allocatable ID */
+static uint32_t nhg_get_next_id()
+{
+	while (1) {
+		id_counter++;
+
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: ID %u checking", __func__, id_counter);
+
+		if (id_counter == ZEBRA_NHG_PROTO_LOWER) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: ID counter wrapped", __func__);
+
+			id_counter = 0;
+			continue;
+		}
+
+		if (zebra_nhg_lookup_id(id_counter)) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: ID already exists", __func__);
+
+			continue;
+		}
+
+		break;
+	}
+
+	return id_counter;
+}
 
 static void nhg_connected_free(struct nhg_connected *dep)
 {
@@ -672,7 +701,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	 * assign the next global id value if necessary.
 	 */
 	if (lookup->id == 0)
-		lookup->id = ++id_counter;
+		lookup->id = nhg_get_next_id();
 
 	if (lookup->id < ZEBRA_NHG_PROTO_LOWER) {
 		/*
