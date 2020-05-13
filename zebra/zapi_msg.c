@@ -1761,7 +1761,7 @@ static void zread_nhg_reader(ZAPI_HANDLER_ARGS)
 	 */
 
 	// TODO: Forcing AF_UNSPEC/AF_IP for now
-	nhe = zebra_nhg_proto_add(id, ZEBRA_ROUTE_BGP, nhg,
+	nhe = zebra_nhg_proto_add(id, proto, nhg,
 				  ((nhops > 1) ? AFI_UNSPEC : AFI_IP));
 
 	nexthop_group_delete(&nhg);
