@@ -182,6 +182,10 @@ struct nhg_ctx {
 void zebra_nhg_enable_kernel_nexthops(bool set);
 bool zebra_nhg_kernel_nexthops_enabled(void);
 
+/* Global control for zebra to only use proto-owned nexthops */
+void zebra_nhg_set_proto_nexthops_only(bool set);
+bool zebra_nhg_proto_nexthops_only(void);
+
 /**
  * NHE abstracted tree functions.
  * Use these where possible instead of direct access.
