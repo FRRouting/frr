@@ -37,6 +37,7 @@ from lib.common_config import (
     create_prefix_lists,
     create_route_maps,
     create_bgp_community_lists,
+    create_vrf_cfg,
 )
 
 from lib.bgp import create_router_bgp
@@ -49,7 +50,6 @@ def build_topo_from_json(tgen, topo):
     Reads configuration from JSON file. Adds routers, creates interface
     names dynamically and link routers as defined in JSON to create
     topology. Assigns IPs dynamically to all interfaces of each router.
-
     * `tgen`: Topogen object
     * `topo`: json file data
     """
@@ -203,6 +203,7 @@ def build_config_from_json(tgen, topo, save_bkup=True):
 
     func_dict = OrderedDict(
         [
+            ("vrfs", create_vrf_cfg),
             ("links", create_interfaces_cfg),
             ("static_routes", create_static_routes),
             ("prefix_lists", create_prefix_lists),
