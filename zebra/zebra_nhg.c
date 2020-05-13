@@ -674,7 +674,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	if (lookup->id == 0)
 		lookup->id = ++id_counter;
 
-	if (lookup->id < zclient_get_nhg_lower_bound()) {
+	if (lookup->id < ZEBRA_NHG_PROTO_LOWER) {
 		/*
 		 * This is a zebra hashed/owned NHG.
 		 *
@@ -728,7 +728,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE))
 		SET_FLAG(newnhe->flags, NEXTHOP_GROUP_VALID);
 
-	if (nh->next == NULL && newnhe->id < zclient_get_nhg_lower_bound()) {
+	if (nh->next == NULL && newnhe->id < ZEBRA_NHG_PROTO_LOWER) {
 		if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
 			/* Single recursive nexthop */
 			handle_recursive_depend(&newnhe->nhg_depends,
@@ -1244,7 +1244,7 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 		zlog_debug("%s: nh %pNHv, id %u, count %d",
 			   __func__, nh, id, (int)count);
 
-	if (id > id_counter && id < zclient_get_nhg_lower_bound())
+	if (id > id_counter && id < ZEBRA_NHG_PROTO_LOWER)
 		/* Increase our counter so we don't try to create
 		 * an ID that already exists
 		 */
@@ -2223,7 +2223,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	struct nhg_hash_entry *curr_nhe;
 	uint32_t curr_active = 0, backup_active = 0;
 
-	if (re->nhe->id >= zclient_get_nhg_lower_bound())
+	if (re->nhe->id >= ZEBRA_NHG_PROTO_LOWER)
 		return proto_nhg_nexthop_active_update(&re->nhe->nhg);
 
 	afi_t rt_afi = family2afi(rn->p.family);
@@ -2429,7 +2429,7 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)
 	    && (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
-		|| nhe->id >= zclient_get_nhg_lower_bound())
+		|| nhe->id >= ZEBRA_NHG_PROTO_LOWER)
 	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
 		/* Change its type to us since we are installing it */
 		if (!ZEBRA_NHG_CREATED(nhe))
