@@ -626,13 +626,20 @@ struct zclient_options {
 extern struct zclient_options zclient_options_default;
 
 /*
+ * We reserve the top 4 bits for l2-NHG, everything else
+ * is for zebra/proto l3-NHG.
+ *
  * Each client is going to get it's own nexthop group space
- * and we'll separate them by 50 million, we'll figure out where
- * to start based upon the route_types.h
+ * and we'll separate them, we'll figure out where to start based upon
+ * the route_types.h
  */
-#define ZEBRA_NHG_SPACING 50000000
+#define ZEBRA_NHG_PROTO_UPPER                                                  \
+	((uint32_t)250000000) /* Bottom 28 bits then rounded down */
+#define ZEBRA_NHG_PROTO_SPACING (ZEBRA_NHG_PROTO_UPPER / ZEBRA_ROUTE_MAX)
+#define ZEBRA_NHG_PROTO_LOWER                                                  \
+	(ZEBRA_NHG_PROTO_SPACING * (ZEBRA_ROUTE_CONNECT + 1))
+
 extern uint32_t zclient_get_nhg_start(uint32_t proto);
-extern uint32_t zclient_get_nhg_lower_bound(void);
 
 extern struct zclient *zclient_new(struct thread_master *m,
 				   struct zclient_options *opt);

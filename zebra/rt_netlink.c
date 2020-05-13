@@ -131,7 +131,7 @@ static bool is_proto_nhg(uint32_t id, int type)
 		return false;
 	}
 
-	if (id >= zclient_get_nhg_lower_bound())
+	if (id >= ZEBRA_NHG_PROTO_LOWER)
 		return true;
 
 	return false;
