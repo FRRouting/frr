@@ -3816,13 +3816,5 @@ uint32_t zclient_get_nhg_start(uint32_t proto)
 {
 	assert(proto < ZEBRA_ROUTE_MAX);
 
-	return ZEBRA_NHG_SPACING * proto;
-}
-
-/*
- * Where do routing protocols IDs start overall (first ID after zebra)
- */
-uint32_t zclient_get_nhg_lower_bound()
-{
-	return ZEBRA_NHG_SPACING * (ZEBRA_ROUTE_CONNECT + 1);
+	return ZEBRA_NHG_PROTO_SPACING * proto;
 }
