@@ -450,6 +450,9 @@ static struct peer *FuzzingCreatePeer(int state)
 		SET_FLAG(p->af_cap[afi][safi], 0x3FFF);
 	}
 
+	peer_activate(p, AFI_L2VPN, SAFI_EVPN);
+	peer_activate(p, AFI_IP, SAFI_MPLS_VPN);
+
 	return p;
 }
 
