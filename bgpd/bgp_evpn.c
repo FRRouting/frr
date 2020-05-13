@@ -3682,11 +3682,12 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 			       uint32_t addpath_id)
 {
 	struct prefix_rd prd;
-	struct prefix_evpn p;
-	struct bgp_route_evpn evpn;
+	struct prefix_evpn p = {};
+	struct bgp_route_evpn evpn = {};
 	uint8_t ipaddr_len;
 	uint8_t macaddr_len;
-	mpls_label_t label[BGP_MAX_LABELS]; /* holds the VNI(s) as in packet */
+	/* holds the VNI(s) as in packet */
+	mpls_label_t label[BGP_MAX_LABELS] = {};
 	uint32_t num_labels = 0;
 	uint32_t eth_tag;
 	int ret;
@@ -3705,60 +3706,61 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 		return -1;
 	}
 
-	memset(&evpn, 0, sizeof(evpn));
+	struct stream *pkt = stream_new(psize);
+	stream_put(pkt, pfx, psize);
 
 	/* Make prefix_rd */
 	prd.family = AF_UNSPEC;
 	prd.prefixlen = 64;
-	memcpy(&prd.val, pfx, 8);
-	pfx += 8;
+
+	STREAM_GET(&prd.val, pkt, 8);
 
 	/* Make EVPN prefix. */
-	memset(&p, 0, sizeof(struct prefix_evpn));
 	p.family = AF_EVPN;
 	p.prefixlen = EVPN_ROUTE_PREFIXLEN;
 	p.prefix.route_type = BGP_EVPN_MAC_IP_ROUTE;
 
 	/* Copy Ethernet Seg Identifier */
 	if (attr) {
-		memcpy(&attr->esi, pfx, sizeof(esi_t));
+		STREAM_GET(&attr->esi, pkt, sizeof(esi_t));
+
 		if (bgp_evpn_is_esi_local(&attr->esi))
 			attr->es_flags |= ATTR_ES_IS_LOCAL;
 		else
 			attr->es_flags &= ~ATTR_ES_IS_LOCAL;
+	} else {
+		STREAM_FORWARD_GETP(pkt, sizeof(esi_t));
 	}
-	pfx += sizeof(esi_t);
 
 	/* Copy Ethernet Tag */
-	memcpy(&eth_tag, pfx, 4);
+	STREAM_GET(&eth_tag, pkt, 4);
 	p.prefix.macip_addr.eth_tag = ntohl(eth_tag);
-	pfx += 4;
 
 	/* Get the MAC Addr len */
-	macaddr_len = *pfx++;
+	STREAM_GETC(pkt, macaddr_len);
 
 	/* Get the MAC Addr */
 	if (macaddr_len == (ETH_ALEN * 8)) {
-		memcpy(&p.prefix.macip_addr.mac.octet, pfx, ETH_ALEN);
-		pfx += ETH_ALEN;
+		STREAM_GET(&p.prefix.macip_addr.mac.octet, pkt, ETH_ALEN);
 	} else {
 		flog_err(
 			EC_BGP_EVPN_ROUTE_INVALID,
 			"%u:%s - Rx EVPN Type-2 NLRI with unsupported MAC address length %d",
 			peer->bgp->vrf_id, peer->host, macaddr_len);
-		return -1;
+		goto fail;
 	}
 
 
 	/* Get the IP. */
-	ipaddr_len = *pfx++;
+	STREAM_GETC(pkt, ipaddr_len);
+
 	if (ipaddr_len != 0 && ipaddr_len != IPV4_MAX_BITLEN
 	    && ipaddr_len != IPV6_MAX_BITLEN) {
 		flog_err(
 			EC_BGP_EVPN_ROUTE_INVALID,
 			"%u:%s - Rx EVPN Type-2 NLRI with unsupported IP address length %d",
 			peer->bgp->vrf_id, peer->host, ipaddr_len);
-		return -1;
+		goto fail;
 	}
 
 	if (ipaddr_len) {
@@ -3766,25 +3768,17 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 		p.prefix.macip_addr.ip.ipa_type = (ipaddr_len == IPV4_MAX_BYTELEN)
 					       ? IPADDR_V4
 					       : IPADDR_V6;
-		memcpy(&p.prefix.macip_addr.ip.ip.addr, pfx, ipaddr_len);
+		STREAM_GET(&p.prefix.macip_addr.ip.ip.addr, pkt, ipaddr_len);
 	}
-	pfx += ipaddr_len;
 
 	/* Get the VNI(s). Stored as bytes here. */
+	STREAM_GET(&label[0], pkt, BGP_LABEL_BYTES);
 	num_labels++;
-	memset(label, 0, sizeof(label));
-	memcpy(&label[0], pfx, BGP_LABEL_BYTES);
-	pfx += BGP_LABEL_BYTES;
-	psize -= (33 + ipaddr_len);
+
 	/* Do we have a second VNI? */
-	if (psize) {
+	if (STREAM_READABLE(pkt)) {
 		num_labels++;
-		memcpy(&label[1], pfx, BGP_LABEL_BYTES);
-		/*
-		 * If in future, we are required to access additional fields,
-		 * we MUST increment pfx by BGP_LABEL_BYTES in before reading
-		 * the next field
-		 */
+		STREAM_GET(&label[1], pkt, BGP_LABEL_BYTES);
 	}
 
 	/* Process the route. */
@@ -3796,6 +3790,16 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 		ret = bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr,
 				   afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
 				   &prd, &label[0], num_labels, &evpn);
+	goto done;
+
+fail:
+stream_failure:
+	flog_err(EC_BGP_EVPN_ROUTE_INVALID,
+		 "%u:%s - Rx EVPN Type-2 NLRI - corrupt, discarding",
+		 peer->bgp->vrf_id, peer->host);
+	ret = -1;
+done:
+	stream_free(pkt);
 	return ret;
 }
 
