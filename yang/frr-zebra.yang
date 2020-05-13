@@ -632,45 +632,44 @@ module frr-zebra {
         "RIBs supported by FRR.";
       list rib {
         key "afi-safi-name table-id";
+        leaf afi-safi-name {
+          type identityref {
+            base afi-safi-type;
+          }
+          description
+            "AFI, SAFI name.";
+        }
+
         leaf table-id {
           type uint32;
           description
             "Routing Table id (default id - 254).";
         }
 
-        leaf afi-safi-name {
-          type identityref {
-            base afi-safi-type;
-          }
-          mandatory true;
-          description
-            "AFI, SAFI name.";
-        }
-
         list route {
           key "prefix";
           config false;
           leaf prefix {
-             type inet:ip-prefix;
-             description
-                "The route's prefix.";
+            type inet:ip-prefix;
+            description
+              "The route's prefix.";
           }
+
           list route-entry {
             key "protocol";
             leaf protocol {
-               type frr-route-types:frr-route-types-v4;
-               //TODO: Use unified route types done in PR 5183 when it is merged.
-               //type frr-route-types:frr-route-types;
-               description
-                  "The protocol owning the route.";
+              type frr-route-types:frr-route-types;
+              description
+                "The protocol owning the route.";
             }
 
             leaf instance {
               type uint16;
               must "../protocol = \"ospf\"";
               description
-              "Retrieve routes from a specific OSPF instance.";
+                "Retrieve routes from a specific OSPF instance.";
             }
+
             uses route-common;
           }
         }
@@ -2070,10 +2069,12 @@ module frr-zebra {
   augment "/frr-vrf:lib/frr-vrf:vrf" {
     description
       "Extends VRF model with Zebra-related parameters.";
-    uses ribs;
+    container zebra {
+      uses ribs;
+    }
   }
 
-  augment "/frr-vrf:lib/frr-vrf:vrf/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop" {
+  augment "/frr-vrf:lib/frr-vrf:vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop" {
     uses frr-nh:frr-nexthop-operational;
   }
 
