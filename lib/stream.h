@@ -173,7 +173,9 @@ extern struct stream *stream_dupcat(const struct stream *s1,
 extern void stream_set_getp(struct stream *, size_t);
 extern void stream_set_endp(struct stream *, size_t);
 extern void stream_forward_getp(struct stream *, size_t);
+extern bool stream_forward_getp2(struct stream *, size_t);
 extern void stream_forward_endp(struct stream *, size_t);
+extern bool stream_forward_endp2(struct stream *, size_t);
 
 /* steam_put: NULL source zeroes out size_t bytes of stream */
 extern void stream_put(struct stream *, const void *, size_t);
@@ -450,6 +452,18 @@ static inline const uint8_t *ptr_get_be32(const uint8_t *ptr, uint32_t *out)
 #define STREAM_GET(P, STR, SIZE)                                               \
 	do {                                                                   \
 		if (!stream_get2((P), (STR), (SIZE)))                          \
+			goto stream_failure;                                   \
+	} while (0)
+
+#define STREAM_FORWARD_GETP(STR, SIZE)                                         \
+	do {                                                                   \
+		if (!stream_forward_getp2((STR), (SIZE)))                      \
+			goto stream_failure;                                   \
+	} while (0)
+
+#define STREAM_FORWARD_ENDP(STR, SIZE)                                         \
+	do {                                                                   \
+		if (!stream_forward_endp2((STR), (SIZE)))                      \
 			goto stream_failure;                                   \
 	} while (0)
 
