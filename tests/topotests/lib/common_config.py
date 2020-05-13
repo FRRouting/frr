@@ -32,6 +32,7 @@ from tempfile import mkdtemp
 
 import StringIO
 import os
+import sys
 import ConfigParser
 import traceback
 import socket
@@ -100,13 +101,11 @@ SEQ_ID = {"prefix_lists": {}, "route_maps": {}}
 def get_seq_id(obj_type, router, obj_name):
     """
     Generates and saves sequence number in interval of 10
-
     Parameters
     ----------
     * `obj_type`: prefix_lists or route_maps
     * `router`: router name
     *` obj_name`: name of the prefix-list or route-map
-
     Returns
     --------
     Sequence number generated
@@ -125,7 +124,6 @@ def get_seq_id(obj_type, router, obj_name):
 def set_seq_id(obj_type, router, id, obj_name):
     """
     Saves sequence number if not auto-generated and given by user
-
     Parameters
     ----------
     * `obj_type`: prefix_lists or route_maps
@@ -149,11 +147,9 @@ class InvalidCLIError(Exception):
 def run_frr_cmd(rnode, cmd, isjson=False):
     """
     Execute frr show commands in priviledged mode
-
     * `rnode`: router node on which commands needs to executed
     * `cmd`: Command to be executed on frr
     * `isjson`: If command is to get json data or not
-
     :return str:
     """
 
@@ -179,12 +175,13 @@ def run_frr_cmd(rnode, cmd, isjson=False):
         raise InvalidCLIError("No actual cmd passed")
 
 
-def create_common_configuration(tgen, router, data, config_type=None, build=False):
+def create_common_configuration(
+    tgen, router, data, config_type=None, build=False, load_config=True
+):
     """
     API to create object of class FRRConfig and also create frr_json.conf
     file. It will create interface and common configurations and save it to
     frr_json.conf and load to router
-
     Parameters
     ----------
     * `tgen`: tgen onject
@@ -193,7 +190,6 @@ def create_common_configuration(tgen, router, data, config_type=None, build=Fals
     * `config_type` : Syntactic information while writing configuration. Should
                       be one of the value as mentioned in the config_map below.
     * `build` : Only for initial setup phase this is set as True
-
     Returns
     -------
     True or False
@@ -216,6 +212,8 @@ def create_common_configuration(tgen, router, data, config_type=None, build=Fals
 
     if build:
         mode = "a"
+    elif not load_config:
+        mode = "a"
     else:
         mode = "w"
 
@@ -236,9 +234,120 @@ def create_common_configuration(tgen, router, data, config_type=None, build=Fals
         frr_cfg_fd.close()
 
     # If configuration applied from build, it will done at last
-    if not build:
+    if not build and load_config:
         load_config_to_router(tgen, router)
 
+    return True
+
+
+def kill_router_daemons(tgen, router, daemons):
+    """
+    Router's current config would be saved to /etc/frr/ for each deamon
+    and deamon would be killed forcefully using SIGKILL.
+    * `tgen`  : topogen object
+    * `router`: Device under test
+    * `daemons`: list of daemons to be killed
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    try:
+        router_list = tgen.routers()
+
+        # Saving router config to /etc/frr, which will be loaded to router
+        # when it starts
+        router_list[router].vtysh_cmd("write memory")
+
+        # Kill Daemons
+        result = router_list[router].killDaemons(daemons)
+        if len(result) > 0:
+            assert "Errors found post shutdown - details follow:" == 0, result
+        return result
+
+    except Exception as e:
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+
+def start_router_daemons(tgen, router, daemons):
+    """
+    Daemons defined by user would be started
+    * `tgen`  : topogen object
+    * `router`: Device under test
+    * `daemons`: list of daemons to be killed
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    try:
+        router_list = tgen.routers()
+
+        # Start daemons
+        result = router_list[router].startDaemons(daemons)
+        return result
+
+    except Exception as e:
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+def kill_mininet_routers_process(tgen):
+    """
+    Kill all mininet stale router' processes
+    * `tgen`  : topogen object
+    """
+
+    router_list = tgen.routers()
+    for rname, router in router_list.iteritems():
+        daemon_list = [
+            "zebra",
+            "ospfd",
+            "ospf6d",
+            "bgpd",
+            "ripd",
+            "ripngd",
+            "isisd",
+            "pimd",
+            "ldpd",
+            "staticd",
+        ]
+        for daemon in daemon_list:
+            router.run("killall -9 {}".format(daemon))
+
+
+def check_router_status(tgen):
+    """
+    Check if all daemons are running for all routers in topology
+    * `tgen`  : topogen object
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    try:
+        router_list = tgen.routers()
+        for router, rnode in router_list.iteritems():
+
+            result = rnode.check_router_running()
+            if result != "":
+                daemons = []
+                if "bgpd" in result:
+                    daemons.append("bgpd")
+                if "zebra" in result:
+                    daemons.append("zebra")
+
+                rnode.startDaemons(daemons)
+
+    except Exception as e:
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -246,7 +355,6 @@ def reset_config_on_routers(tgen, routerName=None):
     """
     Resets configuration on routers to the snapshot created using input JSON
     file. It replaces existing router configuration with FRRCFG_BKUP_FILE
-
     Parameters
     ----------
     * `tgen` : Topogen object
@@ -362,7 +470,6 @@ def reset_config_on_routers(tgen, routerName=None):
 def load_config_to_router(tgen, routerName, save_bkup=False):
     """
     Loads configuration on router from the file FRRCFG_FILE.
-
     Parameters
     ----------
     * `tgen` : Topogen object
@@ -412,6 +519,66 @@ def load_config_to_router(tgen, routerName, save_bkup=False):
 
     logger.debug("Exting API: load_config_to_router")
     return True
+
+
+def get_frr_ipv6_linklocal(tgen, router, intf=None):
+    """
+    API to get the link local ipv6 address of a perticular interface using
+    FRR command 'show interface'
+    * `tgen`: tgen onject
+    * `router` : router for which hightest interface should be
+                 calculated
+    * `intf` : interface for which linklocal address needs to be taken
+    Usage
+    -----
+    linklocal = get_frr_ipv6_linklocal(tgen, router, "intf1", RED_A)
+    Returns
+    -------
+    1) array of interface names to link local ips.
+    """
+
+    router_list = tgen.routers()
+    for rname, rnode in router_list.iteritems():
+        if rname != router:
+            continue
+
+        linklocal = []
+
+        cmd = "show interface"
+
+        ifaces = router_list[router].run('vtysh -c "{}"'.format(cmd))
+
+        # Fix newlines (make them all the same)
+        ifaces = ("\n".join(ifaces.splitlines()) + "\n").splitlines()
+
+        interface = None
+        ll_per_if_count = 0
+        for line in ifaces:
+            # Interface name
+            m = re_search("Interface ([a-zA-Z0-9-]+) is", line)
+            if m:
+                interface = m.group(1).split(" ")[0]
+                ll_per_if_count = 0
+
+            # Interface ip
+            m1 = re_search("inet6 (fe80[:a-fA-F0-9]+[\/0-9]+)", line)
+            if m1:
+                local = m1.group(1)
+                ll_per_if_count += 1
+                if ll_per_if_count > 1:
+                    linklocal += [["%s-%s" % (interface, ll_per_if_count), local]]
+                else:
+                    linklocal += [[interface, local]]
+
+    if linklocal:
+        if intf:
+            return [_linklocal[1] for _linklocal in linklocal if _linklocal[0] == intf][
+                0
+            ].split("/")[0]
+        return linklocal
+    else:
+        errormsg = "Link local ip missing on router {}"
+        return errormsg
 
 
 def start_topology(tgen):
@@ -494,11 +661,9 @@ def number_to_column(routerName):
 def validate_ip_address(ip_address):
     """
     Validates the type of ip address
-
     Parameters
     ----------
     * `ip_address`: IPv4/IPv6 address
-
     Returns
     -------
     Type of address as string
@@ -565,7 +730,6 @@ def generate_ips(network, no_of_ips):
     """
     Returns list of IPs.
     based on start_ip and no_of_ips
-
     * `network`  : from here the ip will start generating,
                    start_ip will be
     * `no_of_ips` : these many IPs will be generated
@@ -606,7 +770,6 @@ def find_interface_with_greater_ip(topo, router, loopback=True, interface=True):
     Returns highest interface ip for ipv4/ipv6. If loopback is there then
     it will return highest IP from loopback IPs otherwise from physical
     interface IPs.
-
     * `topo`  : json file data
     * `router` : router for which hightest interface should be calculated
     """
@@ -654,11 +817,9 @@ def write_test_footer(tc_name):
 def interface_status(tgen, topo, input_dict):
     """
     Delete ip route maps from device
-
     * `tgen`  : Topogen object
     * `topo`  : json file data
     * `input_dict` :  for which router, route map has to be deleted
-
     Usage
     -----
     input_dict = {
@@ -671,7 +832,7 @@ def interface_status(tgen, topo, input_dict):
     -------
     errormsg(str) or True
     """
-    logger.debug("Entering lib API: interface_status()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     try:
         global frr_cfg
@@ -695,19 +856,17 @@ def interface_status(tgen, topo, input_dict):
         logger.error(errormsg)
         return errormsg
 
-    logger.debug("Exiting lib API: interface_status()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
 def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0):
     """
     Retries function execution, if return is an errormsg or exception
-
     * `attempts`: Number of attempts to make
     * `wait`: Number of seconds to wait between each attempt
     * `return_is_str`: Return val is an errormsg in case of failure
     * `initial_wait`: Sleeps for this much seconds before executing function
-
     """
 
     def _retry(func):
@@ -786,13 +945,11 @@ def create_interfaces_cfg(tgen, topo, build=False):
     """
     Create interface configuration for created topology. Basic Interface
     configuration is provided in input json file.
-
     Parameters
     ----------
     * `tgen` : Topogen object
     * `topo` : json file data
     * `build` : Only for initial setup phase this is set as True.
-
     Returns
     -------
     True or False
@@ -831,13 +988,11 @@ def create_interfaces_cfg(tgen, topo, build=False):
 def create_static_routes(tgen, input_dict, build=False):
     """
     Create static routes for given router as defined in input_dict
-
     Parameters
     ----------
     * `tgen` : Topogen object
     * `input_dict` : Input dict data, required when configuring from testcase
     * `build` : Only for initial setup phase this is set as True.
-
     Usage
     -----
     input_dict should be in the format below:
@@ -848,7 +1003,6 @@ def create_static_routes(tgen, input_dict, build=False):
     # next_hop: starting next-hop address
     # tag: tag id for static routes
     # delete: True if config to be removed. Default False.
-
     Example:
     "routers": {
         "r1": {
@@ -864,13 +1018,12 @@ def create_static_routes(tgen, input_dict, build=False):
             ]
         }
     }
-
     Returns
     -------
     errormsg(str) or True
     """
     result = False
-    logger.debug("Entering lib API: create_static_routes()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     input_dict = deepcopy(input_dict)
     try:
         for router in input_dict.keys():
@@ -927,7 +1080,7 @@ def create_static_routes(tgen, input_dict, build=False):
         logger.error(errormsg)
         return errormsg
 
-    logger.debug("Exiting lib API: create_static_routes()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
 
@@ -935,13 +1088,11 @@ def create_prefix_lists(tgen, input_dict, build=False):
     """
     Create ip prefix lists as per the config provided in input
     JSON or input_dict
-
     Parameters
     ----------
     * `tgen` : Topogen object
     * `input_dict` : Input dict data, required when configuring from testcase
     * `build` : Only for initial setup phase this is set as True.
-
     Usage
     -----
     # pf_lists_1: name of prefix-list, user defined
@@ -950,7 +1101,6 @@ def create_prefix_lists(tgen, input_dict, build=False):
     # action: permit/deny
     # le: less than or equal number of bits
     # ge: greater than or equal number of bits
-
     Example
     -------
     input_dict = {
@@ -971,13 +1121,12 @@ def create_prefix_lists(tgen, input_dict, build=False):
             }
         }
     }
-
     Returns
     -------
     errormsg or True
     """
 
-    logger.debug("Entering lib API: create_prefix_lists()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
     try:
         for router in input_dict.keys():
@@ -1036,20 +1185,18 @@ def create_prefix_lists(tgen, input_dict, build=False):
         logger.error(errormsg)
         return errormsg
 
-    logger.debug("Exiting lib API: create_prefix_lists()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
 
 def create_route_maps(tgen, input_dict, build=False):
     """
     Create route-map on the devices as per the arguments passed
-
     Parameters
     ----------
     * `tgen` : Topogen object
     * `input_dict` : Input dict data, required when configuring from testcase
     * `build` : Only for initial setup phase this is set as True.
-
     Usage
     -----
     # route_maps: key, value pair for route-map name and its attribute
@@ -1070,7 +1217,6 @@ def create_route_maps(tgen, input_dict, build=False):
     # large_community: large community value to be attached
     # community_additive: if set to "additive", adds community/large-community
                           value to the existing values of the network prefix
-
     Example:
     --------
     input_dict = {
@@ -1086,7 +1232,6 @@ def create_route_maps(tgen, input_dict, build=False):
                             "ipv6": {
                                 "prefix_list": "pf_list_1"
                             }
-
                             "large-community-list": {
                                 "id": "community_1",
                                 "exact_match": True
@@ -1119,14 +1264,13 @@ def create_route_maps(tgen, input_dict, build=False):
             }
         }
     }
-
     Returns
     -------
     errormsg(str) or True
     """
 
     result = False
-    logger.debug("Entering lib API: create_route_maps()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     input_dict = deepcopy(input_dict)
     try:
         for router in input_dict.keys():
@@ -1391,18 +1535,16 @@ def create_route_maps(tgen, input_dict, build=False):
         logger.error(errormsg)
         return errormsg
 
-    logger.debug("Exiting lib API: create_route_maps()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
 
 def delete_route_maps(tgen, input_dict):
     """
     Delete ip route maps from device
-
     * `tgen`  : Topogen object
     * `input_dict` :  for which router,
                       route map has to be deleted
-
     Usage
     -----
     # Delete route-map rmap_1 and rmap_2 from router r1
@@ -1412,12 +1554,11 @@ def delete_route_maps(tgen, input_dict):
         }
     }
     result = delete_route_maps("ipv4", input_dict)
-
     Returns
     -------
     errormsg(str) or True
     """
-    logger.info("Entering lib API: delete_route_maps()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     for router in input_dict.keys():
         route_maps = input_dict[router]["route_maps"][:]
@@ -1433,7 +1574,6 @@ def create_bgp_community_lists(tgen, input_dict, build=False):
     """
     Create bgp community-list or large-community-list on the devices as per
     the arguments passed. Takes list of communities in input.
-
     Parameters
     ----------
     * `tgen` : Topogen object
@@ -1459,7 +1599,7 @@ def create_bgp_community_lists(tgen, input_dict, build=False):
     """
 
     result = False
-    logger.debug("Entering lib API: create_bgp_community_lists()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     input_dict = deepcopy(input_dict)
     try:
         for router in input_dict.keys():
@@ -1515,30 +1655,26 @@ def create_bgp_community_lists(tgen, input_dict, build=False):
         logger.error(errormsg)
         return errormsg
 
-    logger.debug("Exiting lib API: create_bgp_community_lists()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
 
 def shutdown_bringup_interface(tgen, dut, intf_name, ifaceaction=False):
     """
     Shutdown or bringup router's interface "
-
     * `tgen`  : Topogen object
     * `dut`  : Device under test
     * `intf_name`  : Interface name to be shut/no shut
     * `ifaceaction` :  Action, to shut/no shut interface,
                        by default is False
-
     Usage
     -----
     dut = "r3"
     intf = "r3-r1-eth0"
     # Shut down ineterface
     shutdown_bringup_interface(tgen, dut, intf, False)
-
     # Bring up ineterface
     shutdown_bringup_interface(tgen, dut, intf, True)
-
     Returns
     -------
     errormsg(str) or True
@@ -1564,7 +1700,6 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
     advertise_networks_using_network_command() and do will verify next_hop and
     each prefix/routes is present in "show ip/ipv6 route {bgp/stataic} json"
     command o/p.
-
     Parameters
     ----------
     * `tgen` : topogen object
@@ -1574,14 +1709,12 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
     * `next_hop`[optional]: next_hop which needs to be verified,
                            default: static
     * `protocol`[optional]: protocol, default = None
-
     Usage
     -----
     # RIB can be verified for static routes OR network advertised using
     network command. Following are input_dicts to create static routes
     and advertise networks using network command. Any one of the input_dict
     can be passed to verify_rib() to verify routes in DUT"s RIB.
-
     # Creating static routes for r1
     input_dict = {
         "r1": {
@@ -1599,13 +1732,12 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
     dut = "r2"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol = protocol)
-
     Returns
     -------
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_rib()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     router_list = tgen.routers()
     for routerInput in input_dict.keys():
@@ -1639,10 +1771,9 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                 static_routes = input_dict[routerInput]["static_routes"]
                 st_found = False
                 nh_found = False
+                found_routes = []
+                missing_routes = []
                 for static_route in static_routes:
-                    found_routes = []
-                    missing_routes = []
-
                     network = static_route["network"]
                     if "no_of_ip" in static_route:
                         no_of_ip = static_route["no_of_ip"]
@@ -1741,15 +1872,15 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                                     if type(next_hop) is not list:
                                         next_hop = [next_hop]
 
-                                    for index, nh in enumerate(next_hop):
-                                        if (
-                                            rib_routes_json[st_rt][0]["nexthops"][
-                                                index
-                                            ]["ip"]
-                                            == nh
-                                        ):
+                                    for nh in next_hop:
+                                        for nh_json in rib_routes_json[st_rt][0][
+                                            "nexthops"
+                                        ]:
+                                            if nh != nh_json["ip"]:
+                                                continue
                                             nh_found = True
-                                        else:
+
+                                        if not nh_found:
                                             errormsg = (
                                                 "Nexthop {} is Missing"
                                                 " for {} route {} in "
@@ -1780,7 +1911,7 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                         " routes  are: {}\n".format(addr_type, dut, found_routes)
                     )
 
-    logger.debug("Exiting lib API: verify_rib()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -1788,7 +1919,6 @@ def verify_admin_distance_for_static_routes(tgen, input_dict):
     """
     API to verify admin distance for static routes as defined in input_dict/
     input JSON by running show ip/ipv6 route json command.
-
     Parameter
     ---------
     * `tgen` : topogen object
@@ -1808,13 +1938,12 @@ def verify_admin_distance_for_static_routes(tgen, input_dict):
         }
     }
     result = verify_admin_distance_for_static_routes(tgen, input_dict)
-
     Returns
     -------
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_admin_distance_for_static_routes()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     for router in input_dict.keys():
         if router not in tgen.routers():
@@ -1871,7 +2000,7 @@ def verify_admin_distance_for_static_routes(tgen, input_dict):
                 )
                 return errormsg
 
-    logger.debug("Exiting lib API: verify_admin_distance_for_static_routes()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -1879,12 +2008,10 @@ def verify_prefix_lists(tgen, input_dict):
     """
     Running "show ip prefix-list" command and verifying given prefix-list
     is present in router.
-
     Parameters
     ----------
     * `tgen` : topogen object
     * `input_dict`: data to verify prefix lists
-
     Usage
     -----
     # To verify pf_list_1 is present in router r1
@@ -1893,13 +2020,12 @@ def verify_prefix_lists(tgen, input_dict):
             "prefix_lists": ["pf_list_1"]
         }}
     result = verify_prefix_lists("ipv4", input_dict, tgen)
-
     Returns
     -------
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_prefix_lists()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     for router in input_dict.keys():
         if router not in tgen.routers():
@@ -1930,7 +2056,7 @@ def verify_prefix_lists(tgen, input_dict):
                     router,
                 )
 
-    logger.debug("Exiting lib API: verify_prefix_lists()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -1957,7 +2083,7 @@ def verify_route_maps(tgen, input_dict):
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_route_maps()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     for router in input_dict.keys():
         if router not in tgen.routers():
@@ -1982,7 +2108,7 @@ def verify_route_maps(tgen, input_dict):
             router,
         )
 
-    logger.debug("Exiting lib API: verify_route_maps()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -1991,7 +2117,6 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
     """
     API to veiryf BGP large community is attached in route for any given
     DUT by running "show bgp ipv4/6 {route address} json" command.
-
     Parameters
     ----------
     * `tgen`: topogen object
@@ -2007,13 +2132,12 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
         "largeCommunity": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
     }
     result = verify_bgp_community(tgen, "ipv4", dut, network, input_dict=None)
-
     Returns
     -------
     errormsg(str) or True
     """
 
-    logger.info("Entering lib API: verify_bgp_community()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     if router not in tgen.routers():
         return False
 
@@ -2075,7 +2199,7 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
             )
             return errormsg
 
-    logger.debug("Exiting lib API: verify_bgp_community()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -2104,7 +2228,7 @@ def verify_create_community_list(tgen, input_dict):
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_create_community_list()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     for router in input_dict.keys():
         if router not in tgen.routers():
@@ -2132,5 +2256,5 @@ def verify_create_community_list(tgen, input_dict):
                 )
                 return errormsg
 
-            logger.debug("Exiting lib API: verify_create_community_list()")
+            logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
             return True

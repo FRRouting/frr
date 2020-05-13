@@ -1088,6 +1088,120 @@ class Router(Node):
     def getLog(self, log, daemon):
         return self.cmd("cat {}/{}/{}.{}".format(self.logdir, self.name, daemon, log))
 
+    def startRouterDaemons(self, daemons):
+        # Starts actual daemons without init (ie restart)
+        # cd to per node directory
+        self.cmd('cd {}/{}'.format(self.logdir, self.name))
+        self.cmd('umask 000')
+        #Re-enable to allow for report per run
+        self.reportCores = True
+        rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
+
+        for daemon in daemons:
+            if daemon == 'zebra':
+                # Start Zebra first
+                if self.daemons['zebra'] == 1:
+                    zebra_path = os.path.join(self.daemondir, 'zebra')
+                    zebra_option = self.daemons_options['zebra']
+                    self.cmd('{0} {1} > zebra.out 2> zebra.err &'.format(
+                        zebra_path, zebra_option, self.logdir, self.name
+                    ))
+                    self.waitOutput()
+                    logger.debug('{}: {} zebra started'.format(self, self.routertype))
+                    sleep(1, '{}: waiting for zebra to start'.format(self.name))
+
+                    # Fix Link-Local Addresses
+                    # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local
+                    #  addresses on start. Fix this
+                    self.cmd('for i in `ls /sys/class/net/` ; do mac=`cat /sys/class/net/$i/address`; IFS=\':\'; set $mac; unset IFS; ip address add dev $i scope link fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64; done')
+
+            if daemon == 'staticd':
+                # Start staticd next if required
+                if self.daemons['staticd'] == 1:
+                    staticd_path = os.path.join(self.daemondir, 'staticd')
+                    staticd_option = self.daemons_options['staticd']
+                    self.cmd('{0} {1} > staticd.out 2> staticd.err &'.format(
+                        staticd_path, staticd_option, self.logdir, self.name
+                    ))
+                    self.waitOutput()
+                    logger.debug('{}: {} staticd started'.format(self, self.routertype))
+                    sleep(1, '{}: waiting for staticd to start'.format(self.name))
+
+            # Now start all the daemons
+            # Skip disabled daemons and zebra
+            if self.daemons[daemon] == 0 or daemon == 'zebra' or daemon == 'staticd':
+                continue
+            daemon_path = os.path.join(self.daemondir, daemon)
+            self.cmd('{0} > {1}.out 2> {1}.err &'.format(
+                daemon_path, daemon
+            ))
+            self.waitOutput()
+            logger.debug('{}: {} {} started'.format(self, self.routertype, daemon))
+            sleep(1, '{}: waiting for {} to start'.format(self.name, daemon))
+
+        rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
+
+        if re.search(r"No such file or directory", rundaemons):
+            return "Daemons are not running"
+
+        return ""
+
+    def killRouterDaemons(self, daemons, wait=True, assertOnError=True,
+                          minErrorVersion='5.1'):
+        # Kill Running Quagga or FRR specific
+        # Daemons(user specified daemon only) using SIGKILL
+        rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
+        errors = ""
+        daemonsNotRunning = []
+        if re.search(r"No such file or directory", rundaemons):
+            return errors
+        for daemon in daemons:
+            if rundaemons is not None and daemon in rundaemons:
+                numRunning = 0
+                for d in StringIO.StringIO(rundaemons):
+                    if re.search(r"%s" % daemon, d):
+                        daemonpid = self.cmd('cat %s' % d.rstrip()).rstrip()
+                        if (daemonpid.isdigit() and pid_exists(int(daemonpid))):
+                            logger.info('{}: killing {}'.format(
+                               self.name,
+                               os.path.basename(d.rstrip().rsplit(".", 1)[0])
+                            ))
+                            self.cmd('kill -9 %s' % daemonpid)
+                            self.waitOutput()
+                            if pid_exists(int(daemonpid)):
+                                numRunning += 1
+                        if wait and numRunning > 0:
+                            sleep(2, '{}: waiting for {} daemon to be stopped'.\
+                                format(self.name, daemon))
+                            # 2nd round of kill if daemons didn't exit
+                            for d in StringIO.StringIO(rundaemons):
+                                if re.search(r"%s" % daemon, d):
+                                    daemonpid = \
+                                        self.cmd('cat %s' % d.rstrip()).rstrip()
+                                    if (daemonpid.isdigit() and pid_exists(
+                                        int(daemonpid))):
+                                        logger.info('{}: killing {}'.format(
+                                            self.name,
+                                            os.path.basename(d.rstrip().\
+                                                rsplit(".", 1)[0])
+                                        ))
+                                        self.cmd('kill -9 %s' % daemonpid)
+                                        self.waitOutput()
+                                    self.cmd('rm -- {}'.format(d.rstrip()))
+                    if wait:
+                        errors = self.checkRouterCores(reportOnce=True)
+                        if self.checkRouterVersion('<', minErrorVersion):
+                            #ignore errors in old versions
+                            errors = ""
+                        if assertOnError and len(errors) > 0:
+                            assert "Errors found - details follow:" == 0, errors
+            else:
+                daemonsNotRunning.append(daemon)
+        if len(daemonsNotRunning) > 0:
+            errors = errors+"Daemons are not running", daemonsNotRunning
+
+        return errors
+
     def checkRouterCores(self, reportLeaks=True, reportOnce=False):
         if reportOnce and not self.reportCores:
             return
