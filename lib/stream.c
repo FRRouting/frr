@@ -252,6 +252,18 @@ void stream_forward_getp(struct stream *s, size_t size)
 	s->getp += size;
 }
 
+bool stream_forward_getp2(struct stream *s, size_t size)
+{
+	STREAM_VERIFY_SANE(s);
+
+	if (!GETP_VALID(s, s->getp + size))
+		return false;
+
+	s->getp += size;
+
+	return true;
+}
+
 void stream_forward_endp(struct stream *s, size_t size)
 {
 	STREAM_VERIFY_SANE(s);
@@ -262,6 +274,18 @@ void stream_forward_endp(struct stream *s, size_t size)
 	}
 
 	s->endp += size;
+}
+
+bool stream_forward_endp2(struct stream *s, size_t size)
+{
+	STREAM_VERIFY_SANE(s);
+
+	if (!ENDP_VALID(s, s->endp + size))
+		return false;
+
+	s->endp += size;
+
+	return true;
 }
 
 /* Copy from stream to destination. */
