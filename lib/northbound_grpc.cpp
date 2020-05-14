@@ -175,14 +175,13 @@ class NorthboundImpl
 	void HandleGetCapabilities(RpcState<frr::GetCapabilitiesRequest,
 					    frr::GetCapabilitiesResponse> *tag)
 	{
-		if (nb_dbg_client_grpc)
-			zlog_debug("received RPC GetCapabilities()");
-
 		switch (tag->state) {
 		case CREATE:
 			REQUEST_RPC(GetCapabilities);
 			tag->state = PROCESS;
 		case PROCESS: {
+			if (nb_dbg_client_grpc)
+				zlog_debug("received RPC GetCapabilities()");
 
 			// Response: string frr_version = 1;
 			tag->response.set_frr_version(FRR_VERSION);
@@ -298,14 +297,14 @@ class NorthboundImpl
 	void HandleCreateCandidate(RpcState<frr::CreateCandidateRequest,
 					    frr::CreateCandidateResponse> *tag)
 	{
-		if (nb_dbg_client_grpc)
-			zlog_debug("received RPC CreateCandidate()");
-
 		switch (tag->state) {
 		case CREATE:
 			REQUEST_RPC(CreateCandidate);
 			tag->state = PROCESS;
 		case PROCESS: {
+			if (nb_dbg_client_grpc)
+				zlog_debug("received RPC CreateCandidate()");
+
 			struct candidate *candidate = create_candidate();
 			if (!candidate) {
 				tag->responder.Finish(
@@ -756,9 +755,6 @@ class NorthboundImpl
 	HandleListTransactions(RpcState<frr::ListTransactionsRequest,
 					frr::ListTransactionsResponse> *tag)
 	{
-		if (nb_dbg_client_grpc)
-			zlog_debug("received RPC ListTransactions()");
-
 		switch (tag->state) {
 		case CREATE:
 			REQUEST_RPC_STREAMING(ListTransactions);
@@ -768,6 +764,9 @@ class NorthboundImpl
 						   tag->context);
 			tag->state = PROCESS;
 		case PROCESS: {
+			if (nb_dbg_client_grpc)
+				zlog_debug("received RPC ListTransactions()");
+
 			auto list = static_cast<std::list<std::tuple<
 				int, std::string, std::string, std::string>> *>(
 				tag->context);
@@ -876,14 +875,14 @@ class NorthboundImpl
 	void HandleLockConfig(
 		RpcState<frr::LockConfigRequest, frr::LockConfigResponse> *tag)
 	{
-		if (nb_dbg_client_grpc)
-			zlog_debug("received RPC LockConfig()");
-
 		switch (tag->state) {
 		case CREATE:
 			REQUEST_RPC(LockConfig);
 			tag->state = PROCESS;
 		case PROCESS: {
+			if (nb_dbg_client_grpc)
+				zlog_debug("received RPC LockConfig()");
+
 			if (nb_running_lock(NB_CLIENT_GRPC, NULL)) {
 				tag->responder.Finish(
 					tag->response,
@@ -909,14 +908,14 @@ class NorthboundImpl
 	void HandleUnlockConfig(RpcState<frr::UnlockConfigRequest,
 					 frr::UnlockConfigResponse> *tag)
 	{
-		if (nb_dbg_client_grpc)
-			zlog_debug("received RPC UnlockConfig()");
-
 		switch (tag->state) {
 		case CREATE:
 			REQUEST_RPC(UnlockConfig);
 			tag->state = PROCESS;
 		case PROCESS: {
+			if (nb_dbg_client_grpc)
+				zlog_debug("received RPC UnlockConfig()");
+
 			if (nb_running_unlock(NB_CLIENT_GRPC, NULL)) {
 				tag->responder.Finish(
 					tag->response,
