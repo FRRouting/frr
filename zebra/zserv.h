@@ -72,7 +72,7 @@ struct client_gr_info {
 	enum zserv_client_capabilities capabilities;
 
 	/* GR commands */
-	bool delete;
+	bool do_delete;
 	bool gr_enable;
 	bool stale_client;
 

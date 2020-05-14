@@ -211,28 +211,29 @@ static void route_entry_attach_ref(struct route_entry *re,
 	zebra_nhg_increment_ref(new);
 }
 
-int route_entry_update_nhe(struct route_entry *re, struct nhg_hash_entry *new)
+int route_entry_update_nhe(struct route_entry *re,
+			   struct nhg_hash_entry *new_nhghe)
 {
 	struct nhg_hash_entry *old;
 	int ret = 0;
 
-	if (new == NULL) {
+	if (new_nhghe == NULL) {
 		if (re->nhe)
 			zebra_nhg_decrement_ref(re->nhe);
 		re->nhe = NULL;
 		goto done;
 	}
 
-	if ((re->nhe_id != 0) && (re->nhe_id != new->id)) {
+	if ((re->nhe_id != 0) && (re->nhe_id != new_nhghe->id)) {
 		old = re->nhe;
 
-		route_entry_attach_ref(re, new);
+		route_entry_attach_ref(re, new_nhghe);
 
 		if (old)
 			zebra_nhg_decrement_ref(old);
 	} else if (!re->nhe)
 		/* This is the first time it's being attached */
-		route_entry_attach_ref(re, new);
+		route_entry_attach_ref(re, new_nhghe);
 
 done:
 	return ret;

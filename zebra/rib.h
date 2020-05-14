@@ -323,7 +323,8 @@ enum rib_update_event {
 
 extern void route_entry_copy_nexthops(struct route_entry *re,
 				      struct nexthop *nh);
-int route_entry_update_nhe(struct route_entry *re, struct nhg_hash_entry *new);
+int route_entry_update_nhe(struct route_entry *re,
+			   struct nhg_hash_entry *new_nhghe);
 
 #define route_entry_dump(prefix, src, re) _route_entry_dump(__func__, prefix, src, re)
 extern void _route_entry_dump(const char *func, union prefixconstptr pp,
