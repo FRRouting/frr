@@ -46,23 +46,11 @@ struct debug nb_dbg_libyang = {0, "libyang debugging"};
 struct nb_config *vty_shared_candidate_config;
 static struct thread_master *master;
 
-static void vty_show_libyang_errors(struct vty *vty, struct ly_ctx *ly_ctx)
+static void vty_show_nb_errors(struct vty *vty, int error, const char *errmsg)
 {
-	struct ly_err_item *ei;
-	const char *path;
-
-	ei = ly_err_first(ly_ctx);
-	if (!ei)
-		return;
-
-	for (; ei; ei = ei->next)
-		vty_out(vty, "%s\n", ei->msg);
-
-	path = ly_errpath(ly_ctx);
-	if (path)
-		vty_out(vty, "YANG path: %s\n", path);
-
-	ly_err_clean(ly_ctx, NULL);
+	vty_out(vty, "Error type: %s\n", nb_err_name(error));
+	if (strlen(errmsg) > 0)
+		vty_out(vty, "Error description: %s\n", errmsg);
 }
 
 void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
@@ -158,28 +146,31 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	}
 
 	if (error) {
+		char buf[BUFSIZ];
+
 		/*
 		 * Failure to edit the candidate configuration should never
 		 * happen in practice, unless there's a bug in the code. When
 		 * that happens, log the error but otherwise ignore it.
 		 */
 		vty_out(vty, "%% Failed to edit configuration.\n\n");
-		vty_show_libyang_errors(vty, ly_native_ctx);
+		vty_out(vty, "%s",
+			yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
 	}
 
 	/* Do an implicit "commit" when using the classic CLI mode. */
 	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
 		struct nb_context context = {};
+		char errmsg[BUFSIZ] = {0};
 
 		context.client = NB_CLIENT_CLI;
 		context.user = vty;
 		ret = nb_candidate_commit(&context, vty->candidate_config,
-					  false, NULL, NULL);
+					  false, NULL, NULL, errmsg,
+					  sizeof(errmsg));
 		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
-			vty_out(vty, "%% Configuration failed: %s.\n\n",
-				nb_err_name(ret));
-			vty_out(vty,
-				"Please check the logs for more details.\n");
+			vty_out(vty, "%% Configuration failed.\n\n");
+			vty_show_nb_errors(vty, ret, errmsg);
 
 			/* Regenerate candidate for consistency. */
 			nb_config_replace(vty->candidate_config, running_config,
@@ -223,8 +214,8 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 {
 	struct nb_context context = {};
 	uint32_t transaction_id;
+	char errmsg[BUFSIZ] = {0};
 	int ret;
-
 
 	/* Perform the rollback. */
 	context.client = NB_CLIENT_CLI;
@@ -232,13 +223,16 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 	ret = nb_candidate_commit(
 		&context, vty->confirmed_commit_rollback, true,
 		"Rollback to previous configuration - confirmed commit has timed out",
-		&transaction_id);
+		&transaction_id, errmsg, sizeof(errmsg));
 	if (ret == NB_OK)
 		vty_out(vty,
 			"Rollback performed successfully (Transaction ID #%u).\n",
 			transaction_id);
-	else
-		vty_out(vty, "Failed to rollback to previous configuration.\n");
+	else {
+		vty_out(vty,
+			"Failed to rollback to previous configuration.\n\n");
+		vty_show_nb_errors(vty, ret, errmsg);
+	}
 
 	return ret;
 }
@@ -262,6 +256,7 @@ static int nb_cli_commit(struct vty *vty, bool force,
 {
 	struct nb_context context = {};
 	uint32_t transaction_id = 0;
+	char errmsg[BUFSIZ] = {0};
 	int ret;
 
 	/* Check if there's a pending confirmed commit. */
@@ -307,7 +302,8 @@ static int nb_cli_commit(struct vty *vty, bool force,
 	context.client = NB_CLIENT_CLI;
 	context.user = vty;
 	ret = nb_candidate_commit(&context, vty->candidate_config, true,
-				  comment, &transaction_id);
+				  comment, &transaction_id, errmsg,
+				  sizeof(errmsg));
 
 	/* Map northbound return code to CLI return code. */
 	switch (ret) {
@@ -323,9 +319,8 @@ static int nb_cli_commit(struct vty *vty, bool force,
 		return CMD_SUCCESS;
 	default:
 		vty_out(vty,
-			"%% Failed to commit candidate configuration: %s.\n\n",
-			nb_err_name(ret));
-		vty_out(vty, "Please check the logs for more details.\n");
+			"%% Failed to commit candidate configuration.\n\n");
+		vty_show_nb_errors(vty, ret, errmsg);
 		return CMD_WARNING;
 	}
 }
@@ -339,6 +334,7 @@ static int nb_cli_candidate_load_file(struct vty *vty,
 	struct lyd_node *dnode;
 	struct ly_ctx *ly_ctx;
 	int ly_format;
+	char buf[BUFSIZ];
 
 	switch (format) {
 	case NB_CFG_FMT_CMDS:
@@ -361,7 +357,9 @@ static int nb_cli_candidate_load_file(struct vty *vty,
 			flog_warn(EC_LIB_LIBYANG, "%s: lyd_parse_path() failed",
 				  __func__);
 			vty_out(vty, "%% Failed to load configuration:\n\n");
-			vty_show_libyang_errors(vty, ly_ctx);
+			vty_out(vty, "%s",
+				yang_print_errors(ly_native_ctx, buf,
+						  sizeof(buf)));
 			return CMD_WARNING;
 		}
 		if (translator
@@ -382,7 +380,8 @@ static int nb_cli_candidate_load_file(struct vty *vty,
 		 != NB_OK) {
 		vty_out(vty,
 			"%% Failed to merge the loaded configuration:\n\n");
-		vty_show_libyang_errors(vty, ly_native_ctx);
+		vty_out(vty, "%s",
+			yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
 		return CMD_WARNING;
 	}
 
@@ -394,6 +393,7 @@ static int nb_cli_candidate_load_transaction(struct vty *vty,
 					     bool replace)
 {
 	struct nb_config *loaded_config;
+	char buf[BUFSIZ];
 
 	loaded_config = nb_db_transaction_load(transaction_id);
 	if (!loaded_config) {
@@ -408,7 +408,8 @@ static int nb_cli_candidate_load_transaction(struct vty *vty,
 		 != NB_OK) {
 		vty_out(vty,
 			"%% Failed to merge the loaded configuration:\n\n");
-		vty_show_libyang_errors(vty, ly_native_ctx);
+		vty_out(vty, "%s",
+			yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
 		return CMD_WARNING;
 	}
 
@@ -702,15 +703,17 @@ DEFPY (config_commit_check,
        "Check if the configuration changes are valid\n")
 {
 	struct nb_context context = {};
+	char errmsg[BUFSIZ] = {0};
 	int ret;
 
 	context.client = NB_CLIENT_CLI;
 	context.user = vty;
-	ret = nb_candidate_validate(&context, vty->candidate_config);
+	ret = nb_candidate_validate(&context, vty->candidate_config, errmsg,
+				    sizeof(errmsg));
 	if (ret != NB_OK) {
 		vty_out(vty,
 			"%% Failed to validate candidate configuration.\n\n");
-		vty_show_libyang_errors(vty, ly_native_ctx);
+		vty_show_nb_errors(vty, ret, errmsg);
 		return CMD_WARNING;
 	}
 
@@ -1547,6 +1550,7 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 	struct nb_context context = {};
 	struct nb_config *candidate;
 	char comment[80];
+	char errmsg[BUFSIZ] = {0};
 	int ret;
 
 	candidate = nb_db_transaction_load(transaction_id);
@@ -1561,7 +1565,8 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 
 	context.client = NB_CLIENT_CLI;
 	context.user = vty;
-	ret = nb_candidate_commit(&context, candidate, true, comment, NULL);
+	ret = nb_candidate_commit(&context, candidate, true, comment, NULL,
+				  errmsg, sizeof(errmsg));
 	nb_config_free(candidate);
 	switch (ret) {
 	case NB_OK:
@@ -1574,7 +1579,7 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 		return CMD_WARNING;
 	default:
 		vty_out(vty, "%% Rollback failed.\n\n");
-		vty_out(vty, "Please check the logs for more details.\n");
+		vty_show_nb_errors(vty, ret, errmsg);
 		return CMD_WARNING;
 	}
 }

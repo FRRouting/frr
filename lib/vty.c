@@ -2350,14 +2350,17 @@ static void vty_read_file(struct nb_config *config, FILE *confp)
 	 */
 	if (config == NULL) {
 		struct nb_context context = {};
+		char errmsg[BUFSIZ] = {0};
 
 		context.client = NB_CLIENT_CLI;
 		context.user = vty;
 		ret = nb_candidate_commit(&context, vty->candidate_config, true,
-					  "Read configuration file", NULL);
+					  "Read configuration file", NULL,
+					  errmsg, sizeof(errmsg));
 		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
-			zlog_err("%s: failed to read configuration file.",
-				 __func__);
+			zlog_err(
+				"%s: failed to read configuration file: %s (%s)",
+				__func__, nb_err_name(ret), errmsg);
 	}
 
 	vty_close(vty);

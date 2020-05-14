@@ -288,6 +288,7 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 	struct nb_context context = {};
 	struct nb_config *candidate;
 	struct cdb_iter_args iter_args;
+	char errmsg[BUFSIZ] = {0};
 	int ret;
 
 	candidate = nb_config_dup(running_config);
@@ -324,23 +325,19 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 	transaction = NULL;
 	context.client = NB_CLIENT_CONFD;
 	ret = nb_candidate_commit_prepare(&context, candidate, NULL,
-					  &transaction);
+					  &transaction, errmsg, sizeof(errmsg));
 	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
 		enum confd_errcode errcode;
-		const char *errmsg;
 
 		switch (ret) {
 		case NB_ERR_LOCKED:
 			errcode = CONFD_ERRCODE_IN_USE;
-			errmsg = "Configuration is locked by another process";
 			break;
 		case NB_ERR_RESOURCE:
 			errcode = CONFD_ERRCODE_RESOURCE_DENIED;
-			errmsg = "Failed do allocate resources";
 			break;
 		default:
-			errcode = CONFD_ERRCODE_INTERNAL;
-			errmsg = "Internal error";
+			errcode = CONFD_ERRCODE_APPLICATION;
 			break;
 		}
 

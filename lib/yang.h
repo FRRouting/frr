@@ -497,6 +497,24 @@ extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules);
 extern void yang_debugging_set(bool enable);
 
 /*
+ * Print libyang error messages into the provided buffer.
+ *
+ * ly_ctx
+ *    libyang context to operate on.
+ *
+ * buf
+ *    Buffer to store the libyang error messages.
+ *
+ * buf_len
+ *    Size of buf.
+ *
+ * Returns:
+ *    The provided buffer.
+ */
+extern const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf,
+				     size_t buf_len);
+
+/*
  * Initialize the YANG subsystem. Should be called only once during the
  * daemon initialization process.
  *

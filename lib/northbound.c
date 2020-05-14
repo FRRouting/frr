@@ -64,18 +64,22 @@ static bool transaction_in_progress;
 
 static int nb_callback_pre_validate(struct nb_context *context,
 				    const struct nb_node *nb_node,
-				    const struct lyd_node *dnode);
+				    const struct lyd_node *dnode, char *errmsg,
+				    size_t errmsg_len);
 static int nb_callback_configuration(struct nb_context *context,
 				     const enum nb_event event,
-				     struct nb_config_change *change);
-static struct nb_transaction *nb_transaction_new(struct nb_context *context,
-						 struct nb_config *config,
-						 struct nb_config_cbs *changes,
-						 const char *comment);
+				     struct nb_config_change *change,
+				     char *errmsg, size_t errmsg_len);
+static struct nb_transaction *
+nb_transaction_new(struct nb_context *context, struct nb_config *config,
+		   struct nb_config_cbs *changes, const char *comment,
+		   char *errmsg, size_t errmsg_len);
 static void nb_transaction_free(struct nb_transaction *transaction);
 static int nb_transaction_process(enum nb_event event,
-				  struct nb_transaction *transaction);
-static void nb_transaction_apply_finish(struct nb_transaction *transaction);
+				  struct nb_transaction *transaction,
+				  char *errmsg, size_t errmsg_len);
+static void nb_transaction_apply_finish(struct nb_transaction *transaction,
+					char *errmsg, size_t errmsg_len);
 static int nb_oper_data_iter_node(const struct lys_node *snode,
 				  const char *xpath, const void *list_entry,
 				  const struct yang_list_keys *list_keys,
@@ -581,13 +585,16 @@ int nb_candidate_update(struct nb_config *candidate)
  * WARNING: lyd_validate() can change the configuration as part of the
  * validation process.
  */
-static int nb_candidate_validate_yang(struct nb_config *candidate)
+static int nb_candidate_validate_yang(struct nb_config *candidate, char *errmsg,
+				      size_t errmsg_len)
 {
 	if (lyd_validate(&candidate->dnode,
 			 LYD_OPT_STRICT | LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
 			 ly_native_ctx)
-	    != 0)
+	    != 0) {
+		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
 		return NB_ERR_VALIDATION;
+	}
 
 	return NB_OK;
 }
@@ -595,7 +602,8 @@ static int nb_candidate_validate_yang(struct nb_config *candidate)
 /* Perform code-level validation using the northbound callbacks. */
 static int nb_candidate_validate_code(struct nb_context *context,
 				      struct nb_config *candidate,
-				      struct nb_config_cbs *changes)
+				      struct nb_config_cbs *changes,
+				      char *errmsg, size_t errmsg_len)
 {
 	struct nb_config_cb *cb;
 	struct lyd_node *root, *next, *child;
@@ -610,7 +618,8 @@ static int nb_candidate_validate_code(struct nb_context *context,
 			if (!nb_node->cbs.pre_validate)
 				goto next;
 
-			ret = nb_callback_pre_validate(context, nb_node, child);
+			ret = nb_callback_pre_validate(context, nb_node, child,
+						       errmsg, errmsg_len);
 			if (ret != NB_OK)
 				return NB_ERR_VALIDATION;
 
@@ -623,8 +632,8 @@ static int nb_candidate_validate_code(struct nb_context *context,
 	RB_FOREACH (cb, nb_config_cbs, changes) {
 		struct nb_config_change *change = (struct nb_config_change *)cb;
 
-		ret = nb_callback_configuration(context, NB_EV_VALIDATE,
-						change);
+		ret = nb_callback_configuration(context, NB_EV_VALIDATE, change,
+						errmsg, errmsg_len);
 		if (ret != NB_OK)
 			return NB_ERR_VALIDATION;
 	}
@@ -633,17 +642,20 @@ static int nb_candidate_validate_code(struct nb_context *context,
 }
 
 int nb_candidate_validate(struct nb_context *context,
-			  struct nb_config *candidate)
+			  struct nb_config *candidate, char *errmsg,
+			  size_t errmsg_len)
 {
 	struct nb_config_cbs changes;
 	int ret;
 
-	if (nb_candidate_validate_yang(candidate) != NB_OK)
+	if (nb_candidate_validate_yang(candidate, errmsg, sizeof(errmsg_len))
+	    != NB_OK)
 		return NB_ERR_VALIDATION;
 
 	RB_INIT(nb_config_cbs, &changes);
 	nb_config_diff(running_config, candidate, &changes);
-	ret = nb_candidate_validate_code(context, candidate, &changes);
+	ret = nb_candidate_validate_code(context, candidate, &changes, errmsg,
+					 errmsg_len);
 	nb_config_diff_del_changes(&changes);
 
 	return ret;
@@ -652,11 +664,13 @@ int nb_candidate_validate(struct nb_context *context,
 int nb_candidate_commit_prepare(struct nb_context *context,
 				struct nb_config *candidate,
 				const char *comment,
-				struct nb_transaction **transaction)
+				struct nb_transaction **transaction,
+				char *errmsg, size_t errmsg_len)
 {
 	struct nb_config_cbs changes;
 
-	if (nb_candidate_validate_yang(candidate) != NB_OK) {
+	if (nb_candidate_validate_yang(candidate, errmsg, errmsg_len)
+	    != NB_OK) {
 		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
 			  "%s: failed to validate candidate configuration",
 			  __func__);
@@ -668,7 +682,9 @@ int nb_candidate_commit_prepare(struct nb_context *context,
 	if (RB_EMPTY(nb_config_cbs, &changes))
 		return NB_ERR_NO_CHANGES;
 
-	if (nb_candidate_validate_code(context, candidate, &changes) != NB_OK) {
+	if (nb_candidate_validate_code(context, candidate, &changes, errmsg,
+				       errmsg_len)
+	    != NB_OK) {
 		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
 			  "%s: failed to validate candidate configuration",
 			  __func__);
@@ -676,29 +692,37 @@ int nb_candidate_commit_prepare(struct nb_context *context,
 		return NB_ERR_VALIDATION;
 	}
 
-	*transaction =
-		nb_transaction_new(context, candidate, &changes, comment);
+	*transaction = nb_transaction_new(context, candidate, &changes, comment,
+					  errmsg, errmsg_len);
 	if (*transaction == NULL) {
 		flog_warn(EC_LIB_NB_TRANSACTION_CREATION_FAILED,
-			  "%s: failed to create transaction", __func__);
+			  "%s: failed to create transaction: %s", __func__,
+			  errmsg);
 		nb_config_diff_del_changes(&changes);
 		return NB_ERR_LOCKED;
 	}
 
-	return nb_transaction_process(NB_EV_PREPARE, *transaction);
+	return nb_transaction_process(NB_EV_PREPARE, *transaction, errmsg,
+				      errmsg_len);
 }
 
 void nb_candidate_commit_abort(struct nb_transaction *transaction)
 {
-	(void)nb_transaction_process(NB_EV_ABORT, transaction);
+	char errmsg[BUFSIZ] = {0};
+
+	(void)nb_transaction_process(NB_EV_ABORT, transaction, errmsg,
+				     sizeof(errmsg));
 	nb_transaction_free(transaction);
 }
 
 void nb_candidate_commit_apply(struct nb_transaction *transaction,
 			       bool save_transaction, uint32_t *transaction_id)
 {
-	(void)nb_transaction_process(NB_EV_APPLY, transaction);
-	nb_transaction_apply_finish(transaction);
+	char errmsg[BUFSIZ] = {0};
+
+	(void)nb_transaction_process(NB_EV_APPLY, transaction, errmsg,
+				     sizeof(errmsg));
+	nb_transaction_apply_finish(transaction, errmsg, sizeof(errmsg));
 
 	/* Replace running by candidate. */
 	transaction->config->version++;
@@ -715,13 +739,14 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 
 int nb_candidate_commit(struct nb_context *context, struct nb_config *candidate,
 			bool save_transaction, const char *comment,
-			uint32_t *transaction_id)
+			uint32_t *transaction_id, char *errmsg,
+			size_t errmsg_len)
 {
 	struct nb_transaction *transaction = NULL;
 	int ret;
 
 	ret = nb_candidate_commit_prepare(context, candidate, comment,
-					  &transaction);
+					  &transaction, errmsg, errmsg_len);
 	/*
 	 * Apply the changes if the preparation phase succeeded. Otherwise abort
 	 * the transaction.
@@ -808,7 +833,8 @@ static void nb_log_config_callback(const enum nb_event event,
 static int nb_callback_create(struct nb_context *context,
 			      const struct nb_node *nb_node,
 			      enum nb_event event, const struct lyd_node *dnode,
-			      union nb_resource *resource)
+			      union nb_resource *resource, char *errmsg,
+			      size_t errmsg_len)
 {
 	struct nb_cb_create_args args = {};
 
@@ -818,13 +844,16 @@ static int nb_callback_create(struct nb_context *context,
 	args.event = event;
 	args.dnode = dnode;
 	args.resource = resource;
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
 	return nb_node->cbs.create(&args);
 }
 
 static int nb_callback_modify(struct nb_context *context,
 			      const struct nb_node *nb_node,
 			      enum nb_event event, const struct lyd_node *dnode,
-			      union nb_resource *resource)
+			      union nb_resource *resource, char *errmsg,
+			      size_t errmsg_len)
 {
 	struct nb_cb_modify_args args = {};
 
@@ -834,13 +863,16 @@ static int nb_callback_modify(struct nb_context *context,
 	args.event = event;
 	args.dnode = dnode;
 	args.resource = resource;
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
 	return nb_node->cbs.modify(&args);
 }
 
 static int nb_callback_destroy(struct nb_context *context,
 			       const struct nb_node *nb_node,
 			       enum nb_event event,
-			       const struct lyd_node *dnode)
+			       const struct lyd_node *dnode, char *errmsg,
+			       size_t errmsg_len)
 {
 	struct nb_cb_destroy_args args = {};
 
@@ -849,12 +881,15 @@ static int nb_callback_destroy(struct nb_context *context,
 	args.context = context;
 	args.event = event;
 	args.dnode = dnode;
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
 	return nb_node->cbs.destroy(&args);
 }
 
 static int nb_callback_move(struct nb_context *context,
 			    const struct nb_node *nb_node, enum nb_event event,
-			    const struct lyd_node *dnode)
+			    const struct lyd_node *dnode, char *errmsg,
+			    size_t errmsg_len)
 {
 	struct nb_cb_move_args args = {};
 
@@ -863,24 +898,30 @@ static int nb_callback_move(struct nb_context *context,
 	args.context = context;
 	args.event = event;
 	args.dnode = dnode;
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
 	return nb_node->cbs.move(&args);
 }
 
 static int nb_callback_pre_validate(struct nb_context *context,
 				    const struct nb_node *nb_node,
-				    const struct lyd_node *dnode)
+				    const struct lyd_node *dnode, char *errmsg,
+				    size_t errmsg_len)
 {
 	struct nb_cb_pre_validate_args args = {};
 
 	nb_log_config_callback(NB_EV_VALIDATE, NB_OP_PRE_VALIDATE, dnode);
 
 	args.dnode = dnode;
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
 	return nb_node->cbs.pre_validate(&args);
 }
 
 static void nb_callback_apply_finish(struct nb_context *context,
 				     const struct nb_node *nb_node,
-				     const struct lyd_node *dnode)
+				     const struct lyd_node *dnode, char *errmsg,
+				     size_t errmsg_len)
 {
 	struct nb_cb_apply_finish_args args = {};
 
@@ -888,6 +929,8 @@ static void nb_callback_apply_finish(struct nb_context *context,
 
 	args.context = context;
 	args.dnode = dnode;
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
 	nb_node->cbs.apply_finish(&args);
 }
 
@@ -969,7 +1012,8 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
  */
 static int nb_callback_configuration(struct nb_context *context,
 				     const enum nb_event event,
-				     struct nb_config_change *change)
+				     struct nb_config_change *change,
+				     char *errmsg, size_t errmsg_len)
 {
 	enum nb_operation operation = change->cb.operation;
 	char xpath[XPATH_MAXLEN];
@@ -986,17 +1030,19 @@ static int nb_callback_configuration(struct nb_context *context,
 	switch (operation) {
 	case NB_OP_CREATE:
 		ret = nb_callback_create(context, nb_node, event, dnode,
-					 resource);
+					 resource, errmsg, errmsg_len);
 		break;
 	case NB_OP_MODIFY:
 		ret = nb_callback_modify(context, nb_node, event, dnode,
-					 resource);
+					 resource, errmsg, errmsg_len);
 		break;
 	case NB_OP_DESTROY:
-		ret = nb_callback_destroy(context, nb_node, event, dnode);
+		ret = nb_callback_destroy(context, nb_node, event, dnode,
+					  errmsg, errmsg_len);
 		break;
 	case NB_OP_MOVE:
-		ret = nb_callback_move(context, nb_node, event, dnode);
+		ret = nb_callback_move(context, nb_node, event, dnode, errmsg,
+				       errmsg_len);
 		break;
 	default:
 		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
@@ -1037,34 +1083,36 @@ static int nb_callback_configuration(struct nb_context *context,
 		}
 
 		flog(priority, ref,
-		     "%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
-		     __func__, nb_err_name(ret), nb_event_name(event),
+		     "error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
+		     nb_err_name(ret), nb_event_name(event),
 		     nb_operation_name(operation), xpath);
+		if (strlen(errmsg) > 0)
+			flog(priority, ref,
+			     "error processing configuration change: %s",
+			     errmsg);
 	}
 
 	return ret;
 }
 
-static struct nb_transaction *nb_transaction_new(struct nb_context *context,
-						 struct nb_config *config,
-						 struct nb_config_cbs *changes,
-						 const char *comment)
+static struct nb_transaction *
+nb_transaction_new(struct nb_context *context, struct nb_config *config,
+		   struct nb_config_cbs *changes, const char *comment,
+		   char *errmsg, size_t errmsg_len)
 {
 	struct nb_transaction *transaction;
 
 	if (nb_running_lock_check(context->client, context->user)) {
-		flog_warn(
-			EC_LIB_NB_TRANSACTION_CREATION_FAILED,
-			"%s: running configuration is locked by another client",
-			__func__);
+		strlcpy(errmsg,
+			"running configuration is locked by another client",
+			errmsg_len);
 		return NULL;
 	}
 
 	if (transaction_in_progress) {
-		flog_warn(
-			EC_LIB_NB_TRANSACTION_CREATION_FAILED,
-			"%s: error - there's already another transaction in progress",
-			__func__);
+		strlcpy(errmsg,
+			"there's already another transaction in progress",
+			errmsg_len);
 		return NULL;
 	}
 	transaction_in_progress = true;
@@ -1089,7 +1137,8 @@ static void nb_transaction_free(struct nb_transaction *transaction)
 
 /* Process all configuration changes associated to a transaction. */
 static int nb_transaction_process(enum nb_event event,
-				  struct nb_transaction *transaction)
+				  struct nb_transaction *transaction,
+				  char *errmsg, size_t errmsg_len)
 {
 	struct nb_config_cb *cb;
 
@@ -1106,7 +1155,7 @@ static int nb_transaction_process(enum nb_event event,
 
 		/* Call the appropriate callback. */
 		ret = nb_callback_configuration(transaction->context, event,
-						change);
+						change, errmsg, errmsg_len);
 		switch (event) {
 		case NB_EV_PREPARE:
 			if (ret != NB_OK)
@@ -1160,7 +1209,8 @@ nb_apply_finish_cb_find(struct nb_config_cbs *cbs,
 }
 
 /* Call the 'apply_finish' callbacks. */
-static void nb_transaction_apply_finish(struct nb_transaction *transaction)
+static void nb_transaction_apply_finish(struct nb_transaction *transaction,
+					char *errmsg, size_t errmsg_len)
 {
 	struct nb_config_cbs cbs;
 	struct nb_config_cb *cb;
@@ -1220,7 +1270,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 	/* Call the 'apply_finish' callbacks, sorted by their priorities. */
 	RB_FOREACH (cb, nb_config_cbs, &cbs)
 		nb_callback_apply_finish(transaction->context, cb->nb_node,
-					 cb->dnode);
+					 cb->dnode, errmsg, errmsg_len);
 
 	/* Release memory. */
 	while (!RB_EMPTY(nb_config_cbs, &cbs)) {
@@ -1935,7 +1985,7 @@ const char *nb_err_name(enum nb_error error)
 	case NB_ERR_LOCKED:
 		return "resource is locked";
 	case NB_ERR_VALIDATION:
-		return "validation error";
+		return "validation";
 	case NB_ERR_RESOURCE:
 		return "failed to allocate resource";
 	case NB_ERR_INCONSISTENCY:

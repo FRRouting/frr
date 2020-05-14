@@ -110,6 +110,12 @@ struct nb_cb_create_args {
 	 * resource(s). It's set to NULL when the event is NB_EV_VALIDATE.
 	 */
 	union nb_resource *resource;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_modify_args {
@@ -132,6 +138,12 @@ struct nb_cb_modify_args {
 	 * resource(s). It's set to NULL when the event is NB_EV_VALIDATE.
 	 */
 	union nb_resource *resource;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_destroy_args {
@@ -146,6 +158,12 @@ struct nb_cb_destroy_args {
 
 	/* libyang data node that is being deleted. */
 	const struct lyd_node *dnode;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_move_args {
@@ -160,6 +178,12 @@ struct nb_cb_move_args {
 
 	/* libyang data node that is being moved. */
 	const struct lyd_node *dnode;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_pre_validate_args {
@@ -168,6 +192,12 @@ struct nb_cb_pre_validate_args {
 
 	/* libyang data node associated with the 'pre_validate' callback. */
 	const struct lyd_node *dnode;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_apply_finish_args {
@@ -176,6 +206,12 @@ struct nb_cb_apply_finish_args {
 
 	/* libyang data node associated with the 'apply_finish' callback. */
 	const struct lyd_node *dnode;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_get_elem_args {
@@ -809,11 +845,18 @@ extern int nb_candidate_update(struct nb_config *candidate);
  * candidate
  *    Candidate configuration to validate.
  *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
  * Returns:
  *    NB_OK on success, NB_ERR_VALIDATION otherwise.
  */
 extern int nb_candidate_validate(struct nb_context *context,
-				 struct nb_config *candidate);
+				 struct nb_config *candidate, char *errmsg,
+				 size_t errmsg_len);
 
 /*
  * Create a new configuration transaction but do not commit it yet. Only
@@ -835,6 +878,12 @@ extern int nb_candidate_validate(struct nb_context *context,
  *    nb_candidate_commit_abort() or committed using
  *    nb_candidate_commit_apply().
  *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
  * Returns:
  *    - NB_OK on success.
  *    - NB_ERR_NO_CHANGES when the candidate is identical to the running
@@ -848,7 +897,8 @@ extern int nb_candidate_validate(struct nb_context *context,
 extern int nb_candidate_commit_prepare(struct nb_context *context,
 				       struct nb_config *candidate,
 				       const char *comment,
-				       struct nb_transaction **transaction);
+				       struct nb_transaction **transaction,
+				       char *errmsg, size_t errmsg_len);
 
 /*
  * Abort a previously created configuration transaction, releasing all resources
@@ -901,6 +951,12 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
  * transaction_id
  *    Optional output parameter providing the ID of the committed transaction.
  *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
  * Returns:
  *    - NB_OK on success.
  *    - NB_ERR_NO_CHANGES when the candidate is identical to the running
@@ -914,7 +970,8 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
 extern int nb_candidate_commit(struct nb_context *context,
 			       struct nb_config *candidate,
 			       bool save_transaction, const char *comment,
-			       uint32_t *transaction_id);
+			       uint32_t *transaction_id, char *errmsg,
+			       size_t errmsg_len);
 
 /*
  * Lock the running configuration.

@@ -674,17 +674,20 @@ class NorthboundImpl
 			// Execute the user request.
 			struct nb_context context = {};
 			context.client = NB_CLIENT_GRPC;
+			char errmsg[BUFSIZ] = {0};
 
 			switch (phase) {
 			case frr::CommitRequest::VALIDATE:
-				ret = nb_candidate_validate(&context,
-							    candidate->config);
+				ret = nb_candidate_validate(
+					&context, candidate->config, errmsg,
+					sizeof(errmsg));
 				break;
 			case frr::CommitRequest::PREPARE:
 				ret = nb_candidate_commit_prepare(
 					&context, candidate->config,
 					comment.c_str(),
-					&candidate->transaction);
+					&candidate->transaction, errmsg,
+					sizeof(errmsg));
 				break;
 			case frr::CommitRequest::ABORT:
 				nb_candidate_commit_abort(
@@ -698,70 +701,50 @@ class NorthboundImpl
 			case frr::CommitRequest::ALL:
 				ret = nb_candidate_commit(
 					&context, candidate->config, true,
-					comment.c_str(), &transaction_id);
+					comment.c_str(), &transaction_id,
+					errmsg, sizeof(errmsg));
 				break;
 			}
 
-			// Map northbound error codes to gRPC error codes.
+			// Map northbound error codes to gRPC status codes.
+			grpc::Status status;
 			switch (ret) {
+			case NB_OK:
+				status = grpc::Status::OK;
+				break;
 			case NB_ERR_NO_CHANGES:
-				tag->responder.Finish(
-					tag->response,
-					grpc::Status(
-						grpc::StatusCode::ABORTED,
-						"No configuration changes detected"),
-					tag);
-				tag->state = FINISH;
-				return;
+				status = grpc::Status(grpc::StatusCode::ABORTED,
+						      errmsg);
+				break;
 			case NB_ERR_LOCKED:
-				tag->responder.Finish(
-					tag->response,
-					grpc::Status(
-						grpc::StatusCode::UNAVAILABLE,
-						"There's already a transaction in progress"),
-					tag);
-				tag->state = FINISH;
-				return;
+				status = grpc::Status(
+					grpc::StatusCode::UNAVAILABLE, errmsg);
+				break;
 			case NB_ERR_VALIDATION:
-				tag->responder.Finish(
-					tag->response,
-					grpc::Status(grpc::StatusCode::
-							     INVALID_ARGUMENT,
-						     "Validation error"),
-					tag);
-				tag->state = FINISH;
-				return;
+				status = grpc::Status(
+					grpc::StatusCode::INVALID_ARGUMENT,
+					errmsg);
+				break;
 			case NB_ERR_RESOURCE:
-				tag->responder.Finish(
-					tag->response,
-					grpc::Status(
-						grpc::StatusCode::
-							RESOURCE_EXHAUSTED,
-						"Failed do allocate resources"),
-					tag);
-				tag->state = FINISH;
-				return;
+				status = grpc::Status(
+					grpc::StatusCode::RESOURCE_EXHAUSTED,
+					errmsg);
+				break;
 			case NB_ERR:
-				tag->responder.Finish(
-					tag->response,
-					grpc::Status(grpc::StatusCode::INTERNAL,
-						     "Internal error"),
-					tag);
-				tag->state = FINISH;
-				return;
 			default:
+				status = grpc::Status(
+					grpc::StatusCode::INTERNAL, errmsg);
 				break;
 			}
+			if (ret == NB_OK) {
+				// Response: uint32 transaction_id = 1;
+				if (transaction_id)
+					tag->response.set_transaction_id(
+						transaction_id);
+			}
 
-			// Response: uint32 transaction_id = 1;
-			if (transaction_id)
-				tag->response.set_transaction_id(
-					transaction_id);
-
-			tag->responder.Finish(tag->response, grpc::Status::OK,
-					      tag);
+			tag->responder.Finish(tag->response, status, tag);
 			tag->state = FINISH;
-
 			break;
 		}
 		case FINISH:
