@@ -2829,13 +2829,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_VRF_UNREGISTER] = zread_vrf_unregister,
 	[ZEBRA_VRF_LABEL] = zread_vrf_label,
 	[ZEBRA_BFD_CLIENT_REGISTER] = zebra_ptm_bfd_client_register,
-#if defined(HAVE_RTADV)
 	[ZEBRA_INTERFACE_ENABLE_RADV] = zebra_interface_radv_enable,
 	[ZEBRA_INTERFACE_DISABLE_RADV] = zebra_interface_radv_disable,
-#else
-	[ZEBRA_INTERFACE_ENABLE_RADV] = NULL,
-	[ZEBRA_INTERFACE_DISABLE_RADV] = NULL,
-#endif
 	[ZEBRA_MPLS_LABELS_ADD] = zread_mpls_labels_add,
 	[ZEBRA_MPLS_LABELS_DELETE] = zread_mpls_labels_delete,
 	[ZEBRA_MPLS_LABELS_REPLACE] = zread_mpls_labels_replace,

@@ -2677,4 +2677,28 @@ void rtadv_stop_ra_all(void)
 	/* Empty.*/;
 }
 
+/*
+ * If the end user does not have RADV enabled we should
+ * handle this better
+ */
+void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
+{
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug(
+			"Received %s command, but ZEBRA is not compiled with Router Advertisements on",
+			zserv_command_string(hdr->command));
+
+	return;
+}
+
+void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
+{
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug(
+			"Received %s command, but ZEBRA is not compiled with Router Advertisements on",
+			zserv_command_string(hdr->command));
+
+	return;
+}
+
 #endif /* HAVE_RTADV */
