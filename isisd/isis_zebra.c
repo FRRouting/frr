@@ -49,6 +49,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
+#include "isisd/isis_adjacency.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_sr.h"
 
@@ -253,8 +254,12 @@ void isis_zebra_route_del_route(struct prefix *prefix,
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 }
 
-/* Install Prefix-SID in the forwarding plane. */
-void isis_zebra_install_prefix_sid(const struct sr_prefix *srp)
+/**
+ * Install Prefix-SID in the forwarding plane through Zebra.
+ *
+ * @param srp	Segment Routing Prefix-SID
+ */
+static void isis_zebra_prefix_install_prefix_sid(const struct sr_prefix *srp)
 {
 	struct zapi_labels zl;
 	struct zapi_nexthop *znh;
@@ -265,7 +270,7 @@ void isis_zebra_install_prefix_sid(const struct sr_prefix *srp)
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
 	zl.type = ZEBRA_LSP_ISIS_SR;
-	zl.local_label = srp->local_label;
+	zl.local_label = srp->input_label;
 
 	switch (srp->type) {
 	case ISIS_SR_PREFIX_LOCAL:
@@ -314,15 +319,19 @@ void isis_zebra_install_prefix_sid(const struct sr_prefix *srp)
 	(void)zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_REPLACE, &zl);
 }
 
-/* Uninstall Prefix-SID from the forwarding plane. */
-void isis_zebra_uninstall_prefix_sid(const struct sr_prefix *srp)
+/**
+ * Uninstall Prefix-SID from the forwarding plane through Zebra.
+ *
+ * @param srp	Segment Routing Prefix-SID
+ */
+static void isis_zebra_uninstall_prefix_sid(const struct sr_prefix *srp)
 {
 	struct zapi_labels zl;
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
 	zl.type = ZEBRA_LSP_ISIS_SR;
-	zl.local_label = srp->local_label;
+	zl.local_label = srp->input_label;
 
 	if (srp->type == ISIS_SR_PREFIX_REMOTE) {
 		/* Update route in the RIB too. */
@@ -334,6 +343,69 @@ void isis_zebra_uninstall_prefix_sid(const struct sr_prefix *srp)
 
 	/* Send message to zebra. */
 	(void)zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_DELETE, &zl);
+}
+
+/**
+ * Send Prefix-SID to ZEBRA for installation or deletion.
+ *
+ * @param cmd	ZEBRA_MPLS_LABELS_REPLACE or ZEBRA_ROUTE_DELETE
+ * @param srp	Segment Routing Prefix-SID
+ */
+void isis_zebra_send_prefix_sid(int cmd, const struct sr_prefix *srp)
+{
+
+	if (cmd != ZEBRA_MPLS_LABELS_REPLACE
+	    && cmd != ZEBRA_MPLS_LABELS_DELETE) {
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong ZEBRA command",
+			  __func__);
+		return;
+	}
+
+	sr_debug("  |- %s label %u for prefix %pFX",
+		 cmd == ZEBRA_MPLS_LABELS_REPLACE ? "Update" : "Delete",
+		 srp->input_label, &srp->prefix);
+
+	if (cmd == ZEBRA_MPLS_LABELS_REPLACE)
+		isis_zebra_prefix_install_prefix_sid(srp);
+	else
+		isis_zebra_uninstall_prefix_sid(srp);
+}
+
+/**
+ * Send (LAN)-Adjacency-SID to ZEBRA for installation or deletion.
+ *
+ * @param cmd	ZEBRA_MPLS_LABELS_ADD or ZEBRA_ROUTE_DELETE
+ * @param sra	Segment Routing Adjacency-SID
+ */
+void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
+{
+	struct zapi_labels zl;
+	struct zapi_nexthop *znh;
+
+	if (cmd != ZEBRA_MPLS_LABELS_ADD && cmd != ZEBRA_MPLS_LABELS_DELETE) {
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong ZEBRA command",
+			  __func__);
+		return;
+	}
+
+	sr_debug("  |- %s label %u for interface %s",
+		 cmd == ZEBRA_MPLS_LABELS_ADD ? "Add" : "Delete",
+		 sra->nexthop.label, sra->adj->circuit->interface->name);
+
+	memset(&zl, 0, sizeof(zl));
+	zl.type = ZEBRA_LSP_ISIS_SR;
+	zl.local_label = sra->nexthop.label;
+	zl.nexthop_num = 1;
+	znh = &zl.nexthops[0];
+	znh->gate = sra->nexthop.address;
+	znh->type = (sra->nexthop.family == AF_INET)
+			    ? NEXTHOP_TYPE_IPV4_IFINDEX
+			    : NEXTHOP_TYPE_IPV6_IFINDEX;
+	znh->ifindex = sra->adj->circuit->interface->ifindex;
+	znh->label_num = 1;
+	znh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
+
+	(void)zebra_send_mpls_labels(zclient, cmd, &zl);
 }
 
 static int isis_zebra_read(ZAPI_CALLBACK_ARGS)

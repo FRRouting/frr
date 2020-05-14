@@ -1521,7 +1521,9 @@ int isis_instance_segment_routing_msd_node_msd_modify(
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	area->srdb.config.msd = yang_dnode_get_uint8(args->dnode, NULL);
-	isis_sr_cfg_msd_update(area);
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1536,7 +1538,9 @@ int isis_instance_segment_routing_msd_node_msd_destroy(
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	area->srdb.config.msd = 0;
-	isis_sr_cfg_msd_update(area);
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }

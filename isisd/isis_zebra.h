@@ -36,6 +36,7 @@ void isis_zebra_stop(void);
 
 struct isis_route_info;
 struct sr_prefix;
+struct sr_adjacency;
 
 void isis_zebra_route_add_route(struct prefix *prefix,
 				struct prefix_ipv6 *src_p,
@@ -43,8 +44,8 @@ void isis_zebra_route_add_route(struct prefix *prefix,
 void isis_zebra_route_del_route(struct prefix *prefix,
 				struct prefix_ipv6 *src_p,
 				struct isis_route_info *route_info);
-void isis_zebra_install_prefix_sid(const struct sr_prefix *srp);
-void isis_zebra_uninstall_prefix_sid(const struct sr_prefix *srp);
+void isis_zebra_send_prefix_sid(int cmd, const struct sr_prefix *srp);
+void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra);
 int isis_distribute_list_update(int routetype);
 void isis_zebra_redistribute_set(afi_t afi, int type);
 void isis_zebra_redistribute_unset(afi_t afi, int type);
