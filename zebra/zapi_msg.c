@@ -1902,13 +1902,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		re->nhe_id = api.nhgid;
 
 	if (!re->nhe_id
-	    || !zapi_read_nexthops(client, &api.prefix, api.nexthops, api.flags,
-				   api.message, api.nexthop_num,
-				   api.backup_nexthop_num, &ng, NULL)
-	    || !zapi_read_nexthops(client, &api.prefix, api.backup_nexthops,
-				   api.flags, api.message,
-				   api.backup_nexthop_num,
-				   api.backup_nexthop_num, NULL, &bnhg)) {
+	    && (!zapi_read_nexthops(client, &api.prefix, api.nexthops,
+				    api.flags, api.message, api.nexthop_num,
+				    api.backup_nexthop_num, &ng, NULL)
+		|| !zapi_read_nexthops(client, &api.prefix, api.backup_nexthops,
+				       api.flags, api.message,
+				       api.backup_nexthop_num,
+				       api.backup_nexthop_num, NULL, &bnhg))) {
 		XFREE(MTYPE_RE, re);
 		return;
 	}
