@@ -1859,8 +1859,7 @@ int ospf6_dbdesc_send(struct thread *thread)
 int ospf6_dbdesc_send_newone(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
-	struct ospf6_lsa *lsa, *lsa_next;
-	const struct route_node *iterend;
+	struct ospf6_lsa *lsa;
 	unsigned int size = 0;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
@@ -1870,10 +1869,7 @@ int ospf6_dbdesc_send_newone(struct thread *thread)
 	   structure)
 	   so that ospf6_send_dbdesc () can send those LSAs */
 	size = sizeof(struct ospf6_lsa_header) + sizeof(struct ospf6_dbdesc);
-
-	for (iterend = ospf6_lsdb_head(on->summary_list, 0, 0, 0, &lsa); lsa;
-	     lsa = lsa_next) {
-		lsa_next = ospf6_lsdb_next(iterend, lsa);
+	for (ALL_LSDB(on->summary_list, lsa)) {
 		if (size + sizeof(struct ospf6_lsa_header)
 		    > ospf6_packet_max(on->ospf6_if)) {
 			ospf6_lsdb_lsa_unlock(lsa);
@@ -2016,8 +2012,7 @@ int ospf6_lsupdate_send_neighbor(struct thread *thread)
 	struct ospf6_lsupdate *lsupdate;
 	uint8_t *p;
 	int lsa_cnt;
-	struct ospf6_lsa *lsa, *lsa_next;
-	const struct route_node *iterend;
+	struct ospf6_lsa *lsa;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
 	on->thread_send_lsupdate = (struct thread *)NULL;
@@ -2042,9 +2037,7 @@ int ospf6_lsupdate_send_neighbor(struct thread *thread)
 
 	/* lsupdate_list lists those LSA which doesn't need to be
 	   retransmitted. remove those from the list */
-	for (iterend = ospf6_lsdb_head(on->lsupdate_list, 0, 0, 0, &lsa); lsa;
-	     lsa = lsa_next) {
-		lsa_next = ospf6_lsdb_next(iterend, lsa);
+	for (ALL_LSDB(on->lsupdate_list, lsa)) {
 		/* MTU check */
 		if ((p - sendbuf + (unsigned int)OSPF6_LSA_SIZE(lsa->header))
 		    > ospf6_packet_max(on->ospf6_if)) {
@@ -2074,7 +2067,7 @@ int ospf6_lsupdate_send_neighbor(struct thread *thread)
 		p += OSPF6_LSA_SIZE(lsa->header);
 		lsa_cnt++;
 
-		assert(lsa->lock == 1);
+		assert(lsa->lock == 2);
 		ospf6_lsdb_remove(lsa, on->lsupdate_list);
 	}
 
@@ -2201,8 +2194,7 @@ int ospf6_lsupdate_send_interface(struct thread *thread)
 	struct ospf6_lsupdate *lsupdate;
 	uint8_t *p;
 	int lsa_cnt;
-	struct ospf6_lsa *lsa, *lsa_next;
-	const struct route_node *iterend;
+	struct ospf6_lsa *lsa;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 	oi->thread_send_lsupdate = (struct thread *)NULL;
@@ -2228,9 +2220,7 @@ int ospf6_lsupdate_send_interface(struct thread *thread)
 	p = (uint8_t *)((caddr_t)lsupdate + sizeof(struct ospf6_lsupdate));
 	lsa_cnt = 0;
 
-	for (iterend = ospf6_lsdb_head(oi->lsupdate_list, 0, 0, 0, &lsa); lsa;
-	     lsa = lsa_next) {
-		lsa_next = ospf6_lsdb_next(iterend, lsa);
+	for (ALL_LSDB(oi->lsupdate_list, lsa)) {
 		/* MTU check */
 		if ((p - sendbuf + ((unsigned int)OSPF6_LSA_SIZE(lsa->header)))
 		    > ospf6_packet_max(oi)) {
@@ -2264,7 +2254,7 @@ int ospf6_lsupdate_send_interface(struct thread *thread)
 		p += OSPF6_LSA_SIZE(lsa->header);
 		lsa_cnt++;
 
-		assert(lsa->lock == 1);
+		assert(lsa->lock == 2);
 		ospf6_lsdb_remove(lsa, oi->lsupdate_list);
 	}
 
@@ -2290,8 +2280,7 @@ int ospf6_lsack_send_neighbor(struct thread *thread)
 	struct ospf6_neighbor *on;
 	struct ospf6_header *oh;
 	uint8_t *p;
-	struct ospf6_lsa *lsa, *lsa_next;
-	const struct route_node *iterend;
+	struct ospf6_lsa *lsa;
 	int lsa_cnt = 0;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
@@ -2314,9 +2303,7 @@ int ospf6_lsack_send_neighbor(struct thread *thread)
 
 	p = (uint8_t *)((caddr_t)oh + sizeof(struct ospf6_header));
 
-	for (iterend = ospf6_lsdb_head(on->lsack_list, 0, 0, 0, &lsa); lsa;
-	     lsa = lsa_next) {
-		lsa_next = ospf6_lsdb_next(iterend, lsa);
+	for (ALL_LSDB(on->lsack_list, lsa)) {
 		/* MTU check */
 		if (p - sendbuf + sizeof(struct ospf6_lsa_header)
 		    > ospf6_packet_max(on->ospf6_if)) {
@@ -2344,7 +2331,7 @@ int ospf6_lsack_send_neighbor(struct thread *thread)
 		memcpy(p, lsa->header, sizeof(struct ospf6_lsa_header));
 		p += sizeof(struct ospf6_lsa_header);
 
-		assert(lsa->lock == 1);
+		assert(lsa->lock == 2);
 		ospf6_lsdb_remove(lsa, on->lsack_list);
 		lsa_cnt++;
 	}
@@ -2371,8 +2358,7 @@ int ospf6_lsack_send_interface(struct thread *thread)
 	struct ospf6_interface *oi;
 	struct ospf6_header *oh;
 	uint8_t *p;
-	struct ospf6_lsa *lsa, *lsa_next;
-	const struct route_node *iterend;
+	struct ospf6_lsa *lsa;
 	int lsa_cnt = 0;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
@@ -2396,9 +2382,7 @@ int ospf6_lsack_send_interface(struct thread *thread)
 
 	p = (uint8_t *)((caddr_t)oh + sizeof(struct ospf6_header));
 
-	for (iterend = ospf6_lsdb_head(oi->lsack_list, 0, 0, 0, &lsa); lsa;
-	     lsa = lsa_next) {
-		lsa_next = ospf6_lsdb_next(iterend, lsa);
+	for (ALL_LSDB(oi->lsack_list, lsa)) {
 		/* MTU check */
 		if (p - sendbuf + sizeof(struct ospf6_lsa_header)
 		    > ospf6_packet_max(oi)) {
@@ -2416,7 +2400,7 @@ int ospf6_lsack_send_interface(struct thread *thread)
 		memcpy(p, lsa->header, sizeof(struct ospf6_lsa_header));
 		p += sizeof(struct ospf6_lsa_header);
 
-		assert(lsa->lock == 1);
+		assert(lsa->lock == 2);
 		ospf6_lsdb_remove(lsa, oi->lsack_list);
 		lsa_cnt++;
 	}
