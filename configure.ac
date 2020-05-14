@@ -756,6 +756,7 @@ AC_SUBST([enable_vty_group])
 
 enable_configfile_mask=${enable_configfile_mask:-0600}
 AC_DEFINE_UNQUOTED([CONFIGFILE_MASK], [${enable_configfile_mask}], [Mask for config files])
+AC_SUBST([enable_configfile_mask])
 
 enable_logfile_mask=${enable_logfile_mask:-0600}
 AC_DEFINE_UNQUOTED([LOGFILE_MASK], [${enable_logfile_mask}], [Mask for log files])
