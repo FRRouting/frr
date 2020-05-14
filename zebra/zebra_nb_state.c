@@ -490,7 +490,7 @@ const void *lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_get_next(
 	struct route_entry *re = (struct route_entry *)args->parent_list_entry;
 	struct nhg_hash_entry *nhe = (struct nhg_hash_entry *)args->list_entry;
 
-	if (args->list_entry == NULL) {
+	if (nhe == NULL) {
 		nhe = re->nhe;
 		return nhe;
 	}
