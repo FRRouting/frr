@@ -46,13 +46,13 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_router.h"
 
-#ifndef VTYSH_EXTRACT_PL
-#include "zebra/rtadv_clippy.c"
-#endif
-
 extern struct zebra_privs_t zserv_privs;
 
 #if defined(HAVE_RTADV)
+
+#ifndef VTYSH_EXTRACT_PL
+#include "zebra/rtadv_clippy.c"
+#endif
 
 DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix")
 
@@ -2648,7 +2648,7 @@ void rtadv_init(struct zebra_vrf *zvrf)
 {
 	/* Empty.*/;
 }
-void rtadv_terminate(struct zebra_vrf *zvrf)
+void rtadv_terminate(void)
 {
 	/* Empty.*/;
 }
