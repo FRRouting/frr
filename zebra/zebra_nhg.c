@@ -1776,33 +1776,24 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		return 1;
 
 	/*
-	 * Check to see if we should trust the passed in information
-	 * for UNNUMBERED interfaces as that we won't find the GW
-	 * address in the routing table.
-	 * This check should suffice to handle IPv4 or IPv6 routes
-	 * sourced from EVPN routes which are installed with the
-	 * next hop as the remote VTEP IP.
+	 * If the nexthop has been marked as 'onlink' we just need to make
+	 * sure the nexthop's interface is known and is operational.
 	 */
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)) {
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 		if (!ifp) {
-			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-				zlog_debug(
-					"        %s: Onlink and interface: %u[%u] does not exist",
-					__func__, nexthop->ifindex,
-					nexthop->vrf_id);
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("nexthop %pNHv marked onlink but nhif %u doesn't exist",
+					   nexthop, nexthop->ifindex);
 			return 0;
 		}
-
-		if (if_is_operative(ifp))
-			return 1;
-		else {
-			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-				zlog_debug(
-					"        %s: Onlink and interface %s is not operative",
-					__func__, ifp->name);
+		if (!if_is_operative(ifp)) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("nexthop %pNHv marked onlink but nhif %s is not operational",
+					   nexthop, ifp->name);
 			return 0;
 		}
+		return 1;
 	}
 
 	if ((top->p.family == AF_INET && top->p.prefixlen == 32
