@@ -668,7 +668,8 @@ struct nb_transaction {
 /* Callback function used by nb_oper_data_iterate(). */
 typedef int (*nb_oper_data_cb)(const struct lys_node *snode,
 			       struct yang_translator *translator,
-			       struct yang_data *data, void *arg);
+			       struct yang_data *data, void *arg, char *errmsg,
+			       size_t errmsg_len);
 
 /* Northbound operational-data iteration input parameters. */
 struct nb_oper_data_iter_input {
@@ -714,6 +715,9 @@ struct nb_oper_data_iter_output {
 	/* Offset where the iteration stopped. */
 	char offset_path[XPATH_MAXLEN];
 	char offset_node[64];
+
+	/* Buffer to store human-readable error message in case of error. */
+	char errmsg[4096];
 };
 
 /* Hooks. */

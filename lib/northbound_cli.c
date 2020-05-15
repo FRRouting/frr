@@ -1372,7 +1372,8 @@ DEFPY (show_config_transaction,
 
 static int nb_cli_oper_data_cb(const struct lys_node *snode,
 			       struct yang_translator *translator,
-			       struct yang_data *data, void *arg)
+			       struct yang_data *data, void *arg, char *errmsg,
+			       size_t errmsg_len)
 {
 	struct lyd_node *dnode = arg;
 	struct ly_ctx *ly_ctx;
@@ -1396,12 +1397,12 @@ static int nb_cli_oper_data_cb(const struct lys_node *snode,
 	} else
 		ly_ctx = ly_native_ctx;
 
-	ly_errno = 0;
+	ly_errno = LY_SUCCESS;
 	dnode = lyd_new_path(dnode, ly_ctx, data->xpath, (void *)data->value, 0,
 			     LYD_PATH_OPT_UPDATE);
-	if (!dnode && ly_errno) {
-		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
-			  __func__);
+	if (!dnode && ly_errno != LY_SUCCESS) {
+		snprintf(errmsg, errmsg_len, "failed to create node \"%s\"",
+			 data->xpath);
 		goto error;
 	}
 
@@ -1480,7 +1481,8 @@ DEFPY (show_yang_operational_data,
 			sizeof(iter_input.offset_node));
 	}
 	if (ret == NB_ITER_ABORT) {
-		vty_out(vty, "%% Failed to fetch operational data.\n");
+		vty_out(vty, "%% Failed to fetch operational data: %s\n\n",
+			iter_output.errmsg);
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}

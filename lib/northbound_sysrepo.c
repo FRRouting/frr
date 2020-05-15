@@ -378,7 +378,8 @@ static int frr_sr_config_change_cb(sr_session_ctx_t *session,
 
 static int frr_sr_state_data_iter_cb(const struct lys_node *snode,
 				     struct yang_translator *translator,
-				     struct yang_data *data, void *arg)
+				     struct yang_data *data, void *arg,
+				     char *errmsg, size_t errmsg_len)
 {
 	struct lyd_node *dnode = arg;
 
@@ -413,8 +414,8 @@ static int frr_sr_state_cb(sr_session_ctx_t *session, const char *module_name,
 	iter_input.flags = F_NB_OPER_DATA_ITER_NORECURSE;
 	if (nb_oper_data_iterate(&iter_input, &iter_output) == NB_ITER_ABORT) {
 		flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
-			  "%s: failed to obtain operational data [xpath %s]",
-			  __func__, xpath);
+			  "%s: failed to fetch operational data: %s", __func__,
+			  iter_output.errmsg);
 		return SR_ERR_INTERNAL;
 	}
 

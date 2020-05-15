@@ -1110,13 +1110,24 @@ class NorthboundImpl
 
 	static int get_oper_data_cb(const struct lys_node *snode,
 				    struct yang_translator *translator,
-				    struct yang_data *data, void *arg)
+				    struct yang_data *data, void *arg,
+				    char *errmsg, size_t errmsg_len)
 	{
 		struct lyd_node *dnode = static_cast<struct lyd_node *>(arg);
-		int ret = yang_dnode_edit(dnode, data->xpath, data->value);
-		yang_data_free(data);
+		int ret = NB_ITER_CONTINUE;
 
-		return (ret == 0) ? NB_OK : NB_ERR;
+		ly_errno = LY_SUCCESS;
+		dnode = lyd_new_path(
+			dnode, ly_native_ctx, data->xpath, (void *)data->value,
+			(LYD_ANYDATA_VALUETYPE)0, LYD_PATH_OPT_UPDATE);
+		if (!dnode && ly_errno != LY_SUCCESS) {
+			snprintf(errmsg, errmsg_len,
+				 "failed to create node \"%s\"", data->xpath);
+			ret = NB_ITER_ABORT;
+		}
+
+		yang_data_free(data);
+		return ret;
 	}
 
 	static void list_transactions_cb(void *arg, int transaction_id,

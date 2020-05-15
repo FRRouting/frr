@@ -1526,7 +1526,8 @@ static int nb_oper_data_iter_leaf(struct nb_oper_data_iter_input *input,
 		return NB_ITER_CONTINUE;
 
 	output->num_elements++;
-	return (*input->cb)(snode, input->translator, data, input->cb_arg);
+	return (*input->cb)(snode, input->translator, data, input->cb_arg,
+			    output->errmsg, sizeof(output->errmsg));
 }
 
 static int nb_oper_data_iter_container(struct nb_oper_data_iter_input *input,
@@ -1554,7 +1555,8 @@ static int nb_oper_data_iter_container(struct nb_oper_data_iter_input *input,
 
 		output->num_elements++;
 		ret = (*input->cb)(snode, input->translator, data,
-				   input->cb_arg);
+				   input->cb_arg, output->errmsg,
+				   sizeof(output->errmsg));
 		if (ret != NB_ITER_CONTINUE)
 			return ret;
 	}
@@ -1594,7 +1596,8 @@ nb_oper_data_iter_leaflist(struct nb_oper_data_iter_input *input,
 
 		output->num_elements++;
 		ret = (*input->cb)(snode, input->translator, data,
-				   input->cb_arg);
+				   input->cb_arg, output->errmsg,
+				   sizeof(output->errmsg));
 		if (ret != NB_ITER_CONTINUE)
 			return ret;
 	} while (list_entry);
@@ -1635,9 +1638,9 @@ static int nb_oper_data_iter_list(struct nb_oper_data_iter_input *input,
 			if (nb_callback_get_keys(nb_node, list_entry,
 						 &list_keys)
 			    != NB_OK) {
-				flog_warn(EC_LIB_NB_CB_STATE,
-					  "%s: failed to get list keys",
-					  __func__);
+				snprintf(output->errmsg, sizeof(output->errmsg),
+					 "failed to get keys of list \"%s\"",
+					 xpath_list);
 				return NB_ITER_ABORT;
 			}
 
@@ -1756,9 +1759,10 @@ static int nb_oper_data_iter_node(struct nb_oper_data_iter_input *input,
 }
 
 static int nb_oper_data_lookup_list_entry(
-	struct lyd_node *dnode, const void **parent_list_entry,
-	struct yang_list_keys *parent_list_keys, const void **list_entry,
-	struct yang_list_keys *list_keys, bool exact_match)
+	struct nb_oper_data_iter_output *output, struct lyd_node *dnode,
+	const void **parent_list_entry, struct yang_list_keys *parent_list_keys,
+	const void **list_entry, struct yang_list_keys *list_keys,
+	bool exact_match)
 {
 	struct list *list_dnodes;
 	struct listnode *ln;
@@ -1799,6 +1803,13 @@ static int nb_oper_data_lookup_list_entry(
 		list_keys->num = n;
 		if (list_keys->num
 		    != ((struct lys_node_list *)dn->schema)->keys_size) {
+			char xpath[XPATH_MAXLEN];
+
+			yang_dnode_get_path(dn, xpath, sizeof(xpath));
+			snprintf(
+				output->errmsg, sizeof(output->errmsg),
+				"incorrect number of keys provided to list \"%s\"",
+				xpath);
 			list_delete(&list_dnodes);
 			return NB_ITER_ABORT;
 		}
@@ -1906,8 +1917,8 @@ static int nb_oper_data_iterate_with_offset(
 
 		/* Update list pointers and keys. */
 		ret = nb_oper_data_lookup_list_entry(
-			dnode_parent, &parent_list_entry, parent_list_keys,
-			&list_entry, list_keys, true);
+			output, dnode_parent, &parent_list_entry,
+			parent_list_keys, &list_entry, list_keys, true);
 		if (ret != NB_ITER_CONTINUE || list_entry == NULL)
 			return ret;
 
@@ -1938,23 +1949,23 @@ static int nb_oper_data_iterate_with_offset(
 }
 
 static int
-nb_oper_data_iterate_validate_input(struct nb_oper_data_iter_input *input)
+nb_oper_data_iterate_validate_input(struct nb_oper_data_iter_input *input,
+				    struct nb_oper_data_iter_output *output)
 {
 	struct nb_node *nb_node;
 
 	nb_node = nb_node_find(input->xpath);
 	if (!nb_node) {
-		flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
-			  "%s: unknown data path: %s", __func__, input->xpath);
+		snprintf(output->errmsg, sizeof(output->errmsg),
+			 "unknown data path");
 		return NB_ITER_ABORT;
 	}
 
 	/* For now this function works only with containers and lists. */
 	if (!CHECK_FLAG(nb_node->snode->nodetype, LYS_CONTAINER | LYS_LIST)) {
-		flog_warn(
-			EC_LIB_NB_OPERATIONAL_DATA,
-			"%s: can't iterate over YANG leaf or leaf-list [xpath %s]",
-			__func__, input->xpath);
+		snprintf(
+			output->errmsg, sizeof(output->errmsg),
+			"please provide the xpath of a YANG container or list");
 		return NB_ITER_ABORT;
 	}
 
@@ -1975,7 +1986,7 @@ int nb_oper_data_iterate(struct nb_oper_data_iter_input *input,
 	memset(output, 0, sizeof(*output));
 
 	/* Validate input parameters. */
-	ret = nb_oper_data_iterate_validate_input(input);
+	ret = nb_oper_data_iterate_validate_input(input, output);
 	if (ret != NB_ITER_CONTINUE)
 		return ret;
 
@@ -1996,11 +2007,11 @@ int nb_oper_data_iterate(struct nb_oper_data_iter_input *input,
 	dnode = lyd_new_path(NULL, ly_native_ctx, xpath, NULL, 0,
 			     LYD_PATH_OPT_UPDATE | LYD_PATH_OPT_NOPARENTRET);
 	if (!dnode) {
-		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
-			  __func__);
+		snprintf(output->errmsg, sizeof(output->errmsg),
+			 "unknown data path");
 		return NB_ITER_ABORT;
 	}
-	ret = nb_oper_data_lookup_list_entry(dnode, &parent_list_entry,
+	ret = nb_oper_data_lookup_list_entry(output, dnode, &parent_list_entry,
 					     &parent_list_keys, &list_entry,
 					     &list_keys, exact_match);
 	if (ret != NB_ITER_CONTINUE || list_entry == NULL)
