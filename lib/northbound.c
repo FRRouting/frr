@@ -735,7 +735,7 @@ int nb_running_lock(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	frr_with_mutex(&running_config_mgmt_lock.mtx) {
+	frr_with_mutex (&running_config_mgmt_lock.mtx) {
 		if (!running_config_mgmt_lock.locked) {
 			running_config_mgmt_lock.locked = true;
 			running_config_mgmt_lock.owner_client = client;
@@ -751,7 +751,7 @@ int nb_running_unlock(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	frr_with_mutex(&running_config_mgmt_lock.mtx) {
+	frr_with_mutex (&running_config_mgmt_lock.mtx) {
 		if (running_config_mgmt_lock.locked
 		    && running_config_mgmt_lock.owner_client == client
 		    && running_config_mgmt_lock.owner_user == user) {
@@ -769,7 +769,7 @@ int nb_running_lock_check(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	frr_with_mutex(&running_config_mgmt_lock.mtx) {
+	frr_with_mutex (&running_config_mgmt_lock.mtx) {
 		if (!running_config_mgmt_lock.locked
 		    || (running_config_mgmt_lock.owner_client == client
 			&& running_config_mgmt_lock.owner_user == user))
@@ -962,7 +962,6 @@ static int nb_callback_configuration(const enum nb_event event,
 	union nb_resource *resource;
 	int ret = NB_ERR;
 
-
 	if (event == NB_EV_VALIDATE)
 		resource = NULL;
 	else
@@ -1014,8 +1013,8 @@ static int nb_callback_configuration(const enum nb_event event,
 			break;
 		default:
 			flog_err(EC_LIB_DEVELOPMENT,
-				 "%s: unknown event (%u) [xpath %s]",
-				 __func__, event, xpath);
+				 "%s: unknown event (%u) [xpath %s]", __func__,
+				 event, xpath);
 			exit(1);
 		}
 

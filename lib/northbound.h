@@ -1044,8 +1044,8 @@ extern void *nb_running_unset_entry(const struct lyd_node *dnode);
  * Returns:
  *    User pointer if found, NULL otherwise.
  */
-extern void *nb_running_get_entry(const struct lyd_node *dnode, const char *xpath,
-				  bool abort_if_not_found);
+extern void *nb_running_get_entry(const struct lyd_node *dnode,
+				  const char *xpath, bool abort_if_not_found);
 
 /*
  * Return a human-readable string representing a northbound event.
