@@ -1260,10 +1260,14 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		cum_bw = bgp_path_info_mpath_cumbw(info);
 
 	/* EVPN MAC-IP routes are installed with a L3 NHG id */
-	if (bgp_evpn_path_es_use_nhg(bgp, info, &nhg_id))
+	if (bgp_evpn_path_es_use_nhg(bgp, info, &nhg_id)) {
 		mpinfo = NULL;
-	else
+		api.nhgid = nhg_id;
+		if (nhg_id)
+			SET_FLAG(api.message, ZAPI_MESSAGE_NHG);
+	} else {
 		mpinfo = info;
+	}
 
 	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
 		uint32_t nh_weight;

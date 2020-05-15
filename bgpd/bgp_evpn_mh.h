@@ -257,6 +257,8 @@ struct bgp_evpn_mh_info {
 	bool ead_evi_adv_for_down_links;
 	/* Enable ES consistency checking */
 	bool consistency_checking;
+	/* Use L3 NHGs for host routes in symmetric IRB */
+	bool install_l3nhg;
 	bool host_routes_use_l3nhg;
 };
 
