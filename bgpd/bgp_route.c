@@ -10567,8 +10567,8 @@ DEFUN(show_ip_bgp_statistics_all, show_ip_bgp_statistics_all_cmd,
 {
 	bool uj = use_json(argc, argv);
 	struct bgp *bgp = NULL;
-	safi_t safi;
-	afi_t afi;
+	safi_t safi = SAFI_UNICAST;
+	afi_t afi = AFI_IP6;
 	int idx = 0;
 	struct json_object *json_all = NULL;
 	struct json_object *json_afi_safi = NULL;
@@ -10626,8 +10626,8 @@ DEFUN (show_ip_bgp_l2vpn_evpn_statistics,
        "BGP RIB advertisement statistics\n"
        JSON_STR)
 {
-	afi_t afi;
-	safi_t safi;
+	afi_t afi = AFI_IP6;
+	safi_t safi = SAFI_UNICAST;
 	struct bgp *bgp = NULL;
 	int idx = 0, ret;
 	bool uj = use_json(argc, argv);
@@ -10666,8 +10666,8 @@ DEFUN(show_ip_bgp_afi_safi_statistics, show_ip_bgp_afi_safi_statistics_cmd,
 	      BGP_SAFI_WITH_LABEL_HELP_STR
       "BGP RIB advertisement statistics\n" JSON_STR)
 {
-	afi_t afi;
-	safi_t safi;
+	afi_t afi = AFI_IP6;
+	safi_t safi = SAFI_UNICAST;
 	struct bgp *bgp = NULL;
 	int idx = 0, ret;
 	bool uj = use_json(argc, argv);
