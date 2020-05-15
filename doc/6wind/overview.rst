@@ -29,6 +29,8 @@ Features
 - |mpls| |ldp|
 - |bgp| |l3vpn|
 - |bgp| Flowspec
+- Point to Multipoint |gre| interfaces
+- |nhrp|
 
 Dependencies
 ============
