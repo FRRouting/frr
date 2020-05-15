@@ -403,6 +403,19 @@ DEFPY_NOSH(bfd_profile, bfd_profile_cmd,
 	   BFD_PROFILE_STR
 	   BFD_PROFILE_NAME_STR)
 {
+	char xpath[XPATH_MAXLEN];
+	int rv;
+
+	snprintf(xpath, sizeof(xpath), "/frr-bfdd:bfdd/bfd/profile[name='%s']",
+		 name);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	/* Apply settings immediately. */
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv == CMD_SUCCESS)
+		VTY_PUSH_XPATH(BFD_PROFILE_NODE, xpath);
+
 	return CMD_SUCCESS;
 }
 
@@ -412,7 +425,71 @@ DEFPY(no_bfd_profile, no_bfd_profile_cmd,
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR)
 {
-	return CMD_SUCCESS;
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "/frr-bfdd:bfdd/bfd/profile[name='%s']",
+		 name);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	/* Apply settings immediately. */
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_profile(struct vty *vty, struct lyd_node *dnode,
+			  bool show_defaults)
+{
+	vty_out(vty, " profile %s\n", yang_dnode_get_string(dnode, "./name"));
+}
+
+ALIAS(bfd_peer_mult, bfd_profile_mult_cmd,
+      "detect-multiplier (2-255)$multiplier",
+      "Configure peer detection multiplier\n"
+      "Configure peer detection multiplier value\n")
+
+ALIAS(bfd_peer_tx, bfd_profile_tx_cmd,
+      "transmit-interval (10-60000)$interval",
+      "Configure peer transmit interval\n"
+      "Configure peer transmit interval value in milliseconds\n")
+
+ALIAS(bfd_peer_rx, bfd_profile_rx_cmd,
+      "receive-interval (10-60000)$interval",
+      "Configure peer receive interval\n"
+      "Configure peer receive interval value in milliseconds\n")
+
+ALIAS(bfd_peer_shutdown, bfd_profile_shutdown_cmd,
+      "[no] shutdown",
+      NO_STR
+      "Disable BFD peer\n")
+
+ALIAS(bfd_peer_echo, bfd_profile_echo_cmd,
+      "[no] echo-mode",
+      NO_STR
+      "Configure echo mode\n")
+
+ALIAS(bfd_peer_echo_interval, bfd_profile_echo_interval_cmd,
+      "echo-interval (10-60000)$interval",
+      "Configure peer echo interval\n"
+      "Configure peer echo interval value in milliseconds\n")
+
+DEFPY(bfd_peer_profile, bfd_peer_profile_cmd,
+      "[no] profile BFDPROF$pname",
+      NO_STR
+      "Use BFD profile settings\n"
+      BFD_PROFILE_NAME_STR)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./profile", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./profile", NB_OP_MODIFY, pname);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_peer_profile_show(struct vty *vty, struct lyd_node *dnode,
+			       bool show_defaults)
+{
+	vty_out(vty, "  profile %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 struct cmd_node bfd_profile_node = {
@@ -420,6 +497,21 @@ struct cmd_node bfd_profile_node = {
 	.node = BFD_PROFILE_NODE,
 	.parent_node = BFD_NODE,
 	.prompt = "%s(config-bfd-profile)# ",
+};
+
+static void bfd_profile_var(vector comps, struct cmd_token *token)
+{
+	extern struct bfdproflist bplist;
+	struct bfd_profile *bp;
+
+	TAILQ_FOREACH (bp, &bplist, entry) {
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, bp->name));
+	}
+}
+
+static const struct cmd_variable_handler bfd_vars[] = {
+	{.tokenname = "BFDPROF", .completions = bfd_profile_var},
+	{.completions = NULL}
 };
 
 void
@@ -437,11 +529,21 @@ bfdd_cli_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_tx_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_interval_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_profile_cmd);
 
 	/* Profile commands. */
+	cmd_variable_handler_register(bfd_vars);
+
 	install_node(&bfd_profile_node);
 	install_default(BFD_PROFILE_NODE);
 
 	install_element(BFD_NODE, &bfd_profile_cmd);
 	install_element(BFD_NODE, &no_bfd_profile_cmd);
+
+	install_element(BFD_PROFILE_NODE, &bfd_profile_mult_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_tx_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_rx_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_shutdown_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_interval_cmd);
 }

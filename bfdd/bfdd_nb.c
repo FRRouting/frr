@@ -41,6 +41,57 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			}
 		},
 		{
+                        .xpath = "/frr-bfdd:bfdd/bfd/profile",
+                        .cbs = {
+                                .create = bfdd_bfd_profile_create,
+                                .destroy = bfdd_bfd_profile_destroy,
+				.cli_show = bfd_cli_show_profile,
+				.cli_show_end = bfd_cli_show_peer_end,
+                        }
+                },
+                {
+                        .xpath = "/frr-bfdd:bfdd/bfd/profile/detection-multiplier",
+                        .cbs = {
+                                .modify = bfdd_bfd_profile_detection_multiplier_modify,
+				.cli_show = bfd_cli_show_mult,
+                        }
+                },
+                {
+                        .xpath = "/frr-bfdd:bfdd/bfd/profile/desired-transmission-interval",
+                        .cbs = {
+                                .modify = bfdd_bfd_profile_desired_transmission_interval_modify,
+				.cli_show = bfd_cli_show_tx,
+                        }
+                },
+                {
+                        .xpath = "/frr-bfdd:bfdd/bfd/profile/required-receive-interval",
+                        .cbs = {
+                                .modify = bfdd_bfd_profile_required_receive_interval_modify,
+				.cli_show = bfd_cli_show_rx,
+                        }
+                },
+                {
+                        .xpath = "/frr-bfdd:bfdd/bfd/profile/administrative-down",
+                        .cbs = {
+                                .modify = bfdd_bfd_profile_administrative_down_modify,
+				.cli_show = bfd_cli_show_shutdown,
+                        }
+                },
+                {
+                        .xpath = "/frr-bfdd:bfdd/bfd/profile/echo-mode",
+                        .cbs = {
+                                .modify = bfdd_bfd_profile_echo_mode_modify,
+				.cli_show = bfd_cli_show_echo,
+                        }
+                },
+                {
+                        .xpath = "/frr-bfdd:bfdd/bfd/profile/desired-echo-transmission-interval",
+                        .cbs = {
+                                .modify = bfdd_bfd_profile_desired_echo_transmission_interval_modify,
+				.cli_show = bfd_cli_show_echo_interval,
+                       }
+                },
+		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop",
 			.cbs = {
 				.create = bfdd_bfd_sessions_single_hop_create,
@@ -59,6 +110,14 @@ const struct frr_yang_module_info frr_bfdd_info = {
 				.destroy = bfdd_bfd_sessions_single_hop_source_addr_destroy,
 			}
 		},
+                {
+                        .xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/profile",
+                        .cbs = {
+                                .modify = bfdd_bfd_sessions_single_hop_profile_modify,
+                                .destroy = bfdd_bfd_sessions_single_hop_profile_destroy,
+				.cli_show = bfd_cli_peer_profile_show,
+                        }
+                },
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/detection-multiplier",
 			.cbs = {
@@ -233,6 +292,14 @@ const struct frr_yang_module_info frr_bfdd_info = {
 				.cli_show_end = bfd_cli_show_peer_end,
 			}
 		},
+                {
+                        .xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/profile",
+                        .cbs = {
+                                .modify = bfdd_bfd_sessions_single_hop_profile_modify,
+                                .destroy = bfdd_bfd_sessions_single_hop_profile_destroy,
+				.cli_show = bfd_cli_peer_profile_show,
+                        }
+                },
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/detection-multiplier",
 			.cbs = {

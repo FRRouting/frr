@@ -192,6 +192,34 @@ struct bfd_session_stats {
 	uint64_t znotification;
 };
 
+/**
+ * BFD session profile to override default configurations.
+ */
+struct bfd_profile {
+	/** Profile name. */
+	char name[64];
+
+	/** Session detection multiplier. */
+	uint8_t detection_multiplier;
+	/** Desired transmission interval (in microseconds). */
+	uint32_t min_tx;
+	/** Minimum required receive interval (in microseconds). */
+	uint32_t min_rx;
+	/** Administrative state. */
+	bool admin_shutdown;
+
+	/** Echo mode (only applies to single hop). */
+	bool echo_mode;
+	/** Minimum required echo receive interval (in microseconds). */
+	uint32_t min_echo_rx;
+
+	/** Profile list entry. */
+	TAILQ_ENTRY(bfd_profile) entry;
+};
+
+/** Profile list type. */
+TAILQ_HEAD(bfdproflist, bfd_profile);
+
 /* bfd_session shortcut label forwarding. */
 struct peer_label;
 
@@ -209,6 +237,13 @@ struct bfd_session {
 	uint8_t remote_detect_mult;
 	uint8_t mh_ttl;
 	uint8_t remote_cbit;
+
+	/** BFD profile name. */
+	char *profile_name;
+	/** BFD pre configured profile. */
+	struct bfd_profile *profile;
+	/** BFD peer configuration (without profile). */
+	struct bfd_profile peer_profile;
 
 	/* Timers */
 	struct bfd_timers timers;
@@ -597,6 +632,57 @@ int bfd_echo_xmt_cb(struct thread *t);
 
 extern struct in6_addr zero_addr;
 
+/**
+ * Creates a new profile entry and insert into the global list.
+ *
+ * \param name the BFD profile name.
+ *
+ * \returns `NULL` if it already exists otherwise the new entry.
+ */
+struct bfd_profile *bfd_profile_new(const char *name);
+
+/**
+ * Search for configured BFD profiles (profile name is case insensitive).
+ *
+ * \param name the BFD profile name.
+ *
+ * \returns `NULL` if it doesn't exist otherwise the entry.
+ */
+struct bfd_profile *bfd_profile_lookup(const char *name);
+
+/**
+ * Removes profile from list and free memory.
+ *
+ * \param bp the BFD profile.
+ */
+void bfd_profile_free(struct bfd_profile *bp);
+
+/**
+ * Apply a profile configuration to an existing BFD session. The non default
+ * values will not be overriden.
+ *
+ * NOTE: if the profile doesn't exist yet, then the profile will be applied
+ * once it begins to exist.
+ *
+ * \param profile_name the BFD profile name.
+ * \param bs the BFD session.
+ */
+void bfd_profile_apply(const char *profname, struct bfd_session *bs);
+
+/**
+ * Remove any applied profile from session and revert the session
+ * configuration.
+ *
+ * \param bs the BFD session.
+ */
+void bfd_profile_remove(struct bfd_session *bs);
+
+/**
+ * Apply new profile values to sessions using it.
+ *
+ * \param[in] bp the BFD profile that got updated.
+ */
+void bfd_profile_update(struct bfd_profile *bp);
 
 /*
  * bfdd_vty.c

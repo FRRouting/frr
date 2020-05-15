@@ -417,6 +417,9 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 					"ptm-add-dest: failed to create BFD session");
 			return;
 		}
+
+		/* Protocol created peers are 'no shutdown' by default. */
+		bs->peer_profile.admin_shutdown = false;
 	} else {
 		/* Don't try to change echo/shutdown state. */
 		bpc.bpc_echo = CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
