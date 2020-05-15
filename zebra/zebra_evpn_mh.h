@@ -27,6 +27,7 @@
 #include "bitfield.h"
 #include "zebra_vxlan.h"
 #include "zebra_vxlan_private.h"
+#include "zebra_nhg.h"
 
 #define EVPN_MH_VTY_STR "Multihoming\n"
 
@@ -205,18 +206,17 @@ struct zebra_evpn_mh_info {
 	struct in_addr es_originator_ip;
 
 	/* L2 NH and NHG ids -
-	 * Most significant 8 bits is type. Lower 24 bits is the value
+	 * Most significant 4 bits is type. Lower 28 bits is the value
 	 * allocated from the nh_id_bitmap.
 	 */
 	bitfield_t nh_id_bitmap;
 #define EVPN_NH_ID_MAX       (16*1024)
 #define EVPN_NH_ID_VAL_MASK  0xffffff
-#define EVPN_NH_ID_TYPE_POS  24
 /* The purpose of using different types for NHG and NH is NOT to manage the
  * id space separately. It is simply to make debugging easier.
  */
-#define EVPN_NH_ID_TYPE_BIT  (1 << EVPN_NH_ID_TYPE_POS)
-#define EVPN_NHG_ID_TYPE_BIT (2 << EVPN_NH_ID_TYPE_POS)
+#define EVPN_NH_ID_TYPE_BIT (NHG_TYPE_L2_NH << NHG_ID_TYPE_POS)
+#define EVPN_NHG_ID_TYPE_BIT (NHG_TYPE_L2 << NHG_ID_TYPE_POS)
 	/* L2-NHG table - key: nhg_id, data: zebra_evpn_es */
 	struct hash *nhg_table;
 	/* L2-NH table - key: vtep_up, data: zebra_evpn_nh */
