@@ -115,6 +115,14 @@ struct nhg_hash_entry {
 #define NEXTHOP_GROUP_FPM (1 << 5)
 };
 
+/* Upper 4 bits of the NHG are reserved for indicating the NHG type */
+#define NHG_ID_TYPE_POS 28
+enum nhg_type {
+	NHG_TYPE_L3 = 0,
+	NHG_TYPE_L2_NH, /* NHs in a L2 NHG used as a MAC/FDB dest */
+	NHG_TYPE_L2, /* L2 NHG used as a MAC/FDB dest */
+};
+
 /* Was this one we created, either this session or previously? */
 #define ZEBRA_NHG_CREATED(NHE)                                                 \
 	(((NHE->type) <= ZEBRA_ROUTE_MAX) && (NHE->type != ZEBRA_ROUTE_KERNEL))
