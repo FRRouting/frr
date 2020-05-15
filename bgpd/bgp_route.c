@@ -4706,8 +4706,9 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
 
 				if (bgp_fibupd_safi(safi))
 					bgp_zebra_withdraw(p, pi, bgp, safi);
-				bgp_path_info_reap(rn, pi);
 			}
+
+			bgp_path_info_reap(rn, pi);
 		}
 }
 
