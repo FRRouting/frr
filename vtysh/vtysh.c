@@ -1492,6 +1492,13 @@ static struct cmd_node bfd_peer_node = {
 	.parent_node = BFD_NODE,
 	.prompt = "%s(config-bfd-peer)# ",
 };
+
+static struct cmd_node bfd_profile_node = {
+	.name = "bfd profile",
+	.node = BFD_PROFILE_NODE,
+	.parent_node = BFD_NODE,
+	.prompt = "%s(config-bfd-profile)# ",
+};
 #endif /* HAVE_BFDD */
 
 /* Defined in lib/vty.c */
@@ -1945,6 +1952,15 @@ DEFUNSH(VTYSH_BFDD, bfd_peer_enter, bfd_peer_enter_cmd,
 	"Configure VRF name\n")
 {
 	vty->node = BFD_PEER_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BFDD, bfd_profile_enter, bfd_profile_enter_cmd,
+	"profile WORD",
+	BFD_PROFILE_STR
+	BFD_PROFILE_NAME_STR)
+{
+	vty->node = BFD_PROFILE_NODE;
 	return CMD_SUCCESS;
 }
 #endif /* HAVE_BFDD */
@@ -3796,6 +3812,7 @@ void vtysh_init_vty(void)
 #if HAVE_BFDD > 0
 	install_node(&bfd_node);
 	install_node(&bfd_peer_node);
+	install_node(&bfd_profile_node);
 #endif /* HAVE_BFDD */
 
 	struct cmd_node *node;
@@ -3897,16 +3914,20 @@ void vtysh_init_vty(void)
 	/* Enter node. */
 	install_element(CONFIG_NODE, &bfd_enter_cmd);
 	install_element(BFD_NODE, &bfd_peer_enter_cmd);
+	install_element(BFD_NODE, &bfd_profile_enter_cmd);
 
 	/* Exit/quit node. */
 	install_element(BFD_NODE, &vtysh_exit_bfdd_cmd);
 	install_element(BFD_NODE, &vtysh_quit_bfdd_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_exit_bfdd_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_quit_bfdd_cmd);
+	install_element(BFD_PROFILE_NODE, &vtysh_exit_bfdd_cmd);
+	install_element(BFD_PROFILE_NODE, &vtysh_quit_bfdd_cmd);
 
 	/* End/exit all. */
 	install_element(BFD_NODE, &vtysh_end_all_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_end_all_cmd);
+	install_element(BFD_PROFILE_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_BFDD */
 	install_element(VTY_NODE, &vtysh_exit_line_vty_cmd);
 	install_element(VTY_NODE, &vtysh_quit_line_vty_cmd);

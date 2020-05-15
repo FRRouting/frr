@@ -395,6 +395,33 @@ void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * Profile commands.
+ */
+DEFPY_NOSH(bfd_profile, bfd_profile_cmd,
+	   "profile WORD$name",
+	   BFD_PROFILE_STR
+	   BFD_PROFILE_NAME_STR)
+{
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_bfd_profile, no_bfd_profile_cmd,
+      "no profile BFDPROF$name",
+      NO_STR
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
+{
+	return CMD_SUCCESS;
+}
+
+struct cmd_node bfd_profile_node = {
+	.name = "bfd profile",
+	.node = BFD_PROFILE_NODE,
+	.parent_node = BFD_NODE,
+	.prompt = "%s(config-bfd-profile)# ",
+};
+
 void
 bfdd_cli_init(void)
 {
@@ -410,4 +437,11 @@ bfdd_cli_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_tx_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_interval_cmd);
+
+	/* Profile commands. */
+	install_node(&bfd_profile_node);
+	install_default(BFD_PROFILE_NODE);
+
+	install_element(BFD_NODE, &bfd_profile_cmd);
+	install_element(BFD_NODE, &no_bfd_profile_cmd);
 }

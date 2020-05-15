@@ -836,6 +836,9 @@ enum node_type node_parent(enum node_type node)
 	case BFD_PEER_NODE:
 		ret = BFD_NODE;
 		break;
+	case BFD_PROFILE_NODE:
+		ret = BFD_NODE;
+		break;
 	default:
 		ret = CONFIG_NODE;
 		break;
