@@ -2975,7 +2975,6 @@ netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, uint8_t *data,
 	int cmd;
 	uint8_t flags;
 	uint16_t state;
-	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
 
 	cmd = dplane_ctx_get_op(ctx) == DPLANE_OP_MAC_INSTALL
 			  ? RTM_NEWNEIGH : RTM_DELNEIGH;
@@ -3016,7 +3015,7 @@ netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, uint8_t *data,
 	total = netlink_update_neigh_ctx_internal(
 			ctx, cmd, dplane_ctx_mac_get_addr(ctx),
 			dplane_ctx_neigh_get_ipaddr(ctx), true, AF_BRIDGE, 0,
-			flags, state, nl_pkt, sizeof(nl_pkt));
+			flags, state, data, datalen);
 
 	return total;
 }
