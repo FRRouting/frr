@@ -550,25 +550,6 @@ int bfd_session_update_label(struct bfd_session *bs, const char *nlabel)
 static void _bfd_session_update(struct bfd_session *bs,
 				struct bfd_peer_cfg *bpc)
 {
-	if (bpc->bpc_echo) {
-		/* Check if echo mode is already active. */
-		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
-			goto skip_echo;
-
-		SET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
-
-		/* Activate/update echo receive timeout timer. */
-		bs_echo_timer_handler(bs);
-	} else {
-		/* Check if echo mode is already disabled. */
-		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
-			goto skip_echo;
-
-		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
-		ptm_bfd_echo_stop(bs);
-	}
-
-skip_echo:
 	if (bpc->bpc_has_txinterval)
 		bs->timers.desired_min_tx = bpc->bpc_txinterval * 1000;
 
@@ -584,52 +565,18 @@ skip_echo:
 	if (bpc->bpc_has_label)
 		bfd_session_update_label(bs, bpc->bpc_label);
 
-	if (bpc->bpc_shutdown) {
-		/* Check if already shutdown. */
-		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
-			return;
-
-		SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
-
-		/* Disable all events. */
-		bfd_recvtimer_delete(bs);
-		bfd_echo_recvtimer_delete(bs);
-		bfd_xmttimer_delete(bs);
-		bfd_echo_xmttimer_delete(bs);
-
-		/* Change and notify state change. */
-		bs->ses_state = PTM_BFD_ADM_DOWN;
-		control_notify(bs, bs->ses_state);
-
-		/* Don't try to send packets with a disabled session. */
-		if (bs->sock != -1)
-			ptm_bfd_snd(bs, 0);
-	} else {
-		/* Check if already working. */
-		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
-			return;
-
-		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
-
-		/* Change and notify state change. */
-		bs->ses_state = PTM_BFD_DOWN;
-		control_notify(bs, bs->ses_state);
-
-		/* Enable all timers. */
-		bfd_recvtimer_update(bs);
-		bfd_xmttimer_update(bs, bs->xmt_TO);
-	}
-	if (bpc->bpc_cbit) {
-		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CBIT))
-			return;
-
+	if (bpc->bpc_cbit)
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_CBIT);
-	} else {
-		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CBIT))
-			return;
-
+	else
 		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CBIT);
-	}
+
+	bfd_set_echo(bs, bpc->bpc_echo);
+
+	/*
+	 * Shutdown needs to be the last in order to avoid timers enable when
+	 * the session is disabled.
+	 */
+	bfd_set_shutdown(bs, bpc->bpc_shutdown);
 }
 
 static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
@@ -1098,6 +1045,66 @@ void bs_set_slow_timers(struct bfd_session *bs)
 	/* Set the appropriated timeouts for slow connection. */
 	bs->detect_TO = (BFD_DEFDETECTMULT * BFD_DEF_SLOWTX);
 	bs->xmt_TO = BFD_DEF_SLOWTX;
+}
+
+void bfd_set_echo(struct bfd_session *bs, bool echo)
+{
+	if (echo) {
+		/* Check if echo mode is already active. */
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+			return;
+
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
+
+		/* Activate/update echo receive timeout timer. */
+		bs_echo_timer_handler(bs);
+	} else {
+		/* Check if echo mode is already disabled. */
+		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+			return;
+
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
+		ptm_bfd_echo_stop(bs);
+	}
+}
+
+void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
+{
+	if (shutdown) {
+		/* Already shutdown. */
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
+			return;
+
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+
+		/* Disable all events. */
+		bfd_recvtimer_delete(bs);
+		bfd_echo_recvtimer_delete(bs);
+		bfd_xmttimer_delete(bs);
+		bfd_echo_xmttimer_delete(bs);
+
+		/* Change and notify state change. */
+		bs->ses_state = PTM_BFD_ADM_DOWN;
+		control_notify(bs, bs->ses_state);
+
+		/* Don't try to send packets with a disabled session. */
+		if (bs->sock != -1)
+			ptm_bfd_snd(bs, 0);
+	} else {
+		/* Already working. */
+		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
+			return;
+
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+
+		/* Change and notify state change. */
+		bs->ses_state = PTM_BFD_DOWN;
+		control_notify(bs, bs->ses_state);
+
+		/* Enable all timers. */
+		bfd_recvtimer_update(bs);
+		bfd_xmttimer_update(bs, bs->xmt_TO);
+	}
 }
 
 /*

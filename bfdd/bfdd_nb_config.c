@@ -367,42 +367,7 @@ int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 	}
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
-
-	if (!shutdown) {
-		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
-			return NB_OK;
-
-		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
-
-		/* Change and notify state change. */
-		bs->ses_state = PTM_BFD_DOWN;
-		control_notify(bs, bs->ses_state);
-
-		/* Enable all timers. */
-		bfd_recvtimer_update(bs);
-		bfd_xmttimer_update(bs, bs->xmt_TO);
-		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO)) {
-			bfd_echo_recvtimer_update(bs);
-			bfd_echo_xmttimer_update(bs, bs->echo_xmt_TO);
-		}
-	} else {
-		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
-			return NB_OK;
-
-		SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
-
-		/* Disable all events. */
-		bfd_recvtimer_delete(bs);
-		bfd_echo_recvtimer_delete(bs);
-		bfd_xmttimer_delete(bs);
-		bfd_echo_xmttimer_delete(bs);
-
-		/* Change and notify state change. */
-		bs->ses_state = PTM_BFD_ADM_DOWN;
-		control_notify(bs, bs->ses_state);
-
-		ptm_bfd_snd(bs, 0);
-	}
+	bfd_set_shutdown(bs, shutdown);
 
 	return NB_OK;
 }
@@ -429,22 +394,7 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(
 	}
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
-
-	if (!echo) {
-		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
-			return NB_OK;
-
-		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
-		ptm_bfd_echo_stop(bs);
-	} else {
-		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
-			return NB_OK;
-
-		SET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
-		/* Apply setting immediately. */
-		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
-			bs_echo_timer_handler(bs);
-	}
+	bfd_set_echo(bs, echo);
 
 	return NB_OK;
 }
