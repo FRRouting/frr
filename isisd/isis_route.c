@@ -65,32 +65,19 @@ static struct isis_nexthop *isis_nexthop_create(int family, union g_addr *ip,
 {
 	struct isis_nexthop *nexthop;
 
-	nexthop = nexthoplookup(isis->nexthops, family, ip, ifindex);
-	if (nexthop) {
-		nexthop->lock++;
-		return nexthop;
-	}
-
 	nexthop = XCALLOC(MTYPE_ISIS_NEXTHOP, sizeof(struct isis_nexthop));
 
 	nexthop->family = family;
 	nexthop->ifindex = ifindex;
 	nexthop->ip = *ip;
-	listnode_add(isis->nexthops, nexthop);
-	nexthop->lock++;
+	isis_sr_nexthop_reset(&nexthop->sr);
 
 	return nexthop;
 }
 
 static void isis_nexthop_delete(struct isis_nexthop *nexthop)
 {
-	nexthop->lock--;
-	if (nexthop->lock == 0) {
-		listnode_delete(isis->nexthops, nexthop);
-		XFREE(MTYPE_ISIS_NEXTHOP, nexthop);
-	}
-
-	return;
+	XFREE(MTYPE_ISIS_NEXTHOP, nexthop);
 }
 
 static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family,
@@ -143,6 +130,7 @@ static void adjinfo2nexthop(int family, struct list *nexthops,
 				nh = isis_nexthop_create(
 					AF_INET, &ip,
 					adj->circuit->interface->ifindex);
+				memcpy(nh->sysid, adj->sysid, sizeof(nh->sysid));
 				listnode_add(nexthops, nh);
 				break;
 			}
@@ -157,6 +145,7 @@ static void adjinfo2nexthop(int family, struct list *nexthops,
 				nh = isis_nexthop_create(
 					AF_INET6, &ip,
 					adj->circuit->interface->ifindex);
+				memcpy(nh->sysid, adj->sysid, sizeof(nh->sysid));
 				listnode_add(nexthops, nh);
 				break;
 			}
