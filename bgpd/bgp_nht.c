@@ -31,6 +31,7 @@
 #include "nexthop.h"
 #include "vrf.h"
 #include "filter.h"
+#include "nexthop_group.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -923,32 +924,76 @@ void bgp_nht_register_enhe_capability_interfaces(struct peer *peer)
  * failover of remote ES links.
  ***************************************************************************/
 static bitfield_t bgp_nh_id_bitmap;
+static uint32_t bgp_l3nhg_start;
 
-uint32_t bgp_l3nhg_id_alloc(void)
+/* XXX - currently we do nothing on the callbacks */
+static void bgp_l3nhg_add_cb(const char *name)
 {
-	uint32_t nhg_id = 0;
-
-	bf_assign_index(bgp_nh_id_bitmap, nhg_id);
-
-	return nhg_id;
+}
+static void bgp_l3nhg_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
+					 const struct nexthop *nhop)
+{
+}
+static void bgp_l3nhg_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
+					 const struct nexthop *nhop)
+{
+}
+static void bgp_l3nhg_del_cb(const char *name)
+{
 }
 
-void bgp_l3nhg_id_free(uint32_t nhg_id)
+static void bgp_l3nhg_zebra_init(void)
 {
-	if (!nhg_id)
+	static bool bgp_l3nhg_zebra_inited;
+	if (bgp_l3nhg_zebra_inited)
 		return;
 
-	bf_release_index(bgp_nh_id_bitmap, nhg_id);
+	bgp_l3nhg_zebra_inited = true;
+	bgp_l3nhg_start = zclient_get_nhg_start(ZEBRA_ROUTE_BGP);
+	nexthop_group_init(bgp_l3nhg_add_cb, bgp_l3nhg_add_nexthop_cb,
+			   bgp_l3nhg_del_nexthop_cb, bgp_l3nhg_del_cb, NULL);
 }
 
+
+#define min(A,B) ((A) < (B) ? (A) : (B))
 void bgp_l3nhg_init(void)
 {
-#define BGP_NH_ID_MAX (16*1024)
-	bf_init(bgp_nh_id_bitmap, BGP_NH_ID_MAX);
+	uint32_t id_max;
+
+	id_max = min(ZEBRA_NHG_PROTO_SPACING-1, 16*1024);
+	bf_init(bgp_nh_id_bitmap, id_max);
 	bf_assign_zero_index(bgp_nh_id_bitmap);
+
+	if (BGP_DEBUG(nht, NHT) || BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("bgp l3_nhg range %u - %u",
+			bgp_l3nhg_start + 1,
+			bgp_l3nhg_start + id_max);
 }
 
 void bgp_l3nhg_finish(void)
 {
 	bf_free(bgp_nh_id_bitmap);
 }
+
+uint32_t bgp_l3nhg_id_alloc(void)
+{
+	uint32_t nhg_id = 0;
+
+	bgp_l3nhg_zebra_init();
+	bf_assign_index(bgp_nh_id_bitmap, nhg_id);
+	if (nhg_id)
+		nhg_id += bgp_l3nhg_start;
+
+	return nhg_id;
+}
+
+void bgp_l3nhg_id_free(uint32_t nhg_id)
+{
+	if (!nhg_id || (nhg_id <= bgp_l3nhg_start))
+		return;
+
+	nhg_id -= bgp_l3nhg_start;
+
+	bf_release_index(bgp_nh_id_bitmap, nhg_id);
+}
+
