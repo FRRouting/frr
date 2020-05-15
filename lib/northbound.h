@@ -359,6 +359,10 @@ struct nb_callbacks {
 	 * args
 	 *    Refer to the documentation comments of nb_cb_pre_validate_args for
 	 *    details.
+	 *
+	 * Returns:
+	 *    - NB_OK on success.
+	 *    - NB_ERR_VALIDATION when a validation error occurred.
 	 */
 	int (*pre_validate)(struct nb_cb_pre_validate_args *args);
 

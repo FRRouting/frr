@@ -837,6 +837,8 @@ static int nb_callback_create(struct nb_context *context,
 			      size_t errmsg_len)
 {
 	struct nb_cb_create_args args = {};
+	bool unexpected_error = false;
+	int ret;
 
 	nb_log_config_callback(event, NB_OP_CREATE, dnode);
 
@@ -846,7 +848,35 @@ static int nb_callback_create(struct nb_context *context,
 	args.resource = resource;
 	args.errmsg = errmsg;
 	args.errmsg_len = errmsg_len;
-	return nb_node->cbs.create(&args);
+	ret = nb_node->cbs.create(&args);
+
+	/* Detect and log unexpected errors. */
+	switch (ret) {
+	case NB_OK:
+	case NB_ERR:
+		break;
+	case NB_ERR_VALIDATION:
+		if (event != NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_RESOURCE:
+		if (event != NB_EV_PREPARE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_INCONSISTENCY:
+		if (event == NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	default:
+		unexpected_error = true;
+		break;
+	}
+	if (unexpected_error)
+		DEBUGD(&nb_dbg_cbs_config,
+		       "northbound callback: unexpected return value: %s",
+		       nb_err_name(ret));
+
+	return ret;
 }
 
 static int nb_callback_modify(struct nb_context *context,
@@ -856,6 +886,8 @@ static int nb_callback_modify(struct nb_context *context,
 			      size_t errmsg_len)
 {
 	struct nb_cb_modify_args args = {};
+	bool unexpected_error = false;
+	int ret;
 
 	nb_log_config_callback(event, NB_OP_MODIFY, dnode);
 
@@ -865,7 +897,35 @@ static int nb_callback_modify(struct nb_context *context,
 	args.resource = resource;
 	args.errmsg = errmsg;
 	args.errmsg_len = errmsg_len;
-	return nb_node->cbs.modify(&args);
+	ret = nb_node->cbs.modify(&args);
+
+	/* Detect and log unexpected errors. */
+	switch (ret) {
+	case NB_OK:
+	case NB_ERR:
+		break;
+	case NB_ERR_VALIDATION:
+		if (event != NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_RESOURCE:
+		if (event != NB_EV_PREPARE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_INCONSISTENCY:
+		if (event == NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	default:
+		unexpected_error = true;
+		break;
+	}
+	if (unexpected_error)
+		DEBUGD(&nb_dbg_cbs_config,
+		       "northbound callback: unexpected return value: %s",
+		       nb_err_name(ret));
+
+	return ret;
 }
 
 static int nb_callback_destroy(struct nb_context *context,
@@ -875,6 +935,8 @@ static int nb_callback_destroy(struct nb_context *context,
 			       size_t errmsg_len)
 {
 	struct nb_cb_destroy_args args = {};
+	bool unexpected_error = false;
+	int ret;
 
 	nb_log_config_callback(event, NB_OP_DESTROY, dnode);
 
@@ -883,7 +945,31 @@ static int nb_callback_destroy(struct nb_context *context,
 	args.dnode = dnode;
 	args.errmsg = errmsg;
 	args.errmsg_len = errmsg_len;
-	return nb_node->cbs.destroy(&args);
+	ret = nb_node->cbs.destroy(&args);
+
+	/* Detect and log unexpected errors. */
+	switch (ret) {
+	case NB_OK:
+	case NB_ERR:
+		break;
+	case NB_ERR_VALIDATION:
+		if (event != NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_INCONSISTENCY:
+		if (event == NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	default:
+		unexpected_error = true;
+		break;
+	}
+	if (unexpected_error)
+		DEBUGD(&nb_dbg_cbs_config,
+		       "northbound callback: unexpected return value: %s",
+		       nb_err_name(ret));
+
+	return ret;
 }
 
 static int nb_callback_move(struct nb_context *context,
@@ -892,6 +978,8 @@ static int nb_callback_move(struct nb_context *context,
 			    size_t errmsg_len)
 {
 	struct nb_cb_move_args args = {};
+	bool unexpected_error = false;
+	int ret;
 
 	nb_log_config_callback(event, NB_OP_MOVE, dnode);
 
@@ -900,7 +988,31 @@ static int nb_callback_move(struct nb_context *context,
 	args.dnode = dnode;
 	args.errmsg = errmsg;
 	args.errmsg_len = errmsg_len;
-	return nb_node->cbs.move(&args);
+	ret = nb_node->cbs.move(&args);
+
+	/* Detect and log unexpected errors. */
+	switch (ret) {
+	case NB_OK:
+	case NB_ERR:
+		break;
+	case NB_ERR_VALIDATION:
+		if (event != NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_INCONSISTENCY:
+		if (event == NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	default:
+		unexpected_error = true;
+		break;
+	}
+	if (unexpected_error)
+		DEBUGD(&nb_dbg_cbs_config,
+		       "northbound callback: unexpected return value: %s",
+		       nb_err_name(ret));
+
+	return ret;
 }
 
 static int nb_callback_pre_validate(struct nb_context *context,
@@ -909,13 +1021,31 @@ static int nb_callback_pre_validate(struct nb_context *context,
 				    size_t errmsg_len)
 {
 	struct nb_cb_pre_validate_args args = {};
+	bool unexpected_error = false;
+	int ret;
 
 	nb_log_config_callback(NB_EV_VALIDATE, NB_OP_PRE_VALIDATE, dnode);
 
 	args.dnode = dnode;
 	args.errmsg = errmsg;
 	args.errmsg_len = errmsg_len;
-	return nb_node->cbs.pre_validate(&args);
+	ret = nb_node->cbs.pre_validate(&args);
+
+	/* Detect and log unexpected errors. */
+	switch (ret) {
+	case NB_OK:
+	case NB_ERR_VALIDATION:
+		break;
+	default:
+		unexpected_error = true;
+		break;
+	}
+	if (unexpected_error)
+		DEBUGD(&nb_dbg_cbs_config,
+		       "northbound callback: unexpected return value: %s",
+		       nb_err_name(ret));
+
+	return ret;
 }
 
 static void nb_callback_apply_finish(struct nb_context *context,
