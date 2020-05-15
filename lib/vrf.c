@@ -1082,8 +1082,8 @@ static int lib_vrf_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_VALIDATE:
 		vrfp = nb_running_get_entry(args->dnode, NULL, true);
 		if (CHECK_FLAG(vrfp->status, VRF_ACTIVE)) {
-			zlog_debug("%s Only inactive VRFs can be deleted",
-				   __func__);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Only inactive VRFs can be deleted");
 			return NB_ERR_VALIDATION;
 		}
 		break;

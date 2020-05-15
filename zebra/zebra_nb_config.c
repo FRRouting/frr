@@ -941,13 +941,15 @@ int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args)
 	case NB_EV_VALIDATE:
 		if (prefix.family == AF_INET
 		    && ipv4_martian(&prefix.u.prefix4)) {
-			zlog_debug("invalid address %s",
-				   prefix2str(&prefix, buf, sizeof(buf)));
+			snprintf(args->errmsg, args->errmsg_len,
+				 "invalid address %s",
+				 prefix2str(&prefix, buf, sizeof(buf)));
 			return NB_ERR_VALIDATION;
 		} else if (prefix.family == AF_INET6
 			   && ipv6_martian(&prefix.u.prefix6)) {
-			zlog_debug("invalid address %s",
-				   prefix2str(&prefix, buf, sizeof(buf)));
+			snprintf(args->errmsg, args->errmsg_len,
+				 "invalid address %s",
+				 prefix2str(&prefix, buf, sizeof(buf)));
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -982,16 +984,18 @@ int lib_interface_zebra_ip_addrs_destroy(struct nb_cb_destroy_args *args)
 			/* Check current interface address. */
 			ifc = connected_check_ptp(ifp, &prefix, NULL);
 			if (!ifc) {
-				zlog_debug("interface %s Can't find address\n",
-					   ifp->name);
+				snprintf(args->errmsg, args->errmsg_len,
+					 "interface %s Can't find address\n",
+					 ifp->name);
 				return NB_ERR_VALIDATION;
 			}
 		} else if (prefix.family == AF_INET6) {
 			/* Check current interface address. */
 			ifc = connected_check(ifp, &prefix);
 			if (!ifc) {
-				zlog_debug("interface can't find address %s",
-					   ifp->name);
+				snprintf(args->errmsg, args->errmsg_len,
+					 "interface can't find address %s",
+					 ifp->name);
 				return NB_ERR_VALIDATION;
 			}
 		} else
@@ -999,7 +1003,8 @@ int lib_interface_zebra_ip_addrs_destroy(struct nb_cb_destroy_args *args)
 
 		/* This is not configured address. */
 		if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
-			zlog_debug("interface %s not configured", ifp->name);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "interface %s not configured", ifp->name);
 			return NB_ERR_VALIDATION;
 		}
 
@@ -1244,8 +1249,8 @@ int lib_vrf_zebra_ribs_rib_create(struct nb_cb_create_args *args)
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!zrt) {
-			zlog_debug("%s: vrf %s table is not found.", __func__,
-				   vrf->name);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "vrf %s table is not found.", vrf->name);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1376,7 +1381,8 @@ int lib_route_map_entry_match_condition_source_protocol_modify(
 	case NB_EV_VALIDATE:
 		type = yang_dnode_get_string(args->dnode, NULL);
 		if (proto_name2num(type) == -1) {
-			zlog_warn("%s: invalid protocol: %s", __func__, type);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "invalid protocol: %s", type);
 			return NB_ERR_VALIDATION;
 		}
 		return NB_OK;
@@ -1470,8 +1476,9 @@ int lib_route_map_entry_set_action_source_v4_modify(
 		memset(&p, 0, sizeof(p));
 		yang_dnode_get_ipv4p(&p, args->dnode, NULL);
 		if (zebra_check_addr(&p) == 0) {
-			zlog_warn("%s: invalid IPv4 address: %s", __func__,
-				  yang_dnode_get_string(args->dnode, NULL));
+			snprintf(args->errmsg, args->errmsg_len,
+				 "invalid IPv4 address: %s",
+				 yang_dnode_get_string(args->dnode, NULL));
 			return NB_ERR_VALIDATION;
 		}
 
@@ -1482,8 +1489,9 @@ int lib_route_map_entry_set_action_source_v4_modify(
 				break;
 		}
 		if (pif == NULL) {
-			zlog_warn("%s: is not a local adddress: %s", __func__,
-				  yang_dnode_get_string(args->dnode, NULL));
+			snprintf(args->errmsg, args->errmsg_len,
+				 "is not a local adddress: %s",
+				 yang_dnode_get_string(args->dnode, NULL));
 			return NB_ERR_VALIDATION;
 		}
 		return NB_OK;
@@ -1536,8 +1544,9 @@ int lib_route_map_entry_set_action_source_v6_modify(
 		memset(&p, 0, sizeof(p));
 		yang_dnode_get_ipv6p(&p, args->dnode, NULL);
 		if (zebra_check_addr(&p) == 0) {
-			zlog_warn("%s: invalid IPv6 address: %s", __func__,
-				  yang_dnode_get_string(args->dnode, NULL));
+			snprintf(args->errmsg, args->errmsg_len,
+				 "invalid IPv6 address: %s",
+				 yang_dnode_get_string(args->dnode, NULL));
 			return NB_ERR_VALIDATION;
 		}
 
@@ -1548,8 +1557,9 @@ int lib_route_map_entry_set_action_source_v6_modify(
 				break;
 		}
 		if (pif == NULL) {
-			zlog_warn("%s: is not a local adddress: %s", __func__,
-				  yang_dnode_get_string(args->dnode, NULL));
+			snprintf(args->errmsg, args->errmsg_len,
+				 "is not a local adddress: %s",
+				 yang_dnode_get_string(args->dnode, NULL));
 			return NB_ERR_VALIDATION;
 		}
 		return NB_OK;

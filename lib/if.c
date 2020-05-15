@@ -1561,8 +1561,8 @@ static int lib_interface_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_VALIDATE:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-			zlog_warn("%s: only inactive interfaces can be deleted",
-				  __func__);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "only inactive interfaces can be deleted");
 			return NB_ERR_VALIDATION;
 		}
 		break;
