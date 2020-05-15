@@ -715,7 +715,7 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_inte
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
 
 	if (nexthop->ifindex)
-		yang_data_new_string(
+		return yang_data_new_string(
 			args->xpath,
 			ifindex2ifname(nexthop->ifindex, nexthop->vrf_id));
 
