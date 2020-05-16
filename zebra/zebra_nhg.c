@@ -1688,7 +1688,17 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 
 	/* Copy labels of the resolved route and the parent resolving to it */
 	if (policy) {
-		for (i = 0; i < policy->segment_list.label_num; i++)
+		int i = 0;
+
+		/*
+		 * Don't push the first SID if the corresponding action in the
+		 * LFIB is POP.
+		 */
+		if (!newhop->nh_label || !newhop->nh_label->num_labels
+		    || newhop->nh_label->label[0] == MPLS_LABEL_IMPLICIT_NULL)
+			i = 1;
+
+		for (; i < policy->segment_list.label_num; i++)
 			labels[num_labels++] =
 				policy->segment_list.labels[i];
 		label_type = policy->segment_list.type;

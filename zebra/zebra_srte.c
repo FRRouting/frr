@@ -316,13 +316,29 @@ int zebra_sr_policy_bsid_install(struct zebra_sr_policy *policy)
 		return 0;
 
 	frr_each_safe(nhlfe_list, &policy->lsp->nhlfe_list, nhlfe) {
+		uint8_t num_out_labels;
+		mpls_label_t *out_labels;
+
 		if (!CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
 		    || CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED))
 			continue;
 
+		/*
+		 * Don't push the first SID if the corresponding action in the
+		 * LFIB is POP.
+		 */
+		if (!nhlfe->nexthop->nh_label || !nhlfe->nexthop->nh_label->num_labels
+		    || nhlfe->nexthop->nh_label->label[0] == MPLS_LABEL_IMPLICIT_NULL) {
+			num_out_labels = zt->label_num - 1;
+			out_labels = &zt->labels[1];
+		} else {
+			num_out_labels = zt->label_num;
+			out_labels = zt->labels;
+		}
+
 		if (mpls_lsp_install(
 			    policy->zvrf, zt->type, zt->local_label,
-			    zt->label_num, zt->labels, nhlfe->nexthop->type,
+			    num_out_labels, out_labels, nhlfe->nexthop->type,
 			    &nhlfe->nexthop->gate, nhlfe->nexthop->ifindex)
 		    < 0)
 			return -1;
