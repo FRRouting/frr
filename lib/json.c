@@ -39,6 +39,11 @@ bool use_json(const int argc, struct cmd_token *argv[])
 	return false;
 }
 
+void json_array_string_add(json_object *json, const char *str)
+{
+	json_object_array_add(json, json_object_new_string(str));
+}
+
 void json_object_string_add(struct json_object *obj, const char *key,
 			    const char *s)
 {
