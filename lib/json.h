@@ -57,6 +57,7 @@ extern void json_object_boolean_true_add(struct json_object *obj,
 					 const char *key);
 extern struct json_object *json_object_lock(struct json_object *obj);
 extern void json_object_free(struct json_object *obj);
+extern void json_array_string_add(json_object *json, const char *str);
 
 #define JSON_STR "JavaScript Object Notation\n"
 
