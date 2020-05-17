@@ -971,7 +971,7 @@ Route Aggregation-IPv4 Address Family
 .. clicmd:: aggregate-address A.B.C.D/M summary-only
 
    This command specifies an aggregate address. Aggregated routes will
-   not be announce.
+   not be announced.
 
 .. index:: no aggregate-address A.B.C.D/M
 .. clicmd:: no aggregate-address A.B.C.D/M
@@ -1023,7 +1023,7 @@ Route Aggregation-IPv6 Address Family
 .. clicmd:: aggregate-address X:X::X:X/M summary-only
 
    This command specifies an aggregate address. Aggregated routes will
-   not be announce.
+   not be announced.
 
 .. index:: no aggregate-address X:X::X:X/M
 .. clicmd:: no aggregate-address X:X::X:X/M
@@ -1776,7 +1776,7 @@ In :ref:`route-map` we can match on or set the BGP communities attribute. Using
 this feature network operator can implement their network policy based on BGP
 communities attribute.
 
-The ollowing commands can be used in route maps:
+The following commands can be used in route maps:
 
 .. index:: match community WORD exact-match [exact-match]
 .. clicmd:: match community WORD exact-match [exact-match]
@@ -2840,8 +2840,8 @@ Displaying Routes by AS Path
 Displaying Update Group Information
 -----------------------------------
 
-..index:: show bgp update-groups SUBGROUP-ID [advertise-queue|advertised-routes|packet-queue]
-..clicmd:: show bgp update-groups [advertise-queue|advertised-routes|packet-queue]
+.. index:: show bgp update-groups SUBGROUP-ID [advertise-queue|advertised-routes|packet-queue]
+.. clicmd:: show bgp update-groups [advertise-queue|advertised-routes|packet-queue]
 
    Display Information about each individual update-group being used.
    If SUBGROUP-ID is specified only display about that particular group.  If
@@ -2850,8 +2850,8 @@ Displaying Update Group Information
    the list of routes we have sent to the peers in the update-group and
    packet-queue specifies the list of packets in the queue to be sent.
 
-..index:: show bgp update-groups statistics
-..clicmd:: show bgp update-groups statistics
+.. index:: show bgp update-groups statistics
+.. clicmd:: show bgp update-groups statistics
 
    Display Information about update-group events in FRR.
 

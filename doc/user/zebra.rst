@@ -985,15 +985,15 @@ zebra Terminal Mode Commands
 .. index:: show ip protocol
 .. clicmd:: show ip protocol
 
-.. index:: show ipforward
-.. clicmd:: show ipforward
+.. index:: show ip forward
+.. clicmd:: show ip forward
 
    Display whether the host's IP forwarding function is enabled or not.
    Almost any UNIX kernel can be configured with IP forwarding disabled.
    If so, the box can't work as a router.
 
-.. index:: show ipv6forward
-.. clicmd:: show ipv6forward
+.. index:: show ipv6 forward
+.. clicmd:: show ipv6 forward
 
    Display whether the host's IP v6 forwarding is enabled or not.
 
