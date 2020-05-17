@@ -1658,11 +1658,6 @@ static char *bgp_evpn_es_vteps_str(char *vtep_str, struct bgp_evpn_es *es,
 	return vtep_str;
 }
 
-static inline void json_array_string_add(json_object *json, const char *str)
-{
-	json_object_array_add(json, json_object_new_string(str));
-}
-
 static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 		struct bgp_evpn_es_vtep *es_vtep)
 {
