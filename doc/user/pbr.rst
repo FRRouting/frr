@@ -39,7 +39,7 @@ listing of ECMP nexthops used to forward packets for when a pbr-map is matched.
    sub-mode where you can specify individual nexthops.  To exit this mode type
    exit or end as per normal conventions for leaving a sub-mode.
 
-.. clicmd:: nexthop [A.B.C.D|X:X::X:XX] [interface] [nexthop-vrf NAME] [label LABELS]
+.. clicmd:: nexthop [A.B.C.D|X:X::X:XX] [interface [onlink]] [nexthop-vrf NAME] [label LABELS]
 
    Create a v4 or v6 nexthop.  All normal rules for creating nexthops that you
    are used to are allowed here.  The syntax was intentionally kept the same as
