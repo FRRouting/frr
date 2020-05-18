@@ -92,7 +92,7 @@ daemon_list() {
 				continue
 			fi
 			debug "$daemon enabled"
-			enabled="$enabled $daemon"
+
 			if [ -n "$inst" ]; then
 				debug "$daemon multi-instance $inst"
 				oldifs="${IFS}"
@@ -101,6 +101,8 @@ daemon_list() {
 					enabled="$enabled $daemon-$i"
 				done
 				IFS="${oldifs}"
+			else
+			    enabled="$enabled $daemon"
 			fi
 		else
 			debug "$daemon disabled"
