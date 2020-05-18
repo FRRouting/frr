@@ -1649,6 +1649,9 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 	znh->ifindex = nh->ifindex;
 	znh->gate = nh->gate;
 
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK))
+		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+
 	if (nh->nh_label && (nh->nh_label->num_labels > 0)) {
 
 		/* Validate */
