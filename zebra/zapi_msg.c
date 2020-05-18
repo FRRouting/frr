@@ -1451,10 +1451,6 @@ static struct nexthop *nexthop_from_zapi(struct route_entry *re,
 			&api_nh->gate.ipv4, NULL, api_nh->ifindex,
 			api_nh->vrf_id);
 
-		ifp = if_lookup_by_index(api_nh->ifindex, api_nh->vrf_id);
-		if (ifp && connected_is_unnumbered(ifp))
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
-
 		/* Special handling for IPv4 routes sourced from EVPN:
 		 * the nexthop and associated MAC need to be installed.
 		 */
@@ -1516,8 +1512,16 @@ static struct nexthop *nexthop_from_zapi(struct route_entry *re,
 		goto done;
 	}
 
+	/* Mark nexthop as onlink either if client has explicitly told us
+	 * to or if the nexthop is on an 'unnumbered' interface.
+	 */
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK))
 		SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
+	else if (api_nh->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+		ifp = if_lookup_by_index(api_nh->ifindex, api_nh->vrf_id);
+		if (ifp && connected_is_unnumbered(ifp))
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
+	}
 
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_WEIGHT))
 		nexthop->weight = api_nh->weight;
