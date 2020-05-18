@@ -726,7 +726,10 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 
 	save_values = ei->route_map_set;
 	ospf_reset_route_map_set_values(&ei->route_map_set);
+
 	saved_tag = ei->tag;
+	/* Resetting with original route tag */
+	ei->tag = ei->orig_tag;
 
 	/* apply route-map if needed */
 	red = ospf_redist_lookup(ospf, type, instance);

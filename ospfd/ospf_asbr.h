@@ -46,6 +46,9 @@ struct external_info {
 	/* Additional Route tag. */
 	route_tag_t tag;
 
+	/* Actual tag received from zebra*/
+	route_tag_t orig_tag;
+
 	struct route_map_set_values route_map_set;
 #define ROUTEMAP_METRIC(E)      (E)->route_map_set.metric
 #define ROUTEMAP_METRIC_TYPE(E) (E)->route_map_set.metric_type
