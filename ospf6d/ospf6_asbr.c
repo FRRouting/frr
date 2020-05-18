@@ -47,6 +47,9 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 
+static void ospf6_asbr_redistribute_set(int type);
+static void ospf6_asbr_redistribute_unset(int type);
+
 unsigned char conf_debug_ospf6_asbr = 0;
 
 #define ZROUTE_NAME(x) zebra_route_string(x)
@@ -935,18 +938,35 @@ static void ospf6_asbr_routemap_update(const char *mapname)
 			ospf6->rmap[type].map = route_map_lookup_by_name(
 				ospf6->rmap[type].name);
 
-			if (mapname && ospf6->rmap[type].map
+			if (mapname
 			    && (strcmp(ospf6->rmap[type].name, mapname) == 0)) {
-				if (IS_OSPF6_DEBUG_ASBR)
-					zlog_debug(
-						"%s: route-map %s update, reset redist %s",
-						__func__, mapname,
-						ZROUTE_NAME(type));
+				if (ospf6->rmap[type].map) {
+					if (IS_OSPF6_DEBUG_ASBR)
+						zlog_debug(
+							"%s: route-map %s update, reset redist %s",
+							__func__, mapname,
+							ZROUTE_NAME(type));
 
-				route_map_counter_increment(
-					ospf6->rmap[type].map);
+					route_map_counter_increment(
+						ospf6->rmap[type].map);
 
-				ospf6_asbr_distribute_list_update(type);
+					ospf6_asbr_distribute_list_update(type);
+				} else {
+					/*
+					 * if the mapname matches a route-map on
+					 * ospf6 but the map doesn't exist, it
+					 * is being deleted. flush and then
+					 * readvertise
+					 */
+					if (IS_OSPF6_DEBUG_ASBR)
+						zlog_debug(
+							"%s: route-map %s deleted, reset redist %s",
+							__func__, mapname,
+							ZROUTE_NAME(type));
+					ospf6_asbr_redistribute_unset(type);
+					ospf6_asbr_routemap_set(type, mapname);
+					ospf6_asbr_redistribute_set(type);
+				}
 			}
 		} else
 			ospf6->rmap[type].map = NULL;
@@ -1061,6 +1081,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 			if (IS_OSPF6_DEBUG_ASBR)
 				zlog_debug("Denied by route-map \"%s\"",
 					   ospf6->rmap[type].name);
+			ospf6_asbr_redistribute_remove(type, ifindex, prefix);
 			return;
 		}
 	}
