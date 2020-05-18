@@ -34,6 +34,7 @@
 
 #define BGP_EVPN_CONS_CHECK_INTERVAL 60
 
+#define BGP_EVPN_MH_USE_ES_L3NHG_DEF false
 
 /* Ethernet Segment entry -
  * - Local and remote ESs are maintained in a global RB tree,

@@ -3703,8 +3703,8 @@ void bgp_evpn_mh_init(void)
 	/* config knobs - XXX add cli to control it */
 	bgp_mh_info->ead_evi_adv_for_down_links = true;
 	bgp_mh_info->consistency_checking = true;
-	bgp_mh_info->install_l3nhg = true;
-	bgp_mh_info->host_routes_use_l3nhg = false;
+	bgp_mh_info->install_l3nhg = false;
+	bgp_mh_info->host_routes_use_l3nhg = BGP_EVPN_MH_USE_ES_L3NHG_DEF;
 
 	if (bgp_mh_info->consistency_checking)
 		thread_add_timer(bm->master, bgp_evpn_run_consistency_checks,
