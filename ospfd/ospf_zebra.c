@@ -696,6 +696,7 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 	struct ospf_redist *red;
 	uint8_t type = is_prefix_default(&ei->p) ? DEFAULT_ROUTE : ei->type;
 	unsigned short instance = is_prefix_default(&ei->p) ? 0 : ei->instance;
+	route_tag_t saved_tag = 0;
 
 	if (changed)
 		*changed = 0;
@@ -725,6 +726,7 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 
 	save_values = ei->route_map_set;
 	ospf_reset_route_map_set_values(&ei->route_map_set);
+	saved_tag = ei->tag;
 
 	/* apply route-map if needed */
 	red = ospf_redist_lookup(ospf, type, instance);
@@ -747,9 +749,13 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 		}
 
 		/* check if 'route-map set' changed something */
-		if (changed)
+		if (changed) {
 			*changed = !ospf_route_map_set_compare(
 				&ei->route_map_set, &save_values);
+
+			/* check if tag is modified */
+			*changed |= (saved_tag != ei->tag);
+		}
 	}
 
 	return 1;
