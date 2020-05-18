@@ -3744,6 +3744,16 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_evpn_use_es_l3nhg,
+       bgp_evpn_use_es_l3nhg_cmd,
+       "[no$no] use-es-l3nhg",
+       NO_STR
+       "use L3 nexthop group for host routes with ES destination\n")
+{
+	bgp_mh_info->host_routes_use_l3nhg = no? false :true;
+	return CMD_SUCCESS;
+}
+
 DEFPY (bgp_evpn_advertise_pip_ip_mac,
        bgp_evpn_advertise_pip_ip_mac_cmd,
        "[no$no] advertise-pip [ip <A.B.C.D> [mac <X:X:X:X:X:X|X:X:X:X:X:X/M>]]",
@@ -5738,6 +5748,14 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (bgp->evpn_info->advertise_svi_macip)
 		vty_out(vty, "  advertise-svi-ip\n");
 
+	if (bgp_mh_info->host_routes_use_l3nhg !=
+			BGP_EVPN_MH_USE_ES_L3NHG_DEF) {
+		if (bgp_mh_info->host_routes_use_l3nhg)
+			vty_out(vty, "  use-es-l3nhg\n");
+		else
+			vty_out(vty, "  no use-es-l3nhg\n");
+	}
+
 	if (!bgp->evpn_info->dup_addr_detect)
 		vty_out(vty, "  no dup-addr-detection\n");
 
@@ -5882,6 +5900,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &no_dup_addr_detection_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_flood_control_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_pip_ip_mac_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_use_es_l3nhg_cmd);
 
 	/* test commands */
 	install_element(BGP_EVPN_NODE, &test_es_add_cmd);
