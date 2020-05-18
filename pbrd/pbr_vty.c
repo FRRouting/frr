@@ -27,6 +27,7 @@
 #include "nexthop_group.h"
 #include "nexthop_group_private.h"
 #include "log.h"
+#include "json.h"
 #include "debug.h"
 #include "pbr.h"
 
@@ -638,19 +639,28 @@ DEFPY(show_pbr_nexthop_group,
 
 DEFPY (show_pbr_interface,
 	show_pbr_interface_cmd,
-	"show pbr interface [NAME$name]",
+	"show pbr interface [NAME$name] [json$json]",
 	SHOW_STR
 	PBR_STR
 	"PBR Interface\n"
-	"PBR Interface Name\n")
+	"PBR Interface Name\n"
+	JSON_STR)
 {
 	struct interface *ifp;
 	struct vrf *vrf;
 	struct pbr_interface *pbr_ifp;
+	json_object *j = NULL;
+
+	if (json)
+		j = json_object_new_object();
 
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
 		FOR_ALL_INTERFACES(vrf, ifp) {
 			struct pbr_map *pbrm;
+			json_object *this_iface = NULL;
+
+			if (j)
+				this_iface = json_object_new_object();
 
 			if (!ifp->info)
 				continue;
@@ -664,12 +674,35 @@ DEFPY (show_pbr_interface,
 				continue;
 
 			pbrm = pbrm_find(pbr_ifp->mapname);
+
+			if (this_iface) {
+				json_object_string_add(this_iface, "name",
+						       ifp->name);
+				json_object_int_add(this_iface, "index",
+						    ifp->ifindex);
+				json_object_string_add(this_iface, "policy",
+						       pbr_ifp->mapname);
+				json_object_boolean_add(this_iface, "valid",
+							pbrm);
+
+				json_object_object_add(j, ifp->name,
+						       this_iface);
+				continue;
+			}
+
 			vty_out(vty, "  %s(%d) with pbr-policy %s", ifp->name,
 				ifp->ifindex, pbr_ifp->mapname);
 			if (!pbrm)
 				vty_out(vty, " (map doesn't exist)");
 			vty_out(vty, "\n");
 		}
+	}
+
+	if (j) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				j, JSON_C_TO_STRING_PRETTY));
+		json_object_free(j);
 	}
 
 	return CMD_SUCCESS;
