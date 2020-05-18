@@ -3121,8 +3121,7 @@ netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, uint8_t *data,
 			   (state & NUD_NOARP) ? " static" : "",
 			   (update_flags &
 				DPLANE_MAC_SET_INACTIVE) ? " inactive" : "",
-			   (nfy &
-				DPLANE_MAC_SET_INACTIVE) ? " nfy" : "");
+			   nfy ? " nfy" : "");
 	}
 
 	total = netlink_update_neigh_ctx_internal(
@@ -3554,6 +3553,7 @@ static int netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 		if (update_flags & DPLANE_NEIGH_WAS_STATIC)
 			ext = true;
 	} else {
+		ext = true;
 		/* local neigh */
 		if (update_flags & DPLANE_NEIGH_SET_STATIC)
 			ext_flags |= NTF_E_MH_PEER_SYNC;
