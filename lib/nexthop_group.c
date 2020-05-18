@@ -41,6 +41,7 @@ struct nexthop_hold {
 	char *nhvrf_name;
 	union sockunion *addr;
 	char *intf;
+	bool onlink;
 	char *labels;
 	uint32_t weight;
 	int backup_idx; /* Index of backup nexthop, if >= 0 */
@@ -563,6 +564,10 @@ static int nhgl_cmp(struct nexthop_hold *nh1, struct nexthop_hold *nh2)
 	if (ret)
 		return ret;
 
+	ret = ((int)nh2->onlink) - ((int)nh1->onlink);
+	if (ret)
+		return ret;
+
 	return nhgc_cmp_helper(nh1->labels, nh2->labels);
 }
 
@@ -675,8 +680,9 @@ DEFPY(no_nexthop_group_backup, no_nexthop_group_backup_cmd,
 static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 				    const char *nhvrf_name,
 				    const union sockunion *addr,
-				    const char *intf, const char *labels,
-				    const uint32_t weight, int backup_idx)
+				    const char *intf, bool onlink,
+				    const char *labels, const uint32_t weight,
+				    int backup_idx)
 {
 	struct nexthop_hold *nh;
 
@@ -690,6 +696,8 @@ static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 		nh->addr = sockunion_dup(addr);
 	if (labels)
 		nh->labels = XSTRDUP(MTYPE_TMP, labels);
+
+	nh->onlink = onlink;
 
 	nh->weight = weight;
 
@@ -738,9 +746,10 @@ static void nexthop_group_unsave_nhop(struct nexthop_group_cmd *nhgc,
  */
 static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 					const union sockunion *addr,
-					const char *intf, const char *name,
-					const char *labels, int *lbl_ret,
-					uint32_t weight, int backup_idx)
+					const char *intf, bool onlink,
+					const char *name, const char *labels,
+					int *lbl_ret, uint32_t weight,
+					int backup_idx)
 {
 	int ret = 0;
 	struct vrf *vrf;
@@ -762,6 +771,9 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 		if (nhop->ifindex == IFINDEX_INTERNAL)
 			return false;
 	}
+
+	if (onlink)
+		SET_FLAG(nhop->flags, NEXTHOP_FLAG_ONLINK);
 
 	if (addr) {
 		if (addr->sa.sa_family == AF_INET) {
@@ -817,15 +829,15 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 static bool nexthop_group_parse_nhh(struct nexthop *nhop,
 				    const struct nexthop_hold *nhh)
 {
-	return (nexthop_group_parse_nexthop(nhop, nhh->addr, nhh->intf,
-					    nhh->nhvrf_name, nhh->labels, NULL,
-					    nhh->weight, nhh->backup_idx));
+	return (nexthop_group_parse_nexthop(
+		nhop, nhh->addr, nhh->intf, nhh->onlink, nhh->nhvrf_name,
+		nhh->labels, NULL, nhh->weight, nhh->backup_idx));
 }
 
 DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
       "[no] nexthop\
         <\
-	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
+	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf [onlink$onlink]]\
 	  |INTERFACE$intf\
 	>\
 	[{ \
@@ -839,6 +851,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
       "v4 Address\n"
       "v6 Address\n"
       "Interface to use\n"
+      "Treat nexthop as directly attached to the interface\n"
       "Interface to use\n"
       "If the nexthop is in a different vrf tell us\n"
       "The nexthop-vrf Name\n"
@@ -860,8 +873,9 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	if (bi_str == NULL)
 		backup_idx = NHH_BACKUP_IDX_INVALID;
 
-	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, vrf_name, label,
-					    &lbl_ret, weight, backup_idx);
+	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, !!onlink,
+					    vrf_name, label, &lbl_ret, weight,
+					    backup_idx);
 
 	if (nhop.type == NEXTHOP_TYPE_IPV6
 	    && IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
@@ -923,8 +937,8 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 		}
 
 		/* Save config always */
-		nexthop_group_save_nhop(nhgc, vrf_name, addr, intf, label,
-					weight, backup_idx);
+		nexthop_group_save_nhop(nhgc, vrf_name, addr, intf, !!onlink,
+					label, weight, backup_idx);
 
 		if (legal && nhg_hooks.add_nexthop)
 			nhg_hooks.add_nexthop(nhgc, nh);
@@ -1062,6 +1076,9 @@ static void nexthop_group_write_nexthop_internal(struct vty *vty,
 
 	if (nh->intf)
 		vty_out(vty, " %s", nh->intf);
+
+	if (nh->onlink)
+		vty_out(vty, " onlink");
 
 	if (nh->nhvrf_name)
 		vty_out(vty, " nexthop-vrf %s", nh->nhvrf_name);
