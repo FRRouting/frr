@@ -2642,19 +2642,19 @@ netlink_update_neigh_ctx_internal(const struct zebra_dplane_ctx *ctx,
 	req->ndm.ndm_flags = flags;
 	req->ndm.ndm_ifindex = dplane_ctx_get_ifindex(ctx);
 
-	addattr_l(&req->n, sizeof(req),
+	addattr_l(&req->n, datalen,
 		  NDA_PROTOCOL, &protocol, sizeof(protocol));
 	if (mac)
 		addattr_l(&req->n, datalen, NDA_LLADDR, mac, 6);
 	if (nfy)
-		addattr_l(&req->n, sizeof(req), NDA_NOTIFY,
+		addattr_l(&req->n, datalen, NDA_NOTIFY,
 				&nfy_flags, sizeof(nfy_flags));
 	if (ext)
-		addattr_l(&req->n, sizeof(req), NDA_EXT_FLAGS,
+		addattr_l(&req->n, datalen, NDA_EXT_FLAGS,
 				&ext_flags, sizeof(ext_flags));
 
 	if (nhg_id) {
-		addattr32(&req->n, sizeof(req), NDA_NH_ID, nhg_id);
+		addattr32(&req->n, datalen, NDA_NH_ID, nhg_id);
 	} else {
 		ipa_len = IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
 		addattr_l(&req->n, datalen, NDA_DST, &ip->ip.addr, ipa_len);
