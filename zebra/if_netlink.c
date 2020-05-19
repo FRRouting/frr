@@ -482,6 +482,7 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	struct rtattr *attr[IFLA_VXLAN_MAX + 1];
 	vni_t vni_in_msg;
 	struct in_addr vtep_ip_in_msg;
+	ifindex_t ifindex_link;
 
 	memset(vxl_info, 0, sizeof(*vxl_info));
 	memset(attr, 0, sizeof(attr));
@@ -510,6 +511,15 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 			*(struct in_addr *)RTA_DATA(attr[IFLA_VXLAN_GROUP]);
 	}
 
+	if (!attr[IFLA_VXLAN_LINK]) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("IFLA_VXLAN_LINK missing "
+				   "from VXLAN IF message");
+	} else {
+		ifindex_link =
+			*(ifindex_t *)RTA_DATA(attr[IFLA_VXLAN_LINK]);
+		vxl_info->ifindex_link = ifindex_link;
+	}
 	return 0;
 }
 
@@ -519,7 +529,8 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
  * its members. Likewise, for VxLAN interface.
  */
 static void netlink_interface_update_l2info(struct interface *ifp,
-					    struct rtattr *link_data, int add)
+					    struct rtattr *link_data, int add,
+					    ns_id_t link_nsid)
 {
 	if (!link_data)
 		return;
@@ -538,7 +549,12 @@ static void netlink_interface_update_l2info(struct interface *ifp,
 		struct zebra_l2info_vxlan vxlan_info;
 
 		netlink_extract_vxlan_info(link_data, &vxlan_info);
+		vxlan_info.link_nsid = link_nsid;
 		zebra_l2_vxlanif_add_update(ifp, &vxlan_info, add);
+		if (link_nsid != NS_UNKNOWN &&
+		    vxlan_info.ifindex_link)
+			zebra_if_update_link(ifp, vxlan_info.ifindex_link,
+					     link_nsid);
 	}
 }
 
@@ -622,6 +638,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	ifindex_t bond_ifindex = IFINDEX_INTERNAL;
 	struct zebra_if *zif;
+	ns_id_t link_nsid = ns_id;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -705,6 +722,11 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
+	if (tb[IFLA_LINK_NETNSID]) {
+		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
+		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+	}
+
 	/* Add interface.
 	 * We add by index first because in some cases such as the master
 	 * interface, we have the index before we have the name. Fixing
@@ -749,9 +771,10 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* Extract and save L2 interface information, take additional actions.
 	 */
-	netlink_interface_update_l2info(ifp, linkinfo[IFLA_INFO_DATA], 1);
+	netlink_interface_update_l2info(ifp, linkinfo[IFLA_INFO_DATA],
+					1, link_nsid);
 	if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
-		zebra_l2if_update_bridge_slave(ifp, bridge_ifindex);
+		zebra_l2if_update_bridge_slave(ifp, bridge_ifindex, ns_id);
 	else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 		zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 
@@ -1168,6 +1191,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	uint8_t old_hw_addr[INTERFACE_HWADDR_MAX];
 	struct zebra_if *zif;
+	ns_id_t link_nsid = ns_id;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -1235,6 +1259,10 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
+	if (tb[IFLA_LINK_NETNSID]) {
+		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
+		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+	}
 	if (tb[IFLA_IFALIAS]) {
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
 	}
@@ -1319,10 +1347,12 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Extract and save L2 interface information, take
 			 * additional actions. */
 			netlink_interface_update_l2info(
-				ifp, linkinfo[IFLA_INFO_DATA], 1);
+				ifp, linkinfo[IFLA_INFO_DATA],
+				1, link_nsid);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
 				zebra_l2if_update_bridge_slave(ifp,
-							       bridge_ifindex);
+							       bridge_ifindex,
+							       ns_id);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 		} else if (ifp->vrf_id != vrf_id) {
@@ -1421,10 +1451,12 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Extract and save L2 interface information, take
 			 * additional actions. */
 			netlink_interface_update_l2info(
-				ifp, linkinfo[IFLA_INFO_DATA], 0);
+				ifp, linkinfo[IFLA_INFO_DATA],
+				0, link_nsid);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) || was_bridge_slave)
 				zebra_l2if_update_bridge_slave(ifp,
-							       bridge_ifindex);
+							       bridge_ifindex,
+							       ns_id);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp) || was_bond_slave)
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 		}

@@ -37,6 +37,7 @@ extern "C" {
 struct zebra_l2info_brslave {
 	ifindex_t bridge_ifindex; /* Bridge Master */
 	struct interface *br_if;  /* Pointer to master */
+	ns_id_t ns_id; /* network namespace where bridge is */
 };
 
 /* zebra L2 interface information - bridge interface */
@@ -55,6 +56,10 @@ struct zebra_l2info_vxlan {
 	struct in_addr vtep_ip; /* Local tunnel IP */
 	vlanid_t access_vlan;   /* Access VLAN - for VLAN-aware bridge. */
 	struct in_addr mcast_grp;
+	ifindex_t ifindex_link; /* Interface index of interface
+				 * linked with VXLAN
+				 */
+	ns_id_t link_nsid;
 };
 
 struct zebra_l2info_bondslave {
@@ -77,7 +82,8 @@ union zebra_l2if_info {
 
 #define IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif) ((zif)->l2info.br.vlan_aware == 1)
 
-extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave);
+extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave,
+					 struct zebra_ns *zns);
 extern void
 zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave);
 extern void
@@ -97,7 +103,8 @@ extern void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
 						vlanid_t access_vlan);
 extern void zebra_l2_vxlanif_del(struct interface *ifp);
 extern void zebra_l2if_update_bridge_slave(struct interface *ifp,
-					   ifindex_t bridge_ifindex);
+					   ifindex_t bridge_ifindex,
+					   ns_id_t ns_id);
 
 extern void zebra_l2if_update_bond_slave(struct interface *ifp,
 					 ifindex_t bond_ifindex);
