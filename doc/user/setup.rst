@@ -218,6 +218,9 @@ individual or unified daemon configuration files.
 
       systemctl reload frr
 
+See :ref:`FRR-RELOAD <frr-reload>` for more about the `frr-reload.py` script.
+
+      
 Starting a new daemon
 ^^^^^^^^^^^^^^^^^^^^^
 

@@ -13,6 +13,7 @@ user_RSTFILES = \
 	doc/user/eigrpd.rst \
 	doc/user/fabricd.rst \
 	doc/user/filter.rst \
+	doc/user/frr-reload.rst \
 	doc/user/glossary.rst \
 	doc/user/index.rst \
 	doc/user/installation.rst \

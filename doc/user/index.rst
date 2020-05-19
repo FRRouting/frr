@@ -71,6 +71,7 @@ Appendix
    bugs
    packet-dumps
    glossary
+   frr-reload
 
 ################
 Copyright notice
