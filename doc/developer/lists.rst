@@ -105,7 +105,8 @@ Functions provided:
 +====================================+======+======+======+=========+============+
 | _init, _fini                       | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
-| _first, _next, _next_safe          | yes  | yes  | yes  | yes     | yes        |
+| _first, _next, _next_safe,         | yes  | yes  | yes  | yes     | yes        |
+| _const_first, _const_next          |      |      |      |         |            |
 +------------------------------------+------+------+------+---------+------------+
 | _add_head, _add_tail, _add_after   | yes  | --   | --   | --      | --         |
 +------------------------------------+------+------+------+---------+------------+
@@ -113,9 +114,10 @@ Functions provided:
 +------------------------------------+------+------+------+---------+------------+
 | _del, _pop                         | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
-| _find                              | --   | --   | yes  | yes     | --         |
+| _find, _const_find                 | --   | --   | yes  | yes     | --         |
 +------------------------------------+------+------+------+---------+------------+
-| _find_lt, _find_gteq               | --   | --   | --   | yes     | yes        |
+| _find_lt, _find_gteq,              | --   | --   | --   | yes     | yes        |
+| _const_find_lt, _const_find_gteq   |      |      |      |         |            |
 +------------------------------------+------+------+------+---------+------------+
 | use with frr_each() macros         | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
@@ -226,6 +228,10 @@ The following iteration macros work across all data structures:
       resume iteration after breaking out of the loop by keeping the ``from``
       value persistent and reusing it for the next loop.
 
+To iterate over ``const`` pointers, add ``_const`` to the name of the
+datastructure (``Z`` above), e.g. ``frr_each (mylist, head, item)`` becomes
+``frr_each (mylist_const, head, item)``.
+
 Common API
 ----------
 
@@ -248,7 +254,7 @@ The following documentation assumes that a list has been defined using
 
       This function may ``assert()`` if the list is not empty.
 
-.. c:function:: size_t Z_count(struct Z_head *)
+.. c:function:: size_t Z_count(const struct Z_head *)
 
    Returns the number of items in a structure.  All structures store a
    counter in their `Z_head` so that calling this function completes
@@ -260,6 +266,7 @@ The following documentation assumes that a list has been defined using
       outdated by the time this function returns and can therefore only be
       used as an estimate.
 
+.. c:function:: const itemtype *Z_const_first(const struct Z_head *)
 .. c:function:: itemtype *Z_first(struct Z_head *)
 
    Returns the first item in the structure, or ``NULL`` if the structure is
@@ -288,6 +295,7 @@ The following documentation assumes that a list has been defined using
       affected by the "modification while iterating" problem.  To remove
       all items from a hash table, use the loop demonstrated above.
 
+.. c:function:: const itemtype *Z_next(const struct Z_head *, const itemtype *prev)
 .. c:function:: itemtype *Z_next(struct Z_head *, itemtype *prev)
 
    Return the item that follows after ``prev``, or ``NULL`` if ``prev`` is
@@ -421,6 +429,7 @@ sorted lists can be searched for a value.
    For ``_NONUNIQ`` lists, this function always returns NULL since ``item``
    can always be successfully added to the list.
 
+.. c:function:: const itemtype *Z_find(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares equal to ``ref``.  If no equal
@@ -442,11 +451,13 @@ sorted lists can be searched for a value.
       containing non-unique items, more than one item may compare as equal to
       the item that is searched for.
 
+.. c:function:: const itemtype *Z_find_gteq(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find_gteq(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares greater or equal to
    ``ref``.  See :c:func:`Z_find()` above.
 
+.. c:function:: const itemtype *Z_find_lt(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find_lt(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares less than
@@ -616,21 +627,9 @@ Head removal (pop) and deallocation:
 FAQ
 ---
 
-Why is the list head not ``const`` in the list APIs?
-   The semantics that a ``const`` list head would imply are not obvious.  It
-   could mean any of the following:
-
-    * the list just shouldn't be allocated/deallocated, but may be modified.
-      This doesn't actually work since the list head needs to be modified for
-      inserting or deleting items.
-
-    * the list shouldn't be modified, but items can.  This may make sense for
-      iterating, but it's not exactly consistent - an item might be on more
-      than one list, does it apply to all of them?  If not, which one?
-
-    * neither the list nor the items should be modified.  This is consistent,
-      but hard to do without creating a ``const`` copy of every single list
-      function.  Ease of use trumps this.
+What are the semantics of ``const`` in the list APIs?
+   ``const`` pointers to list heads and/or items are interpreted to mean that
+   both the list itself as well as the data items are read-only.
 
 Why is there no "is this item on a/the list" test?
    It's slow for several of the data structures, and the work of adding it

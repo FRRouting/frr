@@ -25,7 +25,9 @@
 #define list_hash	concat(TYPE, _hash)
 #define list_init	concat(TYPE, _init)
 #define list_fini	concat(TYPE, _fini)
+#define list_const_first concat(TYPE, _const_first)
 #define list_first	concat(TYPE, _first)
+#define list_const_next	concat(TYPE, _const_next)
 #define list_next	concat(TYPE, _next)
 #define list_next_safe	concat(TYPE, _next_safe)
 #define list_count	concat(TYPE, _count)
@@ -177,18 +179,29 @@ static void concat(test_, TYPE)(void)
 	ts_hashx("fill", "a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
 
 	k = 0;
-	prev = NULL;
-	frr_each(list, &head, item) {
+
+#if IS_ATOMIC(REALTYPE)
+	struct list_head *chead = &head;
+	struct item *citem, *cprev = NULL;
+
+	frr_each(list, chead, citem) {
+#else
+	const struct list_head *chead = &head;
+	const struct item *citem, *cprev = NULL;
+
+	frr_each(list_const, chead, citem) {
+#endif
+
 #if IS_HASH(REALTYPE) || IS_HEAP(REALTYPE)
 		/* hash table doesn't give sorting */
-		(void)prev;
+		(void)cprev;
 #else
-		assert(!prev || prev->val < item->val);
+		assert(!cprev || cprev->val < citem->val);
 #endif
-		prev = item;
+		cprev = citem;
 		k++;
 	}
-	assert(list_count(&head) == k);
+	assert(list_count(chead) == k);
 	ts_ref("walk");
 
 #if IS_UNIQ(REALTYPE)
