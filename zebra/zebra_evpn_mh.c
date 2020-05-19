@@ -1069,7 +1069,7 @@ static void zebra_evpn_nhg_mac_update(struct zebra_evpn_es *es)
 				 zebra_evpn_mac_is_static(mac))) {
 			if (es->flags & ZEBRA_EVPNES_NHG_ACTIVE) {
 				if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
-					zlog_debug("%smac %s install via es %s nhg 0x%x",
+					zlog_debug("%smac %s install via es %s nhg %u",
 						(mac->flags & ZEBRA_MAC_REMOTE) ?
 						"rem" : "local-nw",
 						prefix_mac2str(&mac->macaddr,
@@ -1124,8 +1124,8 @@ static void zebra_evpn_nhg_update(struct zebra_evpn_es *es)
 			nh_str[0] = '\0';
 			for (i = 0; i < nh_cnt; ++i)
 				sprintf(nh_str + strlen(nh_str),
-						"0x%x ", nh_ids[i].id);
-			zlog_debug("es %s nhg 0x%x add %s",
+						"%u ", nh_ids[i].id);
+			zlog_debug("es %s nhg %u add %s",
 					es->esi_str, es->nhg_id, nh_str);
 		}
 
@@ -1141,7 +1141,7 @@ static void zebra_evpn_nhg_update(struct zebra_evpn_es *es)
 	} else {
 		if (es->flags & ZEBRA_EVPNES_NHG_ACTIVE) {
 			if (IS_ZEBRA_DEBUG_EVPN_MH_NH)
-				zlog_debug("es %s nhg 0x%x del",
+				zlog_debug("es %s nhg %u del",
 						es->esi_str, es->nhg_id);
 			es->flags &= ~ZEBRA_EVPNES_NHG_ACTIVE;
 			/* remove backup NHG from the br-port */
@@ -1166,7 +1166,7 @@ static void zebra_evpn_nh_add(struct zebra_evpn_es_vtep *es_vtep)
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NH)
-		zlog_debug("es %s vtep %s nh 0x%x add",
+		zlog_debug("es %s vtep %s nh %u add",
 				es_vtep->es->esi_str,
 				inet_ntoa(es_vtep->vtep_ip), es_vtep->nh_id);
 	/* install the NH */
@@ -1183,7 +1183,7 @@ static void zebra_evpn_nh_del(struct zebra_evpn_es_vtep *es_vtep)
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NH)
-		zlog_debug("es %s vtep %s nh 0x%x del",
+		zlog_debug("es %s vtep %s nh %u del",
 				es_vtep->es->esi_str,
 				inet_ntoa(es_vtep->vtep_ip), es_vtep->nh_id);
 
@@ -1532,7 +1532,7 @@ static struct zebra_evpn_es *zebra_evpn_es_new(esi_t *esi)
 	es->nhg_id = zebra_evpn_nhid_alloc(es);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("es %s nhg 0x%x new", es->esi_str, es->nhg_id);
+		zlog_debug("es %s nhg %u new", es->esi_str, es->nhg_id);
 
 	return es;
 }
@@ -1802,7 +1802,7 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("local es %s add; nhg 0x%x if %s",
+		zlog_debug("local es %s add; nhg %u if %s",
 				es->esi_str, es->nhg_id, zif->ifp->name);
 
 	zebra_evpn_mh_dup_addr_detect_off();
@@ -1913,7 +1913,7 @@ static void zebra_evpn_local_es_del(struct zebra_evpn_es *es)
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES) {
 		zif = es->zif;
-		zlog_debug("local es %s del; nhg 0x%x if %s",
+		zlog_debug("local es %s del; nhg %u if %s",
 				es->esi_str, es->nhg_id,
 				zif ? zif->ifp->name : "-");
 	}
@@ -1937,14 +1937,14 @@ static void zebra_evpn_es_remote_info_re_eval(struct zebra_evpn_es *es)
 		if (!(es->flags & ZEBRA_EVPNES_REMOTE)) {
 			es->flags |= ZEBRA_EVPNES_REMOTE;
 			if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-				zlog_debug("remote es %s add; nhg 0x%x",
+				zlog_debug("remote es %s add; nhg %u",
 						es->esi_str, es->nhg_id);
 		}
 	} else {
 		if (es->flags & ZEBRA_EVPNES_REMOTE) {
 			es->flags &= ~ZEBRA_EVPNES_REMOTE;
 			if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-				zlog_debug("remote es %s del; nhg 0x%x",
+				zlog_debug("remote es %s del; nhg %u",
 						es->esi_str, es->nhg_id);
 			zebra_evpn_es_free(es);
 		}
@@ -2355,7 +2355,7 @@ static void zebra_evpn_local_mac_oper_state_change(struct zebra_evpn_es *es)
 			if (!(es->flags & ZEBRA_EVPNES_NHG_ACTIVE))
 				continue;
 			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
-				zlog_debug("mac %s move to nw 0x%x es %s %s ",
+				zlog_debug("mac %s move to nhg %u es %s %s ",
 					prefix_mac2str(&mac->macaddr, macbuf,
 						sizeof(macbuf)),
 					es->nhg_id, es->esi_str,
@@ -2576,7 +2576,7 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 		vty_out(vty, " DF: status: %s preference: %u\n",
 				(es->flags & ZEBRA_EVPNES_NON_DF) ?
 				"non-df" : "df", es->df_pref);
-		vty_out(vty, " Nexthop group: 0x%x\n", es->nhg_id);
+		vty_out(vty, " Nexthop group: %u\n", es->nhg_id);
 		vty_out(vty, " VTEPs:\n");
 		for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
 			vty_out(vty, "     %s",
@@ -2586,7 +2586,7 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 					evpn_es_df_alg2str(es_vtep->df_alg,
 						alg_buf, sizeof(alg_buf)),
 					es_vtep->df_pref);
-			vty_out(vty, " nh: 0x%x\n",
+			vty_out(vty, " nh: %u\n",
 					es_vtep->nh_id);
 		}
 
