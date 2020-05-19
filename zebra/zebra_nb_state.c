@@ -512,8 +512,9 @@ int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_get_keys(
 const void *lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_lookup_entry(
 	struct nb_cb_lookup_entry_args *args)
 {
-	/* TODO: implement me. */
-	return NULL;
+	struct route_entry *re = (struct route_entry *)args->parent_list_entry;
+
+	return re->nhe;
 }
 
 /*
@@ -617,7 +618,72 @@ const void *
 lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_lookup_entry(
 	struct nb_cb_lookup_entry_args *args)
 {
-	/* TODO: implement me. */
+	struct nhg_hash_entry *nhe;
+	struct nexthop nexthop_lookup = {};
+	struct nexthop *nexthop;
+	const char *nh_type_str;
+
+	nhe = (struct nhg_hash_entry *)args->parent_list_entry;
+	nexthop_lookup.vrf_id = nhe->vrf_id;
+
+	/*
+	 * Get nexthop type.
+	 * TODO: use yang_str2enum() instead.
+	 */
+	nh_type_str = args->keys->key[0];
+	if (strmatch(nh_type_str, "ifindex"))
+		nexthop_lookup.type = NEXTHOP_TYPE_IFINDEX;
+	else if (strmatch(nh_type_str, "ip4"))
+		nexthop_lookup.type = NEXTHOP_TYPE_IPV4;
+	else if (strmatch(nh_type_str, "ip4-ifindex"))
+		nexthop_lookup.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+	else if (strmatch(nh_type_str, "ip6"))
+		nexthop_lookup.type = NEXTHOP_TYPE_IPV6;
+	else if (strmatch(nh_type_str, "ip6-ifindex"))
+		nexthop_lookup.type = NEXTHOP_TYPE_IPV6_IFINDEX;
+	else if (strmatch(nh_type_str, "blackhole"))
+		nexthop_lookup.type = NEXTHOP_TYPE_BLACKHOLE;
+	else
+		/* unexpected */
+		return NULL;
+
+	/* Get nexthop address. */
+	switch (nexthop_lookup.type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		yang_str2ipv4(args->keys->key[1], &nexthop_lookup.gate.ipv4);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		yang_str2ipv6(args->keys->key[1], &nexthop_lookup.gate.ipv6);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		break;
+	}
+
+	/* Get nexthop interface. */
+	switch (nexthop_lookup.type) {
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+	case NEXTHOP_TYPE_IFINDEX:
+		nexthop_lookup.ifindex =
+			ifname2ifindex(args->keys->key[2], nhe->vrf_id);
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		break;
+	}
+
+	/* Lookup requested nexthop (ignore weight and metric). */
+	for (ALL_NEXTHOPS(nhe->nhg, nexthop)) {
+		nexthop_lookup.weight = nexthop->weight;
+		nexthop_lookup.src = nexthop->src;
+		if (nexthop_same_no_labels(&nexthop_lookup, nexthop))
+			return nexthop;
+	}
+
 	return NULL;
 }
 
