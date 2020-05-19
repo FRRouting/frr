@@ -54,7 +54,7 @@ module frr-bfdd {
       "RFC 5880: Bidirectional Forwarding Detection (BFD).
        RFC 5881: Bidirectional Forwarding Detection (BFD)
                  for IPv4 and IPv6 (Single Hop).
-       RFC 5882: Bidirectional Forwarding Detection (BFD) for Multihop Paths.";
+       RFC 5883: Bidirectional Forwarding Detection (BFD) for Multihop Paths.";
   }
 
 

@@ -550,6 +550,22 @@ const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
 					   bool mhop);
 void bfd_sessions_remove_manual(void);
 
+/**
+ * Set the BFD session echo state.
+ *
+ * \param bs the BFD session.
+ * \param echo the echo operational state.
+ */
+void bfd_set_echo(struct bfd_session *bs, bool echo);
+
+/**
+ * Set the BFD session functional state.
+ *
+ * \param bs the BFD session.
+ * \param shutdown the operational value.
+ */
+void bfd_set_shutdown(struct bfd_session *bs, bool shutdown);
+
 /* BFD hash data structures interface */
 void bfd_initialize(void);
 void bfd_shutdown(void);
