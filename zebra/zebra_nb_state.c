@@ -228,6 +228,11 @@ lib_vrf_zebra_ribs_rib_route_get_next(struct nb_cb_get_next_args *args)
 	else
 		rn = srcdest_route_next((struct route_node *)rn);
 
+	/* Skip link-local routes. */
+	if (rn && rn->p.family == AF_INET6
+	    && IN6_IS_ADDR_LINKLOCAL(&rn->p.u.prefix6))
+		return NULL;
+
 	return rn;
 }
 
