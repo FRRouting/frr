@@ -711,10 +711,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	 * back references on the slave interfaces is painful if not done
 	 * this way, i.e. by creating by ifindex.
 	 */
-	ifp = if_get_by_ifindex(ifi->ifi_index, vrf_id);
+	ifp = if_get_by_ifindex(ifi->ifi_index, vrf_id, name);
 	set_ifindex(ifp, ifi->ifi_index, zns); /* add it to ns struct */
-
-	if_set_name(ifp, name);
 
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);

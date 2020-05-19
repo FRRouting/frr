@@ -509,7 +509,8 @@ extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
 extern struct interface *if_create_name(const char *name, vrf_id_t vrf_id);
 
 /* Create new interface, adds to index list only */
-extern struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
+extern struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id,
+					   char *name);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index_all_vrf(ifindex_t);
 extern struct interface *if_lookup_exact_address(const void *matchaddr,
@@ -524,8 +525,8 @@ size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
-extern struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
-
+extern struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id,
+					   char *optional_name);
 /* Sets the index and adds to index list */
 extern int if_set_index(struct interface *ifp, ifindex_t ifindex);
 /* Sets the name and adds to name list */
