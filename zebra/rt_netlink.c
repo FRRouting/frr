@@ -1552,7 +1552,8 @@ static void netlink_route_nexthop_encap(struct nlmsghdr *n, size_t nlen,
  * Routing table change via netlink interface, using a dataplane context object
  */
 ssize_t netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
-				uint8_t *data, size_t datalen, bool fpm)
+				uint8_t *data, size_t datalen, bool fpm,
+				bool force_nhg)
 {
 	int bytelen;
 	struct nexthop *nexthop = NULL;
@@ -1674,7 +1675,7 @@ ssize_t netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 			  RTA_PAYLOAD(rta));
 	}
 
-	if (kernel_nexthops_supported()) {
+	if (kernel_nexthops_supported() || force_nhg) {
 		/* Kernel supports nexthop objects */
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -1954,43 +1955,42 @@ static void _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
 }
 
 /**
- * netlink_nexthop() - Nexthop change via the netlink interface
+ * Next hop packet encoding helper function.
  *
- * @ctx:	Dataplane ctx
+ * \param[in] cmd netlink command.
+ * \param[in] ctx dataplane context (information snapshot).
+ * \param[out] buf buffer to hold the packet.
+ * \param[in] buflen amount of buffer bytes.
  *
- * Return:	Result status
+ * \returns -1 on failure or the number of bytes written to buf.
  */
-static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
+ssize_t netlink_nexthop_encode(uint16_t cmd, const struct zebra_dplane_ctx *ctx,
+			       void *buf, size_t buflen)
 {
 	struct {
 		struct nlmsghdr n;
 		struct nhmsg nhm;
-		char buf[NL_PKT_BUF_SIZE];
-	} req;
+		char buf[];
+	} *req = buf;
 
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
 	char label_buf[256];
 	int num_labels = 0;
-	size_t req_size = sizeof(req);
-
-	/* Nothing to do if the kernel doesn't support nexthop objects */
-	if (!kernel_nexthops_supported())
-		return 0;
 
 	label_buf[0] = '\0';
 
-	memset(&req, 0, req_size);
+	memset(req, 0, buflen);
 
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
-	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
+	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 
 	if (cmd == RTM_NEWNEXTHOP)
-		req.n.nlmsg_flags |= NLM_F_REPLACE;
+		req->n.nlmsg_flags |= NLM_F_REPLACE;
 
-	req.n.nlmsg_type = cmd;
-	req.n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
+	req->n.nlmsg_type = cmd;
+	req->n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
 
-	req.nhm.nh_family = AF_UNSPEC;
+	req->nhm.nh_family = AF_UNSPEC;
 	/* TODO: Scope? */
 
 	uint32_t id = dplane_ctx_get_nhe_id(ctx);
@@ -2002,7 +2002,7 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 		return -1;
 	}
 
-	addattr32(&req.n, req_size, NHA_ID, id);
+	addattr32(&req->n, buflen, NHA_ID, id);
 
 	if (cmd == RTM_NEWNEXTHOP) {
 		/*
@@ -2013,7 +2013,7 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 		 */
 		if (dplane_ctx_get_nhe_nh_grp_count(ctx))
 			_netlink_nexthop_build_group(
-				&req.n, req_size, id,
+				&req->n, buflen, id,
 				dplane_ctx_get_nhe_nh_grp(ctx),
 				dplane_ctx_get_nhe_nh_grp_count(ctx));
 		else {
@@ -2022,23 +2022,23 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 			afi_t afi = dplane_ctx_get_nhe_afi(ctx);
 
 			if (afi == AFI_IP)
-				req.nhm.nh_family = AF_INET;
+				req->nhm.nh_family = AF_INET;
 			else if (afi == AFI_IP6)
-				req.nhm.nh_family = AF_INET6;
+				req->nhm.nh_family = AF_INET6;
 
 			switch (nh->type) {
 			case NEXTHOP_TYPE_IPV4:
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				addattr_l(&req.n, req_size, NHA_GATEWAY,
+				addattr_l(&req->n, buflen, NHA_GATEWAY,
 					  &nh->gate.ipv4, IPV4_MAX_BYTELEN);
 				break;
 			case NEXTHOP_TYPE_IPV6:
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				addattr_l(&req.n, req_size, NHA_GATEWAY,
+				addattr_l(&req->n, buflen, NHA_GATEWAY,
 					  &nh->gate.ipv6, IPV6_MAX_BYTELEN);
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
-				addattr_l(&req.n, req_size, NHA_BLACKHOLE, NULL,
+				addattr_l(&req->n, buflen, NHA_BLACKHOLE, NULL,
 					  0);
 				/* Blackhole shouldn't have anymore attributes
 				 */
@@ -2055,10 +2055,10 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 				return -1;
 			}
 
-			addattr32(&req.n, req_size, NHA_OIF, nh->ifindex);
+			addattr32(&req->n, buflen, NHA_OIF, nh->ifindex);
 
 			if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK))
-				req.nhm.nh_flags |= RTNH_F_ONLINK;
+				req->nhm.nh_flags |= RTNH_F_ONLINK;
 
 			num_labels =
 				build_label_stack(nh->nh_label, out_lse,
@@ -2072,10 +2072,10 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 				/*
 				 * TODO: MPLS unsupported for now in kernel.
 				 */
-				if (req.nhm.nh_family == AF_MPLS)
+				if (req->nhm.nh_family == AF_MPLS)
 					goto nexthop_done;
 #if 0
-					addattr_l(&req.n, req_size, NHA_NEWDST,
+					addattr_l(&req->n, buflen, NHA_NEWDST,
 						  &out_lse,
 						  num_labels
 							  * sizeof(mpls_lse_t));
@@ -2084,16 +2084,16 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 					struct rtattr *nest;
 					uint16_t encap = LWTUNNEL_ENCAP_MPLS;
 
-					addattr_l(&req.n, req_size,
+					addattr_l(&req->n, buflen,
 						  NHA_ENCAP_TYPE, &encap,
 						  sizeof(uint16_t));
-					nest = addattr_nest(&req.n, req_size,
+					nest = addattr_nest(&req->n, buflen,
 							    NHA_ENCAP);
-					addattr_l(&req.n, req_size,
+					addattr_l(&req->n, buflen,
 						  MPLS_IPTUNNEL_DST, &out_lse,
 						  num_labels
 							  * sizeof(mpls_lse_t));
-					addattr_nest_end(&req.n, nest);
+					addattr_nest_end(&req->n, nest);
 				}
 			}
 
@@ -2106,7 +2106,8 @@ nexthop_done:
 					   nh->vrf_id, label_buf);
 		}
 
-		req.nhm.nh_protocol = zebra2proto(dplane_ctx_get_nhe_type(ctx));
+		req->nhm.nh_protocol =
+			zebra2proto(dplane_ctx_get_nhe_type(ctx));
 
 	} else if (cmd != RTM_DELNEXTHOP) {
 		flog_err(
@@ -2120,8 +2121,7 @@ nexthop_done:
 		zlog_debug("%s: %s, id=%u", __func__, nl_msg_type_to_str(cmd),
 			   id);
 
-	return netlink_talk_info(netlink_talk_filter, &req.n,
-				 dplane_ctx_get_ns(ctx), 0);
+	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
 /**
@@ -2136,6 +2136,7 @@ enum zebra_dplane_result kernel_nexthop_update(struct zebra_dplane_ctx *ctx)
 	enum dplane_op_e op;
 	int cmd = 0;
 	int ret = 0;
+	char buf[NL_PKT_BUF_SIZE];
 
 	op = dplane_ctx_get_op(ctx);
 	if (op == DPLANE_OP_NH_INSTALL || op == DPLANE_OP_NH_UPDATE)
@@ -2149,7 +2150,15 @@ enum zebra_dplane_result kernel_nexthop_update(struct zebra_dplane_ctx *ctx)
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
-	ret = netlink_nexthop(cmd, ctx);
+	/* Nothing to do if the kernel doesn't support nexthop objects */
+	if (!kernel_nexthops_supported())
+		return ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	if (netlink_nexthop_encode(cmd, ctx, buf, sizeof(buf)) > 0)
+		ret = netlink_talk_info(netlink_talk_filter, (void *)&buf,
+					dplane_ctx_get_ns(ctx), 0);
+	else
+		ret = 0;
 
 	return (ret == 0 ? ZEBRA_DPLANE_REQUEST_SUCCESS
 			 : ZEBRA_DPLANE_REQUEST_FAILURE);
@@ -2188,7 +2197,7 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			    !RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx))) {
 				netlink_route_multipath(RTM_DELROUTE, ctx,
 							nl_pkt, sizeof(nl_pkt),
-							false);
+							false, false);
 				netlink_talk_info(netlink_talk_filter,
 						  (struct nlmsghdr *)nl_pkt,
 						  dplane_ctx_get_ns(ctx), 0);
@@ -2209,7 +2218,7 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			if (!RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx))) {
 				netlink_route_multipath(RTM_DELROUTE, ctx,
 							nl_pkt, sizeof(nl_pkt),
-							false);
+							false, false);
 				netlink_talk_info(netlink_talk_filter,
 						  (struct nlmsghdr *)nl_pkt,
 						  dplane_ctx_get_ns(ctx), 0);
@@ -2222,7 +2231,7 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 	}
 
 	if (!RSYSTEM_ROUTE(dplane_ctx_get_type(ctx))) {
-		netlink_route_multipath(cmd, ctx, nl_pkt, sizeof(nl_pkt),
+		netlink_route_multipath(cmd, ctx, nl_pkt, sizeof(nl_pkt), false,
 					false);
 		ret = netlink_talk_info(netlink_talk_filter,
 					(struct nlmsghdr *)nl_pkt,
