@@ -409,7 +409,6 @@ void nhrp_interface_update(struct interface *ifp)
 			nhrp_send_zebra_configure_arp(ifp, afi2family(afi));
 			if_ad->configured = 1;
 			nhrp_interface_update_address(ifp, afi, 1);
-			nhrp_interface_update_nbma(ifp, NULL);
 		}
 
 		enabled = 1;
