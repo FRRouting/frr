@@ -1223,6 +1223,8 @@ struct isis_circuit *isis_circuit_create(struct isis_area *area,
 	if (circuit->state != C_STATE_CONF && circuit->state != C_STATE_UP)
 		return circuit;
 	isis_circuit_if_bind(circuit, ifp);
+	if (circuit->area->mta && circuit->area->mta->status)
+		isis_link_params_update(circuit, ifp);
 	return circuit;
 }
 
