@@ -143,7 +143,7 @@ struct if_stats {
 #define TE_EXT_MASK             0x0FFFFFFF
 #define TE_EXT_ANORMAL          0x80000000
 #define LOSS_PRECISION          0.000003
-#define TE_KILO_BIT             1000
+#define TE_MEGA_BIT             1000000
 #define TE_BYTE                 8
 #define DEFAULT_BANDWIDTH       10000
 #define MAX_CLASS_TYPE          8

@@ -1274,7 +1274,7 @@ struct if_link_params *if_link_params_get(struct interface *ifp)
 	/* Compute default bandwidth based on interface */
 	iflp->default_bw =
 		((ifp->bandwidth ? ifp->bandwidth : DEFAULT_BANDWIDTH)
-		 * TE_KILO_BIT / TE_BYTE);
+		 * TE_MEGA_BIT / TE_BYTE);
 
 	/* Set Max, Reservable and Unreserved Bandwidth */
 	iflp->max_bw = iflp->default_bw;
