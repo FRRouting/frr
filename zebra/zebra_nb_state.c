@@ -221,12 +221,15 @@ const void *
 lib_vrf_zebra_ribs_rib_route_get_next(struct nb_cb_get_next_args *args)
 {
 	const struct zebra_router_table *zrt = args->parent_list_entry;
-	const struct route_node *rn = args->list_entry;
+	struct route_node *rn = (struct route_node *)args->list_entry;
 
 	if (args->list_entry == NULL)
 		rn = route_top(zrt->table);
 	else
 		rn = srcdest_route_next((struct route_node *)rn);
+	/* Optimization: skip empty route nodes. */
+	while (rn && rn->info == NULL)
+		rn = route_next(rn);
 
 	/* Skip link-local routes. */
 	if (rn && rn->p.family == AF_INET6
