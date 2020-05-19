@@ -127,9 +127,8 @@ void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 		      int ttl, int multihop, int cbit, int command,
 		      int set_flag, vrf_id_t vrf_id)
 {
-	struct stream *s;
-	int ret;
-	int len;
+	struct bfd_session_arg args = {};
+	size_t addrlen;
 
 	/* Individual reg/dereg messages are suppressed during shutdown. */
 	if (CHECK_FLAG(bfd_gbl.flags, BFD_GBL_FLAG_IN_SHUTDOWN)) {
@@ -150,86 +149,30 @@ void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 		return;
 	}
 
-	s = zclient->obuf;
-	stream_reset(s);
-	zclient_create_header(s, command, vrf_id);
+	/* Fill in all arguments. */
+	args.ttl = ttl;
+	args.cbit = cbit;
+	args.family = family;
+	args.mhop = multihop;
+	args.vrf_id = vrf_id;
+	args.command = command;
+	args.set_flag = set_flag;
+	args.bfd_info = bfd_info;
+	args.min_rx = bfd_info->required_min_rx;
+	args.min_tx = bfd_info->desired_min_tx;
+	args.detection_multiplier = bfd_info->detect_mult;
 
-	stream_putl(s, getpid());
+	addrlen = family == AF_INET ? sizeof(struct in_addr)
+				    : sizeof(struct in6_addr);
+	memcpy(&args.dst, dst_ip, addrlen);
+	if (src_ip)
+		memcpy(&args.src, src_ip, addrlen);
 
-	stream_putw(s, family);
-	switch (family) {
-	case AF_INET:
-		stream_put_in_addr(s, (struct in_addr *)dst_ip);
-		break;
-	case AF_INET6:
-		stream_put(s, dst_ip, 16);
-		break;
-	default:
-		break;
-	}
+	if (if_name)
+		args.ifnamelen =
+			strlcpy(args.ifname, if_name, sizeof(args.ifname));
 
-	if (command != ZEBRA_BFD_DEST_DEREGISTER) {
-		stream_putl(s, bfd_info->required_min_rx);
-		stream_putl(s, bfd_info->desired_min_tx);
-		stream_putc(s, bfd_info->detect_mult);
-	}
-
-	if (multihop) {
-		stream_putc(s, 1);
-		/* Multi-hop destination send the source IP address to BFD */
-		if (src_ip) {
-			stream_putw(s, family);
-			switch (family) {
-			case AF_INET:
-				stream_put_in_addr(s, (struct in_addr *)src_ip);
-				break;
-			case AF_INET6:
-				stream_put(s, src_ip, 16);
-				break;
-			default:
-				break;
-			}
-		}
-		stream_putc(s, ttl);
-	} else {
-		stream_putc(s, 0);
-		if ((family == AF_INET6) && (src_ip)) {
-			stream_putw(s, family);
-			stream_put(s, src_ip, 16);
-		}
-		if (if_name) {
-			len = strlen(if_name);
-			stream_putc(s, len);
-			stream_put(s, if_name, len);
-		} else {
-			stream_putc(s, 0);
-		}
-	}
-	/* cbit */
-	if (cbit)
-		stream_putc(s, 1);
-	else
-		stream_putc(s, 0);
-
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	ret = zclient_send_message(zclient);
-
-	if (ret < 0) {
-		if (bfd_debug)
-			zlog_debug(
-				"bfd_peer_sendmsg: zclient_send_message() failed");
-		return;
-	}
-
-	if (set_flag) {
-		if (command == ZEBRA_BFD_DEST_REGISTER)
-			SET_FLAG(bfd_info->flags, BFD_FLAG_BFD_REG);
-		else if (command == ZEBRA_BFD_DEST_DEREGISTER)
-			UNSET_FLAG(bfd_info->flags, BFD_FLAG_BFD_REG);
-	}
-
-	return;
+	zclient_bfd_command(zclient, &args);
 }
 
 /*
@@ -477,4 +420,94 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 	}
 
 	return;
+}
+
+int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
+{
+	struct stream *s;
+	size_t addrlen;
+
+	/* Check socket. */
+	if (!zc || zc->sock < 0) {
+		if (bfd_debug)
+			zlog_debug("%s: zclient unavailable", __func__);
+		return -1;
+	}
+
+	s = zc->obuf;
+	stream_reset(s);
+
+	/* Create new message. */
+	zclient_create_header(s, args->command, args->vrf_id);
+	stream_putl(s, getpid());
+
+	/* Encode destination address. */
+	stream_putw(s, args->family);
+	addrlen = (args->family == AF_INET) ? sizeof(struct in_addr)
+					    : sizeof(struct in6_addr);
+	stream_put(s, &args->dst, addrlen);
+
+	/* Encode timers if this is a registration message. */
+	if (args->command != ZEBRA_BFD_DEST_DEREGISTER) {
+		stream_putl(s, args->min_rx);
+		stream_putl(s, args->min_tx);
+		stream_putc(s, args->detection_multiplier);
+	}
+
+	if (args->mhop) {
+		/* Multi hop indicator. */
+		stream_putc(s, 1);
+
+		/* Multi hop always sends the source address. */
+		stream_putw(s, args->family);
+		stream_put(s, &args->src, addrlen);
+
+		/* Send the expected TTL. */
+		stream_putc(s, args->ttl);
+	} else {
+		/* Multi hop indicator. */
+		stream_putc(s, 0);
+
+		/* Single hop only sends the source address when IPv6. */
+		if (args->family == AF_INET6) {
+			stream_putw(s, args->family);
+			stream_put(s, &args->src, addrlen);
+		}
+
+		/* Send interface name if any. */
+		stream_putc(s, args->ifnamelen);
+		if (args->ifnamelen)
+			stream_put(s, args->ifname, args->ifnamelen);
+	}
+
+	/* Send the C bit indicator. */
+	stream_putc(s, args->cbit);
+
+	/* `ptm-bfd` doesn't support profiles yet. */
+#if HAVE_BFDD > 0
+	/* Send profile name if any. */
+	stream_putc(s, args->profilelen);
+	if (args->profilelen)
+		stream_put(s, args->profile, args->profilelen);
+#endif /* HAVE_BFDD */
+
+	/* Finish the message by writing the size. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	/* Send message to zebra. */
+	if (zclient_send_message(zc) == -1) {
+		if (bfd_debug)
+			zlog_debug("%s: zclient_send_message failed", __func__);
+		return -1;
+	}
+
+	/* Write registration indicator into data structure. */
+	if (args->set_flag) {
+		if (args->command == ZEBRA_BFD_DEST_REGISTER)
+			SET_FLAG(args->bfd_info->flags, BFD_FLAG_BFD_REG);
+		else if (args->command == ZEBRA_BFD_DEST_DEREGISTER)
+			UNSET_FLAG(args->bfd_info->flags, BFD_FLAG_BFD_REG);
+	}
+
+	return 0;
 }
