@@ -1275,9 +1275,20 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 
 	/* wait configured min_spf_interval before doing the SPF */
 	long timer;
-	if (diff >= area->min_spf_interval[level - 1]) {
-		/* Last run is more than min interval ago, schedule immediate run */
+	if (diff >= area->min_spf_interval[level - 1]
+	    || area->bfd_force_spf_refresh) {
+		/*
+		 * Last run is more than min interval ago or BFD signalled a
+		 * 'down' message, schedule immediate run
+		 */
 		timer = 0;
+
+		if (area->bfd_force_spf_refresh) {
+			zlog_debug(
+				"ISIS-Spf (%s) L%d SPF scheduled immediately due to BFD 'down' message",
+				area->area_tag, level);
+			area->bfd_force_spf_refresh = false;
+		}
 	} else {
 		timer = area->min_spf_interval[level - 1] - diff;
 	}

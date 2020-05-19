@@ -138,6 +138,8 @@ static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
 		return;
 	}
 
+	adj->circuit->area->bfd_signalled_down = true;
+
 	isis_adj_state_change(&adj, ISIS_ADJ_DOWN, "bfd session went down");
 }
 
