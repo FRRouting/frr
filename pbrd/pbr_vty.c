@@ -591,6 +591,71 @@ static void vty_show_pbrms(struct vty *vty,
 	}
 }
 
+static void vty_json_pbrms(json_object *j, struct vty *vty,
+			   const struct pbr_map_sequence *pbrms)
+{
+	json_object *jpbrm, *matches, *nexthop_group;
+	char *nhg_name = pbrms->nhgrp_name ? pbrms->nhgrp_name
+					   : pbrms->internal_nhg_name;
+	char buf[PREFIX_STRLEN];
+	char rbuf[64];
+
+	jpbrm = json_object_new_object();
+
+	if (pbrms->reason)
+		pbr_map_reason_string(pbrms->reason, rbuf, sizeof(rbuf));
+
+	json_object_int_add(jpbrm, "sequenceNumber", pbrms->seqno);
+	json_object_int_add(jpbrm, "ruleNumber", pbrms->ruleno);
+
+	json_object_int_add(jpbrm, "identifier", pbrms->unique);
+	json_object_boolean_add(jpbrm, "vrfUnchanged", pbrms->vrf_unchanged);
+
+	json_object_boolean_add(jpbrm, "installed",
+				pbr_nht_get_installed(nhg_name));
+	json_object_string_add(jpbrm, "reason", pbrms->reason ? rbuf : "Valid");
+
+	if (pbrms->nhgrp_name || pbrms->mark) {
+		nexthop_group = json_object_new_object();
+
+		json_object_string_add(nexthop_group, "name", nhg_name);
+
+		json_object_int_add(nexthop_group, "nhsInstalled",
+				    pbrms->nhs_installed);
+		json_object_int_add(nexthop_group, "nhtInstalled",
+				    pbr_nht_get_installed(nhg_name));
+
+		json_object_int_add(nexthop_group, "tableId",
+				    pbr_nht_get_table(nhg_name));
+		json_object_boolean_add(nexthop_group, "installed",
+					pbr_nht_get_installed(nhg_name));
+
+		json_object_object_add(jpbrm, "nexthopGroup", nexthop_group);
+
+	} else if (pbrms->vrf_lookup) {
+		json_object_string_add(jpbrm, "vrf", pbrms->vrf_name);
+	}
+
+	if (pbrms->src || pbrms->dst || pbrms->mark) {
+		matches = json_object_new_object();
+
+		if (pbrms->src)
+			json_object_string_add(
+				matches, "src",
+				prefix2str(pbrms->src, buf, sizeof(buf)));
+		if (pbrms->dst)
+			json_object_string_add(
+				matches, "dst",
+				prefix2str(pbrms->dst, buf, sizeof(buf)));
+		if (pbrms->mark)
+			json_object_int_add(matches, "mark", pbrms->mark);
+
+		json_object_object_add(jpbrm, "matchRule", matches);
+	}
+
+	json_object_array_add(j, jpbrm);
+}
+
 static void vty_show_pbr_map(struct vty *vty, const struct pbr_map *pbrm,
 			     bool detail)
 {
@@ -604,23 +669,65 @@ static void vty_show_pbr_map(struct vty *vty, const struct pbr_map *pbrm,
 		vty_show_pbrms(vty, pbrms, detail);
 }
 
+static void vty_json_pbr_map(json_object *j, struct vty *vty,
+			     const struct pbr_map *pbrm)
+{
+	struct pbr_map_sequence *pbrms;
+	struct listnode *node;
+	json_object *jpbrms;
+
+	json_object_string_add(j, "name", pbrm->name);
+	json_object_boolean_add(j, "valid", pbrm->valid);
+
+	jpbrms = json_object_new_array();
+
+	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
+		vty_json_pbrms(jpbrms, vty, pbrms);
+
+	json_object_object_add(j, "sequences", jpbrms);
+}
+
 DEFPY (show_pbr_map,
 	show_pbr_map_cmd,
-	"show pbr map [NAME$name] [detail$detail]",
+	"show pbr map [NAME$name] [detail$detail|json$json]",
 	SHOW_STR
 	PBR_STR
 	"PBR Map\n"
 	"PBR Map Name\n"
-	"Detailed information\n")
+	"Detailed information\n"
+	JSON_STR)
 {
 	struct pbr_map *pbrm;
+	json_object *j = NULL;
+
+	if (json)
+		j = json_object_new_object();
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
+		json_object *this_map = NULL;
 		if (name && strcmp(name, pbrm->name) != 0)
 			continue;
 
+		if (j)
+			this_map = json_object_new_object();
+
+		if (this_map) {
+			vty_json_pbr_map(this_map, vty, pbrm);
+
+			json_object_object_add(j, pbrm->name, this_map);
+			continue;
+		}
+
 		vty_show_pbr_map(vty, pbrm, detail);
 	}
+
+	if (j) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				j, JSON_C_TO_STRING_PRETTY));
+		json_object_free(j);
+	}
+
 	return CMD_SUCCESS;
 }
 
