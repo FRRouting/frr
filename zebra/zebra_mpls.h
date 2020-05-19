@@ -55,6 +55,10 @@ typedef struct zebra_nhlfe_t_ zebra_nhlfe_t;
 typedef struct zebra_lsp_t_ zebra_lsp_t;
 typedef struct zebra_fec_t_ zebra_fec_t;
 
+/* Declare LSP nexthop list types */
+PREDECL_DLIST(snhlfe_list);
+PREDECL_DLIST(nhlfe_list);
+
 /*
  * (Outgoing) nexthop label forwarding entry configuration
  */
@@ -71,9 +75,8 @@ struct zebra_snhlfe_t_ {
 	/* Backpointer to base entry. */
 	zebra_slsp_t *slsp;
 
-	/* Pointers to more outgoing information for same in-label */
-	zebra_snhlfe_t *next;
-	zebra_snhlfe_t *prev;
+	/* Linkage for LSPs' lists */
+	struct snhlfe_list_item list;
 };
 
 /*
@@ -97,9 +100,10 @@ struct zebra_nhlfe_t_ {
 #define NHLFE_FLAG_DELETED     (1 << 3)
 #define NHLFE_FLAG_INSTALLED   (1 << 4)
 
-	zebra_nhlfe_t *next;
-	zebra_nhlfe_t *prev;
 	uint8_t distance;
+
+	/* Linkage for LSPs' lists */
+	struct nhlfe_list_item list;
 };
 
 /*
@@ -117,7 +121,7 @@ struct zebra_slsp_t_ {
 	zebra_ile_t ile;
 
 	/* List of outgoing nexthop static configuration */
-	zebra_snhlfe_t *snhlfe_list;
+	struct snhlfe_list_head snhlfe_list;
 };
 
 /*
@@ -127,8 +131,9 @@ struct zebra_lsp_t_ {
 	/* Incoming label */
 	zebra_ile_t ile;
 
-	/* List of NHLFE, pointer to best and num equal-cost. */
-	zebra_nhlfe_t *nhlfe_list;
+	/* List of NHLFEs, pointer to best, and num equal-cost. */
+	struct nhlfe_list_head nhlfe_list;
+
 	zebra_nhlfe_t *best_nhlfe;
 	uint32_t num_ecmp;
 
@@ -163,6 +168,9 @@ struct zebra_fec_t_ {
 	/* Clients interested in this FEC. */
 	struct list *client_list;
 };
+
+/* Declare typesafe list apis/macros */
+DECLARE_DLIST(nhlfe_list, struct zebra_nhlfe_t_, list);
 
 /* Function declarations. */
 
