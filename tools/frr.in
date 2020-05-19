@@ -21,6 +21,7 @@ VTYSH="@vtysh_bin@" # /usr/bin/vtysh
 FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
 FRR_VTY_GROUP="@enable_vty_group@" # frrvty
+FRR_CONFIG_MODE="@enable_configfile_mask@" # 0600
 
 # Local Daemon selection may be done by using /etc/frr/daemons.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
@@ -56,6 +57,7 @@ chownfrr()
 {
     test -n "$FRR_USER" && chown "$FRR_USER" "$1"
     test -n "$FRR_GROUP" && chgrp "$FRR_GROUP" "$1"
+    test -n "$FRR_CONFIG_MODE" && chmod "$FRR_CONFIG_MODE" "$1"
 }
 
 # Check if daemon is started by using the pidfile.
