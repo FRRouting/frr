@@ -763,99 +763,105 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis",
 			.cbs = {
-				.get_next = lib_interface_isis_adjacencies_adjacency_get_next,
+				.get_elem = lib_interface_state_isis_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-sys-type",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_sys_type_get_elem,
+				.get_next = lib_interface_state_isis_adjacencies_adjacency_get_next,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-sysid",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/neighbor-sys-type",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_sysid_get_elem,
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_neighbor_sys_type_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-extended-circuit-id",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/neighbor-sysid",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_extended_circuit_id_get_elem,
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_neighbor_sysid_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-snpa",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/neighbor-extended-circuit-id",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_snpa_get_elem,
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_neighbor_extended_circuit_id_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/hold-timer",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/neighbor-snpa",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_hold_timer_get_elem,
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_neighbor_snpa_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-priority",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/hold-timer",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_priority_get_elem,
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_hold_timer_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/state",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/neighbor-priority",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_state_get_elem,
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_neighbor_priority_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-changes",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/state",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_adjacency_changes_get_elem,
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_state_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-number",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/adjacency-changes",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_adjacency_number_get_elem,
+				.get_elem = lib_interface_state_isis_event_counters_adjacency_changes_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/init-fails",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/adjacency-number",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_init_fails_get_elem,
+				.get_elem = lib_interface_state_isis_event_counters_adjacency_number_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-rejects",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/init-fails",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_adjacency_rejects_get_elem,
+				.get_elem = lib_interface_state_isis_event_counters_init_fails_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/id-len-mismatch",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/adjacency-rejects",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_id_len_mismatch_get_elem,
+				.get_elem = lib_interface_state_isis_event_counters_adjacency_rejects_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/max-area-addresses-mismatch",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/id-len-mismatch",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_max_area_addresses_mismatch_get_elem,
+				.get_elem = lib_interface_state_isis_event_counters_id_len_mismatch_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-type-fails",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/max-area-addresses-mismatch",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_authentication_type_fails_get_elem,
+				.get_elem = lib_interface_state_isis_event_counters_max_area_addresses_mismatch_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-fails",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/authentication-type-fails",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_authentication_fails_get_elem,
+				.get_elem = lib_interface_state_isis_event_counters_authentication_type_fails_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/authentication-fails",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_event_counters_authentication_fails_get_elem,
 			}
 		},
 		{

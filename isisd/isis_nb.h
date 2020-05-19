@@ -238,45 +238,52 @@ int lib_interface_isis_multi_topology_ipv6_management_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(
 	struct nb_cb_modify_args *args);
-const void *lib_interface_isis_adjacencies_adjacency_get_next(
+struct yang_data *
+lib_interface_state_isis_get_elem(struct nb_cb_get_elem_args *args);
+const void *lib_interface_state_isis_adjacencies_adjacency_get_next(
 	struct nb_cb_get_next_args *args);
 struct yang_data *
-lib_interface_isis_adjacencies_adjacency_neighbor_sys_type_get_elem(
+lib_interface_state_isis_adjacencies_adjacency_neighbor_sys_type_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_interface_isis_adjacencies_adjacency_neighbor_sysid_get_elem(
+lib_interface_state_isis_adjacencies_adjacency_neighbor_sysid_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_interface_isis_adjacencies_adjacency_neighbor_extended_circuit_id_get_elem(
+lib_interface_state_isis_adjacencies_adjacency_neighbor_extended_circuit_id_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_interface_isis_adjacencies_adjacency_neighbor_snpa_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_interface_isis_adjacencies_adjacency_hold_timer_get_elem(
+lib_interface_state_isis_adjacencies_adjacency_neighbor_snpa_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_interface_isis_adjacencies_adjacency_neighbor_priority_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_interface_isis_adjacencies_adjacency_state_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_interface_isis_event_counters_adjacency_changes_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_interface_isis_event_counters_adjacency_number_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_interface_isis_event_counters_init_fails_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_interface_isis_event_counters_adjacency_rejects_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_interface_isis_event_counters_id_len_mismatch_get_elem(
+lib_interface_state_isis_adjacencies_adjacency_hold_timer_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_interface_isis_event_counters_max_area_addresses_mismatch_get_elem(
+lib_interface_state_isis_adjacencies_adjacency_neighbor_priority_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_interface_state_isis_adjacencies_adjacency_state_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_interface_isis_event_counters_authentication_type_fails_get_elem(
+lib_interface_state_isis_event_counters_adjacency_changes_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_interface_isis_event_counters_authentication_fails_get_elem(
+lib_interface_state_isis_event_counters_adjacency_number_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_interface_state_isis_event_counters_init_fails_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_state_isis_event_counters_adjacency_rejects_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_state_isis_event_counters_id_len_mismatch_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_state_isis_event_counters_max_area_addresses_mismatch_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_state_isis_event_counters_authentication_type_fails_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_state_isis_event_counters_authentication_fails_get_elem(
 	struct nb_cb_get_elem_args *args);
 
 /* Optional 'pre_validate' callbacks. */
