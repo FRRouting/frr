@@ -95,9 +95,11 @@ bool bgp_bfd_is_peer_multihop(struct peer *peer)
  */
 static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 {
+	struct bfd_session_arg arg = {};
 	struct bfd_info *bfd_info;
-	int multihop, cbit = 0;
+	int multihop;
 	vrf_id_t vrf_id;
+	size_t addrlen;
 
 	bfd_info = (struct bfd_info *)peer->bfd_info;
 
@@ -121,21 +123,49 @@ static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 	    && !CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE))
 		SET_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
 
-	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
+	/* Set all message arguments. */
+	arg.family = peer->su.sa.sa_family;
+	addrlen = arg.family == AF_INET ? sizeof(struct in_addr)
+					: sizeof(struct in6_addr);
 
-	if (peer->su.sa.sa_family == AF_INET)
-		bfd_peer_sendmsg(
-			zclient, bfd_info, AF_INET, &peer->su.sin.sin_addr,
-			(peer->su_local) ? &peer->su_local->sin.sin_addr : NULL,
-			(peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-			peer->ttl, multihop, cbit, command, 1, vrf_id);
-	else if (peer->su.sa.sa_family == AF_INET6)
-		bfd_peer_sendmsg(
-			zclient, bfd_info, AF_INET6, &peer->su.sin6.sin6_addr,
-			(peer->su_local) ? &peer->su_local->sin6.sin6_addr
-					 : NULL,
-			(peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-			peer->ttl, multihop, cbit, command, 1, vrf_id);
+	if (arg.family == AF_INET)
+		memcpy(&arg.dst, &peer->su.sin.sin_addr, addrlen);
+	else
+		memcpy(&arg.dst, &peer->su.sin6.sin6_addr, addrlen);
+
+	if (peer->su_local) {
+		if (arg.family == AF_INET)
+			memcpy(&arg.src, &peer->su_local->sin.sin_addr,
+			       addrlen);
+		else
+			memcpy(&arg.src, &peer->su_local->sin6.sin6_addr,
+			       addrlen);
+	}
+
+	if (peer->nexthop.ifp) {
+		arg.ifnamelen = strlen(peer->nexthop.ifp->name);
+		strlcpy(arg.ifname, peer->nexthop.ifp->name,
+			sizeof(arg.ifname));
+	}
+
+	if (bfd_info->profile[0]) {
+		arg.profilelen = strlen(bfd_info->profile);
+		strlcpy(arg.profile, bfd_info->profile, sizeof(arg.profile));
+	}
+
+	arg.set_flag = 1;
+	arg.mhop = multihop;
+	arg.ttl = peer->ttl;
+	arg.vrf_id = vrf_id;
+	arg.command = command;
+	arg.bfd_info = bfd_info;
+	arg.min_tx = bfd_info->desired_min_tx;
+	arg.min_rx = bfd_info->required_min_rx;
+	arg.detection_multiplier = bfd_info->detect_mult;
+	arg.cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
+
+	/* Send message. */
+	zclient_bfd_command(zclient, &arg);
 }
 
 /*
@@ -553,6 +583,61 @@ static int bgp_bfd_peer_param_type_set(struct peer *peer,
 	return 0;
 }
 
+/**
+ * Set peer BFD profile configuration.
+ */
+static int bgp_bfd_peer_set_profile(struct peer *peer, const char *profile)
+{
+	struct peer_group *group;
+	struct listnode *node, *nnode;
+	int command = 0;
+	struct bfd_info *bfd_info;
+
+	bfd_set_param((struct bfd_info **)&(peer->bfd_info), BFD_DEF_MIN_RX,
+		      BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT, 1, &command);
+
+	bfd_info = (struct bfd_info *)peer->bfd_info;
+
+	/* If profile was specified, then copy string. */
+	if (profile)
+		strlcpy(bfd_info->profile, profile, sizeof(bfd_info->profile));
+	else /* Otherwise just initialize it empty. */
+		bfd_info->profile[0] = 0;
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		group = peer->group;
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+			command = 0;
+			bfd_set_param((struct bfd_info **)&(peer->bfd_info),
+				      BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
+				      BFD_DEF_DETECT_MULT, 1, &command);
+
+			bfd_info = (struct bfd_info *)peer->bfd_info;
+
+			/* If profile was specified, then copy string. */
+			if (profile)
+				strlcpy(bfd_info->profile, profile,
+					sizeof(bfd_info->profile));
+			else /* Otherwise just initialize it empty. */
+				bfd_info->profile[0] = 0;
+
+			if (peer->status == Established
+			    && command == ZEBRA_BFD_DEST_REGISTER)
+				bgp_bfd_register_peer(peer);
+			else if (command == ZEBRA_BFD_DEST_UPDATE)
+				bgp_bfd_update_peer(peer);
+		}
+	} else {
+		if (peer->status == Established
+		    && command == ZEBRA_BFD_DEST_REGISTER)
+			bgp_bfd_register_peer(peer);
+		else if (command == ZEBRA_BFD_DEST_UPDATE)
+			bgp_bfd_update_peer(peer);
+	}
+
+	return 0;
+}
+
 /*
  * bgp_bfd_peer_config_write - Write the peer BFD configuration.
  */
@@ -580,8 +665,12 @@ void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr)
 							      : "singlehop");
 
 	if (!CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG)
-	    && (bfd_info->type == BFD_TYPE_NOT_CONFIGURED))
-		vty_out(vty, " neighbor %s bfd\n", addr);
+	    && (bfd_info->type == BFD_TYPE_NOT_CONFIGURED)) {
+		vty_out(vty, " neighbor %s bfd", addr);
+		if (bfd_info->profile[0])
+			vty_out(vty, " profile %s", bfd_info->profile);
+		vty_out(vty, "\n");
+	}
 
 	if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE))
 		vty_out(vty, " neighbor %s bfd check-control-plane-failure\n", addr);
@@ -824,6 +913,58 @@ DEFUN_HIDDEN (no_neighbor_bfd_type,
 	return CMD_SUCCESS;
 }
 
+#if HAVE_BFDD > 0
+DEFUN(neighbor_bfd_profile, neighbor_bfd_profile_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "BFD integration\n"
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
+{
+	int idx_peer = 1, idx_prof = 4;
+	struct peer *peer;
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ret = bgp_bfd_peer_set_profile(peer, argv[idx_prof]->arg);
+	if (ret != 0)
+		return bgp_vty_return(vty, ret);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_neighbor_bfd_profile, no_neighbor_bfd_profile_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile [BFDPROF]",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "BFD integration\n"
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
+{
+	int idx_peer = 2;
+	struct peer *peer;
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!peer->bfd_info)
+		return 0;
+
+	ret = bgp_bfd_peer_set_profile(peer, NULL);
+	if (ret != 0)
+		return bgp_vty_return(vty, ret);
+
+	return CMD_SUCCESS;
+}
+#endif /* HAVE_BFDD */
+
 void bgp_bfd_init(void)
 {
 	bfd_gbl_init();
@@ -839,4 +980,9 @@ void bgp_bfd_init(void)
 	install_element(BGP_NODE, &neighbor_bfd_check_controlplane_failure_cmd);
 	install_element(BGP_NODE, &no_neighbor_bfd_cmd);
 	install_element(BGP_NODE, &no_neighbor_bfd_type_cmd);
+
+#if HAVE_BFDD > 0
+	install_element(BGP_NODE, &neighbor_bfd_profile_cmd);
+	install_element(BGP_NODE, &no_neighbor_bfd_profile_cmd);
+#endif /* HAVE_BFDD */
 }
