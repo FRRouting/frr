@@ -2620,8 +2620,6 @@ netlink_update_neigh_ctx_internal(const struct zebra_dplane_ctx *ctx,
 
 	addattr_l(&req->n, sizeof(req),
 		  NDA_PROTOCOL, &protocol, sizeof(protocol));
-	if (nhg_id)
-		addattr32(&req->n, sizeof(req), NDA_NH_ID, nhg_id);
 	if (mac)
 		addattr_l(&req->n, datalen, NDA_LLADDR, mac, 6);
 	if (nfy)
@@ -2631,8 +2629,12 @@ netlink_update_neigh_ctx_internal(const struct zebra_dplane_ctx *ctx,
 		addattr_l(&req->n, sizeof(req), NDA_EXT_FLAGS,
 				&ext_flags, sizeof(ext_flags));
 
-	ipa_len = IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
-	addattr_l(&req->n, datalen, NDA_DST, &ip->ip.addr, ipa_len);
+	if (nhg_id) {
+		addattr32(&req->n, sizeof(req), NDA_NH_ID, nhg_id);
+	} else {
+		ipa_len = IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
+		addattr_l(&req->n, datalen, NDA_DST, &ip->ip.addr, ipa_len);
+	}
 
 	if (op == DPLANE_OP_MAC_INSTALL || op == DPLANE_OP_MAC_DELETE) {
 		vlanid_t vid = dplane_ctx_mac_get_vlan(ctx);
