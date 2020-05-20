@@ -253,14 +253,13 @@ zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
  */
 
 /*
- * Add NHE.
+ * Add NHE. If already exists, Replace.
  *
  * Returns allocated NHE on success, otherwise NULL.
  */
 struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 					   struct nexthop_group *nhg,
 					   afi_t afi);
-
 
 /*
  * Del NHE.
@@ -270,14 +269,6 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
  * Caller must free the NHE.
  */
 struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id);
-
-/*
- * Replace NHE.
- *
- * Returns new NHE on success, otherwise NULL.
- */
-struct nhg_hash_entry *
-zebra_nhg_proto_replace(uint32_t id, struct nexthop_group *nhg, afi_t afi);
 
 /* Reference counter functions */
 extern void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
