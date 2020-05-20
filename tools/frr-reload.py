@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Frr Reloader
 # Copyright (C) 2014 Cumulus Networks, Inc.
 #
