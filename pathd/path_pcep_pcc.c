@@ -66,6 +66,8 @@ static void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 				   struct pcep_message *msg);
 
 /* Internal Functions */
+static const char* ipaddr_type_name(struct ipaddr *addr);
+static bool filter_path(struct pcc_state *pcc_state, struct path *path);
 static void select_pcc_address(struct pcc_state *pcc_state);
 static void update_tag(struct pcc_state *pcc_state);
 static void update_originator(struct pcc_state *pcc_state);
@@ -318,14 +320,26 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state, struct path *path)
 {
+	if (pcc_state->status == PCEP_PCC_DISCONNECTED)
+		return;
+
 	assert(pcc_state->status == PCEP_PCC_SYNCHRONIZING);
 	assert(path->is_synching);
 
 	if (pcc_state->caps.is_stateful) {
-		/* PCE supports LSP updates, just sync all the path */
-		PCEP_DEBUG("%s Synchronizing path %s", pcc_state->tag,
-			   path->name);
-		send_report(ctrl_state, pcc_state, path);
+		/* PCE supports LSP updates, just sync all the path with
+		 * compatible IP version */
+		if (filter_path(pcc_state, path)) {
+			PCEP_DEBUG("%s Synchronizing path %s", pcc_state->tag,
+				   path->name);
+			send_report(ctrl_state, pcc_state, path);
+		} else {
+			PCEP_DEBUG("%s Skipping path %s synchronization, "
+			           "PCC is %s and path is %s", pcc_state->tag,
+				   path->name,
+				   ipaddr_type_name(&pcc_state->pcc_addr),
+				   ipaddr_type_name(&path->nbkey.endpoint));
+		}
 	} else if (path->is_delegated) {
 		/* PCE doesn't supports LSP updates, trigger computation
 		 * request instead of synchronizing if the path is to be
@@ -338,6 +352,9 @@ void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state)
 {
+	if (pcc_state->status == PCEP_PCC_DISCONNECTED)
+		return;
+
 	if (pcc_state->caps.is_stateful) {
 		struct path *path = pcep_new_path();
 		*path = (struct path){.name = NULL,
@@ -382,6 +399,14 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 {
 	if (!pcc_state->synchronized)
 		return;
+
+	/* Skipping candidate path with endpoint that do not match the
+	 * configured or deduced PCC IP version */
+	if (!filter_path(pcc_state, path)) {
+		PCEP_DEBUG("%s Skipping candidate path %s event",
+		           pcc_state->tag, path->name);
+		return;
+	}
 
 	switch (type) {
 	case PCEP_PATH_CREATED:
@@ -545,6 +570,18 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 
 
 /* ------------ Internal Functions ------------ */
+
+const char* ipaddr_type_name(struct ipaddr *addr)
+{
+	if (IS_IPADDR_V4(addr)) return "IPv4";
+	if (IS_IPADDR_V6(addr)) return "IPv6";
+	return "undefined";
+}
+
+bool filter_path(struct pcc_state *pcc_state, struct path *path)
+{
+	return path->nbkey.endpoint.ipa_type == pcc_state->pcc_addr.ipa_type;
+}
 
 void select_pcc_address(struct pcc_state *pcc_state)
 {
