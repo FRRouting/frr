@@ -54,6 +54,12 @@ static void bs_up_handler(struct bfd_session *bs, int nstate);
 static void bs_neighbour_admin_down_handler(struct bfd_session *bfd,
 					    uint8_t diag);
 
+/**
+ * Remove BFD profile from all BFD sessions so we don't leave dangling
+ * pointers.
+ */
+static void bfd_profile_detach(struct bfd_profile *bp);
+
 /* Zeroed array with the size of an IPv6 address. */
 struct in6_addr zero_addr;
 
@@ -108,6 +114,10 @@ struct bfd_profile *bfd_profile_new(const char *name)
 
 void bfd_profile_free(struct bfd_profile *bp)
 {
+	/* Detach from any session. */
+	bfd_profile_detach(bp);
+
+	/* Remove from global list. */
 	TAILQ_REMOVE(&bplist, bp, entry);
 	free(bp);
 }
@@ -1781,6 +1791,8 @@ static void _bfd_free(struct hash_bucket *hb,
 
 void bfd_shutdown(void)
 {
+	struct bfd_profile *bp;
+
 	/*
 	 * Close and free all BFD sessions.
 	 *
@@ -1794,6 +1806,10 @@ void bfd_shutdown(void)
 	/* Now free the hashes themselves. */
 	hash_free(bfd_id_hash);
 	hash_free(bfd_key_hash);
+
+	/* Free all profile allocations. */
+	while ((bp = TAILQ_FIRST(&bplist)) != NULL)
+		bfd_profile_free(bp);
 }
 
 struct bfd_session_iterator {
@@ -1899,6 +1915,23 @@ static void _bfd_profile_update(struct hash_bucket *hb, void *arg)
 void bfd_profile_update(struct bfd_profile *bp)
 {
 	hash_iterate(bfd_key_hash, _bfd_profile_update, bp);
+}
+
+static void _bfd_profile_detach(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_profile *bp = arg;
+	struct bfd_session *bs = hb->data;
+
+	/* This session is not using the profile. */
+	if (bs->profile_name == NULL || strcmp(bs->profile_name, bp->name) != 0)
+		return;
+
+	bfd_profile_remove(bs);
+}
+
+static void bfd_profile_detach(struct bfd_profile *bp)
+{
+	hash_iterate(bfd_key_hash, _bfd_profile_detach, bp);
 }
 
 /*
