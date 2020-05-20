@@ -3957,8 +3957,8 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 
 /****************************************************************************
 * This code was developed in a branch that didn't have dplane APIs for
-* MAC updates. Hence the use of the legacy style. It will be moved to
-* the new dplane style pre-merge to master. XXX
+* MAC updates. Hence the use of the legacy style. Needs to be moved to
+* the new dplane style XXX
 */
 static int netlink_fdb_nh_update(uint32_t nh_id, struct in_addr vtep_ip)
 {
