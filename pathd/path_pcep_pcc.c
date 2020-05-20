@@ -83,6 +83,8 @@ static void specialize_input_path(struct pcc_state *pcc_state,
 static void send_comp_request(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state,
 			      struct lsp_nb_key *nb_key);
+static int compare_pcc_opts(struct pcc_opts *lhs, struct pcc_opts *rhs);
+static int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs);
 
 /* Data Structure Helper Functions */
 static void lookup_plspid(struct pcc_state *pcc_state, struct path *path);
@@ -150,12 +152,71 @@ void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
 	XFREE(MTYPE_PCEP, pcc_state);
 }
 
+int compare_pcc_opts(struct pcc_opts *lhs, struct pcc_opts *rhs)
+{
+	if (lhs == NULL) {
+		return 1;
+	}
+
+	if (rhs == NULL) {
+		return -1;
+	}
+
+	int retval = lhs->port - rhs->port;
+	if (retval != 0) {
+		return retval;
+	}
+
+	retval = lhs->msd - rhs->msd;
+	if (retval != 0) {
+		return retval;
+	}
+
+	retval = memcmp(&lhs->addr, &rhs->addr, sizeof(lhs->addr));
+	if (retval != 0) {
+		return retval;
+	}
+
+	return 0;
+}
+
+int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs)
+{
+	if (lhs == NULL) {
+		return 1;
+	}
+
+	if (rhs == NULL) {
+		return -1;
+	}
+
+	int retval = lhs->port - rhs->port;
+	if (retval != 0) {
+		return retval;
+	}
+
+	if (lhs->draft07 != rhs->draft07) {
+		return 1;
+	}
+
+	retval = memcmp(&lhs->addr, &rhs->addr, sizeof(lhs->addr));
+	if (retval != 0) {
+		return retval;
+	}
+
+	return 0;
+}
+
 int pcep_pcc_update(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 		    struct pcc_opts *pcc_opts, struct pce_opts *pce_opts)
 {
 	int ret = 0;
 
-	// TODO: check if the options changed ?
+	// If the options did not change, then there is nothing to do
+	if ((compare_pce_opts(pce_opts, pcc_state->pce_opts) == 0)
+	    && (compare_pcc_opts(pcc_opts, pcc_state->pcc_opts) == 0)) {
+		return ret;
+	}
 
 	if ((ret = pcep_pcc_disable(ctrl_state, pcc_state))) {
 		XFREE(MTYPE_PCEP, pcc_opts);
