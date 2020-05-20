@@ -1825,8 +1825,6 @@ static void zread_nhg_reader(ZAPI_HANDLER_ARGS)
 	 * Resolution is going to need some more work.
 	 */
 	if (nhe) {
-		zebra_nhg_increment_ref(nhe);
-		zebra_nhg_install_kernel(nhe);
 		nhg_notify(proto, client->instance, id, ZAPI_NHG_INSTALLED);
 	} else
 		nhg_notify(proto, client->instance, id, ZAPI_NHG_FAIL_INSTALL);
