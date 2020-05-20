@@ -2706,3 +2706,40 @@ struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id)
 	return nhe;
 }
 
+struct nhg_score_proto_iter {
+	int type;
+	unsigned long found;
+};
+
+static void zebra_nhg_score_proto_entry(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe;
+	struct nhg_score_proto_iter *iter;
+
+	nhe = (struct nhg_hash_entry *)bucket->data;
+	iter = arg;
+
+	/* Needs to match type and outside zebra ID space */
+	if (nhe->type == iter->type && nhe->id >= ZEBRA_NHG_PROTO_LOWER) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug(
+				"%s: found nhe %p (%u), vrf %d, type %s after client disconnect",
+				__func__, nhe, nhe->id, nhe->vrf_id,
+				zebra_route_string(nhe->type));
+
+		/* This should be the last ref if we remove client routes too */
+		zebra_nhg_decrement_ref(nhe);
+	}
+}
+
+/* Remove specific by proto NHGs */
+unsigned long zebra_nhg_score_proto(int type)
+{
+	struct nhg_score_proto_iter iter = {};
+
+	iter.type = type;
+
+	hash_iterate(zrouter.nhgs_id, zebra_nhg_score_proto_entry, &iter);
+
+	return iter.found;
+}

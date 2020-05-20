@@ -565,6 +565,7 @@ static void zserv_client_free(struct zserv *client)
 	/* Close file descriptor. */
 	if (client->sock) {
 		unsigned long nroutes;
+		unsigned long nnhgs;
 
 		close(client->sock);
 
@@ -574,6 +575,13 @@ static void zserv_client_free(struct zserv *client)
 			zlog_notice(
 				"client %d disconnected %lu %s routes removed from the rib",
 				client->sock, nroutes,
+				zebra_route_string(client->proto));
+
+			/* Not worrying about instance for now */
+			nnhgs = zebra_nhg_score_proto(client->proto);
+			zlog_notice(
+				"client %d disconnected %lu %s nhgs removed from the rib",
+				client->sock, nnhgs,
 				zebra_route_string(client->proto));
 		}
 		client->sock = -1;

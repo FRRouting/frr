@@ -270,6 +270,14 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
  */
 struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id);
 
+/*
+ * Remove specific by proto NHGs.
+ *
+ * Called after client disconnect.
+ *
+ */
+unsigned long zebra_nhg_score_proto(int type);
+
 /* Reference counter functions */
 extern void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
 extern void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe);
