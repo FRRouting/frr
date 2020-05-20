@@ -1298,6 +1298,16 @@ module frr-isisd {
       description
         "IS-IS interface parameters.";
       uses interface-config;
+    }
+  }
+
+  augment "/frr-interface:lib/frr-interface:interface/frr-interface:state" {
+    description
+      "Extends interface model with IS-IS operational data.";
+    container isis {
+      presence "Present if an IS-IS circuit is defined for this interface.";
+      description
+        "IS-IS interface operational data.";
 
       uses interface-state;
     }
