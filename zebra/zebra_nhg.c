@@ -1734,6 +1734,10 @@ static bool nexthop_valid_resolve(const struct nexthop *nexthop,
 	if (CHECK_FLAG(resolved->flags, NEXTHOP_FLAG_RECURSIVE))
 		return false;
 
+	/* Must be ACTIVE */
+	if (!CHECK_FLAG(resolved->flags, NEXTHOP_FLAG_ACTIVE))
+		return false;
+
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
