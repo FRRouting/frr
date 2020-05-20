@@ -56,10 +56,11 @@ listing of ECMP nexthops used to forward packets for when a pbr-map is matched.
 Showing Nexthop Group Information
 ---------------------------------
 
-.. clicmd:: show pbr nexthop-groups [NAME]
+.. clicmd:: show pbr nexthop-groups [NAME] [json]
 
    Display information on a PBR nexthop-group. If ``NAME`` is omitted, all
-   nexthop groups are shown.
+   nexthop groups are shown. Setting ``json`` will provide the same information
+   in a predictable and parsable format.
 
 .. _pbr-maps:
 

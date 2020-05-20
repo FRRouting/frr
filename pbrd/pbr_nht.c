@@ -1030,8 +1030,22 @@ static void pbr_nht_show_nhg_nexthops(struct hash_bucket *b, void *data)
 	nexthop_group_write_nexthop(vty, pnhc->nexthop);
 }
 
+static void pbr_nht_json_nhg_nexthops(struct hash_bucket *b, void *data)
+{
+	struct pbr_nexthop_cache *pnhc = b->data;
+	json_object *all_hops = data;
+	json_object *this_hop;
+
+	this_hop = json_object_new_object();
+	json_object_boolean_add(this_hop, "valid", pnhc->valid);
+	nexthop_group_json_nexthop(this_hop, pnhc->nexthop);
+
+	json_object_array_add(all_hops, this_hop);
+}
+
 struct pbr_nht_show {
 	struct vty *vty;
+	json_object *json;
 	const char *name;
 };
 
@@ -1051,6 +1065,36 @@ static void pbr_nht_show_nhg(struct hash_bucket *b, void *data)
 	hash_iterate(pnhgc->nhh, pbr_nht_show_nhg_nexthops, vty);
 }
 
+static void pbr_nht_json_nhg(struct hash_bucket *b, void *data)
+{
+	struct pbr_nexthop_group_cache *pnhgc = b->data;
+	struct pbr_nht_show *pns = data;
+	json_object *j, *this_group, *group_hops;
+
+	if (pns->name && strcmp(pns->name, pnhgc->name) != 0)
+		return;
+
+	j = pns->json;
+	this_group = json_object_new_object();
+
+	if (!j || !this_group)
+		return;
+
+	json_object_string_add(this_group, "name", pnhgc->name);
+	json_object_int_add(this_group, "id", pnhgc->table_id);
+	json_object_boolean_add(this_group, "valid", pnhgc->valid);
+	json_object_boolean_add(this_group, "installed", pnhgc->installed);
+
+	group_hops = json_object_new_array();
+
+	if (group_hops) {
+		hash_iterate(pnhgc->nhh, pbr_nht_json_nhg_nexthops, group_hops);
+		json_object_object_add(this_group, "nexthops", group_hops);
+	}
+
+	json_object_object_add(j, pnhgc->name, this_group);
+}
+
 void pbr_nht_show_nexthop_group(struct vty *vty, const char *name)
 {
 	struct pbr_nht_show pns;
@@ -1059,6 +1103,16 @@ void pbr_nht_show_nexthop_group(struct vty *vty, const char *name)
 	pns.name = name;
 
 	hash_iterate(pbr_nhg_hash, pbr_nht_show_nhg, &pns);
+}
+
+void pbr_nht_json_nexthop_group(json_object *j, const char *name)
+{
+	struct pbr_nht_show pns;
+
+	pns.name = name;
+	pns.json = j;
+
+	hash_iterate(pbr_nhg_hash, pbr_nht_json_nhg, &pns);
 }
 
 void pbr_nht_init(void)

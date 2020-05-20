@@ -733,13 +733,29 @@ DEFPY (show_pbr_map,
 
 DEFPY(show_pbr_nexthop_group,
       show_pbr_nexthop_group_cmd,
-      "show pbr nexthop-groups [WORD$word]",
+      "show pbr nexthop-groups [WORD$word] [json$json]",
       SHOW_STR
       PBR_STR
       "Nexthop Groups\n"
-      "Optional Name of the nexthop group\n")
+      "Optional Name of the nexthop group\n"
+      JSON_STR)
 {
-	pbr_nht_show_nexthop_group(vty, word);
+	json_object *j = NULL;
+
+	if (json)
+		j = json_object_new_object();
+
+	if (j) {
+		pbr_nht_json_nexthop_group(j, word);
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				j, JSON_C_TO_STRING_PRETTY));
+
+		json_object_free(j);
+	} else
+		pbr_nht_show_nexthop_group(vty, word);
+
 
 	return CMD_SUCCESS;
 }
