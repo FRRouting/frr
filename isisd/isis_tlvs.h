@@ -141,8 +141,8 @@ struct isis_threeway_adj {
 #define IS_SR_IPV4(srgb)               (srgb.flags & ISIS_SUBTLV_SRGB_FLAG_I)
 #define IS_SR_IPV6(srgb)               (srgb.flags & ISIS_SUBTLV_SRGB_FLAG_V)
 
-/* Structure aggregating SRGB info */
-struct isis_srgb {
+/* Structure aggregating SR Global (SRGB) or Local (SRLB) Block info */
+struct isis_sr_block {
 	uint8_t flags;
 	uint32_t range_size;
 	uint32_t lower_bound;
@@ -214,7 +214,8 @@ struct isis_router_cap {
 	uint8_t flags;
 
 	/* RFC 8667 section #3 */
-	struct isis_srgb srgb;
+	struct isis_sr_block srgb;
+	struct isis_sr_block srlb;
 	uint8_t algo[SR_ALGORITHM_COUNT];
 	/* RFC 8491 */
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
@@ -398,10 +399,11 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_RAS = 24,
 	ISIS_SUBTLV_RIP = 25,
 
-	/* RFC 8667 section #2 */
+	/* RFC 8667 section #4 IANA allocation */
 	ISIS_SUBTLV_SID_LABEL = 1,
 	ISIS_SUBTLV_SID_LABEL_RANGE = 2,
 	ISIS_SUBTLV_ALGORITHM = 19,
+	ISIS_SUBTLV_SRLB = 22,
 	ISIS_SUBTLV_PREFIX_SID = 3,
 	ISIS_SUBTLV_ADJ_SID = 31,
 	ISIS_SUBTLV_LAN_ADJ_SID = 32,
@@ -431,7 +433,7 @@ enum ext_subtlv_size {
 	/* RFC 8491 */
 	ISIS_SUBTLV_NODE_MSD_SIZE = 2,
 
-	/* RFC 8667 section #2 */
+	/* RFC 8667 sections #2 & #3 */
 	ISIS_SUBTLV_SID_LABEL_SIZE = 3,
 	ISIS_SUBTLV_SID_LABEL_RANGE_SIZE = 9,
 	ISIS_SUBTLV_ALGORITHM_SIZE = 4,

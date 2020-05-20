@@ -1449,6 +1449,38 @@ int isis_instance_segment_routing_enabled_modify(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/srgb
  */
+int isis_instance_segment_routing_srgb_pre_validate(
+	struct nb_cb_pre_validate_args *args)
+{
+	uint32_t srgb_lbound;
+	uint32_t srgb_ubound;
+	uint32_t srlb_lbound;
+	uint32_t srlb_ubound;
+
+	srgb_lbound = yang_dnode_get_uint32(args->dnode, "./lower-bound");
+	srgb_ubound = yang_dnode_get_uint32(args->dnode, "./upper-bound");
+	srlb_lbound = yang_dnode_get_uint32(args->dnode, "../srlb/lower-bound");
+	srlb_ubound = yang_dnode_get_uint32(args->dnode, "../srlb/upper-bound");
+
+	/* Check that the block size does not exceed 65535 */
+	if ((srgb_ubound - srgb_lbound + 1) > 65535) {
+		zlog_warn(
+			"New SR Global Block (%u/%u) exceed the limit of 65535",
+			srgb_lbound, srgb_ubound);
+		return NB_ERR_VALIDATION;
+	}
+
+	/* Validate SRGB against SRLB */
+	if (!((srgb_ubound < srlb_lbound) || (srgb_lbound > srlb_ubound))) {
+		zlog_warn(
+			"New SR Global Block (%u/%u) conflict with Local Block (%u/%u)",
+			srgb_lbound, srgb_ubound, srlb_lbound, srlb_ubound);
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
 void isis_instance_segment_routing_srgb_apply_finish(
 	struct nb_cb_apply_finish_args *args)
 {
@@ -1508,6 +1540,104 @@ int isis_instance_segment_routing_srgb_upper_bound_modify(
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
 			zlog_warn("Invalid SRGB upper bound: %" PRIu32,
+				  upper_bound);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing/srlb
+ */
+int isis_instance_segment_routing_srlb_pre_validate(
+	struct nb_cb_pre_validate_args *args)
+{
+	uint32_t srgb_lbound;
+	uint32_t srgb_ubound;
+	uint32_t srlb_lbound;
+	uint32_t srlb_ubound;
+
+	srgb_lbound = yang_dnode_get_uint32(args->dnode, "../srgb/lower-bound");
+	srgb_ubound = yang_dnode_get_uint32(args->dnode, "../srgb/upper-bound");
+	srlb_lbound = yang_dnode_get_uint32(args->dnode, "./lower-bound");
+	srlb_ubound = yang_dnode_get_uint32(args->dnode, "./upper-bound");
+
+	/* Check that the block size does not exceed 65535 */
+	if ((srlb_ubound - srlb_lbound + 1) > 65535) {
+		zlog_warn(
+			"New SR Local Block (%u/%u) exceed the limit of 65535",
+			srlb_lbound, srlb_ubound);
+		return NB_ERR_VALIDATION;
+	}
+
+	/* Validate SRLB against SRGB */
+	if (!((srlb_ubound < srgb_lbound) || (srlb_lbound > srgb_ubound))) {
+		zlog_warn(
+			"New SR Local Block (%u/%u) conflict with Global Block (%u/%u)",
+			srlb_lbound, srlb_ubound, srgb_lbound, srgb_ubound);
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+void isis_instance_segment_routing_srlb_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct isis_area *area;
+	uint32_t lower_bound, upper_bound;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	lower_bound = yang_dnode_get_uint32(args->dnode, "./lower-bound");
+	upper_bound = yang_dnode_get_uint32(args->dnode, "./upper-bound");
+
+	isis_sr_cfg_srlb_update(area, lower_bound, upper_bound);
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing/srlb/lower-bound
+ */
+int isis_instance_segment_routing_srlb_lower_bound_modify(
+	struct nb_cb_modify_args *args)
+{
+	uint32_t lower_bound = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!IS_MPLS_UNRESERVED_LABEL(lower_bound)) {
+			zlog_warn("Invalid SRLB lower bound: %" PRIu32,
+				  lower_bound);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing/srlb/upper-bound
+ */
+int isis_instance_segment_routing_srlb_upper_bound_modify(
+	struct nb_cb_modify_args *args)
+{
+	uint32_t upper_bound = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
+			zlog_warn("Invalid SRLB upper bound: %" PRIu32,
 				  upper_bound);
 			return NB_ERR_VALIDATION;
 		}

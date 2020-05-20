@@ -1400,8 +1400,8 @@ DEFPY (isis_sr_global_block_label_range,
        "segment-routing global-block (16-1048575)$lower_bound (16-1048575)$upper_bound",
        SR_STR
        "Segment Routing Global Block label range\n"
-       "The lower bound of SRGB (16-1048575)\n"
-       "The upper bound of SRGB (16-1048575)\n")
+       "The lower bound of the block\n"
+       "The upper bound of the block (block size may not exceed 65535)\n")
 {
 	nb_cli_enqueue_change(vty, "./segment-routing/srgb/lower-bound",
 			      NB_OP_MODIFY, lower_bound_str);
@@ -1413,12 +1413,12 @@ DEFPY (isis_sr_global_block_label_range,
 
 DEFPY (no_isis_sr_global_block_label_range,
        no_isis_sr_global_block_label_range_cmd,
-       "no segment-routing global-block [(0-1048575) (0-1048575)]",
+       "no segment-routing global-block [(16-1048575) (16-1048575)]",
        NO_STR
        SR_STR
        "Segment Routing Global Block label range\n"
-       "The lower bound of SRGB (16-1048575)\n"
-       "The upper bound of SRGB (block size may not exceed 65535)\n")
+       "The lower bound of the block\n"
+       "The upper bound of the block (block size may not exceed 65535)\n")
 {
 	nb_cli_enqueue_change(vty, "./segment-routing/srgb/lower-bound",
 			      NB_OP_MODIFY, NULL);
@@ -1432,6 +1432,50 @@ void cli_show_isis_srgb(struct vty *vty, struct lyd_node *dnode,
 			bool show_defaults)
 {
 	vty_out(vty, " segment-routing global-block %s %s\n",
+		yang_dnode_get_string(dnode, "./lower-bound"),
+		yang_dnode_get_string(dnode, "./upper-bound"));
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing/srlb
+ */
+DEFPY (isis_sr_local_block_label_range,
+       isis_sr_local_block_label_range_cmd,
+       "segment-routing local-block (16-1048575)$lower_bound (16-1048575)$upper_bound",
+       SR_STR
+       "Segment Routing Local Block label range\n"
+       "The lower bound of the block\n"
+       "The upper bound of the block (block size may not exceed 65535)\n")
+{
+	nb_cli_enqueue_change(vty, "./segment-routing/srlb/lower-bound",
+			      NB_OP_MODIFY, lower_bound_str);
+	nb_cli_enqueue_change(vty, "./segment-routing/srlb/upper-bound",
+			      NB_OP_MODIFY, upper_bound_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY (no_isis_sr_local_block_label_range,
+       no_isis_sr_local_block_label_range_cmd,
+       "no segment-routing local-block [(16-1048575) (16-1048575)]",
+       NO_STR
+       SR_STR
+       "Segment Routing Local Block label range\n"
+       "The lower bound of the block\n"
+       "The upper bound of the block (block size may not exceed 65535)\n")
+{
+	nb_cli_enqueue_change(vty, "./segment-routing/srlb/lower-bound",
+			      NB_OP_MODIFY, NULL);
+	nb_cli_enqueue_change(vty, "./segment-routing/srlb/upper-bound",
+			      NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_srlb(struct vty *vty, struct lyd_node *dnode,
+			bool show_defaults)
+{
+	vty_out(vty, " segment-routing local-block %s %s\n",
 		yang_dnode_get_string(dnode, "./lower-bound"),
 		yang_dnode_get_string(dnode, "./upper-bound"));
 }
@@ -2308,6 +2352,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_isis_sr_enable_cmd);
 	install_element(ISIS_NODE, &isis_sr_global_block_label_range_cmd);
 	install_element(ISIS_NODE, &no_isis_sr_global_block_label_range_cmd);
+	install_element(ISIS_NODE, &isis_sr_local_block_label_range_cmd);
+	install_element(ISIS_NODE, &no_isis_sr_local_block_label_range_cmd);
 	install_element(ISIS_NODE, &isis_sr_node_msd_cmd);
 	install_element(ISIS_NODE, &no_isis_sr_node_msd_cmd);
 	install_element(ISIS_NODE, &isis_sr_prefix_sid_cmd);

@@ -465,6 +465,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/segment-routing/srgb",
 			.cbs = {
 				.apply_finish = isis_instance_segment_routing_srgb_apply_finish,
+				.pre_validate = isis_instance_segment_routing_srgb_pre_validate,
 				.cli_show = cli_show_isis_srgb,
 			},
 		},
@@ -478,6 +479,26 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/segment-routing/srgb/upper-bound",
 			.cbs = {
 				.modify = isis_instance_segment_routing_srgb_upper_bound_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/srlb",
+			.cbs = {
+				.apply_finish = isis_instance_segment_routing_srlb_apply_finish,
+				.pre_validate = isis_instance_segment_routing_srlb_pre_validate,
+				.cli_show = cli_show_isis_srlb,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/srlb/lower-bound",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srlb_lower_bound_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/srlb/upper-bound",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srlb_upper_bound_modify,
 			},
 		},
 		{
