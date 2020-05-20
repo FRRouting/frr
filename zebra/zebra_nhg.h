@@ -266,7 +266,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
  *
  * Returns deleted NHE on success, otherwise NULL.
  *
- * Caller must free the NHE.
+ * Caller must decrement ref with zebra_nhg_decrement_ref() when done.
  */
 struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id);
 

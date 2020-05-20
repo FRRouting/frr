@@ -2634,6 +2634,26 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	struct nhg_hash_entry lookup;
 	struct nhg_hash_entry *new, *old;
 	struct nhg_connected *rb_node_dep = NULL;
+	struct nexthop *newhop;
+	bool replace = false;
+
+	if (!nhg->nexthop) {
+		if (IS_ZEBRA_DEBUG_NHG)
+			zlog_debug("%s: id %u, no nexthops passed to add",
+				   __func__, id);
+		return NULL;
+	}
+
+
+	/* Set nexthop list as active, since they wont go through rib
+	 * processing.
+	 *
+	 * Assuming valid/onlink for now.
+	 *
+	 * Once resolution is figured out, we won't need this!
+	 */
+	for (ALL_NEXTHOPS_PTR(nhg, newhop))
+		SET_FLAG(newhop->flags, NEXTHOP_FLAG_ACTIVE);
 
 	zebra_nhe_init(&lookup, afi, nhg->nexthop);
 	lookup.nhg.nexthop = nhg->nexthop;
@@ -2647,36 +2667,51 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 		 * This is a replace, just release NHE from ID for now, The
 		 * depends/dependents may still be used in the replacement.
 		 */
+		replace = true;
 		hash_release(zrouter.nhgs_id, old);
 	}
 
 	new = zebra_nhg_rib_find_nhe(&lookup, afi);
 
+	zebra_nhg_increment_ref(new);
+
+	zebra_nhg_set_valid_if_active(new);
+
+	zebra_nhg_install_kernel(new);
+
 	if (old) {
-		/* Now release depends/dependents in old one */
+		rib_handle_nhg_replace(old, new);
+
+		/* if this != 1 at this point, we have a bug */
+		assert(old->refcnt == 1);
+
+		/* We have to decrement its singletons
+		 * because some might not exist in NEW.
+		 */
+		if (!zebra_nhg_depends_is_empty(old)) {
+			frr_each (nhg_connected_tree, &old->nhg_depends,
+				  rb_node_dep)
+				zebra_nhg_decrement_ref(rb_node_dep->nhe);
+		}
+
+		/* Free all the things */
 		zebra_nhg_release_all_deps(old);
-	}
 
-	if (!new)
-		return NULL;
-
-	/* TODO: Assuming valid/onlink for now */
-	SET_FLAG(new->flags, NEXTHOP_GROUP_VALID);
-
-	if (!zebra_nhg_depends_is_empty(new)) {
-		frr_each (nhg_connected_tree, &new->nhg_depends, rb_node_dep)
-			SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_VALID);
+		/* Dont call the dec API, we dont want to uninstall the ID */
+		old->refcnt = 0;
+		zebra_nhg_free(old);
+		old = NULL;
 	}
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: %s nhe %p (%u), vrf %d, type %s", __func__,
-			   (old ? "replaced" : "added"), new, new->id,
+			   (replace ? "replaced" : "added"), new, new->id,
 			   new->vrf_id, zebra_route_string(new->type));
 
 	return new;
 }
 
-/* Delete NHE from upper level proto */
+/* Delete NHE from upper level proto, caller must decrement ref */
 struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id)
 {
 	struct nhg_hash_entry *nhe;
@@ -2690,11 +2725,12 @@ struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id)
 		return NULL;
 	}
 
-	if (nhe->refcnt) {
+	if (nhe->refcnt > 1) {
 		/* TODO: should be warn? */
 		if (IS_ZEBRA_DEBUG_NHG)
-			zlog_debug("%s: id %u, still being used refcnt %u",
-				   __func__, nhe->id, nhe->refcnt);
+			zlog_debug(
+				"%s: id %u, still being used by routes refcnt %u",
+				__func__, nhe->id, nhe->refcnt);
 		return NULL;
 	}
 
