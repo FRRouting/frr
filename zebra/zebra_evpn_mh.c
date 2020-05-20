@@ -1201,7 +1201,6 @@ static int zebra_evpn_es_send_del_to_client(struct zebra_evpn_es *es)
 	return zserv_send_message(client, s);
 }
 
-/* XXX - call any time ZEBRA_EVPNES_LOCAL gets set or cleared */
 static void zebra_evpn_es_re_eval_send_to_client(struct zebra_evpn_es *es,
 		bool es_evi_re_reval)
 {
@@ -1497,7 +1496,9 @@ static int zebra_evpn_remote_es_del(esi_t *esi, struct in_addr vtep_ip)
 
 	es = zebra_evpn_es_find(esi);
 	if (!es) {
-		/* XXX - error log */
+		zlog_warn("remote es %s vtep %pI4 del failed, es missing",
+				esi_to_str(esi, buf, sizeof(buf)),
+				&vtep_ip);
 		return -1;
 	}
 
@@ -1538,7 +1539,9 @@ static int zebra_evpn_remote_es_add(esi_t *esi, struct in_addr vtep_ip)
 	if (!es) {
 		es = zebra_evpn_es_new(esi);
 		if (!es) {
-			/* XXX - error log */
+			zlog_warn("remote es %s vtep %pI4 add failed, es missing",
+					esi_to_str(esi, buf, sizeof(buf)),
+					&vtep_ip);
 			return -1;
 		}
 	}
