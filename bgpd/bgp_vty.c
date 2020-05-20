@@ -16027,6 +16027,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_VPNV6_NODE,
 			&no_neighbor_nexthop_self_all_hidden_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_nexthop_self_force_cmd);
+	install_element(BGP_EVPN_NODE, &no_neighbor_nexthop_self_force_cmd);
 
 	/* "neighbor as-override" commands. */
 	install_element(BGP_NODE, &neighbor_as_override_hidden_cmd);
@@ -16234,10 +16236,6 @@ void bgp_vty_init(void)
 			&no_neighbor_route_reflector_client_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_route_reflector_client_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_route_reflector_client_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_nexthop_self_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_nexthop_self_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_nexthop_self_force_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_nexthop_self_force_cmd);
 
 	/* "neighbor route-server" commands.*/
 	install_element(BGP_NODE, &neighbor_route_server_client_hidden_cmd);
