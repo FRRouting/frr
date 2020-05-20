@@ -1740,6 +1740,12 @@ static void zread_nhg_reader(ZAPI_HANDLER_ARGS)
 	// if (zserv_nexthop_num_warn(__func__, &p, nhops))
 	//	return;
 
+	if (nhops <= 0) {
+		flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+			  "%s: No nexthops sent", __func__);
+		return;
+	}
+
 	for (i = 0; i < nhops; i++) {
 		struct zapi_nexthop *znh = &zapi_nexthops[i];
 
