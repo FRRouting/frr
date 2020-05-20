@@ -2768,6 +2768,8 @@ static void zebra_nhg_score_proto_entry(struct hash_bucket *bucket, void *arg)
 
 	/* Needs to match type and outside zebra ID space */
 	if (nhe->type == iter->type && nhe->id >= ZEBRA_NHG_PROTO_LOWER) {
+		iter->found++;
+
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 			zlog_debug(
 				"%s: found nhe %p (%u), vrf %d, type %s after client disconnect",
