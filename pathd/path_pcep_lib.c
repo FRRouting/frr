@@ -434,20 +434,26 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	/* LSP object */
 	lsp_tlvs = dll_initialize();
 
-	if (path->plsp_id == 0) {
+	if (path->plsp_id == 0 || IS_IPADDR_NONE(&path->nbkey.endpoint)
+	    || IS_IPADDR_NONE(&path->sender)) {
 		tlv = (struct pcep_object_tlv_header *)
 			pcep_tlv_create_ipv4_lsp_identifiers(
 				&addr_null, &addr_null, 0, 0, &addr_null);
 	} else {
-		/* TODO: Add support for IPv6 */
-		assert(IS_IPADDR_V4(&path->sender));
-		assert(IS_IPADDR_V4(&path->nbkey.endpoint));
-
-		tlv = (struct pcep_object_tlv_header *)
-			pcep_tlv_create_ipv4_lsp_identifiers(
-				&path->sender.ipaddr_v4,
-				&path->nbkey.endpoint.ipaddr_v4, 0,
-				0, &path->sender.ipaddr_v4);
+		assert(path->sender.ipa_type == path->nbkey.endpoint.ipa_type);
+		if (IS_IPADDR_V4(&path->sender)) {
+			tlv = (struct pcep_object_tlv_header *)
+				pcep_tlv_create_ipv4_lsp_identifiers(
+					&path->sender.ipaddr_v4,
+					&path->nbkey.endpoint.ipaddr_v4, 0,
+					0, &path->sender.ipaddr_v4);
+		} else {
+			tlv = (struct pcep_object_tlv_header *)
+				pcep_tlv_create_ipv6_lsp_identifiers(
+					&path->sender.ipaddr_v6,
+					&path->nbkey.endpoint.ipaddr_v6, 0,
+					0, &path->sender.ipaddr_v6);
+		}
 	}
 	assert(tlv != NULL);
 	dll_append(lsp_tlvs, tlv);
