@@ -2813,9 +2813,3 @@ struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id)
 	return nhe;
 }
 
-/* Replace NHE from upper level proto */
-struct nhg_hash_entry *
-zebra_nhg_proto_replace(uint32_t id, struct nexthop_group *nhg, afi_t afi)
-{
-	return NULL;
-}
