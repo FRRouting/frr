@@ -296,7 +296,7 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
             addr_type,
             dut,
             input_dict_1,
-            next_hop=NEXT_HOPS[addr_type],
+            next_hop=NEXT_HOPS[addr_type][:int(ecmp_num)],
             protocol=protocol,
         )
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
