@@ -101,6 +101,19 @@ static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 	vrf_id_t vrf_id;
 	size_t addrlen;
 
+	/*
+	 * XXX: some pointers are dangling during shutdown, so instead of
+	 * trying to send a message during signal handlers lets just wait BGP
+	 * to terminate zebra's connection and BFD will automatically find
+	 * out that we are no longer expecting notifications.
+	 *
+	 * The pointer that is causing a crash here is `peer->nexthop.ifp`.
+	 * That happens because at this point of the shutdown all interfaces are
+	 * already `free()`d.
+	 */
+	if (bm->terminating)
+		return;
+
 	bfd_info = (struct bfd_info *)peer->bfd_info;
 
 	vrf_id = peer->bgp->vrf_id;
