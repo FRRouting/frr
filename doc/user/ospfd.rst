@@ -693,11 +693,11 @@ Interfaces
    retransmitting Database Description and Link State Request packets. The
    default value is 5 seconds.
 
-.. index:: ip ospf transmit-delay
-.. clicmd:: ip ospf transmit-delay
+.. index:: ip ospf transmit-delay (1-65535) [A.B.C.D]
+.. clicmd:: ip ospf transmit-delay (1-65535) [A.B.C.D]
 
-.. index:: no ip ospf transmit-delay
-.. clicmd:: no ip ospf transmit-delay
+.. index:: no ip ospf transmit-delay [(1-65535)] [A.B.C.D]
+.. clicmd:: no ip ospf transmit-delay [(1-65535)] [A.B.C.D]
 
    Set number of seconds for InfTransDelay value. LSAs' age should be
    incremented by this value when transmitting. The default value is 1 second.
