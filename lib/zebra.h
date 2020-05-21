@@ -241,6 +241,10 @@ typedef unsigned char uint8_t;
 #define static_cast(l, r) (r)
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef HAVE_STRLCAT
 size_t strlcat(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
@@ -248,6 +252,10 @@ size_t strlcat(char *__restrict dest,
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 /*

@@ -235,12 +235,17 @@ class NorthboundImpl
 			bool with_defaults = tag->request.with_defaults();
 			// Request: string path = 4;
 			std::string path = tag->request.path();
+			// Request: string offset = 5;
+			std::string input_offset = tag->request.offset();
+			// Request: uint32 chunk_size = 6;
+			uint32_t chunk_size = tag->request.chunk_size();
 
 			if (nb_dbg_client_grpc)
 				zlog_debug(
-					"received RPC Get(type: %u, encoding: %u, with_defaults: %u, path: %s)",
+					"received RPC Get(type: %u, encoding: %u, with_defaults: %u, path: %s, input_offset: %s, chunk_size %u)",
 					type, encoding, with_defaults,
-					path.c_str());
+					path.c_str(), input_offset.c_str(),
+					chunk_size);
 
 			frr::GetResponse response;
 			grpc::Status status;
@@ -249,11 +254,15 @@ class NorthboundImpl
 			response.set_timestamp(time(NULL));
 
 			// Response: DataTree data = 2;
+			const char *output_offset = NULL;
 			auto *data = response.mutable_data();
 			data->set_encoding(tag->request.encoding());
-			status = get_path(data, path.c_str(), type,
+			status = get_path(data, path, input_offset, type,
 					  encoding2lyd_format(encoding),
-					  with_defaults);
+					  with_defaults, chunk_size,
+					  &output_offset);
+			if (output_offset)
+				response.set_offset(output_offset);
 
 			// Something went wrong...
 			if (!status.ok()) {
@@ -1181,7 +1190,10 @@ class NorthboundImpl
 		return dnode;
 	}
 
-	static struct lyd_node *get_dnode_state(const std::string &path)
+	static struct lyd_node *get_dnode_state(const std::string &path,
+						const std::string &input_offset,
+						uint32_t chunk_size,
+						const char **output_offset)
 	{
 		struct nb_oper_data_iter_input iter_input = {};
 		struct nb_oper_data_iter_output iter_output = {};
@@ -1191,17 +1203,29 @@ class NorthboundImpl
 		iter_input.xpath = path.c_str();
 		iter_input.cb = get_oper_data_cb;
 		iter_input.cb_arg = dnode;
-		if (nb_oper_data_iterate(&iter_input, &iter_output) != NB_OK) {
+		iter_input.max_elements = chunk_size;
+		if (!input_offset.empty()) {
+			SET_FLAG(iter_input.flags, F_NB_OPER_DATA_ITER_OFFSET);
+			strlcpy(iter_input.offset_path, input_offset.c_str(),
+				sizeof(iter_input.offset_path));
+		}
+
+		int ret = nb_oper_data_iterate(&iter_input, &iter_output);
+		if (ret == NB_ITER_ABORT) {
 			yang_dnode_free(dnode);
 			return NULL;
 		}
+		if (ret == NB_ITER_STOP)
+			*output_offset = iter_output.offset_path;
 
 		return dnode;
 	}
 
 	static grpc::Status get_path(frr::DataTree *dt, const std::string &path,
-				     int type, LYD_FORMAT lyd_format,
-				     bool with_defaults)
+				     const std::string &input_offset, int type,
+				     LYD_FORMAT lyd_format, bool with_defaults,
+				     uint32_t chunk_size,
+				     const char **output_offset)
 	{
 		struct lyd_node *dnode_config = NULL;
 		struct lyd_node *dnode_state = NULL;
@@ -1220,7 +1244,8 @@ class NorthboundImpl
 		// Operational data.
 		if (type == frr::GetRequest_DataType_ALL
 		    || type == frr::GetRequest_DataType_STATE) {
-			dnode_state = get_dnode_state(path);
+			dnode_state = get_dnode_state(
+				path, input_offset, chunk_size, output_offset);
 			if (!dnode_state) {
 				if (dnode_config)
 					yang_dnode_free(dnode_config);

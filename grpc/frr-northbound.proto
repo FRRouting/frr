@@ -131,6 +131,16 @@ message GetRequest {
 
   // YANG data path.
   string path = 4;
+
+  // Base iteration offset (optional).
+  //
+  // This parameter is valid only for the STATE request type.
+  string offset = 5;
+
+  // Maximum number of elements to fetch (optional).
+  //
+  // This parameter is valid only for the STATE request type.
+  uint32 chunk_size = 6;
 }
 
 message GetResponse {
@@ -143,6 +153,11 @@ message GetResponse {
 
   // The requested data.
   DataTree data = 2;
+
+  // When the requested data can't be delivered in a single response,
+  // an offset is returned indicating where the next Get() call should
+  // start to retrieve the remaining data.
+  string offset = 3;
 }
 
 //
