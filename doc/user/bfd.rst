@@ -232,6 +232,20 @@ The following commands are available inside the BGP configuration node.
    Disallow to write CBIT independence in BFD outgoing packets. Also disallow
    to ignore BFD down notification. This is the default behaviour.
 
+
+.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
+
+   Same as command ``neighbor <A.B.C.D|X:X::X:X|WORD> bfd``, but applies the
+   BFD profile to the sessions it creates or that already exist.
+
+
+.. index:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
+.. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
+
+   Removes the BFD profile configuration from peer session(s).
+
+
 .. _bfd-ospf-peer-config:
 
 OSPF BFD Configuration
