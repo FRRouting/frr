@@ -28,6 +28,18 @@ extern const struct frr_yang_module_info frr_bfdd_info;
 /* Mandatory callbacks. */
 int bfdd_bfd_create(struct nb_cb_create_args *args);
 int bfdd_bfd_destroy(struct nb_cb_destroy_args *args);
+int bfdd_bfd_profile_create(struct nb_cb_create_args *args);
+int bfdd_bfd_profile_destroy(struct nb_cb_destroy_args *args);
+int bfdd_bfd_profile_detection_multiplier_modify(
+	struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_desired_transmission_interval_modify(
+	struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_required_receive_interval_modify(
+	struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_administrative_down_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_echo_mode_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_desired_echo_transmission_interval_modify(
+	struct nb_cb_modify_args *args);
 int bfdd_bfd_sessions_single_hop_create(struct nb_cb_create_args *args);
 int bfdd_bfd_sessions_single_hop_destroy(struct nb_cb_destroy_args *args);
 const void *
@@ -38,6 +50,9 @@ bfdd_bfd_sessions_single_hop_lookup_entry(struct nb_cb_lookup_entry_args *args);
 int bfdd_bfd_sessions_single_hop_source_addr_modify(
 	struct nb_cb_modify_args *args);
 int bfdd_bfd_sessions_single_hop_source_addr_destroy(
+	struct nb_cb_destroy_args *args);
+int bfdd_bfd_sessions_single_hop_profile_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_single_hop_profile_destroy(
 	struct nb_cb_destroy_args *args);
 int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
 	struct nb_cb_modify_args *args);
@@ -187,5 +202,9 @@ void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
 		       bool show_defaults);
 void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
+void bfd_cli_show_profile(struct vty *vty, struct lyd_node *dnode,
+			  bool show_defaults);
+void bfd_cli_peer_profile_show(struct vty *vty, struct lyd_node *dnode,
+			       bool show_defaults);
 
 #endif /* _FRR_BFDD_NB_H_ */

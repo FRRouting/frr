@@ -139,6 +139,21 @@ module frr-bfdd {
     }
   }
 
+  typedef profile-name {
+    type string {
+      length "1..64";
+    }
+    description "Profile name format";
+  }
+
+  typedef profile-ref {
+    type leafref {
+      path "/frr-bfdd:bfdd/frr-bfdd:bfd/frr-bfdd:profile/frr-bfdd:name";
+      require-instance false;
+    }
+    description "Reference to a BFD profile";
+  }
+
   /*
    * Shared BFD items.
    */
@@ -337,6 +352,19 @@ module frr-bfdd {
     container bfd {
       presence "Present if the BFD protocol is enabled";
 
+      list profile {
+        key "name";
+        description "BFD pre configuration profiles";
+
+        leaf name {
+          type profile-name;
+          description "Profile name";
+        }
+
+        uses session-common;
+        uses session-echo;
+      }
+
       container sessions {
         list single-hop {
           key "dest-addr interface vrf";
@@ -362,6 +390,11 @@ module frr-bfdd {
           leaf source-addr {
             type inet:ip-address;
             description "Local IP address";
+          }
+
+          leaf profile {
+            type profile-ref;
+            description "Override defaults with profile.";
           }
 
           uses session-common;
@@ -397,6 +430,11 @@ module frr-bfdd {
           leaf vrf {
             type string;
             description "Virtual Routing Domain name";
+          }
+
+          leaf profile {
+            type profile-ref;
+            description "Override defaults with profile.";
           }
 
           uses session-common;

@@ -84,6 +84,20 @@ BFDd Commands
 
     Stops and removes the selected peer.
 
+
+.. index:: profile WORD
+.. clicmd:: profile WORD
+
+   Creates a peer profile that can be configured in multiple peers.
+
+
+.. index:: no profile WORD
+.. clicmd:: no profile WORD
+
+   Deletes a peer profile. Any peer using the profile will have their
+   configurations reset to the default values.
+
+
 .. index:: show bfd [vrf NAME] peers [json]
 .. clicmd:: show bfd [vrf NAME] peers [json]
 
@@ -101,8 +115,10 @@ BFDd Commands
 
 .. _bfd-peer-config:
 
-Peer Configurations
--------------------
+Peer / Profile Configuration
+----------------------------
+
+BFD peers and profiles share the same BFD session configuration commands.
 
 .. index:: detect-multiplier (2-255)
 .. clicmd:: detect-multiplier (2-255)
@@ -154,11 +170,30 @@ Peer Configurations
    Enables or disables the peer. When the peer is disabled an
    'administrative down' message is sent to the remote peer.
 
+
+BFD Peer Specific Commands
+--------------------------
+
 .. index:: label WORD
 .. clicmd:: label WORD
 
    Labels a peer with the provided word. This word can be referenced
    later on other daemons to refer to a specific peer.
+
+
+.. index:: profile BFDPROF
+.. clicmd:: profile BFDPROF
+
+   Configure peer to use the profile configurations.
+
+   Notes:
+
+   - Profile configurations can be overriden on a peer basis by specifying
+     new parameters in peer configuration node.
+   - Non existing profiles can be configured and they will only be applied
+     once they start to exist.
+   - If the profile gets updated the new configuration will be applied to all
+     peers with the profile without interruptions.
 
 
 .. _bfd-bgp-peer-config:
@@ -292,6 +327,24 @@ Here are the available peer configurations:
 ::
 
    bfd
+    ! Configure a fast profile
+    profile fast
+     receive-interval 150
+     transmit-interval 150
+    !
+
+    ! Configure peer with fast profile
+    peer 192.168.0.6
+     profile fast
+     no shutdown
+    !
+
+   ! Configure peer with fast profile and override receive speed.
+    peer 192.168.0.7
+     profile fast
+     receive-interval 500
+     no shutdown
+    !
 
     ! configure a peer on an specific interface
     peer 192.168.0.1 interface eth0

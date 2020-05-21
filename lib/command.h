@@ -155,6 +155,7 @@ enum node_type {
 	BGP_FLOWSPECV6_NODE,	/* BGP IPv6 FLOWSPEC Address-Family */
 	BFD_NODE,		 /* BFD protocol mode. */
 	BFD_PEER_NODE,		 /* BFD peer configuration mode. */
+	BFD_PROFILE_NODE,	 /* BFD profile configuration mode. */
 	OPENFABRIC_NODE,	/* OpenFabric router configuration node */
 	VRRP_NODE,		 /* VRRP node */
 	BMP_NODE,		/* BMP config under router bgp */
@@ -403,6 +404,8 @@ struct cmd_node {
 #define WATCHFRR_STR "watchfrr information\n"
 #define ZEBRA_STR "Zebra information\n"
 #define FILTER_LOG_STR "Filter Logs\n"
+#define BFD_PROFILE_STR "BFD profile.\n"
+#define BFD_PROFILE_NAME_STR "BFD profile name.\n"
 
 #define CMD_VNI_RANGE "(1-16777215)"
 #define CONF_BACKUP_EXT ".sav"
