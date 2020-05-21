@@ -293,9 +293,9 @@ int path_nb_update_path(struct path *path)
 	char *segment_list_name = NULL;
 	struct nb_config *config = nb_config_dup(running_config);
 
+	path_nb_delete_candidate_segment_list(config, &path->nbkey,
+					      path->originator);
 	if (path->first_hop != NULL) {
-		path_nb_delete_candidate_segment_list(config, &path->nbkey,
-						      path->originator);
 
 		snprintf(segment_list_name_buff, sizeof(segment_list_name_buff),
 			 "%s-%u", path->name, path->plsp_id);
