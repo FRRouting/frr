@@ -149,6 +149,7 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 	new->ifindex = ifindex;
 	new->nexthop = nexthop;
 	new->tag = tag;
+	new->orig_tag = tag;
 
 	/* we don't unlock rn from the get() because we're attaching the info */
 	if (rn)
