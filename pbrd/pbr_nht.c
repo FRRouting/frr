@@ -1037,8 +1037,8 @@ static void pbr_nht_json_nhg_nexthops(struct hash_bucket *b, void *data)
 	json_object *this_hop;
 
 	this_hop = json_object_new_object();
-	json_object_boolean_add(this_hop, "valid", pnhc->valid);
 	nexthop_group_json_nexthop(this_hop, pnhc->nexthop);
+	json_object_boolean_add(this_hop, "isValid", pnhc->valid);
 
 	json_object_array_add(all_hops, this_hop);
 }
@@ -1080,10 +1080,10 @@ static void pbr_nht_json_nhg(struct hash_bucket *b, void *data)
 	if (!j || !this_group)
 		return;
 
-	json_object_string_add(this_group, "name", pnhgc->name);
 	json_object_int_add(this_group, "id", pnhgc->table_id);
-	json_object_boolean_add(this_group, "valid", pnhgc->valid);
-	json_object_boolean_add(this_group, "installed", pnhgc->installed);
+	json_object_string_add(this_group, "name", pnhgc->name);
+	json_object_boolean_add(this_group, "isValid", pnhgc->valid);
+	json_object_boolean_add(this_group, "isInstalled", pnhgc->installed);
 
 	group_hops = json_object_new_array();
 

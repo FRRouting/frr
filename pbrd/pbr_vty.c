@@ -594,7 +594,7 @@ static void vty_show_pbrms(struct vty *vty,
 static void vty_json_pbrms(json_object *j, struct vty *vty,
 			   const struct pbr_map_sequence *pbrms)
 {
-	json_object *jpbrm, *matches, *nexthop_group;
+	json_object *jpbrm, *nexthop_group;
 	char *nhg_name = pbrms->nhgrp_name ? pbrms->nhgrp_name
 					   : pbrms->internal_nhg_name;
 	char buf[PREFIX_STRLEN];
@@ -602,56 +602,46 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 
 	jpbrm = json_object_new_object();
 
+	json_object_int_add(jpbrm, "id", pbrms->unique);
+
 	if (pbrms->reason)
 		pbr_map_reason_string(pbrms->reason, rbuf, sizeof(rbuf));
 
 	json_object_int_add(jpbrm, "sequenceNumber", pbrms->seqno);
 	json_object_int_add(jpbrm, "ruleNumber", pbrms->ruleno);
-
-	json_object_int_add(jpbrm, "identifier", pbrms->unique);
 	json_object_boolean_add(jpbrm, "vrfUnchanged", pbrms->vrf_unchanged);
-
-	json_object_boolean_add(jpbrm, "installed",
+	json_object_boolean_add(jpbrm, "isInstalled",
 				pbr_nht_get_installed(nhg_name));
-	json_object_string_add(jpbrm, "reason", pbrms->reason ? rbuf : "Valid");
+	json_object_string_add(jpbrm, "installedReason",
+			       pbrms->reason ? rbuf : "Valid");
 
-	if (pbrms->nhgrp_name || pbrms->mark) {
+	if (nhg_name) {
 		nexthop_group = json_object_new_object();
 
-		json_object_string_add(nexthop_group, "name", nhg_name);
-
-		json_object_int_add(nexthop_group, "nhsInstalled",
-				    pbrms->nhs_installed);
-		json_object_int_add(nexthop_group, "nhtInstalled",
-				    pbr_nht_get_installed(nhg_name));
-
-		json_object_int_add(nexthop_group, "tableId",
+		json_object_int_add(nexthop_group, "id",
 				    pbr_nht_get_table(nhg_name));
-		json_object_boolean_add(nexthop_group, "installed",
+		json_object_string_add(nexthop_group, "name", nhg_name);
+		json_object_boolean_add(nexthop_group, "isInstalled",
 					pbr_nht_get_installed(nhg_name));
+		json_object_int_add(nexthop_group, "isInstalledInternally",
+				    pbrms->nhs_installed);
 
 		json_object_object_add(jpbrm, "nexthopGroup", nexthop_group);
-
-	} else if (pbrms->vrf_lookup) {
-		json_object_string_add(jpbrm, "vrf", pbrms->vrf_name);
 	}
 
-	if (pbrms->src || pbrms->dst || pbrms->mark) {
-		matches = json_object_new_object();
+	if (pbrms->vrf_lookup)
+		json_object_string_add(jpbrm, "vrfName", pbrms->vrf_name);
 
-		if (pbrms->src)
-			json_object_string_add(
-				matches, "src",
-				prefix2str(pbrms->src, buf, sizeof(buf)));
-		if (pbrms->dst)
-			json_object_string_add(
-				matches, "dst",
-				prefix2str(pbrms->dst, buf, sizeof(buf)));
-		if (pbrms->mark)
-			json_object_int_add(matches, "mark", pbrms->mark);
-
-		json_object_object_add(jpbrm, "matchRule", matches);
-	}
+	if (pbrms->src)
+		json_object_string_add(
+			jpbrm, "matchSrc",
+			prefix2str(pbrms->src, buf, sizeof(buf)));
+	if (pbrms->dst)
+		json_object_string_add(
+			jpbrm, "matchDst",
+			prefix2str(pbrms->dst, buf, sizeof(buf)));
+	if (pbrms->mark)
+		json_object_int_add(jpbrm, "matchMark", pbrms->mark);
 
 	json_object_array_add(j, jpbrm);
 }
@@ -677,7 +667,7 @@ static void vty_json_pbr_map(json_object *j, struct vty *vty,
 	json_object *jpbrms;
 
 	json_object_string_add(j, "name", pbrm->name);
-	json_object_boolean_add(j, "valid", pbrm->valid);
+	json_object_boolean_add(j, "isValid", pbrm->valid);
 
 	jpbrms = json_object_new_array();
 
@@ -805,7 +795,7 @@ DEFPY (show_pbr_interface,
 						    ifp->ifindex);
 				json_object_string_add(this_iface, "policy",
 						       pbr_ifp->mapname);
-				json_object_boolean_add(this_iface, "valid",
+				json_object_boolean_add(this_iface, "isValid",
 							pbrm);
 
 				json_object_object_add(j, ifp->name,

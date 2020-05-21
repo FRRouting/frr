@@ -1003,25 +1003,25 @@ void nexthop_group_json_nexthop(json_object *j, struct nexthop *nh)
 
 	switch (nh->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		json_object_string_add(j, "nexthop",
+		json_object_string_add(j, "target",
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
 		break;
 	case NEXTHOP_TYPE_IPV4:
-		json_object_string_add(j, "nexthop", inet_ntoa(nh->gate.ipv4));
+		json_object_string_add(j, "target", inet_ntoa(nh->gate.ipv4));
 		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		json_object_string_add(j, "nexthop", inet_ntoa(nh->gate.ipv4));
+		json_object_string_add(j, "target", inet_ntoa(nh->gate.ipv4));
 		json_object_string_add(j, "vrfId",
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		json_object_string_add(
-			j, "nexthop",
+			j, "target",
 			inet_ntop(AF_INET6, &nh->gate.ipv6, buf, sizeof(buf)));
 		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		json_object_string_add(
-			j, "nexthop",
+			j, "target",
 			inet_ntop(AF_INET6, &nh->gate.ipv6, buf, sizeof(buf)));
 		json_object_string_add(j, "vrfId",
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
@@ -1032,7 +1032,7 @@ void nexthop_group_json_nexthop(json_object *j, struct nexthop *nh)
 
 	if (nh->vrf_id != VRF_DEFAULT) {
 		vrf = vrf_lookup_by_id(nh->vrf_id);
-		json_object_string_add(j, "nexthopVrf", vrf->name);
+		json_object_string_add(j, "targetVrf", vrf->name);
 	}
 
 	if (nh->nh_label && nh->nh_label->num_labels > 0) {
