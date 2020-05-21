@@ -223,12 +223,6 @@ class NorthboundImpl
 	{
 		switch (tag->state) {
 		case CREATE: {
-			auto mypaths = new std::list<std::string>();
-			tag->context = mypaths;
-			auto paths = tag->request.path();
-			for (const std::string &path : paths) {
-				mypaths->push_back(std::string(path));
-			}
 			REQUEST_RPC_STREAMING(Get);
 			tag->state = PROCESS;
 		}
@@ -239,22 +233,14 @@ class NorthboundImpl
 			frr::Encoding encoding = tag->request.encoding();
 			// Request: bool with_defaults = 3;
 			bool with_defaults = tag->request.with_defaults();
+			// Request: string path = 4;
+			std::string path = tag->request.path();
 
 			if (nb_dbg_client_grpc)
 				zlog_debug(
-					"received RPC Get(type: %u, encoding: %u, with_defaults: %u)",
-					type, encoding, with_defaults);
-
-			auto mypaths = static_cast<std::list<std::string> *>(
-				tag->context);
-
-			if (mypaths->empty()) {
-				tag->async_responder.Finish(grpc::Status::OK,
-							    tag);
-				tag->state = FINISH;
-				return;
-			}
-
+					"received RPC Get(type: %u, encoding: %u, with_defaults: %u, path: %s)",
+					type, encoding, with_defaults,
+					path.c_str());
 
 			frr::GetResponse response;
 			grpc::Status status;
@@ -265,7 +251,7 @@ class NorthboundImpl
 			// Response: DataTree data = 2;
 			auto *data = response.mutable_data();
 			data->set_encoding(tag->request.encoding());
-			status = get_path(data, mypaths->back().c_str(), type,
+			status = get_path(data, path.c_str(), type,
 					  encoding2lyd_format(encoding),
 					  with_defaults);
 
@@ -278,18 +264,16 @@ class NorthboundImpl
 				return;
 			}
 
-			mypaths->pop_back();
-
-			tag->async_responder.Write(response, tag);
+			tag->async_responder.WriteAndFinish(
+				response, grpc::WriteOptions(),
+				grpc::Status::OK, tag);
+			tag->state = FINISH;
 
 			break;
 		}
 		case FINISH:
 			if (nb_dbg_client_grpc)
 				zlog_debug("received RPC Get() end");
-
-			delete static_cast<std::list<std::string> *>(
-				tag->context);
 			delete tag;
 		}
 	}

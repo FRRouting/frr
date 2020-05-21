@@ -129,8 +129,8 @@ message GetRequest {
   // Include implicit default nodes.
   bool with_defaults = 3;
 
-  // Paths requested by the client.
-  repeated string path = 4;
+  // YANG data path.
+  string path = 4;
 }
 
 message GetResponse {
