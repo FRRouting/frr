@@ -943,10 +943,13 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		THREAD_OFF(ch->t_ifjoin_expiry_timer);
 		break;
 	case PIM_IFJOIN_PRUNE:
-		if (source_flags & PIM_ENCODE_RPT_BIT)
+		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			pim_ifchannel_ifjoin_switch(__func__, ch,
 						    PIM_IFJOIN_NOINFO);
-		else
+			THREAD_OFF(ch->t_ifjoin_expiry_timer);
+			delete_on_noinfo(ch);
+			return;
+		} else
 			pim_ifchannel_ifjoin_handler(ch, pim_ifp);
 		break;
 	case PIM_IFJOIN_PRUNE_PENDING:
