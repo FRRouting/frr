@@ -37,6 +37,7 @@ import difflib
 import time
 
 from lib.topolog import logger
+from copy import deepcopy
 
 if sys.version_info[0] > 2:
     import configparser
@@ -66,144 +67,210 @@ class json_cmp_result(object):
         "Returns True if there were errors, otherwise False."
         return len(self.errors) > 0
 
+    def gen_report(self):
+        headline = ["Generated JSON diff error report:", ""]
+        return headline + self.errors
+
     def __str__(self):
-        return "\n".join(self.errors)
+        return (
+            "Generated JSON diff error report:\n\n\n" + "\n".join(self.errors) + "\n\n"
+        )
 
 
-def json_diff(d1, d2):
+def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
     """
-    Returns a string with the difference between JSON data.
+    Internal workhorse which compares two JSON data structures and generates an error report suited to be read by a human eye.
     """
-    json_format_opts = {
-        "indent": 4,
-        "sort_keys": True,
-    }
-    dstr1 = json.dumps(d1, **json_format_opts)
-    dstr2 = json.dumps(d2, **json_format_opts)
-    return difflines(dstr2, dstr1, title1="Expected value", title2="Current value", n=0)
 
-
-def _json_list_cmp(list1, list2, parent, result):
-    "Handles list type entries."
-    # Check second list2 type
-    if not isinstance(list1, type([])) or not isinstance(list2, type([])):
-        result.add_error(
-            "{} has different type than expected ".format(parent)
-            + "(have {}, expected {}):\n{}".format(
-                type(list1), type(list2), json_diff(list1, list2)
+    def dump_json(v):
+        if isinstance(v, (dict, list)):
+            return "\t" + "\t".join(
+                json.dumps(v, indent=4, separators=(",", ": ")).splitlines(True)
             )
-        )
-        return
+        else:
+            return "'{}'".format(v)
 
-    # Check list size
-    if len(list2) > len(list1):
-        result.add_error(
-            "{} too few items ".format(parent)
-            + "(have {}, expected {}:\n {})".format(
-                len(list1), len(list2), json_diff(list1, list2)
+    def json_type(v):
+        if isinstance(v, (list, tuple)):
+            return "Array"
+        elif isinstance(v, dict):
+            return "Object"
+        elif isinstance(v, (int, float)):
+            return "Number"
+        elif isinstance(v, bool):
+            return "Boolean"
+        elif isinstance(v, str):
+            return "String"
+        elif v == None:
+            return "null"
+
+    def get_errors(other_acc):
+        return other_acc[1]
+
+    def get_errors_n(other_acc):
+        return other_acc[0]
+
+    def add_error(acc, msg, points=1):
+        return (acc[0] + points, acc[1] + "{}: {}\n".format(path, msg))
+
+    def merge_errors(acc, other_acc):
+        return (acc[0] + other_acc[0], acc[1] + other_acc[1])
+
+    def add_idx(idx):
+        return "{}[{}]".format(path, idx)
+
+    def add_key(key):
+        return "{}->{}".format(path, key)
+
+    def has_errors(other_acc):
+        return other_acc[0] > 0
+
+    if d2 == "*" or (
+        not isinstance(d1, (list, dict))
+        and not isinstance(d2, (list, dict))
+        and d1 == d2
+    ):
+        return acc
+    elif (
+        not isinstance(d1, (list, dict))
+        and not isinstance(d2, (list, dict))
+        and d1 != d2
+    ):
+        acc = add_error(
+            acc,
+            "d1 has element with value '{}' but in d2 it has value '{}'".format(d1, d2),
+        )
+    elif (
+        isinstance(d1, list)
+        and isinstance(d2, list)
+        and ((len(d2) > 0 and d2[0] == "__ordered__") or exact)
+    ):
+        if not exact:
+            del d2[0]
+        if len(d1) != len(d2):
+            acc = add_error(
+                acc,
+                "d1 has Array of length {} but in d2 it is of length {}".format(
+                    len(d1), len(d2)
+                ),
             )
+        else:
+            for idx, v1, v2 in zip(range(0, len(d1)), d1, d2):
+                acc = merge_errors(
+                    acc, gen_json_diff_report(v1, v2, exact=exact, path=add_idx(idx))
+                )
+    elif isinstance(d1, list) and isinstance(d2, list):
+        if len(d1) < len(d2):
+            acc = add_error(
+                acc,
+                "d1 has Array of length {} but in d2 it is of length {}".format(
+                    len(d1), len(d2)
+                ),
+            )
+        else:
+            for idx2, v2 in zip(range(0, len(d2)), d2):
+                found_match = False
+                closest_diff = None
+                closest_idx = None
+                for idx1, v1 in zip(range(0, len(d1)), d1):
+                    tmp_diff = gen_json_diff_report(v1, v2, path=add_idx(idx1))
+                    if not has_errors(tmp_diff):
+                        found_match = True
+                        del d1[idx1]
+                        break
+                    elif not closest_diff or get_errors_n(tmp_diff) < get_errors_n(
+                        closest_diff
+                    ):
+                        closest_diff = tmp_diff
+                        closest_idx = idx1
+                if not found_match and isinstance(v2, (list, dict)):
+                    sub_error = "\n\n\t{}".format(
+                        "\t".join(get_errors(closest_diff).splitlines(True))
+                    )
+                    acc = add_error(
+                        acc,
+                        (
+                            "d2 has the following element at index {} which is not present in d1: "
+                            + "\n\n{}\n\n\tClosest match in d1 is at index {} with the following errors: {}"
+                        ).format(idx2, dump_json(v2), closest_idx, sub_error),
+                    )
+                if not found_match and not isinstance(v2, (list, dict)):
+                    acc = add_error(
+                        acc,
+                        "d2 has the following element at index {} which is not present in d1: {}".format(
+                            idx2, dump_json(v2)
+                        ),
+                    )
+    elif isinstance(d1, dict) and isinstance(d2, dict) and exact:
+        invalid_keys_d1 = [k for k in d1.keys() if k not in d2.keys()]
+        invalid_keys_d2 = [k for k in d2.keys() if k not in d1.keys()]
+        for k in invalid_keys_d1:
+            acc = add_error(acc, "d1 has key '{}' which is not present in d2".format(k))
+        for k in invalid_keys_d2:
+            acc = add_error(acc, "d2 has key '{}' which is not present in d1".format(k))
+        valid_keys_intersection = [k for k in d1.keys() if k in d2.keys()]
+        for k in valid_keys_intersection:
+            acc = merge_errors(
+                acc, gen_json_diff_report(d1[k], d2[k], exact=exact, path=add_key(k))
+            )
+    elif isinstance(d1, dict) and isinstance(d2, dict):
+        none_keys = [k for k, v in d2.items() if v == None]
+        none_keys_present = [k for k in d1.keys() if k in none_keys]
+        for k in none_keys_present:
+            acc = add_error(
+                acc, "d1 has key '{}' which is not supposed to be present".format(k)
+            )
+        keys = [k for k, v in d2.items() if v != None]
+        invalid_keys_intersection = [k for k in keys if k not in d1.keys()]
+        for k in invalid_keys_intersection:
+            acc = add_error(acc, "d2 has key '{}' which is not present in d1".format(k))
+        valid_keys_intersection = [k for k in keys if k in d1.keys()]
+        for k in valid_keys_intersection:
+            acc = merge_errors(
+                acc, gen_json_diff_report(d1[k], d2[k], exact=exact, path=add_key(k))
+            )
+    else:
+        acc = add_error(
+            acc,
+            "d1 has element of type '{}' but the corresponding element in d2 is of type '{}'".format(
+                json_type(d1), json_type(d2)
+            ),
+            points=2,
         )
-        return
 
-    # List all unmatched items errors
-    unmatched = []
-    for expected in list2:
-        matched = False
-        for value in list1:
-            if json_cmp({"json": value}, {"json": expected}) is None:
-                matched = True
-                break
-
-        if not matched:
-            unmatched.append(expected)
-
-    # If there are unmatched items, error out.
-    if unmatched:
-        result.add_error(
-            "{} value is different (\n{})".format(parent, json_diff(list1, list2))
-        )
+    return acc
 
 
-def json_cmp(d1, d2):
+def json_cmp(d1, d2, exact=False):
     """
     JSON compare function. Receives two parameters:
-    * `d1`: json value
-    * `d2`: json subset which we expect
+    * `d1`: parsed JSON data structure
+    * `d2`: parsed JSON data structure
 
-    Returns `None` when all keys that `d1` has matches `d2`,
-    otherwise a string containing what failed.
+    Returns 'None' when all JSON Object keys and all Array elements of d2 have a match
+    in d1, e.g. when d2 is a "subset" of d1 without honoring any order. Otherwise an
+    error report is generated and wrapped in a 'json_cmp_result()'. There are special
+    parameters and notations explained below which can be used to cover rather unusual
+    cases:
 
-    Note: key absence can be tested by adding a key with value `None`.
+    * when 'exact is set to 'True' then d1 and d2 are tested for equality (including
+      order within JSON Arrays)
+    * using 'null' (or 'None' in Python) as JSON Object value is checking for key
+      absence in d1
+    * using '*' as JSON Object value or Array value is checking for presence in d1
+      without checking the values
+    * using '__ordered__' as first element in a JSON Array in d2 will also check the
+      order when it is compared to an Array in d1
     """
-    squeue = [(d1, d2, "json")]
-    result = json_cmp_result()
 
-    for s in squeue:
-        nd1, nd2, parent = s
+    (errors_n, errors) = gen_json_diff_report(deepcopy(d1), deepcopy(d2), exact=exact)
 
-        # Handle JSON beginning with lists.
-        if isinstance(nd1, type([])) or isinstance(nd2, type([])):
-            _json_list_cmp(nd1, nd2, parent, result)
-            if result.has_errors():
-                return result
-            else:
-                return None
-
-        # Expect all required fields to exist.
-        s1, s2 = set(nd1), set(nd2)
-        s2_req = set([key for key in nd2 if nd2[key] is not None])
-        diff = s2_req - s1
-        if diff != set({}):
-            result.add_error(
-                "expected key(s) {} in {} (have {}):\n{}".format(
-                    str(list(diff)), parent, str(list(s1)), json_diff(nd1, nd2)
-                )
-            )
-
-        for key in s2.intersection(s1):
-            # Test for non existence of key in d2
-            if nd2[key] is None:
-                result.add_error(
-                    '"{}" should not exist in {} (have {}):\n{}'.format(
-                        key, parent, str(s1), json_diff(nd1[key], nd2[key])
-                    )
-                )
-                continue
-
-            # If nd1 key is a dict, we have to recurse in it later.
-            if isinstance(nd2[key], type({})):
-                if not isinstance(nd1[key], type({})):
-                    result.add_error(
-                        '{}["{}"] has different type than expected '.format(parent, key)
-                        + "(have {}, expected {}):\n{}".format(
-                            type(nd1[key]),
-                            type(nd2[key]),
-                            json_diff(nd1[key], nd2[key]),
-                        )
-                    )
-                    continue
-                nparent = '{}["{}"]'.format(parent, key)
-                squeue.append((nd1[key], nd2[key], nparent))
-                continue
-
-            # Check list items
-            if isinstance(nd2[key], type([])):
-                _json_list_cmp(nd1[key], nd2[key], parent, result)
-                continue
-
-            # Compare JSON values
-            if nd1[key] != nd2[key]:
-                result.add_error(
-                    '{}["{}"] value is different (\n{})'.format(
-                        parent, key, json_diff(nd1[key], nd2[key])
-                    )
-                )
-                continue
-
-    if result.has_errors():
+    if errors_n > 0:
+        result = json_cmp_result()
+        result.add_error(errors)
         return result
-
-    return None
+    else:
+        return None
 
 
 def router_output_cmp(router, cmd, expected):
@@ -218,12 +285,12 @@ def router_output_cmp(router, cmd, expected):
     )
 
 
-def router_json_cmp(router, cmd, data):
+def router_json_cmp(router, cmd, data, exact=False):
     """
     Runs `cmd` that returns JSON data (normally the command ends with 'json')
     and compare with `data` contents.
     """
-    return json_cmp(router.vtysh_cmd(cmd, isjson=True), data)
+    return json_cmp(router.vtysh_cmd(cmd, isjson=True), data, exact)
 
 
 def run_and_expect(func, what, count=20, wait=3):

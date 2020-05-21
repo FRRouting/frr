@@ -286,5 +286,182 @@ def test_json_list_start_failure():
     assert json_cmp(dcomplete, dsub4) is not None
 
 
+def test_json_list_ordered():
+    "Test JSON encoded data that should be ordered using the '__ordered__' tag."
+
+    dcomplete = [
+        {"id": 1, "value": "abc"},
+        "some string",
+        123,
+    ]
+
+    dsub1 = [
+        '__ordered__',
+        "some string",
+        {"id": 1, "value": "abc"},
+        123,
+    ]
+
+    assert json_cmp(dcomplete, dsub1) is not None
+
+
+def test_json_list_exact_matching():
+    "Test JSON array on exact matching using the 'exact' parameter."
+
+    dcomplete = [
+        {"id": 1, "value": "abc"},
+        "some string",
+        123,
+        [1,2,3],
+    ]
+
+    dsub1 = [
+        "some string",
+        {"id": 1, "value": "abc"},
+        123,
+        [1,2,3],
+    ]
+
+    dsub2 = [
+        {"id": 1},
+        "some string",
+        123,
+        [1,2,3],
+    ]
+
+    dsub3 = [
+        {"id": 1, "value": "abc"},
+        "some string",
+        123,
+        [1,3,2],
+    ]
+
+    assert json_cmp(dcomplete, dsub1, exact=True) is not None
+    assert json_cmp(dcomplete, dsub2, exact=True) is not None
+
+
+def test_json_object_exact_matching():
+    "Test JSON object on exact matching using the 'exact' parameter."
+
+    dcomplete = {
+        'a': {"id": 1, "value": "abc"},
+        'b': "some string",
+        'c': 123,
+        'd': [1,2,3],
+    }
+
+    dsub1 = {
+        'a': {"id": 1, "value": "abc"},
+        'c': 123,
+        'd': [1,2,3],
+    }
+
+    dsub2 = {
+        'a': {"id": 1},
+        'b': "some string",
+        'c': 123,
+        'd': [1,2,3],
+    }
+
+    dsub3 = {
+        'a': {"id": 1, "value": "abc"},
+        'b': "some string",
+        'c': 123,
+        'd': [1,3],
+    }
+
+    assert json_cmp(dcomplete, dsub1, exact=True) is not None
+    assert json_cmp(dcomplete, dsub2, exact=True) is not None
+    assert json_cmp(dcomplete, dsub3, exact=True) is not None
+
+
+def test_json_list_asterisk_matching():
+    "Test JSON array elements on matching '*' as a placeholder for arbitrary data."
+
+    dcomplete = [
+        {"id": 1, "value": "abc"},
+        "some string",
+        123,
+        [1,2,3],
+    ]
+
+    dsub1 = [
+        '*',
+        "some string",
+        123,
+        [1,2,3],
+    ]
+
+    dsub2 = [
+        {"id": '*', "value": "abc"},
+        "some string",
+        123,
+        [1,2,3],
+    ]
+
+    dsub3 = [
+        {"id": 1, "value": "abc"},
+        "some string",
+        123,
+        [1,'*',3],
+    ]
+
+    dsub4 = [
+        '*',
+        "some string",
+        '*',
+        [1,2,3],
+    ]
+
+    assert json_cmp(dcomplete, dsub1) is None
+    assert json_cmp(dcomplete, dsub2) is None
+    assert json_cmp(dcomplete, dsub3) is None
+    assert json_cmp(dcomplete, dsub4) is None
+
+
+def test_json_object_asterisk_matching():
+    "Test JSON object value elements on matching '*' as a placeholder for arbitrary data."
+
+    dcomplete = {
+        'a': {"id": 1, "value": "abc"},
+        'b': "some string",
+        'c': 123,
+        'd': [1,2,3],
+    }
+
+    dsub1 = {
+        'a': '*',
+        'b': "some string",
+        'c': 123,
+        'd': [1,2,3],
+    }
+
+    dsub2 = {
+        'a': {"id": 1, "value": "abc"},
+        'b': "some string",
+        'c': 123,
+        'd': [1,'*',3],
+    }
+
+    dsub3 = {
+        'a': {"id": '*', "value": "abc"},
+        'b': "some string",
+        'c': 123,
+        'd': [1,2,3],
+    }
+
+    dsub4 = {
+        'a': '*',
+        'b': "some string",
+        'c': '*',
+        'd': [1,2,3],
+    }
+
+    assert json_cmp(dcomplete, dsub1) is None
+    assert json_cmp(dcomplete, dsub2) is None
+    assert json_cmp(dcomplete, dsub3) is None
+    assert json_cmp(dcomplete, dsub4) is None
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main())
