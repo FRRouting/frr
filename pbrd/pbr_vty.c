@@ -691,7 +691,7 @@ DEFPY (show_pbr_map,
 	json_object *j = NULL;
 
 	if (json)
-		j = json_object_new_object();
+		j = json_object_new_array();
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
 		json_object *this_map = NULL;
@@ -704,7 +704,7 @@ DEFPY (show_pbr_map,
 		if (this_map) {
 			vty_json_pbr_map(this_map, vty, pbrm);
 
-			json_object_object_add(j, pbrm->name, this_map);
+			json_object_array_add(j, this_map);
 			continue;
 		}
 
@@ -733,7 +733,7 @@ DEFPY(show_pbr_nexthop_group,
 	json_object *j = NULL;
 
 	if (json)
-		j = json_object_new_object();
+		j = json_object_new_array();
 
 	if (j) {
 		pbr_nht_json_nexthop_group(j, word);
@@ -765,7 +765,7 @@ DEFPY (show_pbr_interface,
 	json_object *j = NULL;
 
 	if (json)
-		j = json_object_new_object();
+		j = json_object_new_array();
 
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
 		FOR_ALL_INTERFACES(vrf, ifp) {
@@ -798,8 +798,7 @@ DEFPY (show_pbr_interface,
 				json_object_boolean_add(this_iface, "isValid",
 							pbrm);
 
-				json_object_object_add(j, ifp->name,
-						       this_iface);
+				json_object_array_add(j, this_iface);
 				continue;
 			}
 

@@ -1092,7 +1092,7 @@ static void pbr_nht_json_nhg(struct hash_bucket *b, void *data)
 		json_object_object_add(this_group, "nexthops", group_hops);
 	}
 
-	json_object_object_add(j, pnhgc->name, this_group);
+	json_object_array_add(j, this_group);
 }
 
 void pbr_nht_show_nexthop_group(struct vty *vty, const char *name)
