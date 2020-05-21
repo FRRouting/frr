@@ -474,12 +474,17 @@ static int bgp_bfd_peer_param_set(struct peer *peer, uint32_t min_rx,
 				  uint32_t min_tx, uint8_t detect_mult,
 				  int defaults)
 {
+	struct bfd_info *bi;
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 	int command = 0;
 
 	bfd_set_param((struct bfd_info **)&(peer->bfd_info), min_rx, min_tx,
 		      detect_mult, defaults, &command);
+
+	/* This command overrides profile if it was previously applied. */
+	bi = peer->bfd_info;
+	bi->profile[0] = 0;
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		group = peer->group;
@@ -488,6 +493,13 @@ static int bgp_bfd_peer_param_set(struct peer *peer, uint32_t min_rx,
 			bfd_set_param((struct bfd_info **)&(peer->bfd_info),
 				      min_rx, min_tx, detect_mult, defaults,
 				      &command);
+
+			/*
+			 * This command overrides profile if it was previously
+			 * applied.
+			 */
+			bi = peer->bfd_info;
+			bi->profile[0] = 0;
 
 			if ((peer->status == Established)
 			    && (command == ZEBRA_BFD_DEST_REGISTER))
