@@ -1477,8 +1477,6 @@ DEFPY (show_yang_operational_data,
 		SET_FLAG(iter_input.flags, F_NB_OPER_DATA_ITER_OFFSET);
 		strlcpy(iter_input.offset_path, iter_output.offset_path,
 			sizeof(iter_input.offset_path));
-		strlcpy(iter_input.offset_node, iter_output.offset_node,
-			sizeof(iter_input.offset_node));
 	}
 	if (ret == NB_ITER_ABORT) {
 		vty_out(vty, "%% Failed to fetch operational data: %s\n\n",

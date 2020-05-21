@@ -1476,7 +1476,7 @@ static int
 nb_oper_data_check_stop_condition(struct nb_oper_data_iter_input *input,
 				  struct nb_oper_data_iter_output *output,
 				  const struct lys_node *snode,
-				  const char *xpath_parent)
+				  const char *xpath)
 {
 	const struct nb_node *nb_node = snode->priv;
 
@@ -1484,10 +1484,8 @@ nb_oper_data_check_stop_condition(struct nb_oper_data_iter_input *input,
 	    && input->max_elements != 0
 	    && output->num_elements >= input->max_elements) {
 		/* Save where we stopped in the output parameters. */
-		strlcpy(output->offset_path, xpath_parent,
+		strlcpy(output->offset_path, xpath,
 			sizeof(output->offset_path));
-		strlcpy(output->offset_node, snode->name,
-			sizeof(output->offset_node));
 		return NB_ITER_STOP;
 	}
 
@@ -1525,8 +1523,7 @@ static int nb_oper_data_iter_children(struct nb_oper_data_iter_input *input,
 static int nb_oper_data_iter_leaf(struct nb_oper_data_iter_input *input,
 				  struct nb_oper_data_iter_output *output,
 				  const struct lys_node *snode,
-				  const char *xpath_parent, const char *xpath,
-				  const void *list_entry)
+				  const char *xpath, const void *list_entry)
 {
 	const struct nb_node *nb_node = snode->priv;
 	struct yang_data *data;
@@ -1541,8 +1538,7 @@ static int nb_oper_data_iter_leaf(struct nb_oper_data_iter_input *input,
 		return NB_ITER_CONTINUE;
 	}
 
-	ret = nb_oper_data_check_stop_condition(input, output, snode,
-						xpath_parent);
+	ret = nb_oper_data_check_stop_condition(input, output, snode, xpath);
 	if (ret != NB_ITER_CONTINUE)
 		return ret;
 
@@ -1559,7 +1555,6 @@ static int nb_oper_data_iter_leaf(struct nb_oper_data_iter_input *input,
 static int nb_oper_data_iter_container(struct nb_oper_data_iter_input *input,
 				       struct nb_oper_data_iter_output *output,
 				       const struct lys_node *snode,
-				       const char *xpath_parent,
 				       const char *xpath,
 				       const void *list_entry,
 				       const char *offset_node)
@@ -1575,7 +1570,7 @@ static int nb_oper_data_iter_container(struct nb_oper_data_iter_input *input,
 		int ret;
 
 		ret = nb_oper_data_check_stop_condition(input, output, snode,
-							xpath_parent);
+							xpath);
 		if (ret != NB_ITER_CONTINUE)
 			return ret;
 
@@ -1740,13 +1735,13 @@ static int nb_oper_data_iter_node(struct nb_oper_data_iter_input *input,
 
 	switch (snode->nodetype) {
 	case LYS_CONTAINER:
-		ret = nb_oper_data_iter_container(
-			input, output, snode, xpath_parent, xpath,
-			parent_list_entry, offset_node);
+		ret = nb_oper_data_iter_container(input, output, snode, xpath,
+						  parent_list_entry,
+						  offset_node);
 		break;
 	case LYS_LEAF:
-		ret = nb_oper_data_iter_leaf(input, output, snode, xpath_parent,
-					     xpath, parent_list_entry);
+		ret = nb_oper_data_iter_leaf(input, output, snode, xpath,
+					     parent_list_entry);
 		break;
 	case LYS_LEAFLIST:
 		ret = nb_oper_data_iter_leaflist(input, output, snode, xpath,
@@ -1862,12 +1857,11 @@ nb_oper_data_iterate_without_offset(struct nb_oper_data_iter_input *input,
 	return ret;
 }
 
-static int
-nb_oper_data_iterate_with_offset(struct nb_oper_data_iter_input *input,
-				 struct nb_oper_data_iter_output *output,
-				 const char *xpath, struct lyd_node *dnode,
-				 const void *parent_list_entry,
-				 const void *list_entry)
+static int nb_oper_data_iterate_with_offset(
+	struct nb_oper_data_iter_input *input,
+	struct nb_oper_data_iter_output *output, const char *xpath,
+	const char *offset_node, struct lyd_node *dnode,
+	const void *parent_list_entry, const void *list_entry)
 {
 	struct lys_node *snode = dnode->schema, *snode_sibling;
 	struct lyd_node *dnode_req;
@@ -1878,8 +1872,7 @@ nb_oper_data_iterate_with_offset(struct nb_oper_data_iter_input *input,
 		char xpath_list[XPATH_MAXLEN];
 
 		ret = nb_oper_data_iter_children(input, output, snode, xpath,
-						 list_entry,
-						 input->offset_node);
+						 list_entry, offset_node);
 		if (ret != NB_ITER_CONTINUE)
 			return ret;
 
@@ -1891,8 +1884,8 @@ nb_oper_data_iterate_with_offset(struct nb_oper_data_iter_input *input,
 					     NULL, false);
 	} else
 		ret = nb_oper_data_iter_node(input, output, snode, xpath,
-					     list_entry, NULL,
-					     input->offset_node, true);
+					     list_entry, NULL, offset_node,
+					     true);
 	if (ret != NB_ITER_CONTINUE)
 		return ret;
 
@@ -1993,6 +1986,8 @@ int nb_oper_data_iterate(struct nb_oper_data_iter_input *input,
 			 struct nb_oper_data_iter_output *output)
 {
 	const char *xpath;
+	char xpath_base[XPATH_MAXLEN];
+	char *offset_node;
 	struct lyd_node *dnode;
 	const void *parent_list_entry = NULL, *list_entry = NULL;
 	bool exact_match;
@@ -2009,10 +2004,21 @@ int nb_oper_data_iterate(struct nb_oper_data_iter_input *input,
 
 	/* Get iteration starting point. */
 	if (CHECK_FLAG(input->flags, F_NB_OPER_DATA_ITER_OFFSET)) {
-		xpath = input->offset_path;
+		/* Split the offset base path from the offset node. */
+		strlcpy(xpath_base, input->offset_path, sizeof(xpath_base));
+		for (size_t p = strlen(xpath_base); p; --p) {
+			if (xpath_base[p - 1] != '/')
+				continue;
+
+			xpath_base[p - 1] = '\0';
+			xpath = xpath_base;
+			offset_node = &xpath_base[p];
+			break;
+		}
 		exact_match = false;
 	} else {
 		xpath = input->xpath;
+		offset_node = NULL;
 		exact_match = true;
 	}
 
@@ -2036,9 +2042,9 @@ int nb_oper_data_iterate(struct nb_oper_data_iter_input *input,
 
 	/* Start iteration. */
 	if (CHECK_FLAG(input->flags, F_NB_OPER_DATA_ITER_OFFSET))
-		ret = nb_oper_data_iterate_with_offset(input, output, xpath,
-						       dnode, parent_list_entry,
-						       list_entry);
+		ret = nb_oper_data_iterate_with_offset(
+			input, output, xpath, offset_node, dnode,
+			parent_list_entry, list_entry);
 	else
 		ret = nb_oper_data_iterate_without_offset(
 			input, output, xpath, dnode, parent_list_entry,
@@ -2055,9 +2061,8 @@ exit:
 			break;
 		case NB_ITER_STOP:
 			zlog_debug(
-				"stopping operational-data iteration at %s/%s (fetched %u elements)",
-				output->offset_path, output->offset_node,
-				output->num_elements);
+				"stopping operational-data iteration at %s (fetched %u elements)",
+				output->offset_path, output->num_elements);
 			break;
 		case NB_ITER_ABORT:
 			zlog_debug(

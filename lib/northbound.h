@@ -695,7 +695,6 @@ struct nb_oper_data_iter_input {
 	 * Base iteration offset (used when F_NB_OPER_DATA_ITER_OFFSET is set).
 	 */
 	char offset_path[XPATH_MAXLEN];
-	char offset_node[64];
 
 	/*
 	 * F_NB_OPER_DATA_ITER_ flags to control how the iteration is performed.
@@ -714,7 +713,6 @@ struct nb_oper_data_iter_output {
 
 	/* Offset where the iteration stopped. */
 	char offset_path[XPATH_MAXLEN];
-	char offset_node[64];
 
 	/* Buffer to store human-readable error message in case of error. */
 	char errmsg[4096];
