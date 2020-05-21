@@ -156,13 +156,13 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 		assert(payload != NULL);
 		path = (struct path *)payload;
 		ret = path_nb_update_path(path);
-		if (path->srp_id != 0) {
+		if (ret != PATH_NB_ERR && path->srp_id != 0) {
 			/* ODL and Cisco requires the first reported
 			 * LSP to have a DOWN status, the later status changes
 			 * will be comunicated through hook calls.
 			 */
 			enum pcep_lsp_operational_status real_status;
-			resp = path_nb_get_path(&path->nbkey);
+			if(resp = path_nb_get_path(&path->nbkey)){
 			resp->srp_id = path->srp_id;
 			real_status = resp->status;
 			resp->status = PCEP_LSP_OPERATIONAL_DOWN;
@@ -179,6 +179,7 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 				pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp);
 			}
 			pcep_free_path(resp);
+      }
 		}
 		break;
 	default:
