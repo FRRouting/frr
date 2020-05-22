@@ -2473,7 +2473,7 @@ dplane_route_notif_update(struct route_node *rn,
 		new_ctx->u.rinfo.zd_ng.nexthop = NULL;
 
 		copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
-			      (rib_active_nhg(re))->nexthop, NULL);
+			      (rib_get_fib_nhg(re))->nexthop, NULL);
 
 		for (ALL_NEXTHOPS(new_ctx->u.rinfo.zd_ng, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);

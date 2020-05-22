@@ -1931,7 +1931,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	start_count = 0;
 
 	if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
-		for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
+		for (ALL_NEXTHOPS_PTR(rib_get_fib_nhg(re), nexthop)) {
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
 				start_count++;
 		}
@@ -1956,7 +1956,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	 */
 
 	end_count = 0;
-	for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
+	for (ALL_NEXTHOPS_PTR(rib_get_fib_nhg(re), nexthop)) {
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
 			end_count++;
 	}
