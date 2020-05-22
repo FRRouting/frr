@@ -156,10 +156,10 @@ end destination.
    +--------------+--------------------------------+---------+
    | isValid      | Is the map well-formed?        | Boolean |
    +--------------+--------------------------------+---------+
-   | sequences    | Rules to match packets against | Array   |
+   | policies     | Rules to match packets against | Array   |
    +--------------+--------------------------------+---------+
 
-   Each element of the ``sequences`` array is composed of a handful of objects
+   Each element of the ``policies`` array is composed of a handful of objects
    representing the policies associated with this map. Each policy is
    described as below (not all fields are required):
 

@@ -674,7 +674,7 @@ static void vty_json_pbr_map(json_object *j, struct vty *vty,
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 		vty_json_pbrms(jpbrms, vty, pbrms);
 
-	json_object_object_add(j, "sequences", jpbrms);
+	json_object_object_add(j, "policies", jpbrms);
 }
 
 DEFPY (show_pbr_map,
