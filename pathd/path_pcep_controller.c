@@ -456,7 +456,17 @@ int pcep_thread_timer_handler(struct thread *thread)
 	switch (type) {
 	case TM_RECONNECT_PCC:
 		pcc_state = get_pcc_state(ctrl_state, pcc_id);
-		pcep_pcc_reconnect(ctrl_state, pcc_state);
+		if (!pcc_state) {
+			zlog_err("unable to recover pcc state");
+			return 1;
+		}
+		if (pcc_state->status == PCEP_PCC_DISCONNECTED)
+			pcep_pcc_reconnect(ctrl_state, pcc_state);
+		else {
+			zlog_err("Skipping PCC reconnect. PCE in status %u",
+				 pcc_state->status);
+		}
+
 		break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
@@ -773,14 +783,20 @@ struct ctrl_state *get_ctrl_state(struct frr_pthread *fpt)
 
 struct pcc_state *get_pcc_state(struct ctrl_state *ctrl_state, int pcc_id)
 {
-	assert(ctrl_state != NULL);
-	assert(pcc_id >= 0);
-	assert(pcc_id <= MAX_PCC);
-	assert(pcc_id <= ctrl_state->pcc_count);
+	if (!ctrl_state || pcc_id < 0 || pcc_id > MAX_PCC
+	    || pcc_id > ctrl_state->pcc_count) {
+		zlog_err(
+			"Assertion failed: ctrl_state:%p pcc_id: %d (MAX_PCC=%d) pcc_count:%d ",
+			ctrl_state, pcc_id, MAX_PCC,
+			ctrl_state ? ctrl_state->pcc_count : 0);
+		return NULL;
+	}
 
 	struct pcc_state *pcc_state;
 	pcc_state = ctrl_state->pcc[pcc_id - 1];
-	assert(pcc_state != NULL);
+	if (!pcc_state) {
+		zlog_err("Failure retrieving state of PCC with Id %d", pcc_id);
+	}
 	return pcc_state;
 }
 
