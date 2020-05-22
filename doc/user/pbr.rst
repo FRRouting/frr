@@ -144,6 +144,24 @@ causes the policy to be installed into the kernel.
    even if one is on the master. Each must have the PBR map explicitly added
    to the interface.
 
+.. clicmd:: show pbr interface [NAME] [json]
+
+   Enumerates all interfaces which ``pbrd`` is keeping track of. Passing
+   ``json`` will return an array of interfaces; each returned interface will
+   adhere to the JSON schema below:
+
+   +---------+----------------------------+---------+
+   | Key     | Description                | Type    |
+   +=========+============================+=========+
+   | name    | Interface name             | String  |
+   +---------+----------------------------+---------+
+   | index   | Device Index               | Integer |
+   +---------+----------------------------+---------+
+   | policy  | PBR map for this interface | String  |
+   +---------+----------------------------+---------+
+   | isValid | Is the map well-formed?    | Boolean |
+   +---------+----------------------------+---------+
+
 .. _pbr-details:
 
 PBR Details
