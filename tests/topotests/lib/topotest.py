@@ -173,7 +173,9 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
                 closest_diff = None
                 closest_idx = None
                 for idx1, v1 in zip(range(0, len(d1)), d1):
-                    tmp_diff = gen_json_diff_report(v1, v2, path=add_idx(idx1))
+                    tmp_v1 = deepcopy(v1)
+                    tmp_v2 = deepcopy(v2)
+                    tmp_diff = gen_json_diff_report(tmp_v1, tmp_v2, path=add_idx(idx1))
                     if not has_errors(tmp_diff):
                         found_match = True
                         del d1[idx1]

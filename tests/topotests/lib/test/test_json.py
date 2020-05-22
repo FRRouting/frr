@@ -463,5 +463,39 @@ def test_json_object_asterisk_matching():
     assert json_cmp(dcomplete, dsub4) is None
 
 
+def test_json_list_nested_with_objects():
+
+    dcomplete = [
+        {
+            "key": 1,
+            "list": [
+                123
+            ]
+        },
+        {
+            "key": 2,
+            "list": [
+                123
+            ]
+        }
+    ]
+
+    dsub1 = [
+        {
+            "key": 2,
+            "list": [
+                123
+            ]
+        },
+        {
+            "key": 1,
+            "list": [
+                123
+            ]
+        }
+    ]
+
+    assert json_cmp(dcomplete, dsub1) is None
+
 if __name__ == "__main__":
     sys.exit(pytest.main())
