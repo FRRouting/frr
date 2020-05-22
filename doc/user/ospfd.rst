@@ -177,8 +177,8 @@ To start OSPF process you have to specify the OSPF router.
    OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
    advertise non-OSPF links into stub areas.
 
-.. index:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
-.. clicmd:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
+.. index:: timers throttle spf (0-600000) (0-600000) (0-600000)
+.. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
 
 .. index:: no timers throttle spf
 .. clicmd:: no timers throttle spf
