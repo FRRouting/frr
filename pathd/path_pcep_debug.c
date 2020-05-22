@@ -655,14 +655,20 @@ void _format_pcc_opts(int ps, struct pcc_opts *opts)
 	} else {
 		int ps2 = ps + DEBUG_IDENT_SIZE;
 		PCEP_FORMAT("\n");
-		if (IS_IPADDR_V6(&opts->addr)) {
-			PCEP_FORMAT("%*saddr: %pI6\n", ps2, "",
-				    &opts->addr.ipaddr_v6);
+		if (CHECK_FLAG(opts->flags, F_PCC_OPTS_IPV4)) {
+			PCEP_FORMAT("%*saddr_v4: %pI4\n", ps2, "",
+				    &opts->addr_v4);
 		} else {
-			PCEP_FORMAT("%*saddr: %pI4\n", ps2, "",
-				    &opts->addr.ipaddr_v4);
+			PCEP_FORMAT("%*saddr_v4: undefined", ps2, "");
+		}
+		if (CHECK_FLAG(opts->flags, F_PCC_OPTS_IPV6)) {
+			PCEP_FORMAT("%*saddr_v6: %pI6\n", ps2, "",
+				    &opts->addr_v6);
+		} else {
+			PCEP_FORMAT("%*saddr_v6: undefined", ps2, "");
 		}
 		PCEP_FORMAT("%*sport: %i\n", ps2, "", opts->port);
+		PCEP_FORMAT("%*smsd: %i\n", ps2, "", opts->msd);
 	}
 }
 
@@ -784,7 +790,16 @@ void _format_path(int ps, struct path *path)
 			PCEP_FORMAT("%*ssender: %pI6\n", ps2, "",
 				    &path->sender.ipaddr_v6);
 		} else {
-			PCEP_FORMAT("%*ssender: UNKNOWN\n", ps2, "");
+			PCEP_FORMAT("%*ssender: UNDEFINED\n", ps2, "");
+		}
+		if (path->pcc_addr.ipa_type == IPADDR_V4) {
+			PCEP_FORMAT("%*spcc_addr: %pI4\n", ps2, "",
+				    &path->pcc_addr.ipaddr_v4);
+		} else if (path->pcc_addr.ipa_type == IPADDR_V6) {
+			PCEP_FORMAT("%*spcc_addr: %pI6\n", ps2, "",
+				    &path->pcc_addr.ipaddr_v6);
+		} else {
+			PCEP_FORMAT("%*spcc_addr: UNDEFINED\n", ps2, "");
 		}
 		PCEP_FORMAT("%*spcc_id: %u\n", ps2, "", path->pcc_id);
 		PCEP_FORMAT("%*screate_origin: %s (%u)\n", ps2, "",
@@ -797,7 +812,7 @@ void _format_path(int ps, struct path *path)
 			PCEP_FORMAT("%*soriginator: %s\n", ps2, "",
 				    path->originator);
 		} else {
-			PCEP_FORMAT("%*soriginator: UNKNOWN\n", ps2, "");
+			PCEP_FORMAT("%*soriginator: UNDEFINED\n", ps2, "");
 		}
 		PCEP_FORMAT("%*stype: %s (%u)\n", ps2, "",
 			    srte_candidate_type_name(path->type), path->type);

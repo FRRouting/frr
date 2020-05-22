@@ -304,36 +304,38 @@ DEFUN(show_pcep_counters, show_pcep_counters_cmd, "show pcep counters",
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
-	   "pcc [<ip A.B.C.D | ipv6 X:X::X:X>] [port (1024-65535)] [msd (1-16)]",
-	   "PCC configuration\n"
-	   "PCC source ip\n"
-	   "PCC source IPv4 address\n"
-	   "PCC source ip\n"
-	   "PCC source IPv6 address\n"
-	   "PCC source port\n"
-	   "PCC source port value\n"
-	   "PCC maximum SID depth \n"
-	   "PCC maximum SID depth value\n")
+DEFUN_NOSH(
+	pcep_cli_pcc, pcep_cli_pcc_cmd,
+	"pcc [{ip A.B.C.D | ipv6 X:X::X:X}] [port (1024-65535)] [msd (1-16)]",
+	"PCC configuration\n"
+	"PCC source ip\n"
+	"PCC source IPv4 address\n"
+	"PCC source ip\n"
+	"PCC source IPv6 address\n"
+	"PCC source port\n"
+	"PCC source port value\n"
+	"PCC maximum SID depth \n"
+	"PCC maximum SID depth value\n")
 {
-
-	struct ipaddr pcc_addr;
+	uint16_t pcc_flags;
+	struct in_addr pcc_addr_v4;
+	struct in6_addr pcc_addr_v6;
 	uint32_t pcc_port = PCEP_DEFAULT_PORT;
 	uint32_t pcc_msd = PCC_DEFAULT_MSD;
 	struct pcc_opts *opts, *opts_copy;
 	int i = 1;
 
-	pcc_addr.ipa_type = IPADDR_NONE;
+	memset(&pcc_addr_v4, 0, sizeof(pcc_addr_v4));
+	memset(&pcc_addr_v6, 0, sizeof(pcc_addr_v6));
 
 	/* Handle the rest of the arguments */
 	while (i < argc) {
 		if (strcmp("ip", argv[i]->arg) == 0) {
-			pcc_addr.ipa_type = IPADDR_V4;
+			SET_FLAG(pcc_flags, F_PCC_OPTS_IPV4);
 			i++;
 			if (i >= argc)
 				return CMD_ERR_NO_MATCH;
-			if (!inet_pton(AF_INET, argv[i]->arg,
-			               &pcc_addr.ipaddr_v4))
+			if (!inet_pton(AF_INET, argv[i]->arg, &pcc_addr_v4))
 				return CMD_ERR_INCOMPLETE;
 			i++;
 			continue;
@@ -341,12 +343,11 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 		}
 
 		if (strcmp("ipv6", argv[i]->arg) == 0) {
-			pcc_addr.ipa_type = IPADDR_V6;
+			SET_FLAG(pcc_flags, F_PCC_OPTS_IPV6);
 			i++;
 			if (i >= argc)
 				return CMD_ERR_NO_MATCH;
-			if (!inet_pton(AF_INET6, argv[i]->arg,
-			               &pcc_addr.ipaddr_v6))
+			if (!inet_pton(AF_INET6, argv[i]->arg, &pcc_addr_v6))
 				return CMD_ERR_INCOMPLETE;
 			i++;
 			continue;
@@ -376,9 +377,11 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 	}
 
 	opts = XCALLOC(MTYPE_PCEP, sizeof(*opts));
-	IPADDR_COPY(&opts->addr, &pcc_addr);
+	opts->flags = pcc_flags;
+	opts->addr_v4 = pcc_addr_v4;
+	opts->addr_v6 = pcc_addr_v6;
 	opts->port = pcc_port;
-  opts->msd = pcc_msd;
+	opts->msd = pcc_msd;
 
 	if (pcep_ctrl_update_pcc_options(pcep_g->fpt, opts))
 		return CMD_WARNING;
@@ -581,37 +584,31 @@ int pcep_cli_debug_set_all(uint32_t flags, bool set)
 
 int pcep_cli_pcc_config_write(struct vty *vty)
 {
+	struct pcc_opts *pcc_opts = pcep_g->pcc_opts;
+	struct pce_opts *pce_opts;
 	char buff[128] = "";
 	int lines = 0;
 
 	if (pcep_g->pcc_opts != NULL) {
-		if (IS_IPADDR_V6(&pcep_g->pcc_opts->addr)) {
-			if (memcmp(&in6addr_any,
-				   &pcep_g->pcc_opts->addr.ipaddr_v6,
-				   sizeof(struct in6_addr))
-			    != 0) {
-				csnprintfrr(buff, sizeof(buff), " ip %pI6",
-					    &pcep_g->pcc_opts->addr.ipaddr_v6);
-			}
-		} else {
-			if (pcep_g->pcc_opts->addr.ipaddr_v4.s_addr
-			    != INADDR_ANY) {
-				csnprintfrr(buff, sizeof(buff), " ip %pI4",
-					    &pcep_g->pcc_opts->addr.ipaddr_v4);
-			}
+		if (CHECK_FLAG(pcc_opts->flags, F_PCC_OPTS_IPV4)) {
+			csnprintfrr(buff, sizeof(buff), " ip %pI4",
+				    &pcc_opts->addr_v4);
+		} else if (CHECK_FLAG(pcc_opts->flags, F_PCC_OPTS_IPV4)) {
+			csnprintfrr(buff, sizeof(buff), " ipv6 %pI6",
+				    &pcc_opts->addr_v6);
 		}
-		if (pcep_g->pcc_opts->port != PCEP_DEFAULT_PORT)
+		if (pcc_opts->port != PCEP_DEFAULT_PORT)
 			csnprintfrr(buff, sizeof(buff), " port %d",
-				    pcep_g->pcc_opts->port);
-		if (pcep_g->pcc_opts->msd != PCC_DEFAULT_MSD)
+				    pcc_opts->port);
+		if (pcc_opts->msd != PCC_DEFAULT_MSD)
 			csnprintfrr(buff, sizeof(buff), " msd %d",
-				    pcep_g->pcc_opts->msd);
+				    pcc_opts->msd);
 		vty_out(vty, "pcc%s\n", buff);
 		buff[0] = 0;
 		lines++;
 
 		for (int i = 0; i < MAX_PCC; i++) {
-			struct pce_opts *pce_opts = pcep_g->pce_opts[i];
+			pce_opts = pcep_g->pce_opts[i];
 			if (pce_opts != NULL) {
 				if (pce_opts->port != PCEP_DEFAULT_PORT) {
 					csnprintfrr(buff, sizeof(buff),

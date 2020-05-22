@@ -191,9 +191,9 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 	ctrl_state->pcc_count = 0;
 	ctrl_state->pcc_opts =
 		XCALLOC(MTYPE_PCEP, sizeof(*ctrl_state->pcc_opts));
-	/* Default to IPv4 */
-	ctrl_state->pcc_opts->addr.ipa_type = IPADDR_V4;
-	ctrl_state->pcc_opts->addr.ipaddr_v4.s_addr = INADDR_ANY;
+	/* Default to no PCC address defined */
+	UNSET_FLAG(ctrl_state->pcc_opts->flags, F_PCC_OPTS_IPV4);
+	UNSET_FLAG(ctrl_state->pcc_opts->flags, F_PCC_OPTS_IPV6);
 	ctrl_state->pcc_opts->port = PCEP_DEFAULT_PORT;
 
 	/* Keep the state reference for events */

@@ -87,7 +87,11 @@ struct pce_opts {
 };
 
 struct pcc_opts {
-	struct ipaddr addr;
+	uint16_t flags;
+#define F_PCC_OPTS_IPV4 0x0002
+#define F_PCC_OPTS_IPV6 0x0004
+	struct in_addr addr_v4;
+	struct in6_addr addr_v6;
 	short port;
 	short msd;
 };
@@ -170,8 +174,11 @@ struct path {
 	   See draft-ietf-pce-stateful-pce */
 	uint32_t plsp_id;
 
-	/* The address the path is comming from, PCE or PCC*/
+	/* The transport address the path is comming from, PCE or PCC*/
 	struct ipaddr sender;
+	/* The pcc protocol address, must be the same family as the endpoint */
+	struct ipaddr pcc_addr;
+
 	/* The identifier of the PCC the path is for/from. If 0 it is undefined,
 	meaning it hasn't be set yet or is for all the PCC */
 	int pcc_id;

@@ -1952,7 +1952,7 @@ DEFUNSH(VTYSH_PATHD, te_path_sr_policy, te_path_sr_policy_cmd,
 }
 
 DEFUNSH(VTYSH_PATHD, pcep_cli_pcc, pcep_cli_pcc_cmd,
-	"pcc [<ip A.B.C.D | ipv6 X:X::X:X>] [port (1024-65535)] [msd (1-16)]",
+	"pcc [{ip A.B.C.D | ipv6 X:X::X:X}] [port (1024-65535)] [msd (1-16)]",
 	"PCC configuration\n"
 	"PCC source ip\n"
 	"PCC source IPv4 address\n"

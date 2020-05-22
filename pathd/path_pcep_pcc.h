@@ -57,9 +57,14 @@ struct pcc_state {
 	int id;
 	char tag[MAX_TAG_SIZE];
 	enum pcc_status status;
+	uint16_t flags;
+#define F_PCC_STATE_HAS_IPV4 0x0002
+#define F_PCC_STATE_HAS_IPV6 0x0004
 	struct pcc_opts *pcc_opts;
 	struct pce_opts *pce_opts;
-	struct ipaddr pcc_addr;
+	struct in_addr pcc_addr_v4;
+	struct in6_addr pcc_addr_v6;
+	struct ipaddr pcc_addr_tr;
 	char *originator;
 	pcep_session *sess;
 	uint32_t retry_count;

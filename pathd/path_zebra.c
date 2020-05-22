@@ -39,15 +39,21 @@ static struct zclient *zclient;
 static struct zclient *zclient_sync;
 
 /* Global Variables */
-struct ipaddr g_router_id = { .ipa_type = IPADDR_NONE};
+bool g_has_router_id_v4 = false;
+struct in_addr g_router_id_v4;
 pthread_mutex_t g_router_id_mtx = PTHREAD_MUTEX_INITIALIZER;
 
-void get_router_id(struct ipaddr *router_id)
+bool get_inet_router_id(struct in_addr *router_id)
 {
+	bool retval = false;
 	assert(router_id != NULL);
 	pthread_mutex_lock(&g_router_id_mtx);
-	IPADDR_COPY(router_id, &g_router_id);
+	if (g_has_router_id_v4) {
+		memcpy(router_id, &g_router_id_v4, sizeof(*router_id));
+		retval = true;
+	}
 	pthread_mutex_unlock(&g_router_id_mtx);
+	return retval;
 }
 
 static void path_zebra_connected(struct zclient *zclient)
@@ -103,20 +109,21 @@ static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
 	char buf[PREFIX2STR_BUFFER];
 	pthread_mutex_lock(&g_router_id_mtx);
 	zebra_router_id_update_read(zclient->ibuf, &pref);
-	memset(&g_router_id, 0, sizeof(struct ipaddr));
-	g_router_id.ipa_type = IPADDR_NONE;
 	if (pref.family == AF_INET) {
-		g_router_id.ipa_type = IPADDR_V4;
-		memcpy(&g_router_id.ipaddr_v4, &pref.u.prefix4,
-		       sizeof(struct in_addr));
-	} else if (pref.family == AF_INET6) {
-		g_router_id.ipa_type = IPADDR_V6;
-		memcpy(&g_router_id.ipaddr_v6, &pref.u.prefix6,
-		       sizeof(struct in6_addr));
+		memcpy(&g_router_id_v4, &pref.u.prefix4,
+		       sizeof(g_router_id_v4));
+		g_has_router_id_v4 = true;
+	} else {
+		memset(&g_router_id_v4, 0, sizeof(g_router_id_v4));
+		g_has_router_id_v4 = false;
+		zlog_warn(
+			"INET Router ID address family for vrf %u is "
+			"expected to be %u, got %u",
+			vrf_id, AF_INET, pref.family);
 	}
 	pthread_mutex_unlock(&g_router_id_mtx);
-	ipaddr2str(&g_router_id, buf, sizeof(buf));
-	zlog_info("Router Id updated for VRF %u: %s", vrf_id, buf);
+	inet_ntop(AF_INET, &g_router_id_v4, buf, sizeof(buf));
+	zlog_info("INET Router Id updated for VRF %u: %s", vrf_id, buf);
 	return 0;
 }
 
