@@ -59,8 +59,33 @@ Showing Nexthop Group Information
 .. clicmd:: show pbr nexthop-groups [NAME] [json]
 
    Display information on a PBR nexthop-group. If ``NAME`` is omitted, all
-   nexthop groups are shown. Setting ``json`` will provide the same information
-   in a predictable and parsable format.
+   nexthop groups are shown. Setting ``json`` will provide the same
+   information in an array of objects which obey the schema below:
+
+   +-------------+----------------------------+---------+
+   | Key         | Description                | Type    |
+   +=============+============================+=========+
+   | id          | Unique ID                  | Integer |
+   +-------------+----------------------------+---------+
+   | name        | Name of this group         | String  |
+   +-------------+----------------------------+---------+
+   | isValud     | Is this group well-formed? | Boolean |
+   +-------------+----------------------------+---------+
+   | isInstalled | ... and is it installed?   | Boolean |
+   +-------------+----------------------------+---------+
+   | nexthops    | Nexthops within this group | Array   |
+   +-------------+----------------------------+---------+
+
+   Each element within ``nexthops`` describes a single target within this
+   group, and its structure is described by the JSON below:
+
+   +---------+------------------------------+---------+
+   | Key     | Description                  | Type    |
+   +=========+==============================+=========+
+   | target  | Name of this nexthop         | String  |
+   +---------+------------------------------+---------+
+   | isValid | Is this nexthop well-formed? | Boolean |
+   +---------+------------------------------+---------+
 
 .. _pbr-maps:
 
@@ -121,8 +146,63 @@ end destination.
    Display pbr maps either all or by ``NAME``. If ``detail`` is set, it will
    give information about the rules unique ID used internally and some extra
    debugging information about install state for the nexthop/nexthop group.
-   Setting ``json`` will provide the same information in a predictable and
-   parsable format.
+   Setting ``json`` will provide the same information in an array of objects
+   which obey the schema below:
+
+   +--------------+--------------------------------+---------+
+   | Key          | Description                    | Type    |
+   +==============+================================+=========+
+   | name         | Map name                       | String  |
+   +--------------+--------------------------------+---------+
+   | isValid      | Is the map well-formed?        | Boolean |
+   +--------------+--------------------------------+---------+
+   | sequences    | Rules to match packets against | Array   |
+   +--------------+--------------------------------+---------+
+
+   Each element of the ``sequences`` array is composed of a handful of objects
+   representing the policies associated with this map. Each policy is
+   described as below (not all fields are required):
+
+   +-----------------+-------------------------------------------+---------+
+   | Key             | Description                               | Type    |
+   +=================+===========================================+=========+
+   | id              | Unique ID                                 | Integer |
+   +-----------------+-------------------------------------------+---------+
+   | sequenceNumber  | Order of this policy within the map       | Integer |
+   +-----------------+-------------------------------------------+---------+
+   | ruleNumber      | Rule number to install into               | Integer |
+   +-----------------+-------------------------------------------+---------+
+   | vrfUnchanged    | Use interface's VRF                       | Boolean |
+   +-----------------+-------------------------------------------+---------+
+   | isInstalled     | Is this policy installed?                 | Boolean |
+   +-----------------+-------------------------------------------+---------+
+   | installedReason | Why (or why not?)                         | String  |
+   +-----------------+-------------------------------------------+---------+
+   | matchSrc        | Match packets with this source address    | String  |
+   +-----------------+-------------------------------------------+---------+
+   | matchDst        | ... or with this destination address      | String  |
+   +-----------------+-------------------------------------------+---------+
+   | matchMark       | ... or with this marker                   | Integer |
+   +-----------------+-------------------------------------------+---------+
+   | vrfName         | Associated VRF (if relevant)              | String  |
+   +-----------------+-------------------------------------------+---------+
+   | nexthopGroup    | This policy's nexthop group (if relevant) | Object  |
+   +-----------------+-------------------------------------------+---------+
+
+   Finally, the ``nexthopGroup`` object above cotains information we know
+   about the configured nexthop for this policy:
+
+   +-----------------------+--------------------------------------+---------+
+   | Key                   | Description                          | Type    |
+   +=======================+======================================+=========+
+   | id                    | Nexthop table ID                     | Integer |
+   +-----------------------+--------------------------------------+---------+
+   | name                  | Name of the nexthop group            | String  |
+   +-----------------------+--------------------------------------+---------+
+   | isInstalled           | Is this nexthop group installed?     | Boolean |
+   +-----------------------+--------------------------------------+---------+
+   | isInstalledInternally | Do we think this group is installed? | Integer |
+   +-----------------------+--------------------------------------+---------+
 
 .. _pbr-policy:
 
