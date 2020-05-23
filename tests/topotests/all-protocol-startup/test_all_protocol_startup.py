@@ -121,6 +121,8 @@ def setup_module(module):
             # Only test LDPd if it's installed and Kernel >= 4.5
             net['r%s' % i].loadConf('ldpd', '%s/r%s/ldpd.conf' % (thisDir, i))
         net['r%s' % i].loadConf('sharpd')
+        net['r%s' % i].loadConf('nhrpd', '%s/r%s/nhrpd.conf' % (thisDir, i))
+        net['r%s' % i].loadConf('babeld', '%s/r%s/babeld.conf' % (thisDir, i))
         net['r%s' % i].startRouter()
 
     # For debugging after starting Quagga/FRR daemons, uncomment the next line
