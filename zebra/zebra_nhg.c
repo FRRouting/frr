@@ -2739,7 +2739,7 @@ struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id)
 			zlog_debug(
 				"%s: id %u, still being used by routes refcnt %u",
 				__func__, nhe->id, nhe->refcnt);
-		return NULL;
+		return nhe;
 	}
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
