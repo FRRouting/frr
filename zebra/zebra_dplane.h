@@ -535,6 +535,21 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 					    const struct in_addr *ip,
 					    vni_t vni);
 
+/* Forward ref of zebra_pbr_rule */
+struct zebra_pbr_rule;
+
+/*
+ * Enqueue policy based routing rule for the dataplane.
+ * It is possible that the user-defined sequence number and the one in the
+ * forwarding plane may not coincide, hence the API requires a separate
+ * rule priority - maps to preference/FRA_PRIORITY on Linux.
+ */
+enum zebra_dplane_result dplane_pbr_rule_add(struct zebra_pbr_rule *rule);
+enum zebra_dplane_result dplane_pbr_rule_delete(struct zebra_pbr_rule *rule);
+enum zebra_dplane_result
+dplane_pbr_rule_update(struct zebra_pbr_rule *old_rule,
+		       struct zebra_pbr_rule *new_rule);
+
 /* Encode route information into data plane context. */
 int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			  struct route_node *rn, struct route_entry *re);

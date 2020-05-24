@@ -3583,6 +3583,12 @@ static int rib_process_dplane_results(struct thread *thread)
 				zebra_vxlan_handle_result(ctx);
 				break;
 
+			case DPLANE_OP_RULE_ADD:
+			case DPLANE_OP_RULE_DELETE:
+			case DPLANE_OP_RULE_UPDATE:
+				zebra_pbr_dplane_result(ctx);
+				break;
+
 			/* Some op codes not handled here */
 			case DPLANE_OP_ADDR_INSTALL:
 			case DPLANE_OP_ADDR_UNINSTALL:

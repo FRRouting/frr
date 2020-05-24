@@ -35,6 +35,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/rt.h"
 #include "zebra/debug.h"
+#include "zebra/zebra_pbr.h"
 
 /* Memory type for context blocks */
 DEFINE_MTYPE_STATIC(ZEBRA, DP_CTX, "Zebra DPlane Ctx")
@@ -2070,6 +2071,76 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 	return AOK;
 }
 
+/**
+ * dplane_ctx_rule_init_single() - Initialize a dataplane representation of a
+ * PBR rule.
+ *
+ * @dplane_rule:	Dataplane internal representation of a rule
+ * @rule:			PBR rule
+ */
+static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
+					struct zebra_pbr_rule *rule)
+{
+	dplane_rule->priority = rule->rule.priority;
+	dplane_rule->table = rule->rule.action.table;
+
+	dplane_rule->filter_bm = rule->rule.filter.filter_bm;
+	dplane_rule->fwmark = rule->rule.filter.fwmark;
+	prefix_copy(&(dplane_rule->dst_ip), &rule->rule.filter.dst_ip);
+	prefix_copy(&(dplane_rule->src_ip), &rule->rule.filter.src_ip);
+}
+
+/**
+ * dplane_ctx_rule_init() - Initialize a context block for a PBR rule update.
+ *
+ * @ctx:		Dataplane context to init
+ * @op:			Operation being performed
+ * @new_rule:	PBR rule
+ *
+ * Return:	Result status
+ */
+static int dplane_ctx_rule_init(struct zebra_dplane_ctx *ctx,
+				enum dplane_op_e op,
+				struct zebra_pbr_rule *new_rule,
+				struct zebra_pbr_rule *old_rule)
+{
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		char buf1[PREFIX_STRLEN];
+		char buf2[PREFIX_STRLEN];
+
+		zlog_debug(
+			"init dplane ctx %s: IF %s(%u) Prio %u Fwmark %u Src %s Dst %s Table %u",
+			dplane_op2str(op), new_rule->ifname,
+			new_rule->rule.ifindex, new_rule->rule.priority,
+			new_rule->rule.filter.fwmark,
+			prefix2str(&new_rule->rule.filter.src_ip, buf1,
+				   sizeof(buf1)),
+			prefix2str(&new_rule->rule.filter.dst_ip, buf2,
+				   sizeof(buf2)),
+			new_rule->rule.action.table);
+	}
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT),
+			   op == DPLANE_OP_RULE_UPDATE);
+
+	ctx->zd_vrf_id = new_rule->vrf_id;
+	memcpy(ctx->zd_ifname, new_rule->ifname, sizeof(new_rule->ifname));
+	ctx->zd_ifindex = new_rule->rule.ifindex;
+
+	ctx->u.rule.sock = new_rule->sock;
+	ctx->u.rule.unique = new_rule->rule.unique;
+	ctx->u.rule.seq = new_rule->rule.seq;
+
+	dplane_ctx_rule_init_single(&ctx->u.rule.new, new_rule);
+	if (op == DPLANE_OP_RULE_UPDATE)
+		dplane_ctx_rule_init_single(&ctx->u.rule.old, old_rule);
+
+	return AOK;
+}
+
 /*
  * Enqueue a new update,
  * and ensure an event is active for the dataplane pthread.
@@ -2997,6 +3068,56 @@ neigh_update_internal(enum dplane_op_e op,
 }
 
 /*
+ * Common helper api for PBR rule updates
+ */
+static enum zebra_dplane_result
+rule_update_internal(enum dplane_op_e op, struct zebra_pbr_rule *new_rule,
+		     struct zebra_pbr_rule *old_rule)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	int ret;
+
+	ctx = dplane_ctx_alloc();
+
+	ret = dplane_ctx_rule_init(ctx, op, new_rule, old_rule);
+	if (ret != AOK)
+		goto done;
+
+	ret = dplane_update_enqueue(ctx);
+
+done:
+	atomic_fetch_add_explicit(&zdplane_info.dg_rules_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_rule_errors, 1,
+					  memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+enum zebra_dplane_result dplane_pbr_rule_add(struct zebra_pbr_rule *rule)
+{
+	return rule_update_internal(DPLANE_OP_RULE_ADD, rule, NULL);
+}
+
+enum zebra_dplane_result dplane_pbr_rule_delete(struct zebra_pbr_rule *rule)
+{
+	return rule_update_internal(DPLANE_OP_RULE_DELETE, rule, NULL);
+}
+
+enum zebra_dplane_result dplane_pbr_rule_update(struct zebra_pbr_rule *old_rule,
+						struct zebra_pbr_rule *new_rule)
+{
+	return rule_update_internal(DPLANE_OP_RULE_UPDATE, new_rule, old_rule);
+}
+
+/*
  * Handler for 'show dplane'
  */
 int dplane_show_helper(struct vty *vty, bool detailed)
@@ -3562,6 +3683,29 @@ kernel_dplane_neigh_update(struct zebra_dplane_ctx *ctx)
 }
 
 /*
+ *  Handler for kernel PBR rule updates
+ */
+static enum zebra_dplane_result
+kernel_dplane_rule_update(struct zebra_dplane_ctx *ctx)
+{
+	enum zebra_dplane_result res;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+		zlog_debug("Dplane rule update op %s, if %s(%u), ctx %p",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ifname(ctx),
+			   dplane_ctx_get_ifindex(ctx), ctx);
+
+	res = kernel_pbr_rule_update(ctx);
+
+	if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+		atomic_fetch_add_explicit(&zdplane_info.dg_rule_errors, 1,
+					  memory_order_relaxed);
+
+	return res;
+}
+
+/*
  * Kernel provider callback
  */
 static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
@@ -3632,6 +3776,12 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		case DPLANE_OP_VTEP_ADD:
 		case DPLANE_OP_VTEP_DELETE:
 			res = kernel_dplane_neigh_update(ctx);
+			break;
+
+		case DPLANE_OP_RULE_ADD:
+		case DPLANE_OP_RULE_DELETE:
+		case DPLANE_OP_RULE_UPDATE:
+			res = kernel_dplane_rule_update(ctx);
 			break;
 
 		/* Ignore 'notifications' - no-op */
