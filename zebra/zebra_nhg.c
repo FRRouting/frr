@@ -1068,7 +1068,7 @@ static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 	 * If its not zebra owned, we didn't store it here and have to be
 	 * sure we don't clear one thats actually being used.
 	 */
-	if (ZEBRA_OWNED(nhe))
+	if (nhe->id < ZEBRA_NHG_PROTO_LOWER)
 		hash_release(zrouter.nhgs, nhe);
 
 	hash_release(zrouter.nhgs_id, nhe);
