@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# test_bgp.py
+# test_bgp-vrf-route-leak-basic.py
 #
 # Copyright (c) 2018 Cumulus Networks, Inc.
 #                    Donald Sharp
@@ -22,12 +22,13 @@
 #
 
 """
-test_bgp.py: Test basic vrf route leaking
+test_bgp-vrf-route-leak-basic.py.py: Test basic vrf route leaking
 """
 
 import json
 import os
 import sys
+from functools import partial
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -87,37 +88,89 @@ def test_vrf_route_leak():
 
     r1 = tgen.gears["r1"]
 
-    donna = r1.vtysh_cmd("show ip route vrf DONNA json", isjson=True)
-    route0 = donna["10.0.0.0/24"][0]
-    assert route0["protocol"] == "connected"
-    route1 = donna["10.0.1.0/24"][0]
-    assert route1["protocol"] == "bgp"
-    assert route1["selected"] == True
-    nhop = route1["nexthops"][0]
-    assert nhop["fib"] == True
-    route2 = donna["10.0.2.0/24"][0]
-    assert route2["protocol"] == "connected"
-    route3 = donna["10.0.3.0/24"][0]
-    assert route3["protocol"] == "bgp"
-    assert route3["selected"] == True
-    nhop = route3["nexthops"][0]
-    assert nhop["fib"] == True
-    eva = r1.vtysh_cmd("show ip route vrf EVA json", isjson=True)
-    route0 = eva["10.0.0.0/24"][0]
-    assert route0["protocol"] == "bgp"
-    assert route0["selected"] == True
-    nhop = route0["nexthops"][0]
-    assert nhop["fib"] == True
-    route1 = eva["10.0.1.0/24"][0]
-    assert route1["protocol"] == "connected"
-    route2 = eva["10.0.2.0/24"][0]
-    assert route2["protocol"] == "bgp"
-    assert route2["selected"] == True
-    nhop = route2["nexthops"][0]
-    assert nhop["fib"] == True
-    route3 = eva["10.0.3.0/24"][0]
-    assert route3["protocol"] == "connected"
-    # tgen.mininet_cli()
+    # Test DONNA VRF.
+    expect = {
+        '10.0.0.0/24': [
+            {
+                'protocol': 'connected',
+            }
+        ],
+        '10.0.1.0/24': [
+            {
+                'protocol': 'bgp',
+                'selected': True,
+                'nexthops': [
+                    {
+                        'fib': True
+                    }
+                ]
+            }
+        ],
+        '10.0.2.0/24': [
+            {
+                'protocol': 'connected'
+            }
+        ],
+        '10.0.3.0/24': [
+            {
+                'protocol': 'bgp',
+                'selected': True,
+                'nexthops': [
+                    {
+                        'fib': True
+                    }
+                ]
+            }
+        ]
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, 'show ip route vrf DONNA json', expect
+    )
+    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+    # Test EVA VRF.
+    expect = {
+        '10.0.0.0/24': [
+            {
+                'protocol': 'bgp',
+                'selected': True,
+                'nexthops': [
+                    {
+                        'fib': True
+                    }
+                ]
+            }
+        ],
+        '10.0.1.0/24': [
+            {
+                'protocol': 'connected',
+            }
+        ],
+        '10.0.2.0/24': [
+            {
+                'protocol': 'bgp',
+                'selected': True,
+                'nexthops': [
+                    {
+                        'fib': True
+                    }
+                ]
+            }
+        ],
+        '10.0.3.0/24': [
+            {
+                'protocol': 'connected',
+            }
+        ]
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, 'show ip route vrf EVA json', expect
+    )
+    result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result, "BGP VRF EVA check failed:\n{}".format(diff)
 
 
 def test_memory_leak():
