@@ -192,6 +192,36 @@ struct dplane_neigh_info {
 };
 
 /*
+ * Policy based routing rule info for the dataplane
+ */
+struct dplane_ctx_rule {
+	uint32_t priority;
+
+	/* The route table pointed by this rule */
+	uint32_t table;
+
+	/* Filter criteria */
+	uint32_t filter_bm;
+	uint32_t fwmark;
+	struct prefix src_ip;
+	struct prefix dst_ip;
+};
+
+struct dplane_rule_info {
+	/*
+	 * Originating zclient sock fd, so we can know who to send
+	 * back to.
+	 */
+	int sock;
+
+	int unique;
+	int seq;
+
+	struct dplane_ctx_rule new;
+	struct dplane_ctx_rule old;
+};
+
+/*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -238,6 +268,7 @@ struct zebra_dplane_ctx {
 		struct dplane_intf_info intf;
 		struct dplane_mac_info macinfo;
 		struct dplane_neigh_info neigh;
+		struct dplane_rule_info rule;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -360,6 +391,9 @@ static struct zebra_dplane_globals {
 
 	_Atomic uint32_t dg_neighs_in;
 	_Atomic uint32_t dg_neigh_errors;
+
+	_Atomic uint32_t dg_rules_in;
+	_Atomic uint32_t dg_rule_errors;
 
 	_Atomic uint32_t dg_update_yields;
 
@@ -564,6 +598,9 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NEIGH_DELETE:
 	case DPLANE_OP_VTEP_ADD:
 	case DPLANE_OP_VTEP_DELETE:
+	case DPLANE_OP_RULE_ADD:
+	case DPLANE_OP_RULE_DELETE:
+	case DPLANE_OP_RULE_UPDATE:
 	case DPLANE_OP_NONE:
 		break;
 	}
@@ -785,6 +822,16 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_VTEP_DELETE:
 		ret = "VTEP_DELETE";
+		break;
+
+	case DPLANE_OP_RULE_ADD:
+		ret = "RULE_ADD";
+		break;
+	case DPLANE_OP_RULE_DELETE:
+		ret = "RULE_DELETE";
+		break;
+	case DPLANE_OP_RULE_UPDATE:
+		ret = "RULE_UPDATE";
 		break;
 	}
 
@@ -1515,6 +1562,116 @@ uint16_t dplane_ctx_neigh_get_state(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.neigh.state;
+}
+
+/* Accessors for PBR rule information */
+int dplane_ctx_rule_get_sock(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.sock;
+}
+
+int dplane_ctx_rule_get_unique(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.unique;
+}
+
+int dplane_ctx_rule_get_seq(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.seq;
+}
+
+uint32_t dplane_ctx_rule_get_priority(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.priority;
+}
+
+uint32_t dplane_ctx_rule_get_old_priority(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.priority;
+}
+
+uint32_t dplane_ctx_rule_get_table(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.table;
+}
+
+uint32_t dplane_ctx_rule_get_old_table(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.table;
+}
+
+uint32_t dplane_ctx_rule_get_filter_bm(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.filter_bm;
+}
+
+uint32_t dplane_ctx_rule_get_old_filter_bm(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.filter_bm;
+}
+
+uint32_t dplane_ctx_rule_get_fwmark(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.fwmark;
+}
+
+uint32_t dplane_ctx_rule_get_old_fwmark(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.fwmark;
+}
+
+const struct prefix *
+dplane_ctx_rule_get_src_ip(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.rule.new.src_ip);
+}
+
+const struct prefix *
+dplane_ctx_rule_get_old_src_ip(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.rule.old.src_ip);
+}
+
+const struct prefix *
+dplane_ctx_rule_get_dst_ip(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.rule.new.dst_ip);
+}
+
+const struct prefix *
+dplane_ctx_rule_get_old_dst_ip(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.rule.old.dst_ip);
 }
 
 /*
@@ -2908,6 +3065,13 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 				    memory_order_relaxed);
 	vty_out(vty, "EVPN neigh updates:       %"PRIu64"\n", incoming);
 	vty_out(vty, "EVPN neigh errors:        %"PRIu64"\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_rules_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_rule_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "Rule updates:             %" PRIu64 "\n", incoming);
+	vty_out(vty, "Rule errors:              %" PRIu64 "\n", errs);
 
 	return CMD_SUCCESS;
 }
