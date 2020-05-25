@@ -2016,10 +2016,12 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			stream_getl(s); /* RD low */
 		}
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
-		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
+		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)
+		    || IN6_IS_ADDR_UNSPECIFIED(&attr->mp_nexthop_global)) {
 			if (!peer->nexthop.ifp) {
-				zlog_warn("%s sent a v6 global and LL attribute but global address is a V6 LL and there's no peer interface information. Hence, withdrawing",
-					  peer->host);
+				zlog_warn(
+					"%s sent a v6 global and LL attribute but global address is a V6 LL or :: and there's no peer interface information. Hence, withdrawing",
+					peer->host);
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
 			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
