@@ -44,6 +44,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_rd.h"
 
 extern struct zclient *zclient;
 
@@ -700,7 +701,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		char buf[PREFIX2STR_BUFFER];
 		bnc_str(bnc, buf, PREFIX2STR_BUFFER);
 		zlog_debug(
-			"NH update for %s(%s) - flags 0x%x chgflags 0x%x - evaluate paths",
+			"NH update for %s %s flags 0x%x chgflags 0x%x - evaluate paths",
 			buf, bnc->bgp->name_pretty, bnc->flags,
 			bnc->change_flags);
 	}
@@ -757,11 +758,22 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 					bgp_isvalid_nexthop(bnc) ? 1 : 0;
 		}
 
-		if (BGP_DEBUG(nht, NHT))
-			zlog_debug("%s: prefix %pRN (vrf %s) %svalid", __func__,
-				   rn, bgp_path->name,
-				   (bnc_is_valid_nexthop ? "" : "not "));
+		if (BGP_DEBUG(nht, NHT)) {
+			char buf1[RD_ADDRSTRLEN];
 
+			if (rn->prn) {
+				prefix_rd2str((struct prefix_rd *)&rn->prn->p,
+					buf1, sizeof(buf1));
+				zlog_debug(
+					"... eval path %d/%d %pRN RD %s %s flags 0x%x",
+					afi, safi, rn, buf1,
+					bgp_path->name_pretty, path->flags);
+			} else
+				zlog_debug(
+					"... eval path %d/%d %pRN %s flags 0x%x",
+					afi, safi, rn, bgp_path->name_pretty,
+					path->flags);
+		}
 		if ((CHECK_FLAG(path->flags, BGP_PATH_VALID) ? 1 : 0)
 		    != bnc_is_valid_nexthop) {
 			if (CHECK_FLAG(path->flags, BGP_PATH_VALID)) {
