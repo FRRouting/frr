@@ -1046,12 +1046,16 @@ static void _netlink_route_nl_add_gateway_info(uint8_t route_family,
 		addattr_l(nlmsg, req_size, RTA_VIA, &gw_fam.family,
 			  bytelen + 2);
 	} else {
-		if (gw_family == AF_INET)
-			addattr_l(nlmsg, req_size, RTA_GATEWAY,
-				  &nexthop->gate.ipv4, bytelen);
-		else
-			addattr_l(nlmsg, req_size, RTA_GATEWAY,
-				  &nexthop->gate.ipv6, bytelen);
+
+		if(nexthop->rparent && VALIDATE_MAPPED_IPV6(&nexthop->rparent->gate.ipv6)) {
+		} else {
+			if (gw_family == AF_INET)
+				addattr_l(nlmsg, req_size, RTA_GATEWAY,
+						&nexthop->gate.ipv4, bytelen);
+			else
+				addattr_l(nlmsg, req_size, RTA_GATEWAY,
+						&nexthop->gate.ipv6, bytelen);
+		}
 	}
 }
 
