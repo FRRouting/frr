@@ -736,7 +736,8 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		 * nexthops with labels
 		 */
 
-		int bnc_is_valid_nexthop = 0;
+		bool bnc_is_valid_nexthop = false;
+		bool path_valid = false;
 
 		if (safi == SAFI_UNICAST &&
 			path->sub_type == BGP_ROUTE_IMPORTED &&
@@ -744,7 +745,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			path->extra->num_labels) {
 
 			bnc_is_valid_nexthop =
-				bgp_isvalid_labeled_nexthop(bnc) ? 1 : 0;
+				bgp_isvalid_labeled_nexthop(bnc) ? true : false;
 		} else {
 			if (bgp_update_martian_nexthop(
 				    bnc->bgp, afi, safi, path->type,
@@ -755,7 +756,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 						__func__, rn, bgp_path->name);
 			} else
 				bnc_is_valid_nexthop =
-					bgp_isvalid_nexthop(bnc) ? 1 : 0;
+					bgp_isvalid_nexthop(bnc) ? true : false;
 		}
 
 		if (BGP_DEBUG(nht, NHT)) {
@@ -774,20 +775,6 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 					afi, safi, rn, bgp_path->name_pretty,
 					path->flags);
 		}
-		if ((CHECK_FLAG(path->flags, BGP_PATH_VALID) ? 1 : 0)
-		    != bnc_is_valid_nexthop) {
-			if (CHECK_FLAG(path->flags, BGP_PATH_VALID)) {
-				bgp_aggregate_decrement(bgp_path, p, path, afi,
-							safi);
-				bgp_path_info_unset_flag(rn, path,
-							 BGP_PATH_VALID);
-			} else {
-				bgp_path_info_set_flag(rn, path,
-						       BGP_PATH_VALID);
-				bgp_aggregate_increment(bgp_path, p, path, afi,
-							safi);
-			}
-		}
 
 		/* Copy the metric to the path. Will be used for bestpath
 		 * computation */
@@ -801,13 +788,33 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		    || CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
 			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
-		if (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p)) {
-			if (CHECK_FLAG(path->flags, BGP_PATH_VALID))
-				bgp_evpn_import_route(bgp_path, afi, safi, p,
-						      path);
-			else
-				bgp_evpn_unimport_route(bgp_path, afi, safi, p,
-							path);
+		path_valid = !!CHECK_FLAG(path->flags, BGP_PATH_VALID);
+		if (path_valid != bnc_is_valid_nexthop) {
+			if (path_valid) {
+				/* No longer valid, clear flag; also for EVPN
+				 * routes, unimport from VRFs if needed.
+				 */
+				bgp_aggregate_decrement(bgp_path, p, path, afi,
+							safi);
+				bgp_path_info_unset_flag(rn, path,
+							 BGP_PATH_VALID);
+				if (safi == SAFI_EVPN &&
+				    bgp_evpn_is_prefix_nht_supported(&rn->p))
+					bgp_evpn_unimport_route(bgp_path,
+						afi, safi, &rn->p, path);
+			} else {
+				/* Path becomes valid, set flag; also for EVPN
+				 * routes, import from VRFs if needed.
+				 */
+				bgp_path_info_set_flag(rn, path,
+						       BGP_PATH_VALID);
+				bgp_aggregate_increment(bgp_path, p, path, afi,
+							safi);
+				if (safi == SAFI_EVPN &&
+				    bgp_evpn_is_prefix_nht_supported(&rn->p))
+					bgp_evpn_import_route(bgp_path,
+						afi, safi, &rn->p, path);
+			}
 		}
 
 		bgp_process(bgp_path, rn, afi, safi);
