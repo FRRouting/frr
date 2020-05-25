@@ -564,7 +564,18 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			p->u.prefix6 = pi->net->p.u.prefix6;
 			p->prefixlen = pi->net->p.prefixlen;
 		} else {
-			p->u.prefix6 = pi->attr->mp_nexthop_global;
+			/* If we receive MP_REACH nexthop with ::(LL)
+			 * or LL(LL), use LL address as nexthop cache.
+			 */
+			if (pi->attr->mp_nexthop_len
+				    == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
+			    && (IN6_IS_ADDR_UNSPECIFIED(
+					&pi->attr->mp_nexthop_global)
+				|| IN6_IS_ADDR_LINKLOCAL(
+					&pi->attr->mp_nexthop_global)))
+				p->u.prefix6 = pi->attr->mp_nexthop_local;
+			else
+				p->u.prefix6 = pi->attr->mp_nexthop_global;
 			p->prefixlen = IPV6_MAX_BITLEN;
 		}
 		break;
