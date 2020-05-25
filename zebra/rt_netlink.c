@@ -1020,12 +1020,16 @@ static void _netlink_route_nl_add_gateway_info(uint8_t route_family,
 		addattr_l(nlmsg, req_size, RTA_VIA, &gw_fam.family,
 			  bytelen + 2);
 	} else {
-		if (gw_family == AF_INET)
-			addattr_l(nlmsg, req_size, RTA_GATEWAY,
-				  &nexthop->gate.ipv4, bytelen);
-		else
-			addattr_l(nlmsg, req_size, RTA_GATEWAY,
-				  &nexthop->gate.ipv6, bytelen);
+
+		if(nexthop->rparent && VALIDATE_MAPPED_IPV6(&nexthop->rparent->gate.ipv6)) {
+		} else {
+			if (gw_family == AF_INET)
+				addattr_l(nlmsg, req_size, RTA_GATEWAY,
+						&nexthop->gate.ipv4, bytelen);
+			else
+				addattr_l(nlmsg, req_size, RTA_GATEWAY,
+						&nexthop->gate.ipv6, bytelen);
+		}
 	}
 }
 
@@ -1627,6 +1631,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 		addattr_l(&req.n, NL_PKT_BUF_SIZE, RTA_METRICS, RTA_DATA(rta),
 			  RTA_PAYLOAD(rta));
 	}
+
 
 	if (supports_nh) {
 		/* Kernel supports nexthop objects */
