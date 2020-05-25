@@ -776,6 +776,11 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 					path->flags);
 		}
 
+		/* Skip paths marked for removal or as history. */
+		if (CHECK_FLAG(path->flags, BGP_PATH_REMOVED)
+		    || CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
+			continue;
+
 		/* Copy the metric to the path. Will be used for bestpath
 		 * computation */
 		if (bgp_isvalid_nexthop(bnc) && bnc->metric)
