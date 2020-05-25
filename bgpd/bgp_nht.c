@@ -130,6 +130,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	struct bgp_nexthop_cache *bnc;
 	struct prefix p;
 	int is_bgp_static_route = 0;
+	char buf[BUFSIZ];
 
 	if (pi) {
 		is_bgp_static_route = ((pi->type == ZEBRA_ROUTE_BGP)
@@ -143,6 +144,10 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		if (!is_bgp_static_route)
 			afi = BGP_ATTR_NEXTHOP_AFI_IP6(pi->attr) ? AFI_IP6
 								 : AFI_IP;
+		/* Validation for the ipv4 mapped ipv6 nexthop. */
+		if(VALIDATE_MAPPED_IPV6(&pi->attr->mp_nexthop_global)) {
+			afi = AFI_IP;
+		}
 
 		/* This will return true if the global IPv6 NH is a link local
 		 * addr */
@@ -526,6 +531,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 				    : 0;
 	struct bgp_node *net = pi->net;
 	struct prefix *p_orig = &net->p;
+	struct in_addr ipv4;
 
 	if (p_orig->family == AF_FLOWSPEC) {
 		if (!pi->peer)
@@ -541,8 +547,14 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			p->u.prefix4 = pi->net->p.u.prefix4;
 			p->prefixlen = pi->net->p.prefixlen;
 		} else {
-			p->u.prefix4 = pi->attr->nexthop;
-			p->prefixlen = IPV4_MAX_BITLEN;
+			if (VALIDATE_MAPPED_IPV6 (&pi->attr->mp_nexthop_global)) {
+				ipv4_mapped_ipv6_to_ipv4(&pi->attr->mp_nexthop_global, &ipv4);
+				p->u.prefix4 = ipv4;
+				p->prefixlen = IPV4_MAX_BITLEN;
+			} else {
+				p->u.prefix4 = pi->attr->nexthop;
+				p->prefixlen = IPV4_MAX_BITLEN;
+			}
 		}
 		break;
 	case AFI_IP6:
