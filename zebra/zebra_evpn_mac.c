@@ -971,6 +971,7 @@ zebra_mac_t *zebra_evpn_mac_add(zebra_evpn_t *zevpn, struct ethaddr *macaddr)
 int zebra_evpn_mac_del(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 {
 	zebra_mac_t *tmp_mac;
+	char buf[ETHER_ADDR_STRLEN];
 
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char buf[ETHER_ADDR_STRLEN];
@@ -979,6 +980,14 @@ int zebra_evpn_mac_del(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 			   prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
 			   mac->flags);
 	}
+
+	/* If the MAC is freed before the neigh we will end up
+	 * with a stale pointer against the neigh
+	 */
+	if (!list_isempty(mac->neigh_list))
+		zlog_warn("%s: MAC %s flags 0x%x neigh list not empty %d", __func__,
+			   prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+			   mac->flags, listcount(mac->neigh_list));
 
 	/* force de-ref any ES entry linked to the MAC */
 	zebra_evpn_es_mac_deref_entry(mac);
