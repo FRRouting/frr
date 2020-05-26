@@ -1429,6 +1429,7 @@ int netlink_log_unregister(struct zebra_ns *zns, int group)
 {
 	THREAD_OFF(zns->t_netlink_nflog);
 	close(zns->netlink_nflog_sock);
+	zns->netlink_nflog_sock = -1;
 	return 0;
 }
 
@@ -1670,6 +1671,7 @@ void kernel_init(struct zebra_ns *zns)
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
 	thread_cancel(&zns->t_netlink);
+	thread_cancel(&zns->t_netlink_nflog);
 
 	if (zns->netlink.sock >= 0) {
 		close(zns->netlink.sock);
@@ -1681,6 +1683,10 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 		zns->netlink_cmd.sock = -1;
 	}
 
+	if (zns->netlink_nflog_sock >= 0) {
+		close(zns->netlink_nflog_sock);
+		zns->netlink_nflog_sock = -1;
+	}
 	/* During zebra shutdown, we need to leave the dataplane socket
 	 * around until all work is done.
 	 */

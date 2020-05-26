@@ -53,7 +53,6 @@ struct zebra_ns {
 	struct nlsock netlink;        /* kernel messages */
 	struct nlsock netlink_cmd;    /* command channel */
 	struct nlsock netlink_dplane; /* dataplane channel */
-	struct nlsock netlink_nflog;  /* socket nflog events */
 	int netlink_nflog_sock;  /* socket nflog events */
 	struct thread *t_netlink;
 	struct thread *t_netlink_nflog;
