@@ -966,7 +966,7 @@ static const char *prefixevpn_prefix2str(const struct prefix_evpn *p, char *str,
 	family = is_evpn_prefix_ipaddr_v4(p)
 			 ? AF_INET
 			 : AF_INET6;
-	snprintf(str, size, "[%d]:[%u][%s/%d]/%d",
+	snprintf(str, size, "[%d]:[%u]:[%s/%d]/%d",
 		 p->prefix.route_type,
 		 p->prefix.prefix_addr.eth_tag,
 		 inet_ntop(family,
