@@ -536,6 +536,16 @@ cause great confusion.
 
    Display multicast traceroute towards source, optionally for particular group.
 
+.. index:: show ip multicast count [vrf NAME] [json]
+.. clicmd:: show ip multicast count [vrf NAME] [json]
+
+   Display multicast data packets count per interface for a vrf.
+
+.. index:: show ip multicast count vrf all [json]
+.. clicmd:: show ip multicast count vrf all [json]
+
+   Display multicast data packets count per interface for all vrf.
+
 PIM Debug Commands
 ==================
 
