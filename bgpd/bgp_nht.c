@@ -44,6 +44,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_rd.h"
 
 extern struct zclient *zclient;
 
@@ -700,7 +701,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		char buf[PREFIX2STR_BUFFER];
 		bnc_str(bnc, buf, PREFIX2STR_BUFFER);
 		zlog_debug(
-			"NH update for %s(%s) - flags 0x%x chgflags 0x%x - evaluate paths",
+			"NH update for %s %s flags 0x%x chgflags 0x%x - evaluate paths",
 			buf, bnc->bgp->name_pretty, bnc->flags,
 			bnc->change_flags);
 	}
@@ -735,7 +736,8 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		 * nexthops with labels
 		 */
 
-		int bnc_is_valid_nexthop = 0;
+		bool bnc_is_valid_nexthop = false;
+		bool path_valid = false;
 
 		if (safi == SAFI_UNICAST &&
 			path->sub_type == BGP_ROUTE_IMPORTED &&
@@ -743,7 +745,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			path->extra->num_labels) {
 
 			bnc_is_valid_nexthop =
-				bgp_isvalid_labeled_nexthop(bnc) ? 1 : 0;
+				bgp_isvalid_labeled_nexthop(bnc) ? true : false;
 		} else {
 			if (bgp_update_martian_nexthop(
 				    bnc->bgp, afi, safi, path->type,
@@ -754,28 +756,30 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 						__func__, rn, bgp_path->name);
 			} else
 				bnc_is_valid_nexthop =
-					bgp_isvalid_nexthop(bnc) ? 1 : 0;
+					bgp_isvalid_nexthop(bnc) ? true : false;
 		}
 
-		if (BGP_DEBUG(nht, NHT))
-			zlog_debug("%s: prefix %pRN (vrf %s) %svalid", __func__,
-				   rn, bgp_path->name,
-				   (bnc_is_valid_nexthop ? "" : "not "));
+		if (BGP_DEBUG(nht, NHT)) {
+			char buf1[RD_ADDRSTRLEN];
 
-		if ((CHECK_FLAG(path->flags, BGP_PATH_VALID) ? 1 : 0)
-		    != bnc_is_valid_nexthop) {
-			if (CHECK_FLAG(path->flags, BGP_PATH_VALID)) {
-				bgp_aggregate_decrement(bgp_path, p, path, afi,
-							safi);
-				bgp_path_info_unset_flag(rn, path,
-							 BGP_PATH_VALID);
-			} else {
-				bgp_path_info_set_flag(rn, path,
-						       BGP_PATH_VALID);
-				bgp_aggregate_increment(bgp_path, p, path, afi,
-							safi);
-			}
+			if (rn->prn) {
+				prefix_rd2str((struct prefix_rd *)&rn->prn->p,
+					buf1, sizeof(buf1));
+				zlog_debug(
+					"... eval path %d/%d %pRN RD %s %s flags 0x%x",
+					afi, safi, rn, buf1,
+					bgp_path->name_pretty, path->flags);
+			} else
+				zlog_debug(
+					"... eval path %d/%d %pRN %s flags 0x%x",
+					afi, safi, rn, bgp_path->name_pretty,
+					path->flags);
 		}
+
+		/* Skip paths marked for removal or as history. */
+		if (CHECK_FLAG(path->flags, BGP_PATH_REMOVED)
+		    || CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
+			continue;
 
 		/* Copy the metric to the path. Will be used for bestpath
 		 * computation */
@@ -789,13 +793,33 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		    || CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
 			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
-		if (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p)) {
-			if (CHECK_FLAG(path->flags, BGP_PATH_VALID))
-				bgp_evpn_import_route(bgp_path, afi, safi, p,
-						      path);
-			else
-				bgp_evpn_unimport_route(bgp_path, afi, safi, p,
-							path);
+		path_valid = !!CHECK_FLAG(path->flags, BGP_PATH_VALID);
+		if (path_valid != bnc_is_valid_nexthop) {
+			if (path_valid) {
+				/* No longer valid, clear flag; also for EVPN
+				 * routes, unimport from VRFs if needed.
+				 */
+				bgp_aggregate_decrement(bgp_path, p, path, afi,
+							safi);
+				bgp_path_info_unset_flag(rn, path,
+							 BGP_PATH_VALID);
+				if (safi == SAFI_EVPN &&
+				    bgp_evpn_is_prefix_nht_supported(&rn->p))
+					bgp_evpn_unimport_route(bgp_path,
+						afi, safi, &rn->p, path);
+			} else {
+				/* Path becomes valid, set flag; also for EVPN
+				 * routes, import from VRFs if needed.
+				 */
+				bgp_path_info_set_flag(rn, path,
+						       BGP_PATH_VALID);
+				bgp_aggregate_increment(bgp_path, p, path, afi,
+							safi);
+				if (safi == SAFI_EVPN &&
+				    bgp_evpn_is_prefix_nht_supported(&rn->p))
+					bgp_evpn_import_route(bgp_path,
+						afi, safi, &rn->p, path);
+			}
 		}
 
 		bgp_process(bgp_path, rn, afi, safi);

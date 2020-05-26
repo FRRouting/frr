@@ -2634,17 +2634,17 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	afi_t afi = 0;
 	safi_t safi = 0;
 	char buf[PREFIX_STRLEN];
-	char buf1[PREFIX_STRLEN];
+	bool new_pi = false;
 
 	memset(pp, 0, sizeof(struct prefix));
 	ip_prefix_from_evpn_prefix(evp, pp);
 
 	if (bgp_debug_zebra(NULL)) {
 		zlog_debug(
-			"import evpn prefix %s as ip prefix %s in vrf %s",
+			"vrf %s: import evpn prefix %s parent %p flags 0x%x",
+			vrf_id_to_name(bgp_vrf->vrf_id),
 			prefix2str(evp, buf, sizeof(buf)),
-			prefix2str(pp, buf1, sizeof(buf)),
-			vrf_id_to_name(bgp_vrf->vrf_id));
+			parent_pi, parent_pi->flags);
 	}
 
 	/* Create (or fetch) route within the VRF. */
@@ -2678,9 +2678,10 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		    && (struct bgp_path_info *)pi->extra->parent == parent_pi)
 			break;
 
-	if (!pi)
+	if (!pi) {
 		pi = bgp_create_evpn_bgp_path_info(parent_pi, rn, &attr);
-	else {
+		new_pi = true;
+	} else {
 		if (attrhash_cmp(pi->attr, &attr)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 			bgp_unlock_node(rn);
@@ -2721,6 +2722,12 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	vpn_leak_from_vrf_update(bgp_get_default(), bgp_vrf, pi);
 
 	bgp_unlock_node(rn);
+
+	if (bgp_debug_zebra(NULL))
+		zlog_debug(
+			"... %s pi rn %p (l %d) pi %p (l %d, f 0x%x)",
+			new_pi ? "new" : "update",
+			rn, rn->lock, pi, pi->lock, pi->flags);
 
 	return ret;
 }
@@ -2839,17 +2846,16 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	afi_t afi = 0;
 	safi_t safi = 0;
 	char buf[PREFIX_STRLEN];
-	char buf1[PREFIX_STRLEN];
 
 	memset(pp, 0, sizeof(struct prefix));
 	ip_prefix_from_evpn_prefix(evp, pp);
 
 	if (bgp_debug_zebra(NULL)) {
 		zlog_debug(
-			"uninstalling evpn prefix %s as ip prefix %s in vrf %s",
+			"vrf %s: unimport evpn prefix %s parent %p flags 0x%x",
+			vrf_id_to_name(bgp_vrf->vrf_id),
 			prefix2str(evp, buf, sizeof(buf)),
-			prefix2str(pp, buf1, sizeof(buf)),
-			vrf_id_to_name(bgp_vrf->vrf_id));
+			parent_pi, parent_pi->flags);
 	}
 
 	/* Locate route within the VRF. */
@@ -2875,6 +2881,11 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 	if (!pi)
 		return 0;
+
+	if (bgp_debug_zebra(NULL))
+		zlog_debug(
+			"... delete rn %p (l %d) pi %p (l %d, f 0x%x)",
+			rn, rn->lock, pi, pi->lock, pi->flags);
 
 	/* Process for route leaking. */
 	vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp_vrf, pi);
