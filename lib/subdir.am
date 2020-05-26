@@ -48,6 +48,7 @@ lib_libfrr_la_SOURCES = \
 	lib/libfrr.c \
 	lib/libfrr_trace.c \
 	lib/linklist.c \
+	lib/link_state.c \
 	lib/log.c \
 	lib/log_filter.c \
 	lib/log_vty.c \
@@ -208,6 +209,7 @@ pkginclude_HEADERS += \
 	lib/libfrr_trace.h \
 	lib/libospf.h \
 	lib/linklist.h \
+	lib/link_state.h \
 	lib/log.h \
 	lib/log_vty.h \
 	lib/md5.h \
