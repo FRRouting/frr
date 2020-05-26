@@ -614,6 +614,9 @@ int zebra_evpn_neigh_del(zebra_evpn_t *zevpn, zebra_neigh_t *n)
 	/* Cancel auto recovery */
 	THREAD_OFF(n->dad_ip_auto_recovery_timer);
 
+	/* Cancel proxy hold timer */
+	zebra_evpn_neigh_stop_hold_timer(n);
+
 	/* Free the VNI hash entry and allocated memory. */
 	tmp_n = hash_release(zevpn->neigh_table, n);
 	XFREE(MTYPE_NEIGH, tmp_n);
