@@ -92,6 +92,11 @@ struct zebra_vrf {
 	struct list *rid_all_sorted_list;
 	struct list *rid_lo_sorted_list;
 	struct prefix rid_user_assigned;
+	struct list _rid6_all_sorted_list;
+	struct list _rid6_lo_sorted_list;
+	struct list *rid6_all_sorted_list;
+	struct list *rid6_lo_sorted_list;
+	struct prefix rid6_user_assigned;
 
 	/*
 	 * Back pointer to the owning namespace.

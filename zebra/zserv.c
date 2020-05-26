@@ -628,8 +628,8 @@ static void zserv_client_free(struct zserv *client)
 		}
 
 		vrf_bitmap_free(client->redist_default[afi]);
+		vrf_bitmap_free(client->ridinfo[afi]);
 	}
-	vrf_bitmap_free(client->ridinfo);
 
 	/*
 	 * If any instance are graceful restart enabled,
@@ -750,8 +750,8 @@ static struct zserv *zserv_client_create(int sock)
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			client->redist[afi][i] = vrf_bitmap_init();
 		client->redist_default[afi] = vrf_bitmap_init();
+		client->ridinfo[afi] = vrf_bitmap_init();
 	}
-	client->ridinfo = vrf_bitmap_init();
 
 	/* Add this client to linked list. */
 	frr_with_mutex(&client_mutex) {
