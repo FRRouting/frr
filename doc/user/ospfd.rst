@@ -177,8 +177,8 @@ To start OSPF process you have to specify the OSPF router.
    OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
    advertise non-OSPF links into stub areas.
 
-.. index:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
-.. clicmd:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
+.. index:: timers throttle spf (0-600000) (0-600000) (0-600000)
+.. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
 
 .. index:: no timers throttle spf
 .. clicmd:: no timers throttle spf
@@ -693,11 +693,11 @@ Interfaces
    retransmitting Database Description and Link State Request packets. The
    default value is 5 seconds.
 
-.. index:: ip ospf transmit-delay
-.. clicmd:: ip ospf transmit-delay
+.. index:: ip ospf transmit-delay (1-65535) [A.B.C.D]
+.. clicmd:: ip ospf transmit-delay (1-65535) [A.B.C.D]
 
-.. index:: no ip ospf transmit-delay
-.. clicmd:: no ip ospf transmit-delay
+.. index:: no ip ospf transmit-delay [(1-65535)] [A.B.C.D]
+.. clicmd:: no ip ospf transmit-delay [(1-65535)] [A.B.C.D]
 
    Set number of seconds for InfTransDelay value. LSAs' age should be
    incremented by this value when transmitting. The default value is 1 second.

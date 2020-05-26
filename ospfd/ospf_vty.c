@@ -7809,7 +7809,7 @@ DEFUN_HIDDEN (no_ospf_priority,
 
 DEFUN (ip_ospf_retransmit_interval,
        ip_ospf_retransmit_interval_addr_cmd,
-       "ip ospf retransmit-interval (3-65535) [A.B.C.D]",
+       "ip ospf retransmit-interval (1-65535) [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
        "Time between retransmitting lost link state advertisements\n"
@@ -7823,7 +7823,7 @@ DEFUN (ip_ospf_retransmit_interval,
 	struct ospf_if_params *params;
 	params = IF_DEF_PARAMS(ifp);
 
-	argv_find(argv, argc, "(3-65535)", &idx);
+	argv_find(argv, argc, "(1-65535)", &idx);
 	seconds = strtol(argv[idx]->arg, NULL, 10);
 
 	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
@@ -7845,7 +7845,7 @@ DEFUN (ip_ospf_retransmit_interval,
 
 DEFUN_HIDDEN (ospf_retransmit_interval,
               ospf_retransmit_interval_cmd,
-              "ospf retransmit-interval (3-65535) [A.B.C.D]",
+              "ospf retransmit-interval (1-65535) [A.B.C.D]",
               "OSPF interface commands\n"
               "Time between retransmitting lost link state advertisements\n"
               "Seconds\n"
@@ -7856,7 +7856,7 @@ DEFUN_HIDDEN (ospf_retransmit_interval,
 
 DEFUN (no_ip_ospf_retransmit_interval,
        no_ip_ospf_retransmit_interval_addr_cmd,
-       "no ip ospf retransmit-interval [(3-65535)] [A.B.C.D]",
+       "no ip ospf retransmit-interval [(1-65535)] [A.B.C.D]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7896,7 +7896,7 @@ DEFUN (no_ip_ospf_retransmit_interval,
 
 DEFUN_HIDDEN (no_ospf_retransmit_interval,
        no_ospf_retransmit_interval_cmd,
-       "no ospf retransmit-interval [(3-65535)] [A.B.C.D]",
+       "no ospf retransmit-interval [(1-65535)] [A.B.C.D]",
        NO_STR
        "OSPF interface commands\n"
        "Time between retransmitting lost link state advertisements\n"
