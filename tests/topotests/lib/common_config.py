@@ -656,38 +656,48 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
         else:
             cmd = "show interface"
 
-        ifaces = router_list[router].run('vtysh -c "{}"'.format(cmd))
+        linklocal = []
+        if vrf:
+            cmd = "show interface vrf {}".format(vrf)
+        else:
+            cmd = "show interface"
+        for chk_ll in range(0, 60):
+            sleep(1/4)
+            ifaces = router_list[router].run('vtysh -c "{}"'.format(cmd))
+            # Fix newlines (make them all the same)
+            ifaces = ('\n'.join(ifaces.splitlines()) + '\n').splitlines()
 
-        # Fix newlines (make them all the same)
-        ifaces = ("\n".join(ifaces.splitlines()) + "\n").splitlines()
+            interface = None
+            ll_per_if_count = 0
+            for line in ifaces:
+                # Interface name
+                m = re_search('Interface ([a-zA-Z0-9-]+) is', line)
+                if m:
+                    interface = m.group(1).split(" ")[0]
+                    ll_per_if_count = 0
 
-        interface = None
-        ll_per_if_count = 0
-        for line in ifaces:
-            # Interface name
-            m = re_search("Interface ([a-zA-Z0-9-]+) is", line)
-            if m:
-                interface = m.group(1).split(" ")[0]
-                ll_per_if_count = 0
+                # Interface ip
+                m1 = re_search('inet6 (fe80[:a-fA-F0-9]+[\/0-9]+)',
+                              line)
+                if m1:
+                    local = m1.group(1)
+                    ll_per_if_count += 1
+                    if ll_per_if_count > 1:
+                        linklocal += [["%s-%s" %
+                                       (interface, ll_per_if_count), local]]
+                    else:
+                        linklocal += [[interface, local]]
 
-            # Interface ip
-            m1 = re_search("inet6 (fe80[:a-fA-F0-9]+[/0-9]+)", line)
-            if m1:
-                local = m1.group(1)
-                ll_per_if_count += 1
-                if ll_per_if_count > 1:
-                    linklocal += [["%s-%s" % (interface, ll_per_if_count), local]]
-                else:
-                    linklocal += [[interface, local]]
+            try:
+                if linklocal:
+                    if intf:
+                        return [_linklocal[1] for _linklocal in linklocal if _linklocal[0]==intf][0].\
+                            split("/")[0]
+                    return linklocal
+            except IndexError:
+                continue
 
-    if linklocal:
-        if intf:
-            return [_linklocal[1] for _linklocal in linklocal if _linklocal[0] == intf][
-                0
-            ].split("/")[0]
-        return linklocal
-    else:
-        errormsg = "Link local ip missing on router {}"
+        errormsg = "Link local ip missing on router {}".format(router)
         return errormsg
 
 
@@ -1636,7 +1646,7 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0, return_is_dict
                     if _return_is_str and isinstance(ret, bool) and _expected:
                         return ret
                     if (
-                        isinstance(ret, str) or isinstance(ret, unicode)
+                        isinstance(ret, str) or isinstance(ret, frr_unicode)
                     ) and _expected is False:
                         return ret
                     if _return_is_dict and isinstance(ret, dict):
@@ -1750,7 +1760,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     interface_name = data["interface"]
 
                 # Include vrf if present
-                if "vrf" in data:
+                if "vrf" in data and interface_name != "lo":
                     interface_data.append(
                         "interface {} vrf {}".format(
                             str(interface_name), str(data["vrf"])
@@ -1773,6 +1783,14 @@ def create_interfaces_cfg(tgen, topo, build=False):
                         interface_data.append("no ipv6 address {}".format(intf_addr))
                     else:
                         interface_data.append("ipv6 address {}".format(intf_addr))
+
+                # Wait for vrf interfaces to get link local address once they are up
+                if not destRouterLink == 'lo' and 'vrf' in topo[c_router][
+                    'links'][destRouterLink]:
+                    vrf = topo[c_router]['links'][destRouterLink]['vrf']
+                    intf = topo[c_router]['links'][destRouterLink]['interface']
+                    ll = get_frr_ipv6_linklocal(tgen, c_router, intf=intf,
+                                vrf = vrf)
 
                 if "ipv6-link-local" in data:
                     intf_addr = c_data["links"][destRouterLink]["ipv6-link-local"]

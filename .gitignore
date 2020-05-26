@@ -112,5 +112,5 @@ refix
 .vscode
 .kitchen
 .emacs.desktop*
-
 /test-suite.log
+.DS_Store
