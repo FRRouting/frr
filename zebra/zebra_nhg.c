@@ -1934,12 +1934,19 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 			resolved = 0;
 
+			/* Only useful if installed */
+			if (!CHECK_FLAG(match->status, ROUTE_ENTRY_INSTALLED)) {
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: match %p (%u) not installed",
+						   __func__, match,
+						   match->nhe->id);
+
+				goto done_with_match;
+			}
+
 			/* Examine installed nexthops */
 			nhg = &match->nhe->nhg;
 			for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
-				if (!CHECK_FLAG(match->status,
-						ROUTE_ENTRY_INSTALLED))
-					continue;
 				if (!nexthop_valid_resolve(nexthop, newhop))
 					continue;
 
@@ -1960,9 +1967,6 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				goto done_with_match;
 
 			for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
-				if (!CHECK_FLAG(match->status,
-						ROUTE_ENTRY_INSTALLED))
-					continue;
 				if (!nexthop_valid_resolve(nexthop, newhop))
 					continue;
 
