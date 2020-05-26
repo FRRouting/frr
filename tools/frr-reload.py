@@ -63,12 +63,14 @@ class VtyshException(Exception):
     pass
 
 class Vtysh(object):
-    def __init__(self, bindir=None, confdir=None):
+    def __init__(self, bindir=None, confdir=None, sockdir=None):
         self.bindir = bindir
         self.confdir = confdir
         self.common_args = [os.path.join(bindir or '', 'vtysh')]
         if confdir:
             self.common_args.extend(['--config_dir', confdir])
+        if sockdir:
+            self.common_args.extend(['--vty_socket', sockdir])
 
     def _call(self, args, stdin=None, stdout=None, stderr=None):
         kwargs = {}
@@ -1171,6 +1173,7 @@ if __name__ == '__main__':
     parser.add_argument('--bindir', help='path to the vtysh executable', default='/usr/bin')
     parser.add_argument('--confdir', help='path to the daemon config files', default='/etc/frr')
     parser.add_argument('--rundir', help='path for the temp config file', default='/var/run/frr')
+    parser.add_argument('--vty_socket', help='socket to be used by vtysh to connect to the daemons', default=None)
     parser.add_argument('--daemon', help='daemon for which want to replace the config', default='')
 
     args = parser.parse_args()
@@ -1226,6 +1229,13 @@ if __name__ == '__main__':
         log.error(msg)
         sys.exit(1)
 
+    # verify that the vty_socket, if specified, is valid
+    if args.vty_socket and not os.path.isdir(args.vty_socket):
+        msg = 'vty_socket %s is not a valid path' % args.vty_socket
+        print(msg)
+        log.error(msg)
+        sys.exit(1)
+
     # verify that the daemon, if specified, is valid
     if args.daemon and args.daemon not in ['zebra', 'bgpd', 'fabricd', 'isisd', 'ospf6d', 'ospfd', 'pbrd', 'pimd', 'ripd', 'ripngd', 'sharpd', 'staticd', 'vrrpd', 'ldpd']:
         msg = "Daemon %s is not a valid option for 'show running-config'" % args.daemon
@@ -1233,7 +1243,7 @@ if __name__ == '__main__':
         log.error(msg)
         sys.exit(1)
 
-    vtysh = Vtysh(args.bindir, args.confdir)
+    vtysh = Vtysh(args.bindir, args.confdir, args.vty_socket)
 
     # Verify that 'service integrated-vtysh-config' is configured
     vtysh_filename = args.confdir + '/vtysh.conf'
