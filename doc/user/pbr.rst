@@ -62,19 +62,19 @@ Showing Nexthop Group Information
    nexthop groups are shown. Setting ``json`` will provide the same
    information in an array of objects which obey the schema below:
 
-   +-------------+----------------------------+---------+
-   | Key         | Description                | Type    |
-   +=============+============================+=========+
-   | id          | Unique ID                  | Integer |
-   +-------------+----------------------------+---------+
-   | name        | Name of this group         | String  |
-   +-------------+----------------------------+---------+
-   | isValud     | Is this group well-formed? | Boolean |
-   +-------------+----------------------------+---------+
-   | isInstalled | ... and is it installed?   | Boolean |
-   +-------------+----------------------------+---------+
-   | nexthops    | Nexthops within this group | Array   |
-   +-------------+----------------------------+---------+
+   +-----------+----------------------------+---------+
+   | Key       | Description                | Type    |
+   +===========+============================+=========+
+   | id        | Unique ID                  | Integer |
+   +-----------+----------------------------+---------+
+   | name      | Name of this group         | String  |
+   +-----------+----------------------------+---------+
+   | valid     | Is this group well-formed? | Boolean |
+   +-----------+----------------------------+---------+
+   | installed | ... and is it installed?   | Boolean |
+   +-----------+----------------------------+---------+
+   | nexthops  | Nexthops within this group | Array   |
+   +-----------+----------------------------+---------+
 
    Each element within ``nexthops`` describes a single target within this
    group, and its structure is described by the JSON below:
@@ -82,9 +82,9 @@ Showing Nexthop Group Information
    +---------+------------------------------+---------+
    | Key     | Description                  | Type    |
    +=========+==============================+=========+
-   | target  | Name of this nexthop         | String  |
+   | nexthop | Name of this nexthop         | String  |
    +---------+------------------------------+---------+
-   | isValid | Is this nexthop well-formed? | Boolean |
+   | valid   | Is this nexthop well-formed? | Boolean |
    +---------+------------------------------+---------+
 
 .. _pbr-maps:
@@ -149,15 +149,15 @@ end destination.
    Setting ``json`` will provide the same information in an array of objects
    which obey the schema below:
 
-   +--------------+--------------------------------+---------+
-   | Key          | Description                    | Type    |
-   +==============+================================+=========+
-   | name         | Map name                       | String  |
-   +--------------+--------------------------------+---------+
-   | isValid      | Is the map well-formed?        | Boolean |
-   +--------------+--------------------------------+---------+
-   | policies     | Rules to match packets against | Array   |
-   +--------------+--------------------------------+---------+
+   +----------+--------------------------------+---------+
+   | Key      | Description                    | Type    |
+   +==========+================================+=========+
+   | name     | Map name                       | String  |
+   +----------+--------------------------------+---------+
+   | valid    | Is the map well-formed?        | Boolean |
+   +----------+--------------------------------+---------+
+   | policies | Rules to match packets against | Array   |
+   +----------+--------------------------------+---------+
 
    Each element of the ``policies`` array is composed of a handful of objects
    representing the policies associated with this map. Each policy is
@@ -174,7 +174,7 @@ end destination.
    +-----------------+-------------------------------------------+---------+
    | vrfUnchanged    | Use interface's VRF                       | Boolean |
    +-----------------+-------------------------------------------+---------+
-   | isInstalled     | Is this policy installed?                 | Boolean |
+   | installed       | Is this policy installed?                 | Boolean |
    +-----------------+-------------------------------------------+---------+
    | installedReason | Why (or why not?)                         | String  |
    +-----------------+-------------------------------------------+---------+
@@ -192,17 +192,17 @@ end destination.
    Finally, the ``nexthopGroup`` object above cotains information we know
    about the configured nexthop for this policy:
 
-   +-----------------------+--------------------------------------+---------+
-   | Key                   | Description                          | Type    |
-   +=======================+======================================+=========+
-   | id                    | Nexthop table ID                     | Integer |
-   +-----------------------+--------------------------------------+---------+
-   | name                  | Name of the nexthop group            | String  |
-   +-----------------------+--------------------------------------+---------+
-   | isInstalled           | Is this nexthop group installed?     | Boolean |
-   +-----------------------+--------------------------------------+---------+
-   | isInstalledInternally | Do we think this group is installed? | Integer |
-   +-----------------------+--------------------------------------+---------+
+   +---------------------+--------------------------------------+---------+
+   | Key                 | Description                          | Type    |
+   +=====================+======================================+=========+
+   | tableId             | Nexthop table ID                     | Integer |
+   +---------------------+--------------------------------------+---------+
+   | name                | Name of the nexthop group            | String  |
+   +---------------------+--------------------------------------+---------+
+   | installed           | Is this nexthop group installed?     | Boolean |
+   +---------------------+--------------------------------------+---------+
+   | installedInternally | Do we think this group is installed? | Integer |
+   +---------------------+--------------------------------------+---------+
 
 .. _pbr-policy:
 
@@ -230,17 +230,17 @@ causes the policy to be installed into the kernel.
    ``json`` will return an array of interfaces; each returned interface will
    adhere to the JSON schema below:
 
-   +---------+----------------------------+---------+
-   | Key     | Description                | Type    |
-   +=========+============================+=========+
-   | name    | Interface name             | String  |
-   +---------+----------------------------+---------+
-   | index   | Device Index               | Integer |
-   +---------+----------------------------+---------+
-   | policy  | PBR map for this interface | String  |
-   +---------+----------------------------+---------+
-   | isValid | Is the map well-formed?    | Boolean |
-   +---------+----------------------------+---------+
+   +--------+----------------------------+---------+
+   | Key    | Description                | Type    |
+   +========+============================+=========+
+   | name   | Interface name             | String  |
+   +--------+----------------------------+---------+
+   | index  | Device Index               | Integer |
+   +--------+----------------------------+---------+
+   | policy | PBR map for this interface | String  |
+   +--------+----------------------------+---------+
+   | valid  | Is the map well-formed?    | Boolean |
+   +--------+----------------------------+---------+
 
 .. _pbr-details:
 
