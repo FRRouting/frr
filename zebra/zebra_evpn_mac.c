@@ -1005,6 +1005,14 @@ int zebra_evpn_mac_del(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 			   mac->flags);
 	}
 
+	/* If the MAC is freed before the neigh we will end up
+	 * with a stale pointer against the neigh
+	 */
+	if (!list_isempty(mac->neigh_list))
+		zlog_warn("%s: MAC %pEA flags 0x%x neigh list not empty %d",
+			  __func__, &mac->macaddr, mac->flags,
+			  listcount(mac->neigh_list));
+
 	/* force de-ref any ES entry linked to the MAC */
 	zebra_evpn_es_mac_deref_entry(mac);
 
