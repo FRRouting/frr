@@ -6299,16 +6299,17 @@ bool bgp_evpn_is_prefix_nht_supported(const struct prefix *pfx)
 	struct prefix_evpn *evp = (struct prefix_evpn *)pfx;
 
 	/*
-	 * EVPN RT-5 should not be marked as valid and imported to vrfs if the
-	 * BGP nexthop is not reachable. To check for the nexthop reachability,
-	 * Add nexthop for EVPN RT-5 for nexthop tracking.
-	 *
-	 * Ideally, a BGP route should be marked as valid only if the
-	 * nexthop is reachable. Thus, other EVPN route types also should be
-	 * added here after testing is performed for them.
+	 * EVPN routes should be marked as valid only if the nexthop is
+	 * reachable. Only if this happens, the route should be imported
+	 * (into VNI or VRF routing tables) and/or advertised.
+	 * Note: This is currently applied for EVPN type-2, type-3 and
+	 * type-5 routes. It may be tweaked later on for other routes, or
+	 * even removed completely when all routes are handled.
 	 */
 	if (pfx && pfx->family == AF_EVPN &&
-	    evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
+	    (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE ||
+	     evp->prefix.route_type == BGP_EVPN_IMET_ROUTE ||
+	     evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE))
 		return true;
 
 	return false;
