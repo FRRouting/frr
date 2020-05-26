@@ -870,6 +870,7 @@ class Router(Node):
             "staticd": 0,
             "bfdd": 0,
             "sharpd": 0,
+            "babeld": 0,
         }
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
