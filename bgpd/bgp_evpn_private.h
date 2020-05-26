@@ -270,8 +270,12 @@ static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 	vpn->bgp_vrf = bgp_lock(bgp_vrf);
 	listnode_add_sort(bgp_vrf->l2vnis, vpn);
 
-	/* check if we are advertising two labels for this vpn */
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
+	/*
+	 * If L3VNI is configured,
+	 * check if we are advertising two labels for this vpn
+	 */
+	if (bgp_vrf->l3vni &&
+	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
 		SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
 }
 

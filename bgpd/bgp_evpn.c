@@ -5824,8 +5824,30 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 			   is_anycast_mac ? "Enable" : "Disable");
 	}
 	/* set the right filter - are we using l3vni only for prefix routes? */
-	if (filter)
+	if (filter) {
 		SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY);
+
+		/*
+		 * VNI_FLAG_USE_TWO_LABELS flag for linked L2VNIs should not be
+		 * set before linking vrf to L3VNI. Thus, no need to clear
+		 * that explicitly.
+		 */
+	} else {
+		UNSET_FLAG(bgp_vrf->vrf_flags,
+			   BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY);
+
+		for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn)) {
+			if (!CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS)) {
+
+				/*
+				 * If we are flapping VNI_FLAG_USE_TWO_LABELS
+				 * flag, update all MACIP routes in this VNI
+				 */
+				SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
+				update_all_type2_routes(bgp_evpn, vpn);
+			}
+		}
+	}
 
 	/* Map auto derive or configured RTs */
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD))
