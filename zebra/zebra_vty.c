@@ -2451,6 +2451,21 @@ DEFUN (show_evpn_global,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_l2_nh,
+      show_evpn_l2_nh_cmd,
+      "show evpn l2-nh [json$json]",
+      SHOW_STR
+      "EVPN\n"
+      "Layer2 nexthops\n"
+      JSON_STR)
+{
+	bool uj = !!json;
+
+	zebra_evpn_l2_nh_show(vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_evpn_es,
       show_evpn_es_cmd,
       "show evpn es [NAME$esi_str|detail$detail] [json$json]",
@@ -2458,8 +2473,8 @@ DEFPY(show_evpn_es,
       "EVPN\n"
       "Ethernet Segment\n"
       "ES ID\n"
-      JSON_STR
-      "Detailed information\n")
+      "Detailed information\n"
+      JSON_STR)
 {
 	esi_t esi;
 	bool uj = !!json;
@@ -3754,6 +3769,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_detail_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_l2_nh_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_evi_cmd);
 	install_element(VIEW_NODE, &show_evpn_access_vlan_cmd);
