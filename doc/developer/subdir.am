@@ -22,6 +22,7 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-ubuntu1404.rst \
 	doc/developer/building-frr-for-ubuntu1604.rst \
 	doc/developer/building-frr-for-ubuntu1804.rst \
+	doc/developer/building-frr-for-ubuntu2004.rst \
 	doc/developer/building-libyang.rst \
 	doc/developer/building.rst \
 	doc/developer/cli.rst \
