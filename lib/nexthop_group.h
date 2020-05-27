@@ -97,6 +97,9 @@ struct nexthop_group_cmd {
 
 	struct list *nhg_list;
 
+	/* Install nhg as separate object in RIB */
+	bool installable;
+
 	QOBJ_FIELDS
 };
 RB_HEAD(nhgc_entry_head, nexthp_group_cmd);
@@ -116,7 +119,8 @@ void nexthop_group_init(
 			    const struct nexthop *nhop),
 	void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
 			    const struct nexthop *nhop),
-	void (*destroy)(const char *name));
+	void (*destroy)(const char *name),
+	void (*installable)(const struct nexthop_group_cmd *nhg));
 
 void nexthop_group_enable_vrf(struct vrf *vrf);
 void nexthop_group_disable_vrf(struct vrf *vrf);
