@@ -46,6 +46,9 @@ static int pcep_lib_pceplib_socket_write_cb(void *fpt, void **thread, int fd,
 static int pcep_lib_socket_read_ready(struct thread *thread);
 static int pcep_lib_socket_write_ready(struct thread *thread);
 
+/* pceplib pcep_event callbacks */
+static void pcep_lib_pceplib_event_cb(void *fpt, pcep_event *event);
+
 /* Internal functions */
 static double_linked_list *pcep_lib_format_path(struct path *path);
 static void pcep_lib_parse_open(struct pcep_caps *caps,
@@ -93,8 +96,9 @@ int pcep_lib_initialize(struct frr_pthread *fpt)
 		.timer_cancel_func = pcep_lib_pceplib_timer_cancel_cb,
 		/* Timers infrastructure */
 		.socket_read_func = pcep_lib_pceplib_socket_read_cb,
-		.socket_write_func = pcep_lib_pceplib_socket_write_cb
-	};
+		.socket_write_func = pcep_lib_pceplib_socket_write_cb,
+		/* PCEP events */
+		.pcep_event_func = pcep_lib_pceplib_event_cb};
 	if (!initialize_pcc_infra(&infra)) {
 		flog_err(EC_PATH_PCEP_PCC_INIT, "failed to initialize pceplib");
 		return 1;
@@ -236,6 +240,12 @@ int pcep_lib_socket_read_ready(struct thread *thread)
     XFREE(MTYPE_PCEP, data);
 
     return retval;
+}
+
+/* Callback passed to pceplib when a pcep_event is ready */
+void pcep_lib_pceplib_event_cb(void *fpt, pcep_event *event)
+{
+	pcep_thread_send_ctrl_event(fpt, event, pcep_thread_pcep_event);
 }
 
 struct pcep_message *pcep_lib_format_report(struct path *path)

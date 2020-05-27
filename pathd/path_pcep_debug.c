@@ -742,12 +742,6 @@ void _format_ctrl_state(int ps, struct ctrl_state *state)
 			PCEP_FORMAT("%*sself: <THREAD MASTER %p>\n", ps2, "",
 				    state->self);
 		}
-		if (state->t_poll == NULL) {
-			PCEP_FORMAT("%*st_poll: NULL\n", ps2, "");
-		} else {
-			PCEP_FORMAT("%*st_poll: <THREAD %p>\n", ps2, "",
-				    state->t_poll);
-		}
 		PCEP_FORMAT("%*spcc_count: %d\n", ps2, "", state->pcc_count);
 		PCEP_FORMAT("%*spcc:\n", ps2, "");
 		for (i = 0; i < state->pcc_count; i++) {

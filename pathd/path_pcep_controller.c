@@ -36,7 +36,6 @@
 #include "pathd/path_pcep_nb.h"
 #include "pathd/path_pcep_debug.h"
 
-#define POLL_INTERVAL 1
 #define MAX_RECONNECT_DELAY 120
 
 #define min(a, b)                                                              \
@@ -49,13 +48,13 @@
 
 /* Event handling data structures */
 enum pcep_ctrl_event_type {
-	EV_INITIALIZE = 1,
-	EV_UPDATE_PCC_OPTS,
+	EV_UPDATE_PCC_OPTS = 1,
 	EV_UPDATE_PCE_OPTS,
 	EV_REMOVE_PCC,
 	EV_PATHD_EVENT,
 	EV_SYNC_PATH,
-	EV_SYNC_DONE
+	EV_SYNC_DONE,
+	EV_PCEPLIB_EVENT
 };
 
 struct pcep_ctrl_event_data {
@@ -93,7 +92,6 @@ static int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res);
 
 /* Internal Functions Called From Controller Thread */
 static int pcep_thread_finish_event_handler(struct thread *thread);
-static void pcep_thread_schedule_poll(struct ctrl_state *ctrl_state);
 static int pcep_thread_get_counters_callback(struct thread *t);
 static int pcep_thread_send_report_callback(struct thread *t);
 
@@ -105,7 +103,6 @@ static int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state,
         int pcc_id, enum pcep_ctrl_timer_type type, uint32_t delay,
         void *payload, struct thread **thread, pcep_ctrl_thread_callback timer_cb);
 static int pcep_thread_timer_handler(struct thread *thread);
-static int pcep_thread_timer_poll(struct ctrl_state *ctrl_state);
 
 /* Controller Thread Socket read/write Handler */
 static int schedule_thread_socket(struct ctrl_state *ctrl_state, int pcc_id,
@@ -117,6 +114,10 @@ static int schedule_thread_socket(struct ctrl_state *ctrl_state, int pcc_id,
 static int send_to_thread(struct ctrl_state *ctrl_state, int pcc_id,
 			  enum pcep_ctrl_event_type type, uint32_t sub_type,
 			  void *payload);
+static int send_to_thread_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
+				  enum pcep_ctrl_event_type type,
+				  uint32_t sub_type, void *payload,
+				  pcep_ctrl_thread_callback event_cb);
 static int pcep_thread_event_handler(struct thread *thread);
 static int pcep_thread_event_update_pcc_options(struct ctrl_state *ctrl_state,
 						struct pcc_opts *opts);
@@ -187,7 +188,6 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 	ctrl_state->main = main_thread;
 	ctrl_state->self = (*fpt)->master;
 	ctrl_state->main_event_handler = event_handler;
-	ctrl_state->t_poll = NULL;
 	ctrl_state->pcc_count = 0;
 	ctrl_state->pcc_opts =
 		XCALLOC(MTYPE_PCEP, sizeof(*ctrl_state->pcc_opts));
@@ -198,9 +198,6 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 
 	/* Keep the state reference for events */
 	set_ctrl_state(*fpt, ctrl_state);
-
-	/* Initialize the PCEP thread */
-	send_to_thread(ctrl_state, 0, EV_INITIALIZE, 0, NULL);
 
 	return ret;
 }
@@ -357,10 +354,6 @@ int pcep_thread_finish_event_handler(struct thread *thread)
 
 	assert(ctrl_state != NULL);
 
-	if (ctrl_state->t_poll != NULL) {
-		thread_cancel(ctrl_state->t_poll);
-	}
-
 	for (i = 0; i < ctrl_state->pcc_count; i++) {
 		pcep_pcc_finalize(ctrl_state, ctrl_state->pcc[i]);
 		ctrl_state->pcc[i] = NULL;
@@ -372,13 +365,6 @@ int pcep_thread_finish_event_handler(struct thread *thread)
 
 	atomic_store_explicit(&fpt->running, false, memory_order_relaxed);
 	return 0;
-}
-
-void pcep_thread_schedule_poll(struct ctrl_state *ctrl_state)
-{
-	assert(ctrl_state->t_poll == NULL);
-	schedule_thread_timer(ctrl_state, 0, TM_POLL, POLL_INTERVAL, NULL,
-			      &ctrl_state->t_poll);
 }
 
 int pcep_thread_get_counters_callback(struct thread *t)
@@ -468,9 +454,6 @@ int pcep_thread_timer_handler(struct thread *thread)
 	struct pcc_state *pcc_state = NULL;
 
 	switch (type) {
-	case TM_POLL:
-		ret = pcep_thread_timer_poll(ctrl_state);
-		break;
 	case TM_RECONNECT_PCC:
 		pcc_state = get_pcc_state(ctrl_state, pcc_id);
 		pcep_pcc_reconnect(ctrl_state, pcc_state);
@@ -484,26 +467,23 @@ int pcep_thread_timer_handler(struct thread *thread)
 	return ret;
 }
 
-int pcep_thread_timer_poll(struct ctrl_state *ctrl_state)
+int pcep_thread_pcep_event(struct thread *thread)
 {
+	struct pcep_ctrl_event_data *data = THREAD_ARG(thread);
+	assert(data != NULL);
+	struct ctrl_state *ctrl_state = data->ctrl_state;
+	pcep_event *event = data->payload;
+	XFREE(MTYPE_PCEP, data);
 	int i;
-	pcep_event *event;
 
-	assert(ctrl_state->t_poll == NULL);
-
-	while ((event = event_queue_get_event()) != NULL) {
-		for (i = 0; i < ctrl_state->pcc_count; i++) {
-			struct pcc_state *pcc_state = ctrl_state->pcc[i];
-			if (pcc_state->sess != event->session)
-				continue;
-			pcep_pcc_pcep_event_handler(ctrl_state, pcc_state,
-						    event);
-			break;
-		}
-		destroy_pcep_event(event);
+	for (i = 0; i < ctrl_state->pcc_count; i++) {
+		struct pcc_state *pcc_state = ctrl_state->pcc[i];
+		if (pcc_state->sess != event->session)
+			continue;
+		pcep_pcc_pcep_event_handler(ctrl_state, pcc_state, event);
+		break;
 	}
-
-	pcep_thread_schedule_poll(ctrl_state);
+	destroy_pcep_event(event);
 
 	return 0;
 }
@@ -556,11 +536,28 @@ int pcep_thread_socket_read(void *fpt, void **thread, int fd, void *payload,
 				      payload, fd, (struct thread **)thread, socket_cb);
 }
 
+int pcep_thread_send_ctrl_event(void *fpt, void *payload,
+				pcep_ctrl_thread_callback cb)
+{
+	struct ctrl_state *ctrl_state = ((struct frr_pthread *)fpt)->data;
+
+	return send_to_thread_with_cb(ctrl_state, 0, EV_PCEPLIB_EVENT, 0,
+				      payload, cb);
+}
+
 /* ------------ Controller Thread Event Handler ------------ */
 
 int send_to_thread(struct ctrl_state *ctrl_state, int pcc_id,
 		   enum pcep_ctrl_event_type type, uint32_t sub_type,
 		   void *payload)
+{
+	return send_to_thread_with_cb(ctrl_state, pcc_id, type, sub_type,
+				      payload, pcep_thread_event_handler);
+}
+
+int send_to_thread_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
+			   enum pcep_ctrl_event_type type, uint32_t sub_type,
+			   void *payload, pcep_ctrl_thread_callback event_cb)
 {
 	struct pcep_ctrl_event_data *data;
 
@@ -571,8 +568,8 @@ int send_to_thread(struct ctrl_state *ctrl_state, int pcc_id,
 	data->pcc_id = pcc_id;
 	data->payload = payload;
 
-	thread_add_event(ctrl_state->self, pcep_thread_event_handler,
-			 (void *)data, 0, NULL);
+	thread_add_event(ctrl_state->self, event_cb, (void *)data, 0, NULL);
+
 	return 0;
 }
 
@@ -600,9 +597,6 @@ int pcep_thread_event_handler(struct thread *thread)
 	struct pce_opts *pce_opts = NULL;
 
 	switch (type) {
-	case EV_INITIALIZE:
-		pcep_thread_schedule_poll(ctrl_state);
-		break;
 	case EV_UPDATE_PCC_OPTS:
 		assert(payload != NULL);
 		pcc_opts = (struct pcc_opts *)payload;

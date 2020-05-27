@@ -43,7 +43,6 @@ struct ctrl_state {
 	struct thread_master *main;
 	struct thread_master *self;
 	pcep_main_event_handler_t main_event_handler;
-	struct thread *t_poll;
 	struct pcc_opts *pcc_opts;
 	int pcc_count;
 	struct pcc_state *pcc[MAX_PCC];
@@ -51,7 +50,7 @@ struct ctrl_state {
 
 /* Timer handling data structures */
 
-enum pcep_ctrl_timer_type { TM_POLL = 1, TM_RECONNECT_PCC, TM_PCEPLIB_TIMER };
+enum pcep_ctrl_timer_type { TM_RECONNECT_PCC, TM_PCEPLIB_TIMER };
 
 struct pcep_ctrl_timer_data {
     struct ctrl_state *ctrl_state;
@@ -111,5 +110,9 @@ int pcep_thread_socket_read(void *fpt, void **thread, int fd,
         void *payload, pcep_ctrl_thread_callback cb);
 int pcep_thread_socket_write(void *fpt, void **thread, int fd,
         void *payload, pcep_ctrl_thread_callback cb);
+
+int pcep_thread_send_ctrl_event(void *fpt, void *payload,
+				pcep_ctrl_thread_callback cb);
+int pcep_thread_pcep_event(struct thread *thread);
 
 #endif // _PATH_PCEP_CONTROLLER_H_
