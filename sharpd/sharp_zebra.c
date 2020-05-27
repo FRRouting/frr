@@ -435,6 +435,12 @@ static int sharp_debug_nexthops(struct zapi_route *api)
 	int i;
 	char buf[PREFIX_STRLEN];
 
+	if (api->nexthop_num == 0) {
+		zlog_debug(
+			"        Not installed");
+		return 0;
+	}
+
 	for (i = 0; i < api->nexthop_num; i++) {
 		struct zapi_nexthop *znh = &api->nexthops[i];
 
