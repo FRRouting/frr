@@ -124,6 +124,19 @@ struct zebra_evpn_es_evi {
 	struct listnode es_listnode;
 };
 
+/* A single L2 nexthop is allocated across all ESs with the same PE/VTEP
+ * nexthop
+ */
+struct zebra_evpn_l2_nh {
+	struct in_addr vtep_ip;
+
+	/* MAC nexthop id */
+	uint32_t nh_id;
+
+	/* es_vtep entries using this nexthop */
+	uint32_t ref_cnt;
+};
+
 /* PE attached to an ES */
 struct zebra_evpn_es_vtep {
 	struct zebra_evpn_es *es; /* parent ES */
@@ -134,11 +147,11 @@ struct zebra_evpn_es_vtep {
 #define ZEBRA_EVPNES_VTEP_RXED_ESR (1 << 0)
 #define ZEBRA_EVPNES_VTEP_DEL_IN_PROG (1 << 1)
 
+	/* MAC nexthop info */
+	struct zebra_evpn_l2_nh *nh;
+
 	/* memory used for adding the entry to es->es_vtep_list */
 	struct listnode es_listnode;
-
-	/* MAC nexthop */
-	uint32_t nh_id;
 
 	/* Parameters for DF election */
 	uint8_t df_alg;
@@ -206,6 +219,8 @@ struct zebra_evpn_mh_info {
 #define EVPN_NHG_ID_TYPE_BIT (NHG_TYPE_L2 << NHG_ID_TYPE_POS)
 	/* L2-NHG table - key: nhg_id, data: zebra_evpn_es */
 	struct hash *nhg_table;
+	/* L2-NH table - key: vtep_up, data: zebra_evpn_nh */
+	struct hash *nh_ip_table;
 
 	/* XXX - re-visit the default hold timer value */
 	int mac_hold_time;
@@ -311,5 +326,6 @@ extern bool zebra_evpn_is_es_bond(struct interface *ifp);
 extern bool zebra_evpn_is_es_bond_member(struct interface *ifp);
 extern void zebra_evpn_mh_print(struct vty *vty);
 extern void zebra_evpn_mh_json(json_object *json);
+extern void zebra_evpn_l2_nh_show(struct vty *vty, bool uj);
 
 #endif /* _ZEBRA_EVPN_MH_H */
