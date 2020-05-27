@@ -1,0 +1,12 @@
+[
+  {
+    "name":"r1-eth1",
+    "policy":"EVA",
+    "valid":true
+  },
+  {
+    "name":"r1-eth2",
+    "policy":"DONNA",
+    "valid":true
+  }
+]
