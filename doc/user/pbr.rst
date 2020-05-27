@@ -45,6 +45,17 @@ listing of ECMP nexthops used to forward packets for when a pbr-map is matched.
    are used to are allowed here.  The syntax was intentionally kept the same as
    creating nexthops as you would for static routes.
 
+.. clicmd:: set installable
+
+   Sets the nexthop group to be installable i.e. treated as a separate object in
+   the protocol client and zebra's RIB. The proto will send down the object
+   separately from the route to install into into the RIB and dataplane.
+
+.. note::
+   ``set installable`` is only supported for groups with onlink, interface, and
+   gateway/interface nexthop types at the moment. Recursive nexthops
+   (gateway only) are considered undefined behavior.
+
 .. clicmd:: [no] pbr table range (10000-4294966272) (10000-4294966272)
 
    Set or unset the range used to assign numeric table ID's to new

@@ -57,6 +57,7 @@ struct nexthop_group_hooks {
 	void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
 			    const struct nexthop *nhop);
 	void (*delete)(const char *name);
+	void (*installable)(const struct nexthop_group_cmd *nhg);
 };
 
 static struct nexthop_group_hooks nhg_hooks;
@@ -677,6 +678,37 @@ DEFPY(no_nexthop_group_backup, no_nexthop_group_backup_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(set_installable, set_installable_cmd,
+      "set installable",
+      "Set for nexthop-group\n"
+      "Install nexthop-group into RIB as separate object\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	nhgc->installable = true;
+
+	if (nhg_hooks.installable)
+		nhg_hooks.installable(nhgc);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_set_installable, no_set_installable_cmd,
+      "no set installable",
+      NO_STR
+      "Set for nexthop-group\n"
+      "Install nexthop-group into RIB as separate object\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	nhgc->installable = false;
+
+	if (nhg_hooks.installable)
+		nhg_hooks.installable(nhgc);
+
+	return CMD_SUCCESS;
+}
+
 static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 				    const char *nhvrf_name,
 				    const union sockunion *addr,
@@ -1051,6 +1083,9 @@ static int nexthop_group_write(struct vty *vty)
 
 		vty_out(vty, "nexthop-group %s\n", nhgc->name);
 
+		if (nhgc->installable)
+			vty_out(vty, " set installable\n");
+
 		if (nhgc->backup_list_name[0])
 			vty_out(vty, " backup-group %s\n",
 				nhgc->backup_list_name);
@@ -1219,12 +1254,14 @@ static const struct cmd_variable_handler nhg_name_handlers[] = {
 	{.tokenname = "NHGNAME", .completions = nhg_name_autocomplete},
 	{.completions = NULL}};
 
-void nexthop_group_init(void (*new)(const char *name),
-			void (*add_nexthop)(const struct nexthop_group_cmd *nhg,
-					    const struct nexthop *nhop),
-			void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
-					    const struct nexthop *nhop),
-			void (*delete)(const char *name))
+void nexthop_group_init(
+	void (*new)(const char *name),
+	void (*add_nexthop)(const struct nexthop_group_cmd *nhg,
+			    const struct nexthop *nhop),
+	void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
+			    const struct nexthop *nhop),
+	void (*delete)(const char *name),
+	void (*installable)(const struct nexthop_group_cmd *nhg))
 {
 	RB_INIT(nhgc_entry_head, &nhgc_entries);
 
@@ -1237,6 +1274,8 @@ void nexthop_group_init(void (*new)(const char *name),
 	install_default(NH_GROUP_NODE);
 	install_element(NH_GROUP_NODE, &nexthop_group_backup_cmd);
 	install_element(NH_GROUP_NODE, &no_nexthop_group_backup_cmd);
+	install_element(NH_GROUP_NODE, &set_installable_cmd);
+	install_element(NH_GROUP_NODE, &no_set_installable_cmd);
 	install_element(NH_GROUP_NODE, &ecmp_nexthops_cmd);
 
 	memset(&nhg_hooks, 0, sizeof(nhg_hooks));
@@ -1249,4 +1288,6 @@ void nexthop_group_init(void (*new)(const char *name),
 		nhg_hooks.del_nexthop = del_nexthop;
 	if (delete)
 		nhg_hooks.delete = delete;
+	if (installable)
+		nhg_hooks.installable = installable;
 }
