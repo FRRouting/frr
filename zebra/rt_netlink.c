@@ -1048,7 +1048,7 @@ static void _netlink_route_nl_add_gateway_info(uint8_t route_family,
 	} else {
 
 		if (!(nexthop->rparent
-		    && IS_MAPPED_IPV6(&nexthop->rparent->gate.ipv6))) {
+		      && IS_MAPPED_IPV6(&nexthop->rparent->gate.ipv6))) {
 			if (gw_family == AF_INET)
 				addattr_l(nlmsg, req_size, RTA_GATEWAY,
 					  &nexthop->gate.ipv4, bytelen);

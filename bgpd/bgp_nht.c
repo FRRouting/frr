@@ -552,8 +552,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			p->u.prefix4 = p_orig->u.prefix4;
 			p->prefixlen = p_orig->prefixlen;
 		} else {
-			if (IS_MAPPED_IPV6(
-				    &pi->attr->mp_nexthop_global)) {
+			if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global)) {
 				ipv4_mapped_ipv6_to_ipv4(
 					&pi->attr->mp_nexthop_global, &ipv4);
 				p->u.prefix4 = ipv4;
