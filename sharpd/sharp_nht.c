@@ -78,6 +78,8 @@ struct sharp_nhg {
 	uint32_t id;
 
 	char name[256];
+
+	bool installable;
 };
 
 static uint32_t nhg_id;
@@ -120,7 +122,9 @@ static void sharp_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	strncpy(lookup.name, nhgc->name, sizeof(lookup.name));
 	snhg = sharp_nhg_rb_find(&nhg_head, &lookup);
 
-	nhg_add(snhg->id, &nhgc->nhg);
+	if (snhg->installable)
+		nhg_add(snhg->id, &nhgc->nhg);
+
 	return;
 }
 
@@ -133,7 +137,9 @@ static void sharp_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	strncpy(lookup.name, nhgc->name, sizeof(lookup.name));
 	snhg = sharp_nhg_rb_find(&nhg_head, &lookup);
 
-	nhg_add(snhg->id, &nhgc->nhg);
+	if (snhg->installable)
+		nhg_add(snhg->id, &nhgc->nhg);
+
 	return;
 }
 
@@ -147,9 +153,31 @@ static void sharp_nhgroup_delete_cb(const char *name)
 	if (!snhg)
 		return;
 
-	nhg_del(snhg->id);
+	if (snhg->installable)
+		nhg_del(snhg->id);
+
 	sharp_nhg_rb_del(&nhg_head, snhg);
 	XFREE(MTYPE_NHG, snhg);
+	return;
+}
+
+static void sharp_nhgroup_installable_cb(const struct nexthop_group_cmd *nhgc)
+{
+	struct sharp_nhg lookup;
+	struct sharp_nhg *snhg;
+
+	strncpy(lookup.name, nhgc->name, sizeof(lookup.name));
+	snhg = sharp_nhg_rb_find(&nhg_head, &lookup);
+	if (!snhg)
+		return;
+
+	snhg->installable = nhgc->installable;
+
+	if (snhg->installable)
+		nhg_add(snhg->id, &nhgc->nhg);
+	else
+		nhg_del(snhg->id);
+
 	return;
 }
 
@@ -163,6 +191,9 @@ uint32_t sharp_nhgroup_get_id(const char *name)
 	if (!snhg)
 		return 0;
 
+	if (!snhg->installable)
+		return 0;
+
 	return snhg->id;
 }
 
@@ -173,5 +204,6 @@ void sharp_nhgroup_init(void)
 
 	nexthop_group_init(sharp_nhgroup_add_cb, sharp_nhgroup_add_nexthop_cb,
 			   sharp_nhgroup_del_nexthop_cb,
-			   sharp_nhgroup_delete_cb);
+			   sharp_nhgroup_delete_cb,
+			   sharp_nhgroup_installable_cb);
 }
