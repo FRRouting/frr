@@ -178,6 +178,14 @@ void ospf_router_info_term(void)
 
 void ospf_router_info_finish(void)
 {
+	struct listnode *node, *nnode;
+	struct ospf_ri_area_info *ai;
+
+	/* Flush Router Info LSA */
+	for (ALL_LIST_ELEMENTS(OspfRI.area_info, node, nnode, ai))
+		if (CHECK_FLAG(ai->flags, RIFLG_LSA_ENGAGED))
+			ospf_router_info_lsa_schedule(ai, FLUSH_THIS_LSA);
+
 	list_delete_all_node(OspfRI.pce_info.pce_domain);
 	list_delete_all_node(OspfRI.pce_info.pce_neighbor);
 
@@ -510,6 +518,8 @@ static void initialize_params(struct ospf_router_info *ori)
 	/* Try to get available Area's context from ospf at this step.
 	 * Do it latter if not available */
 	if (OspfRI.scope == OSPF_OPAQUE_AREA_LSA) {
+		if (!list_isempty(OspfRI.area_info))
+			list_delete_all_node(OspfRI.area_info);
 		for (ALL_LIST_ELEMENTS(top->areas, node, nnode, area)) {
 			zlog_debug("RI (%s): Add area %s to Router Information",
 				__func__, inet_ntoa(area->area_id));
