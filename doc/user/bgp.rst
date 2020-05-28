@@ -1722,8 +1722,8 @@ expanded
    the same namespace, so it's not necessary to specify ``standard`` or
    ``expanded``; these modifiers are purely aesthetic.
 
-.. index:: show bgp community-list [NAME]
-.. clicmd:: show bgp community-list [NAME]
+.. index:: show bgp community-list [NAME detail]
+.. clicmd:: show bgp community-list [NAME detail]
 
    Displays community list information. When ``NAME`` is specified the
    specified community list's information is shown.
@@ -1737,7 +1737,7 @@ expanded
          Named Community expanded list EXPAND
        permit :
 
-         # show bgp community-list CLIST
+         # show bgp community-list CLIST detail
          Named Community standard list CLIST
        permit 7675:80 7675:100 no-export
        deny internet
@@ -2013,8 +2013,8 @@ Extended Community Lists
 .. index:: show bgp extcommunity-list
 .. clicmd:: show bgp extcommunity-list
 
-.. index:: show bgp extcommunity-list NAME
-.. clicmd:: show bgp extcommunity-list NAME
+.. index:: show bgp extcommunity-list NAME detail
+.. clicmd:: show bgp extcommunity-list NAME detail
 
    This command displays current extcommunity-list information. When `name` is
    specified the community list's information is shown.::
@@ -2128,8 +2128,8 @@ Two types of large community lists are supported, namely `standard` and
 .. index:: show bgp large-community-list
 .. clicmd:: show bgp large-community-list
 
-.. index:: show bgp large-community-list NAME
-.. clicmd:: show bgp large-community-list NAME
+.. index:: show bgp large-community-list NAME detail
+.. clicmd:: show bgp large-community-list NAME detail
 
    This command display current large-community-list information. When
    `name` is specified the community list information is shown.
