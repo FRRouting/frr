@@ -1122,7 +1122,7 @@ int stream_flush(struct stream *s, int fd)
 	return nbytes;
 }
 
-void stream_hexdump(struct stream *s)
+void stream_hexdump(const struct stream *s)
 {
 	zlog_hexdump(s->data, s->endp);
 }

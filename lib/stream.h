@@ -253,7 +253,7 @@ extern int stream_flush(struct stream *, int);
 extern int stream_empty(struct stream *); /* is the stream empty? */
 
 /* debugging */
-extern void stream_hexdump(struct stream *);
+extern void stream_hexdump(const struct stream *s);
 
 /* deprecated */
 extern uint8_t *stream_pnt(struct stream *);
