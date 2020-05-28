@@ -102,7 +102,7 @@ enum bgp_show_adj_route_type {
 #define BGP_NLRI_PARSE_ERROR_EVPN_TYPE1_SIZE -15
 #define BGP_NLRI_PARSE_ERROR -32
 
-/* MAC-IP/type-2 path_info in the global routing table is linked to the
+/* MAC-IP/type-2 path_info in the VNI routing table is linked to the
  * destination ES
  */
 struct bgp_path_es_info {

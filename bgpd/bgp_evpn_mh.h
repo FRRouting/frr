@@ -100,7 +100,7 @@ struct bgp_evpn_es {
 	/* List of ES-VRFs associated with this ES */
 	struct list *es_vrf_list;
 
-	/* List of MAC-IP global routes using this ES as destination -
+	/* List of MAC-IP VNI paths using this ES as destination -
 	 * element is bgp_path_info_extra->es_info
 	 */
 	struct list *macip_path_list;
