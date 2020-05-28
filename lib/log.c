@@ -447,7 +447,9 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_MLAG_CLIENT_UNREGISTER),
 	DESC_ENTRY(ZEBRA_MLAG_FORWARD_MSG),
 	DESC_ENTRY(ZEBRA_ERROR),
-	DESC_ENTRY(ZEBRA_CLIENT_CAPABILITIES)};
+	DESC_ENTRY(ZEBRA_CLIENT_CAPABILITIES),
+	DESC_ENTRY(ZEBRA_NHG_ADD),
+	DESC_ENTRY(ZEBRA_NHG_DEL)};
 #undef DESC_ENTRY
 
 static const struct zebra_desc_table unknown = {0, "unknown", '?'};
