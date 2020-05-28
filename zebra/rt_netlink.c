@@ -2081,17 +2081,35 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
 	char label_buf[256];
 	int num_labels = 0;
-	size_t req_size = sizeof(req);
+	uint32_t id = dplane_ctx_get_nhe_id(ctx);
+	int type = dplane_ctx_get_nhe_type(ctx);
+
+	if (!id) {
+		flog_err(
+			EC_ZEBRA_NHG_FIB_UPDATE,
+			"Failed trying to update a nexthop group in the kernel that does not have an ID");
+		return -1;
+	}
 
 	/*
 	 * Nothing to do if the kernel doesn't support nexthop objects or
 	 * we dont want to install this type of NHG
 	 */
-	if (!kernel_nexthops_supported()
-	    || (proto_nexthops_only()
-		&& !is_proto_nhg(dplane_ctx_get_nhe_id(ctx),
-				 dplane_ctx_get_nhe_type(ctx))))
+	if (!kernel_nexthops_supported()) {
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_NHG)
+			zlog_debug(
+				"%s: nhg_id %u (%s): kernel nexthops not supported, ignoring",
+				__func__, id, zebra_route_string(type));
 		return 0;
+	}
+
+	if (proto_nexthops_only() && !is_proto_nhg(id, type)) {
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_NHG)
+			zlog_debug(
+				"%s: nhg_id %u (%s): proto-based nexthops only, ignoring",
+				__func__, id, zebra_route_string(type));
+		return 0;
+	}
 
 	label_buf[0] = '\0';
 
@@ -2111,8 +2129,6 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 
 	req->nhm.nh_family = AF_UNSPEC;
 	/* TODO: Scope? */
-
-	uint32_t id = dplane_ctx_get_nhe_id(ctx);
 
 	if (!id) {
 		flog_err(
@@ -2241,8 +2257,7 @@ nexthop_done:
 					   nh->vrf_id, label_buf);
 }
 
-		req->nhm.nh_protocol =
-			zebra2proto(dplane_ctx_get_nhe_type(ctx));
+		req->nhm.nh_protocol = zebra2proto(type);
 
 	} else if (cmd != RTM_DELNEXTHOP) {
 		flog_err(
