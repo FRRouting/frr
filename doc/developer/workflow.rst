@@ -1021,6 +1021,15 @@ JSON Output
 
 All JSON keys are to be camelCased, with no spaces.
 
+Use of const
+^^^^^^^^^^^^
+
+Please consider using ``const`` when possible: it's a useful hint to
+callers about the limits to side-effects from your apis, and it makes
+it possible to use your apis in paths that involve ``const``
+objects. If you encounter existing apis that *could* be ``const``,
+consider including changes in your own pull-request.
+
 
 .. _documentation:
 
