@@ -160,7 +160,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 		zlog_debug("Command: %s", zserv_command_string(hdr->command));
 		zlog_debug("    VRF: %u", hdr->vrf_id);
 	}
-	zlog_hexdump(msg->data, STREAM_READABLE(msg));
+	stream_hexdump(msg);
 }
 
 /*
