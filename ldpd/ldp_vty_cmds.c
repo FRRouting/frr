@@ -174,12 +174,13 @@ DEFPY  (ldp_dual_stack_cisco_interop,
 
 DEFPY  (ldp_neighbor_password,
 	ldp_neighbor_password_cmd,
-	"[no] neighbor A.B.C.D$neighbor password WORD$password",
+	"[no] neighbor A.B.C.D$neighbor password WORD$password [!SECRET-DATA]",
 	NO_STR
 	"Configure neighbor parameters\n"
 	"LDP Id of neighbor\n"
 	"Configure password for MD5 authentication\n"
-	"The password\n")
+	"The password\n"
+	"(ignored)\n")
 {
 	return (ldp_vty_neighbor_password(vty, no, neighbor, password));
 }

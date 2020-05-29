@@ -300,9 +300,12 @@ ldp_config_write(struct vty *vty)
 				    "disable\n",inet_ntoa(nbrp->lsr_id));
 		}
 
-		if (nbrp->auth.method == AUTH_MD5SIG)
-			vty_out (vty, " neighbor %s password %s\n",
-			    inet_ntoa(nbrp->lsr_id),nbrp->auth.md5key);
+		if (nbrp->auth.method == AUTH_MD5SIG) {
+			vty_secret_cmd (vty, " neighbor %s password ",
+					inet_ntoa(nbrp->lsr_id));
+			vty_secret_data (vty, nbrp->auth.md5key);
+			vty_secret_cmd (vty, "\n");
+		}
 	}
 
 	ldp_af_config_write(vty, AF_INET, ldpd_conf, &ldpd_conf->ipv4);
