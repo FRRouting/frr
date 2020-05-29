@@ -63,6 +63,8 @@ static void sigusr1_handler(void)
 
 static void sigterm_handler(void)
 {
+	bglobal.bg_shutdown = true;
+
 	/* Signalize shutdown. */
 	frr_early_fini();
 
