@@ -890,12 +890,13 @@ void cli_show_ip_rip_authentication_scheme(struct vty *vty,
  */
 DEFPY (ip_rip_authentication_string,
        ip_rip_authentication_string_cmd,
-       "ip rip authentication string LINE$password",
+       "ip rip authentication string LINE$password [!SECRET-DATA]",
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
        "Authentication string\n"
-       "Authentication string\n")
+       "Authentication string\n"
+       "(ignored)\n")
 {
 	if (strlen(password) > 16) {
 		vty_out(vty,
@@ -918,13 +919,14 @@ DEFPY (ip_rip_authentication_string,
 
 DEFPY (no_ip_rip_authentication_string,
        no_ip_rip_authentication_string_cmd,
-       "no ip rip authentication string [LINE]",
+       "no ip rip authentication string [LINE [!SECRET-DATA]]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
        "Authentication string\n"
-       "Authentication string\n")
+       "Authentication string\n"
+       "(ignored)\n")
 {
 	nb_cli_enqueue_change(vty, "./authentication-password", NB_OP_DESTROY,
 			      NULL);
@@ -936,8 +938,9 @@ void cli_show_ip_rip_authentication_string(struct vty *vty,
 					   struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	vty_out(vty, " ip rip authentication string %s\n",
-		yang_dnode_get_string(dnode, NULL));
+	vty_secret_cmd(vty, " ip rip authentication string ");
+	vty_secret_data(vty, yang_dnode_get_string(dnode, NULL));
+	vty_secret_cmd(vty, "\n");
 }
 
 /*
