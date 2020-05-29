@@ -1100,13 +1100,14 @@ static int ospf_vl_set(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 
 DEFUN (ospf_area_vlink,
        ospf_area_vlink_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication [<message-digest|null>]] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication [<message-digest|null>]] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>] [!SECRET-DATA]",
        VLINK_HELPSTR_IPADDR
        "Enable authentication on this virtual link\n"
        "Use message-digest authentication\n"
        "Use null authentication\n"
        VLINK_HELPSTR_AUTH_MD5
-       VLINK_HELPSTR_AUTH_SIMPLE)
+       VLINK_HELPSTR_AUTH_SIMPLE
+       "(ignored)\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4_number = 1;
@@ -1116,6 +1117,8 @@ DEFUN (ospf_area_vlink,
 	char md5_key[OSPF_AUTH_MD5_SIZE + 1];
 	int ret;
 	int idx = 0;
+
+	cmd_strip_secret_marker(&argc, argv);
 
 	ospf_vl_config_data_init(&vl_config, vty);
 
@@ -1175,14 +1178,15 @@ DEFUN (ospf_area_vlink,
 
 DEFUN (no_ospf_area_vlink,
        no_ospf_area_vlink_cmd,
-       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication [<message-digest|null>]] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
+       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication [<message-digest|null>]] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>] [!SECRET-DATA]",
        NO_STR
        VLINK_HELPSTR_IPADDR
        "Enable authentication on this virtual link\n" \
        "Use message-digest authentication\n" \
        "Use null authentication\n" \
        VLINK_HELPSTR_AUTH_MD5
-       VLINK_HELPSTR_AUTH_SIMPLE)
+       VLINK_HELPSTR_AUTH_SIMPLE
+       "(ignored)\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4_number = 2;
@@ -1193,6 +1197,8 @@ DEFUN (no_ospf_area_vlink,
 	char auth_key[OSPF_AUTH_SIMPLE_SIZE + 1];
 	int idx = 0;
 	int ret, format;
+
+	cmd_strip_secret_marker(&argc, argv);
 
 	ospf_vl_config_data_init(&vl_config, vty);
 
@@ -6915,17 +6921,20 @@ DEFUN (no_ip_ospf_authentication,
 
 DEFUN (ip_ospf_authentication_key,
        ip_ospf_authentication_key_addr_cmd,
-       "ip ospf authentication-key AUTH_KEY [A.B.C.D]",
+       "ip ospf authentication-key AUTH_KEY [A.B.C.D] [!SECRET-DATA]",
        "IP Information\n"
        "OSPF interface commands\n"
        "Authentication password (key)\n"
        "The OSPF password (key)\n"
-       "Address of interface\n")
+       "Address of interface\n"
+       "(ignored)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
 	struct in_addr addr;
 	struct ospf_if_params *params;
+
+	cmd_strip_secret_marker(&argc, argv);
 
 	params = IF_DEF_PARAMS(ifp);
 
@@ -6949,28 +6958,32 @@ DEFUN (ip_ospf_authentication_key,
 
 DEFUN_HIDDEN (ospf_authentication_key,
               ospf_authentication_key_cmd,
-              "ospf authentication-key AUTH_KEY [A.B.C.D]",
+              "ospf authentication-key AUTH_KEY [A.B.C.D] [!SECRET-DATA]",
               "OSPF interface commands\n"
               VLINK_HELPSTR_AUTH_SIMPLE
-              "Address of interface\n")
+              "Address of interface\n"
+	      "(ignored)\n")
 {
 	return ip_ospf_authentication_key(self, vty, argc, argv);
 }
 
 DEFUN (no_ip_ospf_authentication_key,
        no_ip_ospf_authentication_key_authkey_addr_cmd,
-       "no ip ospf authentication-key [AUTH_KEY [A.B.C.D]]",
+       "no ip ospf authentication-key [AUTH_KEY [A.B.C.D] [!SECRET-DATA]]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
        VLINK_HELPSTR_AUTH_SIMPLE
-       "Address of interface\n")
+       "Address of interface\n"
+       "(ignored)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
 	struct in_addr addr;
 	struct ospf_if_params *params;
 	params = IF_DEF_PARAMS(ifp);
+
+	cmd_strip_secret_marker(&argc, argv);
 
 	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
 		if (!inet_aton(argv[idx]->arg, &addr)) {
@@ -6997,25 +7010,27 @@ DEFUN (no_ip_ospf_authentication_key,
 
 DEFUN_HIDDEN (no_ospf_authentication_key,
               no_ospf_authentication_key_authkey_addr_cmd,
-              "no ospf authentication-key [AUTH_KEY [A.B.C.D]]",
+              "no ospf authentication-key [AUTH_KEY [A.B.C.D] [!SECRET-DATA]]",
               NO_STR
               "OSPF interface commands\n"
               VLINK_HELPSTR_AUTH_SIMPLE
-	      "Address of interface\n")
+	      "Address of interface\n"
+	      "(ignored)\n")
 {
 	return no_ip_ospf_authentication_key(self, vty, argc, argv);
 }
 
 DEFUN (ip_ospf_message_digest_key,
        ip_ospf_message_digest_key_cmd,
-       "ip ospf message-digest-key (1-255) md5 KEY [A.B.C.D]",
+       "ip ospf message-digest-key (1-255) md5 KEY [A.B.C.D] [!SECRET-DATA]",
        "IP Information\n"
        "OSPF interface commands\n"
        "Message digest authentication password (key)\n"
        "Key ID\n"
        "Use MD5 algorithm\n"
        "The OSPF password (key)\n"
-       "Address of interface\n")
+       "Address of interface\n"
+       "(ignored)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct crypt_key *ck;
@@ -7025,6 +7040,8 @@ DEFUN (ip_ospf_message_digest_key,
 
 	params = IF_DEF_PARAMS(ifp);
 	int idx = 0;
+
+	cmd_strip_secret_marker(&argc, argv);
 
 	argv_find(argv, argc, "(1-255)", &idx);
 	char *keyid = argv[idx]->arg;
@@ -7060,20 +7077,21 @@ DEFUN (ip_ospf_message_digest_key,
 
 DEFUN_HIDDEN (ospf_message_digest_key,
               ospf_message_digest_key_cmd,
-              "ospf message-digest-key (1-255) md5 KEY [A.B.C.D]",
+              "ospf message-digest-key (1-255) md5 KEY [A.B.C.D] [!SECRET-DATA]",
               "OSPF interface commands\n"
               "Message digest authentication password (key)\n"
               "Key ID\n"
               "Use MD5 algorithm\n"
               "The OSPF password (key)\n"
-              "Address of interface\n")
+              "Address of interface\n"
+	      "(ignored)\n")
 {
 	return ip_ospf_message_digest_key(self, vty, argc, argv);
 }
 
 DEFUN (no_ip_ospf_message_digest_key,
        no_ip_ospf_message_digest_key_cmd,
-       "no ip ospf message-digest-key (1-255) [md5 KEY] [A.B.C.D]",
+       "no ip ospf message-digest-key (1-255) [md5 KEY] [A.B.C.D] [!SECRET-DATA]",
         NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7081,7 +7099,8 @@ DEFUN (no_ip_ospf_message_digest_key,
        "Key ID\n"
        "Use MD5 algorithm\n"
        "The OSPF password (key)\n"
-       "Address of interface\n")
+       "Address of interface\n"
+       "(ignored)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
@@ -7090,6 +7109,8 @@ DEFUN (no_ip_ospf_message_digest_key,
 	struct in_addr addr;
 	struct ospf_if_params *params;
 	params = IF_DEF_PARAMS(ifp);
+
+	cmd_strip_secret_marker(&argc, argv);
 
 	argv_find(argv, argc, "(1-255)", &idx);
 	char *keyid = argv[idx]->arg;
@@ -7125,14 +7146,15 @@ DEFUN (no_ip_ospf_message_digest_key,
 
 DEFUN_HIDDEN (no_ospf_message_digest_key,
               no_ospf_message_digest_key_cmd,
-              "no ospf message-digest-key (1-255) [md5 KEY] [A.B.C.D]",
+              "no ospf message-digest-key (1-255) [md5 KEY] [A.B.C.D] [!SECRET-DATA]",
               NO_STR
               "OSPF interface commands\n"
               "Message digest authentication password (key)\n"
               "Key ID\n"
               "Use MD5 algorithm\n"
               "The OSPF password (key)\n"
-              "Address of interface\n")
+              "Address of interface\n"
+	      "(ignored)\n")
 {
 	return no_ip_ospf_message_digest_key(self, vty, argc, argv);
 }
@@ -9819,26 +9841,29 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			/* Simple Authentication Password print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, auth_simple)
 			    && params->auth_simple[0] != '\0') {
-				vty_out(vty, " ip ospf authentication-key %s",
-					params->auth_simple);
+				vty_secret_cmd(vty, " ip ospf authentication-key ");
+				vty_secret_data(vty,
+						(char *)params->auth_simple);
 				if (params != IF_DEF_PARAMS(ifp) && rn)
-					vty_out(vty, " %s",
+					vty_secret_cmd(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
-				vty_out(vty, "\n");
+				vty_secret_cmd(vty, "\n");
 			}
 
 			/* Cryptographic Authentication Key print. */
 			if (params && params->auth_crypt) {
 				for (ALL_LIST_ELEMENTS_RO(params->auth_crypt,
 							  node, ck)) {
-					vty_out(vty,
-						" ip ospf message-digest-key %d md5 %s",
-						ck->key_id, ck->auth_key);
+					vty_secret_cmd(vty,
+						" ip ospf message-digest-key %d md5 ",
+						ck->key_id);
+					vty_secret_data(vty,
+							(char *)ck->auth_key);
 					if (params != IF_DEF_PARAMS(ifp) && rn)
-						vty_out(vty, " %s",
+						vty_secret_cmd(vty, " %s",
 							inet_ntoa(
 								rn->p.u.prefix4));
-					vty_out(vty, "\n");
+					vty_secret_cmd(vty, "\n");
 				}
 			}
 
@@ -10193,22 +10218,29 @@ static int config_write_virtual_link(struct vty *vty, struct ospf *ospf)
 					inet_ntoa(vl_data->vl_peer));
 			/* Auth key */
 			if (IF_DEF_PARAMS(vl_data->vl_oi->ifp)->auth_simple[0]
-			    != '\0')
-				vty_out(vty,
-					" area %s virtual-link %s authentication-key %s\n",
-					buf, inet_ntoa(vl_data->vl_peer),
-					IF_DEF_PARAMS(vl_data->vl_oi->ifp)
-						->auth_simple);
+			    != '\0') {
+				vty_secret_cmd(vty,
+					" area %s virtual-link %s authentication-key ",
+					buf, inet_ntoa(vl_data->vl_peer));
+				vty_secret_data(vty,
+					(char *)(IF_DEF_PARAMS(
+						vl_data->vl_oi->ifp)
+							->auth_simple));
+				vty_secret_cmd(vty, "\n");
+			}
 			/* md5 keys */
 			for (ALL_LIST_ELEMENTS_RO(
 				     IF_DEF_PARAMS(vl_data->vl_oi->ifp)
 					     ->auth_crypt,
-				     n2, ck))
-				vty_out(vty,
+				     n2, ck)) {
+				vty_secret_cmd(vty,
 					" area %s virtual-link %s"
-					" message-digest-key %d md5 %s\n",
+					" message-digest-key %d md5 ",
 					buf, inet_ntoa(vl_data->vl_peer),
-					ck->key_id, ck->auth_key);
+					ck->key_id);
+				vty_secret_data(vty, (char *)ck->auth_key);
+				vty_secret_cmd(vty, "\n");
+			}
 		}
 	}
 
