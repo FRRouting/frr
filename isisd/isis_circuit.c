@@ -1173,13 +1173,17 @@ static int isis_interface_config_write(struct vty *vty)
 				}
 			}
 			if (circuit->passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5) {
-				vty_out(vty, " " PROTO_NAME " password md5 %s\n",
-					circuit->passwd.passwd);
+				vty_secret_cmd(vty, " " PROTO_NAME " password md5 ");
+				vty_secret_data(vty,
+						(char *)circuit->passwd.passwd);
+				vty_secret_cmd(vty, "\n");
 				write++;
 			} else if (circuit->passwd.type
 				   == ISIS_PASSWD_TYPE_CLEARTXT) {
-				vty_out(vty, " " PROTO_NAME " password clear %s\n",
-					circuit->passwd.passwd);
+				vty_secret_cmd(vty, " " PROTO_NAME " password clear ");
+				vty_secret_data(vty,
+						(char *)circuit->passwd.passwd);
+				vty_secret_cmd(vty, "\n");
 				write++;
 			}
 			write += hook_call(isis_circuit_config_write,

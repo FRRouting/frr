@@ -401,7 +401,7 @@ static int isis_vty_password_set(struct vty *vty, int argc,
 
 DEFUN (domain_passwd,
        domain_passwd_cmd,
-       "domain-password <clear|md5> WORD [authenticate snp <send-only|validate>]",
+       "domain-password <clear|md5> WORD [authenticate snp <send-only|validate>] [!SECRET-DATA]",
        "Set the authentication password for a routing domain\n"
        "Authentication type\n"
        "Authentication type\n"
@@ -409,8 +409,10 @@ DEFUN (domain_passwd,
        "Authentication\n"
        "SNP PDUs\n"
        "Send but do not check PDUs on receiving\n"
-       "Send and check PDUs on receiving\n")
+       "Send and check PDUs on receiving\n"
+       "(ignored)\n")
 {
+	cmd_strip_secret_marker(&argc, argv);
 	return isis_vty_password_set(vty, argc, argv, IS_LEVEL_2);
 }
 
@@ -781,17 +783,20 @@ DEFUN (no_isis_passive,
 
 DEFUN (isis_passwd,
        isis_passwd_cmd,
-       PROTO_NAME " password <md5|clear> WORD",
+       PROTO_NAME " password <md5|clear> WORD [!SECRET-DATA]",
        PROTO_HELP
        "Configure the authentication password for a circuit\n"
        "HMAC-MD5 authentication\n"
        "Cleartext password\n"
-       "Circuit password\n")
+       "Circuit password\n"
+       "(ignored)\n")
 {
 	int idx_encryption = 2;
 	int idx_word = 3;
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
 	ferr_r rv;
+
+	cmd_strip_secret_marker(&argc, argv);
 
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
@@ -809,13 +814,14 @@ DEFUN (isis_passwd,
 
 DEFUN (no_isis_passwd,
        no_isis_passwd_cmd,
-       "no " PROTO_NAME " password [<md5|clear> WORD]",
+       "no " PROTO_NAME " password [<md5|clear> WORD] [!SECRET-DATA]",
        NO_STR
        PROTO_HELP
        "Configure the authentication password for a circuit\n"
        "HMAC-MD5 authentication\n"
        "Cleartext password\n"
-       "Circuit password\n")
+       "Circuit password\n"
+       "(ignored)\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
 	if (!circuit)

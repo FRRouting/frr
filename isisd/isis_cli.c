@@ -540,7 +540,7 @@ void cli_show_isis_metric_style(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-isisd:isis/instance/area-password
  */
 DEFPY(area_passwd, area_passwd_cmd,
-      "area-password <clear|md5>$pwd_type WORD$pwd [authenticate snp <send-only|validate>$snp]",
+      "area-password <clear|md5>$pwd_type WORD$pwd [authenticate snp <send-only|validate>$snp] [!SECRET-DATA]",
       "Configure the authentication password for an area\n"
       "Clear-text authentication type\n"
       "MD5 authentication type\n"
@@ -548,7 +548,8 @@ DEFPY(area_passwd, area_passwd_cmd,
       "Authentication\n"
       "SNP PDUs\n"
       "Send but do not check PDUs on receiving\n"
-      "Send and check PDUs on receiving\n")
+      "Send and check PDUs on receiving\n"
+      "(ignored)\n")
 {
 	nb_cli_enqueue_change(vty, "./area-password", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./area-password/password", NB_OP_MODIFY,
@@ -566,20 +567,20 @@ void cli_show_isis_area_pwd(struct vty *vty, struct lyd_node *dnode,
 {
 	const char *snp;
 
-	vty_out(vty, " area-password %s %s",
-		yang_dnode_get_string(dnode, "./password-type"),
-		yang_dnode_get_string(dnode, "./password"));
+	vty_secret_cmd(vty, " area-password %s ",
+		       yang_dnode_get_string(dnode, "./password-type"));
+	vty_secret_data(vty, yang_dnode_get_string(dnode, "./password"));
 	snp = yang_dnode_get_string(dnode, "./authenticate-snp");
 	if (!strmatch("none", snp))
-		vty_out(vty, " authenticate snp %s", snp);
-	vty_out(vty, "\n");
+		vty_secret_cmd(vty, " authenticate snp %s", snp);
+	vty_secret_cmd(vty, "\n");
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/domain-password
  */
 DEFPY(domain_passwd, domain_passwd_cmd,
-      "domain-password <clear|md5>$pwd_type WORD$pwd [authenticate snp <send-only|validate>$snp]",
+      "domain-password <clear|md5>$pwd_type WORD$pwd [authenticate snp <send-only|validate>$snp] [!SECRET-DATA]",
       "Set the authentication password for a routing domain\n"
       "Clear-text authentication type\n"
       "MD5 authentication type\n"
@@ -587,7 +588,8 @@ DEFPY(domain_passwd, domain_passwd_cmd,
       "Authentication\n"
       "SNP PDUs\n"
       "Send but do not check PDUs on receiving\n"
-      "Send and check PDUs on receiving\n")
+      "Send and check PDUs on receiving\n"
+      "(ignored)\n")
 {
 	nb_cli_enqueue_change(vty, "./domain-password", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./domain-password/password", NB_OP_MODIFY,
@@ -616,13 +618,13 @@ void cli_show_isis_domain_pwd(struct vty *vty, struct lyd_node *dnode,
 {
 	const char *snp;
 
-	vty_out(vty, " domain-password %s %s",
-		yang_dnode_get_string(dnode, "./password-type"),
-		yang_dnode_get_string(dnode, "./password"));
+	vty_secret_cmd(vty, " domain-password %s ",
+		       yang_dnode_get_string(dnode, "./password-type"));
+	vty_secret_data(vty, yang_dnode_get_string(dnode, "./password"));
 	snp = yang_dnode_get_string(dnode, "./authenticate-snp");
 	if (!strmatch("none", snp))
-		vty_out(vty, " authenticate snp %s", snp);
-	vty_out(vty, "\n");
+		vty_secret_cmd(vty, " authenticate snp %s", snp);
+	vty_secret_cmd(vty, "\n");
 }
 
 /*
@@ -1590,12 +1592,13 @@ void cli_show_ip_isis_passive(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/password
  */
 
-DEFPY(isis_passwd, isis_passwd_cmd, "isis password <md5|clear>$type WORD$pwd",
+DEFPY(isis_passwd, isis_passwd_cmd, "isis password <md5|clear>$type WORD$pwd [!SECRET-DATA]",
       "IS-IS routing protocol\n"
       "Configure the authentication password for a circuit\n"
       "HMAC-MD5 authentication\n"
       "Cleartext password\n"
-      "Circuit password\n")
+      "Circuit password\n"
+      "(ignored)\n")
 {
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password", NB_OP_CREATE,
 			      NULL);
@@ -1607,13 +1610,14 @@ DEFPY(isis_passwd, isis_passwd_cmd, "isis password <md5|clear>$type WORD$pwd",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(no_isis_passwd, no_isis_passwd_cmd, "no isis password [<md5|clear> WORD]",
+DEFPY(no_isis_passwd, no_isis_passwd_cmd, "no isis password [<md5|clear> WORD] [!SECRET-DATA]",
       NO_STR
       "IS-IS routing protocol\n"
       "Configure the authentication password for a circuit\n"
       "HMAC-MD5 authentication\n"
       "Cleartext password\n"
-      "Circuit password\n")
+      "Circuit password\n"
+      "(ignored)\n")
 {
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password", NB_OP_DESTROY,
 			      NULL);
@@ -1624,9 +1628,10 @@ DEFPY(no_isis_passwd, no_isis_passwd_cmd, "no isis password [<md5|clear> WORD]",
 void cli_show_ip_isis_password(struct vty *vty, struct lyd_node *dnode,
 			       bool show_defaults)
 {
-	vty_out(vty, " isis password %s %s\n",
-		yang_dnode_get_string(dnode, "./password-type"),
-		yang_dnode_get_string(dnode, "./password"));
+	vty_secret_cmd(vty, " isis password %s ",
+		       yang_dnode_get_string(dnode, "./password-type"));
+	vty_secret_data(vty, yang_dnode_get_string(dnode, "./password"));
+	vty_secret_cmd(vty, "\n");
 }
 
 /*

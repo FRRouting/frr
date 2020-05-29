@@ -2089,68 +2089,80 @@ static int isis_config_write(struct vty *vty)
 			/* Authentication passwords. */
 			if (area->area_passwd.type
 			    == ISIS_PASSWD_TYPE_HMAC_MD5) {
-				vty_out(vty, " area-password md5 %s",
-					area->area_passwd.passwd);
+				vty_secret_cmd(vty, " area-password md5 ");
+				vty_secret_data(vty, (char *)
+						area->area_passwd.passwd);
 				if (CHECK_FLAG(area->area_passwd.snp_auth,
 					       SNP_AUTH_SEND)) {
-					vty_out(vty, " authenticate snp ");
+					vty_secret_cmd(vty,
+						       " authenticate snp ");
 					if (CHECK_FLAG(
 						    area->area_passwd.snp_auth,
 						    SNP_AUTH_RECV))
-						vty_out(vty, "validate");
+						vty_secret_cmd(vty, "validate");
 					else
-						vty_out(vty, "send-only");
+						vty_secret_cmd(vty,
+							       "send-only");
 				}
-				vty_out(vty, "\n");
+				vty_secret_cmd(vty, "\n");
 				write++;
 			} else if (area->area_passwd.type
 				   == ISIS_PASSWD_TYPE_CLEARTXT) {
-				vty_out(vty, " area-password clear %s",
-					area->area_passwd.passwd);
+				vty_secret_cmd(vty, " area-password clear ");
+				vty_secret_data(vty, (char *)
+						area->area_passwd.passwd);
 				if (CHECK_FLAG(area->area_passwd.snp_auth,
 					       SNP_AUTH_SEND)) {
-					vty_out(vty, " authenticate snp ");
+					vty_secret_cmd(vty,
+						       " authenticate snp ");
 					if (CHECK_FLAG(
 						    area->area_passwd.snp_auth,
 						    SNP_AUTH_RECV))
-						vty_out(vty, "validate");
+						vty_secret_cmd(vty, "validate");
 					else
-						vty_out(vty, "send-only");
+						vty_secret_cmd(vty,
+							       "send-only");
 				}
-				vty_out(vty, "\n");
+				vty_secret_cmd(vty, "\n");
 				write++;
 			}
 			if (area->domain_passwd.type
 			    == ISIS_PASSWD_TYPE_HMAC_MD5) {
-				vty_out(vty, " domain-password md5 %s",
-					area->domain_passwd.passwd);
+				vty_secret_cmd(vty, " domain-password md5 ");
+				vty_secret_data(vty, (char *)
+						area->domain_passwd.passwd);
 				if (CHECK_FLAG(area->domain_passwd.snp_auth,
 					       SNP_AUTH_SEND)) {
-					vty_out(vty, " authenticate snp ");
+					vty_secret_cmd(vty,
+						       " authenticate snp ");
 					if (CHECK_FLAG(area->domain_passwd
 							       .snp_auth,
 						       SNP_AUTH_RECV))
-						vty_out(vty, "validate");
+						vty_secret_cmd(vty, "validate");
 					else
-						vty_out(vty, "send-only");
+						vty_secret_cmd(vty,
+							       "send-only");
 				}
-				vty_out(vty, "\n");
+				vty_secret_cmd(vty, "\n");
 				write++;
 			} else if (area->domain_passwd.type
 				   == ISIS_PASSWD_TYPE_CLEARTXT) {
-				vty_out(vty, " domain-password clear %s",
-					area->domain_passwd.passwd);
+				vty_secret_cmd(vty, " domain-password clear ");
+				vty_secret_data(vty, (char *)
+						area->domain_passwd.passwd);
 				if (CHECK_FLAG(area->domain_passwd.snp_auth,
 					       SNP_AUTH_SEND)) {
-					vty_out(vty, " authenticate snp ");
+					vty_secret_cmd(vty,
+						       " authenticate snp ");
 					if (CHECK_FLAG(area->domain_passwd
 							       .snp_auth,
 						       SNP_AUTH_RECV))
-						vty_out(vty, "validate");
+						vty_secret_cmd(vty, "validate");
 					else
-						vty_out(vty, "send-only");
+						vty_secret_cmd(vty,
+							       "send-only");
 				}
-				vty_out(vty, "\n");
+				vty_secret_cmd(vty, "\n");
 				write++;
 			}
 
