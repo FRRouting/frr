@@ -263,9 +263,10 @@ static void bfd_handle_adj_down(struct isis_adjacency *adj)
 		  ZEBRA_BFD_DEST_DEREGISTER);
 
 	bfd_peer_sendmsg(zclient, NULL, adj->bfd_session->family,
-			 &adj->bfd_session->dst_ip,
-			 &adj->bfd_session->src_ip,
-			 adj->circuit->interface->name,
+			 &adj->bfd_session->dst_ip, &adj->bfd_session->src_ip,
+			 (adj->circuit->interface)
+				 ? adj->circuit->interface->name
+				 : NULL,
 			 0, /* ttl */
 			 0, /* multihop */
 			 1, /* control plane independent bit is on */
@@ -324,7 +325,9 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 	bfd_peer_sendmsg(zclient, circuit->bfd_info, adj->bfd_session->family,
 			 &adj->bfd_session->dst_ip,
 			 &adj->bfd_session->src_ip,
-			 circuit->interface->name,
+			 (adj->circuit->interface)
+				 ? adj->circuit->interface->name
+				 : NULL,
 			 0, /* ttl */
 			 0, /* multihop */
 			 1, /* control plane independent bit is on */
