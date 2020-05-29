@@ -230,6 +230,8 @@ simple_token:
 literal_token: WORD varname_token
 {
   $$ = new_token_node (ctx, WORD_TKN, $1, doc_next(ctx));
+  if (!strcmp($1, "!SECRET-DATA"))
+    ((struct cmd_token *)$$->data)->attr = CMD_ATTR_HIDDEN;
   cmd_token_varname_set ($$->data, $2);
   XFREE (MTYPE_LEX, $2);
   XFREE (MTYPE_LEX, $1);

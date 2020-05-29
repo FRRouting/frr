@@ -81,6 +81,7 @@ RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 {MAC_PREFIX}    {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return MAC_PREFIX;}
 {VARIABLE}      {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return VARIABLE;}
 {WORD}          {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return WORD;}
+"!SECRET-DATA"  {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return WORD;}
 {RANGE}         {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RANGE;}
 .               {return yytext[0];}
 %%

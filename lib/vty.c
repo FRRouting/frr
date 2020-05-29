@@ -259,6 +259,37 @@ done:
 	return len;
 }
 
+int vty_secret_cmd(struct vty *vty, const char *fmt, ...)
+{
+	char buf[1024], *p, *pos, *nl;
+	const char *marker;
+	va_list args;
+	ssize_t len = 0;
+
+	va_start(args, fmt);
+	p = vasnprintfrr(MTYPE_VTY_OUT_BUF, buf, sizeof(buf), fmt, args);
+	va_end(args);
+
+	marker = vty->hide_secrets ? " !SECRET-HIDDEN" : " !SECRET-DATA";
+
+	for (pos = p; (nl = strchr(pos, '\n')); pos = nl + 1)
+		len += vty_out(vty, "%.*s%s\n", (int)(nl - pos), pos, marker);
+
+	len += vty_out(vty, "%s", pos);
+
+	if (p != buf)
+		XFREE(MTYPE_VTY_OUT_BUF, p);
+	return len;
+}
+
+int vty_secret_data(struct vty *vty, const char *secret)
+{
+	if (vty->hide_secrets)
+		return vty_out(vty, "________");
+	else
+		return vty_out(vty, "%s", secret);
+}
+
 static int vty_log_out(struct vty *vty, const char *level,
 		       const char *proto_str, const char *msg,
 		       struct timestamp_control *ctl)
@@ -1604,6 +1635,7 @@ struct vty *vty_new(void)
 	new->obuf = buffer_new(0); /* Use default buffer size. */
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->max = VTY_BUFSIZ;
+	new->hide_secrets = cmd_hide_secrets();
 
 	return new;
 }

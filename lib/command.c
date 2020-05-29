@@ -52,6 +52,11 @@
 DEFINE_MTYPE_STATIC(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
 
+FRR_CFG_DEFAULT_BOOL(LIB_SECRETS_HIDDEN,
+	{ .val_bool = false, .match_version = "< 7.5" },
+	{ .val_bool = true },
+)
+
 #define item(x)                                                                \
 	{                                                                      \
 		x, #x                                                          \
@@ -98,6 +103,12 @@ const char *cmd_hostname_get(void)
 const char *cmd_domainname_get(void)
 {
 	return host.domainname;
+}
+
+bool cmd_hide_secrets(void)
+{
+	return host.hide_secrets_set ? host.hide_secrets
+		: DFLT_LIB_SECRETS_HIDDEN;
 }
 
 static int root_on_exit(struct vty *vty);
@@ -413,6 +424,9 @@ static int config_write_host(struct vty *vty)
 
 		if (host.encrypt)
 			vty_out(vty, "service password-encryption\n");
+
+		vty_out(vty, "%sservice secrets-hidden\n",
+			cmd_hide_secrets() ? "" : "no ");
 
 		if (host.lines >= 0)
 			vty_out(vty, "service terminal-length %d\n",
@@ -1555,6 +1569,7 @@ static int file_write_config(struct vty *vty)
 	file_vty = vty_new();
 	file_vty->wfd = fd;
 	file_vty->type = VTY_FILE;
+	file_vty->hide_secrets = false;
 
 	/* Config file header print. */
 	vty_out(file_vty, "!\n! Zebra configuration saved from vty\n!   ");
@@ -1605,30 +1620,37 @@ finished:
 
 DEFUN (config_write,
        config_write_cmd,
-       "write [<file|memory|terminal>]",
+       "write [file|memory]",
        "Write running configuration to memory, network, or terminal\n"
        "Write to configuration file\n"
-       "Write configuration currently in memory\n"
-       "Write configuration to terminal\n")
+       "Write configuration currently in memory\n")
 {
-	const int idx_type = 1;
-
-	// if command was 'write terminal' or 'write memory'
-	if (argc == 2 && (!strcmp(argv[idx_type]->text, "terminal"))) {
-		return vty_write_config(vty);
-	}
-
 	return file_write_config(vty);
 }
 
 /* ALIAS_FIXME for 'write <terminal|memory>' */
 DEFUN (show_running_config,
        show_running_config_cmd,
-       "show running-config",
+       "<show running-config|write terminal> [show-secrets|hide-secrets]",
        SHOW_STR
-       "running configuration (same as write terminal)\n")
+       "running configuration (same as write terminal)\n"
+       "Write running configuration to memory, network, or terminal\n"
+       "Write configuration to terminal\n"
+       "include secrets in output\n"
+       "remove secrets from output\n")
 {
-	return vty_write_config(vty);
+	bool hide_secrets_prev = vty->hide_secrets;
+	int ret;
+
+	if (argc == 3 && !strcmp(argv[2]->text, "show-secrets"))
+		vty->hide_secrets = false;
+	else if (argc == 3 && !strcmp(argv[2]->text, "hide-secrets"))
+		vty->hide_secrets = true;
+
+	ret = vty_write_config(vty);
+
+	vty->hide_secrets = hide_secrets_prev;
+	return ret;
 }
 
 /* ALIAS_FIXME for 'write file' */
@@ -1955,6 +1977,23 @@ DEFUN (no_service_password_encrypt,
 	if (host.enable_encrypt)
 		XFREE(MTYPE_HOST, host.enable_encrypt);
 	host.enable_encrypt = NULL;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (service_hide_secrets,
+       service_hide_secrets_cmd,
+       "[no] service secrets-hidden",
+       NO_STR
+       "Set up miscellaneous service\n"
+       "Hide secrets in configuration output by default\n")
+{
+	bool value = !!strcmp(argv[0]->text, "no");
+
+	host.hide_secrets = value;
+	host.hide_secrets_set = true;
+
+	vty->hide_secrets = value;
 
 	return CMD_SUCCESS;
 }
@@ -2359,6 +2398,7 @@ void cmd_init(int terminal)
 
 		install_element(CONFIG_NODE, &service_password_encrypt_cmd);
 		install_element(CONFIG_NODE, &no_service_password_encrypt_cmd);
+		install_element(CONFIG_NODE, &service_hide_secrets_cmd);
 		install_element(CONFIG_NODE, &banner_motd_default_cmd);
 		install_element(CONFIG_NODE, &banner_motd_file_cmd);
 		install_element(CONFIG_NODE, &banner_motd_line_cmd);

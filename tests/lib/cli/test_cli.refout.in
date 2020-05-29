@@ -312,6 +312,7 @@ frr defaults @DFLT_NAME@
 !
 hostname test
 domainname test.domain
+service secrets-hidden
 !
 !
 !
@@ -329,6 +330,7 @@ frr defaults @DFLT_NAME@
 !
 hostname foohost
 domainname test.domain
+service secrets-hidden
 !
 !
 !

@@ -218,6 +218,18 @@ Basic Config Commands
 
    Encrypt password.
 
+.. index:: service secrets-hidden
+.. clicmd:: service secrets-hidden
+
+   (Default enabled for configurations created on FRR 7.5 or newer.)
+
+   This toggles the default behavior for :clicmd:`show running-config` and
+   :clicmd:`write terminal` to omit secrets (password hashes and PSKs for
+   protocol authentication mechanisms.)
+
+   The default can be overridden on selected configuration show commands,
+   see their documentation for details.
+
 .. index:: service advanced-vty
 .. clicmd:: service advanced-vty
 
@@ -447,10 +459,46 @@ Puppet, etc.), upgrade considerations differ somewhat:
 Terminal Mode Commands
 ======================
 
+.. index:: show running-configuration
+.. clicmd:: show running-configuration
+.. clicmd:: show running-configuration [show-secrets|hide-secrets]
 .. index:: write terminal
 .. clicmd:: write terminal
+.. clicmd:: write terminal [show-secrets|hide-secrets]
 
-   Displays the current configuration to the vty interface.
+   Displays the current configuration to the vty interface.  The two forms
+   are aliases and fully identical to each other.
+
+   The ``show-secrets`` and ``hide-secrets`` arguments optionally select
+   whether to omit "secret" configuration data.  The output, respectively,
+   will follow either of these two patterns:
+
+   .. code-block:: frr
+
+      vtysh# show running-config show-secrets
+      Current configuration:
+      ...
+      password verysecret !SECRET-DATA
+
+   .. code-block:: frr
+
+      vtysh# show running-config hide-secrets
+      Current configuration:
+      ...
+      password ________ !SECRET-HIDDEN
+
+   The default behavior is selected by :clicmd:`service secrets-hidden`.
+
+   The ``!SECRET-DATA`` marker is ignored on input (the commands are valid
+   without it.)  It is intended for the specific scenario of sanitizing a
+   configuration file through ``grep -v SECRET-DATA`` before handing it off
+   to some third party.
+
+   The ``!SECRET-HIDDEN`` marker will, when input, trigger an "invalid
+   command" error since the configuration is incomplete.  Configuration writes
+   to disk by FRR itself will never result in this, but when dumping the
+   configuration through ``vtysh`` for e.g. backup purposes the
+   ``show-secrets`` option should be added.
 
 .. index:: write file
 .. clicmd:: write file

@@ -24,6 +24,10 @@ noinst_HEADERS += \
 	vtysh/vtysh_user.h \
 	# end
 
+clippy_scan += \
+	vtysh/vtysh.c \
+	# end
+
 vtysh_vtysh_LDADD = lib/libfrr.la $(LIBCAP) $(LIBREADLINE) $(LIBS) $(LIBPAM)
 
 AM_V_EXTRACT = $(am__v_EXTRACT_$(V))

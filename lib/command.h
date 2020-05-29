@@ -73,6 +73,8 @@ struct host {
 	/* Flags for services */
 	int advanced;
 	int encrypt;
+	bool hide_secrets;
+	bool hide_secrets_set;
 
 	/* Banner configuration. */
 	char *motd;
@@ -509,6 +511,18 @@ extern int cmd_domainname_set(const char *domainname);
 extern int cmd_hostname_set(const char *hostname);
 extern const char *cmd_hostname_get(void);
 extern const char *cmd_domainname_get(void);
+extern bool cmd_hide_secrets(void);
+
+/* we don't support comments on lines that contain actual data, so the
+ * !SECRET-DATA marker is read in as a regular token.  supporting line
+ * comments would be better, but that would break people using ! in parameters
+ * (e.g. in a password/PSK)
+ */
+static inline void cmd_strip_secret_marker(int *argc, struct cmd_token *argv[])
+{
+	if (!strcmp(argv[*argc - 1]->text, "!SECRET-DATA"))
+		(*argc)--;
+}
 
 /* NOT safe for general use; call this only if DEV_BUILD! */
 extern void grammar_sandbox_init(void);

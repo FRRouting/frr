@@ -48,6 +48,8 @@
 #include "json.h"
 #include "ferr.h"
 
+#include "vtysh/vtysh_clippy.c"
+
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy")
 
 /* Struct VTY. */
@@ -441,7 +443,8 @@ static int vtysh_client_execute_name(const char *name, const char *line)
  * line
  *    the specific command to execute
  */
-static void vtysh_client_config(struct vtysh_client *head_client, char *line)
+static void vtysh_client_config(struct vtysh_client *head_client,
+				const char *line)
 {
 	/* watchfrr currently doesn't load any config, and has some hardcoded
 	 * settings that show up in "show run".  skip it here (for now at
@@ -2788,6 +2791,16 @@ DEFUNSH(VTYSH_ALL, no_vtysh_log_timestamp_precision,
 	return CMD_SUCCESS;
 }
 
+DEFUNSH (VTYSH_ALL, vtysh_service_hide_secrets,
+	 vtysh_service_hide_secrets_cmd,
+	 "[no] service secrets-hidden",
+	 NO_STR
+	 "Set up miscellaneous service\n"
+	 "Hide secrets in configuration output by default\n")
+{
+	return CMD_SUCCESS;
+}
+
 DEFUNSH(VTYSH_ALL, vtysh_service_password_encrypt,
 	vtysh_service_password_encrypt_cmd, "service password-encryption",
 	"Set up miscellaneous service\n"
@@ -2843,18 +2856,31 @@ DEFUNSH(VTYSH_ALL, no_vtysh_config_enable_password,
 	return CMD_SUCCESS;
 }
 
-DEFUN (vtysh_write_terminal,
+DEFPY (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
-       "write terminal ["DAEMONS_LIST"] [no-header]",
+       "<show running-config|write terminal> ["DAEMONS_LIST"]$daemon [{no-header$no_header|<show-secrets$show_secrets|hide-secrets$hide_secrets>}]",
+       SHOW_STR
+       "Current operating configuration\n"
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n"
        DAEMONS_STR
-       "Skip \"Building configuration...\" header\n")
+       "Skip \"Building configuration...\" header\n"
+       "include secrets in output\n"
+       "remove secrets from output\n")
 {
 	unsigned int i;
-	char line[] = "do write terminal\n";
+	const char *line;
 
-	if (!strcmp(argv[argc - 1]->arg, "no-header"))
+	if (hide_secrets) {
+		argc--;
+		line = "do write terminal hide-secrets\n";
+	} else if (show_secrets) {
+		argc--;
+		line = "do write terminal show-secrets\n";
+	} else
+		line = "do write terminal\n";
+
+	if (no_header)
 		argc--;
 	else {
 		vty_out(vty, "Building configuration...\n");
@@ -2863,8 +2889,7 @@ DEFUN (vtysh_write_terminal,
 	}
 
 	for (i = 0; i < array_size(vtysh_client); i++)
-		if ((argc < 3)
-		    || (strmatch(vtysh_client[i].name, argv[2]->text)))
+		if (!daemon || strmatch(vtysh_client[i].name, daemon))
 			vtysh_client_config(&vtysh_client[i], line);
 
 	/* Integrate vtysh specific configuration. */
@@ -2875,17 +2900,6 @@ DEFUN (vtysh_write_terminal,
 	vty_out(vty, "end\n");
 
 	return CMD_SUCCESS;
-}
-
-DEFUN (vtysh_show_running_config,
-       vtysh_show_running_config_cmd,
-       "show running-config ["DAEMONS_LIST"] [no-header]",
-       SHOW_STR
-       "Current operating configuration\n"
-       DAEMONS_STR
-       "Skip \"Building configuration...\" header\n")
-{
-	return vtysh_write_terminal(self, vty, argc, argv);
 }
 
 DEFUN (vtysh_integrated_config,
@@ -2931,7 +2945,7 @@ static void backup_config_file(const char *fbackup)
 int vtysh_write_config_integrated(void)
 {
 	unsigned int i;
-	char line[] = "do write terminal\n";
+	char line[] = "do write terminal show-secrets\n";
 	FILE *fp;
 	int fd;
 #ifdef FRR_USER
@@ -4083,7 +4097,6 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_interface_cmd);
 	install_element(CONFIG_NODE, &vtysh_pseudowire_cmd);
 	install_element(INTERFACE_NODE, &vtysh_link_params_cmd);
-	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_to_running_cmd);
 
@@ -4170,6 +4183,7 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_log_timestamp_precision_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_log_timestamp_precision_cmd);
 
+	install_element(CONFIG_NODE, &vtysh_service_hide_secrets_cmd);
 	install_element(CONFIG_NODE, &vtysh_service_password_encrypt_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_service_password_encrypt_cmd);
 
