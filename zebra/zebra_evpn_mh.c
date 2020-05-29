@@ -2759,6 +2759,12 @@ bool zebra_evpn_is_if_es_capable(struct zebra_if *zif)
 	if (zif->zif_type == ZEBRA_IF_BOND)
 		return true;
 
+	/* relax the checks to allow config to be applied in zebra
+	 * before interface is rxed from the kernel
+	 */
+	if (zif->ifp->ifindex == IFINDEX_INTERNAL)
+		return true;
+
 	/* XXX: allow swpX i.e. a regular ethernet port to be an ES link too */
 	return false;
 }
