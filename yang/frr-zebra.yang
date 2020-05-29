@@ -316,7 +316,7 @@ module frr-zebra {
         "Uptime for the route.";
     }
 
-    uses frr-nh:frr-nexthop-grouping;
+    uses frr-nh:frr-nexthop-group-operational;
   }
 
   // End of route-common
@@ -2074,7 +2074,7 @@ module frr-zebra {
     }
   }
 
-  augment "/frr-vrf:lib/frr-vrf:vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop" {
+  augment "/frr-vrf:lib/frr-vrf:vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop" {
     uses frr-nh:frr-nexthop-operational;
   }
 
