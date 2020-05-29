@@ -289,8 +289,10 @@ enum zebra_if_flags {
 	 * EVPN multihoming
 	 */
 	ZIF_FLAG_EVPN_MH_UPLINK = (1 << 0),
+	ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP = (1 << 1),
+
 	/* Dataplane protodown-on */
-	ZIF_FLAG_PROTODOWN = (1 << 1)
+	ZIF_FLAG_PROTODOWN = (1 << 2)
 };
 
 /* `zebra' daemon local interface structure. */
