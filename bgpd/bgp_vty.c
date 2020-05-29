@@ -4086,16 +4086,19 @@ DEFUN (no_neighbor_solo,
 
 DEFUN (neighbor_password,
        neighbor_password_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> password LINE",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> password LINE [!SECRET-DATA]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Set a password\n"
-       "The password\n")
+       "The password\n"
+       "(ignored)\n")
 {
 	int idx_peer = 1;
 	int idx_line = 3;
 	struct peer *peer;
 	int ret;
+
+	cmd_strip_secret_marker(&argc, argv);
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
@@ -4107,16 +4110,19 @@ DEFUN (neighbor_password,
 
 DEFUN (no_neighbor_password,
        no_neighbor_password_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> password [LINE]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> password [LINE [!SECRET-DATA]]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Set a password\n"
-       "The password\n")
+       "The password\n"
+       "(ignored)\n")
 {
 	int idx_peer = 2;
 	struct peer *peer;
 	int ret;
+
+	cmd_strip_secret_marker(&argc, argv);
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
@@ -14576,9 +14582,11 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* password */
-	if (peergroup_flag_check(peer, PEER_FLAG_PASSWORD))
-		vty_out(vty, " neighbor %s password %s\n", addr,
-			peer->password);
+	if (peergroup_flag_check(peer, PEER_FLAG_PASSWORD)) {
+		vty_secret_cmd(vty, " neighbor %s password ", addr);
+		vty_secret_data(vty, peer->password);
+		vty_secret_cmd(vty, "\n");
+	}
 
 	/* neighbor solo */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL)) {

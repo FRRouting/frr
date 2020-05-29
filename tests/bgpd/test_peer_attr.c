@@ -933,6 +933,7 @@ static struct test *test_new(const char *desc, bool use_ibgp,
 	test->vty = vty_new();
 	test->vty->type = VTY_TERM;
 	test->vty->node = CONFIG_NODE;
+	test->vty->hide_secrets = false;
 
 	test_initialize(test);
 
