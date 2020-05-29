@@ -305,9 +305,10 @@ DEFUN (no_key,
 
 DEFUN (key_string,
        key_string_cmd,
-       "key-string LINE",
+       "key-string LINE [!SECRET-DATA]",
        "Set key string\n"
-       "The key\n")
+       "The key\n"
+       "(ignored)\n")
 {
 	int idx_line = 1;
 	VTY_DECLVAR_CONTEXT_SUB(key, key);
@@ -321,10 +322,11 @@ DEFUN (key_string,
 
 DEFUN (no_key_string,
        no_key_string_cmd,
-       "no key-string [LINE]",
+       "no key-string [LINE [!SECRET-DATA]]",
        NO_STR
        "Unset key string\n"
-       "The key\n")
+       "The key\n"
+       "(ignored)\n")
 {
 	VTY_DECLVAR_CONTEXT_SUB(key, key);
 
@@ -1001,8 +1003,11 @@ static int keychain_config_write(struct vty *vty)
 		for (ALL_LIST_ELEMENTS_RO(keychain->key, knode, key)) {
 			vty_out(vty, " key %d\n", key->index);
 
-			if (key->string)
-				vty_out(vty, "  key-string %s\n", key->string);
+			if (key->string) {
+				vty_secret_cmd(vty, "  key-string ");
+				vty_secret_data(vty, key->string);
+				vty_secret_cmd(vty, "\n");
+			}
 
 			if (key->accept.start) {
 				keychain_strftime(buf, BUFSIZ,

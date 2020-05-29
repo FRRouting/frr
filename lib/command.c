@@ -404,18 +404,27 @@ static int config_write_host(struct vty *vty)
 	 */
 	if (full_cli) {
 		if (host.encrypt) {
-			if (host.password_encrypt)
-				vty_out(vty, "password 8 %s\n",
-					host.password_encrypt);
-			if (host.enable_encrypt)
-				vty_out(vty, "enable password 8 %s\n",
-					host.enable_encrypt);
+			if (host.password_encrypt) {
+				vty_secret_cmd(vty, "password 8 ");
+				vty_secret_data(vty, host.password_encrypt);
+				vty_secret_cmd(vty, "\n");
+			}
+			if (host.enable_encrypt) {
+				vty_secret_cmd(vty, "enable password 8 ");
+				vty_secret_data(vty, host.enable_encrypt);
+				vty_secret_cmd(vty, "\n");
+			}
 		} else {
-			if (host.password)
-				vty_out(vty, "password %s\n", host.password);
-			if (host.enable)
-				vty_out(vty, "enable password %s\n",
-					host.enable);
+			if (host.password) {
+				vty_secret_cmd(vty, "password ");
+				vty_secret_data(vty, host.password);
+				vty_secret_cmd(vty, "\n");
+			}
+			if (host.enable) {
+				vty_secret_cmd(vty, "enable password ");
+				vty_secret_data(vty, host.enable);
+				vty_secret_cmd(vty, "\n");
+			}
 		}
 		log_config_write(vty);
 
@@ -1781,13 +1790,17 @@ DEFUN (config_no_hostname,
 /* VTY interface password set. */
 DEFUN (config_password,
        password_cmd,
-       "password [(8-8)] WORD",
+       "password [(8-8)] WORD [!SECRET-DATA]",
        "Modify the terminal connection password\n"
        "Specifies a HIDDEN password will follow\n"
-       "The password string\n")
+       "The password string\n"
+       "(ignored)\n")
 {
 	int idx_8 = 1;
 	int idx_word = 2;
+
+	cmd_strip_secret_marker(&argc, argv);
+
 	if (argc == 3) // '8' was specified
 	{
 		if (host.password)
@@ -1852,14 +1865,17 @@ DEFUN (no_config_password,
 /* VTY enable password set. */
 DEFUN (config_enable_password,
        enable_password_cmd,
-       "enable password [(8-8)] WORD",
+       "enable password [(8-8)] WORD [!SECRET-DATA]",
        "Modify enable password parameters\n"
        "Assign the privileged level password\n"
        "Specifies a HIDDEN password will follow\n"
-       "The HIDDEN 'enable' password string\n")
+       "The HIDDEN 'enable' password string\n"
+       "(ignored)\n")
 {
 	int idx_8 = 2;
 	int idx_word = 3;
+
+	cmd_strip_secret_marker(&argc, argv);
 
 	/* Crypt type is specified. */
 	if (argc == 4) {
