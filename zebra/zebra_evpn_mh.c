@@ -949,9 +949,6 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
 	/* Delete associated Ethernet Segment */
 	if (zif->es_info.es)
 		zebra_evpn_local_es_del(zif->es_info.es);
-
-	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
-		zebra_evpn_mh_uplink_cfg_update(zif, false /* set */);
 }
 
 /*****************************************************************************
@@ -2427,8 +2424,14 @@ void zebra_evpn_if_es_print(struct vty *vty, struct zebra_if *zif)
 
 	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK) {
 		vty_print = true;
-		snprintf(mh_buf + strlen(mh_buf),
-			sizeof(mh_buf) - strlen(mh_buf), " uplink");
+		if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP)
+			snprintf(mh_buf + strlen(mh_buf),
+				sizeof(mh_buf) - strlen(mh_buf),
+				" uplink-up");
+		else
+			snprintf(mh_buf + strlen(mh_buf),
+				sizeof(mh_buf) - strlen(mh_buf),
+				" uplink-down");
 	}
 
 	if (vty_print)
@@ -3288,6 +3291,31 @@ static inline bool zebra_evpn_mh_is_all_uplinks_down(void)
 	return zmh_info->uplink_cfg_cnt && !zmh_info->uplink_oper_up_cnt;
 }
 
+static void zebra_evpn_mh_uplink_oper_flags_update(struct zebra_if *zif,
+		bool set)
+{
+	if (set) {
+		if (if_is_operative(zif->ifp)) {
+			if (!(zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP)) {
+				zif->flags |= ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP;
+				++zmh_info->uplink_oper_up_cnt;
+			}
+		} else {
+			if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP) {
+				zif->flags &= ~ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP;
+				if (zmh_info->uplink_oper_up_cnt)
+					--zmh_info->uplink_oper_up_cnt;
+			}
+		}
+	} else {
+		if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP) {
+			zif->flags &= ~ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP;
+			if (zmh_info->uplink_oper_up_cnt)
+				--zmh_info->uplink_oper_up_cnt;
+		}
+	}
+}
+
 static void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
 {
 	bool old_protodown = zebra_evpn_mh_is_all_uplinks_down();
@@ -3299,8 +3327,6 @@ static void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
 
 		zif->flags |= ZIF_FLAG_EVPN_MH_UPLINK;
 		++zmh_info->uplink_cfg_cnt;
-		if (if_is_operative(zif->ifp))
-			++zmh_info->uplink_oper_up_cnt;
 	} else {
 		if (!(zif->flags & ZIF_FLAG_EVPN_MH_UPLINK))
 			return;
@@ -3308,17 +3334,17 @@ static void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
 		zif->flags &= ~ZIF_FLAG_EVPN_MH_UPLINK;
 		if (zmh_info->uplink_cfg_cnt)
 			--zmh_info->uplink_cfg_cnt;
-		if (if_is_operative(zif->ifp) &&
-				zmh_info->uplink_oper_up_cnt)
-			--zmh_info->uplink_oper_up_cnt;
 	}
 
+	zebra_evpn_mh_uplink_oper_flags_update(zif, set);
 	new_protodown = zebra_evpn_mh_is_all_uplinks_down();
 	if (old_protodown == new_protodown)
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("mh-uplink-cfg-chg: uplinks cfg %u up %u",
+		zlog_debug("mh-uplink-cfg-chg on if %s/%d %s uplinks cfg %u up %u",
+			zif->ifp->name, zif->ifp->ifindex,
+			set ? "set" : "down",
 			zmh_info->uplink_cfg_cnt,
 			zmh_info->uplink_oper_up_cnt);
 
@@ -3331,15 +3357,12 @@ void zebra_evpn_mh_uplink_oper_update(struct zebra_if *zif)
 	bool old_protodown = zebra_evpn_mh_is_all_uplinks_down();
 	bool new_protodown;
 
-	if (if_is_operative(zif->ifp)) {
-		++zmh_info->uplink_oper_up_cnt;
-	} else {
-		if (zmh_info->uplink_oper_up_cnt)
-			--zmh_info->uplink_oper_up_cnt;
-	}
+	zebra_evpn_mh_uplink_oper_flags_update(zif, true /*set*/);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("mh-uplink-oper-chg: uplinks cfg %u up %u",
+		zlog_debug("mh-uplink-oper-chg on if %s/%d %s; uplinks cfg %u up %u",
+			zif->ifp->name, zif->ifp->ifindex,
+			if_is_operative(zif->ifp) ? "up" : "down",
 			zmh_info->uplink_cfg_cnt,
 			zmh_info->uplink_oper_up_cnt);
 
