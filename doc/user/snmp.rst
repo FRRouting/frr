@@ -26,7 +26,7 @@ and as binary package for most Linux distributions.
 .. _net-smtp-configuration:
 
 NET-SNMP configuration
-====================
+======================
 
 Routers with a heavy amount of routes (e.g. BGP full table) might experience
 problems with a hanging vtysh from time to time, 100% CPU on the snmpd or
