@@ -267,7 +267,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 		listnode_add(circuit->ip_addrs, ipv4);
 
 		/* Update Local IP address parameter if MPLS TE is enable */
-		if (circuit->ext && IS_MPLS_TE(circuit->ext)) {
+		if (circuit->ext && circuit->area
+		    && IS_MPLS_TE(circuit->area->mta)) {
 			circuit->ext->local_addr.s_addr = ipv4->prefix.s_addr;
 			SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR);
 		}
