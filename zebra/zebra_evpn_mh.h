@@ -276,8 +276,8 @@ extern void zebra_evpn_mh_terminate(void);
 extern bool zebra_evpn_is_if_es_capable(struct zebra_if *zif);
 extern void zebra_evpn_if_init(struct zebra_if *zif);
 extern void zebra_evpn_if_cleanup(struct zebra_if *zif);
-extern void zebra_evpn_evpn_es_init(zebra_evpn_t *zevpn);
-extern void zebra_evpn_evpn_es_cleanup(zebra_evpn_t *zevpn);
+extern void zebra_evpn_es_evi_init(zebra_evpn_t *zevpn);
+extern void zebra_evpn_es_evi_cleanup(zebra_evpn_t *zevpn);
 extern void zebra_evpn_vxl_evpn_set(struct zebra_if *zif, zebra_evpn_t *zevpn,
 		bool set);
 extern void zebra_evpn_es_set_base_evpn(zebra_evpn_t *zevpn);

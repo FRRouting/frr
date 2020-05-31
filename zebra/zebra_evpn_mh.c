@@ -425,7 +425,7 @@ void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj, vni_t vni, int detail)
 }
 
 /* Initialize the ES tables maintained per-L2_VNI */
-void zebra_evpn_evpn_es_init(zebra_evpn_t *zevpn)
+void zebra_evpn_es_evi_init(zebra_evpn_t *zevpn)
 {
 	/* Initialize the ES-EVI RB tree */
 	RB_INIT(zebra_es_evi_rb_head, &zevpn->es_evi_rb_tree);
@@ -438,7 +438,7 @@ void zebra_evpn_evpn_es_init(zebra_evpn_t *zevpn)
 }
 
 /* Cleanup the ES info maintained per- EVPN */
-void zebra_evpn_evpn_es_cleanup(zebra_evpn_t *zevpn)
+void zebra_evpn_es_evi_cleanup(zebra_evpn_t *zevpn)
 {
 	struct zebra_evpn_es_evi *es_evi;
 	struct zebra_evpn_es_evi *es_evi_next;
