@@ -1216,7 +1216,8 @@ int zebra_evpn_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
 	 * over the VxLAN-overlay/network-port if fast failover is not
 	 * supported and if the local ES is oper-down.
 	 */
-	if (zebra_evpn_es_local_mac_via_network_port(mac->es)) {
+	if (mac->es &&
+		zebra_evpn_es_local_mac_via_network_port(mac->es)) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 			zlog_debug("dp-%s sync-nw-mac vni %u mac %s es %s 0x%x %s",
 					set_static ? "install" : "uninstall",
