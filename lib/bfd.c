@@ -158,9 +158,11 @@ void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 	args.command = command;
 	args.set_flag = set_flag;
 	args.bfd_info = bfd_info;
-	args.min_rx = bfd_info->required_min_rx;
-	args.min_tx = bfd_info->desired_min_tx;
-	args.detection_multiplier = bfd_info->detect_mult;
+	if (args.bfd_info) {
+		args.min_rx = bfd_info->required_min_rx;
+		args.min_tx = bfd_info->desired_min_tx;
+		args.detection_multiplier = bfd_info->detect_mult;
+	}
 
 	addrlen = family == AF_INET ? sizeof(struct in_addr)
 				    : sizeof(struct in6_addr);
@@ -502,7 +504,7 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	}
 
 	/* Write registration indicator into data structure. */
-	if (args->set_flag) {
+	if (args->bfd_info && args->set_flag) {
 		if (args->command == ZEBRA_BFD_DEST_REGISTER)
 			SET_FLAG(args->bfd_info->flags, BFD_FLAG_BFD_REG);
 		else if (args->command == ZEBRA_BFD_DEST_DEREGISTER)
