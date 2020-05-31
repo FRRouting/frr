@@ -363,7 +363,7 @@ static int bgp_accept(struct thread *thread)
 	/* Register accept thread. */
 	accept_sock = THREAD_FD(thread);
 	if (accept_sock < 0) {
-		flog_err_sys(EC_LIB_SOCKET, "accept_sock is nevative value %d",
+		flog_err_sys(EC_LIB_SOCKET, "accept_sock is negative value %d",
 			     accept_sock);
 		return -1;
 	}
@@ -421,9 +421,9 @@ static int bgp_accept(struct thread *thread)
 	if (!peer1) {
 		if (bgp_debug_neighbor_events(NULL)) {
 			zlog_debug(
-				"[Event] %s connection rejected - not configured"
-				" and not valid for dynamic",
-				inet_sutop(&su, buf));
+				"[Event] %s connection rejected(%s:%u:%s) - not configured and not valid for dynamic",
+				inet_sutop(&su, buf), bgp->name_pretty, bgp->as,
+				VRF_LOGNAME(vrf_lookup_by_id(bgp->vrf_id)));
 		}
 		close(bgp_sock);
 		return -1;
@@ -432,8 +432,9 @@ static int bgp_accept(struct thread *thread)
 	if (CHECK_FLAG(peer1->flags, PEER_FLAG_SHUTDOWN)) {
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
-				"[Event] connection from %s rejected due to admin shutdown",
-				inet_sutop(&su, buf));
+				"[Event] connection from %s rejected(%s:%u:%s) due to admin shutdown",
+				inet_sutop(&su, buf), bgp->name_pretty, bgp->as,
+				VRF_LOGNAME(vrf_lookup_by_id(bgp->vrf_id)));
 		close(bgp_sock);
 		return -1;
 	}
