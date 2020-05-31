@@ -411,6 +411,7 @@ babel_main_loop(struct thread *thread)
     }
 
     assert(0); /* this line should never be reach */
+    return 0;
 }
 
 static void

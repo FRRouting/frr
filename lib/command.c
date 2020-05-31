@@ -1136,7 +1136,6 @@ int cmd_execute_command(vector vline, struct vty *vty,
 		return saved_ret;
 
 	if (ret != CMD_SUCCESS && ret != CMD_WARNING
-	    && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	    && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED) {
 		/* This assumes all nodes above CONFIG_NODE are childs of
 		 * CONFIG_NODE */
@@ -1148,7 +1147,6 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
 						       vty, cmd);
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
-			    || ret == CMD_ERR_AMBIGUOUS || ret == CMD_ERR_INCOMPLETE
 			    || ret == CMD_NOT_MY_INSTANCE
 			    || ret == CMD_WARNING_CONFIG_FAILED)
 				return ret;
@@ -1333,7 +1331,6 @@ int command_config_read_one_line(struct vty *vty,
 	if (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
 	    && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
 	    && ret != CMD_SUCCESS && ret != CMD_WARNING
-	    && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	    && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
 	    && vty->node != CONFIG_NODE) {
 		int saved_node = vty->node;
@@ -1342,7 +1339,6 @@ int command_config_read_one_line(struct vty *vty,
 		while (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
 		       && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
 		       && ret != CMD_SUCCESS && ret != CMD_WARNING
-		       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 		       && vty->node > CONFIG_NODE) {
 			vty->node = node_parent(vty->node);
 			if (vty->xpath_index > 0)

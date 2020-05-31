@@ -441,12 +441,12 @@ static struct filter *filter_seq_check(struct access_list *access,
 }
 
 /* If access_list has no filter then return 1. */
-static int access_list_empty(struct access_list *access)
+static bool access_list_empty(struct access_list *access)
 {
 	if (access->head == NULL && access->tail == NULL)
-		return 1;
+		return true;
 	else
-		return 0;
+		return false;
 }
 
 /* Delete filter from specified access_list.  If there is hook
@@ -455,6 +455,7 @@ static void access_list_filter_delete(struct access_list *access,
 				      struct filter *filter)
 {
 	struct access_master *master;
+	struct filter *replace = filter;
 
 	master = access->master;
 
@@ -476,7 +477,7 @@ static void access_list_filter_delete(struct access_list *access,
 		(*master->delete_hook)(access);
 
 	/* If access_list becomes empty delete it from access_master. */
-	if (access_list_empty(access))
+	if (access_list_empty(access) && !replace)
 		access_list_delete(access);
 }
 
