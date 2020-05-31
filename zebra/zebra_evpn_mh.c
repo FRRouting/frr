@@ -62,7 +62,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, L2_NH, "L2 nexthop");
 static void zebra_evpn_es_get_one_base_evpn(void);
 static int zebra_evpn_es_evi_send_to_client(struct zebra_evpn_es *es,
 		zebra_evpn_t *zevpn, bool add);
-static void zebra_evpn_local_es_del(struct zebra_evpn_es *es);
+static struct zebra_evpn_es *zebra_evpn_local_es_del(struct zebra_evpn_es *es);
 static int zebra_evpn_local_es_update(struct zebra_if *zif, uint32_t lid,
 		struct ethaddr *sysmac);
 static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
@@ -1982,13 +1982,14 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 	zebra_evpn_mh_update_protodown_es(es);
 }
 
-static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es *es)
+static struct zebra_evpn_es *zebra_evpn_es_local_info_clear(
+		struct zebra_evpn_es *es)
 {
 	struct zebra_if *zif;
 	bool dplane_updated = false;
 
 	if (!(es->flags & ZEBRA_EVPNES_LOCAL))
-		return;
+		return es;
 
 	es->flags &= ~(ZEBRA_EVPNES_LOCAL |
 					ZEBRA_EVPNES_READY_FOR_BGP);
@@ -2021,11 +2022,11 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es *es)
 	list_delete_node(zmh_info->local_es_list, &es->local_es_listnode);
 
 	/* free up the ES if there is no remote reference */
-	zebra_evpn_es_free(es);
+	return zebra_evpn_es_free(es);
 }
 
 /* Delete an ethernet segment and inform BGP */
-static void zebra_evpn_local_es_del(struct zebra_evpn_es *es)
+static struct zebra_evpn_es *zebra_evpn_local_es_del(struct zebra_evpn_es *es)
 {
 	struct zebra_evpn_es_evi *es_evi;
 	struct listnode *node = NULL;
@@ -2033,7 +2034,7 @@ static void zebra_evpn_local_es_del(struct zebra_evpn_es *es)
 	struct zebra_if *zif;
 
 	if (!CHECK_FLAG(es->flags, ZEBRA_EVPNES_LOCAL))
-		return;
+		return es;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES) {
 		zif = es->zif;
@@ -2050,7 +2051,7 @@ static void zebra_evpn_local_es_del(struct zebra_evpn_es *es)
 	if (es->flags & ZEBRA_EVPNES_READY_FOR_BGP)
 		zebra_evpn_es_send_del_to_client(es);
 
-	zebra_evpn_es_local_info_clear(es);
+	return zebra_evpn_es_local_info_clear(es);
 }
 
 /* eval remote info associated with the ES */
@@ -2358,8 +2359,9 @@ void zebra_evpn_es_cleanup(void)
 
 	RB_FOREACH_SAFE(es, zebra_es_rb_head,
 			&zmh_info->es_rb_tree, es_next) {
-		zebra_evpn_local_es_del(es);
-		zebra_evpn_remote_es_flush(es);
+		es = zebra_evpn_local_es_del(es);
+		if (es)
+			zebra_evpn_remote_es_flush(es);
 	}
 }
 
