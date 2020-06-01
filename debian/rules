@@ -22,17 +22,15 @@ else
 endif
 
 ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
-  DH_WITH_SYSTEMD=systemd,
   CONF_SYSTEMD=--enable-systemd=yes
 else
-  DH_WITH_SYSTEMD=
   CONF_SYSTEMD=--enable-systemd=no
 endif
 
 export PYTHON=python3
 
 %:
-	dh $@ -Bbuild --with=$(DH_WITH_SYSTEMD)autoreconf --parallel
+	dh $@ -Bbuild
 
 override_dh_auto_configure:
 	$(shell dpkg-buildflags --export=sh); \
