@@ -49,14 +49,19 @@
 
 /* Private functions */
 
-/* Install or uninstall specified rule for a specific interface.
- * Form netlink message and ship it.
+
+/*
+ * netlink_rule_msg_encode
+ *
+ * Encodes netlink RTM_ADDRULE/RTM_DELRULE message to buffer buf of size buflen.
+ *
+ * Returns -1 on failure or the number of bytes
+ * written to buf.
  */
-static int
-netlink_rule_update_internal(int cmd, const struct zebra_dplane_ctx *ctx,
-			     uint32_t filter_bm, uint32_t priority,
-			     uint32_t table, const struct prefix *src_ip,
-			     const struct prefix *dst_ip, uint32_t fwmark)
+static ssize_t netlink_rule_msg_encode(
+	int cmd, const struct zebra_dplane_ctx *ctx, uint32_t filter_bm,
+	uint32_t priority, uint32_t table, const struct prefix *src_ip,
+	const struct prefix *dst_ip, uint32_t fwmark, void *buf, size_t buflen)
 {
 	uint8_t protocol = RTPROT_ZEBRA;
 	int family;
@@ -64,58 +69,54 @@ netlink_rule_update_internal(int cmd, const struct zebra_dplane_ctx *ctx,
 	struct {
 		struct nlmsghdr n;
 		struct fib_rule_hdr frh;
-		char buf[NL_PKT_BUF_SIZE];
-	} req;
-	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
-	struct sockaddr_nl snl;
+		char buf[];
+	} *req = buf;
+
 	const char *ifname = dplane_ctx_get_ifname(ctx);
 	char buf1[PREFIX_STRLEN];
 	char buf2[PREFIX_STRLEN];
 
-	memset(&req, 0, sizeof(req) - NL_PKT_BUF_SIZE);
+	memset(req, 0, sizeof(*req));
 	family = PREFIX_FAMILY(src_ip);
 	bytelen = (family == AF_INET ? 4 : 16);
 
-	req.n.nlmsg_type = cmd;
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
-	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+	req->n.nlmsg_type = cmd;
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
 
-	req.frh.family = family;
-	req.frh.action = FR_ACT_TO_TBL;
+	req->frh.family = family;
+	req->frh.action = FR_ACT_TO_TBL;
 
-	addattr_l(&req.n, sizeof(req),
-		  FRA_PROTOCOL, &protocol, sizeof(protocol));
+	addattr_l(&req->n, buflen, FRA_PROTOCOL, &protocol, sizeof(protocol));
 
 	/* rule's pref # */
-	addattr32(&req.n, sizeof(req), FRA_PRIORITY, priority);
+	addattr32(&req->n, buflen, FRA_PRIORITY, priority);
 
 	/* interface on which applied */
-	addattr_l(&req.n, sizeof(req), FRA_IFNAME, ifname, strlen(ifname) + 1);
+	addattr_l(&req->n, buflen, FRA_IFNAME, ifname, strlen(ifname) + 1);
 
 	/* source IP, if specified */
 	if (filter_bm & PBR_FILTER_SRC_IP) {
-		req.frh.src_len = src_ip->prefixlen;
-		addattr_l(&req.n, sizeof(req), FRA_SRC, &src_ip->u.prefix,
-			  bytelen);
+		req->frh.src_len = src_ip->prefixlen;
+		addattr_l(&req->n, buflen, FRA_SRC, &src_ip->u.prefix, bytelen);
 	}
+
 	/* destination IP, if specified */
 	if (filter_bm & PBR_FILTER_DST_IP) {
-		req.frh.dst_len = dst_ip->prefixlen;
-		addattr_l(&req.n, sizeof(req), FRA_DST, &dst_ip->u.prefix,
-			  bytelen);
+		req->frh.dst_len = dst_ip->prefixlen;
+		addattr_l(&req->n, buflen, FRA_DST, &dst_ip->u.prefix, bytelen);
 	}
 
 	/* fwmark, if specified */
 	if (filter_bm & PBR_FILTER_FWMARK)
-		addattr32(&req.n, sizeof(req), FRA_FWMARK, fwmark);
+		addattr32(&req->n, buflen, FRA_FWMARK, fwmark);
 
 	/* Route table to use to forward, if filter criteria matches. */
 	if (table < 256)
-		req.frh.table = table;
+		req->frh.table = table;
 	else {
-		req.frh.table = RT_TABLE_UNSPEC;
-		addattr32(&req.n, sizeof(req), FRA_TABLE, table);
+		req->frh.table = RT_TABLE_UNSPEC;
+		addattr32(&req->n, buflen, FRA_TABLE, table);
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
@@ -126,12 +127,25 @@ netlink_rule_update_internal(int cmd, const struct zebra_dplane_ctx *ctx,
 			prefix2str(src_ip, buf1, sizeof(buf1)),
 			prefix2str(dst_ip, buf2, sizeof(buf2)), table);
 
-	memset(&snl, 0, sizeof(snl));
-	snl.nl_family = AF_NETLINK;
-	return netlink_talk(netlink_talk_filter, &req.n,
-			    &zns->netlink_cmd, zns, 0);
+	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
+/* Install or uninstall specified rule for a specific interface.
+ * Form netlink message and ship it.
+ */
+static int
+netlink_rule_update_internal(int cmd, const struct zebra_dplane_ctx *ctx,
+			     uint32_t filter_bm, uint32_t priority,
+			     uint32_t table, const struct prefix *src_ip,
+			     const struct prefix *dst_ip, uint32_t fwmark)
+{
+	char buf[NL_PKT_BUF_SIZE];
+
+	netlink_rule_msg_encode(cmd, ctx, filter_bm, priority, table, src_ip,
+				dst_ip, fwmark, buf, sizeof(buf));
+	return netlink_talk_info(netlink_talk_filter, (void *)&buf,
+				 dplane_ctx_get_ns(ctx), 0);
+}
 /* Public functions */
 
 /*
