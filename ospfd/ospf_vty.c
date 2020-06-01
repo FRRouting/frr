@@ -3384,6 +3384,10 @@ DEFUN (show_ip_ospf_instance,
 	return ret;
 }
 
+#if CONFDATE > 20210601
+CPP_NOTICE("Please remove ifIndex key from `show ip ospf interface` json")
+#endif
+
 static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				       struct interface *ifp,
 				       json_object *json_interface_sub,
@@ -3404,6 +3408,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			json_object_boolean_false_add(json_interface_sub,
 						      "ifDown");
 
+		json_object_int_add(json_interface_sub, "index", ifp->ifindex);
 		json_object_int_add(json_interface_sub, "ifIndex",
 				    ifp->ifindex);
 		json_object_int_add(json_interface_sub, "mtuBytes", ifp->mtu);
@@ -3797,6 +3802,8 @@ static void show_ip_ospf_interface_traffic_sub(struct vty *vty,
 					       bool use_json)
 {
 	if (use_json) {
+		json_object_int_add(json_interface_sub, "index",
+				    oi->ifp->ifindex);
 		json_object_int_add(json_interface_sub, "ifIndex",
 				    oi->ifp->ifindex);
 		json_object_int_add(json_interface_sub, "helloIn",

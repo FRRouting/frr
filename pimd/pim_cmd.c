@@ -5662,6 +5662,10 @@ DEFUN (show_ip_pim_statistics,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20210601
+CPP_NOTICE("Please remove ifIndex key from `show ip multicast count` json")
+#endif
+
 static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 				      bool uj)
 {
@@ -5708,6 +5712,7 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 				json_row, "address",
 				inet_ntoa(pim_ifp->primary_address));
 			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
+			json_object_int_add(json_row, "index", ifp->ifindex);
 			json_object_int_add(json_row, "vif",
 					    pim_ifp->mroute_vif_index);
 			json_object_int_add(json_row, "pktsIn",

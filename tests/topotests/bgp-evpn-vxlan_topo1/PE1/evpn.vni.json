@@ -3,7 +3,7 @@
   "type":"L2",
   "vrf":"default",
   "vxlanInterface":"vxlan101",
-  "ifindex":5,
+  "index":5,
   "vtepIp":"10.10.10.10",
   "mcastGroup":"0.0.0.0",
   "advertiseGatewayMacip":"No",

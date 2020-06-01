@@ -1164,6 +1164,10 @@ static void zl3vni_print_rmac(zebra_mac_t *zrmac, struct vty *vty,
 	}
 }
 
+#if CONFDATE > 20210601
+CPP_NOTICE("Please remove ifindex key from show evpn mac vni all detail json")
+#endif
+
 /*
  * Print a specific MAC entry.
  */
@@ -1200,6 +1204,7 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 				return;
 			json_object_string_add(json_mac, "type", "local");
 			json_object_string_add(json_mac, "intf", ifp->name);
+			json_object_int_add(json_mac, "index", ifindex);
 			json_object_int_add(json_mac, "ifindex", ifindex);
 			if (mac->fwd_info.local.vid)
 				json_object_int_add(json_mac, "vlan",
@@ -1851,6 +1856,10 @@ static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
 	}
 }
 
+#if CONFDATE > 20210601
+CPP_NOTICE("Please remove ifindex key from show evpn vni json")
+#endif
+
 /*
  * Print a specific VNI entry.
  */
@@ -1895,6 +1904,7 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 	} else {
 		json_object_string_add(json, "vxlanInterface",
 				       zvni->vxlan_if->name);
+		json_object_int_add(json, "index", zvni->vxlan_if->ifindex);
 		json_object_int_add(json, "ifindex", zvni->vxlan_if->ifindex);
 		json_object_string_add(json, "vtepIp",
 				       inet_ntoa(zvni->local_vtep_ip));
