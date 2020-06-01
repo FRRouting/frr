@@ -728,7 +728,10 @@ fi
 
 
 %changelog
-* Fri Feb 14 2020 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Wed May 06 2020 David Lamparter <equinox@opensourcerouting.org> - %{version}
+- upstream 7.3.1
+
+* Fri Feb 14 2020 Martin Winter <mwinter@opensourcerouting.org> - 7.3
 - BGPd
 -    EVPN PIP Support
 -    Route Aggregation code speed ups

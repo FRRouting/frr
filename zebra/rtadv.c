@@ -2399,4 +2399,15 @@ void rtadv_cmd_init(void)
 {
 	/* Empty.*/;
 }
+
+void rtadv_stop_ra(struct interface *ifp)
+{
+	/* Empty.*/;
+}
+
+void rtadv_stop_ra_all(void)
+{
+	/* Empty.*/;
+}
+
 #endif /* HAVE_RTADV */

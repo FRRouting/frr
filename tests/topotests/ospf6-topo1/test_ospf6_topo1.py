@@ -319,18 +319,18 @@ def test_linux_ipv6_kernel_routingTable():
     # Now compare the routing tables (after substituting link-local addresses)
 
     for i in range(1, 5):
-	if topotest.version_cmp(platform.release(), '5.3') < 0:
+        # Actual output from router
+        actual = tgen.gears['r{}'.format(i)].run('ip -6 route').rstrip()
+        if "nhid" in actual:
+            refTableFile = os.path.join(CWD, 'r{}/ip_6_address.nhg.ref'.format(i))
+        else:
             refTableFile = os.path.join(CWD, 'r{}/ip_6_address.ref'.format(i))
-	else:
-	    refTableFile = os.path.join(CWD, 'r{}/ip_6_address.nhg.ref'.format(i))
-        if os.path.isfile(refTableFile):
 
+        if os.path.isfile(refTableFile):
             expected = open(refTableFile).read().rstrip()
             # Fix newlines (make them all the same)
             expected = ('\n'.join(expected.splitlines())).splitlines(1)
 
-            # Actual output from router
-            actual = tgen.gears['r{}'.format(i)].run('ip -6 route').rstrip()
             # Mask out Link-Local mac addresses
             for ll in linklocals:
                 actual = actual.replace(ll[1], "fe80::__(%s)__" % ll[0])

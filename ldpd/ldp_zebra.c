@@ -108,8 +108,7 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	struct zapi_labels zl = {};
 	struct zapi_nexthop_label *znh;
 
-	if (kr->local_label < MPLS_LABEL_RESERVED_MAX ||
-	    kr->remote_label == NO_LABEL)
+	if (kr->local_label < MPLS_LABEL_RESERVED_MAX)
 		return (0);
 
 	debug_zebra_out("prefix %s/%u nexthop %s ifindex %u labels %s/%s (%s)",
@@ -122,21 +121,32 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	zl.local_label = kr->local_label;
 
 	/* Set prefix. */
-	SET_FLAG(zl.message, ZAPI_LABELS_FTN);
-	zl.route.prefix.family = kr->af;
-	switch (kr->af) {
-	case AF_INET:
-		zl.route.prefix.u.prefix4 = kr->prefix.v4;
-		break;
-	case AF_INET6:
-		zl.route.prefix.u.prefix6 = kr->prefix.v6;
-		break;
-	default:
-		fatalx("ldp_zebra_send_mpls_labels: unknown af");
+	if (kr->remote_label != NO_LABEL) {
+		SET_FLAG(zl.message, ZAPI_LABELS_FTN);
+		zl.route.prefix.family = kr->af;
+		switch (kr->af) {
+		case AF_INET:
+			zl.route.prefix.u.prefix4 = kr->prefix.v4;
+			break;
+		case AF_INET6:
+			zl.route.prefix.u.prefix6 = kr->prefix.v6;
+			break;
+		default:
+			fatalx("ldp_zebra_send_mpls_labels: unknown af");
+		}
+		zl.route.prefix.prefixlen = kr->prefixlen;
+		zl.route.type = kr->route_type;
+		zl.route.instance = kr->route_instance;
 	}
-	zl.route.prefix.prefixlen = kr->prefixlen;
-	zl.route.type = kr->route_type;
-	zl.route.instance = kr->route_instance;
+
+	/*
+	 * For broken LSPs, instruct the forwarding plane to pop the top-level
+	 * label and forward packets normally. This is a best-effort attempt
+	 * to deliver labeled IP packets to their final destination (instead of
+	 * dropping them).
+	 */
+	if (kr->remote_label == NO_LABEL)
+		kr->remote_label = MPLS_LABEL_IMPLICIT_NULL;
 
 	/* Set nexthop. */
 	zl.nexthop_num = 1;

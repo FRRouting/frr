@@ -3003,6 +3003,10 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 	/* Note: For IPv6 nexthops, we only validate the global (1st) nexthop;
 	 * there is code in bgp_attr.c to ignore the link-local (2nd) nexthop if
 	 * it is not an IPv6 link-local address.
+	 *
+	 * If we receive an UPDATE with nexthop length set to 32 bytes
+	 * we shouldn't discard an UPDATE if it's set to (::).
+	 * The link-local (2st) is validated along the code path later.
 	 */
 	if (attr->mp_nexthop_len) {
 		switch (attr->mp_nexthop_len) {
@@ -3016,7 +3020,6 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 			break;
 
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
-		case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
 		case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
 			ret = (IN6_IS_ADDR_UNSPECIFIED(&attr->mp_nexthop_global)
 			       || IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global)
@@ -3024,6 +3027,13 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 					  &attr->mp_nexthop_global)
 			       || bgp_nexthop_self(bgp, afi, type, stype,
 						   attr, rn));
+			break;
+		case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+			ret = (IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global)
+			       || IN6_IS_ADDR_MULTICAST(
+				       &attr->mp_nexthop_global)
+			       || bgp_nexthop_self(bgp, afi, type, stype, attr,
+						   rn));
 			break;
 
 		default:
@@ -7155,10 +7165,12 @@ static void route_vty_short_status_out(struct vty *vty,
 		vty_out(vty, " ");
 }
 
-static char *bgp_nexthop_hostname(struct peer *peer, struct attr *attr)
+static char *bgp_nexthop_hostname(struct peer *peer,
+				  struct bgp_nexthop_cache *bnc)
 {
-	if (peer->hostname && bgp_flag_check(peer->bgp, BGP_FLAG_SHOW_HOSTNAME)
-	    && !(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))
+	if (peer->hostname
+	    && CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHOW_HOSTNAME) && bnc
+	    && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
 		return peer->hostname;
 	return NULL;
 }
@@ -7180,7 +7192,8 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 	bool nexthop_othervrf = false;
 	vrf_id_t nexthop_vrfid = VRF_DEFAULT;
 	const char *nexthop_vrfname = VRF_DEFAULT_NAME;
-	char *nexthop_hostname = bgp_nexthop_hostname(path->peer, attr);
+	char *nexthop_hostname =
+		bgp_nexthop_hostname(path->peer, path->nexthop);
 
 	if (json_paths)
 		json_path = json_object_new_object();
@@ -8308,7 +8321,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 	bool nexthop_self =
 		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 	int i;
-	char *nexthop_hostname = bgp_nexthop_hostname(path->peer, attr);
+	char *nexthop_hostname =
+		bgp_nexthop_hostname(path->peer, path->nexthop);
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -9922,7 +9936,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 		}
 	} else if (safi == SAFI_EVPN) {
 		struct bgp_node *longest_pfx;
-		bool is_exact_pfxlen_match = FALSE;
+		bool is_exact_pfxlen_match = false;
 
 		for (rn = bgp_table_top(rib); rn; rn = bgp_route_next(rn)) {
 			if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
@@ -9932,7 +9946,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 				continue;
 
 			longest_pfx = NULL;
-			is_exact_pfxlen_match = FALSE;
+			is_exact_pfxlen_match = false;
 			/*
 			 * Search through all the prefixes for a match.  The
 			 * pfx's are enumerated in ascending order of pfxlens.
@@ -9951,7 +9965,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 					int type5_pfxlen =
 					   bgp_evpn_get_type5_prefixlen(&rm->p);
 					if (type5_pfxlen == match.prefixlen) {
-						is_exact_pfxlen_match = TRUE;
+						is_exact_pfxlen_match = true;
 						bgp_unlock_node(rm);
 						break;
 					}

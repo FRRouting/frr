@@ -1,8 +1,17 @@
-frr (7.3-2) UNRELEASED; urgency=medium
+frr (7.3.1-1) unstable; urgency=medium
 
+  [ David Lamparter ]
   * allow cross-compile with sbuild --host
 
- -- David Lamparter <equinox-debian@diac24.net>  Tue, 07 Apr 2020 16:39:43 +0200
+  [ Ondřej Surý ]
+  * Add myself to Uploaders
+  * Add d/gbp.conf
+  * Update changelog for 7.3.1-1~1.gbp2292a4 release
+  * Change the source format from git to quilt to use git-buildpackage
+  * Don't install frr-doc texinfo images, they are gone (Closes: #955067)
+  * Bump the dh_compat to 10
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 01 Jun 2020 08:41:03 +0200
 
 frr (7.3-1) unstable; urgency=medium
 

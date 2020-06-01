@@ -25,13 +25,13 @@
 #include "lib/debug.h"
 
 /* VRRP debugging records */
-struct debug vrrp_dbg_arp;
-struct debug vrrp_dbg_auto;
-struct debug vrrp_dbg_ndisc;
-struct debug vrrp_dbg_pkt;
-struct debug vrrp_dbg_proto;
-struct debug vrrp_dbg_sock;
-struct debug vrrp_dbg_zebra;
+extern struct debug vrrp_dbg_arp;
+extern struct debug vrrp_dbg_auto;
+extern struct debug vrrp_dbg_ndisc;
+extern struct debug vrrp_dbg_pkt;
+extern struct debug vrrp_dbg_proto;
+extern struct debug vrrp_dbg_sock;
+extern struct debug vrrp_dbg_zebra;
 
 /*
  * Initialize VRRP debugging.
