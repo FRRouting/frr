@@ -310,14 +310,26 @@ void dplane_ctx_set_addr_family(struct zebra_dplane_ctx *ctx,
 uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_lsp_flags(struct zebra_dplane_ctx *ctx,
 			      uint32_t flags);
-const zebra_nhlfe_t *dplane_ctx_get_nhlfe(const struct zebra_dplane_ctx *ctx);
+const struct nhlfe_list_head *dplane_ctx_get_nhlfe_list(
+	const struct zebra_dplane_ctx *ctx);
+const struct nhlfe_list_head *dplane_ctx_get_backup_nhlfe_list(
+	const struct zebra_dplane_ctx *ctx);
+
 zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 				    enum lsp_types_t lsp_type,
 				    enum nexthop_types_t nh_type,
 				    union g_addr *gate,
 				    ifindex_t ifindex,
 				    uint8_t num_labels,
-				    mpls_label_t out_labels[]);
+				    mpls_label_t *out_labels);
+
+zebra_nhlfe_t *dplane_ctx_add_backup_nhlfe(struct zebra_dplane_ctx *ctx,
+					   enum lsp_types_t lsp_type,
+					   enum nexthop_types_t nh_type,
+					   union g_addr *gate,
+					   ifindex_t ifindex,
+					   uint8_t num_labels,
+					   mpls_label_t *out_labels);
 
 const zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(
 	const struct zebra_dplane_ctx *ctx);

@@ -55,6 +55,10 @@ typedef struct zebra_nhlfe_t_ zebra_nhlfe_t;
 typedef struct zebra_lsp_t_ zebra_lsp_t;
 typedef struct zebra_fec_t_ zebra_fec_t;
 
+/* Declare LSP nexthop list types */
+PREDECL_DLIST(snhlfe_list);
+PREDECL_DLIST(nhlfe_list);
+
 /*
  * (Outgoing) nexthop label forwarding entry configuration
  */
@@ -71,9 +75,8 @@ struct zebra_snhlfe_t_ {
 	/* Backpointer to base entry. */
 	zebra_slsp_t *slsp;
 
-	/* Pointers to more outgoing information for same in-label */
-	zebra_snhlfe_t *next;
-	zebra_snhlfe_t *prev;
+	/* Linkage for LSPs' lists */
+	struct snhlfe_list_item list;
 };
 
 /*
@@ -96,10 +99,12 @@ struct zebra_nhlfe_t_ {
 #define NHLFE_FLAG_MULTIPATH   (1 << 2)
 #define NHLFE_FLAG_DELETED     (1 << 3)
 #define NHLFE_FLAG_INSTALLED   (1 << 4)
+#define NHLFE_FLAG_IS_BACKUP   (1 << 5)
 
-	zebra_nhlfe_t *next;
-	zebra_nhlfe_t *prev;
 	uint8_t distance;
+
+	/* Linkage for LSPs' lists */
+	struct nhlfe_list_item list;
 };
 
 /*
@@ -117,7 +122,7 @@ struct zebra_slsp_t_ {
 	zebra_ile_t ile;
 
 	/* List of outgoing nexthop static configuration */
-	zebra_snhlfe_t *snhlfe_list;
+	struct snhlfe_list_head snhlfe_list;
 };
 
 /*
@@ -127,10 +132,17 @@ struct zebra_lsp_t_ {
 	/* Incoming label */
 	zebra_ile_t ile;
 
-	/* List of NHLFE, pointer to best and num equal-cost. */
-	zebra_nhlfe_t *nhlfe_list;
+	/* List of NHLFEs, pointer to best, and num equal-cost. */
+	struct nhlfe_list_head nhlfe_list;
+
 	zebra_nhlfe_t *best_nhlfe;
 	uint32_t num_ecmp;
+
+	/* Backup nhlfes, if present. The nexthop in a primary/active nhlfe
+	 * refers to its backup (if any) by index, so the order of this list
+	 * is significant.
+	 */
+	struct nhlfe_list_head backup_nhlfe_list;
 
 	/* Flags */
 	uint32_t flags;
@@ -163,6 +175,9 @@ struct zebra_fec_t_ {
 	/* Clients interested in this FEC. */
 	struct list *client_list;
 };
+
+/* Declare typesafe list apis/macros */
+DECLARE_DLIST(nhlfe_list, struct zebra_nhlfe_t_, list);
 
 /* Function declarations. */
 
@@ -201,10 +216,31 @@ zebra_nhlfe_t *zebra_mpls_lsp_add_nhlfe(zebra_lsp_t *lsp,
 					union g_addr *gate,
 					ifindex_t ifindex,
 					uint8_t num_labels,
-					mpls_label_t out_labels[]);
+					const mpls_label_t *out_labels);
+
+/* Add or update a backup NHLFE for an LSP; return the object */
+zebra_nhlfe_t *zebra_mpls_lsp_add_backup_nhlfe(zebra_lsp_t *lsp,
+					       enum lsp_types_t lsp_type,
+					       enum nexthop_types_t gtype,
+					       union g_addr *gate,
+					       ifindex_t ifindex,
+					       uint8_t num_labels,
+					       const mpls_label_t *out_labels);
+
+/*
+ * Add NHLFE or backup NHLFE to an LSP based on a nexthop. These just maintain
+ * the LSP and NHLFE objects; nothing is scheduled for processing.
+ * Return: the newly-added object
+ */
+zebra_nhlfe_t *zebra_mpls_lsp_add_nh(zebra_lsp_t *lsp,
+				     enum lsp_types_t lsp_type,
+				     const struct nexthop *nh);
+zebra_nhlfe_t *zebra_mpls_lsp_add_backup_nh(zebra_lsp_t *lsp,
+					    enum lsp_types_t lsp_type,
+					    const struct nexthop *nh);
 
 /* Free an allocated NHLFE */
-void zebra_mpls_nhlfe_del(zebra_nhlfe_t *nhlfe);
+void zebra_mpls_nhlfe_free(zebra_nhlfe_t *nhlfe);
 
 int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 			    uint32_t label, uint32_t label_index,
@@ -266,12 +302,11 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
 			  struct prefix *p);
 
 /*
- * Install/uninstall a FEC-To-NHLFE (FTN) binding.
+ * Handle zapi request to install/uninstall LSP and
+ * (optionally) FEC-To-NHLFE (FTN) bindings.
  */
-int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
-		    struct prefix *prefix, enum nexthop_types_t gtype,
-		    union g_addr *gate, ifindex_t ifindex, uint8_t route_type,
-		    unsigned short route_instance, mpls_label_t out_label);
+int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+			     const struct zapi_labels *zl);
 
 /*
  * Uninstall all NHLFEs bound to a single FEC.
@@ -287,7 +322,7 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
  */
 int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		     mpls_label_t in_label, uint8_t num_out_labels,
-		     mpls_label_t out_labels[], enum nexthop_types_t gtype,
+		     const mpls_label_t *out_labels, enum nexthop_types_t gtype,
 		     const union g_addr *gate, ifindex_t ifindex);
 
 /*

@@ -239,8 +239,9 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 
 static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 {
+	const struct nhlfe_list_head *head;
 	const zebra_nhlfe_t *nhlfe;
-	struct nexthop *nexthop = NULL;
+	const struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num = 0;
 	int action;
 
@@ -258,7 +259,8 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 		return -1;
 	}
 
-	for (nhlfe = dplane_ctx_get_nhlfe(ctx); nhlfe; nhlfe = nhlfe->next) {
+	head = dplane_ctx_get_nhlfe_list(ctx);
+	frr_each(nhlfe_list_const, head, nhlfe) {
 		nexthop = nhlfe->nexthop;
 		if (!nexthop)
 			continue;

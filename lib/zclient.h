@@ -484,7 +484,8 @@ struct zapi_route {
 
 struct zapi_labels {
 	uint8_t message;
-#define ZAPI_LABELS_FTN      0x01
+#define ZAPI_LABELS_FTN           0x01
+#define ZAPI_LABELS_HAS_BACKUPS   0x02
 	enum lsp_types_t type;
 	mpls_label_t local_label;
 	struct {
@@ -495,6 +496,10 @@ struct zapi_labels {
 
 	uint16_t nexthop_num;
 	struct zapi_nexthop nexthops[MULTIPATH_NUM];
+
+	/* Backup nexthops, if present */
+	uint16_t backup_nexthop_num;
+	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 };
 
 struct zapi_pw {
@@ -799,6 +804,8 @@ int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
 				     const struct nexthop *nh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
 				       struct zapi_route *nhr);
+const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
+			     int bufsize);
 
 /* Decode the zebra error message */
 extern bool zapi_error_decode(struct stream *s, enum zebra_error_types *error);

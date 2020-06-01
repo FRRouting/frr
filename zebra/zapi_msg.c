@@ -1998,6 +1998,7 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct zapi_labels zl;
+	int ret;
 
 	/* Get input stream.  */
 	s = msg;
@@ -2011,20 +2012,11 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 	if (!mpls_enabled)
 		return;
 
-	for (int i = 0; i < zl.nexthop_num; i++) {
-		struct zapi_nexthop *znh;
-
-		znh = &zl.nexthops[i];
-
-		mpls_lsp_install(zvrf, zl.type, zl.local_label,
-				 znh->label_num, znh->labels,
-				 znh->type, &znh->gate, znh->ifindex);
-
-		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
-			mpls_ftn_update(1, zvrf, zl.type, &zl.route.prefix,
-					znh->type, &znh->gate, znh->ifindex,
-					zl.route.type, zl.route.instance,
-					znh->labels[0]);
+	ret = mpls_zapi_labels_process(true, zvrf, &zl);
+	if (ret < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Error processing zapi request",
+				   __func__);
 	}
 }
 
@@ -2042,6 +2034,7 @@ static void zread_mpls_labels_delete(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct zapi_labels zl;
+	int ret;
 
 	/* Get input stream.  */
 	s = msg;
@@ -2056,21 +2049,11 @@ static void zread_mpls_labels_delete(ZAPI_HANDLER_ARGS)
 		return;
 
 	if (zl.nexthop_num > 0) {
-		for (int i = 0; i < zl.nexthop_num; i++) {
-			struct zapi_nexthop *znh;
-
-			znh = &zl.nexthops[i];
-			mpls_lsp_uninstall(zvrf, zl.type, zl.local_label,
-					   znh->type, &znh->gate,
-					   znh->ifindex);
-
-			if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
-				mpls_ftn_update(0, zvrf, zl.type,
-						&zl.route.prefix, znh->type,
-						&znh->gate, znh->ifindex,
-						zl.route.type,
-						zl.route.instance,
-						znh->labels[0]);
+		ret = mpls_zapi_labels_process(false /*delete*/, zvrf, &zl);
+		if (ret < 0) {
+			if (IS_ZEBRA_DEBUG_RECV)
+				zlog_debug("%s: Error processing zapi request",
+					   __func__);
 		}
 	} else {
 		mpls_lsp_uninstall_all_vrf(zvrf, zl.type, zl.local_label);
@@ -2110,26 +2093,16 @@ static void zread_mpls_labels_replace(ZAPI_HANDLER_ARGS)
 	if (!mpls_enabled)
 		return;
 
+	/* This removes everything, then re-adds from the client's
+	 * zapi message. Since the LSP will be processed later, on this
+	 * this same pthread, all of the changes will 'appear' at once.
+	 */
 	mpls_lsp_uninstall_all_vrf(zvrf, zl.type, zl.local_label);
 	if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
 		mpls_ftn_uninstall(zvrf, zl.type, &zl.route.prefix,
 				   zl.route.type, zl.route.instance);
 
-	for (int i = 0; i < zl.nexthop_num; i++) {
-		struct zapi_nexthop *znh;
-
-		znh = &zl.nexthops[i];
-		mpls_lsp_install(zvrf, zl.type, zl.local_label,
-				 znh->label_num, znh->labels, znh->type,
-				 &znh->gate, znh->ifindex);
-
-		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN)) {
-			mpls_ftn_update(1, zvrf, zl.type, &zl.route.prefix,
-					znh->type, &znh->gate, znh->ifindex,
-					zl.route.type, zl.route.instance,
-					znh->labels[0]);
-		}
-	}
+	mpls_zapi_labels_process(true, zvrf, &zl);
 }
 
 /* Send response to a table manager connect request to client */

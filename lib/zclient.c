@@ -1543,6 +1543,39 @@ int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
 }
 
 /*
+ * Format some info about a zapi nexthop, for debug or logging.
+ */
+const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
+			     int bufsize)
+{
+	char tmp[INET6_ADDRSTRLEN];
+
+	switch (znh->type) {
+	case NEXTHOP_TYPE_IFINDEX:
+		snprintf(buf, bufsize, "if %u", znh->ifindex);
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		inet_ntop(AF_INET, &znh->gate.ipv4, tmp, sizeof(tmp));
+		snprintf(buf, bufsize, "%s if %u", tmp, znh->ifindex);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		inet_ntop(AF_INET6, &znh->gate.ipv6, tmp, sizeof(tmp));
+		snprintf(buf, bufsize, "%s if %u", tmp, znh->ifindex);
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		snprintf(buf, bufsize, "blackhole");
+		break;
+	default:
+		snprintf(buf, bufsize, "unknown");
+		break;
+	}
+
+	return buf;
+}
+
+/*
  * Decode the nexthop-tracking update message
  */
 bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
@@ -2811,6 +2844,27 @@ int zapi_labels_encode(struct stream *s, int cmd, struct zapi_labels *zl)
 			return -1;
 	}
 
+	if (CHECK_FLAG(zl->message, ZAPI_LABELS_HAS_BACKUPS)) {
+
+		if (zl->backup_nexthop_num > MULTIPATH_NUM) {
+			flog_err(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: label %u: can't encode %u nexthops (maximum is %u)",
+				__func__, zl->local_label, zl->nexthop_num,
+				MULTIPATH_NUM);
+			return -1;
+		}
+		stream_putw(s, zl->backup_nexthop_num);
+
+		for (int i = 0; i < zl->backup_nexthop_num; i++) {
+			znh = &zl->backup_nexthops[i];
+
+			if (zapi_nexthop_encode(s, znh, 0) < 0)
+				return -1;
+		}
+
+	}
+
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -2883,6 +2937,28 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 
 		if (zapi_nexthop_decode(s, znh, 0) < 0)
 			return -1;
+	}
+
+	if (CHECK_FLAG(zl->message, ZAPI_LABELS_HAS_BACKUPS)) {
+		STREAM_GETW(s, zl->backup_nexthop_num);
+
+		if (zl->backup_nexthop_num > MULTIPATH_NUM) {
+			flog_warn(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: Prefix %pFX has %d backup nexthops, but we can only use the first %d",
+				__func__, &zl->route.prefix,
+				zl->backup_nexthop_num,	MULTIPATH_NUM);
+		}
+
+		zl->backup_nexthop_num = MIN(MULTIPATH_NUM,
+					     zl->backup_nexthop_num);
+
+		for (int i = 0; i < zl->backup_nexthop_num; i++) {
+			znh = &zl->backup_nexthops[i];
+
+			if (zapi_nexthop_decode(s, znh, 0) < 0)
+				return -1;
+		}
 	}
 
 	return 0;

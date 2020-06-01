@@ -3504,6 +3504,7 @@ enum zebra_dplane_result kernel_neigh_update_ctx(struct zebra_dplane_ctx *ctx)
 int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 {
 	mpls_lse_t lse;
+	const struct nhlfe_list_head *head;
 	const zebra_nhlfe_t *nhlfe;
 	struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num;
@@ -3524,7 +3525,8 @@ int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 	 * or multipath case.
 	 */
 	nexthop_num = 0;
-	for (nhlfe = dplane_ctx_get_nhlfe(ctx); nhlfe; nhlfe = nhlfe->next) {
+	head = dplane_ctx_get_nhlfe_list(ctx);
+	frr_each(nhlfe_list_const, head, nhlfe) {
 		nexthop = nhlfe->nexthop;
 		if (!nexthop)
 			continue;
@@ -3579,8 +3581,7 @@ int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 				    routedesc);
 
 		nexthop_num = 0;
-		for (nhlfe = dplane_ctx_get_nhlfe(ctx);
-		     nhlfe; nhlfe = nhlfe->next) {
+		frr_each(nhlfe_list_const, head, nhlfe) {
 			nexthop = nhlfe->nexthop;
 			if (!nexthop)
 				continue;
@@ -3618,8 +3619,7 @@ int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 				    routedesc);
 
 		nexthop_num = 0;
-		for (nhlfe = dplane_ctx_get_nhlfe(ctx);
-		     nhlfe; nhlfe = nhlfe->next) {
+		frr_each(nhlfe_list_const, head, nhlfe) {
 			nexthop = nhlfe->nexthop;
 			if (!nexthop)
 				continue;

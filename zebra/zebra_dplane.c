@@ -33,6 +33,7 @@
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_vxlan_private.h"
+#include "zebra/zebra_mpls.h"
 #include "zebra/rt.h"
 #include "zebra/debug.h"
 
@@ -510,20 +511,28 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_LSP_DELETE:
 	case DPLANE_OP_LSP_NOTIFY:
 	{
-		zebra_nhlfe_t *nhlfe, *next;
+		zebra_nhlfe_t *nhlfe;
 
-		/* Free allocated NHLFEs */
-		for (nhlfe = ctx->u.lsp.nhlfe_list; nhlfe; nhlfe = next) {
-			next = nhlfe->next;
-
-			zebra_mpls_nhlfe_del(nhlfe);
+		/* Unlink and free allocated NHLFEs */
+		frr_each_safe(nhlfe_list, &ctx->u.lsp.nhlfe_list, nhlfe) {
+			nhlfe_list_del(&ctx->u.lsp.nhlfe_list, nhlfe);
+			zebra_mpls_nhlfe_free(nhlfe);
 		}
 
-		/* Clear pointers in lsp struct, in case we're cacheing
+		/* Unlink and free allocated backup NHLFEs, if present */
+		frr_each_safe(nhlfe_list,
+			      &(ctx->u.lsp.backup_nhlfe_list), nhlfe) {
+			nhlfe_list_del(&ctx->u.lsp.backup_nhlfe_list,
+				       nhlfe);
+			zebra_mpls_nhlfe_free(nhlfe);
+		}
+
+		/* Clear pointers in lsp struct, in case we're caching
 		 * free context structs.
 		 */
-		ctx->u.lsp.nhlfe_list = NULL;
+		nhlfe_list_init(&ctx->u.lsp.nhlfe_list);
 		ctx->u.lsp.best_nhlfe = NULL;
+		nhlfe_list_init(&ctx->u.lsp.backup_nhlfe_list);
 
 		break;
 	}
@@ -1217,11 +1226,18 @@ void dplane_ctx_set_lsp_flags(struct zebra_dplane_ctx *ctx,
 	ctx->u.lsp.flags = flags;
 }
 
-const zebra_nhlfe_t *dplane_ctx_get_nhlfe(const struct zebra_dplane_ctx *ctx)
+const struct nhlfe_list_head *dplane_ctx_get_nhlfe_list(
+	const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
+	return &(ctx->u.lsp.nhlfe_list);
+}
 
-	return ctx->u.lsp.nhlfe_list;
+const struct nhlfe_list_head *dplane_ctx_get_backup_nhlfe_list(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &(ctx->u.lsp.backup_nhlfe_list);
 }
 
 zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
@@ -1230,7 +1246,7 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 				    union g_addr *gate,
 				    ifindex_t ifindex,
 				    uint8_t num_labels,
-				    mpls_label_t out_labels[])
+				    mpls_label_t *out_labels)
 {
 	zebra_nhlfe_t *nhlfe;
 
@@ -1239,6 +1255,26 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 	nhlfe = zebra_mpls_lsp_add_nhlfe(&(ctx->u.lsp),
 					 lsp_type, nh_type, gate,
 					 ifindex, num_labels, out_labels);
+
+	return nhlfe;
+}
+
+zebra_nhlfe_t *dplane_ctx_add_backup_nhlfe(struct zebra_dplane_ctx *ctx,
+					   enum lsp_types_t lsp_type,
+					   enum nexthop_types_t nh_type,
+					   union g_addr *gate,
+					   ifindex_t ifindex,
+					   uint8_t num_labels,
+					   mpls_label_t *out_labels)
+{
+	zebra_nhlfe_t *nhlfe;
+
+	DPLANE_CTX_VALID(ctx);
+
+	nhlfe = zebra_mpls_lsp_add_backup_nhlfe(&(ctx->u.lsp),
+						lsp_type, nh_type, gate,
+						ifindex, num_labels,
+						out_labels);
 
 	return nhlfe;
 }
@@ -1729,27 +1765,21 @@ static int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx,
 
 	memset(&ctx->u.lsp, 0, sizeof(ctx->u.lsp));
 
+	nhlfe_list_init(&(ctx->u.lsp.nhlfe_list));
+	nhlfe_list_init(&(ctx->u.lsp.backup_nhlfe_list));
 	ctx->u.lsp.ile = lsp->ile;
 	ctx->u.lsp.addr_family = lsp->addr_family;
 	ctx->u.lsp.num_ecmp = lsp->num_ecmp;
 	ctx->u.lsp.flags = lsp->flags;
 
 	/* Copy source LSP's nhlfes, and capture 'best' nhlfe */
-	for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
+	frr_each(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
 		/* Not sure if this is meaningful... */
 		if (nhlfe->nexthop == NULL)
 			continue;
 
-		new_nhlfe =
-			zebra_mpls_lsp_add_nhlfe(
-				&(ctx->u.lsp),
-				nhlfe->type,
-				nhlfe->nexthop->type,
-				&(nhlfe->nexthop->gate),
-				nhlfe->nexthop->ifindex,
-				nhlfe->nexthop->nh_label->num_labels,
-				nhlfe->nexthop->nh_label->label);
-
+		new_nhlfe = zebra_mpls_lsp_add_nh(&(ctx->u.lsp), nhlfe->type,
+						  nhlfe->nexthop);
 		if (new_nhlfe == NULL || new_nhlfe->nexthop == NULL) {
 			ret = ENOMEM;
 			break;
@@ -1763,9 +1793,32 @@ static int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx,
 			ctx->u.lsp.best_nhlfe = new_nhlfe;
 	}
 
+	if (ret != AOK)
+		goto done;
+
+	/* Capture backup nhlfes/nexthops */
+	frr_each(nhlfe_list, &lsp->backup_nhlfe_list, nhlfe) {
+		/* Not sure if this is meaningful... */
+		if (nhlfe->nexthop == NULL)
+			continue;
+
+		new_nhlfe = zebra_mpls_lsp_add_backup_nh(&(ctx->u.lsp),
+							 nhlfe->type,
+							 nhlfe->nexthop);
+		if (new_nhlfe == NULL || new_nhlfe->nexthop == NULL) {
+			ret = ENOMEM;
+			break;
+		}
+
+		/* Need to copy flags too */
+		new_nhlfe->flags = nhlfe->flags;
+		new_nhlfe->nexthop->flags = nhlfe->nexthop->flags;
+	}
+
 	/* On error the ctx will be cleaned-up, so we don't need to
 	 * deal with any allocated nhlfe or nexthop structs here.
 	 */
+done:
 
 	return ret;
 }

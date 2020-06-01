@@ -371,8 +371,12 @@ struct nhg_hash_entry *zebra_nhg_alloc(void)
 	return nhe;
 }
 
-static struct nhg_hash_entry *zebra_nhg_copy(const struct nhg_hash_entry *orig,
-					     uint32_t id)
+/*
+ * Allocate new nhe and make shallow copy of 'orig'; no
+ * recursive info is copied.
+ */
+struct nhg_hash_entry *zebra_nhe_copy(const struct nhg_hash_entry *orig,
+				      uint32_t id)
 {
 	struct nhg_hash_entry *nhe;
 
@@ -401,7 +405,7 @@ static void *zebra_nhg_hash_alloc(void *arg)
 	struct nhg_hash_entry *nhe = NULL;
 	struct nhg_hash_entry *copy = arg;
 
-	nhe = zebra_nhg_copy(copy, copy->id);
+	nhe = zebra_nhe_copy(copy, copy->id);
 
 	/* Mark duplicate nexthops in a group at creation time. */
 	nexthop_group_mark_duplicates(&(nhe->nhg));
@@ -1140,7 +1144,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 			 * their attributes are unhashable.
 			 */
 
-			kernel_nhe = zebra_nhg_copy(nhe, id);
+			kernel_nhe = zebra_nhe_copy(nhe, id);
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug("%s: copying kernel nhe (%u), dup of %u",
@@ -2245,7 +2249,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	/* Make a local copy of the existing nhe, so we don't work on/modify
 	 * the shared nhe.
 	 */
-	curr_nhe = zebra_nhg_copy(re->nhe, re->nhe->id);
+	curr_nhe = zebra_nhe_copy(re->nhe, re->nhe->id);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: re %p nhe %p (%u), curr_nhe %p",
