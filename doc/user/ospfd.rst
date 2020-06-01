@@ -533,8 +533,9 @@ Areas
 .. index:: no area (0-4294967295) authentication
 .. clicmd:: no area (0-4294967295) authentication
 
-   Specify that simple password authentication should be used for the given
-   area.
+   Specify that simple PSK authentication should be used for the given area.
+   Note that the PSK is transmitted as-is on the wire.  Make sure not to reuse
+   any valuable secret.
 
 .. index:: area A.B.C.D authentication message-digest
 .. clicmd:: area A.B.C.D authentication message-digest
@@ -575,11 +576,12 @@ Interfaces
 .. index:: no ip ospf authentication-key
 .. clicmd:: no ip ospf authentication-key
 
-   Set OSPF authentication key to a simple password. After setting `AUTH_KEY`,
+   Set OSPF authentication key to a simple PSK. After setting `AUTH_KEY`,
    all OSPF packets are authenticated. `AUTH_KEY` has length up to 8 chars.
 
    Simple text password authentication is insecure and deprecated in favour of
-   MD5 HMAC authentication.
+   MD5 HMAC authentication.  The PSK is transmitted as-is on the wire.  Make
+   sure not to reuse any valuable secret.
 
 .. index:: ip ospf authentication message-digest
 .. clicmd:: ip ospf authentication message-digest

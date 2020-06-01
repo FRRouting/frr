@@ -1089,14 +1089,14 @@ static int ospf_vl_set(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 	"Seconds\n"
 
 #define VLINK_HELPSTR_AUTH_SIMPLE                                              \
-	"Authentication password (key)\n"                                      \
-	"The OSPF password (key)\n"
+	"Authentication PSK (pre-shared key)\n"                                \
+	"The OSPF PSK (pre-shared key)\n"
 
 #define VLINK_HELPSTR_AUTH_MD5                                                 \
-	"Message digest authentication password (key)\n"                       \
+	"Message digest authentication PSK (pre-shared key)\n"                 \
 	"Key ID\n"                                                             \
 	"Use MD5 algorithm\n"                                                  \
-	"The OSPF password (key)\n"
+	"The OSPF PSK (pre-shared key)\n"
 
 DEFUN (ospf_area_vlink,
        ospf_area_vlink_cmd,
@@ -2886,7 +2886,7 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 		if (area->auth_type == OSPF_AUTH_NULL)
 			vty_out(vty, "no authentication\n");
 		else if (area->auth_type == OSPF_AUTH_SIMPLE)
-			vty_out(vty, "simple password authentication\n");
+			vty_out(vty, "plaintext PSK authentication\n");
 		else if (area->auth_type == OSPF_AUTH_CRYPTOGRAPHIC)
 			vty_out(vty, "message digest authentication\n");
 
@@ -6924,8 +6924,8 @@ DEFUN (ip_ospf_authentication_key,
        "ip ospf authentication-key AUTH_KEY [A.B.C.D] [!SECRET-DATA]",
        "IP Information\n"
        "OSPF interface commands\n"
-       "Authentication password (key)\n"
-       "The OSPF password (key)\n"
+       "Authentication PSK (pre-shared key)\n"
+       "The OSPF PSK (pre-shared key)\n"
        "Address of interface\n"
        "(ignored)\n")
 {
@@ -7025,10 +7025,10 @@ DEFUN (ip_ospf_message_digest_key,
        "ip ospf message-digest-key (1-255) md5 KEY [A.B.C.D] [!SECRET-DATA]",
        "IP Information\n"
        "OSPF interface commands\n"
-       "Message digest authentication password (key)\n"
+       "Message digest authentication PSK (pre-shared key)\n"
        "Key ID\n"
        "Use MD5 algorithm\n"
-       "The OSPF password (key)\n"
+       "The OSPF PSK (pre-shared key)\n"
        "Address of interface\n"
        "(ignored)\n")
 {
@@ -7079,10 +7079,10 @@ DEFUN_HIDDEN (ospf_message_digest_key,
               ospf_message_digest_key_cmd,
               "ospf message-digest-key (1-255) md5 KEY [A.B.C.D] [!SECRET-DATA]",
               "OSPF interface commands\n"
-              "Message digest authentication password (key)\n"
+              "Message digest authentication PSK (pre-shared key)\n"
               "Key ID\n"
               "Use MD5 algorithm\n"
-              "The OSPF password (key)\n"
+              "The OSPF PSK (pre-shared key)\n"
               "Address of interface\n"
 	      "(ignored)\n")
 {
@@ -7095,10 +7095,10 @@ DEFUN (no_ip_ospf_message_digest_key,
         NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
-       "Message digest authentication password (key)\n"
+       "Message digest authentication PSK (pre-shared key)\n"
        "Key ID\n"
        "Use MD5 algorithm\n"
-       "The OSPF password (key)\n"
+       "The OSPF PSK (pre-shared key)\n"
        "Address of interface\n"
        "(ignored)\n")
 {
@@ -7149,10 +7149,10 @@ DEFUN_HIDDEN (no_ospf_message_digest_key,
               "no ospf message-digest-key (1-255) [md5 KEY] [A.B.C.D] [!SECRET-DATA]",
               NO_STR
               "OSPF interface commands\n"
-              "Message digest authentication password (key)\n"
+              "Message digest authentication PSK (pre-shared key)\n"
               "Key ID\n"
               "Use MD5 algorithm\n"
-              "The OSPF password (key)\n"
+              "The OSPF PSK (pre-shared key)\n"
               "Address of interface\n"
 	      "(ignored)\n")
 {
