@@ -123,6 +123,7 @@ def setup_module(module):
         net['r%s' % i].loadConf('sharpd')
         net['r%s' % i].loadConf('nhrpd', '%s/r%s/nhrpd.conf' % (thisDir, i))
         net['r%s' % i].loadConf('babeld', '%s/r%s/babeld.conf' % (thisDir, i))
+        net['r%s' % i].loadConf('pbrd', '%s/r%s/pbrd.conf' % (thisDir, i))
         net['r%s' % i].startRouter()
 
     # For debugging after starting Quagga/FRR daemons, uncomment the next line
