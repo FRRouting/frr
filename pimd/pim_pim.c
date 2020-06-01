@@ -501,6 +501,7 @@ void pim_sock_reset(struct interface *ifp)
 	pim_ifp->pim_dr_num_nondrpri_neighbors =
 		0; /* neighbors without dr_pri */
 	pim_ifp->pim_dr_addr = pim_ifp->primary_address;
+	pim_ifp->am_i_dr = true;
 
 	pim_ifstat_reset(ifp);
 }

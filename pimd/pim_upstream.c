@@ -547,7 +547,7 @@ static void forward_off(struct pim_upstream *up)
 	} /* scan iface channel list */
 }
 
-static int pim_upstream_could_register(struct pim_upstream *up)
+int pim_upstream_could_register(struct pim_upstream *up)
 {
 	struct pim_interface *pim_ifp = NULL;
 
