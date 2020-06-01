@@ -191,6 +191,21 @@ review can be made and the branch merged into master.  If a development
 branch is becomes un-maintained or not being actively worked on after
 three months then the Maintainers can decide to remove the branch.
 
+Debian Branches
+---------------
+
+The Debian project contains "official" packages for FRR.  While FRR
+Maintainers may participate in creating these, it is entirely the Debian
+project's decision what to ship and how to work on this.
+
+As a courtesy and for FRR's benefit, this packaging work is currently visible
+in git branches named ``debian/*`` on the main FRR git repository.  These
+branches are for the exclusive use by people involved in Debian packaging work
+for FRR.  Direct commit access may be handed out and FRR git rules (review,
+testing, etc.) do not apply.  Do not push to these branches without talking
+to the people noted under ``Maintainer:`` and ``Uploaders:`` in
+``debian/control`` on the target branch -- even if you are a FRR Maintainer.
+
 Changelog
 ---------
 The changelog will be the base for the release notes. A changelog entry for
