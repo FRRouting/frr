@@ -4084,17 +4084,17 @@ DEFUN (no_neighbor_solo,
 	return bgp_vty_return(vty, ret);
 }
 
-DEFUN (neighbor_password,
-       neighbor_password_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> password LINE [!SECRET-DATA]",
+DEFPY (neighbor_md5_psk,
+       neighbor_md5_psk_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> tcp-auth md5-rfc2385-psk PSK [!SECRET-DATA]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Set a password\n"
-       "The password\n"
+       "TCP authentication\n"
+       "RFC 2385 TCP MD5 Signature Option\n"
+       "pre-shared key for TCP-MD5\n"
        "(ignored)\n")
 {
 	int idx_peer = 1;
-	int idx_line = 3;
 	struct peer *peer;
 	int ret;
 
@@ -4104,18 +4104,33 @@ DEFUN (neighbor_password,
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	ret = peer_password_set(peer, argv[idx_line]->arg);
+	if ((peer->gtsm_hops == BGP_GTSM_HOPS_DISABLED || peer->ttl == MAXTTL)
+	    && vty->type != VTY_FILE)
+		vty_out(vty,
+			"%% warning: BGP TCP-MD5 authentication can be harmful.  Enable GTSM.\n"
+			"%% refer to https://nanog.org/meetings/nanog39/presentations/Scholl.pdf\n");
+
+	ret = peer_password_set(peer, psk);
 	return bgp_vty_return(vty, ret);
 }
 
-DEFUN (no_neighbor_password,
-       no_neighbor_password_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> password [LINE [!SECRET-DATA]]",
+ALIAS_HIDDEN(neighbor_md5_psk, neighbor_password_cmd,
+	     "neighbor <A.B.C.D|X:X::X:X|WORD> password PSK [!SECRET-DATA]",
+	     NEIGHBOR_STR
+	     NEIGHBOR_ADDR_STR2
+	     "Set a PSK\n"
+	     "The PSK\n"
+	     "(ignored)\n")
+
+DEFUN (no_neighbor_md5_psk,
+       no_neighbor_md5_psk_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> tcp-auth md5-rfc2385-psk [PSK [!SECRET-DATA]]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Set a password\n"
-       "The password\n"
+       "TCP authentication\n"
+       "RFC 2385 TCP MD5 Signature Option\n"
+       "pre-shared key for TCP-MD5\n"
        "(ignored)\n")
 {
 	int idx_peer = 2;
@@ -4131,6 +4146,15 @@ DEFUN (no_neighbor_password,
 	ret = peer_password_unset(peer);
 	return bgp_vty_return(vty, ret);
 }
+
+ALIAS_HIDDEN(no_neighbor_md5_psk, no_neighbor_password_cmd,
+	     "no neighbor <A.B.C.D|X:X::X:X|WORD> password [PSK [!SECRET-DATA]]",
+	     NO_STR
+	     NEIGHBOR_STR
+	     NEIGHBOR_ADDR_STR2
+	     "Set a PSK\n"
+	     "The PSK\n"
+	     "(ignored)\n")
 
 DEFUN (neighbor_activate,
        neighbor_activate_cmd,
@@ -14581,13 +14605,6 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
-	/* password */
-	if (peergroup_flag_check(peer, PEER_FLAG_PASSWORD)) {
-		vty_secret_cmd(vty, " neighbor %s password ", addr);
-		vty_secret_data(vty, peer->password);
-		vty_secret_cmd(vty, "\n");
-	}
-
 	/* neighbor solo */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL)) {
 		if (!peer_group_active(peer)) {
@@ -14626,6 +14643,13 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, " neighbor %s ttl-security hops %d\n",
 				addr, peer->gtsm_hops);
 		}
+	}
+
+	/* password - after GTSM to avoid false warning */
+	if (peergroup_flag_check(peer, PEER_FLAG_PASSWORD)) {
+		vty_secret_cmd(vty, " neighbor %s tcp-auth md5-rfc2385-psk ", addr);
+		vty_secret_data(vty, peer->password);
+		vty_secret_cmd(vty, "\n");
 	}
 
 	/* disable-connected-check */
@@ -15853,6 +15877,8 @@ void bgp_vty_init(void)
 	/* "neighbor password" commands. */
 	install_element(BGP_NODE, &neighbor_password_cmd);
 	install_element(BGP_NODE, &no_neighbor_password_cmd);
+	install_element(BGP_NODE, &neighbor_md5_psk_cmd);
+	install_element(BGP_NODE, &no_neighbor_md5_psk_cmd);
 
 	/* "neighbor activate" commands. */
 	install_element(BGP_NODE, &neighbor_activate_hidden_cmd);

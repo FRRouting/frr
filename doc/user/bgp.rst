@@ -1280,14 +1280,20 @@ Configuring Peers
 .. index:: neighbor PEER port PORT
 .. clicmd:: neighbor PEER port PORT
 
-.. index:: [no] neighbor PEER password PASSWORD
-.. clicmd:: [no] neighbor PEER password PASSWORD
+.. index:: [no] neighbor PEER tcp-auth md5-rfc2385-psk PASSWORD
+.. clicmd:: [no] neighbor PEER tcp-auth md5-rfc2385-psk PASSWORD
 
-   Set a MD5 password to be used with the tcp socket that is being used
+   Set a MD5 PSK to be used with the tcp socket that is being used
    to connect to the remote peer.  Please note if you are using this
    command with a large number of peers on linux you should consider
    modifying the `net.core.optmem_max` sysctl to a larger value to
    avoid out of memory errors from the linux kernel.
+
+   This option should not be enabled without also enabling GTSM (TTL-security)
+   through the :clicmd:`[no] neighbor PEER ttl-security hops NUMBER` command.
+   Refer to https://nanog.org/meetings/nanog39/presentations/Scholl.pdf for
+   further information.  Incorrect configuration may open up the router to
+   kernel CPU exhaustion denial of service attacks.
 
 .. index:: neighbor PEER send-community
 .. clicmd:: neighbor PEER send-community

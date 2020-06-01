@@ -365,9 +365,9 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
-		.cmd = "password",
-		.peer_cmd = "password FRR-Peer",
-		.group_cmd = "password FRR-Group",
+		.cmd = "tcp-auth md5-rfc2385-psk",
+		.peer_cmd = "tcp-auth md5-rfc2385-psk FRR-Peer",
+		.group_cmd = "tcp-auth md5-rfc2385-psk FRR-Group",
 		.u.flag = PEER_FLAG_PASSWORD,
 		.type = PEER_AT_GLOBAL_FLAG,
 		.handlers[0] = TEST_HANDLER(password),
