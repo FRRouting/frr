@@ -1121,16 +1121,23 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				nl_msg_type_to_str(h->nlmsg_type));
 			return -1;
 		}
+
 		if (h->nlmsg_type == RTM_NEWADDR)
 			connected_add_ipv4(ifp, flags, (struct in_addr *)addr,
 					   ifa->ifa_prefixlen,
 					   (struct in_addr *)broad, label,
 					   metric);
-		else
+		else if (CHECK_FLAG(flags, ZEBRA_IFA_PEER)) {
+			/* Delete with a peer address */
+			connected_delete_ipv4(
+				ifp, flags, (struct in_addr *)addr,
+				ifa->ifa_prefixlen, broad);
+		} else
 			connected_delete_ipv4(
 				ifp, flags, (struct in_addr *)addr,
 				ifa->ifa_prefixlen, NULL);
 	}
+
 	if (ifa->ifa_family == AF_INET6) {
 		if (ifa->ifa_prefixlen > IPV6_MAX_BITLEN) {
 			zlog_err(
