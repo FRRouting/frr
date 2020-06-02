@@ -50,6 +50,7 @@
 #include "ospfd/ospf_nsm.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_te.h"
+#include "ospfd/ospf_sr.h"
 
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_EXTERNAL, "OSPF External route table")
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute")
@@ -413,6 +414,119 @@ void ospf_external_del(struct ospf *ospf, uint8_t type, unsigned short instance)
 
 		XFREE(MTYPE_OSPF_EXTERNAL, ext);
 	}
+}
+
+/* Update NHLFE for Prefix SID */
+void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
+{
+	struct zapi_labels zl;
+	struct zapi_nexthop *znh;
+	struct listnode *node;
+	struct ospf_path *path;
+
+	osr_debug("SR (%s): Update Labels %u for Prefix %pFX", __func__,
+		  srp->label_in, (struct prefix *)&srp->prefv4);
+
+	/* Prepare message. */
+	memset(&zl, 0, sizeof(zl));
+	zl.type = ZEBRA_LSP_OSPF_SR;
+	zl.local_label = srp->label_in;
+
+	switch (srp->type) {
+	case LOCAL_SID:
+		/* Set Label for local Prefix */
+		znh = &zl.nexthops[zl.nexthop_num++];
+		znh->type = NEXTHOP_TYPE_IFINDEX;
+		znh->ifindex = srp->nhlfe.ifindex;
+		znh->label_num = 1;
+		znh->labels[0] = srp->nhlfe.label_out;
+		break;
+
+	case PREF_SID:
+		/* Update route in the RIB too. */
+		SET_FLAG(zl.message, ZAPI_LABELS_FTN);
+		zl.route.prefix.u.prefix4 = srp->prefv4.prefix;
+		zl.route.prefix.prefixlen = srp->prefv4.prefixlen;
+		zl.route.prefix.family = srp->prefv4.family;
+		zl.route.type = ZEBRA_ROUTE_OSPF;
+		zl.route.instance = 0;
+
+		/* Check that SRP contains at least one valid path */
+		if (srp->route == NULL) {
+			return;
+		}
+		for (ALL_LIST_ELEMENTS_RO(srp->route->paths, node, path)) {
+			if (path->srni.label_out == MPLS_INVALID_LABEL)
+				continue;
+
+			if (zl.nexthop_num >= MULTIPATH_NUM)
+				break;
+
+			znh = &zl.nexthops[zl.nexthop_num++];
+			znh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			znh->gate.ipv4 = path->nexthop;
+			znh->ifindex = path->ifindex;
+			znh->label_num = 1;
+			znh->labels[0] = path->srni.label_out;
+		}
+		break;
+	default:
+		return;
+	}
+
+	/* Finally, send message to zebra. */
+	(void)zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_REPLACE, &zl);
+}
+
+/* Remove NHLFE for Prefix-SID */
+void ospf_zebra_delete_prefix_sid(const struct sr_prefix *srp)
+{
+	struct zapi_labels zl;
+
+	osr_debug("SR (%s): Delete Labels %u for Prefix %pFX", __func__,
+		  srp->label_in, (struct prefix *)&srp->prefv4);
+
+	/* Prepare message. */
+	memset(&zl, 0, sizeof(zl));
+	zl.type = ZEBRA_LSP_OSPF_SR;
+	zl.local_label = srp->label_in;
+
+	if (srp->type == PREF_SID) {
+		/* Update route in the RIB too */
+		SET_FLAG(zl.message, ZAPI_LABELS_FTN);
+		zl.route.prefix.u.prefix4 = srp->prefv4.prefix;
+		zl.route.prefix.prefixlen = srp->prefv4.prefixlen;
+		zl.route.prefix.family = srp->prefv4.family;
+		zl.route.type = ZEBRA_ROUTE_OSPF;
+		zl.route.instance = 0;
+	}
+
+	/* Send message to zebra. */
+	(void)zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_DELETE, &zl);
+}
+
+/* Send MPLS Label entry to Zebra for installation or deletion */
+void ospf_zebra_send_adjacency_sid(int cmd, struct sr_nhlfe nhlfe)
+{
+	struct zapi_labels zl;
+	struct zapi_nexthop *znh;
+
+	osr_debug("SR (%s): %s Labels %u/%u for Adjacency via %u", __func__,
+		  cmd == ZEBRA_MPLS_LABELS_ADD ? "Add" : "Delete",
+		  nhlfe.label_in, nhlfe.label_out, nhlfe.ifindex);
+
+	memset(&zl, 0, sizeof(zl));
+	zl.type = ZEBRA_LSP_OSPF_SR;
+	zl.local_label = nhlfe.label_in;
+	zl.nexthop_num = 1;
+	znh = &zl.nexthops[0];
+	znh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+	znh->gate.ipv4 = nhlfe.nexthop;
+	znh->ifindex = nhlfe.ifindex;
+	znh->label_num = 1;
+	znh->labels[0] = nhlfe.label_out;
+
+	(void)zebra_send_mpls_labels(zclient, cmd, &zl);
 }
 
 struct ospf_redist *ospf_redist_lookup(struct ospf *ospf, uint8_t type,

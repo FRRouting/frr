@@ -58,6 +58,10 @@
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 
+/* Macro to check if SR Prefix has no valid route */
+#define IS_NO_ROUTE(srp) ((srp->route == NULL) || (srp->route->paths == NULL)  \
+			   || list_isempty(srp->route->paths))
+
 /* SID/Label Sub TLV - section 2.1 */
 #define SUBTLV_SID_LABEL		1
 #define SUBTLV_SID_LABEL_SIZE		8
