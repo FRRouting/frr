@@ -145,6 +145,15 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+def show_vni_json_elide_ifindex(pe, vni, expected):
+    output_json = pe.vtysh_cmd("show evpn vni {} json".format(vni), isjson=True)
+
+    if "ifindex" in output_json:
+        output_json.pop("ifindex")
+
+    return topotest.json_cmp(output_json, expected)
+
+
 def test_pe1_converge_evpn():
     "Wait for protocol convergence"
 
@@ -157,9 +166,7 @@ def test_pe1_converge_evpn():
     json_file = "{}/{}/evpn.vni.json".format(CWD, pe1.name)
     expected = json.loads(open(json_file).read())
 
-    test_func = partial(
-        topotest.router_json_cmp, pe1, "show evpn vni 101 json", expected
-    )
+    test_func = partial(show_vni_json_elide_ifindex, pe1, 101, expected)
     _, result = topotest.run_and_expect(test_func, None, count=125, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
     assert result is None, assertmsg
@@ -178,9 +185,7 @@ def test_pe2_converge_evpn():
     json_file = "{}/{}/evpn.vni.json".format(CWD, pe2.name)
     expected = json.loads(open(json_file).read())
 
-    test_func = partial(
-        topotest.router_json_cmp, pe2, "show evpn vni 101 json", expected
-    )
+    test_func = partial(show_vni_json_elide_ifindex, pe2, 101, expected)
     _, result = topotest.run_and_expect(test_func, None, count=125, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe2.name)
     assert result is None, assertmsg
