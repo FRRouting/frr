@@ -1,10 +1,10 @@
 # This stage builds an rpm from the source
 FROM centos:centos7 as centos-7-builder
-
+RUN yum install -y epel-release
 RUN yum install -y rpm-build autoconf automake libtool make \
         readline-devel texinfo net-snmp-devel groff pkgconfig \
         json-c-devel pam-devel bison flex pytest c-ares-devel \
-        python-devel systemd-devel python-sphinx libcap-devel \
+        python3-devel python3-sphinx systemd-devel libcap-devel \
         https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-10/CentOS-7-x86_64-Packages/libyang-0.16.111-0.x86_64.rpm \
         https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-10/CentOS-7-x86_64-Packages/libyang-devel-0.16.111-0.x86_64.rpm \
         https://ci1.netdef.org/artifact/RPKI-RTRLIB/shared/build-110/CentOS-7-x86_64-Packages/librtr-0.7.0-1.el7.centos.x86_64.rpm \
