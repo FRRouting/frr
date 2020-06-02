@@ -6,7 +6,7 @@ pkgdesc="Free Range Routing is a fork of quagga"
 url="https://frrouting.org/"
 arch="x86_64"
 license="GPL-2.0"
-depends="json-c c-ares ipsec-tools iproute2 python py-ipaddr bash"
+depends="json-c c-ares ipsec-tools iproute2 python3 py-ipaddr bash"
 makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     acct autoconf automake bash binutils bison bsd-compat-headers build-base
     c-ares c-ares-dev ca-certificates cryptsetup-libs curl device-mapper-libs
@@ -16,9 +16,9 @@ makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     libltdl libressl libssh2 libstdc++ libtool libuuid libyang-dev
     linux-headers lzip lzo m4 make mkinitfs mpc1 mpfr4 mtools musl-dev
     ncurses-libs ncurses-terminfo ncurses-terminfo-base patch pax-utils pcre
-    perl pkgconf python2 python2-dev readline readline-dev sqlite-libs
-    squashfs-tools sudo tar texinfo xorriso xz-libs py-pip rtrlib
-    rtrlib-dev"
+    perl pkgconf python3 python3-dev readline readline-dev sqlite-libs
+    squashfs-tools sudo tar texinfo xorriso xz-libs py-pip rtrlib rtrlib-dev
+    py3-sphinx"
 checkdepends="pytest py-setuptools"
 install="$pkgname.pre-install $pkgname.pre-deinstall $pkgname.post-deinstall"
 subpackages="$pkgname-dev $pkgname-doc $pkgname-dbg"
@@ -34,11 +34,6 @@ _user=frr
 
 build() {
 	cd "$builddir"
-
-	_localpythondir=$PWD/.python
-	pip2 install --prefix $_localpythondir sphinx
-	export PATH=${_localpythondir}/bin:$PATH
-	export PYTHONPATH=${_localpythondir}/lib/python2.7/site-packages
 
 	./configure \
 		--prefix=/usr \
