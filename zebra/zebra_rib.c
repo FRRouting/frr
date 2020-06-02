@@ -3467,7 +3467,8 @@ static int handle_pw_result(struct zebra_dplane_ctx *ctx)
 		vrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
 		pw = zebra_pw_find(vrf, dplane_ctx_get_ifname(ctx));
 		if (pw)
-			zebra_pw_install_failure(pw);
+			zebra_pw_install_failure(pw,
+						 dplane_ctx_get_pw_status(ctx));
 	}
 
 done:

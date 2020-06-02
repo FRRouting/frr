@@ -905,11 +905,22 @@ void dplane_ctx_set_notif_provider(struct zebra_dplane_ctx *ctx,
 
 	ctx->zd_notif_provider = id;
 }
+
 const char *dplane_ctx_get_ifname(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->zd_ifname;
+}
+
+void dplane_ctx_set_ifname(struct zebra_dplane_ctx *ctx, const char *ifname)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (!ifname)
+		return;
+
+	strlcpy(ctx->zd_ifname, ifname, sizeof(ctx->zd_ifname));
 }
 
 ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx)
@@ -1344,6 +1355,13 @@ int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.pw.status;
+}
+
+void dplane_ctx_set_pw_status(struct zebra_dplane_ctx *ctx, int status)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.pw.status = status;
 }
 
 const union g_addr *dplane_ctx_get_pw_dest(

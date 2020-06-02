@@ -1357,7 +1357,7 @@ show_l2vpn_pw_msg(struct vty *vty, struct imsg *imsg, struct show_params *params
 
 		vty_out (vty, "%-9s %-15s %-10u %-16s %-10s\n", pw->ifname,
 		    inet_ntoa(pw->lsr_id), pw->pwid, pw->l2vpn_name,
-		    (pw->status ? "UP" : "DOWN"));
+		    (pw->status == PW_FORWARDING ? "UP" : "DOWN"));
 		break;
 	case IMSG_CTL_END:
 		vty_out (vty, "\n");
@@ -1384,7 +1384,7 @@ show_l2vpn_pw_msg_json(struct imsg *imsg, struct show_params *params,
 		json_object_string_add(json_pw, "peerId", inet_ntoa(pw->lsr_id));
 		json_object_int_add(json_pw, "vcId", pw->pwid);
 		json_object_string_add(json_pw, "VpnName", pw->l2vpn_name);
-		if (pw->status)
+		if (pw->status == PW_FORWARDING)
 			json_object_string_add(json_pw, "status", "up");
 		else
 			json_object_string_add(json_pw, "status", "down");

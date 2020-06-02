@@ -521,11 +521,11 @@ l2vpn_pw_status_update(struct zapi_pw_status *zpw)
 		return (1);
 	}
 
-	if (zpw->status == PW_STATUS_UP) {
+	if (zpw->status == PW_FORWARDING) {
 		local_status = PW_FORWARDING;
 		pw->reason = F_PW_NO_ERR;
 	} else {
-		local_status = PW_NOT_FORWARDING;
+		local_status = zpw->status;
 		pw->reason = F_PW_LOCAL_NOT_FWD;
 	}
 
@@ -571,10 +571,11 @@ l2vpn_pw_ctl(pid_t pid)
 			    sizeof(pwctl.ifname));
 			pwctl.pwid = pw->pwid;
 			pwctl.lsr_id = pw->lsr_id;
+			pwctl.status = PW_NOT_FORWARDING;
 			if (pw->enabled &&
 			    pw->local_status == PW_FORWARDING &&
 			    pw->remote_status == PW_FORWARDING)
-				pwctl.status = 1;
+				pwctl.status = PW_FORWARDING;
 
 			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_L2VPN_PW, 0,
 			    pid, &pwctl, sizeof(pwctl));

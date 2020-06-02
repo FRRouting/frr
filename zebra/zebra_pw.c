@@ -74,7 +74,7 @@ struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
 	pw->protocol = protocol;
 	pw->vrf_id = zvrf_id(zvrf);
 	pw->client = client;
-	pw->status = PW_STATUS_DOWN;
+	pw->status = PW_NOT_FORWARDING;
 	pw->local_label = MPLS_NO_LABEL;
 	pw->remote_label = MPLS_NO_LABEL;
 	pw->flags = F_PSEUDOWIRE_CWORD;
@@ -98,7 +98,7 @@ void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
 	zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
 
 	/* uninstall */
-	if (pw->status == PW_STATUS_UP) {
+	if (pw->status == PW_FORWARDING) {
 		hook_call(pw_uninstall, pw);
 		dplane_pw_uninstall(pw);
 	} else if (pw->install_retry_timer)
@@ -156,6 +156,7 @@ void zebra_pw_update(struct zebra_pw *pw)
 {
 	if (zebra_pw_check_reachability(pw) < 0) {
 		zebra_pw_uninstall(pw);
+		zebra_pw_install_failure(pw, PW_NOT_FORWARDING);
 		/* wait for NHT and try again later */
 	} else {
 		/*
@@ -175,17 +176,17 @@ static void zebra_pw_install(struct zebra_pw *pw)
 
 	hook_call(pw_install, pw);
 	if (dplane_pw_install(pw) == ZEBRA_DPLANE_REQUEST_FAILURE) {
-		zebra_pw_install_failure(pw);
+		zebra_pw_install_failure(pw, PW_NOT_FORWARDING);
 		return;
 	}
 
-	if (pw->status == PW_STATUS_DOWN)
-		zebra_pw_update_status(pw, PW_STATUS_UP);
+	if (pw->status != PW_FORWARDING)
+		zebra_pw_update_status(pw, PW_FORWARDING);
 }
 
 static void zebra_pw_uninstall(struct zebra_pw *pw)
 {
-	if (pw->status == PW_STATUS_DOWN)
+	if (pw->status != PW_FORWARDING)
 		return;
 
 	if (IS_ZEBRA_DEBUG_PW)
@@ -198,7 +199,7 @@ static void zebra_pw_uninstall(struct zebra_pw *pw)
 	dplane_pw_uninstall(pw);
 
 	if (zebra_pw_enabled(pw))
-		zebra_pw_update_status(pw, PW_STATUS_DOWN);
+		zebra_pw_update_status(pw, PW_NOT_FORWARDING);
 }
 
 /*
@@ -207,7 +208,7 @@ static void zebra_pw_uninstall(struct zebra_pw *pw)
  * to retry the installation later. This function can be called by an external
  * agent that performs the pseudowire installation in an asynchronous way.
  */
-void zebra_pw_install_failure(struct zebra_pw *pw)
+void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus)
 {
 	if (IS_ZEBRA_DEBUG_PW)
 		zlog_debug(
@@ -220,7 +221,7 @@ void zebra_pw_install_failure(struct zebra_pw *pw)
 	thread_add_timer(zrouter.master, zebra_pw_install_retry, pw,
 			 PW_INSTALL_RETRY_INTERVAL, &pw->install_retry_timer);
 
-	zebra_pw_update_status(pw, PW_STATUS_DOWN);
+	zebra_pw_update_status(pw, pwstatus);
 }
 
 static int zebra_pw_install_retry(struct thread *thread)
@@ -500,7 +501,7 @@ DEFUN (show_pseudowires,
 		vty_out(vty, "%-16s %-24s %-12s %-8s %-10s\n", pw->ifname,
 			(pw->af != AF_UNSPEC) ? buf_nbr : "-", buf_labels,
 			zebra_route_string(pw->protocol),
-			(zebra_pw_enabled(pw) && pw->status == PW_STATUS_UP)
+			(zebra_pw_enabled(pw) && pw->status == PW_FORWARDING)
 				? "UP"
 				: "DOWN");
 	}
@@ -540,7 +541,7 @@ static void vty_show_mpls_pseudowire_detail(struct vty *vty)
 		if (pw->protocol == ZEBRA_ROUTE_LDP)
 			vty_out(vty, "  VC-ID: %u\n", pw->data.ldp.pwid);
 		vty_out(vty, "  Status: %s \n",
-			(zebra_pw_enabled(pw) && pw->status == PW_STATUS_UP)
+			(zebra_pw_enabled(pw) && pw->status == PW_FORWARDING)
 				? "Up"
 				: "Down");
 		re = rib_match(family2afi(pw->af), SAFI_UNICAST, pw->vrf_id,
@@ -595,8 +596,8 @@ static void vty_show_mpls_pseudowire(struct zebra_pw *pw, json_object *json_pws)
 		json_object_int_add(json_pw, "vcId", pw->data.ldp.pwid);
 	json_object_string_add(
 		json_pw, "Status",
-		(zebra_pw_enabled(pw) && pw->status == PW_STATUS_UP) ? "Up"
-								     : "Down");
+		(zebra_pw_enabled(pw) && pw->status == PW_FORWARDING) ? "Up"
+								      : "Down");
 	re = rib_match(family2afi(pw->af), SAFI_UNICAST, pw->vrf_id,
 		       &pw->nexthop, NULL);
 	if (re) {

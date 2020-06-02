@@ -519,6 +519,7 @@ struct zapi_pw_status {
 	char ifname[IF_NAMESIZE];
 	ifindex_t ifindex;
 	uint32_t status;
+	uint32_t pwstatus;
 };
 
 enum zapi_route_notify_owner {

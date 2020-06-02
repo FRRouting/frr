@@ -223,6 +223,7 @@ const struct prefix *dplane_ctx_get_dest(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_dest(struct zebra_dplane_ctx *ctx,
 			 const struct prefix *dest);
 const char *dplane_ctx_get_ifname(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifname(struct zebra_dplane_ctx *ctx, const char *ifname);
 ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx);
 
 /* Retrieve last/current provider id */
@@ -344,6 +345,7 @@ int dplane_ctx_get_pw_type(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_pw_af(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_pw_flags(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_pw_status(struct zebra_dplane_ctx *ctx, int status);
 const union g_addr *dplane_ctx_get_pw_dest(
 	const struct zebra_dplane_ctx *ctx);
 const union pw_protocol_fields *dplane_ctx_get_pw_proto(
@@ -561,7 +563,6 @@ enum dplane_provider_prio {
 
 /* Provider will be spawning its own worker thread */
 #define DPLANE_PROV_FLAG_THREADED  0x1
-
 
 /* Provider registration: ordering or priority value, callbacks, and optional
  * opaque data value. If 'prov_p', return the newly-allocated provider object
