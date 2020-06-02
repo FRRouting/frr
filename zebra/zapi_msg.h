@@ -42,10 +42,11 @@ extern "C" {
  * client
  *    the client datastructure
  *
- * msg
- *    the message
+ * fifo
+ *    a batch of messages
  */
-extern void zserv_handle_commands(struct zserv *client, struct stream *msg);
+extern void zserv_handle_commands(struct zserv *client,
+				  struct stream_fifo *fifo);
 
 extern int zsend_vrf_add(struct zserv *zclient, struct zebra_vrf *zvrf);
 extern int zsend_vrf_delete(struct zserv *zclient, struct zebra_vrf *zvrf);

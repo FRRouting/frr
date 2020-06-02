@@ -120,34 +120,34 @@ void stream_free(struct stream *s)
 	XFREE(MTYPE_STREAM, s);
 }
 
-struct stream *stream_copy(struct stream *new, struct stream *src)
+struct stream *stream_copy(struct stream *dest, const struct stream *src)
 {
 	STREAM_VERIFY_SANE(src);
 
-	assert(new != NULL);
-	assert(STREAM_SIZE(new) >= src->endp);
+	assert(dest != NULL);
+	assert(STREAM_SIZE(dest) >= src->endp);
 
-	new->endp = src->endp;
-	new->getp = src->getp;
+	dest->endp = src->endp;
+	dest->getp = src->getp;
 
-	memcpy(new->data, src->data, src->endp);
+	memcpy(dest->data, src->data, src->endp);
 
-	return new;
+	return dest;
 }
 
-struct stream *stream_dup(struct stream *s)
+struct stream *stream_dup(const struct stream *s)
 {
-	struct stream *new;
+	struct stream *snew;
 
 	STREAM_VERIFY_SANE(s);
 
-	if ((new = stream_new(s->endp)) == NULL)
+	if ((snew = stream_new(s->endp)) == NULL)
 		return NULL;
 
-	return (stream_copy(new, s));
+	return (stream_copy(snew, s));
 }
 
-struct stream *stream_dupcat(struct stream *s1, struct stream *s2,
+struct stream *stream_dupcat(const struct stream *s1, const struct stream *s2,
 			     size_t offset)
 {
 	struct stream *new;
@@ -187,19 +187,19 @@ size_t stream_resize_inplace(struct stream **sptr, size_t newsize)
 	return orig->size;
 }
 
-size_t stream_get_getp(struct stream *s)
+size_t stream_get_getp(const struct stream *s)
 {
 	STREAM_VERIFY_SANE(s);
 	return s->getp;
 }
 
-size_t stream_get_endp(struct stream *s)
+size_t stream_get_endp(const struct stream *s)
 {
 	STREAM_VERIFY_SANE(s);
 	return s->endp;
 }
 
-size_t stream_get_size(struct stream *s)
+size_t stream_get_size(const struct stream *s)
 {
 	STREAM_VERIFY_SANE(s);
 	return s->size;
@@ -1133,9 +1133,15 @@ struct stream_fifo *stream_fifo_new(void)
 {
 	struct stream_fifo *new;
 
-	new = XCALLOC(MTYPE_STREAM_FIFO, sizeof(struct stream_fifo));
-	pthread_mutex_init(&new->mtx, NULL);
+	new = XMALLOC(MTYPE_STREAM_FIFO, sizeof(struct stream_fifo));
+	stream_fifo_init(new);
 	return new;
+}
+
+void stream_fifo_init(struct stream_fifo *fifo)
+{
+	memset(fifo, 0, sizeof(struct stream_fifo));
+	pthread_mutex_init(&fifo->mtx, NULL);
 }
 
 /* Add new stream to fifo. */
@@ -1245,9 +1251,14 @@ size_t stream_fifo_count_safe(struct stream_fifo *fifo)
 	return atomic_load_explicit(&fifo->count, memory_order_acquire);
 }
 
-void stream_fifo_free(struct stream_fifo *fifo)
+void stream_fifo_deinit(struct stream_fifo *fifo)
 {
 	stream_fifo_clean(fifo);
 	pthread_mutex_destroy(&fifo->mtx);
+}
+
+void stream_fifo_free(struct stream_fifo *fifo)
+{
+	stream_fifo_deinit(fifo);
 	XFREE(MTYPE_STREAM_FIFO, fifo);
 }
