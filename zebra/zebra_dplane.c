@@ -1952,17 +1952,11 @@ done:
 /*
  * Capture information for an LSP update in a dplane context.
  */
-static int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx,
-			       enum dplane_op_e op,
-			       zebra_lsp_t *lsp)
+int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
+			zebra_lsp_t *lsp)
 {
 	int ret = AOK;
 	zebra_nhlfe_t *nhlfe, *new_nhlfe;
-
-	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-		zlog_debug("init dplane ctx %s: in-label %u ecmp# %d",
-			   dplane_op2str(op), lsp->ile.in_label,
-			   lsp->num_ecmp);
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
@@ -1975,6 +1969,20 @@ static int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx,
 
 	nhlfe_list_init(&(ctx->u.lsp.nhlfe_list));
 	nhlfe_list_init(&(ctx->u.lsp.backup_nhlfe_list));
+
+	/* This may be called to create/init a dplane context, not necessarily
+	 * to copy an lsp object.
+	 */
+	if (lsp == NULL) {
+		ret = AOK;
+		goto done;
+	}
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+		zlog_debug("init dplane ctx %s: in-label %u ecmp# %d",
+			   dplane_op2str(op), lsp->ile.in_label,
+			   lsp->num_ecmp);
+
 	ctx->u.lsp.ile = lsp->ile;
 	ctx->u.lsp.addr_family = lsp->addr_family;
 	ctx->u.lsp.num_ecmp = lsp->num_ecmp;
