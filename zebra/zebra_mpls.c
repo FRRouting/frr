@@ -167,6 +167,15 @@ static void clear_nhlfe_installed(zebra_lsp_t *lsp)
 		UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 	}
+
+	frr_each_safe(nhlfe_list, &lsp->backup_nhlfe_list, nhlfe) {
+		nexthop = nhlfe->nexthop;
+		if (!nexthop)
+			continue;
+
+		UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+	}
 }
 
 /*
@@ -1970,53 +1979,23 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 }
 
 /*
- * Process async dplane notifications.
+ * Process LSP installation info from two sets of nhlfes: a set from
+ * a dplane notification, and a set from the zebra LSP object. Update
+ * counters of installed nexthops, and return whether the LSP has changed.
  */
-void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
+static bool compare_notif_nhlfes(const struct nhlfe_list_head *ctx_head,
+				 struct nhlfe_list_head *nhlfe_head,
+				 int *start_counter, int *end_counter)
 {
-	struct zebra_vrf *zvrf;
-	zebra_ile_t tmp_ile;
-	struct hash *lsp_table;
-	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
-	const struct nhlfe_list_head *head;
 	const zebra_nhlfe_t *ctx_nhlfe;
 	struct nexthop *nexthop;
 	const struct nexthop *ctx_nexthop;
-	int start_count = 0, end_count = 0; /* Installed counts */
+	int start_count = 0, end_count = 0;
 	bool changed_p = false;
 	bool is_debug = (IS_ZEBRA_DEBUG_DPLANE | IS_ZEBRA_DEBUG_MPLS);
 
-	if (is_debug)
-		zlog_debug("LSP dplane notif, in-label %u",
-			   dplane_ctx_get_in_label(ctx));
-
-	/* Look for zebra LSP object */
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (zvrf == NULL)
-		goto done;
-
-	lsp_table = zvrf->lsp_table;
-
-	tmp_ile.in_label = dplane_ctx_get_in_label(ctx);
-	lsp = hash_lookup(lsp_table, &tmp_ile);
-	if (lsp == NULL) {
-		if (is_debug)
-			zlog_debug("dplane LSP notif: in-label %u not found",
-				   dplane_ctx_get_in_label(ctx));
-		goto done;
-	}
-
-	/*
-	 * The dataplane/forwarding plane is notifying zebra about the state
-	 * of the nexthops associated with this LSP. First, we take a
-	 * pre-scan pass to determine whether the LSP has transitioned
-	 * from installed -> uninstalled. In that case, we need to have
-	 * the existing state of the LSP objects available before making
-	 * any changes.
-	 */
-	head = dplane_ctx_get_nhlfe_list(ctx);
-	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
+	frr_each_safe(nhlfe_list, nhlfe_head, nhlfe) {
 		char buf[NEXTHOP_STRLEN];
 
 		nexthop = nhlfe->nexthop;
@@ -2026,8 +2005,9 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
 			start_count++;
 
+		ctx_nhlfe = NULL;
 		ctx_nexthop = NULL;
-		frr_each(nhlfe_list_const, head, ctx_nhlfe) {
+		frr_each(nhlfe_list_const, ctx_head, ctx_nhlfe) {
 			ctx_nexthop = ctx_nhlfe->nexthop;
 			if (!ctx_nexthop)
 				continue;
@@ -2085,24 +2065,30 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		}
 	}
 
-	if (is_debug)
-		zlog_debug("LSP dplane notif: lfib start_count %d, end_count %d%s",
-			   start_count, end_count,
-			   changed_p ? ", changed" : "");
+	if (start_counter)
+		*start_counter += start_count;
+	if (end_counter)
+		*end_counter += end_count;
 
-	/*
-	 * Has the LSP become uninstalled?
-	 */
-	if (start_count > 0 && end_count == 0) {
-		/* Inform other lfibs */
-		dplane_lsp_notif_update(lsp, DPLANE_OP_LSP_DELETE, ctx);
-	}
+	return changed_p;
+}
 
-	/*
-	 * Now we take a second pass and bring the zebra
-	 * nexthop state into sync with the forwarding-plane state.
-	 */
-	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
+/*
+ * Update an lsp nhlfe list from a dplane context, typically an async
+ * notification context. Update the LSP list to match the installed
+ * status from the context's list.
+ */
+static int update_nhlfes_from_ctx(struct nhlfe_list_head *nhlfe_head,
+				  const struct nhlfe_list_head *ctx_head)
+{
+	int ret = 0;
+	zebra_nhlfe_t *nhlfe;
+	const zebra_nhlfe_t *ctx_nhlfe;
+	struct nexthop *nexthop;
+	const struct nexthop *ctx_nexthop;
+	bool is_debug = (IS_ZEBRA_DEBUG_DPLANE | IS_ZEBRA_DEBUG_MPLS);
+
+	frr_each_safe(nhlfe_list, nhlfe_head, nhlfe) {
 		char buf[NEXTHOP_STRLEN];
 
 		nexthop = nhlfe->nexthop;
@@ -2110,7 +2096,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 			continue;
 
 		ctx_nexthop = NULL;
-		frr_each(nhlfe_list_const, head, ctx_nhlfe) {
+		frr_each(nhlfe_list_const, nhlfe_head, ctx_nhlfe) {
 			ctx_nexthop = ctx_nhlfe->nexthop;
 			if (!ctx_nexthop)
 				continue;
@@ -2159,6 +2145,92 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		}
 	}
+
+	return ret;
+}
+
+/*
+ * Process async dplane notifications.
+ */
+void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
+{
+	struct zebra_vrf *zvrf;
+	zebra_ile_t tmp_ile;
+	struct hash *lsp_table;
+	zebra_lsp_t *lsp;
+	const struct nhlfe_list_head *ctx_list;
+	int start_count = 0, end_count = 0; /* Installed counts */
+	bool changed_p = false;
+	bool is_debug = (IS_ZEBRA_DEBUG_DPLANE | IS_ZEBRA_DEBUG_MPLS);
+
+	if (is_debug)
+		zlog_debug("LSP dplane notif, in-label %u",
+			   dplane_ctx_get_in_label(ctx));
+
+	/* Look for zebra LSP object */
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (zvrf == NULL)
+		goto done;
+
+	lsp_table = zvrf->lsp_table;
+
+	tmp_ile.in_label = dplane_ctx_get_in_label(ctx);
+	lsp = hash_lookup(lsp_table, &tmp_ile);
+	if (lsp == NULL) {
+		if (is_debug)
+			zlog_debug("dplane LSP notif: in-label %u not found",
+				   dplane_ctx_get_in_label(ctx));
+		goto done;
+	}
+
+	/*
+	 * The dataplane/forwarding plane is notifying zebra about the state
+	 * of the nexthops associated with this LSP. First, we take a
+	 * pre-scan pass to determine whether the LSP has transitioned
+	 * from installed -> uninstalled. In that case, we need to have
+	 * the existing state of the LSP objects available before making
+	 * any changes.
+	 */
+	ctx_list = dplane_ctx_get_nhlfe_list(ctx);
+
+	changed_p = compare_notif_nhlfes(ctx_list, &lsp->nhlfe_list,
+					 &start_count, &end_count);
+
+	if (is_debug)
+		zlog_debug("LSP dplane notif: lfib start_count %d, end_count %d%s",
+			   start_count, end_count,
+			   changed_p ? ", changed" : "");
+
+	ctx_list = dplane_ctx_get_backup_nhlfe_list(ctx);
+
+	if (compare_notif_nhlfes(ctx_list, &lsp->backup_nhlfe_list,
+				 &start_count, &end_count))
+		/* Avoid accidentally setting back to 'false' */
+		changed_p = true;
+
+	if (is_debug)
+		zlog_debug("LSP dplane notif: lfib backups, start_count %d, end_count %d%s",
+			   start_count, end_count,
+			   changed_p ? ", changed" : "");
+
+	/*
+	 * Has the LSP become uninstalled? We need the existing state of the
+	 * nexthops/nhlfes at this point so we know what to delete.
+	 */
+	if (start_count > 0 && end_count == 0) {
+		/* Inform other lfibs */
+		dplane_lsp_notif_update(lsp, DPLANE_OP_LSP_DELETE, ctx);
+	}
+
+	/*
+	 * Now we take a second pass and bring the zebra
+	 * nexthop state into sync with the forwarding-plane state.
+	 */
+	ctx_list = dplane_ctx_get_nhlfe_list(ctx);
+	update_nhlfes_from_ctx(&lsp->nhlfe_list, ctx_list);
+
+	ctx_list = dplane_ctx_get_backup_nhlfe_list(ctx);
+	update_nhlfes_from_ctx(&lsp->backup_nhlfe_list, ctx_list);
 
 	if (end_count > 0) {
 		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
@@ -2846,6 +2918,9 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	SET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
 
+	/* This will create (or ref) a new nhe, so we will discard the local
+	 * temporary nhe
+	 */
 	mpls_zebra_nhe_update(re, afi, new_nhe);
 
 	zebra_nhg_free(new_nhe);
