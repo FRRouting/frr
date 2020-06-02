@@ -5359,8 +5359,7 @@ DEFUN (no_match_ipv6_next_hop,
 
 DEFPY (match_ipv4_next_hop,
        match_ipv4_next_hop_cmd,
-       "[no$no] match ip next-hop address [A.B.C.D]",
-       NO_STR
+       "match ip next-hop address A.B.C.D",
        MATCH_STR
        IP_STR
        "Match IP next-hop address of route\n"
@@ -5369,15 +5368,22 @@ DEFPY (match_ipv4_next_hop,
 {
 	int idx_ipv4 = 4;
 
-	if (no)
-		return bgp_route_match_delete(vty, "ip next-hop address", NULL,
-				      RMAP_EVENT_MATCH_DELETED);
+	return bgp_route_match_add(vty, "ip next-hop address",
+				   argv[idx_ipv4]->arg, RMAP_EVENT_MATCH_ADDED);
+}
 
-	if (argv[idx_ipv4]->arg)
-		return bgp_route_match_add(vty, "ip next-hop address",
-					   argv[idx_ipv4]->arg,
-					   RMAP_EVENT_MATCH_ADDED);
-	return CMD_SUCCESS;
+DEFPY (no_match_ipv4_next_hop,
+       no_match_ipv4_next_hop_cmd,
+       "no match ip next-hop address [A.B.C.D]",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match IP next-hop address of route\n"
+       "IP address\n"
+       "IP address of next-hop\n")
+{
+	return bgp_route_match_delete(vty, "ip next-hop address", NULL,
+				      RMAP_EVENT_MATCH_DELETED);
 }
 
 DEFUN (set_ipv6_nexthop_peer,
@@ -5847,6 +5853,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &match_ipv6_next_hop_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_next_hop_cmd);
 	install_element(RMAP_NODE, &match_ipv4_next_hop_cmd);
+	install_element(RMAP_NODE, &no_match_ipv4_next_hop_cmd);
 	install_element(RMAP_NODE, &set_ipv6_nexthop_global_cmd);
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_global_cmd);
 	install_element(RMAP_NODE, &set_ipv6_nexthop_prefer_global_cmd);
