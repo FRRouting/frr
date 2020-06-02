@@ -5657,6 +5657,9 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	char buf1[RD_ADDRSTRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 
+	if (bgp->advertise_all_vni)
+		vty_out(vty, "  advertise-all-vni\n");
+
 	if (bgp->vnihash) {
 		struct list *vnilist = hash_to_list(bgp->vnihash);
 		struct listnode *ln;
@@ -5668,9 +5671,6 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 		list_delete(&vnilist);
 	}
-
-	if (bgp->advertise_all_vni)
-		vty_out(vty, "  advertise-all-vni\n");
 
 	if (bgp->advertise_autort_rfc8365)
 		vty_out(vty, "  autort rfc8365-compatible\n");
