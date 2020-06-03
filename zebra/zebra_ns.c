@@ -183,16 +183,12 @@ int zebra_ns_init(const char *optional_default_name)
 	struct ns *default_ns;
 	ns_id_t ns_id;
 	ns_id_t ns_id_external;
-	struct ns *ns;
 
 	frr_with_privs(&zserv_privs) {
 		ns_id = zebra_ns_id_get_default();
 	}
 	ns_id_external = ns_map_nsid_with_external(ns_id, true);
 	ns_init_management(ns_id_external, ns_id);
-	ns = ns_get_default();
-	if (ns)
-		ns->relative_default_ns = ns_id;
 
 	default_ns = ns_lookup(ns_get_default_id());
 	if (!default_ns) {
