@@ -5680,7 +5680,7 @@ static void process_remote_macip_add(vni_t vni,
 		return;
 	}
 
-	zvrf = zebra_vrf_get_evpn();
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf)
 		return;
 
@@ -8189,10 +8189,11 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 		return -1;
 	}
 
-	zvrf = zebra_vrf_get_evpn();
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("        No Evpn Global Vrf found");
+			zlog_debug("        No Vrf found for vrf_id: %d",
+				   zvni->vxlan_if->vrf_id);
 		return -1;
 	}
 
