@@ -804,8 +804,7 @@ static void lsp_select_best_nhlfe(zebra_lsp_t *lsp)
 
 	/*
 	 * First compute the best path, after checking nexthop status. We are
-	 * only
-	 * concerned with non-deleted NHLFEs.
+	 * only concerned with non-deleted NHLFEs.
 	 */
 	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
 		/* Clear selection flags. */
@@ -822,6 +821,14 @@ static void lsp_select_best_nhlfe(zebra_lsp_t *lsp)
 	lsp->best_nhlfe = best;
 	if (!lsp->best_nhlfe)
 		return;
+
+	/*
+	 * Check the active status of backup nhlfes also
+	 */
+	frr_each_safe(nhlfe_list, &lsp->backup_nhlfe_list, nhlfe) {
+		if (!CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED))
+			(void)nhlfe_nexthop_active(nhlfe);
+	}
 
 	/* Mark best NHLFE as selected. */
 	SET_FLAG(lsp->best_nhlfe->flags, NHLFE_FLAG_SELECTED);
@@ -917,9 +924,9 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 
 	if (IS_ZEBRA_DEBUG_MPLS) {
 		if (oldbest)
-			nhlfe2str(oldbest, buf, BUFSIZ);
+			nhlfe2str(oldbest, buf, sizeof(buf));
 		if (newbest)
-			nhlfe2str(newbest, buf2, BUFSIZ);
+			nhlfe2str(newbest, buf2, sizeof(buf2));
 		zlog_debug(
 			"Process LSP in-label %u oldbest %s newbest %s "
 			"flags 0x%x ecmp# %d",
@@ -1574,6 +1581,9 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
 		break;
 	}
 	vty_out(vty, "%s",
+		CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_IS_BACKUP) ? " (backup)"
+							       : "");
+	vty_out(vty, "%s",
 		CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED) ? " (installed)"
 							       : "");
 	vty_out(vty, "\n");
@@ -1600,6 +1610,7 @@ static void lsp_print(struct vty *vty, zebra_lsp_t *lsp)
 			/* Find backup in backup list */
 
 			i = 0;
+			backup = NULL;
 			frr_each(nhlfe_list, &lsp->backup_nhlfe_list, backup) {
 				if (i == nhlfe->nexthop->backup_idx)
 					break;
