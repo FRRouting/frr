@@ -71,8 +71,6 @@ struct ns {
 RB_HEAD(ns_head, ns);
 RB_PROTOTYPE(ns_head, ns, entry, ns_compare)
 
-extern struct ns_head ns_tree;
-
 /*
  * API for managing NETNS. eg from zebra daemon
  * one want to manage the list of NETNS, etc...
