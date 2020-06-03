@@ -310,7 +310,6 @@ struct zebra_mac_t_ {
 	union {
 		struct {
 			ifindex_t ifindex;
-			ns_id_t ns_id;
 			vlanid_t vid;
 		} local;
 
