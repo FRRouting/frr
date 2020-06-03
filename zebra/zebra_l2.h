@@ -37,7 +37,6 @@ extern "C" {
 struct zebra_l2info_brslave {
 	ifindex_t bridge_ifindex; /* Bridge Master */
 	struct interface *br_if;  /* Pointer to master */
-	ns_id_t ns_id; /* network namespace where bridge is */
 };
 
 /* zebra L2 interface information - bridge interface */
@@ -103,8 +102,7 @@ extern void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
 						vlanid_t access_vlan);
 extern void zebra_l2_vxlanif_del(struct interface *ifp);
 extern void zebra_l2if_update_bridge_slave(struct interface *ifp,
-					   ifindex_t bridge_ifindex,
-					   ns_id_t ns_id);
+					   ifindex_t bridge_ifindex);
 
 extern void zebra_l2if_update_bond_slave(struct interface *ifp,
 					 ifindex_t bond_ifindex);
