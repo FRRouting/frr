@@ -1236,23 +1236,6 @@ static void nbr_connected_dump_vty(struct vty *vty,
 	vty_out(vty, "\n");
 }
 
-static const char *zebra_zifslavetype_2str(zebra_slave_iftype_t zif_slave_type)
-{
-	switch (zif_slave_type) {
-	case ZEBRA_IF_SLAVE_BRIDGE:
-		return "Bridge";
-	case ZEBRA_IF_SLAVE_VRF:
-		return "Vrf";
-	case ZEBRA_IF_SLAVE_BOND:
-		return "Bond";
-	case ZEBRA_IF_SLAVE_OTHER:
-		return "Other";
-	case ZEBRA_IF_SLAVE_NONE:
-		return "None";
-	}
-	return "None";
-}
-
 static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 {
 	switch (zif_type) {
@@ -1480,9 +1463,6 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 
 	vty_out(vty, "  Interface Type %s\n",
 		zebra_ziftype_2str(zebra_if->zif_type));
-	vty_out(vty, "  Interface Slave Type %s\n",
-		zebra_zifslavetype_2str(zebra_if->zif_slave_type));
-
 	if (IS_ZEBRA_IF_BRIDGE(ifp)) {
 		struct zebra_l2info_bridge *bridge_info;
 
