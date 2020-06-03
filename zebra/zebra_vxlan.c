@@ -1193,7 +1193,7 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 			ifindex_t ifindex;
 
 			ifindex = mac->fwd_info.local.ifindex;
-			zns = zebra_ns_lookup(mac->fwd_info.local.ns_id);
+			zns = zebra_ns_lookup(NS_DEFAULT);
 			ifp = if_lookup_by_index_per_ns(zns, ifindex);
 			if (!ifp)
 				return;
@@ -1275,7 +1275,7 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 			ifindex_t ifindex;
 
 			ifindex = mac->fwd_info.local.ifindex;
-			zns = zebra_ns_lookup(mac->fwd_info.local.ns_id);
+			zns = zebra_ns_lookup(NS_DEFAULT);
 			ifp = if_lookup_by_index_per_ns(zns, ifindex);
 			if (!ifp)
 				return;
@@ -1367,7 +1367,7 @@ static void zvni_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 		if (wctx->flags & SHOW_REMOTE_MAC_FROM_VTEP)
 			return;
 
-		zns = zebra_ns_lookup(mac->fwd_info.local.ns_id);
+		zns = zebra_ns_lookup(NS_DEFAULT);
 		ifindex = mac->fwd_info.local.ifindex;
 		ifp = if_lookup_by_index_per_ns(zns, ifindex);
 		if (!ifp) // unexpected
@@ -2729,12 +2729,7 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 	zebra_mac_t *mac = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
-	struct zebra_vrf *zvrf;
-	ns_id_t local_ns_id = NS_DEFAULT;
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
-	if (zvrf && zvrf->zns)
-		local_ns_id = zvrf->zns->ns_id;
 	zif = zvni->vxlan_if->info;
 	if (!zif)
 		return -1;
@@ -2759,7 +2754,6 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 	SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
 	memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 	mac->fwd_info.local.ifindex = ifp->ifindex;
-	mac->fwd_info.local.ns_id = local_ns_id;
 	mac->fwd_info.local.vid = vxl->access_vlan;
 
 	n = zvni_neigh_lookup(zvni, ip);
@@ -3526,68 +3520,6 @@ static int zvni_mac_send_del_to_client(vni_t vni, struct ethaddr *macaddr)
 			     0 /* seq */, ZEBRA_NEIGH_ACTIVE, ZEBRA_MACIP_DEL);
 }
 
-struct zvni_from_svi_param {
-	struct interface *br_if;
-	struct interface *svi_if;
-	struct zebra_if *zif;
-	uint8_t bridge_vlan_aware;
-	vlanid_t vid;
-};
-
-static int zvni_map_vlan_ns(struct ns *ns,
-			    void *_in_param,
-			    void **_p_zvni)
-{
-	struct zebra_ns *zns = ns->info;
-	struct route_node *rn;
-	struct interface *br_if;
-	zebra_vni_t **p_zvni = (zebra_vni_t **)_p_zvni;
-	zebra_vni_t *zvni;
-	struct interface *tmp_if = NULL;
-	struct zebra_if *zif;
-	struct zebra_l2info_vxlan *vxl = NULL;
-	struct zvni_from_svi_param *in_param =
-		(struct zvni_from_svi_param *)_in_param;
-	int found = 0;
-
-	if (!in_param)
-		return NS_WALK_STOP;
-	br_if = in_param->br_if;
-	zif = in_param->zif;
-	assert(zif);
-	assert(br_if);
-
-	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
-	/* TODO: Optimize with a hash. */
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		tmp_if = (struct interface *)rn->info;
-		if (!tmp_if)
-			continue;
-		zif = tmp_if->info;
-		if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
-			continue;
-		if (!if_is_operative(tmp_if))
-			continue;
-		vxl = &zif->l2info.vxl;
-
-		if (zif->brslave_info.br_if != br_if)
-			continue;
-
-		if (!in_param->bridge_vlan_aware
-		    || vxl->access_vlan == in_param->vid) {
-			found = 1;
-			break;
-		}
-	}
-	if (!found)
-		return NS_WALK_CONTINUE;
-
-	zvni = zvni_lookup(vxl->vni);
-	if (p_zvni)
-		*p_zvni = zvni;
-	return NS_WALK_STOP;
-}
-
 /*
  * Map port or (port, VLAN) to a VNI. This is invoked upon getting MAC
  * notifications, to see if they are of interest.
@@ -3595,51 +3527,25 @@ static int zvni_map_vlan_ns(struct ns *ns,
 static zebra_vni_t *zvni_map_vlan(struct interface *ifp,
 				  struct interface *br_if, vlanid_t vid)
 {
+	struct zebra_ns *zns;
+	struct route_node *rn;
+	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
 	struct zebra_l2info_bridge *br;
-	zebra_vni_t **p_zvni;
-	zebra_vni_t *zvni = NULL;
-	struct zvni_from_svi_param in_param;
+	struct zebra_l2info_vxlan *vxl = NULL;
+	uint8_t bridge_vlan_aware;
+	zebra_vni_t *zvni;
+	int found = 0;
 
 	/* Determine if bridge is VLAN-aware or not */
 	zif = br_if->info;
 	assert(zif);
 	br = &zif->l2info.br;
-	in_param.bridge_vlan_aware = br->vlan_aware;
-	in_param.vid = vid;
-	in_param.br_if = br_if;
-	in_param.zif = zif;
-	p_zvni = &zvni;
+	bridge_vlan_aware = br->vlan_aware;
 
-	ns_walk_func(zvni_map_vlan_ns,
-		     (void *)&in_param,
-		     (void **)p_zvni);
-	return zvni;
-}
-
-static int zvni_from_svi_ns(struct ns *ns,
-			    void *_in_param,
-			    void **_p_zvni)
-{
-	struct zebra_ns *zns = ns->info;
-	struct route_node *rn;
-	struct interface *br_if;
-	zebra_vni_t **p_zvni = (zebra_vni_t **)_p_zvni;
-	zebra_vni_t *zvni;
-	struct interface *tmp_if = NULL;
-	struct zebra_if *zif;
-	struct zebra_l2info_vxlan *vxl = NULL;
-	struct zvni_from_svi_param *in_param =
-		(struct zvni_from_svi_param *)_in_param;
-	int found = 0;
-
-	if (!in_param)
-		return NS_WALK_STOP;
-	br_if = in_param->br_if;
-	zif = in_param->zif;
-	assert(zif);
-
+	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
 	/* TODO: Optimize with a hash. */
+	zns = zebra_ns_lookup(NS_DEFAULT);
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		tmp_if = (struct interface *)rn->info;
 		if (!tmp_if)
@@ -3654,20 +3560,17 @@ static int zvni_from_svi_ns(struct ns *ns,
 		if (zif->brslave_info.br_if != br_if)
 			continue;
 
-		if (!in_param->bridge_vlan_aware
-		    || vxl->access_vlan == !in_param->vid) {
+		if (!bridge_vlan_aware || vxl->access_vlan == vid) {
 			found = 1;
 			break;
 		}
 	}
 
 	if (!found)
-		return NS_WALK_CONTINUE;
+		return NULL;
 
 	zvni = zvni_lookup(vxl->vni);
-	if (p_zvni)
-		*p_zvni = zvni;
-	return NS_WALK_STOP;
+	return zvni;
 }
 
 /*
@@ -3677,11 +3580,16 @@ static int zvni_from_svi_ns(struct ns *ns,
 static zebra_vni_t *zvni_from_svi(struct interface *ifp,
 				  struct interface *br_if)
 {
-	struct zebra_l2info_bridge *br;
-	zebra_vni_t *zvni = NULL;
-	zebra_vni_t **p_zvni;
+	struct zebra_ns *zns;
+	struct route_node *rn;
+	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
-	struct zvni_from_svi_param in_param;
+	struct zebra_l2info_bridge *br;
+	struct zebra_l2info_vxlan *vxl = NULL;
+	uint8_t bridge_vlan_aware;
+	vlanid_t vid = 0;
+	zebra_vni_t *zvni;
+	int found = 0;
 
 	if (!br_if)
 		return NULL;
@@ -3694,10 +3602,8 @@ static zebra_vni_t *zvni_from_svi(struct interface *ifp,
 	zif = br_if->info;
 	assert(zif);
 	br = &zif->l2info.br;
-	in_param.bridge_vlan_aware = br->vlan_aware;
-	in_param.vid = 0;
-
-	if (in_param.bridge_vlan_aware) {
+	bridge_vlan_aware = br->vlan_aware;
+	if (bridge_vlan_aware) {
 		struct zebra_l2info_vlan *vl;
 
 		if (!IS_ZEBRA_IF_VLAN(ifp))
@@ -3706,54 +3612,37 @@ static zebra_vni_t *zvni_from_svi(struct interface *ifp,
 		zif = ifp->info;
 		assert(zif);
 		vl = &zif->l2info.vl;
-		in_param.vid = vl->vid;
+		vid = vl->vid;
 	}
 
-	in_param.br_if = br_if;
-	in_param.zif = zif;
-	p_zvni = &zvni;
 	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
-	ns_walk_func(zvni_from_svi_ns,
-		     (void *)&in_param,
-		     (void **)p_zvni);
-	return zvni;
-}
-
-static int zvni_map_to_svi_ns(struct ns *ns,
-			      void *_in_param,
-			      void **_p_ifp)
-{
-	struct zebra_ns *zns = ns->info;
-	struct route_node *rn;
-	struct zvni_from_svi_param *in_param =
-		(struct zvni_from_svi_param *)_in_param;
-	struct zebra_l2info_vlan *vl;
-	struct interface *tmp_if = NULL;
-	struct interface **p_ifp = (struct interface **)_p_ifp;
-	struct zebra_if *zif;
-
-	if (!in_param)
-		return NS_WALK_STOP;
-
 	/* TODO: Optimize with a hash. */
+	zns = zebra_ns_lookup(NS_DEFAULT);
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		tmp_if = (struct interface *)rn->info;
-		/* Check oper status of the SVI. */
-		if (!tmp_if || !if_is_operative(tmp_if))
+		if (!tmp_if)
 			continue;
 		zif = tmp_if->info;
-		if (!zif || zif->zif_type != ZEBRA_IF_VLAN
-		    || zif->link != in_param->br_if)
+		if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
 			continue;
-		vl = (struct zebra_l2info_vlan *)&zif->l2info.vl;
+		if (!if_is_operative(tmp_if))
+			continue;
+		vxl = &zif->l2info.vxl;
 
-		if (vl->vid == in_param->vid) {
-			if (p_ifp)
-				*p_ifp = tmp_if;
-			return NS_WALK_STOP;
+		if (zif->brslave_info.br_if != br_if)
+			continue;
+
+		if (!bridge_vlan_aware || vxl->access_vlan == vid) {
+			found = 1;
+			break;
 		}
 	}
-	return NS_WALK_CONTINUE;
+
+	if (!found)
+		return NULL;
+
+	zvni = zvni_lookup(vxl->vni);
+	return zvni;
 }
 
 /* Map to SVI on bridge corresponding to specified VLAN. This can be one
@@ -3765,11 +3654,15 @@ static int zvni_map_to_svi_ns(struct ns *ns,
  */
 static struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 {
+	struct zebra_ns *zns;
+	struct route_node *rn;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
 	struct zebra_l2info_bridge *br;
-	struct zvni_from_svi_param in_param;
-	struct interface **p_ifp;
+	struct zebra_l2info_vlan *vl;
+	uint8_t bridge_vlan_aware;
+	int found = 0;
+
 	/* Defensive check, caller expected to invoke only with valid bridge. */
 	if (!br_if)
 		return NULL;
@@ -3778,56 +3671,33 @@ static struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 	zif = br_if->info;
 	assert(zif);
 	br = &zif->l2info.br;
-	in_param.bridge_vlan_aware = br->vlan_aware;
+	bridge_vlan_aware = br->vlan_aware;
+
 	/* Check oper status of the SVI. */
-	if (!in_param.bridge_vlan_aware)
+	if (!bridge_vlan_aware)
 		return if_is_operative(br_if) ? br_if : NULL;
 
-	in_param.vid = vid;
-	in_param.br_if = br_if;
-	in_param.zif = NULL;
-	p_ifp = &tmp_if;
 	/* Identify corresponding VLAN interface. */
-	ns_walk_func(zvni_map_to_svi_ns,
-		     (void *)&in_param,
-		     (void **)p_ifp);
-	return tmp_if;
-}
-
-static int zvni_map_to_macvlan_ns(struct ns *ns,
-				  void *_in_param,
-				  void **_p_ifp)
-{
-	struct zebra_ns *zns = ns->info;
-	struct zvni_from_svi_param *in_param =
-		(struct zvni_from_svi_param *)_in_param;
-	struct interface **p_ifp = (struct interface **)_p_ifp;
-	struct route_node *rn;
-	struct interface *tmp_if = NULL;
-	struct zebra_if *zif;
-
-	if (!in_param)
-		return NS_WALK_STOP;
-
-	/* Identify corresponding VLAN interface. */
+	/* TODO: Optimize with a hash. */
+	zns = zebra_ns_lookup(NS_DEFAULT);
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		tmp_if = (struct interface *)rn->info;
 		/* Check oper status of the SVI. */
 		if (!tmp_if || !if_is_operative(tmp_if))
 			continue;
 		zif = tmp_if->info;
-
-		if (!zif || zif->zif_type != ZEBRA_IF_MACVLAN)
+		if (!zif || zif->zif_type != ZEBRA_IF_VLAN
+		    || zif->link != br_if)
 			continue;
+		vl = &zif->l2info.vl;
 
-		if (zif->link == in_param->svi_if) {
-			if (p_ifp)
-				*p_ifp = tmp_if;
-			return NS_WALK_STOP;
+		if (vl->vid == vid) {
+			found = 1;
+			break;
 		}
 	}
 
-	return NS_WALK_CONTINUE;
+	return found ? tmp_if : NULL;
 }
 
 /* Map to MAC-VLAN interface corresponding to specified SVI interface.
@@ -3835,10 +3705,11 @@ static int zvni_map_to_macvlan_ns(struct ns *ns,
 static struct interface *zvni_map_to_macvlan(struct interface *br_if,
 					     struct interface *svi_if)
 {
+	struct zebra_ns *zns;
+	struct route_node *rn;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
-	struct interface **p_ifp;
-	struct zvni_from_svi_param in_param;
+	int found = 0;
 
 	/* Defensive check, caller expected to invoke only with valid bridge. */
 	if (!br_if)
@@ -3853,18 +3724,27 @@ static struct interface *zvni_map_to_macvlan(struct interface *br_if,
 	zif = br_if->info;
 	assert(zif);
 
-	in_param.vid = 0;
-	in_param.br_if = br_if;
-	in_param.zif = NULL;
-	in_param.svi_if = svi_if;
-	p_ifp = &tmp_if;
-
 	/* Identify corresponding VLAN interface. */
-	ns_walk_func(zvni_map_to_macvlan_ns,
-		     (void *)&in_param,
-		     (void **)p_ifp);
-	return tmp_if;
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
+		tmp_if = (struct interface *)rn->info;
+		/* Check oper status of the SVI. */
+		if (!tmp_if || !if_is_operative(tmp_if))
+			continue;
+		zif = tmp_if->info;
+
+		if (!zif || zif->zif_type != ZEBRA_IF_MACVLAN)
+			continue;
+
+		if (zif->link == svi_if) {
+			found = 1;
+			break;
+		}
+	}
+
+	return found ? tmp_if : NULL;
 }
+
 
 /*
  * Install remote MAC into the forwarding plane.
@@ -4018,7 +3898,6 @@ static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac)
 static void zvni_read_mac_neigh(zebra_vni_t *zvni, struct interface *ifp)
 {
 	struct zebra_ns *zns;
-	struct zebra_vrf *zvrf;
 	struct zebra_if *zif;
 	struct interface *vlan_if;
 	struct zebra_l2info_vxlan *vxl;
@@ -4026,10 +3905,7 @@ static void zvni_read_mac_neigh(zebra_vni_t *zvni, struct interface *ifp)
 
 	zif = ifp->info;
 	vxl = &zif->l2info.vxl;
-	zvrf = zebra_vrf_lookup_by_id(zvni->vrf_id);
-	if (!zvrf || !zvrf->zns)
-		return;
-	zns = zvrf->zns;
+	zns = zebra_ns_lookup(NS_DEFAULT);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
@@ -4237,21 +4113,18 @@ static int zvni_send_del_to_client(vni_t vni)
 	return zserv_send_message(client, s);
 }
 
-static int zvni_build_hash_table_ns(struct ns *ns,
-				     void *param_in __attribute__((unused)),
-				     void **param_out __attribute__((unused)))
+/*
+ * Build the VNI hash table by going over the VxLAN interfaces. This
+ * is called when EVPN (advertise-all-vni) is enabled.
+ */
+static void zvni_build_hash_table(void)
 {
-	struct zebra_ns *zns = ns->info;
+	struct zebra_ns *zns;
 	struct route_node *rn;
 	struct interface *ifp;
-	struct zebra_vrf *zvrf;
-
-	zvrf = zebra_vrf_get_evpn();
-
-	if (!zvrf)
-		return NS_WALK_STOP;
 
 	/* Walk VxLAN interfaces and create VNI hash. */
+	zns = zebra_ns_lookup(NS_DEFAULT);
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		vni_t vni;
 		zebra_vni_t *zvni = NULL;
@@ -4268,14 +4141,7 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 
 		vxl = &zif->l2info.vxl;
 		vni = vxl->vni;
-		/* link of VXLAN interface should be in zebra_evpn_vrf */
-		if (zvrf->zns->ns_id != vxl->link_nsid) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					"Intf %s(%u) VNI %u, link not in same namespace than BGP EVPN core instance ",
-					ifp->name, ifp->ifindex, vni);
-			continue;
-		}
+
 		/* L3-VNI and L2-VNI are handled seperately */
 		zl3vni = zl3vni_lookup(vni);
 		if (zl3vni) {
@@ -4344,7 +4210,7 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 					zlog_debug(
 						"Failed to add VNI hash, IF %s(%u) L2-VNI %u",
 						ifp->name, ifp->ifindex, vni);
-					return NS_WALK_CONTINUE;
+					return;
 				}
 
 				if (zvni->local_vtep_ip.s_addr !=
@@ -4381,19 +4247,6 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 			}
 		}
 	}
-	return NS_WALK_CONTINUE;
-}
-
-/*
- * Build the VNI hash table by going over the VxLAN interfaces. This
- * is called when EVPN (advertise-all-vni) is enabled.
- */
-
-static void zvni_build_hash_table(void)
-{
-	ns_walk_func(zvni_build_hash_table_ns,
-		     (void *)NULL,
-		     (void **)NULL);
 }
 
 /*
@@ -5178,22 +5031,14 @@ static int zl3vni_del(zebra_l3vni_t *zl3vni)
 	return 0;
 }
 
-static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
-				      void *_zl3vni,
-				      void **_pifp)
+struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
 {
-	struct zebra_ns *zns = ns->info;
-	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)_zl3vni;
+	struct zebra_ns *zns = NULL;
 	struct route_node *rn = NULL;
 	struct interface *ifp = NULL;
-	struct zebra_vrf *zvrf;
-
-	zvrf = zebra_vrf_get_evpn();
-
-	if (!zvrf)
-		return NS_WALK_STOP;
 
 	/* loop through all vxlan-interface */
+	zns = zebra_ns_lookup(NS_DEFAULT);
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 
 		struct zebra_if *zif = NULL;
@@ -5208,38 +5053,13 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 			continue;
 
 		vxl = &zif->l2info.vxl;
-		if (vxl->vni != zl3vni->vni)
-			continue;
-
-		/* link of VXLAN interface should be in zebra_evpn_vrf */
-		if (zvrf->zns->ns_id != vxl->link_nsid) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					"Intf %s(%u) VNI %u, link not in same namespace than BGP EVPN core instance ",
-					ifp->name, ifp->ifindex, vxl->vni);
-			continue;
+		if (vxl->vni == zl3vni->vni) {
+			zl3vni->local_vtep_ip = vxl->vtep_ip;
+			return ifp;
 		}
-
-
-		zl3vni->local_vtep_ip = vxl->vtep_ip;
-		if (_pifp)
-			*_pifp = (void *)ifp;
-		return NS_WALK_STOP;
 	}
 
-	return NS_WALK_CONTINUE;
-}
-
-struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
-{
-	struct interface **p_ifp;
-	struct interface *ifp = NULL;
-
-	p_ifp = &ifp;
-
-	ns_walk_func(zl3vni_map_to_vxlan_if_ns,
-		     (void *)zl3vni, (void **)p_ifp);
-	return ifp;
+	return NULL;
 }
 
 struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni)
@@ -5715,7 +5535,7 @@ static void process_remote_macip_add(vni_t vni,
 		return;
 	}
 
-	zvrf = zebra_vrf_get_evpn();
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf)
 		return;
 
@@ -8196,11 +8016,6 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 	bool upd_neigh = false;
 	bool is_dup_detect = false;
 	struct in_addr vtep_ip = {.s_addr = 0};
-	ns_id_t local_ns_id = NS_DEFAULT;
-
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
-	if (zvrf && zvrf->zns)
-		local_ns_id = zvrf->zns->ns_id;
 
 	/* We are interested in MACs only on ports or (port, VLAN) that
 	 * map to a VNI.
@@ -8224,10 +8039,11 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 		return -1;
 	}
 
-	zvrf = zebra_vrf_get_evpn();
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("        No Evpn Global Vrf found");
+			zlog_debug("        No Vrf found for vrf_id: %d",
+				   zvni->vxlan_if->vrf_id);
 		return -1;
 	}
 
@@ -8252,7 +8068,6 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 		}
 		SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
 		mac->fwd_info.local.ifindex = ifp->ifindex;
-		mac->fwd_info.local.ns_id = local_ns_id;
 		mac->fwd_info.local.vid = vid;
 		if (sticky)
 			SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
@@ -8277,7 +8092,6 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 			 */
 			if (mac_sticky == sticky
 			    && mac->fwd_info.local.ifindex == ifp->ifindex
-			    && mac->fwd_info.local.ns_id == local_ns_id
 			    && mac->fwd_info.local.vid == vid) {
 				if (IS_ZEBRA_DEBUG_VXLAN)
 					zlog_debug(
@@ -8301,7 +8115,6 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 
 			memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 			mac->fwd_info.local.ifindex = ifp->ifindex;
-			mac->fwd_info.local.ns_id = local_ns_id;
 			mac->fwd_info.local.vid = vid;
 
 		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) ||
@@ -8339,7 +8152,6 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 			SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
 			memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 			mac->fwd_info.local.ifindex = ifp->ifindex;
-			mac->fwd_info.local.ns_id = local_ns_id;
 			mac->fwd_info.local.vid = vid;
 			if (sticky)
 				SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
@@ -9811,25 +9623,6 @@ stream_failure:
 	return;
 }
 
-static int macfdb_read_ns(struct ns *ns,
-			     void *_in_param __attribute__((unused)),
-			     void **out_param __attribute__((unused)))
-{
-	struct zebra_ns *zns = ns->info;
-
-	macfdb_read(zns);
-	return NS_WALK_CONTINUE;
-}
-
-static int neigh_read_ns(struct ns *ns,
-			  void *_in_param __attribute__((unused)),
-			  void **out_param __attribute__((unused)))
-{
-	struct zebra_ns *zns = ns->info;
-
-	neigh_read(zns);
-	return NS_WALK_CONTINUE;
-}
 
 /*
  * Handle message from client to learn (or stop learning) about VNIs and MACs.
@@ -9879,10 +9672,10 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 			     NULL);
 
 		/* Read the MAC FDB */
-		ns_walk_func(macfdb_read_ns, NULL, NULL);
+		macfdb_read(zvrf->zns);
 
 		/* Read neighbors */
-		ns_walk_func(neigh_read_ns, NULL, NULL);
+		neigh_read(zvrf->zns);
 	} else {
 		/* Cleanup VTEPs for all VNIs - uninstall from
 		 * kernel and free entries.
