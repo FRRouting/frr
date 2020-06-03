@@ -728,7 +728,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		}
 	}
 
-	if (PIM_I_am_DR(pim_oif)) {
+	if (PIM_I_am_DR(pim_oif) || PIM_I_am_DualActive(pim_oif)) {
 		result = pim_channel_add_oif(source->source_channel_oil,
 					     group->group_igmp_sock->interface,
 					     PIM_OIF_FLAG_PROTO_IGMP, __func__);
