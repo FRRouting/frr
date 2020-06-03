@@ -3987,7 +3987,6 @@ static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac)
 static void zvni_read_mac_neigh(zebra_vni_t *zvni, struct interface *ifp)
 {
 	struct zebra_ns *zns;
-	struct zebra_vrf *zvrf;
 	struct zebra_if *zif;
 	struct interface *vlan_if;
 	struct zebra_l2info_vxlan *vxl;
@@ -3995,10 +3994,7 @@ static void zvni_read_mac_neigh(zebra_vni_t *zvni, struct interface *ifp)
 
 	zif = ifp->info;
 	vxl = &zif->l2info.vxl;
-	zvrf = zebra_vrf_lookup_by_id(zvni->vrf_id);
-	if (!zvrf || !zvrf->zns)
-		return;
-	zns = zvrf->zns;
+	zns = zebra_ns_lookup(NS_DEFAULT);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
