@@ -217,16 +217,14 @@ struct interface *if_create_name(const char *name, vrf_id_t vrf_id)
 	return ifp;
 }
 
-struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id,
-				    char *optional_name)
+struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 
 	ifp = if_new(vrf_id);
 
 	if_set_index(ifp, ifindex);
-	if (optional_name)
-		if_set_name(ifp, optional_name);
+
 	hook_call(if_add, ifp);
 	return ifp;
 }
@@ -556,8 +554,7 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
 	return NULL;
 }
 
-struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id,
-				    char *optional_name)
+struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -567,7 +564,7 @@ struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id,
 		ifp = if_lookup_by_ifindex(ifindex, vrf_id);
 		if (ifp)
 			return ifp;
-		return if_create_ifindex(ifindex, vrf_id, optional_name);
+		return if_create_ifindex(ifindex, vrf_id);
 	case VRF_BACKEND_VRF_LITE:
 		ifp = if_lookup_by_index_all_vrf(ifindex);
 		if (ifp) {
@@ -579,7 +576,7 @@ struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id,
 			if_update_to_new_vrf(ifp, vrf_id);
 			return ifp;
 		}
-		return if_create_ifindex(ifindex, vrf_id, optional_name);
+		return if_create_ifindex(ifindex, vrf_id);
 	}
 
 	return NULL;

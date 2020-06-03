@@ -110,7 +110,7 @@ void zebra_l2_map_slave_to_bond(struct zebra_l2info_bondslave *bond_slave,
 		bond_slave->bond_if = bond_if;
 	else
 		bond_slave->bond_if = if_create_ifindex(bond_slave->bond_ifindex,
-							vrf_id, NULL);
+							vrf_id);
 }
 
 void zebra_l2_unmap_slave_from_bond(struct zebra_l2info_bondslave *bond_slave)
