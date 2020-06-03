@@ -339,7 +339,7 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 	}
 
 	/* If there is no useful nexthop then return. */
-	if (ri->num_nhs == 0) {
+	if (ri->rtm_type != RTN_BLACKHOLE && ri->num_nhs == 0) {
 		zfpm_debug("netlink_encode_route(): No useful nexthop.");
 		return 0;
 	}
