@@ -185,7 +185,7 @@ static void sigint(void)
 	vrf_terminate();
 	rtadv_terminate();
 
-	ns_walk_func(zebra_ns_early_shutdown, NULL, NULL);
+	ns_walk_func(zebra_ns_early_shutdown);
 	zebra_ns_notify_close();
 
 	access_list_reset();
@@ -216,7 +216,7 @@ int zebra_finalize(struct thread *dummy)
 	zlog_info("Zebra final shutdown");
 
 	/* Final shutdown of ns resources */
-	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
+	ns_walk_func(zebra_ns_final_shutdown);
 
 	/* Stop dplane thread and finish any cleanup */
 	zebra_dplane_shutdown();

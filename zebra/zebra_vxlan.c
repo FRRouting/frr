@@ -3535,11 +3535,10 @@ struct zvni_from_svi_param {
 	vlanid_t vid;
 };
 
-static int zvni_map_vlan_ns(struct ns *ns,
-			    void *_in_param,
-			    void **_p_zvni)
+static int zvni_map_vlan_zns(struct zebra_ns *zns,
+			     void *_in_param,
+			     void **_p_zvni)
 {
-	struct zebra_ns *zns = ns->info;
 	struct route_node *rn;
 	struct interface *br_if;
 	zebra_vni_t **p_zvni = (zebra_vni_t **)_p_zvni;
@@ -3552,7 +3551,7 @@ static int zvni_map_vlan_ns(struct ns *ns,
 	int found = 0;
 
 	if (!in_param)
-		return NS_WALK_STOP;
+		return ZNS_WALK_STOP;
 	br_if = in_param->br_if;
 	zif = in_param->zif;
 	assert(zif);
@@ -3581,12 +3580,12 @@ static int zvni_map_vlan_ns(struct ns *ns,
 		}
 	}
 	if (!found)
-		return NS_WALK_CONTINUE;
+		return ZNS_WALK_CONTINUE;
 
 	zvni = zvni_lookup(vxl->vni);
 	if (p_zvni)
 		*p_zvni = zvni;
-	return NS_WALK_STOP;
+	return ZNS_WALK_STOP;
 }
 
 /*
@@ -3612,17 +3611,15 @@ static zebra_vni_t *zvni_map_vlan(struct interface *ifp,
 	in_param.zif = zif;
 	p_zvni = &zvni;
 
-	ns_walk_func(zvni_map_vlan_ns,
-		     (void *)&in_param,
-		     (void **)p_zvni);
+	zebra_ns_list_walk(zvni_map_vlan_zns, (void *)&in_param,
+			   (void **)p_zvni);
 	return zvni;
 }
 
-static int zvni_from_svi_ns(struct ns *ns,
-			    void *_in_param,
-			    void **_p_zvni)
+static int zvni_from_svi_zns(struct zebra_ns *zns,
+			     void *_in_param,
+			     void **_p_zvni)
 {
-	struct zebra_ns *zns = ns->info;
 	struct route_node *rn;
 	struct interface *br_if;
 	zebra_vni_t **p_zvni = (zebra_vni_t **)_p_zvni;
@@ -3635,7 +3632,7 @@ static int zvni_from_svi_ns(struct ns *ns,
 	int found = 0;
 
 	if (!in_param)
-		return NS_WALK_STOP;
+		return ZNS_WALK_STOP;
 	br_if = in_param->br_if;
 	zif = in_param->zif;
 	assert(zif);
@@ -3663,12 +3660,12 @@ static int zvni_from_svi_ns(struct ns *ns,
 	}
 
 	if (!found)
-		return NS_WALK_CONTINUE;
+		return ZNS_WALK_CONTINUE;
 
 	zvni = zvni_lookup(vxl->vni);
 	if (p_zvni)
 		*p_zvni = zvni;
-	return NS_WALK_STOP;
+	return ZNS_WALK_STOP;
 }
 
 /*
@@ -3714,17 +3711,15 @@ static zebra_vni_t *zvni_from_svi(struct interface *ifp,
 	in_param.zif = zif;
 	p_zvni = &zvni;
 	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
-	ns_walk_func(zvni_from_svi_ns,
-		     (void *)&in_param,
-		     (void **)p_zvni);
+	zebra_ns_list_walk(zvni_from_svi_zns, (void *)&in_param,
+			   (void **)p_zvni);
 	return zvni;
 }
 
-static int zvni_map_to_svi_ns(struct ns *ns,
-			      void *_in_param,
-			      void **_p_ifp)
+static int zvni_map_to_svi_zns(struct zebra_ns *zns,
+			       void *_in_param,
+			       void **_p_ifp)
 {
-	struct zebra_ns *zns = ns->info;
 	struct route_node *rn;
 	struct zvni_from_svi_param *in_param =
 		(struct zvni_from_svi_param *)_in_param;
@@ -3734,7 +3729,7 @@ static int zvni_map_to_svi_ns(struct ns *ns,
 	struct zebra_if *zif;
 
 	if (!in_param)
-		return NS_WALK_STOP;
+		return ZNS_WALK_STOP;
 
 	/* TODO: Optimize with a hash. */
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
@@ -3751,10 +3746,10 @@ static int zvni_map_to_svi_ns(struct ns *ns,
 		if (vl->vid == in_param->vid) {
 			if (p_ifp)
 				*p_ifp = tmp_if;
-			return NS_WALK_STOP;
+			return ZNS_WALK_STOP;
 		}
 	}
-	return NS_WALK_CONTINUE;
+	return ZNS_WALK_CONTINUE;
 }
 
 /* Map to SVI on bridge corresponding to specified VLAN. This can be one
@@ -3789,9 +3784,8 @@ static struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 	in_param.zif = NULL;
 	p_ifp = &tmp_if;
 	/* Identify corresponding VLAN interface. */
-	ns_walk_func(zvni_map_to_svi_ns,
-		     (void *)&in_param,
-		     (void **)p_ifp);
+	zebra_ns_list_walk(zvni_map_to_svi_zns, (void *)&in_param,
+			   (void **)p_ifp);
 	return tmp_if;
 }
 
@@ -4212,11 +4206,10 @@ static int zvni_send_del_to_client(vni_t vni)
 	return zserv_send_message(client, s);
 }
 
-static int zvni_build_hash_table_ns(struct ns *ns,
+static int zvni_build_hash_table_zns(struct zebra_ns *zns,
 				     void *param_in __attribute__((unused)),
 				     void **param_out __attribute__((unused)))
 {
-	struct zebra_ns *zns = ns->info;
 	struct route_node *rn;
 	struct interface *ifp;
 	struct zebra_vrf *zvrf;
@@ -4224,7 +4217,7 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 	zvrf = zebra_vrf_get_evpn();
 
 	if (!zvrf)
-		return NS_WALK_STOP;
+		return ZNS_WALK_STOP;
 
 	/* Walk VxLAN interfaces and create VNI hash. */
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
@@ -4320,7 +4313,7 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 					zlog_debug(
 						"Failed to add VNI hash, IF %s(%u) L2-VNI %u",
 						ifp->name, ifp->ifindex, vni);
-					return NS_WALK_CONTINUE;
+					return ZNS_WALK_CONTINUE;
 				}
 
 				if (zvni->local_vtep_ip.s_addr !=
@@ -4357,7 +4350,7 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 			}
 		}
 	}
-	return NS_WALK_CONTINUE;
+	return ZNS_WALK_CONTINUE;
 }
 
 /*
@@ -4367,9 +4360,9 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 
 static void zvni_build_hash_table(void)
 {
-	ns_walk_func(zvni_build_hash_table_ns,
-		     (void *)NULL,
-		     (void **)NULL);
+	zebra_ns_list_walk(zvni_build_hash_table_zns,
+			   (void *)NULL,
+			   (void **)NULL);
 }
 
 /*
@@ -5154,11 +5147,10 @@ static int zl3vni_del(zebra_l3vni_t *zl3vni)
 	return 0;
 }
 
-static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
+static int zl3vni_map_to_vxlan_if_zns(struct zebra_ns *zns,
 				      void *_zl3vni,
 				      void **_pifp)
 {
-	struct zebra_ns *zns = ns->info;
 	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)_zl3vni;
 	struct route_node *rn = NULL;
 	struct interface *ifp = NULL;
@@ -5167,7 +5159,7 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 	zvrf = zebra_vrf_get_evpn();
 
 	if (!zvrf)
-		return NS_WALK_STOP;
+		return ZNS_WALK_STOP;
 
 	/* loop through all vxlan-interface */
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
@@ -5201,10 +5193,10 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 		zl3vni->local_vtep_ip = vxl->vtep_ip;
 		if (_pifp)
 			*_pifp = (void *)ifp;
-		return NS_WALK_STOP;
+		return ZNS_WALK_STOP;
 	}
 
-	return NS_WALK_CONTINUE;
+	return ZNS_WALK_CONTINUE;
 }
 
 struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
@@ -5214,8 +5206,8 @@ struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
 
 	p_ifp = &ifp;
 
-	ns_walk_func(zl3vni_map_to_vxlan_if_ns,
-		     (void *)zl3vni, (void **)p_ifp);
+	zebra_ns_list_walk(zl3vni_map_to_vxlan_if_zns,
+			   (void *)zl3vni, (void **)p_ifp);
 	return ifp;
 }
 
@@ -9783,24 +9775,20 @@ stream_failure:
 	return;
 }
 
-static int macfdb_read_ns(struct ns *ns,
+static int macfdb_read_zns(struct zebra_ns *zns,
 			     void *_in_param __attribute__((unused)),
 			     void **out_param __attribute__((unused)))
 {
-	struct zebra_ns *zns = ns->info;
-
 	macfdb_read(zns);
-	return NS_WALK_CONTINUE;
+	return ZNS_WALK_CONTINUE;
 }
 
-static int neigh_read_ns(struct ns *ns,
+static int neigh_read_zns(struct zebra_ns *zns,
 			  void *_in_param __attribute__((unused)),
 			  void **out_param __attribute__((unused)))
 {
-	struct zebra_ns *zns = ns->info;
-
 	neigh_read(zns);
-	return NS_WALK_CONTINUE;
+	return ZNS_WALK_CONTINUE;
 }
 
 /*
@@ -9851,10 +9839,10 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 			     NULL);
 
 		/* Read the MAC FDB */
-		ns_walk_func(macfdb_read_ns, NULL, NULL);
+		zebra_ns_list_walk(macfdb_read_zns, NULL, NULL);
 
 		/* Read neighbors */
-		ns_walk_func(neigh_read_ns, NULL, NULL);
+		zebra_ns_list_walk(neigh_read_zns, NULL, NULL);
 	} else {
 		/* Cleanup VTEPs for all VNIs - uninstall from
 		 * kernel and free entries.

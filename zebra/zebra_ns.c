@@ -153,25 +153,20 @@ static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 /* During zebra shutdown, do partial cleanup while the async dataplane
  * is still running.
  */
-int zebra_ns_early_shutdown(struct ns *ns,
-			    void *param_in __attribute__((unused)),
-			    void **param_out __attribute__((unused)))
+int zebra_ns_early_shutdown(struct ns *ns)
 {
 	struct zebra_ns *zns = ns->info;
 
 	if (zns == NULL)
 		return 0;
 
-	zebra_ns_disable_internal(zns, false);
-	return NS_WALK_CONTINUE;
+	return zebra_ns_disable_internal(zns, false);
 }
 
 /* During zebra shutdown, do final cleanup
  * after all dataplane work is complete.
  */
-int zebra_ns_final_shutdown(struct ns *ns,
-			    void *param_in __attribute__((unused)),
-			    void **param_out __attribute__((unused)))
+int zebra_ns_final_shutdown(struct ns *ns)
 {
 	struct zebra_ns *zns = ns->info;
 
@@ -180,7 +175,7 @@ int zebra_ns_final_shutdown(struct ns *ns,
 
 	kernel_terminate(zns, true);
 
-	return NS_WALK_CONTINUE;
+	return 0;
 }
 
 int zebra_ns_init(const char *optional_default_name)
@@ -237,4 +232,26 @@ int zebra_ns_config_write(struct vty *vty, struct ns *ns)
 	if (ns && ns->name != NULL)
 		vty_out(vty, " netns %s\n", ns->name);
 	return 0;
+}
+
+void zebra_ns_list_walk(int (*exec_for_each_zns)(struct zebra_ns *zns,
+						 void *param_in,
+						 void **param_out),
+			void *param_in,
+			void **param_out)
+{
+	struct ns *ns;
+	struct zebra_ns *zns;
+	int ret;
+
+	RB_FOREACH (ns, ns_head, &ns_tree) {
+		zns = (struct zebra_ns *)ns->info;
+		if (!zns && ns->ns_id == NS_DEFAULT)
+			zns = zebra_ns_lookup(ns->ns_id);
+		if (!zns)
+			continue;
+		ret = exec_for_each_zns(zns, param_in, param_out);
+		if (ret == ZNS_WALK_STOP)
+			return;
+	}
 }
