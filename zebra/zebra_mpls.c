@@ -1928,23 +1928,27 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 
 		/* TODO -- Confirm that this result is still 'current' */
 
-		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
-			/* Update zebra object */
-			SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
-			frr_each(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
-				nexthop = nhlfe->nexthop;
-				if (!nexthop)
-					continue;
-
-				SET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			}
-		} else {
+		if (status != ZEBRA_DPLANE_REQUEST_SUCCESS) {
 			UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 			clear_nhlfe_installed(lsp);
 			flog_warn(EC_ZEBRA_LSP_INSTALL_FAILURE,
 				  "LSP Install Failure: in-label %u",
 				  lsp->ile.in_label);
+			break;
+		}
+
+		/* Update zebra object */
+		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+		frr_each(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
+			nexthop = nhlfe->nexthop;
+			if (!nexthop)
+				continue;
+
+			if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED) &&
+			    CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+				SET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+			}
 		}
 
 		break;
@@ -2081,8 +2085,9 @@ static int update_nhlfes_from_ctx(struct nhlfe_list_head *nhlfe_head,
 		if (!nexthop)
 			continue;
 
+		ctx_nhlfe = NULL;
 		ctx_nexthop = NULL;
-		frr_each(nhlfe_list_const, nhlfe_head, ctx_nhlfe) {
+		frr_each(nhlfe_list_const, ctx_head, ctx_nhlfe) {
 			ctx_nexthop = ctx_nhlfe->nexthop;
 			if (!ctx_nexthop)
 				continue;
@@ -2102,10 +2107,16 @@ static int update_nhlfes_from_ctx(struct nhlfe_list_head *nhlfe_head,
 			/* Bring zebra nhlfe install state into sync */
 			if (CHECK_FLAG(ctx_nhlfe->flags,
 				       NHLFE_FLAG_INSTALLED)) {
+				if (is_debug)
+					zlog_debug("%s: matched lsp nhlfe %s (installed)",
+						   __func__, buf);
 
 				SET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
 
 			} else {
+				if (is_debug)
+					zlog_debug("%s: matched lsp nhlfe %s (not installed)",
+						   __func__, buf);
 
 				UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
 			}
@@ -2125,7 +2136,9 @@ static int update_nhlfes_from_ctx(struct nhlfe_list_head *nhlfe_head,
 
 		} else {
 			/* Not mentioned in lfib set -> uninstalled */
-
+			if (is_debug)
+				zlog_debug("%s: no match for lsp nhlfe %s",
+					   __func__, buf);
 			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
