@@ -314,100 +314,10 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 	return return_nsid;
 }
 
-/* if nsid is not default one, get relative default ns for the new ns
- * for instance, if default ns is 0 and a new ns "vrf1" id is 1,
- * in  ns "vrf1", the default ns is not known. using GETNSID with
- * two parameters: NETNS_NSID, and NETNS_TARGET_NSID will help
- * in identifying that value
- */
-ns_id_t zebra_ns_id_get_relative_value(ns_id_t ns_read, ns_id_t target_nsid)
-{
-	struct sockaddr_nl snl;
-	int sock, ret;
-	unsigned int seq;
-	ns_id_t return_nsid = NS_UNKNOWN;
-	char buf[NETLINK_SOCKET_BUFFER_SIZE];
-	struct nlmsghdr *nlh;
-	struct rtgenmsg *rt;
-	int len;
-
-	if (ns_read == NS_UNKNOWN || target_nsid == NS_UNKNOWN)
-		return return_nsid;
-
-	/* netlink socket */
-	sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-	if (sock < 0) {
-		flog_err_sys(EC_LIB_SOCKET, "netlink( %u) socket() error: %s",
-			     sock, safe_strerror(errno));
-		return NS_UNKNOWN;
-	}
-	memset(&snl, 0, sizeof(snl));
-	snl.nl_family = AF_NETLINK;
-	snl.nl_groups = RTNLGRP_NSID;
-	snl.nl_pid = 0; /* AUTO PID */
-	ret = bind(sock, (struct sockaddr *)&snl, sizeof(snl));
-	if (ret < 0) {
-		flog_err_sys(EC_LIB_SOCKET,
-			     "netlink( %u) socket() bind error: %s", sock,
-			     safe_strerror(errno));
-		close(sock);
-		return NS_UNKNOWN;
-	}
-
-	/* message to send to netlink : GETNSID */
-	memset(buf, 0, NETLINK_SOCKET_BUFFER_SIZE);
-	nlh = initiate_nlh(buf, &seq, RTM_GETNSID);
-	rt = (struct rtgenmsg *)(buf + nlh->nlmsg_len);
-	nlh->nlmsg_len += NETLINK_ALIGN(sizeof(struct rtgenmsg));
-	rt->rtgen_family = AF_UNSPEC;
-
-	addattr32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_NSID, ns_read);
-	addattr32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_TARGET_NSID, target_nsid);
-
-	ret = send_receive(sock, nlh, seq, buf);
-	if (ret < 0) {
-		close(sock);
-		return NS_UNKNOWN;
-	}
-	nlh = (struct nlmsghdr *)buf;
-	len = ret;
-	ret = 0;
-	do {
-		if (nlh->nlmsg_type >= NLMSG_MIN_TYPE) {
-			return_nsid = extract_nsid(nlh, buf);
-			if (return_nsid != NS_UNKNOWN)
-				break;
-		} else if (nlh->nlmsg_type == NLMSG_ERROR) {
-			struct nlmsgerr *err =
-				(struct nlmsgerr
-				 *)((char *)nlh
-				    + NETLINK_ALIGN(sizeof(
-							   struct
-							   nlmsghdr)));
-			if (err->error < 0)
-				errno = -err->error;
-			else
-				errno = err->error;
-			break;
-		}
-		len = len - NETLINK_ALIGN(nlh->nlmsg_len);
-		nlh = (struct nlmsghdr *)((char *)nlh
-					  + NETLINK_ALIGN(
-							  nlh->nlmsg_len));
-	} while (len != 0 && ret == 0);
-
-	return return_nsid;
-}
-
 #else
 ns_id_t zebra_ns_id_get(const char *netnspath)
 {
 	return zebra_ns_id_get_fallback(netnspath);
-}
-
-ns_id_t zebra_ns_id_get_relative_value(ns_id_t ns_read, ns_id_t target_nsid)
-{
-	return NS_UNKNOWN;
 }
 #endif /* ! defined(HAVE_NETLINK) */
 
