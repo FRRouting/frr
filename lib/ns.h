@@ -181,7 +181,6 @@ extern struct ns *ns_lookup_name(const char *name);
  */
 extern int ns_enable(struct ns *ns, void (*func)(ns_id_t, void *));
 extern struct ns *ns_get_created(struct ns *ns, char *name, ns_id_t ns_id);
-extern ns_id_t ns_id_get_absolute(ns_id_t ns_id_reference, ns_id_t link_nsid);
 extern void ns_disable(struct ns *ns);
 extern struct ns *ns_get_default(void);
 
