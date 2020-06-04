@@ -508,7 +508,7 @@ extern int if_cmp_name_func(const char *p1, const char *p2);
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
 
 /* Create new interface, adds to name list only */
-extern struct interface *if_create_name(const char *name, vrf_id_t vrf_id);
+extern struct interface *if_create_name(const char *name, const char *vrf_name);
 
 /* Create new interface, adds to index list only */
 extern struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);

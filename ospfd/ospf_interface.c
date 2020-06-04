@@ -893,7 +893,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 			ospf->vrf_id);
 
 	snprintf(ifname, sizeof(ifname), "VLINK%u", vlink_count);
-	vi = if_create_name(ifname, ospf->vrf_id);
+	vi = if_create_name(ifname, ospf_get_name(ospf));
 	/*
 	 * if_create_name sets ZEBRA_INTERFACE_LINKDETECTION
 	 * virtual links don't need this.

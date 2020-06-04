@@ -207,13 +207,15 @@ void if_down_via_zapi(struct interface *ifp)
 		(*ifp_master.down_hook)(ifp);
 }
 
-struct interface *if_create_name(const char *name, vrf_id_t vrf_id)
+struct interface *if_create_name(const char *name, const char *vrf_name)
 {
 	struct interface *ifp;
 	struct vrf *vrf;
 
-	vrf = vrf_lookup_by_id(vrf_id != VRF_UNKNOWN ? vrf_id : VRF_DEFAULT);
-	ifp = if_new(vrf_id);
+	vrf = vrf_lookup_by_name(vrf_name);
+	assert(vrf);
+
+	ifp = if_new(vrf->vrf_id != VRF_UNKNOWN ? vrf->vrf_id : VRF_DEFAULT);
 
 	if_set_name(ifp, name, vrf->name);
 
@@ -584,6 +586,7 @@ size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
 	switch (vrf_get_backend()) {
 	case VRF_BACKEND_UNKNOWN:
@@ -591,7 +594,7 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
 		ifp = if_lookup_by_name(name, vrf_id);
 		if (ifp)
 			return ifp;
-		return if_create_name(name, vrf_id);
+		return if_create_name(name, vrf->name);
 	case VRF_BACKEND_VRF_LITE:
 		ifp = if_lookup_by_name_all_vrf(name);
 		if (ifp) {
@@ -603,7 +606,7 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
 			if_update_to_new_vrf(ifp, vrf_id);
 			return ifp;
 		}
-		return if_create_name(name, vrf_id);
+		return if_create_name(name, vrf->name);
 	}
 
 	return NULL;
