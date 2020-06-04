@@ -535,7 +535,8 @@ extern struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
 /* Sets the index and adds to index list */
 extern int if_set_index(struct interface *ifp, ifindex_t ifindex);
 /* Sets the name and adds to name list */
-extern void if_set_name(struct interface *ifp, const char *name);
+extern void if_set_name(struct interface *ifp, const char *name,
+			const char *vrf_name);
 
 /* Delete the interface, but do not free the structure, and leave it in the
    interface list.  It is often advisable to leave the pseudo interface

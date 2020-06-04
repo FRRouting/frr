@@ -758,6 +758,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct zebra_if *zif;
 	ns_id_t link_nsid = ns_id;
 	uint8_t bypass = 0;
+	struct vrf *vrf;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -856,7 +857,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifp = if_get_by_ifindex(ifi->ifi_index, vrf_id);
 	set_ifindex(ifp, ifi->ifi_index, zns); /* add it to ns struct */
 
-	if_set_name(ifp, name);
+	vrf = vrf_lookup_by_id(vrf_id);
+	if_set_name(ifp, name, vrf ? vrf->name : VRF_DEFAULT_NAME);
 
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);
