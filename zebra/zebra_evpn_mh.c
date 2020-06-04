@@ -3174,16 +3174,14 @@ void zebra_evpn_mh_update_protodown_bond_mbr(struct zebra_if *zif, bool clear,
 		protodown_rc = bond_zif->protodown_rc;
 	}
 
-	if (zif->protodown_rc == protodown_rc)
-		return;
-
 	old_protodown = !!(zif->flags & ZIF_FLAG_PROTODOWN);
 	old_protodown_rc = zif->protodown_rc;
 	zif->protodown_rc &= ~ZEBRA_PROTODOWN_EVPN_ALL;
 	zif->protodown_rc |= (protodown_rc & ZEBRA_PROTODOWN_EVPN_ALL);
 	new_protodown = !!zif->protodown_rc;
 
-	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES
+	    && (zif->protodown_rc != old_protodown_rc))
 		zlog_debug(
 			"%s bond mbr %s protodown_rc changed; old 0x%x new 0x%x",
 			caller, zif->ifp->name, old_protodown_rc,
