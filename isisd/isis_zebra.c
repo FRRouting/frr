@@ -56,8 +56,6 @@
 struct zclient *zclient;
 static struct zclient *zclient_sync;
 
-static void isis_zebra_label_manager_connect(void);
-
 /* Router-id update message from zebra. */
 static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
@@ -464,6 +462,16 @@ void isis_zebra_redistribute_unset(afi_t afi, int type)
 /* Label Manager Functions */
 
 /**
+ * Check if Label Manager is Ready or not.
+ *
+ * @return	True if Label Manager is ready, False otherwise
+ */
+bool isis_zebra_label_manager_ready(void)
+{
+	return (zclient_sync->sock > 0);
+}
+
+/**
  * Request Label Range to the Label Manager.
  *
  * @param base		base label of the label range to request
@@ -476,8 +484,8 @@ int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
 	int ret;
 	uint32_t start, end;
 
-	if (zclient_sync->sock == -1)
-		isis_zebra_label_manager_connect();
+	if (zclient_sync->sock < 0)
+		return -1;
 
 	ret = lm_get_label_chunk(zclient_sync, 0, base, chunk_size, &start,
 				 &end);
@@ -494,47 +502,63 @@ int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
  *
  * @param start		start of label range to release
  * @param end		end of label range to release
+ *
+ * @return		0 on success, -1 otherwise
  */
-void isis_zebra_release_label_range(uint32_t start, uint32_t end)
+int isis_zebra_release_label_range(uint32_t start, uint32_t end)
 {
 	int ret;
 
-	if (zclient_sync->sock == -1)
-		isis_zebra_label_manager_connect();
+	if (zclient_sync->sock < 0)
+		return -1;
 
 	ret = lm_release_label_chunk(zclient_sync, start, end);
-	if (ret < 0)
+	if (ret < 0) {
 		zlog_warn("%s: error releasing label range!", __func__);
+		return -1;
+	}
+
+	return 0;
 }
 
 /**
  * Connect to the Label Manager.
+ *
+ * @return	0 on success, -1 otherwise
  */
-static void isis_zebra_label_manager_connect(void)
+int isis_zebra_label_manager_connect(void)
 {
 	/* Connect to label manager. */
-	while (zclient_socket_connect(zclient_sync) < 0) {
-		zlog_warn("%s: re-attempt connecting synchronous zclient!",
+	if (zclient_socket_connect(zclient_sync) < 0) {
+		zlog_warn("%s: failed connecting synchronous zclient!",
 			  __func__);
-		sleep(1);
+		return -1;
 	}
 	/* make socket non-blocking */
 	set_nonblocking(zclient_sync->sock);
 
 	/* Send hello to notify zebra this is a synchronous client */
-	while (zclient_send_hello(zclient_sync) < 0) {
-		zlog_warn(
-			"%s: re-attempt sending hello for synchronous zclient!",
-			__func__);
-		sleep(1);
+	if (zclient_send_hello(zclient_sync) < 0) {
+		zlog_warn("%s: failed sending hello for synchronous zclient!",
+			  __func__);
+		close(zclient_sync->sock);
+		zclient_sync->sock = -1;
+		return -1;
 	}
 
 	/* Connect to label manager */
-	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
-		zlog_warn("%s: re-attempt connecting to label manager!",
-			  __func__);
-		sleep(1);
+	if (lm_label_manager_connect(zclient_sync, 0) != 0) {
+		zlog_warn("%s: failed connecting to label manager!", __func__);
+		if (zclient_sync->sock > 0) {
+			close(zclient_sync->sock);
+			zclient_sync->sock = -1;
+		}
+		return -1;
 	}
+
+	sr_debug("ISIS-Sr: Successfully connected to the Label Manager");
+
+	return 0;
 }
 
 static void isis_zebra_connected(struct zclient *zclient)
@@ -572,6 +596,8 @@ void isis_zebra_init(struct thread_master *master, int instance)
 
 void isis_zebra_stop(void)
 {
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	frr_fini();

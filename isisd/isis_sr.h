@@ -64,6 +64,7 @@ PREDECL_RBTREE_UNIQ(srdb_prefix_cfg)
 
 /* Segment Routing Local Block allocation */
 struct sr_local_block {
+	bool active;
 	uint32_t start;
 	uint32_t end;
 	uint32_t current;
@@ -223,6 +224,9 @@ struct isis_sr_db {
 	/* Global Operational status of Segment Routing. */
 	bool enabled;
 
+	/* Thread timer to start Label Manager */
+	struct thread *t_start_lm;
+
 	/* List of local Adjacency-SIDs. */
 	struct list *adj_sids;
 
@@ -232,8 +236,9 @@ struct isis_sr_db {
 	/* Segment Routing Prefix-SIDs per IS-IS level. */
 	struct srdb_area_prefix_head prefix_sids[ISIS_LEVELS];
 
-	/* Management of SRLB allocation */
+	/* Management of SRLB & SRGB allocation */
 	struct sr_local_block srlb;
+	bool srgb_active;
 
 	/* Area Segment Routing configuration. */
 	struct {

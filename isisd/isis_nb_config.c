@@ -1433,14 +1433,12 @@ int isis_instance_segment_routing_enabled_modify(
 		if (IS_DEBUG_ISIS(DEBUG_EVENTS))
 			zlog_debug("SR: Segment Routing: OFF -> ON");
 
-		if (isis_sr_start(area) == 0)
-			area->srdb.enabled = true;
+		isis_sr_start(area);
 	} else {
 		if (IS_DEBUG_ISIS(DEBUG_EVENTS))
 			zlog_debug("SR: Segment Routing: ON -> OFF");
 
 		isis_sr_stop(area);
-		area->srdb.enabled = false;
 	}
 
 	return NB_OK;
@@ -1486,21 +1484,12 @@ void isis_instance_segment_routing_srgb_apply_finish(
 {
 	struct isis_area *area;
 	uint32_t lower_bound, upper_bound;
-	int ret;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	lower_bound = yang_dnode_get_uint32(args->dnode, "./lower-bound");
 	upper_bound = yang_dnode_get_uint32(args->dnode, "./upper-bound");
 
-	ret = isis_sr_cfg_srgb_update(area, lower_bound, upper_bound);
-	if (area->srdb.config.enabled) {
-		if (ret == 0)
-			area->srdb.enabled = true;
-		else {
-			isis_sr_stop(area);
-			area->srdb.enabled = false;
-		}
-	}
+	isis_sr_cfg_srgb_update(area, lower_bound, upper_bound);
 }
 
 /*
