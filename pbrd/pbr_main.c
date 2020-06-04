@@ -157,9 +157,10 @@ int main(int argc, char **argv, char **envp)
 
 	pbr_debug_init();
 
-	nexthop_group_init(pbr_nhgroup_add_cb, pbr_nhgroup_add_nexthop_cb,
-			   pbr_nhgroup_del_nexthop_cb, pbr_nhgroup_delete_cb,
-			   NULL);
+	nexthop_group_init(pbr_nhgroup_add_cb,
+			   pbr_nhgroup_add_nexthop_cb,
+			   pbr_nhgroup_del_nexthop_cb,
+			   pbr_nhgroup_delete_cb);
 
 	/*
 	 * So we safely ignore these commands since
