@@ -2099,7 +2099,7 @@ int zebra_evpn_mh_neigh_holdtime_update(struct vty *vty,
 		uint32_t duration, bool set_default)
 {
 	if (set_default)
-		zmh_info->neigh_hold_time = EVPN_MH_NEIGH_HOLD_TIME_DEF;
+		duration = EVPN_MH_NEIGH_HOLD_TIME_DEF;
 
 	zmh_info->neigh_hold_time = duration;
 
