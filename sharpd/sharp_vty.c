@@ -550,7 +550,7 @@ DEFPY (logpump,
 DEFPY (send_opaque,
        send_opaque_cmd,
        "sharp send opaque type (1-255) (1-1000)$count",
-       "Sharp Routing Protocol\n"
+       SHARP_STR
        "Send messages for testing\n"
        "Send opaque messages\n"
        "Type code to send\n"
@@ -566,7 +566,7 @@ DEFPY (send_opaque_reg,
        "sharp send opaque <reg$reg | unreg> \
        " FRR_IP_REDIST_STR_ZEBRA "$proto_str \
         [{instance (0-1000) | session (1-1000)}] type (1-1000)",
-       "Sharp Routing Protocol\n"
+       SHARP_STR
        "Send messages for testing\n"
        "Send opaque messages\n"
        "Send opaque registration\n"
