@@ -457,6 +457,7 @@ struct zapi_route {
  */
 #define ZEBRA_FLAG_RR_USE_DISTANCE    0x40
 
+	/* The older XXX_MESSAGE flags live here */
 	uint8_t message;
 
 	/*
@@ -849,6 +850,25 @@ extern void zclient_send_mlag_data(struct zclient *client,
 int zclient_send_opaque(struct zclient *zclient, uint32_t type,
 			const uint8_t *data, size_t datasize);
 
+int zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
+				uint8_t proto, uint16_t instance,
+				uint32_t session_id, const uint8_t *data,
+				size_t datasize);
+
+/* Struct representing the decoded opaque header info */
+struct zapi_opaque_msg {
+	uint32_t type; /* Subtype */
+	uint16_t len;  /* len after zapi header and this info */
+	uint16_t flags;
+
+	/* Client-specific info - *if* UNICAST flag is set */
+	uint8_t proto;
+	uint16_t instance;
+	uint32_t session_id;
+};
+
+#define ZAPI_OPAQUE_FLAG_UNICAST   0x01
+
 /* Simple struct to convey registration/unreg requests */
 struct zapi_opaque_reg_info {
 	/* Message subtype */
@@ -859,6 +879,9 @@ struct zapi_opaque_reg_info {
 	uint16_t instance;
 	uint32_t session_id;
 };
+
+/* Decode incoming opaque */
+int zclient_opaque_decode(struct stream *msg, struct zapi_opaque_msg *info);
 
 int zclient_register_opaque(struct zclient *zclient, uint32_t type);
 int zclient_unregister_opaque(struct zclient *zclient, uint32_t type);

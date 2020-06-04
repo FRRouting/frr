@@ -347,8 +347,9 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 {
 	struct stream *msg, *dup;
 	struct zmsghdr hdr;
+	struct zapi_opaque_msg info;
 	struct opq_msg_reg *reg;
-	uint32_t type;
+	int ret;
 	struct opq_client_reg *client;
 	struct zserv *zclient;
 	char buf[50];
@@ -372,15 +373,17 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 
 		/* Dispatch to any registered ZAPI client(s) */
 
-		/* Extract subtype */
-		STREAM_GETL(msg, type);
+		/* Extract subtype and flags */
+		ret = zclient_opaque_decode(msg, &info);
+		if (ret != 0)
+			goto drop_it;
 
 		/* Look up registered ZAPI client(s) */
-		reg = opq_reg_lookup(type);
+		reg = opq_reg_lookup(info.type);
 		if (reg == NULL) {
 			if (IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("%s: no registrations for opaque type %u",
-					   __func__, type);
+				zlog_debug("%s: no registrations for opaque type %u, flags %#x",
+					   __func__, info.type, info.flags);
 			goto drop_it;
 		}
 
@@ -427,7 +430,7 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 			} else {
 				if (IS_ZEBRA_DEBUG_RECV)
 					zlog_debug("%s: type %u: no zclient for %s",
-						   __func__, type,
+						   __func__, info.type,
 						   opq_client2str(buf,
 								  sizeof(buf),
 								  client));
@@ -438,7 +441,7 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 		}
 
 drop_it:
-stream_failure:
+
 		if (msg)
 			stream_free(msg);
 	}

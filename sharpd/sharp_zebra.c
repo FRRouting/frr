@@ -483,16 +483,15 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 /* Handler for opaque messages */
 static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 {
-	uint32_t type;
 	struct stream *s;
+	struct zapi_opaque_msg info;
 
 	s = zclient->ibuf;
 
-	STREAM_GETL(s, type);
+	if (zclient_opaque_decode(s, &info) != 0)
+		return -1;
 
-	zlog_debug("%s: received opaque type %u", __func__, type);
-
-stream_failure:
+	zlog_debug("%s: received opaque type %u", __func__, info.type);
 
 	return 0;
 }

@@ -3121,6 +3121,7 @@ int zclient_send_opaque(struct zclient *zclient, uint32_t type,
 {
 	int ret;
 	struct stream *s;
+	uint16_t flags = 0;
 
 	/* Check buffer size */
 	if (STREAM_SIZE(zclient->obuf) <
@@ -3132,8 +3133,9 @@ int zclient_send_opaque(struct zclient *zclient, uint32_t type,
 
 	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
 
-	/* Send sub-type */
+	/* Send sub-type and flags */
 	stream_putl(s, type);
+	stream_putw(s, flags);
 
 	/* Send opaque data */
 	stream_write(s, data, datasize);
@@ -3144,6 +3146,77 @@ int zclient_send_opaque(struct zclient *zclient, uint32_t type,
 	ret = zclient_send_message(zclient);
 
 	return ret;
+}
+
+/*
+ * Send an OPAQUE message to a specific zclient. The contents are opaque
+ * to zebra.
+ */
+int zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
+				uint8_t proto, uint16_t instance,
+				uint32_t session_id, const uint8_t *data,
+				size_t datasize)
+{
+	int ret;
+	struct stream *s;
+	uint16_t flags = 0;
+
+	/* Check buffer size */
+	if (STREAM_SIZE(zclient->obuf) <
+	    (ZEBRA_HEADER_SIZE + sizeof(struct zapi_opaque_msg) + datasize))
+		return -1;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
+
+	/* Send sub-type and flags */
+	SET_FLAG(flags, ZAPI_OPAQUE_FLAG_UNICAST);
+	stream_putl(s, type);
+	stream_putw(s, flags);
+
+	/* Send destination client info */
+	stream_putc(s, proto);
+	stream_putw(s, instance);
+	stream_putl(s, session_id);
+
+	/* Send opaque data */
+	stream_write(s, data, datasize);
+
+	/* Put length into the header at the start of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	ret = zclient_send_message(zclient);
+
+	return ret;
+}
+
+/*
+ * Decode incoming opaque message into info struct
+ */
+int zclient_opaque_decode(struct stream *s, struct zapi_opaque_msg *info)
+{
+	memset(info, 0, sizeof(*info));
+
+	/* Decode subtype and flags */
+	STREAM_GETL(s, info->type);
+	STREAM_GETW(s, info->flags);
+
+	/* Decode unicast client info if present */
+	if (CHECK_FLAG(info->flags, ZAPI_OPAQUE_FLAG_UNICAST)) {
+		STREAM_GETC(s, info->proto);
+		STREAM_GETW(s, info->instance);
+		STREAM_GETL(s, info->session_id);
+	}
+
+	info->len = STREAM_READABLE(s);
+
+	return 0;
+
+stream_failure:
+
+	return -1;
 }
 
 /*
@@ -3205,8 +3278,7 @@ int zclient_unregister_opaque(struct zclient *zclient, uint32_t type)
 }
 
 /* Utility to decode opaque registration info */
-int zapi_opaque_reg_decode(struct stream *s,
-			   struct zapi_opaque_reg_info *info)
+int zapi_opaque_reg_decode(struct stream *s, struct zapi_opaque_reg_info *info)
 {
 	STREAM_GETL(s, info->type);
 	STREAM_GETC(s, info->proto);
