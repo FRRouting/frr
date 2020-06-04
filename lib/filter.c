@@ -868,7 +868,7 @@ DEFUN (no_access_list_standard,
        "Address to match\n"
        "Wildcard bits\n")
 {
-	int idx_acl = 1;
+	int idx_acl = 2;
 	int idx = 0;
 	char *seq = NULL;
 	char *permit_deny = NULL;
@@ -1949,7 +1949,7 @@ DEFUN (no_mac_access_list,
 		mac = argv[idx]->arg;
 	assert(mac);
 
-	return filter_set_zebra(vty, argv[2]->arg, seq, permit_deny, AFI_L2VPN,
+	return filter_set_zebra(vty, argv[3]->arg, seq, permit_deny, AFI_L2VPN,
 				mac, 0, 0);
 }
 
