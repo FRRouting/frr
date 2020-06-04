@@ -3204,9 +3204,9 @@ int zclient_unregister_opaque(struct zclient *zclient, uint32_t type)
 	return ret;
 }
 
-/* Utility to parse opaque registration info */
-int zapi_parse_opaque_reg(struct stream *s,
-			  struct zapi_opaque_reg_info *info)
+/* Utility to decode opaque registration info */
+int zapi_opaque_reg_decode(struct stream *s,
+			   struct zapi_opaque_reg_info *info)
 {
 	STREAM_GETL(s, info->type);
 	STREAM_GETC(s, info->proto);

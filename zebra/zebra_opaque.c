@@ -460,7 +460,7 @@ static int handle_opq_registration(const struct zmsghdr *hdr,
 
 	memset(&info, 0, sizeof(info));
 
-	if (zapi_parse_opaque_reg(msg, &info) < 0) {
+	if (zapi_opaque_reg_decode(msg, &info) < 0) {
 		ret = -1;
 		goto done;
 	}
@@ -540,7 +540,7 @@ static int handle_opq_unregistration(const struct zmsghdr *hdr,
 
 	memset(&info, 0, sizeof(info));
 
-	if (zapi_parse_opaque_reg(msg, &info) < 0) {
+	if (zapi_opaque_reg_decode(msg, &info) < 0) {
 		ret = -1;
 		goto done;
 	}

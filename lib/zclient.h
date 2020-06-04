@@ -862,8 +862,8 @@ struct zapi_opaque_reg_info {
 
 int zclient_register_opaque(struct zclient *zclient, uint32_t type);
 int zclient_unregister_opaque(struct zclient *zclient, uint32_t type);
-int zapi_parse_opaque_reg(struct stream *msg,
-			  struct zapi_opaque_reg_info *info);
+int zapi_opaque_reg_decode(struct stream *msg,
+			   struct zapi_opaque_reg_info *info);
 
 /*
  * Registry of opaque message types. Please do not reuse an in-use
