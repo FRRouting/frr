@@ -42,6 +42,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
@@ -160,6 +161,41 @@ def test_pbr_data():
         actual = router.vtysh_cmd("show pbr nexthop-groups json", isjson=True)
 
         assertmsg = '"show pbr nexthop-groups" mismatches on {}'.format(router.name)
+        assert topotest.json_cmp(actual, expected) is None, assertmsg
+
+
+def test_pbr_flap():
+    "Test PBR interface flapping"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Verify PBR Status
+    logger.info("Flapping PBR Interfaces")
+
+    router_list = tgen.routers().values()
+    for router in router_list:
+        # Flap interface to see if route-map properties are intact
+        # Shutdown interface
+        dut = "r1"
+        for i in range(5):
+            intf = "r1-eth{}".format(i)
+
+            # Down and back again
+            shutdown_bringup_interface(tgen, dut, intf, False)
+            shutdown_bringup_interface(tgen, dut, intf, True)
+
+        intf_file = "{}/{}/pbr-interface.json".format(CWD, router.name)
+        logger.info(intf_file)
+
+        # Read expected result from file
+        expected = json.loads(open(intf_file).read())
+
+        # Actual output from router
+        actual = router.vtysh_cmd("show pbr interface json", isjson=True)
+        assertmsg = '"show pbr interface" mismatches on {}'.format(router.name)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
 

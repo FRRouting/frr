@@ -1,14 +1,36 @@
 [
   {
     "name":"AKIHABARA",
-    "valid":true,
+    "valid":false,
     "policies":[
       {
         "sequenceNumber":5,
-        "vrfUnchanged":true,
-        "installed":false,
+        "vrfUnchanged":false,
+        "installed":true,
         "installedReason":"Valid",
+        "nexthopGroup": {
+          "name":"C",
+          "installed":true,
+          "installedInternally":1
+        },
         "matchDst":"192.168.4.0\/24"
+      },
+      {
+        "sequenceNumber":10,
+        "vrfUnchanged":false,
+        "installed":true,
+        "installedReason":"Invalid Src or Dst",
+        "nexthopGroup":{
+          "name":"C",
+          "installed":true,
+          "installedInternally":1
+        }
+      },
+      {
+        "sequenceNumber":15,
+        "vrfUnchanged":false,
+        "installed":false,
+        "installedReason":"No Nexthops"
       }
     ]
   },
@@ -18,10 +40,15 @@
     "policies":[
       {
         "sequenceNumber":5,
-        "vrfUnchanged":true,
-        "installed":false,
+        "vrfUnchanged":false,
+        "installed":true,
         "installedReason":"Valid",
-        "matchDst":"c0ff:ee::\/64"
+        "matchDst":"c0ff:ee::\/64",
+        "nexthopGroup":{
+          "name":"D",
+          "installed":true,
+          "installedInternally":1
+        }
       },
       {
         "sequenceNumber":10,
