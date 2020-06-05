@@ -100,14 +100,14 @@ def setup_module(mod):
                'ip link set bridge-101 master {}-vrf-101',
                'ip link set dev bridge-101 up',
                'ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192.168.100.41',
-               'brctl addif bridge-101 vxlan-101',
+               'ip link set dev vxlan-101 master bridge-101',
                'ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off']
 
     cmds_r1_netns_method3 = ['ip link add name vxlan-{1} type vxlan id {1} dstport 4789 dev {0}-eth0 local 192.168.100.21',
                              'ip link set dev vxlan-{1} netns {0}-vrf-{1}',
                              'ip netns exec {0}-vrf-{1} ip li set dev lo up',
-                             'ip netns exec {0}-vrf-{1} brctl addbr bridge-{1}',
-                             'ip netns exec {0}-vrf-{1} brctl addif bridge-{1} vxlan-{1}',
+                             'ip netns exec {0}-vrf-{1} ip link add name bridge-{1} up type bridge stp_state 0',
+                             'ip netns exec {0}-vrf-{1} ip link set dev vxlan-{1} master bridge-{1}',
                              'ip netns exec {0}-vrf-{1} ip link set bridge-{1} up',
                              'ip netns exec {0}-vrf-{1} ip link set vxlan-{1} up']
 
