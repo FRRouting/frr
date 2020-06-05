@@ -993,6 +993,23 @@ extern int nb_notification_send(const char *xpath, struct list *arguments);
 extern void nb_running_set_entry(const struct lyd_node *dnode, void *entry);
 
 /*
+ * Move an entire tree of user pointer nodes.
+ *
+ * Suppose we have xpath A/B/C/D, with user pointers associated to C and D. We
+ * need to move B to be under Z, so the new xpath is Z/B/C/D. Because user
+ * pointers are indexed with their absolute path, We need to move all user
+ * pointers at and below B to their new absolute paths; this function does
+ * that.
+ *
+ * xpath_from
+ *    base xpath of tree to move (A/B)
+ *
+ * xpath_to
+ *    base xpath of new location of tree (Z/B)
+ */
+extern void nb_running_move_tree(const char *xpath_from, const char *xpath_to);
+
+/*
  * Unset the user pointer associated to a configuration node.
  *
  * This should be called by northbound 'destroy' callbacks in the NB_EV_APPLY

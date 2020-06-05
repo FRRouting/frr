@@ -30,6 +30,7 @@
 #include "northbound.h"
 #include "northbound_cli.h"
 #include "northbound_db.h"
+#include "frrstr.h"
 
 DEFINE_MTYPE_STATIC(LIB, NB_NODE, "Northbound Node")
 DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Configuration")
@@ -1787,6 +1788,29 @@ void nb_running_set_entry(const struct lyd_node *dnode, void *entry)
 	config = hash_get(running_config_entries, &s,
 			  running_config_entry_alloc);
 	config->entry = entry;
+}
+
+void nb_running_move_tree(const char *xpath_from, const char *xpath_to)
+{
+	struct nb_config_entry *entry;
+	struct list *entries = hash_to_list(running_config_entries);
+	struct listnode *ln;
+
+	for (ALL_LIST_ELEMENTS_RO(entries, ln, entry)) {
+		if (!frrstr_startswith(entry->xpath, xpath_from))
+			continue;
+
+		hash_release(running_config_entries, entry);
+
+		char *newpath =
+			frrstr_replace(entry->xpath, xpath_from, xpath_to);
+		strlcpy(entry->xpath, newpath, sizeof(entry->xpath));
+		XFREE(MTYPE_TMP, newpath);
+
+		hash_get(running_config_entries, entry, hash_alloc_intern);
+	}
+
+	list_delete(&entries);
 }
 
 static void *nb_running_unset_entry_helper(const struct lyd_node *dnode)
