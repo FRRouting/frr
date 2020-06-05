@@ -769,12 +769,9 @@ static int lib_prefix_list_entry_create(struct nb_cb_create_args *args)
 {
 	struct prefix_list_entry *ple;
 	struct prefix_list *pl;
-	struct prefix p;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-
-	memset(&p, 0, sizeof(p));
 
 	pl = nb_running_get_entry(args->dnode, NULL, true);
 	ple = prefix_list_entry_new();
