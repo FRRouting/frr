@@ -61,26 +61,14 @@ class NetworkTopo(Topo):
 
         tgen = get_topogen(self)
 
+        # Populate routers
         for routern in range(1, 2):
             tgen.add_router("r{}".format(routern))
 
-        # On main router
-        # First switch is for a dummy interface (for local network)
-        switch = tgen.add_switch("sw1")
-        switch.add_link(tgen.gears["r1"])
-
-        # Switches for PBR
-        # switch 2 switch is for connection to PBR router
-        switch = tgen.add_switch("sw2")
-        switch.add_link(tgen.gears["r1"])
-
-        # switch 4 is stub on remote PBR router
-        switch = tgen.add_switch("sw4")
-        switch.add_link(tgen.gears["r1"])
-
-        # switch 3 is between PBR routers
-        switch = tgen.add_switch("sw3")
-        switch.add_link(tgen.gears["r1"])
+        # Populate switches
+        for switchn in range(1, 6):
+            switch = tgen.add_switch("sw{}".format(switchn))
+            switch.add_link(tgen.gears["r1"])
 
 
 #####################################################
@@ -95,7 +83,6 @@ def setup_module(module):
     tgen = Topogen(NetworkTopo, module.__name__)
     tgen.start_topology()
 
-    # This is a sample of configuration loading.
     router_list = tgen.routers()
     for rname, router in router_list.iteritems():
         router.load_config(
@@ -106,7 +93,7 @@ def setup_module(module):
         )
 
     tgen.start_router()
-    #gen.mininet_cli()
+
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
@@ -141,19 +128,19 @@ def test_pbr_data():
     router_list = tgen.routers().values()
     for router in router_list:
         intf_file = "{}/{}/pbr-interface.json".format(CWD, router.name)
-
         logger.info(intf_file)
+
         # Read expected result from file
         expected = json.loads(open(intf_file).read())
 
         # Actual output from router
         actual = router.vtysh_cmd("show pbr interface json", isjson=True)
-
         assertmsg = '"show pbr interface" mismatches on {}'.format(router.name)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
         map_file = "{}/{}/pbr-map.json".format(CWD, router.name)
         logger.info(map_file)
+
         # Read expected result from file
         expected = json.loads(open(map_file).read())
 
@@ -164,7 +151,8 @@ def test_pbr_data():
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
         nexthop_file = "{}/{}/pbr-nexthop-groups.json".format(CWD, router.name)
-        
+        logger.info(nexthop_file)
+
         # Read expected result from file
         expected = json.loads(open(nexthop_file).read())
 
@@ -174,7 +162,7 @@ def test_pbr_data():
         assertmsg = '"show pbr nexthop-groups" mismatches on {}'.format(router.name)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
-

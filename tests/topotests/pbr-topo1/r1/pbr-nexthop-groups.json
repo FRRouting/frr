@@ -1,6 +1,16 @@
 [
   {
-    "id":10000,
+    "name":"ASAKUSA10",
+    "valid":true,
+    "installed":true,
+    "nexthops":[
+      {
+        "nexthop":"c0ff:ee::1",
+        "valid":true
+      }
+    ]
+  },
+  {
     "name":"A",
     "valid":true,
     "installed":true,
@@ -20,19 +30,44 @@
     ]
   },
   {
-    "id":10002,
-    "name":"C",
+    "name":"D",
     "valid":true,
     "installed":true,
     "nexthops":[
       {
-        "nexthop":"192.168.1.44",
+        "nexthop":"c0ff:ee::3",
+        "valid":true
+      },
+      {
+        "nexthop":"c0ff:ee::2",
+        "valid":true
+      },
+      {
+        "nexthop":"c0ff:ee::1",
         "valid":true
       }
     ]
   },
   {
-    "id":10001,
+    "name":"C",
+    "valid":true,
+    "installed":true,
+    "nexthops":[
+      {
+        "nexthop":"192.168.4.3",
+        "valid":true
+      },
+      {
+        "nexthop":"192.168.4.2",
+        "valid":true
+      },
+      {
+        "nexthop":"192.168.4.1",
+        "valid":true
+      }
+    ]
+  },
+  {
     "name":"B",
     "valid":false,
     "installed":false,
@@ -44,7 +79,6 @@
     ]
   },
   {
-    "id":10003,
     "name":"EVA5",
     "valid":true,
     "installed":true,
