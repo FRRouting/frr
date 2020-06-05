@@ -47,7 +47,7 @@ prefix_list_length_validate(const struct lyd_node *dnode)
 	struct prefix p;
 	uint8_t le, ge;
 
-	if (type == 0 /* ipv4 */) {
+	if (type == YPLT_IPV4) {
 		yang_dnode_get_prefix(&p, dnode, "../ipv4-prefix");
 		xpath_le = "../ipv4-prefix-length-lesser-or-equal";
 		xpath_ge = "../ipv4-prefix-length-greater-or-equal";
@@ -498,13 +498,13 @@ static int lib_access_list_create(struct nb_cb_create_args *args)
 	acl_name = yang_dnode_get_string(args->dnode, "./name");
 
 	switch (type) {
-	case 0: /* ipv4 */
+	case YALT_IPV4:
 		acl = access_list_get(AFI_IP, acl_name);
 		break;
-	case 1: /* ipv6 */
+	case YALT_IPV6:
 		acl = access_list_get(AFI_IP6, acl_name);
 		break;
-	case 2: /* mac */
+	case YALT_MAC:
 		acl = access_list_get(AFI_L2VPN, acl_name);
 		break;
 	}
@@ -723,13 +723,13 @@ static int lib_access_list_entry_any_create(struct nb_cb_create_args *args)
 
 	type = yang_dnode_get_enum(args->dnode, "../../type");
 	switch (type) {
-	case 0: /* ipv4 */
+	case YALT_IPV4:
 		fz->prefix.family = AF_INET;
 		break;
-	case 1: /* ipv6 */
+	case YALT_IPV6:
 		fz->prefix.family = AF_INET6;
 		break;
-	case 2: /* mac */
+	case YALT_MAC:
 		fz->prefix.family = AF_ETHERNET;
 		break;
 	}
@@ -876,7 +876,7 @@ static int lib_prefix_list_entry_destroy(struct nb_cb_destroy_args *args)
 static int lib_prefix_list_entry_action_modify(struct nb_cb_modify_args *args)
 {
 	struct prefix_list_entry *ple;
-	const char *action_str;
+	int action_type;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -886,8 +886,8 @@ static int lib_prefix_list_entry_action_modify(struct nb_cb_modify_args *args)
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
 
-	action_str = yang_dnode_get_string(args->dnode, NULL);
-	if (strcmp(action_str, "permit") == 0)
+	action_type = yang_dnode_get_enum(args->dnode, NULL);
+	if (action_type == YPLA_PERMIT)
 		ple->type = PREFIX_PERMIT;
 	else
 		ple->type = PREFIX_DENY;
@@ -1137,12 +1137,12 @@ static int lib_prefix_list_entry_any_create(struct nb_cb_create_args *args)
 
 	type = yang_dnode_get_enum(args->dnode, "../../type");
 	switch (type) {
-	case 0: /* ipv4 */
+	case YPLT_IPV4:
 		ple->prefix.family = AF_INET;
 		ple->ge = 0;
 		ple->le = IPV4_MAX_BITLEN;
 		break;
-	case 1: /* ipv6 */
+	case YPLT_IPV6:
 		ple->prefix.family = AF_INET6;
 		ple->ge = 0;
 		ple->le = IPV6_MAX_BITLEN;

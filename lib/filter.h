@@ -148,6 +148,24 @@ struct filter *filter_lookup_zebra(struct access_list *access,
 
 extern const struct frr_yang_module_info frr_filter_info;
 
+
+/* filter_nb.c */
+enum yang_access_list_type {
+	YALT_IPV4 = 0,
+	YALT_IPV6 = 1,
+	YALT_MAC = 2,
+};
+
+enum yang_prefix_list_type {
+	YPLT_IPV4 = 0,
+	YPLT_IPV6 = 1,
+};
+
+enum yang_prefix_list_action {
+	YPLA_DENY = 0,
+	YPLA_PERMIT = 1,
+};
+
 /* filter_cli.c */
 struct lyd_node;
 struct vty;

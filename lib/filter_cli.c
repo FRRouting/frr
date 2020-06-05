@@ -1161,14 +1161,14 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 
 	is_any = yang_dnode_exists(dnode, "./any");
 	switch (type) {
-	case 0: /* ipv4 */
+	case YALT_IPV4:
 		if (is_any)
 			break;
 
 		yang_dnode_get_prefix(&p, dnode, "./ipv4-prefix");
 		is_exact = yang_dnode_get_bool(dnode, "./ipv4-exact-match");
 		break;
-	case 1: /* ipv6 */
+	case YALT_IPV6: /* ipv6 */
 		vty_out(vty, "ipv6 ");
 		if (is_any)
 			break;
@@ -1176,7 +1176,7 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_prefix(&p, dnode, "./ipv6-prefix");
 		is_exact = yang_dnode_get_bool(dnode, "./ipv6-exact-match");
 		break;
-	case 2: /* mac */
+	case YALT_MAC: /* mac */
 		vty_out(vty, "mac ");
 		if (is_any)
 			break;
@@ -1212,12 +1212,12 @@ void access_list_remark_show(struct vty *vty, struct lyd_node *dnode,
 	int type = yang_dnode_get_enum(dnode, "../type");
 
 	switch (type) {
-	case 0: /* ipv4 */
+	case YALT_IPV4:
 		break;
-	case 1: /* ipv6 */
+	case YALT_IPV6:
 		vty_out(vty, "ipv6 ");
 		break;
-	case 2: /* mac */
+	case YALT_MAC:
 		vty_out(vty, "mac ");
 		break;
 	}
@@ -1693,7 +1693,7 @@ void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
 
 	is_any = yang_dnode_exists(dnode, "./any");
 	switch (type) {
-	case 0: /* ipv4 */
+	case YPLT_IPV4:
 		if (!is_any)
 			yang_dnode_get_prefix(&p, dnode, "./ipv4-prefix");
 		if (yang_dnode_exists(dnode,
@@ -1707,7 +1707,7 @@ void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
 
 		vty_out(vty, "ip ");
 		break;
-	case 1: /* ipv6 */
+	case YPLT_IPV6:
 		if (!is_any)
 			yang_dnode_get_prefix(&p, dnode, "ipv6-prefix");
 		if (yang_dnode_exists(dnode,
@@ -1748,10 +1748,10 @@ void prefix_list_remark_show(struct vty *vty, struct lyd_node *dnode,
 	int type = yang_dnode_get_enum(dnode, "../type");
 
 	switch (type) {
-	case 0: /* ipv4 */
+	case YPLT_IPV4:
 		vty_out(vty, "ip ");
 		break;
-	case 1: /* ipv6 */
+	case YPLT_IPV6:
 		vty_out(vty, "ipv6 ");
 		break;
 	}
