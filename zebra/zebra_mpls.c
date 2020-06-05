@@ -1258,8 +1258,7 @@ static zebra_nhlfe_t *nhlfe_alloc(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 	zebra_nhlfe_t *nhlfe;
 	struct nexthop *nexthop;
 
-	if (!lsp)
-		return NULL;
+	assert(lsp);
 
 	nhlfe = XCALLOC(MTYPE_NHLFE, sizeof(zebra_nhlfe_t));
 
@@ -1268,10 +1267,6 @@ static zebra_nhlfe_t *nhlfe_alloc(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 	nhlfe->distance = lsp_distance(lsp_type);
 
 	nexthop = nexthop_new();
-	if (!nexthop) {
-		XFREE(MTYPE_NHLFE, nhlfe);
-		return NULL;
-	}
 
 	nexthop_add_labels(nexthop, lsp_type, num_labels, labels);
 
@@ -1322,8 +1317,7 @@ static zebra_nhlfe_t *nhlfe_add(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 			    labels);
 
 	/* Enqueue to LSP, at head of list. */
-	if (nhlfe)
-		nhlfe_list_add_head(&lsp->nhlfe_list, nhlfe);
+	nhlfe_list_add_head(&lsp->nhlfe_list, nhlfe);
 
 	return nhlfe;
 }
@@ -1351,8 +1345,7 @@ static zebra_nhlfe_t *nhlfe_backup_add(zebra_lsp_t *lsp,
 	SET_FLAG(nhlfe->flags, NHLFE_FLAG_IS_BACKUP);
 
 	/* Enqueue to LSP, at tail of list. */
-	if (nhlfe)
-		nhlfe_list_add_tail(&lsp->backup_nhlfe_list, nhlfe);
+	nhlfe_list_add_tail(&lsp->backup_nhlfe_list, nhlfe);
 
 	return nhlfe;
 }
