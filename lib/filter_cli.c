@@ -186,7 +186,6 @@ DEFPY(
 	char ipmask[64];
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
-	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -206,25 +205,17 @@ DEFPY(
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_value, sizeof(xpath_value), "%s/action", xpath_entry);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, action);
-
+	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
 	if (host_str != NULL && mask_str == NULL) {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/host",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, host_str);
+		nb_cli_enqueue_change(vty, "./host", NB_OP_MODIFY, host_str);
 	} else if (host_str != NULL && mask_str != NULL) {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/network",
-			 xpath_entry);
 		concat_addr_mask_v4(host_str, mask_str, ipmask, sizeof(ipmask));
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ipmask);
+		nb_cli_enqueue_change(vty, "./network", NB_OP_MODIFY, ipmask);
 	} else {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/any",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
 DEFPY(
@@ -310,7 +301,6 @@ DEFPY(
 	char ipmask[64];
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
-	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -330,42 +320,31 @@ DEFPY(
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_value, sizeof(xpath_value), "%s/action", xpath_entry);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, action);
-
+	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
 	if (src_str != NULL && src_mask_str == NULL) {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/host",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, src_str);
+		nb_cli_enqueue_change(vty, "./host", NB_OP_MODIFY, src_str);
 	} else if (src_str != NULL && src_mask_str != NULL) {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/network",
-			 xpath_entry);
 		concat_addr_mask_v4(src_str, src_mask_str, ipmask,
 				    sizeof(ipmask));
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ipmask);
+		nb_cli_enqueue_change(vty, "./network", NB_OP_MODIFY, ipmask);
 	} else {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/any",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
 	if (dst_str != NULL && dst_mask_str == NULL) {
-		snprintf(xpath_value, sizeof(xpath_value),
-			 "%s/destination-host", xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, src_str);
+		nb_cli_enqueue_change(vty, "./destination-host", NB_OP_MODIFY,
+				      src_str);
 	} else if (dst_str != NULL && dst_mask_str != NULL) {
-		snprintf(xpath_value, sizeof(xpath_value),
-			 "%s/destination-network", xpath_entry);
 		concat_addr_mask_v4(dst_str, dst_mask_str, ipmask,
 				    sizeof(ipmask));
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ipmask);
+		nb_cli_enqueue_change(vty, "./destination-network",
+				      NB_OP_MODIFY, ipmask);
 	} else {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/destination-any",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./destination-any", NB_OP_CREATE,
+				      NULL);
 	}
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
 DEFPY(
@@ -522,16 +501,14 @@ DEFPY(
 	int rv;
 	char *remark;
 	char xpath[XPATH_MAXLEN];
-	char xpath_remark[XPATH_MAXLEN + 32];
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list-legacy[number='%s']", number_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_remark, sizeof(xpath_remark), "%s/remark", xpath);
 	remark = argv_concat(argv, argc, 3);
-	nb_cli_enqueue_change(vty, xpath_remark, NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
+	rv = nb_cli_apply_changes(vty, xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -589,7 +566,6 @@ DEFPY(
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
-	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -609,26 +585,17 @@ DEFPY(
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_value, sizeof(xpath_value), "%s/action", xpath_entry);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, action);
-
+	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
 	if (prefix_str != NULL) {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/ipv4-prefix",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./ipv4-prefix", NB_OP_MODIFY,
 				      prefix_str);
-
-		snprintf(xpath_value, sizeof(xpath_value),
-			 "%s/ipv4-exact-match", xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./ipv4-exact-match", NB_OP_MODIFY,
 				      exact ? "true" : "false");
 	} else {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/any",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
 DEFPY(
@@ -715,16 +682,14 @@ DEFPY(
 	int rv;
 	char *remark;
 	char xpath[XPATH_MAXLEN];
-	char xpath_remark[XPATH_MAXLEN + 32];
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_remark, sizeof(xpath_remark), "%s/remark", xpath);
 	remark = argv_concat(argv, argc, 3);
-	nb_cli_enqueue_change(vty, xpath_remark, NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
+	rv = nb_cli_apply_changes(vty, xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -772,7 +737,6 @@ DEFPY(
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
-	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -792,26 +756,17 @@ DEFPY(
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_value, sizeof(xpath_value), "%s/action", xpath_entry);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, action);
-
+	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
 	if (prefix_str != NULL) {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/ipv6-prefix",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./ipv6-prefix", NB_OP_MODIFY,
 				      prefix_str);
-
-		snprintf(xpath_value, sizeof(xpath_value),
-			 "%s/ipv6-exact-match", xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./ipv6-exact-match", NB_OP_MODIFY,
 				      exact ? "true" : "false");
 	} else {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/any",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
 DEFPY(
@@ -901,16 +856,14 @@ DEFPY(
 	int rv;
 	char *remark;
 	char xpath[XPATH_MAXLEN];
-	char xpath_remark[XPATH_MAXLEN + 32];
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv6'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_remark, sizeof(xpath_remark), "%s/remark", xpath);
 	remark = argv_concat(argv, argc, 4);
-	nb_cli_enqueue_change(vty, xpath_remark, NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
+	rv = nb_cli_apply_changes(vty, xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -959,7 +912,6 @@ DEFPY(
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
-	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -979,20 +931,14 @@ DEFPY(
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_value, sizeof(xpath_value), "%s/action", xpath_entry);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, action);
-
+	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
 	if (mac_str != NULL) {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/mac",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, mac_str);
+		nb_cli_enqueue_change(vty, "./mac", NB_OP_MODIFY, mac_str);
 	} else {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/any",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
 DEFPY(
@@ -1081,16 +1027,14 @@ DEFPY(
 	int rv;
 	char *remark;
 	char xpath[XPATH_MAXLEN];
-	char xpath_remark[XPATH_MAXLEN + 32];
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='mac'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_remark, sizeof(xpath_remark), "%s/remark", xpath);
 	remark = argv_concat(argv, argc, 4);
-	nb_cli_enqueue_change(vty, xpath_remark, NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
+	rv = nb_cli_apply_changes(vty, xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -1316,7 +1260,6 @@ DEFPY(
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
-	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
@@ -1336,36 +1279,24 @@ DEFPY(
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_value, sizeof(xpath_value), "%s/action", xpath_entry);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, action);
-
+	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
 	if (prefix_str != NULL) {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/ipv4-prefix",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./ipv4-prefix", NB_OP_MODIFY,
 				      prefix_str);
 
-		if (ge_str) {
-			snprintf(xpath_value, sizeof(xpath_value),
-				 "%s/ipv4-prefix-length-greater-or-equal",
-				 xpath_entry);
-			nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-					      ge_str);
-		}
-		if (le_str) {
-			snprintf(xpath_value, sizeof(xpath_value),
-				 "%s/ipv4-prefix-length-lesser-or-equal",
-				 xpath_entry);
-			nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-					      le_str);
-		}
+		if (ge_str)
+			nb_cli_enqueue_change(
+				vty, "./ipv4-prefix-length-greater-or-equal",
+				NB_OP_MODIFY, ge_str);
+		if (le_str)
+			nb_cli_enqueue_change(
+				vty, "./ipv4-prefix-length-lesser-or-equal",
+				NB_OP_MODIFY, le_str);
 	} else {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/any",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
 DEFPY(
@@ -1429,16 +1360,14 @@ DEFPY(
 	int rv;
 	char *remark;
 	char xpath[XPATH_MAXLEN];
-	char xpath_remark[XPATH_MAXLEN + 32];
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_remark, sizeof(xpath_remark), "%s/remark", xpath);
 	remark = argv_concat(argv, argc, 4);
-	nb_cli_enqueue_change(vty, xpath_remark, NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
+	rv = nb_cli_apply_changes(vty, xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -1491,7 +1420,6 @@ DEFPY(
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
-	char xpath_value[XPATH_MAXLEN + 256];
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
@@ -1511,36 +1439,24 @@ DEFPY(
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_value, sizeof(xpath_value), "%s/action", xpath_entry);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, action);
-
+	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
 	if (prefix_str != NULL) {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/ipv6-prefix",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./ipv6-prefix", NB_OP_MODIFY,
 				      prefix_str);
 
-		if (ge_str) {
-			snprintf(xpath_value, sizeof(xpath_value),
-				 "%s/ipv6-prefix-length-greater-or-equal",
-				 xpath_entry);
-			nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-					      ge_str);
-		}
-		if (le_str) {
-			snprintf(xpath_value, sizeof(xpath_value),
-				 "%s/ipv6-prefix-length-lesser-or-equal",
-				 xpath_entry);
-			nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-					      le_str);
-		}
+		if (ge_str)
+			nb_cli_enqueue_change(
+				vty, "./ipv6-prefix-length-greater-or-equal",
+				NB_OP_MODIFY, ge_str);
+		if (le_str)
+			nb_cli_enqueue_change(
+				vty, "./ipv6-prefix-length-lesser-or-equal",
+				NB_OP_MODIFY, le_str);
 	} else {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/any",
-			 xpath_entry);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
 DEFPY(
@@ -1604,16 +1520,14 @@ DEFPY(
 	int rv;
 	char *remark;
 	char xpath[XPATH_MAXLEN];
-	char xpath_remark[XPATH_MAXLEN + 32];
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_remark, sizeof(xpath_remark), "%s/remark", xpath);
 	remark = argv_concat(argv, argc, 4);
-	nb_cli_enqueue_change(vty, xpath_remark, NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
+	rv = nb_cli_apply_changes(vty, xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
