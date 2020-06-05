@@ -182,7 +182,6 @@ DEFPY(
 	"Wildcard bits\n"
 	"Any source host\n")
 {
-	int rv;
 	int64_t sseq;
 	char ipmask[64];
 	char xpath[XPATH_MAXLEN];
@@ -196,10 +195,6 @@ DEFPY(
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list-legacy[number='%s']", number_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv != CMD_SUCCESS)
-		return rv;
-
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
@@ -311,7 +306,6 @@ DEFPY(
 	"Destination address to match\n"
 	"Any destination host\n")
 {
-	int rv;
 	int64_t sseq;
 	char ipmask[64];
 	char xpath[XPATH_MAXLEN];
@@ -325,10 +319,6 @@ DEFPY(
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list-legacy[number='%s']", number_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv != CMD_SUCCESS)
-		return rv;
-
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
@@ -596,7 +586,6 @@ DEFPY(
 	"Exact match of the prefixes\n"
 	"Match any IPv4\n")
 {
-	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
@@ -609,10 +598,6 @@ DEFPY(
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv != CMD_SUCCESS)
-		return rv;
-
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
@@ -784,7 +769,6 @@ DEFPY(
 	"Exact match of the prefixes\n"
 	"Match any IPv6\n")
 {
-	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
@@ -797,10 +781,6 @@ DEFPY(
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv6'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv != CMD_SUCCESS)
-		return rv;
-
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
@@ -976,7 +956,6 @@ DEFPY(
 	"MAC address\n"
 	"Match any MAC address\n")
 {
-	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
@@ -989,10 +968,6 @@ DEFPY(
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='mac'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv != CMD_SUCCESS)
-		return rv;
-
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
@@ -1338,7 +1313,6 @@ DEFPY(
 	"Maximum prefix length to be matched\n"
 	"Maximum prefix length\n")
 {
-	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
@@ -1351,10 +1325,6 @@ DEFPY(
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv != CMD_SUCCESS)
-		return rv;
-
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
@@ -1518,7 +1488,6 @@ DEFPY(
 	"Minimum prefix length to be matched\n"
 	"Minimum prefix length\n")
 {
-	int rv;
 	int64_t sseq;
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
@@ -1531,10 +1500,6 @@ DEFPY(
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv != CMD_SUCCESS)
-		return rv;
-
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
