@@ -180,8 +180,6 @@ lib_access_list_legacy_remark_destroy(struct nb_cb_destroy_args *args)
 	if (acl->remark)
 		XFREE(MTYPE_TMP, acl->remark);
 
-	acl->remark = NULL;
-
 	return NB_OK;
 }
 
@@ -824,8 +822,6 @@ static int lib_prefix_list_remark_destroy(struct nb_cb_destroy_args *args)
 	pl = nb_running_get_entry(args->dnode, NULL, true);
 	if (pl->desc)
 		XFREE(MTYPE_TMP, pl->desc);
-
-	pl->desc = NULL;
 
 	return NB_OK;
 }
