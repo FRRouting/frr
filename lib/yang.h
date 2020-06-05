@@ -48,6 +48,8 @@ extern "C" {
 struct yang_module_embed {
 	struct yang_module_embed *next;
 	const char *mod_name, *mod_rev;
+	const char *sub_mod_name;
+	const char *sub_mod_rev;
 	const char *data;
 	LYS_INFORMAT format;
 };

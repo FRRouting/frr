@@ -20,6 +20,8 @@ if not os.path.isdir(outdir):
 # to make it even harder.
 
 re_name = re.compile(r'\bmodule\s+([^\s]+)\s+\{')
+re_subname = re.compile(r'\bsubmodule\s+([^\s]+)\s+\{')
+re_mainname = re.compile(r'\bbelongs-to\s+([^\s]+)\s+\{')
 re_rev = re.compile(r'\brevision\s+([\d-]+)\s+\{')
 
 
@@ -34,6 +36,8 @@ static const char model[] =
 static struct yang_module_embed embed = {
 \t.mod_name = "%s",
 \t.mod_rev = "%s",
+\t.sub_mod_name = "%s",
+\t.sub_mod_rev = "%s",
 \t.data = model,
 \t.format = %s,
 };
@@ -62,6 +66,10 @@ def escape(line):
 with open(inname, 'r') as fd:
     data = fd.read()
 
+sub_name = ""
+rev = ""
+sub_rev = ""
+
 # XML support isn't actively used currently, but it's here in case the need
 # arises.  It does avoid the regex'ing.
 if '<?xml' in data:
@@ -71,8 +79,15 @@ if '<?xml' in data:
     rev = xml.find('{urn:ietf:params:xml:ns:yang:yin:1}revision').get('date')
     fmt = 'LYS_YIN'
 else:
-    name = re_name.search(data).group(1)
-    rev = re_rev.search(data).group(1)
+    search_name = re_name.search(data)
+    if search_name :
+       name = search_name.group(1)
+       rev = re_rev.search(data).group(1)
+    else :
+       search_name = re_subname.search(data)
+       sub_name = search_name.group(1)
+       name = re_mainname.search(data).group(1)
+       sub_rev = re_rev.search(data).group(1)
     fmt = 'LYS_YANG'
 
 if name is None or rev is None:
@@ -82,4 +97,4 @@ lines = [escape(row) for row in data.split('\n')]
 text = '\\n"\n\t"'.join(lines)
 
 with open(outname, 'w') as fd:
-    fd.write(template % (text, escape(name), escape(rev), fmt))
+    fd.write(template % (text, escape(name), escape(rev), escape(sub_name), escape(sub_rev), fmt))
