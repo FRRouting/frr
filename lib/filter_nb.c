@@ -531,19 +531,6 @@ static int lib_access_list_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-filter:lib/access-list/remark
- */
-static int lib_access_list_remark_modify(struct nb_cb_modify_args *args)
-{
-	return lib_access_list_legacy_remark_modify(args);
-}
-
-static int lib_access_list_remark_destroy(struct nb_cb_destroy_args *args)
-{
-	return lib_access_list_legacy_remark_destroy(args);
-}
-
-/*
  * XPath: /frr-filter:lib/access-list/entry
  */
 static int lib_access_list_entry_create(struct nb_cb_create_args *args)
@@ -580,14 +567,6 @@ static int lib_access_list_entry_destroy(struct nb_cb_destroy_args *args)
 	access_list_filter_delete(acl, f);
 
 	return NB_OK;
-}
-
-/*
- * XPath: /frr-filter:lib/access-list/entry/action
- */
-static int lib_access_list_entry_action_modify(struct nb_cb_modify_args *args)
-{
-	return lib_access_list_legacy_entry_action_modify(args);
 }
 
 /*
@@ -658,49 +637,6 @@ lib_access_list_entry_ipv4_exact_match_destroy(struct nb_cb_destroy_args *args)
 	fz->exact = 0;
 
 	return NB_OK;
-}
-
-/*
- * XPath: /frr-filter:lib/access-list/entry/ipv6-prefix
- */
-static int
-lib_access_list_entry_ipv6_prefix_modify(struct nb_cb_modify_args *args)
-{
-	return lib_access_list_entry_ipv4_prefix_modify(args);
-}
-
-static int
-lib_access_list_entry_ipv6_prefix_destroy(struct nb_cb_destroy_args *args)
-{
-	return lib_access_list_entry_ipv4_prefix_destroy(args);
-}
-
-/*
- * XPath: /frr-filter:lib/access-list/entry/ipv6-exact-match
- */
-static int
-lib_access_list_entry_ipv6_exact_match_modify(struct nb_cb_modify_args *args)
-{
-	return lib_access_list_entry_ipv4_exact_match_modify(args);
-}
-
-static int
-lib_access_list_entry_ipv6_exact_match_destroy(struct nb_cb_destroy_args *args)
-{
-	return lib_access_list_entry_ipv4_exact_match_destroy(args);
-}
-
-/*
- * XPath: /frr-filter:lib/access-list/entry/mac
- */
-static int lib_access_list_entry_mac_modify(struct nb_cb_modify_args *args)
-{
-	return lib_access_list_entry_ipv4_prefix_modify(args);
-}
-
-static int lib_access_list_entry_mac_destroy(struct nb_cb_destroy_args *args)
-{
-	return lib_access_list_entry_ipv4_prefix_destroy(args);
 }
 
 /*
@@ -1062,55 +998,6 @@ static int lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_destroy(
 }
 
 /*
- * XPath: /frr-filter:lib/prefix-list/entry/ipv6-prefix
- */
-static int
-lib_prefix_list_entry_ipv6_prefix_modify(struct nb_cb_modify_args *args)
-{
-	return lib_prefix_list_entry_ipv4_prefix_modify(args);
-}
-
-static int
-lib_prefix_list_entry_ipv6_prefix_destroy(struct nb_cb_destroy_args *args)
-{
-	return lib_prefix_list_entry_ipv4_prefix_destroy(args);
-}
-
-/*
- * XPath: /frr-filter:lib/prefix-list/entry/ipv6-prefix-length-greater-or-equal
- */
-static int lib_prefix_list_entry_ipv6_prefix_length_greater_or_equal_modify(
-	struct nb_cb_modify_args *args)
-{
-	return lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_modify(
-		args);
-}
-
-static int lib_prefix_list_entry_ipv6_prefix_length_greater_or_equal_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_destroy(
-		args);
-}
-
-/*
- * XPath: /frr-filter:lib/prefix-list/entry/ipv6-prefix-length-lesser-or-equal
- */
-static int lib_prefix_list_entry_ipv6_prefix_length_lesser_or_equal_modify(
-	struct nb_cb_modify_args *args)
-{
-	return lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_modify(
-		args);
-}
-
-static int lib_prefix_list_entry_ipv6_prefix_length_lesser_or_equal_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_destroy(
-		args);
-}
-
-/*
  * XPath: /frr-filter:lib/prefix-list/entry/any
  */
 static int lib_prefix_list_entry_any_create(struct nb_cb_create_args *args)
@@ -1256,8 +1143,8 @@ const struct frr_yang_module_info frr_filter_info = {
 		{
 			.xpath = "/frr-filter:lib/access-list/remark",
 			.cbs = {
-				.modify = lib_access_list_remark_modify,
-				.destroy = lib_access_list_remark_destroy,
+				.modify = lib_access_list_legacy_remark_modify,
+				.destroy = lib_access_list_legacy_remark_destroy,
 				.cli_show = access_list_remark_show,
 			}
 		},
@@ -1272,7 +1159,7 @@ const struct frr_yang_module_info frr_filter_info = {
 		{
 			.xpath = "/frr-filter:lib/access-list/entry/action",
 			.cbs = {
-				.modify = lib_access_list_entry_action_modify,
+				.modify = lib_access_list_legacy_entry_action_modify,
 			}
 		},
 		{
@@ -1292,22 +1179,22 @@ const struct frr_yang_module_info frr_filter_info = {
 		{
 			.xpath = "/frr-filter:lib/access-list/entry/ipv6-prefix",
 			.cbs = {
-				.modify = lib_access_list_entry_ipv6_prefix_modify,
-				.destroy = lib_access_list_entry_ipv6_prefix_destroy,
+				.modify = lib_access_list_entry_ipv4_prefix_modify,
+				.destroy = lib_access_list_entry_ipv4_prefix_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-filter:lib/access-list/entry/ipv6-exact-match",
 			.cbs = {
-				.modify = lib_access_list_entry_ipv6_exact_match_modify,
-				.destroy = lib_access_list_entry_ipv6_exact_match_destroy,
+				.modify = lib_access_list_entry_ipv4_exact_match_modify,
+				.destroy = lib_access_list_entry_ipv4_exact_match_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-filter:lib/access-list/entry/mac",
 			.cbs = {
-				.modify = lib_access_list_entry_mac_modify,
-				.destroy = lib_access_list_entry_mac_destroy,
+				.modify = lib_access_list_entry_ipv4_prefix_modify,
+				.destroy = lib_access_list_entry_ipv4_prefix_destroy,
 			}
 		},
 		{
@@ -1370,22 +1257,22 @@ const struct frr_yang_module_info frr_filter_info = {
 		{
 			.xpath = "/frr-filter:lib/prefix-list/entry/ipv6-prefix",
 			.cbs = {
-				.modify = lib_prefix_list_entry_ipv6_prefix_modify,
-				.destroy = lib_prefix_list_entry_ipv6_prefix_destroy,
+				.modify = lib_prefix_list_entry_ipv4_prefix_modify,
+				.destroy = lib_prefix_list_entry_ipv4_prefix_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-filter:lib/prefix-list/entry/ipv6-prefix-length-greater-or-equal",
 			.cbs = {
-				.modify = lib_prefix_list_entry_ipv6_prefix_length_greater_or_equal_modify,
-				.destroy = lib_prefix_list_entry_ipv6_prefix_length_greater_or_equal_destroy,
+				.modify = lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_modify,
+				.destroy = lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-filter:lib/prefix-list/entry/ipv6-prefix-length-lesser-or-equal",
 			.cbs = {
-				.modify = lib_prefix_list_entry_ipv6_prefix_length_lesser_or_equal_modify,
-				.destroy = lib_prefix_list_entry_ipv6_prefix_length_lesser_or_equal_destroy,
+				.modify = lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_modify,
+				.destroy = lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_destroy,
 			}
 		},
 		{
