@@ -490,78 +490,38 @@ struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_uptime_get_elem(
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group
- */
-const void *lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_get_next(
-	struct nb_cb_get_next_args *args)
-{
-	struct route_entry *re = (struct route_entry *)args->parent_list_entry;
-	struct nhg_hash_entry *nhe = (struct nhg_hash_entry *)args->list_entry;
-
-	if (nhe == NULL) {
-		nhe = re->nhe;
-		return nhe;
-	}
-	return NULL;
-}
-
-int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_get_keys(
-	struct nb_cb_get_keys_args *args)
-{
-	struct nhg_hash_entry *nhe = (struct nhg_hash_entry *)args->list_entry;
-
-	args->keys->num = 1;
-	snprintfrr(args->keys->key[0], sizeof(args->keys->key[0]), "%" PRIu32,
-		   nhe->id);
-
-	return NB_OK;
-}
-
-const void *lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_lookup_entry(
-	struct nb_cb_lookup_entry_args *args)
-{
-	struct route_entry *re = (struct route_entry *)args->parent_list_entry;
-
-	return re->nhe;
-}
-
-/*
- * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/name
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/id
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_name_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_id_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	struct nhg_hash_entry *nhe = (struct nhg_hash_entry *)args->list_entry;
-	char name[20] = {'\0'};
+	struct route_entry *re = (struct route_entry *)args->list_entry;
 
-	snprintfrr(name, sizeof(name), "%" PRIu32, nhe->id);
-
-	return yang_data_new_string(args->xpath, name);
+	return yang_data_new_uint32(args->xpath, re->nhe->id);
 }
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop
  */
 const void *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_next(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_get_next(
 	struct nb_cb_get_next_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
-	struct nhg_hash_entry *nhe =
-		(struct nhg_hash_entry *)args->parent_list_entry;
+	struct route_entry *re = (struct route_entry *)args->parent_list_entry;
+	struct nhg_hash_entry *nhe = re->nhe;
 
-	if (args->list_entry == NULL)
+	if (args->list_entry == NULL) {
 		nexthop = nhe->nhg.nexthop;
-	else
+	} else
 		nexthop = nexthop_next(nexthop);
 
 	return nexthop;
 }
 
-int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_keys(
+int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_get_keys(
 	struct nb_cb_get_keys_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
@@ -623,7 +583,7 @@ int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_
 }
 
 const void *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_lookup_entry(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_lookup_entry(
 	struct nb_cb_lookup_entry_args *args)
 {
 	struct nhg_hash_entry *nhe;
@@ -697,10 +657,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_look
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/nh-type
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/nh-type
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_nh_type_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_nh_type_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
@@ -730,10 +690,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_nh_t
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/vrf
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/vrf
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_vrf_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_vrf_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
@@ -744,10 +704,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_vrf_
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/gateway
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/gateway
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_gateway_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_gateway_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
@@ -780,10 +740,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_gate
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/interface
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/interface
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_interface_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_interface_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
@@ -798,10 +758,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_inte
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/bh-type
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/bh-type
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_bh_type_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_bh_type_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
@@ -830,10 +790,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_bh_t
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/onlink
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/onlink
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_onlink_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_onlink_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
@@ -846,17 +806,17 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_onli
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry
  */
 const void *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_next(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_get_next(
 	struct nb_cb_get_next_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
 }
 
-int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_keys(
+int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_get_keys(
 	struct nb_cb_get_keys_args *args)
 {
 	/* TODO: implement me. */
@@ -864,7 +824,7 @@ int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_
 }
 
 const void *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_lookup_entry(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_lookup_entry(
 	struct nb_cb_lookup_entry_args *args)
 {
 	/* TODO: implement me. */
@@ -873,10 +833,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/id
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry/id
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_id_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_id_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
@@ -885,10 +845,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/label
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry/label
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_label_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_label_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
@@ -897,10 +857,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/ttl
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry/ttl
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_ttl_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
@@ -909,10 +869,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/traffic-class
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry/traffic-class
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_traffic_class_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
@@ -921,10 +881,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/duplicate
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/duplicate
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_duplicate_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_duplicate_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
@@ -937,10 +897,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_dupl
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/recursive
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/recursive
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_recursive_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_recursive_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
@@ -953,10 +913,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_recu
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/active
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/active
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_active_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_active_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
@@ -969,10 +929,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_acti
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/fib
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/fib
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_fib_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
@@ -985,10 +945,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_
 
 /*
  * XPath:
- * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/weight
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/weight
  */
 struct yang_data *
-lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_weight_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_weight_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;

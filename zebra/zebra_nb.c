@@ -558,117 +558,115 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/id",
 			.cbs = {
-				.get_next = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_get_next,
-				.get_keys = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_get_keys,
-				.lookup_entry = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_lookup_entry,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_id_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/name",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_name_get_elem,
+				.get_next = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_get_next,
+				.get_keys = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_get_keys,
+				.lookup_entry = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_lookup_entry,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/nh-type",
 			.cbs = {
-				.get_next = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_next,
-				.get_keys = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_keys,
-				.lookup_entry = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_lookup_entry,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_nh_type_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/nh-type",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/vrf",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_nh_type_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_vrf_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/vrf",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/gateway",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_vrf_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_gateway_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/gateway",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/interface",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_gateway_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_interface_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/interface",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/bh-type",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_interface_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_bh_type_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/bh-type",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/onlink",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_bh_type_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_onlink_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/onlink",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_onlink_get_elem,
+				.get_next = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_get_next,
+				.get_keys = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_get_keys,
+				.lookup_entry = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_lookup_entry,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry/id",
 			.cbs = {
-				.get_next = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_next,
-				.get_keys = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_keys,
-				.lookup_entry = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_lookup_entry,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_id_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/id",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry/label",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_id_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_label_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/label",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry/ttl",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_label_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_ttl_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/ttl",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry/traffic-class",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_traffic_class_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/traffic-class",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/duplicate",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_duplicate_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/duplicate",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/recursive",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_duplicate_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_recursive_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/recursive",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/active",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_recursive_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_active_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/active",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/fib",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_active_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_fib_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/fib",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/weight",
 			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_get_elem,
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_weight_get_elem,
 			}
 		},
 		{
@@ -711,12 +709,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_source_v6_modify,
 				.destroy = lib_route_map_entry_set_action_source_v6_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/weight",
-			.cbs = {
-				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_weight_get_elem,
 			}
 		},
 		{
