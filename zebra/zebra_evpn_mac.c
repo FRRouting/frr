@@ -2193,8 +2193,8 @@ int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 				mac, old_bgp_ready, new_bgp_ready);
 		}
 
-		/* re-install the entry in the kernel */
-		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
+		/* re-install the inactive entry in the kernel */
+		zebra_evpn_sync_mac_dp_install(mac, true /* set_inactive */,
 					       false /* force_clear_static */,
 					       __func__);
 

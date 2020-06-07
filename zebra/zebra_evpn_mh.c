@@ -2466,7 +2466,8 @@ static void zebra_evpn_local_mac_oper_state_change(struct zebra_evpn_es *es)
 
 		if (es->flags & ZEBRA_EVPNES_OPER_UP) {
 			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
-				zlog_debug("mac %s move to acc %s es %s %s ",
+				zlog_debug("VNI %u mac %s move to acc %s es %s %s ",
+					mac->zevpn->vni,
 					prefix_mac2str(&mac->macaddr, macbuf,
 						sizeof(macbuf)),
 					es->zif->ifp->name,
@@ -2491,7 +2492,8 @@ static void zebra_evpn_local_mac_oper_state_change(struct zebra_evpn_es *es)
 			if (!(es->flags & ZEBRA_EVPNES_NHG_ACTIVE))
 				continue;
 			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
-				zlog_debug("mac %s move to nhg %u es %s %s ",
+				zlog_debug("VNI %u mac %s move to nhg %u es %s %s ",
+					mac->zevpn->vni,
 					prefix_mac2str(&mac->macaddr, macbuf,
 						sizeof(macbuf)),
 					es->nhg_id, es->esi_str,
