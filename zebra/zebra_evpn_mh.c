@@ -2232,6 +2232,69 @@ void zebra_evpn_if_es_print(struct vty *vty, struct zebra_if *zif)
 		vty_out(vty, "%s\n", mh_buf);
 }
 
+static void zebra_evpn_local_mac_oper_state_change(struct zebra_evpn_es *es)
+{
+	zebra_mac_t *mac;
+	struct listnode *node;
+
+	/* If fast-failover is supported by the dataplane via the use
+	 * of an ES backup NHG there is nothing to be done in the
+	 * control plane
+	 */
+	if (!(zmh_info->flags & ZEBRA_EVPN_MH_REDIRECT_OFF))
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		zlog_debug("mac slow-fail on es %s %s ", es->esi_str,
+			   (es->flags & ZEBRA_EVPNES_OPER_UP) ? "up" : "down");
+
+	for (ALL_LIST_ELEMENTS_RO(es->mac_list, node, mac)) {
+		if (!(mac->flags & ZEBRA_MAC_LOCAL)
+		    || !zebra_evpn_mac_is_static(mac))
+			continue;
+
+		if (es->flags & ZEBRA_EVPNES_OPER_UP) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+				zlog_debug(
+					"VNI %u mac %pEA move to acc %s es %s %s ",
+					mac->zevpn->vni,
+					&mac->macaddr,
+					es->zif->ifp->name, es->esi_str,
+					(es->flags & ZEBRA_EVPNES_OPER_UP)
+						? "up"
+						: "down");
+			/* switch the local macs to access port */
+			if (zebra_evpn_sync_mac_dp_install(
+				    mac, false /*set_inactive*/,
+				    false /*force_clear_static*/, __func__)
+			    < 0)
+				/* if the local mac install fails get rid of the
+				 * old rem entry
+				 */
+				zebra_evpn_rem_mac_uninstall(mac->zevpn, mac,
+							     true /*force*/);
+		} else {
+			/* switch the local macs to network port. if there
+			 * is no active NHG we don't bother deleting the MAC;
+			 * that is left up to the dataplane to handle.
+			 */
+			if (!(es->flags & ZEBRA_EVPNES_NHG_ACTIVE))
+				continue;
+			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+				zlog_debug(
+					"VNI %u mac %pEA move to nhg %u es %s %s ",
+					mac->zevpn->vni,
+					&mac->macaddr,
+					es->nhg_id, es->esi_str,
+					(es->flags & ZEBRA_EVPNES_OPER_UP)
+						? "up"
+						: "down");
+			zebra_evpn_rem_mac_install(mac->zevpn, mac,
+						   true /*was_static*/);
+		}
+	}
+}
+
 void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up)
 {
 	struct zebra_evpn_es *es = zif->es_info.es;
