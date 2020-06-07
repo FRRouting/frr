@@ -443,6 +443,32 @@ static void set_rmt_itf_addr(struct ext_itf *exti, struct in_addr rmtif)
 	exti->rmt_itf_addr.value = rmtif;
 }
 
+/* Delete Extended LSA */
+static void ospf_extended_lsa_delete(struct ext_itf *exti)
+{
+
+	/* Process only Active Extended Prefix/Link LSA */
+	if (!CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE))
+		return;
+
+	osr_debug("EXT (%s): Disable %s%s%s-SID on interface %s", __func__,
+		  exti->stype == PREF_SID ? "Prefix" : "",
+		  exti->stype == ADJ_SID ? "Adjacency" : "",
+		  exti->stype == LAN_ADJ_SID ? "LAN-Adjacency" : "",
+		  exti->ifp->name);
+
+	/* Flush LSA if already engaged */
+	if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ENGAGED)) {
+		ospf_ext_lsa_schedule(exti, FLUSH_THIS_LSA);
+		UNSET_FLAG(exti->flags, EXT_LPFLG_LSA_ENGAGED);
+	}
+
+	/* De-activate this Extended Prefix/Link and remove corresponding
+	 * Segment-Routing Prefix-SID or (LAN)-ADJ-SID */
+	exti->flags = EXT_LPFLG_LSA_INACTIVE;
+	ospf_sr_ext_itf_delete(exti);
+}
+
 /*
  * Update Extended prefix SID index for Loopback interface type
  *
@@ -465,12 +491,8 @@ uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
 		return rc;
 
 	if (p != NULL) {
-		if (IS_DEBUG_OSPF_SR)
-			zlog_debug(
-				"EXT (%s): Schedule new prefix %s/%u with "
-				"index %u on interface %s",
-				__func__, inet_ntoa(p->prefix), p->prefixlen,
-				index, ifp->name);
+		osr_debug("EXT (%s): Schedule new prefix %pFX with index %u "
+			  "on interface %s", __func__, p, index, ifp->name);
 
 		/* Set first Extended Prefix then the Prefix SID information */
 		set_ext_prefix(exti, OSPF_PATH_INTRA_AREA, EXT_TLV_PREF_NFLG,
@@ -488,9 +510,8 @@ uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
 					exti, REORIGINATE_THIS_LSA);
 		}
 	} else {
-		if (IS_DEBUG_OSPF_SR)
-			zlog_debug("EXT (%s): Remove prefix for interface %s",
-				   __func__, ifp->name);
+		osr_debug("EXT (%s): Remove prefix for interface %s", __func__,
+			  ifp->name);
 
 		if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ENGAGED)) {
 			ospf_ext_pref_lsa_schedule(exti, FLUSH_THIS_LSA);
@@ -513,15 +534,15 @@ void ospf_ext_update_sr(bool enable)
 	struct listnode *node;
 	struct ext_itf *exti;
 
-	if (IS_DEBUG_OSPF_SR)
-		zlog_debug("EXT (%s): %s Extended LSAs for Segment Routing ",
-			   __func__, enable ? "Enable" : "Disable");
+	osr_debug("EXT (%s): %s Extended LSAs for Segment Routing ", __func__,
+		  enable ? "Enable" : "Disable");
 
 	if (enable) {
 		OspfEXT.enabled = true;
 
 		/* Refresh LSAs if already engaged or originate */
 		for (ALL_LIST_ELEMENTS_RO(OspfEXT.iflist, node, exti)) {
+			/* Skip inactive Extended Link */
 			if (!CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE))
 				continue;
 
@@ -532,17 +553,15 @@ void ospf_ext_update_sr(bool enable)
 						      REORIGINATE_THIS_LSA);
 		}
 	} else {
-		/* Start by Flushing engaged LSAs */
-		for (ALL_LIST_ELEMENTS_RO(OspfEXT.iflist, node, exti)) {
-			if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ENGAGED))
-				ospf_ext_lsa_schedule(exti, FLUSH_THIS_LSA);
-			exti->flags = EXT_LPFLG_LSA_INACTIVE;
-		}
+		/* Start by Removing Extended LSA */
+		for (ALL_LIST_ELEMENTS_RO(OspfEXT.iflist, node, exti))
+			ospf_extended_lsa_delete(exti);
 
 		/* And then disable Extended Link/Prefix */
 		OspfEXT.enabled = false;
 	}
 }
+
 /*
  * -----------------------------------------------------------------------
  * Followings are callback functions against generic Opaque-LSAs handling
@@ -580,10 +599,11 @@ static int ospf_ext_link_del_if(struct interface *ifp)
 
 	exti = lookup_ext_by_ifp(ifp);
 	if (exti != NULL) {
-		struct list *iflist = OspfEXT.iflist;
+		/* Flush LSA and remove Adjacency SID */
+		ospf_extended_lsa_delete(exti);
 
 		/* Dequeue listnode entry from the list. */
-		listnode_delete(iflist, exti);
+		listnode_delete(OspfEXT.iflist, exti);
 
 		XFREE(MTYPE_OSPF_EXT_PARAMS, exti);
 
@@ -616,6 +636,7 @@ static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status)
 
 	/* Reset Extended information if ospf interface goes Down */
 	if (oi->state == ISM_Down) {
+		ospf_extended_lsa_delete(exti);
 		exti->area = NULL;
 		exti->flags = EXT_LPFLG_LSA_INACTIVE;
 		return;
@@ -629,12 +650,12 @@ static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status)
 		exti->instance = get_ext_pref_instance_value();
 		exti->area = oi->area;
 
-		zlog_debug("EXT (%s): Set Prefix SID to interface %s ",
-			   __func__, oi->ifp->name);
+		osr_debug("EXT (%s): Set Prefix SID to interface %s ",
+			  __func__, oi->ifp->name);
 
 		/* Complete SRDB if the interface belongs to a Prefix */
 		if (OspfEXT.enabled)
-			ospf_sr_update_prefix(oi->ifp, oi->address);
+			ospf_sr_update_local_prefix(oi->ifp, oi->address);
 	} else {
 		/* Determine if interface is related to Adj. or LAN Adj. SID */
 		if (oi->state == ISM_DR)
@@ -650,9 +671,9 @@ static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status)
 		 * Note: Adjacency SID information are completed when ospf
 		 * adjacency become up see ospf_ext_link_nsm_change()
 		 */
-		zlog_debug("EXT (%s): Set %sAdjacency SID for interface %s ",
-			   __func__, exti->stype == ADJ_SID ? "" : "LAN-",
-			   oi->ifp->name);
+		osr_debug("EXT (%s): Set %sAdjacency SID for interface %s ",
+			  __func__, exti->stype == ADJ_SID ? "" : "LAN-",
+			  oi->ifp->name);
 	}
 }
 
@@ -666,8 +687,8 @@ static void ospf_ext_link_nsm_change(struct ospf_neighbor *nbr, int old_status)
 	struct ext_itf *exti;
 	uint32_t label;
 
-	/* Process Neighbor only when its state is NSM Full */
-	if (nbr->state != NSM_Full)
+	/* Process Link only when neighbor old or new state is NSM Full */
+	if (nbr->state != NSM_Full && old_status != NSM_Full)
 		return;
 
 	/* Get interface information for Segment Routing */
@@ -678,6 +699,23 @@ static void ospf_ext_link_nsm_change(struct ospf_neighbor *nbr, int old_status)
 			  __func__, IF_NAME(oi));
 		return;
 	}
+
+	/* Check that we have a valid area and ospf context */
+	if (oi->area == NULL || oi->area->ospf == NULL) {
+		flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
+			  "EXT (%s): Cannot refer to OSPF from OI(%s)",
+			  __func__, IF_NAME(oi));
+		return;
+	}
+
+	/* Remove Extended Link if Neighbor State goes Down or Deleted */
+	if (nbr->state == NSM_Down || nbr->state == NSM_Deleted) {
+		ospf_extended_lsa_delete(exti);
+		return;
+	}
+
+	/* Keep Area information in combination with SR info. */
+	exti->area = oi->area;
 
 	/* Process only Adjacency/LAN SID */
 	if (exti->stype == PREF_SID)
@@ -742,11 +780,9 @@ static void ospf_ext_link_nsm_change(struct ospf_neighbor *nbr, int old_status)
 		return;
 	}
 
-	if (IS_DEBUG_OSPF_SR)
-		zlog_debug(
-			"EXT (%s): Complete %sAdjacency SID for interface %s ",
-			__func__, exti->stype == ADJ_SID ? "" : "LAN-",
-			oi->ifp->name);
+	osr_debug("EXT (%s): Complete %sAdjacency SID for interface %s ",
+		  __func__, exti->stype == ADJ_SID ? "" : "LAN-",
+		  oi->ifp->name);
 
 	/* flood this links params if everything is ok */
 	SET_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE);
@@ -756,6 +792,9 @@ static void ospf_ext_link_nsm_change(struct ospf_neighbor *nbr, int old_status)
 		else
 			ospf_ext_link_lsa_schedule(exti, REORIGINATE_THIS_LSA);
 	}
+
+	/* Finally install (LAN)Adjacency-SID in the SRDB */
+	ospf_sr_ext_itf_add(exti);
 }
 
 /* Callbacks to handle Extended Link Segment Routing LSA information */
@@ -776,6 +815,10 @@ static int ospf_ext_link_lsa_update(struct ospf_lsa *lsa)
 	/* Process only Extended Link LSA */
 	if (GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr))
 	    != OPAQUE_TYPE_EXTENDED_LINK_LSA)
+		return 0;
+
+	/* Check if it is not my LSA */
+	if (IS_LSA_SELF(lsa))
 		return 0;
 
 	/* Check if Extended is enable */
@@ -962,12 +1005,10 @@ static struct ospf_lsa *ospf_ext_pref_lsa_new(struct ospf_area *area,
 	/* Set opaque-LSA header fields. */
 	lsa_header_set(s, options, lsa_type, lsa_id, router_id);
 
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug(
-			"EXT (%s): LSA[Type%u:%s]: Create an Opaque-LSA "
-			"Extended Prefix Opaque LSA instance",
-			__func__, lsa_type, inet_ntoa(lsa_id));
-
+	osr_debug(
+		"EXT (%s): LSA[Type%u:%pI4]: Create an Opaque-LSA Extended "
+		"Prefix Opaque LSA instance",
+		__func__, lsa_type, &lsa_id);
 
 	/* Set opaque-LSA body fields. */
 	ospf_ext_pref_lsa_body_set(s, exti);
@@ -1022,11 +1063,10 @@ static struct ospf_lsa *ospf_ext_link_lsa_new(struct ospf_area *area,
 	tmp = SET_OPAQUE_LSID(OPAQUE_TYPE_EXTENDED_LINK_LSA, exti->instance);
 	lsa_id.s_addr = htonl(tmp);
 
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug(
-			"EXT (%s) LSA[Type%u:%s]: Create an Opaque-LSA "
-			"Extended Link Opaque LSA instance",
-			__func__, lsa_type, inet_ntoa(lsa_id));
+	osr_debug(
+		"EXT (%s) LSA[Type%u:%pI4]: Create an Opaque-LSA Extended "
+		"Link Opaque LSA instance",
+		__func__, lsa_type, &lsa_id);
 
 	/* Set opaque-LSA header fields. */
 	lsa_header_set(s, options, lsa_type, lsa_id, area->ospf->router_id);
@@ -1089,17 +1129,13 @@ static int ospf_ext_pref_lsa_originate1(struct ospf_area *area,
 	/* Flood new LSA through area. */
 	ospf_flood_through_area(area, NULL /*nbr */, new);
 
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		char area_id[INET_ADDRSTRLEN];
-
-		inet_ntop(AF_INET, &area->area_id, area_id, sizeof(area_id));
-		zlog_debug(
-			"EXT (%s): LSA[Type%u:%s]: Originate Opaque-LSA "
-			"Extended Prefix Opaque LSA: Area(%s), Link(%s)",
-			__func__, new->data->type, inet_ntoa(new->data->id),
-			area_id, exti->ifp->name);
+	osr_debug(
+		"EXT (%s): LSA[Type%u:%pI4]: Originate Opaque-LSA"
+		"Extended Prefix Opaque LSA: Area(%pI4), Link(%s)",
+		__func__, new->data->type, &new->data->id,
+		&area->area_id, exti->ifp->name);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 		ospf_lsa_header_dump(new->data);
-	}
 
 	rc = 0;
 
@@ -1141,17 +1177,13 @@ static int ospf_ext_link_lsa_originate1(struct ospf_area *area,
 	/* Flood new LSA through area. */
 	ospf_flood_through_area(area, NULL /*nbr */, new);
 
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		char area_id[INET_ADDRSTRLEN];
-
-		inet_ntop(AF_INET, &area->area_id, area_id, sizeof(area_id));
-		zlog_debug(
-			"EXT (%s): LSA[Type%u:%s]: Originate Opaque-LSA "
-			"Extended Link Opaque LSA: Area(%s), Link(%s)",
-			__func__, new->data->type, inet_ntoa(new->data->id),
-			area_id, exti->ifp->name);
+	osr_debug(
+		"EXT (%s): LSA[Type%u:%pI4]: Originate Opaque-LSA "
+		"Extended Link Opaque LSA: Area(%pI4), Link(%s)",
+		__func__, new->data->type, &new->data->id,
+		&area->area_id, exti->ifp->name);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 		ospf_lsa_header_dump(new->data);
-	}
 
 	rc = 0;
 
@@ -1168,15 +1200,13 @@ static int ospf_ext_pref_lsa_originate(void *arg)
 
 	if (!OspfEXT.enabled) {
 		zlog_info(
-			"EXT (%s): Segment Routing "
-			"functionality is Disabled now",
+			"EXT (%s): Segment Routing functionality is Disabled now",
 			__func__);
 		rc = 0; /* This is not an error case. */
 		return rc;
 	}
-	if (IS_DEBUG_OSPF_SR)
-		zlog_debug("EXT (%s): Start Originate Prefix LSA for area %s",
-			   __func__, inet_ntoa(area->area_id));
+	osr_debug("EXT (%s): Start Originate Prefix LSA for area %pI4",
+		  __func__, &area->area_id);
 
 	/* Check if Extended Prefix Opaque LSA is already engaged */
 	for (ALL_LIST_ELEMENTS_RO(OspfEXT.iflist, node, exti)) {
@@ -1206,12 +1236,10 @@ static int ospf_ext_pref_lsa_originate(void *arg)
 		}
 
 		/* Ok, let's try to originate an LSA */
-		if (IS_DEBUG_OSPF_SR)
-			zlog_debug(
-				"EXT (%s): Let's finally reoriginate the "
-				"LSA 7.0.0.%u for Itf %s",
-				__func__, exti->instance,
-				exti->ifp ? exti->ifp->name : "");
+		osr_debug(
+			"EXT (%s): Let's finally re-originate the LSA 7.0.0.%u "
+			"for Itf %s", __func__, exti->instance,
+			exti->ifp ? exti->ifp->name : "");
 		ospf_ext_pref_lsa_originate1(area, exti);
 	}
 
@@ -1229,8 +1257,7 @@ static int ospf_ext_link_lsa_originate(void *arg)
 
 	if (!OspfEXT.enabled) {
 		zlog_info(
-			"EXT (%s): Segment Routing "
-			"functionality is Disabled now",
+			"EXT (%s): Segment Routing functionality is Disabled now",
 			__func__);
 		rc = 0; /* This is not an error case. */
 		return rc;
@@ -1240,6 +1267,10 @@ static int ospf_ext_link_lsa_originate(void *arg)
 	for (ALL_LIST_ELEMENTS_RO(OspfEXT.iflist, node, exti)) {
 		/* Process only Adjacency or LAN SID */
 		if (exti->stype == PREF_SID)
+			continue;
+
+		/* Skip Inactive Extended Link */
+		if (!CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE))
 			continue;
 
 		/* Process only Extended Link with valid Area ID */
@@ -1268,13 +1299,11 @@ static int ospf_ext_link_lsa_originate(void *arg)
 		}
 
 		/* Ok, let's try to originate an LSA */
-		if (IS_DEBUG_OSPF_SR)
-			zlog_debug(
-				"EXT (%s): Let's finally reoriginate the "
-				"LSA 8.0.0.%u for Itf %s through the Area %s",
-				__func__, exti->instance,
-				exti->ifp ? exti->ifp->name : "-",
-				inet_ntoa(area->area_id));
+		osr_debug(
+			"EXT (%s): Let's finally reoriginate the LSA 8.0.0.%u "
+			"for Itf %s through the Area %pI4", __func__,
+			exti->instance,	exti->ifp ? exti->ifp->name : "-",
+			&area->area_id);
 		ospf_ext_link_lsa_originate1(area, exti);
 	}
 
@@ -1297,8 +1326,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 		 * It seems a slip among routers in the routing domain.
 		 */
 		zlog_info(
-			"EXT (%s): Segment Routing functionality is "
-			"Disabled",
+			"EXT (%s): Segment Routing functionality is Disabled",
 			__func__);
 		/* Flush it anyway. */
 		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
@@ -1362,12 +1390,11 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 	ospf_flood_through_area(area, NULL /*nbr */, new);
 
 	/* Debug logging. */
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug(
-			"EXT (%s): LSA[Type%u:%s] Refresh Extended Prefix LSA",
-			__func__, new->data->type, inet_ntoa(new->data->id));
+	osr_debug("EXT (%s): LSA[Type%u:%pI4] Refresh Extended Prefix LSA",
+		  __func__, new->data->type, &new->data->id);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 		ospf_lsa_header_dump(new->data);
-	}
+
 
 	return new;
 }
@@ -1438,12 +1465,10 @@ static struct ospf_lsa *ospf_ext_link_lsa_refresh(struct ospf_lsa *lsa)
 	ospf_flood_through_area(area, NULL /*nbr */, new);
 
 	/* Debug logging. */
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug(
-			"EXT (%s): LSA[Type%u:%s]: Refresh Extended Link LSA",
-			__func__, new->data->type, inet_ntoa(new->data->id));
+	osr_debug("EXT (%s): LSA[Type%u:%pI4]: Refresh Extended Link LSA",
+		  __func__, new->data->type, &new->data->id);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 		ospf_lsa_header_dump(new->data);
-	}
 
 	return new;
 }
@@ -1468,18 +1493,17 @@ static void ospf_ext_pref_lsa_schedule(struct ext_itf *exti,
 	if (!(CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE)))
 		return;
 
-	zlog_debug("EXT (%s): Schedule %s%s%s LSA for interface %s", __func__,
-		   opcode == REORIGINATE_THIS_LSA ? "Re-Originate" : "",
-		   opcode == REFRESH_THIS_LSA ? "Refresh" : "",
-		   opcode == FLUSH_THIS_LSA ? "Flush" : "",
-		   exti->ifp ? exti->ifp->name : "-");
+	osr_debug("EXT (%s): Schedule %s%s%s LSA for interface %s", __func__,
+		  opcode == REORIGINATE_THIS_LSA ? "Re-Originate" : "",
+		  opcode == REFRESH_THIS_LSA ? "Refresh" : "",
+		  opcode == FLUSH_THIS_LSA ? "Flush" : "",
+		  exti->ifp ? exti->ifp->name : "-");
 
 	/* Verify Area */
 	if (exti->area == NULL) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"EXT (%s): Area is not yet set. Try to use Backbone Area",
-				__func__);
+		osr_debug(
+			"EXT (%s): Area is not yet set. Try to use Backbone Area",
+			__func__);
 
 		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		struct in_addr backbone = {.s_addr = INADDR_ANY};
@@ -1533,18 +1557,17 @@ static void ospf_ext_link_lsa_schedule(struct ext_itf *exti,
 	if (!(CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE)))
 		return;
 
-	zlog_debug("EXT (%s): Schedule %s%s%s LSA for interface %s", __func__,
-		   opcode == REORIGINATE_THIS_LSA ? "Re-Originate" : "",
-		   opcode == REFRESH_THIS_LSA ? "Refresh" : "",
-		   opcode == FLUSH_THIS_LSA ? "Flush" : "",
-		   exti->ifp ? exti->ifp->name : "-");
+	osr_debug("EXT (%s): Schedule %s%s%s LSA for interface %s", __func__,
+		  opcode == REORIGINATE_THIS_LSA ? "Re-Originate" : "",
+		  opcode == REFRESH_THIS_LSA ? "Refresh" : "",
+		  opcode == FLUSH_THIS_LSA ? "Flush" : "",
+		  exti->ifp ? exti->ifp->name : "-");
 
 	/* Verify Area */
 	if (exti->area == NULL) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"EXT (%s): Area is not yet set. Try to use Backbone Area",
-				__func__);
+		osr_debug(
+			"EXT (%s): Area is not yet set. Try to use Backbone Area",
+			__func__);
 
 		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		struct in_addr backbone = {.s_addr = INADDR_ANY};

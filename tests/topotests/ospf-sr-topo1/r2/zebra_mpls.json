@@ -9,6 +9,13 @@
         "distance":150,
         "installed":true,
         "nexthop":"10.0.1.1"
+      },
+      {
+        "type":"SR (OSPF)",
+        "outLabel":20100,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.0.1"
       }
     ]
   },
@@ -38,8 +45,8 @@
       }
     ]
   },
-  "50000":{
-    "inLabel":50000,
+  "XX":{
+    "inLabel":"XX",
     "installed":true,
     "nexthops":[
       {
@@ -51,8 +58,8 @@
       }
     ]
   },
-  "50001":{
-    "inLabel":50001,
+  "XX":{
+    "inLabel":"XX",
     "installed":true,
     "nexthops":[
       {
@@ -64,8 +71,8 @@
       }
     ]
   },
-  "50002":{
-    "inLabel":50002,
+  "XX":{
+    "inLabel":"XX",
     "installed":true,
     "nexthops":[
       {
@@ -73,12 +80,12 @@
         "outLabel":3,
         "distance":150,
         "installed":true,
-        "nexthop":"10.0.3.1"
+        "nexthop":"10.0.0.1"
       }
     ]
   },
-  "50003":{
-    "inLabel":50003,
+  "XX":{
+    "inLabel":"XX",
     "installed":true,
     "nexthops":[
       {
@@ -86,12 +93,12 @@
         "outLabel":3,
         "distance":150,
         "installed":true,
-        "nexthop":"10.0.3.1"
+        "nexthop":"10.0.0.1"
       }
     ]
   },
-  "50004":{
-    "inLabel":50004,
+  "XX":{
+    "inLabel":"XX",
     "installed":true,
     "nexthops":[
       {
@@ -103,8 +110,8 @@
       }
     ]
   },
-  "50005":{
-    "inLabel":50005,
+  "XX":{
+    "inLabel":"XX",
     "installed":true,
     "nexthops":[
       {
@@ -113,6 +120,32 @@
         "distance":150,
         "installed":true,
         "nexthop":"10.0.1.1"
+      }
+    ]
+  },
+  "XX":{
+    "inLabel":"XX",
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.3.1"
+      }
+    ]
+  },
+  "XX":{
+    "inLabel":"XX",
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.3.1"
       }
     ]
   }

@@ -63,13 +63,19 @@ extern struct ospf_external *ospf_external_lookup(struct ospf *, uint8_t,
 						  unsigned short);
 extern struct ospf_external *ospf_external_add(struct ospf *, uint8_t,
 					       unsigned short);
+
+struct sr_prefix;
+struct sr_nhlfe;
+extern void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp);
+extern void ospf_zebra_delete_prefix_sid(const struct sr_prefix *srp);
+extern void ospf_zebra_send_adjacency_sid(int cmd, struct sr_nhlfe nhlfe);
+
 extern void ospf_external_del(struct ospf *, uint8_t, unsigned short);
 extern struct ospf_redist *ospf_redist_lookup(struct ospf *, uint8_t,
 					      unsigned short);
 extern struct ospf_redist *ospf_redist_add(struct ospf *, uint8_t,
 					   unsigned short);
 extern void ospf_redist_del(struct ospf *, uint8_t, unsigned short);
-
 
 extern int ospf_redistribute_set(struct ospf *, int, unsigned short, int, int);
 extern int ospf_redistribute_unset(struct ospf *, int, unsigned short);

@@ -38,8 +38,8 @@
       }
     ]
   },
-  "50000":{
-    "inLabel":50000,
+  "XX":{
+    "inLabel":"XX",
     "installed":true,
     "nexthops":[
       {
@@ -51,8 +51,8 @@
       }
     ]
   },
-  "50001":{
-    "inLabel":50001,
+  "XX":{
+    "inLabel":"XX",
     "installed":true,
     "nexthops":[
       {

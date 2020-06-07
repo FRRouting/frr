@@ -27,6 +27,7 @@ test_ospf_sr_topo1.py: Test the FRR OSPF routing daemon with Segment Routing.
 """
 
 import os
+import re
 import sys
 from functools import partial
 
@@ -62,20 +63,23 @@ class OspfSrTopo(Topo):
         for routern in range(1, 5):
             tgen.add_router("r{}".format(routern))
 
-        # Interconect router 1 and 2
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+        # Interconect router 1 and 2 with 2 links
+        switch = tgen.add_switch('s1')
+        switch.add_link(tgen.gears['r1'])
+        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch('s2')
+        switch.add_link(tgen.gears['r1'])
+        switch.add_link(tgen.gears['r2'])
 
         # Interconect router 3 and 2
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["r2"])
+        switch = tgen.add_switch('s3')
+        switch.add_link(tgen.gears['r3'])
+        switch.add_link(tgen.gears['r2'])
 
         # Interconect router 4 and 2
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r4"])
-        switch.add_link(tgen.gears["r2"])
+        switch = tgen.add_switch('s4')
+        switch.add_link(tgen.gears['r4'])
+        switch.add_link(tgen.gears['r2'])
 
 
 def setup_module(mod):
@@ -130,6 +134,9 @@ def compare_ospf_srdb(rname, expected):
     """
     tgen = get_topogen()
     current = tgen.gears[rname].vtysh_cmd("show ip ospf database segment-routing json")
+    # Filter Adjacency SID allocation
+    current = re.sub(r'"sid":5000[0-9],', '"sid":"XX",', current)
+    current = re.sub(r'"inputLabel":5000[0-9],', '"inputLabel":"XX",', current)
     return topotest.difflines(
         current, expected, title1="Current output", title2="Expected output"
     )
@@ -142,6 +149,9 @@ def compare_mpls_table(rname, expected):
     """
     tgen = get_topogen()
     current = tgen.gears[rname].vtysh_cmd("show mpls table json")
+    # Filter Adjacency SID allocation
+    current = re.sub(r'"5000[0-9]":', '"XX":', current)
+    current = re.sub(r'"inLabel":5000[0-9],', '"inLabel":"XX",', current)
     return topotest.difflines(
         current, expected, title1="Current output", title2="Expected output"
     )
