@@ -77,16 +77,16 @@
       "extendedLink":[
         {
           "prefix":"10.0.3.1\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r3-eth0",
           "nexthop":"10.0.3.2"
         },
         {
           "prefix":"10.0.3.1\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r3-eth0",
           "nexthop":"10.0.3.2"

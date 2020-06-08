@@ -27,64 +27,64 @@
       "extendedLink":[
         {
           "prefix":"10.0.4.2\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r2-eth3",
           "nexthop":"10.0.4.1"
         },
         {
           "prefix":"10.0.4.2\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r2-eth3",
           "nexthop":"10.0.4.1"
         },
         {
           "prefix":"10.0.0.2\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r2-eth0",
           "nexthop":"10.0.0.1"
         },
         {
           "prefix":"10.0.0.2\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r2-eth0",
           "nexthop":"10.0.0.1"
         },
         {
           "prefix":"10.0.1.2\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r2-eth1",
           "nexthop":"10.0.1.1"
         },
         {
           "prefix":"10.0.1.2\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r2-eth1",
           "nexthop":"10.0.1.1"
         },
         {
           "prefix":"10.0.3.2\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r2-eth2",
           "nexthop":"10.0.3.1"
         },
         {
           "prefix":"10.0.3.2\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r2-eth2",
           "nexthop":"10.0.3.1"
