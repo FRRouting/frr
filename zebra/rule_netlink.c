@@ -55,8 +55,8 @@
  *
  * Encodes netlink RTM_ADDRULE/RTM_DELRULE message to buffer buf of size buflen.
  *
- * Returns -1 on failure or the number of bytes
- * written to buf.
+ * Returns -1 on failure, 0 when the msg doesn't fit entirely in the buffer
+ * or the number of bytes written to buf.
  */
 static ssize_t netlink_rule_msg_encode(
 	int cmd, const struct zebra_dplane_ctx *ctx, uint32_t filter_bm,
@@ -87,36 +87,38 @@ static ssize_t netlink_rule_msg_encode(
 	req->frh.family = family;
 	req->frh.action = FR_ACT_TO_TBL;
 
-	addattr_l(&req->n, buflen, FRA_PROTOCOL, &protocol, sizeof(protocol));
+	nl_attr_put(&req->n, buflen, FRA_PROTOCOL, &protocol, sizeof(protocol));
 
 	/* rule's pref # */
-	addattr32(&req->n, buflen, FRA_PRIORITY, priority);
+	nl_attr_put32(&req->n, buflen, FRA_PRIORITY, priority);
 
 	/* interface on which applied */
-	addattr_l(&req->n, buflen, FRA_IFNAME, ifname, strlen(ifname) + 1);
+	nl_attr_put(&req->n, buflen, FRA_IFNAME, ifname, strlen(ifname) + 1);
 
 	/* source IP, if specified */
 	if (filter_bm & PBR_FILTER_SRC_IP) {
 		req->frh.src_len = src_ip->prefixlen;
-		addattr_l(&req->n, buflen, FRA_SRC, &src_ip->u.prefix, bytelen);
+		nl_attr_put(&req->n, buflen, FRA_SRC, &src_ip->u.prefix,
+			    bytelen);
 	}
 
 	/* destination IP, if specified */
 	if (filter_bm & PBR_FILTER_DST_IP) {
 		req->frh.dst_len = dst_ip->prefixlen;
-		addattr_l(&req->n, buflen, FRA_DST, &dst_ip->u.prefix, bytelen);
+		nl_attr_put(&req->n, buflen, FRA_DST, &dst_ip->u.prefix,
+			    bytelen);
 	}
 
 	/* fwmark, if specified */
 	if (filter_bm & PBR_FILTER_FWMARK)
-		addattr32(&req->n, buflen, FRA_FWMARK, fwmark);
+		nl_attr_put32(&req->n, buflen, FRA_FWMARK, fwmark);
 
 	/* Route table to use to forward, if filter criteria matches. */
 	if (table < 256)
 		req->frh.table = table;
 	else {
 		req->frh.table = RT_TABLE_UNSPEC;
-		addattr32(&req->n, buflen, FRA_TABLE, table);
+		nl_attr_put32(&req->n, buflen, FRA_TABLE, table);
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
