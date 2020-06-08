@@ -268,10 +268,11 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 	struct isis_circuit *circuit = adj->circuit;
 	bool del = false;
 
+	if (new_state == old_state)
+		return;
+
 	adj->adj_state = new_state;
-	if (new_state != old_state) {
-		send_hello_sched(circuit, adj->level, TRIGGERED_IIH_DELAY);
-	}
+	send_hello_sched(circuit, adj->level, TRIGGERED_IIH_DELAY);
 
 	if (isis->debugs & DEBUG_ADJ_PACKETS) {
 		zlog_debug("ISIS-Adj (%s): Adjacency state change %d->%d: %s",
@@ -314,7 +315,7 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				 * purposes */
 				adj->last_flap = time(NULL);
 				adj->flaps++;
-			} else if (new_state == ISIS_ADJ_DOWN) {
+			} else if (old_state == ISIS_ADJ_UP) {
 				listnode_delete(circuit->u.bc.adjdb[level - 1],
 						adj);
 
@@ -323,7 +324,8 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 					isis_tx_queue_clean(circuit->tx_queue);
 
 				hook_call(isis_adj_state_change_hook, adj);
-				del = true;
+				if (new_state == ISIS_ADJ_DOWN)
+					del = true;
 			}
 
 			if (circuit->u.bc.lan_neighs[level - 1]) {
@@ -362,7 +364,7 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 							 circuit, 0,
 							 &circuit->t_send_csnp[1]);
 				}
-			} else if (new_state == ISIS_ADJ_DOWN) {
+			} else if (old_state == ISIS_ADJ_UP) {
 				if (adj->circuit->u.p2p.neighbor == adj)
 					adj->circuit->u.p2p.neighbor = NULL;
 				circuit->upadjcount[level - 1]--;
@@ -370,7 +372,8 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 					isis_tx_queue_clean(circuit->tx_queue);
 
 				hook_call(isis_adj_state_change_hook, adj);
-				del = true;
+				if (new_state == ISIS_ADJ_DOWN)
+					del = true;
 			}
 		}
 	}
