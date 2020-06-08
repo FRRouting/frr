@@ -779,10 +779,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	 * schemes that could be implemented in the future.
 	 *
 	 */
-	for (bpi_ultimate = source_bpi;
-	     bpi_ultimate->extra && bpi_ultimate->extra->parent;
-	     bpi_ultimate = bpi_ultimate->extra->parent)
-		;
+	bpi_ultimate = bgp_get_imported_bpi_ultimate(source_bpi);
 
 	/*
 	 * match parent
@@ -1619,10 +1616,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	if (!CHECK_FLAG(bgp_vrf->af_flags[afi][safi],
 			BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
 		/* work back to original route */
-		for (bpi_ultimate = path_vpn;
-		     bpi_ultimate->extra && bpi_ultimate->extra->parent;
-		     bpi_ultimate = bpi_ultimate->extra->parent)
-			;
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(path_vpn);
 
 		/*
 		 * if original route was unicast,
