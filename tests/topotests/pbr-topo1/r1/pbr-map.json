@@ -81,6 +81,14 @@
         },
         "matchSrc":"1.2.0.0\/16",
         "matchDst":"3.4.5.0\/24"
+      },
+      {
+        "sequenceNumber":10,
+        "vrfUnchanged":true,
+        "installed":false,
+        "installedReason":"Valid",
+        "matchSrc":"1.2.0.0\/16",
+        "matchDst":"3.4.5.0\/24"
       }
     ]
   },

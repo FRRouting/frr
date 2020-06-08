@@ -55,14 +55,17 @@
     "nexthops":[
       {
         "nexthop":"192.168.4.3",
+        "targetVrf":"vrf-chiyoda",
         "valid":true
       },
       {
         "nexthop":"192.168.4.2",
+        "targetVrf":"vrf-chiyoda",
         "valid":true
       },
       {
         "nexthop":"192.168.4.1",
+        "targetVrf":"vrf-chiyoda",
         "valid":true
       }
     ]

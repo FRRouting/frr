@@ -86,6 +86,11 @@ def setup_module(module):
 
     router_list = tgen.routers()
     for rname, router in router_list.iteritems():
+        # Install vrf into the kernel and slave eth3
+        router.run("ip link add vrf-chiyoda type vrf table 1000")
+        router.run("ip link set dev {}-eth3 master vrf-chiyoda".format(rname))
+        router.run("ip link set vrf-chiyoda up")
+
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -179,13 +184,13 @@ def test_pbr_flap():
     for router in router_list:
         # Flap interface to see if route-map properties are intact
         # Shutdown interface
-        dut = "r1"
+
         for i in range(5):
             intf = "r1-eth{}".format(i)
 
             # Down and back again
-            shutdown_bringup_interface(tgen, dut, intf, False)
-            shutdown_bringup_interface(tgen, dut, intf, True)
+            shutdown_bringup_interface(tgen, router.name, intf, False)
+            shutdown_bringup_interface(tgen, router.name, intf, True)
 
         intf_file = "{}/{}/pbr-interface.json".format(CWD, router.name)
         logger.info(intf_file)
