@@ -1095,6 +1095,14 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 		new_ecom = ecommunity_dup(old_ecom);
 		ecommunity_strip_rts(new_ecom);
 		static_attr.ecommunity = new_ecom;
+
+		if (new_ecom->size == 0) {
+			UNSET_FLAG(static_attr.flag,
+				   ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
+			ecommunity_free(&new_ecom);
+			static_attr.ecommunity = NULL;
+		}
+
 		if (!old_ecom->refcnt)
 			ecommunity_free(&old_ecom);
 	}
