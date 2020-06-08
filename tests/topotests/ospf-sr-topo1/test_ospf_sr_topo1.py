@@ -103,19 +103,6 @@ def setup_module(mod):
     # Initialize all routers.
     tgen.start_router()
 
-    # Verify that version, MPLS and Segment Routing are OK
-    for router in router_list.values():
-        # Check for Version
-        if router.has_version("<", "4"):
-            tgen.set_error("Unsupported FRR version")
-            break
-        # Check that Segment Routing is available
-        output = tgen.gears[router.name].vtysh_cmd(
-            "show ip ospf database segment-routing json"
-        )
-        if output.find("Unknown") != -1:
-            tgen.set_error("Segment Routing is not available")
-
 
 def teardown_module(mod):
     "Teardown the pytest environment"
