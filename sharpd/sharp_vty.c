@@ -557,7 +557,34 @@ DEFPY (send_opaque,
        "Type code to send\n"
        "Number of messages to send\n")
 {
-	sharp_opaque_send(type, count);
+	sharp_opaque_send(type, 0, 0, 0, count);
+	return CMD_SUCCESS;
+}
+
+DEFPY (send_opaque_unicast,
+       send_opaque_unicast_cmd,
+       "sharp send opaque unicast type (1-255) \
+       " FRR_IP_REDIST_STR_ZEBRA "$proto_str \
+        [{instance (0-1000) | session (1-1000)}] (1-1000)$count",
+       SHARP_STR
+       "Send messages for testing\n"
+       "Send opaque messages\n"
+       "Send unicast messages\n"
+       "Type code to send\n"
+       "Type code to send\n"
+       FRR_IP_REDIST_HELP_STR_ZEBRA
+       "Daemon instance\n"
+       "Daemon instance\n"
+       "Session ID\n"
+       "Session ID\n"
+       "Number of messages to send\n")
+{
+	uint32_t proto;
+
+	proto = proto_redistnum(AFI_IP, proto_str);
+
+	sharp_opaque_send(type, proto, instance, session, count);
+
 	return CMD_SUCCESS;
 }
 
@@ -600,6 +627,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &sharp_remove_lsp_prefix_v4_cmd);
 	install_element(ENABLE_NODE, &logpump_cmd);
 	install_element(ENABLE_NODE, &send_opaque_cmd);
+	install_element(ENABLE_NODE, &send_opaque_unicast_cmd);
 	install_element(ENABLE_NODE, &send_opaque_reg_cmd);
 
 	install_element(VIEW_NODE, &show_debugging_sharpd_cmd);

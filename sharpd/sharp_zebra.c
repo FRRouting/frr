@@ -491,7 +491,8 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 	if (zclient_opaque_decode(s, &info) != 0)
 		return -1;
 
-	zlog_debug("%s: received opaque type %u", __func__, info.type);
+	zlog_debug("%s: [%d] received opaque type %u", __func__,
+		   zclient->session_id, info.type);
 
 	return 0;
 }
@@ -499,7 +500,8 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 /*
  * Send OPAQUE messages, using subtype 'type'.
  */
-void sharp_opaque_send(uint32_t type, uint32_t count)
+void sharp_opaque_send(uint32_t type, uint32_t proto, uint32_t instance,
+		       uint32_t session_id, uint32_t count)
 {
 	uint8_t buf[32];
 	int ret;
@@ -513,9 +515,15 @@ void sharp_opaque_send(uint32_t type, uint32_t count)
 			buf[i] = 255;
 	}
 
-	/* Send some messages */
+	/* Send some messages - broadcast and unicast are supported */
 	for (i = 0; i < count; i++) {
-		ret = zclient_send_opaque(zclient, type, buf, sizeof(buf));
+		if (proto == 0)
+			ret = zclient_send_opaque(zclient, type, buf,
+						  sizeof(buf));
+		else
+			ret = zclient_send_opaque_unicast(zclient, type, proto,
+							  instance, session_id,
+							  buf, sizeof(buf));
 		if (ret < 0) {
 			zlog_debug("%s: send_opaque() failed => %d",
 				   __func__, ret);

@@ -811,14 +811,6 @@ struct zserv *zserv_acquire_client(uint8_t proto, unsigned short instance,
  */
 void zserv_release_client(struct zserv *client)
 {
-	bool cleanup_p = false;
-	const char *proto_str;
-	uint16_t instance;
-
-	/* Capture some info for debugging */
-	proto_str = zebra_route_string(client->proto);
-	instance = client->instance;
-
 	/*
 	 * Once we've decremented the client object's refcount, it's possible
 	 * for it to be deleted as soon as we release the lock, so we won't
@@ -833,13 +825,10 @@ void zserv_release_client(struct zserv *client)
 			 * session is closed, schedule cleanup on the zebra
 			 * main pthread.
 			 */
-			if (client->is_closed) {
+			if (client->is_closed)
 				thread_add_event(zrouter.master,
 						 zserv_handle_client_fail,
 						 client, 0, &client->t_cleanup);
-
-				cleanup_p = true;
-			}
 		}
 	}
 
@@ -847,10 +836,6 @@ void zserv_release_client(struct zserv *client)
 	 * Cleanup must take place on the zebra main pthread, so we've
 	 * scheduled an event.
 	 */
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("%s: %s clean-up for client '%s'[%u]",
-			   __func__, (cleanup_p ? "scheduled" : "NO"),
-			   proto_str, instance);
 }
 
 /*

@@ -394,9 +394,25 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 		for (client = reg->clients; client; client = client->next) {
 			dup = NULL;
 
-			/* Copy message if necessary */
-			if (client->next)
-				dup = stream_dup(msg);
+			if (CHECK_FLAG(info.flags, ZAPI_OPAQUE_FLAG_UNICAST)) {
+
+				if (client->proto != info.proto ||
+				    client->instance != info.instance ||
+				    client->session_id != info.session_id)
+					continue;
+
+				if (IS_ZEBRA_DEBUG_RECV)
+					zlog_debug("%s: found matching unicast client %s",
+						   __func__,
+						   opq_client2str(buf,
+								  sizeof(buf),
+								  client));
+
+			} else {
+				/* Copy message if more clients */
+				if (client->next)
+					dup = stream_dup(msg);
+			}
 
 			/*
 			 * TODO -- this isn't ideal: we're going through an
@@ -438,6 +454,10 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 				if (dup)
 					stream_free(dup);
 			}
+
+			/* If unicast, we're done */
+			if (CHECK_FLAG(info.flags, ZAPI_OPAQUE_FLAG_UNICAST))
+				break;
 		}
 
 drop_it:
