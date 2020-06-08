@@ -2097,13 +2097,12 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 	}
 
 	/* if the dataplane thinks the entry is sync but it is
-	 * not sync in zebra we need to re-install to fixup
+	 * not sync in zebra (or vice-versa) we need to re-install
+	 * to fixup
 	 */
-	if (dp_static) {
-		new_static = zebra_evpn_mac_is_static(mac);
-		if (!new_static)
-			inform_dataplane = true;
-	}
+	new_static = zebra_evpn_mac_is_static(mac);
+	if (dp_static != new_static)
+		inform_dataplane = true;
 
 	if (local_inactive)
 		SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE);
