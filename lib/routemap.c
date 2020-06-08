@@ -2747,7 +2747,12 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 		memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
 		tmp_dep_data.rname = rname;
 		dep_data = hash_lookup(dep->dep_rmap_hash, &tmp_dep_data);
-		dep_data->refcnt--;
+
+		if (!dep_data)
+			goto out;
+
+		if (dep_data->refcnt)
+			dep_data->refcnt--;
 
 		if (!dep_data->refcnt) {
 			ret_dep_data = hash_release(dep->dep_rmap_hash,
