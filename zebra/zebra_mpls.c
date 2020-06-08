@@ -1561,7 +1561,8 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		vty_out(vty, "  via %s",
-			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
+				  sizeof(buf)));
 		if (nexthop->ifindex)
 			vty_out(vty, " dev %s",
 				ifindex2ifname(nexthop->ifindex,
