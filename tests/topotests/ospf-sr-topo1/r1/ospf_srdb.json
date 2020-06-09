@@ -113,32 +113,32 @@
       "extendedLink":[
         {
           "prefix":"10.0.0.1\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r1-eth0",
           "nexthop":"10.0.0.2"
         },
         {
           "prefix":"10.0.0.1\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r1-eth0",
           "nexthop":"10.0.0.2"
         },
         {
           "prefix":"10.0.1.1\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r1-eth1",
           "nexthop":"10.0.1.2"
         },
         {
           "prefix":"10.0.1.1\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r1-eth1",
           "nexthop":"10.0.1.2"

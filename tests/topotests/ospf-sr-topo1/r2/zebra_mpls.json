@@ -45,8 +45,8 @@
       }
     ]
   },
-  "XX":{
-    "inLabel":"XX",
+  "label-1":{
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -58,8 +58,8 @@
       }
     ]
   },
-  "XX":{
-    "inLabel":"XX",
+  "label-2":{
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -71,8 +71,8 @@
       }
     ]
   },
-  "XX":{
-    "inLabel":"XX",
+  "label-3":{
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -84,8 +84,8 @@
       }
     ]
   },
-  "XX":{
-    "inLabel":"XX",
+  "label-4":{
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -97,8 +97,8 @@
       }
     ]
   },
-  "XX":{
-    "inLabel":"XX",
+  "label-5":{
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -110,8 +110,8 @@
       }
     ]
   },
-  "XX":{
-    "inLabel":"XX",
+  "label-6":{
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -123,8 +123,8 @@
       }
     ]
   },
-  "XX":{
-    "inLabel":"XX",
+  "label-7":{
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -136,8 +136,8 @@
       }
     ]
   },
-  "XX":{
-    "inLabel":"XX",
+  "label-8":{
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {

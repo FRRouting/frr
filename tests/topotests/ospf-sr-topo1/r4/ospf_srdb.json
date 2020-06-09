@@ -49,16 +49,16 @@
       "extendedLink":[
         {
           "prefix":"10.0.4.1\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r4-eth0",
           "nexthop":"10.0.4.2"
         },
         {
           "prefix":"10.0.4.1\/32",
-          "sid":"XX",
-          "inputLabel":"XX",
+          "sid":"*",
+          "inputLabel":"*",
           "outputLabel":3,
           "interface":"r4-eth0",
           "nexthop":"10.0.4.2"
