@@ -1,5 +1,5 @@
-{
-  "8100":{
+[
+  {
     "inLabel":8100,
     "installed":true,
     "nexthops":[
@@ -19,7 +19,7 @@
       }
     ]
   },
-  "8300":{
+  {
     "inLabel":8300,
     "installed":true,
     "nexthops":[
@@ -32,7 +32,7 @@
       }
     ]
   },
-  "8400":{
+  {
     "inLabel":8400,
     "installed":true,
     "nexthops":[
@@ -45,7 +45,7 @@
       }
     ]
   },
-  "label-1":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -58,7 +58,7 @@
       }
     ]
   },
-  "label-2":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -71,7 +71,7 @@
       }
     ]
   },
-  "label-3":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -84,7 +84,7 @@
       }
     ]
   },
-  "label-4":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -97,7 +97,7 @@
       }
     ]
   },
-  "label-5":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -110,7 +110,7 @@
       }
     ]
   },
-  "label-6":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -123,7 +123,7 @@
       }
     ]
   },
-  "label-7":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -136,7 +136,7 @@
       }
     ]
   },
-  "label-8":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -149,4 +149,4 @@
       }
     ]
   }
-}
+]

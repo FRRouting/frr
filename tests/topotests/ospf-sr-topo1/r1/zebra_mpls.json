@@ -1,5 +1,5 @@
-{
-  "20100":{
+[
+  {
     "inLabel":20100,
     "installed":true,
     "nexthops":[
@@ -11,7 +11,7 @@
       }
     ]
   },
-  "20200":{
+  {
     "inLabel":20200,
     "installed":true,
     "nexthops":[
@@ -31,7 +31,7 @@
       }
     ]
   },
-  "20300":{
+  {
     "inLabel":20300,
     "installed":true,
     "nexthops":[
@@ -51,7 +51,7 @@
       }
     ]
   },
-  "20400":{
+  {
     "inLabel":20400,
     "installed":true,
     "nexthops":[
@@ -71,7 +71,7 @@
       }
     ]
   },
-  "label-1":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -84,7 +84,7 @@
       }
     ]
   },
-  "label-2":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -97,7 +97,7 @@
       }
     ]
   },
-  "label-3":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -110,7 +110,7 @@
       }
     ]
   },
-  "label-4":{
+  {
     "inLabel":"*",
     "installed":true,
     "nexthops":[
@@ -123,4 +123,4 @@
       }
     ]
   }
-}
+]

@@ -151,18 +151,31 @@ def test_ospf_kernel_route():
     logger.info("--- test OSPF Segment Routing MPLS tables ---")
 
     def show_mpls_table_json_cmp(rt, expected):
-        "Removes random label and use `label-X` instead."
-        text = rt.vtysh_cmd('show mpls table json')
+        """
+        Reformat MPLS table output to use a list of labels instead of dict.
 
-        # Substitue random labels with fixed label value.
-        for label in range(1, 10):
-            text = re.sub(r'"5000[0-9]"', '"label-{}"'.format(label), text,
-                          count=1)
+        Original:
+        {
+         "X": {
+            inLabel: "X",
+            # ...
+          }
+        }
 
-        print '\n{}\n'.format(text)
+        List format:
+        [
+          {
+            inLabel: "X",
+          }
+        ]
+        """
+        out = rt.vtysh_cmd('show mpls table json', isjson=True)
 
-        output = json.loads(text)
-        return topotest.json_cmp(output, expected)
+        outlist = []
+        for key in out.keys():
+            outlist.append(out[key])
+
+        return topotest.json_cmp(outlist, expected)
 
     for rnum in range(1, 5):
         router = "r{}".format(rnum)
