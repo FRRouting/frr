@@ -47,6 +47,7 @@ from lib.topolog import logger
 from mininet.topo import Topo
 
 l3mdev_accept = 0
+krel = ''
 
 class BGPEVPNTopo(Topo):
     "Test topology builder"
@@ -70,11 +71,17 @@ class BGPEVPNTopo(Topo):
 def setup_module(mod):
     "Sets up the pytest environment"
     global l3mdev_accept
+    global krel
 
     tgen = Topogen(BGPEVPNTopo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
+
+    krel = platform.release()
+    if topotest.version_cmp(krel, '4.18') < 0:
+        logger.info('BGP EVPN RT5 NETNS tests will not run (have kernel "{}", but it requires 4.18)'.format(krel))
+        return pytest.skip('Skipping BGP EVPN RT5 NETNS Test. Kernel not supported')
 
     l3mdev_accept = 1
     logger.info('setting net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept))
