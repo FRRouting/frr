@@ -721,14 +721,19 @@ static void pim_mlag_process_vxlan_update(struct mlag_vxlan *msg)
 static void pim_mlag_process_mroute_add(struct mlag_mroute_add msg)
 {
 	if (PIM_DEBUG_MLAG) {
+		struct prefix_sg sg;
+
+		sg.grp.s_addr = ntohl(msg.group_ip);
+		sg.src.s_addr = ntohl(msg.source_ip);
+
 		zlog_debug(
-				"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x cost: %u",
-				__func__, msg.vrf_name, msg.source_ip,
-				msg.group_ip, msg.cost_to_rp);
+			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x (%pSG4) cost: %u",
+			__func__, msg.vrf_name, msg.source_ip, msg.group_ip,
+			&sg, msg.cost_to_rp);
 		zlog_debug(
-				"owner_id: %d, DR: %d, Dual active: %d, vrf_id: 0x%x intf_name: %s",
-				msg.owner_id, msg.am_i_dr, msg.am_i_dual_active,
-				msg.vrf_id, msg.intf_name);
+			"(%pSG4)owner_id: %d, DR: %d, Dual active: %d, vrf_id: 0x%x intf_name: %s",
+			&sg, msg.owner_id, msg.am_i_dr, msg.am_i_dual_active,
+			msg.vrf_id, msg.intf_name);
 	}
 
 	if (!(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)) {
@@ -746,12 +751,16 @@ static void pim_mlag_process_mroute_add(struct mlag_mroute_add msg)
 static void pim_mlag_process_mroute_del(struct mlag_mroute_del msg)
 {
 	if (PIM_DEBUG_MLAG) {
+		struct prefix_sg sg;
+
+		sg.grp.s_addr = ntohl(msg.group_ip);
+		sg.src.s_addr = ntohl(msg.source_ip);
 		zlog_debug(
-				"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x ",
-				__func__, msg.vrf_name, msg.source_ip,
-				msg.group_ip);
-		zlog_debug("owner_id: %d, vrf_id: 0x%x intf_name: %s",
-				msg.owner_id, msg.vrf_id, msg.intf_name);
+			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x(%pSG4)",
+			__func__, msg.vrf_name, msg.source_ip, msg.group_ip,
+			&sg);
+		zlog_debug("(%pSG4)owner_id: %d, vrf_id: 0x%x intf_name: %s",
+			   &sg, msg.owner_id, msg.vrf_id, msg.intf_name);
 	}
 
 	if (!(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)) {
