@@ -547,6 +547,34 @@ DEFPY (logpump,
 	return CMD_SUCCESS;
 }
 
+DEFPY (create_session,
+       create_session_cmd,
+       "sharp create session (1-1024)",
+       "Sharp Routing Protocol\n"
+       "Create data\n"
+       "Create a test session\n"
+       "Session ID\n")
+{
+	if (sharp_zclient_create(session) != 0) {
+		vty_out(vty, "%% Client session error\n");
+		return CMD_WARNING;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (remove_session,
+       remove_session_cmd,
+       "sharp remove session (1-1024)",
+       "Sharp Routing Protocol\n"
+       "Remove data\n"
+       "Remove a test session\n"
+       "Session ID\n")
+{
+	sharp_zclient_delete(session);
+	return CMD_SUCCESS;
+}
+
 DEFPY (send_opaque,
        send_opaque_cmd,
        "sharp send opaque type (1-255) (1-1000)$count",
@@ -626,6 +654,8 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &sharp_lsp_prefix_v4_cmd);
 	install_element(ENABLE_NODE, &sharp_remove_lsp_prefix_v4_cmd);
 	install_element(ENABLE_NODE, &logpump_cmd);
+	install_element(ENABLE_NODE, &create_session_cmd);
+	install_element(ENABLE_NODE, &remove_session_cmd);
 	install_element(ENABLE_NODE, &send_opaque_cmd);
 	install_element(ENABLE_NODE, &send_opaque_unicast_cmd);
 	install_element(ENABLE_NODE, &send_opaque_reg_cmd);

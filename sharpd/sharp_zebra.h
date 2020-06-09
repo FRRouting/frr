@@ -24,6 +24,10 @@
 
 extern void sharp_zebra_init(void);
 
+/* Add and delete extra zapi client sessions, for testing */
+int sharp_zclient_create(uint32_t session_id);
+int sharp_zclient_delete(uint32_t session_id);
+
 extern void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label);
 extern void route_add(const struct prefix *p, vrf_id_t, uint8_t instance,
 		      const struct nexthop_group *nhg,

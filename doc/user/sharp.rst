@@ -125,3 +125,15 @@ keyword. At present, no sharp commands will be preserved in the config.
    single subtype. The messages must specify a protocol daemon by
    name, and can include optional zapi ``instance`` and ``session``
    values.
+
+.. index:: sharp create session
+.. clicmd:: sharp create session (1-1024)
+
+   Create an additional zapi client session for testing, using the
+   specified session id.
+
+.. index:: sharp remove session
+.. clicmd:: sharp remove session (1-1024)
+
+   Remove a test zapi client session that was created with the
+   specified session id.
