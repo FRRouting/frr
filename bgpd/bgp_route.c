@@ -12680,6 +12680,12 @@ void bgp_route_init(void)
 	install_element(BGP_IPV4M_NODE, &no_aggregate_address_mask_cmd);
 
 	/* IPv4 labeled-unicast configuration.  */
+	install_element(BGP_IPV4L_NODE, &bgp_network_cmd);
+	install_element(BGP_IPV4L_NODE, &aggregate_address_cmd);
+	install_element(BGP_IPV4L_NODE, &aggregate_address_mask_cmd);
+	install_element(BGP_IPV4L_NODE, &no_aggregate_address_cmd);
+	install_element(BGP_IPV4L_NODE, &no_aggregate_address_mask_cmd);
+
 	install_element(VIEW_NODE, &show_ip_bgp_instance_all_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_json_cmd);
@@ -12722,6 +12728,11 @@ void bgp_route_init(void)
 	install_element(BGP_IPV6_NODE, &no_ipv6_aggregate_address_cmd);
 
 	install_element(BGP_IPV6M_NODE, &ipv6_bgp_network_cmd);
+
+	/* IPv6 labeled unicast address family. */
+	install_element(BGP_IPV6L_NODE, &ipv6_bgp_network_cmd);
+	install_element(BGP_IPV6L_NODE, &ipv6_aggregate_address_cmd);
+	install_element(BGP_IPV6L_NODE, &no_ipv6_aggregate_address_cmd);
 
 	install_element(BGP_NODE, &bgp_distance_cmd);
 	install_element(BGP_NODE, &no_bgp_distance_cmd);
