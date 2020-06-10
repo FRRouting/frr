@@ -661,7 +661,6 @@ struct thread_master *frr_init(void)
 
 	zlog_init(di->progname, di->logname, di->instance,
 		  ids.uid_normal, ids.gid_normal);
-	zlog_tls_buffer_init();
 
 	command_setup_early_logging(di->early_logging, di->early_loglevel);
 
@@ -936,6 +935,7 @@ void frr_config_fork(void)
 	if (!di->pid_file)
 		di->pid_file = pidfile_default;
 	pid_output(di->pid_file);
+	zlog_tls_buffer_init();
 }
 
 static void frr_vty_serv(void)
