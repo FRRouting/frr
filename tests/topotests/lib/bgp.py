@@ -868,7 +868,7 @@ def verify_router_id(tgen, topo, input_dict):
     return True
 
 
-@retry(attempts=20, wait=2, return_is_str=True)
+@retry(attempts=44, wait=3, return_is_str=True)
 def verify_bgp_convergence(tgen, topo, dut=None):
     """
     API will verify if BGP is converged with in the given time frame.
