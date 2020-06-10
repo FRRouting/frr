@@ -343,12 +343,15 @@ static void addr2hostprefix(int af, const union g_addr *addr,
 	}
 }
 
-void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
+void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw,
+				   bool *nht_exists)
 {
 	struct prefix nh;
 	struct rnh *rnh;
 	bool exists;
 	struct zebra_vrf *zvrf;
+
+	*nht_exists = false;
 
 	zvrf = vrf_info_lookup(vrf_id);
 	if (!zvrf)
@@ -356,12 +359,16 @@ void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
 
 	addr2hostprefix(pw->af, &pw->nexthop, &nh);
 	rnh = zebra_add_rnh(&nh, vrf_id, RNH_NEXTHOP_TYPE, &exists);
-	if (rnh && !listnode_lookup(rnh->zebra_pseudowire_list, pw)) {
+	if (!rnh)
+		return;
+
+	if (!listnode_lookup(rnh->zebra_pseudowire_list, pw)) {
 		listnode_add(rnh->zebra_pseudowire_list, pw);
 		pw->rnh = rnh;
 		zebra_evaluate_rnh(zvrf, family2afi(pw->af), 1,
 				   RNH_NEXTHOP_TYPE, &nh);
-	}
+	} else
+		*nht_exists = true;
 }
 
 void zebra_deregister_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)

@@ -50,7 +50,7 @@ extern struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,
 extern void zebra_free_rnh(struct rnh *rnh);
 extern void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 				 enum rnh_type type, vrf_id_t vrfid);
-extern void zebra_register_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
+extern void zebra_register_rnh_pseudowire(vrf_id_t, struct zebra_pw *, bool *);
 extern void zebra_deregister_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
 extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
 				    enum rnh_type type);

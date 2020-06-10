@@ -125,9 +125,12 @@ void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
 	pw->flags = flags;
 	pw->data = *data;
 
-	if (zebra_pw_enabled(pw))
-		zebra_register_rnh_pseudowire(pw->vrf_id, pw);
-	else {
+	if (zebra_pw_enabled(pw)) {
+		bool nht_exists;
+		zebra_register_rnh_pseudowire(pw->vrf_id, pw, &nht_exists);
+		if (nht_exists)
+			zebra_pw_update(pw);
+	} else {
 		if (pw->protocol == ZEBRA_ROUTE_STATIC)
 			zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
 		zebra_pw_uninstall(pw);
