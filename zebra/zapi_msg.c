@@ -785,7 +785,7 @@ int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
 				      note));
 }
 
-void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
+void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 			     enum zapi_rule_notify_owner note)
 {
 	struct listnode *node;
@@ -793,10 +793,11 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 	struct stream *s;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %u", __func__, rule->rule.unique);
+		zlog_debug("%s: Notifying %u", __func__,
+			   dplane_ctx_rule_get_unique(ctx));
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
-		if (rule->sock == client->sock)
+		if (dplane_ctx_rule_get_sock(ctx) == client->sock)
 			break;
 	}
 
@@ -807,10 +808,10 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 
 	zclient_create_header(s, ZEBRA_RULE_NOTIFY_OWNER, VRF_DEFAULT);
 	stream_put(s, &note, sizeof(note));
-	stream_putl(s, rule->rule.seq);
-	stream_putl(s, rule->rule.priority);
-	stream_putl(s, rule->rule.unique);
-	stream_putl(s, rule->rule.ifindex);
+	stream_putl(s, dplane_ctx_rule_get_seq(ctx));
+	stream_putl(s, dplane_ctx_rule_get_priority(ctx));
+	stream_putl(s, dplane_ctx_rule_get_unique(ctx));
+	stream_putl(s, dplane_ctx_get_ifindex(ctx));
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 

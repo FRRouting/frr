@@ -201,6 +201,28 @@ def test_pbr_flap():
         # Actual output from router
         actual = router.vtysh_cmd("show pbr interface json", isjson=True)
         assertmsg = '"show pbr interface" mismatches on {}'.format(router.name)
+
+        assert topotest.json_cmp(actual, expected) is None, assertmsg
+
+
+def test_rule_linux_installation():
+    "Ensure that rule is installed in the kernel"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Checking for installed PBR rules in OS")
+
+    router_list = tgen.routers().values()
+    for router in router_list:
+        rules_file = "{}/{}/linux-rules.json".format(CWD, router.name)
+
+        actual = topotest.ip_rules(router)
+        expected = json.loads(open(rules_file).read())
+
+        assertmsg = "Router {} OS rules mismatch".format(router.name)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
 

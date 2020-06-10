@@ -170,24 +170,11 @@ void zebra_pbr_add_iptable(struct zebra_pbr_iptable *iptable);
 void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable);
 
 /*
- * Install specified rule for a specific interface.
- * It is possible that the user-defined sequence number and the one in the
- * forwarding plane may not coincide, hence the API requires a separate
- * rule priority - maps to preference/FRA_PRIORITY on Linux.
- */
-extern enum zebra_dplane_result kernel_add_pbr_rule(struct zebra_pbr_rule *rule);
-
-/*
- * Uninstall specified rule for a specific interface.
- */
-extern enum zebra_dplane_result kernel_del_pbr_rule(struct zebra_pbr_rule *rule);
-
-/*
- * Update specified rule for a specific interface.
+ * Add, update or delete a rule from the
+ * kernel, using info from a dataplane context.
  */
 extern enum zebra_dplane_result
-kernel_update_pbr_rule(struct zebra_pbr_rule *old_rule,
-		       struct zebra_pbr_rule *new_rule);
+kernel_pbr_rule_update(struct zebra_dplane_ctx *ctx);
 
 /*
  * Get to know existing PBR rules in the kernel - typically called at startup.
@@ -197,8 +184,7 @@ extern void kernel_read_pbr_rules(struct zebra_ns *zns);
 /*
  * Handle success or failure of rule (un)install in the kernel.
  */
-extern void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
-					   enum zebra_dplane_status res);
+extern void zebra_pbr_dplane_result(struct zebra_dplane_ctx *ctx);
 
 /*
  * Handle success or failure of ipset kinds (un)install in the kernel.

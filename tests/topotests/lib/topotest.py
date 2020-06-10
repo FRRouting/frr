@@ -727,6 +727,57 @@ def ip6_route(node):
     return result
 
 
+def ip_rules(node):
+    """
+    Gets a structured return of the command 'ip rule'. It can be used in
+    conjuction with json_cmp() to provide accurate assert explanations.
+
+    Return example:
+    [
+        {
+            "pref": "0"
+            "from": "all"
+        },
+        {
+            "pref": "32766"
+            "from": "all"
+        },
+        {
+            "to": "3.4.5.0/24",
+            "iif": "r1-eth2",
+            "pref": "304",
+            "from": "1.2.0.0/16",
+            "proto": "zebra"
+        }
+    ]
+    """
+    output = normalize_text(node.run("ip rule")).splitlines()
+    result = []
+    for line in output:
+        columns = line.split(" ")
+
+        route = {}
+        # remove last character, since it is ':'
+        pref = columns[0][:-1]
+        route["pref"] = pref
+        prev = None
+        for column in columns:
+            if prev == "from":
+                route["from"] = column
+            if prev == "to":
+                route["to"] = column
+            if prev == "proto":
+                route["proto"] = column
+            if prev == "iif":
+                route["iif"] = column
+            if prev == "fwmark":
+                route["fwmark"] = column
+            prev = column
+
+        result.append(route)
+    return result
+
+
 def sleep(amount, reason=None):
     """
     Sleep wrapper that registers in the log the amount of sleep

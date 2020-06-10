@@ -144,6 +144,11 @@ enum dplane_op_e {
 	/* EVPN VTEP updates */
 	DPLANE_OP_VTEP_ADD,
 	DPLANE_OP_VTEP_DELETE,
+
+	/* Policy based routing rule update */
+	DPLANE_OP_RULE_ADD,
+	DPLANE_OP_RULE_DELETE,
+	DPLANE_OP_RULE_UPDATE,
 };
 
 /*
@@ -384,6 +389,27 @@ const struct ethaddr *dplane_ctx_neigh_get_mac(
 uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_neigh_get_state(const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for policy based routing rule information */
+int dplane_ctx_rule_get_sock(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_rule_get_unique(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_rule_get_seq(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_rule_get_priority(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_rule_get_old_priority(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_rule_get_table(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_rule_get_old_table(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_rule_get_filter_bm(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_rule_get_old_filter_bm(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_rule_get_fwmark(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_rule_get_old_fwmark(const struct zebra_dplane_ctx *ctx);
+const struct prefix *
+dplane_ctx_rule_get_src_ip(const struct zebra_dplane_ctx *ctx);
+const struct prefix *
+dplane_ctx_rule_get_old_src_ip(const struct zebra_dplane_ctx *ctx);
+const struct prefix *
+dplane_ctx_rule_get_dst_ip(const struct zebra_dplane_ctx *ctx);
+const struct prefix *
+dplane_ctx_rule_get_old_dst_ip(const struct zebra_dplane_ctx *ctx);
+
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
@@ -508,6 +534,21 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp,
 enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 					    const struct in_addr *ip,
 					    vni_t vni);
+
+/* Forward ref of zebra_pbr_rule */
+struct zebra_pbr_rule;
+
+/*
+ * Enqueue policy based routing rule for the dataplane.
+ * It is possible that the user-defined sequence number and the one in the
+ * forwarding plane may not coincide, hence the API requires a separate
+ * rule priority - maps to preference/FRA_PRIORITY on Linux.
+ */
+enum zebra_dplane_result dplane_pbr_rule_add(struct zebra_pbr_rule *rule);
+enum zebra_dplane_result dplane_pbr_rule_delete(struct zebra_pbr_rule *rule);
+enum zebra_dplane_result
+dplane_pbr_rule_update(struct zebra_pbr_rule *old_rule,
+		       struct zebra_pbr_rule *new_rule);
 
 /* Encode route information into data plane context. */
 int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
