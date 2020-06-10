@@ -347,8 +347,9 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 {
 	struct stream *msg, *dup;
 	struct zmsghdr hdr;
+	struct zapi_opaque_msg info;
 	struct opq_msg_reg *reg;
-	uint32_t type;
+	int ret;
 	struct opq_client_reg *client;
 	struct zserv *zclient;
 	char buf[50];
@@ -372,15 +373,17 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 
 		/* Dispatch to any registered ZAPI client(s) */
 
-		/* Extract subtype */
-		STREAM_GETL(msg, type);
+		/* Extract subtype and flags */
+		ret = zclient_opaque_decode(msg, &info);
+		if (ret != 0)
+			goto drop_it;
 
 		/* Look up registered ZAPI client(s) */
-		reg = opq_reg_lookup(type);
+		reg = opq_reg_lookup(info.type);
 		if (reg == NULL) {
 			if (IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("%s: no registrations for opaque type %u",
-					   __func__, type);
+				zlog_debug("%s: no registrations for opaque type %u, flags %#x",
+					   __func__, info.type, info.flags);
 			goto drop_it;
 		}
 
@@ -391,9 +394,25 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 		for (client = reg->clients; client; client = client->next) {
 			dup = NULL;
 
-			/* Copy message if necessary */
-			if (client->next)
-				dup = stream_dup(msg);
+			if (CHECK_FLAG(info.flags, ZAPI_OPAQUE_FLAG_UNICAST)) {
+
+				if (client->proto != info.proto ||
+				    client->instance != info.instance ||
+				    client->session_id != info.session_id)
+					continue;
+
+				if (IS_ZEBRA_DEBUG_RECV)
+					zlog_debug("%s: found matching unicast client %s",
+						   __func__,
+						   opq_client2str(buf,
+								  sizeof(buf),
+								  client));
+
+			} else {
+				/* Copy message if more clients */
+				if (client->next)
+					dup = stream_dup(msg);
+			}
 
 			/*
 			 * TODO -- this isn't ideal: we're going through an
@@ -427,7 +446,7 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 			} else {
 				if (IS_ZEBRA_DEBUG_RECV)
 					zlog_debug("%s: type %u: no zclient for %s",
-						   __func__, type,
+						   __func__, info.type,
 						   opq_client2str(buf,
 								  sizeof(buf),
 								  client));
@@ -435,10 +454,14 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 				if (dup)
 					stream_free(dup);
 			}
+
+			/* If unicast, we're done */
+			if (CHECK_FLAG(info.flags, ZAPI_OPAQUE_FLAG_UNICAST))
+				break;
 		}
 
 drop_it:
-stream_failure:
+
 		if (msg)
 			stream_free(msg);
 	}
@@ -460,7 +483,7 @@ static int handle_opq_registration(const struct zmsghdr *hdr,
 
 	memset(&info, 0, sizeof(info));
 
-	if (zapi_parse_opaque_reg(msg, &info) < 0) {
+	if (zapi_opaque_reg_decode(msg, &info) < 0) {
 		ret = -1;
 		goto done;
 	}
@@ -540,7 +563,7 @@ static int handle_opq_unregistration(const struct zmsghdr *hdr,
 
 	memset(&info, 0, sizeof(info));
 
-	if (zapi_parse_opaque_reg(msg, &info) < 0) {
+	if (zapi_opaque_reg_decode(msg, &info) < 0) {
 		ret = -1;
 		goto done;
 	}
