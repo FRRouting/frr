@@ -3831,7 +3831,7 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 			if (memcmp(&esi, zero_esi, sizeof(esi_t)))
 				esi_to_str(&esi, esi_buf, sizeof(esi_buf));
 			else
-				strcpy(esi_buf, "-");
+				strlcpy(esi_buf, "-", ESI_STR_LEN);
 			zlog_debug(
 				"Recv %sMACIP ADD VNI %u MAC %s%s%s flags 0x%x seq %u VTEP %s ESI %s from %s",
 				(flags & ZEBRA_MACIP_TYPE_SYNC_PATH) ?
