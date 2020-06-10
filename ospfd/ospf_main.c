@@ -126,6 +126,7 @@ struct quagga_signal_t ospf_signals[] = {
 };
 
 static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,

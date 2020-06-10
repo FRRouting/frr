@@ -111,6 +111,7 @@ struct quagga_signal_t vrrp_signals[] = {
 };
 
 static const struct frr_yang_module_info *const vrrp_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
 	&frr_vrrpd_info,
 };

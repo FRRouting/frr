@@ -107,6 +107,9 @@ enum yang_iter_flags {
 /* Callback used by the yang_snodes_iterate_*() family of functions. */
 typedef int (*yang_iterate_cb)(const struct lys_node *snode, void *arg);
 
+/* Callback used by the yang_dnode_iterate() function. */
+typedef int (*yang_dnode_iter_cb)(const struct lyd_node *dnode, void *arg);
+
 /* Return values of the 'yang_iterate_cb' callback. */
 #define YANG_ITER_CONTINUE 0
 #define YANG_ITER_STOP -1
@@ -356,6 +359,25 @@ extern struct lyd_node *yang_dnode_get(const struct lyd_node *dnode,
  */
 extern bool yang_dnode_exists(const struct lyd_node *dnode,
 			      const char *xpath_fmt, ...);
+
+/*
+ * Iterate over all libyang data nodes that satisfy an XPath query.
+ *
+ * cb
+ *    Function to call with each data node.
+ *
+ * arg
+ *    Arbitrary argument passed as the second parameter in each call to 'cb'.
+ *
+ * dnode
+ *    Base libyang data node to operate on.
+ *
+ * xpath_fmt
+ *    XPath expression (absolute or relative).
+ */
+void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
+			const struct lyd_node *dnode, const char *xpath_fmt,
+			...);
 
 /*
  * Check if the libyang data node contains a default value. Non-presence

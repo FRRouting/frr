@@ -23,6 +23,7 @@
 #define _ZEBRA_FILTER_H
 
 #include "if.h"
+#include "prefix.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,6 +42,50 @@ enum filter_type { FILTER_DENY, FILTER_PERMIT, FILTER_DYNAMIC };
 
 enum access_type { ACCESS_TYPE_STRING, ACCESS_TYPE_NUMBER };
 
+struct filter_cisco {
+	/* Cisco access-list */
+	int extended;
+	struct in_addr addr;
+	struct in_addr addr_mask;
+	struct in_addr mask;
+	struct in_addr mask_mask;
+};
+
+struct filter_zebra {
+	/* If this filter is "exact" match then this flag is set. */
+	int exact;
+
+	/* Prefix information. */
+	struct prefix prefix;
+};
+
+/* Forward declaration of access-list struct. */
+struct access_list;
+
+/* Filter element of access list */
+struct filter {
+	/* For doubly linked list. */
+	struct filter *next;
+	struct filter *prev;
+
+	/* Parent access-list pointer. */
+	struct access_list *acl;
+
+	/* Filter type information. */
+	enum filter_type type;
+
+	/* Sequence number */
+	int64_t seq;
+
+	/* Cisco access-list */
+	int cisco;
+
+	union {
+		struct filter_cisco cfilter;
+		struct filter_zebra zfilter;
+	} u;
+};
+
 /* Access list */
 struct access_list {
 	char *name;
@@ -57,6 +102,28 @@ struct access_list {
 	struct filter *tail;
 };
 
+/* List of access_list. */
+struct access_list_list {
+	struct access_list *head;
+	struct access_list *tail;
+};
+
+/* Master structure of access_list. */
+struct access_master {
+	/* List of access_list which name is number. */
+	struct access_list_list num;
+
+	/* List of access_list which name is string. */
+	struct access_list_list str;
+
+	/* Hook function which is executed when new access_list is added. */
+	void (*add_hook)(struct access_list *);
+
+	/* Hook function which is executed when access_list is deleted. */
+	void (*delete_hook)(struct access_list *);
+};
+
+
 /* Prototypes for access-list. */
 extern void access_list_init(void);
 extern void access_list_reset(void);
@@ -65,6 +132,59 @@ extern void access_list_delete_hook(void (*func)(struct access_list *));
 extern struct access_list *access_list_lookup(afi_t, const char *);
 extern enum filter_type access_list_apply(struct access_list *access,
 					  const void *object);
+
+struct access_list *access_list_get(afi_t afi, const char *name);
+void access_list_delete(struct access_list *access);
+struct filter *filter_new(void);
+void access_list_filter_add(struct access_list *access,
+			    struct filter *filter);
+void access_list_filter_delete(struct access_list *access,
+			       struct filter *filter);
+int64_t filter_new_seq_get(struct access_list *access);
+struct filter *filter_lookup_cisco(struct access_list *access,
+				   struct filter *mnew);
+struct filter *filter_lookup_zebra(struct access_list *access,
+				   struct filter *mnew);
+
+extern const struct frr_yang_module_info frr_filter_info;
+
+
+/* filter_nb.c */
+enum yang_access_list_type {
+	YALT_IPV4 = 0,
+	YALT_IPV6 = 1,
+	YALT_MAC = 2,
+};
+
+enum yang_prefix_list_type {
+	YPLT_IPV4 = 0,
+	YPLT_IPV6 = 1,
+};
+
+enum yang_prefix_list_action {
+	YPLA_DENY = 0,
+	YPLA_PERMIT = 1,
+};
+
+/* filter_cli.c */
+struct lyd_node;
+struct vty;
+
+extern void access_list_legacy_show(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults);
+extern void access_list_legacy_remark_show(struct vty *vty,
+					   struct lyd_node *dnode,
+					   bool show_defaults);
+extern void access_list_show(struct vty *vty, struct lyd_node *dnode,
+			     bool show_defaults);
+extern void access_list_remark_show(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults);
+extern void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
+			     bool show_defaults);
+extern void prefix_list_remark_show(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults);
+
+void filter_cli_init(void);
 
 #ifdef __cplusplus
 }
