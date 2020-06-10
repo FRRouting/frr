@@ -4403,6 +4403,7 @@ static int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_ALL_LOCAL_FLAGS);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
+		mac->rem_seq = 0;
 	}
 
 	return 0;
