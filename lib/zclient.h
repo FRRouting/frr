@@ -816,7 +816,7 @@ extern int zclient_send_rnh(struct zclient *zclient, int command,
 			    const struct prefix *p, bool exact_match,
 			    vrf_id_t vrf_id);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
-			uint32_t api_flags);
+			uint32_t api_flags, uint32_t api_message);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,

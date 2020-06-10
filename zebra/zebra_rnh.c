@@ -1064,7 +1064,8 @@ int send_client(struct rnh *rnh, struct zserv *client, enum rnh_type type,
 		for (ALL_NEXTHOPS(re->nhe->nhg, nh))
 			if (rnh_nexthop_valid(re, nh)) {
 				zapi_nexthop_from_nexthop(&znh, nh);
-				ret = zapi_nexthop_encode(s, &znh, 0/*flags*/);
+				ret = zapi_nexthop_encode(s, &znh, 0/*flags*/,
+							  0/*message*/);
 				if (ret < 0)
 					goto failure;
 
