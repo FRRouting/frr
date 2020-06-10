@@ -116,8 +116,8 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 		addr.addr_len = dotformat2buff(buff, net_title);
 		memcpy(addr.area_addr, buff, addr.addr_len);
 		if (addr.area_addr[addr.addr_len - 1] != 0) {
-			flog_warn(
-				EC_LIB_NB_CB_CONFIG_VALIDATE,
+			snprintf(
+				args->errmsg, args->errmsg_len,
 				"nsel byte (last byte) in area address must be 0");
 			return NB_ERR_VALIDATION;
 		}
@@ -125,8 +125,8 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 			/* Check that the SystemID portions match */
 			if (memcmp(isis->sysid, GETSYSID((&addr)),
 				   ISIS_SYS_ID_LEN)) {
-				flog_warn(
-					EC_LIB_NB_CB_CONFIG_VALIDATE,
+				snprintf(
+					args->errmsg, args->errmsg_len,
 					"System ID must not change when defining additional area addresses");
 				return NB_ERR_VALIDATION;
 			}
@@ -332,8 +332,8 @@ int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args)
 			    && circuit->state != C_STATE_UP)
 				continue;
 			if (lsp_mtu > isis_circuit_pdu_size(circuit)) {
-				flog_warn(
-					EC_LIB_NB_CB_CONFIG_VALIDATE,
+				snprintf(
+					args->errmsg, args->errmsg_len,
 					"ISIS area contains circuit %s, which has a maximum PDU size of %zu",
 					circuit->interface->name,
 					isis_circuit_pdu_size(circuit));
@@ -1047,6 +1047,7 @@ int isis_instance_redistribute_ipv6_metric_modify(
  */
 static int isis_multi_topology_common(enum nb_event event,
 				      const struct lyd_node *dnode,
+				      char *errmsg, size_t errmsg_len,
 				      const char *topology, bool create)
 {
 	struct isis_area *area;
@@ -1056,8 +1057,8 @@ static int isis_multi_topology_common(enum nb_event event,
 	switch (event) {
 	case NB_EV_VALIDATE:
 		if (mtid == (uint16_t)-1) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
-				  "Unknown topology %s", topology);
+			snprintf(errmsg, errmsg_len, "Unknown topology %s",
+				 topology);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1100,6 +1101,7 @@ int isis_instance_multi_topology_ipv4_multicast_create(
 	struct nb_cb_create_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv4-multicast", true);
 }
 
@@ -1107,6 +1109,7 @@ int isis_instance_multi_topology_ipv4_multicast_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv4-multicast", false);
 }
 
@@ -1126,15 +1129,17 @@ int isis_instance_multi_topology_ipv4_multicast_overload_modify(
 int isis_instance_multi_topology_ipv4_management_create(
 	struct nb_cb_create_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode, "ipv4-mgmt",
-					  true);
+	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
+					  "ipv4-mgmt", true);
 }
 
 int isis_instance_multi_topology_ipv4_management_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode, "ipv4-mgmt",
-					  false);
+	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
+					  "ipv4-mgmt", false);
 }
 
 /*
@@ -1154,6 +1159,7 @@ int isis_instance_multi_topology_ipv6_unicast_create(
 	struct nb_cb_create_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-unicast", true);
 }
 
@@ -1161,6 +1167,7 @@ int isis_instance_multi_topology_ipv6_unicast_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-unicast", false);
 }
 
@@ -1181,6 +1188,7 @@ int isis_instance_multi_topology_ipv6_multicast_create(
 	struct nb_cb_create_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-multicast", true);
 }
 
@@ -1188,6 +1196,7 @@ int isis_instance_multi_topology_ipv6_multicast_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-multicast", false);
 }
 
@@ -1207,15 +1216,17 @@ int isis_instance_multi_topology_ipv6_multicast_overload_modify(
 int isis_instance_multi_topology_ipv6_management_create(
 	struct nb_cb_create_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode, "ipv6-mgmt",
-					  true);
+	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
+					  "ipv6-mgmt", true);
 }
 
 int isis_instance_multi_topology_ipv6_management_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode, "ipv6-mgmt",
-					  false);
+	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
+					  "ipv6-mgmt", false);
 }
 
 /*
@@ -1235,6 +1246,7 @@ int isis_instance_multi_topology_ipv6_dstsrc_create(
 	struct nb_cb_create_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-dstsrc", true);
 }
 
@@ -1242,6 +1254,7 @@ int isis_instance_multi_topology_ipv6_dstsrc_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-dstsrc", false);
 }
 
@@ -1721,10 +1734,10 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 			min_mtu = DEFAULT_LSP_MTU;
 #endif /* ifndef FABRICD */
 		if (actual_mtu < min_mtu) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
-				  "Interface %s has MTU %" PRIu32
-				  ", minimum MTU for the area is %" PRIu32 "",
-				  ifp->name, actual_mtu, min_mtu);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Interface %s has MTU %" PRIu32
+				 ", minimum MTU for the area is %" PRIu32 "",
+				 ifp->name, actual_mtu, min_mtu);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1801,9 +1814,9 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 		area_tag = yang_dnode_get_string(args->dnode, NULL);
 		if (circuit && circuit->area && circuit->area->area_tag
 		    && strcmp(circuit->area->area_tag, area_tag)) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
-				  "ISIS circuit is already defined on %s",
-				  circuit->area->area_tag);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "ISIS circuit is already defined on %s",
+				 circuit->area->area_tag);
 			return NB_ERR_VALIDATION;
 		}
 	}
@@ -1839,9 +1852,9 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 		if (circuit && circuit->state == C_STATE_UP
 		    && circuit->area->is_type != IS_LEVEL_1_AND_2
 		    && circuit->area->is_type != circ_type) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
-				  "Invalid circuit level for area %s",
-				  circuit->area->area_tag);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid circuit level for area %s",
+				 circuit->area->area_tag);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2163,16 +2176,16 @@ int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args)
 		if (!circuit)
 			break;
 		if (circuit->circ_type == CIRCUIT_T_LOOPBACK) {
-			flog_warn(
-				EC_LIB_NB_CB_CONFIG_VALIDATE,
+			snprintf(
+				args->errmsg, args->errmsg_len,
 				"Cannot change network type on loopback interface");
 			return NB_ERR_VALIDATION;
 		}
 		if (net_type == CIRCUIT_T_BROADCAST
 		    && circuit->state == C_STATE_UP
 		    && !if_is_broadcast(circuit->interface)) {
-			flog_warn(
-				EC_LIB_NB_CB_CONFIG_VALIDATE,
+			snprintf(
+				args->errmsg, args->errmsg_len,
 				"Cannot configure non-broadcast interface for broadcast operation");
 			return NB_ERR_VALIDATION;
 		}
@@ -2208,8 +2221,8 @@ int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 		if (!ifp)
 			return NB_OK;
 		if (if_is_loopback(ifp)) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
-				  "Loopback is always passive");
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Loopback is always passive");
 			return NB_ERR_VALIDATION;
 		}
 	}
@@ -2312,7 +2325,8 @@ int lib_interface_isis_disable_three_way_handshake_modify(
  * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-unicast
  */
 static int lib_interface_isis_multi_topology_common(
-	enum nb_event event, const struct lyd_node *dnode, uint16_t mtid)
+	enum nb_event event, const struct lyd_node *dnode, char *errmsg,
+	size_t errmsg_len, uint16_t mtid)
 {
 	struct isis_circuit *circuit;
 	bool value;
@@ -2321,8 +2335,8 @@ static int lib_interface_isis_multi_topology_common(
 	case NB_EV_VALIDATE:
 		circuit = nb_running_get_entry(dnode, NULL, false);
 		if (circuit && circuit->area && circuit->area->oldmetric) {
-			flog_warn(
-				EC_LIB_NB_CB_CONFIG_VALIDATE,
+			snprintf(
+				errmsg, errmsg_len,
 				"Multi topology IS-IS can only be used with wide metrics");
 			return NB_ERR_VALIDATION;
 		}
@@ -2344,7 +2358,8 @@ int lib_interface_isis_multi_topology_ipv4_unicast_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV4_UNICAST);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV4_UNICAST);
 }
 
 /*
@@ -2355,7 +2370,8 @@ int lib_interface_isis_multi_topology_ipv4_multicast_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV4_MULTICAST);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV4_MULTICAST);
 }
 
 /*
@@ -2366,7 +2382,8 @@ int lib_interface_isis_multi_topology_ipv4_management_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV4_MGMT);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV4_MGMT);
 }
 
 /*
@@ -2377,7 +2394,8 @@ int lib_interface_isis_multi_topology_ipv6_unicast_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV6_UNICAST);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV6_UNICAST);
 }
 
 /*
@@ -2388,7 +2406,8 @@ int lib_interface_isis_multi_topology_ipv6_multicast_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV6_MULTICAST);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV6_MULTICAST);
 }
 
 /*
@@ -2399,7 +2418,8 @@ int lib_interface_isis_multi_topology_ipv6_management_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV6_MGMT);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV6_MGMT);
 }
 
 /*
@@ -2409,5 +2429,6 @@ int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV6_DSTSRC);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV6_DSTSRC);
 }

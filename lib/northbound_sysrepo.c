@@ -245,7 +245,9 @@ static int frr_sr_config_change_cb_verify(sr_session_ctx_t *session,
 	sr_change_oper_t sr_op;
 	sr_val_t *sr_old_val, *sr_new_val;
 	char xpath[XPATH_MAXLEN];
+	struct nb_context context = {};
 	struct nb_config *candidate;
+	char errmsg[BUFSIZ] = {0};
 
 	snprintf(xpath, sizeof(xpath), "/%s:*", module_name);
 	ret = sr_get_changes_iter(session, xpath, &it);
@@ -276,21 +278,33 @@ static int frr_sr_config_change_cb_verify(sr_session_ctx_t *session,
 	}
 
 	transaction = NULL;
+	context.client = NB_CLIENT_SYSREPO;
 	if (startup_config) {
 		/*
 		 * sysrepod sends the entire startup configuration using a
 		 * single event (SR_EV_ENABLED). This means we need to perform
 		 * the full two-phase commit protocol in one go here.
 		 */
-		ret = nb_candidate_commit(candidate, NB_CLIENT_SYSREPO, NULL,
-					  true, NULL, NULL);
+		ret = nb_candidate_commit(&context, candidate, true, NULL, NULL,
+					  errmsg, sizeof(errmsg));
+		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
+			flog_warn(
+				EC_LIB_LIBSYSREPO,
+				"%s: failed to apply startup configuration: %s (%s)",
+				__func__, nb_err_name(ret), errmsg);
 	} else {
 		/*
 		 * Validate the configuration changes and allocate all resources
 		 * required to apply them.
 		 */
-		ret = nb_candidate_commit_prepare(candidate, NB_CLIENT_SYSREPO,
-						  NULL, NULL, &transaction);
+		ret = nb_candidate_commit_prepare(&context, candidate, NULL,
+						  &transaction, errmsg,
+						  sizeof(errmsg));
+		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
+			flog_warn(
+				EC_LIB_LIBSYSREPO,
+				"%s: failed to prepare configuration transaction: %s (%s)",
+				__func__, nb_err_name(ret), errmsg);
 	}
 
 	/* Map northbound return code to sysrepo return code. */

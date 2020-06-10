@@ -86,7 +86,7 @@ int nb_db_transaction_save(const struct nb_transaction *transaction,
 	if (!ss)
 		goto exit;
 
-	client_name = nb_client_name(transaction->client);
+	client_name = nb_client_name(transaction->context->client);
 	/* Always record configurations in the XML format. */
 	if (lyd_print_mem(&config_str, transaction->config->dnode, LYD_XML,
 			  LYP_FORMAT | LYP_WITHSIBLINGS)
