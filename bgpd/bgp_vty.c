@@ -14815,11 +14815,6 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "\n");
 	}
 
-	/* BGP flag dampening. */
-	if (CHECK_FLAG(bgp->af_flags[afi][safi],
-		       BGP_CONFIG_DAMPENING))
-		bgp_config_write_damp(vty, afi, safi);
-
 	/* Route reflector client. */
 	if (peergroup_af_flag_check(peer, afi, safi,
 				    PEER_FLAG_REFLECTOR_CLIENT)) {
@@ -15043,6 +15038,10 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	bgp_config_write_network(vty, bgp, afi, safi);
 
 	bgp_config_write_redistribute(vty, bgp, afi, safi);
+
+	/* BGP flag dampening. */
+	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
+		bgp_config_write_damp(vty, afi, safi);
 
 	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
 		bgp_config_write_peer_af(vty, bgp, group->conf, afi, safi);
