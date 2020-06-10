@@ -34,6 +34,12 @@
 #include "zclient.h"
 
 #include "ldp.h"
+#include "lib/if.h"
+
+#ifdef IF_NAMESIZE
+#undef IF_NAMESIZE
+#define IF_NAMESIZE INTERFACE_NAMSIZ
+#endif
 
 #define CONF_FILE		"/etc/ldpd.conf"
 #define LDPD_USER		"_ldpd"
