@@ -1,21 +1,92 @@
 [
   {
-    "name":"DONNA",
-    "valid":true,
+    "name":"AKIHABARA",
+    "valid":false,
     "policies":[
       {
-        "id":3,
         "sequenceNumber":5,
-        "ruleNumber":304,
         "vrfUnchanged":false,
         "installed":true,
         "installedReason":"Valid",
-        "nexthopGroup":{
-          "tableId":10002,
+        "nexthopGroup": {
           "name":"C",
           "installed":true,
           "installedInternally":1
         },
+        "matchDst":"192.168.4.0\/24"
+      },
+      {
+        "sequenceNumber":10,
+        "vrfUnchanged":false,
+        "installed":true,
+        "installedReason":"Invalid Src or Dst",
+        "nexthopGroup":{
+          "name":"C",
+          "installed":true,
+          "installedInternally":1
+        }
+      },
+      {
+        "sequenceNumber":15,
+        "vrfUnchanged":false,
+        "installed":false,
+        "installedReason":"No Nexthops"
+      }
+    ]
+  },
+  {
+    "name":"ASAKUSA",
+    "valid":true,
+    "policies":[
+      {
+        "sequenceNumber":5,
+        "vrfUnchanged":false,
+        "installed":true,
+        "installedReason":"Valid",
+        "matchDst":"c0ff:ee::\/64",
+        "nexthopGroup":{
+          "name":"D",
+          "installed":true,
+          "installedInternally":1
+        }
+      },
+      {
+        "sequenceNumber":10,
+        "vrfUnchanged":false,
+        "installed":true,
+        "installedReason":"Valid",
+        "nexthopGroup":{
+          "name":"ASAKUSA10",
+          "installed":true,
+          "installedInternally":1
+        },
+        "matchDst":"dead:beef::\/64",
+        "matchMark":314159
+      }
+    ]
+  },
+  {
+    "name":"DONNA",
+    "valid":false,
+    "policies":[
+      {
+        "sequenceNumber":5,
+        "vrfUnchanged":false,
+        "installed":false,
+        "installedReason":"Invalid NH-group",
+        "nexthopGroup":{
+          "name":"B",
+          "installed":false,
+          "installedInternally":0
+        },
+        "matchSrc":"1.2.0.0\/16",
+        "matchDst":"3.4.5.0\/24"
+      },
+      {
+        "sequenceNumber":10,
+        "vrfUnchanged":true,
+        "installed":false,
+        "installedReason":"Valid",
         "matchSrc":"1.2.0.0\/16",
         "matchDst":"3.4.5.0\/24"
       }
@@ -26,14 +97,11 @@
     "valid":true,
     "policies":[
       {
-        "id":1,
         "sequenceNumber":5,
-        "ruleNumber":304,
         "vrfUnchanged":false,
         "installed":true,
         "installedReason":"Valid",
         "nexthopGroup":{
-          "tableId":10003,
           "name":"EVA5",
           "installed":true,
           "installedInternally":1
@@ -41,14 +109,12 @@
         "matchSrc":"4.5.6.7\/32"
       },
       {
-        "id":2,
         "sequenceNumber":10,
         "ruleNumber":309,
         "vrfUnchanged":false,
         "installed":true,
         "installedReason":"Valid",
         "nexthopGroup":{
-          "tableId":10000,
           "name":"A",
           "installed":true,
           "installedInternally":1
