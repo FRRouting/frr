@@ -213,25 +213,35 @@ struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *ospf,
 	struct as_external_lsa *al;
 	struct in_addr mask, id;
 
+	/* Fisrt search the lsdb with address specifc LSID
+	 * where all the host bits are set, if there a matched
+	 * LSA, return.
+	 * Ex: For route 10.0.0.0/16, LSID is 10.0.255.255
+	 * If no lsa with above LSID, use received address as
+	 * LSID and check if any LSA in LSDB.
+	 * If LSA found, check if the mask is same b/w the matched
+	 * LSA and received prefix, if same then it is the LSA for
+	 * this prefix.
+	 * Ex: For route 10.0.0.0/16, LSID is 10.0.0.0
+	 */
+
+	masklen2ip(p->prefixlen, &mask);
+	id.s_addr = p->prefix.s_addr | (~mask.s_addr);
+	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA, id,
+				     ospf->router_id);
+	if (lsa)
+		return lsa;
+
 	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA,
 				     p->prefix, ospf->router_id);
 
-	if (!lsa)
-		return NULL;
-
-	al = (struct as_external_lsa *)lsa->data;
-
-	masklen2ip(p->prefixlen, &mask);
-
-	if (mask.s_addr != al->mask.s_addr) {
-		id.s_addr = p->prefix.s_addr | (~mask.s_addr);
-		lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA,
-					     id, ospf->router_id);
-		if (!lsa)
-			return NULL;
+	if (lsa) {
+		al = (struct as_external_lsa *)lsa->data;
+		if (mask.s_addr == al->mask.s_addr)
+			return lsa;
 	}
 
-	return lsa;
+	return NULL;
 }
 
 
