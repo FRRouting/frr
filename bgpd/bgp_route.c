@@ -13525,14 +13525,21 @@ void bgp_route_init(void)
 	install_element(BGP_IPV6M_NODE,
 			&no_ipv6_bgp_distance_source_access_list_cmd);
 
+	/* BGP dampening */
 	install_element(BGP_NODE, &bgp_damp_set_cmd);
 	install_element(BGP_NODE, &bgp_damp_unset_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_damp_set_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_damp_unset_cmd);
-
-	/* IPv4 Multicast Mode */
 	install_element(BGP_IPV4M_NODE, &bgp_damp_set_cmd);
 	install_element(BGP_IPV4M_NODE, &bgp_damp_unset_cmd);
+	install_element(BGP_IPV4L_NODE, &bgp_damp_set_cmd);
+	install_element(BGP_IPV4L_NODE, &bgp_damp_unset_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_damp_set_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_damp_unset_cmd);
+	install_element(BGP_IPV6M_NODE, &bgp_damp_set_cmd);
+	install_element(BGP_IPV6M_NODE, &bgp_damp_unset_cmd);
+	install_element(BGP_IPV6L_NODE, &bgp_damp_set_cmd);
+	install_element(BGP_IPV6L_NODE, &bgp_damp_unset_cmd);
 
 	/* Large Communities */
 	install_element(VIEW_NODE, &show_ip_bgp_large_community_list_cmd);
