@@ -596,12 +596,12 @@ const void *
 lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_lookup_entry(
 	struct nb_cb_lookup_entry_args *args)
 {
-	struct nhg_hash_entry *nhe;
+	const struct route_entry *re = args->parent_list_entry;
+	const struct nhg_hash_entry *nhe = re->nhe;
 	struct nexthop nexthop_lookup = {};
 	struct nexthop *nexthop;
 	const char *nh_type_str;
 
-	nhe = (struct nhg_hash_entry *)args->parent_list_entry;
 	nexthop_lookup.vrf_id = nhe->vrf_id;
 
 	/*
