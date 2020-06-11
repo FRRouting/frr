@@ -1408,10 +1408,10 @@ int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s, struct pbr_rule *zrule)
 bool zapi_nhg_notify_decode(struct stream *s, uint32_t *id,
 			    enum zapi_nhg_notify_owner *note)
 {
-	uint16_t read_id;
+	uint32_t read_id;
 
-	STREAM_GETL(s, read_id);
 	STREAM_GET(note, s, sizeof(*note));
+	STREAM_GETL(s, read_id);
 
 	*id = read_id;
 
