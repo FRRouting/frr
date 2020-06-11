@@ -347,9 +347,15 @@ static inline uint64_t bgp_table_version(struct bgp_table *table)
 	return table->version;
 }
 
-void bgp_table_range_lookup(const struct bgp_table *table,
-			    const struct prefix *p,
-			    uint8_t maxlen, struct list *matches);
+/* Find the subtree of the prefix p
+ *
+ * This will return the first node that belongs the the subtree of p. Including
+ * p itself, if it is in the tree.
+ *
+ * If the subtree is not present in the table, NULL is returned.
+ */
+struct bgp_node *bgp_table_subtree_lookup(const struct bgp_table *table,
+					  const struct prefix *p);
 
 
 static inline struct bgp_aggregate *
