@@ -318,7 +318,11 @@ void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
 				    int delay, void *payload, struct thread **thread,
 				    pcep_ctrl_thread_callback timer_cb)
 {
-	PCEP_DEBUG("Schedule pceplib timer for %us", delay);
+	/*FIXME: Since https://github.com/FRRouting/frr/pull/5451/
+	 *       only threads created by FRR can do logging.
+	 *       Enable again when pceplib is creating its threads
+	 *       using some callbacks */
+	//PCEP_DEBUG("Schedule pceplib timer for %us", delay);
 	schedule_thread_timer_with_cb(
 	        ctrl_state, 0, TM_PCEPLIB_TIMER, delay, payload, thread,
 	        timer_cb);
@@ -326,7 +330,11 @@ void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
 
 void pcep_thread_cancel_pceplib_timer(struct thread **thread)
 {
-	PCEP_DEBUG("Cancel pceplib timer");
+	/*FIXME: Since https://github.com/FRRouting/frr/pull/5451/
+	 *       only threads created by FRR can do logging.
+	 *       Enable again when pceplib is creating its threads
+	 *       using some callbacks */
+	// PCEP_DEBUG("Cancel pceplib timer");
 
 	if (thread == NULL) {
 		return;

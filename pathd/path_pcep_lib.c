@@ -30,7 +30,11 @@
 #define CLASS_TYPE(CLASS, TYPE) (((CLASS) << 16) | (TYPE))
 
 /* pceplib logging callback */
-static int pceplib_logging_cb(int level, const char *fmt, va_list args);
+/*FIXME: Since https://github.com/FRRouting/frr/pull/5451/
+ *       only threads created by FRR can do logging.
+ *       Enable again when pceplib is creating its threads
+ *       using some callbacks */
+// static int pceplib_logging_cb(int level, const char *fmt, va_list args);
 
 /* Timer callbacks */
 static void pcep_lib_pceplib_timer_create_cb(void *fpt, void **thread,
@@ -77,7 +81,11 @@ int pcep_lib_initialize(struct frr_pthread *fpt)
 	PCEP_DEBUG("Initializing pceplib");
 
 	/* Register pceplib logging callback */
-	register_logger(pceplib_logging_cb);
+	/*FIXME: Since https://github.com/FRRouting/frr/pull/5451/
+	 *       only threads created by FRR can do logging.
+	 *       Enable again when pceplib is creating its threads
+	 *       using some callbacks */
+	// register_logger(pceplib_logging_cb);
 
 	/* Its ok that this object goes out of scope, as it
 	 * wont be stored, and its values will be copied */
@@ -401,13 +409,17 @@ void pcep_lib_free_counters(struct counters_group *counters)
 
 /* ------------ pceplib logging callback ------------ */
 
-int pceplib_logging_cb(int priority, const char *fmt, va_list args)
-{
-	char buffer[1024];
-	vsnprintf(buffer, sizeof(buffer), fmt, args);
-	PCEP_DEBUG_PCEPLIB(priority, "pceplib: %s", buffer);
-	return 0;
-}
+/*FIXME: Since https://github.com/FRRouting/frr/pull/5451/
+ *       only threads created by FRR can do logging.
+ *       Enable again when pceplib is creating its threads
+ *       using some callbacks */
+// int pceplib_logging_cb(int priority, const char *fmt, va_list args)
+// {
+// 	char buffer[1024];
+// 	vsnprintf(buffer, sizeof(buffer), fmt, args);
+// 	PCEP_DEBUG_PCEPLIB(priority, "pceplib: %s", buffer);
+// 	return 0;
+// }
 
 /* ------------ Internal Functions ------------ */
 
