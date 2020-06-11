@@ -403,7 +403,8 @@ void route_add(const struct prefix *p, vrf_id_t vrf_id,
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
-	if (nhgid) {
+	/* Only send via ID if nhgroup has been successfully installed */
+	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_NHG);
 		api.nhgid = nhgid;
 	} else {
@@ -700,6 +701,33 @@ void sharp_zebra_send_arp(const struct interface *ifp, const struct prefix *p)
 	zclient_send_neigh_discovery_req(zclient, ifp, p);
 }
 
+static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
+{
+	enum zapi_nhg_notify_owner note;
+	uint32_t id;
+
+	if (!zapi_nhg_notify_decode(zclient->ibuf, &id, &note))
+		return -1;
+
+	switch (note) {
+	case ZAPI_NHG_INSTALLED:
+		sharp_nhgroup_id_set_installed(id, true);
+		zlog_debug("Installed nhg %u", id);
+		break;
+	case ZAPI_NHG_FAIL_INSTALL:
+		zlog_debug("Failed install of nhg %u", id);
+		break;
+	case ZAPI_NHG_REMOVED:
+		zlog_debug("Removed nhg %u", id);
+		break;
+	case ZAPI_NHG_REMOVE_FAIL:
+		zlog_debug("Failed removal of nhg %u", id);
+		break;
+	}
+
+	return 0;
+}
+
 void sharp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = true};
@@ -716,6 +744,7 @@ void sharp_zebra_init(void)
 	zclient->route_notify_owner = route_notify_owner;
 	zclient->nexthop_update = sharp_nexthop_update;
 	zclient->import_check_update = sharp_nexthop_update;
+	zclient->nhg_notify_owner = nhg_notify_owner;
 
 	zclient->redistribute_route_add = sharp_redistribute_route;
 	zclient->redistribute_route_del = sharp_redistribute_route;

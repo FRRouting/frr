@@ -78,6 +78,8 @@ struct sharp_nhg {
 	uint32_t id;
 
 	char name[256];
+
+	bool installed;
 };
 
 static uint32_t nhg_id;
@@ -98,6 +100,22 @@ static int sharp_nhg_compare_func(const struct sharp_nhg *a,
 
 DECLARE_RBTREE_UNIQ(sharp_nhg_rb, struct sharp_nhg, mylistitem,
 		    sharp_nhg_compare_func);
+
+static struct sharp_nhg *sharp_nhgroup_find_id(uint32_t id)
+{
+	struct sharp_nhg *lookup;
+
+	/* Yea its just a for loop, I don't want add complexity
+	 * to sharpd with another RB tree for just IDs
+	 */
+
+	frr_each(sharp_nhg_rb, &nhg_head, lookup) {
+		if (lookup->id == id)
+			return lookup;
+	}
+
+	return NULL;
+}
 
 static void sharp_nhgroup_add_cb(const char *name)
 {
@@ -164,6 +182,32 @@ uint32_t sharp_nhgroup_get_id(const char *name)
 		return 0;
 
 	return snhg->id;
+}
+
+void sharp_nhgroup_id_set_installed(uint32_t id, bool installed)
+{
+	struct sharp_nhg *snhg;
+
+	snhg = sharp_nhgroup_find_id(id);
+	if (!snhg) {
+		zlog_debug("%s: nhg %u not found", __func__, id);
+		return;
+	}
+
+	snhg->installed = installed;
+}
+
+bool sharp_nhgroup_id_is_installed(uint32_t id)
+{
+	struct sharp_nhg *snhg;
+
+	snhg = sharp_nhgroup_find_id(id);
+	if (!snhg) {
+		zlog_debug("%s: nhg %u not found", __func__, id);
+		return false;
+	}
+
+	return snhg->installed;
 }
 
 void sharp_nhgroup_init(void)
