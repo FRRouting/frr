@@ -517,9 +517,9 @@ void ospf_terminate(void)
 
 	SET_FLAG(om->options, OSPF_MASTER_SHUTDOWN);
 
-	/* exit immediately if OSPF not actually running */
+	/* Skip some steps if OSPF not actually running */
 	if (listcount(om->ospf) == 0)
-		exit(0);
+		goto done;
 
 	bfd_gbl_exit();
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
@@ -543,6 +543,7 @@ void ospf_terminate(void)
 	zclient_stop(zclient);
 	zclient_free(zclient);
 
+done:
 	frr_fini();
 }
 
