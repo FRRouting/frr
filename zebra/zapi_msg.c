@@ -711,7 +711,7 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	return zserv_send_message(client, s);
 }
 
-static int nhg_notify(uint16_t type, uint16_t instance, uint16_t id,
+static int nhg_notify(uint16_t type, uint16_t instance, uint32_t id,
 		      enum zapi_nhg_notify_owner note)
 {
 	struct zserv *client;
@@ -731,8 +731,8 @@ static int nhg_notify(uint16_t type, uint16_t instance, uint16_t id,
 
 	zclient_create_header(s, ZEBRA_NHG_NOTIFY_OWNER, VRF_DEFAULT);
 
-	stream_putw(s, id);
 	stream_put(s, &note, sizeof(note));
+	stream_putl(s, id);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
