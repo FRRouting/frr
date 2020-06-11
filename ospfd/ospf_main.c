@@ -98,6 +98,7 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	ospf_terminate();
+	exit(0);
 }
 
 /* SIGUSR1 handler. */

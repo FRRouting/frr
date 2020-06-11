@@ -42,6 +42,7 @@ char backup_config_file[256];
 
 bool mpls_enabled;
 
+
 zebra_capabilities_t _caps_p[] = {
 };
 
@@ -74,6 +75,8 @@ static void sigint(void)
 	zlog_notice("Terminating on signal");
 
 	static_vrf_terminate();
+
+	frr_fini();
 
 	exit(0);
 }

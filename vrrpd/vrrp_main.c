@@ -82,6 +82,8 @@ static void __attribute__((noreturn)) sigint(void)
 
 	vrrp_fini();
 
+	frr_fini();
+
 	exit(0);
 }
 
