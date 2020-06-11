@@ -1094,7 +1094,8 @@ static void do_thread_cancel(struct thread_master *master)
 	}
 
 	/* Delete and free all cancellation requests */
-	list_delete_all_node(master->cancel_req);
+	if (master->cancel_req)
+		list_delete_all_node(master->cancel_req);
 
 	/* Wake up any threads which may be blocked in thread_cancel_async() */
 	master->canceled = true;
