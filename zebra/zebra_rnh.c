@@ -1076,8 +1076,8 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 	return zserv_send_message(client, s);
 
 failure:
-	if (s)
-		stream_free(s);
+
+	stream_free(s);
 	return -1;
 }
 
