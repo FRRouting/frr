@@ -2368,10 +2368,24 @@ dplane_route_update_internal(struct route_node *rn,
 		if ((dplane_ctx_get_type(ctx) == dplane_ctx_get_old_type(ctx))
 		    && (dplane_ctx_get_nhe_id(ctx)
 			== dplane_ctx_get_old_nhe_id(ctx))) {
+			struct nexthop *nexthop;
+
 			if (IS_ZEBRA_DEBUG_DPLANE)
 				zlog_debug(
 					"%s: Ignoring Route exactly the same",
 					__func__);
+
+			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
+					      nexthop)) {
+				if (CHECK_FLAG(nexthop->flags,
+					       NEXTHOP_FLAG_RECURSIVE))
+					continue;
+
+				if (CHECK_FLAG(nexthop->flags,
+					       NEXTHOP_FLAG_ACTIVE))
+					SET_FLAG(nexthop->flags,
+						 NEXTHOP_FLAG_FIB);
+			}
 
 			return ZEBRA_DPLANE_REQUEST_SUCCESS;
 		}
