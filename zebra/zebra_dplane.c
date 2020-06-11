@@ -3827,8 +3827,18 @@ kernel_dplane_route_update(struct zebra_dplane_ctx *ctx)
 	 */
 	if ((dplane_ctx_get_type(ctx) == dplane_ctx_get_old_type(ctx))
 	    && (dplane_ctx_get_nhe_id(ctx) == dplane_ctx_get_old_nhe_id(ctx))) {
+		struct nexthop *nexthop;
+
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 			zlog_debug("Ignoring Route exactly the same");
+
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		}
 
 		return ZEBRA_DPLANE_REQUEST_SUCCESS;
 	}
