@@ -2758,8 +2758,16 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	 *
 	 * Once resolution is figured out, we won't need this!
 	 */
-	for (ALL_NEXTHOPS_PTR(nhg, newhop))
+	for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
+		if (!newhop->ifindex) {
+			if (IS_ZEBRA_DEBUG_NHG)
+				zlog_debug(
+					"%s: id %u, nexthop without ifindex passed to add",
+					__func__, id);
+			return NULL;
+		}
 		SET_FLAG(newhop->flags, NEXTHOP_FLAG_ACTIVE);
+	}
 
 	zebra_nhe_init(&lookup, afi, nhg->nexthop);
 	lookup.nhg.nexthop = nhg->nexthop;
