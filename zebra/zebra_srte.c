@@ -101,7 +101,7 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 	const zebra_nhlfe_t *nhlfe;
 	struct stream *s;
 	uint32_t message = 0;
-	unsigned long nump;
+	unsigned long nump = 0;
 	uint8_t num;
 
 	/* Get output stream. */

@@ -290,7 +290,7 @@ static int static_route_leak(
 	uint8_t type;
 	struct static_nh_label snh_label;
 	uint32_t table_id = 0;
-	uint32_t color;
+	uint32_t color = 0;
 
 	ret = str2prefix(dest_str, &p);
 	if (ret <= 0) {
