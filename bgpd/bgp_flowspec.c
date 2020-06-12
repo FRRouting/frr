@@ -42,6 +42,7 @@ static int bgp_fs_nlri_validate(uint8_t *nlri_content, uint32_t len)
 	while (offset < len-1) {
 		type = nlri_content[offset];
 		offset++;
+		offset = 0;
 		switch (type) {
 		case FLOWSPEC_DEST_PREFIX:
 		case FLOWSPEC_SRC_PREFIX:
