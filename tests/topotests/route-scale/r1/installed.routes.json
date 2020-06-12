@@ -1,0 +1,16 @@
+{
+    "routes":[
+    {
+      "fib":32,
+      "rib":32,
+      "type":"connected"
+    },
+    {
+      "fib":1000000,
+      "rib":1000000,
+      "type":"sharp"
+    }
+  ],
+  "routesTotal":1000032,
+  "routesTotalFib":1000032
+}

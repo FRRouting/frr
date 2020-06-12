@@ -1,0 +1,11 @@
+{
+  "routes":[
+    {
+      "fib":32,
+      "rib":32,
+      "type":"connected"
+    }
+  ],
+  "routesTotal":32,
+  "routesTotalFib":32
+}
