@@ -13494,6 +13494,11 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				    : "",
 				prd ? ":" : "", (struct prefix_evpn *)p);
 		} else {
+			char prefix_str[BUFSIZ];
+
+			prefix2str((const struct prefix_evpn *)p, prefix_str, sizeof(prefix_str));
+			json_object_string_add(json, "prefix", prefix_str);
+			json_object_int_add(json, "prefixLen", p->prefixlen);
 			json_object_string_add(
 				json, "rd",
 				prd ? prefix_rd2str(prd, buf1, sizeof(buf1),
