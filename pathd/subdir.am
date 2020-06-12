@@ -29,6 +29,10 @@ pathd_libpath_a_SOURCES = \
 	pathd/pathd.c \
 	# end
 
+clippy_scan += \
+	pathd/path_cli.c \
+	# end
+
 noinst_HEADERS += \
 	pathd/path_errors.h \
 	pathd/path_memory.h \

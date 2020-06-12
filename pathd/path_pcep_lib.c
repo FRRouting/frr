@@ -30,11 +30,7 @@
 #define CLASS_TYPE(CLASS, TYPE) (((CLASS) << 16) | (TYPE))
 
 /* pceplib logging callback */
-/*FIXME: Since https://github.com/FRRouting/frr/pull/5451/
- *       only threads created by FRR can do logging.
- *       Enable again when pceplib is creating its threads
- *       using some callbacks */
-// static int pceplib_logging_cb(int level, const char *fmt, va_list args);
+static int pceplib_logging_cb(int level, const char *fmt, va_list args);
 
 /* Timer callbacks */
 static void pcep_lib_pceplib_timer_create_cb(void *fpt, void **thread,
@@ -52,6 +48,14 @@ static int pcep_lib_socket_write_ready(struct thread *thread);
 
 /* pceplib pcep_event callbacks */
 static void pcep_lib_pceplib_event_cb(void *fpt, pcep_event *event);
+
+/* pceplib pthread creation callback */
+static int pcep_lib_pthread_create_cb(pthread_t *pthread_id,
+				      const pthread_attr_t *attr,
+				      void *(*start_routine)(void *),
+				      void *data, const char *thread_name);
+void *pcep_lib_pthread_start_passthrough(void *data);
+int pcep_lib_pthread_stop_cb(struct frr_pthread *, void **);
 
 /* Internal functions */
 static double_linked_list *pcep_lib_format_path(struct path *path);
@@ -73,6 +77,10 @@ static void free_counter_group(struct counters_group *group);
 static void free_counter_subgroup(struct counters_subgroup *subgroup);
 static void free_counter(struct counter *counter);
 
+struct pcep_lib_pthread_passthrough_data {
+	void *(*start_routine)(void *data);
+	void *data;
+};
 
 /* ------------ API Functions ------------ */
 
@@ -81,11 +89,7 @@ int pcep_lib_initialize(struct frr_pthread *fpt)
 	PCEP_DEBUG("Initializing pceplib");
 
 	/* Register pceplib logging callback */
-	/*FIXME: Since https://github.com/FRRouting/frr/pull/5451/
-	 *       only threads created by FRR can do logging.
-	 *       Enable again when pceplib is creating its threads
-	 *       using some callbacks */
-	// register_logger(pceplib_logging_cb);
+	register_logger(pceplib_logging_cb);
 
 	/* Its ok that this object goes out of scope, as it
 	 * wont be stored, and its values will be copied */
@@ -106,7 +110,9 @@ int pcep_lib_initialize(struct frr_pthread *fpt)
 		.socket_read_func = pcep_lib_pceplib_socket_read_cb,
 		.socket_write_func = pcep_lib_pceplib_socket_write_cb,
 		/* PCEP events */
-		.pcep_event_func = pcep_lib_pceplib_event_cb};
+		.pcep_event_func = pcep_lib_pceplib_event_cb,
+		/* PCEPlib pthread creation callback */
+		.pthread_create_func = pcep_lib_pthread_create_cb};
 	if (!initialize_pcc_infra(&infra)) {
 		flog_err(EC_PATH_PCEP_PCC_INIT, "failed to initialize pceplib");
 		return 1;
@@ -254,6 +260,62 @@ int pcep_lib_socket_read_ready(struct thread *thread)
 void pcep_lib_pceplib_event_cb(void *fpt, pcep_event *event)
 {
 	pcep_thread_send_ctrl_event(fpt, event, pcep_thread_pcep_event);
+}
+
+/* Wrapper function around the actual pceplib thread start function */
+void *pcep_lib_pthread_start_passthrough(void *data)
+{
+	struct frr_pthread *fpt = data;
+	struct pcep_lib_pthread_passthrough_data *passthrough_data = fpt->data;
+	void *start_routine_data = passthrough_data->data;
+	void *(*start_routine)(void *) = passthrough_data->start_routine;
+	XFREE(MTYPE_PCEP, passthrough_data);
+
+	if (start_routine != NULL) {
+		return start_routine(start_routine_data);
+	}
+
+	return NULL;
+}
+
+int pcep_lib_pthread_create_cb(pthread_t *thread_id, const pthread_attr_t *attr,
+			       void *(*start_routine)(void *), void *data,
+			       const char *thread_name)
+{
+	/* Since FRR calls the start_routine with a struct frr_pthread,
+	 * we have to store the real data and callback in a passthrough
+	 * and pass the actual data the start_routine needs */
+	struct pcep_lib_pthread_passthrough_data *passthrough_data = XMALLOC(
+		MTYPE_PCEP, sizeof(struct pcep_lib_pthread_passthrough_data));
+	passthrough_data->data = data;
+	passthrough_data->start_routine = start_routine;
+
+	struct frr_pthread_attr fpt_attr = {
+		.start = pcep_lib_pthread_start_passthrough,
+		.stop = pcep_lib_pthread_stop_cb};
+	struct frr_pthread *fpt =
+		frr_pthread_new(&fpt_attr, thread_name, "pcep");
+	if (fpt == NULL) {
+		return 1;
+	}
+
+	fpt->data = passthrough_data;
+	int retval = frr_pthread_run(fpt, attr);
+	if (retval) {
+		return retval;
+	}
+
+	*thread_id = fpt->thread;
+
+	return 0;
+}
+
+int pcep_lib_pthread_stop_cb(struct frr_pthread *fpt, void **res)
+{
+	pcep_lib_finalize();
+	frr_pthread_destroy(fpt);
+
+	return 0;
 }
 
 struct pcep_message *pcep_lib_format_report(struct path *path)
@@ -409,17 +471,13 @@ void pcep_lib_free_counters(struct counters_group *counters)
 
 /* ------------ pceplib logging callback ------------ */
 
-/*FIXME: Since https://github.com/FRRouting/frr/pull/5451/
- *       only threads created by FRR can do logging.
- *       Enable again when pceplib is creating its threads
- *       using some callbacks */
-// int pceplib_logging_cb(int priority, const char *fmt, va_list args)
-// {
-// 	char buffer[1024];
-// 	vsnprintf(buffer, sizeof(buffer), fmt, args);
-// 	PCEP_DEBUG_PCEPLIB(priority, "pceplib: %s", buffer);
-// 	return 0;
-// }
+int pceplib_logging_cb(int priority, const char *fmt, va_list args)
+{
+	char buffer[1024];
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
+	PCEP_DEBUG_PCEPLIB(priority, "pceplib: %s", buffer);
+	return 0;
+}
 
 /* ------------ Internal Functions ------------ */
 
