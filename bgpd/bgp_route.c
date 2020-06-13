@@ -1858,6 +1858,15 @@ bool subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 				BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 		}
 
+		/* If prefix is IPv4 and we send ::(LL) or LL(LL) then
+		 * other vendors (e.g.: JunOS) complains about bad nhop
+		 * length. Setting this to 16 bytes for unnumbered sessions.
+		 */
+		if (p->family == AF_INET
+		    && (IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_global)
+			|| IN6_IS_ADDR_UNSPECIFIED(&peer->nexthop.v6_global)))
+			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+
 		/* Clear off link-local nexthop in source, whenever it is not
 		 * needed to
 		 * ensure more prefixes share the same attribute for
