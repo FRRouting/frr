@@ -903,8 +903,8 @@ int kernel_interface_set_master(struct interface *master,
 
 	req.ifa.ifi_index = slave->ifindex;
 
-	nl_attr_put(&req.n, sizeof(req), IFLA_MASTER, &master->ifindex, 4);
-	nl_attr_put(&req.n, sizeof(req), IFLA_LINK, &slave->ifindex, 4);
+	nl_attr_put32(&req.n, sizeof(req), IFLA_MASTER, master->ifindex);
+	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, slave->ifindex);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);
@@ -1521,7 +1521,7 @@ int netlink_protodown(struct interface *ifp, bool down)
 	req.ifa.ifi_index = ifp->ifindex;
 
 	nl_attr_put(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, sizeof(down));
-	nl_attr_put(&req.n, sizeof(req), IFLA_LINK, &ifp->ifindex, 4);
+	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, ifp->ifindex);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);

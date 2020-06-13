@@ -1095,6 +1095,86 @@ static int build_label_stack(struct mpls_label_stack *nh_label,
 	return num_labels;
 }
 
+static bool _netlink_route_encode_label_info(struct mpls_label_stack *nh_label,
+					     struct nlmsghdr *nlmsg,
+					     size_t buflen, struct rtmsg *rtmsg,
+					     char *label_buf,
+					     size_t label_buf_size)
+{
+	mpls_lse_t out_lse[MPLS_MAX_LABELS];
+	int num_labels;
+
+	/*
+	 * label_buf is *only* currently used within debugging.
+	 * As such when we assign it we are guarding it inside
+	 * a debug test.  If you want to change this make sure
+	 * you fix this assumption
+	 */
+	label_buf[0] = '\0';
+
+	num_labels =
+		build_label_stack(nh_label, out_lse, label_buf, label_buf_size);
+
+	if (num_labels) {
+		/* Set the BoS bit */
+		out_lse[num_labels - 1] |= htonl(1 << MPLS_LS_S_SHIFT);
+
+		if (rtmsg->rtm_family == AF_MPLS) {
+			if (!nl_attr_put(nlmsg, buflen, RTA_NEWDST, &out_lse,
+					 num_labels * sizeof(mpls_lse_t)))
+				return false;
+		} else {
+			struct rtattr *nest;
+
+			if (!nl_attr_put16(nlmsg, buflen, RTA_ENCAP_TYPE,
+					   LWTUNNEL_ENCAP_MPLS))
+				return false;
+
+			nest = nl_attr_nest(nlmsg, buflen, RTA_ENCAP);
+			if (!nest)
+				return false;
+
+			if (!nl_attr_put(nlmsg, buflen, MPLS_IPTUNNEL_DST,
+					 &out_lse,
+					 num_labels * sizeof(mpls_lse_t)))
+				return false;
+			nl_attr_nest_end(nlmsg, nest);
+		}
+	}
+
+	return true;
+}
+
+static bool _netlink_route_encode_nexthop_src(const struct nexthop *nexthop,
+					      int family,
+					      struct nlmsghdr *nlmsg,
+					      size_t buflen, int bytelen)
+{
+	if (family == AF_INET) {
+		if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY) {
+			if (!nl_attr_put(nlmsg, buflen, RTA_PREFSRC,
+					 &nexthop->rmap_src.ipv4, bytelen))
+				return false;
+		} else if (nexthop->src.ipv4.s_addr != INADDR_ANY) {
+			if (!nl_attr_put(nlmsg, buflen, RTA_PREFSRC,
+					 &nexthop->src.ipv4, bytelen))
+				return false;
+		}
+	} else if (family == AF_INET6) {
+		if (!IN6_IS_ADDR_UNSPECIFIED(&nexthop->rmap_src.ipv6)) {
+			if (!nl_attr_put(nlmsg, buflen, RTA_PREFSRC,
+					 &nexthop->rmap_src.ipv6, bytelen))
+				return false;
+		} else if (!IN6_IS_ADDR_UNSPECIFIED(&nexthop->src.ipv6)) {
+			if (!nl_attr_put(nlmsg, buflen, RTA_PREFSRC,
+					 &nexthop->src.ipv6, bytelen))
+				return false;
+		}
+	}
+
+	return true;
+}
+
 /* This function takes a nexthop as argument and adds
  * the appropriate netlink attributes to an existing
  * netlink message.
@@ -1117,9 +1197,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					    size_t req_size, int cmd)
 {
 
-	mpls_lse_t out_lse[MPLS_MAX_LABELS];
 	char label_buf[256];
-	int num_labels = 0;
 	struct vrf *vrf;
 	char addrstr[INET6_ADDRSTRLEN];
 
@@ -1127,44 +1205,10 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 
 	vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
-	/*
-	 * label_buf is *only* currently used within debugging.
-	 * As such when we assign it we are guarding it inside
-	 * a debug test.  If you want to change this make sure
-	 * you fix this assumption
-	 */
-	label_buf[0] = '\0';
-
-	num_labels = build_label_stack(nexthop->nh_label, out_lse, label_buf,
-				       sizeof(label_buf));
-
-	if (num_labels) {
-		/* Set the BoS bit */
-		out_lse[num_labels - 1] |= htonl(1 << MPLS_LS_S_SHIFT);
-
-		if (rtmsg->rtm_family == AF_MPLS) {
-			if (!nl_attr_put(nlmsg, req_size, RTA_NEWDST, &out_lse,
-					 num_labels * sizeof(mpls_lse_t)))
-				return false;
-		} else {
-			struct rtattr *nest;
-			uint16_t encap = LWTUNNEL_ENCAP_MPLS;
-
-			if (!nl_attr_put(nlmsg, req_size, RTA_ENCAP_TYPE,
-					 &encap, sizeof(uint16_t)))
-				return false;
-
-			nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
-			if (!nest)
-				return false;
-
-			if (!nl_attr_put(nlmsg, req_size, MPLS_IPTUNNEL_DST,
-					 &out_lse,
-					 num_labels * sizeof(mpls_lse_t)))
-				return false;
-			nl_attr_nest_end(nlmsg, nest);
-		}
-	}
+	if (!_netlink_route_encode_label_info(nexthop->nh_label, nlmsg,
+					      req_size, rtmsg, label_buf,
+					      sizeof(label_buf)))
+		return false;
 
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
 		rtmsg->rtm_flags |= RTNH_F_ONLINK;
@@ -1176,15 +1220,9 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 		if (!nl_attr_put32(nlmsg, req_size, RTA_OIF, nexthop->ifindex))
 			return false;
 
-		if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY
-		    && (cmd == RTM_NEWROUTE)) {
-			if (!nl_attr_put(nlmsg, req_size, RTA_PREFSRC,
-					 &nexthop->rmap_src.ipv4, bytelen))
-				return false;
-		} else if (nexthop->src.ipv4.s_addr != INADDR_ANY
-			   && (cmd == RTM_NEWROUTE)) {
-			if (!nl_attr_put(nlmsg, req_size, RTA_PREFSRC,
-					 &nexthop->src.ipv4, bytelen))
+		if (cmd == RTM_NEWROUTE) {
+			if (!_netlink_route_encode_nexthop_src(
+				    nexthop, AF_INET, nlmsg, req_size, bytelen))
 				return false;
 		}
 
@@ -1207,16 +1245,9 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 		}
 
 		if (cmd == RTM_NEWROUTE) {
-			if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY) {
-				if (!nl_attr_put(nlmsg, req_size, RTA_PREFSRC,
-						 &nexthop->rmap_src.ipv4,
-						 bytelen))
-					return false;
-			} else if (nexthop->src.ipv4.s_addr != INADDR_ANY) {
-				if (!nl_attr_put(nlmsg, req_size, RTA_PREFSRC,
-						 &nexthop->src.ipv4, bytelen))
-					return false;
-			}
+			if (!_netlink_route_encode_nexthop_src(
+				    nexthop, AF_INET, nlmsg, req_size, bytelen))
+				return false;
 		}
 
 		if (IS_ZEBRA_DEBUG_KERNEL) {
@@ -1237,17 +1268,10 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 			return false;
 
 		if (cmd == RTM_NEWROUTE) {
-			if (!IN6_IS_ADDR_UNSPECIFIED(&nexthop->rmap_src.ipv6)) {
-				if (!nl_attr_put(nlmsg, req_size, RTA_PREFSRC,
-						 &nexthop->rmap_src.ipv6,
-						 bytelen))
-					return false;
-			} else if (!IN6_IS_ADDR_UNSPECIFIED(
-					   &nexthop->src.ipv6)) {
-				if (!nl_attr_put(nlmsg, req_size, RTA_PREFSRC,
-						 &nexthop->src.ipv6, bytelen))
-					return false;
-			}
+			if (!_netlink_route_encode_nexthop_src(
+				    nexthop, AF_INET6, nlmsg, req_size,
+				    bytelen))
+				return false;
 		}
 
 		if (IS_ZEBRA_DEBUG_KERNEL) {
@@ -1272,16 +1296,9 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 
 	if (nexthop->type == NEXTHOP_TYPE_IFINDEX) {
 		if (cmd == RTM_NEWROUTE) {
-			if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY) {
-				if (!nl_attr_put(nlmsg, req_size, RTA_PREFSRC,
-						 &nexthop->rmap_src.ipv4,
-						 bytelen))
-					return false;
-			} else if (nexthop->src.ipv4.s_addr != INADDR_ANY) {
-				if (!nl_attr_put(nlmsg, req_size, RTA_PREFSRC,
-						 &nexthop->src.ipv4, bytelen))
-					return false;
-			}
+			if (!_netlink_route_encode_nexthop_src(
+				    nexthop, AF_INET, nlmsg, req_size, bytelen))
+				return false;
 		}
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1318,9 +1335,7 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 					   size_t req_size, struct rtmsg *rtmsg,
 					   const union g_addr **src)
 {
-	mpls_lse_t out_lse[MPLS_MAX_LABELS];
 	char label_buf[256];
-	int num_labels = 0;
 	struct vrf *vrf;
 	struct rtnexthop *rtnh;
 
@@ -1332,53 +1347,17 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 
 	vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
-	/*
-	 * label_buf is *only* currently used within debugging.
-	 * As such when we assign it we are guarding it inside
-	 * a debug test.  If you want to change this make sure
-	 * you fix this assumption
-	 */
-	label_buf[0] = '\0';
-
-	num_labels = build_label_stack(nexthop->nh_label, out_lse, label_buf,
-				       sizeof(label_buf));
-
-	if (num_labels) {
-		/* Set the BoS bit */
-		out_lse[num_labels - 1] |= htonl(1 << MPLS_LS_S_SHIFT);
-
-		if (rtmsg->rtm_family == AF_MPLS) {
-			if (!nl_attr_put(nlmsg, req_size, RTA_NEWDST, &out_lse,
-					 num_labels * sizeof(mpls_lse_t)))
-				return false;
-		} else {
-			struct rtattr *nest;
-			uint16_t encap = LWTUNNEL_ENCAP_MPLS;
-
-			if (!nl_attr_put(nlmsg, req_size, RTA_ENCAP_TYPE,
-					 &encap, sizeof(uint16_t)))
-				return false;
-
-			nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
-			if (nest == NULL)
-				return false;
-
-			if (!nl_attr_put(nlmsg, req_size, MPLS_IPTUNNEL_DST,
-					 &out_lse,
-					 num_labels * sizeof(mpls_lse_t)))
-				return false;
-			nl_attr_nest_end(nlmsg, nest);
-		}
-	}
+	if (!_netlink_route_encode_label_info(nexthop->nh_label, nlmsg,
+					      req_size, rtmsg, label_buf,
+					      sizeof(label_buf)))
+		return false;
 
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
 		rtnh->rtnh_flags |= RTNH_F_ONLINK;
 
 	if (is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type)) {
-		bytelen = 4;
 		rtnh->rtnh_flags |= RTNH_F_ONLINK;
-		if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY, &ipv4_ll,
-				 bytelen))
+		if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4))
 			return false;
 		rtnh->rtnh_ifindex = nexthop->ifindex;
 		if (nexthop->weight)
@@ -1531,7 +1510,7 @@ static int netlink_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 
 	nl_attr_put(&req.n, sizeof(req), NDA_PROTOCOL, &protocol,
 		    sizeof(protocol));
-	nl_attr_put(&req.n, sizeof(req), NDA_DST, &addr, 4);
+	nl_attr_put32(&req.n, sizeof(req), NDA_DST, addr);
 	nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
@@ -1573,8 +1552,7 @@ static int netlink_route_nexthop_encap(struct nlmsghdr *n, size_t nlen,
 
 	switch (nh->nh_encap_type) {
 	case NET_VXLAN:
-		if (!nl_attr_put(n, nlen, RTA_ENCAP_TYPE, &nh->nh_encap_type,
-				 sizeof(uint16_t)))
+		if (!nl_attr_put16(n, nlen, RTA_ENCAP_TYPE, nh->nh_encap_type))
 			return false;
 
 		nest = nl_attr_nest(n, nlen, RTA_ENCAP);
@@ -1962,10 +1940,10 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	req.ndm.ndm_family = RTNL_FAMILY_IPMR;
 	req.n.nlmsg_type = RTM_GETROUTE;
 
-	nl_attr_put(&req.n, sizeof(req), RTA_IIF, &mroute->ifindex, 4);
-	nl_attr_put(&req.n, sizeof(req), RTA_OIF, &mroute->ifindex, 4);
-	nl_attr_put(&req.n, sizeof(req), RTA_SRC, &mroute->sg.src.s_addr, 4);
-	nl_attr_put(&req.n, sizeof(req), RTA_DST, &mroute->sg.grp.s_addr, 4);
+	nl_attr_put32(&req.n, sizeof(req), RTA_IIF, mroute->ifindex);
+	nl_attr_put32(&req.n, sizeof(req), RTA_OIF, mroute->ifindex);
+	nl_attr_put32(&req.n, sizeof(req), RTA_SRC, mroute->sg.src.s_addr);
+	nl_attr_put32(&req.n, sizeof(req), RTA_DST, mroute->sg.grp.s_addr);
 	/*
 	 * What?
 	 *
@@ -1982,7 +1960,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	 */
 	actual_table = (zvrf->table_id == RT_TABLE_MAIN) ? RT_TABLE_DEFAULT :
 		zvrf->table_id;
-	nl_attr_put(&req.n, sizeof(req), RTA_TABLE, &actual_table, 4);
+	nl_attr_put32(&req.n, sizeof(req), RTA_TABLE, actual_table);
 
 	suc = netlink_talk(netlink_route_change_read_multicast, &req.n,
 			   &zns->netlink_cmd, zns, 0);
@@ -2180,9 +2158,9 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					struct rtattr *nest;
 					uint16_t encap = LWTUNNEL_ENCAP_MPLS;
 
-					if (!nl_attr_put(&req->n, buflen,
-							 NHA_ENCAP_TYPE, &encap,
-							 sizeof(uint16_t)))
+					if (!nl_attr_put16(&req->n, buflen,
+							   NHA_ENCAP_TYPE,
+							   encap))
 						return 0;
 					nest = nl_attr_nest(&req->n, buflen,
 							    NHA_ENCAP);
