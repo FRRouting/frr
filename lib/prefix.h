@@ -87,7 +87,6 @@ typedef struct esi_t_ {
 struct evpn_ead_addr {
 	esi_t esi;
 	uint32_t eth_tag;
-	uint8_t ip_prefix_length;
 	struct ipaddr ip;
 };
 
