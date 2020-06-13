@@ -494,7 +494,6 @@ static inline void build_evpn_type1_prefix(struct prefix_evpn *p,
 	p->prefixlen = EVPN_ROUTE_PREFIXLEN;
 	p->prefix.route_type = BGP_EVPN_AD_ROUTE;
 	p->prefix.ead_addr.eth_tag = eth_tag;
-	p->prefix.ead_addr.ip_prefix_length = IPV4_MAX_BITLEN;
 	p->prefix.ead_addr.ip.ipa_type = IPADDR_V4;
 	p->prefix.ead_addr.ip.ipaddr_v4 = originator_ip;
 	memcpy(&p->prefix.ead_addr.esi, esi, sizeof(esi_t));
@@ -504,7 +503,6 @@ static inline void evpn_type1_prefix_global_copy(struct prefix_evpn *global_p,
 		const struct prefix_evpn *vni_p)
 {
 	memcpy(global_p, vni_p, sizeof(*global_p));
-	global_p->prefix.ead_addr.ip_prefix_length = 0;
 	global_p->prefix.ead_addr.ip.ipa_type = 0;
 	global_p->prefix.ead_addr.ip.ipaddr_v4.s_addr = 0;
 }
@@ -518,7 +516,6 @@ static inline struct prefix_evpn *evpn_type1_prefix_vni_copy(
 		struct in_addr originator_ip)
 {
 	memcpy(vni_p, global_p, sizeof(*vni_p));
-	vni_p->prefix.ead_addr.ip_prefix_length = IPV4_MAX_BITLEN;
 	vni_p->prefix.ead_addr.ip.ipa_type = IPADDR_V4;
 	vni_p->prefix.ead_addr.ip.ipaddr_v4 = originator_ip;
 
