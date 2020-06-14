@@ -1470,16 +1470,16 @@ static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 
 /* returns TRUE if dplane entry was updated */
 static bool zebra_evpn_es_df_change(struct zebra_evpn_es *es, bool new_non_df,
-				    const char *caller)
+				    const char *caller, const char *reason)
 {
 	bool old_non_df;
 
 	old_non_df = !!(es->flags & ZEBRA_EVPNES_NON_DF);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("df-change(%s) es %s old %s new %s", caller,
-			   es->esi_str, old_non_df ? "non-df" : "df",
-			   new_non_df ? "non-df" : "df");
+		zlog_debug("df-change es %s %s to %s; %s: %s", es->esi_str,
+			   old_non_df ? "non-df" : "df",
+			   new_non_df ? "non-df" : "df", caller, reason);
 
 	if (old_non_df == new_non_df)
 		return false;
@@ -1507,7 +1507,8 @@ static bool zebra_evpn_es_run_df_election(struct zebra_evpn_es *es,
 	 */
 	if (!(es->flags & ZEBRA_EVPNES_LOCAL)
 	    || !zmh_info->es_originator_ip.s_addr)
-		return zebra_evpn_es_df_change(es, new_non_df, caller);
+		return zebra_evpn_es_df_change(es, new_non_df, caller,
+					       "not-ready");
 
 	/* if oper-state is down DF filtering must be on. when the link comes
 	 * up again dataplane should block BUM till FRR has had the chance
@@ -1515,7 +1516,18 @@ static bool zebra_evpn_es_run_df_election(struct zebra_evpn_es *es,
 	 */
 	if (!(es->flags & ZEBRA_EVPNES_OPER_UP)) {
 		new_non_df = true;
-		return zebra_evpn_es_df_change(es, new_non_df, caller);
+		return zebra_evpn_es_df_change(es, new_non_df, caller,
+					       "oper-down");
+	}
+
+	/* ES was just created; we need to wait for the peers to rx the
+	 * our Type-4 routes and for the switch to import the peers' Type-4
+	 * routes
+	 */
+	if (es->df_delay_timer) {
+		new_non_df = true;
+		return zebra_evpn_es_df_change(es, new_non_df, caller,
+					       "df-delay");
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
@@ -1547,7 +1559,7 @@ static bool zebra_evpn_es_run_df_election(struct zebra_evpn_es *es,
 		}
 	}
 
-	return zebra_evpn_es_df_change(es, new_non_df, caller);
+	return zebra_evpn_es_df_change(es, new_non_df, caller, "elected");
 }
 
 static void zebra_evpn_es_vtep_add(struct zebra_evpn_es *es,
@@ -1932,6 +1944,20 @@ static void zebra_evpn_mh_dup_addr_detect_off(void)
 	}
 }
 
+static int zebra_evpn_es_df_delay_exp_cb(struct thread *t)
+{
+	struct zebra_evpn_es *es;
+
+	es = THREAD_ARG(t);
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		zlog_debug("es %s df-delay expired", es->esi_str);
+
+	zebra_evpn_es_run_df_election(es, __func__);
+
+	return 0;
+}
+
 static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 		struct zebra_if *zif)
 {
@@ -1971,6 +1997,12 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 		zebra_evpn_es_re_eval_send_to_client(es,
 			false /* es_evi_re_reval */);
 
+	/* Start the DF delay timer on the local ES */
+	if (!es->df_delay_timer)
+		thread_add_timer(zrouter.master, zebra_evpn_es_df_delay_exp_cb,
+				 es, ZEBRA_EVPN_MH_DF_DELAY_TIME,
+				 &es->df_delay_timer);
+
 	/* See if the local VTEP can function as DF on the ES */
 	if (!zebra_evpn_es_run_df_election(es, __func__)) {
 		/* check if the dplane entry needs to be re-programmed as a
@@ -2006,6 +2038,8 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 		return;
 
 	es->flags &= ~(ZEBRA_EVPNES_LOCAL | ZEBRA_EVPNES_READY_FOR_BGP);
+
+	THREAD_OFF(es->df_delay_timer);
 
 	/* remove the DF filter */
 	dplane_updated = zebra_evpn_es_run_df_election(es, __func__);
@@ -2696,6 +2730,7 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 	char alg_buf[EVPN_DF_ALG_STR_LEN];
 	struct zebra_evpn_es_vtep *es_vtep;
 	struct listnode	*node;
+	char thread_buf[THREAD_TIMER_STRLEN];
 
 	if (json) {
 		json_object *json_vteps;
@@ -2732,6 +2767,12 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 				    listcount(es->es_evi_list));
 		json_object_int_add(json, "macCount", listcount(es->mac_list));
 		json_object_int_add(json, "dfPreference", es->df_pref);
+		if (es->df_delay_timer)
+			json_object_string_add(
+				json, "dfDelayTimer",
+				thread_timer_to_hhmmss(thread_buf,
+						       sizeof(thread_buf),
+						       es->df_delay_timer));
 		json_object_int_add(json, "nexthopGroup", es->nhg_id);
 		if (listcount(es->es_vtep_list)) {
 			json_vteps = json_object_new_array();
@@ -2766,12 +2807,16 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 				"yes" : "no");
 		vty_out(vty, " VNI Count: %d\n", listcount(es->es_evi_list));
 		vty_out(vty, " MAC Count: %d\n", listcount(es->mac_list));
-		vty_out(vty, " DF: status: %s preference: %u\n",
-			!(es->flags & ZEBRA_EVPNES_LOCAL)
-				? "-"
-				: ((es->flags & ZEBRA_EVPNES_NON_DF) ? "non-df"
-								     : "df"),
-			es->df_pref);
+		if (es->flags & ZEBRA_EVPNES_LOCAL)
+			vty_out(vty, " DF status: %s \n",
+				(es->flags & ZEBRA_EVPNES_NON_DF) ? "non-df"
+								  : "df");
+		if (es->df_delay_timer)
+			vty_out(vty, " DF delay: %s\n",
+				thread_timer_to_hhmmss(thread_buf,
+						       sizeof(thread_buf),
+						       es->df_delay_timer));
+		vty_out(vty, " DF preference: %u\n", es->df_pref);
 		vty_out(vty, " Nexthop group: %u\n", es->nhg_id);
 		vty_out(vty, " VTEPs:\n");
 		for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
@@ -3479,8 +3524,7 @@ static void zebra_evpn_mh_startup_delay_timer_start(const char *rc)
 	if (zmh_info->startup_delay_timer) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("startup-delay timer cancelled");
-		thread_cancel(&zmh_info->startup_delay_timer);
-		zmh_info->startup_delay_timer = NULL;
+		THREAD_OFF(zmh_info->startup_delay_timer);
 	}
 
 	if (zmh_info->startup_delay_time) {
