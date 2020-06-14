@@ -2767,7 +2767,10 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 		vty_out(vty, " VNI Count: %d\n", listcount(es->es_evi_list));
 		vty_out(vty, " MAC Count: %d\n", listcount(es->mac_list));
 		vty_out(vty, " DF: status: %s preference: %u\n",
-			(es->flags & ZEBRA_EVPNES_NON_DF) ? "non-df" : "df",
+			!(es->flags & ZEBRA_EVPNES_LOCAL)
+				? "-"
+				: ((es->flags & ZEBRA_EVPNES_NON_DF) ? "non-df"
+								     : "df"),
 			es->df_pref);
 		vty_out(vty, " Nexthop group: %u\n", es->nhg_id);
 		vty_out(vty, " VTEPs:\n");
