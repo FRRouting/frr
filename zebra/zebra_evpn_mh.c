@@ -3029,7 +3029,7 @@ void zebra_evpn_mh_print(struct vty *vty)
 	vty_out(vty, "  uplink-cfg-cnt: %u, uplink-active-cnt: %u\n",
 		zmh_info->uplink_cfg_cnt, zmh_info->uplink_oper_up_cnt);
 	if (zmh_info->protodown_rc)
-		vty_out(vty, "  protodown: %s\n",
+		vty_out(vty, "  protodown reasons: %s\n",
 			zebra_protodown_rc_str(zmh_info->protodown_rc, pd_buf,
 					       sizeof(pd_buf)));
 }
