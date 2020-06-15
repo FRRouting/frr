@@ -295,6 +295,7 @@ union prefixptr {
 	prefixtype(prefixptr, struct prefix_ipv6, p6)
 	prefixtype(prefixptr, struct prefix_evpn, evp)
 	prefixtype(prefixptr, struct prefix_fs,   fs)
+	prefixtype(prefixptr, struct prefix_rd,   rd)
 } __attribute__((transparent_union));
 
 union prefixconstptr {
@@ -303,6 +304,7 @@ union prefixconstptr {
 	prefixtype(prefixconstptr, const struct prefix_ipv6, p6)
 	prefixtype(prefixconstptr, const struct prefix_evpn, evp)
 	prefixtype(prefixconstptr, const struct prefix_fs,   fs)
+	prefixtype(prefixconstptr, const struct prefix_rd,   rd)
 } __attribute__((transparent_union));
 
 #ifndef INET_ADDRSTRLEN
