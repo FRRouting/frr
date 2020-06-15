@@ -18,10 +18,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <sys/types.h>
+
 #include "lib/zclient.h"
 #include "lib/lib_errors.h"
-
-#include <sys/types.h>
 
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_memory.h"
