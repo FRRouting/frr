@@ -21,6 +21,8 @@
 #include "lib/zclient.h"
 #include "lib/lib_errors.h"
 
+#include <sys/types.h>
+
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_mpls.h"
