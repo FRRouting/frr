@@ -68,7 +68,8 @@ static int zebra_evpn_local_es_update(struct zebra_if *zif, uint32_t lid,
 static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 						const char *caller);
 static void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set);
-static void zebra_evpn_mh_update_protodown_es(struct zebra_evpn_es *es);
+static void zebra_evpn_mh_update_protodown_es(struct zebra_evpn_es *es,
+					      bool resync_dplane);
 static void zebra_evpn_mh_clear_protodown_es(struct zebra_evpn_es *es);
 
 esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
@@ -1989,7 +1990,7 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 			false /* force_clear_static */);
 
 	/* inherit EVPN protodown flags on the access port */
-	zebra_evpn_mh_update_protodown_es(es);
+	zebra_evpn_mh_update_protodown_es(es, true /*resync_dplane*/);
 }
 
 static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
@@ -2427,8 +2428,7 @@ void zebra_evpn_if_es_print(struct vty *vty, struct zebra_if *zif)
 	bool vty_print = false;
 
 	mh_buf[0] = '\0';
-	snprintf(mh_buf + strlen(mh_buf), sizeof(mh_buf) - strlen(mh_buf),
-		 "  EVPN-MH:");
+	strlcat(mh_buf, "  EVPN-MH:", sizeof(mh_buf));
 	if (zif->es_info.lid || !is_zero_mac(&zif->es_info.sysmac)) {
 		vty_print = true;
 		snprintf(
@@ -2441,12 +2441,9 @@ void zebra_evpn_if_es_print(struct vty *vty, struct zebra_if *zif)
 	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK) {
 		vty_print = true;
 		if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP)
-			snprintf(mh_buf + strlen(mh_buf),
-				 sizeof(mh_buf) - strlen(mh_buf), " uplink-up");
+			strlcat(mh_buf, " uplink (up)", sizeof(mh_buf));
 		else
-			snprintf(mh_buf + strlen(mh_buf),
-				 sizeof(mh_buf) - strlen(mh_buf),
-				 " uplink-down");
+			strlcat(mh_buf, " uplink (down)", sizeof(mh_buf));
 	}
 
 	if (vty_print)
@@ -3218,14 +3215,20 @@ static void zebra_evpn_mh_update_protodown_bond(struct zebra_if *bond_zif)
 }
 
 /* The global EVPN MH protodown rc is applied to all local ESs */
-static void zebra_evpn_mh_update_protodown_es(struct zebra_evpn_es *es)
+static void zebra_evpn_mh_update_protodown_es(struct zebra_evpn_es *es,
+					      bool resync_dplane)
 {
 	struct zebra_if *zif;
 	enum protodown_reasons old_protodown_rc;
 
 	zif = es->zif;
-	if ((zif->protodown_rc & ZEBRA_PROTODOWN_EVPN_ALL)
-	    == (zmh_info->protodown_rc & ZEBRA_PROTODOWN_EVPN_ALL))
+	/* if the reason code is the same bail unless it is a new
+	 * ES bond in that case we would need to ensure that the
+	 * dplane is really in sync with zebra
+	 */
+	if (!resync_dplane
+	    && (zif->protodown_rc & ZEBRA_PROTODOWN_EVPN_ALL)
+		       == (zmh_info->protodown_rc & ZEBRA_PROTODOWN_EVPN_ALL))
 		return;
 
 	old_protodown_rc = zif->protodown_rc;
@@ -3233,7 +3236,8 @@ static void zebra_evpn_mh_update_protodown_es(struct zebra_evpn_es *es)
 	zif->protodown_rc |=
 		(zmh_info->protodown_rc & ZEBRA_PROTODOWN_EVPN_ALL);
 
-	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES
+	    && (old_protodown_rc != zif->protodown_rc))
 		zlog_debug(
 			"es %s ifp %s protodown_rc changed; old 0x%x new 0x%x",
 			es->esi_str, zif->ifp->name, old_protodown_rc,
@@ -3271,7 +3275,7 @@ static void zebra_evpn_mh_update_protodown_es_all(void)
 	struct zebra_evpn_es *es;
 
 	for (ALL_LIST_ELEMENTS_RO(zmh_info->local_es_list, node, es))
-		zebra_evpn_mh_update_protodown_es(es);
+		zebra_evpn_mh_update_protodown_es(es, false /*resync_dplane*/);
 }
 
 static void zebra_evpn_mh_update_protodown(enum protodown_reasons protodown_rc,
