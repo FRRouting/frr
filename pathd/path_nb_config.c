@@ -379,7 +379,7 @@ int pathd_te_sr_policy_candidate_path_name_modify(
 	struct srte_candidate *candidate;
 	const char *name;
 	char xpath[XPATH_MAXLEN];
-	char xpath_buf[XPATH_MAXLEN];
+	char xpath_buf[XPATH_MAXLEN - 3];
 
 	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;
@@ -528,7 +528,7 @@ int pathd_te_sr_policy_candidate_path_type_modify(
 	struct srte_candidate *candidate;
 	enum srte_candidate_type type;
 	char xpath[XPATH_MAXLEN];
-	char xpath_buf[XPATH_MAXLEN];
+	char xpath_buf[XPATH_MAXLEN - 3];
 
 	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;

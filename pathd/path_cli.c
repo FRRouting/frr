@@ -167,22 +167,28 @@ DEFPY_NOSH(te_path_segment_list, te_path_segment_list_cmd,
 	   "Segment List\n"
 	   "Segment List Name\n")
 {
-	char xpath_base[XPATH_MAXLEN];
 	char xpath[XPATH_MAXLEN];
 	int ret;
 
-	snprintf(xpath_base, sizeof(xpath_base),
+	snprintf(xpath, sizeof(xpath),
 		 "/frr-pathd:pathd/segment-list[name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath_base, NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath, sizeof(xpath), "%s/protocol-origin", xpath_base);
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-pathd:pathd/segment-list[name='%s']/protocol-origin",
+		 name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "local");
-	snprintf(xpath, sizeof(xpath), "%s/originator", xpath_base);
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-pathd:pathd/segment-list[name='%s']/originator", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "config");
 
 	ret = nb_cli_apply_changes(vty, NULL);
-	if (ret == CMD_SUCCESS)
-		VTY_PUSH_XPATH(SEGMENT_LIST_NODE, xpath_base);
+	if (ret == CMD_SUCCESS) {
+		snprintf(xpath, sizeof(xpath),
+			 "/frr-pathd:pathd/segment-list[name='%s']", name);
+		VTY_PUSH_XPATH(SEGMENT_LIST_NODE, xpath);
+	}
 
 	return ret;
 }
