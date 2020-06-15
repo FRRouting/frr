@@ -512,6 +512,7 @@ static int bgp_connect_timer(struct thread *thread)
 /* BGP holdtime timer. */
 static int bgp_holdtime_timer(struct thread *thread)
 {
+	atomic_size_t inq_count;
 	struct peer *peer;
 
 	peer = THREAD_ARG(thread);
@@ -520,6 +521,25 @@ static int bgp_holdtime_timer(struct thread *thread)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (holdtime timer expire)",
 			   peer->host);
+
+	/*
+	 * Given that we do not have any expectation of ordering
+	 * for handling packets from a peer -vs- handling
+	 * the hold timer for a peer as that they are both
+	 * events on the peer.  If we have incoming
+	 * data on the peers inq, let's give the system a chance
+	 * to handle that data.  This can be especially true
+	 * for systems where we are heavily loaded for one
+	 * reason or another.
+	 */
+	inq_count = atomic_load_explicit(&peer->ibuf->count,
+					 memory_order_relaxed);
+	if (inq_count) {
+		BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
+			     peer->v_holdtime);
+
+		return 0;
+	}
 
 	THREAD_VAL(thread) = Hold_Timer_expired;
 	bgp_event(thread); /* bgp_event unlocks peer */
