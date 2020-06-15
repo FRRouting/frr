@@ -49,6 +49,7 @@ Protocols
    nhrpd
    ospfd
    ospf6d
+   path
    pim
    pbr
    ripd
