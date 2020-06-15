@@ -23,7 +23,6 @@
 #include "command.h"
 #include "linklist.h"
 #include "memory.h"
-#include "typesafe.h"
 
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
@@ -33,8 +32,6 @@ DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG, "Vtysh configuration")
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG_LINE, "Vtysh configuration line")
 
 vector configvec;
-
-PREDECL_RBTREE_UNIQ(config_master);
 
 struct config {
 	/* Configuration node name. */
@@ -48,9 +45,6 @@ struct config {
 
 	/* Index of this config. */
 	uint32_t index;
-
-	/* Node entry for the typed Red-black tree */
-	struct config_master_item rbt_item;
 };
 
 struct list *config_top;
@@ -72,7 +66,7 @@ static struct config *config_new(void)
 	return config;
 }
 
-static int config_cmp(const struct config *c1, const struct config *c2)
+static int config_cmp(struct config *c1, struct config *c2)
 {
 	return strcmp(c1->name, c2->name);
 }
@@ -84,23 +78,28 @@ static void config_del(struct config *config)
 	XFREE(MTYPE_VTYSH_CONFIG, config);
 }
 
-DECLARE_RBTREE_UNIQ(config_master, struct config, rbt_item, config_cmp)
-
 static struct config *config_get(int index, const char *line)
 {
 	struct config *config;
-	struct config_master_head *master;
+	struct config *config_loop;
+	struct list *master;
+	struct listnode *node, *nnode;
+
+	config = config_loop = NULL;
 
 	master = vector_lookup_ensure(configvec, index);
 
 	if (!master) {
-		master = XMALLOC(MTYPE_VTYSH_CONFIG, sizeof(struct config_master_head));
-		config_master_init(master);
+		master = list_new();
+		master->del = (void (*)(void *))config_del;
+		master->cmp = (int (*)(void *, void *))config_cmp;
 		vector_set_index(configvec, index, master);
 	}
 
-	const struct config config_ref = { .name = (char *)line };
-	config = config_master_find(master, &config_ref);
+	for (ALL_LIST_ELEMENTS(master, node, nnode, config_loop)) {
+		if (strcmp(config_loop->name, line) == 0)
+			config = config_loop;
+	}
 
 	if (!config) {
 		config = config_new();
@@ -109,7 +108,7 @@ static struct config *config_get(int index, const char *line)
 		config->line->cmp = (int (*)(void *, void *))line_cmp;
 		config->name = XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line);
 		config->index = index;
-		config_master_add(master, config);
+		listnode_add(master, config);
 	}
 	return config;
 }
@@ -437,7 +436,7 @@ void vtysh_config_dump(void)
 	struct listnode *node, *nnode;
 	struct listnode *mnode, *mnnode;
 	struct config *config;
-	struct config_master_head *master;
+	struct list *master;
 	char *line;
 	unsigned int i;
 
@@ -448,7 +447,7 @@ void vtysh_config_dump(void)
 
 	for (i = 0; i < vector_active(configvec); i++)
 		if ((master = vector_slot(configvec, i)) != NULL) {
-			while ((config = config_master_pop(master))) {
+			for (ALL_LIST_ELEMENTS(master, node, nnode, config)) {
 				/* Don't print empty sections for interface.
 				 * Route maps on the
 				 * other hand could have a legitimate empty
@@ -468,8 +467,6 @@ void vtysh_config_dump(void)
 					vty_out(vty, "%s\n", line);
 				if (!NO_DELIMITER(i))
 					vty_out(vty, "!\n");
-
-				config_del(config);
 			}
 			if (NO_DELIMITER(i))
 				vty_out(vty, "!\n");
@@ -477,8 +474,7 @@ void vtysh_config_dump(void)
 
 	for (i = 0; i < vector_active(configvec); i++)
 		if ((master = vector_slot(configvec, i)) != NULL) {
-			config_master_fini(master);
-			XFREE(MTYPE_VTYSH_CONFIG, master);
+			list_delete(&master);
 			vector_slot(configvec, i) = NULL;
 		}
 	list_delete_all_node(config_top);
