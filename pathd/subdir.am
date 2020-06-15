@@ -45,6 +45,7 @@ noinst_HEADERS += \
 	pathd/path_pcep_nb.h \
 	pathd/path_pcep_pcc.h \
 	pathd/path_zebra.h \
+	pathd/path_util.h \
 	pathd/pathd.h \
 	# end
 
