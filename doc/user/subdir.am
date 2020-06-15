@@ -26,6 +26,7 @@ user_RSTFILES = \
 	doc/user/ospf_fundamentals.rst \
 	doc/user/overview.rst \
 	doc/user/packet-dumps.rst \
+	doc/user/path.rst \
 	doc/user/pim.rst \
 	doc/user/ripd.rst \
 	doc/user/pbr.rst \
