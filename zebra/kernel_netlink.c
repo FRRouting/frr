@@ -1596,7 +1596,7 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink_dplane.name);
 		exit(-1);
 	}
-
+	zns->netlink_nflog_sock = -1;
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
 	 * apparently.  It's in bits/socket.h which I am not
