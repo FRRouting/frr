@@ -216,8 +216,8 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 	nlh->nlmsg_len += NETLINK_ALIGN(sizeof(struct rtgenmsg));
 	rt->rtgen_family = AF_UNSPEC;
 
-	addattr32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_FD, fd);
-	addattr32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_NSID, ns_id);
+	nl_attr_put32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_FD, fd);
+	nl_attr_put32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_NSID, ns_id);
 
 	ret = send_receive(sock, nlh, seq, buf);
 	if (ret < 0) {
@@ -282,8 +282,9 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 		nlh->nlmsg_len += NETLINK_ALIGN(sizeof(struct rtgenmsg));
 		rt->rtgen_family = AF_UNSPEC;
 
-		addattr32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_FD, fd);
-		addattr32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_NSID, ns_id);
+		nl_attr_put32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_FD, fd);
+		nl_attr_put32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_NSID,
+			      ns_id);
 
 		ret = send_receive(sock, nlh, seq, buf);
 		if (ret < 0) {

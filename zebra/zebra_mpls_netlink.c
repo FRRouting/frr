@@ -26,13 +26,16 @@
 #include "zebra/rt.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/kernel_netlink.h"
 
 /*
  * LSP forwarding update using dataplane context information.
  */
 enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
 {
-	int cmd, ret = -1;
+	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
+	ssize_t ret = -1;
+	int cmd;
 
 	/* Call to netlink layer based on type of update */
 	if (dplane_ctx_get_op(ctx) == DPLANE_OP_LSP_DELETE) {
@@ -53,7 +56,13 @@ enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
 		/* Invalid op? */
 		goto done;
 
-	ret = netlink_mpls_multipath(cmd, ctx);
+	ret = netlink_mpls_multipath_msg_encode(cmd, ctx, nl_pkt,
+						sizeof(nl_pkt));
+	if (ret <= 0)
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	ret = netlink_talk_info(netlink_talk_filter, (struct nlmsghdr *)nl_pkt,
+				dplane_ctx_get_ns(ctx), 0);
 
 done:
 

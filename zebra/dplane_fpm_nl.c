@@ -709,12 +709,13 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	switch (op) {
 	case DPLANE_OP_ROUTE_UPDATE:
 	case DPLANE_OP_ROUTE_DELETE:
-		rv = netlink_route_multipath(RTM_DELROUTE, ctx, nl_buf,
-					     sizeof(nl_buf), true,
-					     fnc->use_nhg);
+		rv = netlink_route_multipath_msg_encode(RTM_DELROUTE, ctx,
+							nl_buf, sizeof(nl_buf),
+							true, fnc->use_nhg);
 		if (rv <= 0) {
-			zlog_err("%s: netlink_route_multipath failed",
-				 __func__);
+			zlog_err(
+				"%s: netlink_route_multipath_msg_encode failed",
+				__func__);
 			return 0;
 		}
 
@@ -726,12 +727,13 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 		/* FALL THROUGH */
 	case DPLANE_OP_ROUTE_INSTALL:
-		rv = netlink_route_multipath(
+		rv = netlink_route_multipath_msg_encode(
 			RTM_NEWROUTE, ctx, &nl_buf[nl_buf_len],
 			sizeof(nl_buf) - nl_buf_len, true, fnc->use_nhg);
 		if (rv <= 0) {
-			zlog_err("%s: netlink_route_multipath failed",
-				 __func__);
+			zlog_err(
+				"%s: netlink_route_multipath_msg_encode failed",
+				__func__);
 			return 0;
 		}
 
@@ -751,10 +753,11 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		break;
 
 	case DPLANE_OP_NH_DELETE:
-		rv = netlink_nexthop_encode(RTM_DELNEXTHOP, ctx, nl_buf,
-					    sizeof(nl_buf));
+		rv = netlink_nexthop_msg_encode(RTM_DELNEXTHOP, ctx, nl_buf,
+						sizeof(nl_buf));
 		if (rv <= 0) {
-			zlog_err("%s: netlink_nexthop_encode failed", __func__);
+			zlog_err("%s: netlink_nexthop_msg_encode failed",
+				 __func__);
 			return 0;
 		}
 
@@ -762,10 +765,11 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		break;
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
-		rv = netlink_nexthop_encode(RTM_NEWNEXTHOP, ctx, nl_buf,
-					    sizeof(nl_buf));
+		rv = netlink_nexthop_msg_encode(RTM_NEWNEXTHOP, ctx, nl_buf,
+						sizeof(nl_buf));
 		if (rv <= 0) {
-			zlog_err("%s: netlink_nexthop_encode failed", __func__);
+			zlog_err("%s: netlink_nexthop_msg_encode failed",
+				 __func__);
 			return 0;
 		}
 
