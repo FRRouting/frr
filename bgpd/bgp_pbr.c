@@ -2474,7 +2474,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	if (bpm->unique == 0) {
 		bpm->unique = ++bgp_pbr_match_counter_unique;
 		/* 0 value is forbidden */
-		sprintf(bpm->ipset_name, "match%p", bpm);
+		snprintf(bpm->ipset_name, sizeof(bpm->ipset_name), "match%p", bpm);
 		bpm->entry_hash = hash_create_size(8,
 				   bgp_pbr_match_entry_hash_key,
 				   bgp_pbr_match_entry_hash_equal,
