@@ -146,9 +146,10 @@ class Vtysh(object):
         return stdout.decode('UTF-8')
 
     def mark_show_run(self, daemon = None):
-        cmd = 'show running-config no-header'
+        cmd = 'show running-config'
         if daemon:
             cmd += ' %s' % daemon
+        cmd += ' no-header'
         show_run = self._call_cmd(cmd, stdout=subprocess.PIPE)
         mark = self._call(['-m', '-f', '-'], stdin=show_run.stdout, stdout=subprocess.PIPE)
 
