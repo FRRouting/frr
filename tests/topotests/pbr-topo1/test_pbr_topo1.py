@@ -32,6 +32,7 @@ import re
 import sys
 import pytest
 import json
+from functools import partial
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -140,9 +141,10 @@ def test_pbr_data():
         expected = json.loads(open(intf_file).read())
 
         # Actual output from router
-        actual = router.vtysh_cmd("show pbr interface json", isjson=True)
+        test_func = partial(topotest.router_json_cmp, router, "show pbr interface json", expected)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = '"show pbr interface" mismatches on {}'.format(router.name)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
+        assert result is None, assertmsg
 
         map_file = "{}/{}/pbr-map.json".format(CWD, router.name)
         logger.info(map_file)
@@ -151,10 +153,10 @@ def test_pbr_data():
         expected = json.loads(open(map_file).read())
 
         # Actual output from router
-        actual = router.vtysh_cmd("show pbr map json", isjson=True)
-
+        test_func = partial(topotest.router_json_cmp, router, "show pbr map json", expected)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = '"show pbr map" mismatches on {}'.format(router.name)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
+        assert result is None, assertmsg
 
         nexthop_file = "{}/{}/pbr-nexthop-groups.json".format(CWD, router.name)
         logger.info(nexthop_file)
@@ -163,11 +165,10 @@ def test_pbr_data():
         expected = json.loads(open(nexthop_file).read())
 
         # Actual output from router
-        actual = router.vtysh_cmd("show pbr nexthop-groups json", isjson=True)
-
+        test_func = partial(topotest.router_json_cmp, router, "show pbr nexthop-groups json", expected)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = '"show pbr nexthop-groups" mismatches on {}'.format(router.name)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
-
+        assert result is None, assertmsg
 
 def test_pbr_flap():
     "Test PBR interface flapping"
@@ -199,10 +200,10 @@ def test_pbr_flap():
         expected = json.loads(open(intf_file).read())
 
         # Actual output from router
-        actual = router.vtysh_cmd("show pbr interface json", isjson=True)
+        test_func = partial(topotest.router_json_cmp, router, "show pbr interface json", expected)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = '"show pbr interface" mismatches on {}'.format(router.name)
-
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
+        assert result is None, assertmsg
 
 
 def test_rule_linux_installation():
