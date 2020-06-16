@@ -2485,6 +2485,12 @@ dplane_route_notif_update(struct route_node *rn,
 		copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
 			      (rib_get_fib_nhg(re))->nexthop, NULL);
 
+		/* Check for backup nexthops also */
+		if (re->fib_backup_ng.nexthop) {
+			copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
+				      re->fib_backup_ng.nexthop, NULL);
+		}
+
 		for (ALL_NEXTHOPS(new_ctx->u.rinfo.zd_ng, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
@@ -2583,6 +2589,8 @@ dplane_lsp_notif_update(zebra_lsp_t *lsp,
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret = EINVAL;
 	struct zebra_dplane_ctx *ctx = NULL;
+	struct nhlfe_list_head *head;
+	zebra_nhlfe_t *nhlfe, *new_nhlfe;
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
@@ -2591,9 +2599,26 @@ dplane_lsp_notif_update(zebra_lsp_t *lsp,
 		goto done;
 	}
 
+	/* Copy info from zebra LSP */
 	ret = dplane_ctx_lsp_init(ctx, op, lsp);
 	if (ret != AOK)
 		goto done;
+
+	/* Add any installed backup nhlfes */
+	head = &(ctx->u.lsp.backup_nhlfe_list);
+	frr_each(nhlfe_list, head, nhlfe) {
+
+		if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED) &&
+		    CHECK_FLAG(nhlfe->nexthop->flags, NEXTHOP_FLAG_FIB)) {
+			new_nhlfe = zebra_mpls_lsp_add_nh(&(ctx->u.lsp),
+							  nhlfe->type,
+							  nhlfe->nexthop);
+
+			/* Need to copy flags too */
+			new_nhlfe->flags = nhlfe->flags;
+			new_nhlfe->nexthop->flags = nhlfe->nexthop->flags;
+		}
+	}
 
 	/* Capture info about the source of the notification */
 	dplane_ctx_set_notif_provider(

@@ -2112,6 +2112,7 @@ static int update_nhlfes_from_ctx(struct nhlfe_list_head *nhlfe_head,
 						   __func__, buf);
 
 				SET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+				SET_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED);
 
 			} else {
 				if (is_debug)
@@ -2119,6 +2120,7 @@ static int update_nhlfes_from_ctx(struct nhlfe_list_head *nhlfe_head,
 						   __func__, buf);
 
 				UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+				UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED);
 			}
 
 			if (CHECK_FLAG(ctx_nhlfe->nexthop->flags,
@@ -2140,6 +2142,7 @@ static int update_nhlfes_from_ctx(struct nhlfe_list_head *nhlfe_head,
 				zlog_debug("%s: no match for lsp nhlfe %s",
 					   __func__, buf);
 			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED);
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		}
