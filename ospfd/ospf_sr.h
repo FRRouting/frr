@@ -193,10 +193,13 @@ struct sr_srgb {
 /* SID type to make difference between loopback interfaces and others */
 enum sid_type { PREF_SID, LOCAL_SID, ADJ_SID, LAN_ADJ_SID };
 
+/* Status of Segment Routing: Off (Disable), On (Enable), (Up) Started */
+enum sr_status { SR_OFF, SR_ON, SR_UP, SR_DOWN };
+
 /* Structure aggregating all OSPF Segment Routing information for the node */
 struct ospf_sr_db {
-	/* Status of Segment Routing: enable or disable */
-	bool enabled;
+	/* Status of Segment Routing */
+	enum sr_status status;
 
 	/* Flooding Scope: Area = 10 or AS = 11 */
 	uint8_t scope;
@@ -219,6 +222,13 @@ struct ospf_sr_db {
 	 * Only one range supported in this code
 	 */
 	struct sr_srgb srgb;
+
+	/* Thread timer to start Label Manager */
+	struct thread *t_start_lm;
+
+	/* Status of SRGB: reserved within Label Manager or not */
+	bool srgb_reserved;
+
 	/* Maximum SID Depth supported by the node */
 	uint8_t msd;
 };

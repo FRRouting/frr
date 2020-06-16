@@ -82,6 +82,7 @@
 static struct ospf_sr_db OspfSR;
 static void ospf_sr_register_vty(void);
 static inline void del_adj_sid(struct sr_nhlfe nhlfe);
+static int ospf_sr_start(struct ospf *ospf);
 
 /*
  * Segment Routing Data Base functions
@@ -221,6 +222,26 @@ static struct sr_node *get_sr_node_by_nexthop(struct ospf *ospf,
  * Segment Routing Initialization functions
  */
 
+/**
+ * Thread function to re-attempt connection to the Label Manager and thus be
+ * able to start Segment Routing.
+ *
+ * @param start		Thread structure that contains area as argument
+ *
+ * @return		1 on success
+ */
+static int sr_start_label_manager(struct thread *start)
+{
+	struct ospf *ospf;
+
+	ospf = THREAD_ARG(start);
+
+	/* re-attempt to start SR & Label Manager connection */
+	ospf_sr_start(ospf);
+
+	return 1;
+}
+
 /* Segment Routing starter function */
 static int ospf_sr_start(struct ospf *ospf)
 {
@@ -231,16 +252,56 @@ static int ospf_sr_start(struct ospf *ospf)
 
 	osr_debug("SR (%s): Start Segment Routing", __func__);
 
-	/* Initialize self SR Node */
-	srn = hash_get(OspfSR.neighbors, (void *)&(ospf->router_id),
-		       (void *)sr_node_new);
+	/* Initialize self SR Node if not already done */
+	if (OspfSR.self == NULL) {
+		srn = hash_get(OspfSR.neighbors, (void *)&(ospf->router_id),
+			       (void *)sr_node_new);
 
-	/* Complete & Store self SR Node */
-	srn->srgb.range_size = OspfSR.srgb.range_size;
-	srn->srgb.lower_bound = OspfSR.srgb.lower_bound;
-	srn->algo[0] = OspfSR.algo[0];
-	srn->msd = OspfSR.msd;
-	OspfSR.self = srn;
+		/* Complete & Store self SR Node */
+		srn->srgb.range_size = OspfSR.srgb.range_size;
+		srn->srgb.lower_bound = OspfSR.srgb.lower_bound;
+		srn->algo[0] = OspfSR.algo[0];
+		srn->msd = OspfSR.msd;
+		OspfSR.self = srn;
+	}
+
+	/* Then, start Label Manager if not ready */
+	if (!ospf_zebra_label_manager_ready())
+		if (ospf_zebra_label_manager_connect() < 0) {
+			/* Re-attempt to connect to Label Manager in 1 sec. */
+			thread_add_timer(master, sr_start_label_manager, ospf,
+					 1, &OspfSR.t_start_lm);
+			osr_debug("  |- Failed to start the Label Manager");
+			return -1;
+		}
+
+	/*
+	 * Request SGRB to the label manager if not already active. If the
+	 * allocation fails, return an error to disable SR until a new SRGB
+	 * is successfully allocated.
+	 */
+	if (!OspfSR.srgb_reserved) {
+		if (ospf_zebra_request_label_range(OspfSR.srgb.lower_bound,
+						   OspfSR.srgb.range_size)
+		    < 0) {
+			OspfSR.srgb_reserved = false;
+			return -1;
+		} else
+			OspfSR.srgb_reserved = true;
+	}
+
+	/* SR is UP and ready to flood LSA */
+	OspfSR.status = SR_UP;
+
+	/* Set Router Information SR parameters */
+	osr_debug("SR: Activate SR for Router Information LSA");
+
+	ospf_router_info_update_sr(true, OspfSR.srgb, OspfSR.msd);
+
+	/* Update Ext LSA */
+	osr_debug("SR: Activate SR for Extended Link/Prefix LSA");
+
+	ospf_ext_update_sr(true);
 
 	osr_debug("SR (%s): Update SR-DB from LSDB", __func__);
 
@@ -277,13 +338,24 @@ static void ospf_sr_stop(void)
 
 	osr_debug("SR (%s): Stop Segment Routing", __func__);
 
+	/* Disable any re-attempt to connect to Label Manager */
+	THREAD_TIMER_OFF(OspfSR.t_start_lm);
+
+	/* Release SRGB if active. */
+	if (OspfSR.srgb_reserved) {
+		ospf_zebra_release_label_range(
+			OspfSR.srgb.lower_bound,
+			OspfSR.srgb.lower_bound + OspfSR.srgb.range_size - 1);
+		OspfSR.srgb_reserved = false;
+	}
+
 	/*
 	 * Remove all SR Nodes from the Hash table. Prefix and Link SID will
 	 * be remove though list_delete() call. See sr_node_del()
 	 */
 	hash_clean(OspfSR.neighbors, (void *)sr_node_del);
 	OspfSR.self = NULL;
-	OspfSR.enabled = false;
+	OspfSR.status = SR_OFF;
 }
 
 /*
@@ -300,7 +372,7 @@ int ospf_sr_init(void)
 	osr_debug("SR (%s): Initialize SR Data Base", __func__);
 
 	memset(&OspfSR, 0, sizeof(struct ospf_sr_db));
-	OspfSR.enabled = false;
+	OspfSR.status = SR_OFF;
 	/* Only AREA flooding is supported in this release */
 	OspfSR.scope = OSPF_OPAQUE_AREA_LSA;
 
@@ -312,6 +384,7 @@ int ospf_sr_init(void)
 
 	OspfSR.srgb.range_size = MPLS_DEFAULT_MAX_SRGB_SIZE;
 	OspfSR.srgb.lower_bound = MPLS_DEFAULT_MIN_SRGB_LABEL;
+	OspfSR.srgb_reserved = false;
 	OspfSR.msd = 0;
 
 	/* Initialize Hash table for neighbor SR nodes */
@@ -1612,7 +1685,7 @@ void ospf_sr_config_write_router(struct vty *vty)
 	struct listnode *node;
 	struct sr_prefix *srp;
 
-	if (OspfSR.enabled) {
+	if (OspfSR.status != SR_OFF) {
 		vty_out(vty, " segment-routing on\n");
 
 		if ((OspfSR.srgb.lower_bound != MPLS_DEFAULT_MIN_SRGB_LABEL)
@@ -1651,7 +1724,7 @@ DEFUN(ospf_sr_enable,
 
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
-	if (OspfSR.enabled)
+	if (OspfSR.status != SR_OFF)
 		return CMD_SUCCESS;
 
 	if (ospf->vrf_id != VRF_DEFAULT) {
@@ -1663,18 +1736,8 @@ DEFUN(ospf_sr_enable,
 	osr_debug("SR: Segment Routing: OFF -> ON");
 
 	/* Start Segment Routing */
-	OspfSR.enabled = true;
+	OspfSR.status = SR_ON;
 	ospf_sr_start(ospf);
-
-	/* Set Router Information SR parameters */
-	osr_debug("SR: Activate SR for Router Information LSA");
-
-	ospf_router_info_update_sr(true, OspfSR.srgb, OspfSR.msd);
-
-	/* Update Ext LSA */
-	osr_debug("SR: Activate SR for Extended Link/Prefix LSA");
-
-	ospf_ext_update_sr(true);
 
 	return CMD_SUCCESS;
 }
@@ -1687,7 +1750,7 @@ DEFUN (no_ospf_sr_enable,
        "Disable Segment Routing\n")
 {
 
-	if (!OspfSR.enabled)
+	if (OspfSR.status == SR_OFF)
 		return CMD_SUCCESS;
 
 	osr_debug("SR: Segment Routing: ON -> OFF");
@@ -1706,7 +1769,7 @@ DEFUN (no_ospf_sr_enable,
 
 static int ospf_sr_enabled(struct vty *vty)
 {
-	if (OspfSR.enabled)
+	if (OspfSR.status != SR_OFF)
 		return 1;
 
 	if (vty)
@@ -1715,13 +1778,71 @@ static int ospf_sr_enabled(struct vty *vty)
 	return 0;
 }
 
+/**
+ * Update SRGB following new CLI value.
+ *
+ * @param lower	Lower bound of the SRGB
+ * @param size	Size of the SRGB
+ *
+ * @return	0 on success, -1 otherwise
+ */
+static int update_srgb(uint32_t lower, uint32_t size)
+{
+
+	/* Check if values have changed */
+	if ((OspfSR.srgb.range_size == size)
+	    && (OspfSR.srgb.lower_bound == lower))
+		return 0;
+
+	/* Release old SRGB if active. */
+	if (OspfSR.srgb_reserved) {
+		ospf_zebra_release_label_range(
+			OspfSR.srgb.lower_bound,
+			OspfSR.srgb.lower_bound + OspfSR.srgb.range_size - 1);
+		OspfSR.srgb_reserved = false;
+	}
+
+	/* Set new SRGB values */
+	OspfSR.srgb.range_size = size;
+	OspfSR.srgb.lower_bound = lower;
+	if (OspfSR.self != NULL) {
+		OspfSR.self->srgb.range_size = size;
+		OspfSR.self->srgb.lower_bound = lower;
+	}
+
+	/* Check if SR is correctly started i.e. Label Manager connected */
+	if (OspfSR.status != SR_UP)
+		return 0;
+
+	/*
+	 * Try to reserve the new block from the Label Manger. If the allocation
+	 * fails, disable SR until a new SRGB is successfully allocated.
+	 */
+	if (ospf_zebra_request_label_range(OspfSR.srgb.lower_bound,
+					   OspfSR.srgb.range_size) < 0) {
+		OspfSR.srgb_reserved = false;
+		ospf_sr_stop();
+		return -1;
+	}
+
+	/* SRGB is reserved, set Router Information parameters */
+	ospf_router_info_update_sr(true, OspfSR.srgb, OspfSR.msd);
+
+	/* and update NHLFE entries */
+	hash_iterate(OspfSR.neighbors,
+		     (void (*)(struct hash_bucket *, void *))update_in_nhlfe,
+		     NULL);
+
+	return 0;
+}
+
 DEFUN (sr_sid_label_range,
        sr_sid_label_range_cmd,
-       "segment-routing global-block (0-1048575) (0-1048575)",
+       "segment-routing global-block (16-1048575) (16-1048575)",
        SR_STR
        "Segment Routing Global Block label range\n"
-       "Lower-bound range in decimal (0-1048575)\n"
-       "Upper-bound range in decimal (0-1048575)\n")
+       "Lower-bound range in decimal (16-1048575)\n"
+       "Upper-bound range in decimal (16-1048575)\n")
 {
 	uint32_t upper;
 	uint32_t lower;
@@ -1737,47 +1858,10 @@ DEFUN (sr_sid_label_range,
 	upper = strtoul(argv[idx_up]->arg, NULL, 10);
 	size = upper - lower + 1;
 
-	if (size > MPLS_DEFAULT_MAX_SRGB_SIZE || size <= 0) {
-		vty_out(vty,
-			"Range size cannot be less than 0 or more than %u\n",
-			MPLS_DEFAULT_MAX_SRGB_SIZE);
+	if (update_srgb(lower, size) < 0)
 		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (upper > MPLS_DEFAULT_MAX_SRGB_LABEL) {
-		vty_out(vty, "Upper-bound cannot exceed %u\n",
-			MPLS_DEFAULT_MAX_SRGB_LABEL);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (upper < MPLS_DEFAULT_MIN_SRGB_LABEL) {
-		vty_out(vty, "Upper-bound cannot be lower than %u\n",
-			MPLS_DEFAULT_MIN_SRGB_LABEL);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Check if values have changed */
-	if ((OspfSR.srgb.range_size == size)
-	    && (OspfSR.srgb.lower_bound == lower))
+	else
 		return CMD_SUCCESS;
-
-	/* Set SID/Label range SRGB */
-	OspfSR.srgb.range_size = size;
-	OspfSR.srgb.lower_bound = lower;
-	if (OspfSR.self != NULL) {
-		OspfSR.self->srgb.range_size = size;
-		OspfSR.self->srgb.lower_bound = lower;
-	}
-
-	/* Set Router Information SR parameters */
-	ospf_router_info_update_sr(true, OspfSR.srgb, OspfSR.msd);
-
-	/* Update NHLFE entries */
-	hash_iterate(OspfSR.neighbors,
-		     (void (*)(struct hash_bucket *, void *))update_in_nhlfe,
-		     NULL);
-
-	return CMD_SUCCESS;
 }
 
 DEFUN (no_sr_sid_label_range,
@@ -1793,23 +1877,11 @@ DEFUN (no_sr_sid_label_range,
 	if (!ospf_sr_enabled(vty))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	/* Revert to default SRGB value */
-	OspfSR.srgb.range_size = MPLS_DEFAULT_MIN_SRGB_SIZE;
-	OspfSR.srgb.lower_bound = MPLS_DEFAULT_MIN_SRGB_LABEL;
-	if (OspfSR.self != NULL) {
-		OspfSR.self->srgb.range_size = OspfSR.srgb.range_size;
-		OspfSR.self->srgb.lower_bound = OspfSR.srgb.lower_bound;
-	}
-
-	/* Set Router Information SR parameters */
-	ospf_router_info_update_sr(true, OspfSR.srgb, OspfSR.msd);
-
-	/* Update NHLFE entries */
-	hash_iterate(OspfSR.neighbors,
-		     (void (*)(struct hash_bucket *, void *))update_in_nhlfe,
-		     NULL);
-
-	return CMD_SUCCESS;
+	if (update_srgb(MPLS_DEFAULT_MIN_SRGB_SIZE,
+			MPLS_DEFAULT_MIN_SRGB_LABEL) < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	else
+		return CMD_SUCCESS;
 }
 
 DEFUN (sr_node_msd,
@@ -1843,8 +1915,9 @@ DEFUN (sr_node_msd,
 	if (OspfSR.self != NULL)
 		OspfSR.self->msd = msd;
 
-	/* Set Router Information SR parameters */
-	ospf_router_info_update_sr(true, OspfSR.srgb, OspfSR.msd);
+	/* Set Router Information parameters if SR is UP */
+	if (OspfSR.status == SR_UP)
+		ospf_router_info_update_sr(true, OspfSR.srgb, OspfSR.msd);
 
 	return CMD_SUCCESS;
 }
@@ -1866,8 +1939,9 @@ DEFUN (no_sr_node_msd,
 	if (OspfSR.self != NULL)
 		OspfSR.self->msd = 0;
 
-	/* Set Router Information SR parameters */
-	ospf_router_info_update_sr(true, OspfSR.srgb, 0);
+	/* Set Router Information parameters if SR is UP */
+	if (OspfSR.status == SR_UP)
+		ospf_router_info_update_sr(true, OspfSR.srgb, 0);
 
 	return CMD_SUCCESS;
 }
@@ -1972,9 +2046,14 @@ DEFUN (sr_prefix_sid,
 	} else {
 		listnode_add(OspfSR.self->ext_prefix, new);
 	}
-	ospf_zebra_update_prefix_sid(new);
 
-	/* Finally, update Extended Prefix LSA */
+	/* Install Prefix SID if SR is UP */
+	if (OspfSR.status == SR_UP)
+		ospf_zebra_update_prefix_sid(new);
+	else
+		return CMD_SUCCESS;
+
+	/* Finally, update Extended Prefix LSA id SR is UP */
 	new->instance = ospf_ext_schedule_prefix_index(
 		ifp, new->sid, &new->prefv4, new->flags);
 	if (new->instance == 0) {
@@ -2007,6 +2086,9 @@ DEFUN (no_sr_prefix_sid,
 
 	if (!ospf_sr_enabled(vty))
 		return CMD_WARNING_CONFIG_FAILED;
+
+	if (OspfSR.status != SR_UP)
+		return CMD_SUCCESS;
 
 	/* Get network prefix */
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
@@ -2352,7 +2434,7 @@ DEFUN (show_ip_opsf_srdb,
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL, *json_node_array = NULL;
 
-	if (!OspfSR.enabled) {
+	if (OspfSR.status == SR_OFF) {
 		vty_out(vty, "Segment Routing is disabled on this router\n");
 		return CMD_WARNING;
 	}
