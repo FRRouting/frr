@@ -1342,7 +1342,8 @@ static void bgp_evpn_es_local_info_set(struct bgp *bgp, struct bgp_evpn_es *es)
 	bf_assign_index(bm->rd_idspace, es->rd_id);
 	es->prd.family = AF_UNSPEC;
 	es->prd.prefixlen = 64;
-	sprintf(buf, "%s:%hu", inet_ntoa(bgp->router_id), es->rd_id);
+	snprintf(buf, sizeof(buf), "%s:%hu", inet_ntoa(bgp->router_id),
+		 es->rd_id);
 	(void)str2prefix_rd(buf, &es->prd);
 }
 
@@ -1551,7 +1552,8 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 	return 0;
 }
 
-static char *bgp_evpn_es_vteps_str(char *vtep_str, struct bgp_evpn_es *es)
+static char *bgp_evpn_es_vteps_str(char *vtep_str, struct bgp_evpn_es *es,
+				   uint8_t vtep_str_size)
 {
 	char vtep_flag_str[BGP_EVPN_FLAG_STR_SZ];
 	struct listnode *node;
@@ -1562,22 +1564,20 @@ static char *bgp_evpn_es_vteps_str(char *vtep_str, struct bgp_evpn_es *es)
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
 		vtep_flag_str[0] = '\0';
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ESR)
-			strcpy(vtep_flag_str + strlen(vtep_flag_str), "E");
+			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ACTIVE)
-			strcpy(vtep_flag_str + strlen(vtep_flag_str), "A");
+			strlcat(vtep_flag_str, "A", sizeof(vtep_flag_str));
 
 		if (!strlen(vtep_flag_str))
-			strcpy(vtep_flag_str, "-");
-		if (first) {
+			strlcat(vtep_flag_str, "-", sizeof(vtep_flag_str));
+		if (first)
 			first = false;
-			sprintf(vtep_str + strlen(vtep_str), "%s(%s)",
-					inet_ntoa(es_vtep->vtep_ip),
-					vtep_flag_str);
-		} else {
-			sprintf(vtep_str + strlen(vtep_str), ",%s(%s)",
-					inet_ntoa(es_vtep->vtep_ip),
-					vtep_flag_str);
-		}
+		else
+			strlcat(vtep_str, ",", vtep_str_size);
+		strlcat(vtep_str, inet_ntoa(es_vtep->vtep_ip), vtep_str_size);
+		strlcat(vtep_str, "(", vtep_str_size);
+		strlcat(vtep_str, vtep_flag_str, vtep_str_size);
+		strlcat(vtep_str, ")", vtep_str_size);
 	}
 
 	return vtep_str;
@@ -1653,18 +1653,18 @@ static void bgp_evpn_es_show_entry(struct vty *vty,
 
 		type_str[0] = '\0';
 		if (es->flags & BGP_EVPNES_LOCAL)
-			strcpy(type_str + strlen(type_str), "L");
+			strlcat(type_str, "L", sizeof(type_str));
 		if (es->flags & BGP_EVPNES_REMOTE)
-			strcpy(type_str + strlen(type_str), "R");
+			strlcat(type_str, "R", sizeof(type_str));
 		if (es->inconsistencies)
-			strcpy(type_str + strlen(type_str), "I");
+			strlcat(type_str, "I", sizeof(type_str));
 
-		bgp_evpn_es_vteps_str(vtep_str, es);
+		bgp_evpn_es_vteps_str(vtep_str, es, sizeof(vtep_str));
 
 		if (es->flags & BGP_EVPNES_LOCAL)
 			prefix_rd2str(&es->prd, buf1, sizeof(buf1));
 		else
-			strcpy(buf1, "-");
+			strlcpy(buf1, "-", sizeof(buf1));
 
 		vty_out(vty, "%-30s %-5s %-21s %-8d %s\n",
 				es->esi_str, type_str, buf1,
@@ -1712,18 +1712,18 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 
 		type_str[0] = '\0';
 		if (es->flags & BGP_EVPNES_LOCAL)
-			strcpy(type_str + strlen(type_str), "L");
+			strlcat(type_str, "L", sizeof(type_str));
 		if (es->flags & BGP_EVPNES_REMOTE)
-			strcpy(type_str + strlen(type_str), "R");
+			strlcat(type_str, "R", sizeof(type_str));
 
-		bgp_evpn_es_vteps_str(vtep_str, es);
+		bgp_evpn_es_vteps_str(vtep_str, es, sizeof(vtep_str));
 		if (!strlen(vtep_str))
-			strcpy(vtep_str, "-");
+			strlcpy(buf1, "-", sizeof(buf1));
 
 		if (es->flags & BGP_EVPNES_LOCAL)
 			prefix_rd2str(&es->prd, buf1, sizeof(buf1));
 		else
-			strcpy(buf1, "-");
+			strlcpy(buf1, "-", sizeof(buf1));
 
 		vty_out(vty, "ESI: %s\n", es->esi_str);
 		vty_out(vty, " Type: %s\n", type_str);
@@ -1738,10 +1738,10 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		if (es->inconsistencies) {
 			incons_str[0] = '\0';
 			if (es->inconsistencies & BGP_EVPNES_INCONS_VTEP_LIST)
-				strcpy(incons_str + strlen(incons_str),
-						"vni-vtep-mismatch");
+				strlcat(incons_str, "vni-vtep-mismatch",
+					sizeof(incons_str));
 		} else {
-			strcpy(incons_str, "-");
+			strlcpy(incons_str, "-", sizeof(incons_str));
 		}
 		vty_out(vty, " Inconsistencies: %s\n",
 				incons_str);
@@ -2387,7 +2387,8 @@ void bgp_evpn_vni_es_cleanup(struct bgpevpn *vpn)
 }
 
 static char *bgp_evpn_es_evi_vteps_str(char *vtep_str,
-		struct bgp_evpn_es_evi *es_evi)
+				       struct bgp_evpn_es_evi *es_evi,
+				       uint8_t vtep_str_size)
 {
 	char vtep_flag_str[BGP_EVPN_FLAG_STR_SZ];
 	struct listnode *node;
@@ -2398,22 +2399,20 @@ static char *bgp_evpn_es_evi_vteps_str(char *vtep_str,
 	for (ALL_LIST_ELEMENTS_RO(es_evi->es_evi_vtep_list, node, evi_vtep)) {
 		vtep_flag_str[0] = '\0';
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_ES)
-			strcpy(vtep_flag_str + strlen(vtep_flag_str), "E");
+			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_EVI)
-			strcpy(vtep_flag_str + strlen(vtep_flag_str), "V");
+			strlcat(vtep_flag_str, "V", sizeof(vtep_flag_str));
 
-		if (!strlen(vtep_flag_str))
-			strcpy(vtep_flag_str, "-");
-		if (first) {
+		if (!strnlen(vtep_flag_str, sizeof(vtep_flag_str)))
+			strlcpy(vtep_flag_str, "-", sizeof(vtep_flag_str));
+		if (first)
 			first = false;
-			sprintf(vtep_str + strlen(vtep_str), "%s(%s)",
-					inet_ntoa(evi_vtep->vtep_ip),
-					vtep_flag_str);
-		} else {
-			sprintf(vtep_str + strlen(vtep_str), ",%s(%s)",
-					inet_ntoa(evi_vtep->vtep_ip),
-					vtep_flag_str);
-		}
+		else
+			strlcat(vtep_str, ",", vtep_str_size);
+		strlcat(vtep_str, inet_ntoa(evi_vtep->vtep_ip), vtep_str_size);
+		strlcat(vtep_str, "(", vtep_str_size);
+		strlcat(vtep_str, vtep_flag_str, vtep_str_size);
+		strlcat(vtep_str, ")", vtep_str_size);
 	}
 
 	return vtep_str;
@@ -2483,13 +2482,13 @@ static void bgp_evpn_es_evi_show_entry(struct vty *vty,
 
 		type_str[0] = '\0';
 		if (es_evi->flags & BGP_EVPNES_EVI_LOCAL)
-			strcpy(type_str + strlen(type_str), "L");
+			strlcat(type_str, "L", sizeof(type_str));
 		if (es_evi->flags & BGP_EVPNES_EVI_REMOTE)
-			strcpy(type_str + strlen(type_str), "R");
+			strlcat(type_str, "R", sizeof(type_str));
 		if (es_evi->flags & BGP_EVPNES_EVI_INCONS_VTEP_LIST)
-			strcpy(type_str + strlen(type_str), "I");
+			strlcat(type_str, "I", sizeof(type_str));
 
-		bgp_evpn_es_evi_vteps_str(vtep_str, es_evi);
+		bgp_evpn_es_evi_vteps_str(vtep_str, es_evi, sizeof(vtep_str));
 
 		vty_out(vty, "%-8d %-30s %-5s %s\n",
 				es_evi->vpn->vni, es_evi->es->esi_str,
@@ -2516,13 +2515,13 @@ static void bgp_evpn_es_evi_show_entry_detail(struct vty *vty,
 
 		type_str[0] = '\0';
 		if (es_evi->flags & BGP_EVPNES_EVI_LOCAL)
-			strcpy(type_str + strlen(type_str), "L");
+			strlcat(type_str, "L", sizeof(type_str));
 		if (es_evi->flags & BGP_EVPNES_EVI_REMOTE)
-			strcpy(type_str + strlen(type_str), "R");
+			strlcat(type_str, "R", sizeof(type_str));
 
-		bgp_evpn_es_evi_vteps_str(vtep_str, es_evi);
+		bgp_evpn_es_evi_vteps_str(vtep_str, es_evi, sizeof(vtep_str));
 		if (!strlen(vtep_str))
-			strcpy(vtep_str, "-");
+			strlcpy(vtep_str, "-", sizeof(type_str));
 
 		vty_out(vty, "VNI: %d ESI: %s\n",
 				es_evi->vpn->vni, es_evi->es->esi_str);

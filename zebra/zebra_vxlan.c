@@ -893,9 +893,10 @@ static void zvni_print_neigh_hdr(struct vty *vty,
 		"State", "MAC", "Remote ES/VTEP", "Seq #'s");
 }
 
-static char *zvni_print_neigh_flags(zebra_neigh_t *n, char *flags_buf)
+static char *zvni_print_neigh_flags(zebra_neigh_t *n, char *flags_buf,
+		uint32_t flags_buf_sz)
 {
-	sprintf(flags_buf, "%s%s%s",
+	snprintf(flags_buf, flags_buf_sz, "%s%s%s",
 			(n->flags & ZEBRA_NEIGH_ES_PEER_ACTIVE) ?
 			"P" : "",
 			(n->flags & ZEBRA_NEIGH_ES_PEER_PROXY) ?
@@ -937,8 +938,9 @@ static void zvni_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 		if (json_vni == NULL) {
 			vty_out(vty, "%*s %-6s %-5s %-8s %-17s %-30s %u/%u\n",
 				-wctx->addr_width, buf2, "local",
-				zvni_print_neigh_flags(n, flags_buf),
-				state_str, buf1, "", n->loc_seq, n->rem_seq);
+				zvni_print_neigh_flags(n, flags_buf,
+					sizeof(flags_buf)), state_str,
+				buf1, "", n->loc_seq, n->rem_seq);
 		} else {
 			json_object_string_add(json_row, "type", "local");
 			json_object_string_add(json_row, "state", state_str);
@@ -971,7 +973,8 @@ static void zvni_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 				zvni_print_neigh_hdr(vty, wctx);
 			vty_out(vty, "%*s %-6s %-5s %-8s %-17s %-30s %u/%u\n",
 				-wctx->addr_width, buf2, "remote",
-				zvni_print_neigh_flags(n, flags_buf),
+				zvni_print_neigh_flags(n, flags_buf,
+					sizeof(flags_buf)),
 				state_str, buf1,
 				n->mac->es ? n->mac->es->esi_str :
 				inet_ntoa(n->r_vtep_ip),
@@ -1504,9 +1507,10 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 	}
 }
 
-static char *zvni_print_mac_flags(zebra_mac_t *mac, char *flags_buf)
+static char *zvni_print_mac_flags(zebra_mac_t *mac, char *flags_buf,
+	uint32_t flags_buf_sz)
 {
-	sprintf(flags_buf, "%s%s%s%s",
+	snprintf(flags_buf, flags_buf_sz, "%s%s%s%s",
 			mac->sync_neigh_cnt ?
 			"N" : "",
 			(mac->flags & ZEBRA_MAC_ES_PEER_ACTIVE) ?
@@ -1551,7 +1555,8 @@ static void zvni_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 				&ifp, &vid);
 		if (json_mac_hdr == NULL) {
 			vty_out(vty, "%-17s %-6s %-5s %-30s", buf1, "local",
-					zvni_print_mac_flags(mac, flags_buf),
+					zvni_print_mac_flags(mac, flags_buf,
+						sizeof(flags_buf)),
 					ifp ? ifp->name : "-");
 		} else {
 			json_object_string_add(json_mac, "type", "local");
@@ -1606,7 +1611,8 @@ static void zvni_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 			}
 			vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %u/%u\n", buf1,
 				"remote",
-				zvni_print_mac_flags(mac, flags_buf),
+				zvni_print_mac_flags(mac, flags_buf,
+					sizeof(flags_buf)),
 				mac->es ?  mac->es->esi_str :
 				inet_ntoa(mac->fwd_info.r_vtep_ip),
 				"", mac->loc_seq, mac->rem_seq);
@@ -9472,7 +9478,7 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 			if (memcmp(&esi, zero_esi, sizeof(esi_t)))
 				esi_to_str(&esi, esi_buf, sizeof(esi_buf));
 			else
-				strcpy(esi_buf, "-");
+				strlcpy(esi_buf, "-", ESI_STR_LEN);
 			zlog_debug(
 				"Recv %sMACIP ADD VNI %u MAC %s%s%s flags 0x%x seq %u VTEP %s ESI %s from %s",
 				(flags & ZEBRA_MACIP_TYPE_SYNC_PATH) ?

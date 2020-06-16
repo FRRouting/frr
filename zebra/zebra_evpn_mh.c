@@ -260,7 +260,7 @@ static void zebra_evpn_es_evi_show_entry(struct vty *vty,
 	} else {
 		type_str[0] = '\0';
 		if (es_evi->flags & ZEBRA_EVPNES_EVI_LOCAL)
-			strcpy(type_str + strlen(type_str), "L");
+			strlcat(type_str, "L", sizeof(type_str));
 
 		vty_out(vty, "%-8d %-30s %-4s\n",
 				es_evi->zvni->vni, es_evi->es->esi_str,
@@ -278,7 +278,7 @@ static void zebra_evpn_es_evi_show_entry_detail(struct vty *vty,
 	} else {
 		type_str[0] = '\0';
 		if (es_evi->flags & ZEBRA_EVPNES_EVI_LOCAL)
-			strcpy(type_str + strlen(type_str), "L");
+			strlcat(type_str, "L", sizeof(type_str));
 
 		vty_out(vty, "VNI %d ESI: %s\n",
 				es_evi->zvni->vni, es_evi->es->esi_str);
@@ -877,11 +877,14 @@ static void zebra_evpn_nhg_update(struct zebra_evpn_es *es)
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NH) {
 			char nh_str[ES_VTEP_LIST_STR_SZ];
 			uint32_t i;
+			char nh_buf[16];
 
 			nh_str[0] = '\0';
-			for (i = 0; i < nh_cnt; ++i)
-				sprintf(nh_str + strlen(nh_str),
-						"0x%x ", nh_ids[i].id);
+			for (i = 0; i < nh_cnt; ++i) {
+				snprintf(nh_buf, sizeof(nh_buf), "%u ",
+					 nh_ids[i].id);
+				strlcat(nh_str, nh_buf, sizeof(nh_str));
+			}
 			zlog_debug("es %s nhg 0x%x add %s",
 					es->esi_str, es->nhg_id, nh_str);
 		}
@@ -1729,8 +1732,8 @@ void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up)
 		zebra_evpn_es_send_add_to_client(es);
 }
 
-static char *zebra_evpn_es_vtep_str(char *vtep_str,
-		struct zebra_evpn_es *es)
+static char *zebra_evpn_es_vtep_str(char *vtep_str, struct zebra_evpn_es *es,
+				    uint8_t vtep_str_size)
 {
 	struct zebra_evpn_es_vtep *zvtep;
 	struct listnode	*node;
@@ -1740,11 +1743,12 @@ static char *zebra_evpn_es_vtep_str(char *vtep_str,
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, zvtep)) {
 		if (first) {
 			first = false;
-			sprintf(vtep_str + strlen(vtep_str), "%s",
-					inet_ntoa(zvtep->vtep_ip));
+			strlcat(vtep_str, inet_ntoa(zvtep->vtep_ip),
+				vtep_str_size);
 		} else {
-			sprintf(vtep_str + strlen(vtep_str), ",%s",
-					inet_ntoa(zvtep->vtep_ip));
+			strlcat(vtep_str, ",", vtep_str_size);
+			strlcat(vtep_str, inet_ntoa(zvtep->vtep_ip),
+				vtep_str_size);
 		}
 	}
 	return vtep_str;
@@ -1761,11 +1765,11 @@ static void zebra_evpn_es_show_entry(struct vty *vty,
 	} else {
 		type_str[0] = '\0';
 		if (es->flags & ZEBRA_EVPNES_LOCAL)
-			strcpy(type_str + strlen(type_str), "L");
+			strlcat(type_str, "L", sizeof(type_str));
 		if (es->flags & ZEBRA_EVPNES_REMOTE)
-			strcpy(type_str + strlen(type_str), "R");
+			strlcat(type_str, "R", sizeof(type_str));
 
-		zebra_evpn_es_vtep_str(vtep_str, es);
+		zebra_evpn_es_vtep_str(vtep_str, es, sizeof(vtep_str));
 
 		vty_out(vty, "%-30s %-4s %-21s %s\n",
 				es->esi_str, type_str,
@@ -1786,11 +1790,11 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 	} else {
 		type_str[0] = '\0';
 		if (es->flags & ZEBRA_EVPNES_LOCAL)
-			strcpy(type_str + strlen(type_str), "Local");
+			strlcat(type_str, "Local", sizeof(type_str));
 		if (es->flags & ZEBRA_EVPNES_REMOTE) {
-			if (strlen(type_str))
-				strcpy(type_str + strlen(type_str), ",");
-			strcpy(type_str + strlen(type_str), "Remote");
+			if (strnlen(type_str, sizeof(type_str)))
+				strlcat(type_str, ",", sizeof(type_str));
+			strlcat(type_str, "Remote", sizeof(type_str));
 		}
 
 		vty_out(vty, "ESI: %s\n", es->esi_str);

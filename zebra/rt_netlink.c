@@ -3989,11 +3989,13 @@ static int netlink_fdb_nhg_update(uint32_t nhg_id, uint32_t nh_cnt,
 
 	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH) {
 		char vtep_str[ES_VTEP_LIST_STR_SZ];
+		char nh_buf[16];
 
 		vtep_str[0] = '\0';
 		for (i = 0; i < nh_cnt; ++i) {
-			sprintf(vtep_str + strlen(vtep_str), "0x%x ",
+			snprintf(nh_buf, sizeof(nh_buf), "%u ",
 					grp[i].id);
+			strlcat(vtep_str, nh_buf, sizeof(vtep_str));
 		}
 
 		zlog_debug("Tx %s fdb-nhg 0x%x %s",
