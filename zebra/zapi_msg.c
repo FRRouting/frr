@@ -541,7 +541,8 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 int zsend_redistribute_route(int cmd, struct zserv *client,
 			     const struct prefix *p,
 			     const struct prefix *src_p,
-			     const struct route_entry *re)
+			     const struct route_entry *re,
+			     unsigned short tableno)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -555,7 +556,12 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 	api.vrf_id = re->vrf_id;
 	api.type = re->type;
 	api.safi = SAFI_UNICAST;
-	api.instance = re->instance;
+	if (tableno) {
+		api.instance = tableno;
+		api.type = ZEBRA_ROUTE_TABLE_DIRECT;
+	}
+	else
+		api.instance = re->instance;
 	api.flags = re->flags;
 
 	afi = family2afi(p->family);

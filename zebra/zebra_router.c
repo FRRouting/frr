@@ -90,6 +90,8 @@ struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
 	struct zebra_router_table finder;
 	struct zebra_router_table *zrt;
 
+	if (!zvrf)
+		return NULL;
 	memset(&finder, 0, sizeof(finder));
 	finder.afi = afi;
 	finder.safi = safi;

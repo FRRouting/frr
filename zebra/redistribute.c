@@ -96,7 +96,7 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 			    && newre->distance != DISTANCE_INFINITY)
 				zsend_redistribute_route(
 					ZEBRA_REDISTRIBUTE_ROUTE_ADD, client,
-					&rn->p, NULL, newre);
+					&rn->p, NULL, newre, 0);
 		}
 
 		route_unlock_node(rn);
@@ -111,8 +111,16 @@ static void zebra_redistribute(struct zserv *client, int type,
 	struct route_entry *newre;
 	struct route_table *table;
 	struct route_node *rn;
+	unsigned short instance_copy = 0;
 
-	table = zebra_vrf_table(afi, SAFI_UNICAST, vrf_id);
+	if (type != ZEBRA_ROUTE_TABLE_DIRECT)
+		table = zebra_vrf_table(afi, SAFI_UNICAST, vrf_id);
+	else {
+		table = zebra_router_find_table(zebra_vrf_lookup_by_id(vrf_id),
+						instance, afi, SAFI_UNICAST);
+		type = ZEBRA_ROUTE_ALL;
+		instance_copy = instance;
+	}
 	if (!table)
 		return;
 
@@ -136,17 +144,17 @@ static void zebra_redistribute(struct zserv *client, int type,
 
 			if (!CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED))
 				continue;
-			if ((type != ZEBRA_ROUTE_ALL
+			if (type != ZEBRA_ROUTE_ALL
 			     && (newre->type != type
-				 || newre->instance != instance)))
+				 || newre->instance != instance))
 				continue;
 			if (newre->distance == DISTANCE_INFINITY)
 				continue;
 			if (!zebra_check_addr(dst_p))
 				continue;
-
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
-						 client, dst_p, src_p, newre);
+						 client, dst_p, src_p, newre,
+						 instance_copy);
 		}
 }
 
@@ -232,10 +240,10 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 					   re->distance, re->metric);
 			}
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
-						 client, p, src_p, re);
+						 client, p, src_p, re, 0);
 		} else if (zebra_redistribute_check(prev_re, client, p, afi))
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
-						 client, p, src_p, prev_re);
+						 client, p, src_p, prev_re, 0);
 	}
 }
 
@@ -313,7 +321,7 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 		/* Send a delete for the 'old' re to any subscribed client. */
 		if (zebra_redistribute_check(old_re, client, p, afi))
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
-						 client, p, src_p, old_re);
+						 client, p, src_p, old_re, 0);
 	}
 }
 
