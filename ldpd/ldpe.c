@@ -235,6 +235,9 @@ ldpe_shutdown(void)
 	free(pkt_ptr);
 
 	log_info("ldp engine exiting");
+
+	zlog_fini();
+
 	exit(0);
 }
 

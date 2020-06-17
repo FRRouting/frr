@@ -206,6 +206,8 @@ lde_shutdown(void)
 	free(iev_main_sync);
 
 	log_info("label decision engine exiting");
+
+	zlog_fini();
 	exit(0);
 }
 
