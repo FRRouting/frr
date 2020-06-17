@@ -2606,6 +2606,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix,
 			ecommunity_free(&old_ecom);
 	} else {
 		ecom_lb.size = 1;
+		ecom_lb.unit_size = ECOMMUNITY_SIZE;
 		ecom_lb.val = (uint8_t *)lb_eval.val;
 		new_ecom = ecommunity_dup(&ecom_lb);
 	}
