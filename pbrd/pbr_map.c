@@ -292,7 +292,10 @@ void pbr_map_policy_interface_update(const struct interface *ifp, bool state_up)
 	 */
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
-			if (pmi->ifp == ifp && pbr_map_interface_is_valid(pmi))
+			if ((pbrms->vrf_unchanged || pbrms->vrf_lookup
+			     || pbrms->nhgrp_name || pbrms->nhg)
+			    && (pmi->ifp == ifp
+				&& pbr_map_interface_is_valid(pmi)))
 				pbr_send_pbr_map(pbrms, pmi, state_up, true);
 }
 
