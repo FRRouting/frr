@@ -13698,10 +13698,11 @@ ALIAS_HIDDEN(
 
 DEFUN (bgp_redistribute_ipv4_ospf,
        bgp_redistribute_ipv4_ospf_cmd,
-       "redistribute <ospf|table> (1-65535)",
+       "redistribute <ospf|table|table-direct> (1-65535)",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
+       "Non-main Kernel Routing Table - direct\n"
        "Instance ID/Table ID\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -13714,6 +13715,8 @@ DEFUN (bgp_redistribute_ipv4_ospf,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
+	else if (strncmp(argv[idx_ospf_table]->arg, "table-", 6) == 0)
+		protocol = ZEBRA_ROUTE_TABLE_DIRECT;
 	else
 		protocol = ZEBRA_ROUTE_TABLE;
 
@@ -13722,18 +13725,20 @@ DEFUN (bgp_redistribute_ipv4_ospf,
 }
 
 ALIAS_HIDDEN(bgp_redistribute_ipv4_ospf, bgp_redistribute_ipv4_ospf_hidden_cmd,
-	     "redistribute <ospf|table> (1-65535)",
+	     "redistribute <ospf|table|table-direct> (1-65535)",
 	     "Redistribute information from another routing protocol\n"
 	     "Open Shortest Path First (OSPFv2)\n"
 	     "Non-main Kernel Routing Table\n"
+	     "Non-main Kernel Routing Table - direct\n"
 	     "Instance ID/Table ID\n")
 
 DEFUN (bgp_redistribute_ipv4_ospf_rmap,
        bgp_redistribute_ipv4_ospf_rmap_cmd,
-       "redistribute <ospf|table> (1-65535) route-map WORD",
+       "redistribute <ospf|table|table-direct> (1-65535) route-map WORD",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
+       "Non-main Kernel Routing Table - direct\n"
        "Instance ID/Table ID\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
@@ -13751,6 +13756,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
+	else if (strncmp(argv[idx_ospf_table]->arg, "table-", 6) == 0)
+		protocol = ZEBRA_ROUTE_TABLE_DIRECT;
 	else
 		protocol = ZEBRA_ROUTE_TABLE;
 
@@ -13763,20 +13770,22 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
 
 ALIAS_HIDDEN(bgp_redistribute_ipv4_ospf_rmap,
 	     bgp_redistribute_ipv4_ospf_rmap_hidden_cmd,
-	     "redistribute <ospf|table> (1-65535) route-map WORD",
+	     "redistribute <ospf|table|table-direct> (1-65535) route-map WORD",
 	     "Redistribute information from another routing protocol\n"
 	     "Open Shortest Path First (OSPFv2)\n"
 	     "Non-main Kernel Routing Table\n"
+	     "Non-main Kernel Routing Table - direct\n"
 	     "Instance ID/Table ID\n"
 	     "Route map reference\n"
 	     "Pointer to route-map entries\n")
 
 DEFUN (bgp_redistribute_ipv4_ospf_metric,
        bgp_redistribute_ipv4_ospf_metric_cmd,
-       "redistribute <ospf|table> (1-65535) metric (0-4294967295)",
+       "redistribute <ospf|table|table-direct> (1-65535) metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
+       "Non-main Kernel Routing Table - direct\n"
        "Instance ID/Table ID\n"
        "Metric for redistributed routes\n"
        "Default metric\n")
@@ -13793,6 +13802,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
+	else if (strncmp(argv[idx_ospf_table]->arg, "table-", 6) == 0)
+		protocol = ZEBRA_ROUTE_TABLE_DIRECT;
 	else
 		protocol = ZEBRA_ROUTE_TABLE;
 
@@ -13807,20 +13818,22 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
 
 ALIAS_HIDDEN(bgp_redistribute_ipv4_ospf_metric,
 	     bgp_redistribute_ipv4_ospf_metric_hidden_cmd,
-	     "redistribute <ospf|table> (1-65535) metric (0-4294967295)",
+	     "redistribute <ospf|table|table-direct> (1-65535) metric (0-4294967295)",
 	     "Redistribute information from another routing protocol\n"
 	     "Open Shortest Path First (OSPFv2)\n"
 	     "Non-main Kernel Routing Table\n"
+	     "Non-main Kernel Routing Table - direct\n"
 	     "Instance ID/Table ID\n"
 	     "Metric for redistributed routes\n"
 	     "Default metric\n")
 
 DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
        bgp_redistribute_ipv4_ospf_rmap_metric_cmd,
-       "redistribute <ospf|table> (1-65535) route-map WORD metric (0-4294967295)",
+       "redistribute <ospf|table|table-direct> (1-65535) route-map WORD metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
+       "Non-main Kernel Routing Table - direct\n"
        "Instance ID/Table ID\n"
        "Route map reference\n"
        "Pointer to route-map entries\n"
@@ -13842,6 +13855,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
+	else if (strncmp(argv[idx_ospf_table]->arg, "table-", 6) == 0)
+		protocol = ZEBRA_ROUTE_TABLE_DIRECT;
 	else
 		protocol = ZEBRA_ROUTE_TABLE;
 
@@ -13859,10 +13874,11 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
 ALIAS_HIDDEN(
 	bgp_redistribute_ipv4_ospf_rmap_metric,
 	bgp_redistribute_ipv4_ospf_rmap_metric_hidden_cmd,
-	"redistribute <ospf|table> (1-65535) route-map WORD metric (0-4294967295)",
+	"redistribute <ospf|table|table-direct> (1-65535) route-map WORD metric (0-4294967295)",
 	"Redistribute information from another routing protocol\n"
 	"Open Shortest Path First (OSPFv2)\n"
 	"Non-main Kernel Routing Table\n"
+	"Non-main Kernel Routing Table - direct\n"
 	"Instance ID/Table ID\n"
 	"Route map reference\n"
 	"Pointer to route-map entries\n"
@@ -13871,10 +13887,11 @@ ALIAS_HIDDEN(
 
 DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
        bgp_redistribute_ipv4_ospf_metric_rmap_cmd,
-       "redistribute <ospf|table> (1-65535) metric (0-4294967295) route-map WORD",
+       "redistribute <ospf|table|table-direct> (1-65535) metric (0-4294967295) route-map WORD",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
+       "Non-main Kernel Routing Table - direct\n"
        "Instance ID/Table ID\n"
        "Metric for redistributed routes\n"
        "Default metric\n"
@@ -13896,6 +13913,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
+	else if (strncmp(argv[idx_ospf_table]->arg, "table-", 6) == 0)
+		protocol = ZEBRA_ROUTE_TABLE_DIRECT;
 	else
 		protocol = ZEBRA_ROUTE_TABLE;
 
@@ -13913,10 +13932,11 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
 ALIAS_HIDDEN(
 	bgp_redistribute_ipv4_ospf_metric_rmap,
 	bgp_redistribute_ipv4_ospf_metric_rmap_hidden_cmd,
-	"redistribute <ospf|table> (1-65535) metric (0-4294967295) route-map WORD",
+	"redistribute <ospf|table|table-direct> (1-65535) metric (0-4294967295) route-map WORD",
 	"Redistribute information from another routing protocol\n"
 	"Open Shortest Path First (OSPFv2)\n"
 	"Non-main Kernel Routing Table\n"
+	"Non-main Kernel Routing Table - direct\n"
 	"Instance ID/Table ID\n"
 	"Metric for redistributed routes\n"
 	"Default metric\n"
@@ -13925,11 +13945,12 @@ ALIAS_HIDDEN(
 
 DEFUN (no_bgp_redistribute_ipv4_ospf,
        no_bgp_redistribute_ipv4_ospf_cmd,
-       "no redistribute <ospf|table> (1-65535) [{metric (0-4294967295)|route-map WORD}]",
+       "no redistribute <ospf|table|table-direct> (1-65535) [{metric (0-4294967295)|route-map WORD}]",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
+       "Non-main Kernel Routing Table - direct\n"
        "Instance ID/Table ID\n"
        "Metric for redistributed routes\n"
        "Default metric\n"
@@ -13944,6 +13965,8 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
+	else if (strncmp(argv[idx_ospf_table]->arg, "table-", 6) == 0)
+		protocol = ZEBRA_ROUTE_TABLE_DIRECT;
 	else
 		protocol = ZEBRA_ROUTE_TABLE;
 
@@ -13953,11 +13976,12 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
 
 ALIAS_HIDDEN(
 	no_bgp_redistribute_ipv4_ospf, no_bgp_redistribute_ipv4_ospf_hidden_cmd,
-	"no redistribute <ospf|table> (1-65535) [{metric (0-4294967295)|route-map WORD}]",
+	"no redistribute <ospf|table|table-direct> (1-65535) [{metric (0-4294967295)|route-map WORD}]",
 	NO_STR
 	"Redistribute information from another routing protocol\n"
 	"Open Shortest Path First (OSPFv2)\n"
 	"Non-main Kernel Routing Table\n"
+	"Non-main Kernel Routing Table - direct\n"
 	"Instance ID/Table ID\n"
 	"Metric for redistributed routes\n"
 	"Default metric\n"
