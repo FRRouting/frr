@@ -504,7 +504,8 @@ end
                                 "table ",
                                 "username ",
                                 "zebra ",
-                                "vrrp autoconfigure")
+                                "vrrp autoconfigure",
+                                "evpn mh")
 
         for line in self.lines:
 
