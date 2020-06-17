@@ -73,70 +73,64 @@ static void add_node(struct bgp_table *table, const char *prefix_str)
 	rn->info = node;
 }
 
-static void print_range_result(struct list *list)
+static bool prefix_in_array(const struct prefix *p, struct prefix *prefix_array,
+			    size_t prefix_array_size)
 {
-
-	struct listnode *listnode;
-	struct bgp_node *bnode;
-
-	for (ALL_LIST_ELEMENTS_RO(list, listnode, bnode)) {
-		char buf[PREFIX2STR_BUFFER];
-
-		prefix2str(bgp_node_get_prefix(bnode), buf, PREFIX2STR_BUFFER);
-		printf("%s\n", buf);
+	for (size_t i = 0; i < prefix_array_size; ++i) {
+		if (prefix_same(p, &prefix_array[i]))
+			return true;
 	}
+	return false;
 }
 
-static void check_lookup_result(struct list *list, va_list arglist)
+static void check_lookup_result(struct bgp_node *match, va_list arglist)
 {
 	char *prefix_str;
-	unsigned int prefix_count = 0;
+	struct prefix *prefixes = NULL;
+	size_t prefix_count = 0;
 
-	printf("Searching results\n");
 	while ((prefix_str = va_arg(arglist, char *))) {
-		struct listnode *listnode;
-		struct bgp_node *bnode;
-		struct prefix p;
-		bool found = false;
+		++prefix_count;
+		prefixes = realloc(prefixes, sizeof(*prefixes) * prefix_count);
 
-		prefix_count++;
-		printf("Searching for %s\n", prefix_str);
-
-		if (str2prefix(prefix_str, &p) <= 0)
+		if (str2prefix(prefix_str, &prefixes[prefix_count - 1]) <= 0)
 			assert(0);
-
-		for (ALL_LIST_ELEMENTS_RO(list, listnode, bnode)) {
-			if (prefix_same(bgp_node_get_prefix(bnode), &p))
-				found = true;
-		}
-
-		assert(found);
 	}
 
-	printf("Checking for unexpected result items\n");
-	printf("Expecting %d found %d\n", prefix_count, listcount(list));
-	assert(prefix_count == listcount(list));
+	/* check if the result is empty and if it is allowd to be empty */
+	assert((prefix_count == 0 && !match) || prefix_count > 0);
+	if (!match)
+		return;
+
+	struct bgp_node *node = match;
+
+	while ((node = bgp_route_next_until(node, match))) {
+		const struct prefix *node_p = bgp_node_get_prefix(node);
+
+		if (bgp_node_has_bgp_path_info_data(node)
+		    && !prefix_in_array(node_p, prefixes, prefix_count)) {
+			char buf[PREFIX2STR_BUFFER];
+
+			prefix2str(node_p, buf, PREFIX2STR_BUFFER);
+			printf("prefix %s was not expected!\n", buf);
+			assert(0);
+		}
+	}
 }
 
-static void do_test(struct bgp_table *table, const char *prefix,
-		    uint32_t maxlen, ...)
+static void do_test(struct bgp_table *table, const char *prefix, ...)
 {
 	va_list arglist;
-	struct list *list = list_new();
 	struct prefix p;
 
-	list->del = (void (*)(void *))bgp_unlock_node;
 
-	va_start(arglist, maxlen);
-	printf("\nDoing lookup for %s-%d\n", prefix, maxlen);
+	va_start(arglist, prefix);
+	printf("\nDoing lookup for %s\n", prefix);
 	if (str2prefix(prefix, &p) <= 0)
 		assert(0);
-	bgp_table_range_lookup(table, &p, maxlen, list);
-	print_range_result(list);
+	struct bgp_node *node = bgp_table_subtree_lookup(table, &p);
 
-	check_lookup_result(list, arglist);
-
-	list_delete(&list);
+	check_lookup_result(node, arglist);
 
 	va_end(arglist);
 
@@ -163,27 +157,22 @@ static void test_range_lookup(void)
 	for (int i = 0; i < num_prefixes; i++)
 		add_node(table, prefixes[i]);
 
-	do_test(table, "1.16.0.0/17", 20, "1.16.64.0/19", "1.16.32.0/20", NULL);
-	do_test(table, "1.16.128.0/17", 20, "1.16.128.0/18", "1.16.192.0/18",
+	do_test(table, "1.16.0.0/17", "1.16.64.0/19", "1.16.32.0/20",
+		"1.16.32.0/20", "1.16.32.0/21", NULL);
+	do_test(table, "1.16.128.0/17", "1.16.128.0/18", "1.16.192.0/18",
 		"1.16.160.0/19", NULL);
 
-	do_test(table, "1.16.128.0/17", 20, "1.16.128.0/18", "1.16.192.0/18",
-		"1.16.160.0/19", NULL);
-
-	do_test(table, "1.16.0.0/16", 18, "1.16.0.0/16", "1.16.128.0/18",
-		"1.16.192.0/18", NULL);
-
-	do_test(table, "1.16.0.0/16", 21, "1.16.0.0/16", "1.16.128.0/18",
+	do_test(table, "1.16.0.0/16", "1.16.0.0/16", "1.16.128.0/18",
 		"1.16.192.0/18", "1.16.64.0/19", "1.16.160.0/19",
 		"1.16.32.0/20", "1.16.32.0/21", NULL);
 
-	do_test(table, "1.17.0.0/16", 20, NULL);
+	do_test(table, "1.17.0.0/16", NULL);
 
-	do_test(table, "128.0.0.0/8", 16, NULL);
+	do_test(table, "128.0.0.0/8", NULL);
 
-	do_test(table, "16.0.0.0/8", 16, "16.0.0.0/16", NULL);
+	do_test(table, "16.0.0.0/8", "16.0.0.0/16", NULL);
 
-	do_test(table, "0.0.0.0/2", 21, "1.16.0.0/16", "1.16.128.0/18",
+	do_test(table, "0.0.0.0/2", "1.16.0.0/16", "1.16.128.0/18",
 		"1.16.192.0/18", "1.16.64.0/19", "1.16.160.0/19",
 		"1.16.32.0/20", "1.16.32.0/21", "16.0.0.0/16", NULL);
 }

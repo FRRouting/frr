@@ -402,25 +402,23 @@ static int bgpd_sync_callback(struct thread *thread)
 				if (!peer->bgp->rib[afi][safi])
 					continue;
 
-				struct list *matches = list_new();
+				struct bgp_node *match;
+				struct bgp_node *node;
 
-				matches->del =
-					(void (*)(void *))bgp_unlock_node;
+				match = bgp_table_subtree_lookup(
+					peer->bgp->rib[afi][safi], prefix);
+				node = match;
 
-				bgp_table_range_lookup(
-					peer->bgp->rib[afi][safi], prefix,
-					rec.max_len, matches);
+				while (node) {
+					if (bgp_node_has_bgp_path_info_data(
+						    node)) {
+						revalidate_bgp_node(node, afi,
+								    safi);
+					}
 
-
-				struct bgp_node *bgp_node;
-				struct listnode *bgp_listnode;
-
-				for (ALL_LIST_ELEMENTS_RO(matches, bgp_listnode,
-							  bgp_node))
-					revalidate_bgp_node(bgp_node, afi,
-							    safi);
-
-				list_delete(&matches);
+					node = bgp_route_next_until(node,
+								    match);
+				}
 			}
 		}
 	}
@@ -811,7 +809,7 @@ static int add_tcp_cache(const char *host, const char *port,
 {
 	struct rtr_socket *rtr_socket;
 	struct tr_tcp_config *tcp_config =
-		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_tcp_config));
+		XCALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_tcp_config));
 	struct tr_socket *tr_socket =
 		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_socket));
 	struct cache *cache =
@@ -845,7 +843,7 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 			 const uint8_t preference)
 {
 	struct tr_ssh_config *ssh_config =
-		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_ssh_config));
+		XCALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_ssh_config));
 	struct cache *cache =
 		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct cache));
 	struct tr_socket *tr_socket =
