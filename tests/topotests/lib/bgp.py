@@ -253,6 +253,16 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
 
     config_data.append("no bgp network import-check")
 
+    bst_path = bgp_data.setdefault("bestpath", None)
+    if bst_path:
+        if "aspath" in bst_path:
+            if "delete" in bst_path:
+                config_data.append(
+                    "no bgp bestpath as-path {}".format(bst_path["aspath"])
+                )
+            else:
+                config_data.append("bgp bestpath as-path {}".format(bst_path["aspath"]))
+
     if "graceful-restart" in bgp_data:
         graceful_config = bgp_data["graceful-restart"]
 
@@ -505,6 +515,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
             keep_alive = peer.setdefault("keepalivetimer", 60)
             hold_down = peer.setdefault("holddowntimer", 180)
             password = peer.setdefault("password", None)
+            no_password = peer.setdefault("no_password", None)
             max_hop_limit = peer.setdefault("ebgp_multihop", 1)
             graceful_restart = peer.setdefault("graceful-restart", None)
             graceful_restart_helper = peer.setdefault("graceful-restart-helper", None)
@@ -544,6 +555,9 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
 
             if password:
                 config_data.append("{} password {}".format(neigh_cxt, password))
+
+            if no_password:
+                config_data.append("no {} password {}".format(neigh_cxt, no_password))
 
             if max_hop_limit > 1:
                 config_data.append(
@@ -1312,6 +1326,66 @@ def verify_as_numbers(tgen, topo, input_dict):
     return True
 
 
+@retry(attempts=10, wait=2, return_is_str=True)
+def verify_bgp_convergence_from_running_config(tgen, dut=None):
+    """
+    API to verify BGP convergence b/w loopback and physical interface.
+    This API would be used when routers have BGP neighborship is loopback
+    to physical or vice-versa
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+
+    Usage
+    -----
+    results = verify_bgp_convergence_bw_lo_and_phy_intf(tgen, topo,
+        dut="r1")
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    for router, rnode in tgen.routers().iteritems():
+        if dut is not None and dut != router:
+            continue
+
+        logger.info("Verifying BGP Convergence on router %s:", router)
+        show_bgp_json = run_frr_cmd(rnode, "show bgp vrf all summary json", isjson=True)
+        # Verifying output dictionary show_bgp_json is empty or not
+        if not bool(show_bgp_json):
+            errormsg = "BGP is not running"
+            return errormsg
+
+        for vrf, addr_family_data in show_bgp_json.items():
+            for address_family, neighborship_data in addr_family_data.items():
+                total_peer = 0
+                no_of_peer = 0
+
+                total_peer = len(neighborship_data["peers"].keys())
+
+                for peer, peer_data in neighborship_data["peers"].items():
+                    if peer_data["state"] == "Established":
+                        no_of_peer += 1
+
+                if total_peer != no_of_peer:
+                    errormsg = (
+                        "[DUT: %s] VRF: %s, BGP is not converged"
+                        " for peer: %s" % (router, vrf, peer)
+                    )
+                    return errormsg
+
+            logger.info("[DUT: %s]: vrf: %s, BGP is Converged", router, vrf)
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+
+    return True
+
+
 def clear_bgp(tgen, addr_type, router, vrf=None):
     """
     This API is to clear bgp neighborship by running
@@ -1805,7 +1879,14 @@ def verify_bgp_timers_and_functionality(tgen, topo, input_dict):
 
 @retry(attempts=3, wait=4, return_is_str=True)
 def verify_bgp_attributes(
-    tgen, addr_type, dut, static_routes, rmap_name, input_dict, seq_id=None
+    tgen,
+    addr_type,
+    dut,
+    static_routes,
+    rmap_name=None,
+    input_dict=None,
+    seq_id=None,
+    nexthop=None,
 ):
     """
     API will verify BGP attributes set by Route-map for given prefix and
@@ -1824,46 +1905,32 @@ def verify_bgp_attributes(
 
     Usage
     -----
+    # To verify BGP attribute "localpref" set to 150 and "med" set to 30
+    for prefix 10.0.20.1/32 in router r3.
     input_dict = {
         "r3": {
             "route_maps": {
-                "rmap_match_pf_1_ipv4": [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_" + addr_type
-                        }
-                    },
-                    "set": {
-                        "locPrf": 150,
-                        "weight": 100
+                "rmap_match_pf_list1": [
+                    {
+                        "action": "PERMIT",
+                        "match": {"prefix_list": "pf_list_1"},
+                        "set": {"localpref": 150, "med": 30}
                     }
-                }],
-                "rmap_match_pf_2_ipv6": [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_" + addr_type
-                        }
-                    },
-                    "set": {
-                        "metric": 50
-                    }
-                }]
-            }
+                ],
+            },
+            "as_path": "500 400"
         }
     }
-    result = verify_bgp_attributes(tgen, 'ipv4', "r1", "10.0.20.1/32",
-                                   rmap_match_pf_1_ipv4, input_dict)
+    static_routes (list) = ["10.0.20.1/32"]
+
+
 
     Returns
     -------
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    logger.debug("Entering lib API: verify_bgp_attributes()")
     for router, rnode in tgen.routers().iteritems():
         if router != dut:
             continue
@@ -1876,69 +1943,73 @@ def verify_bgp_attributes(
 
             dict_to_test = []
             tmp_list = []
-            for rmap_router in input_dict.keys():
-                for rmap, values in input_dict[rmap_router]["route_maps"].items():
-                    if rmap == rmap_name:
-                        dict_to_test = values
-                        for rmap_dict in values:
-                            if seq_id is not None:
-                                if type(seq_id) is not list:
-                                    seq_id = [seq_id]
 
-                                if "seq_id" in rmap_dict:
-                                    rmap_seq_id = rmap_dict["seq_id"]
-                                    for _seq_id in seq_id:
-                                        if _seq_id == rmap_seq_id:
-                                            tmp_list.append(rmap_dict)
-                        if tmp_list:
-                            dict_to_test = tmp_list
+            if "route_maps" in input_dict.values()[0]:
+                for rmap_router in input_dict.keys():
+                    for rmap, values in input_dict[rmap_router]["route_maps"].items():
+                        if rmap == rmap_name:
+                            dict_to_test = values
+                            for rmap_dict in values:
+                                if seq_id is not None:
+                                    if type(seq_id) is not list:
+                                        seq_id = [seq_id]
 
-                        for rmap_dict in dict_to_test:
-                            if "set" in rmap_dict:
-                                for criteria in rmap_dict["set"].keys():
-                                    if criteria not in show_bgp_json["paths"][0]:
-                                        errormsg = (
-                                            "BGP attribute: {}"
-                                            " is not found in"
-                                            " cli: {} output "
-                                            "in router {}".format(criteria, cmd, router)
-                                        )
-                                        return errormsg
+                                    if "seq_id" in rmap_dict:
+                                        rmap_seq_id = rmap_dict["seq_id"]
+                                        for _seq_id in seq_id:
+                                            if _seq_id == rmap_seq_id:
+                                                tmp_list.append(rmap_dict)
+                            if tmp_list:
+                                dict_to_test = tmp_list
 
-                                    if (
-                                        rmap_dict["set"][criteria]
-                                        == show_bgp_json["paths"][0][criteria]
-                                    ):
-                                        logger.info(
-                                            "Verifying BGP "
-                                            "attribute {} for"
-                                            " route: {} in "
-                                            "router: {}, found"
-                                            " expected value:"
-                                            " {}".format(
-                                                criteria,
-                                                static_route,
-                                                dut,
-                                                rmap_dict["set"][criteria],
+                            value = None
+                            for rmap_dict in dict_to_test:
+                                if "set" in rmap_dict:
+                                    for criteria in rmap_dict["set"].keys():
+                                        found = False
+                                        for path in show_bgp_json["paths"]:
+                                            if criteria not in path:
+                                                continue
+
+                                            if criteria == "aspath":
+                                                value = path[criteria]["string"]
+                                            else:
+                                                value = path[criteria]
+
+                                            if rmap_dict["set"][criteria] == value:
+                                                found = True
+                                                logger.info(
+                                                    "Verifying BGP "
+                                                    "attribute {} for"
+                                                    " route: {} in "
+                                                    "router: {}, found"
+                                                    " expected value:"
+                                                    " {}".format(
+                                                        criteria,
+                                                        static_route,
+                                                        dut,
+                                                        value,
+                                                    )
+                                                )
+                                                break
+
+                                        if not found:
+                                            errormsg = (
+                                                "Failed: Verifying BGP "
+                                                "attribute {} for route:"
+                                                " {} in router: {}, "
+                                                " expected value: {} but"
+                                                " found: {}".format(
+                                                    criteria,
+                                                    static_route,
+                                                    dut,
+                                                    rmap_dict["set"][criteria],
+                                                    value,
+                                                )
                                             )
-                                        )
-                                    else:
-                                        errormsg = (
-                                            "Failed: Verifying BGP "
-                                            "attribute {} for route:"
-                                            " {} in router: {}, "
-                                            " expected value: {} but"
-                                            " found: {}".format(
-                                                criteria,
-                                                static_route,
-                                                dut,
-                                                rmap_dict["set"][criteria],
-                                                show_bgp_json["paths"][0][criteria],
-                                            )
-                                        )
-                                        return errormsg
+                                            return errormsg
 
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    logger.debug("Exiting lib API: verify_bgp_attributes()")
     return True
 
 
