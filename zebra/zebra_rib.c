@@ -1228,12 +1228,16 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 		    (re->instance == dplane_ctx_get_old_instance(ctx))) {
 			result = true;
 
-			/* TODO -- we're using this extra test, but it's not
-			 * exactly clear why.
+			/* We use an extra test for statics, and another for
+			 * kernel routes.
 			 */
 			if (re->type == ZEBRA_ROUTE_STATIC &&
 			    (re->distance != dplane_ctx_get_old_distance(ctx) ||
 			     re->tag != dplane_ctx_get_old_tag(ctx))) {
+				result = false;
+			} else if (re->type == ZEBRA_ROUTE_KERNEL &&
+				   re->metric !=
+				   dplane_ctx_get_old_metric(ctx)) {
 				result = false;
 			}
 		}
@@ -1252,13 +1256,19 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 		    (re->instance == dplane_ctx_get_instance(ctx))) {
 			result = true;
 
-			/* TODO -- we're using this extra test, but it's not
-			 * exactly clear why.
+			/* We use an extra test for statics, and another for
+			 * kernel routes.
 			 */
 			if (re->type == ZEBRA_ROUTE_STATIC &&
 			    (re->distance != dplane_ctx_get_distance(ctx) ||
 			     re->tag != dplane_ctx_get_tag(ctx))) {
 				result = false;
+			} else if (re->type == ZEBRA_ROUTE_KERNEL &&
+				   re->metric != dplane_ctx_get_metric(ctx)) {
+				result = false;
+			} else if (re->type == ZEBRA_ROUTE_CONNECT) {
+				result = nexthop_group_equal_no_recurse(
+					&re->nhe->nhg, dplane_ctx_get_ng(ctx));
 			}
 		}
 	}
@@ -1291,6 +1301,38 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 			SET_FLAG(nhop->flags, NEXTHOP_FLAG_FIB);
 		}
 	}
+}
+
+/* Route comparison logic, with various special cases. */
+static bool rib_compare_routes(const struct route_entry *re1,
+			       const struct route_entry *re2)
+{
+	bool result = false;
+
+	if (re1->type != re2->type)
+		return false;
+
+	if (re1->instance != re2->instance)
+		return false;
+
+	if (re1->type == ZEBRA_ROUTE_KERNEL && re1->metric != re2->metric)
+		return false;
+
+	if (CHECK_FLAG(re1->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
+	    re1->distance != re2->distance)
+		return false;
+
+	/* Only connected routes need more checking, nexthop-by-nexthop */
+	if (re1->type != ZEBRA_ROUTE_CONNECT)
+		return true;
+
+	/* Quick check if shared nhe */
+	if (re1->nhe == re2->nhe)
+		return true;
+
+	result = nexthop_group_equal_no_recurse(&re1->nhe->nhg, &re2->nhe->nhg);
+
+	return result;
 }
 
 /*
@@ -1326,9 +1368,9 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 		is_selected = (re == dest->selected_fib);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("update_from_ctx: %s(%u):%s: %sSELECTED",
+		zlog_debug("update_from_ctx: %s(%u):%s: %sSELECTED, re %p",
 			   VRF_LOGNAME(vrf), re->vrf_id, dest_str,
-			   (is_selected ? "" : "NOT "));
+			   (is_selected ? "" : "NOT "), re);
 
 	/* Update zebra's nexthop FIB flag for each nexthop that was installed.
 	 * If the installed set differs from the set requested by the rib/owner,
@@ -1418,7 +1460,7 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 				nexthop2str(nexthop, nh_str, sizeof(nh_str));
 				zlog_debug(
-					"update_from_ctx: no notif match for rib nh %s",
+					"update_from_ctx: no match for rib nh %s",
 					nh_str);
 			}
 			matched = false;
@@ -1539,6 +1581,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	enum zebra_dplane_result status;
 	const struct prefix *dest_pfx, *src_pfx;
 	uint32_t seq;
+	rib_dest_t *dest;
 	bool fib_changed = false;
 
 	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
@@ -1563,6 +1606,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		goto done;
 	}
 
+	dest = rib_dest_from_rnode(rn);
 	srcdest_rnode_prefixes(rn, &dest_pfx, &src_pfx);
 
 	op = dplane_ctx_get_op(ctx);
@@ -1570,7 +1614,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug(
-			"%s(%u):%s Processing dplane ctx %p, op %s result %s",
+			"%s(%u):%s Processing dplane result ctx %p, op %s result %s",
 			VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), dest_str,
 			ctx, dplane_op2str(op), dplane_res2str(status));
 
@@ -1669,9 +1713,10 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 							dest_str);
 				}
 
-				/* Redistribute */
-				redistribute_update(dest_pfx, src_pfx,
-						    re, old_re);
+				/* Redistribute if this is the selected re */
+				if (dest && re == dest->selected_fib)
+					redistribute_update(dest_pfx, src_pfx,
+							    re, old_re);
 			}
 
 			/*
@@ -2736,32 +2781,15 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 
 	/*
 	 * If same type of route are installed, treat it as a implicit
-	 * withdraw.
-	 * If the user has specified the No route replace semantics
+	 * withdraw. If the user has specified the No route replace semantics
 	 * for the install don't do a route replace.
 	 */
 	RNODE_FOREACH_RE (rn, same) {
 		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
-		if (same->type != re->type)
-			continue;
-		if (same->instance != re->instance)
-			continue;
-		if (same->type == ZEBRA_ROUTE_KERNEL
-		    && same->metric != re->metric)
-			continue;
-
-		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
-		    same->distance != re->distance)
-			continue;
-
-		/*
-		 * We should allow duplicate connected routes
-		 * because of IPv6 link-local routes and unnumbered
-		 * interfaces on Linux.
-		 */
-		if (same->type != ZEBRA_ROUTE_CONNECT)
+		/* Compare various route_entry properties */
+		if (rib_compare_routes(re, same))
 			break;
 	}
 
