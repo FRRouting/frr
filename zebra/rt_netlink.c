@@ -2077,7 +2077,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 		 * other ids.
 		 */
 		if (dplane_ctx_get_nhe_nh_grp_count(ctx)) {
-			if (_netlink_nexthop_build_group(
+			if (!_netlink_nexthop_build_group(
 				    &req->n, buflen, id,
 				    dplane_ctx_get_nhe_nh_grp(ctx),
 				    dplane_ctx_get_nhe_nh_grp_count(ctx)))
