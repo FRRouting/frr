@@ -26,10 +26,6 @@
 #include "zclient.h"
 #include "zebra/zserv.h"
 
-#ifdef HAVE_PROTOBUF_VERSION_3
-#include "mlag/mlag.pb-c.h"
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
