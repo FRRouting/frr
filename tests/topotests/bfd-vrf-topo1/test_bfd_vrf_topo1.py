@@ -129,14 +129,6 @@ def setup_module(mod):
     # Initialize all routers.
     tgen.start_router()
 
-    # Verify that we are using the proper version and that the BFD
-    # daemon exists.
-    for router in router_list.values():
-        # Check for Version
-        if router.has_version("<", "5.1"):
-            tgen.set_error("Unsupported FRR version")
-            break
-
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
