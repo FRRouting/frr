@@ -49,7 +49,7 @@
 /* static function declarations */
 
 /* Private functions */
-static void map_slaves_to_bridge(struct interface *br_if, int link)
+static void map_secondarys_to_bridge(struct interface *br_if, int link)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
@@ -63,34 +63,34 @@ static void map_slaves_to_bridge(struct interface *br_if, int link)
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct zebra_if *zif;
-			struct zebra_l2info_brslave *br_slave;
+			struct zebra_l2info_brmember *br_member;
 
 			if (ifp->ifindex == IFINDEX_INTERNAL || !ifp->info)
 				continue;
-			if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
+			if (!IS_ZEBRA_IF_BRIDGE_MEMBER(ifp))
 				continue;
 
-			/* NOTE: This assumes 'zebra_l2info_brslave' is the
+			/* NOTE: This assumes 'zebra_l2info_brmember' is the
 			 * first field
 			 * for any L2 interface.
 			 */
 			zif = (struct zebra_if *)ifp->info;
-			br_slave = &zif->brslave_info;
+			br_member = &zif->brsecondary_info;
 
 			if (link) {
-				if (br_slave->bridge_ifindex == br_if->ifindex &&
-				    br_slave->ns_id == zns->ns_id)
-					br_slave->br_if = br_if;
+				if (br_member->bridge_ifindex == br_if->ifindex &&
+				    br_member->ns_id == zns->ns_id)
+					br_member->br_if = br_if;
 			} else {
-				if (br_slave->br_if == br_if)
-					br_slave->br_if = NULL;
+				if (br_member->br_if == br_if)
+					br_member->br_if = NULL;
 			}
 		}
 	}
 }
 
 /* Public functions */
-void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave,
+void zebra_l2_map_secondary_to_bridge(struct zebra_l2info_brmember *br_member,
 				  struct zebra_ns *zns)
 {
 	struct interface *br_if;
@@ -98,39 +98,39 @@ void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave,
 	/* TODO: Handle change of master */
 	assert(zns);
 	br_if = if_lookup_by_index_per_ns(zebra_ns_lookup(zns->ns_id),
-					  br_slave->bridge_ifindex);
+					  br_member->bridge_ifindex);
 	if (br_if)
-		br_slave->br_if = br_if;
+		br_member->br_if = br_if;
 }
 
-void zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave)
+void zebra_l2_unmap_secondary_from_bridge(struct zebra_l2info_brmember *br_member)
 {
-	br_slave->br_if = NULL;
+	br_member->br_if = NULL;
 }
 
-void zebra_l2_map_slave_to_bond(struct zebra_l2info_bondslave *bond_slave,
+void zebra_l2_map_secondary_to_bond(struct zebra_l2info_bondsecondary *bond_member,
 				vrf_id_t vrf_id)
 {
 	struct interface *bond_if;
 
 	/* TODO: Handle change of master */
-	bond_if = if_lookup_by_index_all_vrf(bond_slave->bond_ifindex);
+	bond_if = if_lookup_by_index_all_vrf(bond_member->bond_ifindex);
 	if (bond_if)
-		bond_slave->bond_if = bond_if;
+		bond_member->bond_if = bond_if;
 	else
-		bond_slave->bond_if = if_create_ifindex(bond_slave->bond_ifindex,
+		bond_member->bond_if = if_create_ifindex(bond_member->bond_ifindex,
 							vrf_id, NULL);
 }
 
-void zebra_l2_unmap_slave_from_bond(struct zebra_l2info_bondslave *bond_slave)
+void zebra_l2_unmap_secondary_from_bond(struct zebra_l2info_bondsecondary *bond_member)
 {
-	if (bond_slave != NULL)
-		bond_slave->bond_if = NULL;
+	if (bond_member != NULL)
+		bond_member->bond_if = NULL;
 }
 
 /*
  * Handle Bridge interface add or update. Update relevant info,
- * map slaves (if any) to the bridge.
+ * map secondarys (if any) to the bridge.
  */
 void zebra_l2_bridge_add_update(struct interface *ifp,
 				struct zebra_l2info_bridge *bridge_info,
@@ -144,8 +144,8 @@ void zebra_l2_bridge_add_update(struct interface *ifp,
 	/* Copy over the L2 information. */
 	memcpy(&zif->l2info.br, bridge_info, sizeof(*bridge_info));
 
-	/* Link all slaves to this bridge */
-	map_slaves_to_bridge(ifp, 1);
+	/* Link all secondarys to this bridge */
+	map_secondarys_to_bridge(ifp, 1);
 }
 
 /*
@@ -153,8 +153,8 @@ void zebra_l2_bridge_add_update(struct interface *ifp,
  */
 void zebra_l2_bridge_del(struct interface *ifp)
 {
-	/* Unlink all slaves to this bridge */
-	map_slaves_to_bridge(ifp, 0);
+	/* Unlink all secondarys to this bridge */
+	map_secondarys_to_bridge(ifp, 0);
 }
 
 /*
@@ -245,7 +245,7 @@ void zebra_l2_vxlanif_del(struct interface *ifp)
  * NOTE: It is currently assumped that an interface has to be unmapped
  * from a bridge before it can be mapped to another bridge.
  */
-void zebra_l2if_update_bridge_slave(struct interface *ifp,
+void zebra_l2if_update_bridge_member(struct interface *ifp,
 				    ifindex_t bridge_ifindex,
 				    ns_id_t ns_id)
 {
@@ -261,17 +261,17 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 	if (!zvrf)
 		return;
 
-	old_bridge_ifindex = zif->brslave_info.bridge_ifindex;
-	old_ns_id = zif->brslave_info.ns_id;
+	old_bridge_ifindex = zif->brsecondary_info.bridge_ifindex;
+	old_ns_id = zif->brsecondary_info.ns_id;
 	if (old_bridge_ifindex == bridge_ifindex &&
-	    old_ns_id == zif->brslave_info.ns_id)
+	    old_ns_id == zif->brsecondary_info.ns_id)
 		return;
 
-	zif->brslave_info.ns_id = ns_id;
-	zif->brslave_info.bridge_ifindex = bridge_ifindex;
+	zif->brsecondary_info.ns_id = ns_id;
+	zif->brsecondary_info.bridge_ifindex = bridge_ifindex;
 	/* Set up or remove link with master */
 	if (bridge_ifindex != IFINDEX_INTERNAL) {
-		zebra_l2_map_slave_to_bridge(&zif->brslave_info, zvrf->zns);
+		zebra_l2_map_secondary_to_bridge(&zif->brsecondary_info, zvrf->zns);
 		/* In the case of VxLAN, invoke the handler for EVPN. */
 		if (zif->zif_type == ZEBRA_IF_VXLAN)
 			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
@@ -283,11 +283,11 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 		 */
 		if (zif->zif_type == ZEBRA_IF_VXLAN)
 			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
-		zebra_l2_unmap_slave_from_bridge(&zif->brslave_info);
+		zebra_l2_unmap_secondary_from_bridge(&zif->brsecondary_info);
 	}
 }
 
-void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex)
+void zebra_l2if_update_bond_member(struct interface *ifp, ifindex_t bond_ifindex)
 {
 	struct zebra_if *zif;
 	ifindex_t old_bond_ifindex;
@@ -295,15 +295,15 @@ void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex)
 	zif = ifp->info;
 	assert(zif);
 
-	old_bond_ifindex = zif->bondslave_info.bond_ifindex;
+	old_bond_ifindex = zif->bondsecondary_info.bond_ifindex;
 	if (old_bond_ifindex == bond_ifindex)
 		return;
 
-	zif->bondslave_info.bond_ifindex = bond_ifindex;
+	zif->bondsecondary_info.bond_ifindex = bond_ifindex;
 
 	/* Set up or remove link with master */
 	if (bond_ifindex != IFINDEX_INTERNAL)
-		zebra_l2_map_slave_to_bond(&zif->bondslave_info, ifp->vrf_id);
+		zebra_l2_map_secondary_to_bond(&zif->bondsecondary_info, ifp->vrf_id);
 	else if (old_bond_ifindex != IFINDEX_INTERNAL)
-		zebra_l2_unmap_slave_from_bond(&zif->bondslave_info);
+		zebra_l2_unmap_secondary_from_bond(&zif->bondsecondary_info);
 }

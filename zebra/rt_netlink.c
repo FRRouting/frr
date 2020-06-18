@@ -2836,17 +2836,17 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		return 0;
 
 	/* The interface should be something we're interested in. */
-	if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
+	if (!IS_ZEBRA_IF_BRIDGE_MEMBER(ifp))
 		return 0;
 
 	zif = (struct zebra_if *)ifp->info;
-	if ((br_if = zif->brslave_info.br_if) == NULL) {
+	if ((br_if = zif->brsecondary_info.br_if) == NULL) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"%s AF_BRIDGE IF %s(%u) brIF %u - no bridge master",
 				nl_msg_type_to_str(h->nlmsg_type), ifp->name,
 				ndm->ndm_ifindex,
-				zif->brslave_info.bridge_ifindex);
+				zif->brsecondary_info.bridge_ifindex);
 		return 0;
 	}
 

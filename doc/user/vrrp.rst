@@ -166,7 +166,7 @@ In either case, the created interfaces will look like this:
 
 Using ``vrrp4-2-1`` as an example, a few things to note about this interface:
 
-- It is slaved to ``eth0``; any packets transmitted on this interface will
+- It is secondary to ``eth0``; any packets transmitted on this interface will
   egress via ``eth0``
 - Its MAC address is set to the VRRP IPv4 virtual MAC specified by the RFC for
   :abbr:`VRID (Virtual Router ID)` ``5``

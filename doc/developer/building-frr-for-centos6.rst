@@ -26,7 +26,7 @@ CentOS 6 restrictions:
 -  MPLS is not supported on ``CentOS 6``. MPLS requires Linux Kernel 4.5
    or higher (LDP can be built, but may have limited use without MPLS)
 -  Zebra is unable to detect what bridge/vrf an interface is associated
-   with (IFLA\_INFO\_SLAVE\_KIND does not exist in the kernel headers,
+   with (IFLA\_INFO\_SECONDARY\_KIND does not exist in the kernel headers,
    you can use a newer kernel + headers to get this functionality)
 -  frr\_reload.py will not work, as this requires Python 2.7, and CentOS
    6 only has 2.6. You can install Python 2.7 via IUS, but it won't work

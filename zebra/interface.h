@@ -250,25 +250,25 @@ struct rtadv_dnssl {
 
 /* Zebra interface type - ones of interest. */
 typedef enum {
-	ZEBRA_IF_OTHER = 0, /* Anything else */
-	ZEBRA_IF_VXLAN,     /* VxLAN interface */
-	ZEBRA_IF_VRF,       /* VRF device */
-	ZEBRA_IF_BRIDGE,    /* bridge device */
-	ZEBRA_IF_VLAN,      /* VLAN sub-interface */
-	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
-	ZEBRA_IF_VETH,      /* VETH interface*/
-	ZEBRA_IF_BOND,	    /* Bond */
-	ZEBRA_IF_BOND_SLAVE,	    /* Bond */
+	ZEBRA_IF_OTHER = 0,       /* Anything else */
+	ZEBRA_IF_VXLAN,           /* VxLAN interface */
+	ZEBRA_IF_VRF,             /* VRF device */
+	ZEBRA_IF_BRIDGE,          /* bridge device */
+	ZEBRA_IF_VLAN,            /* VLAN sub-interface */
+	ZEBRA_IF_MACVLAN,         /* MAC VLAN interface*/
+	ZEBRA_IF_VETH,            /* VETH interface*/
+	ZEBRA_IF_BOND,	          /* Bond */
+	ZEBRA_IF_BOND_SECONDARY,  /* Bond */
 } zebra_iftype_t;
 
-/* Zebra "slave" interface type */
+/* Zebra "secondary" interface type */
 typedef enum {
-	ZEBRA_IF_SLAVE_NONE,   /* Not a slave */
-	ZEBRA_IF_SLAVE_VRF,    /* Member of a VRF */
-	ZEBRA_IF_SLAVE_BRIDGE, /* Member of a bridge */
-	ZEBRA_IF_SLAVE_BOND,   /* Bond member */
-	ZEBRA_IF_SLAVE_OTHER,  /* Something else - e.g., bond slave */
-} zebra_slave_iftype_t;
+	ZEBRA_IF_MEMBER_NONE,     /* Not a member */
+	ZEBRA_IF_MEMBER_VRF,      /* Member of a VRF */
+	ZEBRA_IF_MEMBER_BRIDGE,   /* Member of a bridge */
+	ZEBRA_IF_MEMBER_BOND,     /* Bond member */
+	ZEBRA_IF_MEMBER_OTHER,    /* Mmeber of Something else */
+} zebra_member_iftype_t;
 
 struct irdp_interface;
 
@@ -332,9 +332,9 @@ struct zebra_if {
 	/* ptm enable configuration */
 	uint8_t ptm_enable;
 
-	/* Zebra interface and "slave" interface type */
+	/* Zebra interface and "secondary" interface type */
 	zebra_iftype_t zif_type;
-	zebra_slave_iftype_t zif_slave_type;
+	zebra_member_iftype_t zif_member_type;
 
 	/* Additional L2 info, depends on zif_type */
 	union zebra_l2if_info l2info;
@@ -343,9 +343,9 @@ struct zebra_if {
 	/* Note: If additional fields become necessary, this can be modified to
 	 * be a pointer to a dynamically allocd struct.
 	 */
-	struct zebra_l2info_brslave brslave_info;
+	struct zebra_l2info_brmember brsecondary_info;
 
-	struct zebra_l2info_bondslave bondslave_info;
+	struct zebra_l2info_bondsecondary bondsecondary_info;
 
 	/* Link fields - for sub-interfaces. */
 	ifindex_t link_ifindex;
@@ -372,43 +372,43 @@ DECLARE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 
 static inline void zebra_if_set_ziftype(struct interface *ifp,
 					zebra_iftype_t zif_type,
-					zebra_slave_iftype_t zif_slave_type)
+					zebra_member_iftype_t zif_member_type)
 {
 	struct zebra_if *zif;
 
 	zif = (struct zebra_if *)ifp->info;
 	zif->zif_type = zif_type;
-	zif->zif_slave_type = zif_slave_type;
+	zif->zif_member_type = zif_member_type;
 }
 
-#define IS_ZEBRA_IF_VRF(ifp)                                                   \
+#define IS_ZEBRA_IF_VRF(ifp)                                                       \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VRF)
 
-#define IS_ZEBRA_IF_BRIDGE(ifp)                                                \
+#define IS_ZEBRA_IF_BRIDGE(ifp)                                                    \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_BRIDGE)
 
-#define IS_ZEBRA_IF_VLAN(ifp)                                                  \
+#define IS_ZEBRA_IF_VLAN(ifp)                                                      \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VLAN)
 
-#define IS_ZEBRA_IF_VXLAN(ifp)                                                 \
+#define IS_ZEBRA_IF_VXLAN(ifp)                                                     \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VXLAN)
 
-#define IS_ZEBRA_IF_MACVLAN(ifp)                                               \
+#define IS_ZEBRA_IF_MACVLAN(ifp)                                                   \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_MACVLAN)
 
-#define IS_ZEBRA_IF_VETH(ifp)                                               \
+#define IS_ZEBRA_IF_VETH(ifp)                                                      \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VETH)
 
-#define IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)					\
-	(((struct zebra_if *)(ifp->info))->zif_slave_type                      \
-	 == ZEBRA_IF_SLAVE_BRIDGE)
+#define IS_ZEBRA_IF_BRIDGE_MEMBER(ifp)				                   \
+	(((struct zebra_if *)(ifp->info))->zif_member_type                         \
+	 == ZEBRA_IF_MEMBER_BRIDGE)
 
-#define IS_ZEBRA_IF_VRF_SLAVE(ifp)                                             \
-	(((struct zebra_if *)(ifp->info))->zif_slave_type == ZEBRA_IF_SLAVE_VRF)
+#define IS_ZEBRA_IF_VRF_MEMBER(ifp)                                                \
+	(((struct zebra_if *)(ifp->info))->zif_member_type == ZEBRA_IF_MEMBER_VRF)
 
-#define IS_ZEBRA_IF_BOND_SLAVE(ifp)					\
-	(((struct zebra_if *)(ifp->info))->zif_slave_type                      \
-	 == ZEBRA_IF_SLAVE_BOND)
+#define IS_ZEBRA_IF_BOND_MEMBER(ifp)					           \
+	(((struct zebra_if *)(ifp->info))->zif_member_type                         \
+	 == ZEBRA_IF_MEMBER_BOND)
 
 extern void zebra_if_init(void);
 

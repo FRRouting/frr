@@ -1230,7 +1230,7 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 		else
 			ospf_db_desc_send(nbr);
 	}
-	/* Slave */
+	/* Secondary */
 	else {
 		nbr->dd_seqnum = ntohl(dd->dd_seqnum);
 
@@ -1244,7 +1244,7 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 		 */
 		ospf_db_desc_send(nbr);
 
-		/* Slave can raise ExchangeDone now, if master is also done */
+		/* Secondary can raise ExchangeDone now, if master is also done */
 		if (!IS_SET_DD_M(dd->flags) && !IS_SET_DD_M(nbr->dd_flags))
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_ExchangeDone);
 	}
@@ -1384,11 +1384,11 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		    && (size == OSPF_DB_DESC_MIN_SIZE)) {
 			if (IPV4_ADDR_CMP(&nbr->router_id, &oi->ospf->router_id)
 			    > 0) {
-				/* We're Slave---obey */
+				/* We're Secondary---obey */
 				if (CHECK_FLAG(oi->ospf->config,
 					       OSPF_LOG_ADJACENCY_DETAIL))
 					zlog_info(
-						"Packet[DD]: Neighbor %s Negotiation done (Slave).",
+						"Packet[DD]: Neighbor %s Negotiation done (Secondary).",
 						inet_ntoa(nbr->router_id));
 
 				nbr->dd_seqnum = ntohl(dd->dd_seqnum);
@@ -1398,17 +1398,17 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 					   (OSPF_DD_FLAG_MS | OSPF_DD_FLAG_I));
 			} else {
 				/* We're Master, ignore the initial DBD from
-				 * Slave */
+				 * Secondary */
 				if (CHECK_FLAG(oi->ospf->config,
 					       OSPF_LOG_ADJACENCY_DETAIL))
 					zlog_info(
-						"Packet[DD]: Neighbor %s: Initial DBD from Slave, "
+						"Packet[DD]: Neighbor %s: Initial DBD from Secondary, "
 						"ignoring.",
 						inet_ntoa(nbr->router_id));
 				break;
 			}
 		}
-		/* Ack from the Slave */
+		/* Ack from the Secondary */
 		else if (!IS_SET_DD_MS(dd->flags) && !IS_SET_DD_I(dd->flags)
 			 && ntohl(dd->dd_seqnum) == nbr->dd_seqnum
 			 && IPV4_ADDR_CMP(&nbr->router_id, &oi->ospf->router_id)
@@ -1462,11 +1462,11 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 					"Packet[DD] (Master): Neighbor %s packet duplicated.",
 					inet_ntoa(nbr->router_id));
 			else
-			/* Slave: cause to retransmit the last Database
+			/* Secondary: cause to retransmit the last Database
 			   Description. */
 			{
 				zlog_info(
-					"Packet[DD] [Slave]: Neighbor %s packet duplicated.",
+					"Packet[DD] [Secondary]: Neighbor %s packet duplicated.",
 					inet_ntoa(nbr->router_id));
 				ospf_db_desc_resend(nbr);
 			}
@@ -1474,7 +1474,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		}
 
 		/* Otherwise DD packet should be checked. */
-		/* Check Master/Slave bit mismatch */
+		/* Check Master/Secondary bit mismatch */
 		if (IS_SET_DD_MS(dd->flags)
 		    != IS_SET_DD_MS(nbr->last_recv.flags)) {
 			flog_warn(EC_OSPF_PACKET,
@@ -1534,14 +1534,14 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			} else {
 				if (monotime_since(&nbr->last_send_ts, NULL)
 				    < nbr->v_inactivity * 1000000LL) {
-					/* In states Loading and Full the slave
+					/* In states Loading and Full the secondary
 					   must resend
 					   its last Database Description packet
 					   in response to
 					   duplicate Database Description
 					   packets received
 					   from the master.  For this reason the
-					   slave must
+					   secondary must
 					   wait RouterDeadInterval seconds
 					   before freeing the
 					   last Database Description packet.

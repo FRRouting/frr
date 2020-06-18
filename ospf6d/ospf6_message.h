@@ -83,7 +83,7 @@ struct ospf6_dbdesc {
 	/* Followed by LSA Headers */
 };
 
-#define OSPF6_DBDESC_MSBIT (0x01) /* master/slave bit */
+#define OSPF6_DBDESC_MSBIT (0x01) /* master/secondary bit */
 #define OSPF6_DBDESC_MBIT  (0x02) /* more bit */
 #define OSPF6_DBDESC_IBIT  (0x04) /* initial bit */
 

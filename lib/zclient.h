@@ -733,7 +733,7 @@ extern bool zapi_parse_header(struct stream *zmsg, struct zmsghdr *hdr);
 
 extern void zclient_interface_set_master(struct zclient *client,
 					 struct interface *master,
-					 struct interface *slave);
+					 struct interface *member_intf);
 extern struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t);
 extern struct connected *zebra_interface_address_read(int, struct stream *,
 						      vrf_id_t);

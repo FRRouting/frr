@@ -2401,7 +2401,7 @@ stream_failure:
 static void zread_interface_set_master(ZAPI_HANDLER_ARGS)
 {
 	struct interface *master;
-	struct interface *slave;
+	struct interface *secondary;
 	struct stream *s = msg;
 	int ifindex;
 	vrf_id_t vrf_id;
@@ -2412,12 +2412,12 @@ static void zread_interface_set_master(ZAPI_HANDLER_ARGS)
 
 	STREAM_GETL(s, vrf_id);
 	STREAM_GETL(s, ifindex);
-	slave = if_lookup_by_index(ifindex, vrf_id);
+	secondary = if_lookup_by_index(ifindex, vrf_id);
 
-	if (!master || !slave)
+	if (!master || !secondary)
 		return;
 
-	kernel_interface_set_master(master, slave);
+	kernel_interface_set_master(master, secondary);
 
 stream_failure:
 	return;

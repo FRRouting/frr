@@ -408,7 +408,7 @@ enum zebra_dplane_result kernel_mac_update_ctx(struct zebra_dplane_ctx *ctx)
 }
 
 extern int kernel_interface_set_master(struct interface *master,
-				       struct interface *slave)
+				       struct interface *secondary)
 {
 	return 0;
 }

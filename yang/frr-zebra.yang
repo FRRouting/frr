@@ -160,10 +160,10 @@ module frr-zebra {
       "Zebra interface type bond.";
   }
 
-  identity zif-bond-slave {
+  identity zif-bond-secondary {
     base zebra-interface-type;
     description
-      "Zebra interface type bond slave.";
+      "Zebra interface type bond secondary.";
   }
 
   identity zif-macvlan {

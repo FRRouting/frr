@@ -993,13 +993,13 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *backet, void *arg)
 
 	sticky = !!CHECK_FLAG(zrmac->flags,
 			      (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
-	br_zif = (struct zebra_if *)(zif->brslave_info.br_if->info);
+	br_zif = (struct zebra_if *)(zif->brsecondary_info.br_if->info);
 	vid = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) ? vxl->access_vlan : 0;
 
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);
 	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if,
-			zif->brslave_info.br_if, vid,
+			zif->brsecondary_info.br_if, vid,
 			&zrmac->macaddr, zrmac->fwd_info.r_vtep_ip, sticky);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
 		thread_add_timer(zrouter.master, fpm_rmac_send,

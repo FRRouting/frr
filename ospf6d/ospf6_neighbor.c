@@ -711,7 +711,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 								: ""),
 		(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT) ? "More " : ""),
 		(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT) ? "Master"
-								 : "Slave"),
+								 : "Secondary"),
 		(unsigned long)ntohl(on->dbdesc_seqnum));
 
 	vty_out(vty, "    Summary-List: %d LSAs\n", on->summary_list->count);

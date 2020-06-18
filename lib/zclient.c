@@ -3712,7 +3712,7 @@ static void zclient_event(enum event event, struct zclient *zclient)
 
 void zclient_interface_set_master(struct zclient *client,
 				  struct interface *master,
-				  struct interface *slave)
+				  struct interface *member_intf)
 {
 	struct stream *s;
 
@@ -3723,8 +3723,8 @@ void zclient_interface_set_master(struct zclient *client,
 
 	stream_putl(s, master->vrf_id);
 	stream_putl(s, master->ifindex);
-	stream_putl(s, slave->vrf_id);
-	stream_putl(s, slave->ifindex);
+	stream_putl(s, member_intf->vrf_id);
+	stream_putl(s, member_intf->ifindex);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(client);

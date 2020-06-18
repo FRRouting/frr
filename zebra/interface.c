@@ -830,10 +830,10 @@ void if_delete_update(struct interface *ifp)
 	zif = ifp->info;
 	if (zif) {
 		zif->zif_type = ZEBRA_IF_OTHER;
-		zif->zif_slave_type = ZEBRA_IF_SLAVE_NONE;
+		zif->zif_member_type = ZEBRA_IF_MEMBER_NONE;
 		memset(&zif->l2info, 0, sizeof(union zebra_l2if_info));
-		memset(&zif->brslave_info, 0,
-		       sizeof(struct zebra_l2info_brslave));
+		memset(&zif->brsecondary_info, 0,
+		       sizeof(struct zebra_l2info_brmember));
 	}
 
 	if (!ifp->configured) {
@@ -1236,18 +1236,18 @@ static void nbr_connected_dump_vty(struct vty *vty,
 	vty_out(vty, "\n");
 }
 
-static const char *zebra_zifslavetype_2str(zebra_slave_iftype_t zif_slave_type)
+static const char *zebra_zifmembertype_2str(zebra_member_iftype_t zif_member_type)
 {
-	switch (zif_slave_type) {
-	case ZEBRA_IF_SLAVE_BRIDGE:
+	switch (zif_member_type) {
+	case ZEBRA_IF_MEMBER_BRIDGE:
 		return "Bridge";
-	case ZEBRA_IF_SLAVE_VRF:
+	case ZEBRA_IF_MEMBER_VRF:
 		return "Vrf";
-	case ZEBRA_IF_SLAVE_BOND:
+	case ZEBRA_IF_MEMBER_BOND:
 		return "Bond";
-	case ZEBRA_IF_SLAVE_OTHER:
+	case ZEBRA_IF_MEMBER_OTHER:
 		return "Other";
-	case ZEBRA_IF_SLAVE_NONE:
+	case ZEBRA_IF_MEMBER_NONE:
 		return "None";
 	}
 	return "None";
@@ -1277,8 +1277,8 @@ static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 	case ZEBRA_IF_BOND:
 		return "bond";
 
-	case ZEBRA_IF_BOND_SLAVE:
-		return "bond_slave";
+	case ZEBRA_IF_BOND_SECONDARY:
+		return "bond_member";
 
 	case ZEBRA_IF_MACVLAN:
 		return "macvlan";
@@ -1480,8 +1480,8 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 
 	vty_out(vty, "  Interface Type %s\n",
 		zebra_ziftype_2str(zebra_if->zif_type));
-	vty_out(vty, "  Interface Slave Type %s\n",
-		zebra_zifslavetype_2str(zebra_if->zif_slave_type));
+	vty_out(vty, "  Interface Member Type %s\n",
+		zebra_zifmembertype_2str(zebra_if->zif_member_type));
 
 	if (IS_ZEBRA_IF_BRIDGE(ifp)) {
 		struct zebra_l2info_bridge *bridge_info;
@@ -1522,31 +1522,31 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "\n");
 	}
 
-	if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)) {
-		struct zebra_l2info_brslave *br_slave;
+	if (IS_ZEBRA_IF_BRIDGE_MEMBER(ifp)) {
+		struct zebra_l2info_brmember *br_member;
 
-		br_slave = &zebra_if->brslave_info;
-		if (br_slave->bridge_ifindex != IFINDEX_INTERNAL) {
-			if (br_slave->br_if)
+		br_member = &zebra_if->brsecondary_info;
+		if (br_member->bridge_ifindex != IFINDEX_INTERNAL) {
+			if (br_member->br_if)
 				vty_out(vty, "  Master interface: %s\n",
-					br_slave->br_if->name);
+					br_member->br_if->name);
 			else
 				vty_out(vty, "  Master ifindex: %u\n",
-					br_slave->bridge_ifindex);
+					br_member->bridge_ifindex);
 		}
 	}
 
-	if (IS_ZEBRA_IF_BOND_SLAVE(ifp)) {
-		struct zebra_l2info_bondslave *bond_slave;
+	if (IS_ZEBRA_IF_BOND_MEMBER(ifp)) {
+		struct zebra_l2info_bondsecondary *bond_member;
 
-		bond_slave = &zebra_if->bondslave_info;
-		if (bond_slave->bond_ifindex != IFINDEX_INTERNAL) {
-			if (bond_slave->bond_if)
+		bond_member = &zebra_if->bondsecondary_info;
+		if (bond_member->bond_ifindex != IFINDEX_INTERNAL) {
+			if (bond_member->bond_if)
 				vty_out(vty, "  Master interface: %s\n",
-					bond_slave->bond_if->name);
+					bond_member->bond_if->name);
 			else
 				vty_out(vty, "  Master ifindex: %u\n",
-					bond_slave->bond_ifindex);
+					bond_member->bond_ifindex);
 		}
 	}
 

@@ -373,7 +373,7 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 	/* else fall through to ExStart */
 	/* fallthru */
 	case OSPF6_NEIGHBOR_EXSTART:
-		/* if neighbor obeys us as our slave, schedule negotiation_done
+		/* if neighbor obeys us as our secondary, schedule negotiation_done
 		   and process LSA Headers. Otherwise, ignore this message */
 		if (!CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_MSBIT)
 		    && !CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_IBIT)
@@ -404,7 +404,7 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 
 		if (CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_MSBIT)) {
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
-				zlog_debug("Master/Slave bit mismatch");
+				zlog_debug("Master/Secondary bit mismatch");
 			thread_add_event(master, seqnumber_mismatch, on, 0,
 					 NULL);
 			return;
@@ -544,7 +544,7 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 	memcpy(&on->dbdesc_last, dbdesc, sizeof(struct ospf6_dbdesc));
 }
 
-static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
+static void ospf6_dbdesc_recv_secondary(struct ospf6_header *oh,
 				    struct ospf6_neighbor *on)
 {
 	struct ospf6_dbdesc *dbdesc;
@@ -576,7 +576,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 	/* else fall through to ExStart */
 	/* fallthru */
 	case OSPF6_NEIGHBOR_EXSTART:
-		/* If the neighbor is Master, act as Slave. Schedule
+		/* If the neighbor is Master, act as Secondary. Schedule
 		   negotiation_done
 		   and process LSA Headers. Otherwise, ignore this message */
 		if (CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_IBIT)
@@ -585,7 +585,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 		    && ntohs(oh->length)
 			       == sizeof(struct ospf6_header)
 					  + sizeof(struct ospf6_dbdesc)) {
-			/* set the master/slave bit to slave */
+			/* set the master/secondary bit to secondary */
 			UNSET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT);
 
 			/* set the DD sequence number to one specified by master
@@ -608,7 +608,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 	case OSPF6_NEIGHBOR_EXCHANGE:
 		if (!memcmp(dbdesc, &on->dbdesc_last,
 			    sizeof(struct ospf6_dbdesc))) {
-			/* Duplicated DatabaseDescription causes slave to
+			/* Duplicated DatabaseDescription causes secondary to
 			 * retransmit */
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
 				zlog_debug(
@@ -622,7 +622,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 
 		if (!CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_MSBIT)) {
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
-				zlog_debug("Master/Slave bit mismatch");
+				zlog_debug("Master/Secondary bit mismatch");
 			thread_add_event(master, seqnumber_mismatch, on, 0,
 					 NULL);
 			return;
@@ -659,7 +659,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 	case OSPF6_NEIGHBOR_FULL:
 		if (!memcmp(dbdesc, &on->dbdesc_last,
 			    sizeof(struct ospf6_dbdesc))) {
-			/* Duplicated DatabaseDescription causes slave to
+			/* Duplicated DatabaseDescription causes secondary to
 			 * retransmit */
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
 				zlog_debug(
@@ -784,7 +784,7 @@ static void ospf6_dbdesc_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (ntohl(oh->router_id) < ntohl(ospf6->router_id))
 		ospf6_dbdesc_recv_master(oh, on);
 	else if (ntohl(ospf6->router_id) < ntohl(oh->router_id))
-		ospf6_dbdesc_recv_slave(oh, on);
+		ospf6_dbdesc_recv_secondary(oh, on);
 	else {
 		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
 			zlog_debug("Can't decide which is master, ignore");
@@ -1884,8 +1884,8 @@ int ospf6_dbdesc_send_newone(struct thread *thread)
 	if (on->summary_list->count == 0)
 		UNSET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT);
 
-	/* If slave, More bit check must be done here */
-	if (!CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT) && /* Slave */
+	/* If secondary, More bit check must be done here */
+	if (!CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT) && /* Secondary */
 	    !CHECK_FLAG(on->dbdesc_last.bits, OSPF6_DBDESC_MBIT)
 	    && !CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT))
 		thread_add_event(master, exchange_done, on, 0, NULL);

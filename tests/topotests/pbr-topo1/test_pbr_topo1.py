@@ -87,7 +87,7 @@ def setup_module(module):
 
     router_list = tgen.routers()
     for rname, router in router_list.iteritems():
-        # Install vrf into the kernel and slave eth3
+        # Install vrf into the kernel and member interface eth3
         router.run("ip link add vrf-chiyoda type vrf table 1000")
         router.run("ip link set dev {}-eth3 master vrf-chiyoda".format(rname))
         router.run("ip link set vrf-chiyoda up")

@@ -66,7 +66,7 @@ enum zebra_dplane_result kernel_neigh_update_ctx(struct zebra_dplane_ctx *ctx);
 extern int kernel_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 			       int llalen, ns_id_t ns_id);
 extern int kernel_interface_set_master(struct interface *master,
-				       struct interface *slave);
+				       struct interface *secondary);
 
 extern int mpls_kernel_init(void);
 

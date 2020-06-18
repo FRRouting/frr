@@ -2513,7 +2513,7 @@ static int zvni_neigh_install(zebra_vni_t *zvni, zebra_neigh_t *n)
 		return -1;
 	vxl = &zif->l2info.vxl;
 
-	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brslave_info.br_if);
+	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brsecondary_info.br_if);
 	if (!vlan_if)
 		return -1;
 
@@ -2550,7 +2550,7 @@ static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n)
 	if (!zif)
 		return -1;
 	vxl = &zif->l2info.vxl;
-	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brslave_info.br_if);
+	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brsecondary_info.br_if);
 	if (!vlan_if)
 		return -1;
 
@@ -2576,7 +2576,7 @@ static int zvni_neigh_probe(zebra_vni_t *zvni, zebra_neigh_t *n)
 		return -1;
 	vxl = &zif->l2info.vxl;
 
-	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brslave_info.br_if);
+	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brsecondary_info.br_if);
 	if (!vlan_if)
 		return -1;
 
@@ -2902,13 +2902,13 @@ static void zvni_gw_macip_del_for_vni_hash(struct hash_bucket *bucket,
 	zif = ifp->info;
 
 	/* If down or not mapped to a bridge, we're done. */
-	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+	if (!if_is_operative(ifp) || !zif->brsecondary_info.br_if)
 		return;
 
 	zl2_info = zif->l2info.vxl;
 
 	vlan_if =
-		zvni_map_to_svi(zl2_info.access_vlan, zif->brslave_info.br_if);
+		zvni_map_to_svi(zl2_info.access_vlan, zif->brsecondary_info.br_if);
 	if (!vlan_if)
 		return;
 
@@ -2941,12 +2941,12 @@ static void zvni_gw_macip_add_for_vni_hash(struct hash_bucket *bucket,
 	zif = ifp->info;
 
 	/* If down or not mapped to a bridge, we're done. */
-	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+	if (!if_is_operative(ifp) || !zif->brsecondary_info.br_if)
 		return;
 	zl2_info = zif->l2info.vxl;
 
 	vlan_if =
-		zvni_map_to_svi(zl2_info.access_vlan, zif->brslave_info.br_if);
+		zvni_map_to_svi(zl2_info.access_vlan, zif->brsecondary_info.br_if);
 	if (!vlan_if)
 		return;
 
@@ -2993,13 +2993,13 @@ static void zvni_svi_macip_del_for_vni_hash(struct hash_bucket *bucket,
 	zif = ifp->info;
 
 	/* If down or not mapped to a bridge, we're done. */
-	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+	if (!if_is_operative(ifp) || !zif->brsecondary_info.br_if)
 		return;
 
 	zl2_info = zif->l2info.vxl;
 
 	vlan_if = zvni_map_to_svi(zl2_info.access_vlan,
-				  zif->brslave_info.br_if);
+				  zif->brsecondary_info.br_if);
 	if (!vlan_if)
 		return;
 
@@ -3572,7 +3572,7 @@ static int zvni_map_vlan_ns(struct ns *ns,
 			continue;
 		vxl = &zif->l2info.vxl;
 
-		if (zif->brslave_info.br_if != br_if)
+		if (zif->brsecondary_info.br_if != br_if)
 			continue;
 
 		if (!in_param->bridge_vlan_aware
@@ -3653,7 +3653,7 @@ static int zvni_from_svi_ns(struct ns *ns,
 			continue;
 		vxl = &zif->l2info.vxl;
 
-		if (zif->brslave_info.br_if != br_if)
+		if (zif->brsecondary_info.br_if != br_if)
 			continue;
 
 		if (!in_param->bridge_vlan_aware
@@ -3887,7 +3887,7 @@ static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac)
 	if (!zif)
 		return -1;
 
-	br_ifp = zif->brslave_info.br_if;
+	br_ifp = zif->brsecondary_info.br_if;
 	if (br_ifp == NULL)
 		return -1;
 
@@ -3937,7 +3937,7 @@ static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac)
 	if (!zif)
 		return -1;
 
-	br_ifp = zif->brslave_info.br_if;
+	br_ifp = zif->brsecondary_info.br_if;
 	if (br_ifp == NULL)
 		return -1;
 
@@ -4037,10 +4037,10 @@ static void zvni_read_mac_neigh(zebra_vni_t *zvni, struct interface *ifp)
 		zlog_debug(
 			"Reading MAC FDB and Neighbors for intf %s(%u) VNI %u master %u",
 			ifp->name, ifp->ifindex, zvni->vni,
-			zif->brslave_info.bridge_ifindex);
+			zif->brsecondary_info.bridge_ifindex);
 
-	macfdb_read_for_bridge(zns, ifp, zif->brslave_info.br_if);
-	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brslave_info.br_if);
+	macfdb_read_for_bridge(zns, ifp, zif->brsecondary_info.br_if);
+	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brsecondary_info.br_if);
 	if (vlan_if) {
 
 		/* Add SVI MAC-IP */
@@ -4333,7 +4333,7 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 				 * bridge.
 				 */
 				if (if_is_operative(ifp) &&
-					zif->brslave_info.br_if)
+					zif->brsecondary_info.br_if)
 					zvni_send_add_to_client(zvni);
 
 				/* Send Local MAC-entries to client */
@@ -4364,7 +4364,7 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 				}
 				zvni->vxlan_if = ifp;
 				vlan_if = zvni_map_to_svi(vxl->access_vlan,
-						zif->brslave_info.br_if);
+						zif->brsecondary_info.br_if);
 				if (vlan_if) {
 					zvni->vrf_id = vlan_if->vrf_id;
 					zl3vni = zl3vni_from_vrf(
@@ -4379,7 +4379,7 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 				 * bridge.
 				 */
 				if (if_is_operative(ifp) &&
-					zif->brslave_info.br_if)
+					zif->brsecondary_info.br_if)
 					zvni_send_add_to_client(zvni);
 			}
 		}
@@ -4709,7 +4709,7 @@ static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 	if (!zif)
 		return -1;
 
-	br_ifp = zif->brslave_info.br_if;
+	br_ifp = zif->brsecondary_info.br_if;
 	if (br_ifp == NULL)
 		return -1;
 
@@ -4760,7 +4760,7 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 	if (!zif)
 		return -1;
 
-	br_ifp = zif->brslave_info.br_if;
+	br_ifp = zif->brsecondary_info.br_if;
 	if (br_ifp == NULL)
 		return -1;
 
@@ -5263,7 +5263,7 @@ struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni)
 
 	vxl = &zif->l2info.vxl;
 
-	return zvni_map_to_svi(vxl->access_vlan, zif->brslave_info.br_if);
+	return zvni_map_to_svi(vxl->access_vlan, zif->brsecondary_info.br_if);
 }
 
 struct interface *zl3vni_map_to_mac_vlan_if(zebra_l3vni_t *zl3vni)
@@ -5280,7 +5280,7 @@ struct interface *zl3vni_map_to_mac_vlan_if(zebra_l3vni_t *zl3vni)
 	if (!zif)
 		return NULL;
 
-	return zvni_map_to_macvlan(zif->brslave_info.br_if, zl3vni->svi_if);
+	return zvni_map_to_macvlan(zif->brsecondary_info.br_if, zl3vni->svi_if);
 }
 
 
@@ -5351,7 +5351,7 @@ static zebra_l3vni_t *zl3vni_from_svi(struct interface *ifp,
 			continue;
 		vxl = &zif->l2info.vxl;
 
-		if (zif->brslave_info.br_if != br_if)
+		if (zif->brsecondary_info.br_if != br_if)
 			continue;
 
 		if (!bridge_vlan_aware || vxl->access_vlan == vid) {
@@ -5675,7 +5675,7 @@ static void process_remote_macip_add(vni_t vni,
 	if (!ifp ||
 	    !if_is_operative(ifp) ||
 	    !zif ||
-	    !zif->brslave_info.br_if) {
+	    !zif->brsecondary_info.br_if) {
 		zlog_warn("Ignoring remote MACIP ADD VNI %u, invalid interface state or info",
 			  vni);
 		return;
@@ -6008,7 +6008,7 @@ static void process_remote_macip_del(vni_t vni,
 	if (!ifp ||
 	    !if_is_operative(ifp) ||
 	    !zif ||
-	    !zif->brslave_info.br_if) {
+	    !zif->brsecondary_info.br_if) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Ignoring remote MACIP DEL VNI %u, invalid interface state or info",
 				   vni);
@@ -6063,7 +6063,7 @@ static void process_remote_macip_del(vni_t vni,
 			struct interface *vlan_if;
 
 			vlan_if = zvni_map_to_svi(vxl->access_vlan,
-					zif->brslave_info.br_if);
+					zif->brsecondary_info.br_if);
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
 					"%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
@@ -6103,7 +6103,7 @@ static void process_remote_macip_del(vni_t vni,
 					prefix_mac2str(macaddr, buf,
 						       sizeof(buf)),
 					mac->flags);
-			macfdb_read_specific_mac(zns, zif->brslave_info.br_if,
+			macfdb_read_specific_mac(zns, zif->brsecondary_info.br_if,
 						 macaddr, vxl->access_vlan);
 		}
 
@@ -8450,7 +8450,7 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 		zif = ifp->info;
 
 		/* If down or not mapped to a bridge, we're done. */
-		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		if (!if_is_operative(ifp) || !zif->brsecondary_info.br_if)
 			continue;
 
 		/* If the remote VTEP does not exist, there's nothing more to
@@ -8536,7 +8536,7 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 		zif = ifp->info;
 
 		/* If down or not mapped to a bridge, we're done. */
-		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		if (!if_is_operative(ifp) || !zif->brsecondary_info.br_if)
 			continue;
 
 		zvtep = zvni_vtep_find(zvni, &vtep_ip);
@@ -8966,7 +8966,7 @@ int zebra_vxlan_if_up(struct interface *ifp)
 
 		assert(zvni->vxlan_if == ifp);
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
-					  zif->brslave_info.br_if);
+					  zif->brsecondary_info.br_if);
 		if (vlan_if) {
 			zvni->vrf_id = vlan_if->vrf_id;
 			zl3vni = zl3vni_from_vrf(vlan_if->vrf_id);
@@ -8976,7 +8976,7 @@ int zebra_vxlan_if_up(struct interface *ifp)
 
 		/* If part of a bridge, inform BGP about this VNI. */
 		/* Also, read and populate local MACs and neighbors. */
-		if (zif->brslave_info.br_if) {
+		if (zif->brsecondary_info.br_if) {
 			zvni_send_add_to_client(zvni);
 			zvni_read_mac_neigh(zvni, ifp);
 		}
@@ -9089,11 +9089,11 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 				"Update L3-VNI %u intf %s(%u) VLAN %u local IP %s master %u chg 0x%x",
 				vni, ifp->name, ifp->ifindex, vxl->access_vlan,
 				inet_ntoa(vxl->vtep_ip),
-				zif->brslave_info.bridge_ifindex, chgflags);
+				zif->brsecondary_info.bridge_ifindex, chgflags);
 
 		/* Removed from bridge? Cleanup and return */
 		if ((chgflags & ZEBRA_VXLIF_MASTER_CHANGE)
-		    && (zif->brslave_info.bridge_ifindex == IFINDEX_INTERNAL)) {
+		    && (zif->brsecondary_info.bridge_ifindex == IFINDEX_INTERNAL)) {
 			zebra_vxlan_process_l3vni_oper_down(zl3vni);
 			return 0;
 		}
@@ -9153,11 +9153,11 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 				"Update L2-VNI %u intf %s(%u) VLAN %u local IP %s master %u chg 0x%x",
 				vni, ifp->name, ifp->ifindex, vxl->access_vlan,
 				inet_ntoa(vxl->vtep_ip),
-				zif->brslave_info.bridge_ifindex, chgflags);
+				zif->brsecondary_info.bridge_ifindex, chgflags);
 
 		/* Removed from bridge? Cleanup and return */
 		if ((chgflags & ZEBRA_VXLIF_MASTER_CHANGE)
-		    && (zif->brslave_info.bridge_ifindex == IFINDEX_INTERNAL)) {
+		    && (zif->brsecondary_info.bridge_ifindex == IFINDEX_INTERNAL)) {
 			/* Delete from client, remove all remote VTEPs */
 			/* Also, free up all MACs and neighbors. */
 			zvni_send_del_to_client(zvni->vni);
@@ -9190,7 +9190,7 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 		 * Note that if we are here, there is a change of interest.
 		 */
 		/* If down or not mapped to a bridge, we're done. */
-		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		if (!if_is_operative(ifp) || !zif->brsecondary_info.br_if)
 			return 0;
 
 		/* Inform BGP, if there is a change of interest. */
@@ -9257,7 +9257,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 				"Add L3-VNI %u intf %s(%u) VLAN %u local IP %s master %u",
 				vni, ifp->name, ifp->ifindex, vxl->access_vlan,
 				inet_ntoa(vxl->vtep_ip),
-				zif->brslave_info.bridge_ifindex);
+				zif->brsecondary_info.bridge_ifindex);
 
 		/* associate with vxlan_if */
 		zl3vni->local_vtep_ip = vxl->vtep_ip;
@@ -9299,7 +9299,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 		}
 		zvni->vxlan_if = ifp;
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
-					  zif->brslave_info.br_if);
+					  zif->brsecondary_info.br_if);
 		if (vlan_if) {
 			zvni->vrf_id = vlan_if->vrf_id;
 			zl3vni = zl3vni_from_vrf(vlan_if->vrf_id);
@@ -9323,11 +9323,11 @@ int zebra_vxlan_if_add(struct interface *ifp)
 					: VRF_DEFAULT_NAME,
 				ifp->name, ifp->ifindex, vxl->access_vlan,
 				addr_buf1, addr_buf2,
-				zif->brslave_info.bridge_ifindex);
+				zif->brsecondary_info.bridge_ifindex);
 		}
 
 		/* If down or not mapped to a bridge, we're done. */
-		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		if (!if_is_operative(ifp) || !zif->brsecondary_info.br_if)
 			return 0;
 
 		/* Inform BGP */
@@ -9618,12 +9618,12 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 		zif = ifp->info;
 
 		/* If down or not mapped to a bridge, we're done. */
-		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		if (!if_is_operative(ifp) || !zif->brsecondary_info.br_if)
 			return;
 
 		zl2_info = zif->l2info.vxl;
 		vlan_if = zvni_map_to_svi(zl2_info.access_vlan,
-					  zif->brslave_info.br_if);
+					  zif->brsecondary_info.br_if);
 		if (!vlan_if)
 			return;
 
@@ -9687,13 +9687,13 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 	zif = ifp->info;
 
 	/* If down or not mapped to a bridge, we're done. */
-	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+	if (!if_is_operative(ifp) || !zif->brsecondary_info.br_if)
 		return;
 
 	zl2_info = zif->l2info.vxl;
 
 	vlan_if =
-		zvni_map_to_svi(zl2_info.access_vlan, zif->brslave_info.br_if);
+		zvni_map_to_svi(zl2_info.access_vlan, zif->brsecondary_info.br_if);
 	if (!vlan_if)
 		return;
 
@@ -9777,13 +9777,13 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 		zif = ifp->info;
 
 		/* If down or not mapped to a bridge, we're done. */
-		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		if (!if_is_operative(ifp) || !zif->brsecondary_info.br_if)
 			return;
 
 		zl2_info = zif->l2info.vxl;
 
 		vlan_if = zvni_map_to_svi(zl2_info.access_vlan,
-					  zif->brslave_info.br_if);
+					  zif->brsecondary_info.br_if);
 		if (!vlan_if)
 			return;
 
