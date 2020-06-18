@@ -58,10 +58,12 @@
  * Returns -1 on failure, 0 when the msg doesn't fit entirely in the buffer
  * or the number of bytes written to buf.
  */
-static ssize_t netlink_rule_msg_encode(
-	int cmd, const struct zebra_dplane_ctx *ctx, uint32_t filter_bm,
-	uint32_t priority, uint32_t table, const struct prefix *src_ip,
-	const struct prefix *dst_ip, uint32_t fwmark, void *buf, size_t buflen)
+static ssize_t
+netlink_rule_msg_encode(int cmd, const struct zebra_dplane_ctx *ctx,
+			uint32_t filter_bm, uint32_t priority, uint32_t table,
+			const struct prefix *src_ip,
+			const struct prefix *dst_ip, uint32_t fwmark,
+			uint8_t dsfield, void *buf, size_t buflen)
 {
 	uint8_t protocol = RTPROT_ZEBRA;
 	int family;
@@ -122,6 +124,10 @@ static ssize_t netlink_rule_msg_encode(
 			return 0;
 	}
 
+	/* dsfield, if specified */
+	if (filter_bm & PBR_FILTER_DSFIELD)
+		req->frh.tos = dsfield;
+
 	/* Route table to use to forward, if filter criteria matches. */
 	if (table < 256)
 		req->frh.table = table;
@@ -145,16 +151,15 @@ static ssize_t netlink_rule_msg_encode(
 /* Install or uninstall specified rule for a specific interface.
  * Form netlink message and ship it.
  */
-static int
-netlink_rule_update_internal(int cmd, const struct zebra_dplane_ctx *ctx,
-			     uint32_t filter_bm, uint32_t priority,
-			     uint32_t table, const struct prefix *src_ip,
-			     const struct prefix *dst_ip, uint32_t fwmark)
+static int netlink_rule_update_internal(
+	int cmd, const struct zebra_dplane_ctx *ctx, uint32_t filter_bm,
+	uint32_t priority, uint32_t table, const struct prefix *src_ip,
+	const struct prefix *dst_ip, uint32_t fwmark, uint8_t dsfield)
 {
 	char buf[NL_PKT_BUF_SIZE];
 
 	netlink_rule_msg_encode(cmd, ctx, filter_bm, priority, table, src_ip,
-				dst_ip, fwmark, buf, sizeof(buf));
+				dst_ip, fwmark, dsfield, buf, sizeof(buf));
 	return netlink_talk_info(netlink_talk_filter, (void *)&buf,
 				 dplane_ctx_get_ns(ctx), 0);
 }
@@ -188,7 +193,8 @@ enum zebra_dplane_result kernel_pbr_rule_update(struct zebra_dplane_ctx *ctx)
 		dplane_ctx_rule_get_priority(ctx),
 		dplane_ctx_rule_get_table(ctx), dplane_ctx_rule_get_src_ip(ctx),
 		dplane_ctx_rule_get_dst_ip(ctx),
-		dplane_ctx_rule_get_fwmark(ctx));
+		dplane_ctx_rule_get_fwmark(ctx),
+		dplane_ctx_rule_get_dsfield(ctx));
 
 	/**
 	 * Delete the old one.
@@ -203,7 +209,8 @@ enum zebra_dplane_result kernel_pbr_rule_update(struct zebra_dplane_ctx *ctx)
 			dplane_ctx_rule_get_old_table(ctx),
 			dplane_ctx_rule_get_old_src_ip(ctx),
 			dplane_ctx_rule_get_old_dst_ip(ctx),
-			dplane_ctx_rule_get_old_fwmark(ctx));
+			dplane_ctx_rule_get_old_fwmark(ctx),
+			dplane_ctx_rule_get_old_dsfield(ctx));
 
 
 	return (ret == 0 ? ZEBRA_DPLANE_REQUEST_SUCCESS

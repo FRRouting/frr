@@ -123,6 +123,18 @@ end destination.
    on another platform it will be denied.  This mark translates to the
    underlying `ip rule .... fwmark XXXX` command.
 
+.. clicmd:: match dscp (0-63)
+
+   Match packets according to the specified differentiated services code point
+   (DSCP) in the IP header; if this value matches then forward the packet
+   according to the nexthop(s) specified.
+
+.. clicmd:: match ecn (0-3)
+
+   Match packets according to the specified explicit congestion notification
+   (ECN) field in the IP header; if this value matches then forward the packet
+   according to the nexthop(s) specified.
+
 .. clicmd:: set nexthop-group NAME
 
    Use the nexthop-group NAME as the place to forward packets when the match

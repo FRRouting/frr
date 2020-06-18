@@ -49,6 +49,10 @@ struct pbr_filter {
 #define PBR_FILTER_PROTO		(1 << 5)
 #define PBR_FILTER_SRC_PORT_RANGE	(1 << 6)
 #define PBR_FILTER_DST_PORT_RANGE	(1 << 7)
+#define PBR_FILTER_DSFIELD			(1 << 8)
+
+#define PBR_DSFIELD_DSCP (0xfc) /* Upper 6 bits of DS field: DSCP */
+#define PBR_DSFIELD_ECN (0x03)	/* Lower 2 bits of DS field: BCN */
 
 	/* Source and Destination IP address with masks. */
 	struct prefix src_ip;
@@ -57,6 +61,9 @@ struct pbr_filter {
 	/* Source and Destination higher-layer (TCP/UDP) port numbers. */
 	uint16_t src_port;
 	uint16_t dst_port;
+
+	/* Filter by Differentiated Services field  */
+	uint8_t dsfield; /* DSCP (6 bits) & ECN (2 bits) */
 
 	/* Filter with fwmark */
 	uint32_t fwmark;

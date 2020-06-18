@@ -547,7 +547,7 @@ pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 
 static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 {
-	if (!pbrms->src && !pbrms->dst && !pbrms->mark)
+	if (!pbrms->src && !pbrms->dst && !pbrms->mark && !pbrms->dsfield)
 		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
 }
 

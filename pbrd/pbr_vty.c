@@ -183,6 +183,55 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(pbr_map_match_dscp, pbr_map_match_dscp_cmd,
+      "[no] match dscp (0-63)$dscp",
+      NO_STR
+      "Match the rest of the command\n"
+      "Match based on IP DSCP field\n"
+      "Differentiated Service Code Point\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no) {
+		if (((pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2) == dscp)
+			return CMD_SUCCESS;
+
+		/* Set the DSCP bits of the DSField */
+		pbrms->dsfield =
+			(pbrms->dsfield & ~PBR_DSFIELD_DSCP) | (dscp << 2);
+	} else {
+		pbrms->dsfield &= ~PBR_DSFIELD_DSCP;
+	}
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_match_ecn, pbr_map_match_ecn_cmd,
+      "[no] match ecn (0-3)$ecn",
+      NO_STR
+      "Match the rest of the command\n"
+      "Match based on IP ECN field\n"
+      "Explicit Congestion Notification\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no) {
+		if ((pbrms->dsfield & PBR_DSFIELD_ECN) == ecn)
+			return CMD_SUCCESS;
+
+		/* Set the ECN bits of the DSField */
+		pbrms->dsfield = (pbrms->dsfield & ~PBR_DSFIELD_ECN) | ecn;
+	} else {
+		pbrms->dsfield &= ~PBR_DSFIELD_ECN;
+	}
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(pbr_map_match_mark, pbr_map_match_mark_cmd,
 	"[no] match mark (1-4294967295)$mark",
 	NO_STR
@@ -559,6 +608,14 @@ static void vty_show_pbrms(struct vty *vty,
 	if (pbrms->dst)
 		vty_out(vty, "        DST Match: %s\n",
 			prefix2str(pbrms->dst, buf, sizeof(buf)));
+	if (pbrms->dsfield & PBR_DSFIELD_DSCP)
+		vty_out(vty, "        DSCP Match: %u\n",
+			(pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
+	if (pbrms->dsfield & PBR_DSFIELD_ECN)
+		vty_out(vty, "        ECN Match: %u\n",
+			pbrms->dsfield & PBR_DSFIELD_ECN);
+	if (pbrms->dsfield)
+		vty_out(vty, "        DSField Match: %u\n", (pbrms->dsfield));
 	if (pbrms->mark)
 		vty_out(vty, "        MARK Match: %u\n", pbrms->mark);
 
@@ -946,6 +1003,14 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 		vty_out(vty, " match dst-ip %s\n",
 			prefix2str(pbrms->dst, buff, sizeof(buff)));
 
+	if (pbrms->dsfield & PBR_DSFIELD_DSCP)
+		vty_out(vty, " match dscp %u\n",
+			(pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
+
+	if (pbrms->dsfield & PBR_DSFIELD_ECN)
+		vty_out(vty, " match ecn %u\n",
+			pbrms->dsfield & PBR_DSFIELD_ECN);
+
 	if (pbrms->mark)
 		vty_out(vty, " match mark %u\n", pbrms->mark);
 
@@ -1026,6 +1091,8 @@ void pbr_vty_init(void)
 	install_element(INTERFACE_NODE, &pbr_policy_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_src_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_dst_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_match_dscp_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_match_ecn_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_mark_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &no_pbr_map_nexthop_group_cmd);

@@ -204,6 +204,7 @@ struct dplane_ctx_rule {
 	/* Filter criteria */
 	uint32_t filter_bm;
 	uint32_t fwmark;
+	uint8_t dsfield;
 	struct prefix src_ip;
 	struct prefix dst_ip;
 };
@@ -1676,6 +1677,20 @@ uint32_t dplane_ctx_rule_get_old_fwmark(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rule.old.fwmark;
 }
 
+uint8_t dplane_ctx_rule_get_dsfield(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.dsfield;
+}
+
+uint8_t dplane_ctx_rule_get_old_dsfield(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.dsfield;
+}
+
 const struct prefix *
 dplane_ctx_rule_get_src_ip(const struct zebra_dplane_ctx *ctx)
 {
@@ -2129,6 +2144,7 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 
 	dplane_rule->filter_bm = rule->rule.filter.filter_bm;
 	dplane_rule->fwmark = rule->rule.filter.fwmark;
+	dplane_rule->dsfield = rule->rule.filter.dsfield;
 	prefix_copy(&(dplane_rule->dst_ip), &rule->rule.filter.dst_ip);
 	prefix_copy(&(dplane_rule->src_ip), &rule->rule.filter.src_ip);
 }
