@@ -168,7 +168,7 @@ def test_bfd_connection():
         test_func = partial(
             topotest.router_json_cmp, router, "show bfd peers json", expected
         )
-        _, result = topotest.run_and_expect(test_func, None, count=8, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=16, wait=1)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
@@ -212,7 +212,7 @@ def test_bgp_fast_convergence():
             "show ip bgp vrf {}-cust1 json".format(router.name),
             expected,
         )
-        _, res = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+        _, res = topotest.run_and_expect(test_func, None, count=40, wait=1)
         assertmsg = "{}: bgp did not converge".format(router.name)
         assert res is None, assertmsg
 
@@ -254,7 +254,7 @@ def test_bfd_fast_convergence():
         test_func = partial(
             topotest.router_json_cmp, router, "show bfd peers json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+        _, res = topotest.run_and_expect(test_func, None, count=40, wait=1)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert res is None, assertmsg
 
@@ -287,7 +287,7 @@ def test_bgp_fast_reconvergence():
             "show ip bgp vrf {}-cust1 json".format(router.name),
             expected,
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=16, wait=1)
         assertmsg = "{}: bgp did not converge".format(router.name)
         assert res is None, assertmsg
 
