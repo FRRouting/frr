@@ -3,8 +3,10 @@
   "srNodes":[
     {
       "routerID":"10.0.255.2",
-      "srgbSize":20000,
-      "srgbLabel":8000,
+      "srgbSize":8000,
+      "srgbLabel":16000,
+      "srlbSize":1000,
+      "srlbLabel":15000,
       "algorithms":[
         {
           "0":"SPF"
@@ -95,13 +97,19 @@
       "routerID":"10.0.255.4",
       "srgbSize":10000,
       "srgbLabel":10000,
+      "srlbSize":1000,
+      "srlbLabel":5000,
       "algorithms":[
+        {
+          "0":"SPF"
+        }
       ],
+      "nodeMsd":12,
       "extendedPrefix":[
         {
           "prefix":"10.0.255.4\/32",
           "sid":400,
-          "inputLabel":8400,
+          "inputLabel":16400,
           "prefixRoute":[
             {
               "outputLabel":10400,
@@ -116,13 +124,19 @@
       "routerID":"10.0.255.3",
       "srgbSize":10000,
       "srgbLabel":10000,
+      "srlbSize":1000,
+      "srlbLabel":5000,
       "algorithms":[
+        {
+          "0":"SPF"
+        }
       ],
+      "nodeMsd":8,
       "extendedPrefix":[
         {
           "prefix":"10.0.255.3\/32",
           "sid":300,
-          "inputLabel":8300,
+          "inputLabel":16300,
           "prefixRoute":[
             {
               "outputLabel":3,
@@ -137,13 +151,19 @@
       "routerID":"10.0.255.1",
       "srgbSize":10000,
       "srgbLabel":20000,
+      "srlbSize":1000,
+      "srlbLabel":15000,
       "algorithms":[
+        {
+          "0":"SPF"
+        }
       ],
+      "nodeMsd":16,
       "extendedPrefix":[
         {
           "prefix":"10.0.255.1\/32",
           "sid":100,
-          "inputLabel":8100,
+          "inputLabel":16100,
           "prefixRoute":[
             {
               "outputLabel":20100,

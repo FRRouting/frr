@@ -53,7 +53,7 @@
       },
       {
         "type":"SR (OSPF)",
-        "outLabel":8300,
+        "outLabel":16300,
         "distance":150,
         "installed":true,
         "nexthop":"10.0.0.2"
@@ -76,7 +76,7 @@
       },
       {
         "type":"SR (OSPF)",
-        "outLabel":8400,
+        "outLabel":16400,
         "distance":150,
         "installed":true,
         "nexthop":"10.0.0.2"

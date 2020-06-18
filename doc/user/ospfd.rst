@@ -1071,8 +1071,8 @@ Router Information
 Segment Routing
 ===============
 
-This is an EXPERIMENTAL support of Segment Routing as per draft
-`draft-ietf-ospf-segment-routing-extensions-24.txt` for MPLS dataplane.
+This is an EXPERIMENTAL support of Segment Routing as per `RFC 8665` for MPLS
+dataplane.
 
 .. index:: [no] segment-routing on
 .. clicmd:: [no] segment-routing on
@@ -1085,7 +1085,13 @@ This is an EXPERIMENTAL support of Segment Routing as per draft
 .. clicmd:: [no] segment-routing global-block (0-1048575) (0-1048575)
 
    Fix the Segment Routing Global Block i.e. the label range used by MPLS to
-   store label in the MPLS FIB.
+   store label in the MPLS FIB for Prefix SID.
+
+.. index:: [no] segment-routing local-block (0-1048575) (0-1048575)
+.. clicmd:: [no] segment-routing local-block (0-1048575) (0-1048575)
+
+   Fix the Segment Routing Local Block i.e. the label range used by MPLS to
+   store label in the MPLS FIB for Adjacency SID.
 
 .. index:: [no] segment-routing node-msd (1-16)
 .. clicmd:: [no] segment-routing node-msd (1-16)

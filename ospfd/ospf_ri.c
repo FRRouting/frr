@@ -442,29 +442,52 @@ static void unset_sr_algorithm(uint8_t algo)
 	TLV_LEN(OspfRI.sr_info.algo) = htons(0);
 }
 
-/* Segment Routing Global Block SubTLV - section 3.2 */
-static void set_sr_sid_label_range(struct sr_srgb srgb)
+/* Set Segment Routing Global Block SubTLV - section 3.2 */
+static void set_sr_global_label_range(struct sr_block srgb)
 {
 	/* Set Header */
-	TLV_TYPE(OspfRI.sr_info.range) = htons(RI_SR_TLV_SID_LABEL_RANGE);
-	TLV_LEN(OspfRI.sr_info.range) =
+	TLV_TYPE(OspfRI.sr_info.srgb) = htons(RI_SR_TLV_SRGB_LABEL_RANGE);
+	TLV_LEN(OspfRI.sr_info.srgb) =
 		htons(SUBTLV_SID_LABEL_SIZE + sizeof(uint32_t));
 	/* Set Range Size */
-	OspfRI.sr_info.range.size = htonl(SET_RANGE_SIZE(srgb.range_size));
+	OspfRI.sr_info.srgb.size = htonl(SET_RANGE_SIZE(srgb.range_size));
 	/* Set Lower bound label SubTLV */
-	TLV_TYPE(OspfRI.sr_info.range.lower) = htons(SUBTLV_SID_LABEL);
-	TLV_LEN(OspfRI.sr_info.range.lower) = htons(SID_RANGE_LABEL_LENGTH);
-	OspfRI.sr_info.range.lower.value = htonl(SET_LABEL(srgb.lower_bound));
+	TLV_TYPE(OspfRI.sr_info.srgb.lower) = htons(SUBTLV_SID_LABEL);
+	TLV_LEN(OspfRI.sr_info.srgb.lower) = htons(SID_RANGE_LABEL_LENGTH);
+	OspfRI.sr_info.srgb.lower.value = htonl(SET_LABEL(srgb.lower_bound));
 }
 
-/* Unset this SRGB SubTLV */
-static void unset_sr_sid_label_range(void)
+/* Unset Segment Routing Global Block SubTLV */
+static void unset_sr_global_label_range(void)
 {
+	TLV_TYPE(OspfRI.sr_info.srgb) = htons(0);
+	TLV_LEN(OspfRI.sr_info.srgb) = htons(0);
+	TLV_TYPE(OspfRI.sr_info.srgb.lower) = htons(0);
+	TLV_LEN(OspfRI.sr_info.srgb.lower) = htons(0);
+}
 
-	TLV_TYPE(OspfRI.sr_info.range) = htons(0);
-	TLV_LEN(OspfRI.sr_info.range) = htons(0);
-	TLV_TYPE(OspfRI.sr_info.range.lower) = htons(0);
-	TLV_LEN(OspfRI.sr_info.range.lower) = htons(0);
+/* Set Segment Routing Local Block SubTLV - section 3.2 */
+static void set_sr_local_label_range(struct sr_block srlb)
+{
+	/* Set Header */
+	TLV_TYPE(OspfRI.sr_info.srlb) = htons(RI_SR_TLV_SRLB_LABEL_RANGE);
+	TLV_LEN(OspfRI.sr_info.srlb) =
+		htons(SUBTLV_SID_LABEL_SIZE + sizeof(uint32_t));
+	/* Set Range Size */
+	OspfRI.sr_info.srlb.size = htonl(SET_RANGE_SIZE(srlb.range_size));
+	/* Set Lower bound label SubTLV */
+	TLV_TYPE(OspfRI.sr_info.srlb.lower) = htons(SUBTLV_SID_LABEL);
+	TLV_LEN(OspfRI.sr_info.srlb.lower) = htons(SID_RANGE_LABEL_LENGTH);
+	OspfRI.sr_info.srlb.lower.value = htonl(SET_LABEL(srlb.lower_bound));
+}
+
+/* Unset Segment Routing Local Block SubTLV */
+static void unset_sr_local_label_range(void)
+{
+	TLV_TYPE(OspfRI.sr_info.srlb) = htons(0);
+	TLV_LEN(OspfRI.sr_info.srlb) = htons(0);
+	TLV_TYPE(OspfRI.sr_info.srlb.lower) = htons(0);
+	TLV_LEN(OspfRI.sr_info.srlb.lower) = htons(0);
 }
 
 /* Set Maximum Stack Depth for this router */
@@ -563,7 +586,7 @@ static int is_mandated_params_set(struct ospf_router_info ori)
 		return rc;
 
 	if ((ori.sr_info.enabled) && (ntohs(TLV_TYPE(ori.sr_info.algo)) == 0)
-	    && (ntohs(TLV_TYPE(ori.sr_info.range)) == 0))
+	    && (ntohs(TLV_TYPE(ori.sr_info.srgb)) == 0))
 		return rc;
 
 	rc = 1;
@@ -575,13 +598,11 @@ static int is_mandated_params_set(struct ospf_router_info ori)
  * Used by Segment Routing to set new TLVs and Sub-TLVs values
  *
  * @param enable To activate or not Segment Routing router Information flooding
- * @param size   Size of Label Range i.e. SRGB size
- * @param lower  Lower bound of the Label Range i.e. SRGB first label
- * @param msd    Maximum label Stack Depth supported by the router
+ * @param srn    Self Segment Routing node
  *
  * @return none
  */
-void ospf_router_info_update_sr(bool enable, struct sr_srgb srgb, uint8_t msd)
+void ospf_router_info_update_sr(bool enable, struct sr_node *srn)
 {
 	struct listnode *node, *nnode;
 	struct ospf_ri_area_info *ai;
@@ -612,15 +633,17 @@ void ospf_router_info_update_sr(bool enable, struct sr_srgb srgb, uint8_t msd)
 	/* Unset or Set SR parameters */
 	if (!enable) {
 		unset_sr_algorithm(SR_ALGORITHM_SPF);
-		unset_sr_sid_label_range();
+		unset_sr_global_label_range();
+		unset_sr_local_label_range();
 		unset_sr_node_msd();
 		OspfRI.sr_info.enabled = false;
 	} else {
 		// Only SR_ALGORITHM_SPF is supported
 		set_sr_algorithm(SR_ALGORITHM_SPF);
-		set_sr_sid_label_range(srgb);
-		if (msd != 0)
-			set_sr_node_msd(msd);
+		set_sr_global_label_range(srn->srgb);
+		set_sr_local_label_range(srn->srlb);
+		if (srn->msd != 0)
+			set_sr_node_msd(srn->msd);
 		else
 			unset_sr_node_msd();
 		OspfRI.sr_info.enabled = true;
@@ -698,7 +721,9 @@ static void ospf_router_info_lsa_body_set(struct stream *s)
 		/* Build Algorithm TLV */
 		build_tlv(s, &TLV_HDR(OspfRI.sr_info.algo));
 		/* Build SRGB TLV */
-		build_tlv(s, &TLV_HDR(OspfRI.sr_info.range));
+		build_tlv(s, &TLV_HDR(OspfRI.sr_info.srgb));
+		/* Build SRLB TLV */
+		build_tlv(s, &TLV_HDR(OspfRI.sr_info.srlb));
 		/* Build MSD TLV */
 		build_tlv(s, &TLV_HDR(OspfRI.sr_info.msd));
 	}
@@ -1409,16 +1434,22 @@ static uint16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh)
 
 	if (vty != NULL) {
 		vty_out(vty,
-			"  Segment Routing Range TLV:\n"
+			"  Segment Routing %s Range TLV:\n"
 			"    Range Size = %d\n"
 			"    SID Label = %d\n\n",
+			ntohs(range->header.type) == RI_SR_TLV_SRGB_LABEL_RANGE
+				? "Global"
+				: "Local",
 			GET_RANGE_SIZE(ntohl(range->size)),
 			GET_LABEL(ntohl(range->lower.value)));
 	} else {
 		zlog_debug(
-			"  Segment Routing Range TLV:\n"
+			"  Segment Routing %s Range TLV:\n"
 			"    Range Size = %d\n"
 			"    SID Label = %d\n\n",
+			ntohs(range->header.type) == RI_SR_TLV_SRGB_LABEL_RANGE
+				? "Global"
+				: "Local",
 			GET_RANGE_SIZE(ntohl(range->size)),
 			GET_LABEL(ntohl(range->lower.value)));
 	}
@@ -1469,7 +1500,8 @@ static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa)
 		case RI_SR_TLV_SR_ALGORITHM:
 			sum += show_vty_sr_algorithm(vty, tlvh);
 			break;
-		case RI_SR_TLV_SID_LABEL_RANGE:
+		case RI_SR_TLV_SRGB_LABEL_RANGE:
+		case RI_SR_TLV_SRLB_LABEL_RANGE:
 			sum += show_vty_sr_range(vty, tlvh);
 			break;
 		case RI_SR_TLV_NODE_MSD:
