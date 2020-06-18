@@ -207,15 +207,9 @@ static void bgp_bfd_update_peer(struct peer *peer)
  */
 void bgp_bfd_reset_peer(struct peer *peer)
 {
-	struct bfd_info *bfd_info;
-
 	if (!peer->bfd_info)
 		return;
-	bfd_info = (struct bfd_info *)peer->bfd_info;
 
-	/* if status is not down, reset bfd */
-	if (bfd_info->status != BFD_STATUS_DOWN)
-		bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_DEREGISTER);
 	bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_REGISTER);
 }
 
