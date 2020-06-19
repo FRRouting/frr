@@ -164,7 +164,7 @@ void zclient_stop(struct zclient *zclient)
 	int i;
 
 	if (zclient_debug)
-		zlog_debug("zclient stopped");
+		zlog_debug("zclient %p stopped", zclient);
 
 	/* Stop threads. */
 	THREAD_OFF(zclient->t_read);

@@ -25,14 +25,9 @@
 #include "command.h"
 #include "network.h"
 #include "prefix.h"
-#include "routemap.h"
-#include "table.h"
 #include "stream.h"
 #include "memory.h"
 #include "zclient.h"
-#include "filter.h"
-#include "plist.h"
-#include "log.h"
 #include "nexthop.h"
 #include "nexthop_group.h"
 
@@ -44,9 +39,41 @@
 struct zclient *zclient = NULL;
 
 /* For registering threads. */
-extern struct thread_master *master;
+struct thread_master *master;
 
-/* Inteface addition message from zebra. */
+/* Privs info */
+struct zebra_privs_t sharp_privs;
+
+DEFINE_MTYPE_STATIC(SHARPD, ZC, "Test zclients");
+
+/* Struct to hold list of test zclients */
+struct sharp_zclient {
+	struct sharp_zclient *prev;
+	struct sharp_zclient *next;
+	struct zclient *client;
+};
+
+/* Head of test zclient list */
+static struct sharp_zclient *sharp_clients_head;
+
+static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS);
+
+/* Utility to add a test zclient struct to the list */
+static void add_zclient(struct zclient *client)
+{
+	struct sharp_zclient *node;
+
+	node = XCALLOC(MTYPE_ZC, sizeof(struct sharp_zclient));
+
+	node->client = client;
+
+	node->next = sharp_clients_head;
+	if (sharp_clients_head)
+		sharp_clients_head->prev = node;
+	sharp_clients_head = node;
+}
+
+/* Interface addition message from zebra. */
 static int sharp_ifp_create(struct interface *ifp)
 {
 	return 0;
@@ -480,6 +507,62 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/* Add a zclient with a specified session id, for testing. */
+int sharp_zclient_create(uint32_t session_id)
+{
+	struct zclient *client;
+	struct sharp_zclient *node;
+
+	/* Check for duplicates */
+	for (node = sharp_clients_head; node != NULL; node = node->next) {
+		if (node->client->session_id == session_id)
+			return -1;
+	}
+
+	client = zclient_new(master, &zclient_options_default);
+	client->sock = -1;
+	client->session_id = session_id;
+
+	zclient_init(client, ZEBRA_ROUTE_SHARP, 0, &sharp_privs);
+
+	/* Register handlers for messages we expect this session to see */
+	client->opaque_msg_handler = sharp_opaque_handler;
+
+	/* Enqueue on the list of test clients */
+	add_zclient(client);
+
+	return 0;
+}
+
+/* Delete one of the extra test zclients */
+int sharp_zclient_delete(uint32_t session_id)
+{
+	struct sharp_zclient *node;
+
+	/* Search for session */
+	for (node = sharp_clients_head; node != NULL; node = node->next) {
+		if (node->client->session_id == session_id) {
+			/* Dequeue from list */
+			if (node->next)
+				node->next->prev = node->prev;
+			if (node->prev)
+				node->prev->next = node->next;
+			if (node == sharp_clients_head)
+				sharp_clients_head = node->next;
+
+			/* Clean up zclient */
+			zclient_stop(node->client);
+			zclient_free(node->client);
+
+			/* Free memory */
+			XFREE(MTYPE_ZC, node);
+			break;
+		}
+	}
+
+	return 0;
+}
+
 /* Handler for opaque messages */
 static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 {
@@ -491,7 +574,7 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 	if (zclient_opaque_decode(s, &info) != 0)
 		return -1;
 
-	zlog_debug("%s: [%d] received opaque type %u", __func__,
+	zlog_debug("%s: [%u] received opaque type %u", __func__,
 		   zclient->session_id, info.type);
 
 	return 0;
@@ -563,8 +646,6 @@ void sharp_opaque_reg_send(bool is_reg, uint32_t proto, uint32_t instance,
 	(void)zclient_send_message(zclient);
 
 }
-
-extern struct zebra_privs_t sharp_privs;
 
 void sharp_zebra_init(void)
 {
