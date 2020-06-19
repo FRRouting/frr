@@ -859,7 +859,9 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 {
 	struct stream *hdr, *msg;
 	struct timeval tv = { .tv_sec = uptime, .tv_usec = 0 };
+	struct timeval uptime_real;
 
+	monotime_to_realtime(&tv, &uptime_real);
 	if (attr)
 		msg = bmp_update(p, peer, attr, afi, safi);
 	else
@@ -867,7 +869,7 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 
 	hdr = stream_new(BGP_MAX_PACKET_SIZE);
 	bmp_common_hdr(hdr, BMP_VERSION_3, BMP_TYPE_ROUTE_MONITORING);
-	bmp_per_peer_hdr(hdr, peer, flags, &tv);
+	bmp_per_peer_hdr(hdr, peer, flags, &uptime_real);
 
 	stream_putl_at(hdr, BMP_LENGTH_POS,
 			stream_get_endp(hdr) + stream_get_endp(msg));
