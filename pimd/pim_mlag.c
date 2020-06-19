@@ -41,8 +41,7 @@ extern struct zclient *zclient;
 				"%s: add Dual-active Interface to %s "         \
 				"to oil:%s",                                   \
 				__func__, ch->interface->name, ch->sg_str);    \
-		pim_channel_add_oif(ch_oil, ch->interface,                     \
-				    PIM_OIF_FLAG_PROTO_IGMP, __func__);        \
+		pim_channel_update_oif_mute(ch_oil, ch->interface->info);      \
 	} while (0)
 
 #define PIM_MLAG_DEL_OIF_TO_OIL(ch, ch_oil)                                    \
@@ -52,8 +51,7 @@ extern struct zclient *zclient;
 				"%s: del Dual-active Interface to %s "         \
 				"to oil:%s",                                   \
 				__func__, ch->interface->name, ch->sg_str);    \
-		pim_channel_del_oif(ch_oil, ch->interface,                     \
-				    PIM_OIF_FLAG_PROTO_IGMP, __func__);        \
+		pim_channel_update_oif_mute(ch_oil, ch->interface->info);      \
 	} while (0)
 
 
@@ -91,14 +89,36 @@ static void pim_mlag_inherit_mlag_flags(struct pim_upstream *up, bool is_df)
 {
 	struct listnode *listnode;
 	struct pim_upstream *child;
+	struct listnode *chnode;
+	struct listnode *chnextnode;
+	struct pim_ifchannel *ch;
+	struct pim_interface *pim_ifp = NULL;
+	struct channel_oil *ch_oil = NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(up->sources, listnode, child)) {
-		PIM_UPSTREAM_FLAG_SET_MLAG_PEER(child->flags);
-		if (is_df)
-			PIM_UPSTREAM_FLAG_UNSET_MLAG_NON_DF(child->flags);
-		else
-			PIM_UPSTREAM_FLAG_SET_MLAG_NON_DF(child->flags);
-		pim_mlag_calculate_df_for_ifchannels(child, is_df);
+	if (PIM_DEBUG_MLAG)
+		zlog_debug("%s: Updating DF for uptream:%s childs", __func__,
+			   up->sg_str);
+
+
+	for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
+		pim_ifp = (ch->interface) ? ch->interface->info : NULL;
+		if (!pim_ifp || !PIM_I_am_DualActive(pim_ifp))
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(up->sources, listnode, child)) {
+			if (PIM_DEBUG_MLAG)
+				zlog_debug("%s: Updating DF for child:%s",
+					   __func__, child->sg_str);
+			ch_oil = (child) ? child->channel_oil : NULL;
+
+			if (!ch_oil)
+				continue;
+
+			if (is_df)
+				PIM_MLAG_ADD_OIF_TO_OIL(ch, ch_oil);
+			else
+				PIM_MLAG_DEL_OIF_TO_OIL(ch, ch_oil);
+		}
 	}
 }
 
@@ -134,8 +154,8 @@ bool pim_mlag_up_df_role_update(struct pim_instance *pim,
 	 * Interface configuration
 	 */
 	if (PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags)) {
-		pim_mlag_calculate_df_for_ifchannels(up, is_df);
 		pim_mlag_inherit_mlag_flags(up, is_df);
+		pim_mlag_calculate_df_for_ifchannels(up, is_df);
 	}
 
 	/* If the DF role has changed check if ipmr-lo needs to be
@@ -170,8 +190,7 @@ static bool pim_mlag_up_df_role_elect(struct pim_instance *pim,
 	uint32_t local_cost;
 	bool rv;
 
-	if (!pim_up_mlag_is_local(up)
-	    && !PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags))
+	if (!pim_up_mlag_is_local(up))
 		return false;
 
 	/* We are yet to rx a status update from the local MLAG daemon so
@@ -501,8 +520,7 @@ static void pim_mlag_up_local_replay(void)
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
 		frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-			if (pim_up_mlag_is_local(up)
-			    || PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags))
+			if (pim_up_mlag_is_local(up))
 				pim_mlag_up_local_add_send(pim, up);
 		}
 	}
@@ -523,9 +541,7 @@ static void pim_mlag_up_local_reeval(bool mlagd_send, const char *reason_code)
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
 		frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-			if (!pim_up_mlag_is_local(up)
-			    && !PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(
-				    up->flags))
+			if (!pim_up_mlag_is_local(up))
 				continue;
 			/* if role changes re-send to peer */
 			if (pim_mlag_up_df_role_elect(pim, up) &&
@@ -985,6 +1001,10 @@ void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp)
 	if (!pim_ifp || !pim_ifp->pim || pim_ifp->activeactive == true)
 		return;
 
+	if (PIM_DEBUG_MLAG)
+		zlog_debug("%s: Configuring active-active on Interface: %s",
+			   __func__, "NULL");
+
 	pim_ifp->activeactive = true;
 	if (pim_ifp->pim)
 		pim_ifp->pim->inst_mlag_intf_cnt++;
@@ -1009,6 +1029,10 @@ void pim_if_unconfigure_mlag_dualactive(struct pim_interface *pim_ifp)
 {
 	if (!pim_ifp || !pim_ifp->pim || pim_ifp->activeactive == false)
 		return;
+
+	if (PIM_DEBUG_MLAG)
+		zlog_debug("%s: UnConfiguring active-active on Interface: %s",
+			   __func__, "NULL");
 
 	pim_ifp->activeactive = false;
 	pim_ifp->pim->inst_mlag_intf_cnt--;
