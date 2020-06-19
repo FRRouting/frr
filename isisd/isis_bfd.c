@@ -122,7 +122,7 @@ static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
 	if (old_status == new_status)
 		return;
 
-	if (isis->debugs & DEBUG_BFD) {
+	if (debugs & DEBUG_BFD) {
 		char dst_str[INET6_ADDRSTRLEN];
 
 		inet_ntop(adj->bfd_session->family, &adj->bfd_session->dst_ip,
@@ -152,7 +152,7 @@ static int isis_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 	if (!ifp || (dst_ip.family != AF_INET && dst_ip.family != AF_INET6))
 		return 0;
 
-	if (isis->debugs & DEBUG_BFD) {
+	if (debugs & DEBUG_BFD) {
 		char dst_buf[INET6_ADDRSTRLEN];
 
 		inet_ntop(dst_ip.family, &dst_ip.u.prefix, dst_buf,
@@ -194,7 +194,7 @@ static int isis_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 	struct listnode *anode;
 	struct isis_area *area;
 
-	if (isis->debugs & DEBUG_BFD)
+	if (debugs & DEBUG_BFD)
 		zlog_debug("ISIS-BFD: Got neighbor replay request, resending neighbors.");
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
@@ -205,7 +205,7 @@ static int isis_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 			isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_UPDATE);
 	}
 
-	if (isis->debugs & DEBUG_BFD)
+	if (debugs & DEBUG_BFD)
 		zlog_debug("ISIS-BFD: Done with replay.");
 
 	return 0;
@@ -223,7 +223,7 @@ static void isis_bfd_zebra_connected(struct zclient *zclient)
 static void bfd_debug(int family, union g_addr *dst, union g_addr *src,
 		      const char *interface, int command)
 {
-	if (!(isis->debugs & DEBUG_BFD))
+	if (!(debugs & DEBUG_BFD))
 		return;
 
 	char dst_str[INET6_ADDRSTRLEN];

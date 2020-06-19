@@ -229,7 +229,7 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 	}
 
 	if (next_tw_state != adj->threeway_state) {
-		if (isis->debugs & DEBUG_ADJ_PACKETS) {
+		if (debugs & DEBUG_ADJ_PACKETS) {
 			zlog_info("ISIS-Adj (%s): Threeway state change %s to %s",
 				  adj->circuit->area->area_tag,
 				  isis_threeway_state_name(adj->threeway_state),
@@ -274,7 +274,7 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 	adj->adj_state = new_state;
 	send_hello_sched(circuit, adj->level, TRIGGERED_IIH_DELAY);
 
-	if (isis->debugs & DEBUG_ADJ_PACKETS) {
+	if (debugs & DEBUG_ADJ_PACKETS) {
 		zlog_debug("ISIS-Adj (%s): Adjacency state change %d->%d: %s",
 			   circuit->area->area_tag, old_state, new_state,
 			   reason ? reason : "unspecified");

@@ -216,7 +216,7 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	if (listcount(area->area_addrs) == 0) {
 		memset(isis->sysid, 0, ISIS_SYS_ID_LEN);
 		isis->sysid_set = 0;
-		if (isis->debugs & DEBUG_EVENTS)
+		if (debugs & DEBUG_EVENTS)
 			zlog_debug("Router has no SystemID");
 	}
 

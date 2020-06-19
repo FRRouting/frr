@@ -814,7 +814,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 			isis_adj_build_up_list(adjdb, adj_list);
 			if (listcount(adj_list) == 0) {
 				list_delete(&adj_list);
-				if (isis->debugs & DEBUG_SPF_EVENTS)
+				if (debugs & DEBUG_SPF_EVENTS)
 					zlog_debug(
 						"ISIS-Spf: no L%d adjacencies on circuit %s",
 						spftree->level,
@@ -890,7 +890,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 			/* can happen during DR reboot */
 			if (memcmp(lsp_id, null_lsp_id, ISIS_SYS_ID_LEN + 1)
 			    == 0) {
-				if (isis->debugs & DEBUG_SPF_EVENTS)
+				if (debugs & DEBUG_SPF_EVENTS)
 					zlog_debug(
 						"ISIS-Spf: No L%d DR on %s (ID %d)",
 						spftree->level,
@@ -1007,7 +1007,7 @@ static void add_to_paths(struct isis_spftree *spftree,
 					  vertex->d_N, vertex->depth,
 					  vertex->Adj_N, spftree->area,
 					  spftree->route_table);
-		else if (isis->debugs & DEBUG_SPF_EVENTS)
+		else if (debugs & DEBUG_SPF_EVENTS)
 			zlog_debug(
 				"ISIS-Spf: no adjacencies do not install route for "
 				"%s depth %d dist %d",
@@ -1144,7 +1144,7 @@ static int isis_run_spf(struct isis_area *area, int level,
 	 * C.2.7 Step 2
 	 */
 	if (!isis_vertex_queue_count(&spftree->tents)
-	    && (isis->debugs & DEBUG_SPF_EVENTS)) {
+	    && (debugs & DEBUG_SPF_EVENTS)) {
 		zlog_warn("ISIS-Spf: TENT is empty SPF-root:%s",
 			  print_sys_hostname(sysid));
 	}
@@ -1189,7 +1189,7 @@ static int isis_run_spf_cb(struct thread *thread)
 	area->spf_timer[level - 1] = NULL;
 
 	if (!(area->is_type & level)) {
-		if (isis->debugs & DEBUG_SPF_EVENTS)
+		if (debugs & DEBUG_SPF_EVENTS)
 			zlog_warn("ISIS-SPF (%s) area does not share level",
 				  area->area_tag);
 		return ISIS_WARNING;
@@ -1197,7 +1197,7 @@ static int isis_run_spf_cb(struct thread *thread)
 
 	isis_area_invalidate_routes(area, level);
 
-	if (isis->debugs & DEBUG_SPF_EVENTS)
+	if (debugs & DEBUG_SPF_EVENTS)
 		zlog_debug("ISIS-Spf (%s) L%d SPF needed, periodic SPF",
 			   area->area_tag, level);
 
@@ -1247,7 +1247,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 	assert(diff >= 0);
 	assert(area->is_type & level);
 
-	if (isis->debugs & DEBUG_SPF_EVENTS) {
+	if (debugs & DEBUG_SPF_EVENTS) {
 		zlog_debug(
 			"ISIS-Spf (%s) L%d SPF schedule called, lastrun %d sec ago"
 			" Caller: %s %s:%d",
@@ -1285,7 +1285,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 	thread_add_timer(master, isis_run_spf_cb, isis_run_spf_arg(area, level),
 			 timer, &area->spf_timer[level - 1]);
 
-	if (isis->debugs & DEBUG_SPF_EVENTS)
+	if (debugs & DEBUG_SPF_EVENTS)
 		zlog_debug("ISIS-Spf (%s) L%d SPF scheduled %ld sec from now",
 			   area->area_tag, level, timer);
 

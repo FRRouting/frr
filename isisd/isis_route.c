@@ -280,24 +280,24 @@ struct isis_route_info *isis_route_create(struct prefix *prefix,
 
 	rinfo_old = route_node->info;
 	if (!rinfo_old) {
-		if (isis->debugs & DEBUG_RTE_EVENTS)
+		if (debugs & DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Rte (%s) route created: %s",
 				   area->area_tag, buff);
 		route_info = rinfo_new;
 		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 	} else {
 		route_unlock_node(route_node);
-		if (isis->debugs & DEBUG_RTE_EVENTS)
+		if (debugs & DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Rte (%s) route already exists: %s",
 				   area->area_tag, buff);
 		if (isis_route_info_same(rinfo_new, rinfo_old, family)) {
-			if (isis->debugs & DEBUG_RTE_EVENTS)
+			if (debugs & DEBUG_RTE_EVENTS)
 				zlog_debug("ISIS-Rte (%s) route unchanged: %s",
 					   area->area_tag, buff);
 			isis_route_info_delete(rinfo_new);
 			route_info = rinfo_old;
 		} else {
-			if (isis->debugs & DEBUG_RTE_EVENTS)
+			if (debugs & DEBUG_RTE_EVENTS)
 				zlog_debug("ISIS-Rte (%s) route changed: %s",
 					   area->area_tag, buff);
 			isis_route_info_delete(rinfo_old);
@@ -329,7 +329,7 @@ static void isis_route_delete(struct isis_area *area, struct route_node *rode,
 
 	rinfo = rode->info;
 	if (rinfo == NULL) {
-		if (isis->debugs & DEBUG_RTE_EVENTS)
+		if (debugs & DEBUG_RTE_EVENTS)
 			zlog_debug(
 				"ISIS-Rte: tried to delete non-existant route %s",
 				buff);
@@ -338,7 +338,7 @@ static void isis_route_delete(struct isis_area *area, struct route_node *rode,
 
 	if (CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED)) {
 		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE);
-		if (isis->debugs & DEBUG_RTE_EVENTS)
+		if (debugs & DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Rte: route delete  %s", buff);
 		isis_route_update(area, prefix, src_p, rinfo);
 	}
@@ -392,7 +392,7 @@ static void _isis_route_verify_table(struct isis_area *area,
 				       (const struct prefix **)&dst_p,
 				       (const struct prefix **)&src_p);
 
-		if (isis->debugs & DEBUG_RTE_EVENTS) {
+		if (debugs & DEBUG_RTE_EVENTS) {
 			srcdest2str(dst_p, src_p, buff, sizeof(buff));
 			zlog_debug(
 				"ISIS-Rte (%s): route validate: %s %s %s %s",

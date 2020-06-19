@@ -72,7 +72,6 @@ struct isis {
 	struct list *init_circ_list;
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct area_addr *man_area_addrs; /* manualAreaAddresses */
-	uint32_t debugs;		  /* bitmap for debug */
 	time_t uptime;			  /* when did we start */
 	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
@@ -227,6 +226,7 @@ int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 
 /* Master of threads. */
 extern struct thread_master *master;
+uint32_t debugs;      /* bitmap for debug */
 
 #define DEBUG_ADJ_PACKETS                (1<<0)
 #define DEBUG_SNP_PACKETS                (1<<1)
@@ -244,13 +244,13 @@ extern struct thread_master *master;
 
 #define lsp_debug(...)                                                         \
 	do {                                                                   \
-		if (isis->debugs & DEBUG_LSP_GEN)                              \
+		if (debugs & DEBUG_LSP_GEN)                              \
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 
 #define sched_debug(...)                                                       \
 	do {                                                                   \
-		if (isis->debugs & DEBUG_LSP_SCHED)                            \
+		if (debugs & DEBUG_LSP_SCHED)                            \
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 
@@ -262,6 +262,6 @@ extern struct thread_master *master;
 
 #define DEBUG_TE                         DEBUG_LSP_GEN
 
-#define IS_DEBUG_ISIS(x)                 (isis->debugs & x)
+#define IS_DEBUG_ISIS(x)                 (debugs & x)
 
 #endif /* ISISD_H */

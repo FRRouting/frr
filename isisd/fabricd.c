@@ -543,7 +543,7 @@ static void move_to_queue(struct isis_lsp *lsp, struct neighbor_entry *n,
 	if (n->adj && n->adj->circuit == circuit)
 		return;
 
-	if (isis->debugs & DEBUG_FLOODING) {
+	if (debugs & DEBUG_FLOODING) {
 		zlog_debug("OpenFabric: Adding %s to %s",
 			   print_sys_hostname(n->id),
 			   (type == TX_LSP_NORMAL) ? "RF" : "DNR");
@@ -576,7 +576,7 @@ static void handle_firsthops(struct hash_bucket *bucket, void *arg)
 
 	n = neighbor_entry_lookup_list(f->neighbors, vertex->N.id);
 	if (n) {
-		if (isis->debugs & DEBUG_FLOODING) {
+		if (debugs & DEBUG_FLOODING) {
 			zlog_debug("Removing %s from NL as its in the reverse path",
 				   print_sys_hostname(n->id));
 		}
@@ -585,7 +585,7 @@ static void handle_firsthops(struct hash_bucket *bucket, void *arg)
 
 	n = neighbor_entry_lookup_hash(f->neighbors_neighbors, vertex->N.id);
 	if (n) {
-		if (isis->debugs & DEBUG_FLOODING) {
+		if (debugs & DEBUG_FLOODING) {
 			zlog_debug("Removing %s from NN as its in the reverse path",
 				   print_sys_hostname(n->id));
 		}
@@ -673,7 +673,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 
 		struct isis_lsp *nlsp = lsp_for_neighbor(f, n);
 		if (!nlsp || !nlsp->tlvs) {
-			if (isis->debugs & DEBUG_FLOODING) {
+			if (debugs & DEBUG_FLOODING) {
 				zlog_debug("Moving %s to DNR as it has no LSP",
 					   print_sys_hostname(n->id));
 			}
@@ -682,7 +682,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 			continue;
 		}
 
-		if (isis->debugs & DEBUG_FLOODING) {
+		if (debugs & DEBUG_FLOODING) {
 			zlog_debug("Considering %s from NL...",
 				   print_sys_hostname(n->id));
 		}
@@ -699,7 +699,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 							er->id);
 
 			if (nn) {
-				if (isis->debugs & DEBUG_FLOODING) {
+				if (debugs & DEBUG_FLOODING) {
 					zlog_debug("Found neighbor %s in NN, removing it from NN and setting reflood.",
 						   print_sys_hostname(nn->id));
 				}
@@ -714,7 +714,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 			      circuit);
 	}
 
-	if (isis->debugs & DEBUG_FLOODING) {
+	if (debugs & DEBUG_FLOODING) {
 		zlog_debug("OpenFabric: Flooding algorithm complete.");
 	}
 }
