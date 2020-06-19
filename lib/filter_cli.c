@@ -20,15 +20,16 @@
  * 02110-1301 USA.
  */
 
+#include "zebra.h"
 #include "northbound.h"
 #include "prefix.h"
-#include "zebra.h"
 
 #include "lib/command.h"
 #include "lib/filter.h"
 #include "lib/northbound_cli.h"
 #include "lib/plist.h"
 #include "lib/plist_int.h"
+#include "lib/printfrr.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "lib/filter_cli_clippy.c"
@@ -197,11 +198,11 @@ DEFPY(
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%s']", xpath, seq_str);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%s']", xpath, seq_str);
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
@@ -270,8 +271,8 @@ DEFPY(
 	if (sseq == -1)
 		return CMD_WARNING;
 
-	snprintf(xpath_entry, sizeof(xpath_entry),
-		 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+	snprintfrr(xpath_entry, sizeof(xpath_entry),
+		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -312,11 +313,11 @@ DEFPY(
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%s']", xpath, seq_str);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%s']", xpath, seq_str);
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
@@ -376,7 +377,7 @@ DEFPY(
 
 	/* If the user provided sequence number, then just go for it. */
 	if (seq_str != NULL) {
-		snprintf(
+		snprintfrr(
 			xpath, sizeof(xpath),
 			"/frr-filter:lib/access-list-legacy[number='%s']/entry[sequence='%s']",
 			number_str, seq_str);
@@ -421,8 +422,8 @@ DEFPY(
 	if (sseq == -1)
 		return CMD_WARNING;
 
-	snprintf(xpath_entry, sizeof(xpath_entry),
-		 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+	snprintfrr(xpath_entry, sizeof(xpath_entry),
+		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -577,11 +578,11 @@ DEFPY(
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%s']", xpath, seq_str);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%s']", xpath, seq_str);
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
@@ -648,8 +649,8 @@ DEFPY(
 	if (sseq == -1)
 		return CMD_WARNING;
 
-	snprintf(xpath_entry, sizeof(xpath_entry),
-		 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+	snprintfrr(xpath_entry, sizeof(xpath_entry),
+		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -748,11 +749,11 @@ DEFPY(
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%s']", xpath, seq_str);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%s']", xpath, seq_str);
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
@@ -820,8 +821,8 @@ DEFPY(
 	if (sseq == -1)
 		return CMD_WARNING;
 
-	snprintf(xpath_entry, sizeof(xpath_entry),
-		 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+	snprintfrr(xpath_entry, sizeof(xpath_entry),
+		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -923,11 +924,11 @@ DEFPY(
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%s']", xpath, seq_str);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%s']", xpath, seq_str);
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
@@ -991,8 +992,8 @@ DEFPY(
 	if (sseq == -1)
 		return CMD_WARNING;
 
-	snprintf(xpath_entry, sizeof(xpath_entry),
-		 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+	snprintfrr(xpath_entry, sizeof(xpath_entry),
+		   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -1231,8 +1232,8 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 	if (pentry == NULL)
 		return CMD_WARNING;
 
-	snprintf(xpath_entry, sizeof(xpath_entry),
-		 "%s/entry[sequence='%" PRId64 "']", xpath, pentry->seq);
+	snprintfrr(xpath_entry, sizeof(xpath_entry),
+		   "%s/entry[sequence='%" PRId64 "']", xpath, pentry->seq);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
 
 	rv = nb_cli_apply_changes(vty, NULL);
@@ -1271,11 +1272,11 @@ DEFPY(
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%s']", xpath, seq_str);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%s']", xpath, seq_str);
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
@@ -1431,11 +1432,11 @@ DEFPY(
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
 		sseq = acl_get_seq(vty, xpath);
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
-		snprintf(xpath_entry, sizeof(xpath_entry),
-			 "%s/entry[sequence='%s']", xpath, seq_str);
+		snprintfrr(xpath_entry, sizeof(xpath_entry),
+			   "%s/entry[sequence='%s']", xpath, seq_str);
 
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 

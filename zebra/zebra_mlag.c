@@ -33,6 +33,10 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/debug.h"
 
+#ifdef HAVE_PROTOBUF_VERSION_3
+#include "mlag/mlag.pb-c.h"
+#endif
+
 DEFINE_HOOK(zebra_mlag_private_write_data,
 	    (uint8_t *data, uint32_t len), (data, len))
 DEFINE_HOOK(zebra_mlag_private_monitor_state, (), ())

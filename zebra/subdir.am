@@ -44,6 +44,7 @@ endif
 zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP)
 if HAVE_PROTOBUF3
 zebra_zebra_LDADD += mlag/libmlag_pb.la $(PROTOBUF_C_LIBS)
+zebra/zebra_mlag.$(OBJEXT): mlag/mlag.pb-c.h
 endif
 zebra_zebra_SOURCES = \
 	zebra/connected.c \
@@ -188,8 +189,10 @@ zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_netlink.c
 if HAVE_PROTOBUF
 zebra_zebra_fpm_la_LIBADD += fpm/libfrrfpm_pb.la qpb/libfrr_pb.la $(PROTOBUF_C_LIBS)
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_protobuf.c
+zebra/zebra_fpm_protobuf.lo: fpm/fpm.pb-c.h qpb/qpb.pb-c.h
 if DEV_BUILD
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_dt.c
+zebra/zebra_fpm_dt.lo: fpm/fpm.pb-c.h qpb/qpb.pb-c.h
 endif
 endif
 
