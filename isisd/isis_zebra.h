@@ -22,6 +22,8 @@
 #ifndef _ZEBRA_ISIS_ZEBRA_H
 #define _ZEBRA_ISIS_ZEBRA_H
 
+#include "isisd.h"
+
 extern struct zclient *zclient;
 
 struct label_chunk {
@@ -38,10 +40,12 @@ struct isis_route_info;
 struct sr_prefix;
 struct sr_adjacency;
 
-void isis_zebra_route_add_route(struct prefix *prefix,
+void isis_zebra_route_add_route(struct isis *isis,
+				struct prefix *prefix,
 				struct prefix_ipv6 *src_p,
 				struct isis_route_info *route_info);
-void isis_zebra_route_del_route(struct prefix *prefix,
+void isis_zebra_route_del_route(struct isis *isis,
+				struct prefix *prefix,
 				struct prefix_ipv6 *src_p,
 				struct isis_route_info *route_info);
 void isis_zebra_send_prefix_sid(int cmd, const struct sr_prefix *srp);

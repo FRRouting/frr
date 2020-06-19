@@ -157,7 +157,8 @@ static int isis_zebra_link_params(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-void isis_zebra_route_add_route(struct prefix *prefix,
+void isis_zebra_route_add_route(struct isis *isis,
+				struct prefix *prefix,
 				struct prefix_ipv6 *src_p,
 				struct isis_route_info *route_info)
 {
@@ -171,7 +172,7 @@ void isis_zebra_route_add_route(struct prefix *prefix,
 		return;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id = isis->vrf_id;
 	api.type = PROTO_TYPE;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;
@@ -194,7 +195,7 @@ void isis_zebra_route_add_route(struct prefix *prefix,
 		api_nh = &api.nexthops[count];
 		if (fabricd)
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
-		api_nh->vrf_id = VRF_DEFAULT;
+		api_nh->vrf_id = isis->vrf_id;
 
 		switch (nexthop->family) {
 		case AF_INET:
@@ -232,7 +233,8 @@ void isis_zebra_route_add_route(struct prefix *prefix,
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
 
-void isis_zebra_route_del_route(struct prefix *prefix,
+void isis_zebra_route_del_route(struct isis *isis,
+				struct prefix *prefix,
 				struct prefix_ipv6 *src_p,
 				struct isis_route_info *route_info)
 {
@@ -242,7 +244,7 @@ void isis_zebra_route_del_route(struct prefix *prefix,
 		return;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id = isis->vrf_id;
 	api.type = PROTO_TYPE;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;
