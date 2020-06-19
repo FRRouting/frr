@@ -216,7 +216,7 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	if (listcount(area->area_addrs) == 0) {
 		memset(isis->sysid, 0, ISIS_SYS_ID_LEN);
 		isis->sysid_set = 0;
-		if (isis->debugs & DEBUG_EVENTS)
+		if (IS_DEBUG_EVENTS)
 			zlog_debug("Router has no SystemID");
 	}
 
@@ -1430,13 +1430,13 @@ int isis_instance_segment_routing_enabled_modify(
 	area->srdb.config.enabled = yang_dnode_get_bool(args->dnode, NULL);
 
 	if (area->srdb.config.enabled) {
-		if (IS_DEBUG_ISIS(DEBUG_EVENTS))
+		if (IS_DEBUG_EVENTS)
 			zlog_debug("SR: Segment Routing: OFF -> ON");
 
 		if (isis_sr_start(area) == 0)
 			area->srdb.enabled = true;
 	} else {
-		if (IS_DEBUG_ISIS(DEBUG_EVENTS))
+		if (IS_DEBUG_EVENTS)
 			zlog_debug("SR: Segment Routing: ON -> OFF");
 
 		isis_sr_stop(area);

@@ -198,7 +198,7 @@ int lsp_compare(char *areatag, struct isis_lsp *lsp, uint32_t seqno,
 	if (lsp->hdr.seqno == seqno && lsp->hdr.checksum == checksum
 	    && ((lsp->hdr.rem_lifetime == 0 && rem_lifetime == 0)
 		|| (lsp->hdr.rem_lifetime != 0 && rem_lifetime != 0))) {
-		if (isis->debugs & DEBUG_SNP_PACKETS) {
+		if (IS_DEBUG_SNP_PACKETS) {
 			zlog_debug(
 				"ISIS-Snp (%s): Compare LSP %s seq 0x%08" PRIx32
 				", cksum 0x%04" PRIx16 ", lifetime %" PRIu16
@@ -232,7 +232,7 @@ int lsp_compare(char *areatag, struct isis_lsp *lsp, uint32_t seqno,
 		&& ((lsp->hdr.rem_lifetime != 0 && rem_lifetime == 0)
 		    || (lsp->hdr.checksum != checksum
 			&& lsp->hdr.rem_lifetime)))) {
-		if (isis->debugs & DEBUG_SNP_PACKETS) {
+		if (IS_DEBUG_SNP_PACKETS) {
 			zlog_debug(
 				"ISIS-Snp (%s): Compare LSP %s seq 0x%08" PRIx32
 				", cksum 0x%04" PRIx16 ", lifetime %" PRIu16
@@ -248,7 +248,7 @@ int lsp_compare(char *areatag, struct isis_lsp *lsp, uint32_t seqno,
 		}
 		return LSP_NEWER;
 	}
-	if (isis->debugs & DEBUG_SNP_PACKETS) {
+	if (IS_DEBUG_SNP_PACKETS) {
 		zlog_debug("ISIS-Snp (%s): Compare LSP %s seq 0x%08" PRIx32
 			   ", cksum 0x%04" PRIx16 ", lifetime %" PRIu16 "s",
 			   areatag, rawlspid_print(lsp->hdr.lsp_id), seqno,
@@ -548,7 +548,7 @@ struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
 	lsp_link_fragment(lsp, lsp0);
 	put_lsp_hdr(lsp, NULL, false);
 
-	if (isis->debugs & DEBUG_EVENTS)
+	if (IS_DEBUG_EVENTS)
 		zlog_debug("New LSP with ID %s-%02x-%02x len %d seqnum %08x",
 			   sysid_print(lsp_id), LSP_PSEUDO_ID(lsp->hdr.lsp_id),
 			   LSP_FRAGMENT(lsp->hdr.lsp_id), lsp->hdr.pdu_len,
@@ -1246,7 +1246,7 @@ int lsp_generate(struct isis_area *area, int level)
 			 &area->lsp_refresh_arg[level - 1], refresh_time,
 			 &area->t_lsp_refresh[level - 1]);
 
-	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
+	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug("ISIS-Upd (%s): Building L%d LSP %s, len %" PRIu16
 			   ", seq 0x%08" PRIx32 ", cksum 0x%04" PRIx16
 			   ", lifetime %" PRIu16 "s refresh %" PRIu16 "s",
@@ -1330,7 +1330,7 @@ static int lsp_regenerate(struct isis_area *area, int level)
 			 &area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 
-	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
+	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug(
 			"ISIS-Upd (%s): Refreshed our L%d LSP %s, len %" PRIu16
 			", seq 0x%08" PRIx32 ", cksum 0x%04" PRIx16
@@ -1629,7 +1629,7 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 			master, lsp_l2_refresh_pseudo, circuit, refresh_time,
 			&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 
-	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
+	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug(
 			"ISIS-Upd (%s): Built L%d Pseudo LSP %s, len %" PRIu16
 			", seq 0x%08" PRIx32 ", cksum 0x%04" PRIx16
@@ -1686,7 +1686,7 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 			master, lsp_l2_refresh_pseudo, circuit, refresh_time,
 			&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 
-	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
+	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug(
 			"ISIS-Upd (%s): Refreshed L%d Pseudo LSP %s, len %" PRIu16
 			", seq 0x%08" PRIx32 ", cksum 0x%04" PRIx16
@@ -2013,7 +2013,7 @@ void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set)
 void _lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit,
 		const char *func, const char *file, int line)
 {
-	if (isis->debugs & DEBUG_FLOODING) {
+	if (IS_DEBUG_FLOODING) {
 		zlog_debug("Flooding LSP %s%s%s (From %s %s:%d)",
 			   rawlspid_print(lsp->hdr.lsp_id),
 			   circuit ? " except on " : "",
