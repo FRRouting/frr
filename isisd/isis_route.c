@@ -355,7 +355,7 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 		if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 			return;
 
-		isis_zebra_route_add_route(prefix, src_p, route_info);
+		isis_zebra_route_add_route(area->isis, prefix, src_p, route_info);
 		hook_call(isis_route_update_hook, area, prefix, route_info);
 
 		SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
@@ -364,7 +364,7 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 		if (!CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 			return;
 
-		isis_zebra_route_del_route(prefix, src_p, route_info);
+		isis_zebra_route_del_route(area->isis, prefix, src_p, route_info);
 		hook_call(isis_route_update_hook, area, prefix, route_info);
 
 		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
