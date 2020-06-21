@@ -122,7 +122,9 @@ static int open_packet_socket(struct isis_circuit *circuit)
 	struct sockaddr_ll s_addr;
 	int fd, retval = ISIS_OK;
 
-	fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
+	fd = vrf_socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL),
+			circuit->interface->vrf_id, circuit->interface->name);
+
 	if (fd < 0) {
 		zlog_warn("open_packet_socket(): socket() failed %s",
 			  safe_strerror(errno));
