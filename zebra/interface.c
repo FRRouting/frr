@@ -1709,7 +1709,7 @@ struct cmd_node interface_node = {
 #endif
 /* Show all interfaces to vty. */
 DEFPY(show_interface, show_interface_cmd,
-      "show interface [vrf NAME$vrf_name] [brief$brief]",
+      "show interface vrf NAME$vrf_name [brief$brief]",
       SHOW_STR
       "Interface status and configuration\n"
       VRF_CMD_HELP_STR
@@ -1717,15 +1717,15 @@ DEFPY(show_interface, show_interface_cmd,
 {
 	struct vrf *vrf;
 	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	interface_update_stats();
 
-	if (vrf_name)
-		VRF_GET_ID(vrf_id, vrf_name, false);
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (!vrf) {
+		vty_out(vty, "%% VRF %s not found\n", vrf_name);
+		return CMD_WARNING;
+	}
 
-	/* All interface print. */
-	vrf = vrf_lookup_by_id(vrf_id);
 	if (brief) {
 		ifs_dump_brief_vty(vty, vrf);
 	} else {
@@ -1741,7 +1741,7 @@ DEFPY(show_interface, show_interface_cmd,
 /* Show all interfaces to vty. */
 DEFPY (show_interface_vrf_all,
        show_interface_vrf_all_cmd,
-       "show interface vrf all [brief$brief]",
+       "show interface [vrf all] [brief$brief]",
        SHOW_STR
        "Interface status and configuration\n"
        VRF_ALL_CMD_HELP_STR
@@ -1778,14 +1778,17 @@ DEFUN (show_interface_name_vrf,
 	int idx_ifname = 2;
 	int idx_name = 4;
 	struct interface *ifp;
-	vrf_id_t vrf_id;
+	struct vrf *vrf;
 
 	interface_update_stats();
 
-	VRF_GET_ID(vrf_id, argv[idx_name]->arg, false);
+	vrf = vrf_lookup_by_name(argv[idx_name]->arg);
+	if (!vrf) {
+		vty_out(vty, "%% VRF %s not found\n", argv[idx_name]->arg);
+		return CMD_WARNING;
+	}
 
-	/* Specified interface print. */
-	ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
+	ifp = if_lookup_by_name_vrf(argv[idx_ifname]->arg, vrf);
 	if (ifp == NULL) {
 		vty_out(vty, "%% Can't find interface %s\n",
 			argv[idx_ifname]->arg);
@@ -1806,35 +1809,23 @@ DEFUN (show_interface_name_vrf_all,
        VRF_ALL_CMD_HELP_STR)
 {
 	int idx_ifname = 2;
-	struct vrf *vrf;
 	struct interface *ifp;
-	int found = 0;
 
 	interface_update_stats();
 
-	/* All interface print. */
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		/* Specified interface print. */
-		ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf->vrf_id);
-		if (ifp) {
-			if_dump_vty(vty, ifp);
-			found++;
-		}
-	}
-
-	if (!found) {
+	ifp = if_lookup_by_name_all_vrf(argv[idx_ifname]->arg);
+	if (ifp == NULL) {
 		vty_out(vty, "%% Can't find interface %s\n",
 			argv[idx_ifname]->arg);
 		return CMD_WARNING;
 	}
+	if_dump_vty(vty, ifp);
 
 	return CMD_SUCCESS;
 }
 
-
-static void if_show_description(struct vty *vty, vrf_id_t vrf_id)
+static void if_show_description(struct vty *vty, struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface *ifp;
 
 	vty_out(vty, "Interface       Status  Protocol  Description\n");
@@ -1882,18 +1873,21 @@ static void if_show_description(struct vty *vty, vrf_id_t vrf_id)
 
 DEFUN (show_interface_desc,
        show_interface_desc_cmd,
-       "show interface description [vrf NAME]",
+       "show interface description vrf NAME",
        SHOW_STR
        "Interface status and configuration\n"
        "Interface description\n"
        VRF_CMD_HELP_STR)
 {
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	struct vrf *vrf;
 
-	if (argc > 3)
-		VRF_GET_ID(vrf_id, argv[4]->arg, false);
+	vrf = vrf_lookup_by_name(argv[4]->arg);
+	if (!vrf) {
+		vty_out(vty, "%% VRF %s not found\n", argv[4]->arg);
+		return CMD_WARNING;
+	}
 
-	if_show_description(vty, vrf_id);
+	if_show_description(vty, vrf);
 
 	return CMD_SUCCESS;
 }
@@ -1901,7 +1895,7 @@ DEFUN (show_interface_desc,
 
 DEFUN (show_interface_desc_vrf_all,
        show_interface_desc_vrf_all_cmd,
-       "show interface description vrf all",
+       "show interface description [vrf all]",
        SHOW_STR
        "Interface status and configuration\n"
        "Interface description\n"
@@ -1913,7 +1907,7 @@ DEFUN (show_interface_desc_vrf_all,
 		if (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
 			vty_out(vty, "\n\tVRF %s(%u)\n\n", VRF_LOGNAME(vrf),
 				vrf->vrf_id);
-			if_show_description(vty, vrf->vrf_id);
+			if_show_description(vty, vrf);
 		}
 
 	return CMD_SUCCESS;

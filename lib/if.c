@@ -383,6 +383,17 @@ struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
 }
 
+struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf)
+{
+	struct interface if_tmp;
+
+	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+		return NULL;
+
+	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
+	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+}
+
 struct interface *if_lookup_by_name_all_vrf(const char *name)
 {
 	struct vrf *vrf;
