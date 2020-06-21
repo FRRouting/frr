@@ -32,6 +32,7 @@
 #include "stream.h"
 #include "if.h"
 #include "lib_errors.h"
+#include "vrf.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
