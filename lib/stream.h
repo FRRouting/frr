@@ -426,7 +426,7 @@ static inline const uint8_t *ptr_get_be32(const uint8_t *ptr, uint32_t *out)
 			float r;                                               \
 			uint32_t d;                                            \
 		} _pval;                                                       \
-		if (stream_getl2((S), &_pval.d))                               \
+		if (!stream_getl2((S), &_pval.d))                              \
 			goto stream_failure;                                   \
 		(P) = _pval.r;                                                 \
 	} while (0)
