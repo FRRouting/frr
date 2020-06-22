@@ -3239,6 +3239,9 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				struct bgp_node *rn)
 {
 	bool ret = false;
+	bool is_bgp_static_route =
+		(type == ZEBRA_ROUTE_BGP && stype == BGP_ROUTE_STATIC) ? true
+								       : false;
 
 	/* Only validated for unicast and multicast currently. */
 	/* Also valid for EVPN where the nexthop is an IP address. */
@@ -3247,7 +3250,7 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* If NEXT_HOP is present, validate it. */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
-		if (attr->nexthop.s_addr == INADDR_ANY
+		if ((attr->nexthop.s_addr == INADDR_ANY && !is_bgp_static_route)
 		    || IPV4_CLASS_DE(ntohl(attr->nexthop.s_addr))
 		    || bgp_nexthop_self(bgp, afi, type, stype, attr, rn))
 			return true;
@@ -3266,7 +3269,8 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 		switch (attr->mp_nexthop_len) {
 		case BGP_ATTR_NHLEN_IPV4:
 		case BGP_ATTR_NHLEN_VPNV4:
-			ret = (attr->mp_nexthop_global_in.s_addr == INADDR_ANY
+			ret = ((attr->mp_nexthop_global_in.s_addr == INADDR_ANY
+				&& !is_bgp_static_route)
 			       || IPV4_CLASS_DE(
 				       ntohl(attr->mp_nexthop_global_in.s_addr))
 			       || bgp_nexthop_self(bgp, afi, type, stype, attr,
@@ -3275,12 +3279,14 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
 		case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
-			ret = (IN6_IS_ADDR_UNSPECIFIED(&attr->mp_nexthop_global)
+			ret = ((IN6_IS_ADDR_UNSPECIFIED(
+					&attr->mp_nexthop_global)
+				&& !is_bgp_static_route)
 			       || IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global)
 			       || IN6_IS_ADDR_MULTICAST(
-					  &attr->mp_nexthop_global)
-			       || bgp_nexthop_self(bgp, afi, type, stype,
-						   attr, rn));
+				       &attr->mp_nexthop_global)
+			       || bgp_nexthop_self(bgp, afi, type, stype, attr,
+						   rn));
 			break;
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
 			ret = (IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global)
