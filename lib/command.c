@@ -144,7 +144,9 @@ void print_version(const char *progname)
 {
 	printf("%s version %s\n", progname, FRR_VERSION);
 	printf("%s\n", FRR_COPYRIGHT);
+#ifdef ENABLE_VERSION_BUILD_CONFIG
 	printf("configured with:\n\t%s\n", FRR_CONFIG_ARGS);
+#endif
 }
 
 char *argv_concat(struct cmd_token **argv, int argc, int shift)
@@ -1334,8 +1336,9 @@ DEFUN (show_version,
 	vty_out(vty, "%s %s (%s).\n", FRR_FULL_NAME, FRR_VERSION,
 		cmd_hostname_get() ? cmd_hostname_get() : "");
 	vty_out(vty, "%s%s\n", FRR_COPYRIGHT, GIT_INFO);
+#ifdef ENABLE_VERSION_BUILD_CONFIG
 	vty_out(vty, "configured with:\n    %s\n", FRR_CONFIG_ARGS);
-
+#endif
 	return CMD_SUCCESS;
 }
 
