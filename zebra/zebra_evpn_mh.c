@@ -355,11 +355,11 @@ void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj, vni_t vni, int detail)
 			vty_out(vty, "Type: L local, R remote\n");
 			vty_out(vty, "%-8s %-30s %-4s\n", "VNI", "ESI", "Type");
 		}
+		zebra_evpn_es_evi_show_one_evpn(zevpn, vty, json, detail);
 	} else {
 		if (!uj)
 			vty_out(vty, "VNI %d doesn't exist\n", vni);
 	}
-	zebra_evpn_es_evi_show_one_evpn(zevpn, vty, json, detail);
 }
 
 /* Initialize the ES tables maintained per-L2_VNI */
