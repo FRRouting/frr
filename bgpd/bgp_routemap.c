@@ -40,6 +40,7 @@
 #include "queue.h"
 #include "frrstr.h"
 #include "network.h"
+#include "lib/northbound_cli.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -3520,21 +3521,27 @@ static const struct route_map_rule_cmd route_set_originator_id_cmd = {
 };
 
 /* Add bgp route map rule. */
-static int bgp_route_match_add(struct vty *vty, const char *command,
-			       const char *arg, route_map_event_t type)
+int bgp_route_match_add(struct vty *vty, struct route_map_index *index,
+			const char *command, const char *arg,
+			route_map_event_t type)
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
 	int retval = CMD_SUCCESS;
 	enum rmap_compile_rets ret;
 
 	ret = route_map_add_match(index, command, arg, type);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
-		vty_out(vty, "%% BGP Can't find rule.\n");
+		if (vty)
+			vty_out(vty, "%% BGP Can't find rule.\n");
+		else
+			zlog_warn("%% BGP Can't find rule.\n");
 		retval = CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_ERROR:
-		vty_out(vty, "%% BGP Argument is malformed.\n");
+		if (vty)
+			vty_out(vty, "%% BGP Argument is malformed.\n");
+		else
+			zlog_warn("%% BGP Argument is malformed.\n");
 		retval = CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
@@ -3548,10 +3555,10 @@ static int bgp_route_match_add(struct vty *vty, const char *command,
 }
 
 /* Delete bgp route map rule. */
-static int bgp_route_match_delete(struct vty *vty, const char *command,
-				  const char *arg, route_map_event_t type)
+int bgp_route_match_delete(struct vty *vty, struct route_map_index *index,
+			   const char *command, const char *arg,
+			   route_map_event_t type)
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
 	enum rmap_compile_rets ret;
 	int retval = CMD_SUCCESS;
 	char *dep_name = NULL;
@@ -3574,11 +3581,17 @@ static int bgp_route_match_delete(struct vty *vty, const char *command,
 	ret = route_map_delete_match(index, command, dep_name, type);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
-		vty_out(vty, "%% BGP Can't find rule.\n");
+		if (vty)
+			vty_out(vty, "%% BGP Can't find rule.\n");
+		else
+			zlog_warn("%% BGP Can't find rule.\n");
 		retval = CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_ERROR:
-		vty_out(vty, "%% BGP Argument is malformed.\n");
+		if (vty)
+			vty_out(vty, "%% BGP Argument is malformed.\n");
+		else
+			zlog_warn("%% BGP Argument is malformed.\n");
 		retval = CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
@@ -3966,827 +3979,1140 @@ static void bgp_route_map_event(const char *rmap_name)
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
 }
 
-DEFUN (match_mac_address,
-       match_mac_address_cmd,
-       "match mac address WORD",
-       MATCH_STR
-       "mac address\n"
-       "Match address of route\n"
-       "MAC Access-list name\n")
+DEFUN(match_mac_address, match_mac_address_cmd, "match mac address WORD",
+      MATCH_STR
+      "mac address\n"
+      "Match address of route\n"
+      "MAC Access-list name\n")
 {
-	return bgp_route_match_add(vty, "mac address", argv[3]->arg,
-				   RMAP_EVENT_FILTER_ADDED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:mac-address-list']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:list-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_mac_address,
-       no_match_mac_address_cmd,
-       "no match mac address WORD",
-       NO_STR
-       MATCH_STR
-       "mac\n"
-       "Match address of route\n"
-       "MAC acess-list name\n")
+DEFUN(no_match_mac_address, no_match_mac_address_cmd,
+      "no match mac address [WORD]",
+      NO_STR MATCH_STR
+      "mac\n"
+      "Match address of route\n"
+      "MAC acess-list name\n")
 {
-	return bgp_route_match_delete(vty, "mac address", argv[4]->arg,
-				      RMAP_EVENT_FILTER_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:mac-address-list']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (match_evpn_route_type,
-       match_evpn_route_type_cmd,
-       "match evpn route-type <macip | multicast | prefix>",
-       MATCH_STR
-       EVPN_HELP_STR
-       "Match route-type\n"
-       "mac-ip route\n"
-       "IMET route\n"
-       "prefix route\n")
+DEFUN(match_evpn_route_type, match_evpn_route_type_cmd,
+      "match evpn route-type <macip | multicast | prefix>",
+      MATCH_STR EVPN_HELP_STR
+      "Match route-type\n"
+      "mac-ip route\n"
+      "IMET route\n"
+      "prefix route\n")
 {
-	return bgp_route_match_add(vty, "evpn route-type", argv[3]->arg,
-				   RMAP_EVENT_MATCH_ADDED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:evpn-route-type']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:evpn-route-type",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_evpn_route_type,
-       no_match_evpn_route_type_cmd,
-       "no match evpn route-type <macip | multicast | prefix>",
-       NO_STR
-       MATCH_STR
-       EVPN_HELP_STR
-       "Match route-type\n"
-       "mac-ip route\n"
-       "IMET route\n"
-       "prefix route\n")
+DEFUN(no_match_evpn_route_type, no_match_evpn_route_type_cmd,
+      "no match evpn route-type [<macip | multicast | prefix>]",
+      NO_STR MATCH_STR EVPN_HELP_STR
+      "Match route-type\n"
+      "mac-ip route\n"
+      "IMET route\n"
+      "prefix route\n")
 {
-	return bgp_route_match_delete(vty, "evpn route-type", argv[4]->arg,
-				      RMAP_EVENT_MATCH_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:evpn-route-type']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-DEFUN (match_evpn_vni,
-       match_evpn_vni_cmd,
-       "match evpn vni " CMD_VNI_RANGE,
-       MATCH_STR
-       EVPN_HELP_STR
-       "Match VNI\n"
-       "VNI ID\n")
+DEFUN(match_evpn_vni, match_evpn_vni_cmd, "match evpn vni " CMD_VNI_RANGE,
+      MATCH_STR EVPN_HELP_STR
+      "Match VNI\n"
+      "VNI ID\n")
 {
-	return bgp_route_match_add(vty, "evpn vni", argv[3]->arg,
-				   RMAP_EVENT_MATCH_ADDED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:evpn-vni']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:evpn-vni", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_evpn_vni,
-       no_match_evpn_vni_cmd,
-       "no match evpn vni " CMD_VNI_RANGE,
-       NO_STR
-       MATCH_STR
-       EVPN_HELP_STR
-       "Match VNI\n"
-       "VNI ID\n")
+DEFUN(no_match_evpn_vni, no_match_evpn_vni_cmd,
+      "no match evpn vni " CMD_VNI_RANGE,
+      NO_STR MATCH_STR EVPN_HELP_STR
+      "Match VNI\n"
+      "VNI ID\n")
 {
-	return bgp_route_match_delete(vty, "evpn vni", argv[4]->arg,
-				      RMAP_EVENT_MATCH_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:evpn-vni']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:evpn-vni", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (match_evpn_default_route,
-       match_evpn_default_route_cmd,
-       "match evpn default-route",
-       MATCH_STR
-       EVPN_HELP_STR
-       "default EVPN type-5 route\n")
+DEFUN(match_evpn_default_route, match_evpn_default_route_cmd,
+      "match evpn default-route",
+      MATCH_STR EVPN_HELP_STR "default EVPN type-5 route\n")
 {
-	return bgp_route_match_add(vty, "evpn default-route", NULL,
-				   RMAP_EVENT_MATCH_ADDED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:evpn-default-route']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:evpn-default-route",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_evpn_default_route,
-       no_match_evpn_default_route_cmd,
-       "no match evpn default-route",
-       NO_STR
-       MATCH_STR
-       EVPN_HELP_STR
-       "default EVPN type-5 route\n")
+DEFUN(no_match_evpn_default_route, no_match_evpn_default_route_cmd,
+      "no match evpn default-route",
+      NO_STR MATCH_STR EVPN_HELP_STR "default EVPN type-5 route\n")
 {
-	return bgp_route_match_delete(vty, "evpn default-route", NULL,
-				      RMAP_EVENT_MATCH_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:evpn-default-route']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (match_evpn_rd,
-       match_evpn_rd_cmd,
-       "match evpn rd ASN:NN_OR_IP-ADDRESS:NN",
-       MATCH_STR
-       EVPN_HELP_STR
-       "Route Distinguisher\n"
-       "ASN:XX or A.B.C.D:XX\n")
+DEFUN(match_evpn_rd, match_evpn_rd_cmd, "match evpn rd ASN:NN_OR_IP-ADDRESS:NN",
+      MATCH_STR EVPN_HELP_STR
+      "Route Distinguisher\n"
+      "ASN:XX or A.B.C.D:XX\n")
 {
-	return bgp_route_match_add(vty, "evpn rd", argv[3]->arg,
-				   RMAP_EVENT_MATCH_ADDED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:evpn-rd']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(
+		xpath_value, sizeof(xpath_value),
+		"%s/rmap-match-condition/frr-bgp-route-map:route-distinguisher",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_evpn_rd,
-       no_match_evpn_rd_cmd,
-       "no match evpn rd ASN:NN_OR_IP-ADDRESS:NN",
-       NO_STR
-       MATCH_STR
-       EVPN_HELP_STR
-       "Route Distinguisher\n"
-       "ASN:XX or A.B.C.D:XX\n")
+DEFUN(no_match_evpn_rd, no_match_evpn_rd_cmd,
+      "no match evpn rd [ASN:NN_OR_IP-ADDRESS:NN]",
+      NO_STR MATCH_STR EVPN_HELP_STR
+      "Route Distinguisher\n"
+      "ASN:XX or A.B.C.D:XX\n")
 {
-	return bgp_route_match_delete(vty, "evpn rd", argv[4]->arg,
-				      RMAP_EVENT_MATCH_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:evpn-rd']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(match_vrl_source_vrf,
-      match_vrl_source_vrf_cmd,
+DEFPY(match_vrl_source_vrf, match_vrl_source_vrf_cmd,
       "match source-vrf NAME$vrf_name",
       MATCH_STR
       "source vrf\n"
       "The VRF name\n")
 {
-	return bgp_route_match_add(vty, "source-vrf", vrf_name,
-				   RMAP_EVENT_MATCH_ADDED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:source-vrf']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:source-vrf", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, vrf_name);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(no_match_vrl_source_vrf,
-      no_match_vrl_source_vrf_cmd,
+DEFPY(no_match_vrl_source_vrf, no_match_vrl_source_vrf_cmd,
       "no match source-vrf NAME$vrf_name",
-      NO_STR
-      MATCH_STR
+      NO_STR MATCH_STR
       "source vrf\n"
       "The VRF name\n")
 {
-	return bgp_route_match_delete(vty, "source-vrf", vrf_name,
-				      RMAP_EVENT_MATCH_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:source-vrf']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (match_peer,
-       match_peer_cmd,
-       "match peer <A.B.C.D|X:X::X:X|WORD>",
-       MATCH_STR
-       "Match peer address\n"
-       "IP address of peer\n"
-       "IPv6 address of peer\n"
-       "Interface name of peer\n")
+DEFPY(match_peer, match_peer_cmd,
+      "match peer <A.B.C.D$addrv4|X:X::X:X$addrv6|WORD$intf>",
+      MATCH_STR
+      "Match peer address\n"
+      "IP address of peer\n"
+      "IPv6 address of peer\n"
+      "Interface name of peer\n")
 {
-	int idx_ip = 2;
-	return bgp_route_match_add(vty, "peer", argv[idx_ip]->arg,
-				   RMAP_EVENT_MATCH_ADDED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:peer']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	if (addrv4_str) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:peer-ipv4-address",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      addrv4_str);
+	} else if (addrv6_str) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:peer-ipv6-address",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      addrv6_str);
+	} else {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:peer-interface",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, intf);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (match_peer_local,
-       match_peer_local_cmd,
-        "match peer local",
-        MATCH_STR
-        "Match peer address\n"
-        "Static or Redistributed routes\n")
+DEFUN(match_peer_local, match_peer_local_cmd, "match peer local",
+      MATCH_STR
+      "Match peer address\n"
+      "Static or Redistributed routes\n")
 {
-	return bgp_route_match_add(vty, "peer", "local",
-				   RMAP_EVENT_MATCH_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:peer']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:peer-local", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_peer,
-       no_match_peer_cmd,
-       "no match peer [<local|A.B.C.D|X:X::X:X|WORD>]",
-       NO_STR
-       MATCH_STR
-       "Match peer address\n"
-       "Static or Redistributed routes\n"
-       "IP address of peer\n"
-       "IPv6 address of peer\n"
-       "Interface name of peer\n")
+DEFUN(no_match_peer, no_match_peer_cmd,
+      "no match peer [<local|A.B.C.D|X:X::X:X|WORD>]",
+      NO_STR MATCH_STR
+      "Match peer address\n"
+      "Static or Redistributed routes\n"
+      "IP address of peer\n"
+      "IPv6 address of peer\n"
+      "Interface name of peer\n")
 {
-	int idx_peer = 3;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:peer']";
 
-	if (argc <= idx_peer)
-		return bgp_route_match_delete(vty, "peer", NULL,
-					      RMAP_EVENT_MATCH_DELETED);
-	return bgp_route_match_delete(vty, "peer", argv[idx_peer]->arg,
-				      RMAP_EVENT_MATCH_DELETED);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 #if defined(HAVE_LUA)
-DEFUN (match_command,
-       match_command_cmd,
-       "match command WORD",
-       MATCH_STR
-       "Run a command to match\n"
-       "The command to run\n")
+DEFUN(match_command, match_command_cmd, "match command WORD",
+      MATCH_STR
+      "Run a command to match\n"
+      "The command to run\n")
 {
-	return bgp_route_match_add(vty, "command", argv[2]->arg,
+	VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
+	return bgp_route_match_add(vty, index, "command", argv[2]->arg,
 				   RMAP_EVENT_FILTER_ADDED);
 }
 
-DEFUN (no_match_command,
-       no_match_command_cmd,
-       "no match command WORD",
-       NO_STR
-       MATCH_STR
-       "Run a command to match\n"
-       "The command to run\n")
+DEFUN(no_match_command, no_match_command_cmd, "no match command WORD",
+      NO_STR MATCH_STR
+      "Run a command to match\n"
+      "The command to run\n")
 {
-	return bgp_route_match_delete(vty, "command", argv[3]->arg,
+	VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
+	return bgp_route_match_delete(vty, index, "command", argv[3]->arg,
 				      RMAP_EVENT_FILTER_DELETED);
 }
 #endif
 
 /* match probability */
-DEFUN (match_probability,
-       match_probability_cmd,
-       "match probability (0-100)",
-       MATCH_STR
-       "Match portion of routes defined by percentage value\n"
-       "Percentage of routes\n")
+DEFUN(match_probability, match_probability_cmd, "match probability (0-100)",
+      MATCH_STR
+      "Match portion of routes defined by percentage value\n"
+      "Percentage of routes\n")
 {
 	int idx_number = 2;
-	return bgp_route_match_add(vty, "probability", argv[idx_number]->arg,
-				   RMAP_EVENT_MATCH_ADDED);
+
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:probability']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:probability",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-DEFUN (no_match_probability,
-       no_match_probability_cmd,
-       "no match probability [(1-99)]",
-       NO_STR
-       MATCH_STR
-       "Match portion of routes defined by percentage value\n"
-       "Percentage of routes\n")
+DEFUN(no_match_probability, no_match_probability_cmd,
+      "no match probability [(1-99)]",
+      NO_STR MATCH_STR
+      "Match portion of routes defined by percentage value\n"
+      "Percentage of routes\n")
 {
 	int idx_number = 3;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:probability']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
 	if (argc <= idx_number)
-		return bgp_route_match_delete(vty, "probability", NULL,
-					      RMAP_EVENT_MATCH_DELETED);
-	return bgp_route_match_delete(vty, "probability", argv[idx_number]->arg,
-				      RMAP_EVENT_MATCH_DELETED);
+		return nb_cli_apply_changes(vty, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:probability",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY,
+			      argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-DEFUN (match_ip_route_source,
-       match_ip_route_source_cmd,
-       "match ip route-source <(1-199)|(1300-2699)|WORD>",
-       MATCH_STR
-       IP_STR
-       "Match advertising source address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP standard access-list name\n")
+DEFPY(match_ip_route_source, match_ip_route_source_cmd,
+      "match ip route-source <(1-199)$acll|(1300-2699)$aclh|WORD$name>",
+      MATCH_STR IP_STR
+      "Match advertising source address of route\n"
+      "IP access-list number\n"
+      "IP access-list number (expanded range)\n"
+      "IP standard access-list name\n")
 {
-	int idx_acl = 3;
-	return bgp_route_match_add(vty, "ip route-source", argv[idx_acl]->arg,
-				   RMAP_EVENT_FILTER_ADDED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:ip-route-source']";
+	char xpath_value[XPATH_MAXLEN + 32];
+	int acln = acll ? acll : aclh;
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	if (name) {
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-match-condition/frr-bgp-route-map:list-name",
+			 xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
+	} else /* if (acll || aclh) */ {
+		if ((acln >= 1 && acln <= 99)
+		    || (acln >= 1300 && acln <= 1999)) {
+			snprintf(
+				xpath_value, sizeof(xpath_value),
+				"%s/rmap-match-condition/frr-bgp-route-map:access-list-num",
+				xpath);
+		} else {
+			/*
+			 * if ((acln >= 100 && acln <= 199)
+			 *     || (acln >= 2000 && acln <= 2699))
+			 */
+			snprintf(
+				xpath_value, sizeof(xpath_value),
+				"%s/rmap-match-condition/frr-bgp-route-map:access-list-num-extended",
+				xpath);
+		}
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      acll_str ? acll_str : aclh_str);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-DEFUN (no_match_ip_route_source,
-       no_match_ip_route_source_cmd,
-       "no match ip route-source [<(1-199)|(1300-2699)|WORD>]",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match advertising source address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP standard access-list name\n")
+DEFUN(no_match_ip_route_source, no_match_ip_route_source_cmd,
+      "no match ip route-source [<(1-199)|(1300-2699)|WORD>]",
+      NO_STR MATCH_STR IP_STR
+      "Match advertising source address of route\n"
+      "IP access-list number\n"
+      "IP access-list number (expanded range)\n"
+      "IP standard access-list name\n")
 {
-	int idx_number = 4;
-	if (argc <= idx_number)
-		return bgp_route_match_delete(vty, "ip route-source", NULL,
-					      RMAP_EVENT_FILTER_DELETED);
-	return bgp_route_match_delete(vty, "ip route-source",
-				      argv[idx_number]->arg,
-				      RMAP_EVENT_FILTER_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:ip-route-source']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-DEFUN (match_ip_route_source_prefix_list,
-       match_ip_route_source_prefix_list_cmd,
-       "match ip route-source prefix-list WORD",
-       MATCH_STR
-       IP_STR
-       "Match advertising source address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
+DEFUN(match_ip_route_source_prefix_list, match_ip_route_source_prefix_list_cmd,
+      "match ip route-source prefix-list WORD",
+      MATCH_STR IP_STR
+      "Match advertising source address of route\n"
+      "Match entries of prefix-lists\n"
+      "IP prefix-list name\n")
 {
 	int idx_word = 4;
-	return bgp_route_match_add(vty, "ip route-source prefix-list",
-				   argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:ip-route-source-prefix-list']";
+	char xpath_value[XPATH_MAXLEN + 32];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:list-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_word]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-DEFUN (no_match_ip_route_source_prefix_list,
-       no_match_ip_route_source_prefix_list_cmd,
-       "no match ip route-source prefix-list [WORD]",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match advertising source address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
+DEFUN(no_match_ip_route_source_prefix_list,
+      no_match_ip_route_source_prefix_list_cmd,
+      "no match ip route-source prefix-list [WORD]",
+      NO_STR MATCH_STR IP_STR
+      "Match advertising source address of route\n"
+      "Match entries of prefix-lists\n"
+      "IP prefix-list name\n")
 {
-	int idx_word = 5;
-	if (argc <= idx_word)
-		return bgp_route_match_delete(vty,
-					      "ip route-source prefix-list",
-					      NULL, RMAP_EVENT_PLIST_DELETED);
-	return bgp_route_match_delete(vty, "ip route-source prefix-list",
-				      argv[idx_word]->arg,
-				      RMAP_EVENT_PLIST_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:ip-route-source-prefix-list']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-DEFUN (match_local_pref,
-       match_local_pref_cmd,
-       "match local-preference (0-4294967295)",
-       MATCH_STR
-       "Match local-preference of route\n"
-       "Metric value\n")
+DEFUN(match_local_pref, match_local_pref_cmd,
+      "match local-preference (0-4294967295)",
+      MATCH_STR
+      "Match local-preference of route\n"
+      "Metric value\n")
 {
 	int idx_number = 2;
-	return bgp_route_match_add(vty, "local-preference",
-				   argv[idx_number]->arg,
-				   RMAP_EVENT_MATCH_ADDED);
+
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-local-preference']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:local-preference",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-DEFUN (no_match_local_pref,
-       no_match_local_pref_cmd,
-       "no match local-preference [(0-4294967295)]",
-       NO_STR
-       MATCH_STR
-       "Match local preference of route\n"
-       "Local preference value\n")
+DEFUN(no_match_local_pref, no_match_local_pref_cmd,
+      "no match local-preference [(0-4294967295)]",
+      NO_STR MATCH_STR
+      "Match local preference of route\n"
+      "Local preference value\n")
 {
 	int idx_localpref = 3;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-local-preference']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
 	if (argc <= idx_localpref)
-		return bgp_route_match_delete(vty, "local-preference", NULL,
-					      RMAP_EVENT_MATCH_DELETED);
-	return bgp_route_match_delete(vty, "local-preference",
-				      argv[idx_localpref]->arg,
-				      RMAP_EVENT_MATCH_DELETED);
+		return nb_cli_apply_changes(vty, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:local-preference",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY,
+			      argv[idx_localpref]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-DEFUN (match_community,
-       match_community_cmd,
-       "match community <(1-99)|(100-500)|WORD> [exact-match]",
-       MATCH_STR
-       "Match BGP community list\n"
-       "Community-list number (standard)\n"
-       "Community-list number (expanded)\n"
-       "Community-list name\n"
-       "Do exact matching of communities\n")
+DEFPY(match_community, match_community_cmd,
+      "match community <(1-99)$std|(100-500)$ext|WORD$list> [exact-match]",
+      MATCH_STR
+      "Match BGP community list\n"
+      "Community-list number (standard)\n"
+      "Community-list number (expanded)\n"
+      "Community-list name\n"
+      "Do exact matching of communities\n")
 {
-	int idx_comm_list = 2;
-	int ret;
-	char *argstr;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-community']";
+	char xpath_value[XPATH_MAXLEN];
+	char xpath_match[XPATH_MAXLEN];
 
-	if (argc == 4) {
-		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
-				 strlen(argv[idx_comm_list]->arg)
-					 + strlen("exact-match") + 2);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-		sprintf(argstr, "%s exact-match", argv[idx_comm_list]->arg);
-	} else
-		argstr = argv[idx_comm_list]->arg;
+	if (std_str) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:comm-list-standard/comm-list-num",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, std_str);
 
-	ret = bgp_route_match_add(vty, "community", argstr,
-				  RMAP_EVENT_CLIST_ADDED);
+		if (argc == 4) {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list-standard/comm-list-num-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "true");
+		} else {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list-standard/comm-list-num-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "false");
+		}
+	} else if (ext_str) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:comm-list-extended/comm-list-num-extended",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ext_str);
 
-	if (argstr != argv[idx_comm_list]->arg)
-		XFREE(MTYPE_ROUTE_MAP_COMPILED, argstr);
+		if (argc == 4) {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list-extended/comm-list-num-extended-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "true");
+		} else {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list-extended/comm-list-num-extended-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "false");
+		}
+	} else {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, list);
 
-	return ret;
+		if (argc == 4) {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "true");
+		} else {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "false");
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_community,
-       no_match_community_cmd,
-       "no match community [<(1-99)|(100-500)|WORD> [exact-match]]",
-       NO_STR
-       MATCH_STR
-       "Match BGP community list\n"
-       "Community-list number (standard)\n"
-       "Community-list number (expanded)\n"
-       "Community-list name\n"
-       "Do exact matching of communities\n")
+DEFUN(no_match_community, no_match_community_cmd,
+      "no match community [<(1-99)|(100-500)|WORD> [exact-match]]",
+      NO_STR MATCH_STR
+      "Match BGP community list\n"
+      "Community-list number (standard)\n"
+      "Community-list number (expanded)\n"
+      "Community-list name\n"
+      "Do exact matching of communities\n")
 {
-	return bgp_route_match_delete(vty, "community", NULL,
-				      RMAP_EVENT_CLIST_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-community']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (match_lcommunity,
-       match_lcommunity_cmd,
-       "match large-community <(1-99)|(100-500)|WORD> [exact-match]",
-       MATCH_STR
-       "Match BGP large community list\n"
-       "Large Community-list number (standard)\n"
-       "Large Community-list number (expanded)\n"
-       "Large Community-list name\n"
-       "Do exact matching of communities\n")
+DEFPY(match_lcommunity, match_lcommunity_cmd,
+      "match large-community <(1-99)$std|(100-500)$ext|WORD$list> "
+      "[exact-match]",
+      MATCH_STR
+      "Match BGP large community list\n"
+      "Large Community-list number (standard)\n"
+      "Large Community-list number (expanded)\n"
+      "Large Community-list name\n"
+      "Do exact matching of communities\n")
 {
-	int idx_lcomm_list = 2;
-	int ret;
-	char *argstr;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-large-community']";
+	char xpath_value[XPATH_MAXLEN];
+	char xpath_match[XPATH_MAXLEN];
 
-	if (argc == 4) {
-		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
-				strlen(argv[idx_lcomm_list]->arg)
-				+ strlen("exact-match") + 2);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-		sprintf(argstr, "%s exact-match", argv[idx_lcomm_list]->arg);
-	} else
-		argstr = argv[idx_lcomm_list]->arg;
+	if (std_str) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:comm-list-standard/comm-list-num",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, std_str);
 
-	ret = bgp_route_match_add(vty, "large-community", argstr,
-				   RMAP_EVENT_LLIST_ADDED);
-	if (argstr != argv[idx_lcomm_list]->arg)
-		XFREE(MTYPE_ROUTE_MAP_COMPILED, argstr);
+		if (argc == 4) {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list-standard/comm-list-num-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "true");
+		} else {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list-standard/comm-list-num-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "false");
+		}
+	} else if (ext_str) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:comm-list-extended/comm-list-num-extended",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ext_str);
 
-	return ret;
+		if (argc == 4) {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list-extended/comm-list-num-extended-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "true");
+		} else {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list-extended/comm-list-num-extended-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "false");
+		}
+	} else {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, list);
+
+		if (argc == 4) {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "true");
+		} else {
+			snprintf(
+				xpath_match, sizeof(xpath_match),
+				"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
+				xpath);
+			nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY,
+					      "false");
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_lcommunity,
-       no_match_lcommunity_cmd,
-       "no match large-community [<(1-99)|(100-500)|WORD> [exact-match]]",
-       NO_STR
-       MATCH_STR
-       "Match BGP large community list\n"
-       "Large Community-list number (standard)\n"
-       "Large Community-list number (expanded)\n"
-       "Large Community-list name\n"
-       "Do exact matching of communities\n")
+DEFUN(no_match_lcommunity, no_match_lcommunity_cmd,
+      "no match large-community [<(1-99)|(100-500)|WORD> [exact-match]]",
+      NO_STR MATCH_STR
+      "Match BGP large community list\n"
+      "Large Community-list number (standard)\n"
+      "Large Community-list number (expanded)\n"
+      "Large Community-list name\n"
+      "Do exact matching of communities\n")
 {
-	return bgp_route_match_delete(vty, "large-community", NULL,
-				      RMAP_EVENT_LLIST_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-large-community']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (match_ecommunity,
-       match_ecommunity_cmd,
-       "match extcommunity <(1-99)|(100-500)|WORD>",
-       MATCH_STR
-       "Match BGP/VPN extended community list\n"
-       "Extended community-list number (standard)\n"
-       "Extended community-list number (expanded)\n"
-       "Extended community-list name\n")
+DEFPY(match_ecommunity, match_ecommunity_cmd,
+      "match extcommunity <(1-99)$std|(100-500)$ext|WORD$list>",
+      MATCH_STR
+      "Match BGP/VPN extended community list\n"
+      "Extended community-list number (standard)\n"
+      "Extended community-list number (expanded)\n"
+      "Extended community-list name\n")
 {
-	int idx_comm_list = 2;
-	return bgp_route_match_add(vty, "extcommunity",
-				   argv[idx_comm_list]->arg,
-				   RMAP_EVENT_ECLIST_ADDED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-extcommunity']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	if (std_str) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:comm-list-standard/comm-list-num",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, std_str);
+	} else if (ext_str) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:comm-list-extended/comm-list-num-extended",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ext_str);
+	} else {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, list);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-DEFUN (no_match_ecommunity,
-       no_match_ecommunity_cmd,
-       "no match extcommunity [<(1-99)|(100-500)|WORD>]",
-       NO_STR
-       MATCH_STR
-       "Match BGP/VPN extended community list\n"
-       "Extended community-list number (standard)\n"
-       "Extended community-list number (expanded)\n"
-       "Extended community-list name\n")
+DEFUN(no_match_ecommunity, no_match_ecommunity_cmd,
+      "no match extcommunity [<(1-99)|(100-500)|WORD>]",
+      NO_STR MATCH_STR
+      "Match BGP/VPN extended community list\n"
+      "Extended community-list number (standard)\n"
+      "Extended community-list number (expanded)\n"
+      "Extended community-list name\n")
 {
-	return bgp_route_match_delete(vty, "extcommunity", NULL,
-				      RMAP_EVENT_ECLIST_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-extcommunity']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-DEFUN (match_aspath,
-       match_aspath_cmd,
-       "match as-path WORD",
-       MATCH_STR
-       "Match BGP AS path list\n"
-       "AS path access-list name\n")
+DEFUN(match_aspath, match_aspath_cmd, "match as-path WORD",
+      MATCH_STR
+      "Match BGP AS path list\n"
+      "AS path access-list name\n")
 {
 	int idx_word = 2;
-	return bgp_route_match_add(vty, "as-path", argv[idx_word]->arg,
-				   RMAP_EVENT_ASLIST_ADDED);
+
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:as-path-list']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:list-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_word]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-DEFUN (no_match_aspath,
-       no_match_aspath_cmd,
-       "no match as-path [WORD]",
-       NO_STR
-       MATCH_STR
-       "Match BGP AS path list\n"
-       "AS path access-list name\n")
+DEFUN(no_match_aspath, no_match_aspath_cmd, "no match as-path [WORD]",
+      NO_STR MATCH_STR
+      "Match BGP AS path list\n"
+      "AS path access-list name\n")
 {
-	return bgp_route_match_delete(vty, "as-path", NULL,
-				      RMAP_EVENT_ASLIST_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:as-path-list']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-DEFUN (match_origin,
-       match_origin_cmd,
-       "match origin <egp|igp|incomplete>",
-       MATCH_STR
-       "BGP origin code\n"
-       "remote EGP\n"
-       "local IGP\n"
-       "unknown heritage\n")
+DEFUN(match_origin, match_origin_cmd, "match origin <egp|igp|incomplete>",
+      MATCH_STR
+      "BGP origin code\n"
+      "remote EGP\n"
+      "local IGP\n"
+      "unknown heritage\n")
 {
 	int idx_origin = 2;
+	const char *origin_type;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-origin']";
+	char xpath_value[XPATH_MAXLEN];
+
 	if (strncmp(argv[idx_origin]->arg, "igp", 2) == 0)
-		return bgp_route_match_add(vty, "origin", "igp",
-					   RMAP_EVENT_MATCH_ADDED);
-	if (strncmp(argv[idx_origin]->arg, "egp", 1) == 0)
-		return bgp_route_match_add(vty, "origin", "egp",
-					   RMAP_EVENT_MATCH_ADDED);
-	if (strncmp(argv[idx_origin]->arg, "incomplete", 2) == 0)
-		return bgp_route_match_add(vty, "origin", "incomplete",
-					   RMAP_EVENT_MATCH_ADDED);
+		origin_type = "igp";
+	else if (strncmp(argv[idx_origin]->arg, "egp", 1) == 0)
+		origin_type = "egp";
+	else if (strncmp(argv[idx_origin]->arg, "incomplete", 2) == 0)
+		origin_type = "incomplete";
+	else {
+		vty_out(vty, "%% Invalid match origin type\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	vty_out(vty, "%% Invalid match origin type\n");
-	return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:origin", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, origin_type);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-DEFUN (no_match_origin,
-       no_match_origin_cmd,
-       "no match origin [<egp|igp|incomplete>]",
-       NO_STR
-       MATCH_STR
-       "BGP origin code\n"
-       "remote EGP\n"
-       "local IGP\n"
-       "unknown heritage\n")
+DEFUN(no_match_origin, no_match_origin_cmd,
+      "no match origin [<egp|igp|incomplete>]",
+      NO_STR MATCH_STR
+      "BGP origin code\n"
+      "remote EGP\n"
+      "local IGP\n"
+      "unknown heritage\n")
 {
-	return bgp_route_match_delete(vty, "origin", NULL,
-				      RMAP_EVENT_MATCH_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-origin']";
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (set_table_id,
-	set_table_id_cmd,
-	"set table (1-4294967295)",
-	SET_STR
-	"export route to non-main kernel table\n"
-	"Kernel routing table id\n")
-{
-	int idx_id = 2;
-
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
-
-	return generic_set_add(vty, index, "table", argv[idx_id]->arg);
-}
-
-DEFUN (no_set_table_id,
-	no_set_table_id_cmd,
-	"no set table",
-	NO_STR
-	SET_STR
-       "export route to non-main kernel table\n")
-{
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
-
-	return generic_set_delete(vty, index, "table", NULL);
-}
-
-DEFUN (set_ip_nexthop_peer,
-       set_ip_nexthop_peer_cmd,
-       "[no] set ip next-hop peer-address",
-       NO_STR
-       SET_STR
-       IP_STR
-       "Next hop address\n"
-       "Use peer address (for BGP only)\n")
-{
-	int (*func)(struct vty *, struct route_map_index *, const char *,
-		    const char *) = strmatch(argv[0]->text, "no")
-					    ? generic_set_delete
-					    : generic_set_add;
-
-	return func(vty, VTY_GET_CONTEXT(route_map_index), "ip next-hop",
-		    "peer-address");
-}
-
-DEFUN (set_ip_nexthop_unchanged,
-       set_ip_nexthop_unchanged_cmd,
-       "[no] set ip next-hop unchanged",
-       NO_STR
-       SET_STR
-       IP_STR
-       "Next hop address\n"
-       "Don't modify existing Next hop address\n")
-{
-	int (*func)(struct vty *, struct route_map_index *, const char *,
-		    const char *) = strmatch(argv[0]->text, "no")
-					    ? generic_set_delete
-					    : generic_set_add;
-
-	return func(vty, VTY_GET_CONTEXT(route_map_index), "ip next-hop",
-		    "unchanged");
-}
-
-DEFUN (set_distance,
-       set_distance_cmd,
-       "set distance (0-255)",
-       SET_STR
-       "BGP Administrative Distance to use\n"
-       "Distance value\n")
+DEFUN(set_table_id, set_table_id_cmd, "set table (1-4294967295)",
+      SET_STR
+      "export route to non-main kernel table\n"
+      "Kernel routing table id\n")
 {
 	int idx_number = 2;
+	const char *xpath = "./set-action[action='frr-bgp-route-map:table']";
+	char xpath_value[XPATH_MAXLEN];
 
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "distance", argv[idx_number]->arg);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:table", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_set_distance,
-       no_set_distance_cmd,
-       "no set distance [(0-255)]",
-       NO_STR SET_STR
-       "BGP Administrative Distance to use\n"
-       "Distance value\n")
+DEFUN(no_set_table_id, no_set_table_id_cmd, "no set table",
+      NO_STR SET_STR "export route to non-main kernel table\n")
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "distance", NULL);
+	const char *xpath = "./set-action[action='frr-bgp-route-map:table']";
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (set_local_pref,
-       set_local_pref_cmd,
-       "set local-preference WORD",
-       SET_STR
-       "BGP local preference path attribute\n"
-       "Preference value (0-4294967295)\n")
+DEFUN(set_ip_nexthop_peer, set_ip_nexthop_peer_cmd,
+      "[no] set ip next-hop peer-address",
+      NO_STR SET_STR IP_STR
+      "next hop address\n"
+      "Use peer address (for BGP only)\n")
 {
-	int idx_number = 2;
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "local-preference", argv[idx_number]->arg);
+	char xpath_value[XPATH_MAXLEN];
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-ipv4-nexthop']";
+
+	if (strmatch(argv[0]->text, "no"))
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-set-action/frr-bgp-route-map:ipv4-nexthop",
+			 xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      "peer-address");
+	}
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-DEFUN (no_set_local_pref,
-       no_set_local_pref_cmd,
-       "no set local-preference [WORD]",
-       NO_STR
-       SET_STR
-       "BGP local preference path attribute\n"
-       "Preference value (0-4294967295)\n")
+DEFUN(set_ip_nexthop_unchanged, set_ip_nexthop_unchanged_cmd,
+      "[no] set ip next-hop unchanged",
+      NO_STR SET_STR IP_STR
+      "next hop address\n"
+      "Don't modify existing Next hop address\n")
 {
-	int idx_localpref = 3;
-	if (argc <= idx_localpref)
-		return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-					  "local-preference", NULL);
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "local-preference", argv[idx_localpref]->arg);
+	char xpath_value[XPATH_MAXLEN];
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-ipv4-nexthop']";
+
+	if (strmatch(argv[0]->text, "no"))
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-set-action/frr-bgp-route-map:ipv4-nexthop",
+			 xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      "unchanged");
+	}
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-DEFUN (set_weight,
-       set_weight_cmd,
-       "set weight (0-4294967295)",
-       SET_STR
-       "BGP weight for routing table\n"
-       "Weight value\n")
-{
-	int idx_number = 2;
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index), "weight",
-			       argv[idx_number]->arg);
-}
-
-
-DEFUN (no_set_weight,
-       no_set_weight_cmd,
-       "no set weight [(0-4294967295)]",
-       NO_STR
-       SET_STR
-       "BGP weight for routing table\n"
-       "Weight value\n")
-{
-	int idx_weight = 3;
-	if (argc <= idx_weight)
-		return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-					  "weight", NULL);
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "weight", argv[idx_weight]->arg);
-}
-
-DEFUN (set_label_index,
-       set_label_index_cmd,
-       "set label-index (0-1048560)",
-       SET_STR
-       "Label index to associate with the prefix\n"
-       "Label index value\n")
+DEFUN(set_distance, set_distance_cmd, "set distance (0-255)",
+      SET_STR
+      "BGP Administrative Distance to use\n"
+      "Distance value\n")
 {
 	int idx_number = 2;
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "label-index", argv[idx_number]->arg);
+	const char *xpath = "./set-action[action='frr-bgp-route-map:distance']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:distance", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_set_label_index,
-       no_set_label_index_cmd,
-       "no set label-index [(0-1048560)]",
-       NO_STR
-       SET_STR
-       "Label index to associate with the prefix\n"
-       "Label index value\n")
+DEFUN(no_set_distance, no_set_distance_cmd, "no set distance [(0-255)]",
+      NO_STR SET_STR
+      "BGP Administrative Distance to use\n"
+      "Distance value\n")
 {
-	int idx_label_index = 3;
-	if (argc <= idx_label_index)
-		return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-					  "label-index", NULL);
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "label-index", argv[idx_label_index]->arg);
+	const char *xpath = "./set-action[action='frr-bgp-route-map:distance']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (set_aspath_prepend_asn,
-       set_aspath_prepend_asn_cmd,
-       "set as-path prepend (1-4294967295)...",
-       SET_STR
-       "Transform BGP AS_PATH attribute\n"
-       "Prepend to the as-path\n"
-       "AS number\n")
+DEFUN(set_local_pref, set_local_pref_cmd, "set local-preference WORD",
+      SET_STR
+      "BGP local preference path attribute\n"
+      "Preference value (0-4294967295)\n")
+{
+	int idx_number = 2;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-local-preference']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:local-pref", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN(no_set_local_pref, no_set_local_pref_cmd,
+      "no set local-preference [WORD]",
+      NO_STR SET_STR
+      "BGP local preference path attribute\n"
+      "Preference value (0-4294967295)\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-local-preference']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN(set_weight, set_weight_cmd, "set weight (0-4294967295)",
+      SET_STR
+      "BGP weight for routing table\n"
+      "Weight value\n")
+{
+	int idx_number = 2;
+	const char *xpath = "./set-action[action='frr-bgp-route-map:weight']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:weight", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN(no_set_weight, no_set_weight_cmd, "no set weight [(0-4294967295)]",
+      NO_STR SET_STR
+      "BGP weight for routing table\n"
+      "Weight value\n")
+{
+	const char *xpath = "./set-action[action='frr-bgp-route-map:weight']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN(set_label_index, set_label_index_cmd, "set label-index (0-1048560)",
+      SET_STR
+      "Label index to associate with the prefix\n"
+      "Label index value\n")
+{
+	int idx_number = 2;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:label-index']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:label-index", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN(no_set_label_index, no_set_label_index_cmd,
+      "no set label-index [(0-1048560)]",
+      NO_STR SET_STR
+      "Label index to associate with the prefix\n"
+      "Label index value\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:label-index']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN(set_aspath_prepend_asn, set_aspath_prepend_asn_cmd,
+      "set as-path prepend (1-4294967295)...",
+      SET_STR
+      "Transform BGP AS_PATH attribute\n"
+      "Prepend to the as-path\n"
+      "AS number\n")
 {
 	int idx_asn = 3;
 	int ret;
 	char *str;
 
 	str = argv_concat(argv, argc, idx_asn);
-	ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			      "as-path prepend", str);
-	XFREE(MTYPE_TMP, str);
 
-	return ret;
-}
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-prepend']";
+	char xpath_value[XPATH_MAXLEN];
 
-DEFUN (set_aspath_prepend_lastas,
-       set_aspath_prepend_lastas_cmd,
-       "set as-path prepend last-as (1-10)",
-       SET_STR
-       "Transform BGP AS_PATH attribute\n"
-       "Prepend to the as-path\n"
-       "Use the peer's AS-number\n"
-       "Number of times to insert\n")
-{
-	return set_aspath_prepend_asn(self, vty, argc, argv);
-}
-
-DEFUN (no_set_aspath_prepend,
-       no_set_aspath_prepend_cmd,
-       "no set as-path prepend [(1-4294967295)]",
-       NO_STR
-       SET_STR
-       "Transform BGP AS_PATH attribute\n"
-       "Prepend to the as-path\n"
-       "AS number\n")
-{
-	int idx_asn = 4;
-	int ret;
-	char *str;
-
-	str = argv_concat(argv, argc, idx_asn);
-	ret = generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				 "as-path prepend", str);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:prepend-as-path", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
 
-DEFUN (no_set_aspath_prepend_lastas,
-       no_set_aspath_prepend_lastas_cmd,
-       "no set as-path prepend last-as [(1-10)]",
-       NO_STR
-       SET_STR
-       "Transform BGP AS_PATH attribute\n"
-       "Prepend to the as-path\n"
-       "Use the peers AS-number\n"
-       "Number of times to insert\n")
+DEFUN(set_aspath_prepend_lastas, set_aspath_prepend_lastas_cmd,
+      "set as-path prepend last-as (1-10)",
+      SET_STR
+      "Transform BGP AS_PATH attribute\n"
+      "Prepend to the as-path\n"
+      "Use the peer's AS-number\n"
+      "Number of times to insert\n")
 {
-	return no_set_aspath_prepend(self, vty, argc, argv);
+	int idx_num = 4;
+
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-prepend']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:last-as", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_num]->arg);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (set_aspath_exclude,
-       set_aspath_exclude_cmd,
-       "set as-path exclude (1-4294967295)...",
-       SET_STR
-       "Transform BGP AS-path attribute\n"
-       "Exclude from the as-path\n"
-       "AS number\n")
+DEFUN(no_set_aspath_prepend, no_set_aspath_prepend_cmd,
+      "no set as-path prepend [(1-4294967295)]",
+      NO_STR SET_STR
+      "Transform BGP AS_PATH attribute\n"
+      "Prepend to the as-path\n"
+      "AS number\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-prepend']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN(no_set_aspath_prepend_lastas, no_set_aspath_prepend_lastas_cmd,
+      "no set as-path prepend last-as [(1-10)]",
+      NO_STR SET_STR
+      "Transform BGP AS_PATH attribute\n"
+      "Prepend to the as-path\n"
+      "Use the peer's AS-number\n"
+      "Number of times to insert\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-prepend']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN(set_aspath_exclude, set_aspath_exclude_cmd,
+      "set as-path exclude (1-4294967295)...",
+      SET_STR
+      "Transform BGP AS-path attribute\n"
+      "Exclude from the as-path\n"
+      "AS number\n")
 {
 	int idx_asn = 3;
 	int ret;
 	char *str;
 
 	str = argv_concat(argv, argc, idx_asn);
-	ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			      "as-path exclude", str);
+
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:exclude-as-path", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
 
-DEFUN (no_set_aspath_exclude,
-       no_set_aspath_exclude_cmd,
-       "no set as-path exclude (1-4294967295)...",
-       NO_STR
-       SET_STR
-       "Transform BGP AS_PATH attribute\n"
-       "Exclude from the as-path\n"
-       "AS number\n")
+DEFUN(no_set_aspath_exclude, no_set_aspath_exclude_cmd,
+      "no set as-path exclude [(1-4294967295)...]",
+      NO_STR SET_STR
+      "Transform BGP AS_PATH attribute\n"
+      "Exclude from the as-path\n"
+      "AS number\n")
 {
-	int idx_asn = 4;
-	int ret;
-	char *str;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
 
-	str = argv_concat(argv, argc, idx_asn);
-	ret = generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				 "as-path exclude", str);
-	XFREE(MTYPE_TMP, str);
-	return ret;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS(no_set_aspath_exclude, no_set_aspath_exclude_all_cmd,
@@ -4795,12 +5121,8 @@ ALIAS(no_set_aspath_exclude, no_set_aspath_exclude_all_cmd,
       "Transform BGP AS_PATH attribute\n"
       "Exclude from the as-path\n")
 
-DEFUN (set_community,
-       set_community_cmd,
-       "set community AA:NN...",
-       SET_STR
-       "BGP community attribute\n"
-       COMMUNITY_VAL_STR)
+DEFUN(set_community, set_community_cmd, "set community AA:NN...",
+      SET_STR "BGP community attribute\n" COMMUNITY_VAL_STR)
 {
 	int idx_aa_nn = 2;
 	int i;
@@ -4809,8 +5131,17 @@ DEFUN (set_community,
 	struct buffer *b;
 	struct community *com = NULL;
 	char *str;
-	char *argstr;
+	char *argstr = NULL;
 	int ret;
+
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-community']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:community-string",
+		 xpath);
 
 	b = buffer_new(1024);
 
@@ -4882,280 +5213,325 @@ DEFUN (set_community,
 		argstr = XCALLOC(MTYPE_TMP, argstr_sz);
 		strlcpy(argstr, str, argstr_sz);
 		strlcat(argstr, " additive", argstr_sz);
-		ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-				      "community", argstr);
-		XFREE(MTYPE_TMP, argstr);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argstr);
 	} else
-		ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-				      "community", str);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
 
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (argstr)
+		XFREE(MTYPE_TMP, argstr);
 	community_free(&com);
 
 	return ret;
 }
 
-DEFUN (set_community_none,
-       set_community_none_cmd,
-       "set community none",
-       SET_STR
-       "BGP community attribute\n"
-       "No community attribute\n")
+DEFUN(set_community_none, set_community_none_cmd, "set community none",
+      SET_STR
+      "BGP community attribute\n"
+      "No community attribute\n")
 {
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "community", "none");
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-community']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:community-none", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_set_community,
-       no_set_community_cmd,
-       "no set community AA:NN...",
-       NO_STR
-       SET_STR
-       "BGP community attribute\n"
-       COMMUNITY_VAL_STR)
+DEFUN(no_set_community, no_set_community_cmd, "no set community AA:NN...",
+      NO_STR SET_STR "BGP community attribute\n" COMMUNITY_VAL_STR)
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "community", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-community']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-ALIAS (no_set_community,
-       no_set_community_short_cmd,
-       "no set community",
-       NO_STR
-       SET_STR
-       "BGP community attribute\n")
+ALIAS(no_set_community, no_set_community_short_cmd, "no set community",
+      NO_STR SET_STR "BGP community attribute\n")
 
-
-DEFUN (set_community_delete,
-       set_community_delete_cmd,
-       "set comm-list <(1-99)|(100-500)|WORD> delete",
-       SET_STR
-       "set BGP community list (for deletion)\n"
-       "Community-list number (standard)\n"
-       "Community-list number (expanded)\n"
-       "Community-list name\n"
-       "Delete matching communities\n")
+DEFPY(set_community_delete, set_community_delete_cmd,
+      "set comm-list <(1-99)$std|(100-500)$ext|WORD$list> delete",
+      SET_STR
+      "set BGP community list (for deletion)\n"
+      "Community-list number (standard)\n"
+      "Community-list number (expanded)\n"
+      "Community-list name\n"
+      "Delete matching communities\n")
 {
-	int idx_comm_list = 2;
-	char *args;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:comm-list-delete']";
+	char xpath_value[XPATH_MAXLEN];
 
-	args = argv_concat(argv, argc, idx_comm_list);
-	generic_set_add(vty, VTY_GET_CONTEXT(route_map_index), "comm-list",
-			args);
-	XFREE(MTYPE_TMP, args);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	return CMD_SUCCESS;
+	if (std_str) {
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-set-action/frr-bgp-route-map:comm-list-num",
+			 xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, std_str);
+	} else if (ext_str) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-set-action/frr-bgp-route-map:comm-list-num-extended",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ext_str);
+	} else {
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-set-action/frr-bgp-route-map:comm-list-name",
+			 xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, list);
+	}
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_set_community_delete,
-       no_set_community_delete_cmd,
-       "no set comm-list [<(1-99)|(100-500)|WORD> delete]",
-       NO_STR
-       SET_STR
-       "set BGP community list (for deletion)\n"
-       "Community-list number (standard)\n"
-       "Community-list number (expanded)\n"
-       "Community-list name\n"
-       "Delete matching communities\n")
+DEFUN(no_set_community_delete, no_set_community_delete_cmd,
+      "no set comm-list [<(1-99)|(100-500)|WORD> delete]",
+      NO_STR SET_STR
+      "set BGP community list (for deletion)\n"
+      "Community-list number (standard)\n"
+      "Community-list number (expanded)\n"
+      "Community-list name\n"
+      "Delete matching communities\n")
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "comm-list", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:comm-list-delete']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (set_lcommunity,
-       set_lcommunity_cmd,
-       "set large-community AA:BB:CC...",
-       SET_STR
-       "BGP large community attribute\n"
-       "Large Community number in aa:bb:cc format or additive\n")
+DEFUN(set_lcommunity, set_lcommunity_cmd, "set large-community AA:BB:CC...",
+      SET_STR
+      "BGP large community attribute\n"
+      "Large Community number in aa:bb:cc format or additive\n")
 {
-	int ret;
 	char *str;
+	int ret;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-large-community']";
+	char xpath_value[XPATH_MAXLEN];
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:large-community-string",
+		 xpath);
 	str = argv_concat(argv, argc, 2);
-	ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			      "large-community", str);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
-
 	return ret;
 }
 
-DEFUN (set_lcommunity_none,
-       set_lcommunity_none_cmd,
-       "set large-community none",
-       SET_STR
-       "BGP large community attribute\n"
-       "No large community attribute\n")
+DEFUN(set_lcommunity_none, set_lcommunity_none_cmd, "set large-community none",
+      SET_STR
+      "BGP large community attribute\n"
+      "No large community attribute\n")
 {
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "large-community", "none");
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-large-community']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:large-community-none",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_set_lcommunity,
-       no_set_lcommunity_cmd,
-       "no set large-community none",
-       NO_STR
-       SET_STR
-       "BGP large community attribute\n"
-       "No community attribute\n")
+DEFUN(no_set_lcommunity, no_set_lcommunity_cmd, "no set large-community none",
+      NO_STR SET_STR
+      "BGP large community attribute\n"
+      "No large community attribute\n")
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "large-community", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-large-community']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_set_lcommunity1,
-       no_set_lcommunity1_cmd,
-       "no set large-community AA:BB:CC...",
-       NO_STR
-       SET_STR
-       "BGP large community attribute\n"
-       "Large community in AA:BB:CC... format or additive\n")
+DEFUN(no_set_lcommunity1, no_set_lcommunity1_cmd,
+      "no set large-community AA:BB:CC...",
+      NO_STR SET_STR
+      "BGP large community attribute\n"
+      "Large community in AA:BB:CC... format or additive\n")
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "large-community", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-large-community']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-ALIAS (no_set_lcommunity1,
-       no_set_lcommunity1_short_cmd,
-       "no set large-community",
-       NO_STR
-       SET_STR
-       "BGP large community attribute\n")
+ALIAS(no_set_lcommunity1, no_set_lcommunity1_short_cmd,
+      "no set large-community",
+      NO_STR SET_STR "BGP large community attribute\n")
 
-DEFUN (set_lcommunity_delete,
-       set_lcommunity_delete_cmd,
-       "set large-comm-list <(1-99)|(100-500)|WORD> delete",
-       SET_STR
-       "set BGP large community list (for deletion)\n"
-       "Large Community-list number (standard)\n"
-       "Large Communitly-list number (expanded)\n"
-       "Large Community-list name\n"
-       "Delete matching large communities\n")
+DEFPY(set_lcommunity_delete, set_lcommunity_delete_cmd,
+      "set large-comm-list <(1-99)$std|(100-500)$ext|WORD$list> delete",
+      SET_STR
+      "set BGP large community list (for deletion)\n"
+      "Large Community-list number (standard)\n"
+      "Large Communitly-list number (expanded)\n"
+      "Large Community-list name\n"
+      "Delete matching large communities\n")
 {
-	int idx_lcomm_list = 2;
-	char *args;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:large-comm-list-delete']";
+	char xpath_value[XPATH_MAXLEN];
 
-	args = argv_concat(argv, argc, idx_lcomm_list);
-	generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			"large-comm-list", args);
-	XFREE(MTYPE_TMP, args);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	return CMD_SUCCESS;
+	if (std_str) {
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-set-action/frr-bgp-route-map:comm-list-num",
+			 xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, std_str);
+	} else if (ext_str) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-set-action/frr-bgp-route-map:comm-list-num-extended",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ext_str);
+	} else {
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-set-action/frr-bgp-route-map:comm-list-name",
+			 xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, list);
+	}
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_set_lcommunity_delete,
-       no_set_lcommunity_delete_cmd,
-       "no set large-comm-list <(1-99)|(100-500)|WORD> [delete]",
-       NO_STR
-       SET_STR
-       "set BGP large community list (for deletion)\n"
-       "Large Community-list number (standard)\n"
-       "Large Communitly-list number (expanded)\n"
-       "Large Community-list name\n"
-       "Delete matching large communities\n")
+DEFUN(no_set_lcommunity_delete, no_set_lcommunity_delete_cmd,
+      "no set large-comm-list [<(1-99)|(100-500)|WORD> delete]",
+      NO_STR SET_STR
+      "set BGP large community list (for deletion)\n"
+      "Large Community-list number (standard)\n"
+      "Large Communitly-list number (expanded)\n"
+      "Large Community-list name\n"
+      "Delete matching large communities\n")
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "large-comm-list", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:large-comm-list-delete']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-ALIAS (no_set_lcommunity_delete,
-       no_set_lcommunity_delete_short_cmd,
-       "no set large-comm-list",
-       NO_STR
-       SET_STR
-       "set BGP large community list (for deletion)\n")
+ALIAS(no_set_lcommunity_delete, no_set_lcommunity_delete_short_cmd,
+      "no set large-comm-list",
+      NO_STR SET_STR "set BGP large community list (for deletion)\n")
 
-DEFUN (set_ecommunity_rt,
-       set_ecommunity_rt_cmd,
-       "set extcommunity rt ASN:NN_OR_IP-ADDRESS:NN...",
-       SET_STR
-       "BGP extended community attribute\n"
-       "Route Target extended community\n"
-       "VPN extended community\n")
+DEFUN(set_ecommunity_rt, set_ecommunity_rt_cmd,
+      "set extcommunity rt ASN:NN_OR_IP-ADDRESS:NN...",
+      SET_STR
+      "BGP extended community attribute\n"
+      "Route Target extended community\n"
+      "VPN extended community\n")
 {
 	int idx_asn_nn = 3;
-	int ret;
 	char *str;
+	int ret;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-rt']";
+	char xpath_value[XPATH_MAXLEN];
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-rt", xpath);
 	str = argv_concat(argv, argc, idx_asn_nn);
-	ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			      "extcommunity rt", str);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
-
 	return ret;
 }
 
-DEFUN (no_set_ecommunity_rt,
-       no_set_ecommunity_rt_cmd,
-       "no set extcommunity rt ASN:NN_OR_IP-ADDRESS:NN...",
-       NO_STR
-       SET_STR
-       "BGP extended community attribute\n"
-       "Route Target extended community\n"
-       "VPN extended community\n")
+DEFUN(no_set_ecommunity_rt, no_set_ecommunity_rt_cmd,
+      "no set extcommunity rt ASN:NN_OR_IP-ADDRESS:NN...",
+      NO_STR SET_STR
+      "BGP extended community attribute\n"
+      "Route Target extended community\n"
+      "VPN extended community\n")
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "extcommunity rt", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-rt']";
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-ALIAS (no_set_ecommunity_rt,
-       no_set_ecommunity_rt_short_cmd,
-       "no set extcommunity rt",
-       NO_STR
-       SET_STR
-       "BGP extended community attribute\n"
-       "Route Target extended community\n")
+ALIAS(no_set_ecommunity_rt, no_set_ecommunity_rt_short_cmd,
+      "no set extcommunity rt",
+      NO_STR SET_STR
+      "BGP extended community attribute\n"
+      "Route Target extended community\n")
 
-DEFUN (set_ecommunity_soo,
-       set_ecommunity_soo_cmd,
-       "set extcommunity soo ASN:NN_OR_IP-ADDRESS:NN...",
-       SET_STR
-       "BGP extended community attribute\n"
-       "Site-of-Origin extended community\n"
-       "VPN extended community\n")
+DEFUN(set_ecommunity_soo, set_ecommunity_soo_cmd,
+      "set extcommunity soo ASN:NN_OR_IP-ADDRESS:NN...",
+      SET_STR
+      "BGP extended community attribute\n"
+      "Site-of-Origin extended community\n"
+      "VPN extended community\n")
 {
 	int idx_asn_nn = 3;
-	int ret;
 	char *str;
+	int ret;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-soo']";
+	char xpath_value[XPATH_MAXLEN];
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-soo",
+		 xpath);
 	str = argv_concat(argv, argc, idx_asn_nn);
-	ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			      "extcommunity soo", str);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
 
-
-DEFUN (no_set_ecommunity_soo,
-       no_set_ecommunity_soo_cmd,
-       "no set extcommunity soo ASN:NN_OR_IP-ADDRESS:NN...",
-       NO_STR
-       SET_STR
-       "BGP extended community attribute\n"
-       "Site-of-Origin extended community\n"
-       "VPN extended community\n")
+DEFUN(no_set_ecommunity_soo, no_set_ecommunity_soo_cmd,
+      "no set extcommunity soo ASN:NN_OR_IP-ADDRESS:NN...",
+      NO_STR SET_STR
+      "BGP extended community attribute\n"
+      "Site-of-Origin extended community\n"
+      "VPN extended community\n")
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "extcommunity soo", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-soo']";
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-ALIAS (no_set_ecommunity_soo,
-       no_set_ecommunity_soo_short_cmd,
-       "no set extcommunity soo",
-       NO_STR
-       SET_STR
-       "GP extended community attribute\n"
-       "Site-of-Origin extended community\n")
+ALIAS(no_set_ecommunity_soo, no_set_ecommunity_soo_short_cmd,
+      "no set extcommunity soo",
+      NO_STR SET_STR
+      "GP extended community attribute\n"
+      "Site-of-Origin extended community\n")
 
-DEFUN (set_ecommunity_lb,
-       set_ecommunity_lb_cmd,
-       "set extcommunity bandwidth <(1-25600)|cumulative|num-multipaths> [non-transitive]",
-       SET_STR
-       "BGP extended community attribute\n"
-       "Link bandwidth extended community\n"
-       "Bandwidth value in Mbps\n"
-       "Cumulative bandwidth of all multipaths (outbound-only)\n"
-       "Internally computed bandwidth based on number of multipaths (outbound-only)\n"
-       "Attribute is set as non-transitive\n")
+DEFUN(set_ecommunity_lb, set_ecommunity_lb_cmd,
+      "set extcommunity bandwidth <(1-25600)|cumulative|num-multipaths> "
+      "[non-transitive]",
+      SET_STR
+      "BGP extended community attribute\n"
+      "Link bandwidth extended community\n"
+      "Bandwidth value in Mbps\n"
+      "Cumulative bandwidth of all multipaths (outbound-only)\n"
+      "Internally computed bandwidth based on number of multipaths "
+      "(outbound-only)\n"
+      "Attribute is set as non-transitive\n")
 {
 	int idx_lb = 3;
 	int ret;
@@ -5185,176 +5561,164 @@ DEFUN (no_set_ecommunity_lb,
 				  "extcommunity bandwidth", NULL);
 }
 
-ALIAS (no_set_ecommunity_lb,
-       no_set_ecommunity_lb_short_cmd,
-       "no set extcommunity bandwidth",
-       NO_STR
-       SET_STR
-       "BGP extended community attribute\n"
-       "Link bandwidth extended community\n")
+ALIAS(no_set_ecommunity_lb, no_set_ecommunity_lb_short_cmd,
+      "no set extcommunity bandwidth",
+      NO_STR SET_STR
+      "BGP extended community attribute\n"
+      "Link bandwidth extended community\n")
 
-DEFUN (set_origin,
-       set_origin_cmd,
-       "set origin <egp|igp|incomplete>",
-       SET_STR
-       "BGP origin code\n"
-       "remote EGP\n"
-       "local IGP\n"
-       "unknown heritage\n")
+DEFUN(set_origin, set_origin_cmd, "set origin <egp|igp|incomplete>",
+      SET_STR
+      "BGP origin code\n"
+      "remote EGP\n"
+      "local IGP\n"
+      "unknown heritage\n")
 {
 	int idx_origin = 2;
+	const char *origin_type;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-origin']";
+	char xpath_value[XPATH_MAXLEN];
+
 	if (strncmp(argv[idx_origin]->arg, "igp", 2) == 0)
-		return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-				       "origin", "igp");
-	if (strncmp(argv[idx_origin]->arg, "egp", 1) == 0)
-		return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-				       "origin", "egp");
-	if (strncmp(argv[idx_origin]->arg, "incomplete", 2) == 0)
-		return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-				       "origin", "incomplete");
+		origin_type = "igp";
+	else if (strncmp(argv[idx_origin]->arg, "egp", 1) == 0)
+		origin_type = "egp";
+	else if (strncmp(argv[idx_origin]->arg, "incomplete", 2) == 0)
+		origin_type = "incomplete";
+	else {
+		vty_out(vty, "%% Invalid match origin type\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	vty_out(vty, "%% Invalid set origin type\n");
-	return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:origin", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, origin_type);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-DEFUN (no_set_origin,
-       no_set_origin_cmd,
-       "no set origin [<egp|igp|incomplete>]",
-       NO_STR
-       SET_STR
-       "BGP origin code\n"
-       "remote EGP\n"
-       "local IGP\n"
-       "unknown heritage\n")
+DEFUN(no_set_origin, no_set_origin_cmd, "no set origin [<egp|igp|incomplete>]",
+      NO_STR SET_STR
+      "BGP origin code\n"
+      "remote EGP\n"
+      "local IGP\n"
+      "unknown heritage\n")
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "origin", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-origin']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-DEFUN (set_atomic_aggregate,
-       set_atomic_aggregate_cmd,
-       "set atomic-aggregate",
-       SET_STR
-       "BGP atomic aggregate attribute\n" )
+DEFUN(set_atomic_aggregate, set_atomic_aggregate_cmd, "set atomic-aggregate",
+      SET_STR "BGP atomic aggregate attribute\n")
 {
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "atomic-aggregate", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:atomic-aggregate']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:atomic-aggregate",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_set_atomic_aggregate,
-       no_set_atomic_aggregate_cmd,
-       "no set atomic-aggregate",
-       NO_STR
-       SET_STR
-       "BGP atomic aggregate attribute\n" )
+DEFUN(no_set_atomic_aggregate, no_set_atomic_aggregate_cmd,
+      "no set atomic-aggregate",
+      NO_STR SET_STR "BGP atomic aggregate attribute\n")
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "atomic-aggregate", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:atomic-aggregate']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (set_aggregator_as,
-       set_aggregator_as_cmd,
-       "set aggregator as (1-4294967295) A.B.C.D",
-       SET_STR
-       "BGP aggregator attribute\n"
-       "AS number of aggregator\n"
-       "AS number\n"
-       "IP address of aggregator\n")
+DEFUN(set_aggregator_as, set_aggregator_as_cmd,
+      "set aggregator as (1-4294967295) A.B.C.D",
+      SET_STR
+      "BGP aggregator attribute\n"
+      "AS number of aggregator\n"
+      "AS number\n"
+      "IP address of aggregator\n")
 {
 	int idx_number = 3;
 	int idx_ipv4 = 4;
-	int ret;
-	struct in_addr address;
-	char *argstr;
+	char xpath_asn[XPATH_MAXLEN];
+	char xpath_addr[XPATH_MAXLEN];
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:aggregator']";
 
-	ret = inet_aton(argv[idx_ipv4]->arg, &address);
-	if (ret == 0) {
-		vty_out(vty, "Aggregator IP address is invalid\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
-			 strlen(argv[idx_number]->arg)
-				 + strlen(argv[idx_ipv4]->arg) + 2);
+	snprintf(
+		xpath_asn, sizeof(xpath_asn),
+		"%s/rmap-set-action/frr-bgp-route-map:aggregator/aggregator-asn",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_asn, NB_OP_MODIFY,
+			      argv[idx_number]->arg);
 
-	sprintf(argstr, "%s %s", argv[idx_number]->arg, argv[idx_ipv4]->arg);
+	snprintf(
+		xpath_addr, sizeof(xpath_addr),
+		"%s/rmap-set-action/frr-bgp-route-map:aggregator/aggregator-address",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_addr, NB_OP_MODIFY,
+			      argv[idx_ipv4]->arg);
 
-	ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			      "aggregator as", argstr);
-
-	XFREE(MTYPE_ROUTE_MAP_COMPILED, argstr);
-
-	return ret;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-DEFUN (no_set_aggregator_as,
-       no_set_aggregator_as_cmd,
-       "no set aggregator as [(1-4294967295) A.B.C.D]",
-       NO_STR
-       SET_STR
-       "BGP aggregator attribute\n"
-       "AS number of aggregator\n"
-       "AS number\n"
-       "IP address of aggregator\n")
+DEFUN(no_set_aggregator_as, no_set_aggregator_as_cmd,
+      "no set aggregator as [(1-4294967295) A.B.C.D]",
+      NO_STR SET_STR
+      "BGP aggregator attribute\n"
+      "AS number of aggregator\n"
+      "AS number\n"
+      "IP address of aggregator\n")
 {
-	int idx_asn = 4;
-	int idx_ip = 5;
-	int ret;
-	struct in_addr address;
-	char *argstr;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:aggregator']";
 
-	if (argc <= idx_asn)
-		return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-					  "aggregator as", NULL);
-
-	ret = inet_aton(argv[idx_ip]->arg, &address);
-	if (ret == 0) {
-		vty_out(vty, "Aggregator IP address is invalid\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
-			 strlen(argv[idx_asn]->arg) + strlen(argv[idx_ip]->arg)
-				 + 2);
-
-	sprintf(argstr, "%s %s", argv[idx_asn]->arg, argv[idx_ip]->arg);
-
-	ret = generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				 "aggregator as", argstr);
-
-	XFREE(MTYPE_ROUTE_MAP_COMPILED, argstr);
-
-	return ret;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (match_ipv6_next_hop,
-       match_ipv6_next_hop_cmd,
-       "match ipv6 next-hop X:X::X:X",
-       MATCH_STR
-       IPV6_STR
-       "Match IPv6 next-hop address of route\n"
-       "IPv6 address of next hop\n")
+DEFUN(match_ipv6_next_hop, match_ipv6_next_hop_cmd,
+      "match ipv6 next-hop X:X::X:X",
+      MATCH_STR IPV6_STR
+      "Match IPv6 next-hop address of route\n"
+      "IPv6 address of next hop\n")
 {
-	int idx_ipv6 = 3;
-	return bgp_route_match_add(vty, "ipv6 next-hop", argv[idx_ipv6]->arg,
-				   RMAP_EVENT_MATCH_ADDED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:ipv6-nexthop']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:ipv6-address",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_ipv6_next_hop,
-       no_match_ipv6_next_hop_cmd,
-       "no match ipv6 next-hop X:X::X:X",
-       NO_STR
-       MATCH_STR
-       IPV6_STR
-       "Match IPv6 next-hop address of route\n"
-       "IPv6 address of next hop\n")
+DEFUN(no_match_ipv6_next_hop, no_match_ipv6_next_hop_cmd,
+      "no match ipv6 next-hop [X:X::X:X]",
+      NO_STR MATCH_STR IPV6_STR
+      "Match IPv6 next-hop address of route\n"
+      "IPv6 address of next hop\n")
 {
-	int idx_ipv6 = 4;
-	return bgp_route_match_delete(vty, "ipv6 next-hop", argv[idx_ipv6]->arg,
-				      RMAP_EVENT_MATCH_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:ipv6-nexthop']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (match_ipv4_next_hop,
@@ -5366,10 +5730,19 @@ DEFPY (match_ipv4_next_hop,
        "IP address\n"
        "IP address of next-hop\n")
 {
-	int idx_ipv4 = 4;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:ipv4-nexthop']";
+	char xpath_value[XPATH_MAXLEN];
 
-	return bgp_route_match_add(vty, "ip next-hop address",
-				   argv[idx_ipv4]->arg, RMAP_EVENT_MATCH_ADDED);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(
+		xpath_value, sizeof(xpath_value),
+		"%s/rmap-match-condition/frr-bgp-route-map:ipv4-address",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[4]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (no_match_ipv4_next_hop,
@@ -5382,106 +5755,108 @@ DEFPY (no_match_ipv4_next_hop,
        "IP address\n"
        "IP address of next-hop\n")
 {
-	return bgp_route_match_delete(vty, "ip next-hop address", NULL,
-				      RMAP_EVENT_MATCH_DELETED);
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:ipv4-nexthop']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (set_ipv6_nexthop_peer,
-       set_ipv6_nexthop_peer_cmd,
-       "set ipv6 next-hop peer-address",
-       SET_STR
-       IPV6_STR
-       "Next hop address\n"
-       "Use peer address (for BGP only)\n")
+DEFUN(set_ipv6_nexthop_peer, set_ipv6_nexthop_peer_cmd,
+      "set ipv6 next-hop peer-address",
+      SET_STR IPV6_STR
+      "Next hop address\n"
+      "Use peer address (for BGP only)\n")
 {
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "ipv6 next-hop peer-address", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:ipv6-peer-address']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:preference", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_set_ipv6_nexthop_peer,
-       no_set_ipv6_nexthop_peer_cmd,
-       "no set ipv6 next-hop peer-address",
-       NO_STR
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "Use peer address (for BGP only)\n")
+DEFUN(no_set_ipv6_nexthop_peer, no_set_ipv6_nexthop_peer_cmd,
+      "no set ipv6 next-hop peer-address",
+      NO_STR SET_STR IPV6_STR
+      "IPv6 next-hop address\n"
+      "Use peer address (for BGP only)\n")
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "ipv6 next-hop peer-address", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:ipv6-peer-address']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (set_ipv6_nexthop_prefer_global,
-       set_ipv6_nexthop_prefer_global_cmd,
-       "set ipv6 next-hop prefer-global",
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "Prefer global over link-local if both exist\n")
+DEFUN(set_ipv6_nexthop_prefer_global, set_ipv6_nexthop_prefer_global_cmd,
+      "set ipv6 next-hop prefer-global",
+      SET_STR IPV6_STR
+      "IPv6 next-hop address\n"
+      "Prefer global over link-local if both exist\n")
 {
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "ipv6 next-hop prefer-global", NULL);
-	;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:ipv6-prefer-global']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:preference", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_set_ipv6_nexthop_prefer_global,
-       no_set_ipv6_nexthop_prefer_global_cmd,
-       "no set ipv6 next-hop prefer-global",
-       NO_STR
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "Prefer global over link-local if both exist\n")
+DEFUN(no_set_ipv6_nexthop_prefer_global, no_set_ipv6_nexthop_prefer_global_cmd,
+      "no set ipv6 next-hop prefer-global",
+      NO_STR SET_STR IPV6_STR
+      "IPv6 next-hop address\n"
+      "Prefer global over link-local if both exist\n")
 {
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "ipv6 next-hop prefer-global", NULL);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:ipv6-prefer-global']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (set_ipv6_nexthop_global,
-       set_ipv6_nexthop_global_cmd,
-       "set ipv6 next-hop global X:X::X:X",
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "IPv6 global address\n"
-       "IPv6 address of next hop\n")
+DEFUN(set_ipv6_nexthop_global, set_ipv6_nexthop_global_cmd,
+      "set ipv6 next-hop global X:X::X:X",
+      SET_STR IPV6_STR
+      "IPv6 next-hop address\n"
+      "IPv6 global address\n"
+      "IPv6 address of next hop\n")
 {
 	int idx_ipv6 = 4;
-	struct in6_addr addr;
-	int ret;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:ipv6-nexthop-global']";
+	char xpath_value[XPATH_MAXLEN];
 
-	ret = inet_pton(AF_INET6, argv[idx_ipv6]->arg, &addr);
-	if (!ret) {
-		vty_out(vty, "%% Malformed nexthop address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (IN6_IS_ADDR_UNSPECIFIED(&addr) || IN6_IS_ADDR_LOOPBACK(&addr)
-	    || IN6_IS_ADDR_MULTICAST(&addr) || IN6_IS_ADDR_LINKLOCAL(&addr)) {
-		vty_out(vty, "%% Invalid global nexthop address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:ipv6-address", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_ipv6]->arg);
 
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "ipv6 next-hop global", argv[idx_ipv6]->arg);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-DEFUN (no_set_ipv6_nexthop_global,
-       no_set_ipv6_nexthop_global_cmd,
-       "no set ipv6 next-hop global X:X::X:X",
-       NO_STR
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "IPv6 global address\n"
-       "IPv6 address of next hop\n")
+DEFUN(no_set_ipv6_nexthop_global, no_set_ipv6_nexthop_global_cmd,
+      "no set ipv6 next-hop global [X:X::X:X]",
+      NO_STR SET_STR IPV6_STR
+      "IPv6 next-hop address\n"
+      "IPv6 global address\n"
+      "IPv6 address of next hop\n")
 {
-	int idx_ipv6 = 5;
-	if (argc <= idx_ipv6)
-		return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-					  "ipv6 next-hop global", NULL);
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "ipv6 next-hop global", argv[idx_ipv6]->arg);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:ipv6-nexthop-global']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 #ifdef KEEP_OLD_VPN_COMMANDS
@@ -5548,97 +5923,107 @@ DEFUN (no_set_vpn_nexthop,
 }
 #endif /* KEEP_OLD_VPN_COMMANDS */
 
-DEFUN (set_ipx_vpn_nexthop,
-       set_ipx_vpn_nexthop_cmd,
-       "set <ipv4|ipv6> vpn next-hop <A.B.C.D|X:X::X:X>",
-       SET_STR
-       "IPv4 information\n"
-       "IPv6 information\n"
-       "VPN information\n"
-       "VPN next-hop address\n"
-       "IP address of next hop\n"
-       "IPv6 address of next hop\n")
+DEFUN(set_ipx_vpn_nexthop, set_ipx_vpn_nexthop_cmd,
+      "set <ipv4|ipv6> vpn next-hop <A.B.C.D|X:X::X:X>",
+      SET_STR
+      "IPv4 information\n"
+      "IPv6 information\n"
+      "VPN information\n"
+      "VPN next-hop address\n"
+      "IP address of next hop\n"
+      "IPv6 address of next hop\n")
 {
 	int idx_ip = 4;
 	afi_t afi;
 	int idx = 0;
+	char xpath_value[XPATH_MAXLEN];
 
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
-		if (afi == AFI_IP)
-			return generic_set_add(
-				vty, VTY_GET_CONTEXT(route_map_index),
-				"ipv4 vpn next-hop", argv[idx_ip]->arg);
-		else
-			return generic_set_add(
-				vty, VTY_GET_CONTEXT(route_map_index),
-				"ipv6 vpn next-hop", argv[idx_ip]->arg);
+		if (afi == AFI_IP) {
+			const char *xpath =
+				"./set-action[action='frr-bgp-route-map:ipv4-vpn-address']";
+
+			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+			snprintf(
+				xpath_value, sizeof(xpath_value),
+				"%s/rmap-set-action/frr-bgp-route-map:ipv4-address",
+				xpath);
+		} else {
+			const char *xpath =
+				"./set-action[action='frr-bgp-route-map:ipv6-vpn-address']";
+
+			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+			snprintf(
+				xpath_value, sizeof(xpath_value),
+				"%s/rmap-set-action/frr-bgp-route-map:ipv6-address",
+				xpath);
+		}
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      argv[idx_ip]->arg);
+		return nb_cli_apply_changes(vty, NULL);
 	}
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_set_ipx_vpn_nexthop,
-       no_set_ipx_vpn_nexthop_cmd,
-       "no set <ipv4|ipv6> vpn next-hop [<A.B.C.D|X:X::X:X>]",
-       NO_STR
-       SET_STR
-       "IPv4 information\n"
-       "IPv6 information\n"
-       "VPN information\n"
-       "VPN next-hop address\n"
-       "IP address of next hop\n"
-       "IPv6 address of next hop\n")
+DEFUN(no_set_ipx_vpn_nexthop, no_set_ipx_vpn_nexthop_cmd,
+      "no set <ipv4|ipv6> vpn next-hop [<A.B.C.D|X:X::X:X>]",
+      NO_STR SET_STR
+      "IPv4 information\n"
+      "IPv6 information\n"
+      "VPN information\n"
+      "VPN next-hop address\n"
+      "IP address of next hop\n"
+      "IPv6 address of next hop\n")
 {
-	int idx_ip = 5;
-	char *arg;
 	afi_t afi;
 	int idx = 0;
 
-	if (argc <= idx_ip)
-		arg = NULL;
-	else
-		arg = argv[idx_ip]->arg;
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
-		if (afi == AFI_IP)
-			return generic_set_delete(
-				vty, VTY_GET_CONTEXT(route_map_index),
-				"ipv4 vpn next-hop", arg);
-		else
-			return generic_set_delete(
-				vty, VTY_GET_CONTEXT(route_map_index),
-				"ipv6 vpn next-hop", arg);
+		if (afi == AFI_IP) {
+			const char *xpath =
+				"./set-action[action='frr-bgp-route-map:ipv4-vpn-address']";
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		} else {
+			const char *xpath =
+				"./set-action[action='frr-bgp-route-map:ipv6-vpn-address']";
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		}
+		return nb_cli_apply_changes(vty, NULL);
 	}
 	return CMD_SUCCESS;
 }
 
-DEFUN (set_originator_id,
-       set_originator_id_cmd,
-       "set originator-id A.B.C.D",
-       SET_STR
-       "BGP originator ID attribute\n"
-       "IP address of originator\n")
+DEFUN(set_originator_id, set_originator_id_cmd, "set originator-id A.B.C.D",
+      SET_STR
+      "BGP originator ID attribute\n"
+      "IP address of originator\n")
 {
 	int idx_ipv4 = 2;
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "originator-id", argv[idx_ipv4]->arg);
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:originator-id']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:originator-id", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[idx_ipv4]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-DEFUN (no_set_originator_id,
-       no_set_originator_id_cmd,
-       "no set originator-id [A.B.C.D]",
-       NO_STR
-       SET_STR
-       "BGP originator ID attribute\n"
-       "IP address of originator\n")
+DEFUN(no_set_originator_id, no_set_originator_id_cmd,
+      "no set originator-id [A.B.C.D]",
+      NO_STR SET_STR
+      "BGP originator ID attribute\n"
+      "IP address of originator\n")
 {
-	int idx = 0;
-	char *arg =
-		argv_find(argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:originator-id']";
 
-	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
-				  "originator-id", arg);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
-
 
 /* Initialization of route map. */
 void bgp_route_map_init(void)
