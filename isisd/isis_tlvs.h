@@ -140,6 +140,9 @@ struct isis_threeway_adj {
 #define ISIS_SUBTLV_SRGB_FLAG_V		0x40
 #define IS_SR_IPV4(srgb)               (srgb.flags & ISIS_SUBTLV_SRGB_FLAG_I)
 #define IS_SR_IPV6(srgb)               (srgb.flags & ISIS_SUBTLV_SRGB_FLAG_V)
+#define SUBTLV_SR_BLOCK_SIZE            6
+#define SUBTLV_RANGE_INDEX_SIZE         10
+#define SUBTLV_RANGE_LABEL_SIZE         9
 
 /* Structure aggregating SR Global (SRGB) or Local (SRLB) Block info */
 struct isis_sr_block {
@@ -209,6 +212,9 @@ struct isis_lan_adj_sid {
 #define SR_ALGORITHM_STRICT_SPF	1
 #define SR_ALGORITHM_UNSET	255
 
+#define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
+#define MSD_TLV_SIZE            2
+
 struct isis_router_cap {
 	struct in_addr router_id;
 	uint8_t flags;
@@ -218,7 +224,6 @@ struct isis_router_cap {
 	struct isis_sr_block srlb;
 	uint8_t algo[SR_ALGORITHM_COUNT];
 	/* RFC 8491 */
-#define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 	uint8_t msd;
 };
 

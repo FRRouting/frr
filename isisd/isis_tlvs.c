@@ -2744,7 +2744,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 	uint8_t type;
 	uint8_t length;
 	uint8_t subtlv_len;
-	uint8_t sid_len;
+	uint8_t size;
 
 	sbuf_push(log, indent, "Unpacking Router Capability TLV...\n");
 	if (tlv_len < ISIS_ROUTER_CAP_SIZE) {
@@ -2778,6 +2778,12 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		length = stream_getc(s);
 		switch (type) {
 		case ISIS_SUBTLV_SID_LABEL_RANGE:
+			/* Check that SRGB is correctly formated */
+			if (length < SUBTLV_RANGE_LABEL_SIZE
+			    || length > SUBTLV_RANGE_INDEX_SIZE) {
+				stream_forward_getp(s, length);
+				continue;
+			}
 			/* Only one SRGB is supported. Skip subsequent one */
 			if (rcap->srgb.range_size != 0) {
 				stream_forward_getp(s, length);
@@ -2787,8 +2793,8 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			rcap->srgb.range_size = stream_get3(s);
 			/* Skip Type and get Length of SID Label */
 			stream_getc(s);
-			sid_len = stream_getc(s);
-			if (sid_len == ISIS_SUBTLV_SID_LABEL_SIZE)
+			size = stream_getc(s);
+			if (size == ISIS_SUBTLV_SID_LABEL_SIZE)
 				rcap->srgb.lower_bound = stream_get3(s);
 			else
 				rcap->srgb.lower_bound = stream_getl(s);
@@ -2802,6 +2808,10 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 				rcap->srgb.lower_bound = 0;
 				rcap->srgb.range_size = 0;
 			}
+			/* Only one range is supported. Skip subsequent one */
+			size = length - (size + SUBTLV_SR_BLOCK_SIZE);
+			if (size > 0)
+				stream_forward_getp(s, length);
 			break;
 		case ISIS_SUBTLV_ALGORITHM:
 			/* Only 2 algorithms are supported: SPF & Strict SPF */
@@ -2814,6 +2824,12 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 					s, length - SR_ALGORITHM_COUNT);
 			break;
 		case ISIS_SUBTLV_SRLB:
+			/* Check that SRLB is correctly formated */
+			if (length < SUBTLV_RANGE_LABEL_SIZE
+			    || length > SUBTLV_RANGE_INDEX_SIZE) {
+				stream_forward_getp(s, length);
+				continue;
+			}
 			/* RFC 8667 section #3.3: Only one SRLB is authorized */
 			if (rcap->srlb.range_size != 0) {
 				stream_forward_getp(s, length);
@@ -2824,8 +2840,8 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			rcap->srlb.range_size = stream_get3(s);
 			/* Skip Type and get Length of SID Label */
 			stream_getc(s);
-			sid_len = stream_getc(s);
-			if (sid_len == ISIS_SUBTLV_SID_LABEL_SIZE)
+			size = stream_getc(s);
+			if (size == ISIS_SUBTLV_SID_LABEL_SIZE)
 				rcap->srlb.lower_bound = stream_get3(s);
 			else
 				rcap->srlb.lower_bound = stream_getl(s);
@@ -2839,13 +2855,25 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 				rcap->srlb.lower_bound = 0;
 				rcap->srlb.range_size = 0;
 			}
+			/* Only one range is supported. Skip subsequent one */
+			size = length - (size + SUBTLV_SR_BLOCK_SIZE);
+			if (size > 0)
+				stream_forward_getp(s, length);
 			break;
 		case ISIS_SUBTLV_NODE_MSD:
+			/* Check that MSD is correctly formated */
+			if (length < MSD_TLV_SIZE) {
+				stream_forward_getp(s, length);
+				continue;
+			}
 			msd_type = stream_getc(s);
 			rcap->msd = stream_getc(s);
 			/* Only BMI-MSD type has been defined in RFC 8491 */
 			if (msd_type != MSD_TYPE_BASE_MPLS_IMPOSITION)
 				rcap->msd = 0;
+			/* Only one MSD is standardized. Skip others */
+			if (length > MSD_TLV_SIZE)
+				stream_forward_getp(s, length - MSD_TLV_SIZE);
 			break;
 		default:
 			stream_forward_getp(s, length);
