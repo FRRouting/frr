@@ -1660,7 +1660,7 @@ static void evpn_cleanup_local_non_best_route(struct bgp *bgp,
 {
 	/* local path was not picked as the winner; kick it out */
 	if (bgp_debug_zebra(NULL))
-		zlog_debug("evicting local evpn prefix %pRN as remote won",
+		zlog_debug("evicting local evpn prefix %pBD as remote won",
 			   dest);
 
 	evpn_delete_old_local_route(bgp, vpn, dest, local_pi, NULL);
@@ -5209,7 +5209,7 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 							      sizeof(attr_str));
 
 						zlog_debug(
-							"%u: prefix %pRN with attr %s - DENIED due to martian or self nexthop",
+							"%u: prefix %pBD with attr %s - DENIED due to martian or self nexthop",
 							bgp->vrf_id, dest,
 							attr_str);
 					}

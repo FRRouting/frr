@@ -471,6 +471,7 @@ static inline const struct prefix *bgp_dest_get_prefix(const struct bgp_dest *de
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pRN"  (struct bgp_node *)
+#pragma FRR printfrr_ext "%pBD"  (struct bgp_dest *)
 #endif
 
 #endif /* _QUAGGA_BGP_TABLE_H */

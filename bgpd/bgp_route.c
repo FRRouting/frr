@@ -314,8 +314,8 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 	if (CHECK_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED)) {
 		if (BGP_DEBUG(update, UPDATE_OUT))
 			zlog_debug(
-				"Route %pRN is in workqueue and being processed, not deferred.",
-				bgp_dest_to_rnode(dest));
+				"Route %pBD is in workqueue and being processed, not deferred.",
+				dest);
 
 		return 0;
 	}
@@ -365,7 +365,7 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 					bgp->gr_info[afi][safi].route_list,
 					dest);
 			if (BGP_DEBUG(update, UPDATE_OUT))
-				zlog_debug("DEFER route %pRN, dest %p, node %p",
+				zlog_debug("DEFER route %pBD, dest %p, node %p",
 					   dest, dest, dest->rt_node);
 			return 0;
 		}
@@ -2601,7 +2601,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			debug = bgp_debug_bestpath(dest);
 		if (debug)
 			zlog_debug(
-				"%s: bgp delete in progress, ignoring event, p=%pRN",
+				"%s: bgp delete in progress, ignoring event, p=%pBD",
 				__func__, dest);
 		return;
 	}
@@ -2625,7 +2625,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 	debug = bgp_debug_bestpath(dest);
 	if (debug)
-		zlog_debug("%s: p=%pRN afi=%s, safi=%s start", __func__, dest,
+		zlog_debug("%s: p=%pBD afi=%s, safi=%s start", __func__, dest,
 			   afi2str(afi), safi2str(safi));
 
 	/* The best path calculation for the route is deferred if
@@ -2686,7 +2686,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 	if (debug)
 		zlog_debug(
-			"%s: p=%pRN afi=%s, safi=%s, old_select=%p, new_select=%p",
+			"%s: p=%pBD afi=%s, safi=%s, old_select=%p, new_select=%p",
 			__func__, dest, afi2str(afi), safi2str(safi),
 			old_select, new_select);
 
@@ -14001,7 +14001,7 @@ void bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi,
 	     dest = bgp_route_next(dest)) {
 		bdistance = bgp_dest_get_bgp_distance_info(dest);
 		if (bdistance != NULL)
-			vty_out(vty, "  distance %d %pRN %s\n",
+			vty_out(vty, "  distance %d %pBD %s\n",
 				bdistance->distance, dest,
 				bdistance->access_list ? bdistance->access_list
 						       : "");

@@ -757,7 +757,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 				    path->sub_type, path->attr, dest)) {
 				if (BGP_DEBUG(nht, NHT))
 					zlog_debug(
-						"%s: prefix %pRN (vrf %s), ignoring path due to martian or self-next-hop",
+						"%s: prefix %pBD (vrf %s), ignoring path due to martian or self-next-hop",
 						__func__, dest, bgp_path->name);
 			} else
 				bnc_is_valid_nexthop =
@@ -771,12 +771,12 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 				prefix_rd2str((struct prefix_rd *)bgp_dest_get_prefix(dest->pdest),
 					buf1, sizeof(buf1));
 				zlog_debug(
-					"... eval path %d/%d %pRN RD %s %s flags 0x%x",
+					"... eval path %d/%d %pBD RD %s %s flags 0x%x",
 					afi, safi, dest, buf1,
 					bgp_path->name_pretty, path->flags);
 			} else
 				zlog_debug(
-					"... eval path %d/%d %pRN %s flags 0x%x",
+					"... eval path %d/%d %pBD %s flags 0x%x",
 					afi, safi, dest, bgp_path->name_pretty,
 					path->flags);
 		}
