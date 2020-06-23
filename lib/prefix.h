@@ -392,8 +392,16 @@ extern const char *family2str(int family);
 extern const char *safi2str(safi_t safi);
 extern const char *afi2str(afi_t afi);
 
-/* Check bit of the prefix. */
-extern unsigned int prefix_bit(const uint8_t *prefix, const uint16_t prefixlen);
+/*
+ * Check bit of the prefix.
+ *
+ * prefix
+ *    byte buffer
+ *
+ * bit_index
+ *    which bit to fetch from byte buffer, 0 indexed.
+ */
+extern unsigned int prefix_bit(const uint8_t *prefix, const uint16_t bit_index);
 
 extern struct prefix *prefix_new(void);
 extern void prefix_free(struct prefix **p);

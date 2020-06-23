@@ -75,10 +75,10 @@ bool is_mcast_mac(const struct ethaddr *mac)
 	return false;
 }
 
-unsigned int prefix_bit(const uint8_t *prefix, const uint16_t prefixlen)
+unsigned int prefix_bit(const uint8_t *prefix, const uint16_t bit_index)
 {
-	unsigned int offset = prefixlen / 8;
-	unsigned int shift = 7 - (prefixlen % 8);
+	unsigned int offset = bit_index / 8;
+	unsigned int shift = 7 - (bit_index % 8);
 
 	return (prefix[offset] >> shift) & 1;
 }
