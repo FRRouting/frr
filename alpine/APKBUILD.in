@@ -1,10 +1,10 @@
 # Maintainer: Arthur Jones <arthur.jones@riverbed.com>
 pkgname=frr
+arch="all"
 pkgver=@VERSION@
 pkgrel=0
 pkgdesc="FRRouting is a fork of quagga"
 url="https://frrouting.org/"
-arch="x86_64"
 license="GPL-2.0"
 depends="json-c c-ares ipsec-tools iproute2 python3 py-ipaddr bash"
 makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
