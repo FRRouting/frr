@@ -1302,15 +1302,15 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 		bool first_pfx_printed = false;
 
 		if (print_header) {
-			vty_out(vty, "%-16s%-8s%-16s%s\n", "Interface",
-				"Status", "VRF", "Addresses");
-			vty_out(vty, "%-16s%-8s%-16s%s\n", "---------",
-				"------", "---", "---------");
+			vty_out(vty, "%-*s%-8s%-16s%s\n", INTERFACE_NAMSIZ,
+				"Interface", "Status", "VRF", "Addresses");
+			vty_out(vty, "%-*s%-8s%-16s%s\n", INTERFACE_NAMSIZ,
+				"---------", "------", "---", "---------");
 			print_header = false; /* We have at least 1 iface */
 		}
 		zebra_if = ifp->info;
 
-		vty_out(vty, "%-16s", ifp->name);
+		vty_out(vty, "%-*s", INTERFACE_NAMSIZ, ifp->name);
 
 		if (if_is_up(ifp))
 			vty_out(vty, "%-8s", "up");
