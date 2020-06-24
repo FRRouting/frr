@@ -1212,7 +1212,7 @@ static void connected_dump_vty(struct vty *vty, struct connected *connected)
 	if (CHECK_FLAG(connected->flags, ZEBRA_IFA_UNNUMBERED))
 		vty_out(vty, " unnumbered");
 
-	if (connected->label)
+	if (connected->label && !ALIAS_AS_IFNAME)
 		vty_out(vty, " %s", connected->label);
 
 	vty_out(vty, "\n");
@@ -3569,7 +3569,7 @@ static int if_config_write(struct vty *vty)
 					}
 					vty_out(vty, "/%d", p->prefixlen);
 
-					if (ifc->label)
+					if (ifc->label && !ALIAS_AS_IFNAME)
 						vty_out(vty, " label %s",
 							ifc->label);
 
