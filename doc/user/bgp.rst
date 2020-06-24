@@ -1366,6 +1366,19 @@ Configuring Peers
    on by default or not.  This command defaults to on and is not displayed.
    The `no bgp default ipv4-unicast` form of the command is displayed.
 
+.. index:: [no] bgp default show-hostname
+.. clicmd:: [no] bgp default show-hostname
+
+   This command shows the hostname of the peer in certain BGP commands
+   outputs. It's easier to troubleshoot if you have a number of BGP peers.
+
+.. index:: [no] bgp default show-nexthop-hostname
+.. clicmd:: [no] bgp default show-nexthop-hostname
+
+   This command shows the hostname of the next-hop in certain BGP commands
+   outputs. It's easier to troubleshoot if you have a number of BGP peers
+   and a number of routes to check.
+
 .. index:: [no] neighbor PEER advertisement-interval (0-600)
 .. clicmd:: [no] neighbor PEER advertisement-interval (0-600)
 
