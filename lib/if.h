@@ -106,6 +106,13 @@ enum zebra_link_type {
 #define INTERFACE_NAMSIZ      20
 #define INTERFACE_HWADDR_MAX  20
 
+/* redefine INTERFACE_NAMSIZ to user-specified max value
+ * if use of alias as interface name is enabled */
+#if ALIAS_AS_IFNAME
+#undef INTERFACE_NAMSIZ
+#define INTERFACE_NAMSIZ (MAX_IFNAME_LEN + 1)
+#endif
+
 typedef signed int ifindex_t;
 
 #ifdef HAVE_PROC_NET_DEV
