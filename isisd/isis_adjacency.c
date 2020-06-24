@@ -480,25 +480,28 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 
 	dyn = dynhn_find_by_id(adj->sysid);
 	if (dyn)
-		vty_out(vty, "  %-20s", dyn->hostname);
+		vty_out(vty, " %-20s", dyn->hostname);
 	else
-		vty_out(vty, "  %-20s", sysid_print(adj->sysid));
+		vty_out(vty, " %-20s", sysid_print(adj->sysid));
 
 	if (detail == ISIS_UI_LEVEL_BRIEF) {
 		if (adj->circuit)
-			vty_out(vty, "%-12s", adj->circuit->interface->name);
+			vty_out(vty, " %-*s", INTERFACE_NAMSIZ,
+				adj->circuit->interface->name);
 		else
-			vty_out(vty, "NULL circuit!");
-		vty_out(vty, "%-3u", adj->level); /* level */
-		vty_out(vty, "%-13s", adj_state2string(adj->adj_state));
+			vty_out(vty, " %-*s", INTERFACE_NAMSIZ,
+				"NULL circuit!");
+
+		vty_out(vty, " %-3u", adj->level); /* level */
+		vty_out(vty, " %-13s", adj_state2string(adj->adj_state));
 		now = time(NULL);
 		if (adj->last_upd)
-			vty_out(vty, "%-9llu",
+			vty_out(vty, " %-9llu",
 				(unsigned long long)adj->last_upd
 					+ adj->hold_time - now);
 		else
 			vty_out(vty, "-        ");
-		vty_out(vty, "%-10s", snpa_print(adj->snpa));
+		vty_out(vty, " %-10s", snpa_print(adj->snpa));
 		vty_out(vty, "\n");
 	}
 

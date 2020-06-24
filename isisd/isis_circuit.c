@@ -873,11 +873,12 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 			    char detail)
 {
 	if (detail == ISIS_UI_LEVEL_BRIEF) {
-		vty_out(vty, "  %-12s", circuit->interface->name);
-		vty_out(vty, "0x%-7x", circuit->circuit_id);
-		vty_out(vty, "%-9s", circuit_state2string(circuit->state));
-		vty_out(vty, "%-9s", circuit_type2string(circuit->circ_type));
-		vty_out(vty, "%-9s", circuit_t2string(circuit->is_type));
+		vty_out(vty, "  %-*s", INTERFACE_NAMSIZ,
+			circuit->interface->name);
+		vty_out(vty, " 0x%-7x", circuit->circuit_id);
+		vty_out(vty, " %-9s", circuit_state2string(circuit->state));
+		vty_out(vty, " %-9s", circuit_type2string(circuit->circ_type));
+		vty_out(vty, " %-9s", circuit_t2string(circuit->is_type));
 		vty_out(vty, "\n");
 	}
 

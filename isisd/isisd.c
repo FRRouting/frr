@@ -508,8 +508,9 @@ int show_isis_interface_common(struct vty *vty, const char *ifname, char detail)
 		vty_out(vty, "Area %s:\n", area->area_tag);
 
 		if (detail == ISIS_UI_LEVEL_BRIEF)
-			vty_out(vty,
-				"  Interface   CircId   State    Type     Level\n");
+			vty_out(vty, "  %-*s %-9s %-9s %-9s %-9s\n",
+				INTERFACE_NAMSIZ, "Interface", "CircId",
+				"State", "Type", "Level");
 
 		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
 			if (!ifname)
@@ -591,8 +592,9 @@ int show_isis_neighbor_common(struct vty *vty, const char *id, char detail)
 		vty_out(vty, "Area %s:\n", area->area_tag);
 
 		if (detail == ISIS_UI_LEVEL_BRIEF)
-			vty_out(vty,
-				"  System Id           Interface   L  State        Holdtime SNPA\n");
+			vty_out(vty, " %-20s %-*s %-3s %-13s %-9s %-10s\n",
+				"System Id", INTERFACE_NAMSIZ, "Interface", "L",
+				"state", "Holdtime", "SNPA");
 
 		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
 			if (circuit->circ_type == CIRCUIT_T_BROADCAST) {

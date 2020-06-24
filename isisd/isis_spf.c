@@ -1318,8 +1318,8 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 	struct isis_vertex *vertex;
 	char buff[VID2STR_BUFFER];
 
-	vty_out(vty,
-		"Vertex               Type         Metric Next-Hop             Interface Parent\n");
+	vty_out(vty, "%-20s %-12s %-6s %-20s %-*s %-s\n", "Vertex", "Type",
+		"Metric", "Next-Hop", INTERFACE_NAMSIZ, "Interface", "Parent");
 
 	for (ALL_QUEUE_ELEMENTS_RO(queue, node, vertex)) {
 		if (memcmp(vertex->N.id, root_sysid, ISIS_SYS_ID_LEN) == 0) {
@@ -1362,14 +1362,16 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 			}
 
 			if (adj) {
-				vty_out(vty, "%-20s %-9s ",
+				vty_out(vty, "%-20s %-*s ",
 					print_sys_hostname(adj->sysid),
+					INTERFACE_NAMSIZ,
 					adj->circuit->interface->name);
 			}
 
 			if (pvertex) {
 				if (!adj)
-					vty_out(vty, "%-20s %-9s ", "", "");
+					vty_out(vty, "%-20s %-*s ", "",
+						INTERFACE_NAMSIZ, "");
 
 				vty_out(vty, "%s(%d)",
 					vid2string(pvertex, buff, sizeof(buff)),
