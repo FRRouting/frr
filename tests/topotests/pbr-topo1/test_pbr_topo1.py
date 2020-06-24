@@ -144,7 +144,9 @@ def test_pbr_data():
         test_func = partial(topotest.router_json_cmp, router, "show pbr interface json", expected)
         _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = '"show pbr interface" mismatches on {}'.format(router.name)
-        assert result is None, assertmsg
+	if result is not None:
+	    gather_pbr_data_on_error(router)
+            assert result is None, assertmsg
 
         map_file = "{}/{}/pbr-map.json".format(CWD, router.name)
         logger.info(map_file)
@@ -156,7 +158,9 @@ def test_pbr_data():
         test_func = partial(topotest.router_json_cmp, router, "show pbr map json", expected)
         _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = '"show pbr map" mismatches on {}'.format(router.name)
-        assert result is None, assertmsg
+	if result is not None:
+	    gather_pbr_data_on_error(router)
+            assert result is None, assertmsg
 
         nexthop_file = "{}/{}/pbr-nexthop-groups.json".format(CWD, router.name)
         logger.info(nexthop_file)
@@ -168,7 +172,9 @@ def test_pbr_data():
         test_func = partial(topotest.router_json_cmp, router, "show pbr nexthop-groups json", expected)
         _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = '"show pbr nexthop-groups" mismatches on {}'.format(router.name)
-        assert result is None, assertmsg
+	if result is not None:
+	    gather_pbr_data_on_error(router)
+            assert result is None, assertmsg
 
 def test_pbr_flap():
     "Test PBR interface flapping"
@@ -203,7 +209,9 @@ def test_pbr_flap():
         test_func = partial(topotest.router_json_cmp, router, "show pbr interface json", expected)
         _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = '"show pbr interface" mismatches on {}'.format(router.name)
-        assert result is None, assertmsg
+	if result is not None:
+	    gather_pbr_data_on_error(router)
+            assert result is None, assertmsg
 
 
 def test_rule_linux_installation():
@@ -230,3 +238,24 @@ def test_rule_linux_installation():
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
+
+#
+# EXTRA SAUCE
+#
+def gather_pbr_data_on_error(router):
+    logger.info(router.vtysh_cmd("show ip route"))
+    logger.info(router.vtysh_cmd("show ip nexthop"))
+    logger.info(router.vtysh_cmd("show pbr interface"))
+    logger.info(router.vtysh_cmd("show pbr map"))
+    logger.info(router.vtysh_cmd("show pbr nexthop-groups"))
+    logger.info(router.vtysh_cmd("show nexthop-group rib singleton"))
+    logger.info(router.vtysh_cmd("show nexthop-group rib"))
+    logger.info(router.run("ip nexthop show"))
+    logger.info(router.run("ip route show"))
+    logger.info(router.run("ip route show table 10000"))
+    logger.info(router.run("ip route show table 10001"))
+    logger.info(router.run("ip route show table 10002"))
+    logger.info(router.run("ip route show table 10003"))
+    logger.info(router.run("ip route show table 10004"))
+    logger.info(router.run("ip rule show"))
+
