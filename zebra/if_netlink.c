@@ -675,8 +675,13 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return -1;
 	name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
 
-	if (tb[IFLA_IFALIAS])
+	if (tb[IFLA_IFALIAS]) {
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
+		if (ALIAS_AS_IFNAME) {
+			name = desc;
+			desc = NULL;
+		}
+	}
 
 	if (tb[IFLA_LINKINFO]) {
 		parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
@@ -1269,6 +1274,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	}
 	if (tb[IFLA_IFALIAS]) {
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
+		if (ALIAS_AS_IFNAME)
+			name = desc;
 	}
 
 	/* If VRF, create or update the VRF structure itself. */
@@ -1465,7 +1472,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		zif = ifp->info;
 		if (zif) {
 			XFREE(MTYPE_TMP, zif->desc);
-			if (desc)
+			if (desc && !ALIAS_AS_IFNAME)
 				zif->desc = XSTRDUP(MTYPE_TMP, desc);
 		}
 	} else {
