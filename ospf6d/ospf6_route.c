@@ -309,7 +309,8 @@ void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 				ifname = ifindex2ifname(nh->ifindex,
 							VRF_DEFAULT);
 				zlog_debug("  nexthop: %s%%%.*s(%d)", buf,
-					   IFNAMSIZ, ifname, nh->ifindex);
+					   INTERFACE_NAMSIZ, ifname,
+					   nh->ifindex);
 			}
 			if (i >= entries)
 				return;
@@ -1067,12 +1068,13 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route)
 				(ospf6_route_is_best(route) ? '*' : ' '),
 				OSPF6_DEST_TYPE_SUBSTR(route->type),
 				OSPF6_PATH_TYPE_SUBSTR(route->path.type),
-				destination, nexthop, IFNAMSIZ, ifname,
+				destination, nexthop, INTERFACE_NAMSIZ, ifname,
 				duration);
 			i++;
 		} else
 			vty_out(vty, "%c%1s %2s %-30s %-25s %6.*s %s\n", ' ',
-				"", "", "", nexthop, IFNAMSIZ, ifname, "");
+				"", "", "", nexthop, INTERFACE_NAMSIZ, ifname,
+				"");
 	}
 }
 
@@ -1161,7 +1163,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 		/* nexthop */
 		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
 		ifname = ifindex2ifname(nh->ifindex, VRF_DEFAULT);
-		vty_out(vty, "  %s %.*s\n", nexthop, IFNAMSIZ, ifname);
+		vty_out(vty, "  %s %.*s\n", nexthop, INTERFACE_NAMSIZ, ifname);
 	}
 	vty_out(vty, "\n");
 }
