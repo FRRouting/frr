@@ -147,11 +147,12 @@ show_interface_msg(struct vty *vty, struct imsg *imsg,
 		snprintf(timers, sizeof(timers), "%u/%u",
 		    iface->hello_interval, iface->hello_holdtime);
 
-		vty_out (vty, "%-4s %-11s %-6s %-8s %-12s %3u\n",
-		    af_name(iface->af), iface->name,
-		    if_state_name(iface->state), iface->uptime == 0 ?
-		    "00:00:00" : log_time(iface->uptime), timers,
-		    iface->adj_cnt);
+		vty_out(vty, "%-4s %-*s %-6s %-8s %-12s %3u\n",
+			af_name(iface->af), IF_NAMESIZE, iface->name,
+			if_state_name(iface->state),
+			iface->uptime == 0 ? "00:00:00"
+					   : log_time(iface->uptime),
+			timers, iface->adj_cnt);
 		break;
 	case IMSG_CTL_END:
 		vty_out (vty, "\n");
@@ -224,12 +225,14 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 		    inet_ntoa(adj->id));
 		switch(adj->type) {
 		case HELLO_LINK:
-			vty_out(vty, "%-8s %-15s ", "Link", adj->ifname);
+			vty_out(vty, "%-8s %-*s ", "Link", IF_NAMESIZE,
+				adj->ifname);
 			break;
 		case HELLO_TARGETED:
 			addr = log_addr(adj->af, &adj->src_addr);
 
-			vty_out(vty, "%-8s %-15s ", "Targeted", addr);
+			vty_out(vty, "%-8s %-*s ", "Targeted", IF_NAMESIZE,
+				addr);
 			if (strlen(addr) > 15)
 				vty_out(vty, "\n%46s", " ");
 			break;
@@ -1352,9 +1355,10 @@ show_l2vpn_pw_msg(struct vty *vty, struct imsg *imsg, struct show_params *params
 	case IMSG_CTL_SHOW_L2VPN_PW:
 		pw = imsg->data;
 
-		vty_out (vty, "%-9s %-15s %-10u %-16s %-10s\n", pw->ifname,
-		    inet_ntoa(pw->lsr_id), pw->pwid, pw->l2vpn_name,
-		    (pw->status == PW_FORWARDING ? "UP" : "DOWN"));
+		vty_out(vty, "%-*s %-15s %-10u %-16s %-10s\n", IF_NAMESIZE,
+			pw->ifname, inet_ntoa(pw->lsr_id), pw->pwid,
+			pw->l2vpn_name,
+			(pw->status == PW_FORWARDING ? "UP" : "DOWN"));
 		break;
 	case IMSG_CTL_END:
 		vty_out (vty, "\n");
@@ -1822,8 +1826,8 @@ ldp_vty_show_discovery(struct vty *vty, const char *af_str, const char *detail,
 	params.json = (json) ? 1 : 0;
 
 	if (!params.detail && !params.json)
-		vty_out (vty, "%-4s %-15s %-8s %-15s %9s\n",
-		    "AF", "ID", "Type", "Source", "Holdtime");
+		vty_out(vty, "%-4s %-15s %-8s %-*s %9s\n", "AF", "ID", "Type",
+			IF_NAMESIZE, "Source", "Holdtime");
 
 	if (params.detail)
 		imsg_compose(&ibuf, IMSG_CTL_SHOW_DISCOVERY_DTL, 0, 0, -1,
@@ -1853,8 +1857,9 @@ ldp_vty_show_interface(struct vty *vty, const char *af_str, const char *json)
 
 	/* header */
 	if (!params.json) {
-		vty_out (vty, "%-4s %-11s %-6s %-8s %-12s %3s\n", "AF",
-		    "Interface", "State", "Uptime", "Hello Timers","ac");
+		vty_out(vty, "%-4s %-*s %-6s %-8s %-12s %3s\n", "AF",
+			IF_NAMESIZE, "Interface", "State", "Uptime",
+			"Hello Timers", "ac");
 	}
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_INTERFACE, 0, 0, -1, &ifidx,
@@ -1996,11 +2001,11 @@ ldp_vty_show_atom_vc(struct vty *vty, const char *peer, const char *ifname,
 
 	if (!params.json) {
 		/* header */
-		vty_out (vty, "%-9s %-15s %-10s %-16s %-10s\n",
-		    "Interface", "Peer ID", "VC ID", "Name","Status");
-		vty_out (vty, "%-9s %-15s %-10s %-16s %-10s\n",
-		    "---------", "---------------", "----------",
-		    "----------------", "----------");
+		vty_out(vty, "%-*s %-15s %-10s %-16s %-10s\n", IF_NAMESIZE,
+			"Interface", "Peer ID", "VC ID", "Name", "Status");
+		vty_out(vty, "%-*s %-15s %-10s %-16s %-10s\n", IF_NAMESIZE,
+			"---------", "---------------", "----------",
+			"----------------", "----------");
 	}
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_L2VPN_PW, 0, 0, -1, NULL, 0);
