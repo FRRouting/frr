@@ -493,7 +493,15 @@ Known limitations:
 .. clicmd:: [no] segment-routing global-block (0-1048575) (0-1048575)
 
    Set the Segment Routing Global Block i.e. the label range used by MPLS
-   to store label in the MPLS FIB.
+   to store label in the MPLS FIB for Prefix SID. Note that the block size
+   may not exceed 65535.
+
+.. index:: [no] segment-routing local-block (0-1048575) (0-1048575)
+.. clicmd:: [no] segment-routing local-block (0-1048575) (0-1048575)
+
+   Set the Segment Routing Local Block i.e. the label range used by MPLS
+   to store label in the MPLS FIB for Adjacency SID. Note that the block size
+   may not exceed 65535.
 
 .. index:: [no] segment-routing node-msd (1-16)
 .. clicmd:: [no] segment-routing node-msd (1-16)

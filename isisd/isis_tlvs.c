@@ -2620,30 +2620,35 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 
 	/* Segment Routing Global Block as per RFC8667 section #3.1 */
 	if (router_cap->srgb.range_size != 0)
-		sbuf_push(buf, indent,
-			"  Segment Routing: I:%s V:%s, SRGB Base: %d Range: %d\n",
+		sbuf_push(
+			buf, indent,
+			"  Segment Routing: I:%s V:%s, Global Block Base: %u Range: %u\n",
 			IS_SR_IPV4(router_cap->srgb) ? "1" : "0",
 			IS_SR_IPV6(router_cap->srgb) ? "1" : "0",
 			router_cap->srgb.lower_bound,
 			router_cap->srgb.range_size);
 
+	/* Segment Routing Local Block as per RFC8667 section #3.3 */
+	if (router_cap->srlb.range_size != 0)
+		sbuf_push(buf, indent, "  SR Local Block Base: %u Range: %u\n",
+			  router_cap->srlb.lower_bound,
+			  router_cap->srlb.range_size);
+
 	/* Segment Routing Algorithms as per RFC8667 section #3.2 */
 	if (router_cap->algo[0] != SR_ALGORITHM_UNSET) {
-		sbuf_push(buf, indent, "    Algorithm: %s",
-			  router_cap->algo[0] == 0 ? "0: SPF"
-						   : "0: Strict SPF");
-		for (int i = 1; i < SR_ALGORITHM_COUNT; i++)
+		sbuf_push(buf, indent, "  SR Algorithm:\n");
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
 			if (router_cap->algo[i] != SR_ALGORITHM_UNSET)
-				sbuf_push(buf, indent, " %s",
-					  router_cap->algo[1] == 0
-						  ? "0: SPF"
-						  : "0: Strict SPF");
-		sbuf_push(buf, indent, "\n");
+				sbuf_push(buf, indent, "    %u: %s\n", i,
+					  router_cap->algo[i] == 0
+						  ? "SPF"
+						  : "Strict SPF");
 	}
 
 	/* Segment Routing Node MSD as per RFC8491 section #2 */
 	if (router_cap->msd != 0)
-		sbuf_push(buf, indent, "    Node MSD: %d\n", router_cap->msd);
+		sbuf_push(buf, indent, "  Node Maximum SID Depth: %u\n",
+			  router_cap->msd);
 }
 
 static void free_tlv_router_cap(struct isis_router_cap *router_cap)
@@ -2699,6 +2704,20 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 			for (int i = 0; i < nb_algo; i++)
 				stream_putc(s, router_cap->algo[i]);
 		}
+
+		/* Local Block if defined as per RFC8667 section #3.3 */
+		if ((router_cap->srlb.range_size != 0)
+		    && (router_cap->srlb.lower_bound != 0)) {
+			stream_putc(s, ISIS_SUBTLV_SRLB);
+			stream_putc(s, ISIS_SUBTLV_SID_LABEL_RANGE_SIZE);
+			/* No Flags are defined for SRLB */
+			stream_putc(s, 0);
+			stream_put3(s, router_cap->srlb.range_size);
+			stream_putc(s, ISIS_SUBTLV_SID_LABEL);
+			stream_putc(s, ISIS_SUBTLV_SID_LABEL_SIZE);
+			stream_put3(s, router_cap->srlb.lower_bound);
+		}
+
 		/* And finish with MSD if set as per RFC8491 section #2 */
 		if (router_cap->msd != 0) {
 			stream_putc(s, ISIS_SUBTLV_NODE_MSD);
@@ -2721,10 +2740,11 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 				       void *dest, int indent)
 {
 	struct isis_tlvs *tlvs = dest;
+	struct isis_router_cap *rcap;
 	uint8_t type;
 	uint8_t length;
 	uint8_t subtlv_len;
-	uint8_t sid_len;
+	uint8_t size;
 
 	sbuf_push(log, indent, "Unpacking Router Capability TLV...\n");
 	if (tlv_len < ISIS_ROUTER_CAP_SIZE) {
@@ -2741,47 +2761,61 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 	}
 
 	/* Allocate router cap structure and initialize SR Algorithms */
-	tlvs->router_cap = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->router_cap));
+	rcap = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_router_cap));
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
-		tlvs->router_cap->algo[i] = SR_ALGORITHM_UNSET;
+		rcap->algo[i] = SR_ALGORITHM_UNSET;
 
 	/* Get Router ID and Flags */
-	tlvs->router_cap->router_id.s_addr = stream_get_ipv4(s);
-	tlvs->router_cap->flags = stream_getc(s);
+	rcap->router_id.s_addr = stream_get_ipv4(s);
+	rcap->flags = stream_getc(s);
 
 	/* Parse remaining part of the TLV if present */
 	subtlv_len = tlv_len - ISIS_ROUTER_CAP_SIZE;
 	while (subtlv_len > 2) {
-		struct isis_router_cap *rc = tlvs->router_cap;
 		uint8_t msd_type;
 
 		type = stream_getc(s);
 		length = stream_getc(s);
 		switch (type) {
 		case ISIS_SUBTLV_SID_LABEL_RANGE:
-			rc->srgb.flags = stream_getc(s);
-			rc->srgb.range_size = stream_get3(s);
+			/* Check that SRGB is correctly formated */
+			if (length < SUBTLV_RANGE_LABEL_SIZE
+			    || length > SUBTLV_RANGE_INDEX_SIZE) {
+				stream_forward_getp(s, length);
+				continue;
+			}
+			/* Only one SRGB is supported. Skip subsequent one */
+			if (rcap->srgb.range_size != 0) {
+				stream_forward_getp(s, length);
+				continue;
+			}
+			rcap->srgb.flags = stream_getc(s);
+			rcap->srgb.range_size = stream_get3(s);
 			/* Skip Type and get Length of SID Label */
 			stream_getc(s);
-			sid_len = stream_getc(s);
-			if (sid_len == ISIS_SUBTLV_SID_LABEL_SIZE)
-				rc->srgb.lower_bound = stream_get3(s);
+			size = stream_getc(s);
+			if (size == ISIS_SUBTLV_SID_LABEL_SIZE)
+				rcap->srgb.lower_bound = stream_get3(s);
 			else
-				rc->srgb.lower_bound = stream_getl(s);
+				rcap->srgb.lower_bound = stream_getl(s);
 
 			/* SRGB sanity checks. */
-			if (rc->srgb.range_size == 0
-			    || (rc->srgb.lower_bound <= MPLS_LABEL_RESERVED_MAX)
-			    || ((rc->srgb.lower_bound + rc->srgb.range_size - 1)
+			if (rcap->srgb.range_size == 0
+			    || (rcap->srgb.lower_bound <= MPLS_LABEL_RESERVED_MAX)
+			    || ((rcap->srgb.lower_bound + rcap->srgb.range_size - 1)
 				> MPLS_LABEL_UNRESERVED_MAX)) {
 				sbuf_push(log, indent, "Invalid label range. Reset SRGB\n");
-				rc->srgb.lower_bound = 0;
-				rc->srgb.range_size = 0;
+				rcap->srgb.lower_bound = 0;
+				rcap->srgb.range_size = 0;
 			}
+			/* Only one range is supported. Skip subsequent one */
+			size = length - (size + SUBTLV_SR_BLOCK_SIZE);
+			if (size > 0)
+				stream_forward_getp(s, length);
 			break;
 		case ISIS_SUBTLV_ALGORITHM:
 			/* Only 2 algorithms are supported: SPF & Strict SPF */
-			stream_get(&rc->algo, s,
+			stream_get(&rcap->algo, s,
 				   length > SR_ALGORITHM_COUNT
 					   ? SR_ALGORITHM_COUNT
 					   : length);
@@ -2789,12 +2823,57 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 				stream_forward_getp(
 					s, length - SR_ALGORITHM_COUNT);
 			break;
+		case ISIS_SUBTLV_SRLB:
+			/* Check that SRLB is correctly formated */
+			if (length < SUBTLV_RANGE_LABEL_SIZE
+			    || length > SUBTLV_RANGE_INDEX_SIZE) {
+				stream_forward_getp(s, length);
+				continue;
+			}
+			/* RFC 8667 section #3.3: Only one SRLB is authorized */
+			if (rcap->srlb.range_size != 0) {
+				stream_forward_getp(s, length);
+				continue;
+			}
+			/* Ignore Flags which are not defined */
+			stream_getc(s);
+			rcap->srlb.range_size = stream_get3(s);
+			/* Skip Type and get Length of SID Label */
+			stream_getc(s);
+			size = stream_getc(s);
+			if (size == ISIS_SUBTLV_SID_LABEL_SIZE)
+				rcap->srlb.lower_bound = stream_get3(s);
+			else
+				rcap->srlb.lower_bound = stream_getl(s);
+
+			/* SRLB sanity checks. */
+			if (rcap->srlb.range_size == 0
+			    || (rcap->srlb.lower_bound <= MPLS_LABEL_RESERVED_MAX)
+			    || ((rcap->srlb.lower_bound + rcap->srlb.range_size - 1)
+				> MPLS_LABEL_UNRESERVED_MAX)) {
+				sbuf_push(log, indent, "Invalid label range. Reset SRLB\n");
+				rcap->srlb.lower_bound = 0;
+				rcap->srlb.range_size = 0;
+			}
+			/* Only one range is supported. Skip subsequent one */
+			size = length - (size + SUBTLV_SR_BLOCK_SIZE);
+			if (size > 0)
+				stream_forward_getp(s, length);
+			break;
 		case ISIS_SUBTLV_NODE_MSD:
+			/* Check that MSD is correctly formated */
+			if (length < MSD_TLV_SIZE) {
+				stream_forward_getp(s, length);
+				continue;
+			}
 			msd_type = stream_getc(s);
-			rc->msd = stream_getc(s);
+			rcap->msd = stream_getc(s);
 			/* Only BMI-MSD type has been defined in RFC 8491 */
 			if (msd_type != MSD_TYPE_BASE_MPLS_IMPOSITION)
-				rc->msd = 0;
+				rcap->msd = 0;
+			/* Only one MSD is standardized. Skip others */
+			if (length > MSD_TLV_SIZE)
+				stream_forward_getp(s, length - MSD_TLV_SIZE);
 			break;
 		default:
 			stream_forward_getp(s, length);
@@ -2802,6 +2881,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		}
 		subtlv_len = subtlv_len - length - 2;
 	}
+	tlvs->router_cap = rcap;
 	return 0;
 }
 

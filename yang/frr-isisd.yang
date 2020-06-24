@@ -1213,6 +1213,23 @@ module frr-isisd {
                 "Upper value in the label range.";
           }
         }
+        container srlb {
+          description
+            "Local blocks to be advertised.";
+          must "./upper-bound > ./lower-bound";
+          leaf lower-bound {
+              type uint32;
+              default "15000";
+              description
+                "Lower value in the label range.";
+          }
+          leaf upper-bound {
+              type uint32;
+              default "15999";
+              description
+                "Upper value in the label range.";
+          }
+        }
         container msd {
           description
             "MSD configuration.";

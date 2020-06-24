@@ -52,6 +52,10 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information")
 
 static void sr_prefix_uninstall(struct sr_prefix *srp);
 static void sr_prefix_reinstall(struct sr_prefix *srp, bool make_before_break);
+static void sr_local_block_delete(struct isis_area *area);
+static int sr_local_block_init(struct isis_area *area);
+static void sr_adj_sid_update(struct sr_adjacency *sra,
+			      struct sr_local_block *srlb);
 
 /* --- RB-Tree Management functions ----------------------------------------- */
 
@@ -135,12 +139,23 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 {
 	struct isis_sr_db *srdb = &area->srdb;
 
-	sr_debug("ISIS-Sr (%s): Update SRGB", area->area_tag);
+	sr_debug("ISIS-Sr (%s): Update SRGB with new range [%u/%u]",
+		 area->area_tag, lower_bound, upper_bound);
 
-	/* First release the old SRGB. */
-	if (srdb->config.enabled)
-		isis_zebra_release_label_range(srdb->config.srgb_lower_bound,
+	/* Just store new SRGB values if Label Manager is not available.
+	 * SRGB will be configured later when SR start */
+	if (!isis_zebra_label_manager_ready()) {
+		srdb->config.srgb_lower_bound = lower_bound;
+		srdb->config.srgb_upper_bound = upper_bound;
+		return 0;
+	}
+
+	/* Label Manager is ready, start by releasing the old SRGB. */
+	if (srdb->srgb_active) {
+	        isis_zebra_release_label_range(srdb->config.srgb_lower_bound,
 					       srdb->config.srgb_upper_bound);
+	        srdb->srgb_active = false;
+	}
 
 	srdb->config.srgb_lower_bound = lower_bound;
 	srdb->config.srgb_upper_bound = upper_bound;
@@ -148,14 +163,18 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 	if (srdb->enabled) {
 		struct sr_prefix *srp;
 
-		/* Request new SRGB if SR is enabled. */
+		/* then request new SRGB if SR is enabled. */
 		if (isis_zebra_request_label_range(
 			    srdb->config.srgb_lower_bound,
 			    srdb->config.srgb_upper_bound
-				    - srdb->config.srgb_lower_bound + 1))
+				    - srdb->config.srgb_lower_bound + 1) < 0) {
+			srdb->srgb_active = false;
 			return -1;
+		} else
+			srdb->srgb_active = true;
 
-		sr_debug("  |- Got new SRGB %u/%u",
+
+		sr_debug("  |- Got new SRGB [%u/%u]",
 			 srdb->config.srgb_lower_bound,
 			 srdb->config.srgb_upper_bound);
 
@@ -170,8 +189,61 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 		lsp_regenerate_schedule(area, area->is_type, 0);
 	} else if (srdb->config.enabled) {
 		/* Try to enable SR again using the new SRGB. */
-		if (isis_sr_start(area) == 0)
-			area->srdb.enabled = true;
+		isis_sr_start(area);
+	}
+
+	return 0;
+}
+
+/**
+ * Update Segment Routing Local Block range which is reserved though the
+ * Label Manager. This function trigger the update of local Adjacency-SID
+ * installation.
+ *
+ * @param area		IS-IS area
+ * @param lower_bound	Lower bound of SRLB
+ * @param upper_bound	Upper bound of SRLB
+ *
+ * @return		0 on success, -1 otherwise
+ */
+int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
+			    uint32_t upper_bound)
+{
+	struct isis_sr_db *srdb = &area->srdb;
+	struct listnode *node, *nnode;
+	struct sr_adjacency *sra;
+
+	sr_debug("ISIS-Sr (%s): Update SRLB with new range [%u/%u]",
+		 area->area_tag, lower_bound, upper_bound);
+
+	/* Just store new SRLB values if Label Manager is not available.
+	 * SRLB will be configured later when SR start */
+	if (!isis_zebra_label_manager_ready()) {
+		srdb->config.srlb_lower_bound = lower_bound;
+		srdb->config.srlb_upper_bound = upper_bound;
+		return 0;
+	}
+
+	/* LM is ready, start by deleting the old SRLB */
+	sr_local_block_delete(area);
+
+	srdb->config.srlb_lower_bound = lower_bound;
+	srdb->config.srlb_upper_bound = upper_bound;
+
+	if (srdb->enabled) {
+		/* Initialize new SRLB */
+		if (sr_local_block_init(area) != 0)
+			return -1;
+
+		/* Reinstall local Adjacency-SIDs with new labels. */
+		for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))
+			sr_adj_sid_update(sra, &srdb->srlb);
+
+		/* Update and Flood LSP */
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	} else if (srdb->config.enabled) {
+		/* Try to enable SR again using the new SRLB. */
+		isis_sr_start(area);
 	}
 
 	return 0;
@@ -404,15 +476,13 @@ static struct sr_prefix *sr_prefix_find_by_node(struct sr_node *srn,
  * @return	 New Segment Routing Node structure
  */
 static struct sr_node *sr_node_add(struct isis_area *area, int level,
-				   const uint8_t *sysid,
-				   const struct isis_router_cap *cap)
+				   const uint8_t *sysid)
 {
 	struct sr_node *srn;
 
 	srn = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*srn));
 	srn->level = level;
 	memcpy(srn->sysid, sysid, ISIS_SYS_ID_LEN);
-	srn->cap = *cap;
 	srn->area = area;
 	srdb_node_prefix_init(&srn->prefix_sids);
 	srdb_node_add(&area->srdb.sr_nodes[level - 1], srn);
@@ -887,6 +957,26 @@ static inline void sr_prefix_reinstall(struct sr_prefix *srp,
 /* --- IS-IS LSP Parse functions -------------------------------------------- */
 
 /**
+ * Compare Router Capabilities. Only Flags, SRGB and Algorithm are used for the
+ * comparison. MSD and SRLB modification must not trigger and SR-Prefix update.
+ *
+ * @param r1	First Router Capabilities to compare
+ * @param r2	Second Router Capabilities to compare
+ * @return	0 if r1 and r2 are equal or -1 otherwise
+ */
+static int router_cap_cmp(const struct isis_router_cap *r1,
+			  const struct isis_router_cap *r2)
+{
+	if (r1->flags == r2->flags
+	    && r1->srgb.lower_bound == r2->srgb.lower_bound
+	    && r1->srgb.range_size == r2->srgb.range_size
+	    && r1->algo[0] == r2->algo[0])
+		return 0;
+	else
+		return -1;
+}
+
+/**
  * Parse all SR-related information from the given Router Capabilities TLV.
  *
  * @param area		IS-IS area
@@ -909,8 +999,7 @@ parse_router_cap_tlv(struct isis_area *area, int level, const uint8_t *sysid,
 
 	srn = sr_node_find(area, level, sysid);
 	if (srn) {
-		if (memcmp(&srn->cap, router_cap, sizeof(srn->cap)) != 0) {
-			srn->cap = *router_cap;
+		if (router_cap_cmp(&srn->cap, router_cap) != 0) {
 			srn->state = SRDB_STATE_MODIFIED;
 		} else
 			srn->state = SRDB_STATE_UNCHANGED;
@@ -919,9 +1008,15 @@ parse_router_cap_tlv(struct isis_area *area, int level, const uint8_t *sysid,
 							   : "Unchanged",
 			 sysid_print(srn->sysid));
 	} else {
-		srn = sr_node_add(area, level, sysid, router_cap);
+		srn = sr_node_add(area, level, sysid);
 		srn->state = SRDB_STATE_NEW;
 	}
+
+	/*
+	 * Update Router Capabilities in any case as SRLB or MSD
+	 * modification are not take into account for comparison.
+	 */
+	srn->cap = *router_cap;
 
 	return srn;
 }
@@ -1242,6 +1337,163 @@ static int sr_route_update(struct isis_area *area, struct prefix *prefix,
 	return 0;
 }
 
+/* --- Segment Routing Local Block management functions --------------------- */
+
+/**
+ * Initialize Segment Routing Local Block from SRDB configuration and reserve
+ * block of bits to manage label allocation.
+ *
+ * @param area	IS-IS area
+ */
+static int sr_local_block_init(struct isis_area *area)
+{
+	struct isis_sr_db *srdb = &area->srdb;
+	struct sr_local_block *srlb = &srdb->srlb;
+
+	/* Check if SRLB is not already configured */
+	if (srlb->active)
+		return 0;
+
+	/*
+	 * Request SRLB to the label manager. If the allocation fails, return
+	 * an error to disable SR until a new SRLB is successfully allocated.
+	 */
+	if (isis_zebra_request_label_range(
+		    srdb->config.srlb_lower_bound,
+		    srdb->config.srlb_upper_bound
+			    - srdb->config.srlb_lower_bound + 1)) {
+		srlb->active = false;
+		return -1;
+	}
+
+	sr_debug("ISIS-Sr (%s): Got new SRLB [%u/%u]", area->area_tag,
+		 srdb->config.srlb_lower_bound, srdb->config.srlb_upper_bound);
+
+	/* Initialize the SRLB */
+	srlb->start = srdb->config.srlb_lower_bound;
+	srlb->end = srdb->config.srlb_upper_bound;
+	srlb->current = 0;
+	/* Compute the needed Used Mark number and allocate them */
+	srlb->max_block = (srlb->end - srlb->start + 1) / SRLB_BLOCK_SIZE;
+	if (((srlb->end - srlb->start + 1) % SRLB_BLOCK_SIZE) != 0)
+		srlb->max_block++;
+	srlb->used_mark = XCALLOC(MTYPE_ISIS_SR_INFO,
+				  srlb->max_block * SRLB_BLOCK_SIZE);
+	srlb->active = true;
+
+	return 0;
+}
+
+/**
+ * Remove Segment Routing Local Block.
+ *
+ * @param area	IS-IS area
+ */
+static void sr_local_block_delete(struct isis_area *area)
+{
+	struct isis_sr_db *srdb = &area->srdb;
+	struct sr_local_block *srlb = &srdb->srlb;
+
+	/* Check if SRLB is not already delete */
+	if (!srlb->active)
+		return;
+
+	sr_debug("ISIS-Sr (%s): Remove SRLB [%u/%u]", area->area_tag,
+		 srlb->start, srlb->end);
+
+	/* First release the label block */
+	isis_zebra_release_label_range(srdb->config.srlb_lower_bound,
+				       srdb->config.srlb_upper_bound);
+
+	/* Then reset SRLB structure */
+	if (srlb->used_mark != NULL)
+		XFREE(MTYPE_ISIS_SR_INFO, srlb->used_mark);
+	srlb->active = false;
+}
+
+/**
+ * Request a label from the Segment Routing Local Block.
+ *
+ * @param srlb	Segment Routing Local Block
+ *
+ * @return	First available label on success or MPLS_INVALID_LABEL if the
+ * 		block of labels is full
+ */
+static mpls_label_t sr_local_block_request_label(struct sr_local_block *srlb)
+{
+
+	mpls_label_t label;
+	uint32_t index;
+	uint32_t pos;
+
+	/* Check if we ran out of available labels */
+	if (srlb->current >= srlb->end)
+		return MPLS_INVALID_LABEL;
+
+	/* Get first available label and mark it used */
+	label = srlb->current + srlb->start;
+	index = srlb->current / SRLB_BLOCK_SIZE;
+	pos = 1ULL << (srlb->current % SRLB_BLOCK_SIZE);
+	srlb->used_mark[index] |= pos;
+
+	/* Jump to the next free position */
+	srlb->current++;
+	pos = srlb->current % SRLB_BLOCK_SIZE;
+	while (srlb->current < srlb->end) {
+		if (pos == 0)
+			index++;
+		if (!((1ULL << pos) & srlb->used_mark[index]))
+			break;
+		else {
+			srlb->current++;
+			pos = srlb->current % SRLB_BLOCK_SIZE;
+		}
+	}
+
+	return label;
+}
+
+/**
+ * Release label in the Segment Routing Local Block.
+ *
+ * @param srlb	Segment Routing Local Block
+ * @param label	Label to be release
+ *
+ * @return	0 on success or -1 if label falls outside SRLB
+ */
+static int sr_local_block_release_label(struct sr_local_block *srlb,
+					mpls_label_t label)
+{
+	uint32_t index;
+	uint32_t pos;
+
+	/* Check that label falls inside the SRLB */
+	if ((label < srlb->start) || (label > srlb->end)) {
+		flog_warn(EC_ISIS_SID_OVERFLOW,
+			"%s: Returning label %u is outside SRLB [%u/%u]",
+			__func__, label, srlb->start, srlb->end);
+		return -1;
+	}
+
+	index = (label - srlb->start) / SRLB_BLOCK_SIZE;
+	pos = 1ULL << ((label - srlb->start) % SRLB_BLOCK_SIZE);
+	srlb->used_mark[index] &= ~pos;
+	/* Reset current to the first available position */
+	for (index = 0; index < srlb->max_block; index++) {
+		if (srlb->used_mark[index] != 0xFFFFFFFFFFFFFFFF) {
+			for (pos = 0; pos < SRLB_BLOCK_SIZE; pos++)
+				if (!((1ULL << pos) & srlb->used_mark[index])) {
+					srlb->current =
+						index * SRLB_BLOCK_SIZE + pos;
+					break;
+				}
+			break;
+		}
+	}
+
+	return 0;
+}
+
 /* --- Segment Routing Adjacency-SID management functions ------------------- */
 
 /**
@@ -1293,7 +1545,11 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 	if (backup)
 		SET_FLAG(flags, EXT_SUBTLV_LINK_ADJ_SID_BFLG);
 
-	input_label = isis_zebra_request_dynamic_label();
+	/* Get a label from the SRLB for this Adjacency */
+	input_label = sr_local_block_request_label(&area->srdb.srlb);
+	if (input_label == MPLS_INVALID_LABEL)
+		return;
+
 	if (circuit->ext == NULL)
 		circuit->ext = isis_alloc_ext_subtlvs();
 
@@ -1351,6 +1607,36 @@ static void sr_adj_sid_add(struct isis_adjacency *adj, int family)
 	sr_adj_sid_add_single(adj, family, true);
 }
 
+static void sr_adj_sid_update(struct sr_adjacency *sra,
+			      struct sr_local_block *srlb)
+{
+	struct isis_circuit *circuit = sra->adj->circuit;
+
+	/* First remove the old MPLS Label */
+	isis_zebra_send_adjacency_sid(ZEBRA_MPLS_LABELS_DELETE, sra);
+
+	/* Got new label in the new SRLB */
+	sra->nexthop.label = sr_local_block_request_label(srlb);
+	if (sra->nexthop.label == MPLS_INVALID_LABEL)
+		return;
+
+	switch (circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		sra->u.ladj_sid->sid = sra->nexthop.label;
+		break;
+	case CIRCUIT_T_P2P:
+		sra->u.adj_sid->sid = sra->nexthop.label;
+		break;
+	default:
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u",
+			  __func__, circuit->circ_type);
+		break;
+	}
+
+	/* Finally configure the new MPLS Label */
+	isis_zebra_send_adjacency_sid(ZEBRA_MPLS_LABELS_ADD, sra);
+}
+
 /**
  * Delete local Adj-SID.
  *
@@ -1368,11 +1654,13 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
 	/* Release dynamic label and remove subTLVs */
 	switch (circuit->circ_type) {
 	case CIRCUIT_T_BROADCAST:
-		isis_zebra_release_dynamic_label(sra->u.ladj_sid->sid);
+		sr_local_block_release_label(&area->srdb.srlb,
+					     sra->u.ladj_sid->sid);
 		isis_tlvs_del_lan_adj_sid(circuit->ext, sra->u.ladj_sid);
 		break;
 	case CIRCUIT_T_P2P:
-		isis_zebra_release_dynamic_label(sra->u.adj_sid->sid);
+		sr_local_block_release_label(&area->srdb.srlb,
+					     sra->u.adj_sid->sid);
 		isis_tlvs_del_adj_sid(circuit->ext, sra->u.adj_sid);
 		break;
 	default:
@@ -1730,7 +2018,7 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-	ttable_add_row(tt, "System ID|SRGB|Algorithm|MSD");
+	ttable_add_row(tt, "System ID|SRGB|SRLB|Algorithm|MSD");
 	tt->style.cell.rpad = 2;
 	tt->style.corner = '+';
 	ttable_restyle(tt);
@@ -1738,13 +2026,17 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 
 	/* Process all SR-Node from the SRDB */
 	frr_each (srdb_node, &area->srdb.sr_nodes[level - 1], srn) {
-		ttable_add_row(tt, "%s|%u - %u|%s|%u", sysid_print(srn->sysid),
-			       srn->cap.srgb.lower_bound,
-			       srn->cap.srgb.lower_bound
-				       + srn->cap.srgb.range_size - 1,
-			       srn->cap.algo[0] == SR_ALGORITHM_SPF ? "SPF"
-								    : "S-SPF",
-			       srn->cap.msd);
+		ttable_add_row(
+			tt, "%s|%u - %u|%u - %u|%s|%u",
+			sysid_print(srn->sysid),
+			srn->cap.srgb.lower_bound,
+			srn->cap.srgb.lower_bound + srn->cap.srgb.range_size
+				- 1,
+			srn->cap.srlb.lower_bound,
+			srn->cap.srlb.lower_bound + srn->cap.srlb.range_size
+				- 1,
+			srn->cap.algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF",
+			srn->cap.msd);
 	}
 
 	/* Dump the generated table. */
@@ -1782,6 +2074,26 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 /* --- IS-IS Segment Routing Management function ---------------------------- */
 
 /**
+ * Thread function to re-attempt connection to the Label Manager and thus be
+ * able to start Segment Routing.
+ *
+ * @param start		Thread structure that contains area as argument
+ *
+ * @return		1 on success
+ */
+static int sr_start_label_manager(struct thread *start)
+{
+	struct isis_area *area;
+
+	area = THREAD_ARG(start);
+
+	/* re-attempt to start SR & Label Manager connection */
+	isis_sr_start(area);
+
+	return 1;
+}
+
+/**
  * Enable SR on the given IS-IS area.
  *
  * @param area	IS-IS area
@@ -1794,15 +2106,35 @@ int isis_sr_start(struct isis_area *area)
 	struct isis_circuit *circuit;
 	struct listnode *node;
 
-	/*
-	 * Request SGRB to the label manager. If the allocation fails, return
-	 * an error to disable SR until a new SRGB is successfully allocated.
-	 */
-	if (isis_zebra_request_label_range(
-		    srdb->config.srgb_lower_bound,
-		    srdb->config.srgb_upper_bound
-			    - srdb->config.srgb_lower_bound + 1))
+	/* First start Label Manager if not ready */
+	if (!isis_zebra_label_manager_ready())
+		if (isis_zebra_label_manager_connect() < 0) {
+			/* Re-attempt to connect to Label Manager in 1 sec. */
+			thread_add_timer(master, sr_start_label_manager, area,
+					 1, &srdb->t_start_lm);
+			return -1;
+		}
+
+	/* Label Manager is ready, initialize the SRLB */
+	if (sr_local_block_init(area) < 0)
 		return -1;
+
+	/*
+	 * Request SGRB to the label manager if not already active. If the
+	 * allocation fails, return an error to disable SR until a new SRGB
+	 * is successfully allocated.
+	 */
+	if (!srdb->srgb_active) {
+		if (isis_zebra_request_label_range(
+			    srdb->config.srgb_lower_bound,
+			    srdb->config.srgb_upper_bound
+				    - srdb->config.srgb_lower_bound + 1)
+		    < 0) {
+			srdb->srgb_active = false;
+			return -1;
+		} else
+			srdb->srgb_active = true;
+	}
 
 	sr_debug("ISIS-Sr: Starting Segment Routing for area %s",
 		 area->area_tag);
@@ -1838,6 +2170,8 @@ int isis_sr_start(struct isis_area *area)
 		}
 	}
 
+	area->srdb.enabled = true;
+
 	/* Regenerate LSPs to advertise Segment Routing capabilities. */
 	lsp_regenerate_schedule(area, area->is_type, 0);
 
@@ -1858,6 +2192,9 @@ void isis_sr_stop(struct isis_area *area)
 	sr_debug("ISIS-Sr: Stopping Segment Routing for area %s",
 		 area->area_tag);
 
+	/* Disable any re-attempt to connect to Label Manager */
+	THREAD_TIMER_OFF(srdb->t_start_lm);
+
 	/* Uninstall all local Adjacency-SIDs. */
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))
 		sr_adj_sid_del(sra);
@@ -1872,9 +2209,17 @@ void isis_sr_stop(struct isis_area *area)
 		}
 	}
 
-	/* Release SRGB. */
-	isis_zebra_release_label_range(srdb->config.srgb_lower_bound,
-				       srdb->config.srgb_upper_bound);
+	/* Release SRGB if active. */
+	if (srdb->srgb_active) {
+		isis_zebra_release_label_range(srdb->config.srgb_lower_bound,
+					       srdb->config.srgb_upper_bound);
+		srdb->srgb_active = false;
+	}
+
+	/* Delete SRLB */
+	sr_local_block_delete(area);
+
+	area->srdb.enabled = false;
 
 	/* Regenerate LSPs to advertise that the Node is no more SR enable. */
 	lsp_regenerate_schedule(area, area->is_type, 0);
@@ -1894,7 +2239,6 @@ void isis_sr_area_init(struct isis_area *area)
 
 	/* Initialize Segment Routing Data Base */
 	memset(srdb, 0, sizeof(*srdb));
-	srdb->enabled = false;
 	srdb->adj_sids = list_new();
 
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
@@ -1909,10 +2253,16 @@ void isis_sr_area_init(struct isis_area *area)
 		yang_get_default_uint32("%s/srgb/lower-bound", ISIS_SR);
 	srdb->config.srgb_upper_bound =
 		yang_get_default_uint32("%s/srgb/upper-bound", ISIS_SR);
+	srdb->config.srlb_lower_bound =
+		yang_get_default_uint32("%s/srlb/lower-bound", ISIS_SR);
+	srdb->config.srlb_upper_bound =
+		yang_get_default_uint32("%s/srlb/upper-bound", ISIS_SR);
 #else
 	srdb->config.enabled = false;
 	srdb->config.srgb_lower_bound = SRGB_LOWER_BOUND;
 	srdb->config.srgb_upper_bound = SRGB_UPPER_BOUND;
+	srdb->config.srlb_lower_bound = SRLB_LOWER_BOUND;
+	srdb->config.srlb_upper_bound = SRLB_UPPER_BOUND;
 #endif
 	srdb->config.msd = 0;
 	srdb_prefix_cfg_init(&srdb->config.prefix_sids);

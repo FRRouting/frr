@@ -933,14 +933,23 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			struct isis_sr_db *srdb = &area->srdb;
 			uint32_t range_size;
 
+			/* SRGB first */
 			range_size = srdb->config.srgb_upper_bound
 				     - srdb->config.srgb_lower_bound + 1;
 			cap.srgb.flags = ISIS_SUBTLV_SRGB_FLAG_I
 					 | ISIS_SUBTLV_SRGB_FLAG_V;
 			cap.srgb.range_size = range_size;
 			cap.srgb.lower_bound = srdb->config.srgb_lower_bound;
+			/* Then Algorithm */
 			cap.algo[0] = SR_ALGORITHM_SPF;
 			cap.algo[1] = SR_ALGORITHM_UNSET;
+			/* SRLB */
+			cap.srlb.flags = 0;
+			range_size = srdb->config.srlb_upper_bound
+				     - srdb->config.srlb_lower_bound + 1;
+			cap.srlb.range_size = range_size;
+			cap.srlb.lower_bound = srdb->config.srlb_lower_bound;
+			/* And finally MSD */
 			cap.msd = srdb->config.msd;
 		}
 
