@@ -115,7 +115,7 @@ const char *ospf_area_desc_string(struct ospf_area *area)
 	return buf;
 }
 
-#define OSPF_IF_STRING_MAXLEN  40
+
 const char *ospf_if_name_string(struct ospf_interface *oi)
 {
 	static char buf[OSPF_IF_STRING_MAXLEN] = "";

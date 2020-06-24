@@ -143,4 +143,8 @@ extern void ospf_debug_init(void);
 /* Appropriate buffer size to use with ospf_timer_dump and ospf_timeval_dump: */
 #define OSPF_TIME_DUMP_SIZE	16
 
+/* Appropriate buffer size to use with ospf_if_name_string. The + 22 is to
+ * accommodate the local interface address and colon, ":aaaa.bbbb.cccc.dddd" */
+#define OSPF_IF_STRING_MAXLEN (INTERFACE_NAMSIZ + 22)
+
 #endif /* _ZEBRA_OSPF_DUMP_H */
