@@ -184,21 +184,57 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 }
 
 DEFPY(pbr_map_match_dscp, pbr_map_match_dscp_cmd,
-      "[no] match dscp (0-63)$dscp",
+      "[no] match dscp DSCP$dscp",
       NO_STR
       "Match the rest of the command\n"
       "Match based on IP DSCP field\n"
-      "Differentiated Service Code Point\n")
+      "DSCP value (below 64) or standard codepoint name\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+	char dscpname[100];
+	uint8_t rawDscp;
+
+	/* Discriminate dscp enums (cs0, cs1 etc.) and numbers */
+	bool isANumber = true;
+	for (int i = 0; i < (int)strlen(dscp); i++) {
+		/* Letters are not numbers */
+		if (!isdigit(dscp[i]))
+			isANumber = false;
+
+		/* Lowercase the dscp enum (if needed) */
+		if (isupper(dscp[i]))
+			dscpname[i] = tolower(dscp[i]);
+		else
+			dscpname[i] = dscp[i];
+	}
+	dscpname[strlen(dscp)] = '\0';
+
+	if (isANumber) {
+		/* dscp passed is a regular number */
+		long dscpAsNum = strtol(dscp, NULL, 0);
+
+		if (dscpAsNum > PBR_DSFIELD_DSCP >> 2) {
+			/* Refuse to install on overflow */
+			vty_out(vty, "dscp (%s) must be less than 64\n", dscp);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		rawDscp = dscpAsNum;
+	} else {
+		/* check dscp if it is an enum like cs0 */
+		rawDscp = pbr_map_decode_dscp_enum(dscpname);
+		if (rawDscp > PBR_DSFIELD_DSCP) {
+			vty_out(vty, "Invalid dscp value: %s\n", dscpname);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
 
 	if (!no) {
-		if (((pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2) == dscp)
+		if (((pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2) == rawDscp)
 			return CMD_SUCCESS;
 
 		/* Set the DSCP bits of the DSField */
 		pbrms->dsfield =
-			(pbrms->dsfield & ~PBR_DSFIELD_DSCP) | (dscp << 2);
+			(pbrms->dsfield & ~PBR_DSFIELD_DSCP) | (rawDscp << 2);
 	} else {
 		pbrms->dsfield &= ~PBR_DSFIELD_DSCP;
 	}
@@ -614,8 +650,6 @@ static void vty_show_pbrms(struct vty *vty,
 	if (pbrms->dsfield & PBR_DSFIELD_ECN)
 		vty_out(vty, "        ECN Match: %u\n",
 			pbrms->dsfield & PBR_DSFIELD_ECN);
-	if (pbrms->dsfield)
-		vty_out(vty, "        DSField Match: %u\n", (pbrms->dsfield));
 	if (pbrms->mark)
 		vty_out(vty, "        MARK Match: %u\n", pbrms->mark);
 

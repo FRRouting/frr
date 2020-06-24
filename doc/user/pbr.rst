@@ -123,11 +123,15 @@ end destination.
    on another platform it will be denied.  This mark translates to the
    underlying `ip rule .... fwmark XXXX` command.
 
-.. clicmd:: match dscp (0-63)
+.. clicmd:: match dscp (DSCP|0-63)
 
    Match packets according to the specified differentiated services code point
    (DSCP) in the IP header; if this value matches then forward the packet
-   according to the nexthop(s) specified.
+   according to the nexthop(s) specified. The passed DSCP value may also be a
+   standard name for a differentiated service code point like cs0 or af11.
+
+   You may only specify one dscp per route map sequence; to match on multiple
+   dscp values you will need to create several sequences, one for each value.
 
 .. clicmd:: match ecn (0-3)
 
