@@ -469,20 +469,40 @@ def reset_config_on_routers(tgen, routerName=None):
         delta = StringIO.StringIO()
         delta.write("configure terminal\n")
         t_delta = f.read()
+
+        # Don't disable debugs
+        check_debug = True
+
         for line in t_delta.split("\n"):
             line = line.strip()
             if (
                 line == "Lines To Delete"
                 or line == "==============="
-                or line == "Lines To Add"
-                or line == "============"
                 or not line
             ):
                 continue
+
+            if (line == "Lines To Add"):
+                check_debug = False
+                continue
+
+            if (line == "============"
+                or not line
+            ):
+                continue
+
+            # Leave debugs and log output alone
+            if check_debug:
+                if ('debug' in line or 'log file' in line):
+                    continue
+
             delta.write(line)
             delta.write("\n")
 
+        f.close()
+
         delta.write("end\n")
+
         output = router.vtysh_multicmd(delta.getvalue(), pretty_output=False)
 
         delta.close()
@@ -1256,7 +1276,14 @@ def create_interfaces_cfg(tgen, topo, build=False):
                 else:
                     interface_name = data["interface"]
 
-                interface_data.append("interface {}".format(str(interface_name)))
+                # Include vrf if present
+                if "vrf" in data:
+                    interface_data.append("interface {} vrf {}".format(
+                        str(interface_name),
+                        str(data["vrf"])))
+                else:
+                    interface_data.append("interface {}".format(str(interface_name)))
+
                 if "ipv4" in data:
                     intf_addr = c_data["links"][destRouterLink]["ipv4"]
 
