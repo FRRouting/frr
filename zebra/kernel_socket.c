@@ -927,7 +927,7 @@ int ifam_read(struct ifa_msghdr *ifam)
 					   NULL,
 					   ip6_masklen(mask.sin6.sin6_addr),
 					   (isalias ? ifname : NULL),
-					   METRIC_MAX);
+					   METRIC_MAX, false);
 		else
 			connected_delete_ipv6(ifp, &addr.sin6.sin6_addr, NULL,
 					      ip6_masklen(mask.sin6.sin6_addr));

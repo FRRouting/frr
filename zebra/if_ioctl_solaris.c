@@ -307,7 +307,7 @@ static int if_get_addr(struct interface *ifp, struct sockaddr *addr,
 				   METRIC_MAX);
 	else if (af == AF_INET6)
 		connected_add_ipv6(ifp, flags, &SIN6(addr)->sin6_addr, NULL,
-				   prefixlen, label, METRIC_MAX);
+				   prefixlen, label, METRIC_MAX, false);
 
 	return 0;
 }

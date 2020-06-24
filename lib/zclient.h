@@ -456,6 +456,13 @@ struct zapi_route {
  * route entry.  This mainly is used for backup static routes.
  */
 #define ZEBRA_FLAG_RR_USE_DISTANCE    0x40
+/*
+ * With IPv6 routes, there is a mechanism for DAD
+ * when FRR detects this, we need to note to the rib
+ * that it *exists* but there is a problem.
+ * this is how this is done.
+ */
+#define ZEBRA_FLAG_NEVER_SELECT       0x80
 
 	/* The older XXX_MESSAGE flags live here */
 	uint8_t message;

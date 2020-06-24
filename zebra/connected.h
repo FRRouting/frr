@@ -55,7 +55,7 @@ extern void connected_down(struct interface *ifp, struct connected *ifc);
 extern void connected_add_ipv6(struct interface *ifp, int flags,
 			       struct in6_addr *address, struct in6_addr *dest,
 			       uint16_t prefixlen, const char *label,
-			       uint32_t metric);
+			       uint32_t metric, bool dad_failed);
 extern void connected_delete_ipv6(struct interface *ifp,
 				  struct in6_addr *address,
 				  struct in6_addr *dest, uint16_t prefixlen);

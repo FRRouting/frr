@@ -1215,6 +1215,9 @@ static void connected_dump_vty(struct vty *vty, struct connected *connected)
 	if (connected->label)
 		vty_out(vty, " %s", connected->label);
 
+	if (CHECK_FLAG(connected->flags, ZEBRA_IFA_DADFAILED))
+		vty_out(vty, " DAD Failed");
+
 	vty_out(vty, "\n");
 }
 

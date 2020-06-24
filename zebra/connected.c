@@ -207,6 +207,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t metric;
+	int flags = 0;
 
 	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	if (!zvrf) {
@@ -251,11 +252,16 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 
 	metric = (ifc->metric < (uint32_t)METRIC_MAX) ?
 				ifc->metric : ifp->metric;
-	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
-		0, 0, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
 
-	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
-		0, 0, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
+	if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
+	    && !CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
+		flags |= ZEBRA_FLAG_NEVER_SELECT;
+
+	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
+		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
+
+	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
+		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
@@ -465,7 +471,7 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 /* Add connected IPv6 route to the interface. */
 void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 			struct in6_addr *dest, uint16_t prefixlen,
-			const char *label, uint32_t metric)
+			const char *label, uint32_t metric, bool dad_failed)
 {
 	struct prefix_ipv6 *p;
 	struct connected *ifc;
@@ -521,7 +527,13 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 	 * although DAD
 	 * might still be running.
 	 */
-	SET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
+	if (!dad_failed)
+		SET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
+	else {
+		SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+		SET_FLAG(ifc->flags, ZEBRA_IFA_DADFAILED);
+	}
+
 	connected_update(ifp, ifc);
 }
 

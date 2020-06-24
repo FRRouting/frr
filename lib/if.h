@@ -411,6 +411,7 @@ struct connected {
 #define ZEBRA_IFA_SECONDARY    (1 << 0)
 #define ZEBRA_IFA_PEER         (1 << 1)
 #define ZEBRA_IFA_UNNUMBERED   (1 << 2)
+#define ZEBRA_IFA_DADFAILED    (1 << 3)
 	/* N.B. the ZEBRA_IFA_PEER flag should be set if and only if
 	   a peer address has been configured.  If this flag is set,
 	   the destination field must contain the peer address.

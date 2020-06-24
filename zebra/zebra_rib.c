@@ -1108,7 +1108,8 @@ static void rib_process(struct route_node *rn)
 					   ROUTE_ENTRY_CHANGED);
 			new_fib = best;
 		} else {
-			best = rib_choose_best(new_selected, re);
+			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_NEVER_SELECT))
+				best = rib_choose_best(new_selected, re);
 			if (new_selected && best != new_selected)
 				UNSET_FLAG(new_selected->status,
 					   ROUTE_ENTRY_CHANGED);
@@ -1296,7 +1297,10 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
-		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_NEVER_SELECT))
+			SET_FLAG(re->status, ROUTE_ENTRY_FAILED);
+		else
+			SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 		UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 
 		for (ALL_NEXTHOPS(re->nhe->nhg, nhop)) {

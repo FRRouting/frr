@@ -387,6 +387,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		}
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			vty_out(vty, ", best");
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_NEVER_SELECT))
+			vty_out(vty, ", Not Usable");
 		vty_out(vty, "\n");
 
 		time_t uptime;

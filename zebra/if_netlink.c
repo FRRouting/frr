@@ -1146,19 +1146,15 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			return -1;
 		}
 		if (h->nlmsg_type == RTM_NEWADDR) {
-			/* Only consider valid addresses; we'll not get a
-			 * notification from
-			 * the kernel till IPv6 DAD has completed, but at init
-			 * time, Quagga
-			 * does query for and will receive all addresses.
-			 */
-			if (!(kernel_flags
-			      & (IFA_F_DADFAILED | IFA_F_TENTATIVE)))
-				connected_add_ipv6(ifp, flags,
-						   (struct in6_addr *)addr,
-						   (struct in6_addr *)broad,
-						   ifa->ifa_prefixlen, label,
-						   metric);
+			bool dad_failed = false;
+
+			if (kernel_flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+				dad_failed = true;
+
+			connected_add_ipv6(ifp, flags, (struct in6_addr *)addr,
+					   (struct in6_addr *)broad,
+					   ifa->ifa_prefixlen, label, metric,
+					   dad_failed);
 		} else
 			connected_delete_ipv6(ifp, (struct in6_addr *)addr,
 					      NULL, ifa->ifa_prefixlen);
