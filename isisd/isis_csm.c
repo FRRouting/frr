@@ -68,7 +68,7 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 	int old_state;
 
 	old_state = circuit ? circuit->state : C_STATE_NA;
-	if (isis->debugs & DEBUG_EVENTS)
+	if (IS_DEBUG_EVENTS)
 		zlog_debug("CSM_EVENT: %s", EVENT2STR(event));
 
 	switch (old_state) {
@@ -190,7 +190,7 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 		zlog_warn("Invalid circuit state %d", old_state);
 	}
 
-	if (isis->debugs & DEBUG_EVENTS)
+	if (IS_DEBUG_EVENTS)
 		zlog_debug("CSM_STATE_CHANGE: %s -> %s ", STATE2STR(old_state),
 			   circuit ? STATE2STR(circuit->state)
 				   : STATE2STR(C_STATE_NA));

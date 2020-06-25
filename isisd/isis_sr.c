@@ -819,7 +819,7 @@ static int sr_prefix_install_remote(struct sr_prefix *srp)
 		if (output_label == MPLS_INVALID_LABEL)
 			goto next;
 
-		if (IS_DEBUG_ISIS(DEBUG_SR)) {
+		if (IS_DEBUG_SR) {
 			static char buf[INET6_ADDRSTRLEN];
 
 			inet_ntop(nexthop->family, &nexthop->ip, buf,

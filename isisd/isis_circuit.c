@@ -469,7 +469,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 		circuit->is_passive = 1;
 	} else {
 		/* It's normal in case of loopback etc. */
-		if (isis->debugs & DEBUG_EVENTS)
+		if (IS_DEBUG_EVENTS)
 			zlog_debug("isis_circuit_if_add: unsupported media");
 		circuit->circ_type = CIRCUIT_T_UNKNOWN;
 	}

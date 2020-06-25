@@ -130,7 +130,7 @@ static int process_p2p_hello(struct iih_info *iih)
 	struct isis_threeway_adj *tw_adj = iih->tlvs->threeway_adj;
 	if (tw_adj) {
 		if (tw_adj->state > ISIS_THREEWAY_DOWN) {
-			if (isis->debugs & DEBUG_ADJ_PACKETS) {
+			if (IS_DEBUG_ADJ_PACKETS) {
 				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s) with invalid three-way state: %d",
 					   iih->circuit->area->area_tag,
 					   iih->circuit->interface->name,
@@ -143,7 +143,7 @@ static int process_p2p_hello(struct iih_info *iih)
 		    && (memcmp(tw_adj->neighbor_id, isis->sysid, ISIS_SYS_ID_LEN)
 			|| tw_adj->neighbor_circuit_id != (uint32_t) iih->circuit->idx)) {
 
-			if (isis->debugs & DEBUG_ADJ_PACKETS) {
+			if (IS_DEBUG_ADJ_PACKETS) {
 				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s) which lists IS/Circuit different from us as neighbor.",
 					   iih->circuit->area->area_tag,
 					   iih->circuit->interface->name);
@@ -425,7 +425,7 @@ static int process_p2p_hello(struct iih_info *iih)
 		}
 	}
 
-	if (isis->debugs & DEBUG_ADJ_PACKETS) {
+	if (IS_DEBUG_ADJ_PACKETS) {
 		zlog_debug(
 			"ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s,"
 			" cir id %hhu, length %" PRIu16,
@@ -522,7 +522,7 @@ static int process_lan_hello(struct iih_info *iih)
 	if (adj->adj_state == ISIS_ADJ_UP && changed)
 		lsp_regenerate_schedule(adj->circuit->area, iih->level, 0);
 
-	if (isis->debugs & DEBUG_ADJ_PACKETS) {
+	if (IS_DEBUG_ADJ_PACKETS) {
 		zlog_debug(
 			"ISIS-Adj (%s): Rcvd L%d LAN IIH from %s on %s, cirType %s, cirID %u, length %zd",
 			iih->circuit->area->area_tag, iih->level,
@@ -565,13 +565,13 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 
 	stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
 			pdu_end - pdu_start);
-	if (isis->debugs & DEBUG_ADJ_PACKETS) {
+	if (IS_DEBUG_ADJ_PACKETS) {
 		zlog_debug("ISIS-Adj (%s): Rcvd %s on %s, cirType %s, cirID %u",
 			   circuit->area->area_tag, pdu_name,
 			   circuit->interface->name,
 			   circuit_t2string(circuit->is_type),
 			   circuit->circuit_id);
-		if (isis->debugs & DEBUG_PACKET_DUMP)
+		if (IS_DEBUG_PACKET_DUMP)
 			zlog_dump_data(STREAM_DATA(circuit->rcv_stream),
 				       stream_get_endp(circuit->rcv_stream));
 	}
@@ -614,7 +614,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		}
 
 		if (!(circuit->is_type & level)) {
-			if (isis->debugs & DEBUG_ADJ_PACKETS) {
+			if (IS_DEBUG_ADJ_PACKETS) {
 				zlog_debug(
 					"ISIS-Adj (%s): Interface level mismatch, %s",
 					circuit->area->area_tag,
@@ -742,7 +742,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		|| (level == ISIS_LEVEL1
 		    && !isis_tlvs_area_addresses_match(
 			       iih.tlvs, circuit->area->area_addrs)))) {
-		if (isis->debugs & DEBUG_ADJ_PACKETS) {
+		if (IS_DEBUG_ADJ_PACKETS) {
 			zlog_debug(
 				"ISIS-Adj (%s): Area mismatch, level %d IIH on %s",
 				circuit->area->area_tag, level,
@@ -762,7 +762,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			 && iih.tlvs->ipv6_address.count);
 
 	if (!iih.v4_usable && !iih.v6_usable) {
-		if (isis->debugs & DEBUG_ADJ_PACKETS) {
+		if (IS_DEBUG_ADJ_PACKETS) {
 			zlog_warn(
 				"ISIS-Adj (%s): Neither IPv4 nor IPv6 considered usable. Ignoring IIH",
 				circuit->area->area_tag);
@@ -831,7 +831,7 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 		circuit_scoped = false;
 	}
 
-	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
+	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug(
 			"ISIS-Upd (%s): Rcvd %sL%d LSP on %s, cirType %s, cirID %u",
 			circuit->area->area_tag,
@@ -839,7 +839,7 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 			circuit->interface->name,
 			circuit_t2string(circuit->is_type),
 			circuit->circuit_id);
-		if (isis->debugs & DEBUG_PACKET_DUMP)
+		if (IS_DEBUG_PACKET_DUMP)
 			zlog_dump_data(STREAM_DATA(circuit->rcv_stream),
 				       stream_get_endp(circuit->rcv_stream));
 	}
@@ -866,7 +866,7 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 		return ISIS_WARNING;
 	}
 
-	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
+	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug("ISIS-Upd (%s): Rcvd L%d LSP %s, seq 0x%08" PRIx32
 			   ", cksum 0x%04" PRIx16 ", lifetime %" PRIu16
 			   "s, len %" PRIu16 ", on %s",
@@ -1123,7 +1123,7 @@ dontcheckadj:
 							  lsp, TX_LSP_NORMAL);
 					ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
 				}
-				if (isis->debugs & DEBUG_UPDATE_PACKETS)
+				if (IS_DEBUG_UPDATE_PACKETS)
 					zlog_debug(
 						"ISIS-Upd (%s): (1) "
 						"re-originating LSP %s new seq "
@@ -1167,7 +1167,7 @@ dontcheckadj:
 			isis_notif_seqno_skipped(circuit,
 						 rawlspid_print(hdr.lsp_id));
 #endif /* ifndef FABRICD */
-			if (isis->debugs & DEBUG_UPDATE_PACKETS) {
+			if (IS_DEBUG_UPDATE_PACKETS) {
 				zlog_debug(
 					"ISIS-Upd (%s): (2) re-originating LSP %s new seq 0x%08" PRIx32,
 					circuit->area->area_tag,
@@ -1298,14 +1298,14 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		return ISIS_WARNING;
 	}
 
-	if (isis->debugs & DEBUG_SNP_PACKETS) {
+	if (IS_DEBUG_SNP_PACKETS) {
 		zlog_debug(
 			"ISIS-Snp (%s): Rcvd L%d %cSNP on %s, cirType %s, cirID %u",
 			circuit->area->area_tag, level, typechar,
 			circuit->interface->name,
 			circuit_t2string(circuit->is_type),
 			circuit->circuit_id);
-		if (isis->debugs & DEBUG_PACKET_DUMP)
+		if (IS_DEBUG_PACKET_DUMP)
 			zlog_dump_data(STREAM_DATA(circuit->rcv_stream),
 				       stream_get_endp(circuit->rcv_stream));
 	}
@@ -1412,7 +1412,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		(struct isis_lsp_entry *)tlvs->lsp_entries.head;
 
 	/* debug isis snp-packets */
-	if (isis->debugs & DEBUG_SNP_PACKETS) {
+	if (IS_DEBUG_SNP_PACKETS) {
 		zlog_debug("ISIS-Snp (%s): Rcvd L%d %cSNP from %s on %s",
 			   circuit->area->area_tag, level, typechar,
 			   snpa_print(ssnpa), circuit->interface->name);
@@ -1915,7 +1915,7 @@ int send_hello(struct isis_circuit *circuit, int level)
 		return ISIS_WARNING; /* XXX: Maybe Log TLV structure? */
 	}
 
-	if (isis->debugs & DEBUG_ADJ_PACKETS) {
+	if (IS_DEBUG_ADJ_PACKETS) {
 		if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 			zlog_debug(
 				"ISIS-Adj (%s): Sending L%d LAN IIH on %s, length %zd",
@@ -1929,7 +1929,7 @@ int send_hello(struct isis_circuit *circuit, int level)
 				circuit->interface->name,
 				stream_get_endp(circuit->snd_stream));
 		}
-		if (isis->debugs & DEBUG_PACKET_DUMP)
+		if (IS_DEBUG_PACKET_DUMP)
 			zlog_dump_data(STREAM_DATA(circuit->snd_stream),
 				       stream_get_endp(circuit->snd_stream));
 	}
@@ -2134,7 +2134,7 @@ int send_csnp(struct isis_circuit *circuit, int level)
 			return ISIS_WARNING;
 		}
 
-		if (isis->debugs & DEBUG_SNP_PACKETS) {
+		if (IS_DEBUG_SNP_PACKETS) {
 			zlog_debug(
 				"ISIS-Snp (%s): Sending L%d CSNP on %s, length %zd",
 				circuit->area->area_tag, level,
@@ -2142,7 +2142,7 @@ int send_csnp(struct isis_circuit *circuit, int level)
 				stream_get_endp(circuit->snd_stream));
 			log_multiline(LOG_DEBUG, "              ", "%s",
 				      isis_format_tlvs(tlvs));
-			if (isis->debugs & DEBUG_PACKET_DUMP)
+			if (IS_DEBUG_PACKET_DUMP)
 				zlog_dump_data(
 					STREAM_DATA(circuit->snd_stream),
 					stream_get_endp(circuit->snd_stream));
@@ -2297,7 +2297,7 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 			return ISIS_WARNING;
 		}
 
-		if (isis->debugs & DEBUG_SNP_PACKETS) {
+		if (IS_DEBUG_SNP_PACKETS) {
 			zlog_debug(
 				"ISIS-Snp (%s): Sending L%d PSNP on %s, length %zd",
 				circuit->area->area_tag, level,
@@ -2305,7 +2305,7 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 				stream_get_endp(circuit->snd_stream));
 			log_multiline(LOG_DEBUG, "              ", "%s",
 				      isis_format_tlvs(tlvs));
-			if (isis->debugs & DEBUG_PACKET_DUMP)
+			if (IS_DEBUG_PACKET_DUMP)
 				zlog_dump_data(
 					STREAM_DATA(circuit->snd_stream),
 					stream_get_endp(circuit->snd_stream));
@@ -2422,7 +2422,7 @@ void send_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp,
 		isis_notif_lsp_too_large(circuit, stream_get_endp(lsp->pdu),
 					 rawlspid_print(lsp->hdr.lsp_id));
 #endif /* ifndef FABRICD */
-		if (isis->debugs & DEBUG_PACKET_DUMP)
+		if (IS_DEBUG_PACKET_DUMP)
 			zlog_dump_data(STREAM_DATA(lsp->pdu),
 				       stream_get_endp(lsp->pdu));
 		retval = ISIS_ERROR;
@@ -2438,7 +2438,7 @@ void send_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp,
 			       L2_CIRCUIT_FLOODING_SCOPE);
 	}
 
-	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
+	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug("ISIS-Upd (%s): Sending %sL%d LSP %s, seq 0x%08" PRIx32
 			   ", cksum 0x%04" PRIx16 ", lifetime %" PRIu16
 			   "s on %s",
@@ -2449,7 +2449,7 @@ void send_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp,
 			   rawlspid_print(lsp->hdr.lsp_id), lsp->hdr.seqno,
 			   lsp->hdr.checksum, lsp->hdr.rem_lifetime,
 			   circuit->interface->name);
-		if (isis->debugs & DEBUG_PACKET_DUMP)
+		if (IS_DEBUG_PACKET_DUMP)
 			zlog_dump_data(STREAM_DATA(circuit->snd_stream),
 				       stream_get_endp(circuit->snd_stream));
 	}
