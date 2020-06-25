@@ -127,8 +127,7 @@ static enum route_map_cmd_result_t route_match(void *rule,
 					       route_map_object_t type,
 					       void *object);
 static void *route_match_compile(const char *arg);
-static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
-				safi_t safi);
+static void revalidate_bgp_node(struct bgp_dest *dest, afi_t afi, safi_t safi);
 static void revalidate_all_routes(void);
 
 static struct rtr_mgr_config *rtr_config;
@@ -402,15 +401,15 @@ static int bgpd_sync_callback(struct thread *thread)
 				if (!peer->bgp->rib[afi][safi])
 					continue;
 
-				struct bgp_node *match;
-				struct bgp_node *node;
+				struct bgp_dest *match;
+				struct bgp_dest *node;
 
 				match = bgp_table_subtree_lookup(
 					peer->bgp->rib[afi][safi], prefix);
 				node = match;
 
 				while (node) {
-					if (bgp_node_has_bgp_path_info_data(
+					if (bgp_dest_has_bgp_path_info_data(
 						    node)) {
 						revalidate_bgp_node(node, afi,
 								    safi);
@@ -427,15 +426,15 @@ static int bgpd_sync_callback(struct thread *thread)
 	return 0;
 }
 
-static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
+static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
 				safi_t safi)
 {
 	struct bgp_adj_in *ain;
 
-	for (ain = bgp_node->adj_in; ain; ain = ain->next) {
+	for (ain = bgp_dest->adj_in; ain; ain = ain->next) {
 		int ret;
 		struct bgp_path_info *path =
-			bgp_node_get_bgp_path_info(bgp_node);
+			bgp_dest_get_bgp_path_info(bgp_dest);
 		mpls_label_t *label = NULL;
 		uint32_t num_labels = 0;
 
@@ -443,7 +442,7 @@ static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
 			label = path->extra->label;
 			num_labels = path->extra->num_labels;
 		}
-		ret = bgp_update(ain->peer, bgp_node_get_prefix(bgp_node),
+		ret = bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest),
 				 ain->addpath_rx_id, ain->attr, afi, safi,
 				 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
 				 num_labels, 1, NULL);

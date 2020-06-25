@@ -53,15 +53,15 @@ static void add_node(struct bgp_table *table, const char *prefix_str)
 {
 	struct prefix_ipv4 p;
 	struct test_node_t *node;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 
 	assert(prefix_str);
 
 	if (str2prefix_ipv4(prefix_str, &p) <= 0)
 		assert(0);
 
-	rn = bgp_node_get(table, (struct prefix *)&p);
-	if (rn->info) {
+	dest = bgp_node_get(table, (struct prefix *)&p);
+	if (dest->info) {
 		assert(0);
 		return;
 	}
@@ -70,7 +70,7 @@ static void add_node(struct bgp_table *table, const char *prefix_str)
 	assert(node);
 	node->prefix_str = strdup(prefix_str);
 	assert(node->prefix_str);
-	rn->info = node;
+	dest->info = node;
 }
 
 static bool prefix_in_array(const struct prefix *p, struct prefix *prefix_array,
@@ -83,7 +83,7 @@ static bool prefix_in_array(const struct prefix *p, struct prefix *prefix_array,
 	return false;
 }
 
-static void check_lookup_result(struct bgp_node *match, va_list arglist)
+static void check_lookup_result(struct bgp_dest *match, va_list arglist)
 {
 	char *prefix_str;
 	struct prefix *prefixes = NULL;
@@ -102,16 +102,16 @@ static void check_lookup_result(struct bgp_node *match, va_list arglist)
 	if (!match)
 		return;
 
-	struct bgp_node *node = match;
+	struct bgp_dest *dest = match;
 
-	while ((node = bgp_route_next_until(node, match))) {
-		const struct prefix *node_p = bgp_node_get_prefix(node);
+	while ((dest = bgp_route_next_until(dest, match))) {
+		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 
-		if (bgp_node_has_bgp_path_info_data(node)
-		    && !prefix_in_array(node_p, prefixes, prefix_count)) {
+		if (bgp_dest_has_bgp_path_info_data(dest)
+		    && !prefix_in_array(dest_p, prefixes, prefix_count)) {
 			char buf[PREFIX2STR_BUFFER];
 
-			prefix2str(node_p, buf, PREFIX2STR_BUFFER);
+			prefix2str(dest_p, buf, PREFIX2STR_BUFFER);
 			printf("prefix %s was not expected!\n", buf);
 			assert(0);
 		}
@@ -128,9 +128,9 @@ static void do_test(struct bgp_table *table, const char *prefix, ...)
 	printf("\nDoing lookup for %s\n", prefix);
 	if (str2prefix(prefix, &p) <= 0)
 		assert(0);
-	struct bgp_node *node = bgp_table_subtree_lookup(table, &p);
+	struct bgp_dest *dest = bgp_table_subtree_lookup(table, &p);
 
-	check_lookup_result(node, arglist);
+	check_lookup_result(dest, arglist);
 
 	va_end(arglist);
 

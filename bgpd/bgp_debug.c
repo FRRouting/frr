@@ -2539,11 +2539,11 @@ bool bgp_debug_update(struct peer *peer, const struct prefix *p,
 	return false;
 }
 
-bool bgp_debug_bestpath(struct bgp_node *rn)
+bool bgp_debug_bestpath(struct bgp_dest *dest)
 {
 	if (BGP_DEBUG(bestpath, BESTPATH)) {
 		if (bgp_debug_per_prefix(
-			    bgp_node_get_prefix(rn), term_bgp_debug_bestpath,
+			    bgp_dest_get_prefix(dest), term_bgp_debug_bestpath,
 			    BGP_DEBUG_BESTPATH, bgp_debug_bestpath_prefixes))
 			return true;
 	}
