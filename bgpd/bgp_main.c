@@ -126,8 +126,18 @@ static struct frr_daemon_info bgpd_di;
 /* SIGHUP handler. */
 void sighup(void)
 {
-	zlog_info("SIGHUP received");
+	zlog_info("SIGHUP received, ignoring");
 
+	return;
+
+	/*
+	 * This is turned off for the moment.  There is all
+	 * sorts of config turned off by bgp_terminate
+	 * that is not setup properly again in bgp_rest.
+	 * I see no easy way to do this nor do I see that
+	 * this is a desirable way to reload config
+	 * given the yang work.
+	 */
 	/* Terminate all thread. */
 	bgp_terminate();
 	bgp_reset();
