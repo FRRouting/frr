@@ -852,12 +852,15 @@ static void pbr_nht_nexthop_update_lookup(struct hash_bucket *b, void *data)
 	 */
 	pnhgc->valid = !!pnhi.valid;
 
-	if (pnhgc->valid) {
-		pbr_nexthop_group_cache_to_nexthop_group(&nhg, pnhgc);
+	pbr_nexthop_group_cache_to_nexthop_group(&nhg, pnhgc);
+
+	if (pnhgc->valid)
 		pbr_nht_install_nexthop_group(pnhgc, nhg);
-		/* Don't need copied nexthops anymore */
-		nexthops_free(nhg.nexthop);
-	}
+	else
+		pbr_nht_uninstall_nexthop_group(pnhgc, nhg, 0);
+
+	/* Don't need copied nexthops anymore */
+	nexthops_free(nhg.nexthop);
 
 	if (old_valid != pnhgc->valid)
 		pbr_map_check_nh_group_change(pnhgc->name);
