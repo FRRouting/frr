@@ -76,8 +76,10 @@ static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 				   bnc_str(bnc, buf, PREFIX2STR_BUFFER),
 				   bnc->srte_color, bnc->bgp->name_pretty);
 		}
-		unregister_zebra_rnh(bnc,
-				     CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE));
+		/* only unregister if this is the last nh for this prefix*/
+		if (!bnc_existing_for_prefix(bnc))
+			unregister_zebra_rnh(
+				bnc, CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE));
 		bnc_free(bnc);
 	}
 }
