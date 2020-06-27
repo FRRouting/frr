@@ -32,6 +32,7 @@
 #include "stream.h"
 #include "if.h"
 #include "lib_errors.h"
+#include "vrf.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -121,8 +122,18 @@ static int open_packet_socket(struct isis_circuit *circuit)
 {
 	struct sockaddr_ll s_addr;
 	int fd, retval = ISIS_OK;
+	struct vrf *vrf = NULL;
 
-	fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
+	vrf = vrf_lookup_by_id(circuit->interface->vrf_id);
+
+	if (vrf == NULL) {
+		zlog_warn("open_packet_socket(): failed to find vrf node");
+		return ISIS_WARNING;
+	}
+
+	fd = vrf_socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL),
+			circuit->interface->vrf_id, vrf->name);
+
 	if (fd < 0) {
 		zlog_warn("open_packet_socket(): socket() failed %s",
 			  safe_strerror(errno));
