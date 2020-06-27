@@ -867,6 +867,20 @@ def verify_router_id(tgen, topo, input_dict):
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
+def dump_convergence_problems(tgen):
+    """
+    Pass in the tgen and this function will dump data associated
+    with each vrf that gives you reasoning on what may have gone
+    wrong.
+    """
+
+    logger.debug("Entering lib API: dump_convergence_problems()")
+    router_liist = tgen.routers().values()
+    for router in router_list:
+	logger.info("**************** {} *****************".format(router.name))
+	logger.info(router.vtysh_cmd("show ip route vrf all"))
+	logger.info(router.vtysh_cmd("show ip nht vrf all"))
+	logger.info(router.vtysh_cmd("show bgp vrf all summary fail"))
 
 @retry(attempts=44, wait=3, return_is_str=True)
 def verify_bgp_convergence(tgen, topo, dut=None):

@@ -63,7 +63,7 @@ from lib.common_config import (
     reset_config_on_routers,
 )
 from lib.topolog import logger
-from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
+from lib.bgp import dump_convergence_problems, verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
 from lib.topojson import build_topo_from_json, build_config_from_json
 
 # Reading the data from JSON File for topology and configuration creation
@@ -133,6 +133,8 @@ def setup_module(mod):
     ADDR_TYPES = check_address_types()
 
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
+    if (BGP_CONVERGENCE is not True):
+	dump_convergence_problems(tgen)
     assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error:" " {}".format(
         BGP_CONVERGENCE
     )

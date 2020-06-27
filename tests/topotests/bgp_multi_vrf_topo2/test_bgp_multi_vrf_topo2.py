@@ -82,7 +82,14 @@ from lib.common_config import (
 )
 
 from lib.topolog import logger
-from lib.bgp import clear_bgp, verify_bgp_rib, create_router_bgp, verify_bgp_convergence
+from lib.bgp import (
+    clear_bgp,
+    dump_convergence_problems,
+    verify_bgp_rib,
+    create_router_bgp,
+    verify_bgp_convergence
+)
+
 from lib.topojson import build_config_from_json, build_topo_from_json
 
 # Reading the data from JSON File for topology creation
@@ -168,6 +175,8 @@ def setup_module(mod):
     ADDR_TYPES = check_address_types()
 
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
+    if (BGP_CONVERGENCE is not True):
+	dump_convergence_problems(tgen)
     assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error: {}".format(
         BGP_CONVERGENCE
     )
@@ -275,6 +284,8 @@ def test_vrf_with_multiple_links_p1(request):
     step("Verify BGP convergence")
 
     result = verify_bgp_convergence(tgen, topo_modify)
+    if (result is not True):
+	dump_convergence_problems(tgen)
     assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     step(
@@ -1572,6 +1583,8 @@ def test_shut_noshut_p1(request):
         )
 
         result = verify_bgp_convergence(tgen, topo)
+	if (result is not True):
+	    dump_convergence_problems(tgen)
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )

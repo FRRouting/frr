@@ -137,6 +137,7 @@ from lib.common_config import (
 from lib.topolog import logger
 from lib.bgp import (
     clear_bgp,
+    dump_convergence_problems,
     verify_bgp_rib,
     create_router_bgp,
     verify_bgp_community,
@@ -202,7 +203,6 @@ class CreateTopo(Topo):
         # Building topology from json file
         build_topo_from_json(tgen, topo)
 
-
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -235,6 +235,8 @@ def setup_module(mod):
     ADDR_TYPES = check_address_types()
 
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
+    if (BGP_CONVERGENCE is not True):
+	dump_convergence_problems(tgen)
     assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error: {}".format(
         BGP_CONVERGENCE
     )
@@ -1325,6 +1327,8 @@ def test_static_routes_advertised_within_specific_vrf_p0(request):
     )
 
     result = verify_bgp_convergence(tgen, topo)
+    if (result is not True):
+	dump_convergence_problems()
     assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
