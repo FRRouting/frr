@@ -257,6 +257,7 @@ int bfdd_bfd_profile_detection_multiplier_modify(struct nb_cb_modify_args *args)
 
 	bp = nb_running_get_entry(args->dnode, NULL, true);
 	bp->detection_multiplier = yang_dnode_get_uint8(args->dnode, NULL);
+	bfd_profile_update(bp);
 
 	return NB_OK;
 }
