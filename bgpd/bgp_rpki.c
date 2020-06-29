@@ -108,8 +108,8 @@ struct rpki_for_each_record_arg {
 struct rpki_vrf {
 	struct rtr_mgr_config *rtr_config;
 	struct list *cache_list;
-	int rtr_is_running;
-	int rtr_is_stopping;
+	bool rtr_is_running;
+	bool rtr_is_stopping;
 	_Atomic int rtr_update_overflow;
 	unsigned int polling_period;
 	unsigned int expire_interval;
@@ -755,8 +755,8 @@ static struct rpki_vrf *bgp_rpki_allocate(const char *vrfname)
 	rpki_vrf =  XCALLOC(MTYPE_BGP_RPKI_CACHE,
 				sizeof(struct rpki_vrf));
 
-	rpki_vrf->rtr_is_running = 0;
-	rpki_vrf->rtr_is_stopping = 0;
+	rpki_vrf->rtr_is_running = false;
+	rpki_vrf->rtr_is_stopping = false;
 	rpki_vrf->cache_list = list_new();
 	rpki_vrf->cache_list->del = (void (*)(void *)) & free_cache;
 	rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
@@ -830,7 +830,7 @@ static int start(struct rpki_vrf *rpki_vrf)
 	struct vrf *vrf;
 
 	cache_list = rpki_vrf->cache_list;
-	rpki_vrf->rtr_is_stopping = 0;
+	rpki_vrf->rtr_is_stopping = false;
 	rpki_vrf->rtr_update_overflow = 0;
 
 	if (!cache_list || list_isempty(cache_list)) {
@@ -870,7 +870,7 @@ static int start(struct rpki_vrf *rpki_vrf)
 		rtr_mgr_free(rpki_vrf->rtr_config);
 		return ERROR;
 	}
-	rpki_vrf->rtr_is_running = 1;
+	rpki_vrf->rtr_is_running = true;
 
 	XFREE(MTYPE_BGP_RPKI_CACHE_GROUP, groups);
 
@@ -879,11 +879,11 @@ static int start(struct rpki_vrf *rpki_vrf)
 
 static void stop(struct rpki_vrf *rpki_vrf)
 {
-	rpki_vrf->rtr_is_stopping = 1;
+	rpki_vrf->rtr_is_stopping = true;
 	if (rpki_vrf->rtr_is_running) {
 		rtr_mgr_stop(rpki_vrf->rtr_config);
 		rtr_mgr_free(rpki_vrf->rtr_config);
-		rpki_vrf->rtr_is_running = 0;
+		rpki_vrf->rtr_is_running = false;
 	}
 }
 
