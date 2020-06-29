@@ -15671,6 +15671,11 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
 	install_element(BGP_IPV6_NODE, &no_bgp_maxpaths_ibgp_cmd);
 
+	install_element(BGP_IPV4L_NODE, &bgp_maxpaths_cmd);
+	install_element(BGP_IPV4L_NODE, &no_bgp_maxpaths_cmd);
+	install_element(BGP_IPV4L_NODE, &bgp_maxpaths_ibgp_cmd);
+	install_element(BGP_IPV4L_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
+	install_element(BGP_IPV4L_NODE, &no_bgp_maxpaths_ibgp_cmd);
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_cmd);
 	install_element(BGP_IPV6L_NODE, &no_bgp_maxpaths_cmd);
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_cmd);
