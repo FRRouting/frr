@@ -32,6 +32,7 @@ import re
 import sys
 import pytest
 import json
+import platform
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -84,6 +85,11 @@ def setup_module(module):
     "Setup topology"
     tgen = Topogen(NetworkTopo, module.__name__)
     tgen.start_topology()
+
+    krel = platform.release()
+    if topotest.version_cmp(krel, "4.10") < 0:
+	tgen.errors = "Newer kernel than 4.9 needed for pbr tests"
+	pytest.skip(tgen.errors)
 
     router_list = tgen.routers()
     for rname, router in router_list.iteritems():
