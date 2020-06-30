@@ -888,7 +888,7 @@ static void zapi_nexthop_group_sort(struct zapi_nexthop *nh_grp,
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags)
 {
-	int ret = 0;
+	int i, ret = 0;
 	int nh_flags = api_nh->flags;
 
 	stream_putl(s, api_nh->vrf_id);
@@ -951,8 +951,17 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			   sizeof(struct ethaddr));
 
 	/* Index of backup nexthop */
-	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP))
-		stream_putc(s, api_nh->backup_idx);
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
+		/* Validate backup count */
+		if (api_nh->backup_num > NEXTHOP_MAX_BACKUPS) {
+			ret = -1;
+			goto done;
+		}
+
+		stream_putc(s, api_nh->backup_num);
+		for (i = 0; i < api_nh->backup_num; i++)
+			stream_putc(s, api_nh->backup_idx[i]);
+	}
 
 done:
 	return ret;
@@ -1111,7 +1120,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			       uint32_t api_flags)
 {
-	int ret = -1;
+	int i, ret = -1;
 
 	STREAM_GETL(s, api_nh->vrf_id);
 	STREAM_GETC(s, api_nh->type);
@@ -1163,8 +1172,15 @@ static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			   sizeof(struct ethaddr));
 
 	/* Backup nexthop index */
-	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP))
-		STREAM_GETC(s, api_nh->backup_idx);
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
+		STREAM_GETC(s, api_nh->backup_num);
+
+		if (api_nh->backup_num > NEXTHOP_MAX_BACKUPS)
+			return -1;
+
+		for (i = 0; i < api_nh->backup_num; i++)
+			STREAM_GETC(s, api_nh->backup_idx[i]);
+	}
 
 	/* Success */
 	ret = 0;
@@ -1483,7 +1499,8 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 
 	if (CHECK_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
 		SET_FLAG(n->flags, NEXTHOP_FLAG_HAS_BACKUP);
-		n->backup_idx = znh->backup_idx;
+		n->backup_num = znh->backup_num;
+		memcpy(n->backup_idx, znh->backup_idx, n->backup_num);
 	}
 
 	return n;
@@ -1519,8 +1536,12 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 	}
 
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		if (nh->backup_num > NEXTHOP_MAX_BACKUPS)
+			return -1;
+
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
-		znh->backup_idx = nh->backup_idx;
+		znh->backup_num = nh->backup_num;
+		memcpy(znh->backup_idx, nh->backup_idx, znh->backup_num);
 	}
 
 	return 0;

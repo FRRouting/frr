@@ -157,6 +157,10 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 		goto done;
 
 	if (!CHECK_FLAG(next1->flags, NEXTHOP_FLAG_HAS_BACKUP) &&
+	    !CHECK_FLAG(next2->flags, NEXTHOP_FLAG_HAS_BACKUP))
+		return 0;
+
+	if (!CHECK_FLAG(next1->flags, NEXTHOP_FLAG_HAS_BACKUP) &&
 	    CHECK_FLAG(next2->flags, NEXTHOP_FLAG_HAS_BACKUP))
 		return -1;
 
@@ -164,11 +168,17 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	    !CHECK_FLAG(next2->flags, NEXTHOP_FLAG_HAS_BACKUP))
 		return 1;
 
-	if (next1->backup_idx < next2->backup_idx)
+	if (next1->backup_num == 0 && next2->backup_num == 0)
+		goto done;
+
+	if (next1->backup_num < next2->backup_num)
 		return -1;
 
-	if (next1->backup_idx > next2->backup_idx)
+	if (next1->backup_num > next2->backup_num)
 		return 1;
+
+	ret = memcmp(next1->backup_idx,
+		     next2->backup_idx, next1->backup_num);
 
 done:
 	return ret;
@@ -529,14 +539,15 @@ unsigned int nexthop_level(struct nexthop *nexthop)
 uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 {
 	uint32_t key = 0x45afe398;
-	uint32_t val;
+	int i;
 
 	key = jhash_3words(nexthop->type, nexthop->vrf_id,
 			   nexthop->nh_label_type, key);
 
 	if (nexthop->nh_label) {
 		int labels = nexthop->nh_label->num_labels;
-		int i = 0;
+
+		i = 0;
 
 		while (labels >= 3) {
 			key = jhash_3words(nexthop->nh_label->label[i],
@@ -559,13 +570,34 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 			key = jhash_1word(nexthop->nh_label->label[i], key);
 	}
 
-	val = 0;
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
-		val = (uint32_t)nexthop->backup_idx;
-
-	key = jhash_3words(nexthop->ifindex,
-			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK), val,
+	key = jhash_2words(nexthop->ifindex,
+			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK),
 			   key);
+
+	/* Include backup nexthops, if present */
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		int backups = nexthop->backup_num;
+
+		i = 0;
+
+		while (backups >= 3) {
+			key = jhash_3words(nexthop->backup_idx[i],
+					   nexthop->backup_idx[i + 1],
+					   nexthop->backup_idx[i + 2], key);
+			backups -= 3;
+			i += 3;
+		}
+
+		while (backups >= 2) {
+			key = jhash_2words(nexthop->backup_idx[i],
+					   nexthop->backup_idx[i + 1], key);
+			backups -= 2;
+			i += 2;
+		}
+
+		if (backups >= 1)
+			key = jhash_1word(nexthop->backup_idx[i], key);
+	}
 
 	return key;
 }
@@ -604,7 +636,12 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 	copy->type = nexthop->type;
 	copy->flags = nexthop->flags;
 	copy->weight = nexthop->weight;
-	copy->backup_idx = nexthop->backup_idx;
+
+	assert(nexthop->backup_num < NEXTHOP_MAX_BACKUPS);
+	copy->backup_num = nexthop->backup_num;
+	if (copy->backup_num > 0)
+		memcpy(copy->backup_idx, nexthop->backup_idx, copy->backup_num);
+
 	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
 	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
 	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));

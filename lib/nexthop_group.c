@@ -806,7 +806,8 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 			return false;
 
 		SET_FLAG(nhop->flags, NEXTHOP_FLAG_HAS_BACKUP);
-		nhop->backup_idx = backup_idx;
+		nhop->backup_num = 1;
+		nhop->backup_idx[0] = backup_idx;
 	}
 
 	return true;
@@ -992,7 +993,7 @@ void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh)
 		vty_out(vty, " weight %u", nh->weight);
 
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP))
-		vty_out(vty, " backup-idx %d", nh->backup_idx);
+		vty_out(vty, " backup-idx %d", nh->backup_idx[0]);
 
 	vty_out(vty, "\n");
 }
@@ -1048,7 +1049,7 @@ void nexthop_group_json_nexthop(json_object *j, struct nexthop *nh)
 		json_object_int_add(j, "weight", nh->weight);
 
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP))
-		json_object_int_add(j, "backupIdx", nh->backup_idx);
+		json_object_int_add(j, "backupIdx", nh->backup_idx[0]);
 }
 
 static void nexthop_group_write_nexthop_internal(struct vty *vty,

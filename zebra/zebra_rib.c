@@ -2630,6 +2630,8 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	char nhname[PREFIX_STRLEN];
 	char backup_str[50];
 	char wgt_str[50];
+	char temp_str[10];
+	int i;
 	struct interface *ifp;
 	struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
@@ -2655,8 +2657,12 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 
 	backup_str[0] = '\0';
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
-		snprintf(backup_str, sizeof(backup_str), "backup %d,",
-			 (int)nexthop->backup_idx);
+		snprintf(backup_str, sizeof(backup_str), "backup ");
+		for (i = 0; i < nexthop->backup_num; i++) {
+			snprintf(temp_str, sizeof(temp_str), "%d, ",
+				 nexthop->backup_idx[i]);
+			strlcat(backup_str, temp_str, sizeof(backup_str));
+		}
 	}
 
 	wgt_str[0] = '\0';

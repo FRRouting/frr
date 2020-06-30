@@ -1595,7 +1595,7 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
 static void lsp_print(struct vty *vty, zebra_lsp_t *lsp)
 {
 	zebra_nhlfe_t *nhlfe, *backup;
-	int i;
+	int i, j;
 
 	vty_out(vty, "Local label: %u%s\n", lsp->ile.in_label,
 		CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED) ? " (installed)"
@@ -1605,14 +1605,17 @@ static void lsp_print(struct vty *vty, zebra_lsp_t *lsp)
 		nhlfe_print(nhlfe, vty);
 
 		if (nhlfe->nexthop &&
-		    CHECK_FLAG(nhlfe->nexthop->flags,
-			       NEXTHOP_FLAG_HAS_BACKUP)) {
-			/* Find backup in backup list */
+		    !CHECK_FLAG(nhlfe->nexthop->flags,
+				NEXTHOP_FLAG_HAS_BACKUP))
+			continue;
 
+		/* Backup nhlfes: find backups in backup list */
+
+		for (j = 0; j < nhlfe->nexthop->backup_num; j++) {
 			i = 0;
 			backup = NULL;
 			frr_each(nhlfe_list, &lsp->backup_nhlfe_list, backup) {
-				if (i == nhlfe->nexthop->backup_idx)
+				if (i == nhlfe->nexthop->backup_idx[j])
 					break;
 				i++;
 			}
@@ -3338,7 +3341,14 @@ static int lsp_znh_install(zebra_lsp_t *lsp, enum lsp_types_t type,
 
 	/* Update backup info if present */
 	if (CHECK_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
-		nhlfe->nexthop->backup_idx = znh->backup_idx;
+		if (znh->backup_num > NEXTHOP_MAX_BACKUPS) {
+			nhlfe_del(nhlfe);
+			return -1;
+		}
+
+		nhlfe->nexthop->backup_num = znh->backup_num;
+		memcpy(nhlfe->nexthop->backup_idx, znh->backup_idx,
+		       znh->backup_num);
 		SET_FLAG(nhlfe->nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
 	}
 

@@ -65,6 +65,12 @@ enum nh_encap_type {
 	NET_VXLAN = 100, /* value copied from FPM_NH_ENCAP_VXLAN. */
 };
 
+/* Fixed limit on the number of backup nexthops per primary nexthop */
+#define NEXTHOP_MAX_BACKUPS  8
+
+/* Backup index value is limited */
+#define NEXTHOP_BACKUP_IDX_MAX 255
+
 /* Nexthop structure. */
 struct nexthop {
 	struct nexthop *next;
@@ -124,10 +130,11 @@ struct nexthop {
 	/* Weight of the nexthop ( for unequal cost ECMP ) */
 	uint8_t weight;
 
-	/* Index of a corresponding backup nexthop in a backup list;
+	/* Count and index of corresponding backup nexthop(s) in a backup list;
 	 * only meaningful if the HAS_BACKUP flag is set.
 	 */
-	uint8_t backup_idx;
+	uint8_t backup_num;
+	uint8_t backup_idx[NEXTHOP_MAX_BACKUPS];
 
 	/* Encapsulation information. */
 	enum nh_encap_type nh_encap_type;
@@ -135,9 +142,6 @@ struct nexthop {
 		vni_t vni;
 	} nh_encap;
 };
-
-/* Backup index value is limited */
-#define NEXTHOP_BACKUP_IDX_MAX 255
 
 /* Utility to append one nexthop to another. */
 #define NEXTHOP_APPEND(to, new)           \

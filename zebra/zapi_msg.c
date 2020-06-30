@@ -1416,6 +1416,7 @@ static struct nexthop *nexthop_from_zapi(struct route_entry *re,
 	struct nexthop *nexthop = NULL;
 	struct ipaddr vtep_ip;
 	struct interface *ifp;
+	int i;
 	char nhbuf[INET6_ADDRSTRLEN] = "";
 
 	switch (api_nh->type) {
@@ -1521,17 +1522,36 @@ static struct nexthop *nexthop_from_zapi(struct route_entry *re,
 		nexthop->weight = api_nh->weight;
 
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
-		if (api_nh->backup_idx < api->backup_nexthop_num) {
-			/* Capture backup info */
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
-			nexthop->backup_idx = api_nh->backup_idx;
-		} else {
-			/* Warn about invalid backup index */
+		/* Validate count */
+		if (api_nh->backup_num > NEXTHOP_MAX_BACKUPS) {
 			if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s: invalid backup nh idx %d",
-					   __func__, api_nh->backup_idx);
+				zlog_debug("%s: invalid backup nh count %d",
+					   __func__, api_nh->backup_num);
+			nexthop_free(nexthop);
+			nexthop = NULL;
+			goto done;
+		}
+
+		/* Copy backup info */
+		SET_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
+		nexthop->backup_num = api_nh->backup_num;
+
+		for (i = 0; i < api_nh->backup_num; i++) {
+			/* Validate backup index */
+			if (api_nh->backup_idx[i] < api->backup_nexthop_num) {
+				nexthop->backup_idx[i] = api_nh->backup_idx[i];
+			} else {
+				if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_EVENT)
+					zlog_debug("%s: invalid backup nh idx %d",
+						   __func__,
+						   api_nh->backup_idx[i]);
+				nexthop_free(nexthop);
+				nexthop = NULL;
+				goto done;
+			}
 		}
 	}
+
 done:
 	return nexthop;
 }
@@ -1703,7 +1723,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 					   __func__, nhbuf);
 			}
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
-			nexthop->backup_idx = 0;
+			nexthop->backup_num = 0;
 		}
 
 		/* MPLS labels for BGP-LU or Segment Routing */

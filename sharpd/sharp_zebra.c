@@ -155,6 +155,8 @@ int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
 				return -1;
 
 			i++;
+			if (i >= MULTIPATH_NUM)
+				break;
 		}
 	}
 
@@ -188,6 +190,8 @@ int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
 				return -1;
 
 			i++;
+			if (i >= MULTIPATH_NUM)
+				break;
 		}
 
 		if (i > 0)

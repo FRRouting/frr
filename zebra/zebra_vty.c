@@ -422,6 +422,7 @@ static void show_route_nexthop_helper(struct vty *vty,
 				      const struct nexthop *nexthop)
 {
 	char buf[MPLS_LABEL_STRLEN];
+	int i;
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -519,8 +520,12 @@ static void show_route_nexthop_helper(struct vty *vty,
 	if (nexthop->weight)
 		vty_out(vty, ", weight %u", nexthop->weight);
 
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
-		vty_out(vty, ", backup %d", nexthop->backup_idx);
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		vty_out(vty, ", backup %d", nexthop->backup_idx[0]);
+
+		for (i = 1; i < nexthop->backup_num; i++)
+			vty_out(vty, ", %d", nexthop->backup_idx[i]);
+	}
 }
 
 /*
@@ -534,6 +539,8 @@ static void show_nexthop_json_helper(json_object *json_nexthop,
 	char buf[SRCDEST2STR_BUFFER];
 	struct vrf *vrf = NULL;
 	json_object *json_labels = NULL;
+	json_object *json_backups = NULL;
+	int i;
 
 	json_object_int_add(json_nexthop, "flags",
 			    nexthop->flags);
@@ -645,9 +652,17 @@ static void show_nexthop_json_helper(json_object *json_nexthop,
 		json_object_boolean_true_add(json_nexthop,
 					     "recursive");
 
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
-		json_object_int_add(json_nexthop, "backupIndex",
-				    nexthop->backup_idx);
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		json_backups = json_object_new_array();
+		for (i = 0; i < nexthop->backup_num; i++) {
+			json_object_array_add(
+				json_backups,
+				json_object_new_int(nexthop->backup_idx[i]));
+		}
+
+		json_object_object_add(json_nexthop, "backupIndex",
+				       json_backups);
+	}
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -1206,7 +1221,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 			if (CHECK_FLAG(nexthop->flags,
 				       NEXTHOP_FLAG_HAS_BACKUP))
 				vty_out(vty, " [backup %d]",
-					nexthop->backup_idx);
+					nexthop->backup_idx[0]);
 
 			vty_out(vty, "\n");
 			continue;
@@ -1214,22 +1229,13 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 
 		/* TODO -- print more useful backup info */
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
-			struct nexthop *backup;
 			int i;
 
-			i = 0;
-			for (ALL_NEXTHOPS(nhe->backup_info->nhe->nhg, backup)) {
-				if (i == nexthop->backup_idx)
-					break;
-				i++;
-			}
+			vty_out(vty, "[backup");
+			for (i = 0; i < nexthop->backup_num; i++)
+				vty_out(vty, " %d", nexthop->backup_idx[i]);
 
-			/* TODO */
-			if (backup)
-				vty_out(vty, " [backup %d]",
-					nexthop->backup_idx);
-			else
-				vty_out(vty, " [backup INVALID]");
+			vty_out(vty, "]");
 		}
 
 		vty_out(vty, "\n");

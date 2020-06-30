@@ -394,8 +394,9 @@ struct zapi_nexthop {
 
 	uint32_t weight;
 
-	/* Index of backup nexthop */
-	uint8_t backup_idx;
+	/* Backup nexthops, for IP-FRR, TI-LFA, etc */
+	uint8_t backup_num;
+	uint8_t backup_idx[NEXTHOP_MAX_BACKUPS];
 };
 
 /*
