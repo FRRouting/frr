@@ -34,7 +34,7 @@ DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG_LINE, "Vtysh configuration line")
 
 vector configvec;
 
-PREDECL_RBTREE_UNIQ(config_master);
+PREDECL_LIST(config_master);
 
 struct config {
 	/* Configuration node name. */
@@ -72,11 +72,6 @@ static struct config *config_new(void)
 	return config;
 }
 
-static int config_cmp(const struct config *c1, const struct config *c2)
-{
-	return strcmp(c1->name, c2->name);
-}
-
 static void config_del(struct config *config)
 {
 	list_delete(&config->line);
@@ -84,12 +79,14 @@ static void config_del(struct config *config)
 	XFREE(MTYPE_VTYSH_CONFIG, config);
 }
 
-DECLARE_RBTREE_UNIQ(config_master, struct config, rbt_item, config_cmp)
+DECLARE_LIST(config_master, struct config, rbt_item)
 
 static struct config *config_get(int index, const char *line)
 {
-	struct config *config;
+	struct config *config, *config_loop;
 	struct config_master_head *master;
+
+	config = config_loop = NULL;
 
 	master = vector_lookup_ensure(configvec, index);
 
@@ -99,8 +96,10 @@ static struct config *config_get(int index, const char *line)
 		vector_set_index(configvec, index, master);
 	}
 
-	const struct config config_ref = { .name = (char *)line };
-	config = config_master_find(master, &config_ref);
+	frr_each (config_master, master, config_loop) {
+		if (strcmp(config_loop->name, line) == 0)
+			config = config_loop;
+	}
 
 	if (!config) {
 		config = config_new();
@@ -109,7 +108,7 @@ static struct config *config_get(int index, const char *line)
 		config->line->cmp = (int (*)(void *, void *))line_cmp;
 		config->name = XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line);
 		config->index = index;
-		config_master_add(master, config);
+		config_master_add_tail(master, config);
 	}
 	return config;
 }
