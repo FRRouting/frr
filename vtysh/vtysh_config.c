@@ -97,8 +97,10 @@ static struct config *config_get(int index, const char *line)
 	}
 
 	frr_each (config_master, master, config_loop) {
-		if (strcmp(config_loop->name, line) == 0)
+		if (strcmp(config_loop->name, line) == 0) {
 			config = config_loop;
+			break;
+		}
 	}
 
 	if (!config) {
