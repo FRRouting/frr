@@ -312,7 +312,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (!vrf) {
-		vty_out(vty, "Specified: %s is non-existent\n", vrf_name);
+		vty_out(vty, "Specified VRF: %s is non-existent\n", vrf_name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -320,13 +320,24 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	nhop.vrf_id = vrf->vrf_id;
 
 	if (intf) {
-		nhop.ifindex = ifname2ifindex(intf, vrf->vrf_id);
-		if (nhop.ifindex == IFINDEX_INTERNAL) {
-			vty_out(vty,
-				"Specified Intf %s does not exist in vrf: %s\n",
-				intf, vrf->name);
+		struct interface *ifp;
+
+		ifp = if_lookup_by_name_all_vrf(intf);
+		if (!ifp) {
+			vty_out(vty, "Specified Intf %s does not exist\n",
+				intf);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+		if (ifp->vrf_id != vrf->vrf_id) {
+			struct vrf *actual;
+
+			actual = vrf_lookup_by_id(ifp->vrf_id);
+			vty_out(vty,
+				"Specified Intf %s is not in vrf %s but is in vrf %s, using actual vrf\n",
+				ifp->name, vrf->name, actual->name);
+		}
+		nhop.ifindex = ifp->ifindex;
+		nhop.vrf_id = ifp->vrf_id;
 	}
 
 	if (addr) {
