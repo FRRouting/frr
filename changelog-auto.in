@@ -4,7 +4,125 @@ frr (@VERSION@-0) UNRELEASED; urgency=medium
     remove and replace when creating releases!
     (tools/tarsource.sh will handle this)
 
- -- FRRouting-Dev <dev@lists.frrouting.org>  Thu, 25 Oct 2018 16:36:50 +0200
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Tue, 30 Jun 2020 13:05:00 +0200
+
+frr (7.4-0) testing; urgency=medium
+
+  * BGPd
+  *    Use sequence numbers for community lists
+  *    Fixes to nexthop groups
+  *    Add feature to limit outgoing number of routes
+  *    Per Neighbor Graceful Restart
+  *    Multiple Graceful Restart fixes
+  *    Support sub-Type-4 and sub-Type-5 for the VPNv4 SRv6 backend
+  *    rfc7606 support: treat certain malformed routes as withdraw
+  *    allow origin override for route aggregates
+  *    rfc6608 support: Subcodes for BGP Finite State Machine Error
+  *    rfc7607 support: Codification of AS 0 Processing
+  *    rfc6286 support: Autonomous-System-Wide Unique BGP Identifier for BGP-4
+  *    Unequal cost multipath (a.ka. weighted ECMP) with BGP link-bandwidth
+  *    Enable rfc8212 by default except datacenter profile
+  * staticd
+  *    Add debug support
+  * vtysh
+  *    Add copy command to copy config from file into running config
+  * LDPd
+  *    adding support for LDP ordered label distribution control
+  * ISISd
+  *    IS-IS Segment Routing support
+  * SHARPd
+  *    add initial support to add/remove lsps
+  * Zebra
+  *    fix broadcast address in IPv4 networks with /31 mask
+  *    Add Graceful Restart support for Protocol Daemon restarts
+  * lib
+  *    migrate route-maps to use northbound interface
+  * plus countless bug fixes and other improvements
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Tue, 30 Jun 2020 13:02:30 +0200
+
+frr (7.3.1-0) testing; urgency=medium
+
+  * upstream 7.3.1 release
+
+ -- David Lamparter <equinox@opensourcerouting.org>  Wed, 06 May 2020 13:40:53 +0200
+
+frr (7.3-0) testing; urgency=medium
+
+  * BGPd
+  *    EVPN PIP Support
+  *    Route Aggregation code speed ups
+  *    BGP Vector I/O speed ups
+  *    New CLI: `set distance XXX`
+  *    New CLI: `aggregate-address A.B.C.D/M route-map WORD`
+  *    New CLI: `bgp reject-as-sets`
+  *    New CLI: `advertise pip ...`
+  *    New CLI: `match evpn rd ASN:NN_OR_IP-ADDRESS:NN`
+  *    New CLI: `show bgp l2vpn evpn community|large-community X`
+  *    New CLI: `show bgp l2vpn evpn A.B.C.D`
+  *    Auto-completion for clear bgp command
+  *    Add ability to set tcp socket buffer size
+  * OSPFd
+  *    Partial MPLS TE support
+  * PBRd
+  *    New CLI: `set vrf unchanged|NAME`
+  * BFDd
+  *    VRF Support
+  *    New CLI: 'show bfd peers brief'
+  *    New CLI: 'clear bfd peer ...'
+  * PIMd
+  *    Significant Speedups in accessing Internal Data for higher scale
+  *    Support for joining any-source Multicast
+  *    Updated CLI: 'show ip pim upstream-join-desired'
+  *    New CLI: 'show ip pim channel'
+  *    Debug Cleanup
+  *    MLAG experimental support
+  * VRRPd
+  *    VRF Support
+  *    Northbound Conversion- NHRPd
+  * LDPd
+  * vtysh
+  *    New CLI: `banner motd line LINE...`
+  * yang
+  *    New CLI: `show yang operational-data XPATH`
+  *    New CLI: `debug northbound`
+  * Zebra
+  *    Nexthop Group support
+  *    New CLI: 'debug zebra nexthop [detail]'
+  *    New CLI: 'show router-id'
+  *    MLAG experimental support
+  * watchfrr
+  *    Additional status messages of system state to systemd
+  *    New CLI: `watchfrr ignore DAEMON`
+  * Others
+  *    As always all daemons have received too many bug fixes to fully list
+  *    There has been a significant focus on increasing test coverage
+  * Change in Behavior:
+  *    ISISd
+  *       All areas created default automatically to level-1-2
+  *    Zebra
+  *       Nexthop Group Installation in Kernel is turned on by default
+          if the kernel supports-    New CLI: 'show nexthop-group rib [singleton]'
+  *    Man Pages
+  *       Renamed to frr-* to remove collision with other packages
+
+ -- Martin Winter <mwinter@opensourcerouting.org>  Fri, 14 Feb 2020 02:20:00 +0200
+
+frr (7.2-1) testing; urgency=medium
+
+  * upstream 7.2.1 release
+
+ifrr (7.2-0) testing; urgency=medium
+
+  * upstream 7.2 release
+
+ -- Martin Winter <mwinter@opensourcerouting.org>  Tue, 17 Oct 2019 16:42:20 +0200
+
+frr (7.1-0) testing; urgency=medium
+
+  * upstream 7.1 release
+
+ -- David Lamparter <equinox-debian@diac24.net>  Tue, 18 Jun 2019 06:08:13 +0200
 
 frr (6.0-2) testing; urgency=medium
 
