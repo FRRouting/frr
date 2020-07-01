@@ -157,7 +157,7 @@ static struct vrrp_vrouter *FuzzingCreateVr(void)
 	struct interface *ifp;
 	struct prefix p;
 
-	ifp = if_create_ifindex(69, 0);
+	ifp = if_create_ifindex(69, 0, NULL);
 	ifp->mtu = 68;
 	str2prefix("11.0.2.1/24", &p);
 	connected_add_by_prefix(ifp, &p, NULL);
