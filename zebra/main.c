@@ -325,6 +325,8 @@ static bool FuzzingInit(void)
 static struct zserv *FuzzingZc;
 #endif /* FUZZING_LIBFUZZER */
 
+static struct stream_fifo *fifo;
+
 static bool FuzzingInitialized;
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
@@ -332,6 +334,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	if (!FuzzingInitialized) {
 		FuzzingInit();
 		FuzzingInitialized = true;
+		fifo = stream_fifo_new();
 	}
 
 	/*
@@ -353,10 +356,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
 	struct stream *s = stream_new(size + 1);
 	stream_put(s, data, size);
+	stream_fifo_push(fifo, s);
 
-	zserv_handle_commands(zc, s);
-
-	stream_free(s);
+	zserv_handle_commands(zc, fifo);
 
 done:
 	zserv_close_client(zc);

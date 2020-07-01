@@ -2760,7 +2760,9 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 	STREAM_GETL(s, size);
 	STREAM_GETL(s, base);
 
+#ifndef FUZZING
 	assert(proto == client->proto && instance == client->instance);
+#endif
 
 	/* call hook to get a chunk using wrapper */
 	lm_get_chunk_call(&lmc, client, keep, size, base, vrf_id);
@@ -2785,7 +2787,9 @@ static void zread_release_label_chunk(struct zserv *client, struct stream *msg)
 	STREAM_GETL(s, start);
 	STREAM_GETL(s, end);
 
+#ifndef FUZZING
 	assert(proto == client->proto && instance == client->instance);
+#endif
 
 	/* call hook to release a chunk using wrapper */
 	lm_release_chunk_call(client, start, end);
