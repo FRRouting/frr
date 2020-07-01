@@ -75,6 +75,7 @@ static void pbr_map_sequence_delete(struct pbr_map_sequence *pbrms)
 {
 	XFREE(MTYPE_TMP, pbrms->internal_nhg_name);
 
+	QOBJ_UNREG(pbrms);
 	XFREE(MTYPE_PBR_MAP_SEQNO, pbrms);
 }
 
