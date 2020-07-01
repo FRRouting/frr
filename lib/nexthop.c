@@ -658,7 +658,7 @@ void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 	nexthop_copy_no_recurse(copy, nexthop, rparent);
 
 	/* Bit of a special case here, we need to handle the case
-	 * of a nexthop resolving to agroup. Hence, we need to
+	 * of a nexthop resolving to a group. Hence, we need to
 	 * use a nexthop_group API.
 	 */
 	if (CHECK_FLAG(copy->flags, NEXTHOP_FLAG_RECURSIVE))
@@ -681,6 +681,67 @@ struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 
 	nexthop_copy(new, nexthop, rparent);
 	return new;
+}
+
+/*
+ * Parse one or more backup index values, as comma-separated numbers,
+ * into caller's array of uint8_ts. The array must be NEXTHOP_MAX_BACKUPS
+ * in size. Mails back the number of values converted, and returns 0 on
+ * success, <0 if an error in parsing.
+ */
+int nexthop_str2backups(const char *str, int *num_backups,
+			uint8_t *backups)
+{
+	char *ostr;			  /* copy of string (start) */
+	char *lstr;			  /* working copy of string */
+	char *nump;			  /* pointer to next segment */
+	char *endp;			  /* end pointer */
+	int i, ret;
+	uint8_t tmp[NEXTHOP_MAX_BACKUPS];
+	uint32_t lval;
+
+	/* Copy incoming string; the parse is destructive */
+	lstr = ostr = XSTRDUP(MTYPE_TMP, str);
+	*num_backups = 0;
+	ret = 0;
+
+	for (i = 0; i < NEXTHOP_MAX_BACKUPS && lstr; i++) {
+		nump = strsep(&lstr, ",");
+		lval = strtoul(nump, &endp, 10);
+
+		/* Format check */
+		if (*endp != '\0') {
+			ret = -1;
+			break;
+		}
+
+		/* Empty value */
+		if (endp == nump) {
+			ret = -1;
+			break;
+		}
+
+		/* Limit to one octet */
+		if (lval > 255) {
+			ret = -1;
+			break;
+		}
+
+		tmp[i] = lval;
+	}
+
+	/* Excess values */
+	if (ret == 0 && i == NEXTHOP_MAX_BACKUPS && lstr)
+		ret = -1;
+
+	if (ret == 0) {
+		*num_backups = i;
+		memcpy(backups, tmp, i);
+	}
+
+	XFREE(MTYPE_TMP, ostr);
+
+	return ret;
 }
 
 /*

@@ -235,6 +235,15 @@ extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 extern struct nexthop *nexthop_dup_no_recurse(const struct nexthop *nexthop,
 					      struct nexthop *rparent);
 
+/*
+ * Parse one or more backup index values, as comma-separated numbers,
+ * into caller's array of uint8_ts. The array must be NEXTHOP_MAX_BACKUPS
+ * in size. Mails back the number of values converted, and returns 0 on
+ * success, <0 if an error in parsing.
+ */
+int nexthop_str2backups(const char *str, int *num_backups,
+			uint8_t *backups);
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNH"  (struct nexthop *)
 #endif
