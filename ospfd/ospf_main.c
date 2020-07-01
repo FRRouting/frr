@@ -180,7 +180,7 @@ static bool FuzzingInit(void)
 static struct ospf *FuzzingCreateOspf(void)
 {
 	struct prefix p;
-	struct interface *ifp = if_create_ifindex(69, 0);
+	struct interface *ifp = if_create_ifindex(69, 0, NULL);
 	ifp->mtu = 68;
 	str2prefix("11.0.2.0/24", &p);
 
