@@ -30,7 +30,7 @@ struct isis_dynhn {
 	int level;
 };
 
-void dyn_cache_init(void);
+void dyn_cache_init(struct isis *);
 void isis_dynhn_insert(const uint8_t *id, const char *hostname, int level);
 void isis_dynhn_remove(const uint8_t *id);
 struct isis_dynhn *dynhn_find_by_id(const uint8_t *id);

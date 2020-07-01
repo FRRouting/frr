@@ -220,8 +220,8 @@ static void isis_redist_ensure_default(struct isis *isis, int family)
 }
 
 /* Handle notification about route being added */
-void isis_redist_add(int type, struct prefix *p, struct prefix_ipv6 *src_p,
-		     uint8_t distance, uint32_t metric)
+void isis_redist_add(struct isis *isis, int type, struct prefix *p,
+		     struct prefix_ipv6 *src_p, uint8_t distance, uint32_t metric)
 {
 	int family = p->family;
 	struct route_table *ei_table = get_ext_info(isis, family);
@@ -272,7 +272,8 @@ void isis_redist_add(int type, struct prefix *p, struct prefix_ipv6 *src_p,
 		}
 }
 
-void isis_redist_delete(int type, struct prefix *p, struct prefix_ipv6 *src_p)
+void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
+		        struct prefix_ipv6 *src_p)
 {
 	int family = p->family;
 	struct route_table *ei_table = get_ext_info(isis, family);
@@ -294,7 +295,7 @@ void isis_redist_delete(int type, struct prefix *p, struct prefix_ipv6 *src_p)
 		 * by "default-information originate always". Areas without the
 		 * "always" setting will ignore routes with origin
 		 * DEFAULT_ROUTE. */
-		isis_redist_add(DEFAULT_ROUTE, p, NULL,
+		isis_redist_add(isis, DEFAULT_ROUTE, p, NULL,
 				254, MAX_WIDE_PATH_METRIC);
 		return;
 	}
@@ -383,9 +384,9 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 			afi_t afi = afi_for_redist_protocol(protocol);
 
 			if (do_subscribe[protocol][type])
-				isis_zebra_redistribute_set(afi, type);
+				isis_zebra_redistribute_set(isis, afi, type);
 			else
-				isis_zebra_redistribute_unset(afi, type);
+				isis_zebra_redistribute_unset(isis, afi, type);
 		}
 }
 

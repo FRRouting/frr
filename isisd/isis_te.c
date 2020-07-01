@@ -311,25 +311,28 @@ DEFUN (show_isis_mpls_te_router,
        "Router information\n")
 {
 
-	struct listnode *anode;
+	struct listnode *anode, *inode, *nnode;
 	struct isis_area *area;
+	struct isis *isis;
 
-	if (!isis) {
+	if (!im->isis) {
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+	for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
 
-		if (!IS_MPLS_TE(area->mta))
-			continue;
+			if (!IS_MPLS_TE(area->mta))
+				continue;
 
-		vty_out(vty, "Area %s:\n", area->area_tag);
-		if (ntohs(area->mta->router_id.s_addr) != 0)
-			vty_out(vty, "  MPLS-TE Router-Address: %s\n",
-				inet_ntoa(area->mta->router_id));
-		else
-			vty_out(vty, "  N/A\n");
+			vty_out(vty, "Area %s:\n", area->area_tag);
+			if (ntohs(area->mta->router_id.s_addr) != 0)
+				vty_out(vty, "  MPLS-TE Router-Address: %s\n",
+					inet_ntoa(area->mta->router_id));
+			else
+				vty_out(vty, "  N/A\n");
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -450,34 +453,37 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
-	struct listnode *anode, *cnode;
+	struct listnode *anode, *cnode, *inode, *nnode;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	struct interface *ifp;
 	int idx_interface = 4;
+	struct isis *isis;
 
-	if (!isis) {
+	if (!im->isis) {
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
 
 	if (argc == idx_interface) {
 		/* Show All Interfaces. */
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+		for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
 
-			if (!IS_MPLS_TE(area->mta))
-				continue;
+				if (!IS_MPLS_TE(area->mta))
+					continue;
 
-			vty_out(vty, "Area %s:\n", area->area_tag);
+				vty_out(vty, "Area %s:\n", area->area_tag);
 
-			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
-						  circuit))
-				show_ext_sub(vty, circuit->interface->name,
-					     circuit->ext);
+				for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
+							  circuit))
+					show_ext_sub(vty, circuit->interface->name,
+						     circuit->ext);
+			}
 		}
 	} else {
 		/* Interface name is specified. */
-		ifp = if_lookup_by_name(argv[idx_interface]->arg, VRF_DEFAULT);
+		ifp = if_lookup_by_name_all_vrf(argv[idx_interface]->arg);
 		if (ifp == NULL)
 			vty_out(vty, "No such interface name\n");
 		else {

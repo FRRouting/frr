@@ -1985,15 +1985,18 @@ DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
       "Segment-Routing\n"
       "Segment-Routing Prefix-SIDs\n")
 {
-	struct listnode *node;
+	struct listnode *node, *inode, *nnode;
 	struct isis_area *area;
+	struct isis *isis;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		vty_out(vty, "Area %s:\n",
-			area->area_tag ? area->area_tag : "null");
+	for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+			vty_out(vty, "Area %s:\n",
+				area->area_tag ? area->area_tag : "null");
 
-		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
-			show_prefix_sids(vty, area, level);
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
+				show_prefix_sids(vty, area, level);
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -2056,15 +2059,18 @@ DEFUN(show_sr_node, show_sr_node_cmd,
       "Segment-Routing\n"
       "Segment-Routing node\n")
 {
-	struct listnode *node;
+	struct listnode *node, *inode, *nnode;
 	struct isis_area *area;
+	struct isis *isis;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		vty_out(vty, "Area %s:\n",
-			area->area_tag ? area->area_tag : "null");
+	for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+			vty_out(vty, "Area %s:\n",
+				area->area_tag ? area->area_tag : "null");
 
-		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
-			show_node(vty, area, level);
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
+				show_node(vty, area, level);
+		}
 	}
 
 	return CMD_SUCCESS;

@@ -224,19 +224,25 @@ struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
 	struct isis_area *area;
 	struct listnode *node;
 	struct isis_circuit *circuit;
+	struct isis *isis;
 
 	if (ifp->info)
 		return (struct isis_circuit *)ifp->info;
 
-	if (isis->area_list) {
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-			circuit =
-				circuit_lookup_by_ifp(ifp, area->circuit_list);
-			if (circuit)
-				return circuit;
+	isis = isis_lookup_by_vrfid(ifp->vrf_id);
+	if (isis != NULL) {
+		if (isis->area_list) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+				circuit =
+					circuit_lookup_by_ifp(ifp, area->circuit_list);
+				if (circuit)
+					return circuit;
+			}
 		}
+
+		return circuit_lookup_by_ifp(ifp, isis->init_circ_list);
 	}
-	return circuit_lookup_by_ifp(ifp, isis->init_circ_list);
+	return NULL;
 }
 
 void isis_circuit_add_addr(struct isis_circuit *circuit,
@@ -618,7 +624,8 @@ int isis_circuit_up(struct isis_circuit *circuit)
 	}
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		circuit->circuit_id = isis_circuit_id_gen(isis, circuit->interface);
+		circuit->circuit_id = isis_circuit_id_gen(circuit->area->isis,
+							circuit->interface);
 		if (!circuit->circuit_id) {
 			flog_err(
 				EC_ISIS_CONFIG,
@@ -765,7 +772,7 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		circuit->lsp_regenerate_pending[0] = 0;
 		circuit->lsp_regenerate_pending[1] = 0;
 
-		_ISIS_CLEAR_FLAG(isis->circuit_ids_used, circuit->circuit_id);
+		_ISIS_CLEAR_FLAG(circuit->area->isis->circuit_ids_used, circuit->circuit_id);
 		circuit->circuit_id = 0;
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 		isis_delete_adj(circuit->u.p2p.neighbor);
@@ -977,7 +984,10 @@ static int isis_interface_config_write(struct vty *vty)
 	struct interface *ifp;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
+	struct isis *isis;
 	int i;
+
+	isis = isis_lookup_by_vrfid(vrf->vrf_id);
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		/* IF name */

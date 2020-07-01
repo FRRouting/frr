@@ -193,6 +193,13 @@ static int isis_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 
 	struct listnode *anode;
 	struct isis_area *area;
+	struct isis *isis;
+
+	isis = isis_lookup_by_vrfid (vrf_id);
+
+	if (isis == NULL) {
+		return -1;
+	}
 
 	if (IS_DEBUG_BFD)
 		zlog_debug("ISIS-BFD: Got neighbor replay request, resending neighbors.");

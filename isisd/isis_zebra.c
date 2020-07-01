@@ -62,16 +62,20 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	struct isis_area *area;
 	struct listnode *node;
 	struct prefix router_id;
+	struct isis *isis;
 
-	zebra_router_id_update_read(zclient->ibuf, &router_id);
-	if (isis->router_id == router_id.u.prefix4.s_addr)
-		return 0;
+	isis = isis_lookup_by_vrfid(vrf_id);
 
-	isis->router_id = router_id.u.prefix4.s_addr;
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
-		if (listcount(area->area_addrs) > 0)
-			lsp_regenerate_schedule(area, area->is_type, 0);
+	if (isis != NULL) {
+		zebra_router_id_update_read(zclient->ibuf, &router_id);
+		if (isis->router_id == router_id.u.prefix4.s_addr)
+			return 0;
 
+		isis->router_id = router_id.u.prefix4.s_addr;
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+			if (listcount(area->area_addrs) > 0)
+				lsp_regenerate_schedule(area, area->is_type, 0);
+	}
 	return 0;
 }
 
@@ -407,6 +411,12 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
+	struct isis *isis;
+
+	isis = isis_lookup_by_vrfid(vrf_id);
+
+	if (isis == NULL)
+		return 0;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
 		return -1;
@@ -428,10 +438,10 @@ static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
 	}
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
-		isis_redist_add(api.type, &api.prefix, &api.src_prefix,
+		isis_redist_add(isis, api.type, &api.prefix, &api.src_prefix,
 				api.distance, api.metric);
 	else
-		isis_redist_delete(api.type, &api.prefix, &api.src_prefix);
+		isis_redist_delete(isis, api.type, &api.prefix, &api.src_prefix);
 
 	return 0;
 }
@@ -441,24 +451,24 @@ int isis_distribute_list_update(int routetype)
 	return 0;
 }
 
-void isis_zebra_redistribute_set(afi_t afi, int type)
+void isis_zebra_redistribute_set(struct isis *isis, afi_t afi, int type)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-					     zclient, afi, VRF_DEFAULT);
+					     zclient, afi, isis->vrf_id);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type,
-				     0, VRF_DEFAULT);
+				     0, isis->vrf_id);
 }
 
-void isis_zebra_redistribute_unset(afi_t afi, int type)
+void isis_zebra_redistribute_unset(struct isis *isis, afi_t afi, int type)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-					     zclient, afi, VRF_DEFAULT);
+					     zclient, afi, isis->vrf_id);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
-				     type, 0, VRF_DEFAULT);
+				     type, 0, isis->vrf_id);
 }
 
 /* Label Manager Functions */
@@ -603,4 +613,18 @@ void isis_zebra_stop(void)
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	frr_fini();
+}
+
+void isis_zebra_vrf_register(struct isis *isis)
+{
+	if (!zclient || zclient->sock < 0 || !isis)
+		return;
+	if (isis->vrf_id != VRF_UNKNOWN) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("%s: Register VRF %s id %u", __func__,
+				   isis_vrf_id_to_name(isis->vrf_id),
+				   isis->vrf_id);
+		zclient_send_reg_requests(zclient, isis->vrf_id);
+	}
+
 }

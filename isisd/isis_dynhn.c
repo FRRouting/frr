@@ -45,11 +45,11 @@ extern struct host host;
 struct list *dyn_cache = NULL;
 static int dyn_cache_cleanup(struct thread *);
 
-void dyn_cache_init(void)
+void dyn_cache_init(struct isis *isis)
 {
 	if (dyn_cache == NULL)
 		dyn_cache = list_new();
-	thread_add_timer(master, dyn_cache_cleanup, NULL, 120,
+	thread_add_timer(master, dyn_cache_cleanup, isis, 120,
 			 &isis->t_dync_clean);
 	return;
 }
@@ -59,19 +59,23 @@ static int dyn_cache_cleanup(struct thread *thread)
 	struct listnode *node, *nnode;
 	struct isis_dynhn *dyn;
 	time_t now = time(NULL);
+	struct isis *isis;
 
-	isis->t_dync_clean = NULL;
+	isis = THREAD_ARG(thread);
+	if (isis != NULL) {
+		isis->t_dync_clean = NULL;
 
-	for (ALL_LIST_ELEMENTS(dyn_cache, node, nnode, dyn)) {
-		if ((now - dyn->refresh) < MAX_LSP_LIFETIME)
-			continue;
+		for (ALL_LIST_ELEMENTS(dyn_cache, node, nnode, dyn)) {
+			if ((now - dyn->refresh) < MAX_LSP_LIFETIME)
+				continue;
 
-		list_delete_node(dyn_cache, node);
-		XFREE(MTYPE_ISIS_DYNHN, dyn);
+			list_delete_node(dyn_cache, node);
+			XFREE(MTYPE_ISIS_DYNHN, dyn);
+		}
+
+		thread_add_timer(master, dyn_cache_cleanup, NULL, 120,
+				&isis->t_dync_clean);
 	}
-
-	thread_add_timer(master, dyn_cache_cleanup, NULL, 120,
-			 &isis->t_dync_clean);
 	return ISIS_OK;
 }
 
@@ -134,7 +138,7 @@ void isis_dynhn_remove(const uint8_t *id)
  */
 void dynhn_print_all(struct vty *vty)
 {
-	struct listnode *node;
+	struct listnode *node, *mnode, *inode;
 	struct isis_dynhn *dyn;
 
 	vty_out(vty, "Level  System ID      Dynamic Hostname\n");
@@ -144,7 +148,9 @@ void dynhn_print_all(struct vty *vty)
 			dyn->hostname);
 	}
 
-	vty_out(vty, "     * %s %s\n", sysid_print(isis->sysid),
-		cmd_hostname_get());
+	for (ALL_LIST_ELEMENTS(im->isis, mnode, inode, isis)) {
+		vty_out(vty, "     * %s %s\n", sysid_print(isis->sysid),
+			cmd_hostname_get());
+	}
 	return;
 }

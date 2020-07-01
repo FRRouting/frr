@@ -225,7 +225,7 @@ int isis_dr_resign(struct isis_circuit *circuit, int level)
 	THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 	circuit->lsp_regenerate_pending[level - 1] = 0;
 
-	memcpy(id, isis->sysid, ISIS_SYS_ID_LEN);
+	memcpy(id, circuit->area->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(id) = circuit->circuit_id;
 	LSP_FRAGMENT(id) = 0;
 	lsp_purge_pseudo(id, circuit, level);
@@ -278,7 +278,8 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 			/* there was a dr elected, purge its LSPs from the db */
 			lsp_purge_pseudo(old_dr, circuit, level);
 		}
-		memcpy(circuit->u.bc.l1_desig_is, isis->sysid, ISIS_SYS_ID_LEN);
+		memcpy(circuit->u.bc.l1_desig_is, circuit->area->isis->sysid,
+			ISIS_SYS_ID_LEN);
 		*(circuit->u.bc.l1_desig_is + ISIS_SYS_ID_LEN) =
 			circuit->circuit_id;
 
@@ -299,7 +300,8 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 			/* there was a dr elected, purge its LSPs from the db */
 			lsp_purge_pseudo(old_dr, circuit, level);
 		}
-		memcpy(circuit->u.bc.l2_desig_is, isis->sysid, ISIS_SYS_ID_LEN);
+		memcpy(circuit->u.bc.l2_desig_is, circuit->area->isis->sysid,
+			ISIS_SYS_ID_LEN);
 		*(circuit->u.bc.l2_desig_is + ISIS_SYS_ID_LEN) =
 			circuit->circuit_id;
 

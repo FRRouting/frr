@@ -233,8 +233,11 @@ int main(int argc, char **argv, char **envp)
 		}
 	}
 
-	/* thread master */
-	master = frr_init();
+	/* ISIS master init. */
+	isis_master_init(frr_init());
+
+	/* Initializations. */
+	master = im->master;
 
 	/*
 	 *  initializations
@@ -258,9 +261,6 @@ int main(int argc, char **argv, char **envp)
 	isis_sr_init();
 	lsp_init();
 	mt_init();
-
-	/* create the global 'isis' instance */
-	isis_new(1, VRF_DEFAULT);
 
 	isis_zebra_init(master, instance);
 	isis_bfd_init();

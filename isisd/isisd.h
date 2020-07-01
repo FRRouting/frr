@@ -62,8 +62,18 @@ extern struct zebra_privs_t isisd_privs;
 
 struct fabricd;
 
+struct isis_master {
+       /* ISIS instance. */
+       struct list *isis;
+       /* ISIS thread master. */
+       struct thread_master *master;
+       /* Various OSPF global configuration. */
+       uint8_t options;
+};
+
 struct isis {
 	vrf_id_t vrf_id;
+	char *name;
 	unsigned long process_id;
 	int sysid_set;
 	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
@@ -191,11 +201,10 @@ struct isis_area {
 DECLARE_QOBJ_TYPE(isis_area)
 
 void isis_init(void);
-void isis_new(unsigned long process_id, vrf_id_t vrf_id);
-struct isis_area *isis_area_create(const char *);
-struct isis_area *isis_area_lookup(const char *);
+struct isis_area *isis_area_create(const char *, const char *);
+struct isis_area *isis_area_lookup(const char *, vrf_id_t vrf_id);
 int isis_area_get(struct vty *vty, const char *area_tag);
-int isis_area_destroy(const char *area_tag);
+int isis_area_destroy(const char *area_tag, const char *);
 void print_debug(struct vty *, int, int);
 struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv);
 
@@ -220,12 +229,23 @@ int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth);
 
+/* ISIS VRF */
+struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
+struct isis *isis_lookup_by_name(const char *vrf_name);
+void isis_zebra_vrf_register(struct isis *isis);
+void isis_master_init(struct thread_master *master);
+void isis_vrf_link(struct isis *isis, struct vrf *vrf);
+void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
+struct isis *isis_lookup_by_sysid(uint8_t* sysid);
+const char *isis_vrf_id_to_name(vrf_id_t vrf_id);
+
 /* YANG paths */
 #define ISIS_INSTANCE	"/frr-isisd:isis/instance"
 #define ISIS_SR		"/frr-isisd:isis/instance/segment-routing"
 
 /* Master of threads. */
 extern struct thread_master *master;
+extern struct isis_master *im;
 
 extern unsigned long debug_adj_pkt;
 extern unsigned long debug_snp_pkt;

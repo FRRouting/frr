@@ -354,7 +354,8 @@ static void lsp_purge_add_poi(struct isis_lsp *lsp,
 	/* add purge originator identification */
 	if (!lsp->tlvs)
 		lsp->tlvs = isis_alloc_tlvs();
-	isis_tlvs_set_purge_originator(lsp->tlvs, isis->sysid, sender);
+	isis_tlvs_set_purge_originator(lsp->tlvs, lsp->area->isis->sysid,
+					sender);
 	isis_tlvs_set_dynamic_hostname(lsp->tlvs, cmd_hostname_get());
 }
 
@@ -605,18 +606,22 @@ void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag)
 {
 	struct isis_dynhn *dyn = NULL;
 	char id[SYSID_STRLEN];
+	struct isis *isis = NULL;
 
 	if (dynhost)
 		dyn = dynhn_find_by_id(lsp_id);
 	else
 		dyn = NULL;
 
-	if (dyn)
-		snprintf(id, sizeof(id), "%.14s", dyn->hostname);
-	else if (!memcmp(isis->sysid, lsp_id, ISIS_SYS_ID_LEN) && dynhost)
-		snprintf(id, sizeof(id), "%.14s", cmd_hostname_get());
-	else
-		memcpy(id, sysid_print(lsp_id), 15);
+	isis = isis_lookup_by_sysid(lsp_id);
+	if (isis != NULL) {
+		if (dyn)
+			snprintf(id, sizeof(id), "%.14s", dyn->hostname);
+		else if (!memcmp(isis->sysid, lsp_id, ISIS_SYS_ID_LEN) && dynhost)
+			snprintf(id, sizeof(id), "%.14s", cmd_hostname_get());
+		else
+			memcpy(id, sysid_print(lsp_id), 15);
+	}
 	if (frag)
 		sprintf(dest, "%s.%02x-%02x", id, LSP_PSEUDO_ID(lsp_id),
 			LSP_FRAGMENT(lsp_id));
@@ -923,10 +928,10 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	}
 
 	/* Add Router Capability TLV. */
-	if (isis->router_id != 0) {
+	if (area->isis->router_id != 0) {
 		struct isis_router_cap cap = {};
 
-		cap.router_id.s_addr = isis->router_id;
+		cap.router_id.s_addr = area->isis->router_id;
 
 		/* Add SR Sub-TLVs if SR is enabled. */
 		if (area->srdb.enabled) {
@@ -964,8 +969,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	 * into LSP. TE router ID will be the same if MPLS-TE
 	 * is not activate or MPLS-TE router-id not specified
 	 */
-	if (isis->router_id != 0) {
-		struct in_addr id = {.s_addr = isis->router_id};
+	if (area->isis->router_id != 0) {
+		struct in_addr id = {.s_addr = area->isis->router_id};
 		inet_ntop(AF_INET, &id, buf, sizeof(buf));
 		lsp_debug("ISIS (%s): Adding router ID %s as IPv4 tlv.",
 			  area->area_tag, buf);
@@ -1220,7 +1225,7 @@ int lsp_generate(struct isis_area *area, int level)
 		return ISIS_ERROR;
 
 	memset(&lspid, 0, ISIS_SYS_ID_LEN + 2);
-	memcpy(&lspid, isis->sysid, ISIS_SYS_ID_LEN);
+	memcpy(&lspid, area->isis->sysid, ISIS_SYS_ID_LEN);
 
 	/* only builds the lsp if the area shares the level */
 	oldlsp = lsp_search(&area->lspdb[level - 1], lspid);
@@ -1295,7 +1300,7 @@ static int lsp_regenerate(struct isis_area *area, int level)
 	head = &area->lspdb[level - 1];
 
 	memset(lspid, 0, ISIS_SYS_ID_LEN + 2);
-	memcpy(lspid, isis->sysid, ISIS_SYS_ID_LEN);
+	memcpy(lspid, area->isis->sysid, ISIS_SYS_ID_LEN);
 
 	lsp = lsp_search(head, lspid);
 
@@ -1413,7 +1418,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 		all_pseudo ? "" : "not ",
 		func, file, line);
 
-	memcpy(id, isis->sysid, ISIS_SYS_ID_LEN);
+	memcpy(id, area->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(id) = LSP_FRAGMENT(id) = 0;
 	now = time(NULL);
 
@@ -1525,7 +1530,7 @@ static void lsp_build_pseudo(struct isis_lsp *lsp, struct isis_circuit *circuit,
 	 */
 	uint8_t ne_id[ISIS_SYS_ID_LEN + 1];
 
-	memcpy(ne_id, isis->sysid, ISIS_SYS_ID_LEN);
+	memcpy(ne_id, area->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(ne_id) = 0;
 
 	if (circuit->area->oldmetric) {
@@ -1603,7 +1608,7 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 	    || (circuit->u.bc.is_dr[level - 1] == 0))
 		return ISIS_ERROR;
 
-	memcpy(lsp_id, isis->sysid, ISIS_SYS_ID_LEN);
+	memcpy(lsp_id, circuit->area->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_FRAGMENT(lsp_id) = 0;
 	LSP_PSEUDO_ID(lsp_id) = circuit->circuit_id;
 
@@ -1665,7 +1670,7 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 	    || (circuit->u.bc.is_dr[level - 1] == 0))
 		return ISIS_ERROR;
 
-	memcpy(lsp_id, isis->sysid, ISIS_SYS_ID_LEN);
+	memcpy(lsp_id, circuit->area->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(lsp_id) = circuit->circuit_id;
 	LSP_FRAGMENT(lsp_id) = 0;
 
@@ -1724,7 +1729,7 @@ static int lsp_l1_refresh_pseudo(struct thread *thread)
 
 	if ((circuit->u.bc.is_dr[0] == 0)
 	    || (circuit->is_type & IS_LEVEL_1) == 0) {
-		memcpy(id, isis->sysid, ISIS_SYS_ID_LEN);
+		memcpy(id, circuit->area->isis->sysid, ISIS_SYS_ID_LEN);
 		LSP_PSEUDO_ID(id) = circuit->circuit_id;
 		LSP_FRAGMENT(id) = 0;
 		lsp_purge_pseudo(id, circuit, IS_LEVEL_1);
@@ -1746,7 +1751,7 @@ static int lsp_l2_refresh_pseudo(struct thread *thread)
 
 	if ((circuit->u.bc.is_dr[1] == 0)
 	    || (circuit->is_type & IS_LEVEL_2) == 0) {
-		memcpy(id, isis->sysid, ISIS_SYS_ID_LEN);
+		memcpy(id, circuit->area->isis->sysid, ISIS_SYS_ID_LEN);
 		LSP_PSEUDO_ID(id) = circuit->circuit_id;
 		LSP_FRAGMENT(id) = 0;
 		lsp_purge_pseudo(id, circuit, IS_LEVEL_2);
@@ -1774,7 +1779,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 		area->area_tag, circuit_t2string(level),
 		circuit->interface->name);
 
-	memcpy(lsp_id, isis->sysid, ISIS_SYS_ID_LEN);
+	memcpy(lsp_id, area->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(lsp_id) = circuit->circuit_id;
 	LSP_FRAGMENT(lsp_id) = 0;
 	now = time(NULL);

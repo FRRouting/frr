@@ -437,16 +437,21 @@ struct in_addr newprefix2inaddr(uint8_t *prefix_start, uint8_t prefix_masklen)
  * Returns the dynamic hostname associated with the passed system ID.
  * If no dynamic hostname found then returns formatted system ID.
  */
-const char *print_sys_hostname(const uint8_t *sysid)
+const char *print_sys_hostname(uint8_t *sysid)
 {
 	struct isis_dynhn *dyn;
+	struct isis *isis;
 
 	if (!sysid)
 		return "nullsysid";
 
+	isis = isis_lookup_by_sysid(sysid);
+
 	/* For our system ID return our host name */
-	if (memcmp(sysid, isis->sysid, ISIS_SYS_ID_LEN) == 0)
-		return cmd_hostname_get();
+	if (isis != NULL) {
+		if (memcmp(sysid, isis->sysid, ISIS_SYS_ID_LEN) == 0)
+			return cmd_hostname_get();
+	}
 
 	dyn = dynhn_find_by_id(sysid);
 	if (dyn)

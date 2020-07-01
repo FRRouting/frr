@@ -1074,7 +1074,7 @@ struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
 
 	init_spt(spftree, ISIS_MT_IPV4_UNICAST, ISIS_LEVEL2,
 		 AF_INET, SPFTREE_IPV4, true);
-	if (!memcmp(sysid, isis->sysid, ISIS_SYS_ID_LEN)) {
+	if (!memcmp(sysid, area->isis->sysid, ISIS_SYS_ID_LEN)) {
 		/* If we are running locally, initialize with information from adjacencies */
 		struct isis_vertex *root = isis_spf_add_root(spftree, sysid);
 		isis_spf_preload_tent(spftree, sysid, root);
@@ -1202,15 +1202,15 @@ static int isis_run_spf_cb(struct thread *thread)
 			   area->area_tag, level);
 
 	if (area->ip_circuits)
-		retval = isis_run_spf(area, level, SPFTREE_IPV4, isis->sysid,
-				      &thread->real);
+		retval = isis_run_spf(area, level, SPFTREE_IPV4,
+				      area->isis->sysid, &thread->real);
 	if (area->ipv6_circuits)
-		retval = isis_run_spf(area, level, SPFTREE_IPV6, isis->sysid,
-				      &thread->real);
+		retval = isis_run_spf(area, level, SPFTREE_IPV6,
+				      area->isis->sysid, &thread->real);
 	if (area->ipv6_circuits
 	    && isis_area_ipv6_dstsrc_enabled(area))
-		retval = isis_run_spf(area, level, SPFTREE_DSTSRC, isis->sysid,
-				      &thread->real);
+		retval = isis_run_spf(area, level, SPFTREE_DSTSRC,
+				      area->isis->sysid, &thread->real);
 
 	isis_area_verify_routes(area);
 
@@ -1392,7 +1392,7 @@ static void isis_print_spftree(struct vty *vty, int level,
 	vty_out(vty, "IS-IS paths to level-%d routers %s\n",
 		level, tree_id_text);
 	isis_print_paths(vty, &area->spftree[tree_id][level - 1]->paths,
-			 isis->sysid);
+			 area->isis->sysid);
 	vty_out(vty, "\n");
 }
 
@@ -1412,8 +1412,9 @@ DEFUN (show_isis_topology,
        )
 {
 	int levels;
-	struct listnode *node;
+	struct listnode *node, *inode, *nnode;
 	struct isis_area *area;
+	struct isis *isis;
 
 	if (argc < 4)
 		levels = ISIS_LEVEL1 | ISIS_LEVEL2;
@@ -1422,39 +1423,42 @@ DEFUN (show_isis_topology,
 	else
 		levels = ISIS_LEVEL2;
 
-	if (!isis->area_list || isis->area_list->count == 0)
-		return CMD_SUCCESS;
+	for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		vty_out(vty, "Area %s:\n",
-			area->area_tag ? area->area_tag : "null");
+		if (!isis->area_list || isis->area_list->count == 0)
+			return CMD_SUCCESS;
 
-		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
-			if ((level & levels) == 0)
-				continue;
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+			vty_out(vty, "Area %s:\n",
+				area->area_tag ? area->area_tag : "null");
 
-			if (area->ip_circuits > 0) {
-				isis_print_spftree(vty, level, area,
-						   SPFTREE_IPV4);
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+				if ((level & levels) == 0)
+					continue;
+
+				if (area->ip_circuits > 0) {
+					isis_print_spftree(vty, level, area,
+							   SPFTREE_IPV4);
+				}
+				if (area->ipv6_circuits > 0) {
+					isis_print_spftree(vty, level, area,
+							   SPFTREE_IPV6);
+				}
+				if (isis_area_ipv6_dstsrc_enabled(area)) {
+					isis_print_spftree(vty, level, area,
+							   SPFTREE_DSTSRC);
+				}
 			}
-			if (area->ipv6_circuits > 0) {
-				isis_print_spftree(vty, level, area,
-						   SPFTREE_IPV6);
-			}
-			if (isis_area_ipv6_dstsrc_enabled(area)) {
-				isis_print_spftree(vty, level, area,
-						   SPFTREE_DSTSRC);
-			}
-		}
 
-		if (fabricd_spftree(area)) {
-			vty_out(vty,
-				"IS-IS paths to level-2 routers with hop-by-hop metric\n");
-			isis_print_paths(vty, &fabricd_spftree(area)->paths, isis->sysid);
+			if (fabricd_spftree(area)) {
+				vty_out(vty,
+					"IS-IS paths to level-2 routers with hop-by-hop metric\n");
+				isis_print_paths(vty, &fabricd_spftree(area)->paths, isis->sysid);
+				vty_out(vty, "\n");
+			}
+
 			vty_out(vty, "\n");
 		}
-
-		vty_out(vty, "\n");
 	}
 
 	return CMD_SUCCESS;

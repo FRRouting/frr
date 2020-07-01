@@ -48,7 +48,7 @@
 #include "isisd/isis_events.h"
 #include "isisd/isis_errors.h"
 
-extern struct isis *isis;
+extern struct isis_master *im;
 
 static const char *const csm_statestr[] = {"C_STATE_NA", "C_STATE_INIT",
 				     "C_STATE_CONF", "C_STATE_UP"};
@@ -66,6 +66,7 @@ struct isis_circuit *
 isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 {
 	int old_state;
+	struct isis *isis = NULL;
 
 	old_state = circuit ? circuit->state : C_STATE_NA;
 	if (IS_DEBUG_EVENTS)
@@ -86,7 +87,11 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 		case IF_UP_FROM_Z:
 			circuit = isis_circuit_new();
 			isis_circuit_if_add(circuit, (struct interface *)arg);
-			listnode_add(isis->init_circ_list, circuit);
+			if (circuit->interface != NULL)
+				isis = isis_lookup_by_vrfid(
+						circuit->interface->vrf_id);
+			if (isis != NULL)
+				listnode_add(isis->init_circ_list, circuit);
 			circuit->state = C_STATE_INIT;
 			break;
 		case ISIS_DISABLE:
@@ -111,7 +116,7 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			circuit->state = C_STATE_UP;
 			isis_event_circuit_state_change(circuit, circuit->area,
 							1);
-			listnode_delete(isis->init_circ_list, circuit);
+			listnode_delete(circuit->area->isis->init_circ_list, circuit);
 			break;
 		case IF_UP_FROM_Z:
 			assert(circuit);
@@ -122,7 +127,11 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			break;
 		case IF_DOWN_FROM_Z:
 			isis_circuit_if_del(circuit, (struct interface *)arg);
-			listnode_delete(isis->init_circ_list, circuit);
+			if (circuit->interface != NULL)
+				isis = isis_lookup_by_vrfid(
+						circuit->interface->vrf_id);
+			if (isis != NULL)
+				listnode_delete(isis->init_circ_list, circuit);
 			isis_circuit_del(circuit);
 			circuit = NULL;
 			break;
@@ -174,7 +183,11 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			circuit->state = C_STATE_INIT;
 			isis_event_circuit_state_change(
 				circuit, (struct isis_area *)arg, 0);
-			listnode_add(isis->init_circ_list, circuit);
+			if (circuit->interface != NULL)
+				isis = isis_lookup_by_vrfid(
+						circuit->interface->vrf_id);
+			if (isis != NULL)
+				listnode_add(isis->init_circ_list, circuit);
 			break;
 		case IF_DOWN_FROM_Z:
 			isis_circuit_down(circuit);

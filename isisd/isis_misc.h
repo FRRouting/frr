@@ -49,7 +49,7 @@ const char *time2string(uint32_t);
 const char *nlpid2str(uint8_t nlpid);
 /* typedef struct nlpids nlpids; */
 char *nlpid2string(struct nlpids *);
-const char *print_sys_hostname(const uint8_t *sysid);
+const char *print_sys_hostname(uint8_t *sysid);
 void zlog_dump_data(void *data, int len);
 
 /*
