@@ -2352,7 +2352,7 @@ def configure_brctl(tgen, topo, input_dict):
                 ):
 
                     ip_cmd_list = []
-                    cmd = "brctl addbr {}".format(brctl_name)
+                    cmd = "ip link add name {} type bridge stp_state {}".format(brctl_name, stp)
 
                     logger.info("[DUT: %s]: Running command: %s", dut, cmd)
                     rnode.run(cmd)
@@ -2360,18 +2360,12 @@ def configure_brctl(tgen, topo, input_dict):
                     ip_cmd_list.append("{} up dev {}".format(ip_cmd, brctl_name))
 
                     if vxlan:
-                        cmd = "brctl addif {} {}".format(brctl_name, vxlan)
+                        cmd = "{} dev {} master {}".format(ip_cmd, vxlan, brctl_name)
 
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
                         rnode.run(cmd)
 
                         ip_cmd_list.append("{} up dev {}".format(ip_cmd, vxlan))
-
-                    if stp:
-                        cmd = "brctl stp {} {}".format(brctl_name, stp)
-
-                        logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
 
                     if vrf:
                         ip_cmd_list.append(

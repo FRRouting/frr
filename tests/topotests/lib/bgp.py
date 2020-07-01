@@ -1057,28 +1057,22 @@ def verify_bgp_convergence(tgen, topo, dut=None):
     API will verify if BGP is converged with in the given time frame.
     Running "show bgp summary json" command and verify bgp neighbor
     state is established,
-
     Parameters
     ----------
     * `tgen`: topogen object
     * `topo`: input json file data
     * `dut`: device under test
-
     Usage
     -----
     # To veriry is BGP is converged for all the routers used in
     topology
     results = verify_bgp_convergence(tgen, topo, dut="r1")
-
     Returns
     -------
     errormsg(str) or True
     """
 
-    result = False
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
-    tgen = get_topogen()
+    logger.debug("Entering lib API: verify_bgp_convergence()")
     for router, rnode in tgen.routers().iteritems():
         if "bgp" not in topo["routers"][router]:
             continue
@@ -1141,14 +1135,13 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                                     )
                                     return errormsg
 
-                                if "l2VpnEvpn" in show_bgp_json[vrf]:
-                                    l2VpnEvpn_data = show_bgp_json[vrf]["l2VpnEvpn"][
-                                        "peers"
-                                    ]
-                                    nh_state = l2VpnEvpn_data[neighbor_ip]["state"]
+                                l2VpnEvpn_data = show_bgp_json[vrf]["l2VpnEvpn"][
+                                    "peers"
+                                ]
+                                nh_state = l2VpnEvpn_data[neighbor_ip]["state"]
 
-                                    if nh_state == "Established":
-                                        no_of_evpn_peer += 1
+                                if nh_state == "Established":
+                                    no_of_evpn_peer += 1
 
                 if no_of_evpn_peer == total_evpn_peer:
                     logger.info(
@@ -1156,7 +1149,6 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                         router,
                         vrf,
                     )
-                    result = True
                 else:
                     errormsg = (
                         "[DUT: %s] VRF: %s, BGP is not converged "
@@ -1164,22 +1156,22 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                     )
                     return errormsg
             else:
-                total_peer = 0
                 for addr_type in bgp_addr_type.keys():
                     if not check_address_types(addr_type):
                         continue
+                    total_peer = 0
 
                     bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
 
                     for bgp_neighbor in bgp_neighbors:
                         total_peer += len(bgp_neighbors[bgp_neighbor]["dest_link"])
 
-                no_of_peer = 0
                 for addr_type in bgp_addr_type.keys():
                     if not check_address_types(addr_type):
                         continue
                     bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
 
+                    no_of_peer = 0
                     for bgp_neighbor, peer_data in bgp_neighbors.items():
                         for dest_link in peer_data["dest_link"].keys():
                             data = topo["routers"][bgp_neighbor]["links"]
@@ -1190,11 +1182,8 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                                     "neighbor_type" in peer_details
                                     and peer_details["neighbor_type"] == "link-local"
                                 ):
-                                    intf = topo["routers"][bgp_neighbor]["links"][
-                                        dest_link
-                                    ]["interface"]
-                                    neighbor_ip = get_frr_ipv6_linklocal(
-                                        tgen, bgp_neighbor, intf
+                                    neighbor_ip = get_ipv6_linklocal_address(
+                                        topo["routers"], bgp_neighbor, dest_link
                                     )
                                 elif "source_link" in peer_details:
                                     neighbor_ip = topo["routers"][bgp_neighbor][
@@ -1214,7 +1203,7 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                                         0
                                     ]
                                 nh_state = None
-                                neighbor_ip = neighbor_ip.lower()
+
                                 if addr_type == "ipv4":
                                     ipv4_data = show_bgp_json[vrf]["ipv4Unicast"][
                                         "peers"
@@ -1224,8 +1213,7 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                                     ipv6_data = show_bgp_json[vrf]["ipv6Unicast"][
                                         "peers"
                                     ]
-                                    if neighbor_ip in ipv6_data:
-                                        nh_state = ipv6_data[neighbor_ip]["state"]
+                                    nh_state = ipv6_data[neighbor_ip]["state"]
 
                                 if nh_state == "Established":
                                     no_of_peer += 1
@@ -1238,9 +1226,8 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                             (router, vrf, addr_type))
                         return errormsg
 
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-
-    return result
+    logger.debug("Exiting API: verify_bgp_convergence()")
+    return True
 
 
 @retry(attempts=3, wait=4, return_is_str=True)
