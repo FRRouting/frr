@@ -138,7 +138,7 @@ DEFPY(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 {
 	char temp_xpath[XPATH_MAXLEN];
 	const char *circ_type;
-	struct isis_area *area;
+	struct isis_area *area = NULL;
 	struct interface *ifp;
 
 	/* area will be created if it is not present. make sure the yang model
@@ -166,7 +166,7 @@ DEFPY(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 				      NB_OP_MODIFY, "true");
 		nb_cli_enqueue_change(
 			vty, "./frr-isisd:isis/circuit-type", NB_OP_MODIFY,
-			listcount(im->isis) == 0 ? "level-1-2": "level-1");
+			listcount(im->isis) == 0 ? "level-1-2" : "level-1");
 	} else {
 		/* area exists, circuit type defaults to its area's is_type */
 		switch (area->is_type) {
@@ -209,7 +209,7 @@ DEFPY(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 {
 	char temp_xpath[XPATH_MAXLEN];
 	const char *circ_type;
-	struct isis_area *area;
+	struct isis_area *area = NULL;
 	struct interface *ifp;
 
 	/* area will be created if it is not present. make sure the yang model
@@ -236,7 +236,7 @@ DEFPY(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 				      NB_OP_MODIFY, "true");
 		nb_cli_enqueue_change(
 			vty, "./frr-isisd:isis/circuit-type", NB_OP_MODIFY,
-			listcount(im->isis) == 0 ? "level-1-2": "level-1");
+			listcount(im->isis) == 0 ? "level-1-2" : "level-1");
 	} else {
 		/* area exists, circuit type defaults to its area's is_type */
 		switch (area->is_type) {

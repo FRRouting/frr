@@ -183,7 +183,7 @@ static struct isis *isis_new(vrf_id_t vrf_id)
 	/*
 	 * Default values
 	 */
-	if (VRF_DEFAULT == vrf_id) {
+	if (vrf_id == VRF_DEFAULT) {
 		isis->vrf_id = VRF_DEFAULT;
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	}
