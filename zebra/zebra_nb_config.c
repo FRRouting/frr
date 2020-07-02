@@ -1242,7 +1242,7 @@ int lib_vrf_zebra_ribs_rib_create(struct nb_cb_create_args *args)
 		table_id = zvrf->table_id;
 
 	afi_safi_name = yang_dnode_get_string(args->dnode, "./afi-safi-name");
-	zebra_afi_safi_identity2value(afi_safi_name, &afi, &safi);
+	yang_afi_safi_identity2value(afi_safi_name, &afi, &safi);
 
 	zrt = zebra_router_find_zrt(zvrf, table_id, afi, safi);
 

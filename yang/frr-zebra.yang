@@ -77,35 +77,6 @@ module frr-zebra {
       "Initial revision.";
   }
 
-  identity afi-safi-type {
-    description
-      "Base identity type (AFI,SAFI) tuples for RIB";
-  }
-
-  identity ipv4-unicast {
-    base afi-safi-type;
-    description
-      "This identity represents the IPv4 unicast address family.";
-  }
-
-  identity ipv6-unicast {
-    base afi-safi-type;
-    description
-      "This identity represents the IPv6 unicast address family.";
-  }
-
-  identity ipv4-multicast {
-    base afi-safi-type;
-    description
-      "This identity represents the IPv4 multicast address family.";
-  }
-
-  identity ipv6-multicast {
-    base afi-safi-type;
-    description
-      "This identity represents the IPv6 multicast address family.";
-  }
-
   typedef unix-timestamp {
     type uint32;
     units "seconds";
@@ -634,7 +605,7 @@ module frr-zebra {
         key "afi-safi-name table-id";
         leaf afi-safi-name {
           type identityref {
-            base afi-safi-type;
+            base frr-rt:afi-safi-type;
           }
           description
             "AFI, SAFI name.";

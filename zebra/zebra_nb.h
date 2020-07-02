@@ -26,10 +26,6 @@ extern "C" {
 
 extern const struct frr_yang_module_info frr_zebra_info;
 
-/* helper functions */
-const char *zebra_afi_safi_value2identity(afi_t afi, safi_t safi);
-void zebra_afi_safi_identity2value(const char *key, afi_t *afi, safi_t *safi);
-
 /* prototypes */
 int get_route_information_rpc(struct nb_cb_rpc_args *args);
 int get_v6_mroute_info_rpc(struct nb_cb_rpc_args *args);

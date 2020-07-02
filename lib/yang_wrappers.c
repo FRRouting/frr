@@ -1191,3 +1191,38 @@ const char *yang_nexthop_type2str(uint32_t ntype)
 		break;
 	}
 }
+
+
+const char *yang_afi_safi_value2identity(afi_t afi, safi_t safi)
+{
+	if (afi == AFI_IP && safi == SAFI_UNICAST)
+		return "frr-routing:ipv4-unicast";
+	if (afi == AFI_IP6 && safi == SAFI_UNICAST)
+		return "frr-routing:ipv6-unicast";
+	if (afi == AFI_IP && safi == SAFI_MULTICAST)
+		return "frr-routing:ipv4-multicast";
+	if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
+		return "frr-routing:ipv6-multicast";
+
+	return NULL;
+}
+
+void yang_afi_safi_identity2value(const char *key, afi_t *afi, safi_t *safi)
+{
+	if (strmatch(key, "frr-routing:ipv4-unicast")) {
+		*afi = AFI_IP;
+		*safi = SAFI_UNICAST;
+	} else if (strmatch(key, "frr-routing:ipv6-unicast")) {
+		*afi = AFI_IP6;
+		*safi = SAFI_UNICAST;
+	} else if (strmatch(key, "frr-routing:ipv4-multicast")) {
+		*afi = AFI_IP;
+		*safi = SAFI_MULTICAST;
+	} else if (strmatch(key, "frr-routing:ipv6-multicast")) {
+		*afi = AFI_IP6;
+		*safi = SAFI_MULTICAST;
+	} else {
+		*afi = AFI_UNSPEC;
+		*safi = SAFI_UNSPEC;
+	}
+}
