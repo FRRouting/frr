@@ -207,6 +207,22 @@ static const char *adj_state2string(int state)
 	return NULL; /* not reached */
 }
 
+static const char *adj_level2string(int level)
+{
+	switch (level) {
+	case IS_LEVEL_1:
+		return "level-1";
+	case IS_LEVEL_2:
+		return "level-2";
+	case IS_LEVEL_1_AND_2:
+		return "level-1-2";
+	default:
+		return "unknown";
+	}
+
+	return NULL; /* not reached */
+}
+
 void isis_adj_process_threeway(struct isis_adjacency *adj,
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage)
@@ -259,7 +275,25 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 
 	adj->threeway_state = next_tw_state;
 }
+void isis_log_adj_change(struct isis_adjacency *adj,
+			 enum isis_adj_state old_state,
+			 enum isis_adj_state new_state, const char *reason)
+{
+	const char *adj_name;
+	struct isis_dynhn *dyn;
 
+	dyn = dynhn_find_by_id(adj->sysid);
+	if (dyn)
+		adj_name = dyn->hostname;
+	else
+		adj_name = sysid_print(adj->sysid);
+
+	zlog_info(
+		"%%ADJCHANGE: Adjacency to %s (%s) for %s changed from %s to %s, %s",
+		adj_name, adj->circuit->interface->name,
+		adj_level2string(adj->level), adj_state2string(old_state),
+		adj_state2string(new_state), reason ? reason : "unspecified");
+}
 void isis_adj_state_change(struct isis_adjacency **padj,
 			   enum isis_adj_state new_state, const char *reason)
 {
@@ -280,23 +314,8 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 			   reason ? reason : "unspecified");
 	}
 
-	if (circuit->area->log_adj_changes) {
-		const char *adj_name;
-		struct isis_dynhn *dyn;
-
-		dyn = dynhn_find_by_id(adj->sysid);
-		if (dyn)
-			adj_name = dyn->hostname;
-		else
-			adj_name = sysid_print(adj->sysid);
-
-		zlog_info(
-			"%%ADJCHANGE: Adjacency to %s (%s) changed from %s to %s, %s",
-			adj_name, adj->circuit->interface->name,
-			adj_state2string(old_state),
-			adj_state2string(new_state),
-			reason ? reason : "unspecified");
-	}
+	if (circuit->area->log_adj_changes)
+		isis_log_adj_change(adj, old_state, new_state, reason);
 
 	circuit->adj_state_changes++;
 #ifndef FABRICD

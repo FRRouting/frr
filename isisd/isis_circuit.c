@@ -720,6 +720,43 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	isis_notif_if_state_change(circuit, true);
 #endif /* ifndef FABRICD */
 
+	/* log adjacency changes if configured to do so */
+	if (circuit->area && circuit->area->log_adj_changes) {
+		struct isis_adjacency *adj = NULL;
+		if (circuit->circ_type == CIRCUIT_T_P2P) {
+			adj = circuit->u.p2p.neighbor;
+			if (adj)
+				isis_log_adj_change(
+					adj, adj->adj_state, ISIS_ADJ_DOWN,
+					"circuit is being brought down");
+		} else if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+			struct list *adj_list;
+			struct listnode *node;
+			if (circuit->u.bc.adjdb[0]) {
+				adj_list = list_new();
+				isis_adj_build_up_list(circuit->u.bc.adjdb[0],
+						       adj_list);
+				for (ALL_LIST_ELEMENTS_RO(adj_list, node, adj))
+					isis_log_adj_change(
+						adj, adj->adj_state,
+						ISIS_ADJ_DOWN,
+						"circuit is being brought down");
+				list_delete(&adj_list);
+			}
+			if (circuit->u.bc.adjdb[1]) {
+				adj_list = list_new();
+				isis_adj_build_up_list(circuit->u.bc.adjdb[1],
+						       adj_list);
+				for (ALL_LIST_ELEMENTS_RO(adj_list, node, adj))
+					isis_log_adj_change(
+						adj, adj->adj_state,
+						ISIS_ADJ_DOWN,
+						"circuit is being brought down");
+				list_delete(&adj_list);
+			}
+		}
+	}
+
 	/* Clear the flags for all the lsps of the circuit. */
 	isis_circuit_update_all_srmflags(circuit, 0);
 

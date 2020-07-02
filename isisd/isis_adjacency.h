@@ -126,6 +126,9 @@ DECLARE_HOOK(isis_adj_ip_enabled_hook,
 	     (struct isis_adjacency *adj, int family), (adj, family))
 DECLARE_HOOK(isis_adj_ip_disabled_hook,
 	     (struct isis_adjacency *adj, int family), (adj, family))
+void isis_log_adj_change(struct isis_adjacency *adj,
+			 enum isis_adj_state old_state,
+			 enum isis_adj_state new_state, const char *reason);
 void isis_adj_state_change(struct isis_adjacency **adj,
 			   enum isis_adj_state state, const char *reason);
 void isis_adj_print(struct isis_adjacency *adj);
