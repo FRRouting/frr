@@ -1188,13 +1188,11 @@ class Router(Node):
             zebra_path = os.path.join(self.daemondir, "zebra")
             zebra_option = self.daemons_options["zebra"]
             self.cmd(
-                "{0} {1} --log stdout --log-level debug > zebra.out 2> zebra.err &".format(
+                "{0} {1} --log stdout --log-level debug -d > zebra.out 2> zebra.err".format(
                     zebra_path, zebra_option, self.logdir, self.name
                 )
             )
-            self.waitOutput()
             logger.debug("{}: {} zebra started".format(self, self.routertype))
-            sleep(1, "{}: waiting for zebra to start".format(self.name))
 
             # Remove `zebra` so we don't attempt to start it again.
             daemons_list.remove('zebra')
@@ -1204,11 +1202,10 @@ class Router(Node):
             staticd_path = os.path.join(self.daemondir, "staticd")
             staticd_option = self.daemons_options["staticd"]
             self.cmd(
-                "{0} {1} --log stdout --log-level debug > staticd.out 2> staticd.err &".format(
+                "{0} {1} --log stdout --log-level debug -d > staticd.out 2> staticd.err".format(
                     staticd_path, staticd_option, self.logdir, self.name
                 )
             )
-            self.waitOutput()
             logger.debug("{}: {} staticd started".format(self, self.routertype))
 
             # Remove `staticd` so we don't attempt to start it again.
@@ -1228,11 +1225,10 @@ class Router(Node):
 
             daemon_path = os.path.join(self.daemondir, daemon)
             self.cmd(
-                "{0} {1} --log stdout --log-level debug > {2}.out 2> {2}.err &".format(
+                "{0} {1} --log stdout --log-level debug -d > {2}.out 2> {2}.err".format(
                     daemon_path, self.daemons_options.get(daemon, ""), daemon
                 )
             )
-            self.waitOutput()
             logger.debug("{}: {} {} started".format(self, self.routertype, daemon))
 
         # Check if daemons are running.
