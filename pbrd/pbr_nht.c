@@ -328,27 +328,29 @@ static struct pbr_nexthop_cache *pbr_nht_lookup_nexthop(struct nexthop *nexthop)
 }
 #endif
 
+static void
+pbr_nht_find_nhg_from_table_update(struct pbr_nexthop_group_cache *pnhgc,
+				   uint32_t table_id, bool installed)
+{
+	if (pnhgc->table_id == table_id) {
+		DEBUGD(&pbr_dbg_nht, "%s: %s: Table ID (%u) matches %s",
+		       __func__, (installed ? "install" : "remove"), table_id,
+		       pnhgc->name);
+
+		pnhgc->installed = installed;
+		pnhgc->valid = installed;
+		pbr_map_schedule_policy_from_nhg(pnhgc->name, pnhgc->installed);
+	}
+}
+
 static void pbr_nht_find_nhg_from_table_install(struct hash_bucket *b,
 						void *data)
 {
 	struct pbr_nexthop_group_cache *pnhgc =
 		(struct pbr_nexthop_group_cache *)b->data;
-	uint32_t *table_id = (uint32_t *)data;
+	uint32_t table_id = *(uint32_t *)data;
 
-	if (pnhgc->table_id == *table_id) {
-		DEBUGD(&pbr_dbg_nht, "%s: Table ID (%u) matches %s", __func__,
-		       *table_id, pnhgc->name);
-
-		/*
-		 * If the table has been re-handled by zebra
-		 * and we are already installed no need to do
-		 * anything here.
-		 */
-		if (!pnhgc->installed) {
-			pnhgc->installed = true;
-			pbr_map_schedule_policy_from_nhg(pnhgc->name);
-		}
-	}
+	pbr_nht_find_nhg_from_table_update(pnhgc, table_id, true);
 }
 
 void pbr_nht_route_installed_for_table(uint32_t table_id)
@@ -360,7 +362,11 @@ void pbr_nht_route_installed_for_table(uint32_t table_id)
 static void pbr_nht_find_nhg_from_table_remove(struct hash_bucket *b,
 					       void *data)
 {
-	;
+	struct pbr_nexthop_group_cache *pnhgc =
+		(struct pbr_nexthop_group_cache *)b->data;
+	uint32_t table_id = *(uint32_t *)data;
+
+	pbr_nht_find_nhg_from_table_update(pnhgc, table_id, false);
 }
 
 void pbr_nht_route_removed_for_table(uint32_t table_id)
