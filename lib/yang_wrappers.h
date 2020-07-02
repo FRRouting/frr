@@ -191,6 +191,9 @@ extern struct yang_data *yang_data_new_date_and_time(const char *xpath,
 /* nexthop enum2str */
 extern const char *yang_nexthop_type2str(uint32_t ntype);
 
+const char *yang_afi_safi_value2identity(afi_t afi, safi_t safi);
+void yang_afi_safi_identity2value(const char *key, afi_t *afi, safi_t *safi);
+
 #ifdef __cplusplus
 }
 #endif

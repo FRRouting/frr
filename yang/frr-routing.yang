@@ -72,6 +72,35 @@ module frr-routing {
       "This identity represents an IPv6 address family.";
   }
 
+  identity afi-safi-type {
+    description
+      "Base identity type (AFI,SAFI) tuples for RIB";
+  }
+
+  identity ipv4-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 unicast address family.";
+  }
+
+  identity ipv6-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 unicast address family.";
+  }
+
+  identity ipv4-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 multicast address family.";
+  }
+
+  identity ipv6-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 multicast address family.";
+  }
+
   identity control-plane-protocol {
     description
       "Base identity from which control-plane protocol identities are
