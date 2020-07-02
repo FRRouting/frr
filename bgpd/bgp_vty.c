@@ -4529,23 +4529,31 @@ DEFUN (neighbor_capability_orf_prefix,
        "Capability to RECEIVE the ORF from this neighbor\n"
        "Capability to SEND the ORF to this neighbor\n")
 {
-	int idx_peer = 1;
 	int idx_send_recv = 5;
-	uint16_t flag = 0;
+	char *peer_str = argv[1]->arg;
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (strmatch(argv[idx_send_recv]->text, "send"))
-		flag = PEER_FLAG_ORF_PREFIX_SM;
-	else if (strmatch(argv[idx_send_recv]->text, "receive"))
-		flag = PEER_FLAG_ORF_PREFIX_RM;
-	else if (strmatch(argv[idx_send_recv]->text, "both"))
-		flag = PEER_FLAG_ORF_PREFIX_SM | PEER_FLAG_ORF_PREFIX_RM;
-	else {
-		vty_out(vty, "%% BGP invalid orf prefix-list option\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+		return peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					    PEER_FLAG_ORF_PREFIX_SM);
 
-	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-				    bgp_node_safi(vty), flag);
+	if (strmatch(argv[idx_send_recv]->text, "receive"))
+		return peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					    PEER_FLAG_ORF_PREFIX_RM);
+
+	if (strmatch(argv[idx_send_recv]->text, "both"))
+		return peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					    PEER_FLAG_ORF_PREFIX_SM)
+		       | peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_ORF_PREFIX_RM);
+
+	return CMD_WARNING_CONFIG_FAILED;
 }
 
 ALIAS_HIDDEN(
@@ -4573,24 +4581,31 @@ DEFUN (no_neighbor_capability_orf_prefix,
        "Capability to RECEIVE the ORF from this neighbor\n"
        "Capability to SEND the ORF to this neighbor\n")
 {
-	int idx_peer = 2;
 	int idx_send_recv = 6;
-	uint16_t flag = 0;
+	char *peer_str = argv[2]->arg;
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (strmatch(argv[idx_send_recv]->text, "send"))
-		flag = PEER_FLAG_ORF_PREFIX_SM;
-	else if (strmatch(argv[idx_send_recv]->text, "receive"))
-		flag = PEER_FLAG_ORF_PREFIX_RM;
-	else if (strmatch(argv[idx_send_recv]->text, "both"))
-		flag = PEER_FLAG_ORF_PREFIX_SM | PEER_FLAG_ORF_PREFIX_RM;
-	else {
-		vty_out(vty, "%% BGP invalid orf prefix-list option\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_ORF_PREFIX_SM);
 
-	return peer_af_flag_unset_vty(vty, argv[idx_peer]->arg,
-				      bgp_node_afi(vty), bgp_node_safi(vty),
-				      flag);
+	if (strmatch(argv[idx_send_recv]->text, "receive"))
+		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_ORF_PREFIX_RM);
+
+	if (strmatch(argv[idx_send_recv]->text, "both"))
+		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_ORF_PREFIX_SM)
+		       | peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+						PEER_FLAG_ORF_PREFIX_RM);
+
+	return CMD_WARNING_CONFIG_FAILED;
 }
 
 ALIAS_HIDDEN(
@@ -4965,27 +4980,40 @@ DEFUN (neighbor_send_community_type,
        "Send Standard Community attributes\n"
        "Send Large Community attributes\n")
 {
-	int idx_peer = 1;
-	uint32_t flag = 0;
 	const char *type = argv[argc - 1]->text;
+	char *peer_str = argv[1]->arg;
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
 
-	if (strmatch(type, "standard")) {
-		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
-	} else if (strmatch(type, "extended")) {
-		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
-	} else if (strmatch(type, "large")) {
-		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
-	} else if (strmatch(type, "both")) {
-		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
-		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
-	} else { /* if (strmatch(type, "all")) */
-		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
-		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
-		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (strmatch(type, "standard"))
+		return peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					    PEER_FLAG_SEND_COMMUNITY);
+
+	if (strmatch(type, "extended"))
+		return peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					    PEER_FLAG_SEND_EXT_COMMUNITY);
+
+	if (strmatch(type, "large"))
+		return peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					    PEER_FLAG_SEND_LARGE_COMMUNITY);
+
+	if (strmatch(type, "both")) {
+		return peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					    PEER_FLAG_SEND_COMMUNITY)
+		       | peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_SEND_EXT_COMMUNITY);
 	}
-
-	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-				    bgp_node_safi(vty), flag);
+	return peer_af_flag_set_vty(vty, peer_str, afi, safi,
+				    PEER_FLAG_SEND_COMMUNITY)
+	       | peer_af_flag_set_vty(vty, peer_str, afi, safi,
+				      PEER_FLAG_SEND_EXT_COMMUNITY)
+	       | peer_af_flag_set_vty(vty, peer_str, afi, safi,
+				      PEER_FLAG_SEND_LARGE_COMMUNITY);
 }
 
 ALIAS_HIDDEN(
@@ -5012,28 +5040,42 @@ DEFUN (no_neighbor_send_community_type,
        "Send Standard Community attributes\n"
        "Send Large Community attributes\n")
 {
-	int idx_peer = 2;
-	uint32_t flag = 0;
 	const char *type = argv[argc - 1]->text;
+	char *peer_str = argv[2]->arg;
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
 
-	if (strmatch(type, "standard")) {
-		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
-	} else if (strmatch(type, "extended")) {
-		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
-	} else if (strmatch(type, "large")) {
-		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
-	} else if (strmatch(type, "both")) {
-		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
-		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
-	} else { /* if (strmatch(type, "all")) */
-		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
-		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
-		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (strmatch(type, "standard"))
+		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_SEND_COMMUNITY);
+
+	if (strmatch(type, "extended"))
+		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_SEND_EXT_COMMUNITY);
+
+	if (strmatch(type, "large"))
+		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_SEND_LARGE_COMMUNITY);
+
+	if (strmatch(type, "both")) {
+
+		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_SEND_COMMUNITY)
+		       | peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+						PEER_FLAG_SEND_EXT_COMMUNITY);
 	}
 
-	return peer_af_flag_unset_vty(vty, argv[idx_peer]->arg,
-				      bgp_node_afi(vty), bgp_node_safi(vty),
-				      flag);
+	return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+				      PEER_FLAG_SEND_COMMUNITY)
+	       | peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					PEER_FLAG_SEND_EXT_COMMUNITY)
+	       | peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					PEER_FLAG_SEND_LARGE_COMMUNITY);
 }
 
 ALIAS_HIDDEN(
@@ -5225,52 +5267,74 @@ DEFUN (neighbor_attr_unchanged,
 	int idx = 0;
 	char *peer_str = argv[1]->arg;
 	struct peer *peer;
-	uint16_t flags = 0;
+	bool aspath = false;
+	bool nexthop = false;
+	bool med = false;
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
+	int ret = 0;
 
 	peer = peer_and_group_lookup_vty(vty, peer_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (argv_find(argv, argc, "as-path", &idx))
-		SET_FLAG(flags, PEER_FLAG_AS_PATH_UNCHANGED);
+		aspath = true;
+
 	idx = 0;
 	if (argv_find(argv, argc, "next-hop", &idx))
-		SET_FLAG(flags, PEER_FLAG_NEXTHOP_UNCHANGED);
+		nexthop = true;
+
 	idx = 0;
 	if (argv_find(argv, argc, "med", &idx))
-		SET_FLAG(flags, PEER_FLAG_MED_UNCHANGED);
+		med = true;
 
 	/* no flags means all of them! */
-	if (!flags) {
-		SET_FLAG(flags, PEER_FLAG_AS_PATH_UNCHANGED);
-		SET_FLAG(flags, PEER_FLAG_NEXTHOP_UNCHANGED);
-		SET_FLAG(flags, PEER_FLAG_MED_UNCHANGED);
+	if (!aspath && !nexthop && !med) {
+		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					   PEER_FLAG_AS_PATH_UNCHANGED);
+		ret |= peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					    PEER_FLAG_NEXTHOP_UNCHANGED);
+		ret |= peer_af_flag_set_vty(vty, peer_str, afi, safi,
+					    PEER_FLAG_MED_UNCHANGED);
 	} else {
-		if (!CHECK_FLAG(flags, PEER_FLAG_AS_PATH_UNCHANGED)
-		    && peer_af_flag_check(peer, afi, safi,
-					  PEER_FLAG_AS_PATH_UNCHANGED)) {
-			peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					       PEER_FLAG_AS_PATH_UNCHANGED);
-		}
+		if (!aspath) {
+			if (peer_af_flag_check(peer, afi, safi,
+					       PEER_FLAG_AS_PATH_UNCHANGED)) {
+				ret |= peer_af_flag_unset_vty(
+					vty, peer_str, afi, safi,
+					PEER_FLAG_AS_PATH_UNCHANGED);
+			}
+		} else
+			ret |= peer_af_flag_set_vty(
+				vty, peer_str, afi, safi,
+				PEER_FLAG_AS_PATH_UNCHANGED);
 
-		if (!CHECK_FLAG(flags, PEER_FLAG_NEXTHOP_UNCHANGED)
-		    && peer_af_flag_check(peer, afi, safi,
-					  PEER_FLAG_NEXTHOP_UNCHANGED)) {
-			peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					       PEER_FLAG_NEXTHOP_UNCHANGED);
-		}
+		if (!nexthop) {
+			if (peer_af_flag_check(peer, afi, safi,
+					       PEER_FLAG_NEXTHOP_UNCHANGED)) {
+				ret |= peer_af_flag_unset_vty(
+					vty, peer_str, afi, safi,
+					PEER_FLAG_NEXTHOP_UNCHANGED);
+			}
+		} else
+			ret |= peer_af_flag_set_vty(
+				vty, peer_str, afi, safi,
+				PEER_FLAG_NEXTHOP_UNCHANGED);
 
-		if (!CHECK_FLAG(flags, PEER_FLAG_MED_UNCHANGED)
-		    && peer_af_flag_check(peer, afi, safi,
-					  PEER_FLAG_MED_UNCHANGED)) {
-			peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					       PEER_FLAG_MED_UNCHANGED);
-		}
+		if (!med) {
+			if (peer_af_flag_check(peer, afi, safi,
+					       PEER_FLAG_MED_UNCHANGED)) {
+				ret |= peer_af_flag_unset_vty(
+					vty, peer_str, afi, safi,
+					PEER_FLAG_MED_UNCHANGED);
+			}
+		} else
+			ret |= peer_af_flag_set_vty(vty, peer_str, afi, safi,
+						    PEER_FLAG_MED_UNCHANGED);
 	}
 
-	return peer_af_flag_set_vty(vty, peer_str, afi, safi, flags);
+	return ret;
 }
 
 ALIAS_HIDDEN(
@@ -5294,27 +5358,51 @@ DEFUN (no_neighbor_attr_unchanged,
        "Med attribute\n")
 {
 	int idx = 0;
-	char *peer = argv[2]->arg;
-	uint16_t flags = 0;
+	char *peer_str = argv[2]->arg;
+	struct peer *peer;
+	bool aspath = false;
+	bool nexthop = false;
+	bool med = false;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+	int ret = 0;
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (argv_find(argv, argc, "as-path", &idx))
-		SET_FLAG(flags, PEER_FLAG_AS_PATH_UNCHANGED);
+		aspath = true;
+
 	idx = 0;
 	if (argv_find(argv, argc, "next-hop", &idx))
-		SET_FLAG(flags, PEER_FLAG_NEXTHOP_UNCHANGED);
+		nexthop = true;
+
 	idx = 0;
 	if (argv_find(argv, argc, "med", &idx))
-		SET_FLAG(flags, PEER_FLAG_MED_UNCHANGED);
+		med = true;
 
-	if (!flags) // no flags means all of them!
-	{
-		SET_FLAG(flags, PEER_FLAG_AS_PATH_UNCHANGED);
-		SET_FLAG(flags, PEER_FLAG_NEXTHOP_UNCHANGED);
-		SET_FLAG(flags, PEER_FLAG_MED_UNCHANGED);
-	}
+	if (!aspath && !nexthop && !med) // no flags means all of them!
+		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_AS_PATH_UNCHANGED)
+		       | peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+						PEER_FLAG_NEXTHOP_UNCHANGED)
+		       | peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+						PEER_FLAG_MED_UNCHANGED);
 
-	return peer_af_flag_unset_vty(vty, peer, bgp_node_afi(vty),
-				      bgp_node_safi(vty), flags);
+	if (aspath)
+		ret |= peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_AS_PATH_UNCHANGED);
+
+	if (nexthop)
+		ret |= peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_NEXTHOP_UNCHANGED);
+
+	if (med)
+		ret |= peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					      PEER_FLAG_MED_UNCHANGED);
+
+	return ret;
 }
 
 ALIAS_HIDDEN(
