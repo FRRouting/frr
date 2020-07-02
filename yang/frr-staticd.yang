@@ -99,13 +99,20 @@ module frr-staticd {
         "Support for a 'staticd' pseudo-protocol instance
          consists of a list of routes.";
       list route-list {
-        key "prefix";
+        key "prefix afi-safi";
         description
           "List of staticd IP routes.";
         leaf prefix {
           type inet:ip-prefix;
           description
             "IP prefix.";
+        }
+        leaf afi-safi {
+          type identityref {
+            base frr-rt:afi-safi-type;
+          }
+          description
+            "AFI-SAFI type.";
         }
 
         uses staticd-prefix-attributes;

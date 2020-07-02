@@ -421,11 +421,25 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 	struct route_node *rn;
 	const struct lyd_node *vrf_dnode;
 	struct prefix prefix;
+	const char *afi_safi;
+	afi_t prefix_afi;
 	afi_t afi;
-	safi_t safi = SAFI_UNICAST;
+	safi_t safi;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
+		afi_safi = yang_dnode_get_string(args->dnode, "./afi-safi");
+		yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+		prefix_afi = family2afi(prefix.family);
+		if (afi != prefix_afi) {
+			flog_warn(
+				EC_LIB_NB_CB_CONFIG_VALIDATE,
+				"route node %s creation failed",
+				yang_dnode_get_string(args->dnode, "./prefix"));
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -436,15 +450,8 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 		s_vrf = vrf->info;
 
 		yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
-		afi = family2afi(prefix.family);
-
-		if (afi == AFI_IP) {
-			if (IN_MULTICAST(ntohl(prefix.u.prefix4.s_addr)))
-				safi = SAFI_MULTICAST;
-		} else {
-			if (IN6_IS_ADDR_MULTICAST(&prefix.u.prefix6))
-				safi = SAFI_MULTICAST;
-		}
+		afi_safi = yang_dnode_get_string(args->dnode, "./afi-safi");
+		yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
 		rn = static_add_route(afi, safi, &prefix, NULL, s_vrf);
 		if (!rn) {
