@@ -115,7 +115,8 @@ struct bfd_profile *bfd_profile_new(const char *name)
 void bfd_profile_free(struct bfd_profile *bp)
 {
 	/* Detach from any session. */
-	bfd_profile_detach(bp);
+	if (bglobal.bg_shutdown == false)
+		bfd_profile_detach(bp);
 
 	/* Remove from global list. */
 	TAILQ_REMOVE(&bplist, bp, entry);
@@ -765,6 +766,15 @@ static void _bfd_session_update(struct bfd_session *bs,
 	 */
 	bs->peer_profile.admin_shutdown = bpc->bpc_shutdown;
 	bfd_set_shutdown(bs, bpc->bpc_shutdown);
+
+	/*
+	 * Apply profile last: it also calls `bfd_set_shutdown`.
+	 *
+	 * There is no problem calling `shutdown` twice if the value doesn't
+	 * change or if it is overriden by peer specific configuration.
+	 */
+	if (bpc->bpc_has_profile)
+		bfd_profile_apply(bpc->bpc_profile, bs);
 }
 
 static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)

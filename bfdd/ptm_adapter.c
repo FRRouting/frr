@@ -85,6 +85,7 @@ static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 {
 	char timers[3][128] = {};
 	char addr[3][128] = {};
+	char profile[128] = {};
 	char cbit_str[32];
 	char msgbuf[256];
 	va_list vl;
@@ -119,13 +120,17 @@ static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 
 	snprintf(cbit_str, sizeof(cbit_str), " cbit:0x%02x", bpc->bpc_cbit);
 
+	if (bpc->bpc_has_profile)
+		snprintf(profile, sizeof(profile), " profile:%s",
+			 bpc->bpc_profile);
+
 	va_start(vl, fmt);
 	vsnprintf(msgbuf, sizeof(msgbuf), fmt, vl);
 	va_end(vl);
 
-	zlog_debug("%s [mhop:%s %s%s%s%s%s%s%s]", msgbuf,
+	zlog_debug("%s [mhop:%s %s%s%s%s%s%s%s%s]", msgbuf,
 		   bpc->bpc_mhop ? "yes" : "no", addr[0], addr[1], addr[2],
-		   timers[0], timers[1], timers[2], cbit_str);
+		   timers[0], timers[1], timers[2], cbit_str, profile);
 }
 
 static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
@@ -330,6 +335,8 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	 *     - c: ifname length
 	 *     - X bytes: interface name
 	 * - c: bfd_cbit
+	 * - c: profile name length.
+	 * - X bytes: profile name.
 	 *
 	 * q(64), l(32), w(16), c(8)
 	 */
@@ -410,6 +417,14 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 
 	STREAM_GETC(msg, bpc->bpc_cbit);
 
+	/* Handle profile names. */
+	STREAM_GETC(msg, ifnamelen);
+	bpc->bpc_has_profile = ifnamelen > 0;
+	if (bpc->bpc_has_profile) {
+		STREAM_GET(bpc->bpc_profile, msg, ifnamelen);
+		bpc->bpc_profile[ifnamelen] = 0;
+	}
+
 	/* Sanity check: peer and local address must match IP types. */
 	if (bpc->bpc_local.sa_sin.sin_family != 0
 	    && (bpc->bpc_local.sa_sin.sin_family
@@ -450,10 +465,18 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 		/* Protocol created peers are 'no shutdown' by default. */
 		bs->peer_profile.admin_shutdown = false;
 	} else {
-		/* Don't try to change echo/shutdown state. */
-		bpc.bpc_echo = CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
-		bpc.bpc_shutdown =
-			CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+		/*
+		 * BFD session was already created, we are just updating the
+		 * current peer.
+		 *
+		 * `ptm-bfd` (or `HAVE_BFDD == 0`) is the only implementation
+		 * that allow users to set peer specific timers via protocol.
+		 * BFD daemon (this code) on the other hand only supports
+		 * changing peer configuration manually (through `peer` node)
+		 * or via profiles.
+		 */
+		if (bpc.bpc_has_profile)
+			bfd_profile_apply(bpc.bpc_profile, bs);
 	}
 
 	/* Create client peer notification register. */
