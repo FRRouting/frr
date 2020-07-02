@@ -125,7 +125,7 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_STATIC_ROUTE_INFO_KEY_XPATH                                        \
 	"/frr-routing:routing/control-plane-protocols/"                        \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
-	"frr-staticd:staticd/route-list[prefix='%s']"                          \
+	"frr-staticd:staticd/route-list[prefix='%s'][afi-safi='%s']/"          \
 	"path-list[distance='%u']"
 
 
@@ -150,7 +150,7 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_S_ROUTE_SRC_INFO_KEY_XPATH                                         \
 	"/frr-routing:routing/control-plane-protocols/"                        \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
-	"frr-staticd:staticd/route-list[prefix='%s']"                          \
+	"frr-staticd:staticd/route-list[prefix='%s'][afi-safi='%s']/"          \
 	"src-list[src-prefix='%s']/path-list[distance='%u']"
 
 /* route-list/frr-nexthops */

@@ -174,12 +174,14 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 FRR_S_ROUTE_SRC_INFO_KEY_XPATH,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
+				 yang_afi_safi_value2identity(afi, safi),
 				 buf_src_prefix, distance);
 		else
 			snprintf(xpath_prefix, sizeof(xpath_prefix),
 				 FRR_STATIC_ROUTE_INFO_KEY_XPATH,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
+				 yang_afi_safi_value2identity(afi, safi),
 				 distance);
 
 		nb_cli_enqueue_change(vty, xpath_prefix, NB_OP_CREATE, NULL);
@@ -288,6 +290,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 FRR_DEL_S_ROUTE_SRC_NH_KEY_XPATH,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
+				 yang_afi_safi_value2identity(afi, safi),
 				 buf_src_prefix, distance, buf_nh_type, nh_svrf,
 				 buf_gate_str, ifname);
 		else
@@ -295,6 +298,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 FRR_DEL_S_ROUTE_NH_KEY_XPATH,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
+				 yang_afi_safi_value2identity(afi, safi),
 				 distance, buf_nh_type, nh_svrf, buf_gate_str,
 				 ifname);
 
