@@ -876,7 +876,8 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 
 	if (attr->ecommunity) {
 		for (i = 0; i < attr->ecommunity->size; i++) {
-			pnt = attr->ecommunity->val + (i * attr->ecommunity->unit_size);
+			pnt = attr->ecommunity->val +
+				(i * attr->ecommunity->unit_size);
 			type = *pnt++;
 			sub_type = *pnt++;
 
@@ -884,7 +885,8 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 			    && sub_type
 				       == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY) {
 				ecom_val_ptr =
-					(attr->ecommunity->val + (i * attr->ecommunity->unit_size));
+					(attr->ecommunity->val +
+					 (i * attr->ecommunity->unit_size));
 				break;
 			}
 		}
@@ -892,7 +894,8 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 
 	/* Update the existing MM ecommunity */
 	if (ecom_val_ptr) {
-		memcpy(ecom_val_ptr, eval.val, sizeof(char) * attr->ecommunity->unit_size);
+		memcpy(ecom_val_ptr, eval.val, sizeof(char)
+		       * attr->ecommunity->unit_size);
 	}
 	/* Add MM to existing */
 	else {

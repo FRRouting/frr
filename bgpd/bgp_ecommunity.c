@@ -88,12 +88,15 @@ static void ecommunity_hash_free(struct ecommunity *ecom)
    once and whether the new value should replace what is existing or
    not.
 */
-static bool ecommunity_add_val_internal(struct ecommunity *ecom, const void *eval,
-					bool unique, bool overwrite, uint8_t ecom_size)
+static bool ecommunity_add_val_internal(struct ecommunity *ecom,
+					const void *eval,
+					bool unique, bool overwrite,
+					uint8_t ecom_size)
 {
 	int c, ins_idx;
 	const struct ecommunity_val *eval4 = (struct ecommunity_val *)eval;
-	const struct ecommunity_val_ipv6 *eval6 = (struct ecommunity_val_ipv6 *)eval;
+	const struct ecommunity_val_ipv6 *eval6 =
+		(struct ecommunity_val_ipv6 *)eval;
 
 	/* When this is fist value, just add it. */
 	if (ecom->val == NULL) {
@@ -116,7 +119,8 @@ static bool ecommunity_add_val_internal(struct ecommunity *ecom, const void *eva
 				if (p[0] == eval4->val[0] &&
 				    p[1] == eval4->val[1]) {
 					if (overwrite) {
-						memcpy(p, eval4->val, ecom_size);
+						memcpy(p, eval4->val,
+						       ecom_size);
 						return true;
 					}
 					return false;
@@ -125,7 +129,8 @@ static bool ecommunity_add_val_internal(struct ecommunity *ecom, const void *eva
 				if (p[0] == eval6->val[0] &&
 				    p[1] == eval6->val[1]) {
 					if (overwrite) {
-						memcpy(p, eval6->val, ecom_size);
+						memcpy(p, eval6->val,
+						       ecom_size);
 						return true;
 					}
 					return false;
@@ -162,10 +167,11 @@ static bool ecommunity_add_val_internal(struct ecommunity *ecom, const void *eva
 }
 
 /* Add a new Extended Communities value to Extended Communities
-   Attribute structure.  When the value is already exists in the
-   structure, we don't add the value.  Newly added value is sorted by
-   numerical order.  When the value is added to the structure return 1
-   else return 0.  */
+ * Attribute structure.  When the value is already exists in the
+ * structure, we don't add the value.  Newly added value is sorted by
+ * numerical order.  When the value is added to the structure return 1
+ * else return 0.
+ */
 bool ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval,
 		       bool unique, bool overwrite)
 {
@@ -173,8 +179,9 @@ bool ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval,
 					   overwrite, ECOMMUNITY_SIZE);
 }
 
-bool ecommunity_add_val_ipv6(struct ecommunity *ecom, struct ecommunity_val_ipv6 *eval,
-			    bool unique, bool overwrite)
+bool ecommunity_add_val_ipv6(struct ecommunity *ecom,
+			     struct ecommunity_val_ipv6 *eval,
+			     bool unique, bool overwrite)
 {
 	return ecommunity_add_val_internal(ecom, (const void *)eval, unique,
 					   overwrite, IPV6_ECOMMUNITY_SIZE);
@@ -202,8 +209,9 @@ ecommunity_uniq_sort_internal(struct ecommunity *ecom,
 }
 
 /* This function takes pointer to Extended Communites strucutre then
-   create a new Extended Communities structure by uniq and sort each
-   Extended Communities value.  */
+ * create a new Extended Communities structure by uniq and sort each
+ * Extended Communities value.
+ */
 struct ecommunity *ecommunity_uniq_sort(struct ecommunity *ecom)
 {
 	return ecommunity_uniq_sort_internal(ecom, ECOMMUNITY_SIZE);
@@ -678,7 +686,8 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 			if (ecom == NULL)
 				ecom = ecommunity_new();
 			eval.val[1] = type;
-			ecommunity_add_val_internal(ecom, (void *)&eval, false, false,
+			ecommunity_add_val_internal(ecom, (void *)&eval,
+						    false, false,
 						    ecom->unit_size);
 			break;
 		case ecommunity_token_val6:
@@ -707,31 +716,31 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 }
 
 /* Convert string to extended community attribute.
-
-   When type is already known, please specify both str and type.  str
-   should not include keyword such as "rt" and "soo".  Type is
-   ECOMMUNITY_ROUTE_TARGET or ECOMMUNITY_SITE_ORIGIN.
-   keyword_included should be zero.
-
-   For example route-map's "set extcommunity" command case:
-
-   "rt 100:1 100:2 100:3"        -> str = "100:1 100:2 100:3"
-				    type = ECOMMUNITY_ROUTE_TARGET
-				    keyword_included = 0
-
-   "soo 100:1"                   -> str = "100:1"
-				    type = ECOMMUNITY_SITE_ORIGIN
-				    keyword_included = 0
-
-   When string includes keyword for each extended community value.
-   Please specify keyword_included as non-zero value.
-
-   For example standard extcommunity-list case:
-
-   "rt 100:1 rt 100:2 soo 100:1" -> str = "rt 100:1 rt 100:2 soo 100:1"
-				    type = 0
-				    keyword_include = 1
-*/
+ *
+ * When type is already known, please specify both str and type.  str
+ * should not include keyword such as "rt" and "soo".  Type is
+ * ECOMMUNITY_ROUTE_TARGET or ECOMMUNITY_SITE_ORIGIN.
+ * keyword_included should be zero.
+ *
+ * For example route-map's "set extcommunity" command case:
+ *
+ * "rt 100:1 100:2 100:3"        -> str = "100:1 100:2 100:3"
+ *				    type = ECOMMUNITY_ROUTE_TARGET
+ *				    keyword_included = 0
+ *
+ * "soo 100:1"                   -> str = "100:1"
+ *				    type = ECOMMUNITY_SITE_ORIGIN
+ *				    keyword_included = 0
+ *
+ * When string includes keyword for each extended community value.
+ * Please specify keyword_included as non-zero value.
+ *
+ * For example standard extcommunity-list case:
+ *
+ * "rt 100:1 rt 100:2 soo 100:1" -> str = "rt 100:1 rt 100:2 soo 100:1"
+ *				    type = 0
+ *				    keyword_include = 1
+ */
 struct ecommunity *ecommunity_str2com(const char *str, int type,
 				      int keyword_included)
 {
@@ -789,7 +798,8 @@ static int ecommunity_rt_soo_str_internal(char *buf, size_t bufsz,
 			eas.as |= (*pnt++);
 			pnt = ptr_get_be32(pnt, &eas.val);
 
-			len = snprintf(buf, bufsz, "%s%u:%u", prefix, eas.as, eas.val);
+			len = snprintf(buf, bufsz, "%s%u:%u", prefix, eas.as,
+				       eas.val);
 		} else {
 			/* this is an IPv6 ext community
 			 * first 16 bytes stands for IPv6 addres
@@ -799,7 +809,8 @@ static int ecommunity_rt_soo_str_internal(char *buf, size_t bufsz,
 			eip6.val = (*pnt++ << 8);
 			eip6.val |= (*pnt++);
 
-			inet_ntop(AF_INET6, &eip6.ip, buf_local, sizeof(buf_local));
+			inet_ntop(AF_INET6, &eip6.ip, buf_local,
+				  sizeof(buf_local));
 			len = snprintf(buf, bufsz, "%s%s:%u", prefix,
 				       buf_local, eip6.val);
 		}
@@ -1052,7 +1063,8 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						format,
 						ecom->unit_size);
 				snprintf(encbuf, sizeof(encbuf), "%s", buf);
-			} else if (sub_type == ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) {
+			} else if (sub_type ==
+				   ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) {
 				char buf[64];
 
 				memset(buf, 0, sizeof(buf));
@@ -1063,19 +1075,22 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						ECOMMUNITY_ROUTE_TARGET,
 						ECOMMUNITY_FORMAT_DISPLAY,
 						ecom->unit_size);
-				snprintf(encbuf, sizeof(encbuf), "FS:redirect VRF %s", buf);
+				snprintf(encbuf, sizeof(encbuf),
+					 "FS:redirect VRF %s", buf);
 			} else if (sub_type == ECOMMUNITY_REDIRECT_VRF) {
 				char buf[16];
 
 				memset(buf, 0, sizeof(buf));
-				ecommunity_rt_soo_str(buf, sizeof(buf), (const uint8_t *)pnt,
-						      type &
-						      ~ECOMMUNITY_ENCODE_TRANS_EXP,
-						      ECOMMUNITY_ROUTE_TARGET,
-						      ECOMMUNITY_FORMAT_DISPLAY);
+				ecommunity_rt_soo_str(buf, sizeof(buf),
+						(const uint8_t *)pnt,
+						type &
+						~ECOMMUNITY_ENCODE_TRANS_EXP,
+						ECOMMUNITY_ROUTE_TARGET,
+						ECOMMUNITY_FORMAT_DISPLAY);
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
-				snprintf(encbuf, sizeof(encbuf), "FS:redirect VRF %s", buf);
+				snprintf(encbuf, sizeof(encbuf),
+					 "FS:redirect VRF %s", buf);
 			} else if (type != ECOMMUNITY_ENCODE_TRANS_EXP)
 				unk_ecom = 1;
 			else if (sub_type == ECOMMUNITY_TRAFFIC_ACTION) {

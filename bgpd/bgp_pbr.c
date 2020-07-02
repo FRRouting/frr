@@ -172,7 +172,8 @@ static int bgp_pbr_match_walkcb(struct hash_bucket *bucket, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static int snprintf_bgp_pbr_match_val(char *str, int len, struct bgp_pbr_match_val *mval,
+static int snprintf_bgp_pbr_match_val(char *str, int len,
+				      struct bgp_pbr_match_val *mval,
 				      const char *prepend)
 {
 	char *ptr = str;
@@ -852,14 +853,16 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 					api_action_redirect_ip->u.zr.duplicate
 						= ecom_eval->val[7];
 					continue;
-				} else if (p->u.prefix_flowspec.family == AF_INET) {
+				} else if (p->u.prefix_flowspec.family ==
+					   AF_INET) {
 					api_action->action = ACTION_REDIRECT_IP;
 					api_action->u.zr.redirect_ip_v4.s_addr =
 						path->attr->nexthop.s_addr;
 					api_action->u.zr.duplicate =
 						ecom_eval->val[7];
 					api_action_redirect_ip = api_action;
-				} else if (p->u.prefix_flowspec.family == AF_INET6) {
+				} else if (p->u.prefix_flowspec.family ==
+					   AF_INET6) {
 					api_action->action = ACTION_REDIRECT_IP;
 					memcpy(&api_action->u
 					       .zr.redirect_ip_v6,
@@ -903,8 +906,8 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 								 afi);
 				if (ret != 0)
 					continue;
-				if ((api_action->action == ACTION_TRAFFICRATE) &&
-				    api->actions[i].u.r.rate == 0)
+				if ((api_action->action == ACTION_TRAFFICRATE)
+				    && api->actions[i].u.r.rate == 0)
 					discard_action_found = true;
 			}
 			api->action_num++;
@@ -1465,7 +1468,8 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 				       prefix2str(p, buff, 64),
 				       api->dst_prefix_offset);
 		else
-			delta = snprintf(ptr, len, "@dst %s", prefix2str(p, buff, 64));
+			delta = snprintf(ptr, len, "@dst %s",
+					 prefix2str(p, buff, 64));
 		len -= delta;
 		ptr += delta;
 	}
@@ -1527,7 +1531,8 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 	if (api->match_packet_length_num)
 		INCREMENT_DISPLAY(ptr, nb_items, len);
 	for (i = 0; i < api->match_packet_length_num; i++) {
-		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->packet_length[i],
+		delta = snprintf_bgp_pbr_match_val(ptr, len,
+						   &api->packet_length[i],
 						   i > 0 ? NULL : "@plen ");
 		len -= delta;
 		ptr += delta;
@@ -1545,7 +1550,8 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 	if (api->match_flowlabel_num)
 		INCREMENT_DISPLAY(ptr, nb_items, len);
 	for (i = 0; i < api->match_flowlabel_num; i++) {
-		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->flow_label[i],
+		delta = snprintf_bgp_pbr_match_val(ptr, len,
+						  &api->flow_label[i],
 						  i > 0 ? NULL : "@flowlabel ");
 		len -= delta;
 		ptr += delta;
@@ -2474,7 +2480,8 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	if (bpm->unique == 0) {
 		bpm->unique = ++bgp_pbr_match_counter_unique;
 		/* 0 value is forbidden */
-		snprintf(bpm->ipset_name, sizeof(bpm->ipset_name), "match%p", bpm);
+		snprintf(bpm->ipset_name, sizeof(bpm->ipset_name),
+			 "match%p", bpm);
 		bpm->entry_hash = hash_create_size(8,
 				   bgp_pbr_match_entry_hash_key,
 				   bgp_pbr_match_entry_hash_equal,

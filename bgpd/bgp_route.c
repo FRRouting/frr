@@ -10014,7 +10014,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 						dest_p->u.prefix_flowspec.ptr,
 					dest_p->u.prefix_flowspec.prefixlen,
 					retstr, NLRI_STRING_FORMAT_MIN, NULL,
-					family2afi(dest_p->u.prefix_flowspec.family));
+					family2afi(dest_p->u
+						   .prefix_flowspec.family));
 				if (first)
 					vty_out(vty, "\"%s/%d\": ", retstr,
 						dest_p->u.prefix_flowspec
