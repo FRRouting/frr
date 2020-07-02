@@ -1188,7 +1188,7 @@ class Router(Node):
             zebra_path = os.path.join(self.daemondir, "zebra")
             zebra_option = self.daemons_options["zebra"]
             self.cmd(
-                "{0} {1} > zebra.out 2> zebra.err &".format(
+                "{0} {1} --log stdout --log-level debug > zebra.out 2> zebra.err &".format(
                     zebra_path, zebra_option, self.logdir, self.name
                 )
             )
@@ -1204,7 +1204,7 @@ class Router(Node):
             staticd_path = os.path.join(self.daemondir, "staticd")
             staticd_option = self.daemons_options["staticd"]
             self.cmd(
-                "{0} {1} > staticd.out 2> staticd.err &".format(
+                "{0} {1} --log stdout --log-level debug > staticd.out 2> staticd.err &".format(
                     staticd_path, staticd_option, self.logdir, self.name
                 )
             )
@@ -1228,7 +1228,7 @@ class Router(Node):
 
             daemon_path = os.path.join(self.daemondir, daemon)
             self.cmd(
-                "{0} {1} > {2}.out 2> {2}.err &".format(
+                "{0} {1} --log stdout --log-level debug > {2}.out 2> {2}.err &".format(
                     daemon_path, self.daemons_options.get(daemon, ""), daemon
                 )
             )
