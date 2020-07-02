@@ -1941,7 +1941,7 @@ bool subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 
 	/* Codification of AS 0 Processing */
 	if (aspath_check_as_zero(attr->aspath))
-		return 0;
+		return false;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
 		if (peer->sort == BGP_PEER_IBGP
