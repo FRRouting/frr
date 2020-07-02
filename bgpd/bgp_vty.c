@@ -17235,8 +17235,7 @@ static int lcommunity_list_set_vty(struct vty *vty, int argc,
 	char *cl_name;
 	char *seq = NULL;
 
-	argv_find(argv, argc, "(1-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(1-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
@@ -17285,8 +17284,7 @@ static int lcommunity_list_unset_vty(struct vty *vty, int argc,
 	int idx = 0;
 	char *seq = NULL;
 
-	argv_find(argv, argc, "(1-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(1-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
