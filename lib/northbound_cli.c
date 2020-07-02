@@ -53,6 +53,106 @@ static void vty_show_nb_errors(struct vty *vty, int error, const char *errmsg)
 		vty_out(vty, "Error description: %s\n", errmsg);
 }
 
+static int nb_cli_classic_commit(struct vty *vty)
+{
+	struct nb_context context = {};
+	char errmsg[BUFSIZ] = {0};
+	int ret;
+
+	context.client = NB_CLIENT_CLI;
+	context.user = vty;
+	ret = nb_candidate_commit(&context, vty->candidate_config, true, NULL,
+				  NULL, errmsg, sizeof(errmsg));
+	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
+		vty_out(vty, "%% Configuration failed.\n\n");
+		vty_show_nb_errors(vty, ret, errmsg);
+		if (vty->t_pending_commit)
+			vty_out(vty,
+				"The following commands were dynamically grouped into the same transaction and rejected:\n%s",
+				vty->pending_cmds_buf);
+
+		/* Regenerate candidate for consistency. */
+		nb_config_replace(vty->candidate_config, running_config, true);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
+static void nb_cli_pending_commit_clear(struct vty *vty)
+{
+	THREAD_TIMER_OFF(vty->t_pending_commit);
+	vty->backoff_cmd_count = 0;
+	XFREE(MTYPE_TMP, vty->pending_cmds_buf);
+	vty->pending_cmds_buflen = 0;
+	vty->pending_cmds_bufpos = 0;
+}
+
+static int nb_cli_pending_commit_cb(struct thread *thread)
+{
+	struct vty *vty = THREAD_ARG(thread);
+
+	(void)nb_cli_classic_commit(vty);
+	nb_cli_pending_commit_clear(vty);
+
+	return 0;
+}
+
+void nb_cli_pending_commit_check(struct vty *vty)
+{
+	if (vty->t_pending_commit) {
+		(void)nb_cli_classic_commit(vty);
+		nb_cli_pending_commit_clear(vty);
+	}
+}
+
+static bool nb_cli_backoff_start(struct vty *vty)
+{
+	struct timeval now, delta;
+
+	/*
+	 * Start the configuration backoff timer only if 100 YANG-modeled
+	 * commands or more were entered within the last second.
+	 */
+	monotime(&now);
+	if (monotime_since(&vty->backoff_start, &delta) >= 1000000) {
+		vty->backoff_start = now;
+		vty->backoff_cmd_count = 1;
+		return false;
+	}
+	if (++vty->backoff_cmd_count < 100)
+		return false;
+
+	return true;
+}
+
+static int nb_cli_schedule_command(struct vty *vty)
+{
+	/* Append command to dynamically sized buffer of scheduled commands. */
+	if (!vty->pending_cmds_buf) {
+		vty->pending_cmds_buflen = 4096;
+		vty->pending_cmds_buf =
+			XCALLOC(MTYPE_TMP, vty->pending_cmds_buflen);
+	}
+	if ((strlen(vty->buf) + 3)
+	    > (vty->pending_cmds_buflen - vty->pending_cmds_bufpos)) {
+		vty->pending_cmds_buflen *= 2;
+		vty->pending_cmds_buf =
+			XREALLOC(MTYPE_TMP, vty->pending_cmds_buf,
+				 vty->pending_cmds_buflen);
+	}
+	strlcat(vty->pending_cmds_buf, "- ", vty->pending_cmds_buflen);
+	vty->pending_cmds_bufpos = strlcat(vty->pending_cmds_buf, vty->buf,
+					   vty->pending_cmds_buflen);
+
+	/* Schedule the commit operation. */
+	THREAD_TIMER_OFF(vty->t_pending_commit);
+	thread_add_timer_msec(master, nb_cli_pending_commit_cb, vty, 100,
+			      &vty->t_pending_commit);
+
+	return CMD_SUCCESS;
+}
+
 void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 			   enum nb_operation operation, const char *value)
 {
@@ -76,7 +176,6 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 {
 	char xpath_base[XPATH_MAXLEN] = {};
 	bool error = false;
-	int ret;
 
 	VTY_CHECK_XPATH;
 
@@ -95,6 +194,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		struct nb_node *nb_node;
 		char xpath[XPATH_MAXLEN];
 		struct yang_data *data;
+		int ret;
 
 		/* Handle relative XPaths. */
 		memset(xpath, 0, sizeof(xpath));
@@ -158,25 +258,19 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 			yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
 	}
 
-	/* Do an implicit "commit" when using the classic CLI mode. */
+	/*
+	 * Do an implicit commit when using the classic CLI mode.
+	 *
+	 * NOTE: the implicit commit might be scheduled to run later when
+	 * too many commands are being sent at the same time. This is a
+	 * protection mechanism where multiple commands are grouped into the
+	 * same configuration transaction, allowing them to be processed much
+	 * faster.
+	 */
 	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
-		struct nb_context context = {};
-		char errmsg[BUFSIZ] = {0};
-
-		context.client = NB_CLIENT_CLI;
-		context.user = vty;
-		ret = nb_candidate_commit(&context, vty->candidate_config,
-					  false, NULL, NULL, errmsg,
-					  sizeof(errmsg));
-		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
-			vty_out(vty, "%% Configuration failed.\n\n");
-			vty_show_nb_errors(vty, ret, errmsg);
-
-			/* Regenerate candidate for consistency. */
-			nb_config_replace(vty->candidate_config, running_config,
-					  true);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+		if (vty->t_pending_commit || nb_cli_backoff_start(vty))
+			return nb_cli_schedule_command(vty);
+		return nb_cli_classic_commit(vty);
 	}
 
 	return CMD_SUCCESS;

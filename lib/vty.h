@@ -134,6 +134,14 @@ struct vty {
 	/* Base candidate configuration. */
 	struct nb_config *candidate_config_base;
 
+	/* Dynamic transaction information. */
+	struct timeval backoff_start;
+	size_t backoff_cmd_count;
+	struct thread *t_pending_commit;
+	char *pending_cmds_buf;
+	size_t pending_cmds_buflen;
+	size_t pending_cmds_bufpos;
+
 	/* Confirmed-commit timeout and rollback configuration. */
 	struct thread *t_confirmed_commit_timeout;
 	struct nb_config *confirmed_commit_rollback;

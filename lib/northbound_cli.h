@@ -108,6 +108,14 @@ extern int nb_cli_rpc(const char *xpath, struct list *input,
 extern void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults);
 
+/*
+ * Perform pending commit, if any.
+ *
+ * vty
+ *    The vty context.
+ */
+extern void nb_cli_pending_commit_check(struct vty *vty);
+
 /* Prototypes of internal functions. */
 extern void nb_cli_show_config_prepare(struct nb_config *config,
 				       bool with_defaults);

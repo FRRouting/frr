@@ -70,6 +70,7 @@ DEFPY_YANG_NOSH(
 		VTY_PUSH_XPATH(RMAP_NODE, xpath_index);
 
 		/* Add support for non-migrated route map users. */
+		nb_cli_pending_commit_check(vty);
 		rm = route_map_get(name);
 		action_type = (action[0] == 'p') ? RMAP_PERMIT : RMAP_DENY;
 		rmi = route_map_index_get(rm, action_type, sequence);
