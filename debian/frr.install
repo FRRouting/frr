@@ -17,4 +17,3 @@ usr/share/doc/frr/examples
 usr/share/man/
 usr/share/yang/
 tools/frr-reload usr/lib/frr/
-debian/frr.conf usr/lib/tmpfiles.d
