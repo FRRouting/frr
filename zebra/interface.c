@@ -1820,45 +1820,42 @@ static void if_show_description(struct vty *vty, struct vrf *vrf)
 {
 	struct interface *ifp;
 
-	vty_out(vty, "Interface       Status  Protocol  Description\n");
+	vty_out(vty, "%-*s Status  Protocol   Description\n", INTERFACE_NAMSIZ,
+		"Interface");
+
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		int len;
+
 		struct zebra_if *zif;
-		bool intf_desc;
 
-		intf_desc = false;
-
-		len = vty_out(vty, "%s", ifp->name);
-		vty_out(vty, "%*s", (16 - len), " ");
+		vty_out(vty, "%-*s", INTERFACE_NAMSIZ, ifp->name);
 
 		if (if_is_up(ifp)) {
-			vty_out(vty, "up      ");
+			vty_out(vty, " up      ");
 			if (CHECK_FLAG(ifp->status,
 				       ZEBRA_INTERFACE_LINKDETECTION)) {
 				if (if_is_running(ifp))
-					vty_out(vty, "up        ");
+					vty_out(vty, " up        ");
 				else
-					vty_out(vty, "down      ");
+					vty_out(vty, " down      ");
 			} else {
-				vty_out(vty, "unknown   ");
+				vty_out(vty, " unknown   ");
 			}
 		} else {
-			vty_out(vty, "down    down      ");
+			vty_out(vty, " down    down      ");
 		}
 
-		if (ifp->desc) {
-			intf_desc = true;
+		if (ifp->desc)
 			vty_out(vty, "%s", ifp->desc);
-		}
+
 		zif = ifp->info;
 		if (zif && zif->desc) {
-			vty_out(vty, "%s%s",
-				intf_desc
-					? "\n                                  "
-					: "",
-				zif->desc);
-		}
 
+			if (ifp->desc)
+				vty_out(vty, "\n%*s%s", INTERFACE_NAMSIZ + 20,
+					"", zif->desc);
+			else
+				vty_out(vty, "%s", zif->desc);
+		}
 		vty_out(vty, "\n");
 	}
 }
