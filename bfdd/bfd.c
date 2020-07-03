@@ -120,7 +120,8 @@ void bfd_profile_free(struct bfd_profile *bp)
 
 	/* Remove from global list. */
 	TAILQ_REMOVE(&bplist, bp, entry);
-	free(bp);
+
+	XFREE(MTYPE_BFDD_PROFILE, bp);
 }
 
 /**
