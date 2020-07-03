@@ -373,12 +373,25 @@ static struct isis_vertex *isis_spf_add2tent(struct isis_spftree *spftree,
 	struct isis_vertex *vertex;
 	struct listnode *node;
 	struct isis_adjacency *parent_adj;
-#ifdef EXTREME_DEBUG
 	char buff[VID2STR_BUFFER];
-#endif
 
-	assert(isis_find_vertex(&spftree->paths, id, vtype) == NULL);
-	assert(isis_find_vertex(&spftree->tents, id, vtype) == NULL);
+	vertex = isis_find_vertex(&spftree->paths, id, vtype);
+	if (vertex != NULL) {
+		zlog_err(
+			"%s: vertex %s of type %s already in PATH; check for sysId collisions with established neighbors",
+			__func__, vid2string(vertex, buff, sizeof(buff)),
+			vtype2string(vertex->type));
+		return NULL;
+	}
+	vertex = isis_find_vertex(&spftree->tents, id, vtype);
+	if (vertex != NULL) {
+		zlog_err(
+			"%s: vertex %s of type %s already in TENT; check for sysId collisions with established neighbors",
+			__func__, vid2string(vertex, buff, sizeof(buff)),
+			vtype2string(vertex->type));
+		return NULL;
+	}
+
 	vertex = isis_vertex_new(spftree, id, vtype);
 	vertex->d_N = cost;
 	vertex->depth = depth;
