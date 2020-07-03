@@ -26,6 +26,7 @@ Build-Depends:
  libssh-dev <!pkg.frr.nortrlib>,
  libsystemd-dev <!pkg.frr.nosystemd>,
  libyang-dev (>= 1.0.184),
+ lsb-base,
  pkg-config,
  python3,
  python3-dev,
