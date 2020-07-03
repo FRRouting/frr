@@ -43,7 +43,8 @@ Depends:
  ${misc:Depends},
  ${shlibs:Depends},
  iproute2 | iproute,
- logrotate (>= 3.2-11)
+ logrotate (>= 3.2-11),
+ lsof
 Pre-Depends: adduser
 Recommends: frr-pythontools
 Suggests: frr-doc
