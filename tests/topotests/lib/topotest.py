@@ -991,14 +991,28 @@ class Router(Node):
         super(Router, self).terminate()
         os.system("chmod -R go+rw /tmp/topotests")
 
+    # Return count of running daemons
+    def countDaemons(self):
+        numRunning = 0
+        rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
+        errors = ""
+        if re.search(r"No such file or directory", rundaemons):
+            return 0
+        if rundaemons is not None:
+            for d in StringIO.StringIO(rundaemons):
+                daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
+                if daemonpid.isdigit() and pid_exists(int(daemonpid)):
+                    numRunning += 1
+        return numRunning
+
     def stopRouter(self, wait=True, assertOnError=True, minErrorVersion="5.1"):
-        # Stop Running Quagga or FRR Daemons
+        # Stop Running FRR Daemons
+        numRunning = 0
         rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
         errors = ""
         if re.search(r"No such file or directory", rundaemons):
             return errors
         if rundaemons is not None:
-            numRunning = 0
             for d in StringIO.StringIO(rundaemons):
                 daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                 if daemonpid.isdigit() and pid_exists(int(daemonpid)):
@@ -1011,8 +1025,15 @@ class Router(Node):
                     self.waitOutput()
                     if pid_exists(int(daemonpid)):
                         numRunning += 1
+
             if wait and numRunning > 0:
-                sleep(2, "{}: waiting for daemons stopping".format(self.name))
+                counter = 5
+                while counter > 0 and numRunning > 0:
+                    sleep(2, "{}: waiting for daemons stopping".format(self.name))
+                    numRunning = self.countDaemons()
+                    counter -= 1
+
+            if wait and numRunning > 0:
                 # 2nd round of kill if daemons didn't exit
                 for d in StringIO.StringIO(rundaemons):
                     daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
@@ -1026,6 +1047,7 @@ class Router(Node):
                         self.cmd("kill -7 %s" % daemonpid)
                         self.waitOutput()
                     self.cmd("rm -- {}".format(d.rstrip()))
+
         if wait:
             errors = self.checkRouterCores(reportOnce=True)
             if self.checkRouterVersion("<", minErrorVersion):
@@ -1195,7 +1217,8 @@ class Router(Node):
             logger.debug("{}: {} zebra started".format(self, self.routertype))
 
             # Remove `zebra` so we don't attempt to start it again.
-            daemons_list.remove('zebra')
+            while 'zebra' in daemons_list:
+                daemons_list.remove('zebra')
 
         # Start staticd next if required
         if 'staticd' in daemons_list:
@@ -1209,7 +1232,8 @@ class Router(Node):
             logger.debug("{}: {} staticd started".format(self, self.routertype))
 
             # Remove `staticd` so we don't attempt to start it again.
-            daemons_list.remove('staticd')
+            while 'staticd' in daemons_list:
+                daemons_list.remove('staticd')
 
         # Fix Link-Local Addresses
         # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
