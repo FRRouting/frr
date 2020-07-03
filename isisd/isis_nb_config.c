@@ -150,7 +150,8 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 			/*
 			 * First area address - get the SystemID for this router
 			 */
-			memcpy(area->isis->sysid, GETSYSID(addrr), ISIS_SYS_ID_LEN);
+			memcpy(area->isis->sysid, GETSYSID(addrr),
+			       ISIS_SYS_ID_LEN);
 			area->isis->sysid_set = 1;
 		} else {
 			/* check that we don't already have this address */

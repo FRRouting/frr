@@ -155,9 +155,9 @@ DEFPY(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 		snprintf(temp_xpath, XPATH_MAXLEN,
 			 "/frr-isisd:isis/instance[area-tag='%s']/is-type",
 			 tag);
-		nb_cli_enqueue_change(
-			vty, temp_xpath, NB_OP_MODIFY,
-			listcount(im->isis) == 0 ? "level-1-2" : NULL);
+		nb_cli_enqueue_change(vty, temp_xpath, NB_OP_MODIFY,
+				      listcount(im->isis) == 0 ? "level-1-2"
+							       : NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
 				      NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
@@ -225,9 +225,9 @@ DEFPY(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 		snprintf(temp_xpath, XPATH_MAXLEN,
 			 "/frr-isisd:isis/instance[area-tag='%s']/is-type",
 			 tag);
-		nb_cli_enqueue_change(
-			vty, temp_xpath, NB_OP_MODIFY,
-			listcount(im->isis) == 0 ? "level-1-2" : NULL);
+		nb_cli_enqueue_change(vty, temp_xpath, NB_OP_MODIFY,
+				      listcount(im->isis) == 0 ? "level-1-2"
+							       : NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
 				      NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",

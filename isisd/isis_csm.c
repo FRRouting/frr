@@ -89,7 +89,7 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			isis_circuit_if_add(circuit, (struct interface *)arg);
 			if (circuit->interface != NULL)
 				isis = isis_lookup_by_vrfid(
-						circuit->interface->vrf_id);
+					circuit->interface->vrf_id);
 			if (isis != NULL)
 				listnode_add(isis->init_circ_list, circuit);
 			circuit->state = C_STATE_INIT;
@@ -116,7 +116,8 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			circuit->state = C_STATE_UP;
 			isis_event_circuit_state_change(circuit, circuit->area,
 							1);
-			listnode_delete(circuit->area->isis->init_circ_list, circuit);
+			listnode_delete(circuit->area->isis->init_circ_list,
+					circuit);
 			break;
 		case IF_UP_FROM_Z:
 			assert(circuit);
@@ -129,7 +130,7 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			isis_circuit_if_del(circuit, (struct interface *)arg);
 			if (circuit->interface != NULL)
 				isis = isis_lookup_by_vrfid(
-						circuit->interface->vrf_id);
+					circuit->interface->vrf_id);
 			if (isis != NULL)
 				listnode_delete(isis->init_circ_list, circuit);
 			isis_circuit_del(circuit);
@@ -185,7 +186,7 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 				circuit, (struct isis_area *)arg, 0);
 			if (circuit->interface != NULL)
 				isis = isis_lookup_by_vrfid(
-						circuit->interface->vrf_id);
+					circuit->interface->vrf_id);
 			if (isis != NULL)
 				listnode_add(isis->init_circ_list, circuit);
 			break;

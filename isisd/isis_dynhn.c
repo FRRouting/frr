@@ -74,7 +74,7 @@ static int dyn_cache_cleanup(struct thread *thread)
 		}
 
 		thread_add_timer(master, dyn_cache_cleanup, NULL, 120,
-				&isis->t_dync_clean);
+				 &isis->t_dync_clean);
 	}
 	return ISIS_OK;
 }

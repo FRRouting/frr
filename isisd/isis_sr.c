@@ -1994,7 +1994,8 @@ DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
 			vty_out(vty, "Area %s:\n",
 				area->area_tag ? area->area_tag : "null");
 
-			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
+			     level++)
 				show_prefix_sids(vty, area, level);
 		}
 	}
@@ -2068,7 +2069,8 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 			vty_out(vty, "Area %s:\n",
 				area->area_tag ? area->area_tag : "null");
 
-			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
+			     level++)
 				show_node(vty, area, level);
 		}
 	}

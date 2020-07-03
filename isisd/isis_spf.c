@@ -1432,7 +1432,8 @@ DEFUN (show_isis_topology,
 			vty_out(vty, "Area %s:\n",
 				area->area_tag ? area->area_tag : "null");
 
-			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
+			     level++) {
 				if ((level & levels) == 0)
 					continue;
 
@@ -1453,7 +1454,9 @@ DEFUN (show_isis_topology,
 			if (fabricd_spftree(area)) {
 				vty_out(vty,
 					"IS-IS paths to level-2 routers with hop-by-hop metric\n");
-				isis_print_paths(vty, &fabricd_spftree(area)->paths, isis->sysid);
+				isis_print_paths(vty,
+						 &fabricd_spftree(area)->paths,
+						 isis->sysid);
 				vty_out(vty, "\n");
 			}
 

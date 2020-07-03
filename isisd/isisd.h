@@ -63,12 +63,12 @@ extern struct zebra_privs_t isisd_privs;
 struct fabricd;
 
 struct isis_master {
-       /* ISIS instance. */
-       struct list *isis;
-       /* ISIS thread master. */
-       struct thread_master *master;
-       /* Various OSPF global configuration. */
-       uint8_t options;
+	/* ISIS instance. */
+	struct list *isis;
+	/* ISIS thread master. */
+	struct thread_master *master;
+	/* Various OSPF global configuration. */
+	uint8_t options;
 };
 
 struct isis {
@@ -236,7 +236,7 @@ void isis_zebra_vrf_register(struct isis *isis);
 void isis_master_init(struct thread_master *master);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
-struct isis *isis_lookup_by_sysid(uint8_t* sysid);
+struct isis *isis_lookup_by_sysid(uint8_t *sysid);
 const char *isis_vrf_id_to_name(vrf_id_t vrf_id);
 
 /* YANG paths */

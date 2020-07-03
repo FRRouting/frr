@@ -195,7 +195,7 @@ static int isis_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 	struct isis_area *area;
 	struct isis *isis;
 
-	isis = isis_lookup_by_vrfid (vrf_id);
+	isis = isis_lookup_by_vrfid(vrf_id);
 
 	if (isis == NULL) {
 		return -1;

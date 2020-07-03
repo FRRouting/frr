@@ -279,7 +279,7 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 			lsp_purge_pseudo(old_dr, circuit, level);
 		}
 		memcpy(circuit->u.bc.l1_desig_is, circuit->area->isis->sysid,
-			ISIS_SYS_ID_LEN);
+		       ISIS_SYS_ID_LEN);
 		*(circuit->u.bc.l1_desig_is + ISIS_SYS_ID_LEN) =
 			circuit->circuit_id;
 
@@ -301,7 +301,7 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 			lsp_purge_pseudo(old_dr, circuit, level);
 		}
 		memcpy(circuit->u.bc.l2_desig_is, circuit->area->isis->sysid,
-			ISIS_SYS_ID_LEN);
+		       ISIS_SYS_ID_LEN);
 		*(circuit->u.bc.l2_desig_is + ISIS_SYS_ID_LEN) =
 			circuit->circuit_id;
 

@@ -178,8 +178,8 @@ DEFUN (show_lsp_flooding,
 			struct lspdb_head *head = &area->lspdb[ISIS_LEVEL2 - 1];
 			struct isis_lsp *lsp;
 
-			vty_out(vty, "Area %s:\n", area->area_tag ?
-				area->area_tag : "null");
+			vty_out(vty, "Area %s:\n",
+				area->area_tag ? area->area_tag : "null");
 
 			if (lspid) {
 				lsp = lsp_for_arg(head, lspid);

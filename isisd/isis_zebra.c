@@ -441,7 +441,8 @@ static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
 		isis_redist_add(isis, api.type, &api.prefix, &api.src_prefix,
 				api.distance, api.metric);
 	else
-		isis_redist_delete(isis, api.type, &api.prefix, &api.src_prefix);
+		isis_redist_delete(isis, api.type, &api.prefix,
+				   &api.src_prefix);
 
 	return 0;
 }
@@ -626,5 +627,4 @@ void isis_zebra_vrf_register(struct isis *isis)
 				   isis->vrf_id);
 		zclient_send_reg_requests(zclient, isis->vrf_id);
 	}
-
 }

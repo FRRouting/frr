@@ -101,78 +101,78 @@ int clear_isis_neighbor_common(struct vty *, const char *id);
 
 static void isis_add(struct isis *isis)
 {
-        listnode_add(im->isis, isis);
+	listnode_add(im->isis, isis);
 }
 
 static void isis_delete(struct isis *isis)
 {
-        listnode_delete(im->isis, isis);
+	listnode_delete(im->isis, isis);
 }
 
 /* Link ISIS instance to VRF. */
 void isis_vrf_link(struct isis *isis, struct vrf *vrf)
 {
-       isis->vrf_id = vrf->vrf_id;
-       if (vrf->info != (void *)isis)
-               vrf->info = (void *)isis;
+	isis->vrf_id = vrf->vrf_id;
+	if (vrf->info != (void *)isis)
+		vrf->info = (void *)isis;
 }
 
 /* Unlink ISIS instance from VRF. */
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf)
 {
-       if (vrf->info == (void *)isis)
-               vrf->info = NULL;
-       isis->vrf_id = VRF_UNKNOWN;
+	if (vrf->info == (void *)isis)
+		vrf->info = NULL;
+	isis->vrf_id = VRF_UNKNOWN;
 }
 
 struct isis *isis_lookup_by_name(const char *vrf_name)
 {
-       struct isis *isis = NULL;
-       struct listnode *node, *nnode;
+	struct isis *isis = NULL;
+	struct listnode *node, *nnode;
 
-       for (ALL_LIST_ELEMENTS(im->isis, node, nnode, isis))
-               if ((isis->name == NULL && vrf_name == NULL)
-                       || (isis->name && vrf_name
-                       && strcmp(isis->name, vrf_name) == 0))
-                       return isis;
-       return NULL;
+	for (ALL_LIST_ELEMENTS(im->isis, node, nnode, isis))
+		if ((isis->name == NULL && vrf_name == NULL)
+		    || (isis->name && vrf_name
+			&& strcmp(isis->name, vrf_name) == 0))
+			return isis;
+	return NULL;
 }
 
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id)
 {
-       struct isis *isis = NULL;
-       struct listnode *node, *nnode;
+	struct isis *isis = NULL;
+	struct listnode *node, *nnode;
 
-       for (ALL_LIST_ELEMENTS(im->isis, node, nnode, isis))
-               if (isis->vrf_id == vrf_id)
-                       return isis;
-       return NULL;
+	for (ALL_LIST_ELEMENTS(im->isis, node, nnode, isis))
+		if (isis->vrf_id == vrf_id)
+			return isis;
+	return NULL;
 }
 
-struct isis *isis_lookup_by_sysid(uint8_t* sysid)
+struct isis *isis_lookup_by_sysid(uint8_t *sysid)
 {
-       struct isis *isis = NULL;
-       struct listnode *node, *nnode;
+	struct isis *isis = NULL;
+	struct listnode *node, *nnode;
 
-       for (ALL_LIST_ELEMENTS(im->isis, node, nnode, isis))
-               if (!memcmp(isis->sysid, sysid, ISIS_SYS_ID_LEN))
-                       return isis;
-       return NULL;
+	for (ALL_LIST_ELEMENTS(im->isis, node, nnode, isis))
+		if (!memcmp(isis->sysid, sysid, ISIS_SYS_ID_LEN))
+			return isis;
+	return NULL;
 }
 
 const char *isis_vrf_id_to_name(vrf_id_t vrf_id)
 {
-        struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
-        return vrf ? vrf->name : "NIL";
+	return vrf ? vrf->name : "NIL";
 }
 
 void isis_master_init(struct thread_master *master)
 {
-       memset(&isis_master, 0, sizeof(struct isis_master));
-       im = &isis_master;
-       im->isis = list_new();
-       im->master = master;
+	memset(&isis_master, 0, sizeof(struct isis_master));
+	im = &isis_master;
+	im->isis = list_new();
+	im->master = master;
 }
 
 static struct isis *isis_new(vrf_id_t vrf_id)
@@ -186,16 +186,14 @@ static struct isis *isis_new(vrf_id_t vrf_id)
 	if (vrf_id == VRF_DEFAULT) {
 		isis->vrf_id = VRF_DEFAULT;
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	}
-	else {
+	} else {
 		isis->vrf_id = vrf_id;
 		vrf = vrf_lookup_by_id(vrf_id);
 		isis->name = XSTRDUP(MTYPE_ISIS, vrf->name);
 		if (IS_DEBUG_EVENTS)
 			zlog_debug(
-				   "%s: Create new isis instance with vrf_name %s vrf_id %u",
-				   __func__, isis->name, isis->vrf_id);
-
+				"%s: Create new isis instance with vrf_name %s vrf_id %u",
+				__func__, isis->name, isis->vrf_id);
 	}
 	if (vrf)
 		isis_vrf_link(isis, vrf);
@@ -298,13 +296,12 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->area_tag = strdup(area_tag);
 	if (vrf_name) {
 		vrf = vrf_lookup_by_name(vrf_name);
-		if (vrf){
+		if (vrf) {
 			isis = isis_new(vrf->vrf_id);
 			isis_add(isis);
 		} else
 			return NULL;
-	}
-	else {
+	} else {
 		isis = isis_new(VRF_DEFAULT);
 		isis_add(isis);
 	}
@@ -339,8 +336,9 @@ struct isis_area *isis_area_lookup(const char *area_tag, vrf_id_t vrf_id)
 		if (isis->vrf_id == vrf_id) {
 			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
 				if ((area->area_tag == NULL && area_tag == NULL)
-					|| (area->area_tag && area_tag
-					&& strcmp(area->area_tag, area_tag) == 0))
+				    || (area->area_tag && area_tag
+					&& strcmp(area->area_tag, area_tag)
+						   == 0))
 					return area;
 		}
 	}
@@ -546,7 +544,8 @@ int area_net_title(struct vty *vty, const char *net_title)
 		/*
 		 * Check that the SystemID portions match
 		 */
-		if (memcmp(area->isis->sysid, GETSYSID(addr), ISIS_SYS_ID_LEN)) {
+		if (memcmp(area->isis->sysid, GETSYSID(addr),
+			   ISIS_SYS_ID_LEN)) {
 			vty_out(vty,
 				"System ID must not change when defining additional area addresses\n");
 			XFREE(MTYPE_ISIS_AREA_ADDR, addr);
@@ -651,11 +650,16 @@ int show_isis_interface_common(struct vty *vty, const char *ifname, char detail)
 				vty_out(vty,
 					"  Interface   CircId   State    Type     Level\n");
 
-			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
+						  circuit))
 				if (!ifname)
-					isis_circuit_print_vty(circuit, vty, detail);
-				else if (strcmp(circuit->interface->name, ifname) == 0)
-					isis_circuit_print_vty(circuit, vty, detail);
+					isis_circuit_print_vty(circuit, vty,
+							       detail);
+				else if (strcmp(circuit->interface->name,
+						ifname)
+					 == 0)
+					isis_circuit_print_vty(circuit, vty,
+							       detail);
 		}
 	}
 
@@ -737,30 +741,34 @@ int show_isis_neighbor_common(struct vty *vty, const char *id, char detail)
 				vty_out(vty,
 					"  System Id           Interface   L  State        Holdtime SNPA\n");
 
-			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
+			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
+						  circuit)) {
 				if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 					for (i = 0; i < 2; i++) {
 						adjdb = circuit->u.bc.adjdb[i];
 						if (adjdb && adjdb->count) {
 							for (ALL_LIST_ELEMENTS_RO(
-									adjdb, node, adj))
+								     adjdb,
+								     node, adj))
 								if (!id
-								    || !memcmp(adj->sysid,
-								    sysid,
-								    ISIS_SYS_ID_LEN))
+								    || !memcmp(
+									    adj->sysid,
+									    sysid,
+									    ISIS_SYS_ID_LEN))
 									isis_adj_print_vty(
-									adj,
-									vty,
-									detail);
+										adj,
+										vty,
+										detail);
 						}
 					}
 				} else if (circuit->circ_type == CIRCUIT_T_P2P
 					   && circuit->u.p2p.neighbor) {
-						adj = circuit->u.p2p.neighbor;
+					adj = circuit->u.p2p.neighbor;
 					if (!id
 					    || !memcmp(adj->sysid, sysid,
-					    ISIS_SYS_ID_LEN))
-						isis_adj_print_vty(adj, vty, detail);
+						       ISIS_SYS_ID_LEN))
+						isis_adj_print_vty(adj, vty,
+								   detail);
 				}
 			}
 		}
@@ -774,7 +782,8 @@ int show_isis_neighbor_common(struct vty *vty, const char *id, char detail)
  */
 int clear_isis_neighbor_common(struct vty *vty, const char *id)
 {
-	struct listnode *anode, *cnode, *cnextnode, *node, *nnode, *inode, *mnode;
+	struct listnode *anode, *cnode, *cnextnode, *node, *nnode, *inode,
+		*mnode;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	struct list *adjdb;
@@ -802,19 +811,22 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id)
 
 	for (ALL_LIST_ELEMENTS(im->isis, mnode, inode, isis)) {
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
-			for (ALL_LIST_ELEMENTS(area->circuit_list, cnode, cnextnode,
-						circuit)) {
+			for (ALL_LIST_ELEMENTS(area->circuit_list, cnode,
+					       cnextnode, circuit)) {
 				if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 					for (i = 0; i < 2; i++) {
 						adjdb = circuit->u.bc.adjdb[i];
 						if (adjdb && adjdb->count) {
 							for (ALL_LIST_ELEMENTS(
-							     adjdb, node, nnode,
-							     adj))
+								     adjdb,
+								     node,
+								     nnode,
+								     adj))
 								if (!id
-								    || !memcmp(adj->sysid,
-								    sysid,
-								    ISIS_SYS_ID_LEN))
+								    || !memcmp(
+									    adj->sysid,
+									    sysid,
+									    ISIS_SYS_ID_LEN))
 									isis_adj_state_change(
 										&adj,
 										ISIS_ADJ_DOWN,
@@ -823,13 +835,13 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id)
 					}
 				} else if (circuit->circ_type == CIRCUIT_T_P2P
 					   && circuit->u.p2p.neighbor) {
-					   adj = circuit->u.p2p.neighbor;
-						if (!id
-						    || !memcmp(adj->sysid, sysid,
-						    ISIS_SYS_ID_LEN))
-							isis_adj_state_change(
-								&adj, ISIS_ADJ_DOWN,
-								"clear user request");
+					adj = circuit->u.p2p.neighbor;
+					if (!id
+					    || !memcmp(adj->sysid, sysid,
+						       ISIS_SYS_ID_LEN))
+						isis_adj_state_change(
+							&adj, ISIS_ADJ_DOWN,
+							"clear user request");
 				}
 			}
 		}
@@ -1426,18 +1438,23 @@ DEFUN (show_isis_spf_ietf,
 			vty_out(vty, "Area %s:\n",
 				area->area_tag ? area->area_tag : "null");
 
-			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
+			     level++) {
 				if ((area->is_type & level) == 0)
 					continue;
 
 				vty_out(vty, "  Level-%d:\n", level);
 				vty_out(vty, "    SPF delay status: ");
 				if (area->spf_timer[level - 1]) {
-					struct timeval remain = thread_timer_remain(
-							area->spf_timer[level - 1]);
-					vty_out(vty, "Pending, due in %lld msec\n",
+					struct timeval remain =
+						thread_timer_remain(
+							area->spf_timer[level
+									- 1]);
+					vty_out(vty,
+						"Pending, due in %lld msec\n",
 						(long long)remain.tv_sec * 1000
-						+ remain.tv_usec / 1000);
+							+ remain.tv_usec
+								  / 1000);
 				} else {
 					vty_out(vty, "Not scheduled\n");
 				}
@@ -1446,10 +1463,11 @@ DEFUN (show_isis_spf_ietf,
 					vty_out(vty,
 						"    Using draft-ietf-rtgwg-backoff-algo-04\n");
 					spf_backoff_show(
-						area->spf_delay_ietf[level - 1], vty,
-						"    ");
+						area->spf_delay_ietf[level - 1],
+						vty, "    ");
 				} else {
-					vty_out(vty, "    Using legacy backoff algo\n");
+					vty_out(vty,
+						"    Using legacy backoff algo\n");
 				}
 			}
 		}
@@ -1466,7 +1484,7 @@ DEFUN (show_isis_summary,
 	struct isis_area *area;
 	int level;
 
-	if (!im && !im->isis){
+	if (!im && !im->isis) {
 		vty_out(vty, PROTO_NAME " is not running\n");
 		return CMD_SUCCESS;
 	}
@@ -1483,7 +1501,8 @@ DEFUN (show_isis_summary,
 		vty_out(vty, "\n");
 
 		if (isis->area_list)
-			vty_out(vty, "Number of areas : %d\n", isis->area_list->count);
+			vty_out(vty, "Number of areas : %d\n",
+				isis->area_list->count);
 
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 			vty_out(vty, "Area %s:\n",
@@ -1494,18 +1513,20 @@ DEFUN (show_isis_summary,
 				if (tier == ISIS_TIER_UNDEFINED)
 					vty_out(vty, "  Tier: undefined\n");
 				else
-					vty_out(vty, "  Tier: %" PRIu8 "\n", tier);
+					vty_out(vty, "  Tier: %" PRIu8 "\n",
+						tier);
 			}
 
 			if (listcount(area->area_addrs) > 0) {
 				struct area_addr *area_addr;
-				for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node2,
-							area_addr)) {
+				for (ALL_LIST_ELEMENTS_RO(area->area_addrs,
+							  node2, area_addr)) {
 					vty_out(vty, "  Net: %s\n",
-						isonet_print(area_addr->area_addr,
+						isonet_print(
+							area_addr->area_addr,
 							area_addr->addr_len
-							+ ISIS_SYS_ID_LEN
-							+ 1));
+								+ ISIS_SYS_ID_LEN
+								+ 1));
 				}
 			}
 
@@ -1516,16 +1537,19 @@ DEFUN (show_isis_summary,
 			vty_out(vty, "  RX counters per PDU type:\n");
 			pdu_counter_print(vty, "    ", area->pdu_rx_counters);
 
-			for (level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+			for (level = ISIS_LEVEL1; level <= ISIS_LEVELS;
+			     level++) {
 				if ((area->is_type & level) == 0)
 					continue;
 
 				vty_out(vty, "  Level-%d:\n", level);
 
-				vty_out(vty, "    LSP0 regenerated: %" PRIu64 "\n",
+				vty_out(vty,
+					"    LSP0 regenerated: %" PRIu64 "\n",
 					area->lsp_gen_count[level - 1]);
 
-				vty_out(vty, "         LSPs purged: %" PRIu64 "\n",
+				vty_out(vty,
+					"         LSPs purged: %" PRIu64 "\n",
 					area->lsp_purge_count[level - 1]);
 
 				if (area->spf_timer[level - 1])
@@ -1541,16 +1565,20 @@ DEFUN (show_isis_summary,
 				vty_out(vty, "\n");
 
 				vty_out(vty, "    IPv4 route computation:\n");
-				isis_spf_print(area->spftree[SPFTREE_IPV4][level - 1],
-						vty);
+				isis_spf_print(
+					area->spftree[SPFTREE_IPV4][level - 1],
+					vty);
 
 				vty_out(vty, "    IPv6 route computation:\n");
-				isis_spf_print(area->spftree[SPFTREE_IPV6][level - 1],
-						vty);
+				isis_spf_print(
+					area->spftree[SPFTREE_IPV6][level - 1],
+					vty);
 
-				vty_out(vty, "    IPv6 dst-src route computation:\n");
-				isis_spf_print(area->spftree[SPFTREE_DSTSRC][level-1],
-						vty);
+				vty_out(vty,
+					"    IPv6 dst-src route computation:\n");
+				isis_spf_print(area->spftree[SPFTREE_DSTSRC]
+							    [level - 1],
+					       vty);
 			}
 		}
 	}
@@ -1650,35 +1678,51 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 			if (isis->area_list->count == 0)
 				return CMD_SUCCESS;
 
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node,
+						  area)) {
 				vty_out(vty, "Area %s:\n",
-					area->area_tag ? area->area_tag : "null");
+					area->area_tag ? area->area_tag
+						       : "null");
 
 				for (level = 0; level < ISIS_LEVELS; level++) {
-					if (lspdb_count(&area->lspdb[level]) > 0) {
-						lsp = lsp_for_arg(&area->lspdb[level], argv);
+					if (lspdb_count(&area->lspdb[level])
+					    > 0) {
+						lsp = lsp_for_arg(
+							&area->lspdb[level],
+							argv);
 
-						if (lsp != NULL || argv == NULL) {
+						if (lsp != NULL
+						    || argv == NULL) {
 							vty_out(vty,
 								"IS-IS Level-%d link-state database:\n",
 								level + 1);
-							/* print the title in all cases */
+							/* print the title in
+							 * all cases */
 							vty_out(vty,
-							"LSP ID                  PduLen  SeqNumber   Chksum  Holdtime  ATT/P/OL\n");
+								"LSP ID                  PduLen  SeqNumber   Chksum  Holdtime  ATT/P/OL\n");
 						}
 						if (lsp) {
-							if (ui_level == ISIS_UI_LEVEL_DETAIL)
+							if (ui_level
+							    == ISIS_UI_LEVEL_DETAIL)
 								lsp_print_detail(
-									lsp, vty,
+									lsp,
+									vty,
 									area->dynhostname);
 							else
-								lsp_print(lsp, vty,
-										area->dynhostname);
+								lsp_print(
+									lsp,
+									vty,
+									area->dynhostname);
 						} else if (argv == NULL) {
 							lsp_count = lsp_print_all(
-									vty, &area->lspdb[level],
-									ui_level, area->dynhostname);
-							vty_out(vty, "    %u LSPs\n\n", lsp_count);
+								vty,
+								&area->lspdb
+									 [level],
+								ui_level,
+								area->dynhostname);
+							vty_out(vty,
+								"    %u LSPs\n\n",
+								lsp_count);
 						}
 					}
 				}
@@ -2095,42 +2139,50 @@ static int isis_config_write(struct vty *vty)
 	for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
 		if (isis != NULL) {
 
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node,
+						  area)) {
 				/* ISIS - Area name */
-				vty_out(vty, "router " PROTO_NAME " %s\n", area->area_tag);
+				vty_out(vty, "router " PROTO_NAME " %s\n",
+					area->area_tag);
 				write++;
 				/* ISIS - Net */
 				if (listcount(area->area_addrs) > 0) {
 					struct area_addr *area_addr;
-					for (ALL_LIST_ELEMENTS_RO(area->area_addrs,
-								node2, area_addr)) {
+					for (ALL_LIST_ELEMENTS_RO(
+						     area->area_addrs, node2,
+						     area_addr)) {
 						vty_out(vty, " net %s\n",
 							isonet_print(
-							area_addr->area_addr,
-							area_addr->addr_len
-							+ ISIS_SYS_ID_LEN
-							+ 1));
+								area_addr
+									->area_addr,
+								area_addr->addr_len
+									+ ISIS_SYS_ID_LEN
+									+ 1));
 						write++;
 					}
 				}
-				/* ISIS - Dynamic hostname - Defaults to true so only
+				/* ISIS - Dynamic hostname - Defaults to true so
+				 * only
 				 * * display if
 				 * * false. */
 				if (!area->dynhostname) {
 					vty_out(vty, " no hostname dynamic\n");
 					write++;
 				}
-				/* ISIS - Metric-Style - when true displays wide */
+				/* ISIS - Metric-Style - when true displays wide
+				 */
 				if (!fabricd) {
 					if (area->newmetric) {
 						if (!area->oldmetric)
-							vty_out(vty, " metric-style wide\n");
+							vty_out(vty,
+								" metric-style wide\n");
 						else
 							vty_out(vty,
 								" metric-style transition\n");
 						write++;
 					} else {
-						vty_out(vty, " metric-style narrow\n");
+						vty_out(vty,
+							" metric-style narrow\n");
 						write++;
 					}
 				}
@@ -2142,69 +2194,83 @@ static int isis_config_write(struct vty *vty)
 				/* ISIS - Area is-type (level-1-2 is default) */
 				if (!fabricd) {
 					if (area->is_type == IS_LEVEL_1) {
-						vty_out(vty, " is-type level-1\n");
+						vty_out(vty,
+							" is-type level-1\n");
 						write++;
-					} else if (area->is_type == IS_LEVEL_2) {
-						vty_out(vty, " is-type level-2-only\n");
+					} else if (area->is_type
+						   == IS_LEVEL_2) {
+						vty_out(vty,
+							" is-type level-2-only\n");
 						write++;
 					}
 				}
-				write += isis_redist_config_write(vty, area, AF_INET);
-				write += isis_redist_config_write(vty, area, AF_INET6);
+				write += isis_redist_config_write(vty, area,
+								  AF_INET);
+				write += isis_redist_config_write(vty, area,
+								  AF_INET6);
 				/* ISIS - Lsp generation interval */
 				if (area->lsp_gen_interval[0]
-						== area->lsp_gen_interval[1]) {
+				    == area->lsp_gen_interval[1]) {
 					if (area->lsp_gen_interval[0]
-							!= DEFAULT_MIN_LSP_GEN_INTERVAL) {
-						vty_out(vty, " lsp-gen-interval %d\n",
-								area->lsp_gen_interval[0]);
+					    != DEFAULT_MIN_LSP_GEN_INTERVAL) {
+						vty_out(vty,
+							" lsp-gen-interval %d\n",
+							area->lsp_gen_interval
+								[0]);
 						write++;
 					}
 				} else {
 					if (area->lsp_gen_interval[0]
-							!= DEFAULT_MIN_LSP_GEN_INTERVAL) {
+					    != DEFAULT_MIN_LSP_GEN_INTERVAL) {
 						vty_out(vty,
 							" lsp-gen-interval level-1 %d\n",
-							area->lsp_gen_interval[0]);
+							area->lsp_gen_interval
+								[0]);
 						write++;
 					}
 					if (area->lsp_gen_interval[1]
-						!= DEFAULT_MIN_LSP_GEN_INTERVAL) {
+					    != DEFAULT_MIN_LSP_GEN_INTERVAL) {
 						vty_out(vty,
 							" lsp-gen-interval level-2 %d\n",
-							area->lsp_gen_interval[1]);
+							area->lsp_gen_interval
+								[1]);
 						write++;
 					}
 				}
 				/* ISIS - LSP lifetime */
 				if (area->max_lsp_lifetime[0]
-						== area->max_lsp_lifetime[1]) {
+				    == area->max_lsp_lifetime[1]) {
 					if (area->max_lsp_lifetime[0]
-							!= DEFAULT_LSP_LIFETIME) {
-						vty_out(vty, " max-lsp-lifetime %u\n",
-							area->max_lsp_lifetime[0]);
+					    != DEFAULT_LSP_LIFETIME) {
+						vty_out(vty,
+							" max-lsp-lifetime %u\n",
+							area->max_lsp_lifetime
+								[0]);
 						write++;
 					}
 				} else {
 					if (area->max_lsp_lifetime[0]
-							!= DEFAULT_LSP_LIFETIME) {
+					    != DEFAULT_LSP_LIFETIME) {
 						vty_out(vty,
 							" max-lsp-lifetime level-1 %u\n",
-							area->max_lsp_lifetime[0]);
+							area->max_lsp_lifetime
+								[0]);
 						write++;
 					}
 					if (area->max_lsp_lifetime[1]
-						!= DEFAULT_LSP_LIFETIME) {
+					    != DEFAULT_LSP_LIFETIME) {
 						vty_out(vty,
 							" max-lsp-lifetime level-2 %u\n",
-							area->max_lsp_lifetime[1]);
+							area->max_lsp_lifetime
+								[1]);
 						write++;
 					}
 				}
 				/* ISIS - LSP refresh interval */
-				if (area->lsp_refresh[0] == area->lsp_refresh[1]) {
+				if (area->lsp_refresh[0]
+				    == area->lsp_refresh[1]) {
 					if (area->lsp_refresh[0]
-							!= DEFAULT_MAX_LSP_GEN_INTERVAL) {
+					    != DEFAULT_MAX_LSP_GEN_INTERVAL) {
 						vty_out(vty,
 							" lsp-refresh-interval %u\n",
 							area->lsp_refresh[0]);
@@ -2227,7 +2293,8 @@ static int isis_config_write(struct vty *vty)
 					}
 				}
 				if (area->lsp_mtu != DEFAULT_LSP_MTU) {
-					vty_out(vty, " lsp-mtu %u\n", area->lsp_mtu);
+					vty_out(vty, " lsp-mtu %u\n",
+						area->lsp_mtu);
 					write++;
 				}
 				if (area->purge_originator) {
@@ -2237,26 +2304,30 @@ static int isis_config_write(struct vty *vty)
 
 				/* Minimum SPF interval. */
 				if (area->min_spf_interval[0]
-						== area->min_spf_interval[1]) {
+				    == area->min_spf_interval[1]) {
 					if (area->min_spf_interval[0]
 					    != MINIMUM_SPF_INTERVAL) {
-						vty_out(vty, " spf-interval %d\n",
-							area->min_spf_interval[0]);
+						vty_out(vty,
+							" spf-interval %d\n",
+							area->min_spf_interval
+								[0]);
 						write++;
 					}
 				} else {
 					if (area->min_spf_interval[0]
-					   != MINIMUM_SPF_INTERVAL) {
+					    != MINIMUM_SPF_INTERVAL) {
 						vty_out(vty,
 							" spf-interval level-1 %d\n",
-							area->min_spf_interval[0]);
+							area->min_spf_interval
+								[0]);
 						write++;
 					}
 					if (area->min_spf_interval[1]
 					    != MINIMUM_SPF_INTERVAL) {
 						vty_out(vty,
 							" spf-interval level-2 %d\n",
-							area->min_spf_interval[1]);
+							area->min_spf_interval
+								[1]);
 						write++;
 					}
 				}
@@ -2265,32 +2336,42 @@ static int isis_config_write(struct vty *vty)
 					vty_out(vty,
 						" spf-delay-ietf init-delay %ld short-delay %ld long-delay %ld holddown %ld time-to-learn %ld\n",
 						spf_backoff_init_delay(
-							area->spf_delay_ietf[0]),
+							area->spf_delay_ietf
+								[0]),
 						spf_backoff_short_delay(
-							area->spf_delay_ietf[0]),
+							area->spf_delay_ietf
+								[0]),
 						spf_backoff_long_delay(
-							area->spf_delay_ietf[0]),
+							area->spf_delay_ietf
+								[0]),
 						spf_backoff_holddown(
-							area->spf_delay_ietf[0]),
+							area->spf_delay_ietf
+								[0]),
 						spf_backoff_timetolearn(
-							area->spf_delay_ietf[0]));
+							area->spf_delay_ietf
+								[0]));
 					write++;
 				}
 
 				/* Authentication passwords. */
 				if (area->area_passwd.type
-					== ISIS_PASSWD_TYPE_HMAC_MD5) {
+				    == ISIS_PASSWD_TYPE_HMAC_MD5) {
 					vty_out(vty, " area-password md5 %s",
 						area->area_passwd.passwd);
-					if (CHECK_FLAG(area->area_passwd.snp_auth,
-							SNP_AUTH_SEND)) {
-						vty_out(vty, " authenticate snp ");
+					if (CHECK_FLAG(
+						    area->area_passwd.snp_auth,
+						    SNP_AUTH_SEND)) {
+						vty_out(vty,
+							" authenticate snp ");
 						if (CHECK_FLAG(
-							area->area_passwd.snp_auth,
-							SNP_AUTH_RECV))
-							vty_out(vty, "validate");
+							    area->area_passwd
+								    .snp_auth,
+							    SNP_AUTH_RECV))
+							vty_out(vty,
+								"validate");
 						else
-							vty_out(vty, "send-only");
+							vty_out(vty,
+								"send-only");
 					}
 					vty_out(vty, "\n");
 					write++;
@@ -2298,55 +2379,72 @@ static int isis_config_write(struct vty *vty)
 					   == ISIS_PASSWD_TYPE_CLEARTXT) {
 					vty_out(vty, " area-password clear %s",
 						area->area_passwd.passwd);
-					if (CHECK_FLAG(area->area_passwd.snp_auth,
-					       SNP_AUTH_SEND)) {
-						vty_out(vty, " authenticate snp ");
-						if (CHECK_FLAG(
+					if (CHECK_FLAG(
 						    area->area_passwd.snp_auth,
-						    SNP_AUTH_RECV))
-							vty_out(vty, "validate");
+						    SNP_AUTH_SEND)) {
+						vty_out(vty,
+							" authenticate snp ");
+						if (CHECK_FLAG(
+							    area->area_passwd
+								    .snp_auth,
+							    SNP_AUTH_RECV))
+							vty_out(vty,
+								"validate");
 						else
-							vty_out(vty, "send-only");
+							vty_out(vty,
+								"send-only");
 					}
 					vty_out(vty, "\n");
 					write++;
 				}
 				if (area->domain_passwd.type
-					== ISIS_PASSWD_TYPE_HMAC_MD5) {
+				    == ISIS_PASSWD_TYPE_HMAC_MD5) {
 					vty_out(vty, " domain-password md5 %s",
 						area->domain_passwd.passwd);
-					if (CHECK_FLAG(area->domain_passwd.snp_auth,
-							SNP_AUTH_SEND)) {
-						vty_out(vty, " authenticate snp ");
-						if (CHECK_FLAG(area->domain_passwd
-								.snp_auth,
-								SNP_AUTH_RECV))
-							vty_out(vty, "validate");
+					if (CHECK_FLAG(area->domain_passwd
+							       .snp_auth,
+						       SNP_AUTH_SEND)) {
+						vty_out(vty,
+							" authenticate snp ");
+						if (CHECK_FLAG(
+							    area->domain_passwd
+								    .snp_auth,
+							    SNP_AUTH_RECV))
+							vty_out(vty,
+								"validate");
 						else
-							vty_out(vty, "send-only");
+							vty_out(vty,
+								"send-only");
 					}
 					vty_out(vty, "\n");
 					write++;
 				} else if (area->domain_passwd.type
 					   == ISIS_PASSWD_TYPE_CLEARTXT) {
-					vty_out(vty, " domain-password clear %s",
+					vty_out(vty,
+						" domain-password clear %s",
 						area->domain_passwd.passwd);
-					if (CHECK_FLAG(area->domain_passwd.snp_auth,
-							SNP_AUTH_SEND)) {
-						vty_out(vty, " authenticate snp ");
-						if (CHECK_FLAG(area->domain_passwd
-								.snp_auth,
-								SNP_AUTH_RECV))
-							vty_out(vty, "validate");
+					if (CHECK_FLAG(area->domain_passwd
+							       .snp_auth,
+						       SNP_AUTH_SEND)) {
+						vty_out(vty,
+							" authenticate snp ");
+						if (CHECK_FLAG(
+							    area->domain_passwd
+								    .snp_auth,
+							    SNP_AUTH_RECV))
+							vty_out(vty,
+								"validate");
 						else
-							vty_out(vty, "send-only");
+							vty_out(vty,
+								"send-only");
 					}
 					vty_out(vty, "\n");
 					write++;
 				}
 
 				if (area->log_adj_changes) {
-					vty_out(vty, " log-adjacency-changes\n");
+					vty_out(vty,
+						" log-adjacency-changes\n");
 					write++;
 				}
 

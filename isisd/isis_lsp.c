@@ -355,7 +355,7 @@ static void lsp_purge_add_poi(struct isis_lsp *lsp,
 	if (!lsp->tlvs)
 		lsp->tlvs = isis_alloc_tlvs();
 	isis_tlvs_set_purge_originator(lsp->tlvs, lsp->area->isis->sysid,
-					sender);
+				       sender);
 	isis_tlvs_set_dynamic_hostname(lsp->tlvs, cmd_hostname_get());
 }
 
@@ -617,7 +617,8 @@ void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag)
 	if (isis != NULL) {
 		if (dyn)
 			snprintf(id, sizeof(id), "%.14s", dyn->hostname);
-		else if (!memcmp(isis->sysid, lsp_id, ISIS_SYS_ID_LEN) && dynhost)
+		else if (!memcmp(isis->sysid, lsp_id, ISIS_SYS_ID_LEN)
+			 && dynhost)
 			snprintf(id, sizeof(id), "%.14s", cmd_hostname_get());
 		else
 			memcpy(id, sysid_print(lsp_id), 15);

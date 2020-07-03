@@ -468,16 +468,18 @@ DEFUN (show_isis_mpls_te_interface,
 	if (argc == idx_interface) {
 		/* Show All Interfaces. */
 		for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
+						  area)) {
 
 				if (!IS_MPLS_TE(area->mta))
 					continue;
 
 				vty_out(vty, "Area %s:\n", area->area_tag);
 
-				for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
-							  circuit))
-					show_ext_sub(vty, circuit->interface->name,
+				for (ALL_LIST_ELEMENTS_RO(area->circuit_list,
+							  cnode, circuit))
+					show_ext_sub(vty,
+						     circuit->interface->name,
 						     circuit->ext);
 			}
 		}
