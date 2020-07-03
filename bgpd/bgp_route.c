@@ -3667,7 +3667,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * subsequently processed for import with the new extended
 		 * community.
 		 */
-		if (safi == SAFI_EVPN && !same_attr) {
+		if (((safi == SAFI_EVPN) || (safi == SAFI_MPLS_VPN))
+		    && !same_attr) {
 			if ((pi->attr->flag
 			     & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))
 			    && (attr_new->flag
@@ -3684,8 +3685,12 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 								pi->attr->ecommunity),
 							ecommunity_str(
 								attr_new->ecommunity));
-					bgp_evpn_unimport_route(bgp, afi, safi,
-								p, pi);
+					if (safi == SAFI_EVPN)
+						bgp_evpn_unimport_route(
+							bgp, afi, safi, p, pi);
+					else /* SAFI_MPLS_VPN */
+						vpn_leak_to_vrf_withdraw(bgp,
+									 pi);
 				}
 			}
 		}
