@@ -1242,7 +1242,7 @@ class Router(Node):
         )
 
         # Now start all the other daemons
-        for daemon in self.daemons:
+        for daemon in daemons_list:
             # Skip disabled daemons and zebra
             if self.daemons[daemon] == 0:
                 continue

@@ -976,10 +976,10 @@ static void zebra_nhg_set_unhashable(struct nhg_hash_entry *nhe)
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_UNHASHABLE);
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 
-	flog_warn(
-		EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
-		"Nexthop Group with ID (%d) is a duplicate, therefore unhashable, ignoring",
-		nhe->id);
+	flog(LOG_INFO,
+	     EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
+	     "Nexthop Group with ID (%d) is a duplicate, therefore unhashable, ignoring",
+	     nhe->id);
 }
 
 static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe)
