@@ -4741,7 +4741,8 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	/* fallback to auto import rt, if this was the last RT */
 	if (bgp_vrf->vrf_import_rtl && list_isempty(bgp_vrf->vrf_import_rtl)) {
 		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
-		evpn_auto_rt_import_add_for_vrf(bgp_vrf);
+		if (is_l3vni_live(bgp_vrf))
+			evpn_auto_rt_import_add_for_vrf(bgp_vrf);
 	}
 
 	/* map VRFs to its RTs and install routes matching this new RT */
@@ -4761,7 +4762,8 @@ void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 	listnode_add_sort(bgp_vrf->vrf_export_rtl, ecomadd);
 	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD);
 
-	bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
+	if (is_l3vni_live(bgp_vrf))
+		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
 void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
@@ -4795,10 +4797,12 @@ void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
 	/* fall back to auto-generated RT if this was the last RT */
 	if (list_isempty(bgp_vrf->vrf_export_rtl)) {
 		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD);
-		evpn_auto_rt_export_add_for_vrf(bgp_vrf);
+		if (is_l3vni_live(bgp_vrf))
+			evpn_auto_rt_export_add_for_vrf(bgp_vrf);
 	}
 
-	bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
+	if (is_l3vni_live(bgp_vrf))
+		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
 /*
