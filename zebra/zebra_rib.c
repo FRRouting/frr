@@ -495,6 +495,9 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 		if (zvrf)
 			zvrf->installs++;
 		break;
+	/* Should never happen */
+	case ZEBRA_DPLANE_REQUEST_PENDING:
+		break;
 	}
 
 	return;
@@ -538,6 +541,9 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	case ZEBRA_DPLANE_REQUEST_SUCCESS:
 		if (zvrf)
 			zvrf->removals++;
+		break;
+	/* Should never happen */
+	case ZEBRA_DPLANE_REQUEST_PENDING:
 		break;
 	}
 
