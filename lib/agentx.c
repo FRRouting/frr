@@ -130,7 +130,7 @@ static void agentx_events_update(void)
 		if (thr_fd == fd) {
 			struct listnode *nextln = listnextnode(ln);
 			if (!FD_ISSET(fd, &fds)) {
-				thread_cancel(thr);
+				thread_cancel(&thr);
 				list_delete_node(events, ln);
 			}
 			ln = nextln;
@@ -151,7 +151,8 @@ static void agentx_events_update(void)
 	 */
 	while (ln) {
 		struct listnode *nextln = listnextnode(ln);
-		thread_cancel(listgetdata(ln));
+		thr = listgetdata(ln);
+		thread_cancel(&thr);
 		list_delete_node(events, ln);
 		ln = nextln;
 	}

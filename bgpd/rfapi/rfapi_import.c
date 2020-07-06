@@ -858,9 +858,9 @@ static void rfapiBgpInfoChainFree(struct bgp_path_info *bpi)
 		if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)
 		    && bpi->extra->vnc.import.timer) {
 
-			struct thread *t =
-				(struct thread *)bpi->extra->vnc.import.timer;
-			struct rfapi_withdraw *wcb = t->arg;
+			struct thread **t =
+				&(bpi->extra->vnc.import.timer);
+			struct rfapi_withdraw *wcb = (*t)->arg;
 
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 			thread_cancel(t);
@@ -3093,10 +3093,9 @@ static void rfapiBgpInfoFilteredImportEncap(
 				if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)
 				    && bpi->extra->vnc.import.timer) {
 
-					struct thread *t =
-						(struct thread *)bpi->extra->vnc
-							.import.timer;
-					struct rfapi_withdraw *wcb = t->arg;
+					struct thread **t =
+						&(bpi->extra->vnc.import.timer);
+					struct rfapi_withdraw *wcb = (*t)->arg;
 
 					XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 					thread_cancel(t);
@@ -3186,9 +3185,9 @@ static void rfapiBgpInfoFilteredImportEncap(
 			"%s: removing holddown bpi matching NVE of new route",
 			__func__);
 		if (bpi->extra->vnc.import.timer) {
-			struct thread *t =
-				(struct thread *)bpi->extra->vnc.import.timer;
-			struct rfapi_withdraw *wcb = t->arg;
+			struct thread **t =
+				&(bpi->extra->vnc.import.timer);
+			struct rfapi_withdraw *wcb = (*t)->arg;
 
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 			thread_cancel(t);
@@ -3549,10 +3548,9 @@ void rfapiBgpInfoFilteredImportVPN(
 				if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)
 				    && bpi->extra->vnc.import.timer) {
 
-					struct thread *t =
-						(struct thread *)bpi->extra->vnc
-							.import.timer;
-					struct rfapi_withdraw *wcb = t->arg;
+					struct thread **t =
+						&(bpi->extra->vnc.import.timer);
+					struct rfapi_withdraw *wcb = (*t)->arg;
 
 					XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 					thread_cancel(t);
@@ -3768,9 +3766,9 @@ void rfapiBgpInfoFilteredImportVPN(
 			"%s: removing holddown bpi matching NVE of new route",
 			__func__);
 		if (bpi->extra->vnc.import.timer) {
-			struct thread *t =
-				(struct thread *)bpi->extra->vnc.import.timer;
-			struct rfapi_withdraw *wcb = t->arg;
+			struct thread **t =
+				&(bpi->extra->vnc.import.timer);
+			struct rfapi_withdraw *wcb = (*t)->arg;
 
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 			thread_cancel(t);
@@ -4498,12 +4496,11 @@ static void rfapiDeleteRemotePrefixesIt(
 						continue;
 					if (bpi->extra->vnc.import.timer) {
 
-						struct thread *t =
-							(struct thread *)bpi
-								->extra->vnc
-								.import.timer;
+						struct thread **t =
+							&(bpi->extra->vnc
+								.import.timer);
 						struct rfapi_withdraw *wcb =
-							t->arg;
+							(*t)->arg;
 
 						wcb->import_table
 							->holddown_count[afi] -=

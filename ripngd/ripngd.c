@@ -1463,10 +1463,7 @@ static int ripng_update(struct thread *t)
 
 	/* Triggered updates may be suppressed if a regular update is due by
 	   the time the triggered update would be sent. */
-	if (ripng->t_triggered_interval) {
-		thread_cancel(ripng->t_triggered_interval);
-		ripng->t_triggered_interval = NULL;
-	}
+	thread_cancel(&ripng->t_triggered_interval);
 	ripng->trigger = 0;
 
 	/* Reset flush event. */
@@ -1500,10 +1497,7 @@ int ripng_triggered_update(struct thread *t)
 	ripng->t_triggered_update = NULL;
 
 	/* Cancel interval timer. */
-	if (ripng->t_triggered_interval) {
-		thread_cancel(ripng->t_triggered_interval);
-		ripng->t_triggered_interval = NULL;
-	}
+	thread_cancel(&ripng->t_triggered_interval);
 	ripng->trigger = 0;
 
 	/* Logging triggered update. */
@@ -1952,10 +1946,8 @@ void ripng_event(struct ripng *ripng, enum ripng_event event, int sock)
 				&ripng->t_read);
 		break;
 	case RIPNG_UPDATE_EVENT:
-		if (ripng->t_update) {
-			thread_cancel(ripng->t_update);
-			ripng->t_update = NULL;
-		}
+		thread_cancel(&ripng->t_update);
+
 		/* Update timer jitter. */
 		jitter = ripng_update_jitter(ripng->update_time);
 
@@ -2719,10 +2711,7 @@ static void ripng_instance_disable(struct ripng *ripng)
 	RIPNG_TIMER_OFF(ripng->t_triggered_interval);
 
 	/* Cancel the read thread */
-	if (ripng->t_read) {
-		thread_cancel(ripng->t_read);
-		ripng->t_read = NULL;
-	}
+	thread_cancel(&ripng->t_read);
 
 	/* Close the RIPng socket */
 	if (ripng->sock >= 0) {

@@ -1987,7 +1987,7 @@ static void _send_hello_sched(struct isis_circuit *circuit,
 		if (thread_timer_remain_msec(*threadp) < (unsigned long)delay)
 			return;
 
-		thread_cancel(*threadp);
+		thread_cancel(threadp);
 	}
 
 	thread_add_timer_msec(master, send_hello_cb,
