@@ -971,6 +971,9 @@ void route_map_index_delete(struct route_map_index *index, int notify)
 		zlog_debug("Deleting route-map %s sequence %d",
 			   index->map->name, index->pref);
 
+	/* Free route map entry description. */
+	XFREE(MTYPE_TMP, index->description);
+
 	/* Free route map northbound hook contexts. */
 	while ((rhc = TAILQ_FIRST(&index->rhclist)) != NULL)
 		routemap_hook_context_free(rhc);
