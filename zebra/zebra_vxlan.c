@@ -9475,8 +9475,15 @@ int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf)
 	if (!zl3vni)
 		return 0;
 
-	zl3vni->vrf_id = VRF_UNKNOWN;
 	zebra_vxlan_process_l3vni_oper_down(zl3vni);
+
+	/* delete and uninstall all rmacs */
+	hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry, zl3vni);
+	/* delete and uninstall all next-hops */
+	hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry, zl3vni);
+
+	zl3vni->vrf_id = VRF_UNKNOWN;
+
 	return 0;
 }
 
