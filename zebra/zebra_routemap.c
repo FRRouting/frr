@@ -1695,7 +1695,7 @@ static void zebra_route_map_set_delay_timer(uint32_t value)
 	if (!value && zebra_t_rmap_update) {
 		/* Event driven route map updates is being disabled */
 		/* But there's a pending timer. Fire it off now */
-		thread_cancel(zebra_t_rmap_update);
+		thread_cancel(&zebra_t_rmap_update);
 		zebra_route_map_update_timer(zebra_t_rmap_update);
 	}
 }

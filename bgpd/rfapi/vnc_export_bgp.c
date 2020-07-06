@@ -1711,14 +1711,11 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 	rfapiGetVncLifetime(attr, &eti->lifetime);
 	eti->lifetime = rfapiGetHolddownFromLifetime(eti->lifetime);
 
-	if (eti->timer) {
-		/*
-		 * export expiration timer is already running on
-		 * this route: cancel it
-		 */
-		thread_cancel(eti->timer);
-		eti->timer = NULL;
-	}
+	/*
+	 * export expiration timer is already running on
+	 * this route: cancel it
+	 */
+	thread_cancel(&eti->timer);
 
 	bgp_update(peer, prefix, /* prefix */
 		   0,		 /* addpath_id */
@@ -1947,15 +1944,12 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 					rfapiGetVncLifetime(ri->attr,
 							    &eti->lifetime);
 
-					if (eti->timer) {
-						/*
-						 * export expiration timer is
-						 * already running on
-						 * this route: cancel it
-						 */
-						thread_cancel(eti->timer);
-						eti->timer = NULL;
-					}
+					/*
+					 * export expiration timer is
+					 * already running on
+					 * this route: cancel it
+					 */
+					thread_cancel(&eti->timer);
 
 					vnc_zlog_debug_verbose(
 						"%s: calling bgp_update",
@@ -2024,8 +2018,7 @@ void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi)
 					ZEBRA_ROUTE_VNC_DIRECT_RH,
 					BGP_ROUTE_REDISTRIBUTE);
 				if (eti) {
-					if (eti->timer)
-						thread_cancel(eti->timer);
+					thread_cancel(&eti->timer);
 					vnc_eti_delete(eti);
 				}
 

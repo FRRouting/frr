@@ -1128,19 +1128,26 @@ void thread_cancel_event(struct thread_master *master, void *arg)
  *
  * @param thread task to cancel
  */
-void thread_cancel(struct thread *thread)
+void thread_cancel(struct thread **thread)
 {
-	struct thread_master *master = thread->master;
+	struct thread_master *master;
+
+	if (thread == NULL || *thread == NULL)
+		return;
+
+	master = (*thread)->master;
 
 	assert(master->owner == pthread_self());
 
 	frr_with_mutex(&master->mtx) {
 		struct cancel_req *cr =
 			XCALLOC(MTYPE_TMP, sizeof(struct cancel_req));
-		cr->thread = thread;
+		cr->thread = *thread;
 		listnode_add(master->cancel_req, cr);
 		do_thread_cancel(master);
 	}
+
+	*thread = NULL;
 }
 
 /**

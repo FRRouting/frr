@@ -677,11 +677,8 @@ static int bgp_dump_unset(struct bgp_dump *bgp_dump)
 		bgp_dump->fp = NULL;
 	}
 
-	/* Removing interval thread. */
-	if (bgp_dump->t_interval) {
-		thread_cancel(bgp_dump->t_interval);
-		bgp_dump->t_interval = NULL;
-	}
+	/* Removing interval event. */
+	thread_cancel(&bgp_dump->t_interval);
 
 	bgp_dump->interval = 0;
 

@@ -156,13 +156,10 @@ void zebra_ptm_finish(void)
 	if (ptm_cb.in_data)
 		free(ptm_cb.in_data);
 
-	/* Release threads. */
-	if (ptm_cb.t_read)
-		thread_cancel(ptm_cb.t_read);
-	if (ptm_cb.t_write)
-		thread_cancel(ptm_cb.t_write);
-	if (ptm_cb.t_timer)
-		thread_cancel(ptm_cb.t_timer);
+	/* Cancel events. */
+	thread_cancel(&ptm_cb.t_read);
+	thread_cancel(&ptm_cb.t_write);
+	thread_cancel(&ptm_cb.t_timer);
 
 	if (ptm_cb.wb)
 		buffer_free(ptm_cb.wb);

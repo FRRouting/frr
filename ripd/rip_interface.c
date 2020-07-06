@@ -467,10 +467,7 @@ static void rip_interface_clean(struct rip_interface *ri)
 	ri->enable_interface = 0;
 	ri->running = 0;
 
-	if (ri->t_wakeup) {
-		thread_cancel(ri->t_wakeup);
-		ri->t_wakeup = NULL;
-	}
+	thread_cancel(&ri->t_wakeup);
 }
 
 void rip_interfaces_clean(struct rip *rip)
