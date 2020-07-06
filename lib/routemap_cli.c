@@ -39,7 +39,7 @@
 #define ROUTE_MAP_SEQUENCE_CMD_STR \
 	"Sequence to insert to/delete from existing route-map entry\n"
 
-DEFPY_NOSH(
+DEFPY_YANG_NOSH(
 	route_map, route_map_cmd,
 	"route-map WORD$name <deny|permit>$action (1-65535)$sequence",
 	ROUTE_MAP_CMD_STR
@@ -79,7 +79,7 @@ DEFPY_NOSH(
 	return rv;
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_route_map_all, no_route_map_all_cmd,
 	"no route-map WORD$name",
 	NO_STR
@@ -94,7 +94,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_route_map, no_route_map_cmd,
 	"no route-map WORD$name <deny|permit>$action (1-65535)$sequence",
 	NO_STR
@@ -179,7 +179,7 @@ void route_map_instance_show_end(struct vty *vty, struct lyd_node *dnode)
 	vty_out(vty, "!\n");
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_interface, match_interface_cmd,
 	"match interface IFNAME",
 	MATCH_STR
@@ -196,7 +196,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_interface, no_match_interface_cmd,
 	"no match interface [IFNAME]",
 	NO_STR
@@ -211,7 +211,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_ip_address, match_ip_address_cmd,
 	"match ip address <(1-199)|(1300-2699)|WORD>$name",
 	MATCH_STR
@@ -231,7 +231,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_ip_address, no_match_ip_address_cmd,
 	"no match ip address [<(1-199)|(1300-2699)|WORD>]",
 	NO_STR
@@ -249,7 +249,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_ip_address_prefix_list,
 	match_ip_address_prefix_list_cmd,
 	"match ip address prefix-list WORD$name",
@@ -269,7 +269,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_ip_address_prefix_list, no_match_ip_address_prefix_list_cmd,
 	"no match ip address prefix-list [WORD]",
 	NO_STR
@@ -286,7 +286,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_ip_next_hop, match_ip_next_hop_cmd,
 	"match ip next-hop <(1-199)|(1300-2699)|WORD>$name",
 	MATCH_STR
@@ -306,7 +306,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_ip_next_hop, no_match_ip_next_hop_cmd,
 	"no match ip next-hop [<(1-199)|(1300-2699)|WORD>]",
 	NO_STR
@@ -324,7 +324,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_ip_next_hop_prefix_list,
 	match_ip_next_hop_prefix_list_cmd,
 	"match ip next-hop prefix-list WORD$name",
@@ -345,7 +345,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_ip_next_hop_prefix_list,
 	no_match_ip_next_hop_prefix_list_cmd,
 	"no match ip next-hop prefix-list [WORD]",
@@ -364,7 +364,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_ip_next_hop_type, match_ip_next_hop_type_cmd,
 	"match ip next-hop type <blackhole>$type",
 	MATCH_STR
@@ -384,7 +384,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_ip_next_hop_type, no_match_ip_next_hop_type_cmd,
 	"no match ip next-hop type [<blackhole>]",
 	NO_STR MATCH_STR IP_STR
@@ -399,7 +399,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_ipv6_address, match_ipv6_address_cmd,
 	"match ipv6 address WORD$name",
 	MATCH_STR
@@ -417,7 +417,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_ipv6_address, no_match_ipv6_address_cmd,
 	"no match ipv6 address [WORD]",
 	NO_STR
@@ -433,7 +433,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_ipv6_address_prefix_list, match_ipv6_address_prefix_list_cmd,
 	"match ipv6 address prefix-list WORD$name",
 	MATCH_STR
@@ -452,7 +452,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_ipv6_address_prefix_list,
 	no_match_ipv6_address_prefix_list_cmd,
 	"no match ipv6 address prefix-list [WORD]",
@@ -470,7 +470,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_ipv6_next_hop_type, match_ipv6_next_hop_type_cmd,
 	"match ipv6 next-hop type <blackhole>$type",
 	MATCH_STR IPV6_STR
@@ -489,7 +489,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_ipv6_next_hop_type, no_match_ipv6_next_hop_type_cmd,
 	"no match ipv6 next-hop type [<blackhole>]",
 	NO_STR MATCH_STR IPV6_STR
@@ -504,7 +504,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_metric, match_metric_cmd,
 	"match metric (0-4294967295)$metric",
 	MATCH_STR
@@ -521,7 +521,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_metric, no_match_metric_cmd,
 	"no match metric [(0-4294967295)]",
 	NO_STR
@@ -536,7 +536,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_tag, match_tag_cmd,
 	"match tag (1-4294967295)$tag",
 	MATCH_STR
@@ -553,7 +553,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_tag, no_match_tag_cmd,
 	"no match tag [(1-4294967295)]",
 	NO_STR
@@ -646,7 +646,7 @@ void route_map_condition_show(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
-DEFPY(
+DEFPY_YANG(
 	set_ip_nexthop, set_ip_nexthop_cmd,
 	"set ip next-hop A.B.C.D$addr",
 	SET_STR
@@ -664,7 +664,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_set_ip_nexthop, no_set_ip_nexthop_cmd,
 	"no set ip next-hop [A.B.C.D]",
 	NO_STR
@@ -680,7 +680,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	set_ipv6_nexthop_local, set_ipv6_nexthop_local_cmd,
 	"set ipv6 next-hop local X:X::X:X$addr",
 	SET_STR
@@ -699,7 +699,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_set_ipv6_nexthop_local, no_set_ipv6_nexthop_local_cmd,
 	"no set ipv6 next-hop local [X:X::X:X]",
 	NO_STR
@@ -716,7 +716,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	set_metric, set_metric_cmd,
 	"set metric <(0-4294967295)$metric|rtt$rtt|+rtt$artt|-rtt$srtt|+metric$ametric|-metric$smetric>",
 	SET_STR
@@ -762,7 +762,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_set_metric, no_set_metric_cmd,
 	"no set metric [(0-4294967295)]",
 	NO_STR
@@ -776,7 +776,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	set_tag, set_tag_cmd,
 	"set tag (1-4294967295)$tag",
 	SET_STR
@@ -793,7 +793,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_set_tag, no_set_tag_cmd,
 	"no set tag [(1-4294967295)]",
 	NO_STR
@@ -853,7 +853,7 @@ void route_map_action_show(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
-DEFPY(
+DEFPY_YANG(
 	rmap_onmatch_next, rmap_onmatch_next_cmd,
 	"on-match next",
 	"Exit policy on matches\n"
@@ -864,7 +864,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_rmap_onmatch_next,
 	no_rmap_onmatch_next_cmd,
 	"no on-match next",
@@ -877,7 +877,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	rmap_onmatch_goto, rmap_onmatch_goto_cmd,
 	"on-match goto (1-65535)$rm_num",
 	"Exit policy on matches\n"
@@ -890,7 +890,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_rmap_onmatch_goto, no_rmap_onmatch_goto_cmd,
 	"no on-match goto",
 	NO_STR
@@ -903,13 +903,13 @@ DEFPY(
 }
 
 /* Cisco/GNU Zebra compatibility aliases */
-ALIAS(
+ALIAS_YANG(
 	rmap_onmatch_goto, rmap_continue_cmd,
 	"continue (1-65535)$rm_num",
 	"Continue on a different entry within the route-map\n"
 	"Route-map entry sequence number\n")
 
-ALIAS(
+ALIAS_YANG(
 	no_rmap_onmatch_goto, no_rmap_continue_cmd,
 	"no continue [(1-65535)]",
 	NO_STR
@@ -935,7 +935,7 @@ void route_map_exit_policy_show(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
-DEFPY(
+DEFPY_YANG(
 	rmap_call, rmap_call_cmd,
 	"call WORD$name",
 	"Jump to another Route-Map after match+set\n"
@@ -946,7 +946,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_rmap_call, no_rmap_call_cmd,
 	"no call",
 	NO_STR
@@ -963,7 +963,7 @@ void route_map_call_show(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " call %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
-DEFPY(
+DEFPY_YANG(
 	rmap_description, rmap_description_cmd,
 	"description LINE...",
 	"Route-map comment\n"
@@ -980,7 +980,7 @@ DEFPY(
 	return rv;
 }
 
-DEFUN (no_rmap_description,
+DEFUN_YANG (no_rmap_description,
        no_rmap_description_cmd,
        "no description",
        NO_STR

@@ -37,7 +37,7 @@
 /*
  * XPath: /frr-ripngd:ripngd/instance
  */
-DEFPY_NOSH (router_ripng,
+DEFPY_YANG_NOSH (router_ripng,
        router_ripng_cmd,
        "router ripng [vrf NAME]",
        "Enable a routing process\n"
@@ -62,7 +62,7 @@ DEFPY_NOSH (router_ripng,
 	return ret;
 }
 
-DEFPY (no_router_ripng,
+DEFPY_YANG (no_router_ripng,
        no_router_ripng_cmd,
        "no router ripng [vrf NAME]",
        NO_STR
@@ -100,7 +100,7 @@ void cli_show_router_ripng(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:ripngd/instance/allow-ecmp
  */
-DEFPY (ripng_allow_ecmp,
+DEFPY_YANG (ripng_allow_ecmp,
        ripng_allow_ecmp_cmd,
        "[no] allow-ecmp",
        NO_STR
@@ -124,7 +124,7 @@ void cli_show_ripng_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:ripngd/instance/default-information-originate
  */
-DEFPY (ripng_default_information_originate,
+DEFPY_YANG (ripng_default_information_originate,
        ripng_default_information_originate_cmd,
        "[no] default-information originate",
        NO_STR
@@ -150,7 +150,7 @@ void cli_show_ripng_default_information_originate(struct vty *vty,
 /*
  * XPath: /frr-ripngd:ripngd/instance/default-metric
  */
-DEFPY (ripng_default_metric,
+DEFPY_YANG (ripng_default_metric,
        ripng_default_metric_cmd,
        "default-metric (1-16)",
        "Set a metric of redistribute routes\n"
@@ -162,7 +162,7 @@ DEFPY (ripng_default_metric,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY (no_ripng_default_metric,
+DEFPY_YANG (no_ripng_default_metric,
        no_ripng_default_metric_cmd,
        "no default-metric [(1-16)]",
        NO_STR
@@ -184,7 +184,7 @@ void cli_show_ripng_default_metric(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:ripngd/instance/network
  */
-DEFPY (ripng_network_prefix,
+DEFPY_YANG (ripng_network_prefix,
        ripng_network_prefix_cmd,
        "[no] network X:X::X:X/M",
        NO_STR
@@ -206,7 +206,7 @@ void cli_show_ripng_network_prefix(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:ripngd/instance/interface
  */
-DEFPY (ripng_network_if,
+DEFPY_YANG (ripng_network_if,
        ripng_network_if_cmd,
        "[no] network WORD",
        NO_STR
@@ -228,7 +228,7 @@ void cli_show_ripng_network_interface(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:ripngd/instance/offset-list
  */
-DEFPY (ripng_offset_list,
+DEFPY_YANG (ripng_offset_list,
        ripng_offset_list_cmd,
        "[no] offset-list WORD$acl <in|out>$direction (0-16)$metric [IFNAME]",
        NO_STR
@@ -271,7 +271,7 @@ void cli_show_ripng_offset_list(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:ripngd/instance/passive-interface
  */
-DEFPY (ripng_passive_interface,
+DEFPY_YANG (ripng_passive_interface,
        ripng_passive_interface_cmd,
        "[no] passive-interface IFNAME",
        NO_STR
@@ -294,7 +294,7 @@ void cli_show_ripng_passive_interface(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:ripngd/instance/redistribute
  */
-DEFPY (ripng_redistribute,
+DEFPY_YANG (ripng_redistribute,
        ripng_redistribute_cmd,
        "[no] redistribute " FRR_REDIST_STR_RIPNGD "$protocol [{metric (0-16)|route-map WORD}]",
        NO_STR
@@ -337,7 +337,7 @@ void cli_show_ripng_redistribute(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:ripngd/instance/static-route
  */
-DEFPY (ripng_route,
+DEFPY_YANG (ripng_route,
        ripng_route_cmd,
        "[no] route X:X::X:X/M",
        NO_STR
@@ -359,7 +359,7 @@ void cli_show_ripng_route(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:ripngd/instance/aggregate-addres
  */
-DEFPY (ripng_aggregate_address,
+DEFPY_YANG (ripng_aggregate_address,
        ripng_aggregate_address_cmd,
        "[no] aggregate-address X:X::X:X/M",
        NO_STR
@@ -383,7 +383,7 @@ void cli_show_ripng_aggregate_address(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:ripngd/instance/timers
  */
-DEFPY (ripng_timers,
+DEFPY_YANG (ripng_timers,
        ripng_timers_cmd,
        "timers basic (1-65535)$update (1-65535)$timeout (1-65535)$garbage",
        "RIPng timers setup\n"
@@ -402,7 +402,7 @@ DEFPY (ripng_timers,
 	return nb_cli_apply_changes(vty, "./timers");
 }
 
-DEFPY (no_ripng_timers,
+DEFPY_YANG (no_ripng_timers,
        no_ripng_timers_cmd,
        "no timers basic [(1-65535) (1-65535) (1-65535)]",
        NO_STR
@@ -431,7 +431,7 @@ void cli_show_ripng_timers(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-ripngd:ripng/split-horizon
  */
-DEFPY (ipv6_ripng_split_horizon,
+DEFPY_YANG (ipv6_ripng_split_horizon,
        ipv6_ripng_split_horizon_cmd,
        "[no] ipv6 ripng split-horizon [poisoned-reverse$poisoned_reverse]",
        NO_STR
@@ -476,7 +476,7 @@ void cli_show_ipv6_ripng_split_horizon(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:clear-ripng-route
  */
-DEFPY (clear_ipv6_rip,
+DEFPY_YANG (clear_ipv6_rip,
        clear_ipv6_rip_cmd,
        "clear ipv6 ripng [vrf WORD]",
        CLEAR_STR

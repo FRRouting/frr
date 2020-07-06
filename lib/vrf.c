@@ -731,7 +731,7 @@ DEFUN_NOSH(vrf_exit,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (vrf,
+DEFUN_YANG_NOSH (vrf,
        vrf_cmd,
        "vrf NAME",
        "Select a VRF to configure\n"
@@ -743,7 +743,7 @@ DEFUN_NOSH (vrf,
 	return vrf_handler_create(vty, vrfname, NULL);
 }
 
-DEFUN (no_vrf,
+DEFUN_YANG (no_vrf,
        no_vrf_cmd,
        "no vrf NAME",
        NO_STR

@@ -55,7 +55,7 @@
 /*
  * Functions.
  */
-DEFPY_NOSH(
+DEFPY_YANG_NOSH(
 	bfd_enter, bfd_enter_cmd,
 	"bfd",
 	"Configure BFD peers\n")
@@ -70,7 +70,7 @@ DEFPY_NOSH(
 	return ret;
 }
 
-DEFUN(
+DEFUN_YANG(
 	bfd_config_reset, bfd_config_reset_cmd,
 	"no bfd",
 	NO_STR
@@ -93,7 +93,7 @@ void bfd_cli_show_header_end(struct vty *vty,
 	vty_out(vty, "!\n");
 }
 
-DEFPY_NOSH(
+DEFPY_YANG_NOSH(
 	bfd_peer_enter, bfd_peer_enter_cmd,
 	"peer <A.B.C.D|X:X::X:X> [{multihop$multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME$ifname|vrf NAME}]",
 	PEER_STR
@@ -150,7 +150,7 @@ DEFPY_NOSH(
 	return ret;
 }
 
-DEFPY(
+DEFPY_YANG(
 	bfd_no_peer, bfd_no_peer_cmd,
 	"no peer <A.B.C.D|X:X::X:X> [{multihop$multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME$ifname|vrf NAME}]",
 	NO_STR
@@ -244,7 +244,7 @@ void bfd_cli_show_peer_end(struct vty *vty,
 	vty_out(vty, " !\n");
 }
 
-DEFPY(
+DEFPY_YANG(
 	bfd_peer_shutdown, bfd_peer_shutdown_cmd,
 	"[no] shutdown",
 	NO_STR
@@ -265,7 +265,7 @@ void bfd_cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
 			yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
-DEFPY(
+DEFPY_YANG(
 	bfd_peer_mult, bfd_peer_mult_cmd,
 	"detect-multiplier (2-255)$multiplier",
 	"Configure peer detection multiplier\n"
@@ -287,7 +287,7 @@ void bfd_cli_show_mult(struct vty *vty, struct lyd_node *dnode,
 			yang_dnode_get_string(dnode, NULL));
 }
 
-DEFPY(
+DEFPY_YANG(
 	bfd_peer_rx, bfd_peer_rx_cmd,
 	"receive-interval (10-60000)$interval",
 	"Configure peer receive interval\n"
@@ -316,7 +316,7 @@ void bfd_cli_show_rx(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
-DEFPY(
+DEFPY_YANG(
 	bfd_peer_tx, bfd_peer_tx_cmd,
 	"transmit-interval (10-60000)$interval",
 	"Configure peer transmit interval\n"
@@ -345,7 +345,7 @@ void bfd_cli_show_tx(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
-DEFPY(
+DEFPY_YANG(
 	bfd_peer_echo, bfd_peer_echo_cmd,
 	"[no] echo-mode",
 	NO_STR
@@ -366,7 +366,7 @@ void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
 			yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
-DEFPY(
+DEFPY_YANG(
 	bfd_peer_echo_interval, bfd_peer_echo_interval_cmd,
 	"echo-interval (10-60000)$interval",
 	"Configure peer echo interval\n"
@@ -398,7 +398,7 @@ void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
 /*
  * Profile commands.
  */
-DEFPY_NOSH(bfd_profile, bfd_profile_cmd,
+DEFPY_YANG_NOSH(bfd_profile, bfd_profile_cmd,
 	   "profile WORD$name",
 	   BFD_PROFILE_STR
 	   BFD_PROFILE_NAME_STR)
@@ -419,7 +419,7 @@ DEFPY_NOSH(bfd_profile, bfd_profile_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(no_bfd_profile, no_bfd_profile_cmd,
+DEFPY_YANG(no_bfd_profile, no_bfd_profile_cmd,
       "no profile BFDPROF$name",
       NO_STR
       BFD_PROFILE_STR
@@ -442,37 +442,37 @@ void bfd_cli_show_profile(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " profile %s\n", yang_dnode_get_string(dnode, "./name"));
 }
 
-ALIAS(bfd_peer_mult, bfd_profile_mult_cmd,
+ALIAS_YANG(bfd_peer_mult, bfd_profile_mult_cmd,
       "detect-multiplier (2-255)$multiplier",
       "Configure peer detection multiplier\n"
       "Configure peer detection multiplier value\n")
 
-ALIAS(bfd_peer_tx, bfd_profile_tx_cmd,
+ALIAS_YANG(bfd_peer_tx, bfd_profile_tx_cmd,
       "transmit-interval (10-60000)$interval",
       "Configure peer transmit interval\n"
       "Configure peer transmit interval value in milliseconds\n")
 
-ALIAS(bfd_peer_rx, bfd_profile_rx_cmd,
+ALIAS_YANG(bfd_peer_rx, bfd_profile_rx_cmd,
       "receive-interval (10-60000)$interval",
       "Configure peer receive interval\n"
       "Configure peer receive interval value in milliseconds\n")
 
-ALIAS(bfd_peer_shutdown, bfd_profile_shutdown_cmd,
+ALIAS_YANG(bfd_peer_shutdown, bfd_profile_shutdown_cmd,
       "[no] shutdown",
       NO_STR
       "Disable BFD peer\n")
 
-ALIAS(bfd_peer_echo, bfd_profile_echo_cmd,
+ALIAS_YANG(bfd_peer_echo, bfd_profile_echo_cmd,
       "[no] echo-mode",
       NO_STR
       "Configure echo mode\n")
 
-ALIAS(bfd_peer_echo_interval, bfd_profile_echo_interval_cmd,
+ALIAS_YANG(bfd_peer_echo_interval, bfd_profile_echo_interval_cmd,
       "echo-interval (10-60000)$interval",
       "Configure peer echo interval\n"
       "Configure peer echo interval value in milliseconds\n")
 
-DEFPY(bfd_peer_profile, bfd_peer_profile_cmd,
+DEFPY_YANG(bfd_peer_profile, bfd_peer_profile_cmd,
       "[no] profile BFDPROF$pname",
       NO_STR
       "Use BFD profile settings\n"
