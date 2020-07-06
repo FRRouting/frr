@@ -107,14 +107,14 @@ bool ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval,
 			    p[1] == eval->val[1]) {
 				if (overwrite) {
 					memcpy(p, eval->val, ECOMMUNITY_SIZE);
-					return 1;
+					return true;
 				}
-				return 0;
+				return false;
 			}
 		}
 		int ret = memcmp(p, eval->val, ECOMMUNITY_SIZE);
 		if (ret == 0)
-			return 0;
+			return false;
 		if (ret > 0) {
 			if (!unique)
 				break;
