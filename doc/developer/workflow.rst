@@ -1034,7 +1034,9 @@ the development mailing list / public Slack instance.
 JSON Output
 ^^^^^^^^^^^
 
-All JSON keys are to be camelCased, with no spaces.
+* All JSON keys are to be camelCased, with no spaces
+* Commands which output JSON should produce ``{}`` if they have nothing to
+  display
 
 Use of const
 ^^^^^^^^^^^^
