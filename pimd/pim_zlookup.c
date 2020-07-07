@@ -61,6 +61,14 @@ static int zclient_lookup_connect(struct thread *t)
 		zlookup->fail = 0; /* reset counter on connection */
 	}
 
+	if (zclient_send_hello(zlookup) < 0) {
+		if (close(zlookup->sock)) {
+			zlog_warn("%s: closing fd=%d: errno=%d %s", __func__,
+				  zlookup->sock, errno, safe_strerror(errno));
+		}
+		zlookup->sock = -1;
+	}
+
 	if (zlookup->sock < 0) {
 		/* Since last connect failed, retry within 10 secs */
 		zclient_lookup_sched(zlookup, 10);
@@ -125,7 +133,10 @@ void zclient_lookup_free(void)
 
 void zclient_lookup_new(void)
 {
-	zlookup = zclient_new(router->master, &zclient_options_default);
+	struct zclient_options options = zclient_options_default;
+	options.synchronous = true;
+
+	zlookup = zclient_new(router->master, &options);
 	if (!zlookup) {
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_new() failure",
 			 __PRETTY_FUNCTION__);
@@ -162,6 +173,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	if (PIM_DEBUG_PIM_NHT_DETAIL) {
 		char addr_str[INET_ADDRSTRLEN];
+
 		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
 		zlog_debug("%s: addr=%s(%s)", __PRETTY_FUNCTION__, addr_str,
 			   pim->vrf->name);

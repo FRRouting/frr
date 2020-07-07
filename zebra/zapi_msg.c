@@ -382,9 +382,14 @@ static void zebra_interface_nbr_address_add_update(struct interface *ifp,
 			p->prefixlen, ifc->ifp->name);
 	}
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client))
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		/* Do not send unsolicited messages to synchronous clients. */
+		if (client->synchronous)
+			continue;
+
 		zsend_interface_nbr_address(ZEBRA_INTERFACE_NBR_ADDRESS_ADD,
 					    client, ifp, ifc);
+	}
 }
 
 /* Interface address deletion. */
@@ -406,9 +411,14 @@ static void zebra_interface_nbr_address_delete_update(struct interface *ifp,
 			p->prefixlen, ifc->ifp->name);
 	}
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client))
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		/* Do not send unsolicited messages to synchronous clients. */
+		if (client->synchronous)
+			continue;
+
 		zsend_interface_nbr_address(ZEBRA_INTERFACE_NBR_ADDRESS_DELETE,
 					    client, ifp, ifc);
+	}
 }
 
 /* Send addresses on interface to client */
@@ -1735,6 +1745,10 @@ void zsend_capabilities_all_clients(void)
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		/* Do not send unsolicited messages to synchronous clients. */
+		if (client->synchronous)
+			continue;
+
 		zsend_capabilities(client, zvrf);
 	}
 }
@@ -1746,12 +1760,17 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 	uint8_t proto;
 	unsigned short instance;
 	uint8_t notify;
+	uint8_t synchronous;
 
 	STREAM_GETC(msg, proto);
 	STREAM_GETW(msg, instance);
 	STREAM_GETC(msg, notify);
+	STREAM_GETC(msg, synchronous);
 	if (notify)
 		client->notify_owner = true;
+
+	if (synchronous)
+		client->synchronous = true;
 
 	/* accept only dynamic routing protocols */
 	if ((proto < ZEBRA_ROUTE_MAX) && (proto > ZEBRA_ROUTE_CONNECT)) {
@@ -1766,8 +1785,10 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 		client->instance = instance;
 	}
 
-	zsend_capabilities(client, zvrf);
-	zebra_vrf_update_all(client);
+	if (!client->synchronous) {
+		zsend_capabilities(client, zvrf);
+		zebra_vrf_update_all(client);
+	}
 stream_failure:
 	return;
 }

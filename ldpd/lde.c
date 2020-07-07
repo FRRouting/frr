@@ -1628,8 +1628,11 @@ lde_address_list_free(struct lde_nbr *ln)
 
 static void zclient_sync_init(unsigned short instance)
 {
+	struct zclient_options options = zclient_options_default;
+	options.synchronous = true;
+
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &zclient_options_default);
+	zclient_sync = zclient_new(master, &options);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->instance = instance;
@@ -1641,6 +1644,12 @@ static void zclient_sync_init(unsigned short instance)
 	}
 	/* make socket non-blocking */
 	sock_set_nonblock(zclient_sync->sock);
+
+	/* Send hello to notify zebra this is a synchronous client */
+	while (zclient_send_hello(zclient_sync) < 0) {
+		log_warnx("Error sending hello for synchronous zclient!");
+		sleep(1);
+	}
 
 	/* Connect to label manager */
 	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
