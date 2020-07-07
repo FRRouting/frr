@@ -39,10 +39,10 @@
 struct zclient *zclient = NULL;
 
 /* For registering threads. */
-struct thread_master *master;
+extern struct thread_master *master;
 
 /* Privs info */
-struct zebra_privs_t sharp_privs;
+extern struct zebra_privs_t sharp_privs;
 
 DEFINE_MTYPE_STATIC(SHARPD, ZC, "Test zclients");
 
