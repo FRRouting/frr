@@ -2639,19 +2639,19 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
                                     missing_list_of_nexthops = set(list2).difference(
                                         list1
                                     )
-                                additional_nexthops_in_required_nhs = set(
-                                    list1
-                                ).difference(list2)
+                                    additional_nexthops_in_required_nhs = set(
+                                        list1
+                                    ).difference(list2)
 
-                                if list2:
-                                    if additional_nexthops_in_required_nhs:
-                                        logger.info(
-                                            "Missing nexthop %s for route"
-                                            " %s in RIB of router %s\n",
-                                            additional_nexthops_in_required_nhs,
-                                            st_rt,
-                                            dut,
-                                        )
+                                    if list2:
+                                        if additional_nexthops_in_required_nhs:
+                                            logger.info(
+                                                "Missing nexthop %s for route"
+                                                " %s in RIB of router %s\n",
+                                                additional_nexthops_in_required_nhs,
+                                                st_rt,
+                                                dut,
+                                            )
                                         return errormsg
                                     else:
                                         nh_found = True
