@@ -1425,6 +1425,9 @@ static int mpls_lsp_uninstall_all(struct hash *lsp_table, zebra_lsp_t *lsp,
 	int schedule_lsp = 0;
 	char buf[BUFSIZ];
 
+	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED))
+		schedule_lsp = 1;
+
 	/* Mark NHLFEs for delete or directly delete, as appropriate. */
 	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
 		/* Skip non-static NHLFEs */
@@ -1470,6 +1473,10 @@ static int mpls_lsp_uninstall_all(struct hash *lsp_table, zebra_lsp_t *lsp,
 
 	/* Queue LSP for processing, if needed, else delete. */
 	if (schedule_lsp) {
+		if (IS_ZEBRA_DEBUG_MPLS) {
+			zlog_debug("Schedule LSP in-label %u flags 0x%x",
+				   lsp->ile.in_label, lsp->flags);
+		}
 		if (lsp_processq_add(lsp))
 			return -1;
 	} else {
@@ -3368,6 +3375,7 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
 	char buf[BUFSIZ];
+	bool schedule_lsp = false;
 
 	/* Lookup table. */
 	lsp_table = zvrf->lsp_table;
@@ -3389,10 +3397,18 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 			   in_label, type, buf, nhlfe->flags);
 	}
 
+	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED) ||
+	    CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED))
+		schedule_lsp = true;
+
 	/* Mark NHLFE for delete or directly delete, as appropriate. */
-	if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED)) {
-		UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_CHANGED);
+	if (schedule_lsp) {
 		SET_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED);
+		UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_CHANGED);
+
+		if (IS_ZEBRA_DEBUG_MPLS)
+			zlog_debug("Schedule LSP in-label %u flags 0x%x",
+				   lsp->ile.in_label, lsp->flags);
 		if (lsp_processq_add(lsp))
 			return -1;
 	} else {
@@ -3400,7 +3416,6 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 
 		/* Free LSP entry if no other NHLFEs and not scheduled. */
 		lsp_check_free(lsp_table, &lsp);
-
 	}
 	return 0;
 }
