@@ -39,9 +39,8 @@ import socket
 import ipaddr
 
 from lib.topolog import logger, logger_config
-from lib.topogen import TopoRouter
+from lib.topogen import TopoRouter, get_topogen
 from lib.topotest import interface_set_status
-
 
 FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
@@ -475,25 +474,19 @@ def reset_config_on_routers(tgen, routerName=None):
 
         for line in t_delta.split("\n"):
             line = line.strip()
-            if (
-                line == "Lines To Delete"
-                or line == "==============="
-                or not line
-            ):
+            if line == "Lines To Delete" or line == "===============" or not line:
                 continue
 
-            if (line == "Lines To Add"):
+            if line == "Lines To Add":
                 check_debug = False
                 continue
 
-            if (line == "============"
-                or not line
-            ):
+            if line == "============" or not line:
                 continue
 
             # Leave debugs and log output alone
             if check_debug:
-                if ('debug' in line or 'log file' in line):
+                if "debug" in line or "log file" in line:
                     continue
 
             delta.write(line)
@@ -646,6 +639,33 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
     else:
         errormsg = "Link local ip missing on router {}"
         return errormsg
+
+
+def generate_support_bundle():
+    """
+    API to generate support bundle on any verification ste failure.
+    it runs a python utility, /usr/lib/frr/generate_support_bundle.py,
+    which basically runs defined CLIs and dumps the data to specified location
+    """
+
+    tgen = get_topogen()
+    router_list = tgen.routers()
+    test_name = sys._getframe(2).f_code.co_name
+    TMPDIR = os.path.join(LOGDIR, tgen.modname)
+
+    for rname, rnode in router_list.iteritems():
+        logger.info("Generating support bundle for {}".format(rname))
+        rnode.run("mkdir -p /var/log/frr")
+        bundle_log = rnode.run("python2 /usr/lib/frr/generate_support_bundle.py")
+        logger.info(bundle_log)
+
+        dst_bundle = "{}/{}/support_bundles/{}".format(TMPDIR, rname, test_name)
+        src_bundle = "/var/log/frr"
+        rnode.run("rm -rf {}".format(dst_bundle))
+        rnode.run("mkdir -p {}".format(dst_bundle))
+        rnode.run("mv -f {}/* {}".format(src_bundle, dst_bundle))
+
+    return True
 
 
 def start_topology(tgen):
@@ -1202,9 +1222,11 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0, return_is_dict
                         return ret
 
                     if _attempts == i:
+                        generate_support_bundle()
                         return ret
                 except Exception as err:
                     if _attempts == i:
+                        generate_support_bundle()
                         logger.info("Max number of attempts (%r) reached", _attempts)
                         raise
                     else:
@@ -1278,9 +1300,11 @@ def create_interfaces_cfg(tgen, topo, build=False):
 
                 # Include vrf if present
                 if "vrf" in data:
-                    interface_data.append("interface {} vrf {}".format(
-                        str(interface_name),
-                        str(data["vrf"])))
+                    interface_data.append(
+                        "interface {} vrf {}".format(
+                            str(interface_name), str(data["vrf"])
+                        )
+                    )
                 else:
                     interface_data.append("interface {}".format(str(interface_name)))
 
