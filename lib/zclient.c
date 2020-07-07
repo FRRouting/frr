@@ -52,7 +52,8 @@ static void zclient_event(enum event, struct zclient *);
 static void zebra_interface_if_set_value(struct stream *s,
 					 struct interface *ifp);
 
-struct zclient_options zclient_options_default = {.receive_notify = false};
+struct zclient_options zclient_options_default = {.receive_notify = false,
+						  .synchronous = false};
 
 struct sockaddr_storage zclient_addr;
 socklen_t zclient_addr_len;
@@ -76,6 +77,7 @@ struct zclient *zclient_new(struct thread_master *master,
 	zclient->master = master;
 
 	zclient->receive_notify = opt->receive_notify;
+	zclient->synchronous = opt->synchronous;
 
 	return zclient;
 }
@@ -365,11 +367,11 @@ static int zebra_message_send(struct zclient *zclient, int command,
 	return zclient_send_message(zclient);
 }
 
-static int zebra_hello_send(struct zclient *zclient)
+int zclient_send_hello(struct zclient *zclient)
 {
 	struct stream *s;
 
-	if (zclient->redist_default) {
+	if (zclient->redist_default || zclient->synchronous) {
 		s = zclient->obuf;
 		stream_reset(s);
 
@@ -378,6 +380,10 @@ static int zebra_hello_send(struct zclient *zclient)
 		stream_putc(s, zclient->redist_default);
 		stream_putw(s, zclient->instance);
 		if (zclient->receive_notify)
+			stream_putc(s, 1);
+		else
+			stream_putc(s, 0);
+		if (zclient->synchronous)
 			stream_putc(s, 1);
 		else
 			stream_putc(s, 0);
@@ -620,7 +626,7 @@ int zclient_start(struct zclient *zclient)
 	/* Create read thread. */
 	zclient_event(ZCLIENT_READ, zclient);
 
-	zebra_hello_send(zclient);
+	zclient_send_hello(zclient);
 
 	zebra_message_send(zclient, ZEBRA_INTERFACE_ADD, VRF_DEFAULT);
 
