@@ -1941,6 +1941,23 @@ static void zebra_evpn_mh_dup_addr_detect_off(void)
 	}
 }
 
+/* On config of first local-ES turn off advertisement of STALE/DELAY/PROBE
+ * neighbors
+ */
+static void zebra_evpn_mh_advertise_reach_neigh_only(void)
+{
+	if (zmh_info->flags & ZEBRA_EVPN_MH_ADV_REACHABLE_NEIGH_ONLY)
+		return;
+
+	zmh_info->flags |= ZEBRA_EVPN_MH_ADV_REACHABLE_NEIGH_ONLY;
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		zlog_debug("evpn-mh: only REACHABLE neigh advertised");
+
+	/* XXX - if STALE/DELAY/PROBE neighs were previously advertised we
+	 * need to withdraw them
+	 */
+}
+
 static int zebra_evpn_es_df_delay_exp_cb(struct thread *t)
 {
 	struct zebra_evpn_es *es;
@@ -1966,6 +1983,7 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 			   es->nhg_id, zif->ifp->name);
 
 	zebra_evpn_mh_dup_addr_detect_off();
+	zebra_evpn_mh_advertise_reach_neigh_only();
 
 	es->flags |= ZEBRA_EVPNES_LOCAL;
 	listnode_init(&es->local_es_listnode, es);

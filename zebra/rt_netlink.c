@@ -3410,7 +3410,15 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		 * in re-adding the neighbor if it is a valid "remote" neighbor.
 		 */
 		if (ndm->ndm_state & NUD_VALID) {
-			local_inactive = !(ndm->ndm_state & NUD_LOCAL_ACTIVE);
+			if (zebra_evpn_mh_do_adv_reachable_neigh_only())
+				local_inactive =
+					!(ndm->ndm_state & NUD_LOCAL_ACTIVE);
+			else
+				/* If EVPN-MH is not enabled we treat STALE
+				 * neighbors as locally-active and advertise
+				 * them
+				 */
+				local_inactive = false;
 
 			/* XXX - populate dp-static based on the sync flags
 			 * in the kernel
