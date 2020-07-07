@@ -1326,7 +1326,7 @@ def verify_as_numbers(tgen, topo, input_dict):
     return True
 
 
-@retry(attempts=10, wait=2, return_is_str=True)
+@retry(attempts=44, wait=3, return_is_str=True)
 def verify_bgp_convergence_from_running_config(tgen, dut=None):
     """
     API to verify BGP convergence b/w loopback and physical interface.
