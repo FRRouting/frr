@@ -276,7 +276,7 @@ Pre-submission Checklist
 - In the case of a major new feature or other significant change, document
   plans for continued maintenance of the feature.  In addition it is a
   requirement that automated testing must be written that exercises
-  the new feature within our existing CI infrastructure.  Also the 
+  the new feature within our existing CI infrastructure.  Also the
   addition of automated testing to cover any pull request is encouraged.
 
 .. _signing-off:
