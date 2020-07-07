@@ -573,6 +573,30 @@ following requirements have achieved consensus:
   constant in these cases.  (Rationale:  changing a buffer to another size
   constant may leave the write operations on a now-incorrect size limit.)
 
+- For stack allocated structs and arrays that should be zero initialized,
+  prefer initializer expressions over ``memset()`` wherever possible. This
+  helps prevent ``memset()`` calls being missed in branches, and eliminates the
+  error class of an incorrect ``size`` argument to ``memset()``.
+
+  For example, instead of:
+
+  .. code-block:: c
+
+     struct foo mystruct;
+     ...
+     memset(&mystruct, 0x00, sizeof(struct foo));
+
+  Prefer:
+
+  .. code-block:: c
+
+     struct foo mystruct = {};
+
+- Do not zero initialize stack allocated values that must be initialized with a
+  nonzero value in order to be used. This way the compiler and memory checking
+  tools can catch uninitialized value use that would otherwise be suppressed by
+  the (incorrect) zero initialization.
+
 Other than these specific rules, coding practices from the Linux kernel as
 well as CERT or MISRA C guidelines may provide useful input on safe C code.
 However, these rules are not applied as-is;  some of them expressly collide
