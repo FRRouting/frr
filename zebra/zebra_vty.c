@@ -71,6 +71,12 @@ static void vty_show_ip_route_summary(struct vty *vty,
 static void vty_show_ip_route_summary_prefix(struct vty *vty,
 					     struct route_table *table,
 					     bool use_json);
+/* Helper api to format a nexthop in the 'detailed' output path. */
+static void show_nexthop_detail_helper(struct vty *vty,
+				       const struct route_entry *re,
+				       const struct nexthop *nexthop,
+				       bool is_backup);
+
 
 DEFUN (ip_multicast_mode,
        ip_multicast_mode_cmd,
@@ -190,19 +196,47 @@ static char re_status_output_char(const struct route_entry *re,
 }
 
 /*
- * TODO -- Show backup nexthop info
+ * Show backup nexthop info, in the 'detailed' output path
  */
 static void show_nh_backup_helper(struct vty *vty,
-				  const struct nhg_hash_entry *nhe,
+				  const struct route_entry *re,
 				  const struct nexthop *nexthop)
 {
+	const struct nexthop *start, *backup, *temp;
+	int i, idx;
+
 	/* Double-check that there _is_ a backup */
-	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
+	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP) ||
+	    re->nhe->backup_info == NULL || re->nhe->backup_info->nhe == NULL)
 		return;
 
-	/* Locate the backup nexthop */
+	/* Locate the backup nexthop(s) */
+	start = re->nhe->backup_info->nhe->nhg.nexthop;
+	for (i = 0; i < nexthop->backup_num; i++) {
+		/* Format the backup(s) (indented) */
+		backup = start;
+		for (idx = 0; idx < nexthop->backup_idx[i]; idx++) {
+			backup = backup->next;
+			if (backup == NULL)
+				break;
+		}
 
-	/* Format the backup (indented) */
+		temp = backup;
+		while (backup) {
+			vty_out(vty, "  ");
+			show_nexthop_detail_helper(vty, re, backup,
+						   true /*backup*/);
+			vty_out(vty, "\n");
+
+			if (backup->resolved && temp == backup)
+				backup = backup->resolved;
+			else
+				backup = nexthop_next(backup);
+
+			if (backup == temp->next)
+				break;
+		}
+	}
 
 }
 
@@ -212,14 +246,20 @@ static void show_nh_backup_helper(struct vty *vty,
  */
 static void show_nexthop_detail_helper(struct vty *vty,
 				       const struct route_entry *re,
-				       const struct nexthop *nexthop)
+				       const struct nexthop *nexthop,
+				       bool is_backup)
 {
 	char addrstr[32];
 	char buf[MPLS_LABEL_STRLEN];
+	int i;
 
-	vty_out(vty, "  %c%s",
-		re_status_output_char(re, nexthop),
-		nexthop->rparent ? "  " : "");
+	if (is_backup)
+		vty_out(vty, "    b%s",
+			nexthop->rparent ? "  " : "");
+	else
+		vty_out(vty, "  %c%s",
+			re_status_output_char(re, nexthop),
+			nexthop->rparent ? "  " : "");
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -333,6 +373,13 @@ static void show_nexthop_detail_helper(struct vty *vty,
 
 	if (nexthop->weight)
 		vty_out(vty, ", weight %u", nexthop->weight);
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		vty_out(vty, ", backup %d", nexthop->backup_idx[0]);
+
+		for (i = 1; i < nexthop->backup_num; i++)
+			vty_out(vty, ",%d", nexthop->backup_idx[i]);
+	}
 }
 
 /* New RIB.  Detailed information for IPv4 route. */
@@ -403,12 +450,13 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 
 		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
 			/* Use helper to format each nexthop */
-			show_nexthop_detail_helper(vty, re, nexthop);
+			show_nexthop_detail_helper(vty, re, nexthop,
+						   false /*not backup*/);
 			vty_out(vty, "\n");
 
-			/* Include backup info, if present */
+			/* Include backup(s), if present */
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
-				show_nh_backup_helper(vty, re->nhe, nexthop);
+				show_nh_backup_helper(vty, re, nexthop);
 		}
 		vty_out(vty, "\n");
 	}
@@ -524,7 +572,7 @@ static void show_route_nexthop_helper(struct vty *vty,
 		vty_out(vty, ", backup %d", nexthop->backup_idx[0]);
 
 		for (i = 1; i < nexthop->backup_num; i++)
-			vty_out(vty, ", %d", nexthop->backup_idx[i]);
+			vty_out(vty, ",%d", nexthop->backup_idx[i]);
 	}
 }
 
