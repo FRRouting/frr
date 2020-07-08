@@ -663,7 +663,7 @@ kernel.
 .. clicmd:: ip protocol PROTOCOL route-map ROUTEMAP
 
    Apply a route-map filter to routes for the specified protocol. PROTOCOL can
-   be: 
+   be:
 
    - any,
    - babel,

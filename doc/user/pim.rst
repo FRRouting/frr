@@ -185,7 +185,7 @@ Certain signals have special meanings to *pimd*.
    warning once the configured group limit is reached while adding new groups.
    'no' form of the command disables the warning generation. This command is
    vrf aware. To configure per vrf, enter vrf submode.
-   
+
 .. _pim-interface-configuration:
 
 PIM Interface Configuration

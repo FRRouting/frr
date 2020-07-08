@@ -220,7 +220,7 @@ individual or unified daemon configuration files.
 
 See :ref:`FRR-RELOAD <frr-reload>` for more about the `frr-reload.py` script.
 
-      
+
 Starting a new daemon
 ^^^^^^^^^^^^^^^^^^^^^
 

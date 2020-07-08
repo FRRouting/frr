@@ -250,8 +250,8 @@ attribute from two peers is shown below:
        (fe80::202:ff:fe00:1b) (used)
          Origin IGP, metric 0, valid, external, multipath, bestpath-from-AS 65002
          Extended Community: LB:65002:125000000 (1000.000 Mbps)
-         Last update: Thu Feb 20 18:34:16 2020  
-   
+         Last update: Thu Feb 20 18:34:16 2020
+
      65001
        fe80::202:ff:fe00:15 from l1(swp1) (110.0.0.1)
        (fe80::202:ff:fe00:15) (used)

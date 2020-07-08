@@ -402,7 +402,7 @@ VRRP
   :t:`Virtual Router Redundancy Protocol (VRRP). R. Hinden. April 2004.`
 - :rfc:`5798`
   :t:`Virtual Router Redundancy Protocol (VRRP) Version 3 for IPv4 and IPv6. S. Nadas. June 2000.`
-  
+
 SNMP
 ----
 

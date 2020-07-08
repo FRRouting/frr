@@ -473,7 +473,7 @@ You can inspect the current BFD peer status in brief with the following commands
 
 ::
 
-   frr# show bfd peers brief 
+   frr# show bfd peers brief
    Session count: 1
    SessionId  LocalAddress         PeerAddress      Status
    =========  ============         ===========      ======
