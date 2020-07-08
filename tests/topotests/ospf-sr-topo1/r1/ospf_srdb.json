@@ -112,10 +112,10 @@
         {
           "prefix":"10.0.255.1\/32",
           "sid":100,
-          "inputLabel":20100,
+          "inputLabel":0,
           "prefixRoute":[
             {
-              "outputLabel":3,
+              "outputLabel":0,
               "interface":"lo",
               "nexthop":"10.0.255.1"
             }

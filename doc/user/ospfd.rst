@@ -1099,13 +1099,15 @@ dataplane.
    Fix the Maximum Stack Depth supported by the router. The value depend of the
    MPLS dataplane. E.g. for Linux kernel, since version 4.13 it is 32.
 
-.. index:: [no] segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag]
-.. clicmd:: [no] segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag]
+.. index:: [no] segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag|explicit-null]
+.. clicmd:: [no] segment-routing prefix A.B.C.D/M [index (0-65535)|no-php-flag|explicit-null]
 
    Set the Segment Routing index for the specified prefix. Note that, only
    prefix with /32 corresponding to a loopback interface are currently
    supported. The 'no-php-flag' means NO Penultimate Hop Popping that allows SR
-   node to request to its neighbor to not pop the label.
+   node to request to its neighbor to not pop the label. The 'explicit-null' means that
+   neighbor nodes must swap the incoming label by the MPLS Explicit Null label
+   before delivering the packet.
 
 .. index:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate> [json]
 .. clicmd:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate> [json]

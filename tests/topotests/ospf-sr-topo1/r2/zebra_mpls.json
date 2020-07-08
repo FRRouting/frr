@@ -5,9 +5,9 @@
     "nexthops":[
       {
         "type":"SR (OSPF)",
-        "outLabel":20100,
+        "outLabel":0,
         "outLabelStack":[
-          20100
+          0
         ],
         "distance":150,
         "installed":true,
@@ -15,7 +15,7 @@
       },
       {
         "type":"SR (OSPF)",
-        "outLabel":20100,
+        "outLabel":0,
         "distance":150,
         "installed":true,
         "nexthop":"10.0.0.1"

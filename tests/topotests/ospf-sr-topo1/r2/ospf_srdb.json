@@ -166,12 +166,12 @@
           "inputLabel":16100,
           "prefixRoute":[
             {
-              "outputLabel":20100,
+              "outputLabel":0,
               "interface":"r2-eth0",
               "nexthop":"10.0.0.1"
             },
             {
-              "outputLabel":20100,
+              "outputLabel":0,
               "interface":"r2-eth1",
               "nexthop":"10.0.1.1"
             }

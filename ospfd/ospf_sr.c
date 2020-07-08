@@ -641,9 +641,12 @@ static mpls_label_t index2label(uint32_t index, struct sr_block srgb)
 	mpls_label_t label;
 
 	label = srgb.lower_bound + index;
-	if (label > (srgb.lower_bound + srgb.range_size))
+	if (label > (srgb.lower_bound + srgb.range_size)) {
+		flog_warn(EC_OSPF_SR_SID_OVERFLOW,
+			  "%s: SID index %u falls outside SRGB range",
+			  __func__, index);
 		return MPLS_INVALID_LABEL;
-	else
+	} else
 		return label;
 }
 
@@ -750,6 +753,45 @@ static int compute_link_nhlfe(struct sr_link *srl)
 	return rc;
 }
 
+/**
+ * Compute output label for the given Prefix-SID.
+ *
+ * @param srp		Segment Routing Prefix
+ * @param srnext	Segment Routing nexthop node
+ *
+ * @return		MPLS label or MPLS_INVALID_LABEL in case of error
+ */
+static mpls_label_t sr_prefix_out_label(const struct sr_prefix *srp,
+					const struct sr_node *srnext)
+{
+	/* Check if the nexthop SR Node is the last hop? */
+	if (srnext == srp->srn) {
+		/* SR-Node doesn't request NO-PHP. Return Implicit NULL label */
+		if (!CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG))
+			return MPLS_LABEL_IMPLICIT_NULL;
+
+		/* SR-Node requests Explicit NULL Label */
+		if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
+			return MPLS_LABEL_IPV4_EXPLICIT_NULL;
+		/* Fallthrough */
+	}
+
+	/* Return SID value as MPLS label if it is an Absolute SID */
+	if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_VFLG
+					   | EXT_SUBTLV_PREFIX_SID_LFLG)) {
+		/*
+		 * V/L SIDs have local significance, so only adjacent routers
+		 * can use them (RFC8665 section #5)
+		 */
+		if (srp->srn != srnext)
+			return MPLS_INVALID_LABEL;
+		return srp->sid;
+	}
+
+	/* Return MPLS label as SRGB lower bound + SID index as per RFC 8665 */
+	return (index2label(srp->sid, srnext->srgb));
+}
+
 /*
  * Compute NHLFE entry for Extended Prefix
  *
@@ -800,10 +842,7 @@ static int compute_prefix_nhlfe(struct sr_prefix *srp)
 
 		/* And store this information for later update */
 		srnext->neighbor = OspfSR.self;
-		if (IPV4_ADDR_SAME(&srnext->adv_router, &srp->adv_router))
-			path->srni.nexthop = NULL;
-		else
-			path->srni.nexthop = srnext;
+		path->srni.nexthop = srnext;
 
 		/*
 		 * SR Node could be known, but SRGB could be not initialize
@@ -818,18 +857,8 @@ static int compute_prefix_nhlfe(struct sr_prefix *srp)
 			  srnext->srgb.range_size, srnext->srgb.lower_bound,
 			  &srnext->adv_router);
 
-		/*
-		 * Compute Output Label with Nexthop SR Node SRGB or Implicit
-		 * Null label if next hop is the destination and request PHP
-		 */
-		if ((path->srni.nexthop == NULL)
-		    && (!CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)))
-			path->srni.label_out = MPLS_LABEL_IMPLICIT_NULL;
-		else if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_VFLG))
-			path->srni.label_out = srp->sid;
-		else
-			path->srni.label_out =
-				index2label(srp->sid, srnext->srgb);
+		/* Compute Output Label with Nexthop SR Node SRGB */
+		path->srni.label_out = sr_prefix_out_label(srp, srnext);
 
 		osr_debug("    |-  Computed new labels in: %u out: %u",
 			  srp->label_in, path->srni.label_out);
@@ -1194,7 +1223,7 @@ static void update_out_nhlfe(struct hash_bucket *bucket, void *args)
 
 		for (ALL_LIST_ELEMENTS_RO(srp->route->paths, pnode, path)) {
 			/* Process only SID Index for next hop without PHP */
-			if ((path->srni.nexthop == NULL)
+			if ((path->srni.nexthop == srp->srn)
 			    && (!CHECK_FLAG(srp->flags,
 					    EXT_SUBTLV_PREFIX_SID_NPFLG)))
 				continue;
@@ -1784,9 +1813,10 @@ void ospf_sr_update_local_prefix(struct interface *ifp, struct prefix *p)
 				"  |-  Update Node SID %pFX - %u for self SR Node",
 				(struct prefix *)&srp->prefv4, srp->sid);
 
-			/* Install NHLFE if NO-PHP is requested */
-			if (CHECK_FLAG(srp->flags,
-				       EXT_SUBTLV_PREFIX_SID_NPFLG)) {
+			/* Install SID if NO-PHP is set and not EXPLICIT-NULL */
+			if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
+			    && !CHECK_FLAG(srp->flags,
+					   EXT_SUBTLV_PREFIX_SID_EFLG)) {
 				srp->label_in = index2label(srp->sid,
 							    OspfSR.self->srgb);
 				srp->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
@@ -1913,13 +1943,19 @@ void ospf_sr_config_write_router(struct vty *vty)
 			for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node,
 						  srp)) {
 				vty_out(vty,
-					" segment-routing prefix %s/%u index %u%s\n",
+					" segment-routing prefix %s/%u "
+					"index %u",
 					inet_ntoa(srp->prefv4.prefix),
-					srp->prefv4.prefixlen, srp->sid,
-					CHECK_FLAG(srp->flags,
-						   EXT_SUBTLV_PREFIX_SID_NPFLG)
-						? " no-php-flag"
-						: "");
+					srp->prefv4.prefixlen, srp->sid);
+				if (CHECK_FLAG(srp->flags,
+					       EXT_SUBTLV_PREFIX_SID_EFLG))
+					vty_out(vty, " explicit-null\n");
+				else if (CHECK_FLAG(
+						 srp->flags,
+						 EXT_SUBTLV_PREFIX_SID_NPFLG))
+					vty_out(vty, " no-php-flag\n");
+				else
+					vty_out(vty, "\n");
 			}
 		}
 	}
@@ -2287,19 +2323,20 @@ DEFUN (no_sr_node_msd,
 
 DEFUN (sr_prefix_sid,
        sr_prefix_sid_cmd,
-       "segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag]",
+       "segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag|explicit-null]",
        SR_STR
        "Prefix SID\n"
        "IPv4 Prefix as A.B.C.D/M\n"
        "SID index for this prefix in decimal (0-65535)\n"
        "Index value inside SRGB (lower_bound < index < upper_bound)\n"
-       "Don't request Penultimate Hop Popping (PHP)\n")
+       "Don't request Penultimate Hop Popping (PHP)\n"
+       "Upstream neighbor must replace prefix-sid with explicit null label\n")
 {
 	int idx = 0;
 	struct prefix p;
 	uint32_t index;
 	struct listnode *node;
-	struct sr_prefix *srp, *new;
+	struct sr_prefix *srp, *new = NULL;
 	struct interface *ifp;
 
 	if (!ospf_sr_enabled(vty))
@@ -2321,26 +2358,41 @@ DEFUN (sr_prefix_sid,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/* check that the index is not already used */
+	/* Search for an existing Prefix-SID */
 	for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node, srp)) {
 		if (srp->sid == index) {
-			vty_out(vty, "Index %u is already used\n", index);
-			return CMD_WARNING_CONFIG_FAILED;
+			if (prefix_same((struct prefix *)&srp->prefv4, &p)) {
+				new = srp;
+				break;
+			} else {
+				vty_out(vty, "Index %u is already used\n",
+					index);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
 		}
 	}
 
 	/* Create new Extended Prefix to SRDB if not found */
-	new = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
-	IPV4_ADDR_COPY(&new->prefv4.prefix, &p.u.prefix4);
-	new->prefv4.prefixlen = p.prefixlen;
-	new->prefv4.family = p.family;
-	new->sid = index;
-	new->type = LOCAL_SID;
+	if (new == NULL) {
+		new = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
+		IPV4_ADDR_COPY(&new->prefv4.prefix, &p.u.prefix4);
+		new->prefv4.prefixlen = p.prefixlen;
+		new->prefv4.family = p.family;
+		new->sid = index;
+		new->type = LOCAL_SID;
+	}
+
 	/* Set NO PHP flag if present and compute NHLFE */
 	if (argv_find(argv, argc, "no-php-flag", &idx)) {
 		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG);
+		UNSET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_EFLG);
 		new->label_in = index2label(new->sid, OspfSR.self->srgb);
 		new->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
+	}
+	/* Set EXPLICIT NULL flag is present */
+	if (argv_find(argv, argc, "explicit-null", &idx)) {
+		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG);
+		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_EFLG);
 	}
 
 	osr_debug("SR (%s): Add new index %u to Prefix %pFX", __func__, index,
@@ -2369,27 +2421,16 @@ DEFUN (sr_prefix_sid,
 	}
 	new->nhlfe.ifindex = ifp->ifindex;
 
-	/* Search if this prefix already exist */
-	for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node, srp)) {
-		if ((IPV4_ADDR_SAME(&srp->prefv4.prefix, &p.u.prefix4)
-		     && srp->prefv4.prefixlen == p.prefixlen))
-			break;
-		else
-			srp = NULL;
-	}
-
-	/* Update or Add this new SR Prefix */
-	if (srp) {
-		listnode_delete(OspfSR.self->ext_prefix, srp);
+	/* Add this new SR Prefix if not already found */
+	if (srp != new)
 		listnode_add(OspfSR.self->ext_prefix, new);
-	} else {
-		listnode_add(OspfSR.self->ext_prefix, new);
-	}
 
-	/* Install Prefix SID if SR is UP */
-	if (OspfSR.status == SR_UP)
-		ospf_zebra_update_prefix_sid(new);
-	else
+	/* Install Prefix SID if SR is UP and a valid input label set */
+	if (OspfSR.status == SR_UP) {
+		if (CHECK_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
+		    && !CHECK_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
+			ospf_zebra_update_prefix_sid(new);
+	} else
 		return CMD_SUCCESS;
 
 	/* Finally, update Extended Prefix LSA id SR is UP */
@@ -2406,14 +2447,15 @@ DEFUN (sr_prefix_sid,
 
 DEFUN (no_sr_prefix_sid,
        no_sr_prefix_sid_cmd,
-       "no segment-routing prefix A.B.C.D/M [index (0-65535) no-php-flag]",
+       "no segment-routing prefix A.B.C.D/M [index (0-65535)|no-php-flag|explicit-null]",
        NO_STR
        SR_STR
        "Prefix SID\n"
        "IPv4 Prefix as A.B.C.D/M\n"
        "SID index for this prefix in decimal (0-65535)\n"
        "Index value inside SRGB (lower_bound < index < upper_bound)\n"
-       "Don't request Penultimate Hop Popping (PHP)\n")
+       "Don't request Penultimate Hop Popping (PHP)\n"
+       "Upstream neighbor must replace prefix-sid with explicit null label\n")
 {
 	int idx = 0;
 	struct prefix p;
@@ -2468,8 +2510,9 @@ DEFUN (no_sr_prefix_sid,
 	osr_debug("SR (%s): Remove Prefix %pFX with index %u", __func__,
 		  (struct prefix *)&srp->prefv4, srp->sid);
 
-	/* Delete NHLFE if NO-PHP is set */
-	if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG))
+	/* Delete NHLFE if NO-PHP is set and EXPLICIT NULL not set */
+	if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
+	    && !CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
 		ospf_zebra_delete_prefix_sid(srp);
 
 	/* OK, all is clean, remove SRP from SRDB */
@@ -2491,7 +2534,10 @@ static char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
 		snprintf(buf, size, "Pop(%u)", label_in);
 		break;
 	case MPLS_LABEL_IPV4_EXPLICIT_NULL:
-		snprintf(buf, size, "Swap(%u, null)", label_in);
+		if (label_in == MPLS_LABEL_IPV4_EXPLICIT_NULL)
+			snprintf(buf, size, "no-op.");
+		else
+			snprintf(buf, size, "Swap(%u, null)", label_in);
 		break;
 	case MPLS_INVALID_LABEL:
 		snprintf(buf, size, "no-op.");
