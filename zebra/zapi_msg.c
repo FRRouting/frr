@@ -1343,22 +1343,53 @@ static void zread_interface_add(ZAPI_HANDLER_ARGS)
 	struct vrf *vrf;
 	struct interface *ifp;
 
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			/* Skip pseudo interface. */
-			if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
-				continue;
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("zclient: %s registers vrf_id: %d vrf_name: %s",
+			   zebra_route_string(client->proto), zvrf_id(zvrf),
+			   zvrf_name(zvrf));
 
-			zsend_interface_add(client, ifp);
-			zsend_interface_link_params(client, ifp);
-			zsend_interface_addresses(client, ifp);
-		}
+	vrf_bitmap_set(client->ifinfo, zvrf_id(zvrf));
+
+	vrf = vrf_lookup_by_id(zvrf_id(zvrf));
+	if (!vrf)
+		return;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		/* Skip pseudo interface. */
+		if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
+			continue;
+
+		zsend_interface_add(client, ifp);
+		zsend_interface_link_params(client, ifp);
+		zsend_interface_addresses(client, ifp);
 	}
 }
 
 /* Unregister zebra server interface information. */
 static void zread_interface_delete(ZAPI_HANDLER_ARGS)
 {
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("zclient: %s unregisters vrf_id: %d vrf_name: %s",
+			   zebra_route_string(client->proto), zvrf_id(zvrf),
+			   zvrf_name(zvrf));
+
+	vrf_bitmap_unset(client->ifinfo, zvrf_id(zvrf));
+
+	vrf = vrf_lookup_by_id(zvrf_id(zvrf));
+	if (!vrf)
+		return;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		/* Skip pseudo interface. */
+		if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
+			continue;
+
+		zsend_interface_update(ZEBRA_INTERFACE_DOWN, client, ifp);
+		zsend_interface_delete(client, ifp);
+	}
 }
 
 /*

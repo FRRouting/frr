@@ -594,3 +594,17 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 
 	zclient_send_message(zclient);
 }
+
+void pbr_zebra_vrf_register(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_reg_requests(zclient, vrf->vrf_id);
+}
+
+void pbr_zebra_vrf_unregister(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_dereg_requests(zclient, vrf->vrf_id);
+}

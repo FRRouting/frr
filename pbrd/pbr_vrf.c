@@ -21,6 +21,8 @@
 
 #include "vrf.h"
 
+#include "pbr_nht.h"
+#include "pbr_zebra.h"
 #include "pbr_vrf.h"
 #include "pbr_memory.h"
 #include "pbr_map.h"
@@ -61,6 +63,7 @@ static int pbr_vrf_enable(struct vrf *vrf)
 
 	pbr_map_vrf_update(vrf->info);
 
+	pbr_zebra_vrf_register(vrf);
 	return 0;
 }
 
@@ -70,6 +73,7 @@ static int pbr_vrf_disable(struct vrf *vrf)
 
 	pbr_map_vrf_update(vrf->info);
 
+	pbr_zebra_vrf_unregister(vrf);
 	return 0;
 }
 

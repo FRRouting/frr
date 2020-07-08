@@ -46,6 +46,7 @@
 #include "pbr_nht.h"
 #include "pbr_map.h"
 #include "pbr_zebra.h"
+#include "pbr_vrf.h"
 #include "pbr_vty.h"
 #include "pbr_debug.h"
 #include "pbr_vrf.h"

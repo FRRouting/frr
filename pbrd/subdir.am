@@ -15,6 +15,7 @@ endif
 
 pbrd_libpbr_a_SOURCES = \
 	pbrd/pbr_zebra.c \
+	pbrd/pbr_vrf.c \
 	pbrd/pbr_vty.c \
 	pbrd/pbr_map.c \
 	pbrd/pbr_memory.c \
@@ -29,6 +30,7 @@ noinst_HEADERS += \
 	pbrd/pbr_nht.h \
 	pbrd/pbr_vty.h \
 	pbrd/pbr_zebra.h \
+	pbrd/pbr_vrf.h \
 	pbrd/pbr_debug.h \
 	pbrd/pbr_vrf.h \
 	# end

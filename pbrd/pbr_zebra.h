@@ -46,4 +46,7 @@ extern int pbr_ifp_up(struct interface *ifp);
 extern int pbr_ifp_down(struct interface *ifp);
 extern int pbr_ifp_destroy(struct interface *ifp);
 
+void pbr_zebra_vrf_register(struct vrf *vrf);
+void pbr_zebra_vrf_unregister(struct vrf *vrf);
+
 #endif

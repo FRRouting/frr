@@ -36,6 +36,10 @@ static int zsend_interface_bfd_update(int cmd, struct zserv *client,
 	int blen;
 	struct stream *s;
 
+	/* Check this client need interface information. */
+	if (!vrf_bitmap_check(client->ifinfo, vrf_id))
+		return 0;
+
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, cmd, vrf_id);

@@ -134,6 +134,9 @@ struct zserv {
 	/* Redistribute default route flag. */
 	vrf_bitmap_t redist_default[AFI_MAX];
 
+	/* VRF registration information. */
+	vrf_bitmap_t ifinfo;
+
 	/* Router-id information. */
 	vrf_bitmap_t ridinfo;
 
