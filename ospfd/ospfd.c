@@ -132,6 +132,18 @@ void ospf_router_id_update(struct ospf *ospf)
 			 * !(virtual | ptop) links
 			 */
 			ospf_nbr_self_reset(oi, router_id);
+
+			/*
+			 * If the old router id was not set, but now it
+			 * is and the interface is operative and the
+			 * state is ISM_Down we should kick the state
+			 * machine as that we processed the interfaces
+			 * based upon the network statement( or intf config )
+			 * but could not start it at that time.
+			 */
+			if (if_is_operative(oi->ifp) && oi->state == ISM_Down
+			    && router_id_old.s_addr == INADDR_ANY)
+				ospf_if_up(oi);
 		}
 
 		/* Flush (inline) all external LSAs based on the OSPF_LSA_SELF
