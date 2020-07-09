@@ -8861,7 +8861,8 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 
 /* Show BGP peer's summary information. */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
-			    bool show_failed, bool use_json)
+			    bool show_failed, bool show_established,
+			    bool use_json)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -9194,6 +9195,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				bgp_show_failed_summary(vty, bgp, peer,
 							json_peer, 0, use_json);
 			} else if (!show_failed) {
+				if (show_established
+				    && bgp_has_peer_failed(peer, afi, safi))
+					continue;
+
 				json_peer = json_object_new_object();
 				if (peer_dynamic_neighbor(peer)) {
 					json_object_boolean_true_add(json_peer,
@@ -9283,6 +9288,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							max_neighbor_width,
 							use_json);
 			} else if (!show_failed) {
+				if (show_established
+				    && bgp_has_peer_failed(peer, afi, safi))
+					continue;
+
 				memset(dn_flag, '\0', sizeof(dn_flag));
 				if (peer_dynamic_neighbor(peer)) {
 					dn_flag[0] = '*';
@@ -9405,7 +9414,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 }
 
 static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
-				      int safi, bool show_failed, bool use_json)
+				      int safi, bool show_failed,
+				      bool show_established, bool use_json)
 {
 	int is_first = 1;
 	int afi_wildcard = (afi == AFI_MAX);
@@ -9448,7 +9458,8 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 									 false));
 					}
 				}
-				bgp_show_summary(vty, bgp, afi, safi, show_failed,
+				bgp_show_summary(vty, bgp, afi, safi,
+						 show_failed, show_established,
 						 use_json);
 			}
 			safi++;
@@ -9472,6 +9483,7 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 
 static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 					       safi_t safi, bool show_failed,
+					       bool show_established,
 					       bool use_json)
 {
 	struct listnode *node, *nnode;
@@ -9501,7 +9513,7 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 					: bgp->name);
 		}
 		bgp_show_summary_afi_safi(vty, bgp, afi, safi, show_failed,
-					  use_json);
+					  show_established, use_json);
 	}
 
 	if (use_json)
@@ -9511,15 +9523,16 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 }
 
 int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
-			 safi_t safi, bool show_failed, bool use_json)
+			 safi_t safi, bool show_failed, bool show_established,
+			 bool use_json)
 {
 	struct bgp *bgp;
 
 	if (name) {
 		if (strmatch(name, "all")) {
-			bgp_show_all_instances_summary_vty(vty, afi, safi,
-							   show_failed,
-							   use_json);
+			bgp_show_all_instances_summary_vty(
+				vty, afi, safi, show_failed, show_established,
+				use_json);
 			return CMD_SUCCESS;
 		} else {
 			bgp = bgp_lookup_by_name(name);
@@ -9534,7 +9547,8 @@ int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 			}
 
 			bgp_show_summary_afi_safi(vty, bgp, afi, safi,
-						  show_failed, use_json);
+						  show_failed, show_established,
+						  use_json);
 			return CMD_SUCCESS;
 		}
 	}
@@ -9543,7 +9557,7 @@ int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 
 	if (bgp)
 		bgp_show_summary_afi_safi(vty, bgp, afi, safi, show_failed,
-					  use_json);
+					  show_established, use_json);
 	else {
 		if (use_json)
 			vty_out(vty, "{}\n");
@@ -9558,7 +9572,7 @@ int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 /* `show [ip] bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] summary [failed] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] summary [established|failed] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9566,6 +9580,7 @@ DEFUN (show_ip_bgp_summary,
        BGP_AFI_HELP_STR
        BGP_SAFI_WITH_LABEL_HELP_STR
        "Summary of BGP neighbor status\n"
+       "Show only sessions in Established state\n"
        "Show only sessions not in Established state\n"
        JSON_STR)
 {
@@ -9573,6 +9588,7 @@ DEFUN (show_ip_bgp_summary,
 	afi_t afi = AFI_MAX;
 	safi_t safi = SAFI_MAX;
 	bool show_failed = false;
+	bool show_established = false;
 
 	int idx = 0;
 
@@ -9594,10 +9610,13 @@ DEFUN (show_ip_bgp_summary,
 
 	if (argv_find(argv, argc, "failed", &idx))
 		show_failed = true;
+	if (argv_find(argv, argc, "established", &idx))
+		show_established = true;
 
 	bool uj = use_json(argc, argv);
 
-	return bgp_show_summary_vty(vty, vrf, afi, safi, show_failed, uj);
+	return bgp_show_summary_vty(vty, vrf, afi, safi, show_failed,
+				    show_established, uj);
 }
 
 const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json)
