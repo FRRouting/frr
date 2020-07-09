@@ -1180,9 +1180,11 @@ class Router(Node):
     def startRouterDaemons(self, daemons=None):
         "Starts all FRR daemons for this router."
 
-        bundle_data = subprocess.check_output(
-            ["cat /etc/frr/support_bundle_commands.conf"], shell=True
-        )
+        bundle_data = ''
+
+        if os.path.exists('/etc/frr/support_bundle_commands.conf'):
+            bundle_data = subprocess.check_output(
+                ["cat /etc/frr/support_bundle_commands.conf"], shell=True)
         self.cmd(
             "echo '{}' > /etc/frr/support_bundle_commands.conf".format(bundle_data)
         )
