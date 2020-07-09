@@ -516,7 +516,6 @@ uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
 		set_prefix_sid(exti, SR_ALGORITHM_SPF, index, SID_INDEX, flags);
 
 		/* Try to Schedule LSA */
-		// SET_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE);
 		if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE)) {
 			if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ENGAGED))
 				ospf_ext_pref_lsa_schedule(exti,
@@ -529,10 +528,8 @@ uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
 		osr_debug("EXT (%s): Remove prefix for interface %s", __func__,
 			  ifp->name);
 
-		if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ENGAGED)) {
+		if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ENGAGED))
 			ospf_ext_pref_lsa_schedule(exti, FLUSH_THIS_LSA);
-			exti->flags = EXT_LPFLG_LSA_INACTIVE;
-		}
 	}
 
 	return SET_OPAQUE_LSID(exti->type, exti->instance);
@@ -1375,10 +1372,6 @@ static int ospf_ext_link_lsa_originate(void *arg)
 		/* Process only Extended Link with valid Area ID */
 		if ((exti->area == NULL)
 		    || (!IPV4_ADDR_SAME(&exti->area->area_id, &area->area_id)))
-			continue;
-
-		/* Skip Extended Link which are not Active */
-		if (!CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE))
 			continue;
 
 		/* Check if LSA not already engaged */
