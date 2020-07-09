@@ -617,7 +617,7 @@ end
                 sub_main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug('LINE %-50s: entering sub-sub-context, append to ctx_keys', line)
                 ctx_keys.append(line)
-            
+
             elif ((line.startswith("interface ") and
                    len(ctx_keys) == 2 and
                    ctx_keys[0].startswith('mpls ldp') and
