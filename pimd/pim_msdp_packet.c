@@ -348,7 +348,7 @@ static void pim_msdp_pkt_sa_push(struct pim_instance *pim,
 	}
 }
 
-static int pim_msdp_pkt_sa_fill_hdr(struct pim_instance *pim, int local_cnt)
+static int pim_msdp_pkt_sa_fill_hdr(struct pim_instance *pim, int local_cnt, struct in_addr rp)
 {
 	int curr_tlv_ecnt;
 
@@ -361,7 +361,7 @@ static int pim_msdp_pkt_sa_fill_hdr(struct pim_instance *pim, int local_cnt)
 	stream_putw(pim->msdp.work_obuf,
 		    PIM_MSDP_SA_ENTRY_CNT2SIZE(curr_tlv_ecnt));
 	stream_putc(pim->msdp.work_obuf, curr_tlv_ecnt);
-	stream_put_ipv4(pim->msdp.work_obuf, pim->msdp.originator_id.s_addr);
+	stream_put_ipv4(pim->msdp.work_obuf, rp.s_addr);
 
 	return local_cnt;
 }
@@ -387,7 +387,7 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 		zlog_debug("  sa gen  %d", local_cnt);
 	}
 
-	local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt);
+	local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt, pim->msdp.originator_id);
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
 		if (!(sa->flags & PIM_MSDP_SAF_LOCAL)) {
@@ -408,7 +408,7 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 				zlog_debug("  sa gen for remainder %d",
 					   local_cnt);
 			}
-			local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt);
+			local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt, pim->msdp.originator_id);
 		}
 	}
 
@@ -441,7 +441,7 @@ void pim_msdp_pkt_sa_tx(struct pim_instance *pim)
 
 void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa)
 {
-	pim_msdp_pkt_sa_fill_hdr(sa->pim, 1 /* cnt */);
+	pim_msdp_pkt_sa_fill_hdr(sa->pim, 1 /* cnt */, sa->rp);
 	pim_msdp_pkt_sa_fill_one(sa);
 	pim_msdp_pkt_sa_push(sa->pim, NULL);
 	pim_msdp_pkt_sa_tx_done(sa->pim);
@@ -452,6 +452,23 @@ void pim_msdp_pkt_sa_tx_to_one_peer(struct pim_msdp_peer *mp)
 {
 	pim_msdp_pkt_sa_gen(mp->pim, mp);
 	pim_msdp_pkt_sa_tx_done(mp->pim);
+}
+
+void pim_msdp_pkt_sa_tx_one_to_one_peer(struct pim_msdp_peer *mp, struct in_addr rp, struct prefix_sg sg)
+{
+	struct pim_msdp_sa sa;
+
+	/* Fills the SA header. */
+	pim_msdp_pkt_sa_fill_hdr(mp->pim, 1, rp);
+
+	/* Fills the message contents. */
+	sa.pim = mp->pim;
+	sa.sg = sg;
+	pim_msdp_pkt_sa_fill_one(&sa);
+
+	/* Pushes the message. */
+	pim_msdp_pkt_sa_push(sa.pim, mp);
+	pim_msdp_pkt_sa_tx_done(sa.pim);
 }
 
 static void pim_msdp_pkt_rxed_with_fatal_error(struct pim_msdp_peer *mp)
@@ -473,6 +490,8 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 {
 	int prefix_len;
 	struct prefix_sg sg;
+	struct listnode *peer_node;
+	struct pim_msdp_peer *peer;
 
 	/* just throw away the three reserved bytes */
 	stream_get3(mp->ibuf);
@@ -493,6 +512,18 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 		zlog_debug("  sg %s", pim_str_sg_dump(&sg));
 	}
 	pim_msdp_sa_ref(mp->pim, mp, &sg, rp);
+
+	/* Forwards the SA to the peers that are not in the RPF to the RP nor in
+	 * the same mesh group as the peer from which we received the message. If
+	 * the message group is not set, i.e. "default", then we assume that the
+	 * message must be forwarded.*/
+	for (ALL_LIST_ELEMENTS_RO(mp->pim->msdp.peer_list, peer_node, peer)) {
+		if (!pim_msdp_peer_rpf_check(peer, rp) &&
+				(strcmp(mp->mesh_group_name, peer->mesh_group_name) ||
+						!strcmp(mp->mesh_group_name, "default"))) {
+			pim_msdp_pkt_sa_tx_one_to_one_peer(peer, rp, sg);
+		}
+	}
 }
 
 static void pim_msdp_pkt_sa_rx(struct pim_msdp_peer *mp, int len)
@@ -526,6 +557,8 @@ static void pim_msdp_pkt_sa_rx(struct pim_msdp_peer *mp, int len)
 		zlog_debug("  entry_cnt %d rp %s", entry_cnt, rp_str);
 	}
 
+	pim_msdp_peer_pkt_rxed(mp);
+
 	if (!pim_msdp_peer_rpf_check(mp, rp)) {
 		/* if peer-RPF check fails don't process the packet any further
 		 */
@@ -534,8 +567,6 @@ static void pim_msdp_pkt_sa_rx(struct pim_msdp_peer *mp, int len)
 		}
 		return;
 	}
-
-	pim_msdp_peer_pkt_rxed(mp);
 
 	/* update SA cache */
 	for (i = 0; i < entry_cnt; ++i) {
