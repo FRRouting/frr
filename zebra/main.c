@@ -415,12 +415,12 @@ int main(int argc, char **argv)
 	rib_init();
 	zebra_if_init();
 	zebra_debug_init();
-	router_id_cmd_init();
 
 	/*
 	 * Initialize NS( and implicitly the VRF module), and make kernel
 	 * routing socket. */
 	zebra_ns_init((const char *)vrf_default_name_configured);
+	router_id_cmd_init();
 	zebra_vty_init();
 	access_list_init();
 	prefix_list_init();

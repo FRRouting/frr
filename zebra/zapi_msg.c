@@ -1879,7 +1879,7 @@ static void zread_router_id_add(ZAPI_HANDLER_ARGS)
 	/* Router-id information is needed. */
 	vrf_bitmap_set(client->ridinfo, zvrf_id(zvrf));
 
-	router_id_get(&p, zvrf_id(zvrf));
+	router_id_get(&p, zvrf);
 
 	zsend_router_id_update(client, &p, zvrf_id(zvrf));
 }
