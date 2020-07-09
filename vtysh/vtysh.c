@@ -809,6 +809,9 @@ int vtysh_mark_file(const char *filename)
 			} else if ((prev_node == KEYCHAIN_KEY_NODE)
 				   && (tried == 1)) {
 				vty_out(vty, "exit\n");
+			} else if ((prev_node == BFD_PEER_NODE)
+				   && (tried == 1)) {
+				vty_out(vty, "exit\n");
 			} else if (tried) {
 				vty_out(vty, "end\n");
 			}
