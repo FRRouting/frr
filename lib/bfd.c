@@ -128,6 +128,8 @@ void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
 /*
  * bfd_peer_sendmsg - Format and send a peer register/Unregister
  *                    command to Zebra to be forwarded to BFD
+ *
+ * DEPRECATED: use zclient_bfd_command instead
  */
 void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 		      int family, void *dst_ip, void *src_ip, char *if_name,
@@ -440,6 +442,15 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 {
 	struct stream *s;
 	size_t addrlen;
+
+	/* Individual reg/dereg messages are suppressed during shutdown. */
+	if (CHECK_FLAG(bfd_gbl.flags, BFD_GBL_FLAG_IN_SHUTDOWN)) {
+		if (bfd_debug)
+			zlog_debug(
+				"%s: Suppressing BFD peer reg/dereg messages",
+				__func__);
+		return -1;
+	}
 
 	/* Check socket. */
 	if (!zc || zc->sock < 0) {

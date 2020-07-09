@@ -255,6 +255,43 @@ static void bfd_debug(int family, union g_addr *dst, union g_addr *src,
 		   command_str, dst_str, interface, src_str);
 }
 
+static void bfd_command(int command, struct bfd_info *bfd_info, int family,
+			const void *dst_ip, const void *src_ip,
+			const char *if_name)
+{
+	struct bfd_session_arg args = {};
+	size_t addrlen;
+
+	args.cbit = 1;
+	args.family = family;
+	args.vrf_id = VRF_DEFAULT;
+	args.command = command;
+	args.bfd_info = bfd_info;
+	if (args.bfd_info) {
+		args.min_rx = bfd_info->required_min_rx;
+		args.min_tx = bfd_info->desired_min_tx;
+		args.detection_multiplier = bfd_info->detect_mult;
+		if (bfd_info->profile[0]) {
+			args.profilelen = strlen(bfd_info->profile);
+			strlcpy(args.profile, bfd_info->profile,
+				sizeof(args.profile));
+		}
+	}
+
+	addrlen = family == AF_INET ? sizeof(struct in_addr)
+				    : sizeof(struct in6_addr);
+	memcpy(&args.dst, dst_ip, addrlen);
+	if (src_ip)
+		memcpy(&args.src, src_ip, addrlen);
+
+	if (if_name) {
+		strlcpy(args.ifname, if_name, sizeof(args.ifname));
+		args.ifnamelen = strlen(args.ifname);
+	}
+
+	zclient_bfd_command(zclient, &args);
+}
+
 static void bfd_handle_adj_down(struct isis_adjacency *adj)
 {
 	if (!adj->bfd_session)
@@ -264,17 +301,11 @@ static void bfd_handle_adj_down(struct isis_adjacency *adj)
 		  &adj->bfd_session->src_ip, adj->circuit->interface->name,
 		  ZEBRA_BFD_DEST_DEREGISTER);
 
-	bfd_peer_sendmsg(zclient, NULL, adj->bfd_session->family,
-			 &adj->bfd_session->dst_ip, &adj->bfd_session->src_ip,
-			 (adj->circuit->interface)
-				 ? adj->circuit->interface->name
-				 : NULL,
-			 0, /* ttl */
-			 0, /* multihop */
-			 1, /* control plane independent bit is on */
-			 ZEBRA_BFD_DEST_DEREGISTER,
-			 0, /* set_flag */
-			 VRF_DEFAULT);
+	bfd_command(ZEBRA_BFD_DEST_DEREGISTER, NULL, adj->bfd_session->family,
+		    &adj->bfd_session->dst_ip, &adj->bfd_session->src_ip,
+		    (adj->circuit->interface) ? adj->circuit->interface->name
+					      : NULL);
+
 	bfd_session_free(&adj->bfd_session);
 }
 
@@ -324,18 +355,12 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 
 	bfd_debug(adj->bfd_session->family, &adj->bfd_session->dst_ip,
 		  &adj->bfd_session->src_ip, circuit->interface->name, command);
-	bfd_peer_sendmsg(zclient, circuit->bfd_info, adj->bfd_session->family,
-			 &adj->bfd_session->dst_ip,
-			 &adj->bfd_session->src_ip,
-			 (adj->circuit->interface)
-				 ? adj->circuit->interface->name
-				 : NULL,
-			 0, /* ttl */
-			 0, /* multihop */
-			 1, /* control plane independent bit is on */
-			 command,
-			 0, /* set flag */
-			 VRF_DEFAULT);
+
+	bfd_command(command, circuit->bfd_info, family,
+		    &adj->bfd_session->dst_ip, &adj->bfd_session->src_ip,
+		    (adj->circuit->interface) ? adj->circuit->interface->name
+					      : NULL);
+
 	return;
 out:
 	bfd_handle_adj_down(adj);
