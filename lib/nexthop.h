@@ -220,7 +220,7 @@ extern const char *nexthop2str(const struct nexthop *nexthop,
 extern struct nexthop *nexthop_next(const struct nexthop *nexthop);
 extern struct nexthop *
 nexthop_next_active_resolved(const struct nexthop *nexthop);
-extern unsigned int nexthop_level(struct nexthop *nexthop);
+extern unsigned int nexthop_level(const struct nexthop *nexthop);
 /* Copies to an already allocated nexthop struct */
 extern void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 			 struct nexthop *rparent);

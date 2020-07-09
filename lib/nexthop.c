@@ -525,11 +525,12 @@ struct nexthop *nexthop_next_active_resolved(const struct nexthop *nexthop)
 	return next;
 }
 
-unsigned int nexthop_level(struct nexthop *nexthop)
+unsigned int nexthop_level(const struct nexthop *nexthop)
 {
 	unsigned int rv = 0;
 
-	for (struct nexthop *par = nexthop->rparent; par; par = par->rparent)
+	for (const struct nexthop *par = nexthop->rparent;
+	     par; par = par->rparent)
 		rv++;
 
 	return rv;
