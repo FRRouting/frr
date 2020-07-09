@@ -369,6 +369,9 @@ static struct zebra_dplane_globals {
 	 */
 	uint32_t dg_updates_per_cycle;
 
+	/* Timestamp when shutdown started */
+	time_t dg_t_shutdown;
+
 	_Atomic uint32_t dg_routes_in;
 	_Atomic uint32_t dg_routes_queued;
 	_Atomic uint32_t dg_routes_queued_max;
@@ -3988,6 +3991,8 @@ static bool dplane_work_pending(void)
 	struct zebra_dplane_ctx *ctx;
 	struct zebra_dplane_provider *prov;
 
+	return true;
+
 	/* TODO -- just checking incoming/pending work for now, must check
 	 * providers
 	 */
@@ -4037,8 +4042,19 @@ done:
  */
 static int dplane_check_shutdown_status(struct thread *event)
 {
+	time_t t;
+
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane shutdown status check called");
+
+	/* Give up and stop waiting after a time */
+	t = monotime(NULL);
+
+	if ((t - zdplane_info.dg_t_shutdown) > 8) {
+		zlog_info("Dataplane shutdown time exceeded!");
+		thread_add_event(zrouter.master, zebra_finalize, NULL, 0, NULL);
+		return 0;
+	}
 
 	if (dplane_work_pending()) {
 		/* Reschedule dplane check on a short timer */
@@ -4046,9 +4062,6 @@ static int dplane_check_shutdown_status(struct thread *event)
 				      dplane_check_shutdown_status,
 				      NULL, 100,
 				      &zdplane_info.dg_t_shutdown_check);
-
-		/* TODO - give up and stop waiting after a short time? */
-
 	} else {
 		/* We appear to be done - schedule a final callback event
 		 * for the zebra main pthread.
@@ -4073,6 +4086,8 @@ void zebra_dplane_finish(void)
 {
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane fini called");
+
+	zdplane_info.dg_t_shutdown = monotime(NULL);
 
 	thread_add_event(zdplane_info.dg_master,
 			 dplane_check_shutdown_status, NULL, 0,
