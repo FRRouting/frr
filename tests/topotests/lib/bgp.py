@@ -1467,9 +1467,10 @@ def clear_bgp_and_verify(tgen, topo, router):
     rnode = tgen.routers()[router]
 
     peer_uptime_before_clear_bgp = {}
+    sleeptime = 3
+
     # Verifying BGP convergence before bgp clear command
     for retry in range(44):
-        sleeptime = 3
         # Waiting for BGP to converge
         logger.info(
             "Waiting for %s sec for BGP to converge on router" " %s...",
@@ -1536,8 +1537,8 @@ def clear_bgp_and_verify(tgen, topo, router):
             )
     else:
         errormsg = (
-            "TIMEOUT!! BGP is not converged in 30 seconds for"
-            " router {}".format(router)
+            "TIMEOUT!! BGP is not converged in {} seconds for"
+            " router {}".format(retry * sleeptime, router)
         )
         return errormsg
 
@@ -1552,7 +1553,7 @@ def clear_bgp_and_verify(tgen, topo, router):
     peer_uptime_after_clear_bgp = {}
     # Verifying BGP convergence after bgp clear command
     for retry in range(44):
-        sleeptime = 3
+
         # Waiting for BGP to converge
         logger.info(
             "Waiting for %s sec for BGP to converge on router" " %s...",
@@ -1615,8 +1616,8 @@ def clear_bgp_and_verify(tgen, topo, router):
             )
     else:
         errormsg = (
-            "TIMEOUT!! BGP is not converged in 30 seconds for"
-            " router {}".format(router)
+            "TIMEOUT!! BGP is not converged in {} seconds for"
+            " router {}".format(retry * sleeptime, router)
         )
         return errormsg
 
