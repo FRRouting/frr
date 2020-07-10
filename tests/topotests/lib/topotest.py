@@ -991,11 +991,10 @@ class Router(Node):
         super(Router, self).terminate()
         os.system("chmod -R go+rw /tmp/topotests")
 
-    # Return count of running daemons
-    def countDaemons(self):
+    # Return count of running daemons, given list of pidfiles
+    def countDaemons(self, rundaemons):
         numRunning = 0
-        rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
-        errors = ""
+
         if re.search(r"No such file or directory", rundaemons):
             return 0
         if rundaemons is not None:
@@ -1017,8 +1016,10 @@ class Router(Node):
                 daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                 if daemonpid.isdigit() and pid_exists(int(daemonpid)):
                     logger.info(
-                        "{}: stopping {}".format(
-                            self.name, os.path.basename(d.rstrip().rsplit(".", 1)[0])
+                        "{}: stopping {} pid {}".format(
+                            self.name,
+                            os.path.basename(d.rstrip().rsplit(".", 1)[0]),
+                            daemonpid
                         )
                     )
                     self.cmd("kill -TERM %s" % daemonpid)
@@ -1026,11 +1027,41 @@ class Router(Node):
                     if pid_exists(int(daemonpid)):
                         numRunning += 1
 
+            # Wait a few seconds
             if wait and numRunning > 0:
-                counter = 5
+                counter = 2
                 while counter > 0 and numRunning > 0:
-                    sleep(2, "{}: waiting for daemons stopping".format(self.name))
-                    numRunning = self.countDaemons()
+                    sleep(2,
+                          "{}: waiting for daemons stopping".format(self.name))
+
+                    numRunning = self.countDaemons(rundaemons)
+                    counter -= 1
+
+            # Try a second time - in case the signal didn't make it?
+            if wait and numRunning > 0:
+                for d in StringIO.StringIO(rundaemons):
+                    daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
+                    if daemonpid.isdigit() and pid_exists(int(daemonpid)):
+                        logger.info(
+                            "{}: repeat stop {} pid {}".format(
+                                self.name,
+                                os.path.basename(d.rstrip().rsplit(".", 1)[0]),
+                                daemonpid
+                            )
+                        )
+
+                        self.cmd("kill -TERM %s" % daemonpid)
+                        self.waitOutput()
+
+                numRunning = self.countDaemons(rundaemons)
+
+            # Wait a few more seconds
+            if wait and numRunning > 0:
+                counter = 3
+                while counter > 0 and numRunning > 0:
+                    sleep(2, "{}: waiting for daemons to stop".format(self.name))
+
+                    numRunning = self.countDaemons(rundaemons)
                     counter -= 1
 
             if wait and numRunning > 0:
