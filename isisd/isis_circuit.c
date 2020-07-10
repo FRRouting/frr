@@ -721,7 +721,7 @@ void isis_circuit_down(struct isis_circuit *circuit)
 #endif /* ifndef FABRICD */
 
 	/* log adjacency changes if configured to do so */
-	if (circuit->area && circuit->area->log_adj_changes) {
+	if (circuit->area->log_adj_changes) {
 		struct isis_adjacency *adj = NULL;
 		if (circuit->circ_type == CIRCUIT_T_P2P) {
 			adj = circuit->u.p2p.neighbor;
