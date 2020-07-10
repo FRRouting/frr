@@ -1734,6 +1734,10 @@ static bool nexthop_valid_resolve(const struct nexthop *nexthop,
 	if (CHECK_FLAG(resolved->flags, NEXTHOP_FLAG_RECURSIVE))
 		return false;
 
+	/* Must be ACTIVE */
+	if (!CHECK_FLAG(resolved->flags, NEXTHOP_FLAG_ACTIVE))
+		return false;
+
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -1926,11 +1930,23 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 			return 1;
 		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
+			struct nexthop_group *nhg;
+
 			resolved = 0;
-			for (ALL_NEXTHOPS(match->nhe->nhg, newhop)) {
-				if (!CHECK_FLAG(match->status,
-						ROUTE_ENTRY_INSTALLED))
-					continue;
+
+			/* Only useful if installed */
+			if (!CHECK_FLAG(match->status, ROUTE_ENTRY_INSTALLED)) {
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: match %p (%u) not installed",
+						   __func__, match,
+						   match->nhe->id);
+
+				goto done_with_match;
+			}
+
+			/* Examine installed nexthops */
+			nhg = &match->nhe->nhg;
+			for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
 				if (!nexthop_valid_resolve(nexthop, newhop))
 					continue;
 
@@ -1945,25 +1961,21 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				resolved = 1;
 			}
 
-			if (resolved)
-				re->nexthop_mtu = match->mtu;
-			else if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-				zlog_debug(
-					"        %s: Recursion failed to find",
-					__func__);
+			/* Examine installed backup nexthops, if any. There
+			 * are only installed backups *if* there is a
+			 * dedicated fib list.
+			 */
+			nhg = rib_get_fib_backup_nhg(match);
+			if (nhg == NULL ||
+			    nhg == zebra_nhg_get_backup_nhg(match->nhe))
+				goto done_with_match;
 
-			return resolved;
-		} else if (re->type == ZEBRA_ROUTE_STATIC) {
-			resolved = 0;
-			for (ALL_NEXTHOPS(match->nhe->nhg, newhop)) {
-				if (!CHECK_FLAG(match->status,
-						ROUTE_ENTRY_INSTALLED))
-					continue;
+			for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
 				if (!nexthop_valid_resolve(nexthop, newhop))
 					continue;
 
-				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-					zlog_debug("%s: STATIC match %p (%u), newhop %pNHv",
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: RECURSIVE match backup %p (%u), newhop %pNHv",
 						   __func__, match,
 						   match->nhe->id, newhop);
 
@@ -1972,13 +1984,14 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				nexthop_set_resolved(afi, newhop, nexthop);
 				resolved = 1;
 			}
+done_with_match:
 			if (resolved)
 				re->nexthop_mtu = match->mtu;
-
-			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
+			else if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
-					"        %s: Static route unable to resolve",
+					"        %s: Recursion failed to find",
 					__func__);
+
 			return resolved;
 		} else {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
@@ -2170,17 +2183,20 @@ done:
 }
 
 /*
- * Process a list of nexthops, given the head of the list, determining
+ * Process a list of nexthops, given an nhg, determining
  * whether each one is ACTIVE/installable at this time.
  */
 static uint32_t nexthop_list_active_update(struct route_node *rn,
 					   struct route_entry *re,
-					   struct nexthop *nexthop)
+					   struct nexthop_group *nhg)
 {
 	union g_addr prev_src;
 	unsigned int prev_active, new_active;
 	ifindex_t prev_index;
 	uint32_t counter = 0;
+	struct nexthop *nexthop;
+
+	nexthop = nhg->nexthop;
 
 	/* Process nexthops one-by-one */
 	for ( ; nexthop; nexthop = nexthop->next) {
@@ -2263,7 +2279,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	curr_nhe->id = 0;
 
 	/* Process nexthops */
-	curr_active = nexthop_list_active_update(rn, re, curr_nhe->nhg.nexthop);
+	curr_active = nexthop_list_active_update(rn, re, &curr_nhe->nhg);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: re %p curr_active %u", __func__, re,
@@ -2274,7 +2290,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		goto backups_done;
 
 	backup_active = nexthop_list_active_update(
-		rn, re, zebra_nhg_get_backup_nhg(curr_nhe)->nexthop);
+		rn, re, zebra_nhg_get_backup_nhg(curr_nhe));
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: re %p backup_active %u", __func__, re,

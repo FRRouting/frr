@@ -2485,7 +2485,7 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 		if (really_remove)
 			mpls_lsp_uninstall(def_zvrf, ltype, zvrf->label[afi],
 					   NEXTHOP_TYPE_IFINDEX, NULL,
-					   ifp->ifindex);
+					   ifp->ifindex, false /*backup*/);
 	}
 
 	if (nlabel != MPLS_LABEL_NONE) {

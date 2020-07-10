@@ -1149,6 +1149,37 @@ void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh)
 	nexthop_group_copy_nh_sorted(&(ctx->u.rinfo.zd_ng), nh);
 }
 
+/*
+ * Set the list of backup nexthops; their ordering is preserved (they're not
+ * re-sorted.)
+ */
+void dplane_ctx_set_backup_nhg(struct zebra_dplane_ctx *ctx,
+			       const struct nexthop_group *nhg)
+{
+	struct nexthop *nh, *last_nh, *nexthop;
+
+	DPLANE_CTX_VALID(ctx);
+
+	if (ctx->u.rinfo.backup_ng.nexthop) {
+		nexthops_free(ctx->u.rinfo.backup_ng.nexthop);
+		ctx->u.rinfo.backup_ng.nexthop = NULL;
+	}
+
+	last_nh = NULL;
+
+	/* Be careful to preserve the order of the backup list */
+	for (nh = nhg->nexthop; nh; nh = nh->next) {
+		nexthop = nexthop_dup(nh, NULL);
+
+		if (last_nh)
+			NEXTHOP_APPEND(last_nh, nexthop);
+		else
+			ctx->u.rinfo.backup_ng.nexthop = nexthop;
+
+		last_nh = nexthop;
+	}
+}
+
 uint32_t dplane_ctx_get_nhg_id(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -1303,7 +1334,7 @@ const struct nhlfe_list_head *dplane_ctx_get_backup_nhlfe_list(
 zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 				    enum lsp_types_t lsp_type,
 				    enum nexthop_types_t nh_type,
-				    union g_addr *gate,
+				    const union g_addr *gate,
 				    ifindex_t ifindex,
 				    uint8_t num_labels,
 				    mpls_label_t *out_labels)
@@ -1322,7 +1353,7 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 zebra_nhlfe_t *dplane_ctx_add_backup_nhlfe(struct zebra_dplane_ctx *ctx,
 					   enum lsp_types_t lsp_type,
 					   enum nexthop_types_t nh_type,
-					   union g_addr *gate,
+					   const union g_addr *gate,
 					   ifindex_t ifindex,
 					   uint8_t num_labels,
 					   mpls_label_t *out_labels)
@@ -1921,17 +1952,11 @@ done:
 /*
  * Capture information for an LSP update in a dplane context.
  */
-static int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx,
-			       enum dplane_op_e op,
-			       zebra_lsp_t *lsp)
+int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
+			zebra_lsp_t *lsp)
 {
 	int ret = AOK;
 	zebra_nhlfe_t *nhlfe, *new_nhlfe;
-
-	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-		zlog_debug("init dplane ctx %s: in-label %u ecmp# %d",
-			   dplane_op2str(op), lsp->ile.in_label,
-			   lsp->num_ecmp);
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
@@ -1944,6 +1969,20 @@ static int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx,
 
 	nhlfe_list_init(&(ctx->u.lsp.nhlfe_list));
 	nhlfe_list_init(&(ctx->u.lsp.backup_nhlfe_list));
+
+	/* This may be called to create/init a dplane context, not necessarily
+	 * to copy an lsp object.
+	 */
+	if (lsp == NULL) {
+		ret = AOK;
+		goto done;
+	}
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+		zlog_debug("init dplane ctx %s: in-label %u ecmp# %d",
+			   dplane_op2str(op), lsp->ile.in_label,
+			   lsp->num_ecmp);
+
 	ctx->u.lsp.ile = lsp->ile;
 	ctx->u.lsp.addr_family = lsp->addr_family;
 	ctx->u.lsp.num_ecmp = lsp->num_ecmp;
@@ -2012,6 +2051,7 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *re;
+	const struct nexthop_group *nhg;
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("init dplane ctx %s: pw '%s', loc %u, rem %u",
@@ -2062,10 +2102,11 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 					break;
 			}
 
-			if (re)
+			if (re) {
+				nhg = rib_get_fib_nhg(re);
 				copy_nexthops(&(ctx->u.pw.nhg.nexthop),
-					      re->nhe->nhg.nexthop, NULL);
-
+					      nhg->nexthop, NULL);
+			}
 			route_unlock_node(rn);
 		}
 	}
@@ -2442,7 +2483,7 @@ dplane_route_notif_update(struct route_node *rn,
 		new_ctx->u.rinfo.zd_ng.nexthop = NULL;
 
 		copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
-			      (rib_active_nhg(re))->nexthop, NULL);
+			      (rib_get_fib_nhg(re))->nexthop, NULL);
 
 		for (ALL_NEXTHOPS(new_ctx->u.rinfo.zd_ng, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
