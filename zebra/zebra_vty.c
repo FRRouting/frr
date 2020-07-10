@@ -516,8 +516,189 @@ static void show_route_nexthop_helper(struct vty *vty,
 				       sizeof(buf), 1));
 	}
 
-	if ((re == NULL) && nexthop->weight)
+	if (nexthop->weight)
 		vty_out(vty, ", weight %u", nexthop->weight);
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
+		vty_out(vty, ", backup %d", nexthop->backup_idx);
+}
+
+/*
+ * Render a nexthop into a json object; the caller allocates and owns
+ * the json object memory.
+ */
+static void show_nexthop_json_helper(json_object *json_nexthop,
+				     const struct nexthop *nexthop,
+				     const struct route_entry *re)
+{
+	char buf[SRCDEST2STR_BUFFER];
+	struct vrf *vrf = NULL;
+	json_object *json_labels = NULL;
+
+	json_object_int_add(json_nexthop, "flags",
+			    nexthop->flags);
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+		json_object_boolean_true_add(json_nexthop,
+					     "duplicate");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+		json_object_boolean_true_add(json_nexthop,
+					     "fib");
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		json_object_string_add(
+			json_nexthop, "ip",
+			inet_ntoa(nexthop->gate.ipv4));
+		json_object_string_add(json_nexthop, "afi",
+				       "ipv4");
+
+		if (nexthop->ifindex) {
+			json_object_int_add(json_nexthop,
+					    "interfaceIndex",
+					    nexthop->ifindex);
+			json_object_string_add(
+				json_nexthop, "interfaceName",
+				ifindex2ifname(
+					nexthop->ifindex,
+					nexthop->vrf_id));
+		}
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		json_object_string_add(
+			json_nexthop, "ip",
+			inet_ntop(AF_INET6, &nexthop->gate.ipv6,
+				  buf, sizeof(buf)));
+		json_object_string_add(json_nexthop, "afi",
+				       "ipv6");
+
+		if (nexthop->ifindex) {
+			json_object_int_add(json_nexthop,
+					    "interfaceIndex",
+					    nexthop->ifindex);
+			json_object_string_add(
+				json_nexthop, "interfaceName",
+				ifindex2ifname(
+					nexthop->ifindex,
+					nexthop->vrf_id));
+		}
+		break;
+
+	case NEXTHOP_TYPE_IFINDEX:
+		json_object_boolean_true_add(
+			json_nexthop, "directlyConnected");
+		json_object_int_add(json_nexthop,
+				    "interfaceIndex",
+				    nexthop->ifindex);
+		json_object_string_add(
+			json_nexthop, "interfaceName",
+			ifindex2ifname(nexthop->ifindex,
+				       nexthop->vrf_id));
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		json_object_boolean_true_add(json_nexthop,
+					     "unreachable");
+		switch (nexthop->bh_type) {
+		case BLACKHOLE_REJECT:
+			json_object_boolean_true_add(
+				json_nexthop, "reject");
+			break;
+		case BLACKHOLE_ADMINPROHIB:
+			json_object_boolean_true_add(
+				json_nexthop,
+				"admin-prohibited");
+			break;
+		case BLACKHOLE_NULL:
+			json_object_boolean_true_add(
+				json_nexthop, "blackhole");
+			break;
+		case BLACKHOLE_UNSPEC:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+
+	if ((nexthop->vrf_id != re->vrf_id)
+	    && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)) {
+		vrf = vrf_lookup_by_id(nexthop->vrf_id);
+		json_object_string_add(json_nexthop, "vrf",
+				       vrf->name);
+	}
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+		json_object_boolean_true_add(json_nexthop,
+					     "duplicate");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		json_object_boolean_true_add(json_nexthop,
+					     "active");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
+		json_object_boolean_true_add(json_nexthop,
+					     "onLink");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+		json_object_boolean_true_add(json_nexthop,
+					     "recursive");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
+		json_object_int_add(json_nexthop, "backupIndex",
+				    nexthop->backup_idx);
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		if (nexthop->src.ipv4.s_addr) {
+			if (inet_ntop(AF_INET,
+				      &nexthop->src.ipv4, buf,
+				      sizeof(buf)))
+				json_object_string_add(
+					json_nexthop, "source",
+					buf);
+		}
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6,
+				    &in6addr_any)) {
+			if (inet_ntop(AF_INET6,
+				      &nexthop->src.ipv6, buf,
+				      sizeof(buf)))
+				json_object_string_add(
+					json_nexthop, "source",
+					buf);
+		}
+		break;
+	default:
+		break;
+	}
+
+	if (nexthop->nh_label
+	    && nexthop->nh_label->num_labels) {
+		json_labels = json_object_new_array();
+
+		for (int label_index = 0;
+		     label_index
+			     < nexthop->nh_label->num_labels;
+		     label_index++)
+			json_object_array_add(
+				json_labels,
+				json_object_new_int(
+					nexthop->nh_label->label
+					[label_index]));
+
+		json_object_object_add(json_nexthop, "labels",
+				       json_labels);
+	}
+
+	if (nexthop->weight)
+		json_object_int_add(json_nexthop, "weight",
+				    nexthop->weight);
+
 }
 
 static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
@@ -530,12 +711,12 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	json_object *json_nexthops = NULL;
 	json_object *json_nexthop = NULL;
 	json_object *json_route = NULL;
-	json_object *json_labels = NULL;
 	time_t uptime;
 	struct vrf *vrf = NULL;
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct nexthop_group *nhg;
 	char up_str[MONOTIME_STRLEN];
+	bool first_p;
 
 	uptime = monotime(NULL);
 	uptime -= re->uptime;
@@ -546,7 +727,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	 * nexthops.
 	 */
 	if (is_fib)
-		nhg = rib_active_nhg(re);
+		nhg = rib_get_fib_nhg(re);
 	else
 		nhg = &(re->nhe->nhg);
 
@@ -611,177 +792,44 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 			json_nexthop = json_object_new_object();
 
-			json_object_int_add(json_nexthop, "flags",
-					    nexthop->flags);
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
-				json_object_boolean_true_add(json_nexthop,
-							     "duplicate");
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-				json_object_boolean_true_add(json_nexthop,
-							     "fib");
-
-			switch (nexthop->type) {
-			case NEXTHOP_TYPE_IPV4:
-			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				json_object_string_add(
-					json_nexthop, "ip",
-					inet_ntoa(nexthop->gate.ipv4));
-				json_object_string_add(json_nexthop, "afi",
-						       "ipv4");
-
-				if (nexthop->ifindex) {
-					json_object_int_add(json_nexthop,
-							    "interfaceIndex",
-							    nexthop->ifindex);
-					json_object_string_add(
-						json_nexthop, "interfaceName",
-						ifindex2ifname(
-							nexthop->ifindex,
-							nexthop->vrf_id));
-				}
-				break;
-			case NEXTHOP_TYPE_IPV6:
-			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				json_object_string_add(
-					json_nexthop, "ip",
-					inet_ntop(AF_INET6, &nexthop->gate.ipv6,
-						  buf, sizeof(buf)));
-				json_object_string_add(json_nexthop, "afi",
-						       "ipv6");
-
-				if (nexthop->ifindex) {
-					json_object_int_add(json_nexthop,
-							    "interfaceIndex",
-							    nexthop->ifindex);
-					json_object_string_add(
-						json_nexthop, "interfaceName",
-						ifindex2ifname(
-							nexthop->ifindex,
-							nexthop->vrf_id));
-				}
-				break;
-
-			case NEXTHOP_TYPE_IFINDEX:
-				json_object_boolean_true_add(
-					json_nexthop, "directlyConnected");
-				json_object_int_add(json_nexthop,
-						    "interfaceIndex",
-						    nexthop->ifindex);
-				json_object_string_add(
-					json_nexthop, "interfaceName",
-					ifindex2ifname(nexthop->ifindex,
-						       nexthop->vrf_id));
-				break;
-			case NEXTHOP_TYPE_BLACKHOLE:
-				json_object_boolean_true_add(json_nexthop,
-							     "unreachable");
-				switch (nexthop->bh_type) {
-				case BLACKHOLE_REJECT:
-					json_object_boolean_true_add(
-						json_nexthop, "reject");
-					break;
-				case BLACKHOLE_ADMINPROHIB:
-					json_object_boolean_true_add(
-						json_nexthop,
-						"admin-prohibited");
-					break;
-				case BLACKHOLE_NULL:
-					json_object_boolean_true_add(
-						json_nexthop, "blackhole");
-					break;
-				case BLACKHOLE_UNSPEC:
-					break;
-				}
-				break;
-			default:
-				break;
-			}
-
-			if ((nexthop->vrf_id != re->vrf_id)
-			     && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)) {
-				vrf = vrf_lookup_by_id(nexthop->vrf_id);
-				json_object_string_add(json_nexthop, "vrf",
-						       vrf->name);
-			}
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
-				json_object_boolean_true_add(json_nexthop,
-							     "duplicate");
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-				json_object_boolean_true_add(json_nexthop,
-							     "active");
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
-				json_object_boolean_true_add(json_nexthop,
-							     "onLink");
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				json_object_boolean_true_add(json_nexthop,
-							     "recursive");
-
-			switch (nexthop->type) {
-			case NEXTHOP_TYPE_IPV4:
-			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				if (nexthop->src.ipv4.s_addr) {
-					if (inet_ntop(AF_INET,
-						      &nexthop->src.ipv4, buf,
-						      sizeof(buf)))
-						json_object_string_add(
-							json_nexthop, "source",
-							buf);
-				}
-				break;
-			case NEXTHOP_TYPE_IPV6:
-			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				if (!IPV6_ADDR_SAME(&nexthop->src.ipv6,
-						    &in6addr_any)) {
-					if (inet_ntop(AF_INET6,
-						      &nexthop->src.ipv6, buf,
-						      sizeof(buf)))
-						json_object_string_add(
-							json_nexthop, "source",
-							buf);
-				}
-				break;
-			default:
-				break;
-			}
-
-			if (nexthop->nh_label
-			    && nexthop->nh_label->num_labels) {
-				json_labels = json_object_new_array();
-
-				for (int label_index = 0;
-				     label_index
-				     < nexthop->nh_label->num_labels;
-				     label_index++)
-					json_object_array_add(
-						json_labels,
-						json_object_new_int(
-							nexthop->nh_label->label
-								[label_index]));
-
-				json_object_object_add(json_nexthop, "labels",
-						       json_labels);
-			}
-
-			if (nexthop->weight)
-				json_object_int_add(json_nexthop, "weight",
-						    nexthop->weight);
-
+			show_nexthop_json_helper(json_nexthop, nexthop, re);
 			json_object_array_add(json_nexthops, json_nexthop);
 		}
 
 		json_object_object_add(json_route, "nexthops", json_nexthops);
+
+		/* If there are backup nexthops, include them */
+		if (is_fib)
+			nhg = rib_get_fib_backup_nhg(re);
+		else
+			nhg = zebra_nhg_get_backup_nhg(re->nhe);
+
+		if (nhg) {
+			json_nexthops = json_object_new_array();
+
+			for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+				json_nexthop = json_object_new_object();
+
+				show_nexthop_json_helper(json_nexthop,
+							 nexthop, re);
+				json_object_array_add(json_nexthops,
+						      json_nexthop);
+			}
+
+			json_object_object_add(json_route, "backupNexthops",
+					       json_nexthops);
+		}
+
 		json_object_array_add(json, json_route);
 		return;
 	}
 
 	/* Nexthop information. */
+	first_p = true;
 	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
-		if (nexthop == nhg->nexthop) {
+		if (first_p) {
+			first_p = false;
+
 			/* Prefix information. */
 			len = vty_out(vty, "%c", zebra_route_char(re->type));
 			if (re->instance)
@@ -808,40 +856,36 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		show_route_nexthop_helper(vty, re, nexthop);
 
-		if (nexthop->weight)
-			vty_out(vty, ", weight %u", nexthop->weight);
-
 		vty_out(vty, ", %s\n", up_str);
-
-		/* Check for backup info */
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
-			struct nexthop *backup;
-			int i;
-
-			if (re->nhe->backup_info == NULL ||
-			    re->nhe->backup_info->nhe == NULL)
-				continue;
-
-			i = 0;
-			for (ALL_NEXTHOPS(re->nhe->backup_info->nhe->nhg,
-					  backup)) {
-				if (i == nexthop->backup_idx)
-					break;
-				i++;
-			}
-
-			/* Print useful backup info */
-			if (backup) {
-				/* TODO -- install state is not accurate */
-				vty_out(vty, "   %*c [backup %d]",
-					/*re_status_output_char(re, backup),*/
-					len - 3 + (2 * nexthop_level(nexthop)),
-					' ', nexthop->backup_idx);
-				show_route_nexthop_helper(vty, re, backup);
-				vty_out(vty, "\n");
-			}
-		}
 	}
+
+	/* Check for backup info if present */
+	if (is_fib)
+		nhg = rib_get_fib_backup_nhg(re);
+	else
+		nhg = zebra_nhg_get_backup_nhg(re->nhe);
+
+	if (nhg == NULL)
+		return;
+
+	/* Print backup info */
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+		bool star_p = false;
+
+		if (is_fib)
+			star_p = CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+		/* TODO -- it'd be nice to be able to include
+		 * the entire list of backups, *and* include the
+		 * real installation state.
+		 */
+		vty_out(vty, "  b%c %*c",
+			(star_p ? '*' : ' '),
+			len - 3 + (2 * nexthop_level(nexthop)),	' ');
+		show_route_nexthop_helper(vty, re, nexthop);
+		vty_out(vty, "\n");
+	}
+
 }
 
 static void vty_show_ip_route_detail_json(struct vty *vty,

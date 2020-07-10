@@ -316,18 +316,18 @@ caution. Most of the time this will not be necessary.
 .. _msdp-configuration
 
 Multicast Source Discovery Protocol (MSDP) Configuration
-====================
-
-.. index:: ip msdp mesh-group [WORD] member A.B.C.D
-.. clicmd:: ip msdp mesh-group [WORD] member A.B.C.D
-
-   Include a MSDP peer as a member of a MSDP mesh-group.
+========================================================
 
 .. index:: ip msdp mesh-group [WORD] source A.B.C.D
 .. clicmd:: ip msdp mesh-group [WORD] source A.B.C.D
 
-   Create a MSDP mesh-group, defining a name for it and an associated local source
+   Create a MSDP mesh-group using [WORD] as name and A.B.C.D as local source
    address.
+
+.. index:: ip msdp mesh-group [WORD] member A.B.C.D
+.. clicmd:: ip msdp mesh-group [WORD] member A.B.C.D
+
+   Include the MSDP peer A.B.C.D as a member of the MSDP mesh-group [WORD].
 
 .. index:: ip msdp peer A.B.C.D source A.B.C.D
 .. clicmd:: ip msdp peer A.B.C.D source A.B.C.D

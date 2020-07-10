@@ -187,35 +187,41 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 	return ret;
 }
 
-int nexthop_same_firsthop(struct nexthop *next1, struct nexthop *next2)
+bool nexthop_same_firsthop(const struct nexthop *next1,
+			   const struct nexthop *next2)
 {
+	/* Map the TYPE_IPx types to TYPE_IPx_IFINDEX */
 	int type1 = NEXTHOP_FIRSTHOPTYPE(next1->type);
 	int type2 = NEXTHOP_FIRSTHOPTYPE(next2->type);
 
 	if (type1 != type2)
-		return 0;
+		return false;
+
+	if (next1->vrf_id != next2->vrf_id)
+		return false;
+
 	switch (type1) {
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		if (!IPV4_ADDR_SAME(&next1->gate.ipv4, &next2->gate.ipv4))
-			return 0;
+			return false;
 		if (next1->ifindex != next2->ifindex)
-			return 0;
+			return false;
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
 		if (next1->ifindex != next2->ifindex)
-			return 0;
+			return false;
 		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		if (!IPV6_ADDR_SAME(&next1->gate.ipv6, &next2->gate.ipv6))
-			return 0;
+			return false;
 		if (next1->ifindex != next2->ifindex)
-			return 0;
+			return false;
 		break;
 	default:
 		/* do nothing */
 		break;
 	}
-	return 1;
+	return true;
 }
 
 /*

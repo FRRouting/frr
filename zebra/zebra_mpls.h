@@ -213,7 +213,7 @@ int zebra_mpls_lsp_uninstall(struct zebra_vrf *zvrf, struct route_node *rn,
 zebra_nhlfe_t *zebra_mpls_lsp_add_nhlfe(zebra_lsp_t *lsp,
 					enum lsp_types_t lsp_type,
 					enum nexthop_types_t gtype,
-					union g_addr *gate,
+					const union g_addr *gate,
 					ifindex_t ifindex,
 					uint8_t num_labels,
 					const mpls_label_t *out_labels);
@@ -222,7 +222,7 @@ zebra_nhlfe_t *zebra_mpls_lsp_add_nhlfe(zebra_lsp_t *lsp,
 zebra_nhlfe_t *zebra_mpls_lsp_add_backup_nhlfe(zebra_lsp_t *lsp,
 					       enum lsp_types_t lsp_type,
 					       enum nexthop_types_t gtype,
-					       union g_addr *gate,
+					       const union g_addr *gate,
 					       ifindex_t ifindex,
 					       uint8_t num_labels,
 					       const mpls_label_t *out_labels);
@@ -331,19 +331,14 @@ int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
  */
 int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		       mpls_label_t in_label, enum nexthop_types_t gtype,
-		       const union g_addr *gate, ifindex_t ifindex);
+		       const union g_addr *gate, ifindex_t ifindex,
+		       bool backup_p);
 
 /*
  * Uninstall all NHLFEs for a particular LSP forwarding entry.
  */
 int mpls_lsp_uninstall_all_vrf(struct zebra_vrf *zvrf, enum lsp_types_t type,
 			       mpls_label_t in_label);
-
-/*
- * Uninstall all Segment Routing NHLFEs for a particular LSP forwarding entry.
- * If no other NHLFEs exist, the entry would be deleted.
- */
-void mpls_sr_lsp_uninstall_all(struct hash_bucket *bucket, void *ctxt);
 
 #if defined(HAVE_CUMULUS)
 /*
