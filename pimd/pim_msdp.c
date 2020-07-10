@@ -729,8 +729,8 @@ bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp)
 	}
 
 	/* check if the MSDP peer is the nexthop for the RP */
-	if (pim_nexthop_lookup(mp->pim, &nexthop, rp, 0) &&
-			nexthop.mrib_nexthop_addr.u.prefix4.s_addr == mp->peer.s_addr) {
+	if (pim_nexthop_lookup(mp->pim, &nexthop, rp, 0)
+	    && nexthop.mrib_nexthop_addr.u.prefix4.s_addr == mp->peer.s_addr) {
 		return true;
 	}
 

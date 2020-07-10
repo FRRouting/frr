@@ -9694,15 +9694,12 @@ static int ip_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	return ret;
 }
 
-DEFUN (ip_msdp_peer,
-       ip_msdp_peer_cmd,
-       "ip msdp peer A.B.C.D source A.B.C.D",
-       IP_STR
-       CFG_MSDP_STR
-       "Configure MSDP peer\n"
-       "peer ip address\n"
-       "Source address for TCP connection\n"
-       "local ip address\n")
+DEFUN(ip_msdp_peer, ip_msdp_peer_cmd, "ip msdp peer A.B.C.D source A.B.C.D",
+      IP_STR CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "peer ip address\n"
+      "Source address for TCP connection\n"
+      "local ip address\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
 	return ip_msdp_peer_cmd_worker(pim, vty, argv[3]->arg, argv[5]->arg);
@@ -9735,14 +9732,10 @@ static int ip_no_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 }
 
-DEFUN (no_ip_msdp_peer,
-       no_ip_msdp_peer_cmd,
-       "no ip msdp peer A.B.C.D",
-       NO_STR
-       IP_STR
-       CFG_MSDP_STR
-       "Delete MSDP peer\n"
-       "peer ip address\n")
+DEFUN(no_ip_msdp_peer, no_ip_msdp_peer_cmd, "no ip msdp peer A.B.C.D",
+      NO_STR IP_STR CFG_MSDP_STR
+      "Delete MSDP peer\n"
+      "peer ip address\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
 	return ip_no_msdp_peer_cmd_worker(pim, vty, argv[4]->arg);

@@ -348,7 +348,8 @@ static void pim_msdp_pkt_sa_push(struct pim_instance *pim,
 	}
 }
 
-static int pim_msdp_pkt_sa_fill_hdr(struct pim_instance *pim, int local_cnt, struct in_addr rp)
+static int pim_msdp_pkt_sa_fill_hdr(struct pim_instance *pim, int local_cnt,
+				    struct in_addr rp)
 {
 	int curr_tlv_ecnt;
 
@@ -387,7 +388,8 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 		zlog_debug("  sa gen  %d", local_cnt);
 	}
 
-	local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt, pim->msdp.originator_id);
+	local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt,
+					     pim->msdp.originator_id);
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
 		if (!(sa->flags & PIM_MSDP_SAF_LOCAL)) {
@@ -408,7 +410,8 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 				zlog_debug("  sa gen for remainder %d",
 					   local_cnt);
 			}
-			local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt, pim->msdp.originator_id);
+			local_cnt = pim_msdp_pkt_sa_fill_hdr(
+				pim, local_cnt, pim->msdp.originator_id);
 		}
 	}
 
@@ -454,7 +457,8 @@ void pim_msdp_pkt_sa_tx_to_one_peer(struct pim_msdp_peer *mp)
 	pim_msdp_pkt_sa_tx_done(mp->pim);
 }
 
-void pim_msdp_pkt_sa_tx_one_to_one_peer(struct pim_msdp_peer *mp, struct in_addr rp, struct prefix_sg sg)
+void pim_msdp_pkt_sa_tx_one_to_one_peer(struct pim_msdp_peer *mp,
+					struct in_addr rp, struct prefix_sg sg)
 {
 	struct pim_msdp_sa sa;
 
@@ -514,13 +518,13 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 	pim_msdp_sa_ref(mp->pim, mp, &sg, rp);
 
 	/* Forwards the SA to the peers that are not in the RPF to the RP nor in
-	 * the same mesh group as the peer from which we received the message. If
-	 * the message group is not set, i.e. "default", then we assume that the
-	 * message must be forwarded.*/
+	 * the same mesh group as the peer from which we received the message.
+	 * If the message group is not set, i.e. "default", then we assume that
+	 * the message must be forwarded.*/
 	for (ALL_LIST_ELEMENTS_RO(mp->pim->msdp.peer_list, peer_node, peer)) {
-		if (!pim_msdp_peer_rpf_check(peer, rp) &&
-				(strcmp(mp->mesh_group_name, peer->mesh_group_name) ||
-						!strcmp(mp->mesh_group_name, "default"))) {
+		if (!pim_msdp_peer_rpf_check(peer, rp)
+		    && (strcmp(mp->mesh_group_name, peer->mesh_group_name)
+			|| !strcmp(mp->mesh_group_name, "default"))) {
 			pim_msdp_pkt_sa_tx_one_to_one_peer(peer, rp, sg);
 		}
 	}
