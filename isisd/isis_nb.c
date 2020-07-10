@@ -574,8 +574,21 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring",
 			.cbs = {
-				.modify = lib_interface_isis_bfd_monitoring_modify,
+				.apply_finish = lib_interface_isis_bfd_monitoring_apply_finish,
 				.cli_show = cli_show_ip_isis_bfd_monitoring,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/enabled",
+			.cbs = {
+				.modify = lib_interface_isis_bfd_monitoring_enabled_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/profile",
+			.cbs = {
+				.modify = lib_interface_isis_bfd_monitoring_profile_modify,
+				.destroy = lib_interface_isis_bfd_monitoring_profile_destroy,
 			}
 		},
 		{

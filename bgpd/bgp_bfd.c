@@ -487,7 +487,7 @@ static int bgp_bfd_peer_param_set(struct peer *peer, uint32_t min_rx,
 	int command = 0;
 
 	bfd_set_param((struct bfd_info **)&(peer->bfd_info), min_rx, min_tx,
-		      detect_mult, defaults, &command);
+		      detect_mult, NULL, defaults, &command);
 
 	/* This command overrides profile if it was previously applied. */
 	bi = peer->bfd_info;
@@ -498,8 +498,8 @@ static int bgp_bfd_peer_param_set(struct peer *peer, uint32_t min_rx,
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			command = 0;
 			bfd_set_param((struct bfd_info **)&(peer->bfd_info),
-				      min_rx, min_tx, detect_mult, defaults,
-				      &command);
+				      min_rx, min_tx, detect_mult, NULL,
+				      defaults, &command);
 
 			/*
 			 * This command overrides profile if it was previously
@@ -565,7 +565,7 @@ static int bgp_bfd_peer_param_type_set(struct peer *peer,
 	if (!peer->bfd_info)
 		bfd_set_param((struct bfd_info **)&(peer->bfd_info),
 			      BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
-			      BFD_DEF_DETECT_MULT, 1, &command);
+			      BFD_DEF_DETECT_MULT, NULL, 1, &command);
 
 	bfd_info = (struct bfd_info *)peer->bfd_info;
 	bfd_info->type = type;
@@ -578,7 +578,7 @@ static int bgp_bfd_peer_param_type_set(struct peer *peer,
 				bfd_set_param(
 					(struct bfd_info **)&(peer->bfd_info),
 					BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
-					BFD_DEF_DETECT_MULT, 1, &command);
+					BFD_DEF_DETECT_MULT, NULL, 1, &command);
 
 			bfd_info = (struct bfd_info *)peer->bfd_info;
 			bfd_info->type = type;
@@ -613,7 +613,7 @@ static int bgp_bfd_peer_set_profile(struct peer *peer, const char *profile)
 	struct bfd_info *bfd_info;
 
 	bfd_set_param((struct bfd_info **)&(peer->bfd_info), BFD_DEF_MIN_RX,
-		      BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT, 1, &command);
+		      BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT, NULL, 1, &command);
 
 	bfd_info = (struct bfd_info *)peer->bfd_info;
 
@@ -629,7 +629,7 @@ static int bgp_bfd_peer_set_profile(struct peer *peer, const char *profile)
 			command = 0;
 			bfd_set_param((struct bfd_info **)&(peer->bfd_info),
 				      BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
-				      BFD_DEF_DETECT_MULT, 1, &command);
+				      BFD_DEF_DETECT_MULT, NULL, 1, &command);
 
 			bfd_info = (struct bfd_info *)peer->bfd_info;
 

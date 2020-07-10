@@ -383,14 +383,14 @@ void isis_bfd_circuit_cmd(struct isis_circuit *circuit, int command)
 	}
 }
 
-void isis_bfd_circuit_param_set(struct isis_circuit *circuit,
-				uint32_t min_rx, uint32_t min_tx,
-				uint32_t detect_mult, int defaults)
+void isis_bfd_circuit_param_set(struct isis_circuit *circuit, uint32_t min_rx,
+				uint32_t min_tx, uint32_t detect_mult,
+				const char *profile, int defaults)
 {
 	int command = 0;
 
-	bfd_set_param(&circuit->bfd_info, min_rx,
-		      min_tx, detect_mult, defaults, &command);
+	bfd_set_param(&circuit->bfd_info, min_rx, min_tx, detect_mult, profile,
+		      defaults, &command);
 
 	if (command)
 		isis_bfd_circuit_cmd(circuit, command);

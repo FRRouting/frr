@@ -2030,26 +2030,53 @@ int lib_interface_isis_ipv6_routing_modify(struct nb_cb_modify_args *args)
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring
  */
-int lib_interface_isis_bfd_monitoring_modify(struct nb_cb_modify_args *args)
+void lib_interface_isis_bfd_monitoring_apply_finish(
+	struct nb_cb_apply_finish_args *args)
 {
 	struct isis_circuit *circuit;
-	bool bfd_monitoring;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
+	bool enabled;
+	const char *profile = NULL;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	bfd_monitoring = yang_dnode_get_bool(args->dnode, NULL);
+	enabled = yang_dnode_get_bool(args->dnode, "./enabled");
 
-	if (bfd_monitoring) {
+	if (yang_dnode_exists(args->dnode, "./profile"))
+		profile = yang_dnode_get_string(args->dnode, "./profile");
+
+	if (enabled) {
 		isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX,
 					   BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT,
-					   true);
+					   profile, true);
 	} else {
 		isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_DEREGISTER);
 		bfd_info_free(&circuit->bfd_info);
 	}
+}
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/enabled
+ */
+int lib_interface_isis_bfd_monitoring_enabled_modify(
+	struct nb_cb_modify_args *args)
+{
+	/* Everything done in apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/profile
+ */
+int lib_interface_isis_bfd_monitoring_profile_modify(
+	struct nb_cb_modify_args *args)
+{
+	/* Everything done in apply_finish */
+	return NB_OK;
+}
+
+int lib_interface_isis_bfd_monitoring_profile_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* Everything done in apply_finish */
 	return NB_OK;
 }
 

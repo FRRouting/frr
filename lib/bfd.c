@@ -94,7 +94,8 @@ int bfd_validate_param(struct vty *vty, const char *dm_str, const char *rx_str,
  * bfd_set_param - Set the configured BFD paramter values
  */
 void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
-		   uint8_t detect_mult, int defaults, int *command)
+		   uint8_t detect_mult, const char *profile, int defaults,
+		   int *command)
 {
 	if (!*bfd_info) {
 		*bfd_info = bfd_info_create();
@@ -102,7 +103,8 @@ void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
 	} else {
 		if (((*bfd_info)->required_min_rx != min_rx)
 		    || ((*bfd_info)->desired_min_tx != min_tx)
-		    || ((*bfd_info)->detect_mult != detect_mult))
+		    || ((*bfd_info)->detect_mult != detect_mult)
+		    || (profile && strcmp((*bfd_info)->profile, profile)))
 			*command = ZEBRA_BFD_DEST_UPDATE;
 	}
 
@@ -110,6 +112,11 @@ void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
 		(*bfd_info)->required_min_rx = min_rx;
 		(*bfd_info)->desired_min_tx = min_tx;
 		(*bfd_info)->detect_mult = detect_mult;
+		if (profile)
+			strlcpy((*bfd_info)->profile, profile,
+				BFD_PROFILE_NAME_LEN);
+		else
+			(*bfd_info)->profile[0] = '\0';
 	}
 
 	if (!defaults)
@@ -162,6 +169,11 @@ void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 		args.min_rx = bfd_info->required_min_rx;
 		args.min_tx = bfd_info->desired_min_tx;
 		args.detection_multiplier = bfd_info->detect_mult;
+		if (bfd_info->profile[0]) {
+			args.profilelen = strlen(bfd_info->profile);
+			strlcpy(args.profile, bfd_info->profile,
+				sizeof(args.profile));
+		}
 	}
 
 	addrlen = family == AF_INET ? sizeof(struct in_addr)

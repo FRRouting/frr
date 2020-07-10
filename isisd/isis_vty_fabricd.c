@@ -316,8 +316,8 @@ DEFUN (isis_bfd,
 		return CMD_SUCCESS;
 	}
 
-	isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX,
-				   BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT, true);
+	isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
+				   BFD_DEF_DETECT_MULT, NULL, true);
 
 	return CMD_SUCCESS;
 }
