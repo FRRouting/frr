@@ -1921,6 +1921,13 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				if (nexthop->type == NEXTHOP_TYPE_IPV4
 				    || nexthop->type == NEXTHOP_TYPE_IPV6)
 					nexthop->ifindex = newhop->ifindex;
+				else if (nexthop->ifindex != newhop->ifindex) {
+					/*
+					 * NEXTHOP_TYPE_*_IFINDEX but ifindex
+					 * doesn't match what we found.
+					 */
+					return 0;
+				}
 			}
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
