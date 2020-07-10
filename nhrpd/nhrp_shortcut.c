@@ -68,7 +68,8 @@ static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 			       c->ifp->name : "<unk>");
 
 			nhrp_route_announce(1, s->type, s->p, c ? c->ifp : NULL,
-					    c ? &c->remote_addr : NULL, 0);
+					    c ? &c->remote_addr : NULL, 0,
+					    s->nhrp_vrf->vrf_id);
 			s->route_installed = 1;
 		}
 		break;
@@ -79,7 +80,7 @@ static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 	case NOTIFY_CACHE_DELETE:
 		if (s->route_installed) {
 			nhrp_route_announce(0, NHRP_CACHE_INVALID, s->p, NULL,
-					    NULL, 0);
+					    NULL, 0, s->nhrp_vrf->vrf_id);
 			s->route_installed = 0;
 		}
 		if (cmd == NOTIFY_CACHE_DELETE)
@@ -127,10 +128,12 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 		}
 	}
 	if (s->type == NHRP_CACHE_NEGATIVE && !s->route_installed) {
-		nhrp_route_announce(1, s->type, s->p, NULL, NULL, 0);
+		nhrp_route_announce(1, s->type, s->p, NULL, NULL, 0,
+				    s->nhrp_vrf->vrf_id);
 		s->route_installed = 1;
 	} else if (s->type == NHRP_CACHE_INVALID && s->route_installed) {
-		nhrp_route_announce(0, NHRP_CACHE_INVALID, s->p, NULL, NULL, 0);
+		nhrp_route_announce(0, NHRP_CACHE_INVALID, s->p, NULL, NULL, 0,
+				    s->nhrp_vrf->vrf_id);
 		s->route_installed = 0;
 	}
 

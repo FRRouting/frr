@@ -257,7 +257,7 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 		}
 
 		nhrp_route_announce(1, c->cur.type, &pfx, c->ifp, NULL,
-				    c->cur.mtu);
+				    c->cur.mtu, nhrp_vrf->vrf_id);
 		if (c->cur.type >= NHRP_CACHE_DYNAMIC) {
 			nhrp_route_update_nhrp(&pfx, c->ifp, nhrp_vrf);
 			c->nhrp_route_installed = 1;
@@ -289,7 +289,7 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 			assert(sockunion2hostprefix(&c->remote_addr, &pfx));
 			notifier_call(&c->notifier_list, NOTIFY_CACHE_DOWN);
 			nhrp_route_announce(0, c->cur.type, &pfx, NULL, NULL,
-					    0);
+					    0, nhrp_vrf->vrf_id);
 			c->route_installed = 0;
 		}
 	}

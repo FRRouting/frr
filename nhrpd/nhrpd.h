@@ -454,7 +454,8 @@ void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp,
 			    struct nhrp_vrf *nhrp_vrf);
 void nhrp_route_announce(int add, enum nhrp_cache_type type,
 			 const struct prefix *p, struct interface *ifp,
-			 const union sockunion *nexthop, uint32_t mtu);
+			 const union sockunion *nexthop, uint32_t mtu,
+			 vrf_id_t vrf_id);
 int nhrp_route_read(ZAPI_CALLBACK_ARGS);
 int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
 			   union sockunion *via, struct interface **ifp,

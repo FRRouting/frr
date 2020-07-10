@@ -115,7 +115,8 @@ void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp,
 
 void nhrp_route_announce(int add, enum nhrp_cache_type type,
 			 const struct prefix *p, struct interface *ifp,
-			 const union sockunion *nexthop, uint32_t mtu)
+			 const union sockunion *nexthop, uint32_t mtu,
+			 vrf_id_t vrf_id)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -127,10 +128,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 	memset(&api, 0, sizeof(api));
 	api.type = ZEBRA_ROUTE_NHRP;
 	api.safi = SAFI_UNICAST;
-	if (ifp)
-		api.vrf_id = ifp->vrf_id;
-	else
-		api.vrf_id = VRF_DEFAULT;
+	api.vrf_id = vrf_id;
 	api.prefix = *p;
 
 	switch (type) {
