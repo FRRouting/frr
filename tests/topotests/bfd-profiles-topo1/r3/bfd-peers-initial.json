@@ -25,14 +25,14 @@
         "local": "*",
         "multihop": false,
         "peer": "*",
-        "receive-interval": 300,
+        "receive-interval": 250,
         "remote-detect-multiplier": 3,
         "remote-diagnostic": "ok",
         "remote-id": "*",
         "remote-receive-interval": 300,
         "remote-transmit-interval": 300,
         "status": "up",
-        "transmit-interval": 300,
+        "transmit-interval": 250,
         "uptime": "*",
         "vrf": "default"
     }
