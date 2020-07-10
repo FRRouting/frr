@@ -4077,7 +4077,7 @@ DEFUN(show_bgp_l2vpn_evpn_es,
  */
 DEFUN(show_bgp_l2vpn_evpn_summary,
       show_bgp_l2vpn_evpn_summary_cmd,
-      "show bgp [vrf VRFNAME] l2vpn evpn summary [failed] [json]",
+      "show bgp [vrf VRFNAME] l2vpn evpn summary [established|failed] [json]",
       SHOW_STR
       BGP_STR
       "bgp vrf\n"
@@ -4085,6 +4085,7 @@ DEFUN(show_bgp_l2vpn_evpn_summary,
       L2VPN_HELP_STR
       EVPN_HELP_STR
       "Summary of BGP neighbor status\n"
+      "Show only sessions in Established state\n"
       "Show only sessions not in Established state\n"
       JSON_STR)
 {
@@ -4092,13 +4093,17 @@ DEFUN(show_bgp_l2vpn_evpn_summary,
 	bool uj = use_json(argc, argv);
 	char *vrf = NULL;
 	bool show_failed = false;
+	bool show_established = false;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf))
 		vrf = argv[++idx_vrf]->arg;
 	if (argv_find(argv, argc, "failed", &idx_vrf))
 		show_failed = true;
-	return bgp_show_summary_vty(vty, vrf, AFI_L2VPN, SAFI_EVPN,
-				    show_failed, uj);
+	if (argv_find(argv, argc, "established", &idx_vrf))
+		show_established = true;
+
+	return bgp_show_summary_vty(vty, vrf, AFI_L2VPN, SAFI_EVPN, show_failed,
+				    show_established, uj);
 }
 
 /*

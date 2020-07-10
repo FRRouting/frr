@@ -2710,6 +2710,12 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    Show a bgp peer summary for peers that are not succesfully exchanging routes
    for the specified address family, and subsequent address-family.
 
+.. index:: show bgp [afi] [safi] summary established [json]
+.. clicmd:: show bgp [afi] [safi] summary established [json]
+
+   Show a bgp peer summary for peers that are succesfully exchanging routes
+   for the specified address family, and subsequent address-family.
+
 .. index:: show bgp [afi] [safi] neighbor [PEER]
 .. clicmd:: show bgp [afi] [safi] neighbor [PEER]
 
