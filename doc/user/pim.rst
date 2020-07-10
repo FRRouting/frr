@@ -166,10 +166,22 @@ Certain signals have special meanings to *pimd*.
    urib-only
       Lookup in the Unicast Rib only.
 
-.. index:: no ip msdp mesh-group [WORD]
-.. clicmd:: no ip msdp mesh-group [WORD]
+.. index:: [no] ip msdp mesh-group [WORD]
+.. clicmd:: [no] ip msdp mesh-group [WORD]
 
-   Delete multicast source discovery protocol mesh-group
+   Create or Delete a multicast source discovery protocol mesh-group using
+   [WORD] as the group name.
+
+.. index:: [no] ip msdp mesh-group WORD member A.B.C.D
+.. clicmd:: [no] ip msdp mesh-group WORD member A.B.C.D
+
+   Attach or Delete A.B.C.D to the MSDP mesh group WORD specified.
+
+.. index:: [no] ip msdp mesh-group WORD source A.B.C.D
+.. clicmd:: [no] ip msdp mesh-group WORD source A.B.C.D
+
+   For the address specified A.B.C.D use that as the source address for
+   mesh group packets being sent.
 
 .. index:: ip igmp generate-query-once [version (2-3)]
 .. clicmd:: ip igmp generate-query-once [version (2-3)]
