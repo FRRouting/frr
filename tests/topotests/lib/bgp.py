@@ -21,7 +21,7 @@
 from copy import deepcopy
 from time import sleep
 import traceback
-import ipaddr
+import ipaddress
 import os
 import sys
 from lib import topotest
@@ -381,10 +381,10 @@ def __create_bgp_unicast_neighbor(
             del_action = advertise_network_dict.setdefault("delete", False)
 
             # Generating IPs for verification
-            prefix = str(ipaddr.IPNetwork(unicode(network[0])).prefixlen)
+            prefix = str(ipaddress.ip_network(unicode(network[0])).prefixlen)
             network_list = generate_ips(network, no_of_network)
             for ip in network_list:
-                ip = str(ipaddr.IPNetwork(unicode(ip)).network)
+                ip = str(ipaddress.ip_network(unicode(ip)).network_address)
 
                 cmd = "network {}/{}".format(ip, prefix)
                 if del_action:
@@ -859,7 +859,7 @@ def verify_router_id(tgen, topo, input_dict):
         logger.info("Checking router %s router-id", router)
         show_bgp_json = run_frr_cmd(rnode, "show bgp summary json", isjson=True)
         router_id_out = show_bgp_json["ipv4Unicast"]["routerId"]
-        router_id_out = ipaddr.IPv4Address(unicode(router_id_out))
+        router_id_out = ipaddress.IPv4Address(unicode(router_id_out))
 
         # Once router-id is deleted, highest interface ip should become
         # router-id
@@ -867,7 +867,7 @@ def verify_router_id(tgen, topo, input_dict):
             router_id = find_interface_with_greater_ip(topo, router)
         else:
             router_id = input_dict[router]["bgp"]["router_id"]
-        router_id = ipaddr.IPv4Address(unicode(router_id))
+        router_id = ipaddress.IPv4Address(unicode(router_id))
 
         if router_id == router_id_out:
             logger.info("Found expected router-id %s for router %s", router_id, router)
@@ -1467,9 +1467,10 @@ def clear_bgp_and_verify(tgen, topo, router):
     rnode = tgen.routers()[router]
 
     peer_uptime_before_clear_bgp = {}
+    sleeptime = 3
+
     # Verifying BGP convergence before bgp clear command
     for retry in range(44):
-        sleeptime = 3
         # Waiting for BGP to converge
         logger.info(
             "Waiting for %s sec for BGP to converge on router" " %s...",
@@ -1536,8 +1537,8 @@ def clear_bgp_and_verify(tgen, topo, router):
             )
     else:
         errormsg = (
-            "TIMEOUT!! BGP is not converged in 30 seconds for"
-            " router {}".format(router)
+            "TIMEOUT!! BGP is not converged in {} seconds for"
+            " router {}".format(retry * sleeptime, router)
         )
         return errormsg
 
@@ -1552,7 +1553,7 @@ def clear_bgp_and_verify(tgen, topo, router):
     peer_uptime_after_clear_bgp = {}
     # Verifying BGP convergence after bgp clear command
     for retry in range(44):
-        sleeptime = 3
+
         # Waiting for BGP to converge
         logger.info(
             "Waiting for %s sec for BGP to converge on router" " %s...",
@@ -1615,8 +1616,8 @@ def clear_bgp_and_verify(tgen, topo, router):
             )
     else:
         errormsg = (
-            "TIMEOUT!! BGP is not converged in 30 seconds for"
-            " router {}".format(router)
+            "TIMEOUT!! BGP is not converged in {} seconds for"
+            " router {}".format(retry * sleeptime, router)
         )
         return errormsg
 
@@ -2102,7 +2103,7 @@ def verify_best_path_as_per_bgp_attribute(
 
             routes = generate_ips(_network, no_of_ip)
             for route in routes:
-                route = str(ipaddr.IPNetwork(unicode(route)))
+                route = str(ipaddress.ip_network(unicode(route)))
 
                 if route in sh_ip_bgp_json["routes"]:
                     route_attributes = sh_ip_bgp_json["routes"][route]
@@ -2411,7 +2412,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
                     ip_list = generate_ips(network, no_of_ip)
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -2547,7 +2548,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
                     ip_list = generate_ips(network, no_of_network)
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:

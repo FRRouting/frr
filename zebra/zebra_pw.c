@@ -550,7 +550,7 @@ static void vty_show_mpls_pseudowire_detail(struct vty *vty)
 		re = rib_match(family2afi(pw->af), SAFI_UNICAST, pw->vrf_id,
 			       &pw->nexthop, NULL);
 		if (re) {
-			for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
+			for (ALL_NEXTHOPS_PTR(rib_get_fib_nhg(re), nexthop)) {
 				snprintfrr(buf_nh, sizeof(buf_nh), "%pNHv",
 					   nexthop);
 				vty_out(vty, "  Next Hop: %s\n", buf_nh);
@@ -604,7 +604,7 @@ static void vty_show_mpls_pseudowire(struct zebra_pw *pw, json_object *json_pws)
 	re = rib_match(family2afi(pw->af), SAFI_UNICAST, pw->vrf_id,
 		       &pw->nexthop, NULL);
 	if (re) {
-		for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
+		for (ALL_NEXTHOPS_PTR(rib_get_fib_nhg(re), nexthop)) {
 			json_nexthop = json_object_new_object();
 			snprintfrr(buf_nh, sizeof(buf_nh), "%pNHv", nexthop);
 			json_object_string_add(json_nexthop, "nexthop", buf_nh);

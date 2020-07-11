@@ -94,9 +94,11 @@ struct route_entry {
 	struct nhg_hash_entry *nhe;
 
 	/* Nexthop group from FIB (optional), reflecting what is actually
-	 * installed in the FIB if that differs.
+	 * installed in the FIB if that differs. The 'backup' group is used
+	 * when backup nexthops are present in the route's nhg.
 	 */
 	struct nexthop_group fib_ng;
+	struct nexthop_group fib_backup_ng;
 
 	/* Nexthop group hash entry ID */
 	uint32_t nhe_id;
@@ -526,12 +528,24 @@ DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 /*
  * Access active nexthop-group, either RIB or FIB version
  */
-static inline struct nexthop_group *rib_active_nhg(struct route_entry *re)
+static inline struct nexthop_group *rib_get_fib_nhg(struct route_entry *re)
 {
 	if (re->fib_ng.nexthop)
 		return &(re->fib_ng);
 	else
 		return &(re->nhe->nhg);
+}
+
+/*
+ * Access active nexthop-group, either RIB or FIB version
+ */
+static inline struct nexthop_group *rib_get_fib_backup_nhg(
+	struct route_entry *re)
+{
+	if (re->fib_backup_ng.nexthop)
+		return &(re->fib_backup_ng);
+	else
+		return zebra_nhg_get_backup_nhg(re->nhe);
 }
 
 extern void zebra_vty_init(void);
