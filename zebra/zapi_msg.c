@@ -1078,7 +1078,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 
 	s = msg;
 
-	client->nh_reg_time = monotime(NULL);
+	if (!client->nh_reg_time)
+		client->nh_reg_time = monotime(NULL);
 
 	while (l < hdr->length) {
 		STREAM_GETC(s, flags);
