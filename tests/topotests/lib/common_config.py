@@ -690,6 +690,12 @@ def start_topology(tgen):
     router_list = tgen.routers()
     for rname in ROUTER_LIST:
         router = router_list[rname]
+
+        # It will help in debugging the failures, will give more details on which
+        # specific kernel version tests are failing
+        linux_ver = router.run("uname -a")
+        logger.info("Logging platform related details: \n %s \n", linux_ver)
+
         try:
             os.chdir(TMPDIR)
 

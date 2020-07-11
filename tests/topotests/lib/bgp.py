@@ -44,7 +44,6 @@ from lib.common_config import (
 LOGDIR = "/tmp/topotests/"
 TMPDIR = None
 
-
 def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True):
     """
     API to configure bgp on router
@@ -882,7 +881,7 @@ def verify_router_id(tgen, topo, input_dict):
     return True
 
 
-@retry(attempts=44, wait=3, return_is_str=True)
+@retry(attempts=50, wait=3, return_is_str=True)
 def verify_bgp_convergence(tgen, topo, dut=None):
     """
     API will verify if BGP is converged with in the given time frame.
@@ -1052,11 +1051,13 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                                 if nh_state == "Established":
                                     no_of_peer += 1
 
-                if no_of_peer == total_peer:
-                    logger.info("[DUT: %s] VRF: %s, BGP is Converged", router, vrf)
-                else:
-                    errormsg = "[DUT: %s] VRF: %s, BGP is not converged" % (router, vrf)
-                    return errormsg
+                    if no_of_peer == total_peer:
+                        logger.info("[DUT: %s] VRF: %s, BGP is Converged for %s address-family",
+                                    router, vrf, addr_type)
+                    else:
+                        errormsg = ("[DUT: %s] VRF: %s, BGP is not converged for %s address-family" %
+                            (router, vrf, addr_type))
+                        return errormsg
 
     logger.debug("Exiting API: verify_bgp_convergence()")
     return True
@@ -1326,7 +1327,7 @@ def verify_as_numbers(tgen, topo, input_dict):
     return True
 
 
-@retry(attempts=44, wait=3, return_is_str=True)
+@retry(attempts=50, wait=3, return_is_str=True)
 def verify_bgp_convergence_from_running_config(tgen, dut=None):
     """
     API to verify BGP convergence b/w loopback and physical interface.
@@ -1470,7 +1471,7 @@ def clear_bgp_and_verify(tgen, topo, router):
     sleeptime = 3
 
     # Verifying BGP convergence before bgp clear command
-    for retry in range(44):
+    for retry in range(50):
         # Waiting for BGP to converge
         logger.info(
             "Waiting for %s sec for BGP to converge on router" " %s...",
@@ -1552,7 +1553,7 @@ def clear_bgp_and_verify(tgen, topo, router):
 
     peer_uptime_after_clear_bgp = {}
     # Verifying BGP convergence after bgp clear command
-    for retry in range(44):
+    for retry in range(50):
 
         # Waiting for BGP to converge
         logger.info(
