@@ -545,10 +545,9 @@ static void pim_msdp_pkt_sa_rx(struct pim_msdp_peer *mp, int len)
 
 	entry_cnt = stream_getc(mp->ibuf);
 	/* some vendors include the actual multicast data in the tlv (at the
-	 * end).
-	 * we will ignore such data. in the future we may consider pushing it
-	 * down
-	 * the RPT */
+	 * end). we will ignore such data. in the future we may consider pushing
+	 * it down the RPT
+	 */
 	if (len < PIM_MSDP_SA_ENTRY_CNT2SIZE(entry_cnt)) {
 		pim_msdp_pkt_rxed_with_fatal_error(mp);
 		return;
