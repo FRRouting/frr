@@ -358,6 +358,31 @@ EXIT:
 	return 1;
 }
 
+static void static_ifindex_update_nh(struct interface *ifp, bool up,
+				     struct route_node *rn,
+				     struct static_path *pn,
+				     struct static_nexthop *nh,
+				     struct static_vrf *svrf, safi_t safi)
+{
+	if (!nh->ifname[0])
+		return;
+	if (up) {
+		if (strcmp(nh->ifname, ifp->name))
+			return;
+		if (nh->nh_vrf_id != ifp->vrf_id)
+			return;
+		nh->ifindex = ifp->ifindex;
+	} else {
+		if (nh->ifindex != ifp->ifindex)
+			return;
+		if (nh->nh_vrf_id != ifp->vrf_id)
+			return;
+		nh->ifindex = IFINDEX_INTERNAL;
+	}
+
+	static_install_path(rn, pn, safi, svrf);
+}
+
 static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 				     safi_t safi)
 {
@@ -383,26 +408,9 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 			frr_each(static_path_list, &si->path_list, pn) {
 				frr_each(static_nexthop_list,
 					  &pn->nexthop_list, nh) {
-					if (!nh->ifname[0])
-						continue;
-					if (up) {
-						if (strcmp(nh->ifname,
-							   ifp->name))
-							continue;
-						if (nh->nh_vrf_id
-						    != ifp->vrf_id)
-							continue;
-						nh->ifindex = ifp->ifindex;
-					} else {
-						if (nh->ifindex != ifp->ifindex)
-							continue;
-						if (nh->nh_vrf_id
-						    != ifp->vrf_id)
-							continue;
-						nh->ifindex = IFINDEX_INTERNAL;
-					}
-
-					static_install_path(rn, pn, safi, svrf);
+					static_ifindex_update_nh(ifp, up, rn,
+								 pn, nh, svrf,
+								 safi);
 				}
 			}
 		}
