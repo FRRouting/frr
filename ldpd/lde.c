@@ -296,7 +296,7 @@ lde_dispatch_imsg(struct thread *thread)
 
 			switch (imsg.hdr.type) {
 			case IMSG_LABEL_MAPPING:
-				lde_check_mapping(map, ln);
+				lde_check_mapping(map, ln, 1);
 				break;
 			case IMSG_LABEL_REQUEST:
 				lde_check_request(map, ln);

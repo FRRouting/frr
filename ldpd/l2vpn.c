@@ -294,6 +294,16 @@ l2vpn_pw_reset(struct l2vpn_pw *pw)
 		pw->flags |= F_PW_STATUSTLV;
 	else
 		pw->flags &= ~F_PW_STATUSTLV;
+
+	if (pw->flags & F_PW_STATUSTLV_CONF) {
+		struct fec_node         *fn;
+		struct fec fec;
+		l2vpn_pw_fec(pw, &fec);
+		fn = (struct fec_node *)fec_find(&ft, &fec);
+		if (fn)
+			pw->remote_status = fn->pw_remote_status;
+	}
+
 }
 
 int
@@ -432,6 +442,8 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 	if (fn == NULL)
 		/* unknown fec */
 		return;
+
+	fn->pw_remote_status = nm->pw_status;
 
 	pw = (struct l2vpn_pw *) fn->data;
 	if (pw == NULL)

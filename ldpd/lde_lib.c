@@ -267,6 +267,9 @@ fec_add(struct fec *fec)
 	RB_INIT(lde_map_head, &fn->downstream);
 	LIST_INIT(&fn->nexthops);
 
+	if (fec->type == FEC_TYPE_PWID)
+		fn->pw_remote_status = PW_FORWARDING;
+
 	if (fec_insert(&ft, &fn->fec))
 		log_warnx("failed to add %s to ft tree",
 		    log_fec(&fn->fec));
@@ -455,13 +458,13 @@ lde_kernel_update(struct fec *fec)
 			me = (struct lde_map *)fec_find(&ln->recv_map, &fn->fec);
 			if (me)
 				/* FEC.5 */
-				lde_check_mapping(&me->map, ln);
+				lde_check_mapping(&me->map, ln, 0);
 		}
 	}
 }
 
 void
-lde_check_mapping(struct map *map, struct lde_nbr *ln)
+lde_check_mapping(struct map *map, struct lde_nbr *ln, int rcvd_label_mapping)
 {
 	struct fec		 fec;
 	struct fec_node		*fn;
@@ -507,8 +510,12 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 		lde_req_del(ln, lre, 1);
 
 	/* RFC 4447 control word and status tlv negotiation */
-	if (map->type == MAP_TYPE_PWID && l2vpn_pw_negotiate(ln, fn, map))
+	if (map->type == MAP_TYPE_PWID && l2vpn_pw_negotiate(ln, fn, map)) {
+		if (rcvd_label_mapping && map->flags & F_MAP_PW_STATUS)
+			fn->pw_remote_status = map->pw_status;
+
 		return;
+	}
 
 	/*
 	 * LMp.3 - LMp.8: loop detection - unnecessary for frame-mode
@@ -570,8 +577,10 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 			pw->remote_group = map->fec.pwid.group_id;
 			if (map->flags & F_MAP_PW_IFMTU)
 				pw->remote_mtu = map->fec.pwid.ifmtu;
-			if (map->flags & F_MAP_PW_STATUS)
+			if (rcvd_label_mapping && map->flags & F_MAP_PW_STATUS) {
 				pw->remote_status = map->pw_status;
+				fn->pw_remote_status = map->pw_status;
+			}
 			else
 				pw->remote_status = PW_FORWARDING;
 			fnh->remote_label = map->label;
