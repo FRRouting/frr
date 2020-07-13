@@ -62,6 +62,32 @@
         },
         "matchDst":"dead:beef::\/64",
         "matchMark":314159
+      },
+      {
+        "sequenceNumber":15,
+        "vrfUnchanged":false,
+        "installed":true,
+        "installedReason":"Valid",
+        "nexthopGroup":{
+          "name":"ASAKUSA15",
+          "installed":true,
+          "installedInternally":1
+        },
+        "matchDst":"dead:beef::/64",
+        "matchDscp":10
+      },
+      {
+        "sequenceNumber":20,
+        "vrfUnchanged":false,
+        "installed":true,
+        "installedReason":"Valid",
+        "nexthopGroup":{
+          "name":"ASAKUSA20",
+          "installed":true,
+          "installedInternally":1
+        },
+        "matchDst":"dead:beef::/64",
+        "matchEcn":1
       }
     ]
   },
