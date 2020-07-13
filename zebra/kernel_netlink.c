@@ -702,20 +702,18 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
  *
  * Returns -1 on error. Otherwise, it returns the number of bytes sent.
  */
-static int netlink_send_msg(const struct nlsock *nl, void *buf, size_t buflen)
+static ssize_t netlink_send_msg(const struct nlsock *nl, void *buf,
+				size_t buflen)
 {
-	struct sockaddr_nl snl;
-	struct iovec iov;
-	struct msghdr msg;
-	int status, save_errno = 0;
-
-	memset(&snl, 0, sizeof(snl));
-	memset(&iov, 0, sizeof(iov));
-	memset(&msg, 0, sizeof(msg));
+	struct sockaddr_nl snl = {};
+	struct iovec iov = {};
+	struct msghdr msg = {};
+	ssize_t status;
+	int save_errno = 0;
 
 	iov.iov_base = buf;
 	iov.iov_len = buflen;
-	msg.msg_name = (void *)&snl;
+	msg.msg_name = &snl;
 	msg.msg_namelen = sizeof(snl);
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
@@ -733,7 +731,7 @@ static int netlink_send_msg(const struct nlsock *nl, void *buf, size_t buflen)
 		zlog_hexdump(buf, buflen);
 	}
 
-	if (status < 0) {
+	if (status == -1) {
 		flog_err_sys(EC_LIB_SOCKET, "%s error: %s", __func__,
 			     safe_strerror(save_errno));
 		return -1;
@@ -771,9 +769,9 @@ static int netlink_recv_msg(const struct nlsock *nl, struct msghdr msg,
 #else
 		status = recvmsg(nl->sock, &msg, 0);
 #endif /* HANDLE_NETLINK_FUZZING */
-	} while (status < 0 && errno == EINTR);
+	} while (status == -1 && errno == EINTR);
 
-	if (status < 0) {
+	if (status == -1) {
 		if (errno == EWOULDBLOCK || errno == EAGAIN)
 			return 0;
 		flog_err(EC_ZEBRA_RECVMSG_OVERRUN, "%s recvmsg overrun: %s",
@@ -1027,7 +1025,7 @@ int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 			n->nlmsg_type, n->nlmsg_len, n->nlmsg_seq,
 			n->nlmsg_flags);
 
-	if (netlink_send_msg(nl, n, n->nlmsg_len) < 0)
+	if (netlink_send_msg(nl, n, n->nlmsg_len) == -1)
 		return -1;
 
 	/*
@@ -1076,7 +1074,7 @@ int netlink_request(struct nlsock *nl, void *req)
 	n->nlmsg_pid = nl->snl.nl_pid;
 	n->nlmsg_seq = ++nl->seq;
 
-	if (netlink_send_msg(nl, req, n->nlmsg_len) < 0)
+	if (netlink_send_msg(nl, req, n->nlmsg_len) == -1)
 		return -1;
 
 	return 0;
