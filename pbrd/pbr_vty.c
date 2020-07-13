@@ -744,6 +744,12 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 			prefix2str(pbrms->dst, buf, sizeof(buf)));
 	if (pbrms->mark)
 		json_object_int_add(jpbrm, "matchMark", pbrms->mark);
+	if (pbrms->dsfield & PBR_DSFIELD_DSCP)
+		json_object_int_add(jpbrm, "matchDscp",
+				    (pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
+	if (pbrms->dsfield & PBR_DSFIELD_ECN)
+		json_object_int_add(jpbrm, "matchEcn",
+				    pbrms->dsfield & PBR_DSFIELD_ECN);
 
 	json_object_array_add(j, jpbrm);
 }
