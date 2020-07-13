@@ -35,6 +35,7 @@
 #include "table.h"
 #include "spf_backoff.h"
 #include "srcdest_table.h"
+#include "vrf.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
@@ -1083,7 +1084,8 @@ struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
 
 	init_spt(spftree, ISIS_MT_IPV4_UNICAST, ISIS_LEVEL2,
 		 AF_INET, SPFTREE_IPV4, true);
-	if (!memcmp(sysid, isis->sysid, ISIS_SYS_ID_LEN)) {
+
+	if (!memcmp(sysid, area->isis->sysid, ISIS_SYS_ID_LEN)) {
 		/* If we are running locally, initialize with information from adjacencies */
 		struct isis_vertex *root = isis_spf_add_root(spftree, sysid);
 		isis_spf_preload_tent(spftree, sysid, root);
@@ -1209,11 +1211,14 @@ static int isis_run_spf_cb(struct thread *thread)
 			   area->area_tag, level);
 
 	if (area->ip_circuits)
-		retval = isis_run_spf(area, level, SPFTREE_IPV4, isis->sysid);
+		retval = isis_run_spf(area, level, SPFTREE_IPV4,
+				      area->isis->sysid);
 	if (area->ipv6_circuits)
-		retval = isis_run_spf(area, level, SPFTREE_IPV6, isis->sysid);
+		retval = isis_run_spf(area, level, SPFTREE_IPV6,
+				      area->isis->sysid);
 	if (area->ipv6_circuits && isis_area_ipv6_dstsrc_enabled(area))
-		retval = isis_run_spf(area, level, SPFTREE_DSTSRC, isis->sysid);
+		retval = isis_run_spf(area, level, SPFTREE_DSTSRC,
+				      area->isis->sysid);
 
 	isis_area_verify_routes(area);
 
@@ -1405,38 +1410,19 @@ static void isis_print_spftree(struct vty *vty, int level,
 	vty_out(vty, "IS-IS paths to level-%d routers %s\n",
 		level, tree_id_text);
 	isis_print_paths(vty, &area->spftree[tree_id][level - 1]->paths,
-			 isis->sysid);
+			 area->isis->sysid);
+
 	vty_out(vty, "\n");
 }
 
-DEFUN (show_isis_topology,
-       show_isis_topology_cmd,
-       "show " PROTO_NAME " topology"
-#ifndef FABRICD
-       " [<level-1|level-2>]"
-#endif
-       , SHOW_STR
-       PROTO_HELP
-       "IS-IS paths to Intermediate Systems\n"
-#ifndef FABRICD
-       "Paths to all level-1 routers in the area\n"
-       "Paths to all level-2 routers in the domain\n"
-#endif
-       )
+static void show_isis_topology_common(struct vty *vty, int levels,
+				      struct isis *isis)
 {
-	int levels;
 	struct listnode *node;
 	struct isis_area *area;
 
-	if (argc < 4)
-		levels = ISIS_LEVEL1 | ISIS_LEVEL2;
-	else if (strmatch(argv[3]->text, "level-1"))
-		levels = ISIS_LEVEL1;
-	else
-		levels = ISIS_LEVEL2;
-
 	if (!isis->area_list || isis->area_list->count == 0)
-		return CMD_SUCCESS;
+		return;
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		vty_out(vty, "Area %s:\n",
@@ -1468,6 +1454,58 @@ DEFUN (show_isis_topology,
 		}
 
 		vty_out(vty, "\n");
+	}
+}
+
+DEFUN(show_isis_topology, show_isis_topology_cmd,
+      "show " PROTO_NAME
+      " [vrf <NAME|all>] topology"
+#ifndef FABRICD
+      " [<level-1|level-2>]"
+#endif
+      ,
+      SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
+      "All VRFs\n"
+      "IS-IS paths to Intermediate Systems\n"
+#ifndef FABRICD
+      "Paths to all level-1 routers in the area\n"
+      "Paths to all level-2 routers in the domain\n"
+#endif
+)
+{
+	int levels = ISIS_LEVELS;
+	struct listnode *inode, *nnode;
+	struct isis *isis = NULL;
+	int idx = 0;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+
+	if (argv_find(argv, argc, "topology", &idx)) {
+		if (argc < idx + 2)
+			levels = ISIS_LEVEL1 | ISIS_LEVEL2;
+		else if (strmatch(argv[idx + 1]->arg, "level-1"))
+			levels = ISIS_LEVEL1;
+		else
+			levels = ISIS_LEVEL2;
+	}
+
+	if (!im) {
+		vty_out(vty, "IS-IS Routing Process not enabled\n");
+		return CMD_SUCCESS;
+	}
+	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	if (vrf_name) {
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+				show_isis_topology_common(vty, levels, isis);
+			}
+			return 0;
+		}
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis != NULL)
+			show_isis_topology_common(vty, levels, isis);
 	}
 
 	return CMD_SUCCESS;

@@ -1980,20 +1980,48 @@ static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
  * Declaration of new show commands.
  */
 DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
-      "show isis segment-routing prefix-sids",
-      SHOW_STR PROTO_HELP
+      "show isis [vrf <NAME|all>] segment-routing prefix-sids",
+      SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
+      "All VRFs\n"
       "Segment-Routing\n"
       "Segment-Routing Prefix-SIDs\n")
 {
-	struct listnode *node;
+	struct listnode *node, *inode, *nnode;
 	struct isis_area *area;
+	struct isis *isis = NULL;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	int idx_vrf = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		vty_out(vty, "Area %s:\n",
-			area->area_tag ? area->area_tag : "null");
-
-		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
-			show_prefix_sids(vty, area, level);
+	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (vrf_name) {
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+				for (ALL_LIST_ELEMENTS_RO(isis->area_list, node,
+							  area)) {
+					vty_out(vty, "Area %s:\n",
+						area->area_tag ? area->area_tag
+							       : "null");
+					for (int level = ISIS_LEVEL1;
+					     level <= ISIS_LEVELS; level++)
+						show_prefix_sids(vty, area,
+								 level);
+				}
+			}
+			return 0;
+		}
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis != NULL) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node,
+						  area)) {
+				vty_out(vty, "Area %s:\n",
+					area->area_tag ? area->area_tag
+						       : "null");
+				for (int level = ISIS_LEVEL1;
+				     level <= ISIS_LEVELS; level++)
+					show_prefix_sids(vty, area, level);
+			}
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -2056,15 +2084,19 @@ DEFUN(show_sr_node, show_sr_node_cmd,
       "Segment-Routing\n"
       "Segment-Routing node\n")
 {
-	struct listnode *node;
+	struct listnode *node, *inode, *nnode;
 	struct isis_area *area;
+	struct isis *isis = NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		vty_out(vty, "Area %s:\n",
-			area->area_tag ? area->area_tag : "null");
+	for (ALL_LIST_ELEMENTS(im->isis, inode, nnode, isis)) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+			vty_out(vty, "Area %s:\n",
+				area->area_tag ? area->area_tag : "null");
 
-		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
-			show_node(vty, area, level);
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
+			     level++)
+				show_node(vty, area, level);
+		}
 	}
 
 	return CMD_SUCCESS;

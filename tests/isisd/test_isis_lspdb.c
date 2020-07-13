@@ -82,6 +82,7 @@ static void test_lsp_build_list_nonzero_ht(void)
 
 int main(int argc, char **argv)
 {
+	struct isis *isis = NULL;
 	isis = calloc(sizeof(*isis), 1);
 	test_lsp_build_list_nonzero_ht();
 	return 0;

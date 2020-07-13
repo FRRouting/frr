@@ -74,8 +74,10 @@ static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 	fill_fixed_hdr(pdu_type, circuit->snd_stream);
 
 	lenp = stream_get_endp(circuit->snd_stream);
+
 	stream_putw(circuit->snd_stream, 0); /* PDU length  */
-	stream_put(circuit->snd_stream, isis->sysid, ISIS_SYS_ID_LEN);
+	stream_put(circuit->snd_stream, circuit->area->isis->sysid,
+		   ISIS_SYS_ID_LEN);
 	stream_putc(circuit->snd_stream, circuit->idx);
 	stream_putc(circuit->snd_stream, 9);  /* code */
 	stream_putc(circuit->snd_stream, 16); /* len */
@@ -128,6 +130,7 @@ struct iih_info {
 static int process_p2p_hello(struct iih_info *iih)
 {
 	struct isis_threeway_adj *tw_adj = iih->tlvs->threeway_adj;
+
 	if (tw_adj) {
 		if (tw_adj->state > ISIS_THREEWAY_DOWN) {
 			if (IS_DEBUG_ADJ_PACKETS) {
@@ -140,8 +143,10 @@ static int process_p2p_hello(struct iih_info *iih)
 		}
 
 		if (tw_adj->neighbor_set
-		    && (memcmp(tw_adj->neighbor_id, isis->sysid, ISIS_SYS_ID_LEN)
-			|| tw_adj->neighbor_circuit_id != (uint32_t) iih->circuit->idx)) {
+		    && (memcmp(tw_adj->neighbor_id,
+			       iih->circuit->area->isis->sysid, ISIS_SYS_ID_LEN)
+			|| tw_adj->neighbor_circuit_id
+				   != (uint32_t)iih->circuit->idx)) {
 
 			if (IS_DEBUG_ADJ_PACKETS) {
 				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s) which lists IS/Circuit different from us as neighbor.",
@@ -561,7 +566,6 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			? "P2P IIH"
 			: (level == ISIS_LEVEL1) ? "L1 LAN IIH" : "L2 LAN IIH";
 
-
 	stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
 			pdu_end - pdu_start);
 	if (IS_DEBUG_ADJ_PACKETS) {
@@ -724,7 +728,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		goto out;
 	}
 
-	if (!memcmp(iih.sys_id, isis->sysid, ISIS_SYS_ID_LEN)) {
+	if (!memcmp(iih.sys_id, circuit->area->isis->sysid, ISIS_SYS_ID_LEN)) {
 		zlog_warn(
 			"ISIS-Adj (%s): Received IIH with own sysid - discard",
 			circuit->area->area_tag);
@@ -1040,7 +1044,8 @@ dontcheckadj:
 				ack_lsp(&hdr, circuit, level);
 			goto out; /* FIXME: do we need a purge? */
 		} else {
-			if (memcmp(hdr.lsp_id, isis->sysid, ISIS_SYS_ID_LEN)) {
+			if (memcmp(hdr.lsp_id, circuit->area->isis->sysid,
+				   ISIS_SYS_ID_LEN)) {
 				/* LSP by some other system -> do 7.3.16.4 b) */
 				/* 7.3.16.4 b) 1)  */
 				if (comp == LSP_NEWER) {
@@ -1134,7 +1139,8 @@ dontcheckadj:
 	}
 	/* 7.3.15.1 c) - If this is our own lsp and we don't have it initiate a
 	 * purge */
-	if (memcmp(hdr.lsp_id, isis->sysid, ISIS_SYS_ID_LEN) == 0) {
+	if (memcmp(hdr.lsp_id, circuit->area->isis->sysid, ISIS_SYS_ID_LEN)
+	    == 0) {
 		if (!lsp) {
 			/* 7.3.16.4: initiate a purge */
 			lsp_purge_non_exist(level, &hdr, circuit->area);
@@ -1370,6 +1376,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 	struct isis_passwd *passwd = (level == IS_LEVEL_1)
 					     ? &circuit->area->area_passwd
 					     : &circuit->area->domain_passwd;
+
 	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_RECV)) {
 		int auth_code = isis_tlvs_auth_is_valid(
 			tlvs, passwd, circuit->rcv_stream, false);
@@ -1420,7 +1427,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 	     entry = entry->next) {
 		struct isis_lsp *lsp =
 			lsp_search(&circuit->area->lspdb[level - 1], entry->id);
-		bool own_lsp = !memcmp(entry->id, isis->sysid, ISIS_SYS_ID_LEN);
+		bool own_lsp = !memcmp(entry->id, circuit->area->isis->sysid,
+				       ISIS_SYS_ID_LEN);
 		if (lsp) {
 			/* 7.3.15.2 b) 1) is this LSP newer */
 			int cmp = lsp_compare(circuit->area->area_tag, lsp,
@@ -1459,8 +1467,9 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			 * are not 0,
 			 * insert it and set SSN on it */
 			if (entry->rem_lifetime && entry->checksum
-			    && entry->seqno && memcmp(entry->id, isis->sysid,
-						      ISIS_SYS_ID_LEN)) {
+			    && entry->seqno
+			    && memcmp(entry->id, circuit->area->isis->sysid,
+				      ISIS_SYS_ID_LEN)) {
 				struct isis_lsp *lsp0 = NULL;
 
 				if (LSP_FRAGMENT(entry->id)) {
@@ -1667,13 +1676,14 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	}
 
 	/* either 3 or 0 */
-	if (pdu_type != FS_LINK_STATE /* FS PDU doesn't contain max area addr field */
+	if (pdu_type != FS_LINK_STATE /* FS PDU doesn't contain max area addr
+					 field */
 	    && max_area_addrs != 0
-	    && max_area_addrs != isis->max_area_addrs) {
+	    && max_area_addrs != circuit->area->isis->max_area_addrs) {
 		flog_err(
 			EC_ISIS_PACKET,
 			"maximumAreaAddressesMismatch: maximumAreaAdresses in a received PDU %hhu while the parameter for this IS is %u",
-			max_area_addrs, isis->max_area_addrs);
+			max_area_addrs, circuit->area->isis->max_area_addrs);
 		circuit->max_area_addr_mismatches++;
 #ifndef FABRICD
 		/* send northbound notification */
@@ -2052,8 +2062,10 @@ int send_csnp(struct isis_circuit *circuit, int level)
 	fill_fixed_hdr(pdu_type, circuit->snd_stream);
 
 	size_t len_pointer = stream_get_endp(circuit->snd_stream);
+
 	stream_putw(circuit->snd_stream, 0);
-	stream_put(circuit->snd_stream, isis->sysid, ISIS_SYS_ID_LEN);
+	stream_put(circuit->snd_stream, circuit->area->isis->sysid,
+		   ISIS_SYS_ID_LEN);
 	/* with zero circuit id - ref 9.10, 9.11 */
 	stream_putc(circuit->snd_stream, 0);
 
@@ -2230,7 +2242,8 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 
 	size_t len_pointer = stream_get_endp(circuit->snd_stream);
 	stream_putw(circuit->snd_stream, 0); /* length is filled in later */
-	stream_put(circuit->snd_stream, isis->sysid, ISIS_SYS_ID_LEN);
+	stream_put(circuit->snd_stream, circuit->area->isis->sysid,
+		   ISIS_SYS_ID_LEN);
 	stream_putc(circuit->snd_stream, circuit->idx);
 
 	struct isis_passwd *passwd = (level == ISIS_LEVEL1)

@@ -55,6 +55,12 @@ static const bool fabricd = false;
 extern void isis_cli_init(void);
 #endif
 
+#define ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)             \
+	if (argv_find(argv, argc, "vrf", &idx_vrf)) {                          \
+		vrf_name = argv[idx_vrf + 1]->arg;                             \
+		all_vrf = strmatch(vrf_name, "all");                           \
+	}
+
 extern struct zebra_privs_t isisd_privs;
 
 /* uncomment if you are a developer in bug hunt */
@@ -62,8 +68,18 @@ extern struct zebra_privs_t isisd_privs;
 
 struct fabricd;
 
+struct isis_master {
+	/* ISIS instance. */
+	struct list *isis;
+	/* ISIS thread master. */
+	struct thread_master *master;
+	/* Various OSPF global configuration. */
+	uint8_t options;
+};
+
 struct isis {
 	vrf_id_t vrf_id;
+	char *name;
 	unsigned long process_id;
 	int sysid_set;
 	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
@@ -79,7 +95,7 @@ struct isis {
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
 };
 
-extern struct isis *isis;
+extern struct isis_master *im;
 
 enum spf_tree_id {
 	SPFTREE_IPV4 = 0,
@@ -191,14 +207,25 @@ struct isis_area {
 };
 DECLARE_QOBJ_TYPE(isis_area)
 
+void isis_terminate(void);
+void isis_finish(struct isis *isis);
+void isis_master_init(struct thread_master *master);
+void isis_vrf_link(struct isis *isis, struct vrf *vrf);
+void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
+void isis_global_instance_create(void);
+struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
+struct isis *isis_lookup_by_vrfname(const char *vrfname);
+struct isis *isis_lookup_by_sysid(uint8_t *sysid);
+
 void isis_init(void);
-void isis_new(unsigned long process_id, vrf_id_t vrf_id);
-struct isis_area *isis_area_create(const char *);
-struct isis_area *isis_area_lookup(const char *);
+struct isis *isis_new(vrf_id_t vrf_id);
+struct isis_area *isis_area_create(const char *, const char *);
+struct isis_area *isis_area_lookup(const char *, vrf_id_t vrf_id);
 int isis_area_get(struct vty *vty, const char *area_tag);
 void isis_area_destroy(struct isis_area *area);
 void print_debug(struct vty *, int, int);
-struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv);
+struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
+			     struct isis *isis);
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels);
 void isis_area_verify_routes(struct isis_area *area);

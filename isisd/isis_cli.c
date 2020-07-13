@@ -62,7 +62,12 @@ DEFPY_YANG_NOSH(router_isis, router_isis_cmd, "router isis WORD$tag",
 	 * need to make sure to set it in the yang model so that it
 	 * is consistent with what FRR sees.
 	 */
-	if (listcount(isis->area_list) == 0)
+
+	if (!im) {
+		return CMD_SUCCESS;
+	}
+
+	if (listcount(im->isis) == 0)
 		nb_cli_enqueue_change(vty, "./is-type", NB_OP_MODIFY,
 				      "level-1-2");
 	ret = nb_cli_apply_changes(vty, base_xpath);
@@ -90,7 +95,7 @@ DEFPY_YANG(no_router_isis, no_router_isis_cmd, "no router isis WORD$tag",
 	}
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
-	area = isis_area_lookup(tag);
+	area = isis_area_lookup(tag, VRF_DEFAULT);
 	if (area && area->circuit_list && listcount(area->circuit_list)) {
 		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
 				       circuit)) {
@@ -134,13 +139,20 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 {
 	char temp_xpath[XPATH_MAXLEN];
 	const char *circ_type;
-	struct isis_area *area;
+	struct isis_area *area = NULL;
 	struct interface *ifp;
 
 	/* area will be created if it is not present. make sure the yang model
 	 * is synced with FRR and call the appropriate NB cb.
 	 */
-	area = isis_area_lookup(tag);
+
+	if (!im) {
+		return CMD_SUCCESS;
+	}
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+	if (ifp)
+		area = isis_area_lookup(tag, ifp->vrf_id);
+
 	if (!area) {
 		snprintf(temp_xpath, XPATH_MAXLEN,
 			 "/frr-isisd:isis/instance[area-tag='%s']", tag);
@@ -148,9 +160,9 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 		snprintf(temp_xpath, XPATH_MAXLEN,
 			 "/frr-isisd:isis/instance[area-tag='%s']/is-type",
 			 tag);
-		nb_cli_enqueue_change(
-			vty, temp_xpath, NB_OP_MODIFY,
-			listcount(isis->area_list) == 0 ? "level-1-2" : NULL);
+		nb_cli_enqueue_change(vty, temp_xpath, NB_OP_MODIFY,
+				      listcount(im->isis) == 0 ? "level-1-2"
+							       : NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
 				      NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
@@ -159,8 +171,7 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 				      NB_OP_MODIFY, "true");
 		nb_cli_enqueue_change(
 			vty, "./frr-isisd:isis/circuit-type", NB_OP_MODIFY,
-			listcount(isis->area_list) == 0 ? "level-1-2"
-							: "level-1");
+			listcount(im->isis) == 0 ? "level-1-2" : "level-1");
 	} else {
 		/* area exists, circuit type defaults to its area's is_type */
 		switch (area->is_type) {
@@ -188,7 +199,6 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 	}
 
 	/* check if the interface is a loopback and if so set it as passive */
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
 	if (ifp && if_is_loopback(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
@@ -204,13 +214,20 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 {
 	char temp_xpath[XPATH_MAXLEN];
 	const char *circ_type;
-	struct isis_area *area;
+	struct isis_area *area = NULL;
 	struct interface *ifp;
 
 	/* area will be created if it is not present. make sure the yang model
 	 * is synced with FRR and call the appropriate NB cb.
 	 */
-	area = isis_area_lookup(tag);
+
+	if (!im)
+		return CMD_SUCCESS;
+
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+	if (ifp)
+		area = isis_area_lookup(tag, ifp->vrf_id);
+
 	if (!area) {
 		snprintf(temp_xpath, XPATH_MAXLEN,
 			 "/frr-isisd:isis/instance[area-tag='%s']", tag);
@@ -218,9 +235,9 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 		snprintf(temp_xpath, XPATH_MAXLEN,
 			 "/frr-isisd:isis/instance[area-tag='%s']/is-type",
 			 tag);
-		nb_cli_enqueue_change(
-			vty, temp_xpath, NB_OP_MODIFY,
-			listcount(isis->area_list) == 0 ? "level-1-2" : NULL);
+		nb_cli_enqueue_change(vty, temp_xpath, NB_OP_MODIFY,
+				      listcount(im->isis) == 0 ? "level-1-2"
+							       : NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
 				      NULL);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
@@ -229,8 +246,7 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 				      NB_OP_MODIFY, "true");
 		nb_cli_enqueue_change(
 			vty, "./frr-isisd:isis/circuit-type", NB_OP_MODIFY,
-			listcount(isis->area_list) == 0 ? "level-1-2"
-							: "level-1");
+			listcount(im->isis) == 0 ? "level-1-2" : "level-1");
 	} else {
 		/* area exists, circuit type defaults to its area's is_type */
 		switch (area->is_type) {
@@ -258,7 +274,6 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 	}
 
 	/* check if the interface is a loopback and if so set it as passive */
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
 	if (ifp && if_is_loopback(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
