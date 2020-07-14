@@ -63,7 +63,7 @@ from lib.common_config import (
     reset_config_on_routers,
 )
 from lib.topolog import logger
-from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
+from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp
 from lib.topojson import build_topo_from_json, build_config_from_json
 
 # Reading the data from JSON File for topology and configuration creation
@@ -295,7 +295,7 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
             addr_type,
             dut,
             input_dict_1,
-            next_hop=NEXT_HOPS[addr_type][:int(ecmp_num)],
+            next_hop=NEXT_HOPS[addr_type][: int(ecmp_num)],
             protocol=protocol,
         )
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
@@ -336,8 +336,12 @@ def test_ecmp_after_clear_bgp(request, test_type):
             tc_name, result
         )
 
-    # Clear bgp
-    result = clear_bgp_and_verify(tgen, topo, dut)
+    # Clear BGP
+    for addr_type in ADDR_TYPES:
+        clear_bgp(tgen, addr_type, dut)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
