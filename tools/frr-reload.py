@@ -729,6 +729,36 @@ def line_exist(lines, target_ctx_keys, target_line, exact_match=True):
                     return True
     return False
 
+def check_for_exit_vrf(lines_to_add, lines_to_del):
+
+    # exit-vrf is a bit tricky.  If the new config is missing it but we
+    # have configs under a vrf, we need to add it at the end to do the
+    # right context changes.  If exit-vrf exists in both the running and
+    # new config, we cannot delete it or it will break context changes.
+    add_exit_vrf = False
+    index = 0
+
+    for (ctx_keys, line) in lines_to_add:
+        if add_exit_vrf == True:
+            if ctx_keys[0] != prior_ctx_key:
+                insert_key=(prior_ctx_key),
+                lines_to_add.insert(index, ((insert_key, "exit-vrf")))
+                add_exit_vrf = False
+
+        if ctx_keys[0].startswith('vrf') and line:
+            if line is not "exit-vrf":
+                add_exit_vrf = True
+                prior_ctx_key = (ctx_keys[0])
+            else:
+                add_exit_vrf = False
+        index+=1
+
+    for (ctx_keys, line) in lines_to_del:
+        if line == "exit-vrf":
+            if (line_exist(lines_to_add, ctx_keys, line)):
+                lines_to_del.remove((ctx_keys, line))
+
+    return (lines_to_add, lines_to_del)
 
 def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
 
@@ -1156,6 +1186,7 @@ def compare_context_objects(newconf, running):
             for line in newconf_ctx.lines:
                 lines_to_add.append((newconf_ctx_keys, line))
 
+    (lines_to_add, lines_to_del) = check_for_exit_vrf(lines_to_add, lines_to_del)
     (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(lines_to_add, lines_to_del)
     (lines_to_add, lines_to_del) = ignore_unconfigurable_lines(lines_to_add, lines_to_del)
 
