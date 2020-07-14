@@ -841,9 +841,6 @@ enum node_type node_parent(enum node_type node)
 	case BFD_PROFILE_NODE:
 		ret = BFD_NODE;
 		break;
-	case RPKI_VRF_NODE:
-		ret = VRF_NODE;
-		break;
 	default:
 		ret = CONFIG_NODE;
 		break;

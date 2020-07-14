@@ -21,14 +21,8 @@
 #ifndef _QUAGGA_BGP_DEBUG_H
 #define _QUAGGA_BGP_DEBUG_H
 
-#include "hook.h"
-#include "vty.h"
-
 #include "bgp_attr.h"
 #include "bgp_updgrp.h"
-
-DECLARE_HOOK(bgp_hook_config_write_debug, (struct vty *vty, bool running),
-	     (vty, running))
 
 /* sort of packet direction */
 #define DUMP_ON        1

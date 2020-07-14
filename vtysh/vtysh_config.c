@@ -265,22 +265,13 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				config_add_line(config->line, line);
 			} else if (!strncmp(line, " ip mroute", strlen(" ip mroute"))) {
 				config_add_line_uniq_end(config->line, line);
-			} else if ((strncmp(line, " rpki", strlen(" rpki")) == 0)
-				   && config->index == VRF_NODE) {
-				config_add_line(config->line, line);
-				config->index = RPKI_VRF_NODE;
 			} else if (config->index == RMAP_NODE
 				   || config->index == INTERFACE_NODE
 				   || config->index == VTY_NODE
 				   || config->index == VRF_NODE
 				   || config->index == NH_GROUP_NODE)
 				config_add_line_uniq(config->line, line);
-			else if (config->index == RPKI_VRF_NODE
-				 && strncmp(line, "  exit",
-					    strlen("  exit")) == 0) {
-				config_add_line(config->line, line);
-				config->index = VRF_NODE;
-			} else
+			else
 				config_add_line(config->line, line);
 		} else
 			config_add_line(config_top, line);
@@ -412,8 +403,6 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(MPLS_NODE, line);
 		else if (strncmp(line, "bfd", strlen("bfd")) == 0)
 			config = config_get(BFD_NODE, line);
-		else if (strncmp(line, "rpki", strlen("rpki")) == 0)
-			config = config_get(RPKI_NODE, line);
 		else {
 			if (strncmp(line, "log", strlen("log")) == 0
 			    || strncmp(line, "hostname", strlen("hostname"))
