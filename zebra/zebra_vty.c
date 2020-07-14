@@ -55,6 +55,7 @@
 #include "zebra/zebra_nhg.h"
 #include "zebra/interface.h"
 #include "northbound_cli.h"
+#include "zebra/zebra_nb.h"
 
 extern int allow_delete;
 
@@ -2304,12 +2305,9 @@ DEFUN (vrf_vni_mapping,
        "VNI-ID\n"
        "prefix-routes-only\n")
 {
-	int ret = 0;
 	int filter = 0;
 
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
-	vni_t vni = strtoul(argv[1]->arg, NULL, 10);
-	char err[ERR_STR_SZ];
 
 	assert(vrf);
 	assert(zvrf);
@@ -2317,14 +2315,15 @@ DEFUN (vrf_vni_mapping,
 	if (argc == 3)
 		filter = 1;
 
-	/* Mark as having FRR configuration */
-	vrf_set_user_cfged(vrf);
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ,
-					      filter, 1);
-	if (ret != 0) {
-		vty_out(vty, "%s\n", err);
-		return CMD_WARNING;
-	}
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_MODIFY,
+			      argv[1]->arg);
+
+	if (filter)
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
+				      NB_OP_MODIFY, "true");
+
+	nb_cli_apply_changes(vty, NULL);
 
 	return CMD_SUCCESS;
 }
@@ -2337,12 +2336,10 @@ DEFUN (no_vrf_vni_mapping,
        "VNI-ID\n"
        "prefix-routes-only\n")
 {
-	int ret = 0;
 	int filter = 0;
-	char err[ERR_STR_SZ];
-	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
 
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	vni_t vni = strtoul(argv[1]->arg, NULL, 10);
 
 	assert(vrf);
 	assert(zvrf);
@@ -2350,16 +2347,22 @@ DEFUN (no_vrf_vni_mapping,
 	if (argc == 4)
 		filter = 1;
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err,
-					      ERR_STR_SZ, filter, 0);
-	if (ret != 0) {
-		vty_out(vty, "%s\n", err);
+	if (zvrf->l3vni != vni) {
+		vty_out(vty, "VNI %d doesn't exist in VRF: %s \n", vni,
+			zvrf->vrf->name);
 		return CMD_WARNING;
 	}
 
-	/* If no other FRR config for this VRF, mark accordingly. */
-	if (!zebra_vrf_has_config(zvrf))
-		vrf_reset_user_cfged(vrf);
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_DESTROY,
+			      argv[2]->arg);
+
+	if (filter)
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
+				      NB_OP_DESTROY, "true");
+
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra", NB_OP_DESTROY, NULL);
+
+	nb_cli_apply_changes(vty, NULL);
 
 	return CMD_SUCCESS;
 }

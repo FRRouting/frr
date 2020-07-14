@@ -142,7 +142,6 @@ static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac);
 static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac);
 
 /* l3-vni related APIs*/
-static zebra_l3vni_t *zl3vni_lookup(vni_t vni);
 static void *zl3vni_alloc(void *p);
 static zebra_l3vni_t *zl3vni_add(vni_t vni, vrf_id_t vrf_id);
 static int zl3vni_del(zebra_l3vni_t *zl3vni);
@@ -5110,7 +5109,7 @@ static void *zl3vni_alloc(void *p)
 /*
  * Look up L3 VNI hash entry.
  */
-static zebra_l3vni_t *zl3vni_lookup(vni_t vni)
+zebra_l3vni_t *zl3vni_lookup(vni_t vni)
 {
 	zebra_l3vni_t tmp_l3vni;
 	zebra_l3vni_t *zl3vni = NULL;
