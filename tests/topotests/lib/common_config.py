@@ -755,7 +755,7 @@ def start_topology(tgen, daemon=None):
 
 def stop_router(tgen, router):
     """
-    Router"s current config would be saved to /etc/frr/ for each deamon
+    Router"s current config would be saved to /tmp/topotest/<suite>/<router> for each deamon
     and router and its deamons would be stopped.
 
     * `tgen`  : topogen object
@@ -774,7 +774,7 @@ def stop_router(tgen, router):
 
 def start_router(tgen, router):
     """
-    Router will started and config would be loaded from /etc/frr/ for each
+    Router will started and config would be loaded from /tmp/topotest/<suite>/<router> for each
     deamon
 
     * `tgen`  : topogen object
