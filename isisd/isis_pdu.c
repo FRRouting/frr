@@ -876,7 +876,7 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 	/* lsp is_type check */
 	if ((hdr.lsp_bits & IS_LEVEL_1) != IS_LEVEL_1) {
 		zlog_debug(
-			"ISIS-Upd (%s): LSP %s invalid LSP is type 0x%hhx",
+			"ISIS-Upd (%s): LSP %s invalid LSP is type 0x%x",
 			circuit->area->area_tag, rawlspid_print(hdr.lsp_id),
 			hdr.lsp_bits & IS_LEVEL_1_AND_2);
 		/* continue as per RFC1122 Be liberal in what you accept, and
