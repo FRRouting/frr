@@ -1169,7 +1169,11 @@ if __name__ == '__main__':
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--reload', action='store_true', help='Apply the deltas', default=False)
     group.add_argument('--test', action='store_true', help='Show the deltas', default=False)
-    parser.add_argument('--debug', action='store_true', help='Enable debugs', default=False)
+    level_group = parser.add_mutually_exclusive_group()
+    level_group.add_argument('--debug', action='store_true',
+                             help='Enable debugs (synonym for --log-level=debug)', default=False)
+    level_group.add_argument('--log-level', help='Log level', default="info",
+                             choices=("critical", "error", "warning", "info", "debug"))
     parser.add_argument('--stdout', action='store_true', help='Log to STDOUT', default=False)
     parser.add_argument('filename', help='Location of new frr config file')
     parser.add_argument('--overwrite', action='store_true', help='Overwrite frr.conf with running config output', default=False)
@@ -1185,8 +1189,7 @@ if __name__ == '__main__':
     # For --test log to stdout
     # For --reload log to /var/log/frr/frr-reload.log
     if args.test or args.stdout:
-        logging.basicConfig(level=logging.INFO,
-                            format='%(asctime)s %(levelname)5s: %(message)s')
+        logging.basicConfig(format='%(asctime)s %(levelname)5s: %(message)s')
 
         # Color the errors and warnings in red
         logging.addLevelName(logging.ERROR, "\033[91m  %s\033[0m" % logging.getLevelName(logging.ERROR))
@@ -1197,13 +1200,17 @@ if __name__ == '__main__':
             os.makedirs('/var/log/frr/')
 
         logging.basicConfig(filename='/var/log/frr/frr-reload.log',
-                            level=logging.INFO,
                             format='%(asctime)s %(levelname)5s: %(message)s')
 
     # argparse should prevent this from happening but just to be safe...
     else:
         raise Exception('Must specify --reload or --test')
     log = logging.getLogger(__name__)
+
+    if args.debug:
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(args.log_level.upper())
 
     # Verify the new config file is valid
     if not os.path.isfile(args.filename):
@@ -1266,9 +1273,6 @@ if __name__ == '__main__':
         print(msg)
         log.error(msg)
         sys.exit(1)
-
-    if args.debug:
-        log.setLevel(logging.DEBUG)
 
     log.info('Called via "%s"', str(args))
 
