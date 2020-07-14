@@ -648,6 +648,23 @@ module frr-zebra {
     }
   }
 
+  grouping vrf-vni-mapping {
+    description
+      "EVPN L3-VNI mapping corresponding to a VRF.";
+    leaf l3vni-id {
+      type vni-id-type;
+      description
+        "EVPN L3-VNI id to map to the VRF.";
+    }
+
+    leaf prefix-only {
+      type boolean;
+      default "false";
+      description
+        "EVPN asymmetric mode advertise prefix routes only.";
+    }
+  }
+
   // End of zebra container
   /*
    * RPCs
@@ -2041,7 +2058,11 @@ module frr-zebra {
     description
       "Extends VRF model with Zebra-related parameters.";
     container zebra {
+      description
+        "Zebra's vrf specific configuration and operational model.";
       uses ribs;
+
+      uses vrf-vni-mapping;
     }
   }
 
@@ -2143,26 +2164,6 @@ module frr-zebra {
       default "200";
       description
         "Limit on the number of updates queued to the dataplane subsystem.";
-    }
-    list vrf-vni-mapping {
-      key "vrf-id";
-      description
-        "EVPN VNI mapping corresponding to a VRF.";
-      leaf vrf-id {
-        type uint32;
-        description
-          "The identifier for a VRF.";
-      }
-      leaf vni-id {
-        type vni-id-type;
-        description
-          "The VNI id to map to the VRF.";
-      }
-      leaf prefix-only {
-        type empty;
-        description
-          "Prefix routes only.";
-      }
     }
     /*
      * Debug options
