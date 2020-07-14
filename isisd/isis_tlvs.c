@@ -538,7 +538,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 		subtlv_type = stream_getc(s);
 		subtlv_len = stream_getc(s);
 		if (subtlv_len > len - sum) {
-			sbuf_push(log, indent, "TLV %hhu: Available data %hhu is less than TLV size %u !\n",
+			sbuf_push(log, indent, "TLV %hhu: Available data %u is less than TLV size %u !\n",
 				  subtlv_type, len - sum, subtlv_len);
 			return 1;
 		}
@@ -1152,7 +1152,7 @@ static int unpack_item_area_address(uint16_t mtid, uint8_t len,
 	rv->len = stream_getc(s);
 
 	if (len < 1 + rv->len) {
-		sbuf_push(log, indent, "Not enough data left. (Expected %hhu bytes of address, got %hhu)\n",
+		sbuf_push(log, indent, "Not enough data left. (Expected %hhu bytes of address, got %u)\n",
 			  rv->len, len - 1);
 		goto out;
 	}
@@ -1468,7 +1468,7 @@ static int unpack_item_extended_reach(uint16_t mtid, uint8_t len,
 
 	if ((size_t)len < ((size_t)11) + subtlv_len) {
 		sbuf_push(log, indent,
-			  "Not enough data left for subtlv size %hhu, there are only %hhu bytes left.\n",
+			  "Not enough data left for subtlv size %hhu, there are only %u bytes left.\n",
 			  subtlv_len, len - 11);
 		goto out;
 	}
