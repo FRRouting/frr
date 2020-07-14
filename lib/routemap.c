@@ -1741,14 +1741,19 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 				 * more noops, we retain this return value and
 				 * return this eventually if there are no
 				 * matches.
+				 * If a best match route-map index already
+				 * exists, do not reset the match_ret.
 				 */
-				if (*match_ret != RMAP_NOMATCH)
+				if (!best_index && (*match_ret != RMAP_NOMATCH))
 					*match_ret = ret;
 			} else {
 				/*
 				 * ret is RMAP_NOMATCH.
+				 * If a best match route-map index already
+				 * exists, do not reset the match_ret.
 				 */
-				*match_ret = ret;
+				if (!best_index)
+					*match_ret = ret;
 			}
 		}
 
