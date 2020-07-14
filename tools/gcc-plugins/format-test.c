@@ -82,6 +82,12 @@ int test(unsigned long long ay)
 	testfn("%Ld", v_pid_t);			// WARN
 	testfn("%Ld", v_uint64_t);		// NOWARN
 
+	/* retain-typeinfo patch */
+	testfn("%zu", (size_t)v_pid_t);         // NOWARN (need retain-typeinfo patch)
+	testfn("%lu", (size_t)v_pid_t);         // WARN   (need retain-typeinfo patch)
+	testfn("%Lu", (uint64_t)v_pid_t);       // NOWARN (need retain-typeinfo patch)
+	testfn("%lu", (uint64_t)v_pid_t);       // WARN   (need retain-typeinfo patch)
+
 	testfn("%pI4", &v_long);		// WARN
 
 	in_addr_t v_in_addr_t;
