@@ -43,6 +43,15 @@ extern "C" {
 #define ETH_ALEN 6
 #endif
 
+/* EVPN route types. */
+typedef enum {
+	BGP_EVPN_AD_ROUTE = 1,    /* Ethernet Auto-Discovery (A-D) route */
+	BGP_EVPN_MAC_IP_ROUTE,    /* MAC/IP Advertisement route */
+	BGP_EVPN_IMET_ROUTE,      /* Inclusive Multicast Ethernet Tag route */
+	BGP_EVPN_ES_ROUTE,        /* Ethernet Segment route */
+	BGP_EVPN_IP_PREFIX_ROUTE, /* IP Prefix route */
+} bgp_evpn_route_type;
+
 /* value of first byte of ESI */
 #define ESI_TYPE_ARBITRARY 0  /* */
 #define ESI_TYPE_LACP      1  /* <> */
@@ -236,45 +245,45 @@ struct prefix_evpn {
 
 static inline int is_evpn_prefix_ipaddr_none(const struct prefix_evpn *evp)
 {
-	if (evp->prefix.route_type == 1)
+	if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE)
 		return IS_IPADDR_NONE(&(evp)->prefix.ead_addr.ip);
-	if (evp->prefix.route_type == 2)
+	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
 		return IS_IPADDR_NONE(&(evp)->prefix.macip_addr.ip);
-	if (evp->prefix.route_type == 3)
+	if (evp->prefix.route_type == BGP_EVPN_IMET_ROUTE)
 		return IS_IPADDR_NONE(&(evp)->prefix.imet_addr.ip);
-	if (evp->prefix.route_type == 4)
+	if (evp->prefix.route_type == BGP_EVPN_ES_ROUTE)
 		return IS_IPADDR_NONE(&(evp)->prefix.es_addr.ip);
-	if (evp->prefix.route_type == 5)
+	if (evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
 		return IS_IPADDR_NONE(&(evp)->prefix.prefix_addr.ip);
 	return 0;
 }
 
 static inline int is_evpn_prefix_ipaddr_v4(const struct prefix_evpn *evp)
 {
-	if (evp->prefix.route_type == 1)
+	if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE)
 		return IS_IPADDR_V4(&(evp)->prefix.ead_addr.ip);
-	if (evp->prefix.route_type == 2)
+	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
 		return IS_IPADDR_V4(&(evp)->prefix.macip_addr.ip);
-	if (evp->prefix.route_type == 3)
+	if (evp->prefix.route_type == BGP_EVPN_IMET_ROUTE)
 		return IS_IPADDR_V4(&(evp)->prefix.imet_addr.ip);
-	if (evp->prefix.route_type == 4)
+	if (evp->prefix.route_type == BGP_EVPN_ES_ROUTE)
 		return IS_IPADDR_V4(&(evp)->prefix.es_addr.ip);
-	if (evp->prefix.route_type == 5)
+	if (evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
 		return IS_IPADDR_V4(&(evp)->prefix.prefix_addr.ip);
 	return 0;
 }
 
 static inline int is_evpn_prefix_ipaddr_v6(const struct prefix_evpn *evp)
 {
-	if (evp->prefix.route_type == 1)
+	if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE)
 		return IS_IPADDR_V6(&(evp)->prefix.ead_addr.ip);
-	if (evp->prefix.route_type == 2)
+	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
 		return IS_IPADDR_V6(&(evp)->prefix.macip_addr.ip);
-	if (evp->prefix.route_type == 3)
+	if (evp->prefix.route_type == BGP_EVPN_IMET_ROUTE)
 		return IS_IPADDR_V6(&(evp)->prefix.imet_addr.ip);
-	if (evp->prefix.route_type == 4)
+	if (evp->prefix.route_type == BGP_EVPN_ES_ROUTE)
 		return IS_IPADDR_V6(&(evp)->prefix.es_addr.ip);
-	if (evp->prefix.route_type == 5)
+	if (evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
 		return IS_IPADDR_V6(&(evp)->prefix.prefix_addr.ip);
 	return 0;
 }

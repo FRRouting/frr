@@ -48,15 +48,6 @@
 #define BGP_EVPN_TYPE4_V4_PSIZE 23
 #define BGP_EVPN_TYPE4_V6_PSIZE 34
 
-/* EVPN route types. */
-typedef enum {
-	BGP_EVPN_AD_ROUTE = 1,    /* Ethernet Auto-Discovery (A-D) route */
-	BGP_EVPN_MAC_IP_ROUTE,    /* MAC/IP Advertisement route */
-	BGP_EVPN_IMET_ROUTE,      /* Inclusive Multicast Ethernet Tag route */
-	BGP_EVPN_ES_ROUTE,	/* Ethernet Segment route */
-	BGP_EVPN_IP_PREFIX_ROUTE, /* IP Prefix route */
-} bgp_evpn_route_type;
-
 RB_HEAD(bgp_es_evi_rb_head, bgp_evpn_es_evi);
 RB_PROTOTYPE(bgp_es_evi_rb_head, bgp_evpn_es_evi, rb_node,
 		bgp_es_evi_rb_cmp);
