@@ -1442,6 +1442,12 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 			if (errno == EINTR) {
 				pthread_mutex_unlock(&m->mtx);
 				/* loop around to signal handler */
+				/* If this thread will not handle signals
+				 * let's crash and make that visible.
+				 */
+				if (!m->handle_signals)
+					abort();
+
 				continue;
 			}
 

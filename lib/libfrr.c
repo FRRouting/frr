@@ -1007,6 +1007,24 @@ static void frr_terminal_close(int isexit)
 	}
 }
 
+/*
+ * Simple background timer that ensures the main thread wakes up
+ * once per second.
+ */
+static int handle_simple_timer(struct thread *event)
+{
+	/* Just re-schedule */
+	thread_add_timer(master, handle_simple_timer, NULL, 1,
+			 &event->master->simple_timer);
+	return 0;
+}
+
+static void start_simple_timer(struct thread_master *master)
+{
+	thread_add_timer(master, handle_simple_timer, NULL, 1,
+			 &master->simple_timer);
+}
+
 static struct thread *daemon_ctl_thread = NULL;
 
 static int frr_daemon_ctl(struct thread *t)
@@ -1092,6 +1110,8 @@ void frr_run(struct thread_master *master)
 
 	/* end fixed stderr startup logging */
 	zlog_startup_end();
+
+	start_simple_timer(master);
 
 	struct thread thread;
 	while (thread_fetch(master, &thread))

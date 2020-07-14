@@ -87,6 +87,7 @@ struct thread_master {
 	bool handle_signals;
 	pthread_mutex_t mtx;
 	pthread_t owner;
+	struct thread *simple_timer;
 };
 
 /* Thread itself. */
