@@ -51,6 +51,35 @@ from mininet.log import setLogLevel, info
 from mininet.cli import CLI
 from mininet.link import Intf
 
+def gdb_core(obj, daemon, corefiles):
+    gdbcmds = '''
+        info threads
+        bt full
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+    '''
+    gdbcmds = [['-ex', i.strip()] for i in gdbcmds.strip().split('\n')]
+    gdbcmds = [item for sl in gdbcmds for item in sl]
+
+    daemon_path = os.path.join(obj.daemondir, daemon)
+    backtrace = subprocess.check_output(
+        ['gdb', daemon_path, corefiles[0], '--batch'] + gdbcmds
+    )
+    sys.stderr.write(
+        "\n%s: %s crashed. Core file found - Backtrace follows:\n"
+        % (obj.name, daemon)
+    )
+    sys.stderr.write("%s" % backtrace)
+    return backtrace
 
 class json_cmp_result(object):
     "json_cmp result class for better assertion messages"
@@ -1348,20 +1377,7 @@ class Router(Node):
                     "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
                 )
                 if len(corefiles) > 0:
-                    daemon_path = os.path.join(self.daemondir, daemon)
-                    backtrace = subprocess.check_output(
-                        [
-                            "gdb {} {} --batch -ex bt 2> /dev/null".format(
-                                daemon_path, corefiles[0]
-                            )
-                        ],
-                        shell=True,
-                    )
-                    sys.stderr.write(
-                        "\n%s: %s crashed. Core file found - Backtrace follows:\n"
-                        % (self.name, daemon)
-                    )
-                    sys.stderr.write("%s" % backtrace)
+                    backtrace = gdb_core(self, daemon, corefiles)
                     traces = (
                         traces
                         + "\n%s: %s crashed. Core file found - Backtrace follows:\n%s"
@@ -1431,20 +1447,7 @@ class Router(Node):
                     "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
                 )
                 if len(corefiles) > 0:
-                    daemon_path = os.path.join(self.daemondir, daemon)
-                    backtrace = subprocess.check_output(
-                        [
-                            "gdb {} {} --batch -ex bt 2> /dev/null".format(
-                                daemon_path, corefiles[0]
-                            )
-                        ],
-                        shell=True,
-                    )
-                    sys.stderr.write(
-                        "\n%s: %s crashed. Core file found - Backtrace follows:\n"
-                        % (self.name, daemon)
-                    )
-                    sys.stderr.write("%s\n" % backtrace)
+                    gdb_core(self, daemon, corefiles)
                 else:
                     # No core found - If we find matching logfile in /tmp, then print last 20 lines from it.
                     if os.path.isfile(
