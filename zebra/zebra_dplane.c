@@ -858,8 +858,6 @@ const char *dplane_res2str(enum zebra_dplane_result res)
 	case ZEBRA_DPLANE_REQUEST_SUCCESS:
 		ret = "SUCCESS";
 		break;
-	case ZEBRA_DPLANE_REQUEST_PENDING:
-		ret = "PENDING";
 	}
 
 	return ret;
