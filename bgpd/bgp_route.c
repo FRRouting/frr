@@ -11414,8 +11414,10 @@ static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 	}
 
 	if (!json)
-		vty_out(vty, "BGP %s RIB statistics\n",
-			get_afi_safi_str(afi, safi, false));
+		vty_out(vty, "BGP %s RIB statistics (%s)\n",
+			get_afi_safi_str(afi, safi, false), bgp->name_pretty);
+	else
+		json_object_string_add(json, "instance", bgp->name_pretty);
 
 	/* labeled-unicast routes live in the unicast table */
 	if (safi == SAFI_LABELED_UNICAST)
