@@ -496,6 +496,7 @@ end
                   line.startswith("vnc defaults") or
                   line.startswith("vnc l2-group") or
                   line.startswith("vnc nve-group") or
+                  line.startswith("peer") or
                   line.startswith("member pseudowire")):
                 main_ctx_key = []
 
