@@ -2352,19 +2352,6 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 
 	} else
 		ret = 0;
-	if ((cmd == RTM_NEWROUTE) && (ret == 0)) {
-		/* Update installed nexthops to signal which have been
-		 * installed.
-		 */
-		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				continue;
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			}
-		}
-	}
 
 	return (ret == 0 ?
 		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);

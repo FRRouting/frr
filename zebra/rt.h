@@ -97,6 +97,12 @@ extern int kernel_upd_mac_nhg(uint32_t nhg_id, uint32_t nh_cnt,
 		struct nh_grp *nh_ids);
 extern int kernel_del_mac_nhg(uint32_t nhg_id);
 
+/*
+ * Message batching interface.
+ */
+extern void kernel_update_multi(struct dplane_ctx_q *ctx_list);
+extern bool kernel_supports_batch(void);
+
 #ifdef __cplusplus
 }
 #endif

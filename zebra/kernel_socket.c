@@ -1464,4 +1464,14 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 	return;
 }
 
+void kernel_update_multi(struct dplane_ctx_q *ctx_list)
+{
+	/* no-op */
+}
+
+bool kernel_supports_batch(void)
+{
+	return false;
+}
+
 #endif /* !HAVE_NETLINK */

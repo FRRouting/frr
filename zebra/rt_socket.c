@@ -358,20 +358,6 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 		}
 	} /* Elevated privs */
 
-	if (RSYSTEM_ROUTE(type)
-	    && dplane_ctx_get_op(ctx) != DPLANE_OP_ROUTE_DELETE) {
-		struct nexthop *nexthop;
-
-		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				continue;
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			}
-		}
-	}
-
 	return res;
 }
 

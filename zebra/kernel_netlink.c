@@ -1080,6 +1080,16 @@ int netlink_request(struct nlsock *nl, void *req)
 	return 0;
 }
 
+void kernel_update_multi(struct dplane_ctx_q *ctx_list)
+{
+	/* no-op */
+}
+
+bool kernel_supports_batch(void)
+{
+	return false;
+}
+
 /* Exported interface function.  This function simply calls
    netlink_socket (). */
 void kernel_init(struct zebra_ns *zns)
