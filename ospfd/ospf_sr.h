@@ -356,7 +356,7 @@ struct ext_itf;
 extern void ospf_sr_ext_itf_add(struct ext_itf *exti);
 extern void ospf_sr_ext_itf_delete(struct ext_itf *exti);
 /* Segment Routing configuration functions */
-extern void ospf_sr_config_write_router(struct vty *vty);
+extern void ospf_sr_config_write_router(struct vty *vty, struct ospf *ospf);
 extern void ospf_sr_update_local_prefix(struct interface *ifp,
 					struct prefix *p);
 /* Segment Routing re-routing function */

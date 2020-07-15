@@ -132,7 +132,7 @@ extern int ospf_register_opaque_functab(
 	int (*del_if_hook)(struct interface *ifp),
 	void (*ism_change_hook)(struct ospf_interface *oi, int old_status),
 	void (*nsm_change_hook)(struct ospf_neighbor *nbr, int old_status),
-	void (*config_write_router)(struct vty *vty),
+	void (*config_write_router)(struct vty *vty, struct ospf *ospf),
 	void (*config_write_if)(struct vty *vty, struct interface *ifp),
 	void (*config_write_debug)(struct vty *vty),
 	void (*show_opaque_info)(struct vty *vty, struct ospf_lsa *lsa),

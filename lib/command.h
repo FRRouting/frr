@@ -418,6 +418,8 @@ struct cmd_node {
 #define BFD_PROFILE_STR "BFD profile.\n"
 #define BFD_PROFILE_NAME_STR "BFD profile name.\n"
 #define SHARP_STR "Sharp Routing Protocol\n"
+#define OSPF_GR_STR                                                            \
+	"OSPF non-stop forwarding (NSF) also known as OSPF Graceful Restart\n"
 
 #define CMD_VNI_RANGE "(1-16777215)"
 #define CONF_BACKUP_EXT ".sav"

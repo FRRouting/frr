@@ -1216,6 +1216,31 @@ Summary Route will be originated on-behalf of all matched external LSAs.
    Show configuration for display all configured summary routes with
    matching external LSA information.
 
+.. _nsf:
+
+Nonstop Forwarding (NSF, also known as Graceful Restart)
+========================================================
+
+.. index:: graceful-restart [grace-period (1-1800)]
+.. clicmd:: graceful-restart [grace-period (1-1800)]
+
+.. index:: no graceful-restart [grace-period (1-1800)]
+.. clicmd:: no graceful-restart [grace-period (1-1800)]
+
+   Enable nonstop forwarding also known as 'Graceful Restart' (:rfc:`3623`).
+   Default 'grace period' is 120 seconds.
+
+.. index:: graceful-restart prepare [period (1-1800)]
+.. clicmd:: graceful-restart prepare [period (1-1800)]
+
+.. index:: no graceful-restart prepare [period (1-1800)]
+.. clicmd:: no graceful-restart prepare [period (1-1800)]
+
+   Prepare a restart of OSPFd by sending out 'grace' LSAs and stalling the RIB.
+   Default 'prepare period' is 120 seconds. During the 'prepare period' OSPFd
+   should be restarted, otherwise the 'grace' LSAs are flushed again and the
+   'Graceful Restart' is aborted.
+
 Debugging OSPF
 ==============
 

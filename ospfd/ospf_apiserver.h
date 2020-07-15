@@ -179,7 +179,8 @@ extern void ospf_apiserver_ism_change(struct ospf_interface *oi,
 				      int old_status);
 extern void ospf_apiserver_nsm_change(struct ospf_neighbor *nbr,
 				      int old_status);
-extern void ospf_apiserver_config_write_router(struct vty *vty);
+extern void ospf_apiserver_config_write_router(struct vty *vty,
+					       struct ospf *ospf);
 extern void ospf_apiserver_config_write_if(struct vty *vty,
 					   struct interface *ifp);
 extern void ospf_apiserver_show_info(struct vty *vty, struct ospf_lsa *lsa);

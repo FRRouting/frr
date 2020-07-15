@@ -54,6 +54,7 @@
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ri.h"
 #include "ospfd/ospf_ext.h"
+#include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_errors.h"
 
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_OPAQUE_FUNCTAB, "OSPF opaque function table")
@@ -98,6 +99,9 @@ void ospf_opaque_init(void)
 	if (ospf_ext_init() != 0)
 		exit(1);
 
+	if (ospf_gr_init() != 0)
+		exit(1);
+
 #ifdef SUPPORT_OSPF_API
 	if ((ospf_apiserver_enable) && (ospf_apiserver_init() != 0))
 		exit(1);
@@ -115,6 +119,8 @@ void ospf_opaque_term(void)
 	ospf_ext_term();
 
 	ospf_sr_term();
+
+	ospf_gr_term();
 
 #ifdef SUPPORT_OSPF_API
 	ospf_apiserver_term();
@@ -271,7 +277,7 @@ struct ospf_opaque_functab {
 	int (*del_if_hook)(struct interface *ifp);
 	void (*ism_change_hook)(struct ospf_interface *oi, int old_status);
 	void (*nsm_change_hook)(struct ospf_neighbor *nbr, int old_status);
-	void (*config_write_router)(struct vty *vty);
+	void (*config_write_router)(struct vty *vty, struct ospf *ospf);
 	void (*config_write_if)(struct vty *vty, struct interface *ifp);
 	void (*config_write_debug)(struct vty *vty);
 	void (*show_opaque_info)(struct vty *vty, struct ospf_lsa *lsa);
@@ -370,7 +376,7 @@ int ospf_register_opaque_functab(
 	int (*del_if_hook)(struct interface *ifp),
 	void (*ism_change_hook)(struct ospf_interface *oi, int old_status),
 	void (*nsm_change_hook)(struct ospf_neighbor *nbr, int old_status),
-	void (*config_write_router)(struct vty *vty),
+	void (*config_write_router)(struct vty *vty, struct ospf *ospf),
 	void (*config_write_if)(struct vty *vty, struct interface *ifp),
 	void (*config_write_debug)(struct vty *vty),
 	void (*show_opaque_info)(struct vty *vty, struct ospf_lsa *lsa),
@@ -893,14 +899,15 @@ static void opaque_lsa_nsm_change_callback(struct list *funclist,
 }
 
 static void opaque_lsa_config_write_router_callback(struct list *funclist,
-						    struct vty *vty)
+						    struct vty *vty,
+						    struct ospf *ospf)
 {
 	struct listnode *node, *nnode;
 	struct ospf_opaque_functab *functab;
 
 	for (ALL_LIST_ELEMENTS(funclist, node, nnode, functab))
 		if (functab->config_write_router != NULL)
-			(*functab->config_write_router)(vty);
+			(*functab->config_write_router)(vty, ospf);
 	return;
 }
 
@@ -1109,16 +1116,16 @@ void ospf_opaque_config_write_router(struct vty *vty, struct ospf *ospf)
 		vty_out(vty, " capability opaque\n");
 
 	funclist = ospf_opaque_wildcard_funclist;
-	opaque_lsa_config_write_router_callback(funclist, vty);
+	opaque_lsa_config_write_router_callback(funclist, vty, ospf);
 
 	funclist = ospf_opaque_type9_funclist;
-	opaque_lsa_config_write_router_callback(funclist, vty);
+	opaque_lsa_config_write_router_callback(funclist, vty, ospf);
 
 	funclist = ospf_opaque_type10_funclist;
-	opaque_lsa_config_write_router_callback(funclist, vty);
+	opaque_lsa_config_write_router_callback(funclist, vty, ospf);
 
 	funclist = ospf_opaque_type11_funclist;
-	opaque_lsa_config_write_router_callback(funclist, vty);
+	opaque_lsa_config_write_router_callback(funclist, vty, ospf);
 
 	return;
 }

@@ -126,6 +126,15 @@ enum {
 	OSPF_LOG_ADJACENCY_DETAIL =	(1 << 4),
 };
 
+/* OSPF nonstop forwarding aka Graceful Restart */
+struct ospf_gr_info {
+	bool restart_support;
+	uint32_t grace_period;
+
+	bool prepare_running;
+	uint32_t prepare_period;
+};
+
 /* OSPF instance structure. */
 struct ospf {
 	/* OSPF's running state based on the '[no] router ospf [<instance>]'
@@ -373,6 +382,9 @@ struct ospf {
 
 	/* MPLS LDP-IGP Sync */
 	struct ldp_sync_info_cmd ldp_sync_cmd;
+
+	/* OSPF Graceful Restart info */
+	struct ospf_gr_info gr_info;
 
 	QOBJ_FIELDS
 };

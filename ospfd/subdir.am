@@ -12,6 +12,7 @@ vtysh_scan += \
 	ospfd/ospf_ldp_sync.c \
 	ospfd/ospf_opaque.c \
 	ospfd/ospf_ri.c \
+	ospfd/ospf_gr.c \
 	ospfd/ospf_routemap.c \
 	ospfd/ospf_te.c \
 	ospfd/ospf_sr.c \
@@ -49,6 +50,7 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_opaque.c \
 	ospfd/ospf_packet.c \
 	ospfd/ospf_ri.c \
+	ospfd/ospf_gr.c \
 	ospfd/ospf_route.c \
 	ospfd/ospf_routemap.c \
 	ospfd/ospf_spf.c \
@@ -98,6 +100,7 @@ noinst_HEADERS += \
 	ospfd/ospf_network.h \
 	ospfd/ospf_packet.h \
 	ospfd/ospf_ri.h \
+	ospfd/ospf_gr.h \
 	ospfd/ospf_route.h \
 	ospfd/ospf_spf.h \
 	ospfd/ospf_sr.h \

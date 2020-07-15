@@ -72,7 +72,8 @@ static struct ospf_router_info OspfRI;
 
 static void ospf_router_info_ism_change(struct ospf_interface *oi,
 					int old_status);
-static void ospf_router_info_config_write_router(struct vty *vty);
+static void ospf_router_info_config_write_router(struct vty *vty,
+						 struct ospf *ospf);
 static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa);
 static int ospf_router_info_lsa_originate(void *arg);
 static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa);
@@ -1524,7 +1525,8 @@ static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa)
 	return;
 }
 
-static void ospf_router_info_config_write_router(struct vty *vty)
+static void ospf_router_info_config_write_router(struct vty *vty,
+						 struct ospf *ospf)
 {
 	struct ospf_pce_info *pce = &OspfRI.pce_info;
 	struct listnode *node;

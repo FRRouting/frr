@@ -79,7 +79,8 @@ static int ospf_mpls_te_new_if(struct interface *ifp);
 static int ospf_mpls_te_del_if(struct interface *ifp);
 static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_status);
 static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_status);
-static void ospf_mpls_te_config_write_router(struct vty *vty);
+static void ospf_mpls_te_config_write_router(struct vty *vty,
+					     struct ospf *ospf);
 static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa);
 static int ospf_mpls_te_lsa_originate_area(void *arg);
 static int ospf_mpls_te_lsa_originate_as(void *arg);
@@ -2150,7 +2151,7 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa)
 	return;
 }
 
-static void ospf_mpls_te_config_write_router(struct vty *vty)
+static void ospf_mpls_te_config_write_router(struct vty *vty, struct ospf *ospf)
 {
 
 	if (OspfMplsTE.enabled) {

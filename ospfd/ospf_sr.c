@@ -1922,7 +1922,7 @@ void ospf_sr_update_task(struct ospf *ospf)
  *
  * @return none
  */
-void ospf_sr_config_write_router(struct vty *vty)
+void ospf_sr_config_write_router(struct vty *vty, struct ospf *ospf)
 {
 	struct listnode *node;
 	struct sr_prefix *srp;
