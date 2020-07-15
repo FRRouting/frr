@@ -2603,7 +2603,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 	if (prd)
 		snprintfrr(str, size, "RD %s %pFX%s%s %s %s",
 			   prefix_rd2str(prd, rd_buf, sizeof(rd_buf)),
-			   pu, tag_buf,
+			   pu.p, tag_buf,
 			   pathid_buf, afi2str(afi), safi2str(safi));
 	else if (safi == SAFI_FLOWSPEC) {
 		char return_string[BGP_FLOWSPEC_NLRI_STRING_MAX];
@@ -2617,7 +2617,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 			 return_string);
 	} else
 		snprintfrr(str, size, "%pFX%s%s %s %s",
-			   pu, tag_buf,
+			   pu.p, tag_buf,
 			   pathid_buf, afi2str(afi), safi2str(safi));
 
 	return str;

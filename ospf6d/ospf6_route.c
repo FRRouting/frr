@@ -1519,7 +1519,7 @@ void ospf6_brouter_show_header(struct vty *vty)
 
 void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route)
 {
-	uint32_t adv_router;
+	in_addr_t adv_router;
 	char rbits[16], options[16];
 
 	adv_router = ospf6_linkstate_prefix_adv_router(&route->prefix);

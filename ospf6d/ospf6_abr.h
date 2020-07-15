@@ -45,7 +45,7 @@ struct ospf6_inter_router_lsa {
 	uint8_t mbz;
 	uint8_t options[3];
 	uint32_t metric;
-	uint32_t router_id;
+	in_addr_t router_id;
 };
 
 #define OSPF6_ABR_SUMMARY_METRIC(E) (ntohl ((E)->metric & htonl (0x00ffffff)))

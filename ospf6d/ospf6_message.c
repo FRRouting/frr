@@ -116,7 +116,7 @@ void ospf6_hello_print(struct ospf6_header *oh)
 	for (p = (char *)((caddr_t)hello + sizeof(struct ospf6_hello));
 	     p + sizeof(uint32_t) <= OSPF6_MESSAGE_END(oh);
 	     p += sizeof(uint32_t)) {
-		zlog_debug("    Neighbor: %pI4", (void *)p);
+		zlog_debug("    Neighbor: %pI4", (in_addr_t *)p);
 	}
 
 	assert(p == OSPF6_MESSAGE_END(oh));

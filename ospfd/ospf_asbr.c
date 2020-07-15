@@ -155,7 +155,7 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 		zlog_debug("Redistribute[%s][%u]: %pFX external info created, with NH %pI4",
 			   ospf_redist_string(type), ospf->vrf_id,
-			   &p, (void *)&nexthop.s_addr);
+			   &p, &nexthop.s_addr);
 	}
 	return new;
 }

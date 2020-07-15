@@ -1985,7 +1985,7 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 
 static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
 {
-	uint32_t brouter_id;
+	in_addr_t brouter_id;
 	char destination[64];
 	char installed[64], changed[64];
 	struct timeval now, res;

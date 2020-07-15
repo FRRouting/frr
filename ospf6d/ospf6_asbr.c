@@ -1805,7 +1805,7 @@ static void ospf6_asbr_external_route_show(struct vty *vty,
 {
 	struct ospf6_external_info *info = route->route_option;
 	char forwarding[64];
-	uint32_t tmp_id;
+	in_addr_t tmp_id;
 
 	tmp_id = ntohl(info->id);
 	if (!IN6_IS_ADDR_UNSPECIFIED(&info->forwarding))

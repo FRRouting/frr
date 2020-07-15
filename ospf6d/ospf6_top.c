@@ -104,7 +104,7 @@ static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 {
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL) ||
 	    IS_OSPF6_DEBUG_BROUTER) {
-		uint32_t brouter_id;
+		in_addr_t brouter_id;
 
 		brouter_id = ADV_ROUTER_IN_PREFIX(&route->prefix);
 		zlog_debug("%s: brouter %pI4 add with adv router %x nh count %u",
@@ -121,7 +121,7 @@ static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 {
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL) ||
 	    IS_OSPF6_DEBUG_BROUTER) {
-		uint32_t brouter_id;
+		in_addr_t brouter_id;
 
 		brouter_id = ADV_ROUTER_IN_PREFIX(&route->prefix);
 		zlog_debug("%s: brouter %p %pI4 del with adv router %x nh %u",

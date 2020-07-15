@@ -86,7 +86,7 @@ struct ospf6_neighbor *ospf6_neighbor_lookup(uint32_t router_id,
 }
 
 /* create ospf6_neighbor */
-struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
+struct ospf6_neighbor *ospf6_neighbor_create(in_addr_t router_id,
 					     struct ospf6_interface *oi)
 {
 	struct ospf6_neighbor *on;

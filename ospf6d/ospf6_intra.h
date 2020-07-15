@@ -84,8 +84,8 @@ struct ospf6_router_lsdesc {
 	uint8_t type;
 	uint8_t reserved;
 	uint16_t metric; /* output cost */
-	uint32_t interface_id;
-	uint32_t neighbor_interface_id;
+	in_addr_t interface_id;
+	in_addr_t neighbor_interface_id;
 	in_addr_t neighbor_router_id;
 };
 

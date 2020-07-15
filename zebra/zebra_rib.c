@@ -2708,7 +2708,7 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	struct nexthop_group *nhg;
 
 	zlog_debug("%s: dumping RE entry %p for %pFX%s%s vrf %s(%u)", func,
-		   (const void *)re, pp,
+		   (const void *)re, pp.p,
 		   is_srcdst ? " from " : "",
 		   is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
 			     : "",

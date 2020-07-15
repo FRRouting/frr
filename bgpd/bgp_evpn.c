@@ -1332,7 +1332,6 @@ static int update_evpn_type4_route_entry(struct bgp *bgp, struct evpnes *es,
 					 int *route_changed)
 {
 	char buf[ESI_STR_LEN];
-	char buf1[INET6_ADDRSTRLEN];
 	struct bgp_path_info *tmp_pi = NULL;
 	struct bgp_path_info *local_pi = NULL;  /* local route entry if any */
 	struct bgp_path_info *remote_pi = NULL; /* remote route entry if any */
@@ -3441,6 +3440,7 @@ static int install_uninstall_route_in_es(struct bgp *bgp, struct evpnes *es,
 					 struct prefix_evpn *evp,
 					 struct bgp_path_info *pi, int install)
 {
+	char buf[ESI_STR_LEN];
 	int ret = 0;
 
 	if (install)
@@ -6107,6 +6107,7 @@ int bgp_evpn_local_es_del(struct bgp *bgp,
 			  esi_t *esi,
 			  struct ipaddr *originator_ip)
 {
+	char buf[ESI_STR_LEN];
 	struct evpnes *es = NULL;
 
 	if (!bgp->esihash) {
@@ -6142,6 +6143,7 @@ int bgp_evpn_local_es_add(struct bgp *bgp,
 			  esi_t *esi,
 			  struct ipaddr *originator_ip)
 {
+	char buf[ESI_STR_LEN];
 	struct evpnes *es = NULL;
 	struct prefix_evpn p;
 
