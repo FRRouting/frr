@@ -74,7 +74,7 @@ extern ssize_t netlink_route_multipath_msg_encode(int cmd,
 						  uint8_t *data, size_t datalen,
 						  bool fpm, bool force_nhg);
 extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx,
-					 uint8_t *data, size_t datalen);
+					 void *data, size_t datalen);
 
 extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int netlink_route_read(struct zebra_ns *zns);
@@ -100,6 +100,23 @@ extern int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 extern int netlink_neigh_read_specific_ip(struct ipaddr *ip,
 					  struct interface *vlan_if);
 extern vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
+
+struct nl_batch;
+extern enum netlink_msg_status
+netlink_put_route_update_msg(struct nl_batch *bth,
+			     struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_nexthop_update_msg(struct nl_batch *bth,
+			       struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_mac_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_neigh_update_msg(struct nl_batch *bth,
+			     struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_lsp_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_pw_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
 #ifdef __cplusplus
 }

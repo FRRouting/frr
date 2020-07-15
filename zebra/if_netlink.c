@@ -987,7 +987,8 @@ int kernel_interface_set_master(struct interface *master,
 }
 
 /* Interface address modification. */
-static int netlink_address_ctx(const struct zebra_dplane_ctx *ctx)
+static ssize_t netlink_address_msg_encoder(struct zebra_dplane_ctx *ctx,
+					   void *buf, size_t buflen)
 {
 	int bytelen;
 	const struct prefix *p;
@@ -997,64 +998,81 @@ static int netlink_address_ctx(const struct zebra_dplane_ctx *ctx)
 	struct {
 		struct nlmsghdr n;
 		struct ifaddrmsg ifa;
-		char buf[NL_PKT_BUF_SIZE];
-	} req;
+		char buf[0];
+	} *req = buf;
+
+	if (buflen < sizeof(*req))
+		return 0;
 
 	p = dplane_ctx_get_intf_addr(ctx);
-	memset(&req, 0, sizeof(req) - NL_PKT_BUF_SIZE);
+	memset(req, 0, sizeof(*req));
 
 	bytelen = (p->family == AF_INET ? 4 : 16);
 
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
 
 	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ADDR_INSTALL)
 		cmd = RTM_NEWADDR;
 	else
 		cmd = RTM_DELADDR;
 
-	req.n.nlmsg_type = cmd;
-	req.ifa.ifa_family = p->family;
+	req->n.nlmsg_type = cmd;
+	req->ifa.ifa_family = p->family;
 
-	req.ifa.ifa_index = dplane_ctx_get_ifindex(ctx);
+	req->ifa.ifa_index = dplane_ctx_get_ifindex(ctx);
 
-	nl_attr_put(&req.n, sizeof(req), IFA_LOCAL, &p->u.prefix, bytelen);
+	if (!nl_attr_put(&req->n, buflen, IFA_LOCAL, &p->u.prefix, bytelen))
+		return 0;
 
 	if (p->family == AF_INET) {
 		if (dplane_ctx_intf_is_connected(ctx)) {
 			p = dplane_ctx_get_intf_dest(ctx);
-			nl_attr_put(&req.n, sizeof(req), IFA_ADDRESS,
-				    &p->u.prefix, bytelen);
+			if (!nl_attr_put(&req->n, buflen, IFA_ADDRESS,
+					 &p->u.prefix, bytelen))
+				return 0;
 		} else if (cmd == RTM_NEWADDR) {
 			struct in_addr broad = {
 				.s_addr = ipv4_broadcast_addr(p->u.prefix4.s_addr,
 							p->prefixlen)
 			};
-			nl_attr_put(&req.n, sizeof(req), IFA_BROADCAST, &broad,
-				    bytelen);
+			if (!nl_attr_put(&req->n, buflen, IFA_BROADCAST, &broad,
+					 bytelen))
+				return 0;
 		}
 	}
 
 	/* p is now either address or destination/bcast addr */
-	req.ifa.ifa_prefixlen = p->prefixlen;
+	req->ifa.ifa_prefixlen = p->prefixlen;
 
 	if (dplane_ctx_intf_is_secondary(ctx))
-		SET_FLAG(req.ifa.ifa_flags, IFA_F_SECONDARY);
+		SET_FLAG(req->ifa.ifa_flags, IFA_F_SECONDARY);
 
 	if (dplane_ctx_intf_has_label(ctx)) {
 		label = dplane_ctx_get_intf_label(ctx);
-		nl_attr_put(&req.n, sizeof(req), IFA_LABEL, label,
-			    strlen(label) + 1);
+		if (!nl_attr_put(&req->n, buflen, IFA_LABEL, label,
+				 strlen(label) + 1))
+			return 0;
 	}
 
-	return netlink_talk_info(netlink_talk_filter, &req.n,
-				 dplane_ctx_get_ns(ctx), 0);
+	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
+/*
+ * The communication with the kernel is done using the message batching
+ * interface, so return a failure.
+ */
 enum zebra_dplane_result kernel_address_update_ctx(struct zebra_dplane_ctx *ctx)
 {
-	return (netlink_address_ctx(ctx) == 0 ?
-		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
+}
+
+enum netlink_msg_status
+netlink_put_address_update_msg(struct nl_batch *bth,
+			       struct zebra_dplane_ctx *ctx)
+{
+	return netlink_batch_add_msg(bth, ctx, netlink_address_msg_encoder,
+				     false);
 }
 
 int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)

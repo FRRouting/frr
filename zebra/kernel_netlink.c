@@ -1059,9 +1059,10 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
  * startup  -> Are we reading in under startup conditions
  *             This is passed through eventually to filter.
  */
-int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
-		      struct nlmsghdr *n,
-		      const struct zebra_dplane_info *dp_info, int startup)
+static int
+netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		  struct nlmsghdr *n, const struct zebra_dplane_info *dp_info,
+		  int startup)
 {
 	const struct nlsock *nl;
 
@@ -1330,14 +1331,107 @@ enum netlink_msg_status netlink_batch_add_msg(
 	return FRR_NETLINK_QUEUED;
 }
 
+static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
+					  struct zebra_dplane_ctx *ctx)
+{
+	if (dplane_ctx_is_skip_kernel(ctx))
+		return FRR_NETLINK_SUCCESS;
+
+	switch (dplane_ctx_get_op(ctx)) {
+
+	case DPLANE_OP_ROUTE_INSTALL:
+	case DPLANE_OP_ROUTE_UPDATE:
+	case DPLANE_OP_ROUTE_DELETE:
+		return netlink_put_route_update_msg(bth, ctx);
+
+	case DPLANE_OP_NH_INSTALL:
+	case DPLANE_OP_NH_UPDATE:
+	case DPLANE_OP_NH_DELETE:
+		return netlink_put_nexthop_update_msg(bth, ctx);
+
+	case DPLANE_OP_LSP_INSTALL:
+	case DPLANE_OP_LSP_UPDATE:
+	case DPLANE_OP_LSP_DELETE:
+		return netlink_put_lsp_update_msg(bth, ctx);
+
+	case DPLANE_OP_PW_INSTALL:
+	case DPLANE_OP_PW_UNINSTALL:
+		return netlink_put_pw_update_msg(bth, ctx);
+
+	case DPLANE_OP_ADDR_INSTALL:
+	case DPLANE_OP_ADDR_UNINSTALL:
+		return netlink_put_address_update_msg(bth, ctx);
+
+	case DPLANE_OP_MAC_INSTALL:
+	case DPLANE_OP_MAC_DELETE:
+		return netlink_put_mac_update_msg(bth, ctx);
+
+	case DPLANE_OP_NEIGH_INSTALL:
+	case DPLANE_OP_NEIGH_UPDATE:
+	case DPLANE_OP_NEIGH_DELETE:
+	case DPLANE_OP_VTEP_ADD:
+	case DPLANE_OP_VTEP_DELETE:
+		return netlink_put_neigh_update_msg(bth, ctx);
+
+	case DPLANE_OP_RULE_ADD:
+	case DPLANE_OP_RULE_DELETE:
+	case DPLANE_OP_RULE_UPDATE:
+		return netlink_put_rule_update_msg(bth, ctx);
+
+	case DPLANE_OP_SYS_ROUTE_ADD:
+	case DPLANE_OP_SYS_ROUTE_DELETE:
+	case DPLANE_OP_ROUTE_NOTIFY:
+	case DPLANE_OP_LSP_NOTIFY:
+		return FRR_NETLINK_SUCCESS;
+
+	case DPLANE_OP_NONE:
+		return FRR_NETLINK_ERROR;
+	}
+
+	return FRR_NETLINK_ERROR;
+}
+
 void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 {
-	/* no-op */
+	struct nl_batch batch;
+	struct zebra_dplane_ctx *ctx;
+	struct dplane_ctx_q handled_list;
+	enum netlink_msg_status res;
+
+	nl_batch_reset(&batch);
+	TAILQ_INIT(&handled_list);
+
+	while (true) {
+		ctx = dplane_ctx_dequeue(ctx_list);
+		if (ctx == NULL)
+			break;
+
+		res = nl_put_msg(&batch, ctx);
+
+		/*
+		 * If we already know the result, we set the status of the
+		 * dataplane context object. Otherwise, it will be set after we
+		 * send the batch.
+		 */
+		if (res == FRR_NETLINK_SUCCESS)
+			dplane_ctx_set_status(ctx,
+					      ZEBRA_DPLANE_REQUEST_SUCCESS);
+		else if (res == FRR_NETLINK_ERROR)
+			dplane_ctx_set_status(ctx,
+					      ZEBRA_DPLANE_REQUEST_FAILURE);
+
+		dplane_ctx_enqueue_tail(&handled_list, ctx);
+	}
+
+	nl_batch_send(&batch);
+
+	TAILQ_INIT(ctx_list);
+	dplane_ctx_list_append(ctx_list, &handled_list);
 }
 
 bool kernel_supports_batch(void)
 {
-	return false;
+	return true;
 }
 
 /* Exported interface function.  This function simply calls

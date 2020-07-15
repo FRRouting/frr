@@ -2230,19 +2230,11 @@ nexthop_done:
 	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
-/**
- * kernel_nexthop_update() - Update/delete a nexthop from the kernel
- *
- * @ctx:	Dataplane context
- *
- * Return:	Dataplane result flag
- */
-enum zebra_dplane_result kernel_nexthop_update(struct zebra_dplane_ctx *ctx)
+static ssize_t netlink_nexthop_msg_encoder(struct zebra_dplane_ctx *ctx,
+					   void *buf, size_t buflen)
 {
 	enum dplane_op_e op;
 	int cmd = 0;
-	int ret = 0;
-	char buf[NL_PKT_BUF_SIZE];
 
 	op = dplane_ctx_get_op(ctx);
 	if (op == DPLANE_OP_NH_INSTALL || op == DPLANE_OP_NH_UPDATE)
@@ -2253,33 +2245,52 @@ enum zebra_dplane_result kernel_nexthop_update(struct zebra_dplane_ctx *ctx)
 		flog_err(EC_ZEBRA_NHG_FIB_UPDATE,
 			 "Context received for kernel nexthop update with incorrect OP code (%u)",
 			 op);
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
+		return -1;
 	}
 
-	/* Nothing to do if the kernel doesn't support nexthop objects */
-	if (!kernel_nexthops_supported())
-		return ZEBRA_DPLANE_REQUEST_SUCCESS;
-
-	if (netlink_nexthop_msg_encode(cmd, ctx, buf, sizeof(buf)) > 0)
-		ret = netlink_talk_info(netlink_talk_filter, (void *)&buf,
-					dplane_ctx_get_ns(ctx), 0);
-	else
-		ret = 0;
-
-	return (ret == 0 ? ZEBRA_DPLANE_REQUEST_SUCCESS
-			 : ZEBRA_DPLANE_REQUEST_FAILURE);
+	return netlink_nexthop_msg_encode(cmd, ctx, buf, buflen);
 }
 
 /*
- * Update or delete a prefix from the kernel,
- * using info from a dataplane context.
+ * The communication with the kernel is done using the message batching
+ * interface, so return a failure.
  */
-enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
+enum zebra_dplane_result kernel_nexthop_update(struct zebra_dplane_ctx *ctx)
 {
-	int cmd, ret;
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
+}
+
+enum netlink_msg_status
+netlink_put_nexthop_update_msg(struct nl_batch *bth,
+			       struct zebra_dplane_ctx *ctx)
+{
+	/* Nothing to do if the kernel doesn't support nexthop objects */
+	if (!kernel_nexthops_supported())
+		return FRR_NETLINK_SUCCESS;
+
+	return netlink_batch_add_msg(bth, ctx, netlink_nexthop_msg_encoder,
+				     false);
+}
+
+static ssize_t netlink_newroute_msg_encoder(struct zebra_dplane_ctx *ctx,
+					    void *buf, size_t buflen)
+{
+	return netlink_route_multipath_msg_encode(RTM_NEWROUTE, ctx, buf,
+						  buflen, false, false);
+}
+
+static ssize_t netlink_delroute_msg_encoder(struct zebra_dplane_ctx *ctx,
+					    void *buf, size_t buflen)
+{
+	return netlink_route_multipath_msg_encode(RTM_DELROUTE, ctx, buf,
+						  buflen, false, false);
+}
+
+enum netlink_msg_status
+netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
+{
+	int cmd;
 	const struct prefix *p = dplane_ctx_get_dest(ctx);
-	struct nexthop *nexthop;
-	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
 
 	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
 		cmd = RTM_DELROUTE;
@@ -2289,7 +2300,6 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 
 		if (p->family == AF_INET || v6_rr_semantics) {
 			/* Single 'replace' operation */
-			cmd = RTM_NEWROUTE;
 
 			/*
 			 * With route replace semantics in place
@@ -2299,17 +2309,11 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			 * route should cause us to withdraw from
 			 * the kernel the old non-system route
 			 */
-			if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx)) &&
-			    !RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx))) {
-				if (netlink_route_multipath_msg_encode(
-					    RTM_DELROUTE, ctx, nl_pkt,
-					    sizeof(nl_pkt), false, false)
-				    > 0)
-					netlink_talk_info(
-						netlink_talk_filter,
-						(struct nlmsghdr *)nl_pkt,
-						dplane_ctx_get_ns(ctx), 0);
-			}
+			if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx))
+			    && !RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx)))
+				netlink_batch_add_msg(
+					bth, ctx, netlink_delroute_msg_encoder,
+					true);
 		} else {
 			/*
 			 * So v6 route replace semantics are not in
@@ -2323,38 +2327,33 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			 * of the route delete.  If that happens yeah we're
 			 * screwed.
 			 */
-			if (!RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx))) {
-				if (netlink_route_multipath_msg_encode(
-					    RTM_DELROUTE, ctx, nl_pkt,
-					    sizeof(nl_pkt), false, false)
-				    > 0)
-					netlink_talk_info(
-						netlink_talk_filter,
-						(struct nlmsghdr *)nl_pkt,
-						dplane_ctx_get_ns(ctx), 0);
-			}
-			cmd = RTM_NEWROUTE;
+			if (!RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx)))
+				netlink_batch_add_msg(
+					bth, ctx, netlink_delroute_msg_encoder,
+					true);
 		}
 
-	} else {
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
-	}
-
-	if (!RSYSTEM_ROUTE(dplane_ctx_get_type(ctx))) {
-		if (netlink_route_multipath_msg_encode(
-			    cmd, ctx, nl_pkt, sizeof(nl_pkt), false, false)
-		    > 0)
-			ret = netlink_talk_info(netlink_talk_filter,
-						(struct nlmsghdr *)nl_pkt,
-						dplane_ctx_get_ns(ctx), 0);
-		else
-			ret = -1;
-
+		cmd = RTM_NEWROUTE;
 	} else
-		ret = 0;
+		return FRR_NETLINK_ERROR;
 
-	return (ret == 0 ?
-		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
+	if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx)))
+		return FRR_NETLINK_SUCCESS;
+
+	return netlink_batch_add_msg(bth, ctx,
+				     cmd == RTM_NEWROUTE
+					     ? netlink_newroute_msg_encoder
+					     : netlink_delroute_msg_encoder,
+				     false);
+}
+
+/*
+ * The communication with the kernel is done using the message batching
+ * interface, so return a failure.
+ */
+enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
+{
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
 }
 
 /**
@@ -2770,23 +2769,17 @@ static ssize_t netlink_neigh_update_msg_encode(
  * Add remote VTEP to the flood list for this VxLAN interface (VNI). This
  * is done by adding an FDB entry with a MAC of 00:00:00:00:00:00.
  */
-static int netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx,
-					  int cmd)
+static ssize_t
+netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd,
+			       void *buf, size_t buflen)
 {
 	struct ethaddr dst_mac = {.octet = {0}};
-	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
 
-	if (netlink_neigh_update_msg_encode(
-		    ctx, cmd, &dst_mac, dplane_ctx_neigh_get_ipaddr(ctx), false,
-		    PF_BRIDGE, 0, NTF_SELF, (NUD_NOARP | NUD_PERMANENT),
-			0 /*nhg*/, false /*nfy*/, 0 /*nfy_flags*/,
-			nl_pkt, sizeof(nl_pkt))
-	    <= 0)
-		return -1;
-
-	return netlink_talk_info(netlink_talk_filter,
-				 (struct nlmsghdr *)nl_pkt,
-				 dplane_ctx_get_ns(ctx), 0);
+	return netlink_neigh_update_msg_encode(
+		ctx, cmd, &dst_mac, dplane_ctx_neigh_get_ipaddr(ctx), false,
+		PF_BRIDGE, 0, NTF_SELF, (NUD_NOARP | NUD_PERMANENT),
+		0 /*nhg*/, false /*nfy*/, 0 /*nfy_flags*/, 
+		buf, buflen);
 }
 
 #ifndef NDA_RTA
@@ -3135,9 +3128,8 @@ int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 /*
  * Netlink-specific handler for MAC updates using dataplane context object.
  */
-ssize_t
-netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, uint8_t *data,
-			  size_t datalen)
+ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
+				  size_t datalen)
 {
 	struct ipaddr vtep_ip;
 	vlanid_t vid;
@@ -3613,15 +3605,14 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 /*
  * Utility neighbor-update function, using info from dplane context.
  */
-static int netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
-				    int cmd)
+static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
+					int cmd, void *buf, size_t buflen)
 {
 	const struct ipaddr *ip;
 	const struct ethaddr *mac;
 	uint8_t flags;
 	uint16_t state;
 	uint8_t family;
-	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
 
 	ip = dplane_ctx_neigh_get_ipaddr(ctx);
 	mac = dplane_ctx_neigh_get_mac(ctx);
@@ -3646,60 +3637,75 @@ static int netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 			flags, state);
 	}
 
-	if (netlink_neigh_update_msg_encode(ctx, cmd, mac, ip, true, family,
-				RTN_UNICAST, flags, state,
-				0 /*nhg*/, false /*nfy*/, 0 /*nfy_flags*/,
-				nl_pkt, sizeof(nl_pkt))
-	    <= 0)
-		return -1;
+	return netlink_neigh_update_msg_encode(ctx, cmd, mac, ip, true, family,
+					       RTN_UNICAST, flags, state,
+						   0 /*nhg*/, false /*nfy*/, 0 /*nfy_flags*/,
+						buf,
+					   buflen);
+}
 
-	return netlink_talk_info(netlink_talk_filter, (struct nlmsghdr *)nl_pkt,
-				 dplane_ctx_get_ns(ctx), 0);
+static ssize_t netlink_neigh_msg_encoder(struct zebra_dplane_ctx *ctx,
+					 void *buf, size_t buflen)
+{
+	ssize_t ret;
+
+	switch (dplane_ctx_get_op(ctx)) {
+	case DPLANE_OP_NEIGH_INSTALL:
+	case DPLANE_OP_NEIGH_UPDATE:
+		ret = netlink_neigh_update_ctx(ctx, RTM_NEWNEIGH, buf, buflen);
+		break;
+	case DPLANE_OP_NEIGH_DELETE:
+		ret = netlink_neigh_update_ctx(ctx, RTM_DELNEIGH, buf, buflen);
+		break;
+	case DPLANE_OP_VTEP_ADD:
+		ret = netlink_vxlan_flood_update_ctx(ctx, RTM_NEWNEIGH, buf,
+						     buflen);
+		break;
+	case DPLANE_OP_VTEP_DELETE:
+		ret = netlink_vxlan_flood_update_ctx(ctx, RTM_DELNEIGH, buf,
+						     buflen);
+		break;
+	default:
+		ret = -1;
+	}
+
+	return ret;
 }
 
 /*
  * Update MAC, using dataplane context object.
  */
+
+/*
+ * The communication with the kernel is done using the message batching
+ * interface, so return a failure.
+ */
 enum zebra_dplane_result kernel_mac_update_ctx(struct zebra_dplane_ctx *ctx)
 {
-	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
-	ssize_t rv;
-
-	rv = netlink_macfdb_update_ctx(ctx, nl_pkt, sizeof(nl_pkt));
-	if (rv <= 0)
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
-
-	rv = netlink_talk_info(netlink_talk_filter, (struct nlmsghdr *)nl_pkt,
-			       dplane_ctx_get_ns(ctx), 0);
-
-	return rv == 0 ?
-		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE;
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
 }
 
+enum netlink_msg_status netlink_put_mac_update_msg(struct nl_batch *bth,
+						   struct zebra_dplane_ctx *ctx)
+{
+	return netlink_batch_add_msg(bth, ctx, netlink_macfdb_update_ctx,
+				     false);
+}
+
+/*
+ * The communication with the kernel is done using the message batching
+ * interface, so return a failure.
+ */
 enum zebra_dplane_result kernel_neigh_update_ctx(struct zebra_dplane_ctx *ctx)
 {
-	int ret = -1;
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
+}
 
-	switch (dplane_ctx_get_op(ctx)) {
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-		ret = netlink_neigh_update_ctx(ctx, RTM_NEWNEIGH);
-		break;
-	case DPLANE_OP_NEIGH_DELETE:
-		ret = netlink_neigh_update_ctx(ctx, RTM_DELNEIGH);
-		break;
-	case DPLANE_OP_VTEP_ADD:
-		ret = netlink_vxlan_flood_update_ctx(ctx, RTM_NEWNEIGH);
-		break;
-	case DPLANE_OP_VTEP_DELETE:
-		ret = netlink_vxlan_flood_update_ctx(ctx, RTM_DELNEIGH);
-		break;
-	default:
-		break;
-	}
-
-	return (ret == 0 ?
-		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
+enum netlink_msg_status
+netlink_put_neigh_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
+{
+	return netlink_batch_add_msg(bth, ctx, netlink_neigh_msg_encoder,
+				     false);
 }
 
 /*
