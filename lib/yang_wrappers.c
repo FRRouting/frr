@@ -792,6 +792,29 @@ struct yang_data *yang_data_new_empty(const char *xpath)
 	return yang_data_new(xpath, NULL);
 }
 
+bool yang_dnode_get_empty(const struct lyd_node *dnode, const char *xpath_fmt,
+			  ...)
+{
+	va_list ap;
+	char xpath[XPATH_MAXLEN];
+	const struct lyd_node_leaf_list *dleaf;
+
+	assert(dnode);
+
+	va_start(ap, xpath_fmt);
+	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+	va_end(ap);
+
+	dnode = yang_dnode_get(dnode, xpath);
+	if (dnode) {
+		dleaf = (const struct lyd_node_leaf_list *)dnode;
+		if (dleaf->value_type == LY_TYPE_EMPTY)
+			return true;
+	}
+
+	return false;
+}
+
 /*
  * Derived type: IP prefix.
  */
