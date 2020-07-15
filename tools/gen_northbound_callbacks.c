@@ -194,7 +194,7 @@ static void generate_callback(const struct nb_callback_info *ncinfo,
 	case NB_OP_MODIFY:
 	case NB_OP_DESTROY:
 	case NB_OP_MOVE:
-		printf("\tswitch (event) {\n"
+		printf("\tswitch (args->event) {\n"
 		       "\tcase NB_EV_VALIDATE:\n"
 		       "\tcase NB_EV_PREPARE:\n"
 		       "\tcase NB_EV_ABORT:\n"
