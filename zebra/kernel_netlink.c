@@ -84,6 +84,27 @@
 #define RTPROT_MROUTED 17
 #endif
 
+#define NL_BATCH_TX_BUFSIZE (16 * NL_PKT_BUF_SIZE)
+
+/*
+ * For every request sent to the kernel that has failed we get an error message,
+ * which contains a standard netlink message header and the payload consisting
+ * of an error code and the original netlink mesage. So the receiving buffer
+ * must be at least as big as the transmitting buffer increased by some space
+ * for headers.
+ */
+#define NL_BATCH_RX_BUFSIZE (NL_BATCH_TX_BUFSIZE + NL_PKT_BUF_SIZE)
+
+/*
+ * We limit the batch's size to a number smaller than the length of the
+ * underlying buffer since the last message that wouldn't fit the batch would go
+ * over the upper boundary and then it would have to be encoded again into a new
+ * buffer. If the difference between the limit and the length of the buffer is
+ * big enough (bigger than the biggest Netlink message) then this situation
+ * won't occur.
+ */
+#define NL_BATCH_SEND_THRESHOLD (NL_BATCH_TX_BUFSIZE - NL_PKT_BUF_SIZE)
+
 static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_DELROUTE, "RTM_DELROUTE"},
 					   {RTM_GETROUTE, "RTM_GETROUTE"},
@@ -151,6 +172,36 @@ extern uint32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
+char nl_batch_tx_buf[NL_BATCH_TX_BUFSIZE];
+char nl_batch_rx_buf[NL_BATCH_RX_BUFSIZE];
+
+DEFINE_MTYPE_STATIC(ZEBRA, NL_BATCH_ITEM, "Netlink batch items")
+
+PREDECL_LIST(nl_batch_list)
+
+struct nl_batch {
+	void *buf;
+	size_t bufsiz;
+	size_t limit;
+
+	void *buf_head;
+	size_t curlen;
+	size_t msgcnt;
+
+	const struct zebra_dplane_info *zns;
+	struct nl_batch_list_head items;
+};
+
+struct nl_msg_batch_item {
+	int seq;
+	struct zebra_dplane_ctx *ctx;
+	bool ignore_res;
+	bool failure;
+
+	struct nl_batch_list_item item;
+};
+
+DECLARE_LIST(nl_batch_list, struct nl_msg_batch_item, item)
 
 int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
@@ -1078,6 +1129,205 @@ int netlink_request(struct nlsock *nl, void *req)
 		return -1;
 
 	return 0;
+}
+
+static int nl_batch_read_resp(struct nl_batch *bth)
+{
+	struct nlmsghdr *h;
+	struct sockaddr_nl snl;
+	struct msghdr msg;
+	int status;
+	const struct nlsock *nl;
+	struct nl_msg_batch_item *item, *from_item;
+
+	nl = &(bth->zns->nls);
+
+	msg.msg_name = (void *)&snl;
+	msg.msg_namelen = sizeof(snl);
+
+	from_item = nl_batch_list_first(&(bth->items));
+
+	status = netlink_recv_msg(nl, msg, nl_batch_rx_buf,
+				  sizeof(nl_batch_rx_buf));
+	if (status == -1 || status == 0)
+		return status;
+
+	for (h = (struct nlmsghdr *)nl_batch_rx_buf;
+	     (status >= 0 && NLMSG_OK(h, (unsigned int)status));
+	     h = NLMSG_NEXT(h, status)) {
+
+		/*
+		 * Find the corresponding batch item. Received responses are in
+		 * the same order as requests we sent, so we can simply iterate
+		 * over the batch item list and match responses with requests
+		 * at same time.
+		 */
+		frr_each_from(nl_batch_list, &(bth->items), item, from_item) {
+			if (item->seq == (int)h->nlmsg_seq)
+				break;
+		}
+
+		/*
+		 * We received a message with the sequence number that isn't
+		 * associated with any dplane context object.
+		 */
+		if (item == NULL) {
+			zlog_debug(
+				"%s: skipping unassociated response, seq number %d NS %u",
+				__func__, h->nlmsg_seq, bth->zns->ns_id);
+			from_item = nl_batch_list_first(&(bth->items));
+			continue;
+		}
+
+		if (h->nlmsg_type == NLMSG_ERROR) {
+			int err = netlink_parse_error(nl, h, bth->zns, 0);
+
+			if (err == -1)
+				item->failure = true;
+
+			zlog_debug("%s: netlink error message seq=%d ",
+				   __func__, h->nlmsg_seq);
+			continue;
+		}
+
+		/*
+		 * If we get here then we did not receive neither the ack nor
+		 * the error and instead received some other message in an
+		 * unexpected way.
+		 */
+		zlog_debug("%s: ignoring message type 0x%04x(%s) NS %u",
+			   __func__, h->nlmsg_type,
+			   nl_msg_type_to_str(h->nlmsg_type), bth->zns->ns_id);
+	}
+
+	return 0;
+}
+
+static void nl_batch_reset(struct nl_batch *bth)
+{
+	bth->buf = nl_batch_tx_buf;
+	bth->bufsiz = sizeof(nl_batch_tx_buf);
+	bth->limit = NL_BATCH_SEND_THRESHOLD;
+
+	bth->buf_head = bth->buf;
+	bth->curlen = 0;
+	bth->msgcnt = 0;
+	bth->zns = NULL;
+
+	nl_batch_list_init(&(bth->items));
+}
+
+static void nl_batch_send(struct nl_batch *bth)
+{
+	struct nl_msg_batch_item *item;
+	bool err = false;
+
+	if (bth->curlen == 0 || bth->zns == NULL)
+		return;
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: %s, batch size=%zu, msg cnt=%zu", __func__,
+			   bth->zns->nls.name, bth->curlen, bth->msgcnt);
+
+	if (netlink_send_msg(&(bth->zns->nls), bth->buf, bth->curlen) == -1)
+		err = true;
+
+	if (!err) {
+		if (nl_batch_read_resp(bth) == -1)
+			err = true;
+	}
+
+	frr_each_safe(nl_batch_list, &(bth->items), item) {
+		enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+		/*
+		 * If either sending or receiving a message batch has ended with
+		 * the error, mark all dplane requests as failed.
+		 */
+		if (item->failure || err)
+			res = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+		if (!item->ignore_res)
+			dplane_ctx_set_status(item->ctx, res);
+
+		nl_batch_list_del(&(bth->items), item);
+		XFREE(MTYPE_NL_BATCH_ITEM, item);
+	}
+
+	nl_batch_reset(bth);
+}
+
+static void nl_batch_add_item(struct nl_batch *bth, int seq,
+			      struct zebra_dplane_ctx *ctx, bool ignore_res)
+{
+	struct nl_msg_batch_item *item =
+		XCALLOC(MTYPE_NL_BATCH_ITEM, sizeof(*item));
+
+	item->seq = seq;
+	item->ctx = ctx;
+	item->ignore_res = ignore_res;
+	item->failure = false;
+
+	nl_batch_list_add_tail(&(bth->items), item);
+}
+
+enum netlink_msg_status netlink_batch_add_msg(
+	struct nl_batch *bth, struct zebra_dplane_ctx *ctx,
+	ssize_t (*msg_encoder)(struct zebra_dplane_ctx *, void *, size_t),
+	bool extra_msg)
+{
+	int seq;
+	ssize_t size;
+	struct nlmsghdr *msgh;
+
+	if (bth->zns != NULL
+	    && bth->zns->ns_id != dplane_ctx_get_ns(ctx)->ns_id)
+		nl_batch_send(bth);
+
+	size = (*msg_encoder)(ctx, bth->buf_head, bth->bufsiz - bth->curlen);
+
+	/*
+	 * If there was an error while encoding the message (other than buffer
+	 * overflow) then return an error.
+	 */
+	if (size < 0)
+		return FRR_NETLINK_ERROR;
+
+	/*
+	 * If the message doesn't fit entirely in the buffer then send the batch
+	 * and retry.
+	 */
+	if (size == 0) {
+		nl_batch_send(bth);
+		size = (*msg_encoder)(ctx, bth->buf_head,
+				      bth->bufsiz - bth->curlen);
+		/*
+		 * If the message doesn't fit in the empty buffer then just
+		 * return an error.
+		 */
+		if (size <= 0)
+			return FRR_NETLINK_ERROR;
+	}
+
+	seq = dplane_ctx_get_ns(ctx)->nls.seq;
+	if (extra_msg)
+		seq++;
+
+	msgh = (struct nlmsghdr *)bth->buf_head;
+	msgh->nlmsg_seq = seq;
+	msgh->nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
+
+	nl_batch_add_item(bth, seq, ctx, extra_msg);
+
+	bth->zns = dplane_ctx_get_ns(ctx);
+	bth->buf_head = ((char *)bth->buf_head) + size;
+	bth->curlen += size;
+	bth->msgcnt++;
+
+	if (bth->curlen > bth->limit)
+		nl_batch_send(bth);
+
+	return FRR_NETLINK_QUEUED;
 }
 
 void kernel_update_multi(struct dplane_ctx_q *ctx_list)

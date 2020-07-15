@@ -105,6 +105,36 @@ int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 
 extern int netlink_request(struct nlsock *nl, void *req);
 
+enum netlink_msg_status {
+	FRR_NETLINK_SUCCESS,
+	FRR_NETLINK_ERROR,
+	FRR_NETLINK_QUEUED,
+};
+
+struct nl_batch;
+
+/*
+ * netlink_batch_add_msg - add message to the netlink batch using dplane
+ * context object.
+ *
+ * @ctx:         Dataplane context
+ * @msg_encoder: A function that encodes dplane context object into
+ *               netlink message. Should take dplane context object,
+ *               pointer to a buffer and buffer's length as parameters
+ *               and should return -1 on error, 0 on buffer overflow or
+ *               size of the encoded message.
+ * @extra_msg:   In some cases there are two netlink messages for single
+ *               context object that need to be handled differently. This flag
+ *               distinguishes those.
+ *
+ * Return:		Status of the message.
+ */
+extern enum netlink_msg_status netlink_batch_add_msg(
+	struct nl_batch *bth, struct zebra_dplane_ctx *ctx,
+	ssize_t (*msg_encoder)(struct zebra_dplane_ctx *, void *, size_t),
+	bool extra_msg);
+
+
 #endif /* HAVE_NETLINK */
 
 #ifdef __cplusplus
