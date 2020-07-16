@@ -3408,7 +3408,7 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_MPLS) {
-		nhlfe2str(nhlfe, buf, BUFSIZ);
+		nhlfe2str(nhlfe, buf, sizeof(buf));
 		zlog_debug("Del LSP in-label %u type %d nexthop %s flags 0x%x",
 			   in_label, type, buf, nhlfe->flags);
 	}
@@ -3639,7 +3639,7 @@ int zebra_mpls_static_lsp_add(struct zebra_vrf *zvrf, mpls_label_t in_label,
 			return 0;
 
 		if (IS_ZEBRA_DEBUG_MPLS) {
-			snhlfe2str(snhlfe, buf, BUFSIZ);
+			snhlfe2str(snhlfe, buf, sizeof(buf));
 			zlog_debug(
 				"Upd static LSP in-label %u nexthop %s "
 				"out-label %u (old %u)",
@@ -3653,7 +3653,7 @@ int zebra_mpls_static_lsp_add(struct zebra_vrf *zvrf, mpls_label_t in_label,
 			return -1;
 
 		if (IS_ZEBRA_DEBUG_MPLS) {
-			snhlfe2str(snhlfe, buf, BUFSIZ);
+			snhlfe2str(snhlfe, buf, sizeof(buf));
 			zlog_debug(
 				"Add static LSP in-label %u nexthop %s out-label %u",
 				in_label, buf, out_label);
@@ -3798,7 +3798,8 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 
 		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp))
 			json_object_object_add(
-				json, label2str(lsp->ile.in_label, buf, BUFSIZ),
+				json, label2str(lsp->ile.in_label, buf,
+						sizeof(buf)),
 				lsp_json(lsp));
 
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
@@ -3853,7 +3854,7 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 					out_label_str = mpls_label2str(
 						nexthop->nh_label->num_labels,
 						&nexthop->nh_label->label[0],
-						buf, BUFSIZ, 1);
+						buf, sizeof(buf), 1);
 				else
 					out_label_str = "-";
 
