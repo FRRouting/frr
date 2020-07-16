@@ -2686,7 +2686,7 @@ static ssize_t netlink_neigh_update_msg_encode(
 
 	if (datalen < sizeof(*req))
 		return 0;
-	memset(req, 0, datalen);
+	memset(req, 0, sizeof(*req));
 
 	op = dplane_ctx_get_op(ctx);
 
@@ -2703,7 +2703,7 @@ static ssize_t netlink_neigh_update_msg_encode(
 	req->ndm.ndm_flags = flags;
 	req->ndm.ndm_ifindex = dplane_ctx_get_ifindex(ctx);
 
-	if (!nl_attr_put(&req->n, sizeof(req), NDA_PROTOCOL, &protocol,
+	if (!nl_attr_put(&req->n, datalen, NDA_PROTOCOL, &protocol,
 			 sizeof(protocol)))
 		return 0;
 
