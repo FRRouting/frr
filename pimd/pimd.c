@@ -42,6 +42,7 @@
 #include "pim_vxlan.h"
 #include "pim_zlookup.h"
 #include "pim_zebra.h"
+#include "pim_mlag.h"
 
 const char *const PIM_ALL_SYSTEMS = MCAST_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS = MCAST_ALL_ROUTERS;
@@ -109,6 +110,7 @@ void pim_router_init(void)
 
 void pim_router_terminate(void)
 {
+	pim_mlag_terminate();
 	XFREE(MTYPE_ROUTER, router);
 }
 
