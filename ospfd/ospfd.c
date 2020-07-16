@@ -1770,7 +1770,6 @@ int ospf_timers_refresh_unset(struct ospf *ospf)
 	return 1;
 }
 
-
 static struct ospf_nbr_nbma *ospf_nbr_nbma_new(void)
 {
 	struct ospf_nbr_nbma *nbr_nbma;

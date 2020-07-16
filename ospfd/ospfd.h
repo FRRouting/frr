@@ -126,6 +126,9 @@ enum {
 	OSPF_LOG_ADJACENCY_DETAIL =	(1 << 4),
 };
 
+/* Zebra Gracaful Restart states */
+enum zebra_gr_mode { ZEBRA_GR_DISABLED = 0, ZEBRA_GR_ENABLED };
+
 /* OSPF nonstop forwarding aka Graceful Restart */
 struct ospf_gr_info {
 	bool restart_support;
@@ -385,6 +388,12 @@ struct ospf {
 
 	/* OSPF Graceful Restart info */
 	struct ospf_gr_info gr_info;
+
+	/* State of Zebra Graceful Restart */
+	enum zebra_gr_mode present_zebra_gr_state;
+
+	/* Time in secs for staling OSPF routes after zclient connection loss */
+	uint32_t rib_stale_time;
 
 	QOBJ_FIELDS
 };

@@ -1103,6 +1103,55 @@ void ospf_routemap_unset(struct ospf_redist *red)
 	ROUTEMAP(red) = NULL;
 }
 
+static int ospf_zebra_gr_update(struct ospf *ospf, int command,
+				uint32_t stale_time)
+{
+	struct zapi_cap api;
+
+	/* Check if the client is connected and valid */
+	if ((zclient == NULL) || (zclient->sock < 0) || (zclient->t_connect)) {
+		zlog_debug("zclient invalid");
+		return 1;
+	}
+
+	memset(&api, 0, sizeof(struct zapi_cap));
+	api.cap = command;
+	api.stale_removal_time = stale_time;
+	api.vrf_id = ospf->vrf_id;
+
+	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
+	    < 0) {
+		zlog_debug("error sending capability");
+		return 1;
+	}
+
+	ospf->rib_stale_time = stale_time;
+
+	if (command == ZEBRA_CLIENT_GR_CAPABILITIES)
+		ospf->present_zebra_gr_state = ZEBRA_GR_ENABLED;
+	if (command == ZEBRA_CLIENT_GR_DISABLE)
+		ospf->present_zebra_gr_state = ZEBRA_GR_DISABLED;
+
+	return 0;
+}
+
+int ospf_zebra_gr_stale_time_update(struct ospf *ospf, uint32_t stale_time)
+{
+	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_RIB_STALE_TIME,
+				    stale_time);
+}
+
+int ospf_zebra_gr_enable(struct ospf *ospf, uint32_t stale_time)
+{
+	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_CAPABILITIES,
+				    stale_time);
+}
+
+int ospf_zebra_gr_disable(struct ospf *ospf)
+{
+	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_DISABLE, 0);
+}
+
 /* Zebra route add and delete treatment. */
 static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {

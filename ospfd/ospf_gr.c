@@ -29,6 +29,8 @@
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
 #include "ospfd/ospf_lsa.h"
+#include "ospfd/ospf_route.h"
+#include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_errors.h"
 
@@ -151,6 +153,17 @@ DEFUN(graceful_restart_prepare,
 
 	ospf->gr_info.prepare_running = true;
 
+	if (ospf->present_zebra_gr_state == ZEBRA_GR_ENABLED
+	    && ospf->rib_stale_time != ospf->gr_info.grace_period) {
+		if (ospf_zebra_gr_stale_time_update(
+			    ospf, ospf->gr_info.grace_period))
+			return CMD_WARNING;
+	}
+	if (ospf->present_zebra_gr_state == ZEBRA_GR_DISABLED) {
+		if (ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period))
+			return CMD_WARNING;
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -164,6 +177,11 @@ DEFUN(no_graceful_restart_prepare,
       "Length of the 'prepare period' in seconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	if (ospf->present_zebra_gr_state == ZEBRA_GR_ENABLED) {
+		if (ospf_zebra_gr_disable(ospf))
+			return CMD_WARNING;
+	}
 
 	if (ospf->gr_info.prepare_running)
 		zlog_debug("GR PREPARE: ON -> OFF");
