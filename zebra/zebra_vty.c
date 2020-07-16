@@ -3468,9 +3468,6 @@ static int config_write_table(struct vty *vty)
 /* IPForwarding configuration write function. */
 static int config_write_forwarding(struct vty *vty)
 {
-	/* FIXME: Find better place for that. */
-	router_id_write(vty);
-
 	if (!ipforward())
 		vty_out(vty, "no ip forwarding\n");
 	if (!ipforward_ipv6())
