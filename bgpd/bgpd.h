@@ -447,6 +447,7 @@ struct bgp {
 #define BGP_FLAG_SELECT_DEFER_DISABLE     (1 << 23)
 #define BGP_FLAG_GR_DISABLE_EOR           (1 << 24)
 #define BGP_FLAG_EBGP_REQUIRES_POLICY (1 << 25)
+#define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME (1 << 26)
 
 	enum global_mode GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE]
 				      [BGP_GLOBAL_GR_EVENT_CMD];
