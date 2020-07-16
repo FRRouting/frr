@@ -1075,10 +1075,7 @@ static void update_subgroup_merge(struct update_subgroup *subgrp,
 	SUBGRP_INCR_STAT(target, merge_events);
 
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
-		zlog_debug("u%" PRIu64 ":s%" PRIu64
-			   " (%d peers) merged into u%" PRIu64 ":s%" PRIu64
-			   ", "
-			   "trigger: %s",
+		zlog_debug("u%" PRIu64 ":s%" PRIu64" (%d peers) merged into u%" PRIu64 ":s%" PRIu64", trigger: %s",
 			   subgrp->update_group->id, subgrp->id, peer_count,
 			   target->update_group->id, target->id,
 			   reason ? reason : "unknown");
@@ -1368,8 +1365,7 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 		if (changed) {
 			if (bgp_debug_update(NULL, NULL, updgrp, 0))
 				zlog_debug(
-					"u%" PRIu64 ":s%" PRIu64
-					" announcing routes upon policy %s (type %d) change",
+					"u%" PRIu64 ":s%" PRIu64" announcing routes upon policy %s (type %d) change",
 					updgrp->id, subgrp->id,
 					ctx->policy_name, ctx->policy_type);
 			subgroup_announce_route(subgrp);
@@ -1377,8 +1373,7 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 		if (def_changed) {
 			if (bgp_debug_update(NULL, NULL, updgrp, 0))
 				zlog_debug(
-					"u%" PRIu64 ":s%" PRIu64
-					" announcing default upon default routemap %s change",
+					"u%" PRIu64 ":s%" PRIu64" announcing default upon default routemap %s change",
 					updgrp->id, subgrp->id,
 					ctx->policy_name);
 			subgroup_default_originate(subgrp, 0);
@@ -1484,8 +1479,7 @@ void update_subgroup_split_peer(struct peer_af *paf,
 			UPDGRP_PEER_DBG_EN(updgrp);
 		}
 		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
-			zlog_debug("u%" PRIu64 ":s%" PRIu64
-				   " peer %s moved to u%" PRIu64 ":s%" PRIu64,
+			zlog_debug("u%" PRIu64 ":s%" PRIu64" peer %s moved to u%" PRIu64 ":s%" PRIu64,
 				   old_id, subgrp->id, paf->peer->host,
 				   updgrp->id, subgrp->id);
 
@@ -1519,9 +1513,7 @@ void update_subgroup_split_peer(struct peer_af *paf,
 	update_subgroup_copy_packets(subgrp, paf->next_pkt_to_send);
 
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
-		zlog_debug("u%" PRIu64 ":s%" PRIu64
-			   " peer %s split and moved into u%" PRIu64
-			   ":s%" PRIu64,
+		zlog_debug("u%" PRIu64 ":s%" PRIu64" peer %s split and moved into u%" PRIu64":s%" PRIu64,
 			   paf->subgroup->update_group->id, paf->subgroup->id,
 			   paf->peer->host, updgrp->id, subgrp->id);
 
@@ -1837,8 +1829,7 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 
 		assert(subgrp && subgrp->update_group);
 		if (bgp_debug_update(paf->peer, NULL, subgrp->update_group, 0))
-			zlog_debug("u%" PRIu64 ":s%" PRIu64
-				   " %s announcing routes",
+			zlog_debug("u%" PRIu64 ":s%" PRIu64" %s announcing routes",
 				   subgrp->update_group->id, subgrp->id,
 				   paf->peer->host);
 
@@ -1859,8 +1850,7 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 	}
 
 	if (bgp_debug_update(paf->peer, NULL, subgrp->update_group, 0))
-		zlog_debug("u%" PRIu64 ":s%" PRIu64
-			   " announcing routes to %s, combined into %d peers",
+		zlog_debug("u%" PRIu64 ":s%" PRIu64" announcing routes to %s, combined into %d peers",
 			   subgrp->update_group->id, subgrp->id,
 			   paf->peer->host, subgrp->peer_count);
 

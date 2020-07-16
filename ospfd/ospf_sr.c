@@ -1022,8 +1022,7 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	if ((srn != NULL) && (srn->instance != 0)
 	    && (srn->instance != ntohl(lsah->id.s_addr))) {
 		flog_err(EC_OSPF_SR_INVALID_LSA_ID,
-			 "SR (%s): Abort! Wrong "
-			 "LSA ID 4.0.0.%u for SR node %pI4/%u",
+			 "SR (%s): Abort! Wrong LSA ID 4.0.0.%u for SR node %pI4/%u",
 			 __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
 			 &lsah->adv_router, srn->instance);
 		return;
@@ -1638,8 +1637,7 @@ void ospf_sr_config_write_router(struct vty *vty)
 			for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node,
 						  srp)) {
 				vty_out(vty,
-					" segment-routing prefix %s/%u "
-					"index %u%s\n",
+					" segment-routing prefix %s/%u index %u%s\n",
 					inet_ntoa(srp->prefv4.prefix),
 					srp->prefv4.prefixlen, srp->sid,
 					CHECK_FLAG(srp->flags,
@@ -1665,8 +1663,7 @@ DEFUN(ospf_sr_enable,
 
 	if (ospf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty,
-			"Segment Routing is only supported in default "
-			"VRF\n");
+			"Segment Routing is only supported in default VRF\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -1954,8 +1951,7 @@ DEFUN (sr_prefix_sid,
 		 */
 		listnode_add(OspfSR.self->ext_prefix, new);
 		zlog_info(
-			"Interface for prefix %pFX not found. Deferred LSA "
-			"flooding",
+			"Interface for prefix %pFX not found. Deferred LSA flooding",
 			&p);
 		return CMD_SUCCESS;
 	}
@@ -2245,11 +2241,9 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 
 	if (!json) {
 		sbuf_push(&sbuf, 0,
-			  "\n\n    Prefix or Link       Node or Adj. SID  "
-			  "     Label Operation  Interface          Nexthop\n");
+			  "\n\n    Prefix or Link       Node or Adj. SID       Label Operation  Interface          Nexthop\n");
 		sbuf_push(&sbuf, 0,
-			  "------------------  ---------------------  "
-			  "--------------------  ---------  ---------------\n");
+			  "------------------  ---------------------  --------------------  ---------  ---------------\n");
 	}
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, srp)) {
 		if (json) {

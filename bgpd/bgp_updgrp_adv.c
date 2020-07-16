@@ -246,8 +246,7 @@ static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
 			if (adj->subgroup == subgrp) {
 				if (header1) {
 					vty_out(vty,
-						"BGP table version is %" PRIu64
-						", local router ID is %s\n",
+						"BGP table version is %" PRIu64", local router ID is %s\n",
 						table->version,
 						inet_ntoa(bgp->router_id));
 					vty_out(vty, BGP_SHOW_SCODE_HEADER);
@@ -314,8 +313,7 @@ static int subgroup_coalesce_timer(struct thread *thread)
 
 	subgrp = THREAD_ARG(thread);
 	if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
-		zlog_debug("u%" PRIu64 ":s%" PRIu64
-			   " announcing routes upon coalesce timer expiry(%u ms)",
+		zlog_debug("u%" PRIu64 ":s%" PRIu64" announcing routes upon coalesce timer expiry(%u ms)",
 			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id,
 			   subgrp->v_coalesce);
 	subgrp->t_coalesce = NULL;
@@ -896,8 +894,7 @@ void subgroup_announce_all(struct update_subgroup *subgrp)
 	 */
 	if (!subgrp->v_coalesce) {
 		if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
-			zlog_debug("u%" PRIu64 ":s%" PRIu64
-				   " announcing all routes",
+			zlog_debug("u%" PRIu64 ":s%" PRIu64" announcing all routes",
 				   subgrp->update_group->id, subgrp->id);
 		subgroup_announce_route(subgrp);
 		return;

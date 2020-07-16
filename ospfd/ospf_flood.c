@@ -507,8 +507,7 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 		if (NBR_IS_DR(inbr) || NBR_IS_BDR(inbr)) {
 			if (IS_DEBUG_OSPF_NSSA)
 				zlog_debug(
-					"ospf_flood_through_interface(): "
-					"DR/BDR NOT SEND to int %s",
+					"ospf_flood_through_interface(): DR/BDR NOT SEND to int %s",
 					IF_NAME(oi));
 			return 1;
 		}
@@ -522,8 +521,7 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 		if (oi->state == ISM_Backup) {
 			if (IS_DEBUG_OSPF_NSSA)
 				zlog_debug(
-					"ospf_flood_through_interface(): "
-					"ISM_Backup NOT SEND to int %s",
+					"ospf_flood_through_interface(): ISM_Backup NOT SEND to int %s",
 					IF_NAME(oi));
 			return 1;
 		}
@@ -538,8 +536,7 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 	/* XXX HASSO: Is this IS_DEBUG_OSPF_NSSA really correct? */
 	if (IS_DEBUG_OSPF_NSSA)
 		zlog_debug(
-			"ospf_flood_through_interface(): "
-			"DR/BDR sending upd to int %s",
+			"ospf_flood_through_interface(): DR/BDR sending upd to int %s",
 			IF_NAME(oi));
 
 	/*  RFC2328  Section 13.3

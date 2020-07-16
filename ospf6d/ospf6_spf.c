@@ -658,8 +658,7 @@ static int ospf6_spf_calculation_thread(struct thread *t)
 			   (long long)runtime.tv_usec);
 
 	zlog_info(
-		"SPF processing: # Areas: %d, SPF runtime: %lld sec %lld usec, "
-		"Reason: %s\n",
+		"SPF processing: # Areas: %d, SPF runtime: %lld sec %lld usec, Reason: %s\n",
 		areas_processed, (long long)runtime.tv_sec,
 		(long long)runtime.tv_usec, rbuf);
 

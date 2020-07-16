@@ -1047,8 +1047,7 @@ void ripng_redistribute_delete(struct ripng *ripng, int type, int sub_type,
 
 				if (IS_RIPNG_DEBUG_EVENT)
 					zlog_debug(
-						"Poisone %s/%d on the interface %s with an "
-						"infinity metric [delete]",
+						"Poisone %s/%d on the interface %s with an infinity metric [delete]",
 						inet6_ntoa(p->prefix),
 						p->prefixlen,
 						ifindex2ifname(

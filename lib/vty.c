@@ -1244,8 +1244,7 @@ static int vty_telnet_option(struct vty *vty, unsigned char *buf, int nbytes)
 			if (vty->sb_len != TELNET_NAWS_SB_LEN)
 				flog_err(
 					EC_LIB_SYSTEM_CALL,
-					"RFC 1073 violation detected: telnet NAWS option "
-					"should send %d characters, but we received %lu",
+					"RFC 1073 violation detected: telnet NAWS option should send %d characters, but we received %lu",
 					TELNET_NAWS_SB_LEN,
 					(unsigned long)vty->sb_len);
 			else if (sizeof(vty->sb_buf) < TELNET_NAWS_SB_LEN)
@@ -1261,8 +1260,7 @@ static int vty_telnet_option(struct vty *vty, unsigned char *buf, int nbytes)
 					       | vty->sb_buf[4]);
 #ifdef TELNET_OPTION_DEBUG
 				vty_out(vty,
-					"TELNET NAWS window size negotiation completed: "
-					"width %d, height %d\n",
+					"TELNET NAWS window size negotiation completed: width %d, height %d\n",
 					vty->width, vty->height);
 #endif
 			}

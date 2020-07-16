@@ -346,8 +346,7 @@ static int restart_kill(struct thread *t_kill)
 
 	time_elapsed(&delay, &restart->time);
 	zlog_warn(
-		"Warning: %s %s child process %d still running after "
-		"%ld seconds, sending signal %d",
+		"Warning: %s %s child process %d still running after %ld seconds, sending signal %d",
 		restart->what, restart->name, (int)restart->pid,
 		(long)delay.tv_sec, (restart->kills ? SIGKILL : SIGTERM));
 	kill(-restart->pid, (restart->kills ? SIGKILL : SIGTERM));
@@ -476,8 +475,7 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 
 		if (gs.loglevel > LOG_DEBUG + 1)
 			zlog_debug(
-				"postponing %s %s: "
-				"elapsed time %ld < retry interval %ld",
+				"postponing %s %s: elapsed time %ld < retry interval %ld",
 				cmdtype, restart->name, (long)delay.tv_sec,
 				restart->interval);
 		return -1;
@@ -646,8 +644,7 @@ static int handle_read(struct thread *t_read)
 	if ((rc != sizeof(resp)) || memcmp(buf, resp, sizeof(resp))) {
 		char why[100 + sizeof(buf)];
 		snprintf(why, sizeof(why),
-			 "read returned bad echo response of %d bytes "
-			 "(expecting %u): %.*s",
+			 "read returned bad echo response of %d bytes (expecting %u): %.*s",
 			 (int)rc, (unsigned int)sizeof(resp), (int)rc, buf);
 		daemon_down(dmn, why);
 		return 0;
@@ -659,14 +656,12 @@ static int handle_read(struct thread *t_read)
 		if (delay.tv_sec < gs.timeout) {
 			dmn->state = DAEMON_UP;
 			zlog_warn(
-				"%s state -> up : echo response received after %ld.%06ld "
-				"seconds",
+				"%s state -> up : echo response received after %ld.%06ld seconds",
 				dmn->name, (long)delay.tv_sec,
 				(long)delay.tv_usec);
 		} else
 			zlog_warn(
-				"%s: slow echo response finally received after %ld.%06ld "
-				"seconds",
+				"%s: slow echo response finally received after %ld.%06ld seconds",
 				dmn->name, (long)delay.tv_sec,
 				(long)delay.tv_usec);
 	} else if (gs.loglevel > LOG_DEBUG + 1)
@@ -698,13 +693,11 @@ static void daemon_send_ready(int exitcode)
 		zlog_notice("all daemons up, doing startup-complete notify");
 	else if (gs.numdown < gs.numdaemons)
 		flog_err(EC_WATCHFRR_CONNECTION,
-			 "startup did not complete within timeout"
-			 " (%d/%d daemons running)",
+			 "startup did not complete within timeout (%d/%d daemons running)",
 			 gs.numdaemons - gs.numdown, gs.numdaemons);
 	else {
 		flog_err(EC_WATCHFRR_CONNECTION,
-			 "all configured daemons failed to start"
-			 " -- exiting watchfrr");
+			 "all configured daemons failed to start -- exiting watchfrr");
 		exit(exitcode);
 
 	}
@@ -948,8 +941,7 @@ static void try_restart(struct daemon *dmn)
 				1);
 		else
 			zlog_debug(
-				"%s: postponing restart attempt because master %s daemon "
-				"not up [%s], or phased restart in progress",
+				"%s: postponing restart attempt because master %s daemon not up [%s], or phased restart in progress",
 				dmn->name, gs.special->name,
 				state_str[gs.special->state]);
 		return;
@@ -958,8 +950,7 @@ static void try_restart(struct daemon *dmn)
 	if ((gs.phase != PHASE_NONE) || gs.numpids) {
 		if (gs.loglevel > LOG_DEBUG + 1)
 			zlog_debug(
-				"postponing phased global restart: restart already in "
-				"progress [%s], or outstanding child processes [%d]",
+				"postponing phased global restart: restart already in progress [%s], or outstanding child processes [%d]",
 				phase_str[gs.phase], gs.numpids);
 		return;
 	}
@@ -970,8 +961,7 @@ static void try_restart(struct daemon *dmn)
 		    < gs.special->restart.interval) {
 			if (gs.loglevel > LOG_DEBUG + 1)
 				zlog_debug(
-					"postponing phased global restart: "
-					"elapsed time %ld < retry interval %ld",
+					"postponing phased global restart: elapsed time %ld < retry interval %ld",
 					(long)delay.tv_sec,
 					gs.special->restart.interval);
 			return;
@@ -987,8 +977,7 @@ static int wakeup_unresponsive(struct thread *t_wakeup)
 	dmn->t_wakeup = NULL;
 	if (dmn->state != DAEMON_UNRESPONSIVE)
 		flog_err(EC_WATCHFRR_CONNECTION,
-			 "%s: no longer unresponsive (now %s), "
-			 "wakeup should have been cancelled!",
+			 "%s: no longer unresponsive (now %s), wakeup should have been cancelled!",
 			 dmn->name, state_str[dmn->state]);
 	else {
 		SET_WAKEUP_UNRESPONSIVE(dmn);
@@ -1006,8 +995,7 @@ static int wakeup_no_answer(struct thread *t_wakeup)
 	if (dmn->ignore_timeout)
 		return 0;
 	flog_err(EC_WATCHFRR_CONNECTION,
-		 "%s state -> unresponsive : no response yet to ping "
-		 "sent %ld seconds ago",
+		 "%s state -> unresponsive : no response yet to ping sent %ld seconds ago",
 		 dmn->name, gs.timeout);
 	SET_WAKEUP_UNRESPONSIVE(dmn);
 	try_restart(dmn);
@@ -1066,8 +1054,7 @@ void watchfrr_status(struct vty *vty)
 		else if (dmn->state == DAEMON_DOWN &&
 			time_elapsed(&delay, &dmn->restart.time)->tv_sec
 				< dmn->restart.interval)
-			vty_out(vty, "      restarting in %jd seconds"
-				" (%jds backoff interval)\n",
+			vty_out(vty, "      restarting in %jd seconds (%jds backoff interval)\n",
 				(intmax_t)dmn->restart.interval
 					- (intmax_t)delay.tv_sec,
 				(intmax_t)dmn->restart.interval);

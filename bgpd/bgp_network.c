@@ -501,8 +501,7 @@ static int bgp_accept(struct thread *thread)
 	if (BGP_PEER_START_SUPPRESSED(peer1)) {
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
-				"[Event] Incoming BGP connection rejected from %s "
-				"due to maximum-prefix or shutdown",
+				"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
 				peer1->host);
 		close(bgp_sock);
 		return -1;
@@ -518,8 +517,7 @@ static int bgp_accept(struct thread *thread)
 		*/
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
-				"[Event] New active connection from peer %s, Killing"
-				" previous active connection",
+				"[Event] New active connection from peer %s, Killing previous active connection",
 				peer1->host);
 		peer_delete(peer1->doppelganger);
 	}

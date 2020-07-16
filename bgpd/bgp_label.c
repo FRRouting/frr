@@ -394,8 +394,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		/* There needs to be at least one label */
 		if (prefixlen < 24) {
 			flog_err(EC_BGP_UPDATE_RCV,
-				 "%s [Error] Update packet error"
-				 " (wrong label length %d)",
+				 "%s [Error] Update packet error (wrong label length %d)",
 				 peer->host, prefixlen);
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_INVAL_NETWORK);

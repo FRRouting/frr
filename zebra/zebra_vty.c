@@ -3236,8 +3236,7 @@ DEFUN (show_zebra,
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		struct zebra_vrf *zvrf = vrf->info;
 
-		vty_out(vty, "%-25s %10" PRIu64 " %10" PRIu64 " %10" PRIu64
-			     " %10" PRIu64 " %10" PRIu64 "\n",
+		vty_out(vty, "%-25s %10" PRIu64 " %10" PRIu64 " %10" PRIu64" %10" PRIu64 " %10" PRIu64 "\n",
 			vrf->name, zvrf->installs, zvrf->removals,
 			zvrf->neigh_updates, zvrf->lsp_installs,
 			zvrf->lsp_removals);

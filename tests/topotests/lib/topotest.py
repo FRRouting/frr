@@ -35,6 +35,7 @@ import tempfile
 import platform
 import difflib
 import time
+import signal
 
 from lib.topolog import logger
 from copy import deepcopy
@@ -51,6 +52,35 @@ from mininet.log import setLogLevel, info
 from mininet.cli import CLI
 from mininet.link import Intf
 
+def gdb_core(obj, daemon, corefiles):
+    gdbcmds = '''
+        info threads
+        bt full
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+        up
+        disassemble
+    '''
+    gdbcmds = [['-ex', i.strip()] for i in gdbcmds.strip().split('\n')]
+    gdbcmds = [item for sl in gdbcmds for item in sl]
+
+    daemon_path = os.path.join(obj.daemondir, daemon)
+    backtrace = subprocess.check_output(
+        ['gdb', daemon_path, corefiles[0], '--batch'] + gdbcmds
+    )
+    sys.stderr.write(
+        "\n%s: %s crashed. Core file found - Backtrace follows:\n"
+        % (obj.name, daemon)
+    )
+    sys.stderr.write("%s" % backtrace)
+    return backtrace
 
 class json_cmp_result(object):
     "json_cmp result class for better assertion messages"
@@ -421,6 +451,10 @@ def pid_exists(pid):
 
     if pid <= 0:
         return False
+    try:
+        os.waitpid(pid, os.WNOHANG)
+    except:
+        pass
     try:
         os.kill(pid, 0)
     except OSError as err:
@@ -992,8 +1026,8 @@ class Router(Node):
         os.system("chmod -R go+rw /tmp/topotests")
 
     # Return count of running daemons
-    def countDaemons(self):
-        numRunning = 0
+    def listDaemons(self):
+        ret = []
         rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
         errors = ""
         if re.search(r"No such file or directory", rundaemons):
@@ -1002,12 +1036,11 @@ class Router(Node):
             for d in StringIO.StringIO(rundaemons):
                 daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                 if daemonpid.isdigit() and pid_exists(int(daemonpid)):
-                    numRunning += 1
-        return numRunning
+                    ret.append(os.path.basename(d.rstrip().rsplit(".", 1)[0]))
+        return ret
 
     def stopRouter(self, wait=True, assertOnError=True, minErrorVersion="5.1"):
         # Stop Running FRR Daemons
-        numRunning = 0
         rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
         errors = ""
         if re.search(r"No such file or directory", rundaemons):
@@ -1016,24 +1049,36 @@ class Router(Node):
             for d in StringIO.StringIO(rundaemons):
                 daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                 if daemonpid.isdigit() and pid_exists(int(daemonpid)):
+                    daemonname = os.path.basename(d.rstrip().rsplit(".", 1)[0])
                     logger.info(
                         "{}: stopping {}".format(
-                            self.name, os.path.basename(d.rstrip().rsplit(".", 1)[0])
+                            self.name, daemonname
                         )
                     )
-                    self.cmd("kill -TERM %s" % daemonpid)
-                    self.waitOutput()
-                    if pid_exists(int(daemonpid)):
-                        numRunning += 1
+                    try:
+                        os.kill(int(daemonpid), signal.SIGTERM)
+                    except OSError as err:
+                        if err.errno == errno.ESRCH:
+                            logger.error("{}: {} left a dead pidfile (pid={})".format(self.name, daemonname, daemonpid))
+                        else:
+                            logger.info("{}: {} could not kill pid {}: {}".format(self.name, daemonname, daemonpid, str(err)))
 
-            if wait and numRunning > 0:
-                counter = 5
-                while counter > 0 and numRunning > 0:
-                    sleep(2, "{}: waiting for daemons stopping".format(self.name))
-                    numRunning = self.countDaemons()
+            if not wait:
+                return errors
+
+            running = self.listDaemons()
+
+            if running:
+                sleep(0.1, "{}: waiting for daemons stopping: {}".format(self.name, ', '.join(running)))
+                running = self.listDaemons()
+
+                counter = 20
+                while counter > 0 and running:
+                    sleep(0.5, "{}: waiting for daemons stopping: {}".format(self.name, ', '.join(running)))
+                    running = self.listDaemons()
                     counter -= 1
 
-            if wait and numRunning > 0:
+            if running:
                 # 2nd round of kill if daemons didn't exit
                 for d in StringIO.StringIO(rundaemons):
                     daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
@@ -1048,13 +1093,15 @@ class Router(Node):
                         self.waitOutput()
                     self.cmd("rm -- {}".format(d.rstrip()))
 
-        if wait:
-            errors = self.checkRouterCores(reportOnce=True)
-            if self.checkRouterVersion("<", minErrorVersion):
-                # ignore errors in old versions
-                errors = ""
-            if assertOnError and len(errors) > 0:
-                assert "Errors found - details follow:" == 0, errors
+        if not wait:
+            return errors
+
+        errors = self.checkRouterCores(reportOnce=True)
+        if self.checkRouterVersion("<", minErrorVersion):
+            # ignore errors in old versions
+            errors = ""
+        if assertOnError and len(errors) > 0:
+            assert "Errors found - details follow:" == 0, errors
         return errors
 
     def removeIPs(self):
@@ -1348,20 +1395,7 @@ class Router(Node):
                     "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
                 )
                 if len(corefiles) > 0:
-                    daemon_path = os.path.join(self.daemondir, daemon)
-                    backtrace = subprocess.check_output(
-                        [
-                            "gdb {} {} --batch -ex bt 2> /dev/null".format(
-                                daemon_path, corefiles[0]
-                            )
-                        ],
-                        shell=True,
-                    )
-                    sys.stderr.write(
-                        "\n%s: %s crashed. Core file found - Backtrace follows:\n"
-                        % (self.name, daemon)
-                    )
-                    sys.stderr.write("%s" % backtrace)
+                    backtrace = gdb_core(self, daemon, corefiles)
                     traces = (
                         traces
                         + "\n%s: %s crashed. Core file found - Backtrace follows:\n%s"
@@ -1431,20 +1465,7 @@ class Router(Node):
                     "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
                 )
                 if len(corefiles) > 0:
-                    daemon_path = os.path.join(self.daemondir, daemon)
-                    backtrace = subprocess.check_output(
-                        [
-                            "gdb {} {} --batch -ex bt 2> /dev/null".format(
-                                daemon_path, corefiles[0]
-                            )
-                        ],
-                        shell=True,
-                    )
-                    sys.stderr.write(
-                        "\n%s: %s crashed. Core file found - Backtrace follows:\n"
-                        % (self.name, daemon)
-                    )
-                    sys.stderr.write("%s\n" % backtrace)
+                    gdb_core(self, daemon, corefiles)
                 else:
                     # No core found - If we find matching logfile in /tmp, then print last 20 lines from it.
                     if os.path.isfile(

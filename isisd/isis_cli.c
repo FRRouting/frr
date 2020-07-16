@@ -1111,9 +1111,7 @@ DEFPY(isis_mpls_te_inter_as, isis_mpls_te_inter_as_cmd,
  * XPath: /frr-isisd:isis/instance/default-information-originate
  */
 DEFPY(isis_default_originate, isis_default_originate_cmd,
-      "[no] default-information originate <ipv4|ipv6>$ip"
-      " <level-1|level-2>$level [always]$always"
-      " [{metric (0-16777215)$metric|route-map WORD$rmap}]",
+      "[no] default-information originate <ipv4|ipv6>$ip <level-1|level-2>$level [always]$always [{metric (0-16777215)$metric|route-map WORD$rmap}]",
       NO_STR
       "Control distribution of default information\n"
       "Distribute a default route\n"
@@ -1190,9 +1188,7 @@ void cli_show_isis_def_origin_ipv6(struct vty *vty, struct lyd_node *dnode,
  */
 DEFPY(isis_redistribute, isis_redistribute_cmd,
       "[no] redistribute <ipv4|ipv6>$ip " PROTO_REDIST_STR
-      "$proto"
-      " <level-1|level-2>$level"
-      " [{metric (0-16777215)|route-map WORD}]",
+      "$proto <level-1|level-2>$level [{metric (0-16777215)|route-map WORD}]",
       NO_STR REDIST_STR
       "Redistribute IPv4 routes\n"
       "Redistribute IPv6 routes\n" PROTO_REDIST_HELP
@@ -1250,15 +1246,7 @@ void cli_show_isis_redistribute_ipv6(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-isisd:isis/instance/multi-topology
  */
 DEFPY(isis_topology, isis_topology_cmd,
-      "[no] topology "
-      "<ipv4-unicast"
-      "|ipv4-mgmt"
-      "|ipv6-unicast"
-      "|ipv4-multicast"
-      "|ipv6-multicast"
-      "|ipv6-mgmt"
-      "|ipv6-dstsrc>$topology "
-      "[overload]$overload",
+      "[no] topology <ipv4-unicast|ipv4-mgmt|ipv6-unicast|ipv4-multicast|ipv6-multicast|ipv6-mgmt|ipv6-dstsrc>$topology [overload]$overload",
       NO_STR
       "Configure IS-IS topologies\n"
       "IPv4 unicast topology\n"
@@ -2011,15 +1999,7 @@ void cli_show_ip_isis_psnp_interval(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/multi-topology
  */
 DEFPY(circuit_topology, circuit_topology_cmd,
-      "[no] isis topology"
-      "<ipv4-unicast"
-      "|ipv4-mgmt"
-      "|ipv6-unicast"
-      "|ipv4-multicast"
-      "|ipv6-multicast"
-      "|ipv6-mgmt"
-      "|ipv6-dstsrc"
-      ">$topology",
+      "[no] isis topology<ipv4-unicast|ipv4-mgmt|ipv6-unicast|ipv4-multicast|ipv6-multicast|ipv6-mgmt|ipv6-dstsrc>$topology",
       NO_STR
       "IS-IS routing protocol\n"
       "Configure interface IS-IS topologies\n"

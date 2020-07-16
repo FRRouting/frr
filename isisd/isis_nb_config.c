@@ -1503,7 +1503,7 @@ int isis_instance_segment_routing_srgb_lower_bound_modify(
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(lower_bound)) {
-			zlog_warn("Invalid SRGB lower bound: %" PRIu32,
+			zlog_warn("Invalid SRGB lower bound: %u",
 				  lower_bound);
 			return NB_ERR_VALIDATION;
 		}
@@ -1528,7 +1528,7 @@ int isis_instance_segment_routing_srgb_upper_bound_modify(
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
-			zlog_warn("Invalid SRGB upper bound: %" PRIu32,
+			zlog_warn("Invalid SRGB upper bound: %u",
 				  upper_bound);
 			return NB_ERR_VALIDATION;
 		}
@@ -1601,7 +1601,7 @@ int isis_instance_segment_routing_srlb_lower_bound_modify(
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(lower_bound)) {
-			zlog_warn("Invalid SRLB lower bound: %" PRIu32,
+			zlog_warn("Invalid SRLB lower bound: %u",
 				  lower_bound);
 			return NB_ERR_VALIDATION;
 		}
@@ -1626,7 +1626,7 @@ int isis_instance_segment_routing_srlb_upper_bound_modify(
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
-			zlog_warn("Invalid SRLB upper bound: %" PRIu32,
+			zlog_warn("Invalid SRLB upper bound: %u",
 				  upper_bound);
 			return NB_ERR_VALIDATION;
 		}
@@ -1854,8 +1854,7 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 #endif /* ifndef FABRICD */
 		if (actual_mtu < min_mtu) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "Interface %s has MTU %" PRIu32
-				 ", minimum MTU for the area is %" PRIu32 "",
+				 "Interface %s has MTU %u, minimum MTU for the area is %u",
 				 ifp->name, actual_mtu, min_mtu);
 			return NB_ERR_VALIDATION;
 		}

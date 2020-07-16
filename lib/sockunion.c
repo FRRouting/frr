@@ -406,8 +406,7 @@ int sockopt_v6only(int family, int sock)
 				 sizeof(int));
 		if (ret < 0) {
 			flog_err(EC_LIB_SOCKET,
-				 "can't set sockopt IPV6_V6ONLY "
-				 "to socket %d",
+				 "can't set sockopt IPV6_V6ONLY to socket %d",
 				 sock);
 			return -1;
 		}

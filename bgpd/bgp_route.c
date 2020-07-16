@@ -1644,8 +1644,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		mpls_label_t label = bgp_adv_label(dest, pi, peer, afi, safi);
 		if (!bgp_is_valid_label(&label)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-				zlog_debug("u%" PRIu64 ":s%" PRIu64
-					   " %s/%d is filtered - no label (%p)",
+				zlog_debug("u%" PRIu64 ":s%" PRIu64" %s/%d is filtered - no label (%p)",
 					   subgrp->update_group->id, subgrp->id,
 					   inet_ntop(p->family, &p->u.prefix,
 						     buf, SU_ADDRSTRLEN),
@@ -1690,8 +1689,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    && (IPV4_ADDR_SAME(&onlypeer->remote_id, &piattr->originator_id))) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 			zlog_debug(
-				"%s [Update:SEND] %s originator-id is same as "
-				"remote router-id",
+				"%s [Update:SEND] %s originator-id is same as remote router-id",
 				onlypeer->host,
 				prefix2str(p, buf, sizeof(buf)));
 		return false;
@@ -1729,8 +1727,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    && aspath_loop_check(piattr->aspath, onlypeer->as)) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 			zlog_debug(
-				"%s [Update:SEND] suppress announcement to peer AS %u "
-				"that is part of AS path.",
+				"%s [Update:SEND] suppress announcement to peer AS %u that is part of AS path.",
 				onlypeer->host, onlypeer->as);
 		return false;
 	}
@@ -1740,8 +1737,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (aspath_loop_check(piattr->aspath, bgp->confed_id)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug(
-					"%s [Update:SEND] suppress announcement to peer AS %u"
-					" is AS path.",
+					"%s [Update:SEND] suppress announcement to peer AS %u is AS path.",
 					peer->host, bgp->confed_id);
 			return false;
 		}
@@ -2994,8 +2990,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			return false;
 
 		zlog_info(
-			"%%MAXPFXEXCEED: No. of %s prefix received from %s %" PRIu32
-			" exceed, limit %" PRIu32,
+			"%%MAXPFXEXCEED: No. of %s prefix received from %s %u exceed, limit %u",
 			get_afi_safi_str(afi, safi, false), peer->host,
 			peer->pcount[afi][safi], peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_LIMIT);
@@ -3056,8 +3051,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			return false;
 
 		zlog_info(
-			"%%MAXPFX: No. of %s prefix received from %s reaches %" PRIu32
-			", max %" PRIu32,
+			"%%MAXPFX: No. of %s prefix received from %s reaches %u, max %u",
 			get_afi_safi_str(afi, safi, false), peer->host,
 			peer->pcount[afi][safi], peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi],
@@ -9606,8 +9600,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 
 	if (use_json && !*json_header_depth) {
 		vty_out(vty,
-			"{\n \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
-			",\n \"routerId\": \"%s\",\n \"defaultLocPrf\": %u,\n"
+			"{\n \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64",\n \"routerId\": \"%s\",\n \"defaultLocPrf\": %u,\n"
 			" \"localAS\": %u,\n \"routes\": { ",
 			bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
 			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
@@ -9792,8 +9785,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			}
 
 			if (!use_json && header) {
-				vty_out(vty, "BGP table version is %" PRIu64
-					", local router ID is %s, vrf id ",
+				vty_out(vty, "BGP table version is %" PRIu64", local router ID is %s, vrf id ",
 					table->version,
 					inet_ntoa(bgp->router_id));
 				if (bgp->vrf_id == VRF_UNKNOWN)
@@ -10944,8 +10936,7 @@ DEFUN (show_ip_bgp_json,
 
 DEFUN (show_ip_bgp_route,
        show_ip_bgp_route_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]"
-       "<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [<bestpath|multipath>] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [<bestpath|multipath>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11797,7 +11788,7 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 				get_afi_safi_str(afi, safi, false));
 		}
 
-		vty_out(vty, "PfxCt: %" PRIu32 "\n", peer->pcount[afi][safi]);
+		vty_out(vty, "PfxCt: %u\n", peer->pcount[afi][safi]);
 		vty_out(vty, "\nCounts from RIB table walk:\n\n");
 
 		for (i = 0; i < PCOUNT_MAX; i++)
@@ -11816,8 +11807,7 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        show_ip_bgp_instance_neighbor_prefix_counts_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] "
-       "neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12031,8 +12021,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 				json, "bgpOriginatingDefaultNetwork",
 				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
 		} else {
-			vty_out(vty, "BGP table version is %" PRIu64
-				     ", local router ID is %s, vrf id ",
+			vty_out(vty, "BGP table version is %" PRIu64", local router ID is %s, vrf id ",
 				table->version, inet_ntoa(bgp->router_id));
 			if (bgp->vrf_id == VRF_UNKNOWN)
 				vty_out(vty, "%s", VRFID_NONE_STR);
@@ -12180,8 +12169,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 								json_ocode);
 						} else {
 							vty_out(vty,
-								"BGP table version is %" PRIu64
-								", local router ID is %s, vrf id ",
+								"BGP table version is %" PRIu64", local router ID is %s, vrf id ",
 								table->version,
 								inet_ntoa(
 									bgp->router_id));
@@ -12314,8 +12302,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] "
-       "neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map WORD] [json | wide]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map WORD] [json | wide]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12514,8 +12501,7 @@ DEFUN (show_ip_bgp_flowspec_routes_detailed,
 
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] "
-       "neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
        SHOW_STR
        IP_STR
        BGP_STR

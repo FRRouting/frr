@@ -78,8 +78,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			pim_addr_dump("<nexthop?>", &nexthop->mrib_nexthop_addr,
 				      nexthop_str, sizeof(nexthop_str));
 			zlog_debug(
-				"%s: Using last lookup for %s at %lld, %" PRId64
-				" addr %s",
+				"%s: Using last lookup for %s at %lld, %" PRId64" addr %s",
 				__func__, addr_str, nexthop->last_lookup_time,
 				pim->last_route_change_time, nexthop_str);
 		}

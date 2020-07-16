@@ -230,14 +230,12 @@ static int zebra_ns_ready_read(struct thread *t)
 
 	/* check default name is not already set */
 	if (strmatch(VRF_DEFAULT_NAME, basename(netnspath))) {
-		zlog_warn("NS notify : NS %s is already default VRF."
-			  "Cancel VRF Creation", basename(netnspath));
+		zlog_warn("NS notify : NS %s is already default VRF.Cancel VRF Creation", basename(netnspath));
 		return zebra_ns_continue_read(zns_info, 1);
 	}
 	if (zebra_ns_notify_is_default_netns(basename(netnspath))) {
 		zlog_warn(
-			  "NS notify : NS %s is default VRF."
-			  " Updating VRF Name", basename(netnspath));
+			  "NS notify : NS %s is default VRF. Updating VRF Name", basename(netnspath));
 		vrf_set_default_name(basename(netnspath), false);
 		return zebra_ns_continue_read(zns_info, 1);
 	}
@@ -333,14 +331,12 @@ void zebra_ns_notify_parse(void)
 		}
 		/* check default name is not already set */
 		if (strmatch(VRF_DEFAULT_NAME, basename(dent->d_name))) {
-			zlog_warn("NS notify : NS %s is already default VRF."
-				  "Cancel VRF Creation", dent->d_name);
+			zlog_warn("NS notify : NS %s is already default VRF.Cancel VRF Creation", dent->d_name);
 			continue;
 		}
 		if (zebra_ns_notify_is_default_netns(dent->d_name)) {
 			zlog_warn(
-				  "NS notify : NS %s is default VRF."
-				  " Updating VRF Name", dent->d_name);
+				  "NS notify : NS %s is default VRF. Updating VRF Name", dent->d_name);
 			vrf_set_default_name(dent->d_name, false);
 			continue;
 		}

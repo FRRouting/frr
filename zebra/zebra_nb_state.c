@@ -188,7 +188,7 @@ int lib_vrf_zebra_ribs_rib_get_keys(struct nb_cb_get_keys_args *args)
 	snprintfrr(args->keys->key[0], sizeof(args->keys->key[0]), "%s:%s",
 		   "frr-zebra",
 		   zebra_afi_safi_value2identity(zrt->afi, zrt->safi));
-	snprintfrr(args->keys->key[1], sizeof(args->keys->key[1]), "%" PRIu32,
+	snprintfrr(args->keys->key[1], sizeof(args->keys->key[1]), "%u",
 		   zrt->tableid);
 
 	return NB_OK;

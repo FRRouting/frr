@@ -1081,8 +1081,7 @@ static void rib_process(struct route_node *rn)
 				if (re != old_selected) {
 					if (IS_ZEBRA_DEBUG_RIB)
 						zlog_debug(
-							"%s: %s(%u):%s: imported via import-table but denied "
-							"by the ip protocol table route-map",
+							"%s: %s(%u):%s: imported via import-table but denied by the ip protocol table route-map",
 							__func__,
 							VRF_LOGNAME(vrf),
 							vrf_id, buf);
@@ -3149,8 +3148,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 				if (nh)
 					rnode_debug(
 						rn, vrf_id,
-						"via %s ifindex %d type %d "
-						"doesn't exist in rib",
+						"via %s ifindex %d type %d doesn't exist in rib",
 						inet_ntop(afi2family(afi),
 							  &nh->gate, buf2,
 							  sizeof(buf2)),

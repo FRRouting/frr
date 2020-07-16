@@ -215,8 +215,7 @@ void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus)
 {
 	if (IS_ZEBRA_DEBUG_PW)
 		zlog_debug(
-			"%u: failed installing pseudowire %s, "
-			"scheduling retry in %u seconds",
+			"%u: failed installing pseudowire %s, scheduling retry in %u seconds",
 			pw->vrf_id, pw->ifname, PW_INSTALL_RETRY_INTERVAL);
 
 	/* schedule to retry later */
@@ -680,8 +679,7 @@ static int zebra_pw_config(struct vty *vty)
 				pw->local_label, pw->remote_label);
 		else
 			vty_out(vty,
-				" ! Incomplete config, specify the static "
-				"MPLS labels\n");
+				" ! Incomplete config, specify the static MPLS labels\n");
 
 		if (pw->af != AF_UNSPEC) {
 			char buf[INET6_ADDRSTRLEN];
@@ -689,8 +687,7 @@ static int zebra_pw_config(struct vty *vty)
 			vty_out(vty, " neighbor %s\n", buf);
 		} else
 			vty_out(vty,
-				" ! Incomplete config, specify a neighbor "
-				"address\n");
+				" ! Incomplete config, specify a neighbor address\n");
 
 		if (!(pw->flags & F_PSEUDOWIRE_CWORD))
 			vty_out(vty, " control-word exclude\n");

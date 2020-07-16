@@ -4979,8 +4979,7 @@ static void pim_show_mlag_help_string(struct vty *vty, bool uj)
 	if (!uj) {
 		vty_out(vty, "Owner codes:\n");
 		vty_out(vty,
-			"L: EVPN-MLAG Entry, I:PIM-MLAG Entry, "
-			"P: Peer Entry\n");
+			"L: EVPN-MLAG Entry, I:PIM-MLAG Entry, P: Peer Entry\n");
 	}
 }
 
@@ -8404,8 +8403,7 @@ DEFUN_HIDDEN (interface_ip_pim_ssm,
 	}
 
 	vty_out(vty,
-		"WARN: Enabled PIM SM on interface; configure PIM SSM "
-		"range if needed\n");
+		"WARN: Enabled PIM SM on interface; configure PIM SSM range if needed\n");
 	return CMD_SUCCESS;
 }
 

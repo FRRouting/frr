@@ -449,8 +449,7 @@ int eigrp_write(struct thread *thread)
 
 	if (ret < 0)
 		zlog_warn(
-			"*** sendmsg in eigrp_write failed to %s, "
-			"id %d, off %d, len %d, interface %s, mtu %u: %s",
+			"*** sendmsg in eigrp_write failed to %s, id %d, off %d, len %d, interface %s, mtu %u: %s",
 			inet_ntoa(iph.ip_dst), iph.ip_id, iph.ip_off,
 			iph.ip_len, ei->ifp->name, ei->ifp->mtu,
 			safe_strerror(errno));
@@ -578,8 +577,7 @@ int eigrp_read(struct thread *thread)
 
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
 			zlog_debug(
-				"ignoring packet from router %s sent to %s, "
-				"received on a passive interface, %s",
+				"ignoring packet from router %s sent to %s, received on a passive interface, %s",
 				inet_ntop(AF_INET, &eigrph->vrid, buf[0],
 					  sizeof(buf[0])),
 				inet_ntop(AF_INET, &iph->ip_dst, buf[1],
@@ -736,8 +734,7 @@ static struct stream *eigrp_recv_packet(struct eigrp *eigrp,
 	if ((unsigned int)ret < sizeof(*iph)) /* ret must be > 0 now */
 	{
 		zlog_warn(
-			"eigrp_recv_packet: discarding runt packet of length %d "
-			"(ip header size is %u)",
+			"eigrp_recv_packet: discarding runt packet of length %d (ip header size is %u)",
 			ret, (unsigned int)sizeof(*iph));
 		return NULL;
 	}
@@ -782,8 +779,7 @@ static struct stream *eigrp_recv_packet(struct eigrp *eigrp,
 
 	if (ret != ip_len) {
 		zlog_warn(
-			"eigrp_recv_packet read length mismatch: ip_len is %d, "
-			"but recvmsg returned %d",
+			"eigrp_recv_packet read length mismatch: ip_len is %d, but recvmsg returned %d",
 			ip_len, ret);
 		return NULL;
 	}

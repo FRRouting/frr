@@ -839,8 +839,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	if (vlink_count == OSPF_VL_MAX_COUNT) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_vl_new(): Alarm: "
-				"cannot create more than OSPF_MAX_VL_COUNT virtual links");
+				"ospf_vl_new(): Alarm: cannot create more than OSPF_MAX_VL_COUNT virtual links");
 		return NULL;
 	}
 
@@ -1118,8 +1117,7 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 			if (ospf_vl_set_params(vl_data, v)) {
 				if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
 					zlog_debug(
-						"ospf_vl_up_check: VL cost change,"
-						" scheduling router lsa refresh");
+						"ospf_vl_up_check: VL cost change, scheduling router lsa refresh");
 				if (ospf->backbone)
 					ospf_router_lsa_update_area(
 						ospf->backbone);

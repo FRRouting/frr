@@ -390,8 +390,7 @@ DEFUN(ospf6_router_id,
 	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
 		if (oa->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect,"
-				" save config and restart ospf6d\n");
+				"For this router-id change to take effect, save config and restart ospf6d\n");
 			return CMD_SUCCESS;
 		}
 	}
@@ -417,8 +416,7 @@ DEFUN(no_ospf6_router_id,
 	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
 		if (oa->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect,"
-				" save config and restart ospf6d\n");
+				"For this router-id change to take effect, save config and restart ospf6d\n");
 			return CMD_SUCCESS;
 		}
 	}

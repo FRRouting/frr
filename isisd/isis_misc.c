@@ -190,7 +190,7 @@ const char *nlpid2str(uint8_t nlpid)
 	case NLPID_ESIS:
 		return "ES-IS";
 	default:
-		snprintf(buf, sizeof(buf), "%" PRIu8, nlpid);
+		snprintf(buf, sizeof(buf), "%hhu", nlpid);
 		return buf;
 	}
 }

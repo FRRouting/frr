@@ -1553,8 +1553,7 @@ int bgp_start(struct peer *peer)
 	if (BGP_PEER_START_SUPPRESSED(peer)) {
 		if (bgp_debug_neighbor_events(peer))
 			flog_err(EC_BGP_FSM,
-				 "%s [FSM] Trying to start suppressed peer"
-				 " - this is never supposed to happen!",
+				 "%s [FSM] Trying to start suppressed peer - this is never supposed to happen!",
 				 peer->host);
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
@@ -2285,8 +2284,7 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 		if (!dyn_nbr && !passive_conn && peer->bgp) {
 			flog_err(
 				EC_BGP_FSM,
-				"%s [FSM] Failure handling event %s in state %s, "
-				"prior events %s, %s, fd %d",
+				"%s [FSM] Failure handling event %s in state %s, prior events %s, %s, fd %d",
 				peer->host, bgp_event_str[peer->cur_event],
 				lookup_msg(bgp_status_msg, peer->status, NULL),
 				bgp_event_str[peer->last_event],

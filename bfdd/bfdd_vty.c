@@ -146,23 +146,23 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? "configured" : "dynamic");
 
 	vty_out(vty, "\t\tLocal timers:\n");
-	vty_out(vty, "\t\t\tDetect-multiplier: %" PRIu32 "\n",
+	vty_out(vty, "\t\t\tDetect-multiplier: %u\n",
 		bs->detect_mult);
-	vty_out(vty, "\t\t\tReceive interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tReceive interval: %ums\n",
 		bs->timers.required_min_rx / 1000);
-	vty_out(vty, "\t\t\tTransmission interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tTransmission interval: %ums\n",
 		bs->timers.desired_min_tx / 1000);
-	vty_out(vty, "\t\t\tEcho transmission interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tEcho transmission interval: %ums\n",
 		bs->timers.required_min_echo / 1000);
 
 	vty_out(vty, "\t\tRemote timers:\n");
-	vty_out(vty, "\t\t\tDetect-multiplier: %" PRIu32 "\n",
+	vty_out(vty, "\t\t\tDetect-multiplier: %u\n",
 		bs->remote_detect_mult);
-	vty_out(vty, "\t\t\tReceive interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tReceive interval: %ums\n",
 		bs->remote_timers.required_min_rx / 1000);
-	vty_out(vty, "\t\t\tTransmission interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tTransmission interval: %ums\n",
 		bs->remote_timers.desired_min_tx / 1000);
-	vty_out(vty, "\t\t\tEcho transmission interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tEcho transmission interval: %ums\n",
 		bs->remote_timers.required_min_echo / 1000);
 
 	vty_out(vty, "\n");
