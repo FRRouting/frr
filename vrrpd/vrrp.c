@@ -867,8 +867,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 	if (pkt->hdr.vrid != r->vr->vrid) {
 		DEBUGD(&vrrp_dbg_proto,
 		       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-		       "Datagram invalid: Advertisement contains VRID %" PRIu8
-		       " which does not match our instance",
+		       "Datagram invalid: Advertisement contains VRID %hhu which does not match our instance",
 		       r->vr->vrid, family2str(r->family), pkt->hdr.vrid);
 		return -1;
 	}
@@ -888,8 +887,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 	if (r->vr->version == 2 && !adveq) {
 		DEBUGD(&vrrp_dbg_proto,
 		       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-		       "Datagram invalid: Received advertisement with advertisement interval %" PRIu8
-		       " unequal to our configured value %u",
+		       "Datagram invalid: Received advertisement with advertisement interval %hhu unequal to our configured value %u",
 		       r->vr->vrid, family2str(r->family),
 		       pkt->hdr.v2.adver_int,
 		       MAX(r->vr->advertisement_interval / 100, 1));
@@ -901,8 +899,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 	if (pkt->hdr.naddr != r->addrs->count)
 		DEBUGD(&vrrp_dbg_proto,
 		       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-		       "Datagram has %" PRIu8
-		       " addresses, but this VRRP instance has %u",
+		       "Datagram has %hhu addresses, but this VRRP instance has %u",
 		       r->vr->vrid, family2str(r->family), pkt->hdr.naddr,
 		       r->addrs->count);
 
@@ -926,8 +923,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			       && addrcmp > 0)) {
 			zlog_info(
 				VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-				"Received advertisement from %s w/ priority %" PRIu8
-				"; switching to Backup",
+				"Received advertisement from %s w/ priority %hhu; switching to Backup",
 				r->vr->vrid, family2str(r->family), sipstr,
 				pkt->hdr.priority);
 			THREAD_OFF(r->t_adver_timer);
@@ -946,8 +942,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			/* Discard advertisement */
 			DEBUGD(&vrrp_dbg_proto,
 			       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-			       "Discarding advertisement from %s (%" PRIu8
-			       " <= %" PRIu8 " & %s <= %s)",
+			       "Discarding advertisement from %s (%hhu <= %hhu & %s <= %s)",
 			       r->vr->vrid, family2str(r->family), sipstr,
 			       pkt->hdr.priority, r->priority, sipstr, dipstr);
 		}
@@ -975,8 +970,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			/* Discard advertisement */
 			DEBUGD(&vrrp_dbg_proto,
 			       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-			       "Discarding advertisement from %s (%" PRIu8
-			       " < %" PRIu8 " & preempt = true)",
+			       "Discarding advertisement from %s (%hhu < %hhu & preempt = true)",
 			       r->vr->vrid, family2str(r->family), sipstr,
 			       pkt->hdr.priority, r->priority);
 		}
@@ -2353,11 +2347,11 @@ int vrrp_config_write_global(struct vty *vty)
 
 	/* FIXME: needs to be udpated for full YANG conversion. */
 	if (vd.priority != VRRP_DEFAULT_PRIORITY && ++writes)
-		vty_out(vty, "vrrp default priority %" PRIu8 "\n", vd.priority);
+		vty_out(vty, "vrrp default priority %hhu\n", vd.priority);
 
 	if (vd.advertisement_interval != VRRP_DEFAULT_ADVINT && ++writes)
 		vty_out(vty,
-			"vrrp default advertisement-interval %" PRIu16 "\n",
+			"vrrp default advertisement-interval %hu\n",
 			vd.advertisement_interval * CS2MS);
 
 	if (vd.preempt_mode != VRRP_DEFAULT_PREEMPT && ++writes)
@@ -2380,7 +2374,7 @@ static unsigned int vrrp_hash_key(const void *arg)
 	const struct vrrp_vrouter *vr = arg;
 	char key[IFNAMSIZ + 64];
 
-	snprintf(key, sizeof(key), "%s@%" PRIu8, vr->ifp->name, vr->vrid);
+	snprintf(key, sizeof(key), "%s@%hhu", vr->ifp->name, vr->vrid);
 
 	return string_hash_make(key);
 }

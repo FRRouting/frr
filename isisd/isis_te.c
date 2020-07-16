@@ -351,12 +351,12 @@ static void show_ext_sub(struct vty *vty, char *name,
 	sbuf_reset(&buf);
 
 	if (IS_SUBTLV(ext, EXT_ADM_GRP))
-		sbuf_push(&buf, 4, "Administrative Group: 0x%" PRIx32 "\n",
+		sbuf_push(&buf, 4, "Administrative Group: 0x%x\n",
 			ext->adm_group);
 	if (IS_SUBTLV(ext, EXT_LLRI)) {
-		sbuf_push(&buf, 4, "Link Local  ID: %" PRIu32 "\n",
+		sbuf_push(&buf, 4, "Link Local  ID: %u\n",
 			  ext->local_llri);
-		sbuf_push(&buf, 4, "Link Remote ID: %" PRIu32 "\n",
+		sbuf_push(&buf, 4, "Link Remote ID: %u\n",
 			  ext->remote_llri);
 	}
 	if (IS_SUBTLV(ext, EXT_LOCAL_ADDR))
@@ -394,7 +394,7 @@ static void show_ext_sub(struct vty *vty, char *name,
 			  ext->te_metric);
 	if (IS_SUBTLV(ext, EXT_RMT_AS))
 		sbuf_push(&buf, 4,
-			  "Inter-AS TE Remote AS number: %" PRIu32 "\n",
+			  "Inter-AS TE Remote AS number: %u\n",
 			  ext->remote_as);
 	if (IS_SUBTLV(ext, EXT_RMT_IP))
 		sbuf_push(&buf, 4,
@@ -402,19 +402,18 @@ static void show_ext_sub(struct vty *vty, char *name,
 			  inet_ntoa(ext->remote_ip));
 	if (IS_SUBTLV(ext, EXT_DELAY))
 		sbuf_push(&buf, 4,
-			  "%s Average Link Delay: %" PRIu32 " (micro-sec)\n",
+			  "%s Average Link Delay: %u (micro-sec)\n",
 			  IS_ANORMAL(ext->delay) ? "Anomalous" : "Normal",
 			  ext->delay);
 	if (IS_SUBTLV(ext, EXT_MM_DELAY)) {
-		sbuf_push(&buf, 4, "%s Min/Max Link Delay: %" PRIu32 " / %"
-			  PRIu32 " (micro-sec)\n",
+		sbuf_push(&buf, 4, "%s Min/Max Link Delay: %u / %u (micro-sec)\n",
 			  IS_ANORMAL(ext->min_delay) ? "Anomalous" : "Normal",
 			  ext->min_delay & TE_EXT_MASK,
 			  ext->max_delay & TE_EXT_MASK);
 	}
 	if (IS_SUBTLV(ext, EXT_DELAY_VAR))
 		sbuf_push(&buf, 4,
-			  "Delay Variation: %" PRIu32 " (micro-sec)\n",
+			  "Delay Variation: %u (micro-sec)\n",
 			  ext->delay_var & TE_EXT_MASK);
 	if (IS_SUBTLV(ext, EXT_PKT_LOSS))
 		sbuf_push(&buf, 4, "%s Link Packet Loss: %g (%%)\n",

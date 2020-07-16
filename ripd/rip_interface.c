@@ -118,8 +118,7 @@ void rip_interface_multicast_set(int sock, struct connected *connected)
 	if (setsockopt_ipv4_multicast_if(sock, addr, connected->ifp->ifindex)
 	    < 0) {
 		zlog_warn(
-			"Can't setsockopt IP_MULTICAST_IF on fd %d to "
-			"ifindex %d for interface %s",
+			"Can't setsockopt IP_MULTICAST_IF on fd %d to ifindex %d for interface %s",
 			sock, connected->ifp->ifindex, connected->ifp->name);
 	}
 

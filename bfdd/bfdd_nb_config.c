@@ -85,8 +85,7 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 		if (p.family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)
 		    && strlen(ifname) == 0) {
 			zlog_warn(
-				"%s: when using link-local you must specify "
-				"an interface.",
+				"%s: when using link-local you must specify an interface.",
 				__func__);
 			return NB_ERR_VALIDATION;
 		}

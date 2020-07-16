@@ -264,8 +264,7 @@ FRR_DAEMON_INFO(
 	zebra, ZEBRA, .vty_port = ZEBRA_VTY_PORT, .flags = FRR_NO_ZCLIENT,
 
 	.proghelp =
-		"Daemon which manages kernel routing table management "
-		"and\nredistribution between different routing protocols.",
+		"Daemon which manages kernel routing table management and\nredistribution between different routing protocols.",
 
 	.signals = zebra_signals, .n_signals = array_size(zebra_signals),
 

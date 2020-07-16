@@ -924,8 +924,7 @@ int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc)
 
 	/* This pointer is being referenced, don't let it be deleted. */
 	if (bs->refcount > 0) {
-		zlog_err("session-delete: refcount failure: %" PRIu64
-			 " references",
+		zlog_err("session-delete: refcount failure: %" PRIu64" references",
 			 bs->refcount);
 		return -1;
 	}
@@ -1693,8 +1692,7 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 				inet_ntop(bs.key.family, &bs.key.local,
 					  addr_buf, sizeof(addr_buf));
 				zlog_debug(
-					" peer %s found, but ifp %s"
-					" and loc-addr %s ignored",
+					" peer %s found, but ifp %s and loc-addr %s ignored",
 					peer_buf, key.ifname, addr_buf);
 			}
 			return bsp;
@@ -1716,8 +1714,7 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 		bsp = ctx.result;
 		if (bglobal.debug_peer_event)
 			zlog_debug(
-				" peer %s found, but ifp"
-				" and/or loc-addr params ignored",
+				" peer %s found, but ifp and/or loc-addr params ignored",
 				peer_buf);
 	}
 	return bsp;

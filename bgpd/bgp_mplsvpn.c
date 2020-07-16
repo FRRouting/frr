@@ -274,8 +274,7 @@ void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi)
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug) {
 			zlog_debug(
-				"%s: vrf %s: afi %s: vrf_id not set, "
-				"can't set zebra vrf label",
+				"%s: vrf %s: afi %s: vrf_id not set, can't set zebra vrf label",
 				__func__, bgp->name_pretty, afi2str(afi));
 		}
 		return;

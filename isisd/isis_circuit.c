@@ -914,15 +914,13 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, ", Active neighbors: %u\n",
 					circuit->upadjcount[0]);
 				vty_out(vty,
-					"      Hello interval: %u, "
-					"Holddown count: %u %s\n",
+					"      Hello interval: %u, Holddown count: %u %s\n",
 					circuit->hello_interval[0],
 					circuit->hello_multiplier[0],
 					(circuit->pad_hellos ? "(pad)"
 							     : "(no-pad)"));
 				vty_out(vty,
-					"      CNSP interval: %u, "
-					"PSNP interval: %u\n",
+					"      CNSP interval: %u, PSNP interval: %u\n",
 					circuit->csnp_interval[0],
 					circuit->psnp_interval[0]);
 				if (circuit->circ_type == CIRCUIT_T_BROADCAST)
@@ -948,15 +946,13 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, ", Active neighbors: %u\n",
 					circuit->upadjcount[1]);
 				vty_out(vty,
-					"      Hello interval: %u, "
-					"Holddown count: %u %s\n",
+					"      Hello interval: %u, Holddown count: %u %s\n",
 					circuit->hello_interval[1],
 					circuit->hello_multiplier[1],
 					(circuit->pad_hellos ? "(pad)"
 							     : "(no-pad)"));
 				vty_out(vty,
-					"      CNSP interval: %u, "
-					"PSNP interval: %u\n",
+					"      CNSP interval: %u, PSNP interval: %u\n",
 					circuit->csnp_interval[1],
 					circuit->psnp_interval[1]);
 				if (circuit->circ_type == CIRCUIT_T_BROADCAST)

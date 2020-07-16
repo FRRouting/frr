@@ -3261,8 +3261,7 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 		out_max = atomic_load_explicit(&prov->dp_out_max,
 					       memory_order_relaxed);
 
-		vty_out(vty, "%s (%u): in: %"PRIu64", q_max: %"PRIu64", "
-			"out: %"PRIu64", q_max: %"PRIu64"\n",
+		vty_out(vty, "%s (%u): in: %"PRIu64", q_max: %"PRIu64", out: %"PRIu64", q_max: %"PRIu64"\n",
 			prov->dp_name, prov->dp_id, in, in_max, out, out_max);
 
 		DPLANE_LOCK();

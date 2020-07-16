@@ -351,8 +351,7 @@ static void bgp_bfd_peer_status_update(struct peer *peer, int status,
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE) &&
 		    CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE) &&
 		    !remote_cbit) {
-			zlog_info("%s BFD DOWN message ignored in the process"
-				  " of graceful restart when C bit is cleared",
+			zlog_info("%s BFD DOWN message ignored in the process of graceful restart when C bit is cleared",
 				  peer->host);
 			return;
 		}

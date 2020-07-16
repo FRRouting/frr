@@ -604,8 +604,7 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 		if (ret < 0)
 			flog_err(
 				EC_LIB_SOCKET,
-				"*** ospf_write_frags: sendmsg failed to %s,"
-				" id %d, off %d, len %d, mtu %u failed with %s",
+				"*** ospf_write_frags: sendmsg failed to %s, id %d, off %d, len %d, mtu %u failed with %s",
 				inet_ntoa(iph->ip_dst), iph->ip_id, iph->ip_off,
 				iph->ip_len, mtu, safe_strerror(errno));
 
@@ -798,16 +797,14 @@ static int ospf_write(struct thread *thread)
 		sockopt_iphdrincl_swab_systoh(&iph);
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_write to %s, "
-				"id %d, off %d, len %d, interface %s, mtu %u:",
+				"ospf_write to %s, id %d, off %d, len %d, interface %s, mtu %u:",
 				inet_ntoa(iph.ip_dst), iph.ip_id, iph.ip_off,
 				iph.ip_len, oi->ifp->name, oi->ifp->mtu);
 
 		if (ret < 0)
 			flog_err(
 				EC_LIB_SOCKET,
-				"*** sendmsg in ospf_write failed to %s, "
-				"id %d, off %d, len %d, interface %s, mtu %u: %s",
+				"*** sendmsg in ospf_write failed to %s, id %d, off %d, len %d, interface %s, mtu %u: %s",
 				inet_ntoa(iph.ip_dst), iph.ip_id, iph.ip_off,
 				iph.ip_len, oi->ifp->name, oi->ifp->mtu,
 				safe_strerror(errno));
@@ -897,8 +894,7 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	if (IPV4_ADDR_SAME(&ospfh->router_id, &oi->ospf->router_id)) {
 		if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV)) {
 			zlog_debug(
-				"ospf_header[%s/%s]: selforiginated, "
-				"dropping.",
+				"ospf_header[%s/%s]: selforiginated, dropping.",
 				lookup_msg(ospf_packet_type_str, ospfh->type,
 					   NULL),
 				inet_ntoa(iph->ip_src));
@@ -927,8 +923,7 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	/* Compare Router Dead Interval. */
 	if (OSPF_IF_PARAM(oi, v_wait) != ntohl(hello->dead_interval)) {
 		flog_warn(EC_OSPF_PACKET,
-			  "Packet %s [Hello:RECV]: RouterDeadInterval mismatch "
-			  "(expected %u, but received %u).",
+			  "Packet %s [Hello:RECV]: RouterDeadInterval mismatch (expected %u, but received %u).",
 			  inet_ntoa(ospfh->router_id),
 			  OSPF_IF_PARAM(oi, v_wait),
 			  ntohl(hello->dead_interval));
@@ -941,8 +936,7 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		    != ntohs(hello->hello_interval)) {
 			flog_warn(
 				EC_OSPF_PACKET,
-				"Packet %s [Hello:RECV]: HelloInterval mismatch "
-				"(expected %u, but received %u).",
+				"Packet %s [Hello:RECV]: HelloInterval mismatch (expected %u, but received %u).",
 				inet_ntoa(ospfh->router_id),
 				OSPF_IF_PARAM(oi, v_hello),
 				ntohs(hello->hello_interval));
@@ -1213,8 +1207,7 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 			 */
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"Packet [DD:RECV]: LSA received Type %d, "
-					"ID %s is not recent.",
+					"Packet [DD:RECV]: LSA received Type %d, ID %s is not recent.",
 					lsah->type, inet_ntoa(lsah->id));
 			ospf_lsa_discard(new);
 		}
@@ -1402,8 +1395,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 				if (CHECK_FLAG(oi->ospf->config,
 					       OSPF_LOG_ADJACENCY_DETAIL))
 					zlog_info(
-						"Packet[DD]: Neighbor %s: Initial DBD from Slave, "
-						"ignoring.",
+						"Packet[DD]: Neighbor %s: Initial DBD from Slave, ignoring.",
 						inet_ntoa(nbr->router_id));
 				break;
 			}
@@ -1527,8 +1519,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			if (IS_SET_DD_MS(nbr->dd_flags)) {
 				/* Master should discard duplicate DD packet. */
 				zlog_info(
-					"Packet[DD]: Neighbor %s duplicated, "
-					"packet discarded.",
+					"Packet[DD]: Neighbor %s duplicated, packet discarded.",
 					inet_ntoa(nbr->router_id));
 				break;
 			} else {
@@ -1848,8 +1839,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 	if (nbr->state < NSM_Exchange) {
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
 			zlog_debug(
-				"Link State Update: "
-				"Neighbor[%s] state %s is less than Exchange",
+				"Link State Update: Neighbor[%s] state %s is less than Exchange",
 				inet_ntoa(ospfh->router_id),
 				lookup_msg(ospf_nsm_state_msg, nbr->state,
 					   NULL));
@@ -1948,8 +1938,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 				char buf3[INET_ADDRSTRLEN];
 
 				flog_err(EC_OSPF_ROUTER_LSA_MISMATCH,
-					 "Incoming Router-LSA from %s with "
-					 "Adv-ID[%s] != LS-ID[%s]",
+					 "Incoming Router-LSA from %s with Adv-ID[%s] != LS-ID[%s]",
 					 inet_ntop(AF_INET, &ospfh->router_id,
 						   buf1, INET_ADDRSTRLEN),
 					 inet_ntop(AF_INET, &lsa->data->id,
@@ -1959,8 +1948,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 						   INET_ADDRSTRLEN));
 				flog_err(
 					EC_OSPF_DOMAIN_CORRUPT,
-					"OSPF domain compromised by attack or corruption. "
-					"Verify correct operation of -ALL- OSPF routers.");
+					"OSPF domain compromised by attack or corruption. Verify correct operation of -ALL- OSPF routers.");
 				DISCARD_LSA(lsa, 0);
 			}
 
@@ -2032,8 +2020,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			if (current == NULL) {
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
-						"LSA[%s]: Previously originated Opaque-LSA,"
-						"not found in the LSDB.",
+						"LSA[%s]: Previously originated Opaque-LSA,not found in the LSDB.",
 						dump_lsa_key(lsa));
 
 				SET_FLAG(lsa->flags, OSPF_LSA_SELF);
@@ -2254,8 +2241,7 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 	if (nbr->state < NSM_Exchange) {
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
 			zlog_debug(
-				"Link State Acknowledgment: "
-				"Neighbor[%s] state %s is less than Exchange",
+				"Link State Acknowledgment: Neighbor[%s] state %s is less than Exchange",
 				inet_ntoa(ospfh->router_id),
 				lookup_msg(ospf_nsm_state_msg, nbr->state,
 					   NULL));
@@ -2322,8 +2308,7 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	if ((unsigned int)ret < sizeof(struct ip)) {
 		flog_warn(
 			EC_OSPF_PACKET,
-			"ospf_recv_packet: discarding runt packet of length %d "
-			"(ip header size is %u)",
+			"ospf_recv_packet: discarding runt packet of length %d (ip header size is %u)",
 			ret, (unsigned int)sizeof(iph));
 		return NULL;
 	}
@@ -2369,8 +2354,7 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	if (ret != ip_len) {
 		flog_warn(
 			EC_OSPF_PACKET,
-			"ospf_recv_packet read length mismatch: ip_len is %d, "
-			"but recvmsg returned %d",
+			"ospf_recv_packet read length mismatch: ip_len is %d, but recvmsg returned %d",
 			ip_len, ret);
 		return NULL;
 	}
@@ -3141,8 +3125,7 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 	if (ret < 0) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
 			zlog_debug(
-				"ospf_read[%s]: Header check failed, "
-				"dropping.",
+				"ospf_read[%s]: Header check failed, dropping.",
 				inet_ntoa(iph->ip_src));
 		return OSPF_READ_CONTINUE;
 	}
@@ -3992,17 +3975,13 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 		if (!warned) {
 			flog_warn(
 				EC_OSPF_LARGE_LSA,
-				"ospf_ls_upd_packet_new: oversized LSA encountered!"
-				"will need to fragment. Not optimal. Try divide up"
-				" your network with areas. Use 'debug ospf packet send'"
-				" to see details, or look at 'show ip ospf database ..'");
+				"ospf_ls_upd_packet_new: oversized LSA encountered!will need to fragment. Not optimal. Try divide up your network with areas. Use 'debug ospf packet send' to see details, or look at 'show ip ospf database ..'");
 			warned = 1;
 		}
 
 		if (IS_DEBUG_OSPF_PACKET(0, SEND))
 			zlog_debug(
-				"ospf_ls_upd_packet_new: oversized LSA id:%s,"
-				" %d bytes originated by %s, will be fragmented!",
+				"ospf_ls_upd_packet_new: oversized LSA id:%s, %d bytes originated by %s, will be fragmented!",
 				inet_ntoa(lsa->data->id),
 				ntohs(lsa->data->length),
 				inet_ntoa(lsa->data->adv_router));
@@ -4020,9 +3999,7 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 
 	if (size > OSPF_MAX_PACKET_SIZE) {
 		flog_warn(EC_OSPF_LARGE_LSA,
-			  "ospf_ls_upd_packet_new: oversized LSA id:%s too big,"
-			  " %d bytes, packet size %ld, dropping it completely."
-			  " OSPF routing is broken!",
+			  "ospf_ls_upd_packet_new: oversized LSA id:%s too big, %d bytes, packet size %ld, dropping it completely. OSPF routing is broken!",
 			  inet_ntoa(lsa->data->id), ntohs(lsa->data->length),
 			  (long int)size);
 		list_delete_node(update, ln);
@@ -4153,8 +4130,7 @@ static int ospf_ls_upd_send_queue_event(struct thread *thread)
 	if (again != 0) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_ls_upd_send_queue: update lists not cleared,"
-				" %d nodes to try again, raising new event",
+				"ospf_ls_upd_send_queue: update lists not cleared, %d nodes to try again, raising new event",
 				again);
 		oi->t_ls_upd_event = NULL;
 		thread_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,

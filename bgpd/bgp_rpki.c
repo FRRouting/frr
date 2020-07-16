@@ -1123,9 +1123,7 @@ DEFUN_HIDDEN (no_rpki_synchronisation_timeout,
 
 DEFPY (rpki_cache,
        rpki_cache_cmd,
-       "rpki cache <A.B.C.D|WORD>"
-       "<TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> "
-       "preference (1-255)",
+       "rpki cache <A.B.C.D|WORD><TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> preference (1-255)",
        RPKI_OUTPUT_STRING
        "Install a cache server to current group\n"
        "IP address of cache server\n Hostname of cache server\n"
@@ -1161,9 +1159,7 @@ DEFPY (rpki_cache,
 #else
 		return_value = SUCCESS;
 		vty_out(vty,
-			"ssh sockets are not supported. "
-			"Please recompile rtrlib and frr with ssh support. "
-			"If you want to use it\n");
+			"ssh sockets are not supported. Please recompile rtrlib and frr with ssh support. If you want to use it\n");
 #endif
 	} else { // use tcp connection
 		return_value = add_tcp_cache(cache, tcpport, preference);
@@ -1323,8 +1319,7 @@ DEFUN (show_rpki_cache_server,
 #if defined(FOUND_SSH)
 		} else if (cache->type == SSH) {
 			vty_out(vty,
-				"host: %s port: %d username: %s "
-				"server_hostkey_path: %s client_privkey_path: %s\n",
+				"host: %s port: %d username: %s server_hostkey_path: %s client_privkey_path: %s\n",
 				cache->tr_config.ssh_config->host,
 				cache->tr_config.ssh_config->port,
 				cache->tr_config.ssh_config->username,

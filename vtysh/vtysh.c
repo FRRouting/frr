@@ -3073,9 +3073,7 @@ DEFUN (vtysh_write_memory,
 		 * ourselves
 		 */
 		if (!used_watchfrr) {
-			printf("\nWarning: attempting direct configuration write without "
-			       "watchfrr.\nFile permissions and ownership may be "
-			       "incorrect, or write may fail.\n\n");
+			printf("\nWarning: attempting direct configuration write without watchfrr.\nFile permissions and ownership may be incorrect, or write may fail.\n\n");
 			ret = vtysh_write_config_integrated();
 		}
 		return ret;

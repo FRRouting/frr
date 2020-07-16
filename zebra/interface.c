@@ -385,8 +385,7 @@ int if_subnet_delete(struct interface *ifp, struct connected *ifc)
 	rn = route_node_lookup(zebra_if->ipv4_subnets, &cp);
 	if (!(rn && rn->info)) {
 		flog_warn(EC_ZEBRA_REMOVE_ADDR_UNKNOWN_SUBNET,
-			  "Trying to remove an address from an unknown subnet."
-			  " (please report this bug)");
+			  "Trying to remove an address from an unknown subnet. (please report this bug)");
 		return -1;
 	}
 	route_unlock_node(rn);
@@ -400,8 +399,7 @@ int if_subnet_delete(struct interface *ifp, struct connected *ifc)
 	if (!listnode_lookup(addr_list, ifc)) {
 		flog_warn(
 			EC_ZEBRA_REMOVE_UNREGISTERED_ADDR,
-			"Trying to remove an address from a subnet where it is not"
-			" currently registered. (please report this bug)");
+			"Trying to remove an address from a subnet where it is not currently registered. (please report this bug)");
 		return -1;
 	}
 
@@ -618,8 +616,7 @@ void if_add_update(struct interface *ifp)
 		if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON) {
 			if (IS_ZEBRA_DEBUG_KERNEL) {
 				zlog_debug(
-					"interface %s vrf %s(%u) index %d is shutdown. "
-					"Won't wake it up.",
+					"interface %s vrf %s(%u) index %d is shutdown. Won't wake it up.",
 					ifp->name, VRF_LOGNAME(zvrf->vrf),
 					ifp->vrf_id, ifp->ifindex);
 			}
@@ -1625,14 +1622,12 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 #ifdef HAVE_PROC_NET_DEV
 	/* Statistics print out using proc file system. */
 	vty_out(vty,
-		"    %lu input packets (%lu multicast), %lu bytes, "
-		"%lu dropped\n",
+		"    %lu input packets (%lu multicast), %lu bytes, %lu dropped\n",
 		ifp->stats.rx_packets, ifp->stats.rx_multicast,
 		ifp->stats.rx_bytes, ifp->stats.rx_dropped);
 
 	vty_out(vty,
-		"    %lu input errors, %lu length, %lu overrun,"
-		" %lu CRC, %lu frame\n",
+		"    %lu input errors, %lu length, %lu overrun, %lu CRC, %lu frame\n",
 		ifp->stats.rx_errors, ifp->stats.rx_length_errors,
 		ifp->stats.rx_over_errors, ifp->stats.rx_crc_errors,
 		ifp->stats.rx_frame_errors);
@@ -1645,8 +1640,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		ifp->stats.tx_dropped);
 
 	vty_out(vty,
-		"    %lu output errors, %lu aborted, %lu carrier,"
-		" %lu fifo, %lu heartbeat\n",
+		"    %lu output errors, %lu aborted, %lu carrier, %lu fifo, %lu heartbeat\n",
 		ifp->stats.tx_errors, ifp->stats.tx_aborted_errors,
 		ifp->stats.tx_carrier_errors, ifp->stats.tx_fifo_errors,
 		ifp->stats.tx_heartbeat_errors);
@@ -1658,8 +1652,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 #ifdef HAVE_NET_RT_IFLIST
 	/* Statistics print out using sysctl (). */
 	vty_out(vty,
-		"    input packets %llu, bytes %llu, dropped %llu,"
-		" multicast packets %llu\n",
+		"    input packets %llu, bytes %llu, dropped %llu, multicast packets %llu\n",
 		(unsigned long long)ifp->stats.ifi_ipackets,
 		(unsigned long long)ifp->stats.ifi_ibytes,
 		(unsigned long long)ifp->stats.ifi_iqdrops,
@@ -1669,8 +1662,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		(unsigned long long)ifp->stats.ifi_ierrors);
 
 	vty_out(vty,
-		"    output packets %llu, bytes %llu,"
-		" multicast packets %llu\n",
+		"    output packets %llu, bytes %llu, multicast packets %llu\n",
 		(unsigned long long)ifp->stats.ifi_opackets,
 		(unsigned long long)ifp->stats.ifi_obytes,
 		(unsigned long long)ifp->stats.ifi_omcasts);

@@ -1942,9 +1942,7 @@ DEFPY(no_bmp_listener_main,
 
 DEFPY(bmp_connect,
       bmp_connect_cmd,
-      "[no] bmp connect HOSTNAME port (1-65535) "
-		"{min-retry (100-86400000)"
-		"|max-retry (100-86400000)}",
+      "[no] bmp connect HOSTNAME port (1-65535) {min-retry (100-86400000)|max-retry (100-86400000)}",
       NO_STR
       BMP_STR
       "Actively establish connection to monitoring station\n"
