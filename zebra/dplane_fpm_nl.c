@@ -439,8 +439,8 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 
 	stream_reset(fnc->ibuf);
 	stream_reset(fnc->obuf);
-	THREAD_OFF(fnc->t_read);
-	THREAD_OFF(fnc->t_write);
+	EVENT_CANCEL(fnc->t_read);
+	EVENT_CANCEL(fnc->t_write);
 
 	thread_cancel_async(zrouter.master, &fnc->t_nhgreset, NULL);
 	thread_cancel_async(zrouter.master, &fnc->t_nhgwalk, NULL);
@@ -1211,12 +1211,12 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 {
 	/* Disable all events and close socket. */
-	THREAD_OFF(fnc->t_nhgreset);
-	THREAD_OFF(fnc->t_nhgwalk);
-	THREAD_OFF(fnc->t_ribreset);
-	THREAD_OFF(fnc->t_ribwalk);
-	THREAD_OFF(fnc->t_rmacreset);
-	THREAD_OFF(fnc->t_rmacwalk);
+	EVENT_CANCEL(fnc->t_nhgreset);
+	EVENT_CANCEL(fnc->t_nhgwalk);
+	EVENT_CANCEL(fnc->t_ribreset);
+	EVENT_CANCEL(fnc->t_ribwalk);
+	EVENT_CANCEL(fnc->t_rmacreset);
+	EVENT_CANCEL(fnc->t_rmacwalk);
 	thread_cancel_async(fnc->fthread->master, &fnc->t_read, NULL);
 	thread_cancel_async(fnc->fthread->master, &fnc->t_write, NULL);
 	thread_cancel_async(fnc->fthread->master, &fnc->t_connect, NULL);

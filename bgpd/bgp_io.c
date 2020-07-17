@@ -31,7 +31,7 @@
 #include "network.h"		// for ERRNO_IO_RETRY
 #include "stream.h"		// for stream_get_endp, stream_getw_from, str...
 #include "ringbuf.h"		// for ringbuf_remain, ringbuf_peek, ringbuf_...
-#include "thread.h"		// for THREAD_OFF, THREAD_ARG, thread, thread...
+#include "thread.h"		// for EVENT_CANCEL, THREAD_ARG, thread...
 #include "zassert.h"		// for assert
 
 #include "bgpd/bgp_io.h"
@@ -79,7 +79,7 @@ void bgp_writes_off(struct peer *peer)
 	assert(fpt->running);
 
 	thread_cancel_async(fpt->master, &peer->t_write, NULL);
-	THREAD_OFF(peer->t_generate_updgrp_packets);
+	EVENT_CANCEL(peer->t_generate_updgrp_packets);
 
 	UNSET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
 }
@@ -110,7 +110,7 @@ void bgp_reads_off(struct peer *peer)
 	assert(fpt->running);
 
 	thread_cancel_async(fpt->master, &peer->t_read, NULL);
-	THREAD_OFF(peer->t_process_packet);
+	EVENT_CANCEL(peer->t_process_packet);
 
 	UNSET_FLAG(peer->thread_flags, PEER_THREAD_READS_ON);
 }

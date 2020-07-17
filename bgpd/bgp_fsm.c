@@ -713,8 +713,8 @@ bool bgp_update_delay_configured(struct bgp *bgp)
    on ending the update delay. */
 void bgp_update_delay_end(struct bgp *bgp)
 {
-	THREAD_TIMER_OFF(bgp->t_update_delay);
-	THREAD_TIMER_OFF(bgp->t_establish_wait);
+	EVENT_CANCEL(bgp->t_update_delay);
+	EVENT_CANCEL(bgp->t_establish_wait);
 
 	/* Reset update-delay related state */
 	bgp->update_delay_over = 1;
@@ -932,7 +932,7 @@ static int bgp_maxmed_onstartup_timer(struct thread *thread)
 	zlog_info("Max med on startup ended - timer expired.");
 
 	bgp = THREAD_ARG(thread);
-	THREAD_TIMER_OFF(bgp->t_maxmed_onstartup);
+	EVENT_CANCEL(bgp->t_maxmed_onstartup);
 	bgp->maxmed_onstartup_over = 1;
 
 	bgp_maxmed_update(bgp);
@@ -976,7 +976,7 @@ static int bgp_update_delay_timer(struct thread *thread)
 	zlog_info("Update delay ended - timer expired.");
 
 	bgp = THREAD_ARG(thread);
-	THREAD_TIMER_OFF(bgp->t_update_delay);
+	EVENT_CANCEL(bgp->t_update_delay);
 	bgp_update_delay_end(bgp);
 
 	return 0;
@@ -990,7 +990,7 @@ static int bgp_establish_wait_timer(struct thread *thread)
 	zlog_info("Establish wait - timer expired.");
 
 	bgp = THREAD_ARG(thread);
-	THREAD_TIMER_OFF(bgp->t_establish_wait);
+	EVENT_CANCEL(bgp->t_establish_wait);
 	bgp_check_update_delay(bgp);
 
 	return 0;
@@ -1290,8 +1290,8 @@ int bgp_stop(struct peer *peer)
 	bgp_writes_off(peer);
 	bgp_reads_off(peer);
 
-	THREAD_OFF(peer->t_connect_check_r);
-	THREAD_OFF(peer->t_connect_check_w);
+	EVENT_CANCEL(peer->t_connect_check_r);
+	EVENT_CANCEL(peer->t_connect_check_w);
 
 	/* Stop all timers. */
 	BGP_TIMER_OFF(peer->t_start);
@@ -1450,8 +1450,8 @@ static int bgp_connect_check(struct thread *thread)
 	assert(!peer->t_read);
 	assert(!peer->t_write);
 
-	THREAD_OFF(peer->t_connect_check_r);
-	THREAD_OFF(peer->t_connect_check_w);
+	EVENT_CANCEL(peer->t_connect_check_r);
+	EVENT_CANCEL(peer->t_connect_check_w);
 
 	/* Check file descriptor. */
 	slen = sizeof(status);

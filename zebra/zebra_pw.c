@@ -102,7 +102,7 @@ void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
 		hook_call(pw_uninstall, pw);
 		dplane_pw_uninstall(pw);
 	} else if (pw->install_retry_timer)
-		THREAD_TIMER_OFF(pw->install_retry_timer);
+		EVENT_CANCEL(pw->install_retry_timer);
 
 	/* unlink and release memory */
 	RB_REMOVE(zebra_pw_head, &zvrf->pseudowires, pw);
@@ -219,7 +219,7 @@ void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus)
 			pw->vrf_id, pw->ifname, PW_INSTALL_RETRY_INTERVAL);
 
 	/* schedule to retry later */
-	THREAD_TIMER_OFF(pw->install_retry_timer);
+	EVENT_CANCEL(pw->install_retry_timer);
 	thread_add_timer(zrouter.master, zebra_pw_install_retry, pw,
 			 PW_INSTALL_RETRY_INTERVAL, &pw->install_retry_timer);
 

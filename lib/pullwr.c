@@ -75,7 +75,7 @@ struct pullwr *_pullwr_new(struct thread_master *tm, int fd,
 
 void pullwr_del(struct pullwr *pullwr)
 {
-	THREAD_OFF(pullwr->writer);
+	EVENT_CANCEL(pullwr->writer);
 
 	XFREE(MTYPE_PULLWR_BUF, pullwr->buffer);
 	XFREE(MTYPE_PULLWR_HEAD, pullwr);

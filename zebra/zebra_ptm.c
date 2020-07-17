@@ -215,7 +215,7 @@ static int zebra_ptm_send_message(char *data, int size)
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return -1;
 	case BUFFER_EMPTY:
-		THREAD_OFF(ptm_cb.t_write);
+		EVENT_CANCEL(ptm_cb.t_write);
 		break;
 	case BUFFER_PENDING:
 		thread_add_write(zrouter.master, zebra_ptm_flush_messages, NULL,

@@ -742,7 +742,7 @@ static void mroute_read_on(struct pim_instance *pim)
 
 static void mroute_read_off(struct pim_instance *pim)
 {
-	THREAD_OFF(pim->thread);
+	EVENT_CANCEL(pim->thread);
 }
 
 int pim_mroute_socket_enable(struct pim_instance *pim)

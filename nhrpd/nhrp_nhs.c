@@ -85,7 +85,7 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	/* Success - schedule next registration, and route NHS */
 	r->timeout = 2;
 	holdtime = nifp->afi[nhs->afi].holdtime;
-	THREAD_OFF(r->t_register);
+	EVENT_CANCEL(r->t_register);
 
 	/* RFC 2332 5.2.3 - Registration is recommend to be renewed
 	 * every one third of holdtime */
@@ -137,7 +137,7 @@ static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
 		debugf(NHRP_DEBUG_COMMON, "NHS: Flush timer for %s",
 		       sockunion2str(&r->peer->vc->remote.nbma, buf,
 				     sizeof(buf)));
-		THREAD_TIMER_OFF(r->t_register);
+		EVENT_CANCEL(r->t_register);
 		thread_add_timer_msec(master, nhrp_reg_send_req, r, 10,
 				      &r->t_register);
 		break;
@@ -222,7 +222,7 @@ static void nhrp_reg_delete(struct nhrp_registration *r)
 	nhrp_peer_notify_del(r->peer, &r->peer_notifier);
 	nhrp_peer_unref(r->peer);
 	list_del(&r->reglist_entry);
-	THREAD_OFF(r->t_register);
+	EVENT_CANCEL(r->t_register);
 	XFREE(MTYPE_NHRP_REGISTRATION, r);
 }
 
@@ -371,7 +371,7 @@ int nhrp_nhs_free(struct nhrp_nhs *nhs)
 
 	list_for_each_entry_safe(r, rn, &nhs->reglist_head, reglist_entry)
 		nhrp_reg_delete(r);
-	THREAD_OFF(nhs->t_resolve);
+	EVENT_CANCEL(nhs->t_resolve);
 	list_del(&nhs->nhslist_entry);
 	free((void *)nhs->nbma_fqdn);
 	XFREE(MTYPE_NHRP_NHS, nhs);

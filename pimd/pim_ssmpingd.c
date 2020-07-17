@@ -199,7 +199,7 @@ static void ssmpingd_delete(struct ssmpingd_sock *ss)
 {
 	zassert(ss);
 
-	THREAD_OFF(ss->t_sock_read);
+	EVENT_CANCEL(ss->t_sock_read);
 
 	if (close(ss->sock_fd)) {
 		char source_str[INET_ADDRSTRLEN];

@@ -89,8 +89,6 @@ struct thread_master {
 	pthread_t owner;
 };
 
-typedef struct thread_master event_master;
-
 /* Thread itself. */
 struct thread {
 	uint8_t type;		  /* thread type */
@@ -147,10 +145,7 @@ struct cpu_thread_history {
 #define THREAD_FD(X)  ((X)->u.fd)
 #define THREAD_VAL(X) ((X)->u.val)
 
-#define THREAD_OFF(thread) thread_cancel(&(thread))
-#define THREAD_READ_OFF(thread)  thread_cancel(&(thread))
-#define THREAD_WRITE_OFF(thread)  thread_cancel(&(thread))
-#define THREAD_TIMER_OFF(thread)  thread_cancel(&(thread))
+#define EVENT_CANCEL(thread) thread_cancel(&(thread))
 
 #define debugargdef  const char *funcname, const char *schedfrom, int fromln
 

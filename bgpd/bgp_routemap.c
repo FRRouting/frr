@@ -3917,7 +3917,7 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 	 * turn it off and start a new timer.
 	 */
 	if (bm->t_rmap_update != NULL)
-		THREAD_OFF(bm->t_rmap_update);
+		EVENT_CANCEL(bm->t_rmap_update);
 
 	/* rmap_update_timer of 0 means don't do route updates */
 	if (bm->rmap_update_timer) {

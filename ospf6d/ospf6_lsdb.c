@@ -340,7 +340,7 @@ int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb)
 				htonl(OSPF_MAX_SEQUENCE_NUMBER + 1);
 			ospf6_lsa_checksum(lsa->header);
 
-			THREAD_OFF(lsa->refresh);
+			EVENT_CANCEL(lsa->refresh);
 			thread_execute(master, ospf6_lsa_refresh, lsa, 0);
 		} else {
 			ospf6_lsdb_remove(lsa, lsdb);

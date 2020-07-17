@@ -4187,7 +4187,7 @@ void bgp_stop_announce_route_timer(struct peer_af *paf)
 	if (!paf->t_announce_route)
 		return;
 
-	THREAD_TIMER_OFF(paf->t_announce_route);
+	EVENT_CANCEL(paf->t_announce_route);
 }
 
 /*

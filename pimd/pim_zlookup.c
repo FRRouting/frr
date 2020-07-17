@@ -125,7 +125,7 @@ static void zclient_lookup_failed(struct zclient *zlookup)
 
 void zclient_lookup_free(void)
 {
-	THREAD_OFF(zlookup_read);
+	EVENT_CANCEL(zlookup_read);
 	zclient_stop(zlookup);
 	zclient_free(zlookup);
 	zlookup = NULL;

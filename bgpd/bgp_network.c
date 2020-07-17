@@ -401,7 +401,7 @@ static int bgp_accept(struct thread *thread)
 				"[Error] accept() failed with error \"%s\" on BGP listener socket %d for BGP instance in VRF \"%s\"; refreshing socket",
 				safe_strerror(save_errno), accept_sock,
 				VRF_LOGNAME(vrf));
-			THREAD_OFF(listener->thread);
+			EVENT_CANCEL(listener->thread);
 		} else {
 			flog_err_sys(
 				EC_LIB_SOCKET,
@@ -916,7 +916,7 @@ void bgp_close_vrf_socket(struct bgp *bgp)
 
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp == bgp) {
-			THREAD_OFF(listener->thread);
+			EVENT_CANCEL(listener->thread);
 			close(listener->fd);
 			listnode_delete(bm->listen_sockets, listener);
 			XFREE(MTYPE_BGP_LISTENER, listener->name);
@@ -938,7 +938,7 @@ void bgp_close(void)
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp)
 			continue;
-		THREAD_OFF(listener->thread);
+		EVENT_CANCEL(listener->thread);
 		close(listener->fd);
 		listnode_delete(bm->listen_sockets, listener);
 		XFREE(MTYPE_BGP_LISTENER, listener->name);

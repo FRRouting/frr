@@ -1439,7 +1439,7 @@ static void bmp_close(struct bmp *bmp)
 		if (!bqe->refcount)
 			XFREE(MTYPE_BMP_QUEUE, bqe);
 
-	THREAD_OFF(bmp->t_read);
+	EVENT_CANCEL(bmp->t_read);
 	pullwr_del(bmp->pullwr);
 	close(bmp->socket);
 }
@@ -1638,7 +1638,7 @@ out_sock:
 
 static void bmp_listener_stop(struct bmp_listener *bl)
 {
-	THREAD_OFF(bl->t_accept);
+	EVENT_CANCEL(bl->t_accept);
 
 	if (bl->sock != -1)
 		close(bl->sock);
@@ -1677,9 +1677,9 @@ static struct bmp_active *bmp_active_get(struct bmp_targets *bt,
 
 static void bmp_active_put(struct bmp_active *ba)
 {
-	THREAD_OFF(ba->t_timer);
-	THREAD_OFF(ba->t_read);
-	THREAD_OFF(ba->t_write);
+	EVENT_CANCEL(ba->t_timer);
+	EVENT_CANCEL(ba->t_read);
+	EVENT_CANCEL(ba->t_write);
 
 	bmp_actives_del(&ba->targets->actives, ba);
 
@@ -1772,9 +1772,9 @@ static int bmp_active_thread(struct thread *t)
 
 	/* all 3 end up here, though only timer or read+write are active
 	 * at a time */
-	THREAD_OFF(ba->t_timer);
-	THREAD_OFF(ba->t_read);
-	THREAD_OFF(ba->t_write);
+	EVENT_CANCEL(ba->t_timer);
+	EVENT_CANCEL(ba->t_read);
+	EVENT_CANCEL(ba->t_write);
 
 	ba->last_err = NULL;
 
@@ -1824,9 +1824,9 @@ static void bmp_active_disconnected(struct bmp_active *ba)
 
 static void bmp_active_setup(struct bmp_active *ba)
 {
-	THREAD_OFF(ba->t_timer);
-	THREAD_OFF(ba->t_read);
-	THREAD_OFF(ba->t_write);
+	EVENT_CANCEL(ba->t_timer);
+	EVENT_CANCEL(ba->t_read);
+	EVENT_CANCEL(ba->t_write);
 
 	if (ba->bmp)
 		return;
@@ -2015,7 +2015,7 @@ DEFPY(bmp_stats_cfg,
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
 
-	THREAD_OFF(bt->t_stats);
+	EVENT_CANCEL(bt->t_stats);
 	if (no)
 		bt->stat_msec = 0;
 	else if (interval_str)

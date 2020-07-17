@@ -405,7 +405,7 @@ enum rip_event {
 #define RIP_TIMER_ON(T,F,V) thread_add_timer (master, (F), rinfo, (V), &(T))
 
 /* Macro for timer turn off. */
-#define RIP_TIMER_OFF(X) THREAD_TIMER_OFF(X)
+#define RIP_TIMER_OFF(X) EVENT_CANCEL((X))
 
 #define RIP_OFFSET_LIST_IN  0
 #define RIP_OFFSET_LIST_OUT 1

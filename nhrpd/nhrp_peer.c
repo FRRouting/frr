@@ -43,7 +43,7 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 	if (p->ref || notifier_active(&p->notifier_list))
 		return;
 
-	THREAD_OFF(p->t_fallback);
+	EVENT_CANCEL(p->t_fallback);
 	hash_release(nifp->peer_hash, p);
 	nhrp_interface_notify_del(p->ifp, &p->ifp_notifier);
 	nhrp_vc_notify_del(p->vc, &p->vc_notifier);
@@ -77,7 +77,7 @@ static void __nhrp_peer_check(struct nhrp_peer *p)
 
 	online = nifp->enabled && (!nifp->ipsec_profile || vc->ipsec);
 	if (p->online != online) {
-		THREAD_OFF(p->t_fallback);
+		EVENT_CANCEL(p->t_fallback);
 		if (online && notifier_active(&p->notifier_list)) {
 			/* If we requested the IPsec connection, delay
 			 * the up notification a bit to allow things

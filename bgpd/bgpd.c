@@ -3309,10 +3309,10 @@ int bgp_delete(struct bgp *bgp)
 
 	hook_call(bgp_inst_delete, bgp);
 
-	THREAD_OFF(bgp->t_startup);
-	THREAD_OFF(bgp->t_maxmed_onstartup);
-	THREAD_OFF(bgp->t_update_delay);
-	THREAD_OFF(bgp->t_establish_wait);
+	EVENT_CANCEL(bgp->t_startup);
+	EVENT_CANCEL(bgp->t_maxmed_onstartup);
+	EVENT_CANCEL(bgp->t_update_delay);
+	EVENT_CANCEL(bgp->t_establish_wait);
 
 	/* Set flag indicating bgp instance delete in progress */
 	SET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);

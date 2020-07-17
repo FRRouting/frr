@@ -201,7 +201,7 @@ static int process_p2p_hello(struct iih_info *iih)
 				      adj);
 
 	/* lets take care of the expiry */
-	THREAD_TIMER_OFF(adj->t_expire);
+	EVENT_CANCEL(adj->t_expire);
 	thread_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
 			 &adj->t_expire);
 
@@ -493,7 +493,7 @@ static int process_lan_hello(struct iih_info *iih)
 				      adj);
 
 	/* lets take care of the expiry */
-	THREAD_TIMER_OFF(adj->t_expire);
+	EVENT_CANCEL(adj->t_expire);
 	thread_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
 			 &adj->t_expire);
 

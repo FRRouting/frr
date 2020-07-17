@@ -243,10 +243,10 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 
 	list_delete(&oi->neighbor_list);
 
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_send_lsupdate);
-	THREAD_OFF(oi->thread_send_lsack);
-	THREAD_OFF(oi->thread_sso);
+	EVENT_CANCEL(oi->thread_send_hello);
+	EVENT_CANCEL(oi->thread_send_lsupdate);
+	EVENT_CANCEL(oi->thread_send_lsack);
+	EVENT_CANCEL(oi->thread_sso);
 
 	ospf6_lsdb_remove_all(oi->lsdb);
 	ospf6_lsdb_remove_all(oi->lsupdate_list);
@@ -292,15 +292,15 @@ void ospf6_interface_disable(struct ospf6_interface *oi)
 	ospf6_lsdb_remove_all(oi->lsupdate_list);
 	ospf6_lsdb_remove_all(oi->lsack_list);
 
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_send_lsupdate);
-	THREAD_OFF(oi->thread_send_lsack);
-	THREAD_OFF(oi->thread_sso);
+	EVENT_CANCEL(oi->thread_send_hello);
+	EVENT_CANCEL(oi->thread_send_lsupdate);
+	EVENT_CANCEL(oi->thread_send_lsack);
+	EVENT_CANCEL(oi->thread_sso);
 
-	THREAD_OFF(oi->thread_network_lsa);
-	THREAD_OFF(oi->thread_link_lsa);
-	THREAD_OFF(oi->thread_intra_prefix_lsa);
-	THREAD_OFF(oi->thread_as_extern_lsa);
+	EVENT_CANCEL(oi->thread_network_lsa);
+	EVENT_CANCEL(oi->thread_link_lsa);
+	EVENT_CANCEL(oi->thread_intra_prefix_lsa);
+	EVENT_CANCEL(oi->thread_as_extern_lsa);
 }
 
 static struct in6_addr *
@@ -856,10 +856,10 @@ int interface_down(struct thread *thread)
 			   oi->interface->name);
 
 	/* Stop Hellos */
-	THREAD_OFF(oi->thread_send_hello);
+	EVENT_CANCEL(oi->thread_send_hello);
 
 	/* Stop trying to set socket options. */
-	THREAD_OFF(oi->thread_sso);
+	EVENT_CANCEL(oi->thread_sso);
 
 	/* Leave AllSPFRouters */
 	if (oi->state > OSPF6_INTERFACE_DOWN)
@@ -1240,7 +1240,7 @@ DEFUN (ipv6_ospf6_ifmtu,
 
 	/* re-establish adjacencies */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		THREAD_OFF(on->inactivity_timer);
+		EVENT_CANCEL(on->inactivity_timer);
 		thread_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
@@ -1286,7 +1286,7 @@ DEFUN (no_ipv6_ospf6_ifmtu,
 
 	/* re-establish adjacencies */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		THREAD_OFF(on->inactivity_timer);
+		EVENT_CANCEL(on->inactivity_timer);
 		thread_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
@@ -1642,11 +1642,11 @@ DEFUN (ipv6_ospf6_passive,
 	assert(oi);
 
 	SET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_sso);
+	EVENT_CANCEL(oi->thread_send_hello);
+	EVENT_CANCEL(oi->thread_sso);
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		THREAD_OFF(on->inactivity_timer);
+		EVENT_CANCEL(on->inactivity_timer);
 		thread_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
@@ -1672,8 +1672,8 @@ DEFUN (no_ipv6_ospf6_passive,
 	assert(oi);
 
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_sso);
+	EVENT_CANCEL(oi->thread_send_hello);
+	EVENT_CANCEL(oi->thread_sso);
 	thread_add_event(master, ospf6_hello_send, oi, 0,
 			 &oi->thread_send_hello);
 

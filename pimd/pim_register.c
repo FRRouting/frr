@@ -544,7 +544,7 @@ void pim_reg_del_on_couldreg_fail(struct interface *ifp)
 		    && (up->reg_state != PIM_REG_NOINFO)) {
 			pim_channel_del_oif(up->channel_oil, pim->regiface,
 					    PIM_OIF_FLAG_PROTO_PIM, __func__);
-			THREAD_OFF(up->t_rs_timer);
+			EVENT_CANCEL(up->t_rs_timer);
 			up->reg_state = PIM_REG_NOINFO;
 		}
 	}

@@ -219,7 +219,7 @@ static void nhrp_cache_peer_notifier(struct notifier_block *n,
 
 static void nhrp_cache_reset_new(struct nhrp_cache *c)
 {
-	THREAD_OFF(c->t_auth);
+	EVENT_CANCEL(c->t_auth);
 	if (list_hashed(&c->newpeer_notifier.notifier_entry))
 		nhrp_peer_notify_del(c->new.peer, &c->newpeer_notifier);
 	nhrp_peer_unref(c->new.peer);
@@ -229,7 +229,7 @@ static void nhrp_cache_reset_new(struct nhrp_cache *c)
 
 static void nhrp_cache_update_timers(struct nhrp_cache *c)
 {
-	THREAD_OFF(c->t_timeout);
+	EVENT_CANCEL(c->t_timeout);
 
 	switch (c->cur.type) {
 	case NHRP_CACHE_INVALID:

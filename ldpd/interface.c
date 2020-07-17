@@ -443,7 +443,7 @@ if_hello_timer(struct thread *thread)
 static void
 if_start_hello_timer(struct iface_af *ia)
 {
-	THREAD_TIMER_OFF(ia->hello_timer);
+	EVENT_CANCEL(ia->hello_timer);
 	ia->hello_timer = NULL;
 	thread_add_timer(master, if_hello_timer, ia, if_get_hello_interval(ia),
 			 &ia->hello_timer);
@@ -452,7 +452,7 @@ if_start_hello_timer(struct iface_af *ia)
 static void
 if_stop_hello_timer(struct iface_af *ia)
 {
-	THREAD_TIMER_OFF(ia->hello_timer);
+	EVENT_CANCEL(ia->hello_timer);
 }
 
 struct ctl_iface *

@@ -118,7 +118,7 @@ static int pim_g2rp_list_compare(struct bsm_rpinfo *node1,
 static void pim_free_bsrp_node(struct bsm_rpinfo *bsrp_info)
 {
 	if (bsrp_info->g2rp_timer)
-		THREAD_OFF(bsrp_info->g2rp_timer);
+		EVENT_CANCEL(bsrp_info->g2rp_timer);
 	XFREE(MTYPE_PIM_BSRP_NODE, bsrp_info);
 }
 
@@ -175,7 +175,7 @@ static int pim_on_bs_timer(struct thread *t)
 	bool is_bsr_tracking = true;
 
 	scope = THREAD_ARG(t);
-	THREAD_OFF(scope->bs_timer);
+	EVENT_CANCEL(scope->bs_timer);
 
 	if (PIM_DEBUG_BSM)
 		zlog_debug("%s: Bootstrap Timer expired for scope: %d",
@@ -231,7 +231,7 @@ static void pim_bs_timer_stop(struct bsm_scope *scope)
 	if (PIM_DEBUG_BSM)
 		zlog_debug("%s : BS timer being stopped of sz: %d", __func__,
 			   scope->sz_id);
-	THREAD_OFF(scope->bs_timer);
+	EVENT_CANCEL(scope->bs_timer);
 }
 
 static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout)
@@ -241,7 +241,7 @@ static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout)
 			zlog_debug("%s : Invalid scope(NULL).", __func__);
 		return;
 	}
-	THREAD_OFF(scope->bs_timer);
+	EVENT_CANCEL(scope->bs_timer);
 	if (PIM_DEBUG_BSM)
 		zlog_debug(
 			"%s : starting bs timer for scope %d with timeout %d secs",
@@ -315,7 +315,7 @@ static int pim_on_g2rp_timer(struct thread *t)
 	struct in_addr bsrp_addr;
 
 	bsrp = THREAD_ARG(t);
-	THREAD_OFF(bsrp->g2rp_timer);
+	EVENT_CANCEL(bsrp->g2rp_timer);
 	bsgrp_node = bsrp->bsgrp_node;
 
 	/* elapse time is the hold time of expired node */
@@ -377,7 +377,7 @@ static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)
 			zlog_debug("%s : Invalid brsp(NULL).", __func__);
 		return;
 	}
-	THREAD_OFF(bsrp->g2rp_timer);
+	EVENT_CANCEL(bsrp->g2rp_timer);
 	if (PIM_DEBUG_BSM) {
 		char buf[48];
 
@@ -412,7 +412,7 @@ static void pim_g2rp_timer_stop(struct bsm_rpinfo *bsrp)
 			   inet_ntoa(bsrp->rp_address));
 	}
 
-	THREAD_OFF(bsrp->g2rp_timer);
+	EVENT_CANCEL(bsrp->g2rp_timer);
 }
 
 static bool is_hold_time_zero(void *data)

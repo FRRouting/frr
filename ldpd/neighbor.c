@@ -302,7 +302,7 @@ nbr_del(struct nbr *nbr)
 	nbr->auth.method = AUTH_NONE;
 
 	if (nbr_pending_connect(nbr))
-		THREAD_WRITE_OFF(nbr->ev_connect);
+		EVENT_CANCEL(nbr->ev_connect);
 	nbr_stop_ktimer(nbr);
 	nbr_stop_ktimeout(nbr);
 	nbr_stop_itimeout(nbr);
@@ -416,7 +416,7 @@ nbr_start_ktimer(struct nbr *nbr)
 
 	/* send three keepalives per period */
 	secs = nbr->keepalive / KEEPALIVE_PER_PERIOD;
-	THREAD_TIMER_OFF(nbr->keepalive_timer);
+	EVENT_CANCEL(nbr->keepalive_timer);
 	nbr->keepalive_timer = NULL;
 	thread_add_timer(master, nbr_ktimer, nbr, secs, &nbr->keepalive_timer);
 }
@@ -424,7 +424,7 @@ nbr_start_ktimer(struct nbr *nbr)
 void
 nbr_stop_ktimer(struct nbr *nbr)
 {
-	THREAD_TIMER_OFF(nbr->keepalive_timer);
+	EVENT_CANCEL(nbr->keepalive_timer);
 }
 
 /* Keepalive timeout: if the nbr hasn't sent keepalive */
@@ -446,7 +446,7 @@ nbr_ktimeout(struct thread *thread)
 static void
 nbr_start_ktimeout(struct nbr *nbr)
 {
-	THREAD_TIMER_OFF(nbr->keepalive_timeout);
+	EVENT_CANCEL(nbr->keepalive_timeout);
 	nbr->keepalive_timeout = NULL;
 	thread_add_timer(master, nbr_ktimeout, nbr, nbr->keepalive,
 			 &nbr->keepalive_timeout);
@@ -455,7 +455,7 @@ nbr_start_ktimeout(struct nbr *nbr)
 void
 nbr_stop_ktimeout(struct nbr *nbr)
 {
-	THREAD_TIMER_OFF(nbr->keepalive_timeout);
+	EVENT_CANCEL(nbr->keepalive_timeout);
 }
 
 /* Session initialization timeout: if nbr got stuck in the initialization FSM */
@@ -478,7 +478,7 @@ nbr_start_itimeout(struct nbr *nbr)
 	int		 secs;
 
 	secs = INIT_FSM_TIMEOUT;
-	THREAD_TIMER_OFF(nbr->init_timeout);
+	EVENT_CANCEL(nbr->init_timeout);
 	nbr->init_timeout = NULL;
 	thread_add_timer(master, nbr_itimeout, nbr, secs, &nbr->init_timeout);
 }
@@ -486,7 +486,7 @@ nbr_start_itimeout(struct nbr *nbr)
 void
 nbr_stop_itimeout(struct nbr *nbr)
 {
-	THREAD_TIMER_OFF(nbr->init_timeout);
+	EVENT_CANCEL(nbr->init_timeout);
 }
 
 /* Init delay timer: timer to retry to iniziatize session */
@@ -527,7 +527,7 @@ nbr_start_idtimer(struct nbr *nbr)
 		break;
 	}
 
-	THREAD_TIMER_OFF(nbr->initdelay_timer);
+	EVENT_CANCEL(nbr->initdelay_timer);
 	nbr->initdelay_timer = NULL;
 	thread_add_timer(master, nbr_idtimer, nbr, secs,
 			 &nbr->initdelay_timer);
@@ -536,7 +536,7 @@ nbr_start_idtimer(struct nbr *nbr)
 void
 nbr_stop_idtimer(struct nbr *nbr)
 {
-	THREAD_TIMER_OFF(nbr->initdelay_timer);
+	EVENT_CANCEL(nbr->initdelay_timer);
 }
 
 int

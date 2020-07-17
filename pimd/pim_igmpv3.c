@@ -192,7 +192,7 @@ static void source_timer_off(struct igmp_group *group,
 			group->group_igmp_sock->interface->name);
 	}
 
-	THREAD_OFF(source->t_source_timer);
+	EVENT_CANCEL(source->t_source_timer);
 }
 
 static void igmp_source_timer_on(struct igmp_group *group,

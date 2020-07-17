@@ -81,7 +81,7 @@ static void sock_close(struct interface *ifp)
 				pim_ifp->pim_sock_fd, ifp->name);
 		}
 	}
-	THREAD_OFF(pim_ifp->t_pim_sock_read);
+	EVENT_CANCEL(pim_ifp->t_pim_sock_read);
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		if (pim_ifp->t_pim_hello_timer) {
@@ -90,7 +90,7 @@ static void sock_close(struct interface *ifp)
 				ifp->name);
 		}
 	}
-	THREAD_OFF(pim_ifp->t_pim_hello_timer);
+	EVENT_CANCEL(pim_ifp->t_pim_hello_timer);
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_debug("Deleting PIM socket fd=%d on interface %s",
@@ -722,7 +722,7 @@ static void hello_resched(struct interface *ifp)
 		zlog_debug("Rescheduling %d sec hello on interface %s",
 			   pim_ifp->pim_hello_period, ifp->name);
 	}
-	THREAD_OFF(pim_ifp->t_pim_hello_timer);
+	EVENT_CANCEL(pim_ifp->t_pim_hello_timer);
 	thread_add_timer(router->master, on_pim_hello_send, ifp,
 			 pim_ifp->pim_hello_period,
 			 &pim_ifp->t_pim_hello_timer);
@@ -825,7 +825,7 @@ void pim_hello_restart_triggered(struct interface *ifp)
 			return;
 		}
 
-		THREAD_OFF(pim_ifp->t_pim_hello_timer);
+		EVENT_CANCEL(pim_ifp->t_pim_hello_timer);
 	}
 
 	random_msec = triggered_hello_delay_msec;

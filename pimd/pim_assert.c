@@ -547,7 +547,7 @@ static void assert_timer_off(struct pim_ifchannel *ch)
 				__func__, ch->sg_str, ch->interface->name);
 		}
 	}
-	THREAD_OFF(ch->t_ifassert_timer);
+	EVENT_CANCEL(ch->t_ifassert_timer);
 }
 
 static void pim_assert_timer_set(struct pim_ifchannel *ch, int interval)

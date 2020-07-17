@@ -2480,8 +2480,8 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 				 &rtadv->ra_timer);
 		break;
 	case RTADV_STOP:
-		THREAD_OFF(rtadv->ra_timer);
-		THREAD_OFF(rtadv->ra_read);
+		EVENT_CANCEL(rtadv->ra_timer);
+		EVENT_CANCEL(rtadv->ra_read);
 		break;
 	case RTADV_TIMER:
 		thread_add_timer(zrouter.master, rtadv_timer, zvrf, val,

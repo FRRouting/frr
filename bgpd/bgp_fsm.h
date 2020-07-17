@@ -32,7 +32,7 @@
 #define BGP_TIMER_OFF(T)                                                       \
 	do {                                                                   \
 		if (T)                                                         \
-			THREAD_TIMER_OFF(T);                                   \
+			EVENT_CANCEL((T));                                     \
 	} while (0)
 
 #define BGP_EVENT_ADD(P, E)                                                    \

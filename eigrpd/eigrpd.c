@@ -276,8 +276,8 @@ void eigrp_finish_final(struct eigrp *eigrp)
 		eigrp_if_free(ei, INTERFACE_DOWN_BY_FINAL);
 	}
 
-	THREAD_OFF(eigrp->t_write);
-	THREAD_OFF(eigrp->t_read);
+	EVENT_CANCEL(eigrp->t_write);
+	EVENT_CANCEL(eigrp->t_read);
 	close(eigrp->fd);
 
 	list_delete(&eigrp->eiflist);

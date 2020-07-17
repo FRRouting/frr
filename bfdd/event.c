@@ -108,20 +108,20 @@ void bfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 
 void bfd_recvtimer_delete(struct bfd_session *bs)
 {
-	THREAD_OFF(bs->recvtimer_ev);
+	EVENT_CANCEL(bs->recvtimer_ev);
 }
 
 void bfd_echo_recvtimer_delete(struct bfd_session *bs)
 {
-	THREAD_OFF(bs->echo_recvtimer_ev);
+	EVENT_CANCEL(bs->echo_recvtimer_ev);
 }
 
 void bfd_xmttimer_delete(struct bfd_session *bs)
 {
-	THREAD_OFF(bs->xmttimer_ev);
+	EVENT_CANCEL(bs->xmttimer_ev);
 }
 
 void bfd_echo_xmttimer_delete(struct bfd_session *bs)
 {
-	THREAD_OFF(bs->echo_xmttimer_ev);
+	EVENT_CANCEL(bs->echo_xmttimer_ev);
 }

@@ -591,7 +591,7 @@ error:
 static void frr_confd_finish_cdb(void)
 {
 	if (cdb_sub_sock > 0) {
-		THREAD_OFF(t_cdb_sub);
+		EVENT_CANCEL(t_cdb_sub);
 		cdb_close(cdb_sub_sock);
 	}
 }
@@ -1321,11 +1321,11 @@ error:
 static void frr_confd_finish_dp(void)
 {
 	if (dp_worker_sock > 0) {
-		THREAD_OFF(t_dp_worker);
+		EVENT_CANCEL(t_dp_worker);
 		close(dp_worker_sock);
 	}
 	if (dp_ctl_sock > 0) {
-		THREAD_OFF(t_dp_ctl);
+		EVENT_CANCEL(t_dp_ctl);
 		close(dp_ctl_sock);
 	}
 	if (dctx != NULL)

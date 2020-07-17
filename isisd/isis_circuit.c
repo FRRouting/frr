@@ -793,12 +793,12 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		memset(circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 		memset(circuit->u.bc.snpa, 0, ETH_ALEN);
 
-		THREAD_TIMER_OFF(circuit->u.bc.t_send_lan_hello[0]);
-		THREAD_TIMER_OFF(circuit->u.bc.t_send_lan_hello[1]);
-		THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[0]);
-		THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[1]);
-		THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[0]);
-		THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[1]);
+		EVENT_CANCEL(circuit->u.bc.t_send_lan_hello[0]);
+		EVENT_CANCEL(circuit->u.bc.t_send_lan_hello[1]);
+		EVENT_CANCEL(circuit->u.bc.t_run_dr[0]);
+		EVENT_CANCEL(circuit->u.bc.t_run_dr[1]);
+		EVENT_CANCEL(circuit->u.bc.t_refresh_pseudo_lsp[0]);
+		EVENT_CANCEL(circuit->u.bc.t_refresh_pseudo_lsp[1]);
 		circuit->lsp_regenerate_pending[0] = 0;
 		circuit->lsp_regenerate_pending[1] = 0;
 
@@ -807,15 +807,15 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 		isis_delete_adj(circuit->u.p2p.neighbor);
 		circuit->u.p2p.neighbor = NULL;
-		THREAD_TIMER_OFF(circuit->u.p2p.t_send_p2p_hello);
+		EVENT_CANCEL(circuit->u.p2p.t_send_p2p_hello);
 	}
 
 	/* Cancel all active threads */
-	THREAD_TIMER_OFF(circuit->t_send_csnp[0]);
-	THREAD_TIMER_OFF(circuit->t_send_csnp[1]);
-	THREAD_TIMER_OFF(circuit->t_send_psnp[0]);
-	THREAD_TIMER_OFF(circuit->t_send_psnp[1]);
-	THREAD_OFF(circuit->t_read);
+	EVENT_CANCEL(circuit->t_send_csnp[0]);
+	EVENT_CANCEL(circuit->t_send_csnp[1]);
+	EVENT_CANCEL(circuit->t_send_psnp[0]);
+	EVENT_CANCEL(circuit->t_send_psnp[1]);
+	EVENT_CANCEL(circuit->t_read);
 
 	if (circuit->tx_queue) {
 		isis_tx_queue_free(circuit->tx_queue);

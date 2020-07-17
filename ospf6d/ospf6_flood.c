@@ -148,8 +148,8 @@ void ospf6_lsa_purge(struct ospf6_lsa *lsa)
 	self = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
 				 lsa->header->adv_router, lsdb_self);
 	if (self) {
-		THREAD_OFF(self->expire);
-		THREAD_OFF(self->refresh);
+		EVENT_CANCEL(self->expire);
+		EVENT_CANCEL(self->refresh);
 		ospf6_lsdb_remove(self, lsdb_self);
 	}
 
@@ -219,8 +219,8 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	old = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
 				lsa->header->adv_router, lsa->lsdb);
 	if (old) {
-		THREAD_OFF(old->expire);
-		THREAD_OFF(old->refresh);
+		EVENT_CANCEL(old->expire);
+		EVENT_CANCEL(old->refresh);
 		ospf6_flood_clear(old);
 	}
 
@@ -433,7 +433,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	} else {
 		/* reschedule retransmissions to all neighbors */
 		for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-			THREAD_OFF(on->thread_send_lsupdate);
+			EVENT_CANCEL(on->thread_send_lsupdate);
 			on->thread_send_lsupdate = NULL;
 			thread_add_event(master, ospf6_lsupdate_send_neighbor,
 					 on, 0, &on->thread_send_lsupdate);

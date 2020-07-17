@@ -40,7 +40,7 @@ static int wheel_timer_thread_helper(struct thread *t)
 	void *data;
 
 	wheel = THREAD_ARG(t);
-	THREAD_OFF(wheel->timer);
+	EVENT_CANCEL(wheel->timer);
 
 	wheel->curr_slot += wheel->slots_to_skip;
 
@@ -118,7 +118,7 @@ void wheel_delete(struct timer_wheel *wheel)
 		list_delete(&wheel->wheel_slot_lists[i]);
 	}
 
-	THREAD_OFF(wheel->timer);
+	EVENT_CANCEL(wheel->timer);
 	XFREE(MTYPE_TIMER_WHEEL_LIST, wheel->wheel_slot_lists);
 	XFREE(MTYPE_TIMER_WHEEL, wheel->name);
 	XFREE(MTYPE_TIMER_WHEEL, wheel);
@@ -126,7 +126,7 @@ void wheel_delete(struct timer_wheel *wheel)
 
 int wheel_stop(struct timer_wheel *wheel)
 {
-	THREAD_OFF(wheel->timer);
+	EVENT_CANCEL(wheel->timer);
 	return 0;
 }
 

@@ -608,7 +608,7 @@ static void frr_sr_fd_add(int event, int fd)
 
 static void frr_sr_fd_free(struct sysrepo_thread *sr_thread)
 {
-	THREAD_OFF(sr_thread->thread);
+	EVENT_CANCEL(sr_thread->thread);
 	XFREE(MTYPE_SYSREPO, sr_thread);
 }
 

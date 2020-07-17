@@ -89,7 +89,7 @@ static void resolver_update_timeouts(struct resolver_state *r)
 	if (r->timeout == THREAD_RUNNING)
 		return;
 
-	THREAD_OFF(r->timeout);
+	EVENT_CANCEL(r->timeout);
 	tv = ares_timeout(r->channel, NULL, &tvbuf);
 	if (tv) {
 		unsigned int timeoutms = tv->tv_sec * 1000 + tv->tv_usec / 1000;
@@ -115,7 +115,7 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 		t = vector_lookup(r->read_threads, fd);
 		if (t) {
 			if (t != THREAD_RUNNING) {
-				THREAD_OFF(t);
+				EVENT_CANCEL(t);
 			}
 			vector_unset(r->read_threads, fd);
 		}
@@ -132,7 +132,7 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 		t = vector_lookup(r->write_threads, fd);
 		if (t) {
 			if (t != THREAD_RUNNING) {
-				THREAD_OFF(t);
+				EVENT_CANCEL(t);
 			}
 			vector_unset(r->write_threads, fd);
 		}

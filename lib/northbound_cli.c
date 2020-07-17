@@ -205,7 +205,7 @@ int nb_cli_rpc(const char *xpath, struct list *input, struct list *output)
 
 void nb_cli_confirmed_commit_clean(struct vty *vty)
 {
-	THREAD_TIMER_OFF(vty->t_confirmed_commit_timeout);
+	EVENT_CANCEL(vty->t_confirmed_commit_timeout);
 	nb_config_free(vty->confirmed_commit_rollback);
 	vty->confirmed_commit_rollback = NULL;
 }
@@ -267,7 +267,7 @@ static int nb_cli_commit(struct vty *vty, bool force,
 				"%% Resetting confirmed-commit timeout to %u minute(s)\n\n",
 				confirmed_timeout);
 
-			THREAD_TIMER_OFF(vty->t_confirmed_commit_timeout);
+			EVENT_CANCEL(vty->t_confirmed_commit_timeout);
 			thread_add_timer(master,
 					 nb_cli_confirmed_commit_timeout, vty,
 					 confirmed_timeout * 60,

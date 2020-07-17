@@ -246,7 +246,7 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 {
 	neigh->holdtime = holdtime;
 
-	THREAD_OFF(neigh->t_expire_timer);
+	EVENT_CANCEL(neigh->t_expire_timer);
 
 	/*
 	  0xFFFF is request for no holdtime
@@ -294,7 +294,7 @@ static int on_neighbor_jp_timer(struct thread *t)
 
 static void pim_neighbor_start_jp_timer(struct pim_neighbor *neigh)
 {
-	THREAD_TIMER_OFF(neigh->jp_timer);
+	EVENT_CANCEL(neigh->jp_timer);
 	thread_add_timer(router->master, on_neighbor_jp_timer, neigh,
 			 router->t_periodic, &neigh->jp_timer);
 }
@@ -417,7 +417,7 @@ void pim_neighbor_free(struct pim_neighbor *neigh)
 	delete_prefix_list(neigh);
 
 	list_delete(&neigh->upstream_jp_agg);
-	THREAD_OFF(neigh->jp_timer);
+	EVENT_CANCEL(neigh->jp_timer);
 
 	if (neigh->bfd_info)
 		pim_bfd_info_free(&neigh->bfd_info);
@@ -620,7 +620,7 @@ void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
 	zlog_info("PIM NEIGHBOR DOWN: neighbor %s on interface %s: %s", src_str,
 		  ifp->name, delete_message);
 
-	THREAD_OFF(neigh->t_expire_timer);
+	EVENT_CANCEL(neigh->t_expire_timer);
 
 	pim_if_assert_on_neighbor_down(ifp, neigh->source_addr);
 

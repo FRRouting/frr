@@ -463,27 +463,27 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 static void bfd_sd_reschedule(struct bfd_vrf_global *bvrf, int sd)
 {
 	if (sd == bvrf->bg_shop) {
-		THREAD_OFF(bvrf->bg_ev[0]);
+		EVENT_CANCEL(bvrf->bg_ev[0]);
 		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
 				&bvrf->bg_ev[0]);
 	} else if (sd == bvrf->bg_mhop) {
-		THREAD_OFF(bvrf->bg_ev[1]);
+		EVENT_CANCEL(bvrf->bg_ev[1]);
 		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
 				&bvrf->bg_ev[1]);
 	} else if (sd == bvrf->bg_shop6) {
-		THREAD_OFF(bvrf->bg_ev[2]);
+		EVENT_CANCEL(bvrf->bg_ev[2]);
 		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
 				&bvrf->bg_ev[2]);
 	} else if (sd == bvrf->bg_mhop6) {
-		THREAD_OFF(bvrf->bg_ev[3]);
+		EVENT_CANCEL(bvrf->bg_ev[3]);
 		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
 				&bvrf->bg_ev[3]);
 	} else if (sd == bvrf->bg_echo) {
-		THREAD_OFF(bvrf->bg_ev[4]);
+		EVENT_CANCEL(bvrf->bg_ev[4]);
 		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
 				&bvrf->bg_ev[4]);
 	} else if (sd == bvrf->bg_echov6) {
-		THREAD_OFF(bvrf->bg_ev[5]);
+		EVENT_CANCEL(bvrf->bg_ev[5]);
 		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
 				&bvrf->bg_ev[5]);
 	}

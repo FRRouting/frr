@@ -1705,7 +1705,7 @@ void zebra_routemap_finish(void)
 	/* Set zebra_rmap_update_timer to 0 so that it wont schedule again */
 	zebra_rmap_update_timer = 0;
 	/* Thread off if any scheduled already */
-	THREAD_TIMER_OFF(zebra_t_rmap_update);
+	EVENT_CANCEL(zebra_t_rmap_update);
 	route_map_finish();
 }
 

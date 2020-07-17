@@ -1628,7 +1628,7 @@ DEFUN (no_bgp_maxmed_onstartup,
 
 	/* Cancel max-med onstartup if its on */
 	if (bgp->t_maxmed_onstartup) {
-		THREAD_TIMER_OFF(bgp->t_maxmed_onstartup);
+		EVENT_CANCEL(bgp->t_maxmed_onstartup);
 		bgp->maxmed_onstartup_over = 1;
 	}
 

@@ -83,7 +83,7 @@ static int pim_msdp_sa_adv_timer_cb(struct thread *t)
 }
 static void pim_msdp_sa_adv_timer_setup(struct pim_instance *pim, bool start)
 {
-	THREAD_OFF(pim->msdp.sa_adv_timer);
+	EVENT_CANCEL(pim->msdp.sa_adv_timer);
 	if (start) {
 		thread_add_timer(pim->msdp.master, pim_msdp_sa_adv_timer_cb,
 				 pim, PIM_MSDP_SA_ADVERTISMENT_TIME,
@@ -107,7 +107,7 @@ static int pim_msdp_sa_state_timer_cb(struct thread *t)
 }
 static void pim_msdp_sa_state_timer_setup(struct pim_msdp_sa *sa, bool start)
 {
-	THREAD_OFF(sa->sa_state_timer);
+	EVENT_CANCEL(sa->sa_state_timer);
 	if (start) {
 		thread_add_timer(sa->pim->msdp.master,
 				 pim_msdp_sa_state_timer_cb, sa,
@@ -927,7 +927,7 @@ static int pim_msdp_peer_hold_timer_cb(struct thread *t)
 static void pim_msdp_peer_hold_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
 	struct pim_instance *pim = mp->pim;
-	THREAD_OFF(mp->hold_timer);
+	EVENT_CANCEL(mp->hold_timer);
 	if (start) {
 		thread_add_timer(pim->msdp.master, pim_msdp_peer_hold_timer_cb,
 				 mp, PIM_MSDP_PEER_HOLD_TIME, &mp->hold_timer);
@@ -952,7 +952,7 @@ static int pim_msdp_peer_ka_timer_cb(struct thread *t)
 }
 static void pim_msdp_peer_ka_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
-	THREAD_OFF(mp->ka_timer);
+	EVENT_CANCEL(mp->ka_timer);
 	if (start) {
 		thread_add_timer(mp->pim->msdp.master,
 				 pim_msdp_peer_ka_timer_cb, mp,
@@ -1016,7 +1016,7 @@ static int pim_msdp_peer_cr_timer_cb(struct thread *t)
 }
 static void pim_msdp_peer_cr_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
-	THREAD_OFF(mp->cr_timer);
+	EVENT_CANCEL(mp->cr_timer);
 	if (start) {
 		thread_add_timer(
 			mp->pim->msdp.master, pim_msdp_peer_cr_timer_cb, mp,

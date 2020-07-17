@@ -105,13 +105,13 @@ static void circuit_resign_level(struct isis_circuit *circuit, int level)
 {
 	int idx = level - 1;
 
-	THREAD_TIMER_OFF(circuit->t_send_csnp[idx]);
-	THREAD_TIMER_OFF(circuit->t_send_psnp[idx]);
+	EVENT_CANCEL(circuit->t_send_csnp[idx]);
+	EVENT_CANCEL(circuit->t_send_psnp[idx]);
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		THREAD_TIMER_OFF(circuit->u.bc.t_send_lan_hello[idx]);
-		THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[idx]);
-		THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[idx]);
+		EVENT_CANCEL(circuit->u.bc.t_send_lan_hello[idx]);
+		EVENT_CANCEL(circuit->u.bc.t_run_dr[idx]);
+		EVENT_CANCEL(circuit->u.bc.t_refresh_pseudo_lsp[idx]);
 		circuit->lsp_regenerate_pending[idx] = 0;
 		circuit->u.bc.run_dr_elect[idx] = 0;
 		if (circuit->u.bc.lan_neighs[idx] != NULL)

@@ -332,7 +332,7 @@ int eigrp_if_down(struct eigrp_interface *ei)
 
 	/* Shutdown packet reception and sending */
 	if (ei->t_hello)
-		THREAD_OFF(ei->t_hello);
+		EVENT_CANCEL(ei->t_hello);
 
 	eigrp_if_stream_unset(ei);
 
@@ -421,7 +421,7 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 	struct eigrp *eigrp = ei->eigrp;
 
 	if (source == INTERFACE_DOWN_BY_VTY) {
-		THREAD_OFF(ei->t_hello);
+		EVENT_CANCEL(ei->t_hello);
 		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 	}
 

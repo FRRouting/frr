@@ -92,7 +92,7 @@ void zebra_gr_stale_client_cleanup(struct list *client_list)
 
 			/* Cancel the stale timer */
 			if (info->t_stale_removal != NULL) {
-				THREAD_OFF(info->t_stale_removal);
+				EVENT_CANCEL(info->t_stale_removal);
 				info->t_stale_removal = NULL;
 				/* Process the stale routes */
 				thread_execute(
@@ -125,7 +125,7 @@ static void zebra_gr_client_info_delte(struct zserv *client,
 {
 	TAILQ_REMOVE(&(client->gr_info_queue), info, gr_info);
 
-	THREAD_OFF(info->t_stale_removal);
+	EVENT_CANCEL(info->t_stale_removal);
 
 	XFREE(MTYPE_TMP, info->current_prefix);
 
@@ -675,7 +675,7 @@ static void zebra_gr_process_client_stale_routes(struct zserv *client,
 		LOG_GR("%s: Client %s cancled stale delete timer vrf %d",
 		       __func__, zebra_route_string(client->proto),
 		       info->vrf_id);
-		THREAD_OFF(info->t_stale_removal);
+		EVENT_CANCEL(info->t_stale_removal);
 		thread_execute(zrouter.master,
 			       zebra_gr_route_stale_delete_timer_expiry, info,
 			       0);

@@ -139,12 +139,12 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	ospf6_lsdb_delete(on->lsupdate_list);
 	ospf6_lsdb_delete(on->lsack_list);
 
-	THREAD_OFF(on->inactivity_timer);
+	EVENT_CANCEL(on->inactivity_timer);
 
-	THREAD_OFF(on->thread_send_dbdesc);
-	THREAD_OFF(on->thread_send_lsreq);
-	THREAD_OFF(on->thread_send_lsupdate);
-	THREAD_OFF(on->thread_send_lsack);
+	EVENT_CANCEL(on->thread_send_dbdesc);
+	EVENT_CANCEL(on->thread_send_lsreq);
+	EVENT_CANCEL(on->thread_send_lsupdate);
+	EVENT_CANCEL(on->thread_send_lsack);
 
 	ospf6_bfd_reg_dereg_nbr(on, ZEBRA_BFD_DEST_DEREGISTER);
 	XFREE(MTYPE_OSPF6_NEIGHBOR, on);
@@ -243,7 +243,7 @@ int hello_received(struct thread *thread)
 		zlog_debug("Neighbor Event %s: *HelloReceived*", on->name);
 
 	/* reset Inactivity Timer */
-	THREAD_OFF(on->inactivity_timer);
+	EVENT_CANCEL(on->inactivity_timer);
 	on->inactivity_timer = NULL;
 	thread_add_timer(master, inactivity_timer, on,
 			 on->ospf6_if->dead_interval, &on->inactivity_timer);
@@ -282,7 +282,7 @@ int twoway_received(struct thread *thread)
 	SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT);
 	SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
-	THREAD_OFF(on->thread_send_dbdesc);
+	EVENT_CANCEL(on->thread_send_dbdesc);
 	on->thread_send_dbdesc = NULL;
 	thread_add_event(master, ospf6_dbdesc_send, on, 0,
 			 &on->thread_send_dbdesc);
@@ -359,7 +359,7 @@ int exchange_done(struct thread *thread)
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *ExchangeDone*", on->name);
 
-	THREAD_OFF(on->thread_send_dbdesc);
+	EVENT_CANCEL(on->thread_send_dbdesc);
 	ospf6_lsdb_remove_all(on->dbdesc_list);
 
 	/* XXX
@@ -395,7 +395,7 @@ void ospf6_check_nbr_loading(struct ospf6_neighbor *on)
 			thread_add_event(master, loading_done, on, 0, NULL);
 		else if (on->last_ls_req == NULL) {
 			if (on->thread_send_lsreq != NULL)
-				THREAD_OFF(on->thread_send_lsreq);
+				EVENT_CANCEL(on->thread_send_lsreq);
 			on->thread_send_lsreq = NULL;
 			thread_add_event(master, ospf6_lsreq_send, on, 0,
 					 &on->thread_send_lsreq);
@@ -442,7 +442,7 @@ int adj_ok(struct thread *thread)
 		SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT);
 		SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
-		THREAD_OFF(on->thread_send_dbdesc);
+		EVENT_CANCEL(on->thread_send_dbdesc);
 		on->thread_send_dbdesc = NULL;
 		thread_add_event(master, ospf6_dbdesc_send, on, 0,
 				 &on->thread_send_dbdesc);
@@ -488,7 +488,7 @@ int seqnumber_mismatch(struct thread *thread)
 		ospf6_lsdb_remove(lsa, on->retrans_list);
 	}
 
-	THREAD_OFF(on->thread_send_dbdesc);
+	EVENT_CANCEL(on->thread_send_dbdesc);
 	on->dbdesc_seqnum++; /* Incr seqnum as per RFC2328, sec 10.3 */
 
 	on->thread_send_dbdesc = NULL;
@@ -525,7 +525,7 @@ int bad_lsreq(struct thread *thread)
 		ospf6_lsdb_remove(lsa, on->retrans_list);
 	}
 
-	THREAD_OFF(on->thread_send_dbdesc);
+	EVENT_CANCEL(on->thread_send_dbdesc);
 	on->dbdesc_seqnum++; /* Incr seqnum as per RFC2328, sec 10.3 */
 
 	on->thread_send_dbdesc = NULL;
@@ -560,10 +560,10 @@ int oneway_received(struct thread *thread)
 		ospf6_lsdb_remove(lsa, on->retrans_list);
 	}
 
-	THREAD_OFF(on->thread_send_dbdesc);
-	THREAD_OFF(on->thread_send_lsreq);
-	THREAD_OFF(on->thread_send_lsupdate);
-	THREAD_OFF(on->thread_send_lsack);
+	EVENT_CANCEL(on->thread_send_dbdesc);
+	EVENT_CANCEL(on->thread_send_lsreq);
+	EVENT_CANCEL(on->thread_send_lsupdate);
+	EVENT_CANCEL(on->thread_send_lsack);
 
 	return 0;
 }

@@ -170,7 +170,7 @@ void isis_delete_adj(void *arg)
 	if (!adj)
 		return;
 
-	THREAD_TIMER_OFF(adj->t_expire);
+	EVENT_CANCEL(adj->t_expire);
 	if (adj->adj_state != ISIS_ADJ_DOWN)
 		adj->adj_state = ISIS_ADJ_DOWN;
 

@@ -242,7 +242,7 @@ static int ospf6_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 
 		if ((status == BFD_STATUS_DOWN)
 		    && (old_status == BFD_STATUS_UP)) {
-			THREAD_OFF(on->inactivity_timer);
+			EVENT_CANCEL(on->inactivity_timer);
 			thread_add_event(master, inactivity_timer, on, 0, NULL);
 		}
 	}

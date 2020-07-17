@@ -541,7 +541,7 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 		}
 
 		/* Start auto recovery timer for this MAC */
-		THREAD_OFF(mac->dad_mac_auto_recovery_timer);
+		EVENT_CANCEL(mac->dad_mac_auto_recovery_timer);
 		if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
@@ -674,7 +674,7 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 		nbr->dad_dup_detect_time = monotime(NULL);
 
 		/* Start auto recovery timer for this IP */
-		THREAD_OFF(nbr->dad_ip_auto_recovery_timer);
+		EVENT_CANCEL(nbr->dad_ip_auto_recovery_timer);
 		if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
@@ -2260,7 +2260,7 @@ static int zvni_neigh_del(zebra_vni_t *zvni, zebra_neigh_t *n)
 		listnode_delete(zmac->neigh_list, n);
 
 	/* Cancel auto recovery */
-	THREAD_OFF(n->dad_ip_auto_recovery_timer);
+	EVENT_CANCEL(n->dad_ip_auto_recovery_timer);
 
 	/* Free the VNI hash entry and allocated memory. */
 	tmp_n = hash_release(zvni->neigh_table, n);
@@ -3401,7 +3401,7 @@ static int zvni_mac_del(zebra_vni_t *zvni, zebra_mac_t *mac)
 	zebra_mac_t *tmp_mac;
 
 	/* Cancel auto recovery */
-	THREAD_OFF(mac->dad_mac_auto_recovery_timer);
+	EVENT_CANCEL(mac->dad_mac_auto_recovery_timer);
 
 	list_delete(&mac->neigh_list);
 
@@ -7091,7 +7091,7 @@ int zebra_vxlan_clear_dup_detect_vni_mac(struct zebra_vrf *zvrf, vni_t vni,
 	mac->detect_start_time.tv_sec = 0;
 	mac->detect_start_time.tv_usec = 0;
 	mac->dad_dup_detect_time = 0;
-	THREAD_OFF(mac->dad_mac_auto_recovery_timer);
+	EVENT_CANCEL(mac->dad_mac_auto_recovery_timer);
 
 	/* warn-only action return */
 	if (!zvrf->dad_freeze)
@@ -7169,7 +7169,7 @@ int zebra_vxlan_clear_dup_detect_vni_ip(struct zebra_vrf *zvrf, vni_t vni,
 	nbr->detect_start_time.tv_sec = 0;
 	nbr->detect_start_time.tv_usec = 0;
 	nbr->dad_dup_detect_time = 0;
-	THREAD_OFF(nbr->dad_ip_auto_recovery_timer);
+	EVENT_CANCEL(nbr->dad_ip_auto_recovery_timer);
 
 	if (!!CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL)) {
 		zvni_neigh_send_add_to_client(zvni->vni, ip,
@@ -7204,7 +7204,7 @@ static void zvni_clear_dup_mac_hash(struct hash_bucket *bucket, void *ctxt)
 	mac->detect_start_time.tv_sec = 0;
 	mac->detect_start_time.tv_usec = 0;
 	mac->dad_dup_detect_time = 0;
-	THREAD_OFF(mac->dad_mac_auto_recovery_timer);
+	EVENT_CANCEL(mac->dad_mac_auto_recovery_timer);
 
 	/* Remove all IPs as duplicate associcated with this MAC */
 	for (ALL_LIST_ELEMENTS_RO(mac->neigh_list, node, nbr)) {
@@ -7264,7 +7264,7 @@ static void zvni_clear_dup_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 	nbr->detect_start_time.tv_sec = 0;
 	nbr->detect_start_time.tv_usec = 0;
 	nbr->dad_dup_detect_time = 0;
-	THREAD_OFF(nbr->dad_ip_auto_recovery_timer);
+	EVENT_CANCEL(nbr->dad_ip_auto_recovery_timer);
 
 	if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL)) {
 		zvni_neigh_send_add_to_client(zvni->vni, &nbr->ip,

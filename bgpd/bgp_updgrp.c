@@ -794,16 +794,16 @@ static void update_subgroup_delete(struct update_subgroup *subgrp)
 		UPDGRP_INCR_STAT(subgrp->update_group, subgrps_deleted);
 
 	if (subgrp->t_merge_check)
-		THREAD_OFF(subgrp->t_merge_check);
+		EVENT_CANCEL(subgrp->t_merge_check);
 
 	if (subgrp->t_coalesce)
-		THREAD_TIMER_OFF(subgrp->t_coalesce);
+		EVENT_CANCEL(subgrp->t_coalesce);
 
 	bpacket_queue_cleanup(SUBGRP_PKTQ(subgrp));
 	subgroup_clear_table(subgrp);
 
 	if (subgrp->t_coalesce)
-		THREAD_TIMER_OFF(subgrp->t_coalesce);
+		EVENT_CANCEL(subgrp->t_coalesce);
 	sync_delete(subgrp);
 
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS) && subgrp->update_group)
@@ -1769,7 +1769,7 @@ int update_group_refresh_default_originate_route_map(struct thread *thread)
 	bgp = THREAD_ARG(thread);
 	update_group_walk(bgp, update_group_default_originate_route_map_walkcb,
 			  reason);
-	THREAD_TIMER_OFF(bgp->t_rmap_def_originate_eval);
+	EVENT_CANCEL(bgp->t_rmap_def_originate_eval);
 	bgp_unlock(bgp);
 
 	return 0;
