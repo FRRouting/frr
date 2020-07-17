@@ -172,11 +172,24 @@ DEFUN (show_ip_rpf_addr,
 }
 
 static char re_status_output_char(const struct route_entry *re,
-				  const struct nexthop *nhop)
+				  const struct nexthop *nhop,
+				  bool is_fib)
 {
 	if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
-		if (!CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_DUPLICATE) &&
-		    !CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_RECURSIVE))
+		bool star_p = false;
+
+		if (nhop &&
+		    !CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_DUPLICATE) &&
+		    !CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_RECURSIVE)) {
+			/* More-specific test for 'fib' output */
+			if (is_fib) {
+				star_p = !!CHECK_FLAG(nhop->flags,
+						      NEXTHOP_FLAG_FIB);
+			} else
+				star_p = true;
+		}
+
+		if (star_p)
 			return '*';
 		else
 			return ' ';
@@ -207,7 +220,8 @@ static void show_nh_backup_helper(struct vty *vty,
 
 	/* Double-check that there _is_ a backup */
 	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP) ||
-	    re->nhe->backup_info == NULL || re->nhe->backup_info->nhe == NULL)
+	    re->nhe->backup_info == NULL || re->nhe->backup_info->nhe == NULL ||
+	    re->nhe->backup_info->nhe->nhg.nexthop == NULL)
 		return;
 
 	/* Locate the backup nexthop(s) */
@@ -221,6 +235,9 @@ static void show_nh_backup_helper(struct vty *vty,
 				break;
 		}
 
+		/* It's possible for backups to be recursive too,
+		 * so walk the recursive resolution list if present.
+		 */
 		temp = backup;
 		while (backup) {
 			vty_out(vty, "  ");
@@ -258,7 +275,7 @@ static void show_nexthop_detail_helper(struct vty *vty,
 			nexthop->rparent ? "  " : "");
 	else
 		vty_out(vty, "  %c%s",
-			re_status_output_char(re, nexthop),
+			re_status_output_char(re, nexthop, false),
 			nexthop->rparent ? "  " : "");
 
 	switch (nexthop->type) {
@@ -768,18 +785,19 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			      struct route_entry *re, json_object *json,
 			      bool is_fib)
 {
-	struct nexthop *nexthop;
+	const struct nexthop *nexthop;
 	int len = 0;
 	char buf[SRCDEST2STR_BUFFER];
 	json_object *json_nexthops = NULL;
 	json_object *json_nexthop = NULL;
 	json_object *json_route = NULL;
 	time_t uptime;
-	struct vrf *vrf = NULL;
-	rib_dest_t *dest = rib_dest_from_rnode(rn);
-	struct nexthop_group *nhg;
+	const struct vrf *vrf = NULL;
+	const rib_dest_t *dest = rib_dest_from_rnode(rn);
+	const struct nexthop_group *nhg;
 	char up_str[MONOTIME_STRLEN];
-	bool first_p;
+	bool first_p = true;
+	bool nhg_from_backup = false;
 
 	uptime = monotime(NULL);
 	uptime -= re->uptime;
@@ -854,9 +872,11 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 			json_nexthop = json_object_new_object();
+			show_nexthop_json_helper(json_nexthop,
+						 nexthop, re);
 
-			show_nexthop_json_helper(json_nexthop, nexthop, re);
-			json_object_array_add(json_nexthops, json_nexthop);
+			json_object_array_add(json_nexthops,
+					      json_nexthop);
 		}
 
 		json_object_object_add(json_route, "nexthops", json_nexthops);
@@ -867,7 +887,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		else
 			nhg = zebra_nhg_get_backup_nhg(re->nhe);
 
-		if (nhg) {
+		if (nhg && nhg->nexthop) {
 			json_nexthops = json_object_new_array();
 
 			for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
@@ -887,42 +907,62 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		return;
 	}
 
+	/* Prefix information, and first nexthop. If we're showing 'fib',
+	 * and there are no installed primary nexthops, see if there are any
+	 * backup nexthops and start with those.
+	 */
+	if (is_fib && nhg->nexthop == NULL) {
+		nhg = rib_get_fib_backup_nhg(re);
+		nhg_from_backup = true;
+	}
+
+	len = vty_out(vty, "%c", zebra_route_char(re->type));
+	if (re->instance)
+		len += vty_out(vty, "[%d]", re->instance);
+	if (nhg_from_backup && nhg->nexthop) {
+		len += vty_out(
+			vty, "%cb%c %s",
+			CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED) ? '>' : ' ',
+			re_status_output_char(re, nhg->nexthop, is_fib),
+			srcdest_rnode2str(rn, buf, sizeof(buf)));
+	} else {
+		len += vty_out(
+			vty, "%c%c %s",
+			CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED) ? '>' : ' ',
+			re_status_output_char(re, nhg->nexthop, is_fib),
+			srcdest_rnode2str(rn, buf, sizeof(buf)));
+	}
+
+	/* Distance and metric display. */
+	if (((re->type == ZEBRA_ROUTE_CONNECT) &&
+	     (re->distance || re->metric)) ||
+	    (re->type != ZEBRA_ROUTE_CONNECT))
+		len += vty_out(vty, " [%u/%u]", re->distance,
+			       re->metric);
+
 	/* Nexthop information. */
-	first_p = true;
 	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 		if (first_p) {
 			first_p = false;
-
-			/* Prefix information. */
-			len = vty_out(vty, "%c", zebra_route_char(re->type));
-			if (re->instance)
-				len += vty_out(vty, "[%d]", re->instance);
-			len += vty_out(
-				vty, "%c%c %s",
-				CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)
-					? '>'
-					: ' ',
-				re_status_output_char(re, nexthop),
-				srcdest_rnode2str(rn, buf, sizeof(buf)));
-
-			/* Distance and metric display. */
-			if (((re->type == ZEBRA_ROUTE_CONNECT) &&
-			     (re->distance || re->metric)) ||
-			    (re->type != ZEBRA_ROUTE_CONNECT))
-				len += vty_out(vty, " [%u/%u]", re->distance,
-					       re->metric);
+		} else if (nhg_from_backup) {
+			vty_out(vty, "  b%c%*c",
+				re_status_output_char(re, nexthop, is_fib),
+				len - 3 + (2 * nexthop_level(nexthop)), ' ');
 		} else {
 			vty_out(vty, "  %c%*c",
-				re_status_output_char(re, nexthop),
+				re_status_output_char(re, nexthop, is_fib),
 				len - 3 + (2 * nexthop_level(nexthop)), ' ');
 		}
 
 		show_route_nexthop_helper(vty, re, nexthop);
-
 		vty_out(vty, ", %s\n", up_str);
 	}
 
-	/* Check for backup info if present */
+	/* If we only had backup nexthops, we're done */
+	if (nhg_from_backup)
+		return;
+
+	/* Check for backup nexthop info if present */
 	if (is_fib)
 		nhg = rib_get_fib_backup_nhg(re);
 	else

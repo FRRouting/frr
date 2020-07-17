@@ -1040,22 +1040,10 @@ static bool compare_valid_nexthops(struct route_entry *r1,
 	 * backups will be in the 'fib' list.
 	 */
 	nhg1 = rib_get_fib_backup_nhg(r1);
-	if (nhg1 == zebra_nhg_get_backup_nhg(r1->nhe))
-		nhg1 = NULL;
-
 	nhg2 = rib_get_fib_backup_nhg(r2);
-	if (nhg2 == zebra_nhg_get_backup_nhg(r2->nhe))
-		nhg2 = NULL;
 
-	if (nhg1)
-		nh1 = nhg1->nexthop;
-	else
-		nh1 = NULL;
-
-	if (nhg2)
-		nh2 = nhg2->nexthop;
-	else
-		nh2 = NULL;
+	nh1 = nhg1->nexthop;
+	nh2 = nhg2->nexthop;
 
 	while (1) {
 		/* Find each backup list's next valid nexthop */
@@ -1180,9 +1168,6 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 			}
 
 		nhg = rib_get_fib_backup_nhg(re);
-		if (nhg == zebra_nhg_get_backup_nhg(re->nhe))
-			nhg = NULL;
-
 		if (nhg) {
 			for (ALL_NEXTHOPS_PTR(nhg, nh))
 				if (rnh_nexthop_valid(re, nh)) {
