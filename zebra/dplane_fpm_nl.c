@@ -559,28 +559,6 @@ static int fpm_write(struct thread *t)
 		/* Permit receiving messages now. */
 		thread_add_read(fnc->fthread->master, fpm_read, fnc,
 				fnc->socket, &fnc->t_read);
-
-		/*
-		 * Walk the route tables to send old information before starting
-		 * to send updated information.
-		 *
-		 * NOTE 1:
-		 * RIB table walk is called after the next group table walk
-		 * ends.
-		 *
-		 * NOTE 2:
-		 * Don't attempt to go through next hop group table if we were
-		 * explictly told to not use it.
-		 */
-		if (fnc->use_nhg)
-			thread_add_timer(zrouter.master, fpm_nhg_send, fnc, 0,
-					 &fnc->t_nhgwalk);
-		else
-			thread_add_timer(zrouter.master, fpm_rib_send, fnc, 0,
-					 &fnc->t_ribwalk);
-
-		thread_add_timer(zrouter.master, fpm_rmac_send, fnc, 0,
-				 &fnc->t_rmacwalk);
 	}
 
 	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
@@ -698,12 +676,12 @@ static int fpm_connect(struct thread *t)
 			 &fnc->t_write);
 
 	/* Mark all routes as unsent. */
-	thread_add_timer(zrouter.master, fpm_nhg_reset, fnc, 0,
-			 &fnc->t_nhgreset);
-	thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
-			 &fnc->t_ribreset);
-	thread_add_timer(zrouter.master, fpm_rmac_reset, fnc, 0,
-			 &fnc->t_rmacreset);
+	if (fnc->use_nhg)
+		thread_add_timer(zrouter.master, fpm_nhg_reset, fnc, 0,
+				 &fnc->t_nhgreset);
+	else
+		thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
+				 &fnc->t_ribreset);
 
 	return 0;
 }
@@ -937,8 +915,8 @@ static int fpm_nhg_send(struct thread *t)
 	/* We are done sending next hops, lets install the routes now. */
 	if (fna.complete) {
 		WALK_FINISH(fnc, FNE_NHG_FINISHED);
-		thread_add_timer(zrouter.master, fpm_rib_send, fnc, 0,
-				 &fnc->t_ribwalk);
+		thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
+				 &fnc->t_ribreset);
 	} else /* Otherwise reschedule next hop group again. */
 		thread_add_timer(zrouter.master, fpm_nhg_send, fnc, 0,
 				 &fnc->t_nhgwalk);
@@ -996,6 +974,10 @@ static int fpm_rib_send(struct thread *t)
 
 	/* All RIB routes sent! */
 	WALK_FINISH(fnc, FNE_RIB_FINISHED);
+
+	/* Schedule next event: RMAC reset. */
+	thread_add_event(zrouter.master, fpm_rmac_reset, fnc, 0,
+			 &fnc->t_rmacreset);
 
 	return 0;
 }
@@ -1084,6 +1066,10 @@ static int fpm_nhg_reset(struct thread *t)
 
 	fnc->nhg_complete = false;
 	hash_iterate(zrouter.nhgs_id, fpm_nhg_reset_cb, NULL);
+
+	/* Schedule next step: send next hop groups. */
+	thread_add_event(zrouter.master, fpm_nhg_send, fnc, 0, &fnc->t_nhgwalk);
+
 	return 0;
 }
 
@@ -1112,6 +1098,9 @@ static int fpm_rib_reset(struct thread *t)
 		}
 	}
 
+	/* Schedule next step: send RIB routes. */
+	thread_add_event(zrouter.master, fpm_rib_send, fnc, 0, &fnc->t_ribwalk);
+
 	return 0;
 }
 
@@ -1138,6 +1127,10 @@ static int fpm_rmac_reset(struct thread *t)
 
 	fnc->rmac_complete = false;
 	hash_iterate(zrouter.l3vni_table, fpm_unset_l3vni_table, NULL);
+
+	/* Schedule next event: send RMAC entries. */
+	thread_add_event(zrouter.master, fpm_rmac_send, fnc, 0,
+			 &fnc->t_rmacwalk);
 
 	return 0;
 }
