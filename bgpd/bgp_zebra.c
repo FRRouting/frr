@@ -1178,7 +1178,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
 			safi_t safi)
 {
-	struct zapi_route api;
+	struct zapi_route api = { 0 };
 	struct zapi_nexthop *api_nh;
 	int nh_family;
 	unsigned int valid_nh_count = 0;
@@ -1224,7 +1224,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		nh_othervrf = 1;
 
 	/* Make Zebra API structure. */
-	memset(&api, 0, sizeof(api));
 	api.vrf_id = bgp->vrf_id;
 	api.type = ZEBRA_ROUTE_BGP;
 	api.safi = safi;

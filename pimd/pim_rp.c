@@ -141,6 +141,9 @@ void pim_rp_free(struct pim_instance *pim)
 {
 	if (pim->rp_list)
 		list_delete(&pim->rp_list);
+	if (pim->rp_table)
+		route_table_finish(pim->rp_table);
+	pim->rp_table = NULL;
 }
 
 /*

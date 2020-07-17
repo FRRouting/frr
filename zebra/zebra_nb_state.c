@@ -185,9 +185,8 @@ int lib_vrf_zebra_ribs_rib_get_keys(struct nb_cb_get_keys_args *args)
 
 	args->keys->num = 2;
 
-	snprintfrr(args->keys->key[0], sizeof(args->keys->key[0]), "%s:%s",
-		   "frr-zebra",
-		   zebra_afi_safi_value2identity(zrt->afi, zrt->safi));
+	snprintfrr(args->keys->key[0], sizeof(args->keys->key[0]), "%s",
+		   yang_afi_safi_value2identity(zrt->afi, zrt->safi));
 	snprintfrr(args->keys->key[1], sizeof(args->keys->key[1]), "%u",
 		   zrt->tableid);
 
@@ -205,7 +204,7 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 
 	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
 
-	zebra_afi_safi_identity2value(args->keys->key[0], &afi, &safi);
+	yang_afi_safi_identity2value(args->keys->key[0], &afi, &safi);
 	table_id = yang_str2uint32(args->keys->key[1]);
 	/* table_id 0 assume vrf's table_id. */
 	if (!table_id)

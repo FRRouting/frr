@@ -544,6 +544,7 @@ static int vrf_config_write(struct vty *vty)
 
 
 		zebra_routemap_config_write_protocol(vty, zvrf);
+		router_id_write(vty, zvrf);
 
 		if (zvrf_id(zvrf) != VRF_DEFAULT)
 			vty_endframe(vty, " exit-vrf\n!\n");

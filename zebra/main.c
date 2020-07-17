@@ -35,6 +35,7 @@
 #include "vrf.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "routing_nb.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
@@ -258,6 +259,7 @@ static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_route_map_info,
 	&frr_zebra_info,
 	&frr_vrf_info,
+	&frr_routing_info,
 };
 
 FRR_DAEMON_INFO(
@@ -414,12 +416,12 @@ int main(int argc, char **argv)
 	rib_init();
 	zebra_if_init();
 	zebra_debug_init();
-	router_id_cmd_init();
 
 	/*
 	 * Initialize NS( and implicitly the VRF module), and make kernel
 	 * routing socket. */
 	zebra_ns_init((const char *)vrf_default_name_configured);
+	router_id_cmd_init();
 	zebra_vty_init();
 	access_list_init();
 	prefix_list_init();
