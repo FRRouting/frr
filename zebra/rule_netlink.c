@@ -247,7 +247,16 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	}
 
 	frh = NLMSG_DATA(h);
+
 	if (frh->family != AF_INET && frh->family != AF_INET6) {
+		if (frh->family == RTNL_FAMILY_IPMR
+		    || frh->family == RTNL_FAMILY_IP6MR) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"Received rule netlink that we are ignoring for family %u, rule change: %u",
+					frh->family, h->nlmsg_type);
+			return 0;
+		}
 		flog_warn(
 			EC_ZEBRA_NETLINK_INVALID_AF,
 			"Invalid address family: %u received from kernel rule change: %u",
