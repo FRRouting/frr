@@ -129,6 +129,36 @@ enum {
 /* Zebra Gracaful Restart states */
 enum zebra_gr_mode { ZEBRA_GR_DISABLED = 0, ZEBRA_GR_ENABLED };
 
+/*
+ * Following section defines TLV (tag, length, value) structures,
+ * used for Graceful Restart.
+ */
+struct gr_tlv_header {
+	uint16_t type;   /* GR_TLV_XXX (see below) */
+	uint16_t length; /* Value portion only, in octets */
+};
+
+/* Graceful Restart Period TLV -- Mandatory */
+struct gr_tlv_period {
+	struct gr_tlv_header header; /* Value length is 4 octets */
+	uint32_t value;		     /* Number of seconds */
+};
+
+/* Graceful Restart Reason TLV -- Mandatory */
+struct gr_tlv_reason {
+	struct gr_tlv_header header; /* Value length is 1 octet */
+	uint8_t reason;		     /* Reason of GR */
+	uint8_t reserve0;	    /* Must be 0 */
+	uint8_t reserve1;	    /* Must be 0 */
+	uint8_t reserve2;	    /* Must be 0 */
+};
+
+/* Graceful Restart Address TLV */
+struct gr_tlv_address {
+	struct gr_tlv_header header; /* Value length is 4 octets */
+	struct in_addr addr;
+};
+
 /* OSPF nonstop forwarding aka Graceful Restart */
 struct ospf_gr_info {
 	bool restart_support;
@@ -136,6 +166,12 @@ struct ospf_gr_info {
 
 	bool prepare_running;
 	uint32_t prepare_period;
+	struct thread *t_prepare;
+
+	/* TLVs used in the Grace-LSA */
+	struct gr_tlv_period tlv_period;
+	struct gr_tlv_reason tlv_reason;
+	struct gr_tlv_address tlv_address;
 };
 
 /* OSPF instance structure. */

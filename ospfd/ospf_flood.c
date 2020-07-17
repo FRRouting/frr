@@ -447,9 +447,9 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 }
 
 /* OSPF LSA flooding -- RFC2328 Section 13.3. */
-static int ospf_flood_through_interface(struct ospf_interface *oi,
-					struct ospf_neighbor *inbr,
-					struct ospf_lsa *lsa)
+int ospf_flood_through_interface(struct ospf_interface *oi,
+				 struct ospf_neighbor *inbr,
+				 struct ospf_lsa *lsa)
 {
 	struct ospf_neighbor *onbr;
 	struct route_node *rn;
