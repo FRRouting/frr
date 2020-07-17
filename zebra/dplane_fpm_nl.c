@@ -72,6 +72,7 @@ struct fpm_nl_ctx {
 	int socket;
 	bool disabled;
 	bool connecting;
+	bool nhg_complete;
 	bool rib_complete;
 	bool rmac_complete;
 	bool use_nhg;
@@ -151,11 +152,22 @@ enum fpm_nl_events {
 	FNE_TOGGLE_NHG,
 	/* Reconnect request by our own code to avoid races. */
 	FNE_INTERNAL_RECONNECT,
+
+	/* Next hop groups walk finished. */
+	FNE_NHG_FINISHED,
+	/* RIB walk finished. */
+	FNE_RIB_FINISHED,
+	/* RMAC walk finished. */
+	FNE_RMAC_FINISHED,
 };
 
 #define FPM_RECONNECT(fnc)                                                     \
 	thread_add_event((fnc)->fthread->master, fpm_process_event, (fnc),     \
 			 FNE_INTERNAL_RECONNECT, &(fnc)->t_event)
+
+#define WALK_FINISH(fnc, ev)                                                   \
+	thread_add_event((fnc)->fthread->master, fpm_process_event, (fnc),     \
+			 (ev), NULL)
 
 /*
  * Prototypes.
@@ -923,10 +935,11 @@ static int fpm_nhg_send(struct thread *t)
 	dplane_ctx_fini(&fna.ctx);
 
 	/* We are done sending next hops, lets install the routes now. */
-	if (fna.complete)
+	if (fna.complete) {
+		WALK_FINISH(fnc, FNE_NHG_FINISHED);
 		thread_add_timer(zrouter.master, fpm_rib_send, fnc, 0,
 				 &fnc->t_ribwalk);
-	else /* Otherwise reschedule next hop group again. */
+	} else /* Otherwise reschedule next hop group again. */
 		thread_add_timer(zrouter.master, fpm_nhg_send, fnc, 0,
 				 &fnc->t_nhgwalk);
 
@@ -982,7 +995,7 @@ static int fpm_rib_send(struct thread *t)
 	dplane_ctx_fini(&ctx);
 
 	/* All RIB routes sent! */
-	fnc->rib_complete = true;
+	WALK_FINISH(fnc, FNE_RIB_FINISHED);
 
 	return 0;
 }
@@ -994,6 +1007,7 @@ struct fpm_rmac_arg {
 	struct zebra_dplane_ctx *ctx;
 	struct fpm_nl_ctx *fnc;
 	zebra_l3vni_t *zl3vni;
+	bool complete;
 };
 
 static void fpm_enqueue_rmac_table(struct hash_bucket *backet, void *arg)
@@ -1007,7 +1021,7 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *backet, void *arg)
 	bool sticky;
 
 	/* Entry already sent. */
-	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT))
+	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT) || !fra->complete)
 		return;
 
 	sticky = !!CHECK_FLAG(zrmac->flags,
@@ -1023,6 +1037,7 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *backet, void *arg)
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
 		thread_add_timer(zrouter.master, fpm_rmac_send,
 				 fra->fnc, 1, &fra->fnc->t_rmacwalk);
+		fra->complete = false;
 	}
 }
 
@@ -1041,8 +1056,13 @@ static int fpm_rmac_send(struct thread *t)
 
 	fra.fnc = THREAD_ARG(t);
 	fra.ctx = dplane_ctx_alloc();
+	fra.complete = true;
 	hash_iterate(zrouter.l3vni_table, fpm_enqueue_l3vni_table, &fra);
 	dplane_ctx_fini(&fra.ctx);
+
+	/* RMAC walk completed. */
+	if (fra.complete)
+		WALK_FINISH(fra.fnc, FNE_RMAC_FINISHED);
 
 	return 0;
 }
@@ -1060,6 +1080,9 @@ static void fpm_nhg_reset_cb(struct hash_bucket *bucket, void *arg)
 
 static int fpm_nhg_reset(struct thread *t)
 {
+	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+
+	fnc->nhg_complete = false;
 	hash_iterate(zrouter.nhgs_id, fpm_nhg_reset_cb, NULL);
 	return 0;
 }
@@ -1111,6 +1134,9 @@ static void fpm_unset_l3vni_table(struct hash_bucket *backet, void *arg)
 
 static int fpm_rmac_reset(struct thread *t)
 {
+	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+
+	fnc->rmac_complete = false;
 	hash_iterate(zrouter.l3vni_table, fpm_unset_l3vni_table, NULL);
 
 	return 0;
@@ -1195,6 +1221,26 @@ static int fpm_process_event(struct thread *t)
 
 	case FNE_INTERNAL_RECONNECT:
 		fpm_reconnect(fnc);
+		break;
+
+	case FNE_NHG_FINISHED:
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: next hop groups walk finished",
+				   __func__);
+
+		fnc->nhg_complete = true;
+		break;
+	case FNE_RIB_FINISHED:
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: RIB walk finished", __func__);
+
+		fnc->rib_complete = true;
+		break;
+	case FNE_RMAC_FINISHED:
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: RMAC walk finished", __func__);
+
+		fnc->rmac_complete = true;
 		break;
 
 	default:
