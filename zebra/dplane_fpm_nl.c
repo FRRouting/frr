@@ -149,7 +149,13 @@ enum fpm_nl_events {
 	FNE_RESET_COUNTERS,
 	/* Toggle next hop group feature. */
 	FNE_TOGGLE_NHG,
+	/* Reconnect request by our own code to avoid races. */
+	FNE_INTERNAL_RECONNECT,
 };
+
+#define FPM_RECONNECT(fnc)                                                     \
+	thread_add_event((fnc)->fthread->master, fpm_process_event, (fnc),     \
+			 FNE_INTERNAL_RECONNECT, &(fnc)->t_event)
 
 /*
  * Prototypes.
@@ -428,7 +434,18 @@ static int fpm_connect(struct thread *t);
 
 static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 {
-	/* Grab the lock to empty the stream and stop the zebra thread. */
+	/* Cancel all zebra threads first. */
+	thread_cancel_async(zrouter.master, &fnc->t_nhgreset, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_nhgwalk, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
+
+	/*
+	 * Grab the lock to empty the streams (data plane might try to
+	 * enqueue updates while we are closing).
+	 */
 	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
 
 	/* Avoid calling close on `-1`. */
@@ -441,13 +458,6 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 	stream_reset(fnc->obuf);
 	THREAD_OFF(fnc->t_read);
 	THREAD_OFF(fnc->t_write);
-
-	thread_cancel_async(zrouter.master, &fnc->t_nhgreset, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_nhgwalk, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
 
 	/* FPM is disabled, don't attempt to connect. */
 	if (fnc->disabled)
@@ -472,7 +482,7 @@ static int fpm_read(struct thread *t)
 		if (IS_ZEBRA_DEBUG_FPM)
 			zlog_debug("%s: connection closed", __func__);
 
-		fpm_reconnect(fnc);
+		FPM_RECONNECT(fnc);
 		return 0;
 	}
 	if (rv == -1) {
@@ -484,7 +494,7 @@ static int fpm_read(struct thread *t)
 					  memory_order_relaxed);
 		zlog_warn("%s: connection failure: %s", __func__,
 			  strerror(errno));
-		fpm_reconnect(fnc);
+		FPM_RECONNECT(fnc);
 		return 0;
 	}
 	stream_reset(fnc->ibuf);
@@ -525,7 +535,7 @@ static int fpm_write(struct thread *t)
 				&fnc->counters.connection_errors, 1,
 				memory_order_relaxed);
 
-			fpm_reconnect(fnc);
+			FPM_RECONNECT(fnc);
 			return 0;
 		}
 
@@ -589,8 +599,9 @@ static int fpm_write(struct thread *t)
 				memory_order_relaxed);
 			zlog_warn("%s: connection failure: %s", __func__,
 				  strerror(errno));
-			fpm_reconnect(fnc);
-			break;
+
+			FPM_RECONNECT(fnc);
+			return 0;
 		}
 
 		/* Account all bytes sent. */
@@ -1171,6 +1182,10 @@ static int fpm_process_event(struct thread *t)
 	case FNE_TOGGLE_NHG:
 		zlog_info("%s: toggle next hop groups support", __func__);
 		fnc->use_nhg = !fnc->use_nhg;
+		fpm_reconnect(fnc);
+		break;
+
+	case FNE_INTERNAL_RECONNECT:
 		fpm_reconnect(fnc);
 		break;
 
