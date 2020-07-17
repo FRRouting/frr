@@ -2116,6 +2116,12 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 				if (nhg && nhg->nexthop)
 					copy_nexthops(&(ctx->u.pw.nhg.nexthop),
 						      nhg->nexthop, NULL);
+
+				/* Include any installed backup nexthops */
+				nhg = rib_get_fib_backup_nhg(re);
+				if (nhg && nhg->nexthop)
+					copy_nexthops(&(ctx->u.pw.nhg.nexthop),
+						      nhg->nexthop, NULL);
 			}
 			route_unlock_node(rn);
 		}
