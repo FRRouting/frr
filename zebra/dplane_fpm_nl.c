@@ -475,6 +475,13 @@ static int fpm_read(struct thread *t)
 	/* Let's ignore the input at the moment. */
 	rv = stream_read_try(fnc->ibuf, fnc->socket,
 			     STREAM_WRITEABLE(fnc->ibuf));
+	/* We've got an interruption. */
+	if (rv == -2) {
+		/* Schedule next read. */
+		thread_add_read(fnc->fthread->master, fpm_read, fnc,
+				fnc->socket, &fnc->t_read);
+		return 0;
+	}
 	if (rv == 0) {
 		atomic_fetch_add_explicit(&fnc->counters.connection_closes, 1,
 					  memory_order_relaxed);
@@ -486,10 +493,6 @@ static int fpm_read(struct thread *t)
 		return 0;
 	}
 	if (rv == -1) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK
-		    || errno == EINTR)
-			return 0;
-
 		atomic_fetch_add_explicit(&fnc->counters.connection_errors, 1,
 					  memory_order_relaxed);
 		zlog_warn("%s: connection failure: %s", __func__,
@@ -540,6 +543,10 @@ static int fpm_write(struct thread *t)
 		}
 
 		fnc->connecting = false;
+
+		/* Permit receiving messages now. */
+		thread_add_read(fnc->fthread->master, fpm_read, fnc,
+				fnc->socket, &fnc->t_read);
 
 		/*
 		 * Walk the route tables to send old information before starting
@@ -672,8 +679,9 @@ static int fpm_connect(struct thread *t)
 
 	fnc->connecting = (errno == EINPROGRESS);
 	fnc->socket = sock;
-	thread_add_read(fnc->fthread->master, fpm_read, fnc, sock,
-			&fnc->t_read);
+	if (!fnc->connecting)
+		thread_add_read(fnc->fthread->master, fpm_read, fnc, sock,
+				&fnc->t_read);
 	thread_add_write(fnc->fthread->master, fpm_write, fnc, sock,
 			 &fnc->t_write);
 
