@@ -144,6 +144,10 @@ struct route_entry {
 #define ROUTE_ENTRY_INSTALLED        0x10
 /* Route has Failed installation into the Data Plane in some manner */
 #define ROUTE_ENTRY_FAILED           0x20
+/* Route has a 'fib' set of nexthops, probably because the installed set
+ * differs from the rib/normal set of nexthops.
+ */
+#define ROUTE_ENTRY_USE_FIB_NHG      0x40
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
@@ -526,26 +530,28 @@ DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	     (rn, reason))
 
 /*
- * Access active nexthop-group, either RIB or FIB version
+ * Access installed/fib nexthops, which may be a subset of the
+ * rib nexthops.
  */
 static inline struct nexthop_group *rib_get_fib_nhg(struct route_entry *re)
 {
-	if (re->fib_ng.nexthop)
+	/* If the fib set is a subset of the active rib set,
+	 * use the dedicated fib list.
+	 */
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG))
 		return &(re->fib_ng);
 	else
 		return &(re->nhe->nhg);
 }
 
 /*
- * Access active nexthop-group, either RIB or FIB version
+ * Access backup nexthop-group that represents the installed backup nexthops;
+ * any installed backup will be on the fib list.
  */
 static inline struct nexthop_group *rib_get_fib_backup_nhg(
 	struct route_entry *re)
 {
-	if (re->fib_backup_ng.nexthop)
-		return &(re->fib_backup_ng);
-	else
-		return zebra_nhg_get_backup_nhg(re->nhe);
+	return &(re->fib_backup_ng);
 }
 
 extern void zebra_vty_init(void);

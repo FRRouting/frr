@@ -472,6 +472,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 			SET_FLAG(old->status, ROUTE_ENTRY_QUEUED);
 
 			/* Free old FIB nexthop group */
+			UNSET_FLAG(old->status, ROUTE_ENTRY_USE_FIB_NHG);
 			if (old->fib_ng.nexthop) {
 				nexthops_free(old->fib_ng.nexthop);
 				old->fib_ng.nexthop = NULL;
@@ -574,6 +575,7 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 			nexthops_free(re->fib_ng.nexthop);
 			re->fib_ng.nexthop = NULL;
 		}
+		UNSET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
 
 		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
@@ -1376,7 +1378,7 @@ static bool rib_update_nhg_from_ctx(struct nexthop_group *re_nhg,
 			continue;
 
 		/* Check for a FIB nexthop corresponding to the RIB nexthop */
-		if (nexthop_same(ctx_nexthop, nexthop) == false) {
+		if (!nexthop_same(ctx_nexthop, nexthop)) {
 			/* If the FIB doesn't know about the nexthop,
 			 * it's not installed
 			 */
@@ -1491,7 +1493,7 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 				VRF_LOGNAME(vrf), re->vrf_id, dest_str);
 		goto check_backups;
 
-	} else if (re->fib_ng.nexthop) {
+	} else if (CHECK_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG)) {
 		/*
 		 * Free stale fib list and move on to check the rib nhg.
 		 */
@@ -1501,6 +1503,8 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 				VRF_LOGNAME(vrf), re->vrf_id, dest_str);
 		nexthops_free(re->fib_ng.nexthop);
 		re->fib_ng.nexthop = NULL;
+
+		UNSET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
 
 		/* Note that the installed nexthops have changed */
 		changed_p = true;
@@ -1547,20 +1551,15 @@ no_nexthops:
 	 */
 	if (IS_ZEBRA_DEBUG_RIB)
 		zlog_debug(
-			"%s(%u):%s update_from_ctx(): changed %s, adding new fib nhg",
+			"%s(%u):%s update_from_ctx(): changed %s, adding new fib nhg%s",
 			VRF_LOGNAME(vrf), re->vrf_id, dest_str,
-			(changed_p ? "true" : "false"));
+			(changed_p ? "true" : "false"),
+			ctxnhg->nexthop != NULL ? "" : " (empty)");
 
+	/* Set the flag about the dedicated fib list */
+	SET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
 	if (ctxnhg->nexthop)
 		copy_nexthops(&(re->fib_ng.nexthop), ctxnhg->nexthop, NULL);
-	else {
-		/* Bit of a special case when the fib has _no_ installed
-		 * nexthops.
-		 */
-		nexthop = nexthop_new();
-		nexthop->type = NEXTHOP_TYPE_IPV4;
-		_nexthop_add(&(re->fib_ng.nexthop), nexthop);
-	}
 
 check_backups:
 
@@ -1612,7 +1611,7 @@ check_backups:
 	}
 
 	/*
-	 * If a FIB backup nexthop set exists: attach a copy
+	 * If a FIB backup nexthop set exists, attach a copy
 	 * to the route if any backup is installed
 	 */
 	if (ctxnhg && ctxnhg->nexthop) {
