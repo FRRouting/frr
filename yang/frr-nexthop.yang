@@ -156,7 +156,7 @@ module frr-nexthop {
     }
 
     leaf vrf {
-      type frr-vrf:vrf-ref;
+      type string;
       description
         "The nexthop vrf name, if different from the route.";
     }
@@ -167,7 +167,7 @@ module frr-nexthop {
     }
 
     leaf interface {
-      type frr-interface:interface-ref;
+      type string;
       description
         "The nexthop egress interface.";
     }
@@ -236,7 +236,8 @@ module frr-nexthop {
 
   grouping nexthop-grouping {
     list nexthop {
-      key "nh-type gateway interface";
+      key "nh-type vrf gateway interface";
+      min-elements 1;
       description
         "A list of nexthop objects.";
       uses frr-nexthop-attributes;

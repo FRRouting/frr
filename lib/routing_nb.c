@@ -1,7 +1,6 @@
 /*
- * static memory code.
- * Copyright (C) 2018 Cumulus Networks, Inc.
- *               Donald Sharp
+ * Copyright (C) 2018        Vmware
+ *                           Vishal Dhingra
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -17,12 +16,25 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#include <zebra.h>
+#include "northbound.h"
+#include "libfrr.h"
+#include "routing_nb.h"
 
-#include <memory.h>
 
-#include "staticd/static_memory.h"
 
-DEFINE_MGROUP(STATIC, "staticd")
-
-DEFINE_MTYPE(STATIC, STATIC_NEXTHOP, "Static Nexthop");
+/* clang-format off */
+const struct frr_yang_module_info frr_routing_info = {
+	.name = "frr-routing",
+	.nodes = {
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_destroy,
+			}
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
