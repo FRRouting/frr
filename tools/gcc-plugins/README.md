@@ -20,11 +20,14 @@ Can be found at [https://deb.nox.tf/devel/].
 GCC requirements
 ----------------
 
-To use this plugin, you need a **patched 9.3.0** version of GCC using the
-[gcc-retain-typeinfo.patch] provided in this repo.  Without this patch, GCC
-strips type information too early during compilation, leaving to the plugin
-being unable to perform more meaningful type checks.  (Specifically, all
-`typedef` types will be "cooked down" to their final type.)
+To use this plugin, you need a **patched 9.3.0** or a **patched 10.1.0**
+version of GCC using the [gcc-retain-typeinfo.patch] provided in this repo.
+
+Without this patch, GCC strips type information too early during compilation,
+leaving to the plugin being unable to perform more meaningful type checks.
+(Specifically, all `typedef` casts will be "cooked down" to their final type.)
+If the patch is missing, `format-test.c` will show 4 false negative/positive
+warnings marked with `(need retain-typeinfo patch)`.
 
 (@eqvinox has discussed this one-line diff with some GCC people on their
 IRC channel around mid 2019, the consensus was that the line is an "early
@@ -32,7 +35,7 @@ optimization" and removing it should not be harmful.  However, doing so is
 likely to break GCC's unit tests since warnings would print different types.)
 
 Other versions of gcc are not supported.  gcc 8 previously did work but isn't
-actively tested/maintained.  gcc 10 is not supported yet but may work.
+actively tested/maintained.
 
 
 Usage
