@@ -1768,7 +1768,7 @@ void pim_upstream_start_register_stop_timer(struct pim_upstream *up,
 {
 	uint32_t time;
 
-	THREAD_TIMER_OFF(up->t_rs_timer);
+	THREAD_OFF(up->t_rs_timer);
 
 	if (!null_register) {
 		uint32_t lower = (0.5 * PIM_REGISTER_SUPPRESSION_PERIOD);

@@ -2844,8 +2844,7 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 			SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
 			ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 			ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-			THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
-			ldp_sync_info->t_holddown = NULL;
+			THREAD_OFF(ldp_sync_info->t_holddown);
 			isis_ldp_sync_set_if_metric(circuit, true);
 		}
 		break;

@@ -99,8 +99,7 @@ int ospf_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 	FOR_ALL_INTERFACES (vrf, ifp)
 		ospf_ldp_sync_if_start(ifp, true);
 
-	THREAD_TIMER_OFF(ospf->ldp_sync_cmd.t_hello);
-	ospf->ldp_sync_cmd.t_hello = NULL;
+	THREAD_OFF(ospf->ldp_sync_cmd.t_hello);
 	ospf->ldp_sync_cmd.sequence = 0;
 	ospf_ldp_sync_hello_timer_add(ospf);
 
@@ -140,7 +139,7 @@ int ospf_ldp_sync_hello_update(struct ldp_igp_sync_hello hello)
 		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf_ldp_sync_if_start(ifp, true);
 	} else {
-		THREAD_TIMER_OFF(ospf->ldp_sync_cmd.t_hello);
+		THREAD_OFF(ospf->ldp_sync_cmd.t_hello);
 		ospf_ldp_sync_hello_timer_add(ospf);
 	}
 	ospf->ldp_sync_cmd.sequence = hello.sequence;
@@ -249,8 +248,7 @@ void ospf_ldp_sync_if_complete(struct interface *ifp)
 	if (ldp_sync_info && ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED) {
 		if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP)
 			ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
-		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
-		ldp_sync_info->t_holddown = NULL;
+		THREAD_OFF(ldp_sync_info->t_holddown);
 		ospf_if_recalculate_output_cost(ifp);
 	}
 }
@@ -274,7 +272,7 @@ void ospf_ldp_sync_ldp_fail(struct interface *ifp)
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
+		THREAD_OFF(ldp_sync_info->t_holddown);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_if_recalculate_output_cost(ifp);
 	}
@@ -337,7 +335,9 @@ void ospf_ldp_sync_if_remove(struct interface *ifp, bool remove)
 	 *  restore cost
 	 */
 	ols_debug("ldp_sync: Removed from if %s", ifp->name);
-	THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
+
+	THREAD_OFF(ldp_sync_info->t_holddown);
+
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	ospf_if_recalculate_output_cost(ifp);
 	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))
@@ -386,7 +386,6 @@ static int ospf_ldp_sync_holddown_timer(struct thread *thread)
 		ldp_sync_info = params->ldp_sync_info;
 
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
-		ldp_sync_info->t_holddown = NULL;
 
 		ols_debug("ldp_sync: holddown timer expired for %s state: %s",
 			  ifp->name, "Sync achieved");
@@ -436,7 +435,6 @@ static int ospf_ldp_sync_hello_timer(struct thread *thread)
 	 */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if (ospf) {
-		ospf->ldp_sync_cmd.t_hello = NULL;
 		vrf = vrf_lookup_by_id(ospf->vrf_id);
 
 		FOR_ALL_INTERFACES (vrf, ifp)
@@ -486,8 +484,8 @@ void ospf_ldp_sync_gbl_exit(struct ospf *ospf, bool remove)
 		UNSET_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
 		UNSET_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN);
 		ospf->ldp_sync_cmd.holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
-		THREAD_TIMER_OFF(ospf->ldp_sync_cmd.t_hello);
-		ospf->ldp_sync_cmd.t_hello = NULL;
+
+		THREAD_OFF(ospf->ldp_sync_cmd.t_hello);
 
 		/* turn off LDP-IGP Sync on all OSPF interfaces */
 		vrf = vrf_lookup_by_id(ospf->vrf_id);
@@ -980,8 +978,7 @@ DEFPY (no_mpls_ldp_sync,
 	SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
 	ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-	THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
-	ldp_sync_info->t_holddown = NULL;
+	THREAD_OFF(ldp_sync_info->t_holddown);
 	ospf_if_recalculate_output_cost(ifp);
 
 	return CMD_SUCCESS;

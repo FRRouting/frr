@@ -208,8 +208,8 @@ struct pim_msdp {
 	thread_add_write(mp->pim->msdp.master, pim_msdp_write, mp, mp->fd,     \
 			 &mp->t_write)
 
-#define PIM_MSDP_PEER_READ_OFF(mp) THREAD_READ_OFF(mp->t_read)
-#define PIM_MSDP_PEER_WRITE_OFF(mp) THREAD_WRITE_OFF(mp->t_write)
+#define PIM_MSDP_PEER_READ_OFF(mp) thread_cancel(&mp->t_read)
+#define PIM_MSDP_PEER_WRITE_OFF(mp) thread_cancel(&mp->t_write)
 
 // struct pim_msdp *msdp;
 struct pim_instance;

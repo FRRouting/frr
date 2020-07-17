@@ -442,8 +442,8 @@ void isis_area_destroy(struct isis_area *area)
 
 	spftree_area_del(area);
 
-	THREAD_TIMER_OFF(area->spf_timer[0]);
-	THREAD_TIMER_OFF(area->spf_timer[1]);
+	thread_cancel(&area->spf_timer[0]);
+	thread_cancel(&area->spf_timer[1]);
 
 	spf_backoff_free(area->spf_delay_ietf[0]);
 	spf_backoff_free(area->spf_delay_ietf[1]);
@@ -457,9 +457,9 @@ void isis_area_destroy(struct isis_area *area)
 	}
 	area->area_addrs = NULL;
 
-	THREAD_TIMER_OFF(area->t_tick);
-	THREAD_TIMER_OFF(area->t_lsp_refresh[0]);
-	THREAD_TIMER_OFF(area->t_lsp_refresh[1]);
+	thread_cancel(&area->t_tick);
+	thread_cancel(&area->t_lsp_refresh[0]);
+	thread_cancel(&area->t_lsp_refresh[1]);
 
 	thread_cancel_event(master, area);
 
@@ -2373,12 +2373,12 @@ static void area_resign_level(struct isis_area *area, int level)
 		}
 	}
 
-	THREAD_TIMER_OFF(area->spf_timer[level - 1]);
+	thread_cancel(&area->spf_timer[level - 1]);
 
 	sched_debug(
 		"ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
 		area->area_tag, level);
-	THREAD_TIMER_OFF(area->t_lsp_refresh[level - 1]);
+	thread_cancel(&area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 }
 

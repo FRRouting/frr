@@ -662,7 +662,7 @@ session_shutdown(struct nbr *nbr, uint32_t status, uint32_t msg_id,
 	switch (nbr->state) {
 	case NBR_STA_PRESENT:
 		if (nbr_pending_connect(nbr))
-			THREAD_WRITE_OFF(nbr->ev_connect);
+			thread_cancel(&nbr->ev_connect);
 		break;
 	case NBR_STA_INITIAL:
 	case NBR_STA_OPENREC:
@@ -762,7 +762,7 @@ tcp_close(struct tcp_conn *tcp)
 	evbuf_clear(&tcp->wbuf);
 
 	if (tcp->nbr) {
-		THREAD_READ_OFF(tcp->rev);
+		thread_cancel(&tcp->rev);
 		free(tcp->rbuf);
 		tcp->nbr->tcp = NULL;
 	}
@@ -794,7 +794,7 @@ pending_conn_new(int fd, int af, union ldpd_addr *addr)
 void
 pending_conn_del(struct pending_conn *pconn)
 {
-	THREAD_TIMER_OFF(pconn->ev_timeout);
+	thread_cancel(&pconn->ev_timeout);
 	TAILQ_REMOVE(&global.pending_conns, pconn, entry);
 	free(pconn);
 }

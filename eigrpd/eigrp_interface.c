@@ -420,7 +420,7 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 	struct eigrp *eigrp = ei->eigrp;
 
 	if (source == INTERFACE_DOWN_BY_VTY) {
-		THREAD_OFF(ei->t_hello);
+		thread_cancel(&ei->t_hello);
 		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 	}
 

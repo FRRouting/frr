@@ -107,7 +107,7 @@ static void agentx_events_update(void)
 	struct thread *thr;
 	int fd, thr_fd;
 
-	THREAD_OFF(timeout_thr);
+	thread_cancel(&timeout_thr);
 
 	FD_ZERO(&fds);
 	snmp_select_info(&maxfd, &fds, &timeout, &block);

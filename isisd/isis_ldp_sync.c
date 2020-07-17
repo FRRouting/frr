@@ -135,8 +135,8 @@ int isis_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 		}
 	}
 
-	THREAD_TIMER_OFF(isis->ldp_sync_cmd.t_hello);
-	isis->ldp_sync_cmd.t_hello = NULL;
+	THREAD_OFF(isis->ldp_sync_cmd.t_hello);
+
 	isis->ldp_sync_cmd.sequence = 0;
 	isis_ldp_sync_hello_timer_add();
 
@@ -186,7 +186,7 @@ int isis_ldp_sync_hello_update(struct ldp_igp_sync_hello hello)
 			}
 		}
 	} else {
-		THREAD_TIMER_OFF(isis->ldp_sync_cmd.t_hello);
+		THREAD_OFF(isis->ldp_sync_cmd.t_hello);
 		isis_ldp_sync_hello_timer_add();
 	}
 	isis->ldp_sync_cmd.sequence = hello.sequence;
@@ -280,8 +280,9 @@ void isis_ldp_sync_if_complete(struct isis_circuit *circuit)
 	if (ldp_sync_info && ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED) {
 		if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP)
 			ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
-		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
-		ldp_sync_info->t_holddown = NULL;
+
+		THREAD_OFF(ldp_sync_info->t_holddown);
+
 		isis_ldp_sync_set_if_metric(circuit, true);
 	}
 }
@@ -300,7 +301,7 @@ void isis_ldp_sync_ldp_fail(struct isis_circuit *circuit)
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
+		THREAD_OFF(ldp_sync_info->t_holddown);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		isis_ldp_sync_set_if_metric(circuit, true);
 	}
@@ -323,7 +324,7 @@ void isis_ldp_sync_if_remove(struct isis_circuit *circuit, bool remove)
 	ils_debug("ldp_sync: remove if %s", circuit->interface
 		  ? circuit->interface->name : "");
 
-	THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
+	THREAD_OFF(ldp_sync_info->t_holddown);
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	isis_ldp_sync_set_if_metric(circuit, true);
 	if (remove) {
@@ -662,8 +663,7 @@ void isis_ldp_sync_gbl_exit(bool remove)
 		UNSET_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
 		UNSET_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN);
 		isis->ldp_sync_cmd.holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
-		THREAD_TIMER_OFF(isis->ldp_sync_cmd.t_hello);
-		isis->ldp_sync_cmd.t_hello = NULL;
+		THREAD_OFF(isis->ldp_sync_cmd.t_hello);
 
 		/* remove LDP-SYNC on all ISIS interfaces */
 		FOR_ALL_INTERFACES (vrf, ifp) {

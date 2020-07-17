@@ -1234,6 +1234,9 @@ void thread_cancel_async(struct thread_master *master, struct thread **thread,
 		while (!master->canceled)
 			pthread_cond_wait(&master->cancel_cond, &master->mtx);
 	}
+
+	if (thread)
+		*thread = NULL;
 }
 /* ------------------------------------------------------------------------- */
 

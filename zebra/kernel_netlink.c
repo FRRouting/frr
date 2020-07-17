@@ -1501,7 +1501,7 @@ void kernel_init(struct zebra_ns *zns)
 
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
-	THREAD_READ_OFF(zns->t_netlink);
+	thread_cancel(&zns->t_netlink);
 
 	if (zns->netlink.sock >= 0) {
 		close(zns->netlink.sock);

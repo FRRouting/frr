@@ -79,7 +79,7 @@ bool ldp_sync_if_down(struct ldp_sync_info *ldp_sync_info)
 	 *   update state
 	 */
 	if (ldp_sync_info && ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED) {
-		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
+		THREAD_OFF(ldp_sync_info->t_holddown);
 
 		if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_UP)
 			ldp_sync_info->state =
