@@ -58,6 +58,7 @@ dev_RSTFILES = \
 	doc/developer/topotests-snippets.rst \
 	doc/developer/topotests.rst \
 	doc/developer/workflow.rst \
+	doc/developer/xrefs.rst \
 	doc/developer/zebra.rst \
 	# end
 
