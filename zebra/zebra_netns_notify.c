@@ -185,7 +185,7 @@ static bool zebra_ns_notify_is_default_netns(const char *name)
 {
 	struct stat default_netns_stat;
 	struct stat st;
-	char netnspath[64];
+	char netnspath[PATH_MAX];
 
 	if (zebra_ns_notify_self_identify(&default_netns_stat))
 		return false;
