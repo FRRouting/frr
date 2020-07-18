@@ -1936,7 +1936,7 @@ static int rib_count_installed_nh(struct route_entry *re)
 		/* The meaningful flag depends on where the installed
 		 * nexthops reside.
 		 */
-		if (nhg == &(re->fib_backup_ng)) {
+		if (nhg == &(re->fib_ng)) {
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
 				count++;
 		} else {
@@ -1945,9 +1945,12 @@ static int rib_count_installed_nh(struct route_entry *re)
 		}
 	}
 
-	for (ALL_NEXTHOPS_PTR(rib_get_fib_backup_nhg(re), nexthop)) {
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-			count++;
+	nhg = rib_get_fib_backup_nhg(re);
+	if (nhg) {
+		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+				count++;
+		}
 	}
 
 	return count;

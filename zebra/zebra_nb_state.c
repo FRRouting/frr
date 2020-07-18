@@ -525,54 +525,57 @@ int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_get_keys(
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
 
-	args->keys->num = 3;
+	args->keys->num = 4;
 
 	strlcpy(args->keys->key[0], yang_nexthop_type2str(nexthop->type),
 		sizeof(args->keys->key[0]));
 
+	snprintfrr(args->keys->key[1], sizeof(args->keys->key[1]), "%" PRIu32,
+		   nexthop->vrf_id);
+
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		snprintfrr(args->keys->key[1], sizeof(args->keys->key[1]),
+		snprintfrr(args->keys->key[2], sizeof(args->keys->key[2]),
 			   "%pI4", &nexthop->gate.ipv4);
 		if (nexthop->ifindex)
-			strlcpy(args->keys->key[2],
+			strlcpy(args->keys->key[3],
 				ifindex2ifname(nexthop->ifindex,
 					       nexthop->vrf_id),
-				sizeof(args->keys->key[2]));
+				sizeof(args->keys->key[3]));
 		else
 			/* no ifindex */
-			strlcpy(args->keys->key[2], " ",
-				sizeof(args->keys->key[2]));
+			strlcpy(args->keys->key[3], " ",
+				sizeof(args->keys->key[3]));
 
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		snprintfrr(args->keys->key[1], sizeof(args->keys->key[1]),
+		snprintfrr(args->keys->key[2], sizeof(args->keys->key[2]),
 			   "%pI6", &nexthop->gate.ipv6);
 
 		if (nexthop->ifindex)
-			strlcpy(args->keys->key[2],
+			strlcpy(args->keys->key[3],
 				ifindex2ifname(nexthop->ifindex,
 					       nexthop->vrf_id),
-				sizeof(args->keys->key[2]));
+				sizeof(args->keys->key[3]));
 		else
 			/* no ifindex */
-			strlcpy(args->keys->key[2], " ",
-				sizeof(args->keys->key[2]));
+			strlcpy(args->keys->key[3], " ",
+				sizeof(args->keys->key[3]));
 
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
-		strlcpy(args->keys->key[1], "", sizeof(args->keys->key[1]));
-		strlcpy(args->keys->key[2],
+		strlcpy(args->keys->key[2], "", sizeof(args->keys->key[2]));
+		strlcpy(args->keys->key[3],
 			ifindex2ifname(nexthop->ifindex, nexthop->vrf_id),
-			sizeof(args->keys->key[2]));
+			sizeof(args->keys->key[3]));
 
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 		/* Gateway IP */
-		strlcpy(args->keys->key[1], "", sizeof(args->keys->key[1]));
-		strlcpy(args->keys->key[2], " ", sizeof(args->keys->key[2]));
+		strlcpy(args->keys->key[2], "", sizeof(args->keys->key[2]));
+		strlcpy(args->keys->key[3], " ", sizeof(args->keys->key[3]));
 		break;
 	default:
 		break;
