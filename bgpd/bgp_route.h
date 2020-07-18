@@ -71,7 +71,8 @@ enum bgp_show_adj_route_type {
 	"               i internal, r RIB-failure, S Stale, R Removed\n"
 #define BGP_SHOW_OCODE_HEADER "Origin codes:  i - IGP, e - EGP, ? - incomplete\n\n"
 #define BGP_SHOW_NCODE_HEADER "Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self\n"
-#define BGP_SHOW_HEADER "   Network             Next Hop         Metric LocPrf Weight Path\n"
+#define BGP_SHOW_HEADER                                                        \
+	"   Network          Next Hop            Metric LocPrf Weight Path\n"
 #define BGP_SHOW_HEADER_WIDE "   Network                                      Next Hop                                  Metric LocPrf Weight Path\n"
 
 /* Maximum number of labels we can process or send with a prefix. We

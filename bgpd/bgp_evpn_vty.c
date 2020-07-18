@@ -679,7 +679,8 @@ static void show_esi_routes(struct bgp *bgp,
 			if (json)
 				json_path = json_object_new_array();
 
-			route_vty_out(vty, p, pi, 0, SAFI_EVPN, json_path, 0);
+			route_vty_out(vty, p, pi, 0, SAFI_EVPN, json_path,
+				      false);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -788,7 +789,7 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 						     json_path);
 			else
 				route_vty_out(vty, p, pi, 0, SAFI_EVPN,
-					      json_path, 0 /*wide*/);
+					      json_path, false);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -1314,7 +1315,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 					route_vty_out(vty,
 						      bgp_dest_get_prefix(rm),
 						      pi, no_display, SAFI_EVPN,
-						      json_array, 0 /*wide*/);
+						      json_array, false);
 				no_display = 1;
 			}
 
@@ -2813,7 +2814,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 						SAFI_EVPN, json_path);
 				} else
 					route_vty_out(vty, p, pi, 0, SAFI_EVPN,
-						      json_path, 0 /*wide*/);
+						      json_path, false);
 
 				if (json)
 					json_object_array_add(json_paths,

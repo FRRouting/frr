@@ -7466,7 +7466,7 @@ static void route_vty_out_route(const struct prefix *p, struct vty *vty,
 	}
 
 	if (!json) {
-		len = wide ? (45-len) : (20-len);
+		len = wide ? (45 - len) : (17 - len);
 		if (len < 1)
 			vty_out(vty, "\n%*s", 20, " ");
 		else
@@ -7598,7 +7598,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		if (!display)
 			route_vty_out_route(p, vty, json_path, wide);
 		else
-			vty_out(vty, "%*s", (wide ? 45 : 20), " ");
+			vty_out(vty, "%*s", (wide ? 45 : 17), " ");
 	} else {
 		route_vty_out_route(p, vty, json_path, wide);
 	}
@@ -7913,10 +7913,16 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
 		if (json_paths)
 			json_object_int_add(json_path, "metric", attr->med);
+		else if (wide)
+			vty_out(vty, "%7u", attr->med);
 		else
-			vty_out(vty, "%6u", attr->med);
-	else if (!json_paths)
-		vty_out(vty, "      ");
+			vty_out(vty, "%10u", attr->med);
+	else if (!json_paths) {
+		if (wide)
+			vty_out(vty, "%*s", 7, " ");
+		else
+			vty_out(vty, "%*s", 10, " ");
+	}
 
 	/* Local Pref */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
@@ -7926,7 +7932,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		else
 			vty_out(vty, "%7u", attr->local_pref);
 	else if (!json_paths)
-		vty_out(vty, "       ");
+		vty_out(vty, "%*s", 7, " ");
 
 	if (json_paths)
 		json_object_int_add(json_path, "weight", attr->weight);
@@ -8113,6 +8119,9 @@ void route_vty_out_tmp(struct vty *vty, const struct prefix *p,
 					vty_out(vty, "%-16s",
 						inet_ntoa(
 							attr->mp_nexthop_global_in));
+				else if (wide)
+					vty_out(vty, "%-41s",
+						inet_ntoa(attr->nexthop));
 				else
 					vty_out(vty, "%-16s",
 						inet_ntoa(attr->nexthop));
@@ -8125,7 +8134,7 @@ void route_vty_out_tmp(struct vty *vty, const struct prefix *p,
 					inet_ntop(AF_INET6,
 						  &attr->mp_nexthop_global, buf,
 						  BUFSIZ));
-				len = 16 - len;
+				len = wide ? (41 - len) : (16 - len);
 				if (len < 1)
 					vty_out(vty, "\n%*s", 36, " ");
 				else
@@ -8133,7 +8142,12 @@ void route_vty_out_tmp(struct vty *vty, const struct prefix *p,
 			}
 			if (attr->flag
 			    & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
-				vty_out(vty, "%10u", attr->med);
+				if (wide)
+					vty_out(vty, "%7u", attr->med);
+				else
+					vty_out(vty, "%10u", attr->med);
+			else if (wide)
+				vty_out(vty, "       ");
 			else
 				vty_out(vty, "          ");
 
@@ -8184,7 +8198,7 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 	/* print prefix and mask */
 	if (json == NULL) {
 		if (!display)
-			route_vty_out_route(p, vty, NULL, 0 /*wide*/);
+			route_vty_out_route(p, vty, NULL, false);
 		else
 			vty_out(vty, "%*s", 17, " ");
 	}
@@ -8281,7 +8295,7 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 
 	/* print prefix and mask */
 	if (!display)
-		route_vty_out_route(p, vty, json_path, 0 /*wide*/);
+		route_vty_out_route(p, vty, json_path, false);
 	else
 		vty_out(vty, "%*s", 17, " ");
 
@@ -8396,7 +8410,7 @@ static void damp_route_vty_out(struct vty *vty, const struct prefix *p,
 	/* print prefix and mask */
 	if (!use_json) {
 		if (!display)
-			route_vty_out_route(p, vty, NULL, 0 /*wide*/);
+			route_vty_out_route(p, vty, NULL, false);
 		else
 			vty_out(vty, "%*s", 17, " ");
 	}
@@ -8467,7 +8481,7 @@ static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
 	/* print prefix and mask */
 	if (!use_json) {
 		if (!display)
-			route_vty_out_route(p, vty, NULL, 0 /*wide*/);
+			route_vty_out_route(p, vty, NULL, false);
 		else
 			vty_out(vty, "%*s", 17, " ");
 	}
@@ -9936,7 +9950,7 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			prefix_rd2str(&prd, rd, sizeof(rd));
 			bgp_show_table(vty, bgp, safi, itable, type, output_arg,
 				       use_json, rd, next == NULL, &output_cum,
-				       &total_cum, &json_header_depth, 0);
+				       &total_cum, &json_header_depth, false);
 			if (next == NULL)
 				show_msg = false;
 		}
@@ -10509,8 +10523,8 @@ static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
 
 	return bgp_show(vty, bgp, afi, safi,
 			(exact ? bgp_show_type_lcommunity_exact
-			 : bgp_show_type_lcommunity),
-			lcom, uj, 0 /*wide*/);
+			       : bgp_show_type_lcommunity),
+			lcom, uj, false);
 }
 
 static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
@@ -10529,8 +10543,8 @@ static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
 
 	return bgp_show(vty, bgp, afi, safi,
 			(exact ? bgp_show_type_lcommunity_list_exact
-			 : bgp_show_type_lcommunity_list),
-			list, uj, 0 /*wide*/);
+			       : bgp_show_type_lcommunity_list),
+			list, uj, false);
 }
 
 DEFUN (show_ip_bgp_large_community_list,
@@ -10609,7 +10623,7 @@ DEFUN (show_ip_bgp_large_community,
 					exact_match, afi, safi, uj);
 	} else
 		return bgp_show(vty, bgp, afi, safi,
-				bgp_show_type_lcommunity_all, NULL, uj, 0 /*wide*/);
+				bgp_show_type_lcommunity_all, NULL, uj, false);
 }
 
 static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
@@ -10831,9 +10845,10 @@ DEFUN(show_ip_bgp, show_ip_bgp_cmd,
 }
 
 /* BGP route print out function with JSON */
-DEFUN (show_ip_bgp_json,
-       show_ip_bgp_json_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]\
+DEFUN(show_ip_bgp_json, show_ip_bgp_json_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
+      " [" BGP_SAFI_WITH_LABEL_CMD_STR
+      "]]\
           [cidr-only\
           |dampening <flap-statistics|dampened-paths>\
           |community [AA:NN|local-AS|no-advertise|no-export\
@@ -10842,35 +10857,29 @@ DEFUN (show_ip_bgp_json,
                      |route-filter-v4|route-filter-translated-v6\
                      |route-filter-translated-v4] [exact-match]\
           ] [json | wide]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
-       "Display only routes with non-natural netmasks\n"
-       "Display detailed information about dampening\n"
-       "Display flap statistics of routes\n"
-       "Display paths suppressed due to dampening\n"
-       "Display routes matching the communities\n"
-       COMMUNITY_AANN_STR
-       "Do not send outside local AS (well-known community)\n"
-       "Do not advertise to any peer (well-known community)\n"
-       "Do not export to next AS (well-known community)\n"
-       "Graceful shutdown (well-known community)\n"
-       "Do not export to any peer (well-known community)\n"
-       "Inform EBGP peers to blackhole traffic to prefix (well-known community)\n"
-       "Staled Long-lived Graceful Restart VPN route (well-known community)\n"
-       "Removed because Long-lived Graceful Restart was not enabled for VPN route (well-known community)\n"
-       "Should accept local VPN route if exported and imported into different VRF (well-known community)\n"
-       "Should accept VPN route with local nexthop (well-known community)\n"
-       "RT VPNv6 route filtering (well-known community)\n"
-       "RT VPNv4 route filtering (well-known community)\n"
-       "RT translated VPNv6 route filtering (well-known community)\n"
-       "RT translated VPNv4 route filtering (well-known community)\n"
-       "Exact match of the communities\n"
-       JSON_STR
-       "increase table width for longer prefixes\n")
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
+	      BGP_SAFI_WITH_LABEL_HELP_STR
+      "Display only routes with non-natural netmasks\n"
+      "Display detailed information about dampening\n"
+      "Display flap statistics of routes\n"
+      "Display paths suppressed due to dampening\n"
+      "Display routes matching the communities\n" COMMUNITY_AANN_STR
+      "Do not send outside local AS (well-known community)\n"
+      "Do not advertise to any peer (well-known community)\n"
+      "Do not export to next AS (well-known community)\n"
+      "Graceful shutdown (well-known community)\n"
+      "Do not export to any peer (well-known community)\n"
+      "Inform EBGP peers to blackhole traffic to prefix (well-known community)\n"
+      "Staled Long-lived Graceful Restart VPN route (well-known community)\n"
+      "Removed because Long-lived Graceful Restart was not enabled for VPN route (well-known community)\n"
+      "Should accept local VPN route if exported and imported into different VRF (well-known community)\n"
+      "Should accept VPN route with local nexthop (well-known community)\n"
+      "RT VPNv6 route filtering (well-known community)\n"
+      "RT VPNv4 route filtering (well-known community)\n"
+      "RT translated VPNv6 route filtering (well-known community)\n"
+      "RT translated VPNv4 route filtering (well-known community)\n"
+      "Exact match of the communities\n" JSON_STR
+      "Increase table width for longer prefixes\n")
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
@@ -10879,6 +10888,7 @@ DEFUN (show_ip_bgp_json,
 	int idx = 0;
 	int exact_match = 0;
 	bool uj = use_json(argc, argv);
+	bool wide = false;
 
 	if (uj)
 		argc--;
@@ -10890,16 +10900,17 @@ DEFUN (show_ip_bgp_json,
 
 	if (argv_find(argv, argc, "cidr-only", &idx))
 		return bgp_show(vty, bgp, afi, safi, bgp_show_type_cidr_only,
-				NULL, uj, 0);
+				NULL, uj, false);
 
 	if (argv_find(argv, argc, "dampening", &idx)) {
 		if (argv_find(argv, argc, "dampened-paths", &idx))
 			return bgp_show(vty, bgp, afi, safi,
-					bgp_show_type_dampend_paths, NULL, uj, 0);
+					bgp_show_type_dampend_paths, NULL, uj,
+					false);
 		else if (argv_find(argv, argc, "flap-statistics", &idx))
 			return bgp_show(vty, bgp, afi, safi,
-					bgp_show_type_flap_statistics, NULL,
-					uj, 0);
+					bgp_show_type_flap_statistics, NULL, uj,
+					false);
 	}
 
 	if (argv_find(argv, argc, "community", &idx)) {
@@ -10925,11 +10936,11 @@ DEFUN (show_ip_bgp_json,
 						  exact_match, afi, safi, uj);
 		else
 			return (bgp_show(vty, bgp, afi, safi,
-					 bgp_show_type_community_all, NULL,
-					 uj, 0 /*wide*/));
+					 bgp_show_type_community_all, NULL, uj,
+					 false));
 	}
 
-	bool wide = argv_find(argv, argc, "wide", &idx);
+	wide = argv_find(argv, argc, "wide", &idx);
 
 	return bgp_show(vty, bgp, afi, safi, sh_type, NULL, uj, wide);
 }
@@ -11042,22 +11053,19 @@ DEFUN (show_ip_bgp_regexp,
 				 bgp_show_type_regexp, uj);
 }
 
-DEFUN (show_ip_bgp_instance_all,
-       show_ip_bgp_instance_all_cmd,
-       "show [ip] bgp <view|vrf> all ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] [json | wide]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_ALL_HELP_STR
-       BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
-       JSON_STR)
+DEFUN(show_ip_bgp_instance_all, show_ip_bgp_instance_all_cmd,
+      "show [ip] bgp <view|vrf> all [" BGP_AFI_CMD_STR
+      " [" BGP_SAFI_WITH_LABEL_CMD_STR "]] [json | wide]",
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_ALL_HELP_STR BGP_AFI_HELP_STR
+	      BGP_SAFI_WITH_LABEL_HELP_STR JSON_STR
+      "Increase table width for longer prefixes\n")
 {
 	afi_t afi = AFI_IP;
 	safi_t safi = SAFI_UNICAST;
 	struct bgp *bgp = NULL;
 	int idx = 0;
 	bool uj = use_json(argc, argv);
+	bool wide = false;
 
 	if (uj)
 		argc--;
@@ -11067,7 +11075,7 @@ DEFUN (show_ip_bgp_instance_all,
 	if (!idx)
 		return CMD_WARNING;
 
-	bool wide = argv_find(argv, argc, "wide", &idx);
+	wide = argv_find(argv, argc, "wide", &idx);
 
 	bgp_show_all_instances_routes_vty(vty, afi, safi, uj, wide);
 	return CMD_SUCCESS;
@@ -11092,7 +11100,7 @@ static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
 		return CMD_WARNING;
 	}
 
-	rc = bgp_show(vty, bgp, afi, safi, type, regex, use_json, 0 /*wide*/);
+	rc = bgp_show(vty, bgp, afi, safi, type, regex, use_json, false);
 	bgp_regex_free(regex);
 	return rc;
 }
@@ -11110,7 +11118,7 @@ static int bgp_show_prefix_list(struct vty *vty, struct bgp *bgp,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, bgp, afi, safi, type, plist, 0, 0 /*wide*/);
+	return bgp_show(vty, bgp, afi, safi, type, plist, 0, false);
 }
 
 static int bgp_show_filter_list(struct vty *vty, struct bgp *bgp,
@@ -11126,7 +11134,7 @@ static int bgp_show_filter_list(struct vty *vty, struct bgp *bgp,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, bgp, afi, safi, type, as_list, 0, 0 /*wide*/);
+	return bgp_show(vty, bgp, afi, safi, type, as_list, 0, false);
 }
 
 static int bgp_show_route_map(struct vty *vty, struct bgp *bgp,
@@ -11141,7 +11149,7 @@ static int bgp_show_route_map(struct vty *vty, struct bgp *bgp,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, bgp, afi, safi, type, rmap, 0, 0 /*wide*/);
+	return bgp_show(vty, bgp, afi, safi, type, rmap, 0, false);
 }
 
 static int bgp_show_community(struct vty *vty, struct bgp *bgp,
@@ -11160,7 +11168,7 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 	ret = bgp_show(vty, bgp, afi, safi,
 		       (exact ? bgp_show_type_community_exact
 			      : bgp_show_type_community),
-		       com, use_json, 0 /*wide*/);
+		       com, use_json, false);
 	community_free(&com);
 
 	return ret;
@@ -11181,7 +11189,7 @@ static int bgp_show_community_list(struct vty *vty, struct bgp *bgp,
 	return bgp_show(vty, bgp, afi, safi,
 			(exact ? bgp_show_type_community_list_exact
 			       : bgp_show_type_community_list),
-			list, 0, 0 /*wide*/);
+			list, 0, false);
 }
 
 static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
@@ -11199,7 +11207,7 @@ static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
 		return CMD_WARNING;
 	}
 
-	ret = bgp_show(vty, bgp, afi, safi, type, p, 0, 0 /*wide*/);
+	ret = bgp_show(vty, bgp, afi, safi, type, p, 0, false);
 	prefix_free(&p);
 	return ret;
 }
@@ -12097,8 +12105,9 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 				}
 				if (header2) {
 					if (!use_json)
-						vty_out(vty, (wide ? BGP_SHOW_HEADER_WIDE 
-								   : BGP_SHOW_HEADER));
+						vty_out(vty,
+							(wide ? BGP_SHOW_HEADER_WIDE
+							      : BGP_SHOW_HEADER));
 					header2 = 0;
 				}
 
@@ -12202,7 +12211,8 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 					if (header2) {
 						if (!use_json)
 							vty_out(vty,
-								(wide ? BGP_SHOW_HEADER_WIDE : BGP_SHOW_HEADER));
+								(wide ? BGP_SHOW_HEADER_WIDE
+								      : BGP_SHOW_HEADER));
 						header2 = 0;
 					}
 
@@ -12300,26 +12310,23 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
-       show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map WORD] [json | wide]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on BGP configured interface\n"
-       "Display the routes advertised to a BGP neighbor\n"
-       "Display the received routes from neighbor\n"
-       "Display the filtered routes received from neighbor\n"
-       "Route-map to modify the attributes\n"
-       "Name of the route map\n"
-       JSON_STR
-       "increase table width for longer prefixes\n")
+DEFUN(show_ip_bgp_instance_neighbor_advertised_route,
+      show_ip_bgp_instance_neighbor_advertised_route_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
+      " [" BGP_SAFI_WITH_LABEL_CMD_STR
+      "]] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map WORD] [json | wide]",
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
+	      BGP_SAFI_WITH_LABEL_HELP_STR
+      "Detailed information on TCP and BGP neighbor connections\n"
+      "Neighbor to display information about\n"
+      "Neighbor to display information about\n"
+      "Neighbor on BGP configured interface\n"
+      "Display the routes advertised to a BGP neighbor\n"
+      "Display the received routes from neighbor\n"
+      "Display the filtered routes received from neighbor\n"
+      "Route-map to modify the attributes\n"
+      "Name of the route map\n" JSON_STR
+      "Increase table width for longer prefixes\n")
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
@@ -12330,6 +12337,7 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
 	enum bgp_show_adj_route_type type = bgp_show_adj_route_advertised;
 	int idx = 0;
 	bool uj = use_json(argc, argv);
+	bool wide = false;
 
 	if (uj)
 		argc--;
@@ -12357,7 +12365,7 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
 	if (argv_find(argv, argc, "route-map", &idx))
 		rmap_name = argv[++idx]->arg;
 
-	bool wide = argv_find(argv, argc, "wide", &idx);
+	wide = argv_find(argv, argc, "wide", &idx);
 
 	return peer_adj_routes(vty, peer, afi, safi, type, rmap_name, uj, wide);
 }
@@ -12467,7 +12475,8 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->su, use_json, 0);
+	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->su, use_json,
+			false);
 }
 
 DEFUN (show_ip_bgp_flowspec_routes_detailed,
@@ -12496,7 +12505,8 @@ DEFUN (show_ip_bgp_flowspec_routes_detailed,
 	if (!idx)
 		return CMD_WARNING;
 
-	return bgp_show(vty, bgp, afi, safi, bgp_show_type_detail, NULL, uj, 0);
+	return bgp_show(vty, bgp, afi, safi, bgp_show_type_detail, NULL, uj,
+			false);
 }
 
 DEFUN (show_ip_bgp_neighbor_routes,
