@@ -193,7 +193,8 @@ DEFPY(
 	 * none given (backward compatibility).
 	 */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list-legacy[number='%s']", number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
+		 number_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
@@ -213,7 +214,7 @@ DEFPY(
 		concat_addr_mask_v4(host_str, mask_str, ipmask, sizeof(ipmask));
 		nb_cli_enqueue_change(vty, "./network", NB_OP_MODIFY, ipmask);
 	} else {
-		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./source-any", NB_OP_CREATE, NULL);
 	}
 
 	return nb_cli_apply_changes(vty, xpath_entry);
@@ -244,7 +245,7 @@ DEFPY(
 	if (seq_str != NULL) {
 		snprintf(
 			xpath, sizeof(xpath),
-			"/frr-filter:lib/access-list-legacy[number='%s']/entry[sequence='%s']",
+			"/frr-filter:lib/access-list[type='ipv4'][name='%s']/entry[sequence='%s']",
 			number_str, seq_str);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
@@ -252,7 +253,8 @@ DEFPY(
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list-legacy[number='%s']", number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
+		 number_str);
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
@@ -308,7 +310,8 @@ DEFPY(
 	 * none given (backward compatibility).
 	 */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list-legacy[number='%s']", number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
+		 number_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
@@ -329,7 +332,7 @@ DEFPY(
 				    sizeof(ipmask));
 		nb_cli_enqueue_change(vty, "./network", NB_OP_MODIFY, ipmask);
 	} else {
-		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./source-any", NB_OP_CREATE, NULL);
 	}
 
 	if (dst_str != NULL && dst_mask_str == NULL) {
@@ -379,7 +382,7 @@ DEFPY(
 	if (seq_str != NULL) {
 		snprintfrr(
 			xpath, sizeof(xpath),
-			"/frr-filter:lib/access-list-legacy[number='%s']/entry[sequence='%s']",
+			"/frr-filter:lib/access-list[type='ipv4'][name='%s']/entry[sequence='%s']",
 			number_str, seq_str);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
@@ -387,7 +390,8 @@ DEFPY(
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list-legacy[number='%s']", number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
+		 number_str);
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
@@ -427,127 +431,6 @@ DEFPY(
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY(
-	no_access_list_legacy, no_access_list_legacy_cmd,
-	"no access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)>$number",
-	NO_STR
-	ACCESS_LIST_STR
-	ACCESS_LIST_XLEG_STR)
-{
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list-legacy[number='%s']", number_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void access_list_legacy_show(struct vty *vty, struct lyd_node *dnode,
-			     bool show_defaults)
-{
-	uint16_t number = yang_dnode_get_uint16(dnode, "../number");
-	bool extended;
-	struct prefix p;
-	struct in_addr mask;
-
-	vty_out(vty, "access-list %d seq %s %s", number,
-		yang_dnode_get_string(dnode, "./sequence"),
-		yang_dnode_get_string(dnode, "./action"));
-
-	extended = (number >= 100 && number <= 199)
-		   || (number >= 2000 && number <= 2699);
-	if (extended)
-		vty_out(vty, " ip");
-
-	if (yang_dnode_exists(dnode, "./network")) {
-		yang_dnode_get_prefix(&p, dnode, "./network");
-		masklen2ip(p.prefixlen, &mask);
-		vty_out(vty, " %pI4 %pI4", &p.u.prefix4, &mask);
-	} else if (yang_dnode_exists(dnode, "./host")) {
-		if (extended)
-			vty_out(vty, " host");
-
-		vty_out(vty, " %s", yang_dnode_get_string(dnode, "./host"));
-	} else if (yang_dnode_exists(dnode, "./any"))
-		vty_out(vty, " any");
-
-	if (extended) {
-		if (yang_dnode_exists(dnode, "./destination-network")) {
-			yang_dnode_get_prefix(&p, dnode,
-					      "./destination-network");
-			masklen2ip(p.prefixlen, &mask);
-			vty_out(vty, " %pI4 %pI4", &p.u.prefix4, &mask);
-		} else if (yang_dnode_exists(dnode, "./destination-host"))
-			vty_out(vty, " host %s",
-				yang_dnode_get_string(dnode,
-						      "./destination-host"));
-		else if (yang_dnode_exists(dnode, "./destination-any"))
-			vty_out(vty, " any");
-	}
-
-	vty_out(vty, "\n");
-}
-
-DEFPY(
-	access_list_legacy_remark, access_list_legacy_remark_cmd,
-	"access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)>$number remark LINE...",
-	ACCESS_LIST_STR
-	ACCESS_LIST_XLEG_STR
-	ACCESS_LIST_REMARK_STR
-	ACCESS_LIST_REMARK_LINE_STR)
-{
-	int rv;
-	char *remark;
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list-legacy[number='%s']", number_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-
-	remark = argv_concat(argv, argc, 3);
-	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes(vty, xpath);
-	XFREE(MTYPE_TMP, remark);
-
-	return rv;
-}
-
-DEFPY(
-	no_access_list_legacy_remark, no_access_list_legacy_remark_cmd,
-	"no access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)>$number remark",
-	NO_STR
-	ACCESS_LIST_STR
-	ACCESS_LIST_XLEG_STR
-	ACCESS_LIST_REMARK_STR)
-{
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list-legacy[number='%s']/remark",
-		 number_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-ALIAS(
-	no_access_list_legacy_remark, no_access_list_legacy_remark_line_cmd,
-	"no access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)>$number remark LINE...",
-	NO_STR
-	ACCESS_LIST_STR
-	ACCESS_LIST_XLEG_STR
-	ACCESS_LIST_REMARK_STR
-	ACCESS_LIST_REMARK_LINE_STR)
-
-void access_list_legacy_remark_show(struct vty *vty, struct lyd_node *dnode,
-				    bool show_defaults)
-{
-	vty_out(vty, "access-list %s remark %s\n",
-		yang_dnode_get_string(dnode, "../number"),
-		yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -1077,6 +960,9 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 	struct prefix p;
 	bool is_any;
 	bool is_exact = false;
+	bool cisco_style = false;
+	bool cisco_extended = false;
+	struct in_addr mask;
 	char macstr[PREFIX2STR_BUFFER];
 
 	is_any = yang_dnode_exists(dnode, "./any");
@@ -1085,8 +971,19 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 		if (is_any)
 			break;
 
-		yang_dnode_get_prefix(&p, dnode, "./ipv4-prefix");
-		is_exact = yang_dnode_get_bool(dnode, "./ipv4-exact-match");
+		if (yang_dnode_exists(dnode, "./host")
+		    || yang_dnode_exists(dnode, "./network")
+		    || yang_dnode_exists(dnode, "./source-any")) {
+			cisco_style = true;
+			if (yang_dnode_exists(dnode, "./destination-host")
+			    || yang_dnode_exists(dnode, "./destination-network")
+			    || yang_dnode_exists(dnode, "./destination-any"))
+				cisco_extended = true;
+		} else {
+			yang_dnode_get_prefix(&p, dnode, "./ipv4-prefix");
+			is_exact = yang_dnode_get_bool(dnode,
+						       "./ipv4-exact-match");
+		}
 		break;
 	case YALT_IPV6: /* ipv6 */
 		vty_out(vty, "ipv6 ");
@@ -1110,6 +1007,48 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "./sequence"),
 		yang_dnode_get_string(dnode, "./action"));
 
+	/* Handle Cisco style access lists. */
+	if (cisco_style) {
+		if (cisco_extended)
+			vty_out(vty, " ip");
+
+		if (yang_dnode_exists(dnode, "./network")) {
+			yang_dnode_get_prefix(&p, dnode, "./network");
+			masklen2ip(p.prefixlen, &mask);
+			vty_out(vty, " %pI4 %pI4", &p.u.prefix4, &mask);
+		} else if (yang_dnode_exists(dnode, "./host")) {
+			if (cisco_extended)
+				vty_out(vty, " host");
+
+			vty_out(vty, " %s",
+				yang_dnode_get_string(dnode, "./host"));
+		} else if (yang_dnode_exists(dnode, "./source-any"))
+			vty_out(vty, " any");
+
+		/* Not extended, exit earlier. */
+		if (!cisco_extended) {
+			vty_out(vty, "\n");
+			return;
+		}
+
+		/* Handle destination address. */
+		if (yang_dnode_exists(dnode, "./destination-network")) {
+			yang_dnode_get_prefix(&p, dnode,
+					      "./destination-network");
+			masklen2ip(p.prefixlen, &mask);
+			vty_out(vty, " %pI4 %pI4", &p.u.prefix4, &mask);
+		} else if (yang_dnode_exists(dnode, "./destination-host"))
+			vty_out(vty, " host %s",
+				yang_dnode_get_string(dnode,
+						      "./destination-host"));
+		else if (yang_dnode_exists(dnode, "./destination-any"))
+			vty_out(vty, " any");
+
+		vty_out(vty, "\n");
+		return;
+	}
+
+	/* Zebra style access list. */
 	if (!is_any) {
 		/* If type is MAC don't show '/mask'. */
 		if (type == 2 /* mac */) {
@@ -1648,10 +1587,6 @@ void filter_cli_init(void)
 	install_element(CONFIG_NODE, &no_access_list_std_cmd);
 	install_element(CONFIG_NODE, &access_list_ext_cmd);
 	install_element(CONFIG_NODE, &no_access_list_ext_cmd);
-	install_element(CONFIG_NODE, &no_access_list_legacy_cmd);
-	install_element(CONFIG_NODE, &access_list_legacy_remark_cmd);
-	install_element(CONFIG_NODE, &no_access_list_legacy_remark_cmd);
-	install_element(CONFIG_NODE, &no_access_list_legacy_remark_line_cmd);
 
 	/* access-list zebra-style. */
 	install_element(CONFIG_NODE, &access_list_cmd);

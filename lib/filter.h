@@ -170,11 +170,6 @@ enum yang_prefix_list_action {
 struct lyd_node;
 struct vty;
 
-extern void access_list_legacy_show(struct vty *vty, struct lyd_node *dnode,
-				    bool show_defaults);
-extern void access_list_legacy_remark_show(struct vty *vty,
-					   struct lyd_node *dnode,
-					   bool show_defaults);
 extern void access_list_show(struct vty *vty, struct lyd_node *dnode,
 			     bool show_defaults);
 extern void access_list_remark_show(struct vty *vty, struct lyd_node *dnode,
