@@ -124,7 +124,7 @@ enum nhrp_notify_type {
 
 struct nhrp_vc {
 	struct notifier_list notifier_list;
-	uint8_t ipsec;
+	uint32_t ipsec;
 	uint8_t updating;
 	uint8_t abort_migration;
 
