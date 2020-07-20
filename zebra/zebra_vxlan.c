@@ -1380,6 +1380,9 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 						thread_buf,
 						sizeof(thread_buf),
 						mac->hold_timer));
+		if (mac->es)
+			json_object_string_add(json_mac, "esi",
+					mac->es->esi_str);
 		/* print all the associated neigh */
 		if (!listcount(mac->neigh_list))
 			json_object_string_add(json_mac, "neighbors", "none");
