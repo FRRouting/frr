@@ -242,6 +242,7 @@ pkginclude_HEADERS += \
 	lib/sockunion.h \
 	lib/spf_backoff.h \
 	lib/srcdest_table.h \
+	lib/srte.h \
 	lib/stream.h \
 	lib/systemd.h \
 	lib/table.h \

@@ -37,6 +37,7 @@
 #include "pw.h"
 
 #include "mlag.h"
+#include "srte.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -88,6 +89,8 @@ enum zserv_client_capabilities {
 
 /* Macro to check if there GR enabled. */
 #define ZEBRA_CLIENT_GR_ENABLED(X) (X == ZEBRA_CLIENT_GR_CAPABILITIES)
+
+#define ZEBRA_SR_POLICY_NAME_MAX_LENGTH 100
 
 extern struct sockaddr_storage zclient_addr;
 extern socklen_t zclient_addr_len;
@@ -143,6 +146,9 @@ typedef enum {
 	ZEBRA_MPLS_LABELS_ADD,
 	ZEBRA_MPLS_LABELS_DELETE,
 	ZEBRA_MPLS_LABELS_REPLACE,
+	ZEBRA_SR_POLICY_SET,
+	ZEBRA_SR_POLICY_DELETE,
+	ZEBRA_SR_POLICY_NOTIFY_STATUS,
 	ZEBRA_IPMR_ROUTE_STATS,
 	ZEBRA_LABEL_MANAGER_CONNECT,
 	ZEBRA_LABEL_MANAGER_CONNECT_ASYNC,
@@ -351,6 +357,7 @@ struct zclient {
 	int (*opaque_msg_handler)(ZAPI_CALLBACK_ARGS);
 	int (*opaque_register_handler)(ZAPI_CALLBACK_ARGS);
 	int (*opaque_unregister_handler)(ZAPI_CALLBACK_ARGS);
+	int (*sr_policy_notify_status)(ZAPI_CALLBACK_ARGS);
 };
 
 /* Zebra API message flag. */
@@ -368,7 +375,8 @@ struct zclient {
  * the table being used is not in the VRF.  You must pass the
  * default vrf, else this will be ignored.
  */
-#define ZAPI_MESSAGE_TABLEID  0x80
+#define ZAPI_MESSAGE_TABLEID 0x0080
+#define ZAPI_MESSAGE_SRTE 0x0100
 
 #define ZSERV_VERSION 6
 /* Zserv protocol message header */
@@ -403,6 +411,9 @@ struct zapi_nexthop {
 	/* Backup nexthops, for IP-FRR, TI-LFA, etc */
 	uint8_t backup_num;
 	uint8_t backup_idx[NEXTHOP_MAX_BACKUPS];
+
+	/* SR-TE color. */
+	uint32_t srte_color;
 };
 
 /*
@@ -465,7 +476,7 @@ struct zapi_route {
 #define ZEBRA_FLAG_RR_USE_DISTANCE    0x40
 
 	/* The older XXX_MESSAGE flags live here */
-	uint8_t message;
+	uint32_t message;
 
 	/*
 	 * This is an enum but we are going to treat it as a uint8_t
@@ -494,6 +505,9 @@ struct zapi_route {
 	vrf_id_t vrf_id;
 
 	uint32_t tableid;
+
+	/* SR-TE color (used for nexthop updates only). */
+	uint32_t srte_color;
 };
 
 struct zapi_labels {
@@ -514,6 +528,21 @@ struct zapi_labels {
 	/* Backup nexthops, if present */
 	uint16_t backup_nexthop_num;
 	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
+};
+
+struct zapi_srte_tunnel {
+	enum lsp_types_t type;
+	mpls_label_t local_label;
+	uint8_t label_num;
+	mpls_label_t labels[MPLS_MAX_LABELS];
+};
+
+struct zapi_sr_policy {
+	uint32_t color;
+	struct ipaddr endpoint;
+	char name[SRTE_POLICY_NAME_MAX_LENGTH];
+	struct zapi_srte_tunnel segment_list;
+	int status;
 };
 
 struct zapi_pw {
@@ -775,6 +804,14 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
 
+extern int zebra_send_sr_policy(struct zclient *zclient, int cmd,
+				struct zapi_sr_policy *zp);
+extern int zapi_sr_policy_encode(struct stream *s, int cmd,
+				 struct zapi_sr_policy *zp);
+extern int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp);
+extern int zapi_sr_policy_notify_status_decode(struct stream *s,
+					       struct zapi_sr_policy *zp);
+
 extern int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
 				  struct zapi_labels *zl);
 extern int zapi_labels_encode(struct stream *s, int cmd,
@@ -791,7 +828,7 @@ extern int zclient_send_rnh(struct zclient *zclient, int command,
 			    const struct prefix *p, bool exact_match,
 			    vrf_id_t vrf_id);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
-			uint32_t api_flags);
+			uint32_t api_flags, uint32_t api_message);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,

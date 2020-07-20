@@ -25,6 +25,8 @@
 
 #include <zebra.h>
 
+#include "lib/log.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -58,6 +60,18 @@ struct ipaddr {
 
 #define IPADDRSZ(p)                                                            \
 	(IS_IPADDR_V4((p)) ? sizeof(struct in_addr) : sizeof(struct in6_addr))
+
+static inline int ipaddr_family(const struct ipaddr *ip)
+{
+	switch (ip->ipa_type) {
+	case IPADDR_V4:
+		return AF_INET;
+	case IPADDR_V6:
+		return AF_INET6;
+	default:
+		return AF_UNSPEC;
+	}
+}
 
 static inline int str2ipaddr(const char *str, struct ipaddr *ip)
 {

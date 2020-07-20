@@ -98,6 +98,7 @@ struct nexthop {
 					  */
 #define NEXTHOP_FLAG_RNH_FILTERED  (1 << 5) /* rmap filtered, used by rnh */
 #define NEXTHOP_FLAG_HAS_BACKUP (1 << 6)    /* Backup nexthop index is set */
+#define NEXTHOP_FLAG_SRTE       (1 << 7) /* SR-TE color used for BGP traffic */
 
 #define NEXTHOP_IS_ACTIVE(flags)                                               \
 	(CHECK_FLAG(flags, NEXTHOP_FLAG_ACTIVE)                                \
@@ -141,6 +142,9 @@ struct nexthop {
 	union {
 		vni_t vni;
 	} nh_encap;
+
+	/* SR-TE color used for matching SR-TE policies */
+	uint32_t srte_color;
 };
 
 /* Utility to append one nexthop to another. */

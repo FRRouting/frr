@@ -33,6 +33,7 @@
 #include "mpls.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
+#include "hook.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -326,6 +327,11 @@ int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		     const union g_addr *gate, ifindex_t ifindex);
 
 /*
+ * Lookup LSP by its input label.
+ */
+zebra_lsp_t *mpls_lsp_find(struct zebra_vrf *zvrf, mpls_label_t in_label);
+
+/*
  * Uninstall a particular NHLFE in the forwarding table. If this is
  * the only NHLFE, the entire LSP forwarding entry has to be deleted.
  */
@@ -461,6 +467,7 @@ static inline uint8_t lsp_distance(enum lsp_types_t type)
 	case ZEBRA_LSP_SHARP:
 	case ZEBRA_LSP_OSPF_SR:
 	case ZEBRA_LSP_ISIS_SR:
+	case ZEBRA_LSP_SRTE:
 		return 150;
 	}
 
@@ -492,6 +499,8 @@ static inline enum lsp_types_t lsp_type_from_re_type(int re_type)
 		return ZEBRA_LSP_ISIS_SR;
 	case ZEBRA_ROUTE_SHARP:
 		return ZEBRA_LSP_SHARP;
+	case ZEBRA_ROUTE_SRTE:
+		return ZEBRA_LSP_SRTE;
 	default:
 		return ZEBRA_LSP_NONE;
 	}
@@ -517,6 +526,8 @@ static inline int re_type_from_lsp_type(enum lsp_types_t lsp_type)
 		return ZEBRA_ROUTE_KERNEL;
 	case ZEBRA_LSP_SHARP:
 		return ZEBRA_ROUTE_SHARP;
+	case ZEBRA_LSP_SRTE:
+		return ZEBRA_ROUTE_SRTE;
 	}
 
 	/*
@@ -544,6 +555,8 @@ static inline const char *nhlfe_type2str(enum lsp_types_t lsp_type)
 		return "SR (IS-IS)";
 	case ZEBRA_LSP_SHARP:
 		return "SHARP";
+	case ZEBRA_LSP_SRTE:
+		return "SR-TE";
 	case ZEBRA_LSP_NONE:
 		return "Unknown";
 	}
