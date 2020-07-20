@@ -10845,10 +10845,9 @@ DEFUN(show_ip_bgp, show_ip_bgp_cmd,
 }
 
 /* BGP route print out function with JSON */
-DEFUN(show_ip_bgp_json, show_ip_bgp_json_cmd,
-      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
-      " [" BGP_SAFI_WITH_LABEL_CMD_STR
-      "]]\
+DEFUN (show_ip_bgp_json,
+       show_ip_bgp_json_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]\
           [cidr-only\
           |dampening <flap-statistics|dampened-paths>\
           |community [AA:NN|local-AS|no-advertise|no-export\
@@ -10857,29 +10856,33 @@ DEFUN(show_ip_bgp_json, show_ip_bgp_json_cmd,
                      |route-filter-v4|route-filter-translated-v6\
                      |route-filter-translated-v4] [exact-match]\
           ] [json | wide]",
-      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
-	      BGP_SAFI_WITH_LABEL_HELP_STR
-      "Display only routes with non-natural netmasks\n"
-      "Display detailed information about dampening\n"
-      "Display flap statistics of routes\n"
-      "Display paths suppressed due to dampening\n"
-      "Display routes matching the communities\n" COMMUNITY_AANN_STR
-      "Do not send outside local AS (well-known community)\n"
-      "Do not advertise to any peer (well-known community)\n"
-      "Do not export to next AS (well-known community)\n"
-      "Graceful shutdown (well-known community)\n"
-      "Do not export to any peer (well-known community)\n"
-      "Inform EBGP peers to blackhole traffic to prefix (well-known community)\n"
-      "Staled Long-lived Graceful Restart VPN route (well-known community)\n"
-      "Removed because Long-lived Graceful Restart was not enabled for VPN route (well-known community)\n"
-      "Should accept local VPN route if exported and imported into different VRF (well-known community)\n"
-      "Should accept VPN route with local nexthop (well-known community)\n"
-      "RT VPNv6 route filtering (well-known community)\n"
-      "RT VPNv4 route filtering (well-known community)\n"
-      "RT translated VPNv6 route filtering (well-known community)\n"
-      "RT translated VPNv4 route filtering (well-known community)\n"
-      "Exact match of the communities\n" JSON_STR
-      "Increase table width for longer prefixes\n")
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       BGP_AFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
+       "Display only routes with non-natural netmasks\n"
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n"
+       "Display paths suppressed due to dampening\n"
+       "Display routes matching the communities\n" COMMUNITY_AANN_STR
+       "Do not send outside local AS (well-known community)\n"
+       "Do not advertise to any peer (well-known community)\n"
+       "Do not export to next AS (well-known community)\n"
+       "Graceful shutdown (well-known community)\n"
+       "Do not export to any peer (well-known community)\n"
+       "Inform EBGP peers to blackhole traffic to prefix (well-known community)\n"
+       "Staled Long-lived Graceful Restart VPN route (well-known community)\n"
+       "Removed because Long-lived Graceful Restart was not enabled for VPN route (well-known community)\n"
+       "Should accept local VPN route if exported and imported into different VRF (well-known community)\n"
+       "Should accept VPN route with local nexthop (well-known community)\n"
+       "RT VPNv6 route filtering (well-known community)\n"
+       "RT VPNv4 route filtering (well-known community)\n"
+       "RT translated VPNv6 route filtering (well-known community)\n"
+       "RT translated VPNv4 route filtering (well-known community)\n"
+       "Exact match of the communities\n" JSON_STR
+       "Increase table width for longer prefixes\n")
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
@@ -10898,19 +10901,21 @@ DEFUN(show_ip_bgp_json, show_ip_bgp_json_cmd,
 	if (!idx)
 		return CMD_WARNING;
 
+	wide = argv_find(argv, argc, "wide", &idx);
+
 	if (argv_find(argv, argc, "cidr-only", &idx))
 		return bgp_show(vty, bgp, afi, safi, bgp_show_type_cidr_only,
-				NULL, uj, false);
+				NULL, uj, wide);
 
 	if (argv_find(argv, argc, "dampening", &idx)) {
 		if (argv_find(argv, argc, "dampened-paths", &idx))
 			return bgp_show(vty, bgp, afi, safi,
 					bgp_show_type_dampend_paths, NULL, uj,
-					false);
+					wide);
 		else if (argv_find(argv, argc, "flap-statistics", &idx))
 			return bgp_show(vty, bgp, afi, safi,
 					bgp_show_type_flap_statistics, NULL, uj,
-					false);
+					wide);
 	}
 
 	if (argv_find(argv, argc, "community", &idx)) {
@@ -10939,8 +10944,6 @@ DEFUN(show_ip_bgp_json, show_ip_bgp_json_cmd,
 					 bgp_show_type_community_all, NULL, uj,
 					 false));
 	}
-
-	wide = argv_find(argv, argc, "wide", &idx);
 
 	return bgp_show(vty, bgp, afi, safi, sh_type, NULL, uj, wide);
 }
@@ -11053,11 +11056,16 @@ DEFUN (show_ip_bgp_regexp,
 				 bgp_show_type_regexp, uj);
 }
 
-DEFUN(show_ip_bgp_instance_all, show_ip_bgp_instance_all_cmd,
-      "show [ip] bgp <view|vrf> all [" BGP_AFI_CMD_STR
-      " [" BGP_SAFI_WITH_LABEL_CMD_STR "]] [json | wide]",
-      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_ALL_HELP_STR BGP_AFI_HELP_STR
-	      BGP_SAFI_WITH_LABEL_HELP_STR JSON_STR
+DEFUN (show_ip_bgp_instance_all,
+       show_ip_bgp_instance_all_cmd,
+       "show [ip] bgp <view|vrf> all ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] [json | wide]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_ALL_HELP_STR
+       BGP_AFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
+       JSON_STR
       "Increase table width for longer prefixes\n")
 {
 	afi_t afi = AFI_IP;
@@ -12312,7 +12320,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map WORD] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map WORD] [json | wide]",
        SHOW_STR
        IP_STR
        BGP_STR
