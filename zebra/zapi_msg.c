@@ -2001,6 +2001,56 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 }
 
 /*
+ * Validate incoming zapi mpls lsp / labels message
+ */
+static int zapi_labels_validate(const struct zapi_labels *zl)
+{
+	int ret = -1;
+	int i, j, idx;
+	uint32_t bits[8];
+	uint32_t ival;
+	const struct zapi_nexthop *znh;
+
+	/* Validate backup info: no duplicates for a single primary */
+	if (zl->backup_nexthop_num == 0) {
+		ret = 0;
+		goto done;
+	}
+
+	for (j = 0; j < zl->nexthop_num; j++) {
+		znh = &zl->nexthops[j];
+
+		memset(bits, 0, sizeof(bits));
+
+		for (i = 0; i < znh->backup_num; i++) {
+			idx = znh->backup_idx[i] / 32;
+
+			ival = 1 << znh->backup_idx[i] % 32;
+
+			/* Check whether value is already used */
+			if (ival & bits[idx]) {
+				/* Fail */
+
+				if (IS_ZEBRA_DEBUG_RECV)
+					zlog_debug("%s: invalid zapi mpls message: duplicate backup nexthop index %d",
+						   __func__,
+						   znh->backup_idx[i]);
+				goto done;
+			}
+
+			/* Mark index value */
+			bits[idx] |= ival;
+		}
+	}
+
+	ret = 0;
+
+done:
+
+	return ret;
+}
+
+/*
  * Handle request to create an MPLS LSP.
  *
  * A single message can fully specify an LSP with multiple nexthops.
@@ -2024,6 +2074,10 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 	}
 
 	if (!mpls_enabled)
+		return;
+
+	/* Validate; will debug on failure */
+	if (zapi_labels_validate(&zl) < 0)
 		return;
 
 	ret = mpls_zapi_labels_process(true, zvrf, &zl);
@@ -2105,6 +2159,10 @@ static void zread_mpls_labels_replace(ZAPI_HANDLER_ARGS)
 	}
 
 	if (!mpls_enabled)
+		return;
+
+	/* Validate; will debug on failure */
+	if (zapi_labels_validate(&zl) < 0)
 		return;
 
 	/* This removes everything, then re-adds from the client's
