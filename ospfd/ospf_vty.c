@@ -1177,9 +1177,9 @@ DEFUN (no_ospf_area_vlink,
        "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication [<message-digest|null>]] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
        NO_STR
        VLINK_HELPSTR_IPADDR
-       "Enable authentication on this virtual link\n" \
-       "Use message-digest authentication\n" \
-       "Use null authentication\n" \
+       "Enable authentication on this virtual link\n"
+       "Use message-digest authentication\n"
+       "Use null authentication\n"
        VLINK_HELPSTR_AUTH_MD5
        VLINK_HELPSTR_AUTH_SIMPLE)
 {
