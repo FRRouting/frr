@@ -112,6 +112,40 @@ def test_converge_protocols():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+def run_one_setup(r1, s):
+    "Run one ecmp config"
+
+    # Extract params
+    expected_installed = s['expect_in']
+    expected_removed = s['expect_rem']
+
+    count = s['count']
+    wait = s['wait']
+
+    logger.info("Testing 1 million routes X {} ecmp".format(s['ecmp']))
+
+    r1.vtysh_cmd("sharp install route 1.0.0.0 \
+                  nexthop-group {} 1000000".format(s['nhg']),
+                 isjson=False)
+
+    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_installed)
+    success, result = topotest.run_and_expect(test_func, None, count, wait)
+    assert success, "Route scale test install failed:\n{}".format(result)
+
+    output = r1.vtysh_cmd("sharp data route", isjson=False)
+    logger.info("1 million routes X {} ecmp installed".format(s['ecmp']))
+    logger.info(output)
+    r1.vtysh_cmd("sharp remove route 1.0.0.0 1000000", isjson=False)
+    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_removed)
+    success, result = topotest.run_and_expect(test_func, None, count, wait)
+    assert success, "Route scale test remove failed:\n{}".format(result)
+
+    output = r1.vtysh_cmd("sharp data route", isjson=False)
+    logger.info("1 million routes x {} ecmp removed".format(
+        s['ecmp']))
+    logger.info(output)
+
+
 def test_route_install():
     "Test route install for a variety of ecmp"
 
@@ -126,85 +160,47 @@ def test_route_install():
     removed_file = "{}/r1/no.routes.json".format(CWD)
     expected_removed = json.loads(open(removed_file).read())
 
+    # dict keys of params: ecmp number, corresponding nhg name, timeout,
+    # number of times to wait
+    scale_keys = ['ecmp', 'nhg', 'wait', 'count', 'expect_in', 'expect_rem']
+
+    # Table of defaults, used for timeout values and 'expected' objects
+    scale_defaults = dict(zip(scale_keys, [None, None, 7, 30,
+                                           expected_installed,
+                                           expected_removed]))
+
+    # List of params for each step in the test; note extra time given
+    # for the highest ecmp steps. Executing 'show' at scale can be costly
+    # so we widen the interval there too.
+    scale_steps = [
+        [1, 'one'], [2, 'two'], [4, 'four'],
+        [8, 'eight'], [16, 'sixteen', 10, 40], [32, 'thirtytwo', 10, 40]
+    ]
+
+    # Build up a list of dicts with params for each step of the test;
+    # use defaults where the step doesn't supply a value
+    scale_setups = []
+    for s in scale_steps:
+        d = dict(zip(scale_keys, s))
+        for k in scale_keys:
+            if k not in d:
+                d[k] = scale_defaults[k]
+
+        scale_setups.append(d)
+
+    # Run each step using the dicts we've built
     r1 = tgen.gears["r1"]
 
-    r1.vtysh_cmd("sharp install route 1.0.0.0 nexthop-group one 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_installed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes X 1 ecmp installed")
-    logger.info(output)
-    r1.vtysh_cmd("sharp remove route 1.0.0.0 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_removed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes x 1 ecmp removed")
-    logger.info(output)
+    for s in scale_setups:
+        run_one_setup(r1, s)
 
-    r1.vtysh_cmd("sharp install route 1.0.0.0 nexthop-group two 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_installed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes X 2 ecmp installed")
-    logger.info(output)
-    r1.vtysh_cmd("sharp remove route 1.0.0.0 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_removed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes x 2 ecmp removed")
-    logger.info(output)
-
-    r1.vtysh_cmd("sharp install route 1.0.0.0 nexthop-group four 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_installed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes X 4 ecmp installed")
-    logger.info(output)
-    r1.vtysh_cmd("sharp remove route 1.0.0.0 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_removed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes x 4 ecmp removed")
-    logger.info(output)
-
-    r1.vtysh_cmd("sharp install route 1.0.0.0 nexthop-group eight 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_installed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes X 8 ecmp installed")
-    logger.info(output)
-    r1.vtysh_cmd("sharp remove route 1.0.0.0 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_removed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes x 8 ecmp removed")
-    logger.info(output)
-
-    r1.vtysh_cmd("sharp install route 1.0.0.0 nexthop-group sixteen 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_installed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes X 16 ecmp installed")
-    logger.info(output)
-    r1.vtysh_cmd("sharp remove route 1.0.0.0 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_removed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes x 16 ecmp removed")
-    logger.info(output)
-
-    r1.vtysh_cmd("sharp install route 1.0.0.0 nexthop-group thirtytwo 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_installed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes X 32 ecmp installed")
-    logger.info(output)
-    r1.vtysh_cmd("sharp remove route 1.0.0.0 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_removed)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=5)
-    output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes x 32 ecmp removed")
-    logger.info(output)
+# Mem leak testcase
+def test_memory_leak():
+    "Run the memory leak test and report results."
+    tgen = get_topogen()
+    if not tgen.is_memleak_enabled():
+        pytest.skip("Memory leak test/report is disabled")
+    tgen.report_memory_leaks()
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
