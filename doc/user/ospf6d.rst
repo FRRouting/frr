@@ -20,8 +20,11 @@ OSPF6 router
 
    Set router's Router-ID.
 
-.. index:: interface IFNAME area AREA
-.. clicmd:: interface IFNAME area AREA
+.. index:: interface IFNAME area (0-4294967295)
+.. clicmd:: interface IFNAME area (0-4294967295)
+
+.. index:: interface IFNAME area A.B.C.D
+.. clicmd:: interface IFNAME area A.B.C.D
 
    Bind interface to specified area, and start sending OSPF packets. `area` can
    be specified as 0.
