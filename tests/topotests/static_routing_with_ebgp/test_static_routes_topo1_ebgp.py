@@ -703,6 +703,7 @@ def test_static_route_2nh_admin_dist_p0_tc_2_ebgp(request):
                     {
                         "network": NETWORK[addr_type],
                         "next_hop": NEXT_HOP_IP["nh1"][addr_type],
+                        "admin_distance": 10,
                         "delete": True,
                     }
                 ]
@@ -789,6 +790,7 @@ def test_static_route_2nh_admin_dist_p0_tc_2_ebgp(request):
                     {
                         "network": NETWORK[addr_type],
                         "next_hop": NEXT_HOP_IP["nh2"][addr_type],
+                        "admin_distance": 20,
                         "delete": True,
                     }
                 ]
