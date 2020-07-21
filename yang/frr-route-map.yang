@@ -6,14 +6,17 @@ module frr-route-map {
   import ietf-inet-types {
     prefix inet;
   }
+
   import frr-filter {
     prefix filter;
   }
+
   import frr-interface {
     prefix frr-interface;
   }
 
-  organization "FRRouting";
+  organization
+    "FRRouting";
   contact
     "FRR Users List:       <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
@@ -46,22 +49,25 @@ module frr-route-map {
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   revision 2019-07-01 {
-    description "Initial revision";
+    description
+      "Initial revision";
   }
 
   /*
    * Types.
    */
   typedef route-map-sequence {
-    description "Route map valid sequence numbers";
     type uint16 {
       range "1..65535";
     }
+    description
+      "Route map valid sequence numbers";
   }
 
   typedef route-map-name {
-    description "Route map name format";
     type string;
+    description
+      "Route map name format";
   }
 
   typedef route-map-ref {
@@ -78,20 +84,19 @@ module frr-route-map {
    */
   container lib {
     list route-map {
-      description "Route map instance";
-
       key "name";
-
+      description
+        "Route map instance";
       leaf name {
-        description "Route map instance name";
         type route-map-name;
+        description
+          "Route map instance name";
       }
 
       list entry {
-        description "Route map entry";
-
         key "sequence";
-
+        description
+          "Route map entry";
         leaf sequence {
           description
             "Route map instance priority (low number means higher priority)";
@@ -163,10 +168,9 @@ module frr-route-map {
         }
 
         list match-condition {
-          description "Route map match conditions";
-
           key "condition";
-
+          description
+            "Route map match conditions";
           leaf condition {
             description "Match condition";
             type enumeration {
@@ -248,6 +252,7 @@ module frr-route-map {
                 type string;
               }
             }
+
             case list-name {
               when "./condition = 'ipv4-address-list' or
                     ./condition = 'ipv4-prefix-list' or
@@ -259,6 +264,7 @@ module frr-route-map {
                 type filter:access-list-name;
               }
             }
+
             case ipv4-next-hop-type {
               when "./condition = 'ipv4-next-hop-type'";
               leaf ipv4-next-hop-type {
@@ -269,6 +275,7 @@ module frr-route-map {
                 }
               }
             }
+
             case ipv6-next-hop-type {
               when "./condition = 'ipv6-next-hop-type'";
               leaf ipv6-next-hop-type {
@@ -279,6 +286,7 @@ module frr-route-map {
                 }
               }
             }
+
             case metric {
               when "./condition = 'metric'";
               leaf metric {
@@ -287,6 +295,7 @@ module frr-route-map {
                 }
               }
             }
+
             case tag {
               when "./condition = 'tag'";
               leaf tag {
@@ -340,6 +349,7 @@ module frr-route-map {
                 type inet:ipv4-address;
               }
             }
+
             case ipv6-address {
               when "./action = 'ipv6-next-hop'";
               leaf ipv6-address {
@@ -347,6 +357,7 @@ module frr-route-map {
                 type inet:ipv6-address;
               }
             }
+
             case metric {
               when "./action = 'metric'";
               choice metric-value {
@@ -359,30 +370,35 @@ module frr-route-map {
                     }
                   }
                 }
+
                 case add-metric {
                   leaf add-metric {
                     description "Add unit to metric";
                     type boolean;
                   }
                 }
+
                 case subtract-metric {
                   leaf subtract-metric {
                     description "Subtract unit from metric";
                     type boolean;
                   }
                 }
+
                 case use-round-trip-time {
                   leaf use-round-trip-time {
                     description "Use the round trip time as metric";
                     type boolean;
                   }
                 }
+
                 case add-round-trip-time {
                   leaf add-round-trip-time {
                     description "Add round trip time to metric";
                     type boolean;
                   }
                 }
+
                 case subtract-round-trip-time {
                   leaf subtract-round-trip-time {
                     description "Subtract round trip time to metric";
@@ -391,6 +407,7 @@ module frr-route-map {
                 }
               }
             }
+
             case tag {
               when "./action = 'tag'";
               leaf tag {
