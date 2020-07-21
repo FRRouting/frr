@@ -1428,6 +1428,12 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		memcpy(m->handler.copy, m->handler.pfds,
 		       m->handler.copycount * sizeof(struct pollfd));
 
+		/* If there are signals that need to be processed in this
+		 * pthread, don't poll.
+		 */
+		if (m->handle_signals && frr_sigevent_check())
+			continue;
+
 		pthread_mutex_unlock(&m->mtx);
 		{
 			num = fd_poll(m, m->handler.copy, m->handler.pfdsize,

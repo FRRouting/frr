@@ -63,6 +63,12 @@ static void quagga_signal_handler(int signo)
 	sigmaster.caught = 1;
 }
 
+/* Check whether a signal is ready to be processed - but do not process. */
+bool frr_sigevent_check(void)
+{
+	return (sigmaster.caught > 0);
+}
+
 /* check if signals have been caught and run appropriate handlers */
 int quagga_sigevent_process(void)
 {

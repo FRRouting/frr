@@ -51,6 +51,9 @@ extern void signal_init(struct thread_master *m, int sigc,
 /* check whether there are signals to handle, process any found */
 extern int quagga_sigevent_process(void);
 
+/* Check whether a signal is ready to be processed - but do not process. */
+bool frr_sigevent_check(void);
+
 #ifdef __cplusplus
 }
 #endif
