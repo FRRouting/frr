@@ -308,7 +308,7 @@ static void ospf6_bfd_if_param_set(struct ospf6_interface *oi, uint32_t min_rx,
 	int command = 0;
 
 	bfd_set_param((struct bfd_info **)&(oi->bfd_info), min_rx, min_tx,
-		      detect_mult, defaults, &command);
+		      detect_mult, NULL, defaults, &command);
 	if (command)
 		ospf6_bfd_reg_dereg_all_nbr(oi, command);
 }
