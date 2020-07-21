@@ -48,7 +48,7 @@ sub scan_file {
     }
 
     # ?: makes a group non-capturing
-    @defun = ($line =~ /((?:DEFUN|DEFUN_HIDDEN|ALIAS|ALIAS_HIDDEN)\s*\(.+?\));?\s?\s?\n/sg);
+    @defun = ($line =~ /((?:DEFUN|DEFUN_HIDDEN|ALIAS|ALIAS_HIDDEN|DEFPY|DEFPY_HIDDEN)\s*\(.+?\));?\s?\s?\n/sg);
     @install = ($line =~ /install_element\s*\(\s*[0-9A-Z_]+,\s*&[^;]*;\s*\n/sg);
 
     # DEFUN process

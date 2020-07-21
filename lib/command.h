@@ -328,18 +328,6 @@ struct cmd_node {
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr,                  \
 			  CMD_ATTR_DEPRECATED, daemon)
 
-#else /* VTYSH_EXTRACT_PL */
-#define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN(funcname, cmdname, cmdstr, helpstr)
-
-#define DEFPY_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
-	DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr)
-
-#define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
-	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)
-
-#define DEFPY_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
-	DEFUN_HIDDEN(funcname, cmdname, cmdstr, helpstr)
 #endif /* VTYSH_EXTRACT_PL */
 
 /* Some macroes */
