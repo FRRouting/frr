@@ -55,15 +55,19 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
  * using stream_put..._at() functions.
  */
 #define STREAM_WARN_OFFSETS(S)                                                 \
-	flog_warn(EC_LIB_STREAM,                                               \
-		  "&(struct stream): %p, size: %lu, getp: %lu, endp: %lu\n",   \
-		  (void *)(S), (unsigned long)(S)->size,                       \
-		  (unsigned long)(S)->getp, (unsigned long)(S)->endp)
+	do {                                                                   \
+		flog_warn(EC_LIB_STREAM,				       \
+			  "&(struct stream): %p, size: %lu, getp: %lu, endp: %lu\n", \
+			  (void *)(S), (unsigned long)(S)->size,	       \
+			  (unsigned long)(S)->getp, (unsigned long)(S)->endp); \
+		zlog_backtrace(LOG_WARNING);				       \
+	} while (0)
 
 #define STREAM_VERIFY_SANE(S)                                                  \
 	do {                                                                   \
-		if (!(GETP_VALID(S, (S)->getp) && ENDP_VALID(S, (S)->endp)))   \
+		if (!(GETP_VALID(S, (S)->getp) && ENDP_VALID(S, (S)->endp))) { \
 			STREAM_WARN_OFFSETS(S);                                \
+		}                                                              \
 		assert(GETP_VALID(S, (S)->getp));                              \
 		assert(ENDP_VALID(S, (S)->endp));                              \
 	} while (0)
