@@ -10626,6 +10626,8 @@ DEFUN (show_ip_bgp_large_community,
 				bgp_show_type_lcommunity_all, NULL, uj, false);
 }
 
+static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
+				  safi_t safi, struct json_object *json_array);
 static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 			   safi_t safi, struct json_object *json);
 
@@ -10645,7 +10647,7 @@ DEFUN(show_ip_bgp_statistics_all, show_ip_bgp_statistics_all_cmd,
 
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
 					    &bgp, false);
-	if (!bgp)
+	if (!idx)
 		return CMD_WARNING;
 
 	if (uj)
@@ -11412,8 +11414,18 @@ static int bgp_table_stats_walker(struct thread *t)
 	return 0;
 }
 
-static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
-			   safi_t safi, struct json_object *json_array)
+static void bgp_table_stats_all(struct vty *vty, afi_t afi, safi_t safi,
+				struct json_object *json_array)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		bgp_table_stats_single(vty, bgp, afi, safi, json_array);
+}
+
+static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
+				  safi_t safi, struct json_object *json_array)
 {
 	struct bgp_table_stats ts;
 	unsigned int i;
@@ -11441,8 +11453,10 @@ static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 	}
 
 	if (!json)
-		vty_out(vty, "BGP %s RIB statistics\n",
-			get_afi_safi_str(afi, safi, false));
+		vty_out(vty, "BGP %s RIB statistics (%s)\n",
+			get_afi_safi_str(afi, safi, false), bgp->name_pretty);
+	else
+		json_object_string_add(json, "instance", bgp->name_pretty);
 
 	/* labeled-unicast routes live in the unicast table */
 	if (safi == SAFI_LABELED_UNICAST)
@@ -11629,6 +11643,17 @@ end_table_stats:
 	if (json)
 		json_object_array_add(json_array, json);
 	return ret;
+}
+
+static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
+			   safi_t safi, struct json_object *json_array)
+{
+	if (!bgp) {
+		bgp_table_stats_all(vty, afi, safi, json_array);
+		return CMD_SUCCESS;
+	}
+
+	return bgp_table_stats_single(vty, bgp, afi, safi, json_array);
 }
 
 enum bgp_pcounts {
