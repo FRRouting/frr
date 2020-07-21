@@ -488,7 +488,29 @@ struct cmd_node {
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
 extern void install_default(enum node_type);
-extern void install_element(enum node_type, const struct cmd_element *);
+
+struct xref_install_element {
+	struct xref xref;
+
+	const struct cmd_element *cmd_element;
+	enum node_type node_type;
+};
+
+#ifndef VTYSH_EXTRACT_PL
+#define install_element(node_type_, cmd_element_) do {                         \
+		static const struct xref_install_element _xref                 \
+				__attribute__((used)) = {                      \
+			.xref = XREF_INIT(XREFT_INSTALL_ELEMENT, NULL,         \
+					  __func__),                           \
+			.cmd_element = cmd_element_,                           \
+			.node_type = node_type_,                               \
+		};                                                             \
+		XREF_LINK(_xref.xref);                                         \
+		_install_element(node_type_, cmd_element_);                    \
+	} while (0)
+#endif
+
+extern void _install_element(enum node_type, const struct cmd_element *);
 
 /* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
  * deprecated/hidden) are not reversed. */
