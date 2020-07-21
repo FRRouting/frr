@@ -2513,8 +2513,9 @@ def verify_best_path_as_per_admin_distance(
     return True
 
 
-@retry(attempts=6, wait=2, return_is_str=True)
-def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None):
+@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
+def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None,
+aspath=None, multi_nh=None):
     """
     This API is to verify whether bgp rib has any
     matching route for a nexthop.
