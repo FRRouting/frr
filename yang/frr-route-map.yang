@@ -64,6 +64,15 @@ module frr-route-map {
     type string;
   }
 
+  typedef route-map-ref {
+    type leafref {
+      path "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:name";
+      require-instance false;
+    }
+    description
+      "Reference to a route-map.";
+  }
+
   /*
    * Operational data.
    */
