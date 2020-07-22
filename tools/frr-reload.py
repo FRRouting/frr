@@ -63,14 +63,17 @@ class VtyshException(Exception):
     pass
 
 class Vtysh(object):
-    def __init__(self, bindir=None, confdir=None, sockdir=None):
+    def __init__(self, bindir=None, confdir=None, sockdir=None, pathspace=None):
         self.bindir = bindir
         self.confdir = confdir
+        self.pathspace = pathspace
         self.common_args = [os.path.join(bindir or '', 'vtysh')]
         if confdir:
             self.common_args.extend(['--config_dir', confdir])
         if sockdir:
             self.common_args.extend(['--vty_socket', sockdir])
+        if pathspace:
+            self.common_args.extend(['-N', pathspace])
 
     def _call(self, args, stdin=None, stdout=None, stderr=None):
         kwargs = {}
@@ -1202,6 +1205,7 @@ if __name__ == '__main__':
     group.add_argument('--test', action='store_true', help='Show the deltas', default=False)
     parser.add_argument('--debug', action='store_true', help='Enable debugs', default=False)
     parser.add_argument('--stdout', action='store_true', help='Log to STDOUT', default=False)
+    parser.add_argument('--pathspace', '-N', metavar='NAME', help='Reload specified path/namespace', default=None)
     parser.add_argument('filename', help='Location of new frr config file')
     parser.add_argument('--overwrite', action='store_true', help='Overwrite frr.conf with running config output', default=False)
     parser.add_argument('--bindir', help='path to the vtysh executable', default='/usr/bin')
@@ -1277,10 +1281,13 @@ if __name__ == '__main__':
         log.error(msg)
         sys.exit(1)
 
-    vtysh = Vtysh(args.bindir, args.confdir, args.vty_socket)
+    vtysh = Vtysh(args.bindir, args.confdir, args.vty_socket, args.pathspace)
 
     # Verify that 'service integrated-vtysh-config' is configured
-    vtysh_filename = args.confdir + '/vtysh.conf'
+    if args.pathspace:
+        vtysh_filename = args.confdir + '/' + args.pathspace + '/vtysh.conf'
+    else:
+        vtysh_filename = args.confdir + '/vtysh.conf'
     service_integrated_vtysh_config = True
 
     if os.path.isfile(vtysh_filename):
