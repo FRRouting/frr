@@ -586,6 +586,13 @@ main_dispatch_ldpe(struct thread *thread)
 				fatalx("IMSG_ACL_CHECK imsg with wrong len");
 			ldp_acl_reply(iev, (struct acl_check *)imsg.data);
 			break;
+		case IMSG_LDP_SYNC_IF_STATE_UPDATE:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct ldp_igp_sync_if_state))
+				fatalx("IMSG_LDP_SYNC_IF_STATE_UPDATE imsg with wrong len");
+
+			ldp_sync_zebra_send_state_update((struct ldp_igp_sync_if_state *)imsg.data);
+			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
 			    imsg.hdr.type);
@@ -1148,6 +1155,7 @@ ldp_config_reset_main(struct ldpd_conf *conf)
 	conf->lhello_interval = DEFAULT_HELLO_INTERVAL;
 	conf->thello_holdtime = TARGETED_DFLT_HOLDTIME;
 	conf->thello_interval = DEFAULT_HELLO_INTERVAL;
+	conf->wait_for_sync_interval = DFLT_WAIT_FOR_SYNC;
 	conf->trans_pref = DUAL_STACK_LDPOV6;
 	conf->flags = 0;
 }
@@ -1278,6 +1286,14 @@ merge_config(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 static void
 merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 {
+	/* Removing global LDP config requires resetting LDP IGP Sync FSM */
+	if ((conf->flags & F_LDPD_ENABLED) &&
+	    (!(xconf->flags & F_LDPD_ENABLED)))
+	{
+		if (ldpd_process == PROC_LDP_ENGINE)
+			ldp_sync_fsm_reset_all();
+	}
+
 	/* change of router-id requires resetting all neighborships */
 	if (conf->rtr_id.s_addr != xconf->rtr_id.s_addr) {
 		if (ldpd_process == PROC_LDP_ENGINE) {
@@ -1303,6 +1319,7 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 	conf->lhello_interval = xconf->lhello_interval;
 	conf->thello_holdtime = xconf->thello_holdtime;
 	conf->thello_interval = xconf->thello_interval;
+	conf->wait_for_sync_interval = xconf->wait_for_sync_interval;
 
 	if (conf->trans_pref != xconf->trans_pref) {
 		if (ldpd_process == PROC_LDP_ENGINE)

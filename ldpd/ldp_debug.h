@@ -42,6 +42,10 @@ struct ldp_debug {
 
 	int	 zebra;
 #define LDP_DEBUG_ZEBRA		0x01
+
+	int	 sync;
+#define LDP_DEBUG_SYNC		0x01
+
 };
 extern struct ldp_debug	 conf_ldp_debug;
 extern struct ldp_debug	 ldp_debug;
@@ -141,6 +145,12 @@ do {									\
 do {									\
 	if (LDP_DEBUG(zebra, LDP_DEBUG_ZEBRA))				\
 		log_debug("zebra[out]: " emsg, __VA_ARGS__);		\
+} while (0)
+
+#define		 debug_evt_ldp_sync(emsg, ...)				\
+do {									\
+	if (LDP_DEBUG(sync, LDP_DEBUG_SYNC))				\
+		log_debug("sync: " emsg, __VA_ARGS__);			\
 } while (0)
 
 #endif /* _LDP_DEBUG_H_ */

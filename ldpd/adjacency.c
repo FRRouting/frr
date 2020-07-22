@@ -125,6 +125,9 @@ adj_del(struct adj *adj, uint32_t notif_status)
 	switch (adj->source.type) {
 	case HELLO_LINK:
 		RB_REMOVE(ia_adj_head, &adj->source.link.ia->adj_tree, adj);
+
+		if (nbr)
+			ldp_sync_fsm_adj_event(adj, LDP_SYNC_EVT_ADJ_DEL);
 		break;
 	case HELLO_TARGETED:
 		adj->source.target->adj = NULL;

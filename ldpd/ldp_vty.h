@@ -50,6 +50,7 @@ int	 ldp_vty_label_accept(struct vty *, const char *, const char *, const char *
 int	 ldp_vty_ttl_security(struct vty *, const char *);
 int	 ldp_vty_router_id(struct vty *, const char *, struct in_addr);
 int	 ldp_vty_ordered_control(struct vty *, const char *);
+int	 ldp_vty_wait_for_sync_interval(struct vty *, const char *, long);
 int	 ldp_vty_ds_cisco_interop(struct vty *, const char *);
 int	 ldp_vty_trans_pref_ipv4(struct vty *, const char *);
 int	 ldp_vty_neighbor_password(struct vty *, const char *, struct in_addr, const char *);
@@ -73,6 +74,7 @@ int	 ldp_vty_show_discovery(struct vty *, const char *, const char *, const char
 int	 ldp_vty_show_interface(struct vty *, const char *, const char *);
 int	 ldp_vty_show_capabilities(struct vty *, const char *);
 int	 ldp_vty_show_neighbor(struct vty *, const char *, int, const char *, const char *);
+int	 ldp_vty_show_ldp_sync(struct vty *, const char *);
 int	 ldp_vty_show_atom_binding(struct vty *, const char *, unsigned long,
 	    unsigned long, const char *);
 int	 ldp_vty_show_atom_vc(struct vty *, const char *, const char *,

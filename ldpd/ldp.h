@@ -51,6 +51,8 @@
 #define	INIT_DELAY_TMR		15
 #define	MAX_DELAY_TMR		120
 
+#define	DFLT_WAIT_FOR_SYNC	10
+
 #define	MIN_PWID_ID		1
 #define	MAX_PWID_ID		0xffffffff
 

@@ -28,6 +28,7 @@
 #endif
 
 #include "ldpd.h"
+#include "lib/ldp_sync.h"
 
 #define min(x,y) ((x) <= (y) ? (x) : (y))
 #define max(x,y) ((x) > (y) ? (x) : (y))
@@ -212,6 +213,7 @@ void		 ldpe_iface_ctl(struct ctl_conn *c, ifindex_t ifidx);
 void		 ldpe_adj_ctl(struct ctl_conn *);
 void		 ldpe_adj_detail_ctl(struct ctl_conn *);
 void		 ldpe_nbr_ctl(struct ctl_conn *);
+void		 ldpe_ldp_sync_ctl(struct ctl_conn *);
 void		 mapping_list_add(struct mapping_head *, struct map *);
 void		 mapping_list_clr(struct mapping_head *);
 
@@ -229,8 +231,17 @@ void		 ldp_if_update(struct iface *, int);
 void		 if_update_all(int);
 uint16_t	 if_get_hello_holdtime(struct iface_af *);
 uint16_t	 if_get_hello_interval(struct iface_af *);
+uint16_t	 if_get_wait_for_sync_interval(void);
 struct ctl_iface *if_to_ctl(struct iface_af *);
 in_addr_t	 if_get_ipv4_addr(struct iface *);
+int		 ldp_sync_fsm_adj_event(struct adj *, enum ldp_sync_event);
+int		 ldp_sync_fsm_nbr_event(struct nbr *, enum ldp_sync_event);
+int		 ldp_sync_fsm_state_req(struct ldp_igp_sync_if_state_req *);
+int		 ldp_sync_fsm(struct iface *, enum ldp_sync_event);
+void		 ldp_sync_fsm_reset_all(void);
+const char      *ldp_sync_state_name(int);
+const char      *ldp_sync_event_name(int);
+struct ctl_ldp_sync *ldp_sync_to_ctl(struct iface *);
 
 /* adjacency.c */
 struct adj	*adj_new(struct in_addr, struct hello_source *,

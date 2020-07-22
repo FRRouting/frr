@@ -378,6 +378,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 			adj->nbr = nbr;
 			RB_INSERT(nbr_adj_head, &nbr->adj_tree, adj);
 		}
+		ldp_sync_fsm_adj_event(adj, LDP_SYNC_EVT_ADJ_NEW);
 	}
 	adj->ds_tlv = ds_tlv;
 

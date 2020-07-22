@@ -34,6 +34,7 @@
 #include "zclient.h"
 
 #include "ldp.h"
+#include "lib/ldp_sync.h"
 
 #define CONF_FILE		"/etc/ldpd.conf"
 #define LDPD_USER		"_ldpd"
@@ -93,6 +94,7 @@ enum imsg_type {
 	IMSG_CTL_SHOW_LIB_END,
 	IMSG_CTL_SHOW_L2VPN_PW,
 	IMSG_CTL_SHOW_L2VPN_BINDING,
+	IMSG_CTL_SHOW_LDP_SYNC,
 	IMSG_CTL_CLEAR_NBR,
 	IMSG_CTL_FIB_COUPLE,
 	IMSG_CTL_FIB_DECOUPLE,
@@ -153,7 +155,9 @@ enum imsg_type {
 	IMSG_INIT,
 	IMSG_PW_UPDATE,
 	IMSG_FILTER_UPDATE,
-	IMSG_NBR_SHUTDOWN
+	IMSG_NBR_SHUTDOWN,
+	IMSG_LDP_SYNC_IF_STATE_REQUEST,
+	IMSG_LDP_SYNC_IF_STATE_UPDATE
 };
 
 struct ldpd_init {
@@ -225,6 +229,34 @@ enum nbr_action {
 	NBR_ACT_PASSIVE_INIT,
 	NBR_ACT_KEEPALIVE_SEND,
 	NBR_ACT_CLOSE_SESSION
+};
+
+/* LDP IGP Sync states */
+#define	LDP_SYNC_STA_UNKNOWN	0x0000
+#define	LDP_SYNC_STA_NOT_ACH 	0x0001
+#define	LDP_SYNC_STA_ACH	0x0002
+
+/* LDP IGP Sync events */
+enum ldp_sync_event {
+	LDP_SYNC_EVT_NOTHING,
+	LDP_SYNC_EVT_LDP_SYNC_START,
+	LDP_SYNC_EVT_LDP_SYNC_COMPLETE,
+	LDP_SYNC_EVT_CONFIG_LDP_OFF,
+	LDP_SYNC_EVT_ADJ_DEL,
+	LDP_SYNC_EVT_ADJ_NEW,
+	LDP_SYNC_EVT_SESSION_CLOSE,
+	LDP_SYNC_EVT_CONFIG_LDP_ON,
+	LDP_SYNC_EVT_IFACE_SHUTDOWN
+};
+
+/* LDP IGP Sync actions */
+enum ldp_sync_action {
+	LDP_SYNC_ACT_NOTHING,
+	LDP_SYNC_ACT_IFACE_START_SYNC,
+	LDP_SYNC_ACT_LDP_START_SYNC,
+	LDP_SYNC_ACT_LDP_COMPLETE_SYNC,
+	LDP_SYNC_ACT_CONFIG_LDP_OFF,
+	LDP_SYNC_ACT_IFACE_SHUTDOWN
 };
 
 /* forward declarations */
@@ -310,6 +342,11 @@ struct iface_af {
 	uint16_t		 hello_interval;
 };
 
+struct iface_ldp_sync {
+	int			 state;
+	struct thread           *wait_for_sync_timer;
+};
+
 struct iface {
 	RB_ENTRY(iface)		 entry;
 	char			 name[IF_NAMESIZE];
@@ -320,6 +357,7 @@ struct iface {
 	int			 operative;
 	struct iface_af		 ipv4;
 	struct iface_af		 ipv6;
+	struct iface_ldp_sync	 ldp_sync;
 	QOBJ_FIELDS
 };
 RB_HEAD(iface_head, iface);
@@ -518,6 +556,7 @@ struct ldpd_conf {
 	uint16_t		 thello_holdtime;
 	uint16_t		 thello_interval;
 	uint16_t		 trans_pref;
+	uint16_t		 wait_for_sync_interval;
 	int			 flags;
 	QOBJ_FIELDS
 };
@@ -670,6 +709,16 @@ struct ctl_pw {
 	uint8_t			 remote_cword;
 	uint32_t		 status;
 	uint8_t			 reason;
+};
+
+struct ctl_ldp_sync {
+	char			 name[IF_NAMESIZE];
+	ifindex_t		 ifindex;
+	bool			 in_sync;
+	bool			 timer_running;
+	uint16_t		 wait_time;
+	uint16_t		 wait_time_remaining;
+	struct in_addr		 peer_ldp_id;
 };
 
 extern struct ldpd_conf		*ldpd_conf, *vty_conf;
@@ -825,6 +874,7 @@ extern char			 ctl_sock_path[MAXPATHLEN];
 /* ldp_zebra.c */
 void		 ldp_zebra_init(struct thread_master *);
 void		 ldp_zebra_destroy(void);
+int		 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *);
 
 /* compatibility */
 #ifndef __OpenBSD__
