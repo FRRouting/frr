@@ -32,6 +32,7 @@
 #include "log.h"
 #include "zclient.h"
 #include "bfd.h"
+#include "ldp_sync.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_spf.h"
@@ -46,6 +47,7 @@
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_dump.h"
+#include "ospfd/ospf_ldp_sync.h"
 
 DEFINE_QOBJ_TYPE(ospf_interface)
 DEFINE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd))
@@ -80,6 +82,12 @@ int ospf_if_get_output_cost(struct ospf_interface *oi)
 	/* If all else fails, use default OSPF cost */
 	uint32_t cost;
 	uint32_t bw, refbw;
+
+	/* if LDP-IGP Sync is running on interface set cost so interface
+	 * is used only as last resort
+	 */
+	if (ldp_sync_if_is_enabled(IF_DEF_PARAMS(oi->ifp)->ldp_sync_info))
+		return (LDP_OSPF_LSINFINITY);
 
 	/* ifp speed and bw can be 0 in some platforms, use ospf default bw
 	   if bw is configured under interface it would be used.
@@ -539,6 +547,7 @@ void ospf_del_if_params(struct ospf_if_params *oip)
 {
 	list_delete(&oip->auth_crypt);
 	bfd_info_free(&(oip->bfd_info));
+	ldp_sync_info_free(&(oip->ldp_sync_info));
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
 }
 
