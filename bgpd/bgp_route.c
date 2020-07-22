@@ -10847,7 +10847,7 @@ DEFUN(show_ip_bgp, show_ip_bgp_cmd,
 }
 
 /* BGP route print out function with JSON */
-DEFUN (show_ip_bgp_json,
+DEFPY (show_ip_bgp_json,
        show_ip_bgp_json_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]\
           [cidr-only\
@@ -10857,7 +10857,7 @@ DEFUN (show_ip_bgp_json,
                      |accept-own|accept-own-nexthop|route-filter-v6\
                      |route-filter-v4|route-filter-translated-v6\
                      |route-filter-translated-v4] [exact-match]\
-          ] [json | wide]",
+          ] [json | wide$wide]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10895,7 +10895,6 @@ DEFUN (show_ip_bgp_json,
 	int idx = 0;
 	int exact_match = 0;
 	bool uj = use_json(argc, argv);
-	bool wide = false;
 
 	if (uj)
 		argc--;
@@ -10904,8 +10903,6 @@ DEFUN (show_ip_bgp_json,
 					    &bgp, uj);
 	if (!idx)
 		return CMD_WARNING;
-
-	wide = argv_find(argv, argc, "wide", &idx);
 
 	if (argv_find(argv, argc, "cidr-only", &idx))
 		return bgp_show(vty, bgp, afi, safi, bgp_show_type_cidr_only,
@@ -11060,9 +11057,9 @@ DEFUN (show_ip_bgp_regexp,
 				 bgp_show_type_regexp, uj);
 }
 
-DEFUN (show_ip_bgp_instance_all,
+DEFPY (show_ip_bgp_instance_all,
        show_ip_bgp_instance_all_cmd,
-       "show [ip] bgp <view|vrf> all ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] [json | wide]",
+       "show [ip] bgp <view|vrf> all ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] [json | wide$wide]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11077,7 +11074,6 @@ DEFUN (show_ip_bgp_instance_all,
 	struct bgp *bgp = NULL;
 	int idx = 0;
 	bool uj = use_json(argc, argv);
-	bool wide = false;
 
 	if (uj)
 		argc--;
@@ -11086,8 +11082,6 @@ DEFUN (show_ip_bgp_instance_all,
 					    &bgp, uj);
 	if (!idx)
 		return CMD_WARNING;
-
-	wide = argv_find(argv, argc, "wide", &idx);
 
 	bgp_show_all_instances_routes_vty(vty, afi, safi, uj, wide);
 	return CMD_SUCCESS;
@@ -12347,7 +12341,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFPY (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map WORD] [json | wide]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map WORD] [json | wide$wide]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12375,7 +12369,6 @@ DEFPY (show_ip_bgp_instance_neighbor_advertised_route,
 	enum bgp_show_adj_route_type type = bgp_show_adj_route_advertised;
 	int idx = 0;
 	bool uj = use_json(argc, argv);
-	bool wide = false;
 
 	if (uj)
 		argc--;
@@ -12402,8 +12395,6 @@ DEFPY (show_ip_bgp_instance_neighbor_advertised_route,
 
 	if (argv_find(argv, argc, "route-map", &idx))
 		rmap_name = argv[++idx]->arg;
-
-	wide = argv_find(argv, argc, "wide", &idx);
 
 	return peer_adj_routes(vty, peer, afi, safi, type, rmap_name, uj, wide);
 }
