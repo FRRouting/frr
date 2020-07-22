@@ -59,6 +59,7 @@
 #include "isisd/isis_errors.h"
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_nb.h"
+#include "isisd/isis_ldp_sync.h"
 
 DEFINE_QOBJ_TYPE(isis_circuit)
 
@@ -1276,6 +1277,7 @@ struct isis_circuit *isis_circuit_create(struct isis_area *area,
 	isis_circuit_if_bind(circuit, ifp);
 	if (circuit->area->mta && circuit->area->mta->status)
 		isis_link_params_update(circuit, ifp);
+
 	return circuit;
 }
 
@@ -1346,11 +1348,16 @@ ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
 		return ferr_cfg_invalid("metric %d too large for narrow metric",
 					metric);
 
-	circuit->te_metric[level - 1] = metric;
-	circuit->metric[level - 1] = metric;
-
-	if (circuit->area)
-		lsp_regenerate_schedule(circuit->area, level, 0);
+	/* inform ldp-sync of metric change
+         *   if ldp-sync is running need to save metric
+         *   and restore new values after ldp-sync completion.
+	 */
+	if (isis_ldp_sync_if_metric_config(circuit, level, metric)) {
+		circuit->te_metric[level - 1] = metric;
+		circuit->metric[level - 1] = metric;
+		if (circuit->area)
+			lsp_regenerate_schedule(circuit->area, level, 0);
+	}
 	return ferr_ok();
 }
 

@@ -75,6 +75,7 @@ unsigned long debug_flooding;
 unsigned long debug_bfd;
 unsigned long debug_tx_queue;
 unsigned long debug_sr;
+unsigned long debug_ldp_sync;
 
 DEFINE_QOBJ_TYPE(isis_area)
 
@@ -1087,6 +1088,8 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty, "IS-IS Flooding debugging is %s\n", onoffs);
 	if (flags & DEBUG_BFD)
 		vty_out(vty, "IS-IS BFD debugging is %s\n", onoffs);
+	if (flags & DEBUG_LDP_SYNC)
+		vty_out(vty, "IS-IS ldp-sync debugging is %s\n", onoffs);
 }
 
 DEFUN_NOSH (show_debugging,
@@ -1124,6 +1127,8 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_FLOODING, 1);
 	if (IS_DEBUG_BFD)
 		print_debug(vty, DEBUG_BFD, 1);
+	if (IS_DEBUG_LDP_SYNC)
+		print_debug(vty, DEBUG_LDP_SYNC, 1);
 	return CMD_SUCCESS;
 }
 
@@ -1190,6 +1195,10 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (IS_DEBUG_BFD) {
 		vty_out(vty, "debug " PROTO_NAME " bfd\n");
+		write++;
+	}
+	if (IS_DEBUG_LDP_SYNC) {
+		vty_out(vty, "debug " PROTO_NAME " ldp-sync\n");
 		write++;
 	}
 	write += spf_backoff_write_config(vty);
@@ -1548,11 +1557,32 @@ DEFUN (no_debug_isis_bfd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(show_hostname, show_hostname_cmd,
-      "show " PROTO_NAME " [vrf <NAME|all>] hostname",
-      SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
-      "All VRFs\n"
-      "IS-IS Dynamic hostname mapping\n")
+DEFUN(debug_isis_ldp_sync, debug_isis_ldp_sync_cmd,
+      "debug " PROTO_NAME " ldp-sync",
+      DEBUG_STR PROTO_HELP PROTO_NAME " interaction with LDP-Sync\n")
+{
+	debug_ldp_sync |= DEBUG_LDP_SYNC;
+	print_debug(vty, DEBUG_LDP_SYNC, 1);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_debug_isis_ldp_sync, no_debug_isis_ldp_sync_cmd,
+      "no debug " PROTO_NAME " ldp-sync",
+      NO_STR UNDEBUG_STR PROTO_HELP PROTO_NAME " interaction with LDP-Sync\n")
+{
+	debug_ldp_sync &= ~DEBUG_LDP_SYNC;
+	print_debug(vty, DEBUG_LDP_SYNC, 0);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_hostname,
+       show_hostname_cmd,
+       "show " PROTO_NAME " hostname",
+       SHOW_STR
+       PROTO_HELP
+       "IS-IS Dynamic hostname mapping\n")
 {
 	struct listnode *nnode, *inode;
 	const char *vrf_name = VRF_DEFAULT_NAME;
@@ -2710,6 +2740,8 @@ void isis_init(void)
 	install_element(ENABLE_NODE, &no_debug_isis_lsp_sched_cmd);
 	install_element(ENABLE_NODE, &debug_isis_bfd_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_bfd_cmd);
+	install_element(ENABLE_NODE, &debug_isis_ldp_sync_cmd);
+	install_element(ENABLE_NODE, &no_debug_isis_ldp_sync_cmd);
 
 	install_element(CONFIG_NODE, &debug_isis_adj_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_adj_cmd);
@@ -2737,6 +2769,8 @@ void isis_init(void)
 	install_element(CONFIG_NODE, &no_debug_isis_lsp_sched_cmd);
 	install_element(CONFIG_NODE, &debug_isis_bfd_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_bfd_cmd);
+	install_element(CONFIG_NODE, &debug_isis_ldp_sync_cmd);
+	install_element(CONFIG_NODE, &no_debug_isis_ldp_sync_cmd);
 
 	install_default(ROUTER_NODE);
 

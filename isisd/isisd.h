@@ -35,6 +35,7 @@
 #include "isis_lsp.h"
 #include "isis_memory.h"
 #include "qobj.h"
+#include "ldp_sync.h"
 
 #ifdef FABRICD
 static const bool fabricd = true;
@@ -93,6 +94,7 @@ struct isis {
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
+	struct ldp_sync_info_cmd ldp_sync_cmd; 	/* MPLS LDP-IGP Sync */
 };
 
 extern struct isis_master *im;
@@ -268,6 +270,7 @@ extern unsigned long debug_flooding;
 extern unsigned long debug_bfd;
 extern unsigned long debug_tx_queue;
 extern unsigned long debug_sr;
+extern unsigned long debug_ldp_sync;
 
 #define DEBUG_ADJ_PACKETS                (1<<0)
 #define DEBUG_SNP_PACKETS                (1<<1)
@@ -282,6 +285,7 @@ extern unsigned long debug_sr;
 #define DEBUG_BFD                        (1<<10)
 #define DEBUG_TX_QUEUE                   (1<<11)
 #define DEBUG_SR                         (1<<12)
+#define DEBUG_LDP_SYNC (1 << 13)
 
 /* Debug related macro. */
 #define IS_DEBUG_ADJ_PACKETS (debug_adj_pkt & DEBUG_ADJ_PACKETS)
@@ -297,6 +301,7 @@ extern unsigned long debug_sr;
 #define IS_DEBUG_BFD (debug_bfd & DEBUG_BFD)
 #define IS_DEBUG_TX_QUEUE (debug_tx_queue & DEBUG_TX_QUEUE)
 #define IS_DEBUG_SR (debug_sr & DEBUG_SR)
+#define IS_DEBUG_LDP_SYNC (debug_ldp_sync & DEBUG_LDP_SYNC)
 
 #define lsp_debug(...)                                                         \
 	do {                                                                   \

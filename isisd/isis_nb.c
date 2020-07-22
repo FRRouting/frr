@@ -538,6 +538,21 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/mpls/ldp-sync",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_ldp_sync,
+				.create = isis_instance_mpls_ldp_sync_create,
+				.destroy = isis_instance_mpls_ldp_sync_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/mpls/ldp-sync/holddown",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_ldp_sync_holddown,
+				.modify = isis_instance_mpls_ldp_sync_holddown_modify,
+			},
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis",
 			.cbs = {
 				.create = lib_interface_isis_create,
@@ -896,6 +911,21 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/authentication-fails",
 			.cbs = {
 				.get_elem = lib_interface_state_isis_event_counters_authentication_fails_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/mpls/ldp-sync",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_if_ldp_sync,
+				.modify = lib_interface_isis_mpls_ldp_sync_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/mpls/holddown",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_if_ldp_sync_holddown,
+				.modify = lib_interface_isis_mpls_holddown_modify,
+				.destroy = lib_interface_isis_mpls_holddown_destroy,
 			}
 		},
 		{

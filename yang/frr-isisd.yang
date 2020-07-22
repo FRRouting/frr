@@ -605,6 +605,26 @@ module frr-isisd {
           "IPv6 destination-source topology.";
       }
     }
+
+    container mpls {
+      description
+        "Configuration of MPLS parameters";
+      leaf ldp-sync {
+        type boolean;
+        default "true";
+        description
+          "Enable MPLS LDP-Sync functionality on this circuit.";
+      }
+      leaf holddown {
+        type uint16 {
+          range "0..10000";
+      }
+      units "seconds";
+      description
+        "Time to wait for LDP-Sync to occur before restoring interface metric.";
+      }
+    }
+
   }
 
   grouping adjacency-state {
@@ -1311,6 +1331,26 @@ module frr-isisd {
           }
         }
       }
+
+      container mpls {
+        description
+          "Configuration of MPLS parameters";
+        container ldp-sync {
+          presence "Present if MPLS LDP-Sync is enabled.";
+          description
+            "Enable MPLS LDP-Sync functionality.";
+          leaf holddown {
+            type uint16 {
+              range "0..10000";
+            }
+            units "seconds";
+            default "0";
+            description
+              "Time to wait for LDP-Sync to occur before restoring interface metric.";
+          }
+        }
+      }
+
     }
   }
 
