@@ -421,6 +421,11 @@ struct cmd_node {
 
 #define CMD_VNI_RANGE "(1-16777215)"
 #define CONF_BACKUP_EXT ".sav"
+#define MPLS_LDP_SYNC_STR "Enable MPLS LDP-SYNC\n"
+#define NO_MPLS_LDP_SYNC_STR "Disable MPLS LDP-SYNC\n"
+#define MPLS_LDP_SYNC_HOLDDOWN_STR                                             \
+	"Time to wait for LDP-SYNC to occur before restoring if cost\n"
+#define NO_MPLS_LDP_SYNC_HOLDDOWN_STR "holddown timer disable\n"
 
 /* Command warnings. */
 #define NO_PASSWD_CMD_WARNING                                                  \
