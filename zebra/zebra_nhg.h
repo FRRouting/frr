@@ -110,9 +110,20 @@ struct nhg_hash_entry {
 #define NEXTHOP_GROUP_BACKUP (1 << 4)
 
 /*
+ * The NHG has been release by an upper level protocol via the
+ * `zebra_nhg_proto_del()` API.
+ *
+ * We use this flag to track this state in case the NHG is still being used
+ * by routes therefore holding their refcnts as well. Otherwise, the NHG will
+ * be removed and uninstalled.
+ *
+ */
+#define NEXTHOP_GROUP_PROTO_RELEASED (1 << 5)
+
+/*
  * Track FPM installation status..
  */
-#define NEXTHOP_GROUP_FPM (1 << 5)
+#define NEXTHOP_GROUP_FPM (1 << 6)
 };
 
 /* Was this one we created, either this session or previously? */

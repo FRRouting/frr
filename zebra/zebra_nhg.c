@@ -2794,6 +2794,17 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	zebra_nhg_install_kernel(new);
 
 	if (old) {
+		/*
+		 * Check to handle recving DEL while routes still in use then
+		 * a replace.
+		 *
+		 * In this case we would have decremented the refcnt already
+		 * but set the FLAG here. Go ahead and increment once to fix
+		 * the misordering we have been sent.
+		 */
+		if (CHECK_FLAG(old->flags, NEXTHOP_GROUP_PROTO_RELEASED))
+			zebra_nhg_increment_ref(old);
+
 		rib_handle_nhg_replace(old, new);
 
 		/* if this != 1 at this point, we have a bug */
@@ -2833,14 +2844,22 @@ struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id)
 	nhe = zebra_nhg_lookup_id(id);
 
 	if (!nhe) {
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		if (IS_ZEBRA_DEBUG_NHG)
 			zlog_debug("%s: id %u, lookup failed", __func__, id);
 
 		return NULL;
 	}
 
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PROTO_RELEASED)) {
+		if (IS_ZEBRA_DEBUG_NHG)
+			zlog_debug("%s: id %u, already released", __func__, id);
+
+		return NULL;
+	}
+
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_PROTO_RELEASED);
+
 	if (nhe->refcnt > 1) {
-		/* TODO: should be warn? */
 		if (IS_ZEBRA_DEBUG_NHG)
 			zlog_debug(
 				"%s: id %u, still being used by routes refcnt %u",
