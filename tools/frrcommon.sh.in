@@ -65,9 +65,9 @@ vtysh_b () {
 	[ "$1" = "watchfrr" ] && return 0
 	[ -r "$C_PATH/frr.conf" ] || return 0
 	if [ -n "$1" ]; then
-		"$VTYSH" `echo $nsopt` -b -n -d "$1"
+		"$VTYSH" `echo $nsopt` -b -d "$1"
 	else
-		"$VTYSH" `echo $nsopt` -b -n
+		"$VTYSH" `echo $nsopt` -b
 	fi
 }
 
