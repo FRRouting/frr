@@ -254,7 +254,7 @@ IS-IS BFD Configuration
 The following commands are available inside the interface configuration node.
 
 .. index:: isis bfd
-.. clicmd:: ip isis bfd
+.. clicmd:: isis bfd
 
    Listen for BFD events on peers created on the interface. Every time
    a new neighbor is found a BFD peer is created to monitor the link
@@ -269,6 +269,15 @@ The following commands are available inside the interface configuration node.
    IPv4 and IPv6 support are configured then just a IPv6 based session is
    created.
 
+.. index:: isis bfd profile BFDPROF
+.. clicmd:: isis bfd profile BFDPROF
+
+   Use a BFD profile BFDPROF as provided in the BFD configuration.
+
+.. index:: no isis bfd profile BFDPROF
+.. clicmd:: no isis bfd profile BFDPROF
+
+   Removes any BFD profile if present.
 
 .. _bfd-ospf-peer-config:
 

@@ -94,7 +94,8 @@ int bfd_validate_param(struct vty *vty, const char *dm_str, const char *rx_str,
  * bfd_set_param - Set the configured BFD paramter values
  */
 void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
-		   uint8_t detect_mult, int defaults, int *command)
+		   uint8_t detect_mult, const char *profile, int defaults,
+		   int *command)
 {
 	if (!*bfd_info) {
 		*bfd_info = bfd_info_create();
@@ -102,7 +103,8 @@ void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
 	} else {
 		if (((*bfd_info)->required_min_rx != min_rx)
 		    || ((*bfd_info)->desired_min_tx != min_tx)
-		    || ((*bfd_info)->detect_mult != detect_mult))
+		    || ((*bfd_info)->detect_mult != detect_mult)
+		    || (profile && strcmp((*bfd_info)->profile, profile)))
 			*command = ZEBRA_BFD_DEST_UPDATE;
 	}
 
@@ -110,6 +112,11 @@ void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
 		(*bfd_info)->required_min_rx = min_rx;
 		(*bfd_info)->desired_min_tx = min_tx;
 		(*bfd_info)->detect_mult = detect_mult;
+		if (profile)
+			strlcpy((*bfd_info)->profile, profile,
+				BFD_PROFILE_NAME_LEN);
+		else
+			(*bfd_info)->profile[0] = '\0';
 	}
 
 	if (!defaults)
@@ -121,6 +128,8 @@ void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
 /*
  * bfd_peer_sendmsg - Format and send a peer register/Unregister
  *                    command to Zebra to be forwarded to BFD
+ *
+ * DEPRECATED: use zclient_bfd_command instead
  */
 void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 		      int family, void *dst_ip, void *src_ip, char *if_name,
@@ -161,6 +170,11 @@ void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 		args.min_rx = bfd_info->required_min_rx;
 		args.min_tx = bfd_info->desired_min_tx;
 		args.detection_multiplier = bfd_info->detect_mult;
+		if (bfd_info->profile[0]) {
+			args.profilelen = strlen(bfd_info->profile);
+			strlcpy(args.profile, bfd_info->profile,
+				sizeof(args.profile));
+		}
 	}
 
 	addrlen = family == AF_INET ? sizeof(struct in_addr)
@@ -424,6 +438,15 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 {
 	struct stream *s;
 	size_t addrlen;
+
+	/* Individual reg/dereg messages are suppressed during shutdown. */
+	if (CHECK_FLAG(bfd_gbl.flags, BFD_GBL_FLAG_IN_SHUTDOWN)) {
+		if (bfd_debug)
+			zlog_debug(
+				"%s: Suppressing BFD peer reg/dereg messages",
+				__func__);
+		return -1;
+	}
 
 	/* Check socket. */
 	if (!zc || zc->sock < 0) {

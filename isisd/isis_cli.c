@@ -330,8 +330,7 @@ void cli_show_ip_isis_ipv6(struct vty *vty, struct lyd_node *dnode,
 DEFPY(isis_bfd,
       isis_bfd_cmd,
       "[no] isis bfd",
-      NO_STR
-      PROTO_HELP
+      NO_STR PROTO_HELP
       "Enable BFD support\n")
 {
 	const struct lyd_node *dnode;
@@ -343,8 +342,34 @@ DEFPY(isis_bfd,
 		return CMD_SUCCESS;
 	}
 
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/bfd-monitoring",
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/bfd-monitoring/enabled",
 			      NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/profile
+ */
+DEFPY(isis_bfd_profile,
+      isis_bfd_profile_cmd,
+      "[no] isis bfd profile WORD",
+      NO_STR PROTO_HELP
+      "Enable BFD support\n"
+      "Use a pre-configured profile\n"
+      "Profile name\n")
+{
+	const struct lyd_node *dnode;
+
+	dnode = yang_dnode_get(vty->candidate_config->dnode,
+			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	if (dnode == NULL) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/bfd-monitoring/profile",
+			      NB_OP_MODIFY, no ? NULL : profile);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -352,10 +377,18 @@ DEFPY(isis_bfd,
 void cli_show_ip_isis_bfd_monitoring(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
+	const char *profile;
+
+	if (!yang_dnode_get_bool(dnode, "./enabled"))
 		vty_out(vty, " no");
 
 	vty_out(vty, " isis bfd\n");
+
+	if (yang_dnode_exists(dnode, "./profile")) {
+		profile = yang_dnode_get_string(dnode, "./profile");
+		if (profile[0] != '\0')
+			vty_out(vty, " isis bfd profile %s\n", profile);
+	}
 }
 
 /*
@@ -2281,6 +2314,7 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &ip6_router_isis_cmd);
 	install_element(INTERFACE_NODE, &no_ip_router_isis_cmd);
 	install_element(INTERFACE_NODE, &isis_bfd_cmd);
+	install_element(INTERFACE_NODE, &isis_bfd_profile_cmd);
 
 	install_element(ISIS_NODE, &net_cmd);
 

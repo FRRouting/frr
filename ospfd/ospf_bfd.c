@@ -381,7 +381,7 @@ static void ospf_bfd_if_param_set(struct interface *ifp, uint32_t min_rx,
 	params = IF_DEF_PARAMS(ifp);
 
 	bfd_set_param((struct bfd_info **)&(params->bfd_info), min_rx, min_tx,
-		      detect_mult, defaults, &command);
+		      detect_mult, NULL, defaults, &command);
 	if (command)
 		ospf_bfd_reg_dereg_all_nbr(ifp, command);
 }

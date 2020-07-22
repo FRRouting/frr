@@ -92,8 +92,8 @@ extern int bfd_validate_param(struct vty *vty, const char *dm_str,
 			      uint32_t *tx_val);
 
 extern void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx,
-			  uint32_t min_tx, uint8_t detect_mult, int defaults,
-			  int *command);
+			  uint32_t min_tx, uint8_t detect_mult,
+			  const char *profile, int defaults, int *command);
 extern void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 			     int family, void *dst_ip, void *src_ip,
 			     char *if_name, int ttl, int multihop, int cbit,

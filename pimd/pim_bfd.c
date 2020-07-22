@@ -194,7 +194,7 @@ void pim_bfd_if_param_set(struct interface *ifp, uint32_t min_rx,
 
 	if (!pim_ifp)
 		return;
-	bfd_set_param(&(pim_ifp->bfd_info), min_rx, min_tx, detect_mult,
+	bfd_set_param(&(pim_ifp->bfd_info), min_rx, min_tx, detect_mult, NULL,
 		      defaults, &command);
 
 	if (pim_ifp->bfd_info) {
