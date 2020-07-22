@@ -1445,11 +1445,14 @@ bool zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 	if (nexthop_num > zrouter.multipath_num) {
 		char buff[PREFIX2STR_BUFFER];
 
-		prefix2str(p, buff, sizeof(buff));
+		if (p)
+			prefix2str(p, buff, sizeof(buff));
+
 		flog_warn(
 			EC_ZEBRA_MORE_NH_THAN_MULTIPATH,
 			"%s: Prefix %s has %d nexthops, but we can only use the first %d",
-			caller, buff, nexthop_num, zrouter.multipath_num);
+			caller, (p ? buff : "(NULL)"), nexthop_num,
+			zrouter.multipath_num);
 		return true;
 	}
 
@@ -1767,11 +1770,8 @@ static void zread_nhg_reader(ZAPI_HANDLER_ARGS)
 	size_t nhops, i;
 	struct zapi_nexthop zapi_nexthops[MULTIPATH_NUM];
 	struct nexthop_group *nhg = NULL;
-	struct prefix p;
 	uint16_t proto;
 	struct nhg_hash_entry *nhe;
-
-	memset(&p, 0, sizeof(p));
 
 	s = msg;
 
@@ -1779,9 +1779,8 @@ static void zread_nhg_reader(ZAPI_HANDLER_ARGS)
 	STREAM_GETL(s, id);
 	STREAM_GETW(s, nhops);
 
-	// TODO: Can't use this without a prefix.
-	// if (zserv_nexthop_num_warn(__func__, &p, nhops))
-	//	return;
+	if (zserv_nexthop_num_warn(__func__, NULL, nhops))
+		return;
 
 	if (nhops <= 0) {
 		flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
@@ -1800,8 +1799,8 @@ static void zread_nhg_reader(ZAPI_HANDLER_ARGS)
 		}
 	}
 
-	if (!zapi_read_nexthops(client, &p, zapi_nexthops, 0, 0, nhops, 0, &nhg,
-				NULL)) {
+	if (!zapi_read_nexthops(client, NULL, zapi_nexthops, 0, 0, nhops, 0,
+				&nhg, NULL)) {
 		flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 			  "%s: Nexthop Group Creation failed",
 			  __func__);
