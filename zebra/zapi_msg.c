@@ -1749,7 +1749,6 @@ static void zread_nhg_del(ZAPI_HANDLER_ARGS)
 	nhe = zebra_nhg_proto_del(id);
 
 	if (nhe) {
-		/* TODO: just decrement for now */
 		zebra_nhg_decrement_ref(nhe);
 		nhg_notify(proto, client->instance, id, ZAPI_NHG_REMOVED);
 	} else
@@ -1763,7 +1762,7 @@ stream_failure:
 	return;
 }
 
-static void zread_nhg_reader(ZAPI_HANDLER_ARGS)
+static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	uint32_t id;
@@ -1808,12 +1807,9 @@ static void zread_nhg_reader(ZAPI_HANDLER_ARGS)
 	}
 
 	/*
-	 * Install the nhg
+	 * Create the nhg
 	 */
-
-	// TODO: Forcing AF_UNSPEC/AF_IP for now
-	nhe = zebra_nhg_proto_add(id, proto, nhg,
-				  ((nhops > 1) ? AFI_UNSPEC : AFI_IP));
+	nhe = zebra_nhg_proto_add(id, proto, nhg, 0);
 
 	nexthop_group_delete(&nhg);
 
@@ -3246,7 +3242,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
 	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities,
 	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover,
-	[ZEBRA_NHG_ADD] = zread_nhg_reader,
+	[ZEBRA_NHG_ADD] = zread_nhg_add,
 	[ZEBRA_NHG_DEL] = zread_nhg_del,
 };
 
