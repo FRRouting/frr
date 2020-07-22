@@ -2933,8 +2933,10 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 	struct nhg_hash_entry *nhe = NULL;
 	struct route_table *table;
 	struct route_node *rn;
-	struct route_entry *same = NULL;
+	struct route_entry *same = NULL, *first_same = NULL;
 	int ret = 0;
+	int same_count = 0;
+	rib_dest_t *dest;
 
 	if (!re || !re_nhe)
 		return -1;
@@ -3002,13 +3004,21 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 	 * for the install don't do a route replace.
 	 */
 	RNODE_FOREACH_RE (rn, same) {
-		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED))
+		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED)) {
+			same_count++;
 			continue;
+		}
 
 		/* Compare various route_entry properties */
-		if (rib_compare_routes(re, same))
-			break;
+		if (rib_compare_routes(re, same)) {
+			same_count++;
+
+			if (first_same == NULL)
+				first_same = same;
+		}
 	}
+
+	same = first_same;
 
 	/* If this route is kernel/connected route, notify the dataplane. */
 	if (RIB_SYSTEM_ROUTE(re)) {
@@ -3019,8 +3029,9 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 	/* Link new re to node.*/
 	if (IS_ZEBRA_DEBUG_RIB) {
 		rnode_debug(rn, re->vrf_id,
-			    "Inserting route rn %p, re %p (%s) existing %p",
-			    rn, re, zebra_route_string(re->type), same);
+			    "Inserting route rn %p, re %p (%s) existing %p, same_count %d",
+			    rn, re, zebra_route_string(re->type), same,
+			    same_count);
 
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			route_entry_dump(p, src_p, re);
@@ -3033,6 +3044,24 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 	/* Free implicit route.*/
 	if (same)
 		rib_delnode(rn, same);
+
+	/* See if we can remove some RE entries that are queued for
+	 * removal, but won't be considered in rib processing.
+	 */
+	dest = rib_dest_from_rnode(rn);
+	RNODE_FOREACH_RE_SAFE (rn, re, same) {
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
+			/* If the route was used earlier, must retain it. */
+			if (dest && re == dest->selected_fib)
+				continue;
+
+			if (IS_ZEBRA_DEBUG_RIB)
+				rnode_debug(rn, re->vrf_id, "rn %p, removing unneeded re %p",
+					    rn, re);
+
+			rib_unlink(rn, re);
+		}
+	}
 
 	route_unlock_node(rn);
 	return ret;
