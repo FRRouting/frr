@@ -16,10 +16,14 @@
 #
 # This script should be installed in  @CFG_SBIN@/frrcommon.sh
 
+# FRR_PATHSPACE is passed in from watchfrr
+suffix="${FRR_PATHSPACE:+/${FRR_PATHSPACE}}"
+nsopt="${FRR_PATHSPACE:+-N ${FRR_PATHSPACE}}"
+
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
 D_PATH="@CFG_SBIN@" # /usr/lib/frr
-C_PATH="@CFG_SYSCONF@" # /etc/frr
-V_PATH="@CFG_STATE@" # /var/run/frr
+C_PATH="@CFG_SYSCONF@${suffix}" # /etc/frr
+V_PATH="@CFG_STATE@${suffix}" # /var/run/frr
 VTYSH="@vtysh_bin@" # /usr/bin/vtysh
 FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
@@ -61,9 +65,9 @@ vtysh_b () {
 	[ "$1" = "watchfrr" ] && return 0
 	[ -r "$C_PATH/frr.conf" ] || return 0
 	if [ -n "$1" ]; then
-		"$VTYSH" -b -n -d "$1"
+		"$VTYSH" `echo $nsopt` -b -n -d "$1"
 	else
-		"$VTYSH" -b -n
+		"$VTYSH" `echo $nsopt` -b -n
 	fi
 }
 
@@ -156,7 +160,7 @@ daemon_start() {
 	instopt="${inst:+-n $inst}"
 	eval args="\$${daemon}_options"
 
-	if eval "$all_wrap $wrap $bin -d $frr_global_options $instopt $args"; then
+	if eval "$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"; then
 		log_success_msg "Started $dmninst"
 		vtysh_b "$daemon"
 	else
@@ -292,9 +296,11 @@ load_old_config() {
 }
 . "$C_PATH/daemons"
 
-load_old_config "$C_PATH/daemons.conf"
-load_old_config "/etc/default/frr"
-load_old_config "/etc/sysconfig/frr"
+if [ -z "$FRR_PATHSPACE" ]; then
+	load_old_config "$C_PATH/daemons.conf"
+	load_old_config "/etc/default/frr"
+	load_old_config "/etc/sysconfig/frr"
+fi
 
 if { declare -p watchfrr_options 2>/dev/null || true; } | grep -q '^declare \-a'; then
 	log_warning_msg "watchfrr_options contains a bash array value." \

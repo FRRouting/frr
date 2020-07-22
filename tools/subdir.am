@@ -48,6 +48,7 @@ EXTRA_DIST += \
 	tools/frr-reload \
 	tools/frr-reload.py \
 	tools/frr.service \
+	tools/frr@.service \
 	tools/generate_support_bundle.py \
 	tools/multiple-bgpd.sh \
 	tools/rrcheck.pl \

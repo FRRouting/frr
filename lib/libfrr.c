@@ -105,6 +105,7 @@ static const struct option lo_always[] = {
 	{"daemon", no_argument, NULL, 'd'},
 	{"module", no_argument, NULL, 'M'},
 	{"profile", required_argument, NULL, 'F'},
+	{"pathspace", required_argument, NULL, 'N'},
 	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
 	{"moduledir", required_argument, NULL, OPTION_MODULEDIR},
 	{"log", required_argument, NULL, OPTION_LOG},
@@ -113,12 +114,13 @@ static const struct option lo_always[] = {
 	{"command-log-always", no_argument, NULL, OPTION_LOGGING},
 	{NULL}};
 static const struct optspec os_always = {
-	"hvdM:F:",
+	"hvdM:F:N:",
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
 	"  -d, --daemon       Runs in daemon mode\n"
 	"  -M, --module       Load specified module\n"
 	"  -F, --profile      Use specified configuration profile\n"
+	"  -N, --pathspace    Insert prefix into config & socket paths\n"
 	"      --vty_socket   Override vty socket path\n"
 	"      --moduledir    Override modules directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
@@ -133,18 +135,16 @@ static const struct option lo_cfg_pid_dry[] = {
 #ifdef HAVE_SQLITE3
 	{"db_file", required_argument, NULL, OPTION_DB_FILE},
 #endif
-	{"pathspace", required_argument, NULL, 'N'},
 	{"dryrun", no_argument, NULL, 'C'},
 	{"terminal", no_argument, NULL, 't'},
 	{NULL}};
 static const struct optspec os_cfg_pid_dry = {
-	"f:i:CtN:",
+	"f:i:Ct",
 	"  -f, --config_file  Set configuration file name\n"
 	"  -i, --pid_file     Set process identifier file name\n"
 #ifdef HAVE_SQLITE3
 	"      --db_file      Set database file name\n"
 #endif
-	"  -N, --pathspace    Insert prefix into config & socket paths\n"
 	"  -C, --dryrun       Check configuration for validity and exit\n"
 	"  -t, --terminal     Open terminal session on stdio\n"
 	"  -d -t              Daemonize after terminal session ends\n",
@@ -428,8 +428,6 @@ static int frr_opt(int opt)
 		di->config_file = optarg;
 		break;
 	case 'N':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
-			return 1;
 		if (di->pathspace) {
 			fprintf(stderr,
 				"-N/--pathspace option specified more than once!\n");
