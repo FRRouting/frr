@@ -44,6 +44,8 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_evpn.h"
+#include "zebra/zebra_evpn_mac.h"
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_evpn_mh.h"
@@ -1296,9 +1298,9 @@ static void zebra_evpn_es_local_mac_update(struct zebra_evpn_es *es,
 
 	for (ALL_LIST_ELEMENTS_RO(es->mac_list, node, mac)) {
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE)) {
-			zebra_vxlan_sync_mac_dp_install(mac,
-					false /* set_inactive */,
-					force_clear_static, __func__);
+			zebra_evpn_sync_mac_dp_install(
+				mac, false /* set_inactive */,
+				force_clear_static, __func__);
 		}
 	}
 }
