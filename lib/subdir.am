@@ -123,6 +123,7 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-nexthop.yang.c \
 	yang/ietf/ietf-routing-types.yang.c \
 	yang/ietf/ietf-interfaces.yang.c \
+	yang/ietf/ietf-bgp-types.yang.c \
 	yang/frr-module-translator.yang.c \
 	yang/frr-nexthop.yang.c \
 	# end
