@@ -37,7 +37,7 @@ extern "C" {
 #define ERR_STR_SZ 256
 
 /* definitions */
-typedef struct zebra_vni_t_ zebra_vni_t;
+typedef struct zebra_evpn_t_ zebra_evpn_t;
 typedef struct zebra_vtep_t_ zebra_vtep_t;
 typedef struct zebra_mac_t_ zebra_mac_t;
 typedef struct zebra_neigh_t_ zebra_neigh_t;
@@ -72,13 +72,13 @@ RB_PROTOTYPE(zebra_es_evi_rb_head, zebra_evpn_es_evi, rb_node,
  * Contains information pertaining to a VNI:
  * - the list of remote VTEPs (with this VNI)
  */
-struct zebra_vni_t_ {
+struct zebra_evpn_t_ {
 	/* VNI - key */
 	vni_t vni;
 
 	/* ES flags */
 	uint32_t flags;
-#define ZVNI_READY_FOR_BGP (1 << 0) /* ready to be sent to BGP */
+#define ZEVPN_READY_FOR_BGP (1 << 0) /* ready to be sent to BGP */
 
 	/* Flag for advertising gw macip */
 	uint8_t advertise_gw_macip;
@@ -333,8 +333,8 @@ struct zebra_mac_t_ {
 #define ZEBRA_MAC_ALL_PEER_FLAGS (ZEBRA_MAC_ES_PEER_PROXY |\
 		ZEBRA_MAC_ES_PEER_ACTIVE)
 
-	/* back pointer to zvni */
-	zebra_vni_t     *zvni;
+	/* back pointer to zevpn */
+	zebra_evpn_t     *zevpn;
 
 	/* Local or remote info. */
 	union {
@@ -383,7 +383,7 @@ struct zebra_mac_t_ {
  * Context for MAC hash walk - used by callbacks.
  */
 struct mac_walk_ctx {
-	zebra_vni_t *zvni;      /* VNI hash */
+	zebra_evpn_t *zevpn;     /* EVPN hash */
 	struct zebra_vrf *zvrf; /* VRF - for client notification. */
 	int uninstall;		/* uninstall from kernel? */
 	int upd_client;		/* uninstall from client? */
@@ -451,7 +451,7 @@ struct zebra_neigh_t_ {
 	/* Underlying interface. */
 	ifindex_t ifindex;
 
-	zebra_vni_t *zvni;
+	zebra_evpn_t *zevpn;
 
 	uint32_t flags;
 #define ZEBRA_NEIGH_LOCAL     0x01
@@ -509,7 +509,7 @@ struct zebra_neigh_t_ {
  * Context for neighbor hash walk - used by callbacks.
  */
 struct neigh_walk_ctx {
-	zebra_vni_t *zvni;      /* VNI hash */
+	zebra_evpn_t *zevpn;      /* VNI hash */
 	struct zebra_vrf *zvrf; /* VRF - for client notification. */
 	int uninstall;		/* uninstall from kernel? */
 	int upd_client;		/* uninstall from client? */
@@ -532,7 +532,7 @@ struct neigh_walk_ctx {
 /* context for neigh hash walk - update l3vni and rmac */
 struct neigh_l3info_walk_ctx {
 
-	zebra_vni_t *zvni;
+	zebra_evpn_t *zevpn;
 	zebra_l3vni_t *zl3vni;
 	int add;
 };
@@ -579,7 +579,7 @@ typedef struct zebra_vxlan_sg_ {
 	uint32_t ref_cnt;
 } zebra_vxlan_sg_t;
 
-extern zebra_vni_t *zvni_lookup(vni_t vni);
+extern zebra_evpn_t *zevpn_lookup(vni_t vni);
 extern void zebra_vxlan_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
 		bool force_clear_static, const char *caller);
 

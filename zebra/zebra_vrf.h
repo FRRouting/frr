@@ -130,9 +130,9 @@ struct zebra_vrf {
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
 
 	/*
-	 * VNI hash table (for EVPN). Only in the EVPN instance.
+	 * EVPN hash table. Only in the EVPN instance.
 	 */
-	struct hash *vni_table;
+	struct hash *evpn_table;
 
 	/*
 	 * Whether EVPN is enabled or not. Only in the EVPN instance.
