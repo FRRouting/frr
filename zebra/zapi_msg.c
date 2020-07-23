@@ -2526,6 +2526,7 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GET(&zpr.rule.filter.dst_ip.u.prefix, s,
 			   prefix_blen(&zpr.rule.filter.dst_ip));
 		STREAM_GETW(s, zpr.rule.filter.dst_port);
+		STREAM_GETC(s, zpr.rule.filter.dsfield);
 		STREAM_GETL(s, zpr.rule.filter.fwmark);
 		STREAM_GETL(s, zpr.rule.action.table);
 		STREAM_GETL(s, zpr.rule.ifindex);
@@ -2555,6 +2556,9 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 
 		if (zpr.rule.filter.dst_port)
 			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_PORT;
+
+		if (zpr.rule.filter.dsfield)
+			zpr.rule.filter.filter_bm |= PBR_FILTER_DSFIELD;
 
 		if (zpr.rule.filter.fwmark)
 			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
