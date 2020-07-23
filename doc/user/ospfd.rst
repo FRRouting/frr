@@ -905,59 +905,63 @@ Showing Information
 
 .. _show-ip-ospf:
 
-.. index:: show ip ospf
-.. clicmd:: show ip ospf
+.. index:: show ip ospf [json]
+.. clicmd:: show ip ospf [json]
 
    Show information on a variety of general OSPF and area state and
    configuration information.
 
-.. index:: show ip ospf interface [INTERFACE]
-.. clicmd:: show ip ospf interface [INTERFACE]
+.. index:: show ip ospf interface [INTERFACE] [json]
+.. clicmd:: show ip ospf interface [INTERFACE] [json]
 
    Show state and configuration of OSPF the specified interface, or all
    interfaces if no interface is given.
 
-.. index:: show ip ospf neighbor
-.. clicmd:: show ip ospf neighbor
+.. index:: show ip ospf neighbor [json]
+.. clicmd:: show ip ospf neighbor [json]
 
-.. index:: show ip ospf neighbor INTERFACE
-.. clicmd:: show ip ospf neighbor INTERFACE
+.. index:: show ip ospf neighbor INTERFACE [json]
+.. clicmd:: show ip ospf neighbor INTERFACE [json]
 
-.. index:: show ip ospf neighbor detail
-.. clicmd:: show ip ospf neighbor detail
+.. index:: show ip ospf neighbor detail [json]
+.. clicmd:: show ip ospf neighbor detail [json]
 
-.. index:: show ip ospf neighbor INTERFACE detail
-.. clicmd:: show ip ospf neighbor INTERFACE detail
+.. index:: show ip ospf neighbor INTERFACE detail [json]
+.. clicmd:: show ip ospf neighbor INTERFACE detail [json]
 
-.. index:: show ip ospf database
-.. clicmd:: show ip ospf database
+   Display lsa information of LSDB.
+   Json o/p of this command covers base route information
+   i.e all LSAs except opaque lsa info.
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary)
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary)
+.. index:: show ip ospf database [json]
+.. clicmd:: show ip ospf database [json]
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID
+.. index:: show ip ospf database (asbr-summary|external|network|router|summary) [json]
+.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) [json]
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER
+.. index:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID [json]
+.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID [json]
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER
+.. index:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER [json]
+.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER [json]
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate
+.. index:: show ip ospf database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER [json]
+.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER [json]
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary) self-originate
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) self-originate
+.. index:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate [json]
+.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate [json]
 
-.. index:: show ip ospf database max-age
-.. clicmd:: show ip ospf database max-age
+.. index:: show ip ospf database (asbr-summary|external|network|router|summary) self-originate [json]
+.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) self-originate [json]
 
-.. index:: show ip ospf database self-originate
-.. clicmd:: show ip ospf database self-originate
+.. index:: show ip ospf database max-age [json]
+.. clicmd:: show ip ospf database max-age [json]
 
-.. index:: show ip ospf route
-.. clicmd:: show ip ospf route
+.. index:: show ip ospf database self-originate [json]
+.. clicmd:: show ip ospf database self-originate [json]
+
+.. index:: show ip ospf route [json]
+.. clicmd:: show ip ospf route [json]
 
    Show the OSPF routing table, as determined by the most recent SPF
    calculation.

@@ -1159,7 +1159,8 @@ void ospf_opaque_config_write_debug(struct vty *vty)
 	return;
 }
 
-void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa)
+void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
+			     json_object *json)
 {
 	struct lsa_header *lsah = lsa->data;
 	uint32_t lsid = ntohl(lsah->id.s_addr);
@@ -1169,13 +1170,17 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa)
 
 	/* Switch output functionality by vty address. */
 	if (vty != NULL) {
-		vty_out(vty, "  Opaque-Type %u (%s)\n", opaque_type,
-			ospf_opaque_type_name(opaque_type));
-		vty_out(vty, "  Opaque-ID   0x%x\n", opaque_id);
+		if (!json) {
+			vty_out(vty, "  Opaque-Type %u (%s)\n", opaque_type,
+				ospf_opaque_type_name(opaque_type));
+			vty_out(vty, "  Opaque-ID   0x%x\n", opaque_id);
 
-		vty_out(vty, "  Opaque-Info: %u octets of data%s\n",
-			ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE,
-			VALID_OPAQUE_INFO_LEN(lsah) ? "" : "(Invalid length?)");
+			vty_out(vty, "  Opaque-Info: %u octets of data%s\n",
+				ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE,
+				VALID_OPAQUE_INFO_LEN(lsah)
+					? ""
+					: "(Invalid length?)");
+		}
 	} else {
 		zlog_debug("    Opaque-Type %u (%s)", opaque_type,
 			   ospf_opaque_type_name(opaque_type));
@@ -1200,7 +1205,7 @@ void ospf_opaque_lsa_dump(struct stream *s, uint16_t length)
 	struct ospf_lsa lsa;
 
 	lsa.data = (struct lsa_header *)stream_pnt(s);
-	show_opaque_info_detail(NULL, &lsa);
+	show_opaque_info_detail(NULL, &lsa, NULL);
 	return;
 }
 
