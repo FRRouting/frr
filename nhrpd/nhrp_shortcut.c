@@ -54,20 +54,26 @@ static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 				       unsigned long cmd)
 {
 	char buf[PREFIX_STRLEN];
+	char buf2[PREFIX_STRLEN];
 
 	struct nhrp_shortcut *s =
 		container_of(n, struct nhrp_shortcut, cache_notifier);
+	struct nhrp_cache *c = s->cache;
 
+	if (c)
+		sockunion2str(&c->remote_addr, buf2, sizeof(buf2));
+	else
+		snprintf(buf2, sizeof(buf2), "(unspec)");
 	switch (cmd) {
 	case NOTIFY_CACHE_UP:
 		if (!s->route_installed) {
 			debugf(NHRP_DEBUG_ROUTE,
-			       "Shortcut: route install %s nh (unspec) dev %s",
-			       prefix2str(s->p, buf, sizeof(buf)),
-			       s->cache->ifp->name);
+			       "Shortcut: route install %s nh %s dev %s",
+			       prefix2str(s->p, buf, sizeof(buf)), buf2,
+			       c && c->ifp ? c->ifp->name : "<unk>");
 
-			nhrp_route_announce(1, s->type, s->p, s->cache->ifp,
-					    NULL, 0);
+			nhrp_route_announce(1, s->type, s->p, c ? c->ifp : NULL,
+					    c ? &c->remote_addr : NULL, 0);
 			s->route_installed = 1;
 		}
 		break;
