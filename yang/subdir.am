@@ -29,10 +29,7 @@ dist_yangmodels_DATA += yang/frr-vrf.yang
 dist_yangmodels_DATA += yang/frr-route-types.yang
 dist_yangmodels_DATA += yang/frr-routing.yang
 dist_yangmodels_DATA += yang/ietf/ietf-routing-types.yang
-dist_yangmodels_DATA += yang/frr-igmp.yang
 dist_yangmodels_DATA += yang/ietf/ietf-interfaces.yang
-dist_yangmodels_DATA += yang/frr-pim.yang
-dist_yangmodels_DATA += yang/frr-pim-rp.yang
 
 if BFDD
 dist_yangmodels_DATA += yang/frr-bfdd.yang
@@ -64,4 +61,10 @@ endif
 
 if ZEBRA
 dist_yangmodels_DATA += yang/frr-zebra.yang
+endif
+
+if PIMD
+dist_yangmodels_DATA += yang/frr-igmp.yang
+dist_yangmodels_DATA += yang/frr-pim.yang
+dist_yangmodels_DATA += yang/frr-pim-rp.yang
 endif
