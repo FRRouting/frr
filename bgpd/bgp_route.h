@@ -72,6 +72,7 @@ enum bgp_show_adj_route_type {
 #define BGP_SHOW_OCODE_HEADER "Origin codes:  i - IGP, e - EGP, ? - incomplete\n\n"
 #define BGP_SHOW_NCODE_HEADER "Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self\n"
 #define BGP_SHOW_HEADER "   Network          Next Hop            Metric LocPrf Weight Path\n"
+#define BGP_SHOW_HEADER_WIDE "   Network                                      Next Hop                                  Metric LocPrf Weight Path\n"
 
 /* Maximum number of labels we can process or send with a prefix. We
  * really do only 1 for MPLS (BGP-LU) but we can do 2 for EVPN-VxLAN.
@@ -618,13 +619,13 @@ extern struct bgp_path_info *info_make(int type, int sub_type,
 
 extern void route_vty_out(struct vty *vty, const struct prefix *p,
 			  struct bgp_path_info *path, int display, safi_t safi,
-			  json_object *json_paths);
+			  json_object *json_paths, bool wide);
 extern void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 			      struct bgp_path_info *path, int display,
 			      safi_t safi, json_object *json);
 extern void route_vty_out_tmp(struct vty *vty, const struct prefix *p,
 			      struct attr *attr, safi_t safi, bool use_json,
-			      json_object *json_ar);
+			      json_object *json_ar, bool wide);
 extern void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 				  struct bgp_path_info *path, int display,
 				  json_object *json);
