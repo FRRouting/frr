@@ -2144,7 +2144,7 @@ DEFUN_NOSH (show_debugging_bgp,
 				     bgp_debug_zebra_prefixes);
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		vty_out(vty, "  BGP graceful-restart debugging is on");
+		vty_out(vty, "  BGP graceful-restart debugging is on\n");
 
 	if (BGP_DEBUG(allow_martians, ALLOW_MARTIANS))
 		vty_out(vty, "  BGP allow martian next hop debugging is on\n");
