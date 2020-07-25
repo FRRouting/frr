@@ -1432,6 +1432,8 @@ static int bgp_keepalive_receive(struct peer *peer, bgp_size_t size)
 
 	bgp_update_implicit_eors(peer);
 
+	peer->rtt = sockopt_tcp_rtt(peer->fd);
+
 	return Receive_KEEPALIVE_message;
 }
 
