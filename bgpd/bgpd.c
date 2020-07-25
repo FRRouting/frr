@@ -1604,6 +1604,9 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	/* Default TTL set. */
 	peer->ttl = (peer->sort == BGP_PEER_IBGP) ? MAXTTL : BGP_DEFAULT_TTL;
 
+	/* Default configured keepalives count for shutdown rtt command */
+	peer->rtt_keepalive_conf = 1;
+
 	SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
 	if (afi && safi) {
@@ -3865,6 +3868,7 @@ struct peer_flag_action {
 static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_PASSIVE, 0, peer_change_reset},
 	{PEER_FLAG_SHUTDOWN, 0, peer_change_reset},
+	{PEER_FLAG_RTT_SHUTDOWN, 0, peer_change_none},
 	{PEER_FLAG_DONT_CAPABILITY, 0, peer_change_none},
 	{PEER_FLAG_OVERRIDE_CAPABILITY, 0, peer_change_none},
 	{PEER_FLAG_STRICT_CAP_MATCH, 0, peer_change_none},
@@ -3967,6 +3971,7 @@ static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
 				peer_nsf_stop(peer);
 
 			UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
+
 			if (peer->t_pmax_restart) {
 				BGP_TIMER_OFF(peer->t_pmax_restart);
 				if (bgp_debug_neighbor_events(peer))
