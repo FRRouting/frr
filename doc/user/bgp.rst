@@ -1191,6 +1191,13 @@ Defining Peers
    ``net.core.optmem_max`` to allow the kernel to allocate the necessary option
    memory.
 
+.. index:: [no] coalesce-time (0-4294967295)
+.. clicmd:: [no] coalesce-time (0-4294967295)
+
+   The time in milliseconds that BGP will delay before deciding what peers
+   can be put into an update-group together in order to generate a single
+   update for them.  The default time is 1000.
+   
 .. _bgp-configuring-peers:
 
 Configuring Peers
