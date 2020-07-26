@@ -653,7 +653,7 @@ DEFPY(vrrp_vrid_show_summary,
 			continue;
 
 		ttable_add_row(
-			tt, "%s|%hhu|%hhu|%d|%d|%s|%s",
+			tt, "%s|%u|%hhu|%d|%d|%s|%s",
 			vr->ifp->name, vr->vrid, vr->priority,
 			vr->v4->addrs->count, vr->v6->addrs->count,
 			vr->v4->fsm.state == VRRP_STATE_MASTER ? "Master"
