@@ -1951,8 +1951,11 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				goto done_with_match;
 			}
 
-			/* Examine installed nexthops */
-			nhg = &match->nhe->nhg;
+			/* Examine installed nexthops; note that there
+			 * may not be any installed primary nexthops if
+			 * only backups are installed.
+			 */
+			nhg = rib_get_fib_nhg(match);
 			for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
 				if (!nexthop_valid_resolve(nexthop, newhop))
 					continue;
@@ -1973,8 +1976,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			 * dedicated fib list.
 			 */
 			nhg = rib_get_fib_backup_nhg(match);
-			if (nhg == NULL ||
-			    nhg == zebra_nhg_get_backup_nhg(match->nhe))
+			if (nhg == NULL || nhg->nexthop == NULL)
 				goto done_with_match;
 
 			for (ALL_NEXTHOPS_PTR(nhg, newhop)) {

@@ -43,11 +43,8 @@ struct nexthop_hold {
 	char *intf;
 	char *labels;
 	uint32_t weight;
-	int backup_idx; /* Index of backup nexthop, if >= 0 */
+	char *backup_str;
 };
-
-/* Invalid/unset value for nexthop_hold's backup_idx */
-#define NHH_BACKUP_IDX_INVALID -1
 
 struct nexthop_group_hooks {
 	void (*new)(const char *name);
@@ -677,7 +674,8 @@ static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 				    const char *nhvrf_name,
 				    const union sockunion *addr,
 				    const char *intf, const char *labels,
-				    const uint32_t weight, int backup_idx)
+				    const uint32_t weight,
+				    const char *backup_str)
 {
 	struct nexthop_hold *nh;
 
@@ -694,7 +692,8 @@ static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 
 	nh->weight = weight;
 
-	nh->backup_idx = backup_idx;
+	if (backup_str)
+		nh->backup_str = XSTRDUP(MTYPE_TMP, backup_str);
 
 	listnode_add_sort(nhgc->nhg_list, nh);
 }
@@ -741,10 +740,11 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 					const union sockunion *addr,
 					const char *intf, const char *name,
 					const char *labels, int *lbl_ret,
-					uint32_t weight, int backup_idx)
+					uint32_t weight, const char *backup_str)
 {
 	int ret = 0;
 	struct vrf *vrf;
+	int num;
 
 	memset(nhop, 0, sizeof(*nhop));
 
@@ -800,13 +800,15 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 
 	nhop->weight = weight;
 
-	if (backup_idx != NHH_BACKUP_IDX_INVALID) {
-		/* Validate index value */
-		if (backup_idx > NEXTHOP_BACKUP_IDX_MAX)
+	if (backup_str) {
+		/* Parse backup indexes */
+		ret = nexthop_str2backups(backup_str,
+					  &num, nhop->backup_idx);
+		if (ret == 0) {
+			SET_FLAG(nhop->flags, NEXTHOP_FLAG_HAS_BACKUP);
+			nhop->backup_num = num;
+		} else
 			return false;
-
-		SET_FLAG(nhop->flags, NEXTHOP_FLAG_HAS_BACKUP);
-		nhop->backup_idx = backup_idx;
 	}
 
 	return true;
@@ -820,7 +822,7 @@ static bool nexthop_group_parse_nhh(struct nexthop *nhop,
 {
 	return (nexthop_group_parse_nexthop(nhop, nhh->addr, nhh->intf,
 					    nhh->nhvrf_name, nhh->labels, NULL,
-					    nhh->weight, nhh->backup_idx));
+					    nhh->weight, nhh->backup_str));
 }
 
 DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
@@ -833,7 +835,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	   nexthop-vrf NAME$vrf_name \
 	   |label WORD \
            |weight (1-255) \
-           |backup-idx$bi_str (0-254)$idx \
+           |backup-idx WORD \
 	}]",
       NO_STR
       "Specify one of the nexthops in this ECMP group\n"
@@ -847,19 +849,26 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
       "One or more labels in the range (16-1048575) separated by '/'\n"
       "Weight to be used by the nexthop for purposes of ECMP\n"
       "Weight value to be used\n"
-      "Backup nexthop index in another group\n"
-      "Nexthop index value\n")
+      "Specify backup nexthop indexes in another group\n"
+      "One or more indexes in the range (0-254) separated by ','\n")
 {
 	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
 	struct nexthop nhop;
 	struct nexthop *nh;
 	int lbl_ret = 0;
 	bool legal;
-	int backup_idx = idx;
+	int num;
+	uint8_t backups[NEXTHOP_MAX_BACKUPS];
 	bool yes = !no;
 
-	if (bi_str == NULL)
-		backup_idx = NHH_BACKUP_IDX_INVALID;
+	/* Pre-parse backup string to validate */
+	if (backup_idx) {
+		lbl_ret = nexthop_str2backups(backup_idx, &num, backups);
+		if (lbl_ret < 0) {
+			vty_out(vty, "%% Invalid backups\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
 
 	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, vrf_name, label,
 					    &lbl_ret, weight, backup_idx);
@@ -943,10 +952,11 @@ static struct cmd_node nexthop_group_node = {
 	.config_write = nexthop_group_write,
 };
 
-void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh)
+void nexthop_group_write_nexthop(struct vty *vty, const struct nexthop *nh)
 {
 	char buf[100];
 	struct vrf *vrf;
+	int i;
 
 	vty_out(vty, "nexthop ");
 
@@ -991,16 +1001,22 @@ void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh)
 	if (nh->weight)
 		vty_out(vty, " weight %u", nh->weight);
 
-	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP))
-		vty_out(vty, " backup-idx %d", nh->backup_idx);
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		vty_out(vty, " backup-idx %d", nh->backup_idx[0]);
+
+		for (i = 1; i < nh->backup_num; i++)
+			vty_out(vty, ",%d", nh->backup_idx[i]);
+	}
 
 	vty_out(vty, "\n");
 }
 
-void nexthop_group_json_nexthop(json_object *j, struct nexthop *nh)
+void nexthop_group_json_nexthop(json_object *j, const struct nexthop *nh)
 {
 	char buf[100];
 	struct vrf *vrf;
+	json_object *json_backups = NULL;
+	int i;
 
 	switch (nh->type) {
 	case NEXTHOP_TYPE_IFINDEX:
@@ -1047,12 +1063,19 @@ void nexthop_group_json_nexthop(json_object *j, struct nexthop *nh)
 	if (nh->weight)
 		json_object_int_add(j, "weight", nh->weight);
 
-	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP))
-		json_object_int_add(j, "backupIdx", nh->backup_idx);
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		json_backups = json_object_new_array();
+		for (i = 0; i < nh->backup_num; i++)
+			json_object_array_add(
+				json_backups,
+				json_object_new_int(nh->backup_idx[i]));
+
+		json_object_object_add(j, "backupIdx", json_backups);
+	}
 }
 
 static void nexthop_group_write_nexthop_internal(struct vty *vty,
-						 struct nexthop_hold *nh)
+						 const struct nexthop_hold *nh)
 {
 	char buf[100];
 
@@ -1073,8 +1096,8 @@ static void nexthop_group_write_nexthop_internal(struct vty *vty,
 	if (nh->weight)
 		vty_out(vty, " weight %u", nh->weight);
 
-	if (nh->backup_idx != NHH_BACKUP_IDX_INVALID)
-		vty_out(vty, " backup-idx %d", nh->backup_idx);
+	if (nh->backup_str)
+		vty_out(vty, " backup-idx %s", nh->backup_str);
 
 	vty_out(vty, "\n");
 }

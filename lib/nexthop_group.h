@@ -135,9 +135,11 @@ extern bool nexthop_group_equal(const struct nexthop_group *nhg1,
 
 extern struct nexthop_group_cmd *nhgc_find(const char *name);
 
-extern void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh);
+extern void nexthop_group_write_nexthop(struct vty *vty,
+					const struct nexthop *nh);
 
-extern void nexthop_group_json_nexthop(json_object *j, struct nexthop *nh);
+extern void nexthop_group_json_nexthop(json_object *j,
+				       const struct nexthop *nh);
 
 /* Return the number of nexthops in this nhg */
 extern uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);

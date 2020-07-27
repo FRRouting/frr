@@ -278,7 +278,8 @@ DEFPY (install_routes,
 	if (backup) {
 		/* Set flag and index in primary nexthop */
 		SET_FLAG(sg.r.nhop.flags, NEXTHOP_FLAG_HAS_BACKUP);
-		sg.r.nhop.backup_idx = 0;
+		sg.r.nhop.backup_num = 1;
+		sg.r.nhop.backup_idx[0] = 0;
 
 		if (backup_nexthop4.s_addr != INADDR_ANY) {
 			sg.r.backup_nhop.gate.ipv4 = backup_nexthop4;

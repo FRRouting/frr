@@ -157,6 +157,10 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 		goto done;
 
 	if (!CHECK_FLAG(next1->flags, NEXTHOP_FLAG_HAS_BACKUP) &&
+	    !CHECK_FLAG(next2->flags, NEXTHOP_FLAG_HAS_BACKUP))
+		return 0;
+
+	if (!CHECK_FLAG(next1->flags, NEXTHOP_FLAG_HAS_BACKUP) &&
 	    CHECK_FLAG(next2->flags, NEXTHOP_FLAG_HAS_BACKUP))
 		return -1;
 
@@ -164,11 +168,17 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	    !CHECK_FLAG(next2->flags, NEXTHOP_FLAG_HAS_BACKUP))
 		return 1;
 
-	if (next1->backup_idx < next2->backup_idx)
+	if (next1->backup_num == 0 && next2->backup_num == 0)
+		goto done;
+
+	if (next1->backup_num < next2->backup_num)
 		return -1;
 
-	if (next1->backup_idx > next2->backup_idx)
+	if (next1->backup_num > next2->backup_num)
 		return 1;
+
+	ret = memcmp(next1->backup_idx,
+		     next2->backup_idx, next1->backup_num);
 
 done:
 	return ret;
@@ -515,11 +525,12 @@ struct nexthop *nexthop_next_active_resolved(const struct nexthop *nexthop)
 	return next;
 }
 
-unsigned int nexthop_level(struct nexthop *nexthop)
+unsigned int nexthop_level(const struct nexthop *nexthop)
 {
 	unsigned int rv = 0;
 
-	for (struct nexthop *par = nexthop->rparent; par; par = par->rparent)
+	for (const struct nexthop *par = nexthop->rparent;
+	     par; par = par->rparent)
 		rv++;
 
 	return rv;
@@ -529,14 +540,15 @@ unsigned int nexthop_level(struct nexthop *nexthop)
 uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 {
 	uint32_t key = 0x45afe398;
-	uint32_t val;
+	int i;
 
 	key = jhash_3words(nexthop->type, nexthop->vrf_id,
 			   nexthop->nh_label_type, key);
 
 	if (nexthop->nh_label) {
 		int labels = nexthop->nh_label->num_labels;
-		int i = 0;
+
+		i = 0;
 
 		while (labels >= 3) {
 			key = jhash_3words(nexthop->nh_label->label[i],
@@ -559,13 +571,34 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 			key = jhash_1word(nexthop->nh_label->label[i], key);
 	}
 
-	val = 0;
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
-		val = (uint32_t)nexthop->backup_idx;
-
-	key = jhash_3words(nexthop->ifindex,
-			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK), val,
+	key = jhash_2words(nexthop->ifindex,
+			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK),
 			   key);
+
+	/* Include backup nexthops, if present */
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		int backups = nexthop->backup_num;
+
+		i = 0;
+
+		while (backups >= 3) {
+			key = jhash_3words(nexthop->backup_idx[i],
+					   nexthop->backup_idx[i + 1],
+					   nexthop->backup_idx[i + 2], key);
+			backups -= 3;
+			i += 3;
+		}
+
+		while (backups >= 2) {
+			key = jhash_2words(nexthop->backup_idx[i],
+					   nexthop->backup_idx[i + 1], key);
+			backups -= 2;
+			i += 2;
+		}
+
+		if (backups >= 1)
+			key = jhash_1word(nexthop->backup_idx[i], key);
+	}
 
 	return key;
 }
@@ -604,7 +637,12 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 	copy->type = nexthop->type;
 	copy->flags = nexthop->flags;
 	copy->weight = nexthop->weight;
-	copy->backup_idx = nexthop->backup_idx;
+
+	assert(nexthop->backup_num < NEXTHOP_MAX_BACKUPS);
+	copy->backup_num = nexthop->backup_num;
+	if (copy->backup_num > 0)
+		memcpy(copy->backup_idx, nexthop->backup_idx, copy->backup_num);
+
 	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
 	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
 	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));
@@ -621,7 +659,7 @@ void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 	nexthop_copy_no_recurse(copy, nexthop, rparent);
 
 	/* Bit of a special case here, we need to handle the case
-	 * of a nexthop resolving to agroup. Hence, we need to
+	 * of a nexthop resolving to a group. Hence, we need to
 	 * use a nexthop_group API.
 	 */
 	if (CHECK_FLAG(copy->flags, NEXTHOP_FLAG_RECURSIVE))
@@ -644,6 +682,67 @@ struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 
 	nexthop_copy(new, nexthop, rparent);
 	return new;
+}
+
+/*
+ * Parse one or more backup index values, as comma-separated numbers,
+ * into caller's array of uint8_ts. The array must be NEXTHOP_MAX_BACKUPS
+ * in size. Mails back the number of values converted, and returns 0 on
+ * success, <0 if an error in parsing.
+ */
+int nexthop_str2backups(const char *str, int *num_backups,
+			uint8_t *backups)
+{
+	char *ostr;			  /* copy of string (start) */
+	char *lstr;			  /* working copy of string */
+	char *nump;			  /* pointer to next segment */
+	char *endp;			  /* end pointer */
+	int i, ret;
+	uint8_t tmp[NEXTHOP_MAX_BACKUPS];
+	uint32_t lval;
+
+	/* Copy incoming string; the parse is destructive */
+	lstr = ostr = XSTRDUP(MTYPE_TMP, str);
+	*num_backups = 0;
+	ret = 0;
+
+	for (i = 0; i < NEXTHOP_MAX_BACKUPS && lstr; i++) {
+		nump = strsep(&lstr, ",");
+		lval = strtoul(nump, &endp, 10);
+
+		/* Format check */
+		if (*endp != '\0') {
+			ret = -1;
+			break;
+		}
+
+		/* Empty value */
+		if (endp == nump) {
+			ret = -1;
+			break;
+		}
+
+		/* Limit to one octet */
+		if (lval > 255) {
+			ret = -1;
+			break;
+		}
+
+		tmp[i] = lval;
+	}
+
+	/* Excess values */
+	if (ret == 0 && i == NEXTHOP_MAX_BACKUPS && lstr)
+		ret = -1;
+
+	if (ret == 0) {
+		*num_backups = i;
+		memcpy(backups, tmp, i);
+	}
+
+	XFREE(MTYPE_TMP, ostr);
+
+	return ret;
 }
 
 /*

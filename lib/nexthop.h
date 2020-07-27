@@ -65,6 +65,12 @@ enum nh_encap_type {
 	NET_VXLAN = 100, /* value copied from FPM_NH_ENCAP_VXLAN. */
 };
 
+/* Fixed limit on the number of backup nexthops per primary nexthop */
+#define NEXTHOP_MAX_BACKUPS  8
+
+/* Backup index value is limited */
+#define NEXTHOP_BACKUP_IDX_MAX 255
+
 /* Nexthop structure. */
 struct nexthop {
 	struct nexthop *next;
@@ -124,10 +130,11 @@ struct nexthop {
 	/* Weight of the nexthop ( for unequal cost ECMP ) */
 	uint8_t weight;
 
-	/* Index of a corresponding backup nexthop in a backup list;
+	/* Count and index of corresponding backup nexthop(s) in a backup list;
 	 * only meaningful if the HAS_BACKUP flag is set.
 	 */
-	uint8_t backup_idx;
+	uint8_t backup_num;
+	uint8_t backup_idx[NEXTHOP_MAX_BACKUPS];
 
 	/* Encapsulation information. */
 	enum nh_encap_type nh_encap_type;
@@ -135,9 +142,6 @@ struct nexthop {
 		vni_t vni;
 	} nh_encap;
 };
-
-/* Backup index value is limited */
-#define NEXTHOP_BACKUP_IDX_MAX 255
 
 /* Utility to append one nexthop to another. */
 #define NEXTHOP_APPEND(to, new)           \
@@ -216,7 +220,7 @@ extern const char *nexthop2str(const struct nexthop *nexthop,
 extern struct nexthop *nexthop_next(const struct nexthop *nexthop);
 extern struct nexthop *
 nexthop_next_active_resolved(const struct nexthop *nexthop);
-extern unsigned int nexthop_level(struct nexthop *nexthop);
+extern unsigned int nexthop_level(const struct nexthop *nexthop);
 /* Copies to an already allocated nexthop struct */
 extern void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 			 struct nexthop *rparent);
@@ -230,6 +234,15 @@ extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 /* Duplicates a nexthop and returns the newly allocated nexthop */
 extern struct nexthop *nexthop_dup_no_recurse(const struct nexthop *nexthop,
 					      struct nexthop *rparent);
+
+/*
+ * Parse one or more backup index values, as comma-separated numbers,
+ * into caller's array of uint8_ts. The array must be NEXTHOP_MAX_BACKUPS
+ * in size. Mails back the number of values converted, and returns 0 on
+ * success, <0 if an error in parsing.
+ */
+int nexthop_str2backups(const char *str, int *num_backups,
+			uint8_t *backups);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNH"  (struct nexthop *)

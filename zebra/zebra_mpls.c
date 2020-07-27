@@ -120,7 +120,8 @@ static int mpls_lsp_uninstall_all(struct hash *lsp_table, zebra_lsp_t *lsp,
 				  enum lsp_types_t type);
 static int mpls_static_lsp_uninstall_all(struct zebra_vrf *zvrf,
 					 mpls_label_t in_label);
-static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty);
+static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty,
+			const char *indent);
 static void lsp_print(struct vty *vty, zebra_lsp_t *lsp);
 static void *slsp_alloc(void *p);
 static int snhlfe_match(zebra_snhlfe_t *snhlfe, enum nexthop_types_t gtype,
@@ -1503,7 +1504,9 @@ static json_object *nhlfe_json(zebra_nhlfe_t *nhlfe)
 {
 	char buf[BUFSIZ];
 	json_object *json_nhlfe = NULL;
+	json_object *json_backups = NULL;
 	struct nexthop *nexthop = nhlfe->nexthop;
+	int i;
 
 	json_nhlfe = json_object_new_object();
 	json_object_string_add(json_nhlfe, "type", nhlfe_type2str(nhlfe->type));
@@ -1534,13 +1537,27 @@ static json_object *nhlfe_json(zebra_nhlfe_t *nhlfe)
 	default:
 		break;
 	}
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		json_backups = json_object_new_array();
+		for (i = 0; i < nexthop->backup_num; i++) {
+			json_object_array_add(
+				json_backups,
+				json_object_new_int(nexthop->backup_idx[i]));
+		}
+
+		json_object_object_add(json_nhlfe, "backupIndex",
+				       json_backups);
+	}
+
 	return json_nhlfe;
 }
 
 /*
  * Print the NHLFE for a LSP forwarding entry.
  */
-static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
+static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty,
+			const char *indent)
 {
 	struct nexthop *nexthop;
 	char buf[MPLS_LABEL_STRLEN];
@@ -1555,6 +1572,10 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
 			       nexthop->nh_label->label,
 			       buf, sizeof(buf), 0),
 		nhlfe->distance);
+
+	if (indent)
+		vty_out(vty, "%s", indent);
+
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
@@ -1592,31 +1613,34 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
 static void lsp_print(struct vty *vty, zebra_lsp_t *lsp)
 {
 	zebra_nhlfe_t *nhlfe, *backup;
-	int i;
+	int i, j;
 
 	vty_out(vty, "Local label: %u%s\n", lsp->ile.in_label,
 		CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED) ? " (installed)"
 							   : "");
 
 	frr_each(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
-		nhlfe_print(nhlfe, vty);
+		nhlfe_print(nhlfe, vty, NULL);
 
-		if (nhlfe->nexthop &&
-		    CHECK_FLAG(nhlfe->nexthop->flags,
-			       NEXTHOP_FLAG_HAS_BACKUP)) {
-			/* Find backup in backup list */
+		if (nhlfe->nexthop == NULL ||
+		    !CHECK_FLAG(nhlfe->nexthop->flags,
+				NEXTHOP_FLAG_HAS_BACKUP))
+			continue;
 
+		/* Backup nhlfes: find backups in backup list */
+
+		for (j = 0; j < nhlfe->nexthop->backup_num; j++) {
 			i = 0;
 			backup = NULL;
 			frr_each(nhlfe_list, &lsp->backup_nhlfe_list, backup) {
-				if (i == nhlfe->nexthop->backup_idx)
+				if (i == nhlfe->nexthop->backup_idx[j])
 					break;
 				i++;
 			}
 
 			if (backup) {
 				vty_out(vty, "   [backup %d]", i);
-				nhlfe_print(backup, vty);
+				nhlfe_print(backup, vty, "   ");
 			}
 		}
 	}
@@ -1640,6 +1664,19 @@ static json_object *lsp_json(zebra_lsp_t *lsp)
 		json_object_array_add(json_nhlfe_list, nhlfe_json(nhlfe));
 
 	json_object_object_add(json, "nexthops", json_nhlfe_list);
+	json_nhlfe_list = NULL;
+
+
+	frr_each(nhlfe_list, &lsp->backup_nhlfe_list, nhlfe) {
+		if (json_nhlfe_list == NULL)
+			json_nhlfe_list = json_object_new_array();
+
+		json_object_array_add(json_nhlfe_list, nhlfe_json(nhlfe));
+	}
+
+	if (json_nhlfe_list)
+		json_object_object_add(json, "backupNexthops", json_nhlfe_list);
+
 	return json;
 }
 
@@ -2109,6 +2146,7 @@ static int update_nhlfes_from_ctx(struct nhlfe_list_head *nhlfe_head,
 						   __func__, buf);
 
 				SET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+				SET_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED);
 
 			} else {
 				if (is_debug)
@@ -2116,6 +2154,7 @@ static int update_nhlfes_from_ctx(struct nhlfe_list_head *nhlfe_head,
 						   __func__, buf);
 
 				UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+				UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED);
 			}
 
 			if (CHECK_FLAG(ctx_nhlfe->nexthop->flags,
@@ -2137,6 +2176,7 @@ static int update_nhlfes_from_ctx(struct nhlfe_list_head *nhlfe_head,
 				zlog_debug("%s: no match for lsp nhlfe %s",
 					   __func__, buf);
 			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED);
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		}
@@ -3332,7 +3372,14 @@ static int lsp_znh_install(zebra_lsp_t *lsp, enum lsp_types_t type,
 
 	/* Update backup info if present */
 	if (CHECK_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
-		nhlfe->nexthop->backup_idx = znh->backup_idx;
+		if (znh->backup_num > NEXTHOP_MAX_BACKUPS) {
+			nhlfe_del(nhlfe);
+			return -1;
+		}
+
+		nhlfe->nexthop->backup_num = znh->backup_num;
+		memcpy(nhlfe->nexthop->backup_idx, znh->backup_idx,
+		       znh->backup_num);
 		SET_FLAG(nhlfe->nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
 	}
 

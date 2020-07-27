@@ -2016,9 +2016,18 @@ int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			break;
 		}
 
-		/* Need to copy flags too */
+		/* Need to copy flags and backup info too */
 		new_nhlfe->flags = nhlfe->flags;
 		new_nhlfe->nexthop->flags = nhlfe->nexthop->flags;
+
+		if (CHECK_FLAG(new_nhlfe->nexthop->flags,
+			       NEXTHOP_FLAG_HAS_BACKUP)) {
+			new_nhlfe->nexthop->backup_num =
+				nhlfe->nexthop->backup_num;
+			memcpy(new_nhlfe->nexthop->backup_idx,
+			       nhlfe->nexthop->backup_idx,
+			       new_nhlfe->nexthop->backup_num);
+		}
 
 		if (nhlfe == lsp->best_nhlfe)
 			ctx->u.lsp.best_nhlfe = new_nhlfe;
@@ -2119,8 +2128,15 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 
 			if (re) {
 				nhg = rib_get_fib_nhg(re);
-				copy_nexthops(&(ctx->u.pw.nhg.nexthop),
-					      nhg->nexthop, NULL);
+				if (nhg && nhg->nexthop)
+					copy_nexthops(&(ctx->u.pw.nhg.nexthop),
+						      nhg->nexthop, NULL);
+
+				/* Include any installed backup nexthops */
+				nhg = rib_get_fib_backup_nhg(re);
+				if (nhg && nhg->nexthop)
+					copy_nexthops(&(ctx->u.pw.nhg.nexthop),
+						      nhg->nexthop, NULL);
 			}
 			route_unlock_node(rn);
 		}
@@ -2477,6 +2493,7 @@ dplane_route_notif_update(struct route_node *rn,
 	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
 	struct zebra_dplane_ctx *new_ctx = NULL;
 	struct nexthop *nexthop;
+	struct nexthop_group *nhg;
 
 	if (rn == NULL || re == NULL)
 		goto done;
@@ -2498,8 +2515,17 @@ dplane_route_notif_update(struct route_node *rn,
 		nexthops_free(new_ctx->u.rinfo.zd_ng.nexthop);
 		new_ctx->u.rinfo.zd_ng.nexthop = NULL;
 
-		copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
-			      (rib_get_fib_nhg(re))->nexthop, NULL);
+		nhg = rib_get_fib_nhg(re);
+		if (nhg && nhg->nexthop)
+			copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
+				      nhg->nexthop, NULL);
+
+		/* Check for installed backup nexthops also */
+		nhg = rib_get_fib_backup_nhg(re);
+		if (nhg && nhg->nexthop) {
+			copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
+				      nhg->nexthop, NULL);
+		}
 
 		for (ALL_NEXTHOPS(new_ctx->u.rinfo.zd_ng, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
@@ -2599,6 +2625,8 @@ dplane_lsp_notif_update(zebra_lsp_t *lsp,
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret = EINVAL;
 	struct zebra_dplane_ctx *ctx = NULL;
+	struct nhlfe_list_head *head;
+	zebra_nhlfe_t *nhlfe, *new_nhlfe;
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
@@ -2607,9 +2635,26 @@ dplane_lsp_notif_update(zebra_lsp_t *lsp,
 		goto done;
 	}
 
+	/* Copy info from zebra LSP */
 	ret = dplane_ctx_lsp_init(ctx, op, lsp);
 	if (ret != AOK)
 		goto done;
+
+	/* Add any installed backup nhlfes */
+	head = &(ctx->u.lsp.backup_nhlfe_list);
+	frr_each(nhlfe_list, head, nhlfe) {
+
+		if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED) &&
+		    CHECK_FLAG(nhlfe->nexthop->flags, NEXTHOP_FLAG_FIB)) {
+			new_nhlfe = zebra_mpls_lsp_add_nh(&(ctx->u.lsp),
+							  nhlfe->type,
+							  nhlfe->nexthop);
+
+			/* Need to copy flags too */
+			new_nhlfe->flags = nhlfe->flags;
+			new_nhlfe->nexthop->flags = nhlfe->nexthop->flags;
+		}
+	}
 
 	/* Capture info about the source of the notification */
 	dplane_ctx_set_notif_provider(
@@ -4018,19 +4063,19 @@ bool dplane_is_in_shutdown(void)
  */
 void zebra_dplane_pre_finish(void)
 {
-	struct zebra_dplane_provider *dp;
+	struct zebra_dplane_provider *prov;
 
 	if (IS_ZEBRA_DEBUG_DPLANE)
-		zlog_debug("Zebra dataplane pre-fini called");
+		zlog_debug("Zebra dataplane pre-finish called");
 
 	zdplane_info.dg_is_shutdown = true;
 
 	/* Notify provider(s) of pending shutdown. */
-	TAILQ_FOREACH(dp, &zdplane_info.dg_providers_q, dp_prov_link) {
-		if (dp->dp_fini == NULL)
+	TAILQ_FOREACH(prov, &zdplane_info.dg_providers_q, dp_prov_link) {
+		if (prov->dp_fini == NULL)
 			continue;
 
-		dp->dp_fini(dp, true);
+		prov->dp_fini(prov, true /* early */);
 	}
 }
 
@@ -4352,7 +4397,10 @@ void zebra_dplane_shutdown(void)
 	zdplane_info.dg_pthread = NULL;
 	zdplane_info.dg_master = NULL;
 
-	/* Notify provider(s) of final shutdown. */
+	/* Notify provider(s) of final shutdown.
+	 * Note that this call is in the main pthread, so providers must
+	 * be prepared for that.
+	 */
 	TAILQ_FOREACH(dp, &zdplane_info.dg_providers_q, dp_prov_link) {
 		if (dp->dp_fini == NULL)
 			continue;
