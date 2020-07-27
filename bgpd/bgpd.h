@@ -1838,7 +1838,6 @@ extern void peer_group_notify_unconfig(struct peer_group *group);
 
 extern int peer_activate(struct peer *, afi_t, safi_t);
 extern int peer_deactivate(struct peer *, afi_t, safi_t);
-extern int peer_afc_set(struct peer *, afi_t, safi_t, int);
 
 extern int peer_group_bind(struct bgp *, union sockunion *, struct peer *,
 			   struct peer_group *, as_t *);
