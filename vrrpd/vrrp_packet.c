@@ -296,7 +296,7 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 			(*pkt)->hdr.chksum, chksum);
 
 	/* Type check */
-	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype & 0x0F) == 1, "Bad type %hhu",
+	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype & 0x0F) == 1, "Bad type %u",
 			(*pkt)->hdr.vertype & 0x0f);
 
 	/* Exact size check */
