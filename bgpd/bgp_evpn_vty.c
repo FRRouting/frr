@@ -3899,6 +3899,12 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 		struct listnode *node = NULL;
 		struct bgpevpn *vpn = NULL;
 
+		/*
+		 * At this point if bgp_evpn is NULL and evpn is enabled
+		 * something stupid has gone wrong
+		 */
+		assert(bgp_evpn);
+
 		update_advertise_vrf_routes(bgp_vrf);
 
 		/* Update (svi) type-2 routes */

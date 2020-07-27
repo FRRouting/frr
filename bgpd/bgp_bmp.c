@@ -951,8 +951,11 @@ afibreak:
 		/* initialize syncrdpos to the first
 		 * mid-layer table entry
 		 */
-		if (!bmp->syncrdpos)
+		if (!bmp->syncrdpos) {
 			bmp->syncrdpos = bgp_table_top(table);
+			if (!bmp->syncrdpos)
+				goto eor;
+		}
 
 		/* look for a valid mid-layer table */
 		do {
