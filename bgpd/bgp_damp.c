@@ -50,6 +50,12 @@ static int bgp_reuse_index(int penalty, struct bgp_damp_config *bdc)
 	unsigned int i;
 	int index;
 
+	/*
+	 * reuse_limit can't be zero, this is for Coverity
+	 * to bypass division by zero test.
+	 */
+	assert(bdc->reuse_limit);
+
 	i = (int)(((double)penalty / bdc->reuse_limit - 1.0)
 		  * bdc->scale_factor);
 
