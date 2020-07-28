@@ -950,13 +950,14 @@ class TopoExaBGP(TopoHost):
         params["privateDirs"] = self.PRIVATE_DIRS
         super(TopoExaBGP, self).__init__(tgen, name, **params)
         self.tgen.topo.addHost(name, **params)
+        self.logdir = "/tmp/topotests/{}/{}".format(self.tgen.modname, name)
 
     def __str__(self):
         gear = super(TopoExaBGP, self).__str__()
         gear += " TopoExaBGP<>".format()
         return gear
 
-    def start(self, peer_dir, env_file=None):
+    def start(self, peer_dir, env_file=None, other_files=None):
         """
         Start running ExaBGP daemon:
         * Copy all peer* folder contents into /etc/exabgp
@@ -964,11 +965,18 @@ class TopoExaBGP(TopoHost):
         * Make all python files runnable
         * Run ExaBGP with env file `env_file` and configuration peer*/exabgp.cfg
         """
+        self.run("mkdir -p {}".format(self.logdir))
         self.run("mkdir /etc/exabgp")
         self.run("chmod 755 /etc/exabgp")
         self.run("cp {}/* /etc/exabgp/".format(peer_dir))
         if env_file is not None:
             self.run("cp {} /etc/exabgp/exabgp.env".format(env_file))
+        if other_files is not None:
+            for f in other_files:
+                self.run('cp {} /etc/exabgp/'.format(f))
+                self.run("sed -i 's|<log-file>|{}/exabgp.log|g' '/etc/exabgp/{}'".format(
+                    self.logdir, os.path.basename(f)
+                ))
         self.run("chmod 644 /etc/exabgp/*")
         self.run("chmod a+x /etc/exabgp/*.py")
         self.run("chown -R exabgp:exabgp /etc/exabgp")
