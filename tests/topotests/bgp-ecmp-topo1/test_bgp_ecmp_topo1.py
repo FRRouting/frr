@@ -105,12 +105,12 @@ def setup_module(module):
         router.start()
 
     # Starting Hosts and init ExaBGP on each of them
-    topotest.sleep(10, "starting BGP on all {} peers".format(total_ebgp_peers))
     peer_list = tgen.exabgp_peers()
     for pname, peer in peer_list.items():
         peer_dir = os.path.join(CWD, pname)
         env_file = os.path.join(CWD, "exabgp.env")
-        peer.start(peer_dir, env_file)
+        other_files = [os.path.join(CWD, 'exabgp-helper.py')]
+        peer.start(peer_dir, env_file, other_files)
         logger.info(pname)
 
 
@@ -153,7 +153,7 @@ def test_bgp_convergence():
     test_func = functools.partial(
         _output_summary_cmp, router, "show ip bgp summary json", expected
     )
-    _, res = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, res = topotest.run_and_expect(test_func, None, count=100, wait=1)
     assertmsg = "BGP router network did not converge"
     assert res is None, assertmsg
 
