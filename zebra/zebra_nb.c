@@ -92,27 +92,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
-			.xpath = "/frr-zebra:zebra/vrf-vni-mapping",
-			.cbs = {
-				.create = zebra_vrf_vni_mapping_create,
-				.destroy = zebra_vrf_vni_mapping_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-zebra:zebra/vrf-vni-mapping/vni-id",
-			.cbs = {
-				.modify = zebra_vrf_vni_mapping_vni_id_modify,
-				.destroy = zebra_vrf_vni_mapping_vni_id_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-zebra:zebra/vrf-vni-mapping/prefix-only",
-			.cbs = {
-				.create = zebra_vrf_vni_mapping_prefix_only_create,
-				.destroy = zebra_vrf_vni_mapping_prefix_only_destroy,
-			}
-		},
-		{
 			.xpath = "/frr-zebra:zebra/debugs/debug-events",
 			.cbs = {
 				.modify = zebra_debugs_debug_events_modify,
@@ -633,6 +612,19 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/weight",
 			.cbs = {
 				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_weight_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id",
+			.cbs = {
+				.modify = lib_vrf_zebra_l3vni_id_modify,
+				.destroy = lib_vrf_zebra_l3vni_id_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/prefix-only",
+			.cbs = {
+				.modify = lib_vrf_zebra_prefix_only_modify,
 			}
 		},
 		{

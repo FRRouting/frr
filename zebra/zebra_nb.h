@@ -57,12 +57,6 @@ int zebra_import_kernel_table_route_map_destroy(
 int zebra_allow_external_route_update_create(struct nb_cb_create_args *args);
 int zebra_allow_external_route_update_destroy(struct nb_cb_destroy_args *args);
 int zebra_dplane_queue_limit_modify(struct nb_cb_modify_args *args);
-int zebra_vrf_vni_mapping_create(struct nb_cb_create_args *args);
-int zebra_vrf_vni_mapping_destroy(struct nb_cb_destroy_args *args);
-int zebra_vrf_vni_mapping_vni_id_modify(struct nb_cb_modify_args *args);
-int zebra_vrf_vni_mapping_vni_id_destroy(struct nb_cb_destroy_args *args);
-int zebra_vrf_vni_mapping_prefix_only_create(struct nb_cb_create_args *args);
-int zebra_vrf_vni_mapping_prefix_only_destroy(struct nb_cb_destroy_args *args);
 int zebra_debugs_debug_events_modify(struct nb_cb_modify_args *args);
 int zebra_debugs_debug_events_destroy(struct nb_cb_destroy_args *args);
 int zebra_debugs_debug_zapi_send_modify(struct nb_cb_modify_args *args);
@@ -316,6 +310,9 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_fib_get_elem(
 struct yang_data *
 lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_weight_get_elem(
 	struct nb_cb_get_elem_args *args);
+int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args);
+int lib_vrf_zebra_l3vni_id_destroy(struct nb_cb_destroy_args *args);
+int lib_vrf_zebra_prefix_only_modify(struct nb_cb_modify_args *args);
 
 #ifdef __cplusplus
 }
