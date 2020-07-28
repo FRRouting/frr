@@ -1508,8 +1508,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 			memcpy(&(vtep_ip.ipaddr_v4), &(api_nh->gate.ipv4),
 			       sizeof(struct in_addr));
 			zebra_vxlan_evpn_vrf_route_add(
-				api_nh->vrf_id, &api_nh->rmac,
-				&vtep_ip, p);
+				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 		}
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1542,8 +1541,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 			memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 			       sizeof(struct in6_addr));
 			zebra_vxlan_evpn_vrf_route_add(
-				api_nh->vrf_id, &api_nh->rmac,
-				&vtep_ip, p);
+				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 		}
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
@@ -1660,7 +1658,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			return false;
 		}
 
-		if (bnhg && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		if (bnhg
+		    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
 			if (IS_ZEBRA_DEBUG_RECV) {
 				nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
 				zlog_debug("%s: backup nh %s with BACKUP flag!",
@@ -1707,18 +1706,19 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 
 		if (png) {
 			/* Add new nexthop to temporary list. This list is
-			 * canonicalized - sorted - so that it can be hashed later
-			 * in route processing. We expect that the sender has sent
-			 * the list sorted, and the zapi client api attempts to enforce
-			 * that, so this should be inexpensive - but it is necessary
-			 * to support shared nexthop-groups.
+			 * canonicalized - sorted - so that it can be hashed
+			 * later in route processing. We expect that the sender
+			 * has sent the list sorted, and the zapi client api
+			 * attempts to enforce that, so this should be
+			 * inexpensive - but it is necessary to support shared
+			 * nexthop-groups.
 			 */
 			nexthop_group_add_sorted(ng, nexthop);
 		}
 		if (bnhg) {
-			/* Note that the order of the backup nexthops is significant,
-			 * so we don't sort this list as we do the primary nexthops,
-			 * we just append.
+			/* Note that the order of the backup nexthops is
+			 * significant, so we don't sort this list as we do the
+			 * primary nexthops, we just append.
 			 */
 			if (last_nh)
 				NEXTHOP_APPEND(last_nh, nexthop);
@@ -1792,8 +1792,7 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 
 		if (zapi_nexthop_decode(s, znh, 0, 0) != 0) {
 			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
-				  "%s: Nexthop creation failed",
-				  __func__);
+				  "%s: Nexthop creation failed", __func__);
 			return;
 		}
 	}
@@ -1801,8 +1800,7 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	if (!zapi_read_nexthops(client, NULL, zapi_nexthops, 0, 0, nhops, 0,
 				&nhg, NULL)) {
 		flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
-			  "%s: Nexthop Group Creation failed",
-			  __func__);
+			  "%s: Nexthop Group Creation failed", __func__);
 		return;
 	}
 
@@ -1827,9 +1825,10 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	return;
 
 stream_failure:
-	flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
-		  "%s: Nexthop Group creation failed with some sort of stream read failure",
-		  __func__);
+	flog_warn(
+		EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+		"%s: Nexthop Group creation failed with some sort of stream read failure",
+		__func__);
 	return;
 }
 
@@ -1881,22 +1880,24 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	if (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG)
 	    && (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)
 		|| api.nexthop_num == 0)) {
-		flog_warn(EC_ZEBRA_RX_ROUTE_NO_NEXTHOPS,
-			  "%s: received a route without nexthops for prefix %pFX from client %s",
-			  __func__, &api.prefix,
-			  zebra_route_string(client->proto));
+		flog_warn(
+			EC_ZEBRA_RX_ROUTE_NO_NEXTHOPS,
+			"%s: received a route without nexthops for prefix %pFX from client %s",
+			__func__, &api.prefix,
+			zebra_route_string(client->proto));
 
 		XFREE(MTYPE_RE, re);
 		return;
 	}
 
 	/* Report misuse of the backup flag */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS) &&
-	    api.backup_nexthop_num == 0) {
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS)
+	    && api.backup_nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("%s: client %s: BACKUP flag set but no backup nexthops, prefix %pFX",
-				__func__,
-				zebra_route_string(client->proto), &api.prefix);
+			zlog_debug(
+				"%s: client %s: BACKUP flag set but no backup nexthops, prefix %pFX",
+				__func__, zebra_route_string(client->proto),
+				&api.prefix);
 	}
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG))

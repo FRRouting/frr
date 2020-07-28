@@ -299,9 +299,9 @@ DEFPY (install_routes,
 	sg.r.inst = instance;
 	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
-	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst,
-				    nhgid, &sg.r.nhop_group,
-				    &sg.r.backup_nhop_group, rts);
+	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid,
+				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
+				    rts);
 
 	return CMD_SUCCESS;
 }

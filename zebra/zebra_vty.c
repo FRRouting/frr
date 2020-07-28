@@ -1566,14 +1566,12 @@ DEFPY_HIDDEN(nexthop_group_use_enable,
 	return CMD_SUCCESS;
 }
 
-DEFPY_HIDDEN (proto_nexthop_group_only,
-              proto_nexthop_group_only_cmd,
-              "[no] zebra nexthop proto only",
-              NO_STR
-              ZEBRA_STR
-              "Nexthop configuration\n"
-              "Configure exclusive use of proto nexthops\n"
-              "Only use proto nexthops\n")
+DEFPY_HIDDEN(proto_nexthop_group_only, proto_nexthop_group_only_cmd,
+	     "[no] zebra nexthop proto only",
+	     NO_STR ZEBRA_STR
+	     "Nexthop configuration\n"
+	     "Configure exclusive use of proto nexthops\n"
+	     "Only use proto nexthops\n")
 {
 	zebra_nhg_set_proto_nexthops_only(!no);
 	return CMD_SUCCESS;

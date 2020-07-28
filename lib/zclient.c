@@ -1053,8 +1053,8 @@ static void zclient_nhg_writer(struct stream *s, uint16_t proto, int cmd,
 	stream_putw_at(s, 0, stream_get_endp(s));
 }
 
-extern void zclient_nhg_add(struct zclient *zclient, uint32_t id,
-			    size_t nhops, struct zapi_nexthop *znh)
+extern void zclient_nhg_add(struct zclient *zclient, uint32_t id, size_t nhops,
+			    struct zapi_nexthop *znh)
 {
 	struct stream *s = zclient->obuf;
 

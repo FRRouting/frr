@@ -109,7 +109,7 @@ static struct sharp_nhg *sharp_nhgroup_find_id(uint32_t id)
 	 * to sharpd with another RB tree for just IDs
 	 */
 
-	frr_each(sharp_nhg_rb, &nhg_head, lookup) {
+	frr_each (sharp_nhg_rb, &nhg_head, lookup) {
 		if (lookup->id == id)
 			return lookup;
 	}

@@ -288,8 +288,7 @@ static void handle_repeated(bool installed)
 	if (!installed) {
 		sg.r.installed_routes = 0;
 		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
-					    sg.r.nhgid,
-					    &sg.r.nhop_group,
+					    sg.r.nhgid, &sg.r.nhop_group,
 					    &sg.r.backup_nhop_group,
 					    sg.r.total_routes);
 	}
@@ -383,9 +382,8 @@ void nhg_del(uint32_t id)
 	zclient_send_message(zclient);
 }
 
-void route_add(const struct prefix *p, vrf_id_t vrf_id,
-	       uint8_t instance, uint32_t nhgid,
-	       const struct nexthop_group *nhg,
+void route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
+	       uint32_t nhgid, const struct nexthop_group *nhg,
 	       const struct nexthop_group *backup_nhg)
 {
 	struct zapi_route api;

@@ -2269,7 +2269,7 @@ nexthop_done:
 					   nh->vrf_id, label_buf);
 }
 
-		req->nhm.nh_protocol = zebra2proto(type);
+req->nhm.nh_protocol = zebra2proto(type);
 
 	} else if (cmd != RTM_DELNEXTHOP) {
 		flog_err(

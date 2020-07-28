@@ -374,7 +374,7 @@ struct zclient {
 #define ZAPI_MESSAGE_SRCPFX   0x20
 /* Backup nexthops are present */
 #define ZAPI_MESSAGE_BACKUP_NEXTHOPS 0x40
-#define ZAPI_MESSAGE_NHG      0x80
+#define ZAPI_MESSAGE_NHG 0x80
 
 /*
  * This should only be used by a DAEMON that needs to communicate
@@ -898,8 +898,7 @@ bool zapi_ipset_notify_decode(struct stream *s,
 			      uint32_t *unique,
 			     enum zapi_ipset_notify_owner *note);
 
-extern void zclient_nhg_add(struct zclient *zclient,
-			    uint32_t id, size_t nhops,
+extern void zclient_nhg_add(struct zclient *zclient, uint32_t id, size_t nhops,
 			    struct zapi_nexthop *znh);
 extern void zclient_nhg_del(struct zclient *zclient, uint32_t id);
 
