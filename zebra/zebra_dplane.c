@@ -3684,7 +3684,7 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 int dplane_show_provs_helper(struct vty *vty, bool detailed)
 {
 	struct zebra_dplane_provider *prov;
-	uint64_t in, in_max, out, out_max;
+	uint64_t in, in_q, in_max, out, out_q, out_max;
 
 	vty_out(vty, "Zebra dataplane providers:\n");
 
@@ -3697,17 +3697,20 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 
 		in = atomic_load_explicit(&prov->dp_in_counter,
 					  memory_order_relaxed);
+		in_q = atomic_load_explicit(&prov->dp_in_queued,
+					    memory_order_relaxed);
 		in_max = atomic_load_explicit(&prov->dp_in_max,
 					      memory_order_relaxed);
 		out = atomic_load_explicit(&prov->dp_out_counter,
 					   memory_order_relaxed);
+		out_q = atomic_load_explicit(&prov->dp_out_queued,
+					     memory_order_relaxed);
 		out_max = atomic_load_explicit(&prov->dp_out_max,
 					       memory_order_relaxed);
 
-		vty_out(vty,
-			"%s (%u): in: %" PRIu64 ", q_max: %" PRIu64
-			", out: %" PRIu64 ", q_max: %" PRIu64 "\n",
-			prov->dp_name, prov->dp_id, in, in_max, out, out_max);
+		vty_out(vty, "%s (%u): in: %"PRIu64", q: %"PRIu64", q_max: %"PRIu64", out: %"PRIu64", q: %"PRIu64", q_max: %"PRIu64"\n",
+			prov->dp_name, prov->dp_id, in, in_q, in_max,
+			out, out_q, out_max);
 
 		DPLANE_LOCK();
 		prov = TAILQ_NEXT(prov, dp_prov_link);
@@ -3906,10 +3909,23 @@ int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
 void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 				     struct zebra_dplane_ctx *ctx)
 {
+	uint64_t curr, high;
+
 	dplane_provider_lock(prov);
 
 	TAILQ_INSERT_TAIL(&(prov->dp_ctx_out_q), ctx,
 			  zd_q_entries);
+
+	/* Maintain out-queue counters */
+	atomic_fetch_add_explicit(&(prov->dp_out_queued), 1,
+				  memory_order_relaxed);
+	curr = atomic_load_explicit(&prov->dp_out_queued,
+				    memory_order_relaxed);
+	high = atomic_load_explicit(&prov->dp_out_max,
+				    memory_order_relaxed);
+	if (curr > high)
+		atomic_store_explicit(&prov->dp_out_max, curr,
+				      memory_order_relaxed);
 
 	dplane_provider_unlock(prov);
 
