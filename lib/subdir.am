@@ -124,9 +124,6 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/ietf/ietf-interfaces.yang.c \
 	yang/frr-module-translator.yang.c \
 	yang/frr-nexthop.yang.c \
-	yang/frr-igmp.yang.c \
-	yang/frr-pim.yang.c \
-	yang/frr-pim-rp.yang.c \
 	# end
 
 vtysh_scan += \
