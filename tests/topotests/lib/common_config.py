@@ -258,6 +258,7 @@ def create_common_configuration(
             "route_maps": "! Route Maps Config\n",
             "bgp": "! BGP Config\n",
             "vrf": "! VRF Config\n",
+            "ospf": "! OSPF Config\n",
         }
     )
 
@@ -739,6 +740,11 @@ def start_topology(tgen):
         # Loading empty bgpd.conf file to router, to start the bgp deamon
         router.load_config(TopoRouter.RD_BGP, "{}/{}/bgpd.conf".format(TMPDIR, rname))
 
+        # Loading empty ospf.conf file to router, to start the bgp deamon
+        router.load_config(
+            TopoRouter.RD_OSPF,
+            '{}/{}/ospfd.conf'.format(TMPDIR, rname)
+        )
         # Starting routers
     logger.info("Starting all routers once topology is created")
     tgen.start_router()
@@ -1394,6 +1400,58 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     else:
                         interface_data.append("ipv6 address {}\n".format(intf_addr))
 
+                if 'ospf' in data:
+                    ospf_data = data['ospf']
+                    if 'area' in ospf_data:
+                        intf_ospf_area = c_data["links"][destRouterLink][
+                            "ospf"]["area"]
+                        if "delete" in data and data["delete"]:
+                            interface_data.append("no ip ospf area")
+                        else:
+                            interface_data.append("ip ospf area {}".format(
+                                intf_ospf_area
+                            ))
+
+                    if "hello_interval"  in ospf_data:
+                        intf_ospf_hello = c_data["links"][destRouterLink][
+                        "ospf"]["hello_interval"]
+                        if "delete" in data and data["delete"]:
+                            interface_data.append("no ip ospf "\
+                            " hello-interval")
+                        else:
+                            interface_data.append("ip ospf "\
+                            " hello-interval {}".format(intf_ospf_hello))
+
+                    if "dead_interval" in ospf_data:
+                        intf_ospf_dead = c_data["links"][destRouterLink][
+                        "ospf"]["dead_interval"]
+                        if "delete" in data and data["delete"]:
+                            interface_data.append("no ip ospf"\
+                            " dead-interval")
+                        else:
+                            interface_data.append("ip ospf "\
+                            " dead-interval {}".format(intf_ospf_dead))
+
+                    if "network" in ospf_data:
+                        intf_ospf_nw = c_data["links"][destRouterLink][
+                        "ospf"]["network"]
+                        if "delete" in data and data["delete"]:
+                            interface_data.append("no ip ospf"\
+                            " network {}".format(intf_ospf_nw))
+                        else:
+                            interface_data.append("ip ospf"\
+                            " network {}".format(intf_ospf_nw))
+
+                    if "priority" in ospf_data:
+                        intf_ospf_nw = c_data["links"][destRouterLink][
+                        "ospf"]["priority"]
+
+                        if "delete" in data and data["delete"]:
+                            interface_data.append("no ip ospf"\
+                            " priority")
+                        else:
+                            interface_data.append("ip ospf"\
+                            " priority {}".format(intf_ospf_nw))
             result = create_common_configuration(
                 tgen, c_router, interface_data, "interface_config", build=build
             )
