@@ -516,77 +516,6 @@ static int lib_route_map_entry_match_condition_interface_destroy(
 }
 
 /*
- * XPath: /frr-route-map:lib/route-map/entry/match-condition/access-list-num
- */
-static int lib_route_map_entry_match_condition_access_list_num_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct routemap_hook_context *rhc;
-	const char *acl;
-	int condition, rv;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	/* Check for hook function. */
-	rv = CMD_SUCCESS;
-	acl = yang_dnode_get_string(args->dnode, NULL);
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
-	condition = yang_dnode_get_enum(args->dnode, "../condition");
-	switch (condition) {
-	case 1: /* ipv4-address-list */
-		if (rmap_match_set_hook.match_ip_address == NULL)
-			break;
-		rhc->rhc_mhook = rmap_match_set_hook.no_match_ip_address;
-		rhc->rhc_rule = "ip address";
-		rhc->rhc_event = RMAP_EVENT_FILTER_DELETED;
-		rv = rmap_match_set_hook.match_ip_address(
-			NULL, rhc->rhc_rmi, "ip address", acl,
-			RMAP_EVENT_FILTER_ADDED);
-		break;
-	case 3: /* ipv4-next-hop-list */
-		if (rmap_match_set_hook.match_ip_next_hop == NULL)
-			break;
-		rhc->rhc_mhook = rmap_match_set_hook.no_match_ip_next_hop;
-		rhc->rhc_rule = "ip next-hop";
-		rhc->rhc_event = RMAP_EVENT_FILTER_DELETED;
-		rv = rmap_match_set_hook.match_ip_next_hop(
-			NULL, rhc->rhc_rmi, "ip next-hop", acl,
-			RMAP_EVENT_FILTER_ADDED);
-		break;
-	}
-	if (rv != CMD_SUCCESS) {
-		rhc->rhc_mhook = NULL;
-		return NB_ERR_INCONSISTENCY;
-	}
-
-	return NB_OK;
-}
-
-static int lib_route_map_entry_match_condition_access_list_num_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return lib_route_map_entry_match_destroy(args);
-}
-
-/*
- * XPath:
- * /frr-route-map:lib/route-map/entry/match-condition/access-list-num-extended
- */
-static int lib_route_map_entry_match_condition_access_list_num_extended_modify(
-	struct nb_cb_modify_args *args)
-{
-	return lib_route_map_entry_match_condition_access_list_num_modify(args);
-}
-
-static int lib_route_map_entry_match_condition_access_list_num_extended_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return lib_route_map_entry_match_condition_access_list_num_destroy(
-		args);
-}
-
-/*
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/list-name
  */
 static int lib_route_map_entry_match_condition_list_name_modify(
@@ -1242,20 +1171,6 @@ const struct frr_yang_module_info frr_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_interface_modify,
 				.destroy = lib_route_map_entry_match_condition_interface_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/access-list-num",
-			.cbs = {
-				.modify = lib_route_map_entry_match_condition_access_list_num_modify,
-				.destroy = lib_route_map_entry_match_condition_access_list_num_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/access-list-num-extended",
-			.cbs = {
-				.modify = lib_route_map_entry_match_condition_access_list_num_extended_modify,
-				.destroy = lib_route_map_entry_match_condition_access_list_num_extended_destroy,
 			}
 		},
 		{

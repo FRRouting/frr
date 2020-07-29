@@ -49,28 +49,6 @@ module frr-filter {
   /*
    * Types.
    */
-  typedef access-list-standard {
-    description "Standard IPv4 access list (any, host or a prefix)";
-    type uint16 {
-      range "1..99 | 1300..1999";
-    }
-  }
-
-  typedef access-list-extended {
-    description
-      "Extended IPv4 access list (source / destination any, hosts or prefixes)";
-    type uint16 {
-      range "100..199 | 2000..2699";
-    }
-  }
-
-  typedef access-list-legacy {
-    description "Standard/Extended IPv4 access list";
-    type uint16 {
-      range "1..199 | 1300..2699";
-    }
-  }
-
   typedef access-list-name {
     description "Access list name formatting";
     type string {
@@ -103,79 +81,6 @@ module frr-filter {
    * Configuration data.
    */
   container lib {
-    list access-list-legacy {
-      description "Access list legacy instance";
-
-      key "number";
-
-      leaf number {
-        description "Access list sequence value";
-        type access-list-legacy;
-      }
-
-      leaf remark {
-        description "Access list remark";
-        type string;
-      }
-
-      list entry {
-        description "Access list legacy entry";
-
-        key "sequence";
-
-        leaf sequence {
-          description "Access list sequence value";
-          type access-list-sequence;
-        }
-
-        leaf action {
-          description "Access list action on match";
-          type access-list-action;
-          mandatory true;
-        }
-
-        choice value {
-          description
-            "Standard access list: value to match.
-             Extended access list: source value to match.";
-          mandatory true;
-
-          leaf host {
-            description "Host to match";
-            type inet:ipv4-address;
-          }
-          leaf network {
-            description "Network to match";
-            type inet:ipv4-prefix;
-          }
-          leaf any {
-            description "Match any";
-            type empty;
-          }
-        }
-
-        choice extended-value {
-          when "../number >= 100 and ../number <= 199 or
-                ../number >= 2000 and ../number <= 2699";
-          description "Destination value to match";
-          mandatory true;
-
-          leaf destination-host {
-            description "Host to match";
-            type inet:ipv4-address;
-          }
-          leaf destination-network {
-            description "Network to match";
-            type inet:ipv4-prefix;
-          }
-          leaf destination-any {
-            description "Match any";
-            type empty;
-          }
-        }
-      }
-    }
-
     list access-list {
       description "Access list instance";
 
@@ -232,15 +137,66 @@ module frr-filter {
           case ipv4-prefix {
             when "../type = 'ipv4'";
 
-            leaf ipv4-prefix {
-              description "Configure IPv4 prefix to match";
-              type inet:ipv4-prefix;
-            }
+            choice style {
+              description "Access list entry style selection: zebra or cisco.";
+              mandatory true;
 
-            leaf ipv4-exact-match {
-              description "Exact match of prefix";
-              type boolean;
-              default false;
+              case zebra {
+                leaf ipv4-prefix {
+                  description "Configure IPv4 prefix to match";
+                  type inet:ipv4-prefix;
+                }
+
+                leaf ipv4-exact-match {
+                  description "Exact match of prefix";
+                  type boolean;
+                  default false;
+                }
+              }
+              case cisco {
+                leaf host {
+                  description "Host to match";
+                  type inet:ipv4-address;
+                }
+                leaf network {
+                  description "Network to match";
+                  type inet:ipv4-prefix;
+                }
+                leaf source-any {
+                  /*
+                   * Was `any`, however it conflicts with `any` leaf
+                   * outside this choice.
+                   */
+                  description "Match any";
+                  type empty;
+                }
+              }
+
+              choice extended-value {
+                /*
+                 * Legacy note: before using the new access-list format the
+                 * cisco styled list only accepted identifiers using numbers
+                 * and they had the following restriction:
+                 *
+                 * when "../number >= 100 and ../number <= 199 or
+                 *     ../number >= 2000 and ../number <= 2699";
+                 */
+                description "Destination value to match";
+                mandatory true;
+
+                leaf destination-host {
+                  description "Host to match";
+                  type inet:ipv4-address;
+                }
+                leaf destination-network {
+                  description "Network to match";
+                  type inet:ipv4-prefix;
+                }
+                leaf destination-any {
+                  description "Match any";
+                  type empty;
+                }
+              }
             }
           }
           case ipv6-prefix {

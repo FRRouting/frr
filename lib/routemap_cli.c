@@ -213,7 +213,7 @@ DEFPY(
 
 DEFPY(
 	match_ip_address, match_ip_address_cmd,
-	"match ip address <(1-199)$acll|(1300-2699)$aclh|WORD$name>",
+	"match ip address <(1-199)|(1300-2699)|WORD>$name",
 	MATCH_STR
 	IP_STR
 	"Match address of route\n"
@@ -223,29 +223,10 @@ DEFPY(
 {
 	const char *xpath = "./match-condition[condition='ipv4-address-list']";
 	char xpath_value[XPATH_MAXLEN + 32];
-	int acln = acll ? acll : aclh;
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	if (name) {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/list-name",
-			 xpath);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
-	} else /* if (acll || aclh) */ {
-		if ((acln >= 1 && acln <= 99)
-		    || (acln >= 1300 && acln <= 1999)) {
-			snprintf(xpath_value, sizeof(xpath_value),
-				 "%s/access-list-num", xpath);
-		} else {
-			/*
-			 * if ((acln >= 100 && acln <= 199)
-			 *     || (acln >= 2000 && acln <= 2699))
-			 */
-			snprintf(xpath_value, sizeof(xpath_value),
-				 "%s/access-list-num-extended", xpath);
-		}
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-				      acll_str ? acll_str : aclh_str);
-	}
+	snprintf(xpath_value, sizeof(xpath_value), "%s/list-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -307,7 +288,7 @@ DEFPY(
 
 DEFPY(
 	match_ip_next_hop, match_ip_next_hop_cmd,
-	"match ip next-hop <(1-199)$acll|(1300-2699)$aclh|WORD$name>",
+	"match ip next-hop <(1-199)|(1300-2699)|WORD>$name",
 	MATCH_STR
 	IP_STR
 	"Match next-hop address of route\n"
@@ -317,29 +298,10 @@ DEFPY(
 {
 	const char *xpath = "./match-condition[condition='ipv4-next-hop-list']";
 	char xpath_value[XPATH_MAXLEN + 32];
-	int acln = acll ? acll : aclh;
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	if (name) {
-		snprintf(xpath_value, sizeof(xpath_value), "%s/list-name",
-			 xpath);
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
-	} else /* if (acll || aclh) */ {
-		if ((acln >= 1 && acln <= 99)
-		    || (acln >= 1300 && acln <= 1999)) {
-			snprintf(xpath_value, sizeof(xpath_value),
-				 "%s/access-list-num", xpath);
-		} else {
-			/*
-			 * if ((acln >= 100 && acln <= 199)
-			 *     || (acln >= 2000 && acln <= 2699))
-			 */
-			snprintf(xpath_value, sizeof(xpath_value),
-				 "%s/access-list-num-extended", xpath);
-		}
-		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-				      acll_str ? acll_str : aclh_str);
-	}
+	snprintf(xpath_value, sizeof(xpath_value), "%s/list-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -610,8 +572,6 @@ void route_map_condition_show(struct vty *vty, struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	int condition = yang_dnode_get_enum(dnode, "./condition");
-	struct lyd_node *ln;
-	const char *acl;
 
 	switch (condition) {
 	case 0: /* interface */
@@ -620,25 +580,14 @@ void route_map_condition_show(struct vty *vty, struct lyd_node *dnode,
 		break;
 	case 1: /* ipv4-address-list */
 	case 3: /* ipv4-next-hop-list */
-		acl = NULL;
-		if ((ln = yang_dnode_get(dnode, "./list-name")) != NULL)
-			acl = yang_dnode_get_string(ln, NULL);
-		else if ((ln = yang_dnode_get(dnode, "./access-list-num"))
-			 != NULL)
-			acl = yang_dnode_get_string(ln, NULL);
-		else if ((ln = yang_dnode_get(dnode,
-					      "./access-list-num-extended"))
-			 != NULL)
-			acl = yang_dnode_get_string(ln, NULL);
-
-		assert(acl);
-
 		switch (condition) {
 		case 1:
-			vty_out(vty, " match ip address %s\n", acl);
+			vty_out(vty, " match ip address %s\n",
+				yang_dnode_get_string(dnode, "./list-name"));
 			break;
 		case 3:
-			vty_out(vty, " match ip next-hop %s\n", acl);
+			vty_out(vty, " match ip next-hop %s\n",
+				yang_dnode_get_string(dnode, "./list-name"));
 			break;
 		}
 		break;

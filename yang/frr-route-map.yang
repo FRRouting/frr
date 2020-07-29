@@ -239,20 +239,6 @@ module frr-route-map {
                 type string;
               }
             }
-            case access-list-num {
-              when "./condition = 'ipv4-address-list' or
-                    ./condition = 'ipv4-next-hop-list'";
-              leaf access-list-num {
-                type filter:access-list-standard;
-              }
-            }
-            case access-list-num-extended {
-              when "./condition = 'ipv4-address-list' or
-                    ./condition = 'ipv4-next-hop-list'";
-              leaf access-list-num-extended {
-                type filter:access-list-extended;
-              }
-            }
             case list-name {
               when "./condition = 'ipv4-address-list' or
                     ./condition = 'ipv4-prefix-list' or
