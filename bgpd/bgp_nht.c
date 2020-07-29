@@ -536,8 +536,8 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 				    ? 1
 				    : 0;
 
-	struct bgp_node *net = pi->net;
-	const struct prefix *p_orig = bgp_node_get_prefix(net);
+	struct bgp_dest *net = pi->net;
+	const struct prefix *p_orig = bgp_dest_get_prefix(net);
 	struct in_addr ipv4;
 
 
