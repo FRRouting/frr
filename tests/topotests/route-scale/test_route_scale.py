@@ -154,6 +154,8 @@ def test_route_install():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    r1 = tgen.gears["r1"]
+
     installed_file = "{}/r1/installed.routes.json".format(CWD)
     expected_installed = json.loads(open(installed_file).read())
 
@@ -188,9 +190,15 @@ def test_route_install():
 
         scale_setups.append(d)
 
-    # Run each step using the dicts we've built
-    r1 = tgen.gears["r1"]
+    # Avoid top ecmp case for runs with < 4G memory
+    p = os.popen('free')
+    l = p.readlines()[1].split()
+    mem = int(l[1])
+    if mem < 4000000:
+        logger.info('Limited memory available: {}, skipping x32 testcase'.format(mem))
+        scale_setups = scale_setups[0:-1]
 
+    # Run each step using the dicts we've built
     for s in scale_setups:
         run_one_setup(r1, s)
 
