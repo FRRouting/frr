@@ -49,8 +49,8 @@ struct ospf6_header {
 	uint8_t version;
 	uint8_t type;
 	uint16_t length;
-	uint32_t router_id;
-	uint32_t area_id;
+	in_addr_t router_id;
+	in_addr_t area_id;
 	uint16_t checksum;
 	uint8_t instance_id;
 	uint8_t reserved;
@@ -66,8 +66,8 @@ struct ospf6_hello {
 	uint8_t options[3];
 	uint16_t hello_interval;
 	uint16_t dead_interval;
-	uint32_t drouter;
-	uint32_t bdrouter;
+	in_addr_t drouter;
+	in_addr_t bdrouter;
 	/* Followed by Router-IDs */
 };
 
@@ -94,8 +94,8 @@ struct ospf6_dbdesc {
 struct ospf6_lsreq_entry {
 	uint16_t reserved;   /* Must Be Zero */
 	uint16_t type;       /* LS type */
-	uint32_t id;	 /* Link State ID */
-	uint32_t adv_router; /* Advertising Router */
+	in_addr_t id;	 /* Link State ID */
+	in_addr_t adv_router; /* Advertising Router */
 };
 
 /* Link State Update */

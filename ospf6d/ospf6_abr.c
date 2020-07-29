@@ -875,7 +875,6 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	bool old_entry_updated = false;
 	struct ospf6_path *path, *o_path, *ecmp_path;
 	struct listnode *anode;
-	char adv_router[16];
 
 	memset(&prefix, 0, sizeof(prefix));
 
@@ -940,10 +939,6 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 			if (listcount(route->paths) > 1) {
 				for (ALL_LIST_ELEMENTS_RO(route->paths, anode,
 							  o_path)) {
-					inet_ntop(AF_INET,
-						  &o_path->origin.adv_router,
-						  adv_router,
-						  sizeof(adv_router));
 					if (o_path->origin.id == lsa->header->id
 					    && o_path->origin.adv_router ==
 					    lsa->header->adv_router) {
@@ -951,9 +946,9 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 
 						if (is_debug)
 							zlog_debug(
-								"%s: old entry found in paths, adv_router %s",
+								"%s: old entry found in paths, adv_router %pI4",
 								__func__,
-								adv_router);
+								&o_path->origin.adv_router);
 
 						break;
 					}
@@ -1185,14 +1180,11 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 			listnode_add_sort(old_route->paths, ecmp_path);
 
 			if (is_debug) {
-				prefix2str(&route->prefix, buf, sizeof(buf));
-				inet_ntop(AF_INET,
-					  &ecmp_path->origin.adv_router,
-					  adv_router, sizeof(adv_router));
 				zlog_debug(
-					"%s: route %s cost %u another path %s added with nh %u, effective paths %u nh %u",
-					__func__, buf, old_route->path.cost,
-					adv_router,
+					"%s: route %pFX cost %u another path %pI4 added with nh %u, effective paths %u nh %u",
+					__func__, &route->prefix,
+					old_route->path.cost,
+					&ecmp_path->origin.adv_router,
 					listcount(ecmp_path->nh_list),
 					old_route->paths
 						? listcount(old_route->paths)
@@ -1239,12 +1231,11 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 
 	if (old_entry_updated == false) {
 		if (is_debug) {
-			inet_ntop(AF_INET, &route->path.origin.adv_router,
-				  adv_router, sizeof(adv_router));
 			zlog_debug(
-				"%s: Install route: %s cost %u nh %u adv_router %s ",
+				"%s: Install route: %s cost %u nh %u adv_router %pI4",
 				__func__, buf, route->path.cost,
-				listcount(route->nh_list), adv_router);
+				listcount(route->nh_list),
+				&route->path.origin.adv_router);
 		}
 
 		path = ospf6_path_dup(&route->path);

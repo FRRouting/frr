@@ -244,11 +244,9 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 				continue;
 
 			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-				prefix2str(&old_route->prefix, buf,
-					   sizeof(buf));
 				zlog_debug(
-					"%s: route %s cost old %u new %u is not same, replace route",
-					__func__, buf, o_path->cost,
+					"%s: route %pFX cost old %u new %u is not same, replace route",
+					__func__, &old_route->prefix, o_path->cost,
 					route->path.cost);
 			}
 
@@ -308,11 +306,9 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 				}
 			} else {
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-					prefix2str(&old_route->prefix, buf,
-						   sizeof(buf));
 					zlog_debug(
-						"%s: route %s old cost %u new cost %u, delete old entry.",
-						__func__, buf,
+						"%s: route %pFX old cost %u new cost %u, delete old entry.",
+						__func__, &old_route->prefix,
 						old_route->path.cost,
 						route->path.cost);
 				}
@@ -339,11 +335,10 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 		    && (old_route->path.u.cost_e2 == route->path.u.cost_e2)) {
 
 			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-				prefix2str(&old_route->prefix, buf,
-					   sizeof(buf));
 				zlog_debug(
-					"%s: old route %s path  cost %u e2 %u",
-					__func__, buf, old_route->path.cost,
+					"%s: old route %pFX path  cost %u e2 %u",
+					__func__, &old_route->prefix,
+					old_route->path.cost,
 					old_route->path.u.cost_e2);
 			}
 			route_found = true;
@@ -562,7 +557,6 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 	struct ospf6_as_external_lsa *external;
 	struct prefix prefix;
 	struct ospf6_route *route, *nroute, *route_to_del;
-	char buf[PREFIX2STR_BUFFER];
 
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 		lsa->header);
@@ -612,8 +606,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 	route = ospf6_route_lookup(&prefix, ospf6->route_table);
 	if (route == NULL) {
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-			prefix2str(&prefix, buf, sizeof(buf));
-			zlog_debug("AS-External route %s not found", buf);
+			zlog_debug("AS-External route %pFX not found", &prefix);
 		}
 
 		ospf6_route_delete(route_to_del);
@@ -621,10 +614,9 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 	}
 
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-		prefix2str(&prefix, buf, sizeof(buf));
 		zlog_debug(
-			"%s: Current route %s cost %u e2 %u, route to del cost %u e2 %u",
-			__func__, buf, route->path.cost, route->path.u.cost_e2,
+			"%s: Current route %pFX cost %u e2 %u, route to del cost %u e2 %u",
+			__func__, &prefix, route->path.cost, route->path.u.cost_e2,
 			route_to_del->path.cost, route_to_del->path.u.cost_e2);
 	}
 
@@ -668,11 +660,9 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 							      .cost_e2)) {
 					if (IS_OSPF6_DEBUG_EXAMIN(
 						    AS_EXTERNAL)) {
-						prefix2str(&prefix, buf,
-							   sizeof(buf));
 						zlog_debug(
-							"%s: route %s to delete is not same, cost %u del cost %u. skip",
-							__func__, buf,
+							"%s: route %pFX to delete is not same, cost %u del cost %u. skip",
+							__func__, &prefix,
 							route->path.cost,
 							route_to_del->path
 								.cost);
@@ -681,10 +671,9 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				}
 
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-					prefix2str(&prefix, buf, sizeof(buf));
 					zlog_debug(
-						"%s: route %s path found with cost %u nh %u to remove.",
-						__func__, buf, route->path.cost,
+						"%s: route %pFX path found with cost %u nh %u to remove.",
+						__func__, &prefix, route->path.cost,
 						listcount(o_path->nh_list));
 				}
 
@@ -723,16 +712,14 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				}
 
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-					prefix2str(&route->prefix, buf,
-						   sizeof(buf));
 					zlog_debug(
-						"%s: AS-External %u route %s update paths %u nh %u",
+						"%s: AS-External %u route %pFX update paths %u nh %u",
 						__func__,
 						(route->path.type
 						 == OSPF6_PATH_TYPE_EXTERNAL1)
 							? 1
 							: 2,
-						buf, listcount(route->paths),
+						&route->prefix, listcount(route->paths),
 						route->nh_list ? listcount(
 							route->nh_list)
 							       : 0);
@@ -784,10 +771,9 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				|| (route->path.u.cost_e2
 				    != route_to_del->path.u.cost_e2))) {
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-					prefix2str(&prefix, buf, sizeof(buf));
 					zlog_debug(
-						"%s: route %s to delete is not same, cost %u del cost %u. skip",
-						__func__, buf, route->path.cost,
+						"%s: route %pFX to delete is not same, cost %u del cost %u. skip",
+						__func__, &prefix, route->path.cost,
 						route_to_del->path.cost);
 				}
 				continue;
@@ -800,14 +786,13 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				continue;
 		}
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-			prefix2str(&route->prefix, buf, sizeof(buf));
 			zlog_debug(
-				"%s: AS-External %u route remove %s cost %u(%u) nh %u",
+				"%s: AS-External %u route remove %pFX cost %u(%u) nh %u",
 				__func__,
 				route->path.type == OSPF6_PATH_TYPE_EXTERNAL1
 					? 1
 					: 2,
-				buf, route->path.cost, route->path.u.cost_e2,
+				&route->prefix, route->path.cost, route->path.u.cost_e2,
 				listcount(route->nh_list));
 		}
 		ospf6_route_remove(route, ospf6->route_table);

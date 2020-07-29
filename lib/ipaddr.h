@@ -33,9 +33,9 @@ extern "C" {
  * Generic IP address - union of IPv4 and IPv6 address.
  */
 enum ipaddr_type_t {
-	IPADDR_NONE = 0,
-	IPADDR_V4 = 1, /* IPv4 */
-	IPADDR_V6 = 2, /* IPv6 */
+	IPADDR_NONE = AF_UNSPEC,
+	IPADDR_V4 = AF_INET,
+	IPADDR_V6 = AF_INET6,
 };
 
 struct ipaddr {
@@ -84,12 +84,8 @@ static inline int str2ipaddr(const char *str, struct ipaddr *ip)
 static inline char *ipaddr2str(const struct ipaddr *ip, char *buf, int size)
 {
 	buf[0] = '\0';
-	if (ip) {
-		if (IS_IPADDR_V4(ip))
-			inet_ntop(AF_INET, &ip->ip.addr, buf, size);
-		else if (IS_IPADDR_V6(ip))
-			inet_ntop(AF_INET6, &ip->ip.addr, buf, size);
-	}
+	if (ip)
+		inet_ntop(ip->ipa_type, &ip->ip.addr, buf, size);
 	return buf;
 }
 
@@ -127,6 +123,10 @@ static inline bool ipaddr_isset(struct ipaddr *ip)
 	static struct ipaddr a = {};
 	return (0 != memcmp(&a, ip, sizeof(struct ipaddr)));
 }
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pIA"  (struct ipaddr *)
+#endif
 
 #ifdef __cplusplus
 }

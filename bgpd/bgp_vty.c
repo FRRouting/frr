@@ -10881,10 +10881,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					p->group, &prefix);
 
 				if (range) {
-					prefix2str(range, buf1, sizeof(buf1));
 					vty_out(vty,
-						" Belongs to the subnet range group: %s\n",
-						buf1);
+						" Belongs to the subnet range group: %pFX\n",
+						range);
 				}
 			}
 		}

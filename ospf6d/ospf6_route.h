@@ -64,8 +64,8 @@ struct ospf6_nexthop {
 /* Path */
 struct ospf6_ls_origin {
 	uint16_t type;
-	uint32_t id;
-	uint32_t adv_router;
+	in_addr_t id;
+	in_addr_t adv_router;
 };
 
 struct ospf6_path {
@@ -82,7 +82,7 @@ struct ospf6_path {
 	uint8_t prefix_options;
 
 	/* Associated Area */
-	uint32_t area_id;
+	in_addr_t area_id;
 
 	/* Path-type */
 	uint8_t type;

@@ -3791,13 +3791,9 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						       BGP_PATH_VALID);
 			else {
 				if (BGP_DEBUG(nht, NHT)) {
-					char buf1[INET6_ADDRSTRLEN];
-					inet_ntop(AF_INET,
-						  (const void *)&attr_new
-							  ->nexthop,
-						  buf1, INET6_ADDRSTRLEN);
-					zlog_debug("%s(%s): NH unresolved",
-						   __func__, buf1);
+					zlog_debug("%s(%pI4): NH unresolved",
+						   __func__,
+						   (in_addr_t *)&attr_new->nexthop);
 				}
 				bgp_path_info_unset_flag(dest, pi,
 							 BGP_PATH_VALID);
@@ -9605,7 +9601,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 	unsigned long output_count = 0;
 	unsigned long total_count = 0;
 	struct prefix *p;
-	char buf2[BUFSIZ];
 	json_object *json_paths = NULL;
 	int first = 1;
 
@@ -9869,11 +9864,10 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 						dest_p->u.prefix_flowspec
 							.prefixlen);
 			} else {
-				prefix2str(dest_p, buf2, sizeof(buf2));
 				if (first)
-					vty_out(vty, "\"%s\": ", buf2);
+					vty_out(vty, "\"%pFX\": ", dest_p);
 				else
-					vty_out(vty, ",\"%s\": ", buf2);
+					vty_out(vty, ",\"%pFX\": ", dest_p);
 			}
 			vty_out(vty, "%s",
 				json_object_to_json_string_ext(

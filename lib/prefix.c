@@ -22,6 +22,7 @@
 #include <zebra.h>
 
 #include "prefix.h"
+#include "ipaddr.h"
 #include "vty.h"
 #include "sockunion.h"
 #include "memory.h"
@@ -1314,6 +1315,26 @@ char *esi_to_str(const esi_t *esi, char *buf, int size)
 		 esi->val[6], esi->val[7], esi->val[8],
 		 esi->val[9]);
 	return ptr;
+}
+
+printfrr_ext_autoreg_p("EA", printfrr_ea)
+static ssize_t printfrr_ea(char *buf, size_t bsz, const char *fmt,
+			   int prec, const void *ptr)
+{
+	const struct ethaddr *mac = ptr;
+
+	prefix_mac2str(mac, buf, bsz);
+	return 2;
+}
+
+printfrr_ext_autoreg_p("IA", printfrr_ia)
+static ssize_t printfrr_ia(char *buf, size_t bsz, const char *fmt,
+			   int prec, const void *ptr)
+{
+	const struct ipaddr *ipa = ptr;
+
+	ipaddr2str(ipa, buf, bsz);
+	return 2;
 }
 
 printfrr_ext_autoreg_p("I4", printfrr_i4)
