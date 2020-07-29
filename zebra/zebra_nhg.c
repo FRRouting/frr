@@ -53,7 +53,7 @@ uint32_t id_counter;
 
 /*  */
 static bool g_nexthops_enabled = true;
-static bool proto_nexthops_only = false;
+static bool proto_nexthops_only;
 
 static struct nhg_hash_entry *depends_find(const struct nexthop *nh, afi_t afi,
 					   int type);
@@ -70,7 +70,7 @@ static struct nhg_backup_info *
 nhg_backup_copy(const struct nhg_backup_info *orig);
 
 /* Helper function for getting the next allocatable ID */
-static uint32_t nhg_get_next_id()
+static uint32_t nhg_get_next_id(void)
 {
 	while (1) {
 		id_counter++;

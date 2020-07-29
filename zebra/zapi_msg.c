@@ -1817,9 +1817,9 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	 *
 	 * Resolution is going to need some more work.
 	 */
-	if (nhe) {
+	if (nhe)
 		nhg_notify(proto, client->instance, id, ZAPI_NHG_INSTALLED);
-	} else
+	else
 		nhg_notify(proto, client->instance, id, ZAPI_NHG_FAIL_INSTALL);
 
 	return;
