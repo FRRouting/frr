@@ -427,10 +427,10 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				ipv4_to_ipv4_mapped_ipv6(&ipv6,
 							 nhi->gateway->ipv4);
 				nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
-					  &ipv6, bytelen);
+					    &ipv6, bytelen);
 			} else
-        nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
-				    nhi->gateway, bytelen);
+				nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
+					    nhi->gateway, bytelen);
 		}
 
 		if (nhi->if_index) {

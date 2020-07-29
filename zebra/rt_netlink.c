@@ -1051,19 +1051,19 @@ static bool _netlink_route_add_gateway_info(uint8_t route_family,
 				 bytelen + 2))
 			return false;
 	} else {
-    if (!(nexthop->rparent
+		if (!(nexthop->rparent
 		      && IS_MAPPED_IPV6(&nexthop->rparent->gate.ipv6))) {
 			if (gw_family == AF_INET) {
-        if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY,
-					 &nexthop->gate.ipv4, bytelen))
-				return false;
-      } else {
-        if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY,
-					 &nexthop->gate.ipv6, bytelen))
-				return false;
-      }
-    }
-  }
+				if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY,
+						 &nexthop->gate.ipv4, bytelen))
+					return false;
+			} else {
+				if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY,
+						 &nexthop->gate.ipv6, bytelen))
+					return false;
+			}
+		}
+	}
 	return true;
 }
 
