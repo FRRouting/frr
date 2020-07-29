@@ -1775,6 +1775,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	struct interface *ifp;
 	rib_dest_t *dest;
 	struct zebra_vrf *zvrf;
+	struct in_addr ipv4;
 
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
 	    || nexthop->type == NEXTHOP_TYPE_IPV6)
@@ -1835,13 +1836,23 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		return 0;
 	}
 
+	/* Validation for ipv4 mapped ipv6 nexthop. */
+	if (IS_MAPPED_IPV6(&nexthop->gate.ipv6)) {
+		afi = AFI_IP;
+	}
+
 	/* Make lookup prefix. */
 	memset(&p, 0, sizeof(struct prefix));
 	switch (afi) {
 	case AFI_IP:
 		p.family = AF_INET;
 		p.prefixlen = IPV4_MAX_PREFIXLEN;
-		p.u.prefix4 = nexthop->gate.ipv4;
+		if (IS_MAPPED_IPV6(&nexthop->gate.ipv6)) {
+			ipv4_mapped_ipv6_to_ipv4(&nexthop->gate.ipv6, &ipv4);
+			p.u.prefix4 = ipv4;
+		} else {
+			p.u.prefix4 = nexthop->gate.ipv4;
+		}
 		break;
 	case AFI_IP6:
 		p.family = AF_INET6;

@@ -574,6 +574,18 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			gnh_modified = 1;
 		}
 
+		if (IN6_IS_ADDR_UNSPECIFIED(mod_v6nhg)) {
+			if (peer->nexthop.v4.s_addr) {
+				ipv4_to_ipv4_mapped_ipv6(mod_v6nhg,
+							 peer->nexthop.v4);
+			}
+		}
+
+		if (IS_MAPPED_IPV6(&peer->nexthop.v6_global)) {
+			mod_v6nhg = &peer->nexthop.v6_global;
+			gnh_modified = 1;
+		}
+
 		if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
 		    || nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
 			stream_get_from(&v6nhlocal, s, offset_nhlocal,
