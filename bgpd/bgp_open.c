@@ -332,8 +332,7 @@ static int bgp_capability_orf_entry(struct peer *peer,
 	/* Convert AFI, SAFI to internal values, check. */
 	if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
 		zlog_info(
-			"%s Addr-family %d/%d not supported."
-			" Ignoring the ORF capability",
+			"%s Addr-family %d/%d not supported. Ignoring the ORF capability",
 			peer->host, pkt_afi, pkt_safi);
 		return 0;
 	}
@@ -344,8 +343,7 @@ static int bgp_capability_orf_entry(struct peer *peer,
 	/* validate number field */
 	if (CAPABILITY_CODE_ORF_LEN + (num * 2) > hdr->length) {
 		zlog_info(
-			"%s ORF Capability entry length error,"
-			" Cap length %u, num %u",
+			"%s ORF Capability entry length error, Cap length %u, num %u",
 			peer->host, hdr->length, num);
 		bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
 				BGP_NOTIFY_OPEN_MALFORMED_ATTR);
@@ -407,8 +405,7 @@ static int bgp_capability_orf_entry(struct peer *peer,
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
-				"%s OPEN has %s ORF capability"
-				" as %s for afi/safi: %s/%s",
+				"%s OPEN has %s ORF capability as %s for afi/safi: %s/%s",
 				peer->host,
 				lookup_msg(orf_type_str, type, NULL),
 				lookup_msg(orf_mode_str, mode, NULL),
@@ -490,15 +487,13 @@ static int bgp_capability_restart(struct peer *peer,
 		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Addr-family %s/%s(afi/safi) not supported."
-					" Ignore the Graceful Restart capability for this AFI/SAFI",
+					"%s Addr-family %s/%s(afi/safi) not supported. Ignore the Graceful Restart capability for this AFI/SAFI",
 					peer->host, iana_afi2str(pkt_afi),
 					iana_safi2str(pkt_safi));
 		} else if (!peer->afc[afi][safi]) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Addr-family %s/%s(afi/safi) not enabled."
-					" Ignore the Graceful Restart capability",
+					"%s Addr-family %s/%s(afi/safi) not enabled. Ignore the Graceful Restart capability",
 					peer->host, iana_afi2str(pkt_afi),
 					iana_safi2str(pkt_safi));
 		} else {
@@ -581,16 +576,14 @@ static int bgp_capability_addpath(struct peer *peer,
 		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Addr-family %s/%s(afi/safi) not supported."
-					" Ignore the Addpath Attribute for this AFI/SAFI",
+					"%s Addr-family %s/%s(afi/safi) not supported. Ignore the Addpath Attribute for this AFI/SAFI",
 					peer->host, iana_afi2str(pkt_afi),
 					iana_safi2str(pkt_safi));
 			continue;
 		} else if (!peer->afc[afi][safi]) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Addr-family %s/%s(afi/safi) not enabled."
-					" Ignore the AddPath capability for this AFI/SAFI",
+					"%s Addr-family %s/%s(afi/safi) not enabled. Ignore the AddPath capability for this AFI/SAFI",
 					peer->host, iana_afi2str(pkt_afi),
 					iana_safi2str(pkt_safi));
 			continue;
@@ -640,8 +633,7 @@ static int bgp_capability_enhe(struct peer *peer, struct capability_header *hdr)
 		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Addr-family %s/%s(afi/safi) not supported."
-					" Ignore the ENHE Attribute for this AFI/SAFI",
+					"%s Addr-family %s/%s(afi/safi) not supported. Ignore the ENHE Attribute for this AFI/SAFI",
 					peer->host, iana_afi2str(pkt_afi),
 					iana_safi2str(pkt_safi));
 			continue;
@@ -662,8 +654,7 @@ static int bgp_capability_enhe(struct peer *peer, struct capability_header *hdr)
 			 || safi == SAFI_LABELED_UNICAST)) {
 			flog_warn(
 				EC_BGP_CAPABILITY_INVALID_DATA,
-				"%s Unexpected afi/safi/next-hop afi: %s/%s/%u "
-				"in Extended Next-hop capability, ignoring",
+				"%s Unexpected afi/safi/next-hop afi: %s/%s/%u in Extended Next-hop capability, ignoring",
 				peer->host, iana_afi2str(pkt_afi),
 				iana_safi2str(pkt_safi), pkt_nh_afi);
 			continue;
@@ -875,8 +866,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			/* Check length. */
 			if (caphdr.length < cap_minsizes[caphdr.code]) {
 				zlog_info(
-					"%s %s Capability length error: got %u,"
-					" expected at least %u",
+					"%s %s Capability length error: got %u, expected at least %u",
 					peer->host,
 					lookup_msg(capcode_str, caphdr.code,
 						   NULL),
@@ -889,8 +879,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			if (caphdr.length
 			    && caphdr.length % cap_modsizes[caphdr.code] != 0) {
 				zlog_info(
-					"%s %s Capability length error: got %u,"
-					" expected a multiple of %u",
+					"%s %s Capability length error: got %u, expected a multiple of %u",
 					peer->host,
 					lookup_msg(capcode_str, caphdr.code,
 						   NULL),
@@ -1036,8 +1025,7 @@ as_t peek_for_as4_capability(struct peer *peer, uint8_t length)
 
 	if (BGP_DEBUG(as4, AS4))
 		zlog_debug(
-			"%s [AS4] rcv OPEN w/ OPTION parameter len: %u,"
-			" peeking for as4",
+			"%s [AS4] rcv OPEN w/ OPTION parameter len: %u, peeking for as4",
 			peer->host, length);
 	/* the error cases we DONT handle, we ONLY try to read as4 out of
 	 * correctly formatted options.
@@ -1211,8 +1199,7 @@ int bgp_open_option_parse(struct peer *peer, uint8_t length, int *mp_capability)
 		    && !peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
 		    && !peer->afc_nego[AFI_L2VPN][SAFI_EVPN]) {
 			flog_err(EC_BGP_PKT_OPEN,
-				 "%s [Error] Configured AFI/SAFIs do not "
-				 "overlap with received MP capabilities",
+				 "%s [Error] Configured AFI/SAFIs do not overlap with received MP capabilities",
 				 peer->host);
 
 			if (error != error_data)

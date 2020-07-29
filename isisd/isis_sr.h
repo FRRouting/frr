@@ -53,12 +53,25 @@
 
 #define SRGB_LOWER_BOUND               16000
 #define SRGB_UPPER_BOUND               23999
+#define SRLB_LOWER_BOUND               15000
+#define SRLB_UPPER_BOUND               15999
 
 /* Segment Routing Data Base (SRDB) RB-Tree structure */
 PREDECL_RBTREE_UNIQ(srdb_node)
 PREDECL_RBTREE_UNIQ(srdb_node_prefix)
 PREDECL_RBTREE_UNIQ(srdb_area_prefix)
 PREDECL_RBTREE_UNIQ(srdb_prefix_cfg)
+
+/* Segment Routing Local Block allocation */
+struct sr_local_block {
+	bool active;
+	uint32_t start;
+	uint32_t end;
+	uint32_t current;
+	uint32_t max_block;
+	uint64_t *used_mark;
+};
+#define SRLB_BLOCK_SIZE 64
 
 /* Segment Routing Adjacency-SID type. */
 enum sr_adj_type {
@@ -211,6 +224,9 @@ struct isis_sr_db {
 	/* Global Operational status of Segment Routing. */
 	bool enabled;
 
+	/* Thread timer to start Label Manager */
+	struct thread *t_start_lm;
+
 	/* List of local Adjacency-SIDs. */
 	struct list *adj_sids;
 
@@ -220,6 +236,10 @@ struct isis_sr_db {
 	/* Segment Routing Prefix-SIDs per IS-IS level. */
 	struct srdb_area_prefix_head prefix_sids[ISIS_LEVELS];
 
+	/* Management of SRLB & SRGB allocation */
+	struct sr_local_block srlb;
+	bool srgb_active;
+
 	/* Area Segment Routing configuration. */
 	struct {
 		/* Administrative status of Segment Routing. */
@@ -228,6 +248,10 @@ struct isis_sr_db {
 		/* Segment Routing Global Block lower & upper bound. */
 		uint32_t srgb_lower_bound;
 		uint32_t srgb_upper_bound;
+
+		/* Segment Routing Local Block lower & upper bound. */
+		uint32_t srlb_lower_bound;
+		uint32_t srlb_upper_bound;
 
 		/* Maximum SID Depth supported by the node. */
 		uint8_t msd;
@@ -239,6 +263,8 @@ struct isis_sr_db {
 
 /* Prototypes. */
 extern int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
+				   uint32_t upper_bound);
+extern int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
 				   uint32_t upper_bound);
 extern struct sr_prefix_cfg *
 isis_sr_cfg_prefix_add(struct isis_area *area, const struct prefix *prefix);

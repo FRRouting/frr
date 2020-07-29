@@ -522,7 +522,9 @@ extern struct interface *if_lookup_prefix(const struct prefix *prefix,
 size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 			   struct interface ***result, vrf_id_t vrf_id);
 
+struct vrf;
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
+extern struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id,
@@ -551,7 +553,6 @@ extern bool if_is_loopback_or_vrf(const struct interface *ifp);
 extern int if_is_broadcast(const struct interface *ifp);
 extern int if_is_pointopoint(const struct interface *ifp);
 extern int if_is_multicast(const struct interface *ifp);
-struct vrf;
 extern void if_terminate(struct vrf *vrf);
 extern void if_dump_all(void);
 extern const char *if_flag_dump(unsigned long);

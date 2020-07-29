@@ -294,6 +294,16 @@ l2vpn_pw_reset(struct l2vpn_pw *pw)
 		pw->flags |= F_PW_STATUSTLV;
 	else
 		pw->flags &= ~F_PW_STATUSTLV;
+
+	if (pw->flags & F_PW_STATUSTLV_CONF) {
+		struct fec_node         *fn;
+		struct fec fec;
+		l2vpn_pw_fec(pw, &fec);
+		fn = (struct fec_node *)fec_find(&ft, &fec);
+		if (fn)
+			pw->remote_status = fn->pw_remote_status;
+	}
+
 }
 
 int
@@ -433,6 +443,8 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 		/* unknown fec */
 		return;
 
+	fn->pw_remote_status = nm->pw_status;
+
 	pw = (struct l2vpn_pw *) fn->data;
 	if (pw == NULL)
 		return;
@@ -521,11 +533,11 @@ l2vpn_pw_status_update(struct zapi_pw_status *zpw)
 		return (1);
 	}
 
-	if (zpw->status == PW_STATUS_UP) {
+	if (zpw->status == PW_FORWARDING) {
 		local_status = PW_FORWARDING;
 		pw->reason = F_PW_NO_ERR;
 	} else {
-		local_status = PW_NOT_FORWARDING;
+		local_status = zpw->status;
 		pw->reason = F_PW_LOCAL_NOT_FWD;
 	}
 
@@ -571,10 +583,11 @@ l2vpn_pw_ctl(pid_t pid)
 			    sizeof(pwctl.ifname));
 			pwctl.pwid = pw->pwid;
 			pwctl.lsr_id = pw->lsr_id;
+			pwctl.status = PW_NOT_FORWARDING;
 			if (pw->enabled &&
 			    pw->local_status == PW_FORWARDING &&
 			    pw->remote_status == PW_FORWARDING)
-				pwctl.status = 1;
+				pwctl.status = PW_FORWARDING;
 
 			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_L2VPN_PW, 0,
 			    pid, &pwctl, sizeof(pwctl));

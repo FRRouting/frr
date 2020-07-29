@@ -150,23 +150,25 @@ struct stream_fifo {
  */
 extern struct stream *stream_new(size_t);
 extern void stream_free(struct stream *);
-extern struct stream *stream_copy(struct stream *, struct stream *src);
-extern struct stream *stream_dup(struct stream *);
+/* Copy 'src' into 'dest', returns 'dest' */
+extern struct stream *stream_copy(struct stream *dest,
+				  const struct stream *src);
+extern struct stream *stream_dup(const struct stream *s);
 
 extern size_t stream_resize_inplace(struct stream **sptr, size_t newsize);
 
-extern size_t stream_get_getp(struct stream *);
-extern size_t stream_get_endp(struct stream *);
-extern size_t stream_get_size(struct stream *);
-extern uint8_t *stream_get_data(struct stream *);
+extern size_t stream_get_getp(const struct stream *s);
+extern size_t stream_get_endp(const struct stream *s);
+extern size_t stream_get_size(const struct stream *s);
+extern uint8_t *stream_get_data(struct stream *s);
 
 /**
  * Create a new stream structure; copy offset bytes from s1 to the new
  * stream; copy s2 data to the new stream; copy rest of s1 data to the
  * new stream.
  */
-extern struct stream *stream_dupcat(struct stream *s1, struct stream *s2,
-				    size_t offset);
+extern struct stream *stream_dupcat(const struct stream *s1,
+				    const struct stream *s2, size_t offset);
 
 extern void stream_set_getp(struct stream *, size_t);
 extern void stream_set_endp(struct stream *, size_t);
@@ -252,6 +254,9 @@ extern void stream_reset(struct stream *);
 extern int stream_flush(struct stream *, int);
 extern int stream_empty(struct stream *); /* is the stream empty? */
 
+/* debugging */
+extern void stream_hexdump(const struct stream *s);
+
 /* deprecated */
 extern uint8_t *stream_pnt(struct stream *);
 
@@ -278,6 +283,18 @@ extern uint8_t *stream_pnt(struct stream *);
  *    newly created stream_fifo
  */
 extern struct stream_fifo *stream_fifo_new(void);
+
+/*
+ * Init or re-init an on-stack fifo. This allows use of a fifo struct without
+ * requiring a malloc/free cycle.
+ * Note well that the fifo must be de-inited with the 'fifo_deinit' api.
+ */
+void stream_fifo_init(struct stream_fifo *fifo);
+
+/*
+ * Deinit an on-stack fifo.
+ */
+void stream_fifo_deinit(struct stream_fifo *fifo);
 
 /*
  * Push a stream onto a stream_fifo.
@@ -409,7 +426,7 @@ static inline const uint8_t *ptr_get_be32(const uint8_t *ptr, uint32_t *out)
 			float r;                                               \
 			uint32_t d;                                            \
 		} _pval;                                                       \
-		if (stream_getl2((S), &_pval.d))                               \
+		if (!stream_getl2((S), &_pval.d))                              \
 			goto stream_failure;                                   \
 		(P) = _pval.r;                                                 \
 	} while (0)

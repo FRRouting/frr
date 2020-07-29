@@ -142,7 +142,6 @@ static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac);
 static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac);
 
 /* l3-vni related APIs*/
-static zebra_l3vni_t *zl3vni_lookup(vni_t vni);
 static void *zl3vni_alloc(void *p);
 static zebra_l3vni_t *zl3vni_add(vni_t vni, vrf_id_t vrf_id);
 static int zl3vni_del(zebra_l3vni_t *zl3vni);
@@ -1938,8 +1937,7 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 			" Number of MACs (local and remote) known for this VNI: %u\n",
 			num_macs);
 		vty_out(vty,
-			" Number of ARPs (IPv4 and IPv6, local and remote) "
-			"known for this VNI: %u\n",
+			" Number of ARPs (IPv4 and IPv6, local and remote) known for this VNI: %u\n",
 			num_neigh);
 		vty_out(vty, " Advertise-gw-macip: %s\n",
 			zvni->advertise_gw_macip ? "Yes" : "No");
@@ -4274,8 +4272,7 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 		if (zvrf->zns->ns_id != vxl->link_nsid) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"Intf %s(%u) VNI %u, link not in same "
-					"namespace than BGP EVPN core instance ",
+					"Intf %s(%u) VNI %u, link not in same namespace than BGP EVPN core instance ",
 					ifp->name, ifp->ifindex, vni);
 			continue;
 		}
@@ -5112,7 +5109,7 @@ static void *zl3vni_alloc(void *p)
 /*
  * Look up L3 VNI hash entry.
  */
-static zebra_l3vni_t *zl3vni_lookup(vni_t vni)
+zebra_l3vni_t *zl3vni_lookup(vni_t vni)
 {
 	zebra_l3vni_t tmp_l3vni;
 	zebra_l3vni_t *zl3vni = NULL;
@@ -5218,8 +5215,7 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 		if (zvrf->zns->ns_id != vxl->link_nsid) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"Intf %s(%u) VNI %u, link not in same "
-					"namespace than BGP EVPN core instance ",
+					"Intf %s(%u) VNI %u, link not in same namespace than BGP EVPN core instance ",
 					ifp->name, ifp->ifindex, vxl->vni);
 			continue;
 		}
@@ -8285,8 +8281,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 			    && mac->fwd_info.local.vid == vid) {
 				if (IS_ZEBRA_DEBUG_VXLAN)
 					zlog_debug(
-						"        Add/Update %sMAC %s intf %s(%u) VID %u -> VNI %u, "
-						"entry exists and has not changed ",
+						"        Add/Update %sMAC %s intf %s(%u) VID %u -> VNI %u, entry exists and has not changed ",
 						sticky ? "sticky " : "",
 						prefix_mac2str(macaddr, buf,
 							       sizeof(buf)),
@@ -8434,8 +8429,7 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 		if (!zvni) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"Failed to locate VNI hash upon remote VTEP DEL, "
-					"VNI %u",
+					"Failed to locate VNI hash upon remote VTEP DEL, VNI %u",
 					vni);
 			continue;
 		}
@@ -9480,8 +9474,15 @@ int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf)
 	if (!zl3vni)
 		return 0;
 
-	zl3vni->vrf_id = VRF_UNKNOWN;
 	zebra_vxlan_process_l3vni_oper_down(zl3vni);
+
+	/* delete and uninstall all rmacs */
+	hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry, zl3vni);
+	/* delete and uninstall all next-hops */
+	hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry, zl3vni);
+
+	zl3vni->vrf_id = VRF_UNKNOWN;
+
 	return 0;
 }
 

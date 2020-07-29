@@ -71,6 +71,14 @@ extern struct zebra_privs_t zserv_privs;
 /* The listener socket for clients connecting to us */
 static int zsock;
 
+/* The lock that protects access to zapi client objects */
+static pthread_mutex_t client_mutex;
+
+static struct zserv *find_client_internal(uint8_t proto,
+					  unsigned short instance,
+					  uint32_t session_id);
+
+
 /*
  * Client thread events.
  *
@@ -160,7 +168,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 		zlog_debug("Command: %s", zserv_command_string(hdr->command));
 		zlog_debug("    VRF: %u", hdr->vrf_id);
 	}
-	zlog_hexdump(msg->data, STREAM_READABLE(msg));
+	stream_hexdump(msg);
 }
 
 /*
@@ -512,11 +520,9 @@ static int zserv_process_messages(struct thread *thread)
 			need_resched = true;
 	}
 
-	while (stream_fifo_head(cache)) {
-		msg = stream_fifo_pop(cache);
-		zserv_handle_commands(client, msg);
-		stream_free(msg);
-	}
+	/* Process the batch of messages */
+	if (stream_fifo_head(cache))
+		zserv_handle_commands(client, cache);
 
 	stream_fifo_free(cache);
 
@@ -538,6 +544,25 @@ int zserv_send_message(struct zserv *client, struct stream *msg)
 	return 0;
 }
 
+/*
+ * Send a batch of messages to a connected Zebra API client.
+ */
+int zserv_send_batch(struct zserv *client, struct stream_fifo *fifo)
+{
+	struct stream *msg;
+
+	frr_with_mutex(&client->obuf_mtx) {
+		msg = stream_fifo_pop(fifo);
+		while (msg) {
+			stream_fifo_push(client->obuf_fifo, msg);
+			msg = stream_fifo_pop(fifo);
+		}
+	}
+
+	zserv_client_event(client, ZSERV_CLIENT_WRITE);
+
+	return 0;
+}
 
 /* Hooks for client connect / disconnect */
 DEFINE_HOOK(zserv_client_connect, (struct zserv *client), (client));
@@ -629,26 +654,47 @@ static void zserv_client_free(struct zserv *client)
 
 void zserv_close_client(struct zserv *client)
 {
-	/* synchronously stop and join pthread */
-	frr_pthread_stop(client->pthread, NULL);
+	bool free_p = true;
 
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("Closing client '%s'",
-			   zebra_route_string(client->proto));
+	if (client->pthread) {
+		/* synchronously stop and join pthread */
+		frr_pthread_stop(client->pthread, NULL);
 
-	thread_cancel_event(zrouter.master, client);
-	THREAD_OFF(client->t_cleanup);
-	THREAD_OFF(client->t_process);
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("Closing client '%s'",
+				   zebra_route_string(client->proto));
 
-	/* destroy pthread */
-	frr_pthread_destroy(client->pthread);
-	client->pthread = NULL;
+		thread_cancel_event(zrouter.master, client);
+		THREAD_OFF(client->t_cleanup);
+		THREAD_OFF(client->t_process);
 
-	/* remove from client list */
-	listnode_delete(zrouter.client_list, client);
+		/* destroy pthread */
+		frr_pthread_destroy(client->pthread);
+		client->pthread = NULL;
+	}
+
+	/*
+	 * Final check in case the client struct is in use in another
+	 * pthread: if not in-use, continue and free the client
+	 */
+	frr_with_mutex(&client_mutex) {
+		if (client->busy_count <= 0) {
+			/* remove from client list */
+			listnode_delete(zrouter.client_list, client);
+		} else {
+			/*
+			 * The client session object may be in use, although
+			 * the associated pthread is gone. Defer final
+			 * cleanup.
+			 */
+			client->is_closed = true;
+			free_p = false;
+		}
+	}
 
 	/* delete client */
-	zserv_client_free(client);
+	if (free_p)
+		zserv_client_free(client);
 }
 
 /*
@@ -708,7 +754,9 @@ static struct zserv *zserv_client_create(int sock)
 	client->ridinfo = vrf_bitmap_init();
 
 	/* Add this client to linked list. */
-	listnode_add(zrouter.client_list, client);
+	frr_with_mutex(&client_mutex) {
+		listnode_add(zrouter.client_list, client);
+	}
 
 	struct frr_pthread_attr zclient_pthr_attrs = {
 		.start = frr_pthread_attr_default.start,
@@ -728,6 +776,66 @@ static struct zserv *zserv_client_create(int sock)
 	frr_pthread_run(client->pthread, NULL);
 
 	return client;
+}
+
+/*
+ * Retrieve a client object by the complete tuple of
+ * {protocol, instance, session}. This version supports use
+ * from a different pthread: the object will be returned marked
+ * in-use. The caller *must* release the client object with the
+ * release_client() api, to ensure that the in-use marker is cleared properly.
+ */
+struct zserv *zserv_acquire_client(uint8_t proto, unsigned short instance,
+				   uint32_t session_id)
+{
+	struct zserv *client = NULL;
+
+	frr_with_mutex(&client_mutex) {
+		client = find_client_internal(proto, instance, session_id);
+		if (client) {
+			/* Don't return a dead/closed client object */
+			if (client->is_closed)
+				client = NULL;
+			else
+				client->busy_count++;
+		}
+	}
+
+	return client;
+}
+
+/*
+ * Release a client object that was acquired with the acquire_client() api.
+ * After this has been called, the caller must not use the client pointer -
+ * it may be freed if the client has closed.
+ */
+void zserv_release_client(struct zserv *client)
+{
+	/*
+	 * Once we've decremented the client object's refcount, it's possible
+	 * for it to be deleted as soon as we release the lock, so we won't
+	 * touch the object again.
+	 */
+	frr_with_mutex(&client_mutex) {
+		client->busy_count--;
+
+		if (client->busy_count <= 0) {
+			/*
+			 * No more users of the client object. If the client
+			 * session is closed, schedule cleanup on the zebra
+			 * main pthread.
+			 */
+			if (client->is_closed)
+				thread_add_event(zrouter.master,
+						 zserv_handle_client_fail,
+						 client, 0, &client->t_cleanup);
+		}
+	}
+
+	/*
+	 * Cleanup must take place on the zebra main pthread, so we've
+	 * scheduled an event.
+	 */
 }
 
 /*
@@ -773,6 +881,9 @@ void zserv_close(void)
 	 */
 	close(zsock);
 	zsock = -1;
+
+	/* Free client list's mutex */
+	pthread_mutex_destroy(&client_mutex);
 }
 
 void zserv_start(char *path)
@@ -1001,12 +1112,17 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
 		if (first_p) {
+			vty_out(vty, "Stale Client Information\n");
+			vty_out(vty, "------------------------\n");
+
 			if (client->instance)
 				vty_out(vty, " Instance: %u", client->instance);
 			if (client->session_id)
 				vty_out(vty, " [%u]", client->session_id);
+
 			first_p = false;
 		}
+
 		vty_out(vty, "VRF : %s\n", vrf_id_to_name(info->vrf_id));
 		vty_out(vty, "Capabilities : ");
 		switch (info->capabilities) {
@@ -1077,24 +1193,55 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 		client->v6_route_del_cnt);
 }
 
-struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
-					uint32_t session_id)
+/*
+ * Common logic that searches the client list for a zapi client; this
+ * MUST be called holding the client list mutex.
+ */
+static struct zserv *find_client_internal(uint8_t proto,
+					  unsigned short instance,
+					  uint32_t session_id)
 {
 	struct listnode *node, *nnode;
-	struct zserv *client;
+	struct zserv *client = NULL;
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		if (client->proto == proto && client->instance == instance &&
 		    client->session_id == session_id)
-			return client;
+			break;
 	}
 
-	return NULL;
+	return client;
 }
 
+/*
+ * Public api that searches for a client session; this version is
+ * used from the zebra main pthread.
+ */
 struct zserv *zserv_find_client(uint8_t proto, unsigned short instance)
 {
-	return zserv_find_client_session(proto, instance, 0);
+	struct zserv *client;
+
+	frr_with_mutex(&client_mutex) {
+		client = find_client_internal(proto, instance, 0);
+	}
+
+	return client;
+}
+
+/*
+ * Retrieve a client by its protocol, instance number, and session id.
+ */
+struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
+					uint32_t session_id)
+{
+	struct zserv *client;
+
+	frr_with_mutex(&client_mutex) {
+		client = find_client_internal(proto, instance, session_id);
+	}
+
+	return client;
+
 }
 
 /* This command is for debugging purpose. */
@@ -1110,8 +1257,7 @@ DEFUN (show_zebra_client,
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		zebra_show_client_detail(vty, client);
-		vty_out(vty, "Stale Client Information\n");
-		vty_out(vty, "------------------------\n");
+		/* Show GR info if present */
 		zebra_show_stale_client_detail(vty, client);
 	}
 
@@ -1161,6 +1307,7 @@ void zserv_init(void)
 
 	/* Misc init. */
 	zsock = -1;
+	pthread_mutex_init(&client_mutex, NULL);
 
 	install_element(ENABLE_NODE, &show_zebra_client_cmd);
 	install_element(ENABLE_NODE, &show_zebra_client_summary_cmd);

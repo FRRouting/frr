@@ -24,6 +24,10 @@
 
 extern void sharp_zebra_init(void);
 
+/* Add and delete extra zapi client sessions, for testing */
+int sharp_zclient_create(uint32_t session_id);
+int sharp_zclient_delete(uint32_t session_id);
+
 extern void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label);
 extern void route_add(const struct prefix *p, vrf_id_t, uint8_t instance,
 		      const struct nexthop_group *nhg,
@@ -42,5 +46,15 @@ extern void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 
 int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
 			      uint8_t type, int instance, uint32_t in_label,
-			      const struct nexthop_group *nhg);
+			      const struct nexthop_group *nhg,
+			      const struct nexthop_group *backup_nhg);
+
+/* Send OPAQUE messages, using subtype 'type'. */
+void sharp_opaque_send(uint32_t type, uint32_t proto, uint32_t instance,
+		       uint32_t session_id, uint32_t count);
+
+/* Send OPAQUE registration messages, using subtype 'type'. */
+void sharp_opaque_reg_send(bool is_reg, uint32_t proto, uint32_t instance,
+			   uint32_t session_id, uint32_t type);
+
 #endif

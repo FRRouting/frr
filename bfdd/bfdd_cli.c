@@ -312,7 +312,7 @@ void bfd_cli_show_rx(struct vty *vty, struct lyd_node *dnode,
 			BFD_DEFREQUIREDMINRX);
 	else {
 		value = yang_dnode_get_uint32(dnode, NULL);
-		vty_out(vty, "  receive-interval %" PRIu32 "\n", value / 1000);
+		vty_out(vty, "  receive-interval %u\n", value / 1000);
 	}
 }
 
@@ -341,7 +341,7 @@ void bfd_cli_show_tx(struct vty *vty, struct lyd_node *dnode,
 			BFD_DEFDESIREDMINTX);
 	else {
 		value = yang_dnode_get_uint32(dnode, NULL);
-		vty_out(vty, "  transmit-interval %" PRIu32 "\n", value / 1000);
+		vty_out(vty, "  transmit-interval %u\n", value / 1000);
 	}
 }
 
@@ -391,7 +391,7 @@ void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
 			BFD_DEF_REQ_MIN_ECHO);
 	else {
 		value = yang_dnode_get_uint32(dnode, NULL);
-		vty_out(vty, "  echo-interval %" PRIu32 "\n", value / 1000);
+		vty_out(vty, "  echo-interval %u\n", value / 1000);
 	}
 }
 

@@ -157,8 +157,7 @@ static int qmem_exit_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 
 	if (!mt) {
 		fprintf(eda->fp,
-			"%s: showing active allocations in "
-			"memory group %s\n",
+			"%s: showing active allocations in memory group %s\n",
 			eda->prefix, mg->name);
 
 	} else if (mt->n_alloc) {

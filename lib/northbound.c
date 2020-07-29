@@ -30,6 +30,7 @@
 #include "northbound.h"
 #include "northbound_cli.h"
 #include "northbound_db.h"
+#include "frrstr.h"
 
 DEFINE_MTYPE_STATIC(LIB, NB_NODE, "Northbound Node")
 DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Configuration")
@@ -62,19 +63,24 @@ static struct {
  */
 static bool transaction_in_progress;
 
-static int nb_callback_pre_validate(const struct nb_node *nb_node,
-				    const struct lyd_node *dnode);
-static int nb_callback_configuration(const enum nb_event event,
-				     struct nb_config_change *change);
-static struct nb_transaction *nb_transaction_new(struct nb_config *config,
-						 struct nb_config_cbs *changes,
-						 enum nb_client client,
-						 const void *user,
-						 const char *comment);
+static int nb_callback_pre_validate(struct nb_context *context,
+				    const struct nb_node *nb_node,
+				    const struct lyd_node *dnode, char *errmsg,
+				    size_t errmsg_len);
+static int nb_callback_configuration(struct nb_context *context,
+				     const enum nb_event event,
+				     struct nb_config_change *change,
+				     char *errmsg, size_t errmsg_len);
+static struct nb_transaction *
+nb_transaction_new(struct nb_context *context, struct nb_config *config,
+		   struct nb_config_cbs *changes, const char *comment,
+		   char *errmsg, size_t errmsg_len);
 static void nb_transaction_free(struct nb_transaction *transaction);
 static int nb_transaction_process(enum nb_event event,
-				  struct nb_transaction *transaction);
-static void nb_transaction_apply_finish(struct nb_transaction *transaction);
+				  struct nb_transaction *transaction,
+				  char *errmsg, size_t errmsg_len);
+static void nb_transaction_apply_finish(struct nb_transaction *transaction,
+					char *errmsg, size_t errmsg_len);
 static int nb_oper_data_iter_node(const struct lys_node *snode,
 				  const char *xpath, const void *list_entry,
 				  const struct yang_list_keys *list_keys,
@@ -580,20 +586,25 @@ int nb_candidate_update(struct nb_config *candidate)
  * WARNING: lyd_validate() can change the configuration as part of the
  * validation process.
  */
-static int nb_candidate_validate_yang(struct nb_config *candidate)
+static int nb_candidate_validate_yang(struct nb_config *candidate, char *errmsg,
+				      size_t errmsg_len)
 {
 	if (lyd_validate(&candidate->dnode,
 			 LYD_OPT_STRICT | LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
 			 ly_native_ctx)
-	    != 0)
+	    != 0) {
+		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
 		return NB_ERR_VALIDATION;
+	}
 
 	return NB_OK;
 }
 
 /* Perform code-level validation using the northbound callbacks. */
-static int nb_candidate_validate_code(struct nb_config *candidate,
-				      struct nb_config_cbs *changes)
+static int nb_candidate_validate_code(struct nb_context *context,
+				      struct nb_config *candidate,
+				      struct nb_config_cbs *changes,
+				      char *errmsg, size_t errmsg_len)
 {
 	struct nb_config_cb *cb;
 	struct lyd_node *root, *next, *child;
@@ -608,7 +619,8 @@ static int nb_candidate_validate_code(struct nb_config *candidate,
 			if (!nb_node->cbs.pre_validate)
 				goto next;
 
-			ret = nb_callback_pre_validate(nb_node, child);
+			ret = nb_callback_pre_validate(context, nb_node, child,
+						       errmsg, errmsg_len);
 			if (ret != NB_OK)
 				return NB_ERR_VALIDATION;
 
@@ -621,7 +633,8 @@ static int nb_candidate_validate_code(struct nb_config *candidate,
 	RB_FOREACH (cb, nb_config_cbs, changes) {
 		struct nb_config_change *change = (struct nb_config_change *)cb;
 
-		ret = nb_callback_configuration(NB_EV_VALIDATE, change);
+		ret = nb_callback_configuration(context, NB_EV_VALIDATE, change,
+						errmsg, errmsg_len);
 		if (ret != NB_OK)
 			return NB_ERR_VALIDATION;
 	}
@@ -629,30 +642,36 @@ static int nb_candidate_validate_code(struct nb_config *candidate,
 	return NB_OK;
 }
 
-int nb_candidate_validate(struct nb_config *candidate)
+int nb_candidate_validate(struct nb_context *context,
+			  struct nb_config *candidate, char *errmsg,
+			  size_t errmsg_len)
 {
 	struct nb_config_cbs changes;
 	int ret;
 
-	if (nb_candidate_validate_yang(candidate) != NB_OK)
+	if (nb_candidate_validate_yang(candidate, errmsg, sizeof(errmsg_len))
+	    != NB_OK)
 		return NB_ERR_VALIDATION;
 
 	RB_INIT(nb_config_cbs, &changes);
 	nb_config_diff(running_config, candidate, &changes);
-	ret = nb_candidate_validate_code(candidate, &changes);
+	ret = nb_candidate_validate_code(context, candidate, &changes, errmsg,
+					 errmsg_len);
 	nb_config_diff_del_changes(&changes);
 
 	return ret;
 }
 
-int nb_candidate_commit_prepare(struct nb_config *candidate,
-				enum nb_client client, const void *user,
+int nb_candidate_commit_prepare(struct nb_context *context,
+				struct nb_config *candidate,
 				const char *comment,
-				struct nb_transaction **transaction)
+				struct nb_transaction **transaction,
+				char *errmsg, size_t errmsg_len)
 {
 	struct nb_config_cbs changes;
 
-	if (nb_candidate_validate_yang(candidate) != NB_OK) {
+	if (nb_candidate_validate_yang(candidate, errmsg, errmsg_len)
+	    != NB_OK) {
 		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
 			  "%s: failed to validate candidate configuration",
 			  __func__);
@@ -664,7 +683,9 @@ int nb_candidate_commit_prepare(struct nb_config *candidate,
 	if (RB_EMPTY(nb_config_cbs, &changes))
 		return NB_ERR_NO_CHANGES;
 
-	if (nb_candidate_validate_code(candidate, &changes) != NB_OK) {
+	if (nb_candidate_validate_code(context, candidate, &changes, errmsg,
+				       errmsg_len)
+	    != NB_OK) {
 		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
 			  "%s: failed to validate candidate configuration",
 			  __func__);
@@ -672,29 +693,37 @@ int nb_candidate_commit_prepare(struct nb_config *candidate,
 		return NB_ERR_VALIDATION;
 	}
 
-	*transaction =
-		nb_transaction_new(candidate, &changes, client, user, comment);
+	*transaction = nb_transaction_new(context, candidate, &changes, comment,
+					  errmsg, errmsg_len);
 	if (*transaction == NULL) {
 		flog_warn(EC_LIB_NB_TRANSACTION_CREATION_FAILED,
-			  "%s: failed to create transaction", __func__);
+			  "%s: failed to create transaction: %s", __func__,
+			  errmsg);
 		nb_config_diff_del_changes(&changes);
 		return NB_ERR_LOCKED;
 	}
 
-	return nb_transaction_process(NB_EV_PREPARE, *transaction);
+	return nb_transaction_process(NB_EV_PREPARE, *transaction, errmsg,
+				      errmsg_len);
 }
 
 void nb_candidate_commit_abort(struct nb_transaction *transaction)
 {
-	(void)nb_transaction_process(NB_EV_ABORT, transaction);
+	char errmsg[BUFSIZ] = {0};
+
+	(void)nb_transaction_process(NB_EV_ABORT, transaction, errmsg,
+				     sizeof(errmsg));
 	nb_transaction_free(transaction);
 }
 
 void nb_candidate_commit_apply(struct nb_transaction *transaction,
 			       bool save_transaction, uint32_t *transaction_id)
 {
-	(void)nb_transaction_process(NB_EV_APPLY, transaction);
-	nb_transaction_apply_finish(transaction);
+	char errmsg[BUFSIZ] = {0};
+
+	(void)nb_transaction_process(NB_EV_APPLY, transaction, errmsg,
+				     sizeof(errmsg));
+	nb_transaction_apply_finish(transaction, errmsg, sizeof(errmsg));
 
 	/* Replace running by candidate. */
 	transaction->config->version++;
@@ -709,15 +738,16 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 	nb_transaction_free(transaction);
 }
 
-int nb_candidate_commit(struct nb_config *candidate, enum nb_client client,
-			const void *user, bool save_transaction,
-			const char *comment, uint32_t *transaction_id)
+int nb_candidate_commit(struct nb_context *context, struct nb_config *candidate,
+			bool save_transaction, const char *comment,
+			uint32_t *transaction_id, char *errmsg,
+			size_t errmsg_len)
 {
 	struct nb_transaction *transaction = NULL;
 	int ret;
 
-	ret = nb_candidate_commit_prepare(candidate, client, user, comment,
-					  &transaction);
+	ret = nb_candidate_commit_prepare(context, candidate, comment,
+					  &transaction, errmsg, errmsg_len);
 	/*
 	 * Apply the changes if the preparation phase succeeded. Otherwise abort
 	 * the transaction.
@@ -735,7 +765,7 @@ int nb_running_lock(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	frr_with_mutex(&running_config_mgmt_lock.mtx) {
+	frr_with_mutex (&running_config_mgmt_lock.mtx) {
 		if (!running_config_mgmt_lock.locked) {
 			running_config_mgmt_lock.locked = true;
 			running_config_mgmt_lock.owner_client = client;
@@ -751,7 +781,7 @@ int nb_running_unlock(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	frr_with_mutex(&running_config_mgmt_lock.mtx) {
+	frr_with_mutex (&running_config_mgmt_lock.mtx) {
 		if (running_config_mgmt_lock.locked
 		    && running_config_mgmt_lock.owner_client == client
 		    && running_config_mgmt_lock.owner_user == user) {
@@ -769,7 +799,7 @@ int nb_running_lock_check(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	frr_with_mutex(&running_config_mgmt_lock.mtx) {
+	frr_with_mutex (&running_config_mgmt_lock.mtx) {
 		if (!running_config_mgmt_lock.locked
 		    || (running_config_mgmt_lock.owner_client == client
 			&& running_config_mgmt_lock.owner_user == user))
@@ -801,78 +831,237 @@ static void nb_log_config_callback(const enum nb_event event,
 		value);
 }
 
-static int nb_callback_create(const struct nb_node *nb_node,
+static int nb_callback_create(struct nb_context *context,
+			      const struct nb_node *nb_node,
 			      enum nb_event event, const struct lyd_node *dnode,
-			      union nb_resource *resource)
+			      union nb_resource *resource, char *errmsg,
+			      size_t errmsg_len)
 {
 	struct nb_cb_create_args args = {};
+	bool unexpected_error = false;
+	int ret;
 
 	nb_log_config_callback(event, NB_OP_CREATE, dnode);
 
+	args.context = context;
 	args.event = event;
 	args.dnode = dnode;
 	args.resource = resource;
-	return nb_node->cbs.create(&args);
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
+	ret = nb_node->cbs.create(&args);
+
+	/* Detect and log unexpected errors. */
+	switch (ret) {
+	case NB_OK:
+	case NB_ERR:
+		break;
+	case NB_ERR_VALIDATION:
+		if (event != NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_RESOURCE:
+		if (event != NB_EV_PREPARE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_INCONSISTENCY:
+		if (event == NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	default:
+		unexpected_error = true;
+		break;
+	}
+	if (unexpected_error)
+		DEBUGD(&nb_dbg_cbs_config,
+		       "northbound callback: unexpected return value: %s",
+		       nb_err_name(ret));
+
+	return ret;
 }
 
-static int nb_callback_modify(const struct nb_node *nb_node,
+static int nb_callback_modify(struct nb_context *context,
+			      const struct nb_node *nb_node,
 			      enum nb_event event, const struct lyd_node *dnode,
-			      union nb_resource *resource)
+			      union nb_resource *resource, char *errmsg,
+			      size_t errmsg_len)
 {
 	struct nb_cb_modify_args args = {};
+	bool unexpected_error = false;
+	int ret;
 
 	nb_log_config_callback(event, NB_OP_MODIFY, dnode);
 
+	args.context = context;
 	args.event = event;
 	args.dnode = dnode;
 	args.resource = resource;
-	return nb_node->cbs.modify(&args);
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
+	ret = nb_node->cbs.modify(&args);
+
+	/* Detect and log unexpected errors. */
+	switch (ret) {
+	case NB_OK:
+	case NB_ERR:
+		break;
+	case NB_ERR_VALIDATION:
+		if (event != NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_RESOURCE:
+		if (event != NB_EV_PREPARE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_INCONSISTENCY:
+		if (event == NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	default:
+		unexpected_error = true;
+		break;
+	}
+	if (unexpected_error)
+		DEBUGD(&nb_dbg_cbs_config,
+		       "northbound callback: unexpected return value: %s",
+		       nb_err_name(ret));
+
+	return ret;
 }
 
-static int nb_callback_destroy(const struct nb_node *nb_node,
+static int nb_callback_destroy(struct nb_context *context,
+			       const struct nb_node *nb_node,
 			       enum nb_event event,
-			       const struct lyd_node *dnode)
+			       const struct lyd_node *dnode, char *errmsg,
+			       size_t errmsg_len)
 {
 	struct nb_cb_destroy_args args = {};
+	bool unexpected_error = false;
+	int ret;
 
 	nb_log_config_callback(event, NB_OP_DESTROY, dnode);
 
+	args.context = context;
 	args.event = event;
 	args.dnode = dnode;
-	return nb_node->cbs.destroy(&args);
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
+	ret = nb_node->cbs.destroy(&args);
+
+	/* Detect and log unexpected errors. */
+	switch (ret) {
+	case NB_OK:
+	case NB_ERR:
+		break;
+	case NB_ERR_VALIDATION:
+		if (event != NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_INCONSISTENCY:
+		if (event == NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	default:
+		unexpected_error = true;
+		break;
+	}
+	if (unexpected_error)
+		DEBUGD(&nb_dbg_cbs_config,
+		       "northbound callback: unexpected return value: %s",
+		       nb_err_name(ret));
+
+	return ret;
 }
 
-static int nb_callback_move(const struct nb_node *nb_node, enum nb_event event,
-			    const struct lyd_node *dnode)
+static int nb_callback_move(struct nb_context *context,
+			    const struct nb_node *nb_node, enum nb_event event,
+			    const struct lyd_node *dnode, char *errmsg,
+			    size_t errmsg_len)
 {
 	struct nb_cb_move_args args = {};
+	bool unexpected_error = false;
+	int ret;
 
 	nb_log_config_callback(event, NB_OP_MOVE, dnode);
 
+	args.context = context;
 	args.event = event;
 	args.dnode = dnode;
-	return nb_node->cbs.move(&args);
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
+	ret = nb_node->cbs.move(&args);
+
+	/* Detect and log unexpected errors. */
+	switch (ret) {
+	case NB_OK:
+	case NB_ERR:
+		break;
+	case NB_ERR_VALIDATION:
+		if (event != NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	case NB_ERR_INCONSISTENCY:
+		if (event == NB_EV_VALIDATE)
+			unexpected_error = true;
+		break;
+	default:
+		unexpected_error = true;
+		break;
+	}
+	if (unexpected_error)
+		DEBUGD(&nb_dbg_cbs_config,
+		       "northbound callback: unexpected return value: %s",
+		       nb_err_name(ret));
+
+	return ret;
 }
 
-static int nb_callback_pre_validate(const struct nb_node *nb_node,
-				    const struct lyd_node *dnode)
+static int nb_callback_pre_validate(struct nb_context *context,
+				    const struct nb_node *nb_node,
+				    const struct lyd_node *dnode, char *errmsg,
+				    size_t errmsg_len)
 {
 	struct nb_cb_pre_validate_args args = {};
+	bool unexpected_error = false;
+	int ret;
 
 	nb_log_config_callback(NB_EV_VALIDATE, NB_OP_PRE_VALIDATE, dnode);
 
 	args.dnode = dnode;
-	return nb_node->cbs.pre_validate(&args);
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
+	ret = nb_node->cbs.pre_validate(&args);
+
+	/* Detect and log unexpected errors. */
+	switch (ret) {
+	case NB_OK:
+	case NB_ERR_VALIDATION:
+		break;
+	default:
+		unexpected_error = true;
+		break;
+	}
+	if (unexpected_error)
+		DEBUGD(&nb_dbg_cbs_config,
+		       "northbound callback: unexpected return value: %s",
+		       nb_err_name(ret));
+
+	return ret;
 }
 
-static void nb_callback_apply_finish(const struct nb_node *nb_node,
-				     const struct lyd_node *dnode)
+static void nb_callback_apply_finish(struct nb_context *context,
+				     const struct nb_node *nb_node,
+				     const struct lyd_node *dnode, char *errmsg,
+				     size_t errmsg_len)
 {
 	struct nb_cb_apply_finish_args args = {};
 
 	nb_log_config_callback(NB_EV_APPLY, NB_OP_APPLY_FINISH, dnode);
 
+	args.context = context;
 	args.dnode = dnode;
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
 	nb_node->cbs.apply_finish(&args);
 }
 
@@ -952,8 +1141,10 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
  * Call the northbound configuration callback associated to a given
  * configuration change.
  */
-static int nb_callback_configuration(const enum nb_event event,
-				     struct nb_config_change *change)
+static int nb_callback_configuration(struct nb_context *context,
+				     const enum nb_event event,
+				     struct nb_config_change *change,
+				     char *errmsg, size_t errmsg_len)
 {
 	enum nb_operation operation = change->cb.operation;
 	char xpath[XPATH_MAXLEN];
@@ -962,7 +1153,6 @@ static int nb_callback_configuration(const enum nb_event event,
 	union nb_resource *resource;
 	int ret = NB_ERR;
 
-
 	if (event == NB_EV_VALIDATE)
 		resource = NULL;
 	else
@@ -970,16 +1160,20 @@ static int nb_callback_configuration(const enum nb_event event,
 
 	switch (operation) {
 	case NB_OP_CREATE:
-		ret = nb_callback_create(nb_node, event, dnode, resource);
+		ret = nb_callback_create(context, nb_node, event, dnode,
+					 resource, errmsg, errmsg_len);
 		break;
 	case NB_OP_MODIFY:
-		ret = nb_callback_modify(nb_node, event, dnode, resource);
+		ret = nb_callback_modify(context, nb_node, event, dnode,
+					 resource, errmsg, errmsg_len);
 		break;
 	case NB_OP_DESTROY:
-		ret = nb_callback_destroy(nb_node, event, dnode);
+		ret = nb_callback_destroy(context, nb_node, event, dnode,
+					  errmsg, errmsg_len);
 		break;
 	case NB_OP_MOVE:
-		ret = nb_callback_move(nb_node, event, dnode);
+		ret = nb_callback_move(context, nb_node, event, dnode, errmsg,
+				       errmsg_len);
 		break;
 	default:
 		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
@@ -1014,45 +1208,48 @@ static int nb_callback_configuration(const enum nb_event event,
 			break;
 		default:
 			flog_err(EC_LIB_DEVELOPMENT,
-				 "%s: unknown event (%u) [xpath %s]",
-				 __func__, event, xpath);
+				 "%s: unknown event (%u) [xpath %s]", __func__,
+				 event, xpath);
 			exit(1);
 		}
 
 		flog(priority, ref,
-		     "%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
-		     __func__, nb_err_name(ret), nb_event_name(event),
+		     "error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
+		     nb_err_name(ret), nb_event_name(event),
 		     nb_operation_name(operation), xpath);
+		if (strlen(errmsg) > 0)
+			flog(priority, ref,
+			     "error processing configuration change: %s",
+			     errmsg);
 	}
 
 	return ret;
 }
 
 static struct nb_transaction *
-nb_transaction_new(struct nb_config *config, struct nb_config_cbs *changes,
-		   enum nb_client client, const void *user, const char *comment)
+nb_transaction_new(struct nb_context *context, struct nb_config *config,
+		   struct nb_config_cbs *changes, const char *comment,
+		   char *errmsg, size_t errmsg_len)
 {
 	struct nb_transaction *transaction;
 
-	if (nb_running_lock_check(client, user)) {
-		flog_warn(
-			EC_LIB_NB_TRANSACTION_CREATION_FAILED,
-			"%s: running configuration is locked by another client",
-			__func__);
+	if (nb_running_lock_check(context->client, context->user)) {
+		strlcpy(errmsg,
+			"running configuration is locked by another client",
+			errmsg_len);
 		return NULL;
 	}
 
 	if (transaction_in_progress) {
-		flog_warn(
-			EC_LIB_NB_TRANSACTION_CREATION_FAILED,
-			"%s: error - there's already another transaction in progress",
-			__func__);
+		strlcpy(errmsg,
+			"there's already another transaction in progress",
+			errmsg_len);
 		return NULL;
 	}
 	transaction_in_progress = true;
 
 	transaction = XCALLOC(MTYPE_TMP, sizeof(*transaction));
-	transaction->client = client;
+	transaction->context = context;
 	if (comment)
 		strlcpy(transaction->comment, comment,
 			sizeof(transaction->comment));
@@ -1071,7 +1268,8 @@ static void nb_transaction_free(struct nb_transaction *transaction)
 
 /* Process all configuration changes associated to a transaction. */
 static int nb_transaction_process(enum nb_event event,
-				  struct nb_transaction *transaction)
+				  struct nb_transaction *transaction,
+				  char *errmsg, size_t errmsg_len)
 {
 	struct nb_config_cb *cb;
 
@@ -1087,7 +1285,8 @@ static int nb_transaction_process(enum nb_event event,
 			break;
 
 		/* Call the appropriate callback. */
-		ret = nb_callback_configuration(event, change);
+		ret = nb_callback_configuration(transaction->context, event,
+						change, errmsg, errmsg_len);
 		switch (event) {
 		case NB_EV_PREPARE:
 			if (ret != NB_OK)
@@ -1141,7 +1340,8 @@ nb_apply_finish_cb_find(struct nb_config_cbs *cbs,
 }
 
 /* Call the 'apply_finish' callbacks. */
-static void nb_transaction_apply_finish(struct nb_transaction *transaction)
+static void nb_transaction_apply_finish(struct nb_transaction *transaction,
+					char *errmsg, size_t errmsg_len)
 {
 	struct nb_config_cbs cbs;
 	struct nb_config_cb *cb;
@@ -1200,7 +1400,8 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 
 	/* Call the 'apply_finish' callbacks, sorted by their priorities. */
 	RB_FOREACH (cb, nb_config_cbs, &cbs)
-		nb_callback_apply_finish(cb->nb_node, cb->dnode);
+		nb_callback_apply_finish(transaction->context, cb->nb_node,
+					 cb->dnode, errmsg, errmsg_len);
 
 	/* Release memory. */
 	while (!RB_EMPTY(nb_config_cbs, &cbs)) {
@@ -1789,6 +1990,29 @@ void nb_running_set_entry(const struct lyd_node *dnode, void *entry)
 	config->entry = entry;
 }
 
+void nb_running_move_tree(const char *xpath_from, const char *xpath_to)
+{
+	struct nb_config_entry *entry;
+	struct list *entries = hash_to_list(running_config_entries);
+	struct listnode *ln;
+
+	for (ALL_LIST_ELEMENTS_RO(entries, ln, entry)) {
+		if (!frrstr_startswith(entry->xpath, xpath_from))
+			continue;
+
+		hash_release(running_config_entries, entry);
+
+		char *newpath =
+			frrstr_replace(entry->xpath, xpath_from, xpath_to);
+		strlcpy(entry->xpath, newpath, sizeof(entry->xpath));
+		XFREE(MTYPE_TMP, newpath);
+
+		hash_get(running_config_entries, entry, hash_alloc_intern);
+	}
+
+	list_delete(&entries);
+}
+
 static void *nb_running_unset_entry_helper(const struct lyd_node *dnode)
 {
 	struct nb_config_entry *config, s;
@@ -1915,7 +2139,7 @@ const char *nb_err_name(enum nb_error error)
 	case NB_ERR_LOCKED:
 		return "resource is locked";
 	case NB_ERR_VALIDATION:
-		return "validation error";
+		return "validation";
 	case NB_ERR_RESOURCE:
 		return "failed to allocate resource";
 	case NB_ERR_INCONSISTENCY:

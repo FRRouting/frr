@@ -24,6 +24,7 @@
 #include <lib/nexthop_group.h>
 
 #include "pbr_map.h"
+#include "json.h"
 
 #define PBR_NHC_NAMELEN PBR_MAP_NAMELEN + 10
 
@@ -112,6 +113,7 @@ extern char *pbr_nht_nexthop_make_name(char *name, size_t l, uint32_t seqno,
 				       char *buffer);
 
 extern void pbr_nht_show_nexthop_group(struct vty *vty, const char *name);
+extern void pbr_nht_json_nexthop_group(json_object *j, const char *name);
 
 /*
  * When we get a callback from zebra about a nexthop changing

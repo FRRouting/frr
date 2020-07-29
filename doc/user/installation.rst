@@ -279,6 +279,18 @@ options from the list below.
    With this option, we provide a way to strip out these characters for APK dev
    package builds.
 
+..option:: --disable-version-build-config
+
+   Remove the "configuerd with" field that has all of the build configuration
+   arguments when reporting the version string in `show version` command.
+
+..option:: --with-pkg-extra-version=VER
+   Add extra version field, for packagers/distributions
+
+..option::  --with-pkg-git-version
+
+   Add git information to MOTD and build version string
+
 .. option:: --enable-multipath=X
 
    Compile FRR with up to X way ECMP supported.  This number can be from 0-999.

@@ -50,8 +50,7 @@ static int kernel_rtm_add_labels(struct mpls_label_stack *nh_label,
 {
 	if (nh_label->num_labels > 1) {
 		flog_warn(EC_ZEBRA_MAX_LABELS_PUSH,
-			  "%s: can't push %u labels at "
-			  "once (maximum is 1)",
+			  "%s: can't push %u labels at once (maximum is 1)",
 			  __func__, nh_label->num_labels);
 		return -1;
 	}

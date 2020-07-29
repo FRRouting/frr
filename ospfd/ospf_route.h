@@ -33,12 +33,24 @@
 #define OSPF_PATH_TYPE2_EXTERNAL	4
 #define OSPF_PATH_MAX			5
 
+/* Segment Routing information to complement ospf_path structure */
+struct sr_nexthop_info {
+	/* Output label associated to this route */
+	mpls_label_t label_out;
+	/*
+	 * Pointer to SR Node which is the next hop for this route
+	 * or NULL if next hop is the destination of the prefix
+	 */
+	struct sr_node *nexthop;
+};
+
 /* OSPF Path. */
 struct ospf_path {
 	struct in_addr nexthop;
 	struct in_addr adv_router;
 	ifindex_t ifindex;
 	unsigned char unnumbered;
+	struct sr_nexthop_info srni;
 };
 
 /* Below is the structure linked to every

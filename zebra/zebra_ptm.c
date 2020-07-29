@@ -434,8 +434,7 @@ static void if_bfd_session_update(struct interface *ifp, struct prefix *dp,
 
 		if (ifp) {
 			zlog_debug(
-				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d on %s"
-				" %s event",
+				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d on %s %s event",
 				inet_ntop(dp->family, &dp->u.prefix, buf[0],
 					  INET6_ADDRSTRLEN),
 				dp->prefixlen, ifp->name,
@@ -444,8 +443,7 @@ static void if_bfd_session_update(struct interface *ifp, struct prefix *dp,
 			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
 			zlog_debug(
-				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d "
-				"with src %s/%d and vrf %s(%u) %s event",
+				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d with src %s/%d and vrf %s(%u) %s event",
 				inet_ntop(dp->family, &dp->u.prefix, buf[0],
 					  INET6_ADDRSTRLEN),
 				dp->prefixlen,
@@ -502,8 +500,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
-			"%s: Recv Port [%s] bfd status [%s] vrf [%s]"
-			" peer [%s] local [%s]",
+			"%s: Recv Port [%s] bfd status [%s] vrf [%s] peer [%s] local [%s]",
 			__func__, ifp ? ifp->name : "N/A", bfdst_str, vrf_str,
 			dest_str, src_str);
 

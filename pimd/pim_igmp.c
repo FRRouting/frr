@@ -351,9 +351,7 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 	 */
 	if (query_version != pim_ifp->igmp_version) {
 		zlog_warn(
-			"Recv IGMP query v%d from %s on %s but we are using v%d, please "
-			"configure all PIM routers on this subnet to use the same "
-			"IGMP version",
+			"Recv IGMP query v%d from %s on %s but we are using v%d, please configure all PIM routers on this subnet to use the same IGMP version",
 			query_version, from_str, ifp->name,
 			pim_ifp->igmp_version);
 		return 0;

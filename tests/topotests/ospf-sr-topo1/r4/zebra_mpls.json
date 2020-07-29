@@ -1,5 +1,5 @@
-{
-  "10100":{
+[
+  {
     "inLabel":10100,
     "installed":true,
     "nexthops":[
@@ -12,7 +12,7 @@
       }
     ]
   },
-  "10200":{
+  {
     "inLabel":10200,
     "installed":true,
     "nexthops":[
@@ -25,7 +25,7 @@
       }
     ]
   },
-  "10300":{
+  {
     "inLabel":10300,
     "installed":true,
     "nexthops":[
@@ -38,7 +38,7 @@
       }
     ]
   },
-  "10400":{
+  {
     "inLabel":10400,
     "installed":true,
     "nexthops":[
@@ -46,13 +46,12 @@
         "type":"SR (OSPF)",
         "outLabel":3,
         "distance":150,
-        "installed":true,
-        "nexthop":"10.0.255.4"
+        "installed":true
       }
     ]
   },
-  "50000":{
-    "inLabel":50000,
+  {
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -64,8 +63,8 @@
       }
     ]
   },
-  "50001":{
-    "inLabel":50001,
+  {
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -77,4 +76,4 @@
       }
     ]
   }
-}
+]

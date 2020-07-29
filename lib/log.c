@@ -273,8 +273,7 @@ void zlog_backtrace(int priority)
 	if (size <= 0 || (size_t)size > array_size(array)) {
 		flog_err_sys(
 			EC_LIB_SYSTEM_CALL,
-			"Cannot get backtrace, returned invalid # of frames %d "
-			"(valid range is between 1 and %lu)",
+			"Cannot get backtrace, returned invalid # of frames %d (valid range is between 1 and %lu)",
 			size, (unsigned long)(array_size(array)));
 		return;
 	}
@@ -301,8 +300,7 @@ void zlog_thread_info(int log_level)
 
 	if (tc)
 		zlog(log_level,
-		     "Current thread function %s, scheduled from "
-		     "file %s, line %u",
+		     "Current thread function %s, scheduled from file %s, line %u",
 		     tc->funcname, tc->schedfrom, tc->schedfrom_line);
 	else
 		zlog(log_level, "Current thread not known/applicable");
@@ -443,7 +441,10 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_MLAG_CLIENT_UNREGISTER),
 	DESC_ENTRY(ZEBRA_MLAG_FORWARD_MSG),
 	DESC_ENTRY(ZEBRA_ERROR),
-	DESC_ENTRY(ZEBRA_CLIENT_CAPABILITIES)};
+	DESC_ENTRY(ZEBRA_CLIENT_CAPABILITIES),
+	DESC_ENTRY(ZEBRA_OPAQUE_MESSAGE),
+	DESC_ENTRY(ZEBRA_OPAQUE_REGISTER),
+	DESC_ENTRY(ZEBRA_OPAQUE_UNREGISTER)};
 #undef DESC_ENTRY
 
 static const struct zebra_desc_table unknown = {0, "unknown", '?'};
@@ -462,8 +463,7 @@ static const struct zebra_desc_table *zroute_lookup(unsigned int zroute)
 	for (i = 0; i < array_size(route_types); i++) {
 		if (zroute == route_types[i].type) {
 			zlog_warn(
-				"internal error: route type table out of order "
-				"while searching for %u, please notify developers",
+				"internal error: route type table out of order while searching for %u, please notify developers",
 				zroute);
 			return &route_types[i];
 		}

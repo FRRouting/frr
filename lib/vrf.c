@@ -691,8 +691,7 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 			return CMD_SUCCESS;
 		if (vty)
 			vty_out(vty,
-				"NS %s is already configured"
-				" with VRF %u(%s)\n",
+				"NS %s is already configured with VRF %u(%s)\n",
 				ns->name, vrf2->vrf_id, vrf2->name);
 		else
 			zlog_info("NS %s is already configured with VRF %u(%s)",
@@ -758,10 +757,8 @@ DEFUN (no_vrf,
 
 	vrfp = vrf_lookup_by_name(vrfname);
 
-	if (vrfp == NULL) {
-		vty_out(vty, "%% VRF %s does not exist\n", vrfname);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (vrfp == NULL)
+		return CMD_SUCCESS;
 
 	if (CHECK_FLAG(vrfp->status, VRF_ACTIVE)) {
 		vty_out(vty, "%% Only inactive VRFs can be deleted\n");
@@ -1082,8 +1079,8 @@ static int lib_vrf_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_VALIDATE:
 		vrfp = nb_running_get_entry(args->dnode, NULL, true);
 		if (CHECK_FLAG(vrfp->status, VRF_ACTIVE)) {
-			zlog_debug("%s Only inactive VRFs can be deleted",
-				   __func__);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Only inactive VRFs can be deleted");
 			return NB_ERR_VALIDATION;
 		}
 		break;

@@ -1,5 +1,5 @@
-{
-  "20100":{
+[
+  {
     "inLabel":20100,
     "installed":true,
     "nexthops":[
@@ -7,12 +7,11 @@
         "type":"SR (OSPF)",
         "outLabel":3,
         "distance":150,
-        "installed":true,
-        "nexthop":"10.0.255.1"
+        "installed":true
       }
     ]
   },
-  "20200":{
+  {
     "inLabel":20200,
     "installed":true,
     "nexthops":[
@@ -22,10 +21,17 @@
         "distance":150,
         "installed":true,
         "nexthop":"10.0.1.2"
+      },
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.0.2"
       }
     ]
   },
-  "20300":{
+  {
     "inLabel":20300,
     "installed":true,
     "nexthops":[
@@ -35,10 +41,17 @@
         "distance":150,
         "installed":true,
         "nexthop":"10.0.1.2"
+      },
+      {
+        "type":"SR (OSPF)",
+        "outLabel":8300,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.0.2"
       }
     ]
   },
-  "20400":{
+  {
     "inLabel":20400,
     "installed":true,
     "nexthops":[
@@ -48,11 +61,44 @@
         "distance":150,
         "installed":true,
         "nexthop":"10.0.1.2"
+      },
+      {
+        "type":"SR (OSPF)",
+        "outLabel":8400,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.0.2"
       }
     ]
   },
-  "50000":{
-    "inLabel":50000,
+  {
+    "inLabel":"*",
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.0.2"
+      }
+    ]
+  },
+  {
+    "inLabel":"*",
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.0.2"
+      }
+    ]
+  },
+  {
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -64,8 +110,8 @@
       }
     ]
   },
-  "50001":{
-    "inLabel":50001,
+  {
+    "inLabel":"*",
     "installed":true,
     "nexthops":[
       {
@@ -77,4 +123,4 @@
       }
     ]
   }
-}
+]

@@ -89,6 +89,7 @@ struct pbr_map_sequence {
 	 */
 	struct prefix *src;
 	struct prefix *dst;
+	uint8_t dsfield;
 	uint32_t mark;
 
 	/*
@@ -168,6 +169,8 @@ extern void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp);
 extern void pbr_map_interface_delete(struct pbr_map *pbrm,
 				     struct interface *ifp);
 
+extern uint8_t pbr_map_decode_dscp_enum(const char *name);
+
 /* Update maps installed on interface */
 extern void pbr_map_policy_interface_update(const struct interface *ifp,
 					    bool state_up);
@@ -194,7 +197,8 @@ extern void pbr_map_check(struct pbr_map_sequence *pbrms, bool changed);
 extern void pbr_map_check_nh_group_change(const char *nh_group);
 extern void pbr_map_reason_string(unsigned int reason, char *buf, int size);
 
-extern void pbr_map_schedule_policy_from_nhg(const char *nh_group);
+extern void pbr_map_schedule_policy_from_nhg(const char *nh_group,
+					     bool installed);
 
 extern void pbr_map_install(struct pbr_map *pbrm);
 

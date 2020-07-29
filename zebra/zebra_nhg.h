@@ -202,6 +202,12 @@ void zebra_nhg_hash_free(void *p);
 void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
 		    const struct nexthop *nh);
 
+/*
+ * Shallow copy of 'orig', into new/allocated nhe.
+ */
+struct nhg_hash_entry *zebra_nhe_copy(const struct nhg_hash_entry *orig,
+				      uint32_t id);
+
 /* Allocate, free backup nexthop info objects */
 struct nhg_backup_info *zebra_nhg_backup_alloc(void);
 void zebra_nhg_backup_free(struct nhg_backup_info **p);

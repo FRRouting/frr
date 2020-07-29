@@ -1191,6 +1191,13 @@ Defining Peers
    ``net.core.optmem_max`` to allow the kernel to allocate the necessary option
    memory.
 
+.. index:: [no] coalesce-time (0-4294967295)
+.. clicmd:: [no] coalesce-time (0-4294967295)
+
+   The time in milliseconds that BGP will delay before deciding what peers
+   can be put into an update-group together in order to generate a single
+   update for them.  The default time is 1000.
+   
 .. _bgp-configuring-peers:
 
 Configuring Peers
@@ -1365,6 +1372,19 @@ Configuring Peers
    This command allows the user to specify that v4 peering is turned
    on by default or not.  This command defaults to on and is not displayed.
    The `no bgp default ipv4-unicast` form of the command is displayed.
+
+.. index:: [no] bgp default show-hostname
+.. clicmd:: [no] bgp default show-hostname
+
+   This command shows the hostname of the peer in certain BGP commands
+   outputs. It's easier to troubleshoot if you have a number of BGP peers.
+
+.. index:: [no] bgp default show-nexthop-hostname
+.. clicmd:: [no] bgp default show-nexthop-hostname
+
+   This command shows the hostname of the next-hop in certain BGP commands
+   outputs. It's easier to troubleshoot if you have a number of BGP peers
+   and a number of routes to check.
 
 .. index:: [no] neighbor PEER advertisement-interval (0-600)
 .. clicmd:: [no] neighbor PEER advertisement-interval (0-600)
@@ -1722,8 +1742,8 @@ expanded
    the same namespace, so it's not necessary to specify ``standard`` or
    ``expanded``; these modifiers are purely aesthetic.
 
-.. index:: show bgp community-list [NAME]
-.. clicmd:: show bgp community-list [NAME]
+.. index:: show bgp community-list [NAME detail]
+.. clicmd:: show bgp community-list [NAME detail]
 
    Displays community list information. When ``NAME`` is specified the
    specified community list's information is shown.
@@ -1737,7 +1757,7 @@ expanded
          Named Community expanded list EXPAND
        permit :
 
-         # show bgp community-list CLIST
+         # show bgp community-list CLIST detail
          Named Community standard list CLIST
        permit 7675:80 7675:100 no-export
        deny internet
@@ -2013,8 +2033,8 @@ Extended Community Lists
 .. index:: show bgp extcommunity-list
 .. clicmd:: show bgp extcommunity-list
 
-.. index:: show bgp extcommunity-list NAME
-.. clicmd:: show bgp extcommunity-list NAME
+.. index:: show bgp extcommunity-list NAME detail
+.. clicmd:: show bgp extcommunity-list NAME detail
 
    This command displays current extcommunity-list information. When `name` is
    specified the community list's information is shown.::
@@ -2128,8 +2148,8 @@ Two types of large community lists are supported, namely `standard` and
 .. index:: show bgp large-community-list
 .. clicmd:: show bgp large-community-list
 
-.. index:: show bgp large-community-list NAME
-.. clicmd:: show bgp large-community-list NAME
+.. index:: show bgp large-community-list NAME detail
+.. clicmd:: show bgp large-community-list NAME detail
 
    This command display current large-community-list information. When
    `name` is specified the community list information is shown.
@@ -2412,72 +2432,6 @@ This makes possible to separate not only layer 3 networks like VRF-lite networks
 Also, VRF netns based make possible to separate layer 2 networks on separate VRF
 instances.
 
-.. _bgp-cisco-compatibility:
-
-Cisco Compatibility
--------------------
-
-FRR has commands that change some configuration syntax and default behavior to
-behave more closely to Cisco conventions. These are deprecated and will be
-removed in a future version of FRR.
-
-.. deprecated:: 5.0
-   Please transition to using the FRR specific syntax for your configuration.
-
-.. index:: bgp config-type cisco
-.. clicmd:: bgp config-type cisco
-
-   Cisco compatible BGP configuration output.
-
-   When this configuration line is specified:
-
-   - ``no synchronization`` is displayed.  This command does nothing and is for
-     display purposes only.
-   - ``no auto-summary`` is displayed.
-   - The ``network`` and ``aggregate-address`` arguments are displayed as:
-
-     ::
-
-        A.B.C.D M.M.M.M
-
-        FRR: network 10.0.0.0/8
-        Cisco: network 10.0.0.0
-
-        FRR: aggregate-address 192.168.0.0/24
-        Cisco: aggregate-address 192.168.0.0 255.255.255.0
-
-   Community attribute handling is also different. If no configuration is
-   specified community attribute and extended community attribute are sent to
-   the neighbor. If a user manually disables the feature, the community
-   attribute is not sent to the neighbor. When ``bgp config-type cisco`` is
-   specified, the community attribute is not sent to the neighbor by default.
-   To send the community attribute user has to specify
-   :clicmd:`neighbor A.B.C.D send-community` like so:
-
-   .. code-block:: frr
-
-      !
-      router bgp 1
-       neighbor 10.0.0.1 remote-as 1
-       address-family ipv4 unicast
-        no neighbor 10.0.0.1 send-community
-       exit-address-family
-      !
-      router bgp 1
-       neighbor 10.0.0.1 remote-as 1
-       address-family ipv4 unicast
-        neighbor 10.0.0.1 send-community
-       exit-address-family
-      !
-
-.. deprecated:: 5.0
-   Please transition to using the FRR specific syntax for your configuration.
-
-.. index:: bgp config-type zebra
-.. clicmd:: bgp config-type zebra
-
-   FRR style BGP configuration. This is the default.
-
 .. _bgp-debugging:
 
 Debugging
@@ -2729,6 +2683,12 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 .. clicmd:: show bgp [afi] [safi] summary failed [json]
 
    Show a bgp peer summary for peers that are not succesfully exchanging routes
+   for the specified address family, and subsequent address-family.
+
+.. index:: show bgp [afi] [safi] summary established [json]
+.. clicmd:: show bgp [afi] [safi] summary established [json]
+
+   Show a bgp peer summary for peers that are succesfully exchanging routes
    for the specified address family, and subsequent address-family.
 
 .. index:: show bgp [afi] [safi] neighbor [PEER]

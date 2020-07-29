@@ -5,7 +5,7 @@ set -e
 ##
 # For volume mounts...
 ##
-chown -R frr:frr /etc/frr
+chown -R frr:frr /etc/frr || true
 /usr/lib/frr/frrinit.sh start
 
 # Sleep forever

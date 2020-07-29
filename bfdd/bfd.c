@@ -115,11 +115,13 @@ struct bfd_profile *bfd_profile_new(const char *name)
 void bfd_profile_free(struct bfd_profile *bp)
 {
 	/* Detach from any session. */
-	bfd_profile_detach(bp);
+	if (bglobal.bg_shutdown == false)
+		bfd_profile_detach(bp);
 
 	/* Remove from global list. */
 	TAILQ_REMOVE(&bplist, bp, entry);
-	free(bp);
+
+	XFREE(MTYPE_BFDD_PROFILE, bp);
 }
 
 /**
@@ -765,6 +767,15 @@ static void _bfd_session_update(struct bfd_session *bs,
 	 */
 	bs->peer_profile.admin_shutdown = bpc->bpc_shutdown;
 	bfd_set_shutdown(bs, bpc->bpc_shutdown);
+
+	/*
+	 * Apply profile last: it also calls `bfd_set_shutdown`.
+	 *
+	 * There is no problem calling `shutdown` twice if the value doesn't
+	 * change or if it is overriden by peer specific configuration.
+	 */
+	if (bpc->bpc_has_profile)
+		bfd_profile_apply(bpc->bpc_profile, bs);
 }
 
 static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
@@ -913,8 +924,7 @@ int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc)
 
 	/* This pointer is being referenced, don't let it be deleted. */
 	if (bs->refcount > 0) {
-		zlog_err("session-delete: refcount failure: %" PRIu64
-			 " references",
+		zlog_err("session-delete: refcount failure: %" PRIu64" references",
 			 bs->refcount);
 		return -1;
 	}
@@ -1682,8 +1692,7 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 				inet_ntop(bs.key.family, &bs.key.local,
 					  addr_buf, sizeof(addr_buf));
 				zlog_debug(
-					" peer %s found, but ifp %s"
-					" and loc-addr %s ignored",
+					" peer %s found, but ifp %s and loc-addr %s ignored",
 					peer_buf, key.ifname, addr_buf);
 			}
 			return bsp;
@@ -1705,8 +1714,7 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 		bsp = ctx.result;
 		if (bglobal.debug_peer_event)
 			zlog_debug(
-				" peer %s found, but ifp"
-				" and/or loc-addr params ignored",
+				" peer %s found, but ifp and/or loc-addr params ignored",
 				peer_buf);
 	}
 	return bsp;

@@ -133,6 +133,7 @@ struct pim_interface {
 
 	/* Turn on Active-Active for this interface */
 	bool activeactive;
+	bool am_i_dr;
 
 	int64_t pim_ifstat_start; /* start timestamp for stats */
 	uint64_t pim_ifstat_bsm_rx;

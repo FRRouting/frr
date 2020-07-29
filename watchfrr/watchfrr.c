@@ -29,6 +29,7 @@
 #include "lib_errors.h"
 #include "zlog_targets.h"
 #include "network.h"
+#include "printfrr.h"
 
 #include <getopt.h>
 #include <sys/un.h>
@@ -174,6 +175,7 @@ struct daemon {
 #define OPTION_MINRESTART 2000
 #define OPTION_MAXRESTART 2001
 #define OPTION_DRY        2002
+#define OPTION_NETNS      2003
 
 static const struct option longopts[] = {
 	{"daemon", no_argument, NULL, 'd'},
@@ -190,6 +192,9 @@ static const struct option longopts[] = {
 	{"max-restart-interval", required_argument, NULL, OPTION_MAXRESTART},
 	{"pid-file", required_argument, NULL, 'p'},
 	{"blank-string", required_argument, NULL, 'b'},
+#ifdef GNU_LINUX
+	{"netns", optional_argument, NULL, OPTION_NETNS},
+#endif
 	{"help", no_argument, NULL, 'h'},
 	{"version", no_argument, NULL, 'v'},
 	{NULL, 0, NULL, 0}};
@@ -244,7 +249,12 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -d, --daemon	Run in daemon mode.  In this mode, error messages are sent\n\
 		to syslog instead of stdout.\n\
 -S, --statedir	Set the vty socket directory (default is %s)\n\
--l, --loglevel	Set the logging level (default is %d).\n\
+-N, --pathspace	Insert prefix into config & socket paths\n"
+#ifdef GNU_LINUX
+"    --netns	Create and/or use Linux network namespace.  If no name is\n"
+"		given, uses the value from `-N`.\n"
+#endif
+"-l, --loglevel	Set the logging level (default is %d).\n\
 		The value should range from %d (LOG_EMERG) to %d (LOG_DEBUG),\n\
 		but it can be set higher than %d if extra-verbose debugging\n\
 		messages are desired.\n\
@@ -346,8 +356,7 @@ static int restart_kill(struct thread *t_kill)
 
 	time_elapsed(&delay, &restart->time);
 	zlog_warn(
-		"Warning: %s %s child process %d still running after "
-		"%ld seconds, sending signal %d",
+		"Warning: %s %s child process %d still running after %ld seconds, sending signal %d",
 		restart->what, restart->name, (int)restart->pid,
 		(long)delay.tv_sec, (restart->kills ? SIGKILL : SIGTERM));
 	kill(-restart->pid, (restart->kills ? SIGKILL : SIGTERM));
@@ -476,8 +485,7 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 
 		if (gs.loglevel > LOG_DEBUG + 1)
 			zlog_debug(
-				"postponing %s %s: "
-				"elapsed time %ld < retry interval %ld",
+				"postponing %s %s: elapsed time %ld < retry interval %ld",
 				cmdtype, restart->name, (long)delay.tv_sec,
 				restart->interval);
 		return -1;
@@ -646,8 +654,7 @@ static int handle_read(struct thread *t_read)
 	if ((rc != sizeof(resp)) || memcmp(buf, resp, sizeof(resp))) {
 		char why[100 + sizeof(buf)];
 		snprintf(why, sizeof(why),
-			 "read returned bad echo response of %d bytes "
-			 "(expecting %u): %.*s",
+			 "read returned bad echo response of %d bytes (expecting %u): %.*s",
 			 (int)rc, (unsigned int)sizeof(resp), (int)rc, buf);
 		daemon_down(dmn, why);
 		return 0;
@@ -659,14 +666,12 @@ static int handle_read(struct thread *t_read)
 		if (delay.tv_sec < gs.timeout) {
 			dmn->state = DAEMON_UP;
 			zlog_warn(
-				"%s state -> up : echo response received after %ld.%06ld "
-				"seconds",
+				"%s state -> up : echo response received after %ld.%06ld seconds",
 				dmn->name, (long)delay.tv_sec,
 				(long)delay.tv_usec);
 		} else
 			zlog_warn(
-				"%s: slow echo response finally received after %ld.%06ld "
-				"seconds",
+				"%s: slow echo response finally received after %ld.%06ld seconds",
 				dmn->name, (long)delay.tv_sec,
 				(long)delay.tv_usec);
 	} else if (gs.loglevel > LOG_DEBUG + 1)
@@ -698,20 +703,18 @@ static void daemon_send_ready(int exitcode)
 		zlog_notice("all daemons up, doing startup-complete notify");
 	else if (gs.numdown < gs.numdaemons)
 		flog_err(EC_WATCHFRR_CONNECTION,
-			 "startup did not complete within timeout"
-			 " (%d/%d daemons running)",
+			 "startup did not complete within timeout (%d/%d daemons running)",
 			 gs.numdaemons - gs.numdown, gs.numdaemons);
 	else {
 		flog_err(EC_WATCHFRR_CONNECTION,
-			 "all configured daemons failed to start"
-			 " -- exiting watchfrr");
+			 "all configured daemons failed to start -- exiting watchfrr");
 		exit(exitcode);
 
 	}
 
 	frr_detach();
 
-	snprintf(started, sizeof(started), "%s%s", frr_vtydir,
+	snprintf(started, sizeof(started), "%s/%s", frr_vtydir,
 		 "watchfrr.started");
 	fp = fopen(started, "w");
 	if (fp)
@@ -948,8 +951,7 @@ static void try_restart(struct daemon *dmn)
 				1);
 		else
 			zlog_debug(
-				"%s: postponing restart attempt because master %s daemon "
-				"not up [%s], or phased restart in progress",
+				"%s: postponing restart attempt because master %s daemon not up [%s], or phased restart in progress",
 				dmn->name, gs.special->name,
 				state_str[gs.special->state]);
 		return;
@@ -958,8 +960,7 @@ static void try_restart(struct daemon *dmn)
 	if ((gs.phase != PHASE_NONE) || gs.numpids) {
 		if (gs.loglevel > LOG_DEBUG + 1)
 			zlog_debug(
-				"postponing phased global restart: restart already in "
-				"progress [%s], or outstanding child processes [%d]",
+				"postponing phased global restart: restart already in progress [%s], or outstanding child processes [%d]",
 				phase_str[gs.phase], gs.numpids);
 		return;
 	}
@@ -970,8 +971,7 @@ static void try_restart(struct daemon *dmn)
 		    < gs.special->restart.interval) {
 			if (gs.loglevel > LOG_DEBUG + 1)
 				zlog_debug(
-					"postponing phased global restart: "
-					"elapsed time %ld < retry interval %ld",
+					"postponing phased global restart: elapsed time %ld < retry interval %ld",
 					(long)delay.tv_sec,
 					gs.special->restart.interval);
 			return;
@@ -987,8 +987,7 @@ static int wakeup_unresponsive(struct thread *t_wakeup)
 	dmn->t_wakeup = NULL;
 	if (dmn->state != DAEMON_UNRESPONSIVE)
 		flog_err(EC_WATCHFRR_CONNECTION,
-			 "%s: no longer unresponsive (now %s), "
-			 "wakeup should have been cancelled!",
+			 "%s: no longer unresponsive (now %s), wakeup should have been cancelled!",
 			 dmn->name, state_str[dmn->state]);
 	else {
 		SET_WAKEUP_UNRESPONSIVE(dmn);
@@ -1006,8 +1005,7 @@ static int wakeup_no_answer(struct thread *t_wakeup)
 	if (dmn->ignore_timeout)
 		return 0;
 	flog_err(EC_WATCHFRR_CONNECTION,
-		 "%s state -> unresponsive : no response yet to ping "
-		 "sent %ld seconds ago",
+		 "%s state -> unresponsive : no response yet to ping sent %ld seconds ago",
 		 dmn->name, gs.timeout);
 	SET_WAKEUP_UNRESPONSIVE(dmn);
 	try_restart(dmn);
@@ -1066,8 +1064,7 @@ void watchfrr_status(struct vty *vty)
 		else if (dmn->state == DAEMON_DOWN &&
 			time_elapsed(&delay, &dmn->restart.time)->tv_sec
 				< dmn->restart.interval)
-			vty_out(vty, "      restarting in %jd seconds"
-				" (%jds backoff interval)\n",
+			vty_out(vty, "      restarting in %jd seconds (%jds backoff interval)\n",
 				(intmax_t)dmn->restart.interval
 					- (intmax_t)delay.tv_sec,
 				(intmax_t)dmn->restart.interval);
@@ -1114,6 +1111,148 @@ static int startup_timeout(struct thread *t_wakeup)
 	daemon_send_ready(1);
 	return 0;
 }
+
+#ifdef GNU_LINUX
+
+#include <sys/mount.h>
+#include <sched.h>
+
+#define NETNS_RUN_DIR "/var/run/netns"
+
+static void netns_create(int dirfd, const char *nsname)
+{
+	/* make /var/run/netns shared between mount namespaces
+	 * just like iproute2 sets it up
+	 */
+	if (mount("", NETNS_RUN_DIR, "none", MS_SHARED | MS_REC, NULL)) {
+		if (errno != EINVAL) {
+			perror("mount");
+			exit(1);
+		}
+
+		if (mount(NETNS_RUN_DIR, NETNS_RUN_DIR, "none",
+			  MS_BIND | MS_REC, NULL)) {
+			perror("mount");
+			exit(1);
+		}
+
+		if (mount("", NETNS_RUN_DIR, "none", MS_SHARED | MS_REC,
+			  NULL)) {
+			perror("mount");
+			exit(1);
+		}
+	}
+
+	/* need an empty file to mount on top of */
+	int nsfd = openat(dirfd, nsname, O_CREAT | O_RDONLY | O_EXCL, 0);
+
+	if (nsfd < 0) {
+		fprintf(stderr, "failed to create \"%s/%s\": %s\n",
+			NETNS_RUN_DIR, nsname, strerror(errno));
+		exit(1);
+	}
+	close(nsfd);
+
+	if (unshare(CLONE_NEWNET)) {
+		perror("unshare");
+		unlinkat(dirfd, nsname, 0);
+		exit(1);
+	}
+
+	char *dstpath = asprintfrr(MTYPE_TMP, "%s/%s", NETNS_RUN_DIR, nsname);
+
+	/* bind-mount so the namespace has a name and is persistent */
+	if (mount("/proc/self/ns/net", dstpath, "none", MS_BIND, NULL) < 0) {
+		fprintf(stderr, "failed to bind-mount netns to \"%s\": %s\n",
+			dstpath, strerror(errno));
+		unlinkat(dirfd, nsname, 0);
+		exit(1);
+	}
+
+	XFREE(MTYPE_TMP, dstpath);
+}
+
+static void netns_setup(const char *nsname)
+{
+	int dirfd, nsfd;
+
+	dirfd = open(NETNS_RUN_DIR, O_DIRECTORY | O_RDONLY);
+	if (dirfd < 0) {
+		if (errno == ENOTDIR) {
+			fprintf(stderr, "error: \"%s\" is not a directory!\n",
+				NETNS_RUN_DIR);
+			exit(1);
+		} else if (errno == ENOENT) {
+			if (mkdir(NETNS_RUN_DIR, 0755)) {
+				fprintf(stderr, "error: \"%s\": mkdir: %s\n",
+					NETNS_RUN_DIR, strerror(errno));
+				exit(1);
+			}
+			dirfd = open(NETNS_RUN_DIR, O_DIRECTORY | O_RDONLY);
+			if (dirfd < 0) {
+				fprintf(stderr, "error: \"%s\": opendir: %s\n",
+					NETNS_RUN_DIR, strerror(errno));
+				exit(1);
+			}
+		} else {
+			fprintf(stderr, "error: \"%s\": %s\n",
+				NETNS_RUN_DIR, strerror(errno));
+			exit(1);
+		}
+	}
+
+	nsfd = openat(dirfd, nsname, O_RDONLY);
+	if (nsfd < 0 && errno != ENOENT) {
+		fprintf(stderr, "error: \"%s/%s\": %s\n",
+			NETNS_RUN_DIR, nsname, strerror(errno));
+		exit(1);
+	}
+	if (nsfd < 0)
+		netns_create(dirfd, nsname);
+	else {
+		if (setns(nsfd, CLONE_NEWNET)) {
+			perror("setns");
+			exit(1);
+		}
+		close(nsfd);
+	}
+	close(dirfd);
+
+	/* make sure loopback is up... weird things happen otherwise.
+	 * ioctl is perfectly fine for this, don't need netlink...
+	 */
+	int sockfd;
+	struct ifreq ifr = { };
+
+	strlcpy(ifr.ifr_name, "lo", sizeof(ifr.ifr_name));
+
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd < 0) {
+		perror("socket");
+		exit(1);
+	}
+	if (ioctl(sockfd, SIOCGIFFLAGS, &ifr)) {
+		perror("ioctl(SIOCGIFFLAGS, \"lo\")");
+		exit(1);
+	}
+	if (!(ifr.ifr_flags & IFF_UP)) {
+		ifr.ifr_flags |= IFF_UP;
+		if (ioctl(sockfd, SIOCSIFFLAGS, &ifr)) {
+			perror("ioctl(SIOCSIFFLAGS, \"lo\")");
+			exit(1);
+		}
+	}
+	close(sockfd);
+}
+
+#else /* !GNU_LINUX */
+
+static void netns_setup(const char *nsname)
+{
+	fprintf(stderr, "network namespaces are only available on Linux\n");
+	exit(1);
+}
+#endif
 
 static void watchfrr_init(int argc, char **argv)
 {
@@ -1204,11 +1343,13 @@ int main(int argc, char **argv)
 {
 	int opt;
 	const char *blankstr = NULL;
+	const char *netns = NULL;
+	bool netns_en = false;
 
 	frr_preinit(&watchfrr_di, argc, argv);
 	progname = watchfrr_di.progname;
 
-	frr_opt_add("b:dk:l:i:p:r:S:s:t:T:" DEPRECATED_OPTIONS, longopts, "");
+	frr_opt_add("b:di:k:l:N:p:r:S:s:t:T:" DEPRECATED_OPTIONS, longopts, "");
 
 	gs.restart.name = "all";
 	while ((opt = frr_getopt(argc, argv, NULL)) != EOF) {
@@ -1273,6 +1414,16 @@ int main(int argc, char **argv)
 				frr_help_exit(1);
 			}
 		} break;
+		case OPTION_NETNS:
+			netns_en = true;
+			if (strchr(optarg, '/')) {
+				fprintf(stderr,
+					"invalid network namespace name \"%s\" (may not contain slashes)\n",
+					optarg);
+				frr_help_exit(1);
+			}
+			netns = optarg;
+			break;
 		case 'i': {
 			char garbage[3];
 			int period;
@@ -1363,6 +1514,17 @@ int main(int argc, char **argv)
 	}
 
 	gs.restart.interval = gs.min_restart_interval;
+
+	/* env variable for the processes that we start */
+	if (watchfrr_di.pathspace)
+		setenv("FRR_PATHSPACE", watchfrr_di.pathspace, 1);
+	else
+		unsetenv("FRR_PATHSPACE");
+
+	if (netns_en && !netns)
+		netns = watchfrr_di.pathspace;
+	if (netns_en && netns && netns[0])
+		netns_setup(netns);
 
 	master = frr_init();
 	watchfrr_error_init();

@@ -146,8 +146,7 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 
 			nbr->flags |= F_NBR_CAP_DYNAMIC;
 
-			log_debug("%s: lsr-id %s announced the Dynamic "
-			    "Capability Announcement capability", __func__,
+			log_debug("%s: lsr-id %s announced the Dynamic Capability Announcement capability", __func__,
 			    inet_ntoa(nbr->id));
 			break;
 		case TLV_TYPE_TWCARD_CAP:
@@ -166,8 +165,7 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 
 			nbr->flags |= F_NBR_CAP_TWCARD;
 
-			log_debug("%s: lsr-id %s announced the Typed Wildcard "
-			    "FEC capability", __func__, inet_ntoa(nbr->id));
+			log_debug("%s: lsr-id %s announced the Typed Wildcard FEC capability", __func__, inet_ntoa(nbr->id));
 			break;
 		case TLV_TYPE_UNOTIF_CAP:
 			if (tlv_len != CAP_TLV_UNOTIF_LEN) {
@@ -185,8 +183,7 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 
 			nbr->flags |= F_NBR_CAP_UNOTIF;
 
-			log_debug("%s: lsr-id %s announced the Unrecognized "
-			    "Notification capability", __func__,
+			log_debug("%s: lsr-id %s announced the Unrecognized Notification capability", __func__,
 			    inet_ntoa(nbr->id));
 			break;
 		default:
@@ -321,8 +318,7 @@ recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 			else
 				nbr->flags &= ~F_NBR_CAP_TWCARD;
 
-			log_debug("%s: lsr-id %s %s the Typed Wildcard FEC "
-			    "capability", __func__, inet_ntoa(nbr->id),
+			log_debug("%s: lsr-id %s %s the Typed Wildcard FEC capability", __func__, inet_ntoa(nbr->id),
 			    (enable) ? "announced" : "withdrew");
 			break;
 		case TLV_TYPE_UNOTIF_CAP:
@@ -346,8 +342,7 @@ recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 			else
 				nbr->flags &= ~F_NBR_CAP_UNOTIF;
 
-			log_debug("%s: lsr-id %s %s the Unrecognized "
-			    "Notification capability", __func__,
+			log_debug("%s: lsr-id %s %s the Unrecognized Notification capability", __func__,
 			    inet_ntoa(nbr->id), (enable) ? "announced" :
 			    "withdrew");
 			break;

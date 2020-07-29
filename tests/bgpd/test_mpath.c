@@ -313,7 +313,7 @@ static int setup_bgp_path_info_mpath_update(testcase_t *t)
 		return -1;
 
 	str2prefix("42.1.1.0/24", &test_rn.p);
-	rt_node = bgp_node_to_rnode(&test_rn);
+	rt_node = bgp_dest_to_rnode(&test_rn);
 	memcpy((struct route_table *)&rt_node->table, &rt->route_table,
 	       sizeof(struct route_table *));
 	setup_bgp_mp_list(t);

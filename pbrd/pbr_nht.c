@@ -328,27 +328,29 @@ static struct pbr_nexthop_cache *pbr_nht_lookup_nexthop(struct nexthop *nexthop)
 }
 #endif
 
+static void
+pbr_nht_find_nhg_from_table_update(struct pbr_nexthop_group_cache *pnhgc,
+				   uint32_t table_id, bool installed)
+{
+	if (pnhgc->table_id == table_id) {
+		DEBUGD(&pbr_dbg_nht, "%s: %s: Table ID (%u) matches %s",
+		       __func__, (installed ? "install" : "remove"), table_id,
+		       pnhgc->name);
+
+		pnhgc->installed = installed;
+		pnhgc->valid = installed;
+		pbr_map_schedule_policy_from_nhg(pnhgc->name, pnhgc->installed);
+	}
+}
+
 static void pbr_nht_find_nhg_from_table_install(struct hash_bucket *b,
 						void *data)
 {
 	struct pbr_nexthop_group_cache *pnhgc =
 		(struct pbr_nexthop_group_cache *)b->data;
-	uint32_t *table_id = (uint32_t *)data;
+	uint32_t table_id = *(uint32_t *)data;
 
-	if (pnhgc->table_id == *table_id) {
-		DEBUGD(&pbr_dbg_nht, "%s: Table ID (%u) matches %s", __func__,
-		       *table_id, pnhgc->name);
-
-		/*
-		 * If the table has been re-handled by zebra
-		 * and we are already installed no need to do
-		 * anything here.
-		 */
-		if (!pnhgc->installed) {
-			pnhgc->installed = true;
-			pbr_map_schedule_policy_from_nhg(pnhgc->name);
-		}
-	}
+	pbr_nht_find_nhg_from_table_update(pnhgc, table_id, true);
 }
 
 void pbr_nht_route_installed_for_table(uint32_t table_id)
@@ -360,7 +362,11 @@ void pbr_nht_route_installed_for_table(uint32_t table_id)
 static void pbr_nht_find_nhg_from_table_remove(struct hash_bucket *b,
 					       void *data)
 {
-	;
+	struct pbr_nexthop_group_cache *pnhgc =
+		(struct pbr_nexthop_group_cache *)b->data;
+	uint32_t table_id = *(uint32_t *)data;
+
+	pbr_nht_find_nhg_from_table_update(pnhgc, table_id, false);
 }
 
 void pbr_nht_route_removed_for_table(uint32_t table_id)
@@ -852,12 +858,15 @@ static void pbr_nht_nexthop_update_lookup(struct hash_bucket *b, void *data)
 	 */
 	pnhgc->valid = !!pnhi.valid;
 
-	if (pnhgc->valid) {
-		pbr_nexthop_group_cache_to_nexthop_group(&nhg, pnhgc);
+	pbr_nexthop_group_cache_to_nexthop_group(&nhg, pnhgc);
+
+	if (pnhgc->valid)
 		pbr_nht_install_nexthop_group(pnhgc, nhg);
-		/* Don't need copied nexthops anymore */
-		nexthops_free(nhg.nexthop);
-	}
+	else
+		pbr_nht_uninstall_nexthop_group(pnhgc, nhg, 0);
+
+	/* Don't need copied nexthops anymore */
+	nexthops_free(nhg.nexthop);
 
 	if (old_valid != pnhgc->valid)
 		pbr_map_check_nh_group_change(pnhgc->name);
@@ -1030,8 +1039,22 @@ static void pbr_nht_show_nhg_nexthops(struct hash_bucket *b, void *data)
 	nexthop_group_write_nexthop(vty, pnhc->nexthop);
 }
 
+static void pbr_nht_json_nhg_nexthops(struct hash_bucket *b, void *data)
+{
+	struct pbr_nexthop_cache *pnhc = b->data;
+	json_object *all_hops = data;
+	json_object *this_hop;
+
+	this_hop = json_object_new_object();
+	nexthop_group_json_nexthop(this_hop, pnhc->nexthop);
+	json_object_boolean_add(this_hop, "valid", pnhc->valid);
+
+	json_object_array_add(all_hops, this_hop);
+}
+
 struct pbr_nht_show {
 	struct vty *vty;
+	json_object *json;
 	const char *name;
 };
 
@@ -1051,6 +1074,36 @@ static void pbr_nht_show_nhg(struct hash_bucket *b, void *data)
 	hash_iterate(pnhgc->nhh, pbr_nht_show_nhg_nexthops, vty);
 }
 
+static void pbr_nht_json_nhg(struct hash_bucket *b, void *data)
+{
+	struct pbr_nexthop_group_cache *pnhgc = b->data;
+	struct pbr_nht_show *pns = data;
+	json_object *j, *this_group, *group_hops;
+
+	if (pns->name && strcmp(pns->name, pnhgc->name) != 0)
+		return;
+
+	j = pns->json;
+	this_group = json_object_new_object();
+
+	if (!j || !this_group)
+		return;
+
+	json_object_int_add(this_group, "id", pnhgc->table_id);
+	json_object_string_add(this_group, "name", pnhgc->name);
+	json_object_boolean_add(this_group, "valid", pnhgc->valid);
+	json_object_boolean_add(this_group, "installed", pnhgc->installed);
+
+	group_hops = json_object_new_array();
+
+	if (group_hops) {
+		hash_iterate(pnhgc->nhh, pbr_nht_json_nhg_nexthops, group_hops);
+		json_object_object_add(this_group, "nexthops", group_hops);
+	}
+
+	json_object_array_add(j, this_group);
+}
+
 void pbr_nht_show_nexthop_group(struct vty *vty, const char *name)
 {
 	struct pbr_nht_show pns;
@@ -1059,6 +1112,16 @@ void pbr_nht_show_nexthop_group(struct vty *vty, const char *name)
 	pns.name = name;
 
 	hash_iterate(pbr_nhg_hash, pbr_nht_show_nhg, &pns);
+}
+
+void pbr_nht_json_nexthop_group(json_object *j, const char *name)
+{
+	struct pbr_nht_show pns;
+
+	pns.name = name;
+	pns.json = j;
+
+	hash_iterate(pbr_nhg_hash, pbr_nht_json_nhg, &pns);
 }
 
 void pbr_nht_init(void)

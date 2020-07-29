@@ -43,7 +43,7 @@ extern "C" {
 #define VTY_MAXHIST 20
 #define VTY_MAXDEPTH 8
 
-#define VTY_MAXCFGCHANGES 8
+#define VTY_MAXCFGCHANGES 16
 
 struct vty_error {
 	char error_buf[VTY_BUFSIZ];

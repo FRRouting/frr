@@ -360,10 +360,13 @@ static int bgp_accept(struct thread *thread)
 
 	sockunion_init(&su);
 
+	bgp = bgp_lookup_by_name(listener->name);
+
 	/* Register accept thread. */
 	accept_sock = THREAD_FD(thread);
 	if (accept_sock < 0) {
-		flog_err_sys(EC_LIB_SOCKET, "accept_sock is nevative value %d",
+		flog_err_sys(EC_LIB_SOCKET,
+			     "[Error] BGP accept socket fd is negative: %d",
 			     accept_sock);
 		return -1;
 	}
@@ -374,10 +377,37 @@ static int bgp_accept(struct thread *thread)
 
 	/* Accept client connection. */
 	bgp_sock = sockunion_accept(accept_sock, &su);
+	int save_errno = errno;
 	if (bgp_sock < 0) {
-		flog_err_sys(EC_LIB_SOCKET,
-			     "[Error] BGP socket accept failed (%s)",
-			     safe_strerror(errno));
+		if (save_errno == EINVAL) {
+			struct vrf *vrf =
+				bgp ? vrf_lookup_by_id(bgp->vrf_id) : NULL;
+
+			/*
+			 * It appears that sometimes, when VRFs are deleted on
+			 * the system, it takes a little while for us to get
+			 * notified about that. In the meantime we endlessly
+			 * loop on accept(), because the socket, having been
+			 * bound to a now-deleted VRF device, is in some weird
+			 * state which causes accept() to fail.
+			 *
+			 * To avoid this, if we see accept() fail with EINVAL,
+			 * we cancel ourselves and trust that when the VRF
+			 * deletion notification comes in the event handler for
+			 * that will take care of cleaning us up.
+			 */
+			flog_err_sys(
+				EC_LIB_SOCKET,
+				"[Error] accept() failed with error \"%s\" on BGP listener socket %d for BGP instance in VRF \"%s\"; refreshing socket",
+				safe_strerror(save_errno), accept_sock,
+				VRF_LOGNAME(vrf));
+			THREAD_OFF(listener->thread);
+		} else {
+			flog_err_sys(
+				EC_LIB_SOCKET,
+				"[Error] BGP socket accept failed (%s); retrying",
+				safe_strerror(save_errno));
+		}
 		return -1;
 	}
 	set_nonblocking(bgp_sock);
@@ -421,9 +451,9 @@ static int bgp_accept(struct thread *thread)
 	if (!peer1) {
 		if (bgp_debug_neighbor_events(NULL)) {
 			zlog_debug(
-				"[Event] %s connection rejected - not configured"
-				" and not valid for dynamic",
-				inet_sutop(&su, buf));
+				"[Event] %s connection rejected(%s:%u:%s) - not configured and not valid for dynamic",
+				inet_sutop(&su, buf), bgp->name_pretty, bgp->as,
+				VRF_LOGNAME(vrf_lookup_by_id(bgp->vrf_id)));
 		}
 		close(bgp_sock);
 		return -1;
@@ -432,8 +462,9 @@ static int bgp_accept(struct thread *thread)
 	if (CHECK_FLAG(peer1->flags, PEER_FLAG_SHUTDOWN)) {
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
-				"[Event] connection from %s rejected due to admin shutdown",
-				inet_sutop(&su, buf));
+				"[Event] connection from %s rejected(%s:%u:%s) due to admin shutdown",
+				inet_sutop(&su, buf), bgp->name_pretty, bgp->as,
+				VRF_LOGNAME(vrf_lookup_by_id(bgp->vrf_id)));
 		close(bgp_sock);
 		return -1;
 	}
@@ -470,8 +501,7 @@ static int bgp_accept(struct thread *thread)
 	if (BGP_PEER_START_SUPPRESSED(peer1)) {
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
-				"[Event] Incoming BGP connection rejected from %s "
-				"due to maximum-prefix or shutdown",
+				"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
 				peer1->host);
 		close(bgp_sock);
 		return -1;
@@ -487,8 +517,7 @@ static int bgp_accept(struct thread *thread)
 		*/
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
-				"[Event] New active connection from peer %s, Killing"
-				" previous active connection",
+				"[Event] New active connection from peer %s, Killing previous active connection",
 				peer1->host);
 		peer_delete(peer1->doppelganger);
 	}
@@ -887,7 +916,7 @@ void bgp_close_vrf_socket(struct bgp *bgp)
 
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp == bgp) {
-			thread_cancel(listener->thread);
+			THREAD_OFF(listener->thread);
 			close(listener->fd);
 			listnode_delete(bm->listen_sockets, listener);
 			XFREE(MTYPE_BGP_LISTENER, listener->name);
@@ -909,7 +938,7 @@ void bgp_close(void)
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp)
 			continue;
-		thread_cancel(listener->thread);
+		THREAD_OFF(listener->thread);
 		close(listener->fd);
 		listnode_delete(bm->listen_sockets, listener);
 		XFREE(MTYPE_BGP_LISTENER, listener->name);

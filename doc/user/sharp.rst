@@ -103,3 +103,37 @@ keyword. At present, no sharp commands will be preserved in the config.
    nexthops are specified in nexthop-group ``NAME``. If ``prefix`` is
    specified, remove label bindings from the route of type ``TYPE``
    also.
+
+.. index:: sharp send opaque
+.. clicmd:: sharp send opaque type (1-255) (1-1000)
+
+   Send opaque ZAPI messages with subtype ``type``. Sharpd will send
+   a stream of messages if the count is greater than one.
+
+.. index:: sharp send opaque unicast
+.. clicmd:: sharp send opaque unicast type (1-255) $proto_str [{instance (0-1000) | session (1-1000)}] (1-1000)
+
+   Send unicast opaque ZAPI messages with subtype ``type``. The
+   protocol, instance, and session_id identify a single target zapi
+   client. Sharpd will send a stream of messages if the count is
+   greater than one.
+
+.. index:: sharp send opaque reg unreg
+.. clicmd:: sharp send opaque <reg | unreg> $proto_str [{instance (0-1000) | session (1-1000)}] type (1-1000)
+
+   Send opaque ZAPI registration and unregistration messages for a
+   single subtype. The messages must specify a protocol daemon by
+   name, and can include optional zapi ``instance`` and ``session``
+   values.
+
+.. index:: sharp create session
+.. clicmd:: sharp create session (1-1024)
+
+   Create an additional zapi client session for testing, using the
+   specified session id.
+
+.. index:: sharp remove session
+.. clicmd:: sharp remove session (1-1024)
+
+   Remove a test zapi client session that was created with the
+   specified session id.

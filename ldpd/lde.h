@@ -125,6 +125,9 @@ struct fec_node {
 	struct lde_map_head	 upstream;	/* sent mappings */
 
 	uint32_t		 local_label;
+
+	uint32_t		 pw_remote_status;
+
 	void			*data;		/* fec specific data */
 };
 
@@ -209,7 +212,7 @@ void		 lde_kernel_insert(struct fec *, int, union ldpd_addr *,
 void		 lde_kernel_remove(struct fec *, int, union ldpd_addr *,
 		    ifindex_t, uint8_t, unsigned short);
 void		 lde_kernel_update(struct fec *);
-void		 lde_check_mapping(struct map *, struct lde_nbr *);
+void		 lde_check_mapping(struct map *, struct lde_nbr *, int);
 void		 lde_check_request(struct map *, struct lde_nbr *);
 void		 lde_check_request_wcard(struct map *, struct lde_nbr *);
 void		 lde_check_release(struct map *, struct lde_nbr *);

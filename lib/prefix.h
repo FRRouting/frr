@@ -295,6 +295,7 @@ union prefixptr {
 	prefixtype(prefixptr, struct prefix_ipv6, p6)
 	prefixtype(prefixptr, struct prefix_evpn, evp)
 	prefixtype(prefixptr, struct prefix_fs,   fs)
+	prefixtype(prefixptr, struct prefix_rd,   rd)
 } __attribute__((transparent_union));
 
 union prefixconstptr {
@@ -303,6 +304,7 @@ union prefixconstptr {
 	prefixtype(prefixconstptr, const struct prefix_ipv6, p6)
 	prefixtype(prefixconstptr, const struct prefix_evpn, evp)
 	prefixtype(prefixconstptr, const struct prefix_fs,   fs)
+	prefixtype(prefixconstptr, const struct prefix_rd,   rd)
 } __attribute__((transparent_union));
 
 #ifndef INET_ADDRSTRLEN
@@ -390,8 +392,16 @@ extern const char *family2str(int family);
 extern const char *safi2str(safi_t safi);
 extern const char *afi2str(afi_t afi);
 
-/* Check bit of the prefix. */
-extern unsigned int prefix_bit(const uint8_t *prefix, const uint16_t prefixlen);
+/*
+ * Check bit of the prefix.
+ *
+ * prefix
+ *    byte buffer
+ *
+ * bit_index
+ *    which bit to fetch from byte buffer, 0 indexed.
+ */
+extern unsigned int prefix_bit(const uint8_t *prefix, const uint16_t bit_index);
 
 extern struct prefix *prefix_new(void);
 extern void prefix_free(struct prefix **p);

@@ -40,7 +40,7 @@ sub scan_file {
 
     $cppadd = $fabricd ? "-DFABRICD=1" : "";
 
-    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @LUA_INCLUDE@ @CPPFLAGS@ $cppadd $file |");
+    open (FH, "@CPP@ -P -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @LUA_INCLUDE@ @CPPFLAGS@ $cppadd $file |");
     local $/; undef $/;
     $line = <FH>;
     if (!close (FH)) {
@@ -48,7 +48,7 @@ sub scan_file {
     }
 
     # ?: makes a group non-capturing
-    @defun = ($line =~ /((?:DEFUN|DEFUN_HIDDEN|ALIAS|ALIAS_HIDDEN)\s*\(.+?\));?\s?\s?\n/sg);
+    @defun = ($line =~ /((?:DEFUN|DEFUN_HIDDEN|ALIAS|ALIAS_HIDDEN|DEFPY|DEFPY_HIDDEN)\s*\(.+?\));?\s?\s?\n/sg);
     @install = ($line =~ /install_element\s*\(\s*[0-9A-Z_]+,\s*&[^;]*;\s*\n/sg);
 
     # DEFUN process
@@ -98,7 +98,7 @@ sub scan_file {
         elsif ($file =~ /lib\/if\.c$/) {
             $protocol = "VTYSH_INTERFACE";
         }
-        elsif ($file =~ /lib\/(filter|lib_vty)\.c$/) {
+        elsif ($file =~ /lib\/(filter|filter_cli|lib_vty)\.c$/) {
             $protocol = "VTYSH_ALL";
         }
 	elsif ($file =~ /lib\/agentx\.c$/) {

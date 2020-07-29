@@ -584,8 +584,7 @@ show_nbr_detail_msg(struct vty *vty, struct imsg *imsg,
 		    log_addr(nbr->af, &nbr->raddr),ntohs(nbr->rport));
 		vty_out (vty, "  Authentication: %s\n",
 		    (nbr->auth_method == AUTH_MD5SIG) ? "TCP MD5 Signature" : "none");
-		vty_out(vty, "  Session Holdtime: %u secs; "
-		    "KeepAlive interval: %u secs\n", nbr->holdtime,
+		vty_out(vty, "  Session Holdtime: %u secs; KeepAlive interval: %u secs\n", nbr->holdtime,
 		    nbr->holdtime / KEEPALIVE_PER_PERIOD);
 		vty_out(vty, "  State: %s; Downstream-Unsolicited\n",
 		    nbr_state_name(nbr->nbr_state));
@@ -1252,8 +1251,7 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 		if (pw->local_label != NO_LABEL) {
 			vty_out (vty, "    Local Label:  %u\n",
 				  pw->local_label);
-			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    "
-			    "GroupID: %u\n", "", pw->local_cword,
+			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    GroupID: %u\n", "", pw->local_cword,
 			    pw_type_name(pw->type),pw->local_gid);
 			vty_out (vty, "%-8sMTU: %u\n", "",pw->local_ifmtu);
 			vty_out (vty, "%-8sLast failure: %s\n", "",
@@ -1265,8 +1263,7 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 		if (pw->remote_label != NO_LABEL) {
 			vty_out (vty, "    Remote Label: %u\n",
 			    pw->remote_label);
-			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    "
-			    "GroupID: %u\n", "", pw->remote_cword,
+			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    GroupID: %u\n", "", pw->remote_cword,
 			    pw_type_name(pw->type),pw->remote_gid);
 			vty_out (vty, "%-8sMTU: %u\n", "",pw->remote_ifmtu);
 		} else
@@ -1357,7 +1354,7 @@ show_l2vpn_pw_msg(struct vty *vty, struct imsg *imsg, struct show_params *params
 
 		vty_out (vty, "%-9s %-15s %-10u %-16s %-10s\n", pw->ifname,
 		    inet_ntoa(pw->lsr_id), pw->pwid, pw->l2vpn_name,
-		    (pw->status ? "UP" : "DOWN"));
+		    (pw->status == PW_FORWARDING ? "UP" : "DOWN"));
 		break;
 	case IMSG_CTL_END:
 		vty_out (vty, "\n");
@@ -1384,7 +1381,7 @@ show_l2vpn_pw_msg_json(struct imsg *imsg, struct show_params *params,
 		json_object_string_add(json_pw, "peerId", inet_ntoa(pw->lsr_id));
 		json_object_int_add(json_pw, "vcId", pw->pwid);
 		json_object_string_add(json_pw, "VpnName", pw->l2vpn_name);
-		if (pw->status)
+		if (pw->status == PW_FORWARDING)
 			json_object_string_add(json_pw, "status", "up");
 		else
 			json_object_string_add(json_pw, "status", "down");

@@ -278,7 +278,8 @@ DEFPY (install_routes,
 	if (backup) {
 		/* Set flag and index in primary nexthop */
 		SET_FLAG(sg.r.nhop.flags, NEXTHOP_FLAG_HAS_BACKUP);
-		sg.r.nhop.backup_idx = 0;
+		sg.r.nhop.backup_num = 1;
+		sg.r.nhop.backup_idx[0] = 0;
 
 		if (backup_nexthop4.s_addr != INADDR_ANY) {
 			sg.r.backup_nhop.gate.ipv4 = backup_nexthop4;
@@ -410,6 +411,8 @@ DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
       "Instance\n")
 {
 	struct nexthop_group_cmd *nhgc = NULL;
+	struct nexthop_group_cmd *backup_nhgc = NULL;
+	struct nexthop_group *backup_nhg = NULL;
 	struct prefix p = {};
 	int type = 0;
 
@@ -441,9 +444,23 @@ DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
 		return CMD_WARNING;
 	}
 
+	/* Use group's backup nexthop info if present */
+	if (nhgc->backup_list_name[0]) {
+		backup_nhgc = nhgc_find(nhgc->backup_list_name);
+
+		if (!backup_nhgc) {
+			vty_out(vty,
+				"%% Backup group %s not found for group %s\n",
+				nhgc->backup_list_name,
+				nhgname);
+			return CMD_WARNING;
+		}
+		backup_nhg = &(backup_nhgc->nhg);
+	}
+
 	if (sharp_install_lsps_helper(true, pfx->family > 0 ? &p : NULL,
 				      type, instance, inlabel,
-				      &(nhgc->nhg)) == 0)
+				      &(nhgc->nhg), backup_nhg) == 0)
 		return CMD_SUCCESS;
 	else {
 		vty_out(vty, "%% LSP install failed!\n");
@@ -454,7 +471,7 @@ DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
 DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
       "sharp remove lsp \
         (0-100000)$inlabel\
-        nexthop-group NHGNAME$nhgname\
+        [nexthop-group NHGNAME$nhgname] \
         [prefix A.B.C.D/M$pfx\
        " FRR_IP_REDIST_STR_SHARPD "$type_str [instance (0-255)$instance]]",
       "Sharp Routing Protocol\n"
@@ -472,6 +489,7 @@ DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
 	struct nexthop_group_cmd *nhgc = NULL;
 	struct prefix p = {};
 	int type = 0;
+	struct nexthop_group *nhg = NULL;
 
 	/* We're offered a v4 prefix */
 	if (pfx->family > 0 && type_str) {
@@ -489,21 +507,24 @@ DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
 		return CMD_WARNING;
 	}
 
-	nhgc = nhgc_find(nhgname);
-	if (!nhgc) {
-		vty_out(vty, "%%  Nexthop-group '%s' does not exist\n",
-			nhgname);
-		return CMD_WARNING;
-	}
+	if (nhgname) {
+		nhgc = nhgc_find(nhgname);
+		if (!nhgc) {
+			vty_out(vty, "%%  Nexthop-group '%s' does not exist\n",
+				nhgname);
+			return CMD_WARNING;
+		}
 
-	if (nhgc->nhg.nexthop == NULL) {
-		vty_out(vty, "%%  Nexthop-group '%s' is empty\n", nhgname);
-		return CMD_WARNING;
+		if (nhgc->nhg.nexthop == NULL) {
+			vty_out(vty, "%%  Nexthop-group '%s' is empty\n",
+				nhgname);
+			return CMD_WARNING;
+		}
+		nhg = &(nhgc->nhg);
 	}
 
 	if (sharp_install_lsps_helper(false, pfx->family > 0 ? &p : NULL,
-				      type, instance, inlabel,
-				      &(nhgc->nhg)) == 0)
+				      type, instance, inlabel, nhg, NULL) == 0)
 		return CMD_SUCCESS;
 	else {
 		vty_out(vty, "%% LSP remove failed!\n");
@@ -527,6 +548,101 @@ DEFPY (logpump,
 	return CMD_SUCCESS;
 }
 
+DEFPY (create_session,
+       create_session_cmd,
+       "sharp create session (1-1024)",
+       "Sharp Routing Protocol\n"
+       "Create data\n"
+       "Create a test session\n"
+       "Session ID\n")
+{
+	if (sharp_zclient_create(session) != 0) {
+		vty_out(vty, "%% Client session error\n");
+		return CMD_WARNING;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (remove_session,
+       remove_session_cmd,
+       "sharp remove session (1-1024)",
+       "Sharp Routing Protocol\n"
+       "Remove data\n"
+       "Remove a test session\n"
+       "Session ID\n")
+{
+	sharp_zclient_delete(session);
+	return CMD_SUCCESS;
+}
+
+DEFPY (send_opaque,
+       send_opaque_cmd,
+       "sharp send opaque type (1-255) (1-1000)$count",
+       SHARP_STR
+       "Send messages for testing\n"
+       "Send opaque messages\n"
+       "Type code to send\n"
+       "Type code to send\n"
+       "Number of messages to send\n")
+{
+	sharp_opaque_send(type, 0, 0, 0, count);
+	return CMD_SUCCESS;
+}
+
+DEFPY (send_opaque_unicast,
+       send_opaque_unicast_cmd,
+       "sharp send opaque unicast type (1-255) \
+       " FRR_IP_REDIST_STR_ZEBRA "$proto_str \
+        [{instance (0-1000) | session (1-1000)}] (1-1000)$count",
+       SHARP_STR
+       "Send messages for testing\n"
+       "Send opaque messages\n"
+       "Send unicast messages\n"
+       "Type code to send\n"
+       "Type code to send\n"
+       FRR_IP_REDIST_HELP_STR_ZEBRA
+       "Daemon instance\n"
+       "Daemon instance\n"
+       "Session ID\n"
+       "Session ID\n"
+       "Number of messages to send\n")
+{
+	uint32_t proto;
+
+	proto = proto_redistnum(AFI_IP, proto_str);
+
+	sharp_opaque_send(type, proto, instance, session, count);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (send_opaque_reg,
+       send_opaque_reg_cmd,
+       "sharp send opaque <reg$reg | unreg> \
+       " FRR_IP_REDIST_STR_ZEBRA "$proto_str \
+        [{instance (0-1000) | session (1-1000)}] type (1-1000)",
+       SHARP_STR
+       "Send messages for testing\n"
+       "Send opaque messages\n"
+       "Send opaque registration\n"
+       "Send opaque unregistration\n"
+       FRR_IP_REDIST_HELP_STR_ZEBRA
+       "Daemon instance\n"
+       "Daemon instance\n"
+       "Session ID\n"
+       "Session ID\n"
+       "Opaque sub-type code\n"
+       "Opaque sub-type code\n")
+{
+	int proto;
+
+	proto = proto_redistnum(AFI_IP, proto_str);
+
+	sharp_opaque_reg_send((reg != NULL), proto, instance, session, type);
+	return CMD_SUCCESS;
+}
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -539,6 +655,11 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &sharp_lsp_prefix_v4_cmd);
 	install_element(ENABLE_NODE, &sharp_remove_lsp_prefix_v4_cmd);
 	install_element(ENABLE_NODE, &logpump_cmd);
+	install_element(ENABLE_NODE, &create_session_cmd);
+	install_element(ENABLE_NODE, &remove_session_cmd);
+	install_element(ENABLE_NODE, &send_opaque_cmd);
+	install_element(ENABLE_NODE, &send_opaque_unicast_cmd);
+	install_element(ENABLE_NODE, &send_opaque_reg_cmd);
 
 	install_element(VIEW_NODE, &show_debugging_sharpd_cmd);
 

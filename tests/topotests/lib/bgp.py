@@ -21,11 +21,13 @@
 from copy import deepcopy
 from time import sleep
 import traceback
-import ipaddr
+import ipaddress
 import os
 import sys
 from lib import topotest
 from lib.topolog import logger
+
+from lib.topogen import TopoRouter, get_topogen
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
@@ -43,7 +45,6 @@ from lib.common_config import (
 
 LOGDIR = "/tmp/topotests/"
 TMPDIR = None
-
 
 def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True):
     """
@@ -167,6 +168,7 @@ def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True
 
                     ipv4_data = bgp_addr_data.setdefault("ipv4", {})
                     ipv6_data = bgp_addr_data.setdefault("ipv6", {})
+                    l2vpn_data = bgp_addr_data.setdefault("l2vpn", {})
 
                     neigh_unicast = (
                         True
@@ -174,6 +176,8 @@ def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True
                         or ipv6_data.setdefault("unicast", {})
                         else False
                     )
+
+                    l2vpn_evpn = True if l2vpn_data.setdefault("evpn", {}) else False
 
                     if neigh_unicast:
                         data_all_bgp = __create_bgp_unicast_neighbor(
@@ -183,6 +187,11 @@ def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True
                             router,
                             afi_test,
                             config_data=data_all_bgp,
+                        )
+
+                    if l2vpn_evpn:
+                        data_all_bgp = __create_l2vpn_evpn_address_family(
+                            tgen, topo, bgp_data, router, config_data=data_all_bgp
                         )
 
             try:
@@ -252,6 +261,16 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
         config_data.append("bgp router-id {}".format(router_id))
 
     config_data.append("no bgp network import-check")
+
+    bst_path = bgp_data.setdefault("bestpath", None)
+    if bst_path:
+        if "aspath" in bst_path:
+            if "delete" in bst_path:
+                config_data.append(
+                    "no bgp bestpath as-path {}".format(bst_path["aspath"])
+                )
+            else:
+                config_data.append("bgp bestpath as-path {}".format(bst_path["aspath"]))
 
     if "graceful-restart" in bgp_data:
         graceful_config = bgp_data["graceful-restart"]
@@ -371,10 +390,10 @@ def __create_bgp_unicast_neighbor(
             del_action = advertise_network_dict.setdefault("delete", False)
 
             # Generating IPs for verification
-            prefix = str(ipaddr.IPNetwork(unicode(network[0])).prefixlen)
+            prefix = str(ipaddress.ip_network(unicode(network[0])).prefixlen)
             network_list = generate_ips(network, no_of_network)
             for ip in network_list:
-                ip = str(ipaddr.IPNetwork(unicode(ip)).network)
+                ip = str(ipaddress.ip_network(unicode(ip)).network_address)
 
                 cmd = "network {}/{}".format(ip, prefix)
                 if del_action:
@@ -458,6 +477,166 @@ def __create_bgp_unicast_neighbor(
     return config_data
 
 
+def __create_l2vpn_evpn_address_family(
+    tgen, topo, input_dict, router, config_data=None
+):
+    """
+    Helper API to create configuration for l2vpn evpn address-family
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `topo` : json file data
+    * `input_dict` : Input dict data, required when configuring
+                     from testcase
+    * `router` : router id to be configured.
+    * `build` : Only for initial setup phase this is set as True.
+    """
+
+    result = False
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    bgp_data = input_dict["address_family"]
+
+    for family_type, family_dict in bgp_data.iteritems():
+        if family_type != "l2vpn":
+            continue
+
+        family_data = family_dict["evpn"]
+        if family_data:
+            config_data.append("address-family l2vpn evpn")
+
+        advertise_data = family_data.setdefault("advertise", {})
+        neighbor_data = family_data.setdefault("neighbor", {})
+        advertise_all_vni_data = family_data.setdefault("advertise-all-vni", None)
+        rd_data = family_data.setdefault("rd", None)
+        no_rd_data = family_data.setdefault("no rd", False)
+        route_target_data = family_data.setdefault("route-target", {})
+
+        if advertise_data:
+            for address_type, unicast_type in advertise_data.items():
+
+                if isinstance(unicast_type, dict):
+                    for key, value in unicast_type.items():
+                        cmd = "advertise {} {}".format(address_type, key)
+
+                        if value:
+                            route_map = value.setdefault("route-map", {})
+                            advertise_del_action = value.setdefault("delete", None)
+
+                            if route_map:
+                                cmd = "{} route-map {}".format(cmd, route_map)
+
+                            if advertise_del_action:
+                                cmd = "no {}".format(cmd)
+
+                    config_data.append(cmd)
+
+        if neighbor_data:
+            for neighbor, neighbor_data in neighbor_data.items():
+                ipv4_neighbor = neighbor_data.setdefault("ipv4", {})
+                ipv6_neighbor = neighbor_data.setdefault("ipv6", {})
+
+                if ipv4_neighbor:
+                    for neighbor_name, action in ipv4_neighbor.items():
+                        neighbor_ip = topo[neighbor]["links"][neighbor_name][
+                            "ipv4"
+                        ].split("/")[0]
+
+                        if isinstance(action, dict):
+                            next_hop_self = action.setdefault("next_hop_self", None)
+                            route_maps = action.setdefault("route_maps", {})
+
+                            if next_hop_self is not None:
+                                if next_hop_self is True:
+                                    config_data.append(
+                                        "neighbor {} "
+                                        "next-hop-self".format(neighbor_ip)
+                                    )
+                                elif next_hop_self is False:
+                                    config_data.append(
+                                        "no neighbor {} "
+                                        "next-hop-self".format(neighbor_ip)
+                                    )
+
+                            if route_maps:
+                                for route_map in route_maps:
+                                    name = route_map.setdefault("name", {})
+                                    direction = route_map.setdefault("direction", "in")
+                                    del_action = route_map.setdefault("delete", False)
+
+                                    if not name:
+                                        logger.info(
+                                            "Router %s: 'name' "
+                                            "not present in "
+                                            "input_dict for BGP "
+                                            "neighbor route name",
+                                            router,
+                                        )
+                                    else:
+                                        cmd = "neighbor {} route-map {} " "{}".format(
+                                            neighbor_ip, name, direction
+                                        )
+
+                                        if del_action:
+                                            cmd = "no {}".format(cmd)
+
+                                        config_data.append(cmd)
+
+                        else:
+                            if action == "activate":
+                                cmd = "neighbor {} activate".format(neighbor_ip)
+                            elif action == "deactivate":
+                                cmd = "no neighbor {} activate".format(neighbor_ip)
+
+                            config_data.append(cmd)
+
+                if ipv6_neighbor:
+                    for neighbor_name, action in ipv4_neighbor.items():
+                        neighbor_ip = topo[neighbor]["links"][neighbor_name][
+                            "ipv6"
+                        ].split("/")[0]
+                        if action == "activate":
+                            cmd = "neighbor {} activate".format(neighbor_ip)
+                        elif action == "deactivate":
+                            cmd = "no neighbor {} activate".format(neighbor_ip)
+
+                        config_data.append(cmd)
+
+        if advertise_all_vni_data == True:
+            cmd = "advertise-all-vni"
+            config_data.append(cmd)
+        elif advertise_all_vni_data == False:
+            cmd = "no advertise-all-vni"
+            config_data.append(cmd)
+
+        if rd_data:
+            cmd = "rd {}".format(rd_data)
+            config_data.append(cmd)
+
+        if no_rd_data:
+            cmd = "no rd {}".format(no_rd_data)
+            config_data.append(cmd)
+
+        if route_target_data:
+            for rt_type, rt_dict in route_target_data.items():
+                for _rt_dict in rt_dict:
+                    rt_value = _rt_dict.setdefault("value", None)
+                    del_rt = _rt_dict.setdefault("delete", None)
+
+                    if rt_value:
+                        cmd = "route-target {} {}".format(rt_type, rt_value)
+                    if del_rt:
+                        cmd = "no {}".format(cmd)
+
+                    config_data.append(cmd)
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+
+    return config_data
+
+
 def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
     """
     Helper API to create neighbor specific configuration
@@ -480,7 +659,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
         for dest_link, peer in peer_dict["dest_link"].iteritems():
             nh_details = topo[name]
 
-            if "vrfs" in topo[router]:
+            if "vrfs" in topo[router] or type(nh_details["bgp"]) is list:
                 remote_as = nh_details["bgp"][0]["local_as"]
             else:
                 remote_as = nh_details["bgp"]["local_as"]
@@ -505,6 +684,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
             keep_alive = peer.setdefault("keepalivetimer", 60)
             hold_down = peer.setdefault("holddowntimer", 180)
             password = peer.setdefault("password", None)
+            no_password = peer.setdefault("no_password", None)
             max_hop_limit = peer.setdefault("ebgp_multihop", 1)
             graceful_restart = peer.setdefault("graceful-restart", None)
             graceful_restart_helper = peer.setdefault("graceful-restart-helper", None)
@@ -544,6 +724,9 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
 
             if password:
                 config_data.append("{} password {}".format(neigh_cxt, password))
+
+            if no_password:
+                config_data.append("no {} password {}".format(neigh_cxt, no_password))
 
             if max_hop_limit > 1:
                 config_data.append(
@@ -845,7 +1028,7 @@ def verify_router_id(tgen, topo, input_dict):
         logger.info("Checking router %s router-id", router)
         show_bgp_json = run_frr_cmd(rnode, "show bgp summary json", isjson=True)
         router_id_out = show_bgp_json["ipv4Unicast"]["routerId"]
-        router_id_out = ipaddr.IPv4Address(unicode(router_id_out))
+        router_id_out = ipaddress.IPv4Address(unicode(router_id_out))
 
         # Once router-id is deleted, highest interface ip should become
         # router-id
@@ -853,7 +1036,7 @@ def verify_router_id(tgen, topo, input_dict):
             router_id = find_interface_with_greater_ip(topo, router)
         else:
             router_id = input_dict[router]["bgp"]["router_id"]
-        router_id = ipaddr.IPv4Address(unicode(router_id))
+        router_id = ipaddress.IPv4Address(unicode(router_id))
 
         if router_id == router_id_out:
             logger.info("Found expected router-id %s for router %s", router_id, router)
@@ -868,25 +1051,22 @@ def verify_router_id(tgen, topo, input_dict):
     return True
 
 
-@retry(attempts=20, wait=2, return_is_str=True)
+@retry(attempts=50, wait=3, return_is_str=True)
 def verify_bgp_convergence(tgen, topo, dut=None):
     """
     API will verify if BGP is converged with in the given time frame.
     Running "show bgp summary json" command and verify bgp neighbor
     state is established,
-
     Parameters
     ----------
     * `tgen`: topogen object
     * `topo`: input json file data
     * `dut`: device under test
-
     Usage
     -----
     # To veriry is BGP is converged for all the routers used in
     topology
     results = verify_bgp_convergence(tgen, topo, dut="r1")
-
     Returns
     -------
     errormsg(str) or True
@@ -1038,11 +1218,13 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                                 if nh_state == "Established":
                                     no_of_peer += 1
 
-                if no_of_peer == total_peer:
-                    logger.info("[DUT: %s] VRF: %s, BGP is Converged", router, vrf)
-                else:
-                    errormsg = "[DUT: %s] VRF: %s, BGP is not converged" % (router, vrf)
-                    return errormsg
+                    if no_of_peer == total_peer:
+                        logger.info("[DUT: %s] VRF: %s, BGP is Converged for %s address-family",
+                                    router, vrf, addr_type)
+                    else:
+                        errormsg = ("[DUT: %s] VRF: %s, BGP is not converged for %s address-family" %
+                            (router, vrf, addr_type))
+                        return errormsg
 
     logger.debug("Exiting API: verify_bgp_convergence()")
     return True
@@ -1312,6 +1494,66 @@ def verify_as_numbers(tgen, topo, input_dict):
     return True
 
 
+@retry(attempts=50, wait=3, return_is_str=True)
+def verify_bgp_convergence_from_running_config(tgen, dut=None):
+    """
+    API to verify BGP convergence b/w loopback and physical interface.
+    This API would be used when routers have BGP neighborship is loopback
+    to physical or vice-versa
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+
+    Usage
+    -----
+    results = verify_bgp_convergence_bw_lo_and_phy_intf(tgen, topo,
+        dut="r1")
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    for router, rnode in tgen.routers().iteritems():
+        if dut is not None and dut != router:
+            continue
+
+        logger.info("Verifying BGP Convergence on router %s:", router)
+        show_bgp_json = run_frr_cmd(rnode, "show bgp vrf all summary json", isjson=True)
+        # Verifying output dictionary show_bgp_json is empty or not
+        if not bool(show_bgp_json):
+            errormsg = "BGP is not running"
+            return errormsg
+
+        for vrf, addr_family_data in show_bgp_json.items():
+            for address_family, neighborship_data in addr_family_data.items():
+                total_peer = 0
+                no_of_peer = 0
+
+                total_peer = len(neighborship_data["peers"].keys())
+
+                for peer, peer_data in neighborship_data["peers"].items():
+                    if peer_data["state"] == "Established":
+                        no_of_peer += 1
+
+                if total_peer != no_of_peer:
+                    errormsg = (
+                        "[DUT: %s] VRF: %s, BGP is not converged"
+                        " for peer: %s" % (router, vrf, peer)
+                    )
+                    return errormsg
+
+            logger.info("[DUT: %s]: vrf: %s, BGP is Converged", router, vrf)
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+
+    return True
+
+
 def clear_bgp(tgen, addr_type, router, vrf=None):
     """
     This API is to clear bgp neighborship by running
@@ -1393,9 +1635,10 @@ def clear_bgp_and_verify(tgen, topo, router):
     rnode = tgen.routers()[router]
 
     peer_uptime_before_clear_bgp = {}
+    sleeptime = 3
+
     # Verifying BGP convergence before bgp clear command
-    for retry in range(31):
-        sleeptime = 3
+    for retry in range(50):
         # Waiting for BGP to converge
         logger.info(
             "Waiting for %s sec for BGP to converge on router" " %s...",
@@ -1462,8 +1705,8 @@ def clear_bgp_and_verify(tgen, topo, router):
             )
     else:
         errormsg = (
-            "TIMEOUT!! BGP is not converged in 30 seconds for"
-            " router {}".format(router)
+            "TIMEOUT!! BGP is not converged in {} seconds for"
+            " router {}".format(retry * sleeptime, router)
         )
         return errormsg
 
@@ -1477,8 +1720,8 @@ def clear_bgp_and_verify(tgen, topo, router):
 
     peer_uptime_after_clear_bgp = {}
     # Verifying BGP convergence after bgp clear command
-    for retry in range(31):
-        sleeptime = 3
+    for retry in range(50):
+
         # Waiting for BGP to converge
         logger.info(
             "Waiting for %s sec for BGP to converge on router" " %s...",
@@ -1541,8 +1784,8 @@ def clear_bgp_and_verify(tgen, topo, router):
             )
     else:
         errormsg = (
-            "TIMEOUT!! BGP is not converged in 30 seconds for"
-            " router {}".format(router)
+            "TIMEOUT!! BGP is not converged in {} seconds for"
+            " router {}".format(retry * sleeptime, router)
         )
         return errormsg
 
@@ -1805,7 +2048,14 @@ def verify_bgp_timers_and_functionality(tgen, topo, input_dict):
 
 @retry(attempts=3, wait=4, return_is_str=True)
 def verify_bgp_attributes(
-    tgen, addr_type, dut, static_routes, rmap_name, input_dict, seq_id=None
+    tgen,
+    addr_type,
+    dut,
+    static_routes,
+    rmap_name=None,
+    input_dict=None,
+    seq_id=None,
+    nexthop=None,
 ):
     """
     API will verify BGP attributes set by Route-map for given prefix and
@@ -1824,46 +2074,32 @@ def verify_bgp_attributes(
 
     Usage
     -----
+    # To verify BGP attribute "localpref" set to 150 and "med" set to 30
+    for prefix 10.0.20.1/32 in router r3.
     input_dict = {
         "r3": {
             "route_maps": {
-                "rmap_match_pf_1_ipv4": [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_" + addr_type
-                        }
-                    },
-                    "set": {
-                        "locPrf": 150,
-                        "weight": 100
+                "rmap_match_pf_list1": [
+                    {
+                        "action": "PERMIT",
+                        "match": {"prefix_list": "pf_list_1"},
+                        "set": {"localpref": 150, "med": 30}
                     }
-                }],
-                "rmap_match_pf_2_ipv6": [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_" + addr_type
-                        }
-                    },
-                    "set": {
-                        "metric": 50
-                    }
-                }]
-            }
+                ],
+            },
+            "as_path": "500 400"
         }
     }
-    result = verify_bgp_attributes(tgen, 'ipv4', "r1", "10.0.20.1/32",
-                                   rmap_match_pf_1_ipv4, input_dict)
+    static_routes (list) = ["10.0.20.1/32"]
+
+
 
     Returns
     -------
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    logger.debug("Entering lib API: verify_bgp_attributes()")
     for router, rnode in tgen.routers().iteritems():
         if router != dut:
             continue
@@ -1876,69 +2112,73 @@ def verify_bgp_attributes(
 
             dict_to_test = []
             tmp_list = []
-            for rmap_router in input_dict.keys():
-                for rmap, values in input_dict[rmap_router]["route_maps"].items():
-                    if rmap == rmap_name:
-                        dict_to_test = values
-                        for rmap_dict in values:
-                            if seq_id is not None:
-                                if type(seq_id) is not list:
-                                    seq_id = [seq_id]
 
-                                if "seq_id" in rmap_dict:
-                                    rmap_seq_id = rmap_dict["seq_id"]
-                                    for _seq_id in seq_id:
-                                        if _seq_id == rmap_seq_id:
-                                            tmp_list.append(rmap_dict)
-                        if tmp_list:
-                            dict_to_test = tmp_list
+            if "route_maps" in input_dict.values()[0]:
+                for rmap_router in input_dict.keys():
+                    for rmap, values in input_dict[rmap_router]["route_maps"].items():
+                        if rmap == rmap_name:
+                            dict_to_test = values
+                            for rmap_dict in values:
+                                if seq_id is not None:
+                                    if type(seq_id) is not list:
+                                        seq_id = [seq_id]
 
-                        for rmap_dict in dict_to_test:
-                            if "set" in rmap_dict:
-                                for criteria in rmap_dict["set"].keys():
-                                    if criteria not in show_bgp_json["paths"][0]:
-                                        errormsg = (
-                                            "BGP attribute: {}"
-                                            " is not found in"
-                                            " cli: {} output "
-                                            "in router {}".format(criteria, cmd, router)
-                                        )
-                                        return errormsg
+                                    if "seq_id" in rmap_dict:
+                                        rmap_seq_id = rmap_dict["seq_id"]
+                                        for _seq_id in seq_id:
+                                            if _seq_id == rmap_seq_id:
+                                                tmp_list.append(rmap_dict)
+                            if tmp_list:
+                                dict_to_test = tmp_list
 
-                                    if (
-                                        rmap_dict["set"][criteria]
-                                        == show_bgp_json["paths"][0][criteria]
-                                    ):
-                                        logger.info(
-                                            "Verifying BGP "
-                                            "attribute {} for"
-                                            " route: {} in "
-                                            "router: {}, found"
-                                            " expected value:"
-                                            " {}".format(
-                                                criteria,
-                                                static_route,
-                                                dut,
-                                                rmap_dict["set"][criteria],
+                            value = None
+                            for rmap_dict in dict_to_test:
+                                if "set" in rmap_dict:
+                                    for criteria in rmap_dict["set"].keys():
+                                        found = False
+                                        for path in show_bgp_json["paths"]:
+                                            if criteria not in path:
+                                                continue
+
+                                            if criteria == "aspath":
+                                                value = path[criteria]["string"]
+                                            else:
+                                                value = path[criteria]
+
+                                            if rmap_dict["set"][criteria] == value:
+                                                found = True
+                                                logger.info(
+                                                    "Verifying BGP "
+                                                    "attribute {} for"
+                                                    " route: {} in "
+                                                    "router: {}, found"
+                                                    " expected value:"
+                                                    " {}".format(
+                                                        criteria,
+                                                        static_route,
+                                                        dut,
+                                                        value,
+                                                    )
+                                                )
+                                                break
+
+                                        if not found:
+                                            errormsg = (
+                                                "Failed: Verifying BGP "
+                                                "attribute {} for route:"
+                                                " {} in router: {}, "
+                                                " expected value: {} but"
+                                                " found: {}".format(
+                                                    criteria,
+                                                    static_route,
+                                                    dut,
+                                                    rmap_dict["set"][criteria],
+                                                    value,
+                                                )
                                             )
-                                        )
-                                    else:
-                                        errormsg = (
-                                            "Failed: Verifying BGP "
-                                            "attribute {} for route:"
-                                            " {} in router: {}, "
-                                            " expected value: {} but"
-                                            " found: {}".format(
-                                                criteria,
-                                                static_route,
-                                                dut,
-                                                rmap_dict["set"][criteria],
-                                                show_bgp_json["paths"][0][criteria],
-                                            )
-                                        )
-                                        return errormsg
+                                            return errormsg
 
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    logger.debug("Exiting lib API: verify_bgp_attributes()")
     return True
 
 
@@ -2031,7 +2271,7 @@ def verify_best_path_as_per_bgp_attribute(
 
             routes = generate_ips(_network, no_of_ip)
             for route in routes:
-                route = str(ipaddr.IPNetwork(unicode(route)))
+                route = str(ipaddress.ip_network(unicode(route)))
 
                 if route in sh_ip_bgp_json["routes"]:
                     route_attributes = sh_ip_bgp_json["routes"][route]
@@ -2340,7 +2580,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
                     ip_list = generate_ips(network, no_of_ip)
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -2476,7 +2716,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
                     ip_list = generate_ips(network, no_of_network)
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -3390,3 +3630,552 @@ def verify_gr_address_family(tgen, topo, addr_type, addr_family, dut):
                 return errormsg
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+
+
+@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
+def verify_attributes_for_evpn_routes(
+    tgen,
+    topo,
+    dut,
+    input_dict,
+    rd=None,
+    rt=None,
+    ethTag=None,
+    ipLen=None,
+    rd_peer=None,
+    rt_peer=None,
+):
+    """
+    API to verify rd and rt value using "sh bgp l2vpn evpn 10.1.1.1"
+    command.
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `topo` : json file data
+    * `dut` : device under test
+    * `input_dict`: having details like - for which route, rd value
+                    needs to be verified
+    * `rd` : route distinguisher
+    * `rt` : route target
+    * `ethTag` : Ethernet Tag
+    * `ipLen` : IP prefix length
+    * `rd_peer` : Peer name from which RD will be auto-generated
+    * `rt_peer` : Peer name from which RT will be auto-generated
+
+    Usage
+    -----
+        input_dict_1 = {
+            "r1": {
+                "static_routes": [{
+                    "network": [NETWORK1_1[addr_type]],
+                    "next_hop": NEXT_HOP_IP[addr_type],
+                    "vrf": "RED"
+                }]
+            }
+        }
+
+        result = verify_attributes_for_evpn_routes(tgen, topo,
+                    input_dict, rd = "10.0.0.33:1")
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    for router in input_dict.keys():
+        rnode = tgen.routers()[dut]
+
+        if "static_routes" in input_dict[router]:
+            for static_route in input_dict[router]["static_routes"]:
+                network = static_route["network"]
+
+                if "vrf" in static_route:
+                    vrf = static_route["vrf"]
+
+                if type(network) is not list:
+                    network = [network]
+
+                for route in network:
+                    route = route.split("/")[0]
+                    _addr_type = validate_ip_address(route)
+                    if "v4" in _addr_type:
+                        input_afi = "v4"
+                    elif "v6" in _addr_type:
+                        input_afi = "v6"
+
+                    cmd = "show bgp l2vpn evpn {} json".format(route)
+                    evpn_rd_value_json = run_frr_cmd(rnode, cmd, isjson=True)
+                    if not bool(evpn_rd_value_json):
+                        errormsg = "No output for '{}' cli".format(cmd)
+                        return errormsg
+
+                    if rd is not None and rd != "auto":
+                        logger.info(
+                            "[DUT: %s]: Verifying rd value for " "evpn route %s:",
+                            dut,
+                            route,
+                        )
+
+                        if rd in evpn_rd_value_json:
+                            rd_value_json = evpn_rd_value_json[rd]
+                            if rd_value_json["rd"] != rd:
+                                errormsg = (
+                                    "[DUT: %s] Failed: Verifying"
+                                    " RD value for EVPN route: %s"
+                                    "[FAILED]!!, EXPECTED  : %s "
+                                    " FOUND : %s"
+                                    % (dut, route, rd, rd_value_json["rd"])
+                                )
+                                return errormsg
+
+                            else:
+                                logger.info(
+                                    "[DUT %s]: Verifying RD value for"
+                                    " EVPN route: %s [PASSED]|| "
+                                    "Found Exprected: %s",
+                                    dut,
+                                    route,
+                                    rd,
+                                )
+                                return True
+
+                        else:
+                            errormsg = (
+                                "[DUT: %s] RD : %s is not present"
+                                " in cli json output" % (dut, rd)
+                            )
+                            return errormsg
+
+                    if rd == "auto":
+                        logger.info(
+                            "[DUT: %s]: Verifying auto-rd value for " "evpn route %s:",
+                            dut,
+                            route,
+                        )
+
+                        if rd_peer:
+                            index = 1
+                            vni_dict = {}
+
+                            rnode = tgen.routers()[rd_peer]
+                            vrfs = topo["routers"][rd_peer]["vrfs"]
+                            for vrf_dict in vrfs:
+                                vni_dict[vrf_dict["name"]] = index
+                                index += 1
+
+                        show_bgp_json = run_frr_cmd(
+                            rnode, "show bgp vrf all summary json", isjson=True
+                        )
+
+                        # Verifying output dictionary show_bgp_json is empty
+                        if not bool(show_bgp_json):
+                            errormsg = "BGP is not running"
+                            return errormsg
+
+                        show_bgp_json_vrf = show_bgp_json[vrf]
+                        for afi, afi_data in show_bgp_json_vrf.items():
+                            if input_afi not in afi:
+                                continue
+                            router_id = afi_data["routerId"]
+
+                        rd = "{}:{}".format(router_id, vni_dict[vrf])
+                        if rd in evpn_rd_value_json:
+                            rd_value_json = evpn_rd_value_json[rd]
+                            if rd_value_json["rd"] != rd:
+                                errormsg = (
+                                    "[DUT: %s] Failed: Verifying"
+                                    " RD value for EVPN route: %s"
+                                    "[FAILED]!!, EXPECTED  : %s "
+                                    " FOUND : %s"
+                                    % (dut, route, rd, rd_value_json["rd"])
+                                )
+                                return errormsg
+
+                            else:
+                                logger.info(
+                                    "[DUT %s]: Verifying RD value for"
+                                    " EVPN route: %s [PASSED]|| "
+                                    "Found Exprected: %s",
+                                    dut,
+                                    route,
+                                    rd,
+                                )
+                                return True
+
+                        else:
+                            errormsg = (
+                                "[DUT: %s] RD : %s is not present"
+                                " in cli json output" % (dut, rd)
+                            )
+                            return errormsg
+
+                    if rt == "auto":
+                        logger.info(
+                            "[DUT: %s]: Verifying auto-rt value for " "evpn route %s:",
+                            dut,
+                            route,
+                        )
+
+                        if rt_peer:
+                            vni_dict = {}
+
+                            rnode = tgen.routers()[rt_peer]
+                            show_bgp_json = run_frr_cmd(
+                                rnode, "show bgp vrf all summary json", isjson=True
+                            )
+
+                            # Verifying output dictionary show_bgp_json is empty
+                            if not bool(show_bgp_json):
+                                errormsg = "BGP is not running"
+                                return errormsg
+
+                            show_bgp_json_vrf = show_bgp_json[vrf]
+                            for afi, afi_data in show_bgp_json_vrf.items():
+                                if input_afi not in afi:
+                                    continue
+                                as_num = afi_data["as"]
+
+                            show_vrf_vni_json = run_frr_cmd(
+                                rnode, "show vrf vni json", isjson=True
+                            )
+
+                            vrfs = show_vrf_vni_json["vrfs"]
+                            for vrf_dict in vrfs:
+                                if vrf_dict["vrf"] == vrf:
+                                    vni_dict[vrf_dict["vrf"]] = str(vrf_dict["vni"])
+
+                        # If AS is 4 byte, FRR uses only the lower 2 bytes of ASN+VNI
+                        # for auto derived RT value.
+                        if as_num > 65535:
+                            as_bin = bin(as_num)
+                            as_bin = as_bin[-16:]
+                            as_num = int(as_bin, 2)
+
+                        rt = "{}:{}".format(str(as_num), vni_dict[vrf])
+                        for _rd, route_data in evpn_rd_value_json.items():
+                            if route_data["ip"] == route:
+                                for rt_data in route_data["paths"]:
+                                    if vni_dict[vrf] == rt_data["VNI"]:
+                                        rt_string = rt_data["extendedCommunity"][
+                                            "string"
+                                        ]
+                                        rt_input = "RT:{}".format(rt)
+                                        if rt_input not in rt_string:
+                                            errormsg = (
+                                                "[DUT: %s] Failed:"
+                                                " Verifying RT "
+                                                "value for EVPN "
+                                                " route: %s"
+                                                "[FAILED]!!,"
+                                                " EXPECTED  : %s "
+                                                " FOUND : %s"
+                                                % (dut, route, rt_input, rt_string)
+                                            )
+                                            return errormsg
+
+                                        else:
+                                            logger.info(
+                                                "[DUT %s]: Verifying "
+                                                "RT value for EVPN "
+                                                "route: %s [PASSED]||"
+                                                "Found Exprected: %s",
+                                                dut,
+                                                route,
+                                                rt_input,
+                                            )
+                                            return True
+
+                            else:
+                                errormsg = (
+                                    "[DUT: %s] Route : %s is not"
+                                    " present in cli json output" % (dut, route)
+                                )
+                                return errormsg
+
+                    if rt is not None and rt != "auto":
+                        logger.info(
+                            "[DUT: %s]: Verifying rt value for " "evpn route %s:",
+                            dut,
+                            route,
+                        )
+
+                        if type(rt) is not list:
+                            rt = [rt]
+
+                        for _rt in rt:
+                            for _rd, route_data in evpn_rd_value_json.items():
+                                if route_data["ip"] == route:
+                                    for rt_data in route_data["paths"]:
+                                        rt_string = rt_data["extendedCommunity"][
+                                            "string"
+                                        ]
+                                        rt_input = "RT:{}".format(_rt)
+                                        if rt_input not in rt_string:
+                                            errormsg = (
+                                                "[DUT: %s] Failed: "
+                                                "Verifying RT value "
+                                                "for EVPN route: %s"
+                                                "[FAILED]!!,"
+                                                " EXPECTED  : %s "
+                                                " FOUND : %s"
+                                                % (dut, route, rt_input, rt_string)
+                                            )
+                                            return errormsg
+
+                                        else:
+                                            logger.info(
+                                                "[DUT %s]: Verifying RT"
+                                                " value for EVPN route:"
+                                                " %s [PASSED]|| "
+                                                "Found Exprected: %s",
+                                                dut,
+                                                route,
+                                                rt_input,
+                                            )
+                                            return True
+
+                                else:
+                                    errormsg = (
+                                        "[DUT: %s] Route : %s is not"
+                                        " present in cli json output" % (dut, route)
+                                    )
+                                    return errormsg
+
+                    if ethTag is not None:
+                        logger.info(
+                            "[DUT: %s]: Verifying ethTag value for " "evpn route :", dut
+                        )
+
+                        for _rd, route_data in evpn_rd_value_json.items():
+                            if route_data["ip"] == route:
+                                if route_data["ethTag"] != ethTag:
+                                    errormsg = (
+                                        "[DUT: %s] RD: %s, Failed: "
+                                        "Verifying ethTag value "
+                                        "for EVPN route: %s"
+                                        "[FAILED]!!,"
+                                        " EXPECTED  : %s "
+                                        " FOUND : %s"
+                                        % (
+                                            dut,
+                                            _rd,
+                                            route,
+                                            ethTag,
+                                            route_data["ethTag"],
+                                        )
+                                    )
+                                    return errormsg
+
+                                else:
+                                    logger.info(
+                                        "[DUT %s]: RD: %s, Verifying "
+                                        "ethTag value for EVPN route:"
+                                        " %s [PASSED]|| "
+                                        "Found Exprected: %s",
+                                        dut,
+                                        _rd,
+                                        route,
+                                        ethTag,
+                                    )
+                                    return True
+
+                            else:
+                                errormsg = (
+                                    "[DUT: %s] RD: %s, Route : %s "
+                                    "is not present in cli json "
+                                    "output" % (dut, _rd, route)
+                                )
+                                return errormsg
+
+                    if ipLen is not None:
+                        logger.info(
+                            "[DUT: %s]: Verifying ipLen value for " "evpn route :", dut
+                        )
+
+                        for _rd, route_data in evpn_rd_value_json.items():
+                            if route_data["ip"] == route:
+                                if route_data["ipLen"] != int(ipLen):
+                                    errormsg = (
+                                        "[DUT: %s] RD: %s, Failed: "
+                                        "Verifying ipLen value "
+                                        "for EVPN route: %s"
+                                        "[FAILED]!!,"
+                                        " EXPECTED  : %s "
+                                        " FOUND : %s"
+                                        % (dut, _rd, route, ipLen, route_data["ipLen"])
+                                    )
+                                    return errormsg
+
+                                else:
+                                    logger.info(
+                                        "[DUT %s]: RD: %s, Verifying "
+                                        "ipLen value for EVPN route:"
+                                        " %s [PASSED]|| "
+                                        "Found Exprected: %s",
+                                        dut,
+                                        _rd,
+                                        route,
+                                        ipLen,
+                                    )
+                                    return True
+
+                            else:
+                                errormsg = (
+                                    "[DUT: %s] RD: %s, Route : %s "
+                                    "is not present in cli json "
+                                    "output " % (dut, route)
+                                )
+                                return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return False
+
+
+@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
+def verify_evpn_routes(
+    tgen, topo, dut, input_dict, routeType=5, EthTag=0, next_hop=None
+):
+    """
+    API to verify evpn routes using "sh bgp l2vpn evpn"
+    command.
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `topo` : json file data
+    * `dut` : device under test
+    * `input_dict`: having details like - for which route, rd value
+                    needs to be verified
+    * `route_type` : Route type 5 is supported as of now
+    * `EthTag` : Ethernet tag, by-default is 0
+    * `next_hop` : Prefered nexthop for the evpn routes
+
+    Usage
+    -----
+        input_dict_1 = {
+            "r1": {
+                "static_routes": [{
+                    "network": [NETWORK1_1[addr_type]],
+                    "next_hop": NEXT_HOP_IP[addr_type],
+                    "vrf": "RED"
+                }]
+            }
+        }
+        result = verify_evpn_routes(tgen, topo, input_dict)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    for router in input_dict.keys():
+        rnode = tgen.routers()[dut]
+
+        logger.info("[DUT: %s]: Verifying evpn routes: ", dut)
+
+        if "static_routes" in input_dict[router]:
+            for static_route in input_dict[router]["static_routes"]:
+                network = static_route["network"]
+
+                if type(network) is not list:
+                    network = [network]
+
+                missing_routes = {}
+                for route in network:
+                    rd_keys = 0
+                    ip_len = route.split("/")[1]
+                    route = route.split("/")[0]
+
+                    prefix = "[{}]:[{}]:[{}]:[{}]".format(
+                        routeType, EthTag, ip_len, route
+                    )
+
+                    cmd = "show bgp l2vpn evpn route json"
+                    evpn_value_json = run_frr_cmd(rnode, cmd, isjson=True)
+
+                    if not bool(evpn_value_json):
+                        errormsg = "No output for '{}' cli".format(cmd)
+                        return errormsg
+
+                    if evpn_value_json["numPrefix"] == 0:
+                        errormsg = "[DUT: %s]: No EVPN prefixes exist" % (dut)
+                        return errormsg
+
+                    for key, route_data_json in evpn_value_json.items():
+                        if isinstance(route_data_json, dict):
+                            rd_keys += 1
+                            if prefix not in route_data_json:
+                                missing_routes[key] = prefix
+
+                    if rd_keys == len(missing_routes.keys()):
+                        errormsg = (
+                            "[DUT: %s]:  "
+                            "Missing EVPN routes: "
+                            "%s [FAILED]!!" % (dut, list(set(missing_routes.values())))
+                        )
+                        return errormsg
+
+                    for key, route_data_json in evpn_value_json.items():
+                        if isinstance(route_data_json, dict):
+                            if prefix not in route_data_json:
+                                continue
+
+                            for paths in route_data_json[prefix]["paths"]:
+                                for path in paths:
+                                    if path["routeType"] != routeType:
+                                        errormsg = (
+                                            "[DUT: %s]:  "
+                                            "Verifying routeType "
+                                            "for EVPN route: %s "
+                                            "[FAILED]!! "
+                                            "Expected: %s, "
+                                            "Found: %s"
+                                            % (
+                                                dut,
+                                                prefix,
+                                                routeType,
+                                                path["routeType"],
+                                            )
+                                        )
+                                        return errormsg
+
+                                    elif next_hop:
+                                        for nh_dict in path["nexthops"]:
+                                            if nh_dict["ip"] != next_hop:
+                                                errormsg = (
+                                                    "[DUT: %s]: "
+                                                    "Verifying "
+                                                    "nexthop for "
+                                                    "EVPN route: %s"
+                                                    "[FAILED]!! "
+                                                    "Expected: %s,"
+                                                    " Found: %s"
+                                                    % (
+                                                        dut,
+                                                        prefix,
+                                                        next_hop,
+                                                        nh_dict["ip"],
+                                                    )
+                                                )
+                                                return errormsg
+
+                                    else:
+                                        logger.info(
+                                            "[DUT %s]: Verifying "
+                                            "EVPN route : %s, "
+                                            "routeType: %s is "
+                                            "installed "
+                                            "[PASSED]|| ",
+                                            dut,
+                                            prefix,
+                                            routeType,
+                                        )
+                                        return True
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+
+    return False

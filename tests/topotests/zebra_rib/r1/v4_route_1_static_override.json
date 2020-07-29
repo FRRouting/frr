@@ -10,7 +10,7 @@
       "installed":true,
       "table":254,
       "internalStatus":16,
-      "internalFlags":72,
+      "internalFlags":73,
       "internalNextHopNum":1,
       "internalNextHopActiveNum":1,
       "nexthops":[

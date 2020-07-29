@@ -44,12 +44,13 @@
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_rd.h"
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Address Intf String");
 
 char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size)
 {
-	prefix2str(bgp_node_get_prefix(bnc->node), buf, size);
+	prefix2str(bgp_dest_get_prefix(bnc->dest), buf, size);
 	return buf;
 }
 
@@ -77,11 +78,11 @@ void bnc_free(struct bgp_nexthop_cache *bnc)
 /* Reset and free all BGP nexthop cache. */
 static void bgp_nexthop_cache_reset(struct bgp_table *table)
 {
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	struct bgp_nexthop_cache *bnc;
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		bnc = bgp_node_get_bgp_nexthop_info(rn);
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		bnc = bgp_dest_get_bgp_nexthop_info(dest);
 		if (!bnc)
 			continue;
 
@@ -92,8 +93,8 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 		}
 
 		bnc_free(bnc);
-		bgp_node_set_bgp_nexthop_info(rn, NULL);
-		bgp_unlock_node(rn);
+		bgp_dest_set_bgp_nexthop_info(dest, NULL);
+		bgp_dest_unlock_node(dest);
 	}
 }
 
@@ -344,7 +345,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 {
 	struct prefix p;
 	struct prefix *addr;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	struct bgp_connected_ref *bc;
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -360,16 +361,16 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		bgp_address_add(bgp, ifc, addr);
 
-		rn = bgp_node_get(bgp->connected_table[AFI_IP],
-				  (struct prefix *)&p);
-		bc = bgp_node_get_bgp_connected_ref_info(rn);
+		dest = bgp_node_get(bgp->connected_table[AFI_IP],
+				    (struct prefix *)&p);
+		bc = bgp_dest_get_bgp_connected_ref_info(dest);
 		if (bc)
 			bc->refcnt++;
 		else {
 			bc = XCALLOC(MTYPE_BGP_CONN,
 				     sizeof(struct bgp_connected_ref));
 			bc->refcnt = 1;
-			bgp_node_set_bgp_connected_ref_info(rn, bc);
+			bgp_dest_set_bgp_connected_ref_info(dest, bc);
 		}
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
@@ -394,17 +395,17 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		bgp_address_add(bgp, ifc, addr);
 
-		rn = bgp_node_get(bgp->connected_table[AFI_IP6],
-				  (struct prefix *)&p);
+		dest = bgp_node_get(bgp->connected_table[AFI_IP6],
+				    (struct prefix *)&p);
 
-		bc = bgp_node_get_bgp_connected_ref_info(rn);
+		bc = bgp_dest_get_bgp_connected_ref_info(dest);
 		if (bc)
 			bc->refcnt++;
 		else {
 			bc = XCALLOC(MTYPE_BGP_CONN,
 				     sizeof(struct bgp_connected_ref));
 			bc->refcnt = 1;
-			bgp_node_set_bgp_connected_ref_info(rn, bc);
+			bgp_dest_set_bgp_connected_ref_info(dest, bc);
 		}
 	}
 }
@@ -413,7 +414,7 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 {
 	struct prefix p;
 	struct prefix *addr;
-	struct bgp_node *rn = NULL;
+	struct bgp_dest *dest = NULL;
 	struct bgp_connected_ref *bc;
 
 	addr = ifc->address;
@@ -426,7 +427,7 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 
 		bgp_address_del(bgp, ifc, addr);
 
-		rn = bgp_node_lookup(bgp->connected_table[AFI_IP], &p);
+		dest = bgp_node_lookup(bgp->connected_table[AFI_IP], &p);
 	} else if (addr->family == AF_INET6) {
 		if (IN6_IS_ADDR_UNSPECIFIED(&p.u.prefix6))
 			return;
@@ -436,46 +437,47 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 
 		bgp_address_del(bgp, ifc, addr);
 
-		rn = bgp_node_lookup(bgp->connected_table[AFI_IP6], &p);
+		dest = bgp_node_lookup(bgp->connected_table[AFI_IP6], &p);
 	}
 
-	if (!rn)
+	if (!dest)
 		return;
 
-	bc = bgp_node_get_bgp_connected_ref_info(rn);
+	bc = bgp_dest_get_bgp_connected_ref_info(dest);
 	bc->refcnt--;
 	if (bc->refcnt == 0) {
 		XFREE(MTYPE_BGP_CONN, bc);
-		bgp_node_set_bgp_connected_ref_info(rn, NULL);
+		bgp_dest_set_bgp_connected_ref_info(dest, NULL);
 	}
-	bgp_unlock_node(rn);
-	bgp_unlock_node(rn);
+	bgp_dest_unlock_node(dest);
+	bgp_dest_unlock_node(dest);
 }
 
 static void bgp_connected_cleanup(struct route_table *table,
 				  struct route_node *rn)
 {
 	struct bgp_connected_ref *bc;
-	struct bgp_node *bn = bgp_node_from_rnode(rn);
+	struct bgp_dest *bn = bgp_dest_from_rnode(rn);
 
-	bc = bgp_node_get_bgp_connected_ref_info(bn);
+	bc = bgp_dest_get_bgp_connected_ref_info(bn);
 	if (!bc)
 		return;
 
 	bc->refcnt--;
 	if (bc->refcnt == 0) {
 		XFREE(MTYPE_BGP_CONN, bc);
-		bgp_node_set_bgp_connected_ref_info(bn, NULL);
+		bgp_dest_set_bgp_connected_ref_info(bn, NULL);
 	}
 }
 
 bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
-		      uint8_t sub_type, struct attr *attr, struct bgp_node *rn)
+		      uint8_t sub_type, struct attr *attr,
+		      struct bgp_dest *dest)
 {
 	uint8_t new_afi = afi == AFI_IP ? AF_INET : AF_INET6;
 	struct bgp_addr tmp_addr = {{0}}, *addr = NULL;
 	struct tip_addr tmp_tip, *tip = NULL;
-	const struct prefix *p = bgp_node_get_prefix(rn);
+	const struct prefix *p = bgp_dest_get_prefix(dest);
 	bool is_bgp_static_route =
 		((type == ZEBRA_ROUTE_BGP) && (sub_type == BGP_ROUTE_STATIC))
 			? true
@@ -546,8 +548,8 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 
 bool bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 {
-	struct bgp_node *rn1;
-	struct bgp_node *rn2;
+	struct bgp_dest *dest1;
+	struct bgp_dest *dest2;
 	struct prefix p;
 	int ret;
 
@@ -555,32 +557,32 @@ bool bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = nexthop;
 
-	rn1 = bgp_node_match(peer->bgp->connected_table[AFI_IP], &p);
-	if (!rn1)
+	dest1 = bgp_node_match(peer->bgp->connected_table[AFI_IP], &p);
+	if (!dest1)
 		return false;
 
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = peer->su.sin.sin_addr;
 
-	rn2 = bgp_node_match(peer->bgp->connected_table[AFI_IP], &p);
-	if (!rn2) {
-		bgp_unlock_node(rn1);
+	dest2 = bgp_node_match(peer->bgp->connected_table[AFI_IP], &p);
+	if (!dest2) {
+		bgp_dest_unlock_node(dest1);
 		return false;
 	}
 
-	ret = (rn1 == rn2);
+	ret = (dest1 == dest2);
 
-	bgp_unlock_node(rn1);
-	bgp_unlock_node(rn2);
+	bgp_dest_unlock_node(dest1);
+	bgp_dest_unlock_node(dest2);
 
 	return ret;
 }
 
 bool bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer)
 {
-	struct bgp_node *rn1;
-	struct bgp_node *rn2;
+	struct bgp_dest *dest1;
+	struct bgp_dest *dest2;
 	struct prefix p;
 	int ret;
 
@@ -588,24 +590,24 @@ bool bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer)
 	p.prefixlen = IPV6_MAX_BITLEN;
 	p.u.prefix6 = nexthop;
 
-	rn1 = bgp_node_match(peer->bgp->connected_table[AFI_IP6], &p);
-	if (!rn1)
+	dest1 = bgp_node_match(peer->bgp->connected_table[AFI_IP6], &p);
+	if (!dest1)
 		return false;
 
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
 	p.u.prefix6 = peer->su.sin6.sin6_addr;
 
-	rn2 = bgp_node_match(peer->bgp->connected_table[AFI_IP6], &p);
-	if (!rn2) {
-		bgp_unlock_node(rn1);
+	dest2 = bgp_node_match(peer->bgp->connected_table[AFI_IP6], &p);
+	if (!dest2) {
+		bgp_dest_unlock_node(dest1);
 		return false;
 	}
 
-	ret = (rn1 == rn2);
+	ret = (dest1 == dest2);
 
-	bgp_unlock_node(rn1);
-	bgp_unlock_node(rn2);
+	bgp_dest_unlock_node(dest1);
+	bgp_dest_unlock_node(dest2);
 
 	return ret;
 }
@@ -614,7 +616,7 @@ bool bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 				     struct update_subgroup *subgrp,
 				     struct peer *exclude)
 {
-	struct bgp_node *rn1 = NULL, *rn2 = NULL;
+	struct bgp_dest *dest1 = NULL, *dest2 = NULL;
 	struct peer_af *paf = NULL;
 	struct prefix p = {0}, np = {0};
 	struct bgp *bgp = NULL;
@@ -627,8 +629,8 @@ bool bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 	p.prefixlen = IPV6_MAX_BITLEN;
 
 	bgp = SUBGRP_INST(subgrp);
-	rn1 = bgp_node_match(bgp->connected_table[AFI_IP6], &np);
-	if (!rn1)
+	dest1 = bgp_node_match(bgp->connected_table[AFI_IP6], &np);
+	if (!dest1)
 		return false;
 
 	SUBGRP_FOREACH_PEER (subgrp, paf) {
@@ -637,18 +639,18 @@ bool bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 			continue;
 
 		p.u.prefix6 = paf->peer->su.sin6.sin6_addr;
-		rn2 = bgp_node_match(bgp->connected_table[AFI_IP6], &p);
-		if (rn1 == rn2) {
-			bgp_unlock_node(rn1);
-			bgp_unlock_node(rn2);
+		dest2 = bgp_node_match(bgp->connected_table[AFI_IP6], &p);
+		if (dest1 == dest2) {
+			bgp_dest_unlock_node(dest1);
+			bgp_dest_unlock_node(dest2);
 			return true;
 		}
 
-		if (rn2)
-			bgp_unlock_node(rn2);
+		if (dest2)
+			bgp_dest_unlock_node(dest2);
 	}
 
-	bgp_unlock_node(rn1);
+	bgp_dest_unlock_node(dest1);
 	return false;
 }
 
@@ -656,7 +658,7 @@ bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 				     struct update_subgroup *subgrp,
 				     struct peer *exclude)
 {
-	struct bgp_node *rn1, *rn2;
+	struct bgp_dest *dest1, *dest2;
 	struct peer_af *paf;
 	struct prefix p, np;
 	struct bgp *bgp;
@@ -669,8 +671,8 @@ bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 	p.prefixlen = IPV4_MAX_BITLEN;
 
 	bgp = SUBGRP_INST(subgrp);
-	rn1 = bgp_node_match(bgp->connected_table[AFI_IP], &np);
-	if (!rn1)
+	dest1 = bgp_node_match(bgp->connected_table[AFI_IP], &np);
+	if (!dest1)
 		return false;
 
 	SUBGRP_FOREACH_PEER (subgrp, paf) {
@@ -680,19 +682,50 @@ bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 
 		p.u.prefix4 = paf->peer->su.sin.sin_addr;
 
-		rn2 = bgp_node_match(bgp->connected_table[AFI_IP], &p);
-		if (rn1 == rn2) {
-			bgp_unlock_node(rn1);
-			bgp_unlock_node(rn2);
+		dest2 = bgp_node_match(bgp->connected_table[AFI_IP], &p);
+		if (dest1 == dest2) {
+			bgp_dest_unlock_node(dest1);
+			bgp_dest_unlock_node(dest2);
 			return true;
 		}
 
-		if (rn2)
-			bgp_unlock_node(rn2);
+		if (dest2)
+			bgp_dest_unlock_node(dest2);
 	}
 
-	bgp_unlock_node(rn1);
+	bgp_dest_unlock_node(dest1);
 	return false;
+}
+
+static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
+				   struct bgp_nexthop_cache *bnc)
+{
+	struct bgp_dest *dest;
+	struct bgp_path_info *path;
+	int afi;
+	safi_t safi;
+	struct bgp_table *table;
+	struct bgp *bgp_path;
+	char buf1[BUFSIZ];
+
+	vty_out(vty, "  Paths:\n");
+	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
+		dest = path->net;
+		assert(dest && bgp_dest_table(dest));
+		afi = family2afi(bgp_dest_get_prefix(dest)->family);
+		table = bgp_dest_table(dest);
+		safi = table->safi;
+		bgp_path = table->bgp;
+
+		if (dest->pdest) {
+			prefix_rd2str((struct prefix_rd *)bgp_dest_get_prefix(dest->pdest),
+					buf1, sizeof(buf1));
+			vty_out(vty, "    %d/%d %pRN RD %s %s flags 0x%x\n",
+				afi, safi, dest, buf1, bgp_path->name_pretty, path->flags);
+		} else
+			vty_out(vty, "    %d/%d %pRN %s flags 0x%x\n",
+				afi, safi, dest, bgp_path->name_pretty, path->flags);
+	}
 }
 
 static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
@@ -701,7 +734,7 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 	char buf[PREFIX2STR_BUFFER];
 	struct nexthop *nexthop;
 
-	for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next)
+	for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next) {
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV6:
 			vty_out(vty, "  gate %s\n",
@@ -736,15 +769,55 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "  invalid nexthop type %u\n",
 				nexthop->type);
 		}
+	}
 }
 
-static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail,
-			     bool import_table)
+static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
+			     struct bgp_dest *dest,
+			     struct bgp_nexthop_cache *bnc,
+			     bool specific)
 {
-	struct bgp_node *rn;
-	struct bgp_nexthop_cache *bnc;
 	char buf[PREFIX2STR_BUFFER];
 	time_t tbuf;
+	struct peer *peer;
+	const struct prefix *p = bgp_dest_get_prefix(dest);
+
+	peer = (struct peer *)bnc->nht_info;
+
+	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
+		vty_out(vty, " %s valid [IGP metric %d], #paths %d",
+			inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf)),
+			bnc->metric, bnc->path_count);
+		if (peer)
+			vty_out(vty, ", peer %s", peer->host);
+		vty_out(vty, "\n");
+		bgp_show_nexthops_detail(vty, bgp, bnc);
+	} else {
+		vty_out(vty, " %s invalid, #paths %d",
+			inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf)),
+			bnc->path_count);
+		if (peer)
+			vty_out(vty, ", peer %s", peer->host);
+		vty_out(vty, "\n");
+		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
+			vty_out(vty, "  Must be Connected\n");
+		if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+			vty_out(vty, "  Is not Registered\n");
+	}
+	tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
+	vty_out(vty, "  Last update: %s", ctime(&tbuf));
+	vty_out(vty, "\n");
+
+	/* show paths dependent on nexthop, if needed. */
+	if (specific)
+		bgp_show_nexthop_paths(vty, bgp, bnc);
+}
+
+static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp,
+			      bool import_table)
+{
+	struct bgp_dest *dest;
+	struct bgp_nexthop_cache *bnc;
 	afi_t afi;
 	struct bgp_table **table;
 
@@ -759,54 +832,19 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail,
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		if (!table || !table[afi])
 			continue;
-		for (rn = bgp_table_top(table[afi]); rn;
-		     rn = bgp_route_next(rn)) {
-			struct peer *peer;
-			const struct prefix *p = bgp_node_get_prefix(rn);
-
-			bnc = bgp_node_get_bgp_nexthop_info(rn);
+		for (dest = bgp_table_top(table[afi]); dest;
+		     dest = bgp_route_next(dest)) {
+			bnc = bgp_dest_get_bgp_nexthop_info(dest);
 			if (!bnc)
 				continue;
-			peer = (struct peer *)bnc->nht_info;
-
-			if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
-				vty_out(vty,
-					" %s valid [IGP metric %d], #paths %d",
-					inet_ntop(p->family, &p->u.prefix, buf,
-						  sizeof(buf)),
-					bnc->metric, bnc->path_count);
-				if (peer)
-					vty_out(vty, ", peer %s", peer->host);
-				vty_out(vty, "\n");
-
-				if (!detail)
-					continue;
-
-				bgp_show_nexthops_detail(vty, bgp, bnc);
-
-			} else {
-				vty_out(vty, " %s invalid",
-					inet_ntop(p->family, &p->u.prefix, buf,
-						  sizeof(buf)));
-				if (peer)
-					vty_out(vty, ", peer %s", peer->host);
-				vty_out(vty, "\n");
-				if (CHECK_FLAG(bnc->flags,
-					       BGP_NEXTHOP_CONNECTED))
-					vty_out(vty, "  Must be Connected\n");
-				if (!CHECK_FLAG(bnc->flags,
-						BGP_NEXTHOP_REGISTERED))
-					vty_out(vty, "  Is not Registered\n");
-			}
-			tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
-			vty_out(vty, "  Last update: %s", ctime(&tbuf));
-			vty_out(vty, "\n");
+			bgp_show_nexthop(vty, bgp, dest, bnc, false);
 		}
 	}
 }
 
 static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
-				     int detail, bool import_table)
+				     const char *nhopip_str,
+				     bool import_table)
 {
 	struct bgp *bgp;
 
@@ -819,7 +857,31 @@ static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
 		return CMD_WARNING;
 	}
 
-	bgp_show_nexthops(vty, bgp, detail, import_table);
+	if (nhopip_str) {
+		struct prefix nhop;
+		struct bgp_table **table;
+		struct bgp_dest *dest;
+		struct bgp_nexthop_cache *bnc;
+
+		if (!str2prefix(nhopip_str, &nhop)) {
+			vty_out(vty, "nexthop address is malformed\n");
+			return CMD_WARNING;
+		}
+		table = import_table ? \
+			bgp->import_check_table : bgp->nexthop_cache_table;
+		dest = bgp_node_lookup(table[family2afi(nhop.family)], &nhop);
+		if (!dest) {
+			vty_out(vty, "specified nexthop is not found\n");
+			return CMD_SUCCESS;
+		}
+		bnc = bgp_dest_get_bgp_nexthop_info(dest);
+		if (!bnc) {
+			vty_out(vty, "specified nexthop does not have entry\n");
+			return CMD_SUCCESS;
+		}
+		bgp_show_nexthop(vty, bgp, dest, bnc, true);
+	} else
+		bgp_show_nexthops(vty, bgp, import_table);
 
 	return CMD_SUCCESS;
 }
@@ -834,29 +896,36 @@ static void bgp_show_all_instances_nexthops_vty(struct vty *vty)
 			(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 				? VRF_DEFAULT_NAME
 				: bgp->name);
-		bgp_show_nexthops(vty, bgp, 0, false);
+		bgp_show_nexthops(vty, bgp, false);
 	}
 }
 
 DEFUN (show_ip_bgp_nexthop,
        show_ip_bgp_nexthop_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop [detail]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop [<A.B.C.D|X:X::X:X>] [detail]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "BGP nexthop table\n"
+       "IPv4 nexthop address\n"
+       "IPv6 nexthop address\n"
        "Show detailed information\n")
 {
 	int idx = 0;
+	int nh_idx = 0;
 	char *vrf = NULL;
+	char *nhop_ip = NULL;
 
 	if (argv_find(argv, argc, "view", &idx)
 	    || argv_find(argv, argc, "vrf", &idx))
 		vrf = argv[++idx]->arg;
-	int detail = argv_find(argv, argc, "detail", &idx) ? 1 : 0;
 
-	return show_ip_bgp_nexthop_table(vty, vrf, detail, false);
+	if (argv_find(argv, argc, "A.B.C.D", &nh_idx)
+	    || argv_find(argv, argc, "X:X::X:X", &nh_idx))
+		nhop_ip = argv[nh_idx]->arg;
+
+	return show_ip_bgp_nexthop_table(vty, vrf, nhop_ip, false);
 }
 
 DEFUN (show_ip_bgp_import_check,
@@ -875,8 +944,8 @@ DEFUN (show_ip_bgp_import_check,
 	if (argv_find(argv, argc, "view", &idx)
 	    || argv_find(argv, argc, "vrf", &idx))
 		vrf = argv[++idx]->arg;
-	int detail = argv_find(argv, argc, "detail", &idx) ? 1 : 0;
-	return show_ip_bgp_nexthop_table(vty, vrf, detail, true);
+
+	return show_ip_bgp_nexthop_table(vty, vrf, NULL, true);
 }
 
 DEFUN (show_ip_bgp_instance_all_nexthop,

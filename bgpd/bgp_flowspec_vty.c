@@ -376,11 +376,10 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 					bpr->priority,
 					bpr->action->table_id);
 			}
-			if (list_began)
-				vty_out(vty, ")");
-			vty_out(vty, "\n");
 		}
-		if (!list_began)
+		if (list_began)
+			vty_out(vty, ")\n");
+		else
 			vty_out(vty, "\tnot installed in PBR\n");
 	}
 }
@@ -391,7 +390,7 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 			    unsigned long *output_cum, unsigned long *total_cum)
 {
 	struct bgp_path_info *pi;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	unsigned long total_count = 0;
 	json_object *json_paths = NULL;
 	int display = NLRI_STRING_FORMAT_LARGE;
@@ -399,8 +398,8 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (type != bgp_show_type_detail)
 		return CMD_SUCCESS;
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		pi = bgp_node_get_bgp_path_info(rn);
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		pi = bgp_dest_get_bgp_path_info(dest);
 		if (pi == NULL)
 			continue;
 		if (use_json) {
@@ -409,8 +408,8 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 		}
 		for (; pi; pi = pi->next) {
 			total_count++;
-			route_vty_out_flowspec(vty, bgp_node_get_prefix(rn), pi,
-					       display, json_paths);
+			route_vty_out_flowspec(vty, bgp_dest_get_prefix(dest),
+					       pi, display, json_paths);
 		}
 		if (use_json) {
 			vty_out(vty, "%s\n",
@@ -553,19 +552,19 @@ extern int bgp_flowspec_display_match_per_ip(afi_t afi, struct bgp_table *rib,
 					     bool use_json,
 					     json_object *json_paths)
 {
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	const struct prefix *prefix;
 	int display = 0;
 
-	for (rn = bgp_table_top(rib); rn; rn = bgp_route_next(rn)) {
-		prefix = bgp_node_get_prefix(rn);
+	for (dest = bgp_table_top(rib); dest; dest = bgp_route_next(dest)) {
+		prefix = bgp_dest_get_prefix(dest);
 
 		if (prefix->family != AF_FLOWSPEC)
 			continue;
 
 		if (bgp_flowspec_contains_prefix(prefix, match, prefix_check)) {
 			route_vty_out_flowspec(
-				vty, prefix, bgp_node_get_bgp_path_info(rn),
+				vty, prefix, bgp_dest_get_bgp_path_info(dest),
 				use_json ? NLRI_STRING_FORMAT_JSON
 					 : NLRI_STRING_FORMAT_LARGE,
 				json_paths);

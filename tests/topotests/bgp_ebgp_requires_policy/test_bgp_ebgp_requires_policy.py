@@ -121,7 +121,7 @@ def test_ebgp_requires_policy():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge, "r2")
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=65, wait=2)
     assert success is True, 'Failed bgp convergence (r2) in "{}"'.format(tgen.gears["r2"])
 
     test_func = functools.partial(_bgp_has_routes, "r2")
@@ -129,7 +129,7 @@ def test_ebgp_requires_policy():
     assert success is True, 'eBGP policy is not working (r2) in "{}"'.format(tgen.gears["r2"])
 
     test_func = functools.partial(_bgp_converge, "r4")
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=65, wait=2)
     assert success is True, 'Failed bgp convergence (r4) in "{}"'.format(tgen.gears["r4"])
 
     test_func = functools.partial(_bgp_has_routes, "r4")
@@ -137,7 +137,7 @@ def test_ebgp_requires_policy():
     assert success is False, 'eBGP policy is not working (r4) in "{}"'.format(tgen.gears["r4"])
 
     test_func = functools.partial(_bgp_converge, "r6")
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=65, wait=2)
     assert success is True, 'Failed bgp convergence (r6) in "{}"'.format(tgen.gears["r6"])
 
     test_func = functools.partial(_bgp_has_routes, "r6")

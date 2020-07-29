@@ -22,6 +22,8 @@
 #ifndef _ZEBRA_ISIS_ZEBRA_H
 #define _ZEBRA_ISIS_ZEBRA_H
 
+#include "isisd.h"
+
 extern struct zclient *zclient;
 
 struct label_chunk {
@@ -38,10 +40,12 @@ struct isis_route_info;
 struct sr_prefix;
 struct sr_adjacency;
 
-void isis_zebra_route_add_route(struct prefix *prefix,
+void isis_zebra_route_add_route(struct isis *isis,
+				struct prefix *prefix,
 				struct prefix_ipv6 *src_p,
 				struct isis_route_info *route_info);
-void isis_zebra_route_del_route(struct prefix *prefix,
+void isis_zebra_route_del_route(struct isis *isis,
+				struct prefix *prefix,
 				struct prefix_ipv6 *src_p,
 				struct isis_route_info *route_info);
 void isis_zebra_send_prefix_sid(int cmd, const struct sr_prefix *srp);
@@ -49,9 +53,9 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra);
 int isis_distribute_list_update(int routetype);
 void isis_zebra_redistribute_set(afi_t afi, int type);
 void isis_zebra_redistribute_unset(afi_t afi, int type);
+bool isis_zebra_label_manager_ready(void);
+int isis_zebra_label_manager_connect(void);
 int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size);
-void isis_zebra_release_label_range(uint32_t start, uint32_t end);
-mpls_label_t isis_zebra_request_dynamic_label(void);
-void isis_zebra_release_dynamic_label(mpls_label_t label);
+int isis_zebra_release_label_range(uint32_t start, uint32_t end);
 
 #endif /* _ZEBRA_ISIS_ZEBRA_H */

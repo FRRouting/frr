@@ -56,12 +56,6 @@
 struct zclient *zclient;
 static struct zclient *zclient_sync;
 
-/* List of chunks of labels externally assigned by zebra. */
-static struct list *label_chunk_list;
-static struct listnode *current_label_chunk;
-
-static void isis_zebra_label_manager_connect(void);
-
 /* Router-id update message from zebra. */
 static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
@@ -157,7 +151,8 @@ static int isis_zebra_link_params(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-void isis_zebra_route_add_route(struct prefix *prefix,
+void isis_zebra_route_add_route(struct isis *isis,
+				struct prefix *prefix,
 				struct prefix_ipv6 *src_p,
 				struct isis_route_info *route_info)
 {
@@ -171,7 +166,7 @@ void isis_zebra_route_add_route(struct prefix *prefix,
 		return;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id = isis->vrf_id;
 	api.type = PROTO_TYPE;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;
@@ -194,7 +189,7 @@ void isis_zebra_route_add_route(struct prefix *prefix,
 		api_nh = &api.nexthops[count];
 		if (fabricd)
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
-		api_nh->vrf_id = VRF_DEFAULT;
+		api_nh->vrf_id = isis->vrf_id;
 
 		switch (nexthop->family) {
 		case AF_INET:
@@ -232,7 +227,8 @@ void isis_zebra_route_add_route(struct prefix *prefix,
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
 
-void isis_zebra_route_del_route(struct prefix *prefix,
+void isis_zebra_route_del_route(struct isis *isis,
+				struct prefix *prefix,
 				struct prefix_ipv6 *src_p,
 				struct isis_route_info *route_info)
 {
@@ -242,7 +238,7 @@ void isis_zebra_route_del_route(struct prefix *prefix,
 		return;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id = isis->vrf_id;
 	api.type = PROTO_TYPE;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;
@@ -468,6 +464,16 @@ void isis_zebra_redistribute_unset(afi_t afi, int type)
 /* Label Manager Functions */
 
 /**
+ * Check if Label Manager is Ready or not.
+ *
+ * @return	True if Label Manager is ready, False otherwise
+ */
+bool isis_zebra_label_manager_ready(void)
+{
+	return (zclient_sync->sock > 0);
+}
+
+/**
  * Request Label Range to the Label Manager.
  *
  * @param base		base label of the label range to request
@@ -480,8 +486,8 @@ int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
 	int ret;
 	uint32_t start, end;
 
-	if (zclient_sync->sock == -1)
-		isis_zebra_label_manager_connect();
+	if (zclient_sync->sock < 0)
+		return -1;
 
 	ret = lm_get_label_chunk(zclient_sync, 0, base, chunk_size, &start,
 				 &end);
@@ -498,207 +504,63 @@ int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
  *
  * @param start		start of label range to release
  * @param end		end of label range to release
+ *
+ * @return		0 on success, -1 otherwise
  */
-void isis_zebra_release_label_range(uint32_t start, uint32_t end)
+int isis_zebra_release_label_range(uint32_t start, uint32_t end)
 {
 	int ret;
 
-	if (zclient_sync->sock == -1)
-		isis_zebra_label_manager_connect();
+	if (zclient_sync->sock < 0)
+		return -1;
 
 	ret = lm_release_label_chunk(zclient_sync, start, end);
-	if (ret < 0)
+	if (ret < 0) {
 		zlog_warn("%s: error releasing label range!", __func__);
-}
-
-/**
- * Get a new Label Chunk from the Label Manager. The new Label Chunk is
- * added to the Label Chunk list.
- *
- * @return 	0 on success, -1 on failure
- */
-static int isis_zebra_get_label_chunk(void)
-{
-	int ret;
-	uint32_t start, end;
-	struct label_chunk *new_label_chunk;
-
-	if (zclient_sync->sock == -1)
-		isis_zebra_label_manager_connect();
-
-	ret = lm_get_label_chunk(zclient_sync, 0, MPLS_LABEL_BASE_ANY,
-				 CHUNK_SIZE, &start, &end);
-	if (ret < 0) {
-		zlog_warn("%s: error getting label chunk!", __func__);
-		return -1;
-	}
-
-	new_label_chunk = calloc(1, sizeof(struct label_chunk));
-	if (!new_label_chunk) {
-		zlog_warn("%s: error trying to allocate label chunk %u - %u",
-			  __func__, start, end);
-		return -1;
-	}
-
-	new_label_chunk->start = start;
-	new_label_chunk->end = end;
-	new_label_chunk->used_mask = 0;
-
-	listnode_add(label_chunk_list, (void *)new_label_chunk);
-
-	/* let's update current if needed */
-	if (!current_label_chunk)
-		current_label_chunk = listtail(label_chunk_list);
-
-	return 0;
-}
-
-/**
- * Request a label from the Label Chunk list.
- *
- * @return 	valid label on success or MPLS_INVALID_LABEL on failure
- */
-mpls_label_t isis_zebra_request_dynamic_label(void)
-{
-	struct label_chunk *label_chunk;
-	uint32_t i, size;
-	uint64_t pos;
-	uint32_t label = MPLS_INVALID_LABEL;
-
-	while (current_label_chunk) {
-		label_chunk = listgetdata(current_label_chunk);
-		if (!label_chunk)
-			goto end;
-
-		/* try to get next free label in currently used label chunk */
-		size = label_chunk->end - label_chunk->start + 1;
-		for (i = 0, pos = 1; i < size; i++, pos <<= 1) {
-			if (!(pos & label_chunk->used_mask)) {
-				label_chunk->used_mask |= pos;
-				label = label_chunk->start + i;
-				goto end;
-			}
-		}
-		current_label_chunk = listnextnode(current_label_chunk);
-	}
-
-end:
-	/*
-	 * we moved till the last chunk, or were not able to find a label, so
-	 * let's ask for another one.
-	 */
-	if (!current_label_chunk
-	    || current_label_chunk == listtail(label_chunk_list)
-	    || label == MPLS_INVALID_LABEL) {
-		if (isis_zebra_get_label_chunk() != 0)
-			zlog_warn("%s: error getting label chunk!", __func__);
-	}
-
-	return label;
-}
-
-/**
- * Delete a Label Chunk.
- *
- * @param val	Pointer to the Label Chunk to free
- */
-static void isis_zebra_del_label_chunk(void *val)
-{
-	free(val);
-}
-
-/**
- * Release a pre-allocated Label chunk to the Label Manager.
- *
- * @param start		start of the label chunk to release
- * @param end		end of the label chunk to release
- *
- * @return	0 on success, -1 on failure
- */
-static int isis_zebra_release_label_chunk(uint32_t start, uint32_t end)
-{
-	int ret;
-
-	ret = lm_release_label_chunk(zclient_sync, start, end);
-	if (ret < 0) {
-		zlog_warn("%s: error releasing label chunk!", __func__);
 		return -1;
 	}
 
 	return 0;
-}
-
-/**
- * Release a pre-attributes label to the Label Chunk list.
- *
- * @param label		Label to be release
- */
-void isis_zebra_release_dynamic_label(mpls_label_t label)
-{
-	struct listnode *node;
-	struct label_chunk *label_chunk;
-	uint64_t pos;
-
-	for (ALL_LIST_ELEMENTS_RO(label_chunk_list, node, label_chunk)) {
-		if (!(label <= label_chunk->end && label >= label_chunk->start))
-			continue;
-
-		pos = 1ULL << (label - label_chunk->start);
-		label_chunk->used_mask &= ~pos;
-
-		/*
-		 * If nobody is using this chunk and it's not
-		 * current_label_chunk, then free it.
-		 */
-		if (!label_chunk->used_mask && (current_label_chunk != node)) {
-			if (isis_zebra_release_label_chunk(label_chunk->start,
-							   label_chunk->end)
-			    != 0)
-				zlog_warn("%s: error releasing label chunk!",
-					  __func__);
-			else {
-				listnode_delete(label_chunk_list, label_chunk);
-				isis_zebra_del_label_chunk(label_chunk);
-			}
-		}
-		break;
-	}
 }
 
 /**
  * Connect to the Label Manager.
+ *
+ * @return	0 on success, -1 otherwise
  */
-static void isis_zebra_label_manager_connect(void)
+int isis_zebra_label_manager_connect(void)
 {
 	/* Connect to label manager. */
-	while (zclient_socket_connect(zclient_sync) < 0) {
-		zlog_warn("%s: re-attempt connecting synchronous zclient!",
+	if (zclient_socket_connect(zclient_sync) < 0) {
+		zlog_warn("%s: failed connecting synchronous zclient!",
 			  __func__);
-		sleep(1);
+		return -1;
 	}
 	/* make socket non-blocking */
 	set_nonblocking(zclient_sync->sock);
 
 	/* Send hello to notify zebra this is a synchronous client */
-	while (zclient_send_hello(zclient_sync) < 0) {
-		zlog_warn(
-			"%s: re-attempt sending hello for synchronous zclient!",
-			__func__);
-		sleep(1);
+	if (zclient_send_hello(zclient_sync) < 0) {
+		zlog_warn("%s: failed sending hello for synchronous zclient!",
+			  __func__);
+		close(zclient_sync->sock);
+		zclient_sync->sock = -1;
+		return -1;
 	}
 
 	/* Connect to label manager */
-	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
-		zlog_warn("%s: re-attempt connecting to label manager!", __func__);
-		sleep(1);
+	if (lm_label_manager_connect(zclient_sync, 0) != 0) {
+		zlog_warn("%s: failed connecting to label manager!", __func__);
+		if (zclient_sync->sock > 0) {
+			close(zclient_sync->sock);
+			zclient_sync->sock = -1;
+		}
+		return -1;
 	}
 
-	label_chunk_list = list_new();
-	label_chunk_list->del = isis_zebra_del_label_chunk;
-	while (isis_zebra_get_label_chunk() != 0) {
-		zlog_warn("%s: re-attempt getting first label chunk!", __func__);
-		sleep(1);
-	}
+	sr_debug("ISIS-Sr: Successfully connected to the Label Manager");
+
+	return 0;
 }
 
 static void isis_zebra_connected(struct zclient *zclient)
@@ -736,6 +598,8 @@ void isis_zebra_init(struct thread_master *master, int instance)
 
 void isis_zebra_stop(void)
 {
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	frr_fini();

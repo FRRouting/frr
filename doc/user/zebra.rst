@@ -663,7 +663,7 @@ kernel.
 .. clicmd:: ip protocol PROTOCOL route-map ROUTEMAP
 
    Apply a route-map filter to routes for the specified protocol. PROTOCOL can
-   be: 
+   be:
 
    - any,
    - babel,
@@ -1050,11 +1050,20 @@ Many routing protocols require a router-id to be configured. To have a
 consistent router-id across all daemons, the following commands are available
 to configure and display the router-id:
 
-.. index:: [no] router-id A.B.C.D [vrf NAME]
-.. clicmd:: [no] router-id A.B.C.D [vrf NAME]
+.. index:: [no] router-id A.B.C.D
+.. clicmd:: [no] router-id A.B.C.D
 
-   Configure the router-id of this router.
+   Allow entering of the router-id.  This command also works under the
+   vrf subnode, to allow router-id's per vrf. 
 
+.. index:: [no] router-id A.B.C.D vrf NAME
+.. clicmd:: [no] router-id A.B.C.D vrf NAME
+
+   Configure the router-id of this router from the configure NODE.
+   A show run of this command will display the router-id command
+   under the vrf sub node.  This command is deprecated and will
+   be removed at some point in time in the future.
+ 
 .. index:: show router-id [vrf NAME]
 .. clicmd:: show router-id [vrf NAME]
 

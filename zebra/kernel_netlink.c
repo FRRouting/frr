@@ -527,8 +527,8 @@ void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 	netlink_parse_rtattr(tb, max, RTA_DATA(rta), RTA_PAYLOAD(rta));
 }
 
-int addattr_l(struct nlmsghdr *n, unsigned int maxlen, int type,
-	      const void *data, unsigned int alen)
+bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
+		 const void *data, unsigned int alen)
 {
 	int len;
 	struct rtattr *rta;
@@ -536,7 +536,7 @@ int addattr_l(struct nlmsghdr *n, unsigned int maxlen, int type,
 	len = RTA_LENGTH(alen);
 
 	if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > maxlen)
-		return -1;
+		return false;
 
 	rta = (struct rtattr *)(((char *)n) + NLMSG_ALIGN(n->nlmsg_len));
 	rta->rta_type = type;
@@ -549,72 +549,56 @@ int addattr_l(struct nlmsghdr *n, unsigned int maxlen, int type,
 
 	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len);
 
-	return 0;
+	return true;
 }
 
-int rta_addattr_l(struct rtattr *rta, unsigned int maxlen, int type,
-		  const void *data, unsigned int alen)
+bool nl_attr_put16(struct nlmsghdr *n, unsigned int maxlen, int type,
+		   uint16_t data)
 {
-	unsigned int len;
-	struct rtattr *subrta;
-
-	len = RTA_LENGTH(alen);
-
-	if (RTA_ALIGN(rta->rta_len) + RTA_ALIGN(len) > maxlen)
-		return -1;
-
-	subrta = (struct rtattr *)(((char *)rta) + RTA_ALIGN(rta->rta_len));
-	subrta->rta_type = type;
-	subrta->rta_len = len;
-
-	if (data)
-		memcpy(RTA_DATA(subrta), data, alen);
-	else
-		assert(alen == 0);
-
-	rta->rta_len = NLMSG_ALIGN(rta->rta_len) + RTA_ALIGN(len);
-
-	return 0;
+	return nl_attr_put(n, maxlen, type, &data, sizeof(uint16_t));
 }
 
-int addattr16(struct nlmsghdr *n, unsigned int maxlen, int type, uint16_t data)
+bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
+		   uint32_t data)
 {
-	return addattr_l(n, maxlen, type, &data, sizeof(uint16_t));
+	return nl_attr_put(n, maxlen, type, &data, sizeof(uint32_t));
 }
 
-int addattr32(struct nlmsghdr *n, unsigned int maxlen, int type, int data)
-{
-	return addattr_l(n, maxlen, type, &data, sizeof(uint32_t));
-}
-
-struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type)
+struct rtattr *nl_attr_nest(struct nlmsghdr *n, unsigned int maxlen, int type)
 {
 	struct rtattr *nest = NLMSG_TAIL(n);
 
-	addattr_l(n, maxlen, type, NULL, 0);
+	if (!nl_attr_put(n, maxlen, type, NULL, 0))
+		return NULL;
+
 	nest->rta_type |= NLA_F_NESTED;
 	return nest;
 }
 
-int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest)
+int nl_attr_nest_end(struct nlmsghdr *n, struct rtattr *nest)
 {
 	nest->rta_len = (uint8_t *)NLMSG_TAIL(n) - (uint8_t *)nest;
 	return n->nlmsg_len;
 }
 
-struct rtattr *rta_nest(struct rtattr *rta, int maxlen, int type)
+struct rtnexthop *nl_attr_rtnh(struct nlmsghdr *n, unsigned int maxlen)
 {
-	struct rtattr *nest = RTA_TAIL(rta);
+	struct rtnexthop *rtnh = (struct rtnexthop *)NLMSG_TAIL(n);
 
-	rta_addattr_l(rta, maxlen, type, NULL, 0);
-	nest->rta_type |= NLA_F_NESTED;
-	return nest;
+	if (NLMSG_ALIGN(n->nlmsg_len) + RTNH_ALIGN(sizeof(struct rtnexthop))
+	    > maxlen)
+		return NULL;
+
+	memset(rtnh, 0, sizeof(struct rtnexthop));
+	n->nlmsg_len =
+		NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(sizeof(struct rtnexthop));
+
+	return rtnh;
 }
 
-int rta_nest_end(struct rtattr *rta, struct rtattr *nest)
+void nl_attr_rtnh_end(struct nlmsghdr *n, struct rtnexthop *rtnh)
 {
-	nest->rta_len = (uint8_t *)RTA_TAIL(rta) - (uint8_t *)nest;
-	return rta->rta_len;
+	rtnh->rtnh_len = (uint8_t *)NLMSG_TAIL(n) - (uint8_t *)rtnh;
 }
 
 const char *nl_msg_type_to_str(uint16_t msg_type)
@@ -714,6 +698,202 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
 }
 
 /*
+ * netlink_send_msg - send a netlink message of a certain size.
+ *
+ * Returns -1 on error. Otherwise, it returns the number of bytes sent.
+ */
+static ssize_t netlink_send_msg(const struct nlsock *nl, void *buf,
+				size_t buflen)
+{
+	struct sockaddr_nl snl = {};
+	struct iovec iov = {};
+	struct msghdr msg = {};
+	ssize_t status;
+	int save_errno = 0;
+
+	iov.iov_base = buf;
+	iov.iov_len = buflen;
+	msg.msg_name = &snl;
+	msg.msg_namelen = sizeof(snl);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+
+	snl.nl_family = AF_NETLINK;
+
+	/* Send message to netlink interface. */
+	frr_with_privs(&zserv_privs) {
+		status = sendmsg(nl->sock, &msg, 0);
+		save_errno = errno;
+	}
+
+	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
+		zlog_debug("%s: >> netlink message dump [sent]", __func__);
+		zlog_hexdump(buf, buflen);
+	}
+
+	if (status == -1) {
+		flog_err_sys(EC_LIB_SOCKET, "%s error: %s", __func__,
+			     safe_strerror(save_errno));
+		return -1;
+	}
+
+	return status;
+}
+
+/*
+ * netlink_recv_msg - receive a netlink message.
+ *
+ * Returns -1 on error, 0 if read would block or the number of bytes received.
+ */
+static int netlink_recv_msg(const struct nlsock *nl, struct msghdr msg,
+			    void *buf, size_t buflen)
+{
+	struct iovec iov;
+	int status;
+
+	iov.iov_base = buf;
+	iov.iov_len = buflen;
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+
+	do {
+#if defined(HANDLE_NETLINK_FUZZING)
+		/* Check if reading and filename is set */
+		if (netlink_read && '\0' != netlink_fuzz_file[0]) {
+			zlog_debug("Reading netlink fuzz file");
+			status = netlink_read_file(buf, netlink_fuzz_file);
+			((struct sockaddr_nl *)msg.msg_name)->nl_pid = 0;
+		} else {
+			status = recvmsg(nl->sock, &msg, 0);
+		}
+#else
+		status = recvmsg(nl->sock, &msg, 0);
+#endif /* HANDLE_NETLINK_FUZZING */
+	} while (status == -1 && errno == EINTR);
+
+	if (status == -1) {
+		if (errno == EWOULDBLOCK || errno == EAGAIN)
+			return 0;
+		flog_err(EC_ZEBRA_RECVMSG_OVERRUN, "%s recvmsg overrun: %s",
+			 nl->name, safe_strerror(errno));
+		/*
+		 * In this case we are screwed. There is no good way to recover
+		 * zebra at this point.
+		 */
+		exit(-1);
+	}
+
+	if (status == 0) {
+		flog_err_sys(EC_LIB_SOCKET, "%s EOF", nl->name);
+		return -1;
+	}
+
+	if (msg.msg_namelen != sizeof(struct sockaddr_nl)) {
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s sender address length error: length %d", nl->name,
+			 msg.msg_namelen);
+		return -1;
+	}
+
+	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
+		zlog_debug("%s: << netlink message dump [recv]", __func__);
+		zlog_hexdump(buf, status);
+	}
+
+#if defined(HANDLE_NETLINK_FUZZING)
+	if (!netlink_read) {
+		zlog_debug("Writing incoming netlink message");
+		netlink_write_incoming(buf, status, netlink_file_counter++);
+	}
+#endif /* HANDLE_NETLINK_FUZZING */
+
+	return status;
+}
+
+/*
+ * netlink_parse_error - parse a netlink error message
+ *
+ * Returns 1 if this message is acknowledgement, 0 if this error should be
+ * ignored, -1 otherwise.
+ */
+static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
+			       const struct zebra_dplane_info *zns,
+			       bool startup)
+{
+	struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(h);
+	int errnum = err->error;
+	int msg_type = err->msg.nlmsg_type;
+
+	if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s error: message truncated", nl->name);
+		return -1;
+	}
+
+	/*
+	 * Parse the extended information before we actually handle it. At this
+	 * point in time we do not do anything other than report the issue.
+	 */
+	if (h->nlmsg_flags & NLM_F_ACK_TLVS)
+		netlink_parse_extended_ack(h);
+
+	/* If the error field is zero, then this is an ACK. */
+	if (err->error == 0) {
+		if (IS_ZEBRA_DEBUG_KERNEL) {
+			zlog_debug("%s: %s ACK: type=%s(%u), seq=%u, pid=%u",
+				   __func__, nl->name,
+				   nl_msg_type_to_str(err->msg.nlmsg_type),
+				   err->msg.nlmsg_type, err->msg.nlmsg_seq,
+				   err->msg.nlmsg_pid);
+		}
+
+		return 1;
+	}
+
+	/* Deal with errors that occur because of races in link handling. */
+	if (zns->is_cmd
+	    && ((msg_type == RTM_DELROUTE
+		 && (-errnum == ENODEV || -errnum == ESRCH))
+		|| (msg_type == RTM_NEWROUTE
+		    && (-errnum == ENETDOWN || -errnum == EEXIST)))) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: error: %s type=%s(%u), seq=%u, pid=%u",
+				   nl->name, safe_strerror(-errnum),
+				   nl_msg_type_to_str(msg_type), msg_type,
+				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
+		return 0;
+	}
+
+	/*
+	 * We see RTM_DELNEIGH when shutting down an interface with an IPv4
+	 * link-local.  The kernel should have already deleted the neighbor so
+	 * do not log these as an error.
+	 */
+	if (msg_type == RTM_DELNEIGH
+	    || (zns->is_cmd && msg_type == RTM_NEWROUTE
+		&& (-errnum == ESRCH || -errnum == ENETUNREACH))) {
+		/*
+		 * This is known to happen in some situations, don't log as
+		 * error.
+		 */
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s error: %s, type=%s(%u), seq=%u, pid=%u",
+				   nl->name, safe_strerror(-errnum),
+				   nl_msg_type_to_str(msg_type), msg_type,
+				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
+	} else {
+		if ((msg_type != RTM_GETNEXTHOP) || !startup)
+			flog_err(EC_ZEBRA_UNEXPECTED_MESSAGE,
+				 "%s error: %s, type=%s(%u), seq=%u, pid=%u",
+				 nl->name, safe_strerror(-errnum),
+				 nl_msg_type_to_str(msg_type), msg_type,
+				 err->msg.nlmsg_seq, err->msg.nlmsg_pid);
+	}
+
+	return -1;
+}
+
+/*
  * netlink_parse_info
  *
  * Receive message from netlink interface and pass those information
@@ -738,71 +918,19 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 
 	while (1) {
 		char buf[NL_RCV_PKT_BUF_SIZE];
-		struct iovec iov = {.iov_base = buf, .iov_len = sizeof(buf)};
 		struct sockaddr_nl snl;
 		struct msghdr msg = {.msg_name = (void *)&snl,
-				     .msg_namelen = sizeof(snl),
-				     .msg_iov = &iov,
-				     .msg_iovlen = 1};
+				     .msg_namelen = sizeof(snl)};
 		struct nlmsghdr *h;
 
 		if (count && read_in >= count)
 			return 0;
 
-#if defined(HANDLE_NETLINK_FUZZING)
-		/* Check if reading and filename is set */
-		if (netlink_read && '\0' != netlink_fuzz_file[0]) {
-			zlog_debug("Reading netlink fuzz file");
-			status = netlink_read_file(buf, netlink_fuzz_file);
-			snl.nl_pid = 0;
-		} else {
-			status = recvmsg(nl->sock, &msg, 0);
-		}
-#else
-		status = recvmsg(nl->sock, &msg, 0);
-#endif /* HANDLE_NETLINK_FUZZING */
-		if (status < 0) {
-			if (errno == EINTR)
-				continue;
-			if (errno == EWOULDBLOCK || errno == EAGAIN)
-				break;
-			flog_err(EC_ZEBRA_RECVMSG_OVERRUN,
-				 "%s recvmsg overrun: %s", nl->name,
-				 safe_strerror(errno));
-			/*
-			 *  In this case we are screwed.
-			 *  There is no good way to
-			 *  recover zebra at this point.
-			 */
-			exit(-1);
-			continue;
-		}
-
-		if (status == 0) {
-			flog_err_sys(EC_LIB_SOCKET, "%s EOF", nl->name);
+		status = netlink_recv_msg(nl, msg, buf, sizeof(buf));
+		if (status == -1)
 			return -1;
-		}
-
-		if (msg.msg_namelen != sizeof(snl)) {
-			flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
-				 "%s sender address length error: length %d",
-				 nl->name, msg.msg_namelen);
-			return -1;
-		}
-
-		if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
-			zlog_debug("%s: << netlink message dump [recv]",
-				   __func__);
-			zlog_hexdump(buf, status);
-		}
-
-#if defined(HANDLE_NETLINK_FUZZING)
-		if (!netlink_read) {
-			zlog_debug("Writing incoming netlink message");
-			netlink_write_incoming(buf, status,
-					       netlink_file_counter++);
-		}
-#endif /* HANDLE_NETLINK_FUZZING */
+		else if (status == 0)
+			break;
 
 		read_in++;
 		for (h = (struct nlmsghdr *)buf;
@@ -814,112 +942,14 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 
 			/* Error handling. */
 			if (h->nlmsg_type == NLMSG_ERROR) {
-				struct nlmsgerr *err =
-					(struct nlmsgerr *)NLMSG_DATA(h);
-				int errnum = err->error;
-				int msg_type = err->msg.nlmsg_type;
-
-				if (h->nlmsg_len
-				    < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
-					flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
-						 "%s error: message truncated",
-						 nl->name);
-					return -1;
-				}
-
-				/*
-				 * Parse the extended information before
-				 * we actually handle it.
-				 * At this point in time we do not
-				 * do anything other than report the
-				 * issue.
-				 */
-				if (h->nlmsg_flags & NLM_F_ACK_TLVS)
-					netlink_parse_extended_ack(h);
-
-				/* If the error field is zero, then this is an
-				 * ACK */
-				if (err->error == 0) {
-					if (IS_ZEBRA_DEBUG_KERNEL) {
-						zlog_debug(
-							"%s: %s ACK: type=%s(%u), seq=%u, pid=%u",
-							__func__, nl->name,
-							nl_msg_type_to_str(
-								err->msg.nlmsg_type),
-							err->msg.nlmsg_type,
-							err->msg.nlmsg_seq,
-							err->msg.nlmsg_pid);
-					}
-
-					/* return if not a multipart message,
-					 * otherwise continue */
+				int err = netlink_parse_error(nl, h, zns,
+							      startup);
+				if (err == 1) {
 					if (!(h->nlmsg_flags & NLM_F_MULTI))
 						return 0;
 					continue;
-				}
-
-				/* Deal with errors that occur because of races
-				 * in link handling */
-				if (zns->is_cmd
-				    && ((msg_type == RTM_DELROUTE
-					 && (-errnum == ENODEV
-					     || -errnum == ESRCH))
-					|| (msg_type == RTM_NEWROUTE
-					    && (-errnum == ENETDOWN
-						|| -errnum == EEXIST)))) {
-					if (IS_ZEBRA_DEBUG_KERNEL)
-						zlog_debug(
-							"%s: error: %s type=%s(%u), seq=%u, pid=%u",
-							nl->name,
-							safe_strerror(-errnum),
-							nl_msg_type_to_str(
-								msg_type),
-							msg_type,
-							err->msg.nlmsg_seq,
-							err->msg.nlmsg_pid);
-					return 0;
-				}
-
-				/* We see RTM_DELNEIGH when shutting down an
-				 * interface with an IPv4
-				 * link-local.  The kernel should have already
-				 * deleted the neighbor
-				 * so do not log these as an error.
-				 */
-				if (msg_type == RTM_DELNEIGH
-				    || (zns->is_cmd && msg_type == RTM_NEWROUTE
-					&& (-errnum == ESRCH
-					    || -errnum == ENETUNREACH))) {
-					/* This is known to happen in some
-					 * situations, don't log
-					 * as error.
-					 */
-					if (IS_ZEBRA_DEBUG_KERNEL)
-						zlog_debug(
-							"%s error: %s, type=%s(%u), seq=%u, pid=%u",
-							nl->name,
-							safe_strerror(-errnum),
-							nl_msg_type_to_str(
-								msg_type),
-							msg_type,
-							err->msg.nlmsg_seq,
-							err->msg.nlmsg_pid);
-				} else {
-					if ((msg_type != RTM_GETNEXTHOP)
-					    || !startup)
-						flog_err(
-							EC_ZEBRA_UNEXPECTED_MESSAGE,
-							"%s error: %s, type=%s(%u), seq=%u, pid=%u",
-							nl->name,
-							safe_strerror(-errnum),
-							nl_msg_type_to_str(
-								msg_type),
-							msg_type,
-							err->msg.nlmsg_seq,
-							err->msg.nlmsg_pid);
-				}
-
-				return -1;
+				} else
+					return err;
 			}
 
 			/* OK we got netlink message. */
@@ -982,25 +1012,7 @@ int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		      struct nlmsghdr *n,
 		      const struct zebra_dplane_info *dp_info, int startup)
 {
-	int status = 0;
-	struct sockaddr_nl snl;
-	struct iovec iov;
-	struct msghdr msg;
-	int save_errno = 0;
 	const struct nlsock *nl;
-
-	memset(&snl, 0, sizeof(snl));
-	memset(&iov, 0, sizeof(iov));
-	memset(&msg, 0, sizeof(msg));
-
-	iov.iov_base = n;
-	iov.iov_len = n->nlmsg_len;
-	msg.msg_name = (void *)&snl;
-	msg.msg_namelen = sizeof(snl);
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
-
-	snl.nl_family = AF_NETLINK;
 
 	nl = &(dp_info->nls);
 	n->nlmsg_seq = nl->seq;
@@ -1013,22 +1025,8 @@ int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 			n->nlmsg_type, n->nlmsg_len, n->nlmsg_seq,
 			n->nlmsg_flags);
 
-	/* Send message to netlink interface. */
-	frr_with_privs(&zserv_privs) {
-		status = sendmsg(nl->sock, &msg, 0);
-		save_errno = errno;
-	}
-
-	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
-		zlog_debug("%s: >> netlink message dump [sent]", __func__);
-		zlog_hexdump(n, n->nlmsg_len);
-	}
-
-	if (status < 0) {
-		flog_err_sys(EC_LIB_SOCKET, "netlink_talk sendmsg() error: %s",
-			     safe_strerror(save_errno));
+	if (netlink_send_msg(nl, n, n->nlmsg_len) == -1)
 		return -1;
-	}
 
 	/*
 	 * Get reply from netlink socket.
@@ -1063,8 +1061,6 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
  */
 int netlink_request(struct nlsock *nl, void *req)
 {
-	int ret;
-	struct sockaddr_nl snl;
 	struct nlmsghdr *n = (struct nlmsghdr *)req;
 
 	/* Check netlink socket. */
@@ -1078,20 +1074,8 @@ int netlink_request(struct nlsock *nl, void *req)
 	n->nlmsg_pid = nl->snl.nl_pid;
 	n->nlmsg_seq = ++nl->seq;
 
-	memset(&snl, 0, sizeof(snl));
-	snl.nl_family = AF_NETLINK;
-
-	/* Raise capabilities and send message, then lower capabilities. */
-	frr_with_privs(&zserv_privs) {
-		ret = sendto(nl->sock, req, n->nlmsg_len, 0,
-			     (struct sockaddr *)&snl, sizeof(snl));
-	}
-
-	if (ret < 0) {
-		zlog_err("%s sendto failed: %s", nl->name,
-			 safe_strerror(errno));
+	if (netlink_send_msg(nl, req, n->nlmsg_len) == -1)
 		return -1;
-	}
 
 	return 0;
 }

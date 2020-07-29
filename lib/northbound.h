@@ -91,6 +91,9 @@ union nb_resource {
  */
 
 struct nb_cb_create_args {
+	/* Context of the configuration transaction. */
+	struct nb_context *context;
+
 	/*
 	 * The transaction phase. Refer to the documentation comments of
 	 * nb_event for more details.
@@ -107,9 +110,18 @@ struct nb_cb_create_args {
 	 * resource(s). It's set to NULL when the event is NB_EV_VALIDATE.
 	 */
 	union nb_resource *resource;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_modify_args {
+	/* Context of the configuration transaction. */
+	struct nb_context *context;
+
 	/*
 	 * The transaction phase. Refer to the documentation comments of
 	 * nb_event for more details.
@@ -126,9 +138,18 @@ struct nb_cb_modify_args {
 	 * resource(s). It's set to NULL when the event is NB_EV_VALIDATE.
 	 */
 	union nb_resource *resource;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_destroy_args {
+	/* Context of the configuration transaction. */
+	struct nb_context *context;
+
 	/*
 	 * The transaction phase. Refer to the documentation comments of
 	 * nb_event for more details.
@@ -137,9 +158,18 @@ struct nb_cb_destroy_args {
 
 	/* libyang data node that is being deleted. */
 	const struct lyd_node *dnode;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_move_args {
+	/* Context of the configuration transaction. */
+	struct nb_context *context;
+
 	/*
 	 * The transaction phase. Refer to the documentation comments of
 	 * nb_event for more details.
@@ -148,16 +178,40 @@ struct nb_cb_move_args {
 
 	/* libyang data node that is being moved. */
 	const struct lyd_node *dnode;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_pre_validate_args {
+	/* Context of the configuration transaction. */
+	struct nb_context *context;
+
 	/* libyang data node associated with the 'pre_validate' callback. */
 	const struct lyd_node *dnode;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_apply_finish_args {
+	/* Context of the configuration transaction. */
+	struct nb_context *context;
+
 	/* libyang data node associated with the 'apply_finish' callback. */
 	const struct lyd_node *dnode;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 struct nb_cb_get_elem_args {
@@ -305,6 +359,10 @@ struct nb_callbacks {
 	 * args
 	 *    Refer to the documentation comments of nb_cb_pre_validate_args for
 	 *    details.
+	 *
+	 * Returns:
+	 *    - NB_OK on success.
+	 *    - NB_ERR_VALIDATION when a validation error occurred.
 	 */
 	int (*pre_validate)(struct nb_cb_pre_validate_args *args);
 
@@ -538,6 +596,29 @@ enum nb_client {
 	NB_CLIENT_GRPC,
 };
 
+/* Northbound context. */
+struct nb_context {
+	/* Northbound client. */
+	enum nb_client client;
+
+	/* Northbound user (can be NULL). */
+	const void *user;
+
+	/* Client-specific data. */
+#if 0
+	union {
+		struct {
+		} cli;
+		struct {
+		} confd;
+		struct {
+		} sysrepo;
+		struct {
+		} grpc;
+	} client_data;
+#endif
+};
+
 /* Northbound configuration. */
 struct nb_config {
 	struct lyd_node *dnode;
@@ -564,7 +645,7 @@ struct nb_config_change {
 
 /* Northbound configuration transaction. */
 struct nb_transaction {
-	enum nb_client client;
+	struct nb_context *context;
 	char comment[80];
 	struct nb_config *config;
 	struct nb_config_cbs changes;
@@ -762,27 +843,35 @@ extern int nb_candidate_update(struct nb_config *candidate);
  * WARNING: the candidate can be modified as part of the validation process
  * (e.g. add default nodes).
  *
+ * context
+ *    Context of the northbound transaction.
+ *
  * candidate
  *    Candidate configuration to validate.
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
  *
  * Returns:
  *    NB_OK on success, NB_ERR_VALIDATION otherwise.
  */
-extern int nb_candidate_validate(struct nb_config *candidate);
+extern int nb_candidate_validate(struct nb_context *context,
+				 struct nb_config *candidate, char *errmsg,
+				 size_t errmsg_len);
 
 /*
  * Create a new configuration transaction but do not commit it yet. Only
  * validate the candidate and prepare all resources required to apply the
  * configuration changes.
  *
+ * context
+ *    Context of the northbound transaction.
+ *
  * candidate
  *    Candidate configuration to commit.
- *
- * client
- *    Northbound client performing the commit.
- *
- * user
- *    Northbound user performing the commit (can be NULL).
  *
  * comment
  *    Optional comment describing the commit.
@@ -792,6 +881,12 @@ extern int nb_candidate_validate(struct nb_config *candidate);
  *    successfully. In this case, it must be either aborted using
  *    nb_candidate_commit_abort() or committed using
  *    nb_candidate_commit_apply().
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
  *
  * Returns:
  *    - NB_OK on success.
@@ -803,10 +898,11 @@ extern int nb_candidate_validate(struct nb_config *candidate);
  *      the candidate configuration.
  *    - NB_ERR for other errors.
  */
-extern int nb_candidate_commit_prepare(struct nb_config *candidate,
-				       enum nb_client client, const void *user,
+extern int nb_candidate_commit_prepare(struct nb_context *context,
+				       struct nb_config *candidate,
 				       const char *comment,
-				       struct nb_transaction **transaction);
+				       struct nb_transaction **transaction,
+				       char *errmsg, size_t errmsg_len);
 
 /*
  * Abort a previously created configuration transaction, releasing all resources
@@ -842,15 +938,12 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
  * take into account the results of the preparation phase of multiple managed
  * entities.
  *
+ * context
+ *    Context of the northbound transaction.
+ *
  * candidate
  *    Candidate configuration to commit. It's preserved regardless if the commit
  *    operation fails or not.
- *
- * client
- *    Northbound client performing the commit.
- *
- * user
- *    Northbound user performing the commit (can be NULL).
  *
  * save_transaction
  *    Specify whether the transaction should be recorded in the transactions log
@@ -862,6 +955,12 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
  * transaction_id
  *    Optional output parameter providing the ID of the committed transaction.
  *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
  * Returns:
  *    - NB_OK on success.
  *    - NB_ERR_NO_CHANGES when the candidate is identical to the running
@@ -872,10 +971,11 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
  *      the candidate configuration.
  *    - NB_ERR for other errors.
  */
-extern int nb_candidate_commit(struct nb_config *candidate,
-			       enum nb_client client, const void *user,
+extern int nb_candidate_commit(struct nb_context *context,
+			       struct nb_config *candidate,
 			       bool save_transaction, const char *comment,
-			       uint32_t *transaction_id);
+			       uint32_t *transaction_id, char *errmsg,
+			       size_t errmsg_len);
 
 /*
  * Lock the running configuration.
@@ -993,6 +1093,23 @@ extern int nb_notification_send(const char *xpath, struct list *arguments);
 extern void nb_running_set_entry(const struct lyd_node *dnode, void *entry);
 
 /*
+ * Move an entire tree of user pointer nodes.
+ *
+ * Suppose we have xpath A/B/C/D, with user pointers associated to C and D. We
+ * need to move B to be under Z, so the new xpath is Z/B/C/D. Because user
+ * pointers are indexed with their absolute path, We need to move all user
+ * pointers at and below B to their new absolute paths; this function does
+ * that.
+ *
+ * xpath_from
+ *    base xpath of tree to move (A/B)
+ *
+ * xpath_to
+ *    base xpath of new location of tree (Z/B)
+ */
+extern void nb_running_move_tree(const char *xpath_from, const char *xpath_to);
+
+/*
  * Unset the user pointer associated to a configuration node.
  *
  * This should be called by northbound 'destroy' callbacks in the NB_EV_APPLY
@@ -1044,8 +1161,8 @@ extern void *nb_running_unset_entry(const struct lyd_node *dnode);
  * Returns:
  *    User pointer if found, NULL otherwise.
  */
-extern void *nb_running_get_entry(const struct lyd_node *dnode, const char *xpath,
-				  bool abort_if_not_found);
+extern void *nb_running_get_entry(const struct lyd_node *dnode,
+				  const char *xpath, bool abort_if_not_found);
 
 /*
  * Return a human-readable string representing a northbound event.

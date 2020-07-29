@@ -77,35 +77,6 @@ module frr-zebra {
       "Initial revision.";
   }
 
-  identity afi-safi-type {
-    description
-      "Base identity type (AFI,SAFI) tuples for RIB";
-  }
-
-  identity ipv4-unicast {
-    base afi-safi-type;
-    description
-      "This identity represents the IPv4 unicast address family.";
-  }
-
-  identity ipv6-unicast {
-    base afi-safi-type;
-    description
-      "This identity represents the IPv6 unicast address family.";
-  }
-
-  identity ipv4-multicast {
-    base afi-safi-type;
-    description
-      "This identity represents the IPv4 multicast address family.";
-  }
-
-  identity ipv6-multicast {
-    base afi-safi-type;
-    description
-      "This identity represents the IPv6 multicast address family.";
-  }
-
   typedef unix-timestamp {
     type uint32;
     units "seconds";
@@ -316,7 +287,7 @@ module frr-zebra {
         "Uptime for the route.";
     }
 
-    uses frr-nh:frr-nexthop-grouping;
+    uses frr-nh:frr-nexthop-group-operational;
   }
 
   // End of route-common
@@ -634,7 +605,7 @@ module frr-zebra {
         key "afi-safi-name table-id";
         leaf afi-safi-name {
           type identityref {
-            base afi-safi-type;
+            base frr-rt:afi-safi-type;
           }
           description
             "AFI, SAFI name.";
@@ -674,6 +645,23 @@ module frr-zebra {
           }
         }
       }
+    }
+  }
+
+  grouping vrf-vni-mapping {
+    description
+      "EVPN L3-VNI mapping corresponding to a VRF.";
+    leaf l3vni-id {
+      type vni-id-type;
+      description
+        "EVPN L3-VNI id to map to the VRF.";
+    }
+
+    leaf prefix-only {
+      type boolean;
+      default "false";
+      description
+        "EVPN asymmetric mode advertise prefix routes only.";
     }
   }
 
@@ -2070,11 +2058,15 @@ module frr-zebra {
     description
       "Extends VRF model with Zebra-related parameters.";
     container zebra {
+      description
+        "Zebra's vrf specific configuration and operational model.";
       uses ribs;
+
+      uses vrf-vni-mapping;
     }
   }
 
-  augment "/frr-vrf:lib/frr-vrf:vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop" {
+  augment "/frr-vrf:lib/frr-vrf:vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop" {
     uses frr-nh:frr-nexthop-operational;
   }
 
@@ -2172,26 +2164,6 @@ module frr-zebra {
       default "200";
       description
         "Limit on the number of updates queued to the dataplane subsystem.";
-    }
-    list vrf-vni-mapping {
-      key "vrf-id";
-      description
-        "EVPN VNI mapping corresponding to a VRF.";
-      leaf vrf-id {
-        type uint32;
-        description
-          "The identifier for a VRF.";
-      }
-      leaf vni-id {
-        type vni-id-type;
-        description
-          "The VNI id to map to the VRF.";
-      }
-      leaf prefix-only {
-        type empty;
-        description
-          "Prefix routes only.";
-      }
     }
     /*
      * Debug options

@@ -10,6 +10,10 @@ for k in list(os.environ.keys()):
     if k.startswith('LC_'):
         os.environ.pop(k)
 
+if len(sys.argv) < 2:
+    sys.stderr.write('start as format-test.py gcc-123.45 [-options ...]\n')
+    sys.exit(1)
+
 c_re = re.compile(r'//\s+(NO)?WARN')
 expect = {}
 lines = {}
@@ -25,9 +29,9 @@ with open('format-test.c', 'r') as fd:
         else:
             expect[lno] = 'nowarn'
 
-cmd = shlex.split('gcc -Wall -Wextra -Wno-unused -fplugin=./frr-format.so -fno-diagnostics-show-caret -c -o format-test.o format-test.c')
+cmd = shlex.split('-Wall -Wextra -Wno-unused -fplugin=./frr-format.so -fno-diagnostics-show-caret -c -o format-test.o format-test.c')
 
-gcc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+gcc = subprocess.Popen(sys.argv[1:] + cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 sout, serr = gcc.communicate()
 gcc.wait()
 

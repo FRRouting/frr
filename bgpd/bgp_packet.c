@@ -408,6 +408,9 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 	if (peer->bgp->main_peers_update_hold)
 		return 0;
 
+	if (peer->t_routeadv)
+		return 0;
+
 	do {
 		s = NULL;
 		FOREACH_AFI_SAFI (afi, safi) {
@@ -1110,8 +1113,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	/* Receive OPEN message log  */
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug(
-			"%s rcv OPEN, version %d, remote-as (in open) %u,"
-			" holdtime %d, id %s",
+			"%s rcv OPEN, version %d, remote-as (in open) %u, holdtime %d, id %s",
 			peer->host, version, remote_as, holdtime,
 			inet_ntoa(remote_id));
 
@@ -1177,13 +1179,11 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 
 		if (!as4 && BGP_DEBUG(as4, AS4))
 			zlog_debug(
-				"%s [AS4] OPEN remote_as is AS_TRANS, but no AS4."
-				" Odd, but proceeding.",
+				"%s [AS4] OPEN remote_as is AS_TRANS, but no AS4. Odd, but proceeding.",
 				peer->host);
 		else if (as4 < BGP_AS_MAX && BGP_DEBUG(as4, AS4))
 			zlog_debug(
-				"%s [AS4] OPEN remote_as is AS_TRANS, but AS4 (%u) fits "
-				"in 2-bytes, very odd peer.",
+				"%s [AS4] OPEN remote_as is AS_TRANS, but AS4 (%u) fits in 2-bytes, very odd peer.",
 				peer->host, as4);
 		if (as4)
 			remote_as = as4;
@@ -1197,8 +1197,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 			/* raise error, log this, close session */
 			flog_err(
 				EC_BGP_PKT_OPEN,
-				"%s bad OPEN, got AS4 capability, but remote_as %u"
-				" mismatch with 16bit 'myasn' %u in open",
+				"%s bad OPEN, got AS4 capability, but remote_as %u mismatch with 16bit 'myasn' %u in open",
 				peer->host, as4, remote_as);
 			bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
 						  BGP_NOTIFY_OPEN_BAD_PEER_AS,
@@ -1493,8 +1492,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	   Subcode is set to Malformed Attribute List.  */
 	if (stream_pnt(s) + 2 > end) {
 		flog_err(EC_BGP_UPDATE_RCV,
-			 "%s [Error] Update packet error"
-			 " (packet length is short for unfeasible length)",
+			 "%s [Error] Update packet error (packet length is short for unfeasible length)",
 			 peer->host);
 		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 				BGP_NOTIFY_UPDATE_MAL_ATTR);
@@ -1507,8 +1505,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	/* Unfeasible Route Length check. */
 	if (stream_pnt(s) + withdraw_len > end) {
 		flog_err(EC_BGP_UPDATE_RCV,
-			 "%s [Error] Update packet error"
-			 " (packet unfeasible length overflow %d)",
+			 "%s [Error] Update packet error (packet unfeasible length overflow %d)",
 			 peer->host, withdraw_len);
 		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 				BGP_NOTIFY_UPDATE_MAL_ATTR);
@@ -2063,8 +2060,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 
 					if (!ok || (ok && ret != CMD_SUCCESS)) {
 						zlog_info(
-							"%s Received misformatted prefixlist ORF."
-							" Remove All pfxlist",
+							"%s Received misformatted prefixlist ORF. Remove All pfxlist",
 							peer->host);
 						prefix_bgp_orf_remove_all(afi,
 									  name);
@@ -2194,8 +2190,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 						      &safi)) {
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
-						"%s Dynamic Capability MP_EXT afi/safi invalid "
-						"(%s/%s)",
+						"%s Dynamic Capability MP_EXT afi/safi invalid (%s/%s)",
 						peer->host,
 						iana_afi2str(pkt_afi),
 						iana_safi2str(pkt_safi));

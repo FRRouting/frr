@@ -122,7 +122,7 @@ static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
 	if (old_status == new_status)
 		return;
 
-	if (isis->debugs & DEBUG_BFD) {
+	if (IS_DEBUG_BFD) {
 		char dst_str[INET6_ADDRSTRLEN];
 
 		inet_ntop(adj->bfd_session->family, &adj->bfd_session->dst_ip,
@@ -138,6 +138,8 @@ static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
 		return;
 	}
 
+	adj->circuit->area->bfd_signalled_down = true;
+
 	isis_adj_state_change(&adj, ISIS_ADJ_DOWN, "bfd session went down");
 }
 
@@ -152,7 +154,7 @@ static int isis_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 	if (!ifp || (dst_ip.family != AF_INET && dst_ip.family != AF_INET6))
 		return 0;
 
-	if (isis->debugs & DEBUG_BFD) {
+	if (IS_DEBUG_BFD) {
 		char dst_buf[INET6_ADDRSTRLEN];
 
 		inet_ntop(dst_ip.family, &dst_ip.u.prefix, dst_buf,
@@ -194,7 +196,7 @@ static int isis_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 	struct listnode *anode;
 	struct isis_area *area;
 
-	if (isis->debugs & DEBUG_BFD)
+	if (IS_DEBUG_BFD)
 		zlog_debug("ISIS-BFD: Got neighbor replay request, resending neighbors.");
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
@@ -205,7 +207,7 @@ static int isis_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 			isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_UPDATE);
 	}
 
-	if (isis->debugs & DEBUG_BFD)
+	if (IS_DEBUG_BFD)
 		zlog_debug("ISIS-BFD: Done with replay.");
 
 	return 0;
@@ -223,7 +225,7 @@ static void isis_bfd_zebra_connected(struct zclient *zclient)
 static void bfd_debug(int family, union g_addr *dst, union g_addr *src,
 		      const char *interface, int command)
 {
-	if (!(isis->debugs & DEBUG_BFD))
+	if (!(IS_DEBUG_BFD))
 		return;
 
 	char dst_str[INET6_ADDRSTRLEN];
@@ -253,6 +255,43 @@ static void bfd_debug(int family, union g_addr *dst, union g_addr *src,
 		   command_str, dst_str, interface, src_str);
 }
 
+static void bfd_command(int command, struct bfd_info *bfd_info, int family,
+			const void *dst_ip, const void *src_ip,
+			const char *if_name)
+{
+	struct bfd_session_arg args = {};
+	size_t addrlen;
+
+	args.cbit = 1;
+	args.family = family;
+	args.vrf_id = VRF_DEFAULT;
+	args.command = command;
+	args.bfd_info = bfd_info;
+	if (args.bfd_info) {
+		args.min_rx = bfd_info->required_min_rx;
+		args.min_tx = bfd_info->desired_min_tx;
+		args.detection_multiplier = bfd_info->detect_mult;
+		if (bfd_info->profile[0]) {
+			args.profilelen = strlen(bfd_info->profile);
+			strlcpy(args.profile, bfd_info->profile,
+				sizeof(args.profile));
+		}
+	}
+
+	addrlen = family == AF_INET ? sizeof(struct in_addr)
+				    : sizeof(struct in6_addr);
+	memcpy(&args.dst, dst_ip, addrlen);
+	if (src_ip)
+		memcpy(&args.src, src_ip, addrlen);
+
+	if (if_name) {
+		strlcpy(args.ifname, if_name, sizeof(args.ifname));
+		args.ifnamelen = strlen(args.ifname);
+	}
+
+	zclient_bfd_command(zclient, &args);
+}
+
 static void bfd_handle_adj_down(struct isis_adjacency *adj)
 {
 	if (!adj->bfd_session)
@@ -262,16 +301,11 @@ static void bfd_handle_adj_down(struct isis_adjacency *adj)
 		  &adj->bfd_session->src_ip, adj->circuit->interface->name,
 		  ZEBRA_BFD_DEST_DEREGISTER);
 
-	bfd_peer_sendmsg(zclient, NULL, adj->bfd_session->family,
-			 &adj->bfd_session->dst_ip,
-			 &adj->bfd_session->src_ip,
-			 adj->circuit->interface->name,
-			 0, /* ttl */
-			 0, /* multihop */
-			 1, /* control plane independent bit is on */
-			 ZEBRA_BFD_DEST_DEREGISTER,
-			 0, /* set_flag */
-			 VRF_DEFAULT);
+	bfd_command(ZEBRA_BFD_DEST_DEREGISTER, NULL, adj->bfd_session->family,
+		    &adj->bfd_session->dst_ip, &adj->bfd_session->src_ip,
+		    (adj->circuit->interface) ? adj->circuit->interface->name
+					      : NULL);
+
 	bfd_session_free(&adj->bfd_session);
 }
 
@@ -321,16 +355,12 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 
 	bfd_debug(adj->bfd_session->family, &adj->bfd_session->dst_ip,
 		  &adj->bfd_session->src_ip, circuit->interface->name, command);
-	bfd_peer_sendmsg(zclient, circuit->bfd_info, adj->bfd_session->family,
-			 &adj->bfd_session->dst_ip,
-			 &adj->bfd_session->src_ip,
-			 circuit->interface->name,
-			 0, /* ttl */
-			 0, /* multihop */
-			 1, /* control plane independent bit is on */
-			 command,
-			 0, /* set flag */
-			 VRF_DEFAULT);
+
+	bfd_command(command, circuit->bfd_info, family,
+		    &adj->bfd_session->dst_ip, &adj->bfd_session->src_ip,
+		    (adj->circuit->interface) ? adj->circuit->interface->name
+					      : NULL);
+
 	return;
 out:
 	bfd_handle_adj_down(adj);
@@ -378,14 +408,14 @@ void isis_bfd_circuit_cmd(struct isis_circuit *circuit, int command)
 	}
 }
 
-void isis_bfd_circuit_param_set(struct isis_circuit *circuit,
-				uint32_t min_rx, uint32_t min_tx,
-				uint32_t detect_mult, int defaults)
+void isis_bfd_circuit_param_set(struct isis_circuit *circuit, uint32_t min_rx,
+				uint32_t min_tx, uint32_t detect_mult,
+				const char *profile, int defaults)
 {
 	int command = 0;
 
-	bfd_set_param(&circuit->bfd_info, min_rx,
-		      min_tx, detect_mult, defaults, &command);
+	bfd_set_param(&circuit->bfd_info, min_rx, min_tx, detect_mult, profile,
+		      defaults, &command);
 
 	if (command)
 		isis_bfd_circuit_cmd(circuit, command);

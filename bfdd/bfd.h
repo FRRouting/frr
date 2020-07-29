@@ -429,6 +429,12 @@ struct bfd_global {
 
 	struct zebra_privs_t bfdd_privs;
 
+	/**
+	 * Daemon is exit()ing? Use this to avoid actions that expect a
+	 * running system or to avoid unnecessary operations when quitting.
+	 */
+	bool bg_shutdown;
+
 	/* Debug options. */
 	/* Show all peer state changes events. */
 	bool debug_peer_event;

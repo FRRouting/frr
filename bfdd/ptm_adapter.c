@@ -85,6 +85,7 @@ static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 {
 	char timers[3][128] = {};
 	char addr[3][128] = {};
+	char profile[128] = {};
 	char cbit_str[32];
 	char msgbuf[256];
 	va_list vl;
@@ -119,13 +120,45 @@ static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 
 	snprintf(cbit_str, sizeof(cbit_str), " cbit:0x%02x", bpc->bpc_cbit);
 
+	if (bpc->bpc_has_profile)
+		snprintf(profile, sizeof(profile), " profile:%s",
+			 bpc->bpc_profile);
+
 	va_start(vl, fmt);
 	vsnprintf(msgbuf, sizeof(msgbuf), fmt, vl);
 	va_end(vl);
 
-	zlog_debug("%s [mhop:%s %s%s%s%s%s%s%s]", msgbuf,
+	zlog_debug("%s [mhop:%s %s%s%s%s%s%s%s%s]", msgbuf,
 		   bpc->bpc_mhop ? "yes" : "no", addr[0], addr[1], addr[2],
-		   timers[0], timers[1], timers[2], cbit_str);
+		   timers[0], timers[1], timers[2], cbit_str, profile);
+}
+
+static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
+{
+	if (bglobal.debug_peer_event)
+		zlog_debug("session-delete: %s", bs_to_string(bs));
+
+	/* Change state and notify peer. */
+	bs->ses_state = PTM_BFD_DOWN;
+	bs->local_diag = diag;
+	ptm_bfd_snd(bs, 0);
+
+	/* Session reached refcount == 0, lets delete it. */
+	if (bs->refcount == 0) {
+		/*
+		 * Sanity check: if there is a refcount bug, we can't delete
+		 * the session a user configured manually. Lets leave a
+		 * message here so we can catch the bug if it exists.
+		 */
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG)) {
+			zlog_err(
+				"ptm-del-session: [%s] session refcount is zero but it was configured by CLI",
+				bs_to_string(bs));
+		} else {
+			control_notify_config(BCM_NOTIFY_CONFIG_DELETE, bs);
+			bfd_session_free(bs);
+		}
+	}
 }
 
 static int _ptm_msg_address(struct stream *msg, int family, const void *addr)
@@ -301,6 +334,8 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	 *     - c: ifname length
 	 *     - X bytes: interface name
 	 * - c: bfd_cbit
+	 * - c: profile name length.
+	 * - X bytes: profile name.
 	 *
 	 * q(64), l(32), w(16), c(8)
 	 */
@@ -381,6 +416,14 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 
 	STREAM_GETC(msg, bpc->bpc_cbit);
 
+	/* Handle profile names. */
+	STREAM_GETC(msg, ifnamelen);
+	bpc->bpc_has_profile = ifnamelen > 0;
+	if (bpc->bpc_has_profile) {
+		STREAM_GET(bpc->bpc_profile, msg, ifnamelen);
+		bpc->bpc_profile[ifnamelen] = 0;
+	}
+
 	/* Sanity check: peer and local address must match IP types. */
 	if (bpc->bpc_local.sa_sin.sin_family != 0
 	    && (bpc->bpc_local.sa_sin.sin_family
@@ -421,10 +464,18 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 		/* Protocol created peers are 'no shutdown' by default. */
 		bs->peer_profile.admin_shutdown = false;
 	} else {
-		/* Don't try to change echo/shutdown state. */
-		bpc.bpc_echo = CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
-		bpc.bpc_shutdown =
-			CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+		/*
+		 * BFD session was already created, we are just updating the
+		 * current peer.
+		 *
+		 * `ptm-bfd` (or `HAVE_BFDD == 0`) is the only implementation
+		 * that allow users to set peer specific timers via protocol.
+		 * BFD daemon (this code) on the other hand only supports
+		 * changing peer configuration manually (through `peer` node)
+		 * or via profiles.
+		 */
+		if (bpc.bpc_has_profile)
+			bfd_profile_apply(bpc.bpc_profile, bs);
 	}
 
 	/* Create client peer notification register. */
@@ -456,15 +507,20 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 
 	/* Unregister client peer notification. */
 	pcn = pcn_lookup(pc, bs);
-	pcn_free(pcn);
-	if (bs->refcount ||
-	    CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
+	if (pcn != NULL) {
+		pcn_free(pcn);
 		return;
+	}
 
-	bs->ses_state = PTM_BFD_ADM_DOWN;
-	ptm_bfd_snd(bs, 0);
+	if (bglobal.debug_zebra)
+		zlog_debug("ptm-del-dest: failed to find BFD session");
 
-	ptm_bfd_sess_del(&bpc);
+	/*
+	 * XXX: We either got a double deregistration or the daemon who
+	 * created this is no longer around. Lets try to delete it anyway
+	 * and the worst case is the refcount will detain us.
+	 */
+	_ptm_bfd_session_del(bs, BD_NEIGHBOR_DOWN);
 }
 
 /*
@@ -505,6 +561,9 @@ static void bfdd_client_deregister(struct stream *msg)
 				   pid);
 		return;
 	}
+
+	if (bglobal.debug_zebra)
+		zlog_debug("ptm-del-client: client pid %u", pid);
 
 	pc_free(pc);
 
@@ -827,9 +886,6 @@ static void pc_free(struct ptm_client *pc)
 {
 	struct ptm_client_notification *pcn;
 
-	if (pc == NULL)
-		return;
-
 	TAILQ_REMOVE(&pcqueue, pc, pc_entry);
 
 	while (!TAILQ_EMPTY(&pc->pc_pcnqueue)) {
@@ -891,13 +947,18 @@ static void pcn_free(struct ptm_client_notification *pcn)
 	struct ptm_client *pc;
 	struct bfd_session *bs;
 
-	if (pcn == NULL)
-		return;
-
 	/* Handle session de-registration. */
 	bs = pcn->pcn_bs;
 	pcn->pcn_bs = NULL;
 	bs->refcount--;
+
+	/* Log modification to users. */
+	if (bglobal.debug_zebra)
+		zlog_debug("ptm-del-session: [%s] refcount=%" PRIu64,
+			   bs_to_string(bs), bs->refcount);
+
+	/* Set session down. */
+	_ptm_bfd_session_del(bs, BD_NEIGHBOR_DOWN);
 
 	/* Handle ptm_client deregistration. */
 	pc = pcn->pcn_pc;

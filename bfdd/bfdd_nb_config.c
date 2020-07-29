@@ -85,8 +85,7 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 		if (p.family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)
 		    && strlen(ifname) == 0) {
 			zlog_warn(
-				"%s: when using link-local you must specify "
-				"an interface.",
+				"%s: when using link-local you must specify an interface.",
 				__func__);
 			return NB_ERR_VALIDATION;
 		}
@@ -257,6 +256,7 @@ int bfdd_bfd_profile_detection_multiplier_modify(struct nb_cb_modify_args *args)
 
 	bp = nb_running_get_entry(args->dnode, NULL, true);
 	bp->detection_multiplier = yang_dnode_get_uint8(args->dnode, NULL);
+	bfd_profile_update(bp);
 
 	return NB_OK;
 }

@@ -15,9 +15,13 @@
           "prefix":"10.0.255.2\/32",
           "sid":200,
           "inputLabel":10200,
-          "outputLabel":"pop",
-          "interface":"r3-eth0",
-          "nexthop":"10.0.3.2"
+          "prefixRoute":[
+            {
+              "outputLabel":3,
+              "interface":"r3-eth0",
+              "nexthop":"10.0.3.2"
+            }
+          ]
         }
       ]
     },
@@ -36,9 +40,13 @@
           "prefix":"10.0.255.4\/32",
           "sid":400,
           "inputLabel":10400,
-          "outputLabel":"8400",
-          "interface":"r3-eth0",
-          "nexthop":"10.0.3.2"
+          "prefixRoute":[
+            {
+              "outputLabel":8400,
+              "interface":"r3-eth0",
+              "nexthop":"10.0.3.2"
+            }
+          ]
         }
       ]
     },
@@ -57,25 +65,29 @@
           "prefix":"10.0.255.3\/32",
           "sid":300,
           "inputLabel":0,
-          "outputLabel":"0",
-          "interface":"lo",
-          "nexthop":"10.0.255.3"
+          "prefixRoute":[
+            {
+              "outputLabel":0,
+              "interface":"lo",
+              "nexthop":"10.0.255.3"
+            }
+          ]
         }
       ],
       "extendedLink":[
         {
           "prefix":"10.0.3.1\/32",
-          "sid":50001,
-          "inputLabel":50001,
-          "outputLabel":"pop",
+          "sid":"*",
+          "inputLabel":"*",
+          "outputLabel":3,
           "interface":"r3-eth0",
           "nexthop":"10.0.3.2"
         },
         {
           "prefix":"10.0.3.1\/32",
-          "sid":50000,
-          "inputLabel":50000,
-          "outputLabel":"pop",
+          "sid":"*",
+          "inputLabel":"*",
+          "outputLabel":3,
           "interface":"r3-eth0",
           "nexthop":"10.0.3.2"
         }
@@ -96,9 +108,13 @@
           "prefix":"10.0.255.1\/32",
           "sid":100,
           "inputLabel":10100,
-          "outputLabel":"8100",
-          "interface":"r3-eth0",
-          "nexthop":"10.0.3.2"
+          "prefixRoute":[
+            {
+              "outputLabel":8100,
+              "interface":"r3-eth0",
+              "nexthop":"10.0.3.2"
+            }
+          ]
         }
       ]
     }

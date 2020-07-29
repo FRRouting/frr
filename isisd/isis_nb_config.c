@@ -116,8 +116,8 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 		addr.addr_len = dotformat2buff(buff, net_title);
 		memcpy(addr.area_addr, buff, addr.addr_len);
 		if (addr.area_addr[addr.addr_len - 1] != 0) {
-			flog_warn(
-				EC_LIB_NB_CB_CONFIG_VALIDATE,
+			snprintf(
+				args->errmsg, args->errmsg_len,
 				"nsel byte (last byte) in area address must be 0");
 			return NB_ERR_VALIDATION;
 		}
@@ -125,8 +125,8 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 			/* Check that the SystemID portions match */
 			if (memcmp(isis->sysid, GETSYSID((&addr)),
 				   ISIS_SYS_ID_LEN)) {
-				flog_warn(
-					EC_LIB_NB_CB_CONFIG_VALIDATE,
+				snprintf(
+					args->errmsg, args->errmsg_len,
 					"System ID must not change when defining additional area addresses");
 				return NB_ERR_VALIDATION;
 			}
@@ -216,7 +216,7 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	if (listcount(area->area_addrs) == 0) {
 		memset(isis->sysid, 0, ISIS_SYS_ID_LEN);
 		isis->sysid_set = 0;
-		if (isis->debugs & DEBUG_EVENTS)
+		if (IS_DEBUG_EVENTS)
 			zlog_debug("Router has no SystemID");
 	}
 
@@ -332,8 +332,8 @@ int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args)
 			    && circuit->state != C_STATE_UP)
 				continue;
 			if (lsp_mtu > isis_circuit_pdu_size(circuit)) {
-				flog_warn(
-					EC_LIB_NB_CB_CONFIG_VALIDATE,
+				snprintf(
+					args->errmsg, args->errmsg_len,
 					"ISIS area contains circuit %s, which has a maximum PDU size of %zu",
 					circuit->interface->name,
 					isis_circuit_pdu_size(circuit));
@@ -1047,6 +1047,7 @@ int isis_instance_redistribute_ipv6_metric_modify(
  */
 static int isis_multi_topology_common(enum nb_event event,
 				      const struct lyd_node *dnode,
+				      char *errmsg, size_t errmsg_len,
 				      const char *topology, bool create)
 {
 	struct isis_area *area;
@@ -1056,8 +1057,8 @@ static int isis_multi_topology_common(enum nb_event event,
 	switch (event) {
 	case NB_EV_VALIDATE:
 		if (mtid == (uint16_t)-1) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
-				  "Unknown topology %s", topology);
+			snprintf(errmsg, errmsg_len, "Unknown topology %s",
+				 topology);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1100,6 +1101,7 @@ int isis_instance_multi_topology_ipv4_multicast_create(
 	struct nb_cb_create_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv4-multicast", true);
 }
 
@@ -1107,6 +1109,7 @@ int isis_instance_multi_topology_ipv4_multicast_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv4-multicast", false);
 }
 
@@ -1126,15 +1129,17 @@ int isis_instance_multi_topology_ipv4_multicast_overload_modify(
 int isis_instance_multi_topology_ipv4_management_create(
 	struct nb_cb_create_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode, "ipv4-mgmt",
-					  true);
+	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
+					  "ipv4-mgmt", true);
 }
 
 int isis_instance_multi_topology_ipv4_management_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode, "ipv4-mgmt",
-					  false);
+	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
+					  "ipv4-mgmt", false);
 }
 
 /*
@@ -1154,6 +1159,7 @@ int isis_instance_multi_topology_ipv6_unicast_create(
 	struct nb_cb_create_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-unicast", true);
 }
 
@@ -1161,6 +1167,7 @@ int isis_instance_multi_topology_ipv6_unicast_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-unicast", false);
 }
 
@@ -1181,6 +1188,7 @@ int isis_instance_multi_topology_ipv6_multicast_create(
 	struct nb_cb_create_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-multicast", true);
 }
 
@@ -1188,6 +1196,7 @@ int isis_instance_multi_topology_ipv6_multicast_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-multicast", false);
 }
 
@@ -1207,15 +1216,17 @@ int isis_instance_multi_topology_ipv6_multicast_overload_modify(
 int isis_instance_multi_topology_ipv6_management_create(
 	struct nb_cb_create_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode, "ipv6-mgmt",
-					  true);
+	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
+					  "ipv6-mgmt", true);
 }
 
 int isis_instance_multi_topology_ipv6_management_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	return isis_multi_topology_common(args->event, args->dnode, "ipv6-mgmt",
-					  false);
+	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
+					  "ipv6-mgmt", false);
 }
 
 /*
@@ -1235,6 +1246,7 @@ int isis_instance_multi_topology_ipv6_dstsrc_create(
 	struct nb_cb_create_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-dstsrc", true);
 }
 
@@ -1242,6 +1254,7 @@ int isis_instance_multi_topology_ipv6_dstsrc_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	return isis_multi_topology_common(args->event, args->dnode,
+					  args->errmsg, args->errmsg_len,
 					  "ipv6-dstsrc", false);
 }
 
@@ -1417,17 +1430,15 @@ int isis_instance_segment_routing_enabled_modify(
 	area->srdb.config.enabled = yang_dnode_get_bool(args->dnode, NULL);
 
 	if (area->srdb.config.enabled) {
-		if (IS_DEBUG_ISIS(DEBUG_EVENTS))
+		if (IS_DEBUG_EVENTS)
 			zlog_debug("SR: Segment Routing: OFF -> ON");
 
-		if (isis_sr_start(area) == 0)
-			area->srdb.enabled = true;
+		isis_sr_start(area);
 	} else {
-		if (IS_DEBUG_ISIS(DEBUG_EVENTS))
+		if (IS_DEBUG_EVENTS)
 			zlog_debug("SR: Segment Routing: ON -> OFF");
 
 		isis_sr_stop(area);
-		area->srdb.enabled = false;
 	}
 
 	return NB_OK;
@@ -1436,26 +1447,49 @@ int isis_instance_segment_routing_enabled_modify(
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/srgb
  */
+int isis_instance_segment_routing_srgb_pre_validate(
+	struct nb_cb_pre_validate_args *args)
+{
+	uint32_t srgb_lbound;
+	uint32_t srgb_ubound;
+	uint32_t srlb_lbound;
+	uint32_t srlb_ubound;
+
+	srgb_lbound = yang_dnode_get_uint32(args->dnode, "./lower-bound");
+	srgb_ubound = yang_dnode_get_uint32(args->dnode, "./upper-bound");
+	srlb_lbound = yang_dnode_get_uint32(args->dnode, "../srlb/lower-bound");
+	srlb_ubound = yang_dnode_get_uint32(args->dnode, "../srlb/upper-bound");
+
+	/* Check that the block size does not exceed 65535 */
+	if ((srgb_ubound - srgb_lbound + 1) > 65535) {
+		zlog_warn(
+			"New SR Global Block (%u/%u) exceed the limit of 65535",
+			srgb_lbound, srgb_ubound);
+		return NB_ERR_VALIDATION;
+	}
+
+	/* Validate SRGB against SRLB */
+	if (!((srgb_ubound < srlb_lbound) || (srgb_lbound > srlb_ubound))) {
+		zlog_warn(
+			"New SR Global Block (%u/%u) conflict with Local Block (%u/%u)",
+			srgb_lbound, srgb_ubound, srlb_lbound, srlb_ubound);
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
 void isis_instance_segment_routing_srgb_apply_finish(
 	struct nb_cb_apply_finish_args *args)
 {
 	struct isis_area *area;
 	uint32_t lower_bound, upper_bound;
-	int ret;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	lower_bound = yang_dnode_get_uint32(args->dnode, "./lower-bound");
 	upper_bound = yang_dnode_get_uint32(args->dnode, "./upper-bound");
 
-	ret = isis_sr_cfg_srgb_update(area, lower_bound, upper_bound);
-	if (area->srdb.config.enabled) {
-		if (ret == 0)
-			area->srdb.enabled = true;
-		else {
-			isis_sr_stop(area);
-			area->srdb.enabled = false;
-		}
-	}
+	isis_sr_cfg_srgb_update(area, lower_bound, upper_bound);
 }
 
 /*
@@ -1469,7 +1503,7 @@ int isis_instance_segment_routing_srgb_lower_bound_modify(
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(lower_bound)) {
-			zlog_warn("Invalid SRGB lower bound: %" PRIu32,
+			zlog_warn("Invalid SRGB lower bound: %u",
 				  lower_bound);
 			return NB_ERR_VALIDATION;
 		}
@@ -1494,7 +1528,105 @@ int isis_instance_segment_routing_srgb_upper_bound_modify(
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
-			zlog_warn("Invalid SRGB upper bound: %" PRIu32,
+			zlog_warn("Invalid SRGB upper bound: %u",
+				  upper_bound);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing/srlb
+ */
+int isis_instance_segment_routing_srlb_pre_validate(
+	struct nb_cb_pre_validate_args *args)
+{
+	uint32_t srgb_lbound;
+	uint32_t srgb_ubound;
+	uint32_t srlb_lbound;
+	uint32_t srlb_ubound;
+
+	srgb_lbound = yang_dnode_get_uint32(args->dnode, "../srgb/lower-bound");
+	srgb_ubound = yang_dnode_get_uint32(args->dnode, "../srgb/upper-bound");
+	srlb_lbound = yang_dnode_get_uint32(args->dnode, "./lower-bound");
+	srlb_ubound = yang_dnode_get_uint32(args->dnode, "./upper-bound");
+
+	/* Check that the block size does not exceed 65535 */
+	if ((srlb_ubound - srlb_lbound + 1) > 65535) {
+		zlog_warn(
+			"New SR Local Block (%u/%u) exceed the limit of 65535",
+			srlb_lbound, srlb_ubound);
+		return NB_ERR_VALIDATION;
+	}
+
+	/* Validate SRLB against SRGB */
+	if (!((srlb_ubound < srgb_lbound) || (srlb_lbound > srgb_ubound))) {
+		zlog_warn(
+			"New SR Local Block (%u/%u) conflict with Global Block (%u/%u)",
+			srlb_lbound, srlb_ubound, srgb_lbound, srgb_ubound);
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+void isis_instance_segment_routing_srlb_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct isis_area *area;
+	uint32_t lower_bound, upper_bound;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	lower_bound = yang_dnode_get_uint32(args->dnode, "./lower-bound");
+	upper_bound = yang_dnode_get_uint32(args->dnode, "./upper-bound");
+
+	isis_sr_cfg_srlb_update(area, lower_bound, upper_bound);
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing/srlb/lower-bound
+ */
+int isis_instance_segment_routing_srlb_lower_bound_modify(
+	struct nb_cb_modify_args *args)
+{
+	uint32_t lower_bound = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!IS_MPLS_UNRESERVED_LABEL(lower_bound)) {
+			zlog_warn("Invalid SRLB lower bound: %u",
+				  lower_bound);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing/srlb/upper-bound
+ */
+int isis_instance_segment_routing_srlb_upper_bound_modify(
+	struct nb_cb_modify_args *args)
+{
+	uint32_t upper_bound = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
+			zlog_warn("Invalid SRLB upper bound: %u",
 				  upper_bound);
 			return NB_ERR_VALIDATION;
 		}
@@ -1721,10 +1853,9 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 			min_mtu = DEFAULT_LSP_MTU;
 #endif /* ifndef FABRICD */
 		if (actual_mtu < min_mtu) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
-				  "Interface %s has MTU %" PRIu32
-				  ", minimum MTU for the area is %" PRIu32 "",
-				  ifp->name, actual_mtu, min_mtu);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Interface %s has MTU %u, minimum MTU for the area is %u",
+				 ifp->name, actual_mtu, min_mtu);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1801,9 +1932,9 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 		area_tag = yang_dnode_get_string(args->dnode, NULL);
 		if (circuit && circuit->area && circuit->area->area_tag
 		    && strcmp(circuit->area->area_tag, area_tag)) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
-				  "ISIS circuit is already defined on %s",
-				  circuit->area->area_tag);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "ISIS circuit is already defined on %s",
+				 circuit->area->area_tag);
 			return NB_ERR_VALIDATION;
 		}
 	}
@@ -1839,9 +1970,9 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 		if (circuit && circuit->state == C_STATE_UP
 		    && circuit->area->is_type != IS_LEVEL_1_AND_2
 		    && circuit->area->is_type != circ_type) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
-				  "Invalid circuit level for area %s",
-				  circuit->area->area_tag);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid circuit level for area %s",
+				 circuit->area->area_tag);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1898,26 +2029,53 @@ int lib_interface_isis_ipv6_routing_modify(struct nb_cb_modify_args *args)
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring
  */
-int lib_interface_isis_bfd_monitoring_modify(struct nb_cb_modify_args *args)
+void lib_interface_isis_bfd_monitoring_apply_finish(
+	struct nb_cb_apply_finish_args *args)
 {
 	struct isis_circuit *circuit;
-	bool bfd_monitoring;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
+	bool enabled;
+	const char *profile = NULL;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	bfd_monitoring = yang_dnode_get_bool(args->dnode, NULL);
+	enabled = yang_dnode_get_bool(args->dnode, "./enabled");
 
-	if (bfd_monitoring) {
+	if (yang_dnode_exists(args->dnode, "./profile"))
+		profile = yang_dnode_get_string(args->dnode, "./profile");
+
+	if (enabled) {
 		isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX,
 					   BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT,
-					   true);
+					   profile, true);
 	} else {
 		isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_DEREGISTER);
 		bfd_info_free(&circuit->bfd_info);
 	}
+}
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/enabled
+ */
+int lib_interface_isis_bfd_monitoring_enabled_modify(
+	struct nb_cb_modify_args *args)
+{
+	/* Everything done in apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/profile
+ */
+int lib_interface_isis_bfd_monitoring_profile_modify(
+	struct nb_cb_modify_args *args)
+{
+	/* Everything done in apply_finish */
+	return NB_OK;
+}
+
+int lib_interface_isis_bfd_monitoring_profile_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* Everything done in apply_finish */
 	return NB_OK;
 }
 
@@ -2163,16 +2321,16 @@ int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args)
 		if (!circuit)
 			break;
 		if (circuit->circ_type == CIRCUIT_T_LOOPBACK) {
-			flog_warn(
-				EC_LIB_NB_CB_CONFIG_VALIDATE,
+			snprintf(
+				args->errmsg, args->errmsg_len,
 				"Cannot change network type on loopback interface");
 			return NB_ERR_VALIDATION;
 		}
 		if (net_type == CIRCUIT_T_BROADCAST
 		    && circuit->state == C_STATE_UP
 		    && !if_is_broadcast(circuit->interface)) {
-			flog_warn(
-				EC_LIB_NB_CB_CONFIG_VALIDATE,
+			snprintf(
+				args->errmsg, args->errmsg_len,
 				"Cannot configure non-broadcast interface for broadcast operation");
 			return NB_ERR_VALIDATION;
 		}
@@ -2208,8 +2366,8 @@ int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 		if (!ifp)
 			return NB_OK;
 		if (if_is_loopback(ifp)) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
-				  "Loopback is always passive");
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Loopback is always passive");
 			return NB_ERR_VALIDATION;
 		}
 	}
@@ -2312,7 +2470,8 @@ int lib_interface_isis_disable_three_way_handshake_modify(
  * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-unicast
  */
 static int lib_interface_isis_multi_topology_common(
-	enum nb_event event, const struct lyd_node *dnode, uint16_t mtid)
+	enum nb_event event, const struct lyd_node *dnode, char *errmsg,
+	size_t errmsg_len, uint16_t mtid)
 {
 	struct isis_circuit *circuit;
 	bool value;
@@ -2321,8 +2480,8 @@ static int lib_interface_isis_multi_topology_common(
 	case NB_EV_VALIDATE:
 		circuit = nb_running_get_entry(dnode, NULL, false);
 		if (circuit && circuit->area && circuit->area->oldmetric) {
-			flog_warn(
-				EC_LIB_NB_CB_CONFIG_VALIDATE,
+			snprintf(
+				errmsg, errmsg_len,
 				"Multi topology IS-IS can only be used with wide metrics");
 			return NB_ERR_VALIDATION;
 		}
@@ -2344,7 +2503,8 @@ int lib_interface_isis_multi_topology_ipv4_unicast_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV4_UNICAST);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV4_UNICAST);
 }
 
 /*
@@ -2355,7 +2515,8 @@ int lib_interface_isis_multi_topology_ipv4_multicast_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV4_MULTICAST);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV4_MULTICAST);
 }
 
 /*
@@ -2366,7 +2527,8 @@ int lib_interface_isis_multi_topology_ipv4_management_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV4_MGMT);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV4_MGMT);
 }
 
 /*
@@ -2377,7 +2539,8 @@ int lib_interface_isis_multi_topology_ipv6_unicast_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV6_UNICAST);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV6_UNICAST);
 }
 
 /*
@@ -2388,7 +2551,8 @@ int lib_interface_isis_multi_topology_ipv6_multicast_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV6_MULTICAST);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV6_MULTICAST);
 }
 
 /*
@@ -2399,7 +2563,8 @@ int lib_interface_isis_multi_topology_ipv6_management_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV6_MGMT);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV6_MGMT);
 }
 
 /*
@@ -2409,5 +2574,6 @@ int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
-		args->event, args->dnode, ISIS_MT_IPV6_DSTSRC);
+		args->event, args->dnode, args->errmsg, args->errmsg_len,
+		ISIS_MT_IPV6_DSTSRC);
 }

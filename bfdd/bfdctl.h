@@ -90,6 +90,9 @@ struct bfd_peer_cfg {
 
 	bool bpc_cbit;
 
+	bool bpc_has_profile;
+	char bpc_profile[64];
+
 	/* Status information */
 	enum bfd_peer_status bpc_bps;
 	uint32_t bpc_id;

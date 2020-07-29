@@ -75,6 +75,7 @@ static void pbr_map_sequence_delete(struct pbr_map_sequence *pbrms)
 {
 	XFREE(MTYPE_TMP, pbrms->internal_nhg_name);
 
+	QOBJ_UNREG(pbrms);
 	XFREE(MTYPE_PBR_MAP_SEQNO, pbrms);
 }
 
@@ -443,6 +444,59 @@ static void pbr_map_add_interfaces(struct pbr_map *pbrm)
 	}
 }
 
+/* Decodes a standardized DSCP into its representative value */
+uint8_t pbr_map_decode_dscp_enum(const char *name)
+{
+	/* Standard Differentiated Services Field Codepoints */
+	if (!strcmp(name, "cs0"))
+		return 0;
+	if (!strcmp(name, "cs1"))
+		return 8;
+	if (!strcmp(name, "cs2"))
+		return 16;
+	if (!strcmp(name, "cs3"))
+		return 24;
+	if (!strcmp(name, "cs4"))
+		return 32;
+	if (!strcmp(name, "cs5"))
+		return 40;
+	if (!strcmp(name, "cs6"))
+		return 48;
+	if (!strcmp(name, "cs7"))
+		return 56;
+	if (!strcmp(name, "af11"))
+		return 10;
+	if (!strcmp(name, "af12"))
+		return 12;
+	if (!strcmp(name, "af13"))
+		return 14;
+	if (!strcmp(name, "af21"))
+		return 18;
+	if (!strcmp(name, "af22"))
+		return 20;
+	if (!strcmp(name, "af23"))
+		return 22;
+	if (!strcmp(name, "af31"))
+		return 26;
+	if (!strcmp(name, "af32"))
+		return 28;
+	if (!strcmp(name, "af33"))
+		return 30;
+	if (!strcmp(name, "af41"))
+		return 34;
+	if (!strcmp(name, "af42"))
+		return 36;
+	if (!strcmp(name, "af43"))
+		return 38;
+	if (!strcmp(name, "ef"))
+		return 46;
+	if (!strcmp(name, "voice-admit"))
+		return 44;
+
+	/* No match? Error out */
+	return -1;
+}
+
 struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 {
 	struct pbr_map *pbrm;
@@ -546,7 +600,7 @@ pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 
 static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 {
-	if (!pbrms->src && !pbrms->dst && !pbrms->mark)
+	if (!pbrms->src && !pbrms->dst && !pbrms->mark && !pbrms->dsfield)
 		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
 }
 
@@ -602,7 +656,7 @@ bool pbr_map_check_valid(const char *name)
 	return pbrm->valid;
 }
 
-void pbr_map_schedule_policy_from_nhg(const char *nh_group)
+void pbr_map_schedule_policy_from_nhg(const char *nh_group, bool installed)
 {
 	struct pbr_map_sequence *pbrms;
 	struct pbr_map *pbrm;
@@ -617,7 +671,7 @@ void pbr_map_schedule_policy_from_nhg(const char *nh_group)
 
 			if (pbrms->nhgrp_name
 			    && (strcmp(nh_group, pbrms->nhgrp_name) == 0)) {
-				pbrms->nhs_installed = true;
+				pbrms->nhs_installed = installed;
 
 				pbr_map_check(pbrms, false);
 			}
@@ -625,7 +679,7 @@ void pbr_map_schedule_policy_from_nhg(const char *nh_group)
 			if (pbrms->nhg
 			    && (strcmp(nh_group, pbrms->internal_nhg_name)
 				== 0)) {
-				pbrms->nhs_installed = true;
+				pbrms->nhs_installed = installed;
 
 				pbr_map_check(pbrms, false);
 			}

@@ -263,15 +263,21 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	 */
 	if (yang_module_find("frr-interface")) {
 		struct lyd_node *if_dnode;
+		char oldpath[XPATH_MAXLEN];
+		char newpath[XPATH_MAXLEN];
 
 		if_dnode = yang_dnode_get(
 			running_config->dnode,
 			"/frr-interface:lib/interface[name='%s'][vrf='%s']/vrf",
 			ifp->name, old_vrf->name);
+
 		if (if_dnode) {
-			nb_running_unset_entry(if_dnode->parent);
+			yang_dnode_get_path(if_dnode->parent, oldpath,
+					    sizeof(oldpath));
 			yang_dnode_change_leaf(if_dnode, vrf->name);
-			nb_running_set_entry(if_dnode->parent, ifp);
+			yang_dnode_get_path(if_dnode->parent, newpath,
+					    sizeof(newpath));
+			nb_running_move_tree(oldpath, newpath);
 			running_config->version++;
 		}
 	}
@@ -371,6 +377,17 @@ struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 
 	if (!vrf || !name
 	    || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+		return NULL;
+
+	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
+	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+}
+
+struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf)
+{
+	struct interface if_tmp;
+
+	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
@@ -768,8 +785,7 @@ static void if_dump(const struct interface *ifp)
 		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 
 		zlog_info(
-			"Interface %s vrf %s(%u) index %d metric %d mtu %d "
-			"mtu6 %d %s",
+			"Interface %s vrf %s(%u) index %d metric %d mtu %d mtu6 %d %s",
 			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 			ifp->metric, ifp->mtu, ifp->mtu6,
 			if_flag_dump(ifp->flags));
@@ -1561,8 +1577,8 @@ static int lib_interface_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_VALIDATE:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-			zlog_warn("%s: only inactive interfaces can be deleted",
-				  __func__);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "only inactive interfaces can be deleted");
 			return NB_ERR_VALIDATION;
 		}
 		break;

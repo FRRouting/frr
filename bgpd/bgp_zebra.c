@@ -1174,11 +1174,11 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 	return true;
 }
 
-void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
+void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
 			safi_t safi)
 {
-	struct zapi_route api;
+	struct zapi_route api = { 0 };
 	struct zapi_nexthop *api_nh;
 	int nh_family;
 	unsigned int valid_nh_count = 0;
@@ -1212,8 +1212,8 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 		prefix2str(p, buf_prefix, sizeof(buf_prefix));
 
 	if (safi == SAFI_FLOWSPEC) {
-		bgp_pbr_update_entry(bgp, bgp_node_get_prefix(rn),
-				     info, afi, safi, true);
+		bgp_pbr_update_entry(bgp, bgp_dest_get_prefix(dest), info, afi,
+				     safi, true);
 		return;
 	}
 
@@ -1224,7 +1224,6 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 		nh_othervrf = 1;
 
 	/* Make Zebra API structure. */
-	memset(&api, 0, sizeof(api));
 	api.vrf_id = bgp->vrf_id;
 	api.type = ZEBRA_ROUTE_BGP;
 	api.safi = safi;
@@ -1508,7 +1507,7 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 /* Announce all routes of a table to zebra */
 void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 {
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	struct bgp_table *table;
 	struct bgp_path_info *pi;
 
@@ -1522,15 +1521,16 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 	if (!table)
 		return;
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
-		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next)
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
 
 			    (pi->type == ZEBRA_ROUTE_BGP
 			     && (pi->sub_type == BGP_ROUTE_NORMAL
 				 || pi->sub_type == BGP_ROUTE_IMPORTED)))
 
-				bgp_zebra_announce(rn, bgp_node_get_prefix(rn),
+				bgp_zebra_announce(dest,
+						   bgp_dest_get_prefix(dest),
 						   pi, bgp, afi, safi);
 }
 
@@ -1731,7 +1731,7 @@ bool bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
 bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 				 afi_t afi, int type, uint32_t metric)
 {
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
 
 	if (red->redist_metric_flag && red->redist_metric == metric)
@@ -1740,9 +1740,9 @@ bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 	red->redist_metric_flag = 1;
 	red->redist_metric = metric;
 
-	for (rn = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]); rn;
-	     rn = bgp_route_next(rn)) {
-		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
+	for (dest = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]); dest;
+	     dest = bgp_route_next(dest)) {
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (pi->sub_type == BGP_ROUTE_REDISTRIBUTE
 			    && pi->type == type
 			    && pi->instance == red->instance) {
@@ -1755,9 +1755,9 @@ bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 				pi->attr = bgp_attr_intern(&new_attr);
 				bgp_attr_unintern(&old_attr);
 
-				bgp_path_info_set_flag(rn, pi,
+				bgp_path_info_set_flag(dest, pi,
 						       BGP_PATH_ATTR_CHANGED);
-				bgp_process(bgp, rn, afi, SAFI_UNICAST);
+				bgp_process(bgp, dest, afi, SAFI_UNICAST);
 			}
 		}
 	}

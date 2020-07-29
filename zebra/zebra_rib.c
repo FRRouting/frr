@@ -472,6 +472,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 			SET_FLAG(old->status, ROUTE_ENTRY_QUEUED);
 
 			/* Free old FIB nexthop group */
+			UNSET_FLAG(old->status, ROUTE_ENTRY_USE_FIB_NHG);
 			if (old->fib_ng.nexthop) {
 				nexthops_free(old->fib_ng.nexthop);
 				old->fib_ng.nexthop = NULL;
@@ -494,6 +495,9 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	case ZEBRA_DPLANE_REQUEST_SUCCESS:
 		if (zvrf)
 			zvrf->installs++;
+		break;
+	/* Should never happen */
+	case ZEBRA_DPLANE_REQUEST_PENDING:
 		break;
 	}
 
@@ -539,6 +543,9 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 		if (zvrf)
 			zvrf->removals++;
 		break;
+	/* Should never happen */
+	case ZEBRA_DPLANE_REQUEST_PENDING:
+		break;
 	}
 
 	return;
@@ -568,6 +575,7 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 			nexthops_free(re->fib_ng.nexthop);
 			re->fib_ng.nexthop = NULL;
 		}
+		UNSET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
 
 		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
@@ -1075,8 +1083,7 @@ static void rib_process(struct route_node *rn)
 				if (re != old_selected) {
 					if (IS_ZEBRA_DEBUG_RIB)
 						zlog_debug(
-							"%s: %s(%u):%s: imported via import-table but denied "
-							"by the ip protocol table route-map",
+							"%s: %s(%u):%s: imported via import-table but denied by the ip protocol table route-map",
 							__func__,
 							VRF_LOGNAME(vrf),
 							vrf_id, buf);
@@ -1228,12 +1235,16 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 		    (re->instance == dplane_ctx_get_old_instance(ctx))) {
 			result = true;
 
-			/* TODO -- we're using this extra test, but it's not
-			 * exactly clear why.
+			/* We use an extra test for statics, and another for
+			 * kernel routes.
 			 */
 			if (re->type == ZEBRA_ROUTE_STATIC &&
 			    (re->distance != dplane_ctx_get_old_distance(ctx) ||
 			     re->tag != dplane_ctx_get_old_tag(ctx))) {
+				result = false;
+			} else if (re->type == ZEBRA_ROUTE_KERNEL &&
+				   re->metric !=
+				   dplane_ctx_get_old_metric(ctx)) {
 				result = false;
 			}
 		}
@@ -1252,13 +1263,19 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 		    (re->instance == dplane_ctx_get_instance(ctx))) {
 			result = true;
 
-			/* TODO -- we're using this extra test, but it's not
-			 * exactly clear why.
+			/* We use an extra test for statics, and another for
+			 * kernel routes.
 			 */
 			if (re->type == ZEBRA_ROUTE_STATIC &&
 			    (re->distance != dplane_ctx_get_distance(ctx) ||
 			     re->tag != dplane_ctx_get_tag(ctx))) {
 				result = false;
+			} else if (re->type == ZEBRA_ROUTE_KERNEL &&
+				   re->metric != dplane_ctx_get_metric(ctx)) {
+				result = false;
+			} else if (re->type == ZEBRA_ROUTE_CONNECT) {
+				result = nexthop_group_equal_no_recurse(
+					&re->nhe->nhg, dplane_ctx_get_ng(ctx));
 			}
 		}
 	}
@@ -1293,6 +1310,124 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 	}
 }
 
+/* Route comparison logic, with various special cases. */
+static bool rib_compare_routes(const struct route_entry *re1,
+			       const struct route_entry *re2)
+{
+	bool result = false;
+
+	if (re1->type != re2->type)
+		return false;
+
+	if (re1->instance != re2->instance)
+		return false;
+
+	if (re1->type == ZEBRA_ROUTE_KERNEL && re1->metric != re2->metric)
+		return false;
+
+	if (CHECK_FLAG(re1->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
+	    re1->distance != re2->distance)
+		return false;
+
+	/* Only connected routes need more checking, nexthop-by-nexthop */
+	if (re1->type != ZEBRA_ROUTE_CONNECT)
+		return true;
+
+	/* Quick check if shared nhe */
+	if (re1->nhe == re2->nhe)
+		return true;
+
+	result = nexthop_group_equal_no_recurse(&re1->nhe->nhg, &re2->nhe->nhg);
+
+	return result;
+}
+
+/*
+ * Compare nexthop lists from a route and a dplane context; test whether
+ * the list installed in the FIB matches the route's list.
+ * Set 'changed_p' to 'true' if there were changes to the route's
+ * installed nexthops.
+ *
+ * Return 'false' if any ACTIVE route nexthops are not mentioned in the FIB
+ * list.
+ */
+static bool rib_update_nhg_from_ctx(struct nexthop_group *re_nhg,
+				    const struct nexthop_group *ctx_nhg,
+				    bool *changed_p)
+{
+	bool matched_p = true;
+	struct nexthop *nexthop, *ctx_nexthop;
+
+	/* Get the first `installed` one to check against.
+	 * If the dataplane doesn't set these to be what was actually installed,
+	 * it will just be whatever was in re->nhe->nhg?
+	 */
+	ctx_nexthop = ctx_nhg->nexthop;
+
+	if (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
+	    || !CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		ctx_nexthop = nexthop_next_active_resolved(ctx_nexthop);
+
+	for (ALL_NEXTHOPS_PTR(re_nhg, nexthop)) {
+
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			continue;
+
+		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+			continue;
+
+		/* Check for a FIB nexthop corresponding to the RIB nexthop */
+		if (!nexthop_same(ctx_nexthop, nexthop)) {
+			/* If the FIB doesn't know about the nexthop,
+			 * it's not installed
+			 */
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED ||
+			    IS_ZEBRA_DEBUG_NHG_DETAIL) {
+				zlog_debug("%s: no ctx match for rib nh %pNHv %s",
+					   __func__, nexthop,
+					   (CHECK_FLAG(nexthop->flags,
+						       NEXTHOP_FLAG_FIB) ?
+					    "(FIB)":""));
+			}
+			matched_p = false;
+
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+				*changed_p = true;
+
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+			/* Keep checking nexthops */
+			continue;
+		}
+
+		if (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_FIB)) {
+			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)) {
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: rib nh %pNHv -> installed",
+						   __func__, nexthop);
+
+				*changed_p = true;
+			}
+
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		} else {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)) {
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: rib nh %pNHv -> uninstalled",
+						   __func__, nexthop);
+
+				*changed_p = true;
+			}
+
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		}
+
+		ctx_nexthop = nexthop_next_active_resolved(ctx_nexthop);
+	}
+
+	return matched_p;
+}
+
 /*
  * Update a route from a dplane context. This consolidates common code
  * that can be used in processing of results from FIB updates, and in
@@ -1304,10 +1439,10 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 				   struct zebra_dplane_ctx *ctx)
 {
 	char dest_str[PREFIX_STRLEN] = "";
-	char nh_str[NEXTHOP_STRLEN];
-	struct nexthop *nexthop, *ctx_nexthop;
+	struct nexthop *nexthop;
 	bool matched;
 	const struct nexthop_group *ctxnhg;
+	struct nexthop_group *re_nhg;
 	bool is_selected = false; /* Is 're' currently the selected re? */
 	bool changed_p = false; /* Change to nexthops? */
 	rib_dest_t *dest;
@@ -1326,9 +1461,9 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 		is_selected = (re == dest->selected_fib);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("update_from_ctx: %s(%u):%s: %sSELECTED",
+		zlog_debug("update_from_ctx: %s(%u):%s: %sSELECTED, re %p",
 			   VRF_LOGNAME(vrf), re->vrf_id, dest_str,
-			   (is_selected ? "" : "NOT "));
+			   (is_selected ? "" : "NOT "), re);
 
 	/* Update zebra's nexthop FIB flag for each nexthop that was installed.
 	 * If the installed set differs from the set requested by the rib/owner,
@@ -1338,9 +1473,12 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	matched = false;
 	ctxnhg = dplane_ctx_get_ng(ctx);
 
-	/* Check both fib group and notif group for equivalence.
+	/* Check route's fib group and incoming notif group for equivalence.
 	 *
 	 * Let's assume the nexthops are ordered here to save time.
+	 */
+	/* TODO -- this isn't testing or comparing the FIB flags; we should
+	 * do a more explicit loop, checking the incoming notification's flags.
 	 */
 	if (re->fib_ng.nexthop && ctxnhg->nexthop &&
 	    nexthop_group_equal(&re->fib_ng, ctxnhg))
@@ -1352,9 +1490,9 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 			zlog_debug(
 				"%s(%u):%s update_from_ctx(): existing fib nhg, no change",
 				VRF_LOGNAME(vrf), re->vrf_id, dest_str);
-		goto done;
+		goto check_backups;
 
-	} else if (re->fib_ng.nexthop) {
+	} else if (CHECK_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG)) {
 		/*
 		 * Free stale fib list and move on to check the rib nhg.
 		 */
@@ -1364,6 +1502,8 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 				VRF_LOGNAME(vrf), re->vrf_id, dest_str);
 		nexthops_free(re->fib_ng.nexthop);
 		re->fib_ng.nexthop = NULL;
+
+		UNSET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
 
 		/* Note that the installed nexthops have changed */
 		changed_p = true;
@@ -1382,70 +1522,16 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	 *
 	 * Assume nexthops are ordered here as well.
 	 */
-	matched = true;
 
-	ctx_nexthop = ctxnhg->nexthop;
-
-	/* Nothing installed - we can skip some of the checking/comparison
+	/* If nothing is installed, we can skip some of the checking/comparison
 	 * of nexthops.
 	 */
-	if (ctx_nexthop == NULL) {
+	if (ctxnhg->nexthop == NULL) {
 		changed_p = true;
 		goto no_nexthops;
 	}
 
-	/* Get the first `installed` one to check against.
-	 * If the dataplane doesn't set these to be what was actually installed,
-	 * it will just be whatever was in re->nhe->nhg?
-	 */
-	if (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
-	    || !CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-		ctx_nexthop = nexthop_next_active_resolved(ctx_nexthop);
-
-	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
-
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-			continue;
-
-		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-			continue;
-
-		/* Check for a FIB nexthop corresponding to the RIB nexthop */
-		if (nexthop_same(ctx_nexthop, nexthop) == false) {
-			/* If the FIB doesn't know about the nexthop,
-			 * it's not installed
-			 */
-			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-				nexthop2str(nexthop, nh_str, sizeof(nh_str));
-				zlog_debug(
-					"update_from_ctx: no notif match for rib nh %s",
-					nh_str);
-			}
-			matched = false;
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-				changed_p = true;
-
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-
-			/* Keep checking nexthops */
-			continue;
-		}
-
-		if (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_FIB)) {
-			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-				changed_p = true;
-
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-		} else {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-				changed_p = true;
-
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-		}
-
-		ctx_nexthop = nexthop_next_active_resolved(ctx_nexthop);
-	}
+	matched = rib_update_nhg_from_ctx(&(re->nhe->nhg), ctxnhg, &changed_p);
 
 	/* If all nexthops were processed, we're done */
 	if (matched) {
@@ -1454,7 +1540,7 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 				"%s(%u):%s update_from_ctx(): rib nhg matched, changed '%s'",
 				VRF_LOGNAME(vrf), re->vrf_id, dest_str,
 				(changed_p ? "true" : "false"));
-		goto done;
+		goto check_backups;
 	}
 
 no_nexthops:
@@ -1464,22 +1550,91 @@ no_nexthops:
 	 */
 	if (IS_ZEBRA_DEBUG_RIB)
 		zlog_debug(
-			"%s(%u):%s update_from_ctx(): changed %s, adding new fib nhg",
+			"%s(%u):%s update_from_ctx(): changed %s, adding new fib nhg%s",
 			VRF_LOGNAME(vrf), re->vrf_id, dest_str,
-			(changed_p ? "true" : "false"));
+			(changed_p ? "true" : "false"),
+			ctxnhg->nexthop != NULL ? "" : " (empty)");
 
+	/* Set the flag about the dedicated fib list */
+	SET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
 	if (ctxnhg->nexthop)
 		copy_nexthops(&(re->fib_ng.nexthop), ctxnhg->nexthop, NULL);
-	else {
-		/* Bit of a special case when the fib has _no_ installed
-		 * nexthops.
+
+check_backups:
+
+	/*
+	 * Check the status of the route's backup nexthops, if any.
+	 * The logic for backups is somewhat different: if any backup is
+	 * installed, a new fib nhg will be attached to the route.
+	 */
+	re_nhg = zebra_nhg_get_backup_nhg(re->nhe);
+	if (re_nhg == NULL)
+		goto done;	/* No backup nexthops */
+
+	/* First check the route's 'fib' list of backups, if it's present
+	 * from some previous event.
+	 */
+	re_nhg = &re->fib_backup_ng;
+	ctxnhg = dplane_ctx_get_backup_ng(ctx);
+
+	matched = false;
+	if (re_nhg->nexthop && ctxnhg && nexthop_group_equal(re_nhg, ctxnhg))
+		matched = true;
+
+	/* If the new FIB set matches an existing FIB set, we're done. */
+	if (matched) {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug(
+				"%s(%u):%s update_from_ctx(): existing fib backup nhg, no change",
+				VRF_LOGNAME(vrf), re->vrf_id, dest_str);
+		goto done;
+
+	} else if (re->fib_backup_ng.nexthop) {
+		/*
+		 * Free stale fib backup list and move on to check
+		 * the route's backups.
 		 */
-		nexthop = nexthop_new();
-		nexthop->type = NEXTHOP_TYPE_IPV4;
-		_nexthop_add(&(re->fib_ng.nexthop), nexthop);
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug(
+				"%s(%u):%s update_from_ctx(): replacing fib backup nhg",
+				VRF_LOGNAME(vrf), re->vrf_id, dest_str);
+		nexthops_free(re->fib_backup_ng.nexthop);
+		re->fib_backup_ng.nexthop = NULL;
+
+		/* Note that the installed nexthops have changed */
+		changed_p = true;
+	} else {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("%s(%u):%s update_from_ctx(): no fib backup nhg",
+				   VRF_LOGNAME(vrf), re->vrf_id, dest_str);
+	}
+
+	/*
+	 * If a FIB backup nexthop set exists, attach a copy
+	 * to the route if any backup is installed
+	 */
+	if (ctxnhg && ctxnhg->nexthop) {
+
+		for (ALL_NEXTHOPS_PTR(ctxnhg, nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+				break;
+		}
+
+		/* If no installed backups, we're done */
+		if (nexthop == NULL)
+			goto done;
+
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("%s(%u):%s update_from_ctx(): changed %s, adding new backup fib nhg",
+				   VRF_LOGNAME(vrf), re->vrf_id, dest_str,
+				   (changed_p ? "true" : "false"));
+
+		copy_nexthops(&(re->fib_backup_ng.nexthop), ctxnhg->nexthop,
+			      NULL);
 	}
 
 done:
+
 	return changed_p;
 }
 
@@ -1539,6 +1694,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	enum zebra_dplane_result status;
 	const struct prefix *dest_pfx, *src_pfx;
 	uint32_t seq;
+	rib_dest_t *dest;
 	bool fib_changed = false;
 
 	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
@@ -1563,6 +1719,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		goto done;
 	}
 
+	dest = rib_dest_from_rnode(rn);
 	srcdest_rnode_prefixes(rn, &dest_pfx, &src_pfx);
 
 	op = dplane_ctx_get_op(ctx);
@@ -1570,7 +1727,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug(
-			"%s(%u):%s Processing dplane ctx %p, op %s result %s",
+			"%s(%u):%s Processing dplane result ctx %p, op %s result %s",
 			VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), dest_str,
 			ctx, dplane_op2str(op), dplane_res2str(status));
 
@@ -1669,9 +1826,10 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 							dest_str);
 				}
 
-				/* Redistribute */
-				redistribute_update(dest_pfx, src_pfx,
-						    re, old_re);
+				/* Redistribute if this is the selected re */
+				if (dest && re == dest->selected_fib)
+					redistribute_update(dest_pfx, src_pfx,
+							    re, old_re);
 			}
 
 			/*
@@ -1760,6 +1918,41 @@ done:
 
 	/* Return context to dataplane module */
 	dplane_ctx_fini(&ctx);
+}
+
+/*
+ * Count installed/FIB nexthops
+ */
+static int rib_count_installed_nh(struct route_entry *re)
+{
+	int count = 0;
+	struct nexthop *nexthop;
+	struct nexthop_group *nhg;
+
+	nhg = rib_get_fib_nhg(re);
+
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+		/* The meaningful flag depends on where the installed
+		 * nexthops reside.
+		 */
+		if (nhg == &(re->fib_ng)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+				count++;
+		} else {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+				count++;
+		}
+	}
+
+	nhg = rib_get_fib_backup_nhg(re);
+	if (nhg) {
+		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+				count++;
+		}
+	}
+
+	return count;
 }
 
 /*
@@ -1879,12 +2072,8 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	 */
 	start_count = 0;
 
-	if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
-		for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-				start_count++;
-		}
-	}
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+		start_count = rib_count_installed_nh(re);
 
 	/* Update zebra's nexthop FIB flags based on the context struct's
 	 * nexthops.
@@ -1903,12 +2092,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	 * Perform follow-up work if the actual status of the prefix
 	 * changed.
 	 */
-
-	end_count = 0;
-	for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-			end_count++;
-	}
+	end_count = rib_count_installed_nh(re);
 
 	/* Various fib transitions: changed nexthops; from installed to
 	 * not-installed; or not-installed to installed.
@@ -1937,7 +2121,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 
 		/* Changed nexthops - update kernel/others */
-		dplane_route_notif_update(rn, re, DPLANE_OP_ROUTE_INSTALL, ctx);
+		dplane_route_notif_update(rn, re, DPLANE_OP_ROUTE_UPDATE, ctx);
 
 		/* Redistribute, lsp, and nht update */
 		redistribute_update(dest_pfx, src_pfx, re, NULL);
@@ -2276,6 +2460,7 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
 
 	dest = XCALLOC(MTYPE_RIB_DEST, sizeof(rib_dest_t));
 	rnh_list_init(&dest->nht);
+	re_list_init(&dest->routes);
 	route_lock_node(rn); /* rn route table reference */
 	rn->info = dest;
 	dest->rnode = rn;
@@ -2446,6 +2631,8 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	char nhname[PREFIX_STRLEN];
 	char backup_str[50];
 	char wgt_str[50];
+	char temp_str[10];
+	int i;
 	struct interface *ifp;
 	struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
@@ -2471,8 +2658,12 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 
 	backup_str[0] = '\0';
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
-		snprintf(backup_str, sizeof(backup_str), "backup %d,",
-			 (int)nexthop->backup_idx);
+		snprintf(backup_str, sizeof(backup_str), "backup ");
+		for (i = 0; i < nexthop->backup_num; i++) {
+			snprintf(temp_str, sizeof(temp_str), "%d, ",
+				 nexthop->backup_idx[i]);
+			strlcat(backup_str, temp_str, sizeof(backup_str));
+		}
 	}
 
 	wgt_str[0] = '\0';
@@ -2735,32 +2926,15 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 
 	/*
 	 * If same type of route are installed, treat it as a implicit
-	 * withdraw.
-	 * If the user has specified the No route replace semantics
+	 * withdraw. If the user has specified the No route replace semantics
 	 * for the install don't do a route replace.
 	 */
 	RNODE_FOREACH_RE (rn, same) {
 		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
-		if (same->type != re->type)
-			continue;
-		if (same->instance != re->instance)
-			continue;
-		if (same->type == ZEBRA_ROUTE_KERNEL
-		    && same->metric != re->metric)
-			continue;
-
-		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
-		    same->distance != re->distance)
-			continue;
-
-		/*
-		 * We should allow duplicate connected routes
-		 * because of IPv6 link-local routes and unnumbered
-		 * interfaces on Linux.
-		 */
-		if (same->type != ZEBRA_ROUTE_CONNECT)
+		/* Compare various route_entry properties */
+		if (rib_compare_routes(re, same))
 			break;
 	}
 
@@ -2982,8 +3156,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 				if (nh)
 					rnode_debug(
 						rn, vrf_id,
-						"via %s ifindex %d type %d "
-						"doesn't exist in rib",
+						"via %s ifindex %d type %d doesn't exist in rib",
 						inet_ntop(afi2family(afi),
 							  &nh->gate, buf2,
 							  sizeof(buf2)),
@@ -3466,7 +3639,8 @@ static int handle_pw_result(struct zebra_dplane_ctx *ctx)
 		vrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
 		pw = zebra_pw_find(vrf, dplane_ctx_get_ifname(ctx));
 		if (pw)
-			zebra_pw_install_failure(pw);
+			zebra_pw_install_failure(pw,
+						 dplane_ctx_get_pw_status(ctx));
 	}
 
 done:
@@ -3579,6 +3753,12 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_MAC_INSTALL:
 			case DPLANE_OP_MAC_DELETE:
 				zebra_vxlan_handle_result(ctx);
+				break;
+
+			case DPLANE_OP_RULE_ADD:
+			case DPLANE_OP_RULE_DELETE:
+			case DPLANE_OP_RULE_UPDATE:
+				zebra_pbr_dplane_result(ctx);
 				break;
 
 			/* Some op codes not handled here */

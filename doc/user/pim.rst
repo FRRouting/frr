@@ -166,10 +166,22 @@ Certain signals have special meanings to *pimd*.
    urib-only
       Lookup in the Unicast Rib only.
 
-.. index:: no ip msdp mesh-group [WORD]
-.. clicmd:: no ip msdp mesh-group [WORD]
+.. index:: [no] ip msdp mesh-group [WORD]
+.. clicmd:: [no] ip msdp mesh-group [WORD]
 
-   Delete multicast source discovery protocol mesh-group
+   Create or Delete a multicast source discovery protocol mesh-group using
+   [WORD] as the group name.
+
+.. index:: [no] ip msdp mesh-group WORD member A.B.C.D
+.. clicmd:: [no] ip msdp mesh-group WORD member A.B.C.D
+
+   Attach or Delete A.B.C.D to the MSDP mesh group WORD specified.
+
+.. index:: [no] ip msdp mesh-group WORD source A.B.C.D
+.. clicmd:: [no] ip msdp mesh-group WORD source A.B.C.D
+
+   For the address specified A.B.C.D use that as the source address for
+   mesh group packets being sent.
 
 .. index:: ip igmp generate-query-once [version (2-3)]
 .. clicmd:: ip igmp generate-query-once [version (2-3)]
@@ -185,7 +197,7 @@ Certain signals have special meanings to *pimd*.
    warning once the configured group limit is reached while adding new groups.
    'no' form of the command disables the warning generation. This command is
    vrf aware. To configure per vrf, enter vrf submode.
-   
+
 .. _pim-interface-configuration:
 
 PIM Interface Configuration
@@ -378,17 +390,30 @@ cause great confusion.
    Source Group.  The keyword `fill` says to fill in all assumed data
    for test/data gathering purposes.
 
-.. index:: show ip mroute count
-.. clicmd:: show ip mroute count
+.. index:: show ip mroute [vrf NAME] count [json]
+.. clicmd:: show ip mroute [vrf NAME] count [json]
 
    Display information about installed into the kernel S,G mroutes and in
-   addition display data about packet flow for the mroutes.
+   addition display data about packet flow for the mroutes for a specific
+   vrf.
 
-.. index:: show ip mroute summary
-.. clicmd:: show ip mroute summary
+.. index:: show ip mroute vrf all count [json]
+.. clicmd:: show ip mroute vrf all count [json]
+
+   Display information about installed into the kernel S,G mroutes and in
+   addition display data about packet flow for the mroutes for all vrfs.
+
+.. index:: show ip mroute [vrf NAME] summary [json]
+.. clicmd:: show ip mroute [vrf NAME] summary [json]
 
    Display total number of S,G mroutes and number of S,G mroutes installed
-   into the kernel.
+   into the kernel for a specific vrf.
+
+.. index:: show ip mroute vrf all summary [json]
+.. clicmd:: show ip mroute vrf all summary [json]
+
+   Display total number of S,G mroutes and number of S,G mroutes
+   installed into the kernel for all vrfs.
 
 .. index:: show ip pim assert
 .. clicmd:: show ip pim assert
@@ -535,6 +560,16 @@ cause great confusion.
 .. clicmd:: mtrace A.B.C.D [A.B.C.D]
 
    Display multicast traceroute towards source, optionally for particular group.
+
+.. index:: show ip multicast count [vrf NAME] [json]
+.. clicmd:: show ip multicast count [vrf NAME] [json]
+
+   Display multicast data packets count per interface for a vrf.
+
+.. index:: show ip multicast count vrf all [json]
+.. clicmd:: show ip multicast count vrf all [json]
+
+   Display multicast data packets count per interface for all vrf.
 
 PIM Debug Commands
 ==================

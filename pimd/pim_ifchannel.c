@@ -139,8 +139,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	if (PIM_I_am_DualActive(pim_ifp)) {
 		if (PIM_DEBUG_MLAG)
 			zlog_debug(
-				"%s: if-chnanel-%s is deleted from a Dual "
-				"active Interface",
+				"%s: if-chnanel-%s is deleted from a Dual active Interface",
 				__func__, ch->sg_str);
 		/* Post Delete only if it is the last Dual-active Interface */
 		if (ch->upstream->dualactive_ifchannel_count == 1) {
@@ -214,8 +213,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	else {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
-				"%s: Avoiding deletion of upstream with ref_count %d "
-				"from ifchannel(%s): %s",
+				"%s: Avoiding deletion of upstream with ref_count %d from ifchannel(%s): %s",
 				__func__, ch->upstream->ref_count,
 				ch->interface->name, ch->sg_str);
 	}
@@ -622,8 +620,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 		}
 		if (PIM_DEBUG_MLAG)
 			zlog_debug(
-				"%s: New Dual active if-chnanel is added to upstream:%s "
-				"count:%d, flags:0x%x",
+				"%s: New Dual active if-chnanel is added to upstream:%s count:%d, flags:0x%x",
 				__func__, up->sg_str,
 				up->dualactive_ifchannel_count, up->flags);
 	}

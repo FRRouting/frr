@@ -360,7 +360,7 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 		   struct rfapi_nexthop *lnh, int kill)
 {
 	afi_t afi; /* of the VN address */
-	struct bgp_node *bn;
+	struct bgp_dest *bn;
 	struct bgp_path_info *bpi;
 	char buf[PREFIX_STRLEN];
 	char buf2[RD_ADDRSTRLEN];
@@ -382,9 +382,9 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	vnc_zlog_debug_verbose(
 		"%s: peer=%p, prefix=%s, prd=%s afi=%d, safi=%d bn=%p, bn->info=%p",
 		__func__, peer, buf, prefix_rd2str(prd, buf2, sizeof(buf2)),
-		afi, safi, bn, (bn ? bgp_node_get_bgp_path_info(bn) : NULL));
+		afi, safi, bn, (bn ? bgp_dest_get_bgp_path_info(bn) : NULL));
 
-	for (bpi = (bn ? bgp_node_get_bgp_path_info(bn) : NULL); bpi;
+	for (bpi = (bn ? bgp_dest_get_bgp_path_info(bn) : NULL); bpi;
 	     bpi = bpi->next) {
 
 		vnc_zlog_debug_verbose(
@@ -465,16 +465,16 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 			__func__, safi, buf);
 
 		if (safi == SAFI_MPLS_VPN) {
-			struct bgp_node *prn = NULL;
+			struct bgp_dest *pdest = NULL;
 			struct bgp_table *table = NULL;
 
-			prn = bgp_node_get(bgp->rib[afi][safi],
-					   (struct prefix *)prd);
-			table = bgp_node_get_bgp_table_info(prn);
+			pdest = bgp_node_get(bgp->rib[afi][safi],
+					     (struct prefix *)prd);
+			table = bgp_dest_get_bgp_table_info(pdest);
 			if (table)
 				vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 					bgp, prd, table, p, bpi);
-			bgp_unlock_node(prn);
+			bgp_dest_unlock_node(pdest);
 		}
 
 		/*
@@ -492,7 +492,7 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 			__func__, safi, buf);
 	}
 done:
-	bgp_unlock_node(bn);
+	bgp_dest_unlock_node(bn);
 }
 
 struct rfapi_nexthop *rfapi_nexthop_new(struct rfapi_nexthop *copyme)
@@ -573,7 +573,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	afi_t afi; /* of the VN address */
 	struct bgp_path_info *new;
 	struct bgp_path_info *bpi;
-	struct bgp_node *bn;
+	struct bgp_dest *bn;
 
 	struct attr attr = {0};
 	struct attr *new_attr;
@@ -942,7 +942,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	 *      ecommunity: POINTS TO interned/refcounted dynamic 2-part AS attr
 	 *  aspath: POINTS TO interned/refcounted hashed block
 	 */
-	for (bpi = bgp_node_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
+	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
 		/* probably only need to check
 		 * bpi->extra->vnc.export.rfapi_handle */
 		if (bpi->peer == rfd->peer && bpi->type == type
@@ -997,7 +997,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		if (attrhash_cmp(bpi->attr, new_attr)
 		    && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
 			bgp_attr_unintern(&new_attr);
-			bgp_unlock_node(bn);
+			bgp_dest_unlock_node(bn);
 
 			vnc_zlog_debug_any(
 				"%s: Found route (safi=%d) at prefix %s, no change",
@@ -1009,16 +1009,16 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ATTR_CHANGED);
 
 			if (safi == SAFI_MPLS_VPN) {
-				struct bgp_node *prn = NULL;
+				struct bgp_dest *pdest = NULL;
 				struct bgp_table *table = NULL;
 
-				prn = bgp_node_get(bgp->rib[afi][safi],
-						   (struct prefix *)prd);
-				table = bgp_node_get_bgp_table_info(prn);
+				pdest = bgp_node_get(bgp->rib[afi][safi],
+						     (struct prefix *)prd);
+				table = bgp_dest_get_bgp_table_info(pdest);
 				if (table)
 					vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 						bgp, prd, table, p, bpi);
-				bgp_unlock_node(prn);
+				bgp_dest_unlock_node(pdest);
 			}
 
 			/* Rewrite BGP route information. */
@@ -1032,22 +1032,22 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 
 			if (safi == SAFI_MPLS_VPN) {
-				struct bgp_node *prn = NULL;
+				struct bgp_dest *pdest = NULL;
 				struct bgp_table *table = NULL;
 
-				prn = bgp_node_get(bgp->rib[afi][safi],
-						   (struct prefix *)prd);
-				table = bgp_node_get_bgp_table_info(prn);
+				pdest = bgp_node_get(bgp->rib[afi][safi],
+						     (struct prefix *)prd);
+				table = bgp_dest_get_bgp_table_info(pdest);
 				if (table)
 					vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 						bgp, prd, table, p, bpi);
-				bgp_unlock_node(prn);
+				bgp_dest_unlock_node(pdest);
 			}
 
 			/* Process change. */
 			bgp_aggregate_increment(bgp, p, bpi, afi, safi);
 			bgp_process(bgp, bn, afi, safi);
-			bgp_unlock_node(bn);
+			bgp_dest_unlock_node(bn);
 
 			vnc_zlog_debug_any(
 				"%s: Found route (safi=%d) at prefix %s, changed attr",
@@ -1076,19 +1076,19 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	bgp_path_info_add(bn, new);
 
 	if (safi == SAFI_MPLS_VPN) {
-		struct bgp_node *prn = NULL;
+		struct bgp_dest *pdest = NULL;
 		struct bgp_table *table = NULL;
 
-		prn = bgp_node_get(bgp->rib[afi][safi], (struct prefix *)prd);
-		table = bgp_node_get_bgp_table_info(prn);
+		pdest = bgp_node_get(bgp->rib[afi][safi], (struct prefix *)prd);
+		table = bgp_dest_get_bgp_table_info(pdest);
 		if (table)
 			vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 				bgp, prd, table, p, new);
-		bgp_unlock_node(prn);
+		bgp_dest_unlock_node(pdest);
 		encode_label(label_val, &bn->local_label);
 	}
 
-	bgp_unlock_node(bn);
+	bgp_dest_unlock_node(bn);
 	bgp_process(bgp, bn, afi, safi);
 
 	vnc_zlog_debug_any(
@@ -3665,51 +3665,55 @@ void rfapi_init(void)
 #ifdef DEBUG_RFAPI
 static void rfapi_print_exported(struct bgp *bgp)
 {
-	struct bgp_node *rdn;
-	struct bgp_node *rn;
+	struct bgp_dest *destn;
+	struct bgp_dest *dest;
 	struct bgp_path_info *bpi;
 
 	if (!bgp)
 		return;
 
-	for (rdn = bgp_table_top(bgp->rib[AFI_IP][SAFI_MPLS_VPN]); rdn;
-	     rdn = bgp_route_next(rdn)) {
+	for (destn = bgp_table_top(bgp->rib[AFI_IP][SAFI_MPLS_VPN]); destn;
+	     destn = bgp_route_next(destn)) {
 		struct bgp_table *table;
 
-		table = bgp_node_get_bgp_table_info(rdn);
+		table = bgp_dest_get_bgp_table_info(destn);
 		if (!table)
 			continue;
-		fprintf(stderr, "%s: vpn rdn=%p\n", __func__, rdn);
-		for (rn = bgp_table_top(table); rn;
-		     rn = bgp_route_next(rn)) {
-			bpi = bgp_node_get_bgp_path_info(rn);
+		fprintf(stderr, "%s: vpn destn=%p\n", __func__, destn);
+		for (dest = bgp_table_top(table); dest;
+		     dest = bgp_route_next(dest)) {
+			bpi = bgp_dest_get_bgp_path_info(dest);
 
 			if (!bpi)
 				continue;
-			fprintf(stderr, "%s: rn=%p\n", __func__, rn);
+			fprintf(stderr, "%s: dest=%p\n", __func__, dest);
 			for (; bpi; bpi = bpi->next) {
 				rfapiPrintBi((void *)2, bpi); /* 2 => stderr */
 			}
 		}
 	}
-	for (rdn = bgp_table_top(bgp->rib[AFI_IP][SAFI_ENCAP]); rdn;
-	     rdn = bgp_route_next(rdn)) {
+	for (destn = bgp_table_top(bgp->rib[AFI_IP][SAFI_ENCAP]); destn;
+	     destn = bgp_route_next(destn)) {
 		struct bgp_table *table;
 
-		table = bgp_node_get_bgp_table_info(rdn);
+		table = bgp_dest_get_bgp_table_info(destn);
 		if (!table)
 			continue;
-		fprintf(stderr, "%s: encap rdn=%p\n", __func__, rdn);
-		for (rn = bgp_table_top(table)); rn;
-		     rn = bgp_route_next(rn)) {
-			bpi = bgp_node_get_bgp_path_info(rn);
-			if (!bpi)
-				continue;
-			fprintf(stderr, "%s: rn=%p\n", __func__, rn);
-			for (; bpi; bpi = bpi->next) {
-				rfapiPrintBi((void *)2, bpi); /* 2 => stderr */
-			}
-		}
+		fprintf(stderr, "%s: encap destn=%p\n", __func__, destn);
+		for (dest = bgp_table_top(table))
+			;
+		dest;
+		     dest = bgp_route_next(dest))
+		     {
+			     bpi = bgp_dest_get_bgp_path_info(dest);
+			     if (!bpi)
+				     continue;
+			     fprintf(stderr, "%s: dest=%p\n", __func__, dest);
+			     for (; bpi; bpi = bpi->next) {
+				     rfapiPrintBi((void *)2,
+						  bpi); /* 2 => stderr */
+			     }
+		     }
 	}
 }
 #endif /* defined(DEBUG_RFAPI) */
@@ -3743,8 +3747,7 @@ int rfapi_set_autord_from_vn(struct prefix_rd *rd, struct rfapi_ip_addr *vn)
 	vnc_zlog_debug_verbose("%s: auto-assigning RD", __func__);
 	if (vn->addr_family != AF_INET && vn->addr_family != AF_INET6) {
 		vnc_zlog_debug_verbose(
-			"%s: can't auto-assign RD, VN addr family is not IPv4"
-			"|v6",
+			"%s: can't auto-assign RD, VN addr family is not IPv4|v6",
 			__func__);
 		return EAFNOSUPPORT;
 	}

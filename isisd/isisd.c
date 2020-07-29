@@ -60,6 +60,21 @@
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
 
+/* For debug statement. */
+unsigned long debug_adj_pkt;
+unsigned long debug_snp_pkt;
+unsigned long debug_update_pkt;
+unsigned long debug_spf_events;
+unsigned long debug_rte_events;
+unsigned long debug_events;
+unsigned long debug_pkt_dump;
+unsigned long debug_lsp_gen;
+unsigned long debug_lsp_sched;
+unsigned long debug_flooding;
+unsigned long debug_bfd;
+unsigned long debug_tx_queue;
+unsigned long debug_sr;
+
 struct isis *isis = NULL;
 
 DEFINE_QOBJ_TYPE(isis)
@@ -90,10 +105,6 @@ void isis_new(unsigned long process_id, vrf_id_t vrf_id)
 	isis->init_circ_list = list_new();
 	isis->uptime = time(NULL);
 	dyn_cache_init();
-	/*
-	 * uncomment the next line for full debugs
-	 */
-	/* isis->debugs = 0xFFFF; */
 
 	QOBJ_REG(isis, isis);
 }
@@ -192,6 +203,9 @@ struct isis_area *isis_area_create(const char *area_tag)
 	area->lsp_refresh_arg[1].area = area;
 	area->lsp_refresh_arg[1].level = IS_LEVEL_2;
 
+	area->bfd_signalled_down = false;
+	area->bfd_force_spf_refresh = false;
+
 
 	QOBJ_REG(area, isis_area);
 
@@ -225,7 +239,7 @@ int isis_area_get(struct vty *vty, const char *area_tag)
 
 	area = isis_area_create(area_tag);
 
-	if (isis->debugs & DEBUG_EVENTS)
+	if (IS_DEBUG_EVENTS)
 		zlog_debug("New IS-IS area instance %s", area->area_tag);
 
 	VTY_PUSH_CONTEXT(ROUTER_NODE, area);
@@ -387,7 +401,7 @@ int area_net_title(struct vty *vty, const char *net_title)
 		 */
 		memcpy(isis->sysid, GETSYSID(addr), ISIS_SYS_ID_LEN);
 		isis->sysid_set = 1;
-		if (isis->debugs & DEBUG_EVENTS)
+		if (IS_DEBUG_EVENTS)
 			zlog_debug("Router has SystemID %s",
 				   sysid_print(isis->sysid));
 	} else {
@@ -468,7 +482,7 @@ int area_clear_net_title(struct vty *vty, const char *net_title)
 	if (listcount(area->area_addrs) == 0) {
 		memset(isis->sysid, 0, ISIS_SYS_ID_LEN);
 		isis->sysid_set = 0;
-		if (isis->debugs & DEBUG_EVENTS)
+		if (IS_DEBUG_EVENTS)
 			zlog_debug("Router has no SystemID");
 	}
 
@@ -784,9 +798,32 @@ DEFUN_NOSH (show_debugging,
 {
 	vty_out(vty, PROTO_NAME " debugging status:\n");
 
-	if (isis->debugs)
-		print_debug(vty, isis->debugs, 1);
-
+	if (IS_DEBUG_ADJ_PACKETS)
+		print_debug(vty, DEBUG_ADJ_PACKETS, 1);
+	if (IS_DEBUG_TX_QUEUE)
+		print_debug(vty, DEBUG_TX_QUEUE, 1);
+	if (IS_DEBUG_SNP_PACKETS)
+		print_debug(vty, DEBUG_SNP_PACKETS, 1);
+	if (IS_DEBUG_SPF_EVENTS)
+		print_debug(vty, DEBUG_SPF_EVENTS, 1);
+	if (IS_DEBUG_SR)
+		print_debug(vty, DEBUG_SR, 1);
+	if (IS_DEBUG_UPDATE_PACKETS)
+		print_debug(vty, DEBUG_UPDATE_PACKETS, 1);
+	if (IS_DEBUG_RTE_EVENTS)
+		print_debug(vty, DEBUG_RTE_EVENTS, 1);
+	if (IS_DEBUG_EVENTS)
+		print_debug(vty, DEBUG_EVENTS, 1);
+	if (IS_DEBUG_PACKET_DUMP)
+		print_debug(vty, DEBUG_PACKET_DUMP, 1);
+	if (IS_DEBUG_LSP_GEN)
+		print_debug(vty, DEBUG_LSP_GEN, 1);
+	if (IS_DEBUG_LSP_SCHED)
+		print_debug(vty, DEBUG_LSP_SCHED, 1);
+	if (IS_DEBUG_FLOODING)
+		print_debug(vty, DEBUG_FLOODING, 1);
+	if (IS_DEBUG_BFD)
+		print_debug(vty, DEBUG_BFD, 1);
 	return CMD_SUCCESS;
 }
 
@@ -802,57 +839,56 @@ static struct cmd_node debug_node = {
 static int config_write_debug(struct vty *vty)
 {
 	int write = 0;
-	int flags = isis->debugs;
 
-	if (flags & DEBUG_ADJ_PACKETS) {
+	if (IS_DEBUG_ADJ_PACKETS) {
 		vty_out(vty, "debug " PROTO_NAME " adj-packets\n");
 		write++;
 	}
-	if (flags & DEBUG_TX_QUEUE) {
+	if (IS_DEBUG_TX_QUEUE) {
 		vty_out(vty, "debug " PROTO_NAME " tx-queue\n");
 		write++;
 	}
-	if (flags & DEBUG_SNP_PACKETS) {
+	if (IS_DEBUG_SNP_PACKETS) {
 		vty_out(vty, "debug " PROTO_NAME " snp-packets\n");
 		write++;
 	}
-	if (flags & DEBUG_SPF_EVENTS) {
+	if (IS_DEBUG_SPF_EVENTS) {
 		vty_out(vty, "debug " PROTO_NAME " spf-events\n");
 		write++;
 	}
-	if (flags & DEBUG_SR) {
+	if (IS_DEBUG_SR) {
 		vty_out(vty, "debug " PROTO_NAME " sr-events\n");
 		write++;
 	}
-	if (flags & DEBUG_UPDATE_PACKETS) {
+	if (IS_DEBUG_UPDATE_PACKETS) {
 		vty_out(vty, "debug " PROTO_NAME " update-packets\n");
 		write++;
 	}
-	if (flags & DEBUG_RTE_EVENTS) {
+	if (IS_DEBUG_RTE_EVENTS) {
 		vty_out(vty, "debug " PROTO_NAME " route-events\n");
 		write++;
 	}
-	if (flags & DEBUG_EVENTS) {
+	if (IS_DEBUG_EVENTS) {
 		vty_out(vty, "debug " PROTO_NAME " events\n");
 		write++;
 	}
-	if (flags & DEBUG_PACKET_DUMP) {
+	if (IS_DEBUG_PACKET_DUMP) {
 		vty_out(vty, "debug " PROTO_NAME " packet-dump\n");
 		write++;
 	}
-	if (flags & DEBUG_LSP_GEN) {
+	if (IS_DEBUG_LSP_GEN) {
 		vty_out(vty, "debug " PROTO_NAME " lsp-gen\n");
 		write++;
 	}
-	if (flags & DEBUG_LSP_SCHED) {
+	if (IS_DEBUG_LSP_SCHED) {
 		vty_out(vty, "debug " PROTO_NAME " lsp-sched\n");
 		write++;
 	}
-	if (flags & DEBUG_FLOODING) {
+	if (IS_DEBUG_FLOODING) {
 		vty_out(vty, "debug " PROTO_NAME " flooding\n");
 		write++;
 	}
-	if (flags & DEBUG_BFD) {
+	if (IS_DEBUG_BFD) {
 		vty_out(vty, "debug " PROTO_NAME " bfd\n");
 		write++;
 	}
@@ -868,7 +904,7 @@ DEFUN (debug_isis_adj,
        PROTO_HELP
        "IS-IS Adjacency related packets\n")
 {
-	isis->debugs |= DEBUG_ADJ_PACKETS;
+	debug_adj_pkt |= DEBUG_ADJ_PACKETS;
 	print_debug(vty, DEBUG_ADJ_PACKETS, 1);
 
 	return CMD_SUCCESS;
@@ -882,7 +918,7 @@ DEFUN (no_debug_isis_adj,
        PROTO_HELP
        "IS-IS Adjacency related packets\n")
 {
-	isis->debugs &= ~DEBUG_ADJ_PACKETS;
+	debug_adj_pkt &= ~DEBUG_ADJ_PACKETS;
 	print_debug(vty, DEBUG_ADJ_PACKETS, 0);
 
 	return CMD_SUCCESS;
@@ -895,7 +931,7 @@ DEFUN (debug_isis_tx_queue,
        PROTO_HELP
        "IS-IS TX queues\n")
 {
-	isis->debugs |= DEBUG_TX_QUEUE;
+	debug_tx_queue |= DEBUG_TX_QUEUE;
 	print_debug(vty, DEBUG_TX_QUEUE, 1);
 
 	return CMD_SUCCESS;
@@ -909,7 +945,7 @@ DEFUN (no_debug_isis_tx_queue,
        PROTO_HELP
        "IS-IS TX queues\n")
 {
-	isis->debugs &= ~DEBUG_TX_QUEUE;
+	debug_tx_queue &= ~DEBUG_TX_QUEUE;
 	print_debug(vty, DEBUG_TX_QUEUE, 0);
 
 	return CMD_SUCCESS;
@@ -922,7 +958,7 @@ DEFUN (debug_isis_flooding,
        PROTO_HELP
        "Flooding algorithm\n")
 {
-	isis->debugs |= DEBUG_FLOODING;
+	debug_flooding |= DEBUG_FLOODING;
 	print_debug(vty, DEBUG_FLOODING, 1);
 
 	return CMD_SUCCESS;
@@ -936,7 +972,7 @@ DEFUN (no_debug_isis_flooding,
        PROTO_HELP
        "Flooding algorithm\n")
 {
-	isis->debugs &= ~DEBUG_FLOODING;
+	debug_flooding &= ~DEBUG_FLOODING;
 	print_debug(vty, DEBUG_FLOODING, 0);
 
 	return CMD_SUCCESS;
@@ -949,7 +985,7 @@ DEFUN (debug_isis_snp,
        PROTO_HELP
        "IS-IS CSNP/PSNP packets\n")
 {
-	isis->debugs |= DEBUG_SNP_PACKETS;
+	debug_snp_pkt |= DEBUG_SNP_PACKETS;
 	print_debug(vty, DEBUG_SNP_PACKETS, 1);
 
 	return CMD_SUCCESS;
@@ -963,7 +999,7 @@ DEFUN (no_debug_isis_snp,
        PROTO_HELP
        "IS-IS CSNP/PSNP packets\n")
 {
-	isis->debugs &= ~DEBUG_SNP_PACKETS;
+	debug_snp_pkt &= ~DEBUG_SNP_PACKETS;
 	print_debug(vty, DEBUG_SNP_PACKETS, 0);
 
 	return CMD_SUCCESS;
@@ -976,7 +1012,7 @@ DEFUN (debug_isis_upd,
        PROTO_HELP
        "IS-IS Update related packets\n")
 {
-	isis->debugs |= DEBUG_UPDATE_PACKETS;
+	debug_update_pkt |= DEBUG_UPDATE_PACKETS;
 	print_debug(vty, DEBUG_UPDATE_PACKETS, 1);
 
 	return CMD_SUCCESS;
@@ -990,7 +1026,7 @@ DEFUN (no_debug_isis_upd,
        PROTO_HELP
        "IS-IS Update related packets\n")
 {
-	isis->debugs &= ~DEBUG_UPDATE_PACKETS;
+	debug_update_pkt &= ~DEBUG_UPDATE_PACKETS;
 	print_debug(vty, DEBUG_UPDATE_PACKETS, 0);
 
 	return CMD_SUCCESS;
@@ -1003,7 +1039,7 @@ DEFUN (debug_isis_spfevents,
        PROTO_HELP
        "IS-IS Shortest Path First Events\n")
 {
-	isis->debugs |= DEBUG_SPF_EVENTS;
+	debug_spf_events |= DEBUG_SPF_EVENTS;
 	print_debug(vty, DEBUG_SPF_EVENTS, 1);
 
 	return CMD_SUCCESS;
@@ -1017,7 +1053,7 @@ DEFUN (no_debug_isis_spfevents,
        PROTO_HELP
        "IS-IS Shortest Path First Events\n")
 {
-	isis->debugs &= ~DEBUG_SPF_EVENTS;
+	debug_spf_events &= ~DEBUG_SPF_EVENTS;
 	print_debug(vty, DEBUG_SPF_EVENTS, 0);
 
 	return CMD_SUCCESS;
@@ -1030,7 +1066,7 @@ DEFUN (debug_isis_srevents,
        PROTO_HELP
        "IS-IS Segment Routing Events\n")
 {
-	isis->debugs |= DEBUG_SR;
+	debug_sr |= DEBUG_SR;
 	print_debug(vty, DEBUG_SR, 1);
 
 	return CMD_SUCCESS;
@@ -1044,7 +1080,7 @@ DEFUN (no_debug_isis_srevents,
        PROTO_HELP
        "IS-IS Segment Routing Events\n")
 {
-	isis->debugs &= ~DEBUG_SR;
+	debug_sr &= ~DEBUG_SR;
 	print_debug(vty, DEBUG_SR, 0);
 
 	return CMD_SUCCESS;
@@ -1057,7 +1093,7 @@ DEFUN (debug_isis_rtevents,
        PROTO_HELP
        "IS-IS Route related events\n")
 {
-	isis->debugs |= DEBUG_RTE_EVENTS;
+	debug_rte_events |= DEBUG_RTE_EVENTS;
 	print_debug(vty, DEBUG_RTE_EVENTS, 1);
 
 	return CMD_SUCCESS;
@@ -1071,7 +1107,7 @@ DEFUN (no_debug_isis_rtevents,
        PROTO_HELP
        "IS-IS Route related events\n")
 {
-	isis->debugs &= ~DEBUG_RTE_EVENTS;
+	debug_rte_events &= ~DEBUG_RTE_EVENTS;
 	print_debug(vty, DEBUG_RTE_EVENTS, 0);
 
 	return CMD_SUCCESS;
@@ -1084,7 +1120,7 @@ DEFUN (debug_isis_events,
        PROTO_HELP
        "IS-IS Events\n")
 {
-	isis->debugs |= DEBUG_EVENTS;
+	debug_events |= DEBUG_EVENTS;
 	print_debug(vty, DEBUG_EVENTS, 1);
 
 	return CMD_SUCCESS;
@@ -1098,7 +1134,7 @@ DEFUN (no_debug_isis_events,
        PROTO_HELP
        "IS-IS Events\n")
 {
-	isis->debugs &= ~DEBUG_EVENTS;
+	debug_events &= ~DEBUG_EVENTS;
 	print_debug(vty, DEBUG_EVENTS, 0);
 
 	return CMD_SUCCESS;
@@ -1111,7 +1147,7 @@ DEFUN (debug_isis_packet_dump,
        PROTO_HELP
        "IS-IS packet dump\n")
 {
-	isis->debugs |= DEBUG_PACKET_DUMP;
+	debug_pkt_dump |= DEBUG_PACKET_DUMP;
 	print_debug(vty, DEBUG_PACKET_DUMP, 1);
 
 	return CMD_SUCCESS;
@@ -1125,7 +1161,7 @@ DEFUN (no_debug_isis_packet_dump,
        PROTO_HELP
        "IS-IS packet dump\n")
 {
-	isis->debugs &= ~DEBUG_PACKET_DUMP;
+	debug_pkt_dump &= ~DEBUG_PACKET_DUMP;
 	print_debug(vty, DEBUG_PACKET_DUMP, 0);
 
 	return CMD_SUCCESS;
@@ -1138,7 +1174,7 @@ DEFUN (debug_isis_lsp_gen,
        PROTO_HELP
        "IS-IS generation of own LSPs\n")
 {
-	isis->debugs |= DEBUG_LSP_GEN;
+	debug_lsp_gen |= DEBUG_LSP_GEN;
 	print_debug(vty, DEBUG_LSP_GEN, 1);
 
 	return CMD_SUCCESS;
@@ -1152,7 +1188,7 @@ DEFUN (no_debug_isis_lsp_gen,
        PROTO_HELP
        "IS-IS generation of own LSPs\n")
 {
-	isis->debugs &= ~DEBUG_LSP_GEN;
+	debug_lsp_gen &= ~DEBUG_LSP_GEN;
 	print_debug(vty, DEBUG_LSP_GEN, 0);
 
 	return CMD_SUCCESS;
@@ -1165,7 +1201,7 @@ DEFUN (debug_isis_lsp_sched,
        PROTO_HELP
        "IS-IS scheduling of LSP generation\n")
 {
-	isis->debugs |= DEBUG_LSP_SCHED;
+	debug_lsp_sched |= DEBUG_LSP_SCHED;
 	print_debug(vty, DEBUG_LSP_SCHED, 1);
 
 	return CMD_SUCCESS;
@@ -1179,7 +1215,7 @@ DEFUN (no_debug_isis_lsp_sched,
        PROTO_HELP
        "IS-IS scheduling of LSP generation\n")
 {
-	isis->debugs &= ~DEBUG_LSP_SCHED;
+	debug_lsp_sched &= ~DEBUG_LSP_SCHED;
 	print_debug(vty, DEBUG_LSP_SCHED, 0);
 
 	return CMD_SUCCESS;
@@ -1192,7 +1228,7 @@ DEFUN (debug_isis_bfd,
        PROTO_HELP
        PROTO_NAME " interaction with BFD\n")
 {
-	isis->debugs |= DEBUG_BFD;
+	debug_bfd |= DEBUG_BFD;
 	print_debug(vty, DEBUG_BFD, 1);
 
 	return CMD_SUCCESS;
@@ -1206,7 +1242,7 @@ DEFUN (no_debug_isis_bfd,
        PROTO_HELP
        PROTO_NAME " interaction with BFD\n")
 {
-	isis->debugs &= ~DEBUG_BFD;
+	debug_bfd &= ~DEBUG_BFD;
 	print_debug(vty, DEBUG_BFD, 0);
 
 	return CMD_SUCCESS;
@@ -1308,7 +1344,7 @@ DEFUN (show_isis_summary,
 			if (tier == ISIS_TIER_UNDEFINED)
 				vty_out(vty, "  Tier: undefined\n");
 			else
-				vty_out(vty, "  Tier: %" PRIu8 "\n", tier);
+				vty_out(vty, "  Tier: %hhu\n", tier);
 		}
 
 		if (listcount(area->area_addrs) > 0) {
@@ -1749,7 +1785,7 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 	struct listnode *node;
 	struct isis_circuit *circuit;
 
-	if (isis->debugs & DEBUG_EVENTS)
+	if (IS_DEBUG_EVENTS)
 		zlog_debug("ISIS-Evt (%s) system type change %s -> %s",
 			   area->area_tag, circuit_t2string(area->is_type),
 			   circuit_t2string(is_type));

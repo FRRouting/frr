@@ -137,6 +137,13 @@ module frr-nexthop {
       "Nexthop blackhole types.";
   }
 
+  typedef nexthop-group-ref {
+    type leafref {
+      path "/frr-nexthop:frr-nexthop-group/frr-nexthop:nexthop-groups/frr-nexthop:name";
+      require-instance false;
+    }
+  }
+
   /*
    * Common nexthop attributes grouping.
    */
@@ -147,8 +154,9 @@ module frr-nexthop {
       description
         "The nexthop type.";
     }
+
     leaf vrf {
-      type frr-vrf:vrf-ref;
+      type string;
       description
         "The nexthop vrf name, if different from the route.";
     }
@@ -157,17 +165,20 @@ module frr-nexthop {
       description
         "The nexthop gateway address.";
     }
+
     leaf interface {
-      type frr-interface:interface-ref;
+      type string;
       description
         "The nexthop egress interface.";
     }
+
     leaf bh-type {
       when "../nh-type = 'blackhole'";
       type blackhole-type;
       description
         "A blackhole sub-type, if the nexthop is a blackhole type.";
     }
+
     leaf onlink {
       when "../nh-type = 'ip4-ifindex' or
             ../nh-type = 'ip6-ifindex'";
@@ -223,6 +234,16 @@ module frr-nexthop {
     }
   }
 
+  grouping nexthop-grouping {
+    list nexthop {
+      key "nh-type vrf gateway interface";
+      min-elements 1;
+      description
+        "A list of nexthop objects.";
+      uses frr-nexthop-attributes;
+    }
+  }
+
   /*
    * Single nexthop grouping.
    */
@@ -230,12 +251,7 @@ module frr-nexthop {
     container frr-nexthops {
       description
         "FRR nexthop object.";
-      list nexthop {
-        key "nh-type gateway interface";
-        description
-          "A list of nexthop objects.";
-        uses frr-nexthop-attributes;
-      }
+      uses nexthop-grouping;
     }
   }
 
@@ -244,11 +260,10 @@ module frr-nexthop {
    * Container for FRR nexthop group.
    */
   grouping frr-nexthop-grouping {
-    list nexthop-group {
+    list nexthop-groups {
       key "name";
       description
-        "A group of nexthops.";
-
+        "List of nexthop groups, each contains group of nexthops";
       leaf name {
         type string;
         description
@@ -259,23 +274,31 @@ module frr-nexthop {
     }
   }
 
+  /* Operational nexthop-group */
+  grouping frr-nexthop-group-operational {
+    container nexthop-group {
+      description
+        "A group of nexthops.";
+      leaf id {
+        type uint32;
+        description
+          "The nexthop-group id.";
+      }
+
+      uses nexthop-grouping;
+    }
+  }
+
   container frr-nexthop-group {
     description
       "A nexthop-group, represented as a list of nexthop objects.";
     uses frr-nexthop-grouping;
   }
 
-  typedef nexthop-group-ref {
-    type leafref {
-      require-instance false;
-      path "/frr-nexthop:frr-nexthop-group/frr-nexthop:nexthop-group/frr-nexthop:name";
-    }
-  }
-
   /*
    * Augment weight attributes to nexthop group.
    */
-  augment "/frr-nexthop-group/nexthop-group/frr-nexthops/nexthop" {
+  augment "/frr-nexthop-group/nexthop-groups/frr-nexthops/nexthop" {
     leaf weight {
       type uint8;
       description

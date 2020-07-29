@@ -191,6 +191,21 @@ review can be made and the branch merged into master.  If a development
 branch is becomes un-maintained or not being actively worked on after
 three months then the Maintainers can decide to remove the branch.
 
+Debian Branches
+---------------
+
+The Debian project contains "official" packages for FRR.  While FRR
+Maintainers may participate in creating these, it is entirely the Debian
+project's decision what to ship and how to work on this.
+
+As a courtesy and for FRR's benefit, this packaging work is currently visible
+in git branches named ``debian/*`` on the main FRR git repository.  These
+branches are for the exclusive use by people involved in Debian packaging work
+for FRR.  Direct commit access may be handed out and FRR git rules (review,
+testing, etc.) do not apply.  Do not push to these branches without talking
+to the people noted under ``Maintainer:`` and ``Uploaders:`` in
+``debian/control`` on the target branch -- even if you are a FRR Maintainer.
+
 Changelog
 ---------
 The changelog will be the base for the release notes. A changelog entry for
@@ -261,7 +276,7 @@ Pre-submission Checklist
 - In the case of a major new feature or other significant change, document
   plans for continued maintenance of the feature.  In addition it is a
   requirement that automated testing must be written that exercises
-  the new feature within our existing CI infrastructure.  Also the 
+  the new feature within our existing CI infrastructure.  Also the
   addition of automated testing to cover any pull request is encouraged.
 
 .. _signing-off:
@@ -557,6 +572,30 @@ following requirements have achieved consensus:
   use ``sizeof()`` whereever possible.  Particularly, do not use a size
   constant in these cases.  (Rationale:  changing a buffer to another size
   constant may leave the write operations on a now-incorrect size limit.)
+
+- For stack allocated structs and arrays that should be zero initialized,
+  prefer initializer expressions over ``memset()`` wherever possible. This
+  helps prevent ``memset()`` calls being missed in branches, and eliminates the
+  error class of an incorrect ``size`` argument to ``memset()``.
+
+  For example, instead of:
+
+  .. code-block:: c
+
+     struct foo mystruct;
+     ...
+     memset(&mystruct, 0x00, sizeof(struct foo));
+
+  Prefer:
+
+  .. code-block:: c
+
+     struct foo mystruct = {};
+
+- Do not zero initialize stack allocated values that must be initialized with a
+  nonzero value in order to be used. This way the compiler and memory checking
+  tools can catch uninitialized value use that would otherwise be suppressed by
+  the (incorrect) zero initialization.
 
 Other than these specific rules, coding practices from the Linux kernel as
 well as CERT or MISRA C guidelines may provide useful input on safe C code.
@@ -1019,7 +1058,18 @@ the development mailing list / public Slack instance.
 JSON Output
 ^^^^^^^^^^^
 
-All JSON keys are to be camelCased, with no spaces.
+* All JSON keys are to be camelCased, with no spaces
+* Commands which output JSON should produce ``{}`` if they have nothing to
+  display
+
+Use of const
+^^^^^^^^^^^^
+
+Please consider using ``const`` when possible: it's a useful hint to
+callers about the limits to side-effects from your apis, and it makes
+it possible to use your apis in paths that involve ``const``
+objects. If you encounter existing apis that *could* be ``const``,
+consider including changes in your own pull-request.
 
 
 .. _documentation:

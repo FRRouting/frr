@@ -206,6 +206,8 @@ lde_shutdown(void)
 	free(iev_main_sync);
 
 	log_info("label decision engine exiting");
+
+	zlog_fini();
 	exit(0);
 }
 
@@ -294,7 +296,7 @@ lde_dispatch_imsg(struct thread *thread)
 
 			switch (imsg.hdr.type) {
 			case IMSG_LABEL_MAPPING:
-				lde_check_mapping(map, ln);
+				lde_check_mapping(map, ln, 1);
 				break;
 			case IMSG_LABEL_REQUEST:
 				lde_check_request(map, ln);
@@ -323,8 +325,7 @@ lde_dispatch_imsg(struct thread *thread)
 				break;
 			}
 			if (lde_address_add(ln, lde_addr) < 0) {
-				log_debug("%s: cannot add address %s, it "
-				    "already exists", __func__,
+				log_debug("%s: cannot add address %s, it already exists", __func__,
 				    log_addr(lde_addr->af, &lde_addr->addr));
 			}
 			break;
@@ -341,8 +342,7 @@ lde_dispatch_imsg(struct thread *thread)
 				break;
 			}
 			if (lde_address_del(ln, lde_addr) < 0) {
-				log_debug("%s: cannot delete address %s, it "
-				    "does not exist", __func__,
+				log_debug("%s: cannot delete address %s, it does not exist", __func__,
 				    log_addr(lde_addr->af, &lde_addr->addr));
 			}
 			break;
@@ -380,8 +380,7 @@ lde_dispatch_imsg(struct thread *thread)
 				fatalx("lde_dispatch_imsg: wrong imsg len");
 
 			if (lde_nbr_find(imsg.hdr.peerid))
-				fatalx("lde_dispatch_imsg: "
-				    "neighbor already exists");
+				fatalx("lde_dispatch_imsg: neighbor already exists");
 			lde_nbr_new(imsg.hdr.peerid, imsg.data);
 			break;
 		case IMSG_NEIGHBOR_DOWN:
@@ -532,13 +531,11 @@ lde_dispatch_parent(struct thread *thread)
 			break;
 		case IMSG_SOCKET_IPC:
 			if (iev_ldpe) {
-				log_warnx("%s: received unexpected imsg fd "
-				    "to ldpe", __func__);
+				log_warnx("%s: received unexpected imsg fd to ldpe", __func__);
 				break;
 			}
 			if ((fd = imsg.fd) == -1) {
-				log_warnx("%s: expected to receive imsg fd to "
-				    "ldpe but didn't receive any", __func__);
+				log_warnx("%s: expected to receive imsg fd to ldpe but didn't receive any", __func__);
 				break;
 			}
 
@@ -973,8 +970,7 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw, &fn->fec);
 	if (lw) {
 		if (!fec_find(&ln->sent_map_pending, &fn->fec)) {
-			debug_evt("%s: FEC %s: scheduling to send label "
-			    "mapping later (waiting for pending label release)",
+			debug_evt("%s: FEC %s: scheduling to send label mapping later (waiting for pending label release)",
 			    __func__, log_fec(&fn->fec));
 			lde_map_pending_add(ln, fn);
 		}

@@ -126,16 +126,27 @@ static struct frr_daemon_info bgpd_di;
 /* SIGHUP handler. */
 void sighup(void)
 {
-	zlog_info("SIGHUP received");
+	zlog_info("SIGHUP received, ignoring");
 
+	return;
+
+	/*
+	 * This is turned off for the moment.  There is all
+	 * sorts of config turned off by bgp_terminate
+	 * that is not setup properly again in bgp_reset.
+	 * I see no easy way to do this nor do I see that
+	 * this is a desirable way to reload config
+	 * given the yang work.
+	 */
 	/* Terminate all thread. */
-	bgp_terminate();
-	bgp_reset();
-	zlog_info("bgpd restarting!");
+	/*
+	 * bgp_terminate();
+	 * bgp_reset();
+	 * zlog_info("bgpd restarting!");
 
-	/* Reload config file. */
-	vty_read_config(NULL, bgpd_di.config_file, config_default);
-
+	 * Reload config file.
+	 * vty_read_config(NULL, bgpd_di.config_file, config_default);
+	 */
 	/* Try to return to normal operation. */
 }
 
@@ -359,6 +370,7 @@ static void bgp_vrf_terminate(void)
 }
 
 static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,

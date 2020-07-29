@@ -361,11 +361,18 @@ module frr-isisd {
         "IS-type of this circuit.";
     }
 
-    leaf bfd-monitoring {
-      type boolean;
-      default "false";
-      description
-        "Monitor IS-IS peers on this circuit.";
+    container bfd-monitoring {
+      leaf enabled {
+        type boolean;
+        default "false";
+        description
+          "Monitor IS-IS peers on this circuit.";
+      }
+      leaf profile {
+        type string;
+        description
+          "Let BFD use a pre-configured profile.";
+      }
     }
 
     container csnp-interval {
@@ -1209,6 +1216,23 @@ module frr-isisd {
           leaf upper-bound {
               type uint32;
               default "23999";
+              description
+                "Upper value in the label range.";
+          }
+        }
+        container srlb {
+          description
+            "Local blocks to be advertised.";
+          must "./upper-bound > ./lower-bound";
+          leaf lower-bound {
+              type uint32;
+              default "15000";
+              description
+                "Lower value in the label range.";
+          }
+          leaf upper-bound {
+              type uint32;
+              default "15999";
               description
                 "Upper value in the label range.";
           }

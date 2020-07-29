@@ -555,6 +555,8 @@ class TopoRouter(TopoGear):
     RD_STATIC = 12
     RD_BFD = 13
     RD_SHARP = 14
+    RD_BABEL = 15
+    RD_PBRD = 16
     RD = {
         RD_ZEBRA: "zebra",
         RD_RIP: "ripd",
@@ -570,6 +572,8 @@ class TopoRouter(TopoGear):
         RD_STATIC: "staticd",
         RD_BFD: "bfdd",
         RD_SHARP: "sharpd",
+        RD_BABEL: "babeld",
+        RD_PBRD: "pbrd",
     }
 
     def __init__(self, tgen, cls, name, **params):
@@ -654,7 +658,7 @@ class TopoRouter(TopoGear):
         Possible daemon values are: TopoRouter.RD_ZEBRA, TopoRouter.RD_RIP,
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
         TopoRouter.RD_ISIS, TopoRouter.RD_BGP, TopoRouter.RD_LDP,
-        TopoRouter.RD_PIM.
+        TopoRouter.RD_PIM, TopoRouter.RD_PBR.
         """
         daemonstr = self.RD.get(daemon)
         self.logger.info('loading "{}" configuration: {}'.format(daemonstr, source))
@@ -1060,6 +1064,7 @@ def diagnose_env_linux():
             "isisd",
             "pimd",
             "ldpd",
+            "pbrd"
         ]:
             path = os.path.join(frrdir, fname)
             if not os.path.isfile(path):
@@ -1117,6 +1122,7 @@ def diagnose_env_linux():
             "ripngd",
             "isisd",
             "pimd",
+            "pbrd"
         ]:
             path = os.path.join(quaggadir, fname)
             if not os.path.isfile(path):

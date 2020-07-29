@@ -343,12 +343,15 @@ static void addr2hostprefix(int af, const union g_addr *addr,
 	}
 }
 
-void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
+void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw,
+				   bool *nht_exists)
 {
 	struct prefix nh;
 	struct rnh *rnh;
 	bool exists;
 	struct zebra_vrf *zvrf;
+
+	*nht_exists = false;
 
 	zvrf = vrf_info_lookup(vrf_id);
 	if (!zvrf)
@@ -356,12 +359,16 @@ void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
 
 	addr2hostprefix(pw->af, &pw->nexthop, &nh);
 	rnh = zebra_add_rnh(&nh, vrf_id, RNH_NEXTHOP_TYPE, &exists);
-	if (rnh && !listnode_lookup(rnh->zebra_pseudowire_list, pw)) {
+	if (!rnh)
+		return;
+
+	if (!listnode_lookup(rnh->zebra_pseudowire_list, pw)) {
 		listnode_add(rnh->zebra_pseudowire_list, pw);
 		pw->rnh = rnh;
 		zebra_evaluate_rnh(zvrf, family2afi(pw->af), 1,
 				   RNH_NEXTHOP_TYPE, &nh);
-	}
+	} else
+		*nht_exists = true;
 }
 
 void zebra_deregister_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
@@ -412,7 +419,7 @@ static int zebra_rnh_apply_nht_rmap(afi_t afi, struct zebra_vrf *zvrf,
 				at_least_one++; /* at least one valid NH */
 			else {
 				SET_FLAG(nexthop->flags,
-						NEXTHOP_FLAG_RNH_FILTERED);
+					 NEXTHOP_FLAG_RNH_FILTERED);
 			}
 		}
 	}
@@ -451,12 +458,12 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
 		char buf[PREFIX_STRLEN];
-		char buf1[PREFIX_STRLEN];
+		char buf1[SRCDEST2STR_BUFFER];
 
 		zlog_debug("%s: %u:%s Resolved Import Entry to %s", __func__,
 			   rnh->vrf_id,
 			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
-			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
+			   srcdest_rnode2str(rn, buf1, sizeof(buf1)));
 	}
 
 	/* Identify appropriate route entry. */
@@ -967,10 +974,117 @@ static void copy_state(struct rnh *rnh, const struct route_entry *re,
 	state->vrf_id = re->vrf_id;
 	state->status = re->status;
 
-	state->nhe = zebra_nhg_alloc();
+	state->nhe = zebra_nhe_copy(re->nhe, 0);
 
-	nexthop_group_copy(&(state->nhe->nhg), &(re->nhe->nhg));
+	/* Copy the 'fib' nexthops also, if present - we want to capture
+	 * the true installed nexthops.
+	 */
+	if (re->fib_ng.nexthop)
+		nexthop_group_copy(&state->fib_ng, &re->fib_ng);
+	if (re->fib_backup_ng.nexthop)
+		nexthop_group_copy(&state->fib_backup_ng, &re->fib_backup_ng);
+
 	rnh->state = state;
+}
+
+/*
+ * Compare two route_entries' nexthops.
+ */
+static bool compare_valid_nexthops(struct route_entry *r1,
+				   struct route_entry *r2)
+{
+	bool matched_p = false;
+	struct nexthop_group *nhg1, *nhg2;
+	struct nexthop *nh1, *nh2;
+
+	/* Account for backup nexthops and for the 'fib' nexthop lists,
+	 * if present.
+	 */
+	nhg1 = rib_get_fib_nhg(r1);
+	nhg2 = rib_get_fib_nhg(r2);
+
+	nh1 = nhg1->nexthop;
+	nh2 = nhg2->nexthop;
+
+	while (1) {
+		/* Find each list's next valid nexthop */
+		while ((nh1 != NULL) && !rnh_nexthop_valid(r1, nh1))
+			nh1 = nexthop_next(nh1);
+
+		while ((nh2 != NULL) && !rnh_nexthop_valid(r2, nh2))
+			nh2 = nexthop_next(nh2);
+
+		if (nh1 && nh2) {
+			/* Any difference is a no-match */
+			if (nexthop_cmp(nh1, nh2) != 0) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug("%s: nh1, nh2 differ",
+						   __func__);
+				goto done;
+			}
+
+			nh1 = nexthop_next(nh1);
+			nh2 = nexthop_next(nh2);
+		} else if (nh1 || nh2) {
+			/* One list has more valid nexthops than the other */
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug("%s: nh1 %s, nh2 %s", __func__,
+					   nh1 ? "non-NULL" : "NULL",
+					   nh2 ? "non-NULL" : "NULL");
+			goto done;
+		} else
+			break; /* Done with both lists */
+	}
+
+	/* The test for the backups is slightly different: the only installed
+	 * backups will be in the 'fib' list.
+	 */
+	nhg1 = rib_get_fib_backup_nhg(r1);
+	nhg2 = rib_get_fib_backup_nhg(r2);
+
+	nh1 = nhg1->nexthop;
+	nh2 = nhg2->nexthop;
+
+	while (1) {
+		/* Find each backup list's next valid nexthop */
+		while ((nh1 != NULL) && !rnh_nexthop_valid(r1, nh1))
+			nh1 = nexthop_next(nh1);
+
+		while ((nh2 != NULL) && !rnh_nexthop_valid(r2, nh2))
+			nh2 = nexthop_next(nh2);
+
+		if (nh1 && nh2) {
+			/* Any difference is a no-match */
+			if (nexthop_cmp(nh1, nh2) != 0) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug("%s: backup nh1, nh2 differ",
+						   __func__);
+				goto done;
+			}
+
+			nh1 = nexthop_next(nh1);
+			nh2 = nexthop_next(nh2);
+		} else if (nh1 || nh2) {
+			/* One list has more valid nexthops than the other */
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug("%s: backup nh1 %s, nh2 %s",
+					   __func__,
+					   nh1 ? "non-NULL" : "NULL",
+					   nh2 ? "non-NULL" : "NULL");
+			goto done;
+		} else
+			break; /* Done with both lists */
+	}
+
+	/* Well, it's a match */
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+		zlog_debug("%s: matched", __func__);
+
+	matched_p = true;
+
+done:
+
+	return matched_p;
 }
 
 static int compare_state(struct route_entry *r1, struct route_entry *r2)
@@ -987,12 +1101,7 @@ static int compare_state(struct route_entry *r1, struct route_entry *r2)
 	if (r1->metric != r2->metric)
 		return 1;
 
-	if (nexthop_group_nexthop_num(&(r1->nhe->nhg))
-	    != nexthop_group_nexthop_num(&(r2->nhe->nhg)))
-		return 1;
-
-	if (nexthop_group_hash(&(r1->nhe->nhg)) !=
-	    nexthop_group_hash(&(r2->nhe->nhg)))
+	if (!compare_valid_nexthops(r1, r2))
 		return 1;
 
 	return 0;
@@ -1001,12 +1110,13 @@ static int compare_state(struct route_entry *r1, struct route_entry *r2)
 static int send_client(struct rnh *rnh, struct zserv *client,
 		       enum rnh_type type, vrf_id_t vrf_id)
 {
-	struct stream *s;
+	struct stream *s = NULL;
 	struct route_entry *re;
 	unsigned long nump;
 	uint8_t num;
 	struct nexthop *nh;
 	struct route_node *rn;
+	int ret;
 	int cmd = (type == RNH_IMPORT_CHECK_TYPE) ? ZEBRA_IMPORT_CHECK_UPDATE
 						  : ZEBRA_NEXTHOP_UPDATE;
 
@@ -1032,10 +1142,11 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 		flog_err(EC_ZEBRA_RNH_UNKNOWN_FAMILY,
 			 "%s: Unknown family (%d) notification attempted\n",
 			 __func__, rn->p.family);
-		break;
+		goto failure;
 	}
 	if (re) {
 		struct zapi_nexthop znh;
+		struct nexthop_group *nhg;
 
 		stream_putc(s, re->type);
 		stream_putw(s, re->instance);
@@ -1044,12 +1155,32 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 		num = 0;
 		nump = stream_get_endp(s);
 		stream_putc(s, 0);
-		for (ALL_NEXTHOPS(re->nhe->nhg, nh))
+
+		nhg = rib_get_fib_nhg(re);
+		for (ALL_NEXTHOPS_PTR(nhg, nh))
 			if (rnh_nexthop_valid(re, nh)) {
 				zapi_nexthop_from_nexthop(&znh, nh);
-				zapi_nexthop_encode(s, &znh, 0 /* flags */);
+				ret = zapi_nexthop_encode(s, &znh, 0/*flags*/);
+				if (ret < 0)
+					goto failure;
+
 				num++;
 			}
+
+		nhg = rib_get_fib_backup_nhg(re);
+		if (nhg) {
+			for (ALL_NEXTHOPS_PTR(nhg, nh))
+				if (rnh_nexthop_valid(re, nh)) {
+					zapi_nexthop_from_nexthop(&znh, nh);
+					ret = zapi_nexthop_encode(
+						s, &znh, 0 /* flags */);
+					if (ret < 0)
+						goto failure;
+
+					num++;
+				}
+		}
+
 		stream_putc_at(s, nump, num);
 	} else {
 		stream_putc(s, 0); // type
@@ -1063,6 +1194,11 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 	client->nh_last_upd_time = monotime(NULL);
 	client->last_write_cmd = cmd;
 	return zserv_send_message(client, s);
+
+failure:
+
+	stream_free(s);
+	return -1;
 }
 
 static void print_nh(struct nexthop *nexthop, struct vty *vty)

@@ -375,6 +375,20 @@ static bool pim_channel_eval_oif_mute(struct channel_oil *c_oil,
 		return do_mute;
 	}
 
+	if (PIM_I_am_DualActive(pim_ifp)) {
+		struct pim_upstream *starup = c_oil->up->parent;
+		if (PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(c_oil->up->flags)
+		    && (PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(c_oil->up->flags)))
+			do_mute = true;
+
+		/* In case entry is (S,G), Negotiation happens at (*.G) */
+		if (starup
+
+		    && PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(starup->flags)
+		    && (PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(starup->flags)))
+			do_mute = true;
+		return do_mute;
+	}
 	return do_mute;
 }
 

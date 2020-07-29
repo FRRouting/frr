@@ -267,7 +267,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 		listnode_add(circuit->ip_addrs, ipv4);
 
 		/* Update Local IP address parameter if MPLS TE is enable */
-		if (circuit->ext && IS_MPLS_TE(circuit->ext)) {
+		if (circuit->ext && circuit->area
+		    && IS_MPLS_TE(circuit->area->mta)) {
 			circuit->ext->local_addr.s_addr = ipv4->prefix.s_addr;
 			SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR);
 		}
@@ -468,7 +469,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 		circuit->is_passive = 1;
 	} else {
 		/* It's normal in case of loopback etc. */
-		if (isis->debugs & DEBUG_EVENTS)
+		if (IS_DEBUG_EVENTS)
 			zlog_debug("isis_circuit_if_add: unsupported media");
 		circuit->circ_type = CIRCUIT_T_UNKNOWN;
 	}
@@ -719,6 +720,43 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	isis_notif_if_state_change(circuit, true);
 #endif /* ifndef FABRICD */
 
+	/* log adjacency changes if configured to do so */
+	if (circuit->area->log_adj_changes) {
+		struct isis_adjacency *adj = NULL;
+		if (circuit->circ_type == CIRCUIT_T_P2P) {
+			adj = circuit->u.p2p.neighbor;
+			if (adj)
+				isis_log_adj_change(
+					adj, adj->adj_state, ISIS_ADJ_DOWN,
+					"circuit is being brought down");
+		} else if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+			struct list *adj_list;
+			struct listnode *node;
+			if (circuit->u.bc.adjdb[0]) {
+				adj_list = list_new();
+				isis_adj_build_up_list(circuit->u.bc.adjdb[0],
+						       adj_list);
+				for (ALL_LIST_ELEMENTS_RO(adj_list, node, adj))
+					isis_log_adj_change(
+						adj, adj->adj_state,
+						ISIS_ADJ_DOWN,
+						"circuit is being brought down");
+				list_delete(&adj_list);
+			}
+			if (circuit->u.bc.adjdb[1]) {
+				adj_list = list_new();
+				isis_adj_build_up_list(circuit->u.bc.adjdb[1],
+						       adj_list);
+				for (ALL_LIST_ELEMENTS_RO(adj_list, node, adj))
+					isis_log_adj_change(
+						adj, adj->adj_state,
+						ISIS_ADJ_DOWN,
+						"circuit is being brought down");
+				list_delete(&adj_list);
+			}
+		}
+	}
+
 	/* Clear the flags for all the lsps of the circuit. */
 	isis_circuit_update_all_srmflags(circuit, 0);
 
@@ -876,15 +914,13 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, ", Active neighbors: %u\n",
 					circuit->upadjcount[0]);
 				vty_out(vty,
-					"      Hello interval: %u, "
-					"Holddown count: %u %s\n",
+					"      Hello interval: %u, Holddown count: %u %s\n",
 					circuit->hello_interval[0],
 					circuit->hello_multiplier[0],
 					(circuit->pad_hellos ? "(pad)"
 							     : "(no-pad)"));
 				vty_out(vty,
-					"      CNSP interval: %u, "
-					"PSNP interval: %u\n",
+					"      CNSP interval: %u, PSNP interval: %u\n",
 					circuit->csnp_interval[0],
 					circuit->psnp_interval[0]);
 				if (circuit->circ_type == CIRCUIT_T_BROADCAST)
@@ -910,15 +946,13 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, ", Active neighbors: %u\n",
 					circuit->upadjcount[1]);
 				vty_out(vty,
-					"      Hello interval: %u, "
-					"Holddown count: %u %s\n",
+					"      Hello interval: %u, Holddown count: %u %s\n",
 					circuit->hello_interval[1],
 					circuit->hello_multiplier[1],
 					(circuit->pad_hellos ? "(pad)"
 							     : "(no-pad)"));
 				vty_out(vty,
-					"      CNSP interval: %u, "
-					"PSNP interval: %u\n",
+					"      CNSP interval: %u, PSNP interval: %u\n",
 					circuit->csnp_interval[1],
 					circuit->psnp_interval[1]);
 				if (circuit->circ_type == CIRCUIT_T_BROADCAST)
@@ -1232,23 +1266,35 @@ void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
 			 bool ipv6_router)
 {
 	struct isis_area *area = circuit->area;
-	bool change = circuit->ip_router != ip_router
-		      || circuit->ipv6_router != ipv6_router;
+	int old_ipr = circuit->ip_router;
+	int old_ipv6r = circuit->ipv6_router;
 
-	area->ip_circuits += ip_router - circuit->ip_router;
-	area->ipv6_circuits += ipv6_router - circuit->ipv6_router;
-	circuit->ip_router = ip_router;
-	circuit->ipv6_router = ipv6_router;
-
-	if (!change)
+	/* is there something to do? */
+	if (old_ipr == ip_router && old_ipv6r == ipv6_router)
 		return;
 
+	circuit->ip_router = ip_router;
+	circuit->ipv6_router = ipv6_router;
 	circuit_update_nlpids(circuit);
+
+	/* the area should always be there if we get here, but in the past
+	 * there were corner cases where the area was NULL (e.g. because the
+	 * circuit was deconfigured following a validation error). Do not
+	 * segfault if this happens again.
+	 */
+	if (!area) {
+		zlog_err("%s: NULL area for circuit %u", __func__,
+			 circuit->circuit_id);
+		return;
+	}
+
+	area->ip_circuits += ip_router - old_ipr;
+	area->ipv6_circuits += ipv6_router - old_ipv6r;
 
 	if (!ip_router && !ipv6_router)
 		isis_csm_state_change(ISIS_DISABLE, circuit, area);
 	else
-		lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
+		lsp_regenerate_schedule(area, circuit->is_type, 0);
 }
 
 ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive)

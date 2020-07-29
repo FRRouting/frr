@@ -645,6 +645,9 @@ AC_ARG_WITH([crypto],
 AC_ARG_WITH([frr-format],
   AS_HELP_STRING([--with-frr-format[=<.../frr-format.so>]], [use frr-format GCC plugin]))
 
+AC_ARG_ENABLE([version-build-config],
+  AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
+
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
@@ -1681,6 +1684,10 @@ case "${enable_bmp}" in
     fi
     ;;
 esac
+
+if test "$enable_version_build_config" != "no";then
+  AC_DEFINE([ENABLE_VERSION_BUILD_CONFIG], [1], [Report build configs in show version])
+fi
 
 dnl ##########################################################################
 dnl LARGE if block

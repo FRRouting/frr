@@ -410,8 +410,7 @@ static void parse_schedule_item(const char *string, struct schedule_item *item)
 		item->type = sched_signal;
 	} else {
 		badusage(
-			"invalid schedule item (must be [-]<signal-name>, "
-			"-<signal-number>, <timeout> or `forever'");
+			"invalid schedule item (must be [-]<signal-name>, -<signal-number>, <timeout> or `forever'");
 	}
 }
 
@@ -436,8 +435,7 @@ static void parse_schedule(const char *schedule_str)
 		parse_schedule_item(schedule_str, &schedule[1]);
 		if (schedule[1].type != sched_timeout) {
 			badusage(
-				"--retry takes timeout, or schedule list"
-				" of at least two items");
+				"--retry takes timeout, or schedule list of at least two items");
 		}
 		schedule[2].type = sched_signal;
 		schedule[2].value = SIGKILL;
@@ -451,8 +449,7 @@ static void parse_schedule(const char *schedule_str)
 					: (ptrdiff_t)strlen(schedule_str);
 			if (str_len >= (ptrdiff_t)sizeof(item_buf))
 				badusage(
-					"invalid schedule item: far too long"
-					" (you must delimit items with slashes)");
+					"invalid schedule item: far too long (you must delimit items with slashes)");
 			memcpy(item_buf, schedule_str, str_len);
 			item_buf[str_len] = 0;
 			schedule_str = slash ? slash + 1 : NULL;
@@ -461,8 +458,7 @@ static void parse_schedule(const char *schedule_str)
 			if (schedule[count].type == sched_forever) {
 				if (repeatat >= 0)
 					badusage(
-						"invalid schedule: `forever'"
-						" appears more than once");
+						"invalid schedule: `forever' appears more than once");
 				repeatat = count;
 				continue;
 			}
@@ -574,8 +570,7 @@ static void parse_options(int argc, char *const *argv)
 	if (signal_str != NULL) {
 		if (parse_signal(signal_str, &signal_nr) != 0)
 			badusage(
-				"signal value must be numeric or name"
-				" of signal (KILL, INTR, ...)");
+				"signal value must be numeric or name of signal (KILL, INTR, ...)");
 	}
 
 	if (schedule_str != NULL) {

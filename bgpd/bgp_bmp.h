@@ -79,6 +79,9 @@ struct bmp_queue_entry {
 	safi_t safi;
 
 	size_t refcount;
+
+	/* initialized only for L2VPN/EVPN (S)AFIs */
+	struct prefix_rd rd;
 };
 
 /* This is for BMP Route Mirroring, which feeds fully raw BGP PDUs out to BMP
@@ -153,6 +156,7 @@ struct bmp {
 	 * table entry, the sync* fields note down what we sent last
 	 */
 	struct prefix syncpos;
+	struct bgp_node *syncrdpos;
 	uint64_t syncpeerid;
 	afi_t syncafi;
 	safi_t syncsafi;
@@ -221,7 +225,11 @@ struct bmp_targets {
 #define BMP_STAT_DEFAULT_TIMER	60000
 	int stat_msec;
 
-	/* only IPv4 & IPv6 / unicast & multicast supported for now */
+	/* only supporting:
+	 * - IPv4 / unicast & multicast
+	 * - IPv6 / unicast & multicast
+	 * - L2VPN / EVPN
+	 */
 #define BMP_MON_PREPOLICY	(1 << 0)
 #define BMP_MON_POSTPOLICY	(1 << 1)
 	uint8_t afimon[AFI_MAX][SAFI_MAX];

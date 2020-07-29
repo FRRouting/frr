@@ -390,8 +390,7 @@ DEFUN(ospf6_router_id,
 	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
 		if (oa->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect,"
-				" save config and restart ospf6d\n");
+				"For this router-id change to take effect, save config and restart ospf6d\n");
 			return CMD_SUCCESS;
 		}
 	}
@@ -417,8 +416,7 @@ DEFUN(no_ospf6_router_id,
 	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
 		if (oa->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect,"
-				" save config and restart ospf6d\n");
+				"For this router-id change to take effect, save config and restart ospf6d\n");
 			return CMD_SUCCESS;
 		}
 	}
@@ -644,11 +642,12 @@ DEFUN (no_ospf6_distance_source,
 
 DEFUN (ospf6_interface_area,
        ospf6_interface_area_cmd,
-       "interface IFNAME area A.B.C.D",
+       "interface IFNAME area <A.B.C.D|(0-4294967295)>",
        "Enable routing on an IPv6 interface\n"
        IFNAME_STR
        "Specify the OSPF6 area ID\n"
        "OSPF6 area ID in IPv4 address notation\n"
+       "OSPF6 area ID in decimal notation\n"
       )
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
@@ -657,7 +656,6 @@ DEFUN (ospf6_interface_area,
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
 	struct interface *ifp;
-	uint32_t area_id;
 
 	/* find/create ospf6 interface */
 	ifp = if_get_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
@@ -671,15 +669,7 @@ DEFUN (ospf6_interface_area,
 	}
 
 	/* parse Area-ID */
-	if (inet_pton(AF_INET, argv[idx_ipv4]->arg, &area_id) != 1) {
-		vty_out(vty, "Invalid Area-ID: %s\n", argv[idx_ipv4]->arg);
-		return CMD_SUCCESS;
-	}
-
-	/* find/create ospf6 area */
-	oa = ospf6_area_lookup(area_id, o);
-	if (oa == NULL)
-		oa = ospf6_area_create(area_id, o, OSPF6_AREA_FMT_DOTTEDQUAD);
+	OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, oa);
 
 	/* attach interface to area */
 	listnode_add(oa->if_list, oi); /* sort ?? */
@@ -703,12 +693,13 @@ DEFUN (ospf6_interface_area,
 
 DEFUN (no_ospf6_interface_area,
        no_ospf6_interface_area_cmd,
-       "no interface IFNAME area A.B.C.D",
+       "no interface IFNAME area <A.B.C.D|(0-4294967295)>",
        NO_STR
        "Disable routing on an IPv6 interface\n"
        IFNAME_STR
        "Specify the OSPF6 area ID\n"
        "OSPF6 area ID in IPv4 address notation\n"
+       "OSPF6 area ID in decimal notation\n"
        )
 {
 	int idx_ifname = 2;
@@ -731,10 +722,8 @@ DEFUN (no_ospf6_interface_area,
 	}
 
 	/* parse Area-ID */
-	if (inet_pton(AF_INET, argv[idx_ipv4]->arg, &area_id) != 1) {
-		vty_out(vty, "Invalid Area-ID: %s\n", argv[idx_ipv4]->arg);
-		return CMD_SUCCESS;
-	}
+	if (inet_pton(AF_INET, argv[idx_ipv4]->arg, &area_id) != 1)
+		area_id = htonl(strtoul(argv[idx_ipv4]->arg, NULL, 10));
 
 	/* Verify Area */
 	if (oi->area == NULL) {

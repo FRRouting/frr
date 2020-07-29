@@ -136,8 +136,7 @@ static void lsp_print_flooding(struct vty *vty, struct isis_lsp *lsp)
 	vty_out(vty, "%s ago)\n", buf);
 
 	if (lsp->flooding_circuit_scoped) {
-		vty_out(vty, "    Received as circuit-scoped LSP, so not "
-			"flooded.\n");
+		vty_out(vty, "    Received as circuit-scoped LSP, so not flooded.\n");
 		return;
 	}
 
@@ -316,8 +315,8 @@ DEFUN (isis_bfd,
 		return CMD_SUCCESS;
 	}
 
-	isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX,
-				   BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT, true);
+	isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
+				   BFD_DEF_DETECT_MULT, NULL, true);
 
 	return CMD_SUCCESS;
 }
@@ -437,8 +436,7 @@ isis_vty_lsp_gen_interval_set(struct vty *vty, int level, uint16_t interval)
 
 		if (interval >= area->lsp_refresh[lvl - 1]) {
 			vty_out(vty,
-				"LSP gen interval %us must be less than "
-				"the LSP refresh interval %us\n",
+				"LSP gen interval %us must be less than the LSP refresh interval %us\n",
 				interval, area->lsp_refresh[lvl - 1]);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -488,15 +486,13 @@ isis_vty_lsp_refresh_set(struct vty *vty, int level, uint16_t interval)
 			continue;
 		if (interval <= area->lsp_gen_interval[lvl - 1]) {
 			vty_out(vty,
-				"LSP refresh interval %us must be greater than "
-				"the configured LSP gen interval %us\n",
+				"LSP refresh interval %us must be greater than the configured LSP gen interval %us\n",
 				interval, area->lsp_gen_interval[lvl - 1]);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		if (interval > (area->max_lsp_lifetime[lvl - 1] - 300)) {
 			vty_out(vty,
-				"LSP refresh interval %us must be less than "
-				"the configured LSP lifetime %us less 300\n",
+				"LSP refresh interval %us must be less than the configured LSP lifetime %us less 300\n",
 				interval, area->max_lsp_lifetime[lvl - 1]);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -546,20 +542,17 @@ isis_vty_max_lsp_lifetime_set(struct vty *vty, int level, uint16_t interval)
 
 		if (refresh_interval < area->lsp_refresh[lvl - 1]) {
 			vty_out(vty,
-				"Level %d Max LSP lifetime %us must be 300s greater than "
-				"the configured LSP refresh interval %us\n",
+				"Level %d Max LSP lifetime %us must be 300s greater than the configured LSP refresh interval %us\n",
 				lvl, interval, area->lsp_refresh[lvl - 1]);
 			vty_out(vty,
-				"Automatically reducing level %d LSP refresh interval "
-				"to %us\n",
+				"Automatically reducing level %d LSP refresh interval to %us\n",
 				lvl, refresh_interval);
 			set_refresh_interval[lvl - 1] = 1;
 
 			if (refresh_interval
 			    <= area->lsp_gen_interval[lvl - 1]) {
 				vty_out(vty,
-					"LSP refresh interval %us must be greater than "
-					"the configured LSP gen interval %us\n",
+					"LSP refresh interval %us must be greater than the configured LSP gen interval %us\n",
 					refresh_interval,
 					area->lsp_gen_interval[lvl - 1]);
 				return CMD_WARNING_CONFIG_FAILED;
@@ -845,8 +838,7 @@ DEFUN (isis_metric,
 	if (circuit->area && circuit->area->oldmetric == 1
 	    && met > MAX_NARROW_LINK_METRIC) {
 		vty_out(vty,
-			"Invalid metric %d - should be <0-63> "
-			"when narrow metric type enabled\n",
+			"Invalid metric %d - should be <0-63> when narrow metric type enabled\n",
 			met);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -855,8 +847,7 @@ DEFUN (isis_metric,
 	if (circuit->area && circuit->area->newmetric == 1
 	    && met > MAX_WIDE_LINK_METRIC) {
 		vty_out(vty,
-			"Invalid metric %d - should be <0-16777215> "
-			"when wide metric type enabled\n",
+			"Invalid metric %d - should be <0-16777215> when wide metric type enabled\n",
 			met);
 		return CMD_WARNING_CONFIG_FAILED;
 	}

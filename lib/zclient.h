@@ -200,7 +200,10 @@ typedef enum {
 	ZEBRA_MLAG_CLIENT_UNREGISTER,
 	ZEBRA_MLAG_FORWARD_MSG,
 	ZEBRA_ERROR,
-	ZEBRA_CLIENT_CAPABILITIES
+	ZEBRA_CLIENT_CAPABILITIES,
+	ZEBRA_OPAQUE_MESSAGE,
+	ZEBRA_OPAQUE_REGISTER,
+	ZEBRA_OPAQUE_UNREGISTER,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -339,6 +342,9 @@ struct zclient {
 	int (*mlag_process_down)(void);
 	int (*mlag_handle_msg)(struct stream *msg, int len);
 	int (*handle_error)(enum zebra_error_types error);
+	int (*opaque_msg_handler)(ZAPI_CALLBACK_ARGS);
+	int (*opaque_register_handler)(ZAPI_CALLBACK_ARGS);
+	int (*opaque_unregister_handler)(ZAPI_CALLBACK_ARGS);
 };
 
 /* Zebra API message flag. */
@@ -388,8 +394,9 @@ struct zapi_nexthop {
 
 	uint32_t weight;
 
-	/* Index of backup nexthop */
-	uint8_t backup_idx;
+	/* Backup nexthops, for IP-FRR, TI-LFA, etc */
+	uint8_t backup_num;
+	uint8_t backup_idx[NEXTHOP_MAX_BACKUPS];
 };
 
 /*
@@ -451,6 +458,7 @@ struct zapi_route {
  */
 #define ZEBRA_FLAG_RR_USE_DISTANCE    0x40
 
+	/* The older XXX_MESSAGE flags live here */
 	uint8_t message;
 
 	/*
@@ -484,7 +492,8 @@ struct zapi_route {
 
 struct zapi_labels {
 	uint8_t message;
-#define ZAPI_LABELS_FTN      0x01
+#define ZAPI_LABELS_FTN           0x01
+#define ZAPI_LABELS_HAS_BACKUPS   0x02
 	enum lsp_types_t type;
 	mpls_label_t local_label;
 	struct {
@@ -495,6 +504,10 @@ struct zapi_labels {
 
 	uint16_t nexthop_num;
 	struct zapi_nexthop nexthops[MULTIPATH_NUM];
+
+	/* Backup nexthops, if present */
+	uint16_t backup_nexthop_num;
+	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 };
 
 struct zapi_pw {
@@ -799,6 +812,8 @@ int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
 				     const struct nexthop *nh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
 				       struct zapi_route *nhr);
+const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
+			     int bufsize);
 
 /* Decode the zebra error message */
 extern bool zapi_error_decode(struct stream *s, enum zebra_error_types *error);
@@ -824,6 +839,66 @@ extern void zclient_send_mlag_deregister(struct zclient *client);
 
 extern void zclient_send_mlag_data(struct zclient *client,
 				   struct stream *client_s);
+
+/*
+ * Send an OPAQUE message, contents opaque to zebra - but note that
+ * the length of the payload is restricted by the zclient's
+ * outgoing message buffer.
+ * The message header is a message subtype; please use the registry
+ * below to avoid sub-type collisions. Clients use the registration
+ * apis to manage the specific opaque subtypes they want to receive.
+ */
+int zclient_send_opaque(struct zclient *zclient, uint32_t type,
+			const uint8_t *data, size_t datasize);
+
+int zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
+				uint8_t proto, uint16_t instance,
+				uint32_t session_id, const uint8_t *data,
+				size_t datasize);
+
+/* Struct representing the decoded opaque header info */
+struct zapi_opaque_msg {
+	uint32_t type; /* Subtype */
+	uint16_t len;  /* len after zapi header and this info */
+	uint16_t flags;
+
+	/* Client-specific info - *if* UNICAST flag is set */
+	uint8_t proto;
+	uint16_t instance;
+	uint32_t session_id;
+};
+
+#define ZAPI_OPAQUE_FLAG_UNICAST   0x01
+
+/* Simple struct to convey registration/unreg requests */
+struct zapi_opaque_reg_info {
+	/* Message subtype */
+	uint32_t type;
+
+	/* Client session tuple */
+	uint8_t proto;
+	uint16_t instance;
+	uint32_t session_id;
+};
+
+/* Decode incoming opaque */
+int zclient_opaque_decode(struct stream *msg, struct zapi_opaque_msg *info);
+
+int zclient_register_opaque(struct zclient *zclient, uint32_t type);
+int zclient_unregister_opaque(struct zclient *zclient, uint32_t type);
+int zapi_opaque_reg_decode(struct stream *msg,
+			   struct zapi_opaque_reg_info *info);
+
+/*
+ * Registry of opaque message types. Please do not reuse an in-use
+ * type code; some daemons are likely relying on it.
+ */
+enum zapi_opaque_registry {
+	/* Request link-state database dump, at restart for example */
+	LINK_STATE_REQUEST = 1,
+	/* Update containing link-state db info */
+	LINK_STATE_UPDATE = 2,
+};
 
 /* Send the hello message.
  * Returns 0 for success or -1 on an I/O error.

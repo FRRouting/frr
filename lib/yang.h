@@ -34,7 +34,7 @@ extern "C" {
 #endif
 
 /* Maximum XPath length. */
-#define XPATH_MAXLEN 512
+#define XPATH_MAXLEN 1024
 
 /* Maximum list key length. */
 #define LIST_MAXKEYS 8
@@ -106,6 +106,9 @@ enum yang_iter_flags {
 
 /* Callback used by the yang_snodes_iterate_*() family of functions. */
 typedef int (*yang_iterate_cb)(const struct lys_node *snode, void *arg);
+
+/* Callback used by the yang_dnode_iterate() function. */
+typedef int (*yang_dnode_iter_cb)(const struct lyd_node *dnode, void *arg);
 
 /* Return values of the 'yang_iterate_cb' callback. */
 #define YANG_ITER_CONTINUE 0
@@ -358,6 +361,25 @@ extern bool yang_dnode_exists(const struct lyd_node *dnode,
 			      const char *xpath_fmt, ...);
 
 /*
+ * Iterate over all libyang data nodes that satisfy an XPath query.
+ *
+ * cb
+ *    Function to call with each data node.
+ *
+ * arg
+ *    Arbitrary argument passed as the second parameter in each call to 'cb'.
+ *
+ * dnode
+ *    Base libyang data node to operate on.
+ *
+ * xpath_fmt
+ *    XPath expression (absolute or relative).
+ */
+void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
+			const struct lyd_node *dnode, const char *xpath_fmt,
+			...);
+
+/*
  * Check if the libyang data node contains a default value. Non-presence
  * containers are assumed to always contain a default value.
  *
@@ -497,6 +519,24 @@ extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules);
 extern void yang_debugging_set(bool enable);
 
 /*
+ * Print libyang error messages into the provided buffer.
+ *
+ * ly_ctx
+ *    libyang context to operate on.
+ *
+ * buf
+ *    Buffer to store the libyang error messages.
+ *
+ * buf_len
+ *    Size of buf.
+ *
+ * Returns:
+ *    The provided buffer.
+ */
+extern const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf,
+				     size_t buf_len);
+
+/*
  * Initialize the YANG subsystem. Should be called only once during the
  * daemon initialization process.
  *
@@ -510,6 +550,57 @@ extern void yang_init(bool embedded_modules);
  * is exiting.
  */
 extern void yang_terminate(void);
+
+/*
+ * API to return the parent dnode having a given schema-node name
+ * Use case: One has to access the parent dnode's private pointer
+ * for a given child node.
+ * For that there is a need to find parent dnode first.
+ *
+ * dnode The starting node to work on
+ *
+ * name  The name of container/list schema-node
+ *
+ * Returns The dnode matched with the given name
+ */
+extern const struct lyd_node *
+yang_dnode_get_parent(const struct lyd_node *dnode, const char *name);
+
+
+/*
+ * In some cases there is a need to auto delete the parent nodes
+ * if the given node is last in the list.
+ * It tries to delete all the parents in a given tree in a given module.
+ * The use case is with static routes and route maps
+ * example : ip route 1.1.1.1/32 ens33
+ *           ip route 1.1.1.1/32 ens34
+ * After this no ip route 1.1.1.1/32 ens34 came, now staticd
+ * has to find out upto which level it has to delete the dnodes.
+ * For this case it has to send delete nexthop
+ * After this no ip route 1.1.1.1/32 ens33 came, now staticd has to
+ * clear nexthop, path and route nodes.
+ * The same scheme is required for routemaps also
+ * dnode The starting node to work on
+ *
+ * Returns The final parent node selected for deletion
+ */
+extern const struct lyd_node *
+yang_get_subtree_with_no_sibling(const struct lyd_node *dnode);
+
+/* To get the relative position of a node in list */
+extern uint32_t yang_get_list_pos(const struct lyd_node *node);
+
+/* To get the number of elements in a list
+ *
+ * dnode : The head of list
+ * Returns : The number of dnodes present in the list
+ */
+extern uint32_t yang_get_list_elements_count(const struct lyd_node *node);
+
+
+/* To get the immediate child of a dnode */
+const struct lyd_node *yang_dnode_get_child(const struct lyd_node *dnode);
+
 
 #ifdef __cplusplus
 }

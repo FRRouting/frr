@@ -328,18 +328,6 @@ struct cmd_node {
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr,                  \
 			  CMD_ATTR_DEPRECATED, daemon)
 
-#else /* VTYSH_EXTRACT_PL */
-#define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN(funcname, cmdname, cmdstr, helpstr)
-
-#define DEFPY_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
-	DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr)
-
-#define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
-	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)
-
-#define DEFPY_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
-	DEFUN_HIDDEN(funcname, cmdname, cmdstr, helpstr)
 #endif /* VTYSH_EXTRACT_PL */
 
 /* Some macroes */
@@ -406,6 +394,7 @@ struct cmd_node {
 #define FILTER_LOG_STR "Filter Logs\n"
 #define BFD_PROFILE_STR "BFD profile.\n"
 #define BFD_PROFILE_NAME_STR "BFD profile name.\n"
+#define SHARP_STR "Sharp Routing Protocol\n"
 
 #define CMD_VNI_RANGE "(1-16777215)"
 #define CONF_BACKUP_EXT ".sav"

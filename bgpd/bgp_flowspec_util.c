@@ -603,11 +603,12 @@ bool bgp_flowspec_get_first_nh(struct bgp *bgp, struct bgp_path_info *pi,
 {
 	struct bgp_pbr_entry_main api;
 	int i;
-	struct bgp_node *rn = pi->net;
+	struct bgp_dest *dest = pi->net;
 	struct bgp_pbr_entry_action *api_action;
 
 	memset(&api, 0, sizeof(struct bgp_pbr_entry_main));
-	if (bgp_pbr_build_and_validate_entry(bgp_node_get_prefix(rn), pi, &api)
+	if (bgp_pbr_build_and_validate_entry(bgp_dest_get_prefix(dest), pi,
+					     &api)
 	    < 0)
 		return true;
 	for (i = 0; i < api.action_num; i++) {

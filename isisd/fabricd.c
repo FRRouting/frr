@@ -372,8 +372,7 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 		return ISIS_TIER_UNDEFINED;
 	}
 
-	zlog_info("OpenFabric: Found %s as furthest t0 from local system, dist == %"
-		  PRIu32, rawlspid_print(furthest_t0->N.id), furthest_t0->d_N);
+	zlog_info("OpenFabric: Found %s as furthest t0 from local system, dist == %u", rawlspid_print(furthest_t0->N.id), furthest_t0->d_N);
 
 	struct isis_spftree *remote_tree =
 		isis_run_hopcount_spf(area, furthest_t0->N.id, NULL);
@@ -386,8 +385,7 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 		isis_spftree_del(remote_tree);
 		return ISIS_TIER_UNDEFINED;
 	} else {
-		zlog_info("OpenFabric: Found %s as furthest from remote dist == %"
-			  PRIu32, rawlspid_print(furthest_from_remote->N.id),
+		zlog_info("OpenFabric: Found %s as furthest from remote dist == %u", rawlspid_print(furthest_from_remote->N.id),
 			  furthest_from_remote->d_N);
 	}
 
@@ -423,7 +421,7 @@ static int fabricd_tier_calculation_cb(struct thread *thread)
 	if (tier == ISIS_TIER_UNDEFINED)
 		return 0;
 
-	zlog_info("OpenFabric: Got tier %" PRIu8 " from algorithm. Arming timer.",
+	zlog_info("OpenFabric: Got tier %hhu from algorithm. Arming timer.",
 		  tier);
 	f->tier_pending = tier;
 	thread_add_timer(master, fabricd_tier_set_timer, f,
@@ -463,7 +461,7 @@ static void fabricd_set_tier(struct fabricd *f, uint8_t tier)
 	if (f->tier == tier)
 		return;
 
-	zlog_info("OpenFabric: Set own tier to %" PRIu8, tier);
+	zlog_info("OpenFabric: Set own tier to %hhu", tier);
 	f->tier = tier;
 
 	fabricd_bump_tier_calculation_timer(f);
@@ -522,7 +520,7 @@ int fabricd_write_settings(struct isis_area *area, struct vty *vty)
 		return written;
 
 	if (f->tier_config != ISIS_TIER_UNDEFINED) {
-		vty_out(vty, " fabric-tier %" PRIu8 "\n", f->tier_config);
+		vty_out(vty, " fabric-tier %hhu\n", f->tier_config);
 		written++;
 	}
 
@@ -543,7 +541,7 @@ static void move_to_queue(struct isis_lsp *lsp, struct neighbor_entry *n,
 	if (n->adj && n->adj->circuit == circuit)
 		return;
 
-	if (isis->debugs & DEBUG_FLOODING) {
+	if (IS_DEBUG_FLOODING) {
 		zlog_debug("OpenFabric: Adding %s to %s",
 			   print_sys_hostname(n->id),
 			   (type == TX_LSP_NORMAL) ? "RF" : "DNR");
@@ -576,7 +574,7 @@ static void handle_firsthops(struct hash_bucket *bucket, void *arg)
 
 	n = neighbor_entry_lookup_list(f->neighbors, vertex->N.id);
 	if (n) {
-		if (isis->debugs & DEBUG_FLOODING) {
+		if (IS_DEBUG_FLOODING) {
 			zlog_debug("Removing %s from NL as its in the reverse path",
 				   print_sys_hostname(n->id));
 		}
@@ -585,7 +583,7 @@ static void handle_firsthops(struct hash_bucket *bucket, void *arg)
 
 	n = neighbor_entry_lookup_hash(f->neighbors_neighbors, vertex->N.id);
 	if (n) {
-		if (isis->debugs & DEBUG_FLOODING) {
+		if (IS_DEBUG_FLOODING) {
 			zlog_debug("Removing %s from NN as its in the reverse path",
 				   print_sys_hostname(n->id));
 		}
@@ -673,7 +671,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 
 		struct isis_lsp *nlsp = lsp_for_neighbor(f, n);
 		if (!nlsp || !nlsp->tlvs) {
-			if (isis->debugs & DEBUG_FLOODING) {
+			if (IS_DEBUG_FLOODING) {
 				zlog_debug("Moving %s to DNR as it has no LSP",
 					   print_sys_hostname(n->id));
 			}
@@ -682,7 +680,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 			continue;
 		}
 
-		if (isis->debugs & DEBUG_FLOODING) {
+		if (IS_DEBUG_FLOODING) {
 			zlog_debug("Considering %s from NL...",
 				   print_sys_hostname(n->id));
 		}
@@ -699,7 +697,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 							er->id);
 
 			if (nn) {
-				if (isis->debugs & DEBUG_FLOODING) {
+				if (IS_DEBUG_FLOODING) {
 					zlog_debug("Found neighbor %s in NN, removing it from NN and setting reflood.",
 						   print_sys_hostname(nn->id));
 				}
@@ -714,7 +712,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 			      circuit);
 	}
 
-	if (isis->debugs & DEBUG_FLOODING) {
+	if (IS_DEBUG_FLOODING) {
 		zlog_debug("OpenFabric: Flooding algorithm complete.");
 	}
 }

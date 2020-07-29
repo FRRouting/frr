@@ -63,13 +63,19 @@ extern struct ospf_external *ospf_external_lookup(struct ospf *, uint8_t,
 						  unsigned short);
 extern struct ospf_external *ospf_external_add(struct ospf *, uint8_t,
 					       unsigned short);
+
+struct sr_prefix;
+struct sr_nhlfe;
+extern void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp);
+extern void ospf_zebra_delete_prefix_sid(const struct sr_prefix *srp);
+extern void ospf_zebra_send_adjacency_sid(int cmd, struct sr_nhlfe nhlfe);
+
 extern void ospf_external_del(struct ospf *, uint8_t, unsigned short);
 extern struct ospf_redist *ospf_redist_lookup(struct ospf *, uint8_t,
 					      unsigned short);
 extern struct ospf_redist *ospf_redist_add(struct ospf *, uint8_t,
 					   unsigned short);
 extern void ospf_redist_del(struct ospf *, uint8_t, unsigned short);
-
 
 extern int ospf_redistribute_set(struct ospf *, int, unsigned short, int, int);
 extern int ospf_redistribute_unset(struct ospf *, int, unsigned short);
@@ -86,5 +92,10 @@ extern int ospf_distance_unset(struct vty *, struct ospf *, const char *,
 extern void ospf_zebra_init(struct thread_master *, unsigned short);
 extern void ospf_zebra_vrf_register(struct ospf *ospf);
 extern void ospf_zebra_vrf_deregister(struct ospf *ospf);
-
+bool ospf_external_default_routemap_apply_walk(
+	struct ospf *ospf, struct list *ext_list,
+	struct external_info *default_ei);
+int ospf_external_info_apply_default_routemap(struct ospf *ospf,
+					      struct external_info *ei,
+					      struct external_info *default_ei);
 #endif /* _ZEBRA_OSPF_ZEBRA_H */

@@ -164,7 +164,7 @@ void zclient_stop(struct zclient *zclient)
 	int i;
 
 	if (zclient_debug)
-		zlog_debug("zclient stopped");
+		zlog_debug("zclient %p stopped", zclient);
 
 	/* Stop threads. */
 	THREAD_OFF(zclient->t_read);
@@ -888,7 +888,7 @@ static void zapi_nexthop_group_sort(struct zapi_nexthop *nh_grp,
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags)
 {
-	int ret = 0;
+	int i, ret = 0;
 	int nh_flags = api_nh->flags;
 
 	stream_putl(s, api_nh->vrf_id);
@@ -951,8 +951,17 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			   sizeof(struct ethaddr));
 
 	/* Index of backup nexthop */
-	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP))
-		stream_putc(s, api_nh->backup_idx);
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
+		/* Validate backup count */
+		if (api_nh->backup_num > NEXTHOP_MAX_BACKUPS) {
+			ret = -1;
+			goto done;
+		}
+
+		stream_putc(s, api_nh->backup_num);
+		for (i = 0; i < api_nh->backup_num; i++)
+			stream_putc(s, api_nh->backup_idx[i]);
+	}
 
 done:
 	return ret;
@@ -1111,7 +1120,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			       uint32_t api_flags)
 {
-	int ret = -1;
+	int i, ret = -1;
 
 	STREAM_GETL(s, api_nh->vrf_id);
 	STREAM_GETC(s, api_nh->type);
@@ -1163,8 +1172,15 @@ static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			   sizeof(struct ethaddr));
 
 	/* Backup nexthop index */
-	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP))
-		STREAM_GETC(s, api_nh->backup_idx);
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
+		STREAM_GETC(s, api_nh->backup_num);
+
+		if (api_nh->backup_num > NEXTHOP_MAX_BACKUPS)
+			return -1;
+
+		for (i = 0; i < api_nh->backup_num; i++)
+			STREAM_GETC(s, api_nh->backup_idx[i]);
+	}
 
 	/* Success */
 	ret = 0;
@@ -1483,7 +1499,8 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 
 	if (CHECK_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
 		SET_FLAG(n->flags, NEXTHOP_FLAG_HAS_BACKUP);
-		n->backup_idx = znh->backup_idx;
+		n->backup_num = znh->backup_num;
+		memcpy(n->backup_idx, znh->backup_idx, n->backup_num);
 	}
 
 	return n;
@@ -1519,8 +1536,12 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 	}
 
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		if (nh->backup_num > NEXTHOP_MAX_BACKUPS)
+			return -1;
+
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
-		znh->backup_idx = nh->backup_idx;
+		znh->backup_num = nh->backup_num;
+		memcpy(znh->backup_idx, nh->backup_idx, znh->backup_num);
 	}
 
 	return 0;
@@ -1540,6 +1561,39 @@ int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
 		UNSET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
 
 	return ret;
+}
+
+/*
+ * Format some info about a zapi nexthop, for debug or logging.
+ */
+const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
+			     int bufsize)
+{
+	char tmp[INET6_ADDRSTRLEN];
+
+	switch (znh->type) {
+	case NEXTHOP_TYPE_IFINDEX:
+		snprintf(buf, bufsize, "if %u", znh->ifindex);
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		inet_ntop(AF_INET, &znh->gate.ipv4, tmp, sizeof(tmp));
+		snprintf(buf, bufsize, "%s if %u", tmp, znh->ifindex);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		inet_ntop(AF_INET6, &znh->gate.ipv6, tmp, sizeof(tmp));
+		snprintf(buf, bufsize, "%s if %u", tmp, znh->ifindex);
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		snprintf(buf, bufsize, "blackhole");
+		break;
+	default:
+		snprintf(buf, bufsize, "unknown");
+		break;
+	}
+
+	return buf;
 }
 
 /*
@@ -1891,8 +1945,7 @@ static int link_params_set_value(struct stream *s, struct if_link_params *iflp)
 		if (i < bwclassnum)
 			flog_err(
 				EC_LIB_ZAPI_MISSMATCH,
-				"%s: received %d > %d (MAX_CLASS_TYPE) bw entries"
-				" - outdated library?",
+				"%s: received %d > %d (MAX_CLASS_TYPE) bw entries - outdated library?",
 				__func__, bwclassnum, MAX_CLASS_TYPE);
 	}
 	STREAM_GETL(s, iflp->admin_grp);
@@ -2811,6 +2864,27 @@ int zapi_labels_encode(struct stream *s, int cmd, struct zapi_labels *zl)
 			return -1;
 	}
 
+	if (CHECK_FLAG(zl->message, ZAPI_LABELS_HAS_BACKUPS)) {
+
+		if (zl->backup_nexthop_num > MULTIPATH_NUM) {
+			flog_err(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: label %u: can't encode %u nexthops (maximum is %u)",
+				__func__, zl->local_label, zl->nexthop_num,
+				MULTIPATH_NUM);
+			return -1;
+		}
+		stream_putw(s, zl->backup_nexthop_num);
+
+		for (int i = 0; i < zl->backup_nexthop_num; i++) {
+			znh = &zl->backup_nexthops[i];
+
+			if (zapi_nexthop_encode(s, znh, 0) < 0)
+				return -1;
+		}
+
+	}
+
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -2883,6 +2957,28 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 
 		if (zapi_nexthop_decode(s, znh, 0) < 0)
 			return -1;
+	}
+
+	if (CHECK_FLAG(zl->message, ZAPI_LABELS_HAS_BACKUPS)) {
+		STREAM_GETW(s, zl->backup_nexthop_num);
+
+		if (zl->backup_nexthop_num > MULTIPATH_NUM) {
+			flog_warn(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: Prefix %pFX has %d backup nexthops, but we can only use the first %d",
+				__func__, &zl->route.prefix,
+				zl->backup_nexthop_num,	MULTIPATH_NUM);
+		}
+
+		zl->backup_nexthop_num = MIN(MULTIPATH_NUM,
+					     zl->backup_nexthop_num);
+
+		for (int i = 0; i < zl->backup_nexthop_num; i++) {
+			znh = &zl->backup_nexthops[i];
+
+			if (zapi_nexthop_decode(s, znh, 0) < 0)
+				return -1;
+		}
 	}
 
 	return 0;
@@ -3034,6 +3130,186 @@ static void zclient_mlag_handle_msg(ZAPI_CALLBACK_ARGS)
 {
 	if (zclient->mlag_handle_msg)
 		(*zclient->mlag_handle_msg)(zclient->ibuf, length);
+}
+
+/*
+ * Send an OPAQUE message, contents opaque to zebra. The message header
+ * is a message subtype.
+ */
+int zclient_send_opaque(struct zclient *zclient, uint32_t type,
+			const uint8_t *data, size_t datasize)
+{
+	int ret;
+	struct stream *s;
+	uint16_t flags = 0;
+
+	/* Check buffer size */
+	if (STREAM_SIZE(zclient->obuf) <
+	    (ZEBRA_HEADER_SIZE + sizeof(type) + datasize))
+		return -1;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
+
+	/* Send sub-type and flags */
+	stream_putl(s, type);
+	stream_putw(s, flags);
+
+	/* Send opaque data */
+	stream_write(s, data, datasize);
+
+	/* Put length into the header at the start of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	ret = zclient_send_message(zclient);
+
+	return ret;
+}
+
+/*
+ * Send an OPAQUE message to a specific zclient. The contents are opaque
+ * to zebra.
+ */
+int zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
+				uint8_t proto, uint16_t instance,
+				uint32_t session_id, const uint8_t *data,
+				size_t datasize)
+{
+	int ret;
+	struct stream *s;
+	uint16_t flags = 0;
+
+	/* Check buffer size */
+	if (STREAM_SIZE(zclient->obuf) <
+	    (ZEBRA_HEADER_SIZE + sizeof(struct zapi_opaque_msg) + datasize))
+		return -1;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
+
+	/* Send sub-type and flags */
+	SET_FLAG(flags, ZAPI_OPAQUE_FLAG_UNICAST);
+	stream_putl(s, type);
+	stream_putw(s, flags);
+
+	/* Send destination client info */
+	stream_putc(s, proto);
+	stream_putw(s, instance);
+	stream_putl(s, session_id);
+
+	/* Send opaque data */
+	stream_write(s, data, datasize);
+
+	/* Put length into the header at the start of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	ret = zclient_send_message(zclient);
+
+	return ret;
+}
+
+/*
+ * Decode incoming opaque message into info struct
+ */
+int zclient_opaque_decode(struct stream *s, struct zapi_opaque_msg *info)
+{
+	memset(info, 0, sizeof(*info));
+
+	/* Decode subtype and flags */
+	STREAM_GETL(s, info->type);
+	STREAM_GETW(s, info->flags);
+
+	/* Decode unicast client info if present */
+	if (CHECK_FLAG(info->flags, ZAPI_OPAQUE_FLAG_UNICAST)) {
+		STREAM_GETC(s, info->proto);
+		STREAM_GETW(s, info->instance);
+		STREAM_GETL(s, info->session_id);
+	}
+
+	info->len = STREAM_READABLE(s);
+
+	return 0;
+
+stream_failure:
+
+	return -1;
+}
+
+/*
+ * Send a registration request for opaque messages with a specified subtype.
+ */
+int zclient_register_opaque(struct zclient *zclient, uint32_t type)
+{
+	int ret;
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_REGISTER, VRF_DEFAULT);
+
+	/* Send sub-type */
+	stream_putl(s, type);
+
+	/* Add zclient info */
+	stream_putc(s, zclient->redist_default);
+	stream_putw(s, zclient->instance);
+	stream_putl(s, zclient->session_id);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	ret = zclient_send_message(zclient);
+
+	return ret;
+}
+
+/*
+ * Send an un-registration request for a specified opaque subtype.
+ */
+int zclient_unregister_opaque(struct zclient *zclient, uint32_t type)
+{
+	int ret;
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_UNREGISTER, VRF_DEFAULT);
+
+	/* Send sub-type */
+	stream_putl(s, type);
+
+	/* Add zclient info */
+	stream_putc(s, zclient->redist_default);
+	stream_putw(s, zclient->instance);
+	stream_putl(s, zclient->session_id);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	ret = zclient_send_message(zclient);
+
+	return ret;
+}
+
+/* Utility to decode opaque registration info */
+int zapi_opaque_reg_decode(struct stream *s, struct zapi_opaque_reg_info *info)
+{
+	STREAM_GETL(s, info->type);
+	STREAM_GETC(s, info->proto);
+	STREAM_GETW(s, info->instance);
+	STREAM_GETL(s, info->session_id);
+
+	return 0;
+
+stream_failure:
+
+	return -1;
 }
 
 /* Zebra client message read function. */
@@ -3341,6 +3617,22 @@ static int zclient_read(struct thread *thread)
 		break;
 	case ZEBRA_ERROR:
 		zclient_handle_error(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_OPAQUE_MESSAGE:
+		if (zclient->opaque_msg_handler)
+			(*zclient->opaque_msg_handler)(command, zclient, length,
+						       vrf_id);
+		break;
+	case ZEBRA_OPAQUE_REGISTER:
+		if (zclient->opaque_register_handler)
+			(*zclient->opaque_register_handler)(command, zclient,
+							    length, vrf_id);
+		break;
+	case ZEBRA_OPAQUE_UNREGISTER:
+		if (zclient->opaque_unregister_handler)
+			(*zclient->opaque_unregister_handler)(command, zclient,
+							    length, vrf_id);
+		break;
 	default:
 		break;
 	}
