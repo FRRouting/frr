@@ -1828,8 +1828,6 @@ int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 			if (ipa_len)
 				SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 		} else {
-			zebra_evpn_es_mac_ref(mac, esi);
-
 			/* When host moves but changes its (MAC,IP)
 			 * binding, BGP may install a MACIP entry that
 			 * corresponds to "older" location of the host
@@ -1858,6 +1856,8 @@ int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 						tmp_seq, mac->flags);
 				return -1;
 			}
+
+			zebra_evpn_es_mac_ref(mac, esi);
 		}
 
 		/* Check MAC's curent state is local (this is the case
