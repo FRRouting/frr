@@ -40,15 +40,18 @@ static int lib_interface_vrrp_vrrp_group_create(struct nb_cb_create_args *args)
 	uint8_t version = 3;
 	struct vrrp_vrouter *vr;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_get_entry(args->dnode, NULL, false);
 	vrid = yang_dnode_get_uint8(args->dnode, "./virtual-router-id");
 	version = yang_dnode_get_enum(args->dnode, "./version");
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vr = vrrp_lookup(ifp, vrid);
-		if (vr && vr->autoconf)
-			return NB_ERR_VALIDATION;
+		if (ifp) {
+			vr = vrrp_lookup(ifp, vrid);
+			if (vr && vr->autoconf)
+				return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
