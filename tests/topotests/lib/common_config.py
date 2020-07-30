@@ -2281,7 +2281,7 @@ def configure_vxlan(tgen, input_dict):
                             cmd = "{} local {}".format(cmd, local_addr)
 
                         if learning == "no":
-                            cmd = "{} {} learning".format(cmd, learning)
+                            cmd = "{} nolearning".format(cmd)
 
                         elif learning == "yes":
                             cmd = "{} learning".format(cmd)
