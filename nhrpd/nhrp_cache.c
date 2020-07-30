@@ -470,9 +470,11 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 
 	nhrp_cache_reset_new(c);
 	if (c->cur.type == type && c->cur.peer == p && c->cur.mtu == mtu) {
-		debugf(NHRP_DEBUG_COMMON,
-		       "cache: same type %u, updating expiry and changing nbma addr from %s to %s",
-		       type, buf[0], nbma_oa ? buf[1] : "(NULL)");
+		if (nbma_oa ||
+		    sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
+			debugf(NHRP_DEBUG_COMMON,
+			       "cache: same type %u, updating expiry and changing nbma addr from %s to %s",
+			       type, buf[0], nbma_oa ? buf[1] : "(NULL)");
 		if (holding_time > 0)
 			c->cur.expires = monotime(NULL) + holding_time;
 
