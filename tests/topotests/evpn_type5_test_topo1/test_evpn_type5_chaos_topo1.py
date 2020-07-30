@@ -22,7 +22,6 @@
 
 """
 Following tests are covered to test EVPN-Type5 functionality:
-
 1. In absence of an overlay index all IP-Prefixes(RT-5)
     are advertised with default values for below parameters:
         --> Ethernet Tag ID = GW IP address = ESI=0
