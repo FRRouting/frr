@@ -498,6 +498,13 @@ DECLARE_HOOK(bgp_process,
 	      struct peer *peer, bool withdraw),
 	     (bgp, afi, safi, bn, peer, withdraw))
 
+/* BGP show options */
+#define BGP_SHOW_OPT_JSON (1 << 0)
+#define BGP_SHOW_OPT_WIDE (1 << 1)
+#define BGP_SHOW_OPT_AFI_ALL (1 << 2)
+#define BGP_SHOW_OPT_AFI_IP (1 << 3)
+#define BGP_SHOW_OPT_AFI_IP6 (1 << 4)
+
 /* Prototypes. */
 extern void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 			   struct peer *peer, afi_t afi, safi_t safi);
