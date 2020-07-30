@@ -276,7 +276,7 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		count++;
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-			char buf[2][INET_ADDRSTRLEN];
+			char buf[2][PREFIX2STR_BUFFER];
 			struct interface *ifp;
 
 			ifp = if_lookup_by_index(path->ifindex, ospf->vrf_id);
