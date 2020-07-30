@@ -1429,11 +1429,6 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 	dplane_ctx_list_append(ctx_list, &handled_list);
 }
 
-bool kernel_supports_batch(void)
-{
-	return true;
-}
-
 /* Exported interface function.  This function simply calls
    netlink_socket (). */
 void kernel_init(struct zebra_ns *zns)

@@ -182,15 +182,6 @@ static ssize_t netlink_oldrule_msg_encoder(struct zebra_dplane_ctx *ctx,
 
 /* Public functions */
 
-/*
- * The communication with the kernel is done using the message batching
- * interface, so return a failure.
- */
-enum zebra_dplane_result kernel_pbr_rule_update(struct zebra_dplane_ctx *ctx)
-{
-	return ZEBRA_DPLANE_REQUEST_FAILURE;
-}
-
 enum netlink_msg_status
 netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {

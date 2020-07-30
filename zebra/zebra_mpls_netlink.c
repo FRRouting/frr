@@ -55,28 +55,10 @@ static ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 	return netlink_mpls_multipath_msg_encode(cmd, ctx, buf, buflen);
 }
 
-/*
- * The communication with the kernel is done using the message batching
- * interface, so return a failure.
- */
-enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
-{
-	return ZEBRA_DPLANE_REQUEST_FAILURE;
-}
-
 enum netlink_msg_status netlink_put_lsp_update_msg(struct nl_batch *bth,
 						   struct zebra_dplane_ctx *ctx)
 {
 	return netlink_batch_add_msg(bth, ctx, netlink_lsp_msg_encoder, false);
-}
-
-/*
- * The communication with the kernel is done using the message batching
- * interface, so return a failure.
- */
-enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
-{
-	return ZEBRA_DPLANE_REQUEST_FAILURE;
 }
 
 /*

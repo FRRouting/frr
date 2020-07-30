@@ -3911,89 +3911,6 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	}
 }
 
-static void kernel_dplane_dispatch_updates(struct dplane_ctx_q *ctx_list)
-{
-	enum zebra_dplane_result res;
-	struct zebra_dplane_ctx *ctx;
-
-	TAILQ_FOREACH (ctx, ctx_list, zd_q_entries) {
-		/*
-		 * A previous provider plugin may have asked to skip the
-		 * kernel update.
-		 */
-		if (dplane_ctx_is_skip_kernel(ctx)) {
-			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
-			goto skip_one;
-		}
-
-		/* Dispatch to appropriate kernel-facing apis */
-		switch (dplane_ctx_get_op(ctx)) {
-
-		case DPLANE_OP_ROUTE_INSTALL:
-		case DPLANE_OP_ROUTE_UPDATE:
-		case DPLANE_OP_ROUTE_DELETE:
-			res = kernel_route_update(ctx);
-			break;
-
-		case DPLANE_OP_NH_INSTALL:
-		case DPLANE_OP_NH_UPDATE:
-		case DPLANE_OP_NH_DELETE:
-			res = kernel_nexthop_update(ctx);
-			break;
-
-		case DPLANE_OP_LSP_INSTALL:
-		case DPLANE_OP_LSP_UPDATE:
-		case DPLANE_OP_LSP_DELETE:
-			res = kernel_lsp_update(ctx);
-			break;
-
-		case DPLANE_OP_PW_INSTALL:
-		case DPLANE_OP_PW_UNINSTALL:
-			res = kernel_pw_update(ctx);
-			break;
-
-		case DPLANE_OP_ADDR_INSTALL:
-		case DPLANE_OP_ADDR_UNINSTALL:
-			res = kernel_address_update_ctx(ctx);
-			break;
-
-		case DPLANE_OP_MAC_INSTALL:
-		case DPLANE_OP_MAC_DELETE:
-			res = kernel_mac_update_ctx(ctx);
-			break;
-
-		case DPLANE_OP_NEIGH_INSTALL:
-		case DPLANE_OP_NEIGH_UPDATE:
-		case DPLANE_OP_NEIGH_DELETE:
-		case DPLANE_OP_VTEP_ADD:
-		case DPLANE_OP_VTEP_DELETE:
-			res = kernel_neigh_update_ctx(ctx);
-			break;
-
-		case DPLANE_OP_RULE_ADD:
-		case DPLANE_OP_RULE_DELETE:
-		case DPLANE_OP_RULE_UPDATE:
-			res = kernel_pbr_rule_update(ctx);
-			break;
-
-		/* Ignore 'notifications' - no-op */
-		case DPLANE_OP_SYS_ROUTE_ADD:
-		case DPLANE_OP_SYS_ROUTE_DELETE:
-		case DPLANE_OP_ROUTE_NOTIFY:
-		case DPLANE_OP_LSP_NOTIFY:
-			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
-			break;
-
-		default:
-			res = ZEBRA_DPLANE_REQUEST_FAILURE;
-			break;
-		}
-
-	skip_one:
-		dplane_ctx_set_status(ctx, res);
-	}
-}
-
 /*
  * Kernel provider callback
  */
@@ -4022,10 +3939,7 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		TAILQ_INSERT_TAIL(&work_list, ctx, zd_q_entries);
 	}
 
-	if (kernel_supports_batch())
-		kernel_update_multi(&work_list);
-	else
-		kernel_dplane_dispatch_updates(&work_list);
+	kernel_update_multi(&work_list);
 
 	TAILQ_FOREACH_SAFE (ctx, &work_list, zd_q_entries, tctx) {
 		kernel_dplane_handle_result(ctx);

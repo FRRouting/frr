@@ -1466,12 +1466,96 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 
 void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 {
-	/* no-op */
-}
+	struct zebra_dplane_ctx *ctx;
+	struct dplane_ctx_q handled_list;
+	enum zebra_dplane_result res;
 
-bool kernel_supports_batch(void)
-{
-	return false;
+	TAILQ_INIT(&handled_list);
+
+	while (true) {
+		ctx = dplane_ctx_dequeue(ctx_list);
+		if (ctx == NULL)
+			break;
+
+		/*
+		 * A previous provider plugin may have asked to skip the
+		 * kernel update.
+		 */
+		if (dplane_ctx_is_skip_kernel(ctx)) {
+			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+			goto skip_one;
+		}
+
+		switch (dplane_ctx_get_op(ctx)) {
+
+		case DPLANE_OP_ROUTE_INSTALL:
+		case DPLANE_OP_ROUTE_UPDATE:
+		case DPLANE_OP_ROUTE_DELETE:
+			res = kernel_route_update(ctx);
+			break;
+
+		case DPLANE_OP_NH_INSTALL:
+		case DPLANE_OP_NH_UPDATE:
+		case DPLANE_OP_NH_DELETE:
+			res = kernel_nexthop_update(ctx);
+			break;
+
+		case DPLANE_OP_LSP_INSTALL:
+		case DPLANE_OP_LSP_UPDATE:
+		case DPLANE_OP_LSP_DELETE:
+			res = kernel_lsp_update(ctx);
+			break;
+
+		case DPLANE_OP_PW_INSTALL:
+		case DPLANE_OP_PW_UNINSTALL:
+			res = kernel_pw_update(ctx);
+			break;
+
+		case DPLANE_OP_ADDR_INSTALL:
+		case DPLANE_OP_ADDR_UNINSTALL:
+			res = kernel_address_update_ctx(ctx);
+			break;
+
+		case DPLANE_OP_MAC_INSTALL:
+		case DPLANE_OP_MAC_DELETE:
+			res = kernel_mac_update_ctx(ctx);
+			break;
+
+		case DPLANE_OP_NEIGH_INSTALL:
+		case DPLANE_OP_NEIGH_UPDATE:
+		case DPLANE_OP_NEIGH_DELETE:
+		case DPLANE_OP_VTEP_ADD:
+		case DPLANE_OP_VTEP_DELETE:
+			res = kernel_neigh_update_ctx(ctx);
+			break;
+
+		case DPLANE_OP_RULE_ADD:
+		case DPLANE_OP_RULE_DELETE:
+		case DPLANE_OP_RULE_UPDATE:
+			res = kernel_pbr_rule_update(ctx);
+			break;
+
+		/* Ignore 'notifications' - no-op */
+		case DPLANE_OP_SYS_ROUTE_ADD:
+		case DPLANE_OP_SYS_ROUTE_DELETE:
+		case DPLANE_OP_ROUTE_NOTIFY:
+		case DPLANE_OP_LSP_NOTIFY:
+			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+			break;
+
+		default:
+			res = ZEBRA_DPLANE_REQUEST_FAILURE;
+			break;
+		}
+
+	skip_one:
+		dplane_ctx_set_status(ctx, res);
+
+		dplane_ctx_enqueue_tail(&handled_list, ctx);
+	}
+
+	TAILQ_INIT(ctx_list);
+	dplane_ctx_list_append(ctx_list, &handled_list);
 }
 
 #endif /* !HAVE_NETLINK */

@@ -172,13 +172,6 @@ void zebra_pbr_add_iptable(struct zebra_pbr_iptable *iptable);
 void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable);
 
 /*
- * Add, update or delete a rule from the
- * kernel, using info from a dataplane context.
- */
-extern enum zebra_dplane_result
-kernel_pbr_rule_update(struct zebra_dplane_ctx *ctx);
-
-/*
  * Get to know existing PBR rules in the kernel - typically called at startup.
  */
 extern void kernel_read_pbr_rules(struct zebra_ns *zns);
