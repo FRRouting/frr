@@ -62,6 +62,7 @@ enum bgp_show_adj_route_type {
 	bgp_show_adj_route_advertised,
 	bgp_show_adj_route_received,
 	bgp_show_adj_route_filtered,
+	bgp_show_adj_route_bestpath,
 };
 
 
