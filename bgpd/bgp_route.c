@@ -11971,6 +11971,52 @@ DEFUN (show_bgp_l2vpn_evpn_route_prefix,
 			      use_json(argc, argv));
 }
 
+static void show_adj_route_header(struct vty *vty, struct bgp *bgp,
+				  struct bgp_table *table, int *header1,
+				  int *header2, json_object *json,
+				  json_object *json_scode,
+				  json_object *json_ocode, bool wide)
+{
+	uint64_t version = table ? table->version : 0;
+
+	if (*header1) {
+		if (json) {
+			json_object_int_add(json, "bgpTableVersion", version);
+			json_object_string_add(json, "bgpLocalRouterId",
+					       inet_ntoa(bgp->router_id));
+			json_object_int_add(json, "defaultLocPrf",
+					    bgp->default_local_pref);
+			json_object_int_add(json, "localAS", bgp->as);
+			json_object_object_add(json, "bgpStatusCodes",
+					       json_scode);
+			json_object_object_add(json, "bgpOriginCodes",
+					       json_ocode);
+		} else {
+			vty_out(vty,
+				"BGP table version is %" PRIu64 ", local router ID is %s, vrf id ",
+				version, inet_ntoa(bgp->router_id));
+			if (bgp->vrf_id == VRF_UNKNOWN)
+				vty_out(vty, "%s", VRFID_NONE_STR);
+			else
+				vty_out(vty, "%u", bgp->vrf_id);
+			vty_out(vty, "\n");
+			vty_out(vty, "Default local pref %u, ",
+				bgp->default_local_pref);
+			vty_out(vty, "local AS %u\n", bgp->as);
+			vty_out(vty, BGP_SHOW_SCODE_HEADER);
+			vty_out(vty, BGP_SHOW_NCODE_HEADER);
+			vty_out(vty, BGP_SHOW_OCODE_HEADER);
+		}
+		*header1 = 0;
+	}
+	if (*header2) {
+		if (!json)
+			vty_out(vty, (wide ? BGP_SHOW_HEADER_WIDE
+					   : BGP_SHOW_HEADER));
+		*header2 = 0;
+	}
+}
+
 static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 			   safi_t safi, enum bgp_show_adj_route_type type,
 			   const char *rmap_name, bool use_json,
@@ -12081,60 +12127,9 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 				if (ain->peer != peer)
 					continue;
 
-				if (header1) {
-					if (use_json) {
-						json_object_int_add(
-							json, "bgpTableVersion",
-							0);
-						json_object_string_add(
-							json,
-							"bgpLocalRouterId",
-							inet_ntoa(
-								bgp->router_id));
-						json_object_int_add(json,
-						"defaultLocPrf",
-						bgp->default_local_pref);
-						json_object_int_add(json,
-						"localAS", bgp->as);
-						json_object_object_add(
-							json, "bgpStatusCodes",
-							json_scode);
-						json_object_object_add(
-							json, "bgpOriginCodes",
-							json_ocode);
-					} else {
-						vty_out(vty,
-							"BGP table version is 0, local router ID is %s, vrf id ",
-							inet_ntoa(
-							bgp->router_id));
-						if (bgp->vrf_id == VRF_UNKNOWN)
-							vty_out(vty, "%s",
-							VRFID_NONE_STR);
-						else
-							vty_out(vty, "%u",
-								bgp->vrf_id);
-						vty_out(vty, "\n");
-						vty_out(vty,
-						"Default local pref %u, ",
-						bgp->default_local_pref);
-						vty_out(vty, "local AS %u\n",
-						bgp->as);
-						vty_out(vty,
-							BGP_SHOW_SCODE_HEADER);
-						vty_out(vty,
-							BGP_SHOW_NCODE_HEADER);
-						vty_out(vty,
-							BGP_SHOW_OCODE_HEADER);
-					}
-					header1 = 0;
-				}
-				if (header2) {
-					if (!use_json)
-						vty_out(vty,
-							(wide ? BGP_SHOW_HEADER_WIDE
-							      : BGP_SHOW_HEADER));
-					header2 = 0;
-				}
+				show_adj_route_header(
+					vty, bgp, table, &header1, &header2,
+					json, json_scode, json_ocode, wide);
 
 				attr = *ain->attr;
 				route_filtered = false;
@@ -12175,71 +12170,10 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 					if (paf->peer != peer || !adj->attr)
 						continue;
 
-					if (header1) {
-						if (use_json) {
-							json_object_int_add(
-								json,
-								"bgpTableVersion",
-								table->version);
-							json_object_string_add(
-								json,
-								"bgpLocalRouterId",
-								inet_ntoa(
-									bgp->router_id));
-							json_object_int_add(
-							json, "defaultLocPrf",
-							bgp->default_local_pref
-							);
-							json_object_int_add(
-							json, "localAS",
-							bgp->as);
-							json_object_object_add(
-								json,
-								"bgpStatusCodes",
-								json_scode);
-							json_object_object_add(
-								json,
-								"bgpOriginCodes",
-								json_ocode);
-						} else {
-							vty_out(vty,
-								"BGP table version is %" PRIu64", local router ID is %s, vrf id ",
-								table->version,
-								inet_ntoa(
-									bgp->router_id));
-							if (bgp->vrf_id ==
-								VRF_UNKNOWN)
-								vty_out(vty,
-								"%s",
-								VRFID_NONE_STR);
-							else
-								vty_out(vty,
-								"%u",
-								bgp->vrf_id);
-							vty_out(vty, "\n");
-							vty_out(vty,
-							"Default local pref %u, ",
-							bgp->default_local_pref
-							);
-							vty_out(vty,
-							"local AS %u\n",
-							bgp->as);
-							vty_out(vty,
-								BGP_SHOW_SCODE_HEADER);
-							vty_out(vty,
-								BGP_SHOW_NCODE_HEADER);
-							vty_out(vty,
-								BGP_SHOW_OCODE_HEADER);
-						}
-						header1 = 0;
-					}
-					if (header2) {
-						if (!use_json)
-							vty_out(vty,
-								(wide ? BGP_SHOW_HEADER_WIDE
-								      : BGP_SHOW_HEADER));
-						header2 = 0;
-					}
+					show_adj_route_header(
+						vty, bgp, table, &header1,
+						&header2, json, json_scode,
+						json_ocode, wide);
 
 					const struct prefix *rn_p =
 						bgp_dest_get_prefix(dest);
