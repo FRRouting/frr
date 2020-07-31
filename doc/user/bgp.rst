@@ -2612,17 +2612,17 @@ daemon project, while :clicmd:`show bgp` command is the new format. The choice
 has been done to keep old format with IPv4 routing table, while new format
 displays IPv6 routing table.
 
-.. index:: show ip bgp
-.. clicmd:: show ip bgp
+.. index:: show ip bgp [wide]
+.. clicmd:: show ip bgp [wide]
 
-.. index:: show ip bgp A.B.C.D
-.. clicmd:: show ip bgp A.B.C.D
+.. index:: show ip bgp A.B.C.D [wide]
+.. clicmd:: show ip bgp A.B.C.D [wide]
 
-.. index:: show bgp
-.. clicmd:: show bgp
+.. index:: show bgp [wide]
+.. clicmd:: show bgp [wide]
 
-.. index:: show bgp X:X::X:X
-.. clicmd:: show bgp X:X::X:X
+.. index:: show bgp X:X::X:X [wide]
+.. clicmd:: show bgp X:X::X:X [wide]
 
    These commands display BGP routes. When no route is specified, the default
    is to display all BGP routes.
@@ -2637,6 +2637,12 @@ displays IPv6 routing table.
          \*> 1.1.1.1/32       0.0.0.0      0   32768 i
 
          Total number of prefixes 1
+
+   If _wide_ option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
+
+   This is especially handy dealing with IPv6 prefixes and
+   if :clicmd:`[no] bgp default show-nexthop-hostname` is enabled.
 
 Some other commands provide additional options for filtering the output.
 
