@@ -4710,6 +4710,7 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 		/* local neigh */
 		if (update_flags & DPLANE_NEIGH_SET_STATIC)
 			ext_flags |= NTF_E_MH_PEER_SYNC;
+
 	}
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
