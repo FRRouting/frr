@@ -46,6 +46,9 @@ dev_RSTFILES = \
 	doc/developer/packaging-debian.rst \
 	doc/developer/packaging-redhat.rst \
 	doc/developer/packaging.rst \
+	doc/developer/path-internals-daemon.rst \
+	doc/developer/path-internals.rst \
+	doc/developer/path.rst \
 	doc/developer/rcu.rst \
 	doc/developer/static-linking.rst \
 	doc/developer/testing.rst \

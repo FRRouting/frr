@@ -626,6 +626,22 @@ end
                 ctx_keys = []
                 current_context_lines = []
 
+            elif (
+                line == "exit"
+                and len(ctx_keys) > 1
+                and ctx_keys[0].startswith("segment-routing")
+            ):
+                self.save_contexts(ctx_keys, current_context_lines)
+
+                # Start a new context
+                ctx_keys = ctx_keys[:-1]
+                current_context_lines = []
+                log.debug(
+                    "LINE %-50s: popping segment routing sub-context to ctx%-50s",
+                    line,
+                    ctx_keys
+                )
+
             elif line in ["exit-address-family", "exit", "exit-vnc"]:
                 # if this exit is for address-family ipv4 unicast, ignore the pop
                 if main_ctx_key:
@@ -637,7 +653,7 @@ end
                     log.debug(
                         "LINE %-50s: popping from subcontext to ctx%-50s",
                         line,
-                        ctx_keys,
+                        ctx_keys
                     )
 
             elif line in ["exit-vni", "exit-ldp-if"]:
@@ -724,6 +740,68 @@ end
                 sub_main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug(
                     "LINE %-50s: entering sub-sub-context, append to ctx_keys", line
+                )
+                ctx_keys.append(line)
+
+            elif (
+                line.startswith("traffic-eng")
+                and len(ctx_keys) == 1
+                and ctx_keys[0].startswith("segment-routing")
+            ):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                log.debug(
+                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys", line
+                )
+                ctx_keys.append(line)
+
+            elif (
+                line.startswith("segment-list ")
+                and len(ctx_keys) == 2
+                and ctx_keys[0].startswith("segment-routing")
+                and ctx_keys[1].startswith("traffic-eng")
+            ):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                log.debug(
+                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys", line
+                )
+                ctx_keys.append(line)
+
+            elif (
+                line.startswith("policy ")
+                and len(ctx_keys) == 2
+                and ctx_keys[0].startswith("segment-routing")
+                and ctx_keys[1].startswith("traffic-eng")
+            ):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                log.debug(
+                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys", line
+                )
+                ctx_keys.append(line)
+
+            elif (
+                line.startswith("candidate-path ")
+                and line.endswith(" dynamic")
+                and len(ctx_keys) == 3
+                and ctx_keys[0].startswith("segment-routing")
+                and ctx_keys[1].startswith("traffic-eng")
+                and ctx_keys[2].startswith("policy")
+            ):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                main_ctx_key = copy.deepcopy(ctx_keys)
+                log.debug(
+                    "LINE %-50s: entering candidate-path sub-context, append to ctx_keys", line
                 )
                 ctx_keys.append(line)
 
@@ -1244,6 +1322,9 @@ def compare_context_objects(newconf, running):
     # Compare the two Config objects to find the lines that we need to add/del
     lines_to_add = []
     lines_to_del = []
+    pollist_to_del = []
+    seglist_to_del = []
+    candidates_to_add = []
     delete_bgpd = False
 
     # Find contexts that are in newconf but not in running
@@ -1326,6 +1407,32 @@ def compare_context_objects(newconf, running):
                   (running_ctx_keys[:1], None) in lines_to_del):
                 continue
 
+            # Segment routing and traffic engineering never need to be deleted
+            elif (
+                len(running_ctx_keys) > 1
+                and len(running_ctx_keys) < 3
+                and running_ctx_keys[0].startswith('segment-routing')
+            ):
+                continue
+
+            # Segment lists can only be deleted after we removed all the candidate paths that
+            # use them, so add them to a separate array that is going to be appended at the end
+            elif (
+                len(running_ctx_keys) == 3
+                and running_ctx_keys[0].startswith('segment-routing')
+                and running_ctx_keys[2].startswith('segment-list')
+            ):
+                seglist_to_del.append((running_ctx_keys, None))
+
+            # Policies must be deleted after there candidate path, to be sure
+            # we add them to a separate array that is going to be appended at the end
+            elif (
+                len(running_ctx_keys) == 3
+                and running_ctx_keys[0].startswith('segment-routing')
+                and running_ctx_keys[2].startswith('policy')
+            ):
+                pollist_to_del.append((running_ctx_keys, None))
+
             # Non-global context
             elif running_ctx_keys and not any(
                 "address-family" in key for key in running_ctx_keys
@@ -1340,6 +1447,14 @@ def compare_context_objects(newconf, running):
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
 
+    # if we have some policies commands to delete, append them to lines_to_del
+    if len(pollist_to_del) > 0:
+        lines_to_del.extend(pollist_to_del)
+
+    # if we have some segment list commands to delete, append them to lines_to_del
+    if len(seglist_to_del) > 0:
+        lines_to_del.extend(seglist_to_del)
+
     # Find the lines within each context to add
     # Find the lines within each context to del
     for (newconf_ctx_keys, newconf_ctx) in iteritems(newconf.contexts):
@@ -1349,7 +1464,19 @@ def compare_context_objects(newconf, running):
 
             for line in newconf_ctx.lines:
                 if line not in running_ctx.dlines:
-                    lines_to_add.append((newconf_ctx_keys, line))
+
+                    # candidate paths can only be added after the policy and segment list,
+                    # so add them to a separate array that is going to be appended at the end
+                    if (
+                        len(newconf_ctx_keys) == 3
+                        and newconf_ctx_keys[0].startswith('segment-routing')
+                        and newconf_ctx_keys[2].startswith('policy ')
+                        and line.startswith('candidate-path ')
+                    ):
+                        candidates_to_add.append((newconf_ctx_keys, line))
+
+                    else:
+                        lines_to_add.append((newconf_ctx_keys, line))
 
             for line in running_ctx.lines:
                 if line not in newconf_ctx.dlines:
@@ -1358,10 +1485,27 @@ def compare_context_objects(newconf, running):
     for (newconf_ctx_keys, newconf_ctx) in iteritems(newconf.contexts):
 
         if newconf_ctx_keys not in running.contexts:
-            lines_to_add.append((newconf_ctx_keys, None))
 
-            for line in newconf_ctx.lines:
-                lines_to_add.append((newconf_ctx_keys, line))
+            # candidate paths can only be added after the policy and segment list,
+            # so add them to a separate array that is going to be appended at the end
+            if (
+                len(newconf_ctx_keys) == 4
+                and newconf_ctx_keys[0].startswith('segment-routing')
+                and newconf_ctx_keys[3].startswith('candidate-path')
+            ):
+                candidates_to_add.append((newconf_ctx_keys, None))
+                for line in newconf_ctx.lines:
+                    candidates_to_add.append((newconf_ctx_keys, line))
+
+            else:
+                lines_to_add.append((newconf_ctx_keys, None))
+
+                for line in newconf_ctx.lines:
+                    lines_to_add.append((newconf_ctx_keys, line))
+
+    # if we have some candidate paths commands to add, append them to lines_to_add
+    if len(candidates_to_add) > 0:
+        lines_to_add.extend(candidates_to_add)
 
     (lines_to_add, lines_to_del) = check_for_exit_vrf(lines_to_add, lines_to_del)
     (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(
@@ -1523,10 +1667,11 @@ if __name__ == "__main__":
         "staticd",
         "vrrpd",
         "ldpd",
+        "pathd",
     ]:
-        log.error(
-            "Daemon %s is not a valid option for 'show running-config'" % args.daemon
-        )
+        msg = "Daemon %s is not a valid option for 'show running-config'" % args.daemon
+        print(msg)
+        log.error(msg)
         sys.exit(1)
 
     vtysh = Vtysh(args.bindir, args.confdir, args.vty_socket, args.pathspace)
@@ -1573,6 +1718,8 @@ if __name__ == "__main__":
             running.load_from_file(args.input)
         else:
             running.load_from_show_running(args.daemon)
+
+
 
         (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
         lines_to_configure = []

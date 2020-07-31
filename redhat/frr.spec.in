@@ -27,6 +27,7 @@
 %{!?with_vrrpd:         %global  with_vrrpd         1 }
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
+%{!?with_pathd:         %global  with_pathd         1 }
 
 # user and group
 %{!?frr_user:           %global  frr_user           frr }
@@ -87,7 +88,7 @@
 %{!?frr_gid:            %global  frr_gid            92 }
 %{!?vty_gid:            %global  vty_gid            85 }
 
-%define daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd staticd bfdd fabricd
+%define daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd staticd bfdd fabricd pathd
 
 %if %{with_ldpd}
     %define daemon_ldpd ldpd
@@ -143,7 +144,13 @@
     %define daemon_bfdd ""
 %endif
 
-%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd} %{daemon_bfdd} %{daemon_vrrpd}
+%if %{with_pathd}
+    %define daemon_pathd pathd
+%else
+    %define daemon_pathd ""
+%endif
+
+%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd} %{daemon_bfdd} %{daemon_vrrpd} %{daemon_pathd}
 
 #release sub-revision (the two digits after the CONFDATE)
 %{!?release_rev:        %global  release_rev        01 }
@@ -398,6 +405,11 @@ routing state through standard SNMP MIBs.
 %else
     --disable-bfdd \
 %endif
+%if %{with_pathd}
+    --enable-pathd \
+%else
+    --disable-pathd \
+%endif
     --enable-snmp
     # end
 
@@ -525,6 +537,9 @@ zebra_spec_add_service isisd    2608/tcp "ISISd vty"
 zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
 %if %{with_vrrpd}
     zebra_spec_add_service vrrpd    2619/tcp "VRRPd vty"
+%endif
+%if %{with_pathd}
+    zebra_spec_add_service pathd    2620/tcp "Pathd vty"
 %endif
 
 %if "%{initsystem}" == "systemd"
@@ -681,6 +696,9 @@ fi
 %if %{with_bfdd}
     %{_sbindir}/bfdd
 %endif
+%if %{with_pathd}
+    %{_sbindir}/pathd
+%endif
 %{_libdir}/libfrr.so*
 %{_libdir}/libfrrcares*
 %{_libdir}/libfrrospf*
@@ -797,6 +815,9 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 - lib
 -    migrate route-maps to use northbound interface
 - plus countless bug fixes and other improvements
+
+* Mon Jun 15 2020 Sascha Kattelmann <sascha@netdef.org>
+- Add Pathd support
 
 * Wed May 06 2020 David Lamparter <equinox@opensourcerouting.org> - 7.3.1
 - upstream 7.3.1

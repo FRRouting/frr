@@ -139,6 +139,7 @@ struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "staticd", .flag = VTYSH_STATICD, .next = NULL},
 	{.fd = -1, .name = "bfdd", .flag = VTYSH_BFDD, .next = NULL},
 	{.fd = -1, .name = "vrrpd", .flag = VTYSH_VRRPD, .next = NULL},
+	{.fd = -1, .name = "pathd", .flag = VTYSH_PATHD, .next = NULL},
 };
 
 /* Searches for client by name, returns index */
@@ -538,6 +539,11 @@ static int vtysh_execute_func(const char *line, int pager)
 			    || saved_node == LDP_IPV6_IFACE_NODE)
 			   && (tried == 1)) {
 			vtysh_execute("exit");
+		} else if ((saved_node == SR_SEGMENT_LIST_NODE
+			    || saved_node == SR_POLICY_NODE
+			    || saved_node == SR_CANDIDATE_DYN_NODE)
+			    && (tried > 0)) {
+			vtysh_execute("exit");
 		} else if (tried) {
 			vtysh_execute("end");
 			vtysh_execute("configure");
@@ -689,6 +695,7 @@ int vtysh_mark_file(const char *filename)
 	int ret;
 	vector vline;
 	int tried = 0;
+	bool ending;
 	const struct cmd_element *cmd;
 	int saved_ret, prev_node;
 	int lineno = 0;
@@ -738,6 +745,12 @@ int vtysh_mark_file(const char *filename)
 			if (strncmp(vty_buf_copy, "  ", 2)) {
 				vty_out(vty, " exit\n");
 				vty->node = LDP_L2VPN_NODE;
+			}
+			break;
+		case SR_CANDIDATE_DYN_NODE:
+			if (strncmp(vty_buf_copy, "  ", 2)) {
+				vty_out(vty, " exit\n");
+				vty->node = SR_POLICY_NODE;
 			}
 			break;
 		default:
@@ -812,6 +825,23 @@ int vtysh_mark_file(const char *filename)
 			} else if ((prev_node == BFD_PEER_NODE)
 				   && (tried == 1)) {
 				vty_out(vty, "exit\n");
+			} else if (((prev_node == SEGMENT_ROUTING_NODE)
+			            || (prev_node == SR_TRAFFIC_ENG_NODE)
+			            || (prev_node == SR_SEGMENT_LIST_NODE)
+			            || (prev_node == SR_POLICY_NODE)
+			            || (prev_node == SR_CANDIDATE_DYN_NODE))
+				   && (tried > 0)) {
+				ending = (vty->node != SEGMENT_ROUTING_NODE)
+				         && (vty->node != SR_TRAFFIC_ENG_NODE)
+				         && (vty->node != SR_SEGMENT_LIST_NODE)
+				         && (vty->node != SR_POLICY_NODE)
+				         && (vty->node != SR_CANDIDATE_DYN_NODE);
+				if (ending)
+					tried--;
+				while (tried-- > 0)
+					vty_out(vty, "exit\n");
+				if (ending)
+					vty_out(vty, "end\n");
 			} else if (tried) {
 				vty_out(vty, "end\n");
 			}
@@ -1217,6 +1247,41 @@ static struct cmd_node pw_node = {
 	.node = PW_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-pw)# ",
+};
+
+static struct cmd_node segment_routing_node = {
+	.name = "segment-routing",
+	.node = SEGMENT_ROUTING_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-sr)# ",
+};
+
+static struct cmd_node sr_traffic_eng_node = {
+	.name = "sr traffic-eng",
+	.node = SR_TRAFFIC_ENG_NODE,
+	.parent_node = SEGMENT_ROUTING_NODE,
+	.prompt = "%s(config-sr-te)# ",
+};
+
+static struct cmd_node srte_segment_list_node = {
+	.name = "srte segment-list",
+	.node = SR_SEGMENT_LIST_NODE,
+	.parent_node = SR_TRAFFIC_ENG_NODE,
+	.prompt = "%s(config-sr-te-segment-list)# ",
+};
+
+static struct cmd_node srte_policy_node = {
+	.name = "srte policy",
+	.node = SR_POLICY_NODE,
+	.parent_node = SR_TRAFFIC_ENG_NODE,
+	.prompt = "%s(config-sr-te-policy)# ",
+};
+
+static struct cmd_node srte_candidate_dyn_node = {
+	.name = "srte candidate-dyn",
+	.node = SR_CANDIDATE_DYN_NODE,
+	.parent_node = SR_POLICY_NODE,
+	.prompt = "%s(config-sr-te-candidate)# ",
 };
 
 static struct cmd_node vrf_node = {
@@ -1974,6 +2039,60 @@ DEFUNSH(VTYSH_FABRICD, router_openfabric, router_openfabric_cmd, "router openfab
 }
 #endif /* HAVE_FABRICD */
 
+#if defined(HAVE_PATHD)
+DEFUNSH(VTYSH_PATHD, segment_routing, segment_routing_cmd,
+	"segment-routing",
+	"Configure segment routing\n")
+{
+	vty->node = SEGMENT_ROUTING_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, sr_traffic_eng, sr_traffic_eng_cmd,
+	"traffic-eng",
+	"Configure SR traffic engineering\n")
+{
+	vty->node = SR_TRAFFIC_ENG_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, srte_segment_list, srte_segment_list_cmd,
+	"segment-list WORD$name",
+	"Segment List\n"
+	"Segment List Name\n")
+{
+	vty->node = SR_SEGMENT_LIST_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, srte_policy, srte_policy_cmd,
+	"policy color (0-4294967295) endpoint <A.B.C.D|X:X::X:X>",
+	"Segment Routing Policy\n"
+	"SR Policy color\n"
+	"SR Policy color value\n"
+	"SR Policy endpoint\n"
+	"SR Policy endpoint IPv4 address\n"
+	"SR Policy endpoint IPv6 address\n")
+{
+	vty->node = SR_POLICY_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, srte_policy_candidate_dyn_path,
+	srte_policy_candidate_dyn_path_cmd,
+	"candidate-path preference (0-4294967295) name WORD dynamic",
+	"Segment Routing Policy Candidate Path\n"
+	"Segment Routing Policy Candidate Path Preference\n"
+	"Administrative Preference\n"
+	"Segment Routing Policy Candidate Path Name\n"
+	"Symbolic Name\n"
+	"Dynamic Path\n")
+{
+	vty->node = SR_CANDIDATE_DYN_NODE;
+	return CMD_SUCCESS;
+}
+#endif /* HAVE_PATHD */
+
 DEFUNSH(VTYSH_RMAP, vtysh_route_map, vtysh_route_map_cmd,
 	"route-map WORD <deny|permit> (1-65535)",
 	"Create route-map or enter route-map command mode\n"
@@ -2345,6 +2464,18 @@ DEFUNSH(VTYSH_KEYS, vtysh_quit_keys, vtysh_quit_keys_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_keys(self, vty, argc, argv);
+}
+
+DEFUNSH(VTYSH_PATHD, vtysh_exit_pathd, vtysh_exit_pathd_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+DEFUNSH(VTYSH_PATHD, vtysh_quit_pathd, vtysh_quit_pathd_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit_pathd(self, vty, argc, argv);
 }
 
 DEFUNSH(VTYSH_ALL, vtysh_exit_line_vty, vtysh_exit_line_vty_cmd, "exit",
@@ -4143,6 +4274,37 @@ void vtysh_init_vty(void)
 	install_element(BFD_PROFILE_NODE, &vtysh_quit_bfdd_cmd);
 	install_element(BFD_PROFILE_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_BFDD */
+
+#if defined(HAVE_PATHD)
+	install_node(&segment_routing_node);
+	install_node(&sr_traffic_eng_node);
+	install_node(&srte_segment_list_node);
+	install_node(&srte_policy_node);
+	install_node(&srte_candidate_dyn_node);
+
+	install_element(SEGMENT_ROUTING_NODE, &vtysh_exit_pathd_cmd);
+	install_element(SEGMENT_ROUTING_NODE, &vtysh_quit_pathd_cmd);
+	install_element(SR_TRAFFIC_ENG_NODE, &vtysh_exit_pathd_cmd);
+	install_element(SR_TRAFFIC_ENG_NODE, &vtysh_quit_pathd_cmd);
+	install_element(SR_SEGMENT_LIST_NODE, &vtysh_exit_pathd_cmd);
+	install_element(SR_SEGMENT_LIST_NODE, &vtysh_quit_pathd_cmd);
+	install_element(SR_POLICY_NODE, &vtysh_exit_pathd_cmd);
+	install_element(SR_POLICY_NODE, &vtysh_quit_pathd_cmd);
+	install_element(SR_CANDIDATE_DYN_NODE, &vtysh_exit_pathd_cmd);
+	install_element(SR_CANDIDATE_DYN_NODE, &vtysh_quit_pathd_cmd);
+
+	install_element(SEGMENT_ROUTING_NODE, &vtysh_end_all_cmd);
+	install_element(SR_TRAFFIC_ENG_NODE, &vtysh_end_all_cmd);
+	install_element(SR_SEGMENT_LIST_NODE, &vtysh_end_all_cmd);
+	install_element(SR_POLICY_NODE, &vtysh_end_all_cmd);
+	install_element(SR_CANDIDATE_DYN_NODE, &vtysh_end_all_cmd);
+
+	install_element(CONFIG_NODE, &segment_routing_cmd);
+	install_element(SEGMENT_ROUTING_NODE, &sr_traffic_eng_cmd);
+	install_element(SR_TRAFFIC_ENG_NODE, &srte_segment_list_cmd);
+	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_cmd);
+	install_element(SR_POLICY_NODE, &srte_policy_candidate_dyn_path_cmd);
+#endif /* HAVE_PATHD */
 
 	/* keychain */
 	install_node(&keychain_node);
