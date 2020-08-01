@@ -11651,6 +11651,7 @@ enum bgp_pcounts {
 	PCOUNT_VALID,
 	PCOUNT_ALL,
 	PCOUNT_COUNTED,
+	PCOUNT_BPATH_SELECTED,
 	PCOUNT_PFCNT, /* the figure we display to users */
 	PCOUNT_MAX,
 };
@@ -11664,6 +11665,7 @@ static const char *const pcount_strs[] = {
 		[PCOUNT_VALID] = "Valid",
 		[PCOUNT_ALL] = "All RIB",
 		[PCOUNT_COUNTED] = "PfxCt counted",
+		[PCOUNT_BPATH_SELECTED] = "PfxCt Best Selected",
 		[PCOUNT_PFCNT] = "Useable",
 		[PCOUNT_MAX] = NULL,
 };
@@ -11704,6 +11706,8 @@ static void bgp_peer_count_proc(struct bgp_dest *rn, struct peer_pcounts *pc)
 			pc->count[PCOUNT_VALID]++;
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
 			pc->count[PCOUNT_PFCNT]++;
+		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+			pc->count[PCOUNT_BPATH_SELECTED]++;
 
 		if (CHECK_FLAG(pi->flags, BGP_PATH_COUNTED)) {
 			pc->count[PCOUNT_COUNTED]++;
