@@ -853,6 +853,7 @@ else
 fi
 AC_DEFINE_UNQUOTED([ALIAS_AS_IFNAME], $ALIAS_AS_IFNAME, [If there, use interface alias as interface name])
 AC_DEFINE_UNQUOTED([MAX_IFNAME_LEN], [$INTERFACE_NAMSIZ_MAX], [Maximum interface name length])
+AC_SUBST(INTERFACE_NAMSIZ_MAX, ${INTERFACE_NAMSIZ_MAX})
 
 AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
 
@@ -2454,6 +2455,7 @@ AC_CONFIG_FILES([tools/frr], [chmod +x tools/frr])
 AC_CONFIG_FILES([tools/watchfrr.sh], [chmod +x tools/watchfrr.sh])
 AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
+AC_CONFIG_FILES([yang/frr-interface.yang])
 
 AC_CONFIG_COMMANDS([lib/route_types.h], [
 	dst="${ac_abs_top_builddir}/lib/route_types.h"

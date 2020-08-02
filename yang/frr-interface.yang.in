@@ -293,7 +293,7 @@ module frr-interface {
         "Interface.";
       leaf name {
         type string {
-          length "1..16";
+          length "1..@INTERFACE_NAMSIZ_MAX@";
         }
         description
           "Interface name.";
