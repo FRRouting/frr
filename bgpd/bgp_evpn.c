@@ -3102,7 +3102,6 @@ static int install_uninstall_routes_for_es(struct bgp *bgp,
 	int ret;
 	afi_t afi;
 	safi_t safi;
-	char buf[PREFIX_STRLEN];
 	char buf1[ESI_STR_LEN];
 	struct bgp_dest *rd_dest, *dest;
 	struct bgp_table *table;
@@ -3211,7 +3210,6 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf, int install)
 	struct bgp_table *table;
 	struct bgp_path_info *pi;
 	int ret;
-	char buf[PREFIX_STRLEN];
 	struct bgp *bgp_evpn = NULL;
 
 	afi = AFI_L2VPN;

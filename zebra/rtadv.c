@@ -2337,7 +2337,6 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 	struct rtadv_prefix *rprefix;
 	struct rtadv_rdnss *rdnss;
 	struct rtadv_dnssl *dnssl;
-	char buf[PREFIX_STRLEN];
 	int interval;
 
 	zif = ifp->info;
@@ -2435,7 +2434,6 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvRDNSSList, node, rdnss)) {
-		char buf[INET6_ADDRSTRLEN];
 
 		vty_out(vty, " ipv6 nd rdnss %pI6",
 			&rdnss->addr);

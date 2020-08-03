@@ -63,7 +63,6 @@ static void ospf6_as_external_lsa_originate(struct ospf6_route *route)
 	struct ospf6_external_info *info = route->route_option;
 
 	struct ospf6_as_external_lsa *as_external_lsa;
-	char buf[PREFIX2STR_BUFFER];
 	caddr_t p;
 
 	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL)) {
@@ -453,7 +452,6 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	struct prefix asbr_id;
 	struct ospf6_route *asbr_entry, *route, *old;
 	struct ospf6_path *path;
-	char buf[PREFIX2STR_BUFFER];
 
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 		lsa->header);
@@ -1024,7 +1022,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	struct ospf6_external_info *info;
 	struct prefix prefix_id;
 	struct route_node *node;
-	char pbuf[PREFIX2STR_BUFFER], ibuf[16];
+	char pbuf[PREFIX2STR_BUFFER];
 	struct listnode *lnode, *lnnode;
 	struct ospf6_area *oa;
 

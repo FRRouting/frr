@@ -1079,8 +1079,8 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route)
 void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 {
 	const char *ifname;
-	char destination[PREFIX2STR_BUFFER], nexthop[64];
-	char area_id[16], id[16], adv_router[16], capa[16], options[16];
+	char destination[PREFIX2STR_BUFFER];
+	char capa[16], options[16];
 	struct timeval now, res;
 	char duration[64];
 	struct listnode *node;

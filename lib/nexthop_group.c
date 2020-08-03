@@ -954,7 +954,6 @@ static struct cmd_node nexthop_group_node = {
 
 void nexthop_group_write_nexthop(struct vty *vty, const struct nexthop *nh)
 {
-	char buf[100];
 	struct vrf *vrf;
 	int i;
 

@@ -387,8 +387,6 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 	struct stream *s = NULL;
 	bpacket_attr_vec *vec;
 	struct peer *peer;
-	char buf[BUFSIZ];
-	char buf2[BUFSIZ];
 	struct bgp_filter *filter;
 
 	s = stream_dup(pkt->buffer);

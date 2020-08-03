@@ -5661,7 +5661,6 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 				safi_t safi)
 {
 	char buf1[RD_ADDRSTRLEN];
-	char buf2[INET6_ADDRSTRLEN];
 
 	if (bgp->advertise_all_vni)
 		vty_out(vty, "  advertise-all-vni\n");
@@ -5746,7 +5745,6 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 					&bgp->evpn_info->pip_ip_static);
 				if (!is_zero_mac(&(
 					    bgp->evpn_info->pip_rmac_static))) {
-					char buf[ETHER_ADDR_STRLEN];
 
 					vty_out(vty, " mac %pEA",
 						&bgp->evpn_info->pip_rmac);

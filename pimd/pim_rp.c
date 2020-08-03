@@ -249,7 +249,6 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 
 	rp_info = rn->info;
 	if (PIM_DEBUG_PIM_TRACE) {
-		char buf[PREFIX_STRLEN];
 
 		zlog_debug("Lookedup: %p for rp_info: %p(%pFX) Lock: %d", rn,
 			   rp_info,
@@ -834,7 +833,6 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 					"Expected rn->info to be equal to rp_info");
 
 			if (PIM_DEBUG_PIM_TRACE) {
-				char buf[PREFIX_STRLEN];
 
 				zlog_debug("%s:Found for Freeing: %p for rp_info: %p(%pFX) Lock: %d",
 					   __func__, rn, rp_info,

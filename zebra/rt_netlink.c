@@ -674,7 +674,6 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		p.prefixlen = rtm->rtm_dst_len;
 
 		if (rtm->rtm_src_len != 0) {
-			char buf[PREFIX_STRLEN];
 			flog_warn(
 				EC_ZEBRA_UNSUPPORTED_V4_SRCDEST,
 				"unsupported IPv4 sourcedest route (dest %pFX vrf %u)",
@@ -729,7 +728,6 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
-		char buf[PREFIX_STRLEN];
 		char buf2[PREFIX_STRLEN];
 		zlog_debug("%s %pFX%s%s vrf %s(%u) table_id: %u metric: %d Admin Distance: %d",
 			   nl_msg_type_to_str(h->nlmsg_type),
@@ -2769,7 +2767,6 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	vlanid_t vid = 0;
 	struct in_addr vtep_ip;
 	int vid_present = 0, dst_present = 0;
-	char buf[ETHER_ADDR_STRLEN];
 	char vid_buf[20];
 	char dst_buf[30];
 	bool sticky;
@@ -3168,7 +3165,6 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	struct ipaddr ip;
 	struct vrf *vrf;
 	char buf[ETHER_ADDR_STRLEN];
-	char buf2[INET6_ADDRSTRLEN];
 	int mac_present = 0;
 	bool is_ext;
 	bool is_router;

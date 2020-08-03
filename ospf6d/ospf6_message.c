@@ -1515,7 +1515,6 @@ int ospf6_receive(struct thread *thread)
 {
 	int sockfd;
 	unsigned int len;
-	char srcname[64], dstname[64];
 	struct in6_addr src, dst;
 	ifindex_t ifindex;
 	struct iovec iovector[2];

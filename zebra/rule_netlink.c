@@ -75,8 +75,6 @@ netlink_rule_msg_encode(int cmd, const struct zebra_dplane_ctx *ctx,
 	} *req = buf;
 
 	const char *ifname = dplane_ctx_get_ifname(ctx);
-	char buf1[PREFIX_STRLEN];
-	char buf2[PREFIX_STRLEN];
 
 	memset(req, 0, sizeof(*req));
 	family = PREFIX_FAMILY(src_ip);
@@ -236,8 +234,6 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	int len;
 	char *ifname;
 	struct zebra_pbr_rule rule = {};
-	char buf1[PREFIX_STRLEN];
-	char buf2[PREFIX_STRLEN];
 	uint8_t proto = 0;
 
 	/* Basic validation followed by extracting attributes. */

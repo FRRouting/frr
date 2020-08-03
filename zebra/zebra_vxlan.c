@@ -570,8 +570,6 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 {
 
 	struct timeval elapsed = {0, 0};
-	char buf[ETHER_ADDR_STRLEN];
-	char buf1[INET6_ADDRSTRLEN];
 	bool reset_params = false;
 
 	if (!zvrf->dup_addr_detect)
@@ -2708,8 +2706,6 @@ static int zvni_advertise_subnet(zebra_vni_t *zvni, struct interface *ifp,
 static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 			     struct ethaddr *macaddr, struct ipaddr *ip)
 {
-	char buf[ETHER_ADDR_STRLEN];
-	char buf2[INET6_ADDRSTRLEN];
 	zebra_neigh_t *n = NULL;
 	zebra_mac_t *mac = NULL;
 	struct zebra_if *zif = NULL;
@@ -2992,8 +2988,6 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 				   struct ethaddr *macaddr,
 				   bool is_router)
 {
-	char buf[ETHER_ADDR_STRLEN];
-	char buf2[INET6_ADDRSTRLEN];
 	struct zebra_vrf *zvrf;
 	zebra_neigh_t *n = NULL;
 	zebra_mac_t *zmac = NULL, *old_zmac = NULL;
@@ -5601,7 +5595,6 @@ static void process_remote_macip_add(vni_t vni,
 	zebra_mac_t *mac = NULL, *old_mac = NULL;
 	zebra_neigh_t *n = NULL;
 	int update_mac = 0, update_neigh = 0;
-	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
@@ -5935,7 +5928,6 @@ static void process_remote_macip_del(vni_t vni,
 	struct zebra_ns *zns;
 	struct zebra_l2info_vxlan *vxl;
 	struct zebra_vrf *zvrf;
-	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
 
 	/* Locate VNI hash entry - expected to exist. */
@@ -7599,8 +7591,6 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 					struct interface *link_if,
 					struct ipaddr *ip)
 {
-	char buf[INET6_ADDRSTRLEN];
-	char buf2[ETHER_ADDR_STRLEN];
 	zebra_neigh_t *n = NULL;
 	zebra_vni_t *zvni = NULL;
 	zebra_mac_t *zmac = NULL;
@@ -7849,7 +7839,6 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 	uint16_t l = 0, ipa_len;
 	uint8_t flags = 0;
 	uint32_t seq;
-	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
 
 	memset(&macaddr, 0, sizeof(struct ethaddr));
@@ -8118,7 +8107,6 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 	zebra_vni_t *zvni;
 	zebra_mac_t *mac;
 	struct zebra_vrf *zvrf;
-	char buf[ETHER_ADDR_STRLEN];
 	bool mac_sticky = false;
 	bool inform_client = false;
 	bool upd_neigh = false;

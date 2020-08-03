@@ -839,7 +839,6 @@ int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
 	struct prefix prefix;
-	char buf[PREFIX_STRLEN] = {0};
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	// addr_family = yang_dnode_get_enum(dnode, "./address-family");

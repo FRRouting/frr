@@ -114,7 +114,6 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	struct interface *ifp_in;
 	struct in_addr nh_addr;
 	uint32_t total;
-	char up_str[INET_ADDRSTRLEN];
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	sg.src = mtracep->src_addr;
@@ -269,8 +268,6 @@ static int mtrace_send_packet(struct interface *ifp,
 	ssize_t sent;
 	int ret;
 	int fd;
-	char if_str[INET_ADDRSTRLEN];
-	char rsp_str[INET_ADDRSTRLEN];
 	uint8_t ttl;
 
 	memset(&to, 0, sizeof(to));

@@ -320,7 +320,6 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 {
 	struct ospf6_route *route, *parent_route;
 	struct ospf6_vertex *prev;
-	char pbuf[PREFIX2STR_BUFFER];
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
 		zlog_debug("SPF install %s (lsa %s) hops %d cost %d", v->name,

@@ -215,7 +215,6 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 	int command;
 	uint16_t flags = 0;
 	size_t flags_pos = 0;
-	char addr[PREFIX_STRLEN];
 
 	p = bgp_dest_get_prefix(dest);
 	local_label = &(dest->local_label);
