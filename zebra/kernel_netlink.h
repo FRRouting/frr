@@ -129,6 +129,17 @@ extern enum netlink_msg_status netlink_batch_add_msg(
 	ssize_t (*msg_encoder)(struct zebra_dplane_ctx *, void *, size_t),
 	bool ignore_res);
 
+/*
+ * Vty/cli apis
+ */
+extern int netlink_config_write_helper(struct vty *vty);
+
+/*
+ * Configure size of the batch buffer and sending threshold. If 'unset', reset
+ * to default value.
+ */
+extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
+					  bool set);
 
 #endif /* HAVE_NETLINK */
 

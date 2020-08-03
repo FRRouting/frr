@@ -84,16 +84,7 @@
 #define RTPROT_MROUTED 17
 #endif
 
-#define NL_BATCH_TX_BUFSIZE (16 * NL_PKT_BUF_SIZE)
-
-/*
- * For every request sent to the kernel that has failed we get an error message,
- * which contains a standard netlink message header and the payload consisting
- * of an error code and the original netlink mesage. So the receiving buffer
- * must be at least as big as the transmitting buffer increased by some space
- * for headers.
- */
-#define NL_BATCH_RX_BUFSIZE (NL_BATCH_TX_BUFSIZE + NL_PKT_BUF_SIZE)
+#define NL_DEFAULT_BATCH_BUFSIZE (16 * NL_PKT_BUF_SIZE)
 
 /*
  * We limit the batch's size to a number smaller than the length of the
@@ -103,7 +94,16 @@
  * big enough (bigger than the biggest Netlink message) then this situation
  * won't occur.
  */
-#define NL_BATCH_SEND_THRESHOLD (NL_BATCH_TX_BUFSIZE - NL_PKT_BUF_SIZE)
+#define NL_DEFAULT_BATCH_SEND_THRESHOLD (15 * NL_PKT_BUF_SIZE)
+
+/*
+ * For every request sent to the kernel that has failed we get an error message,
+ * which contains a standard netlink message header and the payload consisting
+ * of an error code and the original netlink mesage. So the receiving buffer
+ * must be at least as big as the transmitting buffer increased by some space
+ * for headers.
+ */
+#define NL_BATCH_RX_BUFSIZE (NL_DEFAULT_BATCH_BUFSIZE + NL_PKT_BUF_SIZE)
 
 static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_DELROUTE, "RTM_DELROUTE"},
@@ -172,8 +172,15 @@ extern uint32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
-char nl_batch_tx_buf[NL_BATCH_TX_BUFSIZE];
+DEFINE_MTYPE_STATIC(ZEBRA, NL_BUF, "Zebra Netlink buffers")
+
+size_t nl_batch_tx_bufsize;
+char *nl_batch_tx_buf;
+
 char nl_batch_rx_buf[NL_BATCH_RX_BUFSIZE];
+
+_Atomic uint32_t nl_batch_bufsize = NL_DEFAULT_BATCH_BUFSIZE;
+_Atomic uint32_t nl_batch_send_threshold = NL_DEFAULT_BATCH_SEND_THRESHOLD;
 
 struct nl_batch {
 	void *buf;
@@ -194,6 +201,33 @@ struct nl_batch {
 	 */
 	struct dplane_ctx_q *ctx_out_q;
 };
+
+int netlink_config_write_helper(struct vty *vty)
+{
+	uint32_t size =
+		atomic_load_explicit(&nl_batch_bufsize, memory_order_relaxed);
+	uint32_t threshold = atomic_load_explicit(&nl_batch_send_threshold,
+						  memory_order_relaxed);
+
+	if (size != NL_DEFAULT_BATCH_BUFSIZE
+	    || threshold != NL_DEFAULT_BATCH_SEND_THRESHOLD)
+		vty_out(vty, "zebra kernel netlink batch-tx-buf %u %u\n", size,
+			threshold);
+
+	return 0;
+}
+
+void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold, bool set)
+{
+	if (!set) {
+		size = NL_DEFAULT_BATCH_BUFSIZE;
+		threshold = NL_DEFAULT_BATCH_SEND_THRESHOLD;
+	}
+
+	atomic_store_explicit(&nl_batch_bufsize, size, memory_order_relaxed);
+	atomic_store_explicit(&nl_batch_send_threshold, threshold,
+			      memory_order_relaxed);
+}
 
 int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
@@ -1232,9 +1266,24 @@ static void nl_batch_reset(struct nl_batch *bth)
 
 static void nl_batch_init(struct nl_batch *bth, struct dplane_ctx_q *ctx_out_q)
 {
+	/*
+	 * If the size of the buffer has changed, free and then allocate a new
+	 * one.
+	 */
+	size_t bufsize =
+		atomic_load_explicit(&nl_batch_bufsize, memory_order_relaxed);
+	if (bufsize != nl_batch_tx_bufsize) {
+		if (nl_batch_tx_buf)
+			XFREE(MTYPE_NL_BUF, nl_batch_tx_buf);
+
+		nl_batch_tx_buf = XCALLOC(MTYPE_NL_BUF, bufsize);
+		nl_batch_tx_bufsize = bufsize;
+	}
+
 	bth->buf = nl_batch_tx_buf;
-	bth->bufsiz = sizeof(nl_batch_tx_buf);
-	bth->limit = NL_BATCH_SEND_THRESHOLD;
+	bth->bufsiz = bufsize;
+	bth->limit = atomic_load_explicit(&nl_batch_send_threshold,
+					  memory_order_relaxed);
 
 	bth->ctx_out_q = ctx_out_q;
 

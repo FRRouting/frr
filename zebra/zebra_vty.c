@@ -57,6 +57,7 @@
 #include "zebra/interface.h"
 #include "northbound_cli.h"
 #include "zebra/zebra_nb.h"
+#include "zebra/kernel_netlink.h"
 
 extern int allow_delete;
 
@@ -3397,6 +3398,11 @@ static int config_write_protocol(struct vty *vty)
 	if (!zebra_nhg_kernel_nexthops_enabled())
 		vty_out(vty, "no zebra nexthop kernel enable\n");
 
+#ifdef HAVE_NETLINK
+	/* Include netlink info */
+	netlink_config_write_helper(vty);
+#endif /* HAVE_NETLINK */
+
 	return 1;
 }
 
@@ -3719,6 +3725,44 @@ DEFUN_HIDDEN (show_frr,
 	return CMD_SUCCESS;
 }
 
+#ifdef HAVE_NETLINK
+DEFUN_HIDDEN(zebra_kernel_netlink_batch_tx_buf,
+	     zebra_kernel_netlink_batch_tx_buf_cmd,
+	     "zebra kernel netlink batch-tx-buf (1-1048576) (1-1048576)",
+	     ZEBRA_STR
+	     "Zebra kernel interface\n"
+	     "Set Netlink parameters\n"
+	     "Set batch buffer size and send threshold\n"
+	     "Size of the buffer\n"
+	     "Send threshold\n")
+{
+	uint32_t bufsize = 0, threshold = 0;
+
+	bufsize = strtoul(argv[4]->arg, NULL, 10);
+	threshold = strtoul(argv[5]->arg, NULL, 10);
+
+	netlink_set_batch_buffer_size(bufsize, threshold, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN(no_zebra_kernel_netlink_batch_tx_buf,
+	     no_zebra_kernel_netlink_batch_tx_buf_cmd,
+	     "no zebra kernel netlink batch-tx-buf [(0-1048576)] [(0-1048576)]",
+	     NO_STR ZEBRA_STR
+	     "Zebra kernel interface\n"
+	     "Set Netlink parameters\n"
+	     "Set batch buffer size and send threshold\n"
+	     "Size of the buffer\n"
+	     "Send threshold\n")
+{
+	netlink_set_batch_buffer_size(0, 0, false);
+
+	return CMD_SUCCESS;
+}
+
+#endif /* HAVE_NETLINK */
+
 /* IP node for static routes. */
 static int zebra_ip_config(struct vty *vty);
 static struct cmd_node ip_node = {
@@ -3855,6 +3899,11 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
 	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
 	install_element(CONFIG_NODE, &no_zebra_dplane_queue_limit_cmd);
+
+#ifdef HAVE_NETLINK
+	install_element(CONFIG_NODE, &zebra_kernel_netlink_batch_tx_buf_cmd);
+	install_element(CONFIG_NODE, &no_zebra_kernel_netlink_batch_tx_buf_cmd);
+#endif /* HAVE_NETLINK */
 
 	install_element(VIEW_NODE, &zebra_show_routing_tables_summary_cmd);
 }
