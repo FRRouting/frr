@@ -948,7 +948,7 @@ DEFPY(
 
 DEFPY(
 	no_rmap_call, no_rmap_call_cmd,
-	"no call",
+	"no call [NAME]",
 	NO_STR
 	"Jump to another Route-Map after match+set\n")
 {
