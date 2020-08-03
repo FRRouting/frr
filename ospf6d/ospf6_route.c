@@ -580,8 +580,8 @@ static void route_table_assert(struct ospf6_route_table *table)
 	zlog_debug("table count = %d, real number = %d", table->count, num);
 	zlog_debug("DUMP START");
 	for (r = ospf6_route_head(table); r; r = ospf6_route_next(r)) {
-		prefix2str(&r->prefix, buf, sizeof(buf));
-		zlog_info("%p<-[%p]->%p : %s", r->prev, r, r->next, buf);
+		zlog_info("%p<-[%p]->%p : %pFX", r->prev, r, r->next,
+			  &r->prefix);
 	}
 	zlog_debug("DUMP END");
 
@@ -1124,18 +1124,16 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 	/* Path section */
 
 	/* Area-ID */
-	inet_ntop(AF_INET, &route->path.area_id, area_id, sizeof(area_id));
-	vty_out(vty, "Associated Area: %s\n", area_id);
+	vty_out(vty, "Associated Area: %pI4\n", &route->path.area_id);
 
 	/* Path type */
 	vty_out(vty, "Path Type: %s\n", OSPF6_PATH_TYPE_NAME(route->path.type));
 
 	/* LS Origin */
-	inet_ntop(AF_INET, &route->path.origin.id, id, sizeof(id));
-	inet_ntop(AF_INET, &route->path.origin.adv_router, adv_router,
-		  sizeof(adv_router));
-	vty_out(vty, "LS Origin: %s Id: %s Adv: %s\n",
-		ospf6_lstype_name(route->path.origin.type), id, adv_router);
+	vty_out(vty, "LS Origin: %s Id: %pI4 Adv: %pI4\n",
+		ospf6_lstype_name(route->path.origin.type),
+		&route->path.origin.id,
+		&route->path.origin.adv_router);
 
 	/* Options */
 	ospf6_options_printbuf(route->path.options, options, sizeof(options));
@@ -1159,9 +1157,8 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 	vty_out(vty, "Nexthop:\n");
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
 		/* nexthop */
-		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
 		ifname = ifindex2ifname(nh->ifindex, VRF_DEFAULT);
-		vty_out(vty, "  %s %.*s\n", nexthop, IFNAMSIZ, ifname);
+		vty_out(vty, "  %pI6 %.*s\n", &nh->address, IFNAMSIZ, ifname);
 	}
 	vty_out(vty, "\n");
 }
@@ -1523,19 +1520,18 @@ void ospf6_brouter_show_header(struct vty *vty)
 void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route)
 {
 	uint32_t adv_router;
-	char adv[16], rbits[16], options[16], area[16];
+	char rbits[16], options[16];
 
 	adv_router = ospf6_linkstate_prefix_adv_router(&route->prefix);
-	inet_ntop(AF_INET, &adv_router, adv, sizeof(adv));
 	ospf6_capability_printbuf(route->path.router_bits, rbits,
 				  sizeof(rbits));
 	ospf6_options_printbuf(route->path.options, options, sizeof(options));
-	inet_ntop(AF_INET, &route->path.area_id, area, sizeof(area));
 
 	/* vty_out (vty, "%-15s %-8s %-14s %-10s %-15s\n",
 		 "Router-ID", "Rtr-Bits", "Options", "Path-Type", "Area"); */
-	vty_out(vty, "%-15s %-8s %-14s %-10s %-15s\n", adv, rbits, options,
-		OSPF6_PATH_TYPE_NAME(route->path.type), area);
+	vty_out(vty, "%-15pI4 %-8s %-14s %-10s %-15pI4\n", &adv_router, rbits,
+		options,
+		OSPF6_PATH_TYPE_NAME(route->path.type), &route->path.area_id);
 }
 
 DEFUN (debug_ospf6_route,

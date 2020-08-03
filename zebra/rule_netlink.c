@@ -138,12 +138,12 @@ netlink_rule_msg_encode(int cmd, const struct zebra_dplane_ctx *ctx,
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug(
-			"Tx %s family %s IF %s(%u) Pref %u Fwmark %u Src %s Dst %s Table %u",
-			nl_msg_type_to_str(cmd), nl_family_to_str(family),
-			ifname, dplane_ctx_get_ifindex(ctx), priority, fwmark,
-			prefix2str(src_ip, buf1, sizeof(buf1)),
-			prefix2str(dst_ip, buf2, sizeof(buf2)), table);
+		zlog_debug("Tx %s family %s IF %s(%u) Pref %u Fwmark %u Src %pFX Dst %pFX Table %u",
+			   nl_msg_type_to_str(cmd), nl_family_to_str(family),
+			   ifname, dplane_ctx_get_ifindex(ctx), priority,
+			   fwmark,
+			   src_ip,
+			   dst_ip, table);
 
 	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
@@ -328,18 +328,15 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 			ret = dplane_pbr_rule_delete(&rule);
 
-			zlog_debug(
-				"%s: %s leftover rule: family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
-				__func__,
-				((ret == ZEBRA_DPLANE_REQUEST_FAILURE)
+			zlog_debug("%s: %s leftover rule: family %s IF %s(%u) Pref %u Src %pFX Dst %pFX Table %u",
+				   __func__,
+				   ((ret == ZEBRA_DPLANE_REQUEST_FAILURE)
 					 ? "Failed to remove"
 					 : "Removed"),
 				nl_family_to_str(frh->family), rule.ifname,
 				rule.rule.ifindex, rule.rule.priority,
-				prefix2str(&rule.rule.filter.src_ip, buf1,
-					   sizeof(buf1)),
-				prefix2str(&rule.rule.filter.dst_ip, buf2,
-					   sizeof(buf2)),
+				&rule.rule.filter.src_ip,
+				&rule.rule.filter.dst_ip,
 				rule.rule.action.table);
 		}
 
@@ -354,16 +351,13 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug(
-			"Rx %s family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
-			nl_msg_type_to_str(h->nlmsg_type),
-			nl_family_to_str(frh->family), rule.ifname,
-			rule.rule.ifindex, rule.rule.priority,
-			prefix2str(&rule.rule.filter.src_ip, buf1,
-				   sizeof(buf1)),
-			prefix2str(&rule.rule.filter.dst_ip, buf2,
-				   sizeof(buf2)),
-			rule.rule.action.table);
+		zlog_debug("Rx %s family %s IF %s(%u) Pref %u Src %pFX Dst %pFX Table %u",
+			   nl_msg_type_to_str(h->nlmsg_type),
+			   nl_family_to_str(frh->family), rule.ifname,
+			   rule.rule.ifindex, rule.rule.priority,
+			   &rule.rule.filter.src_ip,
+			   &rule.rule.filter.dst_ip,
+			   rule.rule.action.table);
 
 	return kernel_pbr_rule_del(&rule);
 }

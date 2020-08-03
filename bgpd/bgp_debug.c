@@ -234,7 +234,6 @@ static void bgp_debug_list_print(struct vty *vty, const char *desc,
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
-	char buf[PREFIX2STR_BUFFER];
 
 	vty_out(vty, "%s", desc);
 
@@ -247,8 +246,7 @@ static void bgp_debug_list_print(struct vty *vty, const char *desc,
 			if (filter->p && filter->p->family == AF_EVPN)
 				bgp_debug_print_evpn_prefix(vty, "", filter->p);
 			else if (filter->p) {
-				prefix2str(filter->p, buf, sizeof(buf));
-				vty_out(vty, " %s", buf);
+				vty_out(vty, " %pFX", filter->p);
 			}
 		}
 	}
@@ -265,7 +263,6 @@ static int bgp_debug_list_conf_print(struct vty *vty, const char *desc,
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
-	char buf[PREFIX2STR_BUFFER];
 	int write = 0;
 
 	if (list && !list_isempty(list)) {
@@ -280,8 +277,7 @@ static int bgp_debug_list_conf_print(struct vty *vty, const char *desc,
 							    filter->p);
 				write++;
 			} else if (filter->p) {
-				prefix2str(filter->p, buf, sizeof(buf));
-				vty_out(vty, "%s %s\n", desc, buf);
+				vty_out(vty, "%s %pFX\n", desc, filter->p);
 				write++;
 			}
 		}
@@ -566,33 +562,30 @@ static void bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
 {
 	char evpn_desc[PREFIX2STR_BUFFER + INET_ADDRSTRLEN];
 	char buf[PREFIX2STR_BUFFER];
-	char buf2[ETHER_ADDR_STRLEN];
 
 	if (p->u.prefix_evpn.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		if (is_evpn_prefix_ipaddr_none((struct prefix_evpn *)p)) {
-			snprintf(
+			snprintfrr(
 				evpn_desc, sizeof(evpn_desc),
-				"l2vpn evpn type macip mac %s",
-				prefix_mac2str(&p->u.prefix_evpn.macip_addr.mac,
-					       buf2, sizeof(buf2)));
+				"l2vpn evpn type macip mac %pEA",
+				&p->u.prefix_evpn.macip_addr.mac);
 		} else {
 			uint8_t family = is_evpn_prefix_ipaddr_v4(
 						(struct prefix_evpn *)p) ?
 							AF_INET : AF_INET6;
-			snprintf(
+			snprintfrr(
 				evpn_desc, sizeof(evpn_desc),
-				"l2vpn evpn type macip mac %s ip %s",
-				prefix_mac2str(&p->u.prefix_evpn.macip_addr.mac,
-					       buf2, sizeof(buf2)),
+				"l2vpn evpn type macip mac %pEA ip %s",
+				&p->u.prefix_evpn.macip_addr.mac,
 				inet_ntop(
 					family,
 					&p->u.prefix_evpn.macip_addr.ip.ip.addr,
 					buf, PREFIX2STR_BUFFER));
 		}
 	} else if (p->u.prefix_evpn.route_type == BGP_EVPN_IMET_ROUTE) {
-		snprintf(evpn_desc, sizeof(evpn_desc),
-			 "l2vpn evpn type multicast ip %s",
-			 inet_ntoa(p->u.prefix_evpn.imet_addr.ip.ipaddr_v4));
+		snprintfrr(evpn_desc, sizeof(evpn_desc),
+			 "l2vpn evpn type multicast ip %pI4",
+			 &p->u.prefix_evpn.imet_addr.ip.ipaddr_v4);
 	} else if (p->u.prefix_evpn.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 		uint8_t family = is_evpn_prefix_ipaddr_v4(
 					(struct prefix_evpn *)p) ? AF_INET
@@ -2571,7 +2564,6 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 				    char *str, int size)
 {
 	char rd_buf[RD_ADDRSTRLEN];
-	char pfx_buf[PREFIX_STRLEN];
 	char tag_buf[30];
 	/* ' with addpath ID '          17
 	 * max strlen of uint32       + 10
@@ -2609,10 +2601,10 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 	}
 
 	if (prd)
-		snprintf(str, size, "RD %s %s%s%s %s %s",
-			 prefix_rd2str(prd, rd_buf, sizeof(rd_buf)),
-			 prefix2str(pu, pfx_buf, sizeof(pfx_buf)), tag_buf,
-			 pathid_buf, afi2str(afi), safi2str(safi));
+		snprintfrr(str, size, "RD %s %pFX%s%s %s %s",
+			   prefix_rd2str(prd, rd_buf, sizeof(rd_buf)),
+			   pu, tag_buf,
+			   pathid_buf, afi2str(afi), safi2str(safi));
 	else if (safi == SAFI_FLOWSPEC) {
 		char return_string[BGP_FLOWSPEC_NLRI_STRING_MAX];
 		const struct prefix_fs *fs = pu.fs;
@@ -2624,9 +2616,9 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 		snprintf(str, size, "FS %s Match{%s}", afi2str(afi),
 			 return_string);
 	} else
-		snprintf(str, size, "%s%s%s %s %s",
-			 prefix2str(pu, pfx_buf, sizeof(pfx_buf)), tag_buf,
-			 pathid_buf, afi2str(afi), safi2str(safi));
+		snprintfrr(str, size, "%pFX%s%s %s %s",
+			   pu, tag_buf,
+			   pathid_buf, afi2str(afi), safi2str(safi));
 
 	return str;
 }

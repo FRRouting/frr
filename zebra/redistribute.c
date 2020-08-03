@@ -196,14 +196,12 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 	struct listnode *node, *nnode;
 	struct zserv *client;
 	int afi;
-	char buf[PREFIX_STRLEN];
 
 	if (IS_ZEBRA_DEBUG_RIB) {
-		zlog_debug(
-			"%u:%s: Redist update re %p (%s), old %p (%s)",
-			re->vrf_id, prefix2str(p, buf, sizeof(buf)),
-			re, zebra_route_string(re->type), prev_re,
-			prev_re ? zebra_route_string(prev_re->type) : "None");
+		zlog_debug("%u:%pFX: Redist update re %p (%s), old %p (%s)",
+			   re->vrf_id, p,
+			   re, zebra_route_string(re->type), prev_re,
+			   prev_re ? zebra_route_string(prev_re->type) : "None");
 	}
 
 	afi = family2afi(p->family);
@@ -214,8 +212,8 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 	}
 	if (!zebra_check_addr(p)) {
 		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("Redist update filter prefix %s",
-				   prefix2str(p, buf, sizeof(buf)));
+			zlog_debug("Redist update filter prefix %pFX",
+				   p);
 		return;
 	}
 
@@ -223,11 +221,10 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		if (zebra_redistribute_check(re, client, p, afi)) {
 			if (IS_ZEBRA_DEBUG_RIB) {
-				zlog_debug(
-					   "%s: client %s %s(%u), type=%d, distance=%d, metric=%d",
+				zlog_debug("%s: client %s %pFX(%u), type=%d, distance=%d, metric=%d",
 					   __func__,
 					   zebra_route_string(client->proto),
-					   prefix2str(p, buf, sizeof(buf)),
+					   p,
 					   re->vrf_id, re->type,
 					   re->distance, re->metric);
 			}
@@ -292,9 +289,8 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 	/* Skip invalid (e.g. linklocal) prefix */
 	if (!zebra_check_addr(p)) {
 		if (IS_ZEBRA_DEBUG_RIB) {
-			zlog_debug(
-				"%u:%s: Redist del old: skipping invalid prefix",
-				vrfid, prefix2str(p, buf, sizeof(buf)));
+			zlog_debug("%u:%pFX: Redist del old: skipping invalid prefix",
+				   vrfid, p);
 		}
 		return;
 	}
@@ -541,11 +537,9 @@ void zebra_interface_address_add_update(struct interface *ifp,
 	struct prefix *p;
 
 	if (IS_ZEBRA_DEBUG_EVENT) {
-		char buf[PREFIX_STRLEN];
-
 		p = ifc->address;
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %s on %s(%u)",
-			   prefix2str(p, buf, sizeof(buf)), ifp->name,
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %pFX on %s(%u)",
+			   p, ifp->name,
 			   ifp->vrf_id);
 	}
 
@@ -580,11 +574,9 @@ void zebra_interface_address_delete_update(struct interface *ifp,
 	struct prefix *p;
 
 	if (IS_ZEBRA_DEBUG_EVENT) {
-		char buf[PREFIX_STRLEN];
-
 		p = ifc->address;
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %s on %s(%u)",
-			   prefix2str(p, buf, sizeof(buf)),
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %pFX on %s(%u)",
+			   p,
 			   ifp->name, ifp->vrf_id);
 	}
 

@@ -220,8 +220,8 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 	/* On NHRP interfaces a host prefix is required */
 	if (best && if_ad->configured
 	    && best->address->prefixlen != 8 * prefix_blen(best->address)) {
-		zlog_notice("%s: %s is not a host prefix", ifp->name,
-			    prefix2str(best->address, buf, sizeof(buf)));
+		zlog_notice("%s: %pFX is not a host prefix", ifp->name,
+			    best->address);
 		best = NULL;
 	}
 

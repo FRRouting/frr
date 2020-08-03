@@ -1468,9 +1468,8 @@ static int ospf_opaque_type10_lsa_originate(struct thread *t)
 	area->t_opaque_lsa_self = NULL;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"Timer[Type10-LSA]: Originate Opaque-LSAs for Area %s",
-			inet_ntoa(area->area_id));
+		zlog_debug("Timer[Type10-LSA]: Originate Opaque-LSAs for Area %pI4",
+			   &area->area_id);
 
 	rc = opaque_lsa_originate_callback(ospf_opaque_type10_funclist, area);
 
@@ -1626,8 +1625,8 @@ struct ospf_lsa *ospf_opaque_lsa_refresh(struct ospf_lsa *lsa)
 		 * LSA from the routing domain.
 		 */
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("LSA[Type%d:%s]: Flush stray Opaque-LSA",
-				   lsa->data->type, inet_ntoa(lsa->data->id));
+			zlog_debug("LSA[Type%d:%pI4]: Flush stray Opaque-LSA",
+				   lsa->data->type, &lsa->data->id);
 
 		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 		ospf_lsa_flush(ospf, lsa);
@@ -1701,8 +1700,8 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 		if ((top = area->ospf) == NULL) {
 			flog_warn(
 				EC_OSPF_LSA,
-				"ospf_opaque_lsa_reoriginate_schedule: AREA(%s) -> TOP?",
-				inet_ntoa(area->area_id));
+				"ospf_opaque_lsa_reoriginate_schedule: AREA(%pI4) -> TOP?",
+				&area->area_id);
 			goto out;
 		}
 		if (!list_isempty(ospf_opaque_type10_funclist)
@@ -1710,8 +1709,8 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 		    && area->t_opaque_lsa_self != NULL) {
 			flog_warn(
 				EC_OSPF_LSA,
-				"Type-10 Opaque-LSA (opaque_type=%u): Common origination for AREA(%s) has already started",
-				opaque_type, inet_ntoa(area->area_id));
+				"Type-10 Opaque-LSA (opaque_type=%u): Common origination for AREA(%pI4) has already started",
+				opaque_type, &area->area_id);
 			goto out;
 		}
 		func = ospf_opaque_type10_lsa_reoriginate_timer;
@@ -1926,9 +1925,8 @@ static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"Timer[Type10-LSA]: Re-originate Opaque-LSAs (opaque-type=%u) for Area %s",
-			oipt->opaque_type, inet_ntoa(area->area_id));
+		zlog_debug("Timer[Type10-LSA]: Re-originate Opaque-LSAs (opaque-type=%u) for Area %pI4",
+			   oipt->opaque_type, &area->area_id);
 
 	rc = (*functab->lsa_originator)(area);
 out:

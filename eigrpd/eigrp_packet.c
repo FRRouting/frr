@@ -441,18 +441,16 @@ int eigrp_write(struct thread *thread)
 
 	if (IS_DEBUG_EIGRP_TRANSMIT(0, SEND)) {
 		eigrph = (struct eigrp_header *)STREAM_DATA(ep->s);
-		zlog_debug(
-			"Sending [%s][%d/%d] to [%s] via [%s] ret [%d].",
-			lookup_msg(eigrp_packet_type_str, eigrph->opcode, NULL),
-			seqno, ack, inet_ntoa(ep->dst), IF_NAME(ei), ret);
+		zlog_debug("Sending [%s][%d/%d] to [%pI4] via [%s] ret [%d].",
+			   lookup_msg(eigrp_packet_type_str, eigrph->opcode, NULL),
+			   seqno, ack, &ep->dst, IF_NAME(ei), ret);
 	}
 
 	if (ret < 0)
-		zlog_warn(
-			"*** sendmsg in eigrp_write failed to %s, id %d, off %d, len %d, interface %s, mtu %u: %s",
-			inet_ntoa(iph.ip_dst), iph.ip_id, iph.ip_off,
-			iph.ip_len, ei->ifp->name, ei->ifp->mtu,
-			safe_strerror(errno));
+		zlog_warn("*** sendmsg in eigrp_write failed to %pI4, id %d, off %d, len %d, interface %s, mtu %u: %s",
+			  &iph.ip_dst, iph.ip_id, iph.ip_off,
+			  iph.ip_len, ei->ifp->name, ei->ifp->mtu,
+			  safe_strerror(errno));
 
 	/* Now delete packet from queue. */
 	eigrp_packet_delete(ei);
@@ -551,9 +549,8 @@ int eigrp_read(struct thread *thread)
 	if (eigrp_if_lookup_by_local_addr(eigrp, NULL, iph->ip_src)
 	    || (IPV4_ADDR_SAME(&srcaddr, &ei->address.u.prefix4))) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
-			zlog_debug(
-				"eigrp_read[%s]: Dropping self-originated packet",
-				inet_ntoa(srcaddr));
+			zlog_debug("eigrp_read[%pI4]: Dropping self-originated packet",
+				   &srcaddr);
 		return 0;
 	}
 
@@ -596,8 +593,8 @@ int eigrp_read(struct thread *thread)
 	 */
 	else if (ei->ifp != ifp) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
-			zlog_warn("Packet from [%s] received on wrong link %s",
-				  inet_ntoa(iph->ip_src), ifp->name);
+			zlog_warn("Packet from [%pI4] received on wrong link %s",
+				  &iph->ip_src, ifp->name);
 		return 0;
 	}
 
@@ -605,9 +602,8 @@ int eigrp_read(struct thread *thread)
 	ret = eigrp_verify_header(ibuf, ei, iph, eigrph);
 	if (ret < 0) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
-			zlog_debug(
-				"eigrp_read[%s]: Header check failed, dropping.",
-				inet_ntoa(iph->ip_src));
+			zlog_debug("eigrp_read[%pI4]: Header check failed, dropping.",
+				   &iph->ip_src);
 		return ret;
 	}
 
@@ -648,8 +644,8 @@ int eigrp_read(struct thread *thread)
 			    && (ntohl(eigrph->ack)
 				== nbr->init_sequence_number)) {
 				eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_UP);
-				zlog_info("Neighbor(%s) adjacency became full",
-					  inet_ntoa(nbr->src));
+				zlog_info("Neighbor(%pI4) adjacency became full",
+					  &nbr->src);
 				nbr->init_sequence_number = 0;
 				nbr->recv_sequence_number =
 					ntohl(eigrph->sequence);
@@ -956,9 +952,8 @@ static int eigrp_verify_header(struct stream *ibuf, struct eigrp_interface *ei,
 {
 	/* Check network mask, Silently discarded. */
 	if (!eigrp_check_network_mask(ei, iph->ip_src)) {
-		zlog_warn(
-			"interface %s: eigrp_read network address is not same [%s]",
-			IF_NAME(ei), inet_ntoa(iph->ip_src));
+		zlog_warn("interface %s: eigrp_read network address is not same [%pI4]",
+			  IF_NAME(ei), &iph->ip_src);
 		return -1;
 	}
 	//

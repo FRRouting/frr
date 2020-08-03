@@ -62,11 +62,8 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 
 	o->router_id_zebra = router_id.u.prefix4;
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
-		char buf[INET_ADDRSTRLEN];
-
-		zlog_debug("%s: zebra router-id %s update", __func__,
-			   inet_ntop(AF_INET, &router_id.u.prefix4, buf,
-				     INET_ADDRSTRLEN));
+		zlog_debug("%s: zebra router-id %pI4 update", __func__,
+			   &router_id.u.prefix4);
 	}
 
 	ospf6_router_id_update();
@@ -319,7 +316,6 @@ void ospf6_zebra_route_update_remove(struct ospf6_route *request)
 void ospf6_zebra_add_discard(struct ospf6_route *request)
 {
 	struct zapi_route api;
-	char buf[INET6_ADDRSTRLEN];
 	struct prefix *dest = &request->prefix;
 
 	if (!CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
@@ -333,26 +329,22 @@ void ospf6_zebra_add_discard(struct ospf6_route *request)
 		zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
-			zlog_debug("Zebra: Route add discard %s/%d",
-				   inet_ntop(AF_INET6, &dest->u.prefix6, buf,
-					     INET6_ADDRSTRLEN),
+			zlog_debug("Zebra: Route add discard %pI6/%d",
+				   &dest->u.prefix6,
 				   dest->prefixlen);
 
 		SET_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED);
 	} else {
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
-			zlog_debug(
-				"Zebra: Blackhole route present already %s/%d",
-				inet_ntop(AF_INET6, &dest->u.prefix6, buf,
-					  INET6_ADDRSTRLEN),
-				dest->prefixlen);
+			zlog_debug("Zebra: Blackhole route present already %pI6/%d",
+				   &dest->u.prefix6,
+				   dest->prefixlen);
 	}
 }
 
 void ospf6_zebra_delete_discard(struct ospf6_route *request)
 {
 	struct zapi_route api;
-	char buf[INET6_ADDRSTRLEN];
 	struct prefix *dest = &request->prefix;
 
 	if (CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
@@ -366,19 +358,16 @@ void ospf6_zebra_delete_discard(struct ospf6_route *request)
 		zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
-			zlog_debug("Zebra: Route delete discard %s/%d",
-				   inet_ntop(AF_INET6, &dest->u.prefix6, buf,
-					     INET6_ADDRSTRLEN),
+			zlog_debug("Zebra: Route delete discard %pI6/%d",
+				   &dest->u.prefix6,
 				   dest->prefixlen);
 
 		UNSET_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED);
 	} else {
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
-			zlog_debug(
-				"Zebra: Blackhole route already deleted %s/%d",
-				inet_ntop(AF_INET6, &dest->u.prefix6, buf,
-					  INET6_ADDRSTRLEN),
-				dest->prefixlen);
+			zlog_debug("Zebra: Blackhole route already deleted %pI6/%d",
+				   &dest->u.prefix6,
+				   dest->prefixlen);
 	}
 }
 

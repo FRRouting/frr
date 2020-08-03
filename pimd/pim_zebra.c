@@ -98,8 +98,8 @@ static void dump_if_address(struct interface *ifp)
 		if (p->family != AF_INET)
 			continue;
 
-		zlog_debug("%s %s: interface %s address %s %s", __FILE__,
-			   __func__, ifp->name, inet_ntoa(p->u.prefix4),
+		zlog_debug("%s %s: interface %s address %pI4 %s", __FILE__,
+			   __func__, ifp->name, &p->u.prefix4,
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -130,10 +130,8 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	p = c->address;
 
 	if (PIM_DEBUG_ZEBRA) {
-		char buf[BUFSIZ];
-		prefix2str(p, buf, BUFSIZ);
-		zlog_debug("%s: %s(%u) connected IP address %s flags %u %s",
-			   __func__, c->ifp->name, vrf_id, buf, c->flags,
+		zlog_debug("%s: %s(%u) connected IP address %pFX flags %u %s",
+			   __func__, c->ifp->name, vrf_id, p, c->flags,
 			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -150,15 +148,8 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 		if (p->family != AF_INET
 		    || primary_addr.s_addr != p->u.prefix4.s_addr) {
 			if (PIM_DEBUG_ZEBRA) {
-				/* but we had a primary address already */
-
-				char buf[BUFSIZ];
-
-				prefix2str(p, buf, BUFSIZ);
-
-				zlog_warn(
-					"%s: %s : forcing secondary flag on %s",
-					__func__, c->ifp->name, buf);
+				zlog_warn("%s: %s : forcing secondary flag on %pFX",
+					  __func__, c->ifp->name, p);
 			}
 			SET_FLAG(c->flags, ZEBRA_IFA_SECONDARY);
 		}
@@ -211,14 +202,12 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	p = c->address;
 	if (p->family == AF_INET) {
 		if (PIM_DEBUG_ZEBRA) {
-			char buf[BUFSIZ];
-			prefix2str(p, buf, BUFSIZ);
-			zlog_debug(
-				"%s: %s(%u) disconnected IP address %s flags %u %s",
-				__func__, c->ifp->name, vrf_id, buf, c->flags,
-				CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
-					? "secondary"
-					: "primary");
+			zlog_debug("%s: %s(%u) disconnected IP address %pFX flags %u %s",
+				   __func__, c->ifp->name, vrf_id, p,
+				   c->flags,
+				   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
+				   ? "secondary"
+				   : "primary");
 
 #ifdef PIM_DEBUG_IFADDR_DUMP
 			dump_if_address(c->ifp);
@@ -848,9 +837,9 @@ void pim_forward_start(struct pim_ifchannel *ch)
 			       sizeof(group_str));
 		pim_inet4_dump("<upstream?>", up->upstream_addr, upstream_str,
 			       sizeof(upstream_str));
-		zlog_debug("%s: (S,G)=(%s,%s) oif=%s (%s)", __func__,
+		zlog_debug("%s: (S,G)=(%s,%s) oif=%s (%pI4)", __func__,
 			   source_str, group_str, ch->interface->name,
-			   inet_ntoa(up->upstream_addr));
+			   &up->upstream_addr);
 	}
 
 	if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))

@@ -850,15 +850,15 @@ int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args)
 	case NB_EV_VALIDATE:
 		if (prefix.family == AF_INET
 		    && ipv4_martian(&prefix.u.prefix4)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "invalid address %s",
-				 prefix2str(&prefix, buf, sizeof(buf)));
+			snprintfrr(args->errmsg, args->errmsg_len,
+				 "invalid address %pFX",
+				 &prefix);
 			return NB_ERR_VALIDATION;
 		} else if (prefix.family == AF_INET6
 			   && ipv6_martian(&prefix.u.prefix6)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "invalid address %s",
-				 prefix2str(&prefix, buf, sizeof(buf)));
+			snprintfrr(args->errmsg, args->errmsg_len,
+				 "invalid address %pFX",
+				 &prefix);
 			return NB_ERR_VALIDATION;
 		}
 		break;

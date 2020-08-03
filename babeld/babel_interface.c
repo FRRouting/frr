@@ -1118,7 +1118,7 @@ DEFUN (show_babel_route_addr,
     }
 
     /* Quagga has no convenient prefix constructors. */
-    snprintf(buf, sizeof(buf), "%s/%d", inet_ntoa(addr), 32);
+    snprintfrr(buf, sizeof(buf), "%pI4/%d", &addr, 32);
 
     ret = str2prefix(buf, &prefix);
     if (ret == 0) {

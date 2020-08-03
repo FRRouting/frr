@@ -57,13 +57,11 @@ void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
 		zlog_warn("sendmsg_nexthop: zclient_send_message() failed");
 
 	if (PIM_DEBUG_PIM_NHT) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(p, buf, sizeof(buf));
-		zlog_debug(
-			"%s: NHT %sregistered addr %s(%s) with Zebra ret:%d ",
-			__func__,
-			(command == ZEBRA_NEXTHOP_REGISTER) ? " " : "de", buf,
-			pim->vrf->name, ret);
+		zlog_debug("%s: NHT %sregistered addr %pFX(%s) with Zebra ret:%d ",
+			   __func__,
+			   (command == ZEBRA_NEXTHOP_REGISTER) ? " " : "de",
+			   p,
+			   pim->vrf->name, ret);
 	}
 
 	return;
@@ -89,7 +87,6 @@ static struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
 {
 	struct pim_nexthop_cache *pnc;
 	char hash_name[64];
-	char buf1[64];
 
 	pnc = XCALLOC(MTYPE_PIM_NEXTHOP_CACHE,
 		      sizeof(struct pim_nexthop_cache));
@@ -103,8 +100,8 @@ static struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
 	pnc->rp_list = list_new();
 	pnc->rp_list->cmp = pim_rp_list_cmp;
 
-	snprintf(hash_name, sizeof(hash_name), "PNC %s(%s) Upstream Hash",
-		 prefix2str(&pnc->rpf.rpf_addr, buf1, 64), pim->vrf->name);
+	snprintfrr(hash_name, sizeof(hash_name), "PNC %pFX(%s) Upstream Hash",
+		   &pnc->rpf.rpf_addr, pim->vrf->name);
 	pnc->upstream_hash = hash_create_size(8192, pim_upstream_hash_key,
 					      pim_upstream_equal, hash_name);
 
@@ -141,11 +138,8 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 		pim_sendmsg_zebra_rnh(pim, zclient, pnc,
 				      ZEBRA_NEXTHOP_REGISTER);
 		if (PIM_DEBUG_PIM_NHT) {
-			char buf[PREFIX2STR_BUFFER];
-			prefix2str(addr, buf, sizeof(buf));
-			zlog_debug(
-				"%s: NHT cache and zebra notification added for %s(%s)",
-				__func__, buf, pim->vrf->name);
+			zlog_debug("%s: NHT cache and zebra notification added for %pFX(%s)",
+				   __func__, addr, pim->vrf->name);
 		}
 	}
 

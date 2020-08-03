@@ -251,9 +251,9 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	if (PIM_DEBUG_PIM_TRACE) {
 		char buf[PREFIX_STRLEN];
 
-		zlog_debug("Lookedup: %p for rp_info: %p(%s) Lock: %d", rn,
+		zlog_debug("Lookedup: %p for rp_info: %p(%pFX) Lock: %d", rn,
 			   rp_info,
-			   prefix2str(&rp_info->group, buf, sizeof(buf)),
+			   &rp_info->group,
 			   rn->lock);
 	}
 
@@ -354,8 +354,8 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 				 up->sg.grp);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: pim upstream update for  old upstream %s",
-			   __func__, inet_ntoa(old_upstream_addr));
+		zlog_debug("%s: pim upstream update for  old upstream %pI4",
+			   __func__, &old_upstream_addr);
 
 	if (old_upstream_addr.s_addr == new_upstream_addr.s_addr)
 		return;
@@ -371,12 +371,8 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = old_upstream_addr;
 		if (PIM_DEBUG_PIM_TRACE) {
-			char buf[PREFIX2STR_BUFFER];
-
-			prefix2str(&nht_p, buf, sizeof(buf));
-			zlog_debug(
-				"%s: Deregister upstream %s addr %s with Zebra NHT",
-				__func__, up->sg_str, buf);
+			zlog_debug("%s: Deregister upstream %s addr %pFX with Zebra NHT",
+				   __func__, up->sg_str, &nht_p);
 		}
 		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL, false);
 	}
@@ -840,12 +836,10 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 			if (PIM_DEBUG_PIM_TRACE) {
 				char buf[PREFIX_STRLEN];
 
-				zlog_debug(
-					"%s:Found for Freeing: %p for rp_info: %p(%s) Lock: %d",
-					__func__, rn, rp_info,
-					prefix2str(&rp_info->group, buf,
-						   sizeof(buf)),
-					rn->lock);
+				zlog_debug("%s:Found for Freeing: %p for rp_info: %p(%pFX) Lock: %d",
+					   __func__, rn, rp_info,
+					   &rp_info->group,
+					   rn->lock);
 			}
 			rn->info = NULL;
 			route_unlock_node(rn);
@@ -1146,13 +1140,8 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group)
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
 		if (PIM_DEBUG_PIM_NHT_RP) {
-			char buf[PREFIX2STR_BUFFER];
-			char buf1[PREFIX2STR_BUFFER];
-			prefix2str(&nht_p, buf, sizeof(buf));
-			prefix2str(&rp_info->group, buf1, sizeof(buf1));
-			zlog_debug(
-				"%s: NHT Register RP addr %s grp %s with Zebra",
-				__func__, buf, buf1);
+			zlog_debug("%s: NHT Register RP addr %pFX grp %pFX with Zebra",
+				   __func__, &nht_p, &rp_info->group);
 		}
 		pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, false,
 					  NULL);
@@ -1207,8 +1196,6 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
-	char rp_buffer[32];
-	char group_buffer[32];
 	int count = 0;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
@@ -1219,17 +1206,14 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 			continue;
 
 		if (rp_info->plist)
-			vty_out(vty, "%sip pim rp %s prefix-list %s\n", spaces,
-				inet_ntop(AF_INET,
-					  &rp_info->rp.rpf_addr.u.prefix4,
-					  rp_buffer, 32),
+			vty_out(vty, "%sip pim rp %pI4 prefix-list %s\n",
+				spaces,
+				&rp_info->rp.rpf_addr.u.prefix4,
 				rp_info->plist);
 		else
-			vty_out(vty, "%sip pim rp %s %s\n", spaces,
-				inet_ntop(AF_INET,
-					  &rp_info->rp.rpf_addr.u.prefix4,
-					  rp_buffer, 32),
-				prefix2str(&rp_info->group, group_buffer, 32));
+			vty_out(vty, "%sip pim rp %pI4 %pFX\n", spaces,
+				&rp_info->rp.rpf_addr.u.prefix4,
+				&rp_info->group);
 		count++;
 	}
 
@@ -1328,16 +1312,14 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 
 				json_object_array_add(json_rp_rows, json_row);
 			} else {
-				vty_out(vty, "%-15s  ",
-					inet_ntoa(rp_info->rp.rpf_addr.u
-							  .prefix4));
+				vty_out(vty, "%-15pI4  ",
+					&rp_info->rp.rpf_addr.u.prefix4);
 
 				if (rp_info->plist)
 					vty_out(vty, "%-18s  ", rp_info->plist);
 				else
-					vty_out(vty, "%-18s  ",
-						prefix2str(&rp_info->group, buf,
-							   48));
+					vty_out(vty, "%-18pFX  ",
+						&rp_info->group);
 
 				if (rp_info->rp.source_nexthop.interface)
 					vty_out(vty, "%-16s  ",

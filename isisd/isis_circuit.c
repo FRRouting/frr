@@ -970,8 +970,7 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 			vty_out(vty, "    IP Prefix(es):\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
 						  ip_addr)) {
-				prefix2str(ip_addr, buf, sizeof(buf));
-				vty_out(vty, "      %s\n", buf);
+				vty_out(vty, "      %pFX\n", ip_addr);
 			}
 		}
 		if (circuit->ipv6_link && listcount(circuit->ipv6_link) > 0) {

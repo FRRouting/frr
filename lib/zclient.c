@@ -2178,15 +2178,11 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 				ifc->destination->prefixlen =
 					ifc->address->prefixlen;
 			else if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER)) {
-				/* carp interfaces on OpenBSD with 0.0.0.0/0 as
-				 * "peer" */
-				char buf[PREFIX_STRLEN];
 				flog_err(
 					EC_LIB_ZAPI_ENCODE,
-					"warning: interface %s address %s with peer flag set, but no peer address!",
+					"warning: interface %s address %pFX with peer flag set, but no peer address!",
 					ifp->name,
-					prefix2str(ifc->address, buf,
-						   sizeof(buf)));
+					ifc->address);
 				UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 			}
 		}

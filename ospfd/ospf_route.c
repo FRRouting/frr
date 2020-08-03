@@ -307,8 +307,8 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 	lsa = (struct router_lsa *)v->lsa;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_intra_add_router: LS ID: %s",
-			   inet_ntoa(lsa->header.id));
+		zlog_debug("ospf_intra_add_router: LS ID: %pI4",
+			   &lsa->header.id);
 
 	if (!OSPF_IS_AREA_BACKBONE(area))
 		ospf_vl_up_check(area, lsa->header.id, v);
@@ -488,8 +488,8 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 	if (parent_is_root && link->link_data.s_addr == 0xffffffff
 	    && ospf_if_lookup_by_local_addr(area->ospf, NULL, link->link_id)) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: ignoring host route %s/32 to self.",
-				   __func__, inet_ntoa(link->link_id));
+			zlog_debug("%s: ignoring host route %pI4/32 to self.",
+				   __func__, &link->link_id);
 		return;
 	}
 
@@ -642,8 +642,8 @@ void ospf_route_table_dump(struct route_table *rt)
 					   or->cost);
 				for (ALL_LIST_ELEMENTS_RO(or->paths, pnode,
 							  path))
-					zlog_debug("  -> %s",
-						   inet_ntoa(path->nexthop));
+					zlog_debug("  -> %pI4",
+						   &path->nexthop);
 			} else
 				zlog_debug("R %-18pI4 %-15pI4 %s %d",
 					   &rn->p.u.prefix4,
@@ -872,11 +872,10 @@ void ospf_prune_unreachable_routers(struct route_table *rtrs)
 		for (ALL_LIST_ELEMENTS(paths, node, nnode, or)) {
 			if (listcount(or->paths) == 0) {
 				if (IS_DEBUG_OSPF_EVENT) {
-					zlog_debug("Pruning route to rtr %s",
-						   inet_ntoa(rn->p.u.prefix4));
-					zlog_debug(
-						"               via area %s",
-						inet_ntoa(or->u.std.area_id));
+					zlog_debug("Pruning route to rtr %pI4",
+						   &rn->p.u.prefix4);
+					zlog_debug("               via area %pI4",
+						   &or->u.std.area_id);
 				}
 
 				listnode_delete(paths, or);
@@ -886,8 +885,8 @@ void ospf_prune_unreachable_routers(struct route_table *rtrs)
 
 		if (listcount(paths) == 0) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug("Pruning router node %s",
-					   inet_ntoa(rn->p.u.prefix4));
+				zlog_debug("Pruning router node %pI4",
+					   &rn->p.u.prefix4);
 
 			list_delete(&paths);
 			rn->info = NULL;

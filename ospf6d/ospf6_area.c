@@ -505,13 +505,12 @@ void ospf6_area_config_write(struct vty *vty)
 	struct listnode *node;
 	struct ospf6_area *oa;
 	struct ospf6_route *range;
-	char buf[PREFIX2STR_BUFFER];
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
 		for (range = ospf6_route_head(oa->range_table); range;
 		     range = ospf6_route_next(range)) {
-			prefix2str(&range->prefix, buf, sizeof(buf));
-			vty_out(vty, " area %s range %s", oa->name, buf);
+			vty_out(vty, " area %s range %pFX", oa->name,
+				&range->prefix);
 
 			if (CHECK_FLAG(range->flag,
 				       OSPF6_ROUTE_DO_NOT_ADVERTISE)) {

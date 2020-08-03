@@ -965,19 +965,19 @@ void nexthop_group_write_nexthop(struct vty *vty, const struct nexthop *nh)
 		vty_out(vty, "%s", ifindex2ifname(nh->ifindex, nh->vrf_id));
 		break;
 	case NEXTHOP_TYPE_IPV4:
-		vty_out(vty, "%s", inet_ntoa(nh->gate.ipv4));
+		vty_out(vty, "%pI4", &nh->gate.ipv4);
 		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		vty_out(vty, "%s %s", inet_ntoa(nh->gate.ipv4),
+		vty_out(vty, "%pI4 %s", &nh->gate.ipv4,
 			ifindex2ifname(nh->ifindex, nh->vrf_id));
 		break;
 	case NEXTHOP_TYPE_IPV6:
-		vty_out(vty, "%s",
-			inet_ntop(AF_INET6, &nh->gate.ipv6, buf, sizeof(buf)));
+		vty_out(vty, "%pI6",
+			&nh->gate.ipv6);
 		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		vty_out(vty, "%s %s",
-			inet_ntop(AF_INET6, &nh->gate.ipv6, buf, sizeof(buf)),
+		vty_out(vty, "%pI6 %s",
+			&nh->gate.ipv6,
 			ifindex2ifname(nh->ifindex, nh->vrf_id));
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:

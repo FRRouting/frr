@@ -351,8 +351,6 @@ void ripng_packet_dump(struct ripng_packet *packet, int size,
 static void ripng_nexthop_rte(struct rte *rte, struct sockaddr_in6 *from,
 			      struct ripng_nexthop *nexthop)
 {
-	char buf[INET6_BUFSIZ];
-
 	/* Logging before checking RTE. */
 	if (IS_RIPNG_DEBUG_RECV)
 		zlog_debug("RIPng nexthop RTE address %s tag %" ROUTE_TAG_PRI
@@ -398,9 +396,9 @@ static void ripng_nexthop_rte(struct rte *rte, struct sockaddr_in6 *from,
 	 information is ignored, a possibly sub-optimal, but absolutely
 	 valid, route may be taken.  If the received next hop address is not
 	 a link-local address, it should be treated as 0:0:0:0:0:0:0:0.  */
-	zlog_warn("RIPng nexthop RTE with non link-local address %s from %s",
+	zlog_warn("RIPng nexthop RTE with non link-local address %s from %pI6",
 		  inet6_ntoa(rte->addr),
-		  inet_ntop(AF_INET6, &from->sin6_addr, buf, INET6_BUFSIZ));
+		  &from->sin6_addr);
 
 	nexthop->flag = RIPNG_NEXTHOP_UNSPEC;
 	memset(&nexthop->address, 0, sizeof(struct in6_addr));

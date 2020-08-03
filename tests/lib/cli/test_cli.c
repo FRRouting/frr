@@ -47,12 +47,11 @@ DEFPY(magic_test, magic_test_cmd,
 	"magic (0-100) {ipv4net A.B.C.D/M|X:X::X:X$ipv6}",
 	"1\n2\n3\n4\n5\n")
 {
-	char buf[256];
 	vty_out(vty, "def: %s\n", self->string);
 	vty_out(vty, "num: %ld\n", magic);
-	vty_out(vty, "ipv4: %s\n", prefix2str(ipv4net, buf, sizeof(buf)));
-	vty_out(vty, "ipv6: %s\n",
-		inet_ntop(AF_INET6, &ipv6, buf, sizeof(buf)));
+	vty_out(vty, "ipv4: %pFX\n", ipv4net);
+	vty_out(vty, "ipv6: %pI6\n",
+		&ipv6);
 	return CMD_SUCCESS;
 }
 

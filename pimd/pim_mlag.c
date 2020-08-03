@@ -704,8 +704,6 @@ static void pim_mlag_process_peer_frr_state_change(struct mlag_frr_status msg)
 
 static void pim_mlag_process_vxlan_update(struct mlag_vxlan *msg)
 {
-	char addr_buf1[INET_ADDRSTRLEN];
-	char addr_buf2[INET_ADDRSTRLEN];
 	uint32_t local_ip;
 
 	if (!(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)) {
@@ -724,13 +722,9 @@ static void pim_mlag_process_vxlan_update(struct mlag_vxlan *msg)
 	}
 
 	if (PIM_DEBUG_MLAG) {
-		inet_ntop(AF_INET, &router->local_vtep_ip,
-				addr_buf1, INET_ADDRSTRLEN);
-		inet_ntop(AF_INET, &router->anycast_vtep_ip,
-				addr_buf2, INET_ADDRSTRLEN);
-
-		zlog_debug("%s: msg dump: local-ip:%s, anycast-ip:%s",
-				__func__, addr_buf1, addr_buf2);
+		zlog_debug("%s: msg dump: local-ip:%pI4, anycast-ip:%pI4",
+				__func__, &router->local_vtep_ip,
+				&router->anycast_vtep_ip);
 	}
 }
 

@@ -755,8 +755,8 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 	struct attr *attr = bucket->data;
 	char sid_str[BUFSIZ];
 
-	vty_out(vty, "attr[%ld] nexthop %s\n", attr->refcnt,
-		inet_ntoa(attr->nexthop));
+	vty_out(vty, "attr[%ld] nexthop %pI4\n", attr->refcnt,
+		&attr->nexthop);
 
 	sid_str[0] = '\0';
 	if (attr->srv6_l3vpn)
@@ -1509,12 +1509,9 @@ bgp_attr_nexthop_valid(struct peer *peer, struct attr *attr)
 	     || IPV4_CLASS_DE(nexthop_h))
 	    && !BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
 		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
-		char buf[INET_ADDRSTRLEN];
 
-		inet_ntop(AF_INET, &attr->nexthop.s_addr, buf,
-			  INET_ADDRSTRLEN);
-		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s",
-			 buf);
+		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %pI4",
+			 &attr->nexthop.s_addr);
 		data[0] = BGP_ATTR_FLAG_TRANS;
 		data[1] = BGP_ATTR_NEXT_HOP;
 		data[2] = BGP_ATTR_NHLEN_IPV4;
@@ -2022,19 +2019,11 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		}
 		stream_get(&attr->mp_nexthop_local, s, IPV6_MAX_BYTELEN);
 		if (!IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local)) {
-			char buf1[INET6_ADDRSTRLEN];
-			char buf2[INET6_ADDRSTRLEN];
-
 			if (bgp_debug_update(peer, NULL, NULL, 1))
-				zlog_debug(
-					"%s sent next-hops %s and %s. Ignoring non-LL value",
-					peer->host,
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global,
-						  buf1, INET6_ADDRSTRLEN),
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_local, buf2,
-						  INET6_ADDRSTRLEN));
+				zlog_debug("%s sent next-hops %pI6 and %pI6. Ignoring non-LL value",
+					   peer->host,
+					   &attr->mp_nexthop_global,
+					   &attr->mp_nexthop_local);
 
 			attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 		}
@@ -2229,12 +2218,9 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	if (bgp_attr_rmac(attr, &attr->rmac)) {
 		if (bgp_debug_update(peer, NULL, NULL, 1) &&
 		    bgp_mac_exist(&attr->rmac)) {
-			char buf1[ETHER_ADDR_STRLEN];
-
-			zlog_debug("%s: router mac %s is self mac",
+			zlog_debug("%s: router mac %pEA is self mac",
 				   __func__,
-				   prefix_mac2str(&attr->rmac, buf1,
-						  sizeof(buf1)));
+				   &attr->rmac);
 		}
 
 	}
@@ -2392,7 +2378,6 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 	int srgb_count;
 	uint8_t sid_type, sid_flags;
 	uint16_t endpoint_behavior;
-	char buf[BUFSIZ];
 
 	if (type == BGP_PREFIX_SID_LABEL_INDEX) {
 		if (STREAM_READABLE(peer->curr) < length
@@ -2524,10 +2509,8 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 
 		/* Log VPN-SID Sub-TLV */
 		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
-			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
-			zlog_debug(
-				"%s: vpn-sid: sid %s, sid-type 0x%02x sid-flags 0x%02x",
-				__func__, buf, sid_type, sid_flags);
+			zlog_debug("%s: vpn-sid: sid %pI6, sid-type 0x%02x sid-flags 0x%02x",
+				   __func__, &ipv6_sid, sid_type, sid_flags);
 		}
 
 		/* Configure from Info */
@@ -2565,10 +2548,9 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 
 		/* Log L3-SERVICE Sub-TLV */
 		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
-			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
-			zlog_debug(
-				"%s: srv6-l3-srv sid %s, sid-flags 0x%02x, end-behaviour 0x%04x",
-				__func__, buf, sid_flags, endpoint_behavior);
+			zlog_debug("%s: srv6-l3-srv sid %pI6, sid-flags 0x%02x, end-behaviour 0x%04x",
+				   __func__, &ipv6_sid, sid_flags,
+				   endpoint_behavior);
 		}
 
 		/* Configure from Info */

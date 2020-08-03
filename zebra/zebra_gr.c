@@ -490,18 +490,15 @@ static void zebra_gr_process_route_entry(struct zserv *client,
 					 struct route_node *rn,
 					 struct route_entry *re)
 {
-	char buf[PREFIX2STR_BUFFER];
-
 	if ((client == NULL) || (rn == NULL) || (re == NULL))
 		return;
 
 	/* If the route is not refreshed after restart, delete the entry */
 	if (re->uptime < client->restart_time) {
 		if (IS_ZEBRA_DEBUG_RIB) {
-			prefix2str(&rn->p, buf, sizeof(buf));
-			zlog_debug("%s: Client %s stale route %s is deleted",
+			zlog_debug("%s: Client %s stale route %pFX is deleted",
 				   __func__, zebra_route_string(client->proto),
-				   buf);
+				   &rn->p);
 		}
 		rib_delnode(rn, re);
 	}

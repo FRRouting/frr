@@ -235,20 +235,20 @@ static void ospf_packet_hello_dump(struct stream *s, uint16_t length)
 	hello = (struct ospf_hello *)stream_pnt(s);
 
 	zlog_debug("Hello");
-	zlog_debug("  NetworkMask %s", inet_ntoa(hello->network_mask));
+	zlog_debug("  NetworkMask %pI4", &hello->network_mask);
 	zlog_debug("  HelloInterval %d", ntohs(hello->hello_interval));
 	zlog_debug("  Options %d (%s)", hello->options,
 		   ospf_options_dump(hello->options));
 	zlog_debug("  RtrPriority %d", hello->priority);
 	zlog_debug("  RtrDeadInterval %ld",
 		   (unsigned long)ntohl(hello->dead_interval));
-	zlog_debug("  DRouter %s", inet_ntoa(hello->d_router));
-	zlog_debug("  BDRouter %s", inet_ntoa(hello->bd_router));
+	zlog_debug("  DRouter %pI4", &hello->d_router);
+	zlog_debug("  BDRouter %pI4", &hello->bd_router);
 
 	length -= OSPF_HEADER_SIZE + OSPF_HELLO_MIN_SIZE;
 	zlog_debug("  # Neighbors %d", length / 4);
 	for (i = 0; length > 0; i++, length -= sizeof(struct in_addr))
-		zlog_debug("    Neighbor %s", inet_ntoa(hello->neighbors[i]));
+		zlog_debug("    Neighbor %pI4", &hello->neighbors[i]);
 }
 
 static char *ospf_dd_flags_dump(uint8_t flags, char *buf, size_t size)
@@ -285,9 +285,9 @@ static void ospf_router_lsa_dump(struct stream *s, uint16_t length)
 
 	len = ntohs(rl->header.length) - OSPF_LSA_HEADER_SIZE - 4;
 	for (i = 0; len > 0; i++) {
-		zlog_debug("    Link ID %s", inet_ntoa(rl->link[i].link_id));
-		zlog_debug("    Link Data %s",
-			   inet_ntoa(rl->link[i].link_data));
+		zlog_debug("    Link ID %pI4", &rl->link[i].link_id);
+		zlog_debug("    Link Data %pI4",
+			   &rl->link[i].link_data);
 		zlog_debug("    Type %d", (uint8_t)rl->link[i].type);
 		zlog_debug("    TOS %d", (uint8_t)rl->link[i].tos);
 		zlog_debug("    metric %d", ntohs(rl->link[i].metric));
@@ -310,11 +310,11 @@ static void ospf_network_lsa_dump(struct stream *s, uint16_t length)
 	zlog_debug ("Network-LSA size %d",
 	ntohs (nl->header.length) - OSPF_LSA_HEADER_SIZE);
 	*/
-	zlog_debug("    Network Mask %s", inet_ntoa(nl->mask));
+	zlog_debug("    Network Mask %pI4", &nl->mask);
 	zlog_debug("    # Attached Routers %d", cnt);
 	for (i = 0; i < cnt; i++)
-		zlog_debug("      Attached Router %s",
-			   inet_ntoa(nl->routers[i]));
+		zlog_debug("      Attached Router %pI4",
+			   &nl->routers[i]);
 }
 
 static void ospf_summary_lsa_dump(struct stream *s, uint16_t length)
@@ -326,7 +326,7 @@ static void ospf_summary_lsa_dump(struct stream *s, uint16_t length)
 	sl = (struct summary_lsa *)stream_pnt(s);
 
 	zlog_debug("  Summary-LSA");
-	zlog_debug("    Network Mask %s", inet_ntoa(sl->mask));
+	zlog_debug("    Network Mask %pI4", &sl->mask);
 
 	size = ntohs(sl->header.length) - OSPF_LSA_HEADER_SIZE - 4;
 	for (i = 0; size > 0; size -= 4, i++)
@@ -342,15 +342,15 @@ static void ospf_as_external_lsa_dump(struct stream *s, uint16_t length)
 
 	al = (struct as_external_lsa *)stream_pnt(s);
 	zlog_debug("  %s", ospf_lsa_type_msg[al->header.type].str);
-	zlog_debug("    Network Mask %s", inet_ntoa(al->mask));
+	zlog_debug("    Network Mask %pI4", &al->mask);
 
 	size = ntohs(al->header.length) - OSPF_LSA_HEADER_SIZE - 4;
 	for (i = 0; size > 0; size -= 12, i++) {
 		zlog_debug("    bit %s TOS=%d metric %d",
 			   IS_EXTERNAL_METRIC(al->e[i].tos) ? "E" : "-",
 			   al->e[i].tos & 0x7f, GET_METRIC(al->e[i].metric));
-		zlog_debug("    Forwarding address %s",
-			   inet_ntoa(al->e[i].fwd_addr));
+		zlog_debug("    Forwarding address %pI4",
+			   &al->e[i].fwd_addr);
 		zlog_debug("    External Route Tag %" ROUTE_TAG_PRI,
 			   al->e[i].route_tag);
 	}
@@ -420,8 +420,8 @@ static void ospf_packet_ls_req_dump(struct stream *s, uint16_t length)
 		adv_router.s_addr = stream_get_ipv4(s);
 
 		zlog_debug("  LS type %d", ls_type);
-		zlog_debug("  Link State ID %s", inet_ntoa(ls_id));
-		zlog_debug("  Advertising Router %s", inet_ntoa(adv_router));
+		zlog_debug("  Link State ID %pI4", &ls_id);
+		zlog_debug("  Advertising Router %pI4", &adv_router);
 	}
 
 	stream_set_getp(s, sp);
@@ -512,8 +512,8 @@ static void ospf_header_dump(struct ospf_header *ospfh)
 	zlog_debug("  Type %d (%s)", ospfh->type,
 		   lookup_msg(ospf_packet_type_str, ospfh->type, NULL));
 	zlog_debug("  Packet Len %d", ntohs(ospfh->length));
-	zlog_debug("  Router ID %s", inet_ntoa(ospfh->router_id));
-	zlog_debug("  Area ID %s", inet_ntoa(ospfh->area_id));
+	zlog_debug("  Router ID %pI4", &ospfh->router_id);
+	zlog_debug("  Area ID %pI4", &ospfh->area_id);
 	zlog_debug("  Checksum 0x%x", ntohs(ospfh->checksum));
 	zlog_debug("  AuType %s",
 		   lookup_msg(ospf_auth_type_str, auth_type, NULL));

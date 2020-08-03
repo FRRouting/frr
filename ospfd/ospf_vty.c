@@ -920,7 +920,7 @@ ospf_find_vl_data(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 
 	if (area->external_routing != OSPF_AREA_DEFAULT) {
 		if (vl_config->area_id_fmt == OSPF_AREA_ID_FMT_DOTTEDQUAD)
-			vty_out(vty, "Area %s is %s\n", inet_ntoa(area_id),
+			vty_out(vty, "Area %pI4 is %s\n", &area_id,
 				area->external_routing == OSPF_AREA_NSSA
 					? "nssa"
 					: "stub");
@@ -1715,9 +1715,8 @@ DEFUN (ospf_area_default_cost,
 	p.prefix.s_addr = OSPF_DEFAULT_DESTINATION;
 	p.prefixlen = 0;
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_abr_announce_stub_defaults(): announcing 0.0.0.0/0 to area %s",
-			inet_ntoa(area->area_id));
+		zlog_debug("ospf_abr_announce_stub_defaults(): announcing 0.0.0.0/0 to area %pI4",
+			   &area->area_id);
 	ospf_abr_announce_network_to_area(&p, area->default_cost, area);
 
 	return CMD_SUCCESS;
@@ -1758,9 +1757,8 @@ DEFUN (no_ospf_area_default_cost,
 	p.prefix.s_addr = OSPF_DEFAULT_DESTINATION;
 	p.prefixlen = 0;
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_abr_announce_stub_defaults(): announcing 0.0.0.0/0 to area %s",
-			inet_ntoa(area->area_id));
+		zlog_debug("ospf_abr_announce_stub_defaults(): announcing 0.0.0.0/0 to area %pI4",
+			   &area->area_id);
 	ospf_abr_announce_network_to_area(&p, area->default_cost, area);
 
 
@@ -2648,7 +2646,7 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 
 	/* Show Area ID. */
 	if (!use_json)
-		vty_out(vty, " Area ID: %s", inet_ntoa(area->area_id));
+		vty_out(vty, " Area ID: %pI4", &area->area_id);
 
 	/* Show Area type/mode. */
 	if (OSPF_IS_AREA_BACKBONE(area)) {
@@ -2975,8 +2973,8 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		json_object_string_add(json_vrf, "routerId",
 				       inet_ntoa(ospf->router_id));
 	} else {
-		vty_out(vty, " OSPF Routing Process, Router ID: %s\n",
-			inet_ntoa(ospf->router_id));
+		vty_out(vty, " OSPF Routing Process, Router ID: %pI4\n",
+			&ospf->router_id);
 	}
 
 	/* Graceful shutdown */
@@ -4526,8 +4524,8 @@ static int show_ip_ospf_neighbor_all_common(struct vty *vty, struct ospf *ospf,
 						"-", nbr_nbma->priority, "Down",
 						"-");
 					vty_out(vty,
-						"%-32s %-20s %5d %5d %5d\n",
-						inet_ntoa(nbr_nbma->addr),
+						"%-32pI4 %-20s %5d %5d %5d\n",
+						&nbr_nbma->addr,
 						IF_NAME(oi), 0, 0, 0);
 				}
 			}
@@ -4821,8 +4819,8 @@ static void show_ip_ospf_nbr_nbma_detail_sub(struct vty *vty,
 		json_object_string_add(json_sub, "ifaceAddress",
 				       inet_ntoa(nbr_nbma->addr));
 	else
-		vty_out(vty, " interface address %s\n",
-			inet_ntoa(nbr_nbma->addr));
+		vty_out(vty, " interface address %pI4\n",
+			&nbr_nbma->addr);
 
 	/* Show Area ID. */
 	if (use_json) {
@@ -4922,8 +4920,8 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 		    && nbr->router_id.s_addr == INADDR_ANY)
 			vty_out(vty, " Neighbor %s,", "-");
 		else
-			vty_out(vty, " Neighbor %s,",
-				inet_ntoa(nbr->router_id));
+			vty_out(vty, " Neighbor %pI4,",
+				&nbr->router_id);
 	}
 
 	/* Show interface address. */
@@ -4931,8 +4929,8 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 		json_object_string_add(json_neigh, "ifaceAddress",
 				       inet_ntoa(nbr->address.u.prefix4));
 	else
-		vty_out(vty, " interface address %s\n",
-			inet_ntoa(nbr->address.u.prefix4));
+		vty_out(vty, " interface address %pI4\n",
+			&nbr->address.u.prefix4);
 
 	/* Show Area ID. */
 	if (use_json) {
@@ -5009,14 +5007,14 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 		json_object_string_add(json_neigh, "routerDesignatedId",
 				       inet_ntoa(nbr->d_router));
 	else
-		vty_out(vty, "    DR is %s,", inet_ntoa(nbr->d_router));
+		vty_out(vty, "    DR is %pI4,", &nbr->d_router);
 
 	/* Show Backup Designated Rotuer ID. */
 	if (use_json)
 		json_object_string_add(json_neigh, "routerDesignatedBackupId",
 				       inet_ntoa(nbr->bd_router));
 	else
-		vty_out(vty, " BDR is %s\n", inet_ntoa(nbr->bd_router));
+		vty_out(vty, " BDR is %pI4\n", &nbr->bd_router);
 
 	/* Show options. */
 	if (use_json) {
@@ -5721,9 +5719,9 @@ static int show_lsa_summary(struct vty *vty, struct ospf_lsa *lsa, int self)
 		/* If self option is set, check LSA self flag. */
 		if (self == 0 || IS_LSA_SELF(lsa)) {
 			/* LSA common part show. */
-			vty_out(vty, "%-15s ", inet_ntoa(lsa->data->id));
-			vty_out(vty, "%-15s %4d 0x%08lx 0x%04x",
-				inet_ntoa(lsa->data->adv_router), LS_AGE(lsa),
+			vty_out(vty, "%-15pI4 ", &lsa->data->id);
+			vty_out(vty, "%-15pI4 %4d 0x%08lx 0x%04x",
+				&lsa->data->adv_router, LS_AGE(lsa),
 				(unsigned long)ntohl(lsa->data->ls_seqnum),
 				ntohs(lsa->data->checksum));
 			/* LSA specific part show. */
@@ -5830,10 +5828,10 @@ static void show_ip_ospf_database_header(struct vty *vty, struct ospf_lsa *lsa)
 	}
 	vty_out(vty, "  LS Type: %s\n",
 		lookup_msg(ospf_lsa_type_msg, lsa->data->type, NULL));
-	vty_out(vty, "  Link State ID: %s %s\n", inet_ntoa(lsa->data->id),
+	vty_out(vty, "  Link State ID: %pI4 %s\n", &lsa->data->id,
 		lookup_msg(ospf_link_state_id_type_msg, lsa->data->type, NULL));
-	vty_out(vty, "  Advertising Router: %s\n",
-		inet_ntoa(lsa->data->adv_router));
+	vty_out(vty, "  Advertising Router: %pI4\n",
+		&lsa->data->adv_router);
 	vty_out(vty, "  LS Seq Number: %08lx\n",
 		(unsigned long)ntohl(lsa->data->ls_seqnum));
 	vty_out(vty, "  Checksum: 0x%04x\n", ntohs(lsa->data->checksum));
@@ -5871,10 +5869,11 @@ static void show_ip_ospf_database_router_links(struct vty *vty,
 
 		vty_out(vty, "    Link connected to: %s\n",
 			link_type_desc[type]);
-		vty_out(vty, "     (Link ID) %s: %s\n", link_id_desc[type],
-			inet_ntoa(rl->link[i].link_id));
-		vty_out(vty, "     (Link Data) %s: %s\n", link_data_desc[type],
-			inet_ntoa(rl->link[i].link_data));
+		vty_out(vty, "     (Link ID) %s: %pI4\n", link_id_desc[type],
+			&rl->link[i].link_id);
+		vty_out(vty, "     (Link Data) %s: %pI4\n",
+			link_data_desc[type],
+			&rl->link[i].link_data);
 		vty_out(vty, "      Number of TOS metrics: 0\n");
 		vty_out(vty, "       TOS 0 Metric: %d\n",
 			ntohs(rl->link[i].metric));
@@ -5914,8 +5913,8 @@ static int show_network_lsa_detail(struct vty *vty, struct ospf_lsa *lsa)
 		length = ntohs(lsa->data->length) - OSPF_LSA_HEADER_SIZE - 4;
 
 		for (i = 0; length > 0; i++, length -= 4)
-			vty_out(vty, "        Attached Router: %s\n",
-				inet_ntoa(nl->routers[i]));
+			vty_out(vty, "        Attached Router: %pI4\n",
+				&nl->routers[i]);
 
 		vty_out(vty, "\n");
 	}
@@ -5974,8 +5973,8 @@ static int show_as_external_lsa_detail(struct vty *vty, struct ospf_lsa *lsa)
 		vty_out(vty, "        TOS: 0\n");
 		vty_out(vty, "        Metric: %d\n",
 			GET_METRIC(al->e[0].metric));
-		vty_out(vty, "        Forward Address: %s\n",
-			inet_ntoa(al->e[0].fwd_addr));
+		vty_out(vty, "        Forward Address: %pI4\n",
+			&al->e[0].fwd_addr);
 
 		vty_out(vty,
 			"        External Route Tag: %" ROUTE_TAG_PRI "\n\n",
@@ -6026,8 +6025,8 @@ static int show_as_nssa_lsa_detail(struct vty *vty, struct ospf_lsa *lsa)
 		vty_out(vty, "        TOS: 0\n");
 		vty_out(vty, "        Metric: %d\n",
 			GET_METRIC(al->e[0].metric));
-		vty_out(vty, "        NSSA: Forward Address: %s\n",
-			inet_ntoa(al->e[0].fwd_addr));
+		vty_out(vty, "        NSSA: Forward Address: %pI4\n",
+			&al->e[0].fwd_addr);
 
 		vty_out(vty,
 			"        External Route Tag: %" ROUTE_TAG_PRI "\n\n",
@@ -6249,10 +6248,10 @@ static void show_ip_ospf_database_maxage(struct vty *vty, struct ospf *ospf)
 
 		if ((lsa = rn->info) != NULL) {
 			vty_out(vty, "Link type: %d\n", lsa->data->type);
-			vty_out(vty, "Link State ID: %s\n",
-				inet_ntoa(lsa->data->id));
-			vty_out(vty, "Advertising Router: %s\n",
-				inet_ntoa(lsa->data->adv_router));
+			vty_out(vty, "Link State ID: %pI4\n",
+				&lsa->data->id);
+			vty_out(vty, "Advertising Router: %pI4\n",
+				&lsa->data->adv_router);
 			vty_out(vty, "LSA lock count: %d\n", lsa->lock);
 			vty_out(vty, "\n");
 		}
@@ -6290,8 +6289,8 @@ static int show_ip_ospf_database_common(struct vty *vty, struct ospf *ospf,
 
 	ospf_show_vrf_name(ospf, vty, NULL, use_vrf);
 
-	vty_out(vty, "\n       OSPF Router with ID (%s)\n\n",
-		inet_ntoa(ospf->router_id));
+	vty_out(vty, "\n       OSPF Router with ID (%pI4)\n\n",
+		&ospf->router_id);
 
 	/* Show all LSA. */
 	if (argc == arg_base + 4) {
@@ -6540,8 +6539,8 @@ static int show_ip_ospf_database_type_adv_router_common(struct vty *vty,
 
 	ospf_show_vrf_name(ospf, vty, NULL, use_vrf);
 
-	vty_out(vty, "\n       OSPF Router with ID (%s)\n\n",
-		inet_ntoa(ospf->router_id));
+	vty_out(vty, "\n       OSPF Router with ID (%pI4)\n\n",
+		&ospf->router_id);
 
 	/* Set database type to show. */
 	if (strncmp(argv[arg_base + idx_type]->text, "r", 1) == 0)
@@ -8988,9 +8987,9 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 						inet_ntoa(or->u.std.area_id));
 				} else {
 					vty_out(vty,
-						"N IA %-18s    [%d] area: %s\n",
+						"N IA %-18s    [%d] area: %pI4\n",
 						buf1, or->cost,
-						inet_ntoa(or->u.std.area_id));
+						&or->u.std.area_id);
 				}
 			} else if (or->type == OSPF_DESTINATION_DISCARD) {
 				if (json) {
@@ -9014,9 +9013,10 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 					json_route, "area",
 					inet_ntoa(or->u.std.area_id));
 			} else {
-				vty_out(vty, "N    %-18s    [%d] area: %s\n",
+				vty_out(vty,
+					"N    %-18s    [%d] area: %pI4\n",
 					buf1, or->cost,
-					inet_ntoa(or->u.std.area_id));
+					&or->u.std.area_id);
 			}
 			break;
 		default:
@@ -9075,10 +9075,9 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 									ospf->vrf_id));
 						} else {
 							vty_out(vty,
-								"%24s   via %s, %s\n",
+								"%24s   via %pI4, %s\n",
 								"",
-								inet_ntoa(
-									path->nexthop),
+								&path->nexthop,
 								ifindex2ifname(
 									path->ifindex,
 									ospf->vrf_id));
@@ -9121,8 +9120,8 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 					       json_route);
 			json_object_string_add(json_route, "routeType", "R ");
 		} else {
-			vty_out(vty, "R    %-15s    ",
-				inet_ntoa(rn->p.u.prefix4));
+			vty_out(vty, "R    %-15pI4    ",
+				&rn->p.u.prefix4);
 		}
 
 		for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node, or)) {
@@ -9150,11 +9149,11 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 							       "routerType",
 							       "asbr");
 			} else {
-				vty_out(vty, "%s [%d] area: %s",
+				vty_out(vty, "%s [%d] area: %pI4",
 					(or->path_type == OSPF_PATH_INTER_AREA
 						 ? "IA"
 						 : "  "),
-					or->cost, inet_ntoa(or->u.std.area_id));
+					or->cost, &or->u.std.area_id);
 				/* Show flags. */
 				vty_out(vty, "%s%s\n",
 					(or->u.std.flags & ROUTER_LSA_BORDER
@@ -9214,10 +9213,9 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 									ospf->vrf_id));
 						} else {
 							vty_out(vty,
-								"%24s   via %s, %s\n",
+								"%24s   via %pI4, %s\n",
 								"",
-								inet_ntoa(
-									path->nexthop),
+								&path->nexthop,
 								ifindex2ifname(
 									path->ifindex,
 									ospf->vrf_id));
@@ -9339,10 +9337,9 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 								ospf->vrf_id));
 					} else {
 						vty_out(vty,
-							"%24s   via %s, %s\n",
+							"%24s   via %pI4, %s\n",
 							"",
-							inet_ntoa(
-								path->nexthop),
+							&path->nexthop,
 							ifindex2ifname(
 								path->ifindex,
 								ospf->vrf_id));
@@ -9688,8 +9685,8 @@ DEFUN (show_ip_ospf_vrfs,
 			json_object_object_add(json_vrfs, name, json_vrf);
 
 		} else {
-			vty_out(vty, "%-25s  %-5d  %-16s  \n", name,
-				ospf->vrf_id, inet_ntoa(ospf->router_id));
+			vty_out(vty, "%-25s  %-5d  %-16pI4  \n", name,
+				ospf->vrf_id, &ospf->router_id);
 		}
 	}
 
@@ -10092,8 +10089,8 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 
 				if (CHECK_FLAG(range->flags,
 					       OSPF_AREA_RANGE_SUBSTITUTE))
-					vty_out(vty, " substitute %s/%d",
-						inet_ntoa(range->subst_addr),
+					vty_out(vty, " substitute %pI4/%d",
+						&range->subst_addr,
 						range->subst_masklen);
 
 				vty_out(vty, "\n");
@@ -10127,7 +10124,7 @@ static int config_write_ospf_nbr_nbma(struct vty *vty, struct ospf *ospf)
 	/* Static Neighbor configuration print. */
 	for (rn = route_top(ospf->nbr_nbma); rn; rn = route_next(rn))
 		if ((nbr_nbma = rn->info)) {
-			vty_out(vty, " neighbor %s", inet_ntoa(nbr_nbma->addr));
+			vty_out(vty, " neighbor %pI4", &nbr_nbma->addr);
 
 			if (nbr_nbma->priority
 			    != OSPF_NEIGHBOR_PRIORITY_DEFAULT)
@@ -10171,21 +10168,22 @@ static int config_write_virtual_link(struct vty *vty, struct ospf *ospf)
 			    || OSPF_IF_PARAM(oi, transmit_delay)
 				       != OSPF_TRANSMIT_DELAY_DEFAULT)
 				vty_out(vty,
-					" area %s virtual-link %s hello-interval %d retransmit-interval %d transmit-delay %d dead-interval %d\n",
-					buf, inet_ntoa(vl_data->vl_peer),
+					" area %s virtual-link %pI4 hello-interval %d retransmit-interval %d transmit-delay %d dead-interval %d\n",
+					buf, &vl_data->vl_peer,
 					OSPF_IF_PARAM(oi, v_hello),
 					OSPF_IF_PARAM(oi, retransmit_interval),
 					OSPF_IF_PARAM(oi, transmit_delay),
 					OSPF_IF_PARAM(oi, v_wait));
 			else
-				vty_out(vty, " area %s virtual-link %s\n", buf,
-					inet_ntoa(vl_data->vl_peer));
+				vty_out(vty, " area %s virtual-link %pI4\n",
+					buf,
+					&vl_data->vl_peer);
 			/* Auth key */
 			if (IF_DEF_PARAMS(vl_data->vl_oi->ifp)->auth_simple[0]
 			    != '\0')
 				vty_out(vty,
-					" area %s virtual-link %s authentication-key %s\n",
-					buf, inet_ntoa(vl_data->vl_peer),
+					" area %s virtual-link %pI4 authentication-key %s\n",
+					buf, &vl_data->vl_peer,
 					IF_DEF_PARAMS(vl_data->vl_oi->ifp)
 						->auth_simple);
 			/* md5 keys */
@@ -10194,8 +10192,8 @@ static int config_write_virtual_link(struct vty *vty, struct ospf *ospf)
 					     ->auth_crypt,
 				     n2, ck))
 				vty_out(vty,
-					" area %s virtual-link %s message-digest-key %d md5 %s\n",
-					buf, inet_ntoa(vl_data->vl_peer),
+					" area %s virtual-link %pI4 message-digest-key %d md5 %s\n",
+					buf, &vl_data->vl_peer,
 					ck->key_id, ck->auth_key);
 		}
 	}

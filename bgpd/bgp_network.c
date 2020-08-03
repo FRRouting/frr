@@ -217,7 +217,6 @@ int bgp_md5_unset(struct peer *peer)
 
 int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 {
-	char buf[INET_ADDRSTRLEN];
 	int ret = 0;
 
 	/* In case of peer is EBGP, we should set TTL for this connection.  */
@@ -226,10 +225,9 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			flog_err(
 				EC_LIB_SOCKET,
-				"%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
+				"%s: Can't set TxTTL on peer (rtrid %pI4) socket, err = %d",
 				__func__,
-				inet_ntop(AF_INET, &peer->remote_id, buf,
-					  sizeof(buf)),
+				&peer->remote_id,
 				errno);
 			return ret;
 		}
@@ -242,10 +240,9 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			flog_err(
 				EC_LIB_SOCKET,
-				"%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
+				"%s: Can't set TxTTL on peer (rtrid %pI4) socket, err = %d",
 				__func__,
-				inet_ntop(AF_INET, &peer->remote_id, buf,
-					  sizeof(buf)),
+				&peer->remote_id,
 				errno);
 			return ret;
 		}
@@ -254,10 +251,9 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			flog_err(
 				EC_LIB_SOCKET,
-				"%s: Can't set MinTTL on peer (rtrid %s) socket, err = %d",
+				"%s: Can't set MinTTL on peer (rtrid %pI4) socket, err = %d",
 				__func__,
-				inet_ntop(AF_INET, &peer->remote_id, buf,
-					  sizeof(buf)),
+				&peer->remote_id,
 				errno);
 			return ret;
 		}

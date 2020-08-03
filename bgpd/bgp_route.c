@@ -651,19 +651,19 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		if (nh_cmp < 0) {
 			*reason = bgp_path_selection_evpn_lower_ip;
 			if (debug)
-				zlog_debug(
-					"%s: %s wins over %s due to same MM seq %u and lower IP %s",
-					pfx_buf, new_buf, exist_buf, new_mm_seq,
-					inet_ntoa(new->attr->nexthop));
+				zlog_debug("%s: %s wins over %s due to same MM seq %u and lower IP %pI4",
+					   pfx_buf, new_buf, exist_buf,
+					   new_mm_seq,
+					   &new->attr->nexthop);
 			return 1;
 		}
 		if (nh_cmp > 0) {
 			*reason = bgp_path_selection_evpn_lower_ip;
 			if (debug)
-				zlog_debug(
-					"%s: %s loses to %s due to same MM seq %u and higher IP %s",
-					pfx_buf, new_buf, exist_buf, new_mm_seq,
-					inet_ntoa(new->attr->nexthop));
+				zlog_debug("%s: %s loses to %s due to same MM seq %u and higher IP %pI4",
+					   pfx_buf, new_buf, exist_buf,
+					   new_mm_seq,
+					   &new->attr->nexthop);
 			return 0;
 		}
 	}
@@ -1686,10 +1686,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (onlypeer && piattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)
 	    && (IPV4_ADDR_SAME(&onlypeer->remote_id, &piattr->originator_id))) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-			zlog_debug(
-				"%s [Update:SEND] %s originator-id is same as remote router-id",
-				onlypeer->host,
-				prefix2str(p, buf, sizeof(buf)));
+			zlog_debug("%s [Update:SEND] %pFX originator-id is same as remote router-id",
+				   onlypeer->host,
+				   p);
 		return false;
 	}
 
@@ -1703,11 +1702,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			    == PREFIX_DENY) {
 				if (bgp_debug_update(NULL, p,
 						     subgrp->update_group, 0))
-					zlog_debug(
-						"%s [Update:SEND] %s is filtered via ORF",
-						peer->host,
-						prefix2str(p, buf,
-							   sizeof(buf)));
+					zlog_debug("%s [Update:SEND] %pFX is filtered via ORF",
+						   peer->host,
+						   p);
 				return false;
 			}
 		}
@@ -1715,8 +1712,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* Output filter check. */
 	if (bgp_output_filter(peer, p, piattr, afi, safi) == FILTER_DENY) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-			zlog_debug("%s [Update:SEND] %s is filtered",
-				   peer->host, prefix2str(p, buf, sizeof(buf)));
+			zlog_debug("%s [Update:SEND] %pFX is filtered",
+				   peer->host, p);
 		return false;
 	}
 
@@ -1902,8 +1899,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 		if (ret == RMAP_DENYMATCH) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-				zlog_debug("%s [Update:SEND] %s is filtered by route-map",
-				peer->host, prefix2str(p, buf, sizeof(buf)));
+				zlog_debug("%s [Update:SEND] %pFX is filtered by route-map",
+					   peer->host, p);
 
 			bgp_attr_flush(attr);
 			return false;
@@ -2349,9 +2346,7 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 						 : NULL);
 
 	if (BGP_DEBUG(update, UPDATE_OUT)) {
-		char buf_prefix[PREFIX_STRLEN];
-		prefix2str(p, buf_prefix, sizeof(buf_prefix));
-		zlog_debug("%s: p=%s, selected=%p", __func__, buf_prefix,
+		zlog_debug("%s: p=%pFX, selected=%p", __func__, p,
 			   selected);
 	}
 
@@ -8108,15 +8103,14 @@ void route_vty_out_tmp(struct vty *vty, const struct prefix *p,
 				|| !BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
 				if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 				    || safi == SAFI_EVPN)
-					vty_out(vty, "%-16s",
-						inet_ntoa(
-							attr->mp_nexthop_global_in));
+					vty_out(vty, "%-16pI4",
+						&attr->mp_nexthop_global_in);
 				else if (wide)
-					vty_out(vty, "%-41s",
-						inet_ntoa(attr->nexthop));
+					vty_out(vty, "%-41pI4",
+						&attr->nexthop);
 				else
-					vty_out(vty, "%-16s",
-						inet_ntoa(attr->nexthop));
+					vty_out(vty, "%-16pI4",
+						&attr->nexthop);
 			} else if (p->family == AF_INET6
 				   || BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
 				char buf[BUFSIZ];
@@ -8208,15 +8202,15 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 					json_out, "mpNexthopGlobalIn",
 					inet_ntoa(attr->mp_nexthop_global_in));
 			else
-				vty_out(vty, "%-16s",
-					inet_ntoa(attr->mp_nexthop_global_in));
+				vty_out(vty, "%-16pI4",
+					&attr->mp_nexthop_global_in);
 		} else {
 			if (json)
 				json_object_string_add(
 					json_out, "nexthop",
 					inet_ntoa(attr->nexthop));
 			else
-				vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
+				vty_out(vty, "%-16pI4", &attr->nexthop);
 		}
 	} else if (((p->family == AF_INET6)
 		    && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)))
@@ -8232,10 +8226,8 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 						  &attr->mp_nexthop_global,
 						  buf_a, sizeof(buf_a)));
 			else
-				vty_out(vty, "%s",
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global,
-						  buf_a, sizeof(buf_a)));
+				vty_out(vty, "%pI6",
+					&attr->mp_nexthop_global);
 		} else if (attr->mp_nexthop_len
 			   == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 			snprintfrr(buf_a, sizeof(buf_a), "%pI6(%pI6)",
@@ -8805,13 +8797,13 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		} else {
 			if (attr->aggregator_as == BGP_AS_ZERO)
 				vty_out(vty,
-					", (aggregated by %u(malformed) %s)",
+					", (aggregated by %u(malformed) %pI4)",
 					attr->aggregator_as,
-					inet_ntoa(attr->aggregator_addr));
+					&attr->aggregator_addr);
 			else
-				vty_out(vty, ", (aggregated by %u %s)",
+				vty_out(vty, ", (aggregated by %u %pI4)",
 					attr->aggregator_as,
-					inet_ntoa(attr->aggregator_addr));
+					&attr->aggregator_addr);
 		}
 	}
 
@@ -8983,7 +8975,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			json_object_string_add(json_peer, "routerId",
 					       inet_ntoa(bgp->router_id));
 		else
-			vty_out(vty, "(%s)", inet_ntoa(bgp->router_id));
+			vty_out(vty, "(%pI4)", &bgp->router_id);
 	}
 
 	/* We RXed this path from one of our peers */
@@ -9036,13 +9028,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			}
 
 			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
-				vty_out(vty, " (%s)",
-					inet_ntoa(attr->originator_id));
+				vty_out(vty, " (%pI4)",
+					&attr->originator_id);
 			else
-				vty_out(vty, " (%s)",
-					inet_ntop(AF_INET,
-						  &path->peer->remote_id, buf1,
-						  sizeof(buf1)));
+				vty_out(vty, " (%pI4)",
+					&path->peer->remote_id);
 		}
 	}
 
@@ -9122,9 +9112,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				json_object_boolean_true_add(
 					json_nexthop_global, "used");
 		} else {
-			vty_out(vty, "    (%s) %s\n",
-				inet_ntop(AF_INET6, &attr->mp_nexthop_local,
-					  buf, INET6_ADDRSTRLEN),
+			vty_out(vty, "    (%pI6) %s\n",
+				&attr->mp_nexthop_local,
 				attr->mp_nexthop_prefer_global
 					? "(prefer-global)"
 					: "(used)");
@@ -9348,8 +9337,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					json_path, "originatorId",
 					inet_ntoa(attr->originator_id));
 			else
-				vty_out(vty, "      Originator: %s",
-					inet_ntoa(attr->originator_id));
+				vty_out(vty, "      Originator: %pI4",
+					&attr->originator_id);
 		}
 
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST)) {
@@ -9388,9 +9377,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 				for (i = 0; i < attr->cluster->length / 4;
 				     i++) {
-					vty_out(vty, "%s ",
-						inet_ntoa(attr->cluster
-								  ->list[i]));
+					vty_out(vty, "%pI4 ",
+						&attr->cluster->list[i]);
 				}
 			}
 		}

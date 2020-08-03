@@ -111,9 +111,10 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 		char buf[PREFIX_STRLEN];
 		char buf1[PREFIX_STRLEN];
 
-		zlog_debug("%s: %u:%s removed from tracking on %s", __func__,
+		zlog_debug("%s: %u:%pFX removed from tracking on %s",
+			   __func__,
 			   rnh->vrf_id,
-			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
+			   &rnh->node->p,
 			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
 	}
 
@@ -137,9 +138,9 @@ static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 		char buf[PREFIX_STRLEN];
 		char buf1[PREFIX_STRLEN];
 
-		zlog_debug("%s: %u:%s added for tracking on %s", __func__,
+		zlog_debug("%s: %u:%pFX added for tracking on %s", __func__,
 			   rnh->vrf_id,
-			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
+			   &rnh->node->p,
 			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
 	}
 
@@ -154,20 +155,17 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, enum rnh_type type,
 	struct route_table *table;
 	struct route_node *rn;
 	struct rnh *rnh = NULL;
-	char buf[PREFIX2STR_BUFFER];
 	afi_t afi = family2afi(p->family);
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		prefix2str(p, buf, sizeof(buf));
-		zlog_debug("%u: Add RNH %s type %s", vrfid, buf,
+		zlog_debug("%u: Add RNH %pFX type %s", vrfid, p,
 			   rnh_type2str(type));
 	}
 	table = get_rnh_table(vrfid, afi, type);
 	if (!table) {
-		prefix2str(p, buf, sizeof(buf));
 		flog_warn(EC_ZEBRA_RNH_NO_TABLE,
-			  "%u: Add RNH %s type %s - table not found", vrfid,
-			  buf, rnh_type2str(type));
+			  "%u: Add RNH %pFX type %s - table not found", vrfid,
+			  p, rnh_type2str(type));
 		exists = false;
 		return NULL;
 	}
@@ -496,7 +494,6 @@ static void zebra_rnh_eval_import_check_entry(struct zebra_vrf *zvrf, afi_t afi,
 {
 	int state_changed = 0;
 	struct zserv *client;
-	char bufn[INET6_ADDRSTRLEN];
 	struct listnode *node;
 
 	zebra_rnh_remove_from_routing_table(rnh);
@@ -523,10 +520,9 @@ static void zebra_rnh_eval_import_check_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 	if (state_changed || force) {
 		if (IS_ZEBRA_DEBUG_NHT) {
-			prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-			zlog_debug("%u:%s: Route import check %s %s",
+			zlog_debug("%u:%pFX: Route import check %s %s",
 				   zvrf->vrf->vrf_id,
-				   bufn, rnh->state ? "passed" : "failed",
+				   &nrn->p, rnh->state ? "passed" : "failed",
 				   state_changed ? "(state changed)" : "");
 		}
 		/* state changed, notify clients */
@@ -818,12 +814,12 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
 	struct rnh *rnh;
 	struct route_entry *re;
 	struct route_node *prn;
-	char bufn[INET6_ADDRSTRLEN];
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-		zlog_debug("%u:%s: Evaluate RNH, type %s %s", zvrf->vrf->vrf_id,
-			   bufn, rnh_type2str(type), force ? "(force)" : "");
+		zlog_debug("%u:%pFX: Evaluate RNH, type %s %s",
+			   zvrf->vrf->vrf_id,
+			   &nrn->p, rnh_type2str(type),
+			   force ? "(force)" : "");
 	}
 
 	rnh = nrn->info;
@@ -1203,21 +1199,20 @@ failure:
 
 static void print_nh(struct nexthop *nexthop, struct vty *vty)
 {
-	char buf[BUFSIZ];
 	struct zebra_ns *zns = zebra_ns_lookup(nexthop->vrf_id);
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		vty_out(vty, " via %s", inet_ntoa(nexthop->gate.ipv4));
+		vty_out(vty, " via %pI4", &nexthop->gate.ipv4);
 		if (nexthop->ifindex)
 			vty_out(vty, ", %s",
 				ifindex2ifname_per_ns(zns, nexthop->ifindex));
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		vty_out(vty, " %s",
-			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+		vty_out(vty, " %pI6",
+			&nexthop->gate.ipv6);
 		if (nexthop->ifindex)
 			vty_out(vty, ", via %s",
 				ifindex2ifname_per_ns(zns, nexthop->ifindex));

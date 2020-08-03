@@ -710,7 +710,7 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 	struct info_ctx *ctx = pctx;
 	struct nhrp_cache *c;
 	struct vty *vty = ctx->vty;
-	char buf1[PREFIX_STRLEN], buf2[SU_ADDRSTRLEN];
+	char buf2[SU_ADDRSTRLEN];
 	struct json_object *json = NULL;
 
 	if (!ctx->count) {
@@ -722,7 +722,6 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 	c = s->cache;
 	if (c)
 		sockunion2str(&c->remote_addr, buf2, sizeof(buf2));
-	prefix2str(s->p, buf1, sizeof(buf1));
 
 	if (ctx->json) {
 		json = json_object_new_object();
@@ -743,9 +742,9 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 		return;
 	}
 
-	vty_out(ctx->vty, "%-8s %-24s %-24s %s\n",
+	vty_out(ctx->vty, "%-8s %-24pFX %-24s %s\n",
 		nhrp_cache_type_str[s->type],
-		buf1, buf2,
+		s->p, buf2,
 		(c && c->cur.peer) ? c->cur.peer->vc->remote.id : "");
 }
 

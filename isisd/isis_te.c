@@ -326,8 +326,8 @@ DEFUN (show_isis_mpls_te_router,
 
 		vty_out(vty, "Area %s:\n", area->area_tag);
 		if (ntohs(area->mta->router_id.s_addr) != 0)
-			vty_out(vty, "  MPLS-TE Router-Address: %s\n",
-				inet_ntoa(area->mta->router_id));
+			vty_out(vty, "  MPLS-TE Router-Address: %pI4\n",
+				&area->mta->router_id);
 		else
 			vty_out(vty, "  N/A\n");
 	}

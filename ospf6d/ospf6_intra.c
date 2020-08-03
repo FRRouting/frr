@@ -95,7 +95,7 @@ static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 {
 	char *start, *end, *current;
-	char buf[32], name[32], bits[16], options[32];
+	char name[32], bits[16], options[32];
 	struct ospf6_router_lsa *router_lsa;
 	struct ospf6_router_lsdesc *lsdesc;
 
@@ -128,15 +128,12 @@ static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 
 		vty_out(vty, "    Type: %s Metric: %d\n", name,
 			ntohs(lsdesc->metric));
-		vty_out(vty, "    Interface ID: %s\n",
-			inet_ntop(AF_INET, &lsdesc->interface_id, buf,
-				  sizeof(buf)));
-		vty_out(vty, "    Neighbor Interface ID: %s\n",
-			inet_ntop(AF_INET, &lsdesc->neighbor_interface_id, buf,
-				  sizeof(buf)));
-		vty_out(vty, "    Neighbor Router ID: %s\n",
-			inet_ntop(AF_INET, &lsdesc->neighbor_router_id, buf,
-				  sizeof(buf)));
+		vty_out(vty, "    Interface ID: %pI4\n",
+			&lsdesc->interface_id);
+		vty_out(vty, "    Neighbor Interface ID: %pI4\n",
+			&lsdesc->neighbor_interface_id);
+		vty_out(vty, "    Neighbor Router ID: %pI4\n",
+			&lsdesc->neighbor_router_id);
 	}
 	return 0;
 }
@@ -426,7 +423,7 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 	char *start, *end, *current;
 	struct ospf6_network_lsa *network_lsa;
 	struct ospf6_network_lsdesc *lsdesc;
-	char buf[128], options[32];
+	char options[32];
 
 	network_lsa =
 		(struct ospf6_network_lsa *)((caddr_t)lsa->header
@@ -441,8 +438,8 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 	     current + sizeof(struct ospf6_network_lsdesc) <= end;
 	     current += sizeof(struct ospf6_network_lsdesc)) {
 		lsdesc = (struct ospf6_network_lsdesc *)current;
-		inet_ntop(AF_INET, &lsdesc->router_id, buf, sizeof(buf));
-		vty_out(vty, "     Attached Router: %s\n", buf);
+		vty_out(vty, "     Attached Router: %pI4\n",
+			&lsdesc->router_id);
 	}
 	return 0;
 }
@@ -1989,18 +1986,12 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
 {
 	uint32_t brouter_id;
-	char brouter_name[16];
-	char area_name[16];
 	char destination[64];
 	char installed[64], changed[64];
 	struct timeval now, res;
-	char id[16], adv_router[16];
 	char capa[16], options[16];
 
 	brouter_id = ADV_ROUTER_IN_PREFIX(&brouter->prefix);
-	inet_ntop(AF_INET, &brouter_id, brouter_name, sizeof(brouter_name));
-	inet_ntop(AF_INET, &brouter->path.area_id, area_name,
-		  sizeof(area_name));
 	ospf6_linkstate_prefix2str(&brouter->prefix, destination,
 				   sizeof(destination));
 
@@ -2012,15 +2003,12 @@ static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
 	timersub(&now, &brouter->changed, &res);
 	timerstring(&res, changed, sizeof(changed));
 
-	inet_ntop(AF_INET, &brouter->path.origin.id, id, sizeof(id));
-	inet_ntop(AF_INET, &brouter->path.origin.adv_router, adv_router,
-		  sizeof(adv_router));
-
 	ospf6_options_printbuf(brouter->path.options, options, sizeof(options));
 	ospf6_capability_printbuf(brouter->path.router_bits, capa,
 				  sizeof(capa));
 
-	zlog_info("Brouter: %s via area %s", brouter_name, area_name);
+	zlog_info("Brouter: %pI4 via area %pI4", &brouter_id,
+		  &brouter->path.area_id);
 	zlog_info("  memory: prev: %p this: %p next: %p parent rnode: %p",
 		  (void *)brouter->prev, (void *)brouter, (void *)brouter->next,
 		  (void *)brouter->rnode);
@@ -2031,9 +2019,11 @@ static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
 		  (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_ADD) ? "A" : "-"),
 		  (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE) ? "R" : "-"),
 		  (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_CHANGE) ? "C" : "-"));
-	zlog_info("  path type: %s ls-origin %s id: %s adv-router %s",
+	zlog_info("  path type: %s ls-origin %s id: %pI4 adv-router %pI4",
 		  OSPF6_PATH_TYPE_NAME(brouter->path.type),
-		  ospf6_lstype_name(brouter->path.origin.type), id, adv_router);
+		  ospf6_lstype_name(brouter->path.origin.type),
+		  &brouter->path.origin.id,
+		  &brouter->path.origin.adv_router);
 	zlog_info("  options: %s router-bits: %s metric-type: %d metric: %d/%d",
 		  options, capa, brouter->path.metric_type, brouter->path.cost,
 		  brouter->path.u.cost_e2);
@@ -2358,18 +2348,15 @@ DEFUN (no_debug_ospf6_brouter_area,
 
 int config_write_ospf6_debug_brouter(struct vty *vty)
 {
-	char buf[16];
 	if (IS_OSPF6_DEBUG_BROUTER)
 		vty_out(vty, "debug ospf6 border-routers\n");
 	if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER) {
-		inet_ntop(AF_INET, &conf_debug_ospf6_brouter_specific_router_id,
-			  buf, sizeof(buf));
-		vty_out(vty, "debug ospf6 border-routers router-id %s\n", buf);
+		vty_out(vty, "debug ospf6 border-routers router-id %pI4\n",
+			&conf_debug_ospf6_brouter_specific_router_id);
 	}
 	if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA) {
-		inet_ntop(AF_INET, &conf_debug_ospf6_brouter_specific_area_id,
-			  buf, sizeof(buf));
-		vty_out(vty, "debug ospf6 border-routers area-id %s\n", buf);
+		vty_out(vty, "debug ospf6 border-routers area-id %pI4\n",
+			&conf_debug_ospf6_brouter_specific_area_id);
 	}
 	return 0;
 }

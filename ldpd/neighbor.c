@@ -152,11 +152,11 @@ nbr_fsm(struct nbr *nbr, enum nbr_event event)
 		nbr->state = new_state;
 
 	if (old_state != nbr->state) {
-		log_debug("%s: event %s resulted in action %s and changing state for lsr-id %s from %s to %s",
-		    __func__, nbr_event_names[event],
-		    nbr_action_names[nbr_fsm_tbl[i].action],
-		    inet_ntoa(nbr->id), nbr_state_name(old_state),
-		    nbr_state_name(nbr->state));
+		log_debug("%s: event %s resulted in action %s and changing state for lsr-id %pI4 from %s to %s",
+			  __func__, nbr_event_names[event],
+			  nbr_action_names[nbr_fsm_tbl[i].action],
+			  &nbr->id, nbr_state_name(old_state),
+			  nbr_state_name(nbr->state));
 
 		if (nbr->state == NBR_STA_OPER) {
 			gettimeofday(&now, NULL);
@@ -223,8 +223,8 @@ nbr_new(struct in_addr id, int af, int ds_tlv, union ldpd_addr *addr,
 	struct adj		*adj;
 	struct pending_conn	*pconn;
 
-	log_debug("%s: lsr-id %s transport-address %s", __func__,
-	    inet_ntoa(id), log_addr(af, addr));
+	log_debug("%s: lsr-id %pI4 transport-address %s", __func__,
+		  &id, log_addr(af, addr));
 
 	if ((nbr = calloc(1, sizeof(*nbr))) == NULL)
 		fatal(__func__);
@@ -289,7 +289,7 @@ nbr_del(struct nbr *nbr)
 {
 	struct adj		*adj;
 
-	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
+	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
 #ifdef __OpenBSD__
@@ -436,7 +436,7 @@ nbr_ktimeout(struct thread *thread)
 
 	nbr->keepalive_timeout = NULL;
 
-	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
+	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	session_shutdown(nbr, S_KEEPALIVE_TMR, 0, 0);
 
@@ -465,7 +465,7 @@ nbr_itimeout(struct thread *thread)
 {
 	struct nbr	*nbr = THREAD_ARG(thread);
 
-	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
+	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
 
@@ -498,7 +498,7 @@ nbr_idtimer(struct thread *thread)
 
 	nbr->initdelay_timer = NULL;
 
-	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
+	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	nbr_establish_connection(nbr);
 

@@ -57,10 +57,8 @@ void sharp_nh_tracker_dump(struct vty *vty)
 	struct sharp_nh_tracker *nht;
 
 	for (ALL_LIST_ELEMENTS_RO(sg.nhs, node, nht)) {
-		char buf[PREFIX_STRLEN];
-
-		vty_out(vty, "%s: Nexthops: %u Updates: %u\n",
-			prefix2str(&nht->p, buf, sizeof(buf)),
+		vty_out(vty, "%pFX: Nexthops: %u Updates: %u\n",
+			&nht->p,
 			nht->nhop_num,
 			nht->updates);
 	}

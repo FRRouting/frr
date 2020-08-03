@@ -437,7 +437,6 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 static int sharp_debug_nexthops(struct zapi_route *api)
 {
 	int i;
-	char buf[PREFIX_STRLEN];
 
 	if (api->nexthop_num == 0) {
 		zlog_debug(
@@ -451,21 +450,17 @@ static int sharp_debug_nexthops(struct zapi_route *api)
 		switch (znh->type) {
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 		case NEXTHOP_TYPE_IPV4:
-			zlog_debug(
-				"        Nexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
-				inet_ntop(AF_INET, &znh->gate.ipv4.s_addr, buf,
-					  sizeof(buf)),
-				znh->type, znh->ifindex, znh->vrf_id,
-				znh->label_num);
+			zlog_debug("        Nexthop %pI4, type: %d, ifindex: %d, vrf: %d, label_num: %d",
+				   &znh->gate.ipv4.s_addr,
+				   znh->type, znh->ifindex, znh->vrf_id,
+				   znh->label_num);
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 		case NEXTHOP_TYPE_IPV6:
-			zlog_debug(
-				"        Nexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
-				inet_ntop(AF_INET6, &znh->gate.ipv6, buf,
-					  sizeof(buf)),
-				znh->type, znh->ifindex, znh->vrf_id,
-				znh->label_num);
+			zlog_debug("        Nexthop %pI6, type: %d, ifindex: %d, vrf: %d, label_num: %d",
+				   &znh->gate.ipv6,
+				   znh->type, znh->ifindex, znh->vrf_id,
+				   znh->label_num);
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
 			zlog_debug("        Nexthop IFINDEX: %d, ifindex: %d",

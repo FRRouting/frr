@@ -67,8 +67,8 @@ static void ospf6_as_external_lsa_originate(struct ospf6_route *route)
 	caddr_t p;
 
 	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL)) {
-		prefix2str(&route->prefix, buf, sizeof(buf));
-		zlog_debug("Originate AS-External-LSA for %s", buf);
+		zlog_debug("Originate AS-External-LSA for %pFX",
+			   &route->prefix);
 	}
 
 	/* prepare buffer */
@@ -485,8 +485,7 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	if (asbr_entry == NULL
 	    || !CHECK_FLAG(asbr_entry->path.router_bits, OSPF6_ROUTER_BIT_E)) {
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-			prefix2str(&asbr_id, buf, sizeof(buf));
-			zlog_debug("ASBR entry not found: %s", buf);
+			zlog_debug("ASBR entry not found: %pFX", &asbr_id);
 		}
 		return;
 	}
@@ -528,12 +527,12 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 
 
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-		prefix2str(&route->prefix, buf, sizeof(buf));
-		zlog_debug("%s: AS-External %u route add %s cost %u(%u) nh %u",
+		zlog_debug("%s: AS-External %u route add %pFX cost %u(%u) nh %u",
 			   __func__,
 			   (route->path.type == OSPF6_PATH_TYPE_EXTERNAL1) ? 1
 									   : 2,
-			   buf, route->path.cost, route->path.u.cost_e2,
+			   &route->prefix, route->path.cost,
+			   route->path.u.cost_e2,
 			   listcount(route->nh_list));
 	}
 
@@ -810,10 +809,8 @@ void ospf6_asbr_lsentry_add(struct ospf6_route *asbr_entry)
 	uint32_t router;
 
 	if (!CHECK_FLAG(asbr_entry->flag, OSPF6_ROUTE_BEST)) {
-		char buf[16];
-		inet_ntop(AF_INET, &ADV_ROUTER_IN_PREFIX(&asbr_entry->prefix),
-			  buf, sizeof(buf));
-		zlog_info("ignore non-best path: lsentry %s add", buf);
+		zlog_info("ignore non-best path: lsentry %pI4 add",
+			  &ADV_ROUTER_IN_PREFIX(&asbr_entry->prefix));
 		return;
 	}
 
@@ -1105,12 +1102,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 		node->info = match;
 
 		if (IS_OSPF6_DEBUG_ASBR) {
-			inet_ntop(AF_INET, &prefix_id.u.prefix4, ibuf,
-				  sizeof(ibuf));
-			prefix2str(prefix, pbuf, sizeof(pbuf));
-			zlog_debug(
-				"Advertise as AS-External Id:%s prefix %s metric %u",
-				ibuf, pbuf, match->path.metric_type);
+			zlog_debug("Advertise as AS-External Id:%pI4 prefix %pFX metric %u",
+				   &prefix_id.u.prefix4, prefix,
+				   match->path.metric_type);
 		}
 
 		match->path.origin.id = htonl(info->id);
@@ -1160,10 +1154,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	route->route_option = info;
 
 	if (IS_OSPF6_DEBUG_ASBR) {
-		inet_ntop(AF_INET, &prefix_id.u.prefix4, ibuf, sizeof(ibuf));
-		prefix2str(prefix, pbuf, sizeof(pbuf));
-		zlog_debug("Advertise as AS-External Id:%s prefix %s metric %u",
-			   ibuf, pbuf, route->path.metric_type);
+		zlog_debug("Advertise as AS-External Id:%pI4 prefix %pFX metric %u",
+			   &prefix_id.u.prefix4, prefix,
+			   route->path.metric_type);
 	}
 
 	route->path.origin.id = htonl(info->id);
@@ -1182,15 +1175,13 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 	struct route_node *node;
 	struct ospf6_lsa *lsa;
 	struct prefix prefix_id;
-	char pbuf[PREFIX2STR_BUFFER], ibuf[16];
 	struct listnode *lnode, *lnnode;
 	struct ospf6_area *oa;
 
 	match = ospf6_route_lookup(prefix, ospf6->external_table);
 	if (match == NULL) {
 		if (IS_OSPF6_DEBUG_ASBR) {
-			prefix2str(prefix, pbuf, sizeof(pbuf));
-			zlog_debug("No such route %s to withdraw", pbuf);
+			zlog_debug("No such route %pFX to withdraw", prefix);
 		}
 		return;
 	}
@@ -1200,16 +1191,14 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 
 	if (info->type != type) {
 		if (IS_OSPF6_DEBUG_ASBR) {
-			prefix2str(prefix, pbuf, sizeof(pbuf));
-			zlog_debug("Original protocol mismatch: %s", pbuf);
+			zlog_debug("Original protocol mismatch: %pFX", prefix);
 		}
 		return;
 	}
 
 	if (IS_OSPF6_DEBUG_ASBR) {
-		prefix2str(prefix, pbuf, sizeof(pbuf));
-		inet_ntop(AF_INET, &prefix_id.u.prefix4, ibuf, sizeof(ibuf));
-		zlog_debug("Withdraw %s (AS-External Id:%s)", pbuf, ibuf);
+		zlog_debug("Withdraw %pFX (AS-External Id:%pI4)", prefix,
+		           &prefix_id.u.prefix4);
 	}
 
 	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
@@ -1815,12 +1804,10 @@ static void ospf6_asbr_external_route_show(struct vty *vty,
 					   struct ospf6_route *route)
 {
 	struct ospf6_external_info *info = route->route_option;
-	char prefix[PREFIX2STR_BUFFER], id[16], forwarding[64];
+	char forwarding[64];
 	uint32_t tmp_id;
 
-	prefix2str(&route->prefix, prefix, sizeof(prefix));
 	tmp_id = ntohl(info->id);
-	inet_ntop(AF_INET, &tmp_id, id, sizeof(id));
 	if (!IN6_IS_ADDR_UNSPECIFIED(&info->forwarding))
 		inet_ntop(AF_INET6, &info->forwarding, forwarding,
 			  sizeof(forwarding));
@@ -1828,8 +1815,8 @@ static void ospf6_asbr_external_route_show(struct vty *vty,
 		snprintf(forwarding, sizeof(forwarding), ":: (ifindex %d)",
 			 ospf6_route_get_first_nh_index(route));
 
-	vty_out(vty, "%c %-32s %-15s type-%d %5lu %s\n",
-		zebra_route_char(info->type), prefix, id,
+	vty_out(vty, "%c %-32pFX %-15pI4 type-%d %5lu %s\n",
+		zebra_route_char(info->type), &route->prefix, &tmp_id,
 		route->path.metric_type,
 		(unsigned long)(route->path.metric_type == 2
 					? route->path.u.cost_e2

@@ -3497,7 +3497,7 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 	if (IS_PARAM_SET(iflp, LP_USE_BW))
 		vty_out(vty, "  use-bw %g\n", iflp->use_bw);
 	if (IS_PARAM_SET(iflp, LP_RMT_AS))
-		vty_out(vty, "  neighbor %s as %u\n", inet_ntoa(iflp->rmt_ip),
+		vty_out(vty, "  neighbor %pI4 as %u\n", &iflp->rmt_ip,
 			iflp->rmt_as);
 	vty_out(vty, "  exit-link-params\n");
 	return 0;

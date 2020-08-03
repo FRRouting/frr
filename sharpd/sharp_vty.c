@@ -146,12 +146,11 @@ DEFPY (install_routes_data_dump,
        "Data about what is going on\n"
        "Route Install/Removal Information\n")
 {
-	char buf[PREFIX_STRLEN];
 	struct timeval r;
 
 	timersub(&sg.r.t_end, &sg.r.t_start, &r);
-	vty_out(vty, "Prefix: %s Total: %u %u %u Time: %jd.%ld\n",
-		prefix2str(&sg.r.orig_prefix, buf, sizeof(buf)),
+	vty_out(vty, "Prefix: %pFX Total: %u %u %u Time: %jd.%ld\n",
+		&sg.r.orig_prefix,
 		sg.r.total_routes,
 		sg.r.installed_routes,
 		sg.r.removed_routes,

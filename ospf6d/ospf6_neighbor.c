@@ -90,12 +90,10 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 					     struct ospf6_interface *oi)
 {
 	struct ospf6_neighbor *on;
-	char buf[16];
 
 	on = XCALLOC(MTYPE_OSPF6_NEIGHBOR, sizeof(struct ospf6_neighbor));
-	inet_ntop(AF_INET, &router_id, buf, sizeof(buf));
-	snprintf(on->name, sizeof(on->name), "%s%%%s", buf,
-		 oi->interface->name);
+	snprintfrr(on->name, sizeof(on->name), "%pI4%%%s", &router_id,
+		   oi->interface->name);
 	on->ospf6_if = oi;
 	on->state = OSPF6_NEIGHBOR_DOWN;
 	on->state_change = 0;
@@ -597,7 +595,6 @@ int inactivity_timer(struct thread *thread)
 /* show neighbor structure */
 static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on)
 {
-	char router_id[16];
 	char duration[64];
 	struct timeval res;
 	char nstate[16];
@@ -605,7 +602,6 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on)
 	long h, m, s;
 
 	/* Router-ID (Name) */
-	inet_ntop(AF_INET, &on->router_id, router_id, sizeof(router_id));
 #ifdef HAVE_GETNAMEINFO
 	{
 	}
@@ -645,7 +641,8 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on)
 		 "I/F", "State");
 	*/
 
-	vty_out(vty, "%-15s %3d %11s %8s/%-12s %11s %s[%s]\n", router_id,
+	vty_out(vty, "%-15pI4 %3d %11s %8s/%-12s %11s %s[%s]\n",
+		&on->router_id,
 		on->priority, deadtime, ospf6_neighbor_state_str[on->state],
 		nstate, duration, on->ospf6_if->interface->name,
 		ospf6_interface_state_str[on->ospf6_if->state]);
@@ -654,28 +651,17 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on)
 static void ospf6_neighbor_show_drchoice(struct vty *vty,
 					 struct ospf6_neighbor *on)
 {
-	char router_id[16];
-	char drouter[16], bdrouter[16];
 	char duration[64];
 	struct timeval now, res;
-
-	/*
-	    vty_out (vty, "%-15s %6s/%-11s %-15s %-15s %s[%s]\n",
-		     "RouterID", "State", "Duration", "DR", "BDR", "I/F",
-		     "State");
-	*/
-
-	inet_ntop(AF_INET, &on->router_id, router_id, sizeof(router_id));
-	inet_ntop(AF_INET, &on->drouter, drouter, sizeof(drouter));
-	inet_ntop(AF_INET, &on->bdrouter, bdrouter, sizeof(bdrouter));
 
 	monotime(&now);
 	timersub(&now, &on->last_changed, &res);
 	timerstring(&res, duration, sizeof(duration));
 
-	vty_out(vty, "%-15s %8s/%-11s %-15s %-15s %s[%s]\n", router_id,
-		ospf6_neighbor_state_str[on->state], duration, drouter,
-		bdrouter, on->ospf6_if->interface->name,
+	vty_out(vty, "%-15pI4 %8s/%-11s %-15pI4 %-15pI4 %s[%s]\n",
+		&on->router_id,
+		ospf6_neighbor_state_str[on->state], duration, &on->drouter,
+		&on->bdrouter, on->ospf6_if->interface->name,
 		ospf6_interface_state_str[on->ospf6_if->state]);
 }
 

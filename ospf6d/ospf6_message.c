@@ -86,13 +86,9 @@ const uint16_t ospf6_lsa_minlen[OSPF6_LSTYPE_SIZE] = {
 
 static void ospf6_header_print(struct ospf6_header *oh)
 {
-	char router_id[16], area_id[16];
-	inet_ntop(AF_INET, &oh->router_id, router_id, sizeof(router_id));
-	inet_ntop(AF_INET, &oh->area_id, area_id, sizeof(area_id));
-
-	zlog_debug("    OSPFv%d Type:%d Len:%hu Router-ID:%s", oh->version,
-		   oh->type, ntohs(oh->length), router_id);
-	zlog_debug("    Area-ID:%s Cksum:%hx Instance-ID:%d", area_id,
+	zlog_debug("    OSPFv%d Type:%d Len:%hu Router-ID:%pI4", oh->version,
+		   oh->type, ntohs(oh->length), &oh->router_id);
+	zlog_debug("    Area-ID:%pI4 Cksum:%hx Instance-ID:%d", &oh->area_id,
 		   ntohs(oh->checksum), oh->instance_id);
 }
 
@@ -100,7 +96,6 @@ void ospf6_hello_print(struct ospf6_header *oh)
 {
 	struct ospf6_hello *hello;
 	char options[16];
-	char drouter[16], bdrouter[16], neighbor[16];
 	char *p;
 
 	ospf6_header_print(oh);
@@ -109,8 +104,6 @@ void ospf6_hello_print(struct ospf6_header *oh)
 	hello = (struct ospf6_hello *)((caddr_t)oh
 				       + sizeof(struct ospf6_header));
 
-	inet_ntop(AF_INET, &hello->drouter, drouter, sizeof(drouter));
-	inet_ntop(AF_INET, &hello->bdrouter, bdrouter, sizeof(bdrouter));
 	ospf6_options_printbuf(hello->options, options, sizeof(options));
 
 	zlog_debug("    I/F-Id:%ld Priority:%d Option:%s",
@@ -118,13 +111,12 @@ void ospf6_hello_print(struct ospf6_header *oh)
 		   options);
 	zlog_debug("    HelloInterval:%hu DeadInterval:%hu",
 		   ntohs(hello->hello_interval), ntohs(hello->dead_interval));
-	zlog_debug("    DR:%s BDR:%s", drouter, bdrouter);
+	zlog_debug("    DR:%pI4 BDR:%pI4", &hello->drouter, &hello->bdrouter);
 
 	for (p = (char *)((caddr_t)hello + sizeof(struct ospf6_hello));
 	     p + sizeof(uint32_t) <= OSPF6_MESSAGE_END(oh);
 	     p += sizeof(uint32_t)) {
-		inet_ntop(AF_INET, (void *)p, neighbor, sizeof(neighbor));
-		zlog_debug("    Neighbor: %s", neighbor);
+		zlog_debug("    Neighbor: %pI4", (void *)p);
 	}
 
 	assert(p == OSPF6_MESSAGE_END(oh));
@@ -162,7 +154,6 @@ void ospf6_dbdesc_print(struct ospf6_header *oh)
 
 void ospf6_lsreq_print(struct ospf6_header *oh)
 {
-	char id[16], adv_router[16];
 	char *p;
 
 	ospf6_header_print(oh);
@@ -172,11 +163,9 @@ void ospf6_lsreq_print(struct ospf6_header *oh)
 	     p + sizeof(struct ospf6_lsreq_entry) <= OSPF6_MESSAGE_END(oh);
 	     p += sizeof(struct ospf6_lsreq_entry)) {
 		struct ospf6_lsreq_entry *e = (struct ospf6_lsreq_entry *)p;
-		inet_ntop(AF_INET, &e->adv_router, adv_router,
-			  sizeof(adv_router));
-		inet_ntop(AF_INET, &e->id, id, sizeof(id));
-		zlog_debug("    [%s Id:%s Adv:%s]", ospf6_lstype_name(e->type),
-			   id, adv_router);
+		zlog_debug("    [%s Id:%pI4 Adv:%pI4]",
+			   ospf6_lstype_name(e->type),
+			   &e->id, &e->adv_router);
 	}
 
 	assert(p == OSPF6_MESSAGE_END(oh));
@@ -1579,13 +1568,11 @@ int ospf6_receive(struct thread *thread)
 
 	/* Log */
 	if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV)) {
-		inet_ntop(AF_INET6, &src, srcname, sizeof(srcname));
-		inet_ntop(AF_INET6, &dst, dstname, sizeof(dstname));
 		zlog_debug("%s received on %s",
 			   lookup_msg(ospf6_message_type_str, oh->type, NULL),
 			   oi->interface->name);
-		zlog_debug("    src: %s", srcname);
-		zlog_debug("    dst: %s", dstname);
+		zlog_debug("    src: %pI6", &src);
+		zlog_debug("    dst: %pI6", &dst);
 
 		switch (oh->type) {
 		case OSPF6_MESSAGE_TYPE_HELLO:
@@ -1640,7 +1627,7 @@ static void ospf6_send(struct in6_addr *src, struct in6_addr *dst,
 		       struct ospf6_interface *oi, struct ospf6_header *oh)
 {
 	unsigned int len;
-	char srcname[64], dstname[64];
+	char srcname[64];
 	struct iovec iovector[2];
 
 	/* initialize */
@@ -1661,7 +1648,6 @@ static void ospf6_send(struct in6_addr *src, struct in6_addr *dst,
 
 	/* Log */
 	if (IS_OSPF6_DEBUG_MESSAGE(oh->type, SEND)) {
-		inet_ntop(AF_INET6, dst, dstname, sizeof(dstname));
 		if (src)
 			inet_ntop(AF_INET6, src, srcname, sizeof(srcname));
 		else
@@ -1670,7 +1656,7 @@ static void ospf6_send(struct in6_addr *src, struct in6_addr *dst,
 			   lookup_msg(ospf6_message_type_str, oh->type, NULL),
 			   oi->interface->name);
 		zlog_debug("    src: %s", srcname);
-		zlog_debug("    dst: %s", dstname);
+		zlog_debug("    dst: %pI6", dst);
 
 		switch (oh->type) {
 		case OSPF6_MESSAGE_TYPE_HELLO:

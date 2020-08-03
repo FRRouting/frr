@@ -104,8 +104,8 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 
 	if (iplen < ICMP_MINLEN) {
 		flog_err(EC_ZEBRA_IRDP_LEN_MISMATCH,
-			 "IRDP: RX ICMP packet too short from %s\n",
-			 inet_ntoa(src));
+			 "IRDP: RX ICMP packet too short from %pI4\n",
+			 &src);
 		return;
 	}
 
@@ -115,8 +115,8 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	 len of IP-header) 14+20 */
 	if (iplen > IRDP_RX_BUF - 34) {
 		flog_err(EC_ZEBRA_IRDP_LEN_MISMATCH,
-			 "IRDP: RX ICMP packet too long from %s\n",
-			 inet_ntoa(src));
+			 "IRDP: RX ICMP packet too long from %pI4\n",
+			 &src);
 		return;
 	}
 
@@ -128,8 +128,8 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	if (in_cksum(icmp, datalen) != saved_chksum) {
 		flog_warn(
 			EC_ZEBRA_IRDP_BAD_CHECKSUM,
-			"IRDP: RX ICMP packet from %s. Bad checksum, silently ignored",
-			inet_ntoa(src));
+			"IRDP: RX ICMP packet from %pI4. Bad checksum, silently ignored",
+			&src);
 		return;
 	}
 
@@ -141,8 +141,8 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	if (icmp->code != 0) {
 		flog_warn(
 			EC_ZEBRA_IRDP_BAD_TYPE_CODE,
-			"IRDP: RX packet type %d from %s. Bad ICMP type code, silently ignored",
-			icmp->type, inet_ntoa(src));
+			"IRDP: RX packet type %d from %pI4. Bad ICMP type code, silently ignored",
+			icmp->type, &src);
 		return;
 	}
 
@@ -152,8 +152,8 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 		&& !(irdp->flags & IF_BROADCAST))) {
 		flog_warn(
 			EC_ZEBRA_IRDP_BAD_RX_FLAGS,
-			"IRDP: RX illegal from %s to %s while %s operates in %s; Please correct settings\n",
-			inet_ntoa(src),
+			"IRDP: RX illegal from %pI4 to %s while %s operates in %s; Please correct settings\n",
+			&src,
 			ntohl(ip->ip_dst.s_addr) == INADDR_ALLRTRS_GROUP
 				? "multicast"
 				: inet_ntoa(ip->ip_dst),
@@ -169,8 +169,8 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	case ICMP_ROUTERSOLICIT:
 
 		if (irdp->flags & IF_DEBUG_MESSAGES)
-			zlog_debug("IRDP: RX Solicit on %s from %s",
-				   ifp->name, inet_ntoa(src));
+			zlog_debug("IRDP: RX Solicit on %s from %pI4",
+				   ifp->name, &src);
 
 		process_solicit(ifp);
 		break;
@@ -178,8 +178,8 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	default:
 		flog_warn(
 			EC_ZEBRA_IRDP_BAD_TYPE_CODE,
-			"IRDP: RX packet type %d from %s. Bad ICMP type code, silently ignored",
-			icmp->type, inet_ntoa(src));
+			"IRDP: RX packet type %d from %pI4. Bad ICMP type code, silently ignored",
+			icmp->type, &src);
 	}
 }
 

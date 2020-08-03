@@ -122,8 +122,8 @@ void eigrp_ip_header_dump(struct ip *iph)
 	zlog_debug("ip_ttl %u", iph->ip_ttl);
 	zlog_debug("ip_p %u", iph->ip_p);
 	zlog_debug("ip_sum 0x%x", (uint32_t)iph->ip_sum);
-	zlog_debug("ip_src %s", inet_ntoa(iph->ip_src));
-	zlog_debug("ip_dst %s", inet_ntoa(iph->ip_dst));
+	zlog_debug("ip_src %pI4", &iph->ip_src);
+	zlog_debug("ip_dst %pI4", &iph->ip_dst);
 }
 
 /*
@@ -231,8 +231,9 @@ void show_ip_eigrp_neighbor_sub(struct vty *vty, struct eigrp_neighbor *nbr,
  */
 void show_ip_eigrp_topology_header(struct vty *vty, struct eigrp *eigrp)
 {
-	vty_out(vty, "\nEIGRP Topology Table for AS(%d)/ID(%s)\n\n", eigrp->AS,
-		inet_ntoa(eigrp->router_id));
+	vty_out(vty, "\nEIGRP Topology Table for AS(%d)/ID(%pI4)\n\n",
+		eigrp->AS,
+		&eigrp->router_id);
 	vty_out(vty,
 		"Codes: P - Passive, A - Active, U - Update, Q - Query, R - Reply\n       r - reply Status, s - sia Status\n\n");
 }
@@ -240,12 +241,11 @@ void show_ip_eigrp_topology_header(struct vty *vty, struct eigrp *eigrp)
 void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 {
 	struct list *successors = eigrp_topology_get_successor(tn);
-	char buffer[PREFIX_STRLEN];
 
 	vty_out(vty, "%-3c", (tn->state > 0) ? 'A' : 'P');
 
-	vty_out(vty, "%s, ",
-		prefix2str(tn->destination, buffer, PREFIX_STRLEN));
+	vty_out(vty, "%pFX, ",
+		tn->destination);
 	vty_out(vty, "%u successors, ", (successors) ? successors->count : 0);
 	vty_out(vty, "FD is %u, serno: %" PRIu64 " \n", tn->fdistance,
 		tn->serno);
@@ -269,8 +269,8 @@ void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,
 		vty_out(vty, "%-7s%s, %s\n", " ", "via Connected",
 			IF_NAME(te->ei));
 	else {
-		vty_out(vty, "%-7s%s%s (%u/%u), %s\n", " ", "via ",
-			inet_ntoa(te->adv_router->src), te->distance,
+		vty_out(vty, "%-7s%s%pI4 (%u/%u), %s\n", " ", "via ",
+			&te->adv_router->src, te->distance,
 			te->reported_distance, IF_NAME(te->ei));
 	}
 }

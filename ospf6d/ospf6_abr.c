@@ -196,12 +196,9 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 	if (route->type == OSPF6_DEST_TYPE_ROUTER) {
 		if (ADV_ROUTER_IN_PREFIX(&route->prefix)
 		    == area->ospf6->router_id) {
-			inet_ntop(AF_INET,
-				  &(ADV_ROUTER_IN_PREFIX(&route->prefix)), buf,
-				  sizeof(buf));
-			zlog_debug(
-				"%s: Skipping ASBR announcement for ABR (%s)",
-				__func__, buf);
+			zlog_debug("%s: Skipping ASBR announcement for ABR (%pI4)",
+				   __func__,
+				   &(ADV_ROUTER_IN_PREFIX(&route->prefix)));
 			return 0;
 		}
 	}
@@ -227,14 +224,10 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		    htons(OSPF6_LSTYPE_INTER_PREFIX)) {
 			if (!CHECK_FLAG(route->flag, OSPF6_ROUTE_BEST)) {
 				if (is_debug) {
-					inet_ntop(AF_INET,
-						  &(ADV_ROUTER_IN_PREFIX(
-							&route->prefix)), buf,
-						  sizeof(buf));
-					zlog_debug(
-						"%s: route %s with cost %u is not best, ignore.",
-						__func__, buf,
-						route->path.cost);
+					zlog_debug("%s: route %pI4 with cost %u is not best, ignore.",
+						   __func__,
+						   &(ADV_ROUTER_IN_PREFIX(&route->prefix)),
+						   route->path.cost);
 				}
 				return 0;
 			}
@@ -244,12 +237,9 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		    htons(OSPF6_LSTYPE_INTRA_PREFIX)) {
 			if (!CHECK_FLAG(route->flag, OSPF6_ROUTE_BEST)) {
 				if (is_debug) {
-					prefix2str(&route->prefix, buf,
-						   sizeof(buf));
-					zlog_debug(
-						"%s: intra-prefix route %s with cost %u is not best, ignore.",
-						__func__, buf,
-						route->path.cost);
+					zlog_debug("%s: intra-prefix route %pFX with cost %u is not best, ignore.",
+						   __func__, &route->prefix,
+						   route->path.cost);
 				}
 				return 0;
 			}
@@ -370,9 +360,8 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		    && (route->path.area_id != OSPF_AREA_BACKBONE
 			|| !IS_AREA_TRANSIT(area))) {
 			if (is_debug) {
-				prefix2str(&range->prefix, buf, sizeof(buf));
-				zlog_debug("Suppressed by range %s of area %s",
-					   buf, route_area->name);
+				zlog_debug("Suppressed by range %pFX of area %s",
+					   &range->prefix, route_area->name);
 			}
 			ospf6_abr_delete_route(route, summary, summary_table,
 					       old);
@@ -412,13 +401,8 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			if (access_list_apply(EXPORT_LIST(area), &route->prefix)
 			    == FILTER_DENY) {
 				if (is_debug) {
-					inet_ntop(AF_INET,
-						  &(ADV_ROUTER_IN_PREFIX(
-							  &route->prefix)),
-						  buf, sizeof(buf));
-					zlog_debug(
-						"prefix %s was denied by export list",
-						buf);
+					zlog_debug("prefix %pI4 was denied by export list",
+						   &(ADV_ROUTER_IN_PREFIX(&route->prefix)));
 				}
 				return 0;
 			}
@@ -429,13 +413,8 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		if (prefix_list_apply(PREFIX_LIST_OUT(area), &route->prefix)
 		    != PREFIX_PERMIT) {
 			if (is_debug) {
-				inet_ntop(
-					AF_INET,
-					&(ADV_ROUTER_IN_PREFIX(&route->prefix)),
-					buf, sizeof(buf));
-				zlog_debug(
-					"prefix %s was denied by filter-list out",
-					buf);
+				zlog_debug("prefix %pI4 was denied by filter-list out",
+					   &(ADV_ROUTER_IN_PREFIX(&route->prefix)));
 			}
 			return 0;
 		}
@@ -1385,8 +1364,8 @@ static int ospf6_inter_area_router_lsa_show(struct vty *vty,
 	vty_out(vty, "     Metric: %lu\n",
 		(unsigned long)OSPF6_ABR_SUMMARY_METRIC(router_lsa));
 
-	inet_ntop(AF_INET, &router_lsa->router_id, buf, sizeof(buf));
-	vty_out(vty, "     Destination Router ID: %s\n", buf);
+	vty_out(vty, "     Destination Router ID: %pI4\n",
+		&router_lsa->router_id);
 
 	return 0;
 }

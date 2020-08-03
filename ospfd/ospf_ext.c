@@ -1618,8 +1618,8 @@ static uint16_t show_vty_ext_link_rmt_itf_addr(struct vty *vty,
 	top = (struct ext_subtlv_rmt_itf_addr *)tlvh;
 
 	vty_out(vty,
-		"  Remote Interface Address Sub-TLV: Length %u\n	Address: %s\n",
-		ntohs(top->header.length), inet_ntoa(top->value));
+		"  Remote Interface Address Sub-TLV: Length %u\n	Address: %pI4\n",
+		ntohs(top->header.length), &top->value);
 
 	return TLV_SIZE(tlvh);
 }
@@ -1650,9 +1650,9 @@ static uint16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
 		(struct ext_subtlv_lan_adj_sid *)tlvh;
 
 	vty_out(vty,
-		"  LAN-Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\tNeighbor ID: %s\n\t%s: %u\n",
+		"  LAN-Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\tNeighbor ID: %pI4\n\t%s: %u\n",
 		ntohs(top->header.length), top->flags, top->mtid, top->weight,
-		inet_ntoa(top->neighbor_id),
+		&top->neighbor_id,
 		CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG) ? "Label"
 								     : "Index",
 		CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
@@ -1683,7 +1683,7 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext)
 		"	Link ID: %s\n",
 		ntohs(top->header.length), top->link_type,
 		inet_ntoa(top->link_id));
-	vty_out(vty, "	Link data: %s\n", inet_ntoa(top->link_data));
+	vty_out(vty, "	Link data: %pI4\n", &top->link_data);
 
 	tlvh = (struct tlv_header *)((char *)(ext) + TLV_HDR_SIZE
 				     + EXT_TLV_LINK_SIZE);

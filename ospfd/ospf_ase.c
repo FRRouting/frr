@@ -301,11 +301,10 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 	}
 
 	if (IS_DEBUG_OSPF(lsa, LSA)) {
-		snprintf(buf1, sizeof(buf1), "%s",
-			 inet_ntoa(al->header.adv_router));
-		zlog_debug(
-			"Route[External]: Calculate AS-external-LSA to %s/%d adv_router %s",
-			inet_ntoa(al->header.id), ip_masklen(al->mask), buf1);
+		snprintfrr(buf1, sizeof(buf1), "%pI4",
+			   &al->header.adv_router);
+		zlog_debug("Route[External]: Calculate AS-external-LSA to %pI4/%d adv_router %s",
+			   &al->header.id, ip_masklen(al->mask), buf1);
 	}
 
 	/* (1) If the cost specified by the LSA is LSInfinity, or if the
@@ -657,9 +656,8 @@ static int ospf_ase_calculate_timer(struct thread *t)
 		if (ospf->anyNSSA)
 			for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
 				if (IS_DEBUG_OSPF_NSSA)
-					zlog_debug(
-						"ospf_ase_calculate_timer(): looking at area %s",
-						inet_ntoa(area->area_id));
+					zlog_debug("ospf_ase_calculate_timer(): looking at area %pI4",
+						   &area->area_id);
 
 				if (area->external_routing == OSPF_AREA_NSSA)
 					LSDB_LOOP (NSSA_LSDB(area), rn, lsa)

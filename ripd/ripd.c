@@ -829,8 +829,8 @@ static int rip_auth_simple_password(struct rte *rte, struct sockaddr_in *from,
 	}
 
 	if (IS_RIP_DEBUG_EVENT)
-		zlog_debug("RIPv2 simple password authentication from %s",
-			   inet_ntoa(from->sin_addr));
+		zlog_debug("RIPv2 simple password authentication from %pI4",
+			   &from->sin_addr);
 
 	ri = ifp->info;
 
@@ -877,8 +877,8 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 	char auth_str[RIP_AUTH_MD5_SIZE] = {};
 
 	if (IS_RIP_DEBUG_EVENT)
-		zlog_debug("RIPv2 MD5 authentication from %s",
-			   inet_ntoa(from->sin_addr));
+		zlog_debug("RIPv2 MD5 authentication from %pI4",
+			   &from->sin_addr);
 
 	ri = ifp->info;
 	md5 = (struct rip_md5_info *)&packet->rte;
@@ -1417,8 +1417,8 @@ int rip_create_socket(struct vrf *vrf)
 	frr_with_privs(&ripd_privs) {
 		if ((ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr)))
 		    < 0) {
-			zlog_err("%s: Can't bind socket %d to %s port %d: %s",
-				 __func__, sock, inet_ntoa(addr.sin_addr),
+			zlog_err("%s: Can't bind socket %d to %pI4 port %d: %s",
+				 __func__, sock, &addr.sin_addr,
 				 (int)ntohs(addr.sin_port),
 				 safe_strerror(errno));
 
@@ -1464,8 +1464,8 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 			strlcpy(dst, inet_ntoa(sin.sin_addr), sizeof(dst));
 		}
 #undef ADDRESS_SIZE
-		zlog_debug("rip_send_packet %s > %s (%s)",
-			   inet_ntoa(ifc->address->u.prefix4), dst,
+		zlog_debug("rip_send_packet %pI4 > %s (%s)",
+			   &ifc->address->u.prefix4, dst,
 			   ifc->ifp->name);
 	}
 
@@ -1532,7 +1532,7 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 	ret = sendmsg(rip->sock, &msg, 0);
 
 	if (IS_RIP_DEBUG_EVENT)
-		zlog_debug("SEND to  %s.%d", inet_ntoa(sin.sin_addr),
+		zlog_debug("SEND to  %pI4.%d", &sin.sin_addr,
 			   ntohs(sin.sin_port));
 
 	if (ret < 0)
@@ -1781,16 +1781,15 @@ static int rip_read(struct thread *t)
 
 	/* RIP packet received */
 	if (IS_RIP_DEBUG_EVENT)
-		zlog_debug("RECV packet from %s port %d on %s (VRF %s)",
-			   inet_ntoa(from.sin_addr), ntohs(from.sin_port),
+		zlog_debug("RECV packet from %pI4 port %d on %s (VRF %s)",
+			   &from.sin_addr, ntohs(from.sin_port),
 			   ifp ? ifp->name : "unknown", rip->vrf_name);
 
 	/* If this packet come from unknown interface, ignore it. */
 	if (ifp == NULL) {
-		zlog_info(
-			"rip_read: cannot find interface for packet from %s port %d (VRF %s)",
-			inet_ntoa(from.sin_addr), ntohs(from.sin_port),
-			rip->vrf_name);
+		zlog_info("rip_read: cannot find interface for packet from %pI4 port %d (VRF %s)",
+			  &from.sin_addr, ntohs(from.sin_port),
+			  rip->vrf_name);
 		return -1;
 	}
 
@@ -1801,10 +1800,9 @@ static int rip_read(struct thread *t)
 	ifc = connected_lookup_prefix(ifp, &p);
 
 	if (ifc == NULL) {
-		zlog_info(
-			"rip_read: cannot find connected address for packet from %s port %d on interface %s (VRF %s)",
-			inet_ntoa(from.sin_addr), ntohs(from.sin_port),
-			ifp->name, rip->vrf_name);
+		zlog_info("rip_read: cannot find connected address for packet from %pI4 port %d on interface %s (VRF %s)",
+			  &from.sin_addr, ntohs(from.sin_port),
+			  ifp->name, rip->vrf_name);
 		return -1;
 	}
 
@@ -2445,10 +2443,10 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 			to.sin_port = htons(RIP_PORT_DEFAULT);
 
 			if (IS_RIP_DEBUG_EVENT)
-				zlog_debug("%s announce to %s on %s",
+				zlog_debug("%s announce to %pI4 on %s",
 					   CONNECTED_PEER(ifc) ? "unicast"
 							       : "broadcast",
-					   inet_ntoa(to.sin_addr), ifp->name);
+					   &to.sin_addr, ifp->name);
 
 			rip_output_process(ifc, &to, route_type, version);
 		}
@@ -2522,9 +2520,8 @@ static void rip_update_process(struct rip *rip, int route_type)
 			connected = if_lookup_address(&p->u.prefix4, AF_INET,
 						      rip->vrf->vrf_id);
 			if (!connected) {
-				zlog_warn(
-					"Neighbor %s doesn't have connected interface!",
-					inet_ntoa(p->u.prefix4));
+				zlog_warn("Neighbor %pI4 doesn't have connected interface!",
+				          &p->u.prefix4);
 				continue;
 			}
 
@@ -3091,8 +3088,8 @@ DEFUN (show_ip_rip,
 				switch (rinfo->nh.type) {
 				case NEXTHOP_TYPE_IPV4:
 				case NEXTHOP_TYPE_IPV4_IFINDEX:
-					vty_out(vty, "%-20s %2d ",
-						inet_ntoa(rinfo->nh.gate.ipv4),
+					vty_out(vty, "%-20pI4 %2d ",
+						&rinfo->nh.gate.ipv4,
 						rinfo->metric);
 					break;
 				case NEXTHOP_TYPE_IFINDEX:
@@ -3116,8 +3113,8 @@ DEFUN (show_ip_rip,
 				/* Route which exist in kernel routing table. */
 				if ((rinfo->type == ZEBRA_ROUTE_RIP)
 				    && (rinfo->sub_type == RIP_ROUTE_RTE)) {
-					vty_out(vty, "%-15s ",
-						inet_ntoa(rinfo->from));
+					vty_out(vty, "%-15pI4 ",
+						&rinfo->from);
 					vty_out(vty, "%3" ROUTE_TAG_PRI " ",
 						(route_tag_t)rinfo->tag);
 					rip_vty_out_uptime(vty, rinfo);

@@ -2180,19 +2180,13 @@ static int dplane_ctx_rule_init(struct zebra_dplane_ctx *ctx,
 				struct zebra_pbr_rule *old_rule)
 {
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char buf1[PREFIX_STRLEN];
-		char buf2[PREFIX_STRLEN];
-
-		zlog_debug(
-			"init dplane ctx %s: IF %s(%u) Prio %u Fwmark %u Src %s Dst %s Table %u",
-			dplane_op2str(op), new_rule->ifname,
-			new_rule->rule.ifindex, new_rule->rule.priority,
-			new_rule->rule.filter.fwmark,
-			prefix2str(&new_rule->rule.filter.src_ip, buf1,
-				   sizeof(buf1)),
-			prefix2str(&new_rule->rule.filter.dst_ip, buf2,
-				   sizeof(buf2)),
-			new_rule->rule.action.table);
+		zlog_debug("init dplane ctx %s: IF %s(%u) Prio %u Fwmark %u Src %pFX Dst %pFX Table %u",
+			   dplane_op2str(op), new_rule->ifname,
+			   new_rule->rule.ifindex, new_rule->rule.priority,
+			   new_rule->rule.filter.fwmark,
+			   &new_rule->rule.filter.src_ip,
+			   &new_rule->rule.filter.dst_ip,
+			   new_rule->rule.action.table);
 	}
 
 	ctx->zd_op = op;
@@ -2816,13 +2810,9 @@ static enum zebra_dplane_result intf_addr_update_internal(
 	struct zebra_ns *zns;
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char addr_str[PREFIX_STRLEN];
-
-		prefix2str(ifc->address, addr_str, sizeof(addr_str));
-
-		zlog_debug("init intf ctx %s: idx %d, addr %u:%s",
+		zlog_debug("init intf ctx %s: idx %d, addr %u:%pFX",
 			   dplane_op2str(op), ifp->ifindex, ifp->vrf_id,
-			   addr_str);
+			   ifc->address);
 	}
 
 	ctx = dplane_ctx_alloc();
@@ -2973,13 +2963,11 @@ mac_update_common(enum dplane_op_e op,
 	struct zebra_dplane_ctx *ctx = NULL;
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char buf1[ETHER_ADDR_STRLEN], buf2[PREFIX_STRLEN];
-
-		zlog_debug("init mac ctx %s: mac %s, ifp %s, vtep %s",
+		zlog_debug("init mac ctx %s: mac %pEA, ifp %s, vtep %pI4",
 			   dplane_op2str(op),
-			   prefix_mac2str(mac, buf1, sizeof(buf1)),
+			   mac,
 			   ifp->name,
-			   inet_ntop(AF_INET, &vtep_ip, buf2, sizeof(buf2)));
+			   &vtep_ip);
 	}
 
 	ctx = dplane_ctx_alloc();
@@ -3064,8 +3052,8 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp,
 	struct ipaddr addr;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Install %s into flood list for VNI %u intf %s(%u)",
-			   inet_ntoa(*ip), vni, ifp->name, ifp->ifindex);
+		zlog_debug("Install %pI4 into flood list for VNI %u intf %s(%u)",
+			   ip, vni, ifp->name, ifp->ifindex);
 
 	SET_IPADDR_V4(&addr);
 	addr.ipaddr_v4 = *ip;
@@ -3088,9 +3076,8 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 	struct ipaddr addr;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug(
-			"Uninstall %s from flood list for VNI %u intf %s(%u)",
-			inet_ntoa(*ip), vni, ifp->name, ifp->ifindex);
+		zlog_debug("Uninstall %pI4 from flood list for VNI %u intf %s(%u)",
+			   ip, vni, ifp->name, ifp->ifindex);
 
 	SET_IPADDR_V4(&addr);
 	addr.ipaddr_v4 = *ip;
@@ -3117,13 +3104,11 @@ neigh_update_internal(enum dplane_op_e op,
 	struct zebra_ns *zns;
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char buf1[ETHER_ADDR_STRLEN], buf2[PREFIX_STRLEN];
-
-		zlog_debug("init neigh ctx %s: ifp %s, mac %s, ip %s",
+		zlog_debug("init neigh ctx %s: ifp %pEA, mac %s, ip %pIA",
 			   dplane_op2str(op),
-			   prefix_mac2str(mac, buf1, sizeof(buf1)),
+			   mac,
 			   ifp->name,
-			   ipaddr2str(ip, buf2, sizeof(buf2)));
+			   ip);
 	}
 
 	ctx = dplane_ctx_alloc();
@@ -3627,13 +3612,8 @@ static enum zebra_dplane_result
 kernel_dplane_route_update(struct zebra_dplane_ctx *ctx)
 {
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char dest_str[PREFIX_STRLEN];
-
-		prefix2str(dplane_ctx_get_dest(ctx),
-			   dest_str, sizeof(dest_str));
-
-		zlog_debug("%u:%s Dplane route update ctx %p op %s",
-			   dplane_ctx_get_vrf(ctx), dest_str,
+		zlog_debug("%u:%pFX Dplane route update ctx %p op %s",
+			   dplane_ctx_get_vrf(ctx), dplane_ctx_get_dest(ctx),
 			   ctx, dplane_op2str(dplane_ctx_get_op(ctx)));
 	}
 
@@ -3647,14 +3627,10 @@ static enum zebra_dplane_result
 kernel_dplane_address_update(struct zebra_dplane_ctx *ctx)
 {
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char dest_str[PREFIX_STRLEN];
-
-		prefix2str(dplane_ctx_get_intf_addr(ctx), dest_str,
-			   sizeof(dest_str));
-
-		zlog_debug("Dplane intf %s, idx %u, addr %s",
+		zlog_debug("Dplane intf %s, idx %u, addr %pFX",
 			   dplane_op2str(dplane_ctx_get_op(ctx)),
-			   dplane_ctx_get_ifindex(ctx), dest_str);
+			   dplane_ctx_get_ifindex(ctx),
+			   dplane_ctx_get_intf_addr(ctx));
 	}
 
 	return kernel_address_update_ctx(ctx);
@@ -3686,14 +3662,10 @@ static enum zebra_dplane_result
 kernel_dplane_mac_update(struct zebra_dplane_ctx *ctx)
 {
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char buf[ETHER_ADDR_STRLEN];
-
-		prefix_mac2str(dplane_ctx_mac_get_addr(ctx), buf,
-			       sizeof(buf));
-
-		zlog_debug("Dplane %s, mac %s, ifindex %u",
+		zlog_debug("Dplane %s, mac %pEA, ifindex %u",
 			   dplane_op2str(dplane_ctx_get_op(ctx)),
-			   buf, dplane_ctx_get_ifindex(ctx));
+			   dplane_ctx_mac_get_addr(ctx),
+			   dplane_ctx_get_ifindex(ctx));
 	}
 
 	return kernel_mac_update_ctx(ctx);
@@ -3706,14 +3678,10 @@ static enum zebra_dplane_result
 kernel_dplane_neigh_update(struct zebra_dplane_ctx *ctx)
 {
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char buf[PREFIX_STRLEN];
-
-		ipaddr2str(dplane_ctx_neigh_get_ipaddr(ctx), buf,
-			   sizeof(buf));
-
-		zlog_debug("Dplane %s, ip %s, ifindex %u",
+		zlog_debug("Dplane %s, ip %pIA, ifindex %u",
 			   dplane_op2str(dplane_ctx_get_op(ctx)),
-			   buf, dplane_ctx_get_ifindex(ctx));
+			   dplane_ctx_neigh_get_ipaddr(ctx),
+			   dplane_ctx_get_ifindex(ctx));
 	}
 
 	return kernel_neigh_update_ctx(ctx);

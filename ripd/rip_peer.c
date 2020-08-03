@@ -155,8 +155,8 @@ void rip_peer_display(struct vty *vty, struct rip *rip)
 	char timebuf[RIP_UPTIME_LEN];
 
 	for (ALL_LIST_ELEMENTS(rip->peer_list, node, nnode, peer)) {
-		vty_out(vty, "    %-16s %9d %9d %9d   %s\n",
-			inet_ntoa(peer->addr), peer->recv_badpackets,
+		vty_out(vty, "    %-16pI4 %9d %9d %9d   %s\n",
+			&peer->addr, peer->recv_badpackets,
 			peer->recv_badroutes, ZEBRA_RIP_DISTANCE_DEFAULT,
 			rip_peer_uptime(peer, timebuf, RIP_UPTIME_LEN));
 	}

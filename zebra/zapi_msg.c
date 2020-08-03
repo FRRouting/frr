@@ -718,21 +718,16 @@ static int route_notify_internal(const struct prefix *p, int type,
 	client = zserv_find_client(type, instance);
 	if (!client || !client->notify_owner) {
 		if (IS_ZEBRA_DEBUG_PACKET) {
-			char buff[PREFIX_STRLEN];
-
-			zlog_debug(
-				"Not Notifying Owner: %u about prefix %s(%u) %d vrf: %u",
-				type, prefix2str(p, buff, sizeof(buff)),
-				table_id, note, vrf_id);
+			zlog_debug("Not Notifying Owner: %u about prefix %pFX(%u) %d vrf: %u",
+				   type, p,
+				   table_id, note, vrf_id);
 		}
 		return 0;
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET) {
-		char buff[PREFIX_STRLEN];
-
-		zlog_debug("Notifying Owner: %u about prefix %s(%u) %d vrf: %u",
-			   type, prefix2str(p, buff, sizeof(buff)),
+		zlog_debug("Notifying Owner: %u about prefix %pFX(%u) %d vrf: %u",
+			   type, p,
 			   table_id, note, vrf_id);
 	}
 
@@ -1388,13 +1383,10 @@ void zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 			    const unsigned int nexthop_num)
 {
 	if (nexthop_num > zrouter.multipath_num) {
-		char buff[PREFIX2STR_BUFFER];
-
-		prefix2str(p, buff, sizeof(buff));
 		flog_warn(
 			EC_ZEBRA_MORE_NH_THAN_MULTIPATH,
-			"%s: Prefix %s has %d nexthops, but we can only use the first %d",
-			caller, buff, nexthop_num, zrouter.multipath_num);
+			"%s: Prefix %pFX has %d nexthops, but we can only use the first %d",
+			caller, p, nexthop_num, zrouter.multipath_num);
 	}
 }
 

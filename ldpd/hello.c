@@ -179,24 +179,26 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 
 	r = tlv_decode_hello_prms(buf, len, &holdtime, &flags);
 	if (r == -1) {
-		log_debug("%s: lsr-id %s: failed to decode params", __func__,
-		    inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: failed to decode params",
+		          __func__,
+		          &lsr_id);
 		return;
 	}
 	/* safety checks */
 	if (holdtime != 0 && holdtime < MIN_HOLDTIME) {
-		log_debug("%s: lsr-id %s: invalid hello holdtime (%u)",
-		    __func__, inet_ntoa(lsr_id), holdtime);
+		log_debug("%s: lsr-id %pI4: invalid hello holdtime (%u)",
+		          __func__, &lsr_id, holdtime);
 		return;
 	}
 	if (multicast && (flags & F_HELLO_TARGETED)) {
-		log_debug("%s: lsr-id %s: multicast targeted hello", __func__,
-		    inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: multicast targeted hello",
+		          __func__,
+		          &lsr_id);
 		return;
 	}
 	if (!multicast && !((flags & F_HELLO_TARGETED))) {
-		log_debug("%s: lsr-id %s: unicast link hello", __func__,
-		    inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: unicast link hello", __func__,
+		          &lsr_id);
 		return;
 	}
 	buf += r;
@@ -205,13 +207,13 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	r = tlv_decode_opt_hello_prms(buf, len, &tlvs_rcvd, af, &trans_addr,
 	    &conf_seqnum, &trans_pref);
 	if (r == -1) {
-		log_debug("%s: lsr-id %s: failed to decode optional params",
-		    __func__, inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: failed to decode optional params",
+		          __func__, &lsr_id);
 		return;
 	}
 	if (r != len) {
-		log_debug("%s: lsr-id %s: unexpected data in message",
-		    __func__, inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: unexpected data in message",
+		          __func__, &lsr_id);
 		return;
 	}
 	ds_tlv = (tlvs_rcvd & F_HELLO_TLV_RCVD_DS) ? 1 : 0;
@@ -220,8 +222,8 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	if (!(tlvs_rcvd & F_HELLO_TLV_RCVD_ADDR))
 		trans_addr = *src;
 	if (bad_addr(af, &trans_addr)) {
-		log_debug("%s: lsr-id %s: invalid transport address %s",
-		    __func__, inet_ntoa(lsr_id), log_addr(af, &trans_addr));
+		log_debug("%s: lsr-id %pI4: invalid transport address %s",
+		          __func__, &lsr_id, log_addr(af, &trans_addr));
 		return;
 	}
 	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&trans_addr.v6)) {
@@ -234,8 +236,9 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		 * check)".
 		 */
 		if (flags & F_HELLO_TARGETED) {
-			log_debug("%s: lsr-id %s: invalid targeted hello transport address %s", __func__, inet_ntoa(lsr_id),
-			     log_addr(af, &trans_addr));
+			log_debug("%s: lsr-id %pI4: invalid targeted hello transport address %s",
+				  __func__, &lsr_id,
+				  log_addr(af, &trans_addr));
 			return;
 		}
 		scope_id = iface->ifindex;
@@ -249,8 +252,9 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		* targeted LDP Hello packet's source or destination addresses".
 		*/
 		if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&src->v6)) {
-			log_debug("%s: lsr-id %s: targeted hello with link-local source address", __func__,
-			    inet_ntoa(lsr_id));
+			log_debug("%s: lsr-id %pI4: targeted hello with link-local source address",
+				  __func__,
+				  &lsr_id);
 			return;
 		}
 
@@ -316,7 +320,8 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		 * send a fatal Notification message with status code of
 		 * 'Transport Connection Mismatch' and reset the session".
 		 */
-		log_debug("%s: lsr-id %s: remote transport preference does not match the local preference", __func__, inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: remote transport preference does not match the local preference",
+		          __func__, &lsr_id);
 		if (nbr)
 			session_shutdown(nbr, S_TRANS_MISMTCH, msg->id,
 			    msg->type);
@@ -364,8 +369,9 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	if (nbr == NULL) {
 		nbrt = nbr_find_addr(af, &trans_addr);
 		if (nbrt) {
-			log_debug("%s: transport address %s is already being used by lsr-id %s", __func__, log_addr(af,
-			    &trans_addr), inet_ntoa(nbrt->id));
+			log_debug("%s: transport address %s is already being used by lsr-id %pI4",
+				  __func__, log_addr(af,
+						     &trans_addr), &nbrt->id);
 			if (adj)
 				adj_del(adj, S_SHUTDOWN);
 			return;

@@ -905,26 +905,23 @@ static const char *prefixevpn_macip2str(const struct prefix_evpn *p, char *str,
 {
 	uint8_t family;
 	char buf[PREFIX2STR_BUFFER];
-	char buf2[ETHER_ADDR_STRLEN];
 
 	if (is_evpn_prefix_ipaddr_none(p))
-		snprintf(str, size, "[%d]:[%s]/%d",
-			 p->prefix.route_type,
-			 prefix_mac2str(&p->prefix.macip_addr.mac,
-					buf2, sizeof(buf2)),
-			 p->prefixlen);
+		snprintfrr(str, size, "[%d]:[%pEA]/%d",
+			   p->prefix.route_type,
+			   &p->prefix.macip_addr.mac,
+			   p->prefixlen);
 	else {
 		family = is_evpn_prefix_ipaddr_v4(p)
 				 ? AF_INET
 				 : AF_INET6;
-		snprintf(str, size, "[%d]:[%s]:[%s]/%d",
-			 p->prefix.route_type,
-			 prefix_mac2str(&p->prefix.macip_addr.mac,
-					buf2, sizeof(buf2)),
-			 inet_ntop(family,
-				   &p->prefix.macip_addr.ip.ip.addr,
-				   buf, PREFIX2STR_BUFFER),
-			 p->prefixlen);
+		snprintfrr(str, size, "[%d]:[%pEA]:[%s]/%d",
+			   p->prefix.route_type,
+			   &p->prefix.macip_addr.mac,
+			   inet_ntop(family,
+				     &p->prefix.macip_addr.ip.ip.addr,
+				     buf, PREFIX2STR_BUFFER),
+			   p->prefixlen);
 	}
 	return str;
 }
@@ -951,10 +948,10 @@ static const char *prefixevpn_es2str(const struct prefix_evpn *p, char *str,
 {
 	char buf[ESI_STR_LEN];
 
-	snprintf(str, size, "[%d]:[%s]:[%s]/%d", p->prefix.route_type,
-		 esi_to_str(&p->prefix.es_addr.esi, buf, sizeof(buf)),
-		 inet_ntoa(p->prefix.es_addr.ip.ipaddr_v4),
-		 p->prefixlen);
+	snprintfrr(str, size, "[%d]:[%s]:[%pI4]/%d", p->prefix.route_type,
+		   esi_to_str(&p->prefix.es_addr.esi, buf, sizeof(buf)),
+		   &p->prefix.es_addr.ip.ipaddr_v4,
+		   p->prefixlen);
 	return str;
 }
 
@@ -1029,9 +1026,9 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 		break;
 
 	case AF_ETHERNET:
-		snprintf(str, size, "%s/%d",
-			 prefix_mac2str(&p->u.prefix_eth, buf, sizeof(buf)),
-			 p->prefixlen);
+		snprintfrr(str, size, "%pEA/%d",
+			   &p->u.prefix_eth,
+			   p->prefixlen);
 		break;
 
 	case AF_EVPN:

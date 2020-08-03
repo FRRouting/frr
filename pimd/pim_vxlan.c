@@ -852,18 +852,15 @@ void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 				struct in_addr *reg_addr)
 {
 	struct pim_instance *pim;
-	char addr_buf[INET_ADDRSTRLEN];
 	struct pim_interface *pim_ifp = NULL;
 
 	if (PIM_DEBUG_VXLAN) {
-		inet_ntop(AF_INET, reg_addr,
-				addr_buf, INET_ADDRSTRLEN);
-		zlog_debug("vxlan MLAG update %s state %s role %d rif %s addr %s",
+		zlog_debug("vxlan MLAG update %s state %s role %d rif %s addr %pI4",
 				enable ? "enable" : "disable",
 				peer_state ? "up" : "down",
 				role,
 				peerlink_rif ? peerlink_rif->name : "-",
-				addr_buf);
+				reg_addr);
 	}
 
 	/* XXX: for now vxlan termination is only possible in the default VRF

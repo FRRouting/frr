@@ -198,10 +198,10 @@ static struct vertex *ospf_vertex_new(struct ospf_lsa *lsa)
 	listnode_add(&vertex_list, new);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Created %s vertex %s", __func__,
+		zlog_debug("%s: Created %s vertex %pI4", __func__,
 			   new->type == OSPF_VERTEX_ROUTER ? "Router"
 							   : "Network",
-			   inet_ntoa(new->lsa->id));
+			   &new->lsa->id);
 	return new;
 }
 
@@ -210,9 +210,9 @@ static void ospf_vertex_free(void *data)
 	struct vertex *v = data;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Free %s vertex %s", __func__,
+		zlog_debug("%s: Free %s vertex %pI4", __func__,
 			   v->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
-			   inet_ntoa(v->lsa->id));
+			   &v->lsa->id);
 
 	/* There should be no parents potentially holding references to this
 	 * vertex
@@ -239,27 +239,23 @@ static void ospf_vertex_dump(const char *msg, struct vertex *v,
 	if (!IS_DEBUG_OSPF_EVENT)
 		return;
 
-	zlog_debug("%s %s vertex %s  distance %u flags %u", msg,
+	zlog_debug("%s %s vertex %pI4  distance %u flags %u", msg,
 		   v->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
-		   inet_ntoa(v->lsa->id), v->distance, (unsigned int)v->flags);
+		   &v->lsa->id, v->distance, (unsigned int)v->flags);
 
 	if (print_parents) {
 		struct listnode *node;
 		struct vertex_parent *vp;
 
 		for (ALL_LIST_ELEMENTS_RO(v->parents, node, vp)) {
-			char buf1[BUFSIZ];
-
 			if (vp) {
-				zlog_debug(
-					"parent %s backlink %d nexthop %s  interface %s",
-					inet_ntoa(vp->parent->lsa->id),
-					vp->backlink,
-					inet_ntop(AF_INET, &vp->nexthop->router,
-						  buf1, BUFSIZ),
-					vp->nexthop->oi
-						? IF_NAME(vp->nexthop->oi)
-						: "NULL");
+				zlog_debug("parent %pI4 backlink %d nexthop %pI4  interface %s",
+					   &vp->parent->lsa->id,
+					   vp->backlink,
+					   &vp->nexthop->router,
+					   vp->nexthop->oi
+					   ? IF_NAME(vp->nexthop->oi)
+					   : "NULL");
 			}
 		}
 	}
@@ -809,9 +805,9 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Next vertex of %s vertex %s", __func__,
+		zlog_debug("%s: Next vertex of %s vertex %pI4", __func__,
 			   v->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
-			   inet_ntoa(v->lsa->id));
+			   &v->lsa->id);
 
 	p = ((uint8_t *)v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
 	lim = ((uint8_t *)v->lsa) + ntohs(v->lsa->length);
@@ -846,9 +842,8 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 			case LSA_LINK_TYPE_VIRTUALLINK:
 				if (type == LSA_LINK_TYPE_VIRTUALLINK) {
 					if (IS_DEBUG_OSPF_EVENT)
-						zlog_debug(
-							"looking up LSA through VL: %s",
-							inet_ntoa(l->link_id));
+						zlog_debug("looking up LSA through VL: %pI4",
+							   &l->link_id);
 				}
 
 				w_lsa = ospf_lsa_lookup(ospf, area,
@@ -856,16 +851,14 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 							l->link_id, l->link_id);
 				if (w_lsa) {
 					if (IS_DEBUG_OSPF_EVENT)
-						zlog_debug(
-							"found Router LSA %s",
-							inet_ntoa(l->link_id));
+						zlog_debug("found Router LSA %pI4",
+							   &l->link_id);
 				}
 				break;
 			case LSA_LINK_TYPE_TRANSIT:
 				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug(
-						"Looking up Network LSA, ID: %s",
-						inet_ntoa(l->link_id));
+					zlog_debug("Looking up Network LSA, ID: %pI4",
+						   &l->link_id);
 				w_lsa = ospf_lsa_lookup_by_id(
 					area, OSPF_NETWORK_LSA, l->link_id);
 				if (w_lsa)
@@ -890,8 +883,8 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 						      *r);
 			if (w_lsa) {
 				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug("found Router LSA %s",
-						   inet_ntoa(w_lsa->data->id));
+					zlog_debug("found Router LSA %pI4",
+						   &w_lsa->data->id);
 			}
 
 			/* step (d) below */
@@ -985,20 +978,21 @@ static void ospf_spf_dump(struct vertex *v, int i)
 
 	if (v->type == OSPF_VERTEX_ROUTER) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("SPF Result: %d [R] %s", i,
-				   inet_ntoa(v->lsa->id));
+			zlog_debug("SPF Result: %d [R] %pI4", i,
+				   &v->lsa->id);
 	} else {
 		struct network_lsa *lsa = (struct network_lsa *)v->lsa;
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("SPF Result: %d [N] %s/%d", i,
-				   inet_ntoa(v->lsa->id),
+			zlog_debug("SPF Result: %d [N] %pI4/%d", i,
+				   &v->lsa->id,
 				   ip_masklen(lsa->mask));
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
 		for (ALL_LIST_ELEMENTS_RO(v->parents, nnode, parent)) {
-			zlog_debug(" nexthop %p %s %s", (void *)parent->nexthop,
-				   inet_ntoa(parent->nexthop->router),
+			zlog_debug(" nexthop %p %pI4 %s",
+				   (void *)parent->nexthop,
+				   &parent->nexthop->router,
 				   parent->nexthop->oi
 					   ? IF_NAME(parent->nexthop->oi)
 					   : "NULL");
@@ -1018,8 +1012,8 @@ static void ospf_spf_process_stubs(struct ospf_area *area, struct vertex *v,
 	struct vertex *child;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_process_stub():processing stubs for area %s",
-			   inet_ntoa(area->area_id));
+		zlog_debug("ospf_process_stub():processing stubs for area %pI4",
+			   &area->area_id);
 	if (v->type == OSPF_VERTEX_ROUTER) {
 		uint8_t *p;
 		uint8_t *lim;
@@ -1028,9 +1022,8 @@ static void ospf_spf_process_stubs(struct ospf_area *area, struct vertex *v,
 		int lsa_pos = 0;
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_process_stubs():processing router LSA, id: %s",
-				inet_ntoa(v->lsa->id));
+			zlog_debug("ospf_process_stubs():processing router LSA, id: %pI4",
+				   &v->lsa->id);
 		rlsa = (struct router_lsa *)v->lsa;
 
 
@@ -1172,17 +1165,16 @@ static void ospf_spf_calculate(struct ospf *ospf, struct ospf_area *area,
 
 	if (IS_DEBUG_OSPF_EVENT) {
 		zlog_debug("ospf_spf_calculate: Start");
-		zlog_debug("ospf_spf_calculate: running Dijkstra for area %s",
-			   inet_ntoa(area->area_id));
+		zlog_debug("ospf_spf_calculate: running Dijkstra for area %pI4",
+			   &area->area_id);
 	}
 
 	/* Check router-lsa-self.  If self-router-lsa is not yet allocated,
 	   return this area's calculation. */
 	if (!area->router_lsa_self) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_spf_calculate: Skip area %s's calculation due to empty router_lsa_self",
-				inet_ntoa(area->area_id));
+			zlog_debug("ospf_spf_calculate: Skip area %pI4's calculation due to empty router_lsa_self",
+				   &area->area_id);
 		return;
 	}
 

@@ -222,7 +222,7 @@ send_capability(struct nbr *nbr, uint16_t capability, int enable)
 	uint16_t		 size;
 	int			 err = 0;
 
-	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
+	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	size = LDP_HDR_SIZE + LDP_MSG_SIZE + CAP_TLV_DYNAMIC_SIZE;
 	if ((buf = ibuf_open(size)) == NULL)

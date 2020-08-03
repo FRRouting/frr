@@ -173,8 +173,8 @@ void ospf_nbr_delete(struct ospf_neighbor *nbr)
 			rn->info = NULL;
 			route_unlock_node(rn);
 		} else
-			zlog_info("Can't find neighbor %s in the interface %s",
-				  inet_ntoa(nbr->src), IF_NAME(oi));
+			zlog_info("Can't find neighbor %pI4 in the interface %s",
+				  &nbr->src, IF_NAME(oi));
 
 		route_unlock_node(rn);
 	} else {
@@ -272,9 +272,8 @@ void ospf_nbr_add_self(struct ospf_interface *oi, struct in_addr router_id)
 	if (rn->info) {
 		/* There is already pseudo neighbor. */
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"router_id %s already present in neighbor table. node refcount %u",
-				inet_ntoa(router_id), rn->lock);
+			zlog_debug("router_id %pI4 already present in neighbor table. node refcount %u",
+				   &router_id, rn->lock);
 		route_unlock_node(rn);
 	} else
 		rn->info = oi->nbr_self;
@@ -389,9 +388,8 @@ void ospf_renegotiate_optional_capabilities(struct ospf *top)
 				continue;
 
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"Renegotiate optional capabilities with neighbor(%s)",
-					inet_ntoa(nbr->router_id));
+				zlog_debug("Renegotiate optional capabilities with neighbor(%pI4)",
+					   &nbr->router_id);
 
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 		}
@@ -448,8 +446,8 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 		nbr->crypt_seqnum = ospfh->u.crypt.crypt_seqnum;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("NSM[%s:%s]: start", IF_NAME(oi),
-			   inet_ntoa(nbr->router_id));
+		zlog_debug("NSM[%s:%pI4]: start", IF_NAME(oi),
+			   &nbr->router_id);
 
 	return nbr;
 }

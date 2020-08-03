@@ -427,7 +427,6 @@ int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 	struct prefix *p;
-	char buf[INET6_ADDRSTRLEN];
 
 	ifc = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_DELETE,
 					   zclient->ibuf, vrf_id);
@@ -437,11 +436,9 @@ int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 		if (p->family == AF_INET6) {
 			if (IS_RIPNG_DEBUG_ZEBRA)
-				zlog_debug(
-					"RIPng connected address %s/%d delete",
-					inet_ntop(AF_INET6, &p->u.prefix6, buf,
-						  INET6_ADDRSTRLEN),
-					p->prefixlen);
+				zlog_debug("RIPng connected address %pI6/%d delete",
+					   &p->u.prefix6,
+					   p->prefixlen);
 
 			/* Check wether this prefix needs to be removed. */
 			ripng_apply_address_del(ifc);

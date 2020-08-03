@@ -178,8 +178,8 @@ void router_id_write(struct vty *vty, struct zebra_vrf *zvrf)
 		snprintf(space, sizeof(space), "%s", " ");
 
 	if (zvrf->rid_user_assigned.u.prefix4.s_addr != INADDR_ANY) {
-		vty_out(vty, "%srouter-id %s\n", space,
-			inet_ntoa(zvrf->rid_user_assigned.u.prefix4));
+		vty_out(vty, "%srouter-id %pI4\n", space,
+			&zvrf->rid_user_assigned.u.prefix4);
 	}
 }
 
@@ -299,11 +299,11 @@ DEFUN (show_router_id,
         if ((zvrf != NULL) && (zvrf->rid_user_assigned.u.prefix4.s_addr)) {
                 vty_out(vty, "zebra:\n");
                 if (vrf_id == VRF_DEFAULT)
-                        vty_out(vty, "     router-id %s vrf default\n",
-                                inet_ntoa(zvrf->rid_user_assigned.u.prefix4));
+                        vty_out(vty, "     router-id %pI4 vrf default\n",
+                                &zvrf->rid_user_assigned.u.prefix4);
                 else
-                        vty_out(vty, "     router-id %s vrf %s\n",
-                                inet_ntoa(zvrf->rid_user_assigned.u.prefix4),
+                        vty_out(vty, "     router-id %pI4 vrf %s\n",
+                                &zvrf->rid_user_assigned.u.prefix4,
                                 argv[idx_name]->arg);
         }
 

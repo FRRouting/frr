@@ -576,14 +576,13 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi)
 				if (filter->addr_mask.s_addr == 0xffffffff)
 					vty_out(vty, " any\n");
 				else {
-					vty_out(vty, " %s",
-						inet_ntoa(filter->addr));
+					vty_out(vty, " %pI4",
+						&filter->addr);
 					if (filter->addr_mask.s_addr
 					    != INADDR_ANY)
 						vty_out(vty,
-							", wildcard bits %s",
-							inet_ntoa(
-								filter->addr_mask));
+							", wildcard bits %pI4",
+							&filter->addr_mask);
 					vty_out(vty, "\n");
 				}
 			}
@@ -625,14 +624,13 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi)
 				if (filter->addr_mask.s_addr == 0xffffffff)
 					vty_out(vty, " any\n");
 				else {
-					vty_out(vty, " %s",
-						inet_ntoa(filter->addr));
+					vty_out(vty, " %pI4",
+						&filter->addr);
 					if (filter->addr_mask.s_addr
 					    != INADDR_ANY)
 						vty_out(vty,
-							", wildcard bits %s",
-							inet_ntoa(
-								filter->addr_mask));
+							", wildcard bits %pI4",
+							&filter->addr_mask);
 					vty_out(vty, "\n");
 				}
 			}
@@ -722,29 +720,29 @@ static void config_write_access_cisco(struct vty *vty, struct filter *mfilter)
 		if (filter->addr_mask.s_addr == 0xffffffff)
 			vty_out(vty, " any");
 		else if (filter->addr_mask.s_addr == INADDR_ANY)
-			vty_out(vty, " host %s", inet_ntoa(filter->addr));
+			vty_out(vty, " host %pI4", &filter->addr);
 		else {
-			vty_out(vty, " %s", inet_ntoa(filter->addr));
-			vty_out(vty, " %s", inet_ntoa(filter->addr_mask));
+			vty_out(vty, " %pI4", &filter->addr);
+			vty_out(vty, " %pI4", &filter->addr_mask);
 		}
 
 		if (filter->mask_mask.s_addr == 0xffffffff)
 			vty_out(vty, " any");
 		else if (filter->mask_mask.s_addr == INADDR_ANY)
-			vty_out(vty, " host %s", inet_ntoa(filter->mask));
+			vty_out(vty, " host %pI4", &filter->mask);
 		else {
-			vty_out(vty, " %s", inet_ntoa(filter->mask));
-			vty_out(vty, " %s", inet_ntoa(filter->mask_mask));
+			vty_out(vty, " %pI4", &filter->mask);
+			vty_out(vty, " %pI4", &filter->mask_mask);
 		}
 		vty_out(vty, "\n");
 	} else {
 		if (filter->addr_mask.s_addr == 0xffffffff)
 			vty_out(vty, " any\n");
 		else {
-			vty_out(vty, " %s", inet_ntoa(filter->addr));
+			vty_out(vty, " %pI4", &filter->addr);
 			if (filter->addr_mask.s_addr != INADDR_ANY)
-				vty_out(vty, " %s",
-					inet_ntoa(filter->addr_mask));
+				vty_out(vty, " %pI4",
+					&filter->addr_mask);
 			vty_out(vty, "\n");
 		}
 	}
@@ -754,7 +752,6 @@ static void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
 {
 	struct filter_zebra *filter;
 	struct prefix *p;
-	char buf[BUFSIZ];
 
 	filter = &mfilter->u.zfilter;
 	p = &filter->prefix;
@@ -768,8 +765,7 @@ static void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
 		if (p->prefixlen == 0)
 			vty_out(vty, " any");
 		else
-			vty_out(vty, " %s", prefix_mac2str(&(p->u.prefix_eth),
-							   buf, sizeof(buf)));
+			vty_out(vty, " %pEA", &(p->u.prefix_eth));
 	}
 
 	vty_out(vty, "\n");

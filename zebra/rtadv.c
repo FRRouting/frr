@@ -2408,8 +2408,8 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvPrefixList, node, rprefix)) {
 		if ((rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL)
 		    || (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH)) {
-			vty_out(vty, " ipv6 nd prefix %s",
-				prefix2str(&rprefix->prefix, buf, sizeof(buf)));
+			vty_out(vty, " ipv6 nd prefix %pFX",
+				&rprefix->prefix);
 			if ((rprefix->AdvValidLifetime != RTADV_VALID_LIFETIME)
 			    || (rprefix->AdvPreferredLifetime
 				!= RTADV_PREFERRED_LIFETIME)) {
@@ -2437,8 +2437,8 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvRDNSSList, node, rdnss)) {
 		char buf[INET6_ADDRSTRLEN];
 
-		vty_out(vty, " ipv6 nd rdnss %s",
-			inet_ntop(AF_INET6, &rdnss->addr, buf, sizeof(buf)));
+		vty_out(vty, " ipv6 nd rdnss %pI6",
+			&rdnss->addr);
 		if (rdnss->lifetime_set) {
 			if (rdnss->lifetime == UINT32_MAX)
 				vty_out(vty, " infinite");

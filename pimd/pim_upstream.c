@@ -953,10 +953,9 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		pim_mlag_up_local_add(pim, up);
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug(
-			"%s: Created Upstream %s upstream_addr %s ref count %d increment",
-			__func__, up->sg_str, inet_ntoa(up->upstream_addr),
-			up->ref_count);
+		zlog_debug("%s: Created Upstream %s upstream_addr %pI4 ref count %d increment",
+			   __func__, up->sg_str, &up->upstream_addr,
+			   up->ref_count);
 	}
 
 	return up;
@@ -1063,13 +1062,12 @@ struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		if (up) {
-			char buf[PREFIX2STR_BUFFER];
-			prefix2str(&up->rpf.rpf_addr, buf, sizeof(buf));
-			zlog_debug("%s(%s): %s, iif %s (%s) found: %d: ref_count: %d",
-		   __func__, name,
-		   up->sg_str, buf, up->rpf.source_nexthop.interface ?
-                   up->rpf.source_nexthop.interface->name : "Unknown" ,
-		   found, up->ref_count);
+			zlog_debug("%s(%s): %s, iif %pFX (%s) found: %d: ref_count: %d",
+				   __func__, name,
+				   up->sg_str, &up->rpf.rpf_addr,
+				   up->rpf.source_nexthop.interface ?
+				   up->rpf.source_nexthop.interface->name : "Unknown" ,
+				   found, up->ref_count);
 		} else
 			zlog_debug("%s(%s): (%s) failure to create", __func__,
 				   name, pim_str_sg_dump(sg));

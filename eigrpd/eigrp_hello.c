@@ -144,8 +144,8 @@ eigrp_hello_parameter_decode(struct eigrp_neighbor *nbr,
 	    && (eigrp->k_values[4] == nbr->K5)) {
 
 		if (eigrp_nbr_state_get(nbr) == EIGRP_NEIGHBOR_DOWN) {
-			zlog_info("Neighbor %s (%s) is pending: new adjacency",
-				  inet_ntoa(nbr->src),
+			zlog_info("Neighbor %pI4 (%s) is pending: new adjacency",
+				  &nbr->src,
 				  ifindex2ifname(nbr->ei->ifp->ifindex,
 						 eigrp->vrf_id));
 
@@ -163,19 +163,17 @@ eigrp_hello_parameter_decode(struct eigrp_neighbor *nbr,
 			if ((param->K1 & param->K2 & param->K3 & param->K4
 			     & param->K5)
 			    == 255) {
-				zlog_info(
-					"Neighbor %s (%s) is down: Interface PEER-TERMINATION received",
-					inet_ntoa(nbr->src),
-					ifindex2ifname(nbr->ei->ifp->ifindex,
-						       eigrp->vrf_id));
+				zlog_info("Neighbor %pI4 (%s) is down: Interface PEER-TERMINATION received",
+					  &nbr->src,
+					  ifindex2ifname(nbr->ei->ifp->ifindex,
+							 eigrp->vrf_id));
 				eigrp_nbr_delete(nbr);
 				return NULL;
 			} else {
-				zlog_info(
-					"Neighbor %s (%s) going down: Kvalue mismatch",
-					inet_ntoa(nbr->src),
-					ifindex2ifname(nbr->ei->ifp->ifindex,
-						       eigrp->vrf_id));
+				zlog_info("Neighbor %pI4 (%s) going down: Kvalue mismatch",
+					  &nbr->src,
+					  ifindex2ifname(nbr->ei->ifp->ifindex,
+							 eigrp->vrf_id));
 				eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
 			}
 		}
@@ -253,8 +251,8 @@ static void eigrp_peer_termination_decode(struct eigrp_neighbor *nbr,
 	uint32_t received_ip = param->neighbor_ip;
 
 	if (my_ip == received_ip) {
-		zlog_info("Neighbor %s (%s) is down: Peer Termination received",
-			  inet_ntoa(nbr->src),
+		zlog_info("Neighbor %pI4 (%s) is down: Peer Termination received",
+			  &nbr->src,
 			  ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 		/* set neighbor to DOWN */
 		nbr->state = EIGRP_NEIGHBOR_DOWN;
@@ -403,8 +401,8 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 	}
 
 	if (IS_DEBUG_EIGRP_PACKET(0, RECV))
-		zlog_debug("Hello Packet received from %s",
-			   inet_ntoa(nbr->src));
+		zlog_debug("Hello Packet received from %pI4",
+			   &nbr->src);
 }
 
 uint32_t FRR_MAJOR;
@@ -708,9 +706,9 @@ void eigrp_hello_send_ack(struct eigrp_neighbor *nbr)
 
 	if (ep) {
 		if (IS_DEBUG_EIGRP_PACKET(0, SEND))
-			zlog_debug("Queueing [Hello] Ack Seq [%u] nbr [%s]",
+			zlog_debug("Queueing [Hello] Ack Seq [%u] nbr [%pI4]",
 				   nbr->recv_sequence_number,
-				   inet_ntoa(nbr->src));
+				   &nbr->src);
 
 		/* Add packet to the top of the interface output queue*/
 		eigrp_fifo_push(nbr->ei->obuf, ep);

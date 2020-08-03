@@ -338,22 +338,18 @@ int ospf6_lsa_compare(struct ospf6_lsa *a, struct ospf6_lsa *b)
 
 char *ospf6_lsa_printbuf(struct ospf6_lsa *lsa, char *buf, int size)
 {
-	char id[16], adv_router[16];
-	inet_ntop(AF_INET, &lsa->header->id, id, sizeof(id));
-	inet_ntop(AF_INET, &lsa->header->adv_router, adv_router,
-		  sizeof(adv_router));
-	snprintf(buf, size, "[%s Id:%s Adv:%s]",
-		 ospf6_lstype_name(lsa->header->type), id, adv_router);
+	snprintfrr(buf, size, "[%s Id:%pI4 Adv:%pI4]",
+		   ospf6_lstype_name(lsa->header->type), &lsa->header->id,
+		   &lsa->header->adv_router);
 	return buf;
 }
 
 void ospf6_lsa_header_print_raw(struct ospf6_lsa_header *header)
 {
-	char id[16], adv_router[16];
-	inet_ntop(AF_INET, &header->id, id, sizeof(id));
-	inet_ntop(AF_INET, &header->adv_router, adv_router, sizeof(adv_router));
-	zlog_debug("    [%s Id:%s Adv:%s]", ospf6_lstype_name(header->type), id,
-		   adv_router);
+	zlog_debug("    [%s Id:%pI4 Adv:%pI4]",
+		   ospf6_lstype_name(header->type),
+		   &header->id,
+		   &header->adv_router);
 	zlog_debug("    Age: %4hu SeqNum: %#08lx Cksum: %04hx Len: %d",
 		   ntohs(header->age), (unsigned long)ntohl(header->seqnum),
 		   ntohs(header->checksum), ntohs(header->length));
@@ -442,19 +438,13 @@ void ospf6_lsa_show_dump(struct vty *vty, struct ospf6_lsa *lsa)
 
 void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa)
 {
-	char adv_router[64], id[64];
-
 	assert(lsa && lsa->header);
-
-	inet_ntop(AF_INET, &lsa->header->id, id, sizeof(id));
-	inet_ntop(AF_INET, &lsa->header->adv_router, adv_router,
-		  sizeof(adv_router));
 
 	vty_out(vty, "\n");
 	vty_out(vty, "Age: %4hu Type: %s\n", ospf6_lsa_age_current(lsa),
 		ospf6_lstype_name(lsa->header->type));
-	vty_out(vty, "Link State ID: %s\n", id);
-	vty_out(vty, "Advertising Router: %s\n", adv_router);
+	vty_out(vty, "Link State ID: %pI4\n", &lsa->header->id);
+	vty_out(vty, "Advertising Router: %pI4\n", &lsa->header->adv_router);
 	vty_out(vty, "LS Sequence Number: %#010lx\n",
 		(unsigned long)ntohl(lsa->header->seqnum));
 	vty_out(vty, "CheckSum: %#06hx Length: %hu\n",
@@ -470,16 +460,11 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa)
 
 void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 {
-	char adv_router[64], id[64];
 	const struct ospf6_lsa_handler *handler;
 	struct timeval now, res;
 	char duration[64];
 
 	assert(lsa && lsa->header);
-
-	inet_ntop(AF_INET, &lsa->header->id, id, sizeof(id));
-	inet_ntop(AF_INET, &lsa->header->adv_router, adv_router,
-		  sizeof(adv_router));
 
 	monotime(&now);
 	timersub(&now, &lsa->installed, &res);
@@ -487,8 +472,8 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 
 	vty_out(vty, "Age: %4hu Type: %s\n", ospf6_lsa_age_current(lsa),
 		ospf6_lstype_name(lsa->header->type));
-	vty_out(vty, "Link State ID: %s\n", id);
-	vty_out(vty, "Advertising Router: %s\n", adv_router);
+	vty_out(vty, "Link State ID: %pI4\n", &lsa->header->id);
+	vty_out(vty, "Advertising Router: %pI4\n", &lsa->header->adv_router);
 	vty_out(vty, "LS Sequence Number: %#010lx\n",
 		(unsigned long)ntohl(lsa->header->seqnum));
 	vty_out(vty, "CheckSum: %#06hx Length: %hu\n",

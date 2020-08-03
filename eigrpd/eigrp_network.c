@@ -159,10 +159,9 @@ int eigrp_if_ipmulticast(struct eigrp *top, struct prefix *p,
 
 	ret = setsockopt_ipv4_multicast_if(top->fd, p->u.prefix4, ifindex);
 	if (ret < 0)
-		zlog_warn(
-			"can't setsockopt IP_MULTICAST_IF (fd %d, addr %s, ifindex %u): %s",
-			top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			safe_strerror(errno));
+		zlog_warn("can't setsockopt IP_MULTICAST_IF (fd %d, addr %pI4, ifindex %u): %s",
+			  top->fd, &p->u.prefix4, ifindex,
+			  safe_strerror(errno));
 
 	return ret;
 }
@@ -177,13 +176,12 @@ int eigrp_if_add_allspfrouters(struct eigrp *top, struct prefix *p,
 		top->fd, IP_ADD_MEMBERSHIP, p->u.prefix4,
 		htonl(EIGRP_MULTICAST_ADDRESS), ifindex);
 	if (ret < 0)
-		zlog_warn(
-			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, ifindex %u, AllSPFRouters): %s; perhaps a kernel limit on # of multicast group memberships has been exceeded?",
-			top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			safe_strerror(errno));
+		zlog_warn("can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %pI4, ifindex %u, AllSPFRouters): %s; perhaps a kernel limit on # of multicast group memberships has been exceeded?",
+			  top->fd, &p->u.prefix4, ifindex,
+			  safe_strerror(errno));
 	else
-		zlog_debug("interface %s [%u] join EIGRP Multicast group.",
-			   inet_ntoa(p->u.prefix4), ifindex);
+		zlog_debug("interface %pI4 [%u] join EIGRP Multicast group.",
+			   &p->u.prefix4, ifindex);
 
 	return ret;
 }
@@ -197,13 +195,12 @@ int eigrp_if_drop_allspfrouters(struct eigrp *top, struct prefix *p,
 		top->fd, IP_DROP_MEMBERSHIP, p->u.prefix4,
 		htonl(EIGRP_MULTICAST_ADDRESS), ifindex);
 	if (ret < 0)
-		zlog_warn(
-			"can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, ifindex %u, AllSPFRouters): %s",
-			top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			safe_strerror(errno));
+		zlog_warn("can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %pI4, ifindex %u, AllSPFRouters): %s",
+			  top->fd, &p->u.prefix4, ifindex,
+			  safe_strerror(errno));
 	else
-		zlog_debug("interface %s [%u] leave EIGRP Multicast group.",
-			   inet_ntoa(p->u.prefix4), ifindex);
+		zlog_debug("interface %pI4 [%u] leave EIGRP Multicast group.",
+			   &p->u.prefix4, ifindex);
 
 	return ret;
 }

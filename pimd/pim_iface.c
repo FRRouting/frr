@@ -519,10 +519,8 @@ void pim_if_addr_add(struct connected *ifc)
 		return;
 
 	if (PIM_DEBUG_ZEBRA) {
-		char buf[BUFSIZ];
-		prefix2str(ifc->address, buf, BUFSIZ);
-		zlog_debug("%s: %s ifindex=%d connected IP address %s %s",
-			   __func__, ifp->name, ifp->ifindex, buf,
+		zlog_debug("%s: %s ifindex=%d connected IP address %pFX %s",
+			   __func__, ifp->name, ifp->ifindex, ifc->address,
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -716,10 +714,8 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 	zassert(ifp);
 
 	if (PIM_DEBUG_ZEBRA) {
-		char buf[BUFSIZ];
-		prefix2str(ifc->address, buf, BUFSIZ);
-		zlog_debug("%s: %s ifindex=%d disconnected IP address %s %s",
-			   __func__, ifp->name, ifp->ifindex, buf,
+		zlog_debug("%s: %s ifindex=%d disconnected IP address %pFX %s",
+			   __func__, ifp->name, ifp->ifindex, ifc->address,
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");

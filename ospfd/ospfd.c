@@ -100,8 +100,8 @@ void ospf_router_id_update(struct ospf *ospf)
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("Router-ID[OLD:%s]: Update",
-			   inet_ntoa(ospf->router_id));
+		zlog_debug("Router-ID[OLD:%pI4]: Update",
+			   &ospf->router_id);
 
 	router_id_old = ospf->router_id;
 
@@ -120,8 +120,8 @@ void ospf_router_id_update(struct ospf *ospf)
 		router_id = ospf->router_id_zebra;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("Router-ID[OLD:%s]: Update to %s",
-			   inet_ntoa(ospf->router_id), inet_ntoa(router_id));
+		zlog_debug("Router-ID[OLD:%pI4]: Update to %pI4",
+			   &ospf->router_id, &router_id);
 
 	if (!IPV4_ADDR_SAME(&router_id_old, &router_id)) {
 
@@ -159,8 +159,8 @@ void ospf_router_id_update(struct ospf *ospf)
 
 		ospf->router_id = router_id;
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("Router-ID[NEW:%s]: Update",
-				   inet_ntoa(ospf->router_id));
+			zlog_debug("Router-ID[NEW:%pI4]: Update",
+				   &ospf->router_id);
 
 		/* Flush (inline) all external LSAs which now match the new
 		   router-id,
@@ -1320,11 +1320,10 @@ void ospf_if_update(struct ospf *ospf, struct interface *ifp)
 		return;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %s",
-			__func__, ifp->name, ifp->vrf_id,
-			ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id,
-			inet_ntoa(ospf->router_id));
+		zlog_debug("%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %pI4",
+			   __func__, ifp->name, ifp->vrf_id,
+			   ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id,
+			   &ospf->router_id);
 
 	/* OSPF must be ready. */
 	if (!ospf_is_ready(ospf))
@@ -1361,16 +1360,16 @@ static void ospf_area_type_set(struct ospf_area *area, int type)
 
 	if (area->external_routing == type) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("Area[%s]: Types are the same, ignored.",
-				   inet_ntoa(area->area_id));
+			zlog_debug("Area[%pI4]: Types are the same, ignored.",
+				   &area->area_id);
 		return;
 	}
 
 	area->external_routing = type;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("Area[%s]: Configured as %s",
-			   inet_ntoa(area->area_id),
+		zlog_debug("Area[%pI4]: Configured as %s",
+			   &area->area_id,
 			   lookup_msg(ospf_area_type_msg, type, NULL));
 
 	switch (area->external_routing) {

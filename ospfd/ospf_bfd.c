@@ -76,9 +76,9 @@ static void ospf_bfd_reg_dereg_nbr(struct ospf_neighbor *nbr, int command)
 	bfd_info = (struct bfd_info *)params->bfd_info;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("%s nbr (%s) with BFD. OSPF vrf %s",
+		zlog_debug("%s nbr (%pI4) with BFD. OSPF vrf %s",
 			   bfd_get_command_dbg_str(command),
-			   inet_ntoa(nbr->src),
+			   &nbr->src,
 			   ospf_vrf_id_to_name(oi->ospf->vrf_id));
 
 	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
@@ -180,8 +180,8 @@ static int ospf_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 					continue;
 
 				if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-					zlog_debug("Replaying nbr (%s) to BFD",
-						   inet_ntoa(nbr->src));
+					zlog_debug("Replaying nbr (%pI4) to BFD",
+						   &nbr->src);
 
 				ospf_bfd_reg_dereg_nbr(nbr,
 						       ZEBRA_BFD_DEST_UPDATE);

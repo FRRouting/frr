@@ -105,13 +105,10 @@ static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL) ||
 	    IS_OSPF6_DEBUG_BROUTER) {
 		uint32_t brouter_id;
-		char brouter_name[16];
 
 		brouter_id = ADV_ROUTER_IN_PREFIX(&route->prefix);
-		inet_ntop(AF_INET, &brouter_id, brouter_name,
-			  sizeof(brouter_name));
-		zlog_debug("%s: brouter %s add with adv router %x nh count %u",
-			   __func__, brouter_name,
+		zlog_debug("%s: brouter %pI4 add with adv router %x nh count %u",
+			   __func__, &brouter_id,
 			   route->path.origin.adv_router,
 			   listcount(route->nh_list));
 	}
@@ -125,13 +122,10 @@ static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL) ||
 	    IS_OSPF6_DEBUG_BROUTER) {
 		uint32_t brouter_id;
-		char brouter_name[16];
 
 		brouter_id = ADV_ROUTER_IN_PREFIX(&route->prefix);
-		inet_ntop(AF_INET, &brouter_id, brouter_name,
-			  sizeof(brouter_name));
-		zlog_debug("%s: brouter %p %s del with adv router %x nh %u",
-			   __func__, (void *)route, brouter_name,
+		zlog_debug("%s: brouter %p %pI4 del with adv router %x nh %u",
+			   __func__, (void *)route, &brouter_id,
 			   route->path.origin.adv_router,
 			   listcount(route->nh_list));
 	}
@@ -847,14 +841,13 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o)
 {
 	struct listnode *n;
 	struct ospf6_area *oa;
-	char router_id[16], duration[32];
+	char duration[32];
 	struct timeval now, running, result;
 	char buf[32], rbuf[32];
 
 	/* process id, router id */
-	inet_ntop(AF_INET, &o->router_id, router_id, sizeof(router_id));
-	vty_out(vty, " OSPFv3 Routing Process (0) with Router-ID %s\n",
-		router_id);
+	vty_out(vty, " OSPFv3 Routing Process (0) with Router-ID %pI4\n",
+		&o->router_id);
 
 	/* running time */
 	monotime(&now);
@@ -1038,11 +1031,9 @@ static int ospf6_distance_config_write(struct vty *vty)
 
 	for (rn = route_top(ospf6->distance_table); rn; rn = route_next(rn))
 		if ((odistance = rn->info) != NULL) {
-			char buf[PREFIX_STRLEN];
-
-			vty_out(vty, " distance %u %s %s\n",
+			vty_out(vty, " distance %u %pFX %s\n",
 				odistance->distance,
-				prefix2str(&rn->p, buf, sizeof(buf)),
+				&rn->p,
 				odistance->access_list ? odistance->access_list
 						       : "");
 		}

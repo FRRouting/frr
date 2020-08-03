@@ -220,8 +220,8 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 		if (params->family != AF_UNSPEC && params->family != adj->af)
 			break;
 
-		vty_out(vty, "%-4s %-15s ", af_name(adj->af),
-		    inet_ntoa(adj->id));
+		vty_out(vty, "%-4s %-15pI4 ", af_name(adj->af),
+			&adj->id);
 		switch(adj->type) {
 		case HELLO_LINK:
 			vty_out(vty, "%-8s %-15s ", "Link", adj->ifname);
@@ -251,8 +251,8 @@ show_discovery_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 {
 	size_t	 buflen = strlen(buffer);
 
-	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "      LSR Id: %s:0\n", inet_ntoa(adj->id));
+	snprintfrr(buffer + buflen, LDPBUFSIZ - buflen,
+	    "      LSR Id: %pI4:0\n", &adj->id);
 	buflen = strlen(buffer);
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
 	    "          Source address: %s\n",
@@ -334,7 +334,7 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 	case IMSG_CTL_END:
 		rtr_id.s_addr = ldp_rtr_id_get(ldpd_conf);
 		vty_out (vty, "Local:\n");
-		vty_out (vty, "  LSR Id: %s:0\n",inet_ntoa(rtr_id));
+		vty_out (vty, "  LSR Id: %pI4:0\n",&rtr_id);
 		if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
 			vty_out (vty, "  Transport Address (IPv4): %s\n",
 			    log_addr(AF_INET, &ldpd_conf->ipv4.trans_addr));
@@ -527,9 +527,9 @@ show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 
 		addr = log_addr(nbr->af, &nbr->raddr);
 
-		vty_out(vty, "%-4s %-15s %-11s %-15s",
-		    af_name(nbr->af), inet_ntoa(nbr->id),
-		    nbr_state_name(nbr->nbr_state), addr);
+		vty_out(vty, "%-4s %-15pI4 %-11s %-15s",
+			af_name(nbr->af), &nbr->id,
+			nbr_state_name(nbr->nbr_state), addr);
 		if (strlen(addr) > 15)
 			vty_out(vty, "\n%48s", " ");
 		vty_out (vty, " %8s\n", log_time(nbr->uptime));
@@ -577,8 +577,8 @@ show_nbr_detail_msg(struct vty *vty, struct imsg *imsg,
 
 		v4adjs_buffer[0] = '\0';
 		v6adjs_buffer[0] = '\0';
-		vty_out (vty, "Peer LDP Identifier: %s:0\n",
-			  inet_ntoa(nbr->id));
+		vty_out (vty, "Peer LDP Identifier: %pI4:0\n",
+			  &nbr->id);
 		vty_out (vty, "  TCP connection: %s:%u - %s:%u\n",
 		    log_addr(nbr->af, &nbr->laddr), ntohs(nbr->lport),
 		    log_addr(nbr->af, &nbr->raddr),ntohs(nbr->rport));
@@ -913,8 +913,8 @@ show_nbr_capabilities_msg(struct vty *vty, struct imsg *imsg, struct show_params
 		if (nbr->nbr_state != NBR_STA_OPER)
 			break;
 
-		vty_out (vty, "Peer LDP Identifier: %s:0\n",
-			  inet_ntoa(nbr->id));
+		vty_out (vty, "Peer LDP Identifier: %pI4:0\n",
+			  &nbr->id);
 		show_nbr_capabilities(vty, nbr);
 		vty_out (vty, "\n");
 		break;
@@ -1043,9 +1043,10 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 		vty_out(vty, "%-4s %-20s", af_name(rt->af), dstnet);
 		if (strlen(dstnet) > 20)
 			vty_out(vty, "\n%25s", " ");
-		vty_out (vty, " %-15s %-11s %-13s %6s\n", inet_ntoa(rt->nexthop),
-		    log_label(rt->local_label), log_label(rt->remote_label),
-		    rt->in_use ? "yes" : "no");
+		vty_out (vty, " %-15pI4 %-11s %-13s %6s\n", &rt->nexthop,
+			 log_label(rt->local_label),
+			 log_label(rt->remote_label),
+			 rt->in_use ? "yes" : "no");
 		break;
 	case IMSG_CTL_END:
 		vty_out (vty, "\n");
@@ -1083,15 +1084,15 @@ show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 
 		upstream = 1;
 		buflen = strlen(sent_buffer);
-		snprintf(sent_buffer + buflen, LDPBUFSIZ - buflen,
-		    "%12s%s:0\n", "", inet_ntoa(rt->nexthop));
+		snprintfrr(sent_buffer + buflen, LDPBUFSIZ - buflen,
+		    "%12s%pI4:0\n", "", &rt->nexthop);
 		break;
 	case IMSG_CTL_SHOW_LIB_RCVD:
 		rt = imsg->data;
 		downstream = 1;
 		buflen = strlen(rcvd_buffer);
-		snprintf(rcvd_buffer + buflen, LDPBUFSIZ - buflen,
-		    "%12s%s:0, label %s%s\n", "", inet_ntoa(rt->nexthop),
+		snprintfrr(rcvd_buffer + buflen, LDPBUFSIZ - buflen,
+		    "%12s%pI4:0, label %s%s\n", "", &rt->nexthop,
 		    log_label(rt->remote_label),
 		    rt->in_use ? " (in use)" : "");
 		break;
@@ -1244,8 +1245,8 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 	case IMSG_CTL_SHOW_L2VPN_BINDING:
 		pw = imsg->data;
 
-		vty_out (vty, "  Destination Address: %s, VC ID: %u\n",
-		    inet_ntoa(pw->lsr_id), pw->pwid);
+		vty_out (vty, "  Destination Address: %pI4, VC ID: %u\n",
+			 &pw->lsr_id, pw->pwid);
 
 		/* local binding */
 		if (pw->local_label != NO_LABEL) {
@@ -1330,8 +1331,8 @@ show_l2vpn_binding_msg_json(struct imsg *imsg, struct show_params *params,
 			json_object_string_add(json_pw, "remoteLabel",
 			    "unassigned");
 
-		snprintf(key_name, sizeof(key_name), "%s: %u",
-			 inet_ntoa(pw->lsr_id), pw->pwid);
+		snprintfrr(key_name, sizeof(key_name), "%pI4: %u",
+			   &pw->lsr_id, pw->pwid);
 		json_object_object_add(json, key_name, json_pw);
 		break;
 	case IMSG_CTL_END:
@@ -1352,9 +1353,9 @@ show_l2vpn_pw_msg(struct vty *vty, struct imsg *imsg, struct show_params *params
 	case IMSG_CTL_SHOW_L2VPN_PW:
 		pw = imsg->data;
 
-		vty_out (vty, "%-9s %-15s %-10u %-16s %-10s\n", pw->ifname,
-		    inet_ntoa(pw->lsr_id), pw->pwid, pw->l2vpn_name,
-		    (pw->status == PW_FORWARDING ? "UP" : "DOWN"));
+		vty_out (vty, "%-9s %-15pI4 %-10u %-16s %-10s\n", pw->ifname,
+			 &pw->lsr_id, pw->pwid, pw->l2vpn_name,
+			 (pw->status == PW_FORWARDING ? "UP" : "DOWN"));
 		break;
 	case IMSG_CTL_END:
 		vty_out (vty, "\n");

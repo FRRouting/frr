@@ -336,10 +336,8 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 		return -1;
 	} else if (route && route->path.cost == v->cost) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
-			prefix2str(&route->prefix, pbuf, sizeof(pbuf));
-			zlog_debug(
-				"  another path found to route %s lsa %s, merge",
-				pbuf, v->lsa->name);
+			zlog_debug("  another path found to route %pFX lsa %s, merge",
+				   &route->prefix, v->lsa->name);
 		}
 		ospf6_spf_merge_nexthops_to_route(route, v);
 

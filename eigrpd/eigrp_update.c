@@ -141,10 +141,8 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 
 	/* iterate over all prefixes which weren't advertised by neighbor */
 	for (ALL_LIST_ELEMENTS_RO(nbr_prefixes, node1, prefix)) {
-		char buffer[PREFIX_STRLEN];
-		zlog_debug(
-			"GR receive: Neighbor not advertised %s",
-			prefix2str(prefix->destination, buffer, PREFIX_STRLEN));
+		zlog_debug("GR receive: Neighbor not advertised %pFX",
+			   prefix->destination);
 
 		fsm_msg.metrics = prefix->reported_metric;
 		/* set delay to MAX */
@@ -208,19 +206,18 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 	nbr->recv_sequence_number = ntohl(eigrph->sequence);
 	if (IS_DEBUG_EIGRP_PACKET(0, RECV))
-		zlog_debug(
-			"Processing Update size[%u] int(%s) nbr(%s) seq [%u] flags [%0x]",
-			size,
-			ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id),
-			inet_ntoa(nbr->src), nbr->recv_sequence_number, flags);
+		zlog_debug("Processing Update size[%u] int(%s) nbr(%pI4) seq [%u] flags [%0x]",
+		           size,
+		           ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id),
+		           &nbr->src, nbr->recv_sequence_number, flags);
 
 
 	if ((flags == (EIGRP_INIT_FLAG + EIGRP_RS_FLAG + EIGRP_EOT_FLAG))
 	    && (!same)) {
 		/* Graceful restart Update received with all routes */
 
-		zlog_info("Neighbor %s (%s) is resync: peer graceful-restart",
-			  inet_ntoa(nbr->src),
+		zlog_info("Neighbor %pI4 (%s) is resync: peer graceful-restart",
+			  &nbr->src,
 			  ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 
 		/* get all prefixes from neighbor from topology table */
@@ -231,8 +228,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 		/* Graceful restart Update received, routes also in next packet
 		 */
 
-		zlog_info("Neighbor %s (%s) is resync: peer graceful-restart",
-			  inet_ntoa(nbr->src),
+		zlog_info("Neighbor %pI4 (%s) is resync: peer graceful-restart",
+			  &nbr->src,
 			  ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 
 		/* get all prefixes from neighbor from topology table */
@@ -279,13 +276,13 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 			eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
 			eigrp_topology_neighbor_down(nbr->ei->eigrp, nbr);
 			nbr->recv_sequence_number = ntohl(eigrph->sequence);
-			zlog_info("Neighbor %s (%s) is down: peer restarted",
-				  inet_ntoa(nbr->src),
+			zlog_info("Neighbor %pI4 (%s) is down: peer restarted",
+				  &nbr->src,
 				  ifindex2ifname(nbr->ei->ifp->ifindex,
 						 eigrp->vrf_id));
 			eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_PENDING);
-			zlog_info("Neighbor %s (%s) is pending: new adjacency",
-				  inet_ntoa(nbr->src),
+			zlog_info("Neighbor %pI4 (%s) is pending: new adjacency",
+				  &nbr->src,
 				  ifindex2ifname(nbr->ei->ifp->ifindex,
 						 eigrp->vrf_id));
 			eigrp_update_send_init(nbr);
@@ -450,8 +447,8 @@ void eigrp_update_send_init(struct eigrp_neighbor *nbr)
 	nbr->init_sequence_number = nbr->ei->eigrp->sequence_number;
 	ep->sequence_number = nbr->ei->eigrp->sequence_number;
 	if (IS_DEBUG_EIGRP_PACKET(0, RECV))
-		zlog_debug("Enqueuing Update Init Len [%u] Seq [%u] Dest [%s]",
-			   ep->length, ep->sequence_number, inet_ntoa(ep->dst));
+		zlog_debug("Enqueuing Update Init Len [%u] Seq [%u] Dest [%pI4]",
+			   ep->length, ep->sequence_number, &ep->dst);
 
 	/*Put packet to retransmission queue*/
 	eigrp_fifo_push(nbr->retrans_queue, ep);
@@ -480,8 +477,8 @@ static void eigrp_update_place_on_nbr_queue(struct eigrp_neighbor *nbr,
 	ep->sequence_number = seq_no;
 
 	if (IS_DEBUG_EIGRP_PACKET(0, RECV))
-		zlog_debug("Enqueuing Update Init Len [%u] Seq [%u] Dest [%s]",
-			   ep->length, ep->sequence_number, inet_ntoa(ep->dst));
+		zlog_debug("Enqueuing Update Init Len [%u] Seq [%u] Dest [%pI4]",
+			   ep->length, ep->sequence_number, &ep->dst);
 
 	/*Put packet to retransmission queue*/
 	eigrp_fifo_push(nbr->retrans_queue, ep);
@@ -962,21 +959,20 @@ void eigrp_update_send_GR(struct eigrp_neighbor *nbr, enum GR_type gr_type,
 
 	if (gr_type == EIGRP_GR_FILTER) {
 		/* function was called after applying filtration */
-		zlog_info(
-			"Neighbor %s (%s) is resync: route configuration changed",
-			inet_ntoa(nbr->src),
-			ifindex2ifname(ei->ifp->ifindex, eigrp->vrf_id));
+		zlog_info("Neighbor %pI4 (%s) is resync: route configuration changed",
+			  &nbr->src,
+			  ifindex2ifname(ei->ifp->ifindex, eigrp->vrf_id));
 	} else if (gr_type == EIGRP_GR_MANUAL) {
 		/* Graceful restart was called manually */
-		zlog_info("Neighbor %s (%s) is resync: manually cleared",
-			  inet_ntoa(nbr->src),
+		zlog_info("Neighbor %pI4 (%s) is resync: manually cleared",
+			  &nbr->src,
 			  ifindex2ifname(ei->ifp->ifindex, eigrp->vrf_id));
 
 		if (vty != NULL) {
 			vty_time_print(vty, 0);
 			vty_out(vty,
-				"Neighbor %s (%s) is resync: manually cleared\n",
-				inet_ntoa(nbr->src),
+				"Neighbor %pI4 (%s) is resync: manually cleared\n",
+				&nbr->src,
 				ifindex2ifname(ei->ifp->ifindex,
 					       eigrp->vrf_id));
 		}

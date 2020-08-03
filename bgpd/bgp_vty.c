@@ -3473,7 +3473,6 @@ void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 	struct listnode *node, *nnode, *rnode, *nrnode;
 	struct prefix *range;
 	afi_t afi;
-	char buf[PREFIX2STR_BUFFER];
 
 	if (bgp->dynamic_neighbors_limit != BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT)
 		vty_out(vty, " bgp listen limit %d\n",
@@ -3483,10 +3482,9 @@ void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 			for (ALL_LIST_ELEMENTS(group->listen_range[afi], rnode,
 					       nrnode, range)) {
-				prefix2str(range, buf, sizeof(buf));
 				vty_out(vty,
-					" bgp listen range %s peer-group %s\n",
-					buf, group->name);
+					" bgp listen range %pFX peer-group %s\n",
+					range, group->name);
 			}
 		}
 	}
@@ -8551,7 +8549,7 @@ static void show_tip_entry(struct hash_bucket *bucket, void *args)
 	struct vty *vty = (struct vty *)args;
 	struct tip_addr *tip = (struct tip_addr *)bucket->data;
 
-	vty_out(vty, "addr: %s, count: %d\n", inet_ntoa(tip->addr),
+	vty_out(vty, "addr: %pI4, count: %d\n", &tip->addr,
 		tip->refcnt);
 }
 
@@ -11002,11 +11000,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 		/* BGP Version. */
 		vty_out(vty, "  BGP version 4");
-		vty_out(vty, ", remote router ID %s",
-			inet_ntop(AF_INET, &p->remote_id, buf1, sizeof(buf1)));
-		vty_out(vty, ", local router ID %s\n",
-			inet_ntop(AF_INET, &bgp->router_id, buf1,
-					sizeof(buf1)));
+		vty_out(vty, ", remote router ID %pI4",
+			&p->remote_id);
+		vty_out(vty, ", local router ID %pI4\n",
+			&bgp->router_id);
 
 		/* Confederation */
 		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)
@@ -12304,15 +12301,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						       "bgpConnection",
 						       "nonSharedNetwork");
 		} else {
-			vty_out(vty, "Nexthop: %s\n",
-				inet_ntop(AF_INET, &p->nexthop.v4, buf1,
-					  sizeof(buf1)));
-			vty_out(vty, "Nexthop global: %s\n",
-				inet_ntop(AF_INET6, &p->nexthop.v6_global, buf1,
-					  sizeof(buf1)));
-			vty_out(vty, "Nexthop local: %s\n",
-				inet_ntop(AF_INET6, &p->nexthop.v6_local, buf1,
-					  sizeof(buf1)));
+			vty_out(vty, "Nexthop: %pI4\n",
+				&p->nexthop.v4);
+			vty_out(vty, "Nexthop global: %pI6\n",
+				&p->nexthop.v6_global);
+			vty_out(vty, "Nexthop local: %pI6\n",
+				&p->nexthop.v6_local);
 			vty_out(vty, "BGP connection: %s\n",
 				p->shared_network ? "shared network"
 						  : "non shared network");
@@ -13506,7 +13500,6 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 	struct prefix *range;
 	struct peer *conf;
 	struct peer *peer;
-	char buf[PREFIX2STR_BUFFER];
 	afi_t afi;
 	safi_t safi;
 	const char *peer_status;
@@ -13561,8 +13554,7 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 
 			for (ALL_LIST_ELEMENTS(group->listen_range[afi], node,
 					       nnode, range)) {
-				prefix2str(range, buf, sizeof(buf));
-				vty_out(vty, "    %s\n", buf);
+				vty_out(vty, "    %pFX\n", range);
 			}
 		}
 	}

@@ -116,17 +116,12 @@ DEFPY(lsdb_remove, lsdb_remove_cmd,
 
 static void lsa_show_oneline(struct vty *vty, struct ospf6_lsa *lsa)
 {
-	char adv_router[64], id[64];
-
 	if (!lsa) {
 		vty_out(vty, "lsa = NULL\n");
 		return;
 	}
-	inet_ntop(AF_INET, &lsa->header->id, id, sizeof(id));
-	inet_ntop(AF_INET, &lsa->header->adv_router, adv_router,
-		  sizeof(adv_router));
-	vty_out(vty, "type %u adv %s id %s\n", ntohs(lsa->header->type),
-		adv_router, id);
+	vty_out(vty, "type %u adv %pI4 id %pI4\n", ntohs(lsa->header->type),
+		&lsa->header->adv_router, &lsa->header->id);
 }
 
 DEFPY(lsdb_walk, lsdb_walk_cmd,

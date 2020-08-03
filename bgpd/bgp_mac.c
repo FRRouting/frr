@@ -405,10 +405,9 @@ static void bgp_mac_show_mac_entry(struct hash_bucket *bucket, void *arg)
 	struct bgp_self_mac *bsm = bucket->data;
 	struct listnode *node;
 	char *name;
-	char buf_mac[ETHER_ADDR_STRLEN];
 
-	vty_out(vty, "Mac Address: %s ",
-		prefix_mac2str(&bsm->macaddr, buf_mac, sizeof(buf_mac)));
+	vty_out(vty, "Mac Address: %pEA ",
+		&bsm->macaddr);
 
 	for (ALL_LIST_ELEMENTS_RO(bsm->ifp_list, node, name))
 		vty_out(vty, "%s ", name);

@@ -430,8 +430,6 @@ static void if_bfd_session_update(struct interface *ifp, struct prefix *dp,
 				  vrf_id_t vrf_id)
 {
 	if (IS_ZEBRA_DEBUG_EVENT) {
-		char buf[2][INET6_ADDRSTRLEN];
-
 		if (ifp) {
 			zlog_debug("MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %pFX on %s %s event",
 				   dp, ifp->name,

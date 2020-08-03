@@ -416,24 +416,16 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 /* Interface's address add/delete functions. */
 static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 {
-	char addrbuf[PREFIX_STRLEN];
-
-	prefix2str(dplane_ctx_get_intf_addr(ctx), addrbuf, sizeof(addrbuf));
-
-	flog_warn(EC_LIB_DEVELOPMENT, "Can't set %s on interface %s",
-		  addrbuf, dplane_ctx_get_ifname(ctx));
+	flog_warn(EC_LIB_DEVELOPMENT, "Can't set %pFX on interface %s",
+		  dplane_ctx_get_intf_addr(ctx), dplane_ctx_get_ifname(ctx));
 
 	return 0;
 }
 
 static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 {
-	char addrbuf[PREFIX_STRLEN];
-
-	prefix2str(dplane_ctx_get_intf_addr(ctx), addrbuf, sizeof(addrbuf));
-
-	flog_warn(EC_LIB_DEVELOPMENT, "Can't delete %s on interface %s",
-		  addrbuf, dplane_ctx_get_ifname(ctx));
+	flog_warn(EC_LIB_DEVELOPMENT, "Can't delete %pFX on interface %s",
+		  dplane_ctx_get_intf_addr(ctx), dplane_ctx_get_ifname(ctx));
 
 	return 0;
 }

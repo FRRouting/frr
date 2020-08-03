@@ -1579,7 +1579,7 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty,
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		vty_out(vty, "  via %s", inet_ntoa(nexthop->gate.ipv4));
+		vty_out(vty, "  via %pI4", &nexthop->gate.ipv4);
 		if (nexthop->ifindex)
 			vty_out(vty, " dev %s",
 				ifindex2ifname(nexthop->ifindex,
@@ -1587,9 +1587,8 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty,
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		vty_out(vty, "  via %s",
-			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
-				  sizeof(buf)));
+		vty_out(vty, "  via %pI6",
+			&nexthop->gate.ipv6);
 		if (nexthop->ifindex)
 			vty_out(vty, " dev %s",
 				ifindex2ifname(nexthop->ifindex,
@@ -2553,10 +2552,9 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 
 	fec = fec_find(table, p);
 	if (!fec) {
-		prefix2str(p, buf, BUFSIZ);
 		flog_err(EC_ZEBRA_FEC_RM_FAILED,
-			 "Failed to find FEC %s upon unregister, client %s",
-			 buf, zebra_route_string(client->proto));
+			 "Failed to find FEC %pFX upon unregister, client %s",
+			 p, zebra_route_string(client->proto));
 		return -1;
 	}
 
@@ -2721,9 +2719,8 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 		fec = fec_add(table, p, in_label, FEC_FLAG_CONFIGURED,
 			      MPLS_INVALID_LABEL_INDEX);
 		if (!fec) {
-			prefix2str(p, buf, BUFSIZ);
 			flog_err(EC_ZEBRA_FEC_ADD_FAILED,
-				 "Failed to add FEC %s upon config", buf);
+				 "Failed to add FEC %pFX upon config", p);
 			return -1;
 		}
 
@@ -2761,7 +2758,6 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 	struct route_table *table;
 	zebra_fec_t *fec;
 	mpls_label_t old_label;
-	char buf[BUFSIZ];
 
 	table = zvrf->fec_table[family2afi(PREFIX_FAMILY(p))];
 	if (!table)
@@ -2769,15 +2765,13 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 
 	fec = fec_find(table, p);
 	if (!fec) {
-		prefix2str(p, buf, BUFSIZ);
 		flog_err(EC_ZEBRA_FEC_RM_FAILED,
-			 "Failed to find FEC %s upon delete", buf);
+			 "Failed to find FEC %pFX upon delete", p);
 		return -1;
 	}
 
 	if (IS_ZEBRA_DEBUG_MPLS) {
-		prefix2str(p, buf, BUFSIZ);
-		zlog_debug("Delete fec %s label %u label index %u", buf,
+		zlog_debug("Delete fec %pFX label %u label index %u", p,
 			   fec->label, fec->label_index);
 	}
 

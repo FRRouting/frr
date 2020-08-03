@@ -73,7 +73,6 @@ void ospf6_bfd_reg_dereg_nbr(struct ospf6_neighbor *on, int command)
 	struct ospf6_interface *oi = on->ospf6_if;
 	struct interface *ifp = oi->interface;
 	struct bfd_info *bfd_info;
-	char src[64];
 	int cbit;
 
 	if (!oi->bfd_info || !on->bfd_info)
@@ -81,9 +80,9 @@ void ospf6_bfd_reg_dereg_nbr(struct ospf6_neighbor *on, int command)
 	bfd_info = (struct bfd_info *)oi->bfd_info;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(SEND)) {
-		inet_ntop(AF_INET6, &on->linklocal_addr, src, sizeof(src));
-		zlog_debug("%s nbr (%s) with BFD",
-			   bfd_get_command_dbg_str(command), src);
+		zlog_debug("%s nbr (%pI6) with BFD",
+			   bfd_get_command_dbg_str(command),
+			   &on->linklocal_addr);
 	}
 
 	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);

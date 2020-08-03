@@ -287,14 +287,14 @@ const char *srcdest2str(const struct prefix *dst_p,
 			const struct prefix_ipv6 *src_p,
 			char *str, int size)
 {
-	char dst_buf[PREFIX_STRLEN], src_buf[PREFIX_STRLEN];
+	char src_buf[PREFIX_STRLEN];
 
-	snprintf(str, size, "%s%s%s",
-		 prefix2str(dst_p, dst_buf, sizeof(dst_buf)),
-		 (src_p && src_p->prefixlen) ? " from " : "",
-		 (src_p && src_p->prefixlen)
-			 ? prefix2str(src_p, src_buf, sizeof(src_buf))
-			 : "");
+	snprintfrr(str, size, "%pFX%s%s",
+		   dst_p,
+		   (src_p && src_p->prefixlen) ? " from " : "",
+		   (src_p && src_p->prefixlen)
+		   ? prefix2str(src_p, src_buf, sizeof(src_buf))
+		   : "");
 	return str;
 }
 

@@ -246,9 +246,9 @@ static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
 			if (adj->subgroup == subgrp) {
 				if (header1) {
 					vty_out(vty,
-						"BGP table version is %" PRIu64", local router ID is %s\n",
+						"BGP table version is %" PRIu64", local router ID is %pI4\n",
 						table->version,
-						inet_ntoa(bgp->router_id));
+						&bgp->router_id);
 					vty_out(vty, BGP_SHOW_SCODE_HEADER);
 					vty_out(vty, BGP_SHOW_OCODE_HEADER);
 					header1 = 0;

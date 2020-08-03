@@ -463,8 +463,8 @@ const char *nexthop2str(const struct nexthop *nexthop, char *str, int size)
 		break;
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		snprintf(str, size, "%s if %u", inet_ntoa(nexthop->gate.ipv4),
-			 nexthop->ifindex);
+		snprintfrr(str, size, "%pI4 if %u", &nexthop->gate.ipv4,
+			   nexthop->ifindex);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:

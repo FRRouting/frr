@@ -1637,8 +1637,8 @@ void ospf_sr_config_write_router(struct vty *vty)
 			for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node,
 						  srp)) {
 				vty_out(vty,
-					" segment-routing prefix %s/%u index %u%s\n",
-					inet_ntoa(srp->prefv4.prefix),
+					" segment-routing prefix %pI4/%u index %u%s\n",
+					&srp->prefv4.prefix,
 					srp->prefv4.prefixlen, srp->sid,
 					CHECK_FLAG(srp->flags,
 						   EXT_SUBTLV_PREFIX_SID_NPFLG)
@@ -2372,8 +2372,8 @@ DEFUN (show_ip_opsf_srdb,
 		json_object_object_add(json, "srNodes", json_node_array);
 	} else {
 		vty_out(vty,
-			"\n\t\tOSPF Segment Routing database for ID %s\n\n",
-			inet_ntoa(OspfSR.self->adv_router));
+			"\n\t\tOSPF Segment Routing database for ID %pI4\n\n",
+			&OspfSR.self->adv_router);
 	}
 
 	if (argv_find(argv, argc, "self-originate", &idx)) {

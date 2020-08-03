@@ -731,35 +731,30 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 				     struct bgp_nexthop_cache *bnc)
 {
-	char buf[PREFIX2STR_BUFFER];
 	struct nexthop *nexthop;
 
 	for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next) {
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV6:
-			vty_out(vty, "  gate %s\n",
-				inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
-					  sizeof(buf)));
+			vty_out(vty, "  gate %pI6\n",
+				&nexthop->gate.ipv6);
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			vty_out(vty, "  gate %s, if %s\n",
-				inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
-					  sizeof(buf)),
+			vty_out(vty, "  gate %pI6, if %s\n",
+				&nexthop->gate.ipv6,
 				ifindex2ifname(nexthop->ifindex, bgp->vrf_id));
 			break;
 		case NEXTHOP_TYPE_IPV4:
-			vty_out(vty, "  gate %s\n",
-				inet_ntop(AF_INET, &nexthop->gate.ipv4, buf,
-					  sizeof(buf)));
+			vty_out(vty, "  gate %pI4\n",
+				&nexthop->gate.ipv4);
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
 			vty_out(vty, "  if %s\n",
 				ifindex2ifname(nexthop->ifindex, bgp->vrf_id));
 			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			vty_out(vty, "  gate %s, if %s\n",
-				inet_ntop(AF_INET, &nexthop->gate.ipv4, buf,
-					  sizeof(buf)),
+			vty_out(vty, "  gate %pI4, if %s\n",
+				&nexthop->gate.ipv4,
 				ifindex2ifname(nexthop->ifindex, bgp->vrf_id));
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:

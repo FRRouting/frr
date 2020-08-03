@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 {
 	size_t i, j, k, l;
 	struct in6_addr i6;
-	char buf1[64], buf2[64], ntopbuf[64];
+	char buf1[64], buf2[64];
 	struct prng *prng;
 	struct prefix p = {};
 
@@ -39,10 +39,9 @@ int main(int argc, char **argv)
 	for (i = 0; i < 1000; i++) {
 		p.u.prefix = prng_rand(prng);
 		p.prefixlen = prng_rand(prng) >> 26;
-		snprintf(buf1, sizeof(buf1), "%s/%d",
-			 inet_ntop(AF_INET, &p.u.prefix4, ntopbuf,
-				   sizeof(ntopbuf)),
-			 p.prefixlen);
+		snprintfrr(buf1, sizeof(buf1), "%pI4/%d",
+			   &p.u.prefix4,
+			   p.prefixlen);
 		prefix2str(&p, buf2, sizeof(buf2));
 		assert(!strcmp(buf1, buf2));
 		fprintf(stdout, "%s\n", buf1);
@@ -67,10 +66,9 @@ int main(int argc, char **argv)
 
 		p.prefixlen = prng_rand(prng) >> 24;
 		memcpy(&p.u.prefix, &i6, sizeof(i6));
-		snprintf(buf1, sizeof(buf1), "%s/%d",
-			 inet_ntop(AF_INET6, &p.u.prefix6, ntopbuf,
-				   sizeof(ntopbuf)),
-			 p.prefixlen);
+		snprintfrr(buf1, sizeof(buf1), "%pI6/%d",
+			   &p.u.prefix6,
+			   p.prefixlen);
 		prefix2str(&p, buf2, sizeof(buf2));
 		assert(!strcmp(buf1, buf2));
 		fprintf(stdout, "%s\n", buf1);

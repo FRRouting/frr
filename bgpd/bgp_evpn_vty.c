@@ -102,8 +102,8 @@ static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt,
 		eip.val = (*pnt++ << 8);
 		eip.val |= (*pnt++);
 
-		snprintf(rt_buf, sizeof(rt_buf), "%s:%u", inet_ntoa(eip.ip),
-			 eip.val);
+		snprintfrr(rt_buf, sizeof(rt_buf), "%pI4:%u", &eip.ip,
+			   eip.val);
 
 		if (json)
 			json_object_string_add(json_rt, "rt", rt_buf);
@@ -212,8 +212,8 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 		eip.val = (*pnt++ << 8);
 		eip.val |= (*pnt++);
 
-		snprintf(rt_buf, sizeof(rt_buf), "%s:%u", inet_ntoa(eip.ip),
-			 eip.val);
+		snprintfrr(rt_buf, sizeof(rt_buf), "%pI4:%u", &eip.ip,
+			   eip.val);
 
 		if (json)
 			json_object_string_add(json_rt, "rt", rt_buf);
@@ -313,8 +313,8 @@ static void bgp_evpn_show_route_rd_header(struct vty *vty,
 
 	case RD_TYPE_IP:
 		decode_rd_ip(pnt + 2, &rd_ip);
-		snprintf(rd_str, len, "%s:%d", inet_ntoa(rd_ip.ip),
-			 rd_ip.val);
+		snprintfrr(rd_str, len, "%pI4:%d", &rd_ip.ip,
+			   rd_ip.val);
 		if (json)
 			json_object_string_add(json, "rd", rd_str);
 		else
@@ -342,8 +342,9 @@ static void bgp_evpn_show_route_header(struct vty *vty, struct bgp *bgp,
 	if (json)
 		return;
 
-	vty_out(vty, "BGP table version is %" PRIu64 ", local router ID is %s\n",
-		tbl_ver, inet_ntoa(bgp->router_id));
+	vty_out(vty,
+		"BGP table version is %" PRIu64 ", local router ID is %pI4\n",
+		tbl_ver, &bgp->router_id);
 	vty_out(vty,
 		"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
 	vty_out(vty, "Origin codes: i - IGP, e - EGP, ? - incomplete\n");
@@ -406,21 +407,18 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 			vrf_id_to_name(bgp_vrf->vrf_id));
 		vty_out(vty, "  RD: %s\n",
 			prefix_rd2str(&bgp_vrf->vrf_prd, buf1, RD_ADDRSTRLEN));
-		vty_out(vty, "  Originator IP: %s\n",
-			inet_ntoa(bgp_vrf->originator_ip));
+		vty_out(vty, "  Originator IP: %pI4\n",
+			&bgp_vrf->originator_ip);
 		vty_out(vty, "  Advertise-gw-macip : %s\n", "n/a");
 		vty_out(vty, "  Advertise-svi-macip : %s\n", "n/a");
 		vty_out(vty, "  Advertise-pip: %s\n",
 			bgp_vrf->evpn_info->advertise_pip ? "Yes" : "No");
-		vty_out(vty, "  System-IP: %s\n",
-			inet_ntop(AF_INET, &bgp_vrf->evpn_info->pip_ip,
-				  buf1, INET_ADDRSTRLEN));
-		vty_out(vty, "  System-MAC: %s\n",
-				prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac,
-					       buf2, sizeof(buf2)));
-		vty_out(vty, "  Router-MAC: %s\n",
-				prefix_mac2str(&bgp_vrf->rmac,
-					       buf2, sizeof(buf2)));
+		vty_out(vty, "  System-IP: %pI4\n",
+			&bgp_vrf->evpn_info->pip_ip);
+		vty_out(vty, "  System-MAC: %pEA\n",
+				&bgp_vrf->evpn_info->pip_rmac);
+		vty_out(vty, "  Router-MAC: %pEA\n",
+				&bgp_vrf->rmac);
 	}
 
 	if (!json)
@@ -492,12 +490,12 @@ static void display_es(struct vty *vty, struct evpnes *es, json_object *json)
 			esi_to_str(&es->esi, buf, sizeof(buf)));
 		vty_out(vty, "  RD: %s\n", prefix_rd2str(&es->prd, buf1,
 						       sizeof(buf1)));
-		vty_out(vty, "  Originator-IP: %s\n",
-			ipaddr2str(&es->originator_ip, buf2, sizeof(buf2)));
+		vty_out(vty, "  Originator-IP: %pIA\n",
+			&es->originator_ip);
 		if (es->vtep_list) {
 			vty_out(vty, "  VTEP List:\n");
 			for (ALL_LIST_ELEMENTS_RO(es->vtep_list, node, vtep))
-				vty_out(vty, "    %s\n", inet_ntoa(*vtep));
+				vty_out(vty, "    %pI4\n", vtep);
 		}
 	}
 }
@@ -563,10 +561,10 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 			vrf_id_to_name(vpn->tenant_vrf_id));
 		vty_out(vty, "  RD: %s\n",
 			prefix_rd2str(&vpn->prd, buf1, sizeof(buf1)));
-		vty_out(vty, "  Originator IP: %s\n",
-			inet_ntoa(vpn->originator_ip));
-		vty_out(vty, "  Mcast group: %s\n",
-				inet_ntoa(vpn->mcast_grp));
+		vty_out(vty, "  Originator IP: %pI4\n",
+			&vpn->originator_ip);
+		vty_out(vty, "  Mcast group: %pI4\n",
+				&vpn->mcast_grp);
 		if (!vpn->advertise_gw_macip &&
 		    bgp_evpn && bgp_evpn->advertise_gw_macip)
 			vty_out(vty, "  Advertise-gw-macip : %s\n",
@@ -1011,12 +1009,11 @@ static void show_es_entry(struct hash_bucket *bucket, void *args[])
 		}
 		json_object_object_add(json, "vteps", json_vteps);
 	} else {
-		vty_out(vty, "%-30s %-6s %-21s %-15s %-6d\n",
+		vty_out(vty, "%-30s %-6s %-21s %-15pIA %-6d\n",
 			esi_to_str(&es->esi, buf, sizeof(buf)),
 			is_es_local(es) ? "Local" : "Remote",
 			prefix_rd2str(&es->prd, buf1, sizeof(buf1)),
-			ipaddr2str(&es->originator_ip, buf2,
-				   sizeof(buf2)),
+			&es->originator_ip,
 			es->vtep_list ? listcount(es->vtep_list) : 0);
 	}
 }
@@ -5197,10 +5194,10 @@ DEFUN (show_bgp_vrf_l3vni_info,
 
 	if (!json) {
 		vty_out(vty, "BGP VRF: %s\n", name);
-		vty_out(vty, "  Local-Ip: %s\n", inet_ntoa(bgp->originator_ip));
+		vty_out(vty, "  Local-Ip: %pI4\n", &bgp->originator_ip);
 		vty_out(vty, "  L3-VNI: %u\n", bgp->l3vni);
-		vty_out(vty, "  Rmac: %s\n",
-			prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
+		vty_out(vty, "  Rmac: %pEA\n",
+			&bgp->rmac);
 		vty_out(vty, "  VNI Filter: %s\n",
 			CHECK_FLAG(bgp->vrf_flags,
 				   BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY)
@@ -5745,19 +5742,14 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		if (bgp->evpn_info->advertise_pip) {
 			if (bgp->evpn_info->pip_ip_static.s_addr
 			    != INADDR_ANY) {
-				vty_out(vty, "  advertise-pip ip %s",
-					inet_ntop(AF_INET,
-					&bgp->evpn_info->pip_ip_static,
-					buf2, INET_ADDRSTRLEN));
+				vty_out(vty, "  advertise-pip ip %pI4",
+					&bgp->evpn_info->pip_ip_static);
 				if (!is_zero_mac(&(
 					    bgp->evpn_info->pip_rmac_static))) {
 					char buf[ETHER_ADDR_STRLEN];
 
-					vty_out(vty, " mac %s",
-						prefix_mac2str(
-							&bgp->evpn_info
-								 ->pip_rmac,
-							buf, sizeof(buf)));
+					vty_out(vty, " mac %pEA",
+						&bgp->evpn_info->pip_rmac);
 				}
 				vty_out(vty, "\n");
 			}

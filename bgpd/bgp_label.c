@@ -243,9 +243,8 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 			 */
 			if (!have_label_to_reg) {
 				if (BGP_DEBUG(labelpool, LABELPOOL)) {
-					prefix2str(p, addr, PREFIX_STRLEN);
-					zlog_debug("%s: Requesting label from LP for %s",
-						 __func__, addr);
+					zlog_debug("%s: Requesting label from LP for %pFX",
+						   __func__, p);
 				}
 				/* bgp_reg_for_label_callback() will call back
 				 * __func__ when it gets a label from the pool.

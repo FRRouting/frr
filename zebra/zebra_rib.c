@@ -346,11 +346,9 @@ struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
 		*rn_out = (re == mre) ? m_rn : u_rn;
 
 	if (IS_ZEBRA_DEBUG_RIB) {
-		char buf[BUFSIZ];
-		inet_ntop(AF_INET, &addr, buf, BUFSIZ);
-
-		zlog_debug("%s: %s: vrf: %s(%u) found %s, using %s", __func__,
-			   buf, vrf_id_to_name(vrf_id), vrf_id,
+		zlog_debug("%s: %pI4: vrf: %s(%u) found %s, using %s",
+			   __func__,
+			   &addr, vrf_id_to_name(vrf_id), vrf_id,
 			   mre ? (ure ? "MRIB+URIB" : "MRIB")
 			       : ure ? "URIB" : "nothing",
 			   re == ure ? "URIB" : re == mre ? "MRIB" : "none");
@@ -2709,8 +2707,8 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	struct vrf *vrf = vrf_lookup_by_id(re->vrf_id);
 	struct nexthop_group *nhg;
 
-	zlog_debug("%s: dumping RE entry %p for %s%s%s vrf %s(%u)", func,
-		   (const void *)re, prefix2str(pp, straddr, sizeof(straddr)),
+	zlog_debug("%s: dumping RE entry %p for %pFX%s%s vrf %s(%u)", func,
+		   (const void *)re, pp,
 		   is_srcdst ? " from " : "",
 		   is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
 			     : "",
@@ -2750,7 +2748,6 @@ void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	struct route_node *rn;
 	struct route_entry *re;
 	struct vrf *vrf;
-	char prefix_buf[INET_ADDRSTRLEN];
 
 	vrf = vrf_lookup_by_id(vrf_id);
 
@@ -2768,10 +2765,9 @@ void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 
 	/* No route for this prefix. */
 	if (!rn) {
-		zlog_debug("%s:%s(%u) lookup failed for %s", __func__,
+		zlog_debug("%s:%s(%u) lookup failed for %pFX", __func__,
 			   VRF_LOGNAME(vrf), vrf_id,
-			   prefix2str((struct prefix *)p, prefix_buf,
-				      sizeof(prefix_buf)));
+			   (struct prefix *)p);
 		return;
 	}
 
@@ -2830,14 +2826,13 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	 */
 	if (dest->selected_fib) {
 		if (IS_ZEBRA_DEBUG_RIB) {
-			char buf[PREFIX_STRLEN];
 			struct vrf *vrf =
 				vrf_lookup_by_id(dest->selected_fib->vrf_id);
 
-			zlog_debug(
-				"%s(%u):%s: freeing way for connected prefix",
-				VRF_LOGNAME(vrf), dest->selected_fib->vrf_id,
-				prefix2str(&rn->p, buf, sizeof(buf)));
+			zlog_debug("%s(%u):%pFX: freeing way for connected prefix",
+				   VRF_LOGNAME(vrf),
+				   dest->selected_fib->vrf_id,
+				   &rn->p);
 			route_entry_dump(&rn->p, NULL, dest->selected_fib);
 		}
 		rib_uninstall(rn, dest->selected_fib);

@@ -626,12 +626,9 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 		exact_match = true;
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
-		char buf[PREFIX2STR_BUFFER];
-
-		prefix2str(p, buf, PREFIX2STR_BUFFER);
-		zlog_debug("%s: sending cmd %s for %s (vrf %s)",
-			__func__, zserv_command_string(command), buf,
-			bnc->bgp->name_pretty);
+		zlog_debug("%s: sending cmd %s for %pFX (vrf %s)",
+			   __func__, zserv_command_string(command), p,
+			   bnc->bgp->name_pretty);
 	}
 
 	ret = zclient_send_rnh(zclient, command, p, exact_match,

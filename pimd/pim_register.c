@@ -75,8 +75,8 @@ void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
 	struct prefix p;
 
 	if (PIM_DEBUG_PIM_REG) {
-		zlog_debug("Sending Register stop for %s to %s on %s",
-			   pim_str_sg_dump(sg), inet_ntoa(originator),
+		zlog_debug("Sending Register stop for %s to %pI4 on %s",
+			   pim_str_sg_dump(sg), &originator,
 			   ifp->name);
 	}
 
@@ -170,9 +170,9 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 	struct interface *ifp;
 
 	if (PIM_DEBUG_PIM_REG) {
-		zlog_debug("Sending %s %sRegister Packet to %s", up->sg_str,
+		zlog_debug("Sending %s %sRegister Packet to %pI4", up->sg_str,
 			   null_register ? "NULL " : "",
-			   inet_ntoa(rpg->rpf_addr.u.prefix4));
+			   &rpg->rpf_addr.u.prefix4);
 	}
 
 	ifp = rpg->source_nexthop.interface;

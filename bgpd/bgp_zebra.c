@@ -91,9 +91,8 @@ static int bgp_router_id_update(ZAPI_CALLBACK_ARGS)
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(&router_id, buf, sizeof(buf));
-		zlog_debug("Rx Router Id update VRF %u Id %s", vrf_id, buf);
+		zlog_debug("Rx Router Id update VRF %u Id %pFX", vrf_id,
+			   &router_id);
 	}
 
 	bgp_router_id_zebra_bump(vrf_id, &router_id);
@@ -313,10 +312,9 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (bgp_debug_zebra(ifc->address)) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(ifc->address, buf, sizeof(buf));
-		zlog_debug("Rx Intf address add VRF %u IF %s addr %s", vrf_id,
-			   ifc->ifp->name, buf);
+		zlog_debug("Rx Intf address add VRF %u IF %s addr %pFX",
+			   vrf_id,
+			   ifc->ifp->name, ifc->address);
 	}
 
 	if (!bgp)
@@ -350,10 +348,9 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (bgp_debug_zebra(ifc->address)) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(ifc->address, buf, sizeof(buf));
-		zlog_debug("Rx Intf address del VRF %u IF %s addr %s", vrf_id,
-			   ifc->ifp->name, buf);
+		zlog_debug("Rx Intf address del VRF %u IF %s addr %pFX",
+			   vrf_id,
+			   ifc->ifp->name, ifc->address);
 	}
 
 	if (bgp && if_is_operative(ifc->ifp)) {
@@ -376,10 +373,9 @@ static int bgp_interface_nbr_address_add(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (bgp_debug_zebra(ifc->address)) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(ifc->address, buf, sizeof(buf));
-		zlog_debug("Rx Intf neighbor add VRF %u IF %s addr %s", vrf_id,
-			   ifc->ifp->name, buf);
+		zlog_debug("Rx Intf neighbor add VRF %u IF %s addr %pFX",
+			   vrf_id,
+			   ifc->ifp->name, ifc->address);
 	}
 
 	if (if_is_operative(ifc->ifp)) {
@@ -402,10 +398,9 @@ static int bgp_interface_nbr_address_delete(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (bgp_debug_zebra(ifc->address)) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(ifc->address, buf, sizeof(buf));
-		zlog_debug("Rx Intf neighbor del VRF %u IF %s addr %s", vrf_id,
-			   ifc->ifp->name, buf);
+		zlog_debug("Rx Intf neighbor del VRF %u IF %s addr %pFX",
+			   vrf_id,
+			   ifc->ifp->name, ifc->address);
 	}
 
 	if (if_is_operative(ifc->ifp)) {
@@ -1568,10 +1563,8 @@ void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,
 		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);
 
 	if (bgp_debug_zebra(p)) {
-		char buf[PREFIX_STRLEN];
-
-		prefix2str(&api.prefix, buf, sizeof(buf));
-		zlog_debug("Tx route delete VRF %u %s", bgp->vrf_id, buf);
+		zlog_debug("Tx route delete VRF %u %pFX", bgp->vrf_id,
+			   &api.prefix);
 	}
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
@@ -2505,7 +2498,6 @@ static int bgp_zebra_process_local_es(ZAPI_CALLBACK_ARGS)
 	struct bgp *bgp = NULL;
 	struct stream *s = NULL;
 	char buf[ESI_STR_LEN];
-	char buf1[INET6_ADDRSTRLEN];
 	struct ipaddr originator_ip;
 
 	memset(&esi, 0, sizeof(esi_t));
@@ -2520,10 +2512,10 @@ static int bgp_zebra_process_local_es(ZAPI_CALLBACK_ARGS)
 	stream_get(&originator_ip, s, sizeof(struct ipaddr));
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx %s ESI %s originator-ip %s",
+		zlog_debug("Rx %s ESI %s originator-ip %pIA",
 			   (cmd == ZEBRA_LOCAL_ES_ADD) ? "add" : "del",
 			   esi_to_str(&esi, buf, sizeof(buf)),
-			   ipaddr2str(&originator_ip, buf1, sizeof(buf1)));
+			   &originator_ip);
 
 	if (cmd == ZEBRA_LOCAL_ES_ADD)
 		bgp_evpn_local_es_add(bgp, &esi, &originator_ip);
@@ -2535,14 +2527,12 @@ static int bgp_zebra_process_local_es(ZAPI_CALLBACK_ARGS)
 static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 {
 	int filter = 0;
-	char buf[ETHER_ADDR_STRLEN];
 	vni_t l3vni = 0;
 	struct ethaddr svi_rmac, vrr_rmac = {.octet = {0} };
 	struct in_addr originator_ip;
 	struct stream *s;
 	ifindex_t svi_ifindex;
 	bool is_anycast_mac = false;
-	char buf1[ETHER_ADDR_STRLEN];
 
 	memset(&svi_rmac, 0, sizeof(struct ethaddr));
 	memset(&originator_ip, 0, sizeof(struct in_addr));
@@ -2557,11 +2547,10 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 		is_anycast_mac = stream_getl(s);
 
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("Rx L3-VNI ADD VRF %s VNI %u RMAC svi-mac %s vrr-mac %s filter %s svi-if %u",
+			zlog_debug("Rx L3-VNI ADD VRF %s VNI %u RMAC svi-mac %pEA vrr-mac %pEA filter %s svi-if %u",
 				   vrf_id_to_name(vrf_id), l3vni,
-				   prefix_mac2str(&svi_rmac, buf, sizeof(buf)),
-				   prefix_mac2str(&vrr_rmac, buf1,
-						  sizeof(buf1)),
+				   &svi_rmac,
+				   &vrr_rmac,
 				   filter ? "prefix-routes-only" : "none",
 				   svi_ifindex);
 
@@ -2623,8 +2612,6 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 	struct ethaddr mac;
 	struct ipaddr ip;
 	int ipa_len;
-	char buf[ETHER_ADDR_STRLEN];
-	char buf1[INET6_ADDRSTRLEN];
 	uint8_t flags = 0;
 	uint32_t seqnum = 0;
 	int state = 0;
@@ -2660,10 +2647,10 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%u:Recv MACIP %s flags 0x%x MAC %s IP %s VNI %u seq %u state %d",
+		zlog_debug("%u:Recv MACIP %s flags 0x%x MAC %pEA IP %pIA VNI %u seq %u state %d",
 			   vrf_id, (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
-			   flags, prefix_mac2str(&mac, buf, sizeof(buf)),
-			   ipaddr2str(&ip, buf1, sizeof(buf1)), vni, seqnum,
+			   flags, &mac,
+			   &ip, vni, seqnum,
 			   state);
 
 	if (cmd == ZEBRA_MACIP_ADD)
@@ -2678,7 +2665,6 @@ static void bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 	struct stream *s = NULL;
 	struct bgp *bgp_vrf = NULL;
 	struct prefix p;
-	char buf[PREFIX_STRLEN];
 
 	memset(&p, 0, sizeof(struct prefix));
 	s = zclient->ibuf;
@@ -2689,8 +2675,8 @@ static void bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 		return;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Recv prefix %s %s on vrf %s",
-			   prefix2str(&p, buf, sizeof(buf)),
+		zlog_debug("Recv prefix %pFX %s on vrf %s",
+			   &p,
 			   (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) ? "ADD" : "DEL",
 			   vrf_id_to_name(vrf_id));
 
