@@ -118,16 +118,16 @@ struct nl_batch;
  *               pointer to a buffer and buffer's length as parameters
  *               and should return -1 on error, 0 on buffer overflow or
  *               size of the encoded message.
- * @extra_msg:   In some cases there are two netlink messages for single
- *               context object that need to be handled differently. This flag
- *               distinguishes those.
+ * @ignore_res:  Whether the result of this message should be ignored.
+ *               This should be used in some 'update' cases where we
+ *               need to send two messages for one context object.
  *
  * Return:		Status of the message.
  */
 extern enum netlink_msg_status netlink_batch_add_msg(
 	struct nl_batch *bth, struct zebra_dplane_ctx *ctx,
 	ssize_t (*msg_encoder)(struct zebra_dplane_ctx *, void *, size_t),
-	bool extra_msg);
+	bool ignore_res);
 
 
 #endif /* HAVE_NETLINK */

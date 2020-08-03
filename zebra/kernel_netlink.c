@@ -175,10 +175,6 @@ extern struct zebra_privs_t zserv_privs;
 char nl_batch_tx_buf[NL_BATCH_TX_BUFSIZE];
 char nl_batch_rx_buf[NL_BATCH_RX_BUFSIZE];
 
-DEFINE_MTYPE_STATIC(ZEBRA, NL_BATCH_ITEM, "Netlink batch items")
-
-PREDECL_LIST(nl_batch_list)
-
 struct nl_batch {
 	void *buf;
 	size_t bufsiz;
@@ -189,19 +185,15 @@ struct nl_batch {
 	size_t msgcnt;
 
 	const struct zebra_dplane_info *zns;
-	struct nl_batch_list_head items;
+
+	struct dplane_ctx_q ctx_list;
+
+	/*
+	 * Pointer to the queue of completed contexts outbound back
+	 * towards the dataplane module.
+	 */
+	struct dplane_ctx_q *ctx_out_q;
 };
-
-struct nl_msg_batch_item {
-	int seq;
-	struct zebra_dplane_ctx *ctx;
-	bool ignore_res;
-	bool failure;
-
-	struct nl_batch_list_item item;
-};
-
-DECLARE_LIST(nl_batch_list, struct nl_msg_batch_item, item)
 
 int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
@@ -1137,16 +1129,15 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 	struct nlmsghdr *h;
 	struct sockaddr_nl snl;
 	struct msghdr msg;
-	int status;
+	int status, seq;
 	const struct nlsock *nl;
-	struct nl_msg_batch_item *item, *from_item;
+	struct zebra_dplane_ctx *ctx;
+	bool ignore_msg;
 
 	nl = &(bth->zns->nls);
 
 	msg.msg_name = (void *)&snl;
 	msg.msg_namelen = sizeof(snl);
-
-	from_item = nl_batch_list_first(&(bth->items));
 
 	status = netlink_recv_msg(nl, msg, nl_batch_rx_buf,
 				  sizeof(nl_batch_rx_buf));
@@ -1156,27 +1147,51 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 	for (h = (struct nlmsghdr *)nl_batch_rx_buf;
 	     (status >= 0 && NLMSG_OK(h, (unsigned int)status));
 	     h = NLMSG_NEXT(h, status)) {
-
+		ignore_msg = false;
+		seq = h->nlmsg_seq;
 		/*
-		 * Find the corresponding batch item. Received responses are in
-		 * the same order as requests we sent, so we can simply iterate
-		 * over the batch item list and match responses with requests
-		 * at same time.
+		 * Find the corresponding context object. Received responses are
+		 * in the same order as requests we sent, so we can simply
+		 * iterate over the context list and match responses with
+		 * requests at same time.
 		 */
-		frr_each_from(nl_batch_list, &(bth->items), item, from_item) {
-			if (item->seq == (int)h->nlmsg_seq)
+		while (true) {
+			ctx = dplane_ctx_dequeue(&(bth->ctx_list));
+			if (ctx == NULL)
 				break;
+
+			dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
+
+			/* We have found corresponding context object. */
+			if (dplane_ctx_get_ns(ctx)->nls.seq == seq)
+				break;
+
+			/*
+			 * 'update' context objects take two consecutive
+			 * sequence numbers.
+			 */
+			if (dplane_ctx_is_update(ctx)
+			    && dplane_ctx_get_ns(ctx)->nls.seq + 1 == seq) {
+				/*
+				 * This is the situation where we get a response
+				 * to a message that should be ignored.
+				 */
+				ignore_msg = true;
+				break;
+			}
 		}
+
+		if (ignore_msg)
+			continue;
 
 		/*
 		 * We received a message with the sequence number that isn't
 		 * associated with any dplane context object.
 		 */
-		if (item == NULL) {
+		if (ctx == NULL) {
 			zlog_debug(
 				"%s: skipping unassociated response, seq number %d NS %u",
 				__func__, h->nlmsg_seq, bth->zns->ns_id);
-			from_item = nl_batch_list_first(&(bth->items));
 			continue;
 		}
 
@@ -1184,7 +1199,8 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 			int err = netlink_parse_error(nl, h, bth->zns, 0);
 
 			if (err == -1)
-				item->failure = true;
+				dplane_ctx_set_status(
+					ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 
 			zlog_debug("%s: netlink error message seq=%d ",
 				   __func__, h->nlmsg_seq);
@@ -1206,84 +1222,70 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 
 static void nl_batch_reset(struct nl_batch *bth)
 {
-	bth->buf = nl_batch_tx_buf;
-	bth->bufsiz = sizeof(nl_batch_tx_buf);
-	bth->limit = NL_BATCH_SEND_THRESHOLD;
-
 	bth->buf_head = bth->buf;
 	bth->curlen = 0;
 	bth->msgcnt = 0;
 	bth->zns = NULL;
 
-	nl_batch_list_init(&(bth->items));
+	TAILQ_INIT(&(bth->ctx_list));
+}
+
+static void nl_batch_init(struct nl_batch *bth, struct dplane_ctx_q *ctx_out_q)
+{
+	bth->buf = nl_batch_tx_buf;
+	bth->bufsiz = sizeof(nl_batch_tx_buf);
+	bth->limit = NL_BATCH_SEND_THRESHOLD;
+
+	bth->ctx_out_q = ctx_out_q;
+
+	nl_batch_reset(bth);
 }
 
 static void nl_batch_send(struct nl_batch *bth)
 {
-	struct nl_msg_batch_item *item;
+	struct zebra_dplane_ctx *ctx;
 	bool err = false;
 
-	if (bth->curlen == 0 || bth->zns == NULL)
-		return;
+	if (bth->curlen != 0 && bth->zns != NULL) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: %s, batch size=%zu, msg cnt=%zu",
+				   __func__, bth->zns->nls.name, bth->curlen,
+				   bth->msgcnt);
 
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: %s, batch size=%zu, msg cnt=%zu", __func__,
-			   bth->zns->nls.name, bth->curlen, bth->msgcnt);
-
-	if (netlink_send_msg(&(bth->zns->nls), bth->buf, bth->curlen) == -1)
-		err = true;
-
-	if (!err) {
-		if (nl_batch_read_resp(bth) == -1)
+		if (netlink_send_msg(&(bth->zns->nls), bth->buf, bth->curlen)
+		    == -1)
 			err = true;
+
+		if (!err) {
+			if (nl_batch_read_resp(bth) == -1)
+				err = true;
+		}
 	}
 
-	frr_each_safe(nl_batch_list, &(bth->items), item) {
-		enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	/* Move remaining contexts to the outbound queue. */
+	while (true) {
+		ctx = dplane_ctx_dequeue(&(bth->ctx_list));
+		if (ctx == NULL)
+			break;
 
-		/*
-		 * If either sending or receiving a message batch has ended with
-		 * the error, mark all dplane requests as failed.
-		 */
-		if (item->failure || err)
-			res = ZEBRA_DPLANE_REQUEST_FAILURE;
+		if (err)
+			dplane_ctx_set_status(ctx,
+					      ZEBRA_DPLANE_REQUEST_FAILURE);
 
-		if (!item->ignore_res)
-			dplane_ctx_set_status(item->ctx, res);
-
-		nl_batch_list_del(&(bth->items), item);
-		XFREE(MTYPE_NL_BATCH_ITEM, item);
+		dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
 	}
 
 	nl_batch_reset(bth);
 }
 
-static void nl_batch_add_item(struct nl_batch *bth, int seq,
-			      struct zebra_dplane_ctx *ctx, bool ignore_res)
-{
-	struct nl_msg_batch_item *item =
-		XCALLOC(MTYPE_NL_BATCH_ITEM, sizeof(*item));
-
-	item->seq = seq;
-	item->ctx = ctx;
-	item->ignore_res = ignore_res;
-	item->failure = false;
-
-	nl_batch_list_add_tail(&(bth->items), item);
-}
-
 enum netlink_msg_status netlink_batch_add_msg(
 	struct nl_batch *bth, struct zebra_dplane_ctx *ctx,
 	ssize_t (*msg_encoder)(struct zebra_dplane_ctx *, void *, size_t),
-	bool extra_msg)
+	bool ignore_res)
 {
 	int seq;
 	ssize_t size;
 	struct nlmsghdr *msgh;
-
-	if (bth->zns != NULL
-	    && bth->zns->ns_id != dplane_ctx_get_ns(ctx)->ns_id)
-		nl_batch_send(bth);
 
 	size = (*msg_encoder)(ctx, bth->buf_head, bth->bufsiz - bth->curlen);
 
@@ -1311,22 +1313,17 @@ enum netlink_msg_status netlink_batch_add_msg(
 	}
 
 	seq = dplane_ctx_get_ns(ctx)->nls.seq;
-	if (extra_msg)
+	if (ignore_res)
 		seq++;
 
 	msgh = (struct nlmsghdr *)bth->buf_head;
 	msgh->nlmsg_seq = seq;
 	msgh->nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
 
-	nl_batch_add_item(bth, seq, ctx, extra_msg);
-
 	bth->zns = dplane_ctx_get_ns(ctx);
 	bth->buf_head = ((char *)bth->buf_head) + size;
 	bth->curlen += size;
 	bth->msgcnt++;
-
-	if (bth->curlen > bth->limit)
-		nl_batch_send(bth);
 
 	return FRR_NETLINK_QUEUED;
 }
@@ -1398,29 +1395,33 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 	struct dplane_ctx_q handled_list;
 	enum netlink_msg_status res;
 
-	nl_batch_reset(&batch);
 	TAILQ_INIT(&handled_list);
+	nl_batch_init(&batch, &handled_list);
 
 	while (true) {
 		ctx = dplane_ctx_dequeue(ctx_list);
 		if (ctx == NULL)
 			break;
 
-		res = nl_put_msg(&batch, ctx);
+		if (batch.zns != NULL
+		    && batch.zns->ns_id != dplane_ctx_get_ns(ctx)->ns_id)
+			nl_batch_send(&batch);
 
 		/*
-		 * If we already know the result, we set the status of the
-		 * dataplane context object. Otherwise, it will be set after we
-		 * send the batch.
+		 * Assume all messages will succeed and then mark only the ones
+		 * that failed.
 		 */
-		if (res == FRR_NETLINK_SUCCESS)
-			dplane_ctx_set_status(ctx,
-					      ZEBRA_DPLANE_REQUEST_SUCCESS);
-		else if (res == FRR_NETLINK_ERROR)
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+
+		res = nl_put_msg(&batch, ctx);
+
+		dplane_ctx_enqueue_tail(&(batch.ctx_list), ctx);
+		if (res == FRR_NETLINK_ERROR)
 			dplane_ctx_set_status(ctx,
 					      ZEBRA_DPLANE_REQUEST_FAILURE);
 
-		dplane_ctx_enqueue_tail(&handled_list, ctx);
+		if (batch.curlen > batch.limit)
+			nl_batch_send(&batch);
 	}
 
 	nl_batch_send(&batch);
