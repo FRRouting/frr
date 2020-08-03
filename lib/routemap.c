@@ -821,9 +821,10 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map)
 	struct route_map_index *index;
 	struct route_map_rule *rule;
 
-	vty_out(vty, "route-map: %s Invoked: %" PRIu64 " Optimization: %s\n",
+	vty_out(vty, "route-map: %s Invoked: %" PRIu64 " Optimization: %s Processed Change: %s\n",
 		map->name, map->applied - map->applied_clear,
-		map->optimization_disabled ? "disabled" : "enabled");
+		map->optimization_disabled ? "disabled" : "enabled",
+		map->to_be_processed ? "true" : "false");
 
 	for (index = map->head; index; index = index->next) {
 		vty_out(vty, " %s, sequence %d Invoked %" PRIu64 "\n",
