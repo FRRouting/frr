@@ -33,6 +33,7 @@
 #include "lib/hook.h"
 #include "lib/zlog.h"
 #include "lib/zlog_targets.h"
+#include "lib/printfrr.h"
 
 #ifdef __cplusplus
 extern "C" {
