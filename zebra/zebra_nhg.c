@@ -2759,10 +2759,26 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	 * Once resolution is figured out, we won't need this!
 	 */
 	for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
+		if (newhop->type == NEXTHOP_TYPE_BLACKHOLE) {
+			if (IS_ZEBRA_DEBUG_NHG)
+				zlog_debug(
+					"%s: id %u, blackhole nexthop not supported",
+					__func__, id);
+			return NULL;
+		}
+
+		if (newhop->type == NEXTHOP_TYPE_IFINDEX) {
+			if (IS_ZEBRA_DEBUG_NHG)
+				zlog_debug(
+					"%s: id %u, nexthop without gateway not supported",
+					__func__, id);
+			return NULL;
+		}
+
 		if (!newhop->ifindex) {
 			if (IS_ZEBRA_DEBUG_NHG)
 				zlog_debug(
-					"%s: id %u, nexthop without ifindex passed to add",
+					"%s: id %u, nexthop without ifindex is not supported",
 					__func__, id);
 			return NULL;
 		}
