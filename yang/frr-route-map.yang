@@ -6,14 +6,17 @@ module frr-route-map {
   import ietf-inet-types {
     prefix inet;
   }
+
   import frr-filter {
     prefix filter;
   }
+
   import frr-interface {
     prefix frr-interface;
   }
 
-  organization "FRRouting";
+  organization
+    "FRRouting";
   contact
     "FRR Users List:       <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
@@ -46,22 +49,34 @@ module frr-route-map {
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   revision 2019-07-01 {
-    description "Initial revision";
+    description
+      "Initial revision";
   }
 
   /*
    * Types.
    */
   typedef route-map-sequence {
-    description "Route map valid sequence numbers";
     type uint16 {
       range "1..65535";
     }
+    description
+      "Route map valid sequence numbers.";
   }
 
   typedef route-map-name {
-    description "Route map name format";
     type string;
+    description
+      "Route map name format.";
+  }
+
+  typedef route-map-ref {
+    type leafref {
+      path "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:name";
+      require-instance false;
+    }
+    description
+      "Reference to a route-map.";
   }
 
   /*
@@ -69,34 +84,33 @@ module frr-route-map {
    */
   container lib {
     list route-map {
-      description "Route map instance";
-
       key "name";
-
+      description
+        "Route map instance.";
       leaf name {
-        description "Route map instance name";
         type route-map-name;
+        description
+          "Route map instance name.";
       }
 
       list entry {
-        description "Route map entry";
-
         key "sequence";
-
+        description
+          "Route map entry.";
         leaf sequence {
           description
-            "Route map instance priority (low number means higher priority)";
+            "Route map instance priority (low number means higher priority).";
           type route-map-sequence;
         }
 
         leaf description {
-          description "Route map description";
+          description "Route map description.";
           type string;
         }
 
         leaf action {
           description
-            "Route map actions: permit (executes action), deny (quits evaluation)";
+            "Route map actions: permit (executes action), deny (quits evaluation).";
           mandatory true;
           type enumeration {
             enum permit {
@@ -120,25 +134,25 @@ module frr-route-map {
           description
             "Call another route map before calling `exit-policy`. If the
              called route map returns deny then this route map will also
-             return deny";
+             return deny.";
           type route-map-name;
         }
 
         leaf exit-policy {
-          description "What do to after route map successful match, set and call";
+          description "What do to after route map successful match, set and call.";
           type enumeration {
             enum permit-or-deny {
-              description "End route map evaluation and return";
+              description "End route map evaluation and return.";
               value 0;
             }
             enum next {
               description
-                "Proceed evaluating next route map entry per sequence";
+                "Proceed evaluating next route map entry per sequence.";
               value 1;
             }
             enum goto {
               description
-                "Go to route map entry with the provided sequence number";
+                "Go to route map entry with the provided sequence number.";
               value 2;
             }
           }
@@ -148,82 +162,81 @@ module frr-route-map {
         leaf goto-value {
           when "../exit-policy = 'goto'";
           description
-            "Sequence number to jump (when using `goto` exit policy)";
+            "Sequence number to jump (when using `goto` exit policy).";
           mandatory true;
           type route-map-sequence;
         }
 
         list match-condition {
-          description "Route map match conditions";
-
           key "condition";
-
+          description
+            "Route map match conditions.";
           leaf condition {
-            description "Match condition";
+            description "Match condition.";
             type enumeration {
               enum interface {
-                description "Match interface";
+                description "Match interface.";
                 value 0;
               }
               enum ipv4-address-list {
-                description "Match an IPv4 access-list";
+                description "Match an IPv4 access-list.";
                 value 1;
               }
               enum ipv4-prefix-list {
-                description "Match an IPv4 prefix-list";
+                description "Match an IPv4 prefix-list.";
                 value 2;
               }
               enum ipv4-next-hop-list {
-                description "Match an IPv4 next-hop";
+                description "Match an IPv4 next-hop.";
                 value 3;
               }
               enum ipv4-next-hop-prefix-list {
-                description "Match an IPv4 next-hop prefix list";
+                description "Match an IPv4 next-hop prefix list.";
                 value 4;
               }
               enum ipv4-next-hop-type {
-                description "Match an IPv4 next-hop type";
+                description "Match an IPv4 next-hop type.";
                 value 5;
               }
               enum ipv6-address-list {
-                description "Match an IPv6 access-list";
+                description "Match an IPv6 access-list.";
                 value 6;
               }
               enum ipv6-prefix-list {
-                description "Match an IPv6 prefix-list";
+                description "Match an IPv6 prefix-list.";
                 value 7;
               }
               enum ipv6-next-hop-type {
-                description "Match an IPv6 next-hop type";
+                description "Match an IPv6 next-hop type.";
                 value 8;
               }
               enum metric {
-                description "Match a route metric";
+                description "Match a route metric.";
                 value 9;
               }
               enum tag {
-                description "Match a route tag";
+                description "Match a route tag.";
                 value 10;
               }
               /* zebra specific conditions. */
               enum ipv4-prefix-length {
-                description "Match IPv4 prefix length";
+                description "Match IPv4 prefix length.";
                 value 100;
               }
               enum ipv6-prefix-length {
-                description "Match IPv6 prefix length";
+                description "Match IPv6 prefix length.";
                 value 101;
               }
               enum ipv4-next-hop-prefix-length {
-                description "Match next-hop prefix length";
+                description "Match next-hop prefix length.";
                 value 102;
               }
               enum source-protocol {
-                description "Match source protocol";
+                description "Match source protocol.";
                 value 103;
               }
               enum source-instance {
-                description "Match source protocol instance";
+                description "Match source protocol instance.";
                 value 104;
               }
             }
@@ -231,7 +244,7 @@ module frr-route-map {
 
           choice condition-value {
             description
-              "Value to match (interpretation depends on condition type)";
+              "Value to match (interpretation depends on condition type).";
             mandatory true;
             case interface {
               when "./condition = 'interface'";
@@ -239,6 +252,7 @@ module frr-route-map {
                 type string;
               }
             }
+
             case list-name {
               when "./condition = 'ipv4-address-list' or
                     ./condition = 'ipv4-prefix-list' or
@@ -250,6 +264,7 @@ module frr-route-map {
                 type filter:access-list-name;
               }
             }
+
             case ipv4-next-hop-type {
               when "./condition = 'ipv4-next-hop-type'";
               leaf ipv4-next-hop-type {
@@ -260,6 +275,7 @@ module frr-route-map {
                 }
               }
             }
+
             case ipv6-next-hop-type {
               when "./condition = 'ipv6-next-hop-type'";
               leaf ipv6-next-hop-type {
@@ -270,6 +286,7 @@ module frr-route-map {
                 }
               }
             }
+
             case metric {
               when "./condition = 'metric'";
               leaf metric {
@@ -278,6 +295,7 @@ module frr-route-map {
                 }
               }
             }
+
             case tag {
               when "./condition = 'tag'";
               leaf tag {
@@ -290,32 +308,32 @@ module frr-route-map {
         }
 
         list set-action {
-          description "Route map set actions";
+          description "Route map set actions.";
 
           key "action";
 
           leaf action {
-            description "Action to do when the route map matches";
+            description "Action to do when the route map matches.";
             type enumeration {
               enum ipv4-next-hop {
-                description "Set IPv4 address of the next hop";
+                description "Set IPv4 address of the next hop.";
                 value 0;
               }
               enum ipv6-next-hop {
-                description "Set IPv6 address of the next hop";
+                description "Set IPv6 address of the next hop.";
                 value 1;
               }
               enum metric {
-                description "Set prefix/route metric";
+                description "Set prefix/route metric.";
                 value 2;
               }
               enum tag {
-                description "Set tag";
+                description "Set tag.";
                 value 3;
               }
               /* zebra specific conditions. */
               enum source {
-                description "Set source address for route";
+                description "Set source address for route.";
                 value 100;
               }
             }
@@ -323,69 +341,77 @@ module frr-route-map {
 
           choice action-value {
             description
-              "Value to set (interpretation depends on action-type)";
+              "Value to set (interpretation depends on action-type).";
             case ipv4-address {
               when "./action = 'ipv4-next-hop'";
               leaf ipv4-address {
-                description "IPv4 address";
+                description "IPv4 address.";
                 type inet:ipv4-address;
               }
             }
+
             case ipv6-address {
               when "./action = 'ipv6-next-hop'";
               leaf ipv6-address {
-                description "IPv6 address";
+                description "IPv6 address.";
                 type inet:ipv6-address;
               }
             }
+
             case metric {
               when "./action = 'metric'";
               choice metric-value {
-                description "Metric to set or use";
+                description "Metric to set or use.";
                 case value {
                   leaf value {
-                    description "Use the following metric value";
+                    description "Use the following metric value.";
                     type uint32 {
                       range "0..4294967295";
                     }
                   }
                 }
+
                 case add-metric {
                   leaf add-metric {
-                    description "Add unit to metric";
+                    description "Add unit to metric.";
                     type boolean;
                   }
                 }
+
                 case subtract-metric {
                   leaf subtract-metric {
-                    description "Subtract unit from metric";
+                    description "Subtract unit from metric.";
                     type boolean;
                   }
                 }
+
                 case use-round-trip-time {
                   leaf use-round-trip-time {
-                    description "Use the round trip time as metric";
+                    description "Use the round trip time as metric.";
                     type boolean;
                   }
                 }
+
                 case add-round-trip-time {
                   leaf add-round-trip-time {
-                    description "Add round trip time to metric";
+                    description "Add round trip time to metric.";
                     type boolean;
                   }
                 }
+
                 case subtract-round-trip-time {
                   leaf subtract-round-trip-time {
-                    description "Subtract round trip time to metric";
+                    description "Subtract round trip time to metric.";
                     type boolean;
                   }
                 }
               }
             }
+
             case tag {
               when "./action = 'tag'";
               leaf tag {
-                description "Tag value";
+                description "Tag value.";
                 type uint32 {
                   range "0..4294967295";
                 }
