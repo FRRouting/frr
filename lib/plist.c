@@ -1014,7 +1014,6 @@ static void vty_show_prefix_entry(struct vty *vty, afi_t afi,
 				vty_out(vty, "any");
 			else {
 				struct prefix *p = &pentry->prefix;
-				char buf[BUFSIZ];
 
 				vty_out(vty, "%pFX",
 					p);
@@ -1119,7 +1118,6 @@ static int vty_show_prefix_list_prefix(struct vty *vty, afi_t afi,
 				vty_out(vty, "any");
 			else {
 				struct prefix *pf = &pentry->prefix;
-				char buf[BUFSIZ];
 
 				vty_out(vty, "%pFX",
 					pf);
@@ -1487,7 +1485,6 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 		for (pentry = plist->head; pentry; pentry = pentry->next) {
 			struct prefix *p = &pentry->prefix;
 			char buf_a[BUFSIZ];
-			char buf_b[BUFSIZ];
 
 			snprintfrr(buf_a, sizeof(buf_a), "%pFX",
 				   p);
@@ -1521,7 +1518,6 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 
 		for (pentry = plist->head; pentry; pentry = pentry->next) {
 			struct prefix *p = &pentry->prefix;
-			char buf[BUFSIZ];
 
 			vty_out(vty, "   seq %" PRId64 " %s %pFX",
 				pentry->seq,

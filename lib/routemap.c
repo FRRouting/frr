@@ -3096,7 +3096,6 @@ DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
 	struct listnode *ln = NULL, *nln = NULL;
 	struct route_map_index *index = NULL;
 	struct prefix *p = NULL, *pp = NULL;
-	char buf[SU_ADDRSTRLEN], pbuf[SU_ADDRSTRLEN];
 	uint8_t len = 54;
 
 	vty_out(vty, "%s:\n", frr_protonameinst);

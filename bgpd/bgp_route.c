@@ -10045,7 +10045,6 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	struct peer *peer;
 	struct listnode *node, *nnode;
 	char buf1[RD_ADDRSTRLEN];
-	char buf2[INET6_ADDRSTRLEN];
 	char buf3[EVPN_ROUTE_STRLEN];
 	char prefix_str[BUFSIZ];
 	int count = 0;
@@ -13255,7 +13254,6 @@ static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 	const struct prefix_rd *prd;
 	struct bgp_static *bgp_static;
 	mpls_label_t label;
-	char buf[SU_ADDRSTRLEN];
 	char rdbuf[RD_ADDRSTRLEN];
 
 	/* Network configuration. */
@@ -13378,7 +13376,6 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 	const struct prefix *p;
 	struct bgp_static *bgp_static;
 	struct bgp_aggregate *bgp_aggregate;
-	char buf[SU_ADDRSTRLEN];
 
 	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)) {
 		bgp_config_write_network_vpn(vty, bgp, afi, safi);

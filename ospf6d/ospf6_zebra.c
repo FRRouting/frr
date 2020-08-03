@@ -99,7 +99,6 @@ void ospf6_zebra_no_redistribute(int type)
 static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
-	char buf[128];
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_ADD,
 					 zclient->ibuf, vrf_id);
@@ -121,7 +120,6 @@ static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 static int ospf6_zebra_if_address_update_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
-	char buf[128];
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_DELETE,
 					 zclient->ibuf, vrf_id);

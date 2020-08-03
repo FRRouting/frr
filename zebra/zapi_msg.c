@@ -366,7 +366,6 @@ static void zebra_interface_nbr_address_add_update(struct interface *ifp,
 	struct prefix *p;
 
 	if (IS_ZEBRA_DEBUG_EVENT) {
-		char buf[INET6_ADDRSTRLEN];
 
 		p = ifc->address;
 		zlog_debug("MESSAGE: ZEBRA_INTERFACE_NBR_ADDRESS_ADD %pFX on %s",
@@ -392,7 +391,6 @@ static void zebra_interface_nbr_address_delete_update(struct interface *ifp,
 	struct prefix *p;
 
 	if (IS_ZEBRA_DEBUG_EVENT) {
-		char buf[INET6_ADDRSTRLEN];
 
 		p = ifc->address;
 		zlog_debug("MESSAGE: ZEBRA_INTERFACE_NBR_ADDRESS_DELETE %pFX on %s",

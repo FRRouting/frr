@@ -989,7 +989,6 @@ nbr_connected_log(struct nbr_connected *connected, char *str)
 	struct prefix *p;
 	struct interface *ifp;
 	char logbuf[BUFSIZ];
-	char buf[BUFSIZ];
 
 	ifp = connected->ifp;
 	p = connected->address;

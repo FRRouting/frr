@@ -689,7 +689,6 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 
 char *rfapiMonitorVpn2Str(struct rfapi_monitor_vpn *m, char *buf, int size)
 {
-	char buf_pfx[BUFSIZ];
 	char buf_vn[BUFSIZ];
 	char buf_un[BUFSIZ];
 	int rc;

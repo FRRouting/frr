@@ -2026,7 +2026,6 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 					p_pnt += psize;
 
 					if (bgp_debug_neighbor_events(peer)) {
-						char buf[INET6_BUFSIZ];
 
 						zlog_debug("%s rcvd %s %s seq %u %pFX ge %d le %d%s",
 							   peer->host,
