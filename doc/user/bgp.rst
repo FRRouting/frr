@@ -1393,6 +1393,15 @@ Configuring Peers
    peer in question.  This number is between 0 and 600 seconds,
    with the default advertisement interval being 0.
 
+Displaying Information about Peers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. index:: show bgp <afi> <safi> neighbors WORD bestpath-routes [json] [wide]
+.. clicmd:: show bgp <afi> <safi> neighbors WORD bestpath-routes [json] [wide]
+
+   For the given neighbor, WORD, that is specified list the routes selected
+   by BGP as having the best path.
+
 .. _bgp-peer-filtering:
 
 Peer Filtering
