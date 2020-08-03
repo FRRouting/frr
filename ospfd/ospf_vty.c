@@ -3460,9 +3460,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 						    "ipAddressPrefixlen",
 						    oi->address->prefixlen);
 			} else
-				vty_out(vty, "  Internet Address %s/%d,",
-					inet_ntoa(oi->address->u.prefix4),
-					oi->address->prefixlen);
+				vty_out(vty, "  Internet Address %pFX,",
+					oi->address);
 
 			/* For Vlinks, showing the peer address is
 			 * probably more informative than the local
@@ -5741,8 +5740,7 @@ static int show_lsa_summary(struct vty *vty, struct ospf_lsa *lsa, int self)
 				p.prefixlen = ip_masklen(sl->mask);
 				apply_mask_ipv4(&p);
 
-				vty_out(vty, " %s/%d", inet_ntoa(p.prefix),
-					p.prefixlen);
+				vty_out(vty, " %pFX", &p);
 				break;
 			case OSPF_AS_EXTERNAL_LSA:
 			case OSPF_AS_NSSA_LSA:
@@ -5753,11 +5751,11 @@ static int show_lsa_summary(struct vty *vty, struct ospf_lsa *lsa, int self)
 				p.prefixlen = ip_masklen(asel->mask);
 				apply_mask_ipv4(&p);
 
-				vty_out(vty, " %s %s/%d [0x%lx]",
+				vty_out(vty, " %s %pFX [0x%lx]",
 					IS_EXTERNAL_METRIC(asel->e[0].tos)
 						? "E2"
 						: "E1",
-					inet_ntoa(p.prefix), p.prefixlen,
+					&p,
 					(unsigned long)ntohl(
 						asel->e[0].route_tag));
 				break;
@@ -9256,8 +9254,8 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 
 		char buf1[19];
 
-		snprintf(buf1, sizeof(buf1), "%s/%d",
-			 inet_ntoa(rn->p.u.prefix4), rn->p.prefixlen);
+		snprintfrr(buf1, sizeof(buf1), "%pFX",
+		           &rn->p);
 		json_route = json_object_new_object();
 		if (json) {
 			json_object_object_add(json, buf1, json_route);
@@ -10007,8 +10005,8 @@ static int config_write_network_area(struct vty *vty, struct ospf *ospf)
 						 n->area_id.s_addr));
 
 			/* Network print. */
-			vty_out(vty, " network %s/%d area %s\n",
-				inet_ntoa(rn->p.u.prefix4), rn->p.prefixlen,
+			vty_out(vty, " network %pFX area %s\n",
+				&rn->p,
 				buf);
 		}
 
@@ -10080,9 +10078,8 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 			if (rn1->info) {
 				struct ospf_area_range *range = rn1->info;
 
-				vty_out(vty, " area %s range %s/%d", buf,
-					inet_ntoa(rn1->p.u.prefix4),
-					rn1->p.prefixlen);
+				vty_out(vty, " area %s range %pFX", buf,
+					&rn1->p);
 
 				if (range->cost_config
 				    != OSPF_AREA_RANGE_COST_UNSPEC)
@@ -10315,9 +10312,8 @@ static int config_write_ospf_distance(struct vty *vty, struct ospf *ospf)
 
 	for (rn = route_top(ospf->distance_table); rn; rn = route_next(rn))
 		if ((odistance = rn->info) != NULL) {
-			vty_out(vty, " distance %d %s/%d %s\n",
-				odistance->distance, inet_ntoa(rn->p.u.prefix4),
-				rn->p.prefixlen,
+			vty_out(vty, " distance %d %pFX %s\n",
+				odistance->distance, &rn->p,
 				odistance->access_list ? odistance->access_list
 						       : "");
 		}

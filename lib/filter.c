@@ -762,9 +762,8 @@ static void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
 	if (p->prefixlen == 0 && !filter->exact)
 		vty_out(vty, " any");
 	else if (p->family == AF_INET6 || p->family == AF_INET)
-		vty_out(vty, " %s/%d%s",
-			inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-			p->prefixlen, filter->exact ? " exact-match" : "");
+		vty_out(vty, " %pFX%s",
+			p, filter->exact ? " exact-match" : "");
 	else if (p->family == AF_ETHERNET) {
 		if (p->prefixlen == 0)
 			vty_out(vty, " any");

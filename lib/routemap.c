@@ -3112,20 +3112,15 @@ DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
 			     rn = route_next(rn)) {
 				p = &rn->p;
 
-				vty_out(vty, "    %s/%d (%d)\n",
-					inet_ntop(p->family, &p->u.prefix, buf,
-						  SU_ADDRSTRLEN),
-					p->prefixlen, rn->lock);
+				vty_out(vty, "    %pFX (%d)\n",
+					p, rn->lock);
 
 				vty_out(vty, "(P) ");
 				prn = rn->parent;
 				if (prn) {
 					pp = &prn->p;
-					vty_out(vty, "%s/%d\n",
-						inet_ntop(pp->family,
-							  &pp->u.prefix, pbuf,
-							  SU_ADDRSTRLEN),
-						pp->prefixlen);
+					vty_out(vty, "%pFX\n",
+						pp);
 				}
 
 				vty_out(vty, "\n");
@@ -3156,20 +3151,15 @@ DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
 			     rn = route_next(rn)) {
 				p = &rn->p;
 
-				vty_out(vty, "    %s/%d (%d)\n",
-					inet_ntop(p->family, &p->u.prefix, buf,
-						  SU_ADDRSTRLEN),
-					p->prefixlen, rn->lock);
+				vty_out(vty, "    %pFX (%d)\n",
+					p, rn->lock);
 
 				vty_out(vty, "(P) ");
 				prn = rn->parent;
 				if (prn) {
 					pp = &prn->p;
-					vty_out(vty, "%s/%d\n",
-						inet_ntop(pp->family,
-							  &pp->u.prefix, pbuf,
-							  SU_ADDRSTRLEN),
-						pp->prefixlen);
+					vty_out(vty, "%pFX\n",
+						pp);
 				}
 
 				vty_out(vty, "\n");

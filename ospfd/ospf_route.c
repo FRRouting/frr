@@ -364,8 +364,8 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 	apply_mask_ipv4(&p);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_intra_add_router: talking about %s/%d",
-			   inet_ntoa(p.prefix), p.prefixlen);
+		zlog_debug("ospf_intra_add_router: talking about %pFX",
+			   &p);
 
 	rn = route_node_get(rt, (struct prefix *)&p);
 
@@ -467,8 +467,8 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 	apply_mask_ipv4(&p);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_intra_add_stub(): processing route to %s/%d",
-			   inet_ntoa(p.prefix), p.prefixlen);
+		zlog_debug("ospf_intra_add_stub(): processing route to %pFX",
+			   &p);
 
 	/* (1) Calculate the distance D of stub network from the root.  D is
 	   equal to the distance from the root to the router vertex
@@ -843,9 +843,8 @@ void ospf_prune_unreachable_networks(struct route_table *rt)
 			or = rn->info;
 			if (listcount(or->paths) == 0) {
 				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug("Pruning route to %s/%d",
-						   inet_ntoa(rn->p.u.prefix4),
-						   rn->p.prefixlen);
+					zlog_debug("Pruning route to %pFX",
+						   &rn->p);
 
 				ospf_route_free(or);
 				rn->info = NULL;
@@ -936,9 +935,8 @@ int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_add_discard_route(): adding %s/%d",
-			inet_ntoa(p->prefix), p->prefixlen);
+		zlog_debug("ospf_add_discard_route(): adding %pFX",
+			   p);
 
 	new_or = ospf_route_new();
 	new_or->type = OSPF_DESTINATION_DISCARD;
@@ -961,9 +959,8 @@ void ospf_delete_discard_route(struct ospf *ospf, struct route_table *rt,
 	struct ospf_route * or ;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_delete_discard_route(): deleting %s/%d",
-			inet_ntoa(p->prefix), p->prefixlen);
+		zlog_debug("ospf_delete_discard_route(): deleting %pFX",
+			   p);
 
 	rn = route_node_lookup(rt, (struct prefix *)p);
 

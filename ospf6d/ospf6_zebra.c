@@ -107,11 +107,9 @@ static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
-		zlog_debug("Zebra Interface address add: %s %5s %s/%d",
+		zlog_debug("Zebra Interface address add: %s %5s %pFX",
 			   c->ifp->name, prefix_family_str(c->address),
-			   inet_ntop(c->address->family, &c->address->u.prefix,
-				     buf, sizeof(buf)),
-			   c->address->prefixlen);
+			   c->address);
 
 	if (c->address->family == AF_INET6) {
 		ospf6_interface_state_update(c->ifp);
@@ -131,11 +129,9 @@ static int ospf6_zebra_if_address_update_delete(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
-		zlog_debug("Zebra Interface address delete: %s %5s %s/%d",
+		zlog_debug("Zebra Interface address delete: %s %5s %pFX",
 			   c->ifp->name, prefix_family_str(c->address),
-			   inet_ntop(c->address->family, &c->address->u.prefix,
-				     buf, sizeof(buf)),
-			   c->address->prefixlen);
+			   c->address);
 
 	if (c->address->family == AF_INET6) {
 		ospf6_interface_connected_route_update(c->ifp);

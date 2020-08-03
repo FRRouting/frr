@@ -697,11 +697,11 @@ char *rfapiMonitorVpn2Str(struct rfapi_monitor_vpn *m, char *buf, int size)
 	rfapiRfapiIpAddr2Str(&m->rfd->un_addr, buf_vn, BUFSIZ);
 	rfapiRfapiIpAddr2Str(&m->rfd->vn_addr, buf_un, BUFSIZ);
 
-	rc = snprintf(buf, size,
-		      "m=%p, next=%p, rfd=%p(vn=%s un=%s), p=%s/%d, node=%p", m,
+	rc = snprintfrr(buf, size,
+		      "m=%p, next=%p, rfd=%p(vn=%s un=%s), p=%pFX, node=%p",
+		      m,
 		      m->next, m->rfd, buf_vn, buf_un,
-		      inet_ntop(m->p.family, &m->p.u.prefix, buf_pfx, BUFSIZ),
-		      m->p.prefixlen, m->node);
+		      &m->p, m->node);
 	buf[size - 1] = 0;
 	if (rc >= size)
 		return NULL;

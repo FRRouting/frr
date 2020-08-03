@@ -858,17 +858,15 @@ static void ospf_abr_announce_network(struct ospf *ospf, struct prefix_ipv4 *p,
 
 		if (!ospf_abr_should_accept(p, area)) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_abr_announce_network(): prefix %s/%d was denied by import-list",
-					inet_ntoa(p->prefix), p->prefixlen);
+				zlog_debug("ospf_abr_announce_network(): prefix %pFX was denied by import-list",
+					   p);
 			continue;
 		}
 
 		if (!ospf_abr_plist_in_check(area, or, p)) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_abr_announce_network(): prefix %s/%d was denied by prefix-list",
-					inet_ntoa(p->prefix), p->prefixlen);
+				zlog_debug("ospf_abr_announce_network(): prefix %pFX was denied by prefix-list",
+					   p);
 			continue;
 		}
 
@@ -883,9 +881,8 @@ static void ospf_abr_announce_network(struct ospf *ospf, struct prefix_ipv4 *p,
 
 		if (or->path_type == OSPF_PATH_INTER_AREA) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_abr_announce_network(): this is inter-area route to %s/%d",
-					inet_ntoa(p->prefix), p->prefixlen);
+				zlog_debug("ospf_abr_announce_network(): this is inter-area route to %pFX",
+					   p);
 
 			if (!OSPF_IS_AREA_BACKBONE(area))
 				ospf_abr_announce_network_to_area(p, or->cost,
@@ -894,9 +891,8 @@ static void ospf_abr_announce_network(struct ospf *ospf, struct prefix_ipv4 *p,
 
 		if (or->path_type == OSPF_PATH_INTRA_AREA) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_abr_announce_network(): this is intra-area route to %s/%d",
-					inet_ntoa(p->prefix), p->prefixlen);
+				zlog_debug("ospf_abr_announce_network(): this is intra-area route to %pFX",
+					   p);
 			if ((range = ospf_area_range_match(or_area, p))
 			    && !ospf_area_is_transit(area))
 				ospf_abr_update_aggregate(range, or, area);
@@ -990,9 +986,8 @@ static void ospf_abr_process_network_rt(struct ospf *ospf,
 		}
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_abr_process_network_rt(): this is a route to %s/%d",
-				inet_ntoa(rn->p.u.prefix4), rn->p.prefixlen);
+			zlog_debug("ospf_abr_process_network_rt(): this is a route to %pFX",
+				   &rn->p);
 		if (or->path_type >= OSPF_PATH_TYPE1_EXTERNAL) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
@@ -1396,10 +1391,8 @@ static void ospf_abr_announce_aggregates(struct ospf *ospf)
 				p.prefixlen = range->masklen;
 
 				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug(
-						"ospf_abr_announce_aggregates(): this is range: %s/%d",
-						inet_ntoa(p.u.prefix4),
-						p.prefixlen);
+					zlog_debug("ospf_abr_announce_aggregates(): this is range: %pFX",
+						   &p);
 
 				if (CHECK_FLAG(range->flags,
 					       OSPF_AREA_RANGE_SUBSTITUTE)) {
@@ -1490,9 +1483,8 @@ ospf_abr_send_nssa_aggregates(struct ospf *ospf) /* temporarily turned off */
 			p.prefixlen = range->masklen;
 
 			if (IS_DEBUG_OSPF_NSSA)
-				zlog_debug(
-					"ospf_abr_send_nssa_aggregates(): this is range: %s/%d",
-					inet_ntoa(p.prefix), p.prefixlen);
+				zlog_debug("ospf_abr_send_nssa_aggregates(): this is range: %pFX",
+				           &p);
 
 			if (CHECK_FLAG(range->flags,
 				       OSPF_AREA_RANGE_SUBSTITUTE)) {

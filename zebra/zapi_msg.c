@@ -369,11 +369,8 @@ static void zebra_interface_nbr_address_add_update(struct interface *ifp,
 		char buf[INET6_ADDRSTRLEN];
 
 		p = ifc->address;
-		zlog_debug(
-			"MESSAGE: ZEBRA_INTERFACE_NBR_ADDRESS_ADD %s/%d on %s",
-			inet_ntop(p->family, &p->u.prefix, buf,
-				  INET6_ADDRSTRLEN),
-			p->prefixlen, ifc->ifp->name);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_NBR_ADDRESS_ADD %pFX on %s",
+			   p, ifc->ifp->name);
 	}
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
@@ -398,11 +395,8 @@ static void zebra_interface_nbr_address_delete_update(struct interface *ifp,
 		char buf[INET6_ADDRSTRLEN];
 
 		p = ifc->address;
-		zlog_debug(
-			"MESSAGE: ZEBRA_INTERFACE_NBR_ADDRESS_DELETE %s/%d on %s",
-			inet_ntop(p->family, &p->u.prefix, buf,
-				  INET6_ADDRSTRLEN),
-			p->prefixlen, ifc->ifp->name);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_NBR_ADDRESS_DELETE %pFX on %s",
+			   p, ifc->ifp->name);
 	}
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {

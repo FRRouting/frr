@@ -1644,11 +1644,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		mpls_label_t label = bgp_adv_label(dest, pi, peer, afi, safi);
 		if (!bgp_is_valid_label(&label)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-				zlog_debug("u%" PRIu64 ":s%" PRIu64" %s/%d is filtered - no label (%p)",
+				zlog_debug("u%" PRIu64 ":s%" PRIu64" %pFX is filtered - no label (%p)",
 					   subgrp->update_group->id, subgrp->id,
-					   inet_ntop(p->family, &p->u.prefix,
-						     buf, SU_ADDRSTRLEN),
-					   p->prefixlen, &label);
+					   p, &label);
 			return false;
 		}
 	}
@@ -7416,9 +7414,8 @@ static void route_vty_out_route(const struct prefix *p, struct vty *vty,
 	if (p->family == AF_INET) {
 		if (!json) {
 			len = vty_out(
-				vty, "%s/%d",
-				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-				p->prefixlen);
+				vty, "%pFX",
+				p);
 		} else {
 			json_object_string_add(json, "prefix",
 					       inet_ntop(p->family,
@@ -7447,9 +7444,8 @@ static void route_vty_out_route(const struct prefix *p, struct vty *vty,
 	} else {
 		if (!json)
 			len = vty_out(
-				vty, "%s/%d",
-				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-				p->prefixlen);
+				vty, "%pFX",
+				p);
 		else {
 			json_object_string_add(json, "prefix",
 						inet_ntop(p->family,
@@ -10095,15 +10091,13 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		}
 	} else {
 		if (!json) {
-			vty_out(vty, "BGP routing table entry for %s%s%s/%d\n",
+			vty_out(vty, "BGP routing table entry for %s%s%pFX\n",
 				((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
 				 ? prefix_rd2str(prd, buf1,
 					 sizeof(buf1))
 				 : ""),
 				safi == SAFI_MPLS_VPN ? ":" : "",
-				inet_ntop(p->family, &p->u.prefix, buf2,
-					INET6_ADDRSTRLEN),
-				p->prefixlen);
+				p);
 
 		} else
 			json_object_string_add(json, "prefix",
@@ -13285,10 +13279,8 @@ static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 			prefix_rd2str(prd, rdbuf, sizeof(rdbuf));
 			label = decode_label(&bgp_static->label);
 
-			vty_out(vty, "  network %s/%d rd %s",
-				inet_ntop(p->family, &p->u.prefix, buf,
-					  SU_ADDRSTRLEN),
-				p->prefixlen, rdbuf);
+			vty_out(vty, "  network %pFX rd %s",
+				p, rdbuf);
 			if (safi == SAFI_MPLS_VPN)
 				vty_out(vty, " label %u", label);
 
@@ -13407,9 +13399,8 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 		p = bgp_dest_get_prefix(dest);
 
-		vty_out(vty, "  network %s/%d",
-			inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-			p->prefixlen);
+		vty_out(vty, "  network %pFX",
+			p);
 
 		if (bgp_static->label_index != BGP_INVALID_LABEL_INDEX)
 			vty_out(vty, " label-index %u",
@@ -13433,9 +13424,8 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 		p = bgp_dest_get_prefix(dest);
 
-		vty_out(vty, "  aggregate-address %s/%d",
-			inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-			p->prefixlen);
+		vty_out(vty, "  aggregate-address %pFX",
+			p);
 
 		if (bgp_aggregate->as_set)
 			vty_out(vty, " as-set");

@@ -602,8 +602,8 @@ int rip_interface_address_add(ZAPI_CALLBACK_ARGS)
 
 	if (p->family == AF_INET) {
 		if (IS_RIP_DEBUG_ZEBRA)
-			zlog_debug("connected address %s/%d is added",
-				   inet_ntoa(p->u.prefix4), p->prefixlen);
+			zlog_debug("connected address %pFX is added",
+				   p);
 
 		rip_enable_apply(ifc->ifp);
 		/* Check if this prefix needs to be redistributed */
@@ -652,9 +652,8 @@ int rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		p = ifc->address;
 		if (p->family == AF_INET) {
 			if (IS_RIP_DEBUG_ZEBRA)
-				zlog_debug("connected address %s/%d is deleted",
-					   inet_ntoa(p->u.prefix4),
-					   p->prefixlen);
+				zlog_debug("connected address %pFX is deleted",
+					   p);
 
 			hook_call(rip_ifaddr_del, ifc);
 

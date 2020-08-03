@@ -2028,22 +2028,16 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 					if (bgp_debug_neighbor_events(peer)) {
 						char buf[INET6_BUFSIZ];
 
-						zlog_debug(
-							"%s rcvd %s %s seq %u %s/%d ge %d le %d%s",
-							peer->host,
-							(common & ORF_COMMON_PART_REMOVE
+						zlog_debug("%s rcvd %s %s seq %u %pFX ge %d le %d%s",
+							   peer->host,
+							   (common & ORF_COMMON_PART_REMOVE
 								 ? "Remove"
 								 : "Add"),
 							(common & ORF_COMMON_PART_DENY
 								 ? "deny"
 								 : "permit"),
 							orfp.seq,
-							inet_ntop(
-								orfp.p.family,
-								&orfp.p.u.prefix,
-								buf,
-								INET6_BUFSIZ),
-							orfp.p.prefixlen,
+							&orfp.p,
 							orfp.ge, orfp.le,
 							ok ? "" : " MALFORMED");
 					}

@@ -374,8 +374,8 @@ int ripng_interface_address_add(ZAPI_CALLBACK_ARGS)
 		struct ripng_interface *ri = c->ifp->info;
 
 		if (IS_RIPNG_DEBUG_ZEBRA)
-			zlog_debug("RIPng connected address %s/%d add",
-				   inet6_ntoa(p->u.prefix6), p->prefixlen);
+			zlog_debug("RIPng connected address %pFX add",
+				   p);
 
 		/* Check is this prefix needs to be redistributed. */
 		ripng_apply_address_add(c);

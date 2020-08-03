@@ -968,10 +968,11 @@ connected_log(struct connected *connected, char *str)
 	p = connected->address;
 
 	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	snprintf(logbuf, sizeof(logbuf), "%s interface %s vrf %s(%u) %s %s/%d ",
-		 str, ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id,
-		 prefix_family_str(p),
-		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
+	snprintfrr(logbuf, sizeof(logbuf),
+		   "%s interface %s vrf %s(%u) %s %pFX ",
+		   str, ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id,
+		   prefix_family_str(p),
+		   p);
 
 	p = connected->destination;
 	if (p) {
@@ -993,9 +994,9 @@ nbr_connected_log(struct nbr_connected *connected, char *str)
 	ifp = connected->ifp;
 	p = connected->address;
 
-	snprintf(logbuf, sizeof(logbuf), "%s interface %s %s %s/%d ", str,
-		 ifp->name, prefix_family_str(p),
-		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
+	snprintfrr(logbuf, sizeof(logbuf), "%s interface %s %s %pFX ", str,
+		   ifp->name, prefix_family_str(p),
+		   p);
 
 	zlog_info("%s", logbuf);
 }

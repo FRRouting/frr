@@ -88,18 +88,18 @@ static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
 
 	if (IS_RIP_DEBUG_ZEBRA) {
 		if (rip->ecmp)
-			zlog_debug("%s: %s/%d nexthops %d",
+			zlog_debug("%s: %pFX nexthops %d",
 				   (cmd == ZEBRA_ROUTE_ADD)
 					   ? "Install into zebra"
 					   : "Delete from zebra",
-				   inet_ntoa(rp->p.u.prefix4), rp->p.prefixlen,
+				   &rp->p,
 				   count);
 		else
-			zlog_debug("%s: %s/%d",
+			zlog_debug("%s: %pFX",
 				   (cmd == ZEBRA_ROUTE_ADD)
 					   ? "Install into zebra"
 					   : "Delete from zebra",
-				   inet_ntoa(rp->p.u.prefix4), rp->p.prefixlen);
+				   &rp->p);
 	}
 
 	rip->counters.route_changes++;
