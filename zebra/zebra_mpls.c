@@ -3321,7 +3321,7 @@ lsp_add_nhlfe(zebra_lsp_t *lsp, enum lsp_types_t type,
 
 /*
  * Install an LSP and forwarding entry; used primarily
- * from zapi message processing.
+ * from vrf zapi message processing.
  */
 int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		     mpls_label_t in_label, uint8_t num_out_labels,
@@ -3381,6 +3381,10 @@ static int lsp_znh_install(zebra_lsp_t *lsp, enum lsp_types_t type,
 		memcpy(nhlfe->nexthop->backup_idx, znh->backup_idx,
 		       znh->backup_num);
 		SET_FLAG(nhlfe->nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
+	} else {
+		/* Ensure there's no stale backup info */
+		UNSET_FLAG(nhlfe->nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
+		nhlfe->nexthop->backup_num = 0;
 	}
 
 	/* Queue LSP for processing. */
