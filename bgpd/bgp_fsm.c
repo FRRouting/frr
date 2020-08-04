@@ -1105,6 +1105,10 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 	peer->ostatus = peer->status;
 	peer->status = status;
 
+	/* Fire backward transition hook if that's the case */
+	if (peer->ostatus > peer->status)
+		hook_call(peer_backward_transition, peer);
+
 	/* Save event that caused status change. */
 	peer->last_major_event = peer->cur_event;
 
@@ -1267,8 +1271,6 @@ int bgp_stop(struct peer *peer)
 			zlog_debug("%s remove from all update group",
 				   peer->host);
 		update_group_remove_peer_afs(peer);
-
-		hook_call(peer_backward_transition, peer);
 
 		/* Reset peer synctime */
 		peer->synctime = 0;
