@@ -1374,6 +1374,18 @@ Configuring Peers
 
    This command is only allowed for eBGP peers.
 
+.. index:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths
+.. clicmd:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths
+
+   Configure BGP to send all known paths to neighbor in order to preserve multi
+   path capabilities inside a network.
+
+.. index:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-AS
+.. clicmd:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-AS
+
+   Configure BGP to send best known paths to neighbor in order to preserve multi
+   path capabilities inside a network.
+
 .. index:: [no] neighbor PEER ttl-security hops NUMBER
 .. clicmd:: [no] neighbor PEER ttl-security hops NUMBER
 
