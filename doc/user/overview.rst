@@ -290,6 +290,8 @@ BGP
   :t:`A Border Gateway Protocol 4 (BGP-4). Updates RFC1771. Y. Rekhter, T. Li & S. Hares. January 2006.`
 - :rfc:`4364`
   :t:`BGP/MPLS IP Virtual Private Networks (VPNs). Y. Rekhter. Feb 2006.`
+- :rfc:`4486`
+  :t:`Subcodes for BGP Cease Notification Message. E. Chen, V. Gillet. April 2006.`
 - :rfc:`4659`
   :t:`BGP-MPLS IP Virtual Private Network (VPN) Extension for IPv6 VPN. J. De Clercq, D. Ooms, M. Carugi, F. Le Faucheur. September 2006.`
 - :rfc:`4893`
@@ -320,6 +322,8 @@ BGP
   :t:`BGP Large Communities Attribute. J. Heitz, Ed., J. Snijders, Ed, K. Patel, I. Bagdonas, N. Hilliard. February 2017`
 - :rfc:`8195`
   :t:`Use of BGP Large Communities. J. Snijders, J. Heasley, M. Schmidt, June 2017`
+- :rfc:`8203`
+  :t:`BGP Administrative Shutdown Communication. J. Snijders, J. Heitz, J. Scudder. July 2017.`
 - :rfc:`8212`
   :t:`Default External BGP (EBGP) Route Propagation Behavior without Policies. J. Mauch, J. Snijders, G. Hankins. July 2017`
 - :rfc:`8277`

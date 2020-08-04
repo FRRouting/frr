@@ -1203,13 +1203,15 @@ Defining Peers
 Configuring Peers
 ^^^^^^^^^^^^^^^^^
 
-.. index:: [no] neighbor PEER shutdown
-.. clicmd:: [no] neighbor PEER shutdown
+.. index:: [no] neighbor PEER shutdown [message MSG...]
+.. clicmd:: [no] neighbor PEER shutdown [message MSG...]
 
    Shutdown the peer. We can delete the neighbor's configuration by
    ``no neighbor PEER remote-as ASN`` but all configuration of the neighbor
    will be deleted. When you want to preserve the configuration, but want to
    drop the BGP peer, use this syntax.
+
+   Optionally you can specify a shutdown message `MSG`.
 
 .. index:: [no] neighbor PEER disable-connected-check
 .. clicmd:: [no] neighbor PEER disable-connected-check
