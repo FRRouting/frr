@@ -155,7 +155,6 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
-	access_list_init();
 	static_debug_init();
 	static_vrf_init();
 

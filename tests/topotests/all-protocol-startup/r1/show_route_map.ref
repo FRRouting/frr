@@ -70,4 +70,3 @@ route-map: bgp-map Invoked: 0 Optimization: enabled
   Action:
     Exit routemap
 ISIS:
-SHARP:
