@@ -1341,6 +1341,19 @@ Configuring Peers
 
    This command is only allowed for eBGP peers.
 
+.. index:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> as-override
+.. clicmd:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> as-override
+
+   Override AS number of the originating router with the local AS number.
+
+   Usually this configuration is used in PEs (Provider Edge) to replace
+   the incoming customer AS number so the connected CE (Customer Edge)
+   can use the same AS number as the other customer sites. This allows
+   customers of the provider network to use the same AS number across
+   their sites.
+
+   This command is only allowed for eBGP peers.
+
 .. index:: [no] neighbor PEER ttl-security hops NUMBER
 .. clicmd:: [no] neighbor PEER ttl-security hops NUMBER
 
