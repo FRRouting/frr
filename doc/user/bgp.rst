@@ -1354,6 +1354,24 @@ Configuring Peers
 
    This command is only allowed for eBGP peers.
 
+.. index:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]
+.. clicmd:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]
+
+   Accept incoming routes with AS path containing AS number with the same value
+   as the current system AS.
+
+   This is used when you want to use the same AS number in your sites, but you
+   can't connect them directly. This is an alternative to
+   `neighbor WORD as-override`.
+
+   The parameter `(1-10)` configures the amount of accepted occurences of the
+   system AS number in AS path.
+
+   The parameter `origin` configures BGP to only accept routes originated with
+   the same AS number as the system.
+
+   This command is only allowed for eBGP peers.
+
 .. index:: [no] neighbor PEER ttl-security hops NUMBER
 .. clicmd:: [no] neighbor PEER ttl-security hops NUMBER
 
