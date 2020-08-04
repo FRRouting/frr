@@ -1588,6 +1588,8 @@ extern struct peer *peer_unlock_with_caller(const char *, struct peer *);
 #define peer_lock(B) peer_lock_with_caller(__FUNCTION__, (B))
 
 extern bgp_peer_sort_t peer_sort(struct peer *peer);
+extern bgp_peer_sort_t peer_sort_lookup(struct peer *peer);
+
 extern int peer_active(struct peer *);
 extern int peer_active_nego(struct peer *);
 extern void bgp_recalculate_all_bestpaths(struct bgp *bgp);

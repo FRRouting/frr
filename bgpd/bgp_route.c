@@ -833,8 +833,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	   pair (newm, existm) with the cluster list length. Prefer the
 	   path with smaller cluster list length.                       */
 	if (newm == existm) {
-		if (peer_sort(new->peer) == BGP_PEER_IBGP
-		    && peer_sort(exist->peer) == BGP_PEER_IBGP
+		if (peer_sort_lookup(new->peer) == BGP_PEER_IBGP
+		    && peer_sort_lookup(exist->peer) == BGP_PEER_IBGP
 		    && (mpath_cfg == NULL
 			|| CHECK_FLAG(
 				   mpath_cfg->ibgp_flags,
