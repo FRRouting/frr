@@ -904,6 +904,13 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 				       > vty->candidate_config->version)
 				nb_config_replace(vty->candidate_config,
 						  running_config, true);
+
+			/*
+			 * Perform pending commit (if any) before executing
+			 * non-YANG command.
+			 */
+			if (matched_element->attr != CMD_ATTR_YANG)
+				nb_cli_pending_commit_check(vty);
 		}
 
 		ret = matched_element->func(matched_element, vty, argc, argv);

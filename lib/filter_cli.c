@@ -169,7 +169,7 @@ static long acl_get_seq(struct vty *vty, const char *xpath)
 /*
  * Cisco (legacy) access lists.
  */
-DEFPY(
+DEFPY_YANG(
 	access_list_std, access_list_std_cmd,
 	"access-list <(1-99)|(1300-1999)>$number [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask|any>",
 	ACCESS_LIST_STR
@@ -220,7 +220,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_access_list_std, no_access_list_std_cmd,
 	"no access-list <(1-99)|(1300-1999)>$number [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask|any>",
 	NO_STR
@@ -280,7 +280,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	access_list_ext, access_list_ext_cmd,
 	"access-list <(100-199)|(2000-2699)>$number [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	ACCESS_LIST_STR
@@ -351,7 +351,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_access_list_ext, no_access_list_ext_cmd,
 	"no access-list <(100-199)|(2000-2699)>$number [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	NO_STR
@@ -436,7 +436,7 @@ DEFPY(
 /*
  * Zebra access lists.
  */
-DEFPY(
+DEFPY_YANG(
 	access_list, access_list_cmd,
 	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <A.B.C.D/M$prefix [exact-match$exact]|any>",
 	ACCESS_LIST_STR
@@ -482,7 +482,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_access_list, no_access_list_cmd,
 	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <A.B.C.D/M$prefix [exact-match$exact]|any>",
 	NO_STR
@@ -539,7 +539,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_access_list_all, no_access_list_all_cmd,
 	"no access-list WORD$name",
 	NO_STR
@@ -555,7 +555,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	access_list_remark, access_list_remark_cmd,
 	"access-list WORD$name remark LINE...",
 	ACCESS_LIST_STR
@@ -579,7 +579,7 @@ DEFPY(
 	return rv;
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_access_list_remark, no_access_list_remark_cmd,
 	"no access-list WORD$name remark",
 	NO_STR
@@ -606,7 +606,7 @@ ALIAS(
 	ACCESS_LIST_REMARK_STR
 	ACCESS_LIST_REMARK_LINE_STR)
 
-DEFPY(
+DEFPY_YANG(
 	ipv6_access_list, ipv6_access_list_cmd,
 	"ipv6 access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
 	IPV6_STR
@@ -653,7 +653,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_ipv6_access_list, no_ipv6_access_list_cmd,
 	"no ipv6 access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X/M$prefix [exact-match$exact]|any>",
 	NO_STR
@@ -711,7 +711,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_ipv6_access_list_all, no_ipv6_access_list_all_cmd,
 	"no ipv6 access-list WORD$name",
 	NO_STR
@@ -728,7 +728,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	ipv6_access_list_remark, ipv6_access_list_remark_cmd,
 	"ipv6 access-list WORD$name remark LINE...",
 	IPV6_STR
@@ -753,7 +753,7 @@ DEFPY(
 	return rv;
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_ipv6_access_list_remark, no_ipv6_access_list_remark_cmd,
 	"no ipv6 access-list WORD$name remark",
 	NO_STR
@@ -782,7 +782,7 @@ ALIAS(
 	ACCESS_LIST_REMARK_STR
 	ACCESS_LIST_REMARK_LINE_STR)
 
-DEFPY(
+DEFPY_YANG(
 	mac_access_list, mac_access_list_cmd,
 	"mac access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$mac|any>",
 	MAC_STR
@@ -825,7 +825,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_mac_access_list, no_mac_access_list_cmd,
 	"no mac access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$prefix|any>",
 	NO_STR
@@ -882,7 +882,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_mac_access_list_all, no_mac_access_list_all_cmd,
 	"no mac access-list WORD$name",
 	NO_STR
@@ -899,7 +899,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	mac_access_list_remark, mac_access_list_remark_cmd,
 	"mac access-list WORD$name remark LINE...",
 	MAC_STR
@@ -924,7 +924,7 @@ DEFPY(
 	return rv;
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_mac_access_list_remark, no_mac_access_list_remark_cmd,
 	"no mac access-list WORD$name remark",
 	NO_STR
@@ -1182,7 +1182,7 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 	return rv;
 }
 
-DEFPY(
+DEFPY_YANG(
 	ip_prefix_list, ip_prefix_list_cmd,
 	"ip prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)$ge|le (0-32)$le}]>",
 	IP_STR
@@ -1239,7 +1239,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_ip_prefix_list, no_ip_prefix_list_cmd,
 	"no ip prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)|le (0-32)}]>",
 	NO_STR
@@ -1259,7 +1259,7 @@ DEFPY(
 			    (struct prefix *)prefix, ge, le);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_ip_prefix_list_seq, no_ip_prefix_list_seq_cmd,
 	"no ip prefix-list WORD$name seq (1-4294967295)$seq",
 	NO_STR
@@ -1271,7 +1271,7 @@ DEFPY(
 	return plist_remove(vty, "ipv4", name, seq_str, NULL, NULL, 0, 0);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_ip_prefix_list_all, no_ip_prefix_list_all_cmd,
 	"no ip prefix-list WORD$name",
 	NO_STR
@@ -1288,7 +1288,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	ip_prefix_list_remark, ip_prefix_list_remark_cmd,
 	"ip prefix-list WORD$name description LINE...",
 	IP_STR
@@ -1313,7 +1313,7 @@ DEFPY(
 	return rv;
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_ip_prefix_list_remark, no_ip_prefix_list_remark_cmd,
 	"no ip prefix-list WORD$name description",
 	NO_STR
@@ -1342,7 +1342,7 @@ ALIAS(
 	ACCESS_LIST_REMARK_STR
 	ACCESS_LIST_REMARK_LINE_STR)
 
-DEFPY(
+DEFPY_YANG(
 	ipv6_prefix_list, ipv6_prefix_list_cmd,
 	"ipv6 prefix-list WORD$name [seq (1-4294967295)] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
 	IPV6_STR
@@ -1399,7 +1399,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, xpath_entry);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_ipv6_prefix_list, no_ipv6_prefix_list_cmd,
 	"no ipv6 prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
 	NO_STR
@@ -1419,7 +1419,7 @@ DEFPY(
 			    (struct prefix *)prefix, ge, le);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_ipv6_prefix_list_seq, no_ipv6_prefix_list_seq_cmd,
 	"no ipv6 prefix-list WORD$name seq (1-4294967295)$seq",
 	NO_STR
@@ -1431,7 +1431,7 @@ DEFPY(
 	return plist_remove(vty, "ipv6", name, seq_str, NULL, NULL, 0, 0);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_ipv6_prefix_list_all, no_ipv6_prefix_list_all_cmd,
 	"no ipv6 prefix-list WORD$name",
 	NO_STR
@@ -1448,7 +1448,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	ipv6_prefix_list_remark, ipv6_prefix_list_remark_cmd,
 	"ipv6 prefix-list WORD$name description LINE...",
 	IPV6_STR
@@ -1473,7 +1473,7 @@ DEFPY(
 	return rv;
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_cmd,
 	"no ipv6 prefix-list WORD$name description",
 	NO_STR

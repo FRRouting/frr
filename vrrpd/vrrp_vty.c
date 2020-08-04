@@ -52,7 +52,7 @@
 /*
  * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group
  */
-DEFPY(vrrp_vrid,
+DEFPY_YANG(vrrp_vrid,
       vrrp_vrid_cmd,
       "[no] vrrp (1-255)$vrid [version (2-3)]",
       NO_STR
@@ -89,7 +89,7 @@ void cli_show_vrrp(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
 /*
  * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/shutdown
  */
-DEFPY(vrrp_shutdown,
+DEFPY_YANG(vrrp_shutdown,
       vrrp_shutdown_cmd,
       "[no] vrrp (1-255)$vrid shutdown",
       NO_STR
@@ -115,7 +115,7 @@ void cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/priority
  */
-DEFPY(vrrp_priority,
+DEFPY_YANG(vrrp_priority,
       vrrp_priority_cmd,
       "vrrp (1-255)$vrid priority (1-254)",
       VRRP_STR
@@ -131,7 +131,7 @@ DEFPY(vrrp_priority,
 /*
  * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/priority
  */
-DEFPY(no_vrrp_priority,
+DEFPY_YANG(no_vrrp_priority,
       no_vrrp_priority_cmd,
       "no vrrp (1-255)$vrid priority [(1-254)]",
       NO_STR
@@ -158,7 +158,7 @@ void cli_show_priority(struct vty *vty, struct lyd_node *dnode,
  * XPath:
  * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/advertisement-interval
  */
-DEFPY(vrrp_advertisement_interval,
+DEFPY_YANG(vrrp_advertisement_interval,
       vrrp_advertisement_interval_cmd,
       "vrrp (1-255)$vrid advertisement-interval (10-40950)",
       VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
@@ -179,7 +179,7 @@ DEFPY(vrrp_advertisement_interval,
  * XPath:
  * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/advertisement-interval
  */
-DEFPY(no_vrrp_advertisement_interval,
+DEFPY_YANG(no_vrrp_advertisement_interval,
       no_vrrp_advertisement_interval_cmd,
       "no vrrp (1-255)$vrid advertisement-interval [(10-40950)]",
       NO_STR VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
@@ -205,7 +205,7 @@ void cli_show_advertisement_interval(struct vty *vty, struct lyd_node *dnode,
  * XPath:
  * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/v4/virtual-address
  */
-DEFPY(vrrp_ip,
+DEFPY_YANG(vrrp_ip,
       vrrp_ip_cmd,
       "[no] vrrp (1-255)$vrid ip A.B.C.D",
       NO_STR
@@ -233,7 +233,7 @@ void cli_show_ip(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
  * XPath:
  * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/v6/virtual-address
  */
-DEFPY(vrrp_ip6,
+DEFPY_YANG(vrrp_ip6,
       vrrp_ip6_cmd,
       "[no] vrrp (1-255)$vrid ipv6 X:X::X:X",
       NO_STR
@@ -260,7 +260,7 @@ void cli_show_ipv6(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
 /*
  * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/preempt
  */
-DEFPY(vrrp_preempt,
+DEFPY_YANG(vrrp_preempt,
       vrrp_preempt_cmd,
       "[no] vrrp (1-255)$vrid preempt",
       NO_STR
@@ -284,7 +284,7 @@ void cli_show_preempt(struct vty *vty, struct lyd_node *dnode,
 }
 
 /* XXX: yang conversion */
-DEFPY(vrrp_autoconfigure,
+DEFPY_YANG(vrrp_autoconfigure,
       vrrp_autoconfigure_cmd,
       "[no] vrrp autoconfigure [version (2-3)]",
       NO_STR
@@ -304,7 +304,7 @@ DEFPY(vrrp_autoconfigure,
 }
 
 /* XXX: yang conversion */
-DEFPY(vrrp_default,
+DEFPY_YANG(vrrp_default,
       vrrp_default_cmd,
       "[no] vrrp default <advertisement-interval$adv (10-40950)$advint|preempt$p|priority$prio (1-254)$prioval|shutdown$s>",
       NO_STR
@@ -583,7 +583,7 @@ static int vrrp_instance_display_sort_cmp(const void **d1, const void **d2)
 
 /* clang-format off */
 
-DEFPY(vrrp_vrid_show,
+DEFPY_YANG(vrrp_vrid_show,
       vrrp_vrid_show_cmd,
       "show vrrp [interface INTERFACE$ifn] [(1-255)$vrid] [json$json]",
       SHOW_STR
@@ -624,7 +624,7 @@ DEFPY(vrrp_vrid_show,
 	return CMD_SUCCESS;
 }
 
-DEFPY(vrrp_vrid_show_summary,
+DEFPY_YANG(vrrp_vrid_show_summary,
       vrrp_vrid_show_summary_cmd,
       "show vrrp [interface INTERFACE$ifn] [(1-255)$vrid] summary",
       SHOW_STR
@@ -674,7 +674,7 @@ DEFPY(vrrp_vrid_show_summary,
 }
 
 
-DEFPY(debug_vrrp,
+DEFPY_YANG(debug_vrrp,
       debug_vrrp_cmd,
       "[no] debug vrrp [{protocol$proto|autoconfigure$ac|packets$pkt|sockets$sock|ndisc$ndisc|arp$arp|zebra$zebra}]",
       NO_STR

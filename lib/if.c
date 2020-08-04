@@ -1321,7 +1321,7 @@ void if_link_params_free(struct interface *ifp)
 /*
  * XPath: /frr-interface:lib/interface
  */
-DEFPY_NOSH (interface,
+DEFPY_YANG_NOSH (interface,
        interface_cmd,
        "interface IFNAME [vrf NAME$vrf_name]",
        "Select an interface to configure\n"
@@ -1384,6 +1384,7 @@ DEFPY_NOSH (interface,
 		 * all interface-level commands are converted to the new
 		 * northbound model.
 		 */
+		nb_cli_pending_commit_check(vty);
 		ifp = if_lookup_by_name(ifname, vrf_id);
 		if (ifp)
 			VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);
@@ -1392,7 +1393,7 @@ DEFPY_NOSH (interface,
 	return ret;
 }
 
-DEFPY (no_interface,
+DEFPY_YANG (no_interface,
        no_interface_cmd,
        "no interface IFNAME [vrf NAME$vrf_name]",
        NO_STR
@@ -1427,7 +1428,7 @@ static void cli_show_interface(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/description
  */
-DEFPY (interface_desc,
+DEFPY_YANG (interface_desc,
        interface_desc_cmd,
        "description LINE...",
        "Interface specific description\n"
@@ -1444,7 +1445,7 @@ DEFPY (interface_desc,
 	return ret;
 }
 
-DEFPY  (no_interface_desc,
+DEFPY_YANG  (no_interface_desc,
 	no_interface_desc_cmd,
 	"no description",
 	NO_STR

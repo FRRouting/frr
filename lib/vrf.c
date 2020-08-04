@@ -638,6 +638,7 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 		ret = nb_cli_apply_changes(vty, xpath_list);
 		if (ret == CMD_SUCCESS) {
 			VTY_PUSH_XPATH(VRF_NODE, xpath_list);
+			nb_cli_pending_commit_check(vty);
 			vrfp = vrf_lookup_by_name(vrfname);
 			if (vrfp)
 				VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
@@ -731,7 +732,7 @@ DEFUN_NOSH(vrf_exit,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (vrf,
+DEFUN_YANG_NOSH (vrf,
        vrf_cmd,
        "vrf NAME",
        "Select a VRF to configure\n"
@@ -743,7 +744,7 @@ DEFUN_NOSH (vrf,
 	return vrf_handler_create(vty, vrfname, NULL);
 }
 
-DEFUN (no_vrf,
+DEFUN_YANG (no_vrf,
        no_vrf_cmd,
        "no vrf NAME",
        NO_STR

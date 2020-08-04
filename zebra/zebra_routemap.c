@@ -351,7 +351,7 @@ static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 	return CMD_SUCCESS;
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_ip_address_prefix_len, match_ip_address_prefix_len_cmd,
 	"match ip address prefix-len (0-32)$length",
 	MATCH_STR
@@ -371,7 +371,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_ip_address_prefix_len, no_match_ip_address_prefix_len_cmd,
 	"no match ip address prefix-len [(0-32)]",
 	NO_STR
@@ -388,7 +388,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_ipv6_address_prefix_len, match_ipv6_address_prefix_len_cmd,
 	"match ipv6 address prefix-len (0-128)$length",
 	MATCH_STR
@@ -408,7 +408,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_ipv6_address_prefix_len, no_match_ipv6_address_prefix_len_cmd,
 	"no match ipv6 address prefix-len [(0-128)]",
 	NO_STR
@@ -425,7 +425,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_ip_nexthop_prefix_len, match_ip_nexthop_prefix_len_cmd,
 	"match ip next-hop prefix-len (0-32)$length",
 	MATCH_STR
@@ -446,7 +446,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_ip_nexthop_prefix_len, no_match_ip_nexthop_prefix_len_cmd,
 	"no match ip next-hop prefix-len [(0-32)]",
 	NO_STR
@@ -464,7 +464,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_source_protocol, match_source_protocol_cmd,
 	"match source-protocol " FRR_REDIST_STR_ZEBRA "$proto",
 	MATCH_STR
@@ -482,7 +482,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_source_protocol, no_match_source_protocol_cmd,
 	"no match source-protocol [" FRR_REDIST_STR_ZEBRA "]",
 	NO_STR
@@ -497,7 +497,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	match_source_instance, match_source_instance_cmd,
 	"match source-instance (0-255)$instance",
 	MATCH_STR
@@ -515,7 +515,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_match_source_instance, no_match_source_instance_cmd,
 	"no match source-instance [(0-255)]",
 	NO_STR MATCH_STR
@@ -531,7 +531,7 @@ DEFPY(
 
 /* set functions */
 
-DEFPY(
+DEFPY_YANG(
 	set_src, set_src_cmd,
 	"set src <A.B.C.D$addrv4|X:X::X:X$addrv6>",
 	SET_STR
@@ -558,7 +558,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_set_src, no_set_src_cmd,
 	"no set src [<A.B.C.D|X:X::X:X>]",
 	NO_STR
@@ -605,7 +605,7 @@ DEFUN (no_zebra_route_map_timer,
 	return (CMD_SUCCESS);
 }
 
-DEFPY (ip_protocol,
+DEFPY_YANG (ip_protocol,
        ip_protocol_cmd,
        "ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
        " $proto route-map ROUTE-MAP$rmap",
@@ -639,7 +639,7 @@ DEFPY (ip_protocol,
 	return ret;
 }
 
-DEFPY (no_ip_protocol,
+DEFPY_YANG (no_ip_protocol,
        no_ip_protocol_cmd,
        "no ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
        " $proto [route-map ROUTE-MAP$rmap]",
@@ -673,7 +673,7 @@ DEFPY (no_ip_protocol,
 	return ret;
 }
 
-DEFPY (show_ip_protocol,
+DEFPY_YANG (show_ip_protocol,
        show_ip_protocol_cmd,
        "show ip protocol [vrf <NAME$vrf_name|all$vrf_all>]",
        SHOW_STR
@@ -686,7 +686,7 @@ DEFPY (show_ip_protocol,
 	return ret;
 }
 
-DEFPY (ipv6_protocol,
+DEFPY_YANG (ipv6_protocol,
        ipv6_protocol_cmd,
        "ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
        " $proto route-map ROUTE-MAP$rmap",
@@ -720,7 +720,7 @@ DEFPY (ipv6_protocol,
 	return ret;
 }
 
-DEFPY (no_ipv6_protocol,
+DEFPY_YANG (no_ipv6_protocol,
        no_ipv6_protocol_cmd,
        "no ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
        " $proto [route-map ROUTE-MAP$rmap]",
@@ -754,7 +754,7 @@ DEFPY (no_ipv6_protocol,
 	return ret;
 }
 
-DEFPY (show_ipv6_protocol,
+DEFPY_YANG (show_ipv6_protocol,
        show_ipv6_protocol_cmd,
        "show ipv6 protocol [vrf <NAME$vrf_name|all$vrf_all>]",
        SHOW_STR
@@ -767,7 +767,7 @@ DEFPY (show_ipv6_protocol,
 	return ret;
 }
 
-DEFPY (ip_protocol_nht_rmap,
+DEFPY_YANG (ip_protocol_nht_rmap,
        ip_protocol_nht_rmap_cmd,
        "ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
        " $proto route-map ROUTE-MAP$rmap",
@@ -802,7 +802,7 @@ DEFPY (ip_protocol_nht_rmap,
 	return ret;
 }
 
-DEFPY (no_ip_protocol_nht_rmap,
+DEFPY_YANG (no_ip_protocol_nht_rmap,
        no_ip_protocol_nht_rmap_cmd,
        "no ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
        " $proto route-map [ROUTE-MAP$rmap]",
@@ -836,7 +836,7 @@ DEFPY (no_ip_protocol_nht_rmap,
 	return ret;
 }
 
-DEFPY (show_ip_protocol_nht,
+DEFPY_YANG (show_ip_protocol_nht,
        show_ip_protocol_nht_cmd,
        "show ip nht route-map [vrf <NAME$vrf_name|all$vrf_all>]",
        SHOW_STR
@@ -850,7 +850,7 @@ DEFPY (show_ip_protocol_nht,
 	return ret;
 }
 
-DEFPY (ipv6_protocol_nht_rmap,
+DEFPY_YANG (ipv6_protocol_nht_rmap,
        ipv6_protocol_nht_rmap_cmd,
        "ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
        " $proto route-map ROUTE-MAP$rmap",
@@ -884,7 +884,7 @@ DEFPY (ipv6_protocol_nht_rmap,
 	return ret;
 }
 
-DEFPY (no_ipv6_protocol_nht_rmap,
+DEFPY_YANG (no_ipv6_protocol_nht_rmap,
        no_ipv6_protocol_nht_rmap_cmd,
        "no ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
        " $proto [route-map ROUTE-MAP$rmap]",
@@ -918,7 +918,7 @@ DEFPY (no_ipv6_protocol_nht_rmap,
 	return ret;
 }
 
-DEFPY (show_ipv6_protocol_nht,
+DEFPY_YANG (show_ipv6_protocol_nht,
        show_ipv6_protocol_nht_cmd,
        "show ipv6 nht route-map [vrf <NAME$vrf_name|all$vrf_all>]",
        SHOW_STR

@@ -451,7 +451,7 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 }
 
 /* Static unicast routes for multicast RPF lookup. */
-DEFPY (ip_mroute_dist,
+DEFPY_YANG (ip_mroute_dist,
        ip_mroute_dist_cmd,
        "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [(1-255)$distance]",
        NO_STR
@@ -468,7 +468,7 @@ DEFPY (ip_mroute_dist,
 }
 
 /* Static route configuration.  */
-DEFPY(ip_route_blackhole,
+DEFPY_YANG(ip_route_blackhole,
       ip_route_blackhole_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>                        \
@@ -506,7 +506,7 @@ DEFPY(ip_route_blackhole,
 			    distance_str, vrf, label, table_str);
 }
 
-DEFPY(ip_route_blackhole_vrf,
+DEFPY_YANG(ip_route_blackhole_vrf,
       ip_route_blackhole_vrf_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>                        \
@@ -553,7 +553,7 @@ DEFPY(ip_route_blackhole_vrf,
 				 false);
 }
 
-DEFPY(ip_route_address_interface,
+DEFPY_YANG(ip_route_address_interface,
       ip_route_address_interface_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
@@ -607,7 +607,7 @@ DEFPY(ip_route_address_interface,
 				 !!onlink);
 }
 
-DEFPY(ip_route_address_interface_vrf,
+DEFPY_YANG(ip_route_address_interface_vrf,
       ip_route_address_interface_vrf_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
@@ -666,7 +666,7 @@ DEFPY(ip_route_address_interface_vrf,
 				 !!onlink);
 }
 
-DEFPY(ip_route,
+DEFPY_YANG(ip_route,
       ip_route_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
@@ -718,7 +718,7 @@ DEFPY(ip_route,
 				 false);
 }
 
-DEFPY(ip_route_vrf,
+DEFPY_YANG(ip_route_vrf,
       ip_route_vrf_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
@@ -775,7 +775,7 @@ DEFPY(ip_route_vrf,
 				 false);
 }
 
-DEFPY(ipv6_route_blackhole,
+DEFPY_YANG(ipv6_route_blackhole,
       ipv6_route_blackhole_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           <reject|blackhole>$flag                          \
@@ -813,7 +813,7 @@ DEFPY(ipv6_route_blackhole,
 			    distance_str, vrf, label, table_str);
 }
 
-DEFPY(ipv6_route_blackhole_vrf,
+DEFPY_YANG(ipv6_route_blackhole_vrf,
       ipv6_route_blackhole_vrf_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           <reject|blackhole>$flag                          \
@@ -862,7 +862,7 @@ DEFPY(ipv6_route_blackhole_vrf,
 				 false);
 }
 
-DEFPY(ipv6_route_address_interface,
+DEFPY_YANG(ipv6_route_address_interface,
       ipv6_route_address_interface_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           X:X::X:X$gate                                    \
@@ -917,7 +917,7 @@ DEFPY(ipv6_route_address_interface,
 				 !!onlink);
 }
 
-DEFPY(ipv6_route_address_interface_vrf,
+DEFPY_YANG(ipv6_route_address_interface_vrf,
       ipv6_route_address_interface_vrf_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           X:X::X:X$gate                                    \
@@ -976,7 +976,7 @@ DEFPY(ipv6_route_address_interface_vrf,
 				 table_str, !!onlink);
 }
 
-DEFPY(ipv6_route,
+DEFPY_YANG(ipv6_route,
       ipv6_route_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           <X:X::X:X$gate|<INTERFACE|Null0>$ifname>         \
@@ -1027,7 +1027,7 @@ DEFPY(ipv6_route,
 				 false);
 }
 
-DEFPY(ipv6_route_vrf,
+DEFPY_YANG(ipv6_route_vrf,
       ipv6_route_vrf_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           <X:X::X:X$gate|<INTERFACE|Null0>$ifname>                 \
@@ -1082,7 +1082,7 @@ DEFPY(ipv6_route_vrf,
 				 ifname, flag, tag_str, distance_str, label,
 				 table_str, false);
 }
-DEFPY(debug_staticd,
+DEFPY_YANG(debug_staticd,
       debug_staticd_cmd,
       "[no] debug static [{events$events}]",
       NO_STR
