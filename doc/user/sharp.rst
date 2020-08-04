@@ -88,13 +88,13 @@ keyword. At present, no sharp commands will be preserved in the config.
    may have been turned on.
 
 .. index:: sharp lsp
-.. clicmd:: sharp lsp (0-100000) nexthop-group NAME [prefix A.B.C.D/M TYPE [instance (0-255)]]
+.. clicmd:: sharp lsp [update] (0-100000) nexthop-group NAME [prefix A.B.C.D/M TYPE [instance (0-255)]]
 
    Install an LSP using the specified in-label, with nexthops as
-   listed in nexthop-group ``NAME``. The LSP is installed as type
-   ZEBRA_LSP_SHARP. If ``prefix`` is specified, an existing route with
-   type ``TYPE`` (and optional ``instance`` id) will be updated to use
-   the LSP.
+   listed in nexthop-group ``NAME``. If ``update`` is included, the
+   update path is used. The LSP is installed as type ZEBRA_LSP_SHARP.
+   If ``prefix`` is specified, an existing route with type ``TYPE``
+   (and optional ``instance`` id) will be updated to use the LSP.
 
 .. index:: sharp remove lsp
 .. clicmd:: sharp remove lsp (0-100000) nexthop-group NAME [prefix A.B.C.D/M TYPE [instance (0-255)]]

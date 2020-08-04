@@ -114,15 +114,16 @@ static int sharp_ifp_down(struct interface *ifp)
 	return 0;
 }
 
-int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
-			      uint8_t type, int instance, uint32_t in_label,
+int sharp_install_lsps_helper(bool install_p, bool update_p,
+			      const struct prefix *p, uint8_t type,
+			      int instance, uint32_t in_label,
 			      const struct nexthop_group *nhg,
 			      const struct nexthop_group *backup_nhg)
 {
 	struct zapi_labels zl = {};
 	struct zapi_nexthop *znh;
 	const struct nexthop *nh;
-	int i, ret;
+	int i, cmd, ret;
 
 	zl.type = ZEBRA_LSP_SHARP;
 	zl.local_label = in_label;
@@ -200,12 +201,17 @@ int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
 		zl.backup_nexthop_num = i;
 	}
 
-	if (install_p)
-		ret = zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_ADD,
-					     &zl);
-	else
-		ret = zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_DELETE,
-					     &zl);
+
+	if (install_p) {
+		if (update_p)
+			cmd = ZEBRA_MPLS_LABELS_REPLACE;
+		else
+			cmd = ZEBRA_MPLS_LABELS_ADD;
+	} else {
+		cmd = ZEBRA_MPLS_LABELS_DELETE;
+	}
+
+	ret = zebra_send_mpls_labels(zclient, cmd, &zl);
 
 	return ret;
 }
