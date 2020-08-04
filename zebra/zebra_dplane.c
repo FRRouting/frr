@@ -2490,7 +2490,8 @@ dplane_route_notif_update(struct route_node *rn,
 			  enum dplane_op_e op,
 			  struct zebra_dplane_ctx *ctx)
 {
-	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret = EINVAL;
 	struct zebra_dplane_ctx *new_ctx = NULL;
 	struct nexthop *nexthop;
 	struct nexthop_group *nhg;
@@ -2536,12 +2537,15 @@ dplane_route_notif_update(struct route_node *rn,
 	dplane_ctx_set_notif_provider(new_ctx,
 				      dplane_ctx_get_notif_provider(ctx));
 
-	dplane_update_enqueue(new_ctx);
-
-	ret = ZEBRA_DPLANE_REQUEST_QUEUED;
+	ret = dplane_update_enqueue(new_ctx);
 
 done:
-	return ret;
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else if (ctx)
+		dplane_ctx_free(&ctx);
+
+	return result;
 }
 
 /*
