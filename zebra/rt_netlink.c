@@ -2552,10 +2552,15 @@ int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
 /**
  * netlink_update_neigh_ctx_internal() - Common helper api for evpn
  * neighbor updates using dataplane context object.
+ * Here, a neighbor refers to a bridge forwarding database entry for
+ * either unicast forwarding or head-end replication or an IP neighbor
+ * entry.
  * @ctx:		Dataplane context
  * @cmd:		Netlink command (RTM_NEWNEIGH or RTM_DELNEIGH)
  * @mac:		A neighbor cache link layer address
  * @ip:		A neighbor cache n/w layer destination address
+ *			In the case of bridge FDB, this represnts the remote
+ *			VTEP IP.
  * @replace_obj:	Whether NEW request should replace existing object or
  *			add to the end of the list
  * @family:		AF_* netlink family
@@ -2975,7 +2980,6 @@ netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, uint8_t *data,
 	int cmd;
 	uint8_t flags;
 	uint16_t state;
-	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
 
 	cmd = dplane_ctx_get_op(ctx) == DPLANE_OP_MAC_INSTALL
 			  ? RTM_NEWNEIGH : RTM_DELNEIGH;
@@ -3014,9 +3018,8 @@ netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, uint8_t *data,
 	}
 
 	total = netlink_update_neigh_ctx_internal(
-			ctx, cmd, dplane_ctx_mac_get_addr(ctx),
-			dplane_ctx_neigh_get_ipaddr(ctx), true, AF_BRIDGE, 0,
-			flags, state, nl_pkt, sizeof(nl_pkt));
+			ctx, cmd, dplane_ctx_mac_get_addr(ctx), &vtep_ip,
+			true, AF_BRIDGE, 0, flags, state, data, datalen);
 
 	return total;
 }
