@@ -2542,8 +2542,8 @@ dplane_route_notif_update(struct route_node *rn,
 done:
 	if (ret == AOK)
 		result = ZEBRA_DPLANE_REQUEST_QUEUED;
-	else if (ctx)
-		dplane_ctx_free(&ctx);
+	else if (new_ctx)
+		dplane_ctx_free(&new_ctx);
 
 	return result;
 }
