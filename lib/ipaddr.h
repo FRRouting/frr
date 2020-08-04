@@ -89,6 +89,13 @@ static inline char *ipaddr2str(const struct ipaddr *ip, char *buf, int size)
 	return buf;
 }
 
+#define IS_MAPPED_IPV6(A)                                                      \
+	((A)->s6_addr32[0] == 0x00000000                                       \
+		 ? ((A)->s6_addr32[1] == 0x00000000                            \
+			    ? (ntohl((A)->s6_addr32[2]) == 0xFFFF ? 1 : 0)     \
+			    : 0)                                               \
+		 : 0)
+
 /*
  * Convert IPv4 address to IPv4-mapped IPv6 address which is of the
  * form ::FFFF:<IPv4 address> (RFC 4291). This IPv6 address can then

@@ -364,6 +364,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 	struct rtattr *nest, *inner_nest;
 	struct rtnexthop *rtnh;
 	struct vxlan_encap_info_t *vxlan;
+	struct in6_addr ipv6;
 
 	struct {
 		struct nlmsghdr n;
@@ -423,8 +424,15 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 		nhi = &ri->nhs[0];
 
 		if (nhi->gateway) {
-			nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
-				    nhi->gateway, bytelen);
+			if (nhi->type == NEXTHOP_TYPE_IPV4_IFINDEX
+			    && ri->af == AF_INET6) {
+				ipv4_to_ipv4_mapped_ipv6(&ipv6,
+							 nhi->gateway->ipv4);
+				nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
+					    &ipv6, bytelen);
+			} else
+				nl_attr_put(&req->n, in_buf_len, RTA_GATEWAY,
+					    nhi->gateway, bytelen);
 		}
 
 		if (nhi->if_index) {
