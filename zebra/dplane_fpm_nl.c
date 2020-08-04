@@ -72,6 +72,7 @@ struct fpm_nl_ctx {
 	int socket;
 	bool disabled;
 	bool connecting;
+	bool nhg_complete;
 	bool rib_complete;
 	bool rmac_complete;
 	bool use_nhg;
@@ -149,7 +150,24 @@ enum fpm_nl_events {
 	FNE_RESET_COUNTERS,
 	/* Toggle next hop group feature. */
 	FNE_TOGGLE_NHG,
+	/* Reconnect request by our own code to avoid races. */
+	FNE_INTERNAL_RECONNECT,
+
+	/* Next hop groups walk finished. */
+	FNE_NHG_FINISHED,
+	/* RIB walk finished. */
+	FNE_RIB_FINISHED,
+	/* RMAC walk finished. */
+	FNE_RMAC_FINISHED,
 };
+
+#define FPM_RECONNECT(fnc)                                                     \
+	thread_add_event((fnc)->fthread->master, fpm_process_event, (fnc),     \
+			 FNE_INTERNAL_RECONNECT, &(fnc)->t_event)
+
+#define WALK_FINISH(fnc, ev)                                                   \
+	thread_add_event((fnc)->fthread->master, fpm_process_event, (fnc),     \
+			 (ev), NULL)
 
 /*
  * Prototypes.
@@ -428,7 +446,18 @@ static int fpm_connect(struct thread *t);
 
 static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 {
-	/* Grab the lock to empty the stream and stop the zebra thread. */
+	/* Cancel all zebra threads first. */
+	thread_cancel_async(zrouter.master, &fnc->t_nhgreset, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_nhgwalk, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
+
+	/*
+	 * Grab the lock to empty the streams (data plane might try to
+	 * enqueue updates while we are closing).
+	 */
 	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
 
 	/* Avoid calling close on `-1`. */
@@ -441,13 +470,6 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 	stream_reset(fnc->obuf);
 	THREAD_OFF(fnc->t_read);
 	THREAD_OFF(fnc->t_write);
-
-	thread_cancel_async(zrouter.master, &fnc->t_nhgreset, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_nhgwalk, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
 
 	/* FPM is disabled, don't attempt to connect. */
 	if (fnc->disabled)
@@ -465,6 +487,13 @@ static int fpm_read(struct thread *t)
 	/* Let's ignore the input at the moment. */
 	rv = stream_read_try(fnc->ibuf, fnc->socket,
 			     STREAM_WRITEABLE(fnc->ibuf));
+	/* We've got an interruption. */
+	if (rv == -2) {
+		/* Schedule next read. */
+		thread_add_read(fnc->fthread->master, fpm_read, fnc,
+				fnc->socket, &fnc->t_read);
+		return 0;
+	}
 	if (rv == 0) {
 		atomic_fetch_add_explicit(&fnc->counters.connection_closes, 1,
 					  memory_order_relaxed);
@@ -472,19 +501,15 @@ static int fpm_read(struct thread *t)
 		if (IS_ZEBRA_DEBUG_FPM)
 			zlog_debug("%s: connection closed", __func__);
 
-		fpm_reconnect(fnc);
+		FPM_RECONNECT(fnc);
 		return 0;
 	}
 	if (rv == -1) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK
-		    || errno == EINTR)
-			return 0;
-
 		atomic_fetch_add_explicit(&fnc->counters.connection_errors, 1,
 					  memory_order_relaxed);
 		zlog_warn("%s: connection failure: %s", __func__,
 			  strerror(errno));
-		fpm_reconnect(fnc);
+		FPM_RECONNECT(fnc);
 		return 0;
 	}
 	stream_reset(fnc->ibuf);
@@ -525,33 +550,15 @@ static int fpm_write(struct thread *t)
 				&fnc->counters.connection_errors, 1,
 				memory_order_relaxed);
 
-			fpm_reconnect(fnc);
+			FPM_RECONNECT(fnc);
 			return 0;
 		}
 
 		fnc->connecting = false;
 
-		/*
-		 * Walk the route tables to send old information before starting
-		 * to send updated information.
-		 *
-		 * NOTE 1:
-		 * RIB table walk is called after the next group table walk
-		 * ends.
-		 *
-		 * NOTE 2:
-		 * Don't attempt to go through next hop group table if we were
-		 * explictly told to not use it.
-		 */
-		if (fnc->use_nhg)
-			thread_add_timer(zrouter.master, fpm_nhg_send, fnc, 0,
-					 &fnc->t_nhgwalk);
-		else
-			thread_add_timer(zrouter.master, fpm_rib_send, fnc, 0,
-					 &fnc->t_ribwalk);
-
-		thread_add_timer(zrouter.master, fpm_rmac_send, fnc, 0,
-				 &fnc->t_rmacwalk);
+		/* Permit receiving messages now. */
+		thread_add_read(fnc->fthread->master, fpm_read, fnc,
+				fnc->socket, &fnc->t_read);
 	}
 
 	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
@@ -589,8 +596,9 @@ static int fpm_write(struct thread *t)
 				memory_order_relaxed);
 			zlog_warn("%s: connection failure: %s", __func__,
 				  strerror(errno));
-			fpm_reconnect(fnc);
-			break;
+
+			FPM_RECONNECT(fnc);
+			return 0;
 		}
 
 		/* Account all bytes sent. */
@@ -661,18 +669,19 @@ static int fpm_connect(struct thread *t)
 
 	fnc->connecting = (errno == EINPROGRESS);
 	fnc->socket = sock;
-	thread_add_read(fnc->fthread->master, fpm_read, fnc, sock,
-			&fnc->t_read);
+	if (!fnc->connecting)
+		thread_add_read(fnc->fthread->master, fpm_read, fnc, sock,
+				&fnc->t_read);
 	thread_add_write(fnc->fthread->master, fpm_write, fnc, sock,
 			 &fnc->t_write);
 
 	/* Mark all routes as unsent. */
-	thread_add_timer(zrouter.master, fpm_nhg_reset, fnc, 0,
-			 &fnc->t_nhgreset);
-	thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
-			 &fnc->t_ribreset);
-	thread_add_timer(zrouter.master, fpm_rmac_reset, fnc, 0,
-			 &fnc->t_rmacreset);
+	if (fnc->use_nhg)
+		thread_add_timer(zrouter.master, fpm_nhg_reset, fnc, 0,
+				 &fnc->t_nhgreset);
+	else
+		thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
+				 &fnc->t_ribreset);
 
 	return 0;
 }
@@ -904,10 +913,11 @@ static int fpm_nhg_send(struct thread *t)
 	dplane_ctx_fini(&fna.ctx);
 
 	/* We are done sending next hops, lets install the routes now. */
-	if (fna.complete)
-		thread_add_timer(zrouter.master, fpm_rib_send, fnc, 0,
-				 &fnc->t_ribwalk);
-	else /* Otherwise reschedule next hop group again. */
+	if (fna.complete) {
+		WALK_FINISH(fnc, FNE_NHG_FINISHED);
+		thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
+				 &fnc->t_ribreset);
+	} else /* Otherwise reschedule next hop group again. */
 		thread_add_timer(zrouter.master, fpm_nhg_send, fnc, 0,
 				 &fnc->t_nhgwalk);
 
@@ -963,7 +973,11 @@ static int fpm_rib_send(struct thread *t)
 	dplane_ctx_fini(&ctx);
 
 	/* All RIB routes sent! */
-	fnc->rib_complete = true;
+	WALK_FINISH(fnc, FNE_RIB_FINISHED);
+
+	/* Schedule next event: RMAC reset. */
+	thread_add_event(zrouter.master, fpm_rmac_reset, fnc, 0,
+			 &fnc->t_rmacreset);
 
 	return 0;
 }
@@ -975,6 +989,7 @@ struct fpm_rmac_arg {
 	struct zebra_dplane_ctx *ctx;
 	struct fpm_nl_ctx *fnc;
 	zebra_l3vni_t *zl3vni;
+	bool complete;
 };
 
 static void fpm_enqueue_rmac_table(struct hash_bucket *backet, void *arg)
@@ -988,7 +1003,7 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *backet, void *arg)
 	bool sticky;
 
 	/* Entry already sent. */
-	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT))
+	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT) || !fra->complete)
 		return;
 
 	sticky = !!CHECK_FLAG(zrmac->flags,
@@ -1004,6 +1019,7 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *backet, void *arg)
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
 		thread_add_timer(zrouter.master, fpm_rmac_send,
 				 fra->fnc, 1, &fra->fnc->t_rmacwalk);
+		fra->complete = false;
 	}
 }
 
@@ -1022,8 +1038,13 @@ static int fpm_rmac_send(struct thread *t)
 
 	fra.fnc = THREAD_ARG(t);
 	fra.ctx = dplane_ctx_alloc();
+	fra.complete = true;
 	hash_iterate(zrouter.l3vni_table, fpm_enqueue_l3vni_table, &fra);
 	dplane_ctx_fini(&fra.ctx);
+
+	/* RMAC walk completed. */
+	if (fra.complete)
+		WALK_FINISH(fra.fnc, FNE_RMAC_FINISHED);
 
 	return 0;
 }
@@ -1041,7 +1062,14 @@ static void fpm_nhg_reset_cb(struct hash_bucket *bucket, void *arg)
 
 static int fpm_nhg_reset(struct thread *t)
 {
+	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+
+	fnc->nhg_complete = false;
 	hash_iterate(zrouter.nhgs_id, fpm_nhg_reset_cb, NULL);
+
+	/* Schedule next step: send next hop groups. */
+	thread_add_event(zrouter.master, fpm_nhg_send, fnc, 0, &fnc->t_nhgwalk);
+
 	return 0;
 }
 
@@ -1070,6 +1098,9 @@ static int fpm_rib_reset(struct thread *t)
 		}
 	}
 
+	/* Schedule next step: send RIB routes. */
+	thread_add_event(zrouter.master, fpm_rib_send, fnc, 0, &fnc->t_ribwalk);
+
 	return 0;
 }
 
@@ -1092,7 +1123,14 @@ static void fpm_unset_l3vni_table(struct hash_bucket *backet, void *arg)
 
 static int fpm_rmac_reset(struct thread *t)
 {
+	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+
+	fnc->rmac_complete = false;
 	hash_iterate(zrouter.l3vni_table, fpm_unset_l3vni_table, NULL);
+
+	/* Schedule next event: send RMAC entries. */
+	thread_add_event(zrouter.master, fpm_rmac_send, fnc, 0,
+			 &fnc->t_rmacwalk);
 
 	return 0;
 }
@@ -1172,6 +1210,30 @@ static int fpm_process_event(struct thread *t)
 		zlog_info("%s: toggle next hop groups support", __func__);
 		fnc->use_nhg = !fnc->use_nhg;
 		fpm_reconnect(fnc);
+		break;
+
+	case FNE_INTERNAL_RECONNECT:
+		fpm_reconnect(fnc);
+		break;
+
+	case FNE_NHG_FINISHED:
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: next hop groups walk finished",
+				   __func__);
+
+		fnc->nhg_complete = true;
+		break;
+	case FNE_RIB_FINISHED:
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: RIB walk finished", __func__);
+
+		fnc->rib_complete = true;
+		break;
+	case FNE_RMAC_FINISHED:
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: RMAC walk finished", __func__);
+
+		fnc->rmac_complete = true;
 		break;
 
 	default:
