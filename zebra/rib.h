@@ -300,6 +300,7 @@ struct rib_table_info {
 	struct zebra_vrf *zvrf;
 	afi_t afi;
 	safi_t safi;
+	uint32_t table_id;
 };
 
 enum rib_tables_iter_state {
