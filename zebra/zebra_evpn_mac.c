@@ -753,14 +753,10 @@ static char *zebra_evpn_print_mac_flags(zebra_mac_t *mac, char *flags_buf,
 					size_t flags_buf_sz)
 {
 	snprintf(flags_buf, flags_buf_sz, "%s%s%s%s",
-			mac->sync_neigh_cnt ?
-			"N" : "",
-			(mac->flags & ZEBRA_MAC_ES_PEER_ACTIVE) ?
-			"P" : "",
-			(mac->flags & ZEBRA_MAC_ES_PEER_PROXY) ?
-			"X" : "",
-			(mac->flags & ZEBRA_MAC_LOCAL_INACTIVE) ?
-			"I" : "");
+		 mac->sync_neigh_cnt ? "N" : "",
+		 (mac->flags & ZEBRA_MAC_ES_PEER_ACTIVE) ? "P" : "",
+		 (mac->flags & ZEBRA_MAC_ES_PEER_PROXY) ? "X" : "",
+		 (mac->flags & ZEBRA_MAC_LOCAL_INACTIVE) ? "I" : "");
 
 	return flags_buf;
 }
@@ -1796,6 +1792,7 @@ static bool zebra_evpn_local_mac_update_fwd_info(zebra_mac_t *mac,
 	bool es_change;
 	ns_id_t local_ns_id = NS_DEFAULT;
 	struct zebra_vrf *zvrf;
+	struct zebra_evpn_es *es;
 
 	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	if (zvrf && zvrf->zns)
@@ -1803,7 +1800,10 @@ static bool zebra_evpn_local_mac_update_fwd_info(zebra_mac_t *mac,
 
 	memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 
-	es_change = zebra_evpn_es_mac_ref_entry(mac, zif->es_info.es);
+	es = zif->es_info.es;
+	if (es && (es->flags & ZEBRA_EVPNES_BYPASS))
+		es = NULL;
+	es_change = zebra_evpn_es_mac_ref_entry(mac, es);
 
 	if (!mac->es) {
 		/* if es is set fwd_info is not-relevant/taped-out */
@@ -2064,9 +2064,8 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 				    struct interface *ifp,
 				    struct ethaddr *macaddr, vlanid_t vid,
 				    bool sticky, bool local_inactive,
-				    bool dp_static)
+				    bool dp_static, zebra_mac_t *mac)
 {
-	zebra_mac_t *mac;
 	char buf[ETHER_ADDR_STRLEN];
 	bool mac_sticky = false;
 	bool inform_client = false;
@@ -2083,7 +2082,8 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 
 	assert(ifp);
 	/* Check if we need to create or update or it is a NO-OP. */
-	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+	if (!mac)
+		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
 	if (!mac) {
 		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 			zlog_debug(
@@ -2134,6 +2134,8 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 			old_static = zebra_evpn_mac_is_static(mac);
 			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY))
 				mac_sticky = true;
+			es_change = zebra_evpn_local_mac_update_fwd_info(
+				mac, ifp, vid);
 
 			/*
 			 * Update any changes and if changes are relevant to
@@ -2142,7 +2144,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 			if (mac_sticky == sticky && old_ifp == ifp
 			    && old_vid == vid
 			    && old_local_inactive == local_inactive
-			    && dp_static == old_static) {
+			    && dp_static == old_static && !es_change) {
 				if (IS_ZEBRA_DEBUG_VXLAN)
 					zlog_debug(
 						"        Add/Update %sMAC %s intf %s(%u) VID %u -> VNI %u%s, "
@@ -2166,15 +2168,17 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 				inform_client = true;
 			}
 
-			es_change = zebra_evpn_local_mac_update_fwd_info(
-				mac, ifp, vid);
 			/* If an es_change is detected we need to advertise
 			 * the route with a sequence that is one
 			 * greater. This is need to indicate a mac-move
 			 * to the ES peers
 			 */
 			if (es_change) {
-				mac->loc_seq = mac->loc_seq + 1;
+				/* update the sequence number only if the entry
+				 * is locally active
+				 */
+				if (!local_inactive)
+					mac->loc_seq = mac->loc_seq + 1;
 				/* force drop the peer/sync info as it is
 				 * simply no longer relevant
 				 */
@@ -2308,7 +2312,8 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 	return 0;
 }
 
-int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, zebra_mac_t *mac)
+int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, zebra_mac_t *mac,
+			     bool clear_static)
 {
 	char buf[ETHER_ADDR_STRLEN];
 	bool old_bgp_ready;
@@ -2321,7 +2326,7 @@ int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 			   listcount(mac->neigh_list));
 
 	old_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
-	if (zebra_evpn_mac_is_static(mac)) {
+	if (!clear_static && zebra_evpn_mac_is_static(mac)) {
 		/* this is a synced entry and can only be removed when the
 		 * es-peers stop advertising it.
 		 */
@@ -2355,6 +2360,9 @@ int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 
 		return 0;
 	}
+
+	/* flush the peer info */
+	zebra_evpn_mac_clear_sync_info(mac);
 
 	/* Update all the neigh entries associated with this mac */
 	zebra_evpn_process_neigh_on_local_mac_del(zevpn, mac);

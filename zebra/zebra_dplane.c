@@ -3251,6 +3251,24 @@ enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 }
 
 /*
+ * Enqueue local mac del
+ */
+enum zebra_dplane_result
+dplane_local_mac_del(const struct interface *ifp,
+		     const struct interface *bridge_ifp, vlanid_t vid,
+		     const struct ethaddr *mac)
+{
+	enum zebra_dplane_result result;
+	struct in_addr vtep_ip;
+
+	vtep_ip.s_addr = 0;
+
+	/* Use common helper api */
+	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid,
+				   mac, vtep_ip, false, 0, 0);
+	return result;
+}
+/*
  * Public api to init an empty context - either newly-allocated or
  * reset/cleared - for a MAC update.
  */

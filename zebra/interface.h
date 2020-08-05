@@ -286,6 +286,9 @@ struct zebra_es_if_info {
 	esi_t esi;
 
 	uint16_t df_pref;
+	uint8_t flags;
+#define ZIF_CFG_ES_FLAG_BYPASS (1 << 0)
+
 	struct zebra_evpn_es *es; /* local ES */
 };
 
@@ -297,7 +300,13 @@ enum zebra_if_flags {
 	ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP = (1 << 1),
 
 	/* Dataplane protodown-on */
-	ZIF_FLAG_PROTODOWN = (1 << 2)
+	ZIF_FLAG_PROTODOWN = (1 << 2),
+
+	/* LACP bypass state is set by the dataplane on a bond member
+	 * and inherited by the bond (if one or more bond members are in
+	 * a bypass state the bond is placed in a bypass state)
+	 */
+	ZIF_FLAG_LACP_BYPASS = (1 << 3)
 };
 
 /* `zebra' daemon local interface structure. */

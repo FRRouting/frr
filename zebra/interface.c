@@ -1604,6 +1604,9 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		}
 	}
 
+	if (zebra_if->flags & ZIF_FLAG_LACP_BYPASS)
+		vty_out(vty, "  LACP bypass: on\n");
+
 	zebra_evpn_if_es_print(vty, zebra_if);
 	vty_out(vty, "  protodown: %s %s\n",
 		(zebra_if->flags & ZIF_FLAG_PROTODOWN) ? "on" : "off",

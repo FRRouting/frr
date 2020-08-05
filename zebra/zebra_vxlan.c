@@ -2852,11 +2852,10 @@ void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		vty_out(vty,
 			"Number of MACs (local and remote) known for this VNI: %u\n",
 			num_macs);
-			vty_out(vty,
-				"Flags: N=sync-neighs, I=local-inactive, P=peer-active, X=peer-proxy\n");
-			vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %s\n", "MAC",
-				"Type", "Flags", "Intf/Remote ES/VTEP",
-				"VLAN", "Seq #'s");
+		vty_out(vty,
+			"Flags: N=sync-neighs, I=local-inactive, P=peer-active, X=peer-proxy\n");
+		vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %s\n", "MAC", "Type",
+			"Flags", "Intf/Remote ES/VTEP", "VLAN", "Seq #'s");
 	} else
 		json_object_int_add(json, "numMacs", num_macs);
 
@@ -4123,7 +4122,8 @@ int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 			zlog_debug("dpDel local-nw-MAC %pEA VNI %u", macaddr,
 				   vni);
-		return zebra_evpn_del_local_mac(zevpn, mac);
+
+		zebra_evpn_del_local_mac(zevpn, mac, false);
 	}
 
 	return 0;
@@ -4160,7 +4160,7 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
 		return 0;
 
-	return zebra_evpn_del_local_mac(zevpn, mac);
+	return zebra_evpn_del_local_mac(zevpn, mac, false);
 }
 
 /*
@@ -4209,7 +4209,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 
 	return zebra_evpn_add_update_local_mac(zvrf, zevpn, ifp, macaddr, vid,
 					       sticky, local_inactive,
-					       dp_static);
+					       dp_static, NULL);
 }
 
 /*
