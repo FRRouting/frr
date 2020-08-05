@@ -847,6 +847,9 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 	if (me && (map->label == NO_LABEL || map->label == me->map.label))
 		/* LWd.4: remove record of previously received lbl mapping */
 		lde_map_del(ln, me, 0);
+	else
+		/* LWd.13 done */
+		return;
 
 	/* Ordered Control: additional withdraw steps */
 	if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
@@ -858,15 +861,17 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 			/* LWd.9: check if previously sent a label mapping */
 			me = (struct lde_map *)fec_find(&lnbr->sent_map,
 			    &fn->fec);
+
 			/*
 			 * LWd.10: does label sent to peer "map" to withdraw
 			 * label
 			 */
-			if (me)
+			if (me && lde_nbr_is_nexthop(fn, lnbr))
 				/* LWd.11: send label withdraw */
 				lde_send_labelwithdraw(lnbr, fn, NULL, NULL);
 		}
 	}
+
 }
 
 void
@@ -924,24 +929,33 @@ lde_check_withdraw_wcard(struct map *map, struct lde_nbr *ln)
 			 * label mapping
 			 */
 			lde_map_del(ln, me, 0);
+		else
+			/* LWd.13 done */
+			continue;
 
 		/* Ordered Control: additional withdraw steps */
 		if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
-			/* LWd.8: for each neighbor other that src of withdraw msg */
+			/*
+			 * LWd.8: for each neighbor other that src of
+			 *  withdraw msg
+			 */
 			RB_FOREACH(lnbr, nbr_tree, &lde_nbrs) {
 				if (ln->peerid == lnbr->peerid)
 					continue;
 
-				/* LWd.9: check if previously sent a label mapping */
-				me = (struct lde_map *)fec_find(&lnbr->sent_map,
-					&fn->fec);
-				/*
-				 * LWd.10: does label sent to peer "map" to withdraw
-				 * label
+				/* LWd.9: check if previously sent a label
+				 * mapping
 				 */
-				if (me)
+				me = (struct lde_map *)fec_find(
+				    &lnbr->sent_map, &fn->fec);
+				/*
+				 * LWd.10: does label sent to peer "map" to
+				 * withdraw label
+				 */
+				if (me && lde_nbr_is_nexthop(fn, lnbr))
 					/* LWd.11: send label withdraw */
-					lde_send_labelwithdraw(lnbr, fn, NULL, NULL);
+					lde_send_labelwithdraw(lnbr, fn, NULL,
+					    NULL);
 			}
 		}
 	}
