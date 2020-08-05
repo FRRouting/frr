@@ -776,21 +776,76 @@ void vici_request_vc(const char *profile, union sockunion *src,
 			    "other-host", strlen(buf[1]), buf[1], VICI_END);
 }
 
+#define ETC_ROOTDIR "/etc/"
+#define NETNS_ETC_ROOTDIR "/etc/netns/"
+#define CONST_STRLEN(x) (sizeof(x) - 1)
+
 int sock_open_unix(const char *path, vrf_id_t vrf_id)
 {
 	int ret, fd;
 	struct sockaddr_un addr;
+	const char *sun_path = path;
+	char netns_path[sizeof(addr.sun_path)];
 
 	if (vrf_id == VRF_UNKNOWN)
 		return -1;
-	frr_with_privs(&nhrpd_privs) {
-		fd = vrf_socket(AF_UNIX, SOCK_STREAM, 0, vrf_id, NULL);
-		if (fd < 0)
+	fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (fd < 0)
+		return -1;
+
+	/*
+	 * if the vici unix socket path starts with /etc, check if
+	 * a netns-specific version of configuration files exists in
+	 * /etc/netns/VRF.
+	 */
+	if (vrf_is_backend_netns() && vrf_id != VRF_DEFAULT) {
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+		const char *netns_name;
+
+		if (!vrf)
 			return -1;
+		netns_name = vrf->data.l.netns_name;
+
+		if (!strncmp(path, ETC_ROOTDIR, CONST_STRLEN(ETC_ROOTDIR))) {
+			char *end;
+			int off;
+
+			/*
+			 * build the theoretical netns_path
+			 * example:
+			 *    /etc/ike/ipsec.d/run/charon.vici
+			 *    => /etc/netns/VRF/ike/ipsec.d/run/charon.vici
+			 */
+			snprintf(netns_path, sizeof(netns_path), "%s%s/%s",
+				 NETNS_ETC_ROOTDIR, netns_name,
+				 &path[CONST_STRLEN(ETC_ROOTDIR)]);
+
+			/*
+			 * truncate the netns_path to the depth just under /etc/netns/VRF/:
+			 * example:
+			 *    /etc/netns/VRF/ike/ipsec.d/run/charon.vici
+			 *    => /etc/netns/VRF/ike
+			 */
+			off = CONST_STRLEN(NETNS_ETC_ROOTDIR) + strlen(netns_name) + 1;
+			end = strchr(&netns_path[off], '/');
+			if (end)
+				*end = 0;
+
+			/*
+			 * if the truncated path references an existing file or directory, then
+			 * restore the full netns_path and use it.
+			 */
+			if (access(netns_path, F_OK) == 0) {
+				sun_path = netns_path;
+				if (end)
+					*end = '/';
+			}
+		}
 	}
+
 	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
-	strlcpy(addr.sun_path, path, sizeof(addr.sun_path));
+	strlcpy(addr.sun_path, sun_path, sizeof(addr.sun_path));
 
 	ret = connect(fd, (struct sockaddr *)&addr,
 		      sizeof(addr.sun_family) + strlen(addr.sun_path));
