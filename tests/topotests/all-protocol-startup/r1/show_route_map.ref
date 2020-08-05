@@ -1,5 +1,5 @@
 ZEBRA:
-route-map: LIES Invoked: 0 Optimization: enabled
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
  deny, sequence 10 Invoked 0
   Match clauses:
     interface notpresent
@@ -8,7 +8,7 @@ route-map: LIES Invoked: 0 Optimization: enabled
   Action:
     Exit routemap
 RIP:
-route-map: LIES Invoked: 0 Optimization: enabled
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
  deny, sequence 10 Invoked 0
   Match clauses:
     interface notpresent
@@ -17,7 +17,7 @@ route-map: LIES Invoked: 0 Optimization: enabled
   Action:
     Exit routemap
 RIPNG:
-route-map: LIES Invoked: 0 Optimization: enabled
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
  deny, sequence 10 Invoked 0
   Match clauses:
     interface notpresent
@@ -26,7 +26,7 @@ route-map: LIES Invoked: 0 Optimization: enabled
   Action:
     Exit routemap
 OSPF:
-route-map: LIES Invoked: 0 Optimization: enabled
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
  deny, sequence 10 Invoked 0
   Match clauses:
     interface notpresent
@@ -35,7 +35,7 @@ route-map: LIES Invoked: 0 Optimization: enabled
   Action:
     Exit routemap
 OSPF6:
-route-map: LIES Invoked: 0 Optimization: enabled
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
  deny, sequence 10 Invoked 0
   Match clauses:
     interface notpresent
@@ -44,7 +44,7 @@ route-map: LIES Invoked: 0 Optimization: enabled
   Action:
     Exit routemap
 BGP:
-route-map: LIES Invoked: 0 Optimization: enabled
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
  deny, sequence 10 Invoked 0
   Match clauses:
     interface notpresent
@@ -52,7 +52,7 @@ route-map: LIES Invoked: 0 Optimization: enabled
   Call clause:
   Action:
     Exit routemap
-route-map: bgp-map Invoked: 0 Optimization: enabled
+route-map: bgp-map Invoked: 0 Optimization: enabled Processed Change: false
  permit, sequence 10 Invoked 0
   Match clauses:
   Set clauses:
