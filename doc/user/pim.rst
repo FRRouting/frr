@@ -252,6 +252,13 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    reports on the interface. Refer to the next `ip igmp` command for IGMP
    management.
 
+.. index:: [no] ip pim use-source A.B.C.D
+.. clicmd:: [no] ip pim use-source A.B.C.D
+
+   If you have multiple addresses configured on a particular interface
+   and would like pim to use a specific source address associated with
+   that interface.
+
 .. index:: ip igmp
 .. clicmd:: ip igmp
 
