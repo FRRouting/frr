@@ -140,6 +140,35 @@ static int ospf_route_exist_new_table(struct route_table *rt,
 	return 1;
 }
 
+static int ospf_route_backup_path_same(struct sr_nexthop_info *srni1,
+				       struct sr_nexthop_info *srni2)
+{
+	struct mpls_label_stack *ls1, *ls2;
+	uint8_t label_count;
+
+	ls1 = srni1->backup_label_stack;
+	ls2 = srni2->backup_label_stack;
+
+	if (!ls1 && !ls2)
+		return 1;
+
+	if ((ls1 && !ls2) || (!ls1 && ls2))
+		return 0;
+
+	if (ls1->num_labels != ls2->num_labels)
+		return 0;
+
+	for (label_count = 0; label_count < ls1->num_labels; label_count++) {
+		if (ls1->label[label_count] != ls2->label[label_count])
+			return 0;
+	}
+
+	if (!IPV4_ADDR_SAME(&srni1->backup_nexthop, &srni2->backup_nexthop))
+		return 0;
+
+	return 1;
+}
+
 /* If a prefix and a nexthop match any route in the routing table,
    then return 1, otherwise return 0. */
 int ospf_route_match_same(struct route_table *rt, struct prefix_ipv4 *prefix,
@@ -179,6 +208,11 @@ int ospf_route_match_same(struct route_table *rt, struct prefix_ipv4 *prefix,
 						    &newop->nexthop))
 					return 0;
 				if (op->ifindex != newop->ifindex)
+					return 0;
+
+				/* check TI-LFA backup paths */
+				if (!ospf_route_backup_path_same(&op->srni,
+								 &newop->srni))
 					return 0;
 			}
 			return 1;
@@ -664,38 +698,6 @@ void ospf_route_table_dump(struct route_table *rt)
 	zlog_debug("========================================");
 }
 
-void ospf_route_table_print(struct vty *vty, struct route_table *rt)
-{
-	struct route_node *rn;
-	struct ospf_route * or ;
-	struct listnode *pnode;
-	struct ospf_path *path;
-
-	vty_out(vty, "========== OSPF routing table ==========\n");
-	for (rn = route_top(rt); rn; rn = route_next(rn))
-		if ((or = rn->info) != NULL) {
-			if (or->type == OSPF_DESTINATION_NETWORK) {
-				vty_out(vty, "N %-18pFX %-15pI4 %s %d\n",
-					&rn->p, & or->u.std.area_id,
-					ospf_path_type_str[or->path_type],
-					or->cost);
-				for (ALL_LIST_ELEMENTS_RO(or->paths, pnode,
-							  path))
-					if (path->nexthop.s_addr != INADDR_ANY)
-						vty_out(vty, "  -> %pI4\n",
-							&path->nexthop);
-					else
-						vty_out(vty, "  -> %s\n",
-							"directly connected");
-			} else
-				vty_out(vty, "R %-18pI4 %-15pI4 %s %d\n",
-					&rn->p.u.prefix4, & or->u.std.area_id,
-					ospf_path_type_str[or->path_type],
-					or->cost);
-		}
-	vty_out(vty, "========================================\n");
-}
-
 /* This is 16.4.1 implementation.
    o Intra-area paths using non-backbone areas are always the most preferred.
    o The other paths, intra-area backbone paths and inter-area paths,
@@ -802,6 +804,7 @@ void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area,
 		    || area->spf_dry_run) {
 			path = ospf_path_new();
 			path->nexthop = nexthop->router;
+			path->adv_router = v->id;
 
 			if (oi) {
 				path->ifindex = oi->ifp->ifindex;

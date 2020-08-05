@@ -46,6 +46,7 @@
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_sr.h"
+#include "ospfd/ospf_ti_lfa.h"
 #include "ospfd/ospf_errors.h"
 
 /* Variables to ensure a SPF scheduled log message is printed only once */
@@ -145,6 +146,10 @@ static void ospf_canonical_nexthops_free(struct vertex *root)
 			if (vp->parent == root && vp->nexthop) {
 				vertex_nexthop_free(vp->nexthop);
 				vp->nexthop = NULL;
+				if (vp->local_nexthop) {
+					vertex_nexthop_free(vp->local_nexthop);
+					vp->local_nexthop = NULL;
+				}
 			}
 	}
 }
@@ -154,7 +159,8 @@ static void ospf_canonical_nexthops_free(struct vertex *root)
  * vertex_nexthop, with refcounts.
  */
 static struct vertex_parent *vertex_parent_new(struct vertex *v, int backlink,
-					       struct vertex_nexthop *hop)
+					       struct vertex_nexthop *hop,
+					       struct vertex_nexthop *lhop)
 {
 	struct vertex_parent *new;
 
@@ -163,6 +169,7 @@ static struct vertex_parent *vertex_parent_new(struct vertex *v, int backlink,
 	new->parent = v;
 	new->backlink = backlink;
 	new->nexthop = hop;
+	new->local_nexthop = lhop;
 
 	return new;
 }
@@ -172,7 +179,7 @@ static void vertex_parent_free(void *p)
 	XFREE(MTYPE_OSPF_VERTEX_PARENT, p);
 }
 
-static int vertex_parent_cmp(void *aa, void *bb)
+int vertex_parent_cmp(void *aa, void *bb)
 {
 	struct vertex_parent *a = aa, *b = bb;
 	return IPV4_ADDR_CMP(&a->nexthop->router, &b->nexthop->router);
@@ -282,6 +289,194 @@ static void ospf_vertex_add_parent(struct vertex *v)
 		if (listnode_lookup(vp->parent->children, v) == NULL)
 			listnode_add(vp->parent->children, v);
 	}
+}
+
+/* Find a vertex according to its router id */
+struct vertex *ospf_spf_vertex_find(struct in_addr id, struct list *vertex_list)
+{
+	struct listnode *node;
+	struct vertex *found;
+
+	for (ALL_LIST_ELEMENTS_RO(vertex_list, node, found)) {
+		if (found->id.s_addr == id.s_addr)
+			return found;
+	}
+
+	return NULL;
+}
+
+/* Create a deep copy of a SPF vertex without children and parents */
+static struct vertex *ospf_spf_vertex_copy(struct vertex *vertex)
+{
+	struct vertex *copy;
+
+	copy = XCALLOC(MTYPE_OSPF_VERTEX, sizeof(struct vertex));
+
+	memcpy(copy, vertex, sizeof(struct vertex));
+	copy->parents = list_new();
+	copy->parents->del = vertex_parent_free;
+	copy->parents->cmp = vertex_parent_cmp;
+	copy->children = list_new();
+
+	return copy;
+}
+
+/* Create a deep copy of a SPF vertex_parent */
+static struct vertex_parent *
+ospf_spf_vertex_parent_copy(struct vertex_parent *vertex_parent)
+{
+	struct vertex_parent *vertex_parent_copy;
+	struct vertex_nexthop *nexthop_copy, *local_nexthop_copy;
+
+	vertex_parent_copy =
+		XCALLOC(MTYPE_OSPF_VERTEX, sizeof(struct vertex_parent));
+	nexthop_copy =
+		XCALLOC(MTYPE_OSPF_VERTEX, sizeof(struct vertex_nexthop));
+	local_nexthop_copy =
+		XCALLOC(MTYPE_OSPF_VERTEX, sizeof(struct vertex_nexthop));
+
+	memcpy(vertex_parent_copy, vertex_parent, sizeof(struct vertex_parent));
+	memcpy(nexthop_copy, vertex_parent->nexthop,
+	       sizeof(struct vertex_nexthop));
+	memcpy(local_nexthop_copy, vertex_parent->local_nexthop,
+	       sizeof(struct vertex_nexthop));
+
+	vertex_parent_copy->nexthop = nexthop_copy;
+	vertex_parent_copy->local_nexthop = local_nexthop_copy;
+
+	return vertex_parent_copy;
+}
+
+/* Create a deep copy of a SPF tree */
+void ospf_spf_copy(struct vertex *vertex, struct list *vertex_list)
+{
+	struct listnode *node;
+	struct vertex *vertex_copy, *child, *child_copy, *parent_copy;
+	struct vertex_parent *vertex_parent, *vertex_parent_copy;
+
+	/* First check if the node is already in the vertex list */
+	vertex_copy = ospf_spf_vertex_find(vertex->id, vertex_list);
+	if (!vertex_copy) {
+		vertex_copy = ospf_spf_vertex_copy(vertex);
+		listnode_add(vertex_list, vertex_copy);
+	}
+
+	/* Copy all parents, create parent nodes if necessary */
+	for (ALL_LIST_ELEMENTS_RO(vertex->parents, node, vertex_parent)) {
+		parent_copy = ospf_spf_vertex_find(vertex_parent->parent->id,
+						   vertex_list);
+		if (!parent_copy) {
+			parent_copy =
+				ospf_spf_vertex_copy(vertex_parent->parent);
+			listnode_add(vertex_list, parent_copy);
+		}
+		vertex_parent_copy = ospf_spf_vertex_parent_copy(vertex_parent);
+		vertex_parent_copy->parent = parent_copy;
+		listnode_add(vertex_copy->parents, vertex_parent_copy);
+	}
+
+	/* Copy all children, create child nodes if necessary */
+	for (ALL_LIST_ELEMENTS_RO(vertex->children, node, child)) {
+		child_copy = ospf_spf_vertex_find(child->id, vertex_list);
+		if (!child_copy) {
+			child_copy = ospf_spf_vertex_copy(child);
+			listnode_add(vertex_list, child_copy);
+		}
+		listnode_add(vertex_copy->children, child_copy);
+	}
+
+	/* Finally continue copying with child nodes */
+	for (ALL_LIST_ELEMENTS_RO(vertex->children, node, child))
+		ospf_spf_copy(child, vertex_list);
+}
+
+static void ospf_spf_remove_branch(struct vertex_parent *vertex_parent,
+				   struct vertex *child,
+				   struct list *vertex_list)
+{
+	struct listnode *node, *nnode, *inner_node, *inner_nnode;
+	struct vertex *grandchild;
+	struct vertex_parent *vertex_parent_found;
+	bool has_more_links = false;
+
+	/*
+	 * First check if there are more nexthops for that parent to that child
+	 */
+	for (ALL_LIST_ELEMENTS_RO(child->parents, node, vertex_parent_found)) {
+		if (vertex_parent_found->parent->id.s_addr
+			    == vertex_parent->parent->id.s_addr
+		    && vertex_parent_found->nexthop->router.s_addr
+			       != vertex_parent->nexthop->router.s_addr)
+			has_more_links = true;
+	}
+
+	/*
+	 * No more links from that parent? Then delete the child from its
+	 * children list.
+	 */
+	if (!has_more_links)
+		listnode_delete(vertex_parent->parent->children, child);
+
+	/*
+	 * Delete the vertex_parent from the child parents list, this needs to
+	 * be done anyway.
+	 */
+	listnode_delete(child->parents, vertex_parent);
+
+	/*
+	 * Are there actually more parents left? If not, then delete the child!
+	 * This is done by recursively removing the links to the grandchildren,
+	 * such that finally the child can be removed without leaving unused
+	 * partial branches.
+	 */
+	if (child->parents->count == 0) {
+		for (ALL_LIST_ELEMENTS(child->children, node, nnode,
+				       grandchild)) {
+			for (ALL_LIST_ELEMENTS(grandchild->parents, inner_node,
+					       inner_nnode,
+					       vertex_parent_found)) {
+				ospf_spf_remove_branch(vertex_parent_found,
+						       grandchild, vertex_list);
+			}
+		}
+		listnode_delete(vertex_list, child);
+		ospf_vertex_free(child);
+	}
+}
+
+int ospf_spf_remove_link(struct vertex *vertex, struct list *vertex_list,
+			 struct router_lsa_link *link)
+{
+	struct listnode *node, *inner_node;
+	struct vertex *child;
+	struct vertex_parent *vertex_parent;
+
+	/*
+	 * Identify the node who shares a subnet (given by the link) with a
+	 * child and remove the branch of this particular child.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(vertex->children, node, child)) {
+		for (ALL_LIST_ELEMENTS_RO(child->parents, inner_node,
+					  vertex_parent)) {
+			if ((vertex_parent->local_nexthop->router.s_addr
+			     & link->link_data.s_addr)
+			    == (link->link_id.s_addr
+				& link->link_data.s_addr)) {
+				ospf_spf_remove_branch(vertex_parent, child,
+						       vertex_list);
+				return 0;
+			}
+		}
+	}
+
+	/* No link found yet, move on recursively */
+	for (ALL_LIST_ELEMENTS_RO(vertex->children, node, child)) {
+		if (ospf_spf_remove_link(child, vertex_list, link) == 0)
+			return 0;
+	}
+
+	/* link was not removed yet */
+	return 1;
 }
 
 static void ospf_spf_init(struct ospf_area *area, struct ospf_lsa *root_lsa,
@@ -427,6 +622,7 @@ static void ospf_spf_flush_parents(struct vertex *w)
  */
 static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 				struct vertex_nexthop *newhop,
+				struct vertex_nexthop *newlhop,
 				unsigned int distance)
 {
 	struct vertex_parent *vp, *wp;
@@ -482,7 +678,8 @@ static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 		}
 	}
 
-	vp = vertex_parent_new(v, ospf_lsa_has_link(w->lsa, v->lsa), newhop);
+	vp = vertex_parent_new(v, ospf_lsa_has_link(w->lsa, v->lsa), newhop,
+			       newlhop);
 	listnode_add_sort(w->parents, vp);
 
 	return;
@@ -541,7 +738,7 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 					     unsigned int distance, int lsa_pos)
 {
 	struct listnode *node, *nnode;
-	struct vertex_nexthop *nh;
+	struct vertex_nexthop *nh, *lnh;
 	struct vertex_parent *vp;
 	unsigned int added = 0;
 	char buf1[BUFSIZ];
@@ -703,7 +900,17 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 					nh = vertex_nexthop_new();
 					nh->router = nexthop;
 					nh->lsa_pos = lsa_pos;
-					ospf_spf_add_parent(v, w, nh, distance);
+
+					/*
+					 * Since v is the root the nexthop and
+					 * local nexthop are the same.
+					 */
+					lnh = vertex_nexthop_new();
+					memcpy(lnh, nh,
+					       sizeof(struct vertex_nexthop));
+
+					ospf_spf_add_parent(v, w, nh, lnh,
+							    distance);
 					return 1;
 				} else
 					zlog_info(
@@ -733,7 +940,17 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 					nh = vertex_nexthop_new();
 					nh->router = vl_data->nexthop.router;
 					nh->lsa_pos = vl_data->nexthop.lsa_pos;
-					ospf_spf_add_parent(v, w, nh, distance);
+
+					/*
+					 * Since v is the root the nexthop and
+					 * local nexthop are the same.
+					 */
+					lnh = vertex_nexthop_new();
+					memcpy(lnh, nh,
+					       sizeof(struct vertex_nexthop));
+
+					ospf_spf_add_parent(v, w, nh, lnh,
+							    distance);
 					return 1;
 				} else
 					zlog_info(
@@ -747,7 +964,15 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 			nh = vertex_nexthop_new();
 			nh->router.s_addr = 0; /* Nexthop not required */
 			nh->lsa_pos = lsa_pos;
-			ospf_spf_add_parent(v, w, nh, distance);
+
+			/*
+			 * Since v is the root the nexthop and
+			 * local nexthop are the same.
+			 */
+			lnh = vertex_nexthop_new();
+			memcpy(lnh, nh, sizeof(struct vertex_nexthop));
+
+			ospf_spf_add_parent(v, w, nh, lnh, distance);
 			return 1;
 		}
 	} /* end V is the root */
@@ -780,8 +1005,18 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 					nh = vertex_nexthop_new();
 					nh->router = l->link_data;
 					nh->lsa_pos = vp->nexthop->lsa_pos;
+
+					/*
+					 * Since v is the root the nexthop and
+					 * local nexthop are the same.
+					 */
+					lnh = vertex_nexthop_new();
+					memcpy(lnh, nh,
+					       sizeof(struct vertex_nexthop));
+
 					added = 1;
-					ospf_spf_add_parent(v, w, nh, distance);
+					ospf_spf_add_parent(v, w, nh, lnh,
+							    distance);
 				}
 				/*
 				 * Note lack of return is deliberate. See next
@@ -829,10 +1064,39 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 
 	for (ALL_LIST_ELEMENTS(v->parents, node, nnode, vp)) {
 		added = 1;
-		ospf_spf_add_parent(v, w, vp->nexthop, distance);
+
+		/*
+		 * The nexthop is inherited, but the local nexthop still needs
+		 * to be created.
+		 */
+		if (l) {
+			lnh = vertex_nexthop_new();
+			lnh->router = l->link_data;
+			lnh->lsa_pos = lsa_pos;
+		} else {
+			lnh = NULL;
+		}
+
+		ospf_spf_add_parent(v, w, vp->nexthop, lnh, distance);
 	}
 
 	return added;
+}
+
+static int ospf_spf_is_protected_link(struct ospf_area *area,
+				      struct router_lsa_link *link)
+{
+	struct router_lsa_link *p_link;
+
+	p_link = area->spf_protected_link;
+	if (!p_link)
+		return 0;
+
+	if ((p_link->link_id.s_addr & p_link->link_data.s_addr)
+	    == (link->link_data.s_addr & p_link->link_data.s_addr))
+		return 1;
+
+	return 0;
 }
 
 /*
@@ -889,6 +1153,16 @@ static void ospf_spf_next(struct vertex *v, struct ospf_area *area,
 			 * path calculation.
 			 */
 			if ((type = l->m[0].type) == LSA_LINK_TYPE_STUB)
+				continue;
+
+			/*
+			 * Don't process TI-LFA protected links.
+			 *
+			 * TODO: Replace this by a proper solution, e.g. remove
+			 * corresponding links from the LSDB and run the SPF
+			 * algo with the stripped-down LSDB.
+			 */
+			if (ospf_spf_is_protected_link(area, l))
 				continue;
 
 			/*
@@ -1069,8 +1343,7 @@ void ospf_spf_print(struct vty *vty, struct vertex *v, int i)
 	struct vertex_parent *parent;
 
 	if (v->type == OSPF_VERTEX_ROUTER) {
-		vty_out(vty, "SPF Result: depth %d [R] %pI4\n", i,
-			&v->lsa->id);
+		vty_out(vty, "SPF Result: depth %d [R] %pI4\n", i, &v->lsa->id);
 	} else {
 		struct network_lsa *lsa = (struct network_lsa *)v->lsa;
 		vty_out(vty, "SPF Result: depth %d [N] %pI4/%d\n", i,
@@ -1078,9 +1351,11 @@ void ospf_spf_print(struct vty *vty, struct vertex *v, int i)
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(v->parents, nnode, parent)) {
-		vty_out(vty, " nexthop %pI4 lsa pos %d\n",
-			&parent->nexthop->router,
-			parent->nexthop->lsa_pos);
+		vty_out(vty,
+			" nexthop %pI4 lsa pos %d -- local nexthop %pI4 lsa pos %d\n",
+			&parent->nexthop->router, parent->nexthop->lsa_pos,
+			&parent->local_nexthop->router,
+			parent->local_nexthop->lsa_pos);
 	}
 
 	i++;
@@ -1128,7 +1403,9 @@ static void ospf_spf_process_stubs(struct ospf_area *area, struct vertex *v,
 			p += (OSPF_ROUTER_LSA_LINK_SIZE
 			      + (l->m[0].tos_count * OSPF_ROUTER_LSA_TOS_SIZE));
 
-			if (l->m[0].type == LSA_LINK_TYPE_STUB)
+			/* Don't process TI-LFA protected links */
+			if (l->m[0].type == LSA_LINK_TYPE_STUB
+			    && !ospf_spf_is_protected_link(area, l))
 				ospf_intra_add_stub(rt, l, v, area,
 						    parent_is_root, lsa_pos);
 			lsa_pos++;
@@ -1185,15 +1462,18 @@ void ospf_rtrs_free(struct route_table *rtrs)
 
 void ospf_spf_cleanup(struct vertex *spf, struct list *vertex_list)
 {
+
 	/*
 	 * Free nexthop information, canonical versions of which are
 	 * attached the first level of router vertices attached to the
 	 * root vertex, see ospf_nexthop_calculation.
 	 */
-	ospf_canonical_nexthops_free(spf);
+	if (spf)
+		ospf_canonical_nexthops_free(spf);
 
 	/* Free SPF vertices list with deconstructor ospf_vertex_free. */
-	list_delete(&vertex_list);
+	if (vertex_list)
+		list_delete(&vertex_list);
 }
 
 #if 0
@@ -1359,19 +1639,26 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospf_spf_calculate: Stop. %zd vertices",
 			   mtype_stats_alloc(MTYPE_OSPF_VERTEX));
-
-	/* If this is a dry run then keep the SPF data in place */
-	if (!area->spf_dry_run)
-		ospf_spf_cleanup(area->spf, area->spf_vertex_list);
 }
 
-int ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
-			     struct route_table *new_rtrs, bool is_dry_run,
-			     bool is_root_node)
+void ospf_spf_calculate_area(struct ospf *ospf, struct ospf_area *area,
+			     struct route_table *new_table,
+			     struct route_table *new_rtrs)
+{
+	ospf_spf_calculate(area, area->router_lsa_self, new_table, new_rtrs,
+			   false, true);
+
+	if (ospf->ti_lfa_enabled)
+		ospf_ti_lfa_compute(area, new_table);
+
+	ospf_spf_cleanup(area->spf, area->spf_vertex_list);
+}
+
+void ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
+			      struct route_table *new_rtrs)
 {
 	struct ospf_area *area;
 	struct listnode *node, *nnode;
-	int areas_processed = 0;
 
 	/* Calculate SPF for each area. */
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
@@ -1380,20 +1667,13 @@ int ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
 		if (ospf->backbone && ospf->backbone == area)
 			continue;
 
-		ospf_spf_calculate(area, area->router_lsa_self, new_table,
-				   new_rtrs, is_dry_run, is_root_node);
-		areas_processed++;
+		ospf_spf_calculate_area(ospf, area, new_table, new_rtrs);
 	}
 
 	/* SPF for backbone, if required */
-	if (ospf->backbone) {
-		area = ospf->backbone;
-		ospf_spf_calculate(area, area->router_lsa_self, new_table,
-				   new_rtrs, is_dry_run, is_root_node);
-		areas_processed++;
-	}
-
-	return areas_processed;
+	if (ospf->backbone)
+		ospf_spf_calculate_area(ospf, ospf->backbone, new_table,
+					new_rtrs);
 }
 
 /* Worker for SPF calculation scheduler. */
@@ -1402,7 +1682,6 @@ static int ospf_spf_calculate_schedule_worker(struct thread *thread)
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct route_table *new_table, *new_rtrs;
 	struct timeval start_time, spf_start_time;
-	int areas_processed;
 	unsigned long ia_time, prune_time, rt_time;
 	unsigned long abr_time, total_spf_time, spf_time;
 	char rbuf[32]; /* reason_buf */
@@ -1418,8 +1697,7 @@ static int ospf_spf_calculate_schedule_worker(struct thread *thread)
 	monotime(&spf_start_time);
 	new_table = route_table_init(); /* routing table */
 	new_rtrs = route_table_init();  /* ABR/ASBR routing table */
-	areas_processed = ospf_spf_calculate_areas(ospf, new_table, new_rtrs,
-						   false, true);
+	ospf_spf_calculate_areas(ospf, new_table, new_rtrs);
 	spf_time = monotime_since(&spf_start_time, NULL);
 
 	ospf_vl_shut_unapproved(ospf);
@@ -1512,7 +1790,7 @@ static int ospf_spf_calculate_schedule_worker(struct thread *thread)
 		zlog_info("        RouteInstall: %ld", rt_time);
 		if (IS_OSPF_ABR(ospf))
 			zlog_info("                 ABR: %ld (%d areas)",
-				  abr_time, areas_processed);
+				  abr_time, ospf->areas->count);
 		zlog_info("Reason(s) for SPF: %s", rbuf);
 	}
 

@@ -159,6 +159,16 @@ static struct sr_node *sr_node_new(struct in_addr *rid)
 	return new;
 }
 
+/* Supposed to be used for testing */
+struct sr_node *ospf_sr_node_create(struct in_addr *rid)
+{
+	struct sr_node *srn;
+
+	srn = hash_get(OspfSR.neighbors, (void *)rid, (void *)sr_node_new);
+
+	return srn;
+}
+
 /* Delete Segment Routing node */
 static void sr_node_del(struct sr_node *srn)
 {
@@ -651,6 +661,30 @@ static mpls_label_t index2label(uint32_t index, struct sr_block srgb)
 		return MPLS_INVALID_LABEL;
 	} else
 		return label;
+}
+
+/* Get the prefix sid for a specific router id */
+mpls_label_t ospf_sr_get_prefix_sid_by_id(struct in_addr *id)
+{
+	struct sr_node *srn;
+	struct sr_prefix *srp;
+	mpls_label_t label;
+
+	srn = (struct sr_node *)hash_lookup(OspfSR.neighbors, id);
+
+	if (srn) {
+		/*
+		 * TODO: Here we assume that the SRGBs are the same,
+		 * and that the node's prefix SID is at the head of
+		 * the list, probably needs tweaking.
+		 */
+		srp = listnode_head(srn->ext_prefix);
+		label = index2label(srp->sid, srn->srgb);
+	} else {
+		label = MPLS_INVALID_LABEL;
+	}
+
+	return label;
 }
 
 /* Get neighbor full structure from address */

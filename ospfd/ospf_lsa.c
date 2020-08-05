@@ -337,7 +337,7 @@ void lsa_header_set(struct stream *s, uint8_t options, uint8_t type,
 
 /* router-LSA related functions. */
 /* Get router-LSA flags. */
-static uint8_t router_lsa_flags(struct ospf_area *area)
+uint8_t router_lsa_flags(struct ospf_area *area)
 {
 	uint8_t flags;
 
@@ -420,9 +420,8 @@ static uint16_t ospf_link_cost(struct ospf_interface *oi)
 }
 
 /* Set a link information. */
-static char link_info_set(struct stream **s, struct in_addr id,
-			  struct in_addr data, uint8_t type, uint8_t tos,
-			  uint16_t cost)
+char link_info_set(struct stream **s, struct in_addr id, struct in_addr data,
+		   uint8_t type, uint8_t tos, uint16_t cost)
 {
 	/* LSA stream is initially allocated to OSPF_MAX_LSA_SIZE, suits
 	 * vast majority of cases. Some rare routers with lots of links need
@@ -679,7 +678,7 @@ static int router_lsa_link_set(struct stream **s, struct ospf_area *area)
 }
 
 /* Set router-LSA body. */
-static void ospf_router_lsa_body_set(struct stream **s, struct ospf_area *area)
+void ospf_router_lsa_body_set(struct stream **s, struct ospf_area *area)
 {
 	unsigned long putp;
 	uint16_t cnt;

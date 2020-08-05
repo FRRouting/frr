@@ -52,6 +52,7 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_route.c \
 	ospfd/ospf_routemap.c \
 	ospfd/ospf_spf.c \
+	ospfd/ospf_ti_lfa.c \
 	ospfd/ospf_sr.c \
 	ospfd/ospf_te.c \
 	ospfd/ospf_vty.c \
@@ -100,6 +101,7 @@ noinst_HEADERS += \
 	ospfd/ospf_ri.h \
 	ospfd/ospf_route.h \
 	ospfd/ospf_spf.h \
+	ospfd/ospf_ti_lfa.h \
 	ospfd/ospf_sr.h \
 	ospfd/ospf_te.h \
 	ospfd/ospf_vty.h \

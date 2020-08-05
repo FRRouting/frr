@@ -361,4 +361,9 @@ extern void ospf_sr_update_local_prefix(struct interface *ifp,
 					struct prefix *p);
 /* Segment Routing re-routing function */
 extern void ospf_sr_update_task(struct ospf *ospf);
+
+/* Support for TI-LFA */
+extern mpls_label_t ospf_sr_get_prefix_sid_by_id(struct in_addr *id);
+extern struct sr_node *ospf_sr_node_create(struct in_addr *rid);
+
 #endif /* _FRR_OSPF_SR_H */

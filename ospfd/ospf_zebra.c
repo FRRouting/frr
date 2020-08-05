@@ -198,15 +198,70 @@ static int ospf_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/* Nexthop, ifindex, distance and metric information. */
+static void ospf_zebra_add_nexthop(struct ospf *ospf, struct ospf_path *path,
+				   struct zapi_route *api)
+{
+	struct zapi_nexthop *api_nh;
+	struct zapi_nexthop *api_nh_backup;
+
+	/* TI-LFA backup path label stack comes first, if present */
+	if (path->srni.backup_label_stack) {
+		api_nh_backup = &api->backup_nexthops[api->backup_nexthop_num];
+		api_nh_backup->vrf_id = ospf->vrf_id;
+
+		api_nh_backup->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+		api_nh_backup->gate.ipv4 = path->srni.backup_nexthop;
+
+		api_nh_backup->label_num =
+			path->srni.backup_label_stack->num_labels;
+		memcpy(api_nh_backup->labels,
+		       path->srni.backup_label_stack->label,
+		       sizeof(mpls_label_t) * api_nh_backup->label_num);
+
+		api->backup_nexthop_num++;
+	}
+
+	/* And here comes the primary nexthop */
+	api_nh = &api->nexthops[api->nexthop_num];
+#ifdef HAVE_NETLINK
+	if (path->unnumbered
+	    || (path->nexthop.s_addr != INADDR_ANY && path->ifindex != 0)) {
+#else  /* HAVE_NETLINK */
+	if (path->nexthop.s_addr != INADDR_ANY && path->ifindex != 0) {
+#endif /* HAVE_NETLINK */
+		api_nh->gate.ipv4 = path->nexthop;
+		api_nh->ifindex = path->ifindex;
+		api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+	} else if (path->nexthop.s_addr != INADDR_ANY) {
+		api_nh->gate.ipv4 = path->nexthop;
+		api_nh->type = NEXTHOP_TYPE_IPV4;
+	} else {
+		api_nh->ifindex = path->ifindex;
+		api_nh->type = NEXTHOP_TYPE_IFINDEX;
+	}
+	api_nh->vrf_id = ospf->vrf_id;
+
+	/* Set TI-LFA backup nexthop info if present */
+	if (path->srni.backup_label_stack) {
+		SET_FLAG(api->message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
+		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
+
+		/* Just care about a single TI-LFA backup path for now */
+		api_nh->backup_num = 1;
+		api_nh->backup_idx[0] = api->backup_nexthop_num - 1;
+	}
+
+	api->nexthop_num++;
+}
+
 void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		    struct ospf_route * or)
 {
 	struct zapi_route api;
-	struct zapi_nexthop *api_nh;
 	uint8_t distance;
 	struct ospf_path *path;
 	struct listnode *node;
-	int count = 0;
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = ospf->vrf_id;
@@ -241,29 +296,11 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		api.distance = distance;
 	}
 
-	/* Nexthop, ifindex, distance and metric information. */
 	for (ALL_LIST_ELEMENTS_RO(or->paths, node, path)) {
-		if (count >= MULTIPATH_NUM)
+		if (api.nexthop_num >= MULTIPATH_NUM)
 			break;
-		api_nh = &api.nexthops[count];
-#ifdef HAVE_NETLINK
-		if (path->unnumbered || (path->nexthop.s_addr != INADDR_ANY
-					 && path->ifindex != 0)) {
-#else  /* HAVE_NETLINK */
-		if (path->nexthop.s_addr != INADDR_ANY && path->ifindex != 0) {
-#endif /* HAVE_NETLINK */
-			api_nh->gate.ipv4 = path->nexthop;
-			api_nh->ifindex = path->ifindex;
-			api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-		} else if (path->nexthop.s_addr != INADDR_ANY) {
-			api_nh->gate.ipv4 = path->nexthop;
-			api_nh->type = NEXTHOP_TYPE_IPV4;
-		} else {
-			api_nh->ifindex = path->ifindex;
-			api_nh->type = NEXTHOP_TYPE_IFINDEX;
-		}
-		api_nh->vrf_id = ospf->vrf_id;
-		count++;
+
+		ospf_zebra_add_nexthop(ospf, path, &api);
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
 			struct interface *ifp;
@@ -276,7 +313,6 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 				ifp ? ifp->name : " ");
 		}
 	}
-	api.nexthop_num = count;
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }

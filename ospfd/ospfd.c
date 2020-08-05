@@ -87,6 +87,20 @@ static void ospf_finish_final(struct ospf *);
 
 #define OSPF_EXTERNAL_LSA_ORIGINATE_DELAY 1
 
+int p_spaces_compare_func(const struct p_space *a, const struct p_space *b)
+{
+	return (a->protected_link->link_id.s_addr
+		- b->protected_link->link_id.s_addr);
+}
+
+int q_spaces_compare_func(const struct q_space *a, const struct q_space *b)
+{
+	return (a->root->id.s_addr - b->root->id.s_addr);
+}
+
+DECLARE_RBTREE_UNIQ(p_spaces, struct p_space, p_spaces_item,
+		    p_spaces_compare_func)
+
 void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 {
 	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
@@ -264,8 +278,7 @@ static int ospf_area_id_cmp(struct ospf_area *a1, struct ospf_area *a2)
 	return 0;
 }
 
-/* Allocate new ospf structure. */
-static struct ospf *ospf_new(unsigned short instance, const char *name)
+struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 {
 	int i;
 	struct vrf *vrf = NULL;
@@ -340,8 +353,6 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	new->maxage_delay = OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
 	new->maxage_lsa = route_table_init();
 	new->t_maxage_walker = NULL;
-	thread_add_timer(master, ospf_lsa_maxage_walker, new,
-			 OSPF_LSA_MAXAGE_CHECK_INTERVAL, &new->t_maxage_walker);
 
 	/* Distance table init. */
 	new->distance_table = route_table_init();
@@ -349,8 +360,6 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	new->lsa_refresh_queue.index = 0;
 	new->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;
 	new->t_lsa_refresher = NULL;
-	thread_add_timer(master, ospf_lsa_refresh_walker, new,
-			 new->lsa_refresh_interval, &new->t_lsa_refresher);
 	new->lsa_refresher_started = monotime(NULL);
 
 	new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE + 1);
@@ -368,6 +377,17 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	QOBJ_REG(new, ospf);
 
 	new->fd = -1;
+
+	return new;
+}
+
+/* Allocate new ospf structure. */
+static struct ospf *ospf_new(unsigned short instance, const char *name)
+{
+	struct ospf *new;
+
+	new = ospf_new_alloc(instance, name);
+
 	if ((ospf_sock_init(new)) < 0) {
 		if (new->vrf_id != VRF_UNKNOWN)
 			flog_err(
@@ -376,6 +396,12 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 				__func__);
 		return new;
 	}
+
+	thread_add_timer(master, ospf_lsa_maxage_walker, new,
+			 OSPF_LSA_MAXAGE_CHECK_INTERVAL, &new->t_maxage_walker);
+	thread_add_timer(master, ospf_lsa_refresh_walker, new,
+			 new->lsa_refresh_interval, &new->t_lsa_refresher);
+
 	thread_add_read(master, ospf_read, new, new->fd, &new->t_read);
 
 	return new;
@@ -887,8 +913,7 @@ static void ospf_finish_final(struct ospf *ospf)
 
 
 /* allocate new OSPF Area object */
-static struct ospf_area *ospf_area_new(struct ospf *ospf,
-				       struct in_addr area_id)
+struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
 {
 	struct ospf_area *new;
 
@@ -1035,7 +1060,8 @@ void ospf_area_del_if(struct ospf_area *area, struct ospf_interface *oi)
 }
 
 
-static void add_ospf_interface(struct connected *co, struct ospf_area *area)
+struct ospf_interface *add_ospf_interface(struct connected *co,
+					  struct ospf_area *area)
 {
 	struct ospf_interface *oi;
 
@@ -1072,6 +1098,8 @@ static void add_ospf_interface(struct connected *co, struct ospf_area *area)
 	if ((area->ospf->router_id.s_addr != INADDR_ANY)
 	    && if_is_operative(co->ifp))
 		ospf_if_up(oi);
+
+	return oi;
 }
 
 static void update_redistributed(struct ospf *ospf, int add_to_ospf)

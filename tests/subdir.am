@@ -31,6 +31,14 @@ TESTS_ISISD =
 IGNORE_ISISD = --ignore=isisd/
 endif
 
+if OSPFD
+TESTS_OSPFD = \
+	tests/ospfd/test_ospf_spf \
+	# end
+else
+TESTS_OSPFD =
+endif
+
 if OSPF6D
 TESTS_OSPF6D = \
 	tests/ospf6d/test_lsdb \
@@ -90,6 +98,7 @@ check_PROGRAMS = \
 	tests/lib/northbound/test_oper_data \
 	$(TESTS_BGPD) \
 	$(TESTS_ISISD) \
+	$(TESTS_OSPFD) \
 	$(TESTS_OSPF6D) \
 	$(TESTS_ZEBRA) \
 	# end
@@ -126,6 +135,7 @@ noinst_HEADERS += \
 	tests/lib/cli/common_cli.h \
 	tests/lib/test_typelist.h \
 	tests/isisd/test_common.h \
+	tests/ospfd/common.h \
 	# end
 
 #
@@ -145,6 +155,7 @@ TESTS_CFLAGS = \
 ALL_TESTS_LDADD = lib/libfrr.la $(LIBCAP)
 BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) -lm
 ISISD_TEST_LDADD = isisd/libisis.a $(ALL_TESTS_LDADD)
+OSPFD_TEST_LDADD = ospfd/libfrrospf.a $(ALL_TESTS_LDADD)
 OSPF6_TEST_LDADD = ospf6d/libospf6.a $(ALL_TESTS_LDADD)
 ZEBRA_TEST_LDADD = zebra/label_manager.o $(ALL_TESTS_LDADD)
 
@@ -212,6 +223,11 @@ tests_isisd_test_isis_vertex_queue_CFLAGS = $(TESTS_CFLAGS)
 tests_isisd_test_isis_vertex_queue_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_isisd_test_isis_vertex_queue_LDADD = $(ISISD_TEST_LDADD)
 tests_isisd_test_isis_vertex_queue_SOURCES = tests/isisd/test_isis_vertex_queue.c tests/isisd/test_common.c
+
+tests_ospfd_test_ospf_spf_CFLAGS = $(TESTS_CFLAGS)
+tests_ospfd_test_ospf_spf_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospfd_test_ospf_spf_LDADD = $(OSPFD_TEST_LDADD)
+tests_ospfd_test_ospf_spf_SOURCES = tests/ospfd/test_ospf_spf.c tests/ospfd/common.c tests/ospfd/topologies.c
 
 tests_lib_cxxcompat_CFLAGS = $(TESTS_CFLAGS) $(CXX_COMPAT_CFLAGS) $(WERROR)
 tests_lib_cxxcompat_CPPFLAGS = $(TESTS_CPPFLAGS)
@@ -370,6 +386,7 @@ EXTRA_DIST += \
 	tests/isisd/test_isis_spf.in \
 	tests/isisd/test_isis_spf.refout \
 	tests/isisd/test_isis_vertex_queue.py \
+	tests/ospfd/test_ospf_spf.py \
 	tests/lib/cli/test_commands.in \
 	tests/lib/cli/test_commands.py \
 	tests/lib/cli/test_commands.refout \

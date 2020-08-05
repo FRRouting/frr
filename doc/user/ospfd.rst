@@ -1233,6 +1233,20 @@ Summary Route will be originated on-behalf of all matched external LSAs.
    Show configuration for display all configured summary routes with
    matching external LSA information.
 
+======
+TI-LFA
+======
+
+Experimental support for Topology Independent LFA (Loop-Free Alternate), see
+for example 'draft-bashandy-rtgwg-segment-routing-ti-lfa-05'. Note that
+TI-LFA requires a proper Segment Routing configuration.
+
+.. index:: fast-reroute ti-lfa
+.. clicmd:: fast-reroute ti-lfa
+
+   Configured on the router level. Activates TI-LFA for all interfaces.
+   Currently just link protection for P2P interfaces is supported.
+
 Debugging OSPF
 ==============
 

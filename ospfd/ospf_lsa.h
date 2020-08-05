@@ -260,6 +260,8 @@ extern struct lsa_header *ospf_lsa_data_dup(struct lsa_header *);
 extern void ospf_lsa_data_free(struct lsa_header *);
 
 /* Prototype for various LSAs */
+extern void ospf_router_lsa_body_set(struct stream **s, struct ospf_area *area);
+extern uint8_t router_lsa_flags(struct ospf_area *area);
 extern int ospf_router_lsa_update(struct ospf *);
 extern int ospf_router_lsa_update_area(struct ospf_area *);
 
@@ -332,6 +334,10 @@ extern int is_prefix_default(struct prefix_ipv4 *);
 
 extern int metric_type(struct ospf *, uint8_t, unsigned short);
 extern int metric_value(struct ospf *, uint8_t, unsigned short);
+
+extern char link_info_set(struct stream **s, struct in_addr id,
+			  struct in_addr data, uint8_t type, uint8_t tos,
+			  uint16_t cost);
 
 extern struct in_addr ospf_get_nssa_ip(struct ospf_area *);
 extern int ospf_translated_nssa_compare(struct ospf_lsa *, struct ospf_lsa *);

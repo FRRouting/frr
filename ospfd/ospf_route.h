@@ -42,6 +42,10 @@ struct sr_nexthop_info {
 	 * or NULL if next hop is the destination of the prefix
 	 */
 	struct sr_node *nexthop;
+
+	/* TI-LFA */
+	struct mpls_label_stack *backup_label_stack;
+	struct in_addr backup_nexthop;
 };
 
 /* OSPF Path. */
