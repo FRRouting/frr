@@ -4388,7 +4388,7 @@ DEFUN (neighbor_shutdown_msg,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Administratively shut down this neighbor\n"
-       "Add a shutdown message (draft-ietf-idr-shutdown-06)\n"
+       "Add a shutdown message (RFC 8203)\n"
        "Shutdown message\n")
 {
 	int idx_peer = 1;
@@ -4420,7 +4420,7 @@ DEFUN (no_neighbor_shutdown_msg,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Administratively shut down this neighbor\n"
-       "Remove a shutdown message (draft-ietf-idr-shutdown-06)\n"
+       "Remove a shutdown message (RFC 8203)\n"
        "Shutdown message\n")
 {
 	int idx_peer = 2;

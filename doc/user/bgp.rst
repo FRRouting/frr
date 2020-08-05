@@ -1203,13 +1203,15 @@ Defining Peers
 Configuring Peers
 ^^^^^^^^^^^^^^^^^
 
-.. index:: [no] neighbor PEER shutdown
-.. clicmd:: [no] neighbor PEER shutdown
+.. index:: [no] neighbor PEER shutdown [message MSG...]
+.. clicmd:: [no] neighbor PEER shutdown [message MSG...]
 
    Shutdown the peer. We can delete the neighbor's configuration by
    ``no neighbor PEER remote-as ASN`` but all configuration of the neighbor
    will be deleted. When you want to preserve the configuration, but want to
    drop the BGP peer, use this syntax.
+
+   Optionally you can specify a shutdown message `MSG`.
 
 .. index:: [no] neighbor PEER disable-connected-check
 .. clicmd:: [no] neighbor PEER disable-connected-check
@@ -1340,6 +1342,49 @@ Configuring Peers
    Note that replace-as can only be specified if no-prepend is.
 
    This command is only allowed for eBGP peers.
+
+.. index:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> as-override
+.. clicmd:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> as-override
+
+   Override AS number of the originating router with the local AS number.
+
+   Usually this configuration is used in PEs (Provider Edge) to replace
+   the incoming customer AS number so the connected CE (Customer Edge)
+   can use the same AS number as the other customer sites. This allows
+   customers of the provider network to use the same AS number across
+   their sites.
+
+   This command is only allowed for eBGP peers.
+
+.. index:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]
+.. clicmd:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]
+
+   Accept incoming routes with AS path containing AS number with the same value
+   as the current system AS.
+
+   This is used when you want to use the same AS number in your sites, but you
+   can't connect them directly. This is an alternative to
+   `neighbor WORD as-override`.
+
+   The parameter `(1-10)` configures the amount of accepted occurences of the
+   system AS number in AS path.
+
+   The parameter `origin` configures BGP to only accept routes originated with
+   the same AS number as the system.
+
+   This command is only allowed for eBGP peers.
+
+.. index:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths
+.. clicmd:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths
+
+   Configure BGP to send all known paths to neighbor in order to preserve multi
+   path capabilities inside a network.
+
+.. index:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-AS
+.. clicmd:: [no] neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-AS
+
+   Configure BGP to send best known paths to neighbor in order to preserve multi
+   path capabilities inside a network.
 
 .. index:: [no] neighbor PEER ttl-security hops NUMBER
 .. clicmd:: [no] neighbor PEER ttl-security hops NUMBER
