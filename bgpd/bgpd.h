@@ -169,6 +169,10 @@ struct bgp_master {
 	/* EVPN multihoming */
 	struct bgp_evpn_mh_info *mh_info;
 
+	/* global update-delay timer values */
+	uint16_t v_update_delay;
+	uint16_t v_establish_wait;
+
 	bool terminating;	/* global flag that sigint terminate seen */
 	QOBJ_FIELDS
 };
