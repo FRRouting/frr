@@ -346,6 +346,7 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 			    struct pim_upstream *up)
 {
 	if (up->rpf.source_nexthop.interface) {
+		pim_upstream_switch(pim, up, PIM_UPSTREAM_NOTJOINED);
 		up->rpf.source_nexthop.interface = NULL;
 		up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
 			PIM_NET_INADDR_ANY;
