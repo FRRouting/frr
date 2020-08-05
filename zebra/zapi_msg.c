@@ -729,9 +729,10 @@ static int route_notify_internal(const struct prefix *p, int type,
 			char buff[PREFIX_STRLEN];
 
 			zlog_debug(
-				"Not Notifying Owner: %u about prefix %s(%u) %d vrf: %u",
-				type, prefix2str(p, buff, sizeof(buff)),
-				table_id, note, vrf_id);
+				"Not Notifying Owner: %s about prefix %s(%u) %d vrf: %u",
+				zebra_route_string(type),
+				prefix2str(p, buff, sizeof(buff)), table_id,
+				note, vrf_id);
 		}
 		return 0;
 	}
@@ -739,9 +740,10 @@ static int route_notify_internal(const struct prefix *p, int type,
 	if (IS_ZEBRA_DEBUG_PACKET) {
 		char buff[PREFIX_STRLEN];
 
-		zlog_debug("Notifying Owner: %u about prefix %s(%u) %d vrf: %u",
-			   type, prefix2str(p, buff, sizeof(buff)),
-			   table_id, note, vrf_id);
+		zlog_debug("Notifying Owner: %s about prefix %s(%u) %d vrf: %u",
+			   zebra_route_string(type),
+			   prefix2str(p, buff, sizeof(buff)), table_id, note,
+			   vrf_id);
 	}
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
