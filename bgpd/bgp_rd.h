@@ -28,7 +28,7 @@
 #define RD_TYPE_IP      1
 #define RD_TYPE_AS4     2
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 #define RD_TYPE_VNC_ETH	0xff00  /* VNC L2VPN */
 #endif
 
@@ -46,7 +46,7 @@ struct rd_ip {
 	uint16_t val;
 };
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 struct rd_vnc_eth {
 	uint16_t type;
 	uint8_t local_nve_id;
@@ -54,18 +54,19 @@ struct rd_vnc_eth {
 };
 #endif
 
-extern uint16_t decode_rd_type(uint8_t *pnt);
+extern uint16_t decode_rd_type(const uint8_t *pnt);
 extern void encode_rd_type(uint16_t, uint8_t *);
 
-extern void decode_rd_as(uint8_t *pnt, struct rd_as *rd_as);
-extern void decode_rd_as4(uint8_t *pnt, struct rd_as *rd_as);
-extern void decode_rd_ip(uint8_t *pnt, struct rd_ip *rd_ip);
-#if ENABLE_BGP_VNC
-extern void decode_rd_vnc_eth(uint8_t *pnt, struct rd_vnc_eth *rd_vnc_eth);
+extern void decode_rd_as(const uint8_t *pnt, struct rd_as *rd_as);
+extern void decode_rd_as4(const uint8_t *pnt, struct rd_as *rd_as);
+extern void decode_rd_ip(const uint8_t *pnt, struct rd_ip *rd_ip);
+#ifdef ENABLE_BGP_VNC
+extern void decode_rd_vnc_eth(const uint8_t *pnt,
+			      struct rd_vnc_eth *rd_vnc_eth);
 #endif
 
 extern int str2prefix_rd(const char *, struct prefix_rd *);
-extern char *prefix_rd2str(struct prefix_rd *, char *, size_t);
+extern char *prefix_rd2str(const struct prefix_rd *, char *, size_t);
 extern void form_auto_rd(struct in_addr router_id, uint16_t rd_id,
 			 struct prefix_rd *prd);
 

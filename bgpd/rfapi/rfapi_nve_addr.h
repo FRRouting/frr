@@ -30,7 +30,7 @@ struct rfapi_nve_addr {
 };
 
 
-extern int rfapi_nve_addr_cmp(void *k1, void *k2);
+extern int rfapi_nve_addr_cmp(const void *k1, const void *k2);
 
 extern void rfapiNveAddr2Str(struct rfapi_nve_addr *na, char *buf, int bufsize);
 

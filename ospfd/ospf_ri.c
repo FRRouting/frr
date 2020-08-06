@@ -1382,9 +1382,8 @@ static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
 				zlog_debug("    Algorithm %d: Strict SPF", i);
 				break;
 			default:
-				zlog_debug(
-					"    Algorithm %d: Unknown value %d\n",
-					i, algo->value[i]);
+				zlog_debug("    Algorithm %d: Unknown value %d",
+					   i, algo->value[i]);
 				break;
 			}
 	}
@@ -1439,7 +1438,7 @@ static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
 
 static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa)
 {
-	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
+	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
 

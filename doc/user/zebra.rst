@@ -736,43 +736,30 @@ these cases, the FIB needs to be maintained reliably in the fast path
 as well. We refer to the component that programs the forwarding plane
 (directly or indirectly) as the Forwarding Plane Manager or FPM.
 
-The FIB push interface comprises of a TCP connection between zebra and
-the FPM. The connection is initiated by zebra -- that is, the FPM acts
-as the TCP server.
-
 .. program:: configure
 
 The relevant zebra code kicks in when zebra is configured with the
-:option:`--enable-fpm` flag. Zebra periodically attempts to connect to
-the well-known FPM port. Once the connection is up, zebra starts
-sending messages containing routes over the socket to the FPM. Zebra
-sends a complete copy of the forwarding table to the FPM, including
-routes that it may have picked up from the kernel. The existing
-interaction of zebra with the kernel remains unchanged -- that is, the
-kernel continues to receive FIB updates as before.
+:option:`--enable-fpm` flag and started with the module (``-M fpm``
+or ``-M dplane_fpm_nl``).
 
-The encapsulation header for the messages exchanged with the FPM is
-defined by the file :file:`fpm/fpm.h` in the frr tree. The routes
-themselves are encoded in Netlink or protobuf format, with Netlink
-being the default.
+.. note::
 
-Protobuf is one of a number of new serialization formats wherein the
-message schema is expressed in a purpose-built language. Code for
-encoding/decoding to/from the wire format is generated from the
-schema. Protobuf messages can be extended easily while maintaining
-backward-compatibility with older code. Protobuf has the following
-advantages over Netlink:
+   The ``fpm`` implementation attempts to connect to ``127.0.0.1`` port ``2620``
+   by default without configurations. The ``dplane_fpm_nl`` only attempts to
+   connect to a server if configured.
 
-- Code for serialization/deserialization is generated automatically. This
-  reduces the likelihood of bugs, allows third-party programs to be integrated
-  quickly, and makes it easy to add fields.
-- The message format is not tied to an OS (Linux), and can be evolved
-  independently.
+Zebra periodically attempts to connect to the well-known FPM port (``2620``).
+Once the connection is up, zebra starts sending messages containing routes
+over the socket to the FPM. Zebra sends a complete copy of the forwarding
+table to the FPM, including routes that it may have picked up from the kernel.
+The existing interaction of zebra with the kernel remains unchanged -- that
+is, the kernel continues to receive FIB updates as before.
 
-As mentioned before, zebra encodes routes sent to the FPM in Netlink
-format by default. The format can be controlled via the FPM module's
-load-time option to zebra, which currently takes the values `Netlink`
-and `protobuf`.
+The default FPM message format is netlink, however it can be controlled
+with the module load-time option. The modules accept the following options:
+
+- ``fpm``: ``netlink`` and ``protobuf``.
+- ``dplane_fpm_nl``: none, it only implements netlink.
 
 The zebra FPM interface uses replace semantics. That is, if a 'route
 add' message for a prefix is followed by another 'route add' message,
@@ -781,6 +768,121 @@ replaces the information sent in the first message.
 
 If the connection to the FPM goes down for some reason, zebra sends
 the FPM a complete copy of the forwarding table(s) when it reconnects.
+
+For more details on the implementation, please read the developer's manual FPM
+section.
+
+FPM Commands
+============
+
+``fpm`` implementation
+----------------------
+
+.. index:: fpm connection ip A.B.C.D port (1-65535)
+.. clicmd:: fpm connection ip A.B.C.D port (1-65535)
+
+   Configure ``zebra`` to connect to a different FPM server than
+   ``127.0.0.1`` port ``2620``.
+
+
+.. index:: no fpm connection ip A.B.C.D port (1-65535)
+.. clicmd:: no fpm connection ip A.B.C.D port (1-65535)
+
+  Configure ``zebra`` to connect to the default FPM server at ``127.0.0.1``
+  port ``2620``.
+
+
+.. index:: show zebra fpm stats
+.. clicmd:: show zebra fpm stats
+
+   Shows the FPM statistics.
+
+   Sample output:
+
+   ::
+
+       Counter                                       Total     Last 10 secs
+
+       connect_calls                                     3                2
+       connect_no_sock                                   0                0
+       read_cb_calls                                     2                2
+       write_cb_calls                                    2                0
+       write_calls                                       1                0
+       partial_writes                                    0                0
+       max_writes_hit                                    0                0
+       t_write_yields                                    0                0
+       nop_deletes_skipped                               6                0
+       route_adds                                        5                0
+       route_dels                                        0                0
+       updates_triggered                                11                0
+       redundant_triggers                                0                0
+       dests_del_after_update                            0                0
+       t_conn_down_starts                                0                0
+       t_conn_down_dests_processed                       0                0
+       t_conn_down_yields                                0                0
+       t_conn_down_finishes                              0                0
+       t_conn_up_starts                                  1                0
+       t_conn_up_dests_processed                        11                0
+       t_conn_up_yields                                  0                0
+       t_conn_up_aborts                                  0                0
+       t_conn_up_finishes                                1                0
+
+
+.. index:: clear zebra fpm stats
+.. clicmd:: clear zebra fpm stats
+
+   Reset statistics related to the zebra code that interacts with the
+   optional Forwarding Plane Manager (FPM) component.
+
+
+``dplane_fpm_nl`` implementation
+--------------------------------
+
+.. index:: fpm address <A.B.C.D|X:X::X:X> [port (1-65535)]
+.. clicmd:: fpm address <A.B.C.D|X:X::X:X> [port (1-65535)]
+
+   Configures the FPM server address. Once configured ``zebra`` will attempt
+   to connect to it immediately.
+
+
+.. index:: no fpm address [<A.B.C.D|X:X::X:X> [port (1-65535)]]
+.. clicmd:: no fpm address [<A.B.C.D|X:X::X:X> [port (1-65535)]]
+
+   Disables FPM entirely. ``zebra`` will close any current connections and
+   will not attempt to connect to it anymore.
+
+
+.. index:: show fpm counters [json]
+.. clicmd:: show fpm counters [json]
+
+   Show the FPM statistics (plain text or JSON formatted).
+
+   Sample output:
+
+   ::
+
+                        FPM counters
+                        ============
+                       Input bytes: 0
+                      Output bytes: 308
+        Output buffer current size: 0
+           Output buffer peak size: 308
+                 Connection closes: 0
+                 Connection errors: 0
+        Data plane items processed: 0
+         Data plane items enqueued: 0
+       Data plane items queue peak: 0
+                  Buffer full hits: 0
+           User FPM configurations: 1
+         User FPM disable requests: 0
+
+
+.. index:: clear fpm counters
+.. clicmd:: clear fpm counters
+
+   Reset statistics related to the zebra code that interacts with the
+   optional Forwarding Plane Manager (FPM) component.
+
 
 .. _zebra-dplane:
 
@@ -898,18 +1000,6 @@ zebra Terminal Mode Commands
    and how many routes each table contains.  Please note this is the
    total number of route nodes in the table.  Which will be higher than
    the actual number of routes that are held.
-
-.. index:: show zebra fpm stats
-.. clicmd:: show zebra fpm stats
-
-   Display statistics related to the zebra code that interacts with the
-   optional Forwarding Plane Manager (FPM) component.
-
-.. index:: clear zebra fpm stats
-.. clicmd:: clear zebra fpm stats
-
-   Reset statistics related to the zebra code that interacts with the
-   optional Forwarding Plane Manager (FPM) component.
 
 .. index:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]]
 .. clicmd:: show nexthop-group rib [ID] [vrf NAME]

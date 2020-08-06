@@ -66,6 +66,12 @@ void rt_netlink_init(void);
 /* MPLS label forwarding table change, using dataplane context information. */
 extern int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx);
 
+extern ssize_t netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
+				       uint8_t *data, size_t datalen,
+				       bool fpm);
+extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx,
+					 uint8_t *data, size_t datalen);
+
 extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int netlink_route_read(struct zebra_ns *zns);
 
@@ -86,6 +92,7 @@ extern int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 					    struct ethaddr *mac, uint16_t vid);
 extern int netlink_neigh_read_specific_ip(struct ipaddr *ip,
 					  struct interface *vlan_if);
+extern vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
 
 #ifdef __cplusplus
 }

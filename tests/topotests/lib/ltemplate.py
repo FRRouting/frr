@@ -134,6 +134,7 @@ def teardown_module(mod):
     tgen = get_topogen()
 
     if _lt != None and _lt.scriptdir != None and _lt.prestarthooksuccess == True:
+        luShowResults(logger.info)
         print(luFinish())
 
     # This function tears down the whole topology.

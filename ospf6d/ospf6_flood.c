@@ -258,8 +258,8 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
 	    || IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type))
 		zlog_debug("%s Install LSA: %s age %d seqnum %x in LSDB.",
-			   __PRETTY_FUNCTION__, lsa->name,
-			   ntohs(lsa->header->age), ntohl(lsa->header->seqnum));
+			   __func__, lsa->name, ntohs(lsa->header->age),
+			   ntohl(lsa->header->seqnum));
 
 	/* actually install */
 	lsa->installed = now;
@@ -332,11 +332,12 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 					if (req == on->last_ls_req) {
 						/* sanity check refcount */
 						assert(req->lock >= 2);
-						ospf6_lsa_unlock(req);
+						req = ospf6_lsa_unlock(req);
 						on->last_ls_req = NULL;
 					}
-					ospf6_lsdb_remove(req,
-							  on->request_list);
+					if (req)
+						ospf6_lsdb_remove(
+							req, on->request_list);
 					ospf6_check_nbr_loading(on);
 					continue;
 				}
@@ -348,7 +349,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 						zlog_debug(
 							"Received is newer, remove requesting");
 					if (req == on->last_ls_req) {
-						ospf6_lsa_unlock(req);
+						req = ospf6_lsa_unlock(req);
 						on->last_ls_req = NULL;
 					}
 					if (req)
@@ -373,7 +374,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 			if (is_debug)
 				zlog_debug(
 					"%s: Send LSA %s (age %d) update now",
-					__PRETTY_FUNCTION__, lsa->name,
+					__func__, lsa->name,
 					ntohs(lsa->header->age));
 			ospf6_lsupdate_send_neighbor_now(on, lsa);
 			continue;
@@ -842,18 +843,6 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 				zlog_debug("Received is duplicated LSA");
 			SET_FLAG(new->flag, OSPF6_LSA_DUPLICATE);
 		}
-		if (old->header->adv_router
-			    == from->ospf6_if->area->ospf6->router_id
-		    && OSPF6_LSA_IS_MAXAGE(new)) {
-			ospf6_acknowledge_lsa(new, ismore_recent, from);
-			ospf6_lsa_delete(new);
-			if (is_debug)
-				zlog_debug(
-					"%s: Received is self orig MAXAGE LSA %s, discard (ismore_recent %d)",
-					__PRETTY_FUNCTION__, old->name,
-					ismore_recent);
-			return;
-		}
 	}
 
 	/* if no database copy or received is more recent */
@@ -1016,7 +1005,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 				if (is_debug)
 					zlog_debug(
 						"%s: Current copy of LSA %s is MAXAGE, but new has recent Age.",
-						old->name, __PRETTY_FUNCTION__);
+						old->name, __func__);
 
 				ospf6_lsa_purge(old);
 				if (new->header->adv_router

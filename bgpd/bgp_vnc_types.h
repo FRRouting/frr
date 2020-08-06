@@ -19,7 +19,7 @@
 #ifndef _QUAGGA_BGP_VNC_TYPES_H
 #define _QUAGGA_BGP_VNC_TYPES_H
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 typedef enum {
 	BGP_VNC_SUBTLV_TYPE_LIFETIME = 1,
 	BGP_VNC_SUBTLV_TYPE_RFPOPTION = 2, /* deprecated */

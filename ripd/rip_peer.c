@@ -131,7 +131,6 @@ void rip_peer_bad_packet(struct rip *rip, struct sockaddr_in *from)
 static char *rip_peer_uptime(struct rip_peer *peer, char *buf, size_t len)
 {
 	time_t uptime;
-	struct tm *tm;
 
 	/* If there is no connection has been done before print `never'. */
 	if (peer->uptime == 0) {
@@ -142,17 +141,9 @@ static char *rip_peer_uptime(struct rip_peer *peer, char *buf, size_t len)
 	/* Get current time. */
 	uptime = time(NULL);
 	uptime -= peer->uptime;
-	tm = gmtime(&uptime);
 
-	if (uptime < ONE_DAY_SECOND)
-		snprintf(buf, len, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			 tm->tm_sec);
-	else if (uptime < ONE_WEEK_SECOND)
-		snprintf(buf, len, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			 tm->tm_min);
-	else
-		snprintf(buf, len, "%02dw%dd%02dh", tm->tm_yday / 7,
-			 tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
+	frrtime_to_interval(uptime, buf, len);
+
 	return buf;
 }
 

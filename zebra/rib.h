@@ -107,7 +107,7 @@ struct route_entry {
 	/* Uptime. */
 	time_t uptime;
 
-	/* Type fo this route. */
+	/* Type of this route. */
 	int type;
 
 	/* VRF identifier. */
@@ -347,10 +347,16 @@ extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		   struct prefix_ipv6 *src_p, const struct nexthop *nh,
 		   uint32_t nhe_id, uint32_t table_id, uint32_t metric,
 		   uint32_t mtu, uint8_t distance, route_tag_t tag);
-
+/*
+ * Multipath route apis.
+ */
 extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 			     struct prefix_ipv6 *src_p, struct route_entry *re,
 			     struct nexthop_group *ng);
+extern int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
+				 struct prefix_ipv6 *src_p,
+				 struct route_entry *re,
+				 struct nhg_hash_entry *nhe);
 
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       unsigned short instance, int flags, struct prefix *p,
@@ -515,7 +521,7 @@ static inline struct nexthop_group *rib_active_nhg(struct route_entry *re)
 	if (re->fib_ng.nexthop)
 		return &(re->fib_ng);
 	else
-		return re->nhe->nhg;
+		return &(re->nhe->nhg);
 }
 
 extern void zebra_vty_init(void);

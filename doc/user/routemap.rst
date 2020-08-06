@@ -151,10 +151,15 @@ Route Map Match Command
 
    Matches the specified `prefix-len`. This is a Zebra specific command.
 
-.. index:: match ip next-hop IPV4_ADDR
-.. clicmd:: match ip next-hop IPV4_ADDR
+.. index:: match ip next-hop address IPV4_ADDR
+.. clicmd:: match ip next-hop address IPV4_ADDR
 
-   Matches the specified `ipv4_addr`.
+   This is a BGP specific match command. Matches the specified `ipv4_addr`.
+
+.. index:: match ipv6 next-hop IPV6_ADDR
+.. clicmd:: match ipv6 next-hop IPV6_ADDR
+
+   This is a BGP specific match command. Matches the specified `ipv6_addr`.
 
 .. index:: match as-path AS_PATH
 .. clicmd:: match as-path AS_PATH
@@ -273,6 +278,16 @@ Route Map Set Command
 
    Set the BGP local preference to `local_pref`.
 
+.. index:: set local-preference +LOCAL_PREF
+.. clicmd:: set local-preference +LOCAL_PREF
+
+   Add the BGP local preference to an existing `local_pref`.
+
+.. index:: set local-preference -LOCAL_PREF
+.. clicmd:: set local-preference -LOCAL_PREF
+
+   Subtract the BGP local preference from an existing `local_pref`.
+
 .. index:: [no] set distance DISTANCE
 .. clicmd:: [no] set distance DISTANCE
 
@@ -346,6 +361,27 @@ Route Map Exit Action Command
 
    Proceed processing the route-map at the first entry whose order is >= N
 
+.. _route-map-optimization-command:
+
+Route Map Optimization Command
+==============================
+
+.. index:: route-map optimization
+.. clicmd:: route-map optimization
+
+   Enable route-map processing optimization. The optimization is
+   enabled by default.
+   Instead of sequentially passing through all the route-map indexes
+   until a match is found, the search for the best-match index will be
+   based on a look-up in a prefix-tree. A per-route-map prefix-tree
+   will be constructed for this purpose. The prefix-tree will compose
+   of all the prefixes in all the prefix-lists that are included in the
+   match rule of all the sequences of a route-map.
+
+.. index:: no route-map optimization
+.. clicmd:: no route-map optimization
+
+   Disable the route-map processing optimization.
 
 Route Map Examples
 ==================

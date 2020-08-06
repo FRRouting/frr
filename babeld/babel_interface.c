@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include "vector.h"
 #include "distribute.h"
 #include "lib_errors.h"
+#include "network.h"
 
 #include "babel_main.h"
 #include "util.h"
@@ -58,11 +59,13 @@ static void babel_interface_free (babel_interface_nfo *bi);
 
 
 static vector babel_enable_if;                 /* enable interfaces (by cmd). */
-static struct cmd_node babel_interface_node =  /* babeld's interface node.    */
-{
-    INTERFACE_NODE,
-    "%s(config-if)# ",
-    1 /* VTYSH */
+static int interface_config_write(struct vty *vty);
+static struct cmd_node babel_interface_node = {
+    .name = "interface",
+    .node = INTERFACE_NODE,
+    .parent_node = CONFIG_NODE,
+    .prompt = "%s(config-if)# ",
+    .config_write = interface_config_write,
 };
 
 
@@ -969,7 +972,7 @@ show_babel_routes_sub(struct babel_route *route, struct vty *vty,
         channels[0] = '\0';
     else {
         int k, j = 0;
-        snprintf(channels, 100, " chan (");
+        snprintf(channels, sizeof(channels), " chan (");
         j = strlen(channels);
         for(k = 0; k < DIVERSITY_HOPS; k++) {
             if(route->channels[k] == 0)
@@ -1247,7 +1250,7 @@ babel_if_init(void)
     babel_enable_if = vector_init (1);
 
     /* install interface node and commands */
-    install_node (&babel_interface_node, interface_config_write);
+    install_node(&babel_interface_node);
     if_cmd_init();
 
     install_element(BABEL_NODE, &babel_network_cmd);
@@ -1394,7 +1397,7 @@ babel_interface_allocate (void)
     /* All flags are unset */
     babel_ifp->bucket_time = babel_now.tv_sec;
     babel_ifp->bucket = BUCKET_TOKENS_MAX;
-    babel_ifp->hello_seqno = (random() & 0xFFFF);
+    babel_ifp->hello_seqno = (frr_weak_random() & 0xFFFF);
     babel_ifp->rtt_min = 10000;
     babel_ifp->rtt_max = 120000;
     babel_ifp->max_rtt_penalty = 150;

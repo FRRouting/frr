@@ -336,7 +336,7 @@ int ospf6_route_get_first_nh_index(struct ospf6_route *route)
 			return nh->ifindex;
 	}
 
-	return (-1);
+	return -1;
 }
 
 int ospf6_nexthop_cmp(struct ospf6_nexthop *a, struct ospf6_nexthop *b)

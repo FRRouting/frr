@@ -1,4 +1,4 @@
-# Simple FreeRangeRouting Route-Server Test
+# Simple FRRouting Route-Server Test
 
 ## Topology
 	+----------+ +----------+ +----------+ +----------+ +----------+

@@ -232,8 +232,8 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 							&route->prefix)), buf,
 						  sizeof(buf));
 					zlog_debug(
-						"%s: route %s with cost %u is not best, ignore."
-						, __PRETTY_FUNCTION__, buf,
+						"%s: route %s with cost %u is not best, ignore.",
+						__func__, buf,
 						route->path.cost);
 				}
 				return 0;
@@ -246,9 +246,10 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 				if (is_debug) {
 					prefix2str(&route->prefix, buf,
 						   sizeof(buf));
-					zlog_debug("%s: intra-prefix route %s with cost %u is not best, ignore."
-					   , __PRETTY_FUNCTION__, buf,
-					   route->path.cost);
+					zlog_debug(
+						"%s: intra-prefix route %s with cost %u is not best, ignore.",
+						__func__, buf,
+						route->path.cost);
 				}
 				return 0;
 			}
@@ -762,11 +763,13 @@ void ospf6_abr_old_path_update(struct ospf6_route *old_route,
 		}
 
 		if (IS_OSPF6_DEBUG_ABR || IS_OSPF6_DEBUG_EXAMIN(INTER_PREFIX))
-			zlog_debug("%s: paths %u nh %u", __PRETTY_FUNCTION__,
-				   old_route->paths ?
-				   listcount(old_route->paths) : 0,
-				   old_route->nh_list ?
-				   listcount(old_route->nh_list) : 0);
+			zlog_debug("%s: paths %u nh %u", __func__,
+				   old_route->paths
+					   ? listcount(old_route->paths)
+					   : 0,
+				   old_route->nh_list
+					   ? listcount(old_route->nh_list)
+					   : 0);
 
 		if (table->hook_add)
 			(*table->hook_add)(old_route);
@@ -822,9 +825,10 @@ void ospf6_abr_old_route_remove(struct ospf6_lsa *lsa,
 					prefix2str(&old->prefix, buf,
 						   sizeof(buf));
 					zlog_debug("%s: old %s updated nh %u",
-						   __PRETTY_FUNCTION__, buf,
-						   old->nh_list ?
-						   listcount(old->nh_list) : 0);
+						   __func__, buf,
+						   old->nh_list ? listcount(
+							   old->nh_list)
+								: 0);
 				}
 
 				if (table->hook_add)
@@ -878,8 +882,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	if (lsa->header->type == htons(OSPF6_LSTYPE_INTER_PREFIX)) {
 		if (IS_OSPF6_DEBUG_EXAMIN(INTER_PREFIX)) {
 			is_debug++;
-			zlog_debug("%s: Examin %s in area %s",
-				   __PRETTY_FUNCTION__, lsa->name, oa->name);
+			zlog_debug("%s: Examin %s in area %s", __func__,
+				   lsa->name, oa->name);
 		}
 
 		prefix_lsa =
@@ -898,8 +902,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	} else if (lsa->header->type == htons(OSPF6_LSTYPE_INTER_ROUTER)) {
 		if (IS_OSPF6_DEBUG_EXAMIN(INTER_ROUTER)) {
 			is_debug++;
-			zlog_debug("%s: Examin %s in area %s",
-				   __PRETTY_FUNCTION__, lsa->name, oa->name);
+			zlog_debug("%s: Examin %s in area %s", __func__,
+				   lsa->name, oa->name);
 		}
 
 		router_lsa =
@@ -946,9 +950,10 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 						old = route;
 
 						if (is_debug)
-							zlog_debug("%s: old entry found in paths, adv_router %s",
-							__PRETTY_FUNCTION__,
-							adv_router);
+							zlog_debug(
+								"%s: old entry found in paths, adv_router %s",
+								__func__,
+								adv_router);
 
 						break;
 					}
@@ -973,8 +978,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	}
 	if (OSPF6_LSA_IS_MAXAGE(lsa)) {
 		if (is_debug)
-			zlog_debug("%s: LSA %s is MaxAge, ignore",
-				   __PRETTY_FUNCTION__, lsa->name);
+			zlog_debug("%s: LSA %s is MaxAge, ignore", __func__,
+				   lsa->name);
 		if (old)
 			ospf6_abr_old_route_remove(lsa, old, table);
 		return;
@@ -1053,21 +1058,21 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	    || CHECK_FLAG(abr_entry->flag, OSPF6_ROUTE_REMOVE)
 	    || !CHECK_FLAG(abr_entry->path.router_bits, OSPF6_ROUTER_BIT_B)) {
 		if (is_debug)
-			zlog_debug("%s: ABR router entry does not exist, ignore",
-				   __PRETTY_FUNCTION__);
+			zlog_debug(
+				"%s: ABR router entry does not exist, ignore",
+				__func__);
 		if (old) {
 			if (old->type == OSPF6_DEST_TYPE_ROUTER &&
 			    oa->intra_brouter_calc) {
 				if (is_debug)
 					zlog_debug(
-						   "%s: intra_brouter_calc is on, skip brouter remove: %s (%p)",
-						   __PRETTY_FUNCTION__, buf,
-						   (void *)old);
+						"%s: intra_brouter_calc is on, skip brouter remove: %s (%p)",
+						__func__, buf, (void *)old);
 			} else {
 				if (is_debug)
-					zlog_debug("%s: remove old entry: %s %p ",
-						   __PRETTY_FUNCTION__, buf,
-						   (void *)old);
+					zlog_debug(
+						"%s: remove old entry: %s %p ",
+						__func__, buf, (void *)old);
 				ospf6_route_remove(old, table);
 			}
 		}
@@ -1142,11 +1147,10 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		if ((ospf6_route_cmp(route, old_route) != 0)) {
 			if (is_debug) {
 				prefix2str(&prefix, buf, sizeof(buf));
-				zlog_debug("%s: old %p %s cost %u new route cost %u are not same",
-					   __PRETTY_FUNCTION__,
-					   (void *)old_route, buf,
-					   old_route->path.cost,
-					   route->path.cost);
+				zlog_debug(
+					"%s: old %p %s cost %u new route cost %u are not same",
+					__func__, (void *)old_route, buf,
+					old_route->path.cost, route->path.cost);
 			}
 
 			/* Check new route's adv. router is same in one of
@@ -1185,14 +1189,15 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 				inet_ntop(AF_INET,
 					  &ecmp_path->origin.adv_router,
 					  adv_router, sizeof(adv_router));
-				zlog_debug("%s: route %s cost %u another path %s added with nh %u, effective paths %u nh %u",
-						__PRETTY_FUNCTION__, buf,
-						old_route->path.cost,
-						adv_router,
-						listcount(ecmp_path->nh_list),
-						old_route->paths ?
-						listcount(old_route->paths) : 0,
-						listcount(old_route->nh_list));
+				zlog_debug(
+					"%s: route %s cost %u another path %s added with nh %u, effective paths %u nh %u",
+					__func__, buf, old_route->path.cost,
+					adv_router,
+					listcount(ecmp_path->nh_list),
+					old_route->paths
+						? listcount(old_route->paths)
+						: 0,
+					listcount(old_route->nh_list));
 			}
 		} else {
 			struct ospf6_route *tmp_route = ospf6_route_create();
@@ -1215,10 +1220,11 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		}
 
 		if (is_debug)
-			zlog_debug("%s: Update route: %s %p old cost %u new cost %u nh %u",
-				   __PRETTY_FUNCTION__, buf, (void *)old_route,
-				   old_route->path.cost, route->path.cost,
-				   listcount(route->nh_list));
+			zlog_debug(
+				"%s: Update route: %s %p old cost %u new cost %u nh %u",
+				__func__, buf, (void *)old_route,
+				old_route->path.cost, route->path.cost,
+				listcount(route->nh_list));
 
 		/* For Inter-Prefix route: Update RIB/FIB,
 		 * For Inter-Router trigger summary update
@@ -1235,9 +1241,10 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		if (is_debug) {
 			inet_ntop(AF_INET, &route->path.origin.adv_router,
 				  adv_router, sizeof(adv_router));
-			zlog_debug("%s: Install route: %s cost %u nh %u adv_router %s ",
-				   __PRETTY_FUNCTION__, buf, route->path.cost,
-				   listcount(route->nh_list), adv_router);
+			zlog_debug(
+				"%s: Install route: %s cost %u nh %u adv_router %s ",
+				__func__, buf, route->path.cost,
+				listcount(route->nh_list), adv_router);
 		}
 
 		path = ospf6_path_dup(&route->path);
@@ -1434,7 +1441,7 @@ void install_element_ospf6_debug_abr(void)
 	install_element(CONFIG_NODE, &no_debug_ospf6_abr_cmd);
 }
 
-static const struct ospf6_lsa_handler inter_prefix_handler = {
+static struct ospf6_lsa_handler inter_prefix_handler = {
 	.lh_type = OSPF6_LSTYPE_INTER_PREFIX,
 	.lh_name = "Inter-Prefix",
 	.lh_short_name = "IAP",
@@ -1442,7 +1449,7 @@ static const struct ospf6_lsa_handler inter_prefix_handler = {
 	.lh_get_prefix_str = ospf6_inter_area_prefix_lsa_get_prefix_str,
 	.lh_debug = 0};
 
-static const struct ospf6_lsa_handler inter_router_handler = {
+static struct ospf6_lsa_handler inter_router_handler = {
 	.lh_type = OSPF6_LSTYPE_INTER_ROUTER,
 	.lh_name = "Inter-Router",
 	.lh_short_name = "IAR",

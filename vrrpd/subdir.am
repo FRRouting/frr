@@ -6,7 +6,7 @@ if VRRPD
 noinst_LIBRARIES += vrrpd/libvrrp.a
 sbin_PROGRAMS += vrrpd/vrrpd
 # dist_examples_DATA += staticd/staticd.conf.sample
-vtysh_scan += $(top_srcdir)/vrrpd/vrrp_vty.c
+vtysh_scan += vrrpd/vrrp_vty.c
 man8 += $(MANBUILD)/frr-vrrpd.8
 endif
 
@@ -31,8 +31,9 @@ noinst_HEADERS += \
 	vrrpd/vrrp_zebra.h \
 	# end
 
-vrrpd/vrrp_vty_clippy.c: $(CLIPPY_DEPS)
-vrrpd/vrrp_vty.$(OBJEXT): vrrpd/vrrp_vty_clippy.c
+clippy_scan += \
+	vrrpd/vrrp_vty.c \
+	# end
 
 vrrpd_vrrpd_SOURCES = vrrpd/vrrp_main.c
 vrrpd_vrrpd_LDADD = vrrpd/libvrrp.a lib/libfrr.la @LIBCAP@

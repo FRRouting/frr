@@ -2,13 +2,14 @@ Source: frr
 Section: net
 Priority: optional
 Maintainer: David Lamparter <equinox-debian@diac24.net>
-Uploaders: FRRouting-dev <dev@lists.frrouting.org>,
-	   Ondřej Surý <ondrej@debian.org>
+Uploaders: FRRouting-dev <dev@lists.frrouting.org>
 Build-Depends:
+ autotools-dev,
  bison,
  chrpath,
- debhelper (>= 9.20150101),
+ debhelper (>= 9),
  debhelper (>= 9.20160709) <!pkg.frr.nosystemd> | dh-systemd <!pkg.frr.nosystemd>,
+ dh-autoreconf,
  flex,
  gawk,
  install-info,
@@ -24,12 +25,11 @@ Build-Depends:
  libssh-dev <!pkg.frr.nortrlib>,
  libsystemd-dev <!pkg.frr.nosystemd>,
  libyang-dev (>= 0.16.74),
- lsb-base,
  pkg-config,
- python3:native,
- python3-dev:native,
- python3-sphinx:native,
- python3-pytest:native <!nocheck>,
+ python3,
+ python3-dev,
+ python3-sphinx,
+ python3-pytest <!nocheck>,
  texinfo (>= 4.7)
 Standards-Version: 4.4.1
 Homepage: https://www.frrouting.org/
@@ -42,8 +42,7 @@ Depends:
  ${misc:Depends},
  ${shlibs:Depends},
  iproute2 | iproute,
- logrotate (>= 3.2-11),
- lsof
+ logrotate (>= 3.2-11)
 Pre-Depends: adduser
 Recommends: frr-pythontools
 Suggests: frr-doc

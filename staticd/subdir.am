@@ -6,11 +6,12 @@ if STATICD
 noinst_LIBRARIES += staticd/libstatic.a
 sbin_PROGRAMS += staticd/staticd
 dist_examples_DATA += staticd/staticd.conf.sample
-vtysh_scan += $(top_srcdir)/staticd/static_vty.c
+vtysh_scan += staticd/static_vty.c
 man8 += $(MANBUILD)/frr-staticd.8
 endif
 
 staticd_libstatic_a_SOURCES = \
+	staticd/static_debug.c \
 	staticd/static_memory.c \
 	staticd/static_nht.c \
 	staticd/static_routes.c \
@@ -20,6 +21,7 @@ staticd_libstatic_a_SOURCES = \
 	# end
 
 noinst_HEADERS += \
+	staticd/static_debug.h \
 	staticd/static_memory.h \
 	staticd/static_nht.h \
 	staticd/static_zebra.h \
@@ -28,8 +30,9 @@ noinst_HEADERS += \
 	staticd/static_vrf.h \
 	# end
 
-staticd/static_vty_clippy.c: $(CLIPPY_DEPS)
-staticd/static_vty.$(OBJEXT): staticd/static_vty_clippy.c
+clippy_scan += \
+	staticd/static_vty.c \
+	# end
 
 staticd_staticd_SOURCES = staticd/static_main.c
 staticd_staticd_LDADD = staticd/libstatic.a lib/libfrr.la $(LIBCAP)

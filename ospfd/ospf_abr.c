@@ -310,7 +310,7 @@ int ospf_area_range_substitute_unset(struct ospf *ospf, struct in_addr area_id,
 			ospf_schedule_abr_task(ospf);
 
 	UNSET_FLAG(range->flags, OSPF_AREA_RANGE_SUBSTITUTE);
-	range->subst_addr.s_addr = 0;
+	range->subst_addr.s_addr = INADDR_ANY;
 	range->subst_masklen = 0;
 
 	return 1;
@@ -670,8 +670,7 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 		 * originate translated LSA
 		 */
 
-		if ((new = ospf_translated_nssa_originate(area->ospf, lsa))
-		    == NULL) {
+		if (ospf_translated_nssa_originate(area->ospf, lsa) == NULL) {
 			if (IS_DEBUG_OSPF_NSSA)
 				zlog_debug(
 					"ospf_abr_translate_nssa(): Could not translate "
@@ -709,8 +708,7 @@ void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 	else
 		full_cost = cost;
 
-	old = ospf_lsa_lookup_by_prefix(area->lsdb, OSPF_SUMMARY_LSA,
-					(struct prefix_ipv4 *)p,
+	old = ospf_lsa_lookup_by_prefix(area->lsdb, OSPF_SUMMARY_LSA, p,
 					area->ospf->router_id);
 	if (old) {
 		if (IS_DEBUG_OSPF_EVENT)
@@ -762,8 +760,7 @@ void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 			zlog_debug(
 				"ospf_abr_announce_network_to_area(): "
 				"creating new summary");
-		lsa = ospf_summary_lsa_originate((struct prefix_ipv4 *)p,
-						 full_cost, area);
+		lsa = ospf_summary_lsa_originate(p, full_cost, area);
 		/* This will flood through area. */
 
 		if (!lsa) {

@@ -89,12 +89,15 @@ from lib.ltemplate import ltemplateRtrCmd
 from mininet.topo import Topo
 
 import shutil
+
 CWD = os.path.dirname(os.path.realpath(__file__))
 # test name based on directory
 TEST = os.path.basename(CWD)
 
+
 class ThisTestTopo(Topo):
     "Test topology builder"
+
     def build(self, *_args, **_opts):
         "Build function"
         tgen = get_topogen(self)
@@ -103,125 +106,148 @@ class ThisTestTopo(Topo):
         # between routers, switches and hosts.
         #
         # Create P/PE routers
-        #check for mpls
-        tgen.add_router('r1')
+        # check for mpls
+        tgen.add_router("r1")
         if tgen.hasmpls != True:
-            logger.info('MPLS not available, tests will be skipped')
+            logger.info("MPLS not available, tests will be skipped")
             return
         mach = platform.machine()
         krel = platform.release()
-        if mach[:1] == 'a' and topotest.version_cmp(krel, '4.11') < 0:
-            logger.info('Need Kernel version 4.11 to run on arm processor')
+        if mach[:1] == "a" and topotest.version_cmp(krel, "4.11") < 0:
+            logger.info("Need Kernel version 4.11 to run on arm processor")
             return
         for routern in range(2, 5):
-            tgen.add_router('r{}'.format(routern))
+            tgen.add_router("r{}".format(routern))
         # Create CE routers
         for routern in range(1, 5):
-            tgen.add_router('ce{}'.format(routern))
+            tgen.add_router("ce{}".format(routern))
 
-        #CE/PE links
-        tgen.add_link(tgen.gears['ce1'], tgen.gears['r1'], 'ce1-eth0', 'r1-eth4')
-        tgen.add_link(tgen.gears['ce2'], tgen.gears['r3'], 'ce2-eth0', 'r3-eth4')
-        tgen.add_link(tgen.gears['ce3'], tgen.gears['r4'], 'ce3-eth0', 'r4-eth4')
-        tgen.add_link(tgen.gears['ce4'], tgen.gears['r4'], 'ce4-eth0', 'r4-eth5')
+        # CE/PE links
+        tgen.add_link(tgen.gears["ce1"], tgen.gears["r1"], "ce1-eth0", "r1-eth4")
+        tgen.add_link(tgen.gears["ce2"], tgen.gears["r3"], "ce2-eth0", "r3-eth4")
+        tgen.add_link(tgen.gears["ce3"], tgen.gears["r4"], "ce3-eth0", "r4-eth4")
+        tgen.add_link(tgen.gears["ce4"], tgen.gears["r4"], "ce4-eth0", "r4-eth5")
 
         # Create a switch with just one router connected to it to simulate a
         # empty network.
         switch = {}
-        switch[0] = tgen.add_switch('sw0')
-        switch[0].add_link(tgen.gears['r1'], nodeif='r1-eth0')
-        switch[0].add_link(tgen.gears['r2'], nodeif='r2-eth0')
+        switch[0] = tgen.add_switch("sw0")
+        switch[0].add_link(tgen.gears["r1"], nodeif="r1-eth0")
+        switch[0].add_link(tgen.gears["r2"], nodeif="r2-eth0")
 
-        switch[1] = tgen.add_switch('sw1')
-        switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth1')
-        switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth0')
-        switch[1].add_link(tgen.gears['r4'], nodeif='r4-eth0')
+        switch[1] = tgen.add_switch("sw1")
+        switch[1].add_link(tgen.gears["r2"], nodeif="r2-eth1")
+        switch[1].add_link(tgen.gears["r3"], nodeif="r3-eth0")
+        switch[1].add_link(tgen.gears["r4"], nodeif="r4-eth0")
 
-        switch[1] = tgen.add_switch('sw2')
-        switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth2')
-        switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth1')
+        switch[1] = tgen.add_switch("sw2")
+        switch[1].add_link(tgen.gears["r2"], nodeif="r2-eth2")
+        switch[1].add_link(tgen.gears["r3"], nodeif="r3-eth1")
+
 
 l3mdev_accept = 0
+
 
 def ltemplatePreRouterStartHook():
     global l3mdev_accept
     cc = ltemplateRtrCmd()
     krel = platform.release()
     tgen = get_topogen()
-    logger.info('pre router-start hook, kernel=' + krel)
+    logger.info("pre router-start hook, kernel=" + krel)
 
-    if topotest.version_cmp(krel, '4.15') >= 0 and \
-       topotest.version_cmp(krel, '4.18') <= 0:
+    if (
+        topotest.version_cmp(krel, "4.15") >= 0
+        and topotest.version_cmp(krel, "4.18") <= 0
+    ):
         l3mdev_accept = 1
 
-    if topotest.version_cmp(krel, '5.0') >= 0:
+    if topotest.version_cmp(krel, "5.0") >= 0:
         l3mdev_accept = 1
 
-    logger.info('setting net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept))
-    #check for mpls
+    logger.info("setting net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
+    # check for mpls
     if tgen.hasmpls != True:
-        logger.info('MPLS not available, skipping setup')
+        logger.info("MPLS not available, skipping setup")
         return False
-    #check for normal init
+    # check for normal init
     if len(tgen.net) == 1:
-        logger.info('Topology not configured, skipping setup')
+        logger.info("Topology not configured, skipping setup")
         return False
-    #trace errors/unexpected output
+    # trace errors/unexpected output
     cc.resetCounts()
-    #configure r2 mpls interfaces
-    intfs = ['lo', 'r2-eth0', 'r2-eth1', 'r2-eth2']
+    # configure r2 mpls interfaces
+    intfs = ["lo", "r2-eth0", "r2-eth1", "r2-eth2"]
     for intf in intfs:
-        cc.doCmd(tgen, 'r2', 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
+        cc.doCmd(tgen, "r2", "echo 1 > /proc/sys/net/mpls/conf/{}/input".format(intf))
 
-    #configure cust1 VRFs & MPLS
-    rtrs = ['r1', 'r3', 'r4']
-    cmds = ['ip link add {0}-cust1 type vrf table 10',
-            'ip ru add oif {0}-cust1 table 10',
-            'ip ru add iif {0}-cust1 table 10',
-            'ip link set dev {0}-cust1 up',
-            'sysctl -w net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept)]
+    # configure cust1 VRFs & MPLS
+    rtrs = ["r1", "r3", "r4"]
+    cmds = [
+        "ip link add {0}-cust1 type vrf table 10",
+        "ip ru add oif {0}-cust1 table 10",
+        "ip ru add iif {0}-cust1 table 10",
+        "ip link set dev {0}-cust1 up",
+        "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept),
+    ]
     for rtr in rtrs:
         router = tgen.gears[rtr]
         for cmd in cmds:
             cc.doCmd(tgen, rtr, cmd.format(rtr))
-        cc.doCmd(tgen, rtr, 'ip link set dev {0}-eth4 master {0}-cust1'.format(rtr))
-        intfs = [rtr+'-cust1', 'lo', rtr+'-eth0', rtr+'-eth4']
+        cc.doCmd(tgen, rtr, "ip link set dev {0}-eth4 master {0}-cust1".format(rtr))
+        intfs = [rtr + "-cust1", "lo", rtr + "-eth0", rtr + "-eth4"]
         for intf in intfs:
-            cc.doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
-        logger.info('setup {0} vrf {0}-cust1, {0}-eth4. enabled mpls input.'.format(rtr))
-    #configure cust2 VRFs & MPLS
-    rtrs = ['r4']
-    cmds = ['ip link add {0}-cust2 type vrf table 20',
-            'ip ru add oif {0}-cust2 table 20',
-            'ip ru add iif {0}-cust2 table 20',
-            'ip link set dev {0}-cust2 up']
+            cc.doCmd(
+                tgen, rtr, "echo 1 > /proc/sys/net/mpls/conf/{}/input".format(intf)
+            )
+        logger.info(
+            "setup {0} vrf {0}-cust1, {0}-eth4. enabled mpls input.".format(rtr)
+        )
+    # configure cust2 VRFs & MPLS
+    rtrs = ["r4"]
+    cmds = [
+        "ip link add {0}-cust2 type vrf table 20",
+        "ip ru add oif {0}-cust2 table 20",
+        "ip ru add iif {0}-cust2 table 20",
+        "ip link set dev {0}-cust2 up",
+    ]
     for rtr in rtrs:
         for cmd in cmds:
             cc.doCmd(tgen, rtr, cmd.format(rtr))
-        cc.doCmd(tgen, rtr, 'ip link set dev {0}-eth5 master {0}-cust2'.format(rtr))
-        intfs = [rtr+'-cust2', rtr+'-eth5']
+        cc.doCmd(tgen, rtr, "ip link set dev {0}-eth5 master {0}-cust2".format(rtr))
+        intfs = [rtr + "-cust2", rtr + "-eth5"]
         for intf in intfs:
-            cc.doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
-        logger.info('setup {0} vrf {0}-cust2, {0}-eth5. enabled mpls input.'.format(rtr))
-    #put ce4-eth0 into a VRF (no default instance!)
-    rtrs = ['ce4']
-    cmds = ['ip link add {0}-cust2 type vrf table 20',
-            'ip ru add oif {0}-cust2 table 20',
-            'ip ru add iif {0}-cust2 table 20',
-            'ip link set dev {0}-cust2 up',
-            'sysctl -w net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept)]
+            cc.doCmd(
+                tgen, rtr, "echo 1 > /proc/sys/net/mpls/conf/{}/input".format(intf)
+            )
+        logger.info(
+            "setup {0} vrf {0}-cust2, {0}-eth5. enabled mpls input.".format(rtr)
+        )
+    # put ce4-eth0 into a VRF (no default instance!)
+    rtrs = ["ce4"]
+    cmds = [
+        "ip link add {0}-cust2 type vrf table 20",
+        "ip ru add oif {0}-cust2 table 20",
+        "ip ru add iif {0}-cust2 table 20",
+        "ip link set dev {0}-cust2 up",
+        "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept),
+    ]
     for rtr in rtrs:
         for cmd in cmds:
             cc.doCmd(tgen, rtr, cmd.format(rtr))
-        cc.doCmd(tgen, rtr, 'ip link set dev {0}-eth0 master {0}-cust2'.format(rtr))
+        cc.doCmd(tgen, rtr, "ip link set dev {0}-eth0 master {0}-cust2".format(rtr))
     if cc.getOutput() != 4:
         InitSuccess = False
-        logger.info('Unexpected output seen ({} times, tests will be skipped'.format(cc.getOutput()))
+        logger.info(
+            "Unexpected output seen ({} times, tests will be skipped".format(
+                cc.getOutput()
+            )
+        )
     else:
         InitSuccess = True
-        logger.info('VRF config successful!')
+        logger.info("VRF config successful!")
     return InitSuccess
 
+
 def ltemplatePostRouterStartHook():
-    logger.info('post router-start hook')
+    logger.info("post router-start hook")
     return True

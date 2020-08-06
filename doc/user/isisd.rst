@@ -111,6 +111,12 @@ writing, *isisd* does not support multiple ISIS processes.
 
    Enable or disable :rfc:`6232` purge originator identification.
 
+.. index:: [no] lsp-mtu (128-4352)
+.. clicmd:: [no] lsp-mtu (128-4352)
+
+   Configure the maximum size of generated LSPs, in bytes.
+
+
 .. _isis-timer:
 
 ISIS Timer
@@ -464,6 +470,57 @@ Traffic Engineering
 
 .. _debugging-isis:
 
+Segment Routing
+===============
+
+This is an EXPERIMENTAL support of Segment Routing as per RFC8667
+for MPLS dataplane. It supports IPv4, IPv6 and ECMP and has been
+tested against Cisco & Juniper routers.
+
+Known limitations:
+ - No support for level redistribution (L1 to L2 or L2 to L1)
+ - No support for binding SID
+ - No support for SRMS
+ - No support for SRLB
+ - Only one SRGB and default SPF Algorithm is supported
+
+.. index:: [no] segment-routing on
+.. clicmd:: [no] segment-routing on
+
+   Enable Segment Routing.
+
+.. index:: [no] segment-routing global-block (0-1048575) (0-1048575)
+.. clicmd:: [no] segment-routing global-block (0-1048575) (0-1048575)
+
+   Set the Segment Routing Global Block i.e. the label range used by MPLS
+   to store label in the MPLS FIB.
+
+.. index:: [no] segment-routing node-msd (1-16)
+.. clicmd:: [no] segment-routing node-msd (1-16)
+
+   Set the Maximum Stack Depth supported by the router. The value depend of the
+   MPLS dataplane. E.g. for Linux kernel, since version 4.13 the maximum value
+   is 32.
+
+.. index:: [no] segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16-1048575)|index (0-65535)> [no-php-flag|explicit-null]
+.. clicmd:: [no] segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16-1048575)|index (0-65535) [no-php-flag|explicit-null]
+
+   Set the Segment Routing index or absolute label value for the specified
+   prefix. The 'no-php-flag' means NO Penultimate Hop Popping that allows SR
+   node to request to its neighbor to not pop the label. The 'explicit-null'
+   flag allows SR node to request to its neighbor to send IP packet with the
+   EXPLICIT-NULL label.
+
+.. index:: show isis segment-routing prefix-sids
+.. clicmd:: show isis segment-routing prefix-sids
+
+   Show detailed information about all learned Segment Routing Prefix-SIDs.
+
+.. index:: show isis segment-routing nodes
+.. clicmd:: show isis segment-routing nodes
+
+   Show detailed information about all learned Segment Routing Nodes.
+
 Debugging ISIS
 ==============
 
@@ -560,6 +617,14 @@ Debugging ISIS
 
    Update related packets.
 
+.. index:: debug isis sr-events
+.. clicmd:: debug isis sr-events
+
+.. index:: no debug isis sr-events
+.. clicmd:: no debug isis sr-events
+
+   IS-IS Segment Routing events.
+
 .. index:: show debugging isis
 .. clicmd:: show debugging isis
 
@@ -649,3 +714,32 @@ Then the :file:`isisd.conf` itself:
      mpls-te router-address 10.1.1.1
    !
    line vty
+
+A Segment Routing configuration, with IPv4, IPv6, SRGB and MSD configuration.
+
+.. code-block:: frr
+
+   hostname HOSTNAME
+   password PASSWORD
+   log file /var/log/isisd.log
+   !
+   !
+   interface eth0
+    ip router isis SR
+    isis network point-to-point
+   !
+   interface eth1
+    ip router isis SR
+   !
+   !
+   router isis SR
+    net 49.0000.0000.0000.0001.00
+    is-type level-1
+    topology ipv6-unicast
+    lsp-gen-interval 2
+    segment-routing on
+    segment-routing node-msd 8
+    segment-routing prefix 10.1.1.1/32 index 100 explicit-null
+    segment-routing prefix 2001:db8:1000::1/128 index 101 explicit-null
+   !
+

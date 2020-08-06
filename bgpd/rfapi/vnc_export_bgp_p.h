@@ -61,12 +61,12 @@ extern void vnc_direct_bgp_reexport_group_afi(struct bgp *bgp,
 
 
 extern void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
-					struct prefix *prefix,
+					const struct prefix *prefix,
 					struct peer *peer, struct attr *attr);
 
 
 extern void vnc_direct_bgp_rh_del_route(struct bgp *bgp, afi_t afi,
-					struct prefix *prefix,
+					const struct prefix *prefix,
 					struct peer *peer);
 
 extern void vnc_direct_bgp_reexport(struct bgp *bgp, afi_t afi);

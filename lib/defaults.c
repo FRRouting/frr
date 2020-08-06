@@ -100,10 +100,10 @@ static bool frr_match_version(const char *name, const char *vspec,
 			      const char *version, bool check)
 {
 	int cmp;
-	static struct spec {
+	static const struct spec {
 		const char *str;
-		bool dir, eq;
-	} *s, specs[] = {
+		int dir, eq;
+	} specs[] = {
 		{"<=", -1, 1},
 		{">=", 1, 1},
 		{"==", 0, 1},
@@ -112,6 +112,7 @@ static bool frr_match_version(const char *name, const char *vspec,
 		{"=", 0, 1},
 		{NULL, 0, 0},
 	};
+	const struct spec *s;
 
 	if (!vspec)
 		/* NULL = all versions */

@@ -81,7 +81,6 @@ static void slow_func_del(struct work_queue *wq, void *data)
 	assert(hn && hn->str);
 	printf("%s: %s\n", __func__, hn->str);
 	XFREE(MTYPE_WQ_NODE_STR, hn->str);
-	hn->str = NULL;
 	XFREE(MTYPE_WQ_NODE, hn);
 }
 

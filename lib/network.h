@@ -45,6 +45,8 @@ extern int set_cloexec(int fd);
 extern float htonf(float);
 extern float ntohf(float);
 
+extern long frr_weak_random(void);
+
 #ifdef __cplusplus
 }
 #endif

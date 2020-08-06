@@ -545,7 +545,8 @@ class NorthboundImpl final : public frr::Northbound::Service
 		}
 
 		// Execute callback registered for this XPath.
-		if (nb_node->cbs.rpc(xpath, input_list, output_list) != NB_OK) {
+		if (nb_callback_rpc(nb_node, xpath, input_list, output_list)
+		    != NB_OK) {
 			flog_warn(EC_LIB_NB_CB_RPC,
 				  "%s: rpc callback failed: %s", __func__,
 				  xpath);
@@ -884,7 +885,14 @@ static int frr_grpc_finish(void)
 	return 0;
 }
 
-static int frr_grpc_module_late_init(struct thread_master *tm)
+/*
+ * This is done this way because module_init and module_late_init are both
+ * called during daemon pre-fork initialization. Because the GRPC library
+ * spawns threads internally, we need to delay initializing it until after
+ * fork. This is done by scheduling this init function as an event task, since
+ * the event loop doesn't run until after fork.
+ */
+static int frr_grpc_module_very_late_init(struct thread *thread)
 {
 	static unsigned long port = GRPC_DEFAULT_PORT;
 	const char *args = THIS_MODULE->load_args;
@@ -910,13 +918,17 @@ static int frr_grpc_module_late_init(struct thread_master *tm)
 	if (frr_grpc_init(&port) < 0)
 		goto error;
 
-	hook_register(frr_fini, frr_grpc_finish);
-
-	return 0;
-
 error:
 	flog_err(EC_LIB_GRPC_INIT, "failed to initialize the gRPC module");
 	return -1;
+}
+
+static int frr_grpc_module_late_init(struct thread_master *tm)
+{
+	thread_add_event(tm, frr_grpc_module_very_late_init, NULL, 0, NULL);
+	hook_register(frr_fini, frr_grpc_finish);
+
+	return 0;
 }
 
 static int frr_grpc_module_init(void)

@@ -23,6 +23,7 @@
 
 #include "typesafe.h"
 #include "memory.h"
+#include "network.h"
 
 DEFINE_MTYPE_STATIC(LIB, TYPEDHASH_BUCKET, "Typed-hash bucket")
 DEFINE_MTYPE_STATIC(LIB, SKIPLIST_OFLOW, "Skiplist overflow")
@@ -196,7 +197,7 @@ struct sskip_item *typesafe_skiplist_add(struct sskip_head *head,
 	int cmpval;
 
 	/* level / newlevel are 1-counted here */
-	newlevel = __builtin_ctz(random()) + 1;
+	newlevel = __builtin_ctz(frr_weak_random()) + 1;
 	if (newlevel > SKIPLIST_MAXDEPTH)
 		newlevel = SKIPLIST_MAXDEPTH;
 

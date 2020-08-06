@@ -28,379 +28,277 @@ struct isis_circuit;
 struct isis_adjacency;
 
 /* Mandatory callbacks. */
-int isis_instance_create(enum nb_event event, const struct lyd_node *dnode,
-			 union nb_resource *resource);
-int isis_instance_destroy(enum nb_event event, const struct lyd_node *dnode);
-int isis_instance_is_type_modify(enum nb_event event,
-				 const struct lyd_node *dnode,
-				 union nb_resource *resource);
-int isis_instance_area_address_create(enum nb_event event,
-				      const struct lyd_node *dnode,
-				      union nb_resource *resource);
-int isis_instance_area_address_destroy(enum nb_event event,
-				       const struct lyd_node *dnode);
-int isis_instance_dynamic_hostname_modify(enum nb_event event,
-					  const struct lyd_node *dnode,
-					  union nb_resource *resource);
-int isis_instance_attached_modify(enum nb_event event,
-				  const struct lyd_node *dnode,
-				  union nb_resource *resource);
-int isis_instance_overload_modify(enum nb_event event,
-				  const struct lyd_node *dnode,
-				  union nb_resource *resource);
-int isis_instance_metric_style_modify(enum nb_event event,
-				      const struct lyd_node *dnode,
-				      union nb_resource *resource);
-int isis_instance_purge_originator_modify(enum nb_event event,
-					  const struct lyd_node *dnode,
-					  union nb_resource *resource);
-int isis_instance_lsp_mtu_modify(enum nb_event event,
-				 const struct lyd_node *dnode,
-				 union nb_resource *resource);
+int isis_instance_create(struct nb_cb_create_args *args);
+int isis_instance_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_is_type_modify(struct nb_cb_modify_args *args);
+int isis_instance_area_address_create(struct nb_cb_create_args *args);
+int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_dynamic_hostname_modify(struct nb_cb_modify_args *args);
+int isis_instance_attached_modify(struct nb_cb_modify_args *args);
+int isis_instance_overload_modify(struct nb_cb_modify_args *args);
+int isis_instance_metric_style_modify(struct nb_cb_modify_args *args);
+int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args);
+int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_refresh_interval_level_1_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_lsp_refresh_interval_level_2_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_lsp_maximum_lifetime_level_1_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_lsp_maximum_lifetime_level_2_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_lsp_generation_interval_level_1_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_lsp_generation_interval_level_2_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
-int isis_instance_spf_ietf_backoff_delay_create(enum nb_event event,
-						const struct lyd_node *dnode,
-						union nb_resource *resource);
-int isis_instance_spf_ietf_backoff_delay_destroy(enum nb_event event,
-						 const struct lyd_node *dnode);
+	struct nb_cb_modify_args *args);
+int isis_instance_spf_ietf_backoff_delay_create(struct nb_cb_create_args *args);
+int isis_instance_spf_ietf_backoff_delay_destroy(
+	struct nb_cb_destroy_args *args);
 int isis_instance_spf_ietf_backoff_delay_init_delay_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_spf_ietf_backoff_delay_short_delay_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_spf_ietf_backoff_delay_long_delay_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_spf_ietf_backoff_delay_hold_down_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_spf_ietf_backoff_delay_time_to_learn_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_spf_minimum_interval_level_1_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_spf_minimum_interval_level_2_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
-int isis_instance_area_password_create(enum nb_event event,
-				       const struct lyd_node *dnode,
-				       union nb_resource *resource);
-int isis_instance_area_password_destroy(enum nb_event event,
-					const struct lyd_node *dnode);
-int isis_instance_area_password_password_modify(enum nb_event event,
-						const struct lyd_node *dnode,
-						union nb_resource *resource);
+	struct nb_cb_modify_args *args);
+int isis_instance_area_password_create(struct nb_cb_create_args *args);
+int isis_instance_area_password_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_area_password_password_modify(struct nb_cb_modify_args *args);
 int isis_instance_area_password_password_type_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_area_password_authenticate_snp_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
-int isis_instance_domain_password_create(enum nb_event event,
-					 const struct lyd_node *dnode,
-					 union nb_resource *resource);
-int isis_instance_domain_password_destroy(enum nb_event event,
-					  const struct lyd_node *dnode);
-int isis_instance_domain_password_password_modify(enum nb_event event,
-						  const struct lyd_node *dnode,
-						  union nb_resource *resource);
+	struct nb_cb_modify_args *args);
+int isis_instance_domain_password_create(struct nb_cb_create_args *args);
+int isis_instance_domain_password_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_domain_password_password_modify(
+	struct nb_cb_modify_args *args);
 int isis_instance_domain_password_password_type_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_domain_password_authenticate_snp_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_default_information_originate_ipv4_create(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_create_args *args);
 int isis_instance_default_information_originate_ipv4_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
+	struct nb_cb_destroy_args *args);
 int isis_instance_default_information_originate_ipv4_always_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_default_information_originate_ipv4_route_map_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_default_information_originate_ipv4_route_map_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
+	struct nb_cb_destroy_args *args);
 int isis_instance_default_information_originate_ipv4_metric_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_default_information_originate_ipv6_create(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_create_args *args);
 int isis_instance_default_information_originate_ipv6_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
+	struct nb_cb_destroy_args *args);
 int isis_instance_default_information_originate_ipv6_always_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_default_information_originate_ipv6_route_map_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_default_information_originate_ipv6_route_map_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
+	struct nb_cb_destroy_args *args);
 int isis_instance_default_information_originate_ipv6_metric_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
-int isis_instance_redistribute_ipv4_create(enum nb_event event,
-					   const struct lyd_node *dnode,
-					   union nb_resource *resource);
-int isis_instance_redistribute_ipv4_destroy(enum nb_event event,
-					    const struct lyd_node *dnode);
+	struct nb_cb_modify_args *args);
+int isis_instance_redistribute_ipv4_create(struct nb_cb_create_args *args);
+int isis_instance_redistribute_ipv4_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_redistribute_ipv4_route_map_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_redistribute_ipv4_route_map_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
-int isis_instance_redistribute_ipv4_metric_modify(enum nb_event event,
-						  const struct lyd_node *dnode,
-						  union nb_resource *resource);
-int isis_instance_redistribute_ipv6_create(enum nb_event event,
-					   const struct lyd_node *dnode,
-					   union nb_resource *resource);
-int isis_instance_redistribute_ipv6_destroy(enum nb_event event,
-					    const struct lyd_node *dnode);
+	struct nb_cb_destroy_args *args);
+int isis_instance_redistribute_ipv4_metric_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_redistribute_ipv6_create(struct nb_cb_create_args *args);
+int isis_instance_redistribute_ipv6_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_redistribute_ipv6_route_map_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_redistribute_ipv6_route_map_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
-int isis_instance_redistribute_ipv6_metric_modify(enum nb_event event,
-						  const struct lyd_node *dnode,
-						  union nb_resource *resource);
+	struct nb_cb_destroy_args *args);
+int isis_instance_redistribute_ipv6_metric_modify(
+	struct nb_cb_modify_args *args);
 int isis_instance_multi_topology_ipv4_multicast_create(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_create_args *args);
 int isis_instance_multi_topology_ipv4_multicast_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
+	struct nb_cb_destroy_args *args);
 int isis_instance_multi_topology_ipv4_multicast_overload_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_multi_topology_ipv4_management_create(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_create_args *args);
 int isis_instance_multi_topology_ipv4_management_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
+	struct nb_cb_destroy_args *args);
 int isis_instance_multi_topology_ipv4_management_overload_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_multi_topology_ipv6_unicast_create(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_create_args *args);
 int isis_instance_multi_topology_ipv6_unicast_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
+	struct nb_cb_destroy_args *args);
 int isis_instance_multi_topology_ipv6_unicast_overload_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_multi_topology_ipv6_multicast_create(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_create_args *args);
 int isis_instance_multi_topology_ipv6_multicast_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
+	struct nb_cb_destroy_args *args);
 int isis_instance_multi_topology_ipv6_multicast_overload_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_multi_topology_ipv6_management_create(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_create_args *args);
 int isis_instance_multi_topology_ipv6_management_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
+	struct nb_cb_destroy_args *args);
 int isis_instance_multi_topology_ipv6_management_overload_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int isis_instance_multi_topology_ipv6_dstsrc_create(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_create_args *args);
 int isis_instance_multi_topology_ipv6_dstsrc_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
+	struct nb_cb_destroy_args *args);
 int isis_instance_multi_topology_ipv6_dstsrc_overload_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
-int isis_instance_log_adjacency_changes_modify(enum nb_event event,
-					       const struct lyd_node *dnode,
-					       union nb_resource *resource);
-int isis_instance_mpls_te_create(enum nb_event event,
-				 const struct lyd_node *dnode,
-				 union nb_resource *resource);
-int isis_instance_mpls_te_destroy(enum nb_event event,
-				  const struct lyd_node *dnode);
-int isis_instance_mpls_te_router_address_modify(enum nb_event event,
-						const struct lyd_node *dnode,
-						union nb_resource *resource);
-int isis_instance_mpls_te_router_address_destroy(enum nb_event event,
-						 const struct lyd_node *dnode);
-int lib_interface_isis_create(enum nb_event event, const struct lyd_node *dnode,
-			      union nb_resource *resource);
-int lib_interface_isis_destroy(enum nb_event event,
-			       const struct lyd_node *dnode);
-int lib_interface_isis_area_tag_modify(enum nb_event event,
-				       const struct lyd_node *dnode,
-				       union nb_resource *resource);
-int lib_interface_isis_ipv4_routing_modify(enum nb_event event,
-					   const struct lyd_node *dnode,
-					   union nb_resource *resource);
-int lib_interface_isis_ipv6_routing_modify(enum nb_event event,
-					   const struct lyd_node *dnode,
-					   union nb_resource *resource);
-int lib_interface_isis_circuit_type_modify(enum nb_event event,
-					   const struct lyd_node *dnode,
-					   union nb_resource *resource);
-int lib_interface_isis_bfd_monitoring_modify(enum nb_event event,
-					     const struct lyd_node *dnode,
-					     union nb_resource *resource);
+	struct nb_cb_modify_args *args);
+int isis_instance_log_adjacency_changes_modify(struct nb_cb_modify_args *args);
+int isis_instance_mpls_te_create(struct nb_cb_create_args *args);
+int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_mpls_te_router_address_modify(struct nb_cb_modify_args *args);
+int isis_instance_mpls_te_router_address_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_isis_create(struct nb_cb_create_args *args);
+int lib_interface_isis_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_ipv4_routing_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_ipv6_routing_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_bfd_monitoring_modify(struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_enabled_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_enabled_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srgb_lower_bound_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srgb_upper_bound_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_msd_node_msd_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_msd_node_msd_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_create(
+	struct nb_cb_create_args *args);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_type_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_modify(
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_csnp_interval_level_1_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_csnp_interval_level_2_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_psnp_interval_level_1_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_psnp_interval_level_2_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
-int lib_interface_isis_hello_padding_modify(enum nb_event event,
-					    const struct lyd_node *dnode,
-					    union nb_resource *resource);
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_hello_padding_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_hello_interval_level_1_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_hello_interval_level_2_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_hello_multiplier_level_1_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_hello_multiplier_level_2_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
-int lib_interface_isis_metric_level_1_modify(enum nb_event event,
-					     const struct lyd_node *dnode,
-					     union nb_resource *resource);
-int lib_interface_isis_metric_level_2_modify(enum nb_event event,
-					     const struct lyd_node *dnode,
-					     union nb_resource *resource);
-int lib_interface_isis_priority_level_1_modify(enum nb_event event,
-					       const struct lyd_node *dnode,
-					       union nb_resource *resource);
-int lib_interface_isis_priority_level_2_modify(enum nb_event event,
-					       const struct lyd_node *dnode,
-					       union nb_resource *resource);
-int lib_interface_isis_network_type_modify(enum nb_event event,
-					   const struct lyd_node *dnode,
-					   union nb_resource *resource);
-int lib_interface_isis_passive_modify(enum nb_event event,
-				      const struct lyd_node *dnode,
-				      union nb_resource *resource);
-int lib_interface_isis_password_create(enum nb_event event,
-				       const struct lyd_node *dnode,
-				       union nb_resource *resource);
-int lib_interface_isis_password_destroy(enum nb_event event,
-					const struct lyd_node *dnode);
-int lib_interface_isis_password_password_modify(enum nb_event event,
-						const struct lyd_node *dnode,
-						union nb_resource *resource);
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_metric_level_1_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_metric_level_2_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_priority_level_1_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_priority_level_2_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_password_create(struct nb_cb_create_args *args);
+int lib_interface_isis_password_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_isis_password_password_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_password_password_type_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_disable_three_way_handshake_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv4_unicast_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv4_multicast_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv4_management_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv6_unicast_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv6_multicast_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv6_management_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
-const void *
-lib_interface_isis_adjacencies_adjacency_get_next(const void *parent_list_entry,
-						  const void *list_entry);
+	struct nb_cb_modify_args *args);
+const void *lib_interface_isis_adjacencies_adjacency_get_next(
+	struct nb_cb_get_next_args *args);
 struct yang_data *
 lib_interface_isis_adjacencies_adjacency_neighbor_sys_type_get_elem(
-	const char *xpath, const void *list_entry);
+	struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_interface_isis_adjacencies_adjacency_neighbor_sysid_get_elem(
-	const char *xpath, const void *list_entry);
+	struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_interface_isis_adjacencies_adjacency_neighbor_extended_circuit_id_get_elem(
-	const char *xpath, const void *list_entry);
+	struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_interface_isis_adjacencies_adjacency_neighbor_snpa_get_elem(
-	const char *xpath, const void *list_entry);
+	struct nb_cb_get_elem_args *args);
 struct yang_data *lib_interface_isis_adjacencies_adjacency_hold_timer_get_elem(
-	const char *xpath, const void *list_entry);
+	struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_interface_isis_adjacencies_adjacency_neighbor_priority_get_elem(
-	const char *xpath, const void *list_entry);
-struct yang_data *
-lib_interface_isis_adjacencies_adjacency_state_get_elem(const char *xpath,
-							const void *list_entry);
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_interface_isis_adjacencies_adjacency_state_get_elem(
+	struct nb_cb_get_elem_args *args);
 struct yang_data *lib_interface_isis_event_counters_adjacency_changes_get_elem(
-	const char *xpath, const void *list_entry);
+	struct nb_cb_get_elem_args *args);
 struct yang_data *lib_interface_isis_event_counters_adjacency_number_get_elem(
-	const char *xpath, const void *list_entry);
-struct yang_data *
-lib_interface_isis_event_counters_init_fails_get_elem(const char *xpath,
-						      const void *list_entry);
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_interface_isis_event_counters_init_fails_get_elem(
+	struct nb_cb_get_elem_args *args);
 struct yang_data *lib_interface_isis_event_counters_adjacency_rejects_get_elem(
-	const char *xpath, const void *list_entry);
+	struct nb_cb_get_elem_args *args);
 struct yang_data *lib_interface_isis_event_counters_id_len_mismatch_get_elem(
-	const char *xpath, const void *list_entry);
+	struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_interface_isis_event_counters_max_area_addresses_mismatch_get_elem(
-	const char *xpath, const void *list_entry);
+	struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_interface_isis_event_counters_authentication_type_fails_get_elem(
-	const char *xpath, const void *list_entry);
+	struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_interface_isis_event_counters_authentication_fails_get_elem(
-	const char *xpath, const void *list_entry);
+	struct nb_cb_get_elem_args *args);
+
+/* Optional 'pre_validate' callbacks. */
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
+	struct nb_cb_pre_validate_args *args);
 
 /* Optional 'apply_finish' callbacks. */
-void ietf_backoff_delay_apply_finish(const struct lyd_node *dnode);
-void area_password_apply_finish(const struct lyd_node *dnode);
-void domain_password_apply_finish(const struct lyd_node *dnode);
+void ietf_backoff_delay_apply_finish(struct nb_cb_apply_finish_args *args);
+void area_password_apply_finish(struct nb_cb_apply_finish_args *args);
+void domain_password_apply_finish(struct nb_cb_apply_finish_args *args);
 void default_info_origin_apply_finish(const struct lyd_node *dnode, int family);
-void default_info_origin_ipv4_apply_finish(const struct lyd_node *dnode);
-void default_info_origin_ipv6_apply_finish(const struct lyd_node *dnode);
+void default_info_origin_ipv4_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void default_info_origin_ipv6_apply_finish(
+	struct nb_cb_apply_finish_args *args);
 void redistribute_apply_finish(const struct lyd_node *dnode, int family);
-void redistribute_ipv4_apply_finish(const struct lyd_node *dnode);
-void redistribute_ipv6_apply_finish(const struct lyd_node *dnode);
+void redistribute_ipv4_apply_finish(struct nb_cb_apply_finish_args *args);
+void redistribute_ipv6_apply_finish(struct nb_cb_apply_finish_args *args);
+void isis_instance_segment_routing_srgb_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void isis_instance_segment_routing_prefix_sid_map_prefix_sid_apply_finish(
+	struct nb_cb_apply_finish_args *args);
 
 /* Optional 'cli_show' callbacks. */
 void cli_show_router_isis(struct vty *vty, struct lyd_node *dnode,
@@ -427,12 +325,8 @@ void cli_show_isis_area_pwd(struct vty *vty, struct lyd_node *dnode,
 			    bool show_defaults);
 void cli_show_isis_domain_pwd(struct vty *vty, struct lyd_node *dnode,
 			      bool show_defaults);
-void cli_show_isis_lsp_gen_interval(struct vty *vty, struct lyd_node *dnode,
-				    bool show_defaults);
-void cli_show_isis_lsp_ref_interval(struct vty *vty, struct lyd_node *dnode,
-				    bool show_defaults);
-void cli_show_isis_lsp_max_lifetime(struct vty *vty, struct lyd_node *dnode,
-				    bool show_defaults);
+void cli_show_isis_lsp_timers(struct vty *vty, struct lyd_node *dnode,
+			      bool show_defaults);
 void cli_show_isis_lsp_mtu(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults);
 void cli_show_isis_spf_min_interval(struct vty *vty, struct lyd_node *dnode,
@@ -465,6 +359,14 @@ void cli_show_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
 				  bool show_defaults);
+void cli_show_isis_sr_enabled(struct vty *vty, struct lyd_node *dnode,
+			      bool show_defaults);
+void cli_show_isis_srgb(struct vty *vty, struct lyd_node *dnode,
+			bool show_defaults);
+void cli_show_isis_node_msd(struct vty *vty, struct lyd_node *dnode,
+			    bool show_defaults);
+void cli_show_isis_prefix_sid(struct vty *vty, struct lyd_node *dnode,
+			      bool show_defaults);
 void cli_show_ip_isis_passive(struct vty *vty, struct lyd_node *dnode,
 			      bool show_defaults);
 void cli_show_ip_isis_password(struct vty *vty, struct lyd_node *dnode,

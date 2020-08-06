@@ -85,7 +85,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 	if (fd < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: could not create socket: errno=%d: %s",
-			     __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+			     __func__, errno, safe_strerror(errno));
 		return -1;
 	}
 
@@ -98,8 +98,8 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
 		zlog_warn(
 			"%s: bind(fd=%d,addr=%s,port=%d,len=%zu) failure: errno=%d: %s",
-			__PRETTY_FUNCTION__, fd, addr_str, port,
-			sizeof(sockaddr), errno, safe_strerror(errno));
+			__func__, fd, addr_str, port, sizeof(sockaddr), errno,
+			safe_strerror(errno));
 		close(fd);
 		return -1;
 	}
@@ -112,8 +112,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 		if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &opt, sizeof(opt))) {
 			zlog_warn(
 				"%s: could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, fd, errno,
-				safe_strerror(errno));
+				__func__, fd, errno, safe_strerror(errno));
 		}
 #elif defined(HAVE_IP_RECVDSTADDR)
 		/* BSD IP_RECVDSTADDR */
@@ -122,14 +121,13 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 			       sizeof(opt))) {
 			zlog_warn(
 				"%s: could not set IP_RECVDSTADDR on socket fd=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, fd, errno,
-				safe_strerror(errno));
+				__func__, fd, errno, safe_strerror(errno));
 		}
 #else
 		flog_err(
 			EC_LIB_DEVELOPMENT,
 			"%s %s: missing IP_PKTINFO and IP_RECVDSTADDR: unable to get dst addr from recvmsg()",
-			__FILE__, __PRETTY_FUNCTION__);
+			__FILE__, __func__);
 		close(fd);
 		return -1;
 #endif
@@ -141,8 +139,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 			       sizeof(reuse))) {
 			zlog_warn(
 				"%s: could not set Reuse Address Option on socket fd=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, fd, errno,
-				safe_strerror(errno));
+				__func__, fd, errno, safe_strerror(errno));
 			close(fd);
 			return -1;
 		}
@@ -152,8 +149,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 		       sizeof(mttl))) {
 		zlog_warn(
 			"%s: could not set multicast TTL=%d on socket fd=%d: errno=%d: %s",
-			__PRETTY_FUNCTION__, mttl, fd, errno,
-			safe_strerror(errno));
+			__func__, mttl, fd, errno, safe_strerror(errno));
 		close(fd);
 		return -1;
 	}
@@ -161,7 +157,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 	if (setsockopt_ipv4_multicast_loop(fd, 0)) {
 		zlog_warn(
 			"%s: could not disable Multicast Loopback Option on socket fd=%d: errno=%d: %s",
-			__PRETTY_FUNCTION__, fd, errno, safe_strerror(errno));
+			__func__, fd, errno, safe_strerror(errno));
 		close(fd);
 		return PIM_SOCK_ERR_LOOP;
 	}
@@ -170,7 +166,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 		       sizeof(addr))) {
 		zlog_warn(
 			"%s: could not set Outgoing Interface Option on socket fd=%d: errno=%d: %s",
-			__PRETTY_FUNCTION__, fd, errno, safe_strerror(errno));
+			__func__, fd, errno, safe_strerror(errno));
 		close(fd);
 		return -1;
 	}
@@ -182,8 +178,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 		if (flags < 0) {
 			zlog_warn(
 				"%s: could not get fcntl(F_GETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, fd, errno,
-				safe_strerror(errno));
+				__func__, fd, errno, safe_strerror(errno));
 			close(fd);
 			return -1;
 		}
@@ -191,8 +186,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 		if (fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
 			zlog_warn(
 				"%s: could not set fcntl(F_SETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, fd, errno,
-				safe_strerror(errno));
+				__func__, fd, errno, safe_strerror(errno));
 			close(fd);
 			return -1;
 		}
@@ -213,7 +207,7 @@ static void ssmpingd_delete(struct ssmpingd_sock *ss)
 			       sizeof(source_str));
 		zlog_warn(
 			"%s: failure closing ssmpingd sock_fd=%d for source %s: errno=%d: %s",
-			__PRETTY_FUNCTION__, ss->sock_fd, source_str, errno,
+			__func__, ss->sock_fd, source_str, errno,
 			safe_strerror(errno));
 		/* warning only */
 	}
@@ -236,12 +230,12 @@ static void ssmpingd_sendto(struct ssmpingd_sock *ss, const uint8_t *buf,
 		if (sent < 0) {
 			zlog_warn(
 				"%s: sendto() failure to %s,%d: fd=%d len=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, to_str, ntohs(to.sin_port),
+				__func__, to_str, ntohs(to.sin_port),
 				ss->sock_fd, len, errno, safe_strerror(errno));
 		} else {
 			zlog_warn(
 				"%s: sendto() partial to %s,%d: fd=%d len=%d: sent=%d",
-				__PRETTY_FUNCTION__, to_str, ntohs(to.sin_port),
+				__func__, to_str, ntohs(to.sin_port),
 				ss->sock_fd, len, sent);
 		}
 	}
@@ -268,7 +262,7 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 			       sizeof(source_str));
 		zlog_warn(
 			"%s: failure receiving ssmping for source %s on fd=%d: errno=%d: %s",
-			__PRETTY_FUNCTION__, source_str, ss->sock_fd, errno,
+			__func__, source_str, ss->sock_fd, errno,
 			safe_strerror(errno));
 		return -1;
 	}
@@ -286,8 +280,8 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 		pim_inet4_dump("<to?>", to.sin_addr, to_str, sizeof(to_str));
 		zlog_warn(
 			"%s: bad ssmping type=%d from %s,%d to %s,%d on interface %s ifindex=%d fd=%d src=%s",
-			__PRETTY_FUNCTION__, buf[0], from_str,
-			ntohs(from.sin_port), to_str, ntohs(to.sin_port),
+			__func__, buf[0], from_str, ntohs(from.sin_port),
+			to_str, ntohs(to.sin_port),
 			ifp ? ifp->name : "<iface?>", ifindex, ss->sock_fd,
 			source_str);
 		return 0;
@@ -304,10 +298,9 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 		pim_inet4_dump("<to?>", to.sin_addr, to_str, sizeof(to_str));
 		zlog_debug(
 			"%s: recv ssmping from %s,%d to %s,%d on interface %s ifindex=%d fd=%d src=%s",
-			__PRETTY_FUNCTION__, from_str, ntohs(from.sin_port),
-			to_str, ntohs(to.sin_port),
-			ifp ? ifp->name : "<iface?>", ifindex, ss->sock_fd,
-			source_str);
+			__func__, from_str, ntohs(from.sin_port), to_str,
+			ntohs(to.sin_port), ifp ? ifp->name : "<iface?>",
+			ifindex, ss->sock_fd, source_str);
 	}
 
 	buf[0] = PIM_SSMPINGD_REPLY;
@@ -361,7 +354,7 @@ static struct ssmpingd_sock *ssmpingd_new(struct pim_instance *pim,
 		pim_inet4_dump("<src?>", source_addr, source_str,
 			       sizeof(source_str));
 		zlog_warn("%s: ssmpingd_socket() failure for source %s",
-			  __PRETTY_FUNCTION__, source_str);
+			  __func__, source_str);
 		return 0;
 	}
 
@@ -395,8 +388,8 @@ int pim_ssmpingd_start(struct pim_instance *pim, struct in_addr source_addr)
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", source_addr, source_str,
 			       sizeof(source_str));
-		zlog_info("%s: starting ssmpingd for source %s",
-			  __PRETTY_FUNCTION__, source_str);
+		zlog_info("%s: starting ssmpingd for source %s", __func__,
+			  source_str);
 	}
 
 	ss = ssmpingd_new(pim, source_addr);
@@ -404,8 +397,8 @@ int pim_ssmpingd_start(struct pim_instance *pim, struct in_addr source_addr)
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", source_addr, source_str,
 			       sizeof(source_str));
-		zlog_warn("%s: ssmpingd_new() failure for source %s",
-			  __PRETTY_FUNCTION__, source_str);
+		zlog_warn("%s: ssmpingd_new() failure for source %s", __func__,
+			  source_str);
 		return -1;
 	}
 
@@ -421,8 +414,8 @@ int pim_ssmpingd_stop(struct pim_instance *pim, struct in_addr source_addr)
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", source_addr, source_str,
 			       sizeof(source_str));
-		zlog_warn("%s: could not find ssmpingd for source %s",
-			  __PRETTY_FUNCTION__, source_str);
+		zlog_warn("%s: could not find ssmpingd for source %s", __func__,
+			  source_str);
 		return -1;
 	}
 
@@ -430,8 +423,8 @@ int pim_ssmpingd_stop(struct pim_instance *pim, struct in_addr source_addr)
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", source_addr, source_str,
 			       sizeof(source_str));
-		zlog_info("%s: stopping ssmpingd for source %s",
-			  __PRETTY_FUNCTION__, source_str);
+		zlog_info("%s: stopping ssmpingd for source %s", __func__,
+			  source_str);
 	}
 
 	ssmpingd_delete(ss);

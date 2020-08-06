@@ -48,8 +48,18 @@ typedef uint32_t pim_hello_options;
 #define PIM_OPTION_UNSET(options, option_mask) ((options) &= ~(option_mask))
 #define PIM_OPTION_IS_SET(options, option_mask) ((options) & (option_mask))
 
-#define PIM_TLV_GET_UINT16(buf) ntohs(*(const uint16_t *)(buf))
-#define PIM_TLV_GET_UINT32(buf) ntohl(*(const uint32_t *)(buf))
+#define PIM_TLV_GET_UINT16(buf)                                                \
+	({                                                                     \
+		uint16_t _tmp;                                                 \
+		memcpy(&_tmp, (buf), sizeof(uint16_t));                        \
+		ntohs(_tmp);                                                   \
+	})
+#define PIM_TLV_GET_UINT32(buf)                                                \
+	({                                                                     \
+		uint32_t _tmp;                                                 \
+		memcpy(&_tmp, (buf), sizeof(uint32_t));                        \
+		ntohl(_tmp);                                                   \
+	})
 #define PIM_TLV_GET_TYPE(buf) PIM_TLV_GET_UINT16(buf)
 #define PIM_TLV_GET_LENGTH(buf) PIM_TLV_GET_UINT16(buf)
 #define PIM_TLV_GET_HOLDTIME(buf) PIM_TLV_GET_UINT16(buf)

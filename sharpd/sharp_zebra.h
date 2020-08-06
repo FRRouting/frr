@@ -25,16 +25,22 @@
 extern void sharp_zebra_init(void);
 
 extern void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label);
-extern void route_add(struct prefix *p, vrf_id_t, uint8_t instance,
-		      struct nexthop_group *nhg);
+extern void route_add(const struct prefix *p, vrf_id_t, uint8_t instance,
+		      const struct nexthop_group *nhg,
+		      const struct nexthop_group *backup_nhg);
 extern void route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance);
 extern void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id,
 				      bool import, bool watch, bool connected);
 
 extern void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 					uint8_t instance,
-					struct nexthop_group *nhg,
+					const struct nexthop_group *nhg,
+					const struct nexthop_group *backup_nhg,
 					uint32_t routes);
 extern void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 				       uint8_t instance, uint32_t routes);
+
+int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
+			      uint8_t type, int instance, uint32_t in_label,
+			      const struct nexthop_group *nhg);
 #endif

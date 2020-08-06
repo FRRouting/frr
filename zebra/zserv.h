@@ -52,6 +52,42 @@ extern "C" {
 
 #define ZEBRA_RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
+
+/* Stale route marker timer */
+#define ZEBRA_DEFAULT_STALE_UPDATE_DELAY 1
+
+/* Count of stale routes processed in timer context */
+#define ZEBRA_MAX_STALE_ROUTE_COUNT 50000
+
+/* Graceful Restart information */
+struct client_gr_info {
+	/* VRF for which GR enabled */
+	vrf_id_t vrf_id;
+
+	/* AFI */
+	afi_t current_afi;
+
+	/* Stale time and GR cap */
+	uint32_t stale_removal_time;
+	enum zserv_client_capabilities capabilities;
+
+	/* GR commands */
+	bool delete;
+	bool gr_enable;
+	bool stale_client;
+
+	/* Route sync and enable flags for AFI/SAFI */
+	bool af_enabled[AFI_MAX][SAFI_MAX];
+	bool route_sync[AFI_MAX][SAFI_MAX];
+
+	/* Book keeping */
+	struct prefix *current_prefix;
+	void *stale_client_ptr;
+	struct thread *t_stale_removal;
+
+	TAILQ_ENTRY(client_gr_info) gr_info;
+};
+
 /* Client structure. */
 struct zserv {
 	/* Client pthread */
@@ -95,9 +131,13 @@ struct zserv {
 
 	bool notify_owner;
 
-	/* client's protocol */
+	/* Indicates if client is synchronous. */
+	bool synchronous;
+
+	/* client's protocol and session info */
 	uint8_t proto;
 	uint16_t instance;
+	uint32_t session_id;
 
 	/*
 	 * Interested for MLAG Updates, and also stores the client
@@ -170,6 +210,19 @@ struct zserv {
 	_Atomic uint32_t last_read_cmd;
 	/* command code of last message written */
 	_Atomic uint32_t last_write_cmd;
+
+	/*
+	 * Number of instances configured with
+	 * graceful restart
+	 */
+	uint32_t gr_instance_count;
+	time_t restart_time;
+
+	/*
+	 * Graceful restart information for
+	 * each instance
+	 */
+	TAILQ_HEAD(info_list, client_gr_info) gr_info_queue;
 };
 
 #define ZAPI_HANDLER_ARGS                                                      \
@@ -179,6 +232,10 @@ struct zserv {
 /* Hooks for client connect / disconnect */
 DECLARE_HOOK(zserv_client_connect, (struct zserv *client), (client));
 DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
+
+#define DYNAMIC_CLIENT_GR_DISABLED(_client)                                    \
+	((_client->proto <= ZEBRA_ROUTE_CONNECT)                               \
+	 || !(_client->gr_instance_count))
 
 /*
  * Initialize Zebra API server.
@@ -230,6 +287,23 @@ extern int zserv_send_message(struct zserv *client, struct stream *msg);
  */
 extern struct zserv *zserv_find_client(uint8_t proto, unsigned short instance);
 
+/*
+ * Retrieve a client by its protocol, instance number, and session id.
+ *
+ * proto
+ *    protocol number
+ *
+ * instance
+ *    instance number
+ *
+ * session_id
+ *    session id
+ *
+ * Returns:
+ *    The Zebra API client.
+ */
+struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
+					uint32_t session_id);
 
 /*
  * Close a client.
@@ -241,7 +315,6 @@ extern struct zserv *zserv_find_client(uint8_t proto, unsigned short instance);
  *    the client to close
  */
 extern void zserv_close_client(struct zserv *client);
-
 
 /*
  * Log a ZAPI message hexdump.
@@ -263,7 +336,17 @@ extern void zserv_read_file(char *input);
 #endif
 
 /* TODO */
-int zebra_finalize(struct thread *event);
+__attribute__((__noreturn__)) int zebra_finalize(struct thread *event);
+
+/*
+ * Graceful restart functions.
+ */
+extern int zebra_gr_client_disconnect(struct zserv *client);
+extern void zebra_gr_client_reconnect(struct zserv *client);
+extern void zebra_gr_stale_client_cleanup(struct list *client_list);
+extern void zread_client_capabilities(struct zserv *client, struct zmsghdr *hdr,
+				      struct stream *msg,
+				      struct zebra_vrf *zvrf);
 
 #ifdef __cplusplus
 }

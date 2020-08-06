@@ -59,7 +59,7 @@ struct prefix_list_entry {
 
 	enum prefix_list_type type;
 
-	int any;
+	bool any;
 	struct prefix prefix;
 
 	unsigned long refcnt;

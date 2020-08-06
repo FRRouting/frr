@@ -4,7 +4,7 @@ module frr-route-types {
   prefix frr-route-types;
 
   organization
-    "Free Range Routing";
+    "FRRouting";
   contact
     "FRR Users List:       <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
@@ -104,6 +104,14 @@ module frr-route-types {
       enum openfabric {
         value 26;
       }
+    }
+  }
+
+  typedef frr-route-types {
+    description "Route types as enumerated in `lib/route_types.txt`";
+    type union {
+      type frr-route-types-v4;
+      type frr-route-types-v6;
     }
   }
 }

@@ -32,9 +32,13 @@
 #include "static_memory.h"
 #include "static_vty.h"
 #include "static_routes.h"
+#include "static_debug.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "staticd/static_vty_clippy.c"
 #endif
+
+#define STATICD_STR "Static route daemon\n"
+
 static struct static_vrf *static_vty_get_unknown_vrf(struct vty *vty,
 						     const char *vrf_name)
 {
@@ -283,8 +287,8 @@ static int static_route_leak(
 		if (vty)
 			vty_out(vty, "%% Malformed address\n");
 		else
-			zlog_warn("%s: Malformed address: %s",
-				  __PRETTY_FUNCTION__, dest_str);
+			zlog_warn("%s: Malformed address: %s", __func__,
+				  dest_str);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -298,8 +302,7 @@ static int static_route_leak(
 					vty_out(vty, "%% Malformed address\n");
 				else
 					zlog_warn("%s: Malformed address: %s",
-						  __PRETTY_FUNCTION__,
-						  mask_str);
+						  __func__, mask_str);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			p.prefixlen = ip_masklen(mask);
@@ -316,7 +319,7 @@ static int static_route_leak(
 				else
 					zlog_warn(
 						"%s: Malformed source address: %s",
-						__PRETTY_FUNCTION__, src_str);
+						__func__, src_str);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			src_p = (struct prefix_ipv6 *)&src;
@@ -347,10 +350,9 @@ static int static_route_leak(
 				    "%% Table %s overlaps vrf table %u\n",
 				    table_str, svrf->vrf->data.l.table_id);
 			else
-				zlog_warn(
-				    "%s: Table %s overlaps vrf table %u",
-				    __PRETTY_FUNCTION__,
-				    table_str, svrf->vrf->data.l.table_id);
+				zlog_warn("%s: Table %s overlaps vrf table %u",
+					  __func__, table_str,
+					  svrf->vrf->data.l.table_id);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -375,7 +377,7 @@ static int static_route_leak(
 			else
 				zlog_warn(
 					"%s: MPLS not turned on in kernel ignoring static route to %s",
-					__PRETTY_FUNCTION__, dest_str);
+					__func__, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		int rc = mpls_str2label(label_str, &snh_label.num_labels,
@@ -388,7 +390,7 @@ static int static_route_leak(
 				else
 					zlog_warn(
 						"%s: Malformed labels specified for route %s",
-						__PRETTY_FUNCTION__, dest_str);
+						__func__, dest_str);
 				break;
 			case -2:
 				if (vty)
@@ -399,7 +401,7 @@ static int static_route_leak(
 				else
 					zlog_warn(
 						"%s: Cannot use reserved labels (%d-%d) for %s",
-						__PRETTY_FUNCTION__,
+						__func__,
 						MPLS_LABEL_RESERVED_MIN,
 						MPLS_LABEL_RESERVED_MAX,
 						dest_str);
@@ -412,8 +414,8 @@ static int static_route_leak(
 				else
 					zlog_warn(
 						"%s: Too many labels, Enter %d or fewer for %s",
-						__PRETTY_FUNCTION__,
-						MPLS_MAX_LABELS, dest_str);
+						__func__, MPLS_MAX_LABELS,
+						dest_str);
 				break;
 			}
 			return CMD_WARNING_CONFIG_FAILED;
@@ -435,7 +437,7 @@ static int static_route_leak(
 			else
 				zlog_warn(
 					"%s: %s: Nexthop interface name can not be from reserved keywords (Null0, reject, blackhole)",
-					__PRETTY_FUNCTION__, dest_str);
+					__func__, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -458,8 +460,7 @@ static int static_route_leak(
 					flag_str);
 			else
 				zlog_warn("%s: Malformed flag %s for %s",
-					  __PRETTY_FUNCTION__, flag_str,
-					  dest_str);
+					  __func__, flag_str, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -473,8 +474,7 @@ static int static_route_leak(
 			else
 				zlog_warn(
 					"%s: Malformed nexthop address %s for %s",
-					__PRETTY_FUNCTION__, gate_str,
-					dest_str);
+					__func__, gate_str, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		gatep = &gate;
@@ -591,7 +591,7 @@ void static_config_install_delayed_routes(struct static_vrf *svrf)
 		if (installed != CMD_SUCCESS)
 			zlog_debug(
 				"%s: Attempt to install %s as a route and it was rejected",
-				__PRETTY_FUNCTION__, shr->dest_str);
+				__func__, shr->dest_str);
 		listnode_delete(static_list, shr);
 		static_list_delete(shr);
 	}
@@ -614,8 +614,8 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 	if (stable == NULL)
 		return write;
 
-	sprintf(spacing, "%s%s", (svrf->vrf->vrf_id == VRF_DEFAULT) ? "" : " ",
-		cmd);
+	snprintf(spacing, sizeof(spacing), "%s%s",
+		 (svrf->vrf->vrf_id == VRF_DEFAULT) ? "" : " ", cmd);
 
 	/*
 	 * Static routes for vrfs not fully inited
@@ -867,7 +867,7 @@ DEFPY(ip_route_address_interface,
       "Table to configure\n"
       "The table number to configure\n"
       VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface")
+      "Treat the nexthop as directly attached to the interface\n")
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
@@ -935,7 +935,7 @@ DEFPY(ip_route_address_interface_vrf,
       "Table to configure\n"
       "The table number to configure\n"
       VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface")
+      "Treat the nexthop as directly attached to the interface\n")
 {
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	const char *flag = NULL;
@@ -1211,7 +1211,7 @@ DEFPY(ipv6_route_address_interface,
       "Table to configure\n"
       "The table number to configure\n"
       VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface")
+      "Treat the nexthop as directly attached to the interface\n")
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
@@ -1279,7 +1279,7 @@ DEFPY(ipv6_route_address_interface_vrf,
       "Table to configure\n"
       "The table number to configure\n"
       VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface")
+      "Treat the nexthop as directly attached to the interface\n")
 {
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct static_vrf *svrf = vrf->info;
@@ -1439,21 +1439,48 @@ DEFPY(ipv6_route_vrf,
 		from_str, gate_str, ifname, flag, tag_str, distance_str, label,
 		table_str, false);
 }
+DEFPY(debug_staticd,
+      debug_staticd_cmd,
+      "[no] debug static [{events$events}]",
+      NO_STR
+      DEBUG_STR
+      STATICD_STR
+      "Debug events\n")
+{
+	/* If no specific category, change all */
+	if (strmatch(argv[argc - 1]->text, "static"))
+		static_debug_set(vty->node, !no, true);
+	else
+		static_debug_set(vty->node, !no, !!events);
 
-DEFUN_NOSH (show_debugging_staticd,
-	    show_debugging_staticd_cmd,
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH (show_debugging_static,
+	    show_debugging_static_cmd,
 	    "show debugging [static]",
 	    SHOW_STR
 	    DEBUG_STR
 	    "Static Information\n")
 {
-	vty_out(vty, "Static debugging status\n");
+	vty_out(vty, "Staticd debugging status\n");
+
+	static_debug_status_write(vty);
 
 	return CMD_SUCCESS;
 }
 
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = static_config_write_debug,
+};
+
 void static_vty_init(void)
 {
+	install_node(&debug_node);
+
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 
 	install_element(CONFIG_NODE, &ip_route_blackhole_cmd);
@@ -1470,7 +1497,9 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
 
-	install_element(VIEW_NODE, &show_debugging_staticd_cmd);
+	install_element(VIEW_NODE, &show_debugging_static_cmd);
+	install_element(VIEW_NODE, &debug_staticd_cmd);
+	install_element(CONFIG_NODE, &debug_staticd_cmd);
 
 	static_list = list_new();
 	static_list->cmp = (int (*)(void *, void *))static_list_compare;

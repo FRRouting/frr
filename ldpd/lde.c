@@ -56,11 +56,15 @@ static void		 lde_map_free(void *);
 static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
-static void zclient_sync_init(unsigned short instance);
+static void              zclient_sync_init(void);
 static void		 lde_label_list_init(void);
 static int		 lde_get_label_chunk(void);
 static void		 on_get_label_chunk_response(uint32_t start, uint32_t end);
 static uint32_t		 lde_get_next_label(void);
+static bool		 lde_fec_connected(const struct fec_node *);
+static bool		 lde_fec_outside_mpls_network(const struct fec_node *);
+static void		 lde_check_filter_af(int, struct ldpd_af_conf *,
+			     const char *);
 
 RB_GENERATE(nbr_tree, lde_nbr, entry, lde_nbr_compare)
 RB_GENERATE(lde_map_head, lde_map, entry, lde_map_compare)
@@ -171,8 +175,7 @@ lde_init(struct ldpd_init *init)
 	/* Init synchronous zclient and label list */
 	frr_zclient_addr(&zclient_addr, &zclient_addr_len,
 			 init->zclient_serv_path);
-	zclient_sync_init(init->instance);
-	lde_label_list_init();
+	zclient_sync_init();
 }
 
 static void
@@ -441,6 +444,7 @@ lde_dispatch_parent(struct thread *thread)
 	ssize_t			 n;
 	int			 shut = 0;
 	struct fec		 fec;
+	struct ldp_access	*laccess;
 
 	iev->ev_read = NULL;
 
@@ -633,6 +637,18 @@ lde_dispatch_parent(struct thread *thread)
 			}
 			memcpy(&ldp_debug, imsg.data, sizeof(ldp_debug));
 			break;
+		case IMSG_FILTER_UPDATE:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct ldp_access)) {
+				log_warnx("%s: wrong imsg len", __func__);
+				break;
+			}
+			laccess = imsg.data;
+			lde_check_filter_af(AF_INET, &ldeconf->ipv4,
+				laccess->name);
+			lde_check_filter_af(AF_INET6, &ldeconf->ipv6,
+				laccess->name);
+			break;
 		default:
 			log_debug("%s: unexpected imsg %d", __func__,
 			    imsg.hdr.type);
@@ -658,18 +674,31 @@ lde_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen)
 	return ldp_acl_request(iev_main_sync, acl_name, af, addr, prefixlen);
 }
 
+static bool lde_fec_connected(const struct fec_node *fn)
+{
+	struct fec_nh *fnh;
+
+	LIST_FOREACH(fnh, &fn->nexthops, entry)
+		if (fnh->flags & F_FEC_NH_CONNECTED)
+			return true;
+
+	return false;
+}
+
+static bool lde_fec_outside_mpls_network(const struct fec_node *fn)
+{
+	struct fec_nh *fnh;
+
+	LIST_FOREACH(fnh, &fn->nexthops, entry)
+		if (!(fnh->flags & F_FEC_NH_NO_LDP))
+			return false;
+
+	return true;
+}
+
 uint32_t
 lde_update_label(struct fec_node *fn)
 {
-	struct fec_nh	*fnh;
-	int		 connected = 0;
-
-	LIST_FOREACH(fnh, &fn->nexthops, entry) {
-		if (fnh->flags & F_FEC_NH_CONNECTED) {
-			connected = 1;
-			break;
-		}
-	}
 
 	/* should we allocate a label for this fec? */
 	switch (fn->fec.type) {
@@ -695,7 +724,14 @@ lde_update_label(struct fec_node *fn)
 		break;
 	}
 
-	if (connected) {
+	/*
+	 * If connected interface act as egress for fec.
+	 * If LDP is not configured on an interface but there
+	 * are other NHs with interfaces configured with LDP
+	 * then don't act as an egress for the fec, otherwise
+	 * act as an egress for the fec
+	 */
+	if (lde_fec_connected(fn) || lde_fec_outside_mpls_network(fn)) {
 		/* choose implicit or explicit-null depending on configuration */
 		switch (fn->fec.type) {
 		case FEC_TYPE_IPV4:
@@ -734,6 +770,13 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 	struct kroute	 kr;
 	struct zapi_pw	 zpw;
 	struct l2vpn_pw	*pw;
+
+	/*
+	 * Ordered Control: don't program label into HW until a
+	 * labelmap msg has been received from upstream router
+	 */
+	if (fnh->flags & F_FEC_NH_DEFER)
+		return;
 
 	switch (fn->fec.type) {
 	case FEC_TYPE_IPV4:
@@ -901,6 +944,27 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	struct lde_req		*lre;
 	struct map		 map;
 	struct l2vpn_pw		*pw;
+	struct fec_nh		*fnh;
+	bool			 allow = false;
+
+	/*
+	 * Ordered Control: do not send a labelmap msg until
+	 * a labelmap message is received from downstream router
+	 * and don't send labelmap back to downstream router
+	 */
+	if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
+		LIST_FOREACH(fnh, &fn->nexthops, entry) {
+			if (fnh->flags & F_FEC_NH_DEFER)
+				continue;
+
+			if (lde_address_find(ln, fnh->af, &fnh->nexthop))
+				return;
+			allow = true;
+			break;
+		}
+		if (!allow)
+			return;
+	}
 
 	/*
 	 * We shouldn't send a new label mapping if we have a pending
@@ -1153,6 +1217,82 @@ lde_send_labelrelease(struct lde_nbr *ln, struct fec_node *fn,
 }
 
 void
+lde_send_labelrequest(struct lde_nbr *ln, struct fec_node *fn,
+		      struct map *wcard, int single)
+{
+	struct map		 map;
+	struct fec		*f;
+	struct lde_req		*lre;
+
+	if (fn) {
+		lde_fec2map(&fn->fec, &map);
+		switch (fn->fec.type) {
+		case FEC_TYPE_IPV4:
+			if (!ln->v4_enabled)
+				return;
+			break;
+		case FEC_TYPE_IPV6:
+			if (!ln->v6_enabled)
+				return;
+			break;
+		default:
+			fatalx("lde_send_labelrequest: unknown af");
+		}
+	} else
+		memcpy(&map, wcard, sizeof(map));
+
+	map.label = NO_LABEL;
+
+	if (fn) {
+		/* SLR1.1: has label request for FEC been previously sent
+		 * and still outstanding just return,
+		 */
+		lre = (struct  lde_req *)fec_find(&ln->sent_req, &fn->fec);
+		if (lre == NULL) {
+			/* SLRq.3: send label request */
+			lde_imsg_compose_ldpe(IMSG_REQUEST_ADD, ln->peerid, 0,
+			    &map, sizeof(map));
+			if (single)
+				lde_imsg_compose_ldpe(IMSG_REQUEST_ADD_END,
+				    ln->peerid, 0, NULL, 0);
+
+			/* SLRq.4: record sent request */
+			lde_req_add(ln, &fn->fec, 1);
+		}
+	} else {
+		/* if Wilcard just send label request */
+		/* SLRq.3: send label request */
+		lde_imsg_compose_ldpe(IMSG_REQUEST_ADD,
+		    ln->peerid, 0, &map, sizeof(map));
+		if (single)
+			lde_imsg_compose_ldpe(IMSG_REQUEST_ADD_END,
+			    ln->peerid, 0, NULL, 0);
+
+		/* SLRq.4: record sent request */
+		RB_FOREACH(f, fec_tree, &ft) {
+			fn = (struct fec_node *)f;
+			lre = (struct lde_req *)fec_find(&ln->sent_req, &fn->fec);
+			if (lde_wildcard_apply(wcard, &fn->fec, NULL) == 0)
+				continue;
+			if (lre == NULL)
+				lde_req_add(ln, f, 1);
+		}
+	}
+}
+
+void
+lde_send_labelrequest_wcard(struct lde_nbr *ln, uint16_t af)
+{
+	struct map	 wcard;
+
+	memset(&wcard, 0, sizeof(wcard));
+	wcard.type = MAP_TYPE_TYPED_WCARD;
+	wcard.fec.twcard.type = MAP_TYPE_PREFIX;
+	wcard.fec.twcard.u.prefix_af = af;
+	lde_send_labelrequest(ln, NULL, &wcard, 1);
+}
+
+void
 lde_send_notification(struct lde_nbr *ln, uint32_t status_code, uint32_t msg_id,
     uint16_t msg_type)
 {
@@ -1241,6 +1381,7 @@ lde_nbr_del(struct lde_nbr *ln)
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
 	struct l2vpn_pw		*pw;
+	struct lde_nbr		*lnbr;
 
 	if (ln == NULL)
 		return;
@@ -1256,6 +1397,25 @@ lde_nbr_del(struct lde_nbr *ln)
 				if (!lde_address_find(ln, fnh->af,
 				    &fnh->nexthop))
 					continue;
+
+				/*
+				 * Ordered Control: must mark any non-connected
+				 * NH to wait until we receive a labelmap msg
+				 * before installing in kernel and sending to
+				 * peer, must do this as NHs are not removed
+				 * when lsps go down.  Also send label withdraw
+				 * to other neighbors for all fecs from neighbor
+				 * going down
+				 */
+				if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
+					fnh->flags |= F_FEC_NH_DEFER;
+
+					RB_FOREACH(lnbr, nbr_tree, &lde_nbrs) {
+						if (ln->peerid == lnbr->peerid)
+							continue;
+						lde_send_labelwithdraw(lnbr, fn, NULL, NULL);
+					}
+				}
 				break;
 			case FEC_TYPE_PWID:
 				if (f->u.pwid.lsr_id.s_addr != ln->id.s_addr)
@@ -1567,6 +1727,276 @@ lde_change_egress_label(int af)
 		    NULL, 0);
 }
 
+void
+lde_change_allocate_filter(int af)
+{
+	struct lde_nbr  *ln;
+	struct fec      *f;
+	struct fec_node *fn;
+	uint32_t         new_label;
+
+	/* reallocate labels for fecs that match this filter */
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+
+		switch (af) {
+		case AF_INET:
+			if (fn->fec.type != FEC_TYPE_IPV4)
+				continue;
+			break;
+		case AF_INET6:
+			if (fn->fec.type != FEC_TYPE_IPV6)
+				continue;
+			break;
+		default:
+			fatalx("lde_change_allocate_filter: unknown af");
+		}
+
+		/*
+		 * If the local label has changed to NO_LABEL, send a label
+		 * withdraw to all peers.
+		 * If the local label has changed and it's different from
+		 * NO_LABEL, send a label mapping to all peers advertising
+		 * the new label.
+		 * If the local label hasn't changed, do nothing
+		 */
+		new_label = lde_update_label(fn);
+		if (fn->local_label != new_label) {
+			if (new_label == NO_LABEL)
+				RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+					lde_send_labelwithdraw(ln, fn,
+					    NULL, NULL);
+
+			fn->local_label = new_label;
+			if (fn->local_label != NO_LABEL)
+				RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+					lde_send_labelmapping(ln, fn, 0);
+		}
+	}
+	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid, 0,
+		    NULL, 0);
+}
+
+void
+lde_change_advertise_filter(int af)
+{
+	struct lde_nbr  *ln;
+	struct fec      *f;
+	struct fec_node *fn;
+	char            *acl_to_filter;
+	char            *acl_for_filter;
+	union ldpd_addr *prefix;
+	uint8_t          plen;
+	struct lde_map  *me;
+
+	/* advertise label for fecs to neighbors if matches advertise filters */
+	switch (af) {
+	case AF_INET:
+		acl_to_filter = ldeconf->ipv4.acl_label_advertise_to;
+		acl_for_filter = ldeconf->ipv4.acl_label_advertise_for;
+		break;
+	case AF_INET6:
+		acl_to_filter = ldeconf->ipv6.acl_label_advertise_to;
+		acl_for_filter = ldeconf->ipv6.acl_label_advertise_for;
+		break;
+	default:
+		fatalx("lde_change_advertise_filter: unknown af");
+	}
+
+	RB_FOREACH(ln, nbr_tree, &lde_nbrs) {
+		if (lde_acl_check(acl_to_filter, af, (union ldpd_addr *)&ln->id,
+		    IPV4_MAX_BITLEN) != FILTER_PERMIT)
+			lde_send_labelwithdraw_wcard(ln, NO_LABEL);
+		else {
+			/* This neighbor is allowed in to_filter, so
+			 * send labels if fec also matches for_filter
+			 */
+			RB_FOREACH(f, fec_tree, &ft) {
+				fn = (struct fec_node *)f;
+				switch (af) {
+				case AF_INET:
+					if (fn->fec.type != FEC_TYPE_IPV4)
+						continue;
+					prefix = (union ldpd_addr *)
+					    &fn->fec.u.ipv4.prefix;
+					plen = fn->fec.u.ipv4.prefixlen;
+					break;
+				case FEC_TYPE_IPV6:
+					if (fn->fec.type != FEC_TYPE_IPV6)
+						continue;
+					prefix = (union ldpd_addr *)
+					    &fn->fec.u.ipv6.prefix;
+					plen = fn->fec.u.ipv6.prefixlen;
+					break;
+				default:
+					continue;
+				}
+				if (lde_acl_check(acl_for_filter, af,
+				    prefix, plen) != FILTER_PERMIT) {
+					me = (struct lde_map *)fec_find(
+					    &ln->sent_map, &fn->fec);
+					if (me)
+						/* fec filtered withdraw */
+						lde_send_labelwithdraw(ln, fn,
+						    NULL, NULL);
+				} else
+					/* fec allowed send map */
+					lde_send_labelmapping(ln, fn, 0);
+			}
+			lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END,
+			    ln->peerid, 0, NULL, 0);
+		}
+	}
+}
+
+
+void
+lde_change_accept_filter(int af)
+{
+	struct lde_nbr  *ln;
+	struct fec      *f;
+	struct fec_node *fn;
+	char            *acl_for_filter;
+	char            *acl_from_filter;
+	union ldpd_addr *prefix;
+	uint8_t          plen;
+	struct lde_map  *me;
+	enum fec_type    type;
+
+	/* accept labels from neighbors specified in the from_filter and for
+	 * fecs defined in the for_filter
+	 */
+	switch (af) {
+	case AF_INET:
+		acl_for_filter = ldeconf->ipv4.acl_label_accept_for;
+		acl_from_filter = ldeconf->ipv4.acl_label_accept_from;
+		type = FEC_TYPE_IPV4;
+		break;
+	case AF_INET6:
+		acl_for_filter = ldeconf->ipv6.acl_label_accept_for;
+		acl_from_filter = ldeconf->ipv6.acl_label_accept_from;
+		type = FEC_TYPE_IPV6;
+		break;
+	default:
+		fatalx("lde_change_accept_filter: unknown af");
+	}
+
+	RB_FOREACH(ln, nbr_tree, &lde_nbrs) {
+		if (lde_acl_check(acl_from_filter, AF_INET, (union ldpd_addr *)
+		    &ln->id, IPV4_MAX_BITLEN) != FILTER_PERMIT) {
+			/* This neighbor is now filtered so remove fecs from
+			 * recv list
+			 */
+			RB_FOREACH(f, fec_tree, &ft) {
+				fn = (struct fec_node *)f;
+				if (fn->fec.type == type) {
+					me = (struct lde_map *)fec_find(
+					    &ln->recv_map, &fn->fec);
+					if (me)
+						lde_map_del(ln, me, 0);
+				}
+			}
+		} else if (ln->flags & F_NBR_CAP_TWCARD) {
+			/* This neighbor is allowed and supports type
+			 * wildcard so send a labelrequest
+			 * to get any new labels from neighbor
+			 * and make sure any fecs we currently have
+			 * match for_filter.
+			 */
+			RB_FOREACH(f, fec_tree, &ft) {
+				fn = (struct fec_node *)f;
+				switch (af) {
+				case AF_INET:
+					if (fn->fec.type != FEC_TYPE_IPV4)
+						continue;
+					prefix = (union ldpd_addr *)
+					    &fn->fec.u.ipv4.prefix;
+					plen = fn->fec.u.ipv4.prefixlen;
+					break;
+				case AF_INET6:
+					if (fn->fec.type != FEC_TYPE_IPV6)
+						continue;
+					prefix = (union ldpd_addr *)
+					    &fn->fec.u.ipv6.prefix;
+					plen = fn->fec.u.ipv6.prefixlen;
+					break;
+				default:
+					continue;
+				}
+				if (lde_acl_check(acl_for_filter, af,
+				    prefix, plen) != FILTER_PERMIT) {
+					me = (struct lde_map *)fec_find(
+					    &ln->recv_map, &fn->fec);
+					if (me)
+						lde_map_del(ln, me, 0);
+				}
+			}
+			lde_send_labelrequest_wcard(ln, af);
+		} else
+			/* Type Wildcard is not supported so restart session */
+			lde_imsg_compose_ldpe(IMSG_NBR_SHUTDOWN, ln->peerid, 0,
+			    NULL, 0);
+	}
+}
+
+void
+lde_change_expnull_for_filter(int af)
+{
+	struct lde_nbr  *ln;
+	struct fec      *f;
+	struct fec_node *fn;
+	char            *acl_name;
+	uint32_t         exp_label;
+	union ldpd_addr *prefix;
+	uint8_t          plen;
+
+	/* Configure explicit-null advertisement for all fecs in this filter */
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+
+		switch (af) {
+		case AF_INET:
+			if (fn->fec.type != FEC_TYPE_IPV4)
+				continue;
+			acl_name = ldeconf->ipv4.acl_label_expnull_for;
+			prefix = (union ldpd_addr *)&fn->fec.u.ipv4.prefix;
+			plen = fn->fec.u.ipv4.prefixlen;
+			exp_label = MPLS_LABEL_IPV4_EXPLICIT_NULL;
+			break;
+		case AF_INET6:
+			if (fn->fec.type != FEC_TYPE_IPV6)
+				continue;
+			acl_name = ldeconf->ipv6.acl_label_expnull_for;
+			prefix = (union ldpd_addr *)&fn->fec.u.ipv6.prefix;
+			plen = fn->fec.u.ipv6.prefixlen;
+			exp_label = MPLS_LABEL_IPV6_EXPLICIT_NULL;
+			break;
+		default:
+			fatalx("lde_change_expnull_for_filter: unknown af");
+		}
+
+		if (lde_acl_check(acl_name, af, prefix, plen) == FILTER_PERMIT) {
+			/* for this fec change any imp-null to exp-null */
+			if (fn->local_label == MPLS_LABEL_IMPLICIT_NULL) {
+				fn->local_label= lde_update_label(fn);
+				RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+					lde_send_labelmapping(ln, fn, 0);
+			}
+		} else {
+			/* for this fec change any exp-null back to imp-null */
+			if (fn->local_label == exp_label) {
+				fn->local_label = lde_update_label(fn);
+				RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+					lde_send_labelmapping(ln, fn, 0);
+			}
+		}
+	}
+	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid, 0,
+		    NULL, 0);
+}
+
 static int
 lde_address_add(struct lde_nbr *ln, struct lde_addr *lde_addr)
 {
@@ -1626,27 +2056,67 @@ lde_address_list_free(struct lde_nbr *ln)
 		free(lde_addr);
 }
 
-static void zclient_sync_init(unsigned short instance)
+/*
+ * Event callback used to retry the label-manager sync zapi session.
+ */
+static int zclient_sync_retry(struct thread *thread)
 {
+	zclient_sync_init();
+
+	return 0;
+}
+
+/*
+ * Initialize and open a synchronous zapi session. This is used by label chunk
+ * management code, which acquires and releases blocks of labels from the
+ * zebra label-manager module.
+ */
+static void zclient_sync_init(void)
+{
+	struct zclient_options options = zclient_options_default;
+
+	options.synchronous = true;
+
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &zclient_options_default);
+	zclient_sync = zclient_new(master, &options);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
-	zclient_sync->instance = instance;
+	zclient_sync->session_id = 1; /* Distinguish from main session */
 	zclient_sync->privs = &lde_privs;
 
-	while (zclient_socket_connect(zclient_sync) < 0) {
+	if (zclient_socket_connect(zclient_sync) < 0) {
 		log_warnx("Error connecting synchronous zclient!");
-		sleep(1);
+		goto retry;
 	}
 	/* make socket non-blocking */
 	sock_set_nonblock(zclient_sync->sock);
 
-	/* Connect to label manager */
-	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
-		log_warnx("Error connecting to label manager!");
-		sleep(1);
+	/* Send hello to notify zebra this is a synchronous client */
+	if (zclient_send_hello(zclient_sync) < 0) {
+		log_warnx("Error sending hello for synchronous zclient!");
+		goto retry;
 	}
+
+	/* Connect to label manager */
+	if (lm_label_manager_connect(zclient_sync, 0) != 0) {
+		log_warnx("Error connecting to label manager!");
+		goto retry;
+	}
+
+	/* Finish label-manager init once the LM session is running */
+	lde_label_list_init();
+
+	return;
+
+retry:
+
+	/* Discard failed zclient object */
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
+	zclient_sync = NULL;
+
+	/* Retry using a timer */
+	thread_add_timer(master, zclient_sync_retry, NULL, 1, NULL);
 }
 
 static void
@@ -1787,4 +2257,20 @@ end:
 	}
 
 	return (label);
+}
+
+static void
+lde_check_filter_af(int af, struct ldpd_af_conf *af_conf,
+    const char *filter_name)
+{
+	if (strcmp(af_conf->acl_label_allocate_for, filter_name) == 0)
+		lde_change_allocate_filter(af);
+	if ((strcmp(af_conf->acl_label_advertise_to, filter_name) == 0)
+	    || (strcmp(af_conf->acl_label_advertise_for, filter_name) == 0))
+		lde_change_advertise_filter(af);
+	if ((strcmp(af_conf->acl_label_accept_for, filter_name) == 0)
+	    || (strcmp(af_conf->acl_label_accept_from, filter_name) == 0))
+		lde_change_accept_filter(af);
+	if (strcmp(af_conf->acl_label_expnull_for, filter_name) == 0)
+		lde_change_expnull_for_filter(af);
 }

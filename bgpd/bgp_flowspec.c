@@ -108,7 +108,7 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 		return BGP_NLRI_PARSE_ERROR_FLOWSPEC_IPV6_NOT_SUPPORTED;
 	}
 
-	if (packet->length >= FLOWSPEC_NLRI_SIZELIMIT) {
+	if (packet->length >= FLOWSPEC_NLRI_SIZELIMIT_EXTENDED) {
 		flog_err(EC_BGP_FLOWSPEC_PACKET,
 			 "BGP flowspec nlri length maximum reached (%u)",
 			 packet->length);
@@ -124,7 +124,11 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 			return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 
 		psize = *pnt++;
-
+		if (psize >= FLOWSPEC_NLRI_SIZELIMIT) {
+			psize &= 0x0f;
+			psize = psize << 8;
+			psize |= *pnt++;
+		}
 		/* When packet overflow occur return immediately. */
 		if (pnt + psize > lim) {
 			flog_err(

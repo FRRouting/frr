@@ -198,11 +198,14 @@ static int ripng_if_down(struct interface *ifp)
 /* Inteface link up message processing. */
 static int ripng_ifp_up(struct interface *ifp)
 {
-	if (IS_RIPNG_DEBUG_ZEBRA)
+	if (IS_RIPNG_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 		zlog_debug(
-			"interface up %s vrf %u index %d flags %llx metric %d mtu %d",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			"interface up %s vrf %s(%u) index %d flags %llx metric %d mtu %d",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
+	}
 
 	ripng_interface_sync(ifp);
 
@@ -224,11 +227,14 @@ static int ripng_ifp_down(struct interface *ifp)
 	ripng_interface_sync(ifp);
 	ripng_if_down(ifp);
 
-	if (IS_RIPNG_DEBUG_ZEBRA)
+	if (IS_RIPNG_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 		zlog_debug(
-			"interface down %s vrf %u index %d flags %#llx metric %d mtu %d",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			"interface down %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
+	}
 
 	return 0;
 }
@@ -238,11 +244,14 @@ static int ripng_ifp_create(struct interface *ifp)
 {
 	ripng_interface_sync(ifp);
 
-	if (IS_RIPNG_DEBUG_ZEBRA)
+	if (IS_RIPNG_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 		zlog_debug(
-			"RIPng interface add %s vrf %u index %d flags %#llx metric %d mtu %d",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			"RIPng interface add %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
+	}
 
 	/* Check is this interface is RIP enabled or not.*/
 	ripng_enable_apply(ifp);
@@ -258,14 +267,16 @@ static int ripng_ifp_create(struct interface *ifp)
 
 static int ripng_ifp_destroy(struct interface *ifp)
 {
+	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 	ripng_interface_sync(ifp);
 	if (if_is_up(ifp)) {
 		ripng_if_down(ifp);
 	}
 
 	zlog_info(
-		"interface delete %s vrf %u index %d flags %#llx metric %d mtu %d",
-		ifp->name, ifp->vrf_id, ifp->ifindex,
+		"interface delete %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
+		ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 		(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
 
 	return 0;
@@ -282,9 +293,14 @@ int ripng_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 	if (!ifp)
 		return 0;
 
-	if (IS_RIPNG_DEBUG_ZEBRA)
-		zlog_debug("interface %s VRF change vrf_id %u new vrf id %u",
-			   ifp->name, vrf_id, new_vrf_id);
+	if (IS_RIPNG_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+		struct vrf *nvrf = vrf_lookup_by_id(new_vrf_id);
+
+		zlog_debug("interface %s VRF change vrf %s(%u) new vrf %s(%u)",
+			   ifp->name, VRF_LOGNAME(vrf), vrf_id,
+			   VRF_LOGNAME(nvrf), new_vrf_id);
+	}
 
 	if_update_to_new_vrf(ifp, new_vrf_id);
 	ripng_interface_sync(ifp);
@@ -851,17 +867,12 @@ int ripng_network_write(struct vty *vty, struct ripng *ripng)
 	unsigned int i;
 	const char *ifname;
 	struct agg_node *node;
-	char buf[BUFSIZ];
 
 	/* Write enable network. */
 	for (node = agg_route_top(ripng->enable_network); node;
 	     node = agg_route_next(node))
-		if (node->info) {
-			struct prefix *p = &node->p;
-			vty_out(vty, "    %s/%d\n",
-				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-				p->prefixlen);
-		}
+		if (node->info)
+			vty_out(vty, "    %pRN\n", node);
 
 	/* Write enable interface. */
 	for (i = 0; i < vector_active(ripng->enable_if); i++)
@@ -913,7 +924,6 @@ static int ripng_if_new_hook(struct interface *ifp)
 static int ripng_if_delete_hook(struct interface *ifp)
 {
 	XFREE(MTYPE_RIPNG_IF, ifp->info);
-	ifp->info = NULL;
 	return 0;
 }
 
@@ -944,9 +954,14 @@ static int interface_config_write(struct vty *vty)
 	return write;
 }
 
+static int interface_config_write(struct vty *vty);
 /* ripngd's interface node. */
 static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ", 1 /* VTYSH */
+	.name = "interface",
+	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-if)# ",
+	.config_write = interface_config_write,
 };
 
 /* Initialization of interface. */
@@ -957,7 +972,7 @@ void ripng_if_init(void)
 	hook_register_prio(if_del, 0, ripng_if_delete_hook);
 
 	/* Install interface node. */
-	install_node(&interface_node, interface_config_write);
+	install_node(&interface_node);
 	if_cmd_init();
 	if_zapi_callbacks(ripng_ifp_create, ripng_ifp_up,
 			  ripng_ifp_down, ripng_ifp_destroy);

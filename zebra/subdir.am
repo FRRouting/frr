@@ -6,22 +6,23 @@ if ZEBRA
 sbin_PROGRAMS += zebra/zebra
 dist_examples_DATA += zebra/zebra.conf.sample
 vtysh_scan += \
-	$(top_srcdir)/zebra/debug.c \
-	$(top_srcdir)/zebra/interface.c \
-	$(top_srcdir)/zebra/router-id.c \
-	$(top_srcdir)/zebra/rtadv.c \
-	$(top_srcdir)/zebra/zebra_mlag_vty.c \
-	$(top_srcdir)/zebra/zebra_mpls_vty.c \
-	$(top_srcdir)/zebra/zebra_ptm.c \
-	$(top_srcdir)/zebra/zebra_pw.c \
-	$(top_srcdir)/zebra/zebra_routemap.c \
-	$(top_srcdir)/zebra/zebra_vty.c \
-	$(top_srcdir)/zebra/zserv.c \
+	zebra/debug.c \
+	zebra/interface.c \
+	zebra/router-id.c \
+	zebra/rtadv.c \
+	zebra/zebra_mlag_vty.c \
+	zebra/zebra_mpls_vty.c \
+	zebra/zebra_ptm.c \
+	zebra/zebra_pw.c \
+	zebra/zebra_routemap.c \
+	zebra/zebra_vty.c \
+	zebra/zserv.c \
+	zebra/zebra_gr.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
-vtysh_scan += $(top_srcdir)/zebra/irdp_interface.c
-vtysh_scan += $(top_srcdir)/zebra/zebra_fpm.c
+vtysh_scan += zebra/irdp_interface.c
+vtysh_scan += zebra/zebra_fpm.c
 
 if IRDP
 module_LTLIBRARIES += zebra/zebra_irdp.la
@@ -100,22 +101,22 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_netns_notify.c \
 	zebra/table_manager.c \
 	zebra/zapi_msg.c \
+	zebra/zebra_nb.c \
+	zebra/zebra_nb_config.c \
+	zebra/zebra_nb_rpcs.c \
+	zebra/zebra_nb_state.c \
 	zebra/zebra_errors.c \
+	zebra/zebra_gr.c \
 	# end
 
-zebra/debug_clippy.c: $(CLIPPY_DEPS)
-zebra/debug.$(OBJEXT): zebra/debug_clippy.c
-
-zebra/zebra_mlag_vty_clippy.c: $(CLIPPY_DEPS)
-zebra/zebra_mlag_vty.$(OBJEXT): zebra/zebra_mlag_vty_clippy.c
-
-zebra/zebra_vty_clippy.c: $(CLIPPY_DEPS)
-zebra/interface_clippy.c: $(CLIPPY_DEPS)
-zebra/interface.$(OBJEXT): zebra/interface_clippy.c
-zebra/zebra_vty.$(OBJEXT): zebra/zebra_vty_clippy.c
-
-zebra/zebra_routemap_clippy.c: $(CLIPPY_DEPS)
-zebra/zebra_routemap.$(OBJEXT): zebra/zebra_routemap_clippy.c
+clippy_scan += \
+	zebra/debug.c \
+	zebra/interface.c \
+	zebra/rtadv.c \
+	zebra/zebra_mlag_vty.c \
+	zebra/zebra_routemap.c \
+	zebra/zebra_vty.c \
+	# end
 
 noinst_HEADERS += \
 	zebra/connected.h \
@@ -162,6 +163,7 @@ noinst_HEADERS += \
 	zebra/zebra_netns_notify.h \
 	zebra/table_manager.h \
 	zebra/zapi_msg.h \
+	zebra/zebra_nb.h \
 	zebra/zebra_errors.h \
 	# end
 
@@ -189,5 +191,19 @@ zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_dt.c
 endif
 endif
 
+nodist_zebra_zebra_SOURCES = \
+	yang/frr-zebra.yang.c \
+	# end
+
 zebra_zebra_cumulus_mlag_la_SOURCES = zebra/zebra_mlag_private.c
 zebra_zebra_cumulus_mlag_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+
+if LINUX
+module_LTLIBRARIES += zebra/dplane_fpm_nl.la
+
+zebra_dplane_fpm_nl_la_SOURCES = zebra/dplane_fpm_nl.c
+zebra_dplane_fpm_nl_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_dplane_fpm_nl_la_LIBADD  =
+
+vtysh_scan += $(top_srcdir)/zebra/dplane_fpm_nl.c
+endif

@@ -111,7 +111,7 @@ static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 		inet_ntop(AF_INET, &brouter_id, brouter_name,
 			  sizeof(brouter_name));
 		zlog_debug("%s: brouter %s add with adv router %x nh count %u",
-			   __PRETTY_FUNCTION__, brouter_name,
+			   __func__, brouter_name,
 			   route->path.origin.adv_router,
 			   listcount(route->nh_list));
 	}
@@ -131,7 +131,7 @@ static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 		inet_ntop(AF_INET, &brouter_id, brouter_name,
 			  sizeof(brouter_name));
 		zlog_debug("%s: brouter %p %s del with adv router %x nh %u",
-			   __PRETTY_FUNCTION__, (void *)route, brouter_name,
+			   __func__, (void *)route, brouter_name,
 			   route->path.origin.adv_router,
 			   listcount(route->nh_list));
 	}
@@ -1112,16 +1112,21 @@ static int config_write_ospf6(struct vty *vty)
 	return 0;
 }
 
+static int config_write_ospf6(struct vty *vty);
 /* OSPF6 node structure. */
 static struct cmd_node ospf6_node = {
-	OSPF6_NODE, "%s(config-ospf6)# ", 1 /* VTYSH */
+	.name = "ospf6",
+	.node = OSPF6_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-ospf6)# ",
+	.config_write = config_write_ospf6,
 };
 
 /* Install ospf related commands. */
 void ospf6_top_init(void)
 {
 	/* Install ospf6 top node. */
-	install_node(&ospf6_node, config_write_ospf6);
+	install_node(&ospf6_node);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_cmd);
 	install_element(CONFIG_NODE, &router_ospf6_cmd);

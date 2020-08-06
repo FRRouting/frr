@@ -22,15 +22,17 @@ else
 endif
 
 ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
+  DH_WITH_SYSTEMD=systemd,
   CONF_SYSTEMD=--enable-systemd=yes
 else
+  DH_WITH_SYSTEMD=
   CONF_SYSTEMD=--enable-systemd=no
 endif
 
 export PYTHON=python3
 
 %:
-	dh $@ -Bbuild
+	dh $@ --with=$(DH_WITH_SYSTEMD)autoreconf --parallel
 
 override_dh_auto_configure:
 	$(shell dpkg-buildflags --export=sh); \
@@ -75,7 +77,7 @@ override_dh_auto_install:
 ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
 	cp tools/frr.service debian/frr.service
 endif
-	cp build/tools/frrinit.sh debian/frr.init
+	cp tools/frrinit.sh debian/frr.init
 	-rm -f debian/tmp/usr/lib/frr/frr
 
 # install config files
@@ -110,11 +112,6 @@ override_dh_makeshlibs:
 
 override_dh_missing:
 	dh_missing --fail-missing
-
-ifneq ($(filter nocheck,$(DEB_BUILD_PROFILES) $(DEB_BUILD_OPTIONS)),)
-override_dh_auto_test:
-	true
-endif
 
 override_dh_auto_clean:
 # we generally do NOT want a full distclean since that wipes both

@@ -291,7 +291,7 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api);
 
 struct bgp_node;
 struct bgp_path_info;
-extern void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
+extern void bgp_pbr_update_entry(struct bgp *bgp, const struct prefix *p,
 				 struct bgp_path_info *new_select, afi_t afi,
 				 safi_t safi, bool nlri_update);
 
@@ -301,7 +301,7 @@ extern void bgp_pbr_reset(struct bgp *bgp, afi_t afi);
 extern struct bgp_pbr_interface *bgp_pbr_interface_lookup(const char *name,
 				   struct bgp_pbr_interface_head *head);
 
-extern int bgp_pbr_build_and_validate_entry(struct prefix *p,
+extern int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 					    struct bgp_path_info *path,
 					    struct bgp_pbr_entry_main *api);
 #endif /* __BGP_PBR_H__ */

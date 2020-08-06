@@ -99,7 +99,7 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 		/* This session was already configured by another daemon. */
 		if (bs != NULL) {
 			/* Now it is configured also by CLI. */
-			BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+			SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
 			bs->refcount++;
 
 			resource->ptr = bs;
@@ -107,19 +107,17 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 		}
 
 		bs = bfd_session_new();
-		if (bs == NULL)
-			return NB_ERR_RESOURCE;
 
 		/* Fill the session key. */
 		bfd_session_get_key(mhop, dnode, &bs->key);
 
 		/* Set configuration flags. */
 		bs->refcount = 1;
-		BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
 		if (mhop)
-			BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_MH);
+			SET_FLAG(bs->flags, BFD_SESS_FLAG_MH);
 		if (bs->key.family == AF_INET6)
-			BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_IPV6);
+			SET_FLAG(bs->flags, BFD_SESS_FLAG_IPV6);
 
 		resource->ptr = bs;
 		break;
@@ -164,10 +162,10 @@ static int bfd_session_destroy(enum nb_event event,
 	case NB_EV_APPLY:
 		bs = nb_running_unset_entry(dnode);
 		/* CLI is not using this session anymore. */
-		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) == 0)
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) == 0)
 			break;
 
-		BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
 		bs->refcount--;
 		/* There are still daemons using it. */
 		if (bs->refcount > 0)
@@ -187,17 +185,15 @@ static int bfd_session_destroy(enum nb_event event,
 /*
  * XPath: /frr-bfdd:bfdd/bfd
  */
-int bfdd_bfd_create(enum nb_event event,
-		    const struct lyd_node *dnode __attribute__((__unused__)),
-		    union nb_resource *resource __attribute__((__unused__)))
+int bfdd_bfd_create(struct nb_cb_create_args *args)
 {
 	/* NOTHING */
 	return NB_OK;
 }
 
-int bfdd_bfd_destroy(enum nb_event event, const struct lyd_node *dnode)
+int bfdd_bfd_destroy(struct nb_cb_destroy_args *args)
 {
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 		/* NOTHING */
 		return NB_OK;
@@ -221,35 +217,28 @@ int bfdd_bfd_destroy(enum nb_event event, const struct lyd_node *dnode)
 /*
  * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop
  */
-int bfdd_bfd_sessions_single_hop_create(enum nb_event event,
-					const struct lyd_node *dnode,
-					union nb_resource *resource)
+int bfdd_bfd_sessions_single_hop_create(struct nb_cb_create_args *args)
 {
-	return bfd_session_create(event, dnode, resource, false);
+	return bfd_session_create(args->event, args->dnode, args->resource,
+				  false);
 }
 
-int bfdd_bfd_sessions_single_hop_destroy(enum nb_event event,
-					 const struct lyd_node *dnode)
+int bfdd_bfd_sessions_single_hop_destroy(struct nb_cb_destroy_args *args)
 {
-	return bfd_session_destroy(event, dnode, false);
+	return bfd_session_destroy(args->event, args->dnode, false);
 }
 
 /*
  * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/source-addr
  */
-int bfdd_bfd_sessions_single_hop_source_addr_modify(enum nb_event event
-						    __attribute__((__unused__)),
-						    const struct lyd_node *dnode
-						    __attribute__((__unused__)),
-						    union nb_resource *resource
-						    __attribute__((__unused__)))
+int bfdd_bfd_sessions_single_hop_source_addr_modify(
+	struct nb_cb_modify_args *args)
 {
 	return NB_OK;
 }
 
 int bfdd_bfd_sessions_single_hop_source_addr_destroy(
-	enum nb_event event __attribute__((__unused__)),
-	const struct lyd_node *dnode __attribute__((__unused__)))
+	struct nb_cb_destroy_args *args)
 {
 	return NB_OK;
 }
@@ -258,13 +247,12 @@ int bfdd_bfd_sessions_single_hop_source_addr_destroy(
  * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/detection-multiplier
  */
 int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource __attribute__((__unused__)))
+	struct nb_cb_modify_args *args)
 {
-	uint8_t detection_multiplier = yang_dnode_get_uint8(dnode, NULL);
+	uint8_t detection_multiplier = yang_dnode_get_uint8(args->dnode, NULL);
 	struct bfd_session *bs;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 		break;
 
@@ -273,7 +261,7 @@ int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bs = nb_running_get_entry(dnode, NULL, true);
+		bs = nb_running_get_entry(args->dnode, NULL, true);
 		bs->detect_mult = detection_multiplier;
 		break;
 
@@ -289,13 +277,12 @@ int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
  * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/desired-transmission-interval
  */
 int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource __attribute__((__unused__)))
+	struct nb_cb_modify_args *args)
 {
-	uint32_t tx_interval = yang_dnode_get_uint32(dnode, NULL);
+	uint32_t tx_interval = yang_dnode_get_uint32(args->dnode, NULL);
 	struct bfd_session *bs;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (tx_interval < 10000 || tx_interval > 60000000)
 			return NB_ERR_VALIDATION;
@@ -306,7 +293,7 @@ int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bs = nb_running_get_entry(dnode, NULL, true);
+		bs = nb_running_get_entry(args->dnode, NULL, true);
 		if (tx_interval == bs->timers.desired_min_tx)
 			return NB_OK;
 
@@ -326,13 +313,12 @@ int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
  * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/required-receive-interval
  */
 int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource __attribute__((__unused__)))
+	struct nb_cb_modify_args *args)
 {
-	uint32_t rx_interval = yang_dnode_get_uint32(dnode, NULL);
+	uint32_t rx_interval = yang_dnode_get_uint32(args->dnode, NULL);
 	struct bfd_session *bs;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (rx_interval < 10000 || rx_interval > 60000000)
 			return NB_ERR_VALIDATION;
@@ -343,7 +329,7 @@ int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bs = nb_running_get_entry(dnode, NULL, true);
+		bs = nb_running_get_entry(args->dnode, NULL, true);
 		if (rx_interval == bs->timers.required_min_rx)
 			return NB_OK;
 
@@ -363,13 +349,12 @@ int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
  * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/administrative-down
  */
 int bfdd_bfd_sessions_single_hop_administrative_down_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource __attribute__((__unused__)))
+	struct nb_cb_modify_args *args)
 {
-	bool shutdown = yang_dnode_get_bool(dnode, NULL);
+	bool shutdown = yang_dnode_get_bool(args->dnode, NULL);
 	struct bfd_session *bs;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 		return NB_OK;
@@ -381,13 +366,13 @@ int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 		return NB_OK;
 	}
 
-	bs = nb_running_get_entry(dnode, NULL, true);
+	bs = nb_running_get_entry(args->dnode, NULL, true);
 
-	if (shutdown == false) {
-		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
+	if (!shutdown) {
+		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
 			return NB_OK;
 
-		BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_DOWN;
@@ -396,15 +381,15 @@ int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 		/* Enable all timers. */
 		bfd_recvtimer_update(bs);
 		bfd_xmttimer_update(bs, bs->xmt_TO);
-		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO)) {
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO)) {
 			bfd_echo_recvtimer_update(bs);
 			bfd_echo_xmttimer_update(bs, bs->echo_xmt_TO);
 		}
 	} else {
-		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
 			return NB_OK;
 
-		BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
 
 		/* Disable all events. */
 		bfd_recvtimer_delete(bs);
@@ -425,15 +410,13 @@ int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 /*
  * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/echo-mode
  */
-int bfdd_bfd_sessions_single_hop_echo_mode_modify(enum nb_event event,
-						  const struct lyd_node *dnode,
-						  union nb_resource *resource
-						  __attribute__((__unused__)))
+int bfdd_bfd_sessions_single_hop_echo_mode_modify(
+	struct nb_cb_modify_args *args)
 {
-	bool echo = yang_dnode_get_bool(dnode, NULL);
+	bool echo = yang_dnode_get_bool(args->dnode, NULL);
 	struct bfd_session *bs;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 		return NB_OK;
@@ -445,21 +428,21 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(enum nb_event event,
 		return NB_OK;
 	}
 
-	bs = nb_running_get_entry(dnode, NULL, true);
+	bs = nb_running_get_entry(args->dnode, NULL, true);
 
-	if (echo == false) {
-		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+	if (!echo) {
+		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 			return NB_OK;
 
-		BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
 		ptm_bfd_echo_stop(bs);
 	} else {
-		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 			return NB_OK;
 
-		BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
 		/* Apply setting immediately. */
-		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
+		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
 			bs_echo_timer_handler(bs);
 	}
 
@@ -471,13 +454,12 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(enum nb_event event,
  * /frr-bfdd:bfdd/bfd/sessions/single-hop/desired-echo-transmission-interval
  */
 int bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource __attribute__((__unused__)))
+	struct nb_cb_modify_args *args)
 {
-	uint32_t echo_interval = yang_dnode_get_uint32(dnode, NULL);
+	uint32_t echo_interval = yang_dnode_get_uint32(args->dnode, NULL);
 	struct bfd_session *bs;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (echo_interval < 10000 || echo_interval > 60000000)
 			return NB_ERR_VALIDATION;
@@ -488,7 +470,7 @@ int bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bs = nb_running_get_entry(dnode, NULL, true);
+		bs = nb_running_get_entry(args->dnode, NULL, true);
 		if (echo_interval == bs->timers.required_min_echo)
 			return NB_OK;
 
@@ -506,15 +488,13 @@ int bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
 /*
  * XPath: /frr-bfdd:bfdd/bfd/sessions/multi-hop
  */
-int bfdd_bfd_sessions_multi_hop_create(enum nb_event event,
-				       const struct lyd_node *dnode,
-				       union nb_resource *resource)
+int bfdd_bfd_sessions_multi_hop_create(struct nb_cb_create_args *args)
 {
-	return bfd_session_create(event, dnode, resource, true);
+	return bfd_session_create(args->event, args->dnode, args->resource,
+				  true);
 }
 
-int bfdd_bfd_sessions_multi_hop_destroy(enum nb_event event,
-					const struct lyd_node *dnode)
+int bfdd_bfd_sessions_multi_hop_destroy(struct nb_cb_destroy_args *args)
 {
-	return bfd_session_destroy(event, dnode, true);
+	return bfd_session_destroy(args->event, args->dnode, true);
 }

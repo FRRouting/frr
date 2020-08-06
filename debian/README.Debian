@@ -31,6 +31,10 @@ The following Build Profiles have been added:
   controls whether the RPKI module is built.
   Will be enabled by default at some point, adds some extra dependencies.
 
+- pkg.frr.nosnmp (pkg.frr.snmp)
+  controls whether the SNMP module is built, see below for license issues.
+  Will remain default-off as long as the license issue persists.
+
 - pkg.frr.nosystemd
   Disables both systemd unit file installation as well as watchfrr sd_notify
   support at startup.  Removes libsystemd dependency.
@@ -104,5 +108,3 @@ See message #4525 from 2005-05-09 in the quagga-users mailing list.
 Check /etc/pam.d/frr, it probably denies access to your user. The passwords
 configured in /etc/frr/frr.conf are only for telnet access.
 
-
- -- Ondřej Surý <Ondřej Surý <ondrej@debian.org>>, Fri,  3 Jul 2020 12:39:42 +0200

@@ -114,8 +114,6 @@ void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
 		     uint32_t remote_label, uint8_t flags,
 		     union pw_protocol_fields *data)
 {
-	zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
-
 	pw->ifindex = ifindex;
 	pw->type = type;
 	pw->af = af;
@@ -127,8 +125,11 @@ void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
 
 	if (zebra_pw_enabled(pw))
 		zebra_register_rnh_pseudowire(pw->vrf_id, pw);
-	else
+	else {
+		if (pw->protocol == ZEBRA_ROUTE_STATIC)
+			zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
 		zebra_pw_uninstall(pw);
+	}
 }
 
 struct zebra_pw *zebra_pw_find(struct zebra_vrf *zvrf, const char *ifname)
@@ -153,7 +154,6 @@ void zebra_pw_update(struct zebra_pw *pw)
 {
 	if (zebra_pw_check_reachability(pw) < 0) {
 		zebra_pw_uninstall(pw);
-		zebra_pw_install_failure(pw);
 		/* wait for NHT and try again later */
 	} else {
 		/*
@@ -259,7 +259,7 @@ static int zebra_pw_check_reachability(struct zebra_pw *pw)
 	 * Need to ensure that there's a label binding for all nexthops.
 	 * Otherwise, ECMP for this route could render the pseudowire unusable.
 	 */
-	for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nexthop)) {
+	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
 		if (!nexthop->nh_label) {
 			if (IS_ZEBRA_DEBUG_PW)
 				zlog_debug("%s: unlabeled route for %s",
@@ -547,13 +547,18 @@ static int zebra_pw_config(struct vty *vty)
 	return write;
 }
 
+static int zebra_pw_config(struct vty *vty);
 static struct cmd_node pw_node = {
-	PW_NODE, "%s(config-pw)# ", 1,
+	.name = "pw",
+	.node = PW_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-pw)# ",
+	.config_write = zebra_pw_config,
 };
 
 void zebra_pw_vty_init(void)
 {
-	install_node(&pw_node, zebra_pw_config);
+	install_node(&pw_node);
 	install_default(PW_NODE);
 
 	install_element(CONFIG_NODE, &pseudowire_if_cmd);

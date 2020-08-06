@@ -77,16 +77,16 @@ static struct ospf6_lsa_handler unknown_handler = {
 	.lh_debug = 0 /* No default debug */
 };
 
-void ospf6_install_lsa_handler(const struct ospf6_lsa_handler *handler)
+void ospf6_install_lsa_handler(struct ospf6_lsa_handler *handler)
 {
 	/* type in handler is host byte order */
 	int index = handler->lh_type & OSPF6_LSTYPE_FCODE_MASK;
 	vector_set_index(ospf6_lsa_handler_vector, index, (void *)handler);
 }
 
-const struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type)
+struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type)
 {
-	const struct ospf6_lsa_handler *handler = NULL;
+	struct ospf6_lsa_handler *handler = NULL;
 	unsigned int index = ntohs(type) & OSPF6_LSTYPE_FCODE_MASK;
 
 	if (index >= vector_active(ospf6_lsa_handler_vector))
@@ -397,10 +397,10 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa)
 			(unsigned long)ntohl(lsa->header->seqnum),
 			handler->lh_get_prefix_str(lsa, buf, sizeof(buf), 0));
 	} else if (type != OSPF6_LSTYPE_UNKNOWN) {
-		sprintf(tmpbuf, "%-4s %-15s%-15s%4hu %8lx",
-			ospf6_lstype_short_name(lsa->header->type), id,
-			adv_router, ospf6_lsa_age_current(lsa),
-			(unsigned long)ntohl(lsa->header->seqnum));
+		snprintf(tmpbuf, sizeof(tmpbuf), "%-4s %-15s%-15s%4hu %8lx",
+			 ospf6_lstype_short_name(lsa->header->type), id,
+			 adv_router, ospf6_lsa_age_current(lsa),
+			 (unsigned long)ntohl(lsa->header->seqnum));
 
 		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt)
 		       != NULL) {
@@ -527,7 +527,7 @@ struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header)
 	/* allocate memory */
 	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
 
-	lsa->header = (struct ospf6_lsa_header *)new_header;
+	lsa->header = new_header;
 
 	/* dump string */
 	ospf6_lsa_printbuf(lsa, lsa->name, sizeof(lsa->name));
@@ -554,7 +554,7 @@ struct ospf6_lsa *ospf6_lsa_create_headeronly(struct ospf6_lsa_header *header)
 	/* allocate memory */
 	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
 
-	lsa->header = (struct ospf6_lsa_header *)new_header;
+	lsa->header = new_header;
 	SET_FLAG(lsa->flag, OSPF6_LSA_HEADERONLY);
 
 	/* dump string */
@@ -608,16 +608,17 @@ void ospf6_lsa_lock(struct ospf6_lsa *lsa)
 }
 
 /* decrement reference counter of struct ospf6_lsa */
-void ospf6_lsa_unlock(struct ospf6_lsa *lsa)
+struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa)
 {
 	/* decrement reference counter */
 	assert(lsa->lock > 0);
 	lsa->lock--;
 
 	if (lsa->lock != 0)
-		return;
+		return lsa;
 
 	ospf6_lsa_delete(lsa);
+	return NULL;
 }
 
 

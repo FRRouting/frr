@@ -83,8 +83,7 @@ static int vrrp_ndisc_una_build(struct interface *ifp, struct ipaddr *ip,
 	struct nd_opt_hdr *nd_opt_h =
 		(struct nd_opt_hdr *)((char *)ndh
 				      + sizeof(struct nd_neighbor_advert));
-	char *nd_opt_lladdr =
-		(char *)((char *)nd_opt_h + sizeof(struct nd_opt_hdr));
+	char *nd_opt_lladdr = ((char *)nd_opt_h + sizeof(struct nd_opt_hdr));
 	char *lladdr = (char *)ifp->hw_addr;
 
 	/*

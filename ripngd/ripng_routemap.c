@@ -237,9 +237,9 @@ static void *route_set_metric_compile(const char *arg)
 		return mod;
 
 	if (metric > RIPNG_METRIC_INFINITY) {
-		zlog_info("%s: Metric specified: %ld is being converted into METRIC_INFINITY",
-			  __PRETTY_FUNCTION__,
-			  metric);
+		zlog_info(
+			"%s: Metric specified: %ld is being converted into METRIC_INFINITY",
+			__func__, metric);
 		mod->metric = RIPNG_METRIC_INFINITY;
 	} else
 		mod->metric = metric;

@@ -355,7 +355,7 @@ int rfapi_check(void *handle)
 
 void del_vnc_route(struct rfapi_descriptor *rfd,
 		   struct peer *peer, /* rfd->peer for RFP regs */
-		   struct bgp *bgp, safi_t safi, struct prefix *p,
+		   struct bgp *bgp, safi_t safi, const struct prefix *p,
 		   struct prefix_rd *prd, uint8_t type, uint8_t sub_type,
 		   struct rfapi_nexthop *lnh, int kill)
 {
@@ -557,7 +557,7 @@ void rfapi_vn_options_free(struct rfapi_vn_option *p)
 
 /* Based on bgp_redistribute_add() */
 void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
-		   struct bgp *bgp, int safi, struct prefix *p,
+		   struct bgp *bgp, int safi, const struct prefix *p,
 		   struct prefix_rd *prd, struct rfapi_ip_addr *nexthop,
 		   uint32_t *local_pref,
 		   uint32_t *lifetime, /* NULL => dont send lifetime */
@@ -838,7 +838,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		beec.val[1] = ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP;
 		beec.val[6] = ((TunnelType) >> 8) & 0xff;
 		beec.val[7] = (TunnelType)&0xff;
-		ecommunity_add_val(attr.ecommunity, &beec);
+		ecommunity_add_val(attr.ecommunity, &beec, false, false);
 	}
 
 	/*
@@ -1489,10 +1489,7 @@ void rfapiFreeBgpTeaOptionChain(struct bgp_tea_options *p)
 	while (p) {
 		next = p->next;
 
-		if (p->value) {
-			XFREE(MTYPE_BGP_TEA_OPTIONS_VALUE, p->value);
-			p->value = NULL;
-		}
+		XFREE(MTYPE_BGP_TEA_OPTIONS_VALUE, p->value);
 		XFREE(MTYPE_BGP_TEA_OPTIONS, p);
 
 		p = next;
@@ -2153,7 +2150,7 @@ int rfapi_close(void *handle)
 
 	vnc_zlog_debug_verbose("%s: rfd=%p", __func__, rfd);
 
-#if RFAPI_WHO_IS_CALLING_ME
+#ifdef RFAPI_WHO_IS_CALLING_ME
 #ifdef HAVE_GLIBC_BACKTRACE
 #define RFAPI_DEBUG_BACKTRACE_NENTRIES 5
 	{
@@ -2653,7 +2650,8 @@ int rfapi_register(void *handle, struct rfapi_ip_prefix *prefix,
 				ecom_value.val[7] =
 					(l2o->logical_net_id >> 0) & 0xff;
 				rtlist = ecommunity_new();
-				ecommunity_add_val(rtlist, &ecom_value);
+				ecommunity_add_val(rtlist, &ecom_value,
+						   false, false);
 			}
 			if (l2o->tag_id) {
 				as_t as = bgp->as;
@@ -2678,7 +2676,8 @@ int rfapi_register(void *handle, struct rfapi_ip_prefix *prefix,
 				ecom_value.val[7] = val & 0xff;
 				if (rtlist == NULL)
 					rtlist = ecommunity_new();
-				ecommunity_add_val(rtlist, &ecom_value);
+				ecommunity_add_val(rtlist, &ecom_value,
+						   false, false);
 			}
 		}
 
@@ -3507,7 +3506,7 @@ DEFUN (debug_rfapi_show_import,
 						"\nLNI-based Ethernet Tables:\n");
 					first_l2 = 0;
 				}
-				snprintf(buf, BUFSIZ, "L2VPN LNI=%u", lni);
+				snprintf(buf, sizeof(buf), "L2VPN LNI=%u", lni);
 				rfapiShowImportTable(
 					vty, buf, it->imported_vpn[AFI_L2VPN],
 					1);

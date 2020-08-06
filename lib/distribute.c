@@ -186,7 +186,6 @@ static int distribute_list_unset(struct distribute_ctx *ctx,
 		return 0;
 
 	XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[type]);
-	dist->list[type] = NULL;
 
 	/* Apply this distribute-list to the interface. */
 	(ctx->distribute_delete_hook)(ctx, dist);
@@ -232,7 +231,6 @@ static int distribute_list_prefix_unset(struct distribute_ctx *ctx,
 		return 0;
 
 	XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[type]);
-	dist->prefix[type] = NULL;
 
 	/* Apply this distribute-list to the interface. */
 	(ctx->distribute_delete_hook)(ctx, dist);

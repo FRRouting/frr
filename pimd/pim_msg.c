@@ -123,7 +123,7 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug(
 				"%s: Considering (%s) children for (S,G,rpt) prune",
-				__PRETTY_FUNCTION__, up->sg_str);
+				__func__, up->sg_str);
 
 		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
 			if (!PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags)) {
@@ -144,13 +144,12 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 					if (PIM_DEBUG_PIM_PACKETS)
 						zlog_debug(
 							"%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
-							__PRETTY_FUNCTION__,
-							up->sg_str,
+							__func__, up->sg_str,
 							child->sg_str);
 				} else if (PIM_DEBUG_PIM_PACKETS)
 					zlog_debug(
 						"%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
-						__PRETTY_FUNCTION__, up->sg_str,
+						__func__, up->sg_str,
 						child->sg_str);
 			} else if (pim_upstream_empty_inherited_olist(child)) {
 				/* S is supposed to be forwarded along the RPT
@@ -163,14 +162,12 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 						child->flags);
 				if (PIM_DEBUG_PIM_PACKETS)
 					zlog_debug(
-							"%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
-							__PRETTY_FUNCTION__,
-							child->sg_str);
+						"%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
+						__func__, child->sg_str);
 			} else if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
-						"%s: Do not add Prune %s to compound message %s",
-						__PRETTY_FUNCTION__, child->sg_str,
-						up->sg_str);
+					"%s: Do not add Prune %s to compound message %s",
+					__func__, child->sg_str, up->sg_str);
 		}
 	}
 	return size;

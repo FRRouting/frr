@@ -216,7 +216,7 @@ rip_request_neighbor (struct in_addr addr)
 {
   struct sockaddr_in to;
 
-  memset (&to, 0, sizeof (struct sockaddr_in));
+  memset (&to, 0, sizeof(struct sockaddr_in));
   to.sin_port = htons (RIP_PORT_DEFAULT);
   to.sin_addr = addr;
 
@@ -351,11 +351,14 @@ static int rip_ifp_down(struct interface *ifp)
 	rip_interface_sync(ifp);
 	rip_if_down(ifp);
 
-	if (IS_RIP_DEBUG_ZEBRA)
+	if (IS_RIP_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 		zlog_debug(
-			"interface %s vrf %u index %d flags %llx metric %d mtu %d is down",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			"interface %s vrf %s(%u) index %d flags %llx metric %d mtu %d is down",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+	}
 
 	return 0;
 }
@@ -363,11 +366,14 @@ static int rip_ifp_down(struct interface *ifp)
 /* Inteface link up message processing */
 static int rip_ifp_up(struct interface *ifp)
 {
-	if (IS_RIP_DEBUG_ZEBRA)
+	if (IS_RIP_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 		zlog_debug(
-			"interface %s vrf %u index %d flags %#llx metric %d mtu %d is up",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			"interface %s vrf %s(%u) index %d flags %#llx metric %d mtu %d is up",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+	}
 
 	rip_interface_sync(ifp);
 
@@ -388,11 +394,13 @@ static int rip_ifp_create(struct interface *ifp)
 {
 	rip_interface_sync(ifp);
 
-	if (IS_RIP_DEBUG_ZEBRA)
+	if (IS_RIP_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 		zlog_debug(
-			"interface add %s vrf %u index %d flags %#llx metric %d mtu %d",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			"interface add %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+	}
 
 	/* Check if this interface is RIP enabled or not.*/
 	rip_enable_apply(ifp);
@@ -413,14 +421,16 @@ static int rip_ifp_create(struct interface *ifp)
 
 static int rip_ifp_destroy(struct interface *ifp)
 {
+	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 	rip_interface_sync(ifp);
 	if (if_is_up(ifp)) {
 		rip_if_down(ifp);
 	}
 
 	zlog_info(
-		"interface delete %s vrf %u index %d flags %#llx metric %d mtu %d",
-		ifp->name, ifp->vrf_id, ifp->ifindex,
+		"interface delete %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
+		ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 		(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
 	return 0;
@@ -437,9 +447,14 @@ int rip_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 	if (!ifp)
 		return 0;
 
-	if (IS_RIP_DEBUG_ZEBRA)
-		zlog_debug("interface %s VRF change vrf_id %u new vrf id %u",
-			   ifp->name, vrf_id, new_vrf_id);
+	if (IS_RIP_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+		struct vrf *nvrf = vrf_lookup_by_id(new_vrf_id);
+
+		zlog_debug("interface %s VRF change vrf %s(%u) new vrf %s(%u)",
+			   ifp->name, VRF_LOGNAME(vrf), vrf_id,
+			   VRF_LOGNAME(nvrf), new_vrf_id);
+	}
 
 	if_update_to_new_vrf(ifp, new_vrf_id);
 	rip_interface_sync(ifp);
@@ -1178,8 +1193,13 @@ int rip_show_network_config(struct vty *vty, struct rip *rip)
 	return 0;
 }
 
+static int rip_interface_config_write(struct vty *vty);
 static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ", 1,
+	.name = "interface",
+	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-if)# ",
+	.config_write = rip_interface_config_write,
 };
 
 void rip_interface_sync(struct interface *ifp)
@@ -1210,7 +1230,6 @@ static int rip_interface_delete_hook(struct interface *ifp)
 {
 	rip_interface_reset(ifp->info);
 	XFREE(MTYPE_RIP_INTERFACE, ifp->info);
-	ifp->info = NULL;
 	return 0;
 }
 
@@ -1222,7 +1241,7 @@ void rip_if_init(void)
 	hook_register_prio(if_del, 0, rip_interface_delete_hook);
 
 	/* Install interface node. */
-	install_node(&interface_node, rip_interface_config_write);
+	install_node(&interface_node);
 	if_cmd_init();
 	if_zapi_callbacks(rip_ifp_create, rip_ifp_up,
 			  rip_ifp_down, rip_ifp_destroy);

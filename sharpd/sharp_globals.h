@@ -28,9 +28,11 @@ struct sharp_routes {
 	/* The original prefix for route installation */
 	struct prefix orig_prefix;
 
-	/* The nexthop group we are using for installation */
+	/* The nexthop info we are using for installation */
 	struct nexthop nhop;
+	struct nexthop backup_nhop;
 	struct nexthop_group nhop_group;
+	struct nexthop_group backup_nhop_group;
 
 	uint32_t total_routes;
 	uint32_t installed_routes;

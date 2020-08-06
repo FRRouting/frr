@@ -305,8 +305,8 @@ void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb)
 		return;
 
 	debugf(NHRP_DEBUG_KERNEL, "PACKET: Send %s -> %s",
-	       sockunion2str(&p->vc->local.nbma, buf[0], sizeof buf[0]),
-	       sockunion2str(&p->vc->remote.nbma, buf[1], sizeof buf[1]));
+	       sockunion2str(&p->vc->local.nbma, buf[0], sizeof(buf[0])),
+	       sockunion2str(&p->vc->remote.nbma, buf[1], sizeof(buf[1])));
 
 	os_sendmsg(zb->head, zbuf_used(zb), p->ifp->ifindex,
 		   sockunion_get_addr(&p->vc->remote.nbma),
@@ -314,23 +314,29 @@ void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb)
 	zbuf_reset(zb);
 }
 
-static void nhrp_handle_resolution_req(struct nhrp_packet_parser *p)
+static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 {
+	struct interface *ifp = pp->ifp;
 	struct zbuf *zb, payload;
 	struct nhrp_packet_header *hdr;
 	struct nhrp_cie_header *cie;
 	struct nhrp_extension_header *ext;
-	struct nhrp_interface *nifp;
+	struct nhrp_cache *c;
+	union sockunion cie_nbma, cie_proto, *proto_addr, *nbma_addr;
+	int holdtime, prefix_len, hostprefix_len;
+	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_peer *peer;
+	size_t paylen;
+	char buf[SU_ADDRSTRLEN];
 
-	if (!(p->if_ad->flags & NHRP_IFF_SHORTCUT)) {
+	if (!(pp->if_ad->flags & NHRP_IFF_SHORTCUT)) {
 		debugf(NHRP_DEBUG_COMMON, "Shortcuts disabled");
 		/* FIXME: Send error indication? */
 		return;
 	}
 
-	if (p->if_ad->network_id && p->route_type == NHRP_ROUTE_OFF_NBMA
-	    && p->route_prefix.prefixlen < 8) {
+	if (pp->if_ad->network_id && pp->route_type == NHRP_ROUTE_OFF_NBMA
+	    && pp->route_prefix.prefixlen < 8) {
 		debugf(NHRP_DEBUG_COMMON,
 		       "Shortcut to more generic than /8 dropped");
 		return;
@@ -338,45 +344,101 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *p)
 
 	debugf(NHRP_DEBUG_COMMON, "Parsing and replying to Resolution Req");
 
-	if (nhrp_route_address(p->ifp, &p->src_proto, NULL, &peer)
+	if (nhrp_route_address(ifp, &pp->src_proto, NULL, &peer)
 	    != NHRP_ROUTE_NBMA_NEXTHOP)
 		return;
 
-#if 0
-	/* FIXME: Update requestors binding if CIE specifies holding time */
-	nhrp_cache_update_binding(
-			NHRP_CACHE_CACHED, &p->src_proto,
-			nhrp_peer_get(p->ifp, &p->src_nbma),
-			htons(cie->holding_time));
-#endif
+	/* Copy payload CIE */
+	hostprefix_len = 8 * sockunion_get_addrlen(&pp->if_ad->addr);
+	paylen = zbuf_used(&pp->payload);
+	debugf(NHRP_DEBUG_COMMON, "shortcut res_rep: paylen %zu", paylen);
 
-	nifp = peer->ifp->info;
+	while ((cie = nhrp_cie_pull(&pp->payload, pp->hdr, &cie_nbma,
+				    &cie_proto))
+	       != NULL) {
+		prefix_len = cie->prefix_length;
+		debugf(NHRP_DEBUG_COMMON,
+		       "shortcut res_rep: parsing CIE with prefixlen=%u",
+		       prefix_len);
+		if (prefix_len == 0 || prefix_len >= hostprefix_len)
+			prefix_len = hostprefix_len;
+
+		if (prefix_len != hostprefix_len
+		    && !(pp->hdr->flags
+			 & htons(NHRP_FLAG_REGISTRATION_UNIQUE))) {
+			cie->code = NHRP_CODE_BINDING_NON_UNIQUE;
+			continue;
+		}
+
+		/* We currently support only unique prefix registrations */
+		if (prefix_len != hostprefix_len) {
+			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
+			continue;
+		}
+
+		proto_addr = (sockunion_family(&cie_proto) == AF_UNSPEC)
+				     ? &pp->src_proto
+				     : &cie_proto;
+		nbma_addr = (sockunion_family(&cie_nbma) == AF_UNSPEC)
+				    ? &pp->src_nbma
+				    : &cie_nbma;
+
+		holdtime = htons(cie->holding_time);
+		debugf(NHRP_DEBUG_COMMON,
+		       "shortcut res_rep: holdtime is %u (if 0, using %u)",
+		       holdtime, pp->if_ad->holdtime);
+		if (!holdtime)
+			holdtime = pp->if_ad->holdtime;
+
+		c = nhrp_cache_get(ifp, proto_addr, 1);
+		if (!c) {
+			debugf(NHRP_DEBUG_COMMON,
+			       "shortcut res_rep: no cache found");
+			cie->code = NHRP_CODE_INSUFFICIENT_RESOURCES;
+			continue;
+		}
+		if (nbma_addr)
+			sockunion2str(nbma_addr, buf, sizeof(buf));
+
+		debugf(NHRP_DEBUG_COMMON,
+		       "shortcut res_rep: updating binding for nmba addr %s",
+		       nbma_addr ? buf : "(NULL)");
+		if (!nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC, holdtime,
+					       nhrp_peer_ref(pp->peer),
+					       htons(cie->mtu), nbma_addr)) {
+			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
+			continue;
+		}
+
+		cie->code = NHRP_CODE_SUCCESS;
+	}
 
 	/* Create reply */
 	zb = zbuf_alloc(1500);
-	hdr = nhrp_packet_push(zb, NHRP_PACKET_RESOLUTION_REPLY, &p->src_nbma,
-			       &p->src_proto, &p->dst_proto);
+	hdr = nhrp_packet_push(zb, NHRP_PACKET_RESOLUTION_REPLY, &pp->src_nbma,
+			       &pp->src_proto, &pp->dst_proto);
 
 	/* Copied information from request */
-	hdr->flags =
-		p->hdr->flags & htons(NHRP_FLAG_RESOLUTION_SOURCE_IS_ROUTER
-				      | NHRP_FLAG_RESOLUTION_SOURCE_STABLE);
+	hdr->flags = pp->hdr->flags
+		     & htons(NHRP_FLAG_RESOLUTION_SOURCE_IS_ROUTER
+			     | NHRP_FLAG_RESOLUTION_SOURCE_STABLE);
 	hdr->flags |= htons(NHRP_FLAG_RESOLUTION_DESTINATION_STABLE
 			    | NHRP_FLAG_RESOLUTION_AUTHORATIVE);
-	hdr->u.request_id = p->hdr->u.request_id;
+	hdr->u.request_id = pp->hdr->u.request_id;
 
-	/* CIE payload */
+	/* CIE payload for the reply packet */
 	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &nifp->nbma,
-			    &p->if_ad->addr);
-	cie->holding_time = htons(p->if_ad->holdtime);
-	cie->mtu = htons(p->if_ad->mtu);
-	if (p->if_ad->network_id && p->route_type == NHRP_ROUTE_OFF_NBMA)
-		cie->prefix_length = p->route_prefix.prefixlen;
+			    &pp->if_ad->addr);
+	cie->holding_time = htons(pp->if_ad->holdtime);
+	cie->mtu = htons(pp->if_ad->mtu);
+	if (pp->if_ad->network_id && pp->route_type == NHRP_ROUTE_OFF_NBMA)
+		cie->prefix_length = pp->route_prefix.prefixlen;
 	else
-		cie->prefix_length = 8 * sockunion_get_addrlen(&p->if_ad->addr);
+		cie->prefix_length =
+			8 * sockunion_get_addrlen(&pp->if_ad->addr);
 
 	/* Handle extensions */
-	while ((ext = nhrp_ext_pull(&p->extensions, &payload)) != NULL) {
+	while ((ext = nhrp_ext_pull(&pp->extensions, &payload)) != NULL) {
 		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
 		case NHRP_EXTENSION_NAT_ADDRESS:
 			if (sockunion_family(&nifp->nat_nbma) == AF_UNSPEC)
@@ -386,13 +448,13 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *p)
 			if (!ext)
 				goto err;
 			cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
-					    &nifp->nat_nbma, &p->if_ad->addr);
+					    &nifp->nat_nbma, &pp->if_ad->addr);
 			if (!cie)
 				goto err;
 			nhrp_ext_complete(zb, ext);
 			break;
 		default:
-			if (nhrp_ext_reply(zb, hdr, p->ifp, ext, &payload) < 0)
+			if (nhrp_ext_reply(zb, hdr, ifp, ext, &payload) < 0)
 				goto err;
 			break;
 		}
@@ -584,15 +646,15 @@ void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 		debugf(NHRP_DEBUG_COMMON,
 		       "Send Traffic Indication to %s about packet to %s ignored",
 		       sockunion2str(&p->vc->remote.nbma, buf[0],
-				     sizeof buf[0]),
-		       sockunion2str(&dst, buf[1], sizeof buf[1]));
+				     sizeof(buf[0])),
+		       sockunion2str(&dst, buf[1], sizeof(buf[1])));
 		return;
 	}
 
 	debugf(NHRP_DEBUG_COMMON,
 	       "Send Traffic Indication to %s (online=%d) about packet to %s",
-	       sockunion2str(&p->vc->remote.nbma, buf[0], sizeof buf[0]),
-	       p->online, sockunion2str(&dst, buf[1], sizeof buf[1]));
+	       sockunion2str(&p->vc->remote.nbma, buf[0], sizeof(buf[0])),
+	       p->online, sockunion2str(&dst, buf[1], sizeof(buf[1])));
 
 	/* Create reply */
 	zb = zbuf_alloc(1500);
@@ -622,8 +684,8 @@ static void nhrp_handle_error_ind(struct nhrp_packet_parser *pp)
 
 	debugf(NHRP_DEBUG_COMMON,
 	       "Error Indication from %s about packet to %s ignored",
-	       sockunion2str(&pp->src_proto, buf[0], sizeof buf[0]),
-	       sockunion2str(&dst_proto, buf[1], sizeof buf[1]));
+	       sockunion2str(&pp->src_proto, buf[0], sizeof(buf[0])),
+	       sockunion2str(&dst_proto, buf[1], sizeof(buf[1])));
 
 	reqid = nhrp_reqid_lookup(&nhrp_packet_reqid, htonl(hdr->u.request_id));
 	if (reqid)
@@ -641,8 +703,8 @@ static void nhrp_handle_traffic_ind(struct nhrp_packet_parser *p)
 
 	debugf(NHRP_DEBUG_COMMON,
 	       "Traffic Indication from %s about packet to %s: %s",
-	       sockunion2str(&p->src_proto, buf[0], sizeof buf[0]),
-	       sockunion2str(&dst, buf[1], sizeof buf[1]),
+	       sockunion2str(&p->src_proto, buf[0], sizeof(buf[0])),
+	       sockunion2str(&dst, buf[1], sizeof(buf[1])),
 	       (p->if_ad->flags & NHRP_IFF_SHORTCUT) ? "trying shortcut"
 						     : "ignored");
 
@@ -657,7 +719,7 @@ enum packet_type_t {
 	PACKET_INDICATION,
 };
 
-static const struct {
+static struct {
 	enum packet_type_t type;
 	const char *name;
 	void (*handler)(struct nhrp_packet_parser *);
@@ -755,10 +817,9 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 			if ((type == NHRP_EXTENSION_REVERSE_TRANSIT_NHS)
 			    == (packet_types[hdr->type].type == PACKET_REPLY)) {
 				/* Check NHS list for forwarding loop */
-				while ((cie = nhrp_cie_pull(&extpl, pp->hdr,
-							    &cie_nbma,
-							    &cie_protocol))
-				       != NULL) {
+				while (nhrp_cie_pull(&extpl, pp->hdr,
+						     &cie_nbma,
+						     &cie_protocol) != NULL) {
 					if (sockunion_same(&p->vc->remote.nbma,
 							   &cie_nbma))
 						goto err;
@@ -810,8 +871,8 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
 	zbuf_init(&zhdr, zb->buf, zb->tail - zb->buf, zb->tail - zb->buf);
 	hdr = nhrp_packet_pull(&zhdr, &src_nbma, &src_proto, &dst_proto);
 
-	sockunion2str(&src_proto, buf[0], sizeof buf[0]);
-	sockunion2str(&dst_proto, buf[1], sizeof buf[1]);
+	sockunion2str(&src_proto, buf[0], sizeof(buf[0]));
+	sockunion2str(&dst_proto, buf[1], sizeof(buf[1]));
 
 	reply = packet_types[hdr->type].type == PACKET_REPLY;
 	debugf(NHRP_DEBUG_COMMON, "%s %s(%d) %s -> %s", dir,
@@ -853,8 +914,8 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	afi_t nbma_afi, proto_afi;
 
 	debugf(NHRP_DEBUG_KERNEL, "PACKET: Recv %s -> %s",
-	       sockunion2str(&vc->remote.nbma, buf[0], sizeof buf[0]),
-	       sockunion2str(&vc->local.nbma, buf[1], sizeof buf[1]));
+	       sockunion2str(&vc->remote.nbma, buf[0], sizeof(buf[0])),
+	       sockunion2str(&vc->local.nbma, buf[1], sizeof(buf[1])));
 
 	if (!p->online) {
 		info = "peer not online";
@@ -886,7 +947,7 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	    || htons(hdr->packet_size) > realsize) {
 		zlog_info(
 			"From %s: error: packet type %d, version %d, AFI %d, proto %x, size %d (real size %d)",
-			sockunion2str(&vc->remote.nbma, buf[0], sizeof buf[0]),
+			sockunion2str(&vc->remote.nbma, buf[0], sizeof(buf[0])),
 			(int)hdr->type, (int)hdr->version, (int)nbma_afi,
 			(int)htons(hdr->protocol_type),
 			(int)htons(hdr->packet_size), (int)realsize);
@@ -896,11 +957,17 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 
 	extoff = htons(hdr->extension_offset);
 	if (extoff) {
+		assert(zb->head > zb->buf);
+		uint32_t header_offset = zb->head - zb->buf;
 		if (extoff >= realsize) {
 			info = "extoff larger than packet";
 			goto drop;
 		}
-		paylen = extoff - (zb->head - zb->buf);
+		if (extoff < header_offset) {
+			info = "extoff smaller than header offset";
+			goto drop;
+		}
+		paylen = extoff - header_offset;
 	} else {
 		paylen = zbuf_used(zb);
 	}
@@ -961,7 +1028,7 @@ drop:
 	if (info) {
 		zlog_info(
 			"From %s: error: %s",
-			sockunion2str(&vc->remote.nbma, buf[0], sizeof buf[0]),
+			sockunion2str(&vc->remote.nbma, buf[0], sizeof(buf[0])),
 			info);
 	}
 	if (peer)

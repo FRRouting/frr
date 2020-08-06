@@ -414,7 +414,28 @@ Require policy on EBGP
 .. index:: [no] bgp ebgp-requires-policy
 .. clicmd:: [no] bgp ebgp-requires-policy
 
-   This command requires incoming and outgoing filters to be applied for eBGP sessions. Without the incoming filter, no routes will be accepted. Without the outgoing filter, no routes will be announced.
+   This command requires incoming and outgoing filters to be applied
+   for eBGP sessions. Without the incoming filter, no routes will be
+   accepted. Without the outgoing filter, no routes will be announced.
+
+   This is enabled by default.
+
+   When the incoming or outgoing filter is missing you will see
+   "(Policy)" sign under ``show bgp summary``:
+
+   .. code-block:: frr
+
+      exit1# show bgp summary
+
+      IPv4 Unicast Summary:
+      BGP router identifier 10.10.10.1, local AS number 65001 vrf-id 0
+      BGP table version 4
+      RIB entries 7, using 1344 bytes of memory
+      Peers 2, using 43 KiB of memory
+
+      Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt
+      192.168.0.2     4      65002         8        10        0    0    0 00:03:09            5 (Policy)
+      fe80:1::2222    4      65002         9        11        0    0    0 00:03:09     (Policy) (Policy)
 
 Reject routes with AS_SET or AS_CONFED_SET types
 ------------------------------------------------
@@ -423,6 +444,16 @@ Reject routes with AS_SET or AS_CONFED_SET types
 .. clicmd:: [no] bgp reject-as-sets
 
    This command enables rejection of incoming and outgoing routes having AS_SET or AS_CONFED_SET type.
+
+Disable checking if nexthop is connected on EBGP sessions
+---------------------------------------------------------
+
+.. index:: [no] bgp disable-ebgp-connected-route-check
+.. clicmd:: [no] bgp disable-ebgp-connected-route-check
+
+   This command is used to disable the connection verification process for EBGP peering sessions
+   that are reachable by a single hop but are configured on a loopback interface or otherwise
+   configured with a non-directly connected IP address.
 
 .. _bgp-route-flap-dampening:
 
@@ -694,6 +725,181 @@ from eBGP peers, :ref:`bgp-route-selection`.
    MED as an intra-AS metric to steer equal-length AS_PATH routes to, e.g.,
    desired exit points.
 
+
+.. _bgp-graceful-restart:
+
+Graceful Restart
+----------------
+
+BGP graceful restart functionality as defined in
+`RFC-4724 <https://tools.ietf.org/html/rfc4724/>`_ defines the mechanisms that
+allows BGP speaker to continue to forward data packets along known routes
+while the routing protocol information is being restored.
+
+
+Usually, when BGP on a router restarts, all the BGP peers detect that the
+session went down and then came up. This "down/up" transition results in a
+"routing flap" and causes BGP route re-computation, generation of BGP routing
+updates, and unnecessary churn to the forwarding tables.
+
+The following functionality is provided by graceful restart:
+
+1. The feature allows the restarting router to indicate to the helping peer the
+   routes it can preserve in its forwarding plane during control plane restart
+   by sending graceful restart capability in the OPEN message sent during
+   session establishment.
+2. The feature allows helping router to advertise to all other peers the routes
+   received from the restarting router which are preserved in the forwarding
+   plane of the restarting router during control plane restart.
+
+
+::
+
+
+
+ (R1)-----------------------------------------------------------------(R2)
+
+ 1. BGP Graceful Restart Capability exchanged between R1 & R2.
+
+ <--------------------------------------------------------------------->
+
+ 2. Kill BGP Process at R1.
+
+ ---------------------------------------------------------------------->
+
+ 3. R2 Detects the above BGP Restart & verifies BGP Restarting
+   Capability of R1.
+
+ 4. Start BGP Process at R1.
+
+ 5. Re-establish the BGP session between R1 & R2.
+
+ <--------------------------------------------------------------------->
+
+ 6. R2 Send initial route updates, followed by End-Of-Rib.
+
+ <----------------------------------------------------------------------
+
+ 7. R1 was waiting for End-Of-Rib from R2 & which has been received
+   now.
+
+ 8. R1 now runs BGP Best-Path algorithm. Send Initial BGP  Update,
+   followed by End-Of Rib
+
+ <--------------------------------------------------------------------->
+
+
+.. _bgp-end-of-rib-message:
+
+End-of-RIB (EOR) message
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+An UPDATE message with no reachable Network Layer Reachability  Information
+(NLRI) and empty withdrawn NLRI is specified as the End-of-RIB marker that can
+be used by a BGP speaker to indicate to its peer the completion of the initial
+routing update after the session is established.
+
+For the IPv4 unicast address family, the End-of-RIB marker is an UPDATE message
+with the minimum length. For any other address family, it is an UPDATE message
+that contains only the MP_UNREACH_NLRI attribute with no withdrawn routes for
+that <AFI, SAFI>.
+
+Although the End-of-RIB marker is specified for the purpose of BGP graceful
+restart, it is noted that the generation of such a marker upon completion of
+the initial update would be useful for routing convergence in general, and thus
+the practice is recommended.
+
+.. _bgp-route-selection-deferral-timer:
+
+Route Selection Deferral Timer
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Specifies the time the restarting router defers the route selection process
+after restart.
+
+Restarting Router : The usage of route election deferral timer is specified
+in https://tools.ietf.org/html/rfc4724#section-4.1
+
+Once the session between the Restarting Speaker and the Receiving Speaker is
+re-established, the Restarting Speaker will receive and process BGP messages
+from its peers.
+
+However, it MUST defer route selection for an address family until it either.
+
+1. Receives the End-of-RIB marker from all its peers (excluding the ones with
+   the "Restart State" bit set in the received capability and excluding the ones
+   that do not advertise the graceful restart capability).
+2. The Selection_Deferral_Timer timeout.
+
+.. index:: bgp graceful-restart select-defer-time (0-3600)
+.. clicmd:: bgp graceful-restart select-defer-time (0-3600)
+
+   This is command, will set deferral time to value specified.
+
+
+.. index:: bgp graceful-restart rib-stale-time (1-3600)
+.. clicmd:: bgp graceful-restart rib-stale-time (1-3600)
+
+   This is command, will set the time for which stale routes are kept in RIB.
+
+.. _bgp-per-peer-graceful-restart:
+
+BGP Per Peer Graceful Restart
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Ability to enable and disable graceful restart, helper and no GR at all mode
+functionality at peer level.
+
+So bgp graceful restart can be enabled at modes  global BGP level or at per
+peer level. There are two FSM, one for BGP GR global mode and other for peer
+per GR.
+
+Default global mode is helper and default peer per mode is inherit from global.
+If per peer mode is configured, the GR mode of this particular peer will
+override the global mode.
+
+.. _bgp-GR-global-mode-cmd:
+
+BGP GR Global Mode Commands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. index:: bgp graceful-restart
+.. clicmd:: bgp graceful-restart
+
+   This command will enable BGP graceful restart ifunctionality at the global
+   level.
+
+.. index:: bgp graceful-restart disable
+.. clicmd:: bgp graceful-restart disable
+
+   This command will disable both the functionality graceful restart and helper
+   mode.
+
+
+.. _bgp-GR-peer-mode-cmd:
+
+BGP GR Peer Mode Commands
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. index:: neighbor A.B.C.D graceful-restart
+.. clicmd:: neighbor A.B.C.D graceful-restart
+
+   This command will enable BGP graceful restart ifunctionality at the peer
+   level.
+
+.. index:: neighbor A.B.C.D graceful-restart-helper
+.. clicmd:: neighbor A.B.C.D graceful-restart-helper
+
+   This command will enable BGP graceful restart helper only functionality
+   at the peer level.
+
+.. index:: neighbor A.B.C.D graceful-restart-disable
+.. clicmd:: neighbor A.B.C.D graceful-restart-disable
+
+   This command will disable the entire BGP graceful restart functionality
+   at the peer level.
+
+
 .. _bgp-network:
 
 Networks
@@ -719,6 +925,17 @@ Networks
 .. index:: no network A.B.C.D/M
 .. clicmd:: no network A.B.C.D/M
 
+.. index:: [no] bgp network import-check
+.. clicmd:: [no] bgp network import-check
+
+   This configuration modifies the behavior of the network statement.
+   If you have this configured the underlying network must exist in
+   the rib.  If you have the [no] form configured then BGP will not
+   check for the networks existence in the rib.  For versions 7.3 and
+   before frr defaults for datacenter were the network must exist,
+   traditional did not check for existence.  For versions 7.4 and beyond
+   both traditional and datacenter the network must exist.
+
 .. _bgp-route-aggregation:
 
 Route Aggregation
@@ -738,6 +955,11 @@ Route Aggregation-IPv4 Address Family
 .. clicmd:: aggregate-address A.B.C.D/M route-map NAME
 
    Apply a route-map for an aggregated prefix.
+
+.. index:: aggregate-address A.B.C.D/M origin <egp|igp|incomplete>
+.. clicmd:: aggregate-address A.B.C.D/M origin <egp|igp|incomplete>
+
+   Override ORIGIN for an aggregated prefix.
 
 .. index:: aggregate-address A.B.C.D/M as-set
 .. clicmd:: aggregate-address A.B.C.D/M as-set
@@ -785,6 +1007,11 @@ Route Aggregation-IPv6 Address Family
 .. clicmd:: aggregate-address X:X::X:X/M route-map NAME
 
    Apply a route-map for an aggregated prefix.
+
+.. index:: aggregate-address X:X::X:X/M origin <egp|igp|incomplete>
+.. clicmd:: aggregate-address X:X::X:X/M origin <egp|igp|incomplete>
+
+   Override ORIGIN for an aggregated prefix.
 
 .. index:: aggregate-address X:X::X:X/M as-set
 .. clicmd:: aggregate-address X:X::X:X/M as-set
@@ -1020,6 +1247,14 @@ Configuring Peers
    keyword `all` is specified the modification is done also for routes learned
    via iBGP.
 
+.. index:: neighbor PEER attribute-unchanged [{as-path|next-hop|med}]
+.. clicmd:: neighbor PEER attribute-unchanged [{as-path|next-hop|med}]
+
+   This command specifies attributes to be left unchanged for advertisements
+   sent to a peer. Use this to leave the next-hop unchanged in ipv6
+   configurations, as the route-map directive to leave the next-hop unchanged
+   is only available for ipv4.
+
 .. index:: [no] neighbor PEER update-source <IFNAME|ADDRESS>
 .. clicmd:: [no] neighbor PEER update-source <IFNAME|ADDRESS>
 
@@ -1074,6 +1309,11 @@ Configuring Peers
    rejecting undesired prefixes. The prefix-list method is also much more
    granular and offers much smarter matching criterion than number of received
    prefixes, making it more suited to implementing policy.
+
+.. index:: [no] neighbor PEER maximum-prefix-out NUMBER
+.. clicmd:: [no] neighbor PEER maximum-prefix-out NUMBER
+
+   Sets a maximum number of prefixes we can send to a given peer.
 
 .. index:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
 .. clicmd:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
@@ -1265,6 +1505,17 @@ AS path access list is user defined AS path.
 
 .. index:: no bgp as-path access-list WORD permit|deny LINE
 .. clicmd:: no bgp as-path access-list WORD permit|deny LINE
+
+.. _bgp-bogon-filter-example:
+
+Bogon ASN filter policy configuration example
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: frr
+
+   bgp as-path access-list 99 permit _0_
+   bgp as-path access-list 99 permit _23456_
+   bgp as-path access-list 99 permit _1310[0-6][0-9]_|_13107[0-1]_
 
 .. _bgp-using-as-path-in-route-map:
 
@@ -1789,6 +2040,18 @@ BGP Extended Communities in Route Map
 
    This command set Site of Origin value.
 
+.. index:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
+.. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
+
+   This command sets the BGP link-bandwidth extended community for the prefix
+   (best path) for which it is applied. The link-bandwidth can be specified as
+   an ``explicit value`` (specified in Mbps), or the router can be told to use
+   the ``cumulative bandwidth`` of all multipaths for the prefix or to compute
+   it based on the ``number of multipaths``.  The link bandwidth extended
+   community is encoded as ``transitive`` unless the set command explicitly
+   configures it as ``non-transitive``.
+
+.. seealso:: :ref:`wecmp_linkbw`
 
 Note that the extended expanded community is only used for `match` rule, not for
 `set` actions.
@@ -2204,6 +2467,12 @@ Debugging
 
    Show all enabled debugs.
 
+.. index:: show bgp listeners
+.. clicmd:: show bgp listeners
+
+   Display Listen sockets and the vrf that created them.  Useful for debugging of when
+   listen is not working and this is considered a developer debug statement.
+
 .. index:: [no] debug bgp neighbor-events
 .. clicmd:: [no] debug bgp neighbor-events
 
@@ -2420,7 +2689,14 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    These commands display BGP routes for the specific routing table indicated by
    the selected afi and the selected safi. If no afi and no safi value is given,
-   the command falls back to the default IPv6 routing table
+   the command falls back to the default IPv6 routing table.
+   For EVPN prefixes, you can display the full BGP table for this AFI/SAFI
+   using the standard `show bgp [afi] [safi]` syntax.
+
+.. index:: show bgp l2vpn evpn route [type <macip|2|multicast|3|es|4|prefix|5>]
+.. clicmd:: show bgp l2vpn evpn route [type <macip|2|multicast|3|es|4|prefix|5>]
+
+   Additionally, you can also filter this output by route type.
 
 .. index:: show bgp [afi] [safi] summary
 .. clicmd:: show bgp [afi] [safi] summary
@@ -2450,6 +2726,16 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 .. clicmd:: show bgp [afi] [safi] dampening flap-statistics
 
    Display flap statistics of routes of the selected afi and safi selected.
+
+.. index:: show bgp [afi] [safi] statistics
+.. clicmd:: show bgp [afi] [safi] statistics
+
+   Display statistics of routes of the selected afi and safi.
+
+.. index:: show bgp statistics-all
+.. clicmd:: show bgp statistics-all
+
+   Display statistics of routes of all the afi and safi.
 
 .. _bgp-display-routes-by-community:
 
@@ -2937,6 +3223,8 @@ Example of how to set up a 6-Bone connection.
 .. include:: routeserver.rst
 
 .. include:: rpki.rst
+
+.. include:: wecmp_linkbw.rst
 
 .. include:: flowspec.rst
 

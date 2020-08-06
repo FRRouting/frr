@@ -84,7 +84,7 @@ static void _display_peer_header(struct vty *vty, struct bfd_session *bs)
 		inet_ntop(bs->key.family, &bs->key.peer, addr_buf,
 			  sizeof(addr_buf)));
 
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 		vty_out(vty, " multihop");
 
 	if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local)))
@@ -143,7 +143,7 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 	vty_out(vty, "\t\tDiagnostics: %s\n", diag2str(bs->local_diag));
 	vty_out(vty, "\t\tRemote diagnostics: %s\n", diag2str(bs->remote_diag));
 	vty_out(vty, "\t\tPeer Type: %s\n",
-		BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? "configured" : "dynamic");
+		CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? "configured" : "dynamic");
 
 	vty_out(vty, "\t\tLocal timers:\n");
 	vty_out(vty, "\t\t\tDetect-multiplier: %" PRIu32 "\n",
@@ -235,7 +235,7 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 			    bs->timers.required_min_rx / 1000);
 	json_object_int_add(jo, "transmit-interval",
 			    bs->timers.desired_min_tx / 1000);
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 		json_object_int_add(jo, "echo-interval",
 				    bs->timers.required_min_echo / 1000);
 	else
@@ -305,7 +305,7 @@ static void _display_peer_json_iter(struct hash_bucket *hb, void *arg)
 
 	jon = __display_peer_json(bs);
 	if (jon == NULL) {
-		log_warning("%s: not enough memory", __func__);
+		zlog_warn("%s: not enough memory", __func__);
 		return;
 	}
 
@@ -415,7 +415,7 @@ static void _display_peer_counter_json_iter(struct hash_bucket *hb, void *arg)
 
 	jon = __display_peer_counters_json(bs);
 	if (jon == NULL) {
-		log_warning("%s: not enough memory", __func__);
+		zlog_warn("%s: not enough memory", __func__);
 		return;
 	}
 
@@ -457,7 +457,7 @@ static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
 {
 	char addr_buf[INET6_ADDRSTRLEN];
 
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
 		vty_out(vty, "%-10u", bs->discrs.my_discr);
 		inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
 		vty_out(vty, " %-40s", addr_buf);
@@ -474,7 +474,7 @@ static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
 	}
 }
 
-static void _display_peer_brief_iter(struct hash_backet *hb, void *arg)
+static void _display_peer_brief_iter(struct hash_bucket *hb, void *arg)
 {
 	struct bfd_vrf_tuple *bvt = arg;
 	struct vty *vty;
@@ -500,7 +500,7 @@ static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_
 
 	bvt.vrfname = vrfname;
 
-	if (use_json == false) {
+	if (!use_json) {
 		bvt.vty = vty;
 
 		vty_out(vty, "Session count: %lu\n", bfd_get_session_count());
@@ -738,6 +738,42 @@ DEFPY(bfd_show_peers_brief, bfd_show_peers_brief_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(
+	bfd_debug_peer, bfd_debug_peer_cmd,
+	"[no] debug bfd peer",
+	NO_STR
+	DEBUG_STR
+	"Bidirection Forwarding Detection\n"
+	"Peer events debugging\n")
+{
+	bglobal.debug_peer_event = !no;
+	return CMD_SUCCESS;
+}
+
+DEFPY(
+	bfd_debug_zebra, bfd_debug_zebra_cmd,
+	"[no] debug bfd zebra",
+	NO_STR
+	DEBUG_STR
+	"Bidirection Forwarding Detection\n"
+	"Zebra events debugging\n")
+{
+	bglobal.debug_zebra = !no;
+	return CMD_SUCCESS;
+}
+
+DEFPY(
+	bfd_debug_network, bfd_debug_network_cmd,
+	"[no] debug bfd network",
+	NO_STR
+	DEBUG_STR
+	"Bidirection Forwarding Detection\n"
+	"Network layer debugging\n")
+{
+	bglobal.debug_network = !no;
+	return CMD_SUCCESS;
+}
+
 /*
  * Function definitions.
  */
@@ -842,26 +878,51 @@ DEFUN_NOSH(show_debugging_bfd,
 	   "BFD daemon\n")
 {
 	vty_out(vty, "BFD debugging status:\n");
+	if (bglobal.debug_peer_event)
+		vty_out(vty, "  Peer events debugging is on.\n");
+	if (bglobal.debug_zebra)
+		vty_out(vty, "  Zebra events debugging is on.\n");
+	if (bglobal.debug_network)
+		vty_out(vty, "  Network layer debugging is on.\n");
 
 	return CMD_SUCCESS;
 }
 
+static int bfdd_write_config(struct vty *vty);
 struct cmd_node bfd_node = {
-	BFD_NODE,
-	"%s(config-bfd)# ",
-	1,
+	.name = "bfd",
+	.node = BFD_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-bfd)# ",
+	.config_write = bfdd_write_config,
 };
 
 struct cmd_node bfd_peer_node = {
-	BFD_PEER_NODE,
-	"%s(config-bfd-peer)# ",
-	1,
+	.name = "bfd peer",
+	.node = BFD_PEER_NODE,
+	.parent_node = BFD_NODE,
+	.prompt = "%s(config-bfd-peer)# ",
 };
 
 static int bfdd_write_config(struct vty *vty)
 {
 	struct lyd_node *dnode;
 	int written = 0;
+
+	if (bglobal.debug_peer_event) {
+		vty_out(vty, "debug bfd peer\n");
+		written = 1;
+	}
+
+	if (bglobal.debug_zebra) {
+		vty_out(vty, "debug bfd zebra\n");
+		written = 1;
+	}
+
+	if (bglobal.debug_network) {
+		vty_out(vty, "debug bfd network\n");
+		written = 1;
+	}
 
 	dnode = yang_dnode_get(running_config->dnode, "/frr-bfdd:bfdd");
 	if (dnode) {
@@ -882,12 +943,20 @@ void bfdd_vty_init(void)
 	install_element(ENABLE_NODE, &bfd_show_peers_brief_cmd);
 	install_element(ENABLE_NODE, &show_debugging_bfd_cmd);
 
+	install_element(ENABLE_NODE, &bfd_debug_peer_cmd);
+	install_element(ENABLE_NODE, &bfd_debug_zebra_cmd);
+	install_element(ENABLE_NODE, &bfd_debug_network_cmd);
+
+	install_element(CONFIG_NODE, &bfd_debug_peer_cmd);
+	install_element(CONFIG_NODE, &bfd_debug_zebra_cmd);
+	install_element(CONFIG_NODE, &bfd_debug_network_cmd);
+
 	/* Install BFD node and commands. */
-	install_node(&bfd_node, bfdd_write_config);
+	install_node(&bfd_node);
 	install_default(BFD_NODE);
 
 	/* Install BFD peer node. */
-	install_node(&bfd_peer_node, NULL);
+	install_node(&bfd_peer_node);
 	install_default(BFD_PEER_NODE);
 
 	bfdd_cli_init();

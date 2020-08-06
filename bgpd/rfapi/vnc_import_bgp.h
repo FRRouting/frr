@@ -32,12 +32,14 @@
 
 extern uint32_t calc_local_pref(struct attr *attr, struct peer *peer);
 
-extern int vnc_prefix_cmp(void *pfx1, void *pfx2);
+extern int vnc_prefix_cmp(const void *pfx1, const void *pfx2);
 
-extern void vnc_import_bgp_add_route(struct bgp *bgp, struct prefix *prefix,
+extern void vnc_import_bgp_add_route(struct bgp *bgp,
+				     const struct prefix *prefix,
 				     struct bgp_path_info *info);
 
-extern void vnc_import_bgp_del_route(struct bgp *bgp, struct prefix *prefix,
+extern void vnc_import_bgp_del_route(struct bgp *bgp,
+				     const struct prefix *prefix,
 				     struct bgp_path_info *info);
 
 extern void vnc_import_bgp_redist_enable(struct bgp *bgp, afi_t afi);
@@ -51,23 +53,23 @@ extern void vnc_import_bgp_exterior_redist_disable(struct bgp *bgp, afi_t afi);
 
 extern void vnc_import_bgp_exterior_add_route(
 	struct bgp *bgp,	     /* exterior instance, we hope */
-	struct prefix *prefix,       /* unicast prefix */
+	const struct prefix *prefix, /* unicast prefix */
 	struct bgp_path_info *info); /* unicast info */
 
 extern void vnc_import_bgp_exterior_del_route(
-	struct bgp *bgp, struct prefix *prefix, /* unicast prefix */
-	struct bgp_path_info *info);		/* unicast info */
+	struct bgp *bgp, const struct prefix *prefix, /* unicast prefix */
+	struct bgp_path_info *info);		      /* unicast info */
 
 extern void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 	struct bgp *bgp, struct prefix_rd *prd, /* RD */
 	struct bgp_table *table_rd,		/* per-rd VPN route table */
-	struct prefix *prefix,			/* VPN prefix */
+	const struct prefix *prefix,		/* VPN prefix */
 	struct bgp_path_info *bpi);		/* new VPN host route */
 
 extern void vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 	struct bgp *bgp, struct prefix_rd *prd, /* RD */
 	struct bgp_table *table_rd,		/* per-rd VPN route table */
-	struct prefix *prefix,			/* VPN prefix */
+	const struct prefix *prefix,		/* VPN prefix */
 	struct bgp_path_info *bpi);		/* old VPN host route */
 
 #endif /* _QUAGGA_RFAPI_VNC_IMPORT_BGP_H_ */

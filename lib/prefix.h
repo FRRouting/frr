@@ -451,8 +451,7 @@ extern uint8_t ip_masklen(struct in_addr);
 extern void masklen2ip(const int, struct in_addr *);
 /* given the address of a host on a network and the network mask length,
  * calculate the broadcast address for that network;
- * special treatment for /31: returns the address of the other host
- * on the network by flipping the host bit */
+ * special treatment for /31 according to RFC3021 section 3.3 */
 extern in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen);
 
 extern int netmask_str2prefix_str(const char *, const char *, char *);
@@ -471,6 +470,8 @@ extern void masklen2ip6(const int, struct in6_addr *);
 extern const char *inet6_ntoa(struct in6_addr);
 
 extern int is_zero_mac(const struct ethaddr *mac);
+extern bool is_mcast_mac(const struct ethaddr *mac);
+extern bool is_bcast_mac(const struct ethaddr *mac);
 extern int prefix_str2mac(const char *str, struct ethaddr *mac);
 extern char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size);
 
@@ -521,7 +522,7 @@ static inline int is_default_prefix(const struct prefix *p)
 	return 0;
 }
 
-static inline int is_host_route(struct prefix *p)
+static inline int is_host_route(const struct prefix *p)
 {
 	if (p->family == AF_INET)
 		return (p->prefixlen == IPV4_MAX_BITLEN);
@@ -530,7 +531,7 @@ static inline int is_host_route(struct prefix *p)
 	return 0;
 }
 
-static inline int is_default_host_route(struct prefix *p)
+static inline int is_default_host_route(const struct prefix *p)
 {
 	if (p->family == AF_INET) {
 		return (p->u.prefix4.s_addr == INADDR_ANY &&
@@ -542,6 +543,22 @@ static inline int is_default_host_route(struct prefix *p)
 	}
 	return 0;
 }
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pI4"  (struct in_addr *)
+#pragma FRR printfrr_ext "%pI4"  (in_addr_t *)
+
+#pragma FRR printfrr_ext "%pI6"  (struct in6_addr *)
+
+#pragma FRR printfrr_ext "%pFX"  (struct prefix *)
+#pragma FRR printfrr_ext "%pFX"  (struct prefix_ipv4 *)
+#pragma FRR printfrr_ext "%pFX"  (struct prefix_ipv6 *)
+#pragma FRR printfrr_ext "%pFX"  (struct prefix_eth *)
+#pragma FRR printfrr_ext "%pFX"  (struct prefix_evpn *)
+#pragma FRR printfrr_ext "%pFX"  (struct prefix_fs *)
+
+#pragma FRR printfrr_ext "%pSG4" (struct prefix_sg *)
+#endif
 
 #ifdef __cplusplus
 }

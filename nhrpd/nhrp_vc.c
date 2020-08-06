@@ -142,8 +142,8 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 		sa->vc->abort_migration = 0;
 		debugf(NHRP_DEBUG_COMMON, "IPsec NBMA change of %s to %s",
 		       sockunion2str(&sa->vc->remote.nbma, buf[0],
-				     sizeof buf[0]),
-		       sockunion2str(&vc->remote.nbma, buf[1], sizeof buf[1]));
+				     sizeof(buf[0])),
+		       sockunion2str(&vc->remote.nbma, buf[1], sizeof(buf[1])));
 		nhrp_vc_update(sa->vc, NOTIFY_VC_IPSEC_UPDATE_NBMA);
 		abort_migration = sa->vc->abort_migration;
 	}

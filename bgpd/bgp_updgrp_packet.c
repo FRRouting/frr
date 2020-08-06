@@ -226,11 +226,11 @@ unsigned int bpacket_queue_hwm_length(struct bpacket_queue *q)
 	return q->hwm_count - 1;
 }
 
-int bpacket_queue_is_full(struct bgp *bgp, struct bpacket_queue *q)
+bool bpacket_queue_is_full(struct bgp *bgp, struct bpacket_queue *q)
 {
 	if (q->curr_count >= bgp->default_subgroup_pkt_queue_max)
-		return 1;
-	return 0;
+		return true;
+	return false;
 }
 
 void bpacket_add_peer(struct bpacket *pkt, struct peer_af *paf)
@@ -330,8 +330,6 @@ void bpacket_queue_remove_peer(struct peer_af *paf)
 
 	q = PAF_PKTQ(paf);
 	assert(q);
-	if (!q)
-		return;
 
 	LIST_REMOVE(paf, pkt_train);
 	paf->next_pkt_to_send = NULL;
@@ -397,253 +395,243 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 	peer = PAF_PEER(paf);
 
 	vec = &pkt->arr.entries[BGP_ATTR_VEC_NH];
-	if (CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_UPDATED)) {
-		uint8_t nhlen;
-		afi_t nhafi;
-		int route_map_sets_nh;
-		nhlen = stream_getc_from(s, vec->offset);
-		filter = &peer->filter[paf->afi][paf->safi];
 
-		if (peer_cap_enhe(peer, paf->afi, paf->safi))
-			nhafi = AFI_IP6;
-		else
-			nhafi = BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen);
+	if (!CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_UPDATED))
+		return s;
 
-		if (nhafi == AFI_IP) {
-			struct in_addr v4nh, *mod_v4nh;
-			int nh_modified = 0;
-			size_t offset_nh = vec->offset + 1;
+	uint8_t nhlen;
+	afi_t nhafi;
+	int route_map_sets_nh;
 
-			route_map_sets_nh =
-				(CHECK_FLAG(
-					 vec->flags,
-					 BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED)
-				 || CHECK_FLAG(
-					    vec->flags,
-					    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
+	nhlen = stream_getc_from(s, vec->offset);
+	filter = &peer->filter[paf->afi][paf->safi];
 
-			switch (nhlen) {
-			case BGP_ATTR_NHLEN_IPV4:
-				break;
-			case BGP_ATTR_NHLEN_VPNV4:
-				offset_nh += 8;
-				break;
-			default:
-				/* TODO: handle IPv6 nexthops */
-				flog_warn(
-					EC_BGP_INVALID_NEXTHOP_LENGTH,
-					"%s: %s: invalid MP nexthop length (AFI IP): %u",
-					__func__, peer->host, nhlen);
-				stream_free(s);
-				return NULL;
-			}
+	if (peer_cap_enhe(peer, paf->afi, paf->safi))
+		nhafi = AFI_IP6;
+	else
+		nhafi = BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen);
 
-			stream_get_from(&v4nh, s, offset_nh, IPV4_MAX_BYTELEN);
-			mod_v4nh = &v4nh;
+	if (nhafi == AFI_IP) {
+		struct in_addr v4nh, *mod_v4nh;
+		int nh_modified = 0;
+		size_t offset_nh = vec->offset + 1;
 
-			/*
-			 * If route-map has set the nexthop, that is normally
-			 * used; if it is specified as peer-address, the peering
-			 * address is picked up. Otherwise, if NH is unavailable
-			 * from attribute, the peering addr is picked up; the
-			 * "NH unavailable" case also covers next-hop-self and
-			 * some other scenarios - see subgroup_announce_check().
-			 * In all other cases, use the nexthop carried in the
-			 * attribute unless it is EBGP non-multiaccess and there
-			 * is no next-hop-unchanged setting or the peer is EBGP
-			 * and the route-map that changed the next-hop value
-			 * was applied inbound rather than outbound. Updates to
-			 * an EBGP peer should only modify the next-hop if it
-			 * was set in an outbound route-map to that peer.
-			 * Note: It is assumed route-map cannot set the nexthop
-			 * to an invalid value.
-			 */
-			if (route_map_sets_nh
-			    && ((peer->sort != BGP_PEER_EBGP)
-				|| ROUTE_MAP_OUT(filter))) {
-				if (CHECK_FLAG(
-					    vec->flags,
-					    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS)) {
-					mod_v4nh = &peer->nexthop.v4;
-					nh_modified = 1;
-				}
-			} else if (!v4nh.s_addr) {
-				mod_v4nh = &peer->nexthop.v4;
-				nh_modified = 1;
-			} else if (
-				peer->sort == BGP_PEER_EBGP
-				&& (bgp_multiaccess_check_v4(v4nh, peer) == 0)
-				&& !CHECK_FLAG(
-					   vec->flags,
-					   BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
-				&& !peer_af_flag_check(
-					   peer, paf->afi, paf->safi,
-					   PEER_FLAG_NEXTHOP_UNCHANGED)) {
-				/* NOTE: not handling case where NH has new AFI
-				 */
-				mod_v4nh = &peer->nexthop.v4;
-				nh_modified = 1;
-			}
+		route_map_sets_nh =
+			(CHECK_FLAG(vec->flags,
+				    BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED)
+			 || CHECK_FLAG(
+				 vec->flags,
+				 BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
 
-			if (nh_modified) /* allow for VPN RD */
-				stream_put_in_addr_at(s, offset_nh, mod_v4nh);
-
-			if (bgp_debug_update(peer, NULL, NULL, 0))
-				zlog_debug("u%" PRIu64 ":s%" PRIu64
-					   " %s send UPDATE w/ nexthop %s%s",
-					   PAF_SUBGRP(paf)->update_group->id,
-					   PAF_SUBGRP(paf)->id, peer->host,
-					   inet_ntoa(*mod_v4nh),
-					   (nhlen == 12 ? " and RD" : ""));
-		} else if (nhafi == AFI_IP6) {
-			struct in6_addr v6nhglobal, *mod_v6nhg;
-			struct in6_addr v6nhlocal, *mod_v6nhl;
-			int gnh_modified, lnh_modified;
-			size_t offset_nhglobal = vec->offset + 1;
-			size_t offset_nhlocal = vec->offset + 1;
-
-			gnh_modified = lnh_modified = 0;
-			mod_v6nhg = &v6nhglobal;
-			mod_v6nhl = &v6nhlocal;
-
-			route_map_sets_nh =
-				(CHECK_FLAG(
-					 vec->flags,
-					 BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED)
-				 || CHECK_FLAG(
-					    vec->flags,
-					    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
-
-			/*
-			 * The logic here is rather similar to that for IPv4,
-			 * the
-			 * additional work being to handle 1 or 2 nexthops.
-			 * Also, 3rd
-			 * party nexthop is not propagated for EBGP right now.
-			 */
-			switch (nhlen) {
-			case BGP_ATTR_NHLEN_IPV6_GLOBAL:
-				break;
-			case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
-				offset_nhlocal += IPV6_MAX_BYTELEN;
-				break;
-			case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
-				offset_nhglobal += 8;
-				break;
-			case BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL:
-				offset_nhglobal += 8;
-				offset_nhlocal += 8 * 2 + IPV6_MAX_BYTELEN;
-				break;
-			default:
-				/* TODO: handle IPv4 nexthops */
-				flog_warn(
-					EC_BGP_INVALID_NEXTHOP_LENGTH,
-					"%s: %s: invalid MP nexthop length (AFI IP6): %u",
-					__func__, peer->host, nhlen);
-				stream_free(s);
-				return NULL;
-			}
-
-			stream_get_from(&v6nhglobal, s, offset_nhglobal,
-					IPV6_MAX_BYTELEN);
-
-			/*
-			 * Updates to an EBGP peer should only modify the
-			 * next-hop if it was set in an outbound route-map
-			 * to that peer.
-			 */
-			if (route_map_sets_nh
-			    && ((peer->sort != BGP_PEER_EBGP)
-				|| ROUTE_MAP_OUT(filter))) {
-				if (CHECK_FLAG(
-					    vec->flags,
-					    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS)) {
-					mod_v6nhg = &peer->nexthop.v6_global;
-					gnh_modified = 1;
-				}
-			} else if (IN6_IS_ADDR_UNSPECIFIED(&v6nhglobal)) {
-				mod_v6nhg = &peer->nexthop.v6_global;
-				gnh_modified = 1;
-			} else if (
-				(peer->sort == BGP_PEER_EBGP)
-				&& (!bgp_multiaccess_check_v6(v6nhglobal, peer))
-				&& !CHECK_FLAG(vec->flags,
-					   BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
-				&& !peer_af_flag_check(
-					   peer, nhafi, paf->safi,
-					   PEER_FLAG_NEXTHOP_UNCHANGED)) {
-				/* NOTE: not handling case where NH has new AFI
-				 */
-				mod_v6nhg = &peer->nexthop.v6_global;
-				gnh_modified = 1;
-			}
-
-
-			if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
-			    || nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
-				stream_get_from(&v6nhlocal, s, offset_nhlocal,
-						IPV6_MAX_BYTELEN);
-				if (IN6_IS_ADDR_UNSPECIFIED(&v6nhlocal)) {
-					mod_v6nhl = &peer->nexthop.v6_local;
-					lnh_modified = 1;
-				}
-			}
-
-			if (gnh_modified)
-				stream_put_in6_addr_at(s, offset_nhglobal,
-						       mod_v6nhg);
-			if (lnh_modified)
-				stream_put_in6_addr_at(s, offset_nhlocal,
-						       mod_v6nhl);
-
-			if (bgp_debug_update(peer, NULL, NULL, 0)) {
-				if (nhlen == 32 || nhlen == 48)
-					zlog_debug(
-						"u%" PRIu64 ":s%" PRIu64
-						" %s send UPDATE w/ mp_nexthops %s, %s%s",
-						PAF_SUBGRP(paf)
-							->update_group->id,
-						PAF_SUBGRP(paf)->id, peer->host,
-						inet_ntop(AF_INET6, mod_v6nhg,
-							  buf, BUFSIZ),
-						inet_ntop(AF_INET6, mod_v6nhl,
-							  buf2, BUFSIZ),
-						(nhlen == 48 ? " and RD" : ""));
-				else
-					zlog_debug(
-						"u%" PRIu64 ":s%" PRIu64
-						" %s send UPDATE w/ mp_nexthop %s%s",
-						PAF_SUBGRP(paf)
-							->update_group->id,
-						PAF_SUBGRP(paf)->id, peer->host,
-						inet_ntop(AF_INET6, mod_v6nhg,
-							  buf, BUFSIZ),
-						(nhlen == 24 ? " and RD" : ""));
-			}
-		} else if (paf->afi == AFI_L2VPN) {
-			struct in_addr v4nh, *mod_v4nh;
-			int nh_modified = 0;
-
-			stream_get_from(&v4nh, s, vec->offset + 1, 4);
-			mod_v4nh = &v4nh;
-
-			/* No route-map changes allowed for EVPN nexthops. */
-			if (!v4nh.s_addr) {
-				mod_v4nh = &peer->nexthop.v4;
-				nh_modified = 1;
-			}
-
-			if (nh_modified)
-				stream_put_in_addr_at(s, vec->offset + 1,
-						      mod_v4nh);
-
-			if (bgp_debug_update(peer, NULL, NULL, 0))
-				zlog_debug("u%" PRIu64 ":s%" PRIu64
-					   " %s send UPDATE w/ nexthop %s",
-					   PAF_SUBGRP(paf)->update_group->id,
-					   PAF_SUBGRP(paf)->id, peer->host,
-					   inet_ntoa(*mod_v4nh));
+		switch (nhlen) {
+		case BGP_ATTR_NHLEN_IPV4:
+			break;
+		case BGP_ATTR_NHLEN_VPNV4:
+			offset_nh += 8;
+			break;
+		default:
+			/* TODO: handle IPv6 nexthops */
+			flog_warn(
+				EC_BGP_INVALID_NEXTHOP_LENGTH,
+				"%s: %s: invalid MP nexthop length (AFI IP): %u",
+				__func__, peer->host, nhlen);
+			stream_free(s);
+			return NULL;
 		}
+
+		stream_get_from(&v4nh, s, offset_nh, IPV4_MAX_BYTELEN);
+		mod_v4nh = &v4nh;
+
+		/*
+		 * If route-map has set the nexthop, that is normally
+		 * used; if it is specified as peer-address, the peering
+		 * address is picked up. Otherwise, if NH is unavailable
+		 * from attribute, the peering addr is picked up; the
+		 * "NH unavailable" case also covers next-hop-self and
+		 * some other scenarios - see subgroup_announce_check().
+		 * In all other cases, use the nexthop carried in the
+		 * attribute unless it is EBGP non-multiaccess and there
+		 * is no next-hop-unchanged setting or the peer is EBGP
+		 * and the route-map that changed the next-hop value
+		 * was applied inbound rather than outbound. Updates to
+		 * an EBGP peer should only modify the next-hop if it
+		 * was set in an outbound route-map to that peer.
+		 * Note: It is assumed route-map cannot set the nexthop
+		 * to an invalid value.
+		 */
+		if (route_map_sets_nh
+		    && ((peer->sort != BGP_PEER_EBGP)
+			|| ROUTE_MAP_OUT(filter))) {
+			if (CHECK_FLAG(
+				    vec->flags,
+				    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS)) {
+				mod_v4nh = &peer->nexthop.v4;
+				nh_modified = 1;
+			}
+		} else if (v4nh.s_addr == INADDR_ANY) {
+			mod_v4nh = &peer->nexthop.v4;
+			nh_modified = 1;
+		} else if (peer->sort == BGP_PEER_EBGP
+			   && (bgp_multiaccess_check_v4(v4nh, peer) == 0)
+			   && !CHECK_FLAG(vec->flags,
+					  BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
+			   && !peer_af_flag_check(
+				   peer, paf->afi, paf->safi,
+				   PEER_FLAG_NEXTHOP_UNCHANGED)) {
+			/* NOTE: not handling case where NH has new AFI
+			 */
+			mod_v4nh = &peer->nexthop.v4;
+			nh_modified = 1;
+		}
+
+		if (nh_modified) /* allow for VPN RD */
+			stream_put_in_addr_at(s, offset_nh, mod_v4nh);
+
+		if (bgp_debug_update(peer, NULL, NULL, 0))
+			zlog_debug("u%" PRIu64 ":s%" PRIu64
+				   " %s send UPDATE w/ nexthop %s%s",
+				   PAF_SUBGRP(paf)->update_group->id,
+				   PAF_SUBGRP(paf)->id, peer->host,
+				   inet_ntoa(*mod_v4nh),
+				   (nhlen == 12 ? " and RD" : ""));
+	} else if (nhafi == AFI_IP6) {
+		struct in6_addr v6nhglobal, *mod_v6nhg;
+		struct in6_addr v6nhlocal, *mod_v6nhl;
+		int gnh_modified, lnh_modified;
+		size_t offset_nhglobal = vec->offset + 1;
+		size_t offset_nhlocal = vec->offset + 1;
+
+		gnh_modified = lnh_modified = 0;
+		mod_v6nhg = &v6nhglobal;
+		mod_v6nhl = &v6nhlocal;
+
+		route_map_sets_nh =
+			(CHECK_FLAG(vec->flags,
+				    BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED)
+			 || CHECK_FLAG(
+				 vec->flags,
+				 BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
+
+		/*
+		 * The logic here is rather similar to that for IPv4, the
+		 * additional work being to handle 1 or 2 nexthops.
+		 * Also, 3rd party nexthop is not propagated for EBGP
+		 * right now.
+		 */
+		switch (nhlen) {
+		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+			break;
+		case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+			offset_nhlocal += IPV6_MAX_BYTELEN;
+			break;
+		case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
+			offset_nhglobal += 8;
+			break;
+		case BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL:
+			offset_nhglobal += 8;
+			offset_nhlocal += 8 * 2 + IPV6_MAX_BYTELEN;
+			break;
+		default:
+			/* TODO: handle IPv4 nexthops */
+			flog_warn(
+				EC_BGP_INVALID_NEXTHOP_LENGTH,
+				"%s: %s: invalid MP nexthop length (AFI IP6): %u",
+				__func__, peer->host, nhlen);
+			stream_free(s);
+			return NULL;
+		}
+
+		stream_get_from(&v6nhglobal, s, offset_nhglobal,
+				IPV6_MAX_BYTELEN);
+
+		/*
+		 * Updates to an EBGP peer should only modify the
+		 * next-hop if it was set in an outbound route-map
+		 * to that peer.
+		 */
+		if (route_map_sets_nh
+		    && ((peer->sort != BGP_PEER_EBGP)
+			|| ROUTE_MAP_OUT(filter))) {
+			if (CHECK_FLAG(
+				    vec->flags,
+				    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS)) {
+				mod_v6nhg = &peer->nexthop.v6_global;
+				gnh_modified = 1;
+			}
+		} else if (IN6_IS_ADDR_UNSPECIFIED(&v6nhglobal)) {
+			mod_v6nhg = &peer->nexthop.v6_global;
+			gnh_modified = 1;
+		} else if ((peer->sort == BGP_PEER_EBGP)
+			   && (!bgp_multiaccess_check_v6(v6nhglobal, peer))
+			   && !CHECK_FLAG(vec->flags,
+					  BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
+			   && !peer_af_flag_check(
+				   peer, nhafi, paf->safi,
+				   PEER_FLAG_NEXTHOP_UNCHANGED)) {
+			/* NOTE: not handling case where NH has new AFI
+			 */
+			mod_v6nhg = &peer->nexthop.v6_global;
+			gnh_modified = 1;
+		}
+
+		if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
+		    || nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
+			stream_get_from(&v6nhlocal, s, offset_nhlocal,
+					IPV6_MAX_BYTELEN);
+			if (IN6_IS_ADDR_UNSPECIFIED(&v6nhlocal)) {
+				mod_v6nhl = &peer->nexthop.v6_local;
+				lnh_modified = 1;
+			}
+		}
+
+		if (gnh_modified)
+			stream_put_in6_addr_at(s, offset_nhglobal, mod_v6nhg);
+		if (lnh_modified)
+			stream_put_in6_addr_at(s, offset_nhlocal, mod_v6nhl);
+
+		if (bgp_debug_update(peer, NULL, NULL, 0)) {
+			if (nhlen == 32 || nhlen == 48)
+				zlog_debug(
+					"u%" PRIu64 ":s%" PRIu64
+					" %s send UPDATE w/ mp_nexthops %s, %s%s",
+					PAF_SUBGRP(paf)->update_group->id,
+					PAF_SUBGRP(paf)->id, peer->host,
+					inet_ntop(AF_INET6, mod_v6nhg, buf,
+						  BUFSIZ),
+					inet_ntop(AF_INET6, mod_v6nhl, buf2,
+						  BUFSIZ),
+					(nhlen == 48 ? " and RD" : ""));
+			else
+				zlog_debug("u%" PRIu64 ":s%" PRIu64
+					   " %s send UPDATE w/ mp_nexthop %s%s",
+					   PAF_SUBGRP(paf)->update_group->id,
+					   PAF_SUBGRP(paf)->id, peer->host,
+					   inet_ntop(AF_INET6, mod_v6nhg, buf,
+						     BUFSIZ),
+					   (nhlen == 24 ? " and RD" : ""));
+		}
+	} else if (paf->afi == AFI_L2VPN) {
+		struct in_addr v4nh, *mod_v4nh;
+		int nh_modified = 0;
+
+		stream_get_from(&v4nh, s, vec->offset + 1, 4);
+		mod_v4nh = &v4nh;
+
+		/* No route-map changes allowed for EVPN nexthops. */
+		if (v4nh.s_addr == INADDR_ANY) {
+			mod_v4nh = &peer->nexthop.v4;
+			nh_modified = 1;
+		}
+
+		if (nh_modified)
+			stream_put_in_addr_at(s, vec->offset + 1, mod_v4nh);
+
+		if (bgp_debug_update(peer, NULL, NULL, 0))
+			zlog_debug("u%" PRIu64 ":s%" PRIu64
+				   " %s send UPDATE w/ nexthop %s",
+				   PAF_SUBGRP(paf)->update_group->id,
+				   PAF_SUBGRP(paf)->id, peer->host,
+				   inet_ntoa(*mod_v4nh));
 	}
 
 	return s;
@@ -668,22 +656,22 @@ static void bpacket_attr_vec_arr_update(struct bpacket_attr_vec_arr *vecarr,
 /*
  * Return if there are packets to build for this subgroup.
  */
-int subgroup_packets_to_build(struct update_subgroup *subgrp)
+bool subgroup_packets_to_build(struct update_subgroup *subgrp)
 {
 	struct bgp_advertise *adv;
 
 	if (!subgrp)
-		return 0;
+		return false;
 
 	adv = bgp_adv_fifo_first(&subgrp->sync->withdraw);
 	if (adv)
-		return 1;
+		return true;
 
 	adv = bgp_adv_fifo_first(&subgrp->sync->update);
 	if (adv)
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 /* Make BGP update packet.  */
@@ -738,17 +726,35 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 	adv = bgp_adv_fifo_first(&subgrp->sync->update);
 	while (adv) {
+		const struct prefix *rn_p;
+
 		assert(adv->rn);
 		rn = adv->rn;
+		rn_p = bgp_node_get_prefix(rn);
 		adj = adv->adj;
 		addpath_tx_id = adj->addpath_tx_id;
 		path = adv->pathi;
 
+		/* Check if we need to add a prefix to the packet if
+		 * maximum-prefix-out is set for the peer.
+		 */
+		if (CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_MAX_PREFIX_OUT)
+		    && subgrp->scount >= peer->pmax_out[afi][safi]) {
+			if (BGP_DEBUG(update, UPDATE_OUT)
+			    || BGP_DEBUG(update, UPDATE_PREFIX)) {
+				zlog_debug(
+					"%s reached maximum prefix to be send (%" PRIu32
+					")",
+					peer->host, peer->pmax_out[afi][safi]);
+			}
+			goto next;
+		}
+
 		space_remaining = STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
 				  - BGP_MAX_PACKET_SIZE_OVERFLOW;
-		space_needed =
-			BGP_NLRI_LENGTH + addpath_overhead
-			+ bgp_packet_mpattr_prefix_size(afi, safi, &rn->p);
+		space_needed = BGP_NLRI_LENGTH + addpath_overhead
+			       + bgp_packet_mpattr_prefix_size(afi, safi, rn_p);
 
 		/* When remaining space can't include NLRI and it's length.  */
 		if (space_remaining < space_needed)
@@ -794,7 +800,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				- BGP_MAX_PACKET_SIZE_OVERFLOW;
 			space_needed = BGP_NLRI_LENGTH + addpath_overhead
 				       + bgp_packet_mpattr_prefix_size(
-						 afi, safi, &rn->p);
+					       afi, safi, rn_p);
 
 			/* If the attributes alone do not leave any room for
 			 * NLRI then
@@ -824,12 +830,13 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 		if ((afi == AFI_IP && safi == SAFI_UNICAST)
 		    && !peer_cap_enhe(peer, afi, safi))
-			stream_put_prefix_addpath(s, &rn->p, addpath_encode,
+			stream_put_prefix_addpath(s, rn_p, addpath_encode,
 						  addpath_tx_id);
 		else {
 			/* Encode the prefix in MP_REACH_NLRI attribute */
 			if (rn->prn)
-				prd = (struct prefix_rd *)&rn->prn->p;
+				prd = (struct prefix_rd *)bgp_node_get_prefix(
+					rn->prn);
 
 			if (safi == SAFI_LABELED_UNICAST) {
 				label = bgp_adv_label(rn, path, peer, afi,
@@ -846,7 +853,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 					snlri, peer, afi, safi, &vecarr,
 					adv->baa->attr);
 
-			bgp_packet_mpattr_prefix(snlri, afi, safi, &rn->p, prd,
+			bgp_packet_mpattr_prefix(snlri, afi, safi, rn_p, prd,
 						 label_pnt, num_labels,
 						 addpath_encode, addpath_tx_id,
 						 adv->baa->attr);
@@ -854,7 +861,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 		num_pfx++;
 
-		if (bgp_debug_update(NULL, &rn->p, subgrp->update_group, 0)) {
+		if (bgp_debug_update(NULL, rn_p, subgrp->update_group, 0)) {
 			char pfx_buf[BGP_PRD_PATH_STRLEN];
 
 			if (!send_attr_printed) {
@@ -878,10 +885,10 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				send_attr_printed = 1;
 			}
 
-			bgp_debug_rdpfxpath2str(afi, safi, prd, &rn->p,
-						label_pnt, num_labels,
-						addpath_encode, addpath_tx_id,
-						pfx_buf, sizeof(pfx_buf));
+			bgp_debug_rdpfxpath2str(afi, safi, prd, rn_p, label_pnt,
+						num_labels, addpath_encode,
+						addpath_tx_id, pfx_buf,
+						sizeof(pfx_buf));
 			zlog_debug("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s",
 				   subgrp->update_group->id, subgrp->id,
 				   pfx_buf);
@@ -894,7 +901,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			subgrp->scount++;
 
 		adj->attr = bgp_attr_intern(adv->baa->attr);
-
+next:
 		adv = bgp_advertise_clean_subgroup(subgrp, adj);
 	}
 
@@ -960,7 +967,7 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 	int addpath_encode = 0;
 	int addpath_overhead = 0;
 	uint32_t addpath_tx_id = 0;
-	struct prefix_rd *prd = NULL;
+	const struct prefix_rd *prd = NULL;
 
 
 	if (!subgrp)
@@ -978,16 +985,19 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 	addpath_overhead = addpath_encode ? BGP_ADDPATH_ID_LEN : 0;
 
 	while ((adv = bgp_adv_fifo_first(&subgrp->sync->withdraw)) != NULL) {
+		const struct prefix *rn_p;
+
 		assert(adv->rn);
 		adj = adv->adj;
 		rn = adv->rn;
+		rn_p = bgp_node_get_prefix(rn);
 		addpath_tx_id = adj->addpath_tx_id;
 
 		space_remaining =
 			STREAM_WRITEABLE(s) - BGP_MAX_PACKET_SIZE_OVERFLOW;
-		space_needed =
-			BGP_NLRI_LENGTH + addpath_overhead + BGP_TOTAL_ATTR_LEN
-			+ bgp_packet_mpattr_prefix_size(afi, safi, &rn->p);
+		space_needed = BGP_NLRI_LENGTH + addpath_overhead
+			       + BGP_TOTAL_ATTR_LEN
+			       + bgp_packet_mpattr_prefix_size(afi, safi, rn_p);
 
 		if (space_remaining < space_needed)
 			break;
@@ -1000,13 +1010,15 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 
 		if (afi == AFI_IP && safi == SAFI_UNICAST
 		    && !peer_cap_enhe(peer, afi, safi))
-			stream_put_prefix_addpath(s, &rn->p, addpath_encode,
+			stream_put_prefix_addpath(s, rn_p, addpath_encode,
 						  addpath_tx_id);
 		else {
 			if (rn->prn)
-				prd = (struct prefix_rd *)&rn->prn->p;
+				prd = (struct prefix_rd *)bgp_node_get_prefix(
+					rn->prn);
 
-			/* If first time, format the MP_UNREACH header */
+			/* If first time, format the MP_UNREACH header
+			 */
 			if (first_time) {
 				iana_afi_t pkt_afi;
 				iana_safi_t pkt_safi;
@@ -1015,8 +1027,8 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 				pkt_safi = safi_int2iana(safi);
 
 				attrlen_pos = stream_get_endp(s);
-				/* total attr length = 0 for now. reevaluate
-				 * later */
+				/* total attr length = 0 for now.
+				 * reevaluate later */
 				stream_putw(s, 0);
 				mp_start = stream_get_endp(s);
 				mplen_pos = bgp_packet_mpunreach_start(s, afi,
@@ -1030,17 +1042,17 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 						subgrp->id, pkt_afi, pkt_safi);
 			}
 
-			bgp_packet_mpunreach_prefix(s, &rn->p, afi, safi, prd,
+			bgp_packet_mpunreach_prefix(s, rn_p, afi, safi, prd,
 						    NULL, 0, addpath_encode,
 						    addpath_tx_id, NULL);
 		}
 
 		num_pfx++;
 
-		if (bgp_debug_update(NULL, &rn->p, subgrp->update_group, 0)) {
+		if (bgp_debug_update(NULL, rn_p, subgrp->update_group, 0)) {
 			char pfx_buf[BGP_PRD_PATH_STRLEN];
 
-			bgp_debug_rdpfxpath2str(afi, safi, prd, &rn->p, NULL, 0,
+			bgp_debug_rdpfxpath2str(afi, safi, prd, rn_p, NULL, 0,
 						addpath_encode, addpath_tx_id,
 						pfx_buf, sizeof(pfx_buf));
 			zlog_debug("u%" PRIu64 ":s%" PRIu64

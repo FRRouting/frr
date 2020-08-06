@@ -168,10 +168,7 @@ static struct as_list *as_list_new(void)
 
 static void as_list_free(struct as_list *aslist)
 {
-	if (aslist->name) {
-		XFREE(MTYPE_AS_STR, aslist->name);
-		aslist->name = NULL;
-	}
+	XFREE(MTYPE_AS_STR, aslist->name);
 	XFREE(MTYPE_AS_LIST, aslist);
 }
 
@@ -305,12 +302,9 @@ static void as_list_delete(struct as_list *aslist)
 	as_list_free(aslist);
 }
 
-static int as_list_empty(struct as_list *aslist)
+static bool as_list_empty(struct as_list *aslist)
 {
-	if (aslist->head == NULL && aslist->tail == NULL)
-		return 1;
-	else
-		return 0;
+	return aslist->head == NULL && aslist->tail == NULL;
 }
 
 static void as_list_filter_delete(struct as_list *aslist,
@@ -340,11 +334,9 @@ static void as_list_filter_delete(struct as_list *aslist,
 	XFREE(MTYPE_AS_STR, name);
 }
 
-static int as_filter_match(struct as_filter *asfilter, struct aspath *aspath)
+static bool as_filter_match(struct as_filter *asfilter, struct aspath *aspath)
 {
-	if (bgp_regexec(asfilter->reg, aspath) != REG_NOMATCH)
-		return 1;
-	return 0;
+	return bgp_regexec(asfilter->reg, aspath) != REG_NOMATCH;
 }
 
 /* Apply AS path filter to AS. */
@@ -377,26 +369,25 @@ void as_list_delete_hook(void (*func)(const char *))
 	as_list_master.delete_hook = func;
 }
 
-static int as_list_dup_check(struct as_list *aslist, struct as_filter *new)
+static bool as_list_dup_check(struct as_list *aslist, struct as_filter *new)
 {
 	struct as_filter *asfilter;
 
 	for (asfilter = aslist->head; asfilter; asfilter = asfilter->next) {
 		if (asfilter->type == new->type
 		    && strcmp(asfilter->reg_str, new->reg_str) == 0)
-			return 1;
+			return true;
 	}
-	return 0;
+	return false;
 }
 
-int config_bgp_aspath_validate(const char *regstr)
+bool config_bgp_aspath_validate(const char *regstr)
 {
 	char valid_chars[] = "1234567890_^|[,{}() ]$*+.?-\\";
 
 	if (strspn(regstr, valid_chars) == strlen(regstr))
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
 DEFUN(as_path, bgp_as_path_cmd,
@@ -557,15 +548,6 @@ DEFUN (no_as_path_all,
 	return CMD_SUCCESS;
 }
 
-ALIAS (no_as_path_all,
-       no_ip_as_path_all_cmd,
-       "no ip as-path access-list WORD",
-       NO_STR
-       IP_STR
-       "BGP autonomous system path filter\n"
-       "Specify an access list name\n"
-       "Regular expression access list name\n")
-
 static void as_list_show(struct vty *vty, struct as_list *aslist)
 {
 	struct as_filter *asfilter;
@@ -676,17 +658,22 @@ static int config_write_as_list(struct vty *vty)
 	return write;
 }
 
-static struct cmd_node as_list_node = {AS_LIST_NODE, "", 1};
+static int config_write_as_list(struct vty *vty);
+static struct cmd_node as_list_node = {
+	.name = "as list",
+	.node = AS_LIST_NODE,
+	.prompt = "",
+	.config_write = config_write_as_list,
+};
 
 /* Register functions. */
 void bgp_filter_init(void)
 {
-	install_node(&as_list_node, config_write_as_list);
+	install_node(&as_list_node);
 
 	install_element(CONFIG_NODE, &bgp_as_path_cmd);
 	install_element(CONFIG_NODE, &no_bgp_as_path_cmd);
 	install_element(CONFIG_NODE, &no_bgp_as_path_all_cmd);
-	install_element(CONFIG_NODE, &no_ip_as_path_all_cmd);
 
 	install_element(VIEW_NODE, &show_bgp_as_path_access_list_cmd);
 	install_element(VIEW_NODE, &show_ip_as_path_access_list_cmd);

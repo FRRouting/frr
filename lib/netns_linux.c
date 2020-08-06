@@ -371,7 +371,7 @@ int ns_enable(struct ns *ns, void (*func)(ns_id_t, void *))
 
 void ns_disable(struct ns *ns)
 {
-	return ns_disable_internal(ns);
+	ns_disable_internal(ns);
 }
 
 struct ns *ns_lookup(ns_id_t ns_id)
@@ -431,7 +431,7 @@ char *ns_netns_pathname(struct vty *vty, const char *name)
 		/* relevant pathname */
 		char tmp_name[PATH_MAX];
 
-		snprintf(tmp_name, PATH_MAX, "%s/%s", NS_RUN_DIR, name);
+		snprintf(tmp_name, sizeof(tmp_name), "%s/%s", NS_RUN_DIR, name);
 		result = realpath(tmp_name, pathname);
 	}
 

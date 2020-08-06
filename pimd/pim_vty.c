@@ -117,6 +117,11 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
+        if (PIM_DEBUG_MLAG) {
+                vty_out(vty, "debug pim mlag\n");
+                ++writes;
+        }
+
 	if (PIM_DEBUG_BSM) {
 		vty_out(vty, "debug pim bsm\n");
 		++writes;
@@ -167,9 +172,9 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	char spaces[10];
 
 	if (pim->vrf_id == VRF_DEFAULT)
-		sprintf(spaces, "%s", "");
+		snprintf(spaces, sizeof(spaces), "%s", "");
 	else
-		sprintf(spaces, "%s", " ");
+		snprintf(spaces, sizeof(spaces), "%s", " ");
 
 	writes += pim_msdp_config_write(pim, vty, spaces);
 
@@ -211,6 +216,11 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			ssm->plist_name);
 		++writes;
 	}
+	if (pim->register_plist) {
+		vty_out(vty, "%sip pim register-accept-list %s\n", spaces,
+			pim->register_plist);
+		++writes;
+	}
 	if (pim->spt.switchover == PIM_SPT_INFINITY) {
 		if (pim->spt.plist)
 			vty_out(vty,
@@ -229,6 +239,13 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		vty_out(vty, "%sip pim ecmp\n", spaces);
 		++writes;
 	}
+
+	if (pim->igmp_watermark_limit != 0) {
+		vty_out(vty, "%sip igmp watermark-warn %u\n", spaces,
+			pim->igmp_watermark_limit);
+		++writes;
+	}
+
 	if (pim->ssmpingd_list) {
 		struct listnode *node;
 		struct ssmpingd_sock *ss;
@@ -241,8 +258,6 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			++writes;
 		}
 	}
-
-	pim_vxlan_config_write(vty, spaces, &writes);
 
 	return writes;
 }

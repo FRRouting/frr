@@ -93,7 +93,7 @@ static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 #endif
 			);
 	} else {
-		if (mt->n_alloc != 0) {
+		if (mt->n_max != 0) {
 			char size[32];
 			snprintf(size, sizeof(size), "%6zu", mt->size);
 #ifdef HAVE_MALLOC_USABLE_SIZE

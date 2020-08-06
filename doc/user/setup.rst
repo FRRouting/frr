@@ -6,6 +6,22 @@ Basic Setup
 After installing FRR, some basic configuration must be completed before it is
 ready to use.
 
+Crash logs
+----------
+
+If any daemon should crash for some reason (segmentation fault, assertion
+failure, etc.), it will attempt to write a backtrace to a file located in
+:file:`/var/tmp/frr/<daemon>[-<instance>].<pid>/crashlog`.  This feature is
+not affected by any configuration options.
+
+The crashlog file's directory also contains files corresponding to per-thread
+message buffers in files named
+:file:`/var/tmp/frr/<daemon>[-<instance>].<pid>/logbuf.<tid>`.  In case of a
+crash, these may contain unwritten buffered log messages.  To show the contents
+of these buffers, pipe their contents through ``tr '\0' '\n'``.  A blank line
+marks the end of valid unwritten data (it will generally be followed by
+garbled, older log messages since the buffer is not cleared.)
+
 Daemons Configuration File
 --------------------------
 After a fresh install, starting FRR will do nothing. This is because daemons

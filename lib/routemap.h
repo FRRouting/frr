@@ -25,6 +25,8 @@
 #include "memory.h"
 #include "qobj.h"
 #include "vty.h"
+#include "lib/plist.h"
+#include "lib/plist_int.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -140,11 +142,30 @@ enum rmap_compile_rets {
 
 };
 
+/* Route map rule. This rule has both `match' rule and `set' rule. */
+struct route_map_rule {
+	/* Rule type. */
+	const struct route_map_rule_cmd *cmd;
+
+	/* For pretty printing. */
+	char *rule_str;
+
+	/* Pre-compiled match rule. */
+	void *value;
+
+	/* Linked list. */
+	struct route_map_rule *next;
+	struct route_map_rule *prev;
+};
+
 /* Route map rule list. */
 struct route_map_rule_list {
 	struct route_map_rule *head;
 	struct route_map_rule *tail;
 };
+
+/* Forward struct declaration: the complete can be found later this file. */
+struct routemap_hook_context;
 
 /* Route map index structure. */
 struct route_map_index {
@@ -178,6 +199,9 @@ struct route_map_index {
 	uint64_t applied;
 	uint64_t applied_clear;
 
+	/* List of match/sets contexts. */
+	TAILQ_HEAD(, routemap_hook_context) rhclist;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(route_map_index)
@@ -198,6 +222,7 @@ struct route_map {
 	/* Maintain update info */
 	bool to_be_processed; /* True if modification isn't acted on yet */
 	bool deleted;         /* If 1, then this node will be deleted */
+	bool optimization_disabled;
 
 	/* How many times have we applied this route-map */
 	uint64_t applied;
@@ -205,6 +230,12 @@ struct route_map {
 
 	/* Counter to track active usage of this route-map */
 	uint16_t use_count;
+
+	/* Tables to maintain IPv4 and IPv6 prefixes from
+	 * the prefix-list match clause.
+	 */
+	struct route_table *ipv4_prefix_table;
+	struct route_table *ipv6_prefix_table;
 
 	QOBJ_FIELDS
 };
@@ -288,7 +319,10 @@ extern void route_map_upd8_dependency(route_map_event_t type, const char *arg,
 				      const char *rmap_name);
 extern void route_map_notify_dependencies(const char *affected_name,
 					  route_map_event_t event);
-
+extern void
+route_map_notify_pentry_dependencies(const char *affected_name,
+				     struct prefix_list_entry *pentry,
+				     route_map_event_t event);
 extern int generic_match_add(struct vty *vty, struct route_map_index *index,
 			     const char *command, const char *arg,
 			     route_map_event_t type);
@@ -434,6 +468,245 @@ extern void route_map_counter_increment(struct route_map *map);
 
 /* Decrement the route-map used counter */
 extern void route_map_counter_decrement(struct route_map *map);
+
+/* Route map hooks data structure. */
+struct route_map_match_set_hooks {
+	/* match interface */
+	int (*match_interface)(struct vty *vty, struct route_map_index *index,
+			       const char *command, const char *arg,
+			       route_map_event_t type);
+
+	/* no match interface */
+	int (*no_match_interface)(struct vty *vty,
+				  struct route_map_index *index,
+				  const char *command, const char *arg,
+				  route_map_event_t type);
+
+	/* match ip address */
+	int (*match_ip_address)(struct vty *vty, struct route_map_index *index,
+				const char *command, const char *arg,
+				route_map_event_t type);
+
+	/* no match ip address */
+	int (*no_match_ip_address)(struct vty *vty,
+				   struct route_map_index *index,
+				   const char *command, const char *arg,
+				   route_map_event_t type);
+
+	/* match ip address prefix list */
+	int (*match_ip_address_prefix_list)(struct vty *vty,
+					    struct route_map_index *index,
+					    const char *command,
+					    const char *arg,
+					    route_map_event_t type);
+
+	/* no match ip address prefix list */
+	int (*no_match_ip_address_prefix_list)(struct vty *vty,
+					       struct route_map_index *index,
+					       const char *command,
+					       const char *arg,
+					       route_map_event_t type);
+
+	/* match ip next hop */
+	int (*match_ip_next_hop)(struct vty *vty, struct route_map_index *index,
+				 const char *command, const char *arg,
+				 route_map_event_t type);
+
+	/* no match ip next hop */
+	int (*no_match_ip_next_hop)(struct vty *vty,
+				    struct route_map_index *index,
+				    const char *command, const char *arg,
+				    route_map_event_t type);
+
+	/* match ip next hop prefix list */
+	int (*match_ip_next_hop_prefix_list)(struct vty *vty,
+					     struct route_map_index *index,
+					     const char *command,
+					     const char *arg,
+					     route_map_event_t type);
+
+	/* no match ip next hop prefix list */
+	int (*no_match_ip_next_hop_prefix_list)(struct vty *vty,
+						struct route_map_index *index,
+						const char *command,
+						const char *arg,
+						route_map_event_t type);
+
+	/* match ip next-hop type */
+	int (*match_ip_next_hop_type)(struct vty *vty,
+					     struct route_map_index *index,
+					     const char *command,
+					     const char *arg,
+					     route_map_event_t type);
+
+	/* no match ip next-hop type */
+	int (*no_match_ip_next_hop_type)(struct vty *vty,
+						struct route_map_index *index,
+						const char *command,
+						const char *arg,
+						route_map_event_t type);
+
+	/* match ipv6 address */
+	int (*match_ipv6_address)(struct vty *vty,
+				  struct route_map_index *index,
+				  const char *command, const char *arg,
+				  route_map_event_t type);
+
+	/* no match ipv6 address */
+	int (*no_match_ipv6_address)(struct vty *vty,
+				     struct route_map_index *index,
+				     const char *command, const char *arg,
+				     route_map_event_t type);
+
+
+	/* match ipv6 address prefix list */
+	int (*match_ipv6_address_prefix_list)(struct vty *vty,
+					      struct route_map_index *index,
+					      const char *command,
+					      const char *arg,
+					      route_map_event_t type);
+
+	/* no match ipv6 address prefix list */
+	int (*no_match_ipv6_address_prefix_list)(struct vty *vty,
+						 struct route_map_index *index,
+						 const char *command,
+						 const char *arg,
+						 route_map_event_t type);
+
+	/* match ipv6 next-hop type */
+	int (*match_ipv6_next_hop_type)(struct vty *vty,
+					      struct route_map_index *index,
+					      const char *command,
+					      const char *arg,
+					      route_map_event_t type);
+
+	/* no match ipv6 next-hop type */
+	int (*no_match_ipv6_next_hop_type)(struct vty *vty,
+					   struct route_map_index *index,
+					   const char *command, const char *arg,
+					   route_map_event_t type);
+
+	/* match metric */
+	int (*match_metric)(struct vty *vty, struct route_map_index *index,
+			    const char *command, const char *arg,
+			    route_map_event_t type);
+
+	/* no match metric */
+	int (*no_match_metric)(struct vty *vty, struct route_map_index *index,
+			       const char *command, const char *arg,
+			       route_map_event_t type);
+
+	/* match tag */
+	int (*match_tag)(struct vty *vty, struct route_map_index *index,
+			 const char *command, const char *arg,
+			 route_map_event_t type);
+
+	/* no match tag */
+	int (*no_match_tag)(struct vty *vty, struct route_map_index *index,
+			    const char *command, const char *arg,
+			    route_map_event_t type);
+
+	/* set ip nexthop */
+	int (*set_ip_nexthop)(struct vty *vty, struct route_map_index *index,
+			      const char *command, const char *arg);
+
+	/* no set ip nexthop */
+	int (*no_set_ip_nexthop)(struct vty *vty, struct route_map_index *index,
+				 const char *command, const char *arg);
+
+	/* set ipv6 nexthop local */
+	int (*set_ipv6_nexthop_local)(struct vty *vty,
+				      struct route_map_index *index,
+				      const char *command, const char *arg);
+
+	/* no set ipv6 nexthop local */
+	int (*no_set_ipv6_nexthop_local)(struct vty *vty,
+					 struct route_map_index *index,
+					 const char *command, const char *arg);
+
+	/* set metric */
+	int (*set_metric)(struct vty *vty, struct route_map_index *index,
+			  const char *command, const char *arg);
+
+	/* no set metric */
+	int (*no_set_metric)(struct vty *vty, struct route_map_index *index,
+			     const char *command, const char *arg);
+
+	/* set tag */
+	int (*set_tag)(struct vty *vty, struct route_map_index *index,
+		       const char *command, const char *arg);
+
+	/* no set tag */
+	int (*no_set_tag)(struct vty *vty, struct route_map_index *index,
+			  const char *command, const char *arg);
+};
+
+extern struct route_map_match_set_hooks rmap_match_set_hook;
+
+/* Making route map list. */
+struct route_map_list {
+	struct route_map *head;
+	struct route_map *tail;
+
+	void (*add_hook)(const char *);
+	void (*delete_hook)(const char *);
+	void (*event_hook)(const char *);
+};
+
+extern struct route_map_list route_map_master;
+
+extern struct route_map *route_map_get(const char *name);
+extern void route_map_delete(struct route_map *map);
+extern struct route_map_index *route_map_index_get(struct route_map *map,
+						   enum route_map_type type,
+						   int pref);
+extern void route_map_index_delete(struct route_map_index *index, int notify);
+
+/* routemap_northbound.c */
+typedef int (*routemap_match_hook_fun)(struct vty *vty,
+				       struct route_map_index *rmi,
+				       const char *command, const char *arg,
+				       route_map_event_t event);
+
+typedef int (*routemap_set_hook_fun)(struct vty *vty,
+				     struct route_map_index *rmi,
+				     const char *command, const char *arg);
+
+struct routemap_hook_context {
+	struct route_map_index *rhc_rmi;
+	const char *rhc_rule;
+	route_map_event_t rhc_event;
+	routemap_set_hook_fun rhc_shook;
+	routemap_match_hook_fun rhc_mhook;
+	TAILQ_ENTRY(routemap_hook_context) rhc_entry;
+};
+
+int lib_route_map_entry_match_destroy(struct nb_cb_destroy_args *args);
+int lib_route_map_entry_set_destroy(struct nb_cb_destroy_args *args);
+
+struct routemap_hook_context *
+routemap_hook_context_insert(struct route_map_index *rmi);
+void routemap_hook_context_free(struct routemap_hook_context *rhc);
+
+extern const struct frr_yang_module_info frr_route_map_info;
+
+/* routemap_cli.c */
+extern void route_map_instance_show(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults);
+extern void route_map_instance_show_end(struct vty *vty,
+					struct lyd_node *dnode);
+extern void route_map_condition_show(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults);
+extern void route_map_action_show(struct vty *vty, struct lyd_node *dnode,
+				  bool show_defaults);
+extern void route_map_exit_policy_show(struct vty *vty, struct lyd_node *dnode,
+				       bool show_defaults);
+extern void route_map_call_show(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults);
+extern void route_map_description_show(struct vty *vty,
+				       struct lyd_node *dnode,
+				       bool show_defaults);
+extern void route_map_cli_init(void);
 
 #ifdef __cplusplus
 }

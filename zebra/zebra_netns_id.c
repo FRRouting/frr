@@ -143,7 +143,7 @@ static ns_id_t extract_nsid(struct nlmsghdr *nlh, char *buf)
 	void *tail = (void *)((char *)nlh + NETLINK_ALIGN(nlh->nlmsg_len));
 	struct nlattr *attr;
 
-	for (attr = (struct nlattr *)((char *)buf + offset);
+	for (attr = (struct nlattr *)(buf + offset);
 	     NETLINK_NLATTR_LEN(tail, attr) >= sizeof(struct nlattr)
 	     && attr->nla_len >= sizeof(struct nlattr)
 	     && attr->nla_len <= NETLINK_NLATTR_LEN(tail, attr);

@@ -86,13 +86,13 @@ static inline struct agg_node *agg_route_next(struct agg_node *node)
 }
 
 static inline struct agg_node *agg_node_get(struct agg_table *table,
-					    struct prefix *p)
+					    const struct prefix *p)
 {
 	return agg_node_from_rnode(route_node_get(table->route_table, p));
 }
 
 static inline struct agg_node *
-agg_node_lookup(const struct agg_table *const table, struct prefix *p)
+agg_node_lookup(const struct agg_table *const table, const struct prefix *p)
 {
 	return agg_node_from_rnode(route_node_lookup(table->route_table, p));
 }
@@ -109,7 +109,7 @@ static inline struct agg_node *agg_route_next_until(struct agg_node *node,
 }
 
 static inline struct agg_node *agg_node_match(struct agg_table *table,
-					      struct prefix *p)
+					      const struct prefix *p)
 {
 	return agg_node_from_rnode(route_node_match(table->route_table, p));
 }
@@ -154,6 +154,16 @@ static inline struct agg_table *agg_get_table(struct agg_node *node)
 {
 	return (struct agg_table *)route_table_get_info(node->table);
 }
+
+static inline const struct prefix *
+agg_node_get_prefix(const struct agg_node *node)
+{
+	return &node->p;
+}
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pRN"  (struct agg_node *)
+#endif
 
 #ifdef __cplusplus
 }

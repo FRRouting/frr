@@ -62,8 +62,7 @@ struct pbr_interface *pbr_if_new(struct interface *ifp)
 /* Inteface addition message from zebra. */
 int pbr_ifp_create(struct interface *ifp)
 {
-	DEBUGD(&pbr_dbg_zebra,
-	       "%s: %s", __PRETTY_FUNCTION__, ifp->name);
+	DEBUGD(&pbr_dbg_zebra, "%s: %s", __func__, ifp->name);
 
 	if (!ifp->info)
 		pbr_if_new(ifp);
@@ -78,8 +77,7 @@ int pbr_ifp_create(struct interface *ifp)
 
 int pbr_ifp_destroy(struct interface *ifp)
 {
-	DEBUGD(&pbr_dbg_zebra,
-	       "%s: %s", __PRETTY_FUNCTION__, ifp->name);
+	DEBUGD(&pbr_dbg_zebra, "%s: %s", __func__, ifp->name);
 
 	pbr_map_policy_interface_update(ifp, false);
 
@@ -93,8 +91,7 @@ static int interface_address_add(ZAPI_CALLBACK_ARGS)
 
 	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
-	DEBUGD(&pbr_dbg_zebra,
-	       "%s: %s added %s", __PRETTY_FUNCTION__,
+	DEBUGD(&pbr_dbg_zebra, "%s: %s added %s", __func__,
 	       c ? c->ifp->name : "Unknown",
 	       c ? prefix2str(c->address, buf, sizeof(buf)) : "Unknown");
 
@@ -111,8 +108,7 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 	if (!c)
 		return 0;
 
-	DEBUGD(&pbr_dbg_zebra,
-	       "%s: %s deleted %s", __PRETTY_FUNCTION__, c->ifp->name,
+	DEBUGD(&pbr_dbg_zebra, "%s: %s deleted %s", __func__, c->ifp->name,
 	       prefix2str(c->address, buf, sizeof(buf)));
 
 	connected_free(&c);
@@ -121,8 +117,7 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 int pbr_ifp_up(struct interface *ifp)
 {
-	DEBUGD(&pbr_dbg_zebra,
-	       "%s: %s is up", __PRETTY_FUNCTION__, ifp->name);
+	DEBUGD(&pbr_dbg_zebra, "%s: %s is up", __func__, ifp->name);
 
 	pbr_nht_nexthop_interface_update(ifp);
 
@@ -131,8 +126,7 @@ int pbr_ifp_up(struct interface *ifp)
 
 int pbr_ifp_down(struct interface *ifp)
 {
-	DEBUGD(&pbr_dbg_zebra,
-	       "%s: %s is down", __PRETTY_FUNCTION__, ifp->name);
+	DEBUGD(&pbr_dbg_zebra, "%s: %s is down", __func__, ifp->name);
 
 	pbr_nht_nexthop_interface_update(ifp);
 
@@ -177,30 +171,30 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
 		DEBUGD(&pbr_dbg_zebra,
-		       "%s: [%s] Route install failure for table: %u",
-		       __PRETTY_FUNCTION__, buf, table_id);
+		       "%s: [%s] Route install failure for table: %u", __func__,
+		       buf, table_id);
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
 		DEBUGD(&pbr_dbg_zebra,
 		       "%s: [%s] Route better admin distance won for table: %u",
-		       __PRETTY_FUNCTION__, buf, table_id);
+		       __func__, buf, table_id);
 		break;
 	case ZAPI_ROUTE_INSTALLED:
 		DEBUGD(&pbr_dbg_zebra,
 		       "%s: [%s] Route installed succeeded for table: %u",
-		       __PRETTY_FUNCTION__, buf, table_id);
+		       __func__, buf, table_id);
 		pbr_nht_route_installed_for_table(table_id);
 		break;
 	case ZAPI_ROUTE_REMOVED:
 		DEBUGD(&pbr_dbg_zebra,
 		       "%s: [%s] Route Removed succeeded for table: %u",
-		       __PRETTY_FUNCTION__, buf, table_id);
+		       __func__, buf, table_id);
 		pbr_nht_route_removed_for_table(table_id);
 		break;
 	case ZAPI_ROUTE_REMOVE_FAIL:
 		DEBUGD(&pbr_dbg_zebra,
-		       "%s: [%s] Route remove fail for table: %u",
-		       __PRETTY_FUNCTION__, buf, table_id);
+		       "%s: [%s] Route remove fail for table: %u", __func__,
+		       buf, table_id);
 		break;
 	}
 
@@ -224,8 +218,8 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 	pbrms = pbrms_lookup_unique(unique, ifi, &pmi);
 	if (!pbrms) {
 		DEBUGD(&pbr_dbg_zebra,
-		       "%s: Failure to lookup pbrms based upon %u",
-		       __PRETTY_FUNCTION__, unique);
+		       "%s: Failure to lookup pbrms based upon %u", __func__,
+		       unique);
 		return 0;
 	}
 
@@ -256,8 +250,7 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 
 static void zebra_connected(struct zclient *zclient)
 {
-	DEBUGD(&pbr_dbg_zebra, "%s: Registering for fun and profit",
-	       __PRETTY_FUNCTION__);
+	DEBUGD(&pbr_dbg_zebra, "%s: Registering for fun and profit", __func__);
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
@@ -318,8 +311,7 @@ void route_add(struct pbr_nexthop_group_cache *pnhgc, struct nexthop_group nhg,
 {
 	struct zapi_route api;
 
-	DEBUGD(&pbr_dbg_zebra, "%s for Table: %d", __PRETTY_FUNCTION__,
-	       pnhgc->table_id);
+	DEBUGD(&pbr_dbg_zebra, "%s for Table: %d", __func__, pnhgc->table_id);
 
 	memset(&api, 0, sizeof(api));
 
@@ -347,12 +339,11 @@ void route_add(struct pbr_nexthop_group_cache *pnhgc, struct nexthop_group nhg,
 	case AFI_L2VPN:
 		DEBUGD(&pbr_dbg_zebra,
 		       "%s: Asked to install unsupported route type: L2VPN",
-		       __PRETTY_FUNCTION__);
+		       __func__);
 		break;
 	case AFI_UNSPEC:
 		DEBUGD(&pbr_dbg_zebra,
-		       "%s: Asked to install unspecified route type",
-		       __PRETTY_FUNCTION__);
+		       "%s: Asked to install unspecified route type", __func__);
 		break;
 	}
 }
@@ -365,8 +356,7 @@ void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 {
 	struct zapi_route api;
 
-	DEBUGD(&pbr_dbg_zebra, "%s for Table: %d", __PRETTY_FUNCTION__,
-	       pnhgc->table_id);
+	DEBUGD(&pbr_dbg_zebra, "%s for Table: %d", __func__, pnhgc->table_id);
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
@@ -394,12 +384,11 @@ void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 	case AFI_L2VPN:
 		DEBUGD(&pbr_dbg_zebra,
 		       "%s: Asked to delete unsupported route type: L2VPN",
-		       __PRETTY_FUNCTION__);
+		       __func__);
 		break;
 	case AFI_UNSPEC:
 		DEBUGD(&pbr_dbg_zebra,
-		       "%s: Asked to delete unspecified route type",
-		       __PRETTY_FUNCTION__);
+		       "%s: Asked to delete unspecified route type", __func__);
 		break;
 	}
 }
@@ -418,16 +407,15 @@ static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	if (DEBUG_MODE_CHECK(&pbr_dbg_zebra, DEBUG_MODE_ALL)) {
 
 		DEBUGD(&pbr_dbg_zebra, "%s: Received Nexthop update: %s",
-		       __PRETTY_FUNCTION__,
-		       prefix2str(&nhr.prefix, buf, sizeof(buf)));
+		       __func__, prefix2str(&nhr.prefix, buf, sizeof(buf)));
 
-		DEBUGD(&pbr_dbg_zebra, "%s: (\tNexthops(%u)",
-		       __PRETTY_FUNCTION__, nhr.nexthop_num);
+		DEBUGD(&pbr_dbg_zebra, "%s: (\tNexthops(%u)", __func__,
+		       nhr.nexthop_num);
 
 		for (i = 0; i < nhr.nexthop_num; i++) {
 			DEBUGD(&pbr_dbg_zebra,
 			       "%s: \tType: %d: vrf: %d, ifindex: %d gate: %s",
-			       __PRETTY_FUNCTION__, nhr.nexthops[i].type,
+			       __func__, nhr.nexthops[i].type,
 			       nhr.nexthops[i].vrf_id, nhr.nexthops[i].ifindex,
 			       inet_ntoa(nhr.nexthops[i].gate.ipv4));
 		}
@@ -490,8 +478,7 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 
 	if (zclient_send_rnh(zclient, command, &p,
 			     false, nhop->vrf_id) < 0) {
-		zlog_warn("%s: Failure to send nexthop to zebra",
-			  __PRETTY_FUNCTION__);
+		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 	}
 }
 
@@ -561,7 +548,7 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 }
 
 void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
-		      struct pbr_map_interface *pmi, bool install)
+		      struct pbr_map_interface *pmi, bool install, bool changed)
 {
 	struct pbr_map *pbrm = pbrms->parent;
 	struct stream *s;
@@ -569,15 +556,17 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 
 	is_installed &= pbrms->installed;
 
-	DEBUGD(&pbr_dbg_zebra, "%s: for %s %d(%" PRIu64 ")",
-	       __PRETTY_FUNCTION__, pbrm->name, install, is_installed);
+	DEBUGD(&pbr_dbg_zebra, "%s: for %s %d(%" PRIu64 ")", __func__,
+	       pbrm->name, install, is_installed);
 
 	/*
-	 * If we are installed and asked to do so again
-	 * just return.  If we are not installed and asked
-	 * and asked to delete just return;
+	 * If we are installed and asked to do so again and the config
+	 * has not changed, just return.
+	 *
+	 * If we are not installed and asked
+	 * to delete just return.
 	 */
-	if (install && is_installed)
+	if (install && is_installed && !changed)
 		return;
 
 	if (!install && !is_installed)
@@ -595,9 +584,9 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	 */
 	stream_putl(s, 1);
 
-	DEBUGD(&pbr_dbg_zebra, "%s: \t%s %s %d %s %u",
-	       __PRETTY_FUNCTION__, install ? "Installing" : "Deleting",
-	       pbrm->name, install, pmi->ifp->name, pmi->delete);
+	DEBUGD(&pbr_dbg_zebra, "%s: \t%s %s seq %u %d %s %u", __func__,
+	       install ? "Installing" : "Deleting", pbrm->name, pbrms->seqno,
+	       install, pmi->ifp->name, pmi->delete);
 
 	pbr_encode_pbr_map_sequence(s, pbrms, pmi->ifp);
 

@@ -301,6 +301,7 @@ struct zebra_mac_t_ {
 /* remote VTEP advertised MAC as default GW */
 #define ZEBRA_MAC_REMOTE_DEF_GW	0x40
 #define ZEBRA_MAC_DUPLICATE 0x80
+#define ZEBRA_MAC_FPM_SENT  0x100 /* whether or not this entry was sent. */
 
 	/* back pointer to zvni */
 	zebra_vni_t     *zvni;

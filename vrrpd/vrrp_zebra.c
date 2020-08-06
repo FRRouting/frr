@@ -204,5 +204,5 @@ void vrrp_zebra_init(void)
 
 	zclient_init(zclient, ZEBRA_ROUTE_VRRP, 0, &vrrp_privs);
 
-	zlog_notice("%s: zclient socket initialized", __PRETTY_FUNCTION__);
+	zlog_notice("%s: zclient socket initialized", __func__);
 }

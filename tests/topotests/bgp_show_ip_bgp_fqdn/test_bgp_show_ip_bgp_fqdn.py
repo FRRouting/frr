@@ -43,13 +43,14 @@ import pytest
 import functools
 
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from mininet.topo import Topo
+
 
 class TemplateTopo(Topo):
     def build(self, *_args, **_opts):
@@ -75,19 +76,19 @@ def setup_module(mod):
 
     for i, (rname, router) in enumerate(router_list.iteritems(), 1):
         router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, '{}/zebra.conf'.format(rname))
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
-            TopoRouter.RD_BGP,
-            os.path.join(CWD, '{}/bgpd.conf'.format(rname))
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
 
     tgen.start_router()
 
+
 def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
+
 
 def test_bgp_show_ip_bgp_hostname():
     tgen = get_topogen()
@@ -126,6 +127,7 @@ def test_bgp_show_ip_bgp_hostname():
     assert result is None, 'Failed bgp convergence in "{}"'.format(tgen.gears["r3"])
     assert _bgp_show_nexthop_ip_only(tgen.gears["r3"]) == True
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

@@ -703,7 +703,7 @@ int vtysh_mark_file(const char *filename)
 	if (confp == NULL) {
 		fprintf(stderr, "%% Can't open config file %s due to '%s'.\n",
 			filename, safe_strerror(errno));
-		return (CMD_ERR_NO_FILE);
+		return CMD_ERR_NO_FILE;
 	}
 
 	vty = vty_new();
@@ -883,7 +883,7 @@ int vtysh_mark_file(const char *filename)
 	if (confp != stdin)
 		fclose(confp);
 
-	return (0);
+	return 0;
 }
 
 /* Configration make from file. */
@@ -1000,7 +1000,6 @@ static int vtysh_process_questionmark(const char *input, int input_len)
 		vty_out(vty, "%% Ambiguous command.\n");
 		rl_on_new_line();
 		return 0;
-		break;
 	case CMD_ERR_NO_MATCH:
 		cmd_free_strvec(vline);
 		if (describe)
@@ -1008,7 +1007,6 @@ static int vtysh_process_questionmark(const char *input, int input_len)
 		vty_out(vty, "%% There is no matched command.\n");
 		rl_on_new_line();
 		return 0;
-		break;
 	}
 
 	/* Get width of command string. */
@@ -1151,7 +1149,6 @@ static char *command_generator(const char *text, int state)
 		return matched[index++];
 
 	XFREE(MTYPE_TMP, matched);
-	matched = NULL;
 
 	return NULL;
 }
@@ -1174,141 +1171,326 @@ static char **new_completion(const char *text, int start, int end)
 
 /* Vty node structures. */
 static struct cmd_node bgp_node = {
-	BGP_NODE, "%s(config-router)# ",
+	.name = "bgp",
+	.node = BGP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node rip_node = {
-	RIP_NODE, "%s(config-router)# ",
+	.name = "rip",
+	.node = RIP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node isis_node = {
-	ISIS_NODE, "%s(config-router)# ",
+	.name = "isis",
+	.node = ISIS_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node openfabric_node = {
-	OPENFABRIC_NODE, "%s(config-router)# ",
+	.name = "openfabric",
+	.node = OPENFABRIC_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ",
+	.name = "interface",
+	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-if)# ",
 };
 
 static struct cmd_node pw_node = {
-	PW_NODE, "%s(config-pw)# ",
+	.name = "pw",
+	.node = PW_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-pw)# ",
 };
 
 static struct cmd_node vrf_node = {
-	VRF_NODE, "%s(config-vrf)# ",
+	.name = "vrf",
+	.node = VRF_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-vrf)# ",
 };
 
 static struct cmd_node nh_group_node = {
-	NH_GROUP_NODE,
-	"%s(config-nh-group)# ",
+	.name = "nexthop-group",
+	.node = NH_GROUP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-nh-group)# ",
 };
 
-static struct cmd_node rmap_node = {RMAP_NODE, "%s(config-route-map)# "};
+static struct cmd_node rmap_node = {
+	.name = "routemap",
+	.node = RMAP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-route-map)# ",
+};
 
-static struct cmd_node pbr_map_node = {PBRMAP_NODE, "%s(config-pbr-map)# "};
+static struct cmd_node pbr_map_node = {
+	.name = "pbr-map",
+	.node = PBRMAP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-pbr-map)# ",
+};
 
-static struct cmd_node zebra_node = {ZEBRA_NODE, "%s(config-router)# "};
+static struct cmd_node zebra_node = {
+	.name = "zebra",
+	.node = ZEBRA_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+};
 
-static struct cmd_node bgp_vpnv4_node = {BGP_VPNV4_NODE,
-					 "%s(config-router-af)# "};
+static struct cmd_node bgp_vpnv4_node = {
+	.name = "bgp vpnv4",
+	.node = BGP_VPNV4_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_vpnv6_node = {BGP_VPNV6_NODE,
-					 "%s(config-router-af)# "};
+static struct cmd_node bgp_vpnv6_node = {
+	.name = "bgp vpnv6",
+	.node = BGP_VPNV6_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_flowspecv4_node = {BGP_FLOWSPECV4_NODE,
-					"%s(config-router-af)# "};
+static struct cmd_node bgp_flowspecv4_node = {
+	.name = "bgp ipv4 flowspec",
+	.node = BGP_FLOWSPECV4_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_flowspecv6_node = {BGP_FLOWSPECV6_NODE,
-					"%s(config-router-af)# "};
+static struct cmd_node bgp_flowspecv6_node = {
+	.name = "bgp ipv6 flowspec",
+	.node = BGP_FLOWSPECV6_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_ipv4_node = {BGP_IPV4_NODE,
-					"%s(config-router-af)# "};
+static struct cmd_node bgp_ipv4_node = {
+	.name = "bgp ipv4 unicast",
+	.node = BGP_IPV4_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_ipv4m_node = {BGP_IPV4M_NODE,
-					 "%s(config-router-af)# "};
+static struct cmd_node bgp_ipv4m_node = {
+	.name = "bgp ipv4 multicast",
+	.node = BGP_IPV4M_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_ipv4l_node = {BGP_IPV4L_NODE,
-					 "%s(config-router-af)# "};
+static struct cmd_node bgp_ipv4l_node = {
+	.name = "bgp ipv4 labeled unicast",
+	.node = BGP_IPV4L_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_ipv6_node = {BGP_IPV6_NODE,
-					"%s(config-router-af)# "};
+static struct cmd_node bgp_ipv6_node = {
+	.name = "bgp ipv6",
+	.node = BGP_IPV6_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_ipv6m_node = {BGP_IPV6M_NODE,
-					 "%s(config-router-af)# "};
+static struct cmd_node bgp_ipv6m_node = {
+	.name = "bgp ipv6 multicast",
+	.node = BGP_IPV6M_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_evpn_node = {BGP_EVPN_NODE,
-					"%s(config-router-af)# "};
+static struct cmd_node bgp_evpn_node = {
+	.name = "bgp evpn",
+	.node = BGP_EVPN_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_evpn_vni_node = {BGP_EVPN_VNI_NODE,
-					    "%s(config-router-af-vni)# "};
+static struct cmd_node bgp_evpn_vni_node = {
+	.name = "bgp evpn vni",
+	.node = BGP_EVPN_VNI_NODE,
+	.parent_node = BGP_EVPN_NODE,
+	.prompt = "%s(config-router-af-vni)# ",
+};
 
-static struct cmd_node bgp_ipv6l_node = {BGP_IPV6L_NODE,
-					 "%s(config-router-af)# "};
+static struct cmd_node bgp_ipv6l_node = {
+	.name = "bgp ipv6 labeled unicast",
+	.node = BGP_IPV6L_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
 static struct cmd_node bgp_vnc_defaults_node = {
-	BGP_VNC_DEFAULTS_NODE, "%s(config-router-vnc-defaults)# "};
-
-static struct cmd_node bgp_vnc_nve_group_node = {
-	BGP_VNC_NVE_GROUP_NODE, "%s(config-router-vnc-nve-group)# "};
-
-static struct cmd_node bgp_vrf_policy_node = {BGP_VRF_POLICY_NODE,
-					      "%s(config-router-vrf-policy)# "};
-
-static struct cmd_node bgp_vnc_l2_group_node = {
-	BGP_VNC_L2_GROUP_NODE, "%s(config-router-vnc-l2-group)# "};
-
-static struct cmd_node bmp_node = {BMP_NODE, "%s(config-bgp-bmp)# "};
-
-static struct cmd_node ospf_node = {OSPF_NODE, "%s(config-router)# "};
-
-static struct cmd_node eigrp_node = {EIGRP_NODE, "%s(config-router)# "};
-
-static struct cmd_node babel_node = {BABEL_NODE, "%s(config-router)# "};
-
-static struct cmd_node ripng_node = {RIPNG_NODE, "%s(config-router)# "};
-
-static struct cmd_node ospf6_node = {OSPF6_NODE, "%s(config-ospf6)# "};
-
-static struct cmd_node ldp_node = {LDP_NODE, "%s(config-ldp)# "};
-
-static struct cmd_node ldp_ipv4_node = {LDP_IPV4_NODE, "%s(config-ldp-af)# "};
-
-static struct cmd_node ldp_ipv6_node = {LDP_IPV6_NODE, "%s(config-ldp-af)# "};
-
-static struct cmd_node ldp_ipv4_iface_node = {LDP_IPV4_IFACE_NODE,
-					      "%s(config-ldp-af-if)# "};
-
-static struct cmd_node ldp_ipv6_iface_node = {LDP_IPV6_IFACE_NODE,
-					      "%s(config-ldp-af-if)# "};
-
-static struct cmd_node ldp_l2vpn_node = {LDP_L2VPN_NODE, "%s(config-l2vpn)# "};
-
-static struct cmd_node ldp_pseudowire_node = {LDP_PSEUDOWIRE_NODE,
-					      "%s(config-l2vpn-pw)# "};
-
-static struct cmd_node keychain_node = {KEYCHAIN_NODE, "%s(config-keychain)# "};
-
-static struct cmd_node keychain_key_node = {KEYCHAIN_KEY_NODE,
-					    "%s(config-keychain-key)# "};
-
-struct cmd_node link_params_node = {
-	LINK_PARAMS_NODE, "%s(config-link-params)# ",
+	.name = "bgp vnc defaults",
+	.node = BGP_VNC_DEFAULTS_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-vnc-defaults)# ",
 };
 
-static struct cmd_node rpki_node = {RPKI_NODE, "%s(config-rpki)# ", 1};
+static struct cmd_node bgp_vnc_nve_group_node = {
+	.name = "bgp vnc nve",
+	.node = BGP_VNC_NVE_GROUP_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-vnc-nve-group)# ",
+};
+
+static struct cmd_node bgp_vrf_policy_node = {
+	.name = "bgp vrf policy",
+	.node = BGP_VRF_POLICY_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-vrf-policy)# ",
+};
+
+static struct cmd_node bgp_vnc_l2_group_node = {
+	.name = "bgp vnc l2",
+	.node = BGP_VNC_L2_GROUP_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-vnc-l2-group)# ",
+};
+
+static struct cmd_node bmp_node = {
+	.name = "bmp",
+	.node = BMP_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-bgp-bmp)# "
+};
+
+static struct cmd_node ospf_node = {
+	.name = "ospf",
+	.node = OSPF_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+};
+
+static struct cmd_node eigrp_node = {
+	.name = "eigrp",
+	.node = EIGRP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+};
+
+static struct cmd_node babel_node = {
+	.name = "babel",
+	.node = BABEL_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+};
+
+static struct cmd_node ripng_node = {
+	.name = "ripng",
+	.node = RIPNG_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+};
+
+static struct cmd_node ospf6_node = {
+	.name = "ospf6",
+	.node = OSPF6_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-ospf6)# ",
+};
+
+static struct cmd_node ldp_node = {
+	.name = "ldp",
+	.node = LDP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-ldp)# ",
+};
+
+static struct cmd_node ldp_ipv4_node = {
+	.name = "ldp ipv4",
+	.node = LDP_IPV4_NODE,
+	.parent_node = LDP_NODE,
+	.prompt = "%s(config-ldp-af)# ",
+};
+
+static struct cmd_node ldp_ipv6_node = {
+	.name = "ldp ipv6",
+	.node = LDP_IPV6_NODE,
+	.parent_node = LDP_NODE,
+	.prompt = "%s(config-ldp-af)# ",
+};
+
+static struct cmd_node ldp_ipv4_iface_node = {
+	.name = "ldp ipv4 interface",
+	.node = LDP_IPV4_IFACE_NODE,
+	.parent_node = LDP_IPV4_NODE,
+	.prompt = "%s(config-ldp-af-if)# ",
+};
+
+static struct cmd_node ldp_ipv6_iface_node = {
+	.name = "ldp ipv6 interface",
+	.node = LDP_IPV6_IFACE_NODE,
+	.parent_node = LDP_IPV6_NODE,
+	.prompt = "%s(config-ldp-af-if)# ",
+};
+
+static struct cmd_node ldp_l2vpn_node = {
+	.name = "ldp l2vpn",
+	.node = LDP_L2VPN_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-l2vpn)# ",
+};
+
+static struct cmd_node ldp_pseudowire_node = {
+	.name = "ldp",
+	.node = LDP_PSEUDOWIRE_NODE,
+	.parent_node = LDP_L2VPN_NODE,
+	.prompt = "%s(config-l2vpn-pw)# ",
+};
+
+static struct cmd_node keychain_node = {
+	.name = "keychain",
+	.node = KEYCHAIN_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-keychain)# ",
+};
+
+static struct cmd_node keychain_key_node = {
+	.name = "keychain key",
+	.node = KEYCHAIN_KEY_NODE,
+	.parent_node = KEYCHAIN_NODE,
+	.prompt = "%s(config-keychain-key)# ",
+};
+
+struct cmd_node link_params_node = {
+	.name = "link-params",
+	.node = LINK_PARAMS_NODE,
+	.parent_node = INTERFACE_NODE,
+	.prompt = "%s(config-link-params)# ",
+};
+
+static struct cmd_node rpki_node = {
+	.name = "rpki",
+	.node = RPKI_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-rpki)# ",
+};
 
 #if HAVE_BFDD > 0
 static struct cmd_node bfd_node = {
-	BFD_NODE,
-	"%s(config-bfd)# ",
+	.name = "bfd",
+	.node = BFD_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-bfd)# ",
 };
 
 static struct cmd_node bfd_peer_node = {
-	BFD_PEER_NODE,
-	"%s(config-bfd-peer)# ",
+	.name = "bfd peer",
+	.node = BFD_PEER_NODE,
+	.parent_node = BFD_NODE,
+	.prompt = "%s(config-bfd-peer)# ",
 };
 #endif /* HAVE_BFDD */
 
@@ -1808,85 +1990,19 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_config_terminal, vtysh_config_terminal_cmd,
 
 static int vtysh_exit(struct vty *vty)
 {
-	switch (vty->node) {
-	case VIEW_NODE:
-	case ENABLE_NODE:
+	struct cmd_node *cnode = vector_lookup(cmdvec, vty->node);
+
+	if (vty->node == VIEW_NODE || vty->node == ENABLE_NODE)
 		exit(0);
-		break;
-	case CONFIG_NODE:
-		vty->node = ENABLE_NODE;
-		break;
-	case INTERFACE_NODE:
-	case PW_NODE:
-	case VRF_NODE:
-	case NH_GROUP_NODE:
-	case ZEBRA_NODE:
-	case BGP_NODE:
-	case RIP_NODE:
-	case RIPNG_NODE:
-	case OSPF_NODE:
-	case OSPF6_NODE:
-	case EIGRP_NODE:
-	case BABEL_NODE:
-	case LDP_NODE:
-	case LDP_L2VPN_NODE:
-	case ISIS_NODE:
-	case OPENFABRIC_NODE:
-	case RMAP_NODE:
-	case PBRMAP_NODE:
-	case VTY_NODE:
-	case KEYCHAIN_NODE:
-	case BFD_NODE:
-	case RPKI_NODE:
+	if (cnode->node_exit)
+		cnode->node_exit(vty);
+	if (cnode->parent_node)
+		vty->node = cnode->parent_node;
+
+	if (vty->node == CONFIG_NODE) {
+		/* resync in case one of the daemons is somewhere else */
 		vtysh_execute("end");
 		vtysh_execute("configure");
-		vty->node = CONFIG_NODE;
-		break;
-	case BGP_VPNV4_NODE:
-	case BGP_VPNV6_NODE:
-	case BGP_IPV4_NODE:
-	case BGP_IPV4M_NODE:
-	case BGP_IPV4L_NODE:
-	case BGP_IPV6_NODE:
-	case BGP_IPV6M_NODE:
-	case BGP_IPV6L_NODE:
-	case BGP_FLOWSPECV4_NODE:
-	case BGP_FLOWSPECV6_NODE:
-	case BGP_VRF_POLICY_NODE:
-	case BGP_EVPN_NODE:
-	case BGP_VNC_DEFAULTS_NODE:
-	case BGP_VNC_NVE_GROUP_NODE:
-	case BGP_VNC_L2_GROUP_NODE:
-	case BMP_NODE:
-		vty->node = BGP_NODE;
-		break;
-	case BGP_EVPN_VNI_NODE:
-		vty->node = BGP_EVPN_NODE;
-		break;
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-		vty->node = LDP_NODE;
-		break;
-	case LDP_IPV4_IFACE_NODE:
-		vty->node = LDP_IPV4_NODE;
-		break;
-	case LDP_IPV6_IFACE_NODE:
-		vty->node = LDP_IPV6_NODE;
-		break;
-	case LDP_PSEUDOWIRE_NODE:
-		vty->node = LDP_L2VPN_NODE;
-		break;
-	case KEYCHAIN_KEY_NODE:
-		vty->node = KEYCHAIN_NODE;
-		break;
-	case LINK_PARAMS_NODE:
-		vty->node = INTERFACE_NODE;
-		break;
-	case BFD_PEER_NODE:
-		vty->node = BFD_NODE;
-		break;
-	default:
-		break;
 	}
 	return CMD_SUCCESS;
 }
@@ -2711,103 +2827,6 @@ DEFUNSH(VTYSH_ALL, no_vtysh_config_enable_password,
 	return CMD_SUCCESS;
 }
 
-/* Log filter */
-DEFUN (vtysh_log_filter,
-       vtysh_log_filter_cmd,
-       "[no] log-filter WORD ["DAEMONS_LIST"]",
-       NO_STR
-       FILTER_LOG_STR
-       "String to filter by\n"
-       DAEMONS_STR)
-{
-	char *filter = NULL;
-	char *daemon = NULL;
-	int found = 0;
-	int idx = 0;
-	int daemon_idx = 2;
-	int total_len = 0;
-	int len = 0;
-
-	char line[ZLOG_FILTER_LENGTH_MAX + 20];
-
-	found = argv_find(argv, argc, "no", &idx);
-	if (found == 1) {
-		len = snprintf(line, sizeof(line), "no log-filter");
-		daemon_idx += 1;
-	} else
-		len = snprintf(line, sizeof(line), "log-filter");
-
-	total_len += len;
-
-	idx = 1;
-	found = argv_find(argv, argc, "WORD", &idx);
-	if (found != 1) {
-		vty_out(vty, "%% No filter string given\n");
-		return CMD_WARNING;
-	}
-	filter = argv[idx]->arg;
-
-	if (strnlen(filter, ZLOG_FILTER_LENGTH_MAX + 1)
-	    > ZLOG_FILTER_LENGTH_MAX) {
-		vty_out(vty, "%% Filter is too long\n");
-		return CMD_WARNING;
-	}
-
-	len = snprintf(line + total_len, sizeof(line) - total_len, " %s\n",
-		       filter);
-
-	if ((len < 0) || (size_t)(total_len + len) > sizeof(line)) {
-		vty_out(vty, "%% Error buffering filter to daemons\n");
-		return CMD_ERR_INCOMPLETE;
-	}
-
-	if (argc >= (daemon_idx + 1))
-		daemon = argv[daemon_idx]->text;
-
-	if (daemon != NULL) {
-		vty_out(vty, "Applying log filter change to %s:\n", daemon);
-		return vtysh_client_execute_name(daemon, line);
-	} else
-		return show_per_daemon(line,
-				       "Applying log filter change to %s:\n");
-}
-
-/* Clear log filters */
-DEFUN (vtysh_log_filter_clear,
-       vtysh_log_filter_clear_cmd,
-       "log-filter clear ["DAEMONS_LIST"]",
-       FILTER_LOG_STR
-       CLEAR_STR
-       DAEMONS_STR)
-{
-	char *daemon = NULL;
-	int daemon_idx = 2;
-
-	char line[] = "clear log-filter\n";
-
-	if (argc >= (daemon_idx + 1))
-		daemon = argv[daemon_idx]->text;
-
-	if (daemon != NULL) {
-		vty_out(vty, "Clearing all filters applied to %s:\n", daemon);
-		return vtysh_client_execute_name(daemon, line);
-	} else
-		return show_per_daemon(line,
-				       "Clearing all filters applied to %s:\n");
-}
-
-/* Show log filter */
-DEFUN (vtysh_show_log_filter,
-       vtysh_show_log_filter_cmd,
-       "show log-filter",
-       SHOW_STR
-       FILTER_LOG_STR)
-{
-	char line[] = "do show log-filter\n";
-
-	return show_per_daemon(line, "Log filters applied to %s:\n");
-}
-
 DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
        "write terminal ["DAEMONS_LIST"]",
@@ -2878,13 +2897,12 @@ static void backup_config_file(const char *fbackup)
 	strlcat(integrate_sav, CONF_BACKUP_EXT, integrate_sav_sz);
 
 	/* Move current configuration file to backup config file. */
-	if (unlink(integrate_sav) != 0) {
-		vty_out(vty, "Warning: %s unlink failed\n", integrate_sav);
-	}
-	if (rename(fbackup, integrate_sav) != 0) {
-		vty_out(vty, "Error renaming %s to %s\n", fbackup,
-			integrate_sav);
-	}
+	if (unlink(integrate_sav) != 0 && errno != ENOENT)
+		vty_out(vty, "Unlink failed for %s: %s\n", integrate_sav,
+			strerror(errno));
+	if (rename(fbackup, integrate_sav) != 0 && errno != ENOENT)
+		vty_out(vty, "Error renaming %s to %s: %s\n", fbackup,
+			integrate_sav, strerror(errno));
 	free(integrate_sav);
 }
 
@@ -3054,6 +3072,24 @@ DEFUN (vtysh_copy_running_config,
        "Copy to startup configuration\n")
 {
 	return vtysh_write_memory(self, vty, argc, argv);
+}
+
+DEFUN (vtysh_copy_to_running,
+       vtysh_copy_to_running_cmd,
+       "copy FILENAME running-config",
+       "Apply a configuration file\n"
+       "Configuration file to read\n"
+       "Apply to current configuration\n")
+{
+	int ret;
+	const char *fname = argv[1]->arg;
+
+	ret = vtysh_read_config(fname);
+
+	/* Return to enable mode - the 'read_config' api leaves us up a level */
+	vtysh_execute_no_pager("enable");
+
+	return ret;
 }
 
 DEFUN (vtysh_terminal_paginate,
@@ -3413,7 +3449,7 @@ DEFUN(find,
 
 			if (regexec(&exp, cli->string, 0, NULL, 0) == 0)
 				vty_out(vty, "  (%s)  %s\n",
-					node_names[node->node], cli->string);
+					node->name, cli->string);
 		}
 	}
 
@@ -3653,7 +3689,7 @@ char *vtysh_prompt(void)
 {
 	static char buf[512];
 
-	snprintf(buf, sizeof buf, cmd_prompt(vty->node), cmd_hostname_get());
+	snprintf(buf, sizeof(buf), cmd_prompt(vty->node), cmd_hostname_get());
 	return buf;
 }
 
@@ -3712,54 +3748,54 @@ void vtysh_init_vty(void)
 	cmd_variable_handler_register(vtysh_var_handler);
 
 	/* Install nodes. */
-	install_node(&bgp_node, NULL);
-	install_node(&rip_node, NULL);
-	install_node(&interface_node, NULL);
-	install_node(&pw_node, NULL);
-	install_node(&link_params_node, NULL);
-	install_node(&vrf_node, NULL);
-	install_node(&nh_group_node, NULL);
-	install_node(&rmap_node, NULL);
-	install_node(&pbr_map_node, NULL);
-	install_node(&zebra_node, NULL);
-	install_node(&bgp_vpnv4_node, NULL);
-	install_node(&bgp_vpnv6_node, NULL);
-	install_node(&bgp_flowspecv4_node, NULL);
-	install_node(&bgp_flowspecv6_node, NULL);
-	install_node(&bgp_ipv4_node, NULL);
-	install_node(&bgp_ipv4m_node, NULL);
-	install_node(&bgp_ipv4l_node, NULL);
-	install_node(&bgp_ipv6_node, NULL);
-	install_node(&bgp_ipv6m_node, NULL);
-	install_node(&bgp_ipv6l_node, NULL);
-	install_node(&bgp_vrf_policy_node, NULL);
-	install_node(&bgp_evpn_node, NULL);
-	install_node(&bgp_evpn_vni_node, NULL);
-	install_node(&bgp_vnc_defaults_node, NULL);
-	install_node(&bgp_vnc_nve_group_node, NULL);
-	install_node(&bgp_vnc_l2_group_node, NULL);
-	install_node(&ospf_node, NULL);
-	install_node(&eigrp_node, NULL);
-	install_node(&babel_node, NULL);
-	install_node(&ripng_node, NULL);
-	install_node(&ospf6_node, NULL);
-	install_node(&ldp_node, NULL);
-	install_node(&ldp_ipv4_node, NULL);
-	install_node(&ldp_ipv6_node, NULL);
-	install_node(&ldp_ipv4_iface_node, NULL);
-	install_node(&ldp_ipv6_iface_node, NULL);
-	install_node(&ldp_l2vpn_node, NULL);
-	install_node(&ldp_pseudowire_node, NULL);
-	install_node(&keychain_node, NULL);
-	install_node(&keychain_key_node, NULL);
-	install_node(&isis_node, NULL);
-	install_node(&openfabric_node, NULL);
-	install_node(&vty_node, NULL);
-	install_node(&rpki_node, NULL);
-	install_node(&bmp_node, NULL);
+	install_node(&bgp_node);
+	install_node(&rip_node);
+	install_node(&interface_node);
+	install_node(&pw_node);
+	install_node(&link_params_node);
+	install_node(&vrf_node);
+	install_node(&nh_group_node);
+	install_node(&rmap_node);
+	install_node(&pbr_map_node);
+	install_node(&zebra_node);
+	install_node(&bgp_vpnv4_node);
+	install_node(&bgp_vpnv6_node);
+	install_node(&bgp_flowspecv4_node);
+	install_node(&bgp_flowspecv6_node);
+	install_node(&bgp_ipv4_node);
+	install_node(&bgp_ipv4m_node);
+	install_node(&bgp_ipv4l_node);
+	install_node(&bgp_ipv6_node);
+	install_node(&bgp_ipv6m_node);
+	install_node(&bgp_ipv6l_node);
+	install_node(&bgp_vrf_policy_node);
+	install_node(&bgp_evpn_node);
+	install_node(&bgp_evpn_vni_node);
+	install_node(&bgp_vnc_defaults_node);
+	install_node(&bgp_vnc_nve_group_node);
+	install_node(&bgp_vnc_l2_group_node);
+	install_node(&ospf_node);
+	install_node(&eigrp_node);
+	install_node(&babel_node);
+	install_node(&ripng_node);
+	install_node(&ospf6_node);
+	install_node(&ldp_node);
+	install_node(&ldp_ipv4_node);
+	install_node(&ldp_ipv6_node);
+	install_node(&ldp_ipv4_iface_node);
+	install_node(&ldp_ipv6_iface_node);
+	install_node(&ldp_l2vpn_node);
+	install_node(&ldp_pseudowire_node);
+	install_node(&keychain_node);
+	install_node(&keychain_key_node);
+	install_node(&isis_node);
+	install_node(&openfabric_node);
+	install_node(&vty_node);
+	install_node(&rpki_node);
+	install_node(&bmp_node);
 #if HAVE_BFDD > 0
-	install_node(&bfd_node, NULL);
-	install_node(&bfd_peer_node, NULL);
+	install_node(&bfd_node);
+	install_node(&bfd_peer_node);
 #endif /* HAVE_BFDD */
 
 	struct cmd_node *node;
@@ -4022,6 +4058,7 @@ void vtysh_init_vty(void)
 	install_element(INTERFACE_NODE, &vtysh_link_params_cmd);
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
+	install_element(ENABLE_NODE, &vtysh_copy_to_running_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_vrf_cmd);
 	install_element(VRF_NODE, &vtysh_vrf_netns_cmd);
@@ -4089,9 +4126,6 @@ void vtysh_init_vty(void)
 
 	/* Logging */
 	install_element(VIEW_NODE, &vtysh_show_logging_cmd);
-	install_element(VIEW_NODE, &vtysh_show_log_filter_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_filter_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_filter_clear_cmd);
 	install_element(CONFIG_NODE, &vtysh_log_stdout_cmd);
 	install_element(CONFIG_NODE, &vtysh_log_stdout_level_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_log_stdout_cmd);

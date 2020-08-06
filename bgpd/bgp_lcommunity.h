@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2016 Keyur Patel <keyur@arrcus.com>
  *
- * This file is part of FreeRangeRouting (FRR).
+ * This file is part of FRRouting (FRR).
  *
  * FRR is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License as published by the Free Software
@@ -66,10 +66,10 @@ extern void lcommunity_unintern(struct lcommunity **);
 extern unsigned int lcommunity_hash_make(const void *);
 extern struct hash *lcommunity_hash(void);
 extern struct lcommunity *lcommunity_str2com(const char *);
-extern int lcommunity_match(const struct lcommunity *,
-			    const struct lcommunity *);
+extern bool lcommunity_match(const struct lcommunity *,
+			     const struct lcommunity *);
 extern char *lcommunity_str(struct lcommunity *, bool make_json);
-extern int lcommunity_include(struct lcommunity *lcom, uint8_t *ptr);
+extern bool lcommunity_include(struct lcommunity *lcom, uint8_t *ptr);
 extern void lcommunity_del_val(struct lcommunity *lcom, uint8_t *ptr);
 
 extern void bgp_compute_aggregate_lcommunity(

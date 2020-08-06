@@ -36,7 +36,7 @@ import pytest
 import time
 
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
@@ -48,6 +48,7 @@ from mininet.topo import Topo
 
 class ISISTopo1(Topo):
     "Simple two layer ISIS topology"
+
     def build(self, *_args, **_opts):
         "Build function"
         tgen = get_topogen(self)
@@ -61,27 +62,27 @@ class ISISTopo1(Topo):
         #   \    /
         #     r5
         for routern in range(1, 6):
-            tgen.add_router('r{}'.format(routern))
+            tgen.add_router("r{}".format(routern))
 
         # r1 <- sw1 -> r3
-        sw = tgen.add_switch('sw1')
-        sw.add_link(tgen.gears['r1'])
-        sw.add_link(tgen.gears['r3'])
+        sw = tgen.add_switch("sw1")
+        sw.add_link(tgen.gears["r1"])
+        sw.add_link(tgen.gears["r3"])
 
         # r2 <- sw2 -> r4
-        sw = tgen.add_switch('sw2')
-        sw.add_link(tgen.gears['r2'])
-        sw.add_link(tgen.gears['r4'])
+        sw = tgen.add_switch("sw2")
+        sw.add_link(tgen.gears["r2"])
+        sw.add_link(tgen.gears["r4"])
 
         # r3 <- sw3 -> r5
-        sw = tgen.add_switch('sw3')
-        sw.add_link(tgen.gears['r3'])
-        sw.add_link(tgen.gears['r5'])
+        sw = tgen.add_switch("sw3")
+        sw.add_link(tgen.gears["r3"])
+        sw.add_link(tgen.gears["r5"])
 
         # r4 <- sw4 -> r5
-        sw = tgen.add_switch('sw4')
-        sw.add_link(tgen.gears['r4'])
-        sw.add_link(tgen.gears['r5'])
+        sw = tgen.add_switch("sw4")
+        sw.add_link(tgen.gears["r4"])
+        sw.add_link(tgen.gears["r5"])
 
 
 def setup_module(mod):
@@ -92,12 +93,10 @@ def setup_module(mod):
     # For all registered routers, load the zebra configuration file
     for rname, router in tgen.routers().iteritems():
         router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, '{}/zebra.conf'.format(rname))
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
-            TopoRouter.RD_ISIS,
-            os.path.join(CWD, '{}/isisd.conf'.format(rname))
+            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
         )
 
     # After loading the configurations, this function loads configured daemons.
@@ -105,12 +104,12 @@ def setup_module(mod):
 
     has_version_20 = False
     for router in tgen.routers().values():
-        if router.has_version('<', '3'):
+        if router.has_version("<", "3"):
             has_version_20 = True
 
     if has_version_20:
-        logger.info('Skipping ISIS tests for FRR 2.0')
-        tgen.set_error('ISIS has convergence problems with IPv6')
+        logger.info("Skipping ISIS tests for FRR 2.0")
+        tgen.set_error("ISIS has convergence problems with IPv6")
 
 
 def teardown_module(mod):
@@ -136,7 +135,7 @@ def test_isis_convergence():
     #     )
 
     for rname, router in tgen.routers().iteritems():
-        filename = '{0}/{1}/{1}_topology.json'.format(CWD, rname)
+        filename = "{0}/{1}/{1}_topology.json".format(CWD, rname)
         expected = json.loads(open(filename).read())
 
         def compare_isis_topology(router, expected):
@@ -145,9 +144,8 @@ def test_isis_convergence():
             return topotest.json_cmp(actual, expected)
 
         test_func = functools.partial(compare_isis_topology, router, expected)
-        (result, diff) = topotest.run_and_expect(test_func, None,
-                                                 wait=0.5, count=120)
-        assert result, 'ISIS did not converge on {}:\n{}'.format(rname, diff)
+        (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=120)
+        assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
 
 def test_isis_route_installation():
@@ -157,24 +155,24 @@ def test_isis_route_installation():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Checking routers for installed ISIS routes')
+    logger.info("Checking routers for installed ISIS routes")
 
     # Check for routes in 'show ip route json'
     for rname, router in tgen.routers().iteritems():
-        filename = '{0}/{1}/{1}_route.json'.format(CWD, rname)
-        expected = json.loads(open(filename, 'r').read())
-        actual = router.vtysh_cmd('show ip route json', isjson=True)
+        filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
+        expected = json.loads(open(filename, "r").read())
+        actual = router.vtysh_cmd("show ip route json", isjson=True)
 
         # Older FRR versions don't list interfaces in some ISIS routes
-        if router.has_version('<', '3.1'):
+        if router.has_version("<", "3.1"):
             for network, routes in expected.iteritems():
                 for route in routes:
-                    if route['protocol'] != 'isis':
+                    if route["protocol"] != "isis":
                         continue
 
-                    for nexthop in route['nexthops']:
-                        nexthop.pop('interfaceIndex', None)
-                        nexthop.pop('interfaceName', None)
+                    for nexthop in route["nexthops"]:
+                        nexthop.pop("interfaceIndex", None)
+                        nexthop.pop("interfaceName", None)
 
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
@@ -187,19 +185,19 @@ def test_isis_linux_route_installation():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Checking routers for installed ISIS routes in OS')
+    logger.info("Checking routers for installed ISIS routes in OS")
 
     # Check for routes in `ip route`
     for rname, router in tgen.routers().iteritems():
-        filename = '{0}/{1}/{1}_route_linux.json'.format(CWD, rname)
-        expected = json.loads(open(filename, 'r').read())
+        filename = "{0}/{1}/{1}_route_linux.json".format(CWD, rname)
+        expected = json.loads(open(filename, "r").read())
         actual = topotest.ip4_route(router)
 
         # Older FRR versions install routes using different proto
-        if router.has_version('<', '3.1'):
+        if router.has_version("<", "3.1"):
             for network, netoptions in expected.iteritems():
-                if 'proto' in netoptions and netoptions['proto'] == '187':
-                    netoptions['proto'] = 'zebra'
+                if "proto" in netoptions and netoptions["proto"] == "187":
+                    netoptions["proto"] = "zebra"
 
         assertmsg = "Router '{}' OS routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
@@ -212,27 +210,27 @@ def test_isis_route6_installation():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Checking routers for installed ISIS IPv6 routes')
+    logger.info("Checking routers for installed ISIS IPv6 routes")
 
     # Check for routes in 'show ip route json'
     for rname, router in tgen.routers().iteritems():
-        filename = '{0}/{1}/{1}_route6.json'.format(CWD, rname)
-        expected = json.loads(open(filename, 'r').read())
-        actual = router.vtysh_cmd('show ipv6 route json', isjson=True)
+        filename = "{0}/{1}/{1}_route6.json".format(CWD, rname)
+        expected = json.loads(open(filename, "r").read())
+        actual = router.vtysh_cmd("show ipv6 route json", isjson=True)
 
         # Older FRR versions don't list interfaces in some ISIS routes
-        if router.has_version('<', '3.1'):
+        if router.has_version("<", "3.1"):
             for network, routes in expected.iteritems():
                 for route in routes:
                     # Older versions display different metrics for IPv6 routes
-                    route.pop('metric', None)
+                    route.pop("metric", None)
 
-                    if route['protocol'] != 'isis':
+                    if route["protocol"] != "isis":
                         continue
 
-                    for nexthop in route['nexthops']:
-                        nexthop.pop('interfaceIndex', None)
-                        nexthop.pop('interfaceName', None)
+                    for nexthop in route["nexthops"]:
+                        nexthop.pop("interfaceIndex", None)
+                        nexthop.pop("interfaceName", None)
 
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
@@ -245,19 +243,19 @@ def test_isis_linux_route6_installation():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Checking routers for installed ISIS IPv6 routes in OS')
+    logger.info("Checking routers for installed ISIS IPv6 routes in OS")
 
     # Check for routes in `ip route`
     for rname, router in tgen.routers().iteritems():
-        filename = '{0}/{1}/{1}_route6_linux.json'.format(CWD, rname)
-        expected = json.loads(open(filename, 'r').read())
+        filename = "{0}/{1}/{1}_route6_linux.json".format(CWD, rname)
+        expected = json.loads(open(filename, "r").read())
         actual = topotest.ip6_route(router)
 
         # Older FRR versions install routes using different proto
-        if router.has_version('<', '3.1'):
+        if router.has_version("<", "3.1"):
             for network, netoptions in expected.iteritems():
-                if 'proto' in netoptions and netoptions['proto'] == '187':
-                    netoptions['proto'] = 'zebra'
+                if "proto" in netoptions and netoptions["proto"] == "187":
+                    netoptions["proto"] = "zebra"
 
         assertmsg = "Router '{}' OS routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
@@ -267,12 +265,12 @@ def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
-        pytest.skip('Memory leak test/report is disabled')
+        pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
 
@@ -296,8 +294,11 @@ def dict_merge(dct, merge_dct):
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
     for k, v in merge_dct.iteritems():
-        if (k in dct and isinstance(dct[k], dict)
-                and isinstance(merge_dct[k], collections.Mapping)):
+        if (
+            k in dct
+            and isinstance(dct[k], dict)
+            and isinstance(merge_dct[k], collections.Mapping)
+        ):
             dict_merge(dct[k], merge_dct[k])
         else:
             dct[k] = merge_dct[k]
@@ -316,59 +317,59 @@ def parse_topology(lines, level):
         if area_match:
             area = area_match.group(1)
             if area not in areas:
-                areas[area] = {
-                    level: {
-                        'ipv4': [],
-                        'ipv6': []
-                    }
-                }
+                areas[area] = {level: {"ipv4": [], "ipv6": []}}
             ipv = None
             continue
         elif area is None:
             continue
 
         if re.match(r"IS\-IS paths to level-. routers that speak IPv6", line):
-            ipv = 'ipv6'
+            ipv = "ipv6"
             continue
         if re.match(r"IS\-IS paths to level-. routers that speak IP", line):
-            ipv = 'ipv4'
+            ipv = "ipv4"
             continue
 
-        item_match = re.match(
-            r"([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+)", line)
+        item_match = re.match(r"([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+)", line)
         if item_match is not None:
             # Skip header
-            if (item_match.group(1) == 'Vertex' and
-                item_match.group(2) == 'Type' and
-                item_match.group(3) == 'Metric' and
-                item_match.group(4) == 'Next-Hop' and
-                item_match.group(5) == 'Interface' and
-                item_match.group(6) == 'Parent'):
+            if (
+                item_match.group(1) == "Vertex"
+                and item_match.group(2) == "Type"
+                and item_match.group(3) == "Metric"
+                and item_match.group(4) == "Next-Hop"
+                and item_match.group(5) == "Interface"
+                and item_match.group(6) == "Parent"
+            ):
                 continue
 
-            areas[area][level][ipv].append({
-                'vertex': item_match.group(1),
-                'type': item_match.group(2),
-                'metric': item_match.group(3),
-                'next-hop': item_match.group(4),
-                'interface': item_match.group(5),
-                'parent': item_match.group(6),
-            })
+            areas[area][level][ipv].append(
+                {
+                    "vertex": item_match.group(1),
+                    "type": item_match.group(2),
+                    "metric": item_match.group(3),
+                    "next-hop": item_match.group(4),
+                    "interface": item_match.group(5),
+                    "parent": item_match.group(6),
+                }
+            )
             continue
 
         item_match = re.match(r"([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+)", line)
         if item_match is not None:
-            areas[area][level][ipv].append({
-                'vertex': item_match.group(1),
-                'type': item_match.group(2),
-                'metric': item_match.group(3),
-                'parent': item_match.group(4),
-            })
+            areas[area][level][ipv].append(
+                {
+                    "vertex": item_match.group(1),
+                    "type": item_match.group(2),
+                    "metric": item_match.group(3),
+                    "parent": item_match.group(4),
+                }
+            )
             continue
 
         item_match = re.match(r"([^ ]+)", line)
         if item_match is not None:
-            areas[area][level][ipv].append({'vertex': item_match.group(1)})
+            areas[area][level][ipv].append({"vertex": item_match.group(1)})
             continue
 
     return areas
@@ -410,14 +411,14 @@ def show_isis_topology(router):
     }
     """
     l1out = topotest.normalize_text(
-        router.vtysh_cmd('show isis topology level-1')
+        router.vtysh_cmd("show isis topology level-1")
     ).splitlines()
     l2out = topotest.normalize_text(
-        router.vtysh_cmd('show isis topology level-2')
+        router.vtysh_cmd("show isis topology level-2")
     ).splitlines()
 
-    l1 = parse_topology(l1out, 'level-1')
-    l2 = parse_topology(l2out, 'level-2')
+    l1 = parse_topology(l1out, "level-1")
+    l2 = parse_topology(l2out, "level-2")
 
     dict_merge(l1, l2)
     return l1

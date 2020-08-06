@@ -185,6 +185,11 @@ static bool vrrp_ifp_has_vrrp_mac(struct interface *ifp)
  * is used to look up any existing instances that match the interface. It does
  * not matter whether the instance is already bound to the interface or not.
  *
+ * Note that the interface linkages must be correct for this to work. In other
+ * words, the macvlan must have a valid VRRP MAC, and its link_ifindex must be
+ * be equal to the ifindex of another interface in the interface RB trees (its
+ * parent). If these conditions aren't satisfied we won't find the VR.
+ *
  * mvl_ifp
  *    Interface pointer to use to lookup. Should be a macvlan device.
  *
@@ -953,7 +958,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			thread_add_timer_msec(
 				master, vrrp_master_down_timer_expire, r,
 				r->skew_time * CS2MS, &r->t_master_down_timer);
-		} else if (r->vr->preempt_mode == false
+		} else if (!r->vr->preempt_mode
 			   || pkt->hdr.priority >= r->priority) {
 			if (r->vr->version == 3) {
 				r->master_adver_interval =
@@ -965,7 +970,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 					      vrrp_master_down_timer_expire, r,
 					      r->master_down_interval * CS2MS,
 					      &r->t_master_down_timer);
-		} else if (r->vr->preempt_mode == true
+		} else if (r->vr->preempt_mode
 			   && pkt->hdr.priority < r->priority) {
 			/* Discard advertisement */
 			DEBUGD(&vrrp_dbg_proto,
@@ -1646,7 +1651,7 @@ static int vrrp_shutdown(struct vrrp_router *r)
 		       r->vr->vrid, family2str(r->family),
 		       vrrp_event_names[VRRP_EVENT_SHUTDOWN],
 		       vrrp_state_names[VRRP_STATE_INITIALIZE]);
-		break;
+		return 0;
 	}
 
 	/* Cancel all timers */
@@ -1834,7 +1839,7 @@ static int vrrp_autoconfig_if_add(struct interface *ifp)
 		created = true;
 	}
 
-	if (!vr || vr->autoconf == false)
+	if (!vr || !vr->autoconf)
 		return 0;
 
 	if (!created) {
@@ -2214,18 +2219,57 @@ void vrrp_if_del(struct interface *ifp)
 {
 	struct listnode *ln;
 	struct vrrp_vrouter *vr;
-	struct list *vrs = vrrp_lookup_by_if_any(ifp);
 
 	vrrp_if_down(ifp);
 
+	/*
+	 * You think we'd be able use vrrp_lookup_by_if_any to find interfaces?
+	 * Nah. FRR's interface management is insane. There are no ordering
+	 * guarantees about what interfaces are deleted when. Maybe this is a
+	 * macvlan and its parent was already deleted, in which case its
+	 * ifindex is now IFINDEX_INTERNAL, so ifp->link_ifindex - while still
+	 * valid - doesn't match any interface on the system, meaning we can't
+	 * use any of the vrrp_lookup* functions since they rely on finding the
+	 * base interface of what they're given by following link_ifindex.
+	 *
+	 * Since we need to actually NULL out pointers in this function to
+	 * avoid a UAF - since the caller will (might) free ifp after we return
+	 * - we need to look up based on pointers.
+	 */
+	struct list *vrs = hash_to_list(vrrp_vrouters_hash);
+
 	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
-		if ((vr->v4->mvl_ifp == ifp || vr->ifp == ifp)
-		    && vr->v4->fsm.state != VRRP_STATE_INITIALIZE) {
+		if (ifp == vr->ifp) {
 			vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
-			vr->v4->mvl_ifp = NULL;
-		} else if ((vr->v6->mvl_ifp == ifp || vr->ifp == ifp)
-			   && vr->v6->fsm.state != VRRP_STATE_INITIALIZE) {
 			vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
+			/*
+			 * Stands to reason if the base was deleted, so were
+			 * (or will be) its children
+			 */
+			vr->v4->mvl_ifp = NULL;
+			vr->v6->mvl_ifp = NULL;
+			/*
+			 * We shouldn't need to lose the reference if it's the
+			 * primary interface, because that was configured
+			 * explicitly in our config, and thus will be kept as a
+			 * stub; to avoid stupid bugs, double check that
+			 */
+			assert(ifp->configured);
+		} else if (ifp == vr->v4->mvl_ifp) {
+			vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+			/*
+			 * If this is a macvlan, then it wasn't explicitly
+			 * configured and will be deleted when we return from
+			 * this function, so we need to lose the reference
+			 */
+			vr->v4->mvl_ifp = NULL;
+		} else if (ifp == vr->v6->mvl_ifp) {
+			vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
+			/*
+			 * If this is a macvlan, then it wasn't explicitly
+			 * configured and will be deleted when we return from
+			 * this function, so we need to lose the reference
+			 */
 			vr->v6->mvl_ifp = NULL;
 		}
 	}
@@ -2347,11 +2391,11 @@ static bool vrrp_hash_cmp(const void *arg1, const void *arg2)
 	const struct vrrp_vrouter *vr2 = arg2;
 
 	if (vr1->ifp != vr2->ifp)
-		return 0;
+		return false;
 	if (vr1->vrid != vr2->vrid)
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }
 
 void vrrp_init(void)

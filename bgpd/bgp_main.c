@@ -228,7 +228,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	community_list_terminate(bgp_clist);
 
 	bgp_vrf_terminate();
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	vnc_zebra_destroy();
 #endif
 	bgp_zebra_destroy();
@@ -272,11 +272,10 @@ static int bgp_vrf_enable(struct vrf *vrf)
 	if (bgp && bgp->vrf_id != vrf->vrf_id) {
 		if (bgp->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
 			XFREE(MTYPE_BGP, bgp->name);
-			bgp->name = NULL;
 			XFREE(MTYPE_BGP, bgp->name_pretty);
 			bgp->name_pretty = XSTRDUP(MTYPE_BGP, "VRF default");
 			bgp->inst_type = BGP_INSTANCE_TYPE_DEFAULT;
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 			if (!bgp->rfapi) {
 				bgp->rfapi = bgp_rfapi_new(bgp);
 				assert(bgp->rfapi);
@@ -360,6 +359,9 @@ static void bgp_vrf_terminate(void)
 }
 
 static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
+	&frr_interface_info,
+	&frr_route_map_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
@@ -424,17 +426,21 @@ int main(int argc, char **argv)
 			else
 				bgp_port = tmp_port;
 			break;
-		case 'e':
-			multipath_num = atoi(optarg);
-			if (multipath_num > MULTIPATH_NUM
-			    || multipath_num <= 0) {
+		case 'e': {
+			unsigned long int parsed_multipath =
+				strtoul(optarg, NULL, 10);
+			if (parsed_multipath == 0
+			    || parsed_multipath > MULTIPATH_NUM
+			    || parsed_multipath > UINT_MAX) {
 				flog_err(
 					EC_BGP_MULTIPATH,
-					"Multipath Number specified must be less than %d and greater than 0",
+					"Multipath Number specified must be less than %u and greater than 0",
 					MULTIPATH_NUM);
 				return 1;
 			}
+			multipath_num = parsed_multipath;
 			break;
+		}
 		case 'l':
 			bgp_address = optarg;
 		/* listenon implies -n */
@@ -487,9 +493,10 @@ int main(int argc, char **argv)
 
 	frr_config_fork();
 	/* must be called after fork() */
+	bgp_gr_apply_running_config();
 	bgp_pthreads_run();
 	frr_run(bm->master);
 
 	/* Not reached. */
-	return (0);
+	return 0;
 }

@@ -266,9 +266,9 @@ static void check_replace(struct route_node *np2, struct route_entry *re2,
 		return;
 	}
 
-	if (in_addr_cmp(&(*np)->p.u.prefix, &np2->p.u.prefix) < 0)
+	if (prefix_cmp(&(*np)->p, &np2->p) < 0)
 		return;
-	if (in_addr_cmp(&(*np)->p.u.prefix, &np2->p.u.prefix) > 0) {
+	if (prefix_cmp(&(*np)->p, &np2->p) > 0) {
 		*np = np2;
 		*re = re2;
 		return;
@@ -285,8 +285,8 @@ static void check_replace(struct route_node *np2, struct route_entry *re2,
 		return;
 	}
 
-	if (in_addr_cmp((uint8_t *)&(*re)->nhe->nhg->nexthop->gate.ipv4,
-			(uint8_t *)&re2->nhe->nhg->nexthop->gate.ipv4)
+	if (in_addr_cmp((uint8_t *)&(*re)->nhe->nhg.nexthop->gate.ipv4,
+			(uint8_t *)&re2->nhe->nhg.nexthop->gate.ipv4)
 	    <= 0)
 		return;
 
@@ -372,7 +372,7 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 					 (uint8_t *)&dest)) {
 				RNODE_FOREACH_RE (*np, *re) {
 					if (!in_addr_cmp((uint8_t *)&(*re)->nhe
-							 ->nhg->nexthop
+							 ->nhg.nexthop
 							 ->gate.ipv4,
 							 (uint8_t *)&nexthop))
 						if (proto
@@ -407,7 +407,7 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 				    || ((policy == policy2) && (proto == proto2)
 					&& (in_addr_cmp(
 						    (uint8_t *)&re2->nhe
-						    ->nhg->nexthop->gate.ipv4,
+						    ->nhg.nexthop->gate.ipv4,
 						    (uint8_t *)&nexthop)
 					    >= 0)))
 					check_replace(np2, re2, np, re);
@@ -432,7 +432,7 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 	{
 		struct nexthop *nexthop;
 
-		nexthop = (*re)->nhe->nhg->nexthop;
+		nexthop = (*re)->nhe->nhg.nexthop;
 		if (nexthop) {
 			pnt = (uint8_t *)&nexthop->gate.ipv4;
 			for (i = 0; i < 4; i++)
@@ -462,7 +462,7 @@ static uint8_t *ipFwTable(struct variable *v, oid objid[], size_t *objid_len,
 	if (!np)
 		return NULL;
 
-	nexthop = re->nhe->nhg->nexthop;
+	nexthop = re->nhe->nhg.nexthop;
 	if (!nexthop)
 		return NULL;
 
@@ -470,25 +470,20 @@ static uint8_t *ipFwTable(struct variable *v, oid objid[], size_t *objid_len,
 	case IPFORWARDDEST:
 		*val_len = 4;
 		return &np->p.u.prefix;
-		break;
 	case IPFORWARDMASK:
 		masklen2ip(np->p.prefixlen, &netmask);
 		*val_len = 4;
 		return (uint8_t *)&netmask;
-		break;
 	case IPFORWARDPOLICY:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDNEXTHOP:
 		*val_len = 4;
 		return (uint8_t *)&nexthop->gate.ipv4;
-		break;
 	case IPFORWARDIFINDEX:
 		*val_len = sizeof(int);
 		return (uint8_t *)&nexthop->ifindex;
-		break;
 	case IPFORWARDTYPE:
 		if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
 			result = 3;
@@ -496,56 +491,45 @@ static uint8_t *ipFwTable(struct variable *v, oid objid[], size_t *objid_len,
 			result = 4;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDPROTO:
 		result = proto_trans(re->type);
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDAGE:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDINFO:
 		resarr[0] = 0;
 		resarr[1] = 0;
 		*val_len = 2 * sizeof(int);
 		return (uint8_t *)resarr;
-		break;
 	case IPFORWARDNEXTHOPAS:
 		result = -1;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDMETRIC1:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDMETRIC2:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDMETRIC3:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDMETRIC4:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDMETRIC5:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	default:
 		return NULL;
-		break;
 	}
 	return NULL;
 }
@@ -563,7 +547,6 @@ static uint8_t *ipCidrTable(struct variable *v, oid objid[], size_t *objid_len,
 		break;
 	default:
 		return NULL;
-		break;
 	}
 	return NULL;
 }

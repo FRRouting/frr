@@ -153,10 +153,10 @@ static int zebra_ns_delete(char *name)
 
 static int zebra_ns_notify_self_identify(struct stat *netst)
 {
-	char net_path[64];
+	char net_path[PATH_MAX];
 	int netns;
 
-	sprintf(net_path, "/proc/self/ns/net");
+	snprintf(net_path, sizeof(net_path), "/proc/self/ns/net");
 	netns = open(net_path, O_RDONLY);
 	if (netns < 0)
 		return -1;
@@ -178,7 +178,7 @@ static bool zebra_ns_notify_is_default_netns(const char *name)
 		return false;
 
 	memset(&st, 0, sizeof(struct stat));
-	snprintf(netnspath, 64, "%s/%s", NS_RUN_DIR, name);
+	snprintf(netnspath, sizeof(netnspath), "%s/%s", NS_RUN_DIR, name);
 	/* compare with local stat */
 	if (stat(netnspath, &st) == 0 &&
 	    (st.st_dev == default_netns_stat.st_dev) &&

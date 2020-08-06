@@ -611,7 +611,7 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 
 		if (IS_DEBUG_OSPF_PACKET(type - 1, SEND)) {
 			zlog_debug(
-				"ospf_write_frags: sent id %d, off %d, len %d to %s\n",
+				"ospf_write_frags: sent id %d, off %d, len %d to %s",
 				iph->ip_id, iph->ip_off, iph->ip_len,
 				inet_ntoa(iph->ip_dst));
 		}
@@ -725,7 +725,7 @@ static int ospf_write(struct thread *thread)
 		 * but.. */
 		if (sizeof(struct ip)
 		    > (unsigned int)(iph.ip_hl << OSPF_WRITE_IPHL_SHIFT))
-			iph.ip_hl++; /* we presume sizeof struct ip cant
+			iph.ip_hl++; /* we presume sizeof(struct ip) cant
 					overflow ip_hl.. */
 
 		iph.ip_v = IPVERSION;
@@ -1074,7 +1074,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	/* If neighbor itself declares DR and no BDR exists,
 	   cause event BackupSeen */
 	if (IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->d_router))
-		if (hello->bd_router.s_addr == 0 && oi->state == ISM_Waiting)
+		if (hello->bd_router.s_addr == INADDR_ANY
+		    && oi->state == ISM_Waiting)
 			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_BackupSeen);
 
 	/* neighbor itself declares BDR. */
@@ -2037,10 +2038,10 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 				SET_FLAG(lsa->flags, OSPF_LSA_SELF);
 
-				ospf_opaque_self_originated_lsa_received(nbr,
-									 lsa);
 				ospf_ls_ack_send(nbr, lsa);
 
+				ospf_opaque_self_originated_lsa_received(nbr,
+									 lsa);
 				continue;
 			}
 		}
@@ -2334,7 +2335,7 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 
 	ip_len = iph->ip_len;
 
-#if !defined(GNU_LINUX) && (OpenBSD < 200311) && (__FreeBSD_version < 1000000)
+#if defined(__FreeBSD__) && (__FreeBSD_version < 1000000)
 	/*
 	 * Kernel network code touches incoming IP header parameters,
 	 * before protocol specific processing.
@@ -2375,9 +2376,9 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	}
 
 	if (IS_DEBUG_OSPF_PACKET(0, RECV))
-		zlog_debug("%s: fd %d(%s) on interface %d(%s)",
-			   __PRETTY_FUNCTION__, fd, ospf_get_name(ospf),
-			   ifindex, *ifp ? (*ifp)->name : "Unknown");
+		zlog_debug("%s: fd %d(%s) on interface %d(%s)", __func__, fd,
+			   ospf_get_name(ospf), ifindex,
+			   *ifp ? (*ifp)->name : "Unknown");
 	return ibuf;
 }
 
@@ -2603,7 +2604,7 @@ static unsigned ospf_router_lsa_links_examin(struct router_lsa_link *link,
 {
 	unsigned counted_links = 0, thislinklen;
 
-	while (linkbytes) {
+	while (linkbytes >= OSPF_ROUTER_LSA_LINK_SIZE) {
 		thislinklen =
 			OSPF_ROUTER_LSA_LINK_SIZE + 4 * link->m[0].tos_count;
 		if (thislinklen > linkbytes) {
@@ -2641,26 +2642,32 @@ static unsigned ospf_lsa_examin(struct lsa_header *lsah, const uint16_t lsalen,
 		return MSG_NG;
 	}
 	switch (lsah->type) {
-	case OSPF_ROUTER_LSA:
-		/* RFC2328 A.4.2, LSA header + 4 bytes followed by N>=1
-		 * (12+)-byte link blocks */
-		if (headeronly) {
-			ret = (lsalen - OSPF_LSA_HEADER_SIZE
-			       - OSPF_ROUTER_LSA_MIN_SIZE)
-					      % 4
-				      ? MSG_NG
-				      : MSG_OK;
-			break;
-		}
+	case OSPF_ROUTER_LSA: {
+		/*
+		 * RFC2328 A.4.2, LSA header + 4 bytes followed by N>=0
+		 * (12+)-byte link blocks
+		 */
+		size_t linkbytes_len = lsalen - OSPF_LSA_HEADER_SIZE
+				       - OSPF_ROUTER_LSA_MIN_SIZE;
+
+		/*
+		 * LSA link blocks are variable length but always multiples of
+		 * 4; basic sanity check
+		 */
+		if (linkbytes_len % 4 != 0)
+			return MSG_NG;
+
+		if (headeronly)
+			return MSG_OK;
+
 		rlsa = (struct router_lsa *)lsah;
+
 		ret = ospf_router_lsa_links_examin(
 			(struct router_lsa_link *)rlsa->link,
-			lsalen - OSPF_LSA_HEADER_SIZE - 4, /* skip: basic
-							      header, "flags",
-							      0, "# links" */
-			ntohs(rlsa->links)		   /* 16 bits */
-			);
+			linkbytes_len,
+			ntohs(rlsa->links));
 		break;
+	}
 	case OSPF_AS_EXTERNAL_LSA:
 	/* RFC2328 A.4.5, LSA header + 4 bytes followed by N>=1 12-bytes long
 	 * blocks */
@@ -2983,8 +2990,7 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 			if (IS_DEBUG_OSPF_PACKET(0, RECV))
 				zlog_debug(
 					"%s: Unable to determine incoming interface from: %s(%s)",
-					__PRETTY_FUNCTION__,
-					inet_ntoa(iph->ip_src),
+					__func__, inet_ntoa(iph->ip_src),
 					ospf_get_name(ospf));
 			return OSPF_READ_CONTINUE;
 		}
@@ -3213,7 +3219,6 @@ int ospf_read(struct thread *thread)
 		switch (ret) {
 		case OSPF_READ_ERROR:
 			return -1;
-			break;
 		case OSPF_READ_CONTINUE:
 			break;
 		}
@@ -3251,7 +3256,7 @@ static int ospf_make_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 
 	switch (ospf_auth_type(oi)) {
 	case OSPF_AUTH_NULL:
-		/* memset (ospfh->u.auth_data, 0, sizeof (ospfh->u.auth_data));
+		/* memset (ospfh->u.auth_data, 0, sizeof(ospfh->u.auth_data));
 		 */
 		break;
 	case OSPF_AUTH_SIMPLE:
@@ -3274,7 +3279,7 @@ static int ospf_make_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 		/* note: the seq is done in ospf_make_md5_digest() */
 		break;
 	default:
-		/* memset (ospfh->u.auth_data, 0, sizeof (ospfh->u.auth_data));
+		/* memset (ospfh->u.auth_data, 0, sizeof(ospfh->u.auth_data));
 		 */
 		break;
 	}
@@ -3352,7 +3357,7 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
 		if ((nbr = rn->info))
 			if (nbr->router_id.s_addr
-			    != 0) /* Ignore 0.0.0.0 node. */
+			    != INADDR_ANY) /* Ignore 0.0.0.0 node. */
 				if (nbr->state
 				    != NSM_Attempt) /* Ignore Down neighbor. */
 					if (nbr->state
@@ -3364,17 +3369,17 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 							/* Check neighbor is
 							 * sane? */
 							if (nbr->d_router.s_addr
-								    != 0
+								    != INADDR_ANY
 							    && IPV4_ADDR_SAME(
-								       &nbr->d_router,
-								       &oi->address
-										->u
-										.prefix4)
+								    &nbr->d_router,
+								    &oi->address
+									     ->u
+									     .prefix4)
 							    && IPV4_ADDR_SAME(
-								       &nbr->bd_router,
-								       &oi->address
-										->u
-										.prefix4))
+								    &nbr->bd_router,
+								    &oi->address
+									     ->u
+									     .prefix4))
 								flag = 1;
 
 							/* Hello packet overflows interface MTU. */
@@ -3689,7 +3694,7 @@ static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 		if (oi->ospf->vrf_id)
 			zlog_debug(
 				"%s: Hello Tx interface %s ospf vrf %s id %u",
-				__PRETTY_FUNCTION__, oi->ifp->name,
+				__func__, oi->ifp->name,
 				ospf_vrf_id_to_name(oi->ospf->vrf_id),
 				oi->ospf->vrf_id);
 	}

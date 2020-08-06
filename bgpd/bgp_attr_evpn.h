@@ -51,7 +51,7 @@ struct bgp_route_evpn {
 	union gw_addr gw_ip;
 };
 
-extern int str2esi(const char *str, struct eth_segment_id *id);
+extern bool str2esi(const char *str, struct eth_segment_id *id);
 extern char *esi2str(struct eth_segment_id *id);
 extern char *ecom_mac2str(char *ecom_mac);
 
@@ -66,4 +66,7 @@ extern uint8_t bgp_attr_default_gw(struct attr *attr);
 
 extern void bgp_attr_evpn_na_flag(struct attr *attr, uint8_t *router_flag);
 
+extern bool is_zero_gw_ip(const union gw_addr *gw_ip, afi_t afi);
+
+extern bool is_zero_esi(const struct eth_segment_id *esi);
 #endif /* _QUAGGA_BGP_ATTR_EVPN_H */

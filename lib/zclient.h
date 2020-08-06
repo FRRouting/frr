@@ -38,6 +38,10 @@
 
 #include "mlag.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Zebra types. Used in Zserv message header. */
 typedef uint16_t zebra_size_t;
 
@@ -72,6 +76,18 @@ typedef uint16_t zebra_size_t;
 /* Zebra FEC register command flags. */
 #define ZEBRA_FEC_REGISTER_LABEL          0x1
 #define ZEBRA_FEC_REGISTER_LABEL_INDEX    0x2
+
+/* Client capabilities */
+enum zserv_client_capabilities {
+	ZEBRA_CLIENT_GR_CAPABILITIES = 1,
+	ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE = 2,
+	ZEBRA_CLIENT_ROUTE_UPDATE_PENDING = 3,
+	ZEBRA_CLIENT_GR_DISABLE = 4,
+	ZEBRA_CLIENT_RIB_STALE_TIME
+};
+
+/* Macro to check if there GR enabled. */
+#define ZEBRA_CLIENT_GR_ENABLED(X) (X == ZEBRA_CLIENT_GR_CAPABILITIES)
 
 extern struct sockaddr_storage zclient_addr;
 extern socklen_t zclient_addr_len;
@@ -184,10 +200,11 @@ typedef enum {
 	ZEBRA_MLAG_CLIENT_UNREGISTER,
 	ZEBRA_MLAG_FORWARD_MSG,
 	ZEBRA_ERROR,
+	ZEBRA_CLIENT_CAPABILITIES
 } zebra_message_types_t;
 
 enum zebra_error_types {
-	ZEBRA_UNKNOWN_ERROR,	/* Error of unknown type */
+	ZEBRA_UNKNOWN_ERROR,    /* Error of unknown type */
 	ZEBRA_NO_VRF,		/* Vrf in header was not found */
 	ZEBRA_INVALID_MSG_TYPE, /* No handler found for msg type */
 };
@@ -222,6 +239,15 @@ struct zclient_capabilities {
 	enum mlag_role role;
 };
 
+/* Graceful Restart Capabilities message */
+struct zapi_cap {
+	enum zserv_client_capabilities cap;
+	uint32_t stale_removal_time;
+	afi_t afi;
+	safi_t safi;
+	vrf_id_t vrf_id;
+};
+
 /* Structure for the zebra client. */
 struct zclient {
 	/* The thread master we schedule ourselves on */
@@ -232,6 +258,12 @@ struct zclient {
 
 	/* Do we care about failure events for route install? */
 	bool receive_notify;
+
+	/* Is this a synchronous client? */
+	bool synchronous;
+
+	/* Session id (optional) to support clients with multiple sessions */
+	uint32_t session_id;
 
 	/* Socket to zebra daemon. */
 	int sock;
@@ -316,6 +348,9 @@ struct zclient {
 #define ZAPI_MESSAGE_TAG      0x08
 #define ZAPI_MESSAGE_MTU      0x10
 #define ZAPI_MESSAGE_SRCPFX   0x20
+/* Backup nexthops are present */
+#define ZAPI_MESSAGE_BACKUP_NEXTHOPS 0x40
+
 /*
  * This should only be used by a DAEMON that needs to communicate
  * the table being used is not in the VRF.  You must pass the
@@ -352,14 +387,21 @@ struct zapi_nexthop {
 	struct ethaddr rmac;
 
 	uint32_t weight;
+
+	/* Index of backup nexthop */
+	uint8_t backup_idx;
 };
 
 /*
- * ZAPI nexthop flags values
+ * ZAPI nexthop flags values - we're encoding a single octet
+ * initially, so ensure that the on-the-wire encoding continues
+ * to match the number of valid flags.
  */
+
 #define ZAPI_NEXTHOP_FLAG_ONLINK	0x01
 #define ZAPI_NEXTHOP_FLAG_LABEL		0x02
 #define ZAPI_NEXTHOP_FLAG_WEIGHT	0x04
+#define ZAPI_NEXTHOP_FLAG_HAS_BACKUP	0x08 /* Nexthop has a backup */
 
 /*
  * Some of these data structures do not map easily to
@@ -423,6 +465,10 @@ struct zapi_route {
 	uint16_t nexthop_num;
 	struct zapi_nexthop nexthops[MULTIPATH_NUM];
 
+	/* Support backup routes for IP FRR, TI-LFA, traffic engineering */
+	uint16_t backup_nexthop_num;
+	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
+
 	uint8_t distance;
 
 	uint32_t metric;
@@ -436,14 +482,6 @@ struct zapi_route {
 	uint32_t tableid;
 };
 
-struct zapi_nexthop_label {
-	enum nexthop_types_t type;
-	int family;
-	union g_addr address;
-	ifindex_t ifindex;
-	mpls_label_t label;
-};
-
 struct zapi_labels {
 	uint8_t message;
 #define ZAPI_LABELS_FTN      0x01
@@ -454,8 +492,9 @@ struct zapi_labels {
 		uint8_t type;
 		unsigned short instance;
 	} route;
+
 	uint16_t nexthop_num;
-	struct zapi_nexthop_label nexthops[MULTIPATH_NUM];
+	struct zapi_nexthop nexthops[MULTIPATH_NUM];
 };
 
 struct zapi_pw {
@@ -554,6 +593,7 @@ enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
 
 struct zclient_options {
 	bool receive_notify;
+	bool synchronous;
 };
 
 extern struct zclient_options zclient_options_default;
@@ -574,6 +614,7 @@ extern unsigned short *redist_check_instance(struct redist_proto *,
 					     unsigned short);
 extern void redist_add_instance(struct redist_proto *, unsigned short);
 extern void redist_del_instance(struct redist_proto *, unsigned short);
+extern void redist_del_all_instances(struct redist_proto *red);
 
 /*
  * Send to zebra that the specified vrf is using label to resolve
@@ -689,7 +730,7 @@ zebra_interface_nbr_address_read(int, struct stream *, vrf_id_t);
 extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 							 vrf_id_t vrf_id,
 							 vrf_id_t *new_vrf_id);
-extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
+extern int zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
 extern struct interface *zebra_interface_link_params_read(struct stream *s,
 							  vrf_id_t vrf_id);
@@ -718,11 +759,12 @@ extern int zapi_labels_decode(struct stream *s, struct zapi_labels *zl);
 
 extern int zebra_send_pw(struct zclient *zclient, int command,
 			 struct zapi_pw *pw);
-extern void zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw);
+extern int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS,
+				       struct zapi_pw_status *pw);
 
 extern int zclient_route_send(uint8_t, struct zclient *, struct zapi_route *);
 extern int zclient_send_rnh(struct zclient *zclient, int command,
-			    struct prefix *p, bool exact_match,
+			    const struct prefix *p, bool exact_match,
 			    vrf_id_t vrf_id);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags);
@@ -749,14 +791,22 @@ bool zapi_iptable_notify_decode(struct stream *s,
 		uint32_t *unique,
 		enum zapi_iptable_notify_owner *note);
 
-extern struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh);
+extern struct nexthop *
+nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh);
 int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			      const struct nexthop *nh);
+int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
+				     const struct nexthop *nh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
 				       struct zapi_route *nhr);
 
 /* Decode the zebra error message */
 extern bool zapi_error_decode(struct stream *s, enum zebra_error_types *error);
+
+/* Encode and decode restart capabilities */
+extern int32_t zclient_capabilities_send(uint32_t cmd, struct zclient *zclient,
+					 struct zapi_cap *api);
+extern int32_t zapi_capabilities_decode(struct stream *s, struct zapi_cap *api);
 
 static inline void zapi_route_set_blackhole(struct zapi_route *api,
 					    enum blackhole_type bh_type)
@@ -774,5 +824,14 @@ extern void zclient_send_mlag_deregister(struct zclient *client);
 
 extern void zclient_send_mlag_data(struct zclient *client,
 				   struct stream *client_s);
+
+/* Send the hello message.
+ * Returns 0 for success or -1 on an I/O error.
+ */
+extern int zclient_send_hello(struct zclient *client);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_ZCLIENT_H */

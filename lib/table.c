@@ -160,7 +160,7 @@ static void route_common(const struct prefix *n, const struct prefix *p,
 	np = (const uint8_t *)&n->u.prefix;
 	pp = (const uint8_t *)&p->u.prefix;
 
-	newp = (uint8_t *)&new->u.prefix;
+	newp = &new->u.prefix;
 
 	for (i = 0; i < p->prefixlen / 8; i++) {
 		if (np[i] == pp[i])

@@ -82,7 +82,7 @@ static void print_range_result(struct list *list)
 	for (ALL_LIST_ELEMENTS_RO(list, listnode, bnode)) {
 		char buf[PREFIX2STR_BUFFER];
 
-		prefix2str(&bnode->p, buf, PREFIX2STR_BUFFER);
+		prefix2str(bgp_node_get_prefix(bnode), buf, PREFIX2STR_BUFFER);
 		printf("%s\n", buf);
 	}
 }
@@ -106,7 +106,7 @@ static void check_lookup_result(struct list *list, va_list arglist)
 			assert(0);
 
 		for (ALL_LIST_ELEMENTS_RO(list, listnode, bnode)) {
-			if (prefix_same(&bnode->p, &p))
+			if (prefix_same(bgp_node_get_prefix(bnode), &p))
 				found = true;
 		}
 

@@ -76,6 +76,7 @@ extern unsigned long conf_bgp_debug_vpn;
 extern unsigned long conf_bgp_debug_flowspec;
 extern unsigned long conf_bgp_debug_labelpool;
 extern unsigned long conf_bgp_debug_pbr;
+extern unsigned long conf_bgp_debug_graceful_restart;
 
 extern unsigned long term_bgp_debug_as4;
 extern unsigned long term_bgp_debug_neighbor_events;
@@ -91,6 +92,7 @@ extern unsigned long term_bgp_debug_vpn;
 extern unsigned long term_bgp_debug_flowspec;
 extern unsigned long term_bgp_debug_labelpool;
 extern unsigned long term_bgp_debug_pbr;
+extern unsigned long term_bgp_debug_graceful_restart;
 
 extern struct list *bgp_debug_neighbor_events_peers;
 extern struct list *bgp_debug_keepalive_peers;
@@ -131,6 +133,8 @@ struct bgp_debug_filter {
 #define BGP_DEBUG_PACKET_SEND         0x01
 #define BGP_DEBUG_PACKET_SEND_DETAIL  0x02
 
+#define BGP_DEBUG_GRACEFUL_RESTART     0x01
+
 #define CONF_DEBUG_ON(a, b)	(conf_bgp_debug_ ## a |= (BGP_DEBUG_ ## b))
 #define CONF_DEBUG_OFF(a, b)	(conf_bgp_debug_ ## a &= ~(BGP_DEBUG_ ## b))
 
@@ -153,8 +157,8 @@ struct bgp_debug_filter {
 
 extern const char *const bgp_type_str[];
 
-extern int bgp_dump_attr(struct attr *, char *, size_t);
-extern int bgp_debug_peer_updout_enabled(char *host);
+extern bool bgp_dump_attr(struct attr *, char *, size_t);
+extern bool bgp_debug_peer_updout_enabled(char *host);
 extern const char *bgp_notify_code_str(char);
 extern const char *bgp_notify_subcode_str(char, char);
 extern void bgp_notify_print(struct peer *, struct bgp_notify *, const char *);
@@ -162,15 +166,16 @@ extern void bgp_notify_print(struct peer *, struct bgp_notify *, const char *);
 extern const struct message bgp_status_msg[];
 extern int bgp_debug_neighbor_events(struct peer *peer);
 extern int bgp_debug_keepalive(struct peer *peer);
-extern int bgp_debug_update(struct peer *peer, struct prefix *p,
-			    struct update_group *updgrp, unsigned int inbound);
-extern int bgp_debug_bestpath(struct prefix *p);
-extern int bgp_debug_zebra(struct prefix *p);
+extern bool bgp_debug_update(struct peer *peer, const struct prefix *p,
+			     struct update_group *updgrp, unsigned int inbound);
+extern bool bgp_debug_bestpath(struct bgp_node *rn);
+extern bool bgp_debug_zebra(const struct prefix *p);
 
-extern const char *bgp_debug_rdpfxpath2str(afi_t, safi_t, struct prefix_rd *,
-					   union prefixconstptr, mpls_label_t *,
-					   uint32_t, int, uint32_t, char *,
-					   int);
+extern const char *
+bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi, const struct prefix_rd *prd,
+			union prefixconstptr pu, mpls_label_t *label,
+			uint32_t num_labels, int addpath_valid,
+			uint32_t addpath_id, char *str, int size);
 const char *bgp_notify_admin_message(char *buf, size_t bufsz, uint8_t *data,
 				     size_t datalen);
 

@@ -112,7 +112,7 @@ static void nhrp_interface_interface_notifier(struct notifier_block *n,
 			      NOTIFY_INTERFACE_NBMA_CHANGED);
 		debugf(NHRP_DEBUG_IF, "%s: NBMA change: address %s",
 		       nifp->ifp->name,
-		       sockunion2str(&nifp->nbma, buf, sizeof buf));
+		       sockunion2str(&nifp->nbma, buf, sizeof(buf)));
 		break;
 	}
 }
@@ -135,7 +135,7 @@ static void nhrp_interface_update_nbma(struct interface *ifp)
 				     &nifp->linkidx, &saddr);
 		debugf(NHRP_DEBUG_IF, "%s: GRE: %x %x %x", ifp->name,
 		       nifp->grekey, nifp->linkidx, saddr.s_addr);
-		if (saddr.s_addr)
+		if (saddr.s_addr != INADDR_ANY)
 			sockunion_set(&nbma, AF_INET, (uint8_t *)&saddr.s_addr,
 				      sizeof(saddr.s_addr));
 		else if (!nbmaifp && nifp->linkidx != IFINDEX_INTERNAL)
@@ -221,7 +221,7 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 	if (best && if_ad->configured
 	    && best->address->prefixlen != 8 * prefix_blen(best->address)) {
 		zlog_notice("%s: %s is not a host prefix", ifp->name,
-			    prefix2str(best->address, buf, sizeof buf));
+			    prefix2str(best->address, buf, sizeof(buf)));
 		best = NULL;
 	}
 
@@ -243,7 +243,7 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 
 	debugf(NHRP_DEBUG_KERNEL, "%s: IPv%d address changed to %s", ifp->name,
 	       afi == AFI_IP ? 4 : 6,
-	       best ? prefix2str(best->address, buf, sizeof buf) : "(none)");
+	       best ? prefix2str(best->address, buf, sizeof(buf)) : "(none)");
 	if_ad->addr = addr;
 
 	if (if_ad->configured && sockunion_family(&if_ad->addr) != AF_UNSPEC) {
@@ -342,7 +342,7 @@ int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	debugf(NHRP_DEBUG_IF, "if-addr-add: %s: %s", ifc->ifp->name,
-	       prefix2str(ifc->address, buf, sizeof buf));
+	       prefix2str(ifc->address, buf, sizeof(buf)));
 
 	nhrp_interface_update_address(
 		ifc->ifp, family2afi(PREFIX_FAMILY(ifc->address)), 0);
@@ -360,7 +360,7 @@ int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	debugf(NHRP_DEBUG_IF, "if-addr-del: %s: %s", ifc->ifp->name,
-	       prefix2str(ifc->address, buf, sizeof buf));
+	       prefix2str(ifc->address, buf, sizeof(buf)));
 
 	nhrp_interface_update_address(
 		ifc->ifp, family2afi(PREFIX_FAMILY(ifc->address)), 0);

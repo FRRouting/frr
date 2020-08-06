@@ -142,13 +142,15 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 
 	for (prn = bgp_table_top(table); prn; prn = bgp_route_next(prn)) {
 		struct bgp_table *sub = prn->info;
+		const struct prefix *prn_p = bgp_node_get_prefix(prn);
 
 		if (!sub)
 			continue;
 
 		for (rn = bgp_table_top(sub); rn; rn = bgp_route_next(rn)) {
 			bool rn_affected;
-			struct prefix_evpn *pevpn = (struct prefix_evpn *)&rn->p;
+			const struct prefix *p = bgp_node_get_prefix(rn);
+			const struct prefix_evpn *pevpn = (const struct prefix_evpn *)p;
 			struct prefix_rd prd;
 			uint32_t num_labels = 0;
 			mpls_label_t *label_pnt = NULL;
@@ -156,7 +158,7 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 
 			if (pevpn->family == AF_EVPN &&
 			    pevpn->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
-			    memcmp(&rn->p.u.prefix_evpn.macip_addr.mac,
+			    memcmp(&p->u.prefix_evpn.macip_addr.mac,
 				   macaddr, ETH_ALEN) == 0)
 				rn_affected = true;
 			else
@@ -185,15 +187,15 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 
 			prd.family = AF_UNSPEC;
 			prd.prefixlen = 64;
-			memcpy(&prd.val, &prn->p.u.val, 8);
+			memcpy(&prd.val, prn_p->u.val, 8);
 
 			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
-				if (bgp_debug_update(peer, &rn->p, NULL, 1)) {
+				if (bgp_debug_update(peer, p, NULL, 1)) {
 					char pfx_buf[BGP_PRD_PATH_STRLEN];
 
 					bgp_debug_rdpfxpath2str(
 						AFI_L2VPN, SAFI_EVPN, &prd,
-						&rn->p, label_pnt, num_labels,
+						p, label_pnt, num_labels,
 						pi->addpath_rx_id ? 1 : 0,
 						pi->addpath_rx_id, pfx_buf,
 						sizeof(pfx_buf));
@@ -205,7 +207,7 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			}
 
 			memcpy(&evpn, &pi->attr->evpn_overlay, sizeof(evpn));
-			int32_t ret = bgp_update(peer, &rn->p,
+			int32_t ret = bgp_update(peer, p,
 						 pi->addpath_rx_id,
 						 pi->attr, AFI_L2VPN, SAFI_EVPN,
 						 ZEBRA_ROUTE_BGP,
@@ -358,7 +360,7 @@ void bgp_mac_del_mac_entry(struct interface *ifp)
  * An example: router-mac attribute in any of evpn update
  * requires to compare against local mac.
  */
-bool bgp_mac_exist(struct ethaddr *mac)
+bool bgp_mac_exist(const struct ethaddr *mac)
 {
 	struct bgp_self_mac lookup;
 	struct bgp_self_mac *bsm;
@@ -379,9 +381,9 @@ bool bgp_mac_exist(struct ethaddr *mac)
  * mac against any of local assigned (SVIs) MAC
  * address.
  */
-bool bgp_mac_entry_exists(struct prefix *p)
+bool bgp_mac_entry_exists(const struct prefix *p)
 {
-	struct prefix_evpn *pevpn = (struct prefix_evpn *)p;
+	const struct prefix_evpn *pevpn = (const struct prefix_evpn *)p;
 
 	if (pevpn->family != AF_EVPN)
 		return false;

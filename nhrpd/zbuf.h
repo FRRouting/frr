@@ -86,9 +86,9 @@ static inline void *__zbuf_pull(struct zbuf *zb, size_t size, int error)
 }
 
 #define zbuf_pull(zb, type) ((type *)__zbuf_pull(zb, sizeof(type), 1))
-#define zbuf_pulln(zb, sz) ((void *)__zbuf_pull(zb, sz, 1))
+#define zbuf_pulln(zb, sz) (__zbuf_pull(zb, sz, 1))
 #define zbuf_may_pull(zb, type) ((type *)__zbuf_pull(zb, sizeof(type), 0))
-#define zbuf_may_pulln(zb, sz) ((void *)__zbuf_pull(zb, sz, 0))
+#define zbuf_may_pulln(zb, sz) (__zbuf_pull(zb, sz, 0))
 
 void *zbuf_may_pull_until(struct zbuf *zb, const char *sep, struct zbuf *msg);
 
@@ -149,9 +149,9 @@ static inline void *__zbuf_push(struct zbuf *zb, size_t size, int error)
 }
 
 #define zbuf_push(zb, type) ((type *)__zbuf_push(zb, sizeof(type), 1))
-#define zbuf_pushn(zb, sz) ((void *)__zbuf_push(zb, sz, 1))
+#define zbuf_pushn(zb, sz) (__zbuf_push(zb, sz, 1))
 #define zbuf_may_push(zb, type) ((type *)__zbuf_may_push(zb, sizeof(type), 0))
-#define zbuf_may_pushn(zb, sz) ((void *)__zbuf_push(zb, sz, 0))
+#define zbuf_may_pushn(zb, sz) (__zbuf_push(zb, sz, 0))
 
 static inline void zbuf_put(struct zbuf *zb, const void *src, size_t len)
 {

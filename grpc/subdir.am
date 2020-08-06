@@ -26,6 +26,8 @@ am__v_PROTOC_ = $(am__v_PROTOC_$(AM_DEFAULT_VERBOSITY))
 am__v_PROTOC_0 = @echo "  PROTOC" $@;
 am__v_PROTOC_1 =
 
+SUFFIXES += .pb.h .pb.cc .grpc.pb.cc
+
 .proto.pb.cc:
 	$(AM_V_PROTOC)$(PROTOC) -I$(top_srcdir) --cpp_out=$(top_srcdir) $(top_srcdir)/$^
 .proto.grpc.pb.cc:

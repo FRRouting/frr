@@ -49,9 +49,18 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
+#include "isisd/isis_adjacency.h"
 #include "isisd/isis_te.h"
+#include "isisd/isis_sr.h"
 
-struct zclient *zclient = NULL;
+struct zclient *zclient;
+static struct zclient *zclient_sync;
+
+/* List of chunks of labels externally assigned by zebra. */
+static struct list *label_chunk_list;
+static struct listnode *current_label_chunk;
+
+static void isis_zebra_label_manager_connect(void);
 
 /* Router-id update message from zebra. */
 static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
@@ -245,6 +254,160 @@ void isis_zebra_route_del_route(struct prefix *prefix,
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 }
 
+/**
+ * Install Prefix-SID in the forwarding plane through Zebra.
+ *
+ * @param srp	Segment Routing Prefix-SID
+ */
+static void isis_zebra_prefix_install_prefix_sid(const struct sr_prefix *srp)
+{
+	struct zapi_labels zl;
+	struct zapi_nexthop *znh;
+	struct listnode *node;
+	struct isis_nexthop *nexthop;
+	struct interface *ifp;
+
+	/* Prepare message. */
+	memset(&zl, 0, sizeof(zl));
+	zl.type = ZEBRA_LSP_ISIS_SR;
+	zl.local_label = srp->input_label;
+
+	switch (srp->type) {
+	case ISIS_SR_PREFIX_LOCAL:
+		ifp = if_lookup_by_name("lo", VRF_DEFAULT);
+		if (!ifp) {
+			zlog_warn(
+				"%s: couldn't install Prefix-SID %pFX: loopback interface not found",
+				__func__, &srp->prefix);
+			return;
+		}
+
+		znh = &zl.nexthops[zl.nexthop_num++];
+		znh->type = NEXTHOP_TYPE_IFINDEX;
+		znh->ifindex = ifp->ifindex;
+		znh->label_num = 1;
+		znh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
+		break;
+	case ISIS_SR_PREFIX_REMOTE:
+		/* Update route in the RIB too. */
+		SET_FLAG(zl.message, ZAPI_LABELS_FTN);
+		zl.route.prefix = srp->prefix;
+		zl.route.type = ZEBRA_ROUTE_ISIS;
+		zl.route.instance = 0;
+
+		for (ALL_LIST_ELEMENTS_RO(srp->u.remote.rinfo->nexthops, node,
+					  nexthop)) {
+			if (nexthop->sr.label == MPLS_INVALID_LABEL)
+				continue;
+
+			if (zl.nexthop_num >= MULTIPATH_NUM)
+				break;
+
+			znh = &zl.nexthops[zl.nexthop_num++];
+			znh->type = (srp->prefix.family == AF_INET)
+					    ? NEXTHOP_TYPE_IPV4_IFINDEX
+					    : NEXTHOP_TYPE_IPV6_IFINDEX;
+			znh->gate = nexthop->ip;
+			znh->ifindex = nexthop->ifindex;
+			znh->label_num = 1;
+			znh->labels[0] = nexthop->sr.label;
+		}
+		break;
+	}
+
+	/* Send message to zebra. */
+	(void)zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_REPLACE, &zl);
+}
+
+/**
+ * Uninstall Prefix-SID from the forwarding plane through Zebra.
+ *
+ * @param srp	Segment Routing Prefix-SID
+ */
+static void isis_zebra_uninstall_prefix_sid(const struct sr_prefix *srp)
+{
+	struct zapi_labels zl;
+
+	/* Prepare message. */
+	memset(&zl, 0, sizeof(zl));
+	zl.type = ZEBRA_LSP_ISIS_SR;
+	zl.local_label = srp->input_label;
+
+	if (srp->type == ISIS_SR_PREFIX_REMOTE) {
+		/* Update route in the RIB too. */
+		SET_FLAG(zl.message, ZAPI_LABELS_FTN);
+		zl.route.prefix = srp->prefix;
+		zl.route.type = ZEBRA_ROUTE_ISIS;
+		zl.route.instance = 0;
+	}
+
+	/* Send message to zebra. */
+	(void)zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_DELETE, &zl);
+}
+
+/**
+ * Send Prefix-SID to ZEBRA for installation or deletion.
+ *
+ * @param cmd	ZEBRA_MPLS_LABELS_REPLACE or ZEBRA_ROUTE_DELETE
+ * @param srp	Segment Routing Prefix-SID
+ */
+void isis_zebra_send_prefix_sid(int cmd, const struct sr_prefix *srp)
+{
+
+	if (cmd != ZEBRA_MPLS_LABELS_REPLACE
+	    && cmd != ZEBRA_MPLS_LABELS_DELETE) {
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong ZEBRA command",
+			  __func__);
+		return;
+	}
+
+	sr_debug("  |- %s label %u for prefix %pFX",
+		 cmd == ZEBRA_MPLS_LABELS_REPLACE ? "Update" : "Delete",
+		 srp->input_label, &srp->prefix);
+
+	if (cmd == ZEBRA_MPLS_LABELS_REPLACE)
+		isis_zebra_prefix_install_prefix_sid(srp);
+	else
+		isis_zebra_uninstall_prefix_sid(srp);
+}
+
+/**
+ * Send (LAN)-Adjacency-SID to ZEBRA for installation or deletion.
+ *
+ * @param cmd	ZEBRA_MPLS_LABELS_ADD or ZEBRA_ROUTE_DELETE
+ * @param sra	Segment Routing Adjacency-SID
+ */
+void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
+{
+	struct zapi_labels zl;
+	struct zapi_nexthop *znh;
+
+	if (cmd != ZEBRA_MPLS_LABELS_ADD && cmd != ZEBRA_MPLS_LABELS_DELETE) {
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong ZEBRA command",
+			  __func__);
+		return;
+	}
+
+	sr_debug("  |- %s label %u for interface %s",
+		 cmd == ZEBRA_MPLS_LABELS_ADD ? "Add" : "Delete",
+		 sra->nexthop.label, sra->adj->circuit->interface->name);
+
+	memset(&zl, 0, sizeof(zl));
+	zl.type = ZEBRA_LSP_ISIS_SR;
+	zl.local_label = sra->nexthop.label;
+	zl.nexthop_num = 1;
+	znh = &zl.nexthops[0];
+	znh->gate = sra->nexthop.address;
+	znh->type = (sra->nexthop.family == AF_INET)
+			    ? NEXTHOP_TYPE_IPV4_IFINDEX
+			    : NEXTHOP_TYPE_IPV6_IFINDEX;
+	znh->ifindex = sra->adj->circuit->interface->ifindex;
+	znh->label_num = 1;
+	znh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
+
+	(void)zebra_send_mpls_labels(zclient, cmd, &zl);
+}
+
 static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
@@ -302,13 +465,250 @@ void isis_zebra_redistribute_unset(afi_t afi, int type)
 				     type, 0, VRF_DEFAULT);
 }
 
+/* Label Manager Functions */
+
+/**
+ * Request Label Range to the Label Manager.
+ *
+ * @param base		base label of the label range to request
+ * @param chunk_size	size of the label range to request
+ *
+ * @return 	0 on success, -1 on failure
+ */
+int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
+{
+	int ret;
+	uint32_t start, end;
+
+	if (zclient_sync->sock == -1)
+		isis_zebra_label_manager_connect();
+
+	ret = lm_get_label_chunk(zclient_sync, 0, base, chunk_size, &start,
+				 &end);
+	if (ret < 0) {
+		zlog_warn("%s: error getting label range!", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * Release Label Range to the Label Manager.
+ *
+ * @param start		start of label range to release
+ * @param end		end of label range to release
+ */
+void isis_zebra_release_label_range(uint32_t start, uint32_t end)
+{
+	int ret;
+
+	if (zclient_sync->sock == -1)
+		isis_zebra_label_manager_connect();
+
+	ret = lm_release_label_chunk(zclient_sync, start, end);
+	if (ret < 0)
+		zlog_warn("%s: error releasing label range!", __func__);
+}
+
+/**
+ * Get a new Label Chunk from the Label Manager. The new Label Chunk is
+ * added to the Label Chunk list.
+ *
+ * @return 	0 on success, -1 on failure
+ */
+static int isis_zebra_get_label_chunk(void)
+{
+	int ret;
+	uint32_t start, end;
+	struct label_chunk *new_label_chunk;
+
+	if (zclient_sync->sock == -1)
+		isis_zebra_label_manager_connect();
+
+	ret = lm_get_label_chunk(zclient_sync, 0, MPLS_LABEL_BASE_ANY,
+				 CHUNK_SIZE, &start, &end);
+	if (ret < 0) {
+		zlog_warn("%s: error getting label chunk!", __func__);
+		return -1;
+	}
+
+	new_label_chunk = calloc(1, sizeof(struct label_chunk));
+	if (!new_label_chunk) {
+		zlog_warn("%s: error trying to allocate label chunk %u - %u",
+			  __func__, start, end);
+		return -1;
+	}
+
+	new_label_chunk->start = start;
+	new_label_chunk->end = end;
+	new_label_chunk->used_mask = 0;
+
+	listnode_add(label_chunk_list, (void *)new_label_chunk);
+
+	/* let's update current if needed */
+	if (!current_label_chunk)
+		current_label_chunk = listtail(label_chunk_list);
+
+	return 0;
+}
+
+/**
+ * Request a label from the Label Chunk list.
+ *
+ * @return 	valid label on success or MPLS_INVALID_LABEL on failure
+ */
+mpls_label_t isis_zebra_request_dynamic_label(void)
+{
+	struct label_chunk *label_chunk;
+	uint32_t i, size;
+	uint64_t pos;
+	uint32_t label = MPLS_INVALID_LABEL;
+
+	while (current_label_chunk) {
+		label_chunk = listgetdata(current_label_chunk);
+		if (!label_chunk)
+			goto end;
+
+		/* try to get next free label in currently used label chunk */
+		size = label_chunk->end - label_chunk->start + 1;
+		for (i = 0, pos = 1; i < size; i++, pos <<= 1) {
+			if (!(pos & label_chunk->used_mask)) {
+				label_chunk->used_mask |= pos;
+				label = label_chunk->start + i;
+				goto end;
+			}
+		}
+		current_label_chunk = listnextnode(current_label_chunk);
+	}
+
+end:
+	/*
+	 * we moved till the last chunk, or were not able to find a label, so
+	 * let's ask for another one.
+	 */
+	if (!current_label_chunk
+	    || current_label_chunk == listtail(label_chunk_list)
+	    || label == MPLS_INVALID_LABEL) {
+		if (isis_zebra_get_label_chunk() != 0)
+			zlog_warn("%s: error getting label chunk!", __func__);
+	}
+
+	return label;
+}
+
+/**
+ * Delete a Label Chunk.
+ *
+ * @param val	Pointer to the Label Chunk to free
+ */
+static void isis_zebra_del_label_chunk(void *val)
+{
+	free(val);
+}
+
+/**
+ * Release a pre-allocated Label chunk to the Label Manager.
+ *
+ * @param start		start of the label chunk to release
+ * @param end		end of the label chunk to release
+ *
+ * @return	0 on success, -1 on failure
+ */
+static int isis_zebra_release_label_chunk(uint32_t start, uint32_t end)
+{
+	int ret;
+
+	ret = lm_release_label_chunk(zclient_sync, start, end);
+	if (ret < 0) {
+		zlog_warn("%s: error releasing label chunk!", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * Release a pre-attributes label to the Label Chunk list.
+ *
+ * @param label		Label to be release
+ */
+void isis_zebra_release_dynamic_label(mpls_label_t label)
+{
+	struct listnode *node;
+	struct label_chunk *label_chunk;
+	uint64_t pos;
+
+	for (ALL_LIST_ELEMENTS_RO(label_chunk_list, node, label_chunk)) {
+		if (!(label <= label_chunk->end && label >= label_chunk->start))
+			continue;
+
+		pos = 1ULL << (label - label_chunk->start);
+		label_chunk->used_mask &= ~pos;
+
+		/*
+		 * If nobody is using this chunk and it's not
+		 * current_label_chunk, then free it.
+		 */
+		if (!label_chunk->used_mask && (current_label_chunk != node)) {
+			if (isis_zebra_release_label_chunk(label_chunk->start,
+							   label_chunk->end)
+			    != 0)
+				zlog_warn("%s: error releasing label chunk!",
+					  __func__);
+			else {
+				listnode_delete(label_chunk_list, label_chunk);
+				isis_zebra_del_label_chunk(label_chunk);
+			}
+		}
+		break;
+	}
+}
+
+/**
+ * Connect to the Label Manager.
+ */
+static void isis_zebra_label_manager_connect(void)
+{
+	/* Connect to label manager. */
+	while (zclient_socket_connect(zclient_sync) < 0) {
+		zlog_warn("%s: re-attempt connecting synchronous zclient!",
+			  __func__);
+		sleep(1);
+	}
+	/* make socket non-blocking */
+	set_nonblocking(zclient_sync->sock);
+
+	/* Send hello to notify zebra this is a synchronous client */
+	while (zclient_send_hello(zclient_sync) < 0) {
+		zlog_warn(
+			"%s: re-attempt sending hello for synchronous zclient!",
+			__func__);
+		sleep(1);
+	}
+
+	/* Connect to label manager */
+	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
+		zlog_warn("%s: re-attempt connecting to label manager!", __func__);
+		sleep(1);
+	}
+
+	label_chunk_list = list_new();
+	label_chunk_list->del = isis_zebra_del_label_chunk;
+	while (isis_zebra_get_label_chunk() != 0) {
+		zlog_warn("%s: re-attempt getting first label chunk!", __func__);
+		sleep(1);
+	}
+}
+
 static void isis_zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
-void isis_zebra_init(struct thread_master *master)
+void isis_zebra_init(struct thread_master *master, int instance)
 {
+	/* Initialize asynchronous zclient. */
 	zclient = zclient_new(master, &zclient_options_default);
 	zclient_init(zclient, PROTO_TYPE, 0, &isisd_privs);
 	zclient->zebra_connected = isis_zebra_connected;
@@ -319,7 +719,19 @@ void isis_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_add = isis_zebra_read;
 	zclient->redistribute_route_del = isis_zebra_read;
 
-	return;
+	/* Initialize special zclient for synchronous message exchanges. */
+	struct zclient_options options = zclient_options_default;
+	options.synchronous = true;
+	zclient_sync = zclient_new(master, &options);
+	zclient_sync->sock = -1;
+	zclient_sync->redist_default = ZEBRA_ROUTE_ISIS;
+	zclient_sync->instance = instance;
+	/*
+	 * session_id must be different from default value (0) to distinguish
+	 * the asynchronous socket from the synchronous one
+	 */
+	zclient_sync->session_id = 1;
+	zclient_sync->privs = &isisd_privs;
 }
 
 void isis_zebra_stop(void)

@@ -76,7 +76,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 	ssize_t rv;
 	int sd = -1;
 
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
 		memcpy(&sin6.sin6_addr, &bs->key.peer, sizeof(sin6.sin6_addr));
@@ -85,7 +85,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 
 		sin6.sin6_port =
 			(port) ? *port
-			       : (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+			       : (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 					 ? htons(BFD_DEF_MHOP_DEST_PORT)
 					 : htons(BFD_DEFDESTPORT);
 
@@ -98,7 +98,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 		memcpy(&sin.sin_addr, &bs->key.peer, sizeof(sin.sin_addr));
 		sin.sin_port =
 			(port) ? *port
-			       : (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+			       : (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 					 ? htons(BFD_DEF_MHOP_DEST_PORT)
 					 : htons(BFD_DEFDESTPORT);
 
@@ -112,11 +112,16 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	rv = sendto(sd, data, datalen, 0, sa, slen);
 	if (rv <= 0) {
-		log_debug("packet-send: send failure: %s", strerror(errno));
+		if (bglobal.debug_network)
+			zlog_debug("packet-send: send failure: %s",
+				   strerror(errno));
 		return -1;
 	}
-	if (rv < (ssize_t)datalen)
-		log_debug("packet-send: send partial", strerror(errno));
+	if (rv < (ssize_t)datalen) {
+		if (bglobal.debug_network)
+			zlog_debug("packet-send: send partial: %s",
+				   strerror(errno));
+	}
 
 	return 0;
 }
@@ -133,15 +138,15 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 
 	if (!bvrf)
 		return;
-	if (!BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
-		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE);
+	if (!CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
+		SET_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE);
 
 	memset(&bep, 0, sizeof(bep));
 	bep.ver = BFD_ECHO_VERSION;
 	bep.len = BFD_ECHO_PKT_LEN;
 	bep.my_discr = htonl(bfd->discrs.my_discr);
 
-	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6)) {
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6)) {
 		sd = bvrf->bg_echov6;
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
@@ -190,13 +195,16 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 	/* Your discriminator not zero - use it to find session */
 	bfd = bfd_id_lookup(my_discr);
 	if (bfd == NULL) {
-		log_debug("echo-packet: no matching session (id:%u)", my_discr);
+		if (bglobal.debug_network)
+			zlog_debug("echo-packet: no matching session (id:%u)",
+				   my_discr);
 		return -1;
 	}
 
-	if (!BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
-		log_debug("echo-packet: echo disabled [%s] (id:%u)",
-			  bs_to_string(bfd), my_discr);
+	if (!CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
+		if (bglobal.debug_network)
+			zlog_debug("echo-packet: echo disabled [%s] (id:%u)",
+				   bs_to_string(bfd), my_discr);
 		return -1;
 	}
 
@@ -214,7 +222,7 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
-	struct bfd_pkt cp;
+	struct bfd_pkt cp = {};
 
 	/* Set fields according to section 6.5.7 */
 	cp.diag = bfd->local_diag;
@@ -222,7 +230,7 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	cp.flags = 0;
 	BFD_SETSTATE(cp.flags, bfd->ses_state);
 
-	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_CBIT))
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_CBIT))
 		BFD_SETCBIT(cp.flags, BFD_CBIT);
 
 	BFD_SETDEMANDBIT(cp.flags, BFD_DEF_DEMAND);
@@ -291,8 +299,7 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 	mlen = recvmsg(sd, &msghdr, MSG_DONTWAIT);
 	if (mlen == -1) {
 		if (errno != EAGAIN)
-			log_error("ipv4-recv: recv failed: %s",
-				  strerror(errno));
+			zlog_err("ipv4-recv: recv failed: %s", strerror(errno));
 
 		return -1;
 	}
@@ -313,7 +320,9 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 
 			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
 			if (ttlval > 255) {
-				log_debug("ipv4-recv: invalid TTL: %u", ttlval);
+				if (bglobal.debug_network)
+					zlog_debug("ipv4-recv: invalid TTL: %u",
+						   ttlval);
 				return -1;
 			}
 			*ttl = ttlval;
@@ -402,8 +411,7 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 	mlen = recvmsg(sd, &msghdr6, MSG_DONTWAIT);
 	if (mlen == -1) {
 		if (errno != EAGAIN)
-			log_error("ipv6-recv: recv failed: %s",
-				  strerror(errno));
+			zlog_err("ipv6-recv: recv failed: %s", strerror(errno));
 
 		return -1;
 	}
@@ -420,7 +428,9 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 		if (cm->cmsg_type == IPV6_HOPLIMIT) {
 			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
 			if (ttlval > 255) {
-				log_debug("ipv6-recv: invalid TTL: %u", ttlval);
+				if (bglobal.debug_network)
+					zlog_debug("ipv6-recv: invalid TTL: %u",
+						   ttlval);
 				return -1;
 			}
 
@@ -486,6 +496,10 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 	char buf[512], peerstr[128], localstr[128], portstr[64], vrfstr[64];
 	va_list vl;
 
+	/* Don't to any processing if debug is disabled. */
+	if (bglobal.debug_network == false)
+		return;
+
 	if (peer->sa_sin.sin_family)
 		snprintf(peerstr, sizeof(peerstr), " peer:%s", satostr(peer));
 	else
@@ -511,8 +525,8 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 	vsnprintf(buf, sizeof(buf), fmt, vl);
 	va_end(vl);
 
-	log_debug("control-packet: %s [mhop:%s%s%s%s%s]", buf,
-		  mhop ? "yes" : "no", peerstr, localstr, portstr, vrfstr);
+	zlog_debug("control-packet: %s [mhop:%s%s%s%s%s]", buf,
+		   mhop ? "yes" : "no", peerstr, localstr, portstr, vrfstr);
 }
 
 int bfd_recv_cb(struct thread *t)
@@ -779,7 +793,7 @@ int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
 			cmsg->cmsg_level = IPPROTO_IPV6;
 			cmsg->cmsg_type = IPV6_HOPLIMIT;
 		} else {
-#if BFD_LINUX
+#ifdef BFD_LINUX
 			cmsg->cmsg_level = IPPROTO_IP;
 			cmsg->cmsg_type = IP_TTL;
 #else
@@ -796,11 +810,14 @@ int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
 	/* Send echo back. */
 	wlen = sendmsg(sd, &msg, 0);
 	if (wlen <= 0) {
-		log_debug("udp-send: loopback failure: (%d) %s", errno, strerror(errno));
+		if (bglobal.debug_network)
+			zlog_debug("udp-send: loopback failure: (%d) %s", errno,
+				   strerror(errno));
 		return -1;
 	} else if (wlen < (ssize_t)datalen) {
-		log_debug("udp-send: partial send: %ld expected %ld", wlen,
-			  datalen);
+		if (bglobal.debug_network)
+			zlog_debug("udp-send: partial send: %zd expected %zu",
+				   wlen, datalen);
 		return -1;
 	}
 
@@ -821,8 +838,8 @@ int bp_set_ttl(int sd, uint8_t value)
 	int ttl = value;
 
 	if (setsockopt(sd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) == -1) {
-		log_warning("set-ttl: setsockopt(IP_TTL, %d): %s", value,
-			    strerror(errno));
+		zlog_warn("set-ttl: setsockopt(IP_TTL, %d): %s", value,
+			  strerror(errno));
 		return -1;
 	}
 
@@ -834,8 +851,8 @@ int bp_set_tos(int sd, uint8_t value)
 	int tos = value;
 
 	if (setsockopt(sd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) == -1) {
-		log_warning("set-tos: setsockopt(IP_TOS, %d): %s", value,
-			    strerror(errno));
+		zlog_warn("set-tos: setsockopt(IP_TOS, %d): %s", value,
+			  strerror(errno));
 		return -1;
 	}
 
@@ -847,12 +864,12 @@ static void bp_set_ipopts(int sd)
 	int rcvttl = BFD_RCV_TTL_VAL;
 
 	if (bp_set_ttl(sd, BFD_TTL_VAL) != 0)
-		log_fatal("set-ipopts: TTL configuration failed");
+		zlog_fatal("set-ipopts: TTL configuration failed");
 
 	if (setsockopt(sd, IPPROTO_IP, IP_RECVTTL, &rcvttl, sizeof(rcvttl))
 	    == -1)
-		log_fatal("set-ipopts: setsockopt(IP_RECVTTL, %d): %s", rcvttl,
-			  strerror(errno));
+		zlog_fatal("set-ipopts: setsockopt(IP_RECVTTL, %d): %s", rcvttl,
+			   strerror(errno));
 
 #ifdef BFD_LINUX
 	int pktinfo = BFD_PKT_INFO_VAL;
@@ -860,21 +877,21 @@ static void bp_set_ipopts(int sd)
 	/* Figure out address and interface to do the peer matching. */
 	if (setsockopt(sd, IPPROTO_IP, IP_PKTINFO, &pktinfo, sizeof(pktinfo))
 	    == -1)
-		log_fatal("set-ipopts: setsockopt(IP_PKTINFO, %d): %s", pktinfo,
-			  strerror(errno));
+		zlog_fatal("set-ipopts: setsockopt(IP_PKTINFO, %d): %s",
+			   pktinfo, strerror(errno));
 #endif /* BFD_LINUX */
 #ifdef BFD_BSD
 	int yes = 1;
 
 	/* Find out our address for peer matching. */
 	if (setsockopt(sd, IPPROTO_IP, IP_RECVDSTADDR, &yes, sizeof(yes)) == -1)
-		log_fatal("set-ipopts: setsockopt(IP_RECVDSTADDR, %d): %s", yes,
-			  strerror(errno));
+		zlog_fatal("set-ipopts: setsockopt(IP_RECVDSTADDR, %d): %s",
+			   yes, strerror(errno));
 
 	/* Find out interface where the packet came in. */
 	if (setsockopt_ifindex(AF_INET, sd, yes) == -1)
-		log_fatal("set-ipopts: setsockopt_ipv4_ifindex(%d): %s", yes,
-			  strerror(errno));
+		zlog_fatal("set-ipopts: setsockopt_ipv4_ifindex(%d): %s", yes,
+			   strerror(errno));
 #endif /* BFD_BSD */
 }
 
@@ -887,7 +904,7 @@ static void bp_bind_ip(int sd, uint16_t port)
 	sin.sin_addr.s_addr = htonl(INADDR_ANY);
 	sin.sin_port = htons(port);
 	if (bind(sd, (struct sockaddr *)&sin, sizeof(sin)) == -1)
-		log_fatal("bind-ip: bind: %s", strerror(errno));
+		zlog_fatal("bind-ip: bind: %s", strerror(errno));
 }
 
 int bp_udp_shop(const struct vrf *vrf)
@@ -899,7 +916,7 @@ int bp_udp_shop(const struct vrf *vrf)
 				vrf->name);
 	}
 	if (sd == -1)
-		log_fatal("udp-shop: socket: %s", strerror(errno));
+		zlog_fatal("udp-shop: socket: %s", strerror(errno));
 
 	bp_set_ipopts(sd);
 	bp_bind_ip(sd, BFD_DEFDESTPORT);
@@ -915,7 +932,7 @@ int bp_udp_mhop(const struct vrf *vrf)
 				vrf->name);
 	}
 	if (sd == -1)
-		log_fatal("udp-mhop: socket: %s", strerror(errno));
+		zlog_fatal("udp-mhop: socket: %s", strerror(errno));
 
 	bp_set_ipopts(sd);
 	bp_bind_ip(sd, BFD_DEF_MHOP_DEST_PORT);
@@ -932,7 +949,7 @@ int bp_peer_socket(const struct bfd_session *bs)
 
 	if (bs->key.ifname[0])
 		device_to_bind = (const char *)bs->key.ifname;
-	else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+	else if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
 	    && bs->key.vrfname[0])
 		device_to_bind = (const char *)bs->key.vrfname;
 
@@ -941,8 +958,8 @@ int bp_peer_socket(const struct bfd_session *bs)
 				bs->vrf->vrf_id, device_to_bind);
 	}
 	if (sd == -1) {
-		log_error("ipv4-new: failed to create socket: %s",
-			  strerror(errno));
+		zlog_err("ipv4-new: failed to create socket: %s",
+			 strerror(errno));
 		return -1;
 	}
 
@@ -965,15 +982,15 @@ int bp_peer_socket(const struct bfd_session *bs)
 	sin.sin_len = sizeof(sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	memcpy(&sin.sin_addr, &bs->key.local, sizeof(sin.sin_addr));
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
 		sin.sin_addr.s_addr = INADDR_ANY;
 
 	pcount = 0;
 	do {
 		if ((++pcount) > (BFD_SRCPORTMAX - BFD_SRCPORTINIT)) {
 			/* Searched all ports, none available */
-			log_error("ipv4-new: failed to bind port: %s",
-				  strerror(errno));
+			zlog_err("ipv4-new: failed to bind port: %s",
+				 strerror(errno));
 			close(sd);
 			return -1;
 		}
@@ -999,7 +1016,7 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 
 	if (bs->key.ifname[0])
 		device_to_bind = (const char *)bs->key.ifname;
-	else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+	else if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
 	    && bs->key.vrfname[0])
 		device_to_bind = (const char *)bs->key.vrfname;
 
@@ -1008,8 +1025,8 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 				bs->vrf->vrf_id, device_to_bind);
 	}
 	if (sd == -1) {
-		log_error("ipv6-new: failed to create socket: %s",
-			  strerror(errno));
+		zlog_err("ipv6-new: failed to create socket: %s",
+			 strerror(errno));
 		return -1;
 	}
 
@@ -1039,8 +1056,8 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 	do {
 		if ((++pcount) > (BFD_SRCPORTMAX - BFD_SRCPORTINIT)) {
 			/* Searched all ports, none available */
-			log_error("ipv6-new: failed to bind port: %s",
-				  strerror(errno));
+			zlog_err("ipv6-new: failed to bind port: %s",
+				 strerror(errno));
 			close(sd);
 			return -1;
 		}
@@ -1058,8 +1075,8 @@ int bp_set_ttlv6(int sd, uint8_t value)
 
 	if (setsockopt(sd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl))
 	    == -1) {
-		log_warning("set-ttlv6: setsockopt(IPV6_UNICAST_HOPS, %d): %s",
-			    value, strerror(errno));
+		zlog_warn("set-ttlv6: setsockopt(IPV6_UNICAST_HOPS, %d): %s",
+			  value, strerror(errno));
 		return -1;
 	}
 
@@ -1072,8 +1089,8 @@ int bp_set_tosv6(int sd, uint8_t value)
 
 	if (setsockopt(sd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos))
 	    == -1) {
-		log_warning("set-tosv6: setsockopt(IPV6_TCLASS, %d): %s", value,
-			    strerror(errno));
+		zlog_warn("set-tosv6: setsockopt(IPV6_TCLASS, %d): %s", value,
+			  strerror(errno));
 		return -1;
 	}
 
@@ -1086,22 +1103,23 @@ static void bp_set_ipv6opts(int sd)
 	int ipv6_only = BFD_IPV6_ONLY_VAL;
 
 	if (bp_set_ttlv6(sd, BFD_TTL_VAL) == -1)
-		log_fatal("set-ipv6opts: setsockopt(IPV6_UNICAST_HOPS, %d): %s",
-			  BFD_TTL_VAL, strerror(errno));
+		zlog_fatal(
+			"set-ipv6opts: setsockopt(IPV6_UNICAST_HOPS, %d): %s",
+			BFD_TTL_VAL, strerror(errno));
 
 	if (setsockopt_ipv6_hoplimit(sd, BFD_RCV_TTL_VAL) == -1)
-		log_fatal("set-ipv6opts: setsockopt(IPV6_HOPLIMIT, %d): %s",
-			  BFD_RCV_TTL_VAL, strerror(errno));
+		zlog_fatal("set-ipv6opts: setsockopt(IPV6_HOPLIMIT, %d): %s",
+			   BFD_RCV_TTL_VAL, strerror(errno));
 
 	if (setsockopt_ipv6_pktinfo(sd, ipv6_pktinfo) == -1)
-		log_fatal("set-ipv6opts: setsockopt(IPV6_PKTINFO, %d): %s",
-			  ipv6_pktinfo, strerror(errno));
+		zlog_fatal("set-ipv6opts: setsockopt(IPV6_PKTINFO, %d): %s",
+			   ipv6_pktinfo, strerror(errno));
 
 	if (setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY, &ipv6_only,
 		       sizeof(ipv6_only))
 	    == -1)
-		log_fatal("set-ipv6opts: setsockopt(IPV6_V6ONLY, %d): %s",
-			  ipv6_only, strerror(errno));
+		zlog_fatal("set-ipv6opts: setsockopt(IPV6_V6ONLY, %d): %s",
+			   ipv6_only, strerror(errno));
 }
 
 static void bp_bind_ipv6(int sd, uint16_t port)
@@ -1116,7 +1134,7 @@ static void bp_bind_ipv6(int sd, uint16_t port)
 	sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	if (bind(sd, (struct sockaddr *)&sin6, sizeof(sin6)) == -1)
-		log_fatal("bind-ipv6: bind: %s", strerror(errno));
+		zlog_fatal("bind-ipv6: bind: %s", strerror(errno));
 }
 
 int bp_udp6_shop(const struct vrf *vrf)
@@ -1128,7 +1146,7 @@ int bp_udp6_shop(const struct vrf *vrf)
 				vrf->name);
 	}
 	if (sd == -1)
-		log_fatal("udp6-shop: socket: %s", strerror(errno));
+		zlog_fatal("udp6-shop: socket: %s", strerror(errno));
 
 	bp_set_ipv6opts(sd);
 	bp_bind_ipv6(sd, BFD_DEFDESTPORT);
@@ -1145,7 +1163,7 @@ int bp_udp6_mhop(const struct vrf *vrf)
 				vrf->name);
 	}
 	if (sd == -1)
-		log_fatal("udp6-mhop: socket: %s", strerror(errno));
+		zlog_fatal("udp6-mhop: socket: %s", strerror(errno));
 
 	bp_set_ipv6opts(sd);
 	bp_bind_ipv6(sd, BFD_DEF_MHOP_DEST_PORT);
@@ -1161,7 +1179,7 @@ int bp_echo_socket(const struct vrf *vrf)
 		s = vrf_socket(AF_INET, SOCK_DGRAM, 0, vrf->vrf_id, vrf->name);
 	}
 	if (s == -1)
-		log_fatal("echo-socket: socket: %s", strerror(errno));
+		zlog_fatal("echo-socket: socket: %s", strerror(errno));
 
 	bp_set_ipopts(s);
 	bp_bind_ip(s, BFD_DEF_ECHO_PORT);
@@ -1177,7 +1195,7 @@ int bp_echov6_socket(const struct vrf *vrf)
 		s = vrf_socket(AF_INET6, SOCK_DGRAM, 0, vrf->vrf_id, vrf->name);
 	}
 	if (s == -1)
-		log_fatal("echov6-socket: socket: %s", strerror(errno));
+		zlog_fatal("echov6-socket: socket: %s", strerror(errno));
 
 	bp_set_ipv6opts(s);
 	bp_bind_ipv6(s, BFD_DEF_ECHO_PORT);

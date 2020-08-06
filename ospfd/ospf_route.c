@@ -603,7 +603,7 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 					IF_NAME(oi));
 
 			path = ospf_path_new();
-			path->nexthop.s_addr = 0;
+			path->nexthop.s_addr = INADDR_ANY;
 			path->ifindex = oi->ifp->ifindex;
 			if (CHECK_FLAG(oi->connected->flags,
 				       ZEBRA_IFA_UNNUMBERED))
@@ -631,27 +631,15 @@ void ospf_route_table_dump(struct route_table *rt)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
-	char buf1[BUFSIZ];
-	char buf2[BUFSIZ];
 	struct listnode *pnode;
 	struct ospf_path *path;
-
-#if 0
-  zlog_debug ("Type   Dest   Area   Path	 Type	 Cost	Next	 Adv.");
-  zlog_debug ("					Hop(s)	 Router(s)");
-#endif /* 0 */
 
 	zlog_debug("========== OSPF routing table ==========");
 	for (rn = route_top(rt); rn; rn = route_next(rn))
 		if ((or = rn->info) != NULL) {
 			if (or->type == OSPF_DESTINATION_NETWORK) {
-				zlog_debug("N %s/%d\t%s\t%s\t%d",
-					   inet_ntop(AF_INET, &rn->p.u.prefix4,
-						     buf1, BUFSIZ),
-					   rn->p.prefixlen,
-					   inet_ntop(AF_INET,
-						     & or->u.std.area_id, buf2,
-						     BUFSIZ),
+				zlog_debug("N %-18pFX %-15pI4 %s %d", &rn->p,
+					   &or->u.std.area_id,
 					   ospf_path_type_str[or->path_type],
 					   or->cost);
 				for (ALL_LIST_ELEMENTS_RO(or->paths, pnode,
@@ -659,12 +647,9 @@ void ospf_route_table_dump(struct route_table *rt)
 					zlog_debug("  -> %s",
 						   inet_ntoa(path->nexthop));
 			} else
-				zlog_debug("R %s\t%s\t%s\t%d",
-					   inet_ntop(AF_INET, &rn->p.u.prefix4,
-						     buf1, BUFSIZ),
-					   inet_ntop(AF_INET,
-						     & or->u.std.area_id, buf2,
-						     BUFSIZ),
+				zlog_debug("R %-18pI4 %-15pI4 %s %d",
+					   &rn->p.u.prefix4,
+					   &or->u.std.area_id,
 					   ospf_path_type_str[or->path_type],
 					   or->cost);
 		}
@@ -962,7 +947,7 @@ int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
 
 	new_or = ospf_route_new();
 	new_or->type = OSPF_DESTINATION_DISCARD;
-	new_or->id.s_addr = 0;
+	new_or->id.s_addr = INADDR_ANY;
 	new_or->cost = 0;
 	new_or->u.std.area_id = area->area_id;
 	new_or->u.std.external_routing = area->external_routing;

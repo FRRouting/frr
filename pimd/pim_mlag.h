@@ -32,9 +32,22 @@ extern void pim_instance_mlag_init(struct pim_instance *pim);
 extern void pim_instance_mlag_terminate(struct pim_instance *pim);
 extern void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp);
 extern void pim_if_unconfigure_mlag_dualactive(struct pim_interface *pim_ifp);
-extern void pim_mlag_register(void);
-extern void pim_mlag_deregister(void);
 extern int pim_zebra_mlag_process_up(void);
 extern int pim_zebra_mlag_process_down(void);
 extern int pim_zebra_mlag_handle_msg(struct stream *msg, int len);
+
+/* pm_zpthread.c */
+extern int pim_mlag_signal_zpthread(void);
+extern void pim_zpthread_init(void);
+extern void pim_zpthread_terminate(void);
+
+extern void pim_mlag_register(void);
+extern void pim_mlag_deregister(void);
+extern void pim_mlag_up_local_add(struct pim_instance *pim,
+				  struct pim_upstream *upstream);
+extern void pim_mlag_up_local_del(struct pim_instance *pim,
+				  struct pim_upstream *upstream);
+extern bool pim_mlag_up_df_role_update(struct pim_instance *pim,
+				       struct pim_upstream *up, bool is_df,
+				       const char *reason);
 #endif

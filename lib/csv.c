@@ -1,5 +1,5 @@
 /* CSV
- * Copyright (C) 2013 Cumulus Networks, Inc.
+ * Copyright (C) 2013,2020  Cumulus Networks, Inc.
  *
  * This file is part of Quagga.
  *
@@ -21,6 +21,8 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
+#include <zebra.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,7 +85,7 @@ csv_t *csv_init(csv_t *csv, char *buf, int buflen)
 		csv = malloc(sizeof(csv_t));
 		if (csv == NULL) {
 			log_error("CSV Malloc failed\n");
-			return (NULL);
+			return NULL;
 		}
 	}
 	memset(csv, 0, sizeof(csv_t));
@@ -144,7 +146,7 @@ char *csv_field_iter_next(csv_field_t **fld)
 {
 	*fld = TAILQ_NEXT(*fld, next_field);
 	if ((*fld) == NULL) {
-		return (NULL);
+		return NULL;
 	}
 	return ((*fld)->field);
 }
@@ -198,7 +200,7 @@ static csv_field_t *csv_add_field_to_record(csv_t *csv, csv_record_t *rec,
 	if (!fld) {
 		log_error("field malloc failed\n");
 		/* more cleanup needed */
-		return (NULL);
+		return NULL;
 	}
 	TAILQ_INSERT_TAIL(&(rec->fields), fld, next_field);
 	fld->field = str + rlen;
@@ -227,7 +229,7 @@ csv_record_t *csv_encode(csv_t *csv, int count, ...)
 		str = (char *)malloc(csv->buflen);
 		if (!str) {
 			log_error("field str malloc failed\n");
-			return (NULL);
+			return NULL;
 		}
 	}
 
@@ -238,7 +240,7 @@ csv_record_t *csv_encode(csv_t *csv, int count, ...)
 		if (!buf)
 			free(str);
 		va_end(list);
-		return (NULL);
+		return NULL;
 	}
 	csv_init_record(rec);
 	rec->record = str;
@@ -255,7 +257,7 @@ csv_record_t *csv_encode(csv_t *csv, int count, ...)
 			log_error("fld malloc failed\n");
 			csv_remove_record(csv, rec);
 			va_end(list);
-			return (NULL);
+			return NULL;
 		}
 		if (tempc < (count - 1)) {
 			rec->rec_len += snprintf((str + rec->rec_len),
@@ -419,7 +421,7 @@ void csv_clone_record(csv_t *csv, csv_record_t *in_rec, csv_record_t **out_rec)
 	}
 	rec->record = curr;
 	rec->rec_len = in_rec->rec_len;
-	strcpy(rec->record, in_rec->record);
+	strlcpy(rec->record, in_rec->record, csv->buflen);
 
 	/* decode record into fields */
 	csv_decode_record(rec);
@@ -494,21 +496,21 @@ csv_record_t *csv_concat_record(csv_t *csv, csv_record_t *rec1,
 	if (!csv_is_record_valid(csv, rec1)
 	    || !csv_is_record_valid(csv, rec2)) {
 		log_error("rec1 and/or rec2 invalid\n");
-		return (NULL);
+		return NULL;
 	}
 
 	/* we can only concat records if no buf was supplied during csv init */
 	if (csv->buf) {
 		log_error(
 			"un-supported for this csv type - single buf detected\n");
-		return (NULL);
+		return NULL;
 	}
 
 	/* create a new rec */
 	rec = calloc(1, sizeof(csv_record_t));
 	if (!rec) {
 		log_error("record malloc failed\n");
-		return (NULL);
+		return NULL;
 	}
 	csv_init_record(rec);
 
@@ -635,10 +637,10 @@ void csv_dump(csv_t *csv)
 static int get_memory_usage(pid_t pid)
 {
 	int fd, data, stack;
-	char buf[4096], status_child[BUFSIZ];
+	char buf[4096], status_child[PATH_MAX];
 	char *vm;
 
-	sprintf(status_child, "/proc/%d/status", pid);
+	snprintf(status_child, sizeof(status_child), "/proc/%d/status", pid);
 	if ((fd = open(status_child, O_RDONLY)) < 0)
 		return -1;
 
@@ -670,8 +672,8 @@ int main()
 
 	log_verbose("Mem: %d\n", get_memory_usage(getpid()));
 	csv_init(&csv, buf, 256);
-	sprintf(hdr1, "%4d", 0);
-	sprintf(hdr2, "%4d", 1);
+	snprintf(hdr1, sizeof(hdr1), "%4d", 0);
+	snprintf(hdr2, sizeof(hdr2), "%4d", 1);
 	log_verbose("(%zu/%zu/%d/%d)\n", strlen(hdr1), strlen(hdr2), atoi(hdr1),
 		    atoi(hdr2));
 	rec = csv_encode(&csv, 2, hdr1, hdr2);
@@ -683,8 +685,8 @@ int main()
 	}
 	csv_encode(&csv, 2, "pdfadfadfadsadsaddfdfdsfdsd", "35444554545454545");
 	log_verbose("%s\n", buf);
-	sprintf(hdr1, "%4d", csv.csv_len);
-	sprintf(hdr2, "%4d", 1);
+	snprintf(hdr1, sizeof(hdr1), "%4d", csv.csv_len);
+	snprintf(hdr2, sizeof(hdr2), "%4d", 1);
 	log_verbose("(%zu/%zu/%d/%d)\n", strlen(hdr1), strlen(hdr2), atoi(hdr1),
 		    atoi(hdr2));
 	rec = csv_encode_record(&csv, rec, 2, hdr1, hdr2);

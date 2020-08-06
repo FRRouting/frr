@@ -4,7 +4,7 @@
  * Copyright (C) 2017 by David Lamparter & Christian Franke,
  *                       Open Source Routing / NetDEF Inc.
  *
- * This file is part of FreeRangeRouting (FRR)
+ * This file is part of FRRouting (FRR)
  *
  * FRR is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -391,8 +391,7 @@ static void test_state_del_one_route(struct test_state *test, struct prng *prng)
 	}
 
 	assert(rn);
-	srcdest_rnode_prefixes(rn, (const struct prefix **)&dst_p,
-			       (const struct prefix **)&src_p);
+	srcdest_rnode_prefixes(rn, &dst_p, &src_p);
 	memcpy(&dst6_p, dst_p, sizeof(dst6_p));
 	if (src_p)
 		memcpy(&src6_p, src_p, sizeof(src6_p));

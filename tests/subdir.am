@@ -38,10 +38,10 @@ else
 TESTS_OSPF6D =
 endif
 
-tests/lib/cli/tests_lib_cli_test_cli-test_cli.$(OBJEXT): tests/lib/cli/test_cli_clippy.c
-tests/lib/cli/test_cli-test_cli.$(OBJEXT): tests/lib/cli/test_cli_clippy.c
-tests/ospf6d/tests_ospf6d_test_lsdb-test_lsdb.$(OBJEXT): tests/ospf6d/test_lsdb_clippy.c
-tests/ospf6d/test_lsdb-test_lsdb.$(OBJEXT): tests/ospf6d/test_lsdb_clippy.c
+clippy_scan += \
+	tests/lib/cli/test_cli.c \
+	tests/ospf6d/test_lsdb.c \
+	# end
 
 check_PROGRAMS = \
 	tests/lib/cxxcompat \
@@ -87,6 +87,7 @@ check_PROGRAMS += \
 endif
 
 tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
+	mkdir -p tests/lib/cli
 	sed \
 		-e 's%"vtysh/vtysh\.h"%"tests/helpers/c/tests.h"%' \
 		-e 's/vtysh_init_cmd/test_init_cmd/' \
@@ -96,6 +97,7 @@ tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
 CLEANFILES += tests/lib/cli/test_commands_defun.c
 
 tests/isisd/test_fuzz_isis_tlv_tests.h: $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz
+	mkdir -p tests/isisd
 	gzip -d < $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz > "$@"
 CLEANFILES += tests/isisd/test_fuzz_isis_tlv_tests.h
 

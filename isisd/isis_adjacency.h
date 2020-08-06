@@ -69,6 +69,7 @@ struct isis_dis_record {
 };
 
 struct bfd_session;
+struct isis_area;
 
 struct isis_adjacency {
 	uint8_t snpa[ETH_ALEN];		    /* NeighbourSNPAAddress */
@@ -103,6 +104,7 @@ struct isis_adjacency {
 	uint16_t *mt_set;      /* Topologies this adjacency is valid for */
 	unsigned int mt_count; /* Number of entries in mt_set */
 	struct bfd_session *bfd_session;
+	struct list *adj_sids; /* Segment Routing Adj-SIDs. */
 };
 
 struct isis_threeway_adj;
@@ -111,6 +113,8 @@ struct isis_adjacency *isis_adj_lookup(const uint8_t *sysid,
 				       struct list *adjdb);
 struct isis_adjacency *isis_adj_lookup_snpa(const uint8_t *ssnpa,
 					    struct list *adjdb);
+bool isis_adj_exists(const struct isis_area *area, int level,
+		     const uint8_t *sysid);
 struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 				    int level, struct isis_circuit *circuit);
 void isis_delete_adj(void *adj);
@@ -118,7 +122,11 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage);
 DECLARE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj))
-void isis_adj_state_change(struct isis_adjacency *adj,
+DECLARE_HOOK(isis_adj_ip_enabled_hook,
+	     (struct isis_adjacency *adj, int family), (adj, family))
+DECLARE_HOOK(isis_adj_ip_disabled_hook,
+	     (struct isis_adjacency *adj, int family), (adj, family))
+void isis_adj_state_change(struct isis_adjacency **adj,
 			   enum isis_adj_state state, const char *reason);
 void isis_adj_print(struct isis_adjacency *adj);
 const char *isis_adj_yang_state(enum isis_adj_state state);

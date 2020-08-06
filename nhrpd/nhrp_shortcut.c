@@ -32,7 +32,7 @@ static void nhrp_shortcut_check_use(struct nhrp_shortcut *s)
 
 	if (s->expiring && s->cache && s->cache->used) {
 		debugf(NHRP_DEBUG_ROUTE, "Shortcut %s used and expiring",
-		       prefix2str(s->p, buf, sizeof buf));
+		       prefix2str(s->p, buf, sizeof(buf)));
 		nhrp_shortcut_send_resolution_req(s);
 	}
 }
@@ -53,14 +53,21 @@ static int nhrp_shortcut_do_expire(struct thread *t)
 static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 				       unsigned long cmd)
 {
+	char buf[PREFIX_STRLEN];
+
 	struct nhrp_shortcut *s =
 		container_of(n, struct nhrp_shortcut, cache_notifier);
 
 	switch (cmd) {
 	case NOTIFY_CACHE_UP:
 		if (!s->route_installed) {
-			nhrp_route_announce(1, s->type, s->p, NULL,
-					    &s->cache->remote_addr, 0);
+			debugf(NHRP_DEBUG_ROUTE,
+			       "Shortcut: route install %s nh (unspec) dev %s",
+			       prefix2str(s->p, buf, sizeof(buf)),
+			       s->cache->ifp->name);
+
+			nhrp_route_announce(1, s->type, s->p, s->cache->ifp,
+					    NULL, 0);
 			s->route_installed = 1;
 		}
 		break;
@@ -84,6 +91,8 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 					 enum nhrp_cache_type type,
 					 struct nhrp_cache *c, int holding_time)
 {
+	char buf[2][PREFIX_STRLEN];
+
 	s->type = type;
 	if (c != s->cache) {
 		if (s->cache) {
@@ -98,13 +107,29 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 				/* Force renewal of Zebra announce on prefix
 				 * change */
 				s->route_installed = 0;
+				debugf(NHRP_DEBUG_ROUTE,
+				       "Shortcut: forcing renewal of zebra announce on prefix change peer %s ht %u cur nbma %s dev %s",
+				       sockunion2str(&s->cache->remote_addr,
+						     buf[0], sizeof(buf[0])),
+				       holding_time,
+				       sockunion2str(
+					       &s->cache->cur.remote_nbma_natoa,
+					       buf[1], sizeof(buf[1])),
+				       s->cache->ifp->name);
 				nhrp_shortcut_cache_notify(&s->cache_notifier,
 							   NOTIFY_CACHE_UP);
 			}
 		}
-		if (!s->cache || !s->cache->route_installed)
+		if (!s->cache || !s->cache->route_installed) {
+			debugf(NHRP_DEBUG_ROUTE,
+			       "Shortcut: notify cache down because cache?%s or ri?%s",
+			       s->cache ? "yes" : "no",
+			       s->cache ? (s->cache->route_installed ? "yes"
+								     : "no")
+					: "n/a");
 			nhrp_shortcut_cache_notify(&s->cache_notifier,
 						   NOTIFY_CACHE_DOWN);
+		}
 	}
 	if (s->type == NHRP_CACHE_NEGATIVE && !s->route_installed) {
 		nhrp_route_announce(1, s->type, s->p, NULL, NULL, 0);
@@ -133,7 +158,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 
 	debugf(NHRP_DEBUG_ROUTE, "Shortcut %s purged",
-	       prefix2str(s->p, buf, sizeof buf));
+	       prefix2str(s->p, buf, sizeof(buf)));
 
 	nhrp_shortcut_update_binding(s, NHRP_CACHE_INVALID, NULL, 0);
 
@@ -173,7 +198,7 @@ static struct nhrp_shortcut *nhrp_shortcut_get(struct prefix *p)
 		s->p = &rn->p;
 
 		debugf(NHRP_DEBUG_ROUTE, "Shortcut %s created",
-		       prefix2str(s->p, buf, sizeof buf));
+		       prefix2str(s->p, buf, sizeof(buf)));
 	} else {
 		s = rn->info;
 		route_unlock_node(rn);
@@ -191,11 +216,10 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	struct nhrp_extension_header *ext;
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c = NULL;
-	union sockunion *proto, cie_proto, *nbma, *nbma_natoa, cie_nbma,
-		nat_nbma;
+	union sockunion *proto, cie_proto, *nbma, cie_nbma, nat_nbma;
 	struct prefix prefix, route_prefix;
 	struct zbuf extpl;
-	char bufp[PREFIX_STRLEN], buf[3][SU_ADDRSTRLEN];
+	char bufp[PREFIX_STRLEN], buf[4][SU_ADDRSTRLEN];
 	int holding_time = pp->if_ad->holdtime;
 
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
@@ -218,7 +242,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	}
 
 	/* Parse extensions */
-	memset(&nat_nbma, 0, sizeof nat_nbma);
+	memset(&nat_nbma, 0, sizeof(nat_nbma));
 	while ((ext = nhrp_ext_pull(&pp->extensions, &extpl)) != NULL) {
 		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
 		case NHRP_EXTENSION_NAT_ADDRESS:
@@ -232,8 +256,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	if (!sockunion_same(&cie_proto, &pp->dst_proto)) {
 		debugf(NHRP_DEBUG_COMMON,
 		       "Shortcut: Warning dst_proto altered from %s to %s",
-		       sockunion2str(&cie_proto, buf[0], sizeof buf[0]),
-		       sockunion2str(&pp->dst_proto, buf[1], sizeof buf[1]));
+		       sockunion2str(&cie_proto, buf[0], sizeof(buf[0])),
+		       sockunion2str(&pp->dst_proto, buf[1], sizeof(buf[1])));
 	}
 
 	/* One or more CIEs should be given as reply, we support only one */
@@ -263,39 +287,55 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	}
 
 	debugf(NHRP_DEBUG_COMMON,
-	       "Shortcut: %s is at proto %s cie-nbma %s nat-nbma %s cie-holdtime %d",
-	       prefix2str(&prefix, bufp, sizeof bufp),
-	       sockunion2str(proto, buf[0], sizeof buf[0]),
-	       sockunion2str(&cie_nbma, buf[1], sizeof buf[1]),
-	       sockunion2str(&nat_nbma, buf[2], sizeof buf[2]),
+	       "Shortcut: %s is at proto %s dst_proto %s cie-nbma %s nat-nbma %s cie-holdtime %d",
+	       prefix2str(&prefix, bufp, sizeof(bufp)),
+	       sockunion2str(proto, buf[0], sizeof(buf[0])),
+	       sockunion2str(&pp->dst_proto, buf[1], sizeof(buf[1])),
+	       sockunion2str(&cie_nbma, buf[2], sizeof(buf[2])),
+	       sockunion2str(&nat_nbma, buf[3], sizeof(buf[3])),
 	       htons(cie->holding_time));
 
 	/* Update cache entry for the protocol to nbma binding */
-	if (sockunion_family(&nat_nbma) != AF_UNSPEC) {
+	if (sockunion_family(&nat_nbma) != AF_UNSPEC)
 		nbma = &nat_nbma;
-		nbma_natoa = &cie_nbma;
-	} else {
+	else
 		nbma = &cie_nbma;
-		nbma_natoa = NULL;
-	}
+
 	if (sockunion_family(nbma)) {
 		c = nhrp_cache_get(pp->ifp, proto, 1);
 		if (c) {
-			nhrp_cache_update_binding(c, NHRP_CACHE_CACHED,
+			debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: cache found, update binding");
+			nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC,
 						  holding_time,
 						  nhrp_peer_get(pp->ifp, nbma),
-						  htons(cie->mtu), nbma_natoa);
+						  htons(cie->mtu), nbma);
+		} else {
+			debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: no cache for nbma %s", buf[2]);
 		}
 	}
 
 	/* Update shortcut entry for subnet to protocol gw binding */
-	if (c && !sockunion_same(proto, &pp->dst_proto)) {
+	if (c) {
 		ps = nhrp_shortcut_get(&prefix);
 		if (ps) {
 			ps->addr = s->addr;
-			nhrp_shortcut_update_binding(ps, NHRP_CACHE_CACHED, c,
+			debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: calling update_binding");
+			nhrp_shortcut_update_binding(ps, NHRP_CACHE_DYNAMIC, c,
 						     holding_time);
+		} else {
+			debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: proto diff but no ps");
 		}
+	} else {
+		debugf(NHRP_DEBUG_COMMON,
+		       "NO Shortcut because c NULL?%s or same proto?%s",
+		       c ? "no" : "yes",
+		       proto && pp && sockunion_same(proto, &pp->dst_proto)
+			       ? "yes"
+			       : "no");
 	}
 
 	debugf(NHRP_DEBUG_COMMON, "Shortcut: Resolution reply handled");
@@ -307,7 +347,9 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	struct nhrp_packet_header *hdr;
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
+	struct nhrp_afi_data *if_ad;
 	struct nhrp_peer *peer;
+	struct nhrp_cie_header *cie;
 
 	if (nhrp_route_address(NULL, &s->addr, NULL, &peer)
 	    != NHRP_ROUTE_NBMA_NEXTHOP)
@@ -337,7 +379,15 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	 *  - MTU: MTU of the source station
 	 *  - Holding Time: Max time to cache the source information
 	 * */
-	/* FIXME: Send holding time, and MTU */
+	/* FIXME: push CIE for each local protocol address */
+	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, NULL, NULL);
+	cie->prefix_length = 0xff;
+	if_ad = &nifp->afi[family2afi(sockunion_family(&s->addr))];
+	cie->holding_time = htons(if_ad->holdtime);
+	cie->mtu = htons(if_ad->mtu);
+	debugf(NHRP_DEBUG_COMMON,
+	       "Shortcut res_req: set cie ht to %u and mtu to %u. shortcut ht is %u",
+	       ntohs(cie->holding_time), ntohs(cie->mtu), s->holding_time);
 
 	nhrp_ext_request(zb, hdr, ifp);
 

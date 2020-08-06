@@ -605,13 +605,15 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 				    api->fragment[i].value != 4 &&
 				    api->fragment[i].value != 8) {
 					success = false;
-					sprintf(fail_str,
+					snprintf(
+						fail_str, sizeof(fail_str),
 						"Value not valid (%d) for this implementation",
 						api->fragment[i].value);
 				}
 			}
 		} else
-			sprintf(fail_str, "too complex. ignoring");
+			snprintf(fail_str, sizeof(fail_str),
+				 "too complex. ignoring");
 		if (!success) {
 			if (BGP_DEBUG(pbr, PBR))
 				zlog_debug("BGP: match fragment operation (%d) %s",
@@ -685,9 +687,9 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 }
 
 /* return -1 if build or validation failed */
-int bgp_pbr_build_and_validate_entry(struct prefix *p,
-					    struct bgp_path_info *path,
-					    struct bgp_pbr_entry_main *api)
+int bgp_pbr_build_and_validate_entry(const struct prefix *p,
+				     struct bgp_path_info *path,
+				     struct bgp_pbr_entry_main *api)
 {
 	int ret;
 	int i, action_count = 0;
@@ -738,7 +740,8 @@ int bgp_pbr_build_and_validate_entry(struct prefix *p,
 				ecom_copy.val[0] &=
 					~ECOMMUNITY_ENCODE_TRANS_EXP;
 				ecom_copy.val[1] = ECOMMUNITY_ROUTE_TARGET;
-				ecommunity_add_val(eckey, &ecom_copy);
+				ecommunity_add_val(eckey, &ecom_copy,
+						   false, false);
 
 				api_action->action = ACTION_REDIRECT;
 				api_action->u.redirect_vrf =
@@ -754,13 +757,15 @@ int bgp_pbr_build_and_validate_entry(struct prefix *p,
 				 * draft-ietf-idr-flowspec-redirect
 				 */
 				if (api_action_redirect_ip) {
-					if (api_action_redirect_ip->u
-					    .zr.redirect_ip_v4.s_addr)
+					if (api_action_redirect_ip->u.zr
+						    .redirect_ip_v4.s_addr
+					    != INADDR_ANY)
 						continue;
-					if (!path->attr->nexthop.s_addr)
+					if (path->attr->nexthop.s_addr
+					    == INADDR_ANY)
 						continue;
-					api_action_redirect_ip->u
-						.zr.redirect_ip_v4.s_addr =
+					api_action_redirect_ip->u.zr
+						.redirect_ip_v4.s_addr =
 						path->attr->nexthop.s_addr;
 					api_action_redirect_ip->u.zr.duplicate
 						= ecom_eval->val[7];
@@ -1260,7 +1265,6 @@ void bgp_pbr_cleanup(struct bgp *bgp)
 		return;
 	bgp_pbr_reset(bgp, AFI_IP);
 	XFREE(MTYPE_PBR, bgp->bgp_pbr_cfg);
-	bgp->bgp_pbr_cfg = NULL;
 }
 
 void bgp_pbr_init(struct bgp *bgp)
@@ -1402,11 +1406,16 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 				ptr += sprintf(ptr,
 					  "@redirect ip nh %s", local_buff);
 			break;
-		case ACTION_REDIRECT:
+		case ACTION_REDIRECT: {
+			struct vrf *vrf;
+
+			vrf = vrf_lookup_by_id(api->actions[i].u.redirect_vrf);
 			INCREMENT_DISPLAY(ptr, nb_items);
-			ptr += sprintf(ptr, "@redirect vrf %u",
+			ptr += sprintf(ptr, "@redirect vrf %s(%u)",
+				       VRF_LOGNAME(vrf),
 				       api->actions[i].u.redirect_vrf);
 			break;
+		}
 		case ACTION_MARKING:
 			INCREMENT_DISPLAY(ptr, nb_items);
 			ptr += sprintf(ptr, "@set dscp %u",
@@ -1725,7 +1734,7 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 			temp.type = IPSET_NET_NET;
 	}
 	if (bpf->vrf_id == VRF_UNKNOWN) /* XXX case BGP destroy */
-		temp.vrf_id = 0;
+		temp.vrf_id = VRF_DEFAULT;
 	else
 		temp.vrf_id = bpf->vrf_id;
 	bpme = &temp2;
@@ -2604,7 +2613,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 	}
 }
 
-void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
+void bgp_pbr_update_entry(struct bgp *bgp, const struct prefix *p,
 			  struct bgp_path_info *info, afi_t afi, safi_t safi,
 			  bool nlri_update)
 {

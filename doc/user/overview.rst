@@ -292,16 +292,26 @@ BGP
   :t:`BGP/MPLS IP Virtual Private Networks (VPNs). Y. Rekhter. Feb 2006.`
 - :rfc:`4659`
   :t:`BGP-MPLS IP Virtual Private Network (VPN) Extension for IPv6 VPN. J. De Clercq, D. Ooms, M. Carugi, F. Le Faucheur. September 2006.`
+- :rfc:`4893`
+  :t:`BGP Support for Four-octet AS Number Space. Q. Vohra, E. Chen May 2007.`
 - :rfc:`5004`
   :t:`Avoid BGP Best Path Transitions from One External to Another. E. Chen & S. Sangli. September 2007 (Partial support).`
 - :rfc:`5082`
   :t:`The Generalized TTL Security Mechanism (GTSM). V. Gill, J. Heasley, D. Meyer, P. Savola, C. Pingnataro. October 2007.`
 - :rfc:`5575`
   :t:`Dissemination of Flow Specification Rules. P. Marques, N. Sheth, R. Raszuk, B. Greene, J. Mauch, D. McPherson. August 2009`
+- :rfc:`6286`
+  :t:`Autonomous-System-Wide Unique BGP Identifier for BGP-4. E. Chen, J. Yuan, June 2011.`
+- :rfc:`6608`
+  :t:`Subcodes for BGP Finite State Machine Error. J. Dong, M. Chen, Huawei Technologies, A. Suryanarayana, Cisco Systems. May 2012.`
 - :rfc:`6810`
   :t:`The Resource Public Key Infrastructure (RPKI) to Router Protocol. R. Bush, R. Austein. January 2013.`
 - :rfc:`6811`
   :t:`BGP Prefix Origin Validation. P. Mohapatra, J. Scudder, D. Ward, R. Bush, R. Austein. January 2013.`
+- :rfc:`7606`
+  :t:`Revised Error Handling for BGP UPDATE Messages. E. Chen, J. Scudder, P. Mohapatra, K. Patel. August 2015.`
+- :rfc:`7607`
+  :t:`Codification of AS 0 Processing. W. Kumari, R. Bush, H. Schiller, K. Patel. August 2015.`
 - :rfc:`7611`
   :t:`BGP ACCEPT_OWN Community Attribute. J. Uttaro, P. Mohapatra, D. Smith, R. Raszuk, J. Scudder. August 2015.`
 - :rfc:`7999`
@@ -445,4 +455,4 @@ For information on reporting bugs, please see :ref:`bug-reports`.
 .. _frr: |package-url|
 .. _github: https://github.com/frrouting/frr/
 .. _github issues: https://github.com/frrouting/frr/issues
-.. _slack: https://frrouting.slack.com/
+.. _slack: https://frrouting.org/#participate

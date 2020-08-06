@@ -520,7 +520,7 @@ int vtysh_read_config(const char *config_default_dir)
 		fprintf(stderr,
 			"%% Can't open configuration file %s due to '%s'.\n",
 			config_default_dir, safe_strerror(errno));
-		return (CMD_ERR_NO_FILE);
+		return CMD_ERR_NO_FILE;
 	}
 
 	ret = vtysh_read_file(confp);
@@ -543,7 +543,8 @@ void vtysh_config_write(void)
 	}
 
 	if (cmd_domainname_get()) {
-		sprintf(line, "domainname %s", cmd_domainname_get());
+		snprintf(line, sizeof(line), "domainname %s",
+			 cmd_domainname_get());
 		vtysh_config_parse_line(NULL, line);
 	}
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)

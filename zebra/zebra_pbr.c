@@ -431,34 +431,53 @@ static void *pbr_rule_alloc_intern(void *arg)
 	return new;
 }
 
-void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
-{
-	struct zebra_pbr_rule *unique =
-		pbr_rule_lookup_unique(rule);
-
-	(void)hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
-	(void)kernel_add_pbr_rule(rule);
-	/*
-	 * Rule Replace semantics, if we have an old, install the
-	 * new rule, look above, and then delete the old
-	 */
-	if (unique)
-		zebra_pbr_del_rule(unique);
-}
-
-void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
+static int pbr_rule_release(struct zebra_pbr_rule *rule)
 {
 	struct zebra_pbr_rule *lookup;
 
 	lookup = hash_lookup(zrouter.rules_hash, rule);
+
+	if (!lookup)
+		return -ENOENT;
+
+	hash_release(zrouter.rules_hash, lookup);
+	XFREE(MTYPE_TMP, lookup);
+
+	return 0;
+}
+
+void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
+{
+	struct zebra_pbr_rule *found;
+
+	/**
+	 * Check if we already have it (this checks via a unique ID, walking
+	 * over the hash table, not via a hash operation).
+	 */
+	found = pbr_rule_lookup_unique(rule);
+
+	(void)hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
+
+	/* If found, this is an update */
+	if (found) {
+		(void)kernel_update_pbr_rule(found, rule);
+
+		if (pbr_rule_release(found))
+			zlog_debug(
+				"%s: Rule being updated we know nothing about",
+				__PRETTY_FUNCTION__);
+
+	} else
+		(void)kernel_add_pbr_rule(rule);
+}
+
+void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
+{
 	(void)kernel_del_pbr_rule(rule);
 
-	if (lookup) {
-		hash_release(zrouter.rules_hash, lookup);
-		XFREE(MTYPE_TMP, lookup);
-	} else
+	if (pbr_rule_release(rule))
 		zlog_debug("%s: Rule being deleted we know nothing about",
-			   __PRETTY_FUNCTION__);
+			   __func__);
 }
 
 static void zebra_pbr_cleanup_rules(struct hash_bucket *b, void *data)
@@ -483,8 +502,10 @@ static void zebra_pbr_cleanup_ipset(struct hash_bucket *b, void *data)
 	int *sock = data;
 
 	if (ipset->sock == *sock) {
-		hook_call(zebra_pbr_ipset_update, 0, ipset);
-		hash_release(zrouter.ipset_hash, ipset);
+		if (hash_release(zrouter.ipset_hash, ipset))
+			zebra_pbr_ipset_free(ipset);
+		else
+			hook_call(zebra_pbr_ipset_update, 0, ipset);
 	}
 }
 
@@ -494,8 +515,10 @@ static void zebra_pbr_cleanup_ipset_entry(struct hash_bucket *b, void *data)
 	int *sock = data;
 
 	if (ipset->sock == *sock) {
-		hook_call(zebra_pbr_ipset_entry_update, 0, ipset);
-		hash_release(zrouter.ipset_entry_hash, ipset);
+		if (hash_release(zrouter.ipset_entry_hash, ipset))
+			zebra_pbr_ipset_entry_free(ipset);
+		else
+			hook_call(zebra_pbr_ipset_entry_update, 0, ipset);
 	}
 }
 
@@ -505,8 +528,10 @@ static void zebra_pbr_cleanup_iptable(struct hash_bucket *b, void *data)
 	int *sock = data;
 
 	if (iptable->sock == *sock) {
-		hook_call(zebra_pbr_iptable_update, 0, iptable);
-		hash_release(zrouter.iptable_hash, iptable);
+		if (hash_release(zrouter.iptable_hash, iptable))
+			zebra_pbr_iptable_free(iptable);
+		else
+			hook_call(zebra_pbr_iptable_update, 0, iptable);
 	}
 }
 
@@ -566,7 +591,7 @@ void zebra_pbr_destroy_ipset(struct zebra_pbr_ipset *ipset)
 	} else
 		zlog_debug(
 			"%s: IPSet Entry being deleted we know nothing about",
-			__PRETTY_FUNCTION__);
+			__func__);
 }
 
 struct pbr_ipset_name_lookup {
@@ -645,19 +670,29 @@ void zebra_pbr_del_ipset_entry(struct zebra_pbr_ipset_entry *ipset)
 		XFREE(MTYPE_TMP, lookup);
 	} else
 		zlog_debug("%s: IPSet being deleted we know nothing about",
-			   __PRETTY_FUNCTION__);
+			   __func__);
 }
 
 static void *pbr_iptable_alloc_intern(void *arg)
 {
 	struct zebra_pbr_iptable *zpi;
 	struct zebra_pbr_iptable *new;
+	struct listnode *ln;
+	char *ifname;
 
 	zpi = (struct zebra_pbr_iptable *)arg;
 
 	new = XCALLOC(MTYPE_TMP, sizeof(struct zebra_pbr_iptable));
 
+	/* Deep structure copy */
 	memcpy(new, zpi, sizeof(*zpi));
+	new->interface_name_list = list_new();
+
+	if (zpi->interface_name_list) {
+		for (ALL_LIST_ELEMENTS_RO(zpi->interface_name_list, ln, ifname))
+			listnode_add(new->interface_name_list,
+				     XSTRDUP(MTYPE_PBR_IPTABLE_IFNAME, ifname));
+	}
 
 	return new;
 }
@@ -694,7 +729,7 @@ void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable)
 		XFREE(MTYPE_TMP, lookup);
 	} else
 		zlog_debug("%s: IPTable being deleted we know nothing about",
-			   __PRETTY_FUNCTION__);
+			   __func__);
 }
 
 /*
@@ -842,16 +877,15 @@ static void zebra_pbr_display_icmp(struct vty *vty,
 
 	/* range icmp type */
 	if (zpie->src_port_max || zpie->dst_port_max) {
-		vty_out(vty, ":icmp:[type <%d:%d>;code <%d:%d>",
+		vty_out(vty, ":icmp:[type <%u:%u>;code <%u:%u>",
 			zpie->src_port_min, zpie->src_port_max,
 			zpie->dst_port_min, zpie->dst_port_max);
 	} else {
 		port = ((zpie->src_port_min << 8) & 0xff00) +
 			(zpie->dst_port_min & 0xff);
 		memset(decoded_str, 0, sizeof(decoded_str));
-		sprintf(decoded_str, "%d/%d",
-			zpie->src_port_min,
-			zpie->dst_port_min);
+		snprintf(decoded_str, sizeof(decoded_str), "%u/%u",
+			 zpie->src_port_min, zpie->dst_port_min);
 		vty_out(vty, ":icmp:%s",
 			lookup_msg(icmp_typecode_str,
 				   port, decoded_str));
@@ -1094,7 +1128,7 @@ static void zebra_pbr_show_iptable_unit(struct zebra_pbr_iptable *iptable,
 	if (iptable->fragment) {
 		char val_str[10];
 
-		sprintf(val_str, "%d", iptable->fragment);
+		snprintf(val_str, sizeof(val_str), "%d", iptable->fragment);
 		vty_out(vty, "\t fragment%s %s\n",
 			iptable->filter_bm & MATCH_FRAGMENT_INVERSE_SET ?
 			" not" : "", lookup_msg(fragment_value_str,

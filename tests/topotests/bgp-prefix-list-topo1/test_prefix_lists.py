@@ -60,16 +60,17 @@ from lib.topogen import Topogen, get_topogen
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
-    start_topology, write_test_header,
-    write_test_footer, reset_config_on_routers,
-    verify_rib, create_static_routes,
-    create_prefix_lists, verify_prefix_lists
+    start_topology,
+    write_test_header,
+    write_test_footer,
+    reset_config_on_routers,
+    verify_rib,
+    create_static_routes,
+    create_prefix_lists,
+    verify_prefix_lists,
 )
 from lib.topolog import logger
-from lib.bgp import (
-    verify_bgp_convergence, create_router_bgp,
-    clear_bgp_and_verify
-)
+from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
 from lib.topojson import build_topo_from_json, build_config_from_json
 
 # Reading the data from JSON File for topology creation
@@ -109,7 +110,7 @@ def setup_module(mod):
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
-    logger.info("="*40)
+    logger.info("=" * 40)
 
     logger.info("Running setup_module to create topology")
 
@@ -133,8 +134,9 @@ def setup_module(mod):
 
     # Api call verify whether BGP is converged
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
-    assert BGP_CONVERGENCE is True, ("setup_module :Failed \n Error:"
-                                     " {}".format(BGP_CONVERGENCE))
+    assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
 
     logger.info("Running setup_module() done")
 
@@ -153,9 +155,11 @@ def teardown_module(mod):
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
 
-    logger.info("Testsuite end time: {}".
-                format(time.asctime(time.localtime(time.time()))))
-    logger.info("="*40)
+    logger.info(
+        "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
+    )
+    logger.info("=" * 40)
+
 
 #####################################################
 #
@@ -180,34 +184,26 @@ def test_ip_prefix_lists_in_permit(request):
     # Create Static routes
     input_dict = {
         "r1": {
-            "static_routes": [{
-                "network": "20.0.20.1/32",
-                "no_of_ip": 1,
-                "next_hop": "10.0.0.2"
-            }]
+            "static_routes": [
+                {"network": "20.0.20.1/32", "no_of_ip": 1, "next_hop": "10.0.0.2"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create ip prefix list
     input_dict_2 = {
         "r3": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1": [{
-                        "seqid": 10,
-                        "network": "any",
-                        "action": "permit"
-                    }]
+                    "pf_list_1": [{"seqid": 10, "network": "any", "action": "permit"}]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Configure bgp neighbor with prefix list
     input_dict_3 = {
@@ -218,7 +214,7 @@ def test_ip_prefix_lists_in_permit(request):
                         "unicast": {
                             "redistribute": [
                                 {"redist_type": "static"},
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ]
                         }
                     }
@@ -235,10 +231,7 @@ def test_ip_prefix_lists_in_permit(request):
                                     "dest_link": {
                                         "r3": {
                                             "prefix_lists": [
-                                                {
-                                                    "name": "pf_list_1",
-                                                    "direction": "in"
-                                                }
+                                                {"name": "pf_list_1", "direction": "in"}
                                             ]
                                         }
                                     }
@@ -248,18 +241,16 @@ def test_ip_prefix_lists_in_permit(request):
                     }
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r3"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -283,43 +274,34 @@ def test_ip_prefix_lists_out_permit(request):
     # Create Static routes
     input_dict = {
         "r1": {
-            "static_routes": [{
-                "network": "10.0.20.1/32",
-                "no_of_ip": 1,
-                "next_hop": "10.0.0.2"
-            }]
+            "static_routes": [
+                {"network": "10.0.20.1/32", "no_of_ip": 1, "next_hop": "10.0.0.2"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create Static routes
     input_dict_1 = {
         "r1": {
-            "static_routes": [{
-                "network": "20.0.20.1/32",
-                "no_of_ip": 1,
-                "next_hop": "10.0.0.2"
-            }]
+            "static_routes": [
+                {"network": "20.0.20.1/32", "no_of_ip": 1, "next_hop": "10.0.0.2"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict_5 = {
         "r3": {
-            "static_routes": [{
-                "network": "10.0.0.2/30",
-                "no_of_ip": 1,
-                "next_hop": "10.0.0.9"
-            }]
+            "static_routes": [
+                {"network": "10.0.0.2/30", "no_of_ip": 1, "next_hop": "10.0.0.9"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict_5)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to redistribute static routes
 
@@ -328,18 +310,15 @@ def test_ip_prefix_lists_out_permit(request):
         "r1": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1": [{
-                        "seqid": 10,
-                        "network": "20.0.20.1/32",
-                        "action": "permit"
-                    }]
+                    "pf_list_1": [
+                        {"seqid": 10, "network": "20.0.20.1/32", "action": "permit"}
+                    ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Configure prefix list to bgp neighbor
     # Configure bgp neighbor with prefix list
@@ -356,7 +335,7 @@ def test_ip_prefix_lists_out_permit(request):
                                             "prefix_lists": [
                                                 {
                                                     "name": "pf_list_1",
-                                                    "direction": "out"
+                                                    "direction": "out",
                                                 }
                                             ]
                                         }
@@ -365,8 +344,8 @@ def test_ip_prefix_lists_out_permit(request):
                             },
                             "redistribute": [
                                 {"redist_type": "static"},
-                                {"redist_type": "connected"}
-                            ]
+                                {"redist_type": "connected"},
+                            ],
                         }
                     }
                 }
@@ -375,19 +354,20 @@ def test_ip_prefix_lists_out_permit(request):
     }
 
     result = create_router_bgp(tgen, topo, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r3"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict_1, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
-                               " present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: Routes still" " present in RIB".format(tc_name)
     write_test_footer(tc_name)
 
 
@@ -410,16 +390,13 @@ def test_ip_prefix_lists_in_deny_and_permit_any(request):
     # Create Static Routes
     input_dict = {
         "r1": {
-            "static_routes": [{
-                "network": "10.0.20.1/32",
-                "no_of_ip": 1,
-                "next_hop": "10.0.0.2"
-            }]
+            "static_routes": [
+                {"network": "10.0.20.1/32", "no_of_ip": 1, "next_hop": "10.0.0.2"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to redistribute static routes
     # Create ip prefix list
@@ -428,24 +405,15 @@ def test_ip_prefix_lists_in_deny_and_permit_any(request):
             "prefix_lists": {
                 "ipv4": {
                     "pf_list_1": [
-                        {
-                            "seqid": "10",
-                            "network": "10.0.20.1/32",
-                            "action": "deny"
-                        },
-                        {
-                            "seqid": "11",
-                            "network": "any",
-                            "action": "permit"
-                        }
+                        {"seqid": "10", "network": "10.0.20.1/32", "action": "deny"},
+                        {"seqid": "11", "network": "any", "action": "permit"},
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Configure bgp neighbor with prefix list
     input_dict_3 = {
@@ -456,7 +424,7 @@ def test_ip_prefix_lists_in_deny_and_permit_any(request):
                         "unicast": {
                             "redistribute": [
                                 {"redist_type": "static"},
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ]
                         }
                     }
@@ -473,10 +441,7 @@ def test_ip_prefix_lists_in_deny_and_permit_any(request):
                                     "dest_link": {
                                         "r3": {
                                             "prefix_lists": [
-                                                {
-                                                    "name": "pf_list_1",
-                                                    "direction": "in"
-                                                }
+                                                {"name": "pf_list_1", "direction": "in"}
                                             ]
                                         }
                                     }
@@ -486,19 +451,21 @@ def test_ip_prefix_lists_in_deny_and_permit_any(request):
                     }
                 }
             }
-        }
+        },
     }
     # Configure prefix list to bgp neighbor
     result = create_router_bgp(tgen, topo, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r3"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
-                               " present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: Routes still" " present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -525,23 +492,19 @@ def test_delete_prefix_lists(request):
             "prefix_lists": {
                 "ipv4": {
                     "pf_list_1": [
-                        {
-                            "seqid": "10",
-                            "network": "10.0.20.1/32",
-                            "action": "deny"
-                        }
+                        {"seqid": "10", "network": "10.0.20.1/32", "action": "deny"}
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_prefix_lists(tgen, input_dict_2)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
     # Delete prefix list
     input_dict_2 = {
@@ -553,7 +516,7 @@ def test_delete_prefix_lists(request):
                             "seqid": "10",
                             "network": "10.0.20.1/32",
                             "action": "deny",
-                            "delete": True
+                            "delete": True,
                         }
                     ]
                 }
@@ -561,12 +524,10 @@ def test_delete_prefix_lists(request):
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_prefix_lists(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -590,30 +551,24 @@ def test_ip_prefix_lists_out_deny_and_permit_any(request):
     # Create Static Routes
     input_dict = {
         "r1": {
-            "static_routes": [{
-                "network": "10.0.20.1/32",
-                "no_of_ip": 9,
-                "next_hop": "10.0.0.2"
-            }]
+            "static_routes": [
+                {"network": "10.0.20.1/32", "no_of_ip": 9, "next_hop": "10.0.0.2"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create Static Routes
     input_dict_1 = {
         "r2": {
-            "static_routes": [{
-                "network": "20.0.20.1/32",
-                "no_of_ip": 9,
-                "next_hop": "10.0.0.1"
-            }]
+            "static_routes": [
+                {"network": "20.0.20.1/32", "no_of_ip": 9, "next_hop": "10.0.0.1"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to redistribute static routes
 
@@ -627,21 +582,16 @@ def test_ip_prefix_lists_out_deny_and_permit_any(request):
                             "seqid": "10",
                             "network": "10.0.0.0/8",
                             "le": "32",
-                            "action": "deny"
+                            "action": "deny",
                         },
-                        {
-                            "seqid": "11",
-                            "network": "any",
-                            "action": "permit"
-                        }
+                        {"seqid": "11", "network": "any", "action": "permit"},
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Configure prefix list to bgp neighbor
     input_dict_4 = {
@@ -652,7 +602,7 @@ def test_ip_prefix_lists_out_deny_and_permit_any(request):
                         "unicast": {
                             "redistribute": [
                                 {"redist_type": "static"},
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ]
                         }
                     }
@@ -666,7 +616,7 @@ def test_ip_prefix_lists_out_deny_and_permit_any(request):
                         "unicast": {
                             "redistribute": [
                                 {"redist_type": "static"},
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ]
                         }
                     }
@@ -685,7 +635,7 @@ def test_ip_prefix_lists_out_deny_and_permit_any(request):
                                             "prefix_lists": [
                                                 {
                                                     "name": "pf_list_1",
-                                                    "direction": "out"
+                                                    "direction": "out",
                                                 }
                                             ]
                                         }
@@ -696,25 +646,26 @@ def test_ip_prefix_lists_out_deny_and_permit_any(request):
                     }
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict_1, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
-                               " present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: Routes still" " present in RIB".format(tc_name)
     write_test_footer(tc_name)
 
 
@@ -737,16 +688,13 @@ def test_modify_prefix_lists_in_permit_to_deny(request):
     # Create Static Routes
     input_dict = {
         "r1": {
-            "static_routes": [{
-                "network": "10.0.20.1/32",
-                "no_of_ip": 9,
-                "next_hop": "10.0.0.2"
-            }]
+            "static_routes": [
+                {"network": "10.0.20.1/32", "no_of_ip": 9, "next_hop": "10.0.0.2"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to redistribute static routes
 
@@ -755,19 +703,20 @@ def test_modify_prefix_lists_in_permit_to_deny(request):
         "r3": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1": [{
-                        "seqid": "10",
-                        "network": "10.0.0.0/8",
-                        "le": "32",
-                        "action": "permit"
-                    }]
+                    "pf_list_1": [
+                        {
+                            "seqid": "10",
+                            "network": "10.0.0.0/8",
+                            "le": "32",
+                            "action": "permit",
+                        }
+                    ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Configure prefix list to bgp neighbor
     input_dict_3 = {
@@ -778,7 +727,7 @@ def test_modify_prefix_lists_in_permit_to_deny(request):
                         "unicast": {
                             "redistribute": [
                                 {"redist_type": "static"},
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ]
                         }
                     }
@@ -792,13 +741,10 @@ def test_modify_prefix_lists_in_permit_to_deny(request):
                         "unicast": {
                             "neighbor": {
                                 "r1": {
-                                    "dest_link":{
+                                    "dest_link": {
                                         "r3": {
                                             "prefix_lists": [
-                                                {
-                                                    "name": "pf_list_1",
-                                                    "direction": "in"
-                                                }
+                                                {"name": "pf_list_1", "direction": "in"}
                                             ]
                                         }
                                     }
@@ -808,18 +754,16 @@ def test_modify_prefix_lists_in_permit_to_deny(request):
                     }
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r3"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Modify prefix list
     input_dict_1 = {
@@ -831,34 +775,31 @@ def test_modify_prefix_lists_in_permit_to_deny(request):
                             "seqid": "10",
                             "network": "10.0.0.0/8",
                             "le": "32",
-                            "action": "deny"
+                            "action": "deny",
                         },
-                        {
-                            "seqid": "11",
-                            "network": "any",
-                            "action": "permit"
-                        }
+                        {"seqid": "11", "network": "any", "action": "permit"},
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to clear bgp, so config changes would be reflected
     dut = "r3"
     result = clear_bgp_and_verify(tgen, topo, dut)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r3"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
-                               " present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: Routes still" " present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -882,16 +823,13 @@ def test_modify_prefix_lists_in_deny_to_permit(request):
     # Create Static Routes
     input_dict = {
         "r1": {
-            "static_routes": [{
-                "network": "10.0.20.1/32",
-                "no_of_ip": 9,
-                "next_hop": "10.0.0.2"
-            }]
+            "static_routes": [
+                {"network": "10.0.20.1/32", "no_of_ip": 9, "next_hop": "10.0.0.2"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to redistribute static routes
 
@@ -905,21 +843,16 @@ def test_modify_prefix_lists_in_deny_to_permit(request):
                             "seqid": "10",
                             "network": "10.0.0.0/8",
                             "le": "32",
-                            "action": "deny"
+                            "action": "deny",
                         },
-                        {
-                            "seqid": "11",
-                            "network": "any",
-                            "action": "permit"
-                        }
+                        {"seqid": "11", "network": "any", "action": "permit"},
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Configure prefix list to bgp neighbor
     input_dict_2 = {
@@ -930,7 +863,7 @@ def test_modify_prefix_lists_in_deny_to_permit(request):
                         "unicast": {
                             "redistribute": [
                                 {"redist_type": "static"},
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ]
                         }
                     }
@@ -947,10 +880,7 @@ def test_modify_prefix_lists_in_deny_to_permit(request):
                                     "dest_link": {
                                         "r3": {
                                             "prefix_lists": [
-                                                {
-                                                    "name": "pf_list_1",
-                                                    "direction": "in"
-                                                }
+                                                {"name": "pf_list_1", "direction": "in"}
                                             ]
                                         }
                                     }
@@ -960,51 +890,51 @@ def test_modify_prefix_lists_in_deny_to_permit(request):
                     }
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r3"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
-                               " present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: Routes still" " present in RIB".format(tc_name)
 
     # Modify  ip prefix list
     input_dict_1 = {
         "r3": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1": [{
-                        "seqid": "10",
-                        "network": "10.0.0.0/8",
-                        "le": "32",
-                        "action": "permit"
-                    }]
+                    "pf_list_1": [
+                        {
+                            "seqid": "10",
+                            "network": "10.0.0.0/8",
+                            "le": "32",
+                            "action": "permit",
+                        }
+                    ]
                 }
             }
         }
-
     }
     result = create_prefix_lists(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to clear bgp, so config changes would be reflected
     dut = "r3"
     result = clear_bgp_and_verify(tgen, topo, dut)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r3"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -1028,16 +958,13 @@ def test_modify_prefix_lists_out_permit_to_deny(request):
     # Create Static Routes
     input_dict = {
         "r1": {
-            "static_routes": [{
-                "network": "10.0.20.1/32",
-                "no_of_ip": 9,
-                "next_hop": "10.0.0.2"
-            }]
+            "static_routes": [
+                {"network": "10.0.20.1/32", "no_of_ip": 9, "next_hop": "10.0.0.2"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to redistribute static routes
 
@@ -1046,20 +973,20 @@ def test_modify_prefix_lists_out_permit_to_deny(request):
         "r3": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1": [{
-                        "seqid": "10",
-                        "network": "10.0.0.0/8",
-                        "le": "32",
-                        "action": "permit"
-                    }]
+                    "pf_list_1": [
+                        {
+                            "seqid": "10",
+                            "network": "10.0.0.0/8",
+                            "le": "32",
+                            "action": "permit",
+                        }
+                    ]
                 }
             }
         }
-
     }
     result = create_prefix_lists(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Configure prefix list to bgp neighbor
     input_dict_2 = {
@@ -1070,7 +997,7 @@ def test_modify_prefix_lists_out_permit_to_deny(request):
                         "unicast": {
                             "redistribute": [
                                 {"redist_type": "static"},
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ]
                         }
                     }
@@ -1089,7 +1016,7 @@ def test_modify_prefix_lists_out_permit_to_deny(request):
                                             "prefix_lists": [
                                                 {
                                                     "name": "pf_list_1",
-                                                    "direction": "out"
+                                                    "direction": "out",
                                                 }
                                             ]
                                         }
@@ -1100,18 +1027,16 @@ def test_modify_prefix_lists_out_permit_to_deny(request):
                     }
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Modify ip prefix list
     input_dict_1 = {
@@ -1123,35 +1048,31 @@ def test_modify_prefix_lists_out_permit_to_deny(request):
                             "seqid": "10",
                             "network": "10.0.0.0/8",
                             "le": "32",
-                            "action": "deny"
+                            "action": "deny",
                         },
-                        {
-                            "seqid": "11",
-                            "network": "any",
-                            "action": "permit"
-                        }
+                        {"seqid": "11", "network": "any", "action": "permit"},
                     ]
                 }
             }
         }
-
     }
     result = create_prefix_lists(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to clear bgp, so config changes would be reflected
     dut = "r3"
     result = clear_bgp_and_verify(tgen, topo, dut)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
-                               " present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: Routes still" " present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -1175,16 +1096,13 @@ def test_modify_prefix_lists_out_deny_to_permit(request):
     # Create Static Routes
     input_dict = {
         "r1": {
-            "static_routes": [{
-                "network": "10.0.20.1/32",
-                "no_of_ip": 9,
-                "next_hop": "10.0.0.2"
-            }]
+            "static_routes": [
+                {"network": "10.0.20.1/32", "no_of_ip": 9, "next_hop": "10.0.0.2"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to redistribute static routes
     # Create ip prefix list
@@ -1197,22 +1115,16 @@ def test_modify_prefix_lists_out_deny_to_permit(request):
                             "seqid": "10",
                             "network": "10.0.0.0/8",
                             "le": "32",
-                            "action": "deny"
+                            "action": "deny",
                         },
-                        {
-                            "seqid": "11",
-                            "network": "any",
-                            "action": "permit"
-                        }
+                        {"seqid": "11", "network": "any", "action": "permit"},
                     ]
                 }
             }
         }
-
     }
     result = create_prefix_lists(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Configure prefix list to bgp neighbor
     input_dict_2 = {
@@ -1223,7 +1135,7 @@ def test_modify_prefix_lists_out_deny_to_permit(request):
                         "unicast": {
                             "redistribute": [
                                 {"redist_type": "static"},
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ]
                         }
                     }
@@ -1237,12 +1149,12 @@ def test_modify_prefix_lists_out_deny_to_permit(request):
                         "unicast": {
                             "neighbor": {
                                 "r4": {
-                                    "dest_link":{
+                                    "dest_link": {
                                         "r3": {
                                             "prefix_lists": [
                                                 {
                                                     "name": "pf_list_1",
-                                                    "direction": "out"
+                                                    "direction": "out",
                                                 }
                                             ]
                                         }
@@ -1253,51 +1165,51 @@ def test_modify_prefix_lists_out_deny_to_permit(request):
                     }
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
-                               " present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: Routes still" " present in RIB".format(tc_name)
 
     # Modify ip prefix list
     input_dict_1 = {
         "r3": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1": [{
-                        "seqid": "10",
-                        "network": "10.0.0.0/8",
-                        "le": "32",
-                        "action": "permit"
-                    }]
+                    "pf_list_1": [
+                        {
+                            "seqid": "10",
+                            "network": "10.0.0.0/8",
+                            "le": "32",
+                            "action": "permit",
+                        }
+                    ]
                 }
             }
         }
-
     }
     result = create_prefix_lists(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to clear bgp, so config changes would be reflected
     dut = "r3"
     result = clear_bgp_and_verify(tgen, topo, dut)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -1321,30 +1233,24 @@ def test_ip_prefix_lists_implicit_deny(request):
     # Create Static Routes
     input_dict = {
         "r1": {
-            "static_routes": [{
-                "network": "10.0.20.1/32",
-                "no_of_ip": 9,
-                "next_hop": "10.0.0.2"
-            }]
+            "static_routes": [
+                {"network": "10.0.20.1/32", "no_of_ip": 9, "next_hop": "10.0.0.2"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create Static Routes
     input_dict_1 = {
         "r2": {
-            "static_routes": [{
-                "network": "20.0.20.1/32",
-                "no_of_ip": 9,
-                "next_hop": "10.0.0.1"
-            }]
+            "static_routes": [
+                {"network": "20.0.20.1/32", "no_of_ip": 9, "next_hop": "10.0.0.1"}
+            ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to redistribute static routes
     # Create ip prefix list
@@ -1352,20 +1258,20 @@ def test_ip_prefix_lists_implicit_deny(request):
         "r3": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1": [{
-                        "seqid": "10",
-                        "network": "10.0.0.0/8",
-                        "le": "32",
-                        "action": "permit"
-                    }]
+                    "pf_list_1": [
+                        {
+                            "seqid": "10",
+                            "network": "10.0.0.0/8",
+                            "le": "32",
+                            "action": "permit",
+                        }
+                    ]
                 }
             }
         }
-
     }
     result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Configure prefix list to bgp neighbor
     input_dict_4 = {
@@ -1376,7 +1282,7 @@ def test_ip_prefix_lists_implicit_deny(request):
                         "unicast": {
                             "redistribute": [
                                 {"redist_type": "static"},
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ]
                         }
                     }
@@ -1390,7 +1296,7 @@ def test_ip_prefix_lists_implicit_deny(request):
                         "unicast": {
                             "redistribute": [
                                 {"redist_type": "static"},
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ]
                         }
                     }
@@ -1409,7 +1315,7 @@ def test_ip_prefix_lists_implicit_deny(request):
                                             "prefix_lists": [
                                                 {
                                                     "name": "pf_list_1",
-                                                    "direction": "out"
+                                                    "direction": "out",
                                                 }
                                             ]
                                         }
@@ -1420,25 +1326,26 @@ def test_ip_prefix_lists_implicit_deny(request):
                     }
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict_1, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
-                               " present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict_1, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: Routes still" " present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 

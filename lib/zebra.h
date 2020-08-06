@@ -360,6 +360,8 @@ typedef enum {
 	AFI_MAX = 4
 } afi_t;
 
+#define IS_VALID_AFI(a) ((a) > AFI_UNSPEC && (a) < AFI_MAX)
+
 /* Subsequent Address Family Identifier. */
 typedef enum {
 	SAFI_UNSPEC = 0,

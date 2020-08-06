@@ -61,6 +61,7 @@
 #include "vty.h"
 #include "skiplist.h"
 #include "lib_errors.h"
+#include "network.h"
 
 DEFINE_MTYPE_STATIC(LIB, SKIP_LIST, "Skip List")
 DEFINE_MTYPE_STATIC(LIB, SKIP_LIST_NODE, "Skip Node")
@@ -95,7 +96,7 @@ static int randomLevel(void)
 
 	do {
 		if (randomsLeft <= 0) {
-			randomBits = random();
+			randomBits = frr_weak_random();
 			randomsLeft = BitsInRandom / 2;
 		}
 		b = randomBits & 3;
@@ -112,7 +113,7 @@ static int randomLevel(void)
 	return level;
 }
 
-static int default_cmp(void *key1, void *key2)
+static int default_cmp(const void *key1, const void *key2)
 {
 	if (key1 < key2)
 		return -1;
@@ -126,7 +127,8 @@ unsigned int skiplist_count(struct skiplist *l)
 	return l->count;
 }
 
-struct skiplist *skiplist_new(int flags, int (*cmp)(void *key1, void *key2),
+struct skiplist *skiplist_new(int flags,
+			      int (*cmp)(const void *key1, const void *key2),
 			      void (*del)(void *val))
 {
 	struct skiplist *new;
@@ -211,12 +213,12 @@ int skiplist_insert(register struct skiplist *l, register void *key,
 	q = newNodeOfLevel(k);
 	q->key = key;
 	q->value = value;
-#if SKIPLIST_0TIMER_DEBUG
+#ifdef SKIPLIST_0TIMER_DEBUG
 	q->flags = SKIPLIST_NODE_FLAG_INSERTED; /* debug */
 #endif
 
 	++(l->stats->forward[k]);
-#if SKIPLIST_DEBUG
+#ifdef SKIPLIST_DEBUG
 	zlog_debug("%s: incremented stats @%p:%d, now %ld", __func__, l, k,
 		   l->stats->forward[k] - (struct skiplistnode *)NULL);
 #endif
@@ -281,7 +283,7 @@ int skiplist_delete(register struct skiplist *l, register void *key,
 /*
  * found node to delete
  */
-#if SKIPLIST_0TIMER_DEBUG
+#ifdef SKIPLIST_0TIMER_DEBUG
 			q->flags &= ~SKIPLIST_NODE_FLAG_INSERTED;
 #endif
 			/*
@@ -300,7 +302,7 @@ int skiplist_delete(register struct skiplist *l, register void *key,
 				p->forward[k] = q->forward[k];
 			}
 			--(l->stats->forward[k - 1]);
-#if SKIPLIST_DEBUG
+#ifdef SKIPLIST_DEBUG
 			zlog_debug("%s: decremented stats @%p:%d, now %ld",
 				   __func__, l, k - 1,
 				   l->stats->forward[k - 1]
@@ -329,8 +331,8 @@ int skiplist_delete(register struct skiplist *l, register void *key,
  * Also set a cursor for use with skiplist_next_value.
  */
 int skiplist_first_value(register struct skiplist *l, /* in */
-			 register void *key,	  /* in */
-			 void **valuePointer,	 /* out */
+			 register const void *key,    /* in */
+			 void **valuePointer,	      /* out */
 			 void **cursor)		      /* out */
 {
 	register int k;
@@ -374,11 +376,11 @@ int skiplist_search(register struct skiplist *l, register void *key,
  * last element with the given key, -1 is returned.
  */
 int skiplist_next_value(register struct skiplist *l, /* in */
-			register void *key,	  /* in */
+			register const void *key,	  /* in */
 			void **valuePointer,	 /* in/out */
 			void **cursor)		     /* in/out */
 {
-	register int k, m;
+	register int k;
 	register struct skiplistnode *p, *q;
 
 	CHECKLAST(l);
@@ -389,7 +391,7 @@ int skiplist_next_value(register struct skiplist *l, /* in */
 
 	if (!cursor || !*cursor) {
 		p = l->header;
-		k = m = l->level;
+		k = l->level;
 
 		/*
 		 * Find matching key
@@ -549,7 +551,7 @@ int skiplist_delete_first(register struct skiplist *l)
 		}
 	}
 
-#if SKIPLIST_0TIMER_DEBUG
+#ifdef SKIPLIST_0TIMER_DEBUG
 	q->flags &= ~SKIPLIST_NODE_FLAG_INSERTED;
 #endif
 	/*
@@ -561,7 +563,7 @@ int skiplist_delete_first(register struct skiplist *l)
 	}
 
 	--(l->stats->forward[nodelevel]);
-#if SKIPLIST_DEBUG
+#ifdef SKIPLIST_DEBUG
 	zlog_debug("%s: decremented stats @%p:%d, now %ld", __func__, l,
 		   nodelevel,
 		   l->stats->forward[nodelevel] - (struct skiplistnode *)NULL);
@@ -623,7 +625,7 @@ void skiplist_test(struct vty *vty)
 				zlog_debug("%s: (%d:%d)", __func__, i, k);
 			}
 			// keys[k] = (void *)random();
-			keys[k] = (void *)scramble(k);
+			keys[k] = scramble(k);
 			if (skiplist_insert(l, keys[k], keys[k]))
 				zlog_debug("error in insert #%d,#%d", i, k);
 		}
@@ -648,7 +650,7 @@ void skiplist_test(struct vty *vty)
 				zlog_debug("<%d:%d>", i, k);
 			if (skiplist_delete(l, keys[k], keys[k]))
 				zlog_debug("error in delete");
-			keys[k] = (void *)scramble(k ^ 0xf0f0f0f0);
+			keys[k] = scramble(k ^ 0xf0f0f0f0);
 			if (skiplist_insert(l, keys[k], keys[k]))
 				zlog_debug("error in insert #%d,#%d", i, k);
 		}

@@ -11,15 +11,12 @@
       "table":254,
       "internalStatus":16,
       "internalFlags":13,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.2.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"spine1-eth0",
           "active":true
         }
@@ -38,14 +35,11 @@
       "table":254,
       "internalStatus":16,
       "internalFlags":8,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "directlyConnected":true,
-          "interfaceIndex":2,
           "interfaceName":"spine1-eth0",
           "active":true
         }
@@ -64,15 +58,12 @@
       "table":254,
       "internalStatus":16,
       "internalFlags":13,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.4.2",
           "afi":"ipv4",
-          "interfaceIndex":3,
           "interfaceName":"spine1-eth1",
           "active":true
         }
@@ -91,23 +82,20 @@
       "table":254,
       "internalStatus":16,
       "internalFlags":8,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "directlyConnected":true,
-          "interfaceIndex":3,
           "interfaceName":"spine1-eth1",
           "active":true
         }
       ]
     }
   ],
-  "192.168.5.0\/24":[
+  "192.168.5.1\/32":[
     {
-      "prefix":"192.168.5.0\/24",
+      "prefix":"192.168.5.1\/32",
       "protocol":"bgp",
       "selected":true,
       "destSelected":true,
@@ -117,24 +105,21 @@
       "table":254,
       "internalStatus":16,
       "internalFlags":13,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.2.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"spine1-eth0",
           "active":true
         }
       ]
     }
   ],
-  "192.168.6.0\/24":[
+  "192.168.6.2\/32":[
     {
-      "prefix":"192.168.6.0\/24",
+      "prefix":"192.168.6.2\/32",
       "protocol":"bgp",
       "selected":true,
       "destSelected":true,
@@ -144,15 +129,12 @@
       "table":254,
       "internalStatus":16,
       "internalFlags":13,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.4.2",
           "afi":"ipv4",
-          "interfaceIndex":3,
           "interfaceName":"spine1-eth1",
           "active":true
         }

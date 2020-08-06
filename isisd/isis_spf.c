@@ -127,34 +127,24 @@ static const char *vtype2string(enum vertextype vtype)
 	switch (vtype) {
 	case VTYPE_PSEUDO_IS:
 		return "pseudo_IS";
-		break;
 	case VTYPE_PSEUDO_TE_IS:
 		return "pseudo_TE-IS";
-		break;
 	case VTYPE_NONPSEUDO_IS:
 		return "IS";
-		break;
 	case VTYPE_NONPSEUDO_TE_IS:
 		return "TE-IS";
-		break;
 	case VTYPE_ES:
 		return "ES";
-		break;
 	case VTYPE_IPREACH_INTERNAL:
 		return "IP internal";
-		break;
 	case VTYPE_IPREACH_EXTERNAL:
 		return "IP external";
-		break;
 	case VTYPE_IPREACH_TE:
 		return "IP TE";
-		break;
 	case VTYPE_IP6REACH_INTERNAL:
 		return "IP6 internal";
-		break;
 	case VTYPE_IP6REACH_EXTERNAL:
 		return "IP6 external";
-		break;
 	default:
 		return "UNKNOWN";
 	}
@@ -1223,6 +1213,8 @@ static int isis_run_spf_cb(struct thread *thread)
 				      &thread->real);
 
 	isis_area_verify_routes(area);
+
+	isis_area_verify_sr(area);
 
 	/* walk all circuits and reset any spf specific flags */
 	struct listnode *node;

@@ -45,7 +45,7 @@ void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
 	memcpy(&routermac_ecom.val[2], routermac->octet, ETH_ALEN);
 	if (!attr->ecommunity)
 		attr->ecommunity = ecommunity_new();
-	ecommunity_add_val(attr->ecommunity, &routermac_ecom);
+	ecommunity_add_val(attr->ecommunity, &routermac_ecom, false, false);
 	ecommunity_str(attr->ecommunity);
 }
 
@@ -54,25 +54,25 @@ void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
  * format accepted: AA:BB:CC:DD:EE:FF:GG:HH:II:JJ
  * if id is null, check only is done
  */
-int str2esi(const char *str, struct eth_segment_id *id)
+bool str2esi(const char *str, struct eth_segment_id *id)
 {
 	unsigned int a[ESI_LEN];
 	int i;
 
 	if (!str)
-		return 0;
+		return false;
 	if (sscanf(str, "%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x", a + 0, a + 1,
 		   a + 2, a + 3, a + 4, a + 5, a + 6, a + 7, a + 8, a + 9)
 	    != ESI_LEN) {
 		/* error in incoming str length */
-		return 0;
+		return false;
 	}
 	/* valid mac address */
 	if (!id)
-		return 1;
+		return true;
 	for (i = 0; i < ESI_LEN; ++i)
 		id->val[i] = a[i] & 0xff;
-	return 1;
+	return true;
 }
 
 char *esi2str(struct eth_segment_id *id)
@@ -186,7 +186,7 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
 	 * one.
 	 */
 	for (i = 0; i < ecom->size; i++) {
-		uint8_t *pnt;
+		const uint8_t *pnt;
 		uint8_t type, sub_type;
 		uint32_t seq_num;
 
@@ -280,4 +280,26 @@ extern int bgp_build_evpn_prefix(int evpn_type, uint32_t eth_tag,
 	} else
 		return -1;
 	return 0;
+}
+
+extern bool is_zero_gw_ip(const union gw_addr *gw_ip, const afi_t afi)
+{
+	if (afi == AF_INET6 && IN6_IS_ADDR_UNSPECIFIED(&gw_ip->ipv6))
+		return true;
+
+	if (afi == AF_INET && gw_ip->ipv4.s_addr == INADDR_ANY)
+		return true;
+
+	return false;
+}
+
+extern bool is_zero_esi(const struct eth_segment_id *esi)
+{
+	int i;
+
+	for (i = 0; i < ESI_LEN; i++)
+		if (esi->val[i])
+			return false;
+
+	return true;
 }

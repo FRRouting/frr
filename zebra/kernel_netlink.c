@@ -231,12 +231,12 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 			return -1;
 		}
 
-		memset(&snl, 0, sizeof snl);
+		memset(&snl, 0, sizeof(snl));
 		snl.nl_family = AF_NETLINK;
 		snl.nl_groups = groups;
 
 		/* Bind the socket to the netlink structure for anything. */
-		ret = bind(sock, (struct sockaddr *)&snl, sizeof snl);
+		ret = bind(sock, (struct sockaddr *)&snl, sizeof(snl));
 	}
 
 	if (ret < 0) {
@@ -247,9 +247,9 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	}
 
 	/* multiple netlink sockets will have different nl_pid */
-	namelen = sizeof snl;
+	namelen = sizeof(snl);
 	ret = getsockname(sock, (struct sockaddr *)&snl, (socklen_t *)&namelen);
-	if (ret < 0 || namelen != sizeof snl) {
+	if (ret < 0 || namelen != sizeof(snl)) {
 		flog_err_sys(EC_LIB_SOCKET, "Can't get %s socket name: %s",
 			     nl->name, safe_strerror(errno));
 		close(sock);
@@ -697,8 +697,7 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
 			 * but noticing it for later.
 			 */
 			err_nlh = &err->msg;
-			zlog_debug("%s: Received %s extended Ack",
-				   __PRETTY_FUNCTION__,
+			zlog_debug("%s: Received %s extended Ack", __func__,
 				   nl_msg_type_to_str(err_nlh->nlmsg_type));
 		}
 	}
@@ -739,10 +738,10 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 
 	while (1) {
 		char buf[NL_RCV_PKT_BUF_SIZE];
-		struct iovec iov = {.iov_base = buf, .iov_len = sizeof buf};
+		struct iovec iov = {.iov_base = buf, .iov_len = sizeof(buf)};
 		struct sockaddr_nl snl;
 		struct msghdr msg = {.msg_name = (void *)&snl,
-				     .msg_namelen = sizeof snl,
+				     .msg_namelen = sizeof(snl),
 				     .msg_iov = &iov,
 				     .msg_iovlen = 1};
 		struct nlmsghdr *h;
@@ -784,7 +783,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 			return -1;
 		}
 
-		if (msg.msg_namelen != sizeof snl) {
+		if (msg.msg_namelen != sizeof(snl)) {
 			flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
 				 "%s sender address length error: length %d",
 				 nl->name, msg.msg_namelen);
@@ -844,7 +843,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 					if (IS_ZEBRA_DEBUG_KERNEL) {
 						zlog_debug(
 							"%s: %s ACK: type=%s(%u), seq=%u, pid=%u",
-							__FUNCTION__, nl->name,
+							__func__, nl->name,
 							nl_msg_type_to_str(
 								err->msg.nlmsg_type),
 							err->msg.nlmsg_type,
@@ -990,14 +989,14 @@ int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	int save_errno = 0;
 	const struct nlsock *nl;
 
-	memset(&snl, 0, sizeof snl);
-	memset(&iov, 0, sizeof iov);
-	memset(&msg, 0, sizeof msg);
+	memset(&snl, 0, sizeof(snl));
+	memset(&iov, 0, sizeof(iov));
+	memset(&msg, 0, sizeof(msg));
 
 	iov.iov_base = n;
 	iov.iov_len = n->nlmsg_len;
 	msg.msg_name = (void *)&snl;
-	msg.msg_namelen = sizeof snl;
+	msg.msg_namelen = sizeof(snl);
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 
@@ -1062,10 +1061,11 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 /* Issue request message to kernel via netlink socket. GET messages
  * are issued through this interface.
  */
-int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
+int netlink_request(struct nlsock *nl, void *req)
 {
 	int ret;
 	struct sockaddr_nl snl;
+	struct nlmsghdr *n = (struct nlmsghdr *)req;
 
 	/* Check netlink socket. */
 	if (nl->sock < 0) {
@@ -1078,13 +1078,13 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 	n->nlmsg_pid = nl->snl.nl_pid;
 	n->nlmsg_seq = ++nl->seq;
 
-	memset(&snl, 0, sizeof snl);
+	memset(&snl, 0, sizeof(snl));
 	snl.nl_family = AF_NETLINK;
 
 	/* Raise capabilities and send message, then lower capabilities. */
 	frr_with_privs(&zserv_privs) {
-		ret = sendto(nl->sock, (void *)n, n->nlmsg_len, 0,
-			     (struct sockaddr *)&snl, sizeof snl);
+		ret = sendto(nl->sock, req, n->nlmsg_len, 0,
+			     (struct sockaddr *)&snl, sizeof(snl));
 	}
 
 	if (ret < 0) {

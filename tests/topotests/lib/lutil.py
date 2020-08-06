@@ -336,6 +336,14 @@ def luNumPass():
 def luResult(target, success, str, logstr=None):
     return LUtil.result(target, success, str, logstr)
 
+def luShowResults(prFunction):
+    printed = 0
+    sf = open(LUtil.fsum_name, 'r')
+    for line in sf:
+        printed+=1
+        prFunction(line.rstrip())
+    sf.close()
+
 def luShowFail():
     printed = 0
     sf = open(LUtil.fsum_name, 'r')

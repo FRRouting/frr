@@ -32,10 +32,11 @@ import pytest
 
 # Save the Current Working Directory to find lib files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../../'))
+sys.path.append(os.path.join(CWD, "../../"))
 
 # pylint: disable=C0413
 from lib.topotest import run_and_expect_type
+
 
 def test_run_and_expect_type():
     "Test basic `run_and_expect_type` functionality."
@@ -45,12 +46,16 @@ def test_run_and_expect_type():
         return True
 
     # Test value success.
-    success, value = run_and_expect_type(return_true, bool, count=1, wait=0, avalue=True)
+    success, value = run_and_expect_type(
+        return_true, bool, count=1, wait=0, avalue=True
+    )
     assert success is True
     assert value is True
 
     # Test value failure.
-    success, value = run_and_expect_type(return_true, bool, count=1, wait=0, avalue=False)
+    success, value = run_and_expect_type(
+        return_true, bool, count=1, wait=0, avalue=False
+    )
     assert success is False
     assert value is True
 
@@ -70,5 +75,5 @@ def test_run_and_expect_type():
     assert value is True
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(pytest.main())

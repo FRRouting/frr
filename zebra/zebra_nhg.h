@@ -26,6 +26,10 @@
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* This struct is used exclusively for dataplane
  * interaction via a dataplane context.
  *
@@ -40,16 +44,18 @@ struct nh_grp {
 PREDECL_RBTREE_UNIQ(nhg_connected_tree);
 
 /*
- * Hashtables contiaining entries found in `zebra_router`.
+ * Hashtables containing nhg entries is in `zebra_router`.
  */
-
 struct nhg_hash_entry {
 	uint32_t id;
 	afi_t afi;
 	vrf_id_t vrf_id;
 	int type;
 
-	struct nexthop_group *nhg;
+	struct nexthop_group nhg;
+
+	/* If supported, a mapping of backup nexthops. */
+	struct nhg_backup_info *backup_info;
 
 	/* If this is not a group, it
 	 * will be a single nexthop
@@ -73,6 +79,7 @@ struct nhg_hash_entry {
 	 * faster with ID's.
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
+
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
  * What is fully resolved?  It's a nexthop that is either self contained
@@ -103,11 +110,25 @@ struct nhg_hash_entry {
  * from the kernel. Therefore, it is unhashable.
  */
 #define NEXTHOP_GROUP_UNHASHABLE (1 << 4)
+
+/*
+ * Backup nexthop support - identify groups that are backups for
+ * another group.
+ */
+#define NEXTHOP_GROUP_BACKUP (1 << 5)
+
 };
 
 /* Was this one we created, either this session or previously? */
 #define ZEBRA_NHG_CREATED(NHE) ((NHE->type) == ZEBRA_ROUTE_NHG)
 
+/*
+ * Backup nexthops: this is a group object itself, so
+ * that the backup nexthops can use the same code as a normal object.
+ */
+struct nhg_backup_info {
+	struct nhg_hash_entry *nhe;
+};
 
 enum nhg_ctx_op_e {
 	NHG_CTX_OP_NONE = 0,
@@ -163,12 +184,25 @@ bool zebra_nhg_kernel_nexthops_enabled(void);
 
 /**
  * NHE abstracted tree functions.
- * Use these where possible instead of the direct ones access ones.
+ * Use these where possible instead of direct access.
  */
 struct nhg_hash_entry *zebra_nhg_alloc(void);
 void zebra_nhg_free(struct nhg_hash_entry *nhe);
 /* In order to clear a generic hash, we need a generic api, sigh. */
 void zebra_nhg_hash_free(void *p);
+
+/* Init an nhe, for use in a hash lookup for example. There's some fuzziness
+ * if the nhe represents only a single nexthop, so we try to capture that
+ * variant also.
+ */
+void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
+		    const struct nexthop *nh);
+
+/* Allocate, free backup nexthop info objects */
+struct nhg_backup_info *zebra_nhg_backup_alloc(void);
+void zebra_nhg_backup_free(struct nhg_backup_info **p);
+
+struct nexthop_group *zebra_nhg_get_backup_nhg(struct nhg_hash_entry *nhe);
 
 extern struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe);
 
@@ -204,9 +238,13 @@ extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 /* Del via kernel */
 extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
 
-/* Find via route creation */
+/* Find an nhe based on a nexthop_group */
 extern struct nhg_hash_entry *
 zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi);
+
+/* Find an nhe based on a route's nhe, used during route creation */
+struct nhg_hash_entry *
+zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
 
 /* Reference counter functions */
 extern void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
@@ -234,5 +272,9 @@ extern void zebra_nhg_sweep_table(struct hash *hash);
 /* Nexthop resolution processing */
 struct route_entry; /* Forward ref to avoid circular includes */
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* __ZEBRA_NHG_H__ */

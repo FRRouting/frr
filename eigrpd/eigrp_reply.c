@@ -173,7 +173,7 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 			flog_err(
 				EC_EIGRP_PACKET,
 				"%s: Received prefix %s which we do not know about",
-				__PRETTY_FUNCTION__,
+				__func__,
 				prefix2str(&dest_addr, buf, sizeof(buf)));
 			eigrp_IPv4_InternalTLV_free(tlv);
 			continue;

@@ -112,17 +112,20 @@ static inline void ipv4_to_ipv4_mapped_ipv6(struct in6_addr *in6,
 /*
  * convert an ipv4 mapped ipv6 address back to ipv4 address
  */
-static inline void ipv4_mapped_ipv6_to_ipv4(struct in6_addr *in6,
+static inline void ipv4_mapped_ipv6_to_ipv4(const struct in6_addr *in6,
 					    struct in_addr *in)
 {
 	memset(in, 0, sizeof(struct in_addr));
 	memcpy(in, (char *)in6 + 12, sizeof(struct in_addr));
 }
 
+/*
+ * Check if a struct ipaddr has nonzero value
+ */
 static inline bool ipaddr_isset(struct ipaddr *ip)
 {
 	static struct ipaddr a = {};
-	return (0 == memcmp(&a, ip, sizeof(struct ipaddr)));
+	return (0 != memcmp(&a, ip, sizeof(struct ipaddr)));
 }
 
 #ifdef __cplusplus

@@ -48,6 +48,46 @@ enum pim_spt_switchover {
 	PIM_SPT_INFINITY,
 };
 
+/* stats for updates rxed from the MLAG component during the life of a
+ * session
+ */
+struct pim_mlag_msg_stats {
+	uint32_t mroute_add_rx;
+	uint32_t mroute_add_tx;
+	uint32_t mroute_del_rx;
+	uint32_t mroute_del_tx;
+	uint32_t mlag_status_updates;
+	uint32_t pim_status_updates;
+	uint32_t vxlan_updates;
+	uint32_t peer_zebra_status_updates;
+};
+
+struct pim_mlag_stats {
+	/* message stats are reset when the connection to mlagd flaps */
+	struct pim_mlag_msg_stats msg;
+	uint32_t mlagd_session_downs;
+	uint32_t peer_session_downs;
+	uint32_t peer_zebra_downs;
+};
+
+enum pim_mlag_flags {
+	PIM_MLAGF_NONE = 0,
+	/* connection to the local MLAG daemon is up */
+	PIM_MLAGF_LOCAL_CONN_UP = (1 << 0),
+	/* connection to the MLAG daemon on the peer switch is up. note
+	 * that there is no direct connection between FRR and the peer MLAG
+	 * daemon. this is just a peer-session status provided by the local
+	 * MLAG daemon.
+	 */
+	PIM_MLAGF_PEER_CONN_UP = (1 << 1),
+	/* status update rxed from the local daemon */
+	PIM_MLAGF_STATUS_RXED = (1 << 2),
+	/* initial dump of data done post peerlink flap */
+	PIM_MLAGF_PEER_REPLAY_DONE = (1 << 3),
+	/* zebra is up on the peer */
+	PIM_MLAGF_PEER_ZEBRA_UP = (1 << 4)
+};
+
 struct pim_router {
 	struct thread_master *master;
 
@@ -65,7 +105,7 @@ struct pim_router {
 	 */
 	vrf_id_t vrf_id;
 
-	enum mlag_role role;
+	enum mlag_role mlag_role;
 	uint32_t pim_mlag_intf_cnt;
 	/* if true we have registered with MLAG */
 	bool mlag_process_register;
@@ -77,6 +117,12 @@ struct pim_router {
 	struct stream_fifo *mlag_fifo;
 	struct stream *mlag_stream;
 	struct thread *zpthread_mlag_write;
+	struct in_addr anycast_vtep_ip;
+	struct in_addr local_vtep_ip;
+	struct pim_mlag_stats mlag_stats;
+	enum pim_mlag_flags mlag_flags;
+	char peerlink_rif[INTERFACE_NAMSIZ];
+	struct interface *peerlink_rif_p;
 };
 
 /* Per VRF PIM DB */
@@ -88,6 +134,9 @@ struct pim_instance {
 		enum pim_spt_switchover switchover;
 		char *plist;
 	} spt;
+
+	/* The name of the register-accept prefix-list */
+	char *register_plist;
 
 	struct hash *rpf_hash;
 
@@ -119,6 +168,7 @@ struct pim_instance {
 	struct route_table *rp_table;
 
 	int iface_vif_index[MAXVIFS];
+	int mcast_if_count;
 
 	struct rb_pim_oil_head channel_oil_head;
 
@@ -128,6 +178,8 @@ struct pim_instance {
 	struct list *ssmpingd_list;
 	struct in_addr ssmpingd_group_addr;
 
+	unsigned int igmp_group_count;
+	unsigned int igmp_watermark_limit;
 	unsigned int keep_alive_time;
 	unsigned int rp_keep_alive_time;
 

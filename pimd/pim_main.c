@@ -37,6 +37,7 @@
 #include "plist.h"
 #include "vrf.h"
 #include "libfrr.h"
+#include "routemap.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -73,6 +74,8 @@ struct zebra_privs_t pimd_privs = {
 
 static const struct frr_yang_module_info *const pimd_yang_modules[] = {
 	&frr_interface_info,
+	&frr_route_map_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,

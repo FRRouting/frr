@@ -32,17 +32,17 @@ TC_61:
 TC_50_1:
     Test modify/remove prefix-lists referenced by a
     route-map for match statement.
-TC_50_1:
+TC_50_2:
     Remove prefix-list referencec by route-map match cluase
     and verifying it reflecting as intended
 TC_51:
     Add and remove community-list referencec by route-map match cluase
     and verifying it reflecting as intended
 TC_45:
-    Test multiple match statements as part of a route-map's single
+    Test multiple match statements as part of a route-map"s single
     sequence number. (Logical OR-ed of multiple match statements)
 TC_44:
-    Test multiple match statements as part of a route-map's single
+    Test multiple match statements as part of a route-map"s single
     sequence number. (Logical AND of multiple match statements)
 TC_41:
     Test add/remove route-maps to specific neighbor and see if
@@ -57,7 +57,7 @@ TC_48:
     Create route map setting local preference and weight to eBGP peeer
     and metric to ibgp peer and verifying it should not get advertised
 TC_43:
-    Test multiple set statements as part of a route-map's
+    Test multiple set statements as part of a route-map"s
     single sequence number.
 TC_54:
     Verify route-maps continue clause functionality.
@@ -112,7 +112,7 @@ from time import sleep
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -122,23 +122,38 @@ from mininet.topo import Topo
 
 # Required to instantiate the topology builder class.
 from lib.common_config import (
-    start_topology,  write_test_header,
-    write_test_footer, create_static_routes,
-    verify_rib, delete_route_maps, create_bgp_community_lists,
-    interface_status, create_route_maps, create_prefix_lists,
-    verify_route_maps, check_address_types, verify_bgp_community,
-    shutdown_bringup_interface, verify_prefix_lists, reset_config_on_routers)
+    start_topology,
+    write_test_header,
+    write_test_footer,
+    create_static_routes,
+    verify_rib,
+    delete_route_maps,
+    create_bgp_community_lists,
+    interface_status,
+    create_route_maps,
+    create_prefix_lists,
+    verify_route_maps,
+    check_address_types,
+    verify_bgp_community,
+    shutdown_bringup_interface,
+    verify_prefix_lists,
+    reset_config_on_routers,
+    verify_create_community_list,
+)
 from lib.topolog import logger
 from lib.bgp import (
-    verify_bgp_convergence, create_router_bgp,
-    clear_bgp_and_verify, verify_bgp_attributes)
+    verify_bgp_convergence,
+    create_router_bgp,
+    clear_bgp_and_verify,
+    verify_bgp_attributes,
+)
 from lib.topojson import build_topo_from_json, build_config_from_json
 
 # Reading the data from JSON File for topology and configuration creation
 jsonFile = "{}/bgp_route_map_topo2.json".format(CWD)
 
 try:
-    with open(jsonFile, 'r') as topoJson:
+    with open(jsonFile, "r") as topoJson:
         topo = json.load(topoJson)
 except IOError:
     assert False, "Could not read file {}".format(jsonFile)
@@ -146,10 +161,7 @@ except IOError:
 # Global variables
 # Global variables
 bgp_convergence = False
-NETWORK = {
-    "ipv4": ["11.0.20.1/32", "11.0.20.2/32"],
-    "ipv6": ["2::1/128", "2::2/128"]
-}
+NETWORK = {"ipv4": ["11.0.20.1/32", "11.0.20.2/32"], "ipv6": ["2::1/128", "2::2/128"]}
 
 bgp_convergence = False
 BGP_CONVERGENCE = False
@@ -179,7 +191,7 @@ def setup_module(mod):
     """
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
-    logger.info("="*40)
+    logger.info("=" * 40)
 
     logger.info("Running setup_module to create topology")
 
@@ -198,14 +210,15 @@ def setup_module(mod):
     global bgp_convergence
     global ADDR_TYPES
 
-    # Don't run this test if we have any failure.
+    # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     # Api call verify whether BGP is converged
     bgp_convergence = verify_bgp_convergence(tgen, topo)
-    assert bgp_convergence is True, ('setup_module :Failed \n Error:'
-                                     ' {}'.format(bgp_convergence))
+    assert bgp_convergence is True, "setup_module :Failed \n Error:" " {}".format(
+        bgp_convergence
+    )
     logger.info("Running setup_module() done")
 
 
@@ -221,9 +234,10 @@ def teardown_module(mod):
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
 
-    logger.info("Testsuite end time: {}".format(
-                    time.asctime(time.localtime(time.time()))))
-    logger.info("="*40)
+    logger.info(
+        "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
+    )
+    logger.info("=" * 40)
 
 
 #####################################################
@@ -241,7 +255,7 @@ def test_rmap_match_prefix_list_permit_in_and_outbound_prefixes_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -250,187 +264,183 @@ def test_rmap_match_prefix_list_permit_in_and_outbound_prefixes_p0():
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                    'pf_list_1_ipv4': [{
-                        'seqid': 10,
-                        'network': 'any',
-                        'action': 'permit',
-                    }]
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit",}
+                    ]
                 },
-                'ipv6': {
-                    'pf_list_1_ipv6': [{
-                        'seqid': 10,
-                        'network': 'any',
-                        'action': 'permit',
-                    }]
-                }
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 10, "network": "any", "action": "permit",}
+                    ]
+                },
             }
         }
     }
 
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
     for addr_type in ADDR_TYPES:
-    # Create route map
+        # Create route map
         input_dict_3 = {
             "r3": {
                 "route_maps": {
-                    "rmap_match_pf_1_{}".format(addr_type): [{
-                        "action": "permit",
-                        'seq_id': '5',
-                        "match": {
-                            addr_type: {
-                                "prefix_lists": "pf_list_1_" + addr_type
-                            }
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {"prefix_lists": "pf_list_1_" + addr_type}
+                            },
+                            "set": {"locPrf": 150, "weight": 100},
                         },
-                        "set": {
-                            "localpref": 150,
-                            "weight": 100
-                        }
-                    },
                     ],
-                    "rmap_match_pf_2_{}".format(addr_type): [{
-                        "action": "permit",
-                        'seq_id': '5',
-                        "match": {
-                            addr_type: {
-                                "prefix_lists": "pf_list_1_" + addr_type
-                            }
+                    "rmap_match_pf_2_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {"prefix_lists": "pf_list_1_" + addr_type}
+                            },
+                            "set": {"metric": 50},
                         },
-                        "set": {
-                            "med": 50
-                        }
-                    },
-                    ]
+                    ],
                 }
             }
         }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-       'r3': {
-           "bgp": {
-               "address_family": {
-                   "ipv4": {
-                       "unicast": {
-                           "neighbor": {
-                               "r1": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_1_ipv4",
-                                                   "direction": 'in'
-                                           }]
-                                       }
-                                   }
-                               },
-                               "r4": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_2_ipv4",
-                                                   "direction": 'out'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   },
-                   "ipv6": {
-                       "unicast": {
-                           "neighbor": {
-                               "r1": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_1_ipv6",
-                                                   "direction": 'in'
-                                           }]
-                                       }
-                                   }
-                               },
-                               "r4": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_2_ipv6",
-                                                   "direction": 'out'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
-           }
-       }
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_2_ipv4",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_2_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                }
+            }
+        }
     }
 
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
 
     # dual stack changes
     for addr_type in ADDR_TYPES:
-        result4 = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result4 is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result4)
+        result4 = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result4 is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result4
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     # dual stack changes
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result4 = verify_bgp_attributes(tgen, addr_type, dut, routes[
-            addr_type],rmap_name, input_dict_3)
-        assert result4 is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result4)
+        result4 = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result4 is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result4
+        )
 
     # Verifying RIB routes
-    dut = 'r4'
-    protocol = 'bgp'
+    dut = "r4"
+    protocol = "bgp"
     # dual stack changes
     for addr_type in ADDR_TYPES:
-        result4 = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result4 is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result4)
+        result4 = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result4 is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result4
+        )
 
     # Verifying BGP set attributes
-    dut = 'r4'
+    dut = "r4"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     # dual stack changes
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_2_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
     write_test_footer(tc_name)
 
     # Uncomment next line for debugging
@@ -448,7 +458,7 @@ def test_modify_set_match_clauses_in_rmap_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -458,270 +468,274 @@ def test_modify_set_match_clauses_in_rmap_p0():
     # Create ip prefix list
 
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                    'pf_list_1_ipv4': [{
-                        'seqid': 10,
-                        'network': 'any',
-                        'action': 'permit',
-                    }],
-                    'pf_list_2_ipv4': [{
-                        'seqid': 10,
-                        'network': 'any',
-                        'action': 'permit'
-                    }]
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit",}
+                    ],
+                    "pf_list_2_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ],
                 },
-                'ipv6': {
-                    'pf_list_1_ipv6': [{
-                        'seqid': 10,
-                        'network': 'any',
-                        'action': 'permit',
-                    }],
-                    'pf_list_2_ipv6': [{
-                        'seqid': 10,
-                        'network': 'any',
-                        'action': 'permit'
-                    }]
-                }
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 10, "network": "any", "action": "permit",}
+                    ],
+                    "pf_list_2_ipv6": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ],
+                },
             }
         }
-        }
+    }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150,},
                         }
-                    },
-                    "set": {
-                        "localpref": 150,
-                    }
-                }],
-                "rmap_match_pf_2_{}".format(addr_type): [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
+                    ],
+                    "rmap_match_pf_2_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"metric": 50},
                         }
-                    },
-                    "set": {
-                        "med": 50
-                    }
-                }]
+                    ],
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-       'r3': {
-           "bgp": {
-               "address_family": {
-                   "ipv4": {
-                       "unicast": {
-                           "neighbor": {
-                               "r1": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_1_ipv4",
-                                                   "direction": 'in'
-                                           }]
-                                       }
-                                   }
-                               },
-                               "r4": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_2_ipv4",
-                                                   "direction": 'out'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   },
-                   "ipv6": {
-                       "unicast": {
-                           "neighbor": {
-                               "r1": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_1_ipv6",
-                                                   "direction": 'in'
-                                           }]
-                                       }
-                                   }
-                               },
-                               "r4": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_2_ipv6",
-                                                   "direction": 'out'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
-           }
-       }
-   }
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_2_ipv4",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_2_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     # dual stack changes
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result4 = verify_bgp_attributes(tgen, addr_type, dut, routes[
-            addr_type],rmap_name, input_dict_3)
-        assert result4 is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result4)
+        result4 = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result4 is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result4
+        )
 
     # Verifying RIB routes
-    dut = 'r4'
-    protocol = 'bgp'
+    dut = "r4"
+    protocol = "bgp"
     # dual stack changes
     for addr_type in ADDR_TYPES:
-        result4 = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result4 is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result4)
+        result4 = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result4 is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result4
+        )
 
     # Verifying BGP set attributes
-    dut = 'r4'
+    dut = "r4"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_2_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[
-            addr_type],rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Modify set/match clause of in-used route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-        "route_maps": {
-            "rmap_match_pf_1_{}".format(addr_type): [{
-                "action": "permit",
-                'seq_id': '5',
-                "match": {
-                    addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
-                    }
-                },
-                "set": {
-                    "localpref": 1000,
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 1000,},
+                        }
+                    ],
+                    "rmap_match_pf_2_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"metric": 2000},
+                        }
+                    ],
                 }
-            }],
-            "rmap_match_pf_2_{}".format(addr_type): [{
-                "action": "permit",
-                'seq_id': '5',
-                "match": {
-                    addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
-                    }
-                },
-                "set": {
-                    "med": 2000
-                }
-            }]
-        }
-        }
+            }
         }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying RIB routes
-    dut = 'r4'
-    protocol = 'bgp'
+    dut = "r4"
+    protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r4'
+    dut = "r4"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_2_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -739,7 +753,7 @@ def test_delete_route_maps_p1():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -749,37 +763,29 @@ def test_delete_route_maps_p1():
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_tag_1_{}".format(addr_type): [{
-                    "action": "deny",
-                    "match": {
-                        addr_type: {
-                        "tag": "4001"
-                    }
-                    }
-                }]
+            "r3": {
+                "route_maps": {
+                    "rmap_match_tag_1_{}".format(addr_type): [
+                        {"action": "deny", "match": {addr_type: {"tag": "4001"}}}
+                    ]
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Delete route maps
     for addr_type in ADDR_TYPES:
-        input_dict = {
-        'r3': {
-            'route_maps': ['rmap_match_tag_1_{}'.format(addr_type)]
-        }
-        }
+        input_dict = {"r3": {"route_maps": ["rmap_match_tag_1_{}".format(addr_type)]}}
         result = delete_route_maps(tgen, input_dict)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     result = verify_route_maps(tgen, input_dict)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
     write_test_footer(tc_name)
 
     # Uncomment next line for debugging
@@ -797,7 +803,7 @@ def test_modify_prefix_list_referenced_by_rmap_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -806,229 +812,226 @@ def test_modify_prefix_list_referenced_by_rmap_p0():
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                    'pf_list_1_ipv4': [{
-                        'seqid': 10,
-                        'network': 'any',
-                        'action': 'permit',
-                    }]
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit",}
+                    ]
                 },
-                'ipv6': {
-                    'pf_list_1_ipv6': [{
-                        'seqid': 100,
-                        'network': 'any',
-                        'action': 'permit',
-                    }]
-                }
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit",}
+                    ]
+                },
             }
         }
-        }
+    }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150, "weight": 100},
                         }
-                    },
-                    "set": {
-                        "localpref": 150,
-                        "weight": 100
-                    }
-                }],
-                "rmap_match_pf_2_{}".format(addr_type): [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
+                    ],
+                    "rmap_match_pf_2_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"metric": 50},
                         }
-                    },
-                    "set": {
-                        "med": 50
-                    }
-                }]
+                    ],
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-       'r3': {
-           "bgp": {
-               "address_family": {
-                   "ipv4": {
-                       "unicast": {
-                           "neighbor": {
-                               "r1": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_1_ipv4",
-                                                   "direction": 'in'
-                                           }]
-                                       }
-                                   }
-                               },
-                               "r4": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_2_ipv4",
-                                                   "direction": 'out'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   },
-                   "ipv6": {
-                       "unicast": {
-                           "neighbor": {
-                               "r1": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_1_ipv6",
-                                                   "direction": 'in'
-                                           }]
-                                       }
-                                   }
-                               },
-                               "r4": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_2_ipv6",
-                                                   "direction": 'out'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
-           }
-       }
-   }
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_2_ipv4",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_2_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
 
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying RIB routes
-    dut = 'r4'
-    protocol = 'bgp'
+    dut = "r4"
+    protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r4'
+    dut = "r4"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
 
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_2_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Modify ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'deny'
-                }]
-            },
-            'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'deny'
-                }]
-            }
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "deny"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "deny"}
+                    ]
+                },
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     sleep(5)
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-                protocol=protocol)
-        assert result is not True, 'Testcase {} : Failed \n'
-        'Expected behaviour: routes are not present \n '
-        'Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n"
+        "routes are not present \n Error: {}".format(tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
 
     # Verifying RIB routes
-    dut = 'r4'
-    protocol = 'bgp'
+    dut = "r4"
+    protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-                protocol=protocol)
-        assert result is not True, 'Testcase {} : Failed \n'
-        'Expected behaviour: routes are not present \n '
-        'Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n"
+        "Expected behaviour: routes are not present \n "
+        "Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -1038,7 +1041,7 @@ def test_modify_prefix_list_referenced_by_rmap_p0():
 
 def test_remove_prefix_list_referenced_by_rmap_p0():
     """
-    TC_50_1:
+    TC_50_2:
     Remove prefix-list referencec by route-map match cluase
     and verifying it reflecting as intended
     """
@@ -1046,7 +1049,7 @@ def test_remove_prefix_list_referenced_by_rmap_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -1055,238 +1058,244 @@ def test_remove_prefix_list_referenced_by_rmap_p0():
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            },
-                'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit"}
+                    ]
+                },
             }
-        }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150,},
                         }
-                    },
-                    "set": {
-                        "localpref": 150,
-                    }
-                }],
-                "rmap_match_pf_2_{}".format(addr_type): [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
-                    }
-                    },
-                    "set": {
-                        "med": 50
-                    }
-                }]
+                    ],
+                    "rmap_match_pf_2_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"metric": 50},
+                        }
+                    ],
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     for addr_type in ADDR_TYPES:
         input_dict_4 = {
-       'r3': {
-             "bgp": {
-                 "address_family": {
-                     "ipv4": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv4",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 },
-                                 "r4": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_2_ipv4",
-                                                     "direction": 'out'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     },
-                    "ipv6": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv6",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 },
-                                 "r4": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_2_ipv6",
-                                                     "direction": 'out'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     }
-                 }
-             }
-         }
-     }
+            "r3": {
+                "bgp": {
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "route_maps": [
+                                                    {
+                                                        "name": "rmap_match_pf_1_ipv4",
+                                                        "direction": "in",
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "route_maps": [
+                                                    {
+                                                        "name": "rmap_match_pf_2_ipv4",
+                                                        "direction": "out",
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "route_maps": [
+                                                    {
+                                                        "name": "rmap_match_pf_1_ipv6",
+                                                        "direction": "in",
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "route_maps": [
+                                                    {
+                                                        "name": "rmap_match_pf_2_ipv6",
+                                                        "direction": "out",
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                }
+                            }
+                        },
+                    }
+                }
+            }
+        }
         result = create_router_bgp(tgen, topo, input_dict_4)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying RIB routes
-    dut = 'r4'
-    protocol = 'bgp'
+    dut = "r4"
+    protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r4'
+    dut = "r4"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_2_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                        rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Remove/Delete prefix list
     input_dict_3 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit',
-                    'delete': True
-                }]
-            },
-                'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit',
-                    'delete': True
-                }]
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {
+                            "seqid": 10,
+                            "network": "any",
+                            "action": "permit",
+                            "delete": True,
+                        }
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {
+                            "seqid": 100,
+                            "network": "any",
+                            "action": "permit",
+                            "delete": True,
+                        }
+                    ]
+                },
             }
-        }
         }
     }
     result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_prefix_lists(tgen, input_dict_3)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to clear bgp, so config changes would be reflected
-    dut = 'r3'
+    dut = "r3"
     result = clear_bgp_and_verify(tgen, topo, dut)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is not True, 'Testcase {} : Failed \n'
-        'Expected behaviour: routes are not present \n '
-        'Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n"
+        "routes are not present \n Error: {}".format(tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
 
     # Verifying RIB routes
-    dut = 'r4'
-    protocol = 'bgp'
+    dut = "r4"
+    protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is not True, 'Testcase {} : Failed \n'
-        'Expected behaviour: routes are not present \n '
-        'Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n"
+        "routes are not present \n Error: {}".format(tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -1304,7 +1313,7 @@ def test_add_and_remove_community_list_referenced_by_rmap_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -1317,178 +1326,196 @@ def test_add_and_remove_community_list_referenced_by_rmap_p0():
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_5 = {
-        "r1": {
-            "route_maps": {
-                "rm_r1_out_{}".format(addr_type): [{
-                    "action": "permit",
-                    "set": {
-                        "large_community": {"num": "1:1:1 1:2:3 2:1:1 2:2:2"}
-                    }
-                }]
-            }
-        }
-        }
-        result = create_route_maps(tgen, input_dict_5)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
-
-    # Configure neighbor for route map
-    input_dict_6 = {
-       'r1': {
-           "bgp": {
-               "address_family": {
-                   "ipv4": {
-                       "unicast": {
-                           "neighbor": {
-                               "r3": {
-                                   "dest_link": {
-                                       "r1": {
-                                           "route_maps": [{
-                                                   "name": "rm_r1_out_ipv4",
-                                                   "direction": 'out'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   },
-                   "ipv6": {
-                       "unicast": {
-                           "neighbor": {
-                               "r3": {
-                                   "dest_link": {
-                                       "r1": {
-                                           "route_maps": [{
-                                                   "name": "rm_r1_out_ipv6",
-                                                   "direction": 'out'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
-           }
-       }
-   }
-
-    result = create_router_bgp(tgen, topo, input_dict_6)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
-
-    for addr_type in ADDR_TYPES:
-        # Create standard large commumity-list
-            input_dict_1 = {
-                "r3": {
-                    "bgp_community_lists": [
+            "r1": {
+                "route_maps": {
+                    "rm_r1_out_{}".format(addr_type): [
                         {
-                            "community_type": "standard",
                             "action": "permit",
-                            "name": "rmap_lcomm_{}".format(addr_type),
-                            "value": "1:1:1 1:2:3 2:1:1 2:2:2",
-                            "large": True
+                            "set": {
+                                "large_community": {"num": "1:1:1 1:2:3 2:1:1 2:2:2"}
+                            },
                         }
                     ]
                 }
             }
-            result = create_bgp_community_lists(tgen, input_dict_1)
-            assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-                tc_name, result)
+        }
+        result = create_route_maps(tgen, input_dict_5)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
-    for addr_type in ADDR_TYPES:
-    # Create route map
-        input_dict_2 = {
-        "r3": {
-            "route_maps": {
-                "rm_r3_in_{}".format(addr_type): [{
-                    "action": "permit",
-                    "match": {
-                        addr_type : {
-                            "large-community-list": {"id": "rmap_lcomm_"+
-                            addr_type}
-                    }
-                    }
-                }]
+    # Configure neighbor for route map
+    input_dict_6 = {
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r3": {
+                                    "dest_link": {
+                                        "r1": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rm_r1_out_ipv4",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r3": {
+                                    "dest_link": {
+                                        "r1": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rm_r1_out_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
             }
         }
+    }
+
+    result = create_router_bgp(tgen, topo, input_dict_6)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        # Create standard large commumity-list
+        input_dict_1 = {
+            "r3": {
+                "bgp_community_lists": [
+                    {
+                        "community_type": "standard",
+                        "action": "permit",
+                        "name": "rmap_lcomm_{}".format(addr_type),
+                        "value": "1:1:1 1:2:3 2:1:1 2:2:2",
+                        "large": True,
+                    }
+                ]
+            }
+        }
+        result = create_bgp_community_lists(tgen, input_dict_1)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    # Verify BGP large community is created
+    result = verify_create_community_list(tgen, input_dict_1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        # Create route map
+        input_dict_2 = {
+            "r3": {
+                "route_maps": {
+                    "rm_r3_in_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "match": {
+                                addr_type: {
+                                    "large-community-list": {
+                                        "id": "rmap_lcomm_" + addr_type
+                                    }
+                                }
+                            },
+                        }
+                    ]
+                }
+            }
         }
         result = create_route_maps(tgen, input_dict_2)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_3 = {
-       'r3': {
-           "bgp": {
-               "address_family": {
-                   "ipv4": {
-                       "unicast": {
-                           "neighbor": {
-                               "r1": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name": "rm_r3_in_ipv4",
-                                                   "direction": 'in'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   },
-                   "ipv6": {
-                       "unicast": {
-                           "neighbor": {
-                               "r1": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name": "rm_r3_in_ipv6",
-                                                   "direction": 'in'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
-           }
-       }
-   }
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rm_r3_in_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rm_r3_in_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
     result = create_router_bgp(tgen, topo, input_dict_3)
 
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     sleep(5)
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verify large-community-list
-    dut = 'r3'
+    dut = "r3"
     networks = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
-    input_dict_4 = {
-        'largeCommunity': '1:1:1 1:2:3 2:1:1 2:2:2'
-    }
+    input_dict_4 = {"largeCommunity": "1:1:1 1:2:3 2:1:1 2:2:2"}
     for addr_type in ADDR_TYPES:
-        result = verify_bgp_community(tgen, addr_type, dut, networks[
-            addr_type],input_dict_4)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_community(
+            tgen, addr_type, dut, networks[addr_type], input_dict_4
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
     write_test_footer(tc_name)
 
     # Uncomment next line for debugging
@@ -1498,14 +1525,14 @@ def test_add_and_remove_community_list_referenced_by_rmap_p0():
 def test_multiple_match_statement_in_route_map_logical_ORed_p0():
     """
     TC_45:
-    Test multiple match statements as part of a route-map's single
+    Test multiple match statements as part of a route-map"s single
     sequence number. (Logical OR-ed of multiple match statements)
     """
     tgen = get_topogen()
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -1514,242 +1541,220 @@ def test_multiple_match_statement_in_route_map_logical_ORed_p0():
 
     # Api call to advertise networks
     input_dict_nw1 = {
-            'r1': {
-                "bgp": {
-                    "address_family": {
-                        "ipv4": {
-                            "unicast": {
-                                "advertise_networks": [
-                                    {"network": '10.0.30.1/32'}
-                                ]
-                            }
-                        },
-                        "ipv6": {
-                            "unicast": {
-                                "advertise_networks": [
-                                    {"network": '1::1/128'}
-                                ]
-                            }
-                        }
-                    }
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {"advertise_networks": [{"network": "10.0.30.1/32"}]}
+                    },
+                    "ipv6": {
+                        "unicast": {"advertise_networks": [{"network": "1::1/128"}]}
+                    },
                 }
             }
         }
+    }
 
     result = create_router_bgp(tgen, topo, input_dict_nw1)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Api call to advertise networks
     input_dict_nw2 = {
-            'r1': {
-                "bgp": {
-                    "address_family": {
-                        "ipv4": {
-                            "unicast": {
-                                "advertise_networks": [
-                                    {"network": '20.0.30.1/32'}
-                                ]
-                            }
-                        },
-                        "ipv6": {
-                            "unicast": {
-                                "advertise_networks": [
-                                    {"network": '2::1/128'}
-                                ]
-                            }
-                        }
-                    }
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {"advertise_networks": [{"network": "20.0.30.1/32"}]}
+                    },
+                    "ipv6": {
+                        "unicast": {"advertise_networks": [{"network": "2::1/128"}]}
+                    },
                 }
             }
         }
+    }
 
     result = create_router_bgp(tgen, topo, input_dict_nw2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            },
-                'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            }
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit"}
+                    ]
+                },
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_2_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            },
-                'ipv6': {
-                'pf_list_2_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            }
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_2_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_2_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit"}
+                    ]
+                },
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    input_dict_3_addr_type ={}
+    input_dict_3_addr_type = {}
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150},
                         }
-                    },
-                    "set": {
-                        "localpref": 150
-                    }
-                }]
+                    ]
+                }
             }
-        }
         }
         input_dict_3_addr_type[addr_type] = input_dict_3
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
-                    }
-                    },
-                    "set": {
-                        "localpref": 200
-                    }
-                }]
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 200},
+                        }
+                    ]
+                }
             }
-        }
         }
         input_dict_3_addr_type[addr_type] = input_dict_3
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_6 = {
-       'r3': {
-           "bgp": {
-               "address_family": {
-                   "ipv4": {
-                       "unicast": {
-                           "neighbor": {
-                               "r1": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_1_ipv4",
-                                                   "direction": 'in'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   },
-                   "ipv6": {
-                       "unicast": {
-                           "neighbor": {
-                               "r1": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                                   "rmap_match_pf_1_ipv6",
-                                                   "direction": 'in'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
-           }
-       }
-   }
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
 
     result = create_router_bgp(tgen, topo, input_dict_6)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
-    routes = {
-          "ipv4": ["10.0.30.1/32"],
-          "ipv6": ["1::1/128"]
-    }
+    dut = "r3"
+    routes = {"ipv4": ["10.0.30.1/32"], "ipv6": ["1::1/128"]}
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                rmap_name, input_dict_3_addr_type[addr_type])
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen,
+            addr_type,
+            dut,
+            routes[addr_type],
+            rmap_name,
+            input_dict_3_addr_type[addr_type],
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    routes = {
-          "ipv4": ["20.0.30.1/32"],
-          "ipv6": ["2::1/128"]
-    }
+    routes = {"ipv4": ["20.0.30.1/32"], "ipv6": ["2::1/128"]}
     for addr_type in ADDR_TYPES:
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -1757,17 +1762,17 @@ def test_multiple_match_statement_in_route_map_logical_ORed_p0():
     # tgen.mininet_cli()
 
 
-def test_multiple_match_statement_in_route_map_logical_ANDed():
+def test_multiple_match_statement_in_route_map_logical_ANDed_p1():
     """
     TC_44:
-    Test multiple match statements as part of a route-map's single
+    Test multiple match statements as part of a route-map"s single
     sequence number. (Logical AND of multiple match statements)
     """
     tgen = get_topogen()
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -1779,79 +1784,80 @@ def test_multiple_match_statement_in_route_map_logical_ANDed():
         input_dict_5 = {
             "r1": {
                 "route_maps": {
-                    "rm_r1_out_{}".format(addr_type): [{
-                        "action": "permit",
-                        "set": {
-                            "large_community": {
-                                "num": "1:1:1 1:2:3 2:1:1 2:2:2"}
+                    "rm_r1_out_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "set": {
+                                "large_community": {"num": "1:1:1 1:2:3 2:1:1 2:2:2"}
+                            },
                         }
-                    }]
+                    ]
                 }
             }
         }
         result = create_route_maps(tgen, input_dict_5)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     for addr_type in ADDR_TYPES:
         input_dict_6 = {
-        'r1': {
-           "bgp": {
-               "address_family": {
-                addr_type: {
-                       "unicast": {
-                           "neighbor": {
-                               "r3": {
-                                   "dest_link": {
-                                       "r1": {
-                                           "route_maps": [{
-                                                   "name":
-                                            "rm_r1_out_{}".format(addr_type),
-                                                   "direction": 'out'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
-           }
-        }
+            "r1": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "r1": {
+                                                "route_maps": [
+                                                    {
+                                                        "name": "rm_r1_out_{}".format(
+                                                            addr_type
+                                                        ),
+                                                        "direction": "out",
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         result = create_router_bgp(tgen, topo, input_dict_6)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
                 },
-                'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-                }
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit"}
+                    ]
+                },
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
 
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
-    # Create standard large commumity-list
+        # Create standard large commumity-list
         input_dict_1 = {
             "r3": {
                 "bgp_community_lists": [
@@ -1860,115 +1866,130 @@ def test_multiple_match_statement_in_route_map_logical_ANDed():
                         "action": "permit",
                         "name": "rmap_lcomm_{}".format(addr_type),
                         "value": "1:1:1 1:2:3 2:1:1 2:2:2",
-                        "large": True
+                        "large": True,
                     }
                 ]
             }
         }
         result = create_bgp_community_lists(tgen, input_dict_1)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    # Verify BGP large community is created
+    result = verify_create_community_list(tgen, input_dict_1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
             "r3": {
                 "route_maps": {
-                    "rmap_match_pf_1_{}".format(addr_type): [{
-                        "action": "permit",
-                        'seq_id': '5',
-                        "match": {
-                            addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150,},
                         }
-                        },
-                        "set": {
-                            "localpref": 150,
-                        }
-                    }]
+                    ]
                 }
             }
         }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     for addr_type in ADDR_TYPES:
-    # Create route map
+        # Create route map
         input_dict_3 = {
             "r3": {
                 "route_maps": {
-                    "rmap_match_pf_1_{}".format(addr_type): [{
-                        "action": "permit",
-                        'seq_id': '5',
-                        "match": {
-                            addr_type : {
-                            "large_community_list": {"id": "rmap_lcomm_"+
-                                addr_type}
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "large_community_list": {
+                                        "id": "rmap_lcomm_" + addr_type
+                                    }
+                                }
+                            },
+                            "set": {"locPrf": 150,},
                         }
-                        },
-                        "set": {
-                            "localpref": 150,
-                        }
-                    }]
+                    ]
                 }
             }
         }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
     # Configure neighbor for route map
     for addr_type in ADDR_TYPES:
         input_dict_4 = {
-       'r3': {
-           "bgp": {
-               "address_family": {
-                addr_type: {
-                       "unicast": {
-                           "neighbor": {
-                               "r1": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "route_maps": [{
-                                                   "name":
-                                        "rmap_match_pf_1_{}".format(addr_type),
-                                                   "direction": 'in'
-                                           }]
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
-           }
-        }
+            "r3": {
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "route_maps": [
+                                                    {
+                                                        "name": "rmap_match_pf_1_{}".format(
+                                                            addr_type
+                                                        ),
+                                                        "direction": "in",
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         result = create_router_bgp(tgen, topo, input_dict_4)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
     # sleep(10)
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -1986,7 +2007,7 @@ def test_add_remove_rmap_to_specific_neighbor_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -1995,56 +2016,52 @@ def test_add_remove_rmap_to_specific_neighbor_p0():
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-            'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'deny'
-                }]
-            },
-            'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'deny'
-                }]
-            }
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "deny"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "deny"}
+                    ]
+                },
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
-                    }
-                    },
-                    "set": {
-                        "localpref": 150,
-                    }
-                }]
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150,},
+                        }
+                    ]
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-        'r3': {
+        "r3": {
             "bgp": {
                 "address_family": {
                     "ipv4": {
@@ -2053,11 +2070,12 @@ def test_add_remove_rmap_to_specific_neighbor_p0():
                                 "r1": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_1_ipv4",
-                                                    "direction": 'in'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
@@ -2070,41 +2088,41 @@ def test_add_remove_rmap_to_specific_neighbor_p0():
                                 "r1": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_1_ipv6",
-                                                    "direction": 'in'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
     }
 
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-         tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-                            protocol=protocol)
-        assert result is not True, 'Testcase {} : \n'
-        'Expected Behavior: Routes are not present in RIB \n'
-        ' Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n Error"
+        "Routes are still present: {}".format(tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
 
     # Remove applied rmap from neighbor
     input_dict_4 = {
-        'r3': {
+        "r3": {
             "bgp": {
                 "address_family": {
                     "ipv4": {
@@ -2113,12 +2131,13 @@ def test_add_remove_rmap_to_specific_neighbor_p0():
                                 "r1": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_1_ipv4",
-                                                    "direction": 'in',
-                                                    "delete": True
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                    "delete": True,
+                                                }
+                                            ]
                                         }
                                     }
                                 }
@@ -2131,35 +2150,36 @@ def test_add_remove_rmap_to_specific_neighbor_p0():
                                 "r1": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_1_ipv6",
-                                                    "direction": 'in',
-                                                    "delete": True
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                    "delete": True,
+                                                }
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
     }
 
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-         tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-             tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -2177,7 +2197,7 @@ def test_clear_bgp_and_flap_interface_to_verify_rmap_properties_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -2186,57 +2206,52 @@ def test_clear_bgp_and_flap_interface_to_verify_rmap_properties_p0():
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            },
-                'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            }
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit"}
+                    ]
+                },
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                    "action": "permit",
-                    'seq_id': '5',
-                    "match": {
-                        addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
-                    }
-                    },
-                    "set": {
-                        "localpref": 150,
-                        "weight": 100
-                    }
-                }]
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "5",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150, "weight": 100},
+                        }
+                    ]
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-        'r3': {
+        "r3": {
             "bgp": {
                 "address_family": {
                     "ipv4": {
@@ -2245,11 +2260,12 @@ def test_clear_bgp_and_flap_interface_to_verify_rmap_properties_p0():
                                 "r1": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_1_ipv4",
-                                                    "direction": 'in'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
@@ -2262,75 +2278,80 @@ def test_clear_bgp_and_flap_interface_to_verify_rmap_properties_p0():
                                 "r1": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_1_ipv6",
-                                                    "direction": 'in'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
     }
 
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-         tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # clear bgp, so config changes would be reflected
-    dut = 'r3'
+    dut = "r3"
     result = clear_bgp_and_verify(tgen, topo, dut)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                       rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Flap interface to see if route-map properties are intact
     # Shutdown interface
@@ -2347,30 +2368,32 @@ def test_clear_bgp_and_flap_interface_to_verify_rmap_properties_p0():
 
     # Verify BGP convergence once interface is up
     result = verify_bgp_convergence(tgen, topo)
-    assert result is True, (
-        'setup_module :Failed \n Error:' ' {}'.format(result))
+    assert result is True, "setup_module :Failed \n Error:" " {}".format(result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -2388,7 +2411,7 @@ def test_rmap_without_match_and_set_clause_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -2398,26 +2421,25 @@ def test_rmap_without_match_and_set_clause_p0():
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_no_match_set_1_{}".format(addr_type): [{
-                    "action": "permit",
-                    'seq_id': '5'
-                }],
-                "rmap_no_match_set_2_{}".format(addr_type): [{
-                    "action": "deny",
-                    'seq_id': '5'
-                }]
+            "r3": {
+                "route_maps": {
+                    "rmap_no_match_set_1_{}".format(addr_type): [
+                        {"action": "permit", "seq_id": "5"}
+                    ],
+                    "rmap_no_match_set_2_{}".format(addr_type): [
+                        {"action": "deny", "seq_id": "5"}
+                    ],
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-        'r3': {
+        "r3": {
             "bgp": {
                 "address_family": {
                     "ipv4": {
@@ -2426,25 +2448,27 @@ def test_rmap_without_match_and_set_clause_p0():
                                 "r1": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_no_match_set_1_ipv4",
-                                                    "direction": 'in'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_no_match_set_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
                                         }
                                     }
                                 },
                                 "r4": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_no_match_set_2_ipv4",
-                                                    "direction": 'out'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_no_match_set_2_ipv4",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
-                                }
+                                },
                             }
                         }
                     },
@@ -2454,58 +2478,60 @@ def test_rmap_without_match_and_set_clause_p0():
                                 "r1": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_no_match_set_1_ipv6",
-                                                    "direction": 'in'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_no_match_set_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
                                         }
                                     }
                                 },
                                 "r4": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_no_match_set_2_ipv6",
-                                                    "direction": 'out'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_no_match_set_2_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
-                                }
+                                },
                             }
                         }
-                    }
+                    },
                 }
             }
         }
     }
 
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-         tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying RIB routes
-    dut = 'r4'
-    protocol = 'bgp'
+    dut = "r4"
+    protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is not True, 'Testcase {} : Failed \n'
-        'Expected behaviour: routes are not present \n '
-        'Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n"
+        "routes are not present \n Error: {}".format(tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
-
     # Uncomment next line for debugging
     # tgen.mininet_cli()
 
@@ -2520,7 +2546,7 @@ def test_set_localpref_weight_to_ebgp_and_med_to_ibgp_peers_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -2529,80 +2555,75 @@ def test_set_localpref_weight_to_ebgp_and_med_to_ibgp_peers_p0():
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                  'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            },
-                  'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            }
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit"}
+                    ]
+                },
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
-    input_dict_3_addr_type ={}
+    input_dict_3_addr_type = {}
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
             "r3": {
                 "route_maps": {
-                    "rmap_match_pf_1_{}".format(addr_type): [{
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
                             "action": "permit",
                             "match": {
                                 addr_type: {
-                                    "prefix_lists": "pf_list_1_{}".format(
-                                        addr_type)
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
                                 }
                             },
-                                "set": {
-                                    "med": 50
-                                }
-                            }],
-                    "rmap_match_pf_2_{}".format(addr_type): [{
+                            "set": {"metric": 50},
+                        }
+                    ],
+                    "rmap_match_pf_2_{}".format(addr_type): [
+                        {
                             "action": "permit",
                             "match": {
                                 addr_type: {
-                                    "prefix_lists": "pf_list_1_{}".format(
-                                            addr_type)
-                                    }},
-                                    "set": {
-                                        "localpref": 150
-                                    }
-                                }],
-                            "rmap_match_pf_3_{}".format(addr_type): [{
-                                    "action": "permit",
-                                    "match": {
-                                        addr_type: {
-                                    "prefix_lists": "pf_list_1_{}".format(
-                                            addr_type)
-                                        }},
-                                        "set": {
-                                            "weight": 1000
-                                        }
-                                    }]
-                            }
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150},
                         }
-                    }
+                    ],
+                    "rmap_match_pf_3_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"weight": 1000},
+                        }
+                    ],
+                }
+            }
+        }
         input_dict_3_addr_type[addr_type] = input_dict_3
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-        'r3': {
+        "r3": {
             "bgp": {
                 "address_family": {
                     "ipv4": {
@@ -2611,33 +2632,265 @@ def test_set_localpref_weight_to_ebgp_and_med_to_ibgp_peers_p0():
                                 "r1": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_1_ipv4",
-                                                    "direction": 'in'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
                                         }
                                     }
                                 },
                                 "r4": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_2_ipv4",
-                                                    "direction": 'out'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_2_ipv4",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 },
                                 "r5": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_3_ipv4",
-                                                    "direction": 'out'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_3_ipv4",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_2_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                "r5": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_3_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
+
+    result = create_router_bgp(tgen, topo, input_dict_4)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    # Verifying RIB routes
+    dut = "r3"
+    protocol = "bgp"
+    input_dict = topo["routers"]
+    for addr_type in ADDR_TYPES:
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    # Verifying BGP set attributes
+    dut = "r3"
+    routes = {
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
+    }
+    rmap_name = "rmap_match_pf_1"
+    for addr_type in ADDR_TYPES:
+        rmap_name = "rmap_match_pf_1_{}".format(addr_type)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    # Verifying RIB routes
+    dut = "r4"
+    protocol = "bgp"
+    for addr_type in ADDR_TYPES:
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    # Verifying BGP set attributes
+    dut = "r4"
+    routes = {
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
+    }
+    rmap_name = "rmap_match_pf_2"
+    for addr_type in ADDR_TYPES:
+        rmap_name = "rmap_match_pf_2_{}".format(addr_type)
+
+        result = verify_bgp_attributes(
+            tgen,
+            addr_type,
+            dut,
+            routes[addr_type],
+            rmap_name,
+            input_dict_3_addr_type[addr_type],
+            expected=False,
+        )
+        assert result is not True, "Testcase {} : Failed \n"
+        "Attributes are not set \n Error: {}".format(tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
+
+    # Verifying RIB routes
+    dut = "r5"
+    protocol = "bgp"
+    for addr_type in ADDR_TYPES:
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+    # Verifying BGP set attributes
+    dut = "r5"
+    routes = {
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
+    }
+
+    rmap_name = "rmap_match_pf_3"
+    for addr_type in ADDR_TYPES:
+        rmap_name = "rmap_match_pf_3_{}".format(addr_type)
+        result = verify_bgp_attributes(
+            tgen,
+            addr_type,
+            dut,
+            routes[addr_type],
+            rmap_name,
+            input_dict_3_addr_type[addr_type],
+            expected=False,
+        )
+        assert result is not True, "Testcase {} : Failed \n"
+        "Attributes are not set \n Error: {}".format(tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
+
+    write_test_footer(tc_name)
+
+    # Uncomment next line for debugging
+    # tgen.mininet_cli()
+
+
+def test_multiple_set_on_single_sequence_in_rmap_p0():
+    """
+    TC_43:
+    Test multiple set statements as part of a route-map"s
+    single sequence number.
+    """
+    tgen = get_topogen()
+    global bgp_convergence
+
+    if bgp_convergence is not True:
+        pytest.skip("skipped because of BGP Convergence failure")
+
+    # test case name
+    tc_name = inspect.stack()[0][3]
+    write_test_header(tc_name)
+    reset_config_on_routers(tgen)
+
+    # Create ip prefix list
+    input_dict_2 = {
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit"}
+                    ]
+                },
+            }
+        }
+    }
+    result = create_prefix_lists(tgen, input_dict_2)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    # Create route map
+    for addr_type in ADDR_TYPES:
+        input_dict_3 = {
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150, "weight": 100, "metric": 50},
+                        }
+                    ]
+                }
+            }
+        }
+        result = create_route_maps(tgen, input_dict_3)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    # Configure neighbor for route map
+    input_dict_4 = {
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
@@ -2650,268 +2903,51 @@ def test_set_localpref_weight_to_ebgp_and_med_to_ibgp_peers_p0():
                                 "r1": {
                                     "dest_link": {
                                         "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_1_ipv6",
-                                                    "direction": 'in'
-                                            }]
-                                        }
-                                    }
-                                },
-                                "r4": {
-                                    "dest_link": {
-                                        "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_2_ipv6",
-                                                    "direction": 'out'
-                                            }]
-                                        }
-                                    }
-                                },
-                                "r5": {
-                                    "dest_link": {
-                                        "r3": {
-                                            "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_pf_3_ipv6",
-                                                    "direction": 'out'
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
     }
-
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
-    input_dict = topo["routers"]
-    for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
-
-    # Verifying BGP set attributes
-    dut = 'r3'
-    routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
-    }
-    rmap_name = "rmap_match_pf_1"
-    for addr_type in ADDR_TYPES:
-        rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[
-            addr_type],rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
-
-    # Verifying RIB routes
-    dut = 'r4'
-    protocol = 'bgp'
-    for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
-
-    # Verifying BGP set attributes
-    dut = 'r4'
-    routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
-    }
-    rmap_name = "rmap_match_pf_2"
-    for addr_type in ADDR_TYPES:
-        rmap_name = "rmap_match_pf_2_{}".format(addr_type)
-
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                rmap_name, input_dict_3_addr_type[addr_type])
-        assert result is not True, 'Testcase {} : Failed \n'
-        'Expected behaviour: Attributes are not set \n'
-        'Error: {}'.format(
-            tc_name, result)
-
-    # Verifying RIB routes
-    dut = 'r5'
-    protocol = 'bgp'
-    for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
-    # Verifying BGP set attributes
-    dut = 'r5'
-    routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
-    }
-
-    rmap_name = "rmap_match_pf_3"
-    for addr_type in ADDR_TYPES:
-        rmap_name = "rmap_match_pf_3_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                rmap_name, input_dict_3_addr_type[addr_type])
-        assert result is not True, 'Testcase {} : Failed \n'
-        'Expected behaviour: Attributes are not set \n'
-        'Error: {}'.format(
-            tc_name, result)
-
-        logger.info("Expected behaviour: {}".format(result))
-
-    write_test_footer(tc_name)
-
-    # Uncomment next line for debugging
-    # tgen.mininet_cli()
-
-
-def test_multiple_set_on_single_sequence_in_rmap_p0():
-    """
-    TC_43:
-    Test multiple set statements as part of a route-map's
-    single sequence number.
-    """
-    tgen = get_topogen()
-    global bgp_convergence
-
-    if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
-
-    # test case name
-    tc_name = inspect.stack()[0][3]
-    write_test_header(tc_name)
-    reset_config_on_routers(tgen)
-
-    # Create ip prefix list
-    input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-                },
-                'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-                }
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
-
-    # Create route map
-    for addr_type in ADDR_TYPES:
-        input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                    "action": "permit",
-                    "match": {
-                        addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
-                    }
-                },
-                    "set": {
-                        "localpref": 150,
-                        "weight": 100,
-                        "med": 50
-                    }
-                }]
-            }
-        }
-        }
-        result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
-
-    # Configure neighbor for route map
-    input_dict_4 = {
-       'r3': {
-             "bgp": {
-                 "address_family": {
-                     "ipv4": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv4",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     },
-                     "ipv6": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv6",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     }
-                 }
-             }
-         }
-     }
-    result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
-
-    # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
 
     rmap_name = "rmap_match_pf_1"
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -2928,7 +2964,7 @@ def test_route_maps_with_continue_clause_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -2937,153 +2973,150 @@ def test_route_maps_with_continue_clause_p0():
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            },
-                'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            }
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit"}
+                    ]
+                },
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                        "action": "permit",
-                        'seq_id': '10',
-                        "match": {
-                            addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
-                        }
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "10",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150},
+                            "continue": "30",
                         },
-                        "set": {
-                            "localpref": 150
+                        {
+                            "action": "permit",
+                            "seq_id": "20",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"metric": 200},
                         },
-                        "continue": "30"
-                    },
-                    {
-                        "action": "permit",
-                        'seq_id': '20',
-                        "match": {
-                            addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
-                        }
+                        {
+                            "action": "permit",
+                            "seq_id": "30",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"metric": 100},
                         },
-                        "set": {
-                            "med": 200
-                        }
-                    },
-                    {
-                        "action": "permit",
-                        'seq_id': '30',
-                        "match": {
-                            addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
-                        }
-                        },
-                        "set": {
-                            "med": 100
-                        }
-                    }
-                ]
+                    ]
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-       'r3': {
-             "bgp": {
-                 "address_family": {
-                     "ipv4": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv4",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     },
-                     "ipv6": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv6",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     }
-                 }
-             }
-         }
-     }
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-            protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     rmap_name = "rmap_match_pf_1"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
-    seq_id = {
-          "ipv4": ["10", "30"],
-          "ipv6": ["10", "30"]
-    }
+    seq_id = {"ipv4": ["10", "30"], "ipv6": ["10", "30"]}
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[
-            addr_type],rmap_name, input_dict_3, seq_id[addr_type])
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen,
+            addr_type,
+            dut,
+            routes[addr_type],
+            rmap_name,
+            input_dict_3,
+            seq_id[addr_type],
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -3100,7 +3133,7 @@ def test_route_maps_with_goto_clause_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -3109,149 +3142,150 @@ def test_route_maps_with_goto_clause_p0():
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            },
-                'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            }
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit"}
+                    ]
+                },
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                        "action": "permit",
-                        'seq_id': '10',
-                        "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
-                        }
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": "10",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "goto": "30",
                         },
-                        "goto": "30"
-                    },
-                    {
-                        "action": "permit",
-                        'seq_id': '20',
-                        "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
-                        }
+                        {
+                            "action": "permit",
+                            "seq_id": "20",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"metric": 100},
                         },
-                        "set": {
-                            "med": 100
-                        }
-                    },
-                    {
-                        "action": "permit",
-                        'seq_id': '30',
-                        "match": {
-                        addr_type: {
-                            "prefix_lists": "pf_list_1_{}".format(addr_type)
-                        }
+                        {
+                            "action": "permit",
+                            "seq_id": "30",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"metric": 200},
                         },
-                        "set": {
-                            "med": 200
-                        }
-                    }
-                ]
+                    ]
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        # tgen.mininet_cli()
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-       'r3': {
-             "bgp": {
-                 "address_family": {
-                     "ipv4": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv4",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     },
-                     "ipv6": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv6",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     }
-                 }
-             }
-         }
-     }
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     rmap_name = "rmap_match_pf_1"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
-    seq_id = {
-          "ipv4": ["10", "30"],
-          "ipv6": ["10", "30"]
-    }
+    seq_id = {"ipv4": ["10", "30"], "ipv6": ["10", "30"]}
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[
-            addr_type],rmap_name, input_dict_3, seq_id[addr_type])
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen,
+            addr_type,
+            dut,
+            routes[addr_type],
+            rmap_name,
+            input_dict_3,
+            seq_id[addr_type],
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -3268,7 +3302,7 @@ def test_route_maps_with_call_clause_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -3277,141 +3311,143 @@ def test_route_maps_with_call_clause_p0():
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            },
-                'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            }
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit"}
+                    ]
+                },
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                    "action": "permit",
-                    "match": {
-                        addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
-                    }
-                    },
-                    "set": {
-                        "localpref": 150
-                    },
-                    "call": "rmap_match_pf_2_{}".format(addr_type)
-                }],
-                "rmap_match_pf_2_{}".format(addr_type): [{
-                    "action": "permit",
-                    "match": {
-                        addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
-                    }
-                    },
-                    "set": {
-                        "med": 200
-                    }
-                }]
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150},
+                            "call": "rmap_match_pf_2_{}".format(addr_type),
+                        }
+                    ],
+                    "rmap_match_pf_2_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"metric": 200},
+                        }
+                    ],
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-       'r3': {
-             "bgp": {
-                 "address_family": {
-                     "ipv4": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv4",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     },
-                     "ipv6": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv6",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     }
-                 }
-             }
-         }
-     }
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv6",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Verifying BGP set attributes
-    dut = 'r3'
+    dut = "r3"
     routes = {
-          "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
-          "ipv6": ["1::1/128", "1::2/128"]
+        "ipv4": ["10.0.20.1/32", "10.0.20.2/32"],
+        "ipv6": ["1::1/128", "1::2/128"],
     }
     rmap_name = "rmap_match_pf_1"
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_1_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                   rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     rmap_name = "rmap_match_pf_2"
     for addr_type in ADDR_TYPES:
         rmap_name = "rmap_match_pf_2_{}".format(addr_type)
-        result = verify_bgp_attributes(tgen, addr_type, dut, routes[addr_type],
-                                    rmap_name, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_bgp_attributes(
+            tgen, addr_type, dut, routes[addr_type], rmap_name, input_dict_3
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -3429,7 +3465,7 @@ def test_create_rmap_match_prefix_list_to_deny_in_and_outbound_prefixes_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -3438,154 +3474,153 @@ def test_create_rmap_match_prefix_list_to_deny_in_and_outbound_prefixes_p0():
 
     # Create ip prefix list
     input_dict_2 = {
-        'r3': {
-            'prefix_lists': {
-                'ipv4': {
-                'pf_list_1_ipv4': [{
-                    'seqid': 10,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            },
-                'ipv6': {
-                'pf_list_1_ipv6': [{
-                    'seqid': 100,
-                    'network': 'any',
-                    'action': 'permit'
-                }]
-            }
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1_ipv4": [
+                        {"seqid": 10, "network": "any", "action": "permit"}
+                    ]
+                },
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {"seqid": 100, "network": "any", "action": "permit"}
+                    ]
+                },
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Create route map
     for addr_type in ADDR_TYPES:
         input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "rmap_match_pf_1_{}".format(addr_type): [{
-                    "action": "deny",
-                    "match": {
-                        addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
-                    }
-                    },
-                    "set": {
-                        "localpref": 150,
-                    }
-                }],
-                "rmap_match_pf_2_{}".format(addr_type): [{
-                    "action": "deny",
-                    "match": {
-                        addr_type: {
-                        "prefix_lists": "pf_list_1_{}".format(addr_type)
-                    }
-                    },
-                    "set": {
-                        "med": 50
-                    }
-                }]
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_1_{}".format(addr_type): [
+                        {
+                            "action": "deny",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"locPrf": 150,},
+                        }
+                    ],
+                    "rmap_match_pf_2_{}".format(addr_type): [
+                        {
+                            "action": "deny",
+                            "match": {
+                                addr_type: {
+                                    "prefix_lists": "pf_list_1_{}".format(addr_type)
+                                }
+                            },
+                            "set": {"metric": 50},
+                        }
+                    ],
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-       'r3': {
-             "bgp": {
-                 "address_family": {
-                     "ipv4": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv4",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 },
-                                 "r4": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_2_ipv6",
-                                                     "direction": 'out'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     },
-                     "ipv6": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r1": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_1_ipv4",
-                                                     "direction": 'in'
-                                             }]
-                                         }
-                                     }
-                                 },
-                                 "r4": {
-                                     "dest_link": {
-                                         "r3": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_pf_2_ipv6",
-                                                     "direction": 'out'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     }
-                 }
-             }
-         }
-     }
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_2_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_1_ipv4",
+                                                    "direction": "in",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_pf_2_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
     input_dict = topo["routers"]
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-        protocol=protocol)
-        assert result is not True, 'Testcase {} : Failed \n'
-        'Expected behaviour: routes are not present \n '
-        'Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n"
+        "routes are not present \n Error: {}".format(tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
 
     # Verifying RIB routes
-    dut = 'r4'
-    protocol = 'bgp'
+    dut = "r4"
+    protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-        protocol=protocol)
-        assert result is not True, 'Testcase {} : Failed \n'
-        'Expected behaviour: routes are not present \n '
-        'Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n"
+        "routes are not present \n Error: {}".format(tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -3603,7 +3638,7 @@ def test_create_rmap_to_match_tag_permit_inbound_prefixes_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -3615,18 +3650,15 @@ def test_create_rmap_to_match_tag_permit_inbound_prefixes_p0():
         input_dict = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": "Null0",
-                        "tag": 4001
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": "Null0", "tag": 4001}
                 ]
             }
         }
 
         result = create_static_routes(tgen, input_dict)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         # Api call to redistribute static routes
         input_dict_1 = {
@@ -3638,7 +3670,7 @@ def test_create_rmap_to_match_tag_permit_inbound_prefixes_p0():
                             "unicast": {
                                 "redistribute": [
                                     {"redist_type": "static"},
-                                    {"redist_type": "connected"}
+                                    {"redist_type": "connected"},
                                 ]
                             }
                         },
@@ -3646,105 +3678,99 @@ def test_create_rmap_to_match_tag_permit_inbound_prefixes_p0():
                             "unicast": {
                                 "redistribute": [
                                     {"redist_type": "static"},
-                                    {"redist_type": "connected"}
+                                    {"redist_type": "connected"},
                                 ]
                             }
-                        }
-                    }
+                        },
+                    },
                 }
             }
         }
 
         result = create_router_bgp(tgen, topo, input_dict_1)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         # Create route map
         input_dict_3 = {
-        "r1": {
-            "route_maps": {
-                "rmap_match_tag_1_{}".format(addr_type): [{
-                    "action": "permit",
-                    "match": {
-                        addr_type: {
-                        "tag": "4001"
-                    }
-                    }
-                }]
+            "r1": {
+                "route_maps": {
+                    "rmap_match_tag_1_{}".format(addr_type): [
+                        {"action": "permit", "match": {addr_type: {"tag": "4001"}}}
+                    ]
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-       'r1': {
-             "bgp": {
-                 "address_family": {
-                     "ipv4": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r3": {
-                                     "dest_link": {
-                                         "r1": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_tag_1_ipv4",
-                                                     "direction": 'out'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     },
-                     "ipv6": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r3": {
-                                     "dest_link": {
-                                         "r1": {
-                                             "route_maps": [{
-                                                     "name":
-                                                     "rmap_match_tag_1_ipv6",
-                                                     "direction": 'out'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     }
-                 }
-             }
-         }
-     }
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r3": {
+                                    "dest_link": {
+                                        "r1": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_tag_1_ipv4",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r3": {
+                                    "dest_link": {
+                                        "r1": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_tag_1_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
 
     for addr_type in ADDR_TYPES:
         input_dict = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": "Null0",
-                        "tag": 4001
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": "Null0", "tag": 4001}
                 ]
             }
         }
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-        protocol=protocol)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -3762,7 +3788,7 @@ def test_create_rmap_to_match_tag_deny_outbound_prefixes_p0():
     global bgp_convergence
 
     if bgp_convergence is not True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = inspect.stack()[0][3]
@@ -3774,18 +3800,15 @@ def test_create_rmap_to_match_tag_deny_outbound_prefixes_p0():
         input_dict = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": "Null0",
-                        "tag": 4001
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": "Null0", "tag": 4001}
                 ]
             }
         }
 
         result = create_static_routes(tgen, input_dict)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         # Api call to redistribute static routes
         input_dict_1 = {
@@ -3797,7 +3820,7 @@ def test_create_rmap_to_match_tag_deny_outbound_prefixes_p0():
                             "unicast": {
                                 "redistribute": [
                                     {"redist_type": "static"},
-                                    {"redist_type": "connected"}
+                                    {"redist_type": "connected"},
                                 ]
                             }
                         },
@@ -3805,112 +3828,108 @@ def test_create_rmap_to_match_tag_deny_outbound_prefixes_p0():
                             "unicast": {
                                 "redistribute": [
                                     {"redist_type": "static"},
-                                    {"redist_type": "connected"}
+                                    {"redist_type": "connected"},
                                 ]
                             }
-                        }
-                    }
+                        },
+                    },
                 }
             }
         }
 
         result = create_router_bgp(tgen, topo, input_dict_1)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         # Create route map
         input_dict_3 = {
-        "r1": {
-            "route_maps": {
-                "rmap_match_tag_1_{}".format(addr_type): [{
-                    "action": "deny",
-                    "match": {
-                        addr_type: {
-                        "tag": "4001"
-                    }
-                    }
-                }]
+            "r1": {
+                "route_maps": {
+                    "rmap_match_tag_1_{}".format(addr_type): [
+                        {"action": "deny", "match": {addr_type: {"tag": "4001"}}}
+                    ]
+                }
             }
         }
-        }
         result = create_route_maps(tgen, input_dict_3)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     # Configure neighbor for route map
     input_dict_4 = {
-       'r1': {
-             "bgp": {
-                 "address_family": {
-                     "ipv4": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r3": {
-                                     "dest_link": {
-                                         "r1": {
-                                             "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_tag_1_ipv4",
-                                                    "direction": 'out'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     },
-                     "ipv6": {
-                         "unicast": {
-                             "neighbor": {
-                                 "r3": {
-                                     "dest_link": {
-                                         "r1": {
-                                             "route_maps": [{
-                                                    "name":
-                                                    "rmap_match_tag_1_ipv6",
-                                                    "direction": 'out'
-                                             }]
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     }
-                 }
-             }
-         }
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r3": {
+                                    "dest_link": {
+                                        "r1": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_tag_1_ipv4",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r3": {
+                                    "dest_link": {
+                                        "r1": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "rmap_match_tag_1_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
     }
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verifying RIB routes
-    dut = 'r3'
-    protocol = 'bgp'
+    dut = "r3"
+    protocol = "bgp"
 
     for addr_type in ADDR_TYPES:
         input_dict = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": "Null0",
-                        "tag": 4001
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": "Null0", "tag": 4001}
                 ]
             }
         }
-        result = verify_rib(tgen, addr_type, dut, input_dict,
-                            protocol=protocol)
-        assert result is not True, 'Testcase {} : Failed \n'
-        'Expected behavior: routes are denied \n Error: {}'.format(
-            tc_name, result)
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n"
+        "routes are denied \n Error: {}".format(tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
 
     # Uncomment next line for debugging
     # tgen.mininet_cli()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2017 Christian Franke
  *
- * This file is part of FreeRangeRouting (FRR)
+ * This file is part of FRRouting (FRR)
  *
  * FRR is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -302,6 +302,7 @@ circuit_get_mt_setting(struct isis_circuit *circuit, uint16_t mtid)
 	return setting;
 }
 
+#ifdef FABRICD
 static int circuit_write_mt_settings(struct isis_circuit *circuit,
 				     struct vty *vty)
 {
@@ -318,6 +319,7 @@ static int circuit_write_mt_settings(struct isis_circuit *circuit,
 	}
 	return written;
 }
+#endif
 
 struct isis_circuit_mt_setting **
 circuit_mt_settings(struct isis_circuit *circuit, unsigned int *mt_count)
@@ -552,6 +554,8 @@ void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
 
 void mt_init(void)
 {
+#ifdef FABRICD
 	hook_register(isis_circuit_config_write,
 		      circuit_write_mt_settings);
+#endif
 }

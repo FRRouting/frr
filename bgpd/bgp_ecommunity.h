@@ -24,21 +24,36 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgpd.h"
 
+/* Refer to rfc7153 for the IANA registry definitions. These are
+ * updated by other standards like rfc7674.
+ */
 /* High-order octet of the Extended Communities type field.  */
 #define ECOMMUNITY_ENCODE_AS                0x00
 #define ECOMMUNITY_ENCODE_IP                0x01
 #define ECOMMUNITY_ENCODE_AS4               0x02
 #define ECOMMUNITY_ENCODE_OPAQUE            0x03
 #define ECOMMUNITY_ENCODE_EVPN              0x06
-#define ECOMMUNITY_ENCODE_TRANS_EXP         0x80 /* Flow Spec */
 #define ECOMMUNITY_ENCODE_REDIRECT_IP_NH    0x08 /* Flow Spec */
+/* Generic Transitive Experimental */
+#define ECOMMUNITY_ENCODE_TRANS_EXP         0x80
+
 /* RFC7674 */
 #define ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 0x81
 #define ECOMMUNITY_EXTENDED_COMMUNITY_PART_3 0x82
 
+/* Non-transitive extended community types. */
+#define ECOMMUNITY_ENCODE_AS_NON_TRANS      0x40
+#define ECOMMUNITY_ENCODE_IP_NON_TRANS      0x41
+#define ECOMMUNITY_ENCODE_AS4_NON_TRANS     0x42
+#define ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS  0x43
+
 /* Low-order octet of the Extended Communities type field.  */
+/* Note: This really depends on the high-order octet. This means that
+ * multiple definitions for the same value are possible.
+ */
 #define ECOMMUNITY_ROUTE_TARGET             0x02
 #define ECOMMUNITY_SITE_ORIGIN              0x03
+#define ECOMMUNITY_LINK_BANDWIDTH           0x04
 #define ECOMMUNITY_TRAFFIC_RATE             0x06 /* Flow Spec */
 #define ECOMMUNITY_TRAFFIC_ACTION           0x07
 #define ECOMMUNITY_REDIRECT_VRF             0x08
@@ -150,6 +165,26 @@ static inline void encode_route_target_as4(as_t as, uint16_t val,
 	eval->val[7] = val & 0xff;
 }
 
+/*
+ * Encode BGP Link Bandwidth extended community
+ *  bandwidth (bw) is in bytes-per-sec
+ */
+static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
+				     struct ecommunity_val *eval)
+{
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_AS;
+	if (non_trans)
+		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
+	eval->val[1] = ECOMMUNITY_LINK_BANDWIDTH;
+	eval->val[2] = (as >> 8) & 0xff;
+	eval->val[3] = as & 0xff;
+	eval->val[4] = (bw >> 24) & 0xff;
+	eval->val[5] = (bw >> 16) & 0xff;
+	eval->val[6] = (bw >> 8) & 0xff;
+	eval->val[7] = bw & 0xff;
+}
+
 extern void ecommunity_init(void);
 extern void ecommunity_finish(void);
 extern void ecommunity_free(struct ecommunity **);
@@ -165,22 +200,22 @@ extern unsigned int ecommunity_hash_make(const void *);
 extern struct ecommunity *ecommunity_str2com(const char *, int, int);
 extern char *ecommunity_ecom2str(struct ecommunity *, int, int);
 extern void ecommunity_strfree(char **s);
-extern int ecommunity_match(const struct ecommunity *,
-			    const struct ecommunity *);
+extern bool ecommunity_match(const struct ecommunity *,
+			     const struct ecommunity *);
 extern char *ecommunity_str(struct ecommunity *);
 extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *,
 						uint8_t, uint8_t);
-extern int ecommunity_add_val(struct ecommunity *ecom,
-			      struct ecommunity_val *eval);
+extern bool ecommunity_add_val(struct ecommunity *ecom,
+			       struct ecommunity_val *eval,
+			       bool unique, bool overwrite);
 
 /* for vpn */
 extern struct ecommunity *ecommunity_new(void);
-extern int ecommunity_add_val(struct ecommunity *, struct ecommunity_val *);
-extern int ecommunity_strip(struct ecommunity *ecom, uint8_t type,
-			    uint8_t subtype);
+extern bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
+			     uint8_t subtype);
 extern struct ecommunity *ecommunity_new(void);
-extern int ecommunity_del_val(struct ecommunity *ecom,
-			      struct ecommunity_val *eval);
+extern bool ecommunity_del_val(struct ecommunity *ecom,
+			       struct ecommunity_val *eval);
 struct bgp_pbr_entry_action;
 extern int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
 			       struct bgp_pbr_entry_action *api);
@@ -201,5 +236,17 @@ extern void bgp_remove_ecomm_from_aggregate_hash(
 					struct bgp_aggregate *aggregate,
 					struct ecommunity *ecommunity);
 extern void bgp_aggr_ecommunity_remove(void *arg);
+extern const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom,
+						uint32_t *bw);
+extern struct ecommunity *ecommunity_replace_linkbw(as_t as,
+				struct ecommunity *ecom, uint64_t cum_bw);
 
+static inline void ecommunity_strip_rts(struct ecommunity *ecom)
+{
+	uint8_t subtype = ECOMMUNITY_ROUTE_TARGET;
+
+	ecommunity_strip(ecom, ECOMMUNITY_ENCODE_AS, subtype);
+	ecommunity_strip(ecom, ECOMMUNITY_ENCODE_IP, subtype);
+	ecommunity_strip(ecom, ECOMMUNITY_ENCODE_AS4, subtype);
+}
 #endif /* _QUAGGA_BGP_ECOMMUNITY_H */

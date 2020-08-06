@@ -144,8 +144,8 @@ void bgp_advertise_unintern(struct hash *hash, struct bgp_advertise_attr *baa)
 	}
 }
 
-int bgp_adj_out_lookup(struct peer *peer, struct bgp_node *rn,
-		       uint32_t addpath_tx_id)
+bool bgp_adj_out_lookup(struct peer *peer, struct bgp_node *rn,
+			uint32_t addpath_tx_id)
 {
 	struct bgp_adj_out *adj;
 	struct peer_af *paf;
@@ -169,11 +169,12 @@ int bgp_adj_out_lookup(struct peer *peer, struct bgp_node *rn,
 				    && adj->addpath_tx_id != addpath_tx_id)
 					continue;
 
-				return (adj->adv ? (adj->adv->baa ? 1 : 0)
-						 : (adj->attr ? 1 : 0));
+				return (adj->adv
+						? (adj->adv->baa ? true : false)
+						: (adj->attr ? true : false));
 			}
 
-	return 0;
+	return false;
 }
 
 
@@ -208,8 +209,8 @@ void bgp_adj_in_remove(struct bgp_node *rn, struct bgp_adj_in *bai)
 	XFREE(MTYPE_BGP_ADJ_IN, bai);
 }
 
-int bgp_adj_in_unset(struct bgp_node *rn, struct peer *peer,
-		     uint32_t addpath_id)
+bool bgp_adj_in_unset(struct bgp_node *rn, struct peer *peer,
+		      uint32_t addpath_id)
 {
 	struct bgp_adj_in *adj;
 	struct bgp_adj_in *adj_next;
@@ -217,7 +218,7 @@ int bgp_adj_in_unset(struct bgp_node *rn, struct peer *peer,
 	adj = rn->adj_in;
 
 	if (!adj)
-		return 0;
+		return false;
 
 	while (adj) {
 		adj_next = adj->next;
@@ -230,7 +231,7 @@ int bgp_adj_in_unset(struct bgp_node *rn, struct peer *peer,
 		adj = adj_next;
 	}
 
-	return 1;
+	return true;
 }
 
 void bgp_sync_init(struct peer *peer)
@@ -256,6 +257,5 @@ void bgp_sync_delete(struct peer *peer)
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		XFREE(MTYPE_BGP_SYNCHRONISE, peer->sync[afi][safi]);
-		peer->sync[afi][safi] = NULL;
 	}
 }

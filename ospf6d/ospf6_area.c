@@ -61,8 +61,7 @@ static void ospf6_area_lsdb_hook_add(struct ospf6_lsa *lsa)
 	case OSPF6_LSTYPE_ROUTER:
 	case OSPF6_LSTYPE_NETWORK:
 		if (IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type)) {
-			zlog_debug("%s Examin LSA %s", __PRETTY_FUNCTION__,
-				   lsa->name);
+			zlog_debug("%s Examin LSA %s", __func__, lsa->name);
 			zlog_debug(" Schedule SPF Calculation for %s",
 				   OSPF6_AREA(lsa->lsdb->data)->name);
 		}
@@ -157,7 +156,7 @@ static int ospf6_area_stub_set(struct ospf6 *ospf6, struct ospf6_area *area)
 		ospf6_area_stub_update(area);
 	}
 
-	return (1);
+	return 1;
 }
 
 static void ospf6_area_stub_unset(struct ospf6 *ospf6, struct ospf6_area *area)

@@ -180,6 +180,12 @@ TAILQ_HEAD(dplane_ctx_q, zebra_dplane_ctx);
 /* Allocate a context object */
 struct zebra_dplane_ctx *dplane_ctx_alloc(void);
 
+/*
+ * Reset an allocated context object for re-use. All internal allocations are
+ * freed.
+ */
+void dplane_ctx_reset(struct zebra_dplane_ctx *ctx);
+
 /* Return a dataplane results context block after use; the caller's pointer will
  * be cleared.
  */
@@ -270,10 +276,18 @@ void dplane_ctx_set_distance(struct zebra_dplane_ctx *ctx, uint8_t distance);
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx);
 
 void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
+
+uint32_t dplane_ctx_get_nhg_id(const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *dplane_ctx_get_ng(
 	const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *dplane_ctx_get_old_ng(
 	const struct zebra_dplane_ctx *ctx);
+
+/* Backup nexthop information (list of nexthops) if present. */
+const struct nexthop_group *
+dplane_ctx_get_backup_ng(const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *
+dplane_ctx_get_old_backup_ng(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for nexthop information */
 uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx);
@@ -430,6 +444,12 @@ enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
 /*
  * Enqueue evpn mac operations for the dataplane.
  */
+extern struct zebra_dplane_ctx *mac_update_internal(
+	enum dplane_op_e op, const struct interface *ifp,
+	const struct interface *br_ifp,
+	vlanid_t vid, const struct ethaddr *mac,
+	struct in_addr vtep_ip, bool sticky);
+
 enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
 					const struct interface *bridge_ifp,
 					vlanid_t vid,
@@ -442,6 +462,15 @@ enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
 					vlanid_t vid,
 					const struct ethaddr *mac,
 					struct in_addr vtep_ip);
+
+/* Helper api to init an empty or new context for a MAC update */
+void dplane_mac_init(struct zebra_dplane_ctx *ctx,
+		     const struct interface *ifp,
+		     const struct interface *br_ifp,
+		     vlanid_t vid,
+		     const struct ethaddr *mac,
+		     struct in_addr vtep_ip,
+		     bool sticky);
 
 /*
  * Enqueue evpn neighbor updates for the dataplane.
@@ -466,6 +495,9 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 					    const struct in_addr *ip,
 					    vni_t vni);
 
+/* Encode route information into data plane context. */
+int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
+			  struct route_node *rn, struct route_entry *re);
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);

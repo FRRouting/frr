@@ -136,6 +136,11 @@ causes the policy to be installed into the kernel.
    This command is available under interface sub-mode.  This turns
    on the PBR map NAME and allows it to work properly.
 
+.. note::
+   This will not dynamically create PBR maps on sub-interfaces (i.e. vlans)
+   even if one is on the master. Each must have the PBR map explicitly added
+   to the interface.
+
 .. _pbr-details:
 
 PBR Details

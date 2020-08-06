@@ -32,7 +32,7 @@ import pytest
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -43,8 +43,10 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+
 class TemplateTopo(Topo):
     "Test topology builder"
+
     def build(self, *_args, **_opts):
         "Build function"
         tgen = get_topogen(self)
@@ -56,17 +58,18 @@ class TemplateTopo(Topo):
         #
         # Create 2 routers
         for routern in range(1, 3):
-            tgen.add_router('r{}'.format(routern))
+            tgen.add_router("r{}".format(routern))
 
         # Create a switch with just one router connected to it to simulate a
         # empty network.
-        switch = tgen.add_switch('s1')
-        switch.add_link(tgen.gears['r1'])
+        switch = tgen.add_switch("s1")
+        switch.add_link(tgen.gears["r1"])
 
         # Create a connection between r1 and r2
-        switch = tgen.add_switch('s2')
-        switch.add_link(tgen.gears['r1'])
-        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch("s2")
+        switch.add_link(tgen.gears["r1"])
+        switch.add_link(tgen.gears["r2"])
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -83,11 +86,12 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_ZEBRA,
             # Uncomment next line to load configuration from ./router/zebra.conf
-            #os.path.join(CWD, '{}/zebra.conf'.format(rname))
+            # os.path.join(CWD, '{}/zebra.conf'.format(rname))
         )
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
+
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -96,6 +100,7 @@ def teardown_module(mod):
     # This function tears down the whole topology.
     tgen.stop_topology()
 
+
 def test_call_mininet_cli():
     "Dummy test that just calls mininet CLI so we can interact with the build."
     tgen = get_topogen()
@@ -103,18 +108,20 @@ def test_call_mininet_cli():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('calling mininet CLI')
+    logger.info("calling mininet CLI")
     tgen.mininet_cli()
+
 
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
-        pytest.skip('Memory leak test/report is disabled')
+        pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

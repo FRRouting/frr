@@ -56,7 +56,7 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 		if (ch->ifassert_state != new_state) {
 			zlog_debug(
 				"%s: (S,G)=%s assert state changed from %s to %s on interface %s",
-				__PRETTY_FUNCTION__, ch->sg_str,
+				__func__, ch->sg_str,
 				pim_ifchannel_ifassert_name(ch->ifassert_state),
 				pim_ifchannel_ifassert_name(new_state),
 				ch->interface->name);
@@ -71,8 +71,8 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 				       sizeof(winner_str));
 			zlog_debug(
 				"%s: (S,G)=%s assert winner changed from %s to %s on interface %s",
-				__PRETTY_FUNCTION__, ch->sg_str, was_str,
-				winner_str, ch->interface->name);
+				__func__, ch->sg_str, was_str, winner_str,
+				ch->interface->name);
 		}
 	} /* PIM_DEBUG_PIM_EVENTS */
 
@@ -130,7 +130,7 @@ static void if_could_assert_do_a1(const char *caller, struct pim_ifchannel *ch)
 		if (assert_action_a1(ch)) {
 			zlog_warn(
 				"%s: %s: (S,G)=%s assert_action_a1 failure on interface %s",
-				__PRETTY_FUNCTION__, caller, ch->sg_str,
+				__func__, caller, ch->sg_str,
 				ch->interface->name);
 			/* log warning only */
 		}
@@ -153,12 +153,12 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 	case PIM_IFASSERT_NOINFO:
 		if (recv_metric.rpt_bit_flag) {
 			/* RPT bit set */
-			if_could_assert_do_a1(__PRETTY_FUNCTION__, ch);
+			if_could_assert_do_a1(__func__, ch);
 		} else {
 			/* RPT bit clear */
 			if (inferior_assert(&ch->ifassert_my_metric,
 					    &recv_metric)) {
-				if_could_assert_do_a1(__PRETTY_FUNCTION__, ch);
+				if_could_assert_do_a1(__func__, ch);
 			} else if (acceptable_assert(&ch->ifassert_my_metric,
 						     &recv_metric)) {
 				if (PIM_IF_FLAG_TEST_ASSERT_TRACKING_DESIRED(
@@ -205,8 +205,7 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 	default: {
 		zlog_warn(
 			"%s: (S,G)=%s invalid assert state %d on interface %s",
-			__PRETTY_FUNCTION__, ch->sg_str, ch->ifassert_state,
-			ifp->name);
+			__func__, ch->sg_str, ch->ifassert_state, ifp->name);
 	}
 		return -2;
 	}
@@ -225,7 +224,7 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	int curr_size;
 	struct pim_interface *pim_ifp = NULL;
 
-	on_trace(__PRETTY_FUNCTION__, ifp, src_addr);
+	on_trace(__func__, ifp, src_addr);
 
 	curr = buf;
 	curr_size = buf_size;
@@ -239,7 +238,7 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		char src_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 		zlog_warn("%s: pim_parse_addr_group() failure: from %s on %s",
-			  __PRETTY_FUNCTION__, src_str, ifp->name);
+			  __func__, src_str, ifp->name);
 		return -1;
 	}
 	curr += offset;
@@ -253,7 +252,7 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		char src_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 		zlog_warn("%s: pim_parse_addr_ucast() failure: from %s on %s",
-			  __PRETTY_FUNCTION__, src_str, ifp->name);
+			  __func__, src_str, ifp->name);
 		return -2;
 	}
 	curr += offset;
@@ -264,7 +263,7 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 		zlog_warn(
 			"%s: preference/metric size is less than 8 bytes: size=%d from %s on interface %s",
-			__PRETTY_FUNCTION__, curr_size, src_str, ifp->name);
+			__func__, curr_size, src_str, ifp->name);
 		return -3;
 	}
 
@@ -297,9 +296,8 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		pim_inet4_dump("<grp?>", sg.grp, group_str, sizeof(group_str));
 		zlog_debug(
 			"%s: from %s on %s: (S,G)=(%s,%s) pref=%u metric=%u rpt_bit=%u",
-			__PRETTY_FUNCTION__, neigh_str, ifp->name, source_str,
-			group_str, msg_metric.metric_preference,
-			msg_metric.route_metric,
+			__func__, neigh_str, ifp->name, source_str, group_str,
+			msg_metric.metric_preference, msg_metric.route_metric,
 			PIM_FORCE_BOOLEAN(msg_metric.rpt_bit_flag));
 	}
 
@@ -380,7 +378,7 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
 			       sizeof(group_str));
 		zlog_warn(
 			"%s: failure encoding group address %s: space left=%d",
-			__PRETTY_FUNCTION__, group_str, remain);
+			__func__, group_str, remain);
 		return -1;
 	}
 
@@ -394,7 +392,7 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
 			       sizeof(source_str));
 		zlog_warn(
 			"%s: failure encoding source address %s: space left=%d",
-			__PRETTY_FUNCTION__, source_str, remain);
+			__func__, source_str, remain);
 		return -2;
 	}
 
@@ -429,7 +427,7 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 	if (!ifp) {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug("%s: channel%s has no associated interface!",
-				   __PRETTY_FUNCTION__, ch->sg_str);
+				   __func__, ch->sg_str);
 		return -1;
 	}
 	pim_ifp = ifp->info;
@@ -437,7 +435,7 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: channel %s pim not enabled on interface: %s",
-				__PRETTY_FUNCTION__, ch->sg_str, ifp->name);
+				__func__, ch->sg_str, ifp->name);
 		return -1;
 	}
 
@@ -448,7 +446,7 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 	if (pim_msg_size < 1) {
 		zlog_warn(
 			"%s: failure building PIM assert message: msg_size=%d",
-			__PRETTY_FUNCTION__, pim_msg_size);
+			__func__, pim_msg_size);
 		return -2;
 	}
 
@@ -465,7 +463,7 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_debug("%s: to %s: (S,G)=%s pref=%u metric=%u rpt_bit=%u",
-			   __PRETTY_FUNCTION__, ifp->name, ch->sg_str,
+			   __func__, ifp->name, ch->sg_str,
 			   metric.metric_preference, metric.route_metric,
 			   PIM_FORCE_BOOLEAN(metric.rpt_bit_flag));
 	}
@@ -475,7 +473,7 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 			 qpim_all_pim_routers_addr, pim_msg, pim_msg_size,
 			 ifp->name)) {
 		zlog_warn("%s: could not send PIM message on interface %s",
-			  __PRETTY_FUNCTION__, ifp->name);
+			  __func__, ifp->name);
 		return -3;
 	}
 
@@ -516,7 +514,7 @@ static int on_assert_timer(struct thread *t)
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_debug("%s: (S,G)=%s timer expired on interface %s",
-			   __PRETTY_FUNCTION__, ch->sg_str, ifp->name);
+			   __func__, ch->sg_str, ifp->name);
 	}
 
 	ch->t_ifassert_timer = NULL;
@@ -532,8 +530,8 @@ static int on_assert_timer(struct thread *t)
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_warn(
 				"%s: (S,G)=%s invalid assert state %d on interface %s",
-				__PRETTY_FUNCTION__, ch->sg_str,
-				ch->ifassert_state, ifp->name);
+				__func__, ch->sg_str, ch->ifassert_state,
+				ifp->name);
 	}
 	}
 
@@ -546,8 +544,7 @@ static void assert_timer_off(struct pim_ifchannel *ch)
 		if (ch->t_ifassert_timer) {
 			zlog_debug(
 				"%s: (S,G)=%s cancelling timer on interface %s",
-				__PRETTY_FUNCTION__, ch->sg_str,
-				ch->interface->name);
+				__func__, ch->sg_str, ch->interface->name);
 		}
 	}
 	THREAD_OFF(ch->t_ifassert_timer);
@@ -559,8 +556,7 @@ static void pim_assert_timer_set(struct pim_ifchannel *ch, int interval)
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_debug("%s: (S,G)=%s starting %u sec timer on interface %s",
-			   __PRETTY_FUNCTION__, ch->sg_str, interval,
-			   ch->interface->name);
+			   __func__, ch->sg_str, interval, ch->interface->name);
 	}
 
 	thread_add_timer(router->master, on_assert_timer, ch, interval,
@@ -591,7 +587,7 @@ int assert_action_a1(struct pim_ifchannel *ch)
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
 		zlog_warn("%s: (S,G)=%s multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ch->sg_str, ifp->name);
+			  __func__, ch->sg_str, ifp->name);
 		return -1; /* must return since pim_ifp is used below */
 	}
 
@@ -604,7 +600,7 @@ int assert_action_a1(struct pim_ifchannel *ch)
 	if (assert_action_a3(ch)) {
 		zlog_warn(
 			"%s: (S,G)=%s assert_action_a3 failure on interface %s",
-			__PRETTY_FUNCTION__, ch->sg_str, ifp->name);
+			__func__, ch->sg_str, ifp->name);
 		/* warning only */
 	}
 
@@ -612,7 +608,7 @@ int assert_action_a1(struct pim_ifchannel *ch)
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_warn(
 				"%s: channel%s not in expected PIM_IFASSERT_I_AM_WINNER state",
-				__PRETTY_FUNCTION__, ch->sg_str);
+				__func__, ch->sg_str);
 	}
 
 	return 0;
@@ -639,7 +635,7 @@ static void assert_action_a2(struct pim_ifchannel *ch,
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_warn(
 				"%s: channel%s not in expected PIM_IFASSERT_I_AM_LOSER state",
-				__PRETTY_FUNCTION__, ch->sg_str);
+				__func__, ch->sg_str);
 	}
 }
 
@@ -657,7 +653,7 @@ static int assert_action_a3(struct pim_ifchannel *ch)
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_warn(
 				"%s: channel%s expected to be in PIM_IFASSERT_I_AM_WINNER state",
-				__PRETTY_FUNCTION__, ch->sg_str);
+				__func__, ch->sg_str);
 		return -1;
 	}
 
@@ -665,7 +661,7 @@ static int assert_action_a3(struct pim_ifchannel *ch)
 
 	if (pim_assert_send(ch)) {
 		zlog_warn("%s: (S,G)=%s failure sending assert on interface %s",
-			  __PRETTY_FUNCTION__, ch->sg_str, ch->interface->name);
+			  __func__, ch->sg_str, ch->interface->name);
 		return -1;
 	}
 
@@ -686,7 +682,7 @@ void assert_action_a4(struct pim_ifchannel *ch)
 {
 	if (pim_assert_cancel(ch)) {
 		zlog_warn("%s: failure sending AssertCancel%s on interface %s",
-			  __PRETTY_FUNCTION__, ch->sg_str, ch->interface->name);
+			  __func__, ch->sg_str, ch->interface->name);
 		/* log warning only */
 	}
 
@@ -696,7 +692,7 @@ void assert_action_a4(struct pim_ifchannel *ch)
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_warn(
 				"%s: channel%s not in PIM_IFASSERT_NOINFO state as expected",
-				__PRETTY_FUNCTION__, ch->sg_str);
+				__func__, ch->sg_str);
 	}
 }
 
@@ -715,7 +711,7 @@ void assert_action_a5(struct pim_ifchannel *ch)
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_warn(
 				"%s: channel%s not in PIM_IFSSERT_NOINFO state as expected",
-				__PRETTY_FUNCTION__, ch->sg_str);
+				__func__, ch->sg_str);
 	}
 }
 
@@ -747,6 +743,6 @@ static void assert_action_a6(struct pim_ifchannel *ch,
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_warn(
 				"%s: channel%s not in PIM_IFASSERT_I_AM_LOSER state as expected",
-				__PRETTY_FUNCTION__, ch->sg_str);
+				__func__, ch->sg_str);
 	}
 }

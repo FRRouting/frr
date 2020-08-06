@@ -35,7 +35,7 @@ import platform
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -49,17 +49,19 @@ from mininet.topo import Topo
 
 class BGPIPV6RTADVVRFTopo(Topo):
     "Test topology builder"
+
     def build(self, *_args, **_opts):
         "Build function"
         tgen = get_topogen(self)
 
         # Create 2 routers.
-        tgen.add_router('r1')
-        tgen.add_router('r2')
+        tgen.add_router("r1")
+        tgen.add_router("r2")
 
-        switch = tgen.add_switch('s1')
-        switch.add_link(tgen.gears['r1'])
-        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch("s1")
+        switch.add_link(tgen.gears["r1"])
+        switch.add_link(tgen.gears["r2"])
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -68,51 +70,56 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    logger.info('Testing with VRF Lite support')
+    logger.info("Testing with VRF Lite support")
     krel = platform.release()
 
     # May need to adjust handling of vrf traffic depending on kernel version
     l3mdev_accept = 0
-    if topotest.version_cmp(krel, '4.15') >= 0 and \
-       topotest.version_cmp(krel, '4.18') <= 0:
+    if (
+        topotest.version_cmp(krel, "4.15") >= 0
+        and topotest.version_cmp(krel, "4.18") <= 0
+    ):
         l3mdev_accept = 1
 
-    if topotest.version_cmp(krel, '5.0') >= 0:
+    if topotest.version_cmp(krel, "5.0") >= 0:
         l3mdev_accept = 1
 
-    logger.info('krel \'{0}\' setting net.ipv4.tcp_l3mdev_accept={1}'.format(
-        krel, l3mdev_accept))
+    logger.info(
+        "krel '{0}' setting net.ipv4.tcp_l3mdev_accept={1}".format(krel, l3mdev_accept)
+    )
 
-    cmds = ['ip link add {0}-cust1 type vrf table 1001',
-            'ip link add loop1 type dummy',
-            'ip link set loop1 master {0}-cust1',
-            'ip link set {0}-eth0 master {0}-cust1']
+    cmds = [
+        "ip link add {0}-cust1 type vrf table 1001",
+        "ip link add loop1 type dummy",
+        "ip link set loop1 master {0}-cust1",
+        "ip link set {0}-eth0 master {0}-cust1",
+    ]
 
     for rname, router in router_list.iteritems():
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
 
-        output = tgen.net[rname].cmd('sysctl -n net.ipv4.tcp_l3mdev_accept')
+        output = tgen.net[rname].cmd("sysctl -n net.ipv4.tcp_l3mdev_accept")
         logger.info(
-            'router {0}: existing tcp_l3mdev_accept was {1}'.format(
-                rname, output))
+            "router {0}: existing tcp_l3mdev_accept was {1}".format(rname, output)
+        )
 
         if l3mdev_accept:
             output = tgen.net[rname].cmd(
-                'sysctl -w net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept))
+                "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept)
+            )
 
     for rname, router in router_list.iteritems():
         router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, '{}/zebra.conf'.format(rname))
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
-            TopoRouter.RD_BGP,
-            os.path.join(CWD, '{}/bgpd.conf'.format(rname))
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
 
     # Initialize all routers.
     tgen.start_router()
+
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
@@ -134,44 +141,51 @@ def test_protocols_convergence():
     logger.info("Checking IPv4 routes for convergence")
 
     for router in tgen.routers().values():
-        json_file = '{}/{}/ipv4_routes.json'.format(CWD, router.name)
+        json_file = "{}/{}/ipv4_routes.json".format(CWD, router.name)
         if not os.path.isfile(json_file):
-            logger.info('skipping file {}'.format(json_file))
+            logger.info("skipping file {}".format(json_file))
             continue
 
         expected = json.loads(open(json_file).read())
-        test_func = partial(topotest.router_json_cmp,
-                            router, 'show ip route vrf {}-cust1 json'.format(router.name), expected)
-        _, result = topotest.run_and_expect(test_func, None, count=160,
-                                            wait=0.5)
+        test_func = partial(
+            topotest.router_json_cmp,
+            router,
+            "show ip route vrf {}-cust1 json".format(router.name),
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
     # Check IPv6 routing tables.
     logger.info("Checking IPv6 routes for convergence")
     for router in tgen.routers().values():
-        json_file = '{}/{}/ipv6_routes.json'.format(CWD, router.name)
+        json_file = "{}/{}/ipv6_routes.json".format(CWD, router.name)
         if not os.path.isfile(json_file):
-            logger.info('skipping file {}'.format(json_file))
+            logger.info("skipping file {}".format(json_file))
             continue
 
         expected = json.loads(open(json_file).read())
-        test_func = partial(topotest.router_json_cmp,
-                            router, 'show ipv6 route vrf {}-cust1 json'.format(router.name), expected)
-        _, result = topotest.run_and_expect(test_func, None, count=160,
-                                            wait=0.5)
+        test_func = partial(
+            topotest.router_json_cmp,
+            router,
+            "show ipv6 route vrf {}-cust1 json".format(router.name),
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
+
 
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
-        pytest.skip('Memory leak test/report is disabled')
+        pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

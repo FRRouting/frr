@@ -44,6 +44,7 @@ static int	 ldp_interface_address_delete(ZAPI_CALLBACK_ARGS);
 static int	 ldp_zebra_read_route(ZAPI_CALLBACK_ARGS);
 static int	 ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS);
 static void	 ldp_zebra_connected(struct zclient *);
+static void	 ldp_zebra_filter_update(struct access_list *access);
 
 static struct zclient	*zclient;
 
@@ -106,7 +107,7 @@ static int
 ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 {
 	struct zapi_labels zl = {};
-	struct zapi_nexthop_label *znh;
+	struct zapi_nexthop *znh;
 
 	if (kr->local_label < MPLS_LABEL_RESERVED_MAX)
 		return (0);
@@ -153,16 +154,14 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	znh = &zl.nexthops[0];
 	switch (kr->af) {
 	case AF_INET:
-		znh->family = AF_INET;
-		znh->address.ipv4 = kr->nexthop.v4;
+		znh->gate.ipv4 = kr->nexthop.v4;
 		if (kr->ifindex)
 			znh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 		else
 			znh->type = NEXTHOP_TYPE_IPV4;
 		break;
 	case AF_INET6:
-		znh->family = AF_INET6;
-		znh->address.ipv6 = kr->nexthop.v6;
+		znh->gate.ipv6 = kr->nexthop.v6;
 		if (kr->ifindex)
 			znh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 		else
@@ -172,7 +171,8 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 		break;
 	}
 	znh->ifindex = kr->ifindex;
-	znh->label = kr->remote_label;
+	znh->label_num = 1;
+	znh->labels[0] = kr->remote_label;
 
 	return zebra_send_mpls_labels(zclient, cmd, &zl);
 }
@@ -526,6 +526,22 @@ ldp_zebra_connected(struct zclient *zclient)
 	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 }
 
+static void
+ldp_zebra_filter_update(struct access_list *access)
+{
+	struct ldp_access laccess;
+
+	if (access && access->name[0] != '\0') {
+		strlcpy(laccess.name, access->name, sizeof(laccess.name));
+		laccess.type = access->type;
+		debug_evt("%s ACL update filter name %s type %d", __func__,
+		    access->name, access->type);
+
+		main_imsg_compose_both(IMSG_FILTER_UPDATE, &laccess,
+			sizeof(laccess));
+	}
+}
+
 extern struct zebra_privs_t ldpd_privs;
 
 void
@@ -546,6 +562,10 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_add = ldp_zebra_read_route;
 	zclient->redistribute_route_del = ldp_zebra_read_route;
 	zclient->pw_status_update = ldp_zebra_read_pw_status_update;
+
+	/* Access list initialize. */
+	access_list_add_hook(ldp_zebra_filter_update);
+	access_list_delete_hook(ldp_zebra_filter_update);
 }
 
 void

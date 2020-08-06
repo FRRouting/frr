@@ -68,7 +68,7 @@ static bool mtrace_fwd_info_weak(struct pim_instance *pim,
 	struct in_addr nh_addr;
 	char nexthop_str[INET_ADDRSTRLEN];
 
-	nh_addr.s_addr = 0;
+	nh_addr.s_addr = INADDR_ANY;
 
 	memset(&nexthop, 0, sizeof(nexthop));
 
@@ -123,7 +123,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	up = pim_upstream_find(pim, &sg);
 
 	if (!up) {
-		sg.src.s_addr = 0;
+		sg.src.s_addr = INADDR_ANY;
 		up = pim_upstream_find(pim, &sg);
 	}
 
@@ -132,8 +132,8 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 
 	if (!up->rpf.source_nexthop.interface) {
 		if (PIM_DEBUG_TRACE)
-			zlog_debug("%s: up %s RPF is not present",
-			__PRETTY_FUNCTION__, up->sg_str);
+			zlog_debug("%s: up %s RPF is not present", __func__,
+				   up->sg_str);
 		return false;
 	}
 
@@ -160,7 +160,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	rspp->rtg_proto = MTRACE_RTG_PROTO_PIM;
 
 	/* 6.2.2. 4. Fill in ... S, and Src Mask */
-	if (sg.src.s_addr) {
+	if (sg.src.s_addr != INADDR_ANY) {
 		rspp->s = 1;
 		rspp->src_mask = MTRACE_SRC_MASK_SOURCE;
 	} else {
@@ -181,9 +181,9 @@ static void mtrace_rsp_set_fwd_code(struct igmp_mtrace_rsp *mtrace_rspp,
 static void mtrace_rsp_init(struct igmp_mtrace_rsp *mtrace_rspp)
 {
 	mtrace_rspp->arrival = 0;
-	mtrace_rspp->incoming.s_addr = 0;
-	mtrace_rspp->outgoing.s_addr = 0;
-	mtrace_rspp->prev_hop.s_addr = 0;
+	mtrace_rspp->incoming.s_addr = INADDR_ANY;
+	mtrace_rspp->outgoing.s_addr = INADDR_ANY;
+	mtrace_rspp->prev_hop.s_addr = INADDR_ANY;
 	mtrace_rspp->in_count = htonl(MTRACE_UNKNOWN_COUNT);
 	mtrace_rspp->out_count = htonl(MTRACE_UNKNOWN_COUNT);
 	mtrace_rspp->total = htonl(MTRACE_UNKNOWN_COUNT);
@@ -271,11 +271,10 @@ static uint32_t query_arrival_time(void)
 	struct timeval tv;
 	uint32_t qat;
 
-	char m_qat[] = "Query arrival time lookup failed: errno=%d: %s";
-
 	if (gettimeofday(&tv, NULL) < 0) {
 		if (PIM_DEBUG_MTRACE)
-			zlog_warn(m_qat, errno, safe_strerror(errno));
+			zlog_warn("Query arrival time lookup failed: errno=%d: %s",
+				  errno, safe_strerror(errno));
 		return 0;
 	}
 	/* not sure second offset correct, as I get different value */
@@ -779,7 +778,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	/* 6.2.2. 2. Attempt to determine the forwarding information... */
 
-	if (mtracep->grp_addr.s_addr)
+	if (mtracep->grp_addr.s_addr != INADDR_ANY)
 		fwd_info = mtrace_fwd_info(pim, mtracep, rspp, &out_ifp);
 	else
 		fwd_info = mtrace_fwd_info_weak(pim, mtracep, rspp, &out_ifp);
@@ -797,7 +796,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	reached_source = false;
 
-	if (nh_addr.s_addr == 0) {
+	if (nh_addr.s_addr == INADDR_ANY) {
 		/* no pim? i.e. 7.5.3. No Previous Hop */
 		if (!out_ifp->info) {
 			if (PIM_DEBUG_MTRACE)

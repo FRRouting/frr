@@ -170,13 +170,10 @@ static uint8_t *rip2Globals(struct variable *v, oid name[], size_t *length,
 	switch (v->magic) {
 	case RIP2GLOBALROUTECHANGES:
 		return SNMP_INTEGER(rip->counters.route_changes);
-		break;
 	case RIP2GLOBALQUERIES:
 		return SNMP_INTEGER(rip->counters.queries);
-		break;
 	default:
 		return NULL;
-		break;
 	}
 	return NULL;
 }
@@ -373,7 +370,6 @@ static uint8_t *rip2IfStatEntry(struct variable *v, oid name[], size_t *length,
 	switch (v->magic) {
 	case RIP2IFSTATADDRESS:
 		return SNMP_IPADDRESS(addr);
-		break;
 	case RIP2IFSTATRCVBADPACKETS:
 		*var_len = sizeof(long);
 		return (uint8_t *)&ri->recv_badpackets;
@@ -557,7 +553,7 @@ static uint8_t *rip2PeerTable(struct variable *v, oid name[], size_t *length,
        * - don't support this variable, at all
        * Currently, we do the latter...
        */
-      *val_len = sizeof (time_t);
+      *val_len = sizeof(time_t);
       uptime = peer->uptime; /* now - snmp_agent_startup - peer->uptime */
       return (uint8_t *) &uptime;
 #else

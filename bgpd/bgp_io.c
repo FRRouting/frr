@@ -462,7 +462,10 @@ static uint16_t bgp_read(struct peer *peer)
 			 safe_strerror(errno));
 
 		if (peer->status == Established) {
-			if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
+			if ((CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
+			     || CHECK_FLAG(peer->flags,
+					   PEER_FLAG_GRACEFUL_RESTART_HELPER))
+			    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
 				peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
 				SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 			} else
@@ -478,7 +481,10 @@ static uint16_t bgp_read(struct peer *peer)
 				   peer->host, peer->fd);
 
 		if (peer->status == Established) {
-			if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
+			if ((CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
+			     || CHECK_FLAG(peer->flags,
+					   PEER_FLAG_GRACEFUL_RESTART_HELPER))
+			    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
 				peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
 				SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 			} else

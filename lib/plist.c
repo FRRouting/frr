@@ -303,6 +303,8 @@ static void prefix_list_delete(struct prefix_list *plist)
 
 	/* If prefix-list contain prefix_list_entry free all of it. */
 	for (pentry = plist->head; pentry; pentry = next) {
+		route_map_notify_pentry_dependencies(plist->name, pentry,
+						     RMAP_EVENT_PLIST_DELETED);
 		next = pentry->next;
 		prefix_list_trie_del(plist, pentry);
 		prefix_list_entry_free(pentry);
@@ -346,14 +348,14 @@ static void prefix_list_delete(struct prefix_list *plist)
 
 static struct prefix_list_entry *
 prefix_list_entry_make(struct prefix *prefix, enum prefix_list_type type,
-		       int64_t seq, int le, int ge, int any)
+		       int64_t seq, int le, int ge, bool any)
 {
 	struct prefix_list_entry *pentry;
 
 	pentry = prefix_list_entry_new();
 
 	if (any)
-		pentry->any = 1;
+		pentry->any = true;
 
 	prefix_copy(&pentry->prefix, prefix);
 	pentry->type = type;
@@ -385,7 +387,7 @@ static int64_t prefix_new_seq_get(struct prefix_list *plist)
 	int64_t newseq;
 	struct prefix_list_entry *pentry;
 
-	maxseq = newseq = 0;
+	maxseq = 0;
 
 	for (pentry = plist->head; pentry; pentry = pentry->next) {
 		if (maxseq < pentry->seq)
@@ -496,7 +498,6 @@ static void prefix_list_trie_del(struct prefix_list *plist,
 	for (; depth > 0; depth--)
 		if (trie_table_empty(*tables[depth])) {
 			XFREE(MTYPE_PREFIX_LIST_TRIE, *tables[depth]);
-			*tables[depth] = NULL;
 		}
 }
 
@@ -519,6 +520,8 @@ static void prefix_list_entry_delete(struct prefix_list *plist,
 	else
 		plist->tail = pentry->prev;
 
+	route_map_notify_pentry_dependencies(plist->name, pentry,
+					     RMAP_EVENT_PLIST_DELETED);
 	prefix_list_entry_free(pentry);
 
 	plist->count--;
@@ -631,6 +634,9 @@ static void prefix_list_entry_add(struct prefix_list *plist,
 
 	/* Increment count. */
 	plist->count++;
+
+	route_map_notify_pentry_dependencies(plist->name, pentry,
+					     RMAP_EVENT_PLIST_ADDED);
 
 	/* Run hook function. */
 	if (plist->master->add_hook)
@@ -772,7 +778,7 @@ static void __attribute__((unused)) prefix_list_print(struct prefix_list *plist)
 
 			p = &pentry->prefix;
 
-			printf("  seq %" PRId64 " %s %s/%d", pentry->seq,
+			printf("  seq %lld %s %s/%d", (long long)pentry->seq,
 			       prefix_list_type_str(pentry),
 			       inet_ntop(p->family, p->u.val, buf, BUFSIZ),
 			       p->prefixlen);
@@ -845,7 +851,7 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 	struct prefix_list_entry *pentry;
 	struct prefix_list_entry *dup;
 	struct prefix p, p_tmp;
-	int any = 0;
+	bool any = false;
 	int64_t seqnum = -1;
 	int lenum = 0;
 	int genum = 0;
@@ -883,7 +889,7 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 					      (struct prefix_ipv4 *)&p);
 			genum = 0;
 			lenum = IPV4_MAX_BITLEN;
-			any = 1;
+			any = true;
 		} else
 			ret = str2prefix_ipv4(prefix, (struct prefix_ipv4 *)&p);
 
@@ -902,7 +908,7 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 			ret = str2prefix_ipv6("::/0", (struct prefix_ipv6 *)&p);
 			genum = 0;
 			lenum = IPV6_MAX_BITLEN;
-			any = 1;
+			any = true;
 		} else
 			ret = str2prefix_ipv6(prefix, (struct prefix_ipv6 *)&p);
 
@@ -920,7 +926,6 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 	default:
 		vty_out(vty, "%% Unrecognized AFI (%d)\n", afi);
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	}
 
 	/* If prefix has bits not under the mask, adjust it to fit */
@@ -1093,10 +1098,7 @@ static int vty_prefix_list_desc_unset(struct vty *vty, afi_t afi,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (plist->desc) {
-		XFREE(MTYPE_TMP, plist->desc);
-		plist->desc = NULL;
-	}
+	XFREE(MTYPE_TMP, plist->desc);
 
 	if (plist->head == NULL && plist->tail == NULL && plist->desc == NULL)
 		prefix_list_delete(plist);
@@ -1896,7 +1898,7 @@ int prefix_bgp_orf_set(char *name, afi_t afi, struct orf_prefix *orfp,
 	if (set) {
 		pentry = prefix_list_entry_make(
 			&orfp->p, (permit ? PREFIX_PERMIT : PREFIX_DENY),
-			orfp->seq, orfp->le, orfp->ge, 0);
+			orfp->seq, orfp->le, orfp->ge, false);
 
 		if (prefix_entry_dup_check(plist, pentry)) {
 			prefix_list_entry_free(pentry);
@@ -1959,10 +1961,9 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 			char buf_a[BUFSIZ];
 			char buf_b[BUFSIZ];
 
-			sprintf(buf_a, "%s/%d",
-				inet_ntop(p->family, p->u.val, buf_b,
-					  BUFSIZ),
-				p->prefixlen);
+			snprintf(buf_a, sizeof(buf_a), "%s/%d",
+				 inet_ntop(p->family, p->u.val, buf_b, BUFSIZ),
+				 p->prefixlen);
 
 			json_object_int_add(json_list, "seq", pentry->seq);
 			json_object_string_add(json_list, "seqPrefixListType",
@@ -2037,15 +2038,19 @@ static void prefix_list_reset_afi(afi_t afi, int orf)
 	assert(master->str.head == NULL);
 	assert(master->str.tail == NULL);
 
-	master->seqnum = 1;
+	master->seqnum = true;
 	master->recent = NULL;
 }
 
 
+static int config_write_prefix_ipv4(struct vty *vty);
 /* Prefix-list node. */
-static struct cmd_node prefix_node = {PREFIX_NODE,
-				      "", /* Prefix list has no interface. */
-				      1};
+static struct cmd_node prefix_node = {
+	.name = "ipv4 prefix list",
+	.node = PREFIX_NODE,
+	.prompt = "",
+	.config_write = config_write_prefix_ipv4,
+};
 
 static int config_write_prefix_ipv4(struct vty *vty)
 {
@@ -2083,7 +2088,7 @@ static const struct cmd_variable_handler plist_var_handlers[] = {
 
 static void prefix_list_init_ipv4(void)
 {
-	install_node(&prefix_node, config_write_prefix_ipv4);
+	install_node(&prefix_node);
 
 	install_element(CONFIG_NODE, &ip_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ip_prefix_list_cmd);
@@ -2105,10 +2110,14 @@ static void prefix_list_init_ipv4(void)
 	install_element(ENABLE_NODE, &clear_ip_prefix_list_cmd);
 }
 
+static int config_write_prefix_ipv6(struct vty *vty);
 /* Prefix-list node. */
 static struct cmd_node prefix_ipv6_node = {
-	PREFIX_IPV6_NODE, "", /* Prefix list has no interface. */
-	1};
+	.name = "ipv6 prefix list",
+	.node = PREFIX_IPV6_NODE,
+	.prompt = "",
+	.config_write = config_write_prefix_ipv6,
+};
 
 static int config_write_prefix_ipv6(struct vty *vty)
 {
@@ -2117,7 +2126,7 @@ static int config_write_prefix_ipv6(struct vty *vty)
 
 static void prefix_list_init_ipv6(void)
 {
-	install_node(&prefix_ipv6_node, config_write_prefix_ipv6);
+	install_node(&prefix_ipv6_node);
 
 	install_element(CONFIG_NODE, &ipv6_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_prefix_list_cmd);

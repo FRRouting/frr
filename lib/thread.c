@@ -114,11 +114,10 @@ static void vty_out_cpu_thread_history(struct vty *vty,
 				       struct cpu_thread_history *a)
 {
 	vty_out(vty, "%5zu %10zu.%03zu %9zu %8zu %9zu %8zu %9zu",
-		(size_t)a->total_active,
-		a->cpu.total / 1000, a->cpu.total % 1000,
-		(size_t)a->total_calls,
-		a->cpu.total / a->total_calls, a->cpu.max,
-		a->real.total / a->total_calls, a->real.max);
+		(size_t)a->total_active, a->cpu.total / 1000,
+		a->cpu.total % 1000, (size_t)a->total_calls,
+		(size_t)(a->cpu.total / a->total_calls), a->cpu.max,
+		(size_t)(a->real.total / a->total_calls), a->real.max);
 	vty_out(vty, " %c%c%c%c%c %s\n",
 		a->types & (1 << THREAD_READ) ? 'R' : ' ',
 		a->types & (1 << THREAD_WRITE) ? 'W' : ' ',
@@ -171,7 +170,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	struct thread_master *m;
 	struct listnode *ln;
 
-	memset(&tmp, 0, sizeof tmp);
+	memset(&tmp, 0, sizeof(tmp));
 	tmp.funcname = "TOTAL";
 	tmp.types = filter;
 
@@ -725,6 +724,7 @@ static int fd_poll(struct thread_master *m, struct pollfd *pfds, nfds_t pfdsize,
 		 < 0) // effect a poll (return immediately)
 		timeout = 0;
 
+	zlog_tls_buffer_flush();
 	rcu_read_unlock();
 	rcu_assert_read_unlocked();
 
@@ -1094,7 +1094,8 @@ static void do_thread_cancel(struct thread_master *master)
 	}
 
 	/* Delete and free all cancellation requests */
-	list_delete_all_node(master->cancel_req);
+	if (master->cancel_req)
+		list_delete_all_node(master->cancel_req);
 
 	/* Wake up any threads which may be blocked in thread_cancel_async() */
 	master->canceled = true;

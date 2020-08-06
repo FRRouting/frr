@@ -20,13 +20,18 @@ module frr-isisd {
   }
 
   organization
-    "Free Range Routing";
+    "FRRouting";
   contact
     "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
      List: <mailto:dev@lists.frrouting.org>";
   description
     "This module defines a model for managing FRR isisd daemon.";
 
+  revision 2020-04-06 {
+    description
+      "Group LSP timers in a container so that they can be displayed and
+       configured together";
+  }
   revision 2019-12-17 {
     description
       "Changed default area is-type to level-1-2";
@@ -34,7 +39,7 @@ module frr-isisd {
   revision 2019-09-09 {
     description
       "Changed interface references to use
-      frr-interface:interface-ref typedef";
+       frr-interface:interface-ref typedef";
   }
   revision 2018-07-26 {
     description
@@ -301,8 +306,8 @@ module frr-isisd {
   }
 
   grouping interface-config {
-    description "Interface configuration grouping";
-
+    description
+      "Interface configuration grouping";
     leaf area-tag {
       type string;
       mandatory true;
@@ -333,8 +338,9 @@ module frr-isisd {
 
     leaf bfd-monitoring {
       type boolean;
-      default false;
-      description "Monitor IS-IS peers on this circuit.";
+      default "false";
+      description
+        "Monitor IS-IS peers on this circuit.";
     }
 
     container csnp-interval {
@@ -490,8 +496,8 @@ module frr-isisd {
 
     leaf network-type {
       type network-type;
-      default "broadcast";
       must "(. = \"point-to-point\") or (. = \"broadcast\")";
+      default "broadcast";
       description
         "Explicitly configured type of IS-IS circuit (broadcast or point-to-point).";
     }
@@ -570,38 +576,50 @@ module frr-isisd {
   }
 
   grouping adjacency-state {
+    description
+      "Adjacency state";
     container adjacencies {
       config false;
+      description
+        "This container lists the adjacencies of
+         the local node.";
       list adjacency {
+        description
+          "List of operational adjacencies.";
         leaf neighbor-sys-type {
           type level;
           description
             "Level capability of neighboring system";
         }
+
         leaf neighbor-sysid {
           type system-id;
           description
             "The system-id of the neighbor";
         }
+
         leaf neighbor-extended-circuit-id {
           type extended-circuit-id;
           description
             "Circuit ID of the neighbor";
         }
+
         leaf neighbor-snpa {
           type snpa;
           description
             "SNPA of the neighbor";
         }
+
         leaf hold-timer {
           type uint16;
-          units seconds;
+          units "seconds";
           description
             "The holding time in seconds for this
              adjacency. This value is based on
              received hello PDUs and the elapsed
              time since receipt.";
         }
+
         leaf neighbor-priority {
           type uint8 {
             range "0 .. 127";
@@ -610,37 +628,36 @@ module frr-isisd {
             "Priority of the neighboring IS for becoming
              the DIS.";
         }
+
         leaf state {
           type adj-state-type;
           description
             "This leaf describes the state of the interface.";
         }
-
-        description
-          "List of operational adjacencies.";
       }
-      description
-        "This container lists the adjacencies of
-         the local node.";
     }
-    description
-      "Adjacency state";
   }
 
   grouping event-counters {
+    description
+      "Grouping for IS-IS interface event counters";
     container event-counters {
       config false;
+      description
+        "IS-IS interface event counters.";
       leaf adjacency-changes {
         type uint32;
         description
           "The number of times an adjacency state change has
            occurred on this interface.";
       }
+
       leaf adjacency-number {
         type uint32;
         description
           "The number of adjacencies on this interface.";
       }
+
       leaf init-fails {
         type uint32;
         description
@@ -649,12 +666,14 @@ module frr-isisd {
            as PPP NCP failures. Failures to form an
            adjacency are counted by adjacency-rejects.";
       }
+
       leaf adjacency-rejects {
         type uint32;
         description
           "The number of times an adjacency has been
            rejected on this interface.";
       }
+
       leaf id-len-mismatch {
         type uint32;
         description
@@ -662,6 +681,7 @@ module frr-isisd {
            field length different from that for this
            system has been received on this interface.";
       }
+
       leaf max-area-addresses-mismatch {
         type uint32;
         description
@@ -670,26 +690,26 @@ module frr-isisd {
            max area address field differing from that of
            this system.";
       }
+
       leaf authentication-type-fails {
         type uint32;
         description
           "Number of authentication type mismatches.";
       }
+
       leaf authentication-fails {
         type uint32;
         description
           "Number of authentication key failures.";
       }
-      description "IS-IS interface event counters.";
     }
-    description
-      "Grouping for IS-IS interface event counters";
   }
 
   grouping interface-state {
     description
       "IS-IS interface operational state.";
     uses adjacency-state;
+
     uses event-counters;
   }
 
@@ -814,75 +834,75 @@ module frr-isisd {
             "MTU of an LSP.";
         }
 
-        container refresh-interval {
+        container timers {
           description
-            "";
-          leaf level-1 {
-            type uint16;
-            units "seconds";
-            default "900";
+            "LSP-related timers";
+          container level-1 {
             description
-              "LSP refresh interval for level-1.";
-          }
-
-          leaf level-2 {
-            type uint16;
-            units "seconds";
-            default "900";
-            description
-              "LSP refresh interval for level-2.";
-          }
-        }
-
-        container maximum-lifetime {
-          description
-            "Maximum LSP lifetime.";
-          leaf level-1 {
-            type uint16 {
-              range "350..65535";
+              "Level-1 LSP-related timers";
+            leaf refresh-interval {
+              type uint16;
+              units "seconds";
+              default "900";
+              description
+                "LSP refresh interval for level-1.";
             }
-            units "seconds";
-            must ". >= ../../refresh-interval/level-1 + 300";
-            default "1200";
-            description
-              "Maximum LSP lifetime for level-1.";
+
+            leaf maximum-lifetime {
+              type uint16 {
+                range "350..65535";
+              }
+              units "seconds";
+              must ". >= ../refresh-interval + 300";
+              default "1200";
+              description
+                "Maximum LSP lifetime for level-1.";
+            }
+
+            leaf generation-interval {
+              type uint16 {
+                range "1..120";
+              }
+              units "seconds";
+              must ". < ../refresh-interval";
+              default "30";
+              description
+                "Minimum time allowed before level-1 LSP retransmissions.";
+            }
           }
 
-          leaf level-2 {
-            type uint16 {
-              range "350..65535";
-            }
-            units "seconds";
-            must ". >= ../../refresh-interval/level-2 + 300";
-            default "1200";
+          container level-2 {
             description
-              "Maximum LSP lifetime for level-2.";
-          }
-        }
+              "Level-2 LSP-related timers";
+            leaf refresh-interval {
+              type uint16;
+              units "seconds";
+              default "900";
+              description
+                "LSP refresh interval for level-2.";
+            }
 
-        container generation-interval {
-          description
-            "Minimum LSP regeneration interval.";
-          leaf level-1 {
-            type uint16 {
-              range "1..120";
+            leaf maximum-lifetime {
+              type uint16 {
+                range "350..65535";
+              }
+              units "seconds";
+              must ". >= ../refresh-interval + 300";
+              default "1200";
+              description
+                "Maximum LSP lifetime for level-2.";
             }
-            units "seconds";
-            must ". < ../../refresh-interval/level-1";
-            default "30";
-            description
-              "Minimum time allowed before level-1 LSP retransmissions.";
-          }
 
-          leaf level-2 {
-            type uint16 {
-              range "1..120";
+            leaf generation-interval {
+              type uint16 {
+                range "1..120";
+              }
+              units "seconds";
+              must ". < ../refresh-interval";
+              default "30";
+              description
+                "Minimum time allowed before level-2 LSP retransmissions.";
             }
-            units "seconds";
-            must ". < ../../refresh-interval/level-2";
-            default "30";
-            description
-              "Minimum time allowed before level-2 LSP retransmissions.";
           }
         }
       }
@@ -1141,6 +1161,107 @@ module frr-isisd {
             "Stable IP address of the advertising router.";
         }
       }
+
+      container segment-routing {
+        description
+          "Segment Routing global configuration.";
+        leaf enabled {
+          type boolean;
+          default "false";
+          description
+            "Enables segment-routing protocol extensions.";
+        }
+        container srgb {
+          description
+            "Global blocks to be advertised.";
+          must "./upper-bound > ./lower-bound";
+          leaf lower-bound {
+              type uint32;
+              default "16000";
+              description
+                "Lower value in the label range.";
+          }
+          leaf upper-bound {
+              type uint32;
+              default "23999";
+              description
+                "Upper value in the label range.";
+          }
+        }
+        container msd {
+          description
+            "MSD configuration.";
+          leaf node-msd {
+            type uint8;
+            description
+              "Node MSD is the lowest MSD supported by the node.";
+          }
+        }
+        container prefix-sid-map {
+          description
+            "Prefix SID configuration.";
+          list prefix-sid {
+            key "prefix";
+            unique "sid-value-type sid-value";
+            description
+              "List of prefix SID mapped to IPv4/IPv6
+               local prefixes.";
+            leaf prefix {
+              type inet:ip-prefix;
+              description
+                "Connected prefix sid.";
+            }
+            leaf sid-value-type {
+              type enumeration {
+                enum "index" {
+                  value 0;
+                  description
+                    "The value will be interpreted as an index.";
+                }
+                enum "absolute" {
+                  value 1;
+                  description
+                    "The value will become interpreted as an absolute
+                     value.";
+                }
+              }
+              default "index";
+              description
+                "This leaf defines how value must be interpreted.";
+            }
+            leaf sid-value {
+              type uint32;
+              mandatory true;
+              description
+                "Value associated with prefix. The value must be
+                 interpreted in the context of sid-value-type.";
+            }
+            leaf last-hop-behavior {
+              type enumeration {
+                enum "explicit-null" {
+                  value 0;
+                  description
+                    "Use explicit-null for the SID.";
+                }
+                enum "no-php" {
+                  value 1;
+                  description
+                    "Do not use Penultimate Hop Popping (PHP)
+                     for the SID.";
+                }
+                enum "php" {
+                  value 2;
+                  description
+                    "Use PHP for the SID.";
+                }
+              }
+              default "php";
+              description
+                "Configure last hop behavior.";
+            }
+          }
+        }
+      }
     }
   }
 
@@ -1152,6 +1273,7 @@ module frr-isisd {
       description
         "IS-IS interface parameters.";
       uses interface-config;
+
       uses interface-state;
     }
   }

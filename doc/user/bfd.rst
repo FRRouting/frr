@@ -476,3 +476,36 @@ You can also clear packet counters per session with the following commands, only
                 Session down events: 0
                 Zebra notifications: 4
 
+Debugging
+=========
+
+By default only informational, warning and errors messages are going to be
+displayed. If you want to get debug messages and other diagnostics then make
+sure you have `debugging` level enabled:
+
+::
+
+   config
+   log file /var/log/frr/frr.log debugging
+   log syslog debugging
+
+You may also fine tune the debug messages by selecting one or more of the
+debug levels:
+
+.. index:: [no] debug bfd network
+.. clicmd:: [no] debug bfd network
+
+   Toggle network events: show messages about socket failures and unexpected
+   BFD messages that may not belong to registered peers.
+
+.. index:: [no] debug bfd peer
+.. clicmd:: [no] debug bfd peer
+
+   Toggle peer event log messages: show messages about peer creation/removal
+   and state changes.
+
+.. index:: [no] debug bfd zebra
+.. clicmd:: [no] debug bfd zebra
+
+   Toggle zebra message events: show messages about interfaces, local
+   addresses, VRF and daemon peer registrations.

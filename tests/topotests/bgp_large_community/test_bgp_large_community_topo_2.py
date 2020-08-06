@@ -3,7 +3,7 @@
 #
 # Copyright (c) 2019 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
-#Inc. ("NetDEF") in this file.
+# Inc. ("NetDEF") in this file.
 #
 # Permission to use, copy, modify, and/or distribute this software
 # for any purpose with or without fee is hereby granted, provided
@@ -77,19 +77,23 @@ from lib.topogen import Topogen, get_topogen
 from mininet.topo import Topo
 
 from lib.common_config import (
-    start_topology, write_test_header,
-    write_test_footer, reset_config_on_routers,
-    create_route_maps, create_bgp_community_lists,
-    create_prefix_lists, verify_bgp_community, step,
-    verify_create_community_list, delete_route_maps,
-    verify_route_maps, create_static_routes,
-    check_address_types
+    start_topology,
+    write_test_header,
+    write_test_footer,
+    reset_config_on_routers,
+    create_route_maps,
+    create_bgp_community_lists,
+    create_prefix_lists,
+    verify_bgp_community,
+    step,
+    verify_create_community_list,
+    delete_route_maps,
+    verify_route_maps,
+    create_static_routes,
+    check_address_types,
 )
 from lib.topolog import logger
-from lib.bgp import (
-    verify_bgp_convergence, create_router_bgp,
-    clear_bgp_and_verify
-)
+from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
 from lib.topojson import build_topo_from_json, build_config_from_json
 
 # Reading the data from JSON File for topology and configuration creation
@@ -121,6 +125,7 @@ class GenerateTopo(Topo):
         # Building topology from json file
         build_topo_from_json(tgen, topo)
 
+
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -130,7 +135,7 @@ def setup_module(mod):
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
-    logger.info("="*40)
+    logger.info("=" * 40)
 
     logger.info("Running setup_module to create topology")
 
@@ -155,8 +160,9 @@ def setup_module(mod):
     # Api call verify whether BGP is converged
     # Ipv4
     bgp_convergence = verify_bgp_convergence(tgen, topo)
-    assert bgp_convergence is True, ("setup_module :Failed \n Error:"
-                                     " {}".format(bgp_convergence))
+    assert bgp_convergence is True, "setup_module :Failed \n Error:" " {}".format(
+        bgp_convergence
+    )
     ADDR_TYPES = check_address_types()
 
     logger.info("Running setup_module() done")
@@ -176,9 +182,11 @@ def teardown_module(mod):
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
 
-    logger.info("Testsuite end time: {}".\
-                format(time.asctime(time.localtime(time.time()))))
-    logger.info("="*40)
+    logger.info(
+        "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
+    )
+    logger.info("=" * 40)
+
 
 #####################################################
 #
@@ -213,26 +221,24 @@ def test_create_bgp_standard_large_community_list(request):
                     "action": "permit",
                     "name": "LC_1_STD",
                     "value": "2:1:1 2:1:2 1:2:3",
-                    "large": True
+                    "large": True,
                 },
                 {
                     "community_type": "standard",
                     "action": "permit",
                     "name": "LC_2_STD",
                     "value": "3:1:1 3:1:2",
-                    "large": True
-                }
+                    "large": True,
+                },
             ]
         }
     }
     result = create_bgp_community_lists(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify BGP large community is created")
     result = verify_create_community_list(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create srtandard large community list with in-correct values")
     input_dict = {
@@ -243,20 +249,18 @@ def test_create_bgp_standard_large_community_list(request):
                     "action": "permit",
                     "name": "LC_1_STD_ERR",
                     "value": "0:0:0",
-                    "large": True
+                    "large": True,
                 }
             ]
         }
     }
     result = create_bgp_community_lists(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ## TODO should fail
     step("Verify BGP large community is created")
     result = verify_create_community_list(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -288,19 +292,17 @@ def test_create_bgp_expanded_large_community_list(request):
                     "action": "permit",
                     "name": "LC_1_EXP",
                     "value": "1:1:200 1:2:* 3:2:1",
-                    "large": True
+                    "large": True,
                 }
             ]
         }
     }
     result = create_bgp_community_lists(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify BGP large community is created")
     result = verify_create_community_list(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -331,14 +333,13 @@ def test_modify_large_community_lists_referenced_by_rmap(request):
                     "action": "permit",
                     "name": "LC_DEL",
                     "value": "1:2:1 1:3:1 2:1:1 2:2:2 3:3:3",
-                    "large": True
+                    "large": True,
                 }
             ]
         }
     }
     result = create_bgp_community_lists(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create route map")
     input_dict_2 = {
@@ -351,9 +352,9 @@ def test_modify_large_community_lists_referenced_by_rmap(request):
                         "set": {
                             "large_community": {
                                 "num": "1:2:1 1:3:1 2:10:1 3:3:3 4:4:4 5:5:5",
-                                "action": "additive"
+                                "action": "additive",
                             }
-                        }
+                        },
                     }
                 ]
             }
@@ -364,20 +365,14 @@ def test_modify_large_community_lists_referenced_by_rmap(request):
                     {
                         "action": "permit",
                         "seq_id": "10",
-                        "set": {
-                            "large_comm_list": {
-                                "id": "LC_DEL",
-                                "delete": True
-                            }
-                        }
+                        "set": {"large_comm_list": {"id": "LC_DEL", "delete": True}},
                     }
                 ]
             }
-        }
+        },
     }
     result = create_route_maps(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map and advertise networks")
     input_dict_3 = {
@@ -386,42 +381,42 @@ def test_modify_large_community_lists_referenced_by_rmap(request):
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "advertise_networks": [
-                                {"network": "200.50.2.0/32"}
-                            ],
+                            "advertise_networks": [{"network": "200.50.2.0/32"}],
                             "neighbor": {
                                 "r2": {
                                     "dest_link": {
                                         "r1": {
-                                            "route_maps": [{
-                                                "name": "RM_R2_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R2_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
-                            }
+                            },
                         }
                     },
                     "ipv6": {
                         "unicast": {
-                            "advertise_networks": [
-                                {"network": "1::1/128"}
-                            ],
+                            "advertise_networks": [{"network": "1::1/128"}],
                             "neighbor": {
                                 "r2": {
                                     "dest_link": {
                                         "r1": {
-                                            "route_maps": [{
-                                                "name": "RM_R2_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R2_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
-                            }
+                            },
                         }
-                    }
+                    },
                 }
             }
         },
@@ -434,10 +429,9 @@ def test_modify_large_community_lists_referenced_by_rmap(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
@@ -450,35 +444,31 @@ def test_modify_large_community_lists_referenced_by_rmap(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify Community-list")
     dut = "r4"
-    input_dict_4 = {
-        "largeCommunity": "2:10:1 4:4:4 5:5:5"
-    }
+    input_dict_4 = {"largeCommunity": "2:10:1 4:4:4 5:5:5"}
 
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_4)
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_4)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -511,17 +501,16 @@ def test_large_community_lists_with_rmap_apply_and_remove(request):
                         "set": {
                             "large_community": {
                                 "num": "200:200:1 200:200:10 200:200:20000",
-                                "action": "additive"
+                                "action": "additive",
                             }
-                        }
+                        },
                     }
                 ]
             }
         }
     }
     result = create_route_maps(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map and advertise networks")
     input_dict_2 = {
@@ -530,18 +519,12 @@ def test_large_community_lists_with_rmap_apply_and_remove(request):
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "advertise_networks": [
-                                {"network": "200.50.2.0/32"}
-                            ]
+                            "advertise_networks": [{"network": "200.50.2.0/32"}]
                         }
                     },
                     "ipv6": {
-                        "unicast": {
-                            "advertise_networks": [
-                                {"network": "1::1/128"}
-                            ]
-                        }
-                    }
+                        "unicast": {"advertise_networks": [{"network": "1::1/128"}]}
+                    },
                 }
             }
         },
@@ -554,10 +537,9 @@ def test_large_community_lists_with_rmap_apply_and_remove(request):
                                 "r6": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_LC1",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_LC1", "direction": "out"}
+                                            ]
                                         }
                                     }
                                 }
@@ -570,57 +552,49 @@ def test_large_community_lists_with_rmap_apply_and_remove(request):
                                 "r6": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_LC1",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_LC1", "direction": "out"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify large-community-list")
     dut = "r6"
-    input_dict_4 = {
-        "largeCommunity": "200:200:1 200:200:10 200:200:20000"
-    }
+    input_dict_4 = {"largeCommunity": "200:200:1 200:200:10 200:200:20000"}
 
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_4)
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_4)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     step("Delete route map reference by community-list")
-    input_dict_3 = {
-        "r4": {
-            "route_maps": ["RM_LC1"]
-        }
-    }
+    input_dict_3 = {"r4": {"route_maps": ["RM_LC1"]}}
     result = delete_route_maps(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify route map is deleted")
     result = verify_route_maps(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify large-community-list")
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_4, expected=False)
+        result = verify_bgp_community(
+            tgen, adt, dut, NETWORKS[adt], input_dict_4, expected=False
+        )
         assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -653,10 +627,10 @@ def test_duplicate_large_community_list_attributes_not_transitive(request):
                         "set": {
                             "large_community": {
                                 "num": "0:0:1 0:0:10 0:0:100 2:0:1 2:0:2 2:0:3"
-                                       " 2:0:4 2:0:5",
-                                "action": "additive"
+                                " 2:0:4 2:0:5",
+                                "action": "additive",
                             }
-                        }
+                        },
                     }
                 ],
                 "RM_R4_OUT": [
@@ -666,17 +640,16 @@ def test_duplicate_large_community_list_attributes_not_transitive(request):
                         "set": {
                             "large_community": {
                                 "num": "0:0:1 0:0:10 0:0:10000 2:0:1 2:0:2",
-                                "action": "additive"
+                                "action": "additive",
                             }
-                        }
+                        },
                     }
-                ]
+                ],
             }
         }
     }
     result = create_route_maps(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map and advertise networks")
     input_dict_2 = {
@@ -685,18 +658,12 @@ def test_duplicate_large_community_list_attributes_not_transitive(request):
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "advertise_networks": [
-                                {"network": "200.50.2.0/32"}
-                            ]
+                            "advertise_networks": [{"network": "200.50.2.0/32"}]
                         }
                     },
                     "ipv6": {
-                        "unicast": {
-                            "advertise_networks": [
-                                {"network": "1::1/128"}
-                            ]
-                        }
-                    }
+                        "unicast": {"advertise_networks": [{"network": "1::1/128"}]}
+                    },
                 }
             }
         },
@@ -709,23 +676,24 @@ def test_duplicate_large_community_list_attributes_not_transitive(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 },
                                 "r6": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R4_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
-                                }
+                                },
                             }
                         }
                     },
@@ -735,45 +703,44 @@ def test_duplicate_large_community_list_attributes_not_transitive(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 },
                                 "r6": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R4_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
-                                }
+                                },
                             }
                         }
-                    }
+                    },
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify large-community-list")
     dut = "r6"
     input_dict_4 = {
-        "largeCommunity":
-            "0:0:1 0:0:10 0:0:100 0:0:10000 2:0:1 2:0:2 2:0:3 2:0:4 2:0:5"
+        "largeCommunity": "0:0:1 0:0:10 0:0:100 0:0:10000 2:0:1 2:0:2 2:0:3 2:0:4 2:0:5"
     }
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_4)
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_4)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -806,10 +773,10 @@ def test_large_community_lists_with_rmap_set_none(request):
                         "set": {
                             "large_community": {
                                 "num": "0:0:1 0:0:10 0:0:100 2:0:1 2:0:2 2:0:3"
-                                       " 2:0:4",
-                                "action": "additive"
+                                " 2:0:4",
+                                "action": "additive",
                             }
-                        }
+                        },
                     }
                 ]
             }
@@ -820,19 +787,14 @@ def test_large_community_lists_with_rmap_set_none(request):
                     {
                         "action": "permit",
                         "seq_id": "10",
-                        "set": {
-                            "large_community": {
-                                "num": "none"
-                            }
-                        }
+                        "set": {"large_community": {"num": "none"}},
                     }
                 ]
             }
-        }
+        },
     }
     result = create_route_maps(tgen, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map")
     input_dict_2 = {
@@ -841,18 +803,12 @@ def test_large_community_lists_with_rmap_set_none(request):
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "advertise_networks": [
-                                {"network": "200.50.2.0/32"}
-                            ]
+                            "advertise_networks": [{"network": "200.50.2.0/32"}]
                         }
                     },
                     "ipv6": {
-                        "unicast": {
-                            "advertise_networks": [
-                                {"network": "1::1/128"}
-                            ]
-                        }
-                    }
+                        "unicast": {"advertise_networks": [{"network": "1::1/128"}]}
+                    },
                 }
             }
         },
@@ -865,10 +821,9 @@ def test_large_community_lists_with_rmap_set_none(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
@@ -881,16 +836,15 @@ def test_large_community_lists_with_rmap_set_none(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         },
@@ -903,10 +857,9 @@ def test_large_community_lists_with_rmap_set_none(request):
                                 "r4": {
                                     "dest_link": {
                                         "r6": {
-                                            "route_maps": [{
-                                                "name": "RM_R6_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R6_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
@@ -919,31 +872,29 @@ def test_large_community_lists_with_rmap_set_none(request):
                                 "r4": {
                                     "dest_link": {
                                         "r6": {
-                                            "route_maps": [{
-                                                "name": "RM_R6_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R6_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify Community-list")
     dut = "r6"
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      expected=False)
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], expected=False)
         assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -969,24 +920,17 @@ def test_lcomm_lists_with_redistribute_static_connected_rmap(request):
     input_dict = {
         "r1": {
             "static_routes": [
-                {
-                    "network": "200.50.2.0/32",
-                    "next_hop": "10.0.0.6"
-                },
-                {
-                    "network": "1::1/128",
-                    "next_hop": "fd00:0:0:1::2"
-                }
+                {"network": "200.50.2.0/32", "next_hop": "10.0.0.6"},
+                {"network": "1::1/128", "next_hop": "fd00:0:0:1::2"},
             ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("redistribute static routes")
     input_dict_1 = {
-        "r1":{
+        "r1": {
             "bgp": {
                 "address_family": {
                     "ipv4": {
@@ -994,12 +938,12 @@ def test_lcomm_lists_with_redistribute_static_connected_rmap(request):
                             "redistribute": [
                                 {
                                     "redist_type": "static",
-                                    "attribute": "route-map RM_R2_OUT"
+                                    "attribute": "route-map RM_R2_OUT",
                                 },
                                 {
                                     "redist_type": "connected",
-                                    "attribute": "route-map RM_R2_OUT"
-                                }
+                                    "attribute": "route-map RM_R2_OUT",
+                                },
                             ]
                         }
                     },
@@ -1008,82 +952,74 @@ def test_lcomm_lists_with_redistribute_static_connected_rmap(request):
                             "redistribute": [
                                 {
                                     "redist_type": "static",
-                                    "attribute": "route-map RM_R2_OUT"
+                                    "attribute": "route-map RM_R2_OUT",
                                 },
                                 {
                                     "redist_type": "connected",
-                                    "attribute": "route-map RM_R2_OUT"
-                                }
+                                    "attribute": "route-map RM_R2_OUT",
+                                },
                             ]
                         }
-                    }
+                    },
                 }
             }
         }
     }
     result = create_router_bgp(tgen, topo, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create route map")
     input_dict_3 = {
         "r1": {
             "route_maps": {
-                 "RM_R2_OUT": [{
-                     "action": "permit",
-                     "set": {
-                         "large_community": {"num":"55:55:55 555:555:555"}
-                     }
-                 }]
+                "RM_R2_OUT": [
+                    {
+                        "action": "permit",
+                        "set": {"large_community": {"num": "55:55:55 555:555:555"}},
+                    }
+                ]
             }
-         }
+        }
     }
     result = create_route_maps(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify large-community-list for static and connected ipv4 route on"
-         " r2")
+    step("Verify large-community-list for static and connected ipv4 route on" " r2")
 
-    input_dict_5 = {
-        "largeCommunity": "55:55:55 555:555:555"
-    }
+    input_dict_5 = {"largeCommunity": "55:55:55 555:555:555"}
 
     if "ipv4" in ADDR_TYPES:
         dut = "r2"
         networks = ["200.50.2.0/32", "1.0.1.17/32"]
-        result = verify_bgp_community(tgen, "ipv4", dut, networks,
-                                      input_dict_5)
+        result = verify_bgp_community(tgen, "ipv4", dut, networks, input_dict_5)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
-        step("Verify large-community-list for static and connected ipv4 route"
-             " on r4")
+        step("Verify large-community-list for static and connected ipv4 route" " on r4")
         dut = "r4"
         networks = ["200.50.2.0/32", "1.0.1.17/32"]
-        result = verify_bgp_community(tgen, "ipv4", dut, networks,
-                                      input_dict_5)
+        result = verify_bgp_community(tgen, "ipv4", dut, networks, input_dict_5)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     if "ipv6" in ADDR_TYPES:
-        step("Verify large-community-list for static and connected ipv6 route"
-             " on r2")
+        step("Verify large-community-list for static and connected ipv6 route" " on r2")
         dut = "r2"
         networks = ["1::1/128", "2001:db8:f::1:17/128"]
-        result = verify_bgp_community(tgen, "ipv6", dut, networks,
-                                      input_dict_5)
+        result = verify_bgp_community(tgen, "ipv6", dut, networks, input_dict_5)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
-        step("Verify large-community-list for static and connected ipv6 route"
-             " on r4")
+        step("Verify large-community-list for static and connected ipv6 route" " on r4")
         dut = "r4"
         networks = ["1::1/128", "2001:db8:f::1:17/128"]
-        result = verify_bgp_community(tgen, "ipv6", dut, networks,
-                                      input_dict_5)
+        result = verify_bgp_community(tgen, "ipv6", dut, networks, input_dict_5)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -1115,14 +1051,13 @@ def test_large_community_lists_with_rmap_set_delete(request):
                     "action": "permit",
                     "name": "Test",
                     "value": "1:2:1 1:1:10 1:3:100",
-                    "large": True
+                    "large": True,
                 }
             ]
         }
     }
     result = create_bgp_community_lists(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create route map")
     input_dict_3 = {
@@ -1132,12 +1067,7 @@ def test_large_community_lists_with_rmap_set_delete(request):
                     {
                         "action": "permit",
                         "seq_id": "10",
-                        "set": {
-                            "large_comm_list": {
-                                "id": "Test",
-                                "delete": True
-                            }
-                        }
+                        "set": {"large_comm_list": {"id": "Test", "delete": True}},
                     }
                 ]
             }
@@ -1151,18 +1081,17 @@ def test_large_community_lists_with_rmap_set_delete(request):
                         "set": {
                             "large_community": {
                                 "num": "1:2:1 1:1:10 1:3:100 2:1:1 2:2:2 2:3:3"
-                                       " 2:4:4 2:5:5",
-                                "action": "additive"
+                                " 2:4:4 2:5:5",
+                                "action": "additive",
                             }
-                        }
+                        },
                     }
                 ]
             }
-        }
+        },
     }
     result = create_route_maps(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map and advertise networks")
     input_dict_4 = {
@@ -1171,18 +1100,12 @@ def test_large_community_lists_with_rmap_set_delete(request):
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "advertise_networks": [
-                                {"network": "200.50.2.0/32"}
-                            ]
+                            "advertise_networks": [{"network": "200.50.2.0/32"}]
                         }
                     },
                     "ipv6": {
-                        "unicast": {
-                            "advertise_networks": [
-                                {"network": "1::1/128"}
-                            ]
-                        }
-                    }
+                        "unicast": {"advertise_networks": [{"network": "1::1/128"}]}
+                    },
                 }
             }
         },
@@ -1195,10 +1118,9 @@ def test_large_community_lists_with_rmap_set_delete(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
@@ -1211,16 +1133,15 @@ def test_large_community_lists_with_rmap_set_delete(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         },
@@ -1233,10 +1154,9 @@ def test_large_community_lists_with_rmap_set_delete(request):
                                 "r4": {
                                     "dest_link": {
                                         "r6": {
-                                            "route_maps": [{
-                                                "name": "RM_R6_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R6_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
@@ -1249,34 +1169,30 @@ def test_large_community_lists_with_rmap_set_delete(request):
                                 "r4": {
                                     "dest_link": {
                                         "r6": {
-                                            "route_maps": [{
-                                                "name": "RM_R6_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R6_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_4)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify large-community-list")
     dut = "r6"
-    input_dict_5 = {
-        "largeCommunity": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
-    }
+    input_dict_5 = {"largeCommunity": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"}
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_5)
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_5)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -1308,18 +1224,15 @@ def test_large_community_lists_with_no_send_community(request):
                         "action": "permit",
                         "seq_id": "10",
                         "set": {
-                            "large_community": {
-                                "num": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
-                            }
-                        }
+                            "large_community": {"num": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"}
+                        },
                     }
                 ]
             }
         }
     }
     result = create_route_maps(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map and advertise networks")
     input_dict_3 = {
@@ -1328,18 +1241,12 @@ def test_large_community_lists_with_no_send_community(request):
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "advertise_networks": [
-                                {"network": "200.50.2.0/32"}
-                            ]
+                            "advertise_networks": [{"network": "200.50.2.0/32"}]
                         }
                     },
                     "ipv6": {
-                        "unicast": {
-                            "advertise_networks": [
-                                {"network": "1::1/128"}
-                            ]
-                        }
-                    }
+                        "unicast": {"advertise_networks": [{"network": "1::1/128"}]}
+                    },
                 }
             }
         },
@@ -1352,10 +1259,12 @@ def test_large_community_lists_with_no_send_community(request):
                                 "r6": {
                                     "dest_link": {
                                         "r5": {
-                                            "route_maps": [{
-                                                "name": "RM_R6_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R6_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
@@ -1368,34 +1277,33 @@ def test_large_community_lists_with_no_send_community(request):
                                 "r6": {
                                     "dest_link": {
                                         "r5": {
-                                            "route_maps": [{
-                                                "name": "RM_R6_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R6_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify large-community-list")
     dut = "r6"
-    input_dict_4 = {
-        "largeCommunity": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
-    }
+    input_dict_4 = {"largeCommunity": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"}
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_4)
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_4)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     step("Configure neighbor for no-send-community")
     input_dict_5 = {
@@ -1406,11 +1314,7 @@ def test_large_community_lists_with_no_send_community(request):
                         "unicast": {
                             "neighbor": {
                                 "r6": {
-                                    "dest_link": {
-                                        "r5": {
-                                            "no_send_community": "large"
-                                        }
-                                    }
+                                    "dest_link": {"r5": {"no_send_community": "large"}}
                                 }
                             }
                         }
@@ -1419,29 +1323,26 @@ def test_large_community_lists_with_no_send_community(request):
                         "unicast": {
                             "neighbor": {
                                 "r6": {
-                                    "dest_link": {
-                                        "r5": {
-                                            "no_send_community": "large"
-                                        }
-                                    }
+                                    "dest_link": {"r5": {"no_send_community": "large"}}
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
     }
     result = create_router_bgp(tgen, topo, input_dict_5)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify Community-list")
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_4, expected=False)
+        result = verify_bgp_community(
+            tgen, adt, dut, NETWORKS[adt], input_dict_4, expected=False
+        )
         assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -1472,14 +1373,15 @@ def test_create_large_community_lists_with_no_attribute_values(request):
                     "community_type": "standard",
                     "action": "permit",
                     "name": "Test1",
-                    "large": True
+                    "large": True,
                 }
             ]
         }
     }
     result = create_bgp_community_lists(tgen, input_dict_1)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
     write_test_footer(tc_name)
 
@@ -1512,18 +1414,15 @@ def test_large_community_lists_with_rmap_match_exact(request):
                         "action": "permit",
                         "seq_id": "10",
                         "set": {
-                            "large_community": {
-                                "num": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
-                            }
-                        }
+                            "large_community": {"num": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"}
+                        },
                     }
                 ]
             }
         }
     }
     result = create_route_maps(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map and advertise networks")
     input_dict_3 = {
@@ -1532,18 +1431,12 @@ def test_large_community_lists_with_rmap_match_exact(request):
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "advertise_networks": [
-                                {"network": "200.50.2.0/32"}
-                            ]
+                            "advertise_networks": [{"network": "200.50.2.0/32"}]
                         }
                     },
                     "ipv6": {
-                        "unicast": {
-                            "advertise_networks": [
-                                {"network": "1::1/128"}
-                            ]
-                        }
-                    }
+                        "unicast": {"advertise_networks": [{"network": "1::1/128"}]}
+                    },
                 }
             }
         },
@@ -1556,10 +1449,12 @@ def test_large_community_lists_with_rmap_match_exact(request):
                                 "r4": {
                                     "dest_link": {
                                         "r2": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R4_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
@@ -1572,24 +1467,25 @@ def test_large_community_lists_with_rmap_match_exact(request):
                                 "r4": {
                                     "dest_link": {
                                         "r2": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R4_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
-        }
+        },
     }
 
     result = create_router_bgp(tgen, topo, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create standard large commumity-list")
     input_dict_4 = {
@@ -1600,19 +1496,17 @@ def test_large_community_lists_with_rmap_match_exact(request):
                     "action": "permit",
                     "name": "EXACT",
                     "value": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5",
-                    "large": True
+                    "large": True,
                 }
             ]
         }
     }
     result = create_bgp_community_lists(tgen, input_dict_4)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify BGP large community is created")
     result = verify_create_community_list(tgen, input_dict_4)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create route map")
     input_dict_5 = {
@@ -1624,16 +1518,15 @@ def test_large_community_lists_with_rmap_match_exact(request):
                         "seq_id": "10",
                         "match": {
                             "large-community-list": ["EXACT"],
-                            "match_exact": True
-                        }
+                            "match_exact": True,
+                        },
                     }
                 ]
             }
         }
     }
     result = create_route_maps(tgen, input_dict_5)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map")
     input_dict_6 = {
@@ -1646,10 +1539,9 @@ def test_large_community_lists_with_rmap_match_exact(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
@@ -1662,34 +1554,30 @@ def test_large_community_lists_with_rmap_match_exact(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
     }
     result = create_router_bgp(tgen, topo, input_dict_6)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify large-community-list")
     dut = "r4"
-    input_dict_4 = {
-        "largeCommunity": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
-    }
+    input_dict_4 = {"largeCommunity": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"}
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_4)
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_4)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -1718,20 +1606,21 @@ def test_large_community_lists_with_rmap_match_all(request):
     input_dict_2 = {
         "r2": {
             "route_maps": {
-                "RM_R4_OUT": [{
-                    "action": "permit",
-                    "set": {
-                        "large_community": {
-                            "num": "1:1:1 1:2:3 2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
-                        }
+                "RM_R4_OUT": [
+                    {
+                        "action": "permit",
+                        "set": {
+                            "large_community": {
+                                "num": "1:1:1 1:2:3 2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
+                            }
+                        },
                     }
-                }]
+                ]
             }
         }
     }
     result = create_route_maps(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map")
     input_dict_3 = {
@@ -1740,18 +1629,12 @@ def test_large_community_lists_with_rmap_match_all(request):
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "advertise_networks": [
-                                {"network": "200.50.2.0/32"}
-                            ]
+                            "advertise_networks": [{"network": "200.50.2.0/32"}]
                         }
                     },
                     "ipv6": {
-                        "unicast": {
-                            "advertise_networks": [
-                                {"network": "1::1/128"}
-                            ]
-                        }
-                    }
+                        "unicast": {"advertise_networks": [{"network": "1::1/128"}]}
+                    },
                 }
             }
         },
@@ -1764,10 +1647,12 @@ def test_large_community_lists_with_rmap_match_all(request):
                                 "r4": {
                                     "dest_link": {
                                         "r2": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R4_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
@@ -1780,23 +1665,24 @@ def test_large_community_lists_with_rmap_match_all(request):
                                 "r4": {
                                     "dest_link": {
                                         "r2": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R4_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create standard large commumity-list")
     input_dict_4 = {
@@ -1807,19 +1693,17 @@ def test_large_community_lists_with_rmap_match_all(request):
                     "action": "permit",
                     "name": "ALL",
                     "value": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5",
-                    "large": True
+                    "large": True,
                 }
             ]
         }
     }
     result = create_bgp_community_lists(tgen, input_dict_4)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify BGP large community is created")
     result = verify_create_community_list(tgen, input_dict_4)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create route map")
     input_dict_5 = {
@@ -1829,19 +1713,14 @@ def test_large_community_lists_with_rmap_match_all(request):
                     {
                         "action": "permit",
                         "seq_id": "10",
-                        "match": {
-                            "large-community-list": {
-                                "id": "ALL"
-                            }
-                        }
+                        "match": {"large-community-list": {"id": "ALL"}},
                     }
                 ]
             }
         }
     }
     result = create_route_maps(tgen, input_dict_5)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map")
     input_dict_6 = {
@@ -1854,10 +1733,9 @@ def test_large_community_lists_with_rmap_match_all(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
@@ -1870,34 +1748,30 @@ def test_large_community_lists_with_rmap_match_all(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
     }
     result = create_router_bgp(tgen, topo, input_dict_6)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify large-community-list")
     dut = "r4"
-    input_dict_4 = {
-        "largeCommunity": "1:1:1 1:2:3 2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
-    }
+    input_dict_4 = {"largeCommunity": "1:1:1 1:2:3 2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"}
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_4)
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_4)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -1929,18 +1803,15 @@ def test_large_community_lists_with_rmap_match_any(request):
                         "action": "permit",
                         "seq_id": "10",
                         "set": {
-                            "large_community": {
-                                "num": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
-                            }
-                        }
+                            "large_community": {"num": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"}
+                        },
                     }
                 ]
             }
         }
     }
     result = create_route_maps(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map")
     input_dict_3 = {
@@ -1949,18 +1820,12 @@ def test_large_community_lists_with_rmap_match_any(request):
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "advertise_networks": [
-                                {"network": "200.50.2.0/32"}
-                            ]
+                            "advertise_networks": [{"network": "200.50.2.0/32"}]
                         }
                     },
                     "ipv6": {
-                        "unicast": {
-                            "advertise_networks": [
-                                {"network": "1::1/128"}
-                            ]
-                        }
-                    }
+                        "unicast": {"advertise_networks": [{"network": "1::1/128"}]}
+                    },
                 }
             }
         },
@@ -1973,10 +1838,12 @@ def test_large_community_lists_with_rmap_match_any(request):
                                 "r4": {
                                     "dest_link": {
                                         "r2": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R4_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
@@ -1989,23 +1856,24 @@ def test_large_community_lists_with_rmap_match_any(request):
                                 "r4": {
                                     "dest_link": {
                                         "r2": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R4_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
-        }
+        },
     }
     result = create_router_bgp(tgen, topo, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create standard large commumity-list")
     input_dict_4 = {
@@ -2016,40 +1884,38 @@ def test_large_community_lists_with_rmap_match_any(request):
                     "action": "permit",
                     "name": "ANY",
                     "value": "2:1:1",
-                    "large": True
+                    "large": True,
                 },
                 {
                     "community_type": "standard",
                     "action": "permit",
                     "name": "ANY",
                     "value": "2:2:1",
-                    "large": True
+                    "large": True,
                 },
                 {
                     "community_type": "standard",
                     "action": "permit",
                     "name": "ANY",
                     "value": "2:3:1",
-                    "large": True
+                    "large": True,
                 },
                 {
                     "community_type": "standard",
                     "action": "permit",
                     "name": "ANY",
                     "value": "2:4:1",
-                    "large": True
-                }
+                    "large": True,
+                },
             ]
         }
     }
     result = create_bgp_community_lists(tgen, input_dict_4)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify BGP large community is created")
     result = verify_create_community_list(tgen, input_dict_4)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create route map")
     input_dict_5 = {
@@ -2059,19 +1925,14 @@ def test_large_community_lists_with_rmap_match_any(request):
                     {
                         "action": "permit",
                         "seq_id": "10",
-                        "match": {
-                            "large-community-list": {
-                                "id": "ANY"
-                            }
-                        }
+                        "match": {"large-community-list": {"id": "ANY"}},
                     }
                 ]
             }
         }
     }
     result = create_route_maps(tgen, input_dict_5)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map")
     input_dict_6 = {
@@ -2084,10 +1945,9 @@ def test_large_community_lists_with_rmap_match_any(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
@@ -2100,34 +1960,30 @@ def test_large_community_lists_with_rmap_match_any(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
     }
     result = create_router_bgp(tgen, topo, input_dict_6)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify large-community-list")
     dut = "r4"
-    input_dict_7 = {
-        "largeCommunity": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
-    }
+    input_dict_7 = {"largeCommunity": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"}
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_7)
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_7)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -2162,18 +2018,15 @@ def test_large_community_lists_with_rmap_match_regex(request):
                             "large_community": {
                                 "num": "1:1:1 1:1:2 2:1:3 2:1:4 2:1:5",
                             },
-                            "community": {
-                                "num": "1:1 1:2 1:3 1:4 1:5"
-                            }
-                        }
+                            "community": {"num": "1:1 1:2 1:3 1:4 1:5"},
+                        },
                     }
                 ]
             }
         }
     }
     result = create_route_maps(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map")
     input_dict_3 = {
@@ -2182,18 +2035,12 @@ def test_large_community_lists_with_rmap_match_regex(request):
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "advertise_networks": [
-                                {"network": "200.50.2.0/32"}
-                            ]
+                            "advertise_networks": [{"network": "200.50.2.0/32"}]
                         }
                     },
                     "ipv6": {
-                        "unicast": {
-                            "advertise_networks": [
-                                {"network": "1::1/128"}
-                            ]
-                        }
-                    }
+                        "unicast": {"advertise_networks": [{"network": "1::1/128"}]}
+                    },
                 }
             }
         },
@@ -2206,10 +2053,12 @@ def test_large_community_lists_with_rmap_match_regex(request):
                                 "r4": {
                                     "dest_link": {
                                         "r2": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R4_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
@@ -2222,23 +2071,24 @@ def test_large_community_lists_with_rmap_match_regex(request):
                                 "r4": {
                                     "dest_link": {
                                         "r2": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_OUT",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {
+                                                    "name": "RM_R4_OUT",
+                                                    "direction": "out",
+                                                }
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
-        }
+        },
     }
-    result = create_router_bgp(tgen, topo,input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = create_router_bgp(tgen, topo, input_dict_3)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create standard large commumity-list")
     input_dict_4 = {
@@ -2249,26 +2099,24 @@ def test_large_community_lists_with_rmap_match_regex(request):
                     "action": "permit",
                     "name": "ALL",
                     "value": "1:1:1 2:1:3 2:1:4 2:1:5",
-                    "large": True
+                    "large": True,
                 },
                 {
                     "community_type": "expanded",
                     "action": "permit",
                     "name": "EXP_ALL",
                     "value": "1:1:1 2:1:[3-5]",
-                    "large": True
-                }
+                    "large": True,
+                },
             ]
         }
     }
     result = create_bgp_community_lists(tgen, input_dict_4)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify BGP large community is created")
     result = verify_create_community_list(tgen, input_dict_4)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create route map")
     input_dict_5 = {
@@ -2278,19 +2126,14 @@ def test_large_community_lists_with_rmap_match_regex(request):
                     {
                         "action": "permit",
                         "seq_id": "10",
-                        "match": {
-                            "large_community_list": {
-                                "id": "ALL",
-                            },
-                        },
+                        "match": {"large_community_list": {"id": "ALL",},},
                     }
                 ]
             }
         }
     }
     result = create_route_maps(tgen, input_dict_5)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure neighbor for route map")
     input_dict_6 = {
@@ -2303,10 +2146,9 @@ def test_large_community_lists_with_rmap_match_regex(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
@@ -2319,48 +2161,38 @@ def test_large_community_lists_with_rmap_match_regex(request):
                                 "r2": {
                                     "dest_link": {
                                         "r4": {
-                                            "route_maps": [{
-                                                "name": "RM_R4_IN",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "RM_R4_IN", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
     }
     result = create_router_bgp(tgen, topo, input_dict_6)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify large-community-list")
     dut = "r4"
-    input_dict_7 = {
-        "largeCommunity": "1:1:1 1:1:2 2:1:3 2:1:4 2:1:5"
-    }
+    input_dict_7 = {"largeCommunity": "1:1:1 1:1:2 2:1:3 2:1:4 2:1:5"}
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_7)
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_7)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     step("Delete route map reference by community-list")
-    input_dict_3 = {
-        "r4": {
-            "route_maps": ["RM_R4_IN"]
-        }
-    }
+    input_dict_3 = {"r4": {"route_maps": ["RM_R4_IN"]}}
     result = delete_route_maps(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     result = verify_route_maps(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Create route map")
     input_dict_5 = {
@@ -2370,35 +2202,29 @@ def test_large_community_lists_with_rmap_match_regex(request):
                     {
                         "action": "permit",
                         "seq_id": "20",
-                        "match": {
-                            "large_community_list": {
-                                "id": "EXP_ALL",
-                            },
-                        },
+                        "match": {"large_community_list": {"id": "EXP_ALL",},},
                     }
                 ]
             }
         }
     }
     result = create_route_maps(tgen, input_dict_5)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("clear ip bgp")
-    result = clear_bgp_and_verify(tgen, topo, 'r4')
-    assert result is True, "Testcase {} :Failed \n Error: {}". \
-        format(tc_name, result)
+    result = clear_bgp_and_verify(tgen, topo, "r4")
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("Verify large-community-list")
     dut = "r4"
-    input_dict_7 = {
-        "largeCommunity": "1:1:1 1:1:2 2:1:3 2:1:4 2:1:5"
-    }
+    input_dict_7 = {"largeCommunity": "1:1:1 1:1:2 2:1:3 2:1:4 2:1:5"}
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt],
-                                      input_dict_7, expected=False)
-        assert result is not True, "Testcase {} : Failed \n Error: {}".\
-            format(tc_name, result)
+        result = verify_bgp_community(
+            tgen, adt, dut, NETWORKS[adt], input_dict_7, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 

@@ -94,6 +94,7 @@ enum return_values { SUCCESS = 0, ERROR = -1 };
 struct rpki_for_each_record_arg {
 	struct vty *vty;
 	unsigned int *prefix_amount;
+	as_t as;
 };
 
 static int start(void);
@@ -103,7 +104,7 @@ static struct rtr_mgr_group *get_connected_group(void);
 static void print_prefix_table(struct vty *vty);
 static void install_cli_commands(void);
 static int config_write(struct vty *vty);
-static void overwrite_exit_commands(void);
+static int config_on_exit(struct vty *vty);
 static void free_cache(struct cache *cache);
 static struct rtr_mgr_group *get_groups(void);
 #if defined(FOUND_SSH)
@@ -142,7 +143,14 @@ static unsigned int retry_interval;
 static int rpki_sync_socket_rtr;
 static int rpki_sync_socket_bgpd;
 
-static struct cmd_node rpki_node = {RPKI_NODE, "%s(config-rpki)# ", 1};
+static struct cmd_node rpki_node = {
+	.name = "rpki",
+	.node = RPKI_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-rpki)# ",
+	.config_write = config_write,
+	.node_exit = config_on_exit,
+};
 static const struct route_map_rule_cmd route_match_rpki_cmd = {
 	"rpki", route_match, route_match_compile, route_match_free};
 
@@ -271,6 +279,17 @@ static void print_record(const struct pfx_record *record, struct vty *vty)
 	lrtr_ip_addr_to_str(&record->prefix, ip, sizeof(ip));
 	vty_out(vty, "%-40s   %3u - %3u   %10u\n", ip, record->min_len,
 		record->max_len, record->asn);
+}
+
+static void print_record_by_asn(const struct pfx_record *record, void *data)
+{
+	struct rpki_for_each_record_arg *arg = data;
+	struct vty *vty = arg->vty;
+
+	if (record->asn == arg->as) {
+		(*arg->prefix_amount)++;
+		print_record(record, vty);
+	}
 }
 
 static void print_record_cb(const struct pfx_record *record, void *data)
@@ -426,10 +445,10 @@ static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
 			label = path->extra->label;
 			num_labels = path->extra->num_labels;
 		}
-		ret = bgp_update(ain->peer, &bgp_node->p, ain->addpath_rx_id,
-				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP,
-				 BGP_ROUTE_NORMAL, NULL, label, num_labels, 1,
-				 NULL);
+		ret = bgp_update(ain->peer, bgp_node_get_prefix(bgp_node),
+				 ain->addpath_rx_id, ain->attr, afi, safi,
+				 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
+				 num_labels, 1, NULL);
 
 		if (ret < 0)
 			return;
@@ -619,6 +638,36 @@ static struct rtr_mgr_group *get_connected_group(void)
 		return NULL;
 
 	return rtr_mgr_get_first_group(rtr_config);
+}
+
+static void print_prefix_table_by_asn(struct vty *vty, as_t as)
+{
+	unsigned int number_of_ipv4_prefixes = 0;
+	unsigned int number_of_ipv6_prefixes = 0;
+	struct rtr_mgr_group *group = get_connected_group();
+	struct rpki_for_each_record_arg arg;
+
+	arg.vty = vty;
+	arg.as = as;
+
+	if (!group) {
+		vty_out(vty, "Cannot find a connected group.\n");
+		return;
+	}
+
+	struct pfx_table *pfx_table = group->sockets[0]->pfx_table;
+
+	vty_out(vty, "RPKI/RTR prefix table\n");
+	vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length", "Origin-AS");
+
+	arg.prefix_amount = &number_of_ipv4_prefixes;
+	pfx_table_for_each_ipv4_record(pfx_table, print_record_by_asn, &arg);
+
+	arg.prefix_amount = &number_of_ipv6_prefixes;
+	pfx_table_for_each_ipv6_record(pfx_table, print_record_by_asn, &arg);
+
+	vty_out(vty, "Number of IPv4 Prefixes: %u\n", number_of_ipv4_prefixes);
+	vty_out(vty, "Number of IPv6 Prefixes: %u\n", number_of_ipv6_prefixes);
 }
 
 static void print_prefix_table(struct vty *vty)
@@ -1190,6 +1239,21 @@ DEFUN (show_rpki_prefix_table,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_rpki_as_number, show_rpki_as_number_cmd,
+      "show rpki as-number (1-4294967295)$by_asn",
+      SHOW_STR RPKI_OUTPUT_STRING
+      "Lookup by ASN in prefix table\n"
+      "AS Number\n")
+{
+	if (!is_synchronized()) {
+		vty_out(vty, "No Connection to RPKI cache server.\n");
+		return CMD_WARNING;
+	}
+
+	print_prefix_table_by_asn(vty, by_asn);
+	return CMD_SUCCESS;
+}
+
 DEFPY (show_rpki_prefix,
        show_rpki_prefix_cmd,
        "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)$asn]",
@@ -1337,35 +1401,10 @@ DEFUN (show_rpki_cache_connection,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (rpki_exit,
-	    rpki_exit_cmd,
-	    "exit",
-	    "Exit rpki configuration and restart rpki session\n")
+static int config_on_exit(struct vty *vty)
 {
 	reset(false);
-
-	vty->node = CONFIG_NODE;
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (rpki_quit,
-	    rpki_quit_cmd,
-	    "quit",
-	    "Exit rpki configuration mode\n")
-{
-	return rpki_exit(self, vty, argc, argv);
-}
-
-DEFUN_NOSH (rpki_end,
-	    rpki_end_cmd,
-	    "end",
-	    "End rpki configuration, restart rpki session and change to enable mode.\n")
-{
-	int ret = reset(false);
-
-	vty_config_exit(vty);
-	vty->node = ENABLE_NODE;
-	return ret == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
+	return 1;
 }
 
 DEFUN (rpki_reset,
@@ -1412,21 +1451,18 @@ DEFUN (match_rpki,
 
 	ret = route_map_add_match(index, "rpki", argv[2]->arg,
 				  RMAP_EVENT_MATCH_ADDED);
-	if (ret) {
-		switch (ret) {
-		case RMAP_RULE_MISSING:
-			vty_out(vty, "%% BGP Can't find rule.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		case RMAP_COMPILE_ERROR:
-			vty_out(vty, "%% BGP Argument is malformed.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		case RMAP_COMPILE_SUCCESS:
-			/*
-			 * Intentionally doing nothing here
-			 */
-			break;
-		}
+	switch (ret) {
+	case RMAP_RULE_MISSING:
+		vty_out(vty, "%% BGP Can't find rule.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	case RMAP_COMPILE_ERROR:
+		vty_out(vty, "%% BGP Argument is malformed.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	case RMAP_COMPILE_SUCCESS:
+		return CMD_SUCCESS;
+		break;
 	}
+
 	return CMD_SUCCESS;
 }
 
@@ -1445,52 +1481,28 @@ DEFUN (no_match_rpki,
 
 	ret = route_map_delete_match(index, "rpki", argv[3]->arg,
 				     RMAP_EVENT_MATCH_DELETED);
-	if (ret) {
-		switch (ret) {
-		case RMAP_RULE_MISSING:
-			vty_out(vty, "%% BGP Can't find rule.\n");
-			break;
-		case RMAP_COMPILE_ERROR:
-			vty_out(vty, "%% BGP Argument is malformed.\n");
-			break;
-		case RMAP_COMPILE_SUCCESS:
-			/*
-			 * Nothing to do here
-			 */
-			break;
-		}
+	switch (ret) {
+	case RMAP_RULE_MISSING:
+		vty_out(vty, "%% BGP Can't find rule.\n");
 		return CMD_WARNING_CONFIG_FAILED;
+		break;
+	case RMAP_COMPILE_ERROR:
+		vty_out(vty, "%% BGP Argument is malformed.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+		break;
+	case RMAP_COMPILE_SUCCESS:
+		return CMD_SUCCESS;
+		break;
 	}
 
 	return CMD_SUCCESS;
 }
 
-static void overwrite_exit_commands(void)
-{
-	unsigned int i;
-	vector cmd_vector = rpki_node.cmd_vector;
-
-	for (i = 0; i < cmd_vector->active; ++i) {
-		struct cmd_element *cmd = vector_lookup(cmd_vector, i);
-
-		if (strcmp(cmd->string, "exit") == 0
-		    || strcmp(cmd->string, "quit") == 0
-		    || strcmp(cmd->string, "end") == 0) {
-			uninstall_element(RPKI_NODE, cmd);
-		}
-	}
-
-	install_element(RPKI_NODE, &rpki_exit_cmd);
-	install_element(RPKI_NODE, &rpki_quit_cmd);
-	install_element(RPKI_NODE, &rpki_end_cmd);
-}
-
 static void install_cli_commands(void)
 {
 	// TODO: make config write work
-	install_node(&rpki_node, &config_write);
+	install_node(&rpki_node);
 	install_default(RPKI_NODE);
-	overwrite_exit_commands();
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(ENABLE_NODE, &rpki_cmd);
 
@@ -1529,6 +1541,7 @@ static void install_cli_commands(void)
 	install_element(VIEW_NODE, &show_rpki_cache_connection_cmd);
 	install_element(VIEW_NODE, &show_rpki_cache_server_cmd);
 	install_element(VIEW_NODE, &show_rpki_prefix_cmd);
+	install_element(VIEW_NODE, &show_rpki_as_number_cmd);
 
 	/* Install debug commands */
 	install_element(CONFIG_NODE, &debug_rpki_cmd);

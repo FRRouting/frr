@@ -272,8 +272,8 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u created",
-			   __PRETTY_FUNCTION__, ifp->name,
-			   ospf_get_name(ospf), ospf->vrf_id);
+			   __func__, ifp->name, ospf_get_name(ospf),
+			   ospf->vrf_id);
 
 	return oi;
 }
@@ -349,7 +349,7 @@ void ospf_if_free(struct ospf_interface *oi)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
-			   __PRETTY_FUNCTION__, oi->ifp->name,
+			   __func__, oi->ifp->name,
 			   ospf_vrf_id_to_name(oi->ifp->vrf_id),
 			   oi->ifp->vrf_id);
 
@@ -694,7 +694,6 @@ static int ospf_if_delete_hook(struct interface *ifp)
 
 	ospf_del_if_params((struct ospf_if_params *)IF_DEF_PARAMS(ifp));
 	XFREE(MTYPE_OSPF_IF_INFO, ifp->info);
-	ifp->info = NULL;
 
 	return rc;
 }
@@ -863,7 +862,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 
 	p = prefix_ipv4_new();
 	p->family = AF_INET;
-	p->prefix.s_addr = 0;
+	p->prefix.s_addr = INADDR_ANY;
 	p->prefixlen = 0;
 
 	co->address = (struct prefix *)p;
@@ -886,7 +885,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospf_vl_new(): set if->name to %s", vi->name);
 
-	area_id.s_addr = 0;
+	area_id.s_addr = INADDR_ANY;
 	area = ospf_area_get(ospf, area_id);
 	voi->area = area;
 
@@ -908,7 +907,7 @@ static void ospf_vl_if_delete(struct ospf_vl_data *vl_data)
 {
 	struct interface *ifp = vl_data->vl_oi->ifp;
 
-	vl_data->vl_oi->address->u.prefix4.s_addr = 0;
+	vl_data->vl_oi->address->u.prefix4.s_addr = INADDR_ANY;
 	vl_data->vl_oi->address->prefixlen = 0;
 	ospf_if_free(vl_data->vl_oi);
 	if_delete(&ifp);
@@ -972,7 +971,7 @@ static void ospf_vl_shutdown(struct ospf_vl_data *vl_data)
 	if ((oi = vl_data->vl_oi) == NULL)
 		return;
 
-	oi->address->u.prefix4.s_addr = 0;
+	oi->address->u.prefix4.s_addr = INADDR_ANY;
 	oi->address->prefixlen = 0;
 
 	UNSET_FLAG(oi->ifp->flags, IFF_UP);

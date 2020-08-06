@@ -117,11 +117,11 @@ static bool isis_vertex_queue_hash_cmp(const void *a, const void *b)
  * Compares vertizes for sorting in the TENT list. Returns true
  * if candidate should be considered before current, false otherwise.
  */
-__attribute__((__unused__))
-static int isis_vertex_queue_tent_cmp(void *a, void *b)
+__attribute__((__unused__)) static int isis_vertex_queue_tent_cmp(const void *a,
+								  const void *b)
 {
-	struct isis_vertex *va = a;
-	struct isis_vertex *vb = b;
+	const struct isis_vertex *va = a;
+	const struct isis_vertex *vb = b;
 
 	if (va->d_N < vb->d_N)
 		return -1;

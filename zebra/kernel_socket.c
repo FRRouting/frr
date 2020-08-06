@@ -556,7 +556,7 @@ int ifm_read(struct if_msghdr *ifm)
 	 * is 12 bytes larger than the 32 bit version.
 	 */
 	if (((struct sockaddr *)cp)->sa_family == AF_UNSPEC)
-		cp = cp + 12;
+		cp += 12;
 #endif
 
 	/* Look up for RTA_IFP and skip others. */
@@ -1371,7 +1371,7 @@ static int kernel_read(struct thread *thread)
 	/* Fetch routing socket. */
 	sock = THREAD_FD(thread);
 
-	nbytes = read(sock, &buf, sizeof buf);
+	nbytes = read(sock, &buf, sizeof(buf));
 
 	if (nbytes <= 0) {
 		if (nbytes < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
@@ -1393,7 +1393,7 @@ static int kernel_read(struct thread *thread)
 	 */
 	if (rtm->rtm_msglen != nbytes) {
 		zlog_debug(
-			"kernel_read: rtm->rtm_msglen %d, nbytes %d, type %d\n",
+			"kernel_read: rtm->rtm_msglen %d, nbytes %d, type %d",
 			rtm->rtm_msglen, nbytes, rtm->rtm_type);
 		return -1;
 	}

@@ -1,0 +1,133 @@
+module frr-pim-rp {
+  yang-version "1.1";
+  namespace "http://frrouting.org/yang/pim-rp";
+
+  prefix frr-pim-rp;
+
+  import ietf-inet-types {
+    prefix "inet";
+  }
+
+  import ietf-routing-types {
+    prefix "rt-types";
+  }
+
+  import frr-routing {
+    prefix "frr-rt";
+  }
+
+  import frr-pim {
+    prefix "frr-pim";
+  }
+
+  organization
+    "FRRouting";
+
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+
+  description
+    "The module defines a collection of YANG definitions common for
+     all PIM (Protocol Independent Multicast) RP (Rendezvous Point) model.";
+
+  revision 2017-03-09 {
+    description
+      "Initial revision.";
+    reference
+      "RFC XXXX: A YANG Data Model for PIM RP";
+  }
+
+  typedef ipv4-multicast-group-address-prefix {
+    type inet:ipv4-prefix{
+      pattern '(2((2[4-9])|(3[0-9]))\.)(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){2}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])(/(([4-9])|([1-2][0-9])|(3[0-2])))';
+    }
+    description
+      "This type represents an IPv4 multicast group prefix,
+       which is in the range from 224.0.0.0 to 239.255.255.255.";
+    }
+
+  typedef ipv6-multicast-group-address-prefix {
+    type inet:ipv6-prefix {
+      pattern
+        '(((FF|ff)[0-9a-fA-F]{2}):)([0-9a-fA-F]{0,4}:){0,5}((([0-9a-fA-F]{0,4}:)?(:|[0-9a-fA-F]{0,4}))|(((25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])))(/((1[6-9])|([2-9][0-9])|(1[0-1][0-9])|(12[0-8])))';
+      pattern
+        '(([^:]+:){6}(([^:]+:[^:]+)|(.*\..*)))|((([^:]+:)*[^:]+)?::(([^:]+:)*[^:]+)?)(/.+)';
+    }
+    description
+      "This type represents an IPv6 multicast group prefix,
+       which is in the range of FF00::/8.";
+  }
+
+  typedef ip-multicast-group-address-prefix {
+    description "The IP-Multicast-Group-Address-Prefix type represents an IP multicast address
+    prefix and is IP version neutral. The format of the textual representations implies the IP
+    version. It includes a prefix-length, separated by a '/' sign.";
+    type union {
+      type ipv4-multicast-group-address-prefix;
+      type ipv6-multicast-group-address-prefix;
+    }
+  } // typedef ip-multicast-group-address-prefix
+
+  typedef plist-ref {
+    type string;
+  }
+
+  /*
+   * Groupings
+   */
+  grouping static-rp-container {
+    description
+      "Grouping of static RP container.";
+
+    container static-rp {
+      description
+        "Containing static RP attributes.";
+
+      list rp-list {
+        key "rp-address";
+        description
+          "A list of RP addresses.";
+
+        leaf rp-address {
+          type inet:ip-address;
+          description
+            "Specifies a static RP address.";
+        }
+
+        choice group-list-or-prefix-list {
+          description "Use group-list or prefix-list";
+          case group-list {
+            leaf-list group-list{
+              type ip-multicast-group-address-prefix;  
+              description
+                "List of multicast group address.";
+            }
+          }
+          case prefix-list {
+            leaf prefix-list {
+              type plist-ref;
+              description
+                "Group prefix-list filter";
+            }
+          }
+        }
+      }
+    } // static-rp
+  } // static-rp-container
+
+  /*
+   * Configuration data nodes
+   */
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/"
+    + "frr-rt:control-plane-protocol/frr-pim:pim/"
+    + "frr-pim:address-family" {
+    description "PIM RP augmentation.";
+
+    container rp {
+      description
+        "PIM RP configuration data.";
+      uses static-rp-container;
+    } // rp
+  } // augment
+}

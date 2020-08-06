@@ -25,6 +25,7 @@
 
 #include "prefix.h"
 #include "mpls.h"
+#include "vxlan.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,6 +61,10 @@ enum blackhole_type {
 		? (type)                                                       \
 		: ((type) | 1)
 
+enum nh_encap_type {
+	NET_VXLAN = 100, /* value copied from FPM_NH_ENCAP_VXLAN. */
+};
+
 /* Nexthop structure. */
 struct nexthop {
 	struct nexthop *next;
@@ -79,10 +84,15 @@ struct nexthop {
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
 #define NEXTHOP_FLAG_FIB        (1 << 1) /* FIB nexthop. */
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
-#define NEXTHOP_FLAG_ONLINK     (1 << 3) /* Nexthop should be installed onlink. */
-#define NEXTHOP_FLAG_MATCHED    (1 << 4) /* Already matched vs a nexthop */
-#define NEXTHOP_FLAG_DUPLICATE  (1 << 5) /* nexthop duplicates another active one */
-#define NEXTHOP_FLAG_RNH_FILTERED  (1 << 6) /* rmap filtered, used by rnh */
+#define NEXTHOP_FLAG_ONLINK     (1 << 3) /* Nexthop should be installed
+					  * onlink.
+					  */
+#define NEXTHOP_FLAG_DUPLICATE  (1 << 4) /* nexthop duplicates another
+					  * active one
+					  */
+#define NEXTHOP_FLAG_RNH_FILTERED  (1 << 5) /* rmap filtered, used by rnh */
+#define NEXTHOP_FLAG_HAS_BACKUP (1 << 6)    /* Backup nexthop index is set */
+
 #define NEXTHOP_IS_ACTIVE(flags)                                               \
 	(CHECK_FLAG(flags, NEXTHOP_FLAG_ACTIVE)                                \
 	 && !CHECK_FLAG(flags, NEXTHOP_FLAG_DUPLICATE))
@@ -113,15 +123,37 @@ struct nexthop {
 
 	/* Weight of the nexthop ( for unequal cost ECMP ) */
 	uint8_t weight;
+
+	/* Index of a corresponding backup nexthop in a backup list;
+	 * only meaningful if the HAS_BACKUP flag is set.
+	 */
+	uint8_t backup_idx;
+
+	/* Encapsulation information. */
+	enum nh_encap_type nh_encap_type;
+	union {
+		vni_t vni;
+	} nh_encap;
 };
+
+/* Backup index value is limited */
+#define NEXTHOP_BACKUP_IDX_MAX 255
+
+/* Utility to append one nexthop to another. */
+#define NEXTHOP_APPEND(to, new)           \
+	do {                              \
+		(to)->next = (new);       \
+		(new)->prev = (to);       \
+		(new)->next = NULL;       \
+	} while (0)
 
 struct nexthop *nexthop_new(void);
 
 void nexthop_free(struct nexthop *nexthop);
 void nexthops_free(struct nexthop *nexthop);
 
-void nexthop_add_labels(struct nexthop *, enum lsp_types_t, uint8_t,
-			mpls_label_t *);
+void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t ltype,
+			uint8_t num_labels, const mpls_label_t *labels);
 void nexthop_del_labels(struct nexthop *);
 
 /*
@@ -187,9 +219,20 @@ extern unsigned int nexthop_level(struct nexthop *nexthop);
 /* Copies to an already allocated nexthop struct */
 extern void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 			 struct nexthop *rparent);
+/* Copies to an already allocated nexthop struct, not including recurse info */
+extern void nexthop_copy_no_recurse(struct nexthop *copy,
+				    const struct nexthop *nexthop,
+				    struct nexthop *rparent);
 /* Duplicates a nexthop and returns the newly allocated nexthop */
 extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 				   struct nexthop *rparent);
+/* Duplicates a nexthop and returns the newly allocated nexthop */
+extern struct nexthop *nexthop_dup_no_recurse(const struct nexthop *nexthop,
+					      struct nexthop *rparent);
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pNH"  (struct nexthop *)
+#endif
 
 #ifdef __cplusplus
 }

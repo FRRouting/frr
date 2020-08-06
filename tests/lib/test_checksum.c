@@ -23,6 +23,7 @@
 #include <time.h>
 
 #include "checksum.h"
+#include "network.h"
 
 struct thread_master *master;
 
@@ -477,7 +478,7 @@ int main(int argc, char **argv)
 		exercise %= MAXDATALEN;
 
 		for (i = 0; i < exercise; i += sizeof(long int)) {
-			long int rand = random();
+			long int rand = frr_weak_random();
 
 			for (j = sizeof(long int); j > 0; j--)
 				buffer[i + (sizeof(long int) - j)] =

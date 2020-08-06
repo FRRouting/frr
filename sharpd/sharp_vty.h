@@ -23,4 +23,10 @@
 #define __SHARP_VTY_H__
 
 extern void sharp_vty_init(void);
+
+struct vty;
+
+extern void sharp_logpump_run(struct vty *vty, unsigned duration,
+			      unsigned frequency, unsigned burst);
+
 #endif

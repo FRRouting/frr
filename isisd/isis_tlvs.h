@@ -28,8 +28,11 @@
 #include "openbsd-tree.h"
 #include "prefix.h"
 
+DECLARE_MTYPE(ISIS_SUBTLV)
+
 struct lspdb_head;
 struct isis_subtlvs;
+struct sr_prefix_cfg;
 
 struct isis_area_address;
 struct isis_area_address {
@@ -132,10 +135,7 @@ struct isis_threeway_adj {
 	uint32_t neighbor_circuit_id;
 };
 
-/*
- * Segment Routing subTLV's as per
- * draft-ietf-isis-segment-routing-extension-25
- */
+/* Segment Routing subTLV's as per RFC8667 */
 #define ISIS_SUBTLV_SRGB_FLAG_I		0x80
 #define ISIS_SUBTLV_SRGB_FLAG_V		0x40
 #define IS_SR_IPV4(srgb)               (srgb.flags & ISIS_SUBTLV_SRGB_FLAG_I)
@@ -213,7 +213,7 @@ struct isis_router_cap {
 	struct in_addr router_id;
 	uint8_t flags;
 
-	/* draft-ietf-segment-routing-extensions-25 */
+	/* RFC 8667 section #3 */
 	struct isis_srgb srgb;
 	uint8_t algo[SR_ALGORITHM_COUNT];
 	/* RFC 8491 */
@@ -341,7 +341,7 @@ struct isis_subtlvs {
 
 	/* draft-baker-ipv6-isis-dst-src-routing-06 */
 	struct prefix_ipv6 *source_prefix;
-	/* draft-ietf-isis-segment-routing-extensions-25 */
+	/* RFC 8667 section #2.4 */
 	struct isis_item_list prefix_sids;
 };
 
@@ -391,15 +391,17 @@ enum isis_tlv_type {
 	/* RFC 5307 */
 	ISIS_SUBTLV_LLRI = 4,
 
+	/* RFC 8491 */
+	ISIS_SUBTLV_NODE_MSD = 23,
+
 	/* RFC 5316 */
 	ISIS_SUBTLV_RAS = 24,
 	ISIS_SUBTLV_RIP = 25,
 
-	/* draft-isis-segment-routing-extension-25 */
+	/* RFC 8667 section #2 */
 	ISIS_SUBTLV_SID_LABEL = 1,
 	ISIS_SUBTLV_SID_LABEL_RANGE = 2,
 	ISIS_SUBTLV_ALGORITHM = 19,
-	ISIS_SUBTLV_NODE_MSD = 23,
 	ISIS_SUBTLV_PREFIX_SID = 3,
 	ISIS_SUBTLV_ADJ_SID = 31,
 	ISIS_SUBTLV_LAN_ADJ_SID = 32,
@@ -418,21 +420,26 @@ enum isis_tlv_type {
 
 /* subTLVs size for TE and SR */
 enum ext_subtlv_size {
+	/* RFC 5307 */
 	ISIS_SUBTLV_LLRI_SIZE = 8,
 
+	/* RFC 5305 & RFC 6119 */
 	ISIS_SUBTLV_UNRSV_BW_SIZE = 32,
 	ISIS_SUBTLV_TE_METRIC_SIZE = 3,
 	ISIS_SUBTLV_IPV6_ADDR_SIZE = 16,
 
-	/* draft-isis-segment-routing-extension-25 */
+	/* RFC 8491 */
+	ISIS_SUBTLV_NODE_MSD_SIZE = 2,
+
+	/* RFC 8667 section #2 */
 	ISIS_SUBTLV_SID_LABEL_SIZE = 3,
 	ISIS_SUBTLV_SID_LABEL_RANGE_SIZE = 9,
 	ISIS_SUBTLV_ALGORITHM_SIZE = 4,
-	ISIS_SUBTLV_NODE_MSD_SIZE = 2,
 	ISIS_SUBTLV_ADJ_SID_SIZE = 5,
 	ISIS_SUBTLV_LAN_ADJ_SID_SIZE = 11,
 	ISIS_SUBTLV_PREFIX_SID_SIZE = 5,
 
+	/* RFC 7810 */
 	ISIS_SUBTLV_MM_DELAY_SIZE = 8,
 
 	ISIS_SUBTLV_HDR_SIZE = 2,
@@ -580,9 +587,11 @@ void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,
 void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs,
 				     struct prefix_ipv4 *dest, uint8_t metric);
 void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
-				     struct prefix_ipv4 *dest, uint32_t metric);
+				     struct prefix_ipv4 *dest, uint32_t metric,
+				     bool external, struct sr_prefix_cfg *pcfg);
 void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
-			      struct prefix_ipv6 *dest, uint32_t metric);
+			      struct prefix_ipv6 *dest, uint32_t metric,
+			      bool external, struct sr_prefix_cfg *pcfg);
 void isis_tlvs_add_ipv6_dstsrc_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 				     struct prefix_ipv6 *dest,
 				     struct prefix_ipv6 *src,

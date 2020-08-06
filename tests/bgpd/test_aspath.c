@@ -474,6 +474,20 @@ static struct test_segment {
 		14,
 		{NULL, NULL, 0, 0, 0, 0, 0, 0},
 	},
+	{
+		/* 28 */
+		"BGP_AS_ZERO",
+		"seq(8466,3,52737,0,4096)",
+		{0x2, 0x5,
+		0x21, 0x12,
+		0x00, 0x03,
+		0xce, 0x01,
+		0x00, 0x00,
+		0x10, 0x00},
+		12,
+		{"8466 3 52737 0 4096", "8466 3 52737 0 4096", 5, 0,
+		 NOT_ALL_PRIVATE, 4096, 4, 8466},
+	},
 	{NULL, NULL, {0}, 0, {NULL, 0, 0}}};
 
 #define COMMON_ATTRS                                                           \
@@ -653,7 +667,7 @@ static struct aspath_tests {
 		&test_segments[6],
 		NULL,
 		AS4_DATA,
-		-1,
+		-2,
 		PEER_CAP_AS4_ADV,
 		{
 			COMMON_ATTRS,
@@ -677,6 +691,21 @@ static struct aspath_tests {
 		},
 		COMMON_ATTR_SIZE + 3,
 		&test_segments[0],
+	},
+	/* 13 */
+	{
+		"4b AS4_PATH: BGP_AS_ZERO",
+		&test_segments[28],
+		"8466 3 52737 0 4096",
+		AS4_DATA,
+		-1,
+		PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV,
+		{
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
+			BGP_ATTR_AS4_PATH, 22,
+		},
+		COMMON_ATTR_SIZE + 3,
 	},
 	{NULL, NULL, NULL, 0, 0, 0, {0}, 0},
 };

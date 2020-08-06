@@ -180,6 +180,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 			switch (p->family) {
 			case AF_INET: {
 				struct in_addr loopback;
+
 				loopback.s_addr = htonl(INADDR_LOOPBACK);
 				sin_gate.sin.sin_addr = loopback;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
@@ -187,11 +188,21 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 					sizeof(struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 				gate = true;
-			}
-				break;
-			case AF_INET6:
-				zlog_warn("v6 blackhole routes have not been programmed yet");
-				break;
+			} break;
+			case AF_INET6: {
+				struct in6_addr loopback;
+
+				inet_pton(AF_INET6, "::1", &loopback);
+
+				sin_gate.sin6.sin6_addr = loopback;
+				sin_gate.sin6.sin6_family = AF_INET6;
+
+#ifdef HAVE_STRUCTSOCKADDR_SA_LEN
+				sin_gate.sin6.sin6_len =
+					sizeof(struct sockaddr_in6);
+#endif /* HAVE_STRUCTSOCKADDR_SA_LEN */
+				gate = true;
+			} break;
 			}
 		}
 

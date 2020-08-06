@@ -457,6 +457,12 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Gather data and open a Issue so that this developmental escape can be fixed, the peer should have been reset",
 	},
 	{
+		.code = EC_BGP_ROUTER_ID_SAME,
+		.title = "BGP has detected a duplicate router id during collision resolution",
+		.description = "As part of normal collision detection for opening a connection to a peer, BGP has detected that the remote peer's router-id is the same as ours",
+		.suggestion = "Change one of the two router-id's",
+	},
+	{
 		.code = END_FERR,
 	}
 };

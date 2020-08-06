@@ -27,6 +27,7 @@
 #include "frr_pthread.h"
 #include "memory.h"
 #include "linklist.h"
+#include "zlog.h"
 
 DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread")
 DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives")
@@ -273,6 +274,8 @@ static void *fpt_run(void *arg)
 	struct frr_pthread *fpt = arg;
 	fpt->master->owner = pthread_self();
 
+	zlog_tls_buffer_init();
+
 	int sleeper[2];
 	pipe(sleeper);
 	thread_add_read(fpt->master, &fpt_dummy, NULL, sleeper[0], NULL);
@@ -293,6 +296,8 @@ static void *fpt_run(void *arg)
 
 	close(sleeper[1]);
 	close(sleeper[0]);
+
+	zlog_tls_buffer_fini();
 
 	return NULL;
 }

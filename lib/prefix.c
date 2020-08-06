@@ -56,6 +56,25 @@ int is_zero_mac(const struct ethaddr *mac)
 	return 1;
 }
 
+bool is_bcast_mac(const struct ethaddr *mac)
+{
+	int i = 0;
+
+	for (i = 0; i < ETH_ALEN; i++)
+		if (mac->octet[i] != 0xFF)
+			return false;
+
+	return true;
+}
+
+bool is_mcast_mac(const struct ethaddr *mac)
+{
+	if ((mac->octet[0] & 0x01) == 0x01)
+		return true;
+
+	return false;
+}
+
 unsigned int prefix_bit(const uint8_t *prefix, const uint16_t prefixlen)
 {
 	unsigned int offset = prefixlen / 8;
@@ -659,7 +678,7 @@ void apply_mask_ipv4(struct prefix_ipv4 *p)
 /* If prefix is 0.0.0.0/0 then return 1 else return 0. */
 int prefix_ipv4_any(const struct prefix_ipv4 *p)
 {
-	return (p->prefix.s_addr == 0 && p->prefixlen == 0);
+	return (p->prefix.s_addr == INADDR_ANY && p->prefixlen == 0);
 }
 
 /* Allocate a new ip version 6 route */
@@ -839,13 +858,10 @@ int prefix_blen(const struct prefix *p)
 	switch (p->family) {
 	case AF_INET:
 		return IPV4_MAX_BYTELEN;
-		break;
 	case AF_INET6:
 		return IPV6_MAX_BYTELEN;
-		break;
 	case AF_ETHERNET:
 		return ETH_ALEN;
-		break;
 	}
 	return 0;
 }
@@ -1066,7 +1082,7 @@ struct prefix *prefix_new(void)
 {
 	struct prefix *p;
 
-	p = XCALLOC(MTYPE_PREFIX, sizeof *p);
+	p = XCALLOC(MTYPE_PREFIX, sizeof(*p));
 	return p;
 }
 
@@ -1081,7 +1097,6 @@ void prefix_free_lists(void *arg)
 void prefix_free(struct prefix **p)
 {
 	XFREE(MTYPE_PREFIX, *p);
-	*p = NULL;
 }
 
 /* Utility function to convert ipv4 prefixes to Classful prefixes */
@@ -1113,11 +1128,11 @@ in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen)
 
 	masklen2ip(masklen, &mask);
 	return (masklen != IPV4_MAX_PREFIXLEN - 1) ?
-						   /* normal case */
-		       (hostaddr | ~mask.s_addr)
-						   :
-						   /* special case for /31 */
-		       (hostaddr ^ ~mask.s_addr);
+		/* normal case */
+		(hostaddr | ~mask.s_addr)
+		   :
+		/* For prefix 31 return 255.255.255.255 (RFC3021) */
+		htonl(0xFFFFFFFF);
 }
 
 /* Utility function to convert ipv4 netmask to prefixes
@@ -1145,7 +1160,7 @@ int netmask_str2prefix_str(const char *net_str, const char *mask_str,
 	} else {
 		destination = ntohl(network.s_addr);
 
-		if (network.s_addr == 0)
+		if (network.s_addr == INADDR_ANY)
 			prefixlen = 0;
 		else if (IN_CLASSC(destination))
 			prefixlen = 24;

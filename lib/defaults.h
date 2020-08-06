@@ -22,6 +22,10 @@
 
 #include "compiler.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* frr_default wraps information about a default that has different
  * values depending on FRR version or default-set
  *
@@ -134,5 +138,9 @@ extern bool frr_defaults_profile_valid(const char *profile);
 
 /* like strcmp(), but with version ordering */
 extern int frr_version_cmp(const char *aa, const char *bb);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_DEFAULTS_H */

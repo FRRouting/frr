@@ -169,7 +169,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	int			 tlvs_rcvd;
 	int			 ds_tlv;
 	union ldpd_addr		 trans_addr;
-	uint32_t		 scope_id = 0;
+	ifindex_t		 scope_id = 0;
 	uint32_t		 conf_seqnum;
 	uint16_t		 trans_pref;
 	int			 r;

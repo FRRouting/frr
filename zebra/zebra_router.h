@@ -117,6 +117,9 @@ struct zebra_router {
 	/* Lists of clients who have connected to us */
 	struct list *client_list;
 
+	/* List of clients in GR */
+	struct list *stale_client_list;
+
 	struct zebra_router_table_head tables;
 
 	/* L3-VNI hash table (for EVPN). Only in default instance */
@@ -214,6 +217,9 @@ static inline struct zebra_vrf *zebra_vrf_get_evpn(void)
 extern void multicast_mode_ipv4_set(enum multicast_mode mode);
 
 extern enum multicast_mode multicast_mode_ipv4_get(void);
+
+/* zebra_northbound.c */
+extern const struct frr_yang_module_info frr_zebra_info;
 
 #ifdef __cplusplus
 }

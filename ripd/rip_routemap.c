@@ -158,8 +158,9 @@ route_match_ip_next_hop(void *rule, const struct prefix *prefix,
 	if (type == RMAP_RIP) {
 		rinfo = object;
 		p.family = AF_INET;
-		p.prefix = (rinfo->nh.gate.ipv4.s_addr) ? rinfo->nh.gate.ipv4
-							: rinfo->from;
+		p.prefix = (rinfo->nh.gate.ipv4.s_addr != INADDR_ANY)
+				   ? rinfo->nh.gate.ipv4
+				   : rinfo->from;
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		alist = access_list_lookup(AFI_IP, (char *)rule);
@@ -207,8 +208,9 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 	if (type == RMAP_RIP) {
 		rinfo = object;
 		p.family = AF_INET;
-		p.prefix = (rinfo->nh.gate.ipv4.s_addr) ? rinfo->nh.gate.ipv4
-							: rinfo->from;
+		p.prefix = (rinfo->nh.gate.ipv4.s_addr != INADDR_ANY)
+				   ? rinfo->nh.gate.ipv4
+				   : rinfo->from;
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
@@ -466,7 +468,7 @@ static void *route_set_metric_compile(const char *arg)
 	if (metric > RIP_METRIC_INFINITY) {
 		zlog_info(
 			"%s: Metric specified: %ld is greater than RIP_METRIC_INFINITY, using INFINITY instead",
-			__PRETTY_FUNCTION__, metric);
+			__func__, metric);
 		mod->metric = RIP_METRIC_INFINITY;
 	} else
 		mod->metric = metric;

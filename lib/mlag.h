@@ -125,11 +125,14 @@ struct mlag_msg {
 extern char *mlag_role2str(enum mlag_role role, char *buf, size_t size);
 extern char *mlag_lib_msgid_to_str(enum mlag_msg_type msg_type, char *buf,
 				   size_t size);
-extern int mlag_lib_decode_mlag_hdr(struct stream *s, struct mlag_msg *msg);
+extern int mlag_lib_decode_mlag_hdr(struct stream *s, struct mlag_msg *msg,
+				    size_t *length);
 extern int mlag_lib_decode_mroute_add(struct stream *s,
-				      struct mlag_mroute_add *msg);
+				      struct mlag_mroute_add *msg,
+				      size_t *length);
 extern int mlag_lib_decode_mroute_del(struct stream *s,
-				      struct mlag_mroute_del *msg);
+				      struct mlag_mroute_del *msg,
+				      size_t *length);
 extern int mlag_lib_decode_mlag_status(struct stream *s,
 				       struct mlag_status *msg);
 extern int mlag_lib_decode_vxlan_update(struct stream *s,

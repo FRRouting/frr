@@ -33,9 +33,6 @@ extern struct cmd_node ldp_debug_node;
 
 union ldpd_addr;
 int	 ldp_get_address(const char *, int *, union ldpd_addr *);
-int	 ldp_config_write(struct vty *);
-int	 ldp_l2vpn_config_write(struct vty *);
-int	 ldp_debug_config_write(struct vty *);
 int	 ldp_vty_mpls_ldp (struct vty *, const char *);
 int	 ldp_vty_address_family (struct vty *, const char *, const char *);
 int	 ldp_vty_disc_holdtime(struct vty *, const char *, enum hello_type, long);
@@ -52,6 +49,7 @@ int	 ldp_vty_label_expnull(struct vty *, const char *, const char *);
 int	 ldp_vty_label_accept(struct vty *, const char *, const char *, const char *);
 int	 ldp_vty_ttl_security(struct vty *, const char *);
 int	 ldp_vty_router_id(struct vty *, const char *, struct in_addr);
+int	 ldp_vty_ordered_control(struct vty *, const char *);
 int	 ldp_vty_ds_cisco_interop(struct vty *, const char *);
 int	 ldp_vty_trans_pref_ipv4(struct vty *, const char *);
 int	 ldp_vty_neighbor_password(struct vty *, const char *, struct in_addr, const char *);

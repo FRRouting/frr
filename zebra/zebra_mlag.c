@@ -322,7 +322,7 @@ static int zebra_mlag_post_data_from_main_thread(struct thread *thread)
 	STREAM_GETL(s, msg_type);
 	if (IS_ZEBRA_DEBUG_MLAG)
 		zlog_debug(
-			"%s: Posting MLAG data for msg_type:0x%x to interested cleints",
+			"%s: Posting MLAG data for msg_type:0x%x to interested clients",
 			__func__, msg_type);
 
 	msg_len = s->endp - ZEBRA_MLAG_METADATA_LEN;
@@ -364,7 +364,7 @@ stream_failure:
 
 /*
  * Start the MLAG Thread, this will be used to write client data on to
- * MLAG Process and to read the data from MLAG and post to cleints.
+ * MLAG Process and to read the data from MLAG and post to clients.
  * when all clients are un-registered, this Thread will be
  * suspended.
  */
@@ -605,7 +605,7 @@ int32_t zebra_mlag_test_mlag_internal(const char *none, const char *primary,
 		zsend_capabilities_all_clients();
 		if (zrouter.mlag_info.role != MLAG_ROLE_NONE) {
 			if (zrouter.mlag_info.clients_interested_cnt == 0
-			    && test_mlag_in_progress == false) {
+			    && !test_mlag_in_progress) {
 				if (zrouter.mlag_info.zebra_pth_mlag == NULL)
 					zebra_mlag_spawn_pthread();
 				zrouter.mlag_info.clients_interested_cnt++;
@@ -613,7 +613,7 @@ int32_t zebra_mlag_test_mlag_internal(const char *none, const char *primary,
 				hook_call(zebra_mlag_private_open_channel);
 			}
 		} else {
-			if (test_mlag_in_progress == true) {
+			if (test_mlag_in_progress) {
 				test_mlag_in_progress = false;
 				zrouter.mlag_info.clients_interested_cnt--;
 				hook_call(zebra_mlag_private_close_channel);
@@ -667,13 +667,16 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 	int n_len = 0;
 	int rc = 0;
 	char buf[ZLOG_FILTER_LENGTH_MAX];
+	size_t length;
 
 	if (IS_ZEBRA_DEBUG_MLAG)
 		zlog_debug("%s: Entering..", __func__);
 
-	rc = mlag_lib_decode_mlag_hdr(s, &mlag_msg);
+	rc = mlag_lib_decode_mlag_hdr(s, &mlag_msg, &length);
 	if (rc)
 		return rc;
+
+	memset(tmp_buf, 0, ZEBRA_MLAG_BUF_LIMIT);
 
 	if (IS_ZEBRA_DEBUG_MLAG)
 		zlog_debug("%s: Mlag ProtoBuf encoding of message:%s, len:%d",
@@ -688,9 +691,10 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 		ZebraMlagMrouteAdd pay_load = ZEBRA_MLAG_MROUTE_ADD__INIT;
 		uint32_t vrf_name_len = 0;
 
-		rc = mlag_lib_decode_mroute_add(s, &msg);
+		rc = mlag_lib_decode_mroute_add(s, &msg, &length);
 		if (rc)
 			return rc;
+
 		vrf_name_len = strlen(msg.vrf_name) + 1;
 		pay_load.vrf_name = XMALLOC(MTYPE_MLAG_PBUF, vrf_name_len);
 		strlcpy(pay_load.vrf_name, msg.vrf_name, vrf_name_len);
@@ -720,7 +724,7 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 		ZebraMlagMrouteDel pay_load = ZEBRA_MLAG_MROUTE_DEL__INIT;
 		uint32_t vrf_name_len = 0;
 
-		rc = mlag_lib_decode_mroute_del(s, &msg);
+		rc = mlag_lib_decode_mroute_del(s, &msg, &length);
 		if (rc)
 			return rc;
 		vrf_name_len = strlen(msg.vrf_name) + 1;
@@ -749,18 +753,18 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 		ZebraMlagMrouteAddBulk Bulk_msg =
 			ZEBRA_MLAG_MROUTE_ADD_BULK__INIT;
 		ZebraMlagMrouteAdd **pay_load = NULL;
-		int i;
 		bool cleanup = false;
+		uint32_t i, actual;
 
 		Bulk_msg.n_mroute_add = mlag_msg.msg_cnt;
 		pay_load = XMALLOC(MTYPE_MLAG_PBUF, sizeof(ZebraMlagMrouteAdd *)
 							    * mlag_msg.msg_cnt);
 
-		for (i = 0; i < mlag_msg.msg_cnt; i++) {
+		for (i = 0, actual = 0; i < mlag_msg.msg_cnt; i++, actual++) {
 
 			uint32_t vrf_name_len = 0;
 
-			rc = mlag_lib_decode_mroute_add(s, &msg);
+			rc = mlag_lib_decode_mroute_add(s, &msg, &length);
 			if (rc) {
 				cleanup = true;
 				break;
@@ -790,23 +794,29 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 					vrf_name_len);
 			}
 		}
-		if (cleanup == false) {
+		if (!cleanup) {
 			Bulk_msg.mroute_add = pay_load;
 			len = zebra_mlag_mroute_add_bulk__pack(&Bulk_msg,
 							       tmp_buf);
 		}
 
-		for (i = 0; i < mlag_msg.msg_cnt; i++) {
-			if (pay_load[i]->vrf_name)
-				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
+		for (i = 0; i < actual; i++) {
+			/*
+			 * The mlag_lib_decode_mroute_add can
+			 * fail to properly decode and cause nothing
+			 * to be allocated.  Prevent a crash
+			 */
+			if (!pay_load[i])
+				continue;
+
+			XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
 			if (pay_load[i]->owner_id == MLAG_OWNER_INTERFACE
 			    && pay_load[i]->intf_name)
 				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->intf_name);
-			if (pay_load[i])
-				XFREE(MTYPE_MLAG_PBUF, pay_load[i]);
+			XFREE(MTYPE_MLAG_PBUF, pay_load[i]);
 		}
 		XFREE(MTYPE_MLAG_PBUF, pay_load);
-		if (cleanup == true)
+		if (cleanup)
 			return -1;
 	} break;
 	case MLAG_MROUTE_DEL_BULK: {
@@ -814,18 +824,18 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 		ZebraMlagMrouteDelBulk Bulk_msg =
 			ZEBRA_MLAG_MROUTE_DEL_BULK__INIT;
 		ZebraMlagMrouteDel **pay_load = NULL;
-		int i;
 		bool cleanup = false;
+		uint32_t i, actual;
 
 		Bulk_msg.n_mroute_del = mlag_msg.msg_cnt;
 		pay_load = XMALLOC(MTYPE_MLAG_PBUF, sizeof(ZebraMlagMrouteDel *)
 							    * mlag_msg.msg_cnt);
 
-		for (i = 0; i < mlag_msg.msg_cnt; i++) {
+		for (i = 0, actual = 0; i < mlag_msg.msg_cnt; i++, actual++) {
 
 			uint32_t vrf_name_len = 0;
 
-			rc = mlag_lib_decode_mroute_del(s, &msg);
+			rc = mlag_lib_decode_mroute_del(s, &msg, &length);
 			if (rc) {
 				cleanup = true;
 				break;
@@ -860,14 +870,20 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 							       tmp_buf);
 		}
 
-		for (i = 0; i < mlag_msg.msg_cnt; i++) {
-			if (pay_load[i]->vrf_name)
-				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
+		for (i = 0; i < actual; i++) {
+			/*
+			 * The mlag_lib_decode_mroute_add can
+			 * fail to properly decode and cause nothing
+			 * to be allocated.  Prevent a crash
+			 */
+			if (!pay_load[i])
+				continue;
+
+			XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
 			if (pay_load[i]->owner_id == MLAG_OWNER_INTERFACE
 			    && pay_load[i]->intf_name)
 				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->intf_name);
-			if (pay_load[i])
-				XFREE(MTYPE_MLAG_PBUF, pay_load[i]);
+			XFREE(MTYPE_MLAG_PBUF, pay_load[i]);
 		}
 		XFREE(MTYPE_MLAG_PBUF, pay_load);
 		if (cleanup)
@@ -914,10 +930,18 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 			mlag_lib_msgid_to_str(mlag_msg.msg_type, buf,
 					      sizeof(buf)),
 			len);
-	if (hdr.data.data)
-		XFREE(MTYPE_MLAG_PBUF, hdr.data.data);
+	XFREE(MTYPE_MLAG_PBUF, hdr.data.data);
 
 	return len;
+}
+
+static void zebra_fill_protobuf_msg(struct stream *s, char *name, int len)
+{
+	int str_len = strlen(name) + 1;
+
+	stream_put(s, name, str_len);
+	/* Fill the rest with Null Character for aligning */
+	stream_put(s, NULL, len - str_len);
 }
 
 int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
@@ -971,7 +995,8 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 			/* No Batching */
 			stream_putw(s, MLAG_MSG_NO_BATCH);
 			/* Actual Data */
-			stream_put(s, msg->peerlink, INTERFACE_NAMSIZ);
+			zebra_fill_protobuf_msg(s, msg->peerlink,
+						INTERFACE_NAMSIZ);
 			stream_putl(s, msg->my_role);
 			stream_putl(s, msg->peer_state);
 			zebra_mlag_status_update__free_unpacked(msg, NULL);
@@ -1008,7 +1033,7 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 			/* No Batching */
 			stream_putw(s, MLAG_MSG_NO_BATCH);
 			/* Actual Data */
-			stream_put(s, msg->vrf_name, VRF_NAMSIZ);
+			zebra_fill_protobuf_msg(s, msg->vrf_name, VRF_NAMSIZ);
 
 			stream_putl(s, msg->source_ip);
 			stream_putl(s, msg->group_ip);
@@ -1018,7 +1043,8 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 			stream_putc(s, msg->am_i_dual_active);
 			stream_putl(s, msg->vrf_id);
 			if (msg->owner_id == MLAG_OWNER_INTERFACE)
-				stream_put(s, msg->intf_name, INTERFACE_NAMSIZ);
+				zebra_fill_protobuf_msg(s, msg->intf_name,
+							INTERFACE_NAMSIZ);
 			else
 				stream_put(s, NULL, INTERFACE_NAMSIZ);
 			zebra_mlag_mroute_add__free_unpacked(msg, NULL);
@@ -1037,15 +1063,15 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 			/* No Batching */
 			stream_putw(s, MLAG_MSG_NO_BATCH);
 			/* Actual Data */
-			stream_put(s, msg->vrf_name, VRF_NAMSIZ);
+			zebra_fill_protobuf_msg(s, msg->vrf_name, VRF_NAMSIZ);
 
 			stream_putl(s, msg->source_ip);
-			stream_putl(s, msg->group_ip);
 			stream_putl(s, msg->group_ip);
 			stream_putl(s, msg->owner_id);
 			stream_putl(s, msg->vrf_id);
 			if (msg->owner_id == MLAG_OWNER_INTERFACE)
-				stream_put(s, msg->intf_name, INTERFACE_NAMSIZ);
+				zebra_fill_protobuf_msg(s, msg->intf_name,
+							INTERFACE_NAMSIZ);
 			else
 				stream_put(s, NULL, INTERFACE_NAMSIZ);
 			zebra_mlag_mroute_del__free_unpacked(msg, NULL);
@@ -1072,7 +1098,8 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 
 				msg = Bulk_msg->mroute_add[i];
 
-				stream_put(s, msg->vrf_name, VRF_NAMSIZ);
+				zebra_fill_protobuf_msg(s, msg->vrf_name,
+							VRF_NAMSIZ);
 				stream_putl(s, msg->source_ip);
 				stream_putl(s, msg->group_ip);
 				stream_putl(s, msg->cost_to_rp);
@@ -1081,8 +1108,9 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 				stream_putc(s, msg->am_i_dual_active);
 				stream_putl(s, msg->vrf_id);
 				if (msg->owner_id == MLAG_OWNER_INTERFACE)
-					stream_put(s, msg->intf_name,
-						   INTERFACE_NAMSIZ);
+					zebra_fill_protobuf_msg(
+						s, msg->intf_name,
+						INTERFACE_NAMSIZ);
 				else
 					stream_put(s, NULL, INTERFACE_NAMSIZ);
 			}
@@ -1111,14 +1139,16 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 
 				msg = Bulk_msg->mroute_del[i];
 
-				stream_put(s, msg->vrf_name, VRF_NAMSIZ);
+				zebra_fill_protobuf_msg(s, msg->vrf_name,
+							VRF_NAMSIZ);
 				stream_putl(s, msg->source_ip);
 				stream_putl(s, msg->group_ip);
 				stream_putl(s, msg->owner_id);
 				stream_putl(s, msg->vrf_id);
 				if (msg->owner_id == MLAG_OWNER_INTERFACE)
-					stream_put(s, msg->intf_name,
-						   INTERFACE_NAMSIZ);
+					zebra_fill_protobuf_msg(
+						s, msg->intf_name,
+						INTERFACE_NAMSIZ);
 				else
 					stream_put(s, NULL, INTERFACE_NAMSIZ);
 			}

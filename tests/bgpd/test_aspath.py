@@ -52,6 +52,7 @@ TestAspath.parsertest("redundantset2")
 TestAspath.parsertest("zero-size overflow")
 TestAspath.parsertest("zero-size overflow + valid segment")
 TestAspath.parsertest("invalid segment type")
+TestAspath.parsertest("BGP_AS_ZERO")
 
 for i in range(10):
     TestAspath.okfail("prepend test %d" % i)
@@ -77,3 +78,4 @@ TestAspath.attrtest("4b AS_PATH: too long2")
 TestAspath.attrtest("4b AS_PATH: bad flags")
 TestAspath.attrtest("4b AS4_PATH w/o AS_PATH")
 TestAspath.attrtest("4b AS4_PATH: confed")
+TestAspath.attrtest("4b AS4_PATH: BGP_AS_ZERO")

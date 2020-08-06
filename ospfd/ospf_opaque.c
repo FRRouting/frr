@@ -1161,7 +1161,7 @@ void ospf_opaque_config_write_debug(struct vty *vty)
 
 void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa)
 {
-	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
+	struct lsa_header *lsah = lsa->data;
 	uint32_t lsid = ntohl(lsah->id.s_addr);
 	uint8_t opaque_type = GET_OPAQUE_TYPE(lsid);
 	uint32_t opaque_id = GET_OPAQUE_ID(lsid);
@@ -1557,8 +1557,8 @@ struct ospf_lsa *ospf_opaque_lsa_install(struct ospf_lsa *lsa, int rt_recalc)
 		ospf_lsa_unlock(&oipi->lsa);
 		oipi->lsa = ospf_lsa_lock(lsa);
 	}
-	/* Register the new lsa entry and get its control info. */
-	else if ((oipi = register_opaque_lsa(lsa)) == NULL) {
+	/* Register the new lsa entry */
+	else if (register_opaque_lsa(lsa) == NULL) {
 		flog_warn(EC_OSPF_LSA,
 			  "ospf_opaque_lsa_install: register_opaque_lsa() ?");
 		goto out;

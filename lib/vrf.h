@@ -101,9 +101,12 @@ RB_PROTOTYPE(vrf_name_head, vrf, name_entry, vrf_name_compare)
 DECLARE_QOBJ_TYPE(vrf)
 
 /* Allow VRF with netns as backend */
-#define VRF_BACKEND_VRF_LITE   0
-#define VRF_BACKEND_NETNS      1
-#define VRF_BACKEND_UNKNOWN    2
+enum vrf_backend_type {
+	VRF_BACKEND_VRF_LITE,
+	VRF_BACKEND_NETNS,
+	VRF_BACKEND_UNKNOWN,
+	VRF_BACKEND_MAX,
+};
 
 extern struct vrf_id_head vrfs_by_id;
 extern struct vrf_name_head vrfs_by_name;
@@ -113,6 +116,8 @@ extern struct vrf *vrf_lookup_by_name(const char *);
 extern struct vrf *vrf_get(vrf_id_t, const char *);
 extern const char *vrf_id_to_name(vrf_id_t vrf_id);
 extern vrf_id_t vrf_name_to_id(const char *);
+
+#define VRF_LOGNAME(V) V ? V->name : "Unknown"
 
 #define VRF_GET_ID(V, NAME, USE_JSON)                                          \
 	do {                                                                   \
@@ -290,10 +295,10 @@ extern void vrf_install_commands(void);
  * VRF utilities
  */
 
-/* API for configuring VRF backend
- * should be called from zebra only
+/*
+ * API for configuring VRF backend
  */
-extern void vrf_configure_backend(int vrf_backend_netns);
+extern int vrf_configure_backend(enum vrf_backend_type backend);
 extern int vrf_get_backend(void);
 extern int vrf_is_backend_netns(void);
 
@@ -319,6 +324,8 @@ extern void vrf_disable(struct vrf *vrf);
 extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
 extern vrf_id_t vrf_generate_id(void);
+
+extern const struct frr_yang_module_info frr_vrf_info;
 
 #ifdef __cplusplus
 }

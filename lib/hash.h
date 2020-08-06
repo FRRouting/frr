@@ -36,11 +36,6 @@ extern "C" {
 #define HASHWALK_CONTINUE 0
 #define HASHWALK_ABORT -1
 
-#if CONFDATE > 20200225
-CPP_NOTICE("hash.h: time to remove hash_backet #define")
-#endif
-#define hash_backet hash_bucket
-
 struct hash_bucket {
 	/*
 	 * if this bucket is the head of the linked listed, len denotes the

@@ -50,12 +50,11 @@ struct bgp_pbr_entry_main;
 extern int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					 struct bgp_pbr_entry_main *bpem);
 
-extern bool bgp_flowspec_contains_prefix(struct prefix *pfs,
+extern bool bgp_flowspec_contains_prefix(const struct prefix *pfs,
 					 struct prefix *input,
 					 int prefix_check);
 
-extern int bgp_flowspec_get_first_nh(struct bgp *bgp,
-				     struct bgp_path_info *pi,
-				     struct prefix *nh);
+extern bool bgp_flowspec_get_first_nh(struct bgp *bgp, struct bgp_path_info *pi,
+				      struct prefix *nh);
 
 #endif /* _FRR_BGP_FLOWSPEC_UTIL_H */

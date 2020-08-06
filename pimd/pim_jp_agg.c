@@ -239,8 +239,8 @@ void pim_jp_agg_upstream_verification(struct pim_upstream *up, bool ignore)
 
 	if (!up->rpf.source_nexthop.interface) {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: up %s RPF is not present",
-				__PRETTY_FUNCTION__, up->sg_str);
+			zlog_debug("%s: up %s RPF is not present", __func__,
+				   up->sg_str);
 		return;
 	}
 

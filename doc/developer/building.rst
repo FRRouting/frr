@@ -7,6 +7,7 @@ Building FRR
 .. toctree::
    :maxdepth: 2
 
+   static-linking
    building-frr-for-alpine
    building-frr-for-centos6
    building-frr-for-centos7
@@ -25,3 +26,4 @@ Building FRR
    building-frr-for-ubuntu1404
    building-frr-for-ubuntu1604
    building-frr-for-ubuntu1804
+   building-frr-for-archlinux

@@ -4,7 +4,7 @@
 
 if NHRPD
 sbin_PROGRAMS += nhrpd/nhrpd
-vtysh_scan += $(top_srcdir)/nhrpd/nhrp_vty.c
+vtysh_scan += nhrpd/nhrp_vty.c
 man8 += $(MANBUILD)/frr-nhrpd.8
 endif
 

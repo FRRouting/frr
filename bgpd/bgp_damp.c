@@ -155,9 +155,9 @@ static int bgp_reuse_timer(struct thread *t)
 			if (bdi->lastrecord == BGP_RECORD_UPDATE) {
 				bgp_path_info_unset_flag(bdi->rn, bdi->path,
 							 BGP_PATH_HISTORY);
-				bgp_aggregate_increment(bgp, &bdi->rn->p,
-							bdi->path, bdi->afi,
-							bdi->safi);
+				bgp_aggregate_increment(
+					bgp, bgp_node_get_prefix(bdi->rn),
+					bdi->path, bdi->afi, bdi->safi);
 				bgp_process(bgp, bdi->rn, bdi->afi, bdi->safi);
 			}
 
@@ -501,7 +501,7 @@ static const char *bgp_get_reuse_time(unsigned int penalty, char *buf,
 				      bool use_json, json_object *json)
 {
 	time_t reuse_time = 0;
-	struct tm *tm = NULL;
+	struct tm tm;
 	int time_store = 0;
 
 	if (penalty > damp[afi][safi].reuse_limit) {
@@ -513,7 +513,7 @@ static const char *bgp_get_reuse_time(unsigned int penalty, char *buf,
 		if (reuse_time > damp[afi][safi].max_suppress_time)
 			reuse_time = damp[afi][safi].max_suppress_time;
 
-		tm = gmtime(&reuse_time);
+		gmtime_r(&reuse_time, &tm);
 	} else
 		reuse_time = 0;
 
@@ -525,39 +525,39 @@ static const char *bgp_get_reuse_time(unsigned int penalty, char *buf,
 			snprintf(buf, len, "00:00:00");
 	} else if (reuse_time < ONE_DAY_SECOND) {
 		if (use_json) {
-			time_store = (3600000 * tm->tm_hour)
-				     + (60000 * tm->tm_min)
-				     + (1000 * tm->tm_sec);
+			time_store = (3600000 * tm.tm_hour)
+				     + (60000 * tm.tm_min)
+				     + (1000 * tm.tm_sec);
 			json_object_int_add(json, "reuseTimerMsecs",
 					    time_store);
 		} else
-			snprintf(buf, len, "%02d:%02d:%02d", tm->tm_hour,
-				 tm->tm_min, tm->tm_sec);
+			snprintf(buf, len, "%02d:%02d:%02d", tm.tm_hour,
+				 tm.tm_min, tm.tm_sec);
 	} else if (reuse_time < ONE_WEEK_SECOND) {
 		if (use_json) {
-			time_store = (86400000 * tm->tm_yday)
-				     + (3600000 * tm->tm_hour)
-				     + (60000 * tm->tm_min)
-				     + (1000 * tm->tm_sec);
+			time_store = (86400000 * tm.tm_yday)
+				     + (3600000 * tm.tm_hour)
+				     + (60000 * tm.tm_min)
+				     + (1000 * tm.tm_sec);
 			json_object_int_add(json, "reuseTimerMsecs",
 					    time_store);
 		} else
-			snprintf(buf, len, "%dd%02dh%02dm", tm->tm_yday,
-				 tm->tm_hour, tm->tm_min);
+			snprintf(buf, len, "%dd%02dh%02dm", tm.tm_yday,
+				 tm.tm_hour, tm.tm_min);
 	} else {
 		if (use_json) {
 			time_store =
-				(604800000 * tm->tm_yday / 7)
+				(604800000 * tm.tm_yday / 7)
 				+ (86400000
-				   * (tm->tm_yday - ((tm->tm_yday / 7) * 7)))
-				+ (3600000 * tm->tm_hour) + (60000 * tm->tm_min)
-				+ (1000 * tm->tm_sec);
+				   * (tm.tm_yday - ((tm.tm_yday / 7) * 7)))
+				+ (3600000 * tm.tm_hour) + (60000 * tm.tm_min)
+				+ (1000 * tm.tm_sec);
 			json_object_int_add(json, "reuseTimerMsecs",
 					    time_store);
 		} else
-			snprintf(buf, len, "%02dw%dd%02dh", tm->tm_yday / 7,
-				 tm->tm_yday - ((tm->tm_yday / 7) * 7),
-				 tm->tm_hour);
+			snprintf(buf, len, "%02dw%dd%02dh", tm.tm_yday / 7,
+				 tm.tm_yday - ((tm.tm_yday / 7) * 7),
+				 tm.tm_hour);
 	}
 
 	return buf;

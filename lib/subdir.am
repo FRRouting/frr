@@ -45,12 +45,14 @@ lib_libfrr_la_SOURCES = \
 	lib/libfrr.c \
 	lib/linklist.c \
 	lib/log.c \
+	lib/log_filter.c \
 	lib/log_vty.c \
 	lib/md5.c \
 	lib/memory.c \
 	lib/mlag.c \
 	lib/module.c \
 	lib/mpls.c \
+	lib/srv6.c \
 	lib/network.c \
 	lib/nexthop.c \
 	lib/netns_linux.c \
@@ -70,6 +72,8 @@ lib_libfrr_la_SOURCES = \
 	lib/qobj.c \
 	lib/ringbuf.c \
 	lib/routemap.c \
+	lib/routemap_cli.c \
+	lib/routemap_northbound.c \
 	lib/sbuf.c \
 	lib/seqlock.c \
 	lib/sha256.c \
@@ -97,51 +101,60 @@ lib_libfrr_la_SOURCES = \
 	lib/yang_translator.c \
 	lib/yang_wrappers.c \
 	lib/zclient.c \
+	lib/zlog.c \
+	lib/zlog_targets.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
 	lib/printf/glue.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
+	yang/frr-filter.yang.c \
 	yang/frr-interface.yang.c \
+	yang/frr-route-map.yang.c \
 	yang/frr-route-types.yang.c \
+	yang/frr-vrf.yang.c \
+	yang/frr-routing.yang.c \
 	yang/ietf/ietf-routing-types.yang.c \
+	yang/ietf/ietf-interfaces.yang.c \
 	yang/frr-module-translator.yang.c \
+	yang/frr-nexthop.yang.c \
+	yang/frr-igmp.yang.c \
+	yang/frr-pim.yang.c \
+	yang/frr-pim-rp.yang.c \
 	# end
 
 vtysh_scan += \
-	$(top_srcdir)/lib/distribute.c \
-	$(top_srcdir)/lib/filter.c \
-	$(top_srcdir)/lib/if.c \
-	$(top_srcdir)/lib/if_rmap.c \
-	$(top_srcdir)/lib/keychain.c \
-	$(top_srcdir)/lib/lib_vty.c \
-	$(top_srcdir)/lib/nexthop_group.c \
-	$(top_srcdir)/lib/plist.c \
-	$(top_srcdir)/lib/routemap.c \
-	$(top_srcdir)/lib/vrf.c \
-	$(top_srcdir)/lib/vty.c \
+	lib/distribute.c \
+	lib/filter.c \
+	lib/if.c \
+	lib/if_rmap.c \
+	lib/keychain.c \
+	lib/lib_vty.c \
+	lib/nexthop_group.c \
+	lib/plist.c \
+	lib/routemap.c \
+	lib/routemap_cli.c \
+	lib/vrf.c \
+	lib/vty.c \
 	# end
 # can be loaded as DSO - always include for vtysh
-vtysh_scan += $(top_srcdir)/lib/agentx.c
+vtysh_scan += lib/agentx.c
 
 if SQLITE3
 lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)
 lib_libfrr_la_SOURCES += lib/db.c
 endif
 
-lib/if_clippy.c: $(CLIPPY_DEPS)
-lib/if.lo: lib/if_clippy.c
-lib/plist_clippy.c: $(CLIPPY_DEPS)
-lib/plist.lo: lib/plist_clippy.c
-lib/nexthop_group_clippy.c: $(CLIPPY_DEPS)
-lib/nexthop_group.lo: lib/nexthop_group_clippy.c
-lib/northbound_cli_clippy.c: $(CLIPPY_DEPS)
-lib/northbound_cli.lo: lib/northbound_cli_clippy.c
-lib/vty_clippy.c: $(CLIPPY_DEPS)
-lib/vty.lo: lib/vty_clippy.c
-lib/log_vty_clippy.c: $(CLIPPY_DEPS)
-lib/log_vty.lo: lib/log_vty_clippy.c
+clippy_scan += \
+	lib/if.c \
+	lib/log_vty.c \
+	lib/nexthop_group.c \
+	lib/northbound_cli.c \
+	lib/plist.c \
+	lib/routemap_cli.c \
+	lib/vty.c \
+	# end
 
 pkginclude_HEADERS += \
 	lib/agg_table.h \
@@ -193,6 +206,7 @@ pkginclude_HEADERS += \
 	lib/module.h \
 	lib/monotime.h \
 	lib/mpls.h \
+	lib/srv6.h \
 	lib/network.h \
 	lib/nexthop.h \
 	lib/nexthop_group.h \
@@ -245,6 +259,8 @@ pkginclude_HEADERS += \
 	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
+	lib/zlog.h \
+	lib/zlog_targets.h \
 	lib/pbr.h \
 	# end
 
@@ -256,7 +272,6 @@ nodist_pkginclude_HEADERS += \
 
 noinst_HEADERS += \
 	lib/clippy.h \
-	lib/log_int.h \
 	lib/plist_int.h \
 	lib/printf/printfcommon.h \
 	lib/printf/printflocal.h \
@@ -400,7 +415,7 @@ am__v_CLIPPY_1 =
 
 CLIPPY_DEPS = $(CLIPPY) $(top_srcdir)/python/clidef.py
 
-SUFFIXES = _clippy.c .proto .pb-c.c .pb-c.h .pb.h .pb.cc .grpc.pb.cc
+SUFFIXES += _clippy.c
 .c_clippy.c:
 	$(AM_V_CLIPPY) $(CLIPPY) $(top_srcdir)/python/clidef.py -o $@ $<
 

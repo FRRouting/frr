@@ -59,7 +59,7 @@ log_in6addr(const struct in6_addr *addr)
 }
 
 const char *
-log_in6addr_scope(const struct in6_addr *addr, unsigned int ifindex)
+log_in6addr_scope(const struct in6_addr *addr, ifindex_t ifindex)
 {
 	struct sockaddr_in6	sa_in6;
 

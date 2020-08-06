@@ -36,8 +36,8 @@ import time
 
 def ifname_to_ifindex(ifname):
     output = subprocess.check_output("ip link show %s" % ifname, shell=True)
-    first_line = output.split('\n')[0]
-    re_index = re.search('^(\d+):', first_line)
+    first_line = output.split("\n")[0]
+    re_index = re.search("^(\d+):", first_line)
 
     if re_index:
         return int(re_index.group(1))
@@ -48,24 +48,28 @@ def ifname_to_ifindex(ifname):
 
 # Thou shalt be root
 if os.geteuid() != 0:
-    sys.stderr.write('ERROR: You must have root privileges\n')
+    sys.stderr.write("ERROR: You must have root privileges\n")
     sys.exit(1)
 
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)5s: %(message)s')
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s %(levelname)5s: %(message)s"
+)
 
 # Color the errors and warnings in red
-logging.addLevelName(logging.ERROR, "\033[91m  %s\033[0m" % logging.getLevelName(logging.ERROR))
-logging.addLevelName(logging.WARNING, "\033[91m%s\033[0m" % logging.getLevelName(logging.WARNING))
+logging.addLevelName(
+    logging.ERROR, "\033[91m  %s\033[0m" % logging.getLevelName(logging.ERROR)
+)
+logging.addLevelName(
+    logging.WARNING, "\033[91m%s\033[0m" % logging.getLevelName(logging.WARNING)
+)
 log = logging.getLogger(__name__)
 
-parser = argparse.ArgumentParser(description='Multicast RX utility',
-                                 version='1.0.0')
-parser.add_argument('group', help='Multicast IP')
-parser.add_argument('ifname', help='Interface name')
-parser.add_argument('--port', help='UDP port', default=1000)
-parser.add_argument('--sleep', help='Time to sleep before we stop waiting',
-                    default = 5)
+parser = argparse.ArgumentParser(description="Multicast RX utility", version="1.0.0")
+parser.add_argument("group", help="Multicast IP")
+parser.add_argument("ifname", help="Interface name")
+parser.add_argument("--port", help="UDP port", default=1000)
+parser.add_argument("--sleep", help="Time to sleep before we stop waiting", default=5)
 args = parser.parse_args()
 
 # Create the datagram socket
@@ -77,7 +81,9 @@ newpid = os.fork()
 
 if newpid == 0:
     ifindex = ifname_to_ifindex(args.ifname)
-    mreq = struct.pack("=4sLL", socket.inet_aton(args.group), socket.INADDR_ANY, ifindex)
+    mreq = struct.pack(
+        "=4sLL", socket.inet_aton(args.group), socket.INADDR_ANY, ifindex
+    )
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
     time.sleep(float(args.sleep))
     sock.close()

@@ -140,7 +140,7 @@ macvlan device. If you are using ``iproute2``, the equivalent configuration is:
    ip link set dev vrrp4-2-1 up
 
    ip link add vrrp6-2-1 link eth0 addrgenmode random type macvlan mode bridge
-   ip link set dev vrrp4-2-1 address 00:00:5e:00:02:05
+   ip link set dev vrrp6-2-1 address 00:00:5e:00:02:05
    ip addr add 2001:db8::370:7334/64 dev vrrp6-2-1
    ip link set dev vrrp6-2-1 up
 

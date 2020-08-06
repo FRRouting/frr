@@ -111,6 +111,7 @@ static int static_vrf_delete(struct vrf *vrf)
 			svrf->stable[afi][safi] = NULL;
 		}
 	}
+	XFREE(MTYPE_TMP, svrf);
 	return 0;
 }
 
@@ -203,4 +204,9 @@ void static_vrf_init(void)
 		 static_vrf_disable, static_vrf_delete, NULL);
 
 	vrf_cmd_init(static_vrf_config_write, &static_privs);
+}
+
+void static_vrf_terminate(void)
+{
+	vrf_terminate();
 }

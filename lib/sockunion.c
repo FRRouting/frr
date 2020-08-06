@@ -124,7 +124,6 @@ static const char *sockunion_log(const union sockunion *su, char *buf,
 
 	case AF_INET6:
 		return inet_ntop(AF_INET6, &(su->sin6.sin6_addr), buf, len);
-		break;
 
 	default:
 		snprintf(buf, len, "af_unknown %d ", su->sa.sa_family);
@@ -215,7 +214,7 @@ enum connect_result sockunion_connect(int fd, const union sockunion *peersu,
 		if (errno != EINPROGRESS) {
 			char str[SU_ADDRSTRLEN];
 			zlog_info("can't connect to %s fd %d : %s",
-				  sockunion_log(&su, str, sizeof str), fd,
+				  sockunion_log(&su, str, sizeof(str)), fd,
 				  safe_strerror(errno));
 			return connect_error;
 		}
@@ -519,8 +518,8 @@ union sockunion *sockunion_getsockname(int fd)
 	} name;
 	union sockunion *su;
 
-	memset(&name, 0, sizeof name);
-	len = sizeof name;
+	memset(&name, 0, sizeof(name));
+	len = sizeof(name);
 
 	ret = getsockname(fd, (struct sockaddr *)&name, &len);
 	if (ret < 0) {
@@ -557,8 +556,8 @@ union sockunion *sockunion_getpeername(int fd)
 	} name;
 	union sockunion *su;
 
-	memset(&name, 0, sizeof name);
-	len = sizeof name;
+	memset(&name, 0, sizeof(name));
+	len = sizeof(name);
 	ret = getpeername(fd, (struct sockaddr *)&name, &len);
 	if (ret < 0) {
 		flog_err(EC_LIB_SOCKET, "Can't get remote address and port: %s",

@@ -172,10 +172,6 @@ enum bfd_session_flags {
 	BFD_SESS_FLAG_CBIT = 1 << 9,	/* CBIT is set */
 };
 
-#define BFD_SET_FLAG(field, flag) (field |= flag)
-#define BFD_UNSET_FLAG(field, flag) (field &= ~flag)
-#define BFD_CHECK_FLAG(field, flag) (field & flag)
-
 /* BFD session hash keys */
 struct bfd_key {
 	uint16_t family;
@@ -397,7 +393,26 @@ struct bfd_global {
 	struct obslist bg_obslist;
 
 	struct zebra_privs_t bfdd_privs;
+
+	/* Debug options. */
+	/* Show all peer state changes events. */
+	bool debug_peer_event;
+	/*
+	 * Show zebra message exchanges:
+	 * - Interface add/delete.
+	 * - Local address add/delete.
+	 * - VRF add/delete.
+	 */
+	bool debug_zebra;
+	/*
+	 * Show network level debug information:
+	 * - Echo packets without session.
+	 * - Unavailable peer sessions.
+	 * - Network system call failures.
+	 */
+	bool debug_network;
 };
+
 extern struct bfd_global bglobal;
 extern const struct bfd_diag_str_list diag_list[];
 extern const struct bfd_state_str_list state_list[];
@@ -427,27 +442,14 @@ void pl_free(struct peer_label *pl);
 
 
 /*
- * log.c
- *
- * Contains code that does the logging procedures. Might implement multiple
- * backends (e.g. zebra log, syslog or other logging lib).
+ * logging - alias to zebra log
  */
-enum blog_level {
-	/* level vs syslog equivalent */
-	BLOG_DEBUG = 0,   /* LOG_DEBUG */
-	BLOG_INFO = 1,    /* LOG_INFO */
-	BLOG_WARNING = 2, /* LOG_WARNING */
-	BLOG_ERROR = 3,   /* LOG_ERR */
-	BLOG_FATAL = 4,   /* LOG_CRIT */
-};
-
-void log_init(int foreground, enum blog_level level,
-	      struct frr_daemon_info *fdi);
-void log_info(const char *fmt, ...);
-void log_debug(const char *fmt, ...);
-void log_warning(const char *fmt, ...);
-void log_error(const char *fmt, ...);
-void log_fatal(const char *fmt, ...);
+#define zlog_fatal(msg, ...)                                                   \
+	do {                                                                   \
+		zlog_err(msg, ##__VA_ARGS__);                                  \
+		assert(!msg);                                                  \
+		abort();                                                       \
+	} while (0)
 
 
 /*
@@ -527,7 +529,7 @@ void bs_state_handler(struct bfd_session *bs, int nstate);
 void bs_echo_timer_handler(struct bfd_session *bs);
 void bs_final_handler(struct bfd_session *bs);
 void bs_set_slow_timers(struct bfd_session *bs);
-const char *satostr(struct sockaddr_any *sa);
+const char *satostr(const struct sockaddr_any *sa);
 const char *diag2str(uint8_t diag);
 int strtosa(const char *addr, struct sockaddr_any *sa);
 void integer2timestr(uint64_t time, char *buf, size_t buflen);

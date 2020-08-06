@@ -21,7 +21,7 @@
 #ifndef _QUAGGA_BGP_RFAPI_H
 #define _QUAGGA_BGP_RFAPI_H
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 
 #include <stdint.h>
 #include <netinet/in.h>

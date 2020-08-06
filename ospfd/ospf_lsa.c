@@ -33,6 +33,7 @@
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
 #include "checksum.h"
+#include "network.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -123,7 +124,7 @@ int get_age(struct ospf_lsa *lsa)
    one-based. */
 uint16_t ospf_lsa_checksum(struct lsa_header *lsa)
 {
-	uint8_t *buffer = (uint8_t *)&lsa->options;
+	uint8_t *buffer = &lsa->options;
 	int options_offset = buffer - (uint8_t *)&lsa->ls_age; /* should be 2 */
 
 	/* Skip the AGE field */
@@ -138,7 +139,7 @@ uint16_t ospf_lsa_checksum(struct lsa_header *lsa)
 
 int ospf_lsa_checksum_valid(struct lsa_header *lsa)
 {
-	uint8_t *buffer = (uint8_t *)&lsa->options;
+	uint8_t *buffer = &lsa->options;
 	int options_offset = buffer - (uint8_t *)&lsa->ls_age; /* should be 2 */
 
 	/* Skip the AGE field */
@@ -298,7 +299,8 @@ const char *dump_lsa_key(struct ospf_lsa *lsa)
 		strlcpy(id, inet_ntoa(lsah->id), sizeof(id));
 		strlcpy(ar, inet_ntoa(lsah->adv_router), sizeof(ar));
 
-		sprintf(buf, "Type%d,id(%s),ar(%s)", lsah->type, id, ar);
+		snprintf(buf, sizeof(buf), "Type%d,id(%s),ar(%s)", lsah->type,
+			 id, ar);
 	} else
 		strlcpy(buf, "NULL", sizeof(buf));
 
@@ -434,7 +436,7 @@ static char link_info_set(struct stream **s, struct in_addr id,
 			/* we futz the size here for simplicity, really we need
 			 * to account
 			 * for just:
-			 * IP Header - (sizeof (struct ip))
+			 * IP Header - (sizeof(struct ip))
 			 * OSPF Header - OSPF_HEADER_SIZE
 			 * LSA Header - OSPF_LSA_HEADER_SIZE
 			 * MD5 auth data, if MD5 is configured -
@@ -820,7 +822,7 @@ static struct ospf_lsa *ospf_router_lsa_originate(struct ospf_area *area)
 	}
 
 	/* Sanity check. */
-	if (new->data->adv_router.s_addr == 0) {
+	if (new->data->adv_router.s_addr == INADDR_ANY) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("LSA[Type1]: AdvRouter is 0, discard");
 		ospf_lsa_discard(new);
@@ -1459,7 +1461,7 @@ struct in_addr ospf_get_ip_from_ifp(struct ospf_interface *oi)
 {
 	struct in_addr fwd;
 
-	fwd.s_addr = 0;
+	fwd.s_addr = INADDR_ANY;
 
 	if (if_is_operative(oi->ifp))
 		return oi->address->u.prefix4;
@@ -1931,7 +1933,7 @@ int is_prefix_default(struct prefix_ipv4 *p)
 	struct prefix_ipv4 q;
 
 	q.family = AF_INET;
-	q.prefix.s_addr = 0;
+	q.prefix.s_addr = INADDR_ANY;
 	q.prefixlen = 0;
 
 	return prefix_same((struct prefix *)p, (struct prefix *)&q);
@@ -1979,10 +1981,11 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 
 	   */
 
-	if (ospf->router_id.s_addr == 0) {
+	if (ospf->router_id.s_addr == INADDR_ANY) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("LSA[Type5:%pI4]: deferring AS-external-LSA origination, router ID is zero",
-				   &ei->p.prefix);
+			zlog_debug(
+				"LSA[Type5:%pI4]: deferring AS-external-LSA origination, router ID is zero",
+				&ei->p.prefix);
 		return NULL;
 	}
 
@@ -2197,7 +2200,7 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 
 	p.family = AF_INET;
 	p.prefixlen = 0;
-	p.prefix.s_addr = 0;
+	p.prefix.s_addr = INADDR_ANY;
 
 	ei = ospf_default_external_info(ospf);
 	lsa = ospf_external_info_find_lsa(ospf, &p);
@@ -2804,7 +2807,7 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 			if (CHECK_FLAG(lsa->flags, OSPF_LSA_PREMATURE_AGE)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"originating new lsa for lsa 0x%p\n",
+						"originating new lsa for lsa 0x%p",
 						(void *)lsa);
 				ospf_lsa_refresh(ospf, lsa);
 			}
@@ -2844,8 +2847,7 @@ void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
 	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
 	lsa_prefix.u.ptr = (uintptr_t)lsa;
 
-	if ((rn = route_node_lookup(ospf->maxage_lsa,
-				    (struct prefix *)&lsa_prefix))) {
+	if ((rn = route_node_lookup(ospf->maxage_lsa, &lsa_prefix))) {
 		if (rn->info == lsa) {
 			UNSET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
 			ospf_lsa_unlock(&lsa); /* maxage_lsa */
@@ -2857,7 +2859,7 @@ void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
 	} else {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: lsa %s is not found in maxage db.",
-				   __PRETTY_FUNCTION__, dump_lsa_key(lsa));
+				   __func__, dump_lsa_key(lsa));
 	}
 }
 
@@ -2887,7 +2889,7 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
 	lsa_prefix.u.ptr = (uintptr_t)lsa;
 
-	rn = route_node_get(ospf->maxage_lsa, (struct prefix *)&lsa_prefix);
+	rn = route_node_get(ospf->maxage_lsa, &lsa_prefix);
 	if (rn->info != NULL) {
 		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 			zlog_debug(
@@ -3523,7 +3525,8 @@ void ospf_refresher_register_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 		 * 1680s
 		 * and 1740s.
 		 */
-		delay = (random() % (max_delay - min_delay)) + min_delay;
+		delay = (frr_weak_random() % (max_delay - min_delay))
+			+ min_delay;
 
 		current_index = ospf->lsa_refresh_queue.index
 				+ (monotime(NULL) - ospf->lsa_refresher_started)

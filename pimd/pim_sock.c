@@ -69,8 +69,7 @@ void pim_socket_ip_hdr(int fd)
 
 		if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
 			zlog_err("%s: Could not turn on IP_HDRINCL option: %s",
-				 __PRETTY_FUNCTION__, safe_strerror(errno));
-
+				 __func__, safe_strerror(errno));
 	}
 }
 
@@ -153,7 +152,7 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 		flog_err(
 			EC_LIB_DEVELOPMENT,
 			"%s %s: Missing IP_PKTINFO and IP_RECVDSTADDR: unable to get dst addr from recvmsg()",
-			__FILE__, __PRETTY_FUNCTION__);
+			__FILE__, __func__);
 		close(fd);
 		return PIM_SOCK_ERR_DSTADDR;
 #endif
@@ -231,8 +230,8 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 	}
 
 	if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf)))
-		zlog_warn("%s: Failure to set buffer size to %d",
-			  __PRETTY_FUNCTION__, rcvbuf);
+		zlog_warn("%s: Failure to set buffer size to %d", __func__,
+			  rcvbuf);
 
 	{
 		long flags;
@@ -289,10 +288,10 @@ int pim_socket_join(int fd, struct in_addr group, struct in_addr ifaddr,
 		char group_str[INET_ADDRSTRLEN];
 		char ifaddr_str[INET_ADDRSTRLEN];
 		if (!inet_ntop(AF_INET, &group, group_str, sizeof(group_str)))
-			sprintf(group_str, "<group?>");
+			snprintf(group_str, sizeof(group_str), "<group?>");
 		if (!inet_ntop(AF_INET, &ifaddr, ifaddr_str,
 			       sizeof(ifaddr_str)))
-			sprintf(ifaddr_str, "<ifaddr?>");
+			snprintf(ifaddr_str, sizeof(ifaddr_str), "<ifaddr?>");
 
 		flog_err(
 			EC_LIB_SOCKET,
@@ -305,10 +304,10 @@ int pim_socket_join(int fd, struct in_addr group, struct in_addr ifaddr,
 		char group_str[INET_ADDRSTRLEN];
 		char ifaddr_str[INET_ADDRSTRLEN];
 		if (!inet_ntop(AF_INET, &group, group_str, sizeof(group_str)))
-			sprintf(group_str, "<group?>");
+			snprintf(group_str, sizeof(group_str), "<group?>");
 		if (!inet_ntop(AF_INET, &ifaddr, ifaddr_str,
 			       sizeof(ifaddr_str)))
-			sprintf(ifaddr_str, "<ifaddr?>");
+			snprintf(ifaddr_str, sizeof(ifaddr_str), "<ifaddr?>");
 
 		zlog_debug(
 			"Socket fd=%d joined group %s on interface address %s",
@@ -376,8 +375,7 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 			struct in_pktinfo *i =
 				(struct in_pktinfo *)CMSG_DATA(cmsg);
 			if (to)
-				((struct sockaddr_in *)to)->sin_addr =
-					i->ipi_addr;
+				to->sin_addr = i->ipi_addr;
 			if (tolen)
 				*tolen = sizeof(struct sockaddr_in);
 			if (ifindex)
@@ -392,7 +390,7 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 		    && (cmsg->cmsg_type == IP_RECVDSTADDR)) {
 			struct in_addr *i = (struct in_addr *)CMSG_DATA(cmsg);
 			if (to)
-				((struct sockaddr_in *)to)->sin_addr = *i;
+				to->sin_addr = *i;
 			if (tolen)
 				*tolen = sizeof(struct sockaddr_in);
 

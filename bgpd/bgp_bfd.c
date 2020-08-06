@@ -72,21 +72,21 @@ void bgp_bfd_peer_group2peer_copy(struct peer *conf, struct peer *peer)
  * bgp_bfd_is_peer_multihop - returns whether BFD peer is multi-hop or single
  * hop.
  */
-int bgp_bfd_is_peer_multihop(struct peer *peer)
+bool bgp_bfd_is_peer_multihop(struct peer *peer)
 {
 	struct bfd_info *bfd_info;
 
 	bfd_info = (struct bfd_info *)peer->bfd_info;
 
 	if (!bfd_info)
-		return 0;
+		return false;
 
 	if ((bfd_info->type == BFD_TYPE_MULTIHOP)
 	    || ((peer->sort == BGP_PEER_IBGP) && !peer->shared_network)
 	    || is_ebgp_multihop_configured(peer))
-		return 1;
+		return true;
 	else
-		return 0;
+		return false;
 }
 
 /*
@@ -116,10 +116,10 @@ static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 	 * and bfd controlplane check not configured is not kept
 	 * keep bfd independent controlplane bit set to 1
 	 */
-	if (!bgp_flag_check(peer->bgp, BGP_FLAG_GRACEFUL_RESTART)
-	    && !bgp_flag_check(peer->bgp, BGP_FLAG_GR_PRESERVE_FWD)
+	if (!CHECK_FLAG(peer->bgp->flags, BGP_FLAG_GRACEFUL_RESTART)
+	    && !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_GR_PRESERVE_FWD)
 	    && !CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE))
-		SET_FLAG(bfd_info->flags,  BFD_FLAG_BFD_CBIT_ON);
+		SET_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
 
 	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
 
@@ -198,6 +198,25 @@ static void bgp_bfd_update_peer(struct peer *peer)
 		return;
 
 	bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_UPDATE);
+}
+
+/**
+ * bgp_bfd_reset_peer - reinitialise bfd
+ * ensures that bfd state machine is restarted
+ * to be synced with remote bfd
+ */
+void bgp_bfd_reset_peer(struct peer *peer)
+{
+	struct bfd_info *bfd_info;
+
+	if (!peer->bfd_info)
+		return;
+	bfd_info = (struct bfd_info *)peer->bfd_info;
+
+	/* if status is not down, reset bfd */
+	if (bfd_info->status != BFD_STATUS_DOWN)
+		bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_DEREGISTER);
+	bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_REGISTER);
 }
 
 /*
@@ -329,19 +348,22 @@ static int bgp_bfd_dest_update(ZAPI_CALLBACK_ARGS)
 				&remote_cbit, vrf_id);
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
+		struct vrf *vrf;
 		char buf[2][PREFIX2STR_BUFFER];
+
+		vrf = vrf_lookup_by_id(vrf_id);
 		prefix2str(&dp, buf[0], sizeof(buf[0]));
 		if (ifp) {
 			zlog_debug(
-				"Zebra: vrf %u interface %s bfd destination %s %s %s",
-				vrf_id, ifp->name, buf[0],
-				bfd_get_status_str(status),
+				"Zebra: vrf %s(%u) interface %s bfd destination %s %s %s",
+				VRF_LOGNAME(vrf), vrf_id, ifp->name,
+				buf[0], bfd_get_status_str(status),
 				remote_cbit ? "(cbit on)" : "");
 		} else {
 			prefix2str(&sp, buf[1], sizeof(buf[1]));
 			zlog_debug(
-				"Zebra: vrf %u source %s bfd destination %s %s %s",
-				vrf_id, buf[1], buf[0],
+				"Zebra: vrf %s(%u) source %s bfd destination %s %s %s",
+				VRF_LOGNAME(vrf), vrf_id, buf[1], buf[0],
 				bfd_get_status_str(status),
 				remote_cbit ? "(cbit on)" : "");
 		}

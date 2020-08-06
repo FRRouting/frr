@@ -231,7 +231,7 @@ void route_read(struct zebra_ns *zns)
 				    != 0) {
 					zlog_debug(
 						"getmsg(data) returned "
-						"msgdata.len = %d (%% sizeof (mib2_ipRouteEntry_t) != 0)",
+						"msgdata.len = %d (%% sizeof(mib2_ipRouteEntry_t) != 0)",
 						msgdata.len);
 					goto exit;
 				}

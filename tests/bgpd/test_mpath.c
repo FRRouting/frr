@@ -52,8 +52,8 @@
 
 #define EXPECT_TRUE(expr, res)                                                 \
 	if (!(expr)) {                                                         \
-		printf("Test failure in %s line %u: %s\n", __FUNCTION__,       \
-		       __LINE__, #expr);                                       \
+		printf("Test failure in %s line %u: %s\n", __func__, __LINE__, \
+		       #expr);                                                 \
 		(res) = TEST_FAILED;                                           \
 	}
 
@@ -297,7 +297,25 @@ struct bgp_node test_rn;
 static int setup_bgp_path_info_mpath_update(testcase_t *t)
 {
 	int i;
+	struct bgp *bgp;
+	struct bgp_table *rt;
+	struct route_node *rt_node;
+	as_t asn = 1;
+
+	t->tmp_data = bgp_create_fake(&asn, NULL);
+	if (!t->tmp_data)
+		return -1;
+
+	bgp = t->tmp_data;
+	rt = bgp->rib[AFI_IP][SAFI_UNICAST];
+
+	if (!rt)
+		return -1;
+
 	str2prefix("42.1.1.0/24", &test_rn.p);
+	rt_node = bgp_node_to_rnode(&test_rn);
+	memcpy((struct route_table *)&rt_node->table, &rt->route_table,
+	       sizeof(struct route_table *));
 	setup_bgp_mp_list(t);
 	for (i = 0; i < test_mp_list_info_count; i++)
 		bgp_path_info_add(&test_rn, &test_mp_list_info[i]);
@@ -352,7 +370,7 @@ static int cleanup_bgp_path_info_mpath_update(testcase_t *t)
 	for (i = 0; i < test_mp_list_peer_count; i++)
 		sockunion_free(test_mp_list_peer[i].su_remote);
 
-	return 0;
+	return bgp_delete((struct bgp *)t->tmp_data);
 }
 
 testcase_t test_bgp_path_info_mpath_update = {

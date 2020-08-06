@@ -128,6 +128,18 @@ OSPF6 interface
 
    Set explicitly network type for specified interface.
 
+OSPF6 route-map
+===============
+
+Usage of *ospfd6*'s route-map support.
+
+.. index:: set metric [+|-](0-4294967295)
+.. clicmd:: set metric [+|-](0-4294967295)
+
+   Set a metric for matched route when sending announcement. Use plus (+) sign
+   to add a metric value to an existing metric. Use minus (-) sign to
+   substract a metric value from an existing metric.
+
 .. _redistribute-routes-to-ospf6:
 
 Redistribute routes to OSPF6

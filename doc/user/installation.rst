@@ -144,6 +144,11 @@ options from the list below.
    Build watchfrr with systemd integration, this will allow FRR to communicate with
    systemd to tell systemd if FRR has come up properly.
 
+.. option:: --enable-werror
+
+   Build with all warnings converted to errors as a compile option.  This
+   is recommended for developers only.
+
 .. option:: --disable-pimd
 
    Turn off building of pimd.  On some BSD platforms pimd will not build properly due
@@ -181,6 +186,10 @@ options from the list below.
 
    Turn off bgpd's ability to use VNC.
 
+.. option:: --disable-bgp-bmp
+
+   Turn off BGP BMP support
+
 .. option:: --enable-datacenter
 
    Enable system defaults to work as if in a Data Center. See defaults.h
@@ -216,6 +225,11 @@ options from the list below.
    Enable the support of Linux Realms. Convert tag values from 1-255 into a
    realm value when inserting into the Linux kernel. Then routing policy can be
    assigned to the realm. See the tc man page.
+
+.. option:: --disable-irdp
+
+   Disable IRDP server support.  This is enabled by default if we have
+   both `struct in_pktinfo` and `struct icmphdr` available to us.
 
 .. option:: --disable-rtadv
 
@@ -302,6 +316,18 @@ options from the list below.
 
    Build the Sysrepo northbound plugin.
 
+.. option:: --enable-grpc
+
+   Enable the gRPC northbound plugin.
+
+.. option:: --enable-zeromq
+
+   Enable the ZeroMQ handler.
+
+.. option:: --with-libpam
+
+   Use libpam for PAM support in vtysh.
+
 .. option:: --enable-time-check XXX
 
    When this is enabled with a XXX value in microseconds, any thread that
@@ -318,6 +344,10 @@ options from the list below.
    Since this is a process switch into the kernel, systems with high FRR
    load might see improvement in behavior.  Be aware that `show thread cpu`
    is considered a good data gathering tool from the perspective of developers.
+
+.. option:: --enable-pcreposix
+
+   Turn on the usage of PCRE Posix libs for regex functionality.
 
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`

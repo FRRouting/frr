@@ -44,6 +44,7 @@
 #include "privs.h"
 #include "lib_errors.h"
 #include "northbound_cli.h"
+#include "network.h"
 
 #include "ripd/ripd.h"
 #include "ripd/rip_nb.h"
@@ -104,7 +105,7 @@ static int sockopt_broadcast(int sock)
 	int on = 1;
 
 	ret = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char *)&on,
-			 sizeof on);
+			 sizeof(on));
 	if (ret < 0) {
 		zlog_warn("can't set sockopt SO_BROADCAST to socket %d", sock);
 		return -1;
@@ -1223,7 +1224,8 @@ static void rip_response_process(struct rip_packet *packet, int size,
 		}
 
 		/* RIPv1 does not have nexthop value. */
-		if (packet->version == RIPv1 && rte->nexthop.s_addr != 0) {
+		if (packet->version == RIPv1
+		    && rte->nexthop.s_addr != INADDR_ANY) {
 			zlog_info("RIPv1 packet with nexthop value %s",
 				  inet_ntoa(rte->nexthop));
 			rip_peer_bad_route(rip, from);
@@ -1234,7 +1236,8 @@ static void rip_response_process(struct rip_packet *packet, int size,
 		   sub-optimal, but absolutely valid, route may be taken.  If
 		   the received Next Hop is not directly reachable, it should be
 		   treated as 0.0.0.0. */
-		if (packet->version == RIPv2 && rte->nexthop.s_addr != 0) {
+		if (packet->version == RIPv2
+		    && rte->nexthop.s_addr != INADDR_ANY) {
 			uint32_t addrval;
 
 			/* Multicast address check. */
@@ -1272,7 +1275,8 @@ static void rip_response_process(struct rip_packet *packet, int size,
 								"Next hop %s is not directly reachable. Treat it as 0.0.0.0",
 								inet_ntoa(
 									rte->nexthop));
-						rte->nexthop.s_addr = 0;
+						rte->nexthop.s_addr =
+							INADDR_ANY;
 					}
 
 					route_unlock_node(rn);
@@ -1282,7 +1286,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 							"Next hop %s is not directly reachable. Treat it as 0.0.0.0",
 							inet_ntoa(
 								rte->nexthop));
-					rte->nexthop.s_addr = 0;
+					rte->nexthop.s_addr = INADDR_ANY;
 				}
 			}
 		}
@@ -1297,10 +1301,11 @@ static void rip_response_process(struct rip_packet *packet, int size,
 		   (/16 for class B's) except when the RIP packet does to inside
 		   the classful network in question.  */
 
-		if ((packet->version == RIPv1 && rte->prefix.s_addr != 0)
+		if ((packet->version == RIPv1
+		     && rte->prefix.s_addr != INADDR_ANY)
 		    || (packet->version == RIPv2
-			&& (rte->prefix.s_addr != 0
-			    && rte->mask.s_addr == 0))) {
+			&& (rte->prefix.s_addr != INADDR_ANY
+			    && rte->mask.s_addr == INADDR_ANY))) {
 			uint32_t destination;
 
 			if (subnetted == -1) {
@@ -1352,7 +1357,8 @@ static void rip_response_process(struct rip_packet *packet, int size,
 
 		/* In case of RIPv2, if prefix in RTE is not netmask applied one
 		   ignore the entry.  */
-		if ((packet->version == RIPv2) && (rte->mask.s_addr != 0)
+		if ((packet->version == RIPv2)
+		    && (rte->mask.s_addr != INADDR_ANY)
 		    && ((rte->prefix.s_addr & rte->mask.s_addr)
 			!= rte->prefix.s_addr)) {
 			zlog_warn(
@@ -1363,12 +1369,13 @@ static void rip_response_process(struct rip_packet *packet, int size,
 		}
 
 		/* Default route's netmask is ignored. */
-		if (packet->version == RIPv2 && (rte->prefix.s_addr == 0)
-		    && (rte->mask.s_addr != 0)) {
+		if (packet->version == RIPv2
+		    && (rte->prefix.s_addr == INADDR_ANY)
+		    && (rte->mask.s_addr != INADDR_ANY)) {
 			if (IS_RIP_DEBUG_EVENT)
 				zlog_debug(
 					"Default route with non-zero netmask.  Set zero to netmask");
-			rte->mask.s_addr = 0;
+			rte->mask.s_addr = INADDR_ANY;
 		}
 
 		/* Routing table updates. */
@@ -2641,7 +2648,7 @@ static int rip_triggered_update(struct thread *t)
 	 random interval between 1 and 5 seconds.  If other changes that
 	 would trigger updates occur before the timer expires, a single
 	 update is triggered when the timer expires. */
-	interval = (random() % 5) + 1;
+	interval = (frr_weak_random() % 5) + 1;
 
 	rip->t_triggered_interval = NULL;
 	thread_add_timer(master, rip_triggered_interval, rip, interval,
@@ -2838,7 +2845,8 @@ static int rip_update_jitter(unsigned long time)
 	if (jitter_input < JITTER_BOUND)
 		jitter_input = JITTER_BOUND;
 
-	jitter = (((random() % ((jitter_input * 2) + 1)) - jitter_input));
+	jitter = (((frr_weak_random() % ((jitter_input * 2) + 1))
+		   - jitter_input));
 
 	return jitter / JITTER_BOUND;
 }
@@ -2966,8 +2974,8 @@ static void rip_distance_show(struct vty *vty, struct rip *rip)
 					"    Address           Distance  List\n");
 				header = 0;
 			}
-			sprintf(buf, "%s/%d", inet_ntoa(rn->p.u.prefix4),
-				rn->p.prefixlen);
+			snprintf(buf, sizeof(buf), "%s/%d",
+				 inet_ntoa(rn->p.u.prefix4), rn->p.prefixlen);
 			vty_out(vty, "    %-20s  %4d  %s\n", buf,
 				rdistance->distance,
 				rdistance->access_list ? rdistance->access_list
@@ -3014,20 +3022,20 @@ void rip_ecmp_disable(struct rip *rip)
 static void rip_vty_out_uptime(struct vty *vty, struct rip_info *rinfo)
 {
 	time_t clock;
-	struct tm *tm;
+	struct tm tm;
 #define TIME_BUF 25
 	char timebuf[TIME_BUF];
 	struct thread *thread;
 
 	if ((thread = rinfo->t_timeout) != NULL) {
 		clock = thread_timer_remain_second(thread);
-		tm = gmtime(&clock);
-		strftime(timebuf, TIME_BUF, "%M:%S", tm);
+		gmtime_r(&clock, &tm);
+		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
 	} else if ((thread = rinfo->t_garbage_collect) != NULL) {
 		clock = thread_timer_remain_second(thread);
-		tm = gmtime(&clock);
-		strftime(timebuf, TIME_BUF, "%M:%S", tm);
+		gmtime_r(&clock, &tm);
+		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
 	}
 }
@@ -3321,8 +3329,15 @@ static int config_write_rip(struct vty *vty)
 	return write;
 }
 
+static int config_write_rip(struct vty *vty);
 /* RIP node structure. */
-static struct cmd_node rip_node = {RIP_NODE, "%s(config-router)# ", 1};
+static struct cmd_node rip_node = {
+	.name = "rip",
+	.node = RIP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+	.config_write = config_write_rip,
+};
 
 /* Distribute-list update functions. */
 static void rip_distribute_update(struct distribute_ctx *ctx,
@@ -3670,8 +3685,7 @@ static int rip_vrf_enable(struct vrf *vrf)
 				running_config->version++;
 			}
 		}
-		if (old_vrf_name)
-			XFREE(MTYPE_RIP_VRF_NAME, old_vrf_name);
+		XFREE(MTYPE_RIP_VRF_NAME, old_vrf_name);
 	}
 	if (!rip || rip->enabled)
 		return 0;
@@ -3726,7 +3740,7 @@ void rip_vrf_terminate(void)
 void rip_init(void)
 {
 	/* Install top nodes. */
-	install_node(&rip_node, config_write_rip);
+	install_node(&rip_node);
 
 	/* Install rip commands. */
 	install_element(VIEW_NODE, &show_ip_rip_cmd);

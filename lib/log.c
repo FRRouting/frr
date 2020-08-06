@@ -25,7 +25,6 @@
 
 #include "zclient.h"
 #include "log.h"
-#include "log_int.h"
 #include "memory.h"
 #include "command.h"
 #include "lib_errors.h"
@@ -33,153 +32,11 @@
 #include "printfrr.h"
 #include "frr_pthread.h"
 
-#ifndef SUNOS_5
-#include <sys/un.h>
-#endif
-/* for printstack on solaris */
-#ifdef HAVE_UCONTEXT_H
-#include <ucontext.h>
-#endif
-
 #ifdef HAVE_LIBUNWIND
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
 #include <dlfcn.h>
 #endif
-
-DEFINE_MTYPE_STATIC(LIB, ZLOG, "Logging")
-
-/* hook for external logging */
-DEFINE_HOOK(zebra_ext_log, (int priority, const char *format, va_list args),
-	    (priority, format, args));
-
-static int logfile_fd = -1; /* Used in signal handler. */
-
-struct zlog *zlog_default = NULL;
-bool zlog_startup_stderr = true;
-
-/* lock protecting zlog_default for mt-safe zlog */
-static pthread_mutex_t loglock = PTHREAD_MUTEX_INITIALIZER;
-
-const char *zlog_priority[] = {
-	"emergencies",   "alerts",	"critical",  "errors", "warnings",
-	"notifications", "informational", "debugging", NULL,
-};
-
-static char zlog_filters[ZLOG_FILTERS_MAX][ZLOG_FILTER_LENGTH_MAX + 1];
-static uint8_t zlog_filter_count;
-
-/*
- * look for a match on the filter in the current filters, loglock must be held
- */
-static int zlog_filter_lookup(const char *lookup)
-{
-	for (int i = 0; i < zlog_filter_count; i++) {
-		if (strncmp(lookup, zlog_filters[i], sizeof(zlog_filters[0]))
-		    == 0)
-			return i;
-	}
-	return -1;
-}
-
-void zlog_filter_clear(void)
-{
-	frr_with_mutex(&loglock) {
-		zlog_filter_count = 0;
-	}
-}
-
-int zlog_filter_add(const char *filter)
-{
-	frr_with_mutex(&loglock) {
-		if (zlog_filter_count >= ZLOG_FILTERS_MAX)
-			return 1;
-
-		if (zlog_filter_lookup(filter) != -1)
-			/* Filter already present */
-			return -1;
-
-		strlcpy(zlog_filters[zlog_filter_count], filter,
-			sizeof(zlog_filters[0]));
-
-		if (zlog_filters[zlog_filter_count][0] == '\0')
-			/* Filter was either empty or didn't get copied
-			 * correctly
-			 */
-			return -1;
-
-		zlog_filter_count++;
-	}
-	return 0;
-}
-
-int zlog_filter_del(const char *filter)
-{
-	frr_with_mutex(&loglock) {
-		int found_idx = zlog_filter_lookup(filter);
-		int last_idx = zlog_filter_count - 1;
-
-		if (found_idx == -1)
-			/* Didn't find the filter to delete */
-			return -1;
-
-		/* Adjust the filter array */
-		memmove(zlog_filters[found_idx], zlog_filters[found_idx + 1],
-			(last_idx - found_idx) * sizeof(zlog_filters[0]));
-
-		zlog_filter_count--;
-	}
-	return 0;
-}
-
-/* Dump all filters to buffer, delimited by new line */
-int zlog_filter_dump(char *buf, size_t max_size)
-{
-	int len = 0;
-
-	frr_with_mutex(&loglock) {
-		for (int i = 0; i < zlog_filter_count; i++) {
-			int ret;
-			ret = snprintf(buf + len, max_size - len, " %s\n",
-				       zlog_filters[i]);
-			len += ret;
-			if ((ret < 0) || ((size_t)len >= max_size))
-				return -1;
-		}
-	}
-
-	return len;
-}
-
-/*
- * write_wrapper
- *
- * glibc has declared that the return value from write *must* not be
- * ignored.
- * gcc see's this problem and issues a warning for the line.
- *
- * Why is this a big deal you say?  Because both of them are right
- * and if you have -Werror enabled then all calls to write
- * generate a build error and the build stops.
- *
- * clang has helpfully allowed this construct:
- * (void)write(...)
- * to tell the compiler yeah I know it has a return value
- * I don't care about it at this time.
- * gcc doesn't have this ability.
- *
- * This code was written such that it didn't care about the
- * return value from write.  At this time do I want
- * to go through and fix and test this code for correctness.
- * So just wrapper the bad behavior and move on.
- */
-static void write_wrapper(int fd, const void *buf, size_t count)
-{
-	if (write(fd, buf, count) <= 0)
-		return;
-
-	return;
-}
 
 /**
  * Looks up a message in a message list by key.
@@ -220,11 +77,11 @@ size_t quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
 
 	/* first, we update the cache if the time has changed */
 	if (cache.last != clock.tv_sec) {
-		struct tm *tm;
+		struct tm tm;
 		cache.last = clock.tv_sec;
-		tm = localtime(&cache.last);
+		localtime_r(&cache.last, &tm);
 		cache.len = strftime(cache.buf, sizeof(cache.buf),
-				     "%Y/%m/%d %H:%M:%S", tm);
+				     "%Y/%m/%d %H:%M:%S", &tm);
 	}
 	/* note: it's not worth caching the subsecond part, because
 	   chances are that back-to-back calls are not sufficiently close
@@ -264,273 +121,11 @@ size_t quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
 	return 0;
 }
 
-static inline void timestamp_control_render(struct timestamp_control *ctl)
-{
-	if (!ctl->already_rendered) {
-		ctl->len = quagga_timestamp(ctl->precision, ctl->buf,
-					    sizeof(ctl->buf));
-		ctl->already_rendered = 1;
-	}
-}
-
-/* Utility routine for current time printing. */
-static void time_print(FILE *fp, struct timestamp_control *ctl)
-{
-	timestamp_control_render(ctl);
-	fprintf(fp, "%s ", ctl->buf);
-}
-
-static int time_print_buf(char *buf, int len, int max_size,
-			  struct timestamp_control *ctl)
-{
-	timestamp_control_render(ctl);
-
-	if (ctl->len + 1 >= (unsigned long)max_size)
-		return -1;
-
-	return snprintf(buf + len, max_size - len, "%s ", ctl->buf);
-}
-
-static void vzlog_file(struct zlog *zl, struct timestamp_control *tsctl,
-		       const char *proto_str, int record_priority, int priority,
-		       FILE *fp, const char *msg)
-{
-	time_print(fp, tsctl);
-	if (record_priority)
-		fprintf(fp, "%s: ", zlog_priority[priority]);
-
-	fprintf(fp, "%s%s\n", proto_str, msg);
-	fflush(fp);
-}
-
-/* Search a buf for the filter strings, loglock must be held */
-static int search_buf(const char *buf)
-{
-	char *found = NULL;
-
-	for (int i = 0; i < zlog_filter_count; i++) {
-		found = strstr(buf, zlog_filters[i]);
-		if (found != NULL)
-			return 0;
-	}
-
-	return -1;
-}
-
-/* Filter out a log */
-static int vzlog_filter(struct zlog *zl, struct timestamp_control *tsctl,
-			const char *proto_str, int priority, const char *msg)
-{
-	int len = 0;
-	int ret = 0;
-	char buf[1024] = "";
-
-	ret = time_print_buf(buf, len, sizeof(buf), tsctl);
-
-	len += ret;
-	if ((ret < 0) || ((size_t)len >= sizeof(buf)))
-		goto search;
-
-	if (zl && zl->record_priority)
-		snprintf(buf + len, sizeof(buf) - len, "%s: %s: %s",
-			 zlog_priority[priority], proto_str, msg);
-	else
-		snprintf(buf + len, sizeof(buf) - len, "%s: %s", proto_str,
-			 msg);
-
-search:
-	return search_buf(buf);
-}
-
-/* va_list version of zlog. */
-void vzlog(int priority, const char *format, va_list args)
-{
-	frr_mutex_lock_autounlock(&loglock);
-
-	char proto_str[32] = "";
-	int original_errno = errno;
-	struct timestamp_control tsctl = {};
-	tsctl.already_rendered = 0;
-	struct zlog *zl = zlog_default;
-	char buf[256], *msg;
-
-	if (zl == NULL) {
-		tsctl.precision = 0;
-	} else {
-		tsctl.precision = zl->timestamp_precision;
-		if (zl->instance)
-			sprintf(proto_str, "%s[%d]: ", zl->protoname,
-				zl->instance);
-		else
-			sprintf(proto_str, "%s: ", zl->protoname);
-	}
-
-	msg = vasnprintfrr(MTYPE_TMP, buf, sizeof(buf), format, args);
-
-	/* If it doesn't match on a filter, do nothing with the debug log */
-	if ((priority == LOG_DEBUG) && zlog_filter_count
-	    && vzlog_filter(zl, &tsctl, proto_str, priority, msg))
-		goto out;
-
-	/* call external hook */
-	hook_call(zebra_ext_log, priority, format, args);
-
-	/* When zlog_default is also NULL, use stderr for logging. */
-	if (zl == NULL) {
-		time_print(stderr, &tsctl);
-		fprintf(stderr, "%s: %s\n", "unknown", msg);
-		fflush(stderr);
-		goto out;
-	}
-
-	/* Syslog output */
-	if (priority <= zl->maxlvl[ZLOG_DEST_SYSLOG])
-		syslog(priority | zlog_default->facility, "%s", msg);
-
-	/* File output. */
-	if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
-		vzlog_file(zl, &tsctl, proto_str, zl->record_priority, priority,
-			   zl->fp, msg);
-
-	/* fixed-config logging to stderr while we're stating up & haven't
-	 * daemonized / reached mainloop yet
-	 *
-	 * note the "else" on stdout output -- we don't want to print the same
-	 * message to both stderr and stdout. */
-	if (zlog_startup_stderr && priority <= LOG_WARNING)
-		vzlog_file(zl, &tsctl, proto_str, 1, priority, stderr, msg);
-	else if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT])
-		vzlog_file(zl, &tsctl, proto_str, zl->record_priority, priority,
-			   stdout, msg);
-
-	/* Terminal monitor. */
-	if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
-		vty_log((zl->record_priority ? zlog_priority[priority] : NULL),
-			proto_str, msg, &tsctl);
-
-out:
-	if (msg != buf)
-		XFREE(MTYPE_TMP, msg);
-	errno = original_errno;
-}
-
-int vzlog_test(int priority)
-{
-	frr_mutex_lock_autounlock(&loglock);
-
-	struct zlog *zl = zlog_default;
-
-	/* When zlog_default is also NULL, use stderr for logging. */
-	if (zl == NULL)
-		return 1;
-	/* Syslog output */
-	else if (priority <= zl->maxlvl[ZLOG_DEST_SYSLOG])
-		return 1;
-	/* File output. */
-	else if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
-		return 1;
-	/* stdout output. */
-	else if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT])
-		return 1;
-	/* Terminal monitor. */
-	else if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
-		return 1;
-
-	return 0;
-}
-
 /*
  * crash handling
  *
  * NB: only AS-Safe (async-signal) functions can be used here!
  */
-
-/* Needs to be enhanced to support Solaris. */
-static int syslog_connect(void)
-{
-#ifdef SUNOS_5
-	return -1;
-#else
-	int fd;
-	struct sockaddr_un addr;
-
-	if ((fd = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0)
-		return -1;
-	addr.sun_family = AF_UNIX;
-#ifdef _PATH_LOG
-#define SYSLOG_SOCKET_PATH _PATH_LOG
-#else
-#define SYSLOG_SOCKET_PATH "/dev/log"
-#endif
-	strlcpy(addr.sun_path, SYSLOG_SOCKET_PATH, sizeof(addr.sun_path));
-#undef SYSLOG_SOCKET_PATH
-	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-		close(fd);
-		return -1;
-	}
-	return fd;
-#endif
-}
-
-static void syslog_sigsafe(int priority, const char *msg, size_t msglen)
-{
-	static int syslog_fd = -1;
-	char buf[sizeof("<1234567890>ripngd[1234567890]: ") + msglen + 50];
-	struct fbuf fb = { .buf = buf, .pos = buf, .len = sizeof(buf) };
-
-	if ((syslog_fd < 0) && ((syslog_fd = syslog_connect()) < 0))
-		return;
-
-	/* forget about the timestamp, too difficult in a signal handler */
-	bprintfrr(&fb, "<%d>%s", priority, zlog_default->ident);
-	if (zlog_default->syslog_options & LOG_PID)
-		bprintfrr(&fb, "[%ld]", (long)getpid());
-	bprintfrr(&fb, ": %s", msg);
-	write_wrapper(syslog_fd, fb.buf, fb.pos - fb.buf);
-}
-
-static int open_crashlog(void)
-{
-	char crashlog_buf[PATH_MAX];
-	const char *crashlog_default = "/var/tmp/frr.crashlog", *crashlog;
-
-	if (!zlog_default || !zlog_default->ident)
-		crashlog = crashlog_default;
-	else {
-		snprintfrr(crashlog_buf, sizeof(crashlog_buf),
-			   "/var/tmp/frr.%s.crashlog", zlog_default->ident);
-		crashlog = crashlog_buf;
-	}
-	return open(crashlog, O_WRONLY | O_CREAT | O_EXCL, LOGFILE_MASK);
-}
-
-/* N.B. implicit priority is most severe */
-#define PRI LOG_CRIT
-
-static void crash_write(struct fbuf *fb, char *msgstart)
-{
-	if (fb->pos == fb->buf)
-		return;
-	if (!msgstart)
-		msgstart = fb->buf;
-
-	/* If no file logging configured, try to write to fallback log file. */
-	if ((logfile_fd >= 0) || ((logfile_fd = open_crashlog()) >= 0))
-		write(logfile_fd, fb->buf, fb->pos - fb->buf);
-	if (!zlog_default)
-		write(STDERR_FILENO, fb->buf, fb->pos - fb->buf);
-	else {
-		if (PRI <= zlog_default->maxlvl[ZLOG_DEST_STDOUT])
-			write(STDOUT_FILENO, fb->buf, fb->pos - fb->buf);
-		/* Remove trailing '\n' for monitor and syslog */
-		fb->pos--;
-		if (PRI <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
-			vty_log_fixed(fb->buf, fb->pos - fb->buf);
-		if (PRI <= zlog_default->maxlvl[ZLOG_DEST_SYSLOG])
-			syslog_sigsafe(PRI | zlog_default->facility, msgstart,
-				       fb->pos - msgstart);
-	}
-}
 
 /* Note: the goal here is to use only async-signal-safe functions. */
 void zlog_signal(int signo, const char *action, void *siginfo_v,
@@ -540,14 +135,9 @@ void zlog_signal(int signo, const char *action, void *siginfo_v,
 	time_t now;
 	char buf[sizeof("DEFAULT: Received signal S at T (si_addr 0xP, PC 0xP); aborting...")
 		 + 100];
-	char *msgstart;
 	struct fbuf fb = { .buf = buf, .pos = buf, .len = sizeof(buf) };
 
 	time(&now);
-	if (zlog_default)
-		bprintfrr(&fb, "%s: ", zlog_default->protoname);
-
-	msgstart = fb.pos;
 
 	bprintfrr(&fb, "Received signal %d at %lld", signo, (long long)now);
 	if (program_counter)
@@ -559,9 +149,9 @@ void zlog_signal(int signo, const char *action, void *siginfo_v,
 			  (ptrdiff_t)siginfo->si_addr);
 	bprintfrr(&fb, "; %s\n", action);
 
-	crash_write(&fb, msgstart);
+	zlog_sigsafe(fb.buf, fb.pos - fb.buf);
 
-	zlog_backtrace_sigsafe(PRI, program_counter);
+	zlog_backtrace_sigsafe(LOG_CRIT, program_counter);
 
 	fb.pos = buf;
 
@@ -574,7 +164,7 @@ void zlog_signal(int signo, const char *action, void *siginfo_v,
 		bprintfrr(&fb, "in thread %s scheduled from %s:%d\n",
 			  tc->funcname, tc->schedfrom, tc->schedfrom_line);
 
-	crash_write(&fb, NULL);
+	zlog_sigsafe(fb.buf, fb.pos - fb.buf);
 }
 
 /* Log a backtrace using only async-signal-safe functions.
@@ -609,85 +199,35 @@ void zlog_backtrace_sigsafe(int priority, void *program_counter)
 			bprintfrr(&fb, " %s (mapped at %p)",
 				  dlinfo.dli_fname, dlinfo.dli_fbase);
 		bprintfrr(&fb, "\n");
-		crash_write(&fb, NULL);
+		zlog_sigsafe(fb.buf, fb.pos - fb.buf);
 	}
-#elif defined(HAVE_GLIBC_BACKTRACE) || defined(HAVE_PRINTSTACK)
-	static const char pclabel[] = "Program counter: ";
+#elif defined(HAVE_GLIBC_BACKTRACE)
 	void *array[64];
-	int size;
+	int size, i;
 	char buf[128];
 	struct fbuf fb = { .buf = buf, .pos = buf, .len = sizeof(buf) };
 	char **bt = NULL;
 
-#ifdef HAVE_GLIBC_BACKTRACE
 	size = backtrace(array, array_size(array));
 	if (size <= 0 || (size_t)size > array_size(array))
 		return;
 
-#define DUMP(FD)                                                               \
-	{                                                                      \
-		if (program_counter) {                                         \
-			write_wrapper(FD, pclabel, sizeof(pclabel) - 1);       \
-			backtrace_symbols_fd(&program_counter, 1, FD);         \
-		}                                                              \
-		write_wrapper(FD, fb.buf, fb.pos - fb.buf);                    \
-		backtrace_symbols_fd(array, size, FD);                         \
-	}
-#elif defined(HAVE_PRINTSTACK)
-	size = 0;
+	bprintfrr(&fb, "Backtrace for %d stack frames:", size);
+	zlog_sigsafe(fb.pos, fb.buf - fb.pos);
 
-#define DUMP(FD)                                                               \
-	{                                                                      \
-		if (program_counter)                                           \
-			write_wrapper((FD), pclabel, sizeof(pclabel) - 1);     \
-		write_wrapper((FD), fb.buf, fb.pos - fb.buf);                  \
-		printstack((FD));                                              \
-	}
-#endif /* HAVE_GLIBC_BACKTRACE, HAVE_PRINTSTACK */
+	bt = backtrace_symbols(array, size);
 
-	bprintfrr(&fb, "Backtrace for %d stack frames:\n", size);
-
-	if ((logfile_fd >= 0) || ((logfile_fd = open_crashlog()) >= 0))
-		DUMP(logfile_fd)
-	if (!zlog_default)
-		DUMP(STDERR_FILENO)
-	else {
-		if (priority <= zlog_default->maxlvl[ZLOG_DEST_STDOUT])
-			DUMP(STDOUT_FILENO)
-		/* Remove trailing '\n' for monitor and syslog */
-		fb.pos--;
-		if (priority <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
-			vty_log_fixed(fb.buf, fb.pos - fb.buf);
-		if (priority <= zlog_default->maxlvl[ZLOG_DEST_SYSLOG])
-			syslog_sigsafe(priority | zlog_default->facility,
-				       fb.buf, fb.pos - fb.buf);
-		{
-			int i;
-#ifdef HAVE_GLIBC_BACKTRACE
-			bt = backtrace_symbols(array, size);
-#endif
-			/* Just print the function addresses. */
-			for (i = 0; i < size; i++) {
-				fb.pos = buf;
-				if (bt)
-					bprintfrr(&fb, "%s", bt[i]);
-				else
-					bprintfrr(&fb, "[bt %d] 0x%tx", i,
-						  (ptrdiff_t)(array[i]));
-				if (priority
-				    <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
-					vty_log_fixed(fb.buf, fb.pos - fb.buf);
-				if (priority
-				    <= zlog_default->maxlvl[ZLOG_DEST_SYSLOG])
-					syslog_sigsafe(priority
-						| zlog_default->facility,
-						fb.buf, fb.pos - fb.buf);
-			}
-			if (bt)
-				free(bt);
-		}
+	for (i = 0; i < size; i++) {
+		fb.pos = buf;
+		if (bt)
+			bprintfrr(&fb, "%s", bt[i]);
+		else
+			bprintfrr(&fb, "[bt %d] 0x%tx", i,
+				  (ptrdiff_t)(array[i]));
+		zlog_sigsafe(fb.buf, fb.pos - fb.buf);
 	}
-#undef DUMP
+	if (bt)
+		free(bt);
 #endif /* HAVE_STRACK_TRACE */
 }
 
@@ -754,36 +294,6 @@ void zlog_backtrace(int priority)
 #endif
 }
 
-void zlog(int priority, const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	vzlog(priority, format, args);
-	va_end(args);
-}
-
-#define ZLOG_FUNC(FUNCNAME, PRIORITY)                                          \
-	void FUNCNAME(const char *format, ...)                                 \
-	{                                                                      \
-		va_list args;                                                  \
-		va_start(args, format);                                        \
-		vzlog(PRIORITY, format, args);                                 \
-		va_end(args);                                                  \
-	}
-
-ZLOG_FUNC(zlog_err, LOG_ERR)
-
-ZLOG_FUNC(zlog_warn, LOG_WARNING)
-
-ZLOG_FUNC(zlog_info, LOG_INFO)
-
-ZLOG_FUNC(zlog_notice, LOG_NOTICE)
-
-ZLOG_FUNC(zlog_debug, LOG_DEBUG)
-
-#undef ZLOG_FUNC
-
 void zlog_thread_info(int log_level)
 {
 	struct thread *tc;
@@ -801,11 +311,6 @@ void zlog_thread_info(int log_level)
 void _zlog_assert_failed(const char *assertion, const char *file,
 			 unsigned int line, const char *function)
 {
-	/* Force fallback file logging? */
-	if (zlog_default && !zlog_default->fp
-	    && ((logfile_fd = open_crashlog()) >= 0)
-	    && ((zlog_default->fp = fdopen(logfile_fd, "w")) != NULL))
-		zlog_default->maxlvl[ZLOG_DEST_FILE] = LOG_ERR;
 	zlog(LOG_CRIT, "Assertion `%s' failed in file %s, line %u, function %s",
 	     assertion, file, line, (function ? function : "?"));
 	zlog_backtrace(LOG_CRIT);
@@ -816,173 +321,12 @@ void _zlog_assert_failed(const char *assertion, const char *file,
 
 void memory_oom(size_t size, const char *name)
 {
-	flog_err_sys(EC_LIB_SYSTEM_CALL,
-		     "out of memory: failed to allocate %zu bytes for %s"
-		     "object",
-		     size, name);
-	zlog_backtrace(LOG_ERR);
+	zlog(LOG_CRIT,
+	     "out of memory: failed to allocate %zu bytes for %s object",
+	     size, name);
+	zlog_backtrace(LOG_CRIT);
+	log_memstats(stderr, "log");
 	abort();
-}
-
-/* Open log stream */
-void openzlog(const char *progname, const char *protoname,
-	      unsigned short instance, int syslog_flags, int syslog_facility)
-{
-	struct zlog *zl;
-	unsigned int i;
-
-	zl = XCALLOC(MTYPE_ZLOG, sizeof(struct zlog));
-
-	zl->ident = progname;
-	zl->protoname = protoname;
-	zl->instance = instance;
-	zl->facility = syslog_facility;
-	zl->syslog_options = syslog_flags;
-
-	/* Set default logging levels. */
-	for (i = 0; i < array_size(zl->maxlvl); i++)
-		zl->maxlvl[i] = ZLOG_DISABLED;
-	zl->maxlvl[ZLOG_DEST_MONITOR] = LOG_DEBUG;
-	zl->default_lvl = LOG_DEBUG;
-
-	openlog(progname, syslog_flags, zl->facility);
-
-	frr_with_mutex(&loglock) {
-		zlog_default = zl;
-	}
-
-#ifdef HAVE_GLIBC_BACKTRACE
-	/* work around backtrace() using lazily resolved dynamically linked
-	 * symbols, which will otherwise cause funny breakage in the SEGV
-	 * handler.
-	 * (particularly, the dynamic linker can call malloc(), which uses locks
-	 * in programs linked with -pthread, thus can deadlock.) */
-	void *bt[4];
-	backtrace(bt, array_size(bt));
-	free(backtrace_symbols(bt, 0));
-	backtrace_symbols_fd(bt, 0, 0);
-#endif
-}
-
-void closezlog(void)
-{
-	frr_mutex_lock_autounlock(&loglock);
-
-	struct zlog *zl = zlog_default;
-
-	closelog();
-
-	if (zl->fp != NULL)
-		fclose(zl->fp);
-
-	XFREE(MTYPE_ZLOG, zl->filename);
-
-	XFREE(MTYPE_ZLOG, zl);
-	zlog_default = NULL;
-}
-
-/* Called from command.c. */
-void zlog_set_level(zlog_dest_t dest, int log_level)
-{
-	frr_with_mutex(&loglock) {
-		zlog_default->maxlvl[dest] = log_level;
-	}
-}
-
-int zlog_set_file(const char *filename, int log_level)
-{
-	struct zlog *zl;
-	FILE *fp;
-	mode_t oldumask;
-	int ret = 1;
-
-	/* There is opend file.  */
-	zlog_reset_file();
-
-	/* Open file. */
-	oldumask = umask(0777 & ~LOGFILE_MASK);
-	fp = fopen(filename, "a");
-	umask(oldumask);
-	if (fp == NULL) {
-		ret = 0;
-	} else {
-		frr_with_mutex(&loglock) {
-			zl = zlog_default;
-
-			/* Set flags. */
-			zl->filename = XSTRDUP(MTYPE_ZLOG, filename);
-			zl->maxlvl[ZLOG_DEST_FILE] = log_level;
-			zl->fp = fp;
-			logfile_fd = fileno(fp);
-		}
-	}
-
-	return ret;
-}
-
-/* Reset opend file. */
-int zlog_reset_file(void)
-{
-	frr_mutex_lock_autounlock(&loglock);
-
-	struct zlog *zl = zlog_default;
-
-	if (zl->fp)
-		fclose(zl->fp);
-	zl->fp = NULL;
-	logfile_fd = -1;
-	zl->maxlvl[ZLOG_DEST_FILE] = ZLOG_DISABLED;
-
-	XFREE(MTYPE_ZLOG, zl->filename);
-	zl->filename = NULL;
-
-	return 1;
-}
-
-/* Reopen log file. */
-int zlog_rotate(void)
-{
-	pthread_mutex_lock(&loglock);
-
-	struct zlog *zl = zlog_default;
-	int level;
-	int ret = 1;
-
-	if (zl->fp)
-		fclose(zl->fp);
-	zl->fp = NULL;
-	logfile_fd = -1;
-	level = zl->maxlvl[ZLOG_DEST_FILE];
-	zl->maxlvl[ZLOG_DEST_FILE] = ZLOG_DISABLED;
-
-	if (zl->filename) {
-		mode_t oldumask;
-		int save_errno;
-
-		oldumask = umask(0777 & ~LOGFILE_MASK);
-		zl->fp = fopen(zl->filename, "a");
-		save_errno = errno;
-		umask(oldumask);
-		if (zl->fp == NULL) {
-
-			pthread_mutex_unlock(&loglock);
-
-			flog_err_sys(
-				EC_LIB_SYSTEM_CALL,
-				"Log rotate failed: cannot open file %s for append: %s",
-				zl->filename, safe_strerror(save_errno));
-			ret = -1;
-
-			pthread_mutex_lock(&loglock);
-		} else {
-			logfile_fd = fileno(zl->fp);
-			zl->maxlvl[ZLOG_DEST_FILE] = level;
-		}
-	}
-
-	pthread_mutex_unlock(&loglock);
-
-	return ret;
 }
 
 /* Wrapper around strerror to handle case where it returns NULL. */
@@ -1093,8 +437,13 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_VXLAN_SG_ADD),
 	DESC_ENTRY(ZEBRA_VXLAN_SG_DEL),
 	DESC_ENTRY(ZEBRA_VXLAN_SG_REPLAY),
+	DESC_ENTRY(ZEBRA_MLAG_PROCESS_UP),
+	DESC_ENTRY(ZEBRA_MLAG_PROCESS_DOWN),
+	DESC_ENTRY(ZEBRA_MLAG_CLIENT_REGISTER),
+	DESC_ENTRY(ZEBRA_MLAG_CLIENT_UNREGISTER),
+	DESC_ENTRY(ZEBRA_MLAG_FORWARD_MSG),
 	DESC_ENTRY(ZEBRA_ERROR),
-};
+	DESC_ENTRY(ZEBRA_CLIENT_CAPABILITIES)};
 #undef DESC_ENTRY
 
 static const struct zebra_desc_table unknown = {0, "unknown", '?'};
@@ -1224,59 +573,47 @@ int proto_redistnum(int afi, const char *s)
 	return -1;
 }
 
-void zlog_hexdump(const void *mem, unsigned int len)
+void zlog_hexdump(const void *mem, size_t len)
 {
-	unsigned long i = 0;
-	unsigned int j = 0;
-	unsigned int columns = 8;
-	/*
-	 * 19 bytes for 0xADDRESS:
-	 * 24 bytes for data; 2 chars plus a space per data byte
-	 *  1 byte for space
-	 *  8 bytes for ASCII representation
-	 *  1 byte for a newline
-	 * =====================
-	 * 53 bytes per 8 bytes of data
-	 *  1 byte for null term
-	 */
-	size_t bs = ((len / 8) + 1) * 53 + 1;
-	char buf[bs];
-	char *s = buf;
-	const unsigned char *memch = mem;
+	char line[64];
+	const uint8_t *src = mem;
+	const uint8_t *end = src + len;
 
-	memset(buf, 0, sizeof(buf));
-
-	for (i = 0; i < len + ((len % columns) ? (columns - len % columns) : 0);
-	     i++) {
-		/* print offset */
-		if (i % columns == 0)
-			s += snprintf(s, bs - (s - buf),
-				      "0x%016lx: ", (unsigned long)memch + i);
-
-		/* print hex data */
-		if (i < len)
-			s += snprintf(s, bs - (s - buf), "%02x ", memch[i]);
-
-		/* end of block, just aligning for ASCII dump */
-		else
-			s += snprintf(s, bs - (s - buf), "   ");
-
-		/* print ASCII dump */
-		if (i % columns == (columns - 1)) {
-			for (j = i - (columns - 1); j <= i; j++) {
-				/* end of block not really printing */
-				if (j >= len)
-					s += snprintf(s, bs - (s - buf), " ");
-				else if (isprint(memch[j]))
-					s += snprintf(s, bs - (s - buf), "%c",
-						      memch[j]);
-				else /* other char */
-					s += snprintf(s, bs - (s - buf), ".");
-			}
-			s += snprintf(s, bs - (s - buf), "\n");
-		}
+	if (len == 0) {
+		zlog_debug("%016lx: (zero length / no data)", (long)src);
+		return;
 	}
-	zlog_debug("\n%s", buf);
+
+	while (src < end) {
+		struct fbuf fb = {
+			.buf = line,
+			.pos = line,
+			.len = sizeof(line),
+		};
+		const uint8_t *lineend = src + 8;
+		unsigned line_bytes = 0;
+
+		bprintfrr(&fb, "%016lx: ", (long)src);
+
+		while (src < lineend && src < end) {
+			bprintfrr(&fb, "%02x ", *src++);
+			line_bytes++;
+		}
+		if (line_bytes < 8)
+			bprintfrr(&fb, "%*s", (8 - line_bytes) * 3, "");
+
+		src -= line_bytes;
+		while (src < lineend && src < end && fb.pos < fb.buf + fb.len) {
+			uint8_t byte = *src++;
+
+			if (isprint(byte))
+				*fb.pos++ = byte;
+			else
+				*fb.pos++ = '.';
+		}
+
+		zlog_debug("%.*s", (int)(fb.pos - fb.buf), fb.buf);
+	}
 }
 
 const char *zlog_sanitize(char *buf, size_t bufsz, const void *in, size_t inlen)

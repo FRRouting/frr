@@ -87,8 +87,65 @@ static int sharp_ifp_down(struct interface *ifp)
 	return 0;
 }
 
+int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
+			      uint8_t type, int instance, uint32_t in_label,
+			      const struct nexthop_group *nhg)
+{
+	struct zapi_labels zl = {};
+	struct zapi_nexthop *znh;
+	const struct nexthop *nh;
+	int i, ret;
+
+	zl.type = ZEBRA_LSP_SHARP;
+	zl.local_label = in_label;
+
+	if (p) {
+		SET_FLAG(zl.message, ZAPI_LABELS_FTN);
+		prefix_copy(&zl.route.prefix, p);
+		zl.route.type = type;
+		zl.route.instance = instance;
+	}
+
+	i = 0;
+	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+		znh = &zl.nexthops[i];
+
+		/* Must have labels to be useful */
+		if (nh->nh_label == NULL || nh->nh_label->num_labels == 0)
+			continue;
+
+		if (nh->type == NEXTHOP_TYPE_IFINDEX ||
+		    nh->type == NEXTHOP_TYPE_BLACKHOLE)
+			/* Hmm - can't really deal with these types */
+			continue;
+
+		ret = zapi_nexthop_from_nexthop(znh, nh);
+		if (ret < 0)
+			return -1;
+
+		i++;
+	}
+
+	/* Whoops - no nexthops isn't very useful */
+	if (i == 0)
+		return -1;
+
+	zl.nexthop_num = i;
+
+	if (install_p)
+		ret = zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_ADD,
+					     &zl);
+	else
+		ret = zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_DELETE,
+					     &zl);
+
+	return ret;
+}
+
 void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
-				 uint8_t instance, struct nexthop_group *nhg,
+				 uint8_t instance,
+				 const struct nexthop_group *nhg,
+				 const struct nexthop_group *backup_nhg,
 				 uint32_t routes)
 {
 	uint32_t temp, i;
@@ -102,9 +159,13 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 	} else
 		temp = ntohl(p->u.val32[3]);
 
+	/* Only use backup route/nexthops if present */
+	if (backup_nhg && (backup_nhg->nexthop == NULL))
+		backup_nhg = NULL;
+
 	monotime(&sg.r.t_start);
 	for (i = 0; i < routes; i++) {
-		route_add(p, vrf_id, (uint8_t)instance, nhg);
+		route_add(p, vrf_id, (uint8_t)instance, nhg, backup_nhg);
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
 		else
@@ -154,6 +215,7 @@ static void handle_repeated(bool installed)
 		sg.r.installed_routes = 0;
 		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
 					    &sg.r.nhop_group,
+					    &sg.r.backup_nhop_group,
 					    sg.r.total_routes);
 	}
 }
@@ -221,8 +283,9 @@ void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 	zclient_send_vrf_label(zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
 }
 
-void route_add(struct prefix *p, vrf_id_t vrf_id,
-	       uint8_t instance, struct nexthop_group *nhg)
+void route_add(const struct prefix *p, vrf_id_t vrf_id,
+	       uint8_t instance, const struct nexthop_group *nhg,
+	       const struct nexthop_group *backup_nhg)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -241,46 +304,28 @@ void route_add(struct prefix *p, vrf_id_t vrf_id,
 
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 		api_nh = &api.nexthops[i];
-		api_nh->vrf_id = nh->vrf_id;
-		api_nh->type = nh->type;
-		api_nh->weight = nh->weight;
 
-		switch (nh->type) {
-		case NEXTHOP_TYPE_IPV4:
-			api_nh->gate = nh->gate;
-			break;
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			api_nh->gate = nh->gate;
-			api_nh->ifindex = nh->ifindex;
-			break;
-		case NEXTHOP_TYPE_IFINDEX:
-			api_nh->ifindex = nh->ifindex;
-			break;
-		case NEXTHOP_TYPE_IPV6:
-			memcpy(&api_nh->gate.ipv6, &nh->gate.ipv6, 16);
-			break;
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			api_nh->ifindex = nh->ifindex;
-			memcpy(&api_nh->gate.ipv6, &nh->gate.ipv6, 16);
-			break;
-		case NEXTHOP_TYPE_BLACKHOLE:
-			api_nh->bh_type = nh->bh_type;
-			break;
-		}
-
-		if (nh->nh_label && nh->nh_label->num_labels > 0) {
-			int j;
-
-			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
-
-			api_nh->label_num = nh->nh_label->num_labels;
-			for (j = 0; j < nh->nh_label->num_labels; j++)
-				api_nh->labels[j] = nh->nh_label->label[j];
-		}
+		zapi_nexthop_from_nexthop(api_nh, nh);
 
 		i++;
 	}
 	api.nexthop_num = i;
+
+	/* Include backup nexthops, if present */
+	if (backup_nhg && backup_nhg->nexthop) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
+
+		i = 0;
+		for (ALL_NEXTHOPS_PTR(backup_nhg, nh)) {
+			api_nh = &api.backup_nexthops[i];
+
+			zapi_backup_nexthop_from_nexthop(api_nh, nh);
+
+			i++;
+		}
+
+		api.backup_nexthop_num = i;
+	}
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
@@ -318,8 +363,7 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 	}
 
 	if (zclient_send_rnh(zclient, command, p, connected, vrf_id) < 0)
-		zlog_warn("%s: Failure to send nexthop to zebra",
-			  __PRETTY_FUNCTION__);
+		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
 
 static int sharp_debug_nexthops(struct zapi_route *api)
@@ -334,7 +378,7 @@ static int sharp_debug_nexthops(struct zapi_route *api)
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 		case NEXTHOP_TYPE_IPV4:
 			zlog_debug(
-				"\tNexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
+				"        Nexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
 				inet_ntop(AF_INET, &znh->gate.ipv4.s_addr, buf,
 					  sizeof(buf)),
 				znh->type, znh->ifindex, znh->vrf_id,
@@ -343,18 +387,18 @@ static int sharp_debug_nexthops(struct zapi_route *api)
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 		case NEXTHOP_TYPE_IPV6:
 			zlog_debug(
-				"\tNexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
+				"        Nexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
 				inet_ntop(AF_INET6, &znh->gate.ipv6, buf,
 					  sizeof(buf)),
 				znh->type, znh->ifindex, znh->vrf_id,
 				znh->label_num);
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
-			zlog_debug("\tNexthop IFINDEX: %d, ifindex: %d",
+			zlog_debug("        Nexthop IFINDEX: %d, ifindex: %d",
 				   znh->type, znh->ifindex);
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
-			zlog_debug("\tNexthop blackhole");
+			zlog_debug("        Nexthop blackhole");
 			break;
 		}
 	}
@@ -367,7 +411,7 @@ static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 	struct zapi_route nhr;
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
-		zlog_warn("%s: Decode of update failed", __PRETTY_FUNCTION__);
+		zlog_warn("%s: Decode of update failed", __func__);
 
 		return 0;
 	}
@@ -388,8 +432,7 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 	struct zapi_route api;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
-		zlog_warn("%s: Decode of redistribute failed: %d",
-			  __PRETTY_FUNCTION__,
+		zlog_warn("%s: Decode of redistribute failed: %d", __func__,
 			  ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 
 	zlog_debug("%s: %pFX (%s)", zserv_command_string(cmd),

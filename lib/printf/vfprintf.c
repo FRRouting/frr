@@ -94,7 +94,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
 		mbs = initial;
 		nbytes = wcsrtombs(NULL, (const wchar_t **)&p, 0, &mbs);
 		if (nbytes == (size_t)-1)
-			return (NULL);
+			return NULL;
 	} else {
 		/*
 		 * Optimisation: if the output precision is small enough,
@@ -117,7 +117,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
 		}
 	}
 	if ((convbuf = malloc(nbytes + 1)) == NULL)
-		return (NULL);
+		return NULL;
 
 	/* Fill the output buffer. */
 	p = wcsarg;
@@ -125,7 +125,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
 	if ((nbytes = wcsrtombs(convbuf, (const wchar_t **)&p,
 	    nbytes, &mbs)) == (size_t)-1) {
 		free(convbuf);
-		return (NULL);
+		return NULL;
 	}
 	convbuf[nbytes] = '\0';
 	return (convbuf);

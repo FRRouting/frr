@@ -17,6 +17,7 @@
 #ifndef _QUAGGA_MEMORY_H
 #define _QUAGGA_MEMORY_H
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <frratomic.h>
@@ -48,6 +49,8 @@ struct memgroup {
 	struct memgroup *next, **ref;
 	struct memtype *types, **insert;
 	const char *name;
+	/* ignore group on dumping memleaks at exit */
+	bool active_at_exit;
 };
 
 /* macro usage:
@@ -76,7 +79,7 @@ struct memgroup {
  */
 
 #define DECLARE_MGROUP(name) extern struct memgroup _mg_##name;
-#define DEFINE_MGROUP(mname, desc)                                             \
+#define _DEFINE_MGROUP(mname, desc, ...)                                       \
 	struct memgroup _mg_##mname                                            \
 		__attribute__((section(".data.mgroups"))) = {                  \
 			.name = desc,                                          \
@@ -84,6 +87,7 @@ struct memgroup {
 			.next = NULL,                                          \
 			.insert = NULL,                                        \
 			.ref = NULL,                                           \
+			__VA_ARGS__                                            \
 	};                                                                     \
 	static void _mginit_##mname(void) __attribute__((_CONSTRUCTOR(1000))); \
 	static void _mginit_##mname(void)                                      \
@@ -99,7 +103,13 @@ struct memgroup {
 		if (_mg_##mname.next)                                          \
 			_mg_##mname.next->ref = _mg_##mname.ref;               \
 		*_mg_##mname.ref = _mg_##mname.next;                           \
-	}
+	}                                                                      \
+	/* end */
+
+#define DEFINE_MGROUP(mname, desc) \
+	_DEFINE_MGROUP(mname, desc, )
+#define DEFINE_MGROUP_ACTIVEATEXIT(mname, desc) \
+	_DEFINE_MGROUP(mname, desc, .active_at_exit = true)
 
 #define DECLARE_MTYPE(name)                                                    \
 	extern struct memtype MTYPE_##name[1];                                 \
@@ -179,7 +189,8 @@ extern int qmem_walk(qmem_walk_fn *func, void *arg);
 extern int log_memstats(FILE *fp, const char *);
 #define log_memstats_stderr(prefix) log_memstats(stderr, prefix)
 
-extern void memory_oom(size_t size, const char *name);
+extern __attribute__((__noreturn__)) void memory_oom(size_t size,
+						     const char *name);
 
 #ifdef __cplusplus
 }

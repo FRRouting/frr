@@ -75,11 +75,11 @@ void router_id_get(struct prefix *p, vrf_id_t vrf_id)
 	struct connected *c;
 	struct zebra_vrf *zvrf = vrf_info_get(vrf_id);
 
-	p->u.prefix4.s_addr = 0;
+	p->u.prefix4.s_addr = INADDR_ANY;
 	p->family = AF_INET;
 	p->prefixlen = 32;
 
-	if (zvrf->rid_user_assigned.u.prefix4.s_addr)
+	if (zvrf->rid_user_assigned.u.prefix4.s_addr != INADDR_ANY)
 		p->u.prefix4.s_addr = zvrf->rid_user_assigned.u.prefix4.s_addr;
 	else if (!list_isempty(zvrf->rid_lo_sorted_list)) {
 		node = listtail(zvrf->rid_lo_sorted_list);
@@ -185,7 +185,8 @@ void router_id_write(struct vty *vty)
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 		if ((zvrf = vrf->info) != NULL)
-			if (zvrf->rid_user_assigned.u.prefix4.s_addr) {
+			if (zvrf->rid_user_assigned.u.prefix4.s_addr
+			    != INADDR_ANY) {
 				if (zvrf_id(zvrf) == VRF_DEFAULT)
 					vty_out(vty, "router-id %s\n",
 						inet_ntoa(

@@ -86,3 +86,20 @@ keyword. At present, no sharp commands will be preserved in the config.
 
    Allow end user to dump associated data with the nexthop tracking that
    may have been turned on.
+
+.. index:: sharp lsp
+.. clicmd:: sharp lsp (0-100000) nexthop-group NAME [prefix A.B.C.D/M TYPE [instance (0-255)]]
+
+   Install an LSP using the specified in-label, with nexthops as
+   listed in nexthop-group ``NAME``. The LSP is installed as type
+   ZEBRA_LSP_SHARP. If ``prefix`` is specified, an existing route with
+   type ``TYPE`` (and optional ``instance`` id) will be updated to use
+   the LSP.
+
+.. index:: sharp remove lsp
+.. clicmd:: sharp remove lsp (0-100000) nexthop-group NAME [prefix A.B.C.D/M TYPE [instance (0-255)]]
+
+   Remove a SHARPD LSP that uses the specified in-label, where the
+   nexthops are specified in nexthop-group ``NAME``. If ``prefix`` is
+   specified, remove label bindings from the route of type ``TYPE``
+   also.

@@ -19,11 +19,11 @@ C * fe80::/64 is directly connected, r1-eth6, XX:XX:XX
 C * fe80::/64 is directly connected, r1-eth7, XX:XX:XX
 C * fe80::/64 is directly connected, r1-eth8, XX:XX:XX
 C * fe80::/64 is directly connected, r1-eth9, XX:XX:XX
-O   fc00:0:0:4::/64 [110/10] is directly connected, r1-eth4, XX:XX:XX
-S>* 4:5::6:10/128 [1/0] via fc00::2, r1-eth0, XX:XX:XX
-S>* 4:5::6:11/128 [1/0] via fc00::2, r1-eth0, XX:XX:XX
-S>* 4:5::6:12/128 [1/0] is directly connected, r1-eth0, XX:XX:XX
-S   4:5::6:15/128 [255/0] via fc00::2, r1-eth0, XX:XX:XX
-S>* 4:5::6:7/128 [1/0] unreachable (blackhole), XX:XX:XX
-S>* 4:5::6:8/128 [1/0] unreachable (blackhole), XX:XX:XX
-S>* 4:5::6:9/128 [1/0] unreachable (ICMP unreachable), XX:XX:XX
+O   fc00:0:0:4::/64 [110/10] is directly connected, r1-eth4, weight 1, XX:XX:XX
+S>* 4:5::6:10/128 [1/0] via fc00::2, r1-eth0, weight 1, XX:XX:XX
+S>* 4:5::6:11/128 [1/0] via fc00::2, r1-eth0, weight 1, XX:XX:XX
+S>* 4:5::6:12/128 [1/0] is directly connected, r1-eth0, weight 1, XX:XX:XX
+S   4:5::6:15/128 [255/0] via fc00::2, r1-eth0, weight 1, XX:XX:XX
+S>* 4:5::6:7/128 [1/0] unreachable (blackhole), weight 1, XX:XX:XX
+S>* 4:5::6:8/128 [1/0] unreachable (blackhole), weight 1, XX:XX:XX
+S>* 4:5::6:9/128 [1/0] unreachable (ICMP unreachable), weight 1, XX:XX:XX

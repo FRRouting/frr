@@ -162,7 +162,12 @@ DEFPY (install_routes_data_dump,
 
 DEFPY (install_routes,
        install_routes_cmd,
-       "sharp install routes [vrf NAME$vrf_name] <A.B.C.D$start4|X:X::X:X$start6> <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NHGNAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
+       "sharp install routes [vrf NAME$vrf_name]\
+	  <A.B.C.D$start4|X:X::X:X$start6>\
+	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
+	   nexthop-group NHGNAME$nexthop_group>\
+	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
+	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -175,6 +180,9 @@ DEFPY (install_routes,
        "V6 Nexthop address to use\n"
        "Nexthop-Group to use\n"
        "The Name of the nexthop-group\n"
+       "Backup nexthop to use(Can be an IPv4 or IPv6 address)\n"
+       "Backup V4 Nexthop address to use\n"
+       "Backup V6 Nexthop address to use\n"
        "How many to create\n"
        "Instance to use\n"
        "Instance\n"
@@ -197,6 +205,8 @@ DEFPY (install_routes,
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
+	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
+	memset(&sg.r.backup_nhop_group, 0, sizeof(sg.r.nhop_group));
 
 	if (start4.s_addr != 0) {
 		prefix.family = AF_INET;
@@ -219,6 +229,12 @@ DEFPY (install_routes,
 		return CMD_WARNING;
 	}
 
+	/* Explicit backup not available with named nexthop-group */
+	if (backup && nexthop_group) {
+		vty_out(vty, "%% Invalid: cannot specify both nexthop-group and backup\n");
+		return CMD_WARNING;
+	}
+
 	if (nexthop_group) {
 		struct nexthop_group_cmd *nhgc = nhgc_find(nexthop_group);
 		if (!nhgc) {
@@ -229,6 +245,22 @@ DEFPY (install_routes,
 		}
 
 		sg.r.nhop_group.nexthop = nhgc->nhg.nexthop;
+
+		/* Use group's backup nexthop info if present */
+		if (nhgc->backup_list_name[0]) {
+			struct nexthop_group_cmd *bnhgc =
+				nhgc_find(nhgc->backup_list_name);
+
+			if (!bnhgc) {
+				vty_out(vty, "%% Backup group %s not found for group %s\n",
+					nhgc->backup_list_name,
+					nhgc->name);
+				return CMD_WARNING;
+			}
+
+			sg.r.backup_nhop.vrf_id = vrf->vrf_id;
+			sg.r.backup_nhop_group.nexthop = bnhgc->nhg.nexthop;
+		}
 	} else {
 		if (nexthop4.s_addr != INADDR_ANY) {
 			sg.r.nhop.gate.ipv4 = nexthop4;
@@ -242,11 +274,30 @@ DEFPY (install_routes,
 		sg.r.nhop_group.nexthop = &sg.r.nhop;
 	}
 
+	/* Use single backup nexthop if specified */
+	if (backup) {
+		/* Set flag and index in primary nexthop */
+		SET_FLAG(sg.r.nhop.flags, NEXTHOP_FLAG_HAS_BACKUP);
+		sg.r.nhop.backup_idx = 0;
+
+		if (backup_nexthop4.s_addr != INADDR_ANY) {
+			sg.r.backup_nhop.gate.ipv4 = backup_nexthop4;
+			sg.r.backup_nhop.type = NEXTHOP_TYPE_IPV4;
+		} else {
+			sg.r.backup_nhop.gate.ipv6 = backup_nexthop6;
+			sg.r.backup_nhop.type = NEXTHOP_TYPE_IPV6;
+		}
+
+		sg.r.backup_nhop.vrf_id = vrf->vrf_id;
+		sg.r.backup_nhop_group.nexthop = &sg.r.backup_nhop;
+	}
+
 	sg.r.inst = instance;
 	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
-	sharp_install_routes_helper(&prefix, sg.r.vrf_id,
-				    sg.r.inst, &sg.r.nhop_group, rts);
+	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst,
+				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
+				    rts);
 
 	return CMD_SUCCESS;
 }
@@ -337,8 +388,142 @@ DEFUN_NOSH (show_debugging_sharpd,
 	    DEBUG_STR
 	    "Sharp Information\n")
 {
-	vty_out(vty, "Sharp debugging status\n");
+	vty_out(vty, "Sharp debugging status:\n");
 
+	return CMD_SUCCESS;
+}
+
+DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
+      "sharp lsp (0-100000)$inlabel\
+        nexthop-group NHGNAME$nhgname\
+        [prefix A.B.C.D/M$pfx\
+       " FRR_IP_REDIST_STR_ZEBRA "$type_str [instance (0-255)$instance]]",
+      "Sharp Routing Protocol\n"
+      "Add an LSP\n"
+      "The ingress label to use\n"
+      "Use nexthops from a nexthop-group\n"
+      "The nexthop-group name\n"
+      "Label a prefix\n"
+      "The v4 prefix to label\n"
+      FRR_IP_REDIST_HELP_STR_ZEBRA
+      "Instance to use\n"
+      "Instance\n")
+{
+	struct nexthop_group_cmd *nhgc = NULL;
+	struct prefix p = {};
+	int type = 0;
+
+	/* We're offered a v4 prefix */
+	if (pfx->family > 0 && type_str) {
+		p.family = pfx->family;
+		p.prefixlen = pfx->prefixlen;
+		p.u.prefix4 = pfx->prefix;
+
+		type = proto_redistnum(AFI_IP, type_str);
+		if (type < 0) {
+			vty_out(vty, "%%  Unknown route type '%s'\n", type_str);
+			return CMD_WARNING;
+		}
+	} else if (pfx->family > 0 || type_str) {
+		vty_out(vty, "%%  Must supply both prefix and type\n");
+		return CMD_WARNING;
+	}
+
+	nhgc = nhgc_find(nhgname);
+	if (!nhgc) {
+		vty_out(vty, "%%  Nexthop-group '%s' does not exist\n",
+			nhgname);
+		return CMD_WARNING;
+	}
+
+	if (nhgc->nhg.nexthop == NULL) {
+		vty_out(vty, "%%  Nexthop-group '%s' is empty\n", nhgname);
+		return CMD_WARNING;
+	}
+
+	if (sharp_install_lsps_helper(true, pfx->family > 0 ? &p : NULL,
+				      type, instance, inlabel,
+				      &(nhgc->nhg)) == 0)
+		return CMD_SUCCESS;
+	else {
+		vty_out(vty, "%% LSP install failed!\n");
+		return CMD_WARNING;
+	}
+}
+
+DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
+      "sharp remove lsp \
+        (0-100000)$inlabel\
+        nexthop-group NHGNAME$nhgname\
+        [prefix A.B.C.D/M$pfx\
+       " FRR_IP_REDIST_STR_SHARPD "$type_str [instance (0-255)$instance]]",
+      "Sharp Routing Protocol\n"
+      "Remove data\n"
+      "Remove an LSP\n"
+      "The ingress label\n"
+      "Use nexthops from a nexthop-group\n"
+      "The nexthop-group name\n"
+      "Specify a v4 prefix\n"
+      "The v4 prefix to label\n"
+      FRR_IP_REDIST_HELP_STR_SHARPD
+      "Routing instance\n"
+      "Instance to use\n")
+{
+	struct nexthop_group_cmd *nhgc = NULL;
+	struct prefix p = {};
+	int type = 0;
+
+	/* We're offered a v4 prefix */
+	if (pfx->family > 0 && type_str) {
+		p.family = pfx->family;
+		p.prefixlen = pfx->prefixlen;
+		p.u.prefix4 = pfx->prefix;
+
+		type = proto_redistnum(AFI_IP, type_str);
+		if (type < 0) {
+			vty_out(vty, "%%  Unknown route type '%s'\n", type_str);
+			return CMD_WARNING;
+		}
+	} else if (pfx->family > 0 || type_str) {
+		vty_out(vty, "%%  Must supply both prefix and type\n");
+		return CMD_WARNING;
+	}
+
+	nhgc = nhgc_find(nhgname);
+	if (!nhgc) {
+		vty_out(vty, "%%  Nexthop-group '%s' does not exist\n",
+			nhgname);
+		return CMD_WARNING;
+	}
+
+	if (nhgc->nhg.nexthop == NULL) {
+		vty_out(vty, "%%  Nexthop-group '%s' is empty\n", nhgname);
+		return CMD_WARNING;
+	}
+
+	if (sharp_install_lsps_helper(false, pfx->family > 0 ? &p : NULL,
+				      type, instance, inlabel,
+				      &(nhgc->nhg)) == 0)
+		return CMD_SUCCESS;
+	else {
+		vty_out(vty, "%% LSP remove failed!\n");
+		return CMD_WARNING;
+	}
+}
+
+DEFPY (logpump,
+       logpump_cmd,
+       "sharp logpump duration (1-60) frequency (1-1000000) burst (1-1000)",
+       "Sharp Routing Protocol\n"
+       "Generate bulk log messages for testing\n"
+       "Duration of run (s)\n"
+       "Duration of run (s)\n"
+       "Frequency of bursts (s^-1)\n"
+       "Frequency of bursts (s^-1)\n"
+       "Number of log messages per each burst\n"
+       "Number of log messages per each burst\n")
+{
+	sharp_logpump_run(vty, duration, frequency, burst);
 	return CMD_SUCCESS;
 }
 
@@ -351,6 +536,9 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &sharp_nht_data_dump_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v6_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v4_cmd);
+	install_element(ENABLE_NODE, &sharp_lsp_prefix_v4_cmd);
+	install_element(ENABLE_NODE, &sharp_remove_lsp_prefix_v4_cmd);
+	install_element(ENABLE_NODE, &logpump_cmd);
 
 	install_element(VIEW_NODE, &show_debugging_sharpd_cmd);
 

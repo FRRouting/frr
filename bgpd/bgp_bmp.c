@@ -385,15 +385,15 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 			stream_put(s, bbpeer->open_tx, bbpeer->open_tx_len);
 		else {
 			stream_put(s, dummy_open, sizeof(dummy_open));
-			zlog_warn("bmp: missing TX OPEN message for peer %s\n",
-					peer->host);
+			zlog_warn("bmp: missing TX OPEN message for peer %s",
+				  peer->host);
 		}
 		if (bbpeer && bbpeer->open_rx)
 			stream_put(s, bbpeer->open_rx, bbpeer->open_rx_len);
 		else {
 			stream_put(s, dummy_open, sizeof(dummy_open));
-			zlog_warn("bmp: missing RX OPEN message for peer %s\n",
-					peer->host);
+			zlog_warn("bmp: missing RX OPEN message for peer %s",
+				  peer->host);
 		}
 
 		if (peer->desc)
@@ -664,8 +664,7 @@ static int bmp_peer_established(struct peer *peer)
 		return 0;
 
 	/* Check if this peer just went to Established */
-	if ((peer->last_major_event != OpenConfirm) ||
-	    !(peer_established(peer)))
+	if ((peer->ostatus != OpenConfirm) || !(peer_established(peer)))
 		return 0;
 
 	if (peer->doppelganger && (peer->doppelganger->status != Deleted)) {
@@ -766,8 +765,8 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags)
 	stream_free(s);
 }
 
-static struct stream *bmp_update(struct prefix *p, struct peer *peer,
-		struct attr *attr, afi_t afi, safi_t safi)
+static struct stream *bmp_update(const struct prefix *p, struct peer *peer,
+				 struct attr *attr, afi_t afi, safi_t safi)
 {
 	struct bpacket_attr_vec_arr vecarr;
 	struct stream *s;
@@ -814,7 +813,8 @@ static struct stream *bmp_update(struct prefix *p, struct peer *peer,
 	return s;
 }
 
-static struct stream *bmp_withdraw(struct prefix *p, afi_t afi, safi_t safi)
+static struct stream *bmp_withdraw(const struct prefix *p, afi_t afi,
+				   safi_t safi)
 {
 	struct stream *s;
 	size_t attrlen_pos = 0, mp_start, mplen_pos;
@@ -854,7 +854,7 @@ static struct stream *bmp_withdraw(struct prefix *p, afi_t afi, safi_t safi)
 }
 
 static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
-			struct prefix *p, struct attr *attr, afi_t afi,
+			const struct prefix *p, struct attr *attr, afi_t afi,
 			safi_t safi, time_t uptime)
 {
 	struct stream *hdr, *msg;
@@ -941,7 +941,7 @@ afibreak:
 				return true;
 			}
 			bmp->syncpeerid = 0;
-			prefix_copy(&bmp->syncpos, &bn->p);
+			prefix_copy(&bmp->syncpos, bgp_node_get_prefix(bn));
 		}
 
 		if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {
@@ -989,12 +989,14 @@ afibreak:
 		bmp->syncpeerid = adjin->peer->qobj_node.nid;
 	}
 
+	const struct prefix *bn_p = bgp_node_get_prefix(bn);
+
 	if (bpi)
-		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, &bn->p, bpi->attr,
+		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, bn_p, bpi->attr,
 			    afi, safi, bpi->uptime);
 	if (adjin)
-		bmp_monitor(bmp, adjin->peer, 0, &bn->p, adjin->attr,
-			    afi, safi, adjin->uptime);
+		bmp_monitor(bmp, adjin->peer, 0, bn_p, adjin->attr, afi, safi,
+			    adjin->uptime);
 
 	return true;
 }
@@ -1131,16 +1133,13 @@ static void bmp_process_one(struct bmp_targets *bt, struct bgp *bgp,
 	struct bmp *bmp;
 	struct bmp_queue_entry *bqe, bqeref;
 	size_t refcount;
-	char buf[256];
-
-	prefix2str(&bn->p, buf, sizeof(buf));
 
 	refcount = bmp_session_count(&bt->sessions);
 	if (refcount == 0)
 		return;
 
 	memset(&bqeref, 0, sizeof(bqeref));
-	prefix_copy(&bqeref.p, &bn->p);
+	prefix_copy(&bqeref.p, bgp_node_get_prefix(bn));
 	bqeref.peerid = peer->qobj_node.nid;
 	bqeref.afi = afi;
 	bqeref.safi = safi;
@@ -1343,8 +1342,7 @@ static int bmp_accept(struct thread *thread)
 	/* We can handle IPv4 or IPv6 socket. */
 	bmp_sock = sockunion_accept(bl->sock, &su);
 	if (bmp_sock < 0) {
-		zlog_info("bmp: accept_sock failed: %s\n",
-                          safe_strerror (errno));
+		zlog_info("bmp: accept_sock failed: %s", safe_strerror(errno));
 		return -1;
 	}
 	bmp_open(bl->targets, bmp_sock);
@@ -1774,7 +1772,12 @@ static void bmp_active_setup(struct bmp_active *ba)
 	}
 }
 
-static struct cmd_node bmp_node = {BMP_NODE, "%s(config-bgp-bmp)# "};
+static struct cmd_node bmp_node = {
+	.name = "bmp",
+	.node = BMP_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-bgp-bmp)# "
+};
 
 #define BMP_STR "BGP Monitoring Protocol\n"
 
@@ -2268,7 +2271,7 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 
 static int bgp_bmp_init(struct thread_master *tm)
 {
-	install_node(&bmp_node, NULL);
+	install_node(&bmp_node);
 	install_default(BMP_NODE);
 	install_element(BGP_NODE, &bmp_targets_cmd);
 	install_element(BGP_NODE, &no_bmp_targets_cmd);

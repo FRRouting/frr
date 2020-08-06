@@ -57,7 +57,25 @@ struct bgp_listener {
 	union sockunion su;
 	struct thread *thread;
 	struct bgp *bgp;
+	char *name;
 };
+
+void bgp_dump_listener_info(struct vty *vty)
+{
+	struct listnode *node;
+	struct bgp_listener *listener;
+
+	vty_out(vty, "Name             fd Address\n");
+	vty_out(vty, "---------------------------\n");
+	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+		char buf[SU_ADDRSTRLEN];
+
+		vty_out(vty, "%-16s %d %s\n",
+			listener->name ? listener->name : VRF_DEFAULT_NAME,
+			listener->fd,
+			sockunion2str(&listener->su, buf, sizeof(buf)));
+	}
+}
 
 /*
  * Set MD5 key for the socket, for the given IPv4 peer address.
@@ -203,7 +221,7 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 	int ret = 0;
 
 	/* In case of peer is EBGP, we should set TTL for this connection.  */
-	if (!peer->gtsm_hops && (peer_sort(peer) == BGP_PEER_EBGP)) {
+	if (!peer->gtsm_hops && (peer_sort_lookup(peer) == BGP_PEER_EBGP)) {
 		ret = sockopt_ttl(peer->su.sa.sa_family, bgp_sock, peer->ttl);
 		if (ret) {
 			flog_err(
@@ -487,6 +505,20 @@ static int bgp_accept(struct thread *thread)
 	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
 	peer_xfer_config(peer, peer1);
+	bgp_peer_gr_flags_update(peer);
+
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
+							  peer->bgp->peer);
+
+	if (bgp_peer_gr_mode_get(peer) == PEER_DISABLE) {
+
+		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
+			peer_nsf_stop(peer);
+		}
+	}
+
 	UNSET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
 	peer->doppelganger = peer1;
@@ -497,7 +529,6 @@ static int bgp_accept(struct thread *thread)
 	BGP_TIMER_OFF(peer->t_start); /* created in peer_create() */
 
 	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
-
 	/* Make dummy peer until read Open packet. */
 	if (peer1->status == Established
 	    && CHECK_FLAG(peer1->sflags, PEER_STATUS_NSF_MODE)) {
@@ -508,7 +539,12 @@ static int bgp_accept(struct thread *thread)
 		 * existing established connection and move state to connect.
 		 */
 		peer1->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
-		SET_FLAG(peer1->sflags, PEER_STATUS_NSF_WAIT);
+
+		if (CHECK_FLAG(peer1->flags, PEER_FLAG_GRACEFUL_RESTART)
+		    || CHECK_FLAG(peer1->flags,
+				  PEER_FLAG_GRACEFUL_RESTART_HELPER))
+			SET_FLAG(peer1->sflags, PEER_STATUS_NSF_WAIT);
+
 		bgp_event_update(peer1, TCP_connection_closed);
 	}
 
@@ -744,6 +780,7 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 
 	listener = XCALLOC(MTYPE_BGP_LISTENER, sizeof(*listener));
 	listener->fd = sock;
+	listener->name = XSTRDUP(MTYPE_BGP_LISTENER, bgp->name);
 
 	/* this socket needs a change of ns. record bgp back pointer */
 	if (bgp->vrf_id != VRF_DEFAULT && vrf_is_backend_netns())
@@ -853,6 +890,7 @@ void bgp_close_vrf_socket(struct bgp *bgp)
 			thread_cancel(listener->thread);
 			close(listener->fd);
 			listnode_delete(bm->listen_sockets, listener);
+			XFREE(MTYPE_BGP_LISTENER, listener->name);
 			XFREE(MTYPE_BGP_LISTENER, listener);
 		}
 	}
@@ -874,6 +912,7 @@ void bgp_close(void)
 		thread_cancel(listener->thread);
 		close(listener->fd);
 		listnode_delete(bm->listen_sockets, listener);
+		XFREE(MTYPE_BGP_LISTENER, listener->name);
 		XFREE(MTYPE_BGP_LISTENER, listener);
 	}
 }

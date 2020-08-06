@@ -11,4 +11,9 @@ noinst_HEADERS += \
 	include/linux/socket.h \
 	include/linux/net_namespace.h \
 	include/linux/fib_rules.h \
+	include/linux/seg6.h \
+	include/linux/seg6_genl.h \
+	include/linux/seg6_hmac.h \
+	include/linux/seg6_iptunnel.h \
+	include/linux/seg6_local.h \
 	# end

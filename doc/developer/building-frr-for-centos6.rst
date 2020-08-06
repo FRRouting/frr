@@ -116,7 +116,19 @@ Update rpm database & Install newer sphinx
    sudo yum update
    sudo yum install python27-sphinx
 
-.. include:: building-libyang.rst
+Install libyang and its dependencies:
+
+.. code-block:: shell
+
+   sudo yum install pcre-devel doxygen cmake
+   git clone https://github.com/CESNET/libyang.git
+   cd libyang
+   git checkout 090926a89d59a3c4000719505d563aaf6ac60f2
+   mkdir build ; cd build
+   cmake -DENABLE_LYD_PRIV=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr -D CMAKE_BUILD_TYPE:String="Release" ..
+   make build-rpm
+   sudo yum install ./rpms/RPMS/x86_64/libyang-0.16.111-0.x86_64.rpm ./rpms/RPMS/x86_64/libyang-devel-0.16.111-0.x86_64.rpm
+   cd ../..
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------

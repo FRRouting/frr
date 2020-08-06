@@ -304,10 +304,12 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
 	 */
 	for (prn = bgp_table_top(bgp->rib[afi][SAFI_MPLS_VPN]); prn;
 	     prn = bgp_route_next(prn)) {
+		const struct prefix *prn_p = bgp_node_get_prefix(prn);
+
 		memset(&prd, 0, sizeof(prd));
 		prd.family = AF_UNSPEC;
 		prd.prefixlen = 64;
-		memcpy(prd.val, prn->p.u.val, 8);
+		memcpy(prd.val, prn_p->u.val, 8);
 
 		/* This is the per-RD table of prefixes */
 		table = bgp_node_get_bgp_table_info(prn);
@@ -329,7 +331,7 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
 				del_vnc_route(
 					&vncHD1VR, /* use dummy ptr as cookie */
 					vncHD1VR.peer, bgp, SAFI_MPLS_VPN,
-					&(rn->p), &prd, type,
+					bgp_node_get_prefix(rn), &prd, type,
 					BGP_ROUTE_REDISTRIBUTE, NULL, 0);
 			}
 		}
@@ -380,7 +382,7 @@ static int vnc_zebra_read_route(ZAPI_CALLBACK_ARGS)
 /*
  * low-level message builder
  */
-static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
+static void vnc_zebra_route_msg(const struct prefix *p, unsigned int nhp_count,
 				void *nhp_ary, int add) /* 1 = add, 0 = del */
 {
 	struct zapi_route api;
@@ -560,7 +562,7 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 				     int add) /* !0 = add, 0 = del */
 {
 	struct list *nves;
-
+	const struct prefix *p = agg_node_get_prefix(rn);
 	unsigned int nexthop_count = 0;
 	void *nh_ary = NULL;
 	void *nhp_ary = NULL;
@@ -570,15 +572,15 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 	if (zclient_vnc->sock < 0)
 		return;
 
-	if (rn->p.family != AF_INET && rn->p.family != AF_INET6) {
+	if (p->family != AF_INET && p->family != AF_INET6) {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "%s: invalid route node addr family", __func__);
 		return;
 	}
 
-	if (!vrf_bitmap_check(zclient_vnc->redist[family2afi(rn->p.family)]
-						 [ZEBRA_ROUTE_VNC],
-			      VRF_DEFAULT))
+	if (!vrf_bitmap_check(
+		    zclient_vnc->redist[family2afi(p->family)][ZEBRA_ROUTE_VNC],
+		    VRF_DEFAULT))
 		return;
 
 	if (!bgp->rfapi_cfg) {
@@ -592,17 +594,16 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 		return;
 	}
 
-	import_table_to_nve_list_zebra(bgp, import_table, &nves, rn->p.family);
+	import_table_to_nve_list_zebra(bgp, import_table, &nves, p->family);
 
 	if (nves) {
-		nve_list_to_nh_array(rn->p.family, nves, &nexthop_count,
-				     &nh_ary, &nhp_ary);
+		nve_list_to_nh_array(p->family, nves, &nexthop_count, &nh_ary,
+				     &nhp_ary);
 
 		list_delete(&nves);
 
 		if (nexthop_count)
-			vnc_zebra_route_msg(&rn->p, nexthop_count, nhp_ary,
-					    add);
+			vnc_zebra_route_msg(p, nexthop_count, nhp_ary, add);
 	}
 
 	XFREE(MTYPE_TMP, nhp_ary);
@@ -695,15 +696,14 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			 */
 			for (rn = agg_route_top(rt); rn;
 			     rn = agg_route_next(rn)) {
+				if (!rn->info)
+					continue;
 
-				if (rn->info) {
-
-					vnc_zlog_debug_verbose(
-						"%s: sending %s", __func__,
-						(add ? "add" : "del"));
-					vnc_zebra_route_msg(&rn->p, 1, &pAddr,
-							    add);
-				}
+				vnc_zlog_debug_verbose("%s: sending %s",
+						       __func__,
+						       (add ? "add" : "del"));
+				vnc_zebra_route_msg(agg_node_get_prefix(rn), 1,
+						    &pAddr, add);
 			}
 		}
 	}
@@ -778,9 +778,9 @@ static void vnc_zebra_add_del_group_afi(struct bgp *bgp,
 			for (rn = agg_route_top(rt); rn;
 			     rn = agg_route_next(rn)) {
 				if (rn->info) {
-					vnc_zebra_route_msg(&rn->p,
-							    nexthop_count,
-							    nhp_ary, add);
+					vnc_zebra_route_msg(
+						agg_node_get_prefix(rn),
+						nexthop_count, nhp_ary, add);
 				}
 			}
 		}

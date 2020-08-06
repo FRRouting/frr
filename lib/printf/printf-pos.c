@@ -125,11 +125,11 @@ _ensurespace(struct typetable *types)
 
 	if (types->nextarg >= types->tablesize) {
 		if (__grow_type_table(types))
-			return (-1);
+			return -1;
 	}
 	if (types->nextarg > types->tablemax)
 		types->tablemax = types->nextarg;
-	return (0);
+	return 0;
 }
 
 /*
@@ -141,9 +141,9 @@ addtype(struct typetable *types, enum typeid type)
 {
 
 	if (_ensurespace(types))
-		return (-1);
+		return -1;
 	types->table[types->nextarg++] = type;
-	return (0);
+	return 0;
 }
 
 static inline int
@@ -151,7 +151,7 @@ addsarg(struct typetable *types, int flags)
 {
 
 	if (_ensurespace(types))
-		return (-1);
+		return -1;
 	if (flags & LONGDBL)
 		types->table[types->nextarg++] = T_INT64T;
 	else if (flags & INTMAXT)
@@ -166,7 +166,7 @@ addsarg(struct typetable *types, int flags)
 		types->table[types->nextarg++] = T_LONG;
 	else
 		types->table[types->nextarg++] = T_INT;
-	return (0);
+	return 0;
 }
 
 static inline int
@@ -174,7 +174,7 @@ adduarg(struct typetable *types, int flags)
 {
 
 	if (_ensurespace(types))
-		return (-1);
+		return -1;
 	if (flags & LONGDBL)
 		types->table[types->nextarg++] = T_UINT64T;
 	else if (flags & INTMAXT)
@@ -189,7 +189,7 @@ adduarg(struct typetable *types, int flags)
 		types->table[types->nextarg++] = T_U_LONG;
 	else
 		types->table[types->nextarg++] = T_U_INT;
-	return (0);
+	return 0;
 }
 
 /*
@@ -211,14 +211,14 @@ addaster(struct typetable *types, char **fmtp)
 		u_int hold = types->nextarg;
 		types->nextarg = n2;
 		if (addtype(types, T_INT))
-			return (-1);
+			return -1;
 		types->nextarg = hold;
 		*fmtp = ++cp;
 	} else {
 		if (addtype(types, T_INT))
-			return (-1);
+			return -1;
 	}
-	return (0);
+	return 0;
 }
 
 #ifdef WCHAR_SUPPORT
@@ -238,14 +238,14 @@ addwaster(struct typetable *types, wchar_t **fmtp)
 		u_int hold = types->nextarg;
 		types->nextarg = n2;
 		if (addtype(types, T_INT))
-			return (-1);
+			return -1;
 		types->nextarg = hold;
 		*fmtp = ++cp;
 	} else {
 		if (addtype(types, T_INT))
-			return (-1);
+			return -1;
 	}
-	return (0);
+	return 0;
 }
 #endif /* WCHAR_SUPPORT */
 
@@ -652,19 +652,19 @@ __grow_type_table(struct typetable *types)
 
 	/* Detect overflow */
 	if (types->nextarg > MAX_POSARG)
-		return (-1);
+		return -1;
 
 	newsize = oldsize * 2;
 	if (newsize < types->nextarg + 1)
 		newsize = types->nextarg + 1;
 	if (oldsize == STATIC_ARG_TBL_SIZE) {
 		if ((newtable = malloc(newsize * sizeof(enum typeid))) == NULL)
-			return (-1);
+			return -1;
 		bcopy(oldtable, newtable, oldsize * sizeof(enum typeid));
 	} else {
 		newtable = realloc(oldtable, newsize * sizeof(enum typeid));
 		if (newtable == NULL)
-			return (-1);
+			return -1;
 	}
 	for (n = oldsize; n < newsize; n++)
 		newtable[n] = T_UNUSED;
@@ -672,7 +672,7 @@ __grow_type_table(struct typetable *types)
 	types->table = newtable;
 	types->tablesize = newsize;
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -686,7 +686,7 @@ build_arg_table(struct typetable *types, va_list ap, union arg **argtable)
 
 	if (types->tablemax >= STATIC_ARG_TBL_SIZE) {
 		*argtable = (union arg *)
-		    malloc (sizeof (union arg) * (types->tablemax + 1));
+		    malloc (sizeof(union arg) * (types->tablemax + 1));
 		if (*argtable == NULL)
 			return;
 	}

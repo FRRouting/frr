@@ -38,6 +38,12 @@ static struct log_ref ferr_isis_err[] = {
 		.suggestion = "Ensure configuration is correct"
 	},
 	{
+		.code = EC_ISIS_SID_OVERFLOW,
+		.title = "SID index overflow",
+		.description = "Isis has detected that a SID index falls outside of its associated SRGB range",
+		.suggestion = "Configure a larger SRGB"
+	},
+	{
 		.code = END_FERR,
 	}
 };
