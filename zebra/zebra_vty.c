@@ -2434,7 +2434,7 @@ DEFUN (no_vrf_vni_mapping,
 	int filter = 0;
 
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
-	vni_t vni = strtoul(argv[1]->arg, NULL, 10);
+	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
 
 	assert(vrf);
 	assert(zvrf);
