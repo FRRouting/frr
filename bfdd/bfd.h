@@ -170,6 +170,7 @@ enum bfd_session_flags {
 	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
 	BFD_SESS_FLAG_CONFIG = 1 << 8,	/* Session configured with bfd NB API */
 	BFD_SESS_FLAG_CBIT = 1 << 9,	/* CBIT is set */
+	BFD_SESS_FLAG_PASSIVE = 1 << 10, /* Passive mode */
 };
 
 /* BFD session hash keys */
@@ -207,6 +208,8 @@ struct bfd_profile {
 	uint32_t min_rx;
 	/** Administrative state. */
 	bool admin_shutdown;
+	/** Passive mode. */
+	bool passive;
 
 	/** Echo mode (only applies to single hop). */
 	bool echo_mode;
@@ -606,6 +609,14 @@ void bfd_set_echo(struct bfd_session *bs, bool echo);
  * \param shutdown the operational value.
  */
 void bfd_set_shutdown(struct bfd_session *bs, bool shutdown);
+
+/**
+ * Set the BFD session passive mode.
+ *
+ * \param bs the BFD session.
+ * \param passive the passive mode.
+ */
+void bfd_set_passive_mode(struct bfd_session *bs, bool passive);
 
 /* BFD hash data structures interface */
 void bfd_initialize(void);

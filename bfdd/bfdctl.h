@@ -89,6 +89,7 @@ struct bfd_peer_cfg {
 	bool bpc_shutdown;
 
 	bool bpc_cbit;
+	bool bpc_passive;
 
 	bool bpc_has_profile;
 	char bpc_profile[64];

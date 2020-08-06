@@ -360,6 +360,28 @@ int bfdd_bfd_profile_administrative_down_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-bfdd:bfdd/bfd/profile/passive-mode
+ */
+int bfdd_bfd_profile_passive_mode_modify(struct nb_cb_modify_args *args)
+{
+	struct bfd_profile *bp;
+	bool passive;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	passive = yang_dnode_get_bool(args->dnode, NULL);
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	if (bp->passive == passive)
+		return NB_OK;
+
+	bp->passive = passive;
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-bfdd:bfdd/bfd/profile/echo-mode
  */
 int bfdd_bfd_profile_echo_mode_modify(struct nb_cb_modify_args *args)
@@ -607,6 +629,36 @@ int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 	bs = nb_running_get_entry(args->dnode, NULL, true);
 	bs->peer_profile.admin_shutdown = shutdown;
 	bfd_set_shutdown(bs, shutdown);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/passive-mode
+ */
+int bfdd_bfd_sessions_single_hop_passive_mode_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct bfd_session *bs;
+	bool passive;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	passive = yang_dnode_get_bool(args->dnode, NULL);
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.passive = passive;
+	bfd_set_passive_mode(bs, passive);
 
 	return NB_OK;
 }

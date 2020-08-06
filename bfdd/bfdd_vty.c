@@ -111,6 +111,10 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 
 	vty_out(vty, "\t\tID: %u\n", bs->discrs.my_discr);
 	vty_out(vty, "\t\tRemote ID: %u\n", bs->discrs.remote_discr);
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE))
+		vty_out(vty, "\t\tPassive mode\n");
+	else
+		vty_out(vty, "\t\tActive mode\n");
 
 	vty_out(vty, "\t\tStatus: ");
 	switch (bs->ses_state) {
@@ -203,6 +207,8 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 
 	json_object_int_add(jo, "id", bs->discrs.my_discr);
 	json_object_int_add(jo, "remote-id", bs->discrs.remote_discr);
+	json_object_boolean_add(jo, "passive-mode",
+				CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE));
 
 	switch (bs->ses_state) {
 	case PTM_BFD_ADM_DOWN:

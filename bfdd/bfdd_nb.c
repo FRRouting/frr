@@ -78,6 +78,13 @@ const struct frr_yang_module_info frr_bfdd_info = {
                         }
                 },
                 {
+                        .xpath = "/frr-bfdd:bfdd/bfd/profile/passive-mode",
+                        .cbs = {
+                                .modify = bfdd_bfd_profile_passive_mode_modify,
+				.cli_show = bfd_cli_show_passive,
+                        }
+                },
+                {
                         .xpath = "/frr-bfdd:bfdd/bfd/profile/echo-mode",
                         .cbs = {
                                 .modify = bfdd_bfd_profile_echo_mode_modify,
@@ -144,6 +151,13 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.cbs = {
 				.modify = bfdd_bfd_sessions_single_hop_administrative_down_modify,
 				.cli_show = bfd_cli_show_shutdown,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/passive-mode",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_single_hop_passive_mode_modify,
+				.cli_show = bfd_cli_show_passive,
 			}
 		},
 		{
@@ -326,6 +340,13 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.cbs = {
 				.modify = bfdd_bfd_sessions_single_hop_administrative_down_modify,
 				.cli_show = bfd_cli_show_shutdown,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/passive-mode",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_single_hop_passive_mode_modify,
+				.cli_show = bfd_cli_show_passive,
 			}
 		},
 		{

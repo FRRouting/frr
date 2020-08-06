@@ -266,6 +266,27 @@ void bfd_cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
 }
 
 DEFPY_YANG(
+	bfd_peer_passive, bfd_peer_passive_cmd,
+	"[no] passive-mode",
+	NO_STR
+	"Don't attempt to start sessions\n")
+{
+	nb_cli_enqueue_change(vty, "./passive-mode", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_passive(struct vty *vty, struct lyd_node *dnode,
+			  bool show_defaults)
+{
+	if (show_defaults)
+		vty_out(vty, "  no passive-mode\n");
+	else
+		vty_out(vty, "  %spassive-mode\n",
+			yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
+}
+
+DEFPY_YANG(
 	bfd_peer_mult, bfd_peer_mult_cmd,
 	"detect-multiplier (2-255)$multiplier",
 	"Configure peer detection multiplier\n"
@@ -462,6 +483,11 @@ ALIAS_YANG(bfd_peer_shutdown, bfd_profile_shutdown_cmd,
       NO_STR
       "Disable BFD peer\n")
 
+ALIAS_YANG(bfd_peer_passive, bfd_profile_passive_cmd,
+      "[no] passive-mode",
+      NO_STR
+      "Don't attempt to start sessions\n")
+
 ALIAS_YANG(bfd_peer_echo, bfd_profile_echo_cmd,
       "[no] echo-mode",
       NO_STR
@@ -530,6 +556,7 @@ bfdd_cli_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_interval_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_profile_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_passive_cmd);
 
 	/* Profile commands. */
 	cmd_variable_handler_register(bfd_vars);
@@ -546,4 +573,5 @@ bfdd_cli_init(void)
 	install_element(BFD_PROFILE_NODE, &bfd_profile_shutdown_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_interval_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_passive_cmd);
 }
