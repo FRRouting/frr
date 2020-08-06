@@ -649,6 +649,51 @@ DEFPY (send_opaque_reg,
 	return CMD_SUCCESS;
 }
 
+DEFPY (neigh_discover,
+       neigh_discover_cmd,
+       "sharp neigh discover [vrf NAME$vrf_name] <A.B.C.D$dst4|X:X::X:X$dst6> IFNAME$ifname",
+       SHARP_STR
+       "Discover neighbours\n"
+       "Send an ARP/NDP request\n"
+       VRF_CMD_HELP_STR
+       "v4 Destination address\n"
+       "v6 Destination address\n"
+       "Interface name\n")
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+	struct prefix prefix;
+
+	memset(&prefix, 0, sizeof(prefix));
+
+	if (dst4.s_addr != 0) {
+		prefix.family = AF_INET;
+		prefix.prefixlen = 32;
+		prefix.u.prefix4 = dst4;
+	} else {
+		prefix.family = AF_INET6;
+		prefix.prefixlen = 128;
+		prefix.u.prefix6 = dst6;
+	}
+
+	vrf = vrf_lookup_by_name(vrf_name ? vrf_name : VRF_DEFAULT_NAME);
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			vrf_name ? vrf_name : VRF_DEFAULT_NAME);
+		return CMD_WARNING;
+	}
+
+	ifp = if_lookup_by_name_vrf(ifname, vrf);
+	if (ifp == NULL) {
+		vty_out(vty, "%% Can't find interface %s\n", ifname);
+		return CMD_WARNING;
+	}
+
+	sharp_zebra_send_arp(ifp, &prefix);
+
+	return CMD_SUCCESS;
+}
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -666,6 +711,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &send_opaque_cmd);
 	install_element(ENABLE_NODE, &send_opaque_unicast_cmd);
 	install_element(ENABLE_NODE, &send_opaque_reg_cmd);
+	install_element(ENABLE_NODE, &neigh_discover_cmd);
 
 	install_element(VIEW_NODE, &show_debugging_sharpd_cmd);
 

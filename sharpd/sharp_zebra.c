@@ -663,6 +663,11 @@ void sharp_opaque_reg_send(bool is_reg, uint32_t proto, uint32_t instance,
 
 }
 
+void sharp_zebra_send_arp(const struct interface *ifp, const struct prefix *p)
+{
+	zclient_send_neigh_discovery_req(zclient, ifp, p);
+}
+
 void sharp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = true};
