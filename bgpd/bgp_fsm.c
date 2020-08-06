@@ -470,7 +470,6 @@ static int bgp_start_timer(struct thread *thread)
 	struct peer *peer;
 
 	peer = THREAD_ARG(thread);
-	peer->t_start = NULL;
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (start timer expire).", peer->host);
@@ -491,8 +490,6 @@ static int bgp_connect_timer(struct thread *thread)
 
 	assert(!peer->t_write);
 	assert(!peer->t_read);
-
-	peer->t_connect = NULL;
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (connect timer expire)", peer->host);
@@ -516,7 +513,6 @@ static int bgp_holdtime_timer(struct thread *thread)
 	struct peer *peer;
 
 	peer = THREAD_ARG(thread);
-	peer->t_holdtime = NULL;
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (holdtime timer expire)",
@@ -552,7 +548,6 @@ int bgp_routeadv_timer(struct thread *thread)
 	struct peer *peer;
 
 	peer = THREAD_ARG(thread);
-	peer->t_routeadv = NULL;
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (routeadv timer expire)",
@@ -612,7 +607,6 @@ static int bgp_graceful_restart_timer_expire(struct thread *thread)
 	safi_t safi;
 
 	peer = THREAD_ARG(thread);
-	peer->t_gr_restart = NULL;
 
 	/* NSF delete stale route */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -641,7 +635,6 @@ static int bgp_graceful_stale_timer_expire(struct thread *thread)
 	safi_t safi;
 
 	peer = THREAD_ARG(thread);
-	peer->t_gr_stale = NULL;
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s graceful restart stalepath timer expired",
@@ -673,8 +666,6 @@ static int bgp_graceful_deferral_timer_expire(struct thread *thread)
 		zlog_debug(
 			"afi %d, safi %d : graceful restart deferral timer expired",
 			afi, safi);
-
-	bgp->gr_info[afi][safi].t_select_deferral = NULL;
 
 	bgp->gr_info[afi][safi].eor_required = 0;
 	bgp->gr_info[afi][safi].eor_received = 0;
