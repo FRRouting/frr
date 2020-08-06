@@ -1741,3 +1741,8 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	prefix_list_add_hook(ospf_prefix_list_update);
 	prefix_list_delete_hook(ospf_prefix_list_update);
 }
+
+void ospf_zebra_send_arp(const struct interface *ifp, const struct prefix *p)
+{
+	zclient_send_neigh_discovery_req(zclient, ifp, p);
+}

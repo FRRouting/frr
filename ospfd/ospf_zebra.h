@@ -41,6 +41,7 @@ struct ospf_distance {
 };
 
 /* Prototypes */
+struct ospf_route;
 extern void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *,
 			   struct ospf_route *);
 extern void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *,
@@ -98,4 +99,7 @@ bool ospf_external_default_routemap_apply_walk(
 int ospf_external_info_apply_default_routemap(struct ospf *ospf,
 					      struct external_info *ei,
 					      struct external_info *default_ei);
+
+extern void ospf_zebra_send_arp(const struct interface *ifp,
+				const struct prefix *p);
 #endif /* _ZEBRA_OSPF_ZEBRA_H */
