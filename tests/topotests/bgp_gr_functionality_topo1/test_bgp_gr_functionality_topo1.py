@@ -28,61 +28,63 @@ Basic Common Test steps for all the test case below :
 - Verify for bgp to converge
 - Configure BGP Garceful Restart on both the routers.
 
-1. Helper BGP router R1, mark and unmark IPV4 routes
-   as stale as the restarting router R2 come up within the restart time.
-2. Helper BGP router R1, mark IPV4 routes as stale and
-   deletes them as the restarting router R2 did-not come up within restart
-   time.
-3. Restart BGP router R1, detects it is connected to R2,
-   which is a helper router. Verify the restart capability i.e. R bit
-   are sent after R1 reloads and comes back.
-4. Verify that the restarting node sets "R" bit while sending the
+1. Transition from Peer-level helper to Global Restarting
+2. Transition from Peer-level helper to Global inherit helper
+3. Transition from Peer-level restarting to Global inherit helper
+4. Default GR functional mode is Helper.
+5. Verify that the restarting node sets "R" bit while sending the
    BGP open messages after the node restart, only if GR is enabled.
-5. Verify if restarting node resets R bit in BGP open message
-   during normal BGP session flaps as well, even when GR restarting mode is enabled.
-   Here link flap happen due to interface UP/DOWN.
 6. Verify if restarting node resets R bit in BGP open message
-   during normal BGP session flaps as well, even when GR restarting mode is enabled.
-   Here link flap happen due to neigh router restarts
-7. Verify if restarting node resets R bit in BGP open message
-   during normal BGP session flaps when GR helper mode is enabled.
-   Here link flap happen due to interface UP/DOWN.
-8. Verify if restarting node resets R bit in BGP open message
-   during normal BGP session flaps when GR helper mode is enabled.
-   Here link flap happen due to neigh router restarts.
-9. Verify that restarting nodes set "F" bit while sending
+   during normal BGP session flaps as well, even when GR restarting
+   mode is enabled. Here link flap happen due to interface UP/DOWN.
+7. Verify if restarting node resets R bit in BGP
+   open message during normal BGP session flaps when GR is disabled.
+8. Verify that restarting nodes set "F" bit while sending
    the BGP open messages after it restarts, only when BGP GR is enabled.
-10. Verify that restarting nodes reset "F" bit while sending
-   the BGP open messages after it's restarts, when BGP GR is **NOT** enabled.
-11. Verify that only GR helper routers keep the stale
+9. Verify that only GR helper routers keep the stale
    route entries, not any GR disabled router.
-12. Verify that GR helper routers keeps all the routes received
-   from restarting node if both the routers are configured as GR restarting node.
-13. Verify that GR helper routers delete all the routes
-   received from a node if both the routers are configured as GR helper node.
-14. Test Objective : After BGP neighborship is established and GR capability
-    is exchanged, transition helper router to disabled state.
-15.Test Objective : After BGP neighborship is established and GR capability
-    is exchanged, transition disabled router to helper state.
-16. Verify transition from Global Restarting to Disable and then
-    Global Disable to Restarting.
-17. Verify transition from Global Helper to Disable and then Global
+10. Verify that GR helper routers keeps all the routes received
+    from restarting node if both the routers are configured as
+    GR restarting node.
+11. Verify that GR helper routers delete all the routes
+    received from a node if both the routers are configured as GR
+    helper node.
+12. After BGP neighborship is established and GR capability is exchanged,
+    transition restarting router to disabled state and vice versa.
+13. After BGP neighborship is established and GR capability is exchanged,
+    transition restarting router to disabled state and vice versa.
+14. Verify that restarting nodes reset "F" bit while sending
+    the BGP open messages after it's restarts, when BGP GR is **NOT** enabled.
+15. Verify that only GR helper routers keep the stale
+    route entries, not any GR disabled router.
+16. Transition from Global Restarting to Disable and then Global
+    Disable to Restarting.
+17. Transition from Global Helper to Disable and then Global
     Disable to Helper.
-18. Verify transition from Global Restart to Helper and then Global
-    Helper to Restart.
-19. Verify transition from Peer-level helper to Global Restarting.
-20. Verify transition from Peer-level restart to Global Restart.
-21. Verify transition from Peer-level disabled to Global Restart.
-22. Verify Peer-level inherit from Global Restarting mode.
-23. Verify transition from Peer-level helper to Global inherit helper.
-24. Verify transition from Peer-level restart to Global inherit helper.
-25. Verify transition from Peer-level disbale to Global inherit helper.
-26. Verify default GR functional mode is Helper.
-27. Verify transition from Peer-level Helper to Global Disable.
-28. Verify transition from Peer-level Restarting to Global Disable.
-29. Verify transition from Peer-level Disable to Global Disable.
-30. Verfiy Peer-level inherit from Global Disable mode.
-
+18. Transition from Global Restart to Helper and then Global
+    Helper to Restart, Global Mode : GR Restarting
+    PerPeer Mode :  GR Helper
+    GR Mode effective : GR Helper
+19. Transition from Peer-level helper to Global Restarting,
+    Global Mode : GR Restarting
+    PerPeer Mode :  GR Restarting
+    GR Mode effective : GR Restarting
+20. Transition from Peer-level restart to Global Restart
+    Global Mode : GR Restarting
+    PerPeer Mode :  GR Restarting
+    GR Mode effective : GR Restarting
+21. Transition from Peer-level disabled to Global Restart
+    Global Mode : GR Restarting
+    PerPeer Mode : GR Disabled
+    GR Mode effective : GR Disabled
+22. Peer-level inherit from Global Restarting
+    Global Mode : GR Restart
+    PerPeer Mode :  None
+    GR Mode effective : GR Restart
+23. Transition from Peer-level disbale to Global inherit helper
+    Global Mode : None
+    PerPeer Mode :  GR Disable
+    GR Mode effective : GR Disable
 """
 
 import os
@@ -91,7 +93,6 @@ import json
 import time
 import inspect
 import pytest
-from time import sleep
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -116,8 +117,9 @@ from lib.bgp import (
     create_router_bgp,
     verify_r_bit,
     verify_f_bit,
-    verify_bgp_convergence,
     verify_graceful_restart_timers,
+    verify_bgp_convergence,
+    verify_bgp_convergence_from_running_config,
 )
 
 from lib.common_config import (
@@ -188,7 +190,7 @@ def setup_module(mod):
     global ADDR_TYPES
 
     # Required linux kernel version for this suite to run.
-    result = required_linux_kernel_version("4.15")
+    result = required_linux_kernel_version("4.16")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
@@ -219,11 +221,10 @@ def setup_module(mod):
     # Api call verify whether BGP is converged
     ADDR_TYPES = check_address_types()
 
-    for addr_type in ADDR_TYPES:
-        BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
-        assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
-            BGP_CONVERGENCE
-        )
+    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
+    assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
 
     logger.info("Running setup_module() done")
 
@@ -258,6 +259,12 @@ def configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut, peer):
 
     for addr_type in ADDR_TYPES:
         clear_bgp(tgen, addr_type, dut)
+
+    for addr_type in ADDR_TYPES:
+        clear_bgp(tgen, addr_type, peer)
+
+    result = verify_bgp_convergence_from_running_config(tgen)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     return True
 
@@ -351,6 +358,32 @@ def test_BGP_GR_TC_46_p1(request):
             tc_name, result
         )
 
+    for addr_type in ADDR_TYPES:
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, "r2", "r1", addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, "r2", input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        next_hop = next_hop_per_address_family(
+            tgen, "r1", "r2", addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, "r1", input_topo, next_hop)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        result = verify_rib(tgen, addr_type, "r1", input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
     step("Kill BGP on R2")
 
     kill_router_daemons(tgen, "r2", ["bgpd"])
@@ -423,7 +456,8 @@ def test_BGP_GR_TC_46_p1(request):
         }
     }
 
-    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+    result = create_router_bgp(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
 
@@ -437,6 +471,36 @@ def test_BGP_GR_TC_46_p1(request):
             tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, "r1", "r2", addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, "r1", input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        next_hop = next_hop_per_address_family(
+            tgen, "r2", "r1", addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, "r2", input_topo, next_hop)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        result = verify_rib(tgen, addr_type, "r2", input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n Routes are still present \n Error {}".format(
             tc_name, result
         )
 
@@ -547,12 +611,41 @@ def test_BGP_GR_TC_50_p1(request):
 
     configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
 
+    result = verify_bgp_convergence_from_running_config(tgen)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
     step("Verify on R2 that R1 advertises GR capabilities as a helper node")
 
     for addr_type in ADDR_TYPES:
         result = verify_graceful_restart(
             tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
         )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, "r2", "r1", addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, "r2", input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        next_hop = next_hop_per_address_family(
+            tgen, "r1", "r2", addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, "r1", input_topo, next_hop)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        result = verify_rib(tgen, addr_type, "r1", input_topo, next_hop, protocol)
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
@@ -628,6 +721,9 @@ def test_BGP_GR_TC_50_p1(request):
 
     configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
 
+    result = verify_bgp_convergence_from_running_config(tgen)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
     step("Verify on R2 that R1 still advertises GR capabilities as a helper node")
 
     input_dict = {
@@ -640,6 +736,36 @@ def test_BGP_GR_TC_50_p1(request):
             tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, "r2", "r1", addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, "r2", input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        next_hop = next_hop_per_address_family(
+            tgen, "r1", "r2", addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, "r1", input_topo, next_hop)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        result = verify_rib(tgen, addr_type, "r1", input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n Routes are still present \n Error {}".format(
             tc_name, result
         )
 
@@ -756,6 +882,32 @@ def test_BGP_GR_TC_51_p1(request):
             tc_name, result
         )
 
+    for addr_type in ADDR_TYPES:
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, "r1", "r2", addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, "r1", input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        next_hop = next_hop_per_address_family(
+            tgen, "r2", "r1", addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, "r2", input_topo, next_hop)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        result = verify_rib(tgen, addr_type, "r2", input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
     step("Kill BGP on R1")
 
     kill_router_daemons(tgen, "r1", ["bgpd"])
@@ -839,6 +991,36 @@ def test_BGP_GR_TC_51_p1(request):
             tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, "r2", "r1", addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, "r2", input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        next_hop = next_hop_per_address_family(
+            tgen, "r1", "r2", addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, "r1", input_topo, next_hop)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        result = verify_rib(tgen, addr_type, "r1", input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n Routes are still present \n Error {}".format(
             tc_name, result
         )
 
@@ -933,6 +1115,32 @@ def test_BGP_GR_TC_53_p1(request):
             tc_name, result
         )
 
+    for addr_type in ADDR_TYPES:
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, "r2", "r1", addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, "r2", input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+        next_hop = next_hop_per_address_family(
+            tgen, "r1", "r2", addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, "r1", input_topo, next_hop)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        result = verify_rib(tgen, addr_type, "r1", input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
     step("Kill BGPd on R2")
 
     kill_router_daemons(tgen, "r2", ["bgpd"])
@@ -970,671 +1178,6 @@ def test_BGP_GR_TC_53_p1(request):
     step("Start BGP on R2")
 
     start_router_daemons(tgen, "r2", ["bgpd"])
-
-    write_test_footer(tc_name)
-
-
-def test_BGP_GR_UTP_1_3_p0(request):
-    """
-    Test Objective : Helper BGP router R1, mark and unmark IPV4 routes
-    as stale as the restarting router R2 come up within the restart time
-
-    Test Objective : Helper BGP router R1, mark IPV4 routes as stale and
-    deletes them as the restarting router R2 did-not come up within
-    restart time.
-    """
-
-    tgen = get_topogen()
-    tc_name = request.node.name
-    write_test_header(tc_name)
-
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    # Create route-map to prefer global next-hop
-    input_dict = {
-        "r1": {
-            "route_maps": {
-                "rmap_global": [
-                    {"action": "permit", "set": {"ipv6": {"nexthop": "prefer-global"}}}
-                ]
-            }
-        },
-        "r2": {
-            "route_maps": {
-                "rmap_global": [
-                    {"action": "permit", "set": {"ipv6": {"nexthop": "prefer-global"}}}
-                ]
-            }
-        },
-    }
-    result = create_route_maps(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    # Configure neighbor for route map
-    input_dict_1 = {
-        "r1": {
-            "bgp": {
-                "address_family": {
-                    "ipv6": {
-                        "unicast": {
-                            "neighbor": {
-                                "r2": {
-                                    "dest_link": {
-                                        "r1-link1": {
-                                            "route_maps": [
-                                                {
-                                                    "name": "rmap_global",
-                                                    "direction": "in",
-                                                }
-                                            ]
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "r2": {
-            "bgp": {
-                "address_family": {
-                    "ipv6": {
-                        "unicast": {
-                            "neighbor": {
-                                "r1": {
-                                    "dest_link": {
-                                        "r2-link1": {
-                                            "route_maps": [
-                                                {
-                                                    "name": "rmap_global",
-                                                    "direction": "in",
-                                                }
-                                            ]
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-    }
-
-    result = create_router_bgp(tgen, topo, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    # Configure graceful-restart
-    input_dict = {
-        "r1": {
-            "bgp": {
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "neighbor": {
-                                "r2": {
-                                    "dest_link": {
-                                        "r1-link1": {"graceful-restart-helper": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "ipv6": {
-                        "unicast": {
-                            "neighbor": {
-                                "r2": {
-                                    "dest_link": {
-                                        "r1-link1": {"graceful-restart-helper": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                }
-            }
-        },
-        "r2": {
-            "bgp": {
-                "graceful-restart": {"timer": {"restart-time": GR_RESTART_TIMER}},
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "neighbor": {
-                                "r1": {
-                                    "dest_link": {
-                                        "r2-link1": {"graceful-restart": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "ipv6": {
-                        "unicast": {
-                            "neighbor": {
-                                "r1": {
-                                    "dest_link": {
-                                        "r2-link1": {"graceful-restart": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                },
-            }
-        },
-    }
-
-    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r2", peer="r1")
-
-    for addr_type in ADDR_TYPES:
-        result = verify_graceful_restart(
-            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
-        )
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying BGP RIB routes
-        dut = "r1"
-        peer = "r2"
-        next_hop = next_hop_per_address_family(
-            tgen, dut, peer, addr_type, NEXT_HOP_IP_2, preferred_next_hop="global"
-        )
-        input_topo = {key: topo["routers"][key] for key in ["r2"]}
-        result = verify_bgp_rib(tgen, addr_type, dut, input_topo)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying RIB routes
-        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, "bgp")
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-    logger.info("[Phase 2] : R2 goes for reload  ")
-
-    kill_router_daemons(tgen, "r2", ["bgpd"])
-
-    logger.info(
-        "[Phase 3] : R2 is still down, restart time 120 sec."
-        " So time verify the routes are present in BGP RIB"
-        " and ZEBRA"
-    )
-
-    for addr_type in ADDR_TYPES:
-        # Verifying BGP RIB routes
-        next_hop = next_hop_per_address_family(
-            tgen, dut, peer, addr_type, NEXT_HOP_IP_2, preferred_next_hop="global"
-        )
-        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying RIB routes
-        protocol = "bgp"
-        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-    logger.info("[Phase 4] : sleep for {} sec".format(GR_RESTART_TIMER))
-    sleep(GR_RESTART_TIMER)
-
-    logger.info("[Phase 5] : Verify the routes from r2  ")
-
-    for addr_type in ADDR_TYPES:
-        # Verifying BGP RIB routes
-        next_hop = NEXT_HOP_IP_2[addr_type]
-        input_topo = {key: topo["routers"][key] for key in ["r2"]}
-        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, expected=False)
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-        logger.info(" Expected behavior: {}".format(result))
-
-        # Verifying RIB routes
-        result = verify_rib(
-            tgen, addr_type, dut, input_topo, next_hop, "bgp", expected=False
-        )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-        logger.info(" Expected behavior: {}".format(result))
-
-    logger.info("[Phase 5] : R2 is about to come up now  ")
-    start_router_daemons(tgen, "r2", ["bgpd"])
-
-    logger.info("[Phase 5] : R2 is UP Now !  ")
-
-    for addr_type in ADDR_TYPES:
-        # Verifying GR stats
-        result = verify_graceful_restart(
-            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
-        )
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        result = verify_r_bit(tgen, topo, addr_type, input_dict, dut="r1", peer="r2")
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying BGP RIB routes
-        next_hop = next_hop_per_address_family(
-            tgen, dut, peer, addr_type, NEXT_HOP_IP_2, preferred_next_hop="global"
-        )
-        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying RIB routes
-        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-    write_test_footer(tc_name)
-
-
-def test_BGP_GR_UTP_15_TC_9_p1(request):
-    """
-    Test Objective : Restart BGP router R1, detects it is connected to R2,
-    which is a helper router. Verify the restart capability i.e. R bit
-    are sent after R1 reloads and comes back.
-
-    Test Objective : Verify that restarting nodes reset "F" bit while sending
-    the BGP open messages after it's restarts, when BGP GR is **NOT** enabled.
-    """
-
-    tgen = get_topogen()
-    tc_name = request.node.name
-    write_test_header(tc_name)
-
-    # Checking router status, starting if not running
-    check_router_status(tgen)
-
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    # Creating configuration from JSON
-    # reset_config_on_routers(tgen)
-
-    # Create route-map to prefer global next-hop
-    input_dict = {
-        "r1": {
-            "route_maps": {
-                "rmap_global": [
-                    {"action": "permit", "set": {"ipv6": {"nexthop": "prefer-global"}}}
-                ]
-            }
-        },
-        "r2": {
-            "route_maps": {
-                "rmap_global": [
-                    {"action": "permit", "set": {"ipv6": {"nexthop": "prefer-global"}}}
-                ]
-            }
-        },
-    }
-    result = create_route_maps(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    # Configure neighbor for route map
-    input_dict_1 = {
-        "r1": {
-            "bgp": {
-                "address_family": {
-                    "ipv6": {
-                        "unicast": {
-                            "neighbor": {
-                                "r2": {
-                                    "dest_link": {
-                                        "r1-link1": {
-                                            "route_maps": [
-                                                {
-                                                    "name": "rmap_global",
-                                                    "direction": "in",
-                                                }
-                                            ]
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "r2": {
-            "bgp": {
-                "address_family": {
-                    "ipv6": {
-                        "unicast": {
-                            "neighbor": {
-                                "r1": {
-                                    "dest_link": {
-                                        "r2-link1": {
-                                            "route_maps": [
-                                                {
-                                                    "name": "rmap_global",
-                                                    "direction": "in",
-                                                }
-                                            ]
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-    }
-
-    result = create_router_bgp(tgen, topo, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    logger.info(
-        "[Phase 1] : Test Setup " "[Helper Mode]R1-----R2[Restart Mode] initialized  "
-    )
-
-    # Configure graceful-restart
-    input_dict = {
-        "r1": {
-            "bgp": {
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "neighbor": {
-                                "r2": {
-                                    "dest_link": {
-                                        "r1-link1": {"graceful-restart": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "ipv6": {
-                        "unicast": {
-                            "neighbor": {
-                                "r2": {
-                                    "dest_link": {
-                                        "r1-link1": {"graceful-restart": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                }
-            }
-        },
-        "r2": {
-            "bgp": {
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "neighbor": {
-                                "r1": {
-                                    "dest_link": {
-                                        "r2-link1": {"graceful-restart-helper": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "ipv6": {
-                        "unicast": {
-                            "neighbor": {
-                                "r1": {
-                                    "dest_link": {
-                                        "r2-link1": {"graceful-restart-helper": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                }
-            }
-        },
-    }
-
-    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
-
-    for addr_type in ADDR_TYPES:
-        result = verify_graceful_restart(
-            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
-        )
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying BGP RIB routes
-        dut = "r1"
-        peer = "r2"
-        next_hop = next_hop_per_address_family(
-            tgen, dut, peer, addr_type, NEXT_HOP_IP_2, preferred_next_hop="global"
-        )
-        input_topo = {key: topo["routers"][key] for key in ["r2"]}
-        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying RIB routes
-        protocol = "bgp"
-        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-    logger.info("[Phase 2] : R1 goes for reload  ")
-
-    kill_router_daemons(tgen, "r1", ["bgpd"])
-
-    logger.info("[Phase 6] : R1 is about to come up now  ")
-    start_router_daemons(tgen, "r1", ["bgpd"])
-
-    for addr_type in ADDR_TYPES:
-        # Verifying GR stats
-        result = verify_graceful_restart(
-            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
-        )
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        result = verify_r_bit(tgen, topo, addr_type, input_dict, dut="r2", peer="r1")
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying BGP RIB routes
-        next_hop = next_hop_per_address_family(
-            tgen, dut, peer, addr_type, NEXT_HOP_IP_2, preferred_next_hop="global"
-        )
-        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying RIB routes
-        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        result = verify_r_bit(tgen, topo, addr_type, input_dict, dut="r1", peer="r2")
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        result = verify_f_bit(
-            tgen, topo, addr_type, input_dict, dut="r1", peer="r2", expected=False
-        )
-        assert result is not True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-    write_test_footer(tc_name)
-
-
-def test_BGP_GR_UTP_35_p1(request):
-    """
-    Test Objective : Restart BGP router R1 connected to R2,
-    which is a restart router.
-    R1 should not send any GR capability in the open message,
-    however it would process open message from R2 with GR -restart
-    capability, but would not perform any BGP GR functionality.
-    """
-
-    tgen = get_topogen()
-    tc_name = request.node.name
-    write_test_header(tc_name)
-
-    # Check router status
-    check_router_status(tgen)
-
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    # Creating configuration from JSON
-    reset_config_on_routers(tgen)
-
-    logger.info(
-        "[Phase 1] : Test Setup" " [Disable Mode]R1-----R2[Restart Mode] initialized  "
-    )
-
-    # Configure graceful-restart
-    input_dict = {
-        "r1": {
-            "bgp": {
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "neighbor": {
-                                "r2": {
-                                    "dest_link": {
-                                        "r1-link1": {"graceful-restart-disable": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "ipv6": {
-                        "unicast": {
-                            "neighbor": {
-                                "r2": {
-                                    "dest_link": {
-                                        "r1-link1": {"graceful-restart-disable": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                }
-            }
-        },
-        "r2": {
-            "bgp": {
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "neighbor": {
-                                "r1": {
-                                    "dest_link": {
-                                        "r2-link1": {"graceful-restart": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "ipv6": {
-                        "unicast": {
-                            "neighbor": {
-                                "r1": {
-                                    "dest_link": {
-                                        "r2-link1": {"graceful-restart": True}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                }
-            }
-        },
-    }
-
-    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
-
-    for addr_type in ADDR_TYPES:
-        result = verify_graceful_restart(
-            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
-        )
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying BGP RIB routes
-        dut = "r1"
-        peer = "r2"
-        next_hop = next_hop_per_address_family(
-            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
-        )
-        input_topo = {key: topo["routers"][key] for key in ["r2"]}
-        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying RIB routes
-        protocol = "bgp"
-        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-    logger.info("[Phase 2] : R1 goes for reload  ")
-
-    kill_router_daemons(tgen, "r1", ["bgpd"])
-
-    logger.info("[Phase 3] : R1 is about to come up now  ")
-    start_router_daemons(tgen, "r1", ["bgpd"])
-
-    logger.info("[Phase 4] : R2 is UP now, so time to collect GR stats  ")
-
-    for addr_type in ADDR_TYPES:
-        result = verify_graceful_restart(
-            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
-        )
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying BGP RIB routes
-        next_hop = next_hop_per_address_family(
-            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
-        )
-        input_topo = {key: topo["routers"][key] for key in ["r2"]}
-        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
-
-        # Verifying RIB routes
-        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
-            tc_name, result
-        )
 
     write_test_footer(tc_name)
 
@@ -2150,6 +1693,9 @@ def test_BGP_GR_TC_6_1_2_p1(request):
     for addr_type in ADDR_TYPES:
         clear_bgp(tgen, addr_type, "r1")
         clear_bgp(tgen, addr_type, "r2")
+
+    result = verify_bgp_convergence_from_running_config(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # Verify GR stats
     input_dict = {
@@ -3097,6 +2643,9 @@ def test_BGP_GR_TC_31_1_p1(request):
         clear_bgp(tgen, addr_type, "r1")
         clear_bgp(tgen, addr_type, "r2")
 
+    result = verify_bgp_convergence_from_running_config(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
     # Verify GR stats
     input_dict = {
         "r1": {
@@ -3374,6 +2923,9 @@ def test_BGP_GR_TC_31_2_p1(request):
         clear_bgp(tgen, addr_type, "r1")
         clear_bgp(tgen, addr_type, "r2")
 
+    result = verify_bgp_convergence_from_running_config(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
     # Verify GR stats
     input_dict = {
         "r2": {
@@ -3444,6 +2996,46 @@ def test_BGP_GR_TC_31_2_p1(request):
             tc_name, result
         )
 
+    for addr_type in ADDR_TYPES:
+        # Verifying RIB routes
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {key: topo["routers"][key] for key in ["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    logger.info("[Phase 6] : R1 is about to come up now  ")
+    start_router_daemons(tgen, "r1", ["bgpd"])
+
+    logger.info("[Phase 4] : R1 is UP now, so time to collect GR stats ")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        # Verifying BGP RIB routes
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {key: topo["routers"][key] for key in ["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        # Verifying RIB routes
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
     logger.info("[Phase 3] : R1 goes for reload  ")
 
     kill_router_daemons(tgen, "r1", ["bgpd"])
@@ -3490,6 +3082,2326 @@ def test_BGP_GR_TC_31_2_p1(request):
         # Verifying RIB routes
         result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
         assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_GR_TC_9_p1(request):
+    """
+      Test Objective : Verify that restarting nodes reset "F" bit while sending
+      the BGP open messages after it's restarts, when BGP GR is **NOT** enabled.
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Check router status
+    check_router_status(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    logger.info(
+        "[Phase 1] : Test Setup" " [Restart Mode]R1-----R2[Helper Mode] Initiliazed  "
+    )
+
+    # Configure graceful-restart
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        },
+        "r2": {
+            "bgp": {
+                "graceful-restart": {"preserve-fw-state": True},
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r2-link1": {"graceful-restart-helper": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r2-link1": {"graceful-restart-helper": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                },
+            }
+        },
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        # Verifying BGP RIB routes
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {key: topo["routers"][key] for key in ["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        # Verifying RIB routes
+        protocol = "bgp"
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    logger.info("[Phase 2] : R2 goes for reload  ")
+    kill_router_daemons(tgen, "r2", ["bgpd"])
+
+    logger.info(
+        "[Phase 3] : R2 is still down, restart time 120 sec."
+        "So time verify the routes are present in BGP RIB and ZEBRA  "
+    )
+
+    for addr_type in ADDR_TYPES:
+        # Verifying BGP RIB routes
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {key: topo["routers"][key] for key in ["r2"]}
+        result = verify_bgp_rib(
+            tgen, addr_type, dut, input_topo, next_hop, expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+        logger.info(" Expected behavior: {}".format(result))
+
+        # Verifying RIB routes
+        protocol = "bgp"
+        result = verify_rib(
+            tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+        logger.info(" Expected behavior: {}".format(result))
+
+    logger.info("[Phase 5] : R2 is about to come up now  ")
+    start_router_daemons(tgen, "r2", ["bgpd"])
+
+    logger.info("[Phase 4] : R2 is UP now, so time to collect GR stats  ")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_bgp_convergence(tgen, topo)
+        assert (
+            result is True
+        ), "BGP Convergence after BGPd restart" " :Failed \n Error:{}".format(result)
+
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        result = verify_r_bit(tgen, topo, addr_type, input_dict, dut="r1", peer="r2")
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        result = verify_f_bit(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2", expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_GR_TC_17_p1(request):
+    """
+      Test Objective : Verify that only GR helper routers keep the stale
+       route entries, not any GR disabled router.
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Check router status
+    check_router_status(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    logger.info("[Phase 1] : Test Setup [Disable]R1-----R2[Restart] " "Initiliazed  ")
+
+    # Configure graceful-restart
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart": True,
+                    "preserve-fw-state": True,
+                },
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-disable": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-disable": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                },
+            }
+        },
+        "r2": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r2-link1": {"graceful-restart": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r2-link1": {"graceful-restart": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        },
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        # Verifying BGP RIB routes
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {key: topo["routers"][key] for key in ["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        # Verifying RIB routes
+        protocol = "bgp"
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    logger.info("[Phase 2] : R2 goes for reload  ")
+
+    kill_router_daemons(tgen, "r2", ["bgpd"])
+
+    logger.info(
+        "[Phase 3] : R2 is still down, restart time 120 sec."
+        " So time verify the routes are present in BGP RIB and ZEBRA  "
+    )
+
+    for addr_type in ADDR_TYPES:
+        # Verifying BGP RIB routes
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {key: topo["routers"][key] for key in ["r2"]}
+        result = verify_bgp_rib(
+            tgen, addr_type, dut, input_topo, next_hop, expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+        logger.info(" Expected behavior: {}".format(result))
+
+        # Verifying RIB routes
+        protocol = "bgp"
+        result = verify_rib(
+            tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+        logger.info(" Expected behavior: {}".format(result))
+
+    logger.info("[Phase 5] : R2 is about to come up now  ")
+    start_router_daemons(tgen, "r2", ["bgpd"])
+
+    logger.info("[Phase 4] : R2 is UP now, so time to collect GR stats  ")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_bgp_convergence(tgen, topo)
+        assert (
+            result is True
+        ), "BGP Convergence after BGPd restart" " :Failed \n Error:{}".format(result)
+
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        result = verify_r_bit(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2", expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        # Verifying BGP RIB routes
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {key: topo["routers"][key] for key in ["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        # Verifying RIB routes
+        protocol = "bgp"
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_GR_TC_43_p1(request):
+    """
+    Test Objective : Transition from Global Restarting to Disable
+                     and then Global Disable to Restarting.
+
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Check router status
+    check_router_status(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    step("Configure R1 and R2 as GR restarting node in global level")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        protocol = "bgp"
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGP on R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step(
+        "Verify that R1 keeps BGP routes in zebra and R2 retains"
+        " the stale entry for received routes from R1"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        protocol = "bgp"
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Bring up BGPd on R1 and configure it as GR disabled node in global level")
+
+    start_router_daemons(tgen, "r1", ["bgpd"])
+
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart": False,
+                    "graceful-restart-disable": True,
+                }
+            }
+        }
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 doesn't advertise any GR capabilities")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart-disable": True,}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        protocol = "bgp"
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGP on R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step(
+        "Verify that R1 flush all BGP routes from RIB & FIB and FIB and R2"
+        " does not retain stale entry for received routes from R1"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(
+            tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
+        )
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(
+            tgen, addr_type, dut, input_topo, next_hop, expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+        protocol = "bgp"
+        result = verify_rib(
+            tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
+        )
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    step(
+        "Bring up BGPd on R1 and configure it as GR" " restarting node in global level"
+    )
+
+    start_router_daemons(tgen, "r1", ["bgpd"])
+
+    input_dict = {"r1": {"bgp": {"graceful-restart": {"graceful-restart": True}}}}
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    step("Kill BGP on R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step(
+        "Verify that R1 keeps BGP routes in zebra and R2"
+        " retains the stale entry for received routes from R1"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_GR_TC_44_p1(request):
+    """
+    Test Objective : Transition from Global Helper to Disable
+                     and then Global Disable to Helper.
+
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Check router status
+    check_router_status(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    step(
+        "Configure R2 as GR restating node in global level and"
+        " leave R1 without any GR related config"
+    )
+
+    input_dict = {"r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}}}
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 advertises GR capabilities as a helper node")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart-helper": True,}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGP on R2")
+
+    kill_router_daemons(tgen, "r2", ["bgpd"])
+
+    step("Verify that R1 keeps stale entry for BGP routes when BGPd on R2 is down")
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Bring up BGPd on R2 and configure R1 as GR disabled node in global level")
+
+    start_router_daemons(tgen, "r2", ["bgpd"])
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart-disable": True,}}}
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 doesn't advertise any GR capabilities")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart-disable": True,}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    step("Kill BGP on R2")
+
+    kill_router_daemons(tgen, "r2", ["bgpd"])
+
+    step("Verify that R1 does not retain stale entry for received routes from R2")
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        next_hop = NEXT_HOP_IP_2[addr_type]
+        result = verify_bgp_rib(
+            tgen, addr_type, dut, input_topo, next_hop, expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+        result = verify_rib(
+            tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
+        )
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    step("Bring up BGPd on R2 and remove GR related config from R1 in global level")
+
+    start_router_daemons(tgen, "r2", ["bgpd"])
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart-disable": False}}}
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 advertises GR capabilities as a helper node")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart-helper": True,}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGP on R2")
+
+    kill_router_daemons(tgen, "r2", ["bgpd"])
+
+    step("Verify that R1 keeps stale entry for BGP routes when BGPd on R2 is down")
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_GR_TC_45_p1(request):
+    """
+    Test Objective : Transition from Global Restart to Helper
+                     and then Global Helper to Restart.
+
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Check router status
+    check_router_status(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    step("Configure R1 and R2 as GR restarting node in global level")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGP on R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step(
+        "Verify that R1 keeps BGP routes in zebra and R2"
+        " retains the stale entry for received routes from R1"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Bring up BGPd on R1 and remove GR related config in global level")
+
+    start_router_daemons(tgen, "r1", ["bgpd"])
+
+    input_dict = {"r1": {"bgp": {"graceful-restart": {"graceful-restart": False,}}}}
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 advertises GR capabilities as a helper node")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart-helper": True,}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    step("Kill BGP on R2")
+
+    kill_router_daemons(tgen, "r2", ["bgpd"])
+
+    step("Verify that R1 keeps stale entry for BGP routes when BGPd on R2 is down")
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    step("Bring up BGPd on R2 and configure R1 as GR restarting node in global level")
+
+    start_router_daemons(tgen, "r2", ["bgpd"])
+
+    input_dict = {"r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}}}
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGP on R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step(
+        "Verify that R1 keeps BGP routes in zebra and R2"
+        " retains the stale entry for received routes from R1"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_GR_TC_46_p1(request):
+    """
+    Test Objective : transition from Peer-level helper to Global Restarting
+    Global Mode : GR Restarting
+    PerPeer Mode :  GR Helper
+    GR Mode effective : GR Helper
+
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Check router status
+    check_router_status(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    step(
+        "Configure R1 and R2 as GR restarting node in global"
+        " and helper in per-Peer-level"
+    )
+
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "graceful-restart": {"graceful-restart": True,},
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-helper": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-helper": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                },
+            }
+        },
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGP on R2")
+
+    kill_router_daemons(tgen, "r2", ["bgpd"])
+
+    step(
+        "Verify that R1 keeps the stale entries in RIB & FIB and R2 keeps stale entries in FIB using"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step(
+        "Bring up BGP on R1 and remove Peer-level GR config"
+        " from R1 following by a session reset"
+    )
+
+    start_router_daemons(tgen, "r2", ["bgpd"])
+
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-helper": False}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-helper": False}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    step("Kill BGP on R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step(
+        "Verify that R1 keeps the stale entries in FIB command and R2 keeps stale entries in RIB & FIB"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_GR_TC_47_p1(request):
+    """
+    Test Objective : transition from Peer-level restart to Global Restart
+    Global Mode : GR Restarting
+    PerPeer Mode :  GR Restarting
+    GR Mode effective : GR Restarting
+
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Check router status
+    check_router_status(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    step("Configure R1 and R2 as GR restarting node in global and per-Peer-level")
+
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "graceful-restart": {"graceful-restart": True,},
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                },
+            }
+        },
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGP on R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step(
+        "Verify that R1 keeps the stale entries in FIB and R2 keeps stale entries in RIB & FIB"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step(
+        "Bring up BGP on R1 and remove Peer-level GR"
+        " config from R1 following by a session reset"
+    )
+
+    start_router_daemons(tgen, "r1", ["bgpd"])
+
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart": False}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart": False}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 still advertises GR capabilities as a restarting node")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    step("Kill BGP on R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step(
+        "Verify that R1 keeps the stale entries in FIB and R2 keeps stale entries in RIB & FIB"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_GR_TC_48_p1(request):
+    """
+    Test Objective : transition from Peer-level disabled to Global Restart
+    Global Mode : GR Restarting
+    PerPeer Mode : GR Disabled
+    GR Mode effective : GR Disabled
+
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Check router status
+    check_router_status(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    step(
+        "Configure R1 as GR restarting node in global level and"
+        " GR Disabled in per-Peer-level"
+    )
+
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "graceful-restart": {"graceful-restart": True,},
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-disable": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-disable": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                },
+            }
+        },
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart-helper": True}}},
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 does't advertise any GR capabilities")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGP on R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step("Verify on R2 and R1 that none of the routers keep stale entries")
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(
+            tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(
+            tgen, addr_type, dut, input_topo, next_hop, expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+        result = verify_rib(
+            tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    step("Bring up BGP on R1 and remove Peer-level GR config from R1")
+
+    start_router_daemons(tgen, "r1", ["bgpd"])
+
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-disable": False}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-disable": False}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 advertises GR capabilities as a restarting node")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True,}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart-helper": True}}},
+    }
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    step("Kill BGP on R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step(
+        "Verify that R1 keeps the stale entries in FIB and R2 keeps stale entries in RIB & FIB"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_GR_TC_49_p1(request):
+    """
+    Test Objective : Peer-level inherit from Global Restarting
+    Global Mode : GR Restart
+    PerPeer Mode :  None
+    GR Mode effective : GR Restart
+
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Check router status
+    check_router_status(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    step("Configure R1 as GR restarting node in global level")
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart-helper": True}}},
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step(
+        "Verify that R2 receives GR restarting capabilities"
+        " from R1 based on inheritence"
+    )
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGPd on router R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step(
+        "Verify that R1 keeps the stale entries in FIB and R2 keeps stale entries in RIB & FIB"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_GR_TC_52_p1(request):
+    """
+    Test Objective : Transition from Peer-level disbale to Global inherit helper
+    Global Mode : None
+    PerPeer Mode :  GR Disable
+    GR Mode effective : GR Disable
+
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Check router status
+    check_router_status(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    step(
+        "Configure R1 as GR disabled node at per Peer-level for R2"
+        " & R2 as GR restarting node"
+    )
+
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-disable": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-disable": True}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        },
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step("Verify on R2 that R1 does't advertise any GR capabilities")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGP on R2")
+
+    kill_router_daemons(tgen, "r2", ["bgpd"])
+
+    step(
+        "Verify that R2 keeps the stale entries in FIB & R1 doesn't keep RIB & FIB entries."
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(
+            tgen, addr_type, dut, input_topo, next_hop, expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+        result = verify_rib(
+            tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
+        )
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    step("Bring up BGP on R2 and remove Peer-level GR config from R1")
+
+    start_router_daemons(tgen, "r2", ["bgpd"])
+
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-disable": False}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {"graceful-restart-disable": False}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r2")
+
+    step(
+        "Verify on R2 that R1 advertises GR capabilities as a helper node from global inherit"
+    )
+
+    input_dict = {
+        "r1": {"bgp": {"graceful-restart": {"graceful-restart-helper": True}}},
+        "r2": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+    }
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+    step("Kill BGP on R2")
+
+    kill_router_daemons(tgen, "r2", ["bgpd"])
+
+    step(
+        "Verify that R2 keeps the stale entries in FIB & R1 keeps stale entries in RIB & FIB"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r2"
+        peer = "r1"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
+            tc_name, result
+        )
+
+        dut = "r1"
+        peer = "r2"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert (
+            result is True
+        ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
             tc_name, result
         )
 
