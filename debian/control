@@ -29,7 +29,7 @@ Build-Depends:
  python3-sphinx,
  python3-pytest <!nocheck>,
  texinfo (>= 4.7)
-Standards-Version: 4.4.1
+Standards-Version: 4.5.0.2
 Homepage: https://www.frrouting.org/
 Vcs-Browser: https://github.com/FRRouting/frr/tree/debian/master
 Vcs-Git: https://github.com/FRRouting/frr.git -b debian/master
