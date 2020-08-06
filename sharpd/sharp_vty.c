@@ -394,27 +394,31 @@ DEFUN_NOSH (show_debugging_sharpd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
-      "sharp lsp (0-100000)$inlabel\
+DEFPY (sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
+       "sharp lsp [update]$update (0-100000)$inlabel\
         nexthop-group NHGNAME$nhgname\
         [prefix A.B.C.D/M$pfx\
        " FRR_IP_REDIST_STR_ZEBRA "$type_str [instance (0-255)$instance]]",
-      "Sharp Routing Protocol\n"
-      "Add an LSP\n"
-      "The ingress label to use\n"
-      "Use nexthops from a nexthop-group\n"
-      "The nexthop-group name\n"
-      "Label a prefix\n"
-      "The v4 prefix to label\n"
-      FRR_IP_REDIST_HELP_STR_ZEBRA
-      "Instance to use\n"
-      "Instance\n")
+       "Sharp Routing Protocol\n"
+       "Add an LSP\n"
+       "Update an LSP\n"
+       "The ingress label to use\n"
+       "Use nexthops from a nexthop-group\n"
+       "The nexthop-group name\n"
+       "Label a prefix\n"
+       "The v4 prefix to label\n"
+       FRR_IP_REDIST_HELP_STR_ZEBRA
+       "Instance to use\n"
+       "Instance\n")
 {
 	struct nexthop_group_cmd *nhgc = NULL;
 	struct nexthop_group_cmd *backup_nhgc = NULL;
 	struct nexthop_group *backup_nhg = NULL;
 	struct prefix p = {};
 	int type = 0;
+	bool update_p;
+
+	update_p = (update != NULL);
 
 	/* We're offered a v4 prefix */
 	if (pfx->family > 0 && type_str) {
@@ -458,7 +462,8 @@ DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
 		backup_nhg = &(backup_nhgc->nhg);
 	}
 
-	if (sharp_install_lsps_helper(true, pfx->family > 0 ? &p : NULL,
+	if (sharp_install_lsps_helper(true /*install*/, update_p,
+				      pfx->family > 0 ? &p : NULL,
 				      type, instance, inlabel,
 				      &(nhgc->nhg), backup_nhg) == 0)
 		return CMD_SUCCESS;
@@ -523,7 +528,8 @@ DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
 		nhg = &(nhgc->nhg);
 	}
 
-	if (sharp_install_lsps_helper(false, pfx->family > 0 ? &p : NULL,
+	if (sharp_install_lsps_helper(false /*!install*/, false,
+				      pfx->family > 0 ? &p : NULL,
 				      type, instance, inlabel, nhg, NULL) == 0)
 		return CMD_SUCCESS;
 	else {
