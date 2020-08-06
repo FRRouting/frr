@@ -1,1 +1,116 @@
-../changelog-auto
+frr (7.4-1~1.gbpffddd0) UNRELEASED; urgency=medium
+
+  ** SNAPSHOT build @ffddd04c169f818285d022649742fb812c3130f8 **
+
+  [ Ondřej Surý ]
+  * 
+
+  [ David Lamparter ]
+  * debian: make package "official"
+  * debian: clean up debian/ directory for git build
+  * debian: fix up for new initscripts
+  * debian: cleanly split off from dist tarball
+  * debian: don't install ssd & daemons.conf
+  * debian: flag as "no stop on upgrade"
+  * debian: full & proper copyright file
+  * debian: drop unused lintian overrides
+  * debian: add python3-pytest build dependency
+  * debian: chop down & rework maintainer scripts
+  * debian: keep working nicely with split config
+  * debian: rework autopkgtests
+  * debian: fix dropping daemons.conf
+  * debian/control: add python3-dev dependency
+
+  [ Martin Winter ]
+  * debian: Don't create homdirectory for frr user
+
+  [ David Lamparter ]
+  * debian: add libyang-dev dependency
+  * debian: extend comments on pre/postinst hooks
+  * debian: remove bogus libjson0 dependency
+  * debian: add missing Conflicts:
+  * debian: fix autopkgtest
+  * debian: update libyang dependency to >= 0.16.74
+  * debian: remove superseded systemd lintian override
+  * debian: don't install ssd & daemons.conf
+  * debian: flag as "no stop on upgrade"
+  * debian: full & proper copyright file
+  * debian: drop unused lintian overrides
+  * debian: add python3-pytest build dependency
+  * debian: chop down & rework maintainer scripts
+  * debian: keep working nicely with split config
+  * debian: rework autopkgtests
+  * debian: fix dropping daemons.conf
+  * debian/control: add python3-dev dependency
+
+  [ Martin Winter ]
+  * debian: Don't create homdirectory for frr user
+
+  [ David Lamparter ]
+  * debian: add libyang-dev dependency
+  * debian: extend comments on pre/postinst hooks
+  * debian: remove bogus libjson0 dependency
+  * debian: add missing Conflicts:
+  * debian: fix autopkgtest
+  * debian: update libyang dependency to >= 0.16.74
+  * debian: remove superseded systemd lintian override
+  * debian: add new changelog
+  * debian: update control for debian/master branch
+  * debian/changelog: bump to & release 6.0.2-1
+  * debian: release 6.0.2-2
+  * debian: prepare 7.0-1 release
+  * isisd: replace dict_* with DECLARE_RBTREE
+  * debian: release 7.0.1-1
+  * debian: release 7.1-1
+  * lib: split off c-ares code from nhrpd
+  * debian: add .gitignore file
+  * bgpd/bmp: BMP implementation
+
+  [ Sri Mohana Singamsetty ]
+  * tools: Modifications to copy support bundle files
+
+  [ Vincent Bernat ]
+  * debian: update debian/copyright
+
+  [ David Lamparter ]
+  * debian: sync up with 7.2-1 unstable
+  * zebra: create zebra_cumulus_mlag module
+
+  [ Donald Sharp ]
+  * debian: Fix spelling error
+
+  [ Tim Bray ]
+  * debian: Fix logrotate in debian for bfdd, pbrd and vrrpd.
+
+  [ David Lamparter ]
+  * doc: rename man pages to frr-*
+  * doc: rename man pages to frr-*
+  * doc: rename man pages to frr-*
+  * debian: remove outdated README content
+  * debian: 7.2.1 prep
+  * debian: 7.2.1-1
+  * debian: 7.3-1
+  * debian: make cross-compile work
+  * debian: remove outdated README content
+  * debian: 7.2.1 prep
+
+  [ Rafael Zalamena ]
+  * build: fix data plane FPM netlink module
+
+  [ Ondřej Surý ]
+  * Add myself to Uploaders
+  * Add d/gbp.conf
+  * Update changelog for 7.3.1-1~1.gbp2292a4 release
+  * Change the source format from git to quilt to use git-buildpackage
+  * Don't install frr-doc texinfo images, they are gone (Closes: #955067)
+  * Bump the dh_compat to 10
+  * Update changelog for 7.3.1-1 release
+  * Use dh_installinit capabilities to install frr.tmpfile
+  * Remove unused debian/watchfrr.rc file
+  * Add missing lsof dependency
+  * Remove mention of pkg.frr.snmp build profile from debian/README.Debian
+  * Make lsb-base a hard dependency
+  * Update gbp.conf for 7.4 release
+  * Update and simplify d/watch
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 06 Aug 2020 09:06:24 +0200
