@@ -634,6 +634,36 @@ struct timeval thread_timer_remain(struct thread *thread)
 	return remain;
 }
 
+static int time_hhmmss(char *buf, int buf_size, long sec)
+{
+	long hh;
+	long mm;
+	int wr;
+
+	zassert(buf_size >= 8);
+
+	hh = sec / 3600;
+	sec %= 3600;
+	mm = sec / 60;
+	sec %= 60;
+
+	wr = snprintf(buf, buf_size, "%02ld:%02ld:%02ld", hh, mm, sec);
+
+	return wr != 8;
+}
+
+char *thread_timer_to_hhmmss(char *buf, int buf_size,
+		struct thread *t_timer)
+{
+	if (t_timer) {
+		time_hhmmss(buf, buf_size,
+				thread_timer_remain_second(t_timer));
+	} else {
+		snprintf(buf, buf_size, "--:--:--");
+	}
+	return buf;
+}
+
 /* Get new thread.  */
 static struct thread *thread_get(struct thread_master *m, uint8_t type,
 				 int (*func)(struct thread *), void *arg,

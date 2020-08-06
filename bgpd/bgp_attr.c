@@ -718,6 +718,9 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && IPV4_ADDR_SAME(&attr1->originator_id,
 				      &attr2->originator_id)
 		    && overlay_index_same(attr1, attr2)
+		    && !memcmp(&attr1->esi, &attr2->esi, sizeof(esi_t))
+		    && attr1->es_flags == attr2->es_flags
+		    && attr1->mm_sync_seqnum == attr2->mm_sync_seqnum
 		    && attr1->nh_ifindex == attr2->nh_ifindex
 		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex
 		    && attr1->distance == attr2->distance
@@ -2186,6 +2189,7 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 	uint8_t sticky = 0;
+	bool proxy = false;
 
 	if (length == 0) {
 		attr->ecommunity = NULL;
@@ -2223,7 +2227,9 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 		attr->router_flag = 1;
 
 	/* Check EVPN Neighbor advertisement flags, R-bit */
-	bgp_attr_evpn_na_flag(attr, &attr->router_flag);
+	bgp_attr_evpn_na_flag(attr, &attr->router_flag, &proxy);
+	if (proxy)
+		attr->es_flags |= ATTR_ES_PROXY_ADVERT;
 
 	/* Extract the Rmac, if any */
 	if (bgp_attr_rmac(attr, &attr->rmac)) {

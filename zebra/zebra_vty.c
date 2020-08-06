@@ -44,6 +44,7 @@
 #include "zebra/zebra_routemap.h"
 #include "lib/json.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_evpn_mh.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_vty_clippy.c"
 #endif
@@ -2516,6 +2517,81 @@ DEFUN (show_evpn_global,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_es,
+      show_evpn_es_cmd,
+      "show evpn es [NAME$esi_str] [json$json] [detail$detail]",
+      SHOW_STR
+      "EVPN\n"
+      "Ethernet Segment\n"
+      "ES ID\n"
+      JSON_STR
+      "Detailed information\n")
+{
+	esi_t esi;
+	bool uj = !!json;
+
+	if (esi_str) {
+		if (!str_to_esi(esi_str, &esi)) {
+			vty_out(vty, "%% Malformed ESI\n");
+			return CMD_WARNING;
+		}
+		zebra_evpn_es_show_esi(vty, uj, &esi);
+	} else {
+		if (detail)
+			zebra_evpn_es_show_detail(vty, uj);
+		else
+			zebra_evpn_es_show(vty, uj);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_evpn_es_evi,
+      show_evpn_es_evi_cmd,
+      "show evpn es-evi [vni (1-16777215)$vni] [json$json] [detail$detail]",
+      SHOW_STR
+      "EVPN\n"
+      "Ethernet Segment per EVI\n"
+      "VxLAN Network Identifier\n"
+      "VNI\n"
+      JSON_STR
+      "Detailed information\n")
+{
+	bool uj = !!json;
+	bool ud = !!detail;
+
+	if (vni)
+		zebra_evpn_es_evi_show_vni(vty, uj, vni, ud);
+	else
+		zebra_evpn_es_evi_show(vty, uj, ud);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_evpn_access_vlan,
+      show_evpn_access_vlan_cmd,
+      "show evpn access-vlan [(1-4094)$vid] [json$json] [detail$detail]",
+      SHOW_STR
+      "EVPN\n"
+      "Access VLANs\n"
+      "VLAN ID\n"
+      JSON_STR
+      "Detailed information\n")
+{
+	bool uj = !!json;
+
+	if (vid) {
+		zebra_evpn_acc_vl_show_vid(vty, uj, vid);
+	} else {
+		if (detail)
+			zebra_evpn_acc_vl_show_detail(vty, uj);
+		else
+			zebra_evpn_acc_vl_show(vty, uj);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_evpn_vni,
        show_evpn_vni_cmd,
        "show evpn vni [json]",
@@ -3734,6 +3810,9 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_detail_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_es_cmd);
+	install_element(VIEW_NODE, &show_evpn_es_evi_cmd);
+	install_element(VIEW_NODE, &show_evpn_access_vlan_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_mac_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_all_cmd);

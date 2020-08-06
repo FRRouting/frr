@@ -140,6 +140,8 @@ struct cpu_thread_history {
 /* Thread yield time.  */
 #define THREAD_YIELD_TIME_SLOT     10 * 1000L /* 10ms */
 
+#define THREAD_TIMER_STRLEN 12
+
 /* Macros. */
 #define THREAD_ARG(X) ((X)->arg)
 #define THREAD_FD(X)  ((X)->u.fd)
@@ -228,6 +230,8 @@ extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
 
 /* only for use in logging functions! */
 extern pthread_key_t thread_current;
+extern char *thread_timer_to_hhmmss(char *buf, int buf_size,
+		struct thread *t_timer);
 
 #ifdef __cplusplus
 }

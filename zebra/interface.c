@@ -51,6 +51,7 @@
 #include "zebra/interface.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/zebra_evpn_mh.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information")
 
@@ -127,6 +128,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 	struct zebra_if *zebra_if;
 
 	zebra_if = XCALLOC(MTYPE_ZINFO, sizeof(struct zebra_if));
+	zebra_if->ifp = ifp;
 
 	zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
 	zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
@@ -237,6 +239,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		list_delete(&rtadv->AdvRDNSSList);
 		list_delete(&rtadv->AdvDNSSLList);
 #endif /* HAVE_RTADV */
+
+		zebra_evpn_if_cleanup(zebra_if);
 
 		if_nhg_dependents_release(ifp);
 		zebra_if_nhg_dependents_free(zebra_if);
@@ -831,6 +835,7 @@ void if_delete_update(struct interface *ifp)
 		memset(&zif->l2info, 0, sizeof(union zebra_l2if_info));
 		memset(&zif->brslave_info, 0,
 		       sizeof(struct zebra_l2info_brslave));
+		zebra_evpn_if_cleanup(zif);
 	}
 
 	if (!ifp->configured) {
@@ -1072,6 +1077,8 @@ void if_up(struct interface *ifp)
 	} else if (IS_ZEBRA_IF_MACVLAN(ifp))
 		zebra_vxlan_macvlan_up(ifp);
 
+	if (zif->es_info.es)
+		zebra_evpn_es_if_oper_state_change(zif, true /*up*/);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -1106,6 +1113,8 @@ void if_down(struct interface *ifp)
 	} else if (IS_ZEBRA_IF_MACVLAN(ifp))
 		zebra_vxlan_macvlan_down(ifp);
 
+	if (zif->es_info.es)
+		zebra_evpn_es_if_oper_state_change(zif, false /*up*/);
 
 	/* Notify to the protocol daemons. */
 	zebra_interface_down_update(ifp);
@@ -1231,23 +1240,6 @@ static void nbr_connected_dump_vty(struct vty *vty,
 	vty_out(vty, "/%d", p->prefixlen);
 
 	vty_out(vty, "\n");
-}
-
-static const char *zebra_zifslavetype_2str(zebra_slave_iftype_t zif_slave_type)
-{
-	switch (zif_slave_type) {
-	case ZEBRA_IF_SLAVE_BRIDGE:
-		return "Bridge";
-	case ZEBRA_IF_SLAVE_VRF:
-		return "Vrf";
-	case ZEBRA_IF_SLAVE_BOND:
-		return "Bond";
-	case ZEBRA_IF_SLAVE_OTHER:
-		return "Other";
-	case ZEBRA_IF_SLAVE_NONE:
-		return "None";
-	}
-	return "None";
 }
 
 static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
@@ -1477,9 +1469,6 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 
 	vty_out(vty, "  Interface Type %s\n",
 		zebra_ziftype_2str(zebra_if->zif_type));
-	vty_out(vty, "  Interface Slave Type %s\n",
-		zebra_zifslavetype_2str(zebra_if->zif_slave_type));
-
 	if (IS_ZEBRA_IF_BRIDGE(ifp)) {
 		struct zebra_l2info_bridge *bridge_info;
 
@@ -1546,6 +1535,8 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 					bond_slave->bond_ifindex);
 		}
 	}
+
+	zebra_evpn_if_es_print(vty, zebra_if);
 
 	if (zebra_if->link_ifindex != IFINDEX_INTERNAL) {
 		if (zebra_if->link)
@@ -3588,7 +3579,7 @@ static int if_config_write(struct vty *vty)
 			}
 
 			hook_call(zebra_if_config_wr, vty, ifp);
-
+			zebra_evpn_mh_if_write(vty, ifp);
 			link_params_config_write(vty, ifp);
 
 			vty_endframe(vty, "!\n");
@@ -3664,4 +3655,7 @@ void zebra_if_init(void)
 	install_element(LINK_PARAMS_NODE, &link_params_use_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_use_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
+
+	/* setup EVPN MH elements */
+	zebra_evpn_interface_init();
 }

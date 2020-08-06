@@ -33,6 +33,7 @@
 #endif
 
 #define RD_ADDRSTRLEN  28
+#define RD_BYTES  8
 
 struct rd_as {
 	uint16_t type;

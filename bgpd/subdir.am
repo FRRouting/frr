@@ -15,6 +15,7 @@ vtysh_scan += \
 	bgpd/bgp_bfd.c \
 	bgpd/bgp_debug.c \
 	bgpd/bgp_dump.c \
+	bgpd/bgp_evpn_mh.c \
 	bgpd/bgp_evpn_vty.c \
 	bgpd/bgp_filter.c \
 	bgpd/bgp_mplsvpn.c \
@@ -65,6 +66,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_encap_tlv.c \
 	bgpd/bgp_errors.c \
 	bgpd/bgp_evpn.c \
+	bgpd/bgp_evpn_mh.c \
 	bgpd/bgp_evpn_vty.c \
 	bgpd/bgp_filter.c \
 	bgpd/bgp_flowspec.c \
@@ -139,6 +141,7 @@ noinst_HEADERS += \
 	bgpd/bgp_encap_types.h \
 	bgpd/bgp_errors.h \
 	bgpd/bgp_evpn.h \
+	bgpd/bgp_evpn_mh.h \
 	bgpd/bgp_evpn_private.h \
 	bgpd/bgp_evpn_vty.h \
 	bgpd/bgp_filter.h \

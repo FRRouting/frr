@@ -165,14 +165,15 @@ extern int zebra_vxlan_svi_down(struct interface *ifp,
 extern int zebra_vxlan_handle_kernel_neigh_update(
 	struct interface *ifp, struct interface *link_if, struct ipaddr *ip,
 	struct ethaddr *macaddr, uint16_t state, bool is_ext,
-	bool is_router);
+	bool is_router, bool local_inactive, bool dp_static);
 extern int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 				       struct interface *link_if,
 				       struct ipaddr *ip);
 extern int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 					    struct interface *br_if,
 					    struct ethaddr *mac, vlanid_t vid,
-					    bool sticky);
+					    bool sticky, bool local_inactive,
+						bool dp_static);
 extern int zebra_vxlan_local_mac_del(struct interface *ifp,
 				     struct interface *br_if,
 				     struct ethaddr *mac, vlanid_t vid);
@@ -217,6 +218,7 @@ extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx);
 extern void zebra_evpn_init(void);
 extern void zebra_vxlan_macvlan_up(struct interface *ifp);
 extern void zebra_vxlan_macvlan_down(struct interface *ifp);
+extern int vni_list_cmp(void *p1, void *p2);
 
 #ifdef __cplusplus
 }

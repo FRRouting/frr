@@ -99,6 +99,7 @@ enum bgp_show_adj_route_type {
 #define BGP_NLRI_PARSE_ERROR_FLOWSPEC_NLRI_SIZELIMIT -12
 #define BGP_NLRI_PARSE_ERROR_FLOWSPEC_BAD_FORMAT -13
 #define BGP_NLRI_PARSE_ERROR_ADDRESS_FAMILY -14
+#define BGP_NLRI_PARSE_ERROR_EVPN_TYPE1_SIZE -15
 #define BGP_NLRI_PARSE_ERROR -32
 
 /* Ancillary information to struct bgp_path_info,
@@ -303,7 +304,7 @@ struct bgp_static {
 	mpls_label_t label;
 
 	/* EVPN */
-	struct eth_segment_id *eth_s_id;
+	esi_t *eth_s_id;
 	struct ethaddr *router_mac;
 	uint16_t encap_tunneltype;
 	struct prefix gatewayIp;
@@ -681,4 +682,6 @@ extern int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi);
 extern bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				       uint8_t type, uint8_t stype,
 				       struct attr *attr, struct bgp_dest *dest);
+extern int bgp_evpn_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
+			     struct bgp_path_info *exist, int *paths_eq);
 #endif /* _QUAGGA_BGP_ROUTE_H */

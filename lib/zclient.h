@@ -157,6 +157,10 @@ typedef enum {
 	ZEBRA_ADVERTISE_ALL_VNI,
 	ZEBRA_LOCAL_ES_ADD,
 	ZEBRA_LOCAL_ES_DEL,
+	ZEBRA_REMOTE_ES_VTEP_ADD,
+	ZEBRA_REMOTE_ES_VTEP_DEL,
+	ZEBRA_LOCAL_ES_EVI_ADD,
+	ZEBRA_LOCAL_ES_EVI_DEL,
 	ZEBRA_VNI_ADD,
 	ZEBRA_VNI_DEL,
 	ZEBRA_L3VNI_ADD,
@@ -321,6 +325,8 @@ struct zclient {
 	int (*fec_update)(int, struct zclient *, uint16_t);
 	int (*local_es_add)(ZAPI_CALLBACK_ARGS);
 	int (*local_es_del)(ZAPI_CALLBACK_ARGS);
+	int (*local_es_evi_add)(ZAPI_CALLBACK_ARGS);
+	int (*local_es_evi_del)(ZAPI_CALLBACK_ARGS);
 	int (*local_vni_add)(ZAPI_CALLBACK_ARGS);
 	int (*local_vni_del)(ZAPI_CALLBACK_ARGS);
 	int (*local_l3vni_add)(ZAPI_CALLBACK_ARGS);
@@ -601,6 +607,11 @@ zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 #define ZEBRA_MACIP_TYPE_ROUTER_FLAG           0x04 /* Router Flag - proxy NA */
 #define ZEBRA_MACIP_TYPE_OVERRIDE_FLAG         0x08 /* Override Flag */
 #define ZEBRA_MACIP_TYPE_SVI_IP                0x10 /* SVI MAC-IP */
+#define ZEBRA_MACIP_TYPE_PROXY_ADVERT          0x20 /* Not locally active */
+#define ZEBRA_MACIP_TYPE_SYNC_PATH             0x40 /* sync path */
+/* XXX - flags is an u8; that needs to be changed to u32 if you need
+ * to allocate past 0x80
+ */
 
 enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
 
