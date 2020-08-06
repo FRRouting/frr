@@ -1097,6 +1097,9 @@ DEFPY(show_ip_nhrp, show_ip_nhrp_cmd,
 			json_vrf_path = json_object_new_object();
 			json_path = json_object_new_array();
 			ctx.json = json_path;
+		} else {
+			if (vrf_all && vrf->vrf_id != VRF_DEFAULT)
+				vty_out(vty, "\nVRF %s:\n", vrf->name);
 		}
 		if (cache) {
 			FOR_ALL_INTERFACES (vrf, ifp)
@@ -1199,8 +1202,13 @@ DEFPY(show_dmvpn, show_dmvpn_cmd,
 		ctxt.vty = vty;
 		if (!uj) {
 			ctxt.json = NULL;
-			vty_out(vty, "%-24s %-24s %-6s %-4s %-24s\n",
-				"Src", "Dst", "Flags", "SAs", "Identity");
+			if (vrf_all && nhrp_vrf2->vrf_id != VRF_DEFAULT)
+				vty_out(vty, "\nVRF %s:\n", nhrp_vrf2->vrfname);
+			if (nhrp_vc_count(nhrp_vrf2))
+				vty_out(vty, "%-24s %-24s %-6s %-4s %-24s\n",
+					"Src", "Dst", "Flags", "SAs", "Identity");
+			else
+				vty_out(vty, "%% VRF %s: No entries\n", nhrp_vrf2->vrfname);
 		} else {
 			json_path = json_object_new_array();
 			ctxt.json = json_path;

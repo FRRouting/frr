@@ -197,6 +197,11 @@ void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *), void *ctx,
 	hash_iterate(nhrp_vrf->nhrp_vc_hash, nhrp_vc_iterator, &ic);
 }
 
+unsigned long nhrp_vc_count(struct nhrp_vrf *nhrp_vrf)
+{
+	return hashcount(nhrp_vrf->nhrp_vc_hash);
+}
+
 void nhrp_vc_init(struct nhrp_vrf *nhrp_vrf)
 {
 	size_t i;

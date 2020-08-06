@@ -506,6 +506,7 @@ void nhrp_vc_notify_add(struct nhrp_vc *, struct notifier_block *,
 void nhrp_vc_notify_del(struct nhrp_vc *, struct notifier_block *);
 void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *),
 		     void *ctx, struct nhrp_vrf *nhrp_vrf);
+unsigned long nhrp_vc_count(struct nhrp_vrf *nhrp_vrf);
 void nhrp_vc_reset(struct nhrp_vrf *nhrp_vrf);
 
 void vici_init(struct nhrp_vrf *nhrp_vrf);
