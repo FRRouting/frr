@@ -2,7 +2,8 @@ Source: frr
 Section: net
 Priority: optional
 Maintainer: David Lamparter <equinox-debian@diac24.net>
-Uploaders: FRRouting-dev <dev@lists.frrouting.org>
+Uploaders: FRRouting-dev <dev@lists.frrouting.org>,
+	   Ondřej Surý <ondrej@debian.org>
 Build-Depends:
  bison,
  chrpath,
