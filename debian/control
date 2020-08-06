@@ -5,12 +5,9 @@ Maintainer: David Lamparter <equinox-debian@diac24.net>
 Uploaders: FRRouting-dev <dev@lists.frrouting.org>,
 	   Ondřej Surý <ondrej@debian.org>
 Build-Depends:
- autotools-dev,
  bison,
  chrpath,
- debhelper (>= 9),
- debhelper (>= 9.20160709) <!pkg.frr.nosystemd> | dh-systemd <!pkg.frr.nosystemd>,
- dh-autoreconf,
+ debhelper (>= 9.20150101),
  flex,
  gawk,
  install-info,
