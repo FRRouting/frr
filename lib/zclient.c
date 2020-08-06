@@ -3953,3 +3953,23 @@ int32_t zapi_capabilities_decode(struct stream *s, struct zapi_cap *api)
 stream_failure:
 	return 0;
 }
+
+int zclient_send_neigh_discovery_req(struct zclient *zclient,
+				     const struct interface *ifp,
+				     const struct prefix *p)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_NEIGH_DISCOVER, ifp->vrf_id);
+	stream_putl(s, ifp->ifindex);
+
+	stream_putc(s, p->family);
+	stream_putc(s, p->prefixlen);
+	stream_put(s, &p->u.prefix, prefix_blen(p));
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return zclient_send_message(zclient);
+}

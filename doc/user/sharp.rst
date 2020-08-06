@@ -138,3 +138,9 @@ keyword. At present, no sharp commands will be preserved in the config.
 
    Remove a test zapi client session that was created with the
    specified session id.
+
+.. index:: sharp neigh discover
+.. clicmd:: sharp neigh discover [vrf NAME] <A.B.C.D|X:X::X:X> IFNAME
+
+   Send an ARP/NDP request to trigger the addition of a neighbor in the ARP
+   table.

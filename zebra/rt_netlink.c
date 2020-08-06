@@ -147,6 +147,8 @@ static uint8_t neigh_flags_to_netlink(uint8_t dplane_flags)
 		flags |= NTF_EXT_LEARNED;
 	if (dplane_flags & DPLANE_NTF_ROUTER)
 		flags |= NTF_ROUTER;
+	if (dplane_flags & DPLANE_NTF_USE)
+		flags |= NTF_USE;
 
 	return flags;
 }
@@ -166,6 +168,8 @@ static uint16_t neigh_state_to_netlink(uint16_t dplane_state)
 		state |= NUD_NOARP;
 	if (dplane_state & DPLANE_NUD_PROBE)
 		state |= NUD_PROBE;
+	if (dplane_state & DPLANE_NUD_INCOMPLETE)
+		state |= NUD_INCOMPLETE;
 
 	return state;
 }
@@ -3631,6 +3635,7 @@ static ssize_t netlink_neigh_msg_encoder(struct zebra_dplane_ctx *ctx,
 	switch (dplane_ctx_get_op(ctx)) {
 	case DPLANE_OP_NEIGH_INSTALL:
 	case DPLANE_OP_NEIGH_UPDATE:
+	case DPLANE_OP_NEIGH_DISCOVER:
 		ret = netlink_neigh_update_ctx(ctx, RTM_NEWNEIGH, buf, buflen);
 		break;
 	case DPLANE_OP_NEIGH_DELETE:

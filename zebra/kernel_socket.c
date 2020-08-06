@@ -1526,6 +1526,7 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 		case DPLANE_OP_NEIGH_DELETE:
 		case DPLANE_OP_VTEP_ADD:
 		case DPLANE_OP_VTEP_DELETE:
+		case DPLANE_OP_NEIGH_DISCOVER:
 			res = kernel_neigh_update_ctx(ctx);
 			break;
 

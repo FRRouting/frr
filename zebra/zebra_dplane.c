@@ -185,7 +185,7 @@ struct dplane_mac_info {
 };
 
 /*
- * EVPN neighbor info for the dataplane
+ * Neighbor info for the dataplane
  */
 struct dplane_neigh_info {
 	struct ipaddr ip_addr;
@@ -607,6 +607,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_RULE_ADD:
 	case DPLANE_OP_RULE_DELETE:
 	case DPLANE_OP_RULE_UPDATE:
+	case DPLANE_OP_NEIGH_DISCOVER:
 	case DPLANE_OP_NONE:
 		break;
 	}
@@ -838,6 +839,10 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_RULE_UPDATE:
 		ret = "RULE_UPDATE";
+		break;
+
+	case DPLANE_OP_NEIGH_DISCOVER:
+		ret = "NEIGH_DISCOVER";
 		break;
 	}
 
@@ -3223,8 +3228,19 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 	return result;
 }
 
+enum zebra_dplane_result dplane_neigh_discover(const struct interface *ifp,
+					       const struct ipaddr *ip)
+{
+	enum zebra_dplane_result result;
+
+	result = neigh_update_internal(DPLANE_OP_NEIGH_DISCOVER, ifp, NULL, ip,
+				       DPLANE_NTF_USE, DPLANE_NUD_INCOMPLETE, 0);
+
+	return result;
+}
+
 /*
- * Common helper api for evpn neighbor updates
+ * Common helper api for neighbor updates
  */
 static enum zebra_dplane_result
 neigh_update_internal(enum dplane_op_e op,
@@ -3243,9 +3259,8 @@ neigh_update_internal(enum dplane_op_e op,
 		char buf1[ETHER_ADDR_STRLEN], buf2[PREFIX_STRLEN];
 
 		zlog_debug("init neigh ctx %s: ifp %s, mac %s, ip %s",
-			   dplane_op2str(op),
+			   dplane_op2str(op), ifp->name,
 			   prefix_mac2str(mac, buf1, sizeof(buf1)),
-			   ifp->name,
 			   ipaddr2str(ip, buf2, sizeof(buf2)));
 	}
 
@@ -3446,7 +3461,9 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 		out_max = atomic_load_explicit(&prov->dp_out_max,
 					       memory_order_relaxed);
 
-		vty_out(vty, "%s (%u): in: %"PRIu64", q_max: %"PRIu64", out: %"PRIu64", q_max: %"PRIu64"\n",
+		vty_out(vty,
+			"%s (%u): in: %" PRIu64 ", q_max: %" PRIu64
+			", out: %" PRIu64 ", q_max: %" PRIu64 "\n",
 			prov->dp_name, prov->dp_id, in, in_max, out, out_max);
 
 		DPLANE_LOCK();
@@ -3780,6 +3797,7 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NEIGH_DELETE:
 	case DPLANE_OP_VTEP_ADD:
 	case DPLANE_OP_VTEP_DELETE:
+	case DPLANE_OP_NEIGH_DISCOVER:
 		ipaddr2str(dplane_ctx_neigh_get_ipaddr(ctx), buf,
 			   sizeof(buf));
 
@@ -3886,6 +3904,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NEIGH_DELETE:
 	case DPLANE_OP_VTEP_ADD:
 	case DPLANE_OP_VTEP_DELETE:
+	case DPLANE_OP_NEIGH_DISCOVER:
 		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			atomic_fetch_add_explicit(&zdplane_info.dg_neigh_errors,
 						  1, memory_order_relaxed);
