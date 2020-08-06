@@ -819,7 +819,9 @@ class TopoRouter(TopoGear):
         if memleak_file is None:
             return
 
-        self.stop()
+        self.stop(False, False)
+        self.stop(wait=True)
+
         self.logger.info("running memory leak report")
         self.tgen.net[self.name].report_memory_leaks(memleak_file, testname)
 
