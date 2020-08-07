@@ -53,22 +53,30 @@ static const char *yang_module_imp_clb(const char *mod_name,
 {
 	struct yang_module_embed *e;
 
-	if (submod_name || submod_rev)
-		return NULL;
-
 	for (e = embeds; e; e = e->next) {
-		if (strcmp(e->mod_name, mod_name))
-			continue;
-		if (mod_rev && strcmp(e->mod_rev, mod_rev))
-			continue;
+		if (e->sub_mod_name && submod_name) {
+			if (strcmp(e->sub_mod_name, submod_name))
+				continue;
+
+			if (submod_rev && strcmp(e->sub_mod_rev, submod_rev))
+				continue;
+		} else {
+			if (strcmp(e->mod_name, mod_name))
+				continue;
+
+			if (mod_rev && strcmp(e->mod_rev, mod_rev))
+				continue;
+		}
 
 		*format = e->format;
 		return e->data;
 	}
 
-	flog_warn(EC_LIB_YANG_MODULE_LOAD,
-		  "YANG model \"%s@%s\" not embedded, trying external file",
-		  mod_name, mod_rev ? mod_rev : "*");
+	flog_warn(
+		EC_LIB_YANG_MODULE_LOAD,
+		"YANG model \"%s@%s\" \"%s@%s\"not embedded, trying external file",
+		mod_name, mod_rev ? mod_rev : "*",
+		submod_name ? submod_name : "*", submod_rev ? submod_rev : "*");
 	return NULL;
 }
 
