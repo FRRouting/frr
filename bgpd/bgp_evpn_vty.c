@@ -4002,6 +4002,7 @@ DEFUN(show_bgp_l2vpn_evpn_route,
       "Display Detailed Information\n"
       "Specify Route type\n"
       "EAD (Type-1) route\n"
+      "EAD (Type-1) route\n"
       "MAC-IP (Type-2) route\n"
       "MAC-IP (Type-2) route\n"
       "Multicast (Type-3) route\n"
