@@ -3282,7 +3282,7 @@ static void bgp_evpn_es_evi_json_vtep_fill(json_object *json_vteps,
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_ES)
 			json_array_string_add(json_flags, "ead-per-es");
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_EVI)
-			json_array_string_add(json_flags, "ed-per-evi");
+			json_array_string_add(json_flags, "ead-per-evi");
 		json_object_object_add(json_vtep_entry,
 				"flags", json_flags);
 	}
