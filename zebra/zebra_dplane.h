@@ -557,9 +557,6 @@ enum zebra_dplane_result dplane_local_neigh_add(const struct interface *ifp,
 					  const struct ethaddr *mac,
 					  bool set_router, bool set_static,
 					  bool set_inactive);
-enum zebra_dplane_result dplane_rem_neigh_update(const struct interface *ifp,
-					     const struct ipaddr *ip,
-					     const struct ethaddr *mac);
 enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
 					     const struct ipaddr *ip);
 
