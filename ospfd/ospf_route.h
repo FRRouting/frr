@@ -146,7 +146,8 @@ extern void ospf_intra_add_stub(struct route_table *, struct router_lsa_link *,
 extern int ospf_route_cmp(struct ospf *, struct ospf_route *,
 			  struct ospf_route *);
 extern void ospf_route_copy_nexthops(struct ospf_route *, struct list *);
-extern void ospf_route_copy_nexthops_from_vertex(struct ospf_route *,
+extern void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area,
+						 struct ospf_route *,
 						 struct vertex *);
 
 extern void ospf_route_subst(struct route_node *, struct ospf_route *,
