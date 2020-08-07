@@ -356,17 +356,16 @@ static struct peer *peer_lookup_addr_ipv4(struct in_addr *src)
 	struct bgp *bgp;
 	struct peer *peer;
 	struct listnode *node;
+	struct listnode *bgpnode;
 
-	bgp = bgp_get_default();
-	if (!bgp)
-		return NULL;
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+			if (sockunion_family(&peer->su) != AF_INET)
+				continue;
 
-	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (sockunion_family(&peer->su) != AF_INET)
-			continue;
-
-		if (sockunion2ip(&peer->su) == src->s_addr)
-			return peer;
+			if (sockunion2ip(&peer->su) == src->s_addr)
+				return peer;
+		}
 	}
 
 	return NULL;
@@ -378,21 +377,20 @@ static struct peer *bgp_peer_lookup_next(struct in_addr *src)
 	struct peer *peer;
 	struct peer *next_peer = NULL;
 	struct listnode *node;
+	struct listnode *bgpnode;
 
-	bgp = bgp_get_default();
-	if (!bgp)
-		return NULL;
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+			if (sockunion_family(&peer->su) != AF_INET)
+				continue;
+			if (ntohl(sockunion2ip(&peer->su)) <= ntohl(src->s_addr))
+				continue;
 
-	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (sockunion_family(&peer->su) != AF_INET)
-			continue;
-		if (ntohl(sockunion2ip(&peer->su)) <= ntohl(src->s_addr))
-			continue;
-
-		if (!next_peer
-		    || ntohl(sockunion2ip(&next_peer->su))
-			       > ntohl(sockunion2ip(&peer->su))) {
-			next_peer = peer;
+			if (!next_peer
+			    || ntohl(sockunion2ip(&next_peer->su))
+				       > ntohl(sockunion2ip(&peer->su))) {
+				next_peer = peer;
+			}
 		}
 	}
 
