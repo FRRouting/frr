@@ -23,6 +23,7 @@ Basics
 
    basic
    vtysh
+   grpc
    filter
    routemap
    ipv6
