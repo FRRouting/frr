@@ -951,7 +951,8 @@ DEFPY_YANG(
 	no_rmap_call, no_rmap_call_cmd,
 	"no call [NAME]",
 	NO_STR
-	"Jump to another Route-Map after match+set\n")
+	"Jump to another Route-Map after match+set\n"
+	"Target route-map name\n")
 {
 	nb_cli_enqueue_change(vty, "./call", NB_OP_DESTROY, NULL);
 
