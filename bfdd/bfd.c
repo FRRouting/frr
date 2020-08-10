@@ -125,55 +125,12 @@ void bfd_profile_free(struct bfd_profile *bp)
 	XFREE(MTYPE_BFDD_PROFILE, bp);
 }
 
-/**
- * Removes a profile and tests whether it needs to apply the changes or not.
- *
- * \param bs the BFD session.
- * \param apply whether or not to apply configurations immediately.
- */
-static void _bfd_profile_remove(struct bfd_session *bs, bool apply)
-{
-	struct bfd_profile *bp;
-
-	/* No profile applied, nothing to do. */
-	bp = bs->profile;
-	if (bp == NULL)
-		return;
-
-	/* Remove the profile association. */
-	bs->profile = NULL;
-
-	/* Set multiplier to the default. */
-	bs->detect_mult = bs->peer_profile.detection_multiplier;
-
-	/* Set timers back to user configuration. */
-	bs->timers.desired_min_tx = bs->peer_profile.min_tx;
-	bs->timers.required_min_rx = bs->peer_profile.min_rx;
-
-	/* We can only apply echo options on single hop sessions. */
-	if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		/* Set default echo timer. */
-		bs->timers.required_min_echo = bs->peer_profile.min_echo_rx;
-
-		/* Default is no echo mode. */
-		if (apply)
-			bfd_set_echo(bs, bs->peer_profile.echo_mode);
-	}
-
-	if (apply) {
-		bfd_set_passive_mode(bs, bs->peer_profile.passive);
-		bfd_set_shutdown(bs, bs->peer_profile.admin_shutdown);
-	}
-}
-
 void bfd_profile_apply(const char *profname, struct bfd_session *bs)
 {
 	struct bfd_profile *bp;
 
 	/* Remove previous profile if any. */
 	if (bs->profile_name) {
-		_bfd_profile_remove(bs, false);
-
 		/* We are changing profiles. */
 		if (strcmp(bs->profile_name, profname)) {
 			XFREE(MTYPE_BFDD_PROFILE, bs->profile_name);
@@ -185,11 +142,22 @@ void bfd_profile_apply(const char *profname, struct bfd_session *bs)
 
 	/* Look up new profile to apply. */
 	bp = bfd_profile_lookup(profname);
-	if (bp == NULL)
-		return;
 
 	/* Point to profile if it exists. */
 	bs->profile = bp;
+
+	/* Apply configuration. */
+	bfd_session_apply(bs);
+}
+
+void bfd_session_apply(struct bfd_session *bs)
+{
+	struct bfd_profile *bp;
+	uint32_t min_tx = bs->timers.desired_min_tx;
+	uint32_t min_rx = bs->timers.required_min_rx;
+
+	/* Pick the source of configuration. */
+	bp = bs->profile ? bs->profile : &bs->peer_profile;
 
 	/* Set multiplier if not the default. */
 	if (bs->peer_profile.detection_multiplier == BFD_DEFDETECTMULT)
@@ -235,14 +203,21 @@ void bfd_profile_apply(const char *profname, struct bfd_session *bs)
 		bfd_set_shutdown(bs, bp->admin_shutdown);
 	else
 		bfd_set_shutdown(bs, bs->peer_profile.admin_shutdown);
+
+	/* If session interval changed negotiate new timers. */
+	if (bs->ses_state == PTM_BFD_UP
+	    && (bs->timers.desired_min_tx != min_tx
+		|| bs->timers.required_min_rx != min_rx))
+		bfd_set_polling(bs);
 }
 
 void bfd_profile_remove(struct bfd_session *bs)
 {
 	/* Remove any previous set profile name. */
 	XFREE(MTYPE_BFDD_PROFILE, bs->profile_name);
+	bs->profile = NULL;
 
-	_bfd_profile_remove(bs, true);
+	bfd_session_apply(bs);
 }
 
 void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,

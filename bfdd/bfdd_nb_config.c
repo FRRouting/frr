@@ -519,8 +519,8 @@ int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
 
 	case NB_EV_APPLY:
 		bs = nb_running_get_entry(args->dnode, NULL, true);
-		bs->detect_mult = detection_multiplier;
 		bs->peer_profile.detection_multiplier = detection_multiplier;
+		bfd_session_apply(bs);
 		break;
 
 	case NB_EV_ABORT:
@@ -555,9 +555,8 @@ int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
 		if (tx_interval == bs->timers.desired_min_tx)
 			return NB_OK;
 
-		bs->timers.desired_min_tx = tx_interval;
 		bs->peer_profile.min_tx = tx_interval;
-		bfd_set_polling(bs);
+		bfd_session_apply(bs);
 		break;
 
 	case NB_EV_ABORT:
@@ -592,9 +591,8 @@ int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
 		if (rx_interval == bs->timers.required_min_rx)
 			return NB_OK;
 
-		bs->timers.required_min_rx = rx_interval;
 		bs->peer_profile.min_rx = rx_interval;
-		bfd_set_polling(bs);
+		bfd_session_apply(bs);
 		break;
 
 	case NB_EV_ABORT:
@@ -628,7 +626,7 @@ int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
 	bs->peer_profile.admin_shutdown = shutdown;
-	bfd_set_shutdown(bs, shutdown);
+	bfd_session_apply(bs);
 
 	return NB_OK;
 }
@@ -658,7 +656,7 @@ int bfdd_bfd_sessions_single_hop_passive_mode_modify(
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
 	bs->peer_profile.passive = passive;
-	bfd_set_passive_mode(bs, passive);
+	bfd_session_apply(bs);
 
 	return NB_OK;
 }
@@ -686,7 +684,7 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
 	bs->peer_profile.echo_mode = echo;
-	bfd_set_echo(bs, echo);
+	bfd_session_apply(bs);
 
 	return NB_OK;
 }
@@ -716,8 +714,8 @@ int bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
 		if (echo_interval == bs->timers.required_min_echo)
 			return NB_OK;
 
-		bs->timers.required_min_echo = echo_interval;
 		bs->peer_profile.min_echo_rx = echo_interval;
+		bfd_session_apply(bs);
 		break;
 
 	case NB_EV_ABORT:

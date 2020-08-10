@@ -618,6 +618,15 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown);
  */
 void bfd_set_passive_mode(struct bfd_session *bs, bool passive);
 
+/**
+ * Picks the BFD session configuration from the appropriated source:
+ * if using the default peer configuration prefer profile (if it exists),
+ * otherwise use session.
+ *
+ * \param bs the BFD session.
+ */
+void bfd_session_apply(struct bfd_session *bs);
+
 /* BFD hash data structures interface */
 void bfd_initialize(void);
 void bfd_shutdown(void);
