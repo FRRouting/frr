@@ -39,6 +39,7 @@
 #include "pbr.h"
 #include "nexthop_group.h"
 #include "lib_errors.h"
+#include "srte.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs")
@@ -900,7 +901,7 @@ static void zapi_nexthop_group_sort(struct zapi_nexthop *nh_grp,
  * Encode a single zapi nexthop
  */
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
-			uint32_t api_flags)
+			uint32_t api_flags, uint32_t api_message)
 {
 	int i, ret = 0;
 	int nh_flags = api_nh->flags;
@@ -964,6 +965,10 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_put(s, &(api_nh->rmac),
 			   sizeof(struct ethaddr));
 
+	/* Color for Segment Routing TE. */
+	if (CHECK_FLAG(api_message, ZAPI_MESSAGE_SRTE))
+		stream_putl(s, api_nh->srte_color);
+
 	/* Index of backup nexthop */
 	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
 		/* Validate backup count */
@@ -1000,7 +1005,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 
 	stream_putw(s, api->instance);
 	stream_putl(s, api->flags);
-	stream_putc(s, api->message);
+	stream_putl(s, api->message);
 
 	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
@@ -1061,7 +1066,9 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 				return -1;
 			}
 
-			if (zapi_nexthop_encode(s, api_nh, api->flags) != 0)
+			if (zapi_nexthop_encode(s, api_nh, api->flags,
+						api->message)
+			    != 0)
 				return -1;
 		}
 	}
@@ -1105,7 +1112,9 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 				return -1;
 			}
 
-			if (zapi_nexthop_encode(s, api_nh, api->flags) != 0)
+			if (zapi_nexthop_encode(s, api_nh, api->flags,
+						api->message)
+			    != 0)
 				return -1;
 		}
 	}
@@ -1132,7 +1141,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
  * Decode a single zapi nexthop object
  */
 static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
-			       uint32_t api_flags)
+			       uint32_t api_flags, uint32_t api_message)
 {
 	int i, ret = -1;
 
@@ -1185,6 +1194,10 @@ static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 		STREAM_GET(&(api_nh->rmac), s,
 			   sizeof(struct ethaddr));
 
+	/* Color for Segment Routing TE. */
+	if (CHECK_FLAG(api_message, ZAPI_MESSAGE_SRTE))
+		STREAM_GETL(s, api_nh->srte_color);
+
 	/* Backup nexthop index */
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
 		STREAM_GETC(s, api_nh->backup_num);
@@ -1222,7 +1235,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 	STREAM_GETW(s, api->instance);
 	STREAM_GETL(s, api->flags);
-	STREAM_GETC(s, api->message);
+	STREAM_GETL(s, api->message);
 	STREAM_GETC(s, api->safi);
 	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
@@ -1297,7 +1310,9 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
 
-			if (zapi_nexthop_decode(s, api_nh, api->flags) != 0)
+			if (zapi_nexthop_decode(s, api_nh, api->flags,
+						api->message)
+			    != 0)
 				return -1;
 		}
 	}
@@ -1315,7 +1330,9 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		for (i = 0; i < api->backup_nexthop_num; i++) {
 			api_nh = &api->backup_nexthops[i];
 
-			if (zapi_nexthop_decode(s, api_nh, api->flags) != 0)
+			if (zapi_nexthop_decode(s, api_nh, api->flags,
+						api->message)
+			    != 0)
 				return -1;
 		}
 	}
@@ -1502,6 +1519,7 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 	n->vrf_id = znh->vrf_id;
 	n->ifindex = znh->ifindex;
 	n->gate = znh->gate;
+	n->srte_color = znh->srte_color;
 
 	/*
 	 * This function currently handles labels
@@ -1619,6 +1637,7 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 
 	memset(nhr, 0, sizeof(*nhr));
 
+	STREAM_GETL(s, nhr->message);
 	STREAM_GETW(s, nhr->prefix.family);
 	STREAM_GETC(s, nhr->prefix.prefixlen);
 	switch (nhr->prefix.family) {
@@ -1631,6 +1650,8 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 	default:
 		break;
 	}
+	if (CHECK_FLAG(nhr->message, ZAPI_MESSAGE_SRTE))
+		STREAM_GETL(s, nhr->srte_color);
 
 	STREAM_GETC(s, nhr->type);
 	STREAM_GETW(s, nhr->instance);
@@ -1639,7 +1660,7 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 	STREAM_GETC(s, nhr->nexthop_num);
 
 	for (i = 0; i < nhr->nexthop_num; i++) {
-		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0) != 0)
+		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, 0) != 0)
 			return -1;
 	}
 
@@ -2835,6 +2856,92 @@ int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 	return zclient_send_message(zclient);
 }
 
+int zebra_send_sr_policy(struct zclient *zclient, int cmd,
+			 struct zapi_sr_policy *zp)
+{
+	if (zapi_sr_policy_encode(zclient->obuf, cmd, zp) < 0)
+		return -1;
+	return zclient_send_message(zclient);
+}
+
+int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
+{
+	struct zapi_srte_tunnel *zt = &zp->segment_list;
+
+	stream_reset(s);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putl(s, zp->color);
+	stream_put_ipaddr(s, &zp->endpoint);
+	stream_write(s, &zp->name, SRTE_POLICY_NAME_MAX_LENGTH);
+
+	stream_putc(s, zt->type);
+	stream_putl(s, zt->local_label);
+
+	if (zt->label_num > MPLS_MAX_LABELS) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: label %u: can't encode %u labels (maximum is %u)",
+			 __func__, zt->local_label, zt->label_num,
+			 MPLS_MAX_LABELS);
+		return -1;
+	}
+	stream_putw(s, zt->label_num);
+
+	for (int i = 0; i < zt->label_num; i++)
+		stream_putl(s, zt->labels[i]);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return 0;
+}
+
+int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
+{
+	memset(zp, 0, sizeof(*zp));
+
+	struct zapi_srte_tunnel *zt = &zp->segment_list;
+
+	STREAM_GETL(s, zp->color);
+	STREAM_GET_IPADDR(s, &zp->endpoint);
+	STREAM_GET(&zp->name, s, SRTE_POLICY_NAME_MAX_LENGTH);
+
+	/* segment list of active candidate path */
+	STREAM_GETC(s, zt->type);
+	STREAM_GETL(s, zt->local_label);
+	STREAM_GETW(s, zt->label_num);
+	if (zt->label_num > MPLS_MAX_LABELS) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: label %u: can't decode %u labels (maximum is %u)",
+			 __func__, zt->local_label, zt->label_num,
+			 MPLS_MAX_LABELS);
+		return -1;
+	}
+	for (int i = 0; i < zt->label_num; i++)
+		STREAM_GETL(s, zt->labels[i]);
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
+int zapi_sr_policy_notify_status_decode(struct stream *s,
+					struct zapi_sr_policy *zp)
+{
+	memset(zp, 0, sizeof(*zp));
+
+	STREAM_GETL(s, zp->color);
+	STREAM_GET_IPADDR(s, &zp->endpoint);
+	STREAM_GET(&zp->name, s, SRTE_POLICY_NAME_MAX_LENGTH);
+	STREAM_GETL(s, zp->status);
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
 int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
 			   struct zapi_labels *zl)
 {
@@ -2874,7 +2981,7 @@ int zapi_labels_encode(struct stream *s, int cmd, struct zapi_labels *zl)
 	for (int i = 0; i < zl->nexthop_num; i++) {
 		znh = &zl->nexthops[i];
 
-		if (zapi_nexthop_encode(s, znh, 0) < 0)
+		if (zapi_nexthop_encode(s, znh, 0, 0) < 0)
 			return -1;
 	}
 
@@ -2893,7 +3000,7 @@ int zapi_labels_encode(struct stream *s, int cmd, struct zapi_labels *zl)
 		for (int i = 0; i < zl->backup_nexthop_num; i++) {
 			znh = &zl->backup_nexthops[i];
 
-			if (zapi_nexthop_encode(s, znh, 0) < 0)
+			if (zapi_nexthop_encode(s, znh, 0, 0) < 0)
 				return -1;
 		}
 
@@ -2969,7 +3076,7 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 	for (int i = 0; i < zl->nexthop_num; i++) {
 		znh = &zl->nexthops[i];
 
-		if (zapi_nexthop_decode(s, znh, 0) < 0)
+		if (zapi_nexthop_decode(s, znh, 0, 0) < 0)
 			return -1;
 	}
 
@@ -2990,7 +3097,7 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 		for (int i = 0; i < zl->backup_nexthop_num; i++) {
 			znh = &zl->backup_nexthops[i];
 
-			if (zapi_nexthop_decode(s, znh, 0) < 0)
+			if (zapi_nexthop_decode(s, znh, 0, 0) < 0)
 				return -1;
 		}
 	}
@@ -3657,6 +3764,10 @@ static int zclient_read(struct thread *thread)
 			(*zclient->opaque_unregister_handler)(command, zclient,
 							    length, vrf_id);
 		break;
+	case ZEBRA_SR_POLICY_NOTIFY_STATUS:
+		if (zclient->sr_policy_notify_status)
+			(*zclient->sr_policy_notify_status)(command, zclient,
+							    length, vrf_id);
 	default:
 		break;
 	}

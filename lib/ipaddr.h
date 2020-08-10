@@ -25,6 +25,8 @@
 
 #include <zebra.h>
 
+#include "lib/log.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -58,6 +60,18 @@ struct ipaddr {
 
 #define IPADDRSZ(p)                                                            \
 	(IS_IPADDR_V4((p)) ? sizeof(struct in_addr) : sizeof(struct in6_addr))
+
+static inline int ipaddr_family(const struct ipaddr *ip)
+{
+	switch (ip->ipa_type) {
+	case IPADDR_V4:
+		return AF_INET;
+	case IPADDR_V6:
+		return AF_INET6;
+	default:
+		return AF_UNSPEC;
+	}
+}
 
 static inline int str2ipaddr(const char *str, struct ipaddr *ip)
 {
@@ -129,6 +143,31 @@ static inline bool ipaddr_isset(struct ipaddr *ip)
 {
 	static struct ipaddr a = {};
 	return (0 != memcmp(&a, ip, sizeof(struct ipaddr)));
+}
+
+/*
+ * generic ordering comparison between IP addresses
+ */
+static inline int ipaddr_cmp(const struct ipaddr *a, const struct ipaddr *b)
+{
+	uint32_t va, vb;
+	va = a->ipa_type;
+	vb = b->ipa_type;
+	if (va != vb)
+		return (va < vb) ? -1 : 1;
+	switch (a->ipa_type) {
+	case IPADDR_V4:
+		va = ntohl(a->ipaddr_v4.s_addr);
+		vb = ntohl(b->ipaddr_v4.s_addr);
+		if (va != vb)
+			return (va < vb) ? -1 : 1;
+		return 0;
+	case IPADDR_V6:
+		return memcmp((void *)&a->ipaddr_v6, (void *)&b->ipaddr_v6,
+			      sizeof(a->ipaddr_v6));
+	default:
+		return 0;
+	}
 }
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR

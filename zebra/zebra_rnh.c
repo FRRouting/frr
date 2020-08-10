@@ -46,6 +46,7 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
+#include "zebra/zebra_srte.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_errors.h"
@@ -57,8 +58,6 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 static void copy_state(struct rnh *rnh, const struct route_entry *re,
 		       struct route_node *rn);
 static int compare_state(struct route_entry *r1, struct route_entry *r2);
-static int send_client(struct rnh *rnh, struct zserv *client,
-		       enum rnh_type type, vrf_id_t vrf_id);
 static void print_rnh(struct route_node *rn, struct vty *vty);
 static int zebra_client_cleanup_rnh(struct zserv *client);
 
@@ -305,7 +304,7 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 	 * We always need to respond with known information,
 	 * currently multiple daemons expect this behavior
 	 */
-	send_client(rnh, client, type, vrf_id);
+	zebra_send_rnh_update(rnh, client, type, vrf_id, 0);
 }
 
 void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
@@ -531,8 +530,9 @@ static void zebra_rnh_eval_import_check_entry(struct zebra_vrf *zvrf, afi_t afi,
 		}
 		/* state changed, notify clients */
 		for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
-			send_client(rnh, client,
-				    RNH_IMPORT_CHECK_TYPE, zvrf->vrf->vrf_id);
+			zebra_send_rnh_update(rnh, client,
+					      RNH_IMPORT_CHECK_TYPE,
+					      zvrf->vrf->vrf_id, 0);
 		}
 	}
 }
@@ -594,7 +594,8 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 					zebra_route_string(client->proto));
 		}
 
-		send_client(rnh, client, RNH_NEXTHOP_TYPE, zvrf->vrf->vrf_id);
+		zebra_send_rnh_update(rnh, client, RNH_NEXTHOP_TYPE,
+				      zvrf->vrf->vrf_id, 0);
 	}
 
 	if (re)
@@ -1107,8 +1108,9 @@ static int compare_state(struct route_entry *r1, struct route_entry *r2)
 	return 0;
 }
 
-static int send_client(struct rnh *rnh, struct zserv *client,
-		       enum rnh_type type, vrf_id_t vrf_id)
+int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
+			  enum rnh_type type, vrf_id_t vrf_id,
+			  uint32_t srte_color)
 {
 	struct stream *s = NULL;
 	struct route_entry *re;
@@ -1117,6 +1119,7 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 	struct nexthop *nh;
 	struct route_node *rn;
 	int ret;
+	uint32_t message = 0;
 	int cmd = (type == RNH_IMPORT_CHECK_TYPE) ? ZEBRA_IMPORT_CHECK_UPDATE
 						  : ZEBRA_NEXTHOP_UPDATE;
 
@@ -1127,6 +1130,11 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, cmd, vrf_id);
+
+	/* Message flags. */
+	if (srte_color)
+		SET_FLAG(message, ZAPI_MESSAGE_SRTE);
+	stream_putl(s, message);
 
 	stream_putw(s, rn->p.family);
 	switch (rn->p.family) {
@@ -1144,6 +1152,9 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 			 __func__, rn->p.family);
 		goto failure;
 	}
+	if (srte_color)
+		stream_putl(s, srte_color);
+
 	if (re) {
 		struct zapi_nexthop znh;
 		struct nexthop_group *nhg;
@@ -1160,7 +1171,7 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 		for (ALL_NEXTHOPS_PTR(nhg, nh))
 			if (rnh_nexthop_valid(re, nh)) {
 				zapi_nexthop_from_nexthop(&znh, nh);
-				ret = zapi_nexthop_encode(s, &znh, 0/*flags*/);
+				ret = zapi_nexthop_encode(s, &znh, 0, message);
 				if (ret < 0)
 					goto failure;
 
@@ -1173,7 +1184,8 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 				if (rnh_nexthop_valid(re, nh)) {
 					zapi_nexthop_from_nexthop(&znh, nh);
 					ret = zapi_nexthop_encode(
-						s, &znh, 0 /* flags */);
+						s, &znh, 0 /* flags */,
+						0 /* message */);
 					if (ret < 0)
 						goto failure;
 

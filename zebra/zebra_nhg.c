@@ -28,6 +28,7 @@
 #include "lib/mpls.h"
 #include "lib/jhash.h"
 #include "lib/debug.h"
+#include "lib/lib_errors.h"
 
 #include "zebra/connected.h"
 #include "zebra/debug.h"
@@ -36,6 +37,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_memory.h"
+#include "zebra/zebra_srte.h"
 #include "zebra/zserv.h"
 #include "zebra/rt.h"
 #include "zebra_errors.h"
@@ -1620,7 +1622,8 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 }
 
 static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
-				 struct nexthop *nexthop)
+				 struct nexthop *nexthop,
+				 struct zebra_sr_policy *policy)
 {
 	struct nexthop *resolved_hop;
 	uint8_t num_labels = 0;
@@ -1684,7 +1687,21 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 		resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 
 	/* Copy labels of the resolved route and the parent resolving to it */
-	if (newhop->nh_label) {
+	if (policy) {
+		int i = 0;
+
+		/*
+		 * Don't push the first SID if the corresponding action in the
+		 * LFIB is POP.
+		 */
+		if (!newhop->nh_label || !newhop->nh_label->num_labels
+		    || newhop->nh_label->label[0] == MPLS_LABEL_IMPLICIT_NULL)
+			i = 1;
+
+		for (; i < policy->segment_list.label_num; i++)
+			labels[num_labels++] = policy->segment_list.labels[i];
+		label_type = policy->segment_list.type;
+	} else if (newhop->nh_label) {
 		for (i = 0; i < newhop->nh_label->num_labels; i++) {
 			/* Be a bit picky about overrunning the local array */
 			if (num_labels >= MPLS_MAX_LABELS) {
@@ -1771,11 +1788,13 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	struct route_node *rn;
 	struct route_entry *match = NULL;
 	int resolved;
+	zebra_nhlfe_t *nhlfe;
 	struct nexthop *newhop;
 	struct interface *ifp;
 	rib_dest_t *dest;
 	struct zebra_vrf *zvrf;
-	struct in_addr ipv4;
+	struct in_addr local_ipv4;
+	struct in_addr *ipv4;
 
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
 	    || nexthop->type == NEXTHOP_TYPE_IPV6)
@@ -1839,6 +1858,51 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	/* Validation for ipv4 mapped ipv6 nexthop. */
 	if (IS_MAPPED_IPV6(&nexthop->gate.ipv6)) {
 		afi = AFI_IP;
+		ipv4 = &local_ipv4;
+		ipv4_mapped_ipv6_to_ipv4(&nexthop->gate.ipv6, ipv4);
+	} else {
+		ipv4 = &nexthop->gate.ipv4;
+	}
+
+	if (nexthop->srte_color) {
+		struct ipaddr endpoint = {0};
+		struct zebra_sr_policy *policy;
+
+		switch (afi) {
+		case AFI_IP:
+			endpoint.ipa_type = IPADDR_V4;
+			endpoint.ipaddr_v4 = *ipv4;
+			break;
+		case AFI_IP6:
+			endpoint.ipa_type = IPADDR_V6;
+			endpoint.ipaddr_v6 = nexthop->gate.ipv6;
+			break;
+		default:
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "%s: unknown address-family: %u", __func__,
+				 afi);
+			exit(1);
+		}
+
+		policy = zebra_sr_policy_find(nexthop->srte_color, &endpoint);
+		if (policy && policy->status == ZEBRA_SR_POLICY_UP) {
+			resolved = 0;
+			frr_each_safe (nhlfe_list, &policy->lsp->nhlfe_list,
+				       nhlfe) {
+				if (!CHECK_FLAG(nhlfe->flags,
+						NHLFE_FLAG_SELECTED)
+				    || CHECK_FLAG(nhlfe->flags,
+						  NHLFE_FLAG_DELETED))
+					continue;
+				SET_FLAG(nexthop->flags,
+					 NEXTHOP_FLAG_RECURSIVE);
+				nexthop_set_resolved(afi, nhlfe->nexthop,
+						     nexthop, policy);
+				resolved = 1;
+			}
+			if (resolved)
+				return 1;
+		}
 	}
 
 	/* Make lookup prefix. */
@@ -1847,12 +1911,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	case AFI_IP:
 		p.family = AF_INET;
 		p.prefixlen = IPV4_MAX_PREFIXLEN;
-		if (IS_MAPPED_IPV6(&nexthop->gate.ipv6)) {
-			ipv4_mapped_ipv6_to_ipv4(&nexthop->gate.ipv6, &ipv4);
-			p.u.prefix4 = ipv4;
-		} else {
-			p.u.prefix4 = nexthop->gate.ipv4;
-		}
+		p.u.prefix4 = *ipv4;
 		break;
 	case AFI_IP6:
 		p.family = AF_INET6;
@@ -1978,7 +2037,8 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, newhop, nexthop);
+				nexthop_set_resolved(afi, newhop, nexthop,
+						     NULL);
 				resolved = 1;
 			}
 
@@ -2001,7 +2061,8 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, newhop, nexthop);
+				nexthop_set_resolved(afi, newhop, nexthop,
+						     NULL);
 				resolved = 1;
 			}
 done_with_match:

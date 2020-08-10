@@ -47,6 +47,7 @@
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/zebra_srte.h"
 #include "zebra/zebra_errors.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, LSP, "MPLS LSP object")
@@ -1505,6 +1506,7 @@ static json_object *nhlfe_json(zebra_nhlfe_t *nhlfe)
 	char buf[BUFSIZ];
 	json_object *json_nhlfe = NULL;
 	json_object *json_backups = NULL;
+	json_object *json_label_stack;
 	struct nexthop *nexthop = nhlfe->nexthop;
 	int i;
 
@@ -1512,6 +1514,14 @@ static json_object *nhlfe_json(zebra_nhlfe_t *nhlfe)
 	json_object_string_add(json_nhlfe, "type", nhlfe_type2str(nhlfe->type));
 	json_object_int_add(json_nhlfe, "outLabel",
 			    nexthop->nh_label->label[0]);
+
+	json_label_stack = json_object_new_array();
+	json_object_object_add(json_nhlfe, "outLabelStack", json_label_stack);
+	for (i = 0; i < nexthop->nh_label->num_labels; i++)
+		json_object_array_add(
+			json_label_stack,
+			json_object_new_int(nexthop->nh_label->label[i]));
+
 	json_object_int_add(json_nhlfe, "distance", nhlfe->distance);
 
 	if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED))
@@ -1916,14 +1926,13 @@ static int mpls_processq_init(void)
 }
 
 
-/* Public functions */
-
 /*
  * Process LSP update results from zebra dataplane.
  */
 void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 {
 	struct zebra_vrf *zvrf;
+	mpls_label_t label;
 	zebra_ile_t tmp_ile;
 	struct hash *lsp_table;
 	zebra_lsp_t *lsp;
@@ -1931,6 +1940,7 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 	struct nexthop *nexthop;
 	enum dplane_op_e op;
 	enum zebra_dplane_result status;
+	enum zebra_sr_policy_update_label_mode update_mode;
 
 	op = dplane_ctx_get_op(ctx);
 	status = dplane_ctx_get_status(ctx);
@@ -1940,6 +1950,8 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 			   ctx, dplane_op2str(op),
 			   dplane_ctx_get_in_label(ctx),
 			   dplane_res2str(status));
+
+	label = dplane_ctx_get_in_label(ctx);
 
 	switch (op) {
 	case DPLANE_OP_LSP_INSTALL:
@@ -1951,7 +1963,7 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 
 		lsp_table = zvrf->lsp_table;
 
-		tmp_ile.in_label = dplane_ctx_get_in_label(ctx);
+		tmp_ile.in_label = label;
 		lsp = hash_lookup(lsp_table, &tmp_ile);
 		if (lsp == NULL) {
 			if (IS_ZEBRA_DEBUG_DPLANE)
@@ -1985,13 +1997,21 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 			}
 		}
 
+		update_mode = (op == DPLANE_OP_LSP_INSTALL)
+				      ? ZEBRA_SR_POLICY_LABEL_CREATED
+				      : ZEBRA_SR_POLICY_LABEL_UPDATED;
+		zebra_sr_policy_label_update(label, update_mode);
 		break;
 
 	case DPLANE_OP_LSP_DELETE:
-		if (status != ZEBRA_DPLANE_REQUEST_SUCCESS)
+		if (status != ZEBRA_DPLANE_REQUEST_SUCCESS) {
 			flog_warn(EC_ZEBRA_LSP_DELETE_FAILURE,
 				  "LSP Deletion Failure: in-label %u",
 				  dplane_ctx_get_in_label(ctx));
+			break;
+		}
+		zebra_sr_policy_label_update(label,
+					     ZEBRA_SR_POLICY_LABEL_REMOVED);
 		break;
 
 	default:
@@ -3417,6 +3437,21 @@ static int lsp_backup_znh_install(zebra_lsp_t *lsp, enum lsp_types_t type,
 		return -1;
 
 	return 0;
+}
+
+zebra_lsp_t *mpls_lsp_find(struct zebra_vrf *zvrf, mpls_label_t in_label)
+{
+	struct hash *lsp_table;
+	zebra_ile_t tmp_ile;
+
+	/* Lookup table. */
+	lsp_table = zvrf->lsp_table;
+	if (!lsp_table)
+		return NULL;
+
+	/* If entry is not present, exit. */
+	tmp_ile.in_label = in_label;
+	return hash_lookup(lsp_table, &tmp_ile);
 }
 
 /*

@@ -152,6 +152,11 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 		break;
 	}
 
+	if (next1->srte_color < next2->srte_color)
+		return -1;
+	if (next1->srte_color > next2->srte_color)
+		return 1;
+
 	ret = _nexthop_source_cmp(next1, next2);
 	if (ret != 0)
 		goto done;
@@ -643,6 +648,7 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 	if (copy->backup_num > 0)
 		memcpy(copy->backup_idx, nexthop->backup_idx, copy->backup_num);
 
+	copy->srte_color = nexthop->srte_color;
 	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
 	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
 	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));
