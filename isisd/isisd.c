@@ -247,20 +247,11 @@ int isis_area_get(struct vty *vty, const char *area_tag)
 	return CMD_SUCCESS;
 }
 
-int isis_area_destroy(const char *area_tag)
+void isis_area_destroy(struct isis_area *area)
 {
-	struct isis_area *area;
 	struct listnode *node, *nnode;
 	struct isis_circuit *circuit;
 	struct area_addr *addr;
-
-	area = isis_area_lookup(area_tag);
-
-	if (area == NULL) {
-		zlog_warn("%s: could not find area with area-tag %s",
-				__func__, area_tag);
-		return CMD_ERR_NO_MATCH;
-	}
 
 	QOBJ_UNREG(area);
 
@@ -324,8 +315,6 @@ int isis_area_destroy(const char *area_tag)
 		memset(isis->sysid, 0, ISIS_SYS_ID_LEN);
 		isis->sysid_set = 0;
 	}
-
-	return CMD_SUCCESS;
 }
 
 #ifdef FABRICD
@@ -1589,8 +1578,20 @@ DEFUN (no_router_openfabric,
        PROTO_HELP
        "ISO Routing area tag\n")
 {
+	struct isis_area *area;
+	const char *area_tag;
 	int idx_word = 3;
-	return isis_area_destroy(argv[idx_word]->arg);
+
+	area_tag = argv[idx_word]->arg;
+	area = isis_area_lookup(area_tag);
+	if (area == NULL) {
+		zlog_warn("%s: could not find area with area-tag %s",
+				__func__, area_tag);
+		return CMD_ERR_NO_MATCH;
+	}
+
+	isis_area_destroy(area);
+	return CMD_SUCCESS;
 }
 #endif /* ifdef FABRICD */
 #ifdef FABRICD
