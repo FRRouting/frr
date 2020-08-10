@@ -526,7 +526,7 @@ DEFUN (show_isis_interface,
        "show " PROTO_NAME " interface",
        SHOW_STR
        PROTO_HELP
-       "ISIS interface\n")
+       "IS-IS interface\n")
 {
 	return show_isis_interface_common(vty, NULL, ISIS_UI_LEVEL_BRIEF);
 }
@@ -536,7 +536,7 @@ DEFUN (show_isis_interface_detail,
        "show " PROTO_NAME " interface detail",
        SHOW_STR
        PROTO_HELP
-       "ISIS interface\n"
+       "IS-IS interface\n"
        "show detailed information\n")
 {
 	return show_isis_interface_common(vty, NULL, ISIS_UI_LEVEL_DETAIL);
@@ -547,8 +547,8 @@ DEFUN (show_isis_interface_arg,
        "show " PROTO_NAME " interface WORD",
        SHOW_STR
        PROTO_HELP
-       "ISIS interface\n"
-       "ISIS interface name\n")
+       "IS-IS interface\n"
+       "IS-IS interface name\n")
 {
 	int idx_word = 3;
 	return show_isis_interface_common(vty, argv[idx_word]->arg,
@@ -697,7 +697,7 @@ DEFUN (show_isis_neighbor,
        "show " PROTO_NAME " neighbor",
        SHOW_STR
        PROTO_HELP
-       "ISIS neighbor adjacencies\n")
+       "IS-IS neighbor adjacencies\n")
 {
 	return show_isis_neighbor_common(vty, NULL, ISIS_UI_LEVEL_BRIEF);
 }
@@ -707,7 +707,7 @@ DEFUN (show_isis_neighbor_detail,
        "show " PROTO_NAME " neighbor detail",
        SHOW_STR
        PROTO_HELP
-       "ISIS neighbor adjacencies\n"
+       "IS-IS neighbor adjacencies\n"
        "show detailed information\n")
 {
 	return show_isis_neighbor_common(vty, NULL, ISIS_UI_LEVEL_DETAIL);
@@ -718,7 +718,7 @@ DEFUN (show_isis_neighbor_arg,
        "show " PROTO_NAME " neighbor WORD",
        SHOW_STR
        PROTO_HELP
-       "ISIS neighbor adjacencies\n"
+       "IS-IS neighbor adjacencies\n"
        "System id\n")
 {
 	int idx_word = 3;
@@ -731,7 +731,7 @@ DEFUN (clear_isis_neighbor,
        "clear " PROTO_NAME " neighbor",
        CLEAR_STR
        PROTO_HELP
-       "ISIS neighbor adjacencies\n")
+       "IS-IS neighbor adjacencies\n")
 {
 	return clear_isis_neighbor_common(vty, NULL);
 }
@@ -741,7 +741,7 @@ DEFUN (clear_isis_neighbor_arg,
        "clear " PROTO_NAME " neighbor WORD",
        CLEAR_STR
        PROTO_HELP
-       "ISIS neighbor adjacencies\n"
+       "IS-IS neighbor adjacencies\n"
        "System id\n")
 {
 	int idx_word = 3;

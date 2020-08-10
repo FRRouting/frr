@@ -1154,7 +1154,7 @@ DEFPY_YANG(isis_default_originate, isis_default_originate_cmd,
       "Distribute default route into level-2\n"
       "Always advertise default route\n"
       "Metric for default route\n"
-      "ISIS default metric\n"
+      "IS-IS default metric\n"
       "Route map reference\n"
       "Pointer to route-map entries\n")
 {
@@ -1228,7 +1228,7 @@ DEFPY_YANG(isis_redistribute, isis_redistribute_cmd,
       "Redistribute into level-1\n"
       "Redistribute into level-2\n"
       "Metric for redistributed routes\n"
-      "ISIS default metric\n"
+      "IS-IS default metric\n"
       "Route map reference\n"
       "Pointer to route-map entries\n")
 {
