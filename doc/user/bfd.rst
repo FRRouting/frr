@@ -171,6 +171,20 @@ BFD peers and profiles share the same BFD session configuration commands.
    'administrative down' message is sent to the remote peer.
 
 
+.. index:: [no] passive-mode
+.. clicmd:: [no] passive-mode
+
+   Mark session as passive: a passive session will not attempt to start
+   the connection and will wait for control packets from peer before it
+   begins replying.
+
+   This feature is useful when you have a router that acts as the
+   central node of a star network and you want to avoid sending BFD
+   control packets you don't need to.
+
+   The default is active-mode (or ``no passive-mode``).
+
+
 BFD Peer Specific Commands
 --------------------------
 
