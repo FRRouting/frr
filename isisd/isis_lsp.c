@@ -1537,7 +1537,7 @@ static void lsp_build_pseudo(struct isis_lsp *lsp, struct isis_circuit *circuit,
 	}
 	if (circuit->area->newmetric) {
 		isis_tlvs_add_extended_reach(lsp->tlvs, ISIS_MT_IPV4_UNICAST,
-					     ne_id, 0, circuit->ext);
+					     ne_id, 0, NULL);
 		lsp_debug(
 			"ISIS (%s): Adding %s.%02x as te-style neighbor (self)",
 			area->area_tag, sysid_print(ne_id),
@@ -1579,7 +1579,7 @@ static void lsp_build_pseudo(struct isis_lsp *lsp, struct isis_circuit *circuit,
 		if (circuit->area->newmetric) {
 			isis_tlvs_add_extended_reach(lsp->tlvs,
 						     ISIS_MT_IPV4_UNICAST,
-						     ne_id, 0, circuit->ext);
+						     ne_id, 0, NULL);
 			lsp_debug(
 				"ISIS (%s): Adding %s.%02x as te-style neighbor (peer)",
 				area->area_tag, sysid_print(ne_id),
