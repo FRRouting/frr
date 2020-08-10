@@ -907,17 +907,18 @@ void zsend_iptable_notify_owner(struct zebra_pbr_iptable *iptable,
 	zserv_send_message(client, s);
 }
 
-/* Router-id is updated. Send ZEBRA_ROUTER_ID_ADD to client. */
-int zsend_router_id_update(struct zserv *client, struct prefix *p,
+/* Router-id is updated. Send ZEBRA_ROUTER_ID_UPDATE to client. */
+int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
 			   vrf_id_t vrf_id)
 {
 	int blen;
+	struct stream *s;
 
 	/* Check this client need interface information. */
-	if (!vrf_bitmap_check(client->ridinfo, vrf_id))
+	if (!vrf_bitmap_check(client->ridinfo[afi], vrf_id))
 		return 0;
 
-	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	/* Message type. */
 	zclient_create_header(s, ZEBRA_ROUTER_ID_UPDATE, vrf_id);
@@ -1897,20 +1898,48 @@ stream_failure:
 /* Register zebra server router-id information.  Send current router-id */
 static void zread_router_id_add(ZAPI_HANDLER_ARGS)
 {
+	afi_t afi;
+
 	struct prefix p;
 
+	STREAM_GETW(msg, afi);
+
+	if (afi <= AFI_UNSPEC || afi >= AFI_MAX) {
+		zlog_warn(
+			"Invalid AFI %u while registering for router ID notifications",
+			afi);
+		goto stream_failure;
+	}
+
 	/* Router-id information is needed. */
-	vrf_bitmap_set(client->ridinfo, zvrf_id(zvrf));
+	vrf_bitmap_set(client->ridinfo[afi], zvrf_id(zvrf));
 
-	router_id_get(&p, zvrf);
+	router_id_get(afi, &p, zvrf);
 
-	zsend_router_id_update(client, &p, zvrf_id(zvrf));
+	zsend_router_id_update(client, afi, &p, zvrf_id(zvrf));
+
+stream_failure:
+	return;
 }
 
 /* Unregister zebra server router-id information. */
 static void zread_router_id_delete(ZAPI_HANDLER_ARGS)
 {
-	vrf_bitmap_unset(client->ridinfo, zvrf_id(zvrf));
+	afi_t afi;
+
+	STREAM_GETW(msg, afi);
+
+	if (afi <= AFI_UNSPEC || afi >= AFI_MAX) {
+		zlog_warn(
+			"Invalid AFI %u while unregistering from router ID notifications",
+			afi);
+		goto stream_failure;
+	}
+
+	vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
+
+stream_failure:
+	return;
 }
 
 static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
@@ -1999,8 +2028,8 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			vrf_bitmap_unset(client->redist[afi][i], zvrf_id(zvrf));
 		vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
 	}
-	vrf_bitmap_unset(client->ridinfo, zvrf_id(zvrf));
 }
 
 /*

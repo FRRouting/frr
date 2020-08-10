@@ -59,9 +59,6 @@ static struct connected *router_id_find_node(struct list *l,
 
 static int router_id_bad_address(struct connected *ifc)
 {
-	if (ifc->address->family != AF_INET)
-		return 1;
-
 	/* non-redistributable addresses shouldn't be used for RIDs either */
 	if (!zebra_check_addr(ifc->address))
 		return 1;
@@ -69,40 +66,82 @@ static int router_id_bad_address(struct connected *ifc)
 	return 0;
 }
 
-void router_id_get(struct prefix *p, struct zebra_vrf *zvrf)
+static bool router_id_v6_is_any(struct prefix *p)
+{
+	return memcmp(&p->u.prefix6, &in6addr_any, sizeof(struct in6_addr))
+	       == 0;
+}
+
+int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 {
 	struct listnode *node;
 	struct connected *c;
+	struct in6_addr *addr = NULL;
 
-	p->u.prefix4.s_addr = INADDR_ANY;
-	p->family = AF_INET;
-	p->prefixlen = 32;
-
-	if (zvrf->rid_user_assigned.u.prefix4.s_addr != INADDR_ANY)
-		p->u.prefix4.s_addr = zvrf->rid_user_assigned.u.prefix4.s_addr;
-	else if (!list_isempty(zvrf->rid_lo_sorted_list)) {
-		node = listtail(zvrf->rid_lo_sorted_list);
-		c = listgetdata(node);
-		p->u.prefix4.s_addr = c->address->u.prefix4.s_addr;
-	} else if (!list_isempty(zvrf->rid_all_sorted_list)) {
-		node = listtail(zvrf->rid_all_sorted_list);
-		c = listgetdata(node);
-		p->u.prefix4.s_addr = c->address->u.prefix4.s_addr;
+	switch (afi) {
+	case AFI_IP:
+		p->u.prefix4.s_addr = INADDR_ANY;
+		p->family = AF_INET;
+		p->prefixlen = 32;
+		if (zvrf->rid_user_assigned.u.prefix4.s_addr != INADDR_ANY)
+			p->u.prefix4.s_addr =
+				zvrf->rid_user_assigned.u.prefix4.s_addr;
+		else if (!list_isempty(zvrf->rid_lo_sorted_list)) {
+			node = listtail(zvrf->rid_lo_sorted_list);
+			c = listgetdata(node);
+			p->u.prefix4.s_addr = c->address->u.prefix4.s_addr;
+		} else if (!list_isempty(zvrf->rid_all_sorted_list)) {
+			node = listtail(zvrf->rid_all_sorted_list);
+			c = listgetdata(node);
+			p->u.prefix4.s_addr = c->address->u.prefix4.s_addr;
+		}
+		return 0;
+	case AFI_IP6:
+		p->u.prefix6 = in6addr_any;
+		p->family = AF_INET6;
+		p->prefixlen = 128;
+		if (!router_id_v6_is_any(&zvrf->rid6_user_assigned))
+			addr = &zvrf->rid6_user_assigned.u.prefix6;
+		else if (!list_isempty(zvrf->rid6_lo_sorted_list)) {
+			node = listtail(zvrf->rid6_lo_sorted_list);
+			c = listgetdata(node);
+			addr = &c->address->u.prefix6;
+		} else if (!list_isempty(zvrf->rid6_all_sorted_list)) {
+			node = listtail(zvrf->rid6_all_sorted_list);
+			c = listgetdata(node);
+			addr = &c->address->u.prefix6;
+		}
+		if (addr)
+			memcpy(&p->u.prefix6, addr, sizeof(struct in6_addr));
+		return 0;
+	default:
+		return -1;
 	}
 }
 
-static void router_id_set(struct prefix *p, struct zebra_vrf *zvrf)
+static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 {
 	struct prefix p2;
 	struct listnode *node;
 	struct zserv *client;
 
-	zvrf->rid_user_assigned.u.prefix4.s_addr = p->u.prefix4.s_addr;
+	switch (afi) {
+	case AFI_IP:
+		zvrf->rid_user_assigned.u.prefix4.s_addr = p->u.prefix4.s_addr;
+		break;
+	case AFI_IP6:
+		zvrf->rid6_user_assigned.u.prefix6 = p->u.prefix6;
+		break;
+	default:
+		return -1;
+	}
 
-	router_id_get(&p2, zvrf);
+	router_id_get(afi, &p2, zvrf);
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
-		zsend_router_id_update(client, &p2, zvrf->vrf->vrf_id);
+		zsend_router_id_update(client, afi, &p2, zvrf->vrf->vrf_id);
+
+	return 0;
 }
 
 void router_id_add_address(struct connected *ifc)
@@ -113,27 +152,42 @@ void router_id_add_address(struct connected *ifc)
 	struct prefix after;
 	struct zserv *client;
 	struct zebra_vrf *zvrf = vrf_info_get(ifc->ifp->vrf_id);
+	afi_t afi;
+	struct list *rid_lo;
+	struct list *rid_all;
 
 	if (router_id_bad_address(ifc))
 		return;
 
-	router_id_get(&before, zvrf);
+	switch (ifc->address->family) {
+	case AF_INET:
+		afi = AFI_IP;
+		rid_lo = zvrf->rid_lo_sorted_list;
+		rid_all = zvrf->rid_all_sorted_list;
+		break;
+	case AF_INET6:
+		afi = AFI_IP6;
+		rid_lo = zvrf->rid6_lo_sorted_list;
+		rid_all = zvrf->rid6_all_sorted_list;
+		break;
+	default:
+		return;
+	}
 
-	if (if_is_loopback(ifc->ifp))
-		l = zvrf->rid_lo_sorted_list;
-	else
-		l = zvrf->rid_all_sorted_list;
+	router_id_get(afi, &before, zvrf);
+
+	l = if_is_loopback(ifc->ifp) ? rid_lo : rid_all;
 
 	if (!router_id_find_node(l, ifc))
 		listnode_add_sort(l, ifc);
 
-	router_id_get(&after, zvrf);
+	router_id_get(afi, &after, zvrf);
 
 	if (prefix_same(&before, &after))
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
-		zsend_router_id_update(client, &after, zvrf_id(zvrf));
+		zsend_router_id_update(client, afi, &after, zvrf_id(zvrf));
 }
 
 void router_id_del_address(struct connected *ifc)
@@ -145,27 +199,45 @@ void router_id_del_address(struct connected *ifc)
 	struct listnode *node;
 	struct zserv *client;
 	struct zebra_vrf *zvrf = vrf_info_get(ifc->ifp->vrf_id);
+	afi_t afi;
+	struct list *rid_lo;
+	struct list *rid_all;
 
 	if (router_id_bad_address(ifc))
 		return;
 
-	router_id_get(&before, zvrf);
+	switch (ifc->address->family) {
+	case AF_INET:
+		afi = AFI_IP;
+		rid_lo = zvrf->rid_lo_sorted_list;
+		rid_all = zvrf->rid_all_sorted_list;
+		break;
+	case AF_INET6:
+		afi = AFI_IP6;
+		rid_lo = zvrf->rid6_lo_sorted_list;
+		rid_all = zvrf->rid6_all_sorted_list;
+		break;
+	default:
+		return;
+	}
+
+	router_id_get(afi, &before, zvrf);
 
 	if (if_is_loopback(ifc->ifp))
-		l = zvrf->rid_lo_sorted_list;
+		l = rid_lo;
 	else
-		l = zvrf->rid_all_sorted_list;
+		l = rid_all;
 
 	if ((c = router_id_find_node(l, ifc)))
 		listnode_delete(l, c);
 
-	router_id_get(&after, zvrf);
+	router_id_get(afi, &after, zvrf);
 
 	if (prefix_same(&before, &after))
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
-		zsend_router_id_update(client, &after, zvrf_id(zvrf));
+		zsend_router_id_update(client, afi, &after, zvrf_id(zvrf));
 }
 
 void router_id_write(struct vty *vty, struct zebra_vrf *zvrf)
@@ -178,70 +250,147 @@ void router_id_write(struct vty *vty, struct zebra_vrf *zvrf)
 		snprintf(space, sizeof(space), "%s", " ");
 
 	if (zvrf->rid_user_assigned.u.prefix4.s_addr != INADDR_ANY) {
-		vty_out(vty, "%srouter-id %s\n", space,
-			inet_ntoa(zvrf->rid_user_assigned.u.prefix4));
+		vty_out(vty, "%sip router-id %pI4\n", space,
+			&zvrf->rid_user_assigned.u.prefix4);
+	}
+	if (!router_id_v6_is_any(&zvrf->rid6_user_assigned)) {
+		vty_out(vty, "%sipv6 router-id %pI6\n", space,
+			&zvrf->rid_user_assigned.u.prefix6);
 	}
 }
 
-DEFUN (router_id,
-       router_id_cmd,
-       "router-id A.B.C.D vrf NAME",
+DEFUN (ip_router_id,
+       ip_router_id_cmd,
+       "ip router-id A.B.C.D vrf NAME",
+       IP_STR
        "Manually set the router-id\n"
-       "IP address to use for router-id\n" VRF_CMD_HELP_STR)
+       "IP address to use for router-id\n"
+       VRF_CMD_HELP_STR)
 {
-	int idx_ipv4 = 1;
-	int idx_name = 3;
+	int idx = 0;
+	struct prefix rid;
+	vrf_id_t vrf_id;
 	struct zebra_vrf *zvrf;
 
-	struct prefix rid;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	argv_find(argv, argc, "A.B.C.D", &idx);
 
-	rid.u.prefix4.s_addr = inet_addr(argv[idx_ipv4]->arg);
-	if (!rid.u.prefix4.s_addr)
+	if (!inet_pton(AF_INET, argv[idx]->arg, &rid.u.prefix4))
 		return CMD_WARNING_CONFIG_FAILED;
 
 	rid.prefixlen = 32;
 	rid.family = AF_INET;
 
-	if (argc > 2)
-		VRF_GET_ID(vrf_id, argv[idx_name]->arg, false);
+	argv_find(argv, argc, "NAME", &idx);
+	VRF_GET_ID(vrf_id, argv[idx]->arg, false);
 
 	zvrf = vrf_info_lookup(vrf_id);
-	router_id_set(&rid, zvrf);
+	router_id_set(AFI_IP, &rid, zvrf);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (router_id_in_vrf,
-       router_id_in_vrf_cmd,
-       "router-id A.B.C.D",
+ALIAS (ip_router_id,
+       router_id_cmd,
+       "router-id A.B.C.D vrf NAME",
+       "Manually set the router-id\n"
+       "IP address to use for router-id\n"
+       VRF_CMD_HELP_STR);
+
+DEFUN (ipv6_router_id,
+       ipv6_router_id_cmd,
+       "ipv6 router-id X:X::X:X vrf NAME",
+       IPV6_STR
+       "Manually set the router-id\n"
+       "IPv6 address to use for router-id\n"
+       VRF_CMD_HELP_STR)
+{
+	int idx = 0;
+	struct prefix rid;
+	vrf_id_t vrf_id;
+	struct zebra_vrf *zvrf;
+
+	argv_find(argv, argc, "X:X::X:X", &idx);
+
+	if (!inet_pton(AF_INET6, argv[idx]->arg, &rid.u.prefix6))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	rid.prefixlen = 128;
+	rid.family = AF_INET6;
+
+	argv_find(argv, argc, "NAME", &idx);
+	VRF_GET_ID(vrf_id, argv[idx]->arg, false);
+
+	zvrf = vrf_info_lookup(vrf_id);
+	router_id_set(AFI_IP6, &rid, zvrf);
+
+	return CMD_SUCCESS;
+}
+
+
+DEFUN (ip_router_id_in_vrf,
+       ip_router_id_in_vrf_cmd,
+       "ip router-id A.B.C.D",
+       IP_STR
        "Manuall set the router-id\n"
        "IP address to use for router-id\n")
 {
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
-	int idx_ipv4 = 1;
+	int idx = 0;
 	struct prefix rid;
 
-	rid.u.prefix4.s_addr = inet_addr(argv[idx_ipv4]->arg);
-	if (!rid.u.prefix4.s_addr)
+	argv_find(argv, argc, "A.B.C.D", &idx);
+
+	if (!inet_pton(AF_INET, argv[idx]->arg, &rid.u.prefix4))
 		return CMD_WARNING_CONFIG_FAILED;
 
 	rid.prefixlen = 32;
 	rid.family = AF_INET;
 
-	router_id_set(&rid, zvrf);
+	router_id_set(AFI_IP, &rid, zvrf);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_router_id,
-       no_router_id_cmd,
-       "no router-id [A.B.C.D vrf NAME]",
-       NO_STR
-       "Remove the manually configured router-id\n"
-       "IP address to use for router-id\n" VRF_CMD_HELP_STR)
+ALIAS (ip_router_id_in_vrf,
+       router_id_in_vrf_cmd,
+       "router-id A.B.C.D",
+       "Manually set the router-id\n"
+       "IP address to use for router-id\n");
+
+DEFUN (ipv6_router_id_in_vrf,
+       ipv6_router_id_in_vrf_cmd,
+       "ipv6 router-id X:X::X:X",
+       IP6_STR
+       "Manuall set the IPv6 router-id\n"
+       "IPV6 address to use for router-id\n")
 {
-	int idx_name = 4;
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	int idx = 0;
+	struct prefix rid;
+
+	argv_find(argv, argc, "X:X::X:X", &idx);
+
+	if (!inet_pton(AF_INET6, argv[idx]->arg, &rid.u.prefix6))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	rid.prefixlen = 128;
+	rid.family = AF_INET6;
+
+	router_id_set(AFI_IP6, &rid, zvrf);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_router_id,
+       no_ip_router_id_cmd,
+       "no ip router-id [A.B.C.D vrf NAME]",
+       NO_STR
+       IP_STR
+       "Remove the manually configured router-id\n"
+       "IP address to use for router-id\n"
+       VRF_CMD_HELP_STR)
+{
+	int idx = 0;
 	struct prefix rid;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	struct zebra_vrf *zvrf;
@@ -250,19 +399,54 @@ DEFUN (no_router_id,
 	rid.prefixlen = 0;
 	rid.family = AF_INET;
 
-	if (argc > 3)
-		VRF_GET_ID(vrf_id, argv[idx_name]->arg, false);
+	if (argv_find(argv, argc, "NAME", &idx))
+		VRF_GET_ID(vrf_id, argv[idx]->arg, false);
 
-	zvrf = vrf_info_get(vrf_id);
-	router_id_set(&rid, zvrf);
+	zvrf = vrf_info_lookup(vrf_id);
+	router_id_set(AFI_IP, &rid, zvrf);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_router_id_in_vrf,
-       no_router_id_in_vrf_cmd,
-       "no router-id [A.B.C.D]",
+ALIAS (no_ip_router_id,
+       no_router_id_cmd,
+       "no router-id [A.B.C.D vrf NAME]",
        NO_STR
+       "Remove the manually configured router-id\n"
+       "IP address to use for router-id\n"
+       VRF_CMD_HELP_STR);
+
+DEFUN (no_ipv6_router_id,
+       no_ipv6_router_id_cmd,
+       "no ipv6 router-id [X:X::X:X vrf NAME]",
+       NO_STR
+       IPV6_STR
+       "Remove the manually configured IPv6 router-id\n"
+       "IPv6 address to use for router-id\n"
+       VRF_CMD_HELP_STR)
+{
+	int idx = 0;
+	struct prefix rid;
+	vrf_id_t vrf_id = VRF_DEFAULT;
+	struct zebra_vrf *zvrf;
+
+	memset(&rid, 0, sizeof(rid));
+	rid.family = AF_INET;
+
+	if (argv_find(argv, argc, "NAME", &idx))
+		VRF_GET_ID(vrf_id, argv[idx]->arg, false);
+
+	zvrf = vrf_info_lookup(vrf_id);
+	router_id_set(AFI_IP6, &rid, zvrf);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_router_id_in_vrf,
+       no_ip_router_id_in_vrf_cmd,
+       "no ip router-id [A.B.C.D]",
+       NO_STR
+       IP_STR
        "Remove the manually configured router-id\n"
        "IP address to use for router-id\n")
 {
@@ -274,40 +458,81 @@ DEFUN (no_router_id_in_vrf,
 	rid.prefixlen = 0;
 	rid.family = AF_INET;
 
-	router_id_set(&rid, zvrf);
+	router_id_set(AFI_IP, &rid, zvrf);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_router_id,
-       show_router_id_cmd,
-       "show router-id [vrf NAME]",
+ALIAS (no_ip_router_id_in_vrf,
+       no_router_id_in_vrf_cmd,
+       "no router-id [A.B.C.D]",
+       NO_STR
+       "Remove the manually configured router-id\n"
+       "IP address to use for router-id\n");
+
+DEFUN (no_ipv6_router_id_in_vrf,
+       no_ipv6_router_id_in_vrf_cmd,
+       "no ipv6 router-id [X:X::X:X]",
+       NO_STR
+       IP6_STR
+       "Remove the manually configured IPv6 router-id\n"
+       "IPv6 address to use for router-id\n")
+{
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+
+	struct prefix rid;
+
+	memset(&rid, 0, sizeof(rid));
+	rid.family = AF_INET;
+
+	router_id_set(AFI_IP6, &rid, zvrf);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_router_id,
+       show_ip_router_id_cmd,
+       "show [ip|ipv6] router-id [vrf NAME]",
        SHOW_STR
+       IP_STR
+       IPV6_STR
        "Show the configured router-id\n"
        VRF_CMD_HELP_STR)
 {
-        int idx_name = 3;
+	int idx = 0;
+	vrf_id_t vrf_id = VRF_DEFAULT;
+	struct zebra_vrf *zvrf;
+	const char *vrf_name = "default";
+	char addr_name[INET6_ADDRSTRLEN];
+	int is_ipv6 = 0;
 
-        vrf_id_t vrf_id = VRF_DEFAULT;
-        struct zebra_vrf *zvrf;
+	is_ipv6 = argv_find(argv, argc, "ipv6", &idx);
 
-        if (argc > 2)
-                VRF_GET_ID(vrf_id, argv[idx_name]->arg, false);
+	if (argv_find(argv, argc, "NAME", &idx)) {
+		VRF_GET_ID(vrf_id, argv[idx]->arg, false);
+		vrf_name = argv[idx]->arg;
+	}
 
-        zvrf = vrf_info_get(vrf_id);
+	zvrf = vrf_info_get(vrf_id);
 
-        if ((zvrf != NULL) && (zvrf->rid_user_assigned.u.prefix4.s_addr)) {
-                vty_out(vty, "zebra:\n");
-                if (vrf_id == VRF_DEFAULT)
-                        vty_out(vty, "     router-id %s vrf default\n",
-                                inet_ntoa(zvrf->rid_user_assigned.u.prefix4));
-                else
-                        vty_out(vty, "     router-id %s vrf %s\n",
-                                inet_ntoa(zvrf->rid_user_assigned.u.prefix4),
-                                argv[idx_name]->arg);
-        }
+	if (zvrf != NULL) {
+		if (is_ipv6) {
+			if (router_id_v6_is_any(&zvrf->rid6_user_assigned))
+				return CMD_SUCCESS;
+			inet_ntop(AF_INET6, &zvrf->rid6_user_assigned.u.prefix6,
+				  addr_name, sizeof(addr_name));
+		} else {
+			if (zvrf->rid_user_assigned.u.prefix4.s_addr == 0)
+				return CMD_SUCCESS;
+			inet_ntop(AF_INET, &zvrf->rid_user_assigned.u.prefix4,
+				  addr_name, sizeof(addr_name));
+		}
 
-        return CMD_SUCCESS;
+		vty_out(vty, "zebra:\n");
+		vty_out(vty, "     router-id %s vrf %s\n", addr_name, vrf_name);
+	}
+
+	return CMD_SUCCESS;
 }
 
 static int router_id_cmp(void *a, void *b)
@@ -319,30 +544,62 @@ static int router_id_cmp(void *a, void *b)
 			     &ifb->address->u.prefix4.s_addr);
 }
 
+static int router_id_v6_cmp(void *a, void *b)
+{
+	const struct connected *ifa = (const struct connected *)a;
+	const struct connected *ifb = (const struct connected *)b;
+
+	return IPV6_ADDR_CMP(&ifa->address->u.prefix6,
+			     &ifb->address->u.prefix6);
+}
+
 void router_id_cmd_init(void)
 {
+	install_element(CONFIG_NODE, &ip_router_id_cmd);
 	install_element(CONFIG_NODE, &router_id_cmd);
+	install_element(CONFIG_NODE, &ipv6_router_id_cmd);
+	install_element(CONFIG_NODE, &no_ip_router_id_cmd);
 	install_element(CONFIG_NODE, &no_router_id_cmd);
+	install_element(CONFIG_NODE, &ip_router_id_in_vrf_cmd);
+	install_element(VRF_NODE, &ip_router_id_in_vrf_cmd);
 	install_element(CONFIG_NODE, &router_id_in_vrf_cmd);
 	install_element(VRF_NODE, &router_id_in_vrf_cmd);
+	install_element(CONFIG_NODE, &ipv6_router_id_in_vrf_cmd);
+	install_element(VRF_NODE, &ipv6_router_id_in_vrf_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_router_id_cmd);
+	install_element(CONFIG_NODE, &no_ip_router_id_in_vrf_cmd);
+	install_element(VRF_NODE, &no_ip_router_id_in_vrf_cmd);
 	install_element(CONFIG_NODE, &no_router_id_in_vrf_cmd);
 	install_element(VRF_NODE, &no_router_id_in_vrf_cmd);
-	install_element(VIEW_NODE, &show_router_id_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_router_id_in_vrf_cmd);
+	install_element(VRF_NODE, &no_ipv6_router_id_in_vrf_cmd);
+	install_element(VIEW_NODE, &show_ip_router_id_cmd);
 }
 
 void router_id_init(struct zebra_vrf *zvrf)
 {
 	zvrf->rid_all_sorted_list = &zvrf->_rid_all_sorted_list;
 	zvrf->rid_lo_sorted_list = &zvrf->_rid_lo_sorted_list;
+	zvrf->rid6_all_sorted_list = &zvrf->_rid6_all_sorted_list;
+	zvrf->rid6_lo_sorted_list = &zvrf->_rid6_lo_sorted_list;
 
 	memset(zvrf->rid_all_sorted_list, 0,
 	       sizeof(zvrf->_rid_all_sorted_list));
 	memset(zvrf->rid_lo_sorted_list, 0, sizeof(zvrf->_rid_lo_sorted_list));
 	memset(&zvrf->rid_user_assigned, 0, sizeof(zvrf->rid_user_assigned));
+	memset(zvrf->rid6_all_sorted_list, 0,
+	       sizeof(zvrf->_rid6_all_sorted_list));
+	memset(zvrf->rid6_lo_sorted_list, 0,
+	       sizeof(zvrf->_rid6_lo_sorted_list));
+	memset(&zvrf->rid6_user_assigned, 0, sizeof(zvrf->rid6_user_assigned));
 
 	zvrf->rid_all_sorted_list->cmp = router_id_cmp;
 	zvrf->rid_lo_sorted_list->cmp = router_id_cmp;
+	zvrf->rid6_all_sorted_list->cmp = router_id_v6_cmp;
+	zvrf->rid6_lo_sorted_list->cmp = router_id_v6_cmp;
 
 	zvrf->rid_user_assigned.family = AF_INET;
 	zvrf->rid_user_assigned.prefixlen = 32;
+	zvrf->rid6_user_assigned.family = AF_INET6;
+	zvrf->rid6_user_assigned.prefixlen = 128;
 }

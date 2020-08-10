@@ -1050,23 +1050,34 @@ Many routing protocols require a router-id to be configured. To have a
 consistent router-id across all daemons, the following commands are available
 to configure and display the router-id:
 
-.. index:: [no] router-id A.B.C.D
-.. clicmd:: [no] router-id A.B.C.D
+.. index:: [no] [ip] router-id A.B.C.D
+.. clicmd:: [no] [ip] router-id A.B.C.D
 
    Allow entering of the router-id.  This command also works under the
-   vrf subnode, to allow router-id's per vrf. 
+   vrf subnode, to allow router-id's per vrf.
 
-.. index:: [no] router-id A.B.C.D vrf NAME
-.. clicmd:: [no] router-id A.B.C.D vrf NAME
+.. index:: [no] [ip] router-id A.B.C.D vrf NAME
+.. clicmd:: [no] [ip] router-id A.B.C.D vrf NAME
 
    Configure the router-id of this router from the configure NODE.
    A show run of this command will display the router-id command
    under the vrf sub node.  This command is deprecated and will
    be removed at some point in time in the future.
- 
-.. index:: show router-id [vrf NAME]
-.. clicmd:: show router-id [vrf NAME]
+
+.. index:: show [ip] router-id [vrf NAME]
+.. clicmd:: show [ip] router-id [vrf NAME]
 
    Display the user configured router-id.
 
+For protocols requiring an IPv6 router-id, the following commands are available:
 
+.. index:: [no] ipv6 router-id X:X::X:X
+.. clicmd:: [no] ipv6 router-id X:X::X:X
+
+   Configure the IPv6 router-id of this router. Like its IPv4 counterpart,
+   this command works under the vrf subnode, to allow router-id's per vrf.
+
+.. index:: show ipv6 router-id [vrf NAME]
+.. clicmd:: show ipv6 router-id [vrf NAME]
+
+   Display the user configured IPv6 router-id.

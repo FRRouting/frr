@@ -659,6 +659,9 @@ extern void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);
+extern int zclient_send_router_id_update(struct zclient *zclient,
+					 zebra_message_types_t type, afi_t afi,
+					 vrf_id_t vrf_id);
 
 extern void zclient_send_interface_radv_req(struct zclient *zclient,
 					    vrf_id_t vrf_id,
