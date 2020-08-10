@@ -271,7 +271,7 @@ static int zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 	if (!zvrf)
 		return 0;
 
-	zevpn = zevpn_lookup(mac->zevpn->vni);
+	zevpn = zebra_evpn_lookup(mac->zevpn->vni);
 	if (!zevpn)
 		return 0;
 

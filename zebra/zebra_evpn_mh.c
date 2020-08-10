@@ -349,7 +349,7 @@ void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj, vni_t vni, int detail)
 	json_object *json = NULL;
 	zebra_evpn_t *zevpn;
 
-	zevpn = zevpn_lookup(vni);
+	zevpn = zebra_evpn_lookup(vni);
 	if (zevpn) {
 		if (!detail && !json) {
 			vty_out(vty, "Type: L local, R remote\n");
@@ -557,7 +557,7 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, struct zebra_if *vxlan_zif)
 		return;
 
 	old_zevpn = acc_bd->zevpn;
-	acc_bd->zevpn = zevpn_lookup(vxlan_zif->l2info.vxl.vni);
+	acc_bd->zevpn = zebra_evpn_lookup(vxlan_zif->l2info.vxl.vni);
 	if (acc_bd->zevpn == old_zevpn)
 		return;
 
