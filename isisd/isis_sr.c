@@ -1055,7 +1055,7 @@ static void parse_prefix_sid_subtlvs(struct sr_node *srn,
 			    || srp->sid.value != psid->value) {
 				srp->sid = *psid;
 				srp->state = SRDB_STATE_MODIFIED;
-			} else
+			} else if (srp->state == SRDB_STATE_VALIDATED)
 				srp->state = SRDB_STATE_UNCHANGED;
 			sr_debug("  |- Found %s Prefix-SID %pFX",
 				 srp->state == SRDB_STATE_MODIFIED
