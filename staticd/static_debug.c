@@ -34,13 +34,16 @@
 
 /* clang-format off */
 struct debug static_dbg_events = {0, "Staticd events"};
+struct debug static_dbg_route = {0, "Staticd route"};
 
 struct debug *static_debug_arr[] =  {
-	&static_dbg_events
+	&static_dbg_events,
+	&static_dbg_route
 };
 
 const char *static_debugs_conflines[] = {
-	"debug static events"
+	"debug static events",
+	"debug static route"
 };
 /* clang-format on */
 
@@ -102,12 +105,14 @@ int static_debug_status_write(struct vty *vty)
  *    Debug general internal events
  *
  */
-void static_debug_set(int vtynode, bool onoff, bool events)
+void static_debug_set(int vtynode, bool onoff, bool events, bool route)
 {
 	uint32_t mode = DEBUG_NODE2MODE(vtynode);
 
 	if (events)
 		DEBUG_MODE_SET(&static_dbg_events, mode, onoff);
+	if (route)
+		DEBUG_MODE_SET(&static_dbg_route, mode, onoff);
 }
 
 /*

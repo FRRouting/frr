@@ -42,8 +42,7 @@
 #include "static_zebra.h"
 #include "static_nht.h"
 #include "static_vty.h"
-
-bool debug;
+#include "static_debug.h"
 
 /* Zebra structure to hold current status. */
 struct zclient *zclient;
@@ -313,9 +312,9 @@ void static_zebra_nht_register(struct route_node *rn, struct static_nexthop *nh,
 				static_nht_hash_alloc);
 		nhtd->refcount++;
 
-		if (debug)
-			zlog_debug("Registered nexthop(%pFX) for %pRN %d", &p,
-				   rn, nhtd->nh_num);
+		DEBUGD(&static_dbg_route,
+		       "Registered nexthop(%pFX) for %pRN %d", &p, rn,
+		       nhtd->nh_num);
 		if (nhtd->refcount > 1 && nhtd->nh_num) {
 			static_nht_update(&rn->p, nhtd->nh, nhtd->nh_num, afi,
 					  nh->nh_vrf_id);

@@ -1124,19 +1124,17 @@ DEFPY_YANG(ipv6_route_vrf,
 				 ifname, flag, tag_str, distance_str, label,
 				 table_str, false, color_str);
 }
-DEFPY_YANG(debug_staticd,
-      debug_staticd_cmd,
-      "[no] debug static [{events$events}]",
-      NO_STR
-      DEBUG_STR
-      STATICD_STR
-      "Debug events\n")
+DEFPY_YANG(debug_staticd, debug_staticd_cmd,
+	   "[no] debug static [{events$events|route$route}]",
+	   NO_STR DEBUG_STR STATICD_STR
+	   "Debug events\n"
+	   "Debug route\n")
 {
 	/* If no specific category, change all */
 	if (strmatch(argv[argc - 1]->text, "static"))
-		static_debug_set(vty->node, !no, true);
+		static_debug_set(vty->node, !no, true, true);
 	else
-		static_debug_set(vty->node, !no, !!events);
+		static_debug_set(vty->node, !no, !!events, !!route);
 
 	return CMD_SUCCESS;
 }
