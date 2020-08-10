@@ -1,13 +1,6 @@
 frr (7.4-1) unstable; urgency=medium
 
   [ Ondřej Surý ]
-  * Add myself to Uploaders
-  * Add d/gbp.conf
-  * Update changelog for 7.3.1-1~1.gbp2292a4 release
-  * Change the source format from git to quilt to use git-buildpackage
-  * Don't install frr-doc texinfo images, they are gone (Closes: #955067)
-  * Bump the dh_compat to 10
-  * Update changelog for 7.3.1-1 release
   * Use dh_installinit capabilities to install frr.tmpfile
   * Remove unused debian/watchfrr.rc file
   * Add missing lsof dependency
@@ -15,11 +8,14 @@ frr (7.4-1) unstable; urgency=medium
   * Make lsb-base a hard dependency
   * Update gbp.conf for 7.4 release
   * Update and simplify d/watch
-  * Update changelog for 7.4-1~1.gbpffddd0 release
   * Change the debian source format from 3.0 (git) to 3.0 (quilt)
   * Convert the package to dh compat level 10
   * Add myself to Uploaders
   * Bump standards version to 4.5.0.2 (latest) - no change
   * Use wrap-and-sort -a to unify debian/ wrapping and sorting
+  * Work around the sphinx-build error that doesn't copy images to texinfo
+    (Properly closes: #955067)
+  * Depend on debhelper >= 9.20160709 and drop dh-systemd dependency
+    (Closes: #958626)
 
- -- Ondřej Surý <ondrej@debian.org>  Thu, 06 Aug 2020 09:30:29 +0200
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 10 Aug 2020 11:50:45 +0200
