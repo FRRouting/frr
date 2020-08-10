@@ -15,6 +15,7 @@ user_RSTFILES = \
 	doc/user/filter.rst \
 	doc/user/frr-reload.rst \
 	doc/user/glossary.rst \
+	doc/user/grpc.rst \
 	doc/user/index.rst \
 	doc/user/installation.rst \
 	doc/user/ipv6.rst \

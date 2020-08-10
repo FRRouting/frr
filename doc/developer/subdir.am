@@ -28,6 +28,7 @@ dev_RSTFILES = \
 	doc/developer/cli.rst \
 	doc/developer/conf.py \
 	doc/developer/frr-release-procedure.rst \
+	doc/developer/grpc.rst \
 	doc/developer/hooks.rst \
 	doc/developer/include-compile.rst \
 	doc/developer/index.rst \
