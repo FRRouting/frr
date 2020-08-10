@@ -1390,17 +1390,28 @@ DEFUN (show_isis_summary,
 					" (not used, IETF SPF delay activated)");
 			vty_out(vty, "\n");
 
-			vty_out(vty, "    IPv4 route computation:\n");
-			isis_spf_print(area->spftree[SPFTREE_IPV4][level - 1],
-				       vty);
+			if (area->ip_circuits) {
+				vty_out(vty, "    IPv4 route computation:\n");
+				isis_spf_print(
+					area->spftree[SPFTREE_IPV4][level - 1],
+					vty);
+			}
 
-			vty_out(vty, "    IPv6 route computation:\n");
-			isis_spf_print(area->spftree[SPFTREE_IPV6][level - 1],
-				       vty);
+			if (area->ipv6_circuits) {
+				vty_out(vty, "    IPv6 route computation:\n");
+				isis_spf_print(
+					area->spftree[SPFTREE_IPV6][level - 1],
+					vty);
+			}
 
-			vty_out(vty, "    IPv6 dst-src route computation:\n");
-			isis_spf_print(area->spftree[SPFTREE_DSTSRC][level-1],
-				       vty);
+			if (area->ipv6_circuits
+			    && isis_area_ipv6_dstsrc_enabled(area)) {
+				vty_out(vty,
+					"    IPv6 dst-src route computation:\n");
+				isis_spf_print(area->spftree[SPFTREE_DSTSRC]
+							    [level - 1],
+					       vty);
+			}
 		}
 	}
 	vty_out(vty, "\n");
