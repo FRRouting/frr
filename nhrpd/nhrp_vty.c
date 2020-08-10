@@ -412,10 +412,15 @@ DEFUN(tunnel_protection, tunnel_protection_cmd,
 }
 
 DEFUN(no_tunnel_protection, no_tunnel_protection_cmd,
-	"no tunnel protection",
+	"no tunnel protection [vici profile PROFILE [fallback-profile FALLBACK]]",
 	NO_STR
 	"NHRP/GRE integration\n"
-	"IPsec protection\n")
+	"IPsec protection\n"
+	"VICI (StrongSwan)\n"
+	"IPsec profile\n"
+	"IPsec profile name\n"
+	"Fallback IPsec profile\n"
+	"Fallback IPsec profile name\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
@@ -440,10 +445,12 @@ DEFUN(tunnel_source, tunnel_source_cmd,
 }
 
 DEFUN(no_tunnel_source, no_tunnel_source_cmd,
-	"no tunnel source",
+	"no tunnel source [INTERFACE [vrf VRFNAME]]",
+	NO_STR
 	"NHRP/GRE integration\n"
 	"Tunnel device binding tracking\n"
-	"Interface name\n")
+	"Interface name\n"
+	VRF_CMD_HELP_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	nhrp_interface_set_source(ifp, NULL, NULL);
