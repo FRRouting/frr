@@ -341,7 +341,7 @@ pim_sec_addr_find(struct pim_interface *pim_ifp, struct prefix *addr)
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
-		if (prefix_cmp(&sec_addr->addr, addr)) {
+		if (prefix_cmp(&sec_addr->addr, addr) == 0) {
 			return sec_addr;
 		}
 	}
