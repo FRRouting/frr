@@ -6,7 +6,7 @@ Uploaders: FRRouting-dev <dev@lists.frrouting.org>,
            Ondřej Surý <ondrej@debian.org>
 Build-Depends: bison,
                chrpath,
-               debhelper (>= 9.20150101),
+               debhelper (>= 9.20160709~),
                flex,
                gawk,
                install-info,
