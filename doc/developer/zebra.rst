@@ -382,3 +382,73 @@ Zebra Protocol Commands
 +------------------------------------+-------+
 | ZEBRA_OPAQUE_UNREGISTER            | 109   |
 +------------------------------------+-------+
+
+Dataplane batching
+=========================
+
+Dataplane batching is an optimization feature that reduces the processing 
+time involved in the user space to kernel space transition for every message we
+want to send.
+
+Design
+-----------
+
+With our dataplane abstraction, we create a queue of dataplane context objects
+for the messages we want to send to the kernel. In a separate pthread, we
+loop over this queue and send the context objects to the appropriate
+dataplane. A batching enhancement tightly integrates with the dataplane
+context objects so they are able to be batch sent to dataplanes that support
+it. 
+
+There is one main change in the dataplane code. It does not call
+kernel-dependent functions one-by-one, but instead it hands a list of work down
+to the kernel level for processing.
+
+Netlink
+^^^^^^^
+
+At the moment, this is the only dataplane that allows for batch sending
+messages to it.
+
+When messages must be sent to the kernel, they are consecutively added
+to the batch represented by the `struct nl_batch`. Context objects are firstly
+encoded to their binary representation. All the encoding functions use the same
+interface: take a context object, a buffer and a size of the buffer as an
+argument. It is important that they should handle a situation in which a message
+wouldn't fit in the buffer and return a proper error. To achieve a zero-copy
+(in the user space only) messages are encoded to the same buffer which will
+be passed to the kernel. Hence, we can theoretically hit the boundary of the
+buffer.
+
+Messages stored in the batch are sent if one of the conditions occurs:
+
+- When an encoding function returns the buffer overflow error. The context
+  object that caused this error is re-added to the new, empty batch.
+
+- When the size of the batch hits certain limit.
+
+- When the namespace of a currently being processed context object is
+  different from all the previous ones. They have to be sent through
+  distinct sockets, so the messages cannot share the same buffer.
+
+- After the last message from the list is processed.
+
+As mentioned earlier, there is a special threshold which is smaller than
+the size of the underlying buffer. It prevents the overflow error and thus
+eliminates the case, in which a message is encoded twice. 
+
+The buffer used in the batching is global, since allocating that big amount of
+memory every time wouldn't be most effective. However, its size can be changed
+dynamically, using hidden vtysh command: 
+``zebra kernel netlink batch-tx-buf (1-1048576) (1-1048576)``. This feature is
+only used in tests and shouldn't be utilized in any other place.
+
+For every failed message in the batch, the kernel responds with an error
+message. Error messages are kept in the same order as they were sent, so parsing the
+response is straightforward. We use the two pointer technique to match
+requests with responses and then set appropriate status of dataplane context
+objects. There is also a global receive buffer and it is assumed that whatever
+the kernel sends it will fit in this buffer. The payload of netlink error messages
+consists of a error code and the original netlink message of the request, so
+the batch response won't be bigger than the batch request increased by 
+some space for the headers.
