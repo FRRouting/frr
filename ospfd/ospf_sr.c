@@ -1048,32 +1048,25 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		}
 		/* update LSA ID */
 		srn->instance = ntohl(lsah->id.s_addr);
-		/* Copy SRGB */
-		srn->srgb.range_size = srgb.range_size;
-		srn->srgb.lower_bound = srgb.lower_bound;
-		/* Set Algorithm */
-		if (algo != NULL) {
-			int i;
-			for (i = 0; i < ntohs(algo->header.length); i++)
-				srn->algo[i] = algo->value[0];
-			for (; i < ALGORITHM_COUNT; i++)
-				srn->algo[i] = SR_ALGORITHM_UNSET;
-		} else {
-			srn->algo[0] = SR_ALGORITHM_SPF;
-		}
-		/* set MSD */
-		srn->msd = msd;
-		return;
 	}
 
-	/* Check if SRGB has changed */
-	if ((srn->srgb.range_size == srgb.range_size)
-	    && (srn->srgb.lower_bound == srgb.lower_bound))
-		return;
+	/* Set Algorithm */
+	if (algo != NULL) {
+		int i;
+		for (i = 0; i < ntohs(algo->header.length); i++)
+			srn->algo[i] = algo->value[0];
+		for (; i < ALGORITHM_COUNT; i++)
+			srn->algo[i] = SR_ALGORITHM_UNSET;
+	} else {
+		srn->algo[0] = SR_ALGORITHM_SPF;
+	}
 
-	/* Update SRGB ... */
+	srn->msd = msd;
+
+	/* Copy SRGB */
 	srn->srgb.range_size = srgb.range_size;
 	srn->srgb.lower_bound = srgb.lower_bound;
+
 	/* ... and NHLFE if it is a neighbor SR node */
 	if (srn->neighbor == OspfSR.self)
 		hash_iterate(OspfSR.neighbors, update_out_nhlfe, srn);
