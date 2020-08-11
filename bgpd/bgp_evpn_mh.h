@@ -29,7 +29,6 @@
 #define BGP_EVPN_AD_EVI_ETH_TAG 0
 
 #define BGP_EVPNES_INCONS_STR_SZ 80
-#define BGP_EVPN_FLAG_STR_SZ 5
 #define BGP_EVPN_VTEPS_FLAG_STR_SZ (BGP_EVPN_FLAG_STR_SZ * ES_VTEP_MAX_CNT)
 
 #define BGP_EVPN_CONS_CHECK_INTERVAL 60
@@ -62,6 +61,10 @@ struct bgp_evpn_es {
 #define BGP_EVPNES_ADV_EVI         (1 << 3)
 	/* consistency checks pending */
 #define BGP_EVPNES_CONS_CHECK_PEND (1 << 4)
+	/* ES is in LACP bypass mode - don't advertise EAD-ES or ESR */
+#define BGP_EVPNES_BYPASS (1 << 5)
+	/* bits needed for printing the flags + null */
+#define BGP_EVPN_FLAG_STR_SZ 7
 
 	/* memory used for adding the es to bgp->es_rb_tree */
 	RB_ENTRY(bgp_evpn_es) rb_node;
@@ -340,7 +343,7 @@ int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		uint32_t addpath_id);
 extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 				 struct in_addr originator_ip, bool oper_up,
-				 uint16_t df_pref);
+				 uint16_t df_pref, bool bypass);
 extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi);
 extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni);

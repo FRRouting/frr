@@ -1621,20 +1621,17 @@ static void bgp_evpn_es_remote_info_re_eval(struct bgp_evpn_es *es)
 	}
 }
 
-/* Process ES link oper-down by withdrawing ES-EAD and ESR */
-static void bgp_evpn_local_es_down(struct bgp *bgp,
-		struct bgp_evpn_es *es)
+static inline bool bgp_evpn_local_es_is_active(struct bgp_evpn_es *es)
+{
+	return (es->flags & BGP_EVPNES_OPER_UP)
+	       && !(es->flags & BGP_EVPNES_BYPASS);
+}
+
+static void bgp_evpn_local_es_deactivate(struct bgp *bgp,
+					 struct bgp_evpn_es *es)
 {
 	struct prefix_evpn p;
 	int ret;
-
-	if (!CHECK_FLAG(es->flags, BGP_EVPNES_OPER_UP))
-		return;
-
-	UNSET_FLAG(es->flags, BGP_EVPNES_OPER_UP);
-
-	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-		zlog_debug("local es %s down", es->esi_str);
 
 	/* withdraw ESR */
 	/* Delete and withdraw locally learnt ES route */
@@ -1661,21 +1658,28 @@ static void bgp_evpn_local_es_down(struct bgp *bgp,
 	}
 }
 
-/* Process ES link oper-up by generating ES-EAD and ESR */
-static void bgp_evpn_local_es_up(struct bgp *bgp, struct bgp_evpn_es *es,
-				 bool regen_esr)
+/* Process ES link oper-down by withdrawing ES-EAD and ESR */
+static void bgp_evpn_local_es_down(struct bgp *bgp, struct bgp_evpn_es *es)
+{
+	bool old_active;
+
+	if (!CHECK_FLAG(es->flags, BGP_EVPNES_OPER_UP))
+		return;
+
+	old_active = bgp_evpn_local_es_is_active(es);
+	UNSET_FLAG(es->flags, BGP_EVPNES_OPER_UP);
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("local es %s down", es->esi_str);
+
+	if (old_active)
+		bgp_evpn_local_es_deactivate(bgp, es);
+}
+
+static void bgp_evpn_local_es_activate(struct bgp *bgp, struct bgp_evpn_es *es,
+				       bool regen_ead, bool regen_esr)
 {
 	struct prefix_evpn p;
-	bool regen_ead = false;
-
-	if (!CHECK_FLAG(es->flags, BGP_EVPNES_OPER_UP)) {
-		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-			zlog_debug("local es %s up", es->esi_str);
-
-		SET_FLAG(es->flags, BGP_EVPNES_OPER_UP);
-		regen_esr = true;
-		regen_ead = true;
-	}
 
 	if (regen_esr) {
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
@@ -1698,6 +1702,61 @@ static void bgp_evpn_local_es_up(struct bgp *bgp, struct bgp_evpn_es *es,
 		build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi,
 					es->originator_ip);
 		bgp_evpn_type1_route_update(bgp, es, NULL, &p);
+	}
+}
+
+/* Process ES link oper-up by generating ES-EAD and ESR */
+static void bgp_evpn_local_es_up(struct bgp *bgp, struct bgp_evpn_es *es,
+				 bool regen_esr)
+{
+	bool regen_ead = false;
+	bool active = false;
+
+	if (!CHECK_FLAG(es->flags, BGP_EVPNES_OPER_UP)) {
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+			zlog_debug("local es %s up", es->esi_str);
+
+		SET_FLAG(es->flags, BGP_EVPNES_OPER_UP);
+		regen_esr = true;
+		regen_ead = true;
+	}
+
+	active = bgp_evpn_local_es_is_active(es);
+	if (active && (regen_ead || regen_esr))
+		bgp_evpn_local_es_activate(bgp, es, regen_ead, regen_esr);
+}
+
+/* If an ethernet segment is in LACP bypass we cannot advertise
+ * reachability to it i.e. EAD-per-ES and ESR is not advertised in
+ * bypass state.
+ * PS: EAD-per-EVI will continue to be advertised
+ */
+static void bgp_evpn_local_es_bypass_update(struct bgp *bgp,
+					    struct bgp_evpn_es *es, bool bypass)
+{
+	bool old_bypass = !!(es->flags & BGP_EVPNES_BYPASS);
+	bool old_active;
+	bool new_active;
+
+	if (bypass == old_bypass)
+		return;
+
+	old_active = bgp_evpn_local_es_is_active(es);
+	if (bypass)
+		SET_FLAG(es->flags, BGP_EVPNES_BYPASS);
+	else
+		UNSET_FLAG(es->flags, BGP_EVPNES_BYPASS);
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("local es %s bypass %s", es->esi_str,
+			   bypass ? "set" : "clear");
+
+	new_active = bgp_evpn_local_es_is_active(es);
+	if (old_active != new_active) {
+		if (new_active)
+			bgp_evpn_local_es_activate(bgp, es, true, true);
+		else
+			bgp_evpn_local_es_deactivate(bgp, es);
 	}
 }
 
@@ -1757,7 +1816,7 @@ int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi)
  */
 int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 			  struct in_addr originator_ip, bool oper_up,
-			  uint16_t df_pref)
+			  uint16_t df_pref, bool bypass)
 {
 	char buf[ESI_STR_LEN];
 	struct bgp_evpn_es *es;
@@ -1780,8 +1839,9 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 	}
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-		zlog_debug("add local es %s orig-ip %pI4 df_pref %u", es->esi_str,
-			   &originator_ip, df_pref);
+		zlog_debug("add local es %s orig-ip %pI4 df_pref %u %s",
+			   es->esi_str, &originator_ip, df_pref,
+			   bypass ? "bypass" : "");
 
 	es->originator_ip = originator_ip;
 	if (df_pref != es->df_pref) {
@@ -1801,6 +1861,8 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 	 */
 	if (bgp_mh_info->ead_evi_adv_for_down_links)
 		bgp_evpn_local_type1_evi_route_add(bgp, es);
+
+	bgp_evpn_local_es_bypass_update(bgp, es, bypass);
 
 	/* If the ES link is operationally up generate EAD-ES. EAD-EVI
 	 * can be generated even if the link is inactive.
@@ -1952,6 +2014,8 @@ static void bgp_evpn_es_show_entry(struct vty *vty,
 		char vtep_str[ES_VTEP_LIST_STR_SZ + BGP_EVPN_VTEPS_FLAG_STR_SZ];
 
 		type_str[0] = '\0';
+		if (es->flags & BGP_EVPNES_BYPASS)
+			strlcat(type_str, "B", sizeof(type_str));
 		if (es->flags & BGP_EVPNES_LOCAL)
 			strlcat(type_str, "L", sizeof(type_str));
 		if (es->flags & BGP_EVPNES_REMOTE)
@@ -1986,13 +2050,17 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 
 		/* Add the "brief" info first */
 		bgp_evpn_es_show_entry(vty, es, json);
-		if (es->flags & (BGP_EVPNES_OPER_UP | BGP_EVPNES_ADV_EVI)) {
+		if (es->flags
+		    & (BGP_EVPNES_OPER_UP | BGP_EVPNES_ADV_EVI
+		       | BGP_EVPNES_BYPASS)) {
 			json_flags = json_object_new_array();
 			if (es->flags & BGP_EVPNES_OPER_UP)
 				json_array_string_add(json_flags, "up");
 			if (es->flags & BGP_EVPNES_ADV_EVI)
 				json_array_string_add(json_flags,
 						"advertiseEVI");
+			if (es->flags & BGP_EVPNES_BYPASS)
+				json_array_string_add(json_flags, "bypass");
 			json_object_object_add(json, "flags", json_flags);
 		}
 		json_object_string_add(json, "originator_ip",
@@ -2045,6 +2113,8 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		if (es->flags & BGP_EVPNES_LOCAL)
 			vty_out(vty, " Local ES DF preference: %u\n",
 				es->df_pref);
+		if (es->flags & BGP_EVPNES_BYPASS)
+			vty_out(vty, " LACP bypass: on\n");
 		vty_out(vty, " VNI Count: %d\n", listcount(es->es_evi_list));
 		vty_out(vty, " Remote VNI Count: %d\n",
 				es->remote_es_evi_cnt);
@@ -2084,7 +2154,7 @@ void bgp_evpn_es_show(struct vty *vty, bool uj, bool detail)
 	} else {
 		if (!detail) {
 			vty_out(vty,
-				"ES Flags: L local, R remote, I inconsistent\n");
+				"ES Flags: B - bypass, L local, R remote, I inconsistent\n");
 			vty_out(vty,
 				"VTEP Flags: E ESR/Type-4, A active nexthop\n");
 			vty_out(vty,
@@ -2973,7 +3043,7 @@ static void bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi)
 
 	if (bgp) {
 		/* update EAD-ES with new list of VNIs */
-		if (CHECK_FLAG(es->flags, BGP_EVPNES_OPER_UP)) {
+		if (bgp_evpn_local_es_is_active(es)) {
 			build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG,
 					&es->esi, es->originator_ip);
 			if (bgp_evpn_type1_route_update(bgp, es, NULL, &p))
@@ -3098,7 +3168,7 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
 	/* update EAD-ES */
 	build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG,
 			&es->esi, es->originator_ip);
-	if (CHECK_FLAG(es->flags, BGP_EVPNES_OPER_UP)) {
+	if (bgp_evpn_local_es_is_active(es)) {
 		if (bgp_evpn_type1_route_update(bgp, es, NULL, &p))
 			flog_err(EC_BGP_EVPN_ROUTE_CREATE,
 					"%u: EAD-ES route creation failure for ESI %s VNI %u",
