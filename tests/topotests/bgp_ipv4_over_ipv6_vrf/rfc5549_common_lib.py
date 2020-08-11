@@ -23,11 +23,10 @@
 
 """ These procedures are used in 5549 automation and are local"""
 
-from lib.common_config import (
-    get_frr_ipv6_linklocal,
-)
+from lib.common_config import get_frr_ipv6_linklocal
 from lib.topogen import get_topogen
 from lib.topolog import logger
+
 
 def get_llip(topo, onrouter, intf, vrf=None):
     """
@@ -81,10 +80,8 @@ def get_glipv6(topo, onrouter, intf, addr_type="ipv6"):
     1) global ipv4/ipv6 address from the interface.
     2) None when nexthop not found.
     """
-    glipv6 = (topo["routers"][onrouter]["links"]
-              [intf][addr_type]).split("/")[0]
+    glipv6 = (topo["routers"][onrouter]["links"][intf][addr_type]).split("/")[0]
     if glipv6:
-        logger.info("Global %s address to be set as NH is %s", addr_type,
-                    glipv6)
+        logger.info("Global %s address to be set as NH is %s", addr_type, glipv6)
         return glipv6
     return None

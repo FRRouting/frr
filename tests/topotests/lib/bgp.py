@@ -43,6 +43,7 @@ from lib.common_config import (
     run_frr_cmd,
     FRRCFG_FILE,
     retry,
+    get_frr_ipv6_linklocal
 )
 
 LOGDIR = "/tmp/topotests/"
@@ -263,6 +264,19 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
     if router_id:
         config_data.append("bgp router-id {}".format(router_id))
 
+    default_ipv4_unicast = bgp_data.setdefault(
+        "default_ipv4_unicast", True)
+
+    if default_ipv4_unicast == 'False' or default_ipv4_unicast == 'false':
+        config_data.append("no bgp default ipv4-unicast")
+
+    bgp_peer_grp_data = bgp_data.setdefault("peer-group", {})
+
+    if "peer-group" in bgp_data and bgp_peer_grp_data:
+        peer_grp_data = __create_bgp_peer_group(
+            tgen, bgp_peer_grp_data, router)
+        config_data.extend(peer_grp_data)
+
     config_data.append("no bgp network import-check")
 
     bst_path = bgp_data.setdefault("bestpath", None)
@@ -393,6 +407,7 @@ def __create_bgp_unicast_neighbor(
             del_action = advertise_network_dict.setdefault("delete", False)
 
             # Generating IPs for verification
+            prefix = str(ipaddress.ip_network(unicode(network[0])).prefixlen)
             network_list = generate_ips(network, no_of_network)
             for ip in network_list:
                 ip = str(ipaddress.ip_network(frr_unicode(ip)))
@@ -402,6 +417,16 @@ def __create_bgp_unicast_neighbor(
                     cmd = "no {}".format(cmd)
 
                 config_data.append(cmd)
+
+        import_cmd = addr_data.setdefault("import", {})
+        if import_cmd:
+            try:
+                if import_cmd['delete']:
+                    config_data.append("no import vrf {}".format(import_cmd[
+                        'vrf']))
+            except KeyError:
+                config_data.append("import vrf {}".format(import_cmd['vrf']))
+
 
         max_paths = addr_data.setdefault("maximum_paths", {})
         if max_paths:
@@ -648,6 +673,41 @@ def __create_l2vpn_evpn_address_family(
     return config_data
 
 
+def __create_bgp_peer_group(topo, input_dict, router):
+    """
+    Helper API to create neighbor specific configuration
+
+    Parameters
+    ----------
+    * `topo` : json file data
+    * `input_dict` : Input dict data, required when configuring from testcase
+    * `router` : router id to be configured
+    """
+    config_data = []
+    logger.debug("Entering lib API: __create_bgp_peer_group()")
+
+    for grp, grp_dict in input_dict.iteritems():
+        config_data.append("neighbor {} peer-group".format(grp))
+        neigh_cxt = "neighbor {} ".format(grp)
+        update_source = grp_dict.setdefault("update-source", None)
+        remote_as = grp_dict.setdefault("remote-as", None)
+        capability = grp_dict.setdefault("capability", None)
+        if update_source:
+            config_data.append("{} update-source {}".format(
+                neigh_cxt, update_source))
+
+        if remote_as:
+            config_data.append("{} remote-as {}".format(
+                neigh_cxt, remote_as))
+
+        if capability:
+            config_data.append("{} capability {}".format(
+                neigh_cxt, capability))
+
+    logger.debug("Exiting lib API: __create_bgp_peer_group()")
+    return config_data
+
+
 def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
     """
     Helper API to create neighbor specific configuration
@@ -659,7 +719,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
     * `input_dict` : Input dict data, required when configuring from testcase
     * `router` : router id to be configured
     """
-
+    tgen = get_topogen()
     config_data = []
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
@@ -677,19 +737,59 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
 
             update_source = None
 
-            if dest_link in nh_details["links"].keys():
-                ip_addr = nh_details["links"][dest_link][addr_type].split("/")[0]
+
+            if "neighbor_type" in peer and peer["neighbor_type"] == \
+                    'unnumbered':
+                ip_addr = nh_details["links"][dest_link]['peer-interface']
+            elif "neighbor_type" in peer and peer["neighbor_type"] == \
+                    'link-local':
+                intf = topo[name]["links"][dest_link]["interface"]
+                ip_addr = get_frr_ipv6_linklocal(tgen, name, intf)
+            elif dest_link in nh_details["links"].keys():
+                try:
+                    ip_addr = \
+                        nh_details["links"][dest_link][addr_type].split("/")[0]
+                except KeyError:
+                    intf = topo[name]["links"][dest_link]["interface"]
+                    ip_addr = get_frr_ipv6_linklocal(tgen, name, intf)
+            if "delete" in peer and peer["delete"]:
+                neigh_cxt = "no neighbor {}".format(ip_addr)
+                config_data.append("{}".format(neigh_cxt))
+                return config_data
+            else:
+                neigh_cxt = "neighbor {}".format(ip_addr)
+
+            if "peer-group" in peer:
+                config_data.append("neighbor {} interface peer-group {}".format(
+                    ip_addr, peer["peer-group"]))
+
             # Loopback interface
-            if "source_link" in peer and peer["source_link"] == "lo":
-                update_source = topo[router]["links"]["lo"][addr_type].split("/")[0]
+            if "source_link" in peer:
+                if peer["source_link"] == "lo":
+                    update_source = topo[router]["links"]["lo"][
+                        addr_type].split("/")[0]
+                else:
+                    update_source = topo[router]["links"][
+                        peer["source_link"]]["interface"]
+            if "peer-group" not in peer:
+                if "neighbor_type" in peer and peer["neighbor_type"] == \
+                        'unnumbered':
+                    config_data.append("{} interface remote-as {}".format(
+                        neigh_cxt, remote_as))
+                elif add_neigh:
+                    config_data.append("{} remote-as {}".format(neigh_cxt,
+                                                            remote_as))
 
-            neigh_cxt = "neighbor {}".format(ip_addr)
-
-            if add_neigh:
-                config_data.append("{} remote-as {}".format(neigh_cxt, remote_as))
             if addr_type == "ipv6":
                 config_data.append("address-family ipv6 unicast")
                 config_data.append("{} activate".format(neigh_cxt))
+
+            if "neighbor_type" in peer and peer["neighbor_type"] == \
+                    'link-local':
+                config_data.append("{} update-source {}".format(
+                    neigh_cxt, nh_details["links"][dest_link]['peer-interface']))
+                config_data.append("{} interface {}".format(
+                    neigh_cxt, nh_details["links"][dest_link]['peer-interface']))
 
             disable_connected = peer.setdefault("disable_connected_check", False)
             keep_alive = peer.setdefault("keepalivetimer", 3)
@@ -700,6 +800,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
             graceful_restart = peer.setdefault("graceful-restart", None)
             graceful_restart_helper = peer.setdefault("graceful-restart-helper", None)
             graceful_restart_disable = peer.setdefault("graceful-restart-disable", None)
+            capability = peer.setdefault("capability", None)
 
             if update_source:
                 config_data.append(
@@ -733,6 +834,10 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
             elif graceful_restart_disable == False:
                 config_data.append("no {} graceful-restart-disable".format(neigh_cxt))
 
+            if capability:
+                config_data.append("{} capability {}".format(
+                    neigh_cxt, capability))
+
             if password:
                 config_data.append("{} password {}".format(neigh_cxt, password))
 
@@ -764,7 +869,7 @@ def __create_bgp_unicast_address_family(
     * `ecmp_path` : ECMP max path
     * `gr_enable` : BGP global gracefull restart config
     """
-
+    tgen = get_topogen()
     config_data = []
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
@@ -789,13 +894,26 @@ def __create_bgp_unicast_address_family(
 
             # Physical interface
             else:
-                if dest_link in nh_details["links"].keys():
-
-                    ip_addr = nh_details["links"][dest_link][addr_type].split("/")[0]
-                    if addr_type == "ipv4" and bgp_data["ipv6"]:
-                        deactivate = nh_details["links"][dest_link]["ipv6"].split("/")[
-                            0
-                        ]
+                # check the neighbor type if un numbered nbr, use interface.
+                if "neighbor_type" in peer and peer["neighbor_type"] == \
+                        'unnumbered':
+                        ip_addr = nh_details["links"][dest_link]['peer-interface']
+                elif "neighbor_type" in peer and peer["neighbor_type"] == \
+                        'link-local':
+                        intf = topo[peer_name]["links"][dest_link]["interface"]
+                        ip_addr = get_frr_ipv6_linklocal(tgen, peer_name, intf)
+                elif dest_link in nh_details["links"].keys():
+                    try:
+                        ip_addr = \
+                        nh_details["links"][dest_link][addr_type].split("/")[0]
+                    except KeyError:
+                        intf = topo[peer_name]["links"][dest_link]["interface"]
+                        ip_addr = get_frr_ipv6_linklocal(tgen, peer_name, intf)
+                    if addr_type == "ipv4" and bgp_data["ipv6"] and \
+                            check_address_types("ipv6") and \
+                            "ipv6" in nh_details["links"][dest_link]:
+                        deactivate = nh_details["links"][
+                            dest_link]["ipv6"].split("/")[0]
 
             neigh_cxt = "neighbor {}".format(ip_addr)
             config_data.append("address-family {} unicast".format(addr_type))
@@ -822,6 +940,8 @@ def __create_bgp_unicast_address_family(
             route_maps = peer.setdefault("route_maps", {})
             no_send_community = peer.setdefault("no_send_community", None)
             allowas_in = peer.setdefault("allowas-in", None)
+            capability = peer.setdefault("capability", None)
+
 
             # next-hop-self
             if next_hop_self is not None:
@@ -843,6 +963,11 @@ def __create_bgp_unicast_address_family(
             if "allowas_in" in peer:
                 allow_as_in = peer["allowas_in"]
                 config_data.append("{} allowas-in {}".format(neigh_cxt, allow_as_in))
+
+            # capability_ext_nh
+            if capability and addr_type == "ipv6":
+                config_data.append("address-family ipv4 unicast")
+                config_data.append("{} activate".format(neigh_cxt))
 
             if "no_allowas_in" in peer:
                 allow_as_in = peer["no_allowas_in"]
@@ -1193,9 +1318,8 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                                     "neighbor_type" in peer_details
                                     and peer_details["neighbor_type"] == "link-local"
                                 ):
-                                    neighbor_ip = get_ipv6_linklocal_address(
-                                        topo["routers"], bgp_neighbor, dest_link
-                                    )
+                                    neighbor_ip =  get_frr_ipv6_linklocal(
+                                            tgen, bgp_neighbor, intf)
                                 elif "source_link" in peer_details:
                                     neighbor_ip = topo["routers"][bgp_neighbor][
                                         "links"
@@ -1214,7 +1338,7 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                                         0
                                     ]
                                 nh_state = None
-
+                                neighbor_ip = neighbor_ip.lower()
                                 if addr_type == "ipv4":
                                     ipv4_data = show_bgp_json[vrf]["ipv4Unicast"][
                                         "peers"
@@ -1229,19 +1353,19 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                                 if nh_state == "Established":
                                     no_of_peer += 1
 
-                    if no_of_peer == total_peer:
-                        logger.info(
-                            "[DUT: %s] VRF: %s, BGP is Converged for %s address-family",
-                            router,
-                            vrf,
-                            addr_type,
-                        )
-                    else:
-                        errormsg = (
-                            "[DUT: %s] VRF: %s, BGP is not converged for %s address-family"
-                            % (router, vrf, addr_type)
-                        )
-                        return errormsg
+                if no_of_peer == total_peer:
+                    logger.info(
+                        "[DUT: %s] VRF: %s, BGP is Converged for %s address-family",
+                        router,
+                        vrf,
+                        addr_type,
+                    )
+                else:
+                    errormsg = (
+                        "[DUT: %s] VRF: %s, BGP is not converged for %s address-family"
+                        % (router, vrf, addr_type)
+                    )
+                    return errormsg
 
     logger.debug("Exiting API: verify_bgp_convergence()")
     return True
@@ -1651,6 +1775,7 @@ def clear_bgp_and_verify(tgen, topo, router):
 
     peer_uptime_before_clear_bgp = {}
     sleeptime = 3
+    msg_rcved_before_clear_bgp = {}
 
     # Verifying BGP convergence before bgp clear command
     for retry in range(50):
@@ -1688,25 +1813,43 @@ def clear_bgp_and_verify(tgen, topo, router):
             for bgp_neighbor, peer_data in bgp_neighbors.items():
                 for dest_link, peer_dict in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
-
+                    nh_state = None
                     if dest_link in data:
-                        neighbor_ip = data[dest_link][addr_type].split("/")[0]
+                        neighbor_ip = data[dest_link][addr_type].split(
+                            "/")[0]
+                        neighbor_intf = \
+                            data[dest_link]["peer-interface"]
                         if addr_type == "ipv4":
-                            ipv4_data = show_bgp_json["ipv4Unicast"]["peers"]
-                            nh_state = ipv4_data[neighbor_ip]["state"]
+                            ipv4_data = show_bgp_json["ipv4Unicast"][
+                                "peers"]
+                            if neighbor_ip in ipv4_data:
+                                nh_state = ipv4_data[neighbor_ip]["state"]
 
-                            # Peer up time dictionary
-                            peer_uptime_before_clear_bgp[bgp_neighbor] = ipv4_data[
-                                neighbor_ip
-                            ]["peerUptimeEstablishedEpoch"]
+                                # Peer up time dictionary
+                                msg_rcved_before_clear_bgp[bgp_neighbor] = \
+                                    ipv4_data[neighbor_ip]["msgRcvd"]
+                            else:
+                                # for un numbered interface
+                                nh_state = ipv4_data[neighbor_intf]["state"]
+                                # Peer up time dictionary
+                                msg_rcved_before_clear_bgp[bgp_neighbor] = \
+                                    ipv4_data[neighbor_intf]["msgRcvd"]
+
                         else:
-                            ipv6_data = show_bgp_json["ipv6Unicast"]["peers"]
-                            nh_state = ipv6_data[neighbor_ip]["state"]
+                            ipv6_data = show_bgp_json["ipv6Unicast"][
+                                "peers"]
 
-                            # Peer up time dictionary
-                            peer_uptime_before_clear_bgp[bgp_neighbor] = ipv6_data[
-                                neighbor_ip
-                            ]["peerUptimeEstablishedEpoch"]
+                            if neighbor_ip in ipv6_data:
+                                nh_state = ipv6_data[neighbor_ip]["state"]
+                                # Peer up time dictionary
+                                msg_rcved_before_clear_bgp[bgp_neighbor] = \
+                                    ipv6_data[neighbor_ip]["msgRcvd"]
+                            else:
+                                # for un numbered interface
+                                nh_state = ipv6_data[neighbor_intf]["state"]
+                                # Peer up time dictionary
+                                msg_rcved_before_clear_bgp[bgp_neighbor] = \
+                                    ipv6_data[neighbor_intf]["msgRcvd"]
 
                         if nh_state == "Established":
                             no_of_peer += 1
@@ -1726,6 +1869,7 @@ def clear_bgp_and_verify(tgen, topo, router):
         return errormsg
 
     # Clearing BGP
+    msg_rcved_after_clear_bgp = {}
     logger.info("Clearing BGP neighborship for router %s..", router)
     for addr_type in bgp_addr_type.keys():
         if addr_type == "ipv4":
@@ -1765,27 +1909,45 @@ def clear_bgp_and_verify(tgen, topo, router):
 
         no_of_peer = 0
         for addr_type in bgp_addr_type:
+            if not check_address_types(addr_type):
+                continue
             bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
 
             for bgp_neighbor, peer_data in bgp_neighbors.items():
                 for dest_link, peer_dict in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
-
+                    nh_state = None
                     if dest_link in data:
-                        neighbor_ip = data[dest_link][addr_type].split("/")[0]
+                        neighbor_ip = data[dest_link][addr_type].\
+                            split("/")[0]
+                        neighbor_intf = \
+                            data[dest_link]["peer-interface"]
                         if addr_type == "ipv4":
-                            ipv4_data = show_bgp_json["ipv4Unicast"]["peers"]
-                            nh_state = ipv4_data[neighbor_ip]["state"]
-                            peer_uptime_after_clear_bgp[bgp_neighbor] = ipv4_data[
-                                neighbor_ip
-                            ]["peerUptimeEstablishedEpoch"]
+                            ipv4_data = show_bgp_json["ipv4Unicast"][
+                                "peers"]
+                            if neighbor_ip in ipv4_data:
+                                nh_state = ipv4_data[neighbor_ip]["state"]
+                                # Peer up time dictionary
+                                msg_rcved_after_clear_bgp[bgp_neighbor] = \
+                                    ipv4_data[neighbor_ip]["msgRcvd"]
+                            else:
+                                # for un numbered interface
+                                nh_state = ipv4_data[neighbor_intf]["state"]
+                                msg_rcved_after_clear_bgp[bgp_neighbor] = \
+                                    ipv4_data[neighbor_intf]["msgRcvd"]
                         else:
-                            ipv6_data = show_bgp_json["ipv6Unicast"]["peers"]
-                            nh_state = ipv6_data[neighbor_ip]["state"]
-                            # Peer up time dictionary
-                            peer_uptime_after_clear_bgp[bgp_neighbor] = ipv6_data[
-                                neighbor_ip
-                            ]["peerUptimeEstablishedEpoch"]
+                            ipv6_data = show_bgp_json["ipv6Unicast"][
+                                "peers"]
+                            if neighbor_ip in ipv6_data:
+                                nh_state = ipv6_data[neighbor_ip]["state"]
+                                # Peer up time dictionary
+                                msg_rcved_after_clear_bgp[bgp_neighbor] = \
+                                    ipv6_data[neighbor_ip]["msgRcvd"]
+                            else:
+                                # for un numbered interface
+                                nh_state = ipv6_data[neighbor_intf]["state"]
+                                msg_rcved_after_clear_bgp[bgp_neighbor] = \
+                                    ipv6_data[neighbor_intf]["msgRcvd"]
 
                         if nh_state == "Established":
                             no_of_peer += 1
@@ -1804,15 +1966,17 @@ def clear_bgp_and_verify(tgen, topo, router):
         )
         return errormsg
 
-    # Comparing peerUptimeEstablishedEpoch dictionaries
-    if peer_uptime_before_clear_bgp != peer_uptime_after_clear_bgp:
-        logger.info("BGP neighborship is reset after clear BGP on router %s", router)
-    else:
-        errormsg = (
-            "BGP neighborship is not reset after clear bgp on router"
-            " {}".format(router)
-        )
-        return errormsg
+    # Compariung peerUptime dictionaries
+    for peer in msg_rcved_before_clear_bgp.keys():
+        m1 = msg_rcved_before_clear_bgp[peer]
+        m2 = msg_rcved_after_clear_bgp[peer]
+        if m1 > m2:
+            errormsg = "BGP neighborship is not reset after clear bgp on router" \
+                       " {}".format(router)
+            return errormsg
+
+    logger.info("BGP neighborship is reset after clear BGP on router %s",
+                router)
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
@@ -2649,6 +2813,13 @@ aspath=None, multi_nh=None):
                                     if list2:
                                         if additional_nexthops_in_required_nhs:
                                             logger.info(
+                                                "Missing nexthop %s for route"
+                                                " %s in RIB of router %s\n",
+                                                additional_nexthops_in_required_nhs,
+                                                st_rt,
+                                                dut,
+                                            )
+                                            errormsg=(
                                                 "Missing nexthop %s for route"
                                                 " %s in RIB of router %s\n",
                                                 additional_nexthops_in_required_nhs,

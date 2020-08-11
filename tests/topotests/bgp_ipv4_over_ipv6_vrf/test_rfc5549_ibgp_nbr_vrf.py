@@ -31,10 +31,11 @@ from copy import deepcopy
 import ipaddr
 from re import search as re_search
 from time import sleep
+
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
-sys.path.append(os.path.join(CWD, '../../'))
+sys.path.append(os.path.join(CWD, "../"))
+sys.path.append(os.path.join(CWD, "../../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -42,16 +43,27 @@ from lib.topogen import Topogen, get_topogen
 from mininet.topo import Topo
 
 from lib.common_config import (
-    start_topology, write_test_header, addKernelRoute,
-    write_test_footer, create_prefix_lists,
-    verify_rib, create_static_routes, check_address_types,
-    reset_config_on_routers, step, create_route_maps,
-    create_interfaces_cfg, get_frr_ipv6_linklocal
+    start_topology,
+    write_test_header,
+    addKernelRoute,
+    write_test_footer,
+    create_prefix_lists,
+    verify_rib,
+    create_static_routes,
+    check_address_types,
+    reset_config_on_routers,
+    step,
+    create_route_maps,
+    create_interfaces_cfg,
+    get_frr_ipv6_linklocal,
 )
 from lib.topolog import logger
 from lib.bgp import (
     clear_bgp_and_verify,
-    verify_bgp_convergence, create_router_bgp, verify_bgp_rib)
+    verify_bgp_convergence,
+    create_router_bgp,
+    verify_bgp_rib,
+)
 from lib.topojson import build_topo_from_json, build_config_from_json
 from rfc5549_common_lib import *
 
@@ -68,14 +80,19 @@ except IOError:
 
 # Global variables
 NETWORK = {
-    "ipv4": ["11.0.20.1/32", "11.0.20.2/32", "11.0.20.3/32", "11.0.20.4/32",
-             "11.0.20.5/32"],
-    "ipv6": ["1::1/128", "1::2/128", "1::3/128", "1::4/128", "1::5/128"]
+    "ipv4": [
+        "11.0.20.1/32",
+        "11.0.20.2/32",
+        "11.0.20.3/32",
+        "11.0.20.4/32",
+        "11.0.20.5/32",
+    ],
+    "ipv6": ["1::1/128", "1::2/128", "1::3/128", "1::4/128", "1::5/128"],
 }
 MASK = {"ipv4": "32", "ipv6": "128"}
 NEXT_HOP = {
     "ipv4": ["10.0.0.1", "10.0.1.1", "10.0.2.1", "10.0.3.1", "10.0.4.1"],
-    "ipv6": ["Null0", "Null0", "Null0", "Null0", "Null0"]
+    "ipv6": ["Null0", "Null0", "Null0", "Null0", "Null0"],
 }
 NETWORK_CMD_IP = "1.0.1.17/32"
 NO_OF_RTES = 2
@@ -128,7 +145,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod)
+    tgen = Topogen(CreateTopo, mod.__name__)
 
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers
@@ -142,8 +159,9 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
 
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
-    assert BGP_CONVERGENCE is True, ("setup_module :Failed \n Error:"
-                                     " {}".format(BGP_CONVERGENCE))
+    assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
     logger.info("Running setup_module() done")
 
 
@@ -166,9 +184,11 @@ def teardown_module(mod):
     )
     logger.info("=" * 40)
 
+
 # ##################################
 # Test cases start here.
 # ##################################
+
 
 def test_rfc5549_red_static_network_ibgp_peer_tc34_p0(request):
     """
@@ -188,17 +208,20 @@ def test_rfc5549_red_static_network_ibgp_peer_tc34_p0(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-
-    step("Configure IPv6 IBGP session inside VRF RED between R1 and R2 with"
-         " global IPv6 address Enable capability extended-nexthop on the"
-         "  nbr from both the routers")
+    step(
+        "Configure IPv6 IBGP session inside VRF RED between R1 and R2 with"
+        " global IPv6 address Enable capability extended-nexthop on the"
+        "  nbr from both the routers"
+    )
     step("Configure 5 link between R0 and R1 inside VRF RED")
     step("Configure loopback on R1 with IPv4 and IPv6 address")
 
     reset_config_on_routers(tgen)
 
-    step(" Configure 5 IPv4/IPv6 static routes in VRF RED"
-         " on R1 nexthop for static route exists on different link of R0")
+    step(
+        " Configure 5 IPv4/IPv6 static routes in VRF RED"
+        " on R1 nexthop for static route exists on different link of R0"
+    )
     for addr_type in ADDR_TYPE:
         for rte in range(0, NO_OF_RTES):
             # Create Static routes
@@ -209,63 +232,58 @@ def test_rfc5549_red_static_network_ibgp_peer_tc34_p0(request):
                             "network": NETWORK[addr_type][rte],
                             "no_of_ip": 1,
                             "next_hop": NEXT_HOP[addr_type][rte],
-                            "vrf": "RED"
+                            "vrf": "RED",
                         }
                     ]
                 }
             }
             result = create_static_routes(tgen, input_dict)
             assert result is True, "Testcase {} : Failed \n Error: {}".format(
-                tc_name, result)
+                tc_name, result
+            )
 
     step(
         "Advertise static routes from IPv4 unicast family and IPv6 unicast"
         " family respectively from R1.Configure loopback on R1 with IPv4 addr"
         " & Advertise loopback from IPv4 unicast family using network cmd "
-        " from R1")
+        " from R1"
+    )
 
     configure_bgp_on_r1 = {
         "r1": {
-
-            "bgp": [{
-                "local_as": "100",
-                "vrf": "RED",
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "redistribute": [{
-                                "redist_type": "static"
-                            }],
-                            "advertise_networks": [{
-                                    "network": NETWORK_CMD_IP,
-                                    "no_of_network": 1
-                                }]
-                        }
+            "bgp": [
+                {
+                    "local_as": "100",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "redistribute": [{"redist_type": "static"}],
+                                "advertise_networks": [
+                                    {"network": NETWORK_CMD_IP, "no_of_network": 1}
+                                ],
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
+                        },
                     },
-                    "ipv6": {
-                        "unicast": {
-                            "redistribute": [{
-                                "redist_type": "static"
-                            }]
-                        }
-                    }
                 }
-            }]
+            ]
         }
     }
     result = create_router_bgp(tgen, topo, configure_bgp_on_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    llip = get_llip(topo, 'r1', 'r2-link0', vrf='RED')
-    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    llip = get_llip(topo, "r1", "r2-link0", vrf="RED")
+    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "IPv4 and IPv6 routes advertised using static & network command are"
         "received on R2 BGP and routing table , verify using show ip bgp vrf"
         "RED, show ip route vrf RED for IPv4 routes and show bgp vrf RED"
-        " show ipv6 routes vrf RED for IPv6 routes .")
+        " show ipv6 routes vrf RED for IPv6 routes ."
+    )
 
     step("Verify IPv6 routes are installed with IPv6 link-local nexthop")
 
@@ -280,24 +298,33 @@ def test_rfc5549_red_static_network_ibgp_peer_tc34_p0(request):
                         "network": NETWORK[addr_type][0],
                         "no_of_ip": NO_OF_RTES,
                         "next_hop": llip,
-                        "vrf": "RED"
+                        "vrf": "RED",
                     }
                 ]
             }
         }
         bgp_rib = verify_bgp_rib(
-            tgen, addr_type, dut, verify_nh_for_static_rtes, next_hop=llip)
+            tgen, addr_type, dut, verify_nh_for_static_rtes, next_hop=llip
+        )
         assert bgp_rib is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, bgp_rib)
+            tc_name, bgp_rib
+        )
         result = verify_rib(
-            tgen, addr_type, dut,
-            verify_nh_for_static_rtes, next_hop=llip, protocol=protocol)
+            tgen,
+            addr_type,
+            dut,
+            verify_nh_for_static_rtes,
+            next_hop=llip,
+            protocol=protocol,
+        )
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     step(
         "Verify IPv4 routes are installed with IPv6 link local nexthop of R1"
-        "R1 to R2 connected link")
+        "R1 to R2 connected link"
+    )
     verify_nh_for_nw_cmd_rtes = {
         "r1": {
             "static_routes": [
@@ -305,20 +332,19 @@ def test_rfc5549_red_static_network_ibgp_peer_tc34_p0(request):
                     "network": NETWORK_CMD_IP,
                     "no_of_ip": 1,
                     "next_hop": llip,
-                    "vrf": "RED"
+                    "vrf": "RED",
                 }
             ]
         }
     }
     bgp_rib = verify_bgp_rib(
-        tgen, "ipv4", dut, verify_nh_for_nw_cmd_rtes, next_hop=llip)
-    assert bgp_rib is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, bgp_rib)
+        tgen, "ipv4", dut, verify_nh_for_nw_cmd_rtes, next_hop=llip
+    )
+    assert bgp_rib is True, "Testcase {} : Failed \n Error: {}".format(tc_name, bgp_rib)
     result = verify_rib(
-        tgen, "ipv4", dut,
-        verify_nh_for_nw_cmd_rtes, next_hop=llip, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tgen, "ipv4", dut, verify_nh_for_nw_cmd_rtes, next_hop=llip, protocol=protocol
+    )
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 

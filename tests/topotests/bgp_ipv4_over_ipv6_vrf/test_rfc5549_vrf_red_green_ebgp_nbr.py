@@ -30,23 +30,29 @@ import pytest
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
-sys.path.append(os.path.join(CWD, '../../'))
+sys.path.append(os.path.join(CWD, "../"))
+sys.path.append(os.path.join(CWD, "../../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 from mininet.topo import Topo
 from lib.common_config import (
-    start_topology, write_test_header,
-    write_test_footer, get_frr_ipv6_linklocal, kill_router_daemons,
-    verify_rib, create_static_routes, check_address_types,
-    reset_config_on_routers, step,
-    start_router_daemons, create_prefix_lists
+    start_topology,
+    write_test_header,
+    write_test_footer,
+    get_frr_ipv6_linklocal,
+    kill_router_daemons,
+    verify_rib,
+    create_static_routes,
+    check_address_types,
+    reset_config_on_routers,
+    step,
+    start_router_daemons,
+    create_prefix_lists,
 )
 from lib.topolog import logger
-from lib.bgp import (
-    verify_bgp_convergence, create_router_bgp, verify_bgp_rib)
+from lib.bgp import verify_bgp_convergence, create_router_bgp, verify_bgp_rib
 from lib.topojson import build_topo_from_json, build_config_from_json
 from rfc5549_common_lib import *
 
@@ -64,22 +70,40 @@ except IOError:
 # Global variables
 NO_OF_RTES = 2
 NETWORK = {
-    "ipv4": ["11.0.20.1/32", "11.0.20.2/32", "11.0.20.3/32", "11.0.20.4/32",
-             "11.0.20.5/32"],
-    "ipv6": ["1::1/128", "1::2/128", "1::3/128", "1::4/128", "1::5/128"]
+    "ipv4": [
+        "11.0.20.1/32",
+        "11.0.20.2/32",
+        "11.0.20.3/32",
+        "11.0.20.4/32",
+        "11.0.20.5/32",
+    ],
+    "ipv6": ["1::1/128", "1::2/128", "1::3/128", "1::4/128", "1::5/128"],
 }
 NETWORK2 = {
-    "ipv4": ["12.0.20.1/32", "12.0.20.2/32", "12.0.20.3/32", "12.0.20.4/32",
-             "12.0.20.5/32"],
-    "ipv6": ["1::1/128", "1::2/128", "1::3/128", "1::4/128", "1::5/128"]
+    "ipv4": [
+        "12.0.20.1/32",
+        "12.0.20.2/32",
+        "12.0.20.3/32",
+        "12.0.20.4/32",
+        "12.0.20.5/32",
+    ],
+    "ipv6": ["1::1/128", "1::2/128", "1::3/128", "1::4/128", "1::5/128"],
 }
 MASK = {"ipv4": "32", "ipv6": "128"}
 NEXT_HOP = {
     "ipv4": ["10.0.0.1", "10.0.1.1", "10.0.2.1", "10.0.3.1", "10.0.4.1"],
-    "ipv6": ["Null0", "Null0", "Null0", "Null0", "Null0"]
+    "ipv6": ["Null0", "Null0", "Null0", "Null0", "Null0"],
 }
-intf_list = ['r2-link0', 'r2-link1', 'r2-link2', 'r2-link3', 'r2-link4',
-             'r2-link5', 'r2-link6', 'r2-link7']
+intf_list = [
+    "r2-link0",
+    "r2-link1",
+    "r2-link2",
+    "r2-link3",
+    "r2-link4",
+    "r2-link5",
+    "r2-link6",
+    "r2-link7",
+]
 ADDR_TYPES = check_address_types()
 NETWORK_CMD_IP = ""
 
@@ -142,10 +166,11 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
 
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
-    assert BGP_CONVERGENCE is True, ("setup_module :Failed \n Error:"
-                                     " {}".format(BGP_CONVERGENCE))
+    assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
     global NETWORK_CMD_IP
-    NETWORK_CMD_IP = topo['routers']['r1']['links']['lo']['ipv4']
+    NETWORK_CMD_IP = topo["routers"]["r1"]["links"]["lo"]["ipv4"]
     logger.info("Running setup_module() done")
 
 
@@ -168,9 +193,11 @@ def teardown_module(mod):
     )
     logger.info("=" * 40)
 
+
 # ##################################
 # Test cases start here.
 # ##################################
+
 
 def test_rfc5549_vrf_tc43_p1(request):
     """
@@ -195,62 +222,53 @@ def test_rfc5549_vrf_tc43_p1(request):
 
     step(
         "Configure IPv6 EBGP session inside VRF RED between R1 "
-        "and R2 using IPv6 link-local address")
+        "and R2 using IPv6 link-local address"
+    )
     step("Configure IPv4 IBGP session inside VRF GREEN between R2 and R3")
     step("Enable capability extended-nexthop on IPv6 session")
     step("Activate same IPv6 nbr from IPv4 unicast family")
     step("Advertise IPv4 route to BGP using redistribute static")
 
-    logger.info("topo modify from R2 --- R3 ipv6 eBGP session "
-                "to ipv4 iBGP session & Remove capability")
-    topo1['routers']['r3']['bgp'][0]['address_family']['ipv6']['unicast'][
-        'neighbor']['r2']['dest_link']['r3'].pop('capability')
-    topo1['routers']['r2']['bgp'][1]['address_family']['ipv6']['unicast'][
-        'neighbor']['r3']['dest_link']['r2'].pop('capability')
+    logger.info(
+        "topo modify from R2 --- R3 ipv6 eBGP session "
+        "to ipv4 iBGP session & Remove capability"
+    )
+    topo1["routers"]["r3"]["bgp"][0]["address_family"]["ipv6"]["unicast"]["neighbor"][
+        "r2"
+    ]["dest_link"]["r3"].pop("capability")
+    topo1["routers"]["r2"]["bgp"][1]["address_family"]["ipv6"]["unicast"]["neighbor"][
+        "r3"
+    ]["dest_link"]["r2"].pop("capability")
 
-    topo1['routers']['r3']['bgp'][0]['address_family']['ipv4']['unicast'][
-        'neighbor'] = topo1[
-        'routers']['r3']['bgp'][0]['address_family']['ipv6']['unicast'].pop(
-            'neighbor')
+    topo1["routers"]["r3"]["bgp"][0]["address_family"]["ipv4"]["unicast"][
+        "neighbor"
+    ] = topo1["routers"]["r3"]["bgp"][0]["address_family"]["ipv6"]["unicast"].pop(
+        "neighbor"
+    )
 
-    topo1['routers']['r2']['bgp'][1]['address_family']['ipv4']['unicast'][
-        'neighbor'] = topo1[
-        'routers']['r2']['bgp'][1]['address_family']['ipv6']['unicast'].pop(
-            'neighbor')
+    topo1["routers"]["r2"]["bgp"][1]["address_family"]["ipv4"]["unicast"][
+        "neighbor"
+    ] = topo1["routers"]["r2"]["bgp"][1]["address_family"]["ipv6"]["unicast"].pop(
+        "neighbor"
+    )
 
-    topo1['routers']['r2']['bgp'][1]['address_family'].pop('ipv6')
-    topo1['routers']['r3']['bgp'][0]['address_family'].pop('ipv6')
-    topo1['routers']['r3']['bgp'][0]['local_as'] = '200'
+    topo1["routers"]["r2"]["bgp"][1]["address_family"].pop("ipv6")
+    topo1["routers"]["r3"]["bgp"][0]["address_family"].pop("ipv6")
+    topo1["routers"]["r3"]["bgp"][0]["local_as"] = "200"
 
     # delete current bgp processes
-    input_dict = {
-        "r2": {
-                    "bgp": {
-                        "local_as": 200,
-                        "vrf": "GREEN",
-                        "delete": True
-                    }
-                }
-    }
+    input_dict = {"r2": {"bgp": {"local_as": 200, "vrf": "GREEN", "delete": True}}}
     create_router_bgp(tgen, topo, input_dict)
-    input_dict = {
-        "r3": {
-                    "bgp": {
-                        "local_as": 300,
-                        "vrf": "GREEN",
-                        "delete": True
-                    }
-                }
-    }
+    input_dict = {"r3": {"bgp": {"local_as": 300, "vrf": "GREEN", "delete": True}}}
     create_router_bgp(tgen, topo, input_dict)
     build_config_from_json(tgen, topo1, save_bkup=False)
     result = verify_bgp_convergence(tgen, topo1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Configure prefix-list having 5 IPv4 routes on R1 inside VRF"
-        " RED which has nexthop present on R0")
+        " RED which has nexthop present on R0"
+    )
 
     for rte in range(0, NO_OF_RTES):
         # Create Static routes
@@ -261,112 +279,105 @@ def test_rfc5549_vrf_tc43_p1(request):
                         "network": NETWORK["ipv4"][rte],
                         "no_of_ip": 1,
                         "next_hop": NEXT_HOP["ipv4"][rte],
-                        "vrf": "RED"
+                        "vrf": "RED",
                     }
                 ]
             }
         }
         result = create_static_routes(tgen, input_dict_r1)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     # Create ip prefix list
     input_dict_2 = {
         "r1": {
             "prefix_lists": {
                 "ipv4": {
-                    "pf_list_1": [{
-                        "seqid": 10,
-                        "network": NETWORK["ipv4"][0],
-                        "action": "permit"
-                    },
+                    "pf_list_1": [
                         {
-                        "seqid": 11,
-                        "network": NETWORK["ipv4"][1],
-                        "action": "permit"
-                    },
+                            "seqid": 10,
+                            "network": NETWORK["ipv4"][0],
+                            "action": "permit",
+                        },
                         {
-                        "seqid": 12,
-                        "network": NETWORK["ipv4"][2],
-                        "action": "permit"
-                    },
+                            "seqid": 11,
+                            "network": NETWORK["ipv4"][1],
+                            "action": "permit",
+                        },
                         {
-                        "seqid": 13,
-                        "network": NETWORK["ipv4"][3],
-                        "action": "permit"
-                    },
+                            "seqid": 12,
+                            "network": NETWORK["ipv4"][2],
+                            "action": "permit",
+                        },
                         {
-                        "seqid": 14,
-                        "network": NETWORK["ipv4"][4],
-                        "action": "permit"
-                    }
+                            "seqid": 13,
+                            "network": NETWORK["ipv4"][3],
+                            "action": "permit",
+                        },
+                        {
+                            "seqid": 14,
+                            "network": NETWORK["ipv4"][4],
+                            "action": "permit",
+                        },
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, input_dict_2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "IPv4 route received on R2 RED VRF are installed with link-local"
         " address of R1 ( R1 to R2 connected link) verify using show ip"
-        " route vrf RED")
+        " route vrf RED"
+    )
 
     llip = None
     llip = get_llip(topo, "r1", "r2-link0", vrf="RED")
-    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     dut = "r2"
     input_dict = {
         "r1": {
             "static_routes": [
-                {
-                    "network": NETWORK["ipv4"][0],
-                    "no_of_ip": NO_OF_RTES,
-                    "vrf": "RED"
-                }
+                {"network": NETWORK["ipv4"][0], "no_of_ip": NO_OF_RTES, "vrf": "RED"}
             ]
         }
     }
-    bgp_rib = verify_bgp_rib(
-        tgen, "ipv4", dut, input_dict, next_hop=llip)
-    assert bgp_rib is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, bgp_rib)
+    bgp_rib = verify_bgp_rib(tgen, "ipv4", dut, input_dict, next_hop=llip)
+    assert bgp_rib is True, "Testcase {} : Failed \n Error: {}".format(tc_name, bgp_rib)
 
-    result = verify_rib(
-        tgen, "ipv4", dut, input_dict, next_hop=llip, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, next_hop=llip, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "IPv4 route not present on R2 and R3 GREEN VRF verify using "
-        "show ip bgp vrf RED")
+        "show ip bgp vrf RED"
+    )
 
     dut = "r3"
     input_dict = {
         "r1": {
             "static_routes": [
-                {
-                    "network": NETWORK["ipv4"][0],
-                    "no_of_ip": NO_OF_RTES,
-                    "vrf": "GREEN"
-                }
+                {"network": NETWORK["ipv4"][0], "no_of_ip": NO_OF_RTES, "vrf": "GREEN"}
             ]
         }
     }
     bgp_rib = verify_bgp_rib(
-        tgen, "ipv4", dut, input_dict, next_hop=llip, expected=False)
+        tgen, "ipv4", dut, input_dict, next_hop=llip, expected=False
+    )
     assert bgp_rib is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, bgp_rib)
+        tc_name, bgp_rib
+    )
 
     result = verify_rib(
-        tgen, "ipv4", dut, input_dict, next_hop=llip, protocol=protocol,
-        expected=False)
+        tgen, "ipv4", dut, input_dict, next_hop=llip, protocol=protocol, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+        tc_name, result
+    )
 
     step("Import RED VRF route inside GREEN VRF")
     configure_bgp_on_r2 = {
@@ -374,85 +385,59 @@ def test_rfc5549_vrf_tc43_p1(request):
             "bgp": {
                 "local_as": "200",
                 "vrf": "GREEN",
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "import": {
-                                "vrf": "RED"
-                            }
-                        }
-                    }
-                }
+                "address_family": {"ipv4": {"unicast": {"import": {"vrf": "RED"}}}},
             }
         }
     }
     result = create_router_bgp(tgen, topo, configure_bgp_on_r2)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "IPv4 route received on R2 RED VRF are installed with link-local"
         " address of R1 ( R1 to R2 connected link) verify using "
-        "show ip route vrf RED")
+        "show ip route vrf RED"
+    )
 
     llip = None
     llip = get_llip(topo, "r1", "r2-link0", vrf="RED")
-    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     dut = "r2"
     input_dict = {
         "r1": {
             "static_routes": [
-                {
-                    "network": NETWORK["ipv4"][0],
-                    "no_of_ip": NO_OF_RTES,
-                    "vrf": "RED"
-                }
+                {"network": NETWORK["ipv4"][0], "no_of_ip": NO_OF_RTES, "vrf": "RED"}
             ]
         }
     }
-    bgp_rib = verify_bgp_rib(
-        tgen, "ipv4", dut, input_dict, next_hop=llip)
-    assert bgp_rib is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, bgp_rib)
+    bgp_rib = verify_bgp_rib(tgen, "ipv4", dut, input_dict, next_hop=llip)
+    assert bgp_rib is True, "Testcase {} : Failed \n Error: {}".format(tc_name, bgp_rib)
 
-    result = verify_rib(
-        tgen, "ipv4", dut, input_dict, next_hop=llip, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, next_hop=llip, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "IPv4 route received on R3 with IPv4 nexthop address of R2 "
-        "( R2 to R3 connected link) show ip route")
-
+        "( R2 to R3 connected link) show ip route"
+    )
 
     llip = None
-    llip = get_glipv6("r2", "r3", addr_type="ipv4")
-    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    llip = get_glipv6(topo, "r2", "r3", addr_type="ipv4")
+    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     dut = "r3"
     input_dict = {
         "r1": {
             "static_routes": [
-                {
-                    "network": NETWORK["ipv4"][0],
-                    "no_of_ip": NO_OF_RTES,
-                    "vrf": "GREEN"
-                }
+                {"network": NETWORK["ipv4"][0], "no_of_ip": NO_OF_RTES, "vrf": "GREEN"}
             ]
         }
     }
-    bgp_rib = verify_bgp_rib(
-        tgen, "ipv4", dut, input_dict, next_hop=llip)
-    assert bgp_rib is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, bgp_rib)
+    bgp_rib = verify_bgp_rib(tgen, "ipv4", dut, input_dict, next_hop=llip)
+    assert bgp_rib is True, "Testcase {} : Failed \n Error: {}".format(tc_name, bgp_rib)
 
-    result = verify_rib(
-        tgen, "ipv4", dut, input_dict, next_hop=llip, protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, next_hop=llip, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 

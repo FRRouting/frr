@@ -106,7 +106,9 @@ def build_topo_from_json(tgen, topo):
                 currRouter_lo_json = topo["routers"][curRouter]["links"][destRouterLink]
                 # Loopback interfaces
                 if "type" in data and data["type"] == "loopback":
-                    router_count += 1
+
+                    currRouter_lo_json['interface'] = destRouterLink
+
                     if (
                         "ipv4" in currRouter_lo_json
                         and currRouter_lo_json["ipv4"] == "auto"
