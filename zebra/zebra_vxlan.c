@@ -112,7 +112,6 @@ static int zvni_neigh_send_del_to_client(vni_t vni, struct ipaddr *ip,
 					 uint8_t flags, int state);
 static int zvni_neigh_install(zebra_vni_t *zvni, zebra_neigh_t *n);
 static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n);
-static int zvni_neigh_probe(zebra_vni_t *zvni, zebra_neigh_t *n);
 static zebra_vni_t *zvni_from_svi(struct interface *ifp,
 				  struct interface *br_if);
 static struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if);
@@ -2449,18 +2448,6 @@ static void zvni_process_neigh_on_remote_mac_del(zebra_vni_t *zvni,
 	/* NOTE: Currently a NO-OP. */
 }
 
-static void zvni_probe_neigh_on_mac_add(zebra_vni_t *zvni, zebra_mac_t *zmac)
-{
-	zebra_neigh_t *nbr = NULL;
-	struct listnode *node = NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(zmac->neigh_list, node, nbr)) {
-		if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL) &&
-		    IS_ZEBRA_NEIGH_INACTIVE(nbr))
-			zvni_neigh_probe(zvni, nbr);
-	}
-}
-
 /*
  * Inform BGP about local neighbor addition.
  */
@@ -2558,29 +2545,6 @@ static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n)
 	n->loc_seq = 0;
 
 	dplane_neigh_delete(vlan_if, &n->ip);
-
-	return 0;
-}
-
-/*
- * Probe neighbor from the kernel.
- */
-static int zvni_neigh_probe(zebra_vni_t *zvni, zebra_neigh_t *n)
-{
-	struct zebra_if *zif;
-	struct zebra_l2info_vxlan *vxl;
-	struct interface *vlan_if;
-
-	zif = zvni->vxlan_if->info;
-	if (!zif)
-		return -1;
-	vxl = &zif->l2info.vxl;
-
-	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brslave_info.br_if);
-	if (!vlan_if)
-		return -1;
-
-	dplane_neigh_update(vlan_if, &n->ip, &n->emac);
 
 	return 0;
 }
@@ -5787,8 +5751,6 @@ static void process_remote_macip_add(vni_t vni,
 		if (!is_dup_detect)
 			zvni_neigh_install(zvni, n);
 	}
-
-	zvni_probe_neigh_on_mac_add(zvni, mac);
 
 	/* Update seq number. */
 	n->rem_seq = seq;
