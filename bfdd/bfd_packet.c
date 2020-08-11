@@ -577,7 +577,7 @@ int bfd_recv_cb(struct thread *t)
 		return 0;
 	}
 
-	/* Validate packet TTL. */
+	/* Validate single hop packet TTL. */
 	if ((!is_mhop) && (ttl != BFD_TTL_VAL)) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "invalid TTL: %d expected %d", ttl, BFD_TTL_VAL);
@@ -630,10 +630,10 @@ int bfd_recv_cb(struct thread *t)
 	 * Single hop: set local address that received the packet.
 	 */
 	if (is_mhop) {
-		if ((BFD_TTL_VAL - bfd->mh_ttl) > BFD_TTL_VAL) {
+		if (ttl < bfd->mh_ttl) {
 			cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 				 "exceeded max hop count (expected %d, got %d)",
-				 bfd->mh_ttl, BFD_TTL_VAL);
+				 bfd->mh_ttl, ttl);
 			return 0;
 		}
 	} else if (bfd->local_address.sa_sin.sin_family == AF_UNSPEC) {

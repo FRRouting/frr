@@ -115,6 +115,8 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		vty_out(vty, "\t\tPassive mode\n");
 	else
 		vty_out(vty, "\t\tActive mode\n");
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+		vty_out(vty, "\t\tMinimum TTL: %d\n", bs->mh_ttl);
 
 	vty_out(vty, "\t\tStatus: ");
 	switch (bs->ses_state) {
@@ -209,6 +211,8 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	json_object_int_add(jo, "remote-id", bs->discrs.remote_discr);
 	json_object_boolean_add(jo, "passive-mode",
 				CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE));
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+		json_object_int_add(jo, "minimum-ttl", bs->mh_ttl);
 
 	switch (bs->ses_state) {
 	case PTM_BFD_ADM_DOWN:

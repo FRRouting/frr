@@ -89,6 +89,7 @@ static void bfd_profile_set_default(struct bfd_profile *bp)
 	bp->detection_multiplier = BFD_DEFDETECTMULT;
 	bp->echo_mode = false;
 	bp->passive = false;
+	bp->minimum_ttl = BFD_DEF_MHOP_TTL;
 	bp->min_echo_rx = BFD_DEF_REQ_MIN_ECHO;
 	bp->min_rx = BFD_DEFREQUIREDMINRX;
 	bp->min_tx = BFD_DEFDESIREDMINTX;
@@ -190,6 +191,12 @@ void bfd_session_apply(struct bfd_session *bs)
 			bfd_set_echo(bs, bp->echo_mode);
 		else
 			bfd_set_echo(bs, bs->peer_profile.echo_mode);
+	} else {
+		/* Configure the TTL packet filter. */
+		if (bs->peer_profile.minimum_ttl == BFD_DEF_MHOP_TTL)
+			bs->mh_ttl = bp->minimum_ttl;
+		else
+			bs->mh_ttl = bs->peer_profile.minimum_ttl;
 	}
 
 	/* Toggle 'passive-mode' if default value. */
@@ -751,6 +758,11 @@ static void _bfd_session_update(struct bfd_session *bs,
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_CBIT);
 	else
 		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CBIT);
+
+	if (bpc->bpc_has_minimum_ttl) {
+		bs->mh_ttl = bpc->bpc_minimum_ttl;
+		bs->peer_profile.minimum_ttl = bpc->bpc_minimum_ttl;
+	}
 
 	bs->peer_profile.echo_mode = bpc->bpc_echo;
 	bfd_set_echo(bs, bpc->bpc_echo);

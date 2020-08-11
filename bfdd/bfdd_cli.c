@@ -287,6 +287,42 @@ void bfd_cli_show_passive(struct vty *vty, struct lyd_node *dnode,
 }
 
 DEFPY_YANG(
+	bfd_peer_minimum_ttl, bfd_peer_minimum_ttl_cmd,
+	"[no] minimum-ttl (1-254)$ttl",
+	NO_STR
+	"Expect packets with at least this TTL\n"
+	"Minimum TTL expected\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./minimum-ttl", NB_OP_DESTROY,
+				      NULL);
+	else
+		nb_cli_enqueue_change(vty, "./minimum-ttl", NB_OP_MODIFY,
+				      ttl_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_bfd_peer_minimum_ttl, no_bfd_peer_minimum_ttl_cmd,
+	"no minimum-ttl",
+	NO_STR
+	"Expect packets with at least this TTL\n")
+{
+	nb_cli_enqueue_change(vty, "./minimum-ttl", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_minimum_ttl(struct vty *vty, struct lyd_node *dnode,
+			      bool show_defaults)
+{
+	if (show_defaults)
+		vty_out(vty, "  minimum-ttl 254\n");
+	else
+		vty_out(vty, "  minimum-ttl %s\n",
+			yang_dnode_get_string(dnode, NULL));
+}
+
+DEFPY_YANG(
 	bfd_peer_mult, bfd_peer_mult_cmd,
 	"detect-multiplier (2-255)$multiplier",
 	"Configure peer detection multiplier\n"
@@ -488,6 +524,17 @@ ALIAS_YANG(bfd_peer_passive, bfd_profile_passive_cmd,
       NO_STR
       "Don't attempt to start sessions\n")
 
+ALIAS_YANG(bfd_peer_minimum_ttl, bfd_profile_minimum_ttl_cmd,
+      "[no] minimum-ttl (1-254)$ttl",
+      NO_STR
+      "Expect packets with at least this TTL\n"
+      "Minimum TTL expected\n")
+
+ALIAS_YANG(no_bfd_peer_minimum_ttl, no_bfd_profile_minimum_ttl_cmd,
+      "no minimum-ttl",
+      NO_STR
+      "Expect packets with at least this TTL\n")
+
 ALIAS_YANG(bfd_peer_echo, bfd_profile_echo_cmd,
       "[no] echo-mode",
       NO_STR
@@ -557,6 +604,8 @@ bfdd_cli_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_interval_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_profile_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_passive_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_minimum_ttl_cmd);
+	install_element(BFD_PEER_NODE, &no_bfd_peer_minimum_ttl_cmd);
 
 	/* Profile commands. */
 	cmd_variable_handler_register(bfd_vars);
@@ -574,4 +623,6 @@ bfdd_cli_init(void)
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_interval_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_passive_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_minimum_ttl_cmd);
+	install_element(BFD_PROFILE_NODE, &no_bfd_profile_minimum_ttl_cmd);
 }

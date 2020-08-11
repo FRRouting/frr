@@ -210,6 +210,8 @@ struct bfd_profile {
 	bool admin_shutdown;
 	/** Passive mode. */
 	bool passive;
+	/** Minimum expected TTL value. */
+	uint8_t minimum_ttl;
 
 	/** Echo mode (only applies to single hop). */
 	bool echo_mode;
@@ -331,7 +333,8 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 #define BFD_DEFREQUIREDMINRX (300 * 1000) /* microseconds. */
 #define BFD_DEF_REQ_MIN_ECHO (50 * 1000) /* microseconds. */
 #define BFD_DEF_SLOWTX (1000 * 1000) /* microseconds. */
-#define BFD_DEF_MHOP_TTL 5
+/** Minimum multi hop TTL. */
+#define BFD_DEF_MHOP_TTL 254
 #define BFD_PKT_LEN 24 /* Length of control packet */
 #define BFD_TTL_VAL 255
 #define BFD_RCV_TTL_VAL 1

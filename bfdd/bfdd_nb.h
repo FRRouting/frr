@@ -38,6 +38,8 @@ int bfdd_bfd_profile_required_receive_interval_modify(
 	struct nb_cb_modify_args *args);
 int bfdd_bfd_profile_administrative_down_modify(struct nb_cb_modify_args *args);
 int bfdd_bfd_profile_passive_mode_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_minimum_ttl_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_minimum_ttl_destroy(struct nb_cb_destroy_args *args);
 int bfdd_bfd_profile_echo_mode_modify(struct nb_cb_modify_args *args);
 int bfdd_bfd_profile_desired_echo_transmission_interval_modify(
 	struct nb_cb_modify_args *args);
@@ -134,6 +136,10 @@ int bfdd_bfd_sessions_multi_hop_required_receive_interval_modify(
 	struct nb_cb_modify_args *args);
 int bfdd_bfd_sessions_multi_hop_administrative_down_modify(
 	struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_multi_hop_minimum_ttl_modify(
+	struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_multi_hop_minimum_ttl_destroy(
+	struct nb_cb_destroy_args *args);
 struct yang_data *
 bfdd_bfd_sessions_multi_hop_stats_local_discriminator_get_elem(
 	struct nb_cb_get_elem_args *args);
@@ -211,5 +217,7 @@ void bfd_cli_peer_profile_show(struct vty *vty, struct lyd_node *dnode,
 			       bool show_defaults);
 void bfd_cli_show_passive(struct vty *vty, struct lyd_node *dnode,
 			  bool show_defaults);
+void bfd_cli_show_minimum_ttl(struct vty *vty, struct lyd_node *dnode,
+			      bool show_defaults);
 
 #endif /* _FRR_BFDD_NB_H_ */
