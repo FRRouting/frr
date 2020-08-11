@@ -1099,19 +1099,17 @@ struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
 }
 
 static int isis_run_spf(struct isis_area *area, int level,
-			enum spf_tree_id tree_id,
-			uint8_t *sysid, struct timeval *nowtv)
+			enum spf_tree_id tree_id, uint8_t *sysid)
 {
 	int retval = ISIS_OK;
 	struct isis_vertex *root_vertex;
 	struct isis_spftree *spftree = area->spftree[tree_id][level - 1];
-	struct timeval time_now;
-	unsigned long long start_time, end_time;
+	struct timeval time_start;
+	struct timeval time_end;
 	uint16_t mtid = 0;
 
 	/* Get time that can't roll backwards. */
-	start_time = nowtv->tv_sec;
-	start_time = (start_time * 1000000) + nowtv->tv_usec;
+	monotime(&time_start);
 
 	int family = -1;
 	switch (tree_id) {
@@ -1162,10 +1160,10 @@ static int isis_run_spf(struct isis_area *area, int level,
 out:
 	spftree->runcount++;
 	spftree->last_run_timestamp = time(NULL);
-	spftree->last_run_monotime = monotime(&time_now);
-	end_time = time_now.tv_sec;
-	end_time = (end_time * 1000000) + time_now.tv_usec;
-	spftree->last_run_duration = end_time - start_time;
+	spftree->last_run_monotime = monotime(&time_end);
+	spftree->last_run_duration =
+		((time_end.tv_sec - time_start.tv_sec) * 1000000)
+		+ (time_end.tv_usec - time_start.tv_usec);
 
 	return retval;
 }
@@ -1211,15 +1209,11 @@ static int isis_run_spf_cb(struct thread *thread)
 			   area->area_tag, level);
 
 	if (area->ip_circuits)
-		retval = isis_run_spf(area, level, SPFTREE_IPV4, isis->sysid,
-				      &thread->real);
+		retval = isis_run_spf(area, level, SPFTREE_IPV4, isis->sysid);
 	if (area->ipv6_circuits)
-		retval = isis_run_spf(area, level, SPFTREE_IPV6, isis->sysid,
-				      &thread->real);
-	if (area->ipv6_circuits
-	    && isis_area_ipv6_dstsrc_enabled(area))
-		retval = isis_run_spf(area, level, SPFTREE_DSTSRC, isis->sysid,
-				      &thread->real);
+		retval = isis_run_spf(area, level, SPFTREE_IPV6, isis->sysid);
+	if (area->ipv6_circuits && isis_area_ipv6_dstsrc_enabled(area))
+		retval = isis_run_spf(area, level, SPFTREE_DSTSRC, isis->sysid);
 
 	isis_area_verify_routes(area);
 
