@@ -1222,6 +1222,11 @@ Configuring Peers
 .. index:: [no] neighbor PEER ebgp-multihop
 .. clicmd:: [no] neighbor PEER ebgp-multihop
 
+   Specifying ``ebgp-multihop`` allows sessions with eBGP neighbors to
+   establish when they are multiple hops away. When the neighbor is not
+   directly connected and this knob is not enabled, the session will not
+   establish.
+
 .. index:: [no] neighbor PEER description ...
 .. clicmd:: [no] neighbor PEER description ...
 
