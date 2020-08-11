@@ -250,8 +250,8 @@ def prerequisite_config_for_test_suite(tgen):
         }
 
         result = configure_vxlan(tgen, vxlan_input)
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
+        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
+            tc_name, dut, result
         )
 
         step("Configure bridge interface")
@@ -268,8 +268,8 @@ def prerequisite_config_for_test_suite(tgen):
             }
         }
         result = configure_brctl(tgen, topo, brctl_input)
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
+        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
+            tc_name, dut, result
         )
 
     step("Configure default routes")
@@ -406,8 +406,8 @@ def test_RD_verification_manual_and_auto_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, dut, input_routes, rd="auto", rd_peer="e1"
         )
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
+        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
+            tc_name, dut, result
         )
 
     step(
@@ -437,8 +437,8 @@ def test_RD_verification_manual_and_auto_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, dut, input_routes, rd="50.50.50.50:50"
         )
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
+        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
+            tc_name, dut, result
         )
 
     step(
@@ -472,8 +472,8 @@ def test_RD_verification_manual_and_auto_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, dut, input_routes, rd="100.100.100.100:100"
         )
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
+        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
+            tc_name, dut, result
         )
 
     step(
@@ -672,8 +672,8 @@ def test_RT_verification_manual_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, dut, input_routes, rt="100:100"
         )
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
+        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
+            tc_name, dut, result
         )
 
     step(
@@ -711,8 +711,8 @@ def test_RT_verification_manual_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, dut, input_routes, rt=["100:100", "500:500"]
         )
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
+        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
+            tc_name, dut, result
         )
 
     step(
@@ -834,8 +834,8 @@ def test_RT_verification_manual_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, dut, input_routes, rt=["100:100", "500:500"]
         )
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
+        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
+            tc_name, dut, result
         )
 
     step("Delete RT export value 100:100 for vrf RED on Edge-1")
@@ -1277,14 +1277,14 @@ def test_evpn_routes_from_VNFs_p1(request):
     for dut in ["d1", "d2"]:
         input_routes = {key: topo["routers"][key] for key in ["r1"]}
         result = verify_evpn_routes(tgen, topo, dut, input_routes)
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
+        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
+            tc_name, dut, result
         )
 
         input_routes = {key: topo["routers"][key] for key in ["r2"]}
         result = verify_evpn_routes(tgen, topo, dut, input_routes)
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
+        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
+            tc_name, dut, result
         )
 
     step(
@@ -1861,7 +1861,7 @@ def test_bgp_attributes_for_evpn_address_family_p1(request, attribute):
                     temp[dut]["bgp"].append({"local_as": as_num, "delete": True})
 
         result = create_router_bgp(tgen, topo, input_dict_2)
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+        assert result is True, "Testcase {} on d1 :Failed \n Error: {}".format(
             tc_name, result
         )
 
