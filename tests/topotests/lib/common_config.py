@@ -3606,7 +3606,6 @@ def verify_cli_json(tgen, input_dict):
     """
     API to verify if JSON is available for clis
     command.
-
     Parameters
     ----------
     * `tgen`: topogen object
@@ -3776,7 +3775,6 @@ def verify_vrf_vni(tgen, input_dict):
     """
     API to verify vrf vni details using "show vrf vni json"
     command.
-
     Parameters
     ----------
     * `tgen`: topogen object
