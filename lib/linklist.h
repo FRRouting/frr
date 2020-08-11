@@ -327,6 +327,19 @@ extern void list_filter_out_nodes(struct list *list, bool (*cond)(void *data));
  */
 
 extern bool listnode_add_sort_nodup(struct list *list, void *val);
+
+/*
+ * Duplicate the specified list, creating a shallow copy of each of its
+ * elements.
+ *
+ * list
+ *    list to duplicate
+ *
+ * Returns:
+ *    the duplicated list
+ */
+extern struct list *list_dup(struct list *list);
+
 /* List iteration macro.
  * Usage: for (ALL_LIST_ELEMENTS (...) { ... }
  * It is safe to delete the listnode using this macro.
