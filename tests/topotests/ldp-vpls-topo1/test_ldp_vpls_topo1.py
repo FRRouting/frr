@@ -154,7 +154,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def router_compare_json_output(rname, command, reference):
+def router_compare_json_output(rname, command, reference, count=80, wait=1):
     "Compare router JSON output"
 
     logger.info('Comparing router "%s" "%s" output', rname, command)
@@ -163,9 +163,9 @@ def router_compare_json_output(rname, command, reference):
     filename = "{}/{}/{}".format(CWD, rname, reference)
     expected = json.loads(open(filename).read())
 
-    # Run test function until we get an result. Wait at most 80 seconds.
+    # Run test function until we get an result.
     test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+    _, diff = topotest.run_and_expect(test_func, None, count, wait)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
 
@@ -279,10 +279,12 @@ def test_ldp_pseudowires_after_link_down():
     tgen.gears["r1"].peer_link_enable("r1-eth1", False)
     topotest.sleep(5, "Waiting for the network to reconverge")
 
-    # check if the pseudowire is still up (using an alternate path for nexthop resolution)
+    # check if the pseudowire is still up (using an alternate path
+    # for nexthop resolution). Give some extra wait time.
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
-            rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref"
+            rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref",
+            count=160, wait=1
         )
 
 
