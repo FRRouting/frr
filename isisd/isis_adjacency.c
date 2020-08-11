@@ -94,6 +94,7 @@ struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 		}
 	}
 	adj->adj_sids = list_new();
+	listnode_add(circuit->area->adjacency_list, adj);
 
 	return adj;
 }
@@ -123,42 +124,21 @@ struct isis_adjacency *isis_adj_lookup_snpa(const uint8_t *ssnpa,
 	return NULL;
 }
 
-bool isis_adj_exists(const struct isis_area *area, int level,
-		     const uint8_t *sysid)
+struct isis_adjacency *isis_adj_find(const struct isis_area *area, int level,
+				     const uint8_t *sysid)
 {
-	struct isis_circuit *circuit;
+	struct isis_adjacency *adj;
 	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
-		struct isis_adjacency *adj;
-		struct listnode *anode;
-		struct list *adjdb;
+	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+		if (!(adj->level & level))
+			continue;
 
-		switch (circuit->circ_type) {
-		case CIRCUIT_T_BROADCAST:
-			adjdb = circuit->u.bc.adjdb[level - 1];
-			if (!adjdb)
-				continue;
-
-			for (ALL_LIST_ELEMENTS_RO(adjdb, anode, adj)) {
-				if (!memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN))
-					return true;
-			}
-			break;
-		case CIRCUIT_T_P2P:
-			adj = circuit->u.p2p.neighbor;
-			if (!adj)
-				break;
-
-			if (!memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN))
-				return true;
-			break;
-		default:
-			break;
-		}
+		if (!memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN))
+			return adj;
 	}
 
-	return false;
+	return NULL;
 }
 
 DEFINE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj))
@@ -186,6 +166,7 @@ void isis_delete_adj(void *arg)
 	adj_mt_finish(adj);
 	list_delete(&adj->adj_sids);
 
+	listnode_delete(adj->circuit->area->adjacency_list, adj);
 	XFREE(MTYPE_ISIS_ADJACENCY, adj);
 	return;
 }

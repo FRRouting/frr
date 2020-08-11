@@ -107,6 +107,7 @@ struct isis_area {
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
 	struct list *circuit_list; /* IS-IS circuits */
+	struct list *adjacency_list; /* IS-IS adjacencies */
 	struct flags flags;
 	struct thread *t_tick; /* LSP walker */
 	struct thread *t_lsp_refresh[ISIS_LEVELS];

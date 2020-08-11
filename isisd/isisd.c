@@ -133,6 +133,7 @@ struct isis_area *isis_area_create(const char *area_tag)
 	spftree_area_init(area);
 
 	area->circuit_list = list_new();
+	area->adjacency_list = list_new();
 	area->area_addrs = list_new();
 	thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 	flags_initialize(&area->flags);
@@ -268,6 +269,7 @@ void isis_area_destroy(struct isis_area *area)
 		}
 		list_delete(&area->circuit_list);
 	}
+	list_delete(&area->adjacency_list);
 
 	lsp_db_fini(&area->lspdb[0]);
 	lsp_db_fini(&area->lspdb[1]);
