@@ -9811,6 +9811,9 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 	bool inform_dataplane = false;
 	bool new_static = false;
 
+	if (ifp == NULL)
+		return -1;
+
 	/* We are interested in MACs only on ports or (port, VLAN) that
 	 * map to a VNI.
 	 */
