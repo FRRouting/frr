@@ -40,16 +40,21 @@ static int lib_interface_vrrp_vrrp_group_create(struct nb_cb_create_args *args)
 	uint8_t version = 3;
 	struct vrrp_vrouter *vr;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, false);
 	vrid = yang_dnode_get_uint8(args->dnode, "./virtual-router-id");
 	version = yang_dnode_get_enum(args->dnode, "./version");
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		ifp = nb_running_get_entry(args->dnode, NULL, false);
 		if (ifp) {
 			vr = vrrp_lookup(ifp, vrid);
-			if (vr && vr->autoconf)
+			if (vr && vr->autoconf) {
+				snprintf(
+					args->errmsg, args->errmsg_len,
+					"Virtual Router with ID %d already exists on interface '%s'; created by VRRP autoconfiguration",
+					vrid, ifp->name);
 				return NB_ERR_VALIDATION;
+			}
 		}
 		return NB_OK;
 	case NB_EV_PREPARE:
@@ -59,6 +64,7 @@ static int lib_interface_vrrp_vrrp_group_create(struct nb_cb_create_args *args)
 		break;
 	}
 
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	vr = vrrp_vrouter_create(ifp, vrid, version);
 	nb_running_set_entry(args->dnode, vr);
 
