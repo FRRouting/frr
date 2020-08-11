@@ -3902,6 +3902,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{PEER_FLAG_ORF_PREFIX_RM, 1, peer_change_reset},
 	{PEER_FLAG_MAX_PREFIX, 0, peer_change_none},
 	{PEER_FLAG_MAX_PREFIX_WARNING, 0, peer_change_none},
+	{PEER_FLAG_MAX_PREFIX_FORCE, 0, peer_change_none},
 	{PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED, 0, peer_change_reset_out},
 	{PEER_FLAG_FORCE_NEXTHOP_SELF, 1, peer_change_reset_out},
 	{PEER_FLAG_REMOVE_PRIVATE_AS_ALL, 1, peer_change_reset_out},
@@ -6451,13 +6452,19 @@ int peer_unsuppress_map_unset(struct peer *peer, afi_t afi, safi_t safi)
 
 int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi,
 			    uint32_t max, uint8_t threshold, int warning,
-			    uint16_t restart)
+			    uint16_t restart, bool force)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
 
 	/* Set flags and configuration on peer. */
 	peer_af_flag_set(peer, afi, safi, PEER_FLAG_MAX_PREFIX);
+
+	if (force)
+		peer_af_flag_set(peer, afi, safi, PEER_FLAG_MAX_PREFIX_FORCE);
+	else
+		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_MAX_PREFIX_FORCE);
+
 	if (warning)
 		peer_af_flag_set(peer, afi, safi, PEER_FLAG_MAX_PREFIX_WARNING);
 	else
@@ -6492,6 +6499,14 @@ int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi,
 		member->pmax[afi][safi] = max;
 		member->pmax_threshold[afi][safi] = threshold;
 		member->pmax_restart[afi][safi] = restart;
+
+		if (force)
+			SET_FLAG(member->af_flags[afi][safi],
+				 PEER_FLAG_MAX_PREFIX_FORCE);
+		else
+			UNSET_FLAG(member->af_flags[afi][safi],
+				   PEER_FLAG_MAX_PREFIX_FORCE);
+
 		if (warning)
 			SET_FLAG(member->af_flags[afi][safi],
 				 PEER_FLAG_MAX_PREFIX_WARNING);
@@ -6513,6 +6528,8 @@ int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 	if (peer_group_active(peer)) {
 		peer_af_flag_inherit(peer, afi, safi, PEER_FLAG_MAX_PREFIX);
 		peer_af_flag_inherit(peer, afi, safi,
+				     PEER_FLAG_MAX_PREFIX_FORCE);
+		peer_af_flag_inherit(peer, afi, safi,
 				     PEER_FLAG_MAX_PREFIX_WARNING);
 		PEER_ATTR_INHERIT(peer, peer->group, pmax[afi][safi]);
 		PEER_ATTR_INHERIT(peer, peer->group, pmax_threshold[afi][safi]);
@@ -6523,6 +6540,7 @@ int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 
 	/* Remove flags and configuration from peer. */
 	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_MAX_PREFIX);
+	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_MAX_PREFIX_FORCE);
 	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_MAX_PREFIX_WARNING);
 	peer->pmax[afi][safi] = 0;
 	peer->pmax_threshold[afi][safi] = 0;
@@ -6546,6 +6564,8 @@ int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 			 */
 			UNSET_FLAG(member->af_flags[afi][safi],
 				   PEER_FLAG_MAX_PREFIX);
+			UNSET_FLAG(member->af_flags[afi][safi],
+				   PEER_FLAG_MAX_PREFIX_FORCE);
 			UNSET_FLAG(member->af_flags[afi][safi],
 				   PEER_FLAG_MAX_PREFIX_WARNING);
 			member->pmax[afi][safi] = 0;

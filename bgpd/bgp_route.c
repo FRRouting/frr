@@ -3056,16 +3056,43 @@ static int bgp_maximum_prefix_restart_timer(struct thread *thread)
 	return 0;
 }
 
+static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
+					  safi_t safi)
+{
+	uint32_t count = 0;
+	struct bgp_dest *dest;
+	struct bgp_adj_in *ain;
+	struct bgp_table *table = peer->bgp->rib[afi][safi];
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		for (ain = dest->adj_in; ain; ain = ain->next) {
+			const struct prefix *rn_p = bgp_dest_get_prefix(dest);
+			struct attr attr = {};
+
+			if (bgp_input_filter(peer, rn_p, &attr, afi, safi)
+			    == FILTER_DENY)
+				count++;
+		}
+	}
+
+	return count;
+}
+
 bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 				 int always)
 {
 	iana_afi_t pkt_afi;
 	iana_safi_t pkt_safi;
+	uint32_t pcount = (CHECK_FLAG(peer->af_flags[afi][safi],
+				      PEER_FLAG_MAX_PREFIX_FORCE))
+				  ? bgp_filtered_routes_count(peer, afi, safi)
+					    + peer->pcount[afi][safi]
+				  : peer->pcount[afi][safi];
 
 	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
 		return false;
 
-	if (peer->pcount[afi][safi] > peer->pmax[afi][safi]) {
+	if (pcount > peer->pmax[afi][safi]) {
 		if (CHECK_FLAG(peer->af_sflags[afi][safi],
 			       PEER_STATUS_PREFIX_LIMIT)
 		    && !always)
@@ -3073,8 +3100,8 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 
 		zlog_info(
 			"%%MAXPFXEXCEED: No. of %s prefix received from %s %u exceed, limit %u",
-			get_afi_safi_str(afi, safi, false), peer->host,
-			peer->pcount[afi][safi], peer->pmax[afi][safi]);
+			get_afi_safi_str(afi, safi, false), peer->host, pcount,
+			peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_LIMIT);
 
 		if (CHECK_FLAG(peer->af_flags[afi][safi],
@@ -3125,8 +3152,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 		UNSET_FLAG(peer->af_sflags[afi][safi],
 			   PEER_STATUS_PREFIX_LIMIT);
 
-	if (peer->pcount[afi][safi]
-	    > (peer->pmax[afi][safi] * peer->pmax_threshold[afi][safi] / 100)) {
+	if (pcount > (pcount * peer->pmax_threshold[afi][safi] / 100)) {
 		if (CHECK_FLAG(peer->af_sflags[afi][safi],
 			       PEER_STATUS_PREFIX_THRESHOLD)
 		    && !always)
@@ -3134,8 +3160,8 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 
 		zlog_info(
 			"%%MAXPFX: No. of %s prefix received from %s reaches %u, max %u",
-			get_afi_safi_str(afi, safi, false), peer->host,
-			peer->pcount[afi][safi], peer->pmax[afi][safi]);
+			get_afi_safi_str(afi, safi, false), peer->host, pcount,
+			peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi],
 			 PEER_STATUS_PREFIX_THRESHOLD);
 	} else
@@ -3565,6 +3591,12 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	}
 
 	attr_new = bgp_attr_intern(&new_attr);
+
+	/* If maximum prefix count is configured and current prefix
+	 * count exeed it.
+	 */
+	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0))
+		return -1;
 
 	/* If the update is implicit withdraw. */
 	if (pi) {
@@ -4035,11 +4067,6 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_dest_unlock_node(pdest);
 	}
 #endif
-
-	/* If maximum prefix count is configured and current prefix
-	   count exeed it. */
-	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0))
-		return -1;
 
 	/* If this is an EVPN route, process for import. */
 	if (safi == SAFI_EVPN && CHECK_FLAG(new->flags, BGP_PATH_VALID))

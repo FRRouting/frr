@@ -1177,6 +1177,7 @@ struct peer {
 #define PEER_FLAG_ALLOWAS_IN_ORIGIN         (1 << 25) /* allowas-in origin */
 #define PEER_FLAG_SEND_LARGE_COMMUNITY      (1 << 26) /* Send large Communities */
 #define PEER_FLAG_MAX_PREFIX_OUT            (1 << 27) /* outgoing maximum prefix */
+#define PEER_FLAG_MAX_PREFIX_FORCE          (1 << 28) /* maximum-prefix <num> force */
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
 
@@ -1348,7 +1349,7 @@ struct peer {
 	/* Track if we printed the attribute in debugs */
 	int rcvd_attr_printed;
 
-	/* Prefix count. */
+	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];
 
 	/* Max prefix count. */
@@ -1919,7 +1920,7 @@ extern int peer_password_unset(struct peer *);
 extern int peer_unsuppress_map_unset(struct peer *, afi_t, safi_t);
 
 extern int peer_maximum_prefix_set(struct peer *, afi_t, safi_t, uint32_t,
-				   uint8_t, int, uint16_t);
+				   uint8_t, int, uint16_t, bool force);
 extern int peer_maximum_prefix_unset(struct peer *, afi_t, safi_t);
 
 extern int peer_clear(struct peer *, struct listnode **);

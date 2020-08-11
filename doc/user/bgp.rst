@@ -1311,8 +1311,8 @@ Configuring Peers
 
    This command specifies a default `weight` value for the neighbor's routes.
 
-.. index:: [no] neighbor PEER maximum-prefix NUMBER
-.. clicmd:: [no] neighbor PEER maximum-prefix NUMBER
+.. index:: [no] neighbor PEER maximum-prefix NUMBER [force]
+.. clicmd:: [no] neighbor PEER maximum-prefix NUMBER [force]
 
    Sets a maximum number of prefixes we can receive from a given peer. If this
    number is exceeded, the BGP session will be destroyed.
@@ -1323,6 +1323,11 @@ Configuring Peers
    rejecting undesired prefixes. The prefix-list method is also much more
    granular and offers much smarter matching criterion than number of received
    prefixes, making it more suited to implementing policy.
+
+   If _force_ is set, then ALL prefixes are counted for maximum instead of
+   accepted only. This is useful for cases where an inbound filter is applied,
+   but you want maximum-prefix to act on ALL (including filtered) prefixes. This
+   option requires `soft-reconfiguration inbound` to be enabled for the peer.
 
 .. index:: [no] neighbor PEER maximum-prefix-out NUMBER
 .. clicmd:: [no] neighbor PEER maximum-prefix-out NUMBER
