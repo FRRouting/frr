@@ -227,5 +227,206 @@ Show  NHRP
 Configuration Example
 =====================
 
-FIXME
+.. figure:: ../figures/fig_dmvpn_topologies.png
+   :alt: image
+
+   image
+
+IPSec configurration example
+----------------------------
+
+This changes required on all nodes as HUB and Spokes.
+
+ipsec.conf file
+
+.. code-block:: shell
+
+  config setup
+  conn dmvpn
+      authby=secret
+      auto=add
+      keyexchange=ikev2
+      ike=aes256-aes256-sha256-modp2048
+      esp=aes256-aes256-sha256-modp2048
+      dpdaction=clear
+      dpddelay=300s
+      left=%any
+      leftid=%any
+      right=%any
+      rightid=%any
+      leftprotoport=gre
+      rightprotoport=gre
+      type=transport
+      keyingtries=%forever
+
+ipsec.secrets file
+
+.. code-block:: shell
+
+  %any : PSK "some_s3cret!"
+
+
+HUB configuration example
+-------------------------
+
+Creating gre interface
+
+.. code-block:: console
+
+   ip tunnel add gre1 mode gre key 42 ttl 64
+   ip addr add 10.0.0.254/32 dev gre1
+   ip link set gre1 up
+
+Adding iptables rules to provide possibility shortcut tunnels and connect spokes directly
+
+.. code-block:: shell
+
+   iptables -A FORWARD -i gre1 -o gre1 \\
+       -m hashlimit --hashlimit-upto 4/minute --hashlimit-burst 1 \\
+       --hashlimit-mode srcip,dstip --hashlimit-srcmask 24 --hashlimit-dstmask 24 \\
+       --hashlimit-name loglimit-0 -j NFLOG --nflog-group 1 --nflog-range 128
+
+FRR config on HUB
+
+.. code-block:: frr
+
+  nhrp nflog-group 1
+  !
+  interface gre1
+   description DMVPN Tunnel Interface
+   ip address 10.0.0.254/32
+   ip nhrp network-id 1
+   ip nhrp redirect
+   ip nhrp registration no-unique
+   ip nhrp shortcut
+   tunnel protection vici profile dmvpn
+   tunnel source eth0
+   !
+   router bgp 65000
+    bgp router-id 10.0.0.254
+    no bgp ebgp-requires-policy
+    neighbor SPOKES peer-group
+    neighbor SPOKES disable-connected-check
+    neighbor 10.0.0.1 remote-as 65001
+    neighbor 10.0.0.1 peer-group SPOKES
+    neighbor 10.0.0.2 remote-as 65002
+    neighbor 10.0.0.2 peer-group SPOKES
+    neighbor 10.0.0.3 remote-as 65003
+    neighbor 10.0.0.3 peer-group SPOKES
+    !
+    address-family ipv4 unicast
+     network 172.16.0.0/24
+     redistribute nhrp
+    exit-address-family
+
+Spoke1 configuration
+--------------------
+
+Creating gre interface
+
+.. code-block:: console
+
+   ip tunnel add gre1 mode gre key 42 ttl 64
+   ip addr add 10.0.0.1/32 dev gre1
+   ip link set gre1 up
+
+
+FRR config on Spoke1
+
+.. code-block:: frr
+
+  interface gre1
+   description DMVPN Tunnel Interface
+   ip address 10.0.0.1/32
+   ip nhrp network-id 1
+   ip nhrp nhs dynamic nbma 198.51.100.1
+   ip nhrp redirect
+   ip nhrp registration no-unique
+   ip nhrp shortcut
+   no link-detect
+   tunnel protection vici profile dmvpn
+   tunnel source eth0
+  !
+  router bgp 65001
+   no bgp ebgp-requires-policy
+   neighbor 10.0.0.254 remote-as 65000
+   neighbor 10.0.0.254 disable-connected-check
+   !
+   address-family ipv4 unicast
+    network 172.16.1.0/24
+   exit-address-family
+
+
+Spoke2 configuration
+--------------------
+
+Creating gre interface
+
+.. code-block:: console
+
+   ip tunnel add gre1 mode gre key 42 ttl 64
+   ip addr add 10.0.0.1/32 dev gre1
+   ip link set gre1 up
+
+FRR config on Spoke2
+
+.. code-block:: frr
+
+  interface gre1
+   description DMVPN Tunnel Interface
+   ip address 10.0.0.2/32
+   ip nhrp network-id 1
+   ip nhrp nhs dynamic nbma 198.51.100.1
+   ip nhrp redirect
+   ip nhrp registration no-unique
+   ip nhrp shortcut
+   no link-detect
+   tunnel protection vici profile dmvpn
+   tunnel source eth0
+  !
+  router bgp 65002
+   no bgp ebgp-requires-policy
+   neighbor 10.0.0.254 remote-as 65000
+   neighbor 10.0.0.254 disable-connected-check
+   !
+   address-family ipv4 unicast
+    network 172.16.2.0/24
+   exit-address-family
+
+
+Spoke3 configuration
+--------------------
+
+Creating gre interface
+
+.. code-block:: console
+
+   ip tunnel add gre1 mode gre key 42 ttl 64
+   ip addr add 10.0.0.3/32 dev gre1
+   ip link set gre1 up
+
+FRR config on Spoke3
+
+.. code-block:: frr
+
+  interface gre1
+   description DMVPN Tunnel Interface
+   ip address 10.0.0.3/32
+   ip nhrp network-id 1
+   ip nhrp nhs dynamic nbma 198.51.100.1
+   ip nhrp redirect
+   ip nhrp registration no-unique
+   ip nhrp shortcut
+   no link-detect
+   tunnel protection vici profile dmvpn
+   tunnel source eth0
+  !
+  router bgp 65003
+   no bgp ebgp-requires-policy
+   neighbor 10.0.0.254 remote-as 65000
+   neighbor 10.0.0.254 disable-connected-check
+   !
+   address-family ipv4 unicast
+    network 172.16.3.0/24
+   exit-address-family
 
