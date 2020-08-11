@@ -98,12 +98,48 @@ extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup);
 extern int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 			struct nlmsghdr *n, struct nlsock *nl,
 			struct zebra_ns *zns, int startup);
-/* Version with 'info' struct only */
-int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
-		      struct nlmsghdr *n,
-		      const struct zebra_dplane_info *dp_info, int startup);
-
 extern int netlink_request(struct nlsock *nl, void *req);
+
+enum netlink_msg_status {
+	FRR_NETLINK_SUCCESS,
+	FRR_NETLINK_ERROR,
+	FRR_NETLINK_QUEUED,
+};
+
+struct nl_batch;
+
+/*
+ * netlink_batch_add_msg - add message to the netlink batch using dplane
+ * context object.
+ *
+ * @ctx:         Dataplane context
+ * @msg_encoder: A function that encodes dplane context object into
+ *               netlink message. Should take dplane context object,
+ *               pointer to a buffer and buffer's length as parameters
+ *               and should return -1 on error, 0 on buffer overflow or
+ *               size of the encoded message.
+ * @ignore_res:  Whether the result of this message should be ignored.
+ *               This should be used in some 'update' cases where we
+ *               need to send two messages for one context object.
+ *
+ * Return:		Status of the message.
+ */
+extern enum netlink_msg_status netlink_batch_add_msg(
+	struct nl_batch *bth, struct zebra_dplane_ctx *ctx,
+	ssize_t (*msg_encoder)(struct zebra_dplane_ctx *, void *, size_t),
+	bool ignore_res);
+
+/*
+ * Vty/cli apis
+ */
+extern int netlink_config_write_helper(struct vty *vty);
+
+/*
+ * Configure size of the batch buffer and sending threshold. If 'unset', reset
+ * to default value.
+ */
+extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
+					  bool set);
 
 #endif /* HAVE_NETLINK */
 

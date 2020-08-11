@@ -40,7 +40,7 @@ extern "C" {
 #define RSYSTEM_ROUTE(type)                                                    \
 	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT)
 
-
+#ifndef HAVE_NETLINK
 /*
  * Update or delete a route, nexthop, LSP, pseudowire, or vxlan MAC from the
  * kernel, using info from a dataplane context.
@@ -62,6 +62,11 @@ enum zebra_dplane_result kernel_address_update_ctx(
 enum zebra_dplane_result kernel_mac_update_ctx(struct zebra_dplane_ctx *ctx);
 
 enum zebra_dplane_result kernel_neigh_update_ctx(struct zebra_dplane_ctx *ctx);
+
+extern enum zebra_dplane_result
+kernel_pbr_rule_update(struct zebra_dplane_ctx *ctx);
+
+#endif /* !HAVE_NETLINK */
 
 extern int kernel_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 			       int llalen, ns_id_t ns_id);
@@ -96,6 +101,11 @@ extern int kernel_del_mac_nh(uint32_t nh_id);
 extern int kernel_upd_mac_nhg(uint32_t nhg_id, uint32_t nh_cnt,
 		struct nh_grp *nh_ids);
 extern int kernel_del_mac_nhg(uint32_t nhg_id);
+
+/*
+ * Message batching interface.
+ */
+extern void kernel_update_multi(struct dplane_ctx_q *ctx_list);
 
 #ifdef __cplusplus
 }

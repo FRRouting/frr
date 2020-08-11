@@ -28,13 +28,9 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/kernel_netlink.h"
 
-/*
- * LSP forwarding update using dataplane context information.
- */
-enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
+static ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+				       size_t buflen)
 {
-	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
-	ssize_t ret = -1;
 	int cmd;
 
 	/* Call to netlink layer based on type of update */
@@ -48,26 +44,21 @@ enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
 			if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_MPLS)
 				zlog_debug("LSP in-label %u: update fails, no best NHLFE",
 					   dplane_ctx_get_in_label(ctx));
-			goto done;
+			return -1;
 		}
 
 		cmd = RTM_NEWROUTE;
 	} else
 		/* Invalid op? */
-		goto done;
+		return -1;
 
-	ret = netlink_mpls_multipath_msg_encode(cmd, ctx, nl_pkt,
-						sizeof(nl_pkt));
-	if (ret <= 0)
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
+	return netlink_mpls_multipath_msg_encode(cmd, ctx, buf, buflen);
+}
 
-	ret = netlink_talk_info(netlink_talk_filter, (struct nlmsghdr *)nl_pkt,
-				dplane_ctx_get_ns(ctx), 0);
-
-done:
-
-	return (ret == 0 ?
-		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
+enum netlink_msg_status netlink_put_lsp_update_msg(struct nl_batch *bth,
+						   struct zebra_dplane_ctx *ctx)
+{
+	return netlink_batch_add_msg(bth, ctx, netlink_lsp_msg_encoder, false);
 }
 
 /*
@@ -75,9 +66,10 @@ done:
  * but note that the default has been to report 'success' for pw updates
  * on unsupported platforms.
  */
-enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
+enum netlink_msg_status netlink_put_pw_update_msg(struct nl_batch *bth,
+						  struct zebra_dplane_ctx *ctx)
 {
-	return ZEBRA_DPLANE_REQUEST_SUCCESS;
+	return FRR_NETLINK_SUCCESS;
 }
 
 int mpls_kernel_init(void)
