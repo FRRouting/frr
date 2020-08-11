@@ -77,12 +77,9 @@ struct isis {
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
-
-	QOBJ_FIELDS
 };
 
 extern struct isis *isis;
-DECLARE_QOBJ_TYPE(isis_area)
 
 enum spf_tree_id {
 	SPFTREE_IPV4 = 0,

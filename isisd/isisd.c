@@ -77,7 +77,6 @@ unsigned long debug_sr;
 
 struct isis *isis = NULL;
 
-DEFINE_QOBJ_TYPE(isis)
 DEFINE_QOBJ_TYPE(isis_area)
 
 /*
@@ -105,8 +104,6 @@ void isis_new(unsigned long process_id, vrf_id_t vrf_id)
 	isis->init_circ_list = list_new();
 	isis->uptime = time(NULL);
 	dyn_cache_init();
-
-	QOBJ_REG(isis, isis);
 }
 
 struct isis_area *isis_area_create(const char *area_tag)
