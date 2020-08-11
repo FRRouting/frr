@@ -76,6 +76,9 @@ module frr-route-types {
       enum vnc {
         value 17;
       }
+      enum vnc-direct {
+        value 18;
+      }
       enum babel {
         value 22;
       }
@@ -119,6 +122,9 @@ module frr-route-types {
       }
       enum vnc {
         value 17;
+      }
+      enum vnc-direct {
+        value 18;
       }
       enum babel {
         value 22;
