@@ -131,8 +131,8 @@ DEFPY(sharp_nht_data_dump,
       sharp_nht_data_dump_cmd,
       "sharp data nexthop",
       "Sharp routing Protocol\n"
-      "Nexthop information\n"
-      "Data Dump\n")
+      "Data about what is going on\n"
+      "Nexthop information\n")
 {
 	sharp_nh_tracker_dump(vty);
 

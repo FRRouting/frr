@@ -78,7 +78,8 @@ keyword. At present, no sharp commands will be preserved in the config.
    The nexthop or import choice chooses the type of nexthop we are asking
    zebra to watch for us.  This choice affects zebra's decision on what
    matches.  Connected tells zebra whether or not that we want the route
-   matched against to be a static or connected route.  The no form of
+   matched against to be a static or connected route for the nexthop keyword,
+   for the import keyword connected means exact match.  The no form of
    the command obviously turns this watching off.
 
 .. index:: sharp data nexthop
