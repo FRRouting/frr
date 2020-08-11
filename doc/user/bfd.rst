@@ -184,6 +184,19 @@ BFD peers and profiles share the same BFD session configuration commands.
 
    The default is active-mode (or ``no passive-mode``).
 
+.. index:: [no] minimum-ttl (1-254)
+.. clicmd:: [no] minimum-ttl (1-254)
+
+   For multi hop sessions only: configure the minimum expected TTL for
+   an incoming BFD control packet.
+
+   This feature serves the purpose of thightening the packet validation
+   requirements to avoid receiving BFD control packets from other
+   sessions.
+
+   The default value is 254 (which means we only expect one hop between
+   this system and the peer).
+
 
 BFD Peer Specific Commands
 --------------------------
