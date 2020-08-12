@@ -3062,12 +3062,14 @@ static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
 	uint32_t count = 0;
 	struct bgp_dest *dest;
 	struct bgp_adj_in *ain;
+	struct attr attr = {};
 	struct bgp_table *table = peer->bgp->rib[afi][safi];
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		for (ain = dest->adj_in; ain; ain = ain->next) {
 			const struct prefix *rn_p = bgp_dest_get_prefix(dest);
-			struct attr attr = {};
+
+			attr = *ain->attr;
 
 			if (bgp_input_filter(peer, rn_p, &attr, afi, safi)
 			    == FILTER_DENY)
