@@ -404,10 +404,15 @@ lde_kernel_update(struct fec *fec)
 			 * if LDP configured on interface or a static route
 			 * clear flag else treat fec as a connected route
 			 */
-			iface = if_lookup(ldeconf,fnh->ifindex);
-			if (iface || fnh->route_type == ZEBRA_ROUTE_STATIC)
-				fnh->flags &=~F_FEC_NH_NO_LDP;
-			else
+			if (ldeconf->flags & F_LDPD_ENABLED) {
+				iface = if_lookup(ldeconf,fnh->ifindex);
+				if (fnh->flags & F_FEC_NH_CONNECTED ||
+				    iface ||
+				    fnh->route_type == ZEBRA_ROUTE_STATIC)
+					fnh->flags &=~F_FEC_NH_NO_LDP;
+				else
+					fnh->flags |= F_FEC_NH_NO_LDP;
+			} else
 				fnh->flags |= F_FEC_NH_NO_LDP;
 		} else {
 			lde_send_delete_klabel(fn, fnh);
@@ -436,6 +441,10 @@ lde_kernel_update(struct fec *fec)
 			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 				lde_send_labelmapping(ln, fn, 1);
 	}
+
+	/* if no label created yet then don't try to program labeled route */
+	if (fn->local_label == NO_LABEL)
+		return;
 
 	LIST_FOREACH(fnh, &fn->nexthops, entry) {
 		lde_send_change_klabel(fn, fnh);
@@ -567,7 +576,8 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln, int rcvd_label_mapping)
 				fnh->flags &= ~F_FEC_NH_DEFER;
 			}
 			fnh->remote_label = map->label;
-			lde_send_change_klabel(fn, fnh);
+			if (fn->local_label != NO_LABEL)
+				lde_send_change_klabel(fn, fnh);
 			break;
 		case FEC_TYPE_PWID:
 			pw = (struct l2vpn_pw *) fn->data;

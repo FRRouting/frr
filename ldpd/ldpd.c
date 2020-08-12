@@ -1329,6 +1329,7 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 	int		 reset_nbrs_ipv4 = 0;
 	int		 reset_nbrs = 0;
 	int		 update_sockets = 0;
+	int		 change_ldp_disabled = 0;
 
 	/* update timers */
 	if (af_conf->keepalive != xa->keepalive) {
@@ -1361,6 +1362,11 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 	if ((af_conf->flags & F_LDPD_AF_ALLOCHOSTONLY)
 	    != (xa->flags & F_LDPD_AF_ALLOCHOSTONLY))
 		change_host_label = 1;
+
+	/* disabling LDP for address family */
+	if ((af_conf->flags & F_LDPD_AF_ENABLED) &&
+	    !(xa->flags & F_LDPD_AF_ENABLED))
+		change_ldp_disabled = 1;
 
 	af_conf->flags = xa->flags;
 
@@ -1409,6 +1415,9 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 			lde_change_egress_label(af);
 		if (change_host_label)
 			lde_change_allocate_filter(af);
+		if (change_ldp_disabled)
+			lde_route_update_release_all(af);
+
 		break;
 	case PROC_LDP_ENGINE:
 		if (stop_init_backoff)
@@ -1434,13 +1443,22 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 	struct iface		*iface, *itmp, *xi;
 
 	RB_FOREACH_SAFE(iface, iface_head, &conf->iface_tree, itmp) {
-		/* find deleted interfaces */
+		/* find deleted interfaces, which occurs when LDP is removed
+		 * for all address families
+		 */
 		if (if_lookup_name(xconf, iface->name) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDP_ENGINE:
 				ldpe_if_exit(iface);
 				break;
 			case PROC_LDE_ENGINE:
+				if (iface->ipv4.enabled)
+					lde_route_update_release(iface,
+					    AF_INET);
+				if (iface->ipv6.enabled)
+					lde_route_update_release(iface,
+					    AF_INET6);
+				break;
 			case PROC_MAIN:
 				break;
 			}
@@ -1466,6 +1484,29 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 				break;
 			}
 			continue;
+		}
+
+		/* update labels when adding or removing ldp on an
+		 * interface
+		 */
+		if (ldpd_process == PROC_LDE_ENGINE) {
+			/* if we are removing lpd config for an address
+			 * family on an interface then advertise routes
+			 * learned over this interface as if they were
+			 * connected routes
+			 */
+			if (iface->ipv4.enabled && !xi->ipv4.enabled)
+				lde_route_update_release(iface, AF_INET);
+			if (iface->ipv6.enabled && !xi->ipv6.enabled)
+				lde_route_update_release(iface, AF_INET6);
+
+			/* if we are adding lpd config for an address
+			 * family on an interface then add proper labels
+			 */
+			if (!iface->ipv4.enabled && xi->ipv4.enabled)
+				lde_route_update(iface, AF_INET);
+			if (!iface->ipv6.enabled && xi->ipv6.enabled)
+				lde_route_update(iface, AF_INET6);
 		}
 
 		/* update existing interfaces */

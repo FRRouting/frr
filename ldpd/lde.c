@@ -468,6 +468,10 @@ lde_dispatch_parent(struct thread *thread)
 			iface = if_lookup_name(ldeconf, kif->ifname);
 			if (iface) {
 				if_update_info(iface, kif);
+
+				/* if up see if any labels need to be updated */
+				if (kif->operative)
+					lde_route_update(iface, AF_UNSPEC);
 				break;
 			}
 
@@ -786,7 +790,6 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.remote_label = fnh->remote_label;
 		kr.route_type = fnh->route_type;
 		kr.route_instance = fnh->route_instance;
-
 		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr,
 		    sizeof(kr));
 		break;
@@ -2270,4 +2273,157 @@ lde_check_filter_af(int af, struct ldpd_af_conf *af_conf,
 		lde_change_accept_filter(af);
 	if (strcmp(af_conf->acl_label_expnull_for, filter_name) == 0)
 		lde_change_expnull_for_filter(af);
+}
+
+void lde_route_update(struct iface *iface, int af)
+{
+	struct fec	*f;
+	struct fec_node	*fn;
+	struct fec_nh	*fnh;
+	struct lde_nbr  *ln;
+
+	/* update label of non-connected routes */
+	log_debug("update labels for interface %s", iface->name);
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+		if (IS_MPLS_UNRESERVED_LABEL(fn->local_label))
+			continue;
+
+		switch (af) {
+		case AF_INET:
+			if (fn->fec.type != FEC_TYPE_IPV4)
+				continue;
+			break;
+		case AF_INET6:
+			if (fn->fec.type != FEC_TYPE_IPV6)
+				continue;
+			break;
+		default:
+			/* unspecified so process both address families */
+			break;
+		}
+
+		LIST_FOREACH(fnh, &fn->nexthops, entry) {
+			/*
+			 * If connected leave existing label. If LDP
+			 * configured on interface or a static route
+			 * may need new label. If no LDP configured
+			 * treat fec as a connected route
+			 */
+			if (fnh->flags & F_FEC_NH_CONNECTED)
+				break;
+
+			if (fnh->ifindex != iface->ifindex)
+				continue;
+
+			fnh->flags &= ~F_FEC_NH_NO_LDP;
+			if (IS_MPLS_RESERVED_LABEL(fn->local_label)) {
+				fn->local_label = NO_LABEL;
+				fn->local_label = lde_update_label(fn);
+				if (fn->local_label != NO_LABEL)
+					RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+						lde_send_labelmapping(
+						    ln, fn, 0);
+			}
+			break;
+		}
+	}
+	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid,
+		    0, NULL, 0);
+}
+
+void lde_route_update_release(struct iface *iface, int af)
+{
+	struct lde_nbr	*ln;
+	struct fec	*f;
+	struct fec_node	*fn;
+	struct fec_nh	*fnh;
+
+	/* update label of interfaces no longer running LDP */
+	log_debug("release all labels for interface %s af %s", iface->name,
+	    af == AF_INET ? "ipv4" : "ipv6");
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+
+		switch (af) {
+		case AF_INET:
+			if (fn->fec.type != FEC_TYPE_IPV4)
+				continue;
+			break;
+		case AF_INET6:
+			if (fn->fec.type != FEC_TYPE_IPV6)
+				continue;
+			break;
+		default:
+			fatalx("lde_route_update_release: unknown af");
+		}
+
+		if (fn->local_label == NO_LABEL)
+			continue;
+
+		LIST_FOREACH(fnh, &fn->nexthops, entry) {
+			/*
+			 * If connected leave existing label. If LDP
+			 * removed from interface may need new label
+			 * and would be treated as a connected route
+			 */
+			if (fnh->flags & F_FEC_NH_CONNECTED)
+				break;
+
+			if (fnh->ifindex != iface->ifindex)
+				continue;
+
+			fnh->flags |= F_FEC_NH_NO_LDP;
+			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+				lde_send_labelwithdraw(ln, fn, NULL, NULL);
+			lde_free_label(fn->local_label);
+			fn->local_label = NO_LABEL;
+			fn->local_label = lde_update_label(fn);
+			if (fn->local_label != NO_LABEL)
+				RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+					lde_send_labelmapping(ln, fn, 0);
+			break;
+		}
+	}
+	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid,
+		    0, NULL, 0);
+}
+
+void lde_route_update_release_all(int af)
+{
+	struct lde_nbr	*ln;
+	struct fec	*f;
+	struct fec_node	*fn;
+	struct fec_nh	*fnh;
+
+	/* remove labels from all interfaces as LDP is no longer running for
+	 * this address family
+	 */
+	log_debug("release all labels for address family %s",
+	    af == AF_INET ? "ipv4" : "ipv6");
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+		switch (af) {
+		case AF_INET:
+			if (fn->fec.type != FEC_TYPE_IPV4)
+				continue;
+			break;
+		case AF_INET6:
+			if (fn->fec.type != FEC_TYPE_IPV6)
+				continue;
+			break;
+		default:
+			fatalx("lde_route_update_release: unknown af");
+		}
+
+		RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+			lde_send_labelwithdraw(ln, fn, NULL, NULL);
+
+		LIST_FOREACH(fnh, &fn->nexthops, entry) {
+			fnh->flags |= F_FEC_NH_NO_LDP;
+			lde_send_delete_klabel(fn, fnh);
+		}
+	}
 }
