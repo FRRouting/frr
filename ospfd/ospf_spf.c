@@ -994,6 +994,33 @@ static void ospf_spf_dump(struct vertex *v, int i)
 		ospf_spf_dump(v, i);
 }
 
+void ospf_spf_print(struct vty *vty, struct vertex *v, int i)
+{
+	struct listnode *cnode;
+	struct listnode *nnode;
+	struct vertex_parent *parent;
+
+	if (v->type == OSPF_VERTEX_ROUTER) {
+		vty_out(vty, "SPF Result: depth %d [R] %s\n", i,
+			inet_ntoa(v->lsa->id));
+	} else {
+		struct network_lsa *lsa = (struct network_lsa *)v->lsa;
+		vty_out(vty, "SPF Result: depth %d [N] %s/%d\n", i,
+			inet_ntoa(v->lsa->id), ip_masklen(lsa->mask));
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(v->parents, nnode, parent)) {
+		vty_out(vty, " nexthop %s lsa pos %d\n",
+			inet_ntoa(parent->nexthop->router),
+			parent->nexthop->lsa_pos);
+	}
+
+	i++;
+
+	for (ALL_LIST_ELEMENTS_RO(v->children, cnode, v))
+		ospf_spf_print(vty, v, i);
+}
+
 /* Second stage of SPF calculation. */
 static void ospf_spf_process_stubs(struct ospf_area *area, struct vertex *v,
 				   struct route_table *rt, int parent_is_root)

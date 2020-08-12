@@ -82,5 +82,7 @@ extern int ospf_spf_calculate_areas(struct ospf *ospf,
 				    bool is_dry_run);
 extern void ospf_rtrs_free(struct route_table *);
 
+extern void ospf_spf_print(struct vty *vty, struct vertex *v, int i);
+
 /* void ospf_spf_calculate_timer_add (); */
 #endif /* _QUAGGA_OSPF_SPF_H */
