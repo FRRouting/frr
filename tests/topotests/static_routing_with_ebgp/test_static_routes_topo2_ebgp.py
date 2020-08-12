@@ -42,10 +42,9 @@ import json
 import time
 import os
 import pytest
-import ipaddr
-from time import sleep
-from copy import deepcopy
+import platform
 import random
+from lib.topotest import version_cmp
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -66,7 +65,6 @@ from lib.common_config import (
     create_static_routes,
     check_address_types,
     step,
-    create_interfaces_cfg,
     shutdown_bringup_interface,
     stop_router,
     start_router,
@@ -162,6 +160,11 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    if version_cmp(platform.release(), '4.19') < 0:
+        error_msg = ('These tests will not run. (have kernel "{}", '
+            'requires kernel >= 4.19)'.format(platform.release()))
+        pytest.skip(error_msg)
 
     # Checking BGP convergence
     global BGP_CONVERGENCE
@@ -471,8 +474,6 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
     intf = topo["routers"]["r2"]["links"]["r1-link{}".format(randnum)]["interface"]
     shutdown_bringup_interface(tgen, dut, intf, False)
 
-
-
     step("Random no shut of the nexthop interfaces")
     # Bringup interface
     shutdown_bringup_interface(tgen, dut, intf, True)
@@ -564,7 +565,6 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
     step("Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
-
     start_router(tgen, "r2")
 
     step(
@@ -597,60 +597,6 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
         )
         assert result is True, "Testcase {} : Failed \nError: Routes are"
         " missing in RIB".format(tc_name)
-
-    step(
-        "Remove and add the IBGP nbrs using interface shut and"
-        "deactivate/activate from address family"
-    )
-
-    for intfr in range(0, 8):
-        intf = topo["routers"]["r2"]["links"]["r3-link{}".format(intfr)]["interface"]
-        shutdown_bringup_interface(tgen, dut, intf, False)
-
-    # sleep for twice the holddowntimer so that bgp deletes the neighbors.
-    sleep(8)
-
-    step("verify bgp convergence as all interface are shut")
-
-    bgp_convergence = verify_bgp_convergence(tgen, topo)
-    assert bgp_convergence is not True, "Testcase {} : Failed"
-    " \n Error: {}".format(tc_name, bgp_convergence)
-
-    dut = "r3"
-    protocol = "static"
-    for addr_type in ADDR_TYPES:
-        for nhp in range(1, 9):
-            input_dict_4 = {
-                "r2": {
-                    "static_routes": [
-                        {
-                            "network": PREFIX1[addr_type],
-                            "next_hop": NEXT_HOP_IP["nh" + str(nhp)][addr_type],
-                        }
-                    ]
-                }
-            }
-        nh = NEXT_HOP_IP["nh" + str(nhp)][addr_type]
-        result = verify_rib(
-            tgen,
-            addr_type,
-            dut,
-            input_dict_4,
-            next_hop=nh,
-            protocol=protocol,
-            expected=False,
-        )
-        assert result is not True, "Testcase {} : Failed \nError: Routes are"
-        " still present in RIB".format(tc_name)
-    dut = "r2"
-    for intfr in range(0, 8):
-        intf = topo["routers"]["r2"]["links"]["r3-link{}".format(intfr)]["interface"]
-        shutdown_bringup_interface(tgen, dut, intf, True)
-
-    step("verify bgp convergence as all interface are un shut")
-    bgp_convergence = verify_bgp_convergence(tgen, topo)
-    assert bgp_convergence is True, "Testcase {} :"
-    " Failed \n Error:  {}".format(tc_name, bgp_convergence)
 
     step("Remove the redistribute static knob")
     for addr_type in ADDR_TYPES:
@@ -875,68 +821,6 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
         )
         assert result is True, "Testcase {} : Failed \nError: Routes are"
         " missing in RIB".format(tc_name)
-        nh = []
-        for nhp in range(2, 9):
-            nh.append(NEXT_HOP_IP["nh" + str(nhp)][addr_type])
-        result = verify_rib(
-            tgen,
-            addr_type,
-            dut,
-            input_dict_4,
-            next_hop=nh,
-            protocol=protocol,
-            fib=True,
-            expected=False,
-            wait=2,
-            attempts=3,
-        )
-        assert result is not True, "Testcase {} : Failed \nError: Routes "
-        " are missing in RIB".format(tc_name)
-
-    step("Shut nexthop interfaces N1 to N8 one by one")
-    for addr_type in ADDR_TYPES:
-        for nhp in range(0, 8):
-            intf = topo["routers"]["r2"]["links"]["r1-link" + str(nhp)]["interface"]
-            shutdown_bringup_interface(tgen, dut, intf, False)
-
-        result = verify_rib(
-            tgen,
-            addr_type,
-            dut,
-            input_dict_4,
-            next_hop=nh_all[addr_type],
-            protocol=protocol,
-            fib=True,
-        )
-        assert result is not True, "Testcase {} : Failed \nError: Routes "
-        " are still present in RIB".format(tc_name)
-
-    step("No shut the nexthop interfaces N1 to N3 one by one .")
-    for addr_type in ADDR_TYPES:
-        for nhp in range(0, 3):
-            intf = topo["routers"]["r2"]["links"]["r1-link" + str(nhp)]["interface"]
-            shutdown_bringup_interface(tgen, dut, intf, True)
-
-        input_dict_4 = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": PREFIX1[addr_type],
-                        "next_hop": NEXT_HOP_IP["nh1"][addr_type],
-                        "admin_distance": 10,
-                    }
-                ]
-            }
-        }
-        dut = "r2"
-        protocol = "static"
-        nh = NEXT_HOP_IP["nh1"][addr_type]
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol, fib=True
-        )
-        assert result is True, "Testcase {} : Failed \nError: Routes are"
-        " missing in RIB".format(tc_name)
-
         nh = []
         for nhp in range(2, 9):
             nh.append(NEXT_HOP_IP["nh" + str(nhp)][addr_type])
@@ -1333,76 +1217,6 @@ def test_static_route_8nh_diff_AD_ebgp_ecmp_p1_tc8_ebgp(request):
         )
         assert result is True, "Testcase {} : Failed \nError: Routes are"
         " missing in RIB".format(tc_name)
-        nh = []
-        for nhp in range(2, 9):
-            nh.append(NEXT_HOP_IP["nh" + str(nhp)][addr_type])
-        result = verify_rib(
-            tgen,
-            addr_type,
-            dut,
-            input_dict_4,
-            next_hop=nh,
-            protocol=protocol,
-            fib=True,
-            expected=False,
-        )
-        assert result is not True, "Testcase {} : Failed \nError: Routes "
-        " are missing in RIB".format(tc_name)
-
-    step("Shut nexthop interfaces N1 to N8 one by one")
-    for addr_type in ADDR_TYPES:
-        for nhp in range(0, 8):
-            intf = topo["routers"]["r2"]["links"]["r1-link" + str(nhp)]["interface"]
-            shutdown_bringup_interface(tgen, dut, intf, False)
-        input_dict_4 = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": PREFIX1[addr_type],
-                        "next_hop": NEXT_HOP_IP["nh1"][addr_type],
-                        "admin_distance": 10,
-                    }
-                ]
-            }
-        }
-        result = verify_rib(
-            tgen,
-            addr_type,
-            dut,
-            input_dict_4,
-            next_hop=nh_all[addr_type],
-            protocol=protocol,
-            fib=True,
-        )
-        assert result is not True, "Testcase {} : Failed \nError: Routes "
-        " are still present in RIB".format(tc_name)
-
-    step("No shut the nexthop interfaces N1 to N8 one by one .")
-    for addr_type in ADDR_TYPES:
-        for nhp in range(0, 8):
-            intf = topo["routers"]["r2"]["links"]["r1-link" + str(nhp)]["interface"]
-            shutdown_bringup_interface(tgen, dut, intf, True)
-
-        input_dict_4 = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": PREFIX1[addr_type],
-                        "next_hop": NEXT_HOP_IP["nh1"][addr_type],
-                        "admin_distance": 10,
-                    }
-                ]
-            }
-        }
-        dut = "r2"
-        protocol = "static"
-        nh = NEXT_HOP_IP["nh1"][addr_type]
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol, fib=True
-        )
-        assert result is True, "Testcase {} : Failed \nError: Routes are"
-        " missing in RIB".format(tc_name)
-
         nh = []
         for nhp in range(2, 9):
             nh.append(NEXT_HOP_IP["nh" + str(nhp)][addr_type])
@@ -1968,92 +1782,6 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
                 "Testcase {} : Failed \nError: Route "
                 " is missing in RIB".format(tc_name)
             )
-
-        dut = "r2"
-        for intfr in range(0, 8):
-            intf = topo["routers"]["r2"]["links"]["r3-link{}".format(intfr)][
-                "interface"
-            ]
-            shutdown_bringup_interface(tgen, dut, intf, False)
-
-        dut = "r3"
-        for intfr in range(0, 8):
-            intf = topo["routers"]["r3"]["links"]["r2-link{}".format(intfr)][
-                "interface"
-            ]
-            shutdown_bringup_interface(tgen, dut, intf, False)
-        # sleep for twice the holddowntimer so that bgp deletes the neighbors.
-        sleep(8)
-        step("verify bgp convergence as all interface are shut")
-
-        bgp_convergence = verify_bgp_convergence(tgen, topo)
-        assert bgp_convergence is not True, "Testcase {} : Failed \n"
-        "Error: {}".format(tc_name, bgp_convergence)
-
-        dut = "r2"
-        protocol = "static"
-        for addr_type in ADDR_TYPES:
-            for nhp in range(1, 9):
-                input_dict_4 = {
-                    "r2": {
-                        "static_routes": [
-                            {
-                                "network": PREFIX1[addr_type],
-                                "next_hop": NEXT_HOP_IP["nh" + str(nhp)][addr_type],
-                            }
-                        ]
-                    }
-                }
-            nh = NEXT_HOP_IP["nh1"][addr_type]
-            result = verify_rib(
-                tgen,
-                addr_type,
-                dut,
-                input_dict_4,
-                next_hop=nh,
-                protocol=protocol,
-                fib=True,
-            )
-            assert result is True, "Testcase {} : Failed \nError: Routes are"
-            " missing present in RIB".format(tc_name)
-
-        dut = "r3"
-        protocol = "bgp"
-        for addr_type in ADDR_TYPES:
-            input_dict_4 = {"r2": {"static_routes": [{"network": PREFIX1[addr_type],}]}}
-            nh = NEXT_HOP_IP["nh1"][addr_type]
-            result = verify_rib(
-                tgen,
-                addr_type,
-                dut,
-                input_dict_4,
-                next_hop=nh,
-                protocol=protocol,
-                expected=False,
-            )
-            assert result is not True, "Testcase {} : Failed \nError: Routes "
-            " are still present in RIB after BGP nbr is down".format(tc_name)
-
-
-        dut = "r2"
-        for intfr in range(0, 8):
-            intf = topo["routers"]["r2"]["links"]["r3-link{}".format(intfr)][
-                "interface"
-            ]
-            shutdown_bringup_interface(tgen, dut, intf, True)
-
-
-        dut = "r3"
-        for intfr in range(0, 8):
-            intf = topo["routers"]["r3"]["links"]["r2-link{}".format(intfr)][
-                "interface"
-            ]
-            shutdown_bringup_interface(tgen, dut, intf, True)
-
-        step("verify bgp convergence as all interface are un shut")
-        bgp_convergence = verify_bgp_convergence(tgen, topo)
-        assert bgp_convergence is True, "Testcase {} : Failed \n"
-        "Error: {}".format(tc_name, bgp_convergence)
 
     step("Remove the redistribute static knob")
     for addr_type in ADDR_TYPES:

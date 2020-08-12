@@ -34,8 +34,7 @@ import json
 import time
 import os
 import pytest
-import ipaddr
-
+import platform
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -44,7 +43,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
-
+from lib.topotest import version_cmp
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
     start_topology,
@@ -119,6 +118,11 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    if version_cmp(platform.release(), '4.19') < 0:
+        error_msg = ('These tests will not run. (have kernel "{}", '
+            'requires kernel >= 4.19)'.format(platform.release()))
+        pytest.skip(error_msg)
 
     # Checking BGP convergence
     global BGP_CONVERGENCE
@@ -252,7 +256,7 @@ def test_static_route_2nh_p0_tc_1_ebgp(request):
             tc_name, result
         )
 
-        step("Remove the static route configured with nexthop N1 from" "running config")
+        step("Remove the static route configured with nexthop N1 from running config")
         input_dict_4 = {
             "r2": {
                 "static_routes": [
@@ -1247,7 +1251,7 @@ def test_same_rte_from_bgp_static_p0_tc5_ebgp(request):
             }
         }
         dut = "r3"
-        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_4)
+        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_4, attempts=5, expected=False)
         assert result is not True, "Testcase {} : Failed \nError: Route is"
         " still present in RIB".format(tc_name)
 

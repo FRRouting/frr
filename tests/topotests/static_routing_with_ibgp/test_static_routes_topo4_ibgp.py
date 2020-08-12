@@ -33,7 +33,7 @@ import json
 import time
 import os
 import pytest
-import ipaddr
+import platform
 import ipaddress
 from copy import deepcopy
 
@@ -52,7 +52,6 @@ from lib.common_config import (
     write_test_footer,
     reset_config_on_routers,
     verify_rib,
-    create_static_routes,
     check_address_types,
     step,
     create_prefix_lists,
@@ -69,7 +68,7 @@ from lib.bgp import (
     clear_bgp,
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
-
+from lib.topotest import version_cmp
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/static_routes_topo4_ibgp.json".format(CWD)
 try:
@@ -77,6 +76,7 @@ try:
         topo = json.load(topoJson)
 except IOError:
     assert False, "Could not read file {}".format(jsonFile)
+
 # Global variables
 BGP_CONVERGENCE = False
 ADDR_TYPES = check_address_types()
@@ -101,9 +101,7 @@ class CreateTopo(Topo):
 
 def setup_module(mod):
     """
-
     Set up the pytest environment.
-
     * `mod`: module name
     """
     global topo
@@ -123,6 +121,11 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    if version_cmp(platform.release(), '4.19') < 0:
+        error_msg = ('These tests will not run. (have kernel "{}", '
+            'requires kernel >= 4.19)'.format(platform.release()))
+        pytest.skip(error_msg)
 
     # Checking BGP convergence
     global BGP_CONVERGENCE
@@ -230,7 +233,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
 
     step(" All BGP nbrs are down as authentication is mismatch on both" " the sides")
 
-    bgp_convergence = verify_bgp_convergence(tgen, topo)
+    bgp_convergence = verify_bgp_convergence(tgen, topo, expected=False)
     assert bgp_convergence is not True, "Testcase {} : "
     "Failed \n BGP nbrs must be down. Error: {}".format(tc_name, bgp_convergence)
 
@@ -793,7 +796,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
                 ]
             }
         }
-        result = verify_route_maps(tgen, input_dict)
+        result = verify_route_maps(tgen, input_dict, expected=False)
         assert result is not True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )

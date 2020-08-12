@@ -34,7 +34,7 @@ import json
 import time
 import os
 import pytest
-import ipaddr
+import platform
 import ipaddress
 from copy import deepcopy
 
@@ -46,6 +46,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
+from lib.topotest import version_cmp
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
@@ -123,6 +124,11 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    if version_cmp(platform.release(), '4.19') < 0:
+        error_msg = ('These tests will not run. (have kernel "{}", '
+            'requires kernel >= 4.19)'.format(platform.release()))
+        pytest.skip(error_msg)
 
     # Checking BGP convergence
     global BGP_CONVERGENCE
@@ -230,7 +236,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
 
     step(" All BGP nbrs are down as authentication is mismatch on both" " the sides")
 
-    bgp_convergence = verify_bgp_convergence(tgen, topo)
+    bgp_convergence = verify_bgp_convergence(tgen, topo, expected=False)
     assert bgp_convergence is not True, "Testcase {} : "
     "Failed \n BGP nbrs must be down. Error: {}".format(tc_name, bgp_convergence)
 
@@ -793,7 +799,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
                 ]
             }
         }
-        result = verify_route_maps(tgen, input_dict)
+        result = verify_route_maps(tgen, input_dict, expected=False)
         assert result is not True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )

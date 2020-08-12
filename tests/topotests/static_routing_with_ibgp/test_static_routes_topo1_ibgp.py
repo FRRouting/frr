@@ -34,7 +34,7 @@ import json
 import time
 import os
 import pytest
-import ipaddr
+import platform
 from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
@@ -45,6 +45,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
+from lib.topotest import version_cmp
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
@@ -121,6 +122,11 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    if version_cmp(platform.release(), '4.19') < 0:
+        error_msg = ('These tests will not run. (have kernel "{}", '
+            'requires kernel >= 4.19)'.format(platform.release()))
+        pytest.skip(error_msg)
 
     # Checking BGP convergence
     global BGP_CONVERGENCE
@@ -254,7 +260,7 @@ def test_static_route_2nh_p0_tc_1_ibgp(request):
             tc_name, result
         )
 
-        step("Remove the static route configured with nexthop N1 from" "running config")
+        step("Remove the static route configured with nexthop N1 from running config")
         input_dict_4 = {
             "r2": {
                 "static_routes": [
@@ -315,7 +321,7 @@ def test_static_route_2nh_p0_tc_1_ibgp(request):
             tc_name, result
         )
 
-        step("Remove the static route configured with nexthop N2 from" "running config")
+        step("Remove the static route configured with nexthop N2 from running config")
 
         input_dict_4 = {
             "r2": {
@@ -695,7 +701,7 @@ def test_static_route_2nh_admin_dist_p0_tc_2_ibgp(request):
             tc_name, result
         )
 
-        step("Remove the static route configured with nexthop N1 from" "running config")
+        step("Remove the static route configured with nexthop N1 from running config")
         rt1_nh1 = {
             "r2": {
                 "static_routes": [
@@ -782,7 +788,7 @@ def test_static_route_2nh_admin_dist_p0_tc_2_ibgp(request):
             tc_name, result
         )
 
-        step("Remove the static route configured with nexthop N2 from" "running config")
+        step("Remove the static route configured with nexthop N2 from running config")
         rte2_nh2 = {
             "r2": {
                 "static_routes": [

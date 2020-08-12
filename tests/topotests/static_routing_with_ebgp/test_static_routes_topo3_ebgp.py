@@ -35,11 +35,9 @@ import json
 import time
 import os
 import pytest
-import ipaddr
-from copy import deepcopy
 import random
-from re import search as re_search
-
+import platform
+from lib.topotest import version_cmp
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -145,6 +143,11 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    if version_cmp(platform.release(), '4.19') < 0:
+        error_msg = ('These tests will not run. (have kernel "{}", '
+            'requires kernel >= 4.19)'.format(platform.release()))
+        pytest.skip(error_msg)
 
     # Checking BGP convergence
     global BGP_CONVERGENCE
@@ -372,37 +375,6 @@ def test_staticroute_with_ecmp_p0_tc3_ebgp(request):
     )
     assert result is True, "Testcase {} : Failed \nError: Routes are"
     " missing in RIB".format(tc_name)
-
-    step("Shut nexthop interfaces N1 to N8 one by one")
-    for addr_type in ADDR_TYPES:
-        for nhp in range(0, 8):
-            intf = topo["routers"]["r2"]["links"]["r1-link" + str(nhp)]["interface"]
-            shutdown_bringup_interface(tgen, dut, intf, False)
-
-    result = verify_rib(
-        tgen,
-        addr_type,
-        dut,
-        input_dict_4,
-        next_hop=nh,
-        protocol=protocol,
-        expected=False,
-    )
-    assert result is not True, "Testcase {} : Failed \n"
-    "Error: Routes are still present in RIB".format(tc_name)
-
-    step("No shut the nexthop interfaces N1 to N8 one by one .")
-
-    for addr_type in ADDR_TYPES:
-        for nhp in range(0, 8):
-            intf = topo["routers"]["r2"]["links"]["r1-link" + str(nhp)]["interface"]
-            shutdown_bringup_interface(tgen, dut, intf, True)
-
-    result = verify_rib(
-        tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol
-    )
-    assert result is True, "Testcase {} : Failed \n"
-    "Error: Routes are missing in RIB".format(tc_name)
 
     step("Random shut of the nexthop interfaces")
     randnum = random.randint(0, 7)
@@ -696,67 +668,6 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ebgp(request):
         assert result is not True, "Testcase {} : Failed \nError: Routes "
         " with high AD are active in RIB".format(tc_name)
 
-    step("Shut nexthop interfaces N1 to N8 one by one")
-    for addr_type in ADDR_TYPES:
-        for nhp in range(0, 8):
-            intf = topo["routers"]["r2"]["links"]["r1-link" + str(nhp)]["interface"]
-            shutdown_bringup_interface(tgen, dut, intf, False)
-
-        result = verify_rib(
-            tgen,
-            addr_type,
-            dut,
-            input_dict_4,
-            next_hop=nh_all[addr_type],
-            protocol=protocol,
-            fib=True,
-            expected=False,
-        )
-        assert result is not True, "Testcase {} : Failed \nError: Routes "
-        " are still present in RIB".format(tc_name)
-
-    step("No shut the nexthop interfaces N1 to N8 one by one .")
-    for addr_type in ADDR_TYPES:
-        for nhp in range(0, 8):
-            intf = topo["routers"]["r2"]["links"]["r1-link" + str(nhp)]["interface"]
-            shutdown_bringup_interface(tgen, dut, intf, True)
-
-        input_dict_4 = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": PREFIX1[addr_type],
-                        "next_hop": NEXT_HOP_IP["nh1"][addr_type],
-                        "admin_distance": 10,
-                    }
-                ]
-            }
-        }
-        dut = "r2"
-        protocol = "static"
-        nh = NEXT_HOP_IP["nh1"][addr_type]
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol, fib=True
-        )
-        assert result is True, "Testcase {} : Failed \nError: Routes are"
-        " missing in RIB".format(tc_name)
-
-        nh = []
-        for nhp in range(2, 9):
-            nh.append(NEXT_HOP_IP["nh" + str(nhp)][addr_type])
-        result = verify_rib(
-            tgen,
-            addr_type,
-            dut,
-            input_dict_4,
-            next_hop=nh,
-            protocol=protocol,
-            fib=True,
-            expected=False,
-        )
-        assert result is not True, "Testcase {} : Failed \nError: Routes "
-        " are missing in RIB".format(tc_name)
-
     step("Random shut of the nexthop interfaces")
     randnum = random.randint(0, 7)
     for addr_type in ADDR_TYPES:
@@ -841,32 +752,6 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ebgp(request):
         )
         assert result is not True, "Testcase {} : Failed \nError: Routes "
         " with high AD are active in RIB".format(tc_name)
-
-    step("BGP neighbor remove and add")
-    for rtr in ["r2", "r3"]:
-        if "bgp" in topo["routers"][rtr].keys():
-            delete_bgp = {rtr: {"bgp": {"delete": True}}}
-            result = create_router_bgp(tgen, topo, delete_bgp)
-            assert result is True, "Testcase {} : Failed \n Error: {}".format(
-                tc_name, result
-            )
-
-    reset_config_on_routers(tgen)
-    NEXT_HOP_IP = populate_nh()
-    step("Verify routes are still present after delete and add bgp")
-    dut = "r3"
-    protocol = "bgp"
-    result = verify_rib(
-        tgen,
-        addr_type,
-        dut,
-        input_dict_4,
-        next_hop=nh,
-        protocol=protocol,
-        expected=False,
-    )
-    assert result is not True, "Testcase {} : Failed \n"
-    "Error: Routes still present in RIB".format(tc_name)
 
     step("Remove the redistribute static knob")
 
