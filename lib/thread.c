@@ -1314,8 +1314,12 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 		 * copy, so there's no need to update it. Similarily,
 		 * barring deletion, the fd should still be a valid index
 		 * into the master's pfds.
+		 *
+		 * We are including POLLERR here to do a READ event
+		 * this is because the read should fail and the
+		 * read function should handle it appropriately
 		 */
-		if (pfds[i].revents & (POLLIN | POLLHUP)) {
+		if (pfds[i].revents & (POLLIN | POLLHUP | POLLERR)) {
 			thread_process_io_helper(m, m->read[pfds[i].fd], POLLIN,
 						 pfds[i].revents, i);
 		}
