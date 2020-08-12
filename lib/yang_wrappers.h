@@ -120,6 +120,8 @@ extern void yang_get_default_string_buf(char *buf, size_t size,
 
 /* empty */
 extern struct yang_data *yang_data_new_empty(const char *xpath);
+extern bool yang_dnode_get_empty(const struct lyd_node *dnode,
+				 const char *xpath_fmt, ...);
 
 /* ip prefix */
 extern void yang_str2prefix(const char *value, union prefixptr prefix);
