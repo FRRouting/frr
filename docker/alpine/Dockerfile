@@ -4,7 +4,7 @@ FROM alpine:edge as source-builder
 RUN mkdir -p /src/alpine
 COPY alpine/APKBUILD.in /src/alpine
 RUN source /src/alpine/APKBUILD.in \
-	&& echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
+	&& echo 'http://dl-cdn.alpinelinux.org/alpine/latest-stable/main' >> /etc/apk/repositories \
 	&& apk add \
 		--no-cache \
 		--update-cache \
@@ -24,7 +24,7 @@ RUN cd /src \
 # This stage builds an apk from the dist tarball
 FROM alpine:edge as alpine-builder
 # Don't use nocache here so that abuild can use the cache
-RUN echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
+RUN echo 'http://dl-cdn.alpinelinux.org/alpine/latest-stable/main' >> /etc/apk/repositories \
 	&& apk add \
 		--update-cache \
 		abuild \
@@ -49,7 +49,7 @@ RUN cd /dist \
 FROM alpine:edge
 RUN mkdir -p /pkgs/apk
 COPY --from=alpine-builder /pkgs/apk/ /pkgs/apk/
-RUN echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
+RUN     echo 'http://dl-cdn.alpinelinux.org/alpine/latest-stable/main' >> /etc/apk/repositories \
 	&& apk add \
 		--no-cache \
 		--update-cache \
