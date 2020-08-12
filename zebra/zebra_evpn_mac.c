@@ -1902,6 +1902,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 	bool inform_dataplane = false;
 	bool new_static = false;
 
+	assert(ifp);
 	/* Check if we need to create or update or it is a NO-OP. */
 	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
 	if (!mac) {

@@ -3963,8 +3963,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 	struct zebra_vrf *zvrf;
 	char buf[ETHER_ADDR_STRLEN];
 
-	if (ifp == NULL)
-		return -1;
+	assert(ifp);
 
 	/* We are interested in MACs only on ports or (port, VLAN) that
 	 * map to an EVPN.

@@ -2112,6 +2112,7 @@ void process_neigh_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 	bool is_dup_detect = false;
 	bool is_router;
 
+	assert(mac);
 	is_router = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
 
 	/* Check if the remote neighbor itself is unknown or has a
@@ -2264,6 +2265,7 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 	char buf[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 
+	assert(mac);
 
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
 	if (!n) {
