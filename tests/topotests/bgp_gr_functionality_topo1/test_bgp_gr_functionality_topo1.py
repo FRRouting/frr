@@ -91,6 +91,7 @@ import json
 import time
 import inspect
 import pytest
+import platform
 from time import sleep
 
 # Save the Current Working Directory to find configuration files.
@@ -103,7 +104,7 @@ sys.path.append(os.path.join("../lib/"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-
+from lib.topotest import version_cmp
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
@@ -205,6 +206,11 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    if version_cmp(platform.release(), '4.19') < 0:
+        error_msg = ('These tests will not run. (have kernel "{}", '
+            'requires kernel >= 4.19)'.format(platform.release()))
+        pytest.skip(error_msg)
 
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():

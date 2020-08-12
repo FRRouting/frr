@@ -64,7 +64,7 @@ import sys
 import json
 import pytest
 import time
-
+import platform
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -75,7 +75,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topoJson from lib, to create topology and initial configuration
 from lib.topogen import Topogen, get_topogen
 from mininet.topo import Topo
-
+from lib.topotest import version_cmp
 from lib.common_config import (
     start_topology,
     write_test_header,
@@ -149,6 +149,11 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    if version_cmp(platform.release(), '4.19') < 0:
+        error_msg = ('These tests will not run. (have kernel "{}", '
+            'requires kernel >= 4.19)'.format(platform.release()))
+        pytest.skip(error_msg)
 
     # Checking BGP convergence
     global bgp_convergence, ADDR_TYPES

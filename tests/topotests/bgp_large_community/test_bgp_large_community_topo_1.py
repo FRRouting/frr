@@ -51,7 +51,8 @@ import time
 from os import path as os_path
 import sys
 from json import load as json_load
-
+import platform
+from lib.topotest import version_cmp
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, get_topogen
 from mininet.topo import Topo
@@ -159,6 +160,11 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    if version_cmp(platform.release(), '4.19') < 0:
+        error_msg = ('These tests will not run. (have kernel "{}", '
+            'requires kernel >= 4.19)'.format(platform.release()))
+        pytest.skip(error_msg)
 
     # Checking BGP convergence
     global bgp_convergence

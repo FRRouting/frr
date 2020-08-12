@@ -46,8 +46,9 @@ import sys
 import json
 import time
 import pytest
+import platform
 from copy import deepcopy
-
+from lib.topotest import version_cmp
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
