@@ -195,7 +195,7 @@ submodule frr-bgp-common {
 
       leaf external-compare-router-id {
         type boolean;
-        default "true";
+        default "false";
         description
           "When comparing similar routes received from external BGP
            peers, use the router-id as a criterion to select the

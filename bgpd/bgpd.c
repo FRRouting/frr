@@ -397,10 +397,6 @@ int bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id)
 	struct peer *peer;
 	struct listnode *node, *nnode;
 
-	if (bgp_config_check(bgp, BGP_CONFIG_CLUSTER_ID)
-	    && IPV4_ADDR_SAME(&bgp->cluster_id, cluster_id))
-		return 0;
-
 	IPV4_ADDR_COPY(&bgp->cluster_id, cluster_id);
 	bgp_config_set(bgp, BGP_CONFIG_CLUSTER_ID);
 
@@ -473,14 +469,14 @@ void bgp_timers_unset(struct bgp *bgp)
 }
 
 /* BGP confederation configuration.  */
-int bgp_confederation_id_set(struct bgp *bgp, as_t as)
+void bgp_confederation_id_set(struct bgp *bgp, as_t as)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
 	int already_confed;
 
 	if (as == 0)
-		return BGP_ERR_INVALID_AS;
+		return;
 
 	/* Remember - were we doing confederation before? */
 	already_confed = bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION);
@@ -528,7 +524,7 @@ int bgp_confederation_id_set(struct bgp *bgp, as_t as)
 			}
 		}
 	}
-	return 0;
+	return;
 }
 
 int bgp_confederation_id_unset(struct bgp *bgp)

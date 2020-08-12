@@ -25,6 +25,24 @@
 #include "bgpd/bgp_nb.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_io.h"
+
+FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
+        { .val_ulong = 10, .match_profile = "datacenter", },
+        { .val_ulong = 120 },
+)
+FRR_CFG_DEFAULT_ULONG(BGP_HOLDTIME,
+        { .val_ulong = 9, .match_profile = "datacenter", },
+        { .val_ulong = 180 },
+)
+FRR_CFG_DEFAULT_ULONG(BGP_KEEPALIVE,
+        { .val_ulong = 3, .match_profile = "datacenter", },
+        { .val_ulong = 60 },
+)
 
 /*
  * XPath:
@@ -33,12 +51,70 @@
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_create(
 	struct nb_cb_create_args *args)
 {
+
+	const struct lyd_node *vrf_dnode;
+	struct bgp *bgp;
+	struct vrf *vrf;
+	const char *name = NULL;
+	as_t as;
+	enum bgp_instance_type inst_type;
+	bool is_view_inst = false;
+	int ret;
+	int is_new_bgp = 0;
+
+	inst_type = BGP_INSTANCE_TYPE_DEFAULT;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		vrf_dnode = yang_dnode_get_parent(args->dnode,
+						  "control-plane-protocol");
+		vrf = nb_running_get_entry(vrf_dnode, NULL, true);
+
+		if (strmatch(vrf->name, VRF_DEFAULT_NAME)) {
+			name = NULL;
+		} else {
+			name = vrf->name;
+			inst_type = BGP_INSTANCE_TYPE_VRF;
+		}
+
+		as = yang_dnode_get_uint32(args->dnode, "./local-as");
+
+		is_view_inst = yang_dnode_get_bool(args->dnode,
+						   "./instance-type-view");
+		if (is_view_inst)
+			inst_type = BGP_INSTANCE_TYPE_VIEW;
+
+		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+			is_new_bgp = (bgp_lookup(as, name) == NULL);
+
+		ret = bgp_get_vty(&bgp, &as, name, inst_type);
+		if (ret == BGP_ERR_INSTANCE_MISMATCH) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"BGP instance name and AS number mismatch\nBGP instance is already running; AS is %u",
+				as);
+
+			return NB_ERR_INCONSISTENCY;
+		}
+		/*
+		 * If we just instantiated the default instance, complete
+		 * any pending VRF-VPN leaking that was configured via
+		 * earlier "router bgp X vrf FOO" blocks.
+		 */
+		if (is_new_bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+			vpn_leak_postchange_all();
+
+		if (inst_type == BGP_INSTANCE_TYPE_VRF)
+			bgp_vpn_leak_export(bgp);
+
+		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
+
+		nb_running_set_entry(args->dnode, bgp);
+
 		break;
 	}
 
@@ -48,12 +124,44 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_create(
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+
+		if (bgp->l3vni) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Please unconfigure l3vni %u", bgp->l3vni);
+			return NB_ERR_VALIDATION;
+		}
+
+		/* Cannot delete default instance if vrf instances exist */
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+			struct listnode *node;
+			struct bgp *tmp_bgp;
+
+			for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, tmp_bgp)) {
+				if (tmp_bgp->inst_type
+				    == BGP_INSTANCE_TYPE_VRF) {
+					snprintf(
+						args->errmsg, args->errmsg_len,
+						"Cannot delete default BGP instance. Dependent VRF instances exist\n");
+					return NB_ERR_VALIDATION;
+				}
+			}
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_unset_entry(args->dnode);
+
+		bgp_vpn_leak_unimport(bgp);
+		bgp_delete(bgp);
+
 		break;
 	}
 
@@ -67,12 +175,38 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_destroy(
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_local_as_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	as_t as;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		as = yang_dnode_get_uint32(args->dnode, NULL);
+
+		bgp = nb_running_get_entry_non_rec(args->dnode, NULL, false);
+		if (bgp && bgp->as != as) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "BGP instance is already running; AS is %u",
+				 bgp->as);
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		/* NOTE: handled in bgp_global_create callback, the as change
+		 * will be rejected in validate phase.
+		 */
+		as = yang_dnode_get_uint32(args->dnode, NULL);
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		if (bgp->as != as) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "BGP instance is already running; AS is %u",
+				 bgp->as);
+			return NB_ERR_INCONSISTENCY;
+		}
+
 		break;
 	}
 
@@ -86,14 +220,15 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_local_as_m
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_router_id_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+	struct in_addr router_id;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	yang_dnode_get_ipv4(&router_id, args->dnode, NULL);
+	bgp_router_id_static_set(bgp, router_id);
 
 	return NB_OK;
 }
@@ -101,14 +236,16 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_router_id_
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_router_id_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+	struct in_addr router_id;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	router_id.s_addr = 0;
+	bgp_router_id_static_set(bgp, router_id);
 
 	return NB_OK;
 }
@@ -120,14 +257,33 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_router_id_
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_identifier_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	as_t as;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		as = yang_dnode_get_uint32(args->dnode, NULL);
+		if (!as) {
+			snprintf(args->errmsg, args->errmsg_len, "Invalid AS.");
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		as = yang_dnode_get_uint32(args->dnode, NULL);
+
+		bgp_confederation_id_set(bgp, as);
+
 		break;
 	}
+
+	as = yang_dnode_get_uint32(args->dnode, NULL);
+
 
 	return NB_OK;
 }
@@ -135,14 +291,14 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederat
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_identifier_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	bgp_confederation_id_unset(bgp);
 
 	return NB_OK;
 }
@@ -154,12 +310,39 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederat
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_member_as_create(
 	struct nb_cb_create_args *args)
 {
+	as_t my_as, as;
+	struct bgp *bgp;
+	int ret;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		my_as = yang_dnode_get_uint32(args->dnode,
+					      "../../../global/local-as");
+		as = yang_dnode_get_uint32(args->dnode, NULL);
+		if (my_as == as) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Local member-AS %u not allowed in confed peer list",
+				my_as);
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		as = yang_dnode_get_uint32(args->dnode, NULL);
+
+		ret = bgp_confederation_peers_add(bgp, as);
+		if (ret == BGP_ERR_INVALID_AS) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Local member-AS not alloed in confed peer list");
+			return NB_ERR_INCONSISTENCY;
+		}
+
 		break;
 	}
 
@@ -169,16 +352,32 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederat
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_member_as_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	as_t as;
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	as = yang_dnode_get_uint32(args->dnode, NULL);
+
+	bgp_confederation_peers_remove(bgp, as);
 
 	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/med-config
+ */
+void routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	bgp_maxmed_update(bgp);
 }
 
 /*
@@ -188,14 +387,14 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_confederat
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_enable_med_admin_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	bgp->v_maxmed_admin = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -207,12 +406,35 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_max_med_admin_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	uint32_t med_admin_val;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		med_admin_val = yang_dnode_get_uint32(args->dnode, NULL);
+
+		/* enable_med_admin is required to be enabled for max-med-admin
+		 * non default value.
+		 */
+		if (med_admin_val != BGP_MAXMED_VALUE_DEFAULT
+		    && !yang_dnode_get_bool(args->dnode,
+					    "../enable-med-admin")) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "enable med admin is not set");
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		med_admin_val = yang_dnode_get_uint32(args->dnode, NULL);
+
+		bgp->maxmed_admin_value = med_admin_val;
+
 		break;
 	}
 
@@ -226,12 +448,19 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_max_med_onstart_up_time_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		bgp->v_maxmed_onstartup =
+			yang_dnode_get_uint32(args->dnode, NULL);
+
 		break;
 	}
 
@@ -241,12 +470,28 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_max_med_onstart_up_time_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		/* Cancel max-med onstartup if its on */
+		if (bgp->t_maxmed_onstartup) {
+			THREAD_TIMER_OFF(bgp->t_maxmed_onstartup);
+			bgp->maxmed_onstartup_over = 1;
+		}
+
+		bgp->v_maxmed_onstartup = BGP_MAXMED_ONSTARTUP_UNCONFIGURED;
+		/* Resetting onstartup value as part of dependent node is
+		 * detroyed.
+		 */
+		bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
+
 		break;
 	}
 
@@ -260,12 +505,31 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_max_med_onstart_up_value_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	uint32_t onstartup_val;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		onstartup_val = yang_dnode_get_uint32(args->dnode, NULL);
+
+		if (!yang_dnode_exists(args->dnode,
+				       "../max-med-onstart-up-time")
+		    && onstartup_val != BGP_MAXMED_VALUE_DEFAULT) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "max-med-onstart-up-time is not set.");
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		bgp->maxmed_onstartup_value =
+			yang_dnode_get_uint32(args->dnode, NULL);
+
 		break;
 	}
 
@@ -279,14 +543,25 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_reflector_route_reflector_cluster_id_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+	struct in_addr cluster_id;
+	const struct lyd_node_leaf_list *dleaf;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	dleaf = (const struct lyd_node_leaf_list *)args->dnode;
+	if (dleaf->value_type == LY_TYPE_STRING)
+		yang_dnode_get_ipv4(&cluster_id, args->dnode, NULL);
+	else
+		(void)inet_aton(dleaf->value_str, &cluster_id);
+
+	bgp_cluster_id_set(bgp, &cluster_id);
+
+	if (bgp_clear_star_soft_out(bgp->name, args->errmsg, args->errmsg_len))
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -294,14 +569,17 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_refl
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_reflector_route_reflector_cluster_id_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	bgp_cluster_id_unset(bgp);
+
+	if (bgp_clear_star_soft_out(bgp->name, args->errmsg, args->errmsg_len))
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -313,14 +591,20 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_refl
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_reflector_no_client_reflect_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
+
+	if (bgp_clear_star_soft_out(bgp->name, args->errmsg, args->errmsg_len))
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -332,16 +616,38 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_refl
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_reflector_allow_outbound_policy_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
+
+	update_group_announce_rrclients(bgp);
+
+	if (bgp_clear_star_soft_out(bgp->name, args->errmsg, args->errmsg_len))
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options
+ */
+void routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	bgp_recalculate_all_bestpaths(bgp);
 }
 
 /*
@@ -351,14 +657,18 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_refl
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_always_compare_med_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED);
+
 
 	return NB_OK;
 }
@@ -370,12 +680,58 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_sele
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_deterministic_med_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	int bestpath_per_as_used;
+	afi_t afi;
+	safi_t safi;
+	struct peer *peer;
+	struct listnode *node;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+
+		if (!bgp)
+			return NB_OK;
+
+		/* for deconfiguring deterministic-med case */
+		if (!yang_dnode_get_bool(args->dnode, NULL)
+		    && CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
+			bestpath_per_as_used = 0;
+
+			for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+				FOREACH_AFI_SAFI (afi, safi)
+					if (bgp_addpath_dmed_required(
+						    peer->addpath_type[afi]
+								      [safi])) {
+						bestpath_per_as_used = 1;
+						break;
+					}
+
+				if (bestpath_per_as_used)
+					break;
+			}
+
+			if (bestpath_per_as_used) {
+				snprintf(
+					args->errmsg, args->errmsg_len,
+					"bgp deterministic-med cannot be disabled while addpath-tx-bestpath-per-AS is in use");
+				return NB_ERR_VALIDATION;
+			}
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		if (yang_dnode_get_bool(args->dnode, NULL))
+			SET_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED);
+		else
+			UNSET_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED);
+
 		break;
 	}
 
@@ -389,14 +745,17 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_sele
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_confed_med_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_MED_CONFED);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_MED_CONFED);
 
 	return NB_OK;
 }
@@ -408,14 +767,17 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_sele
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_missing_as_worst_med_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST);
 
 	return NB_OK;
 }
@@ -446,14 +808,17 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_sele
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_ignore_as_path_length_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE);
 
 	return NB_OK;
 }
@@ -465,14 +830,17 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_sele
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_external_compare_router_id_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID);
 
 	return NB_OK;
 }
@@ -484,12 +852,29 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_sele
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_allow_multiple_as_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		if (yang_dnode_get_bool(args->dnode, NULL)) {
+			SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
+			if (yang_dnode_get_bool(args->dnode,
+						"../multi-path-as-set")) {
+				SET_FLAG(bgp->flags,
+					 BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+			}
+		} else {
+			UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
+			/* unset as-set */
+			UNSET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+		}
+
 		break;
 	}
 
@@ -503,12 +888,24 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_sele
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_multi_path_as_set_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET)) {
+			SET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+
+		} else
+			zlog_debug(
+				"%s multi-path-as-set as part of allow-multiple-as modify cb.",
+				__func__);
+
 		break;
 	}
 
@@ -518,12 +915,24 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_sele
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_multi_path_as_set_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		/* Only unset if it set, it is possible allow_multiple_as_modify
+		 * unset this.
+		 */
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET)) {
+			UNSET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+
+			bgp_recalculate_all_bestpaths(bgp);
+		}
+
 		break;
 	}
 
@@ -537,14 +946,17 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_route_sele
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_neighbor_config_dynamic_neighbors_limit_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+	uint32_t listen_limit;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	listen_limit = yang_dnode_get_uint32(args->dnode, NULL);
+
+	bgp_listen_limit_set(bgp, listen_limit);
 
 	return NB_OK;
 }
@@ -552,14 +964,14 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_nei
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_neighbor_config_dynamic_neighbors_limit_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	bgp_listen_limit_unset(bgp);
 
 	return NB_OK;
 }
@@ -571,14 +983,17 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_nei
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_neighbor_config_log_neighbor_changes_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
 
 	return NB_OK;
 }
@@ -590,14 +1005,21 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_nei
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_neighbor_config_packet_quanta_config_wpkt_quanta_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+	uint32_t quanta;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	quanta = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (atomic_load_explicit(&bgp->wpkt_quanta, memory_order_relaxed)
+	    == BGP_WRITE_PACKET_MAX)
+		bgp_wpkt_quanta_config_vty(bgp, quanta, true);
+	else
+		bgp_wpkt_quanta_config_vty(bgp, quanta, false);
 
 	return NB_OK;
 }
@@ -609,14 +1031,21 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_nei
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_neighbor_config_packet_quanta_config_rpkt_quanta_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+	uint32_t quanta;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	quanta = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (atomic_load_explicit(&bgp->rpkt_quanta, memory_order_relaxed)
+	    == BGP_READ_PACKET_MAX)
+		bgp_rpkt_quanta_config_vty(bgp, quanta, true);
+	else
+		bgp_rpkt_quanta_config_vty(bgp, quanta, false);
 
 	return NB_OK;
 }
@@ -791,14 +1220,17 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_r
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_update_group_config_subgroup_pkt_queue_size_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+	uint32_t max_size;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	max_size = yang_dnode_get_uint32(args->dnode, NULL);
+
+	bgp_default_subgroup_pkt_queue_max_set(bgp, max_size);
 
 	return NB_OK;
 }
@@ -810,13 +1242,22 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_upd
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_update_group_config_coalesce_time_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+	uint32_t coalesce_time;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	coalesce_time = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (coalesce_time != BGP_DEFAULT_SUBGROUP_COALESCE_TIME) {
+		bgp->heuristic_coalesce = false;
+		bgp->coalesce_time = coalesce_time;
+	} else {
+		bgp->heuristic_coalesce = true;
+		bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 	}
 
 	return NB_OK;
@@ -935,12 +1376,35 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_con
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_config_timers_hold_time_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	unsigned long keepalive = 0;
+	unsigned long holdtime = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		keepalive = yang_dnode_get_uint16(args->dnode, "../keepalive");
+		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
+		/* Holdtime value check. */
+		if (holdtime < 3 && holdtime != 0) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"hold time value must be either 0 or greater than 3");
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		keepalive = yang_dnode_get_uint16(args->dnode, "../keepalive");
+		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
+
+		bgp_timers_set(bgp, keepalive, holdtime,
+			       DFLT_BGP_CONNECT_RETRY);
+
 		break;
 	}
 
@@ -954,12 +1418,35 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_con
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_global_config_timers_keepalive_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	unsigned long keepalive = 0;
+	unsigned long holdtime = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		keepalive = yang_dnode_get_uint16(args->dnode, NULL);
+		holdtime = yang_dnode_get_uint16(args->dnode, "../hold-time");
+		/* Holdtime value check. */
+		if (holdtime < 3 && holdtime != 0) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"hold time value must be either 0 or greater than 3");
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		keepalive = yang_dnode_get_uint16(args->dnode, NULL);
+		holdtime = yang_dnode_get_uint16(args->dnode, "../hold-time");
+
+		bgp_timers_set(bgp, keepalive, holdtime,
+			       DFLT_BGP_CONNECT_RETRY);
+
 		break;
 	}
 
@@ -992,14 +1479,20 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_instance_t
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_ebgp_multihop_connected_route_check_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
+
+	if (bgp_clear_star_soft_in(bgp->name, args->errmsg, args->errmsg_len))
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -1011,14 +1504,15 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_ebgp_multi
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_fast_external_failover_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!yang_dnode_get_bool(args->dnode, NULL)) {
+		SET_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER);
+	} else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER);
 
 	return NB_OK;
 }
@@ -1030,14 +1524,18 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_fast_exter
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_local_pref_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	struct bgp *bgp;
+	uint32_t local_pref;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	local_pref = yang_dnode_get_uint32(args->dnode, NULL);
+
+	bgp_default_local_preference_set(bgp, local_pref);
+
+	if (bgp_clear_star_soft_in(bgp->name, args->errmsg, args->errmsg_len))
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -1049,14 +1547,13 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_local_pref
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_default_shutdown_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->autoshutdown = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -1068,14 +1565,17 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_default_sh
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_ebgp_requires_policy_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
 
 	return NB_OK;
 }
@@ -1087,14 +1587,17 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_ebgp_requi
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_show_hostname_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME);
 
 	return NB_OK;
 }
@@ -1106,14 +1609,17 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_show_hostn
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_show_nexthop_hostname_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME);
 
 	return NB_OK;
 }
@@ -1125,14 +1631,19 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_show_nexth
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_import_check_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct bgp *bgp;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK);
+
+	bgp_static_redo_import_check(bgp);
 
 	return NB_OK;
 }
@@ -1144,12 +1655,40 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_global_import_che
 int routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_shutdown_enable_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"%%Failed: per-vrf graceful-shutdown config not permitted with global graceful-shutdown");
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		if (yang_dnode_get_bool(args->dnode, NULL))
+			SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
+		else
+			UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
+
+		bgp_static_redo_import_check(bgp);
+		bgp_redistribute_redo(bgp);
+
+		if (bgp_clear_star_soft_out(bgp->name, args->errmsg,
+					    args->errmsg_len))
+			return NB_ERR_INCONSISTENCY;
+
+		if (bgp_clear_star_soft_in(bgp->name, args->errmsg,
+					   args->errmsg_len))
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 

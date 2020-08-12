@@ -29,6 +29,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global",
 			.cbs = {
+				.cli_show = cli_show_router_bgp,
 				.create = routing_control_plane_protocols_control_plane_protocol_bgp_global_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_bgp_global_destroy,
 			}
@@ -42,6 +43,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/router-id",
 			.cbs = {
+				.cli_show = cli_show_router_bgp_router_id,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_router_id_modify,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_bgp_global_router_id_destroy,
 			}
@@ -49,6 +51,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
+				.cli_show = cli_show_router_bgp_confederation_identifier,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_identifier_modify,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_identifier_destroy,
 			}
@@ -56,8 +59,16 @@ const struct frr_yang_module_info frr_bgp_info = {
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/member-as",
 			.cbs = {
+				.cli_show = cli_show_router_bgp_confederation_member_as,
 				.create = routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_member_as_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_bgp_global_confederation_member_as_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/med-config",
+			.cbs = {
+				.cli_show = cli_show_router_bgp_med_config,
+				.apply_finish = routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_apply_finish,
 			}
 		},
 		{
@@ -86,6 +97,12 @@ const struct frr_yang_module_info frr_bgp_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-reflector",
+			.cbs = {
+				.cli_show = cli_show_router_bgp_route_reflector,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-reflector/route-reflector-cluster-id",
 			.cbs = {
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_route_reflector_route_reflector_cluster_id_modify,
@@ -102,6 +119,13 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-reflector/allow-outbound-policy",
 			.cbs = {
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_route_reflector_allow_outbound_policy_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options",
+			.cbs = {
+				.apply_finish = routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_apply_finish,
+				.cli_show = cli_show_router_bgp_route_selection,
 			}
 		},
 		{
@@ -157,6 +181,12 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_multi_path_as_set_modify,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_multi_path_as_set_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-neighbor-config",
+			.cbs = {
+				.cli_show = cli_show_router_global_neighbor_config,
 			}
 		},
 		{
@@ -231,12 +261,14 @@ const struct frr_yang_module_info frr_bgp_info = {
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-update-group-config/subgroup-pkt-queue-size",
 			.cbs = {
+				.cli_show = cli_show_router_global_update_group_config_subgroup_pkt_queue_size,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_global_update_group_config_subgroup_pkt_queue_size_modify,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-update-group-config/coalesce-time",
 			.cbs = {
+				.cli_show = cli_show_router_global_update_group_config_coalesce_time,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_global_update_group_config_coalesce_time_modify,
 			}
 		},
@@ -287,54 +319,63 @@ const struct frr_yang_module_info frr_bgp_info = {
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/ebgp-multihop-connected-route-check",
 			.cbs = {
+				.cli_show = cli_show_router_global_ebgp_multihop_connected_route_check,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_ebgp_multihop_connected_route_check_modify,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/fast-external-failover",
 			.cbs = {
+				.cli_show = cli_show_router_bgp_fast_external_failover,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_fast_external_failover_modify,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/local-pref",
 			.cbs = {
+				.cli_show = cli_show_router_bgp_local_pref,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_local_pref_modify,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/default-shutdown",
 			.cbs = {
+				.cli_show = cli_show_router_bgp_default_shutdown,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_default_shutdown_modify,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/ebgp-requires-policy",
 			.cbs = {
+				.cli_show = cli_show_router_bgp_ebgp_requires_policy,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_ebgp_requires_policy_modify,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/show-hostname",
 			.cbs = {
+				.cli_show = cli_show_router_bgp_show_hostname,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_show_hostname_modify,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/show-nexthop-hostname",
 			.cbs = {
+				.cli_show = cli_show_router_bgp_show_nexthop_hostname,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_show_nexthop_hostname_modify,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/import-check",
 			.cbs = {
+				.cli_show = cli_show_router_bgp_import_check,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_import_check_modify,
 			}
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-shutdown/enable",
 			.cbs = {
+				.cli_show = cli_show_router_bgp_graceful_shutdown,
 				.modify = routing_control_plane_protocols_control_plane_protocol_bgp_global_graceful_shutdown_enable_modify,
 			}
 		},

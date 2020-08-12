@@ -180,5 +180,12 @@ int bgp_vty_find_and_parse_bgp(struct vty *vty, struct cmd_token **argv,
 extern int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 				safi_t safi, bool show_failed,
 				bool show_established, bool use_json);
+extern int bgp_clear_star_soft_in(const char *name, char *errmsg,
+				  size_t errmsg_len);
+extern int bgp_clear_star_soft_out(const char *name, char *errmsg,
+				   size_t errmsg_len);
+int bgp_wpkt_quanta_config_vty(struct bgp *bgp, uint32_t quanta, bool set);
+int bgp_rpkt_quanta_config_vty(struct bgp *bgp, uint32_t quanta, bool set);
+
 
 #endif /* _QUAGGA_BGP_VTY_H */

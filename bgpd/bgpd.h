@@ -391,8 +391,9 @@ struct bgp {
 		*t_maxmed_onstartup; /* non-null when max-med onstartup is on */
 	uint8_t maxmed_onstartup_over; /* Flag to make it effective only once */
 
-	uint8_t v_maxmed_admin; /* 1/0 if max-med administrative is on/off */
-#define BGP_MAXMED_ADMIN_UNCONFIGURED  0 /* Off by default */
+	bool v_maxmed_admin; /* true/false if max-med administrative is on/off
+			      */
+#define BGP_MAXMED_ADMIN_UNCONFIGURED false /* Off by default */
 	uint32_t maxmed_admin_value; /* Max-med value when administrative in on
 				      */
 #define BGP_MAXMED_VALUE_DEFAULT  4294967294 /* Maximum by default */
@@ -1827,7 +1828,7 @@ extern void bgp_router_id_static_set(struct bgp *, struct in_addr);
 extern int bgp_cluster_id_set(struct bgp *, struct in_addr *);
 extern int bgp_cluster_id_unset(struct bgp *);
 
-extern int bgp_confederation_id_set(struct bgp *, as_t);
+extern void bgp_confederation_id_set(struct bgp *, as_t);
 extern int bgp_confederation_id_unset(struct bgp *);
 extern bool bgp_confederation_peers_check(struct bgp *, as_t);
 

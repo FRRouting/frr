@@ -3406,4 +3406,72 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args);
+
+/* Optional 'cli_show' callbacks. */
+void cli_show_router_bgp(struct vty *vty, struct lyd_node *dnode,
+			 bool show_defaults);
+void cli_show_router_bgp_router_id(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults);
+void cli_show_router_bgp_route_selection(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults);
+void cli_show_router_bgp_ebgp_requires_policy(struct vty *vty,
+					      struct lyd_node *dnode,
+					      bool show_defaults);
+void cli_show_router_bgp_default_shutdown(struct vty *vty,
+					  struct lyd_node *dnode,
+					  bool show_defaults);
+void cli_show_router_bgp_import_check(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults);
+void cli_show_router_bgp_show_hostname(struct vty *vty, struct lyd_node *dnode,
+				       bool show_defaults);
+void cli_show_router_bgp_show_nexthop_hostname(struct vty *vty,
+					       struct lyd_node *dnode,
+					       bool show_defaults);
+void cli_show_router_bgp_fast_external_failover(struct vty *vty,
+						struct lyd_node *dnode,
+						bool show_defaults);
+void cli_show_router_global_neighbor_config(struct vty *vty,
+					    struct lyd_node *dnode,
+					    bool show_defaults);
+void cli_show_router_global_update_group_config_subgroup_pkt_queue_size(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_router_global_update_group_config_coalesce_time(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_router_global_ebgp_multihop_connected_route_check(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_router_bgp_local_pref(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults);
+void cli_show_router_bgp_route_reflector(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults);
+void cli_show_router_bgp_confederation_identifier(struct vty *vty,
+						  struct lyd_node *dnode,
+						  bool show_defaults);
+void cli_show_router_bgp_confederation_member_as(struct vty *vty,
+						 struct lyd_node *dnode,
+						 bool show_defaults);
+void cli_show_router_bgp_graceful_shutdown(struct vty *vty,
+					   struct lyd_node *dnode,
+					   bool show_defaults);
+void cli_show_router_bgp_med_config(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults);
+
+void routing_control_plane_protocols_control_plane_protocol_bgp_global_route_selection_options_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void routing_control_plane_protocols_control_plane_protocol_bgp_global_med_config_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+
+/* xpath macros */
+/* route-list */
+#define FRR_BGP_GLOBAL_XPATH                                                   \
+	"/frr-routing:routing/control-plane-protocols/"                        \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
+	"frr-bgp:bgp/global"
+
+#define FRR_BGP_GLOBAL_AS_XPATH                                                \
+	"/frr-routing:routing/control-plane-protocols/"                        \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
+	"frr-bgp:bgp/local-as["
+
 #endif
