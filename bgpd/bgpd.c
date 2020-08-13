@@ -4023,6 +4023,67 @@ static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
 		bgp_session_reset(peer);
 }
 
+/* Enable global administrative shutdown of all peers of BGP instance */
+void bgp_shutdown_enable(struct bgp *bgp)
+{
+	struct peer *peer;
+	struct listnode *node;
+
+	/* do nothing if already shut down */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
+		return;
+
+	/* iterate through peers of BGP instance */
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		/* continue, if peer is already in administrative shutdown. */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+			continue;
+
+		/* send a RFC 4486 notification message if necessary */
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
+		}
+
+		/* reset start timer to initial value */
+		peer->v_start = BGP_INIT_START_TIMER;
+
+		/* trigger a RFC 4271 ManualStop event */
+		BGP_EVENT_ADD(peer, BGP_Stop);
+	}
+
+	/* set the BGP instances shutdown flag */
+	SET_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN);
+}
+
+/* Disable global administrative shutdown of all peers of BGP instance */
+void bgp_shutdown_disable(struct bgp *bgp)
+{
+	struct peer *peer;
+	struct listnode *node;
+
+	/* do nothing if not shut down. */
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
+		return;
+
+	/* iterate through peers of BGP instance */
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		/* respect individual peer shutdown */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+			continue;
+
+		/* respect peer group shutdown */
+		if (CHECK_FLAG(peer->group->conf->flags, PEER_FLAG_SHUTDOWN))
+			continue;
+
+		/* trigger a RFC 4721 ManualStart event. */
+		BGP_EVENT_ADD(peer, BGP_Start);
+	}
+
+	/* clear the BGP instances shutdown flag */
+	UNSET_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN);
+}
+
 /* Change specified peer flag. */
 static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 {
