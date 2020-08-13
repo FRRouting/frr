@@ -1148,12 +1148,21 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 		   bgp_size_t length)
 {
 	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
 	const uint8_t flags = args->flags;
 	/* startp and length must be special-cased, as whether or not to
 	 * send the attribute data with the NOTIFY depends on the error,
 	 * the caller therefore signals this with the seperate length argument
 	 */
 	uint8_t *notify_datap = (length > 0 ? args->startp : NULL);
+
+	if (bgp_debug_update(peer, NULL, NULL, 1)) {
+		char attr_str[BUFSIZ] = {0};
+
+		bgp_dump_attr(attr, attr_str, BUFSIZ);
+
+		zlog_debug("%s: attributes: %s", __func__, attr_str);
+	}
 
 	/* Only relax error handling for eBGP peers */
 	if (peer->sort != BGP_PEER_EBGP) {
