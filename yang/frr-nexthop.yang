@@ -188,6 +188,16 @@ module frr-nexthop {
         "Nexthop is directly connected.";
     }
 
+    leaf srte-color {
+      when "../nh-type = 'ip4' or
+            ../nh-type = 'ip6' or
+            ../nh-type = 'ip4-ifindex' or
+            ../nh-type = 'ip6-ifindex'";
+      type uint32;
+      description
+        "The nexthop SR-TE color";
+    }
+
     uses rt-types:mpls-label-stack {
       description
         "Nexthop's MPLS label stack.";

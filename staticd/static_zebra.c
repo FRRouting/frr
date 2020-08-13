@@ -431,6 +431,10 @@ extern void static_zebra_route_add(struct route_node *rn,
 		api_nh->vrf_id = nh->nh_vrf_id;
 		if (nh->onlink)
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+		if (nh->color != 0) {
+			SET_FLAG(api.message, ZAPI_MESSAGE_SRTE);
+			api_nh->srte_color = nh->color;
+		}
 
 		nh->state = STATIC_SENT_TO_ZEBRA;
 
