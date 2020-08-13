@@ -53,6 +53,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_errors.h"
+#include "ospfd/ospf_zebra.h"
 
 /*
  * OSPF Fragmentation / fragmented writes
@@ -4319,21 +4320,10 @@ void ospf_ls_ack_send_delayed(struct ospf_interface *oi)
  * punt-to-CPU set on them. This may overload the CPU control path that
  * can be avoided if the MAC was known apriori.
  */
-#define OSPF_PING_NBR_STR_MAX  (BUFSIZ)
 void ospf_proactively_arp(struct ospf_neighbor *nbr)
 {
-	char ping_nbr[OSPF_PING_NBR_STR_MAX];
-	int ret;
-
 	if (!nbr)
 		return;
 
-	snprintf(ping_nbr, sizeof(ping_nbr),
-		 "ping -c 1 -I %s %s > /dev/null 2>&1 &", nbr->oi->ifp->name,
-		 inet_ntoa(nbr->address.u.prefix4));
-
-	ret = system(ping_nbr);
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("Executed %s %s", ping_nbr,
-			   ((ret == 0) ? "successfully" : "but failed"));
+	ospf_zebra_send_arp(nbr->oi->ifp, &nbr->address);
 }

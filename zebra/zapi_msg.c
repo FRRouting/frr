@@ -2962,6 +2962,41 @@ stream_failure:
 	return;
 }
 
+static inline void zread_neigh_discover(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	ifindex_t ifindex;
+	struct interface *ifp;
+	struct prefix p;
+	struct ipaddr ip;
+
+	s = msg;
+
+	STREAM_GETL(s, ifindex);
+
+	ifp = if_lookup_by_index_per_ns(zvrf->zns, ifindex);
+	if (!ifp) {
+		zlog_debug("Failed to lookup ifindex: %u", ifindex);
+		return;
+	}
+
+	STREAM_GETC(s, p.family);
+	STREAM_GETC(s, p.prefixlen);
+	STREAM_GET(&p.u.prefix, s, prefix_blen(&p));
+
+	if (p.family == AF_INET)
+		SET_IPADDR_V4(&ip);
+	else
+		SET_IPADDR_V6(&ip);
+
+	memcpy(&ip.ip.addr, &p.u.prefix, prefix_blen(&p));
+
+	dplane_neigh_discover(ifp, &ip);
+
+stream_failure:
+	return;
+}
+
 static void zsend_error_msg(struct zserv *client, enum zebra_error_types error,
 			    struct zmsghdr *bad_hdr)
 {
@@ -3065,8 +3100,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MLAG_CLIENT_REGISTER] = zebra_mlag_client_register,
 	[ZEBRA_MLAG_CLIENT_UNREGISTER] = zebra_mlag_client_unregister,
 	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
-	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities
-};
+	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities,
+	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover};
 
 #if defined(HANDLE_ZAPI_FUZZING)
 extern struct zebra_privs_t zserv_privs;

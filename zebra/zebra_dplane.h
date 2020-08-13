@@ -149,6 +149,9 @@ enum dplane_op_e {
 	DPLANE_OP_RULE_ADD,
 	DPLANE_OP_RULE_DELETE,
 	DPLANE_OP_RULE_UPDATE,
+
+	/* Link layer address discovery */
+	DPLANE_OP_NEIGH_DISCOVER,
 };
 
 /*
@@ -160,12 +163,14 @@ enum dplane_op_e {
 /* Neighbor cache flags */
 #define DPLANE_NTF_EXT_LEARNED    0x01
 #define DPLANE_NTF_ROUTER         0x02
+#define DPLANE_NTF_USE            0x04
 
 /* Neighbor cache states */
 #define DPLANE_NUD_REACHABLE      0x01
 #define DPLANE_NUD_STALE          0x02
 #define DPLANE_NUD_NOARP          0x04
 #define DPLANE_NUD_PROBE          0x08
+#define DPLANE_NUD_INCOMPLETE     0x10
 
 /* MAC update flags - dplane_mac_info.update_flags */
 #define DPLANE_MAC_REMOTE       (1 << 0)
@@ -571,6 +576,12 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp,
 enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 					    const struct in_addr *ip,
 					    vni_t vni);
+
+/*
+ * Enqueue a neighbour discovery request for the dataplane.
+ */
+enum zebra_dplane_result dplane_neigh_discover(const struct interface *ifp,
+					       const struct ipaddr *ip);
 
 /* Forward ref of zebra_pbr_rule */
 struct zebra_pbr_rule;

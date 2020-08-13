@@ -214,6 +214,7 @@ typedef enum {
 	ZEBRA_OPAQUE_MESSAGE,
 	ZEBRA_OPAQUE_REGISTER,
 	ZEBRA_OPAQUE_UNREGISTER,
+	ZEBRA_NEIGH_DISCOVER,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -955,6 +956,10 @@ enum zapi_opaque_registry {
  * Returns 0 for success or -1 on an I/O error.
  */
 extern int zclient_send_hello(struct zclient *client);
+
+extern int zclient_send_neigh_discovery_req(struct zclient *zclient,
+					    const struct interface *ifp,
+					    const struct prefix *p);
 
 #ifdef __cplusplus
 }

@@ -3764,6 +3764,7 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_NEIGH_DELETE:
 			case DPLANE_OP_VTEP_ADD:
 			case DPLANE_OP_VTEP_DELETE:
+			case DPLANE_OP_NEIGH_DISCOVER:
 			case DPLANE_OP_NONE:
 				/* Don't expect this: just return the struct? */
 				dplane_ctx_fini(&ctx);

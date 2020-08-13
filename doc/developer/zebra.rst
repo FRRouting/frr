@@ -382,9 +382,11 @@ Zebra Protocol Commands
 +------------------------------------+-------+
 | ZEBRA_OPAQUE_UNREGISTER            | 109   |
 +------------------------------------+-------+
+| ZEBRA_NEIGH_DISCOVER               | 110   |
++------------------------------------+-------+
 
 Dataplane batching
-=========================
+==================
 
 Dataplane batching is an optimization feature that reduces the processing 
 time involved in the user space to kernel space transition for every message we

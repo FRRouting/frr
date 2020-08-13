@@ -1417,6 +1417,7 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_NEIGH_DELETE:
 	case DPLANE_OP_VTEP_ADD:
 	case DPLANE_OP_VTEP_DELETE:
+	case DPLANE_OP_NEIGH_DISCOVER:
 		return netlink_put_neigh_update_msg(bth, ctx);
 
 	case DPLANE_OP_RULE_ADD:
