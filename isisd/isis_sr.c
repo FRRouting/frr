@@ -1055,7 +1055,7 @@ static void parse_prefix_sid_subtlvs(struct sr_node *srn,
 			    || srp->sid.value != psid->value) {
 				srp->sid = *psid;
 				srp->state = SRDB_STATE_MODIFIED;
-			} else
+			} else if (srp->state == SRDB_STATE_VALIDATED)
 				srp->state = SRDB_STATE_UNCHANGED;
 			sr_debug("  |- Found %s Prefix-SID %pFX",
 				 srp->state == SRDB_STATE_MODIFIED
@@ -1223,7 +1223,7 @@ static void process_node_changes(struct isis_area *area, int level,
 	 * If an neighbor router's SRGB was changed or created, then reinstall
 	 * all Prefix-SIDs from all nodes that use this neighbor as nexthop.
 	 */
-	adjacent = isis_adj_exists(area, level, sysid);
+	adjacent = !!isis_adj_find(area, level, sysid);
 	switch (srn->state) {
 	case SRDB_STATE_NEW:
 	case SRDB_STATE_MODIFIED:
@@ -2103,7 +2103,7 @@ static int sr_start_label_manager(struct thread *start)
 int isis_sr_start(struct isis_area *area)
 {
 	struct isis_sr_db *srdb = &area->srdb;
-	struct isis_circuit *circuit;
+	struct isis_adjacency *adj;
 	struct listnode *node;
 
 	/* First start Label Manager if not ready */
@@ -2140,34 +2140,11 @@ int isis_sr_start(struct isis_area *area)
 		 area->area_tag);
 
 	/* Create Adjacency-SIDs from existing IS-IS Adjacencies. */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
-		struct isis_adjacency *adj;
-		struct listnode *anode;
-
-		switch (circuit->circ_type) {
-		case CIRCUIT_T_BROADCAST:
-			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
-			     level++) {
-				for (ALL_LIST_ELEMENTS_RO(
-					     circuit->u.bc.adjdb[level - 1],
-					     anode, adj)) {
-					if (adj->ipv4_address_count > 0)
-						sr_adj_sid_add(adj, AF_INET);
-					if (adj->ipv6_address_count > 0)
-						sr_adj_sid_add(adj, AF_INET6);
-				}
-			}
-			break;
-		case CIRCUIT_T_P2P:
-			adj = circuit->u.p2p.neighbor;
-			if (adj && adj->ipv4_address_count > 0)
-				sr_adj_sid_add(adj, AF_INET);
-			if (adj && adj->ipv6_address_count > 0)
-				sr_adj_sid_add(adj, AF_INET6);
-			break;
-		default:
-			break;
-		}
+	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+		if (adj->ipv4_address_count > 0)
+			sr_adj_sid_add(adj, AF_INET);
+		if (adj->ipv6_address_count > 0)
+			sr_adj_sid_add(adj, AF_INET6);
 	}
 
 	area->srdb.enabled = true;

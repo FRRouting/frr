@@ -77,7 +77,7 @@ int isis_instance_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	area = nb_running_unset_entry(args->dnode);
-	isis_area_destroy(area->area_tag);
+	isis_area_destroy(area);
 
 	return NB_OK;
 }

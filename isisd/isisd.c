@@ -77,7 +77,6 @@ unsigned long debug_sr;
 
 struct isis *isis = NULL;
 
-DEFINE_QOBJ_TYPE(isis)
 DEFINE_QOBJ_TYPE(isis_area)
 
 /*
@@ -105,8 +104,6 @@ void isis_new(unsigned long process_id, vrf_id_t vrf_id)
 	isis->init_circ_list = list_new();
 	isis->uptime = time(NULL);
 	dyn_cache_init();
-
-	QOBJ_REG(isis, isis);
 }
 
 struct isis_area *isis_area_create(const char *area_tag)
@@ -136,6 +133,7 @@ struct isis_area *isis_area_create(const char *area_tag)
 	spftree_area_init(area);
 
 	area->circuit_list = list_new();
+	area->adjacency_list = list_new();
 	area->area_addrs = list_new();
 	thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 	flags_initialize(&area->flags);
@@ -247,20 +245,11 @@ int isis_area_get(struct vty *vty, const char *area_tag)
 	return CMD_SUCCESS;
 }
 
-int isis_area_destroy(const char *area_tag)
+void isis_area_destroy(struct isis_area *area)
 {
-	struct isis_area *area;
 	struct listnode *node, *nnode;
 	struct isis_circuit *circuit;
 	struct area_addr *addr;
-
-	area = isis_area_lookup(area_tag);
-
-	if (area == NULL) {
-		zlog_warn("%s: could not find area with area-tag %s",
-				__func__, area_tag);
-		return CMD_ERR_NO_MATCH;
-	}
 
 	QOBJ_UNREG(area);
 
@@ -280,6 +269,7 @@ int isis_area_destroy(const char *area_tag)
 		}
 		list_delete(&area->circuit_list);
 	}
+	list_delete(&area->adjacency_list);
 
 	lsp_db_fini(&area->lspdb[0]);
 	lsp_db_fini(&area->lspdb[1]);
@@ -324,8 +314,6 @@ int isis_area_destroy(const char *area_tag)
 		memset(isis->sysid, 0, ISIS_SYS_ID_LEN);
 		isis->sysid_set = 0;
 	}
-
-	return CMD_SUCCESS;
 }
 
 #ifdef FABRICD
@@ -526,7 +514,7 @@ DEFUN (show_isis_interface,
        "show " PROTO_NAME " interface",
        SHOW_STR
        PROTO_HELP
-       "ISIS interface\n")
+       "IS-IS interface\n")
 {
 	return show_isis_interface_common(vty, NULL, ISIS_UI_LEVEL_BRIEF);
 }
@@ -536,7 +524,7 @@ DEFUN (show_isis_interface_detail,
        "show " PROTO_NAME " interface detail",
        SHOW_STR
        PROTO_HELP
-       "ISIS interface\n"
+       "IS-IS interface\n"
        "show detailed information\n")
 {
 	return show_isis_interface_common(vty, NULL, ISIS_UI_LEVEL_DETAIL);
@@ -547,8 +535,8 @@ DEFUN (show_isis_interface_arg,
        "show " PROTO_NAME " interface WORD",
        SHOW_STR
        PROTO_HELP
-       "ISIS interface\n"
-       "ISIS interface name\n")
+       "IS-IS interface\n"
+       "IS-IS interface name\n")
 {
 	int idx_word = 3;
 	return show_isis_interface_common(vty, argv[idx_word]->arg,
@@ -697,7 +685,7 @@ DEFUN (show_isis_neighbor,
        "show " PROTO_NAME " neighbor",
        SHOW_STR
        PROTO_HELP
-       "ISIS neighbor adjacencies\n")
+       "IS-IS neighbor adjacencies\n")
 {
 	return show_isis_neighbor_common(vty, NULL, ISIS_UI_LEVEL_BRIEF);
 }
@@ -707,7 +695,7 @@ DEFUN (show_isis_neighbor_detail,
        "show " PROTO_NAME " neighbor detail",
        SHOW_STR
        PROTO_HELP
-       "ISIS neighbor adjacencies\n"
+       "IS-IS neighbor adjacencies\n"
        "show detailed information\n")
 {
 	return show_isis_neighbor_common(vty, NULL, ISIS_UI_LEVEL_DETAIL);
@@ -718,7 +706,7 @@ DEFUN (show_isis_neighbor_arg,
        "show " PROTO_NAME " neighbor WORD",
        SHOW_STR
        PROTO_HELP
-       "ISIS neighbor adjacencies\n"
+       "IS-IS neighbor adjacencies\n"
        "System id\n")
 {
 	int idx_word = 3;
@@ -731,7 +719,7 @@ DEFUN (clear_isis_neighbor,
        "clear " PROTO_NAME " neighbor",
        CLEAR_STR
        PROTO_HELP
-       "ISIS neighbor adjacencies\n")
+       "IS-IS neighbor adjacencies\n")
 {
 	return clear_isis_neighbor_common(vty, NULL);
 }
@@ -741,7 +729,7 @@ DEFUN (clear_isis_neighbor_arg,
        "clear " PROTO_NAME " neighbor WORD",
        CLEAR_STR
        PROTO_HELP
-       "ISIS neighbor adjacencies\n"
+       "IS-IS neighbor adjacencies\n"
        "System id\n")
 {
 	int idx_word = 3;
@@ -1390,17 +1378,28 @@ DEFUN (show_isis_summary,
 					" (not used, IETF SPF delay activated)");
 			vty_out(vty, "\n");
 
-			vty_out(vty, "    IPv4 route computation:\n");
-			isis_spf_print(area->spftree[SPFTREE_IPV4][level - 1],
-				       vty);
+			if (area->ip_circuits) {
+				vty_out(vty, "    IPv4 route computation:\n");
+				isis_spf_print(
+					area->spftree[SPFTREE_IPV4][level - 1],
+					vty);
+			}
 
-			vty_out(vty, "    IPv6 route computation:\n");
-			isis_spf_print(area->spftree[SPFTREE_IPV6][level - 1],
-				       vty);
+			if (area->ipv6_circuits) {
+				vty_out(vty, "    IPv6 route computation:\n");
+				isis_spf_print(
+					area->spftree[SPFTREE_IPV6][level - 1],
+					vty);
+			}
 
-			vty_out(vty, "    IPv6 dst-src route computation:\n");
-			isis_spf_print(area->spftree[SPFTREE_DSTSRC][level-1],
-				       vty);
+			if (area->ipv6_circuits
+			    && isis_area_ipv6_dstsrc_enabled(area)) {
+				vty_out(vty,
+					"    IPv6 dst-src route computation:\n");
+				isis_spf_print(area->spftree[SPFTREE_DSTSRC]
+							    [level - 1],
+					       vty);
+			}
 		}
 	}
 	vty_out(vty, "\n");
@@ -1578,8 +1577,20 @@ DEFUN (no_router_openfabric,
        PROTO_HELP
        "ISO Routing area tag\n")
 {
+	struct isis_area *area;
+	const char *area_tag;
 	int idx_word = 3;
-	return isis_area_destroy(argv[idx_word]->arg);
+
+	area_tag = argv[idx_word]->arg;
+	area = isis_area_lookup(area_tag);
+	if (area == NULL) {
+		zlog_warn("%s: could not find area with area-tag %s",
+				__func__, area_tag);
+		return CMD_ERR_NO_MATCH;
+	}
+
+	isis_area_destroy(area);
+	return CMD_SUCCESS;
 }
 #endif /* ifdef FABRICD */
 #ifdef FABRICD

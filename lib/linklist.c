@@ -150,6 +150,23 @@ bool listnode_add_sort_nodup(struct list *list, void *val)
 	return true;
 }
 
+struct list *list_dup(struct list *list)
+{
+	struct list *dup;
+	struct listnode *node;
+	void *data;
+
+	assert(list);
+
+	dup = list_new();
+	dup->cmp = list->cmp;
+	dup->del = list->del;
+	for (ALL_LIST_ELEMENTS_RO(list, node, data))
+		listnode_add(dup, data);
+
+	return dup;
+}
+
 void listnode_add_sort(struct list *list, void *val)
 {
 	struct listnode *n;
