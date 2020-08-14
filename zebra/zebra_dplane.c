@@ -3144,25 +3144,6 @@ enum zebra_dplane_result dplane_local_neigh_add(const struct interface *ifp,
 }
 
 /*
- * Enqueue evpn neighbor update for the dataplane.
- */
-enum zebra_dplane_result dplane_rem_neigh_update(const struct interface *ifp,
-					     const struct ipaddr *ip,
-					     const struct ethaddr *mac)
-{
-	enum zebra_dplane_result result;
-	uint32_t update_flags = 0;
-
-	update_flags |= DPLANE_NEIGH_REMOTE;
-
-	result = neigh_update_internal(DPLANE_OP_NEIGH_UPDATE,
-				       ifp, mac, ip, 0, DPLANE_NUD_PROBE,
-				       update_flags);
-
-	return result;
-}
-
-/*
  * Enqueue evpn neighbor delete for the dataplane.
  */
 enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
