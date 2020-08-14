@@ -2052,16 +2052,16 @@ static int bfd_vrf_enable(struct vrf *vrf)
 		if (!bvrf->bg_ev[1])
 			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
 					&bvrf->bg_ev[1]);
-		if (!bvrf->bg_ev[2])
+		if (!bvrf->bg_ev[2] && bvrf->bg_shop6 != -1)
 			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
 					&bvrf->bg_ev[2]);
-		if (!bvrf->bg_ev[3])
+		if (!bvrf->bg_ev[3] && bvrf->bg_mhop6 != -1)
 			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
 					&bvrf->bg_ev[3]);
 		if (!bvrf->bg_ev[4])
 			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
 					&bvrf->bg_ev[4]);
-		if (!bvrf->bg_ev[5])
+		if (!bvrf->bg_ev[5] && bvrf->bg_echov6 != -1)
 			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
 					&bvrf->bg_ev[5]);
 	}
@@ -2100,10 +2100,13 @@ static int bfd_vrf_disable(struct vrf *vrf)
 	socket_close(&bvrf->bg_echo);
 	socket_close(&bvrf->bg_shop);
 	socket_close(&bvrf->bg_mhop);
-	socket_close(&bvrf->bg_shop6);
-	socket_close(&bvrf->bg_mhop6);
+	if (bvrf->bg_shop6 != -1)
+		socket_close(&bvrf->bg_shop6);
+	if (bvrf->bg_mhop6 != -1)
+		socket_close(&bvrf->bg_mhop6);
 	socket_close(&bvrf->bg_echo);
-	socket_close(&bvrf->bg_echov6);
+	if (bvrf->bg_echov6 != -1)
+		socket_close(&bvrf->bg_echov6);
 
 	/* free context */
 	XFREE(MTYPE_BFDD_VRF, bvrf);

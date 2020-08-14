@@ -147,6 +147,8 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 	bep.my_discr = htonl(bfd->discrs.my_discr);
 
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6)) {
+		if (bvrf->bg_echov6 == -1)
+			return;
 		sd = bvrf->bg_echov6;
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
@@ -1145,8 +1147,14 @@ int bp_udp6_shop(const struct vrf *vrf)
 		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC, vrf->vrf_id,
 				vrf->name);
 	}
-	if (sd == -1)
-		zlog_fatal("udp6-shop: socket: %s", strerror(errno));
+	if (sd == -1) {
+		if (errno != EAFNOSUPPORT)
+			zlog_fatal("udp6-shop: socket: %s", strerror(errno));
+		else
+			zlog_warn("udp6-shop: V6 is not supported, continuing");
+
+		return -1;
+	}
 
 	bp_set_ipv6opts(sd);
 	bp_bind_ipv6(sd, BFD_DEFDESTPORT);
@@ -1162,8 +1170,14 @@ int bp_udp6_mhop(const struct vrf *vrf)
 		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC, vrf->vrf_id,
 				vrf->name);
 	}
-	if (sd == -1)
-		zlog_fatal("udp6-mhop: socket: %s", strerror(errno));
+	if (sd == -1) {
+		if (errno != EAFNOSUPPORT)
+			zlog_fatal("udp6-mhop: socket: %s", strerror(errno));
+		else
+			zlog_warn("udp6-mhop: V6 is not supported, continuing");
+
+		return -1;
+	}
 
 	bp_set_ipv6opts(sd);
 	bp_bind_ipv6(sd, BFD_DEF_MHOP_DEST_PORT);
@@ -1194,8 +1208,15 @@ int bp_echov6_socket(const struct vrf *vrf)
 	frr_with_privs(&bglobal.bfdd_privs) {
 		s = vrf_socket(AF_INET6, SOCK_DGRAM, 0, vrf->vrf_id, vrf->name);
 	}
-	if (s == -1)
-		zlog_fatal("echov6-socket: socket: %s", strerror(errno));
+	if (s == -1) {
+		if (errno != EAFNOSUPPORT)
+			zlog_fatal("echov6-socket: socket: %s",
+				   strerror(errno));
+		else
+			zlog_warn("echov6-socket: V6 is not supported, continuing");
+
+		return -1;
+	}
 
 	bp_set_ipv6opts(s);
 	bp_bind_ipv6(s, BFD_DEF_ECHO_PORT);
