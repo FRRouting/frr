@@ -273,6 +273,10 @@ struct bgp_evpn_mh_info {
 	/* Skip EAD-EVI advertisements by turning off this knob */
 	bool ead_evi_tx;
 #define BGP_EVPN_MH_EAD_EVI_TX_DEF true
+	/* If the Local ES is inactive we advertise the MAC-IP without the
+	 * L3 ecomm
+	 */
+	bool suppress_l3_ecomm_on_inactive_es;
 };
 
 /****************************************************************************/
@@ -330,6 +334,12 @@ static inline uint32_t bgp_evpn_attr_get_df_pref(struct attr *attr)
 	return (attr) ? attr->df_pref : 0;
 }
 
+static inline bool bgp_evpn_local_es_is_active(struct bgp_evpn_es *es)
+{
+	return (es->flags & BGP_EVPNES_OPER_UP)
+	       && !(es->flags & BGP_EVPNES_BYPASS);
+}
+
 /****************************************************************************/
 extern int bgp_evpn_es_route_install_uninstall(struct bgp *bgp,
 		struct bgp_evpn_es *es, afi_t afi, safi_t safi,
@@ -378,5 +388,6 @@ extern void bgp_evpn_es_vrf_show(struct vty *vty, bool uj,
 				 struct bgp_evpn_es *es);
 extern void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj);
 extern void bgp_evpn_switch_ead_evi_rx(void);
+extern bool bgp_evpn_es_add_l3_ecomm_ok(esi_t *esi);
 
 #endif /* _FRR_BGP_EVPN_MH_H */

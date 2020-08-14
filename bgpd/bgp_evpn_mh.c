@@ -1664,10 +1664,64 @@ static void bgp_evpn_es_remote_info_re_eval(struct bgp_evpn_es *es)
 	}
 }
 
-static inline bool bgp_evpn_local_es_is_active(struct bgp_evpn_es *es)
+/* If ES is present and local it needs to be active/oper-up for
+ * including L3 EC
+ */
+bool bgp_evpn_es_add_l3_ecomm_ok(esi_t *esi)
 {
-	return (es->flags & BGP_EVPNES_OPER_UP)
-	       && !(es->flags & BGP_EVPNES_BYPASS);
+	struct bgp_evpn_es *es;
+
+	if (!esi || !bgp_mh_info->suppress_l3_ecomm_on_inactive_es)
+		return true;
+
+	es = bgp_evpn_es_find(esi);
+
+	return (!es || !(es->flags & BGP_EVPNES_LOCAL)
+		|| bgp_evpn_local_es_is_active(es));
+}
+
+/* Update all MAC-IP routes associated with the ES. When the ES is down
+ * the routes are advertised without the L3 extcomm
+ */
+static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
+{
+	struct listnode *node;
+	struct bgp_path_es_info *es_info;
+	struct bgp_path_info *pi;
+	char prefix_buf[PREFIX_STRLEN];
+	struct bgp *bgp;
+	struct bgpevpn *vpn;
+
+	if (!bgp_mh_info->suppress_l3_ecomm_on_inactive_es)
+		return;
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("update paths linked to es %s on oper chg",
+			   es->esi_str);
+
+	bgp = bgp_get_evpn();
+	for (ALL_LIST_ELEMENTS_RO(es->macip_path_list, node, es_info)) {
+		pi = es_info->pi;
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+			continue;
+
+		if (pi->type != ZEBRA_ROUTE_BGP
+		    || pi->sub_type != BGP_ROUTE_STATIC)
+			continue;
+
+		vpn = bgp_evpn_lookup_vni(bgp, es_info->vni);
+		if (!vpn)
+			continue;
+
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+			zlog_debug("update path %s linked to es %s on vtep chg",
+				   prefix2str(&pi->net->p, prefix_buf,
+					      sizeof(prefix_buf)),
+				   es->esi_str);
+
+		bgp_evpn_update_type2_route_entry(bgp, vpn, pi->net, pi,
+						  __func__);
+	}
 }
 
 static void bgp_evpn_local_es_deactivate(struct bgp *bgp,
@@ -1699,6 +1753,8 @@ static void bgp_evpn_local_es_deactivate(struct bgp *bgp,
 				"%u failed to delete type-1 route for ESI %s",
 				bgp->vrf_id, es->esi_str);
 	}
+
+	bgp_evpn_mac_update_on_es_oper_chg(es);
 }
 
 /* Process ES link oper-down by withdrawing ES-EAD and ESR */
@@ -1746,6 +1802,8 @@ static void bgp_evpn_local_es_activate(struct bgp *bgp, struct bgp_evpn_es *es,
 					es->originator_ip);
 		(void)bgp_evpn_type1_route_update(bgp, es, NULL, &p);
 	}
+
+	bgp_evpn_mac_update_on_es_oper_chg(es);
 }
 
 /* Process ES link oper-up by generating ES-EAD and ESR */
@@ -3866,6 +3924,7 @@ void bgp_evpn_mh_init(void)
 	bgp_mh_info->consistency_checking = true;
 	bgp_mh_info->install_l3nhg = false;
 	bgp_mh_info->host_routes_use_l3nhg = BGP_EVPN_MH_USE_ES_L3NHG_DEF;
+	bgp_mh_info->suppress_l3_ecomm_on_inactive_es = true;
 
 	memset(&zero_esi_buf, 0, sizeof(esi_t));
 }
