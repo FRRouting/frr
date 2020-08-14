@@ -1463,7 +1463,8 @@ DECLARE_QOBJ_TYPE(peer)
 /* Check if suppress start/restart of sessions to peer. */
 #define BGP_PEER_START_SUPPRESSED(P)                                           \
 	(CHECK_FLAG((P)->flags, PEER_FLAG_SHUTDOWN)                            \
-	 || CHECK_FLAG((P)->sflags, PEER_STATUS_PREFIX_OVERFLOW))
+	 || CHECK_FLAG((P)->sflags, PEER_STATUS_PREFIX_OVERFLOW)               \
+	 || CHECK_FLAG((P)->bgp->flags, BGP_FLAG_SHUTDOWN))
 
 #define PEER_PASSWORD_MINLEN	(1)
 #define PEER_PASSWORD_MAXLEN	(80)

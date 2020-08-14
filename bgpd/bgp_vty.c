@@ -9355,7 +9355,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					json_object_int_add(json_peer,
 							    "pfxSnt",
 							    (PAF_SUBGRP(paf))->scount);
-				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
+				    || CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
 					json_object_string_add(json_peer, "state",
 							       "Idle (Admin)");
 				else if (peer->afc_recv[afi][safi])
@@ -9474,7 +9475,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 									->scount);
 					}
 				} else {
-					if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+					if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
+					    || CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
 						vty_out(vty, " Idle (Admin)");
 					else if (CHECK_FLAG(
 							    peer->sflags,
@@ -10971,7 +10973,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 	if (use_json) {
 		/* Administrative shutdown. */
-		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN))
+		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN)
+		    || CHECK_FLAG(p->bgp->flags, BGP_FLAG_SHUTDOWN))
 			json_object_boolean_true_add(json_neigh,
 						     "adminShutDown");
 
@@ -11077,7 +11080,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		}
 	} else {
 		/* Administrative shutdown. */
-		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN))
+		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN)
+		    || CHECK_FLAG(p->bgp->flags, BGP_FLAG_SHUTDOWN))
 			vty_out(vty, " Administratively shut down\n");
 
 		/* BGP Version. */
@@ -13651,7 +13655,8 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 	if (listcount(group->peer)) {
 		vty_out(vty, "  Peer-group members:\n");
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
+			    || CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
 				peer_status = "Idle (Admin)";
 			else if (CHECK_FLAG(peer->sflags,
 					    PEER_STATUS_PREFIX_OVERFLOW))

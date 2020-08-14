@@ -6834,7 +6834,8 @@ int peer_ttl_security_hops_unset(struct peer *peer)
  */
 int peer_clear(struct peer *peer, struct listnode **nnode)
 {
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)) {
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
+	    || !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN)) {
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW)) {
 			UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 			if (peer->t_pmax_restart) {

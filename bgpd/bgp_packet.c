@@ -198,6 +198,8 @@ void bgp_check_update_delay(struct bgp *bgp)
 					       PEER_FLAG_CONFIG_NODE)
 				    && !CHECK_FLAG(peer->flags,
 						   PEER_FLAG_SHUTDOWN)
+				    && !CHECK_FLAG(peer->bgp->flags,
+						   BGP_FLAG_SHUTDOWN)
 				    && !peer->update_delay_over) {
 					if (bgp_debug_neighbor_events(peer))
 						zlog_debug(
