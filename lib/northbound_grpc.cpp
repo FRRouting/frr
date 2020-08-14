@@ -690,12 +690,14 @@ class NorthboundImpl
 				break;
 			case frr::CommitRequest::ABORT:
 				nb_candidate_commit_abort(
-					candidate->transaction);
+					candidate->transaction, errmsg,
+					sizeof(errmsg));
 				break;
 			case frr::CommitRequest::APPLY:
 				nb_candidate_commit_apply(
 					candidate->transaction, true,
-					&transaction_id);
+					&transaction_id, errmsg,
+					sizeof(errmsg));
 				break;
 			case frr::CommitRequest::ALL:
 				ret = nb_candidate_commit(
@@ -741,6 +743,8 @@ class NorthboundImpl
 					tag->response.set_transaction_id(
 						transaction_id);
 			}
+			if (strlen(errmsg) > 0)
+				tag->response.set_error_message(errmsg);
 
 			tag->responder.Finish(tag->response, status, tag);
 			tag->state = FINISH;
@@ -1281,10 +1285,13 @@ class NorthboundImpl
 
 	void delete_candidate(struct candidate *candidate)
 	{
+		char errmsg[BUFSIZ] = {0};
+
 		_candidates.erase(candidate->id);
 		nb_config_free(candidate->config);
 		if (candidate->transaction)
-			nb_candidate_commit_abort(candidate->transaction);
+			nb_candidate_commit_abort(candidate->transaction,
+						  errmsg, sizeof(errmsg));
 	}
 
 	struct candidate *get_candidate(uint32_t candidate_id)

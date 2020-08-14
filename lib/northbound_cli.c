@@ -74,7 +74,9 @@ static int nb_cli_classic_commit(struct vty *vty)
 		/* Regenerate candidate for consistency. */
 		nb_config_replace(vty->candidate_config, running_config, true);
 		return CMD_WARNING_CONFIG_FAILED;
-	}
+	} else if (strlen(errmsg) > 0)
+		/* Successful commit. Print warnings (if any). */
+		vty_out(vty, "%s\n", errmsg);
 
 	return CMD_SUCCESS;
 }
@@ -318,11 +320,14 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 		&context, vty->confirmed_commit_rollback, true,
 		"Rollback to previous configuration - confirmed commit has timed out",
 		&transaction_id, errmsg, sizeof(errmsg));
-	if (ret == NB_OK)
+	if (ret == NB_OK) {
 		vty_out(vty,
 			"Rollback performed successfully (Transaction ID #%u).\n",
 			transaction_id);
-	else {
+		/* Print warnings (if any). */
+		if (strlen(errmsg) > 0)
+			vty_out(vty, "%s\n", errmsg);
+	} else {
 		vty_out(vty,
 			"Failed to rollback to previous configuration.\n\n");
 		vty_show_nb_errors(vty, ret, errmsg);
@@ -407,6 +412,9 @@ static int nb_cli_commit(struct vty *vty, bool force,
 		vty_out(vty,
 			"%% Configuration committed successfully (Transaction ID #%u).\n\n",
 			transaction_id);
+		/* Print warnings (if any). */
+		if (strlen(errmsg) > 0)
+			vty_out(vty, "%s\n", errmsg);
 		return CMD_SUCCESS;
 	case NB_ERR_NO_CHANGES:
 		vty_out(vty, "%% No configuration changes to commit.\n\n");
@@ -1666,6 +1674,9 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 	case NB_OK:
 		vty_out(vty,
 			"%% Configuration was successfully rolled back.\n\n");
+		/* Print warnings (if any). */
+		if (strlen(errmsg) > 0)
+			vty_out(vty, "%s\n", errmsg);
 		return CMD_SUCCESS;
 	case NB_ERR_NO_CHANGES:
 		vty_out(vty,

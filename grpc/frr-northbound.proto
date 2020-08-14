@@ -287,6 +287,9 @@ message CommitResponse {
   // ID of the created configuration transaction (when the phase is APPLY
   // or ALL).
   uint32 transaction_id = 1;
+
+  // Human-readable error or warning message(s).
+  string error_message = 2;
 }
 
 //

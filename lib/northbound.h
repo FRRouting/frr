@@ -910,8 +910,15 @@ extern int nb_candidate_commit_prepare(struct nb_context *context,
  *
  * transaction
  *    Candidate configuration to abort. It's consumed by this function.
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
  */
-extern void nb_candidate_commit_abort(struct nb_transaction *transaction);
+extern void nb_candidate_commit_abort(struct nb_transaction *transaction,
+				      char *errmsg, size_t errmsg_len);
 
 /*
  * Commit a previously created configuration transaction.
@@ -925,10 +932,17 @@ extern void nb_candidate_commit_abort(struct nb_transaction *transaction);
  *
  * transaction_id
  *    Optional output parameter providing the ID of the committed transaction.
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
  */
 extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
 				      bool save_transaction,
-				      uint32_t *transaction_id);
+				      uint32_t *transaction_id, char *errmsg,
+				      size_t errmsg_len);
 
 /*
  * Create a new transaction to commit a candidate configuration. This is a
