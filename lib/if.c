@@ -1374,6 +1374,10 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 	case NB_EV_VALIDATE:
 		vrf = vrf_lookup_by_name(vrfname);
 		if (!vrf) {
+			if (yang_dnode_exists(args->dnode,
+					      "/frr-vrf:lib/vrf[name='%s']",
+					      vrfname))
+				break;
 			zlog_warn("%s: VRF %s doesn't exist", __func__,
 				  vrfname);
 			return NB_ERR_VALIDATION;
@@ -1433,6 +1437,13 @@ static int lib_interface_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_unset_entry(args->dnode);
+		/*
+		 * If this interface is part of a VRF, and the VRF is being
+		 * deleted, and the VRF deletion was already processed, then
+		 * this'll give us nothing. Shouldn't occur in any other case.
+		 */
+		if (!ifp)
+			break;
 
 		ifp->configured = false;
 		if_delete(&ifp);
