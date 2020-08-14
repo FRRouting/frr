@@ -170,6 +170,7 @@ enum bfd_session_flags {
 	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
 	BFD_SESS_FLAG_CONFIG = 1 << 8,	/* Session configured with bfd NB API */
 	BFD_SESS_FLAG_CBIT = 1 << 9,	/* CBIT is set */
+	BFD_SESS_FLAG_PASSIVE = 1 << 10, /* Passive mode */
 };
 
 /* BFD session hash keys */
@@ -207,6 +208,10 @@ struct bfd_profile {
 	uint32_t min_rx;
 	/** Administrative state. */
 	bool admin_shutdown;
+	/** Passive mode. */
+	bool passive;
+	/** Minimum expected TTL value. */
+	uint8_t minimum_ttl;
 
 	/** Echo mode (only applies to single hop). */
 	bool echo_mode;
@@ -328,7 +333,8 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 #define BFD_DEFREQUIREDMINRX (300 * 1000) /* microseconds. */
 #define BFD_DEF_REQ_MIN_ECHO (50 * 1000) /* microseconds. */
 #define BFD_DEF_SLOWTX (1000 * 1000) /* microseconds. */
-#define BFD_DEF_MHOP_TTL 5
+/** Minimum multi hop TTL. */
+#define BFD_DEF_MHOP_TTL 254
 #define BFD_PKT_LEN 24 /* Length of control packet */
 #define BFD_TTL_VAL 255
 #define BFD_RCV_TTL_VAL 1
@@ -606,6 +612,23 @@ void bfd_set_echo(struct bfd_session *bs, bool echo);
  * \param shutdown the operational value.
  */
 void bfd_set_shutdown(struct bfd_session *bs, bool shutdown);
+
+/**
+ * Set the BFD session passive mode.
+ *
+ * \param bs the BFD session.
+ * \param passive the passive mode.
+ */
+void bfd_set_passive_mode(struct bfd_session *bs, bool passive);
+
+/**
+ * Picks the BFD session configuration from the appropriated source:
+ * if using the default peer configuration prefer profile (if it exists),
+ * otherwise use session.
+ *
+ * \param bs the BFD session.
+ */
+void bfd_session_apply(struct bfd_session *bs);
 
 /* BFD hash data structures interface */
 void bfd_initialize(void);

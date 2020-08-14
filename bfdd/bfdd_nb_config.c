@@ -360,6 +360,64 @@ int bfdd_bfd_profile_administrative_down_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-bfdd:bfdd/bfd/profile/passive-mode
+ */
+int bfdd_bfd_profile_passive_mode_modify(struct nb_cb_modify_args *args)
+{
+	struct bfd_profile *bp;
+	bool passive;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	passive = yang_dnode_get_bool(args->dnode, NULL);
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	if (bp->passive == passive)
+		return NB_OK;
+
+	bp->passive = passive;
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/profile/minimum-ttl
+ */
+int bfdd_bfd_profile_minimum_ttl_modify(struct nb_cb_modify_args *args)
+{
+	struct bfd_profile *bp;
+	uint8_t minimum_ttl;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	minimum_ttl = yang_dnode_get_uint8(args->dnode, NULL);
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	if (bp->minimum_ttl == minimum_ttl)
+		return NB_OK;
+
+	bp->minimum_ttl = minimum_ttl;
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_profile_minimum_ttl_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bfd_profile *bp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp->minimum_ttl = BFD_DEF_MHOP_TTL;
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-bfdd:bfdd/bfd/profile/echo-mode
  */
 int bfdd_bfd_profile_echo_mode_modify(struct nb_cb_modify_args *args)
@@ -497,8 +555,8 @@ int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
 
 	case NB_EV_APPLY:
 		bs = nb_running_get_entry(args->dnode, NULL, true);
-		bs->detect_mult = detection_multiplier;
 		bs->peer_profile.detection_multiplier = detection_multiplier;
+		bfd_session_apply(bs);
 		break;
 
 	case NB_EV_ABORT:
@@ -533,9 +591,8 @@ int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
 		if (tx_interval == bs->timers.desired_min_tx)
 			return NB_OK;
 
-		bs->timers.desired_min_tx = tx_interval;
 		bs->peer_profile.min_tx = tx_interval;
-		bfd_set_polling(bs);
+		bfd_session_apply(bs);
 		break;
 
 	case NB_EV_ABORT:
@@ -570,9 +627,8 @@ int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
 		if (rx_interval == bs->timers.required_min_rx)
 			return NB_OK;
 
-		bs->timers.required_min_rx = rx_interval;
 		bs->peer_profile.min_rx = rx_interval;
-		bfd_set_polling(bs);
+		bfd_session_apply(bs);
 		break;
 
 	case NB_EV_ABORT:
@@ -606,7 +662,37 @@ int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
 	bs->peer_profile.admin_shutdown = shutdown;
-	bfd_set_shutdown(bs, shutdown);
+	bfd_session_apply(bs);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/passive-mode
+ */
+int bfdd_bfd_sessions_single_hop_passive_mode_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct bfd_session *bs;
+	bool passive;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	passive = yang_dnode_get_bool(args->dnode, NULL);
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.passive = passive;
+	bfd_session_apply(bs);
 
 	return NB_OK;
 }
@@ -634,7 +720,7 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
 	bs->peer_profile.echo_mode = echo;
-	bfd_set_echo(bs, echo);
+	bfd_session_apply(bs);
 
 	return NB_OK;
 }
@@ -664,8 +750,8 @@ int bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
 		if (echo_interval == bs->timers.required_min_echo)
 			return NB_OK;
 
-		bs->timers.required_min_echo = echo_interval;
 		bs->peer_profile.min_echo_rx = echo_interval;
+		bfd_session_apply(bs);
 		break;
 
 	case NB_EV_ABORT:
@@ -688,4 +774,55 @@ int bfdd_bfd_sessions_multi_hop_create(struct nb_cb_create_args *args)
 int bfdd_bfd_sessions_multi_hop_destroy(struct nb_cb_destroy_args *args)
 {
 	return bfd_session_destroy(args->event, args->dnode, true);
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/multi-hop/minimum-ttl
+ */
+int bfdd_bfd_sessions_multi_hop_minimum_ttl_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct bfd_session *bs;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.minimum_ttl = yang_dnode_get_uint8(args->dnode, NULL);
+	bfd_session_apply(bs);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_sessions_multi_hop_minimum_ttl_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct bfd_session *bs;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.minimum_ttl = BFD_DEF_MHOP_TTL;
+	bfd_session_apply(bs);
+
+	return NB_OK;
 }

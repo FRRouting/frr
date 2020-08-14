@@ -88,6 +88,8 @@ static void bfd_profile_set_default(struct bfd_profile *bp)
 	bp->admin_shutdown = true;
 	bp->detection_multiplier = BFD_DEFDETECTMULT;
 	bp->echo_mode = false;
+	bp->passive = false;
+	bp->minimum_ttl = BFD_DEF_MHOP_TTL;
 	bp->min_echo_rx = BFD_DEF_REQ_MIN_ECHO;
 	bp->min_rx = BFD_DEFREQUIREDMINRX;
 	bp->min_tx = BFD_DEFDESIREDMINTX;
@@ -124,53 +126,12 @@ void bfd_profile_free(struct bfd_profile *bp)
 	XFREE(MTYPE_BFDD_PROFILE, bp);
 }
 
-/**
- * Removes a profile and tests whether it needs to apply the changes or not.
- *
- * \param bs the BFD session.
- * \param apply whether or not to apply configurations immediately.
- */
-static void _bfd_profile_remove(struct bfd_session *bs, bool apply)
-{
-	struct bfd_profile *bp;
-
-	/* No profile applied, nothing to do. */
-	bp = bs->profile;
-	if (bp == NULL)
-		return;
-
-	/* Remove the profile association. */
-	bs->profile = NULL;
-
-	/* Set multiplier to the default. */
-	bs->detect_mult = bs->peer_profile.detection_multiplier;
-
-	/* Set timers back to user configuration. */
-	bs->timers.desired_min_tx = bs->peer_profile.min_tx;
-	bs->timers.required_min_rx = bs->peer_profile.min_rx;
-
-	/* We can only apply echo options on single hop sessions. */
-	if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		/* Set default echo timer. */
-		bs->timers.required_min_echo = bs->peer_profile.min_echo_rx;
-
-		/* Default is no echo mode. */
-		if (apply)
-			bfd_set_echo(bs, bs->peer_profile.echo_mode);
-	}
-
-	if (apply)
-		bfd_set_shutdown(bs, bs->peer_profile.admin_shutdown);
-}
-
 void bfd_profile_apply(const char *profname, struct bfd_session *bs)
 {
 	struct bfd_profile *bp;
 
 	/* Remove previous profile if any. */
 	if (bs->profile_name) {
-		_bfd_profile_remove(bs, false);
-
 		/* We are changing profiles. */
 		if (strcmp(bs->profile_name, profname)) {
 			XFREE(MTYPE_BFDD_PROFILE, bs->profile_name);
@@ -182,11 +143,22 @@ void bfd_profile_apply(const char *profname, struct bfd_session *bs)
 
 	/* Look up new profile to apply. */
 	bp = bfd_profile_lookup(profname);
-	if (bp == NULL)
-		return;
 
 	/* Point to profile if it exists. */
 	bs->profile = bp;
+
+	/* Apply configuration. */
+	bfd_session_apply(bs);
+}
+
+void bfd_session_apply(struct bfd_session *bs)
+{
+	struct bfd_profile *bp;
+	uint32_t min_tx = bs->timers.desired_min_tx;
+	uint32_t min_rx = bs->timers.required_min_rx;
+
+	/* Pick the source of configuration. */
+	bp = bs->profile ? bs->profile : &bs->peer_profile;
 
 	/* Set multiplier if not the default. */
 	if (bs->peer_profile.detection_multiplier == BFD_DEFDETECTMULT)
@@ -219,21 +191,40 @@ void bfd_profile_apply(const char *profname, struct bfd_session *bs)
 			bfd_set_echo(bs, bp->echo_mode);
 		else
 			bfd_set_echo(bs, bs->peer_profile.echo_mode);
+	} else {
+		/* Configure the TTL packet filter. */
+		if (bs->peer_profile.minimum_ttl == BFD_DEF_MHOP_TTL)
+			bs->mh_ttl = bp->minimum_ttl;
+		else
+			bs->mh_ttl = bs->peer_profile.minimum_ttl;
 	}
+
+	/* Toggle 'passive-mode' if default value. */
+	if (bs->peer_profile.passive == false)
+		bfd_set_passive_mode(bs, bp->passive);
+	else
+		bfd_set_passive_mode(bs, bs->peer_profile.passive);
 
 	/* Toggle 'no shutdown' if default value. */
 	if (bs->peer_profile.admin_shutdown)
 		bfd_set_shutdown(bs, bp->admin_shutdown);
 	else
 		bfd_set_shutdown(bs, bs->peer_profile.admin_shutdown);
+
+	/* If session interval changed negotiate new timers. */
+	if (bs->ses_state == PTM_BFD_UP
+	    && (bs->timers.desired_min_tx != min_tx
+		|| bs->timers.required_min_rx != min_rx))
+		bfd_set_polling(bs);
 }
 
 void bfd_profile_remove(struct bfd_session *bs)
 {
 	/* Remove any previous set profile name. */
 	XFREE(MTYPE_BFDD_PROFILE, bs->profile_name);
+	bs->profile = NULL;
 
-	_bfd_profile_remove(bs, true);
+	bfd_session_apply(bs);
 }
 
 void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
@@ -374,8 +365,12 @@ int bfd_session_enable(struct bfd_session *bs)
 	 * protocol.
 	 */
 	bs->sock = psock;
-	bfd_recvtimer_update(bs);
-	ptm_bfd_start_xmt_timer(bs, false);
+
+	/* Only start timers if we are using active mode. */
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE) == 0) {
+		bfd_recvtimer_update(bs);
+		ptm_bfd_start_xmt_timer(bs, false);
+	}
 
 	return 0;
 }
@@ -535,6 +530,12 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	/* Stop echo packet transmission if they are active */
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
 		ptm_bfd_echo_stop(bfd);
+
+	/* Stop attempting to transmit or expect control packets if passive. */
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_PASSIVE)) {
+		bfd_recvtimer_delete(bfd);
+		bfd_xmttimer_delete(bfd);
+	}
 
 	if (old_state != bfd->ses_state) {
 		bfd->stats.session_down++;
@@ -758,6 +759,11 @@ static void _bfd_session_update(struct bfd_session *bs,
 	else
 		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CBIT);
 
+	if (bpc->bpc_has_minimum_ttl) {
+		bs->mh_ttl = bpc->bpc_minimum_ttl;
+		bs->peer_profile.minimum_ttl = bpc->bpc_minimum_ttl;
+	}
+
 	bs->peer_profile.echo_mode = bpc->bpc_echo;
 	bfd_set_echo(bs, bpc->bpc_echo);
 
@@ -766,6 +772,7 @@ static void _bfd_session_update(struct bfd_session *bs,
 	 * the session is disabled.
 	 */
 	bs->peer_profile.admin_shutdown = bpc->bpc_shutdown;
+	bfd_set_passive_mode(bs, bpc->bpc_passive);
 	bfd_set_shutdown(bs, bpc->bpc_shutdown);
 
 	/*
@@ -986,6 +993,10 @@ static void bs_down_handler(struct bfd_session *bs, int nstate)
 		 * bring it up.
 		 */
 		bs->ses_state = PTM_BFD_INIT;
+
+		/* Answer peer with INIT immediately in passive mode. */
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE))
+			ptm_bfd_snd(bs, 0);
 		break;
 
 	case PTM_BFD_INIT:
@@ -1312,9 +1323,39 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 		bs->ses_state = PTM_BFD_DOWN;
 		control_notify(bs, bs->ses_state);
 
-		/* Enable all timers. */
-		bfd_recvtimer_update(bs);
+		/* Enable timers if non passive, otherwise stop them. */
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE)) {
+			bfd_recvtimer_delete(bs);
+			bfd_xmttimer_delete(bs);
+		} else {
+			bfd_recvtimer_update(bs);
+			bfd_xmttimer_update(bs, bs->xmt_TO);
+		}
+	}
+}
+
+void bfd_set_passive_mode(struct bfd_session *bs, bool passive)
+{
+	if (passive) {
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE);
+
+		/* Session is already up and running, nothing to do now. */
+		if (bs->ses_state != PTM_BFD_DOWN)
+			return;
+
+		/* Lets disable the timers since we are now passive. */
+		bfd_recvtimer_delete(bs);
+		bfd_xmttimer_delete(bs);
+	} else {
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE);
+
+		/* Session is already up and running, nothing to do now. */
+		if (bs->ses_state != PTM_BFD_DOWN)
+			return;
+
+		/* Session is down, let it attempt to start the connection. */
 		bfd_xmttimer_update(bs, bs->xmt_TO);
+		bfd_recvtimer_update(bs);
 	}
 }
 

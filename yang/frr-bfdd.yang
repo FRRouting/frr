@@ -185,6 +185,13 @@ module frr-bfdd {
       default true;
       description "Disables or enables the session administratively";
     }
+
+    leaf passive-mode {
+      type boolean;
+      default false;
+      description
+        "Don't attempt to start session establishment.";
+    }
   }
 
   grouping session-echo {
@@ -201,6 +208,18 @@ module frr-bfdd {
       units microseconds;
       default 50000;
       description "Minimum desired control packet transmission interval";
+    }
+  }
+
+  grouping session-multi-hop {
+    description "BFD session multi hop settings.";
+
+    leaf minimum-ttl {
+      type uint8 {
+        range 1..254;
+      }
+      description
+        "Minimum expected TTL on received packets.";
     }
   }
 
@@ -363,6 +382,7 @@ module frr-bfdd {
 
         uses session-common;
         uses session-echo;
+        uses session-multi-hop;
       }
 
       container sessions {
@@ -438,6 +458,7 @@ module frr-bfdd {
           }
 
           uses session-common;
+          uses session-multi-hop;
 
           container stats {
             uses session-states;
