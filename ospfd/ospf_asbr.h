@@ -130,4 +130,8 @@ extern void ospf_asbr_route_install_lsa(struct ospf_lsa *);
 extern struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *,
 						    struct prefix_ipv4 *p);
 
+/* External Route Aggregator */
+extern void ospf_asbr_external_aggregator_init(struct ospf *instance);
+
+extern void ospf_external_aggregator_free(struct ospf_external_aggr_rt *aggr);
 #endif /* _ZEBRA_OSPF_ASBR_H */

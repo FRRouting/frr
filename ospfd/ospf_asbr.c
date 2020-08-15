@@ -327,3 +327,78 @@ void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
 					rn->info = NULL;
 				}
 }
+
+/* External Route Aggregator Handlers */
+void ospf_asbr_external_aggregator_init(struct ospf *instance)
+{
+	instance->rt_aggr_tbl = route_table_init();
+
+	instance->t_external_aggr = NULL;
+
+	instance->aggr_action = 0;
+
+	instance->aggr_delay_interval = OSPF_EXTL_AGGR_DEFAULT_DELAY;
+}
+
+static unsigned int ospf_external_rt_hash_key(const void *data)
+{
+	const struct external_info *ei = data;
+	unsigned int key = 0;
+
+	key = prefix_hash_key(&ei->p);
+	return key;
+}
+
+static bool ospf_external_rt_hash_cmp(const void *d1, const void *d2)
+{
+	const struct external_info *ei1 = d1;
+	const struct external_info *ei2 = d2;
+
+	return prefix_same((struct prefix *)&ei1->p, (struct prefix *)&ei2->p);
+}
+
+static struct ospf_external_aggr_rt *
+ospf_external_aggregator_new(struct prefix_ipv4 *p)
+{
+	struct ospf_external_aggr_rt *aggr;
+
+	aggr = (struct ospf_external_aggr_rt *)XCALLOC(
+		MTYPE_OSPF_EXTERNAL_RT_AGGR,
+		sizeof(struct ospf_external_aggr_rt));
+
+	if (!aggr)
+		return NULL;
+
+	aggr->p.family = p->family;
+	aggr->p.prefix = p->prefix;
+	aggr->p.prefixlen = p->prefixlen;
+	aggr->match_extnl_hash = hash_create(ospf_external_rt_hash_key,
+					     ospf_external_rt_hash_cmp,
+					     "Ospf external route hash");
+	return aggr;
+}
+
+static void ospf_aggr_unlink_external_info(void *data)
+{
+	struct external_info *ei = (struct external_info *)data;
+
+	ei->aggr_route = NULL;
+
+	ei->to_be_processed = true;
+}
+
+void ospf_external_aggregator_free(struct ospf_external_aggr_rt *aggr)
+{
+	if (OSPF_EXTERNAL_RT_COUNT(aggr))
+		hash_clean(aggr->match_extnl_hash,
+			   (void *)ospf_aggr_unlink_external_info);
+
+	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
+		zlog_debug("%s: Release the aggregator Address(%s/%d)",
+			   __func__, inet_ntoa(aggr->p.prefix),
+			   aggr->p.prefixlen);
+	hash_free(aggr->match_extnl_hash);
+	aggr->match_extnl_hash = NULL;
+
+	XFREE(MTYPE_OSPF_EXTERNAL_RT_AGGR, aggr);
+}
