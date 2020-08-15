@@ -112,12 +112,13 @@ DEFUN (no_triggered_csnp,
 	return CMD_SUCCESS;
 }
 
-static void lsp_print_flooding(struct vty *vty, struct isis_lsp *lsp)
+static void lsp_print_flooding(struct vty *vty, struct isis_lsp *lsp,
+			       struct isis *isis)
 {
 	char lspid[255];
 	char buf[MONOTIME_STRLEN];
 
-	lspid_print(lsp->hdr.lsp_id, lspid, true, true);
+	lspid_print(lsp->hdr.lsp_id, lspid, true, true, isis);
 	vty_out(vty, "Flooding information for %s\n", lspid);
 
 	if (!lsp->flooding_neighbors[TX_LSP_NORMAL]) {
@@ -170,25 +171,29 @@ DEFUN (show_lsp_flooding,
 
 	struct listnode *node;
 	struct isis_area *area;
+	struct isis *isis = NULL;
+
+	isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+
+	if (isis == NULL) {
+		vty_out(vty, "IS-IS Routing Process not enabled\n");
+		return CMD_SUCCESS;
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		struct lspdb_head *head = &area->lspdb[ISIS_LEVEL2 - 1];
 		struct isis_lsp *lsp;
 
-		vty_out(vty, "Area %s:\n", area->area_tag ?
-			area->area_tag : "null");
-
+		vty_out(vty, "Area %s:\n",
+			area->area_tag ? area->area_tag : "null");
 		if (lspid) {
-			lsp = lsp_for_arg(head, lspid);
-
+			lsp = lsp_for_arg(head, lspid, isis);
 			if (lsp)
-				lsp_print_flooding(vty, lsp);
-
+				lsp_print_flooding(vty, lsp, isis);
 			continue;
 		}
-
 		frr_each (lspdb, head, lsp) {
-			lsp_print_flooding(vty, lsp);
+			lsp_print_flooding(vty, lsp, isis);
 			vty_out(vty, "\n");
 		}
 	}
@@ -222,9 +227,9 @@ DEFUN (ip_router_isis,
 		}
 	}
 
-	area = isis_area_lookup(area_tag);
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
 	if (!area)
-		area = isis_area_create(area_tag);
+		area = isis_area_create(area_tag, VRF_DEFAULT_NAME);
 
 	if (!circuit || !circuit->area) {
 		circuit = isis_circuit_create(area, ifp);
@@ -276,7 +281,7 @@ DEFUN (no_ip_router_isis,
 	const char *af = argv[idx_afi]->arg;
 	const char *area_tag = argv[idx_word]->arg;
 
-	area = isis_area_lookup(area_tag);
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
 	if (!area) {
 		vty_out(vty, "Can't find ISIS instance %s\n",
 			area_tag);

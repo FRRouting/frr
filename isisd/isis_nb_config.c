@@ -58,11 +58,11 @@ int isis_instance_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	area_tag = yang_dnode_get_string(args->dnode, "./area-tag");
-	area = isis_area_lookup(area_tag);
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
 	if (area)
 		return NB_ERR_INCONSISTENCY;
 
-	area = isis_area_create(area_tag);
+	area = isis_area_create(area_tag, VRF_DEFAULT_NAME);
 	/* save area in dnode to avoid looking it up all the time */
 	nb_running_set_entry(args->dnode, area);
 
@@ -113,6 +113,10 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (area == NULL)
+			return NB_ERR_VALIDATION;
+
 		addr.addr_len = dotformat2buff(buff, net_title);
 		memcpy(addr.area_addr, buff, addr.addr_len);
 		if (addr.area_addr[addr.addr_len - 1] != 0) {
@@ -121,9 +125,9 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 				"nsel byte (last byte) in area address must be 0");
 			return NB_ERR_VALIDATION;
 		}
-		if (isis->sysid_set) {
+		if (area->isis->sysid_set) {
 			/* Check that the SystemID portions match */
-			if (memcmp(isis->sysid, GETSYSID((&addr)),
+			if (memcmp(area->isis->sysid, GETSYSID((&addr)),
 				   ISIS_SYS_ID_LEN)) {
 				snprintf(
 					args->errmsg, args->errmsg_len,
@@ -145,12 +149,13 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 		area = nb_running_get_entry(args->dnode, NULL, true);
 		addrr = args->resource->ptr;
 
-		if (isis->sysid_set == 0) {
+		if (area->isis->sysid_set == 0) {
 			/*
 			 * First area address - get the SystemID for this router
 			 */
-			memcpy(isis->sysid, GETSYSID(addrr), ISIS_SYS_ID_LEN);
-			isis->sysid_set = 1;
+			memcpy(area->isis->sysid, GETSYSID(addrr),
+			       ISIS_SYS_ID_LEN);
+			area->isis->sysid_set = 1;
 		} else {
 			/* check that we don't already have this address */
 			for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node,
@@ -200,6 +205,7 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	addr.addr_len = dotformat2buff(buff, net_title);
 	memcpy(addr.area_addr, buff, (int)addr.addr_len);
 	area = nb_running_get_entry(args->dnode, NULL, true);
+
 	for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node, addrp)) {
 		if ((addrp->addr_len + ISIS_SYS_ID_LEN + 1) == addr.addr_len
 		    && !memcmp(addrp->area_addr, addr.area_addr, addr.addr_len))
@@ -214,8 +220,8 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	 * Last area address - reset the SystemID for this router
 	 */
 	if (listcount(area->area_addrs) == 0) {
-		memset(isis->sysid, 0, ISIS_SYS_ID_LEN);
-		isis->sysid_set = 0;
+		memset(area->isis->sysid, 0, ISIS_SYS_ID_LEN);
+		area->isis->sysid_set = 0;
 		if (IS_DEBUG_EVENTS)
 			zlog_debug("Router has no SystemID");
 	}
@@ -1822,7 +1828,7 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_mo
  */
 int lib_interface_isis_create(struct nb_cb_create_args *args)
 {
-	struct isis_area *area;
+	struct isis_area *area = NULL;
 	struct interface *ifp;
 	struct isis_circuit *circuit;
 	const char *area_tag = yang_dnode_get_string(args->dnode, "./area-tag");
@@ -1842,7 +1848,7 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 			break;
 		actual_mtu =
 			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
-		area = isis_area_lookup(area_tag);
+		area = isis_area_lookup(area_tag, ifp->vrf_id);
 		if (area)
 			min_mtu = area->lsp_mtu;
 		else
@@ -1860,7 +1866,9 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 		}
 		break;
 	case NB_EV_APPLY:
-		area = isis_area_lookup(area_tag);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		if (ifp)
+			area = isis_area_lookup(area_tag, ifp->vrf_id);
 		/* The area should have already be created. We are
 		 * setting the priority of the global isis area creation
 		 * slightly lower, so it should be executed first, but I
@@ -1874,7 +1882,6 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 			abort();
 		}
 
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		circuit = isis_circuit_create(area, ifp);
 		assert(circuit
 		       && (circuit->state == C_STATE_CONF
@@ -1915,6 +1922,7 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 	struct interface *ifp;
 	struct vrf *vrf;
 	const char *area_tag, *ifname, *vrfname;
+	struct isis *isis = NULL;
 
 	if (args->event == NB_EV_VALIDATE) {
 		/* libyang doesn't like relative paths across module boundaries
@@ -1926,8 +1934,14 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 		vrf = vrf_lookup_by_name(vrfname);
 		assert(vrf);
 		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+
 		if (!ifp)
 			return NB_OK;
+
+		isis = isis_lookup_by_vrfid(ifp->vrf_id);
+		if (isis == NULL)
+			return NB_ERR_VALIDATION;
+
 		circuit = circuit_lookup_by_ifp(ifp, isis->init_circ_list);
 		area_tag = yang_dnode_get_string(args->dnode, NULL);
 		if (circuit && circuit->area && circuit->area->area_tag
@@ -1952,6 +1966,7 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 	struct interface *ifp;
 	struct vrf *vrf;
 	const char *ifname, *vrfname;
+	struct isis *isis = NULL;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1966,6 +1981,11 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
 		if (!ifp)
 			break;
+
+		isis = isis_lookup_by_vrfid(ifp->vrf_id);
+		if (isis == NULL)
+			return NB_ERR_VALIDATION;
+
 		circuit = circuit_lookup_by_ifp(ifp, isis->init_circ_list);
 		if (circuit && circuit->state == C_STATE_UP
 		    && circuit->area->is_type != IS_LEVEL_1_AND_2

@@ -62,6 +62,13 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	struct isis_area *area;
 	struct listnode *node;
 	struct prefix router_id;
+	struct isis *isis = NULL;
+
+	isis = isis_lookup_by_vrfid(vrf_id);
+
+	if (isis == NULL) {
+		return -1;
+	}
 
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
 	if (isis->router_id == router_id.u.prefix4.s_addr)
@@ -407,6 +414,12 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
+	struct isis *isis = NULL;
+
+	isis = isis_lookup_by_vrfid(vrf_id);
+
+	if (isis == NULL)
+		return -1;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
 		return -1;
@@ -428,10 +441,11 @@ static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
 	}
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
-		isis_redist_add(api.type, &api.prefix, &api.src_prefix,
+		isis_redist_add(isis, api.type, &api.prefix, &api.src_prefix,
 				api.distance, api.metric);
 	else
-		isis_redist_delete(api.type, &api.prefix, &api.src_prefix);
+		isis_redist_delete(isis, api.type, &api.prefix,
+				   &api.src_prefix);
 
 	return 0;
 }

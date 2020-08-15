@@ -475,7 +475,7 @@ void fabricd_run_spf(struct isis_area *area)
 	if (!f)
 		return;
 
-	isis_run_hopcount_spf(area, isis->sysid, f->spftree);
+	isis_run_hopcount_spf(area, area->isis->sysid, f->spftree);
 	neighbors_neighbors_update(f);
 	fabricd_bump_tier_calculation_timer(f);
 }

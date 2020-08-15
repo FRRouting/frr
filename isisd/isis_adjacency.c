@@ -50,8 +50,6 @@
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
 
-extern struct isis *isis;
-
 static struct isis_adjacency *adj_alloc(const uint8_t *id)
 {
 	struct isis_adjacency *adj;

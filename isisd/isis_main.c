@@ -101,6 +101,7 @@ void sigusr1(void);
 
 static __attribute__((__noreturn__)) void terminate(int i)
 {
+	isis_terminate();
 	isis_sr_term();
 	isis_zebra_stop();
 	exit(i);
@@ -233,7 +234,8 @@ int main(int argc, char **argv, char **envp)
 	}
 
 	/* thread master */
-	master = frr_init();
+	isis_master_init(frr_init());
+	master = im->master;
 
 	/*
 	 *  initializations
@@ -259,7 +261,7 @@ int main(int argc, char **argv, char **envp)
 	mt_init();
 
 	/* create the global 'isis' instance */
-	isis_new(1, VRF_DEFAULT);
+	isis_global_instance_create();
 
 	isis_zebra_init(master, instance);
 	isis_bfd_init();

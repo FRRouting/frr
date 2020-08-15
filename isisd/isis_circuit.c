@@ -224,9 +224,16 @@ struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
 	struct isis_area *area;
 	struct listnode *node;
 	struct isis_circuit *circuit;
+	struct isis *isis = NULL;
 
 	if (ifp->info)
 		return (struct isis_circuit *)ifp->info;
+
+	isis = isis_lookup_by_vrfid(ifp->vrf_id);
+	if (isis == NULL) {
+		zlog_warn(" %s : ISIS routing instance not found", __func__);
+		return NULL;
+	}
 
 	if (isis->area_list) {
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
@@ -618,7 +625,8 @@ int isis_circuit_up(struct isis_circuit *circuit)
 	}
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		circuit->circuit_id = isis_circuit_id_gen(isis, circuit->interface);
+		circuit->circuit_id = isis_circuit_id_gen(circuit->area->isis,
+							  circuit->interface);
 		if (!circuit->circuit_id) {
 			flog_err(
 				EC_ISIS_CONFIG,
@@ -802,7 +810,8 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		circuit->lsp_regenerate_pending[0] = 0;
 		circuit->lsp_regenerate_pending[1] = 0;
 
-		_ISIS_CLEAR_FLAG(isis->circuit_ids_used, circuit->circuit_id);
+		_ISIS_CLEAR_FLAG(circuit->area->isis->circuit_ids_used,
+				 circuit->circuit_id);
 		circuit->circuit_id = 0;
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 		isis_delete_adj(circuit->u.p2p.neighbor);
@@ -1011,6 +1020,14 @@ static int isis_interface_config_write(struct vty *vty)
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	int i;
+	struct isis *isis = NULL;
+
+	isis = isis_lookup_by_vrfid(vrf->vrf_id);
+
+	if (isis == NULL) {
+		vty_out(vty, "ISIS routing instance not found");
+		return 0;
+	}
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		/* IF name */
