@@ -2475,6 +2475,26 @@ the same behavior of using same next-hop and RMAC values.
 Enables or disables advertise-pip feature, specifiy system-IP and/or system-MAC
 parameters.
 
++Support with VRF network namespace backend
++^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+It is possible to separate overlay networks contained in VXLAN interfaces from
+underlay networks by using VRFs. VRF-lite and VRF-netns backends can be used for
+that. In the latter case, it is necessary to set both bridge and vxlan interface
+in the same network namespace, as below example illustrates:
+
+.. code-block:: shell
+
+   # linux shell
+   ip netns add vrf1
+   ip link add name vxlan101 type vxlan id 101 dstport 4789 dev eth0 local 10.1.1.1
+   ip link set dev vxlan101 netns vrf1
+   ip netns exec vrf1 ip link set dev lo up
+   ip netns exec vrf1 brctl addbr bridge101
+   ip netns exec vrf1 brctl addif bridge101 vxlan101
+
+This makes it possible to separate not only layer 3 networks like VRF-lite networks.
+Also, VRF netns based make possible to separate layer 2 networks on separate VRF
+instances.
 
 .. _bgp-debugging:
 
