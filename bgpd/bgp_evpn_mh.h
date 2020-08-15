@@ -389,5 +389,7 @@ extern void bgp_evpn_es_vrf_show(struct vty *vty, bool uj,
 extern void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj);
 extern void bgp_evpn_switch_ead_evi_rx(void);
 extern bool bgp_evpn_es_add_l3_ecomm_ok(esi_t *esi);
+extern bool bgp_evpn_es_vrf_import_ok(struct bgp *bgp_vrf, esi_t *esi,
+				      struct in_addr nh);
 
 #endif /* _FRR_BGP_EVPN_MH_H */

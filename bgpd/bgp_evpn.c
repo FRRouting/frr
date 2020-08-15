@@ -2852,7 +2852,8 @@ static int bgp_evpn_route_rmac_self_check(struct bgp *bgp_vrf,
 
 /* don't import hosts that are locally attached */
 static inline bool
-bgp_evpn_skip_vrf_import_of_local_es(const struct prefix_evpn *evp,
+bgp_evpn_skip_vrf_import_of_local_es(struct bgp *bgp_vrf,
+				     const struct prefix_evpn *evp,
 				     struct bgp_path_info *pi, int install)
 {
 	esi_t *esi;
@@ -2875,19 +2876,20 @@ bgp_evpn_skip_vrf_import_of_local_es(const struct prefix_evpn *evp,
 			return true;
 		}
 
-		/* Don't import routes with ES as destination if the nexthop
-		 * has not been advertised via the EAD-ES
+		/* Don't import routes with ES as destination if L3NHG is in
+		 * use and the nexthop has not been advertised via the EAD-ES
 		 */
 		if (pi->attr)
 			nh = pi->attr->nexthop;
 		else
 			nh.s_addr = INADDR_ANY;
-		if (install && !bgp_evpn_es_is_vtep_active(esi, nh)) {
+		if (install && !bgp_evpn_es_vrf_import_ok(bgp_vrf, esi, nh)) {
 			if (BGP_DEBUG(evpn_mh, EVPN_MH_RT)) {
 				char esi_buf[ESI_STR_LEN];
 
 				zlog_debug(
-					"vrf %s of evpn prefix %pFX skipped, nh %pI4 inactive in es %s",
+					"vrf %s %s of evpn prefix %pFX skipped, nh %pI4 inactive in es %s",
+					bgp_vrf->name,
 					install ? "import" : "unimport", evp,
 					&nh,
 					esi_to_str(esi, esi_buf,
@@ -2959,7 +2961,7 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf, int install)
 				/* don't import hosts that are locally attached
 				 */
 				if (bgp_evpn_skip_vrf_import_of_local_es(
-					    evp, pi, install))
+					    bgp_vrf, evp, pi, install))
 					continue;
 
 				if (is_route_matching_for_vrf(bgp_vrf, pi)) {
@@ -3168,12 +3170,13 @@ static int install_uninstall_route_in_vrfs(struct bgp *bgp_def, afi_t afi,
 		 || is_evpn_prefix_ipaddr_v6(evp)))
 		return 0;
 
-	/* don't import hosts that are locally attached */
-	if (bgp_evpn_skip_vrf_import_of_local_es(evp, pi, install))
-		return 0;
-
 	for (ALL_LIST_ELEMENTS(vrfs, node, nnode, bgp_vrf)) {
 		int ret;
+
+		/* don't import hosts that are locally attached */
+		if (bgp_evpn_skip_vrf_import_of_local_es(bgp_vrf, evp, pi,
+							 install))
+			continue;
 
 		if (install)
 			ret = install_evpn_route_entry_in_vrf(bgp_vrf, evp, pi);

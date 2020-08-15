@@ -1489,6 +1489,15 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 	listnode_add(es->macip_path_list, &es_info->es_listnode);
 }
 
+/* XXX - When a remote ES is added to a VRF, routes using that as
+ * a destination need to be migrated to a L2NHG and viceversa
+ */
+static void
+bgp_evpn_es_path_update_on_es_vrf_chg(struct bgp_evpn_es_vrf *es_vrf,
+				      bool active)
+{
+}
+
 static void
 bgp_evpn_es_path_update_on_vtep_chg(struct bgp_evpn_es_vtep *es_vtep,
 				    bool active)
@@ -1498,6 +1507,9 @@ bgp_evpn_es_path_update_on_vtep_chg(struct bgp_evpn_es_vtep *es_vtep,
 	struct bgp_path_info *pi;
 	struct bgp_path_info *parent_pi;
 	struct bgp_evpn_es *es = es_vtep->es;
+
+	if (!bgp_mh_info->host_routes_use_l3nhg)
+		return;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 		zlog_debug("update paths linked to es %s on vtep chg",
@@ -1714,7 +1726,7 @@ static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
 			continue;
 
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
-			zlog_debug("update path %s linked to es %s on vtep chg",
+			zlog_debug("update path %s linked to es %s on oper chg",
 				   prefix2str(&pi->net->p, prefix_buf,
 					      sizeof(prefix_buf)),
 				   es->esi_str);
@@ -2546,6 +2558,11 @@ static struct bgp_evpn_es_vrf *bgp_evpn_es_vrf_create(struct bgp_evpn_es *es,
 			   bgp_vrf->vrf_id, es_vrf->nhg_id, es_vrf->v6_nhg_id);
 	bgp_evpn_l3nhg_activate(es_vrf, false /* update */);
 
+	/* update paths in the VRF that may already be associated with
+	 * this destination ES
+	 */
+	bgp_evpn_es_path_update_on_es_vrf_chg(es_vrf, true);
+
 	return es_vrf;
 }
 
@@ -2558,6 +2575,11 @@ static void bgp_evpn_es_vrf_delete(struct bgp_evpn_es_vrf *es_vrf)
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("es %s vrf %u nhg %u delete", es->esi_str,
 			   bgp_vrf->vrf_id, es_vrf->nhg_id);
+
+	/* update paths in the VRF that may already be associated with
+	 * this destination ES
+	 */
+	bgp_evpn_es_path_update_on_es_vrf_chg(es_vrf, false);
 
 	/* Remove the NHG resources */
 	bgp_evpn_l3nhg_deactivate(es_vrf);
@@ -2656,23 +2678,53 @@ void bgp_evpn_es_evi_vrf_ref(struct bgpevpn *vpn)
 		bgp_evpn_es_vrf_ref(es_evi, vpn->bgp_vrf);
 }
 
+static bool bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi,
+				    struct bgp_evpn_es **es_p,
+				    struct bgp_evpn_es_vrf **es_vrf_p)
+{
+	struct bgp_evpn_es *es;
+	struct bgp_evpn_es_vrf *es_vrf;
+
+	if (!bgp_mh_info->host_routes_use_l3nhg)
+		return false;
+
+	es = bgp_evpn_es_find(esi);
+	if (!es)
+		return false;
+	if (es_p)
+		*es_p = es;
+
+	es_vrf = bgp_evpn_es_vrf_find(es, bgp_vrf);
+	if (!es_vrf)
+		return false;
+	if (es_vrf_p)
+		*es_vrf_p = es_vrf;
+
+	return true;
+}
+
+bool bgp_evpn_es_vrf_import_ok(struct bgp *bgp_vrf, esi_t *esi,
+			       struct in_addr nh)
+{
+	if (!bgp_evpn_es_vrf_use_nhg(bgp_vrf, esi, NULL, NULL))
+		return true;
+
+	return bgp_evpn_es_is_vtep_active(esi, nh);
+}
+
 /* returns false if legacy-exploded mp needs to be used for route install */
 bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf, struct bgp_path_info *pi,
 			      uint32_t *nhg_p)
 {
 	esi_t *esi;
-	struct bgp_evpn_es *es;
-	struct bgp_evpn_es_vrf *es_vrf;
+	struct bgp_evpn_es *es = NULL;
+	struct bgp_evpn_es_vrf *es_vrf = NULL;
 	struct bgp_path_info *parent_pi;
 	struct bgp_node *rn;
 	struct prefix_evpn *evp;
 	struct bgp_path_info *mpinfo;
 
 	*nhg_p = 0;
-
-	/* L3NHG support is disabled, use legacy-exploded multipath */
-	if (!bgp_mh_info->host_routes_use_l3nhg)
-		return false;
 
 	parent_pi = get_route_parent_evpn(pi);
 	if (!parent_pi)
@@ -2691,15 +2743,14 @@ bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf, struct bgp_path_info *pi,
 	if (!memcmp(esi, zero_esi, sizeof(*esi)))
 		return false;
 
-	/* if the ES-VRF is not setup or if the NHG has not been installed
-	 * we cannot install the route yet, return a 0-NHG to indicate
-	 * that
+	/* L3NHG support is disabled, use legacy-exploded multipath */
+	if (!bgp_evpn_es_vrf_use_nhg(bgp_vrf, esi, &es, &es_vrf))
+		return false;
+
+	/* if the NHG has not been installed we cannot install the route yet,
+	 * return a 0-NHG to indicate that
 	 */
-	es = bgp_evpn_es_find(esi);
-	if (!es)
-		return true;
-	es_vrf = bgp_evpn_es_vrf_find(es, bgp_vrf);
-	if (!es_vrf || !(es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE))
+	if (!(es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE))
 		return true;
 
 	/* this needs to be set the v6NHG if v6route */
@@ -2710,7 +2761,7 @@ bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf, struct bgp_path_info *pi,
 
 	for (mpinfo = bgp_path_info_mpath_next(pi); mpinfo;
 	     mpinfo = bgp_path_info_mpath_next(mpinfo)) {
-		/* if any of the paths of have a different ESI we can't use
+		/* if any of the paths have a different ESI we can't use
 		 * the NHG associated with the ES. fallback to legacy-exploded
 		 * multipath
 		 */
