@@ -358,6 +358,8 @@ void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj, vni_t vni, int detail)
 	} else {
 		if (!uj)
 			vty_out(vty, "VNI %d doesn't exist\n", vni);
+
+		return;
 	}
 	zebra_evpn_es_evi_show_one_evpn(zevpn, vty, json, detail);
 }
