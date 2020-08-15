@@ -355,6 +355,22 @@ struct ospf {
 	/* last HELPER exit reason */
 	uint32_t last_exit_reason;
 
+	/* delay timer to process external routes
+	 * with summary address.
+	 */
+	struct thread *t_external_aggr;
+
+	/* delay interval in seconds */
+	unsigned int aggr_delay_interval;
+
+	/* Table of configured Aggregate addresses */
+	struct route_table *rt_aggr_tbl;
+
+	/* used as argument for aggr delay
+	 * timer thread.
+	 */
+	int aggr_action;
+
 	/* MPLS LDP-IGP Sync */
 	struct ldp_sync_info_cmd ldp_sync_cmd;
 
