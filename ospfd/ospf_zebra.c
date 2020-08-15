@@ -463,7 +463,7 @@ static int ospf_external_lsa_default_routemap_timer(struct thread *thread)
 	if (ret && !lsa)
 		ospf_external_lsa_originate(ospf, default_ei);
 	else if (ret && lsa && IS_LSA_MAXAGE(lsa))
-		ospf_external_lsa_refresh(ospf, lsa, default_ei, true);
+		ospf_external_lsa_refresh(ospf, lsa, default_ei, true, false);
 	else if (!ret && lsa)
 		ospf_external_lsa_flush(ospf, DEFAULT_ROUTE, &default_ei->p, 0);
 
@@ -973,7 +973,8 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 
 		if (lsa && IS_LSA_MAXAGE(lsa))
 			/* Refresh lsa.*/
-			ospf_external_lsa_refresh(ospf, lsa, default_ei, true);
+			ospf_external_lsa_refresh(ospf, lsa, default_ei, true,
+						  false);
 		else
 			/* If permit and default not advertised then advertise.
 			 */
@@ -1196,7 +1197,8 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 								&p.prefix);
 						ospf_external_lsa_refresh(
 							ospf, current, ei,
-							LSA_REFRESH_FORCE);
+							LSA_REFRESH_FORCE,
+							false);
 					}
 				}
 			}
@@ -1338,7 +1340,7 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 							force = LSA_REFRESH_FORCE;
 
 						ospf_external_lsa_refresh(
-							ospf, lsa, ei, force);
+							ospf, lsa, ei, force, false);
 					} else
 						ospf_external_lsa_originate(
 							ospf, ei);

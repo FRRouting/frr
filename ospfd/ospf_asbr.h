@@ -134,4 +134,23 @@ extern struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *,
 extern void ospf_asbr_external_aggregator_init(struct ospf *instance);
 
 extern void ospf_external_aggregator_free(struct ospf_external_aggr_rt *aggr);
+extern struct ospf_external_aggr_rt *
+ospf_external_aggr_match(struct ospf *ospf, struct prefix_ipv4 *p);
+
+extern void ospf_unlink_ei_from_aggr(struct ospf *ospf,
+				     struct ospf_external_aggr_rt *aggr,
+				     struct external_info *ei);
+
+extern struct ospf_lsa *
+ospf_originate_summary_lsa(struct ospf *ospf,
+			   struct ospf_external_aggr_rt *aggr,
+			   struct external_info *ei);
+extern int ospf_external_aggregator_timer_set(struct ospf *ospf,
+					      unsigned int interval);
+extern void ospf_external_aggrigator_free(struct ospf_external_aggr_rt *aggr);
+
+extern struct ospf_external_aggr_rt *
+ospf_extrenal_aggregator_lookup(struct ospf *ospf, struct prefix_ipv4 *p);
+
+void ospf_unset_all_aggr_flag(struct ospf *ospf);
 #endif /* _ZEBRA_OSPF_ASBR_H */

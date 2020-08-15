@@ -313,7 +313,8 @@ extern void ospf_external_lsa_refresh_type(struct ospf *, uint8_t,
 					   unsigned short, int);
 extern struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *,
 						  struct ospf_lsa *,
-						  struct external_info *, int);
+						  struct external_info *, int,
+						  bool aggr);
 extern struct in_addr ospf_lsa_unique_id(struct ospf *, struct ospf_lsdb *,
 					 uint8_t, struct prefix_ipv4 *);
 extern void ospf_schedule_lsa_flood_area(struct ospf_area *, struct ospf_lsa *);

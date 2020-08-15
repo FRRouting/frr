@@ -2191,8 +2191,9 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 	if (ei && lsa) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("LSA[Type5:0.0.0.0]: Refresh AS-external-LSA %p",
-				   (void *)lsa);
-		ospf_external_lsa_refresh(ospf, lsa, ei, LSA_REFRESH_FORCE);
+				(void *)lsa);
+		ospf_external_lsa_refresh(ospf, lsa, ei, LSA_REFRESH_FORCE,
+					  false);
 	} else if (ei && !lsa) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
@@ -2230,7 +2231,8 @@ void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
 						ospf, &ei->p);
 					if (lsa)
 						ospf_external_lsa_refresh(
-							ospf, lsa, ei, force);
+							ospf, lsa, ei, force,
+							false);
 					else
 						ospf_external_lsa_originate(
 							ospf, ei);
@@ -2243,21 +2245,25 @@ void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
 /* Refresh AS-external-LSA. */
 struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *ospf,
 					   struct ospf_lsa *lsa,
-					   struct external_info *ei, int force)
+					   struct external_info *ei, int force,
+					   bool is_aggr)
 {
 	struct ospf_lsa *new;
-	int changed;
+	int changed = 0;
 
 	/* Check the AS-external-LSA should be originated. */
-	if (!ospf_redistribute_check(ospf, ei, &changed)) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d:%pI4]: Could not be refreshed, redist check fail",
-				lsa->data->type, &lsa->data->id);
-		ospf_external_lsa_flush(ospf, ei->type, &ei->p,
-					ei->ifindex /*, ei->nexthop */);
-		return NULL;
-	}
+	if (!is_aggr)
+		if (!ospf_redistribute_check(ospf, ei, &changed)) {
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug(
+					"LSA[Type%d:%s] Could not be refreshed, redist check fail",
+					lsa->data->type,
+					inet_ntoa(lsa->data->id));
+
+			ospf_external_lsa_flush(ospf, ei->type, &ei->p,
+						ei->ifindex /*, ei->nexthop */);
+			return NULL;
+		}
 
 	if (!changed && !force) {
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
@@ -3474,8 +3480,8 @@ struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
 			break;
 		ei = ospf_external_info_check(ospf, lsa);
 		if (ei)
-			new = ospf_external_lsa_refresh(ospf, lsa, ei,
-							LSA_REFRESH_FORCE);
+			new = ospf_external_lsa_refresh(
+				ospf, lsa, ei, LSA_REFRESH_FORCE, false);
 		else
 			ospf_lsa_flush_as(ospf, lsa);
 		break;

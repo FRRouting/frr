@@ -225,7 +225,7 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 		ei = ospf_external_info_check(ospf, new);
 		if (ei)
 			ospf_external_lsa_refresh(ospf, new, ei,
-						  LSA_REFRESH_FORCE);
+						  LSA_REFRESH_FORCE, false);
 		else
 			ospf_lsa_flush_as(ospf, new);
 		break;
