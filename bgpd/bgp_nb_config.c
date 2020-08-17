@@ -44,6 +44,20 @@ FRR_CFG_DEFAULT_ULONG(BGP_KEEPALIVE,
         { .val_ulong = 60 },
 )
 
+int routing_control_plane_protocols_name_validate(
+	struct nb_cb_create_args *args)
+{
+	const char *name;
+
+	name = yang_dnode_get_string(args->dnode, "./name");
+	if (!strmatch(name, "bgp")) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "per vrf only one bgp instance is supported.");
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global

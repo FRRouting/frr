@@ -3407,6 +3407,13 @@ int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_
 int routing_control_plane_protocols_control_plane_protocol_bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv6_flowspec_soft_reconfiguration_modify(
 	struct nb_cb_modify_args *args);
 
+/*
+ * Callback registered with routing_nb lib to validate only
+ * one instance of bgp instance is allowed
+ */
+int routing_control_plane_protocols_name_validate(
+	struct nb_cb_create_args *args);
+
 /* Optional 'cli_show' callbacks. */
 void cli_show_router_bgp(struct vty *vty, struct lyd_node *dnode,
 			 bool show_defaults);

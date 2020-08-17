@@ -501,6 +501,10 @@ int main(int argc, char **argv)
 	/* Initializations. */
 	bgp_vrf_init();
 
+	hook_register(routing_conf_event,
+		      routing_control_plane_protocols_name_validate);
+
+
 	/* BGP related initialization.  */
 	bgp_init((unsigned short)instance);
 
