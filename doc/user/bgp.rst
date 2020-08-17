@@ -250,7 +250,7 @@ internal or external.
    interface and address information. In that case default router ID value is
    selected as the largest IP Address of the interfaces. When `router zebra` is
    not enabled *bgpd* can't get interface information so `router-id` is set to
-   0.0.0.0. So please set router-id by hand.
+   0.0.0.0. So please set router-id by hand. Valid router IDs are between 0.0.0.0 and 223.255.255.255.
 
 
 .. _bgp-multiple-autonomous-systems:
