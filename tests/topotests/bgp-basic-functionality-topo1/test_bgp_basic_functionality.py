@@ -37,6 +37,8 @@ Test steps
 - Verify clear bgp
 - Test bgp convergence with loopback interface
 - Test advertise network using network command
+- Verify routes not installed in zebra when /32 routes received
+   with loopback BGP session subnet
 """
 
 import os
@@ -59,6 +61,7 @@ from lib.topogen import Topogen, get_topogen
 from mininet.topo import Topo
 
 from lib.common_config import (
+    step,
     start_topology,
     write_test_header,
     write_test_footer,
@@ -66,6 +69,13 @@ from lib.common_config import (
     create_static_routes,
     verify_rib,
     verify_admin_distance_for_static_routes,
+    check_address_types,
+    apply_raw_config,
+    addKernelRoute,
+    verify_fib_routes,
+    create_prefix_lists,
+    create_route_maps,
+    verify_bgp_community,
 )
 from lib.topolog import logger
 from lib.bgp import (
@@ -76,6 +86,7 @@ from lib.bgp import (
     verify_as_numbers,
     clear_bgp_and_verify,
     verify_bgp_timers_and_functionality,
+    verify_bgp_rib,
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
 
@@ -90,6 +101,18 @@ except IOError:
 # Global Variable
 KEEPALIVETIMER = 2
 HOLDDOWNTIMER = 6
+r1_ipv4_loopback = "1.0.1.0/24"
+r2_ipv4_loopback = "1.0.2.0/24"
+r3_ipv4_loopback = "1.0.3.0/24"
+r4_ipv4_loopback = "1.0.4.0/24"
+r1_ipv6_loopback = "2001:db8:f::1:0/120"
+r2_ipv6_loopback = "2001:db8:f::2:0/120"
+r3_ipv6_loopback = "2001:db8:f::3:0/120"
+r4_ipv6_loopback = "2001:db8:f::4:0/120"
+NETWORK = {
+    "ipv4": ["100.1.1.1/32", "100.1.1.2/32"],
+    "ipv6": ["100::1/128", "100::2/128"],
+}
 
 
 class CreateTopo(Topo):
@@ -131,7 +154,9 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
+    global ADDR_TYPES
     global BGP_CONVERGENCE
+    ADDR_TYPES = check_address_types()
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
     assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error: {}".format(
         BGP_CONVERGENCE
@@ -522,6 +547,243 @@ def test_clear_bgp_and_verify(request):
     write_test_footer(tc_name)
 
 
+def test_BGP_attributes_with_vrf_default_keyword_p0(request):
+    """
+    TC_9:
+    Verify BGP functionality for default vrf with
+    "vrf default" keyword.
+    """
+
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    #reset_config_on_routers(tgen)
+
+    step("Configure static routes and redistribute in BGP on R3")
+    for addr_type in ADDR_TYPES:
+        input_dict = {
+            "r3": {
+                "static_routes": [
+                    {
+                        "network": NETWORK[addr_type][0],
+                        "no_of_ip": 4,
+                        "next_hop": "Null0",
+                    }
+                ]
+            }
+        }
+
+        result = create_static_routes(tgen, input_dict)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    input_dict_2 = {
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {"unicast": {"redistribute": [{"redist_type": "static"}]}},
+                    "ipv6": {"unicast": {"redistribute": [{"redist_type": "static"}]}},
+                }
+            }
+        }
+    }
+    result = create_router_bgp(tgen, topo, input_dict_2)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Create a route-map to match a specific prefix and modify"
+        "BGP attributes for matched prefix"
+    )
+    input_dict_2 = {
+        "r3": {
+            "prefix_lists": {
+                "ipv4": {
+                    "ABC": [
+                        {
+                            "seqid": 10,
+                            "action": "permit",
+                            "network": NETWORK["ipv4"][0],
+                        }
+                    ]
+                },
+                "ipv6": {
+                    "XYZ": [
+                        {
+                            "seqid": 100,
+                            "action": "permit",
+                            "network": NETWORK["ipv6"][0],
+                        }
+                    ]
+                },
+            }
+        }
+    }
+    result = create_prefix_lists(tgen, input_dict_2)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        if addr_type == "ipv4":
+            pf_list = "ABC"
+        else:
+            pf_list = "XYZ"
+
+        input_dict_6 = {
+            "r3": {
+                "route_maps": {
+                    "BGP_ATTR_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "seq_id": 10,
+                            "match": {addr_type: {"prefix_lists": pf_list}},
+                            "set": {
+                                "aspath": {"as_num": 500, "as_action": "prepend"},
+                                "localpref": 500,
+                                "origin": "egp",
+                                "community": {"num": "500:500", "action": "additive"},
+                                "large_community": {
+                                    "num": "500:500:500",
+                                    "action": "additive",
+                                },
+                            },
+                        },
+                        {"action": "permit", "seq_id": 20},
+                    ]
+                },
+                "BGP_ATTR_{}".format(addr_type): [
+                    {
+                        "action": "permit",
+                        "seq_id": 100,
+                        "match": {addr_type: {"prefix_lists": pf_list}},
+                        "set": {
+                            "aspath": {"as_num": 500, "as_action": "prepend"},
+                            "localpref": 500,
+                            "origin": "egp",
+                            "community": {"num": "500:500", "action": "additive"},
+                            "large_community": {
+                                "num": "500:500:500",
+                                "action": "additive",
+                            },
+                        },
+                    },
+                    {"action": "permit", "seq_id": 200},
+                ],
+            }
+        }
+
+        result = create_route_maps(tgen, input_dict_6)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    step("Apply the route-map on R3 in outbound direction for peer R4")
+
+    input_dict_7 = {
+        "r3": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "BGP_ATTR_ipv4",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "route_maps": [
+                                                {
+                                                    "name": "BGP_ATTR_ipv6",
+                                                    "direction": "out",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
+
+    result = create_router_bgp(tgen, topo, input_dict_7)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "verify modified attributes for specific prefix with 'vrf default'"
+        "keyword on R4"
+    )
+    for addr_type in ADDR_TYPES:
+        dut = "r4"
+        input_dict = {
+            "r3": {
+                "static_routes": [
+                    {
+                        "network": NETWORK[addr_type][0],
+                        "vrf": "default",
+                        "largeCommunity": "500:500:500",
+                    }
+                ]
+            }
+        }
+
+        result = verify_bgp_rib(tgen, addr_type, dut, input_dict)
+        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict)
+        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r4"
+        input_dict = {
+            "r3": {
+                "static_routes": [
+                    {
+                        "network": NETWORK[addr_type][0],
+                        "vrf": "default",
+                        "community": "500:500",
+                    }
+                ]
+            }
+        }
+
+        result = verify_bgp_rib(tgen, addr_type, dut, input_dict)
+        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_dict)
+        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+
+        input_dict_4 = {"largeCommunity": "500:500:500", "community": "500:500"}
+
+        result = verify_bgp_community(
+            tgen, addr_type, dut, [NETWORK[addr_type][0]], input_dict_4
+        )
+        assert result is True, "Test case {} : Should fail \n Error: {}".format(
+            tc_name, result
+        )
+
+    write_test_footer(tc_name)
+
+
 def test_bgp_with_loopback_interface(request):
     """
     Test BGP with loopback interface
@@ -584,6 +846,298 @@ def test_bgp_with_loopback_interface(request):
     # Api call verify whether BGP is converged
     result = verify_bgp_convergence(tgen, topo)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_bgp_with_loopback_with_same_subnet_p1(request):
+    """
+    Verify routes not installed in zebra when /32 routes received
+    with loopback BGP session subnet
+    """
+
+    tgen = get_topogen()
+    if BGP_CONVERGENCE is not True:
+        pytest.skip("skipped because of BGP Convergence failure")
+
+    # test case name
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+    step("Delete BGP seesion created initially")
+    input_dict_r1 = {
+        "r1": {"bgp": {"delete": True}},
+        "r2": {"bgp": {"delete": True}},
+        "r3": {"bgp": {"delete": True}},
+        "r4": {"bgp": {"delete": True}},
+    }
+    result = create_router_bgp(tgen, topo, input_dict_r1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Create BGP session over loop address")
+    topo_modify = deepcopy(topo)
+
+    for routerN in sorted(topo["routers"].keys()):
+        for addr_type in ADDR_TYPES:
+            for bgp_neighbor in topo_modify["routers"][routerN]["bgp"][
+                "address_family"
+            ][addr_type]["unicast"]["neighbor"].keys():
+
+                # Adding ['source_link'] = 'lo' key:value pair
+                topo_modify["routers"][routerN]["bgp"]["address_family"][addr_type][
+                    "unicast"
+                ]["neighbor"][bgp_neighbor]["dest_link"] = {
+                    "lo": {"source_link": "lo", "ebgp_multihop": 2}
+                }
+
+    result = create_router_bgp(tgen, topo_modify["routers"])
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Disable IPv6 BGP nbr from ipv4 address family")
+    raw_config = {
+        "r1": {
+            "raw_config": [
+                "router bgp {}".format(topo["routers"]["r1"]["bgp"]["local_as"]),
+                "address-family ipv4 unicast",
+                "no neighbor {} activate".format(
+                    topo["routers"]["r2"]["links"]["lo"]["ipv6"].split("/")[0]
+                ),
+                "no neighbor {} activate".format(
+                    topo["routers"]["r3"]["links"]["lo"]["ipv6"].split("/")[0]
+                ),
+            ]
+        },
+        "r2": {
+            "raw_config": [
+                "router bgp {}".format(topo["routers"]["r2"]["bgp"]["local_as"]),
+                "address-family ipv4 unicast",
+                "no neighbor {} activate".format(
+                    topo["routers"]["r1"]["links"]["lo"]["ipv6"].split("/")[0]
+                ),
+                "no neighbor {} activate".format(
+                    topo["routers"]["r3"]["links"]["lo"]["ipv6"].split("/")[0]
+                ),
+            ]
+        },
+        "r3": {
+            "raw_config": [
+                "router bgp {}".format(topo["routers"]["r3"]["bgp"]["local_as"]),
+                "address-family ipv4 unicast",
+                "no neighbor {} activate".format(
+                    topo["routers"]["r1"]["links"]["lo"]["ipv6"].split("/")[0]
+                ),
+                "no neighbor {} activate".format(
+                    topo["routers"]["r2"]["links"]["lo"]["ipv6"].split("/")[0]
+                ),
+                "no neighbor {} activate".format(
+                    topo["routers"]["r4"]["links"]["lo"]["ipv6"].split("/")[0]
+                ),
+            ]
+        },
+        "r4": {
+            "raw_config": [
+                "router bgp {}".format(topo["routers"]["r4"]["bgp"]["local_as"]),
+                "address-family ipv4 unicast",
+                "no neighbor {} activate".format(
+                    topo["routers"]["r3"]["links"]["lo"]["ipv6"].split("/")[0]
+                ),
+            ]
+        },
+    }
+
+    step("Configure kernel routes")
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    r1_ipv4_lo = topo["routers"]["r1"]["links"]["lo"]["ipv4"]
+    r1_ipv6_lo = topo["routers"]["r1"]["links"]["lo"]["ipv6"]
+    r2_ipv4_lo = topo["routers"]["r2"]["links"]["lo"]["ipv4"]
+    r2_ipv6_lo = topo["routers"]["r2"]["links"]["lo"]["ipv6"]
+    r3_ipv4_lo = topo["routers"]["r3"]["links"]["lo"]["ipv4"]
+    r3_ipv6_lo = topo["routers"]["r3"]["links"]["lo"]["ipv6"]
+    r4_ipv4_lo = topo["routers"]["r4"]["links"]["lo"]["ipv4"]
+    r4_ipv6_lo = topo["routers"]["r4"]["links"]["lo"]["ipv6"]
+
+    r1_r2 = topo["routers"]["r1"]["links"]["r2"]["ipv6"].split("/")[0]
+    r2_r1 = topo["routers"]["r2"]["links"]["r1"]["ipv6"].split("/")[0]
+    r1_r3 = topo["routers"]["r1"]["links"]["r3"]["ipv6"].split("/")[0]
+    r3_r1 = topo["routers"]["r3"]["links"]["r1"]["ipv6"].split("/")[0]
+    r2_r3 = topo["routers"]["r2"]["links"]["r3"]["ipv6"].split("/")[0]
+    r3_r2 = topo["routers"]["r3"]["links"]["r2"]["ipv6"].split("/")[0]
+    r3_r4 = topo["routers"]["r3"]["links"]["r4"]["ipv6"].split("/")[0]
+    r4_r3 = topo["routers"]["r4"]["links"]["r3"]["ipv6"].split("/")[0]
+
+    r1_r2_ipv4 = topo["routers"]["r1"]["links"]["r2"]["ipv4"].split("/")[0]
+    r2_r1_ipv4 = topo["routers"]["r2"]["links"]["r1"]["ipv4"].split("/")[0]
+    r1_r3_ipv4 = topo["routers"]["r1"]["links"]["r3"]["ipv4"].split("/")[0]
+    r3_r1_ipv4 = topo["routers"]["r3"]["links"]["r1"]["ipv4"].split("/")[0]
+    r2_r3_ipv4 = topo["routers"]["r2"]["links"]["r3"]["ipv4"].split("/")[0]
+    r3_r2_ipv4 = topo["routers"]["r3"]["links"]["r2"]["ipv4"].split("/")[0]
+    r3_r4_ipv4 = topo["routers"]["r3"]["links"]["r4"]["ipv4"].split("/")[0]
+    r4_r3_ipv4 = topo["routers"]["r4"]["links"]["r3"]["ipv4"].split("/")[0]
+
+    r1_r2_intf = topo["routers"]["r1"]["links"]["r2"]["interface"]
+    r2_r1_intf = topo["routers"]["r2"]["links"]["r1"]["interface"]
+    r1_r3_intf = topo["routers"]["r1"]["links"]["r3"]["interface"]
+    r3_r1_intf = topo["routers"]["r3"]["links"]["r1"]["interface"]
+    r2_r3_intf = topo["routers"]["r2"]["links"]["r3"]["interface"]
+    r3_r2_intf = topo["routers"]["r3"]["links"]["r2"]["interface"]
+    r3_r4_intf = topo["routers"]["r3"]["links"]["r4"]["interface"]
+    r4_r3_intf = topo["routers"]["r4"]["links"]["r3"]["interface"]
+
+    ipv4_list = [
+        ("r1", r1_r2_intf, r2_ipv4_loopback),
+        ("r1", r1_r3_intf, r3_ipv4_loopback),
+        ("r2", r2_r1_intf, r1_ipv4_loopback),
+        ("r2", r2_r3_intf, r3_ipv4_loopback),
+        ("r3", r3_r1_intf, r1_ipv4_loopback),
+        ("r3", r3_r2_intf, r2_ipv4_loopback),
+        ("r3", r3_r4_intf, r4_ipv4_loopback),
+        ("r4", r4_r3_intf, r3_ipv4_loopback),
+    ]
+
+    ipv6_list = [
+        ("r1", r1_r2_intf, r2_ipv6_loopback, r2_r1),
+        ("r1", r1_r3_intf, r3_ipv6_loopback, r3_r1),
+        ("r2", r2_r1_intf, r1_ipv6_loopback, r1_r2),
+        ("r2", r2_r3_intf, r3_ipv6_loopback, r3_r2),
+        ("r3", r3_r1_intf, r1_ipv6_loopback, r1_r3),
+        ("r3", r3_r2_intf, r2_ipv6_loopback, r2_r3),
+        ("r3", r3_r4_intf, r4_ipv6_loopback, r4_r3),
+        ("r4", r4_r3_intf, r3_ipv6_loopback, r3_r4),
+    ]
+
+    for dut, intf, loop_addr in ipv4_list:
+        result = addKernelRoute(tgen, dut, intf, loop_addr)
+        assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
+
+    for dut, intf, loop_addr, next_hop in ipv6_list:
+        result = addKernelRoute(tgen, dut, intf, loop_addr, next_hop)
+        assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
+
+    step("Configure static routes")
+
+    input_dict = {
+        "r1": {
+            "static_routes": [
+                {"network": r2_ipv4_loopback, "next_hop": r2_r1_ipv4},
+                {"network": r3_ipv4_loopback, "next_hop": r3_r1_ipv4},
+                {"network": r2_ipv6_loopback, "next_hop": r2_r1},
+                {"network": r3_ipv6_loopback, "next_hop": r3_r1},
+            ]
+        },
+        "r2": {
+            "static_routes": [
+                {"network": r1_ipv4_loopback, "next_hop": r1_r2_ipv4},
+                {"network": r3_ipv4_loopback, "next_hop": r3_r2_ipv4},
+                {"network": r1_ipv6_loopback, "next_hop": r1_r2},
+                {"network": r3_ipv6_loopback, "next_hop": r3_r2},
+            ]
+        },
+        "r3": {
+            "static_routes": [
+                {"network": r1_ipv4_loopback, "next_hop": r1_r3_ipv4},
+                {"network": r2_ipv4_loopback, "next_hop": r2_r3_ipv4},
+                {"network": r4_ipv4_loopback, "next_hop": r4_r3_ipv4},
+                {"network": r1_ipv6_loopback, "next_hop": r1_r3},
+                {"network": r2_ipv6_loopback, "next_hop": r2_r3},
+                {"network": r4_ipv6_loopback, "next_hop": r4_r3},
+            ]
+        },
+        "r4": {
+            "static_routes": [
+                {"network": r3_ipv4_loopback, "next_hop": r3_r4_ipv4},
+                {"network": r3_ipv6_loopback, "next_hop": r3_r4},
+            ]
+        },
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify BGP session convergence")
+
+    result = verify_bgp_convergence(tgen, topo_modify)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Configure redistribute connected on R2 and R4")
+    input_dict_1 = {
+        "r2": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {"redistribute": [{"redist_type": "connected"}]}
+                    },
+                    "ipv6": {
+                        "unicast": {"redistribute": [{"redist_type": "connected"}]}
+                    },
+                }
+            }
+        },
+        "r4": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {"redistribute": [{"redist_type": "connected"}]}
+                    },
+                    "ipv6": {
+                        "unicast": {"redistribute": [{"redist_type": "connected"}]}
+                    },
+                }
+            }
+        },
+    }
+
+    result = create_router_bgp(tgen, topo, input_dict_1)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify Ipv4 and Ipv6 network installed in R1 RIB but not in FIB")
+    input_dict_r1 = {
+        "r1": {
+            "static_routes": [
+                {"network": "1.0.2.17/32"},
+                {"network": "2001:db8:f::2:17/128"},
+            ]
+        }
+    }
+
+    dut = "r1"
+    protocol = "bgp"
+    for addr_type in ADDR_TYPES:
+        result = verify_rib(tgen, addr_type, dut, input_dict_r1, protocol=protocol)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1, expected=False)
+        assert result is not True, "Testcase {} : Failed \n"
+        "Expected behavior: routes should not present in fib \n"
+        "Error: {}".format(tc_name, result)
+
+    step("Verify Ipv4 and Ipv6 network installed in r3 RIB but not in FIB")
+    input_dict_r3 = {
+        "r3": {
+            "static_routes": [
+                {"network": "1.0.4.17/32"},
+                {"network": "2001:db8:f::4:17/128"},
+            ]
+        }
+    }
+    dut = "r3"
+    protocol = "bgp"
+    for addr_type in ADDR_TYPES:
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict_r3, protocol=protocol, fib=None
+        )
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1, expected=False)
+        assert result is not True, "Testcase {} : Failed \n"
+        "Expected behavior: routes should not present in fib \n"
+        "Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
