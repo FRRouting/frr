@@ -410,8 +410,10 @@ struct ospf_area {
 
 	/* Shortest Path Tree. */
 	struct vertex *spf;
-	bool spf_dry_run; /* flag for checking if the SPF calculation is
-			     intended for the local RIB */
+	bool spf_dry_run;   /* flag for checking if the SPF calculation is
+			       intended for the local RIB */
+	bool spf_root_node; /* flag for checking if the calculating node is the
+			       root node of the SPF tree */
 
 	/* Threads. */
 	struct thread *t_stub_router;     /* Stub-router timer */

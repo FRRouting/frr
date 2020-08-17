@@ -290,7 +290,7 @@ static void ospf_vertex_add_parent(struct vertex *v)
 }
 
 static void ospf_spf_init(struct ospf_area *area, struct ospf_lsa *root_lsa,
-			  bool is_dry_run)
+			  bool is_dry_run, bool is_root_node)
 {
 	struct vertex *v;
 
@@ -299,6 +299,7 @@ static void ospf_spf_init(struct ospf_area *area, struct ospf_lsa *root_lsa,
 
 	area->spf = v;
 	area->spf_dry_run = is_dry_run;
+	area->spf_root_node = is_root_node;
 
 	/* Reset ABR and ASBR router counts. */
 	area->abr_count = 0;
@@ -581,6 +582,7 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 			struct router_lsa_link *l2 = NULL;
 
 			if (l->m[0].type == LSA_LINK_TYPE_POINTOPOINT) {
+
 				/*
 				 * If the destination is a router which connects
 				 * to the calculating router via a
@@ -615,20 +617,49 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 				 * access links in p2p mode, so we need the IP
 				 * to ARP the nexthop.
 				 *
-				 * Due to these reasons p2p and p2mp
-				 * interfaces are handled the same way here,
-				 * in the style of p2mp as described above.
+				 * If the calculating router is the SPF root
+				 * node and the link is P2P then access the
+				 * interface information directly. This can be
+				 * crucial when e.g. IP unnumbered is used
+				 * where 'correct' nexthop information are not
+				 * available via Router LSAs.
+				 *
+				 * Otherwise handle P2P and P2MP the same way
+				 * as described above using a reverse lookup to
+				 * figure out the nexthop.
 				 */
 
 				struct in_addr nexthop = {.s_addr = 0};
+				struct ospf_interface *oi = NULL;
+				struct ospf_neighbor *nbr_w = NULL;
 
-				while ((l2 = ospf_get_next_link(w, v, l2))) {
-					if (match_stub_prefix(v->lsa,
-							      l->link_data,
-							      l2->link_data)) {
-						added = 1;
-						nexthop = l2->link_data;
-						break;
+				/* Calculating node is root node, link is P2P */
+				if (area->spf_root_node) {
+					oi = ospf_if_lookup_by_lsa_pos(area,
+								       lsa_pos);
+					if (oi->type
+					    == OSPF_IFTYPE_POINTOPOINT) {
+						nbr_w = ospf_nbr_lookup_by_routerid(
+							oi->nbrs, &l->link_id);
+						if (nbr_w) {
+							added = 1;
+							nexthop = nbr_w->src;
+						}
+					}
+				}
+
+				/* Reverse lookup */
+				if (!added) {
+					while ((l2 = ospf_get_next_link(w, v,
+									l2))) {
+						if (match_stub_prefix(
+							    v->lsa,
+							    l->link_data,
+							    l2->link_data)) {
+							added = 1;
+							nexthop = l2->link_data;
+							break;
+						}
 					}
 				}
 
@@ -1180,7 +1211,8 @@ ospf_rtrs_print (struct route_table *rtrs)
 /* Calculating the shortest-path tree for an area, see RFC2328 16.1. */
 void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 			struct route_table *new_table,
-			struct route_table *new_rtrs, bool is_dry_run)
+			struct route_table *new_rtrs, bool is_dry_run,
+			bool is_root_node)
 {
 	struct vertex_pqueue_head candidate;
 	struct vertex *v;
@@ -1219,7 +1251,7 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 	 * Initialize the shortest-path tree to only the root (which is usually
 	 * the router doing the calculation).
 	 */
-	ospf_spf_init(area, root_lsa, is_dry_run);
+	ospf_spf_init(area, root_lsa, is_dry_run, is_root_node);
 
 	/* Set Area A's TransitCapability to false. */
 	area->transit = OSPF_TRANSIT_FALSE;
@@ -1296,7 +1328,8 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 }
 
 int ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
-			     struct route_table *new_rtrs, bool is_dry_run)
+			     struct route_table *new_rtrs, bool is_dry_run,
+			     bool is_root_node)
 {
 	struct ospf_area *area;
 	struct listnode *node, *nnode;
@@ -1310,7 +1343,7 @@ int ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
 			continue;
 
 		ospf_spf_calculate(area, area->router_lsa_self, new_table,
-				   new_rtrs, is_dry_run);
+				   new_rtrs, is_dry_run, is_root_node);
 		areas_processed++;
 	}
 
@@ -1318,7 +1351,7 @@ int ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
 	if (ospf->backbone) {
 		area = ospf->backbone;
 		ospf_spf_calculate(area, area->router_lsa_self, new_table,
-				   new_rtrs, is_dry_run);
+				   new_rtrs, is_dry_run, is_root_node);
 		areas_processed++;
 	}
 
@@ -1347,8 +1380,8 @@ static int ospf_spf_calculate_schedule_worker(struct thread *thread)
 	monotime(&spf_start_time);
 	new_table = route_table_init(); /* routing table */
 	new_rtrs = route_table_init();  /* ABR/ASBR routing table */
-	areas_processed =
-		ospf_spf_calculate_areas(ospf, new_table, new_rtrs, false);
+	areas_processed = ospf_spf_calculate_areas(ospf, new_table, new_rtrs,
+						   false, true);
 	spf_time = monotime_since(&spf_start_time, NULL);
 
 	ospf_vl_shut_unapproved(ospf);

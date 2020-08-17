@@ -75,11 +75,12 @@ extern void ospf_spf_calculate_schedule(struct ospf *, ospf_spf_reason_t);
 extern void ospf_spf_calculate(struct ospf_area *area,
 			       struct ospf_lsa *root_lsa,
 			       struct route_table *new_table,
-			       struct route_table *new_rtrs, bool is_dry_run);
+			       struct route_table *new_rtrs, bool is_dry_run,
+			       bool is_root_node);
 extern int ospf_spf_calculate_areas(struct ospf *ospf,
 				    struct route_table *new_table,
 				    struct route_table *new_rtrs,
-				    bool is_dry_run);
+				    bool is_dry_run, bool is_root_node);
 extern void ospf_rtrs_free(struct route_table *);
 
 extern void ospf_spf_print(struct vty *vty, struct vertex *v, int i);
