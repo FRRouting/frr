@@ -3600,7 +3600,7 @@ DEFUN (bgp_default_shutdown,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_shutdown,
+DEFPY (bgp_shutdown_msg,
        bgp_shutdown_msg_cmd,
        "bgp shutdown message MSG...",
        BGP_STR
@@ -3621,10 +3621,17 @@ DEFPY (bgp_shutdown,
 	return CMD_SUCCESS;
 }
 
-ALIAS(bgp_shutdown, bgp_shutdown_cmd,
-      "bgp shutdown",
-      BGP_STR
-      "Enable administrative shutdown of the BGP instance\n")
+DEFPY (bgp_shutdown, bgp_shutdown_cmd,
+       "bgp shutdown",
+       BGP_STR
+       "Enable administrative shutdown of the BGP instance\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp_shutdown_enable(bgp, NULL);
+
+	return CMD_SUCCESS;
+}
 
 DEFPY (no_bgp_shutdown,
        no_bgp_shutdown_cmd,
