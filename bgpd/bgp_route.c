@@ -9626,12 +9626,20 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 					buf1, sizeof(buf1));
 				if (is_pi_family_evpn(parent_ri)) {
 					vty_out(vty,
-						"  Imported from %s:%pFX, VNI %s\n",
+						"  Imported from %s:%pFX, VNI %s",
 						buf1,
 						(struct prefix_evpn *)
 							bgp_dest_get_prefix(
 								dest),
 						tag_buf);
+					if (attr->es_flags & ATTR_ES_L3_NHG)
+						vty_out(vty, ", L3NHG %s",
+							(attr->es_flags
+							 & ATTR_ES_L3_NHG_ACTIVE)
+								? "active"
+								: "inactive");
+					vty_out(vty, "\n");
+
 				} else
 					vty_out(vty,
 						"  Imported from %s:%pFX\n",

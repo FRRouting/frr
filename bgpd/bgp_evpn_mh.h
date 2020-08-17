@@ -105,8 +105,17 @@ struct bgp_evpn_es {
 
 	/* List of MAC-IP VNI paths using this ES as destination -
 	 * element is bgp_path_info_extra->es_info
+	 * Note: Only local/zebra-added MACIP paths in the VNI
+	 * routing table are linked to this list
 	 */
 	struct list *macip_evi_path_list;
+
+	/* List of MAC-IP paths in the global routing table using this
+	 * ES as destination - data is bgp_path_info_extra->es_info
+	 * Note: Only non-local/imported MACIP paths in the global
+	 * routing table are linked to this list
+	 */
+	struct list *macip_global_path_list;
 
 	/* Number of remote VNIs referencing this ES */
 	uint32_t remote_es_evi_cnt;
@@ -381,7 +390,6 @@ extern void bgp_evpn_path_es_info_free(struct bgp_path_es_info *es_info);
 extern void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info);
 extern void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni,
 				  esi_t *esi);
-extern bool bgp_evpn_es_is_vtep_active(esi_t *esi, struct in_addr nh);
 extern bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf,
 				     struct bgp_path_info *pi, uint32_t *nhg_p);
 extern void bgp_evpn_es_vrf_show(struct vty *vty, bool uj,
@@ -389,7 +397,8 @@ extern void bgp_evpn_es_vrf_show(struct vty *vty, bool uj,
 extern void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj);
 extern void bgp_evpn_switch_ead_evi_rx(void);
 extern bool bgp_evpn_es_add_l3_ecomm_ok(esi_t *esi);
-extern bool bgp_evpn_es_vrf_import_ok(struct bgp *bgp_vrf, esi_t *esi,
-				      struct in_addr nh);
+extern void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi,
+				    bool *use_l3nhg, bool *is_l3nhg_active,
+				    struct bgp_evpn_es_vrf **es_vrf_p);
 
 #endif /* _FRR_BGP_EVPN_MH_H */
