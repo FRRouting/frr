@@ -3613,7 +3613,7 @@ DEFPY (bgp_shutdown,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	if (argc > 3)
-		msgstr = argv_concat(argv, argc, 4);
+		msgstr = argv_concat(argv, argc, 3);
 
 	bgp_shutdown_enable(bgp, msgstr);
 	XFREE(MTYPE_TMP, msgstr);
