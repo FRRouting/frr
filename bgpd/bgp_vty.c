@@ -3601,17 +3601,30 @@ DEFUN (bgp_default_shutdown,
 }
 
 DEFPY (bgp_shutdown,
-       bgp_shutdown_cmd,
-       "bgp shutdown",
+       bgp_shutdown_msg_cmd,
+       "bgp shutdown message MSG...",
        BGP_STR
-       "Enable administrative shutdown of the BGP instance\n")
+       "Enable administrative shutdown of the BGP instance\n"
+       "Add a shutdown message (RFC 8203)\n"
+       "Shutdown message\n")
 {
+	char* msgstr = NULL;
+
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	bgp_shutdown_enable(bgp);
+	if (argc > 3)
+		msgstr = argv_concat(argv, argc, 4);
+
+	bgp_shutdown_enable(bgp, msgstr);
+	XFREE(MTYPE_TMP, msgstr);
 
 	return CMD_SUCCESS;
 }
+
+ALIAS(bgp_shutdown, bgp_shutdown_cmd,
+      "bgp shutdown",
+      BGP_STR
+      "Enable administrative shutdown of the BGP instance\n")
 
 DEFPY (no_bgp_shutdown,
        no_bgp_shutdown_cmd,
@@ -16064,6 +16077,7 @@ void bgp_vty_init(void)
 
 	/* "bgp shutdown" commands */
 	install_element(BGP_NODE, &bgp_shutdown_cmd);
+	install_element(BGP_NODE, &bgp_shutdown_msg_cmd);
 	install_element(BGP_NODE, &no_bgp_shutdown_cmd);
 
 	/* "neighbor remote-as" commands. */

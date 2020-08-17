@@ -4024,7 +4024,7 @@ static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
 }
 
 /* Enable global administrative shutdown of all peers of BGP instance */
-void bgp_shutdown_enable(struct bgp *bgp)
+void bgp_shutdown_enable(struct bgp *bgp, char *msg)
 {
 	struct peer *peer;
 	struct listnode *node;
@@ -4033,9 +4033,9 @@ void bgp_shutdown_enable(struct bgp *bgp)
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
 		return;
 
-	/* TODO: log message
-	zlog_info("Enabled administrative shutdown on BGP instance %s",
-		  bgp->name); */
+	/* informational log message */
+	zlog_info("Enabled administrative shutdown on BGP instance AS %u",
+		  bgp->as);
 
 	/* iterate through peers of BGP instance */
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
@@ -4045,8 +4045,14 @@ void bgp_shutdown_enable(struct bgp *bgp)
 
 		/* send a RFC 4486 notification message if necessary */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
+			if (msg)
+				bgp_notify_send_with_data(peer, BGP_NOTIFY_CEASE,
+							  BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN,
+							  (uint8_t *)(msg),
+							  strlen(msg));
+			else
+				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+						BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
 		}
 
 		/* reset start timer to initial value */
@@ -4054,11 +4060,6 @@ void bgp_shutdown_enable(struct bgp *bgp)
 
 		/* trigger a RFC 4271 ManualStop event */
 		BGP_EVENT_ADD(peer, BGP_Stop);
-
-		/* TODO: log message per peer?
-		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("Neighbor %s is now in administrative shutdown.",
-				   peer->host); */
 	}
 
 	/* set the BGP instances shutdown flag */
@@ -4072,9 +4073,9 @@ void bgp_shutdown_disable(struct bgp *bgp)
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
 		return;
 
-	/* TODO: log message
-	zlog_info("Disabled administrative shutdown on BGP instance %s",
-		  bgp->name); */
+	/* informational log message */
+	zlog_info("Disabled administrative shutdown on BGP instance AS %u",
+		  bgp->as);
 
 	/* clear the BGP instances shutdown flag */
 	UNSET_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN);

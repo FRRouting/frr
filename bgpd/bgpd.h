@@ -1951,7 +1951,7 @@ extern struct peer_af *peer_af_create(struct peer *, afi_t, safi_t);
 extern struct peer_af *peer_af_find(struct peer *, afi_t, safi_t);
 extern int peer_af_delete(struct peer *, afi_t, safi_t);
 
-extern void bgp_shutdown_enable(struct bgp *bgp);
+extern void bgp_shutdown_enable(struct bgp *bgp, char *msg);
 extern void bgp_shutdown_disable(struct bgp *bgp);
 
 extern void bgp_close(void);
