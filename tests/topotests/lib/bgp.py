@@ -456,6 +456,15 @@ def __create_bgp_unicast_neighbor(
                         cmd = "no {}".format(cmd)
                     config_data.append(cmd)
 
+        import_vrf_data = addr_data.setdefault("import", {})
+        if import_vrf_data:
+            cmd = "import vrf {}".format(import_vrf_data["vrf"])
+
+            del_action = import_vrf_data.setdefault("delete", False)
+            if del_action:
+                cmd = "no {}".format(cmd)
+            config_data.append(cmd)
+
         if "neighbor" in addr_data:
             neigh_data = __create_bgp_neighbor(
                 topo, input_dict, router, addr_type, add_neigh
@@ -2610,6 +2619,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
                                 if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
                                     list1 = next_hop
+
                                 found_hops = [
                                     rib_r["ip"]
                                     for rib_r in rib_routes_json["routes"][st_rt][0][
@@ -2617,6 +2627,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
                                     ]
                                 ]
                                 list2 = found_hops
+
                                 missing_list_of_nexthops = set(list2).difference(list1)
                                 additional_nexthops_in_required_nhs = set(
                                     list1
