@@ -1214,7 +1214,6 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	 * "Bad BGP Identifier".
 	 */
 	if (remote_id.s_addr == INADDR_ANY
-	    || IPV4_CLASS_DE(ntohl(remote_id.s_addr))
 	    || (peer->sort == BGP_PEER_IBGP
 		&& ntohl(peer->local_id.s_addr) == ntohl(remote_id.s_addr))) {
 		if (bgp_debug_neighbor_events(peer))
