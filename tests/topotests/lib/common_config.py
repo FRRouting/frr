@@ -32,7 +32,7 @@ from tempfile import mkdtemp
 
 import os
 import sys
-import ipaddr
+import ConfigParser
 import traceback
 import socket
 import ipaddress
@@ -662,7 +662,6 @@ def generate_support_bundle():
     which basically runs defined CLIs and dumps the data to specified location
     """
 
-    """
     tgen = get_topogen()
     router_list = tgen.routers()
     test_name = sys._getframe(2).f_code.co_name
@@ -679,9 +678,6 @@ def generate_support_bundle():
         rnode.run("rm -rf {}".format(dst_bundle))
         rnode.run("mkdir -p {}".format(dst_bundle))
         rnode.run("mv -f {}/* {}".format(src_bundle, dst_bundle))
-
-    """
-    pass
 
     return True
 
@@ -1242,7 +1238,8 @@ def interface_status(tgen, topo, input_dict):
     return True
 
 
-def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0, return_is_dict=False):
+def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0,
+          return_is_dict=False):
     """
     Retries function execution, if return is an errormsg or exception
 
@@ -1254,11 +1251,13 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0, return_is_dict
     """
 
     def _retry(func):
+
         @wraps(func)
         def func_retry(*args, **kwargs):
-            _wait = kwargs.pop("wait", wait)
-            _attempts = kwargs.pop("attempts", attempts)
+            _wait = kwargs.pop('wait', wait)
+            _attempts = kwargs.pop('attempts', attempts)
             _attempts = int(_attempts)
+            expected = True
             if _attempts < 0:
                 raise ValueError("attempts must be 0 or greater")
 
@@ -1266,40 +1265,40 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0, return_is_dict
                 logger.info("Waiting for [%s]s as initial delay", initial_wait)
                 sleep(initial_wait)
 
-            _return_is_str = kwargs.pop("return_is_str", return_is_str)
-            _return_is_dict = kwargs.pop("return_is_str", return_is_dict)
+            _return_is_str = kwargs.pop('return_is_str', return_is_str)
+            _return_is_dict = kwargs.pop('return_is_str', return_is_dict)
             for i in range(1, _attempts + 1):
                 try:
-                    _expected = kwargs.setdefault("expected", True)
-                    kwargs.pop("expected")
+                    _expected = kwargs.setdefault('expected', True)
+                    if _expected is False:
+                        expected = _expected
+                    kwargs.pop('expected')
                     ret = func(*args, **kwargs)
-                    logger.debug("Function returned %s" % ret)
+                    logger.debug("Function returned %s", ret)
                     if _return_is_str and isinstance(ret, bool) and _expected:
                         return ret
-                    if (
-                        isinstance(ret, str) or isinstance(ret, unicode)
-                    ) and _expected is False:
+                    if (isinstance(ret, str) or isinstance(ret, unicode)) and _expected is False:
                         return ret
                     if _return_is_dict and isinstance(ret, dict):
                         return ret
 
-                    if _attempts == i:
+                    if _attempts == i and expected:
                         generate_support_bundle()
                         return ret
                 except Exception as err:
-                    if _attempts == i:
+                    if _attempts == i and expected:
                         generate_support_bundle()
-                        logger.info("Max number of attempts (%r) reached", _attempts)
+                        logger.info("Max number of attempts (%r) reached",
+                                    _attempts)
                         raise
                     else:
                         logger.info("Function returned %s", err)
                 if i < _attempts:
-                    logger.info("Retry [#%r] after sleeping for %ss" % (i, _wait))
+                    logger.info("Retry [#%r] after sleeping for %ss"
+                                % (i, _wait))
                     sleep(_wait)
-
         func_retry._original = func
         return func_retry
-
     return _retry
 
 
@@ -2933,7 +2932,8 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                        #st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -3038,7 +3038,8 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
+                    #st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(unicode(st_rt)))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
