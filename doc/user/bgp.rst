@@ -1216,14 +1216,14 @@ Defining Peers
    The time in milliseconds that BGP will delay before deciding what peers
    can be put into an update-group together in order to generate a single
    update for them.  The default time is 1000.
-   
+
 .. _bgp-configuring-peers:
 
 Configuring Peers
 ^^^^^^^^^^^^^^^^^
 
-.. index:: [no] neighbor PEER shutdown [message MSG...]
-.. clicmd:: [no] neighbor PEER shutdown [message MSG...]
+.. index:: [no] neighbor PEER shutdown [message MSG...] [rtt (1-65535) [count (1-255)]]
+.. clicmd:: [no] neighbor PEER shutdown [message MSG...] [rtt (1-65535) [count (1-255)]]
 
    Shutdown the peer. We can delete the neighbor's configuration by
    ``no neighbor PEER remote-as ASN`` but all configuration of the neighbor
@@ -1231,6 +1231,12 @@ Configuring Peers
    drop the BGP peer, use this syntax.
 
    Optionally you can specify a shutdown message `MSG`.
+
+   Also, you can specify optionally _rtt_ in milliseconds to automatically
+   shutdown the peer if round-trip-time becomes higher than defined.
+
+   Additional _count_ parameter is the number of keepalive messages to count
+   before shutdown the peer if round-trip-time becomes higher than defined.
 
 .. index:: [no] neighbor PEER disable-connected-check
 .. clicmd:: [no] neighbor PEER disable-connected-check
