@@ -853,6 +853,50 @@ Redistribution
 .. index:: no router zebra
 .. clicmd:: no router zebra
 
+Graceful Restart Helper
+=======================
+
+.. index:: graceful-restart helper-only [A.B.C.D]
+.. clicmd:: graceful-restart helper-only [A.B.C.D]
+
+.. index:: no graceful-restart helper-only [A.B.C.D]
+.. clicmd:: no graceful-restart helper-only [A.B.C.D]
+
+   Configure Graceful Restart (RFC 3623) helper support.
+   By default, helper support is disabled for all neighbours.
+   This config enables/disables helper support on this router
+   for all neighbours.
+   To enable/disable helper support for a specific
+   neighbour, the router-id (A.B.C.D) has to be specified.
+
+.. index:: graceful-restart helper strict-lsa-checking
+.. clicmd:: graceful-restart helper strict-lsa-checking
+
+.. index:: no graceful-restart helper strict-lsa-checking
+.. clicmd:: no graceful-restart helper strict-lsa-checking
+
+   If 'strict-lsa-checking' is configured then the helper will
+   abort the Graceful Restart when a LSA change occurs which
+   affects the restarting router.
+   By default 'strict-lsa-checking' is enabled"
+
+.. index:: graceful-restart helper supported-grace-time
+.. clicmd:: graceful-restart helper supported-grace-time
+
+.. index:: no graceful-restart helper supported-grace-time
+.. clicmd:: no graceful-restart helper supported-grace-time
+
+   Supports as HELPER for configured grace period.
+
+.. index:: graceful-restart helper planned-only
+.. clicmd:: graceful-restart helper planned-only
+
+.. index:: no graceful-restart helper planned-only
+.. clicmd:: no graceful-restart helper planned-only
+
+   It helps to support as HELPER only for planned
+   restarts. By default, it supports both planned and
+   unplanned outages.
 
 .. _showing-ospf-information:
 
@@ -917,6 +961,12 @@ Showing Information
 
    Show the OSPF routing table, as determined by the most recent SPF
    calculation.
+
+.. index:: show ip ospf graceful-restart helper [detail] [json]
+.. clicmd:: show ip ospf graceful-restart helper [detail] [json]
+
+   Displays the Grcaeful Restart Helper details including helper
+   config changes.
 
 .. _opaque-lsa:
 
@@ -1218,9 +1268,16 @@ Debugging OSPF
 
    Show debug information of ZEBRA API
 
+.. index:: debug ospf graceful-restart helper
+.. clicmd:: debug ospf graceful-restart helper
+
+.. index:: no debug ospf graceful-restart helper
+.. clicmd:: no debug ospf graceful-restart helper
+
+   Enable/disable debug information for OSPF Graceful Restart Helper
+
 .. index:: show debugging ospf
 .. clicmd:: show debugging ospf
-
 
 OSPF Configuration Examples
 ===========================
