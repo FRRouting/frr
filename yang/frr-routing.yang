@@ -101,6 +101,76 @@ module frr-routing {
       "This identity represents the IPv6 multicast address family.";
   }
 
+  identity ipv4-labeled-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 labeled unicast address family.";
+  }
+
+
+  identity ipv6-labeled-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 labeled unicast address family.";
+  }
+
+
+  identity l3vpn-ipv4-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv4 unicast address family.";
+  }
+
+
+  identity l3vpn-ipv6-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv6 unicast address family.";
+  }
+
+
+  identity l3vpn-ipv4-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv4 multicast address family.";
+  }
+
+
+  identity l3vpn-ipv6-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv6 multicast address family.";
+  }
+
+
+  identity l2vpn-vpls {
+    base afi-safi-type;
+    description
+      "This identity represents the L2vpn VPLS  address family.";
+  }
+
+
+  identity l2vpn-evpn {
+    base afi-safi-type;
+    description
+      "This identity represents the L2vpn EVPN address family.";
+  }
+
+
+  identity ipv4-flowspec {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 flowspec address family.";
+  }
+
+
+  identity ipv6-flowspec {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 flowspec address family.";
+  }
+
+
   identity control-plane-protocol {
     description
       "Base identity from which control-plane protocol identities are

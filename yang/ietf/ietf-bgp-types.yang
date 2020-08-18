@@ -1,0 +1,525 @@
+module ietf-bgp-types {
+  yang-version "1.1";
+  namespace "urn:ietf:params:xml:ns:yang:ietf-bgp-types";
+
+  prefix "bt";
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  // meta
+  organization
+    "IETF IDR Working Group";
+
+  contact
+    "WG Web:   <http://tools.ietf.org/wg/idr>
+     WG List:  <idr@ietf.org>
+
+     Authors: Mahesh Jethanandani (mjethanandani at gmail.com),
+              Keyur Patel (keyur at arrcus.com),
+              Susan Hares (shares at ndzh.com),
+              Jeffrey Haas (jhaas at pfrc.org).";
+  description
+    "This module contains general data definitions for use in BGP
+     policy. It can be imported by modules that make use of BGP
+     attributes";
+
+  revision 2019-10-03 {
+    description
+      "Initial Version";
+    reference
+      "RFC XXX, BGP Model for Service Provider Network.";
+  }
+
+  identity bgp-capability {
+    description "Base identity for a BGP capability";
+  }
+
+  identity mp-bgp {
+    base bgp-capability;
+    description
+      "Multi-protocol extensions to BGP";
+    reference
+      "RFC 4760";
+  }
+
+  identity route-refresh {
+    base bgp-capability;
+    description
+      "The BGP route-refresh functionality";
+    reference
+      "RFC2918";
+  }
+
+  identity asn32 {
+    base bgp-capability;
+    description
+      "4-byte (32-bit) AS number functionality";
+    reference
+      "RFC6793";
+  }
+
+  identity graceful-restart {
+    base bgp-capability;
+    description
+      "Graceful restart functionality";
+    reference
+      "RFC4724";
+  }
+
+  identity add-paths {
+    base bgp-capability;
+    description
+      "BGP add-paths";
+    reference
+      "RFC 7911.";
+  }
+
+  identity afi-safi-type {
+    description
+      "Base identity type for AFI,SAFI tuples for BGP-4";
+    reference
+      "RFC4760 - multi-protocol extensions for BGP-4";
+  }
+
+  identity ipv4-unicast {
+    base afi-safi-type;
+    description
+      "IPv4 unicast (AFI,SAFI = 1,1)";
+    reference
+      "RFC4760";
+  }
+
+  identity ipv6-unicast {
+    base afi-safi-type;
+    description
+      "IPv6 unicast (AFI,SAFI = 2,1)";
+    reference
+      "RFC4760";
+  }
+
+  identity ipv4-labeled-unicast {
+    base afi-safi-type;
+    description
+      "Labeled IPv4 unicast (AFI,SAFI = 1,4)";
+    reference
+      "RFC3107";
+  }
+
+  identity ipv6-labeled-unicast {
+    base afi-safi-type;
+    description
+      "Labeled IPv6 unicast (AFI,SAFI = 2,4)";
+    reference
+      "RFC3107";
+  }
+
+  identity l3vpn-ipv4-unicast {
+    base afi-safi-type;
+    description
+      "Unicast IPv4 MPLS L3VPN (AFI,SAFI = 1,128)";
+    reference
+      "RFC4364";
+  }
+
+  identity l3vpn-ipv6-unicast {
+    base afi-safi-type;
+    description
+      "Unicast IPv6 MPLS L3VPN (AFI,SAFI = 2,128)";
+    reference
+      "RFC4659";
+  }
+
+  identity l3vpn-ipv4-multicast {
+    base afi-safi-type;
+    description
+      "Multicast IPv4 MPLS L3VPN (AFI,SAFI = 1,129)";
+    reference
+      "RFC6514";
+  }
+
+  identity l3vpn-ipv6-multicast {
+    base afi-safi-type;
+    description
+      "Multicast IPv6 MPLS L3VPN (AFI,SAFI = 2,129)";
+    reference
+      "RFC6514";
+  }
+
+  identity l2vpn-vpls {
+    base afi-safi-type;
+    description
+      "BGP-signalled VPLS (AFI,SAFI = 25,65)";
+    reference
+      "RFC4761";
+  }
+
+  identity l2vpn-evpn {
+    base afi-safi-type;
+    description
+      "BGP MPLS Based Ethernet VPN (AFI,SAFI = 25,70)";
+  }
+
+  identity bgp-well-known-std-community {
+    description
+      "Base identity for reserved communities within the standard
+       community space defined by RFC1997. These communities must
+       fall within the range 0xFFFF0000 to 0xFFFFFFFF";
+    reference
+      "RFC 1997: BGP Communities Attribute.";
+  }
+
+  identity no-export {
+    base bgp-well-known-std-community;
+    description
+      "Do not export NLRI received carrying this community outside
+       the bounds of this autonomous system, or this confederation if
+       the local autonomous system is a confederation member AS. This
+       community has a value of 0xFFFFFF01.";
+    reference
+      "RFC 1997: BGP Communities Attribute.";
+  }
+
+  identity no-advertise {
+    base bgp-well-known-std-community;
+    description
+      "All NLRI received carrying this community must not be
+       advertised to other BGP peers. This community has a value of
+       0xFFFFFF02.";
+    reference
+      "RFC 1997: BGP Communities Attribute.";
+  }
+
+  identity no-export-subconfed {
+    base bgp-well-known-std-community;
+    description
+      "All NLRI received carrying this community must not be
+       advertised to external BGP peers - including over confederation
+       sub-AS boundaries. This community has a value of 0xFFFFFF03.";
+    reference
+      "RFC 1997: BGP Communities Attribute.";
+  }
+
+  identity no-peer {
+    base bgp-well-known-std-community;
+    description
+      "An autonomous system receiving NLRI tagged with this community
+       is advised not to re-advertise the NLRI to external bi-lateral
+       peer autonomous systems. An AS may also filter received NLRI
+       from bilateral peer sessions when they are tagged with this
+       community value";
+    reference
+      "RFC 3765: NOPEER Community for BGP.";
+  }
+  identity as-path-segment-type {
+    description
+      "Base AS Path Segment Type. In [BGP-4], the path segment type
+       is a 1-octet field with the following values defined.";
+    reference
+      "RFC 4271: A Border Gateway Protocol 4 (BGP-4), Section 4.3.";
+  }
+
+  identity as-set {
+    base as-path-segment-type;
+    description
+      "Unordered set of autonomous systems that a route in the UPDATE
+       message has traversed.";
+    reference
+      "RFC 4271: A Border Gateway Protocol 4 (BGP-4), Section 4.3.";
+  }
+
+  identity as-sequence {
+    base as-path-segment-type;
+    description
+      "Ordered set of autonomous systems that a route in the UPDATE
+       message has traversed.";
+    reference
+      "RFC 4271: A Border Gateway Protocol 4 (BGP-4), Section 4.3.";
+  }
+
+  identity as-confed-sequence {
+    base as-path-segment-type;
+    description
+      "Ordered set of Member Autonomous Systems in the local
+       confederation that the UPDATE message has traversed.";
+    reference
+      "RFC 5065, Autonomous System Configuration for BGP.";
+  }
+
+  identity as-confed-set {
+    base as-path-segment-type;
+    description
+      "Unordered set of Member Autonomous Systems in the local
+       confederation that the UPDATE message has traversed.";
+    reference
+      "RFC 5065, Autonomous System Configuration for BGP.";
+  }
+
+  /*
+   * Features.
+   */
+  feature send-communities {
+    description
+      "Enable the propogation of communities.";
+  }
+
+  feature ttl-security {
+    description
+      "BGP Time To Live (TTL) security check support.";
+    reference
+      "RFC 5082, The Generalized TTL Security Mechanism (GTSM)";
+  }
+
+  feature bfd {
+    description
+      "Support for BFD detection of BGP neighbor reachability.";
+    reference
+      "RFC 5880, Bidirectional Forward Detection (BFD),
+       RFC 5881, Bidirectional Forward Detection for IPv4 and IPv6
+                 (Single Hop).
+       RFC 5883, Bidirectional Forwarding Detection (BFD) for Multihop
+                 Paths";
+  }
+
+  typedef bgp-session-direction {
+    type enumeration {
+      enum INBOUND {
+        description
+          "Refers to all NLRI received from the BGP peer";
+      }
+      enum OUTBOUND {
+        description
+          "Refers to all NLRI advertised to the BGP peer";
+      }
+    }
+    description
+      "Type to describe the direction of NLRI transmission";
+  }
+
+  typedef bgp-well-known-community-type {
+    type identityref {
+      base bgp-well-known-std-community;
+    }
+    description
+      "Type definition for well-known IETF community attribute
+       values";
+    reference
+      "IANA Border Gateway Protocol (BGP) Well Known Communities";
+  }
+
+  typedef bgp-std-community-type {
+    // TODO: further refine restrictions and allowed patterns
+    // 4-octet value:
+    //  <as number> 2 octets
+    //  <community value> 2 octets
+    type union {
+      type uint32 {
+      // per RFC 1997, 0x00000000 - 0x0000FFFF and 0xFFFF0000 -
+      // 0xFFFFFFFF are reserved
+        range "65536..4294901759"; // 0x00010000..0xFFFEFFFF
+      }
+      type string {
+        pattern '([0-9]+:[0-9]+)';
+      }
+    }
+    description
+      "Type definition for standard community attributes";
+    reference
+      "RFC 1997 - BGP Communities Attribute";
+  }
+
+  typedef bgp-ext-community-type {
+    // TODO: needs more work to make this more precise given the
+    // variability of extended community attribute specifications
+    // 8-octet value:
+    //  <type> 2 octects
+    //  <value> 6 octets
+
+    type union {
+      type string {
+        // Type 1: 2-octet global and 4-octet local
+        //         (AS number)        (Integer)
+        pattern '(6[0-5][0-5][0-3][0-5]|[1-5][0-9]{4}|'            +
+                '[1-9][0-9]{1,4}|[0-9]):'                          +
+                '(4[0-2][0-9][0-4][0-9][0-6][0-7][0-2][0-9][0-6]|' +
+                '[1-3][0-9]{9}|[1-9]([0-9]{1,7})?[0-9]|[1-9])';
+      }
+      type string {
+        // Type 2: 4-octet global and 2-octet local
+        //         (ipv4-address)     (integer)
+        pattern '(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|'      +
+                '25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|'     +
+                '2[0-4][0-9]|25[0-5]):'                            +
+                '(6[0-5][0-5][0-3][0-5]|[1-5][0-9]{4}|'            +
+                '[1-9][0-9]{1,4}|[0-9])';
+      }
+      type string {
+        // route-target with Type 1
+        // route-target:(ASN):(local-part)
+        pattern 'route\-target:(6[0-5][0-5][0-3][0-5]|'            +
+                '[1-5][0-9]{4}|[1-9][0-9]{1,4}|[0-9]):'            +
+                '(4[0-2][0-9][0-4][0-9][0-6][0-7][0-2][0-9][0-6]|' +
+                '[1-3][0-9]{9}|[1-9]([0-9]{1,7})?[0-9]|[1-9])';
+      }
+      type string {
+        // route-target with Type 2
+        // route-target:(IPv4):(local-part)
+        pattern 'route\-target:' +
+                '(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|'      +
+                '25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|'     +
+                '2[0-4][0-9]|25[0-5]):'                            +
+                '(6[0-5][0-5][0-3][0-5]|[1-5][0-9]{4}|'            +
+                '[1-9][0-9]{1,4}|[0-9])';
+      }
+      type string {
+        // route-origin with Type 1
+        pattern 'route\-origin:(6[0-5][0-5][0-3][0-5]|'            +
+                '[1-5][0-9]{4}|[1-9][0-9]{1,4}|[0-9]):'            +
+                '(4[0-2][0-9][0-4][0-9][0-6][0-7][0-2][0-9][0-6]|' +
+                '[1-3][0-9]{9}|[1-9]([0-9]{1,7})?[0-9]|[1-9])';
+      }
+      type string {
+        // route-origin with Type 2
+        pattern 'route\-origin:' +
+                '(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|'      +
+                '25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|'     +
+                '2[0-4][0-9]|25[0-5]):'                            +
+                '(6[0-5][0-5][0-3][0-5]|[1-5][0-9]{4}|'            +
+                '[1-9][0-9]{1,4}|[0-9])';
+      }
+    }
+    description
+      "Type definition for extended community attributes";
+    reference
+      "RFC 4360 - BGP Extended Communities Attribute";
+  }
+
+  typedef bgp-community-regexp-type {
+    // TODO: needs more work to decide what format these regexps can
+    // take.
+    type string;
+    description
+      "Type definition for communities specified as regular
+       expression patterns";
+  }
+
+  typedef bgp-origin-attr-type {
+    type enumeration {
+      enum igp {
+        description "Origin of the NLRI is internal";
+      }
+      enum egp {
+        description "Origin of the NLRI is EGP";
+      }
+      enum incomplete {
+        description "Origin of the NLRI is neither IGP or EGP";
+      }
+    }
+    description
+      "Type definition for standard BGP origin attribute";
+    reference
+      "RFC 4271 - A Border Gateway Protocol 4 (BGP-4), Sec 4.3";
+  }
+
+  typedef peer-type {
+    type enumeration {
+      enum internal {
+        description
+          "internal (iBGP) peer";
+      }
+      enum external {
+        description
+          "external (eBGP) peer";
+      }
+      enum confederation {
+        description
+        "Confederation as peer";
+      }
+    }
+    description
+      "Labels a peer or peer group as explicitly internal,
+       external or confederation.";
+  }
+
+  identity REMOVE_PRIVATE_AS_OPTION {
+    description
+      "Base identity for options for removing private autonomous
+       system numbers from the AS_PATH attribute";
+  }
+
+  identity PRIVATE_AS_REMOVE_ALL {
+    base REMOVE_PRIVATE_AS_OPTION;
+    description
+      "Strip all private autonomous system numbers from the AS_PATH.
+       This action is performed regardless of the other content of the
+       AS_PATH attribute, and for all instances of private AS numbers
+       within that attribute.";
+  }
+
+  identity PRIVATE_AS_REPLACE_ALL {
+    base REMOVE_PRIVATE_AS_OPTION;
+    description
+      "Replace all instances of private autonomous system numbers in
+       the AS_PATH with the local BGP speaker's autonomous system
+       number. This action is performed regardless of the other
+       content of the AS_PATH attribute, and for all instances of
+       private AS number within that attribute.";
+  }
+
+  typedef remove-private-as-option {
+    type identityref {
+      base REMOVE_PRIVATE_AS_OPTION;
+    }
+    description
+      "Set of options for configuring how private AS path numbers
+       are removed from advertisements";
+  }
+
+  typedef percentage {
+    type uint8 {
+      range "0..100";
+    }
+    description
+      "Integer indicating a percentage value";
+  }
+
+  typedef rr-cluster-id-type {
+    type union {
+      type uint32;
+      type inet:ipv4-address;
+    }
+    description
+      "Union type for route reflector cluster ids:
+       option 1: 4-byte number
+       option 2: IP address";
+  }
+
+  typedef community-type {
+    type bits {
+      bit standard {
+        position 0;
+        description
+          "Send only standard communities.";
+        reference
+          "RFC 1997: BGP Communities Attribute.";
+      }
+      bit extended {
+        description
+          "Send only extended communities.";
+        reference
+          "RFC 4360: BGP Extended Communities Attribute.";
+      }
+      bit large {
+        description
+          "Send only large communities.";
+        reference
+          "RFC 8092: BGP Large Communities Attribute.";
+      }
+    }
+    description
+      "Type describing variations of community attributes.
+       The community types can be combined and a value of 0
+       implies 'none'";
+  }
+}
