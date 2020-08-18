@@ -3975,9 +3975,6 @@ static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
 						peer->host);
 			}
 
-			if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT))
-				peer_nsf_stop(peer);
-
 			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
 				char *msg = peer->tx_shutdown_message;
 				size_t msglen;
