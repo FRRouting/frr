@@ -749,6 +749,18 @@ DEFPY(bfd_show_peers_brief, bfd_show_peers_brief_cmd,
 }
 
 DEFPY(
+	bfd_debug_distributed, bfd_debug_distributed_cmd,
+	"[no] debug bfd distributed",
+	NO_STR
+	DEBUG_STR
+	"Bidirection Forwarding Detection\n"
+	"BFD data plane (distributed BFD) debugging\n")
+{
+	bglobal.debug_dplane = !no;
+	return CMD_SUCCESS;
+}
+
+DEFPY(
 	bfd_debug_peer, bfd_debug_peer_cmd,
 	"[no] debug bfd peer",
 	NO_STR
@@ -888,6 +900,8 @@ DEFUN_NOSH(show_debugging_bfd,
 	   "BFD daemon\n")
 {
 	vty_out(vty, "BFD debugging status:\n");
+	if (bglobal.debug_dplane)
+		vty_out(vty, "  Distributed BFD debugging is on.\n");
 	if (bglobal.debug_peer_event)
 		vty_out(vty, "  Peer events debugging is on.\n");
 	if (bglobal.debug_zebra)
@@ -918,6 +932,11 @@ static int bfdd_write_config(struct vty *vty)
 {
 	struct lyd_node *dnode;
 	int written = 0;
+
+	if (bglobal.debug_dplane) {
+		vty_out(vty, "debug bfd distributed\n");
+		written = 1;
+	}
 
 	if (bglobal.debug_peer_event) {
 		vty_out(vty, "debug bfd peer\n");
@@ -953,10 +972,12 @@ void bfdd_vty_init(void)
 	install_element(ENABLE_NODE, &bfd_show_peers_brief_cmd);
 	install_element(ENABLE_NODE, &show_debugging_bfd_cmd);
 
+	install_element(ENABLE_NODE, &bfd_debug_distributed_cmd);
 	install_element(ENABLE_NODE, &bfd_debug_peer_cmd);
 	install_element(ENABLE_NODE, &bfd_debug_zebra_cmd);
 	install_element(ENABLE_NODE, &bfd_debug_network_cmd);
 
+	install_element(CONFIG_NODE, &bfd_debug_distributed_cmd);
 	install_element(CONFIG_NODE, &bfd_debug_peer_cmd);
 	install_element(CONFIG_NODE, &bfd_debug_zebra_cmd);
 	install_element(CONFIG_NODE, &bfd_debug_network_cmd);
