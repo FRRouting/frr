@@ -677,11 +677,13 @@ class NorthboundImpl
 
 			switch (phase) {
 			case frr::CommitRequest::VALIDATE:
+				zlog_debug("`-> Performing VALIDATE");
 				ret = nb_candidate_validate(
 					&context, candidate->config, errmsg,
 					sizeof(errmsg));
 				break;
 			case frr::CommitRequest::PREPARE:
+				zlog_debug("`-> Performing PREPARE");
 				ret = nb_candidate_commit_prepare(
 					&context, candidate->config,
 					comment.c_str(),
@@ -689,15 +691,18 @@ class NorthboundImpl
 					sizeof(errmsg));
 				break;
 			case frr::CommitRequest::ABORT:
+				zlog_debug("`-> Performing ABORT");
 				nb_candidate_commit_abort(
 					candidate->transaction);
 				break;
 			case frr::CommitRequest::APPLY:
+				zlog_debug("`-> Performing ABORT");
 				nb_candidate_commit_apply(
 					candidate->transaction, true,
 					&transaction_id);
 				break;
 			case frr::CommitRequest::ALL:
+				zlog_debug("`-> Performing ALL");
 				ret = nb_candidate_commit(
 					&context, candidate->config, true,
 					comment.c_str(), &transaction_id,
@@ -709,28 +714,42 @@ class NorthboundImpl
 			grpc::Status status;
 			switch (ret) {
 			case NB_OK:
+				zlog_debug("`-> Result: OK");
 				status = grpc::Status::OK;
 				break;
 			case NB_ERR_NO_CHANGES:
+				zlog_debug("`-> Result: ERR_NO_CHANGES (message: '%s')",
+					   errmsg);
 				status = grpc::Status(grpc::StatusCode::ABORTED,
 						      errmsg);
 				break;
 			case NB_ERR_LOCKED:
+				zlog_debug("`-> Result: ERR_LOCKED (message: '%s')",
+					   errmsg);
 				status = grpc::Status(
 					grpc::StatusCode::UNAVAILABLE, errmsg);
 				break;
 			case NB_ERR_VALIDATION:
+				zlog_debug(
+					"`-> Result: ERR_VALIDATION (message: '%s')",
+					errmsg);
 				status = grpc::Status(
 					grpc::StatusCode::INVALID_ARGUMENT,
 					errmsg);
 				break;
 			case NB_ERR_RESOURCE:
+				zlog_debug(
+					"`-> Result: ERR_RESOURCE (message: '%s')",
+					errmsg);
 				status = grpc::Status(
 					grpc::StatusCode::RESOURCE_EXHAUSTED,
 					errmsg);
 				break;
 			case NB_ERR:
 			default:
+				zlog_debug(
+					"`-> Result: Generic error (message: '%s')",
+					errmsg);
 				status = grpc::Status(
 					grpc::StatusCode::INTERNAL, errmsg);
 				break;
