@@ -27,7 +27,6 @@ import sys
 import time
 import pytest
 import json
-from time import sleep
 from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
@@ -240,12 +239,14 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
 
     dut = "r1"
     protocol = "ospf"
-    result = verify_ospf_rib(tgen, dut, input_dict)
+    result = verify_ospf_rib(tgen, dut, input_dict, attempts=2, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict, protocol=protocol, attempts=2, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )

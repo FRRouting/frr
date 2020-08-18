@@ -53,8 +53,6 @@ import sys
 import time
 import pytest
 import json
-from time import sleep
-from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))

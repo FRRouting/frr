@@ -27,7 +27,6 @@ import sys
 import time
 import pytest
 import json
-from time import sleep
 from copy import deepcopy
 from ipaddress import IPv4Address
 
@@ -451,18 +450,6 @@ def test_ospf_hello_tc10_p0(request):
     result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    # sleep for 20 secs for hello timer expiry
-    sleep(20)
-
-    step("verify that ospf neighbours are not full - hello timer mis match.")
-    dut = "r1"
-    ospf_covergence = verify_ospf_neighbor(
-        tgen, topo, dut=dut, expected=False, attempts=10
-    )
-    assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
-        ospf_covergence
-    )
-
     step("modify hello timer from default value to r1 hello timer on r2")
 
     topo1 = {
@@ -745,7 +732,7 @@ def test_ospf_dead_tc11_p0(request):
             "links": {
                 "r0": {
                     "interface": topo["routers"]["r1"]["links"]["r0"]["interface"],
-                    "ospf": {"hello_interval": 12, "dead_interval": 48},
+                    "ospf": {"hello_interval": 2, "dead_interval": 8},
                 }
             }
         }
@@ -759,71 +746,19 @@ def test_ospf_dead_tc11_p0(request):
         "the show ip ospf interface command."
     )
     dut = "r1"
-    input_dict = {"r1": {"links": {"r0": {"ospf": {"timerDeadSecs": 48}}}}}
+    input_dict = {"r1": {"links": {"r0": {"ospf": {"timerDeadSecs": 8}}}}}
     result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    sleep(50)
-    step("verify that ospf neighbours are not full - dead timer mis match.")
-    dut = "r1"
-    ospf_covergence = verify_ospf_neighbor(
-        tgen, topo, dut=dut, expected=False, attempts=10
-    )
-    assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
-        ospf_covergence
-    )
-
-    step("modify dead interval from default value to r1" "dead interval timer on r2")
-
-    topo1 = {
-        "r0": {
-            "links": {
-                "r1": {
-                    "interface": topo["routers"]["r0"]["links"]["r1"]["interface"],
-                    "ospf": {"dead_interval": 48, "hello_interval": 12},
-                }
-            }
-        }
-    }
-
-    result = create_interfaces_cfg(tgen, topo1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step("verify that new timer value is configured.")
-    input_dict = {"r0": {"links": {"r1": {"ospf": {"timerDeadSecs": 48}}}}}
-    dut = "r0"
-    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step("verify that ospf neighbours are  full")
-    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
-        ospf_covergence
-    )
 
     step("remove ospf on R1")
     ospf_del = {"r0": {"ospf": {"delete": True}}}
     result = create_router_ospf(tgen, topo, ospf_del)
     assert result is True, "Testcase : Failed \n Error: {}".format(result)
 
-    step("verify that on R2 ospf neighbour is full till dead time expiry.")
-    dut = "r1"
-    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
-        ospf_covergence
-    )
-    sleep(50)
-
-    step("Verify that nbr on r2 gets deleted after dead interval expiry.")
-    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
-        ospf_covergence
-    )
-
     # reconfiguring deleted ospf process by resetting the configs.
     reset_config_on_routers(tgen)
 
-    step("reconfigure the default dead interval timer value to " "default on r1 and r2")
+    step("reconfigure the default dead interval timer value to default on r1 and r2")
     topo1 = {
         "r0": {
             "links": {

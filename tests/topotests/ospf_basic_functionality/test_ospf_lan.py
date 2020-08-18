@@ -27,7 +27,6 @@ import sys
 import time
 import pytest
 import json
-from time import sleep
 from copy import deepcopy
 import ipaddress
 

@@ -27,9 +27,6 @@ import sys
 import time
 import pytest
 import json
-from time import sleep
-from copy import deepcopy
-import ipaddress
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -337,13 +334,24 @@ def test_ospf_lan_ecmp_tc18_p0(request):
 
     step("Verify that all the routes are withdrawn from R0")
     dut = "r1"
-    result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
+    result = verify_ospf_rib(
+        tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )
 
     protocol = "ospf"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    result = verify_rib(
+        tgen,
+        "ipv4",
+        dut,
+        input_dict,
+        protocol=protocol,
+        next_hop=nh,
+        attempts=5,
+        expected=False,
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )

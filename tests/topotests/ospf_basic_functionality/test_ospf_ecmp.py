@@ -352,7 +352,16 @@ def test_ospf_ecmp_tc16_p0(request):
     )
 
     protocol = "ospf"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    result = verify_rib(
+        tgen,
+        "ipv4",
+        dut,
+        input_dict,
+        protocol=protocol,
+        next_hop=nh,
+        attempts=5,
+        expected=False,
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )
@@ -435,13 +444,24 @@ def test_ospf_ecmp_tc17_p0(request):
 
     step("Verify that route is withdrawn from R2.")
     dut = "r1"
-    result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
+    result = verify_ospf_rib(
+        tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )
 
     protocol = "ospf"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    result = verify_rib(
+        tgen,
+        "ipv4",
+        dut,
+        input_dict,
+        protocol=protocol,
+        next_hop=nh,
+        attempts=5,
+        expected=False,
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )

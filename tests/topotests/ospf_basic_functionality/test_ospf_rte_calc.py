@@ -26,7 +26,6 @@ import os
 import sys
 import time
 import pytest
-from time import sleep
 import ipaddress
 import json
 
@@ -271,13 +270,24 @@ def test_ospf_redistribution_tc5_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     dut = "r1"
-    result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
+    result = verify_ospf_rib(
+        tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )
 
     protocol = "ospf"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    result = verify_rib(
+        tgen,
+        "ipv4",
+        dut,
+        input_dict,
+        protocol=protocol,
+        next_hop=nh,
+        attempts=5,
+        expected=False,
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )
@@ -309,23 +319,6 @@ def test_ospf_redistribution_tc5_p0(request):
     dut = "r0"
     intf = topo["routers"]["r0"]["links"]["r3"]["interface"]
     shutdown_bringup_interface(tgen, dut, intf, False)
-
-    step("Verify that intraroute calculated for R1 intf on R0 is deleted.")
-    dut = "r1"
-
-    # sleep is added so that neighbor gets deleted after interface shut.
-    sleep(12)
-
-    result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result
-    )
-
-    protocol = "ospf"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result
-    )
 
     step("un shut the OSPF interface on R0")
     dut = "r0"
@@ -395,13 +388,24 @@ def test_ospf_redistribution_tc6_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     dut = "r1"
-    result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh)
+    result = verify_ospf_rib(
+        tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )
 
     protocol = "ospf"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
+    result = verify_rib(
+        tgen,
+        "ipv4",
+        dut,
+        input_dict,
+        protocol=protocol,
+        next_hop=nh,
+        attempts=5,
+        expected=False,
+    )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )
@@ -433,21 +437,6 @@ def test_ospf_redistribution_tc6_p0(request):
     dut = "r0"
     intf = topo["routers"]["r0"]["links"]["r3"]["interface"]
     shutdown_bringup_interface(tgen, dut, intf, False)
-
-    step("Verify that intraroute calculated for R1 intf on R0 is deleted.")
-    dut = "r1"
-
-    sleep(10)
-    result = verify_ospf_rib(tgen, dut, input_dict)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result
-    )
-
-    protocol = "ospf"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result
-    )
 
     step("un shut the OSPF interface on R0")
     dut = "r0"

@@ -196,7 +196,7 @@ def test_ospf_authentication_simple_pass_tc28_p1(request):
 
     step("Verify that the neighbour is not FULL between R1 and R2.")
     dut = "r1"
-    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
+    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut, expected=False)
     assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
         ospf_covergence
     )
@@ -248,12 +248,12 @@ def test_ospf_authentication_simple_pass_tc28_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("Verify on R1 neighbour is deleted for R2 after dead interval expiry")
-
-    step("Waiting for dead time expiry....")
-    sleep(10)
-
+    # wait till the dead time expiry
+    sleep(6)
     dut = "r2"
-    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut, expected=False)
+    ospf_covergence = verify_ospf_neighbor(
+        tgen, topo, dut=dut, expected=False, attempts=5
+    )
     assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
         ospf_covergence
     )
@@ -323,7 +323,6 @@ def test_ospf_authentication_simple_pass_tc28_p1(request):
     dut = "r1"
     intf = topo["routers"]["r1"]["links"]["r2"]["interface"]
     shutdown_bringup_interface(tgen, dut, intf, False)
-    sleep(5)
     shutdown_bringup_interface(tgen, dut, intf, True)
 
     # clear ip ospf after configuring the authentication.
@@ -386,13 +385,13 @@ def test_ospf_authentication_md5_tc29_p1(request):
     result = config_ospf_interface(tgen, topo, r1_ospf_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    # Wait for 2 dead interval timer to check neighbor.
-    sleep(8)
-
     step("Verify that the neighbour is not FULL between R1 and R2.")
-
+    # wait for dead time expiry.
+    sleep(6)
     dut = "r1"
-    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut, expected=False)
+    ospf_covergence = verify_ospf_neighbor(
+        tgen, topo, dut=dut, expected=False, attempts=3
+    )
     assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
         ospf_covergence
     )
@@ -452,12 +451,12 @@ def test_ospf_authentication_md5_tc29_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("Verify on R1 ,nbr is deleted for R2 after dead interval expiry")
-
-    step("Waiting for dead time expiry....")
-    sleep(10)
-
+    #  wait till the dead timer expiry
+    sleep(6)
     dut = "r2"
-    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut, expected=False)
+    ospf_covergence = verify_ospf_neighbor(
+        tgen, topo, dut=dut, expected=False, attempts=5
+    )
     assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
         ospf_covergence
     )
@@ -535,7 +534,6 @@ def test_ospf_authentication_md5_tc29_p1(request):
     dut = "r1"
     intf = topo["routers"]["r1"]["links"]["r2"]["interface"]
     shutdown_bringup_interface(tgen, dut, intf, False)
-    sleep(5)
     shutdown_bringup_interface(tgen, dut, intf, True)
     clear_ospf(tgen, "r1")
     r1_ospf_auth = {
@@ -602,15 +600,13 @@ def test_ospf_authentication_different_auths_tc30_p1(request):
     result = config_ospf_interface(tgen, topo, r1_ospf_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    # Wait for 2 dead interval timer to check neighbor.
-    sleep(8)
-    # clear ip ospf after configuring the authentication.
-    # clear_ospf(tgen, "r1")
-
+    # wait for dead timer expiry
+    sleep(6)
     step("Verify that the neighbour is not FULL between R1 and R2.")
-
     dut = "r1"
-    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut, expected=False)
+    ospf_covergence = verify_ospf_neighbor(
+        tgen, topo, dut=dut, expected=False, attempts=5
+    )
     assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
         ospf_covergence
     )
