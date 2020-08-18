@@ -20,12 +20,20 @@
 
 #include <zebra.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+
+#include <err.h>
+
 #include "filter.h"
 #include "if.h"
 #include "vrf.h"
 
 #include "bfd.h"
 #include "bfdd_nb.h"
+#include "bfddp_packet.h"
 #include "lib/version.h"
 #include "lib/command.h"
 
@@ -129,8 +137,10 @@ FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2617,
 		.n_yang_modules = array_size(bfdd_yang_modules))
 
 #define OPTION_CTLSOCK 1001
+#define OPTION_DPLANEADDR 2000
 static const struct option longopts[] = {
 	{"bfdctl", required_argument, NULL, OPTION_CTLSOCK},
+	{"dplaneaddr", required_argument, NULL, OPTION_DPLANEADDR},
 	{0}
 };
 
@@ -160,6 +170,133 @@ const struct bfd_state_str_list state_list[] = {
 	{.str = NULL},
 };
 
+static uint16_t
+parse_port(const char *str)
+{
+	char *nulbyte;
+	long rv;
+
+	errno = 0;
+	rv = strtol(str, &nulbyte, 10);
+	/* No conversion performed. */
+	if (rv == 0 && errno == EINVAL) {
+		fprintf(stderr, "invalid BFD data plane address port: %s\n",
+			str);
+		exit(0);
+	}
+	/* Invalid number range. */
+	if ((rv <= 0 || rv >= 65535) || errno == ERANGE) {
+		fprintf(stderr, "invalid BFD data plane port range: %s\n",
+			str);
+		exit(0);
+	}
+	/* There was garbage at the end of the string. */
+	if (*nulbyte != 0) {
+		fprintf(stderr, "invalid BFD data plane port: %s\n",
+			str);
+		exit(0);
+	}
+
+	return (uint16_t)rv;
+}
+
+static void
+distributed_bfd_init(const char *arg)
+{
+	char *sptr, *saux;
+	size_t slen;
+	socklen_t salen;
+	char addr[64];
+	char type[64];
+	union {
+		struct sockaddr_in sin;
+		struct sockaddr_in6 sin6;
+		struct sockaddr_un sun;
+	} sa;
+
+	/* Basic parsing: find ':' to figure out type part and address part. */
+	sptr = strchr(arg, ':');
+	if (sptr == NULL) {
+		fprintf(stderr, "invalid BFD data plane socket: %s\n", arg);
+		exit(1);
+	}
+
+	/* Calculate type string length. */
+	slen = (size_t)(sptr - arg);
+
+	/* Copy the address part. */
+	sptr++;
+	strlcpy(addr, sptr, sizeof(addr));
+
+	/* Copy type part. */
+	strlcpy(type, arg, slen + 1);
+
+	/* Reset address data. */
+	memset(&sa, 0, sizeof(sa));
+
+	/* Fill the address information. */
+	if (strcmp(type, "unix") == 0) {
+		salen = sizeof(sa.sun);
+		sa.sun.sun_family = AF_UNIX;
+		strlcpy(sa.sun.sun_path, addr, sizeof(sa.sun.sun_path));
+	} else if (strcmp(type, "ipv4") == 0) {
+		salen = sizeof(sa.sin);
+		sa.sin.sin_family = AF_INET;
+
+		/* Parse port if any. */
+		sptr = strchr(addr, ':');
+		if (sptr == NULL) {
+			sa.sin.sin_port = htons(BFD_DATA_PLANE_DEFAULT_PORT);
+		} else {
+			*sptr = 0;
+			sa.sin.sin_port = htons(parse_port(sptr + 1));
+		}
+
+		if (inet_pton(AF_INET, addr, &sa.sin.sin_addr) != 1)
+			errx(1, "%s: inet_pton: invalid address %s", __func__,
+			     addr);
+	} else if (strcmp(type, "ipv6") == 0) {
+		salen = sizeof(sa.sin6);
+		sa.sin6.sin6_family = AF_INET6;
+
+		/* Check for IPv6 enclosures '[]' */
+		sptr = &addr[0];
+		if (*sptr != '[')
+			errx(1, "%s: invalid IPv6 address format: %s", __func__,
+			     addr);
+
+		saux = strrchr(addr, ']');
+		if (saux == NULL)
+			errx(1, "%s: invalid IPv6 address format: %s", __func__,
+			     addr);
+
+		/* Consume the '[]:' part. */
+		slen = saux - sptr;
+		memmove(addr, addr + 1, slen);
+		addr[slen - 1] = 0;
+
+		/* Parse port if any. */
+		saux++;
+		sptr = strrchr(saux, ':');
+		if (sptr == NULL) {
+			sa.sin6.sin6_port = htons(BFD_DATA_PLANE_DEFAULT_PORT);
+		} else {
+			*sptr = 0;
+			sa.sin6.sin6_port = htons(parse_port(sptr + 1));
+		}
+
+		if (inet_pton(AF_INET6, addr, &sa.sin6.sin6_addr) != 1)
+			errx(1, "%s: inet_pton: invalid address %s", __func__,
+			     addr);
+	} else {
+		fprintf(stderr, "invalid BFD data plane socket type: %s\n",
+			type);
+		exit(1);
+	}
+
+	/* Initialize BFD data plane listening socket. */
+	bfd_dplane_init((struct sockaddr *)&sa, salen);
+}
 
 static void bg_init(void)
 {
@@ -185,7 +322,7 @@ static void bg_init(void)
 
 int main(int argc, char *argv[])
 {
-	char ctl_path[512];
+	char ctl_path[512], dplane_addr[512];
 	bool ctlsockused = false;
 	int opt;
 
@@ -194,7 +331,8 @@ int main(int argc, char *argv[])
 
 	frr_preinit(&bfdd_di, argc, argv);
 	frr_opt_add("", longopts,
-		    "      --bfdctl       Specify bfdd control socket\n");
+		    "      --bfdctl       Specify bfdd control socket\n"
+		    "      --dplaneaddr   Specify BFD data plane address\n");
 
 	snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
 		 "", "");
@@ -207,6 +345,10 @@ int main(int argc, char *argv[])
 		case OPTION_CTLSOCK:
 			strlcpy(ctl_path, optarg, sizeof(ctl_path));
 			ctlsockused = true;
+			break;
+		case OPTION_DPLANEADDR:
+			strlcpy(dplane_addr, optarg, sizeof(dplane_addr));
+			bglobal.bg_use_dplane = true;
 			break;
 
 		default:
@@ -247,6 +389,10 @@ int main(int argc, char *argv[])
 
 	/* read configuration file and daemonize  */
 	frr_config_fork();
+
+	/* Initialize BFD data plane listening socket. */
+	if (bglobal.bg_use_dplane)
+		distributed_bfd_init(dplane_addr);
 
 	frr_run(master);
 	/* NOTREACHED */

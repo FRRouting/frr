@@ -269,6 +269,7 @@ struct bfd_session {
 	struct bfd_key key;
 	struct peer_label *pl;
 
+	struct bfd_dplane_ctx *bdc;
 	struct sockaddr_any local_address;
 	struct interface *ifp;
 	struct vrf *vrf;
@@ -424,6 +425,10 @@ struct bfd_vrf_global {
 	struct thread *bg_ev[6];
 };
 
+/* Forward declaration of data plane context struct. */
+struct bfd_dplane_ctx;
+TAILQ_HEAD(dplane_queue, bfd_dplane_ctx);
+
 struct bfd_global {
 	int bg_csock;
 	struct thread *bg_csockev;
@@ -441,7 +446,15 @@ struct bfd_global {
 	 */
 	bool bg_shutdown;
 
+	/* Distributed BFD items. */
+	bool bg_use_dplane;
+	int bg_dplane_sock;
+	struct thread *bg_dplane_sockev;
+	struct dplane_queue bg_dplaneq;
+
 	/* Debug options. */
+	/* Show distributed BFD debug messages. */
+	bool debug_dplane;
 	/* Show all peer state changes events. */
 	bool debug_peer_event;
 	/*
@@ -741,5 +754,17 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf);
 void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf);
 
 int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
+
+/*
+ * dplane.c
+ */
+
+/**
+ * Initialize BFD data plane infrastructure for distributed BFD implementation.
+ *
+ * \param sa listening socket address.
+ * \param salen listening socket address structure length.
+ */
+void bfd_dplane_init(const struct sockaddr *sa, socklen_t salen);
 
 #endif /* _BFD_H_ */
