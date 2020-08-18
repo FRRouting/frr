@@ -714,46 +714,38 @@ class NorthboundImpl
 			grpc::Status status;
 			switch (ret) {
 			case NB_OK:
-				zlog_debug("`-> Result: OK");
 				status = grpc::Status::OK;
 				break;
 			case NB_ERR_NO_CHANGES:
-				zlog_debug("`-> Result: ERR_NO_CHANGES (message: '%s')",
-					   errmsg);
 				status = grpc::Status(grpc::StatusCode::ABORTED,
 						      errmsg);
 				break;
 			case NB_ERR_LOCKED:
-				zlog_debug("`-> Result: ERR_LOCKED (message: '%s')",
-					   errmsg);
 				status = grpc::Status(
 					grpc::StatusCode::UNAVAILABLE, errmsg);
 				break;
 			case NB_ERR_VALIDATION:
-				zlog_debug(
-					"`-> Result: ERR_VALIDATION (message: '%s')",
-					errmsg);
 				status = grpc::Status(
 					grpc::StatusCode::INVALID_ARGUMENT,
 					errmsg);
 				break;
 			case NB_ERR_RESOURCE:
-				zlog_debug(
-					"`-> Result: ERR_RESOURCE (message: '%s')",
-					errmsg);
 				status = grpc::Status(
 					grpc::StatusCode::RESOURCE_EXHAUSTED,
 					errmsg);
 				break;
 			case NB_ERR:
 			default:
-				zlog_debug(
-					"`-> Result: Generic error (message: '%s')",
-					errmsg);
 				status = grpc::Status(
 					grpc::StatusCode::INTERNAL, errmsg);
 				break;
 			}
+
+			if (nb_dbg_client_grpc)
+				zlog_debug("`-> Result: %s (message: '%s')",
+					   nb_err_name((enum nb_error)ret),
+					   errmsg);
+
 			if (ret == NB_OK) {
 				// Response: uint32 transaction_id = 1;
 				if (transaction_id)
