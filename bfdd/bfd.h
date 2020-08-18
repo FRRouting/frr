@@ -767,4 +767,31 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
  */
 void bfd_dplane_init(const struct sockaddr *sa, socklen_t salen);
 
+/**
+ * Attempts to delegate the BFD session liveness detection to hardware.
+ *
+ * \param bs the BFD session data structure.
+ *
+ * \returns
+ * `0` on success and BFD daemon should do nothing or `-1` on failure
+ * and we should fallback to software implementation.
+ */
+int bfd_dplane_add_session(struct bfd_session *bs);
+
+/**
+ * Send new session settings to data plane.
+ *
+ * \param bs the BFD session to update.
+ */
+int bfd_dplane_update_session(const struct bfd_session *bs);
+
+/**
+ * Deletes session from data plane.
+ *
+ * \param bs the BFD session to delete.
+ *
+ * \returns `0` on success otherwise `-1`.
+ */
+int bfd_dplane_delete_session(struct bfd_session *bs);
+
 #endif /* _BFD_H_ */

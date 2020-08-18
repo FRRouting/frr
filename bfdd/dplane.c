@@ -90,6 +90,8 @@ struct bfd_dplane_ctx {
 typedef void (*bfd_dplane_expect_cb)(struct bfddp_message *msg, void *arg);
 
 static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc);
+static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,
+				   struct bfd_session *bs);
 
 /*
  * BFD data plane helper functions.
@@ -580,6 +582,21 @@ static int bfd_dplane_read(struct thread *t)
 	return 0;
 }
 
+static void _bfd_session_register_dplane(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_session *bs = hb->data;
+	struct bfd_dplane_ctx *bdc = arg;
+
+	if (bs->bdc != NULL)
+		return;
+
+	/* Disable software session. */
+	bfd_session_disable(bs);
+
+	/* Move session to data plane. */
+	_bfd_dplane_add_session(bdc, bs);
+}
+
 static struct bfd_dplane_ctx *bfd_dplane_ctx_new(int sock)
 {
 	struct bfd_dplane_ctx *bdc;
@@ -593,6 +610,9 @@ static struct bfd_dplane_ctx *bfd_dplane_ctx_new(int sock)
 	bdc->outbuf = stream_new(BFD_DPLANE_CLIENT_BUF_SIZE);
 	thread_add_read(master, bfd_dplane_read, bdc, sock, &bdc->inbufev);
 
+	/* Register all unattached sessions. */
+	bfd_key_iterate(_bfd_session_register_dplane, bdc);
+
 	return bdc;
 }
 
@@ -605,6 +625,9 @@ static void _bfd_session_unregister_dplane(struct hash_bucket *hb, void *arg)
 		return;
 
 	bs->bdc = NULL;
+
+	/* Fallback to software. */
+	bfd_session_enable(bs);
 }
 
 static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc)
@@ -627,6 +650,71 @@ static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc)
 	THREAD_OFF(bdc->inbufev);
 	THREAD_OFF(bdc->outbufev);
 	XFREE(MTYPE_BFDD_DPLANE_CTX, bdc);
+}
+
+static void _bfd_dplane_session_fill(const struct bfd_session *bs,
+				     struct bfddp_message *msg)
+{
+	uint16_t msglen = sizeof(msg->header) + sizeof(msg->data.session);
+
+	/* Message header. */
+	msg->header.version = BFD_DP_VERSION;
+	msg->header.length = ntohs(msglen);
+	msg->header.type = ntohs(DP_ADD_SESSION);
+
+	/* Message payload. */
+	msg->data.session.dst = bs->key.peer;
+	msg->data.session.src = bs->key.local;
+	msg->data.session.detect_mult = bs->detect_mult;
+
+	if (bs->ifp) {
+		msg->data.session.ifindex = htonl(bs->ifp->ifindex);
+		strlcpy(msg->data.session.ifname, bs->ifp->name,
+			sizeof(msg->data.session.ifname));
+	}
+	if (bs->flags & BFD_SESS_FLAG_MH) {
+		msg->data.session.flags |= SESSION_MULTIHOP;
+		msg->data.session.ttl = bs->mh_ttl;
+	} else
+		msg->data.session.ttl = BFD_TTL_VAL;
+
+	if (bs->flags & BFD_SESS_FLAG_IPV6)
+		msg->data.session.flags |= SESSION_IPV6;
+	if (bs->flags & BFD_SESS_FLAG_ECHO)
+		msg->data.session.flags |= SESSION_ECHO;
+	if (bs->flags & BFD_SESS_FLAG_CBIT)
+		msg->data.session.flags |= SESSION_CBIT;
+	if (bs->flags & BFD_SESS_FLAG_PASSIVE)
+		msg->data.session.flags |= SESSION_PASSIVE;
+	if (bs->flags & BFD_SESS_FLAG_SHUTDOWN)
+		msg->data.session.flags |= SESSION_SHUTDOWN;
+
+	msg->data.session.flags = htonl(msg->data.session.flags);
+	msg->data.session.lid = htonl(bs->discrs.my_discr);
+	msg->data.session.min_tx = htonl(bs->timers.desired_min_tx);
+	msg->data.session.min_rx = htonl(bs->timers.required_min_rx);
+	msg->data.session.min_echo_rx = htonl(bs->timers.required_min_echo);
+}
+
+static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,
+				   struct bfd_session *bs)
+{
+	int rv;
+
+	/* Associate session. */
+	bs->bdc = bdc;
+
+	/* Reset previous state. */
+	bs->remote_diag = 0;
+	bs->local_diag = 0;
+	bs->ses_state = PTM_BFD_DOWN;
+
+	/* Enqueue message to data plane client. */
+	rv = bfd_dplane_update_session(bs);
+	if (rv != 0)
+		bs->bdc = NULL;
+
+	return rv;
 }
 
 /*
@@ -737,4 +825,54 @@ void bfd_dplane_init(const struct sockaddr *sa, socklen_t salen)
 
 	/* Observe shutdown events. */
 	hook_register(frr_fini, bfd_dplane_finish_late);
+}
+
+int bfd_dplane_add_session(struct bfd_session *bs)
+{
+	struct bfd_dplane_ctx *bdc;
+
+	/* Select a data plane client to install session. */
+	TAILQ_FOREACH (bdc, &bglobal.bg_dplaneq, entry) {
+		if (_bfd_dplane_add_session(bdc, bs) == 0)
+			return 0;
+	}
+
+	return -1;
+}
+
+int bfd_dplane_update_session(const struct bfd_session *bs)
+{
+	struct bfddp_message msg = {};
+
+	if (bs->bdc == NULL)
+		return 0;
+
+	_bfd_dplane_session_fill(bs, &msg);
+
+	/* Enqueue message to data plane client. */
+	return bfd_dplane_enqueue(bs->bdc, &msg, ntohs(msg.header.length));
+}
+
+int bfd_dplane_delete_session(struct bfd_session *bs)
+{
+	struct bfddp_message msg = {};
+	int rv;
+
+	/* Not using data plane, just return success. */
+	if (bs->bdc == NULL)
+		return 0;
+
+	/* Fill most of the common fields. */
+	_bfd_dplane_session_fill(bs, &msg);
+
+	/* Change the message type. */
+	msg.header.type = ntohs(DP_DELETE_SESSION);
+
+	/* Enqueue message to data plane client. */
+	rv = bfd_dplane_enqueue(bs->bdc, &msg, ntohs(msg.header.length));
+
+	/* Remove association. */
+	bs->bdc = NULL;
+
+	return rv;
 }

@@ -216,6 +216,9 @@ void bfd_session_apply(struct bfd_session *bs)
 	    && (bs->timers.desired_min_tx != min_tx
 		|| bs->timers.required_min_rx != min_rx))
 		bfd_set_polling(bs);
+
+	/* Send updated information to data plane. */
+	bfd_dplane_update_session(bs);
 }
 
 void bfd_profile_remove(struct bfd_session *bs)
@@ -293,6 +296,10 @@ int bfd_session_enable(struct bfd_session *bs)
 	struct vrf *vrf = NULL;
 	int psock;
 
+	/* We are using data plane, we don't need software. */
+	if (bs->bdc)
+		return 0;
+
 	/*
 	 * If the interface or VRF doesn't exist, then we must register
 	 * the session but delay its start.
@@ -332,9 +339,14 @@ int bfd_session_enable(struct bfd_session *bs)
 		bs->vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	assert(bs->vrf);
 
-	if (bs->key.ifname[0]
-	    && CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
-		bs->ifp = ifp;
+	/* Assign interface pointer (if any). */
+	bs->ifp = ifp;
+
+	/* Attempt to use data plane. */
+	if (bglobal.bg_use_dplane && bfd_dplane_add_session(bs) == 0) {
+		control_notify_config(BCM_NOTIFY_CONFIG_ADD, bs);
+		return 0;
+	}
 
 	/* Sanity check: don't leak open sockets. */
 	if (bs->sock != -1) {
@@ -383,6 +395,10 @@ int bfd_session_enable(struct bfd_session *bs)
  */
 void bfd_session_disable(struct bfd_session *bs)
 {
+	/* We are using data plane, we don't need software. */
+	if (bs->bdc)
+		return;
+
 	/* Free up socket resources. */
 	if (bs->sock != -1) {
 		close(bs->sock);
@@ -803,6 +819,9 @@ void bfd_session_free(struct bfd_session *bs)
 	struct bfd_session_observer *bso;
 
 	bfd_session_disable(bs);
+
+	/* Remove session from data plane if any. */
+	bfd_dplane_delete_session(bs);
 
 	bfd_key_delete(bs->key);
 	bfd_id_delete(bs->discrs.my_discr);
@@ -1267,14 +1286,18 @@ void bfd_set_echo(struct bfd_session *bs, bool echo)
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
 
 		/* Activate/update echo receive timeout timer. */
-		bs_echo_timer_handler(bs);
+		if (bs->bdc == NULL)
+			bs_echo_timer_handler(bs);
 	} else {
 		/* Check if echo mode is already disabled. */
 		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 			return;
 
 		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
-		ptm_bfd_echo_stop(bs);
+
+		/* Deactivate timeout timer. */
+		if (bs->bdc == NULL)
+			ptm_bfd_echo_stop(bs);
 	}
 }
 
@@ -1299,6 +1322,14 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
 
+		/* Handle data plane shutdown case. */
+		if (bs->bdc) {
+			bs->ses_state = PTM_BFD_ADM_DOWN;
+			bfd_dplane_update_session(bs);
+			control_notify(bs, bs->ses_state);
+			return;
+		}
+
 		/* Disable all events. */
 		bfd_recvtimer_delete(bs);
 		bfd_echo_recvtimer_delete(bs);
@@ -1318,6 +1349,14 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 			return;
 
 		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+
+		/* Handle data plane shutdown case. */
+		if (bs->bdc) {
+			bs->ses_state = PTM_BFD_DOWN;
+			bfd_dplane_update_session(bs);
+			control_notify(bs, bs->ses_state);
+			return;
+		}
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_DOWN;
