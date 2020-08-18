@@ -106,7 +106,7 @@ struct bgp_evpn_es {
 	/* List of MAC-IP VNI paths using this ES as destination -
 	 * element is bgp_path_info_extra->es_info
 	 */
-	struct list *macip_path_list;
+	struct list *macip_evi_path_list;
 
 	/* Number of remote VNIs referencing this ES */
 	uint32_t remote_es_evi_cnt;

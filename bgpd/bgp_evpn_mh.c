@@ -1433,7 +1433,7 @@ void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info)
 		zlog_debug("vni %u path %pFX unlinked from es %s", es_info->vni,
 			   &pi->net->p, es->esi_str);
 
-	list_delete_node(es->macip_path_list, &es_info->es_listnode);
+	list_delete_node(es->macip_evi_path_list, &es_info->es_listnode);
 	es_info->es = NULL;
 
 	/* if there are no other references against the ES it
@@ -1486,7 +1486,7 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 	/* link mac-ip path to the new destination ES */
 	es_info->es = es;
 	listnode_init(&es_info->es_listnode, es_info);
-	listnode_add(es->macip_path_list, &es_info->es_listnode);
+	listnode_add(es->macip_evi_path_list, &es_info->es_listnode);
 }
 
 /* XXX - When a remote ES is added to a VRF, routes using that as
@@ -1515,7 +1515,7 @@ bgp_evpn_es_path_update_on_vtep_chg(struct bgp_evpn_es_vtep *es_vtep,
 		zlog_debug("update paths linked to es %s on vtep chg",
 			   es->esi_str);
 
-	for (ALL_LIST_ELEMENTS_RO(es->macip_path_list, node, es_info)) {
+	for (ALL_LIST_ELEMENTS_RO(es->macip_evi_path_list, node, es_info)) {
 		pi = es_info->pi;
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
 			continue;
@@ -1591,8 +1591,8 @@ static struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi)
 	listset_app_node_mem(es->es_vrf_list);
 
 	/* Initialise the route list used for efficient event handling */
-	es->macip_path_list = list_new();
-	listset_app_node_mem(es->macip_path_list);
+	es->macip_evi_path_list = list_new();
+	listset_app_node_mem(es->macip_evi_path_list);
 
 	QOBJ_REG(es, bgp_evpn_es);
 
@@ -1606,7 +1606,7 @@ static struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi)
 static void bgp_evpn_es_free(struct bgp_evpn_es *es, const char *caller)
 {
 	if ((es->flags & (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE))
-	    || listcount(es->macip_path_list))
+	    || listcount(es->macip_evi_path_list))
 		return;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
@@ -1616,7 +1616,7 @@ static void bgp_evpn_es_free(struct bgp_evpn_es *es, const char *caller)
 	list_delete(&es->es_evi_list);
 	list_delete(&es->es_vrf_list);
 	list_delete(&es->es_vtep_list);
-	list_delete(&es->macip_path_list);
+	list_delete(&es->macip_evi_path_list);
 	bgp_table_unlock(es->route_table);
 
 	/* remove the entry from various databases */
@@ -1692,8 +1692,9 @@ bool bgp_evpn_es_add_l3_ecomm_ok(esi_t *esi)
 		|| bgp_evpn_local_es_is_active(es));
 }
 
-/* Update all MAC-IP routes associated with the ES. When the ES is down
- * the routes are advertised without the L3 extcomm
+/* Update all local MAC-IP routes in the VNI routing table associated
+ * with the ES. When the ES is down the routes are advertised without
+ * the L3 extcomm
  */
 static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
 {
@@ -1712,7 +1713,7 @@ static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
 			   es->esi_str);
 
 	bgp = bgp_get_evpn();
-	for (ALL_LIST_ELEMENTS_RO(es->macip_path_list, node, es_info)) {
+	for (ALL_LIST_ELEMENTS_RO(es->macip_evi_path_list, node, es_info)) {
 		pi = es_info->pi;
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
 			continue;
@@ -2184,7 +2185,7 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		json_object_int_add(json, "vrfCount",
 				    listcount(es->es_vrf_list));
 		json_object_int_add(json, "macipPathCount",
-				    listcount(es->macip_path_list));
+				    listcount(es->macip_evi_path_list));
 		json_object_int_add(json, "inconsistentVniVtepCount",
 				es->incons_evi_vtep_cnt);
 		if (listcount(es->es_vtep_list)) {
@@ -2233,7 +2234,7 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 				es->remote_es_evi_cnt);
 		vty_out(vty, " VRF Count: %d\n", listcount(es->es_vrf_list));
 		vty_out(vty, " MACIP Path Count: %d\n",
-			listcount(es->macip_path_list));
+			listcount(es->macip_evi_path_list));
 		vty_out(vty, " Inconsistent VNI VTEP Count: %d\n",
 				es->incons_evi_vtep_cnt);
 		if (es->inconsistencies) {
@@ -2576,11 +2577,6 @@ static void bgp_evpn_es_vrf_delete(struct bgp_evpn_es_vrf *es_vrf)
 		zlog_debug("es %s vrf %u nhg %u delete", es->esi_str,
 			   bgp_vrf->vrf_id, es_vrf->nhg_id);
 
-	/* update paths in the VRF that may already be associated with
-	 * this destination ES
-	 */
-	bgp_evpn_es_path_update_on_es_vrf_chg(es_vrf, false);
-
 	/* Remove the NHG resources */
 	bgp_evpn_l3nhg_deactivate(es_vrf);
 	if (es_vrf->nhg_id)
@@ -2595,6 +2591,11 @@ static void bgp_evpn_es_vrf_delete(struct bgp_evpn_es_vrf *es_vrf)
 
 	/* remove from the VRF-ESI rb tree */
 	RB_REMOVE(bgp_es_vrf_rb_head, &bgp_vrf->es_vrf_rb_tree, es_vrf);
+
+	/* update paths in the VRF that may already be associated with
+	 * this destination ES
+	 */
+	bgp_evpn_es_path_update_on_es_vrf_chg(es_vrf, false);
 
 	XFREE(MTYPE_BGP_EVPN_ES_VRF, es_vrf);
 }

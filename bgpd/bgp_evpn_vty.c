@@ -687,8 +687,8 @@ static void show_esi_routes(struct bgp *bgp,
 }
 
 /* Display all MAC-IP VNI routes linked to an ES */
-static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
-					   json_object *json, int detail)
+static void bgp_evpn_show_routes_mac_ip_evi_es(struct vty *vty, esi_t *esi,
+					       json_object *json, int detail)
 {
 	struct bgp_node *rn;
 	struct bgp_path_info *pi;
@@ -713,7 +713,8 @@ static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
 		if (esi && memcmp(esi, &es->esi, sizeof(*esi)))
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(es->macip_path_list, node, es_info)) {
+		for (ALL_LIST_ELEMENTS_RO(es->macip_evi_path_list, node,
+					  es_info)) {
 			json_object *json_path = NULL;
 
 			pi = es_info->pi;
@@ -4658,12 +4659,12 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_all,
 }
 
 DEFPY_HIDDEN(
-	show_bgp_l2vpn_evpn_route_mac_ip_es,
-	show_bgp_l2vpn_evpn_route_mac_ip_es_cmd,
-	"show bgp l2vpn evpn route mac-ip-es [NAME$esi_str|detail$detail] [json$uj]",
+	show_bgp_l2vpn_evpn_route_mac_ip_evi_es,
+	show_bgp_l2vpn_evpn_route_mac_ip_evi_es_cmd,
+	"show bgp l2vpn evpn route mac-ip-evi-es [NAME$esi_str|detail$detail] [json$uj]",
 	SHOW_STR BGP_STR L2VPN_HELP_STR EVPN_HELP_STR
 	"EVPN route information\n"
-	"MAC IP routes linked to the ES\n"
+	"MAC IP routes in the EVI tables linked to the ES\n"
 	"ES ID\n"
 	"Detailed information\n" JSON_STR)
 {
@@ -4683,7 +4684,7 @@ DEFPY_HIDDEN(
 
 	if (uj)
 		json = json_object_new_object();
-	bgp_evpn_show_routes_mac_ip_es(vty, esi_p, json, !!detail);
+	bgp_evpn_show_routes_mac_ip_evi_es(vty, esi_p, json, !!detail);
 	if (uj) {
 		vty_out(vty, "%s\n",
 			json_object_to_json_string_ext(
@@ -5968,7 +5969,8 @@ void bgp_ethernetvpn_init(void)
 			&show_bgp_l2vpn_evpn_route_vni_multicast_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_vni_macip_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_vni_all_cmd);
-	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_mac_ip_es_cmd);
+	install_element(VIEW_NODE,
+			&show_bgp_l2vpn_evpn_route_mac_ip_evi_es_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_import_rt_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vrf_import_rt_cmd);
 
