@@ -818,7 +818,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				memset(send_attr_str, 0, BUFSIZ);
 				send_attr_printed = 0;
 				bgp_dump_attr(adv->baa->attr, send_attr_str,
-					      BUFSIZ);
+					      sizeof(send_attr_str));
 			}
 		}
 
@@ -1128,7 +1128,7 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 
 		attrstr[0] = '\0';
 
-		bgp_dump_attr(attr, attrstr, BUFSIZ);
+		bgp_dump_attr(attr, attrstr, sizeof(attrstr));
 
 		if (addpath_encode)
 			snprintf(tx_id_buf, sizeof(tx_id_buf),
