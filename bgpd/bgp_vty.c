@@ -12746,11 +12746,13 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 					  use_json, json);
 		}
 		json_object_free(json);
+		json = NULL;
 	}
 
 	if (use_json) {
 		vty_out(vty, "}\n");
-		json_object_free(json);
+		if (json)
+			json_object_free(json);
 	}
 	else if (!nbr_output)
 		vty_out(vty, "%% BGP instance not found\n");
