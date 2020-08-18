@@ -417,7 +417,7 @@ struct zapi_nexthop {
 	uint32_t srte_color;
 
 	/* Debug Area */
-	uint8_t _space[16 * 4];
+	uint8_t _space[16 * 2];
 };
 
 /*
