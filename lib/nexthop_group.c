@@ -986,7 +986,7 @@ void nexthop_group_write_nexthop(struct vty *vty, const struct nexthop *nh)
 
 	if (nh->vrf_id != VRF_DEFAULT) {
 		vrf = vrf_lookup_by_id(nh->vrf_id);
-		vty_out(vty, " nexthop-vrf %s", vrf->name);
+		vty_out(vty, " nexthop-vrf %s", VRF_LOGNAME(vrf));
 	}
 
 	if (nh->nh_label && nh->nh_label->num_labels > 0) {
