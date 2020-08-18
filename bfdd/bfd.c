@@ -2028,6 +2028,16 @@ static int bfd_vrf_enable(struct vrf *vrf)
 		bvrf = XCALLOC(MTYPE_BFDD_VRF, sizeof(struct bfd_vrf_global));
 		bvrf->vrf = vrf;
 		vrf->info = (void *)bvrf;
+
+		/* Disable sockets if using data plane. */
+		if (bglobal.bg_use_dplane) {
+			bvrf->bg_shop = -1;
+			bvrf->bg_mhop = -1;
+			bvrf->bg_shop6 = -1;
+			bvrf->bg_mhop6 = -1;
+			bvrf->bg_echo = -1;
+			bvrf->bg_echov6 = -1;
+		}
 	} else
 		bvrf = vrf->info;
 
@@ -2049,25 +2059,24 @@ static int bfd_vrf_enable(struct vrf *vrf)
 		if (!bvrf->bg_echov6)
 			bvrf->bg_echov6 = bp_echov6_socket(vrf);
 
-		/* Add descriptors to the event loop. */
-		if (!bvrf->bg_ev[0])
-			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
-					&bvrf->bg_ev[0]);
-		if (!bvrf->bg_ev[1])
-			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
-					&bvrf->bg_ev[1]);
+		if (!bvrf->bg_ev[0] && bvrf->bg_shop != -1)
+			thread_add_read(master, bfd_recv_cb, bvrf,
+					bvrf->bg_shop, &bvrf->bg_ev[0]);
+		if (!bvrf->bg_ev[1] && bvrf->bg_mhop != -1)
+			thread_add_read(master, bfd_recv_cb, bvrf,
+					bvrf->bg_mhop, &bvrf->bg_ev[1]);
 		if (!bvrf->bg_ev[2] && bvrf->bg_shop6 != -1)
-			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
-					&bvrf->bg_ev[2]);
+			thread_add_read(master, bfd_recv_cb, bvrf,
+					bvrf->bg_shop6, &bvrf->bg_ev[2]);
 		if (!bvrf->bg_ev[3] && bvrf->bg_mhop6 != -1)
-			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
-					&bvrf->bg_ev[3]);
-		if (!bvrf->bg_ev[4])
-			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
-					&bvrf->bg_ev[4]);
+			thread_add_read(master, bfd_recv_cb, bvrf,
+					bvrf->bg_mhop6, &bvrf->bg_ev[3]);
+		if (!bvrf->bg_ev[4] && bvrf->bg_echo != -1)
+			thread_add_read(master, bfd_recv_cb, bvrf,
+					bvrf->bg_echo, &bvrf->bg_ev[4]);
 		if (!bvrf->bg_ev[5] && bvrf->bg_echov6 != -1)
-			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
-					&bvrf->bg_ev[5]);
+			thread_add_read(master, bfd_recv_cb, bvrf,
+					bvrf->bg_echov6, &bvrf->bg_ev[5]);
 	}
 	if (vrf->vrf_id != VRF_DEFAULT) {
 		bfdd_zclient_register(vrf->vrf_id);
