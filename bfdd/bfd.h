@@ -794,4 +794,16 @@ int bfd_dplane_update_session(const struct bfd_session *bs);
  */
 int bfd_dplane_delete_session(struct bfd_session *bs);
 
+/**
+ * Asks the data plane for updated counters and update the session data
+ * structure.
+ *
+ * \param bs the BFD session that needs updating.
+ *
+ * \returns `0` on success otherwise `-1` on failure.
+ */
+int bfd_dplane_update_session_counters(struct bfd_session *bs);
+
+void bfd_dplane_show_counters(struct vty *vty);
+
 #endif /* _BFD_H_ */

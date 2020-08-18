@@ -244,6 +244,24 @@ static void bfd_dplane_debug_message(const struct bfddp_message *msg)
 	}
 }
 
+/**
+ * Gets the next unused non zero identification.
+ *
+ * \param bdc the data plane context.
+ *
+ * \returns next usable id.
+ */
+static uint16_t bfd_dplane_next_id(struct bfd_dplane_ctx *bdc)
+{
+	bdc->last_id++;
+
+	/* Don't use reserved id `0`. */
+	if (bdc->last_id == 0)
+		bdc->last_id = 1;
+
+	return bdc->last_id;
+}
+
 static ssize_t bfd_dplane_flush(struct bfd_dplane_ctx *bdc)
 {
 	ssize_t total = 0;
@@ -717,6 +735,52 @@ static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,
 	return rv;
 }
 
+static void _bfd_dplane_update_session_counters(struct bfddp_message *msg,
+						void *arg)
+{
+	struct bfd_session *bs = arg;
+
+	bs->stats.rx_ctrl_pkt =
+		be64toh(msg->data.session_counters.control_input_packets);
+	bs->stats.tx_ctrl_pkt =
+		be64toh(msg->data.session_counters.control_output_packets);
+	bs->stats.rx_echo_pkt =
+		be64toh(msg->data.session_counters.echo_input_packets);
+	bs->stats.tx_echo_pkt =
+		be64toh(msg->data.session_counters.echo_output_bytes);
+}
+
+/**
+ * Send message to data plane requesting the session counters.
+ *
+ * \param bs the BFD session.
+ *
+ * \returns `0` on failure or the request id.
+ */
+static uint16_t bfd_dplane_request_counters(const struct bfd_session *bs)
+{
+	struct bfddp_message msg = {};
+	size_t msglen = sizeof(msg.header) + sizeof(msg.data.counters_req);
+
+	/* Fill header information. */
+	msg.header.version = BFD_DP_VERSION;
+	msg.header.length = htons(msglen);
+	msg.header.type = htons(DP_REQUEST_SESSION_COUNTERS);
+	msg.header.id = htons(bfd_dplane_next_id(bs->bdc));
+
+	/* Session to get counters. */
+	msg.data.counters_req.lid = htonl(bs->discrs.my_discr);
+
+	/* If enqueue failed, let caller know. */
+	if (bfd_dplane_enqueue(bs->bdc, &msg, msglen) == -1)
+		return 0;
+
+	/* Flush socket. */
+	bfd_dplane_flush(bs->bdc);
+
+	return ntohs(msg.header.id);
+}
+
 /*
  * Data plane listening socket.
  */
@@ -873,6 +937,60 @@ int bfd_dplane_delete_session(struct bfd_session *bs)
 
 	/* Remove association. */
 	bs->bdc = NULL;
+
+	return rv;
+}
+
+/*
+ * Data plane CLI.
+ */
+void bfd_dplane_show_counters(struct vty *vty)
+{
+	struct bfd_dplane_ctx *bdc;
+
+#define SHOW_COUNTER(label, counter, formatter)                                \
+	vty_out(vty, "%28s: %" formatter "\n", (label), (counter))
+
+	vty_out(vty, "%28s\n%28s\n", "Data plane", "==========");
+	TAILQ_FOREACH (bdc, &bglobal.bg_dplaneq, entry) {
+		SHOW_COUNTER("File descriptor", bdc->sock, "d");
+		SHOW_COUNTER("Input bytes", bdc->in_bytes, PRIu64);
+		SHOW_COUNTER("Input bytes peak", bdc->in_bytes_peak, PRIu64);
+		SHOW_COUNTER("Input messages", bdc->in_msgs, PRIu64);
+		SHOW_COUNTER("Input current usage", STREAM_READABLE(bdc->inbuf),
+			     "zu");
+		SHOW_COUNTER("Output bytes", bdc->out_bytes, PRIu64);
+		SHOW_COUNTER("Output bytes peak", bdc->out_bytes_peak, PRIu64);
+		SHOW_COUNTER("Output messages", bdc->out_msgs, PRIu64);
+		SHOW_COUNTER("Output full events", bdc->out_fullev, PRIu64);
+		SHOW_COUNTER("Output current usage",
+			     STREAM_READABLE(bdc->inbuf), "zu");
+		vty_out(vty, "\n");
+	}
+#undef SHOW_COUNTER
+}
+
+int bfd_dplane_update_session_counters(struct bfd_session *bs)
+{
+	uint16_t id;
+	int rv;
+
+	/* If session is not using data plane, then just return success. */
+	if (bs->bdc == NULL)
+		return 0;
+
+	/* Make the request. */
+	id = bfd_dplane_request_counters(bs);
+	if (id == 0) {
+		zlog_debug("%s: counters request failed", __func__);
+		return -1;
+	}
+
+	/* Handle interruptions. */
+	do {
+		rv = bfd_dplane_expect(bs->bdc, id,
+				       _bfd_dplane_update_session_counters, bs);
+	} while (rv == -2);
 
 	return rv;
 }

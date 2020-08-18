@@ -348,6 +348,11 @@ static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
 {
 	_display_peer_header(vty, bs);
 
+	/* Ask data plane for updated counters. */
+	if (bfd_dplane_update_session_counters(bs) == -1)
+		zlog_debug("%s: failed to update BFD session counters (%s)",
+			   __func__, bs_to_string(bs));
+
 	vty_out(vty, "\t\tControl packet input: %" PRIu64 " packets\n",
 		bs->stats.rx_ctrl_pkt);
 	vty_out(vty, "\t\tControl packet output: %" PRIu64 " packets\n",
@@ -368,6 +373,11 @@ static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
 static struct json_object *__display_peer_counters_json(struct bfd_session *bs)
 {
 	struct json_object *jo = _peer_json_header(bs);
+
+	/* Ask data plane for updated counters. */
+	if (bfd_dplane_update_session_counters(bs) == -1)
+		zlog_debug("%s: failed to update BFD session counters (%s)",
+			   __func__, bs_to_string(bs));
 
 	json_object_int_add(jo, "control-packet-input", bs->stats.rx_ctrl_pkt);
 	json_object_int_add(jo, "control-packet-output", bs->stats.tx_ctrl_pkt);
@@ -748,6 +758,16 @@ DEFPY(bfd_show_peers_brief, bfd_show_peers_brief_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_bfd_distributed, show_bfd_distributed_cmd,
+      "show bfd distributed",
+      SHOW_STR
+      "Bidirection Forwarding Detection\n"
+      "Show BFD data plane (distributed BFD) statistics\n")
+{
+	bfd_dplane_show_counters(vty);
+	return CMD_SUCCESS;
+}
+
 DEFPY(
 	bfd_debug_distributed, bfd_debug_distributed_cmd,
 	"[no] debug bfd distributed",
@@ -970,6 +990,7 @@ void bfdd_vty_init(void)
 	install_element(ENABLE_NODE, &bfd_show_peers_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peer_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peers_brief_cmd);
+	install_element(ENABLE_NODE, &show_bfd_distributed_cmd);
 	install_element(ENABLE_NODE, &show_debugging_bfd_cmd);
 
 	install_element(ENABLE_NODE, &bfd_debug_distributed_cmd);
