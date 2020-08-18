@@ -35,6 +35,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "qobj.h"
+#include "zclient.h"
 #include "vrf.h"
 #include "spf_backoff.h"
 #include "lib/northbound_cli.h"
@@ -167,29 +168,32 @@ void isis_master_init(struct thread_master *master)
 	im->master = master;
 }
 
-void isis_global_instance_create()
+void isis_global_instance_create(const char *vrf_name)
 {
 	struct isis *isis;
 
-	isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	isis = isis_lookup_by_vrfname(vrf_name);
 	if (isis == NULL) {
-		isis = isis_new(VRF_DEFAULT);
+		isis = isis_new(vrf_name);
 		isis_add(isis);
 	}
 }
 
-struct isis *isis_new(vrf_id_t vrf_id)
+struct isis *isis_new(const char *vrf_name)
 {
 	struct vrf *vrf;
 	struct isis *isis;
 
 	isis = XCALLOC(MTYPE_ISIS, sizeof(struct isis));
-	isis->vrf_id = vrf_id;
-	vrf = vrf_lookup_by_id(vrf_id);
+	vrf = vrf_lookup_by_name(vrf_name);
 
 	if (vrf) {
+		isis->vrf_id = vrf->vrf_id;
 		isis_vrf_link(isis, vrf);
 		isis->name = XSTRDUP(MTYPE_ISIS, vrf->name);
+	} else {
+		isis->vrf_id = VRF_UNKNOWN;
+		isis->name = XSTRDUP(MTYPE_ISIS, vrf_name);
 	}
 
 	if (IS_DEBUG_EVENTS)
@@ -223,15 +227,20 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 		if (vrf) {
 			isis = isis_lookup_by_vrfid(vrf->vrf_id);
 			if (isis == NULL) {
-				isis = isis_new(vrf->vrf_id);
+				isis = isis_new(vrf_name);
 				isis_add(isis);
 			}
-		} else
-			return NULL;
+		} else {
+			isis = isis_lookup_by_vrfid(VRF_UNKNOWN);
+			if (isis == NULL) {
+				isis = isis_new(vrf_name);
+				isis_add(isis);
+			}
+		}
 	} else {
 		isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 		if (isis == NULL) {
-			isis = isis_new(VRF_DEFAULT);
+			isis = isis_new(VRF_DEFAULT_NAME);
 			isis_add(isis);
 		}
 	}
@@ -334,6 +343,24 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	QOBJ_REG(area, isis_area);
 
 	return area;
+}
+
+struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,
+					  const char *vrf_name)
+{
+	struct isis_area *area;
+	struct listnode *node;
+	struct isis *isis = NULL;
+
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis == NULL)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+		if (strcmp(area->area_tag, area_tag) == 0)
+			return area;
+
+	return NULL;
 }
 
 struct isis_area *isis_area_lookup(const char *area_tag, vrf_id_t vrf_id)
@@ -447,6 +474,95 @@ void isis_area_destroy(struct isis_area *area)
 
 	XFREE(MTYPE_ISIS_AREA, area);
 
+}
+
+/* This is hook function for vrf create called as part of vrf_init */
+static int isis_vrf_new(struct vrf *vrf)
+{
+	if (IS_DEBUG_EVENTS)
+		zlog_debug("%s: VRF Created: %s(%u)", __func__, vrf->name,
+			   vrf->vrf_id);
+
+	return 0;
+}
+
+/* This is hook function for vrf delete call as part of vrf_init */
+static int isis_vrf_delete(struct vrf *vrf)
+{
+	if (IS_DEBUG_EVENTS)
+		zlog_debug("%s: VRF Deletion: %s(%u)", __func__, vrf->name,
+			   vrf->vrf_id);
+
+	return 0;
+}
+
+static int isis_vrf_enable(struct vrf *vrf)
+{
+	struct isis *isis;
+	vrf_id_t old_vrf_id;
+
+	if (IS_DEBUG_EVENTS)
+		zlog_debug("%s: VRF %s id %u enabled", __func__, vrf->name,
+			   vrf->vrf_id);
+
+	isis = isis_lookup_by_vrfname(vrf->name);
+	if (isis) {
+		if (isis->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
+			XFREE(MTYPE_ISIS, isis->name);
+			isis->name = NULL;
+		}
+		old_vrf_id = isis->vrf_id;
+		/* We have instance configured, link to VRF and make it "up". */
+		isis_vrf_link(isis, vrf);
+		if (IS_DEBUG_EVENTS)
+			zlog_debug(
+				"%s: isis linked to vrf %s vrf_id %u (old id %u)",
+				__func__, vrf->name, isis->vrf_id, old_vrf_id);
+		if (old_vrf_id != isis->vrf_id) {
+			frr_with_privs (&isisd_privs) {
+				/* stop zebra redist to us for old vrf */
+				zclient_send_dereg_requests(zclient,
+							    old_vrf_id);
+				/* start zebra redist to us for new vrf */
+				isis_zebra_vrf_register(isis);
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int isis_vrf_disable(struct vrf *vrf)
+{
+	struct isis *isis;
+	vrf_id_t old_vrf_id = VRF_UNKNOWN;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+
+	if (IS_DEBUG_EVENTS)
+		zlog_debug("%s: VRF %s id %d disabled.", __func__, vrf->name,
+			   vrf->vrf_id);
+	isis = isis_lookup_by_vrfname(vrf->name);
+	if (isis) {
+		old_vrf_id = isis->vrf_id;
+
+		/* We have instance configured, unlink
+		 * from VRF and make it "down".
+		 */
+		isis_vrf_unlink(isis, vrf);
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("%s: isis old_vrf_id %d unlinked", __func__,
+				   old_vrf_id);
+	}
+
+	return 0;
+}
+
+void isis_vrf_init(void)
+{
+	vrf_init(isis_vrf_new, isis_vrf_enable, isis_vrf_disable,
+		 isis_vrf_delete, isis_vrf_enable);
 }
 
 void isis_finish(struct isis *isis)

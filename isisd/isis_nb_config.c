@@ -53,16 +53,19 @@ int isis_instance_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
 	const char *area_tag;
+	const char *vrf_name;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-
+	vrf_name = yang_dnode_get_string(args->dnode, "./vrf");
 	area_tag = yang_dnode_get_string(args->dnode, "./area-tag");
-	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	isis_global_instance_create(vrf_name);
+	area = isis_area_lookup_by_vrf(area_tag, vrf_name);
 	if (area)
 		return NB_ERR_INCONSISTENCY;
 
-	area = isis_area_create(area_tag, VRF_DEFAULT_NAME);
+	area = isis_area_create(area_tag, vrf_name);
+
 	/* save area in dnode to avoid looking it up all the time */
 	nb_running_set_entry(args->dnode, area);
 
@@ -75,7 +78,6 @@ int isis_instance_destroy(struct nb_cb_destroy_args *args)
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-
 	area = nb_running_unset_entry(args->dnode);
 	isis_area_destroy(area);
 
@@ -116,7 +118,6 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 		area = nb_running_get_entry(args->dnode, NULL, true);
 		if (area == NULL)
 			return NB_ERR_VALIDATION;
-
 		addr.addr_len = dotformat2buff(buff, net_title);
 		memcpy(addr.area_addr, buff, addr.addr_len);
 		if (addr.area_addr[addr.addr_len - 1] != 0) {
@@ -148,6 +149,7 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 	case NB_EV_APPLY:
 		area = nb_running_get_entry(args->dnode, NULL, true);
 		addrr = args->resource->ptr;
+		assert(area);
 
 		if (area->isis->sysid_set == 0) {
 			/*
@@ -1830,8 +1832,10 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area = NULL;
 	struct interface *ifp;
-	struct isis_circuit *circuit;
+	struct isis_circuit *circuit = NULL;
+	struct vrf *vrf;
 	const char *area_tag = yang_dnode_get_string(args->dnode, "./area-tag");
+	const char *vrf_name = yang_dnode_get_string(args->dnode, "./vrf");
 	uint32_t min_mtu, actual_mtu;
 
 	switch (args->event) {
@@ -1846,8 +1850,17 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 		/* zebra might not know yet about the MTU - nothing we can do */
 		if (!ifp || ifp->mtu == 0)
 			break;
+		vrf = vrf_lookup_by_id(ifp->vrf_id);
+		if (ifp->vrf_id != VRF_DEFAULT && vrf
+		    && strcmp(vrf->name, vrf_name) != 0) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "interface %s not in vrf %s\n", ifp->name,
+				 vrf_name);
+			return NB_ERR_VALIDATION;
+		}
 		actual_mtu =
 			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
+
 		area = isis_area_lookup(area_tag, ifp->vrf_id);
 		if (area)
 			min_mtu = area->lsp_mtu;
@@ -1866,9 +1879,7 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 		}
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		if (ifp)
-			area = isis_area_lookup(area_tag, ifp->vrf_id);
+		area = isis_area_lookup_by_vrf(area_tag, vrf_name);
 		/* The area should have already be created. We are
 		 * setting the priority of the global isis area creation
 		 * slightly lower, so it should be executed first, but I
@@ -1881,7 +1892,7 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 				__func__, area_tag);
 			abort();
 		}
-
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		circuit = isis_circuit_create(area, ifp);
 		assert(circuit
 		       && (circuit->state == C_STATE_CONF
@@ -1949,6 +1960,44 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 			snprintf(args->errmsg, args->errmsg_len,
 				 "ISIS circuit is already defined on %s",
 				 circuit->area->area_tag);
+			return NB_ERR_VALIDATION;
+		}
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/vrf
+ */
+int lib_interface_isis_vrf_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct vrf *vrf;
+	const char *ifname, *vrfname, *vrf_name;
+	struct isis_circuit *circuit;
+
+	if (args->event == NB_EV_VALIDATE) {
+		/* libyang doesn't like relative paths across module boundaries
+		 */
+		ifname = yang_dnode_get_string(args->dnode->parent->parent,
+					       "./name");
+		vrfname = yang_dnode_get_string(args->dnode->parent->parent,
+						"./vrf");
+		vrf = vrf_lookup_by_name(vrfname);
+		assert(vrf);
+		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+
+		if (!ifp)
+			return NB_OK;
+
+		vrf_name = yang_dnode_get_string(args->dnode, NULL);
+		circuit = circuit_scan_by_ifp(ifp);
+		if (circuit && circuit->area && circuit->area->isis
+		    && strcmp(circuit->area->isis->name, vrf_name)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "ISIS circuit is already defined on vrf  %s",
+				 circuit->area->isis->name);
 			return NB_ERR_VALIDATION;
 		}
 	}

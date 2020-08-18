@@ -168,6 +168,7 @@ int isis_instance_mpls_te_router_address_destroy(
 int lib_interface_isis_create(struct nb_cb_create_args *args);
 int lib_interface_isis_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_vrf_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_ipv4_routing_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_ipv6_routing_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args);

@@ -577,6 +577,20 @@ int isis_zebra_label_manager_connect(void)
 	return 0;
 }
 
+void isis_zebra_vrf_register(struct isis *isis)
+{
+	if (!zclient || zclient->sock < 0 || !isis)
+		return;
+
+	if (isis->vrf_id != VRF_UNKNOWN) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("%s: Register VRF %s id %u", __func__,
+				   isis->name, isis->vrf_id);
+		zclient_send_reg_requests(zclient, isis->vrf_id);
+	}
+}
+
+
 static void isis_zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);

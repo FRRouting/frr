@@ -33,8 +33,8 @@ ISIS router
 To start the ISIS process you have to specify the ISIS router. As of this
 writing, *isisd* does not support multiple ISIS processes.
 
-.. index:: [no] router isis WORD
-.. clicmd:: [no] router isis WORD
+.. index:: [no] router isis WORD [vrf NAME]
+.. clicmd:: [no] router isis WORD [vrf NAME]
 
    Enable or disable the ISIS process by specifying the ISIS domain with
    'WORD'.  *isisd* does not yet support multiple ISIS processes but you must
@@ -202,8 +202,8 @@ ISIS interface
 
 .. _ip-router-isis-word:
 
-.. index:: [no] <ip|ipv6> router isis WORD
-.. clicmd:: [no] <ip|ipv6> router isis WORD
+.. index:: [no] <ip|ipv6> router isis WORD [vrf NAME]
+.. clicmd:: [no] <ip|ipv6> router isis WORD [vrf NAME]
 
    Activate ISIS adjacency on this interface. Note that the name of ISIS
    instance must be the same as the one used to configure the ISIS process (see
@@ -750,4 +750,23 @@ A Segment Routing configuration, with IPv4, IPv6, SRGB and MSD configuration.
     segment-routing prefix 10.1.1.1/32 index 100 explicit-null
     segment-routing prefix 2001:db8:1000::1/128 index 101 explicit-null
    !
+
+ISIS Vrf Configuration Examples
+===============================
+
+A simple vrf example:
+
+.. code-block:: frr
+
+   !
+   interface eth0 vrf RED
+    ip router isis FOO vrf RED
+    isis network point-to-point
+    isis circuit-type level-2-only
+   !
+   router isis FOO vrf RED
+    net 47.0023.0000.0000.0000.0000.0000.0000.1900.0004.00
+    metric-style wide
+    is-type level-2-only
+
 

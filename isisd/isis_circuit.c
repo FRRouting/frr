@@ -1244,21 +1244,24 @@ static int isis_interface_config_write(struct vty *vty)
 #else
 static int isis_interface_config_write(struct vty *vty)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = NULL;
 	int write = 0;
-	struct interface *ifp;
-	struct lyd_node *dnode;
 
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		dnode = yang_dnode_get(
-			running_config->dnode,
-			"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-			ifp->name, vrf->name);
-		if (dnode == NULL)
-			continue;
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct interface *ifp;
 
-		write++;
-		nb_cli_show_dnode_cmds(vty, dnode, false);
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			struct lyd_node *dnode;
+			dnode = yang_dnode_get(
+				running_config->dnode,
+				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
+				ifp->name, vrf->name);
+			if (dnode == NULL)
+				continue;
+
+			write++;
+			nb_cli_show_dnode_cmds(vty, dnode, false);
+		}
 	}
 	return write;
 }
@@ -1268,6 +1271,7 @@ struct isis_circuit *isis_circuit_create(struct isis_area *area,
 					 struct interface *ifp)
 {
 	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
 	if (circuit && circuit->area)
 		return NULL;
 	circuit = isis_csm_state_change(ISIS_ENABLE, circuit, area);
@@ -1446,7 +1450,7 @@ int isis_if_delete_hook(struct interface *ifp)
 	/* Clean up the circuit data */
 	if (ifp && ifp->info) {
 		circuit = ifp->info;
-		isis_csm_state_change(IF_DOWN_FROM_Z, circuit, circuit->area);
+		isis_csm_state_change(IF_DOWN_FROM_Z, circuit, ifp);
 	}
 
 	return 0;
@@ -1454,10 +1458,15 @@ int isis_if_delete_hook(struct interface *ifp)
 
 static int isis_ifp_create(struct interface *ifp)
 {
-	if (if_is_operative(ifp))
+	struct vrf *vrf = NULL;
+
+	if (if_is_operative(ifp)) {
+		vrf = vrf_lookup_by_id(ifp->vrf_id);
+		if (vrf)
+			isis_global_instance_create(vrf->name);
 		isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp),
 				      ifp);
-
+	}
 	hook_call(isis_if_new_hook, ifp);
 
 	return 0;
