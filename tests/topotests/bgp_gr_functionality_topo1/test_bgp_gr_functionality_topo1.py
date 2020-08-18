@@ -91,7 +91,6 @@ import json
 import time
 import inspect
 import pytest
-import platform
 from time import sleep
 
 # Save the Current Working Directory to find configuration files.
@@ -104,7 +103,7 @@ sys.path.append(os.path.join("../lib/"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.topotest import version_cmp
+
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
@@ -136,6 +135,7 @@ from lib.common_config import (
     kill_mininet_routers_process,
     get_frr_ipv6_linklocal,
     create_route_maps,
+    required_linux_kernel_version
 )
 
 # Reading the data from JSON File for topology and configuration creation
@@ -187,6 +187,11 @@ def setup_module(mod):
 
     global ADDR_TYPES
 
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version('4.15')
+    if result:
+        pytest.skip(result)
+
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
     logger.info("=" * 40)
@@ -206,11 +211,6 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
-
-    if version_cmp(platform.release(), '4.19') < 0:
-        error_msg = ('These tests will not run. (have kernel "{}", '
-            'requires kernel >= 4.19)'.format(platform.release()))
-        pytest.skip(error_msg)
 
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():

@@ -43,10 +43,9 @@ import sys
 import json
 import time
 import pytest
-import platform
 from copy import deepcopy
 from time import sleep
-from lib.topotest import version_cmp
+
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -79,6 +78,7 @@ from lib.common_config import (
     get_frr_ipv6_linklocal,
     check_router_status,
     apply_raw_config,
+    required_linux_kernel_version
 )
 
 from lib.topolog import logger
@@ -142,6 +142,10 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version('4.19')
+    if result:
+        pytest.skip(result)
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -162,11 +166,6 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
-
-    if version_cmp(platform.release(), '4.19') < 0:
-        error_msg = ('These tests will not run. (have kernel "{}", '
-            'requires kernel >= 4.19)'.format(platform.release()))
-        pytest.skip(error_msg)
 
     global BGP_CONVERGENCE
     global ADDR_TYPES

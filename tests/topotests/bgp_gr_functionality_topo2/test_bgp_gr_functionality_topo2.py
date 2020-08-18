@@ -87,7 +87,6 @@ import sys
 import json
 import time
 import pytest
-import platform
 from time import sleep
 from copy import deepcopy
 
@@ -101,7 +100,7 @@ sys.path.append(os.path.join("../lib/"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.topotest import version_cmp
+
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
@@ -136,6 +135,7 @@ from lib.common_config import (
     kill_mininet_routers_process,
     get_frr_ipv6_linklocal,
     create_route_maps,
+    required_linux_kernel_version
 )
 
 # Reading the data from JSON File for topology and configuration creation
@@ -184,6 +184,11 @@ def setup_module(mod):
     * `mod`: module name
     """
 
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version('4.15')
+    if result:
+        pytest.skip(result)
+
     global ADDR_TYPES
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
@@ -202,11 +207,6 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
-
-    if version_cmp(platform.release(), '4.19') < 0:
-        error_msg = ('These tests will not run. (have kernel "{}", '
-            'requires kernel >= 4.19)'.format(platform.release()))
-        pytest.skip(error_msg)
 
     # Api call verify whether BGP is converged
     ADDR_TYPES = check_address_types()
