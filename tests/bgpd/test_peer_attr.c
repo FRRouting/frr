@@ -30,6 +30,8 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_network.h"
+#include "lib/routing_nb.h"
+#include "bgpd/bgp_nb.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -1378,6 +1380,15 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_process(test, pa, p, g->conf, true, false);
 }
 
+static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
+       &frr_bgp_info,
+       &frr_filter_info,
+       &frr_interface_info,
+       &frr_route_map_info,
+       &frr_routing_info,
+       &frr_vrf_info,
+};
+
 static void bgp_startup(void)
 {
 	cmd_init(1);
@@ -1387,7 +1398,7 @@ static void bgp_startup(void)
 
 	master = thread_master_create(NULL);
 	yang_init(true);
-	nb_init(master, NULL, 0, false);
+	nb_init(master, bgpd_yang_modules, array_size(bgpd_yang_modules), false);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
