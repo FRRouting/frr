@@ -85,6 +85,9 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
+#include "northbound.h"
+#include "northbound_cli.h"
+#include "bgpd/bgp_nb.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_route_clippy.c"
@@ -5584,28 +5587,16 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 
 /* Configure static BGP network.  When user don't run zebra, static
    route should be installed as valid.  */
-static int bgp_static_set(struct vty *vty, const char *negate,
-			  const char *ip_str, afi_t afi, safi_t safi,
-			  const char *rmap, int backdoor, uint32_t label_index)
+int bgp_static_set(struct bgp *bgp, const char *negate, struct prefix *pfx,
+		   afi_t afi, safi_t safi, const char *rmap, int backdoor,
+		   uint32_t label_index, char *errmsg, size_t errmsg_len)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int ret;
 	struct prefix p;
 	struct bgp_static *bgp_static;
 	struct bgp_dest *dest;
 	uint8_t need_update = 0;
 
-	/* Convert IP prefix string to struct prefix. */
-	ret = str2prefix(ip_str, &p);
-	if (!ret) {
-		vty_out(vty, "%% Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
-		vty_out(vty, "%% Malformed prefix (link-local address)\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
+	prefix_copy(&p, pfx);
 	apply_mask(&p);
 
 	if (negate) {
@@ -5614,24 +5605,25 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 		dest = bgp_node_lookup(bgp->route[afi][safi], &p);
 
 		if (!dest) {
-			vty_out(vty, "%% Can't find static route specified\n");
-			return CMD_WARNING_CONFIG_FAILED;
+			snprintf(errmsg, errmsg_len,
+				 "Can't find static route specified\n");
+			return -1;
 		}
 
 		bgp_static = bgp_dest_get_bgp_static_info(dest);
 
 		if ((label_index != BGP_INVALID_LABEL_INDEX)
 		    && (label_index != bgp_static->label_index)) {
-			vty_out(vty,
-				"%% label-index doesn't match static route\n");
-			return CMD_WARNING_CONFIG_FAILED;
+			snprintf(errmsg, errmsg_len,
+				 "label-index doesn't match static route\n");
+			return -1;
 		}
 
 		if ((rmap && bgp_static->rmap.name)
 		    && strcmp(rmap, bgp_static->rmap.name)) {
-			vty_out(vty,
-				"%% route-map name doesn't match static route\n");
-			return CMD_WARNING_CONFIG_FAILED;
+			snprintf(errmsg, errmsg_len,
+				 "route-map name doesn't match static route\n");
+			return -1;
 		}
 
 		/* Update BGP RIB. */
@@ -5652,8 +5644,9 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 			/* Configuration change. */
 			/* Label index cannot be changed. */
 			if (bgp_static->label_index != label_index) {
-				vty_out(vty, "%% cannot change label-index\n");
-				return CMD_WARNING_CONFIG_FAILED;
+				snprintf(errmsg, errmsg_len,
+					 "cannot change label-index\n");
+				return -1;
 			}
 
 			/* Check previous routes are installed into BGP.  */
@@ -5715,7 +5708,7 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 			bgp_static_update(bgp, &p, bgp_static, afi, safi);
 	}
 
-	return CMD_SUCCESS;
+	return 0;
 }
 
 void bgp_static_add(struct bgp *bgp)
@@ -6165,25 +6158,27 @@ DEFUN (no_bgp_table_map,
 				   argv[idx_word]->arg);
 }
 
-DEFPY(bgp_network,
-	bgp_network_cmd,
-	"[no] network \
-	<A.B.C.D/M$prefix|A.B.C.D$address [mask A.B.C.D$netmask]> \
-	[{route-map WORD$map_name|label-index (0-1048560)$label_index| \
-	backdoor$backdoor}]",
-	NO_STR
-	"Specify a network to announce via BGP\n"
-	"IPv4 prefix\n"
-	"Network number\n"
-	"Network mask\n"
-	"Network mask\n"
-	"Route-map to modify the attributes\n"
-	"Name of the route map\n"
-	"Label index to associate with the prefix\n"
-	"Label index value\n"
-	"Specify a BGP backdoor route\n")
+DEFPY_YANG (bgp_network, bgp_network_cmd,
+	    "[no] network \
+	    <A.B.C.D/M$prefix|A.B.C.D$address [mask A.B.C.D$netmask]> \
+	    [{route-map WORD$map_name|label-index (0-1048560)$label_index| \
+	    backdoor$backdoor}]",
+	    NO_STR
+	    "Specify a network to announce via BGP\n"
+	    "IPv4 prefix\n"
+	    "Network number\n"
+	    "Network mask\n"
+	    "Network mask\n"
+	    "Route-map to modify the attributes\n"
+	    "Name of the route map\n"
+	    "Label index to associate with the prefix\n"
+	    "Label index value\n"
+	    "Specify a BGP backdoor route\n")
 {
-	char addr_prefix_str[BUFSIZ];
+	char addr_prefix_str[PREFIX_STRLEN];
+	char base_xpath[XPATH_MAXLEN];
+	afi_t afi;
+	safi_t safi;
 
 	if (address_str) {
 		int ret;
@@ -6196,27 +6191,102 @@ DEFPY(bgp_network,
 		}
 	}
 
-	return bgp_static_set(
-		vty, no, address_str ? addr_prefix_str : prefix_str, AFI_IP,
-		bgp_node_safi(vty), map_name, backdoor ? 1 : 0,
-		label_index ? (uint32_t)label_index : BGP_INVALID_LABEL_INDEX);
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	if (no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+		if (map_name)
+			nb_cli_enqueue_change(vty, "./rmap-policy-export",
+					      NB_OP_CREATE, map_name);
+		else
+			nb_cli_enqueue_change(vty, "./rmap-policy-export",
+					      NB_OP_DESTROY, NULL);
+
+		if (label_index_str)
+			nb_cli_enqueue_change(vty, "./label-index",
+					      NB_OP_MODIFY, label_index_str);
+
+		nb_cli_enqueue_change(vty, "./backdoor", NB_OP_MODIFY,
+				      backdoor ? "true" : "false");
+	}
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/network-config[prefix='%s']",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi),
+		address_str ? addr_prefix_str : prefix_str);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFPY(ipv6_bgp_network,
-	ipv6_bgp_network_cmd,
-	"[no] network X:X::X:X/M$prefix \
-	[{route-map WORD$map_name|label-index (0-1048560)$label_index}]",
-	NO_STR
-	"Specify a network to announce via BGP\n"
-	"IPv6 prefix\n"
-	"Route-map to modify the attributes\n"
-	"Name of the route map\n"
-	"Label index to associate with the prefix\n"
-	"Label index value\n")
+DEFPY_YANG (ipv6_bgp_network,
+	    ipv6_bgp_network_cmd,
+	    "[no] network X:X::X:X/M$prefix \
+	    [{route-map WORD$map_name|label-index (0-1048560)$label_index}]",
+	    NO_STR
+	    "Specify a network to announce via BGP\n"
+	    "IPv6 prefix\n"
+	    "Route-map to modify the attributes\n"
+	    "Name of the route map\n"
+	    "Label index to associate with the prefix\n"
+	    "Label index value\n")
 {
-	return bgp_static_set(
-		vty, no, prefix_str, AFI_IP6, bgp_node_safi(vty), map_name, 0,
-		label_index ? (uint32_t)label_index : BGP_INVALID_LABEL_INDEX);
+	char base_xpath[XPATH_MAXLEN];
+	afi_t afi;
+	safi_t safi;
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	if (no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+		if (map_name)
+			nb_cli_enqueue_change(vty, "./rmap-policy-export",
+					      NB_OP_MODIFY, map_name);
+		else
+			nb_cli_enqueue_change(vty, "./rmap-policy-export",
+					      NB_OP_DESTROY, NULL);
+
+		if (label_index_str)
+			nb_cli_enqueue_change(vty, "./label-index",
+					      NB_OP_MODIFY, label_index_str);
+	}
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/network-config[prefix='%s']",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi), prefix_str);
+
+	return nb_cli_apply_changes(vty, base_xpath);
+}
+
+void cli_show_bgp_global_afi_safi_network_config(struct vty *vty,
+						 struct lyd_node *dnode,
+						 bool show_defaults)
+{
+	vty_out(vty, "  network %s", yang_dnode_get_string(dnode, "./prefix"));
+
+	if (yang_dnode_exists(dnode, "./label-index"))
+		vty_out(vty, " label-index %s",
+			yang_dnode_get_string(dnode, "./label-index"));
+
+	if (yang_dnode_exists(dnode, "./rmap-policy-export"))
+		vty_out(vty, " route-map %s",
+			yang_dnode_get_string(dnode, "./rmap-policy-export"));
+
+	if (yang_dnode_get_bool(dnode, "./backdoor"))
+		vty_out(vty, " backdoor");
+
+	vty_out(vty, "\n");
 }
 
 static struct bgp_aggregate *bgp_aggregate_new(void)
@@ -7246,35 +7316,25 @@ static const char *bgp_origin2str(uint8_t origin)
 	return "n/a";
 }
 
-static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
-			       afi_t afi, safi_t safi)
+int bgp_aggregate_unset(struct bgp *bgp, struct prefix *prefix, afi_t afi,
+			safi_t safi, char *errmsg, size_t errmsg_len)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int ret;
-	struct prefix p;
 	struct bgp_dest *dest;
 	struct bgp_aggregate *aggregate;
 
-	/* Convert string to prefix structure. */
-	ret = str2prefix(prefix_str, &p);
-	if (!ret) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask(&p);
-
+	apply_mask(prefix);
 	/* Old configuration check. */
-	dest = bgp_node_lookup(bgp->aggregate[afi][safi], &p);
+	dest = bgp_node_lookup(bgp->aggregate[afi][safi], prefix);
 	if (!dest) {
-		vty_out(vty,
-			"%% There is no aggregate-address configuration.\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		snprintf(errmsg, errmsg_len,
+			 "There is no aggregate-address configuration.\n");
+		return -1;
 	}
 
 	aggregate = bgp_dest_get_bgp_aggregate_info(dest);
-	bgp_aggregate_delete(bgp, &p, afi, safi, aggregate);
-	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL,
-			      NULL, NULL,  0, aggregate);
+	bgp_aggregate_delete(bgp, prefix, afi, safi, aggregate);
+	bgp_aggregate_install(bgp, afi, safi, prefix, 0, NULL, NULL, NULL, NULL,
+			      0, aggregate);
 
 	/* Unlock aggregate address configuration. */
 	bgp_dest_set_bgp_aggregate_info(dest, NULL);
@@ -7335,55 +7395,53 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	bgp_dest_unlock_node(dest);
 	bgp_dest_unlock_node(dest);
 
-	return CMD_SUCCESS;
+	return 0;
 }
 
-static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
-			     safi_t safi, const char *rmap,
-			     uint8_t summary_only, uint8_t as_set,
-			     uint8_t origin, bool match_med,
-			     const char *suppress_map)
+int bgp_aggregate_set(struct bgp *bgp, struct prefix *prefix, afi_t afi,
+		      safi_t safi, const char *rmap, uint8_t summary_only,
+		      uint8_t as_set, uint8_t origin, bool match_med,
+		      const char *suppress_map,
+		      char *errmsg, size_t errmsg_len)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
-	struct prefix p;
 	struct bgp_dest *dest;
 	struct bgp_aggregate *aggregate;
 	uint8_t as_set_new = as_set;
+	char buf[PREFIX2STR_BUFFER];
 
 	if (suppress_map && summary_only) {
-		vty_out(vty,
+		snprintf(errmsg, errmsg_len,
 			"'summary-only' and 'suppress-map' can't be used at the same time\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		return -1;
 	}
 
-	/* Convert string to prefix structure. */
-	ret = str2prefix(prefix_str, &p);
-	if (!ret) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask(&p);
+	apply_mask(prefix);
 
-	if ((afi == AFI_IP && p.prefixlen == IPV4_MAX_BITLEN) ||
-	    (afi == AFI_IP6 && p.prefixlen == IPV6_MAX_BITLEN)) {
-		vty_out(vty, "Specified prefix: %s will not result in any useful aggregation, disallowing\n",
-			prefix_str);
-		return CMD_WARNING_CONFIG_FAILED;
+	if ((afi == AFI_IP && prefix->prefixlen == IPV4_MAX_BITLEN)
+	    || (afi == AFI_IP6 && prefix->prefixlen == IPV6_MAX_BITLEN)) {
+		snprintf(
+			errmsg, errmsg_len,
+			"Specified prefix: %s will not result in any useful aggregation, disallowing\n",
+			prefix2str(prefix, buf, PREFIX_STRLEN));
+		return -1;
 	}
 
 	/* Old configuration check. */
-	dest = bgp_node_get(bgp->aggregate[afi][safi], &p);
+	dest = bgp_node_get(bgp->aggregate[afi][safi], prefix);
 	aggregate = bgp_dest_get_bgp_aggregate_info(dest);
 
 	if (aggregate) {
-		vty_out(vty, "There is already same aggregate network.\n");
+		snprintf(errmsg, errmsg_len,
+			 "There is already same aggregate network.\n");
 		/* try to remove the old entry */
-		ret = bgp_aggregate_unset(vty, prefix_str, afi, safi);
+		ret = bgp_aggregate_unset(bgp, prefix, afi, safi, errmsg,
+					  errmsg_len);
 		if (ret) {
-			vty_out(vty, "Error deleting aggregate.\n");
+			snprintf(errmsg, errmsg_len,
+				 "Error deleting aggregate.\n");
 			bgp_dest_unlock_node(dest);
-			return CMD_WARNING_CONFIG_FAILED;
+			return -1;
 		}
 	}
 
@@ -7406,7 +7464,8 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 			zlog_warn(
 				"%s: Ignoring as-set because `bgp reject-as-sets` is enabled.",
 				__func__);
-			vty_out(vty,
+			snprintf(
+				errmsg, errmsg_len,
 				"Ignoring as-set because `bgp reject-as-sets` is enabled.\n");
 		}
 	}
@@ -7443,39 +7502,39 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	bgp_dest_set_bgp_aggregate_info(dest, aggregate);
 
 	/* Aggregate address insert into BGP routing table. */
-	bgp_aggregate_route(bgp, &p, afi, safi, aggregate);
+	bgp_aggregate_route(bgp, prefix, afi, safi, aggregate);
 
-	return CMD_SUCCESS;
+	return 0;
 }
 
-DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
-      "[no] aggregate-address <A.B.C.D/M$prefix|A.B.C.D$addr A.B.C.D$mask> {"
-      "as-set$as_set_s"
-      "|summary-only$summary_only"
-      "|route-map WORD$rmap_name"
-      "|origin <egp|igp|incomplete>$origin_s"
-      "|matching-MED-only$match_med"
-      "|suppress-map WORD$suppress_map"
-      "}",
-      NO_STR
-      "Configure BGP aggregate entries\n"
-      "Aggregate prefix\n" "Aggregate address\n" "Aggregate mask\n"
-      "Generate AS set path information\n"
-      "Filter more specific routes from updates\n"
-      "Apply route map to aggregate network\n"
-      "Route map name\n"
-      "BGP origin code\n"
-      "Remote EGP\n"
-      "Local IGP\n"
-      "Unknown heritage\n"
-      "Only aggregate routes with matching MED\n"
-      "Suppress the selected more specific routes\n"
-      "Route map with the route selectors\n")
+DEFPY_YANG(
+	aggregate_addressv4, aggregate_addressv4_cmd,
+	"[no] aggregate-address <A.B.C.D/M$prefix|A.B.C.D$addr A.B.C.D$mask> {"
+	"as-set$as_set_s"
+	"|summary-only$summary_only"
+	"|route-map WORD$rmap_name"
+	"|origin <egp|igp|incomplete>$origin_s"
+	"|matching-MED-only$match_med"
+	"}",
+	NO_STR
+	"Configure BGP aggregate entries\n"
+	"Aggregate prefix\n"
+	"Aggregate address\n"
+	"Aggregate mask\n"
+	"Generate AS set path information\n"
+	"Filter more specific routes from updates\n"
+	"Apply route map to aggregate network\n"
+	"Route map name\n"
+	"BGP origin code\n"
+	"Remote EGP\n"
+	"Local IGP\n"
+	"Unknown heritage\n"
+	"Only aggregate routes with matching MED\n"
+        "Suppress the selected more specific routes\n"
+        "Route map with the route selectors\n")
 {
-	const char *prefix_s = NULL;
+	char base_xpath[XPATH_MAXLEN];
 	safi_t safi = bgp_node_safi(vty);
-	uint8_t origin = BGP_ORIGIN_UNSPECIFIED;
-	int as_set = AGGREGATE_AS_UNSET;
 	char prefix_buf[PREFIX2STR_BUFFER];
 
 	if (addr_str) {
@@ -7484,78 +7543,128 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
 			vty_out(vty, "%% Inconsistent address and mask\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		prefix_s = prefix_buf;
-	} else
-		prefix_s = prefix_str;
-
-	if (origin_s) {
-		if (strcmp(origin_s, "egp") == 0)
-			origin = BGP_ORIGIN_EGP;
-		else if (strcmp(origin_s, "igp") == 0)
-			origin = BGP_ORIGIN_IGP;
-		else if (strcmp(origin_s, "incomplete") == 0)
-			origin = BGP_ORIGIN_INCOMPLETE;
+	} else {
+		strlcpy(prefix_buf, prefix_str, sizeof(prefix_buf));
 	}
 
-	if (as_set_s)
-		as_set = AGGREGATE_AS_SET;
+	if (!no && origin_s)
+		nb_cli_enqueue_change(vty, "./origin", NB_OP_MODIFY, origin_s);
 
-	/* Handle configuration removal, otherwise installation. */
+	if (!no && as_set_s)
+		nb_cli_enqueue_change(vty, "./as-set", NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./as-set", NB_OP_MODIFY, "false");
+
+	if (!no && summary_only)
+		nb_cli_enqueue_change(vty, "./summary-only", NB_OP_MODIFY,
+				      "true");
+	else
+		nb_cli_enqueue_change(vty, "./summary-only", NB_OP_MODIFY,
+				      "false");
+
+	if (rmap_name)
+		nb_cli_enqueue_change(vty, "./rmap-policy-export", NB_OP_MODIFY,
+				      rmap_name);
+	else
+		nb_cli_enqueue_change(vty, "./rmap-policy-export",
+				      NB_OP_DESTROY, NULL);
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/aggregate-route[prefix='%s']",
+		yang_afi_safi_value2identity(AFI_IP, safi),
+		bgp_afi_safi_get_container_str(AFI_IP, safi), prefix_buf);
+
 	if (no)
-		return bgp_aggregate_unset(vty, prefix_s, AFI_IP, safi);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
-	return bgp_aggregate_set(vty, prefix_s, AFI_IP, safi, rmap_name,
-				 summary_only != NULL, as_set, origin,
-				 match_med != NULL, suppress_map);
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
-      "[no] aggregate-address X:X::X:X/M$prefix {"
-      "as-set$as_set_s"
-      "|summary-only$summary_only"
-      "|route-map WORD$rmap_name"
-      "|origin <egp|igp|incomplete>$origin_s"
-      "|matching-MED-only$match_med"
-      "|suppress-map WORD$suppress_map"
-      "}",
-      NO_STR
-      "Configure BGP aggregate entries\n"
-      "Aggregate prefix\n"
-      "Generate AS set path information\n"
-      "Filter more specific routes from updates\n"
-      "Apply route map to aggregate network\n"
-      "Route map name\n"
-      "BGP origin code\n"
-      "Remote EGP\n"
-      "Local IGP\n"
-      "Unknown heritage\n"
-      "Only aggregate routes with matching MED\n"
-      "Suppress the selected more specific routes\n"
-      "Route map with the route selectors\n")
+DEFPY_YANG(aggregate_addressv6, aggregate_addressv6_cmd,
+	   "[no] aggregate-address X:X::X:X/M$prefix {"
+	   "as-set$as_set_s"
+	   "|summary-only$summary_only"
+	   "|route-map WORD$rmap_name"
+	   "|origin <egp|igp|incomplete>$origin_s"
+	   "|matching-MED-only$match_med"
+	   "}",
+	   NO_STR
+	   "Configure BGP aggregate entries\n"
+	   "Aggregate prefix\n"
+	   "Generate AS set path information\n"
+	   "Filter more specific routes from updates\n"
+	   "Apply route map to aggregate network\n"
+	   "Route map name\n"
+	   "BGP origin code\n"
+	   "Remote EGP\n"
+	   "Local IGP\n"
+	   "Unknown heritage\n"
+	   "Only aggregate routes with matching MED\n"
+	   "Suppress the selected more specific routes\n"
+           "Route map with the route selectors\n")
 {
-	uint8_t origin = BGP_ORIGIN_UNSPECIFIED;
-	int as_set = AGGREGATE_AS_UNSET;
+	char base_xpath[XPATH_MAXLEN];
+	safi_t safi = bgp_node_safi(vty);
 
-	if (origin_s) {
-		if (strcmp(origin_s, "egp") == 0)
-			origin = BGP_ORIGIN_EGP;
-		else if (strcmp(origin_s, "igp") == 0)
-			origin = BGP_ORIGIN_IGP;
-		else if (strcmp(origin_s, "incomplete") == 0)
-			origin = BGP_ORIGIN_INCOMPLETE;
-	}
+	if (!no && origin_s)
+		nb_cli_enqueue_change(vty, "./origin", NB_OP_MODIFY, origin_s);
 
-	if (as_set_s)
-		as_set = AGGREGATE_AS_SET;
+	if (!no && as_set_s)
+		nb_cli_enqueue_change(vty, "./as-set", NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./as-set", NB_OP_MODIFY, "false");
 
-	/* Handle configuration removal, otherwise installation. */
+	if (!no && summary_only)
+		nb_cli_enqueue_change(vty, "./summary-only", NB_OP_MODIFY,
+				      "true");
+	else
+		nb_cli_enqueue_change(vty, "./summary-only", NB_OP_MODIFY,
+				      "false");
+
+	if (rmap_name)
+		nb_cli_enqueue_change(vty, "./rmap-policy-export", NB_OP_MODIFY,
+				      rmap_name);
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/aggregate-route[prefix='%s']",
+		yang_afi_safi_value2identity(AFI_IP6, safi),
+		bgp_afi_safi_get_container_str(AFI_IP6, safi), prefix_str);
+
 	if (no)
-		return bgp_aggregate_unset(vty, prefix_str, AFI_IP6,
-					   SAFI_UNICAST);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
-	return bgp_aggregate_set(vty, prefix_str, AFI_IP6, SAFI_UNICAST,
-				 rmap_name, summary_only != NULL, as_set,
-				 origin, match_med != NULL, suppress_map);
+	return nb_cli_apply_changes(vty, base_xpath);
+}
+
+void cli_show_bgp_global_afi_safi_unicast_aggregate_route(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	uint8_t origin;
+
+	vty_out(vty, "  aggregate-address %s",
+		yang_dnode_get_string(dnode, "./prefix"));
+
+	if (yang_dnode_get_bool(dnode, "./as-set"))
+		vty_out(vty, " as-set");
+
+	if (yang_dnode_get_bool(dnode, "./summary-only"))
+		vty_out(vty, " summary-only");
+
+	if (yang_dnode_exists(dnode, "./rmap-policy-export"))
+		vty_out(vty, " route-map %s",
+			yang_dnode_get_string(dnode, "./rmap-policy-export"));
+
+	origin = yang_dnode_get_enum(dnode, "./origin");
+	if (origin != BGP_ORIGIN_UNSPECIFIED)
+		vty_out(vty, " origin %s", bgp_origin2str(origin));
+
+	vty_out(vty, "\n");
 }
 
 /* Redistribute route treatment. */
@@ -13385,27 +13494,20 @@ static void bgp_distance_free(struct bgp_distance *bdistance)
 	XFREE(MTYPE_BGP_DISTANCE, bdistance);
 }
 
-static int bgp_distance_set(struct vty *vty, const char *distance_str,
-			    const char *ip_str, const char *access_list_str)
+int bgp_distance_set(uint8_t distance, const char *ip_str,
+		     const char *access_list_str, afi_t afi, safi_t safi,
+		     char *errmsg, size_t errmsg_len)
 {
 	int ret;
-	afi_t afi;
-	safi_t safi;
 	struct prefix p;
-	uint8_t distance;
 	struct bgp_dest *dest;
 	struct bgp_distance *bdistance;
 
-	afi = bgp_node_afi(vty);
-	safi = bgp_node_safi(vty);
-
 	ret = str2prefix(ip_str, &p);
 	if (ret == 0) {
-		vty_out(vty, "Malformed prefix\n");
+		snprintf(errmsg, errmsg_len, "Malformed prefix\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-
-	distance = atoi(distance_str);
 
 	/* Get BGP distance node. */
 	dest = bgp_node_get(bgp_distance_table[afi][safi], &p);
@@ -13429,37 +13531,32 @@ static int bgp_distance_set(struct vty *vty, const char *distance_str,
 	return CMD_SUCCESS;
 }
 
-static int bgp_distance_unset(struct vty *vty, const char *distance_str,
-			      const char *ip_str, const char *access_list_str)
+int bgp_distance_unset(uint8_t distance, const char *ip_str,
+		       const char *access_list_str, afi_t afi, safi_t safi,
+		       char *errmsg, size_t errmsg_len)
 {
 	int ret;
-	afi_t afi;
-	safi_t safi;
 	struct prefix p;
-	int distance;
 	struct bgp_dest *dest;
 	struct bgp_distance *bdistance;
 
-	afi = bgp_node_afi(vty);
-	safi = bgp_node_safi(vty);
-
 	ret = str2prefix(ip_str, &p);
 	if (ret == 0) {
-		vty_out(vty, "Malformed prefix\n");
+		snprintf(errmsg, errmsg_len, "Malformed prefix\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	dest = bgp_node_lookup(bgp_distance_table[afi][safi], &p);
 	if (!dest) {
-		vty_out(vty, "Can't find specified prefix\n");
+		snprintf(errmsg, errmsg_len, "Can't find specified prefix\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	bdistance = bgp_dest_get_bgp_distance_info(dest);
-	distance = atoi(distance_str);
 
 	if (bdistance->distance != distance) {
-		vty_out(vty, "Distance does not match configured\n");
+		snprintf(errmsg, errmsg_len,
+			 "Distance does not match configured\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -13537,9 +13634,8 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
  * we should tell ZEBRA update the routes for a specific
  * AFI/SAFI to reflect changes in RIB.
  */
-static void bgp_announce_routes_distance_update(struct bgp *bgp,
-						afi_t update_afi,
-						safi_t update_safi)
+void bgp_announce_routes_distance_update(struct bgp *bgp, afi_t update_afi,
+					 safi_t update_safi)
 {
 	afi_t afi;
 	safi_t safi;
@@ -13559,237 +13655,363 @@ static void bgp_announce_routes_distance_update(struct bgp *bgp,
 	}
 }
 
-DEFUN (bgp_distance,
-       bgp_distance_cmd,
-       "distance bgp (1-255) (1-255) (1-255)",
-       "Define an administrative distance\n"
-       "BGP distance\n"
-       "Distance for routes external to the AS\n"
-       "Distance for routes internal to the AS\n"
-       "Distance for local routes\n")
+DEFUN_YANG(bgp_distance, bgp_distance_cmd,
+	   "distance bgp (1-255) (1-255) (1-255)",
+	   "Define an administrative distance\n"
+	   "BGP distance\n"
+	   "Distance for routes external to the AS\n"
+	   "Distance for routes internal to the AS\n"
+	   "Distance for local routes\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 2;
 	int idx_number_2 = 3;
 	int idx_number_3 = 4;
-	int distance_ebgp = atoi(argv[idx_number]->arg);
-	int distance_ibgp = atoi(argv[idx_number_2]->arg);
-	int distance_local = atoi(argv[idx_number_3]->arg);
 	afi_t afi;
 	safi_t safi;
+	char xpath[XPATH_MAXLEN];
 
 	afi = bgp_node_afi(vty);
 	safi = bgp_node_safi(vty);
 
-	if (bgp->distance_ebgp[afi][safi] != distance_ebgp
-	    || bgp->distance_ibgp[afi][safi] != distance_ibgp
-	    || bgp->distance_local[afi][safi] != distance_local) {
-		bgp->distance_ebgp[afi][safi] = distance_ebgp;
-		bgp->distance_ibgp[afi][safi] = distance_ibgp;
-		bgp->distance_local[afi][safi] = distance_local;
-		bgp_announce_routes_distance_update(bgp, afi, safi);
-	}
-	return CMD_SUCCESS;
+	snprintf(
+		xpath, sizeof(xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance/external",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[idx_number]->arg);
+	snprintf(
+		xpath, sizeof(xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance/internal",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+			      argv[idx_number_2]->arg);
+	snprintf(
+		xpath, sizeof(xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance/local",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+			      argv[idx_number_3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_distance,
-       no_bgp_distance_cmd,
-       "no distance bgp [(1-255) (1-255) (1-255)]",
-       NO_STR
-       "Define an administrative distance\n"
-       "BGP distance\n"
-       "Distance for routes external to the AS\n"
-       "Distance for routes internal to the AS\n"
-       "Distance for local routes\n")
+DEFUN_YANG(no_bgp_distance, no_bgp_distance_cmd,
+	   "no distance bgp [(1-255) (1-255) (1-255)]",
+	   NO_STR
+	   "Define an administrative distance\n"
+	   "BGP distance\n"
+	   "Distance for routes external to the AS\n"
+	   "Distance for routes internal to the AS\n"
+	   "Distance for local routes\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	afi_t afi;
 	safi_t safi;
+	char xpath[XPATH_MAXLEN];
 
 	afi = bgp_node_afi(vty);
 	safi = bgp_node_safi(vty);
 
-	if (bgp->distance_ebgp[afi][safi] != 0
-	    || bgp->distance_ibgp[afi][safi] != 0
-	    || bgp->distance_local[afi][safi] != 0) {
-		bgp->distance_ebgp[afi][safi] = 0;
-		bgp->distance_ibgp[afi][safi] = 0;
-		bgp->distance_local[afi][safi] = 0;
-		bgp_announce_routes_distance_update(bgp, afi, safi);
-	}
-	return CMD_SUCCESS;
+	snprintf(
+		xpath, sizeof(xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance/external",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, NULL);
+	snprintf(
+		xpath, sizeof(xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance/internal",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, NULL);
+	snprintf(
+		xpath, sizeof(xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance/local",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
+void cli_show_bgp_global_afi_safi_admin_distance_config(struct vty *vty,
+							struct lyd_node *dnode,
+							bool show_defaults)
+{
+	uint8_t distance_ebgp, distance_ibgp, distance_local;
 
-DEFUN (bgp_distance_source,
-       bgp_distance_source_cmd,
-       "distance (1-255) A.B.C.D/M",
-       "Define an administrative distance\n"
-       "Administrative distance\n"
-       "IP source prefix\n")
+	distance_ebgp = yang_dnode_get_uint8(dnode, "./external");
+	distance_ibgp = yang_dnode_get_uint8(dnode, "./internal");
+	distance_local = yang_dnode_get_uint8(dnode, "./local");
+
+	vty_out(vty, "  distance bgp %d %d %d\n", distance_ebgp, distance_ibgp,
+		distance_local);
+}
+
+static int bgp_nb_distance_source_set(struct vty *vty, struct cmd_token **argv,
+				      int argc)
 {
 	int idx_number = 1;
-	int idx_ipv4_prefixlen = 2;
-	bgp_distance_set(vty, argv[idx_number]->arg,
-			 argv[idx_ipv4_prefixlen]->arg, NULL);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_distance_source,
-       no_bgp_distance_source_cmd,
-       "no distance (1-255) A.B.C.D/M",
-       NO_STR
-       "Define an administrative distance\n"
-       "Administrative distance\n"
-       "IP source prefix\n")
-{
-	int idx_number = 2;
-	int idx_ipv4_prefixlen = 3;
-	bgp_distance_unset(vty, argv[idx_number]->arg,
-			   argv[idx_ipv4_prefixlen]->arg, NULL);
-	return CMD_SUCCESS;
-}
-
-DEFUN (bgp_distance_source_access_list,
-       bgp_distance_source_access_list_cmd,
-       "distance (1-255) A.B.C.D/M WORD",
-       "Define an administrative distance\n"
-       "Administrative distance\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-	int idx_number = 1;
-	int idx_ipv4_prefixlen = 2;
+	int idx_ip_prefixlen = 2;
 	int idx_word = 3;
-	bgp_distance_set(vty, argv[idx_number]->arg,
-			 argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
-	return CMD_SUCCESS;
+	afi_t afi;
+	safi_t safi;
+	char xpath[XPATH_MAXLEN];
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	nb_cli_enqueue_change(vty, "./distance", NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+
+	if (argv_find(argv, argc, "WORD", &idx_word))
+		nb_cli_enqueue_change(vty, "./access-list-policy-export",
+				      NB_OP_CREATE, argv[idx_word]->arg);
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance-route[prefix='%s']",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi),
+		argv[idx_ip_prefixlen]->arg);
+
+	return nb_cli_apply_changes(vty, xpath);
 }
 
-DEFUN (no_bgp_distance_source_access_list,
-       no_bgp_distance_source_access_list_cmd,
-       "no distance (1-255) A.B.C.D/M WORD",
-       NO_STR
-       "Define an administrative distance\n"
-       "Administrative distance\n"
-       "IP source prefix\n"
-       "Access list name\n")
+static int bgp_nb_distance_source_unset(struct vty *vty,
+					struct cmd_token **argv, int argc)
 {
-	int idx_number = 2;
-	int idx_ipv4_prefixlen = 3;
-	int idx_word = 4;
-	bgp_distance_unset(vty, argv[idx_number]->arg,
-			   argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
-	return CMD_SUCCESS;
+	int idx_ip_prefixlen = 3;
+	afi_t afi;
+	safi_t safi;
+	char xpath[XPATH_MAXLEN];
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance-route[prefix='%s']",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi),
+		argv[idx_ip_prefixlen]->arg);
+
+	return nb_cli_apply_changes(vty, xpath);
 }
 
-DEFUN (ipv6_bgp_distance_source,
-       ipv6_bgp_distance_source_cmd,
-       "distance (1-255) X:X::X:X/M",
-       "Define an administrative distance\n"
-       "Administrative distance\n"
-       "IP source prefix\n")
+DEFUN_YANG(bgp_distance_source, bgp_distance_source_cmd,
+	   "distance (1-255) A.B.C.D/M",
+	   "Define an administrative distance\n"
+	   "Administrative distance\n"
+	   "IP source prefix\n")
 {
-	bgp_distance_set(vty, argv[1]->arg, argv[2]->arg, NULL);
-	return CMD_SUCCESS;
+	return bgp_nb_distance_source_set(vty, argv, argc);
 }
 
-DEFUN (no_ipv6_bgp_distance_source,
-       no_ipv6_bgp_distance_source_cmd,
-       "no distance (1-255) X:X::X:X/M",
-       NO_STR
-       "Define an administrative distance\n"
-       "Administrative distance\n"
-       "IP source prefix\n")
+DEFUN_YANG(no_bgp_distance_source, no_bgp_distance_source_cmd,
+	   "no distance (1-255) A.B.C.D/M",
+	   NO_STR
+	   "Define an administrative distance\n"
+	   "Administrative distance\n"
+	   "IP source prefix\n")
 {
-	bgp_distance_unset(vty, argv[2]->arg, argv[3]->arg, NULL);
-	return CMD_SUCCESS;
+	return bgp_nb_distance_source_unset(vty, argv, argc);
 }
 
-DEFUN (ipv6_bgp_distance_source_access_list,
-       ipv6_bgp_distance_source_access_list_cmd,
-       "distance (1-255) X:X::X:X/M WORD",
-       "Define an administrative distance\n"
-       "Administrative distance\n"
-       "IP source prefix\n"
-       "Access list name\n")
+DEFUN_YANG(bgp_distance_source_access_list, bgp_distance_source_access_list_cmd,
+	   "distance (1-255) A.B.C.D/M WORD",
+	   "Define an administrative distance\n"
+	   "Administrative distance\n"
+	   "IP source prefix\n"
+	   "Access list name\n")
 {
-	bgp_distance_set(vty, argv[1]->arg, argv[2]->arg, argv[3]->arg);
-	return CMD_SUCCESS;
+	return bgp_nb_distance_source_set(vty, argv, argc);
 }
 
-DEFUN (no_ipv6_bgp_distance_source_access_list,
-       no_ipv6_bgp_distance_source_access_list_cmd,
-       "no distance (1-255) X:X::X:X/M WORD",
-       NO_STR
-       "Define an administrative distance\n"
-       "Administrative distance\n"
-       "IP source prefix\n"
-       "Access list name\n")
+DEFUN_YANG(no_bgp_distance_source_access_list,
+	   no_bgp_distance_source_access_list_cmd,
+	   "no distance (1-255) A.B.C.D/M WORD",
+	   NO_STR
+	   "Define an administrative distance\n"
+	   "Administrative distance\n"
+	   "IP source prefix\n"
+	   "Access list name\n")
 {
-	bgp_distance_unset(vty, argv[2]->arg, argv[3]->arg, argv[4]->arg);
-	return CMD_SUCCESS;
+	return bgp_nb_distance_source_unset(vty, argv, argc);
 }
 
-DEFUN (bgp_damp_set,
-       bgp_damp_set_cmd,
-       "bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]",
-       "BGP Specific commands\n"
-       "Enable route-flap dampening\n"
-       "Half-life time for the penalty\n"
-       "Value to start reusing a route\n"
-       "Value to start suppressing a route\n"
-       "Maximum duration to suppress a stable route\n")
+DEFUN_YANG(ipv6_bgp_distance_source, ipv6_bgp_distance_source_cmd,
+	   "distance (1-255) X:X::X:X/M",
+	   "Define an administrative distance\n"
+	   "Administrative distance\n"
+	   "IP source prefix\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	int idx_number = 1;
+	int idx_ip_prefixlen = 2;
+	afi_t afi;
+	safi_t safi;
+	char xpath[XPATH_MAXLEN];
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	nb_cli_enqueue_change(vty, "./distance", NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance-route[prefix='%s']",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi),
+		argv[idx_ip_prefixlen]->arg);
+
+	return nb_cli_apply_changes(vty, xpath);
+}
+
+DEFUN_YANG(no_ipv6_bgp_distance_source, no_ipv6_bgp_distance_source_cmd,
+	   "no distance (1-255) X:X::X:X/M",
+	   NO_STR
+	   "Define an administrative distance\n"
+	   "Administrative distance\n"
+	   "IP source prefix\n")
+{
+	return bgp_nb_distance_source_unset(vty, argv, argc);
+}
+
+DEFUN_YANG(ipv6_bgp_distance_source_access_list,
+	   ipv6_bgp_distance_source_access_list_cmd,
+	   "distance (1-255) X:X::X:X/M WORD",
+	   "Define an administrative distance\n"
+	   "Administrative distance\n"
+	   "IP source prefix\n"
+	   "Access list name\n")
+{
+	return bgp_nb_distance_source_set(vty, argv, argc);
+}
+
+DEFUN_YANG(no_ipv6_bgp_distance_source_access_list,
+	   no_ipv6_bgp_distance_source_access_list_cmd,
+	   "no distance (1-255) X:X::X:X/M WORD",
+	   NO_STR
+	   "Define an administrative distance\n"
+	   "Administrative distance\n"
+	   "IP source prefix\n"
+	   "Access list name\n")
+{
+	return bgp_nb_distance_source_unset(vty, argv, argc);
+}
+
+void cli_show_bgp_global_afi_safi_unicast_admin_distance_route(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  distance %d %s %s\n",
+		yang_dnode_get_uint8(dnode, "./distance"),
+		yang_dnode_get_string(dnode, "./prefix"),
+		(yang_dnode_exists(dnode, "./access-list-policy-export"))
+			? yang_dnode_get_string(dnode,
+						"./access-list-policy-export")
+			: "");
+}
+
+DEFUN_YANG(bgp_damp_set, bgp_damp_set_cmd,
+	   "bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]",
+	   "BGP Specific commands\n"
+	   "Enable route-flap dampening\n"
+	   "Half-life time for the penalty\n"
+	   "Value to start reusing a route\n"
+	   "Value to start suppressing a route\n"
+	   "Maximum duration to suppress a stable route\n")
+{
 	int idx_half_life = 2;
 	int idx_reuse = 3;
 	int idx_suppress = 4;
 	int idx_max_suppress = 5;
+	afi_t afi;
+	safi_t safi;
+	char xpath[XPATH_MAXLEN];
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
+	if (argc == 6) {
+		nb_cli_enqueue_change(vty, "./reach-decay", NB_OP_MODIFY,
+				      argv[idx_half_life]->arg);
+		nb_cli_enqueue_change(vty, "./reuse-above", NB_OP_MODIFY,
+				      argv[idx_reuse]->arg);
+		nb_cli_enqueue_change(vty, "./suppress-above", NB_OP_MODIFY,
+				      argv[idx_suppress]->arg);
+		nb_cli_enqueue_change(vty, "./unreach-decay", NB_OP_MODIFY,
+				      argv[idx_max_suppress]->arg);
+	}
+	snprintf(
+		xpath, sizeof(xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/route-flap-dampening",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+
+	return nb_cli_apply_changes(vty, xpath);
+}
+
+DEFUN_YANG(bgp_damp_unset, bgp_damp_unset_cmd,
+	   "no bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]",
+	   NO_STR
+	   "BGP Specific commands\n"
+	   "Enable route-flap dampening\n"
+	   "Half-life time for the penalty\n"
+	   "Value to start reusing a route\n"
+	   "Value to start suppressing a route\n"
+	   "Maximum duration to suppress a stable route\n")
+{
+	afi_t afi;
+	safi_t safi;
+	char xpath[XPATH_MAXLEN];
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "false");
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/route-flap-dampening",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+
+	return nb_cli_apply_changes(vty, xpath);
+}
+
+void cli_show_bgp_global_afi_safi_route_flap_dampening(struct vty *vty,
+						       struct lyd_node *dnode,
+						       bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, "./enable"))
+		return;
+
 	int half = DEFAULT_HALF_LIFE * 60;
 	int reuse = DEFAULT_REUSE;
 	int suppress = DEFAULT_SUPPRESS;
-	int max = 4 * half;
+	int max;
 
-	if (argc == 6) {
-		half = atoi(argv[idx_half_life]->arg) * 60;
-		reuse = atoi(argv[idx_reuse]->arg);
-		suppress = atoi(argv[idx_suppress]->arg);
-		max = atoi(argv[idx_max_suppress]->arg) * 60;
-	} else if (argc == 3) {
-		half = atoi(argv[idx_half_life]->arg) * 60;
-		max = 4 * half;
-	}
+	half = yang_dnode_get_uint8(dnode, "../reach-decay");
+	reuse = yang_dnode_get_uint16(dnode, "../reuse-above");
+	suppress = yang_dnode_get_uint16(dnode, "../suppress-above");
+	max = yang_dnode_get_uint8(dnode, "../unreach-decay");
 
-	/*
-	 * These can't be 0 but our SA doesn't understand the
-	 * way our cli is constructed
-	 */
-	assert(reuse);
-	assert(half);
-	if (suppress < reuse) {
-		vty_out(vty,
-			"Suppress value cannot be less than reuse value \n");
-		return 0;
-	}
-
-	return bgp_damp_enable(bgp, bgp_node_afi(vty), bgp_node_safi(vty), half,
-			       reuse, suppress, max);
-}
-
-DEFUN (bgp_damp_unset,
-       bgp_damp_unset_cmd,
-       "no bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]",
-       NO_STR
-       "BGP Specific commands\n"
-       "Enable route-flap dampening\n"
-       "Half-life time for the penalty\n"
-       "Value to start reusing a route\n"
-       "Value to start suppressing a route\n"
-       "Maximum duration to suppress a stable route\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	return bgp_damp_disable(bgp, bgp_node_afi(vty), bgp_node_safi(vty));
+	if (half == DEFAULT_HALF_LIFE * 60 && reuse == DEFAULT_REUSE
+	    && suppress == DEFAULT_SUPPRESS && max == half * 4)
+		vty_out(vty, "  bgp dampening\n");
+	else if (half != DEFAULT_HALF_LIFE * 60 && reuse == DEFAULT_REUSE
+		 && suppress == DEFAULT_SUPPRESS && max == half * 4)
+		vty_out(vty, "  bgp dampening %u\n", half);
+	else
+		vty_out(vty, "  bgp dampening %u %d %d %d\n", half, reuse,
+			suppress, max);
 }
 
 /* Display specified route of BGP table. */

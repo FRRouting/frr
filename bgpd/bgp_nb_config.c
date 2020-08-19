@@ -30,6 +30,7 @@
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_io.h"
+#include "bgpd/bgp_damp.h"
 
 FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
         { .val_ulong = 10, .match_profile = "datacenter", },
@@ -244,7 +245,6 @@ int bgp_global_local_as_modify(struct nb_cb_modify_args *args)
 				 bgp->as);
 			return NB_ERR_INCONSISTENCY;
 		}
-
 		break;
 	}
 
@@ -2042,8 +2042,30 @@ int bgp_global_bmp_config_mirror_buffer_limit_destroy(
  */
 int bgp_global_afi_safis_afi_safi_create(struct nb_cb_create_args *args)
 {
+	const struct lyd_node *vrf_dnode;
+	const char *vrf_name;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		vrf_dnode = yang_dnode_get_parent(args->dnode,
+						  "control-plane-protocol");
+		vrf_name = yang_dnode_get_string(vrf_dnode, "./vrf");
+		af_name = yang_dnode_get_string(args->dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+		if ((!strmatch(vrf_name, VRF_DEFAULT_NAME))
+		    && safi != SAFI_UNICAST && safi != SAFI_MULTICAST
+		    && safi != SAFI_EVPN) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Only Unicast/Multicast/EVPN SAFIs supported in non-core instances.");
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
@@ -5483,6 +5505,81 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_enabled_modify(
 	return NB_OK;
 }
 
+void bgp_global_afi_safis_afi_safi_network_config_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	const char *af_name;
+	struct prefix prefix;
+	bool is_backdoor = false;
+	uint32_t label_index = BGP_INVALID_LABEL_INDEX;
+	const char *rmap_name = NULL;
+	afi_t afi;
+	safi_t safi;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
+
+	is_backdoor = yang_dnode_get_bool(args->dnode, "./backdoor");
+
+	if (yang_dnode_exists(args->dnode, "./label-index"))
+		label_index =
+			yang_dnode_get_uint32(args->dnode, "./label-index");
+
+	if (yang_dnode_exists(args->dnode, "./rmap-policy-export"))
+		rmap_name = yang_dnode_get_string(args->dnode,
+						  "./rmap-policy-export");
+
+	bgp_static_set(bgp, NULL, &prefix, afi, safi, rmap_name, is_backdoor,
+		       label_index, args->errmsg, args->errmsg_len);
+}
+
+static int bgp_global_afi_safis_afi_safi_network_config_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	const char *af_name;
+	struct prefix prefix;
+	uint32_t label_index = BGP_INVALID_LABEL_INDEX;
+	const char *rmap_name = NULL;
+	bool is_backdoor = false;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
+
+	if (yang_dnode_exists(args->dnode, "./rmap-policy-export"))
+		rmap_name = yang_dnode_get_string(args->dnode,
+						  "./rmap-policy-export");
+
+	if (yang_dnode_exists(args->dnode, "./label-index"))
+		label_index =
+			yang_dnode_get_uint32(args->dnode, "./label-index");
+
+	if (yang_dnode_exists(args->dnode, "./backdoor"))
+		is_backdoor = yang_dnode_get_bool(args->dnode, "./backdoor");
+
+	ret = bgp_static_set(bgp, "no", &prefix, afi, safi, rmap_name,
+			     is_backdoor, label_index, args->errmsg,
+			     args->errmsg_len);
+	if (ret < 0)
+		return NB_ERR_INCONSISTENCY;
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/network-config
@@ -5490,14 +5587,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_enabled_modify(
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_create(
 	struct nb_cb_create_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in network_config_apply_finish callback */
 
 	return NB_OK;
 }
@@ -5509,8 +5599,11 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_global_afi_safis_afi_safi_network_config_destroy(
+			args);
+
 		break;
 	}
 
@@ -5524,14 +5617,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_destroy(
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_backdoor_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in unicast_network_config_apply_finish callback */
 
 	return NB_OK;
 }
@@ -5543,12 +5629,46 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_backdoor_modify(
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_label_index_modify(
 	struct nb_cb_modify_args *args)
 {
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	const char *af_name;
+	struct prefix prefix;
+	uint32_t label_index;
+	afi_t afi;
+	safi_t safi;
+	struct bgp_dest *dest;
+	struct bgp_static *bgp_static;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+		yang_dnode_get_prefix(&prefix, args->dnode, "../prefix");
+		apply_mask(&prefix);
+
+		label_index = yang_dnode_get_uint32(args->dnode, NULL);
+
+		dest = bgp_node_get(bgp->route[afi][safi], &prefix);
+		bgp_static = bgp_dest_get_bgp_static_info(dest);
+		if (bgp_static) {
+			if (bgp_static->label_index != label_index) {
+				snprintf(
+					args->errmsg, args->errmsg_len,
+					"Cannot change label-index: curr %u input %u\n",
+					bgp_static->label_index, label_index);
+				return NB_ERR_VALIDATION;
+			}
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -5558,14 +5678,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_label_index_modify
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_label_index_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in unicast_network_config_apply_finish callback */
 
 	return NB_OK;
 }
@@ -5577,6 +5690,17 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_label_index_destro
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
+	/* Handled in unicast_network_config_apply_finish callback */
+
+	return NB_OK;
+}
+
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_rmap_policy_export_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* rmap destory alone is not supported by backend, the entire network
+	 * config needs to be destroyed.
+	 */
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -5589,17 +5713,68 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_rmap_policy_export
 	return NB_OK;
 }
 
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_network_config_rmap_policy_export_destroy(
-	struct nb_cb_destroy_args *args)
+void bgp_global_afi_safi_aggregate_route_apply_finish(
+	struct nb_cb_apply_finish_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	const char *af_name;
+	struct prefix prefix;
+	const char *rmap_name = NULL;
+	afi_t afi;
+	safi_t safi;
+	uint8_t as_set = 0;
+	int summary_only = 0;
+	uint8_t origin = BGP_ORIGIN_UNSPECIFIED;
+	bool match_med = false;
+	const char *suppress_map = NULL;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
+
+	if (yang_dnode_exists(args->dnode, "./as-set"))
+		as_set = yang_dnode_get_bool(args->dnode, "./as-set");
+
+	summary_only = yang_dnode_get_bool(args->dnode, "./summary-only");
+
+	if (yang_dnode_exists(args->dnode, "./rmap-policy-export"))
+		rmap_name = yang_dnode_get_string(args->dnode,
+						  "./rmap-policy-export");
+
+	origin = yang_dnode_get_enum(args->dnode, "./origin");
+
+	bgp_aggregate_set(bgp, &prefix, afi, safi, rmap_name, summary_only,
+			  as_set, origin, match_med, suppress_map, args->errmsg,
+			  args->errmsg_len);
+}
+
+static int
+bgp_global_afi_safi_aggregate_route_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	const char *af_name;
+	struct prefix prefix;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
+
+	ret = bgp_aggregate_unset(bgp, &prefix, afi, safi, args->errmsg,
+				  args->errmsg_len);
+
+	if (ret < 0)
+		return NB_ERR_INCONSISTENCY;
 
 	return NB_OK;
 }
@@ -5630,9 +5805,9 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_aggregate_route_destroy(args);
 	}
 
 	return NB_OK;
@@ -5729,6 +5904,60 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_origin_modify(
 	return NB_OK;
 }
 
+void bgp_global_afi_safi_admin_distance_route_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	const char *prefix_str = NULL;
+	const char *access_list_str = NULL;
+	uint8_t distance;
+	afi_t afi;
+	safi_t safi;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	prefix_str = yang_dnode_get_string(args->dnode, "./prefix");
+	distance = yang_dnode_get_uint8(args->dnode, "./distance");
+	if (yang_dnode_exists(args->dnode, "./access-list-policy-export"))
+		access_list_str = yang_dnode_get_string(
+			args->dnode, "./access-list-policy-export");
+
+	bgp_distance_set(distance, prefix_str, access_list_str, afi, safi,
+			 args->errmsg, args->errmsg_len);
+}
+
+static int bgp_global_afi_safi_admin_distance_route_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	const char *prefix_str = NULL;
+	const char *access_list_str = NULL;
+	uint8_t distance;
+	afi_t afi;
+	safi_t safi;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	prefix_str = yang_dnode_get_string(args->dnode, "./prefix");
+	distance = yang_dnode_get_uint8(args->dnode, "./distance");
+	if (yang_dnode_exists(args->dnode, "./access-list-policy-export"))
+		access_list_str = yang_dnode_get_string(
+			args->dnode, "./access-list-policy-export");
+
+	if (bgp_distance_unset(distance, prefix_str, access_list_str, afi, safi,
+			       args->errmsg, args->errmsg_len)
+	    != CMD_SUCCESS)
+		return NB_ERR_INCONSISTENCY;
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance-route
@@ -5755,9 +5984,9 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_admin_distance_route_destroy(args);
 	}
 
 	return NB_OK;
@@ -5816,6 +6045,68 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_access_list_
 	return NB_OK;
 }
 
+void bgp_global_afi_safis_afi_safi_route_flap_dampening_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int half = DEFAULT_HALF_LIFE * 60;
+	int reuse = DEFAULT_REUSE;
+	int suppress = DEFAULT_SUPPRESS;
+	int max;
+	char ab_xpath[XPATH_MAXLEN];
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	if (!yang_dnode_get_bool(args->dnode, "./enable")) {
+		bgp_damp_disable(bgp, afi, safi);
+	} else {
+		half = yang_dnode_get_uint8(args->dnode, "./reach-decay");
+		half *= 60;
+		reuse = yang_dnode_get_uint16(args->dnode, "./reuse-above");
+
+		suppress =
+			yang_dnode_get_uint16(args->dnode, "./suppress-above");
+
+		max = yang_dnode_get_uint8(args->dnode, "./unreach-decay");
+		yang_dnode_get_path(args->dnode, ab_xpath, sizeof(ab_xpath));
+		strlcat(ab_xpath, "/unreach-decay", sizeof(ab_xpath));
+		if (yang_get_default_uint8(ab_xpath) == max)
+			max = half * 4;
+		else
+			max *= 60;
+
+		bgp_damp_enable(bgp, afi, safi, half, reuse, suppress, max);
+	}
+}
+
+static int
+bgp_global_afi_safi_route_flap_validation(struct nb_cb_modify_args *args)
+{
+	int reuse;
+	int suppress;
+
+	if (yang_dnode_exists(args->dnode, "../supress-above")
+	    && yang_dnode_exists(args->dnode, "../reuse-above")) {
+		suppress =
+			yang_dnode_get_uint16(args->dnode, "../suppress-above");
+		reuse = yang_dnode_get_uint16(args->dnode, "../reuse-above");
+		if (suppress < reuse) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Suppress value cannot be less than reuse value \n");
+			return NB_ERR_VALIDATION;
+		}
+	}
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/route-flap-dampening/enable
@@ -5825,10 +6116,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_enable_modif
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_global_afi_safi_route_flap_validation(args);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -5876,8 +6167,22 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reach_decay_
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_reuse_above_modify(
 	struct nb_cb_modify_args *args)
 {
+	int reuse = DEFAULT_REUSE;
+	int suppress = DEFAULT_SUPPRESS;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if (yang_dnode_exists(args->dnode, "../suppress-above"))
+			suppress = yang_dnode_get_uint16(args->dnode,
+							 "../suppress-above");
+		reuse = yang_dnode_get_uint16(args->dnode, "../reuse-above");
+		if (suppress < reuse) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Suppress value cannot be less than reuse value \n");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
@@ -5971,6 +6276,45 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_unreach_deca
 	return NB_OK;
 }
 
+static int
+bgp_global_afi_safi_ip_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
+	struct nb_cb_modify_args *args)
+{
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	uint16_t maxpaths, default_maxpaths;
+	int ret;
+	char xpath[XPATH_MAXLEN];
+	char afi_xpath[XPATH_MAXLEN];
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+	maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
+
+	snprintf(xpath, sizeof(xpath), FRR_BGP_GLOBAL_XPATH, "frr-bgp:bgp",
+		 "bgp", bgp->name ? bgp->name : VRF_DEFAULT_NAME);
+	snprintf(
+		afi_xpath, sizeof(afi_xpath),
+		"/global/afi-safis/afi-safi[afi-safi-name='%s']/%s/use-multiple-paths/ebgp/maximum-paths",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+	strlcat(xpath, afi_xpath, sizeof(xpath));
+	default_maxpaths = yang_get_default_uint16(xpath);
+
+	ret = bgp_maxpaths_config_vty(bgp, afi, safi, BGP_PEER_EBGP, maxpaths,
+				      0, maxpaths != default_maxpaths ? 1 : 0,
+				      args->errmsg, args->errmsg_len);
+	if (ret != CMD_SUCCESS)
+		return NB_ERR_INCONSISTENCY;
+
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/use-multiple-paths/ebgp/maximum-paths
@@ -5978,16 +6322,68 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_route_flap_dampening_unreach_deca
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
+	uint16_t maxpaths;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
+		if (maxpaths > MULTIPATH_NUM) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "maxpaths %u is out of range %u", maxpaths,
+				 MULTIPATH_NUM);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
+			args);
 	}
 
 	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/use-multiple-paths/ibgp
+ */
+void bgp_global_afi_safi_ip_unicast_use_multiple_paths_ibgp_maximum_paths_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	uint16_t maxpaths, default_maxpaths;
+	char xpath[XPATH_MAXLEN];
+	char afi_xpath[XPATH_MAXLEN];
+	uint16_t options = 0;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	maxpaths = yang_dnode_get_uint16(args->dnode, "./maximum-paths");
+	if (yang_dnode_get_bool(args->dnode, "./cluster-length-list"))
+		options = BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN;
+
+	snprintf(xpath, sizeof(xpath), FRR_BGP_GLOBAL_XPATH, "frr-bgp:bgp",
+		 "bgp", bgp->name ? bgp->name : VRF_DEFAULT_NAME);
+	snprintf(
+		afi_xpath, sizeof(afi_xpath),
+		"/global/afi-safis/afi-safi[afi-safi-name='%s']/%s/use-multiple-paths/ibgp/maximum-paths",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+	strlcat(xpath, afi_xpath, sizeof(xpath));
+	default_maxpaths = yang_get_default_uint16(xpath);
+
+	bgp_maxpaths_config_vty(bgp, afi, safi, BGP_PEER_IBGP, maxpaths,
+				options, maxpaths != default_maxpaths ? 1 : 0,
+				args->errmsg, args->errmsg_len);
 }
 
 /*
@@ -5997,12 +6393,22 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ebgp_maximum_p
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
+	uint16_t maxpaths;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
+		if (maxpaths > MULTIPATH_NUM) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "maxpaths %u is out of range %u", maxpaths,
+				 MULTIPATH_NUM);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -6043,6 +6449,49 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_use_multiple_paths_ibgp_cluster_l
 	return NB_OK;
 }
 
+void bgp_global_afi_safi_ip_unicast_redistribution_list_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int route_type;
+	int route_instance;
+	struct bgp_redist *red;
+	bool changed = false;
+	struct route_map *route_map = NULL;
+	const char *rmap_name = NULL;
+	uint32_t metric = 0;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	route_type = yang_dnode_get_enum(args->dnode, "./route-type");
+	route_instance = yang_dnode_get_uint16(args->dnode, "./route-instance");
+
+	red = bgp_redist_add(bgp, afi, route_type, route_instance);
+
+	if (yang_dnode_exists(args->dnode, "./rmap-policy-import")) {
+		rmap_name = yang_dnode_get_string(args->dnode,
+						  "./rmap-policy-import");
+		route_map = route_map_lookup_by_name(rmap_name);
+
+		changed = bgp_redistribute_rmap_set(red, rmap_name, route_map);
+	}
+
+	if (yang_dnode_exists(args->dnode, "./metric")) {
+		metric = yang_dnode_get_uint32(args->dnode, "./metric");
+		changed |= bgp_redistribute_metric_set(bgp, red, afi,
+						       route_type, metric);
+	}
+
+	bgp_redistribute_set(bgp, afi, route_type, route_instance, changed);
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/redistribution-list
@@ -6065,12 +6514,31 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_create(
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int route_type;
+	int route_instance;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+		bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+		route_type = yang_dnode_get_enum(args->dnode, "./route-type");
+		route_instance =
+			yang_dnode_get_uint16(args->dnode, "./route-instance");
+
+		bgp_redistribute_unset(bgp, afi, route_type, route_instance);
+
 		break;
 	}
 
@@ -6145,6 +6613,44 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_rmap_policy_i
 	return NB_OK;
 }
 
+static int
+bgp_global_afi_safis_admin_distance_modify(struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	uint8_t distance_ebgp, distance_ibgp, distance_local;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	distance_ebgp = yang_dnode_get_uint8(args->dnode, "./external");
+	distance_ibgp = yang_dnode_get_uint8(args->dnode, "./internal");
+	distance_local = yang_dnode_get_uint8(args->dnode, "./local");
+
+	bgp->distance_ebgp[afi][safi] = distance_ebgp;
+	bgp->distance_ibgp[afi][safi] = distance_ibgp;
+	bgp->distance_local[afi][safi] = distance_local;
+
+	bgp_announce_routes_distance_update(bgp, afi, safi);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance
+ */
+void bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	bgp_global_afi_safis_admin_distance_modify(args);
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/external
@@ -6152,14 +6658,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_rmap_policy_i
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }
@@ -6171,14 +6670,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_modify(
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }
@@ -6190,14 +6682,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_modify(
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }
@@ -6236,6 +6721,83 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy
 	return NB_OK;
 }
 
+static int bgp_global_afi_safi_ip_unicast_vpn_config_rd_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	const char *rd_str = NULL;
+	struct prefix_rd prd;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	rd_str = yang_dnode_get_string(args->dnode, NULL);
+	if (!str2prefix_rd(rd_str, &prd)) {
+		snprintf(args->errmsg, args->errmsg_len, "Malformed rd %s\n",
+			 rd_str);
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	/*
+	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
+	 */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			   bgp);
+
+	bgp->vpn_policy[afi].tovpn_rd = prd;
+	SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_SET);
+
+	/* post-change: re-export vpn routes */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			    bgp);
+
+	return NB_OK;
+}
+
+static int bgp_global_afi_safi_ip_unicast_vpn_config_rd_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	const char *rd_str = NULL;
+	struct prefix_rd prd;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	rd_str = yang_dnode_get_string(args->dnode, NULL);
+	if (str2prefix_rd(rd_str, &prd)) {
+		snprintf(args->errmsg, args->errmsg_len, "Malformed rd %s \n",
+			 rd_str);
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	/*
+	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
+	 */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			   bgp);
+
+	UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_SET);
+
+	/* post-change: re-export vpn routes */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			    bgp);
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/rd
@@ -6243,12 +6805,34 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rd_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+		if (!vpn_policy_check_import(bgp, afi, safi, false,
+					     args->errmsg, args->errmsg_len))
+			return NB_ERR_VALIDATION;
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rd_modify(
+			args);
+
 		break;
 	}
 
@@ -6262,9 +6846,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rd_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rd_destroy(
+			args);
 	}
 
 	return NB_OK;
@@ -6338,6 +6923,69 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_auto_destroy(
 	return NB_OK;
 }
 
+static int bgp_global_afi_safi_ip_unicast_vpn_config_nexthop_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	struct prefix p;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	yang_dnode_get_prefix(&p, args->dnode, NULL);
+
+	/*
+	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
+	 */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			   bgp);
+
+	bgp->vpn_policy[afi].tovpn_nexthop = p;
+	SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
+
+	/* post-change: re-export vpn routes */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			    bgp);
+
+	return NB_OK;
+}
+
+static int bgp_global_afi_safi_ip_unicast_vpn_config_nexthop_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	struct prefix p;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	yang_dnode_get_prefix(&p, args->dnode, NULL);
+
+	/*
+	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
+	 */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			   bgp);
+	UNSET_FLAG(bgp->vpn_policy[afi].flags,
+		   BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
+	/* post-change: re-export vpn routes */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			    bgp);
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/nexthop
@@ -6345,13 +6993,32 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_label_auto_destroy(
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_nexthop_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+		if (!vpn_policy_check_import(bgp, afi, safi, false,
+					     args->errmsg, args->errmsg_len))
+			return NB_ERR_VALIDATION;
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_nexthop_modify(
+			args);
 	}
 
 	return NB_OK;
@@ -6364,9 +7031,59 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_nexthop_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_nexthop_destroy(
+			args);
+	}
+
+	return NB_OK;
+}
+
+static int bgp_global_afi_safi_ip_unicast_vpn_config_import_export_vpn_modify(
+	struct nb_cb_modify_args *args, const char *direction_str,
+	bool is_enable)
+{
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int previous_state;
+	int flag;
+	vpn_policy_direction_t dir;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	if (!strcmp(direction_str, "import")) {
+		flag = BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT;
+		dir = BGP_VPN_POLICY_DIR_FROMVPN;
+	} else if (!strcmp(direction_str, "export")) {
+		flag = BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT;
+		dir = BGP_VPN_POLICY_DIR_TOVPN;
+	} else {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "unknown direction %s\n", direction_str);
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	previous_state = CHECK_FLAG(bgp->af_flags[afi][safi], flag);
+
+	if (is_enable) {
+		SET_FLAG(bgp->af_flags[afi][safi], flag);
+		if (!previous_state) {
+			/* trigger export current vrf */
+			vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+		}
+	} else {
+		if (previous_state) {
+			/* trigger un-export current vrf */
+			vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+		}
+		UNSET_FLAG(bgp->af_flags[afi][safi], flag);
 	}
 
 	return NB_OK;
@@ -6379,13 +7096,33 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_nexthop_destroy(
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vpn_modify(
 	struct nb_cb_modify_args *args)
 {
+	bool is_enable = false;
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		if (BGP_INSTANCE_TYPE_VRF != bgp->inst_type
+		    && BGP_INSTANCE_TYPE_DEFAULT != bgp->inst_type) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"import|export vpn valid only for bgp vrf or default instance");
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		if (yang_dnode_get_bool(args->dnode, NULL))
+			is_enable = true;
+
+		return bgp_global_afi_safi_ip_unicast_vpn_config_import_export_vpn_modify(
+			args, "import", is_enable);
 	}
 
 	return NB_OK;
@@ -6398,17 +7135,183 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vpn_modify(
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_export_vpn_modify(
 	struct nb_cb_modify_args *args)
 {
+	bool is_enable = false;
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		if (BGP_INSTANCE_TYPE_VRF != bgp->inst_type
+		    && BGP_INSTANCE_TYPE_DEFAULT != bgp->inst_type) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"import|export vpn valid only for bgp vrf or default instance");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		if (yang_dnode_get_bool(args->dnode, NULL))
+			is_enable = true;
+
+		return bgp_global_afi_safi_ip_unicast_vpn_config_import_export_vpn_modify(
+			args, "export", is_enable);
 	}
 
 	return NB_OK;
 }
+
+
+static int bgp_global_afi_safi_ip_unicast_vpn_config_import_vrfs_create(
+	struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int ret = 0;
+	as_t as;
+	struct bgp *vrf_bgp, *bgp_default;
+	const char *import_name;
+	char *vname;
+	enum bgp_instance_type bgp_type = BGP_INSTANCE_TYPE_VRF;
+	struct listnode *node;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	as = bgp->as;
+	import_name = yang_dnode_get_string(args->dnode, "./vrf");
+
+	if (((BGP_INSTANCE_TYPE_DEFAULT == bgp->inst_type)
+	     && (strcmp(import_name, VRF_DEFAULT_NAME) == 0))
+	    || (bgp->name && (strcmp(import_name, bgp->name) == 0))) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "Cannot %s vrf %s into itself\n", "import",
+			 import_name);
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	bgp_default = bgp_get_default();
+	if (!bgp_default) {
+		/* Auto-create assuming the same AS */
+		ret = bgp_get_vty(&bgp_default, &as, NULL,
+				  BGP_INSTANCE_TYPE_DEFAULT);
+
+		if (ret) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"VRF default is not configured as a bgp instance");
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	vrf_bgp = bgp_lookup_by_name(import_name);
+	if (!vrf_bgp) {
+		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0)
+			vrf_bgp = bgp_default;
+		else
+			/* Auto-create assuming the same AS */
+			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type);
+
+		if (ret) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "VRF %s is not configured as a bgp instance\n",
+				 import_name);
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	/* Already importing from "import_vrf"? */
+	for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
+				  vname)) {
+		if (strcmp(vname, import_name) == 0) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "already importing from vrf %s", import_name);
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	vrf_import_from_vrf(bgp, vrf_bgp, afi, safi);
+
+	return NB_OK;
+}
+
+
+static int bgp_global_afi_safi_ip_unicast_vpn_config_import_vrf_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int ret = 0;
+	as_t as;
+	struct bgp *vrf_bgp, *bgp_default;
+	const char *import_name;
+	enum bgp_instance_type bgp_type = BGP_INSTANCE_TYPE_VRF;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	as = bgp->as;
+	import_name = yang_dnode_get_string(args->dnode, "./vrf");
+
+	if (((BGP_INSTANCE_TYPE_DEFAULT == bgp->inst_type)
+	     && (strcmp(import_name, VRF_DEFAULT_NAME) == 0))
+	    || (bgp->name && (strcmp(import_name, bgp->name) == 0))) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "Cannot %s vrf %s into itself\n", "unimport",
+			 import_name);
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	bgp_default = bgp_get_default();
+	if (!bgp_default) {
+		/* Auto-create assuming the same AS */
+		ret = bgp_get_vty(&bgp_default, &as, NULL,
+				  BGP_INSTANCE_TYPE_DEFAULT);
+
+		if (ret) {
+			snprintf(
+				args->errmsg, args->errmsg_len, "%s",
+				"VRF default is not configured as a bgp instance");
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	vrf_bgp = bgp_lookup_by_name(import_name);
+	if (!vrf_bgp) {
+		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0)
+			vrf_bgp = bgp_default;
+		else
+			/* Auto-create assuming the same AS */
+			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type);
+
+		if (ret) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "VRF %s is not configured as a bgp instance\n",
+				 import_name);
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	vrf_unimport_from_vrf(bgp, vrf_bgp, afi, safi);
+
+	return NB_OK;
+}
+
 
 /*
  * XPath:
@@ -6417,13 +7320,32 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_export_vpn_modify(
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vrf_list_create(
 	struct nb_cb_create_args *args)
 {
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+		if (!vpn_policy_check_import(bgp, afi, safi, true, args->errmsg,
+					     args->errmsg_len))
+			return NB_ERR_VALIDATION;
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_import_vrfs_create(
+			args);
 	}
 
 	return NB_OK;
@@ -6436,9 +7358,104 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vrf_list_destro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_import_vrf_list_destroy(
+			args);
+	}
+
+	return NB_OK;
+}
+
+static int bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import_modify(
+	struct nb_cb_modify_args *args, const char *dstr)
+{
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	const char *rmap_str = NULL;
+	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
+	vpn_policy_direction_t dir;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	if (!strcmp(dstr, "import")) {
+		rmap_str = yang_dnode_get_string(args->dnode, NULL);
+		dodir[BGP_VPN_POLICY_DIR_FROMVPN] = 1;
+	} else if (!strcmp(dstr, "export")) {
+		rmap_str = yang_dnode_get_string(args->dnode, NULL);
+		dodir[BGP_VPN_POLICY_DIR_TOVPN] = 1;
+	} else if (!strcmp(dstr, "both")) {
+		dodir[BGP_VPN_POLICY_DIR_FROMVPN] = 1;
+		dodir[BGP_VPN_POLICY_DIR_TOVPN] = 1;
+	}
+
+	for (dir = 0; dir < BGP_VPN_POLICY_DIR_MAX; ++dir) {
+		if (!dodir[dir])
+			continue;
+
+		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+
+		if (bgp->vpn_policy[afi].rmap_name[dir])
+			XFREE(MTYPE_ROUTE_MAP_NAME,
+			      bgp->vpn_policy[afi].rmap_name[dir]);
+		bgp->vpn_policy[afi].rmap_name[dir] =
+			XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
+		bgp->vpn_policy[afi].rmap[dir] =
+			route_map_lookup_by_name(rmap_str);
+		if (!bgp->vpn_policy[afi].rmap[dir])
+			return NB_OK;
+
+
+		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+	}
+
+	return NB_OK;
+}
+
+static int bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import_destroy(
+	struct nb_cb_destroy_args *args, const char *dstr)
+{
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
+	vpn_policy_direction_t dir;
+
+	af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+	bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+	if (!strcmp(dstr, "import")) {
+		dodir[BGP_VPN_POLICY_DIR_FROMVPN] = 1;
+	} else if (!strcmp(dstr, "export")) {
+		dodir[BGP_VPN_POLICY_DIR_TOVPN] = 1;
+	} else if (!strcmp(dstr, "both")) {
+		dodir[BGP_VPN_POLICY_DIR_FROMVPN] = 1;
+		dodir[BGP_VPN_POLICY_DIR_TOVPN] = 1;
+	}
+
+	for (dir = 0; dir < BGP_VPN_POLICY_DIR_MAX; ++dir) {
+		if (!dodir[dir])
+			continue;
+
+		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+
+		if (bgp->vpn_policy[afi].rmap_name[dir])
+			XFREE(MTYPE_ROUTE_MAP_NAME,
+			      bgp->vpn_policy[afi].rmap_name[dir]);
+		bgp->vpn_policy[afi].rmap_name[dir] = NULL;
+		bgp->vpn_policy[afi].rmap[dir] = NULL;
+
+		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
 	}
 
 	return NB_OK;
@@ -6451,13 +7468,31 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_import_vrf_list_destro
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_import_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+		if (!vpn_policy_check_import(bgp, afi, safi, false,
+					     args->errmsg, args->errmsg_len))
+			return NB_ERR_VALIDATION;
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import_modify(
+			args, "import");
 	}
 
 	return NB_OK;
@@ -6466,13 +7501,31 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_import_modify(
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+		if (!vpn_policy_check_import(bgp, afi, safi, false,
+					     args->errmsg, args->errmsg_len))
+			return NB_ERR_VALIDATION;
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import_destroy(
+			args, "import");
 	}
 
 	return NB_OK;
@@ -6489,9 +7542,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_export_modify(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import_modify(
+			args, "export");
 	}
 
 	return NB_OK;
@@ -6504,8 +7558,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rmap_export_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import_destroy(
+			args, "export");
 		break;
 	}
 
@@ -6655,14 +7711,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_vpn_config_rt_list_destroy(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_create(
 	struct nb_cb_create_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in network_config_apply_finish callback */
 
 	return NB_OK;
 }
@@ -6674,8 +7723,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_global_afi_safis_afi_safi_network_config_destroy(
+			args);
 		break;
 	}
 
@@ -6689,14 +7740,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_destroy(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_backdoor_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in unicast_network_config_apply_finish callback */
 
 	return NB_OK;
 }
@@ -6708,14 +7752,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_backdoor_modify(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_label_index_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in unicast_network_config_apply_finish callback */
 
 	return NB_OK;
 }
@@ -6742,14 +7779,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_label_index_destro
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_network_config_rmap_policy_export_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in unicast_network_config_apply_finish callback */
 
 	return NB_OK;
 }
@@ -6795,9 +7825,9 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_aggregate_route_destroy(args);
 	}
 
 	return NB_OK;
@@ -6920,9 +7950,9 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_admin_distance_route_destroy(args);
 	}
 
 	return NB_OK;
@@ -6990,10 +8020,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_enable_modif
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_global_afi_safi_route_flap_validation(args);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -7041,8 +8071,22 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reach_decay_
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reuse_above_modify(
 	struct nb_cb_modify_args *args)
 {
+	int reuse = DEFAULT_REUSE;
+	int suppress = DEFAULT_SUPPRESS;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if (yang_dnode_exists(args->dnode, "../suppress-above"))
+			suppress = yang_dnode_get_uint16(args->dnode,
+							 "../suppress-above");
+		reuse = yang_dnode_get_uint16(args->dnode, "../reuse-above");
+		if (suppress < reuse) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Suppress value cannot be less than reuse value \n");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
@@ -7143,13 +8187,24 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_unreach_deca
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
+	uint16_t maxpaths;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
+		if (maxpaths > MULTIPATH_NUM) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "maxpaths %u is out of range %u", maxpaths,
+				 MULTIPATH_NUM);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
+			args);
 	}
 
 	return NB_OK;
@@ -7230,12 +8285,31 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_create(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	const struct lyd_node *af_dnode;
+	struct bgp *bgp;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+	int route_type;
+	int route_instance;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+		bgp = nb_running_get_entry(af_dnode, NULL, true);
+
+		route_type = yang_dnode_get_enum(args->dnode, "./route-type");
+		route_instance =
+			yang_dnode_get_uint16(args->dnode, "./route-instance");
+
+		bgp_redistribute_unset(bgp, afi, route_type, route_instance);
+
 		break;
 	}
 
@@ -7312,19 +8386,22 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_rmap_policy_i
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance
+ */
+void bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	bgp_global_afi_safis_admin_distance_modify(args);
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/external
  */
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }
@@ -7336,14 +8413,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_modify(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }
@@ -7355,14 +8425,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_modify(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }
@@ -7408,13 +8471,33 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_export_destroy
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rd_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+		if (!vpn_policy_check_import(bgp, afi, safi, false,
+					     args->errmsg, args->errmsg_len))
+			return NB_ERR_VALIDATION;
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rd_modify(
+			args);
 	}
 
 	return NB_OK;
@@ -7427,9 +8510,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rd_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rd_destroy(
+			args);
 	}
 
 	return NB_OK;
@@ -7510,13 +8594,33 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_label_auto_destroy(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_nexthop_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+		if (!vpn_policy_check_import(bgp, afi, safi, false,
+					     args->errmsg, args->errmsg_len))
+			return NB_ERR_VALIDATION;
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_nexthop_modify(
+			args);
 	}
 
 	return NB_OK;
@@ -7529,9 +8633,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_nexthop_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_nexthop_destroy(
+			args);
 	}
 
 	return NB_OK;
@@ -7582,13 +8687,32 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_vpn_modify(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vrf_list_create(
 	struct nb_cb_create_args *args)
 {
+	struct bgp *bgp;
+	const struct lyd_node *af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+		af_name = yang_dnode_get_string(af_dnode, "./afi-safi-name");
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+		if (!vpn_policy_check_import(bgp, afi, safi, true, args->errmsg,
+					     args->errmsg_len))
+			return NB_ERR_VALIDATION;
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_import_vrfs_create(
+			args);
 	}
 
 	return NB_OK;
@@ -7601,9 +8725,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vrf_list_destro
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_import_vrf_list_destroy(
+			args);
 	}
 
 	return NB_OK;
@@ -7620,9 +8745,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_import_modify(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import_modify(
+			args, "import");
 	}
 
 	return NB_OK;
@@ -7635,9 +8761,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_import_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import_destroy(
+			args, "import");
 	}
 
 	return NB_OK;
@@ -7654,9 +8781,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_export_modify(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import_modify(
+			args, "export");
 	}
 
 	return NB_OK;
@@ -7669,9 +8797,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rmap_export_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import_destroy(
+			args, "export");
 	}
 
 	return NB_OK;
@@ -7820,13 +8949,24 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_rt_list_destroy(
 int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
+	uint16_t maxpaths;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
+		if (maxpaths > MULTIPATH_NUM) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "maxpaths %u is out of range %u", maxpaths,
+				 MULTIPATH_NUM);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
+			args);
 	}
 
 	return NB_OK;
@@ -7894,10 +9034,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_enab
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_global_afi_safi_route_flap_validation(args);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -8047,13 +9187,24 @@ int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_unre
 int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
+	uint16_t maxpaths;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
+		if (maxpaths > MULTIPATH_NUM) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "maxpaths %u is out of range %u", maxpaths,
+				 MULTIPATH_NUM);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_ip_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
+			args);
 	}
 
 	return NB_OK;
@@ -8066,8 +9217,18 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ebgp_m
 int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args)
 {
+	uint16_t maxpaths;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		maxpaths = yang_dnode_get_uint16(args->dnode, NULL);
+		if (maxpaths > MULTIPATH_NUM) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "maxpaths %u is out of range %u", maxpaths,
+				 MULTIPATH_NUM);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
@@ -8121,10 +9282,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_enab
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_global_afi_safi_route_flap_validation(args);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -8274,14 +9435,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_unre
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_create(
 	struct nb_cb_create_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in network_config_apply_finish callback */
 
 	return NB_OK;
 }
@@ -8293,8 +9447,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_global_afi_safis_afi_safi_network_config_destroy(
+			args);
 		break;
 	}
 
@@ -8539,9 +9695,9 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_admin_distance_route_destroy(args);
 	}
 
 	return NB_OK;
@@ -8662,10 +9818,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_enable_mod
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_global_afi_safi_route_flap_validation(args);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -8810,19 +9966,22 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_unreach_de
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance
+ */
+void bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	bgp_global_afi_safis_admin_distance_modify(args);
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance/external
  */
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }
@@ -8834,14 +9993,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_modify(
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }
@@ -8853,14 +10005,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_modify(
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }
@@ -8874,10 +10019,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_enable_mod
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_global_afi_safi_route_flap_validation(args);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -9061,14 +10206,7 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_filter_config_rmap_export_destr
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_create(
 	struct nb_cb_create_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in network_config_apply_finish callback */
 
 	return NB_OK;
 }
@@ -9080,8 +10218,11 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_network_config_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		return bgp_global_afi_safis_afi_safi_network_config_destroy(
+			args);
+
 		break;
 	}
 
@@ -9326,12 +10467,22 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_destroy(
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+		return bgp_global_afi_safi_admin_distance_route_destroy(args);
 	}
 
 	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance
+ */
+void bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	bgp_global_afi_safis_admin_distance_modify(args);
 }
 
 /*
@@ -9341,14 +10492,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_destroy(
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }
@@ -9360,14 +10504,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_modify(
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }
@@ -9379,14 +10516,7 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_modify(
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	/* Handled in admin_distance_apply_finish callback */
 
 	return NB_OK;
 }

@@ -3491,10 +3491,68 @@ void cli_show_router_bgp_graceful_shutdown(struct vty *vty,
 					   bool show_defaults);
 void cli_show_router_bgp_med_config(struct vty *vty, struct lyd_node *dnode,
 				    bool show_defaults);
+void cli_show_bgp_global_afi_safi_header(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults);
+void cli_show_bgp_global_afi_safi_header_end(struct vty *vty,
+					     struct lyd_node *dnode);
+void cli_show_bgp_global_afi_safi_network_config(struct vty *vty,
+						 struct lyd_node *dnode,
+						 bool show_defaults);
+void cli_show_bgp_global_afi_safi_unicast_aggregate_route(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_admin_distance_config(struct vty *vty,
+							struct lyd_node *dnode,
+							bool show_defaults);
+void cli_show_bgp_global_afi_safi_route_flap_dampening(struct vty *vty,
+						       struct lyd_node *dnode,
+						       bool show_defaults);
+void cli_show_bgp_global_afi_safi_unicast_admin_distance_route(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_unicast_use_multiple_paths_ebgp_maximum_paths(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_use_multiple_paths_ibgp_maximum_paths(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_redistribution_list(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_nexthop(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_rd(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_import_vpn(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_export_vpn(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_import_vrfs(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_rmap_export(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
 
 void bgp_global_route_selection_options_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 void bgp_global_med_config_apply_finish(struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_network_config_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safi_aggregate_route_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safi_admin_distance_route_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safi_ip_unicast_use_multiple_paths_ibgp_maximum_paths_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safi_ip_unicast_redistribution_list_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_route_flap_dampening_apply_finish(
+	struct nb_cb_apply_finish_args *args);
 
 /* xpath macros */
 /* route-list */
@@ -3507,5 +3565,8 @@ void bgp_global_med_config_apply_finish(struct nb_cb_apply_finish_args *args);
 	"/frr-routing:routing/control-plane-protocols/"                        \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
 	"frr-bgp:bgp/local-as"
+#define FRR_BGP_AFI_SAFI_REDIST_XPATH                                          \
+	"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/"                  \
+	"redistribution-list[route-type='%s'][route-instance='%s']"
 
 #endif
