@@ -312,6 +312,10 @@ struct ospf {
 	 * update to neighbors immediatly */
 	uint8_t inst_shutdown;
 
+	/* Enable or disable sending proactive ARP requests. */
+	bool proactive_arp;
+#define OSPF_PROACTIVE_ARP_DEFAULT true
+
 	/* Redistributed external information. */
 	struct list *external[ZEBRA_ROUTE_MAX + 1];
 #define EXTERNAL_INFO(E)      (E->external_info)

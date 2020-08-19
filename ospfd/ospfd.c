@@ -305,6 +305,8 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	new->oi_write_q = list_new();
 	new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
 
+	new->proactive_arp = OSPF_PROACTIVE_ARP_DEFAULT;
+
 	QOBJ_REG(new, ospf);
 
 	new->fd = -1;
