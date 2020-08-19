@@ -200,8 +200,8 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 
 	if (IS_ZEBRA_DEBUG_RIB) {
 		zlog_debug(
-			"%u:%s: Redist update re %p (%s), old %p (%s)",
-			re->vrf_id, prefix2str(p, buf, sizeof(buf)),
+			"(%u:%u):%s: Redist update re %p (%s), old %p (%s)",
+			re->vrf_id, re->table, prefix2str(p, buf, sizeof(buf)),
 			re, zebra_route_string(re->type), prev_re,
 			prev_re ? zebra_route_string(prev_re->type) : "None");
 	}
@@ -224,12 +224,12 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 		if (zebra_redistribute_check(re, client, p, afi)) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				zlog_debug(
-					   "%s: client %s %s(%u), type=%d, distance=%d, metric=%d",
-					   __func__,
-					   zebra_route_string(client->proto),
-					   prefix2str(p, buf, sizeof(buf)),
-					   re->vrf_id, re->type,
-					   re->distance, re->metric);
+					"%s: client %s %s(%u:%u), type=%d, distance=%d, metric=%d",
+					__func__,
+					zebra_route_string(client->proto),
+					prefix2str(p, buf, sizeof(buf)),
+					re->vrf_id, re->table, re->type,
+					re->distance, re->metric);
 			}
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
 						 client, p, src_p, re);
