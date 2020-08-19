@@ -257,8 +257,9 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			strlcpy(ab_xpath, xpath_nexthop, sizeof(ab_xpath));
 			strlcat(ab_xpath, FRR_STATIC_ROUTE_NH_COLOR_XPATH,
 				sizeof(ab_xpath));
-			nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY,
-					      color_str);
+			if (color_str)
+				nb_cli_enqueue_change(vty, ab_xpath,
+						      NB_OP_MODIFY, color_str);
 		}
 		if (label_str) {
 			/* copy of label string (start) */
