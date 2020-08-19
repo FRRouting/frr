@@ -747,6 +747,10 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %{_includedir}/%{name}/*.h
 %dir %{_includedir}/%{name}/ospfd
 %{_includedir}/%{name}/ospfd/*.h
+%if %{with_bfdd}
+    %dir %{_includedir}/%{name}/bfdd
+    %{_includedir}/%{name}/bfdd/bfddp_packet.h
+%endif
 %if %{with_ospfapi}
     %dir %{_includedir}/%{name}/ospfapi
     %{_includedir}/%{name}/ospfapi/*.h
