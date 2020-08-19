@@ -375,8 +375,10 @@ static int frr_confd_cdb_read_cb_commit(int fd, int *subp, int reslen)
 	/* Apply the transaction. */
 	if (transaction) {
 		struct nb_config *candidate = transaction->config;
+		char errmsg[BUFSIZ] = {0};
 
-		nb_candidate_commit_apply(transaction, true, NULL);
+		nb_candidate_commit_apply(transaction, true, NULL, errmsg,
+					  sizeof(errmsg));
 		nb_config_free(candidate);
 	}
 
@@ -400,8 +402,9 @@ static int frr_confd_cdb_read_cb_abort(int fd, int *subp, int reslen)
 	/* Abort the transaction. */
 	if (transaction) {
 		struct nb_config *candidate = transaction->config;
+		char errmsg[BUFSIZ] = {0};
 
-		nb_candidate_commit_abort(transaction);
+		nb_candidate_commit_abort(transaction, errmsg, sizeof(errmsg));
 		nb_config_free(candidate);
 	}
 

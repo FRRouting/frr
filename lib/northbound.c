@@ -707,23 +707,21 @@ int nb_candidate_commit_prepare(struct nb_context *context,
 				      errmsg_len);
 }
 
-void nb_candidate_commit_abort(struct nb_transaction *transaction)
+void nb_candidate_commit_abort(struct nb_transaction *transaction, char *errmsg,
+			       size_t errmsg_len)
 {
-	char errmsg[BUFSIZ] = {0};
-
 	(void)nb_transaction_process(NB_EV_ABORT, transaction, errmsg,
-				     sizeof(errmsg));
+				     errmsg_len);
 	nb_transaction_free(transaction);
 }
 
 void nb_candidate_commit_apply(struct nb_transaction *transaction,
-			       bool save_transaction, uint32_t *transaction_id)
+			       bool save_transaction, uint32_t *transaction_id,
+			       char *errmsg, size_t errmsg_len)
 {
-	char errmsg[BUFSIZ] = {0};
-
 	(void)nb_transaction_process(NB_EV_APPLY, transaction, errmsg,
-				     sizeof(errmsg));
-	nb_transaction_apply_finish(transaction, errmsg, sizeof(errmsg));
+				     errmsg_len);
+	nb_transaction_apply_finish(transaction, errmsg, errmsg_len);
 
 	/* Replace running by candidate. */
 	transaction->config->version++;
@@ -754,9 +752,9 @@ int nb_candidate_commit(struct nb_context *context, struct nb_config *candidate,
 	 */
 	if (ret == NB_OK)
 		nb_candidate_commit_apply(transaction, save_transaction,
-					  transaction_id);
+					  transaction_id, errmsg, errmsg_len);
 	else if (transaction != NULL)
-		nb_candidate_commit_abort(transaction);
+		nb_candidate_commit_abort(transaction, errmsg, errmsg_len);
 
 	return ret;
 }
