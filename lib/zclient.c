@@ -795,6 +795,20 @@ static int zapi_nexthop_labels_cmp(const struct zapi_nexthop *next1,
 	return memcmp(next1->labels, next2->labels, next1->label_num);
 }
 
+static int zapi_nexthop_seg6local_cmp(const struct zapi_nexthop *next1,
+				      const struct zapi_nexthop *next2)
+{
+	if (next1->seg6local_action > next2->seg6local_action)
+		return 1;
+
+	if (next1->seg6local_action < next2->seg6local_action)
+		return -1;
+
+	return memcmp(&next1->seg6local_ctx,
+		      &next2->seg6local_ctx,
+		      sizeof(struct seg6local_context));
+}
+
 static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
 				      const struct zapi_nexthop *next2)
 {
@@ -895,6 +909,10 @@ static int zapi_nexthop_cmp(const void *item1, const void *item2)
 		return ret;
 
 	ret = zapi_nexthop_labels_cmp(next1, next2);
+	if (ret != 0)
+		return ret;
+
+	ret = zapi_nexthop_seg6local_cmp(next1, next2);
 
 	return ret;
 }
@@ -989,6 +1007,12 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_putc(s, api_nh->backup_num);
 		for (i = 0; i < api_nh->backup_num; i++)
 			stream_putc(s, api_nh->backup_idx[i]);
+	}
+
+	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE)) {
+		stream_putl(s, api_nh->seg6local_action);
+		stream_write(s, &api_nh->seg6local_ctx,
+			     sizeof(struct seg6local_context));
 	}
 
 done:
@@ -1258,6 +1282,12 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 
 		for (i = 0; i < api_nh->backup_num; i++)
 			STREAM_GETC(s, api_nh->backup_idx[i]);
+	}
+
+	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE)) {
+		STREAM_GETL(s, api_nh->seg6local_action);
+		STREAM_GET(&api_nh->seg6local_ctx, s,
+			   sizeof(struct seg6local_context));
 	}
 
 	/* Success */
@@ -1612,6 +1642,10 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 		memcpy(n->backup_idx, znh->backup_idx, n->backup_num);
 	}
 
+	if (znh->seg6local_action != 0)
+		nexthop_add_seg6local(n, znh->seg6local_action,
+				      &znh->seg6local_ctx);
+
 	return n;
 }
 
@@ -1654,6 +1688,13 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
 		znh->backup_num = nh->backup_num;
 		memcpy(znh->backup_idx, nh->backup_idx, znh->backup_num);
+	}
+
+	if (nh->nh_seg6local_action != 0 &&
+	    nh->nh_seg6local_ctx != NULL) {
+		znh->seg6local_action = nh->nh_seg6local_action;
+		memcpy(&znh->seg6local_ctx, nh->nh_seg6local_ctx,
+		       sizeof(struct seg6local_context));
 	}
 
 	return 0;
