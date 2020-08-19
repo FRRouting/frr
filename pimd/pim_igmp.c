@@ -997,6 +997,7 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 {
 	struct pim_interface *pim_ifp;
 	struct igmp_sock *igmp;
+	struct sockaddr_in sin;
 	int fd;
 
 	pim_ifp = ifp->info;
@@ -1004,6 +1005,15 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 	fd = igmp_sock_open(ifaddr, ifp, pim_ifp->options);
 	if (fd < 0) {
 		zlog_warn("Could not open IGMP socket for %s on %s",
+			  inet_ntoa(ifaddr), ifp->name);
+		return 0;
+	}
+
+	sin.sin_family = AF_INET;
+	sin.sin_addr = ifaddr;
+	sin.sin_port = 0;
+	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)) != 0) {
+		zlog_warn("Could not bind IGMP socket for %s on %s",
 			  inet_ntoa(ifaddr), ifp->name);
 		return 0;
 	}
