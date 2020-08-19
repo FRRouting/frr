@@ -998,6 +998,10 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
 
+	if (ctx->count)
+		vty_out(ctx->vty, "\n");
+	ctx->count++;
+
 	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
 	if (c->cur.peer)
 		sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1],
@@ -1050,8 +1054,6 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 
 	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
 		vty_out(ctx->vty, "NBMA-NAT-OA-Address: %s\n", buf[2]);
-
-	vty_out(ctx->vty, "\n\n");
 }
 
 DEFPY(show_ip_nhrp, show_ip_nhrp_cmd,
@@ -1076,6 +1078,7 @@ DEFPY(show_ip_nhrp, show_ip_nhrp_cmd,
 	int ret = CMD_SUCCESS;
 	struct nhrp_vrf *nhrp_vrf = NULL, *nhrp_vrf2;
 	struct listnode *nhrp_vrf_node;
+	bool lf = false;
 
 	if (ip)
 		ctx.afi = AFI_IP;
@@ -1100,8 +1103,11 @@ DEFPY(show_ip_nhrp, show_ip_nhrp_cmd,
 			json_path = json_object_new_array();
 			ctx.json = json_path;
 		} else {
-			if (vrf_all && vrf->vrf_id != VRF_DEFAULT)
-				vty_out(vty, "\nVRF %s:\n", vrf->name);
+			if (vrf_all && lf)
+				vty_out(vty, "\n\n");
+			lf = true;
+			if (vrf_all || vrf->vrf_id != VRF_DEFAULT)
+				vty_out(vty, "VRF %s:\n", vrf->name);
 		}
 		if (cache) {
 			FOR_ALL_INTERFACES (vrf, ifp)
@@ -1114,9 +1120,7 @@ DEFPY(show_ip_nhrp, show_ip_nhrp_cmd,
 			nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx,
 					      nhrp_vrf2);
 		} else {
-			if (!ctx.json)
-				vty_out(vty, "Status: ok\n\n");
-			else
+			if (ctx.json)
 				json_object_string_add(json_vrf, "status", "ok");
 			ctx.count++;
 			FOR_ALL_INTERFACES (vrf, ifp)
@@ -1186,6 +1190,7 @@ DEFPY(show_dmvpn, show_dmvpn_cmd,
 	VRF_FULL_CMD_HELP_STR
 	JSON_STR)
 {
+	bool lf = false;
 	struct dmvpn_cfg ctxt;
 	struct json_object *json_path = NULL;
 	struct nhrp_vrf *nhrp_vrf = NULL, *nhrp_vrf2;
@@ -1204,8 +1209,11 @@ DEFPY(show_dmvpn, show_dmvpn_cmd,
 		ctxt.vty = vty;
 		if (!uj) {
 			ctxt.json = NULL;
+			if (vrf_all && lf)
+				vty_out(vty, "\n\n");
+			lf = true;
 			if (vrf_all && nhrp_vrf2->vrf_id != VRF_DEFAULT)
-				vty_out(vty, "\nVRF %s:\n", nhrp_vrf2->vrfname);
+				vty_out(vty, "VRF %s:\n", nhrp_vrf2->vrfname);
 			if (nhrp_vc_count(nhrp_vrf2))
 				vty_out(vty, "%-24s %-24s %-6s %-4s %-24s\n",
 					"Src", "Dst", "Flags", "SAs", "Identity");
