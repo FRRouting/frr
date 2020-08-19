@@ -965,7 +965,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	if (bgp_debug_update(peer, NULL, NULL, 1)) {
 		char attr_str[BUFSIZ] = {0};
 
-		bgp_dump_attr(attr, attr_str, BUFSIZ);
+		bgp_dump_attr(attr, attr_str, sizeof(attr_str));
 
 		zlog_debug("%s: attributes: %s", __func__, attr_str);
 	}
