@@ -677,11 +677,13 @@ class NorthboundImpl
 
 			switch (phase) {
 			case frr::CommitRequest::VALIDATE:
+				zlog_debug("`-> Performing VALIDATE");
 				ret = nb_candidate_validate(
 					&context, candidate->config, errmsg,
 					sizeof(errmsg));
 				break;
 			case frr::CommitRequest::PREPARE:
+				zlog_debug("`-> Performing PREPARE");
 				ret = nb_candidate_commit_prepare(
 					&context, candidate->config,
 					comment.c_str(),
@@ -689,17 +691,20 @@ class NorthboundImpl
 					sizeof(errmsg));
 				break;
 			case frr::CommitRequest::ABORT:
+				zlog_debug("`-> Performing ABORT");
 				nb_candidate_commit_abort(
 					candidate->transaction, errmsg,
 					sizeof(errmsg));
 				break;
 			case frr::CommitRequest::APPLY:
+				zlog_debug("`-> Performing ABORT");
 				nb_candidate_commit_apply(
 					candidate->transaction, true,
 					&transaction_id, errmsg,
 					sizeof(errmsg));
 				break;
 			case frr::CommitRequest::ALL:
+				zlog_debug("`-> Performing ALL");
 				ret = nb_candidate_commit(
 					&context, candidate->config, true,
 					comment.c_str(), &transaction_id,
@@ -737,6 +742,12 @@ class NorthboundImpl
 					grpc::StatusCode::INTERNAL, errmsg);
 				break;
 			}
+
+			if (nb_dbg_client_grpc)
+				zlog_debug("`-> Result: %s (message: '%s')",
+					   nb_err_name((enum nb_error)ret),
+					   errmsg);
+
 			if (ret == NB_OK) {
 				// Response: uint32 transaction_id = 1;
 				if (transaction_id)

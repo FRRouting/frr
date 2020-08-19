@@ -680,8 +680,12 @@ int nb_candidate_commit_prepare(struct nb_context *context,
 
 	RB_INIT(nb_config_cbs, &changes);
 	nb_config_diff(running_config, candidate, &changes);
-	if (RB_EMPTY(nb_config_cbs, &changes))
+	if (RB_EMPTY(nb_config_cbs, &changes)) {
+		snprintf(
+			errmsg, errmsg_len,
+			"No changes to apply were found during preparation phase");
 		return NB_ERR_NO_CHANGES;
+	}
 
 	if (nb_candidate_validate_code(context, candidate, &changes, errmsg,
 				       errmsg_len)
