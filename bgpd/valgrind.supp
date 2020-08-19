@@ -7,3 +7,13 @@
    fun:ly_load_plugins_dir
    fun:ly_load_plugins
 }
+{
+   <libyang1_1.0.184>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:_dlerror_run
+   fun:dlopen@@GLIBC_2.2.5
+   obj:/usr/lib/x86_64-linux-gnu/libyang.so.1.9.2
+   fun:ly_load_plugins
+}
