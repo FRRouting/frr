@@ -50,6 +50,34 @@ may also be specified (:ref:`common-invocation-options`).
    This option overrides the location addition that the -N option provides
    to the bfdd.sock
 
+.. option:: --dplaneaddr <type>:<address>[<:port>]
+
+   Configure the distributed BFD data plane listening socket bind address.
+
+   One would expect the data plane to run in the same machine as FRR, so
+   the suggested configuration would be:
+
+      --dplaneaddr unix:/var/run/frr/bfdd_dplane.sock
+
+   Or using IPv4:
+
+      --dplaneaddr ipv4:127.0.0.1
+
+   Or using IPv6:
+
+      --dplaneaddr ipv6:[::1]
+
+   It is also possible to specify a port (for IPv4/IPv6 only):
+
+     --dplaneaddr ipv6:[::1]:50701
+
+   (if ommited the default port is ``50700``).
+
+.. note::
+
+   When using UNIX sockets don't forget to check the file permissions
+   before attempting to use it.
+
 
 .. _bfd-commands:
 
@@ -112,6 +140,12 @@ BFDd Commands
 .. clicmd:: show bfd [vrf NAME] peers brief [json]
 
     Show all configured BFD peers information and current status in brief.
+
+.. index:: show bfd distributed
+.. clicmd:: show bfd distributed
+
+   Show the BFD data plane (distributed BFD) statistics.
+
 
 .. _bfd-peer-config:
 
@@ -603,6 +637,68 @@ You can also clear packet counters per session with the following commands, only
                 Session down events: 0
                 Zebra notifications: 4
 
+
+.. _bfd-distributed:
+
+Distributed BFD
+===============
+
+The distributed BFD is the separation of the BFD protocol control plane from
+the data plane. FRR implements its own BFD data plane protocol so vendors can
+study and include it in their own software/hardware without having to modify
+the FRR source code. The protocol definitions can be found at
+``bfdd/bfddp_packet.h`` header (or the installed
+``/usr/include/frr/bfdd/bfddp_packet.h``).
+
+To use this feature the BFD daemon needs to be started using the command line
+option :option:`--dplaneaddr`. When operating using this option the BFD daemon
+will not attempt to establish BFD sessions, but it will offload all its work to
+the data plane that is (or will be) connected. Data plane reconnection is also
+supported.
+
+The BFD data plane will be responsible for:
+
+* Sending/receiving the BFD protocol control/echo packets
+
+* Notifying BFD sessions state changes
+
+* Keeping the number of packets/bytes received/transmitted per session
+
+
+The FRR BFD daemon will be responsible for:
+
+* Adding/updating BFD session settings
+
+* Asking for BFD session counters
+
+* Redistributing the state changes to the integrated protocols (``bgpd``,
+  ``ospfd`` etc...)
+
+
+BFD daemon will also keep record of data plane communication statistics with
+the command :clicmd:`show bfd distributed`.
+
+Sample output:
+
+::
+
+   frr# show bfd distributed
+               Data plane
+               ==========
+          File descriptor: 16
+              Input bytes: 1296
+         Input bytes peak: 72
+           Input messages: 42
+      Input current usage: 0
+             Output bytes: 568
+        Output bytes peak: 136
+          Output messages: 19
+       Output full events: 0
+     Output current usage: 0
+
+
+.. _bfd-debugging:
+
 Debugging
 =========
 
@@ -618,6 +714,16 @@ sure you have `debugging` level enabled:
 
 You may also fine tune the debug messages by selecting one or more of the
 debug levels:
+
+.. index:: debug bfd distributed
+.. clicmd:: [no] debug bfd distributed
+
+   Toggle BFD data plane (distributed BFD) debugging.
+
+   Activates the following debug messages:
+
+   * Data plane received / send messages
+   * Connection events
 
 .. index:: debug bfd network
 .. clicmd:: [no] debug bfd network
