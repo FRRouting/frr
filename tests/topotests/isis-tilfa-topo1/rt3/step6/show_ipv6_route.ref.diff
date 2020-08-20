@@ -1,0 +1,74 @@
+--- rt3/step5/show_ipv6_route.ref	2020-08-31 22:42:48.839561398 -0300
++++ rt3/step6/show_ipv6_route.ref	2020-08-31 22:42:48.839561398 -0300
+@@ -29,7 +29,7 @@
+           "interfaceName":"eth-rt5-2",
+           "active":true,
+           "labels":[
+-            16041
++            30041
+           ]
+         },
+         {
+@@ -37,7 +37,7 @@
+           "interfaceName":"eth-rt5-1",
+           "active":true,
+           "labels":[
+-            16041
++            30041
+           ]
+         }
+       ]
+@@ -73,7 +73,7 @@
+           "interfaceName":"eth-rt5-2",
+           "active":true,
+           "labels":[
+-            16041
++            30041
+           ]
+         },
+         {
+@@ -81,7 +81,7 @@
+           "interfaceName":"eth-rt5-1",
+           "active":true,
+           "labels":[
+-            16041
++            30041
+           ]
+         }
+       ]
+@@ -103,7 +103,7 @@
+           "interfaceName":"eth-rt5-2",
+           "active":true,
+           "labels":[
+-            16041
++            30041
+           ]
+         },
+         {
+@@ -112,7 +112,7 @@
+           "interfaceName":"eth-rt5-1",
+           "active":true,
+           "labels":[
+-            16041
++            30041
+           ]
+         },
+         {
+@@ -174,7 +174,7 @@
+           "interfaceName":"eth-rt5-2",
+           "active":true,
+           "labels":[
+-            16061
++            30061
+           ]
+         },
+         {
+@@ -183,7 +183,7 @@
+           "interfaceName":"eth-rt5-1",
+           "active":true,
+           "labels":[
+-            16061
++            30061
+           ]
+         }
+       ]

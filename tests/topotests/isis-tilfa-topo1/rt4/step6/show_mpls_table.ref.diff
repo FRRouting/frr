@@ -1,0 +1,20 @@
+--- rt4/step5/show_mpls_table.ref	2020-08-31 22:42:48.839561398 -0300
++++ rt4/step6/show_mpls_table.ref	2020-08-31 22:42:48.839561398 -0300
+@@ -89,7 +89,7 @@
+       },
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16030,
++        "outLabel":30030,
+         "installed":true,
+         "nexthop":"10.0.6.5"
+       }
+@@ -113,7 +113,7 @@
+       },
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16031,
++        "outLabel":30031,
+         "installed":true,
+         "interface":"eth-rt5"
+       }

@@ -1,0 +1,117 @@
+--- rt6/step3/show_mpls_table.ref	2020-08-31 22:42:48.843561366 -0300
++++ rt6/step4/show_mpls_table.ref	2020-08-31 22:42:48.847561334 -0300
+@@ -11,7 +11,7 @@
+       },
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16010,
++        "outLabel":3,
+         "installed":true,
+         "nexthop":"10.0.7.4"
+       }
+@@ -29,53 +29,9 @@
+       },
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16011,
+-        "installed":true,
+-        "interface":"eth-rt4"
+-      }
+-    ]
+-  },
+-  "16020":{
+-    "inLabel":16020,
+-    "installed":true,
+-    "nexthops":[
+-      {
+-        "type":"SR (IS-IS)",
+-        "outLabel":16020,
+-        "installed":true,
+-        "nexthop":"10.0.7.4",
+-        "backupIndex":[
+-          0
+-        ]
+-      }
+-    ],
+-    "backupNexthops":[
+-      {
+-        "type":"SR (IS-IS)",
+         "outLabel":3,
+-        "nexthop":"10.0.8.5"
+-      }
+-    ]
+-  },
+-  "16021":{
+-    "inLabel":16021,
+-    "installed":true,
+-    "nexthops":[
+-      {
+-        "type":"SR (IS-IS)",
+-        "outLabel":16021,
+         "installed":true,
+-        "interface":"eth-rt4",
+-        "backupIndex":[
+-          0
+-        ]
+-      }
+-    ],
+-    "backupNexthops":[
+-      {
+-        "type":"SR (IS-IS)",
+-        "outLabel":3,
+-        "interface":"eth-rt5"
++        "interface":"eth-rt4"
+       }
+     ]
+   },
+@@ -123,50 +79,6 @@
+       }
+     ]
+   },
+-  "16040":{
+-    "inLabel":16040,
+-    "installed":true,
+-    "nexthops":[
+-      {
+-        "type":"SR (IS-IS)",
+-        "outLabel":3,
+-        "installed":true,
+-        "nexthop":"10.0.7.4",
+-        "backupIndex":[
+-          0
+-        ]
+-      }
+-    ],
+-    "backupNexthops":[
+-      {
+-        "type":"SR (IS-IS)",
+-        "outLabel":3,
+-        "nexthop":"10.0.8.5"
+-      }
+-    ]
+-  },
+-  "16041":{
+-    "inLabel":16041,
+-    "installed":true,
+-    "nexthops":[
+-      {
+-        "type":"SR (IS-IS)",
+-        "outLabel":3,
+-        "installed":true,
+-        "interface":"eth-rt4",
+-        "backupIndex":[
+-          0
+-        ]
+-      }
+-    ],
+-    "backupNexthops":[
+-      {
+-        "type":"SR (IS-IS)",
+-        "outLabel":3,
+-        "interface":"eth-rt5"
+-      }
+-    ]
+-  },
+   "16050":{
+     "inLabel":16050,
+     "installed":true,

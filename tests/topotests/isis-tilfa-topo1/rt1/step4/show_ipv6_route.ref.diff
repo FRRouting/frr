@@ -1,0 +1,14 @@
+--- rt1/step3/show_ipv6_route.ref	2020-08-31 22:42:48.831561460 -0300
++++ rt1/step4/show_ipv6_route.ref	2020-08-31 22:42:48.831561460 -0300
+@@ -57,10 +57,7 @@
+           "fib":true,
+           "afi":"ipv6",
+           "interfaceName":"eth-sw1",
+-          "active":true,
+-          "labels":[
+-            16041
+-          ]
++          "active":true
+         }
+       ]
+     }
