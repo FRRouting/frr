@@ -57,12 +57,19 @@
 
 extern int allow_delete;
 
+/* context to manage dumps in multiple tables or vrfs */
+struct dump_ctx {
+	bool multi;       /* dump multiple tables or vrf */
+	bool header_done; /* common header already displayed */
+};
+
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 			    safi_t safi, bool use_fib, bool use_json,
 			    route_tag_t tag,
 			    const struct prefix *longer_prefix_p,
 			    bool supernets_only, int type,
-			    unsigned short ospf_instance_id, uint32_t tableid);
+			    unsigned short ospf_instance_id, uint32_t tableid,
+			    struct dump_ctx *ctx);
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng);
 static void vty_show_ip_route_summary(struct vty *vty,
@@ -130,8 +137,12 @@ DEFUN (show_ip_rpf,
        JSON_STR)
 {
 	bool uj = use_json(argc, argv);
+	struct dump_ctx ctx = {
+		.multi = false,
+	};
+
 	return do_show_ip_route(vty, VRF_DEFAULT_NAME, AFI_IP, SAFI_MULTICAST,
-				false, uj, 0, NULL, false, 0, 0, 0);
+				false, uj, 0, NULL, false, 0, 0, 0, &ctx);
 }
 
 DEFUN (show_ip_rpf_addr,
@@ -825,7 +836,7 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				 const struct prefix *longer_prefix_p,
 				 bool supernets_only, int type,
 				 unsigned short ospf_instance_id, bool use_json,
-				 uint32_t tableid)
+				 uint32_t tableid, struct dump_ctx *ctx)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -835,6 +846,17 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	json_object *json_prefix = NULL;
 	uint32_t addr;
 	char buf[BUFSIZ];
+
+	/*
+	 * ctx->multi indicates if we are dumping multiple tables or vrfs.
+	 * if set:
+	 *   => display the common header at most once
+	 *   => add newline at each call except first
+	 *   => always display the VRF and table
+	 * else:
+	 *   => display the common header if at least one entry is found
+	 *   => display the VRF and table if specific
+	 */
 
 	if (use_json)
 		json = json_object_new_object();
@@ -879,23 +901,28 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 			if (use_json) {
 				if (!json_prefix)
 					json_prefix = json_object_new_array();
-			} else {
-				if (first) {
+			} else if (first) {
+				if (!ctx->header_done) {
 					if (afi == AFI_IP)
 						vty_out(vty,
 							SHOW_ROUTE_V4_HEADER);
 					else
 						vty_out(vty,
 							SHOW_ROUTE_V6_HEADER);
-
-					if (tableid && tableid != RT_TABLE_MAIN)
-						vty_out(vty, "\nVRF %s table %u:\n",
-							zvrf_name(zvrf), tableid);
-					else if (zvrf_id(zvrf) != VRF_DEFAULT)
-						vty_out(vty, "\nVRF %s:\n",
-							zvrf_name(zvrf));
-					first = 0;
 				}
+				if (ctx->multi && ctx->header_done)
+					vty_out(vty, "\n");
+				if (ctx->multi ||
+				    zvrf_id(zvrf) != VRF_DEFAULT || tableid) {
+					if (!tableid)
+						vty_out(vty, "VRF %s:\n",
+							zvrf_name(zvrf));
+					else
+						vty_out(vty, "VRF %s table %u:\n",
+							zvrf_name(zvrf), tableid);
+				}
+				ctx->header_done = true;
+				first = 0;
 			}
 
 			vty_show_ip_route(vty, rn, re, json_prefix, use_fib);
@@ -920,7 +947,8 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t 
 				 route_tag_t tag,
 				 const struct prefix *longer_prefix_p,
 				 bool supernets_only, int type,
-				 unsigned short ospf_instance_id)
+				 unsigned short ospf_instance_id,
+				 struct dump_ctx *ctx)
 {
 	struct zebra_router_table *zrt;
 	rib_table_info_t *info;
@@ -939,7 +967,7 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t 
 					 SAFI_UNICAST, use_fib, use_json,
 					 tag, longer_prefix_p,
 					 supernets_only, type,
-					 ospf_instance_id, zrt->tableid);
+					 ospf_instance_id, zrt->tableid, ctx);
 	}
 }
 
@@ -948,7 +976,8 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 			    route_tag_t tag,
 			    const struct prefix *longer_prefix_p,
 			    bool supernets_only, int type,
-			    unsigned short ospf_instance_id, uint32_t tableid)
+			    unsigned short ospf_instance_id, uint32_t tableid,
+			    struct dump_ctx *ctx)
 {
 	struct route_table *table;
 	struct zebra_vrf *zvrf = NULL;
@@ -981,7 +1010,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 
 	do_show_route_helper(vty, zvrf, table, afi, use_fib, tag,
 			     longer_prefix_p, supernets_only, type,
-			     ospf_instance_id, use_json, tableid);
+			     ospf_instance_id, use_json, tableid, ctx);
 
 	return CMD_SUCCESS;
 }
@@ -1488,6 +1517,9 @@ DEFPY (show_route,
 	struct vrf *vrf;
 	int type = 0;
 	struct zebra_vrf *zvrf;
+	struct dump_ctx ctx = {
+		.multi = vrf_all || table_all,
+	};
 
 	if (!vrf_is_backend_netns()) {
 		if ((vrf_all || vrf_name) && (table || table_all)) {
@@ -1521,13 +1553,13 @@ DEFPY (show_route,
 						     !!fib, !!json,
 						     tag, prefix_str ? prefix : NULL,
 						     !!supernets_only, type,
-						     ospf_instance_id);
+						     ospf_instance_id, &ctx);
 			else
 				do_show_ip_route(vty, zvrf_name(zvrf), afi,
 						 SAFI_UNICAST, !!fib, !!json, tag,
 						 prefix_str ? prefix : NULL,
 						 !!supernets_only, type,
-						 ospf_instance_id, table);
+						 ospf_instance_id, table, &ctx);
 		}
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
@@ -1545,11 +1577,12 @@ DEFPY (show_route,
 					     !!fib, !!json,
 					     tag, prefix_str ? prefix : NULL,
 					     !!supernets_only, type,
-					     ospf_instance_id);
+					     ospf_instance_id, &ctx);
 		else
 			do_show_ip_route(vty, vrf->name, afi, SAFI_UNICAST, !!fib,
 					 !!json, tag, prefix_str ? prefix : NULL,
-					 !!supernets_only, type, ospf_instance_id, table);
+					 !!supernets_only, type,
+					 ospf_instance_id, table, &ctx);
 	}
 
 	return CMD_SUCCESS;
