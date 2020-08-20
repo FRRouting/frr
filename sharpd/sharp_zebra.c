@@ -240,6 +240,11 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 	monotime(&sg.r.t_start);
 	for (i = 0; i < routes; i++) {
 		route_add(p, vrf_id, (uint8_t)instance, nhg, backup_nhg);
+
+		/* Periodically try sending some of the buffered messages */
+		if (i > 0 && (i % 100 == 0))
+			zclient_flush_data(zclient);
+
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
 		else
@@ -264,6 +269,11 @@ void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 	monotime(&sg.r.t_start);
 	for (i = 0; i < routes; i++) {
 		route_delete(p, vrf_id, (uint8_t)instance);
+
+		/* Periodically try sending some of the buffered messages */
+		if (i > 0 && (i % 1000 == 0))
+			zclient_flush_data(zclient);
+
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
 		else
@@ -361,12 +371,11 @@ void route_add(const struct prefix *p, vrf_id_t vrf_id,
 	       uint8_t instance, const struct nexthop_group *nhg,
 	       const struct nexthop_group *backup_nhg)
 {
-	struct zapi_route api;
+	struct zapi_route api = {};
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nh;
 	int i = 0;
 
-	memset(&api, 0, sizeof(api));
 	api.vrf_id = vrf_id;
 	api.type = ZEBRA_ROUTE_SHARP;
 	api.instance = instance;
@@ -406,9 +415,8 @@ void route_add(const struct prefix *p, vrf_id_t vrf_id,
 
 void route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
 {
-	struct zapi_route api;
+	struct zapi_route api = {};
 
-	memset(&api, 0, sizeof(api));
 	api.vrf_id = vrf_id;
 	api.type = ZEBRA_ROUTE_SHARP;
 	api.safi = SAFI_UNICAST;
