@@ -64,6 +64,7 @@
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_trace.h"
 #include "lib/netlink_parser.h"
+#include "zebra/zebra_evpn_arp_nd.h"
 
 extern struct zebra_privs_t zserv_privs;
 

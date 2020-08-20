@@ -125,6 +125,12 @@ DEFUN_NOSH (show_debugging_zebra,
 	if (IS_ZEBRA_DEBUG_NEIGH)
 		vty_out(vty, "  Zebra neighbor debugging is on\n");
 
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT)
+		vty_out(vty, "  Zebra EVPN-MH ARP-ND snoop events is on\n");
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
+		vty_out(vty, "  Zebra EVPN-MH ARP-ND packet debugging is on\n");
+
 	if (IS_ZEBRA_DEBUG_TC)
 		vty_out(vty, "  Zebra TC debugging is on\n");
 
@@ -464,7 +470,7 @@ DEFPY (debug_zebra_mlag,
 
 DEFPY (debug_zebra_evpn_mh,
        debug_zebra_evpn_mh_cmd,
-       "[no$no] debug zebra evpn mh <es$es|mac$mac|neigh$neigh|nh$nh>",
+       "[no$no] debug zebra evpn mh <es$es|mac$mac|neigh$neigh|nh$nh|arp-nd-evt$arp_evt|arp-nd-pkt$arp_pkt>",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
@@ -473,7 +479,9 @@ DEFPY (debug_zebra_evpn_mh,
        "Ethernet Segment Debugging\n"
        "MAC Debugging\n"
        "Neigh Debugging\n"
-       "Nexthop Debugging\n")
+       "Nexthop Debugging\n"
+       "ARP Redirect Event Debugging\n"
+       "ARP Redirect Packet Debugging\n")
 {
 	if (es) {
 		if (no) {
@@ -516,6 +524,20 @@ DEFPY (debug_zebra_evpn_mh,
 			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_NH);
 			vty_out(vty, "Zebra EVPN-MH nexthop debugging is on\n");
 		}
+	}
+
+	if (arp_evt) {
+		if (no)
+			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT);
+		else
+			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT);
+	}
+
+	if (arp_pkt) {
+		if (no)
+			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT);
+		else
+			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT);
 	}
 
 	return CMD_SUCCESS;
@@ -816,6 +838,14 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH) {
 		vty_out(vty, "debug zebra evpn mh neigh\n");
+		write++;
+	}
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT) {
+		vty_out(vty, "debug zebra evpn mh arp-nd-evt\n");
+		write++;
+	}
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT) {
+		vty_out(vty, "debug zebra evpn mh arp-nd-pkt\n");
 		write++;
 	}
 	if (IS_ZEBRA_DEBUG_PW) {
