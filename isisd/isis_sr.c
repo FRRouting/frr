@@ -1792,21 +1792,33 @@ static int sr_if_new_hook(struct interface *ifp)
 /**
  * Show LFIB operation in human readable format.
  *
- * @param buf	     Buffer to store string output. Must be pre-allocate
- * @param size	     Size of the buffer
- * @param label_in   Input Label
- * @param label_out  Output Label
+ * @param buf	      Buffer to store string output. Must be pre-allocate
+ * @param size	      Size of the buffer
+ * @param label_in    Input Label
+ * @param label_out   Output Label
+ * @param label_stack Output Label Stack (TI-LFA)
  *
  * @return	     String containing LFIB operation in human readable format
  */
 static char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
-		       mpls_label_t label_out)
+		       mpls_label_t label_out,
+		       const struct mpls_label_stack *label_stack)
 {
 	if (size < 24)
 		return NULL;
 
 	if (label_in == MPLS_INVALID_LABEL) {
 		snprintf(buf, size, "no-op.");
+		return buf;
+	}
+
+	if (label_stack) {
+		char buf_labels[256];
+
+		mpls_label2str(label_stack->num_labels, &label_stack->label[0],
+			       buf_labels, sizeof(buf_labels), 1);
+
+		snprintf(buf, size, "Swap(%u, %s)", label_in, buf_labels);
 		return buf;
 	}
 
@@ -1859,7 +1871,7 @@ static void show_prefix_sid_local(struct vty *vty, struct ttable *tt,
 		snprintf(buf_uptime, sizeof(buf_uptime), "-");
 	}
 	sr_op2str(buf_oper, sizeof(buf_oper), srp->input_label,
-		  MPLS_LABEL_IMPLICIT_NULL);
+		  MPLS_LABEL_IMPLICIT_NULL, NULL);
 
 	ttable_add_row(tt, "%s|%u|%s|-|%s|%s",
 		       prefix2str(&srp->prefix, buf_prefix, sizeof(buf_prefix)),
@@ -1876,7 +1888,7 @@ static void show_prefix_sid_local(struct vty *vty, struct ttable *tt,
  */
 static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 				   const struct isis_area *area,
-				   const struct sr_prefix *srp)
+				   const struct sr_prefix *srp, bool backup)
 {
 	struct isis_nexthop *nexthop;
 	struct listnode *node;
@@ -1886,19 +1898,22 @@ static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 	char buf_iface[BUFSIZ];
 	char buf_uptime[BUFSIZ];
 	bool first = true;
+	struct isis_route_info *rinfo;
 
 	(void)prefix2str(&srp->prefix, buf_prefix, sizeof(buf_prefix));
 
-	if (!srp->u.remote.rinfo) {
+	rinfo = srp->u.remote.rinfo;
+	if (rinfo && backup)
+		rinfo = rinfo->backup;
+	if (!rinfo) {
 		ttable_add_row(tt, "%s|%u|%s|-|-|-", buf_prefix, srp->sid.value,
 			       sr_op2str(buf_oper, sizeof(buf_oper),
 					 srp->input_label,
-					 MPLS_LABEL_IMPLICIT_NULL));
+					 MPLS_LABEL_IMPLICIT_NULL, NULL));
 		return;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(srp->u.remote.rinfo->nexthops, node,
-				  nexthop)) {
+	for (ALL_LIST_ELEMENTS_RO(rinfo->nexthops, node, nexthop)) {
 		struct interface *ifp;
 
 		inet_ntop(nexthop->family, &nexthop->ip, buf_nhop,
@@ -1915,7 +1930,7 @@ static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 			log_uptime(nexthop->sr.uptime, buf_uptime,
 				   sizeof(buf_uptime));
 		sr_op2str(buf_oper, sizeof(buf_oper), srp->input_label,
-			  nexthop->sr.label);
+			  nexthop->sr.label, nexthop->label_stack);
 
 		if (first)
 			ttable_add_row(tt, "%s|%u|%s|%s|%s|%s", buf_prefix,
@@ -1935,7 +1950,8 @@ static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
  * @param area	IS-IS area
  * @param level	IS-IS level
  */
-static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
+static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level,
+			     bool backup)
 {
 	struct sr_prefix *srp;
 	struct ttable *tt;
@@ -1960,7 +1976,7 @@ static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
 			show_prefix_sid_local(vty, tt, area, srp);
 			break;
 		case ISIS_SR_PREFIX_REMOTE:
-			show_prefix_sid_remote(vty, tt, area, srp);
+			show_prefix_sid_remote(vty, tt, area, srp, backup);
 			break;
 		}
 	}
@@ -1980,20 +1996,25 @@ static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
  * Declaration of new show commands.
  */
 DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
-      "show isis [vrf <NAME|all>] segment-routing prefix-sids",
+      "show isis [vrf <NAME|all>] segment-routing prefix-sids [backup]",
       SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
       "All VRFs\n"
       "Segment-Routing\n"
-      "Segment-Routing Prefix-SIDs\n")
+      "Segment-Routing Prefix-SIDs\n"
+      "Show backup Prefix-SIDs\n")
 {
 	struct listnode *node, *inode;
 	struct isis_area *area;
 	struct isis *isis = NULL;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
-	int idx_vrf = 0;
+	bool backup = false;
+	int idx = 0;
 
-	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
+	if (argv_find(argv, argc, "backup", &idx))
+		backup = true;
+
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
@@ -2005,7 +2026,7 @@ DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
 					for (int level = ISIS_LEVEL1;
 					     level <= ISIS_LEVELS; level++)
 						show_prefix_sids(vty, area,
-								 level);
+								 level, backup);
 				}
 			}
 			return 0;
@@ -2019,7 +2040,8 @@ DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
 						       : "null");
 				for (int level = ISIS_LEVEL1;
 				     level <= ISIS_LEVELS; level++)
-					show_prefix_sids(vty, area, level);
+					show_prefix_sids(vty, area, level,
+							 backup);
 			}
 		}
 	}
