@@ -332,13 +332,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 
 			if ((re->vrf_id != nexthop->vrf_id)
 			     && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)) {
-				struct vrf *vrf =
-					vrf_lookup_by_id(nexthop->vrf_id);
-
-				if (vrf)
-					vty_out(vty, "(vrf %s)", vrf->name);
-				else
-					vty_out(vty, "(vrf UNKNOWN)");
+				vty_out(vty, "(vrf %s)",
+					vrf_id_to_name(nexthop->vrf_id));
 			}
 
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
@@ -414,7 +409,6 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	json_object *json_labels = NULL;
 	time_t uptime;
 	struct tm *tm;
-	struct vrf *vrf = NULL;
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct nexthop_group *nhg;
 
@@ -445,11 +439,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		if (re->vrf_id) {
 			json_object_int_add(json_route, "vrfId", re->vrf_id);
-			vrf = vrf_lookup_by_id(re->vrf_id);
 			json_object_string_add(json_route, "vrfName",
-					       vrf->name);
-
+					       vrf_id_to_name(re->vrf_id));
 		}
+
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			json_object_boolean_true_add(json_route, "selected");
 
@@ -591,9 +584,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 			if ((nexthop->vrf_id != re->vrf_id)
 			     && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)) {
-				vrf = vrf_lookup_by_id(nexthop->vrf_id);
 				json_object_string_add(json_nexthop, "vrf",
-						       vrf->name);
+				       vrf_id_to_name(nexthop->vrf_id));
 			}
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
 				json_object_boolean_true_add(json_nexthop,
@@ -738,14 +730,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		}
 
 		if ((nexthop->vrf_id != re->vrf_id)
-		     && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)) {
-			struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
-
-			if (vrf)
-				vty_out(vty, "(vrf %s)", vrf->name);
-			else
-				vty_out(vty, "(vrf UNKNOWN)");
-		}
+		    && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE))
+			vty_out(vty, "(vrf %s)",
+				vrf_id_to_name(nexthop->vrf_id));
 
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			vty_out(vty, " inactive");
@@ -1090,15 +1077,9 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	struct nhg_connected *rb_node_dep = NULL;
 	char buf[SRCDEST2STR_BUFFER];
 
-	struct vrf *nhe_vrf = vrf_lookup_by_id(nhe->vrf_id);
-
 	vty_out(vty, "ID: %u\n", nhe->id);
 	vty_out(vty, "     RefCnt: %d\n", nhe->refcnt);
-
-	if (nhe_vrf)
-		vty_out(vty, "     VRF: %s\n", nhe_vrf->name);
-	else
-		vty_out(vty, "     VRF: UNKNOWN\n");
+	vty_out(vty, "     VRF: %s\n", vrf_id_to_name(nhe->vrf_id));
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_UNHASHABLE))
 		vty_out(vty, "     Duplicate - from kernel not hashable\n");
@@ -1172,12 +1153,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 			break;
 		}
 
-		struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
-
-		if (vrf)
-			vty_out(vty, " (vrf %s)", vrf->name);
-		else
-			vty_out(vty, " (vrf UNKNOWN)");
+		vty_out(vty, " (vrf %s)", vrf_id_to_name(nexthop->vrf_id));
 
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			vty_out(vty, " inactive");
