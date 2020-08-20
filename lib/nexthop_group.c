@@ -940,6 +940,12 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 			nhg_hooks.add_nexthop(nhgc, nh);
 	}
 
+	if (intf) {
+		struct interface *ifp = if_lookup_by_name_all_vrf(intf);
+
+		if (ifp)
+			ifp->configured = true;
+	}
 	return CMD_SUCCESS;
 }
 
@@ -1242,6 +1248,7 @@ void nexthop_group_interface_state_change(struct interface *ifp,
 				if (ifp->ifindex != nhop.ifindex)
 					continue;
 
+				ifp->configured = true;
 				nh = nexthop_new();
 
 				memcpy(nh, &nhop, sizeof(nhop));
