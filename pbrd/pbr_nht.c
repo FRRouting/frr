@@ -563,6 +563,15 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 			strlcpy(pnhc->vrf_name, vrf->name,
 				sizeof(pnhc->vrf_name));
 	}
+
+	if (nhop->ifindex != 0) {
+		struct interface *ifp =
+			if_lookup_by_index(nhop->ifindex, nhop->vrf_id);
+
+		if (ifp)
+			strlcpy(pnhc->intf_name, ifp->name,
+				sizeof(pnhc->intf_name));
+	}
 	pbr_nht_install_nexthop_group(pnhgc, *pbrms->nhg);
 }
 
@@ -945,6 +954,62 @@ static void pbr_nht_nexthop_vrf_handle(struct hash_bucket *b, void *data)
 void pbr_nht_vrf_update(struct pbr_vrf *pbr_vrf)
 {
 	hash_iterate(pbr_nhg_hash, pbr_nht_nexthop_vrf_handle, pbr_vrf);
+}
+
+static void pbr_nht_individual_nexthop_interface_handle(struct hash_bucket *b,
+							void *data)
+{
+	struct pbr_nexthop_cache *pnhc = b->data;
+	struct pbr_nht_individual *pnhi = data;
+
+	if (pnhc->nexthop->ifindex == 0)
+		return;
+
+	if ((strncmp(pnhc->intf_name, pnhi->ifp->name, sizeof(pnhc->intf_name))
+	     == 0)
+	    && pnhc->nexthop->ifindex != pnhi->ifp->ifindex)
+		pnhi->pnhc = pnhc;
+}
+
+static void pbr_nht_nexthop_interface_handle(struct hash_bucket *b, void *data)
+{
+	struct pbr_nexthop_group_cache *pnhgc = b->data;
+	struct interface *ifp = data;
+	struct pbr_nht_individual pnhi = {};
+	struct nhrc *nhrc;
+	uint32_t old_ifindex;
+
+	do {
+		memset(&pnhi, 0, sizeof(pnhi));
+		pnhi.ifp = ifp;
+		hash_iterate(pnhgc->nhh,
+			     pbr_nht_individual_nexthop_interface_handle,
+			     &pnhi);
+
+		if (!pnhi.pnhc)
+			continue;
+
+		pnhi.pnhc = hash_release(pnhgc->nhh, pnhi.pnhc);
+		old_ifindex = pnhi.pnhc->nexthop->ifindex;
+
+		nhrc = hash_lookup(pbr_nhrc_hash, pnhi.pnhc->nexthop);
+		if (nhrc) {
+			hash_release(pbr_nhrc_hash, nhrc);
+			nhrc->nexthop.ifindex = ifp->ifindex;
+			hash_get(pbr_nhrc_hash, nhrc, hash_alloc_intern);
+		}
+		pnhi.pnhc->nexthop->ifindex = ifp->ifindex;
+
+		hash_get(pnhgc->nhh, pnhi.pnhc, hash_alloc_intern);
+
+		pbr_map_check_interface_nh_group_change(pnhgc->name, ifp,
+							old_ifindex);
+	} while (pnhi.pnhc);
+}
+
+void pbr_nht_interface_update(struct interface *ifp)
+{
+	hash_iterate(pbr_nhg_hash, pbr_nht_nexthop_interface_handle, ifp);
 }
 
 static void

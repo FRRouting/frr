@@ -49,6 +49,7 @@ struct pbr_nexthop_cache {
 	struct pbr_nexthop_group_cache *parent;
 
 	char vrf_name[VRF_NAMSIZ + 1];
+	char intf_name[INTERFACE_NAMSIZ + 1];
 
 	struct nexthop *nexthop;
 
@@ -132,4 +133,5 @@ extern void pbr_nht_nexthop_interface_update(struct interface *ifp);
 extern void pbr_nht_init(void);
 
 extern void pbr_nht_vrf_update(struct pbr_vrf *pbr_vrf);
+extern void pbr_nht_interface_update(struct interface *ifp);
 #endif
