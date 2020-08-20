@@ -776,7 +776,11 @@ static int route_notify_internal(const struct prefix *p, int type,
 			   vrf_id);
 	}
 
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	/* We're just allocating a small-ish buffer here, since we only
+	 * encode a small amount of data.
+	 */
+	s = stream_new(200);
+
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, vrf_id);
