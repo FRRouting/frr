@@ -437,11 +437,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			json_object_int_add(json_route, "instance",
 					    re->instance);
 
-		if (re->vrf_id) {
-			json_object_int_add(json_route, "vrfId", re->vrf_id);
-			json_object_string_add(json_route, "vrfName",
-					       vrf_id_to_name(re->vrf_id));
-		}
+		json_object_int_add(json_route, "vrfId", re->vrf_id);
+		json_object_string_add(json_route, "vrfName",
+				       vrf_id_to_name(re->vrf_id));
 
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			json_object_boolean_true_add(json_route, "selected");
