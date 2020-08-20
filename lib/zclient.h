@@ -391,6 +391,11 @@ struct zmsghdr {
 } __attribute__((packed));
 #define ZAPI_HEADER_CMD_LOCATION offsetof(struct zmsghdr, command)
 
+/*
+ * ZAPI nexthop. Note that these are sorted when associated with ZAPI routes,
+ * and that sorting must be aligned with the sorting of nexthops in
+ * lib/nexthop.c. Any new fields must be accounted for in zapi_nexthop_cmp().
+ */
 struct zapi_nexthop {
 	enum nexthop_types_t type;
 	vrf_id_t vrf_id;
