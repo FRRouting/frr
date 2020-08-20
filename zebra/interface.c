@@ -34,6 +34,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn_arp_nd.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -1910,10 +1911,14 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 			zebra_l2if_update_bond_slave(ifp, bond_ifindex, false);
 		/* Special handling for bridge or VxLAN interfaces. */
-		if (IS_ZEBRA_IF_BRIDGE(ifp))
+		if (IS_ZEBRA_IF_BRIDGE(ifp)) {
 			zebra_l2_bridge_del(ifp);
-		else if (IS_ZEBRA_IF_VXLAN(ifp))
-			zebra_l2_vxlanif_del(ifp);
+		} else {
+			if (IS_ZEBRA_IF_VXLAN(ifp))
+				zebra_l2_vxlanif_del(ifp);
+			else
+				zebra_evpn_arp_nd_if_update(ifp->info, false);
+		}
 
 		if_delete_update(&ifp);
 
@@ -2790,6 +2795,8 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "  protodown reasons: %s\n",
 			zebra_protodown_rc_str(zebra_if->protodown_rc, pd_buf,
 					       sizeof(pd_buf)));
+
+	zebra_evpn_arp_nd_if_print(vty, zebra_if);
 
 	if (zebra_if->link_ifindex != IFINDEX_INTERNAL) {
 		if (zebra_if->link)

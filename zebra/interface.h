@@ -90,7 +90,23 @@ enum zebra_if_flags {
 	 * and inherited by the bond (if one or more bond members are in
 	 * a bypass state the bond is placed in a bypass state)
 	 */
-	ZIF_FLAG_LACP_BYPASS = (1 << 5)
+	ZIF_FLAG_LACP_BYPASS = (1 << 3),
+
+	/* On local ESs ARP ND snooping is enabling if fast-failover is
+	 * needed with arp-suppression on
+	 */
+	ZIF_FLAG_ARP_ND_SNOOP = (1 << 4)
+};
+
+/* We snoop on ARP replies and NAs rxed on bridge ports if MH is
+ * enabled. This is needed to allow fastfailover of ESs in the
+ * bridge
+ */
+struct zebra_arp_nd_if_info {
+	int pkt_fd;
+	struct event *t_pkt_read; /* thread for reading ARP/NA packets */
+	uint32_t arp_pkts;
+	uint32_t na_pkts;
 };
 
 #define ZEBRA_IF_IS_PROTODOWN(zif) ((zif)->flags & ZIF_FLAG_PROTODOWN)
@@ -182,6 +198,10 @@ struct zebra_if {
 
 	/* ethernet segment */
 	struct zebra_es_if_info es_info;
+
+	/* ARP snooping is enabled on bridge ports to
+	 * handle fast failover of ESs */
+	struct zebra_arp_nd_if_info arp_nd_info;
 
 	/* bitmap of vlans associated with this interface */
 	bitfield_t vlan_bitmap;

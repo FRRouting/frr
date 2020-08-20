@@ -114,6 +114,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_vxlan_if.c \
 	zebra/zebra_evpn_mh.c \
 	zebra/zebra_neigh.c \
+	zebra/zebra_evpn_arp_nd.c \
 	zebra/zserv.c \
 	# end
 
@@ -195,6 +196,7 @@ noinst_HEADERS += \
 	zebra/zebra_neigh.h \
 	zebra/zebra_l2_bridge_if.h \
 	zebra/zebra_vxlan_if.h \
+	zebra/zebra_evpn_arp_nd.h \
 	zebra/zserv.h \
 	zebra/dpdk/zebra_dplane_dpdk.h \
 	zebra/dpdk/zebra_dplane_dpdk_private.h \
