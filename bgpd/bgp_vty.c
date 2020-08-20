@@ -3600,15 +3600,13 @@ DEFUN (bgp_default_shutdown,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_shutdown_msg,
-       bgp_shutdown_msg_cmd,
-       "bgp shutdown message MSG...",
-       BGP_STR
-       "Enable administrative shutdown of the BGP instance\n"
-       "Add a shutdown message (RFC 8203)\n"
-       "Shutdown message\n")
+DEFPY(bgp_shutdown_msg, bgp_shutdown_msg_cmd, "bgp shutdown message MSG...",
+      BGP_STR
+      "Enable administrative shutdown of the BGP instance\n"
+      "Add a shutdown message (RFC 8203)\n"
+      "Shutdown message\n")
 {
-	char* msgstr = NULL;
+	char *msgstr = NULL;
 
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
@@ -3621,10 +3619,8 @@ DEFPY (bgp_shutdown_msg,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_shutdown, bgp_shutdown_cmd,
-       "bgp shutdown",
-       BGP_STR
-       "Enable administrative shutdown of the BGP instance\n")
+DEFPY(bgp_shutdown, bgp_shutdown_cmd, "bgp shutdown",
+      BGP_STR "Enable administrative shutdown of the BGP instance\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
@@ -3633,12 +3629,8 @@ DEFPY (bgp_shutdown, bgp_shutdown_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY (no_bgp_shutdown,
-       no_bgp_shutdown_cmd,
-       "no bgp shutdown",
-       NO_STR
-       BGP_STR
-       "Disable administrative shutdown of the BGP instance\n")
+DEFPY(no_bgp_shutdown, no_bgp_shutdown_cmd, "no bgp shutdown",
+      NO_STR BGP_STR "Disable administrative shutdown of the BGP instance\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
@@ -9376,7 +9368,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							    "pfxSnt",
 							    (PAF_SUBGRP(paf))->scount);
 				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
-				    || CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
+				    || CHECK_FLAG(peer->bgp->flags,
+						  BGP_FLAG_SHUTDOWN))
 					json_object_string_add(json_peer, "state",
 							       "Idle (Admin)");
 				else if (peer->afc_recv[afi][safi])
@@ -9495,8 +9488,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 									->scount);
 					}
 				} else {
-					if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
-					    || CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
+					if (CHECK_FLAG(peer->flags,
+						       PEER_FLAG_SHUTDOWN)
+					    || CHECK_FLAG(peer->bgp->flags,
+							  BGP_FLAG_SHUTDOWN))
 						vty_out(vty, " Idle (Admin)");
 					else if (CHECK_FLAG(
 							    peer->sflags,

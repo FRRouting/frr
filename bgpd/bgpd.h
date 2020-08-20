@@ -453,7 +453,7 @@ struct bgp {
 #define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME (1 << 26)
 
 /* This flag is set if the instance is in administrative shutdown */
-#define BGP_FLAG_SHUTDOWN		  (1 << 27)
+#define BGP_FLAG_SHUTDOWN (1 << 27)
 
 	enum global_mode GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE]
 				      [BGP_GLOBAL_GR_EVENT_CMD];
@@ -1951,7 +1951,7 @@ extern struct peer_af *peer_af_create(struct peer *, afi_t, safi_t);
 extern struct peer_af *peer_af_find(struct peer *, afi_t, safi_t);
 extern int peer_af_delete(struct peer *, afi_t, safi_t);
 
-extern void bgp_shutdown_enable(struct bgp *bgp, char *msg);
+extern void bgp_shutdown_enable(struct bgp *bgp, const char *msg);
 extern void bgp_shutdown_disable(struct bgp *bgp);
 
 extern void bgp_close(void);

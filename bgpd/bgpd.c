@@ -4024,7 +4024,7 @@ static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
 }
 
 /* Enable global administrative shutdown of all peers of BGP instance */
-void bgp_shutdown_enable(struct bgp *bgp, char *msg)
+void bgp_shutdown_enable(struct bgp *bgp, const char *msg)
 {
 	struct peer *peer;
 	struct listnode *node;
@@ -4046,13 +4046,14 @@ void bgp_shutdown_enable(struct bgp *bgp, char *msg)
 		/* send a RFC 4486 notification message if necessary */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
 			if (msg)
-				bgp_notify_send_with_data(peer, BGP_NOTIFY_CEASE,
-							  BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN,
-							  (uint8_t *)(msg),
-							  strlen(msg));
+				bgp_notify_send_with_data(
+					peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN,
+					(uint8_t *)(msg), strlen(msg));
 			else
-				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
+				bgp_notify_send(
+					peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
 		}
 
 		/* reset start timer to initial value */
