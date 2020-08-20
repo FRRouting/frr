@@ -1239,10 +1239,13 @@ extern const char *nb_client_name(enum nb_client client);
  *
  * nmodules
  *    Size of the modules array.
+ *
+ * db_enabled
+ *    Set this to record the transactions in the transaction log.
  */
 extern void nb_init(struct thread_master *tm,
 		    const struct frr_yang_module_info *const modules[],
-		    size_t nmodules);
+		    size_t nmodules, bool db_enabled);
 
 /*
  * Finish the northbound layer gracefully. Should be called only when the daemon
