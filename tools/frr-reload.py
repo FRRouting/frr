@@ -116,7 +116,6 @@ class Vtysh(object):
         output = self('configure')
 
         if 'VTY configuration is locked by other VTY' in output:
-            print(output)
             log.error("vtysh 'configure' returned\n%s\n" % (output))
             return False
 
@@ -1203,7 +1202,11 @@ if __name__ == '__main__':
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--reload', action='store_true', help='Apply the deltas', default=False)
     group.add_argument('--test', action='store_true', help='Show the deltas', default=False)
-    parser.add_argument('--debug', action='store_true', help='Enable debugs', default=False)
+    level_group = parser.add_mutually_exclusive_group()
+    level_group.add_argument('--debug', action='store_true',
+                             help='Enable debugs (synonym for --log-level=debug)', default=False)
+    level_group.add_argument('--log-level', help='Log level', default="info",
+                             choices=("critical", "error", "warning", "info", "debug"))
     parser.add_argument('--stdout', action='store_true', help='Log to STDOUT', default=False)
     parser.add_argument('--pathspace', '-N', metavar='NAME', help='Reload specified path/namespace', default=None)
     parser.add_argument('filename', help='Location of new frr config file')
@@ -1220,8 +1223,7 @@ if __name__ == '__main__':
     # For --test log to stdout
     # For --reload log to /var/log/frr/frr-reload.log
     if args.test or args.stdout:
-        logging.basicConfig(level=logging.INFO,
-                            format='%(asctime)s %(levelname)5s: %(message)s')
+        logging.basicConfig(format='%(asctime)s %(levelname)5s: %(message)s')
 
         # Color the errors and warnings in red
         logging.addLevelName(logging.ERROR, "\033[91m  %s\033[0m" % logging.getLevelName(logging.ERROR))
@@ -1232,7 +1234,6 @@ if __name__ == '__main__':
             os.makedirs('/var/log/frr/')
 
         logging.basicConfig(filename='/var/log/frr/frr-reload.log',
-                            level=logging.INFO,
                             format='%(asctime)s %(levelname)5s: %(message)s')
 
     # argparse should prevent this from happening but just to be safe...
@@ -1240,45 +1241,49 @@ if __name__ == '__main__':
         raise Exception('Must specify --reload or --test')
     log = logging.getLogger(__name__)
 
+    if args.debug:
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(args.log_level.upper())
+
+    if args.reload and not args.stdout:
+        # Additionally send errors and above to STDOUT, with no metadata,
+        # when we are logging to a file. This specifically does not follow
+        # args.log_level, and is analagous to behaviour in earlier versions
+        # which additionally logged most errors using print().
+
+        stdout_hdlr = logging.StreamHandler(sys.stdout)
+        stdout_hdlr.setLevel(logging.ERROR)
+        stdout_hdlr.setFormatter(logging.Formatter())
+        log.addHandler(stdout_hdlr)
+
     # Verify the new config file is valid
     if not os.path.isfile(args.filename):
-        msg = "Filename %s does not exist" % args.filename
-        print(msg)
-        log.error(msg)
+        log.error("Filename %s does not exist" % args.filename)
         sys.exit(1)
 
     if not os.path.getsize(args.filename):
-        msg = "Filename %s is an empty file" % args.filename
-        print(msg)
-        log.error(msg)
+        log.error("Filename %s is an empty file" % args.filename)
         sys.exit(1)
 
     # Verify that confdir is correct
     if not os.path.isdir(args.confdir):
-        msg = "Confdir %s is not a valid path" % args.confdir
-        print(msg)
-        log.error(msg)
+        log.error("Confdir %s is not a valid path" % args.confdir)
         sys.exit(1)
 
     # Verify that bindir is correct
     if not os.path.isdir(args.bindir) or not os.path.isfile(args.bindir + '/vtysh'):
-        msg = "Bindir %s is not a valid path to vtysh" % args.bindir
-        print(msg)
-        log.error(msg)
+        log.error("Bindir %s is not a valid path to vtysh" % args.bindir)
         sys.exit(1)
 
     # verify that the vty_socket, if specified, is valid
     if args.vty_socket and not os.path.isdir(args.vty_socket):
-        msg = 'vty_socket %s is not a valid path' % args.vty_socket
-        print(msg)
-        log.error(msg)
+        log.error('vty_socket %s is not a valid path' % args.vty_socket)
         sys.exit(1)
 
     # verify that the daemon, if specified, is valid
     if args.daemon and args.daemon not in ['zebra', 'bgpd', 'fabricd', 'isisd', 'ospf6d', 'ospfd', 'pbrd', 'pimd', 'ripd', 'ripngd', 'sharpd', 'staticd', 'vrrpd', 'ldpd']:
-        msg = "Daemon %s is not a valid option for 'show running-config'" % args.daemon
-        print(msg)
-        log.error(msg)
+        log.error("Daemon %s is not a valid option for 'show running-config'" % args.daemon)
         sys.exit(1)
 
     vtysh = Vtysh(args.bindir, args.confdir, args.vty_socket, args.pathspace)
@@ -1300,13 +1305,8 @@ if __name__ == '__main__':
                     break
 
     if not service_integrated_vtysh_config and not args.daemon:
-        msg = "'service integrated-vtysh-config' is not configured, this is required for 'service frr reload'"
-        print(msg)
-        log.error(msg)
+        log.error("'service integrated-vtysh-config' is not configured, this is required for 'service frr reload'")
         sys.exit(1)
-
-    if args.debug:
-        log.setLevel(logging.DEBUG)
 
     log.info('Called via "%s"', str(args))
 
