@@ -627,7 +627,7 @@ pbrms_nexthop_group_write_individual_nexthop(
 	struct pbr_nexthop_cache lookup;
 	struct pbr_nexthop_cache *pnhc;
 
-	nexthop_group_write_nexthop_simple(vty, pbrms->nhg->nexthop);
+	nexthop_group_write_nexthop_simple(vty, pbrms->nhg->nexthop, NULL);
 
 	memset(&find, 0, sizeof(find));
 	strlcpy(find.name, pbrms->internal_nhg_name, sizeof(find.name));

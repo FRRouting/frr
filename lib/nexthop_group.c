@@ -953,22 +953,28 @@ static struct cmd_node nexthop_group_node = {
 };
 
 void nexthop_group_write_nexthop_simple(struct vty *vty,
-					const struct nexthop *nh)
+					const struct nexthop *nh,
+					char *altifname)
 {
 	char buf[100];
+	char *ifname;
 
 	vty_out(vty, "nexthop ");
 
+	if (altifname)
+		ifname = altifname;
+	else
+		ifname = (char *)ifindex2ifname(nh->ifindex, nh->vrf_id);
+
 	switch (nh->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		vty_out(vty, "%s", ifindex2ifname(nh->ifindex, nh->vrf_id));
+		vty_out(vty, "%s", ifname);
 		break;
 	case NEXTHOP_TYPE_IPV4:
 		vty_out(vty, "%s", inet_ntoa(nh->gate.ipv4));
 		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		vty_out(vty, "%s %s", inet_ntoa(nh->gate.ipv4),
-			ifindex2ifname(nh->ifindex, nh->vrf_id));
+		vty_out(vty, "%s %s", inet_ntoa(nh->gate.ipv4), ifname);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		vty_out(vty, "%s",
@@ -977,7 +983,7 @@ void nexthop_group_write_nexthop_simple(struct vty *vty,
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		vty_out(vty, "%s %s",
 			inet_ntop(AF_INET6, &nh->gate.ipv6, buf, sizeof(buf)),
-			ifindex2ifname(nh->ifindex, nh->vrf_id));
+			ifname);
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
@@ -989,7 +995,7 @@ void nexthop_group_write_nexthop(struct vty *vty, const struct nexthop *nh)
 	struct vrf *vrf;
 	int i;
 
-	nexthop_group_write_nexthop_simple(vty, nh);
+	nexthop_group_write_nexthop_simple(vty, nh, NULL);
 
 	if (nh->vrf_id != VRF_DEFAULT) {
 		vrf = vrf_lookup_by_id(nh->vrf_id);
