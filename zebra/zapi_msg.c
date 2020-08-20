@@ -1588,16 +1588,17 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
+	vrf_id = zvrf_id(zvrf);
+
 	if (IS_ZEBRA_DEBUG_RECV) {
 		char buf_prefix[PREFIX_STRLEN];
 
 		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
-		zlog_debug("%s: p=%s, msg flags=0x%x, flags=0x%x",
-			   __func__, buf_prefix, (int)api.message, api.flags);
+		zlog_debug("%s: p=(%u:%u)%s, msg flags=0x%x, flags=0x%x",
+			   __func__, vrf_id, api.tableid, buf_prefix, (int)api.message, api.flags);
 	}
 
 	/* Allocate new route. */
-	vrf_id = zvrf_id(zvrf);
 	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
 	re->type = api.type;
 	re->instance = api.instance;
@@ -1877,6 +1878,15 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 		table_id = api.tableid;
 	else
 		table_id = zvrf->table_id;
+
+	if (IS_ZEBRA_DEBUG_RECV) {
+		char buf_prefix[PREFIX_STRLEN];
+
+		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
+		zlog_debug("%s: p=(%u:%u)%s, msg flags=0x%x, flags=0x%x",
+			   __func__, zvrf_id(zvrf), table_id, buf_prefix,
+			   (int)api.message, api.flags);
+	}
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
 		   api.flags, &api.prefix, src_p, NULL, 0, table_id, api.metric,
