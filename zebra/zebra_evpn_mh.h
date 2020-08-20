@@ -387,5 +387,6 @@ extern void zebra_evpn_acc_bd_svi_mac_add(struct interface *vlan_if);
 extern void zebra_evpn_es_bypass_update(struct zebra_evpn_es *es,
 					struct interface *ifp, bool bypass);
 extern void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS);
+extern struct zebra_evpn_access_bd *zebra_evpn_acc_vl_find(vlanid_t vid);
 
 #endif /* _ZEBRA_EVPN_MH_H */

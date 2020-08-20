@@ -121,6 +121,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
 	zebra/zebra_evpn_mh.c \
+	zebra/zebra_evpn_arp_nd.c \
 	zebra/zserv.c \
 	# end
 
@@ -190,6 +191,7 @@ noinst_HEADERS += \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \
 	zebra/zebra_evpn_mh.h \
+	zebra/zebra_evpn_arp_nd.h \
 	zebra/zserv.h \
 	# end
 

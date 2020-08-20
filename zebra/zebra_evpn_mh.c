@@ -49,6 +49,7 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn_arp_nd.h"
 #include "zebra/zebra_nhg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZACC_BD, "Access Broadcast Domain");
@@ -520,7 +521,7 @@ static bool zebra_evpn_acc_vl_cmp(const void *p1, const void *p2)
 }
 
 /* Lookup VLAN based broadcast domain */
-static struct zebra_evpn_access_bd *zebra_evpn_acc_vl_find(vlanid_t vid)
+struct zebra_evpn_access_bd *zebra_evpn_acc_vl_find(vlanid_t vid)
 {
 	struct zebra_evpn_access_bd *acc_bd;
 	struct zebra_evpn_access_bd tmp;
@@ -2151,6 +2152,7 @@ static void zebra_evpn_mh_on_first_local_es(void)
 	zebra_evpn_mh_dup_addr_detect_off();
 	zebra_evpn_mh_advertise_reach_neigh_only();
 	zebra_evpn_mh_advertise_svi_mac();
+	zebra_evpn_arp_nd_failover_enable();
 }
 
 static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
@@ -3558,6 +3560,8 @@ void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn)
 			zebra_evpn_es_re_eval_send_to_client(es,
 					true /* es_evi_re_reval */);
 	}
+
+	zebra_evpn_arp_nd_udp_sock_create();
 }
 
 /* called when a vni is removed or becomes oper down or is removed from a
