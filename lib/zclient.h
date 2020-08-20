@@ -54,6 +54,7 @@ typedef uint16_t zebra_size_t;
 
 /* For input/output buffer to zebra. */
 #define ZEBRA_MAX_PACKET_SIZ          16384U
+#define ZEBRA_SMALL_PACKET_SIZE       200U
 
 /* Zebra header size. */
 #define ZEBRA_HEADER_SIZE             10
