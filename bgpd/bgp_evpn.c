@@ -3163,7 +3163,7 @@ static int bgp_evpn_route_rmac_self_check(struct bgp *bgp_vrf,
 			char buf1[PREFIX_STRLEN];
 			char attr_str[BUFSIZ] = {0};
 
-			bgp_dump_attr(pi->attr, attr_str, BUFSIZ);
+			bgp_dump_attr(pi->attr, attr_str, sizeof(attr_str));
 
 			zlog_debug("%s: bgp %u prefix %s with attr %s - DENIED due to self mac",
 				__func__, bgp_vrf->vrf_id,
@@ -5569,7 +5569,7 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 					char pbuf[PREFIX_STRLEN];
 
 					bgp_dump_attr(pi->attr, attr_str,
-						      BUFSIZ);
+						      sizeof(attr_str));
 
 					if (bgp_debug_update(pi->peer, &rn->p,
 							     NULL, 1))
