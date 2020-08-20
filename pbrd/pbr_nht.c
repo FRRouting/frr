@@ -37,7 +37,7 @@
 
 DEFINE_MTYPE_STATIC(PBRD, PBR_NHG, "PBR Nexthop Groups")
 
-static struct hash *pbr_nhg_hash;
+struct hash *pbr_nhg_hash;
 static struct hash *pbr_nhrc_hash;
 
 static uint32_t pbr_nhg_low_table;
@@ -556,6 +556,13 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 	lookup.nexthop = pbrms->nhg->nexthop;
 	pnhc = hash_get(pnhgc->nhh, &lookup, pbr_nh_alloc);
 	pnhc->parent = pnhgc;
+	if (nhop->vrf_id != VRF_DEFAULT) {
+		struct vrf *vrf = vrf_lookup_by_id(nhop->vrf_id);
+
+		if (vrf)
+			strlcpy(pnhc->vrf_name, vrf->name,
+				sizeof(pnhc->vrf_name));
+	}
 	pbr_nht_install_nexthop_group(pnhgc, *pbrms->nhg);
 }
 
@@ -689,8 +696,12 @@ bool pbr_nht_nexthop_group_valid(const char *name)
 struct pbr_nht_individual {
 	struct zapi_route *nhr;
 	struct interface *ifp;
+	struct pbr_vrf *pbr_vrf;
+	struct pbr_nexthop_cache *pnhc;
 
 	uint32_t valid;
+
+	bool nhr_matched;
 };
 
 static bool
@@ -875,6 +886,65 @@ static void pbr_nht_nexthop_update_lookup(struct hash_bucket *b, void *data)
 void pbr_nht_nexthop_update(struct zapi_route *nhr)
 {
 	hash_iterate(pbr_nhg_hash, pbr_nht_nexthop_update_lookup, nhr);
+}
+
+static void pbr_nht_individual_nexthop_vrf_handle(struct hash_bucket *b,
+						  void *data)
+{
+	struct pbr_nexthop_cache *pnhc = b->data;
+	struct pbr_nht_individual *pnhi = data;
+
+	if (pnhc->nexthop->vrf_id == VRF_DEFAULT)
+		return;
+
+	if ((strncmp(pnhc->vrf_name, pbr_vrf_name(pnhi->pbr_vrf),
+		     sizeof(pnhc->vrf_name))
+	     == 0)
+	    && pnhc->nexthop->vrf_id != pbr_vrf_id(pnhi->pbr_vrf)) {
+		pnhi->pnhc = pnhc;
+		pnhi->nhr_matched = true;
+	}
+}
+
+static void pbr_nht_nexthop_vrf_handle(struct hash_bucket *b, void *data)
+{
+	struct pbr_nexthop_group_cache *pnhgc = b->data;
+	struct pbr_vrf *pbr_vrf = data;
+	struct pbr_nht_individual pnhi = {};
+	struct nhrc *nhrc;
+	uint32_t old_vrf_id;
+
+	do {
+		memset(&pnhi, 0, sizeof(pnhi));
+		pnhi.pbr_vrf = pbr_vrf;
+		hash_iterate(pnhgc->nhh, pbr_nht_individual_nexthop_vrf_handle,
+			     &pnhi);
+
+		if (!pnhi.pnhc)
+			continue;
+
+		pnhi.pnhc = hash_release(pnhgc->nhh, pnhi.pnhc);
+		old_vrf_id = pnhi.pnhc->nexthop->vrf_id;
+
+		nhrc = hash_lookup(pbr_nhrc_hash, pnhi.pnhc->nexthop);
+		if (nhrc) {
+			hash_release(pbr_nhrc_hash, nhrc);
+			nhrc->nexthop.vrf_id = pbr_vrf_id(pbr_vrf);
+			hash_get(pbr_nhrc_hash, nhrc, hash_alloc_intern);
+			pbr_send_rnh(pnhi.pnhc->nexthop, true);
+		}
+		pnhi.pnhc->nexthop->vrf_id = pbr_vrf_id(pbr_vrf);
+
+		hash_get(pnhgc->nhh, pnhi.pnhc, hash_alloc_intern);
+
+		pbr_map_check_vrf_nh_group_change(pnhgc->name, pbr_vrf,
+						  old_vrf_id);
+	} while (pnhi.pnhc);
+}
+
+void pbr_nht_vrf_update(struct pbr_vrf *pbr_vrf)
+{
+	hash_iterate(pbr_nhg_hash, pbr_nht_nexthop_vrf_handle, pbr_vrf);
 }
 
 static void

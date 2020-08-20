@@ -618,6 +618,31 @@ DEFPY (show_pbr,
 	return CMD_SUCCESS;
 }
 
+static void
+pbrms_nexthop_group_write_individual_nexthop(
+	struct vty *vty, const struct pbr_map_sequence *pbrms)
+{
+	struct pbr_nexthop_group_cache find;
+	struct pbr_nexthop_group_cache *pnhgc;
+	struct pbr_nexthop_cache lookup;
+	struct pbr_nexthop_cache *pnhc;
+
+	nexthop_group_write_nexthop_simple(vty, pbrms->nhg->nexthop);
+
+	memset(&find, 0, sizeof(find));
+	strlcpy(find.name, pbrms->internal_nhg_name, sizeof(find.name));
+
+	pnhgc = hash_lookup(pbr_nhg_hash, &find);
+	assert(pnhgc);
+
+	lookup.nexthop = pbrms->nhg->nexthop;
+	pnhc = hash_lookup(pnhgc->nhh, &lookup);
+	if (pnhc->nexthop->vrf_id != VRF_DEFAULT)
+		vty_out(vty, " nexthop-vrf %s", pnhc->vrf_name);
+
+	vty_out(vty, "\n");
+}
+
 static void vty_show_pbrms(struct vty *vty,
 			   const struct pbr_map_sequence *pbrms, bool detail)
 {
@@ -670,7 +695,7 @@ static void vty_show_pbrms(struct vty *vty,
 
 	} else if (pbrms->nhg) {
 		vty_out(vty, "        ");
-		nexthop_group_write_nexthop(vty, pbrms->nhg->nexthop);
+		pbrms_nexthop_group_write_individual_nexthop(vty, pbrms);
 		if (detail)
 			vty_out(vty,
 				"          Installed: %u(%d) Tableid: %d\n",
@@ -1065,7 +1090,7 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 
 	if (pbrms->nhg) {
 		vty_out(vty, " set ");
-		nexthop_group_write_nexthop(vty, pbrms->nhg->nexthop);
+		pbrms_nexthop_group_write_individual_nexthop(vty, pbrms);
 	}
 
 	vty_out(vty, "!\n");

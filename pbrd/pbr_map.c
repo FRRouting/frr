@@ -771,6 +771,31 @@ void pbr_map_check_nh_group_change(const char *nh_group)
 	}
 }
 
+void pbr_map_check_vrf_nh_group_change(const char *nh_group,
+				       struct pbr_vrf *pbr_vrf,
+				       uint32_t old_vrf_id)
+{
+	struct pbr_map *pbrm;
+	struct pbr_map_sequence *pbrms;
+	struct listnode *node;
+
+	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
+		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
+			if (pbrms->nhgrp_name)
+				continue;
+
+			if (pbrms->nhg
+			    && strcmp(nh_group, pbrms->internal_nhg_name))
+				continue;
+
+			if (pbrms->nhg->nexthop->vrf_id != old_vrf_id)
+				continue;
+
+			pbrms->nhg->nexthop->vrf_id = pbr_vrf_id(pbr_vrf);
+		}
+	}
+}
+
 void pbr_map_check(struct pbr_map_sequence *pbrms, bool changed)
 {
 	struct pbr_map *pbrm;
