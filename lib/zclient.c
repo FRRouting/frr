@@ -257,13 +257,27 @@ static int zclient_failed(struct zclient *zclient)
 	return -1;
 }
 
-static int zclient_flush_data(struct thread *thread)
+/*
+ * Event callback to send queued zapi messages
+ */
+static int zclient_flush_data_cb(struct thread *thread)
 {
 	struct zclient *zclient = THREAD_ARG(thread);
 
-	zclient->t_write = NULL;
+	zclient_flush_data(zclient);
+
+	return 0;
+}
+
+/*
+ * Attempt to send queued zapi messages; will reschedule an event callback
+ * if there are buffered messages remaining to be sent.
+ */
+int zclient_flush_data(struct zclient *zclient)
+{
 	if (zclient->sock < 0)
 		return -1;
+
 	switch (buffer_flush_available(zclient->wb, zclient->sock)) {
 	case BUFFER_ERROR:
 		flog_err(
@@ -272,9 +286,8 @@ static int zclient_flush_data(struct thread *thread)
 			__func__, zclient->sock);
 		return zclient_failed(zclient);
 	case BUFFER_PENDING:
-		zclient->t_write = NULL;
-		thread_add_write(zclient->master, zclient_flush_data, zclient,
-				 zclient->sock, &zclient->t_write);
+		thread_add_write(zclient->master, zclient_flush_data_cb,
+				 zclient, zclient->sock, &zclient->t_write);
 		break;
 	case BUFFER_EMPTY:
 		break;
@@ -298,8 +311,8 @@ int zclient_send_message(struct zclient *zclient)
 		THREAD_OFF(zclient->t_write);
 		break;
 	case BUFFER_PENDING:
-		thread_add_write(zclient->master, zclient_flush_data, zclient,
-				 zclient->sock, &zclient->t_write);
+		thread_add_write(zclient->master, zclient_flush_data_cb,
+				 zclient, zclient->sock, &zclient->t_write);
 		break;
 	}
 	return 0;

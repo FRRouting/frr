@@ -784,6 +784,9 @@ extern void zclient_redistribute_default(int command, struct zclient *,
    Returns 0 for success or -1 on an I/O error. */
 extern int zclient_send_message(struct zclient *);
 
+/* Attempt to send any queued, pending zapi messages. */
+int zclient_flush_data(struct zclient *zclient);
+
 /* create header for command, length to be filled in by user later */
 extern void zclient_create_header(struct stream *, uint16_t, vrf_id_t);
 /*
