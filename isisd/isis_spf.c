@@ -275,8 +275,14 @@ void spftree_area_del(struct isis_area *area)
 	}
 }
 
-void spftree_area_adj_del(struct isis_area *area, struct isis_adjacency *adj)
+static int spf_adj_state_change(struct isis_adjacency *adj)
 {
+	struct isis_area *area = adj->circuit->area;
+
+	if (adj->adj_state == ISIS_ADJ_UP)
+		return 0;
+
+	/* Remove adjacency from all SPF trees. */
 	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 			if (!(area->is_type & level))
@@ -290,6 +296,8 @@ void spftree_area_adj_del(struct isis_area *area, struct isis_adjacency *adj)
 
 	if (fabricd_spftree(area) != NULL)
 		isis_spftree_adj_del(fabricd_spftree(area), adj);
+
+	return 0;
 }
 
 /*
@@ -1513,9 +1521,12 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 	return CMD_SUCCESS;
 }
 
-void isis_spf_cmds_init(void)
+void isis_spf_init(void)
 {
 	install_element(VIEW_NODE, &show_isis_topology_cmd);
+
+	/* Register hook(s). */
+	hook_register(isis_adj_state_change_hook, spf_adj_state_change);
 }
 
 void isis_spf_print(struct isis_spftree *spftree, struct vty *vty)

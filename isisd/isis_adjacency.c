@@ -43,7 +43,6 @@
 #include "isisd/isis_dynhn.h"
 #include "isisd/isis_pdu.h"
 #include "isisd/isis_lsp.h"
-#include "isisd/isis_spf.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_tlvs.h"
@@ -151,9 +150,6 @@ void isis_delete_adj(void *arg)
 	THREAD_TIMER_OFF(adj->t_expire);
 	if (adj->adj_state != ISIS_ADJ_DOWN)
 		adj->adj_state = ISIS_ADJ_DOWN;
-
-	/* remove from SPF trees */
-	spftree_area_adj_del(adj->circuit->area, adj);
 
 	hook_call(isis_adj_state_change_hook, adj);
 
