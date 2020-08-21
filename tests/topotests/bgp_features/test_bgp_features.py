@@ -229,7 +229,7 @@ def test_bgp_shutdown_message():
         else:
             found = ''
         assertmsg = "Incorrect BGP shutdown message received on router R{}".format(rtrNum)
-        assert found == '8 bytes 41 42 43 44 61 62 63 64'
+        assert found == '8 bytes 41 42 43 44 61 62 63 64', assertmsg
 
     # tgen.mininet_cli()
 
@@ -260,13 +260,6 @@ def test_bgp_no_shutdown():
         assertmsg = "BGP sessions on router R{} are in incorrect state (not down as expected?)".format(rtrNum)
         assert res is None, assertmsg
 
-
-def test_bgp_instance_shutdown():
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
 
 if __name__ == "__main__":
