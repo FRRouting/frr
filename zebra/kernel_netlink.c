@@ -20,6 +20,12 @@
 
 #include <zebra.h>
 
+#if defined(HANDLE_NETLINK_FUZZING)
+#include <stdio.h>
+#include <string.h>
+#include "libfrr.h"
+#endif /* HANDLE_NETLINK_FUZZING */
+
 #ifdef HAVE_NETLINK
 
 #include "linklist.h"
@@ -89,7 +95,14 @@
  */
 #define NL_DEFAULT_BATCH_SEND_THRESHOLD (15 * NL_PKT_BUF_SIZE)
 
-#define NL_BATCH_RX_BUFSIZE NL_RCV_PKT_BUF_SIZE
+/*
+ * For every request sent to the kernel that has failed we get an error message,
+ * which contains a standard netlink message header and the payload consisting
+ * of an error code and the original netlink mesage. So the receiving buffer
+ * must be at least as big as the transmitting buffer increased by some space
+ * for headers.
+ */
+#define NL_BATCH_RX_BUFSIZE (NL_DEFAULT_BATCH_BUFSIZE + NL_PKT_BUF_SIZE)
 
 static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_DELROUTE, "RTM_DELROUTE"},
@@ -389,6 +402,36 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	}
 	return 0;
 }
+
+#if defined(HANDLE_NETLINK_FUZZING)
+/* Using globals here to avoid adding function parameters */
+
+/* Keep distinct filenames for netlink fuzzy collection */
+static unsigned int netlink_file_counter = 1;
+
+/**
+ * netlink_write_incoming() - Writes all data received from netlink to a file
+ * @buf:        Data from netlink.
+ * @size:       Size of data.
+ * @counter:    Counter for keeping filenames distinct.
+ */
+static void netlink_write_incoming(const char *buf, const unsigned int size,
+				   unsigned int counter)
+{
+	char fname[MAXPATHLEN];
+	FILE *f;
+
+	snprintf(fname, MAXPATHLEN, "%s/%s_%u", frr_vtydir, "netlink", counter);
+	frr_with_privs(&zserv_privs) {
+		f = fopen(fname, "w");
+	}
+	if (f) {
+		fwrite(buf, 1, size, f);
+		fclose(f);
+	}
+}
+
+#endif /* HANDLE_NETLINK_FUZZING */
 
 static int kernel_read(struct thread *thread)
 {
@@ -801,6 +844,11 @@ static int netlink_recv_msg(const struct nlsock *nl, struct msghdr msg,
 #endif /* NETLINK_DEBUG */
 	}
 
+#if defined(HANDLE_NETLINK_FUZZING)
+	zlog_debug("Writing incoming netlink message");
+	netlink_write_incoming(buf, status, netlink_file_counter++);
+#endif /* HANDLE_NETLINK_FUZZING */
+
 	return status;
 }
 
@@ -1090,17 +1138,14 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 	msg.msg_name = (void *)&snl;
 	msg.msg_namelen = sizeof(snl);
 
-	/*
-	 * The responses are not batched, so we need to read and process one
-	 * message at a time.
-	 */
-	while (true) {
-		status = netlink_recv_msg(nl, msg, nl_batch_rx_buf,
-					  sizeof(nl_batch_rx_buf));
-		if (status == -1 || status == 0)
-			return status;
+	status = netlink_recv_msg(nl, msg, nl_batch_rx_buf,
+				  sizeof(nl_batch_rx_buf));
+	if (status == -1 || status == 0)
+		return status;
 
-		h = (struct nlmsghdr *)nl_batch_rx_buf;
+	for (h = (struct nlmsghdr *)nl_batch_rx_buf;
+	     (status >= 0 && NLMSG_OK(h, (unsigned int)status));
+	     h = NLMSG_NEXT(h, status)) {
 		ignore_msg = false;
 		seq = h->nlmsg_seq;
 		/*
@@ -1536,11 +1581,8 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink_dplane.name, safe_strerror(errno), errno);
 
 	/* Set receive buffer size if it's set from command line */
-	if (nl_rcvbufsize) {
+	if (nl_rcvbufsize)
 		netlink_recvbuf(&zns->netlink, nl_rcvbufsize);
-		netlink_recvbuf(&zns->netlink_cmd, nl_rcvbufsize);
-		netlink_recvbuf(&zns->netlink_dplane, nl_rcvbufsize);
-	}
 
 	netlink_install_filter(zns->netlink.sock,
 			       zns->netlink_cmd.snl.nl_pid,
@@ -1579,4 +1621,18 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 		}
 	}
 }
+
+#ifdef FUZZING
+void netlink_fuzz(const uint8_t *data, size_t size)
+{
+	struct nlmsghdr *h = (struct nlmsghdr *)data;
+
+	if (!NLMSG_OK(h, size))
+		return;
+
+	netlink_information_fetch(h, NS_DEFAULT, 0);
+}
+#endif /* FUZZING */
+
+
 #endif /* HAVE_NETLINK */
