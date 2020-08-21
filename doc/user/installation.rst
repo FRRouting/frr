@@ -528,33 +528,13 @@ Additional kernel modules are also needed to support MPLS forwarding.
    features can be found in
    http://schd.ws/hosted_files/ossna2017/fe/vrf-tutorial-oss.pdf.
 
-   The following impacts how BGP TCP sockets are managed across VRFs:
-
-   .. code-block:: shell
-
-      net.ipv4.tcp_l3mdev_accept=0
-
-   With this setting a BGP TCP socket is opened per VRF.  This setting
-   ensures that other TCP services, such as SSH, provided for non-VRF
-   purposes are blocked from VRF associated Linux interfaces.
-
-   .. code-block:: shell
-
-      net.ipv4.tcp_l3mdev_accept=1
-
-   With this setting a single BGP TCP socket is shared across the
-   system.  This setting exposes any TCP service running on the system,
-   e.g., SSH, to all VRFs.  Generally this setting is not used in
-   environments where VRFs are used to support multiple administrative
-   groups.
+   BGP TCP socket is opened per VRF in FRR.
 
    **Important note** as of June 2018, Kernel versions 4.14-4.18 have a
    known bug where VRF-specific TCP sockets are not properly handled. When
    running these kernel versions, if unable to establish any VRF BGP
-   adjacencies, either downgrade to 4.13 or set
-   'net.ipv4.tcp_l3mdev_accept=1'. The fix for this issue is planned to be
-   included in future kernel versions. So upgrading your kernel may also
-   address this issue.
+   adjacencies, downgrade to 4.13. The issue was fixed in 4.14.57, 4.17.9
+   and more recent kernel versions.
 
 
 Building
