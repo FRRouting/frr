@@ -63,6 +63,7 @@ struct yang_module {
 #endif
 #ifdef HAVE_SYSREPO
 	sr_subscription_ctx_t *sr_subscription;
+	struct thread *sr_thread;
 #endif
 };
 RB_HEAD(yang_modules, yang_module);
