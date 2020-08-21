@@ -304,8 +304,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 				 ? "accept"
 				 : ""),
 			peer->host, peer->fd, from_peer->fd);
-		bgp_stop(peer);
-		bgp_stop(from_peer);
+		BGP_EVENT_ADD(peer, BGP_Stop);
+		BGP_EVENT_ADD(from_peer, BGP_Stop);
 		return NULL;
 	}
 	if (from_peer->status > Active) {
