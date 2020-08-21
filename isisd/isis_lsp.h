@@ -127,6 +127,26 @@ int lsp_print_all(struct vty *vty, struct lspdb_head *head, char detail,
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set);
 
+#define LSP_ITER_CONTINUE 0
+#define LSP_ITER_STOP -1
+
+/* Callback used by isis_lsp_iterate_ip_reach() function. */
+struct isis_subtlvs;
+typedef int (*lsp_ip_reach_iter_cb)(const struct prefix *prefix,
+				    uint32_t metric, bool external,
+				    struct isis_subtlvs *subtlvs, void *arg);
+
+/* Callback used by isis_lsp_iterate_is_reach() function. */
+typedef int (*lsp_is_reach_iter_cb)(const uint8_t *id, uint32_t metric,
+				    bool oldmetric,
+				    struct isis_ext_subtlvs *subtlvs,
+				    void *arg);
+
+int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
+			      lsp_ip_reach_iter_cb cb, void *arg);
+int isis_lsp_iterate_is_reach(struct isis_lsp *lsp, uint16_t mtid,
+			      lsp_is_reach_iter_cb cb, void *arg);
+
 #define lsp_flood(lsp, circuit) \
 	_lsp_flood((lsp), (circuit), __func__, __FILE__, __LINE__)
 void _lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit,
