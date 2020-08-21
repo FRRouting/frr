@@ -62,9 +62,9 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zapi_msg.h"
 
-#if defined(HANDLE_NETLINK_FUZZING)
+#ifdef FUZZING
 #include "zebra/kernel_netlink.h"
-#endif /* HANDLE_NETLINK_FUZZING */
+#endif /* FUZZING */
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -352,11 +352,16 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	zc = FuzzingZc;
 #endif /* FUZZING_LIBFUZZER */
 
+
+#if (FUZZING_MODE == ZAPI_FUZZING)
 	struct stream *s = stream_new(size + 1);
 	stream_put(s, data, size);
 	stream_fifo_push(fifo, s);
 
 	zserv_handle_commands(zc, fifo);
+#elif (FUZZING_MODE == NETLINK_FUZZING)
+	netlink_fuzz(data, size);
+#endif
 
 done:
 	zserv_close_client(zc);
@@ -377,9 +382,6 @@ int main(int argc, char **argv)
 	char *vrf_default_name_configured = NULL;
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
-#if defined(HANDLE_NETLINK_FUZZING)
-	char *netlink_fuzzing = NULL;
-#endif /* HANDLE_NETLINK_FUZZING */
 
 #ifdef FUZZING
 	FuzzingInit();
@@ -412,9 +414,6 @@ int main(int argc, char **argv)
 #ifdef HAVE_NETLINK
 		"s:n"
 #endif
-#if defined(HANDLE_NETLINK_FUZZING)
-		"w:"
-#endif /* HANDLE_NETLINK_FUZZING */
 		,
 		longopts,
 		"  -b, --batch              Runs in batch mode\n"
@@ -429,9 +428,6 @@ int main(int argc, char **argv)
 		"  -s, --nl-bufsize         Set netlink receive buffer size\n"
 		"      --v6-rr-semantics    Use v6 RR semantics\n"
 #endif /* HAVE_NETLINK */
-#if defined(HANDLE_NETLINK_FUZZING)
-		"  -w <file>                Bypass normal startup and use this file for testing of netlink input\n"
-#endif /* HANDLE_NETLINK_FUZZING */
 	);
 
 	while (1) {
@@ -493,16 +489,6 @@ int main(int argc, char **argv)
 			v6_rr_semantics = true;
 			break;
 #endif /* HAVE_NETLINK */
-#if defined(HANDLE_NETLINK_FUZZING)
-		case 'w':
-			netlink_fuzzing = optarg;
-			/* This ensures we are aren't writing any of the
-			 * startup netlink messages that happen when we
-			 * just want to read.
-			 */
-			netlink_read = true;
-			break;
-#endif /* HANDLE_NETLINK_FUZZING */
 		default:
 			frr_help_exit(1);
 			break;
@@ -588,14 +574,6 @@ int main(int argc, char **argv)
 
 	/* Error init */
 	zebra_error_init();
-
-#if defined(HANDLE_NETLINK_FUZZING)
-	if (netlink_fuzzing) {
-		netlink_read_init(netlink_fuzzing);
-		exit(0);
-	}
-#endif /* HANDLE_NETLINK_FUZZING */
-
 
 	frr_run(zrouter.master);
 

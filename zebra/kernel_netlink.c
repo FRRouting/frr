@@ -410,31 +410,6 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 /* Keep distinct filenames for netlink fuzzy collection */
 static unsigned int netlink_file_counter = 1;
 
-/* File name to read fuzzed netlink from */
-static char netlink_fuzz_file[MAXPATHLEN] = "";
-
-/* Flag for whether to read from file or not */
-bool netlink_read;
-
-/**
- * netlink_read_init() - Starts the message parser
- * @fname:      Filename to read.
- */
-void netlink_read_init(const char *fname)
-{
-	struct zebra_dplane_info dp_info;
-
-	snprintf(netlink_fuzz_file, MAXPATHLEN, "%s", fname);
-	/* Creating this fake socket for testing purposes */
-	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
-
-	/* Capture key info from zns struct */
-	zebra_dplane_info_from_zns(&dp_info, zns, false);
-
-	netlink_parse_info(netlink_information_fetch, &zns->netlink,
-			   &dp_info, 1, 0);
-}
-
 /**
  * netlink_write_incoming() - Writes all data received from netlink to a file
  * @buf:        Data from netlink.
@@ -455,31 +430,6 @@ static void netlink_write_incoming(const char *buf, const unsigned int size,
 		fwrite(buf, 1, size, f);
 		fclose(f);
 	}
-}
-
-/**
- * netlink_read_file() - Reads netlink data from file
- * @buf:        Netlink buffer being overwritten.
- * @fname:      File name to read from.
- *
- * Return:      Size of file.
- */
-static long netlink_read_file(char *buf, const char *fname)
-{
-	FILE *f;
-	long file_bytes = -1;
-
-	frr_with_privs(&zserv_privs) {
-		f = fopen(fname, "r");
-	}
-	if (f) {
-		fseek(f, 0, SEEK_END);
-		file_bytes = ftell(f);
-		rewind(f);
-		fread(buf, NL_RCV_PKT_BUF_SIZE, 1, f);
-		fclose(f);
-	}
-	return file_bytes;
 }
 
 #endif /* HANDLE_NETLINK_FUZZING */
@@ -834,18 +784,7 @@ static int netlink_recv_msg(const struct nlsock *nl, struct msghdr msg,
 	msg.msg_iovlen = 1;
 
 	do {
-#if defined(HANDLE_NETLINK_FUZZING)
-		/* Check if reading and filename is set */
-		if (netlink_read && '\0' != netlink_fuzz_file[0]) {
-			zlog_debug("Reading netlink fuzz file");
-			status = netlink_read_file(buf, netlink_fuzz_file);
-			((struct sockaddr_nl *)msg.msg_name)->nl_pid = 0;
-		} else {
-			status = recvmsg(nl->sock, &msg, 0);
-		}
-#else
 		status = recvmsg(nl->sock, &msg, 0);
-#endif /* HANDLE_NETLINK_FUZZING */
 	} while (status == -1 && errno == EINTR);
 
 	if (status == -1) {
@@ -878,10 +817,8 @@ static int netlink_recv_msg(const struct nlsock *nl, struct msghdr msg,
 	}
 
 #if defined(HANDLE_NETLINK_FUZZING)
-	if (!netlink_read) {
-		zlog_debug("Writing incoming netlink message");
-		netlink_write_incoming(buf, status, netlink_file_counter++);
-	}
+	zlog_debug("Writing incoming netlink message");
+	netlink_write_incoming(buf, status, netlink_file_counter++);
 #endif /* HANDLE_NETLINK_FUZZING */
 
 	return status;
@@ -1624,4 +1561,18 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 		}
 	}
 }
+
+#ifdef FUZZING
+void netlink_fuzz(const uint8_t *data, size_t size)
+{
+	struct nlmsghdr *h = (struct nlmsghdr *)data;
+
+	if (!NLMSG_OK(h, size))
+		return;
+
+	netlink_information_fetch(h, NS_DEFAULT, 0);
+}
+#endif /* FUZZING */
+
+
 #endif /* HAVE_NETLINK */
