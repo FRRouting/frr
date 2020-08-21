@@ -155,7 +155,9 @@ static const char *vtype2string(enum vertextype vtype)
 const char *vid2string(struct isis_vertex *vertex, char *buff, int size)
 {
 	if (VTYPE_IS(vertex->type) || VTYPE_ES(vertex->type)) {
-		return print_sys_hostname(vertex->N.id);
+		const char *hostname = print_sys_hostname(vertex->N.id);
+		strlcpy(buff, hostname, size);
+		return buff;
 	}
 
 	if (VTYPE_IP(vertex->type)) {
