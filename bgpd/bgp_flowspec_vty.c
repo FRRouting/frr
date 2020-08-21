@@ -274,36 +274,33 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 		dest = path->net;
 	if (dest)
 		bgp_dest_get_bgp_table_info(dest);
-	/* Print prefix */
-	if (p != NULL) {
-		if (p->family != AF_FLOWSPEC)
-			return;
-		if (json_paths) {
-			if (display == NLRI_STRING_FORMAT_JSON)
-				json_nlri_path = json_object_new_object();
-			else
-				json_nlri_path = json_paths;
-		}
-		if (display == NLRI_STRING_FORMAT_LARGE && path)
-			vty_out(vty, "BGP flowspec entry: (flags 0x%x)\n",
-				path->flags);
-		bgp_fs_nlri_get_string((unsigned char *)
-				       p->u.prefix_flowspec.ptr,
-				       p->u.prefix_flowspec.prefixlen,
-				       return_string,
-				       display,
-				       json_nlri_path,
-				       family2afi(p->u.prefix_flowspec
-						  .family));
-		if (display == NLRI_STRING_FORMAT_LARGE)
-			vty_out(vty, "%s", return_string);
-		else if (display == NLRI_STRING_FORMAT_DEBUG)
-			vty_out(vty, "%s", return_string);
-		else if (display == NLRI_STRING_FORMAT_MIN)
-			vty_out(vty, " %-30s", return_string);
-		else if (json_paths && display == NLRI_STRING_FORMAT_JSON)
-			json_object_array_add(json_paths, json_nlri_path);
+	if (p == NULL || p->family != AF_FLOWSPEC)
+		return;
+	if (json_paths) {
+		if (display == NLRI_STRING_FORMAT_JSON)
+			json_nlri_path = json_object_new_object();
+		else
+			json_nlri_path = json_paths;
 	}
+	if (display == NLRI_STRING_FORMAT_LARGE && path)
+		vty_out(vty, "BGP flowspec entry: (flags 0x%x)\n",
+			path->flags);
+	bgp_fs_nlri_get_string((unsigned char *)
+			       p->u.prefix_flowspec.ptr,
+			       p->u.prefix_flowspec.prefixlen,
+			       return_string,
+			       display,
+			       json_nlri_path,
+			       family2afi(p->u.prefix_flowspec
+					  .family));
+	if (display == NLRI_STRING_FORMAT_LARGE)
+		vty_out(vty, "%s", return_string);
+	else if (display == NLRI_STRING_FORMAT_DEBUG)
+		vty_out(vty, "%s", return_string);
+	else if (display == NLRI_STRING_FORMAT_MIN)
+		vty_out(vty, " %-30s", return_string);
+	else if (json_paths && display == NLRI_STRING_FORMAT_JSON)
+		json_object_array_add(json_paths, json_nlri_path);
 	if (!path)
 		return;
 	if (path->attr &&
