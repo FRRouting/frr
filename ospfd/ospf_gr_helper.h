@@ -154,4 +154,10 @@ struct advRtr {
 
 extern void ospf_gr_helper_init(struct ospf *);
 extern void ospf_gr_helper_stop(struct ospf *ospf);
-#endif /* _ZEBRA_OSPF_GR_HELPER_H */
+extern int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
+				  struct ospf_neighbor *nbr);
+extern void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
+				enum ospf_helper_exit_reason reason);
+void ospf_process_maxage_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
+				   struct ospf_neighbor *nbr);
+#endif /* _ZEBRA_OSPF_HELPER_H */

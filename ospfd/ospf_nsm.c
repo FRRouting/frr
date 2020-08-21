@@ -144,7 +144,7 @@ static void nsm_timer_set(struct ospf_neighbor *nbr)
 /* 10.4 of RFC2328, indicate whether an adjacency is appropriate with
  * the given neighbour
  */
-static int nsm_should_adj(struct ospf_neighbor *nbr)
+int nsm_should_adj(struct ospf_neighbor *nbr)
 {
 	struct ospf_interface *oi = nbr->oi;
 

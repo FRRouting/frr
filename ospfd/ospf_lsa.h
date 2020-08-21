@@ -119,6 +119,9 @@ struct ospf_lsa {
 
 	/* VRF Id */
 	vrf_id_t vrf_id;
+
+	/*For topo chg detection in HELPER role*/
+	bool to_be_acknowledged;
 };
 
 /* OSPF LSA Link Type. */
