@@ -1521,13 +1521,13 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 	/* Determine nexthop IP address */
 	switch (family) {
 	case AF_INET:
-		if (!circuit->ip_router)
+		if (!circuit->ip_router || !adj->ipv4_address_count)
 			return;
 
 		nexthop.ipv4 = adj->ipv4_addresses[0];
 		break;
 	case AF_INET6:
-		if (!circuit->ipv6_router)
+		if (!circuit->ipv6_router || !adj->ipv6_address_count)
 			return;
 
 		nexthop.ipv6 = adj->ipv6_addresses[0];
