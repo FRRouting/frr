@@ -310,6 +310,17 @@ To start OSPF process you have to specify the OSPF router.
    In some cases it may be more convenient to enable OSPF on a per
    interface/subnet basis (:clicmd:`ip ospf area AREA [ADDR]`).
 
+.. index:: proactive-arp
+.. clicmd:: proactive-arp
+
+.. index:: no proactive-arp
+.. clicmd:: no proactive-arp
+
+   This command enables or disables sending ARP requests to update neighbor
+   table entries. It speeds up convergence for /32 networks on a P2P
+   connection. 
+
+   This feature is enabled by default.
 
 .. _ospf-area:
 
