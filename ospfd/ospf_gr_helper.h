@@ -21,8 +21,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _ZEBRA_OSPF_HELPER_H
-#define _ZEBRA_OSPF_HELPER_H
+#ifndef _ZEBRA_OSPF_GR_HELPER_H
+#define _ZEBRA_OSPF_GR_HELPER_H
 
 #define OSPF_GR_NOT_HELPER 0
 #define OSPF_GR_ACTIVE_HELPER 1
@@ -151,4 +151,7 @@ struct advRtr {
 #define OSPF_GR_SUCCESS 1
 #define OSPF_GR_FAILURE 0
 #define OSPF_GR_INVALID -1
-#endif /* _ZEBRA_OSPF_HELPER_H */
+
+extern void ospf_gr_helper_init(struct ospf *);
+extern void ospf_gr_helper_stop(struct ospf *ospf);
+#endif /* _ZEBRA_OSPF_GR_HELPER_H */
