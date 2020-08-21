@@ -1484,7 +1484,7 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 )
 {
 	int levels = ISIS_LEVELS;
-	struct listnode *inode, *nnode;
+	struct listnode *node;
 	struct isis *isis = NULL;
 	int idx = 0;
 	const char *vrf_name = VRF_DEFAULT_NAME;
@@ -1508,10 +1508,9 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 				show_isis_topology_common(vty, levels, isis);
-			}
-			return 0;
+			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL)

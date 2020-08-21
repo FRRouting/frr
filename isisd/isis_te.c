@@ -311,7 +311,7 @@ DEFUN(show_isis_mpls_te_router,
       MPLS_TE_STR "Router information\n")
 {
 
-	struct listnode *anode, *nnode, *inode;
+	struct listnode *anode, *inode;
 	struct isis_area *area;
 	struct isis *isis = NULL;
 	const char *vrf_name = VRF_DEFAULT_NAME;
@@ -325,7 +325,7 @@ DEFUN(show_isis_mpls_te_router,
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 				for (ALL_LIST_ELEMENTS_RO(isis->area_list,
 							  anode, area)) {
 					if (!IS_MPLS_TE(area->mta))
@@ -483,7 +483,7 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
-	struct listnode *anode, *cnode, *nnode, *inode;
+	struct listnode *anode, *cnode, *inode;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	struct interface *ifp;
@@ -497,7 +497,7 @@ DEFUN (show_isis_mpls_te_interface,
 
 	if (argc == idx_interface) {
 		/* Show All Interfaces. */
-		for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
 						  area)) {
 

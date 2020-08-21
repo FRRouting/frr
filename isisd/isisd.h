@@ -215,7 +215,7 @@ void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
 void isis_global_instance_create(void);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
 struct isis *isis_lookup_by_vrfname(const char *vrfname);
-struct isis *isis_lookup_by_sysid(uint8_t *sysid);
+struct isis *isis_lookup_by_sysid(const uint8_t *sysid);
 
 void isis_init(void);
 struct isis *isis_new(vrf_id_t vrf_id);

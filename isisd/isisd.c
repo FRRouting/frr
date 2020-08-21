@@ -125,33 +125,37 @@ void isis_vrf_unlink(struct isis *isis, struct vrf *vrf)
 
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id)
 {
-	struct isis *isis = NULL;
-	struct listnode *node, *nnode;
+	struct isis *isis;
+	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS(im->isis, node, nnode, isis))
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 		if (isis->vrf_id == vrf_id)
 			return isis;
+
 	return NULL;
 }
 
 struct isis *isis_lookup_by_vrfname(const char *vrfname)
 {
-	struct isis *isis = NULL;
-	struct listnode *node, *nnode;
+	struct isis *isis;
+	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS(im->isis, node, nnode, isis))
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 		if (isis->name && vrfname && strcmp(isis->name, vrfname) == 0)
 			return isis;
+
 	return NULL;
 }
 
-struct isis *isis_lookup_by_sysid(uint8_t *sysid)
+struct isis *isis_lookup_by_sysid(const uint8_t *sysid)
 {
-	struct isis *isis = NULL;
-	struct listnode *node, *nnode;
-	for (ALL_LIST_ELEMENTS(im->isis, node, nnode, isis))
+	struct isis *isis;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 		if (!memcmp(isis->sysid, sysid, ISIS_SYS_ID_LEN))
 			return isis;
+
 	return NULL;
 }
 
@@ -165,7 +169,7 @@ void isis_master_init(struct thread_master *master)
 
 void isis_global_instance_create()
 {
-	struct isis *isis = NULL;
+	struct isis *isis;
 
 	isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 	if (isis == NULL) {
@@ -176,8 +180,8 @@ void isis_global_instance_create()
 
 struct isis *isis_new(vrf_id_t vrf_id)
 {
-	struct vrf *vrf = NULL;
-	struct isis *isis = NULL;
+	struct vrf *vrf;
+	struct isis *isis;
 
 	isis = XCALLOC(MTYPE_ISIS, sizeof(struct isis));
 	isis->vrf_id = vrf_id;
@@ -335,7 +339,7 @@ struct isis_area *isis_area_lookup(const char *area_tag, vrf_id_t vrf_id)
 {
 	struct isis_area *area;
 	struct listnode *node;
-	struct isis *isis = NULL;
+	struct isis *isis;
 
 	isis = isis_lookup_by_vrfid(vrf_id);
 	if (isis == NULL)
@@ -464,7 +468,7 @@ void isis_finish(struct isis *isis)
 
 void isis_terminate()
 {
-	struct isis *isis = NULL;
+	struct isis *isis;
 	struct listnode *node, *nnode;
 
 	if (listcount(im->isis) == 0)
@@ -643,10 +647,10 @@ int area_clear_net_title(struct vty *vty, const char *net_title)
 int show_isis_interface_common(struct vty *vty, const char *ifname, char detail,
 			       const char *vrf_name, bool all_vrf)
 {
-	struct listnode *anode, *cnode, *mnode, *inode;
+	struct listnode *anode, *cnode, *inode;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
-	struct isis *isis = NULL;
+	struct isis *isis;
 
 	if (!im) {
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
@@ -654,7 +658,7 @@ int show_isis_interface_common(struct vty *vty, const char *ifname, char detail,
 	}
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS(im->isis, mnode, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 				for (ALL_LIST_ELEMENTS_RO(isis->area_list,
 							  anode, area)) {
 					vty_out(vty, "Area %s:\n",
@@ -677,7 +681,7 @@ int show_isis_interface_common(struct vty *vty, const char *ifname, char detail,
 								detail);
 				}
 			}
-			return 0;
+			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL) {
@@ -822,10 +826,10 @@ static void isis_neighbor_common(struct vty *vty, const char *id, char detail,
 int show_isis_neighbor_common(struct vty *vty, const char *id, char detail,
 			      const char *vrf_name, bool all_vrf)
 {
-	struct listnode *nnode, *inode;
+	struct listnode *node;
 	struct isis_dynhn *dynhn;
 	uint8_t sysid[ISIS_SYS_ID_LEN];
-	struct isis *isis = NULL;
+	struct isis *isis;
 
 	if (!im) {
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
@@ -846,11 +850,11 @@ int show_isis_neighbor_common(struct vty *vty, const char *id, char detail,
 
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
 				isis_neighbor_common(vty, id, detail, isis,
 						     sysid);
 			}
-			return 0;
+			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL)
@@ -863,7 +867,7 @@ int show_isis_neighbor_common(struct vty *vty, const char *id, char detail,
 static void isis_neighbor_common_clear(struct vty *vty, const char *id,
 				       uint8_t *sysid, struct isis *isis)
 {
-	struct listnode *anode, *cnode, *cnextnode, *node, *nnode;
+	struct listnode *anode, *cnode, *node, *nnode;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	struct list *adjdb;
@@ -871,8 +875,7 @@ static void isis_neighbor_common_clear(struct vty *vty, const char *id,
 	int i;
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
-		for (ALL_LIST_ELEMENTS(area->circuit_list, cnode, cnextnode,
-				       circuit)) {
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
 			if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 				for (i = 0; i < 2; i++) {
 					adjdb = circuit->u.bc.adjdb[i];
@@ -910,10 +913,10 @@ static void isis_neighbor_common_clear(struct vty *vty, const char *id,
 int clear_isis_neighbor_common(struct vty *vty, const char *id, const char *vrf_name,
 			       bool all_vrf)
 {
-	struct listnode *nnode, *inode;
+	struct listnode *node;
 	struct isis_dynhn *dynhn;
 	uint8_t sysid[ISIS_SYS_ID_LEN];
-	struct isis *isis = NULL;
+	struct isis *isis;
 
 	if (!im) {
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
@@ -933,11 +936,10 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id, const char *vrf_
 	}
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 				isis_neighbor_common_clear(vty, id, sysid,
 							   isis);
-			}
-			return 0;
+			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL)
@@ -1554,19 +1556,19 @@ DEFUN(show_hostname, show_hostname_cmd,
       "All VRFs\n"
       "IS-IS Dynamic hostname mapping\n")
 {
-	struct listnode *nnode, *inode;
+	struct listnode *node;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	int idx_vrf = 0;
-	struct isis *isis = NULL;
+	struct isis *isis;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 				dynhn_print_all(vty, isis);
-			}
-			return 0;
+
+			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL)
@@ -1621,8 +1623,8 @@ DEFUN(show_isis_spf_ietf, show_isis_spf_ietf_cmd,
       "All VRFs\n"
       "SPF delay IETF information\n")
 {
-	struct listnode *nnode, *inode;
-	struct isis *isis = NULL;
+	struct listnode *node;
+	struct isis *isis;
 	int idx_vrf = 0;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
@@ -1636,10 +1638,10 @@ DEFUN(show_isis_spf_ietf, show_isis_spf_ietf_cmd,
 
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 				isis_spf_ietf_common(vty, isis);
-			}
-			return 0;
+
+			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL)
@@ -1755,9 +1757,9 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
       "All VRFs\n"
       "summary\n")
 {
-	struct listnode *inode, *nnode;
+	struct listnode *node;
 	int idx_vrf = 0;
-	struct isis *isis = NULL;
+	struct isis *isis;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 
@@ -1768,10 +1770,10 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
 	}
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 				common_isis_summary(vty, isis);
-			}
-			return 0;
+
+			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL)
@@ -1918,19 +1920,19 @@ static int show_isis_database_common(struct vty *vty, const char *argv,
 static int show_isis_database(struct vty *vty, const char *argv, int ui_level,
 			      const char *vrf_name, bool all_vrf)
 {
-	struct listnode *inode, *nnode;
-	struct isis *isis = NULL;
+	struct listnode *node;
+	struct isis *isis;
 
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 				show_isis_database_common(vty, argv, ui_level,
 							  isis);
-			}
-			return 0;
+
+			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL)
+		if (isis)
 			show_isis_database_common(vty, argv, ui_level, isis);
 	}
 
@@ -2352,16 +2354,15 @@ static int isis_config_write(struct vty *vty)
 {
 	int write = 0;
 	struct isis_area *area;
-	struct listnode *node, *node2, *inode, *nnode;
-	struct isis *isis = NULL;
+	struct listnode *node, *node2, *inode;
+	struct isis *isis;
 
 	if (!im) {
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
 
-	for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
-
+	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 			/* ISIS - Area name */
 			vty_out(vty, "router " PROTO_NAME " %s\n", area->area_tag);
