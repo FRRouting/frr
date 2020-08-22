@@ -8988,6 +8988,149 @@ DEFUN (no_ospf_proactive_arp,
 	return CMD_SUCCESS;
 }
 
+/* Graceful Restart HELPER Commands */
+DEFPY(ospf_gr_helper_enable, ospf_gr_helper_enable_cmd,
+      "graceful-restart helper-only [A.B.C.D]",
+      "OSPF Graceful Restart\n"
+      "Enable Helper support\n"
+      "Advertising router id\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct in_addr addr;
+	int ret;
+
+	if (argc == 3) {
+		ret = inet_aton(argv[2]->arg, &addr);
+		if (!ret) {
+			vty_out(vty,
+				"Please specify the valid routerid address.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		ospf_gr_helper_support_set_per_routerid(ospf, &addr, OSPF_GR_TRUE);
+		return CMD_SUCCESS;
+	}
+
+	ospf_gr_helper_support_set(ospf, OSPF_GR_TRUE);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_ospf_gr_helper_enable,
+      no_ospf_gr_helper_enable_cmd,
+      "no graceful-restart helper-only [A.B.C.D]",
+      NO_STR
+      "OSPF Graceful Restart\n"
+      "Disable Helper support\n"
+      "Advertising router id\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct in_addr addr;
+	int ret;
+
+	if (argc == 4) {
+		ret = inet_aton(argv[3]->arg, &addr);
+		if (!ret) {
+			vty_out(vty,
+				"Please specify the valid routerid address.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		ospf_gr_helper_support_set_per_routerid(ospf, &addr,
+							OSPF_GR_FALSE);
+		return CMD_SUCCESS;
+	}
+
+	ospf_gr_helper_support_set(ospf, OSPF_GR_FALSE);
+	return CMD_SUCCESS;
+}
+
+DEFPY(ospf_gr_helper_enable_lsacheck,
+      ospf_gr_helper_enable_lsacheck_cmd,
+      "graceful-restart helper strict-lsa-checking",
+      "OSPF Graceful Restart\n"
+      "OSPF GR Helper\n"
+      "Enable strict LSA check\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf_gr_helper_lsa_check_set(ospf, OSPF_GR_TRUE);
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_ospf_gr_helper_enable_lsacheck,
+      no_ospf_gr_helper_enable_lsacheck_cmd,
+      "no graceful-restart helper strict-lsa-checking",
+      NO_STR
+      "OSPF Graceful Restart\n"
+      "OSPF GR Helper\n"
+      "Disable strict LSA check\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf_gr_helper_lsa_check_set(ospf, OSPF_GR_FALSE);
+	return CMD_SUCCESS;
+}
+
+DEFPY(ospf_gr_helper_supported_grace_time,
+      ospf_gr_helper_supported_grace_time_cmd,
+      "graceful-restart helper supported-grace-time (10-1800)$interval",
+      "OSPF Graceful Restart\n"
+      "OSPF GR Helper\n"
+      "Supported grace timer\n"
+      "Grace interval(in seconds)\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf_gr_helper_supported_gracetime_set(ospf, interval);
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_ospf_gr_helper_supported_grace_time,
+      no_ospf_gr_helper_supported_grace_time_cmd,
+      "no graceful-restart helper supported-grace-time (10-1800)$interval",
+      NO_STR
+      "OSPF Graceful Restart\n"
+      "OSPF GR Helper\n"
+      "Supported grace timer\n"
+      "Grace interval(in seconds)\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf_gr_helper_supported_gracetime_set(ospf, OSPF_MAX_GRACE_INTERVAL);
+	return CMD_SUCCESS;
+}
+
+DEFPY(ospf_gr_helper_planned_only,
+      ospf_gr_helper_planned_only_cmd,
+      "graceful-restart helper planned-only",
+      "OSPF Graceful Restart\n"
+      "OSPF GR Helper\n"
+      "Supported only planned restart\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf_gr_helper_set_supported_planned_only_restart(ospf, OSPF_GR_TRUE);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_ospf_gr_helper_planned_only,
+      no_ospf_gr_helper_planned_only_cmd,
+      "no graceful-restart helper planned-only",
+      NO_STR
+      "OSPF Graceful Restart\n"
+      "OSPF GR Helper\n"
+      "Supported only for planned restart\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf_gr_helper_set_supported_planned_only_restart(ospf, OSPF_GR_FALSE);
+
+	return CMD_SUCCESS;
+}
+/* Graceful Restart HELPER commands end */
+
 static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
 {
 	struct listnode *ln;
@@ -10310,6 +10453,41 @@ static int config_write_ospf_redistribute(struct vty *vty, struct ospf *ospf)
 	return 0;
 }
 
+static int ospf_cfg_write_helper_dis_rtr_walkcb(struct hash_bucket *backet,
+						void *arg)
+{
+	struct advRtr *rtr = backet->data;
+	struct vty *vty = (struct vty *)arg;
+
+	vty_out(vty, " graceful-restart helper-only %s\n",
+		inet_ntoa(rtr->advRtrAddr));
+	return HASHWALK_CONTINUE;
+}
+
+static int config_write_ospf_gr_helper(struct vty *vty, struct ospf *ospf)
+{
+	if (ospf->is_helper_supported)
+		vty_out(vty, " graceful-restart helper-only\n");
+
+	if (!ospf->strict_lsa_check)
+		vty_out(vty, " no graceful-restart helper strict-lsa-checking\n");
+
+	if (ospf->only_planned_restart)
+		vty_out(vty, " graceful-restart helper planned-only\n");
+
+	if (ospf->supported_grace_time != OSPF_MAX_GRACE_INTERVAL)
+		vty_out(vty,
+			" graceful-restart helper supported-grace-time %d\n",
+			ospf->supported_grace_time);
+
+	if (OSPF_HELPER_ENABLE_RTR_COUNT(ospf)) {
+		hash_walk(ospf->enable_rtr_list,
+			  ospf_cfg_write_helper_dis_rtr_walkcb, vty);
+	}
+
+	return 0;
+}
+
 static int config_write_ospf_default_metric(struct vty *vty, struct ospf *ospf)
 {
 	if (ospf->default_metric != -1)
@@ -10476,6 +10654,9 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 
 	/* Redistribute information print. */
 	config_write_ospf_redistribute(vty, ospf);
+
+	/* Print gr helper configs */
+	config_write_ospf_gr_helper(vty, ospf);
 
 	/* passive-interface print. */
 	if (ospf->passive_interface_default == OSPF_IF_PASSIVE)
@@ -10735,6 +10916,16 @@ static void ospf_vty_zebra_init(void)
 	install_element(OSPF_NODE, &no_ospf_distance_cmd);
 	install_element(OSPF_NODE, &no_ospf_distance_ospf_cmd);
 	install_element(OSPF_NODE, &ospf_distance_ospf_cmd);
+
+	/*Ospf garcefull restart helper configurations */
+	install_element(OSPF_NODE, &ospf_gr_helper_enable_cmd);
+	install_element(OSPF_NODE, &no_ospf_gr_helper_enable_cmd);
+	install_element(OSPF_NODE, &ospf_gr_helper_enable_lsacheck_cmd);
+	install_element(OSPF_NODE, &no_ospf_gr_helper_enable_lsacheck_cmd);
+	install_element(OSPF_NODE, &ospf_gr_helper_supported_grace_time_cmd);
+	install_element(OSPF_NODE, &no_ospf_gr_helper_supported_grace_time_cmd);
+	install_element(OSPF_NODE, &ospf_gr_helper_planned_only_cmd);
+	install_element(OSPF_NODE, &no_ospf_gr_helper_planned_only_cmd);
 #if 0
   install_element (OSPF_NODE, &ospf_distance_source_cmd);
   install_element (OSPF_NODE, &no_ospf_distance_source_cmd);

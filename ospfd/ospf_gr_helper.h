@@ -163,4 +163,13 @@ extern void ospf_process_maxage_grace_lsa(struct ospf *ospf,
 					  struct ospf_neighbor *nbr);
 extern void ospf_helper_handle_topo_chg(struct ospf *ospf,
 					struct ospf_lsa *lsa);
+extern void ospf_gr_helper_support_set(struct ospf *ospf, bool support);
+extern void ospf_gr_helper_support_set_per_routerid(struct ospf *ospf,
+						    struct in_addr *rid,
+						    bool support);
+extern void ospf_gr_helper_lsa_check_set(struct ospf *ospf, bool lsacheck);
+extern void ospf_gr_helper_supported_gracetime_set(struct ospf *ospf,
+						   uint32_t interval);
+extern void ospf_gr_helper_set_supported_planned_only_restart(struct ospf *ospf,
+							     bool planned_only);
 #endif /* _ZEBRA_OSPF_HELPER_H */

@@ -250,7 +250,7 @@ static int ospf_handle_grace_timer_expiry(struct thread *thread)
  * Ref rfc3623 section 3.1
  *
  * ospf
- *    Ospf pointer.
+ *    OSPF pointer.
  *
  * lsa
  *    Grace LSA received from RESTARTER.
@@ -560,10 +560,10 @@ void ospf_helper_handle_topo_chg(struct ospf *ospf, struct ospf_lsa *lsa)
  * Ref rfc3623 section 3.2
  *
  * ospf
- *    Ospf pointer.
+ *    OSPF pointer.
  *
  * nbr
- *    Ospf neighbour for which it is acting as HELPER.
+ *    OSPF neighbour for which it is acting as HELPER.
  *
  * reason
  *    The reason for exiting from HELPER.
@@ -636,7 +636,7 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
  * If router acting as HELPER, It exits from helper role.
  *
  * ospf
- *    Ospf pointer.
+ *    OSPF pointer.
  *
  * lsa
  *    Grace LSA received from RESTARTER.
@@ -691,4 +691,200 @@ void ospf_process_maxage_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	}
 
 	ospf_gr_helper_exit(restarter, OSPF_GR_HELPER_COMPLETED);
+}
+
+/* Configuration handlers */
+/*
+ * Disable/Enable HELPER support on router level.
+ *
+ * ospf
+ *    OSPFpointer.
+ *
+ * status
+ *    TRUE/FALSE
+ *
+ * Returns:
+ *    Nothing.
+ */
+void ospf_gr_helper_support_set(struct ospf *ospf, bool support)
+{
+	struct ospf_interface *oi;
+	struct listnode *node;
+	struct advRtr lookup;
+
+	if (ospf->is_helper_supported == support)
+		return;
+
+	ospf->is_helper_supported = support;
+
+	/* If helper support disabled, cease HELPER role for all
+	 * supporting neighbors.
+	 */
+	if (support == OSPF_GR_FALSE) {
+		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+			struct route_node *rn = NULL;
+
+			if (ospf_interface_neighbor_count(oi) == 0)
+				continue;
+
+			for (rn = route_top(oi->nbrs); rn;
+			     rn = route_next(rn)) {
+				struct ospf_neighbor *nbr = NULL;
+
+				if (!rn->info)
+					continue;
+
+				nbr = rn->info;
+
+				lookup.advRtrAddr.s_addr =
+					nbr->router_id.s_addr;
+				/* check if helper support enabled for the
+				 * correspodning routerid.If enabled, dont
+				 * dont exit from helper role.
+				 */
+				if (hash_lookup(ospf->enable_rtr_list, &lookup))
+					continue;
+
+				if (OSPF_GR_IS_ACTIVE_HELPER(nbr))
+					ospf_gr_helper_exit(
+						nbr, OSPF_GR_HELPER_TOPO_CHG);
+			}
+		}
+	}
+}
+
+/*
+ * Enable/Disable HELPER support on a specified advertagement
+ * router.
+ *
+ * ospf
+ *    OSPF pointer.
+ *
+ * advRtr
+ *    HELPER support for given Advertisement Router.
+ *
+ * support
+ *    True - Enable Helper Support.
+ *    False - Disable Helper Support.
+ *
+ * Returns:
+ *    Nothing.
+ */
+
+void ospf_gr_helper_support_set_per_routerid(struct ospf *ospf,
+					     struct in_addr *advrtr,
+					     bool support)
+{
+	struct advRtr temp;
+	struct advRtr *rtr;
+	struct ospf_interface *oi;
+	struct listnode *node;
+
+	temp.advRtrAddr.s_addr = advrtr->s_addr;
+
+	if (support == OSPF_GR_FALSE) {
+		/*Delete the routerid from the enable router hash table */
+		rtr = hash_lookup(ospf->enable_rtr_list, &temp);
+
+		if (rtr) {
+			hash_release(ospf->enable_rtr_list, rtr);
+			ospf_disable_rtr_hash_free(rtr);
+		}
+
+		/* If helper support is enabled globally
+		 * no action is required.
+		 */
+		if (ospf->is_helper_supported)
+			return;
+
+		/* Cease the HELPER role fore neighbours from the
+		 * specified advertisement router.
+		 */
+		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+			struct route_node *rn = NULL;
+
+			if (ospf_interface_neighbor_count(oi) == 0)
+				continue;
+
+			for (rn = route_top(oi->nbrs); rn;
+			     rn = route_next(rn)) {
+				struct ospf_neighbor *nbr = NULL;
+
+				if (!rn->info)
+					continue;
+
+				nbr = rn->info;
+
+				if (nbr->router_id.s_addr != advrtr->s_addr)
+					continue;
+
+				if (OSPF_GR_IS_ACTIVE_HELPER(nbr))
+					ospf_gr_helper_exit(
+						nbr, OSPF_GR_HELPER_TOPO_CHG);
+			}
+		}
+
+	} else {
+		/* Add the routerid to the enable router hash table */
+		hash_get(ospf->enable_rtr_list, &temp,
+			 ospf_enable_rtr_hash_alloc);
+	}
+}
+
+/*
+ * Api to enable/disable strict lsa check on the HELPER.
+ *
+ * ospf
+ *    OSPF pointer.
+ *
+ * enabled
+ *    True - disable the lsa check.
+ *    False - enable the strict lsa check.
+ *
+ * Returns:
+ *    Nothing.
+ */
+void ospf_gr_helper_lsa_check_set(struct ospf *ospf, bool enabled)
+{
+	if (ospf->strict_lsa_check == enabled)
+		return;
+
+	ospf->strict_lsa_check = enabled;
+}
+
+/*
+ * Api to set the supported grace interval in this router.
+ *
+ * ospf
+ *    OSPF pointer.
+ *
+ * interval
+ *    The supported grace interval..
+ *
+ * Returns:
+ *    Nothing.
+ */
+void ospf_gr_helper_supported_gracetime_set(struct ospf *ospf,
+					    uint32_t interval)
+{
+	ospf->supported_grace_time = interval;
+}
+
+/*
+ * Api to set the supported restart reason.
+ *
+ * ospf
+ *    OSPF pointer.
+ *
+ * planned_only
+ *    True: support only planned restart.
+ *    False: support for planned/unplanned restarts.
+ *
+ * Returns:
+ *    Nothing.
+ */
+void ospf_gr_helper_set_supported_planned_only_restart(struct ospf *ospf,
+						      bool planned_only)
+{
+	ospf->only_planned_restart = planned_only;
 }
