@@ -3060,6 +3060,7 @@ static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
 					  safi_t safi)
 {
 	uint32_t count = 0;
+	bool filtered = false;
 	struct bgp_dest *dest;
 	struct bgp_adj_in *ain;
 	struct bgp_table *table = peer->bgp->rib[afi][safi];
@@ -3071,7 +3072,19 @@ static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
 
 			if (bgp_input_filter(peer, rn_p, &attr, afi, safi)
 			    == FILTER_DENY)
+				filtered = true;
+
+			if (bgp_input_modifier(
+				    peer, rn_p, &attr, afi, safi,
+				    ROUTE_MAP_IN_NAME(&peer->filter[afi][safi]),
+				    NULL, 0, NULL)
+			    == RMAP_DENY)
+				filtered = true;
+
+			if (filtered)
 				count++;
+
+			bgp_attr_undup(&attr, ain->attr);
 		}
 	}
 
