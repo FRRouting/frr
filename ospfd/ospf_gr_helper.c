@@ -490,6 +490,71 @@ static bool ospf_check_change_in_rxmt_list(struct ospf_neighbor *nbr)
 }
 
 /*
+ * Actions to be taken  when topo change detected
+ * HELPER will exit upon topo change.
+ *
+ * ospf
+ *    ospf pointer
+ * lsa
+ *    topo change occured due to this lsa type (1 to 5 and 7)
+ *
+ * Returns:
+ *    Nothing
+ */
+void ospf_helper_handle_topo_chg(struct ospf *ospf, struct ospf_lsa *lsa)
+{
+	struct listnode *node;
+	struct ospf_interface *oi;
+
+	if (!ospf->active_restarter_cnt)
+		return;
+
+	/* Topo change not required to be hanlded if strict
+	 * LSA check is disbaled for this router.
+	 */
+	if (!ospf->strict_lsa_check)
+		return;
+
+	if (IS_DEBUG_OSPF_GR_HELPER)
+		zlog_debug(
+			"%s, Topo change detected due to lsa LSID:%s type:%d",
+			__PRETTY_FUNCTION__, inet_ntoa(lsa->data->id),
+			lsa->data->type);
+
+	lsa->to_be_acknowledged = OSPF_GR_TRUE;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+		struct route_node *rn = NULL;
+
+		if (ospf_interface_neighbor_count(oi) == 0)
+			continue;
+
+		/* Ref rfc3623 section 3.2.3.b
+		 * If change due to external LSA and if the area is
+		 * stub, then it is not a topo change. Since Type-5
+		 * lsas will not be flooded in stub area.
+		 */
+		if ((oi->area->external_routing == OSPF_AREA_STUB)
+		    && (lsa->data->type == OSPF_AS_EXTERNAL_LSA)) {
+			continue;
+		}
+
+		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+			struct ospf_neighbor *nbr = NULL;
+
+			if (!rn->info)
+				continue;
+
+			nbr = rn->info;
+
+			if (OSPF_GR_IS_ACTIVE_HELPER(nbr))
+				ospf_gr_helper_exit(nbr,
+						    OSPF_GR_HELPER_TOPO_CHG);
+		}
+	}
+}
+
+/*
  * Api to exit from HELPER role to take all actions
  * required at exit.
  * Ref rfc3623 section 3.2
@@ -509,12 +574,65 @@ static bool ospf_check_change_in_rxmt_list(struct ospf_neighbor *nbr)
 void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 			 enum ospf_helper_exit_reason reason)
 {
-	return;
+	struct ospf_interface *oi = nbr->oi;
+	struct ospf *ospf = oi->ospf;
+
+	if (!OSPF_GR_IS_ACTIVE_HELPER(nbr))
+		return;
+
+	if (IS_DEBUG_OSPF_GR_HELPER)
+		zlog_debug("%s, Exiting from HELPER support to %s, due to %s",
+			   __PRETTY_FUNCTION__, inet_ntoa(nbr->src),
+			   ospf_exit_reason_desc[reason]);
+
+	/* Reset helper status*/
+	nbr->gr_helper_info.gr_helper_status = OSPF_GR_NOT_HELPER;
+	nbr->gr_helper_info.helper_exit_reason = reason;
+	nbr->gr_helper_info.actual_grace_period = 0;
+	nbr->gr_helper_info.recvd_grace_period = 0;
+	nbr->gr_helper_info.gr_restart_reason = 0;
+	ospf->last_exit_reason = reason;
+
+	if (ospf->active_restarter_cnt <= 0) {
+		zlog_err(
+			"OSPF GR-Helper: active_restarter_cnt should be greater than zero here.");
+		return;
+	}
+	/* Decrement active Restarter count */
+	ospf->active_restarter_cnt--;
+
+	/* If the exit not triggered due to grace timer
+	 * expairy , stop the grace timer.
+	 */
+	if (reason != OSPF_GR_HELPER_GRACE_TIMEOUT)
+		THREAD_OFF(nbr->gr_helper_info.t_grace_timer);
+
+	/* check exit triggered due to successful completion
+	 * of graceful restart.
+	 * If no, bringdown the neighbour.
+	 */
+	if (reason != OSPF_GR_HELPER_COMPLETED) {
+		if (IS_DEBUG_OSPF_GR_HELPER)
+			zlog_debug(
+				"%s, Failed GR exit, so bringing down the neighbour",
+				__PRETTY_FUNCTION__);
+		OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+	}
+
+	/*Recalculate the DR for the network segment */
+	ospf_dr_election(oi);
+
+	/* Originate a router LSA */
+	ospf_router_lsa_update_area(oi->area);
+
+	/* Originate network lsa if it is an DR in the LAN */
+	if (oi->state == ISM_DR)
+		ospf_network_lsa_update(oi);
 }
 
 /*
  * Process Maxage Grace LSA.
- * It is a indication for successfull completion of GR.
+ * It is a indication for successful completion of GR.
  * If router acting as HELPER, It exits from helper role.
  *
  * ospf
@@ -533,5 +651,44 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 void ospf_process_maxage_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 				   struct ospf_neighbor *nbr)
 {
-	return;
+	struct in_addr restartAddr = {0};
+	uint8_t restartReason = 0;
+	uint32_t graceInterval = 0;
+	struct ospf_neighbor *restarter = NULL;
+	struct ospf_interface *oi = nbr->oi;
+	int ret;
+
+	/* Extract the grace lsa packet fields */
+	ret = ospf_extract_grace_lsa_fields(lsa, &graceInterval, &restartAddr,
+					    &restartReason);
+	if (ret != OSPF_GR_SUCCESS) {
+		if (IS_DEBUG_OSPF_GR_HELPER)
+			zlog_debug("%s, Wrong Grace LSA packet.",
+				   __PRETTY_FUNCTION__);
+		return;
+	}
+
+	if (IS_DEBUG_OSPF_GR_HELPER)
+		zlog_debug("%s, GraceLSA received for neighbour %s.",
+			   __PRETTY_FUNCTION__, inet_ntoa(restartAddr));
+
+	/* In case of broadcast links, if RESTARTER is DR_OTHER,
+	 * grace LSA might be received from DR, so fetching the
+	 * actual neighbour information using restarter address.
+	 */
+	if (oi->type != OSPF_IFTYPE_POINTOPOINT) {
+		restarter = ospf_nbr_lookup_by_addr(oi->nbrs, &restartAddr);
+
+		if (!restarter) {
+			if (IS_DEBUG_OSPF_GR_HELPER)
+				zlog_debug(
+					"%s, Restarter is not a neighbour for this router.",
+					__PRETTY_FUNCTION__);
+			return;
+		}
+	} else {
+		restarter = nbr;
+	}
+
+	ospf_gr_helper_exit(restarter, OSPF_GR_HELPER_COMPLETED);
 }

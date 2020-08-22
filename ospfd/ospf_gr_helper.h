@@ -158,6 +158,9 @@ extern int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 				  struct ospf_neighbor *nbr);
 extern void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 				enum ospf_helper_exit_reason reason);
-void ospf_process_maxage_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
-				   struct ospf_neighbor *nbr);
+extern void ospf_process_maxage_grace_lsa(struct ospf *ospf,
+					  struct ospf_lsa *lsa,
+					  struct ospf_neighbor *nbr);
+extern void ospf_helper_handle_topo_chg(struct ospf *ospf,
+					struct ospf_lsa *lsa);
 #endif /* _ZEBRA_OSPF_HELPER_H */
