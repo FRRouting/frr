@@ -70,7 +70,7 @@ class MakeReVars(MakeVarsBase):
     repl_re = re.compile(r'\$(?:([A-Za-z])|\(([^\)]+)\))')
 
     def __init__(self, maketext):
-        super().__init__()
+        super(MakeReVars, self).__init__()
         self._vars = dict(self.var_re.findall(maketext.replace('\\\n', '')))
 
     def replacevar(self, match):
