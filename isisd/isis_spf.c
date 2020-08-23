@@ -29,6 +29,7 @@
 #include "vty.h"
 #include "log.h"
 #include "command.h"
+#include "termtable.h"
 #include "memory.h"
 #include "prefix.h"
 #include "if.h"
@@ -1520,9 +1521,186 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 	return CMD_SUCCESS;
 }
 
+static void isis_print_routes(struct vty *vty, struct isis_spftree *spftree)
+{
+	struct ttable *tt;
+	struct route_node *rn;
+	const char *tree_id_text = NULL;
+
+	if (!spftree)
+		return;
+
+	switch (spftree->tree_id) {
+	case SPFTREE_IPV4:
+		tree_id_text = "IPv4";
+		break;
+	case SPFTREE_IPV6:
+		tree_id_text = "IPv6";
+		break;
+	case SPFTREE_DSTSRC:
+		tree_id_text = "IPv6 (dst-src routing)";
+		break;
+	case SPFTREE_COUNT:
+		assert(!"isis_print_routes shouldn't be called with SPFTREE_COUNT as type");
+		return;
+	}
+
+	vty_out(vty, "IS-IS %s %s routing table:\n\n",
+		circuit_t2string(spftree->level), tree_id_text);
+
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "Prefix|Metric|Interface|Nexthop|Label(s)");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	for (rn = route_top(spftree->route_table); rn; rn = route_next(rn)) {
+		struct isis_route_info *rinfo;
+		struct isis_nexthop *nexthop;
+		struct listnode *node;
+		bool first = true;
+		char buf_prefix[BUFSIZ];
+
+		rinfo = rn->info;
+		if (!rinfo)
+			continue;
+
+		(void)prefix2str(&rn->p, buf_prefix, sizeof(buf_prefix));
+		for (ALL_LIST_ELEMENTS_RO(rinfo->nexthops, node, nexthop)) {
+			struct interface *ifp;
+			char buf_iface[BUFSIZ];
+			char buf_nhop[BUFSIZ];
+			char buf_labels[BUFSIZ] = {};
+
+			inet_ntop(nexthop->family, &nexthop->ip, buf_nhop,
+				  sizeof(buf_nhop));
+			ifp = if_lookup_by_index(nexthop->ifindex, VRF_DEFAULT);
+			if (ifp)
+				strlcpy(buf_iface, ifp->name,
+					sizeof(buf_iface));
+			else
+				snprintf(buf_iface, sizeof(buf_iface),
+					 "ifindex %u", nexthop->ifindex);
+
+			if (nexthop->sr.label != MPLS_INVALID_LABEL)
+				label2str(nexthop->sr.label, buf_labels,
+					  sizeof(buf_labels));
+			else
+				strlcpy(buf_labels, "-", sizeof(buf_labels));
+
+			if (first) {
+				ttable_add_row(tt, "%s|%u|%s|%s|%s", buf_prefix,
+					       rinfo->cost, buf_iface, buf_nhop,
+					       buf_labels);
+				first = false;
+			} else
+				ttable_add_row(tt, "||%s|%s|%s", buf_iface,
+					       buf_nhop, buf_labels);
+		}
+	}
+
+	/* Dump the generated table. */
+	if (tt->nrows > 1) {
+		char *table;
+
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+	}
+	ttable_del(tt);
+}
+
+static void show_isis_route_common(struct vty *vty, int levels,
+				   struct isis *isis)
+{
+	struct listnode *node;
+	struct isis_area *area;
+
+	if (!isis->area_list || isis->area_list->count == 0)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		vty_out(vty, "Area %s:\n",
+			area->area_tag ? area->area_tag : "null");
+
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+			if ((level & levels) == 0)
+				continue;
+
+			if (area->ip_circuits > 0) {
+				isis_print_routes(
+					vty,
+					area->spftree[SPFTREE_IPV4][level - 1]);
+			}
+			if (area->ipv6_circuits > 0) {
+				isis_print_routes(
+					vty,
+					area->spftree[SPFTREE_IPV6][level - 1]);
+			}
+			if (isis_area_ipv6_dstsrc_enabled(area)) {
+				isis_print_routes(vty,
+						  area->spftree[SPFTREE_DSTSRC]
+							       [level - 1]);
+			}
+		}
+	}
+}
+
+DEFUN(show_isis_route, show_isis_route_cmd,
+      "show " PROTO_NAME
+      " [vrf <NAME|all>] route"
+#ifndef FABRICD
+      " [<level-1|level-2>]"
+#endif
+      ,
+      SHOW_STR PROTO_HELP VRF_FULL_CMD_HELP_STR
+      "IS-IS routing table\n"
+#ifndef FABRICD
+      "level-1 routes\n"
+      "level-2 routes\n"
+#endif
+)
+{
+	int levels;
+	struct isis *isis;
+	struct listnode *node;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	int idx = 0;
+
+	if (argv_find(argv, argc, "level-1", &idx))
+		levels = ISIS_LEVEL1;
+	else if (argv_find(argv, argc, "level-2", &idx))
+		levels = ISIS_LEVEL2;
+	else
+		levels = ISIS_LEVEL1 | ISIS_LEVEL2;
+
+	if (!im) {
+		vty_out(vty, "IS-IS Routing Process not enabled\n");
+		return CMD_SUCCESS;
+	}
+	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
+
+	if (vrf_name) {
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+				show_isis_route_common(vty, levels, isis);
+			return CMD_SUCCESS;
+		}
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis != NULL)
+			show_isis_route_common(vty, levels, isis);
+	}
+
+	return CMD_SUCCESS;
+}
+
 void isis_spf_init(void)
 {
 	install_element(VIEW_NODE, &show_isis_topology_cmd);
+	install_element(VIEW_NODE, &show_isis_route_cmd);
 
 	/* Register hook(s). */
 	hook_register(isis_adj_state_change_hook, spf_adj_state_change);
