@@ -74,6 +74,7 @@ const char *ospf_rejected_reason_desc[] = {
 	"LSA age is more than Grace interval",
 };
 
+static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa);
 static bool ospf_check_change_in_rxmt_list(struct ospf_neighbor *nbr);
 
 static unsigned int ospf_enable_rtr_hash_key(const void *data)
@@ -127,6 +128,8 @@ static void ospf_enable_rtr_hash_destroy(struct ospf *ospf)
  */
 void ospf_gr_helper_init(struct ospf *ospf)
 {
+	int rc;
+
 	if (IS_DEBUG_OSPF_GR_HELPER)
 		zlog_debug("%s, GR Helper init.", __PRETTY_FUNCTION__);
 
@@ -140,6 +143,16 @@ void ospf_gr_helper_init(struct ospf *ospf)
 	ospf->enable_rtr_list =
 		hash_create(ospf_enable_rtr_hash_key, ospf_enable_rtr_hash_cmp,
 			    "OSPF enable router hash");
+
+	rc = ospf_register_opaque_functab(
+		OSPF_OPAQUE_LINK_LSA, OPAQUE_TYPE_GRACE_LSA, NULL, NULL, NULL,
+		NULL, NULL, NULL, NULL, show_ospf_grace_lsa_info, NULL, NULL,
+		NULL, NULL);
+	if (rc != 0) {
+		flog_warn(EC_OSPF_OPAQUE_REGISTRATION,
+			  "%s: Failed to register Grace LSA functions",
+				__func__);
+	}
 }
 
 /*
@@ -158,6 +171,8 @@ void ospf_gr_helper_stop(struct ospf *ospf)
 		zlog_debug("%s, GR helper deinit.", __PRETTY_FUNCTION__);
 
 	ospf_enable_rtr_hash_destroy(ospf);
+
+	ospf_delete_opaque_functab(OSPF_OPAQUE_LINK_LSA, OPAQUE_TYPE_GRACE_LSA);
 }
 
 /*
@@ -887,4 +902,63 @@ void ospf_gr_helper_set_supported_planned_only_restart(struct ospf *ospf,
 						      bool planned_only)
 {
 	ospf->only_planned_restart = planned_only;
+}
+
+/*
+ * Api to display the grace LSA information.
+ *
+ * vty
+ *    vty pointer.
+ * lsa
+ *    Grace LSA.
+ * json
+ *    json object
+ *
+ * Returns:
+ *    Nothing.
+ */
+static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
+{
+	struct lsa_header *lsah = NULL;
+	struct tlv_header *tlvh = NULL;
+	struct grace_tlv_graceperiod *gracePeriod;
+	struct grace_tlv_restart_reason *grReason;
+	struct grace_tlv_restart_addr *restartAddr;
+	uint16_t length = 0;
+	int sum = 0;
+
+	lsah = (struct lsa_header *)lsa->data;
+
+	length = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
+
+	vty_out(vty, "  TLV info:\n");
+
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	     tlvh = TLV_HDR_NEXT(tlvh)) {
+		switch (ntohs(tlvh->type)) {
+		case GRACE_PERIOD_TYPE:
+			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
+			sum += TLV_SIZE(tlvh);
+
+			vty_out(vty, "   Grace period:%d\n",
+				ntohl(gracePeriod->interval));
+			break;
+		case RESTART_REASON_TYPE:
+			grReason = (struct grace_tlv_restart_reason *)tlvh;
+			sum += TLV_SIZE(tlvh);
+
+			vty_out(vty, "   Restart reason:%s\n",
+				ospf_restart_reason_desc[grReason->reason]);
+			break;
+		case RESTARTER_IP_ADDR_TYPE:
+			restartAddr = (struct grace_tlv_restart_addr *)tlvh;
+			sum += TLV_SIZE(tlvh);
+
+			vty_out(vty, "   Restarter address:%s\n",
+				inet_ntoa(restartAddr->addr));
+			break;
+		default:
+			break;
+		}
+	}
 }

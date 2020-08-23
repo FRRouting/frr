@@ -152,7 +152,11 @@ struct advRtr {
 #define OSPF_GR_FAILURE 0
 #define OSPF_GR_INVALID -1
 
-extern void ospf_gr_helper_init(struct ospf *);
+extern const char *ospf_exit_reason_desc[];
+extern const char *ospf_restart_reason_desc[];
+extern const char *ospf_rejected_reason_desc[];
+
+extern void ospf_gr_helper_init(struct ospf *ospf);
 extern void ospf_gr_helper_stop(struct ospf *ospf);
 extern int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 				  struct ospf_neighbor *nbr);
