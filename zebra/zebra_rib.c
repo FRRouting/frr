@@ -1028,21 +1028,23 @@ static void rib_process(struct route_node *rn)
 	if (IS_ZEBRA_DEBUG_RIB)
 		srcdest_rnode2str(rn, buf, sizeof(buf));
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-		struct route_entry *re = re_list_first(&dest->routes);
-
-		zlog_debug("%s(%u:%u):%s: Processing rn %p", VRF_LOGNAME(vrf),
-			   vrf_id, re->table, buf, rn);
-	}
-
 	/*
 	 * we can have rn's that have a NULL info pointer
 	 * (dest).  As such let's not let the deref happen
 	 * additionally we know RNODE_FOREACH_RE_SAFE
 	 * will not iterate so we are ok.
 	 */
-	if (dest)
+	if (dest) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+			struct route_entry *re = re_list_first(&dest->routes);
+
+			zlog_debug("%s(%u:%u):%s: Processing rn %p",
+				   VRF_LOGNAME(vrf), vrf_id, re->table, buf,
+				   rn);
+		}
+
 		old_fib = dest->selected_fib;
+	}
 
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
