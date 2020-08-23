@@ -50,6 +50,11 @@ struct prefix_pair {
 	struct prefix_ipv6 src;
 };
 
+struct isis_vertex_adj {
+	struct isis_spf_adj *sadj;
+	struct mpls_label_stack *label_stack;
+};
+
 /*
  * Triple <N, d(N), {Adj(N)}>
  */
@@ -180,6 +185,10 @@ static void isis_vertex_del(struct isis_vertex *vertex)
 	XFREE(MTYPE_ISIS_VERTEX, vertex);
 }
 
+bool isis_vertex_adj_exists(const struct isis_spftree *spftree,
+			    const struct isis_vertex *vertex,
+			    const struct isis_spf_adj *sadj);
+
 __attribute__((__unused__))
 static void isis_vertex_queue_clear(struct isis_vertex_queue *queue)
 {
@@ -297,18 +306,25 @@ struct isis_spftree {
 	struct isis_vertex_queue paths; /* the SPT */
 	struct isis_vertex_queue tents; /* TENT */
 	struct route_table *route_table;
+	struct lspdb_head *lspdb; /* link-state db */
+	struct list *sadj_list;
 	struct isis_area *area;    /* back pointer to area */
 	unsigned int runcount;     /* number of runs since uptime */
 	time_t last_run_timestamp; /* last run timestamp as wall time for display */
 	time_t last_run_monotime;  /* last run as monotime for scheduling */
 	time_t last_run_duration;  /* last run duration in msec */
 
+	uint8_t sysid[ISIS_SYS_ID_LEN];
 	uint16_t mtid;
 	int family;
 	int level;
 	enum spf_tree_id tree_id;
 	bool hopcount_metric;
+	uint8_t flags;
 };
+#define F_SPFTREE_HOPCOUNT_METRIC 0x01
+#define F_SPFTREE_NO_ROUTES 0x02
+#define F_SPFTREE_NO_ADJACENCIES 0x04
 
 __attribute__((__unused__))
 static void isis_vertex_id_init(struct isis_vertex *vertex, const void *id,
@@ -347,8 +363,7 @@ static struct isis_lsp *lsp_for_vertex(struct isis_spftree *spftree,
 	memcpy(lsp_id, vertex->N.id, ISIS_SYS_ID_LEN + 1);
 	LSP_FRAGMENT(lsp_id) = 0;
 
-	struct lspdb_head *lspdb = &spftree->area->lspdb[spftree->level - 1];
-	struct isis_lsp *lsp = lsp_search(lspdb, lsp_id);
+	struct isis_lsp *lsp = lsp_search(spftree->lspdb, lsp_id);
 
 	if (lsp && lsp->hdr.rem_lifetime != 0)
 		return lsp;

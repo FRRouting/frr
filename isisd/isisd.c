@@ -218,6 +218,27 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	struct vrf *vrf = NULL;
 	area = XCALLOC(MTYPE_ISIS_AREA, sizeof(struct isis_area));
 
+	if (vrf_name) {
+		vrf = vrf_lookup_by_name(vrf_name);
+		if (vrf) {
+			isis = isis_lookup_by_vrfid(vrf->vrf_id);
+			if (isis == NULL) {
+				isis = isis_new(vrf->vrf_id);
+				isis_add(isis);
+			}
+		} else
+			return NULL;
+	} else {
+		isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+		if (isis == NULL) {
+			isis = isis_new(VRF_DEFAULT);
+			isis_add(isis);
+		}
+	}
+
+	listnode_add(isis->area_list, area);
+	area->isis = isis;
+
 	/*
 	 * Fabricd runs only as level-2.
 	 * For IS-IS, the default is level-1-2
@@ -296,27 +317,6 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area_mt_init(area);
 
 	area->area_tag = strdup(area_tag);
-
-	if (vrf_name) {
-		vrf = vrf_lookup_by_name(vrf_name);
-		if (vrf) {
-			isis = isis_lookup_by_vrfid(vrf->vrf_id);
-			if (isis == NULL) {
-				isis = isis_new(vrf->vrf_id);
-				isis_add(isis);
-			}
-		} else
-			return NULL;
-	} else {
-		isis = isis_lookup_by_vrfid(VRF_DEFAULT);
-		if (isis == NULL) {
-			isis = isis_new(VRF_DEFAULT);
-			isis_add(isis);
-		}
-	}
-
-	listnode_add(isis->area_list, area);
-	area->isis = isis;
 
 	if (fabricd)
 		area->fabricd = fabricd_new(area);

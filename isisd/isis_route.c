@@ -46,6 +46,7 @@
 #include "isis_pdu.h"
 #include "isis_lsp.h"
 #include "isis_spf.h"
+#include "isis_spf_private.h"
 #include "isis_route.h"
 #include "isis_zebra.h"
 
@@ -165,13 +166,16 @@ static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
 						   struct list *adjacencies)
 {
 	struct isis_route_info *rinfo;
-	struct isis_adjacency *adj;
+	struct isis_vertex_adj *vadj;
 	struct listnode *node;
 
 	rinfo = XCALLOC(MTYPE_ISIS_ROUTE_INFO, sizeof(struct isis_route_info));
 
 	rinfo->nexthops = list_new();
-	for (ALL_LIST_ELEMENTS_RO(adjacencies, node, adj)) {
+	for (ALL_LIST_ELEMENTS_RO(adjacencies, node, vadj)) {
+		struct isis_spf_adj *sadj = vadj->sadj;
+		struct isis_adjacency *adj = sadj->adj;
+
 		/* check for force resync this route */
 		if (CHECK_FLAG(adj->circuit->flags,
 			       ISIS_CIRCUIT_FLAPPED_AFTER_SPF))
