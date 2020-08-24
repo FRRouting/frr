@@ -633,13 +633,13 @@ pbrms_nexthop_group_write_individual_nexthop(
 	pnhgc = hash_lookup(pbr_nhg_hash, &find);
 	assert(pnhgc);
 
-	lookup.nexthop = pbrms->nhg->nexthop;
+	lookup.nexthop = *pbrms->nhg->nexthop;
 	pnhc = hash_lookup(pnhgc->nhh, &lookup);
 
 	nexthop_group_write_nexthop_simple(
 		vty, pbrms->nhg->nexthop,
-		pnhc->nexthop->ifindex != 0 ? pnhc->intf_name : NULL);
-	if (pnhc->nexthop->vrf_id != VRF_DEFAULT)
+		pnhc->nexthop.ifindex != 0 ? pnhc->intf_name : NULL);
+	if (pnhc->nexthop.vrf_id != VRF_DEFAULT)
 		vty_out(vty, " nexthop-vrf %s", pnhc->vrf_name);
 
 	vty_out(vty, "\n");
