@@ -53,6 +53,7 @@ struct pbr_nexthop_cache {
 
 	struct nexthop *nexthop;
 
+	bool looked_at;
 	bool valid;
 };
 

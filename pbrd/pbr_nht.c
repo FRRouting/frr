@@ -707,6 +707,7 @@ struct pbr_nht_individual {
 	struct interface *ifp;
 	struct pbr_vrf *pbr_vrf;
 	struct pbr_nexthop_cache *pnhc;
+	vrf_id_t old_vrf_id;
 
 	uint32_t valid;
 
@@ -897,22 +898,80 @@ void pbr_nht_nexthop_update(struct zapi_route *nhr)
 	hash_iterate(pbr_nhg_hash, pbr_nht_nexthop_update_lookup, nhr);
 }
 
-static void pbr_nht_individual_nexthop_vrf_handle(struct hash_bucket *b,
-						  void *data)
+struct nhrc_vrf_info {
+	struct pbr_vrf *pbr_vrf;
+	uint32_t old_vrf_id;
+	struct nhrc *nhrc;
+};
+
+static int pbr_nht_nhrc_vrf_change(struct hash_bucket *b, void *data)
+{
+	struct nhrc *nhrc = b->data;
+	struct nhrc_vrf_info *nhrcvi = data;
+
+	if (nhrc->nexthop.vrf_id == nhrcvi->old_vrf_id) {
+		nhrcvi->nhrc = nhrc;
+		return HASHWALK_ABORT;
+	}
+
+	return HASHWALK_CONTINUE;
+}
+
+static int pbr_nht_individual_nexthop_vrf_handle(struct hash_bucket *b,
+						 void *data)
 {
 	struct pbr_nexthop_cache *pnhc = b->data;
 	struct pbr_nht_individual *pnhi = data;
 
-	if (pnhc->nexthop->vrf_id == VRF_DEFAULT)
-		return;
+	if (pnhc->looked_at == true)
+		return HASHWALK_CONTINUE;
 
-	if ((strncmp(pnhc->vrf_name, pbr_vrf_name(pnhi->pbr_vrf),
-		     sizeof(pnhc->vrf_name))
-	     == 0)
-	    && pnhc->nexthop->vrf_id != pbr_vrf_id(pnhi->pbr_vrf)) {
+	if (pnhc->nexthop->vrf_id == VRF_DEFAULT)
+		return HASHWALK_CONTINUE;
+
+	if (strncmp(pnhc->vrf_name, pbr_vrf_name(pnhi->pbr_vrf),
+		    sizeof(pnhc->vrf_name))
+	    == 0) {
 		pnhi->pnhc = pnhc;
-		pnhi->nhr_matched = true;
+
+		if (pnhc->nexthop->vrf_id != pbr_vrf_id(pnhi->pbr_vrf)) {
+			struct nhrc_vrf_info nhrcvi;
+
+			memset(&nhrcvi, 0, sizeof(nhrcvi));
+			nhrcvi.pbr_vrf = pnhi->pbr_vrf;
+			nhrcvi.old_vrf_id = pnhc->nexthop->vrf_id;
+
+			pnhi->nhr_matched = true;
+			pnhi->old_vrf_id = pnhc->nexthop->vrf_id;
+
+			do {
+				nhrcvi.nhrc = NULL;
+				hash_walk(pbr_nhrc_hash,
+					  pbr_nht_nhrc_vrf_change, &nhrcvi);
+				if (nhrcvi.nhrc) {
+					hash_release(pbr_nhrc_hash,
+						     nhrcvi.nhrc);
+					nhrcvi.nhrc->nexthop.vrf_id =
+						pbr_vrf_id(pnhi->pbr_vrf);
+					hash_get(pbr_nhrc_hash, nhrcvi.nhrc,
+						 hash_alloc_intern);
+					pbr_send_rnh(&nhrcvi.nhrc->nexthop, true);
+				}
+			} while (nhrcvi.nhrc);
+		}
+
+		pnhc->looked_at = true;
+		return HASHWALK_ABORT;
 	}
+
+	return HASHWALK_CONTINUE;
+}
+
+static void pbr_nht_clear_looked_at(struct hash_bucket *b, void *data)
+{
+	struct pbr_nexthop_cache *pnhc = b->data;
+
+	pnhc->looked_at = false;
 }
 
 static void pbr_nht_nexthop_vrf_handle(struct hash_bucket *b, void *data)
@@ -920,34 +979,33 @@ static void pbr_nht_nexthop_vrf_handle(struct hash_bucket *b, void *data)
 	struct pbr_nexthop_group_cache *pnhgc = b->data;
 	struct pbr_vrf *pbr_vrf = data;
 	struct pbr_nht_individual pnhi = {};
-	struct nhrc *nhrc;
-	uint32_t old_vrf_id;
 
+	zlog_debug("pnhgc iterating");
+	hash_iterate(pnhgc->nhh, pbr_nht_clear_looked_at, NULL);
+	memset(&pnhi, 0, sizeof(pnhi));
+	pnhi.pbr_vrf = pbr_vrf;
 	do {
-		memset(&pnhi, 0, sizeof(pnhi));
-		pnhi.pbr_vrf = pbr_vrf;
-		hash_iterate(pnhgc->nhh, pbr_nht_individual_nexthop_vrf_handle,
-			     &pnhi);
+		struct pbr_nexthop_cache *pnhc;
+
+		pnhi.pnhc = NULL;
+		hash_walk(pnhgc->nhh, pbr_nht_individual_nexthop_vrf_handle,
+			  &pnhi);
 
 		if (!pnhi.pnhc)
 			continue;
 
+		pnhc = pnhi.pnhc;
+		pnhc->nexthop->vrf_id = pnhi.old_vrf_id;
 		pnhi.pnhc = hash_release(pnhgc->nhh, pnhi.pnhc);
-		old_vrf_id = pnhi.pnhc->nexthop->vrf_id;
+		if (pnhi.pnhc) {
+			pnhi.pnhc->nexthop->vrf_id = pbr_vrf_id(pbr_vrf);
 
-		nhrc = hash_lookup(pbr_nhrc_hash, pnhi.pnhc->nexthop);
-		if (nhrc) {
-			hash_release(pbr_nhrc_hash, nhrc);
-			nhrc->nexthop.vrf_id = pbr_vrf_id(pbr_vrf);
-			hash_get(pbr_nhrc_hash, nhrc, hash_alloc_intern);
-			pbr_send_rnh(pnhi.pnhc->nexthop, true);
-		}
-		pnhi.pnhc->nexthop->vrf_id = pbr_vrf_id(pbr_vrf);
-
-		hash_get(pnhgc->nhh, pnhi.pnhc, hash_alloc_intern);
+			hash_get(pnhgc->nhh, pnhi.pnhc, hash_alloc_intern);
+		} else
+			pnhc->nexthop->vrf_id = pbr_vrf_id(pbr_vrf);
 
 		pbr_map_check_vrf_nh_group_change(pnhgc->name, pbr_vrf,
-						  old_vrf_id);
+						  pnhi.old_vrf_id);
 	} while (pnhi.pnhc);
 }
 

@@ -779,6 +779,7 @@ void pbr_map_check_vrf_nh_group_change(const char *nh_group,
 	struct pbr_map_sequence *pbrms;
 	struct listnode *node;
 
+
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
 		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
 			if (pbrms->nhgrp_name)
