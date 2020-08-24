@@ -11,3 +11,6 @@ test isis topology 10 root rt1 spf
 test isis topology 11 root rt1 spf
 test isis topology 12 root rt1 spf ipv4-only
 test isis topology 13 root rt1 spf ipv4-only
+
+test isis topology 4 root rt1 reverse-spf ipv4-only
+test isis topology 11 root rt1 reverse-spf

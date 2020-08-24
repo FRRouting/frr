@@ -616,4 +616,88 @@ IS-IS L1 IPv4 routing table:
  10.0.255.7/32  40      -          rt3      -         
 
 test# 
+test# test isis topology 4 root rt1 reverse-spf ipv4-only
+IS-IS paths to level-1 routers that speak IP
+Vertex               Type         Metric Next-Hop             Interface Parent
+rt1                                                                   
+10.0.255.1/32        IP internal  0                                     rt1(4)
+rt2                  TE-IS        10     rt2                  -         rt1(4)
+rt3                  TE-IS        10     rt3                  -         rt1(4)
+rt4                  TE-IS        20     rt2                  -         rt2(4)
+rt5                  TE-IS        20     rt3                  -         rt3(4)
+10.0.255.2/32        IP TE        20     rt2                  -         rt2(4)
+10.0.255.3/32        IP TE        20     rt3                  -         rt3(4)
+rt6                  TE-IS        30     rt2                  -         rt4(4)
+rt7                  TE-IS        30     rt3                  -         rt5(4)
+10.0.255.4/32        IP TE        30     rt2                  -         rt4(4)
+10.0.255.5/32        IP TE        30     rt3                  -         rt5(4)
+rt8                  TE-IS        40     rt2                  -         rt6(4)
+10.0.255.6/32        IP TE        40     rt2                  -         rt6(4)
+10.0.255.7/32        IP TE        40     rt3                  -         rt7(4)
+10.0.255.8/32        IP TE        50     rt2                  -         rt8(4)
+
+IS-IS L1 IPv4 routing table:
+
+ Prefix         Metric  Interface  Nexthop  Label(s)  
+ -----------------------------------------------------
+ 10.0.255.2/32  20      -          rt2      -         
+ 10.0.255.3/32  20      -          rt3      -         
+ 10.0.255.4/32  30      -          rt2      -         
+ 10.0.255.5/32  30      -          rt3      -         
+ 10.0.255.6/32  40      -          rt2      -         
+ 10.0.255.7/32  40      -          rt3      -         
+ 10.0.255.8/32  50      -          rt2      -         
+
+test# test isis topology 11 root rt1 reverse-spf
+IS-IS paths to level-1 routers that speak IP
+Vertex               Type         Metric Next-Hop             Interface Parent
+rt1                                                                   
+10.0.255.1/32        IP internal  0                                     rt1(4)
+rt2                  TE-IS        10                                    rt1(4)
+rt3                  TE-IS        10     rt3                  -         rt1(4)
+rt2                  pseudo_TE-IS 20     rt3                  -         rt3(4)
+rt4                  TE-IS        20                                    rt2(4)
+rt5                  TE-IS        20     rt3                  -         rt3(4)
+10.0.255.2/32        IP TE        20                                    rt2(4)
+10.0.255.3/32        IP TE        20     rt3                  -         rt3(4)
+rt6                  TE-IS        30     rt3                  -         rt4(4)
+                                                                        rt5(4)
+10.0.255.4/32        IP TE        30                                    rt4(4)
+10.0.255.5/32        IP TE        30     rt3                  -         rt5(4)
+10.0.255.6/32        IP TE        40     rt3                  -         rt6(4)
+
+IS-IS L1 IPv4 routing table:
+
+ Prefix         Metric  Interface  Nexthop  Label(s)  
+ -----------------------------------------------------
+ 10.0.255.3/32  20      -          rt3      -         
+ 10.0.255.5/32  30      -          rt3      -         
+ 10.0.255.6/32  40      -          rt3      -         
+
+IS-IS paths to level-1 routers that speak IPv6
+Vertex               Type         Metric Next-Hop             Interface Parent
+rt1                                                                   
+2001:db8::1/128      IP6 internal 0                                     rt1(4)
+rt2                  TE-IS        10                                    rt1(4)
+rt3                  TE-IS        10     rt3                  -         rt1(4)
+rt2                  pseudo_TE-IS 20     rt3                  -         rt3(4)
+rt4                  TE-IS        20                                    rt2(4)
+rt5                  TE-IS        20     rt3                  -         rt3(4)
+2001:db8::2/128      IP6 internal 20                                    rt2(4)
+2001:db8::3/128      IP6 internal 20     rt3                  -         rt3(4)
+rt6                  TE-IS        30     rt3                  -         rt4(4)
+                                                                        rt5(4)
+2001:db8::4/128      IP6 internal 30                                    rt4(4)
+2001:db8::5/128      IP6 internal 30     rt3                  -         rt5(4)
+2001:db8::6/128      IP6 internal 40     rt3                  -         rt6(4)
+
+IS-IS L1 IPv6 routing table:
+
+ Prefix           Metric  Interface  Nexthop  Label(s)  
+ -------------------------------------------------------
+ 2001:db8::3/128  20      -          rt3      -         
+ 2001:db8::5/128  30      -          rt3      -         
+ 2001:db8::6/128  40      -          rt3      -         
+
+test# 
 end.

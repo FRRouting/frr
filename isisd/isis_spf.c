@@ -276,7 +276,8 @@ static void isis_spf_adj_free(void *arg)
 struct isis_spftree *isis_spftree_new(struct isis_area *area,
 				      struct lspdb_head *lspdb,
 				      const uint8_t *sysid, int level,
-				      enum spf_tree_id tree_id, uint8_t flags)
+				      enum spf_tree_id tree_id,
+				      enum spf_type type, uint8_t flags)
 {
 	struct isis_spftree *tree;
 
@@ -293,6 +294,7 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area,
 	tree->last_run_monotime = 0;
 	tree->last_run_duration = 0;
 	tree->runcount = 0;
+	tree->type = type;
 	memcpy(tree->sysid, sysid, ISIS_SYS_ID_LEN);
 	tree->level = level;
 	tree->tree_id = tree_id;
@@ -336,9 +338,10 @@ void spftree_area_init(struct isis_area *area)
 			if (area->spftree[tree][level - 1])
 				continue;
 
-			area->spftree[tree][level - 1] = isis_spftree_new(
-				area, &area->lspdb[level - 1],
-				area->isis->sysid, level, tree, 0);
+			area->spftree[tree][level - 1] =
+				isis_spftree_new(area, &area->lspdb[level - 1],
+						 area->isis->sysid, level, tree,
+						 SPF_TYPE_FORWARD, 0);
 		}
 	}
 }
@@ -956,6 +959,76 @@ static void isis_spf_preload_tent(struct isis_spftree *spftree,
 	}
 }
 
+struct spf_adj_find_reverse_metric_args {
+	const uint8_t *id_self;
+	uint32_t reverse_metric;
+};
+
+static int spf_adj_find_reverse_metric_cb(const uint8_t *id, uint32_t metric,
+					  bool oldmetric,
+					  struct isis_ext_subtlvs *subtlvs,
+					  void *arg)
+{
+	struct spf_adj_find_reverse_metric_args *args = arg;
+
+	if (memcmp(id, args->id_self, ISIS_SYS_ID_LEN))
+		return LSP_ITER_CONTINUE;
+
+	args->reverse_metric = metric;
+
+	return LSP_ITER_STOP;
+}
+
+/*
+ * Change all SPF adjacencies to use the link cost in the direction from the
+ * next hop back towards root in place of the link cost in the direction away
+ * from root towards the next hop.
+ */
+static void spf_adj_get_reverse_metrics(struct isis_spftree *spftree)
+{
+	struct isis_spf_adj *sadj;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(spftree->sadj_list, node, nnode, sadj)) {
+		uint8_t lspid[ISIS_SYS_ID_LEN + 2];
+		struct isis_lsp *lsp_adj;
+		const uint8_t *id_self;
+		struct spf_adj_find_reverse_metric_args args;
+
+		/* Skip pseudonodes. */
+		if (LSP_PSEUDO_ID(sadj->id))
+			continue;
+
+		/* Find LSP of the corresponding adjacency. */
+		memcpy(lspid, sadj->id, ISIS_SYS_ID_LEN);
+		LSP_PSEUDO_ID(lspid) = 0;
+		LSP_FRAGMENT(lspid) = 0;
+		lsp_adj = lsp_search(spftree->lspdb, lspid);
+		if (lsp_adj == NULL || lsp_adj->hdr.rem_lifetime == 0) {
+			/* Delete one-way adjacency. */
+			listnode_delete(spftree->sadj_list, sadj);
+			continue;
+		}
+
+		/* Find root node in the LSP of the adjacent router. */
+		if (CHECK_FLAG(sadj->flags, F_ISIS_SPF_ADJ_BROADCAST))
+			id_self = sadj->lan.desig_is_id;
+		else
+			id_self = spftree->sysid;
+		args.id_self = id_self;
+		args.reverse_metric = UINT32_MAX;
+		isis_lsp_iterate_is_reach(lsp_adj, spftree->mtid,
+					  spf_adj_find_reverse_metric_cb,
+					  &args);
+		if (args.reverse_metric == UINT32_MAX) {
+			/* Delete one-way adjacency. */
+			listnode_delete(spftree->sadj_list, sadj);
+			continue;
+		}
+		sadj->metric = args.reverse_metric;
+	}
+}
+
 static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 				   struct list *adj_list, const uint8_t *id,
 				   const uint8_t *desig_is_id,
@@ -1092,6 +1165,9 @@ static void isis_spf_build_adj_list(struct isis_spftree *spftree,
 
 	if (!CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES))
 		list_delete(&adj_list);
+
+	if (spftree->type == SPF_TYPE_REVERSE)
+		spf_adj_get_reverse_metrics(spftree);
 }
 
 /*
@@ -1181,6 +1257,7 @@ struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
 	if (!spftree)
 		spftree = isis_spftree_new(area, &area->lspdb[IS_LEVEL_2 - 1],
 					   sysid, ISIS_LEVEL2, SPFTREE_IPV4,
+					   SPF_TYPE_FORWARD,
 					   F_SPFTREE_HOPCOUNT_METRIC);
 
 	init_spt(spftree, ISIS_MT_IPV4_UNICAST);

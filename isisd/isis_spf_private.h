@@ -314,6 +314,7 @@ struct isis_spftree {
 	time_t last_run_monotime;  /* last run as monotime for scheduling */
 	time_t last_run_duration;  /* last run duration in msec */
 
+	enum spf_type type;
 	uint8_t sysid[ISIS_SYS_ID_LEN];
 	uint16_t mtid;
 	int family;

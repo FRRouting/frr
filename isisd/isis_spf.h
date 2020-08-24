@@ -26,6 +26,11 @@
 
 struct isis_spftree;
 
+enum spf_type {
+	SPF_TYPE_FORWARD = 1,
+	SPF_TYPE_REVERSE,
+};
+
 struct isis_spf_adj {
 	uint8_t id[ISIS_SYS_ID_LEN + 1];
 	struct isis_adjacency *adj;
@@ -43,7 +48,8 @@ struct isis_spf_adj {
 struct isis_spftree *isis_spftree_new(struct isis_area *area,
 				      struct lspdb_head *lspdb,
 				      const uint8_t *sysid, int level,
-				      enum spf_tree_id tree_id, uint8_t flags);
+				      enum spf_tree_id tree_id,
+				      enum spf_type type, uint8_t flags);
 void isis_spf_invalidate_routes(struct isis_spftree *tree);
 void isis_spf_verify_routes(struct isis_area *area,
 			    struct isis_spftree **trees);

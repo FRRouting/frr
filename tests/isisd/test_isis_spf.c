@@ -38,6 +38,7 @@
 
 enum test_type {
 	TEST_SPF = 1,
+	TEST_REVERSE_SPF,
 };
 
 #define F_DISPLAY_LSPDB 0x01
@@ -51,13 +52,15 @@ static struct isis *isis;
 static void test_run_spf(struct vty *vty, const struct isis_topology *topology,
 			 const struct isis_test_node *root,
 			 struct isis_area *area, struct lspdb_head *lspdb,
-			 int level, int tree)
+			 int level, int tree, bool reverse)
 {
 	struct isis_spftree *spftree;
+	enum spf_type spf_type;
 
 	/* Run SPF. */
+	spf_type = reverse ? SPF_TYPE_REVERSE : SPF_TYPE_FORWARD;
 	spftree = isis_spftree_new(area, lspdb, root->sysid, level, tree,
-				   F_SPFTREE_NO_ADJACENCIES);
+				   spf_type, F_SPFTREE_NO_ADJACENCIES);
 	isis_run_spf(spftree);
 
 	/* Print the SPT and the corresponding routing table. */
@@ -110,7 +113,12 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 			case TEST_SPF:
 				test_run_spf(vty, topology, root, area,
 					     &area->lspdb[level - 1], level,
-					     tree);
+					     tree, false);
+				break;
+			case TEST_REVERSE_SPF:
+				test_run_spf(vty, topology, root, area,
+					     &area->lspdb[level - 1], level,
+					     tree, true);
 				break;
 			}
 		}
@@ -126,7 +134,11 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 }
 
 DEFUN(test_isis, test_isis_cmd,
-      "test isis topology (1-13) root HOSTNAME spf\
+      "test isis topology (1-13) root HOSTNAME\
+         <\
+	   spf\
+	   |reverse-spf\
+	 >\
 	 [display-lspdb] [<ipv4-only|ipv6-only>] [<level-1-only|level-2-only>]",
       "Test command\n"
       "IS-IS routing protocol\n"
@@ -135,6 +147,7 @@ DEFUN(test_isis, test_isis_cmd,
       "SPF root\n"
       "SPF root hostname\n"
       "Normal Shortest Path First\n"
+      "Reverse Shortest Path First\n"
       "Display the LSPDB\n"
       "Do IPv4 processing only\n"
       "Do IPv6 processing only\n"
@@ -144,6 +157,7 @@ DEFUN(test_isis, test_isis_cmd,
 	uint16_t topology_number;
 	const struct isis_topology *topology;
 	const struct isis_test_node *root;
+	enum test_type test_type;
 	uint8_t flags = 0;
 	int idx = 0;
 
@@ -165,6 +179,14 @@ DEFUN(test_isis, test_isis_cmd,
 		return CMD_WARNING;
 	}
 
+	/* Parse test information. */
+	if (argv_find(argv, argc, "spf", &idx))
+		test_type = TEST_SPF;
+	else if (argv_find(argv, argc, "reverse-spf", &idx))
+		test_type = TEST_REVERSE_SPF;
+	else
+		return CMD_WARNING;
+
 	/* Parse control flags. */
 	if (argv_find(argv, argc, "display-lspdb", &idx))
 		SET_FLAG(flags, F_DISPLAY_LSPDB);
@@ -177,7 +199,7 @@ DEFUN(test_isis, test_isis_cmd,
 	else if (argv_find(argv, argc, "level-2-only", &idx))
 		SET_FLAG(flags, F_LEVEL2_ONLY);
 
-	return test_run(vty, topology, root, TEST_SPF, flags);
+	return test_run(vty, topology, root, test_type, flags);
 }
 
 static void vty_do_exit(int isexit)
