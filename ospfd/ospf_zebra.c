@@ -59,6 +59,8 @@ DEFINE_MTYPE_STATIC(OSPFD, OSPF_DIST_ARGS, "OSPF Distribute arguments")
 
 /* Zebra structure to hold current status. */
 struct zclient *zclient = NULL;
+/* and for the Synchronous connection to the Label Manager */
+static struct zclient *zclient_sync;
 
 /* For registering threads. */
 extern struct thread_master *master;
@@ -1713,6 +1715,109 @@ void ospf_zebra_vrf_deregister(struct ospf *ospf)
 	}
 }
 
+/* Label Manager Functions */
+
+/**
+ * Check if Label Manager is Ready or not.
+ *
+ * @return	True if Label Manager is ready, False otherwise
+ */
+bool ospf_zebra_label_manager_ready(void)
+{
+	return (zclient_sync->sock > 0);
+}
+
+/**
+ * Request Label Range to the Label Manager.
+ *
+ * @param base		base label of the label range to request
+ * @param chunk_size	size of the label range to request
+ *
+ * @return 	0 on success, -1 on failure
+ */
+int ospf_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
+{
+	int ret;
+	uint32_t start, end;
+
+	if (zclient_sync->sock < 0)
+		return -1;
+
+	ret = lm_get_label_chunk(zclient_sync, 0, base, chunk_size, &start,
+				 &end);
+	if (ret < 0) {
+		zlog_warn("%s: error getting label range!", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * Release Label Range to the Label Manager.
+ *
+ * @param start		start of label range to release
+ * @param end		end of label range to release
+ *
+ * @return		0 on success, -1 otherwise
+ */
+int ospf_zebra_release_label_range(uint32_t start, uint32_t end)
+{
+	int ret;
+
+	if (zclient_sync->sock < 0)
+		return -1;
+
+	ret = lm_release_label_chunk(zclient_sync, start, end);
+	if (ret < 0) {
+		zlog_warn("%s: error releasing label range!", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * Connect to the Label Manager.
+ *
+ * @return	0 on success, -1 otherwise
+ */
+int ospf_zebra_label_manager_connect(void)
+{
+	/* Connect to label manager. */
+	if (zclient_socket_connect(zclient_sync) < 0) {
+		zlog_warn("%s: failed connecting synchronous zclient!",
+			  __func__);
+		return -1;
+	}
+	/* make socket non-blocking */
+	set_nonblocking(zclient_sync->sock);
+
+	/* Send hello to notify zebra this is a synchronous client */
+	if (zclient_send_hello(zclient_sync) < 0) {
+		zlog_warn("%s: failed sending hello for synchronous zclient!",
+			  __func__);
+		close(zclient_sync->sock);
+		zclient_sync->sock = -1;
+		return -1;
+	}
+
+	/* Connect to label manager */
+	if (lm_label_manager_connect(zclient_sync, 0) != 0) {
+		zlog_warn("%s: failed connecting to label manager!", __func__);
+		if (zclient_sync->sock > 0) {
+			close(zclient_sync->sock);
+			zclient_sync->sock = -1;
+		}
+		return -1;
+	}
+
+	osr_debug("SR (%s): Successfully connected to the Label Manager",
+		  __func__);
+
+	return 0;
+}
+
 static void ospf_zebra_connected(struct zclient *zclient)
 {
 	/* Send the client registration */
@@ -1735,6 +1840,20 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 
 	zclient->redistribute_route_add = ospf_zebra_read_route;
 	zclient->redistribute_route_del = ospf_zebra_read_route;
+
+	/* Initialize special zclient for synchronous message exchanges. */
+	struct zclient_options options = zclient_options_default;
+	options.synchronous = true;
+	zclient_sync = zclient_new(master, &options);
+	zclient_sync->sock = -1;
+	zclient_sync->redist_default = ZEBRA_ROUTE_OSPF;
+	zclient_sync->instance = instance;
+	/*
+	 * session_id must be different from default value (0) to distinguish
+	 * the asynchronous socket from the synchronous one
+	 */
+	zclient_sync->session_id = 1;
+	zclient_sync->privs = &ospfd_privs;
 
 	access_list_add_hook(ospf_filter_update);
 	access_list_delete_hook(ospf_filter_update);

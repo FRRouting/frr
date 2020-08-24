@@ -1082,8 +1082,8 @@ Router Information
 Segment Routing
 ===============
 
-This is an EXPERIMENTAL support of Segment Routing as per draft
-`draft-ietf-ospf-segment-routing-extensions-24.txt` for MPLS dataplane.
+This is an EXPERIMENTAL support of Segment Routing as per `RFC 8665` for MPLS
+dataplane.
 
 .. index:: [no] segment-routing on
 .. clicmd:: [no] segment-routing on
@@ -1096,7 +1096,13 @@ This is an EXPERIMENTAL support of Segment Routing as per draft
 .. clicmd:: [no] segment-routing global-block (0-1048575) (0-1048575)
 
    Fix the Segment Routing Global Block i.e. the label range used by MPLS to
-   store label in the MPLS FIB.
+   store label in the MPLS FIB for Prefix SID.
+
+.. index:: [no] segment-routing local-block (0-1048575) (0-1048575)
+.. clicmd:: [no] segment-routing local-block (0-1048575) (0-1048575)
+
+   Fix the Segment Routing Local Block i.e. the label range used by MPLS to
+   store label in the MPLS FIB for Adjacency SID.
 
 .. index:: [no] segment-routing node-msd (1-16)
 .. clicmd:: [no] segment-routing node-msd (1-16)
@@ -1104,13 +1110,15 @@ This is an EXPERIMENTAL support of Segment Routing as per draft
    Fix the Maximum Stack Depth supported by the router. The value depend of the
    MPLS dataplane. E.g. for Linux kernel, since version 4.13 it is 32.
 
-.. index:: [no] segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag]
-.. clicmd:: [no] segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag]
+.. index:: [no] segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag|explicit-null]
+.. clicmd:: [no] segment-routing prefix A.B.C.D/M [index (0-65535)|no-php-flag|explicit-null]
 
    Set the Segment Routing index for the specified prefix. Note that, only
    prefix with /32 corresponding to a loopback interface are currently
    supported. The 'no-php-flag' means NO Penultimate Hop Popping that allows SR
-   node to request to its neighbor to not pop the label.
+   node to request to its neighbor to not pop the label. The 'explicit-null' means that
+   neighbor nodes must swap the incoming label by the MPLS Explicit Null label
+   before delivering the packet.
 
 .. index:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate> [json]
 .. clicmd:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate> [json]

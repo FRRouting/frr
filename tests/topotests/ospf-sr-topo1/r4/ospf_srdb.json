@@ -3,9 +3,14 @@
   "srNodes":[
     {
       "routerID":"10.0.255.2",
-      "srgbSize":20000,
-      "srgbLabel":8000,
+      "srgbSize":8000,
+      "srgbLabel":16000,
+      "srlbSize":1000,
+      "srlbLabel":15000,
       "algorithms":[
+        {
+          "0":"SPF"
+        }
       ],
       "extendedPrefix":[
         {
@@ -26,6 +31,8 @@
       "routerID":"10.0.255.4",
       "srgbSize":10000,
       "srgbLabel":10000,
+      "srlbSize":1000,
+      "srlbLabel":5000,
       "algorithms":[
         {
           "0":"SPF"
@@ -69,8 +76,14 @@
       "routerID":"10.0.255.3",
       "srgbSize":10000,
       "srgbLabel":10000,
+      "srlbSize":1000,
+      "srlbLabel":5000,
       "algorithms":[
+        {
+          "0":"SPF"
+        }
       ],
+      "nodeMsd":8,
       "extendedPrefix":[
         {
           "prefix":"10.0.255.3\/32",
@@ -78,7 +91,7 @@
           "inputLabel":10300,
           "prefixRoute":[
             {
-              "outputLabel":8300,
+              "outputLabel":16300,
               "interface":"r4-eth0",
               "nexthop":"10.0.4.2"
             }
@@ -90,8 +103,14 @@
       "routerID":"10.0.255.1",
       "srgbSize":10000,
       "srgbLabel":20000,
+      "srlbSize":1000,
+      "srlbLabel":15000,
       "algorithms":[
+        {
+          "0":"SPF"
+        }
       ],
+      "nodeMsd":16,
       "extendedPrefix":[
         {
           "prefix":"10.0.255.1\/32",
@@ -99,7 +118,7 @@
           "inputLabel":10100,
           "prefixRoute":[
             {
-              "outputLabel":8100,
+              "outputLabel":16100,
               "interface":"r4-eth0",
               "nexthop":"10.0.4.2"
             }

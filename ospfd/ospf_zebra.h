@@ -102,4 +102,8 @@ int ospf_external_info_apply_default_routemap(struct ospf *ospf,
 
 extern void ospf_zebra_send_arp(const struct interface *ifp,
 				const struct prefix *p);
+bool ospf_zebra_label_manager_ready(void);
+int ospf_zebra_label_manager_connect(void);
+int ospf_zebra_request_label_range(uint32_t base, uint32_t chunk_size);
+int ospf_zebra_release_label_range(uint32_t start, uint32_t end);
 #endif /* _ZEBRA_OSPF_ZEBRA_H */
