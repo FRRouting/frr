@@ -209,7 +209,7 @@ static void test_init(void)
 
 	cmd_init(1);
 	yang_init(true);
-	nb_init(master, NULL, 0);
+	nb_init(master, NULL, 0, false);
 
 	install_node(&bgp_node);
 	install_node(&rip_node);

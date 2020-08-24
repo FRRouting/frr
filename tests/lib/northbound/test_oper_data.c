@@ -400,7 +400,7 @@ int main(int argc, char **argv)
 	vty_init(master, false);
 	lib_cmd_init();
 	yang_init(true);
-	nb_init(master, modules, array_size(modules));
+	nb_init(master, modules, array_size(modules), false);
 
 	/* Create artificial data. */
 	create_data(num_vrfs, num_interfaces, num_routes);

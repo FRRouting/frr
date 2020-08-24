@@ -57,6 +57,8 @@ static struct {
 	const void *owner_user;
 } running_config_mgmt_lock;
 
+/* Knob to record config transaction */
+static bool nb_db_enabled;
 /*
  * Global lock used to prevent multiple configuration transactions from
  * happening concurrently.
@@ -732,7 +734,7 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 	nb_config_replace(running_config, transaction->config, true);
 
 	/* Record transaction. */
-	if (save_transaction
+	if (save_transaction && nb_db_enabled
 	    && nb_db_transaction_save(transaction, transaction_id) != NB_OK)
 		flog_warn(EC_LIB_NB_TRANSACTION_RECORD_FAILED,
 			  "%s: failed to record transaction", __func__);
@@ -2216,7 +2218,7 @@ static void nb_load_callbacks(const struct frr_yang_module_info *module)
 
 void nb_init(struct thread_master *tm,
 	     const struct frr_yang_module_info *const modules[],
-	     size_t nmodules)
+	     size_t nmodules, bool db_enabled)
 {
 	unsigned int errors = 0;
 
@@ -2240,6 +2242,8 @@ void nb_init(struct thread_master *tm,
 			__func__, errors);
 		exit(1);
 	}
+
+	nb_db_enabled = db_enabled;
 
 	/* Create an empty running configuration. */
 	running_config = nb_config_new(NULL);
