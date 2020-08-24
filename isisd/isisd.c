@@ -262,7 +262,8 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->circuit_list = list_new();
 	area->adjacency_list = list_new();
 	area->area_addrs = list_new();
-	thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
+	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
+		thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 	flags_initialize(&area->flags);
 
 	isis_sr_area_init(area);
@@ -418,7 +419,8 @@ void isis_area_destroy(struct isis_area *area)
 	spf_backoff_free(area->spf_delay_ietf[0]);
 	spf_backoff_free(area->spf_delay_ietf[1]);
 
-	isis_redist_area_finish(area);
+	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
+		isis_redist_area_finish(area);
 
 	for (ALL_LIST_ELEMENTS(area->area_addrs, node, nnode, addr)) {
 		list_delete_node(area->area_addrs, node);
@@ -1846,60 +1848,61 @@ struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
 	return lsp;
 }
 
-static int show_isis_database_common(struct vty *vty, const char *argv,
-				     int ui_level, struct isis *isis)
+void show_isis_database_lspdb(struct vty *vty, struct isis_area *area,
+			      int level, struct lspdb_head *lspdb,
+			      const char *argv, int ui_level)
+{
+	struct isis_lsp *lsp;
+	int lsp_count;
+
+	if (lspdb_count(lspdb) > 0) {
+		lsp = lsp_for_arg(lspdb, argv, area->isis);
+
+		if (lsp != NULL || argv == NULL) {
+			vty_out(vty, "IS-IS Level-%d link-state database:\n",
+				level + 1);
+
+			/* print the title in all cases */
+			vty_out(vty,
+				"LSP ID                  PduLen  SeqNumber   Chksum  Holdtime  ATT/P/OL\n");
+		}
+
+		if (lsp) {
+			if (ui_level == ISIS_UI_LEVEL_DETAIL)
+				lsp_print_detail(lsp, vty, area->dynhostname,
+						 area->isis);
+			else
+				lsp_print(lsp, vty, area->dynhostname,
+					  area->isis);
+		} else if (argv == NULL) {
+			lsp_count =
+				lsp_print_all(vty, lspdb, ui_level,
+					      area->dynhostname, area->isis);
+
+			vty_out(vty, "    %u LSPs\n\n", lsp_count);
+		}
+	}
+}
+
+static void show_isis_database_common(struct vty *vty, const char *argv,
+				      int ui_level, struct isis *isis)
 {
 	struct listnode *node;
 	struct isis_area *area;
-	struct isis_lsp *lsp;
-	int level, lsp_count;
+	int level;
 
 	if (isis->area_list->count == 0)
-		return CMD_SUCCESS;
+		return;
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		vty_out(vty, "Area %s:\n",
 			area->area_tag ? area->area_tag : "null");
 
-		for (level = 0; level < ISIS_LEVELS; level++) {
-			if (lspdb_count(&area->lspdb[level]) > 0) {
-				lsp = NULL;
-				lsp = lsp_for_arg(&area->lspdb[level], argv,
-						  isis);
-
-				if (lsp != NULL || argv == NULL) {
-					vty_out(vty,
-						"IS-IS Level-%d link-state database:\n",
-						level + 1);
-
-					/* print the title in all cases */
-					vty_out(vty,
-						"LSP ID                  PduLen  SeqNumber   Chksum  Holdtime  ATT/P/OL\n");
-				}
-
-				if (lsp) {
-					if (ui_level == ISIS_UI_LEVEL_DETAIL)
-						lsp_print_detail(
-							lsp, vty,
-							area->dynhostname,
-							isis);
-					else
-						lsp_print(lsp, vty,
-							  area->dynhostname,
-							  isis);
-				} else if (argv == NULL) {
-					lsp_count = lsp_print_all(
-						vty, &area->lspdb[level],
-						ui_level, area->dynhostname,
-						isis);
-
-					vty_out(vty, "    %u LSPs\n\n",
-						lsp_count);
-				}
-			}
-		}
+		for (level = 0; level < ISIS_LEVELS; level++)
+			show_isis_database_lspdb(vty, area, level,
+						 &area->lspdb[level], argv,
+						 ui_level);
 	}
-	return CMD_SUCCESS;
 }
 /*
  * This function supports following display options:

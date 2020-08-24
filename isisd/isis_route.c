@@ -159,6 +159,17 @@ static void adjinfo2nexthop(int family, struct list *nexthops,
 	}
 }
 
+static void isis_route_add_dummy_nexthops(struct isis_route_info *rinfo,
+					  const uint8_t *sysid)
+{
+	struct isis_nexthop *nh;
+
+	nh = XCALLOC(MTYPE_ISIS_NEXTHOP, sizeof(struct isis_nexthop));
+	memcpy(nh->sysid, sysid, sizeof(nh->sysid));
+	isis_sr_nexthop_reset(&nh->sr);
+	listnode_add(rinfo->nexthops, nh);
+}
+
 static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
 						   struct prefix_ipv6 *src_p,
 						   uint32_t cost,
@@ -175,6 +186,15 @@ static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
 	for (ALL_LIST_ELEMENTS_RO(adjacencies, node, vadj)) {
 		struct isis_spf_adj *sadj = vadj->sadj;
 		struct isis_adjacency *adj = sadj->adj;
+
+		/*
+		 * Create dummy nexthops when running SPF on a testing
+		 * environment.
+		 */
+		if (CHECK_FLAG(im->options, F_ISIS_UNIT_TEST)) {
+			isis_route_add_dummy_nexthops(rinfo, sadj->id);
+			continue;
+		}
 
 		/* check for force resync this route */
 		if (CHECK_FLAG(adj->circuit->flags,

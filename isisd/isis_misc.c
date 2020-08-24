@@ -447,7 +447,7 @@ const char *print_sys_hostname(const uint8_t *sysid)
 
 	/* For our system ID return our host name */
 	isis = isis_lookup_by_sysid(sysid);
-	if (isis)
+	if (isis && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return cmd_hostname_get();
 
 	dyn = dynhn_find_by_id(sysid);

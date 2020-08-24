@@ -1367,6 +1367,9 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 	time_t now = monotime(NULL);
 	int diff = now - spftree->last_run_monotime;
 
+	if (CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
+		return 0;
+
 	assert(diff >= 0);
 	assert(area->is_type & level);
 
@@ -1500,7 +1503,7 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 	}
 }
 
-static void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree)
+void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree)
 {
 	const char *tree_id_text = NULL;
 
@@ -1626,7 +1629,7 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 	return CMD_SUCCESS;
 }
 
-static void isis_print_routes(struct vty *vty, struct isis_spftree *spftree)
+void isis_print_routes(struct vty *vty, struct isis_spftree *spftree)
 {
 	struct ttable *tt;
 	struct route_node *rn;
