@@ -257,12 +257,8 @@ extern int vrf_getaddrinfo(const char *node, const char *service,
 
 extern int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *args);
 
-/* function called by macro VRF_DEFAULT
- * to get the default VRF_ID
- */
-extern vrf_id_t vrf_get_default_id(void);
 /* The default VRF ID */
-#define VRF_DEFAULT vrf_get_default_id()
+#define VRF_DEFAULT 0
 
 extern void vrf_set_default_name(const char *default_name, bool force);
 extern const char *vrf_get_default_name(void);
