@@ -3602,7 +3602,7 @@ DEFUN (bgp_default_shutdown,
 
 DEFPY(bgp_shutdown_msg, bgp_shutdown_msg_cmd, "bgp shutdown message MSG...",
       BGP_STR
-      "Enable administrative shutdown of the BGP instance\n"
+      "Administrative shutdown of the BGP instance\n"
       "Add a shutdown message (RFC 8203)\n"
       "Shutdown message\n")
 {
@@ -3620,7 +3620,7 @@ DEFPY(bgp_shutdown_msg, bgp_shutdown_msg_cmd, "bgp shutdown message MSG...",
 }
 
 DEFPY(bgp_shutdown, bgp_shutdown_cmd, "bgp shutdown",
-      BGP_STR "Enable administrative shutdown of the BGP instance\n")
+      BGP_STR "Administrative shutdown of the BGP instance\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
@@ -3630,7 +3630,7 @@ DEFPY(bgp_shutdown, bgp_shutdown_cmd, "bgp shutdown",
 }
 
 DEFPY(no_bgp_shutdown, no_bgp_shutdown_cmd, "no bgp shutdown",
-      NO_STR BGP_STR "Remove administrative shutdown of the BGP instance\n")
+      NO_STR BGP_STR "Administrative shutdown of the BGP instance\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
@@ -3639,17 +3639,10 @@ DEFPY(no_bgp_shutdown, no_bgp_shutdown_cmd, "no bgp shutdown",
 	return CMD_SUCCESS;
 }
 
-DEFPY(no_bgp_shutdown_msg, no_bgp_shutdown_msg_cmd,
+ALIAS(no_bgp_shutdown, no_bgp_shutdown_msg_cmd,
       "no bgp shutdown message MSG...", NO_STR BGP_STR
-      "Remove administrative shutdown of the BGP instance\n"
+      "Administrative shutdown of the BGP instance\n"
       "Add a shutdown message (RFC 8203)\n" "Shutdown message\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp_shutdown_disable(bgp);
-
-	return CMD_SUCCESS;
-}
 
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
