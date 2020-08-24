@@ -346,6 +346,13 @@ module frr-ospfd {
         "The reference bandwidth in terms of Mbits per second.";
     }
 
+    leaf use-arp {
+      type boolean;
+      default "true";
+      description 
+        "ARP for neighbor table entry.";
+    }
+
     leaf capability-opaque {
       type boolean;
       default "false";

@@ -4322,7 +4322,7 @@ void ospf_ls_ack_send_delayed(struct ospf_interface *oi)
  */
 void ospf_proactively_arp(struct ospf_neighbor *nbr)
 {
-	if (!nbr)
+	if (!nbr || !nbr->oi->ospf->proactive_arp)
 		return;
 
 	ospf_zebra_send_arp(nbr->oi->ifp, &nbr->address);

@@ -8925,6 +8925,31 @@ DEFUN (no_ospf_max_metric_router_lsa_shutdown,
 	return CMD_SUCCESS;
 }
 
+DEFUN (ospf_proactive_arp,
+       ospf_proactive_arp_cmd,
+       "proactive-arp",
+       "Allow sending ARP requests proactively\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->proactive_arp = true;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_proactive_arp,
+       no_ospf_proactive_arp_cmd,
+       "no proactive-arp",
+	   NO_STR
+       "Disallow sending ARP requests proactively\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->proactive_arp = false;
+
+	return CMD_SUCCESS;
+}
+
 static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
 {
 	struct listnode *ln;
@@ -10415,6 +10440,14 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (ospf->passive_interface_default == OSPF_IF_PASSIVE)
 		vty_out(vty, " passive-interface default\n");
 
+	/* proactive-arp print. */
+	if (ospf->proactive_arp != OSPF_PROACTIVE_ARP_DEFAULT) {
+		if (ospf->proactive_arp)
+			vty_out(vty, " proactive-arp\n");
+		else
+			vty_out(vty, " no proactive-arp\n");
+	}
+
 	FOR_ALL_INTERFACES (vrf, ifp)
 		if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp),
 					     passive_interface)
@@ -10870,6 +10903,10 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &write_multiplier_cmd);
 	install_element(OSPF_NODE, &no_ospf_write_multiplier_cmd);
 	install_element(OSPF_NODE, &no_write_multiplier_cmd);
+
+	/* "proactive-arp" commands. */
+	install_element(OSPF_NODE, &ospf_proactive_arp_cmd);
+	install_element(OSPF_NODE, &no_ospf_proactive_arp_cmd);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();
