@@ -1265,7 +1265,7 @@ class Router(Node):
             zebra_path = os.path.join(self.daemondir, "zebra")
             zebra_option = self.daemons_options["zebra"]
             self.cmd(
-                "{0} {1} --log stdout --log-level debug -d > zebra.out 2> zebra.err".format(
+                "{0} {1} --log stdout --log-level debug -s 90000000 -d > zebra.out 2> zebra.err".format(
                     zebra_path, zebra_option, self.logdir, self.name
                 )
             )
