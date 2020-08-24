@@ -199,7 +199,7 @@ int zebra_ns_init(const char *optional_default_name)
 	if (ns)
 		ns->relative_default_ns = ns_id;
 
-	default_ns = ns_lookup(ns_get_default_id());
+	default_ns = ns_lookup(NS_DEFAULT);
 	if (!default_ns) {
 		flog_err(EC_ZEBRA_NS_NO_DEFAULT,
 			 "%s: failed to find default ns", __func__);

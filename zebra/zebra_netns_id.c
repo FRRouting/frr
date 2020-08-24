@@ -39,9 +39,6 @@
 #include "zebra/zebra_netns_id.h"
 #include "zebra/zebra_errors.h"
 
-/* default NS ID value used when VRF backend is not NETNS */
-#define NS_DEFAULT_INTERNAL 0
-
 /* in case NEWNSID not available, the NSID will be locally obtained
  */
 #define NS_BASE_NSID 0
@@ -362,14 +359,14 @@ ns_id_t zebra_ns_id_get_default(void)
 	fd = open(NS_DEFAULT_NAME, O_RDONLY);
 
 	if (fd == -1)
-		return NS_DEFAULT_INTERNAL;
+		return NS_DEFAULT;
 	if (!vrf_is_backend_netns()) {
 		close(fd);
-		return NS_DEFAULT_INTERNAL;
+		return NS_DEFAULT;
 	}
 	close(fd);
 	return zebra_ns_id_get((char *)NS_DEFAULT_NAME, -1);
 #else  /* HAVE_NETNS */
-	return NS_DEFAULT_INTERNAL;
+	return NS_DEFAULT;
 #endif /* !HAVE_NETNS */
 }
