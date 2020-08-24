@@ -3639,6 +3639,18 @@ DEFPY(no_bgp_shutdown, no_bgp_shutdown_cmd, "no bgp shutdown",
 	return CMD_SUCCESS;
 }
 
+DEFPY(no_bgp_shutdown_msg, no_bgp_shutdown_msg_cmd,
+      "no bgp shutdown message MSG...", NO_STR BGP_STR
+      "Disable administrative shutdown of the BGP instance\n"
+      "Add a shutdown message (RFC 8203)\n" "Shutdown message\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp_shutdown_disable(bgp);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <(1-4294967295)|internal|external>",
@@ -16081,6 +16093,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_shutdown_cmd);
 	install_element(BGP_NODE, &bgp_shutdown_msg_cmd);
 	install_element(BGP_NODE, &no_bgp_shutdown_cmd);
+	install_element(BGP_NODE, &no_bgp_shutdown_msg_cmd);
 
 	/* "neighbor remote-as" commands. */
 	install_element(BGP_NODE, &neighbor_remote_as_cmd);
