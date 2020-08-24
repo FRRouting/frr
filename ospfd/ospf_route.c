@@ -375,7 +375,7 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 	else
 		route_unlock_node(rn);
 
-	ospf_route_copy_nexthops_from_vertex(or, v);
+	ospf_route_copy_nexthops_from_vertex(area, or, v);
 
 	listnode_add(rn->info, or);
 
@@ -438,7 +438,7 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
 	or->type = OSPF_DESTINATION_NETWORK;
 	or->u.std.origin = (struct lsa_header *)lsa;
 
-	ospf_route_copy_nexthops_from_vertex(or, v);
+	ospf_route_copy_nexthops_from_vertex(area, or, v);
 
 	rn->info = or ;
 }
@@ -453,7 +453,7 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 	struct ospf_route * or ;
 	struct prefix_ipv4 p;
 	struct router_lsa *lsa;
-	struct ospf_interface *oi;
+	struct ospf_interface *oi = NULL;
 	struct ospf_path *path;
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -538,7 +538,7 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 				zlog_debug(
 					"ospf_intra_add_stub(): routes are equal, merge");
 
-			ospf_route_copy_nexthops_from_vertex(cur_or, v);
+			ospf_route_copy_nexthops_from_vertex(area, cur_or, v);
 
 			if (IPV4_ADDR_CMP(&cur_or->u.std.origin->id,
 					  &lsa->header.id)
@@ -563,7 +563,7 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 
 			list_delete_all_node(cur_or->paths);
 
-			ospf_route_copy_nexthops_from_vertex(cur_or, v);
+			ospf_route_copy_nexthops_from_vertex(area, cur_or, v);
 
 			cur_or->u.std.origin = (struct lsa_header *)lsa;
 			return;
@@ -588,24 +588,35 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"ospf_intra_add_stub(): this network is on remote router");
-		ospf_route_copy_nexthops_from_vertex(or, v);
+		ospf_route_copy_nexthops_from_vertex(area, or, v);
 	} else {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"ospf_intra_add_stub(): this network is on this router");
 
-		if ((oi = ospf_if_lookup_by_lsa_pos(area, lsa_pos))) {
+		/*
+		 * Only deal with interface data when we
+		 * don't do a dry run
+		 */
+		if (!area->spf_dry_run)
+			oi = ospf_if_lookup_by_lsa_pos(area, lsa_pos);
+
+		if (oi || area->spf_dry_run) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"ospf_intra_add_stub(): the interface is %s",
-					IF_NAME(oi));
+					"ospf_intra_add_stub(): the lsa pos is %d",
+					lsa_pos);
 
 			path = ospf_path_new();
 			path->nexthop.s_addr = INADDR_ANY;
-			path->ifindex = oi->ifp->ifindex;
-			if (CHECK_FLAG(oi->connected->flags,
-				       ZEBRA_IFA_UNNUMBERED))
-				path->unnumbered = 1;
+
+			if (oi) {
+				path->ifindex = oi->ifp->ifindex;
+				if (CHECK_FLAG(oi->connected->flags,
+					       ZEBRA_IFA_UNNUMBERED))
+					path->unnumbered = 1;
+			}
+
 			listnode_add(or->paths, path);
 		} else {
 			if (IS_DEBUG_OSPF_EVENT)
@@ -652,6 +663,37 @@ void ospf_route_table_dump(struct route_table *rt)
 					   or->cost);
 		}
 	zlog_debug("========================================");
+}
+
+void ospf_route_table_print(struct vty *vty, struct route_table *rt)
+{
+	struct route_node *rn;
+	struct ospf_route * or ;
+	struct listnode *pnode;
+	struct ospf_path *path;
+
+	vty_out(vty, "========== OSPF routing table ==========\n");
+	for (rn = route_top(rt); rn; rn = route_next(rn))
+		if ((or = rn->info) != NULL) {
+			if (or->type == OSPF_DESTINATION_NETWORK) {
+				vty_out(vty, "N %-18pFX %-15pI4 %s %d\n",
+					&rn->p, & or->u.std.area_id,
+					ospf_path_type_str[or->path_type],
+					or->cost);
+				for (ALL_LIST_ELEMENTS_RO(or->paths, pnode,
+							  path))
+					vty_out(vty, "  -> %s\n",
+						path->nexthop.s_addr != 0
+							? inet_ntoa(
+								path->nexthop)
+							: "directly connected");
+			} else
+				vty_out(vty, "R %-18pI4 %-15pI4 %s %d\n",
+					&rn->p.u.prefix4, & or->u.std.area_id,
+					ospf_path_type_str[or->path_type],
+					or->cost);
+		}
+	vty_out(vty, "========================================\n");
 }
 
 /* This is 16.4.1 implementation.
@@ -734,30 +776,41 @@ static int ospf_path_exist(struct list *plist, struct in_addr nexthop,
 	return 0;
 }
 
-void ospf_route_copy_nexthops_from_vertex(struct ospf_route *to,
+void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area,
+					  struct ospf_route *to,
 					  struct vertex *v)
 {
 	struct listnode *node;
 	struct ospf_path *path;
 	struct vertex_nexthop *nexthop;
 	struct vertex_parent *vp;
+	struct ospf_interface *oi = NULL;
 
 	assert(to->paths);
 
 	for (ALL_LIST_ELEMENTS_RO(v->parents, node, vp)) {
 		nexthop = vp->nexthop;
 
-		if (nexthop->oi != NULL) {
-			if (!ospf_path_exist(to->paths, nexthop->router,
-					     nexthop->oi)) {
-				path = ospf_path_new();
-				path->nexthop = nexthop->router;
-				path->ifindex = nexthop->oi->ifp->ifindex;
-				if (CHECK_FLAG(nexthop->oi->connected->flags,
+		/*
+		 * Only deal with interface data when we
+		 * don't do a dry run
+		 */
+		if (!area->spf_dry_run)
+			oi = ospf_if_lookup_by_lsa_pos(area, nexthop->lsa_pos);
+
+		if ((oi && !ospf_path_exist(to->paths, nexthop->router, oi))
+		    || area->spf_dry_run) {
+			path = ospf_path_new();
+			path->nexthop = nexthop->router;
+
+			if (oi) {
+				path->ifindex = oi->ifp->ifindex;
+				if (CHECK_FLAG(oi->connected->flags,
 					       ZEBRA_IFA_UNNUMBERED))
 					path->unnumbered = 1;
-				listnode_add(to->paths, path);
 			}
+
+			listnode_add(to->paths, path);
 		}
 	}
 }

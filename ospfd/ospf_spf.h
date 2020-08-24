@@ -49,15 +49,14 @@ struct vertex {
 
 /* A nexthop taken on the root node to get to this (parent) vertex */
 struct vertex_nexthop {
-	struct ospf_interface *oi; /* output intf on root node */
 	struct in_addr router;     /* router address to send to */
+	int lsa_pos; /* LSA position for resolving the interface */
 };
 
 struct vertex_parent {
-	struct vertex_nexthop
-		*nexthop;      /* link to nexthop info for this parent */
-	struct vertex *parent; /* parent vertex */
-	int backlink;	  /* index back to parent for router-lsa's */
+	struct vertex_nexthop *nexthop; /* nexthop address for this parent */
+	struct vertex *parent;		/* parent vertex */
+	int backlink; /* index back to parent for router-lsa's */
 };
 
 /* What triggered the SPF ? */
@@ -73,7 +72,18 @@ typedef enum {
 } ospf_spf_reason_t;
 
 extern void ospf_spf_calculate_schedule(struct ospf *, ospf_spf_reason_t);
+extern void ospf_spf_calculate(struct ospf_area *area,
+			       struct ospf_lsa *root_lsa,
+			       struct route_table *new_table,
+			       struct route_table *new_rtrs, bool is_dry_run,
+			       bool is_root_node);
+extern int ospf_spf_calculate_areas(struct ospf *ospf,
+				    struct route_table *new_table,
+				    struct route_table *new_rtrs,
+				    bool is_dry_run, bool is_root_node);
 extern void ospf_rtrs_free(struct route_table *);
+
+extern void ospf_spf_print(struct vty *vty, struct vertex *v, int i);
 
 /* void ospf_spf_calculate_timer_add (); */
 #endif /* _QUAGGA_OSPF_SPF_H */
