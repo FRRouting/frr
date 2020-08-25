@@ -62,7 +62,6 @@ from lib.common_config import (
     verify_rib,
     step,
     start_router_daemons,
-    kill_router_daemons,
     create_static_routes,
     create_vrf_cfg,
     create_route_maps,
