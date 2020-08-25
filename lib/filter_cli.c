@@ -165,7 +165,7 @@ static long acl_get_seq(struct vty *vty, const char *xpath)
  */
 DEFPY_YANG(
 	access_list_std, access_list_std_cmd,
-	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask|any>",
+	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	ACCESS_LIST_STR
 	ACCESS_LIST_LEG_STR
 	ACCESS_LIST_SEQ_STR
@@ -173,8 +173,7 @@ DEFPY_YANG(
 	"A single host address\n"
 	"Address to match\n"
 	"Address to match\n"
-	"Wildcard bits\n"
-	"Any source host\n")
+	"Wildcard bits\n")
 {
 	int64_t sseq;
 	char ipmask[64];
@@ -214,7 +213,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_std, no_access_list_std_cmd,
-	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask|any>",
+	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_LEG_STR
@@ -223,8 +222,7 @@ DEFPY_YANG(
 	"A single host address\n"
 	"Address to match\n"
 	"Address to match\n"
-	"Wildcard bits\n"
-	"Any source host\n")
+	"Wildcard bits\n")
 {
 	struct access_list *acl;
 	struct lyd_node *dnode;
