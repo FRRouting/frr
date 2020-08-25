@@ -900,6 +900,25 @@ BGP GR Peer Mode Commands
    at the peer level.
 
 
+.. _bgp-shutdown:
+
+Administrative Shutdown
+-----------------------
+
+.. index:: [no] bgp shutdown [message MSG...]
+.. clicmd:: [no] bgp shutdown [message MSG...]
+
+   Administrative shutdown of all peers of a bgp instance. Drop all BGP peers,
+   but preserve their configurations. The peers are notified in accordance with
+   `RFC 8203 <https://tools.ietf.org/html/rfc8203/>`_ by sending a
+   ``NOTIFICATION`` message with error code ``Cease`` and subcode
+   ``Administrative Shutdown`` prior to terminating connections. This global
+   shutdown is independent of the neighbor shutdown, meaning that individually
+   shut down peers will not be affected by lifting it.
+
+   An optional shutdown message `MSG` can be specified.
+
+
 .. _bgp-network:
 
 Networks

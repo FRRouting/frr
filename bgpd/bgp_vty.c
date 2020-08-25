@@ -3600,6 +3600,50 @@ DEFUN (bgp_default_shutdown,
 	return CMD_SUCCESS;
 }
 
+DEFPY(bgp_shutdown_msg, bgp_shutdown_msg_cmd, "bgp shutdown message MSG...",
+      BGP_STR
+      "Administrative shutdown of the BGP instance\n"
+      "Add a shutdown message (RFC 8203)\n"
+      "Shutdown message\n")
+{
+	char *msgstr = NULL;
+
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (argc > 3)
+		msgstr = argv_concat(argv, argc, 3);
+
+	bgp_shutdown_enable(bgp, msgstr);
+	XFREE(MTYPE_TMP, msgstr);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(bgp_shutdown, bgp_shutdown_cmd, "bgp shutdown",
+      BGP_STR "Administrative shutdown of the BGP instance\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp_shutdown_enable(bgp, NULL);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_bgp_shutdown, no_bgp_shutdown_cmd, "no bgp shutdown",
+      NO_STR BGP_STR "Administrative shutdown of the BGP instance\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp_shutdown_disable(bgp);
+
+	return CMD_SUCCESS;
+}
+
+ALIAS(no_bgp_shutdown, no_bgp_shutdown_msg_cmd,
+      "no bgp shutdown message MSG...", NO_STR BGP_STR
+      "Administrative shutdown of the BGP instance\n"
+      "Add a shutdown message (RFC 8203)\n" "Shutdown message\n")
+
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <(1-4294967295)|internal|external>",
@@ -9328,7 +9372,9 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					json_object_int_add(json_peer,
 							    "pfxSnt",
 							    (PAF_SUBGRP(paf))->scount);
-				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
+				    || CHECK_FLAG(peer->bgp->flags,
+						  BGP_FLAG_SHUTDOWN))
 					json_object_string_add(json_peer, "state",
 							       "Idle (Admin)");
 				else if (peer->afc_recv[afi][safi])
@@ -9447,7 +9493,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 									->scount);
 					}
 				} else {
-					if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+					if (CHECK_FLAG(peer->flags,
+						       PEER_FLAG_SHUTDOWN)
+					    || CHECK_FLAG(peer->bgp->flags,
+							  BGP_FLAG_SHUTDOWN))
 						vty_out(vty, " Idle (Admin)");
 					else if (CHECK_FLAG(
 							    peer->sflags,
@@ -10944,7 +10993,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 	if (use_json) {
 		/* Administrative shutdown. */
-		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN))
+		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN)
+		    || CHECK_FLAG(p->bgp->flags, BGP_FLAG_SHUTDOWN))
 			json_object_boolean_true_add(json_neigh,
 						     "adminShutDown");
 
@@ -11050,7 +11100,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		}
 	} else {
 		/* Administrative shutdown. */
-		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN))
+		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN)
+		    || CHECK_FLAG(p->bgp->flags, BGP_FLAG_SHUTDOWN))
 			vty_out(vty, " Administratively shut down\n");
 
 		/* BGP Version. */
@@ -13626,7 +13677,8 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 	if (listcount(group->peer)) {
 		vty_out(vty, "  Peer-group members:\n");
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
+			    || CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
 				peer_status = "Idle (Admin)";
 			else if (CHECK_FLAG(peer->sflags,
 					    PEER_STATUS_PREFIX_OVERFLOW))
@@ -15565,6 +15617,10 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->autoshutdown)
 			vty_out(vty, " bgp default shutdown\n");
 
+		/* BGP instance administrative shutdown */
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
+			vty_out(vty, " bgp shutdown\n");
+
 		/* IPv4 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);
 
@@ -16027,6 +16083,12 @@ void bgp_vty_init(void)
 
 	/* "bgp default shutdown" command */
 	install_element(BGP_NODE, &bgp_default_shutdown_cmd);
+
+	/* "bgp shutdown" commands */
+	install_element(BGP_NODE, &bgp_shutdown_cmd);
+	install_element(BGP_NODE, &bgp_shutdown_msg_cmd);
+	install_element(BGP_NODE, &no_bgp_shutdown_cmd);
+	install_element(BGP_NODE, &no_bgp_shutdown_msg_cmd);
 
 	/* "neighbor remote-as" commands. */
 	install_element(BGP_NODE, &neighbor_remote_as_cmd);

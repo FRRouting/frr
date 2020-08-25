@@ -1548,6 +1548,8 @@ int bgp_start(struct peer *peer)
 				 peer->host);
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+		else if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
+			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
 		else if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
 			peer->last_reset = PEER_DOWN_PFX_COUNT;
 		return -1;

@@ -1,0 +1,83 @@
+## GraphViz file for test_all_protocol_startup
+##
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  No protocol: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #33ff99  light green
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##  LDP IPv4  #fedbe2  light pink
+##### Colors (see http://www.color-hex.com/)
+
+graph test_all_protocol_startup {
+    overlap=false;
+    constraint=false;
+
+    // title
+    labelloc="t";
+    label="Test Topologoy BGP Features";
+    rankdir = TB;
+
+	######################
+	# Routers	
+	######################
+
+	# Main FRR Router with all protocols
+    R4 [shape=doubleoctagon, label="R4 FRR\nAS 65100\nlo: 192.168.100.1/32\nfc00:100::1/128", fillcolor="#f08080", style=filled];
+    R5 [shape=doubleoctagon, label="R5 FRR\nAS 65200\nlo: 192.168.200.1/32\nfc00:200::1/128", fillcolor="#f08080", style=filled];
+    #{ rank = same {R4, R5}}
+
+	R1 [shape=doubleoctagon, label="R1 FRR\nAS 65000\nlo: 192.168.0.1/32\nfc00::1/128", fillcolor="#f08080", style=filled];
+    R2 [shape=doubleoctagon, label="R2 FRR\nAS 65000\nlo: 192.168.0.1/32\nfc00::1/128", fillcolor="#f08080", style=filled];
+    #{ rank = same { R1, R2}}
+
+    R3 [shape=doubleoctagon, label="R3 FRR\nAS 65000\nlo: 192.168.0.1/32\nfc00::1/128", fillcolor="#f08080", style=filled];
+
+	######################
+	# Network Lists
+	######################
+
+    SW1_R1_R2   [label="SW1 OSPF & iBGP\n192.168.1.0/24\nfc00:0:0:1::/64", fillcolor="#32b835", style=filled];
+    SW2_R2_R3   [label="SW2 OSPF\n192.168.2.0/24\nfc00:0:0:2::/64", fillcolor="#19e3d9", style=filled];
+    SW3_R3_R1   [label="SW3 OSPF\n192.168.3.0/24\nfc00:0:0:3::/64", fillcolor="#19e3d9", style=filled];
+
+    SW4_R4_R1   [label="SW4 eBGP\n192.168.101.0/24\nfc00:100:0:1::/64", fillcolor="#fedbe2", style=filled];
+    SW5_R5_R2   [label="SW5 eBGP\n192.168.201.0/24\nfc00:200:0:1::/64", fillcolor="#fedbe2", style=filled];
+    #{ rank = same {SW4_R4_R1, SW5_R5_R2}}
+
+    SW6_STUB_R1 [label="SW6\n192.168.6.0/24\nfc00:0:0:6::/64", fillcolor="#d0e0d0", style=filled];
+    SW7_STUB_R2 [label="SW7\n192.168.7.0/24\nfc00:0:0:7::/64", fillcolor="#d0e0d0", style=filled];
+    SW8_STUB_R3 [label="SW8\n192.168.8.0/24\nfc00:0:0:8::/64", fillcolor="#d0e0d0", style=filled];
+    SW9_STUB_R4 [label="SW9\n192.168.102.0/24\nfc00:100:0:2::/64", fillcolor="#d0e0d0", style=filled];
+    SW10_STUB_R5 [label="SW10\n192.168.202.0/24\nfc00:200:0:2::/64", fillcolor="#d0e0d0", style=filled];
+
+
+	######################
+	# Network Connections
+	######################
+
+    R1 -- SW6_STUB_R1  [label = "eth0\n.1\n::1"];
+    R2 -- SW7_STUB_R2  [label = "eth0\n.1\n::1"];
+    R3 -- SW8_STUB_R3  [label = "eth0\n.1\n::1"];
+    R4 -- SW9_STUB_R4  [label = "eth0\n.1\n::1"];
+    R5 -- SW10_STUB_R5 [label = "eth0\n.1\n::1"];
+
+    R1 -- SW1_R1_R2    [label = "eth1\n.1\n::1"];
+    R1 -- SW3_R3_R1    [label = "eth2\n.1\n::1"];
+    R2 -- SW1_R1_R2    [label = "eth1\n.2\n::2"];
+    R2 -- SW2_R2_R3    [label = "eth2\n.1\n::1"];
+    R3 -- SW2_R2_R3    [label = "eth1\n.2\n::2"];
+    R3 -- SW3_R3_R1    [label = "eth2\n.2\n::2"];
+
+    R1 -- SW4_R4_R1    [label = "eth3\n.1\n::1"];
+    R2 -- SW5_R5_R2    [label = "eth3\n.1\n::1"];
+    R4 -- SW4_R4_R1    [label = "eth1\n.2\n::2"];
+    R5 -- SW5_R5_R2    [label = "eth1\n.2\n::2"];
+
+}
