@@ -104,7 +104,8 @@ static int64_t acl_zebra_get_seq(struct access_list *acl, const char *action,
 		f.type = FILTER_DENY;
 
 	fz = &f.u.zfilter;
-	fz->prefix = *p;
+	if (p->family)
+		prefix_copy(&fz->prefix, p);
 	fz->exact = exact;
 
 	fn = filter_lookup_zebra(acl, &f);
