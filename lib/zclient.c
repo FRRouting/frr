@@ -871,6 +871,37 @@ static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
 		break;
 	}
 
+	if (next1->srte_color < next2->srte_color)
+		return -1;
+	if (next1->srte_color > next2->srte_color)
+		return 1;
+
+	if (CHECK_FLAG(next1->flags, NEXTHOP_FLAG_HAS_BACKUP) ||
+	    CHECK_FLAG(next2->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+
+		if (!CHECK_FLAG(next1->flags, NEXTHOP_FLAG_HAS_BACKUP) &&
+		    CHECK_FLAG(next2->flags, NEXTHOP_FLAG_HAS_BACKUP))
+			return -1;
+
+		if (CHECK_FLAG(next1->flags, NEXTHOP_FLAG_HAS_BACKUP) &&
+		    !CHECK_FLAG(next2->flags, NEXTHOP_FLAG_HAS_BACKUP))
+			return 1;
+
+		if (next1->backup_num > 0 || next2->backup_num > 0) {
+
+			if (next1->backup_num < next2->backup_num)
+				return -1;
+
+			if (next1->backup_num > next2->backup_num)
+				return 1;
+
+			ret = memcmp(next1->backup_idx,
+				     next2->backup_idx, next1->backup_num);
+			if (ret != 0)
+				return ret;
+		}
+	}
+
 	return 0;
 }
 
