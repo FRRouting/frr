@@ -528,7 +528,7 @@ Additional kernel modules are also needed to support MPLS forwarding.
    features can be found in
    http://schd.ws/hosted_files/ossna2017/fe/vrf-tutorial-oss.pdf.
 
-   BGP TCP socket is opened per VRF in FRR.
+   A separate BGP TCP socket is opened per VRF.
 
    **Important note** as of June 2018, Kernel versions 4.14-4.18 have a
    known bug where VRF-specific TCP sockets are not properly handled. When
