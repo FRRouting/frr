@@ -744,6 +744,7 @@ static void netlink_bridge_vlan_update(struct interface *ifp,
 	old_vlan_bitmap = zif->vlan_bitmap;
 	/* create a new bitmap space for re-eval */
 	bf_init(zif->vlan_bitmap, IF_VLAN_BITMAP_MAX);
+	zif->pvid = 0;
 
 	if (af_spec) {
 		for (i = RTA_DATA(af_spec), rem = RTA_PAYLOAD(af_spec);
@@ -753,6 +754,9 @@ static void netlink_bridge_vlan_update(struct interface *ifp,
 				continue;
 
 			vinfo = RTA_DATA(i);
+
+			if (vinfo->flags & BRIDGE_VLAN_INFO_PVID)
+				zif->pvid = vinfo->vid;
 
 			if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
 				vid_range_start = vinfo->vid;
