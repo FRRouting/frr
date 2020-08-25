@@ -255,12 +255,6 @@ options from the list below.
    mind.  Specifically turn on -g3 -O0 for compiling options and add inclusion
    of grammar sandbox.
 
-.. option:: --enable-fuzzing
-
-   Turn on some compile options to allow you to run fuzzing tools against the
-   system. This flag is intended as a developer only tool and should not be
-   used for normal operations.
-
 .. option:: --disable-snmp
 
    Build without SNMP support.

@@ -1294,17 +1294,6 @@ DEFUN (show_zebra_client_summary,
 	return CMD_SUCCESS;
 }
 
-#if defined(HANDLE_ZAPI_FUZZING)
-void zserv_read_file(char *input)
-{
-	int fd;
-
-	fd = open(input, O_RDONLY | O_NONBLOCK);
-
-	zserv_client_create(fd);
-}
-#endif
-
 void zserv_init(void)
 {
 	/* Client list init. */
