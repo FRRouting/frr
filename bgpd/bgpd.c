@@ -4382,7 +4382,7 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 	peer->ttl = ttl;
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (peer->fd >= 0 && peer->sort != BGP_PEER_IBGP) {
+		if (peer->sort != BGP_PEER_IBGP) {
 			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
 				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
