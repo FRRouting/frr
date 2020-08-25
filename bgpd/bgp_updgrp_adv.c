@@ -760,6 +760,9 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		 */
 		for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 		     rn = bgp_route_next(rn)) {
+			if (!bgp_node_has_bgp_path_info_data(rn))
+				continue;
+
 			ret = route_map_apply(peer->default_rmap[afi][safi].map,
 					      &rn->p, RMAP_BGP, &bpi_rmap);
 
