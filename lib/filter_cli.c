@@ -290,7 +290,7 @@ DEFPY_YANG(
 	"Any destination host\n")
 {
 	int64_t sseq;
-	char ipmask[64];
+	char ipmask[64], ipmask_dst[64];
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
 
@@ -325,12 +325,12 @@ DEFPY_YANG(
 
 	if (dst_str != NULL && dst_mask_str == NULL) {
 		nb_cli_enqueue_change(vty, "./destination-host", NB_OP_MODIFY,
-				      src_str);
+				      dst_str);
 	} else if (dst_str != NULL && dst_mask_str != NULL) {
-		concat_addr_mask_v4(dst_str, dst_mask_str, ipmask,
-				    sizeof(ipmask));
+		concat_addr_mask_v4(dst_str, dst_mask_str, ipmask_dst,
+				    sizeof(ipmask_dst));
 		nb_cli_enqueue_change(vty, "./destination-network",
-				      NB_OP_MODIFY, ipmask);
+				      NB_OP_MODIFY, ipmask_dst);
 	} else {
 		nb_cli_enqueue_change(vty, "./destination-any", NB_OP_CREATE,
 				      NULL);
