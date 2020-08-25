@@ -70,7 +70,6 @@ from lib.common_config import (
     create_route_maps,
     shutdown_bringup_interface,
     start_router_daemons,
-    kill_router_daemons,
     create_static_routes,
     create_vrf_cfg,
     create_interfaces_cfg,

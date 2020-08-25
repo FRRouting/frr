@@ -263,6 +263,22 @@ def test_error_messages_daemons():
             if log:
                 error_logs += "r%s LDPd StdErr Output:\n" % i
                 error_logs += log
+
+        log = net['r1'].getStdErr('nhrpd')
+        if log:
+            error_logs += "r%s NHRPd StdErr Output:\n" % i
+            error_logs += log
+
+        log = net['r1'].getStdErr('babeld')
+        if log:
+            error_logs += "r%s BABELd StdErr Output:\n" % i
+            error_logs += log
+
+        log = net['r1'].getStdErr('pbrd')
+        if log:
+            error_logs += "r%s PBRd StdErr Output:\n" % i
+            error_logs += log
+
         log = net['r%s' % i].getStdErr('zebra')
         if log:
             error_logs += "r%s Zebra StdErr Output:\n"
@@ -1182,6 +1198,19 @@ def test_shutdown_check_stderr():
     log = net['r1'].getStdErr('bgpd')
     if log:
         print("\nBGPd StdErr Log:\n" + log)
+
+    log = net['r1'].getStdErr('nhrpd')
+    if log:
+        print("\nNHRPd StdErr Log:\n" + log)
+
+    log = net['r1'].getStdErr('pbrd')
+    if log:
+        print("\nPBRd StdErr Log:\n" + log)
+
+    log = net['r1'].getStdErr('babeld')
+    if log:
+        print("\nBABELd StdErr Log:\n" + log)
+
     if (net['r1'].daemon_available('ldpd')):
         log = net['r1'].getStdErr('ldpd')
         if log:

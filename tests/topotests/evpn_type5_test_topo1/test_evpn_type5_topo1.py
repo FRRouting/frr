@@ -68,7 +68,6 @@ from lib.common_config import (
     create_route_maps,
     verify_cli_json,
     start_router_daemons,
-    kill_router_daemons,
     create_static_routes,
     stop_router,
     start_router,

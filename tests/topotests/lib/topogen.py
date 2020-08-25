@@ -335,9 +335,7 @@ class Topogen(object):
         logger.info("stopping topology: {}".format(self.modname))
         errors = ""
         for gear in self.gears.values():
-            gear.stop(False, False)
-        for gear in self.gears.values():
-            errors += gear.stop(True, False)
+            errors += gear.stop()
         if len(errors) > 0:
             assert "Errors found post shutdown - details follow:" == 0, errors
 
@@ -703,13 +701,25 @@ class TopoRouter(TopoGear):
 
         return result
 
-    def stop(self, wait=True, assertOnError=True):
+    def __stop_internal(self, wait=True, assertOnError=True):
         """
-        Stop router:
+        Stop router, private internal version
         * Kill daemons
         """
-        self.logger.debug("stopping")
+        self.logger.debug("stopping: wait {}, assert {}".format(
+            wait, assertOnError))
         return self.tgen.net[self.name].stopRouter(wait, assertOnError)
+
+
+    def stop(self):
+        """
+        Stop router cleanly:
+        * Signal daemons twice, once without waiting, and then a second time
+          with a wait to ensure the daemons exit cleanly
+        """
+        self.logger.debug("stopping")
+        self.__stop_internal(False, False)
+        return self.__stop_internal()
 
     def startDaemons(self, daemons):
         """
@@ -819,8 +829,7 @@ class TopoRouter(TopoGear):
         if memleak_file is None:
             return
 
-        self.stop(False, False)
-        self.stop(wait=True)
+        self.stop()
 
         self.logger.info("running memory leak report")
         self.tgen.net[self.name].report_memory_leaks(memleak_file, testname)
