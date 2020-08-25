@@ -185,6 +185,7 @@ struct zebra_if {
 
 	/* bitmap of vlans associated with this interface */
 	bitfield_t vlan_bitmap;
+	vlanid_t pvid;
 
 	/* An interface can be error-disabled if a protocol (such as EVPN or
 	 * VRRP) detects a problem with keeping it operationally-up.

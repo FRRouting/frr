@@ -1820,6 +1820,7 @@ static void interface_bridge_vlan_update(struct zebra_dplane_ctx *ctx,
 	old_vlan_bitmap = zif->vlan_bitmap;
 	/* create a new bitmap space for re-eval */
 	bf_init(zif->vlan_bitmap, IF_VLAN_BITMAP_MAX);
+	zif->pvid = 0;
 
 	/* Could we have multiple bridge vlan infos? */
 	bvarray = dplane_ctx_get_ifp_bridge_vlan_info_array(ctx);
@@ -1828,6 +1829,9 @@ static void interface_bridge_vlan_update(struct zebra_dplane_ctx *ctx,
 
 	for (i = 0; i < bvarray->count; i++) {
 		bvinfo = bvarray->array[i];
+
+		if (bvinfo.flags & DPLANE_BRIDGE_VLAN_INFO_PVID)
+			zif->pvid = bvinfo.vid;
 
 		if (bvinfo.flags & DPLANE_BRIDGE_VLAN_INFO_RANGE_BEGIN) {
 			vid_range_start = bvinfo.vid;
@@ -2744,12 +2748,20 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 
 		br_slave = &zebra_if->brslave_info;
 		if (br_slave->bridge_ifindex != IFINDEX_INTERNAL) {
-			if (br_slave->br_if)
-				vty_out(vty, "  Master interface: %s\n",
-					br_slave->br_if->name);
+			char vid_buf[16];
+
+			if (zebra_if->pvid)
+				snprintf(vid_buf, sizeof(vid_buf),
+						" PVID: %u", zebra_if->pvid);
 			else
-				vty_out(vty, "  Master ifindex: %u\n",
-					br_slave->bridge_ifindex);
+				vid_buf[0] = '\0';
+
+			if (br_slave->br_if)
+				vty_out(vty, "  Master interface: %s%s\n",
+					br_slave->br_if->name, vid_buf);
+			else
+				vty_out(vty, "  Master ifindex: %u%s\n",
+					br_slave->bridge_ifindex, vid_buf);
 		}
 	}
 
