@@ -37,14 +37,8 @@
 
 #define ACCESS_LIST_STR "Access list entry\n"
 #define ACCESS_LIST_LEG_STR "IP standard access list\n"
-#define ACCESS_LIST_LEG_EXT_STR "IP standard access list (expanded range)\n"
 #define ACCESS_LIST_ELEG_STR "IP extended access list\n"
 #define ACCESS_LIST_ELEG_EXT_STR "IP extended access list (expanded range)\n"
-#define ACCESS_LIST_XLEG_STR                                                   \
-	ACCESS_LIST_LEG_STR                                                    \
-	ACCESS_LIST_LEG_EXT_STR                                                \
-	ACCESS_LIST_ELEG_STR                                                   \
-	ACCESS_LIST_ELEG_EXT_STR
 #define ACCESS_LIST_ZEBRA_STR "Access list entry\n"
 #define ACCESS_LIST_SEQ_STR                                                    \
 	"Sequence number of an entry\n"                                        \
@@ -171,10 +165,9 @@ static long acl_get_seq(struct vty *vty, const char *xpath)
  */
 DEFPY_YANG(
 	access_list_std, access_list_std_cmd,
-	"access-list <(1-99)|(1300-1999)>$number [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask|any>",
+	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask|any>",
 	ACCESS_LIST_STR
 	ACCESS_LIST_LEG_STR
-	ACCESS_LIST_LEG_EXT_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"A single host address\n"
@@ -193,8 +186,7 @@ DEFPY_YANG(
 	 * none given (backward compatibility).
 	 */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
-		 number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
@@ -222,11 +214,10 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_std, no_access_list_std_cmd,
-	"no access-list <(1-99)|(1300-1999)>$number [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask|any>",
+	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask|any>",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_LEG_STR
-	ACCESS_LIST_LEG_EXT_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"A single host address\n"
@@ -246,15 +237,14 @@ DEFPY_YANG(
 		snprintf(
 			xpath, sizeof(xpath),
 			"/frr-filter:lib/access-list[type='ipv4'][name='%s']/entry[sequence='%s']",
-			number_str, seq_str);
+			name, seq_str);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
-		 number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
@@ -282,10 +272,9 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	access_list_ext, access_list_ext_cmd,
-	"access-list <(100-199)|(2000-2699)>$number [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
+	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	ACCESS_LIST_STR
 	ACCESS_LIST_ELEG_STR
-	ACCESS_LIST_ELEG_EXT_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"IPv4 address\n"
@@ -310,8 +299,7 @@ DEFPY_YANG(
 	 * none given (backward compatibility).
 	 */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
-		 number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
@@ -353,11 +341,10 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_ext, no_access_list_ext_cmd,
-	"no access-list <(100-199)|(2000-2699)>$number [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
+	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ELEG_STR
-	ACCESS_LIST_ELEG_EXT_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"Any Internet Protocol\n"
@@ -383,15 +370,14 @@ DEFPY_YANG(
 		snprintfrr(
 			xpath, sizeof(xpath),
 			"/frr-filter:lib/access-list[type='ipv4'][name='%s']/entry[sequence='%s']",
-			number_str, seq_str);
+			name, seq_str);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
-		 number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
