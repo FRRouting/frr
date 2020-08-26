@@ -2039,7 +2039,7 @@ int lib_interface_isis_ipv6_routing_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	ipv4 = yang_dnode_exists(args->dnode, "../ipv4-routing");
+	ipv4 = yang_dnode_get_bool(args->dnode, "../ipv4-routing");
 	ipv6 = yang_dnode_get_bool(args->dnode, NULL);
 	isis_circuit_af_set(circuit, ipv4, ipv6);
 
