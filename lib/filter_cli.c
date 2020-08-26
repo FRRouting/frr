@@ -62,7 +62,6 @@ static int64_t acl_cisco_get_seq(struct access_list *acl, const char *action,
 	struct filter f, *fn;
 
 	memset(&f, 0, sizeof(f));
-	memset(&fc, 0, sizeof(fc));
 	f.cisco = 1;
 	if (strcmp(action, "permit") == 0)
 		f.type = FILTER_PERMIT;
@@ -125,6 +124,7 @@ static void concat_addr_mask_v4(const char *addr, const char *mask, char *dst,
 	int plen;
 
 	assert(inet_pton(AF_INET, mask, &ia) == 1);
+	ia.s_addr = ~ia.s_addr;
 	plen = ip_masklen(ia);
 	snprintf(dst, dstlen, "%s/%d", addr, plen);
 }
@@ -252,13 +252,9 @@ DEFPY_YANG(
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
 	acl = nb_running_get_entry(dnode, NULL, true);
-	if (host_str != NULL)
-		sseq = acl_cisco_get_seq(acl, action, host_str,
-					 mask_str ? mask_str : "0.0.0.0", NULL,
-					 NULL);
-	else
-		sseq = acl_cisco_get_seq(acl, action, "0.0.0.0",
-					 "255.255.255.255", NULL, NULL);
+	sseq = acl_cisco_get_seq(acl, action, host_str,
+				 mask_str ? mask_str : CISCO_HOST_WILDCARD_MASK,
+				 NULL, NULL);
 	if (sseq == -1)
 		return CMD_WARNING;
 
@@ -389,24 +385,28 @@ DEFPY_YANG(
 		if (dst_str != NULL)
 			sseq = acl_cisco_get_seq(
 				acl, action, src_str,
-				src_mask_str ? src_mask_str : "0.0.0.0",
+				src_mask_str ? src_mask_str
+					     : CISCO_HOST_WILDCARD_MASK,
 				dst_str,
-				dst_mask_str ? dst_mask_str : "0.0.0.0");
+				dst_mask_str ? dst_mask_str
+					     : CISCO_HOST_WILDCARD_MASK);
 		else
-			sseq = acl_cisco_get_seq(acl, action, src_str,
-						 src_mask_str ? src_mask_str
-							      : "0.0.0.0",
-						 "0.0.0.0", "255.255.255.255");
+			sseq = acl_cisco_get_seq(
+				acl, action, src_str,
+				src_mask_str ? src_mask_str
+					     : CISCO_HOST_WILDCARD_MASK,
+				"0.0.0.0", CISCO_ANY_WILDCARD_MASK);
 	} else {
 		if (dst_str != NULL)
-			sseq = acl_cisco_get_seq(acl, action, "0.0.0.0",
-						 "255.255.255.255", dst_str,
-						 dst_mask_str ? dst_mask_str
-							      : "0.0.0.0");
+			sseq = acl_cisco_get_seq(
+				acl, action, "0.0.0.0", CISCO_ANY_WILDCARD_MASK,
+				dst_str,
+				dst_mask_str ? dst_mask_str
+					     : CISCO_HOST_WILDCARD_MASK);
 		else
-			sseq = acl_cisco_get_seq(acl, action, "0.0.0.0",
-						 "255.255.255.255", "0.0.0.0",
-						 "255.255.255.255");
+			sseq = acl_cisco_get_seq(
+				acl, action, "0.0.0.0", CISCO_ANY_WILDCARD_MASK,
+				"0.0.0.0", CISCO_ANY_WILDCARD_MASK);
 	}
 	if (sseq == -1)
 		return CMD_WARNING;
@@ -507,7 +507,7 @@ DEFPY_YANG(
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
 	acl = nb_running_get_entry(dnode, NULL, true);
-	if (prefix == NULL) {
+	if (prefix_str == NULL) {
 		memset(&pany, 0, sizeof(pany));
 		pany.family = AF_INET;
 		sseq = acl_zebra_get_seq(acl, action, &pany, exact);

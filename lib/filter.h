@@ -32,6 +32,16 @@ extern "C" {
 /* Maximum ACL name length */
 #define ACL_NAMSIZ                128
 
+/** Cisco host wildcard mask. */
+#define CISCO_HOST_WILDCARD_MASK  "0.0.0.0"
+/** Cisco host wildcard binary mask. */
+#define CISCO_BIN_HOST_WILDCARD_MASK INADDR_ANY
+
+/** Cisco any wildcard mask. */
+#define CISCO_ANY_WILDCARD_MASK   "255.255.255.255"
+/** Cisco binary any wildcard mask. */
+#define CISCO_BIN_ANY_WILDCARD_MASK INADDR_NONE
+
 /* Filter direction.  */
 #define FILTER_IN                 0
 #define FILTER_OUT                1
