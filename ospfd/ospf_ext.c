@@ -563,9 +563,9 @@ static void ospf_ext_link_update_adj_sid(struct ext_itf *exti)
 		set_adj_sid(exti, true, bck_label, SID_LABEL);
 		set_adj_sid(exti, false, label, SID_LABEL);
 	} else {
-		 set_lan_adj_sid(exti, true, bck_label, SID_LABEL,
+		set_lan_adj_sid(exti, true, bck_label, SID_LABEL,
 				exti->lan_sid[0].neighbor_id);
-		 set_lan_adj_sid(exti, false, label, SID_LABEL,
+		set_lan_adj_sid(exti, false, label, SID_LABEL,
 				exti->lan_sid[1].neighbor_id);
 	}
 
@@ -590,8 +590,8 @@ static void ospf_ext_link_delete_adj_sid(struct ext_itf *exti)
 		ospf_sr_local_block_release_label(exti->adj_sid[0].value);
 		ospf_sr_local_block_release_label(exti->adj_sid[1].value);
 	} else {
-		ospf_sr_local_block_release_label(exti->adj_sid[0].value);
-		ospf_sr_local_block_release_label(exti->adj_sid[1].value);
+		ospf_sr_local_block_release_label(exti->lan_sid[0].value);
+		ospf_sr_local_block_release_label(exti->lan_sid[1].value);
 	}
 	/* And reset corresponding TLV */
 	unset_adjacency_sid(exti);

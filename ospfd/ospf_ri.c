@@ -573,20 +573,23 @@ static void initialize_params(struct ospf_router_info *ori)
 	return;
 }
 
-static int is_mandated_params_set(struct ospf_router_info ori)
+static int is_mandated_params_set(struct ospf_router_info *ori)
 {
 	int rc = 0;
 
-	if (ntohs(ori.router_cap.header.type) == 0)
+	if (ori == NULL)
 		return rc;
 
-	if ((ntohs(ori.pce_info.pce_header.header.type) == RI_TLV_PCE)
-	    && (ntohs(ori.pce_info.pce_address.header.type) == 0)
-	    && (ntohs(ori.pce_info.pce_cap_flag.header.type) == 0))
+	if (ntohs(ori->router_cap.header.type) == 0)
 		return rc;
 
-	if ((ori.sr_info.enabled) && (ntohs(TLV_TYPE(ori.sr_info.algo)) == 0)
-	    && (ntohs(TLV_TYPE(ori.sr_info.srgb)) == 0))
+	if ((ntohs(ori->pce_info.pce_header.header.type) == RI_TLV_PCE)
+	    && (ntohs(ori->pce_info.pce_address.header.type) == 0)
+	    && (ntohs(ori->pce_info.pce_cap_flag.header.type) == 0))
+		return rc;
+
+	if ((ori->sr_info.enabled) && (ntohs(TLV_TYPE(ori->sr_info.algo)) == 0)
+	    && (ntohs(TLV_TYPE(ori->sr_info.srgb)) == 0))
 		return rc;
 
 	rc = 1;
@@ -625,6 +628,10 @@ void ospf_router_info_update_sr(bool enable, struct sr_node *srn)
 		OspfRI.enabled = true;
 		initialize_params(&OspfRI);
 	}
+
+	/* Check that SR node is valid */
+	if (srn == NULL)
+		return;
 
 	if (IS_DEBUG_OSPF_SR)
 		zlog_debug("RI (%s): %s Routing Information for Segment Routing",
@@ -986,7 +993,7 @@ static int ospf_router_info_lsa_originate(void *arg)
 	}
 
 	/* Router Information is not yet Engaged, check parameters */
-	if (!is_mandated_params_set(OspfRI))
+	if (!is_mandated_params_set(&OspfRI))
 		flog_warn(
 			EC_OSPF_LSA,
 			"RI (%s): lacks mandated ROUTER INFORMATION parameters",
