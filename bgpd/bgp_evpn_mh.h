@@ -261,6 +261,15 @@ struct bgp_evpn_mh_info {
 	/* Use L3 NHGs for host routes in symmetric IRB */
 	bool install_l3nhg;
 	bool host_routes_use_l3nhg;
+	/* Some vendors are not generating the EAD-per-EVI route. This knob
+	 * can be turned off to activate a remote ES-PE when the EAD-per-ES
+	 * route is rxed i.e. not wait on the EAD-per-EVI route
+	 */
+	bool ead_evi_rx;
+#define BGP_EVPN_MH_EAD_EVI_RX_DEF true
+	/* Skip EAD-EVI advertisements by turning off this knob */
+	bool ead_evi_tx;
+#define BGP_EVPN_MH_EAD_EVI_TX_DEF true
 };
 
 /****************************************************************************/

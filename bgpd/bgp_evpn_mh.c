@@ -990,6 +990,10 @@ static void bgp_evpn_local_type1_evi_route_add(struct bgp *bgp,
 	struct prefix_evpn p;
 	struct bgp_evpn_es_evi *es_evi;
 
+	/* EAD-per-EVI routes have been suppressed */
+	if (!bgp_mh_info->ead_evi_tx)
+		return;
+
 	if (CHECK_FLAG(es->flags, BGP_EVPNES_ADV_EVI))
 		/* EAD-EVI route add for this ES is already done */
 		return;
@@ -2717,14 +2721,20 @@ static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 {
 	bool old_active;
 	bool new_active;
+	uint32_t ead_activity_flags;
 
 	old_active = !!CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 
-	/* Both EAD-per-ES and EAD-per-EVI routes must be rxed from a PE
-	 * before it can be activated.
-	 */
-	if ((evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD) ==
-			BGP_EVPN_EVI_VTEP_EAD)
+	if (bgp_mh_info->ead_evi_rx)
+		/* Both EAD-per-ES and EAD-per-EVI routes must be rxed from a PE
+		 * before it can be activated.
+		 */
+		ead_activity_flags = BGP_EVPN_EVI_VTEP_EAD;
+	else
+		/* EAD-per-ES is sufficent to activate the PE */
+		ead_activity_flags = BGP_EVPN_EVI_VTEP_EAD_PER_ES;
+
+	if ((evi_vtep->flags & ead_activity_flags) == ead_activity_flags)
 		SET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 	else
 		UNSET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
@@ -3075,9 +3085,9 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
 	bgp_evpn_es_evi_local_info_set(es_evi);
 
 	/* generate an EAD-EVI for this new VNI */
-	build_evpn_type1_prefix(&p, BGP_EVPN_AD_EVI_ETH_TAG,
-			&es->esi, es->originator_ip);
 	if (CHECK_FLAG(es->flags, BGP_EVPNES_ADV_EVI)) {
+		build_evpn_type1_prefix(&p, BGP_EVPN_AD_EVI_ETH_TAG, &es->esi,
+					es->originator_ip);
 		if (bgp_evpn_type1_route_update(bgp, es, vpn, &p))
 			flog_err(EC_BGP_EVPN_ROUTE_CREATE,
 					"%u: EAD-EVI route creation failure for ESI %s VNI %u",
@@ -3699,6 +3709,9 @@ void bgp_evpn_mh_init(void)
 	/* list of ESs with pending processing */
 	bgp_mh_info->pend_es_list = list_new();
 	listset_app_node_mem(bgp_mh_info->pend_es_list);
+
+	bgp_mh_info->ead_evi_rx = BGP_EVPN_MH_EAD_EVI_RX_DEF;
+	bgp_mh_info->ead_evi_tx = BGP_EVPN_MH_EAD_EVI_TX_DEF;
 
 	/* config knobs - XXX add cli to control it */
 	bgp_mh_info->ead_evi_adv_for_down_links = true;
