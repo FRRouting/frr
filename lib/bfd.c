@@ -27,6 +27,7 @@
 #include "prefix.h"
 #include "thread.h"
 #include "stream.h"
+#include "vrf.h"
 #include "zclient.h"
 #include "table.h"
 #include "vty.h"
@@ -567,4 +568,637 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	}
 
 	return 0;
+}
+
+/**
+ * BFD protocol integration configuration.
+ */
+
+/** Events definitions. */
+enum bfd_session_event {
+	/** Remove the BFD session configuration. */
+	BSE_UNINSTALL,
+	/** Install the BFD session configuration. */
+	BSE_INSTALL,
+};
+
+/**
+ * Data structure to do the necessary tricks to hide the BFD protocol
+ * integration internals.
+ */
+struct bfd_session_params {
+	/** Contains the session parameters and more. */
+	struct bfd_session_arg args;
+	/** Contains the session state. */
+	struct bfd_session_status bss;
+	/** Protocol implementation status update callback. */
+	bsp_status_update updatecb;
+	/** Protocol implementation custom data pointer. */
+	void *arg;
+
+	/**
+	 * Next event.
+	 *
+	 * This variable controls what action to execute when the command batch
+	 * finishes. Normally we'd use `thread_add_event` value, however since
+	 * that function is going to be called multiple times and the value
+	 * might be different we'll use this variable to keep track of it.
+	 */
+	enum bfd_session_event lastev;
+	/**
+	 * BFD session configuration event.
+	 *
+	 * Multiple actions might be asked during a command batch (either via
+	 * configuration load or northbound batch), so we'll use this to
+	 * install/uninstall the BFD session parameters only once.
+	 */
+	struct thread *installev;
+
+	/** BFD session installation state. */
+	bool installed;
+	/** BFD session enabled. */
+	bool enabled;
+
+	/** Global BFD paramaters list. */
+	TAILQ_ENTRY(bfd_session_params) entry;
+};
+
+struct bfd_sessions_global {
+	/**
+	 * Global BFD session parameters list for (re)installation and update
+	 * without code duplication among daemons.
+	 */
+	TAILQ_HEAD(bsplist, bfd_session_params) bsplist;
+
+	/** Pointer to FRR's event manager. */
+	struct thread_master *tm;
+	/** Pointer to zebra client data structure. */
+	struct zclient *zc;
+
+	/** Debugging state. */
+	bool debugging;
+	/** Is shutting down? */
+	bool shutting_down;
+};
+
+/** Global configuration variable. */
+static struct bfd_sessions_global bsglobal;
+
+/** Global empty address for IPv4/IPv6. */
+static const struct in6_addr i6a_zero;
+
+struct bfd_session_params *bfd_sess_new(bsp_status_update updatecb, void *arg)
+{
+	struct bfd_session_params *bsp;
+
+	bsp = XCALLOC(MTYPE_BFD_INFO, sizeof(*bsp));
+
+	/* Save application data. */
+	bsp->updatecb = updatecb;
+	bsp->arg = arg;
+
+	/* Set defaults. */
+	bsp->args.detection_multiplier = BFD_DEF_DETECT_MULT;
+	bsp->args.ttl = BFD_SINGLE_HOP_TTL;
+	bsp->args.min_rx = BFD_DEF_MIN_RX;
+	bsp->args.min_tx = BFD_DEF_MIN_TX;
+	bsp->args.vrf_id = VRF_DEFAULT;
+
+	/* Register in global list. */
+	TAILQ_INSERT_TAIL(&bsglobal.bsplist, bsp, entry);
+
+	return bsp;
+}
+
+static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
+{
+	/* Peer/local address not configured. */
+	if (bsp->args.family == 0)
+		return false;
+
+	/* Address configured but invalid. */
+	if (bsp->args.family != AF_INET && bsp->args.family != AF_INET6) {
+		if (bsglobal.debugging)
+			zlog_debug("%s: invalid session family: %d", __func__,
+				   bsp->args.family);
+		return false;
+	}
+
+	/* Invalid address. */
+	if (memcmp(&bsp->args.dst, &i6a_zero, sizeof(i6a_zero)) == 0) {
+		if (bsglobal.debugging) {
+			if (bsp->args.family == AF_INET)
+				zlog_debug("%s: invalid address: %pI4",
+					   __func__,
+					   (struct in_addr *)&bsp->args.dst);
+			else
+				zlog_debug("%s: invalid address: %pI6",
+					   __func__, &bsp->args.dst);
+		}
+		return false;
+	}
+
+	/* Multi hop requires local address. */
+	if (bsp->args.mhop
+	    && memcmp(&i6a_zero, &bsp->args.src, sizeof(i6a_zero)) == 0) {
+		if (bsglobal.debugging)
+			zlog_debug(
+				"%s: multi hop but no local address provided",
+				__func__);
+		return false;
+	}
+
+	/* Check VRF ID. */
+	if (bsp->args.vrf_id == VRF_UNKNOWN) {
+		if (bsglobal.debugging)
+			zlog_debug("%s: asked for unknown VRF", __func__);
+		return false;
+	}
+
+	return true;
+}
+
+static int _bfd_sess_send(struct thread *t)
+{
+	struct bfd_session_params *bsp = THREAD_ARG(t);
+	int rv;
+
+	/* Validate configuration before trying to send bogus data. */
+	if (!_bfd_sess_valid(bsp))
+		return 0;
+
+	if (bsp->lastev == BSE_INSTALL) {
+		bsp->args.command = bsp->installed ? ZEBRA_BFD_DEST_UPDATE
+						   : ZEBRA_BFD_DEST_REGISTER;
+	} else
+		bsp->args.command = ZEBRA_BFD_DEST_DEREGISTER;
+
+	/* If not installed and asked for uninstall, do nothing. */
+	if (!bsp->installed && bsp->args.command == ZEBRA_BFD_DEST_DEREGISTER)
+		return 0;
+
+	rv = zclient_bfd_command(bsglobal.zc, &bsp->args);
+	/* Command was sent successfully. */
+	if (rv == 0) {
+		/* Update installation status. */
+		if (bsp->args.command == ZEBRA_BFD_DEST_DEREGISTER)
+			bsp->installed = false;
+		else if (bsp->args.command == ZEBRA_BFD_DEST_REGISTER)
+			bsp->installed = true;
+	}
+
+	return 0;
+}
+
+static void _bfd_sess_remove(struct bfd_session_params *bsp)
+{
+	/* Not installed, nothing to do. */
+	if (!bsp->installed)
+		return;
+
+	/* Cancel any pending installation request. */
+	THREAD_OFF(bsp->installev);
+
+	/* Send request to remove any session. */
+	bsp->lastev = BSE_UNINSTALL;
+	thread_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+}
+
+void bfd_sess_free(struct bfd_session_params **bsp)
+{
+	if (*bsp == NULL)
+		return;
+
+	/* Remove any installed session. */
+	_bfd_sess_remove(*bsp);
+
+	/* Remove from global list. */
+	TAILQ_REMOVE(&bsglobal.bsplist, (*bsp), entry);
+
+	/* Free the memory and point to NULL. */
+	XFREE(MTYPE_BFD_INFO, (*bsp));
+}
+
+void bfd_sess_enable(struct bfd_session_params *bsp, bool enable)
+{
+	/* Remove the session when disabling. */
+	if (!enable)
+		_bfd_sess_remove(bsp);
+
+	bsp->enabled = enable;
+}
+
+void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
+			     struct in_addr *src, struct in_addr *dst)
+{
+	/* If already installed, remove the old setting. */
+	_bfd_sess_remove(bsp);
+
+	bsp->args.family = AF_INET;
+
+	/* Clean memory, set zero value and avoid static analyser warnings. */
+	memset(&bsp->args.src, 0, sizeof(bsp->args.src));
+	memset(&bsp->args.dst, 0, sizeof(bsp->args.dst));
+
+	/* Copy the equivalent of IPv4 to arguments structure. */
+	if (src)
+		memcpy(&bsp->args.src, src, sizeof(struct in_addr));
+
+	assert(dst);
+	memcpy(&bsp->args.dst, dst, sizeof(struct in_addr));
+}
+
+void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
+			     struct in6_addr *src, struct in6_addr *dst)
+{
+	/* If already installed, remove the old setting. */
+	_bfd_sess_remove(bsp);
+
+	bsp->args.family = AF_INET6;
+
+	/* Clean memory, set zero value and avoid static analyser warnings. */
+	memset(&bsp->args.src, 0, sizeof(bsp->args.src));
+
+	if (src)
+		bsp->args.src = *src;
+
+	assert(dst);
+	bsp->args.dst = *dst;
+}
+
+void bfd_sess_set_interface(struct bfd_session_params *bsp, const char *ifname)
+{
+	/* If already installed, remove the old setting. */
+	_bfd_sess_remove(bsp);
+
+	if (ifname == NULL) {
+		bsp->args.ifname[0] = 0;
+		bsp->args.ifnamelen = 0;
+		return;
+	}
+
+	if (strlcpy(bsp->args.ifname, ifname, sizeof(bsp->args.ifname))
+	    > sizeof(bsp->args.ifname))
+		zlog_warn("%s: interface name truncated: %s", __func__, ifname);
+
+	bsp->args.ifnamelen = strlen(bsp->args.ifname);
+}
+
+void bfd_sess_set_profile(struct bfd_session_params *bsp, const char *profile)
+{
+	if (profile == NULL) {
+		bsp->args.profile[0] = 0;
+		bsp->args.profilelen = 0;
+		return;
+	}
+
+	if (strlcpy(bsp->args.profile, profile, sizeof(bsp->args.profile))
+	    > sizeof(bsp->args.profile))
+		zlog_warn("%s: profile name truncated: %s", __func__, profile);
+
+	bsp->args.profilelen = strlen(bsp->args.profile);
+}
+
+void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
+{
+	/* If already installed, remove the old setting. */
+	_bfd_sess_remove(bsp);
+
+	bsp->args.vrf_id = vrf_id;
+}
+
+void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl)
+{
+	assert(min_ttl != 0);
+
+	/* If already installed, remove the old setting. */
+	_bfd_sess_remove(bsp);
+
+	/* Invert TTL value: protocol expects number of hops. */
+	min_ttl = (BFD_SINGLE_HOP_TTL + 1) - min_ttl;
+	bsp->args.ttl = min_ttl;
+	bsp->args.mhop = (min_ttl > 1);
+}
+
+void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t min_ttl)
+{
+	/* If already installed, remove the old setting. */
+	_bfd_sess_remove(bsp);
+
+	bsp->args.ttl = min_ttl;
+	bsp->args.mhop = (min_ttl > 1);
+}
+
+
+void bfd_sess_set_cbit(struct bfd_session_params *bsp, bool enable)
+{
+	bsp->args.cbit = enable;
+}
+
+void bfd_sess_set_timers(struct bfd_session_params *bsp,
+			 uint8_t detection_multiplier, uint32_t min_rx,
+			 uint32_t min_tx)
+{
+	bsp->args.detection_multiplier = detection_multiplier;
+	bsp->args.min_rx = min_rx;
+	bsp->args.min_tx = min_tx;
+}
+
+void bfd_sess_install(struct bfd_session_params *bsp)
+{
+	/* Don't attempt to install/update when disabled. */
+	if (!bsp->enabled)
+		return;
+
+	bsp->lastev = BSE_INSTALL;
+	thread_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
+}
+
+void bfd_sess_uninstall(struct bfd_session_params *bsp)
+{
+	bsp->lastev = BSE_UNINSTALL;
+	thread_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
+}
+
+enum bfd_session_state bfd_sess_status(const struct bfd_session_params *bsp)
+{
+	return bsp->bss.state;
+}
+
+uint8_t bfd_sess_minimum_ttl(const struct bfd_session_params *bsp)
+{
+	return ((BFD_SINGLE_HOP_TTL + 1) - bsp->args.ttl);
+}
+
+uint8_t bfd_sess_hop_count(const struct bfd_session_params *bsp)
+{
+	return bsp->args.ttl;
+}
+
+const char *bfd_sess_profile(const struct bfd_session_params *bsp)
+{
+	return bsp->args.profilelen ? bsp->args.profile : NULL;
+}
+
+void bfd_sess_addresses(const struct bfd_session_params *bsp, int *family,
+			struct in6_addr *src, struct in6_addr *dst)
+{
+	*family = bsp->args.family;
+	if (src)
+		*src = bsp->args.src;
+	if (dst)
+		*dst = bsp->args.dst;
+}
+
+const char *bfd_sess_interface(const struct bfd_session_params *bsp)
+{
+	if (bsp->args.ifnamelen)
+		return bsp->args.ifname;
+
+	return NULL;
+}
+
+const char *bfd_sess_vrf(const struct bfd_session_params *bsp)
+{
+	return vrf_id_to_name(bsp->args.vrf_id);
+}
+
+vrf_id_t bfd_sess_vrf_id(const struct bfd_session_params *bsp)
+{
+	return bsp->args.vrf_id;
+}
+
+bool bfd_sess_cbit(const struct bfd_session_params *bsp)
+{
+	return bsp->args.cbit;
+}
+
+void bfd_sess_timers(const struct bfd_session_params *bsp,
+		     uint8_t *detection_multiplier, uint32_t *min_rx,
+		     uint32_t *min_tx)
+{
+	*detection_multiplier = bsp->args.detection_multiplier;
+	*min_rx = bsp->args.min_rx;
+	*min_tx = bsp->args.min_tx;
+}
+
+void bfd_sess_show(struct vty *vty, struct json_object *json,
+		   struct bfd_session_params *bsp)
+{
+	json_object *json_bfd = NULL;
+	char time_buf[64];
+
+	/* Show type. */
+	if (json) {
+		json_bfd = json_object_new_object();
+		if (bsp->args.mhop)
+			json_object_string_add(json_bfd, "type", "multi hop");
+		else
+			json_object_string_add(json_bfd, "type", "single hop");
+	} else
+		vty_out(vty, "  BFD: Type: %s\n",
+			bsp->args.mhop ? "multi hop" : "single hop");
+
+	/* Show configuration. */
+	if (json) {
+		json_object_int_add(json_bfd, "detectMultiplier",
+				    bsp->args.detection_multiplier);
+		json_object_int_add(json_bfd, "rxMinInterval",
+				    bsp->args.min_rx);
+		json_object_int_add(json_bfd, "txMinInterval",
+				    bsp->args.min_tx);
+	} else {
+		vty_out(vty,
+			"  Detect Multiplier: %d, Min Rx interval: %d, Min Tx interval: %d\n",
+			bsp->args.detection_multiplier, bsp->args.min_rx,
+			bsp->args.min_tx);
+	}
+
+	bfd_last_update(bsp->bss.last_event, time_buf, sizeof(time_buf));
+	if (json) {
+		json_object_string_add(json_bfd, "status",
+				       bfd_get_status_str(bsp->bss.state));
+		json_object_string_add(json_bfd, "lastUpdate", time_buf);
+	} else
+		vty_out(vty, "  Status: %s, Last update: %s\n",
+			bfd_get_status_str(bsp->bss.state), time_buf);
+
+	if (json)
+		json_object_object_add(json, "peerBfdInfo", json_bfd);
+	else
+		vty_out(vty, "\n");
+}
+
+/*
+ * Zebra communication related.
+ */
+
+/**
+ * Callback for reinstallation of all registered BFD sessions.
+ *
+ * Use this as `zclient` `bfd_dest_replay` callback.
+ */
+static int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
+{
+	struct bfd_session_params *bsp;
+
+	/* Do nothing when shutting down. */
+	if (bsglobal.shutting_down)
+		return 0;
+
+	if (bsglobal.debugging)
+		zlog_debug("%s: sending all sessions registered", __func__);
+
+	/* Send the client registration */
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf_id);
+
+	/* Replay all activated peers. */
+	TAILQ_FOREACH (bsp, &bsglobal.bsplist, entry) {
+		/* Skip disabled sessions. */
+		if (!bsp->enabled)
+			continue;
+
+		/* We are reconnecting, so we must send installation. */
+		bsp->installed = false;
+
+		/* Cancel any pending installation request. */
+		THREAD_OFF(bsp->installev);
+
+		/* Ask for installation. */
+		bsp->lastev = BSE_INSTALL;
+		thread_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+	}
+
+	return 0;
+}
+
+static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
+{
+	struct bfd_session_params *bsp;
+	size_t sessions_updated = 0;
+	struct interface *ifp;
+	int remote_cbit = false;
+	int state = BFD_STATUS_UNKNOWN;
+	size_t addrlen;
+	struct prefix dp;
+	struct prefix sp;
+	char ifstr[128], cbitstr[32];
+
+	/* Do nothing when shutting down. */
+	if (bsglobal.shutting_down)
+		return 0;
+
+	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &state, &remote_cbit,
+				vrf_id);
+
+	if (bsglobal.debugging) {
+		ifstr[0] = 0;
+		if (ifp)
+			snprintf(ifstr, sizeof(ifstr), " (interface %s)",
+				 ifp->name);
+
+		snprintf(cbitstr, sizeof(cbitstr), " (CPI bit %s)",
+			 remote_cbit ? "yes" : "no");
+
+		zlog_debug("%s: %pFX -> %pFX%s VRF %s(%u)%s: %s", __func__, &sp,
+			   &dp, ifstr, vrf_id_to_name(vrf_id), vrf_id, cbitstr,
+			   bfd_get_status_str(state));
+	}
+
+	switch (dp.family) {
+	case AF_INET:
+		addrlen = sizeof(struct in_addr);
+		break;
+	case AF_INET6:
+		addrlen = sizeof(struct in6_addr);
+		break;
+
+	default:
+		/* Unexpected value. */
+		assert(0);
+		break;
+	}
+
+	/* Notify all matching sessions about update. */
+	TAILQ_FOREACH (bsp, &bsglobal.bsplist, entry) {
+		/* Skip disabled or not installed entries. */
+		if (!bsp->enabled || !bsp->installed)
+			continue;
+		/* Skip different VRFs. */
+		if (bsp->args.vrf_id != vrf_id)
+			continue;
+		/* Skip different families. */
+		if (bsp->args.family != dp.family)
+			continue;
+		/* Skip different interface. */
+		if (bsp->args.ifnamelen && ifp
+		    && strcmp(bsp->args.ifname, ifp->name) != 0)
+			continue;
+		/* Skip non matching destination addresses. */
+		if (memcmp(&bsp->args.dst, &dp.u, addrlen) != 0)
+			continue;
+		/*
+		 * Source comparison test:
+		 * We will only compare source if BFD daemon provided the
+		 * source address and the protocol set a source address in
+		 * the configuration otherwise we'll just skip it.
+		 */
+		if (sp.family && memcmp(&bsp->args.src, &i6a_zero, addrlen) != 0
+		    && memcmp(&sp.u, &i6a_zero, addrlen) != 0
+		    && memcmp(&bsp->args.src, &sp.u, addrlen) != 0)
+			continue;
+		/* No session state change. */
+		if ((int)bsp->bss.state == state)
+			continue;
+
+		bsp->bss.last_event = monotime(NULL);
+		bsp->bss.previous_state = bsp->bss.state;
+		bsp->bss.state = state;
+		bsp->bss.remote_cbit = remote_cbit;
+		bsp->updatecb(bsp, &bsp->bss, bsp->arg);
+		sessions_updated++;
+	}
+
+	if (bsglobal.debugging)
+		zlog_debug("%s:   sessions updated: %zu", __func__,
+			   sessions_updated);
+
+	return 0;
+}
+
+void bfd_protocol_integration_init(struct zclient *zc, struct thread_master *tm)
+{
+	/* Initialize data structure. */
+	TAILQ_INIT(&bsglobal.bsplist);
+
+	/* Copy pointers. */
+	bsglobal.zc = zc;
+	bsglobal.tm = tm;
+
+	/* Install our callbacks. */
+	zc->interface_bfd_dest_update = zclient_bfd_session_update;
+	zc->bfd_dest_replay = zclient_bfd_session_reply;
+
+	/* Send the client registration */
+	bfd_client_sendmsg(zc, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
+}
+
+void bfd_protocol_integration_set_debug(bool enable)
+{
+	bsglobal.debugging = enable;
+}
+
+void bfd_protocol_integration_set_shutdown(bool enable)
+{
+	bsglobal.shutting_down = enable;
+}
+
+bool bfd_protocol_integration_debug(void)
+{
+	return bsglobal.debugging;
+}
+
+bool bfd_protocol_integration_shutting_down(void)
+{
+	return bsglobal.shutting_down;
 }
