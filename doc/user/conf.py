@@ -365,8 +365,8 @@ def setup(app):
     # node later on
     app.add_object_type('clicmd', 'clicmd')
     # css overrides for HTML theme
-    app.add_stylesheet('overrides.css')
-    app.add_javascript('overrides.js')
+    app.add_css_file('overrides.css')
+    app.add_js_file('overrides.js')
     # load Pygments lexer for FRR config syntax
     #
     # NB: in Pygments 2.2+ this can be done with `load_lexer_from_file`, but we
