@@ -1349,6 +1349,20 @@ static void zread_interface_add(ZAPI_HANDLER_ARGS)
 	struct vrf *vrf;
 	struct interface *ifp;
 
+	vrf_id_t vrf_id = zvrf_id(zvrf);
+	if (vrf_id != VRF_DEFAULT && vrf_id != VRF_UNKNOWN) {
+		FOR_ALL_INTERFACES (zvrf->vrf, ifp) {
+			/* Skip pseudo interface. */
+			if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
+				continue;
+
+			zsend_interface_add(client, ifp);
+			zsend_interface_link_params(client, ifp);
+			zsend_interface_addresses(client, ifp);
+		}
+		return;
+	}
+
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			/* Skip pseudo interface. */
