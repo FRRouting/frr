@@ -750,45 +750,10 @@ int zclient_send_rnh(struct zclient *zclient, int command,
  * The corresponding read ("xdr_decode") function on the server
  * side is zapi_route_decode().
  *
- *  0 1 2 3 4 5 6 7 8 9 A B C D E F 0 1 2 3 4 5 6 7 8 9 A B C D E F
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |            Length (2)         |    Command    | Route Type    |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * | ZEBRA Flags   | Message Flags | Prefix length |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * | Destination IPv4 Prefix for route                             |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * | Nexthop count |
- * +-+-+-+-+-+-+-+-+
- *
- *
- * A number of IPv4 nexthop(s) or nexthop interface index(es) are then
- * described, as per the Nexthop count. Each nexthop described as:
- *
- * +-+-+-+-+-+-+-+-+
- * | Nexthop Type  |  Set to one of ZEBRA_NEXTHOP_*
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |       IPv4 Nexthop address or Interface Index number          |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * Alternatively, if the route is a blackhole route, then Nexthop count
- * is set to 1 and a nexthop of type NEXTHOP_TYPE_BLACKHOLE is the sole
- * nexthop.
- *
- * The original struct zapi_route_*() infrastructure was built around
- * the traditional (32-bit "gate OR ifindex") nexthop data unit.
- * A special encoding can be used to feed onlink (64-bit "gate AND ifindex")
- * nexthops into zapi_route_encode() using the same zapi_route structure.
- * This is done by setting zapi_route fields as follows:
- *  - .message |= ZAPI_MESSAGE_NEXTHOP | ZAPI_MESSAGE_ONLINK
- *  - .nexthop_num == .ifindex_num
- *  - .nexthop and .ifindex are filled with gate and ifindex parts of
- *    each compound nexthop, both in the same order
- *
  * If ZAPI_MESSAGE_DISTANCE is set, the distance value is written as a 1
  * byte value.
  *
- * If ZAPI_MESSAGE_METRIC is set, the metric value is written as an 8
+ * If ZAPI_MESSAGE_METRIC is set, the metric value is written as a 4
  * byte value.
  *
  * If ZAPI_MESSAGE_TAG is set, the tag value is written as a 4 byte value
