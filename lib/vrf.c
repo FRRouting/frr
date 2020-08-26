@@ -331,6 +331,9 @@ const char *vrf_id_to_name(vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
 
+	if (vrf_id == VRF_DEFAULT)
+		return VRF_DEFAULT_NAME;
+
 	vrf = vrf_lookup_by_id(vrf_id);
 	return VRF_LOGNAME(vrf);
 }
