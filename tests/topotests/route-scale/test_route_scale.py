@@ -192,10 +192,14 @@ def test_route_install():
 
     # Avoid top ecmp case for runs with < 4G memory
     p = os.popen('free')
-    l = p.readlines()[1].split()
+    plines = p.readlines()
+    l = plines[1].split()
     mem = int(l[1])
+    l = plines[2].split()
+    swap_mem = int(l[1])
     if mem < 4000000:
-        logger.info('Limited memory available: {}, skipping x32 testcase'.format(mem))
+        logger.info('Limited memory available: {}, {}, '\
+                    'skipping x32 ecmp testcase'.format(mem, swap_mem))
         scale_setups = scale_setups[0:-1]
 
     # Run each step using the dicts we've built
