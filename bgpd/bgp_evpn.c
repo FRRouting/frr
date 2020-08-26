@@ -726,6 +726,7 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 	memset(&ecom_encap, 0, sizeof(ecom_encap));
 	encode_encap_extcomm(tnl_type, &eval);
 	ecom_encap.size = 1;
+	ecom_encap.unit_size = ECOMMUNITY_SIZE;
 	ecom_encap.val = (uint8_t *)eval.val;
 
 	/* Add Encap */
@@ -788,6 +789,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	memset(&ecom_encap, 0, sizeof(ecom_encap));
 	encode_encap_extcomm(tnl_type, &eval);
 	ecom_encap.size = 1;
+	ecom_encap.unit_size = ECOMMUNITY_SIZE;
 	ecom_encap.val = (uint8_t *)eval.val;
 
 	/* Add Encap */
@@ -816,6 +818,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 		memset(&ecom_sticky, 0, sizeof(ecom_sticky));
 		encode_mac_mobility_extcomm(1, seqnum, &eval_sticky);
 		ecom_sticky.size = 1;
+		ecom_sticky.unit_size = ECOMMUNITY_SIZE;
 		ecom_sticky.val = (uint8_t *)eval_sticky.val;
 		attr->ecommunity =
 			ecommunity_merge(attr->ecommunity, &ecom_sticky);
@@ -832,6 +835,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 		memset(&ecom_default_gw, 0, sizeof(ecom_default_gw));
 		encode_default_gw_extcomm(&eval_default_gw);
 		ecom_default_gw.size = 1;
+		ecom_default_gw.unit_size = ECOMMUNITY_SIZE;
 		ecom_default_gw.val = (uint8_t *)eval_default_gw.val;
 		attr->ecommunity =
 			ecommunity_merge(attr->ecommunity, &ecom_default_gw);
@@ -842,6 +846,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 		memset(&ecom_na, 0, sizeof(ecom_na));
 		encode_na_flag_extcomm(&eval_na, attr->router_flag, proxy);
 		ecom_na.size = 1;
+		ecom_na.unit_size = ECOMMUNITY_SIZE;
 		ecom_na.val = (uint8_t *)eval_na.val;
 		attr->ecommunity = ecommunity_merge(attr->ecommunity,
 						   &ecom_na);
@@ -871,7 +876,8 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 
 	if (attr->ecommunity) {
 		for (i = 0; i < attr->ecommunity->size; i++) {
-			pnt = attr->ecommunity->val + (i * 8);
+			pnt = attr->ecommunity->val +
+				(i * attr->ecommunity->unit_size);
 			type = *pnt++;
 			sub_type = *pnt++;
 
@@ -879,7 +885,8 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 			    && sub_type
 				       == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY) {
 				ecom_val_ptr =
-					(attr->ecommunity->val + (i * 8));
+					(attr->ecommunity->val +
+					 (i * attr->ecommunity->unit_size));
 				break;
 			}
 		}
@@ -887,12 +894,14 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 
 	/* Update the existing MM ecommunity */
 	if (ecom_val_ptr) {
-		memcpy(ecom_val_ptr, eval.val, sizeof(char) * ECOMMUNITY_SIZE);
+		memcpy(ecom_val_ptr, eval.val, sizeof(char)
+		       * attr->ecommunity->unit_size);
 	}
 	/* Add MM to existing */
 	else {
 		memset(&ecom_tmp, 0, sizeof(ecom_tmp));
 		ecom_tmp.size = 1;
+		ecom_tmp.unit_size = ECOMMUNITY_SIZE;
 		ecom_tmp.val = (uint8_t *)eval.val;
 
 		if (attr->ecommunity)
@@ -2713,9 +2722,9 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf,
 		struct vrf_irt_node *irt;
 
 		/* Only deal with RTs */
-		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		pnt = (ecom->val + (i * ecom->unit_size));
 		eval = (struct ecommunity_val *)(ecom->val
-						 + (i * ECOMMUNITY_SIZE));
+						 + (i * ecom->unit_size));
 		type = *pnt++;
 		sub_type = *pnt++;
 		if (sub_type != ECOMMUNITY_ROUTE_TARGET)
@@ -2737,7 +2746,7 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf,
 		if (type == ECOMMUNITY_ENCODE_AS
 		    || type == ECOMMUNITY_ENCODE_AS4
 		    || type == ECOMMUNITY_ENCODE_IP) {
-			memcpy(&eval_tmp, eval, ECOMMUNITY_SIZE);
+			memcpy(&eval_tmp, eval, ecom->unit_size);
 			mask_ecom_global_admin(&eval_tmp, eval);
 			irt = lookup_vrf_import_rt(&eval_tmp);
 		}
@@ -2780,9 +2789,9 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 		struct irt_node *irt;
 
 		/* Only deal with RTs */
-		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		pnt = (ecom->val + (i * ecom->unit_size));
 		eval = (struct ecommunity_val *)(ecom->val
-						 + (i * ECOMMUNITY_SIZE));
+						 + (i * ecom->unit_size));
 		type = *pnt++;
 		sub_type = *pnt++;
 		if (sub_type != ECOMMUNITY_ROUTE_TARGET)
@@ -2804,7 +2813,7 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 		if (type == ECOMMUNITY_ENCODE_AS
 		    || type == ECOMMUNITY_ENCODE_AS4
 		    || type == ECOMMUNITY_ENCODE_IP) {
-			memcpy(&eval_tmp, eval, ECOMMUNITY_SIZE);
+			memcpy(&eval_tmp, eval, ecom->unit_size);
 			mask_ecom_global_admin(&eval_tmp, eval);
 			irt = lookup_import_rt(bgp, &eval_tmp);
 		}
@@ -3220,9 +3229,9 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 		struct bgp_evpn_es *es;
 
 		/* Only deal with RTs */
-		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		pnt = (ecom->val + (i * ecom->unit_size));
 		eval = (struct ecommunity_val *)(ecom->val
-						 + (i * ECOMMUNITY_SIZE));
+						 + (i * ecom->unit_size));
 		type = *pnt++;
 		sub_type = *pnt++;
 		if (sub_type != ECOMMUNITY_ROUTE_TARGET)
@@ -3261,7 +3270,7 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 			if (type == ECOMMUNITY_ENCODE_AS
 			    || type == ECOMMUNITY_ENCODE_AS4
 			    || type == ECOMMUNITY_ENCODE_IP) {
-				memcpy(&eval_tmp, eval, ECOMMUNITY_SIZE);
+				memcpy(&eval_tmp, eval, ecom->unit_size);
 				mask_ecom_global_admin(&eval_tmp, eval);
 				irt = lookup_import_rt(bgp, &eval_tmp);
 				vrf_irt = lookup_vrf_import_rt(&eval_tmp);

@@ -594,10 +594,14 @@ route_match_prefix_list_flowspec(afi_t afi, struct prefix_list *plist,
 
 	memset(&api, 0, sizeof(api));
 
+	if (family2afi(p->u.prefix_flowspec.family) != afi)
+		return RMAP_NOMATCH;
+
 	/* extract match from flowspec entries */
 	ret = bgp_flowspec_match_rules_fill(
 					    (uint8_t *)p->u.prefix_flowspec.ptr,
-					    p->u.prefix_flowspec.prefixlen, &api);
+					    p->u.prefix_flowspec.prefixlen, &api,
+					    afi);
 	if (ret < 0)
 		return RMAP_NOMATCH;
 	if (api.match_bitmask & PREFIX_DST_PRESENT ||
@@ -2602,6 +2606,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix,
 			ecommunity_free(&old_ecom);
 	} else {
 		ecom_lb.size = 1;
+		ecom_lb.unit_size = ECOMMUNITY_SIZE;
 		ecom_lb.val = (uint8_t *)lb_eval.val;
 		new_ecom = ecommunity_dup(&ecom_lb);
 	}

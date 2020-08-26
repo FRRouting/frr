@@ -84,6 +84,7 @@ static const struct message attr_str[] = {
 #endif
 	{BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY"},
 	{BGP_ATTR_PREFIX_SID, "PREFIX_SID"},
+	{BGP_ATTR_IPV6_EXT_COMMUNITIES, "IPV6_EXT_COMMUNITIES"},
 	{0}};
 
 static const struct message attr_flag_str[] = {
@@ -662,6 +663,8 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(lcommunity_hash_make(attr->lcommunity));
 	if (attr->ecommunity)
 		MIX(ecommunity_hash_make(attr->ecommunity));
+	if (attr->ipv6_ecommunity)
+		MIX(ecommunity_hash_make(attr->ipv6_ecommunity));
 	if (attr->cluster)
 		MIX(cluster_hash_key_make(attr->cluster));
 	if (attr->transit)
@@ -700,6 +703,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->label_index == attr2->label_index
 		    && attr1->mp_nexthop_len == attr2->mp_nexthop_len
 		    && attr1->ecommunity == attr2->ecommunity
+		    && attr1->ipv6_ecommunity == attr2->ipv6_ecommunity
 		    && attr1->lcommunity == attr2->lcommunity
 		    && attr1->cluster == attr2->cluster
 		    && attr1->transit == attr2->transit
@@ -829,6 +833,15 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		else
 			attr->ecommunity->refcnt++;
 	}
+
+	if (attr->ipv6_ecommunity) {
+		if (!attr->ipv6_ecommunity->refcnt)
+			attr->ipv6_ecommunity =
+				ecommunity_intern(attr->ipv6_ecommunity);
+		else
+			attr->ipv6_ecommunity->refcnt++;
+	}
+
 	if (attr->lcommunity) {
 		if (!attr->lcommunity->refcnt)
 			attr->lcommunity = lcommunity_intern(attr->lcommunity);
@@ -1034,6 +1047,10 @@ void bgp_attr_unintern_sub(struct attr *attr)
 		ecommunity_unintern(&attr->ecommunity);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 
+	if (attr->ipv6_ecommunity)
+		ecommunity_unintern(&attr->ipv6_ecommunity);
+	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
+
 	if (attr->lcommunity)
 		lcommunity_unintern(&attr->lcommunity);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
@@ -1118,6 +1135,8 @@ void bgp_attr_flush(struct attr *attr)
 		community_free(&attr->community);
 	if (attr->ecommunity && !attr->ecommunity->refcnt)
 		ecommunity_free(&attr->ecommunity);
+	if (attr->ipv6_ecommunity && !attr->ipv6_ecommunity->refcnt)
+		ecommunity_free(&attr->ipv6_ecommunity);
 	if (attr->lcommunity && !attr->lcommunity->refcnt)
 		lcommunity_free(&attr->lcommunity);
 	if (attr->cluster && !attr->cluster->refcnt) {
@@ -1201,6 +1220,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_LOCAL_PREF:
 	case BGP_ATTR_COMMUNITIES:
 	case BGP_ATTR_EXT_COMMUNITIES:
+	case BGP_ATTR_IPV6_EXT_COMMUNITIES:
 	case BGP_ATTR_LARGE_COMMUNITIES:
 	case BGP_ATTR_ORIGINATOR_ID:
 	case BGP_ATTR_CLUSTER_LIST:
@@ -1286,6 +1306,8 @@ const uint8_t attr_flags_values[] = {
 	[BGP_ATTR_LARGE_COMMUNITIES] =
 		BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 	[BGP_ATTR_PREFIX_SID] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+	[BGP_ATTR_IPV6_EXT_COMMUNITIES] =
+		BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 };
 static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
@@ -2264,6 +2286,34 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
+/* IPv6 Extended Community attribute. */
+static bgp_attr_parse_ret_t
+bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
+{
+	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
+	const bgp_size_t length = args->length;
+
+	if (length == 0) {
+		attr->ipv6_ecommunity = NULL;
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+					  args->total);
+	}
+
+	attr->ipv6_ecommunity =
+		ecommunity_parse_ipv6(stream_pnt(peer->curr), length);
+	/* XXX: fix ecommunity_parse to use stream API */
+	stream_forward_getp(peer->curr, length);
+
+	if (!attr->ipv6_ecommunity)
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+					  args->total);
+
+	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES);
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
 /* Parse Tunnel Encap attribute in an UPDATE */
 static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 			  bgp_size_t length, /* IN: attr's length field */
@@ -3081,6 +3131,9 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 			break;
 		case BGP_ATTR_PMSI_TUNNEL:
 			ret = bgp_attr_pmsi_tunnel(&attr_args);
+			break;
+		case BGP_ATTR_IPV6_EXT_COMMUNITIES:
+			ret = bgp_attr_ipv6_ext_communities(&attr_args);
 			break;
 		default:
 			ret = bgp_attr_unknown(&attr_args);

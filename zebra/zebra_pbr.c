@@ -83,6 +83,27 @@ const struct message icmp_typecode_str[] = {
 	{0}
 };
 
+const struct message icmpv6_typecode_str[] = {
+	{ 128 << 8, "echo-request"},
+	{ 129 << 8, "echo-reply"},
+	{ 1 << 8, "no-route"},
+	{ (1 << 8) + 1, "communication-prohibited"},
+	{ (1 << 8) + 3, "address-unreachable"},
+	{ (1 << 8) + 4, "port-unreachable"},
+	{ (2 << 8), "packet-too-big"},
+	{ 3 << 0, "ttl-zero-during-transit"},
+	{ (3 << 8) + 1, "ttl-zero-during-reassembly"},
+	{ 4 << 0, "bad-header"},
+	{ (4 << 0) + 1, "unknown-header-type"},
+	{ (4 << 0) + 2, "unknown-option"},
+	{ 133 << 8, "router-solicitation"},
+	{ 134 << 8, "router-advertisement"},
+	{ 135 << 8, "neighbor-solicitation"},
+	{ 136 << 8, "neighbor-advertisement"},
+	{ 137 << 8, "redirect"},
+	{0}
+};
+
 /* definitions */
 static const struct message tcp_value_str[] = {
 	{TCP_HEADER_FIN, "FIN"},
@@ -251,6 +272,8 @@ uint32_t zebra_pbr_ipset_hash_key(const void *arg)
 	uint32_t *pnt = (uint32_t *)&ipset->ipset_name;
 	uint32_t key = jhash_1word(ipset->vrf_id, 0x63ab42de);
 
+	key =  jhash_1word(ipset->family, key);
+
 	return jhash2(pnt, ZEBRA_IPSET_NAME_HASH_SIZE, key);
 }
 
@@ -266,6 +289,8 @@ bool zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2)
 	if (r1->unique != r2->unique)
 		return false;
 	if (r1->vrf_id != r2->vrf_id)
+		return false;
+	if (r1->family != r2->family)
 		return false;
 
 	if (strncmp(r1->ipset_name, r2->ipset_name,
@@ -376,6 +401,8 @@ uint32_t zebra_pbr_iptable_hash_key(const void *arg)
 	key = jhash2(pnt, ZEBRA_IPSET_NAME_HASH_SIZE,
 		     0x63ab42de);
 	key = jhash_1word(iptable->fwmark, key);
+	key = jhash_1word(iptable->family, key);
+	key = jhash_1word(iptable->flow_label, key);
 	key = jhash_1word(iptable->pkt_len_min, key);
 	key = jhash_1word(iptable->pkt_len_max, key);
 	key = jhash_1word(iptable->tcp_flags, key);
@@ -410,6 +437,10 @@ bool zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2)
 		return false;
 	if (strncmp(r1->ipset_name, r2->ipset_name,
 		    ZEBRA_IPSET_NAME_SIZE))
+		return false;
+	if (r1->family != r2->family)
+		return false;
+	if (r1->flow_label != r2->flow_label)
 		return false;
 	if (r1->pkt_len_min != r2->pkt_len_min)
 		return false;
@@ -876,7 +907,8 @@ static const char *zebra_pbr_prefix2str(union prefixconstptr pu,
 	const struct prefix *p = pu.p;
 	char buf[PREFIX2STR_BUFFER];
 
-	if (p->family == AF_INET && p->prefixlen == IPV4_MAX_PREFIXLEN) {
+	if ((p->family == AF_INET && p->prefixlen == IPV4_MAX_PREFIXLEN) ||
+	    (p->family == AF_INET6 && p->prefixlen == IPV6_MAX_PREFIXLEN)) {
 		snprintf(str, size, "%s", inet_ntop(p->family, &p->u.prefix,
 						    buf, PREFIX2STR_BUFFER));
 		return str;
@@ -889,6 +921,9 @@ static void zebra_pbr_display_icmp(struct vty *vty,
 {
 	char decoded_str[20];
 	uint16_t port;
+	struct zebra_pbr_ipset *zpi;
+
+	zpi = zpie->backpointer;
 
 	/* range icmp type */
 	if (zpie->src_port_max || zpie->dst_port_max) {
@@ -901,8 +936,10 @@ static void zebra_pbr_display_icmp(struct vty *vty,
 		memset(decoded_str, 0, sizeof(decoded_str));
 		snprintf(decoded_str, sizeof(decoded_str), "%u/%u",
 			 zpie->src_port_min, zpie->dst_port_min);
-		vty_out(vty, ":icmp:%s",
-			lookup_msg(icmp_typecode_str,
+		vty_out(vty, ":%s:%s",
+			zpi->family == AF_INET6 ? "ipv6-icmp" : "icmp",
+			lookup_msg(zpi->family == AF_INET6 ?
+				   icmpv6_typecode_str : icmp_typecode_str,
 				   port, decoded_str));
 	}
 }
@@ -1012,8 +1049,9 @@ static int zebra_pbr_show_ipset_walkcb(struct hash_bucket *bucket, void *arg)
 	struct vty *vty = uniqueipset->vty;
 	struct zebra_ns *zns = uniqueipset->zns;
 
-	vty_out(vty, "IPset %s type %s\n", zpi->ipset_name,
-		zebra_pbr_ipset_type2str(zpi->type));
+	vty_out(vty, "IPset %s type %s family %s\n", zpi->ipset_name,
+		zebra_pbr_ipset_type2str(zpi->type),
+		family2str(zpi->family));
 	unique.vty = vty;
 	unique.zpi = zpi;
 	unique.zns = zns;
@@ -1058,9 +1096,9 @@ void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname)
 			vty_out(vty, "No IPset %s found\n", ipsetname);
 			return;
 		}
-		vty_out(vty, "IPset %s type %s\n", ipsetname,
-			zebra_pbr_ipset_type2str(zpi->type));
-
+		vty_out(vty, "IPset %s type %s family %s\n", ipsetname,
+			zebra_pbr_ipset_type2str(zpi->type),
+			family2str(zpi->family));
 		unique.vty = vty;
 		unique.zpi = zpi;
 		unique.zns = zns;
@@ -1101,7 +1139,9 @@ static void zebra_pbr_show_iptable_unit(struct zebra_pbr_iptable *iptable,
 	int ret;
 	uint64_t pkts = 0, bytes = 0;
 
-	vty_out(vty, "IPtable %s action %s (%u)\n", iptable->ipset_name,
+	vty_out(vty, "IPtable %s family %s action %s (%u)\n",
+		iptable->ipset_name,
+		family2str(iptable->family),
 		iptable->action == ZEBRA_IPTABLES_DROP ? "drop" : "redirect",
 		iptable->unique);
 	if (iptable->type == IPSET_NET_PORT ||
@@ -1139,6 +1179,12 @@ static void zebra_pbr_show_iptable_unit(struct zebra_pbr_iptable *iptable,
 		vty_out(vty, "\t dscp %s %d\n",
 			iptable->filter_bm & MATCH_DSCP_INVERSE_SET ?
 			"not" : "", iptable->dscp_value);
+	}
+	if (iptable->filter_bm & (MATCH_FLOW_LABEL_SET |
+				  MATCH_FLOW_LABEL_INVERSE_SET)) {
+		vty_out(vty, "\t flowlabel %s %d\n",
+			iptable->filter_bm & MATCH_FLOW_LABEL_INVERSE_SET ?
+			"not" : "", iptable->flow_label);
 	}
 	if (iptable->fragment) {
 		char val_str[10];

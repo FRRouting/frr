@@ -176,6 +176,7 @@ struct evpn_addr {
 #endif
 
 struct flowspec_prefix {
+	uint8_t family;
 	uint16_t prefixlen; /* length in bytes */
 	uintptr_t ptr;
 };

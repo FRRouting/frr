@@ -50,6 +50,7 @@ static const struct message bgp_flowspec_display_large[] = {
 	{FLOWSPEC_PKT_LEN, "Packet Length"},
 	{FLOWSPEC_DSCP, "DSCP field"},
 	{FLOWSPEC_FRAGMENT, "Packet Fragment"},
+	{FLOWSPEC_FLOW_LABEL, "Packet Flow Label"},
 	{0}
 };
 
@@ -66,6 +67,7 @@ static const struct message bgp_flowspec_display_min[] = {
 	{FLOWSPEC_PKT_LEN, "pktlen"},
 	{FLOWSPEC_DSCP, "dscp"},
 	{FLOWSPEC_FRAGMENT, "pktfrag"},
+	{FLOWSPEC_FLOW_LABEL, "flwlbl"},
 	{0}
 };
 
@@ -93,7 +95,8 @@ static const struct message bgp_flowspec_display_min[] = {
  */
 void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 			    char *return_string, int format,
-			    json_object *json_path)
+			    json_object *json_path,
+			    afi_t afi)
 {
 	uint32_t offset = 0;
 	int type;
@@ -127,7 +130,8 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 						type_util,
 						nlri_content+offset,
 						len - offset,
-						local_string, &error);
+						local_string, &error,
+						afi, NULL);
 			if (ret <= 0)
 				break;
 			if (json_path) {
@@ -145,6 +149,7 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 			len_string -= len_written;
 			ptr += len_written;
 			break;
+		case FLOWSPEC_FLOW_LABEL:
 		case FLOWSPEC_IP_PROTOCOL:
 		case FLOWSPEC_PORT:
 		case FLOWSPEC_DEST_PORT:
@@ -258,66 +263,99 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 {
 	struct attr *attr;
 	char return_string[BGP_FLOWSPEC_STRING_DISPLAY_MAX];
-	char *s;
+	char *s1 = NULL, *s2 = NULL;
 	json_object *json_nlri_path = NULL;
 	json_object *json_ecom_path = NULL;
 	json_object *json_time_path = NULL;
 	char timebuf[BGP_UPTIME_LEN];
+	struct bgp_dest *dest = NULL;
 
-	/* Print prefix */
-	if (p != NULL) {
-		if (p->family != AF_FLOWSPEC)
-			return;
-		if (json_paths) {
-			if (display == NLRI_STRING_FORMAT_JSON)
-				json_nlri_path = json_object_new_object();
-			else
-				json_nlri_path = json_paths;
-		}
-		if (display == NLRI_STRING_FORMAT_LARGE && path)
-			vty_out(vty, "BGP flowspec entry: (flags 0x%x)\n",
-				path->flags);
-		bgp_fs_nlri_get_string((unsigned char *)
-				       p->u.prefix_flowspec.ptr,
-				       p->u.prefix_flowspec.prefixlen,
-				       return_string,
-				       display,
-				       json_nlri_path);
-		if (display == NLRI_STRING_FORMAT_LARGE)
-			vty_out(vty, "%s", return_string);
-		else if (display == NLRI_STRING_FORMAT_DEBUG)
-			vty_out(vty, "%s", return_string);
-		else if (display == NLRI_STRING_FORMAT_MIN)
-			vty_out(vty, " %-30s", return_string);
-		else if (json_paths && display == NLRI_STRING_FORMAT_JSON)
-			json_object_array_add(json_paths, json_nlri_path);
+	if (path)
+		dest = path->net;
+	if (dest)
+		bgp_dest_get_bgp_table_info(dest);
+	if (p == NULL || p->family != AF_FLOWSPEC)
+		return;
+	if (json_paths) {
+		if (display == NLRI_STRING_FORMAT_JSON)
+			json_nlri_path = json_object_new_object();
+		else
+			json_nlri_path = json_paths;
 	}
+	if (display == NLRI_STRING_FORMAT_LARGE && path)
+		vty_out(vty, "BGP flowspec entry: (flags 0x%x)\n",
+			path->flags);
+	bgp_fs_nlri_get_string((unsigned char *)
+			       p->u.prefix_flowspec.ptr,
+			       p->u.prefix_flowspec.prefixlen,
+			       return_string,
+			       display,
+			       json_nlri_path,
+			       family2afi(p->u.prefix_flowspec
+					  .family));
+	if (display == NLRI_STRING_FORMAT_LARGE)
+		vty_out(vty, "%s", return_string);
+	else if (display == NLRI_STRING_FORMAT_DEBUG)
+		vty_out(vty, "%s", return_string);
+	else if (display == NLRI_STRING_FORMAT_MIN)
+		vty_out(vty, " %-30s", return_string);
+	else if (json_paths && display == NLRI_STRING_FORMAT_JSON)
+		json_object_array_add(json_paths, json_nlri_path);
 	if (!path)
 		return;
-	if (path->attr->ecommunity) {
+	if (path->attr &&
+	    (path->attr->ecommunity || path->attr->ipv6_ecommunity)) {
 		/* Print attribute */
 		attr = path->attr;
-		s = ecommunity_ecom2str(attr->ecommunity,
-					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-		if (!s)
+		if (attr->ecommunity)
+			s1 = ecommunity_ecom2str(attr->ecommunity,
+						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+		if (attr->ipv6_ecommunity)
+			s2 = ecommunity_ecom2str(attr->ipv6_ecommunity,
+						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+		if (!s1 && !s2)
 			return;
 		if (display == NLRI_STRING_FORMAT_LARGE)
-			vty_out(vty, "\t%s\n", s);
+			vty_out(vty, "\t%s%s%s\n", s1 ? s1 : "",
+				s2 && s1 ? " " : "", s2 ? s2 : "");
 		else if (display == NLRI_STRING_FORMAT_MIN)
-			vty_out(vty, "%s", s);
+			vty_out(vty, "%s%s", s1 ? s1 : "", s2 ? s2 : "");
 		else if (json_paths) {
 			json_ecom_path = json_object_new_object();
-			json_object_string_add(json_ecom_path,
-				       "ecomlist", s);
+			if (s1)
+				json_object_string_add(json_ecom_path,
+						       "ecomlist", s1);
+			if (s2)
+				json_object_string_add(json_ecom_path,
+						       "ecom6list", s2);
 			if (display == NLRI_STRING_FORMAT_JSON)
 				json_object_array_add(json_paths,
 						      json_ecom_path);
 		}
-		if (attr->nexthop.s_addr != 0 &&
-		    display == NLRI_STRING_FORMAT_LARGE)
-			vty_out(vty, "\tNLRI NH %-16s\n",
-				inet_ntoa(attr->nexthop));
-		XFREE(MTYPE_ECOMMUNITY_STR, s);
+		if (display == NLRI_STRING_FORMAT_LARGE) {
+			char local_buff[INET6_ADDRSTRLEN];
+
+			local_buff[0] = '\0';
+			if (p->u.prefix_flowspec.family == AF_INET &&
+			    attr->nexthop.s_addr != 0)
+				inet_ntop(AF_INET,
+					  &attr->nexthop.s_addr,
+					  local_buff,
+					  INET6_ADDRSTRLEN);
+			else if (p->u.prefix_flowspec.family == AF_INET6 &&
+				 attr->mp_nexthop_len != 0 &&
+				 attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV4 &&
+				 attr->mp_nexthop_len != BGP_ATTR_NHLEN_VPNV4)
+				inet_ntop(AF_INET6,
+					  &attr->mp_nexthop_global,
+					  local_buff,
+					  INET6_ADDRSTRLEN);
+			if (local_buff[0] != '\0')
+				vty_out(vty, "\tNLRI NH %s\n",
+					local_buff);
+		}
+		XFREE(MTYPE_ECOMMUNITY_STR, s1);
+		XFREE(MTYPE_ECOMMUNITY_STR, s2);
 	}
 	peer_uptime(path->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL);
 	if (display == NLRI_STRING_FORMAT_LARGE) {
@@ -469,10 +507,17 @@ int bgp_fs_config_write_pbr(struct vty *vty, struct bgp *bgp,
 	struct bgp_pbr_interface_head *head;
 	bool bgp_pbr_interface_any;
 
-	if (!bgp_pbr_cfg || safi != SAFI_FLOWSPEC || afi != AFI_IP)
+	if (!bgp_pbr_cfg || safi != SAFI_FLOWSPEC)
 		return 0;
-	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
-	bgp_pbr_interface_any = bgp_pbr_cfg->pbr_interface_any_ipv4;
+	if (afi == AFI_IP) {
+		head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+		bgp_pbr_interface_any = bgp_pbr_cfg->pbr_interface_any_ipv4;
+	} else if (afi == AFI_IP6) {
+		head = &(bgp_pbr_cfg->ifaces_by_name_ipv6);
+		bgp_pbr_interface_any = bgp_pbr_cfg->pbr_interface_any_ipv6;
+	} else {
+		return 0;
+	}
 	if (!RB_EMPTY(bgp_pbr_interface_head, head) ||
 	     !bgp_pbr_interface_any)
 		declare_node = true;
@@ -483,7 +528,8 @@ int bgp_fs_config_write_pbr(struct vty *vty, struct bgp *bgp,
 }
 
 static int bgp_fs_local_install_interface(struct bgp *bgp,
-					  const char *no, const char *ifname)
+					  const char *no, const char *ifname,
+					  afi_t afi)
 {
 	struct bgp_pbr_interface *pbr_if;
 	struct bgp_pbr_config *bgp_pbr_cfg = bgp->bgp_pbr_cfg;
@@ -492,14 +538,19 @@ static int bgp_fs_local_install_interface(struct bgp *bgp,
 
 	if (!bgp_pbr_cfg)
 		return CMD_SUCCESS;
-	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
-	bgp_pbr_interface_any = &(bgp_pbr_cfg->pbr_interface_any_ipv4);
+	if (afi == AFI_IP) {
+		head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+		bgp_pbr_interface_any = &(bgp_pbr_cfg->pbr_interface_any_ipv4);
+	} else {
+		head = &(bgp_pbr_cfg->ifaces_by_name_ipv6);
+		bgp_pbr_interface_any = &(bgp_pbr_cfg->pbr_interface_any_ipv6);
+	}
 	if (no) {
 		if (!ifname) {
 			if (*bgp_pbr_interface_any) {
 				*bgp_pbr_interface_any = false;
 				/* remove all other interface list */
-				bgp_pbr_reset(bgp, AFI_IP);
+				bgp_pbr_reset(bgp, afi);
 			}
 			return CMD_SUCCESS;
 		}
@@ -523,7 +574,7 @@ static int bgp_fs_local_install_interface(struct bgp *bgp,
 		if (!*bgp_pbr_interface_any) {
 			/* remove all other interface list
 			 */
-			bgp_pbr_reset(bgp, AFI_IP);
+			bgp_pbr_reset(bgp, afi);
 			*bgp_pbr_interface_any = true;
 		}
 	}
@@ -543,7 +594,8 @@ DEFUN (bgp_fs_local_install_ifname,
 	char *ifname = argv_find(argv, argc, "INTERFACE", &idx) ?
 		argv[idx]->arg : NULL;
 
-	return bgp_fs_local_install_interface(bgp, no, ifname);
+	return bgp_fs_local_install_interface(bgp, no, ifname,
+					      bgp_node_afi(vty));
 }
 
 extern int bgp_flowspec_display_match_per_ip(afi_t afi, struct bgp_table *rib,
@@ -581,4 +633,5 @@ void bgp_flowspec_vty_init(void)
 	install_element(ENABLE_NODE, &no_debug_bgp_flowspec_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_flowspec_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &bgp_fs_local_install_ifname_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &bgp_fs_local_install_ifname_cmd);
 }

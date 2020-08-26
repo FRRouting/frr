@@ -523,6 +523,7 @@ static void bgp_evpn_type4_route_extcomm_build(struct bgp_evpn_es *es,
 	memset(&ecom_encap, 0, sizeof(ecom_encap));
 	encode_encap_extcomm(tnl_type, &eval);
 	ecom_encap.size = 1;
+	ecom_encap.unit_size = ECOMMUNITY_SIZE;
 	ecom_encap.val = (uint8_t *)eval.val;
 	attr->ecommunity = ecommunity_dup(&ecom_encap);
 
@@ -532,6 +533,7 @@ static void bgp_evpn_type4_route_extcomm_build(struct bgp_evpn_es *es,
 	es_get_system_mac(&es->esi, &mac);
 	encode_es_rt_extcomm(&eval_es_rt, &mac);
 	ecom_es_rt.size = 1;
+	ecom_es_rt.unit_size = ECOMMUNITY_SIZE;
 	ecom_es_rt.val = (uint8_t *)eval_es_rt.val;
 	attr->ecommunity =
 		ecommunity_merge(attr->ecommunity, &ecom_es_rt);
@@ -775,6 +777,7 @@ static void bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es *es,
 	memset(&ecom_encap, 0, sizeof(ecom_encap));
 	encode_encap_extcomm(tnl_type, &eval);
 	ecom_encap.size = 1;
+	ecom_encap.unit_size = ECOMMUNITY_SIZE;
 	ecom_encap.val = (uint8_t *)eval.val;
 	attr->ecommunity = ecommunity_dup(&ecom_encap);
 
@@ -782,6 +785,7 @@ static void bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es *es,
 	encode_esi_label_extcomm(&eval_esi_label,
 			false /*single_active*/);
 	ecom_esi_label.size = 1;
+	ecom_esi_label.unit_size = ECOMMUNITY_SIZE;
 	ecom_esi_label.val = (uint8_t *)eval_esi_label.val;
 	attr->ecommunity =
 		ecommunity_merge(attr->ecommunity, &ecom_esi_label);
@@ -818,6 +822,7 @@ static void bgp_evpn_type1_evi_route_extcomm_build(struct bgp_evpn_es *es,
 	memset(&ecom_encap, 0, sizeof(ecom_encap));
 	encode_encap_extcomm(tnl_type, &eval);
 	ecom_encap.size = 1;
+	ecom_encap.unit_size = ECOMMUNITY_SIZE;
 	ecom_encap.val = (uint8_t *)eval.val;
 	attr->ecommunity = ecommunity_dup(&ecom_encap);
 

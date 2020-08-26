@@ -79,6 +79,7 @@ struct bgp_pbr_entry_action {
 		vrf_id_t redirect_vrf;
 		struct _pbr_redirect_ip {
 			struct in_addr redirect_ip_v4;
+			struct in6_addr redirect_ip_v6;
 			uint8_t duplicate;
 		} zr;
 		uint8_t marking_dscp;
@@ -114,13 +115,17 @@ struct bgp_pbr_entry_main {
 	uint8_t match_dscp_num;
 	uint8_t match_tcpflags_num;
 	uint8_t match_fragment_num;
+	uint8_t match_flowlabel_num;
 
 	struct prefix src_prefix;
 	struct prefix dst_prefix;
+	uint8_t src_prefix_offset;
+	uint8_t dst_prefix_offset;
 
 #define PROTOCOL_UDP 17
 #define PROTOCOL_TCP 6
 #define PROTOCOL_ICMP 1
+#define PROTOCOL_ICMPV6 58
 	struct bgp_pbr_match_val protocol[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val src_port[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val dst_port[BGP_PBR_MATCH_VAL_MAX];
@@ -129,6 +134,7 @@ struct bgp_pbr_entry_main {
 	struct bgp_pbr_match_val icmp_code[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val packet_length[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val dscp[BGP_PBR_MATCH_VAL_MAX];
+	struct bgp_pbr_match_val flow_label[BGP_PBR_MATCH_VAL_MAX];
 
 	struct bgp_pbr_match_val tcpflags[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val fragment[BGP_PBR_MATCH_VAL_MAX];
@@ -154,6 +160,8 @@ extern int bgp_pbr_interface_compare(const struct bgp_pbr_interface *a,
 struct bgp_pbr_config {
 	struct bgp_pbr_interface_head ifaces_by_name_ipv4;
 	bool pbr_interface_any_ipv4;
+	struct bgp_pbr_interface_head ifaces_by_name_ipv6;
+	bool pbr_interface_any_ipv6;
 };
 
 extern struct bgp_pbr_config *bgp_pbr_cfg;
@@ -179,6 +187,7 @@ struct bgp_pbr_match {
 	uint32_t type;
 
 	uint32_t flags;
+	uint8_t family;
 
 	uint16_t pkt_len_min;
 	uint16_t pkt_len_max;
@@ -187,6 +196,7 @@ struct bgp_pbr_match {
 	uint8_t dscp_value;
 	uint8_t fragment;
 	uint8_t protocol;
+	uint16_t flow_label;
 
 	vrf_id_t vrf_id;
 
@@ -254,6 +264,7 @@ struct bgp_pbr_action {
 	bool install_in_progress;
 	uint32_t refcnt;
 	struct bgp *bgp;
+	afi_t afi;
 };
 
 extern struct bgp_pbr_rule *bgp_pbr_rule_lookup(vrf_id_t vrf_id,

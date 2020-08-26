@@ -41,5 +41,6 @@
 #define FLOWSPEC_PKT_LEN		10
 #define FLOWSPEC_DSCP			11
 #define FLOWSPEC_FRAGMENT		12
+#define FLOWSPEC_FLOW_LABEL		13 /* For IPv6 only */
 
 #endif /* _FRR_BGP_FLOWSPEC_PRIVATE_H */

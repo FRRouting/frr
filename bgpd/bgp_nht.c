@@ -544,7 +544,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 		if (!pi->peer)
 			return -1;
 		return bgp_flowspec_get_first_nh(pi->peer->bgp,
-						 pi, p);
+						 pi, p, afi);
 	}
 	memset(p, 0, sizeof(struct prefix));
 	switch (afi) {

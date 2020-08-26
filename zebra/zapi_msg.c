@@ -2841,6 +2841,7 @@ static inline void zread_ipset(ZAPI_HANDLER_ARGS)
 		zpi.vrf_id = zvrf->vrf->vrf_id;
 		STREAM_GETL(s, zpi.unique);
 		STREAM_GETL(s, zpi.type);
+		STREAM_GETC(s, zpi.family);
 		STREAM_GET(&zpi.ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
 
 		if (hdr->command == ZEBRA_IPSET_CREATE)
@@ -2951,6 +2952,7 @@ static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 	STREAM_GETL(s, zpi->action);
 	STREAM_GETL(s, zpi->fwmark);
 	STREAM_GET(&zpi->ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
+	STREAM_GETC(s, zpi->family);
 	STREAM_GETW(s, zpi->pkt_len_min);
 	STREAM_GETW(s, zpi->pkt_len_max);
 	STREAM_GETW(s, zpi->tcp_flags);
@@ -2958,6 +2960,7 @@ static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 	STREAM_GETC(s, zpi->dscp_value);
 	STREAM_GETC(s, zpi->fragment);
 	STREAM_GETC(s, zpi->protocol);
+	STREAM_GETW(s, zpi->flow_label);
 	STREAM_GETL(s, zpi->nb_interface);
 	zebra_pbr_iptable_update_interfacelist(s, zpi);
 
