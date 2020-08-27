@@ -139,6 +139,27 @@ static struct cmd_node config_node = {
 	.node_exit = vty_config_node_exit,
 };
 
+static bool vty_check_node_for_xpath_decrement(enum node_type target_node,
+					       enum node_type node)
+{
+	/* bgp afi-safi (`address-family <afi> <safi>`) node
+	 * does not increment xpath_index.
+	 * In order to use (`router bgp`) BGP_NODE's xpath as a base,
+	 * retain xpath_index as 1 upon exiting from
+	 * afi-safi node.
+	 */
+
+	if (target_node == BGP_NODE
+	    && (node == BGP_IPV4_NODE || node == BGP_IPV6_NODE
+		|| node == BGP_IPV4M_NODE || node == BGP_IPV6M_NODE
+		|| node == BGP_VPNV4_NODE || node == BGP_VPNV6_NODE
+		|| node == BGP_EVPN_NODE || node == BGP_IPV4L_NODE
+		|| node == BGP_IPV6L_NODE ))
+		return false;
+
+	return true;
+}
+
 /* This is called from main when a daemon is invoked with -v or --version. */
 void print_version(const char *progname)
 {
@@ -985,7 +1006,9 @@ int cmd_execute_command(vector vline, struct vty *vty,
 		while (vty->node > CONFIG_NODE) {
 			try_node = node_parent(try_node);
 			vty->node = try_node;
-			if (vty->xpath_index > 0)
+			if (vty->xpath_index > 0
+			    && vty_check_node_for_xpath_decrement(try_node,
+								  onode))
 				vty->xpath_index--;
 			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
 						       vty, cmd);
@@ -1194,7 +1217,9 @@ int command_config_read_one_line(struct vty *vty,
 		       && ret != CMD_SUCCESS && ret != CMD_WARNING
 		       && vty->node > CONFIG_NODE) {
 			vty->node = node_parent(vty->node);
-			if (vty->xpath_index > 0)
+			if (vty->xpath_index > 0
+			    && vty_check_node_for_xpath_decrement(vty->node,
+								  saved_node))
 				vty->xpath_index--;
 			ret = cmd_execute_command_strict(vline, vty, cmd);
 		}
@@ -1316,7 +1341,8 @@ void cmd_exit(struct vty *vty)
 	}
 	if (cnode->parent_node)
 		vty->node = cnode->parent_node;
-	if (vty->xpath_index > 0)
+	if (vty->xpath_index > 0
+	    && vty_check_node_for_xpath_decrement(vty->node, cnode->node))
 		vty->xpath_index--;
 }
 
