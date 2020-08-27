@@ -55,6 +55,7 @@ struct pbr_nexthop_cache {
 
 	bool looked_at;
 	bool valid;
+	bool nhr_matched;
 };
 
 extern void pbr_nht_write_table_range(struct vty *vty);
