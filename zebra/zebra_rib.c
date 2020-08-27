@@ -499,8 +499,8 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 
 		srcdest_rnode2str(rn, str, sizeof(str));
 		flog_err(EC_ZEBRA_DP_INSTALL_FAIL,
-			 "%u:%s: Failed to enqueue dataplane install",
-			 re->vrf_id, str);
+			 "%u:%u:%s: Failed to enqueue dataplane install",
+			 re->vrf_id, re->table, str);
 		break;
 	}
 	case ZEBRA_DPLANE_REQUEST_SUCCESS:

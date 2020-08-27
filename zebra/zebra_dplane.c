@@ -1911,10 +1911,11 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		 * If its a delete we only use the prefix anyway, so this only
 		 * matters for INSTALL/UPDATE.
 		 */
-		if (((op == DPLANE_OP_ROUTE_INSTALL)
-		     || (op == DPLANE_OP_ROUTE_UPDATE))
-		    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
-		    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+		if (zebra_nhg_kernel_nexthops_enabled()
+		    && (((op == DPLANE_OP_ROUTE_INSTALL)
+			 || (op == DPLANE_OP_ROUTE_UPDATE))
+			&& !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
+			&& !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED))) {
 			ret = ENOENT;
 			goto done;
 		}
@@ -2352,11 +2353,8 @@ dplane_route_update_internal(struct route_node *rn,
 	if (ret == AOK)
 		result = ZEBRA_DPLANE_REQUEST_QUEUED;
 	else {
-		if (ret == ENOENT)
-			result = ZEBRA_DPLANE_REQUEST_SUCCESS;
-		else
-			atomic_fetch_add_explicit(&zdplane_info.dg_route_errors,
-						  1, memory_order_relaxed);
+		atomic_fetch_add_explicit(&zdplane_info.dg_route_errors, 1,
+					  memory_order_relaxed);
 		if (ctx)
 			dplane_ctx_free(&ctx);
 	}
