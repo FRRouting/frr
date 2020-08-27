@@ -2046,6 +2046,160 @@ static int lsp_handle_adj_state_change(struct isis_adjacency *adj)
 	return 0;
 }
 
+/*
+ * Iterate over all IP reachability TLVs in a LSP (all fragments) of the given
+ * address-family and MT-ID.
+ */
+int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
+			      lsp_ip_reach_iter_cb cb, void *arg)
+{
+	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
+	struct isis_lsp *frag;
+	struct listnode *node;
+
+	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
+		return LSP_ITER_CONTINUE;
+
+	/* Parse main LSP. */
+	if (lsp->tlvs) {
+		if (!fabricd && !pseudo_lsp && family == AF_INET
+		    && mtid == ISIS_MT_IPV4_UNICAST) {
+			struct isis_item_list *reachs[] = {
+				&lsp->tlvs->oldstyle_ip_reach,
+				&lsp->tlvs->oldstyle_ip_reach_ext};
+
+			for (unsigned int i = 0; i < array_size(reachs); i++) {
+				struct isis_oldstyle_ip_reach *r;
+
+				for (r = (struct isis_oldstyle_ip_reach *)
+						 reachs[i]
+							 ->head;
+				     r; r = r->next) {
+					bool external = i ? true : false;
+
+					if ((*cb)((struct prefix *)&r->prefix,
+						  r->metric, external, NULL,
+						  arg)
+					    == LSP_ITER_STOP)
+						return LSP_ITER_STOP;
+				}
+			}
+		}
+
+		if (!pseudo_lsp && family == AF_INET) {
+			struct isis_item_list *ipv4_reachs;
+
+			if (mtid == ISIS_MT_IPV4_UNICAST)
+				ipv4_reachs = &lsp->tlvs->extended_ip_reach;
+			else
+				ipv4_reachs = isis_lookup_mt_items(
+					&lsp->tlvs->mt_ip_reach, mtid);
+
+			struct isis_extended_ip_reach *r;
+			for (r = ipv4_reachs ? (struct isis_extended_ip_reach *)
+						       ipv4_reachs->head
+					     : NULL;
+			     r; r = r->next) {
+				if ((*cb)((struct prefix *)&r->prefix,
+					  r->metric, false, r->subtlvs, arg)
+				    == LSP_ITER_STOP)
+					return LSP_ITER_STOP;
+			}
+		}
+
+		if (!pseudo_lsp && family == AF_INET6) {
+			struct isis_item_list *ipv6_reachs;
+			struct isis_ipv6_reach *r;
+
+			if (mtid == ISIS_MT_IPV4_UNICAST)
+				ipv6_reachs = &lsp->tlvs->ipv6_reach;
+			else
+				ipv6_reachs = isis_lookup_mt_items(
+					&lsp->tlvs->mt_ipv6_reach, mtid);
+
+			for (r = ipv6_reachs ? (struct isis_ipv6_reach *)
+						       ipv6_reachs->head
+					     : NULL;
+			     r; r = r->next) {
+				if ((*cb)((struct prefix *)&r->prefix,
+					  r->metric, r->external, r->subtlvs,
+					  arg)
+				    == LSP_ITER_STOP)
+					return LSP_ITER_STOP;
+			}
+		}
+	}
+
+	/* Parse LSP fragments. */
+	for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
+		if (!frag->tlvs)
+			continue;
+
+		isis_lsp_iterate_ip_reach(frag, family, mtid, cb, arg);
+	}
+
+	return LSP_ITER_CONTINUE;
+}
+
+/*
+ * Iterate over all IS reachability TLVs in a LSP (all fragments) of the given
+ * MT-ID.
+ */
+int isis_lsp_iterate_is_reach(struct isis_lsp *lsp, uint16_t mtid,
+			      lsp_is_reach_iter_cb cb, void *arg)
+{
+	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
+	struct isis_lsp *frag;
+	struct listnode *node;
+	struct isis_item *head;
+	struct isis_item_list *te_neighs;
+
+	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
+		return LSP_ITER_CONTINUE;
+
+	/* Parse main LSP. */
+	if (lsp->tlvs) {
+		if (pseudo_lsp || mtid == ISIS_MT_IPV4_UNICAST) {
+			head = lsp->tlvs->oldstyle_reach.head;
+			for (struct isis_oldstyle_reach *reach =
+				     (struct isis_oldstyle_reach *)head;
+			     reach; reach = reach->next) {
+				if ((*cb)(reach->id, reach->metric, true, NULL,
+					  arg)
+				    == LSP_ITER_STOP)
+					return LSP_ITER_STOP;
+			}
+		}
+
+		if (pseudo_lsp || mtid == ISIS_MT_IPV4_UNICAST)
+			te_neighs = &lsp->tlvs->extended_reach;
+		else
+			te_neighs =
+				isis_get_mt_items(&lsp->tlvs->mt_reach, mtid);
+		if (te_neighs) {
+			head = te_neighs->head;
+			for (struct isis_extended_reach *reach =
+				     (struct isis_extended_reach *)head;
+			     reach; reach = reach->next) {
+				if ((*cb)(reach->id, reach->metric, false,
+					  reach->subtlvs, arg)
+				    == LSP_ITER_STOP)
+					return LSP_ITER_STOP;
+			}
+		}
+	}
+
+	/* Parse LSP fragments. */
+	for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
+		if (!frag->tlvs)
+			continue;
+
+		isis_lsp_iterate_is_reach(frag, mtid, cb, arg);
+	}
+
+	return LSP_ITER_CONTINUE;
+}
+
 void lsp_init(void)
 {
 	hook_register(isis_adj_state_change_hook,

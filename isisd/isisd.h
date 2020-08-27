@@ -76,6 +76,7 @@ struct isis_master {
 	/* Various OSPF global configuration. */
 	uint8_t options;
 };
+#define F_ISIS_UNIT_TEST 0x01
 
 struct isis {
 	vrf_id_t vrf_id;
@@ -215,7 +216,7 @@ void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
 void isis_global_instance_create(void);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
 struct isis *isis_lookup_by_vrfname(const char *vrfname);
-struct isis *isis_lookup_by_sysid(uint8_t *sysid);
+struct isis *isis_lookup_by_sysid(const uint8_t *sysid);
 
 void isis_init(void);
 struct isis *isis_new(vrf_id_t vrf_id);
@@ -247,6 +248,9 @@ int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 				   const char *passwd, uint8_t snp_auth);
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth);
+void show_isis_database_lspdb(struct vty *vty, struct isis_area *area,
+			      int level, struct lspdb_head *lspdb,
+			      const char *argv, int ui_level);
 
 /* YANG paths */
 #define ISIS_INSTANCE	"/frr-isisd:isis/instance"

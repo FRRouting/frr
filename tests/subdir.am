@@ -23,6 +23,7 @@ else
 TESTS_ISISD = \
 	tests/isisd/test_fuzz_isis_tlv \
 	tests/isisd/test_isis_lspdb \
+	tests/isisd/test_isis_spf \
 	tests/isisd/test_isis_vertex_queue \
 	# end
 endif
@@ -111,6 +112,7 @@ noinst_HEADERS += \
 	tests/helpers/c/tests.h \
 	tests/lib/cli/common_cli.h \
 	tests/lib/test_typelist.h \
+	tests/isisd/test_common.h \
 	# end
 
 #
@@ -168,16 +170,21 @@ tests_bgpd_test_peer_attr_SOURCES = tests/bgpd/test_peer_attr.c
 tests_isisd_test_fuzz_isis_tlv_CFLAGS = $(TESTS_CFLAGS) -I$(top_builddir)/tests/isisd
 tests_isisd_test_fuzz_isis_tlv_CPPFLAGS = $(TESTS_CPPFLAGS) -I$(top_builddir)/tests/isisd
 tests_isisd_test_fuzz_isis_tlv_LDADD = $(ISISD_TEST_LDADD)
-tests_isisd_test_fuzz_isis_tlv_SOURCES = tests/isisd/test_fuzz_isis_tlv.c
+tests_isisd_test_fuzz_isis_tlv_SOURCES = tests/isisd/test_fuzz_isis_tlv.c tests/isisd/test_common.c
 nodist_tests_isisd_test_fuzz_isis_tlv_SOURCES = tests/isisd/test_fuzz_isis_tlv_tests.h
 tests_isisd_test_isis_lspdb_CFLAGS = $(TESTS_CFLAGS)
 tests_isisd_test_isis_lspdb_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_isisd_test_isis_lspdb_LDADD = $(ISISD_TEST_LDADD)
-tests_isisd_test_isis_lspdb_SOURCES = tests/isisd/test_isis_lspdb.c
+tests_isisd_test_isis_lspdb_SOURCES = tests/isisd/test_isis_lspdb.c tests/isisd/test_common.c
+tests_isisd_test_isis_spf_CFLAGS = $(TESTS_CFLAGS)
+tests_isisd_test_isis_spf_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_isisd_test_isis_spf_LDADD = $(ISISD_TEST_LDADD)
+tests_isisd_test_isis_spf_SOURCES = tests/isisd/test_isis_spf.c tests/isisd/test_common.c tests/isisd/test_topologies.c
+nodist_tests_isisd_test_isis_spf_SOURCES = yang/frr-isisd.yang.c
 tests_isisd_test_isis_vertex_queue_CFLAGS = $(TESTS_CFLAGS)
 tests_isisd_test_isis_vertex_queue_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_isisd_test_isis_vertex_queue_LDADD = $(ISISD_TEST_LDADD)
-tests_isisd_test_isis_vertex_queue_SOURCES = tests/isisd/test_isis_vertex_queue.c
+tests_isisd_test_isis_vertex_queue_SOURCES = tests/isisd/test_isis_vertex_queue.c tests/isisd/test_common.c
 
 tests_lib_cxxcompat_CFLAGS = $(TESTS_CFLAGS) $(CXX_COMPAT_CFLAGS) $(WERROR)
 tests_lib_cxxcompat_CPPFLAGS = $(TESTS_CPPFLAGS)
@@ -327,6 +334,9 @@ EXTRA_DIST += \
 	tests/isisd/test_fuzz_isis_tlv.py \
 	tests/isisd/test_fuzz_isis_tlv_tests.h.gz \
 	tests/isisd/test_isis_lspdb.py \
+	tests/isisd/test_isis_spf.py \
+	tests/isisd/test_isis_spf.in \
+	tests/isisd/test_isis_spf.refout \
 	tests/isisd/test_isis_vertex_queue.py \
 	tests/lib/cli/test_commands.in \
 	tests/lib/cli/test_commands.py \

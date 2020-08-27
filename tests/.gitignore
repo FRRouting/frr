@@ -13,6 +13,7 @@
 /isisd/test_fuzz_isis_tlv
 /isisd/test_fuzz_isis_tlv_tests.h
 /isisd/test_isis_lspdb
+/isisd/test_isis_spf
 /isisd/test_isis_vertex_queue
 /lib/cli/test_cli
 /lib/cli/test_cli_clippy.c

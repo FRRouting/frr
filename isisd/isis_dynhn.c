@@ -49,9 +49,21 @@ void dyn_cache_init(struct isis *isis)
 {
 	if (dyn_cache == NULL)
 		dyn_cache = list_new();
-	thread_add_timer(master, dyn_cache_cleanup, isis, 120,
-			 &isis->t_dync_clean);
+	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
+		thread_add_timer(master, dyn_cache_cleanup, isis, 120,
+				 &isis->t_dync_clean);
 	return;
+}
+
+void dyn_cache_cleanup_all(void)
+{
+	struct listnode *node, *nnode;
+	struct isis_dynhn *dyn;
+
+	for (ALL_LIST_ELEMENTS(dyn_cache, node, nnode, dyn)) {
+		list_delete_node(dyn_cache, node);
+		XFREE(MTYPE_ISIS_DYNHN, dyn);
+	}
 }
 
 static int dyn_cache_cleanup(struct thread *thread)

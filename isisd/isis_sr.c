@@ -210,7 +210,7 @@ int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
 			    uint32_t upper_bound)
 {
 	struct isis_sr_db *srdb = &area->srdb;
-	struct listnode *node, *nnode;
+	struct listnode *node;
 	struct sr_adjacency *sra;
 
 	sr_debug("ISIS-Sr (%s): Update SRLB with new range [%u/%u]",
@@ -236,7 +236,7 @@ int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
 			return -1;
 
 		/* Reinstall local Adjacency-SIDs with new labels. */
-		for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))
+		for (ALL_LIST_ELEMENTS_RO(area->srdb.adj_sids, node, sra))
 			sr_adj_sid_update(sra, &srdb->srlb);
 
 		/* Update and Flood LSP */
@@ -1521,13 +1521,13 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 	/* Determine nexthop IP address */
 	switch (family) {
 	case AF_INET:
-		if (!circuit->ip_router)
+		if (!circuit->ip_router || !adj->ipv4_address_count)
 			return;
 
 		nexthop.ipv4 = adj->ipv4_addresses[0];
 		break;
 	case AF_INET6:
-		if (!circuit->ipv6_router)
+		if (!circuit->ipv6_router || !adj->ipv6_address_count)
 			return;
 
 		nexthop.ipv6 = adj->ipv6_addresses[0];
@@ -1986,7 +1986,7 @@ DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
       "Segment-Routing\n"
       "Segment-Routing Prefix-SIDs\n")
 {
-	struct listnode *node, *inode, *nnode;
+	struct listnode *node, *inode;
 	struct isis_area *area;
 	struct isis *isis = NULL;
 	const char *vrf_name = VRF_DEFAULT_NAME;
@@ -1996,7 +1996,7 @@ DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS(im->isis, nnode, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 				for (ALL_LIST_ELEMENTS_RO(isis->area_list, node,
 							  area)) {
 					vty_out(vty, "Area %s:\n",
@@ -2084,11 +2084,11 @@ DEFUN(show_sr_node, show_sr_node_cmd,
       "Segment-Routing\n"
       "Segment-Routing node\n")
 {
-	struct listnode *node, *inode, *nnode;
+	struct listnode *node, *inode;
 	struct isis_area *area;
-	struct isis *isis = NULL;
+	struct isis *isis;
 
-	for (ALL_LIST_ELEMENTS(im->isis, inode, nnode, isis)) {
+	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 			vty_out(vty, "Area %s:\n",
 				area->area_tag ? area->area_tag : "null");
