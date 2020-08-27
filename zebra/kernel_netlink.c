@@ -96,14 +96,7 @@
  */
 #define NL_DEFAULT_BATCH_SEND_THRESHOLD (15 * NL_PKT_BUF_SIZE)
 
-/*
- * For every request sent to the kernel that has failed we get an error message,
- * which contains a standard netlink message header and the payload consisting
- * of an error code and the original netlink mesage. So the receiving buffer
- * must be at least as big as the transmitting buffer increased by some space
- * for headers.
- */
-#define NL_BATCH_RX_BUFSIZE (NL_DEFAULT_BATCH_BUFSIZE + NL_PKT_BUF_SIZE)
+#define NL_BATCH_RX_BUFSIZE NL_RCV_PKT_BUF_SIZE
 
 static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_DELROUTE, "RTM_DELROUTE"},
@@ -1173,14 +1166,17 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 	msg.msg_name = (void *)&snl;
 	msg.msg_namelen = sizeof(snl);
 
-	status = netlink_recv_msg(nl, msg, nl_batch_rx_buf,
-				  sizeof(nl_batch_rx_buf));
-	if (status == -1 || status == 0)
-		return status;
+	/*
+	 * The responses are not batched, so we need to read and process one
+	 * message at a time.
+	 */
+	while (true) {
+		status = netlink_recv_msg(nl, msg, nl_batch_rx_buf,
+					  sizeof(nl_batch_rx_buf));
+		if (status == -1 || status == 0)
+			return status;
 
-	for (h = (struct nlmsghdr *)nl_batch_rx_buf;
-	     (status >= 0 && NLMSG_OK(h, (unsigned int)status));
-	     h = NLMSG_NEXT(h, status)) {
+		h = (struct nlmsghdr *)nl_batch_rx_buf;
 		ignore_msg = false;
 		seq = h->nlmsg_seq;
 		/*
