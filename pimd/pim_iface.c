@@ -1504,14 +1504,14 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 	}
 }
 
-int pim_if_connected_to_source(struct interface *ifp, struct in_addr src)
+struct prefix *pim_if_connected_to_source(struct interface *ifp, struct in_addr src)
 {
 	struct listnode *cnode;
 	struct connected *c;
 	struct prefix p;
 
 	if (!ifp)
-		return 0;
+		return NULL;
 
 	p.family = AF_INET;
 	p.u.prefix4 = src;
@@ -1520,11 +1520,11 @@ int pim_if_connected_to_source(struct interface *ifp, struct in_addr src)
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
 		if ((c->address->family == AF_INET)
 		    && prefix_match(CONNECTED_PREFIX(c), &p)) {
-			return 1;
+			return CONNECTED_PREFIX(c);
 		}
 	}
 
-	return 0;
+	return NULL;
 }
 
 bool pim_if_is_vrf_device(struct interface *ifp)
