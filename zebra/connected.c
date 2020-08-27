@@ -393,10 +393,10 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	 * head.
 	 */
 	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		   0, &p, NULL, &nh, 0, zvrf->table_id, 0, 0, false);
+		   0, &p, NULL, &nh, 0, zvrf->table_id, 0, 0, false, true);
 
 	rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
-		   0, 0, &p, NULL, &nh, 0, zvrf->table_id, 0, 0, false);
+		   0, 0, &p, NULL, &nh, 0, zvrf->table_id, 0, 0, false, true);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {

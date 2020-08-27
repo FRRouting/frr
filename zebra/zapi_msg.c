@@ -1890,7 +1890,7 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
 		   api.flags, &api.prefix, src_p, NULL, 0, table_id, api.metric,
-		   api.distance, false);
+		   api.distance, false, false);
 
 	/* Stats */
 	switch (api.prefix.family) {
