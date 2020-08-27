@@ -3116,29 +3116,6 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities,
 	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover};
 
-#if defined(HANDLE_ZAPI_FUZZING)
-extern struct zebra_privs_t zserv_privs;
-
-static void zserv_write_incoming(struct stream *orig, uint16_t command)
-{
-	char fname[MAXPATHLEN];
-	struct stream *copy;
-	int fd = -1;
-
-	copy = stream_dup(orig);
-	stream_set_getp(copy, 0);
-
-	snprintf(fname, MAXPATHLEN, "%s/%u", frr_vtydir, command);
-
-	frr_with_privs(&zserv_privs) {
-		fd = open(fname, O_CREAT | O_WRONLY | O_EXCL, 0644);
-	}
-	stream_flush(copy, fd);
-	close(fd);
-	stream_free(copy);
-}
-#endif
-
 /*
  * Process a batch of zapi messages.
  */
@@ -3168,10 +3145,6 @@ void zserv_handle_commands(struct zserv *client, struct stream_fifo *fifo)
 		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV
 		    && IS_ZEBRA_DEBUG_DETAIL)
 			zserv_log_message(NULL, msg, &hdr);
-
-#if defined(HANDLE_ZAPI_FUZZING)
-		zserv_write_incoming(msg, hdr.command);
-#endif
 
 		hdr.length -= ZEBRA_HEADER_SIZE;
 
