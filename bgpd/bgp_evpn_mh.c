@@ -64,7 +64,8 @@ static void bgp_evpn_es_vtep_del(struct bgp *bgp,
 		struct bgp_evpn_es *es, struct in_addr vtep_ip, bool esr);
 static void bgp_evpn_es_cons_checks_pend_add(struct bgp_evpn_es *es);
 static void bgp_evpn_es_cons_checks_pend_del(struct bgp_evpn_es *es);
-static void bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi);
+static struct bgp_evpn_es_evi *
+bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi);
 static uint32_t bgp_evpn_es_get_active_vtep_cnt(struct bgp_evpn_es *es);
 static void bgp_evpn_l3nhg_update_on_vtep_chg(struct bgp_evpn_es *es);
 static struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi);
@@ -3096,7 +3097,8 @@ static struct bgp_evpn_es_evi *bgp_evpn_es_evi_new(struct bgp_evpn_es *es,
 /* remove the ES-EVI from the per-L2-VNI and per-ES tables and free
  * up the memory.
  */
-static void bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_evi)
+static struct bgp_evpn_es_evi *
+bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_evi)
 {
 	struct bgp_evpn_es *es = es_evi->es;
 	struct bgpevpn *vpn = es_evi->vpn;
@@ -3105,7 +3107,7 @@ static void bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_evi)
 	 * reference
 	 */
 	if (es_evi->flags & (BGP_EVPNES_EVI_LOCAL | BGP_EVPNES_EVI_REMOTE))
-		return;
+		return es_evi;
 
 	bgp_evpn_es_vrf_deref(es_evi);
 
@@ -3120,6 +3122,8 @@ static void bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_evi)
 
 	/* remove from the VNI-ESI rb tree */
 	XFREE(MTYPE_BGP_EVPN_ES_EVI, es_evi);
+
+	return NULL;
 }
 
 /* init local info associated with the ES-EVI */
@@ -3136,17 +3140,18 @@ static void bgp_evpn_es_evi_local_info_set(struct bgp_evpn_es_evi *es_evi)
 }
 
 /* clear any local info associated with the ES-EVI */
-static void bgp_evpn_es_evi_local_info_clear(struct bgp_evpn_es_evi *es_evi)
+static struct bgp_evpn_es_evi *
+bgp_evpn_es_evi_local_info_clear(struct bgp_evpn_es_evi *es_evi)
 {
 	struct bgpevpn *vpn = es_evi->vpn;
 
 	if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
-		return;
+		return es_evi;
 
 	UNSET_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL);
 	list_delete_node(vpn->local_es_evi_list, &es_evi->l2vni_listnode);
 
-	bgp_evpn_es_evi_free(es_evi);
+	return bgp_evpn_es_evi_free(es_evi);
 }
 
 /* eval remote info associated with the ES */
@@ -3176,14 +3181,15 @@ static void bgp_evpn_es_evi_remote_info_re_eval(struct bgp_evpn_es_evi *es_evi)
 	}
 }
 
-static void bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi)
+static struct bgp_evpn_es_evi *
+bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi)
 {
 	struct prefix_evpn p;
 	struct bgp_evpn_es *es = es_evi->es;
 	struct bgp *bgp;
 
 	if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
-		return;
+		return es_evi;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("del local es %s evi %u",
@@ -3217,8 +3223,7 @@ static void bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi)
 		}
 	}
 
-	bgp_evpn_es_evi_local_info_clear(es_evi);
-
+	return bgp_evpn_es_evi_local_info_clear(es_evi);
 }
 
 int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni)
@@ -3434,6 +3439,30 @@ int bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
 	return 0;
 }
 
+/* If a VNI is being deleted we need to force del all remote VTEPs */
+static void bgp_evpn_remote_es_evi_flush(struct bgp_evpn_es_evi *es_evi)
+{
+	struct listnode *node = NULL;
+	struct listnode *nnode = NULL;
+	struct bgp_evpn_es_evi_vtep *evi_vtep;
+	struct bgp *bgp;
+
+	bgp = bgp_get_evpn();
+	if (!bgp)
+		return;
+
+	/* delete all VTEPs */
+	for (ALL_LIST_ELEMENTS(es_evi->es_evi_vtep_list, node, nnode,
+			       evi_vtep)) {
+		evi_vtep->flags &= ~(BGP_EVPN_EVI_VTEP_EAD_PER_ES
+				     | BGP_EVPN_EVI_VTEP_EAD_PER_EVI);
+		bgp_evpn_es_evi_vtep_re_eval_active(bgp, evi_vtep);
+		bgp_evpn_es_evi_vtep_free(evi_vtep);
+	}
+	/* delete the EVI */
+	bgp_evpn_es_evi_remote_info_re_eval(es_evi);
+}
+
 /* Initialize the ES tables maintained per-L2_VNI */
 void bgp_evpn_vni_es_init(struct bgpevpn *vpn)
 {
@@ -3453,7 +3482,9 @@ void bgp_evpn_vni_es_cleanup(struct bgpevpn *vpn)
 
 	RB_FOREACH_SAFE(es_evi, bgp_es_evi_rb_head,
 			&vpn->es_evi_rb_tree, es_evi_next) {
-		bgp_evpn_local_es_evi_do_del(es_evi);
+		es_evi = bgp_evpn_local_es_evi_do_del(es_evi);
+		if (es_evi)
+			bgp_evpn_remote_es_evi_flush(es_evi);
 	}
 
 	list_delete(&vpn->local_es_evi_list);
