@@ -16,6 +16,7 @@ import sys
 import os
 import re
 import pygments
+import sphinx
 from sphinx.highlighting import lexers
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -359,14 +360,36 @@ texinfo_documents = [
 with open('../extra/frrlexer.py', 'rb') as lex:
     frrlexerpy = lex.read()
 
+# Parse version string into int array
+def vparse(s):
+    a = []
+
+    for c in s:
+        if c != '.':
+            a.append(int(c))
+
+    while len(a) < 3:
+        a.append(0)
+
+    return a[:3]
+
 # custom extensions here
 def setup(app):
     # object type for FRR CLI commands, can be extended to document parent CLI
     # node later on
     app.add_object_type('clicmd', 'clicmd')
+
     # css overrides for HTML theme
-    app.add_stylesheet('overrides.css')
-    app.add_javascript('overrides.js')
+    # Note sphinx version differences
+    sver = vparse(sphinx.__version__)
+
+    if sver < vparse('1.8.0') :
+        app.add_stylesheet('overrides.css')
+        app.add_javascript('overrides.js')
+    else:
+        app.add_css_file('overrides.css')
+        app.add_js_file('overrides.js')
+
     # load Pygments lexer for FRR config syntax
     #
     # NB: in Pygments 2.2+ this can be done with `load_lexer_from_file`, but we
