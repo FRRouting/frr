@@ -2353,11 +2353,8 @@ dplane_route_update_internal(struct route_node *rn,
 	if (ret == AOK)
 		result = ZEBRA_DPLANE_REQUEST_QUEUED;
 	else {
-		if (ret == ENOENT)
-			result = ZEBRA_DPLANE_REQUEST_SUCCESS;
-		else
-			atomic_fetch_add_explicit(&zdplane_info.dg_route_errors,
-						  1, memory_order_relaxed);
+		atomic_fetch_add_explicit(&zdplane_info.dg_route_errors, 1,
+					  memory_order_relaxed);
 		if (ctx)
 			dplane_ctx_free(&ctx);
 	}
