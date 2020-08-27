@@ -2074,13 +2074,17 @@ static int update_srgb(uint32_t lower, uint32_t size)
 	osr_debug("SR(%s): Got new SRGB [%u/%u]", __func__, OspfSR.srgb.start,
 		  OspfSR.srgb.start + OspfSR.srgb.size - 1);
 
-	/* SRGB is reserved, set Router Information parameters */
-	ospf_router_info_update_sr(true, OspfSR.self);
+	/* Update Self SR-Node */
+	if (OspfSR.self != NULL) {
+		/* SRGB is reserved, set Router Information parameters */
+		ospf_router_info_update_sr(true, OspfSR.self);
 
-	/* and update NHLFE entries */
-	hash_iterate(OspfSR.neighbors,
-		     (void (*)(struct hash_bucket *, void *))update_in_nhlfe,
-		     NULL);
+		/* and update NHLFE entries */
+		hash_iterate(
+			OspfSR.neighbors,
+			(void (*)(struct hash_bucket *, void *))update_in_nhlfe,
+			NULL);
+	}
 
 	return 0;
 }
@@ -2198,9 +2202,11 @@ DEFUN (sr_local_label_range,
 	}
 
 	/* SRLB is reserved, Update Self SR-Node and Router Information LSA */
-	OspfSR.self->srlb.lower_bound = lower;
-	OspfSR.self->srlb.range_size = upper - lower + 1;
-	ospf_router_info_update_sr(true, OspfSR.self);
+	if (OspfSR.self != NULL) {
+		OspfSR.self->srlb.lower_bound = lower;
+		OspfSR.self->srlb.range_size = upper - lower + 1;
+		ospf_router_info_update_sr(true, OspfSR.self);
+	}
 
 	/* and update (LAN)-Adjacency SID */
 	ospf_ext_link_srlb_update();
@@ -2250,8 +2256,8 @@ DEFUN (no_sr_local_label_range,
 	if (OspfSR.self != NULL) {
 		OspfSR.self->srlb.lower_bound = DEFAULT_SRLB_LABEL;
 		OspfSR.self->srlb.range_size = DEFAULT_SRLB_SIZE;
+		ospf_router_info_update_sr(true, OspfSR.self);
 	}
-	ospf_router_info_update_sr(true, OspfSR.self);
 
 	/* and update (LAN)-Adjacency SID */
 	ospf_ext_link_srlb_update();
@@ -2287,12 +2293,13 @@ DEFUN (sr_node_msd,
 
 	/* Set this router MSD */
 	OspfSR.msd = msd;
-	if (OspfSR.self != NULL)
+	if (OspfSR.self != NULL) {
 		OspfSR.self->msd = msd;
 
-	/* Set Router Information parameters if SR is UP */
-	if (OspfSR.status == SR_UP)
-		ospf_router_info_update_sr(true, OspfSR.self);
+		/* Set Router Information parameters if SR is UP */
+		if (OspfSR.status == SR_UP)
+			ospf_router_info_update_sr(true, OspfSR.self);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -2311,12 +2318,13 @@ DEFUN (no_sr_node_msd,
 
 	/* unset this router MSD */
 	OspfSR.msd = 0;
-	if (OspfSR.self != NULL)
+	if (OspfSR.self != NULL) {
 		OspfSR.self->msd = 0;
 
-	/* Set Router Information parameters if SR is UP */
-	if (OspfSR.status == SR_UP)
-		ospf_router_info_update_sr(true, OspfSR.self);
+		/* Set Router Information parameters if SR is UP */
+		if (OspfSR.status == SR_UP)
+			ospf_router_info_update_sr(true, OspfSR.self);
+	}
 
 	return CMD_SUCCESS;
 }
