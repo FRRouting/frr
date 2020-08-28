@@ -31,6 +31,7 @@ Features
 - |bgp| Flowspec
 - Point to Multipoint |gre| interfaces
 - |nhrp|
+- |dmvpn| with |ipsec|
 
 Dependencies
 ============
