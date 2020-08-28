@@ -3041,7 +3041,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		unsigned short instance, int flags, struct prefix *p,
 		struct prefix_ipv6 *src_p, const struct nexthop *nh,
 		uint32_t nhe_id, uint32_t table_id, uint32_t metric,
-		uint8_t distance, bool fromkernel)
+		uint8_t distance, bool fromkernel, bool connected_down)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -3163,7 +3163,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 					    rn, fib,
 					    zebra_route_string(fib->type));
 			}
-			if (allow_delete) {
+			if (allow_delete
+			    || CHECK_FLAG(dest->flags, RIB_ROUTE_ANY_QUEUED)) {
 				UNSET_FLAG(fib->status, ROUTE_ENTRY_INSTALLED);
 				/* Unset flags. */
 				for (rtnh = fib->nhe->nhg.nexthop; rtnh;
@@ -3248,6 +3249,19 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		rib_delnode(rn, same);
 	}
 
+	/*
+	 * This is to force an immediate re-eval of this particular
+	 * node via nexthop tracking.  Why?  Because there are scenarios
+	 * where the interface is flapping and the normal queuing methodology
+	 * will cause down/up events to very very rarely be combined into
+	 * a non-event from nexthop tracking perspective.  Leading
+	 * to some fun timing situations with upper level routing protocol
+	 * trying to and failing to install routes during this blip.  Especially
+	 * when zebra is under load.
+	 */
+	if (connected_down)
+		zebra_rib_evaluate_rn_nexthops(rn,
+					       zebra_router_get_next_sequence());
 	route_unlock_node(rn);
 	return;
 }

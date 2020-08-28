@@ -727,7 +727,7 @@ int zebra_del_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_TABLE,
 		   re->table, re->flags, &p, NULL, re->nhe->nhg.nexthop,
 		   re->nhe_id, zvrf->table_id, re->metric, re->distance,
-		   false);
+		   false, false);
 
 	return 0;
 }
