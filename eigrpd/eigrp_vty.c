@@ -101,25 +101,11 @@ static struct eigrp *eigrp_vty_get_eigrp(struct vty *vty, const char *vrf_name)
 	return eigrp_lookup(vrf->vrf_id);
 }
 
-DEFPY (show_ip_eigrp_topology_all,
-       show_ip_eigrp_topology_all_cmd,
-       "show ip eigrp [vrf NAME] topology [all-links$all]",
-       SHOW_STR
-       IP_STR
-       "IP-EIGRP show commands\n"
-       VRF_CMD_HELP_STR
-       "IP-EIGRP topology\n"
-       "Show all links in topology table\n")
+static void eigrp_topology_helper(struct vty *vty, struct eigrp *eigrp,
+				  const char *all)
 {
-	struct eigrp *eigrp;
 	struct eigrp_prefix_entry *tn;
 	struct route_node *rn;
-
-	eigrp = eigrp_vty_get_eigrp(vty, vrf);
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
 
 	show_ip_eigrp_topology_header(vty, eigrp);
 
@@ -131,9 +117,43 @@ DEFPY (show_ip_eigrp_topology_all,
 		eigrp_vty_display_prefix_entry(vty, eigrp, tn,
 					       all ? true : false);
 	}
+}
+
+DEFPY (show_ip_eigrp_topology_all,
+       show_ip_eigrp_topology_all_cmd,
+       "show ip eigrp [vrf NAME] topology [all-links$all]",
+       SHOW_STR
+       IP_STR
+       "IP-EIGRP show commands\n"
+       VRF_CMD_HELP_STR
+       "IP-EIGRP topology\n"
+       "Show all links in topology table\n")
+{
+	struct eigrp *eigrp;
+
+	if (vrf && strncmp(vrf, "all", sizeof("all")) == 0) {
+		struct vrf *v;
+
+		RB_FOREACH (v, vrf_name_head, &vrfs_by_name) {
+			eigrp = eigrp_lookup(v->vrf_id);
+			if (!eigrp)
+				continue;
+
+			vty_out(vty, "VRF %s:\n", v->name);
+
+			eigrp_topology_helper(vty, eigrp, all);
+		}
+	} else {
+		eigrp = eigrp_vty_get_eigrp(vty, vrf);
+		if (eigrp == NULL) {
+			vty_out(vty, " EIGRP Routing Process not enabled\n");
+			return CMD_SUCCESS;
+		}
+
+		eigrp_topology_helper(vty, eigrp, all);
+	}
 
 	return CMD_SUCCESS;
-
 }
 
 DEFPY (show_ip_eigrp_topology,
@@ -151,6 +171,11 @@ DEFPY (show_ip_eigrp_topology,
 	struct eigrp_prefix_entry *tn;
 	struct route_node *rn;
 	struct prefix cmp;
+
+	if (vrf && strncmp(vrf, "all", sizeof("all")) == 0) {
+		vty_out(vty, "Specifying vrf `all` for a particular address/prefix makes no sense\n");
+		return CMD_SUCCESS;
+	}
 
 	eigrp = eigrp_vty_get_eigrp(vty, vrf);
 	if (eigrp == NULL) {
