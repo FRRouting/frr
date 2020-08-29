@@ -154,7 +154,7 @@ void show_ip_eigrp_interface_header(struct vty *vty, struct eigrp *eigrp)
 {
 
 	vty_out(vty,
-		"\nEIGRP interfaces for AS(%d)\n\n %-10s %-10s %-10s %-6s %-12s %-7s %-14s %-12s %-8s %-8s %-8s\n %-39s %-12s %-7s %-14s %-12s %-8s\n",
+		"\nEIGRP interfaces for AS(%d)\n\n%-16s %-10s %-10s %-6s %-12s %-7s %-14s %-12s %-8s %-8s %-8s\n %-44s %-12s %-7s %-14s %-12s %-8s\n",
 		eigrp->AS, "Interface", "Bandwidth", "Delay", "Peers",
 		"Xmit Queue", "Mean", "Pacing Time", "Multicast", "Pending",
 		"Hello", "Holdtime", "", "Un/Reliable", "SRTT", "Un/Reliable",
@@ -164,7 +164,7 @@ void show_ip_eigrp_interface_header(struct vty *vty, struct eigrp *eigrp)
 void show_ip_eigrp_interface_sub(struct vty *vty, struct eigrp *eigrp,
 				 struct eigrp_interface *ei)
 {
-	vty_out(vty, "%-11s ", IF_NAME(ei));
+	vty_out(vty, "%-16s ", IF_NAME(ei));
 	vty_out(vty, "%-11u", ei->params.bandwidth);
 	vty_out(vty, "%-11u", ei->params.delay);
 	vty_out(vty, "%-7u", ei->nbrs->count);
