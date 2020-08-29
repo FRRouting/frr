@@ -269,6 +269,26 @@ DEFPY (show_ip_eigrp_interfaces,
 	return CMD_SUCCESS;
 }
 
+static void eigrp_neighbors_helper(struct vty *vty, struct eigrp *eigrp,
+				   const char *ifname, const char *detail)
+{
+	struct eigrp_interface *ei;
+	struct listnode *node, *node2, *nnode2;
+	struct eigrp_neighbor *nbr;
+
+	show_ip_eigrp_neighbor_header(vty, eigrp);
+
+	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+		if (!ifname || strcmp(ei->ifp->name, ifname) == 0) {
+			for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
+				if (detail || (nbr->state == EIGRP_NEIGHBOR_UP))
+					show_ip_eigrp_neighbor_sub(vty, nbr,
+								   !!detail);
+			}
+		}
+	}
+}
+
 DEFPY (show_ip_eigrp_neighbors,
        show_ip_eigrp_neighbors_cmd,
        "show ip eigrp [vrf NAME] neighbors [IFNAME] [detail]$detail",
@@ -281,26 +301,27 @@ DEFPY (show_ip_eigrp_neighbors,
        "Detailed Information\n")
 {
 	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
-	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
 
-	eigrp = eigrp_vty_get_eigrp(vty, vrf);
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
+	if (vrf && strncmp(vrf, "all", sizeof("all")) == 0) {
+		struct vrf *vrf;
 
-	show_ip_eigrp_neighbor_header(vty, eigrp);
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			eigrp = eigrp_lookup(vrf->vrf_id);
+			if (!eigrp)
+				continue;
 
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
-		if (!ifname || strcmp(ei->ifp->name, ifname) == 0) {
-			for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
-				if (detail || (nbr->state == EIGRP_NEIGHBOR_UP))
-					show_ip_eigrp_neighbor_sub(vty, nbr,
-								   !!detail);
-			}
+			vty_out(vty, "VRF %s:\n", vrf->name);
+
+			eigrp_neighbors_helper(vty, eigrp, ifname, detail);
 		}
+	} else {
+		eigrp = eigrp_vty_get_eigrp(vty, vrf);
+		if (eigrp == NULL) {
+			vty_out(vty, " EIGRP Routing Process not enabled\n");
+			return CMD_SUCCESS;
+		}
+
+		eigrp_neighbors_helper(vty, eigrp, ifname, detail);
 	}
 
 	return CMD_SUCCESS;
