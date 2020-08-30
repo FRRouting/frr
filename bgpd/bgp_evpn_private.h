@@ -639,4 +639,5 @@ extern void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 extern int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
 						     struct bgp_path_info *pi,
 						     int install);
+extern void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import);
 #endif /* _BGP_EVPN_PRIVATE_H */

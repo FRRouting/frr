@@ -403,8 +403,8 @@ void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
 		bool uj, bool detail);
 void bgp_evpn_es_evi_show(struct vty *vty, bool uj, bool detail);
 struct bgp_evpn_es *bgp_evpn_es_find(const esi_t *esi);
-extern bool bgp_evpn_is_esi_local(esi_t *esi);
 extern void bgp_evpn_vrf_es_init(struct bgp *bgp_vrf);
+extern bool bgp_evpn_is_esi_local_and_non_bypass(esi_t *esi);
 extern void bgp_evpn_es_vrf_deref(struct bgp_evpn_es_evi *es_evi);
 extern void bgp_evpn_es_vrf_ref(struct bgp_evpn_es_evi *es_evi,
 				struct bgp *bgp_vrf);

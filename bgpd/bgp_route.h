@@ -115,6 +115,11 @@ struct bgp_path_es_info {
 	struct bgp_evpn_es *es;
 	/* memory used for linking the path to the destination ES */
 	struct listnode es_listnode;
+	uint8_t flags;
+/* Path is linked to the VNI list */
+#define BGP_EVPN_PATH_ES_INFO_VNI_LIST (1 << 0)
+/* Path is linked to the global list */
+#define BGP_EVPN_PATH_ES_INFO_GLOBAL_LIST (1 << 1)
 };
 
 /* IP paths imported into the VRF from an EVPN route source

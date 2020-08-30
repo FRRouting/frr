@@ -1671,7 +1671,7 @@ static inline bool bgp_evpn_route_add_l3_ecomm_ok(struct bgpevpn *vpn,
 	return p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
 	       && (is_evpn_prefix_ipaddr_v4(p)
 		   || !IN6_IS_ADDR_LINKLOCAL(
-			      &p->prefix.macip_addr.ip.ipaddr_v6))
+			   &p->prefix.macip_addr.ip.ipaddr_v6))
 	       && CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS)
 	       && bgpevpn_get_l3vni(vpn) && bgp_evpn_es_add_l3_ecomm_ok(esi);
 }
@@ -2498,6 +2498,8 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	struct attr *attr_new;
 	int ret;
 	struct prefix_evpn ad_evp;
+	bool old_local_es = false;
+	bool new_local_es;
 
 	/* EAD prefix in the global table doesn't include the VTEP-IP so
 	 * we need to create a different copy for the VNI
@@ -2520,6 +2522,7 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		/* Create an info */
 		pi = bgp_create_evpn_bgp_path_info(parent_pi, dest,
 						    parent_pi->attr);
+		new_local_es = bgp_evpn_attr_is_local_es(pi->attr);
 	} else {
 		if (attrhash_cmp(pi->attr, parent_pi->attr)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
@@ -2538,6 +2541,23 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		if (!IPV4_ADDR_SAME(&pi->attr->nexthop, &attr_new->nexthop))
 			SET_FLAG(pi->flags, BGP_PATH_IGP_CHANGED);
 
+		old_local_es = bgp_evpn_attr_is_local_es(pi->attr);
+		new_local_es = bgp_evpn_attr_is_local_es(attr_new);
+		/* If ESI is different or if its type has changed we
+		 * need to reinstall the path in zebra
+		 */
+		if ((old_local_es != new_local_es)
+		    || memcmp(&pi->attr->esi, &attr_new->esi,
+			      sizeof(attr_new->esi))) {
+
+			if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+				zlog_debug("VNI %d path %pFX chg to %s es",
+					   vpn->vni, &pi->net->p,
+					   new_local_es ? "local"
+							: "non-local");
+			bgp_path_info_set_flag(dest, pi, BGP_PATH_ATTR_CHANGED);
+		}
+
 		/* Unintern existing, set to new. */
 		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
@@ -2553,10 +2573,9 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	 * from sync-path to remote-path)
 	 */
 	local_pi = bgp_evpn_route_get_local_path(bgp, dest);
-	if (local_pi && bgp_evpn_attr_is_local_es(local_pi->attr))
+	if (local_pi && (old_local_es || new_local_es))
 		bgp_evpn_update_type2_route_entry(bgp, vpn, dest, local_pi,
-			__func__);
-
+						  __func__);
 	bgp_dest_unlock_node(dest);
 
 	return ret;
@@ -2908,15 +2927,14 @@ int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
 	      && pi->sub_type == BGP_ROUTE_NORMAL))
 		return 0;
 
-	/* don't import hosts that are locally attached */
-	if (bgp_evpn_skip_vrf_import_of_local_es(bgp_vrf, evp, pi, install))
-		return 0;
-
 	if (is_route_matching_for_vrf(bgp_vrf, pi)) {
 		if (bgp_evpn_route_rmac_self_check(bgp_vrf, evp, pi))
 			return 0;
 
-		if (install)
+		/* don't import hosts that are locally attached */
+		if (install
+		    && !bgp_evpn_skip_vrf_import_of_local_es(bgp_vrf, evp, pi,
+							     install))
 			ret = install_evpn_route_entry_in_vrf(bgp_vrf, evp, pi);
 		else
 			ret = uninstall_evpn_route_entry_in_vrf(bgp_vrf, evp,
@@ -3169,11 +3187,9 @@ static int install_uninstall_route_in_vrfs(struct bgp *bgp_def, afi_t afi,
 		int ret;
 
 		/* don't import hosts that are locally attached */
-		if (bgp_evpn_skip_vrf_import_of_local_es(bgp_vrf, evp, pi,
-							 install))
-			continue;
-
-		if (install)
+		if (install
+		    && !bgp_evpn_skip_vrf_import_of_local_es(bgp_vrf, evp, pi,
+							     install))
 			ret = install_evpn_route_entry_in_vrf(bgp_vrf, evp, pi);
 		else
 			ret = uninstall_evpn_route_entry_in_vrf(bgp_vrf, evp,
@@ -3372,6 +3388,18 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 {
 	return bgp_evpn_install_uninstall_table(bgp, afi, safi, p, pi, import,
 						true, true);
+}
+
+void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import)
+{
+	struct bgp *bgp_evpn;
+
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn)
+		return;
+
+	install_uninstall_evpn_route(bgp_evpn, AFI_L2VPN, SAFI_EVPN,
+				     &pi->net->p, pi, import);
 }
 
 /* Import the pi into vrf routing tables */
@@ -3727,7 +3755,7 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr) {
 		STREAM_GET(&attr->esi, pkt, sizeof(esi_t));
 
-		if (bgp_evpn_is_esi_local(&attr->esi))
+		if (bgp_evpn_is_esi_local_and_non_bypass(&attr->esi))
 			attr->es_flags |= ATTR_ES_IS_LOCAL;
 		else
 			attr->es_flags &= ~ATTR_ES_IS_LOCAL;

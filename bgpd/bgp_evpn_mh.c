@@ -71,6 +71,8 @@ static void bgp_evpn_l3nhg_update_on_vtep_chg(struct bgp_evpn_es *es);
 static struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi);
 static void bgp_evpn_es_free(struct bgp_evpn_es *es, const char *caller);
 static void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info);
+static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
+						bool is_local);
 
 esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
 static int bgp_evpn_run_consistency_checks(struct thread *t);
@@ -1439,6 +1441,7 @@ static void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info)
 	else
 		list_delete_node(es->macip_global_path_list,
 				 &es_info->es_listnode);
+
 	es_info->es = NULL;
 
 	/* if there are no other references against the ES it
@@ -1456,7 +1459,6 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 	struct bgp_path_es_info *es_info;
 	struct bgp_evpn_es *es;
 	struct bgp *bgp_evpn;
-	struct prefix_evpn *evp;
 
 	es_info = (pi->extra && pi->extra->mh_info)
 			  ? pi->extra->mh_info->es_info
@@ -1470,14 +1472,6 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn)
-		return;
-
-	/* Only MAC-IP routes need to be linked (MAC-only routes can be
-	 * skipped) as these lists are maintained for managing
-	 * host routes in the tenant VRF
-	 */
-	evp = (struct prefix_evpn *)&pi->net->p;
-	if (!(is_evpn_prefix_ipaddr_v4(evp) || is_evpn_prefix_ipaddr_v6(evp)))
 		return;
 
 	/* setup es_info against the path if it doesn't aleady exist */
@@ -1509,6 +1503,18 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 		listnode_add(es->macip_global_path_list, &es_info->es_listnode);
 }
 
+static bool bgp_evpn_is_macip_path(struct bgp_path_info *pi)
+{
+	struct prefix_evpn *evp;
+
+	/* Only MAC-IP routes need to be linked (MAC-only routes can be
+	 * skipped) as these lists are maintained for managing
+	 * host routes in the tenant VRF
+	 */
+	evp = (struct prefix_evpn *)&pi->net->p;
+	return is_evpn_prefix_ipaddr_v4(evp) || is_evpn_prefix_ipaddr_v6(evp);
+}
+
 /* When a remote ES is added to a VRF, routes using that as
  * a destination need to be migrated to a L3NHG or viceversa.
  * This is done indirectly by re-attempting an install of the
@@ -1534,6 +1540,9 @@ bgp_evpn_es_path_update_on_es_vrf_chg(struct bgp_evpn_es_vrf *es_vrf,
 
 	for (ALL_LIST_ELEMENTS_RO(es->macip_global_path_list, node, es_info)) {
 		pi = es_info->pi;
+
+		if (!bgp_evpn_is_macip_path(pi))
+			continue;
 
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 			zlog_debug(
@@ -1637,15 +1646,25 @@ static void bgp_evpn_es_free(struct bgp_evpn_es *es, const char *caller)
 	XFREE(MTYPE_BGP_EVPN_ES, es);
 }
 
+static inline bool bgp_evpn_is_es_local_and_non_bypass(struct bgp_evpn_es *es)
+{
+	return (es->flags & BGP_EVPNES_LOCAL)
+	       && !(es->flags & BGP_EVPNES_BYPASS);
+}
+
 /* init local info associated with the ES */
 static void bgp_evpn_es_local_info_set(struct bgp *bgp, struct bgp_evpn_es *es)
 {
 	char buf[BGP_EVPN_PREFIX_RD_LEN];
+	bool old_is_local;
+	bool is_local;
 
 	if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
 		return;
 
+	old_is_local = bgp_evpn_is_es_local_and_non_bypass(es);
 	SET_FLAG(es->flags, BGP_EVPNES_LOCAL);
+
 	listnode_init(&es->es_listnode, es);
 	listnode_add(bgp_mh_info->local_es_list, &es->es_listnode);
 
@@ -1655,15 +1674,27 @@ static void bgp_evpn_es_local_info_set(struct bgp *bgp, struct bgp_evpn_es *es)
 	es->prd.prefixlen = 64;
 	snprintfrr(buf, sizeof(buf), "%pI4:%hu", &bgp->router_id, es->rd_id);
 	(void)str2prefix_rd(buf, &es->prd);
+
+	is_local = bgp_evpn_is_es_local_and_non_bypass(es);
+	if (old_is_local != is_local)
+		bgp_evpn_mac_update_on_es_local_chg(es, is_local);
 }
 
 /* clear any local info associated with the ES */
 static void bgp_evpn_es_local_info_clear(struct bgp_evpn_es *es)
 {
+	bool old_is_local;
+	bool is_local;
+
 	if (!CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
 		return;
 
+	old_is_local = bgp_evpn_is_es_local_and_non_bypass(es);
 	UNSET_FLAG(es->flags, BGP_EVPNES_LOCAL);
+
+	is_local = bgp_evpn_is_es_local_and_non_bypass(es);
+	if (old_is_local != is_local)
+		bgp_evpn_mac_update_on_es_local_chg(es, is_local);
 
 	/* remove from the ES local list */
 	list_delete_node(bgp_mh_info->local_es_list, &es->es_listnode);
@@ -1702,6 +1733,13 @@ bool bgp_evpn_es_add_l3_ecomm_ok(esi_t *esi)
 		|| bgp_evpn_local_es_is_active(es));
 }
 
+static bool bgp_evpn_is_valid_local_path(struct bgp_path_info *pi)
+{
+	return (CHECK_FLAG(pi->flags, BGP_PATH_VALID)
+		&& pi->type == ZEBRA_ROUTE_BGP
+		&& pi->sub_type == BGP_ROUTE_STATIC);
+}
+
 /* Update all local MAC-IP routes in the VNI routing table associated
  * with the ES. When the ES is down the routes are advertised without
  * the L3 extcomm
@@ -1725,11 +1763,11 @@ static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
 	bgp = bgp_get_evpn();
 	for (ALL_LIST_ELEMENTS_RO(es->macip_evi_path_list, node, es_info)) {
 		pi = es_info->pi;
-		if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+
+		if (!bgp_evpn_is_valid_local_path(pi))
 			continue;
 
-		if (pi->type != ZEBRA_ROUTE_BGP
-		    || pi->sub_type != BGP_ROUTE_STATIC)
+		if (!bgp_evpn_is_macip_path(pi))
 			continue;
 
 		vpn = bgp_evpn_lookup_vni(bgp, es_info->vni);
@@ -1746,6 +1784,65 @@ static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
 
 		bgp_evpn_update_type2_route_entry(bgp, vpn, pi->net, pi,
 						  __func__);
+	}
+}
+
+static bool bgp_evpn_is_valid_bgp_path(struct bgp_path_info *pi)
+{
+	return (CHECK_FLAG(pi->flags, BGP_PATH_VALID)
+		&& pi->type == ZEBRA_ROUTE_BGP
+		&& pi->sub_type == BGP_ROUTE_NORMAL);
+}
+
+/* If an ES is no longer local (or becomes local) we need to re-install
+ * paths using that ES as destination. This is needed as the criteria
+ * for best path selection has changed.
+ */
+static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
+						bool is_local)
+{
+	struct listnode *node;
+	struct bgp_path_es_info *es_info;
+	struct bgp_path_info *pi;
+	char prefix_buf[PREFIX_STRLEN];
+	bool tmp_local;
+	struct attr *attr_new;
+	struct attr attr_tmp;
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("update paths linked to es %s on chg to %s",
+			   es->esi_str, is_local ? "local" : "non-local");
+
+	for (ALL_LIST_ELEMENTS_RO(es->macip_global_path_list, node, es_info)) {
+		pi = es_info->pi;
+
+		/* Consider "valid" remote routes */
+		if (!bgp_evpn_is_valid_bgp_path(pi))
+			continue;
+
+		if (!pi->attr)
+			continue;
+
+		tmp_local = !!(pi->attr->es_flags & ATTR_ES_IS_LOCAL);
+		if (tmp_local == is_local)
+			continue;
+
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+			zlog_debug(
+				"update path %s linked to es %s on chg to %s",
+				prefix2str(&pi->net->p, prefix_buf,
+					   sizeof(prefix_buf)),
+				es->esi_str, is_local ? "local" : "non-local");
+
+		attr_tmp = *pi->attr;
+		if (is_local)
+			attr_tmp.es_flags |= ATTR_ES_IS_LOCAL;
+		else
+			attr_tmp.es_flags &= ~ATTR_ES_IS_LOCAL;
+		attr_new = bgp_attr_intern(&attr_tmp);
+		bgp_attr_unintern(&pi->attr);
+		pi->attr = attr_new;
+		bgp_evpn_import_type2_route(pi, 1);
 	}
 }
 
@@ -1863,11 +1960,14 @@ static void bgp_evpn_local_es_bypass_update(struct bgp *bgp,
 	bool old_bypass = !!(es->flags & BGP_EVPNES_BYPASS);
 	bool old_active;
 	bool new_active;
+	bool old_is_local;
+	bool is_local;
 
 	if (bypass == old_bypass)
 		return;
 
 	old_active = bgp_evpn_local_es_is_active(es);
+	old_is_local = bgp_evpn_is_es_local_and_non_bypass(es);
 	if (bypass)
 		SET_FLAG(es->flags, BGP_EVPNES_BYPASS);
 	else
@@ -1884,6 +1984,10 @@ static void bgp_evpn_local_es_bypass_update(struct bgp *bgp,
 		else
 			bgp_evpn_local_es_deactivate(bgp, es);
 	}
+
+	is_local = bgp_evpn_is_es_local_and_non_bypass(es);
+	if (old_is_local != is_local)
+		bgp_evpn_mac_update_on_es_local_chg(es, is_local);
 }
 
 static void bgp_evpn_local_es_do_del(struct bgp *bgp, struct bgp_evpn_es *es)
@@ -1911,13 +2015,14 @@ static void bgp_evpn_local_es_do_del(struct bgp *bgp, struct bgp_evpn_es *es)
 	bgp_evpn_es_local_info_clear(es);
 }
 
-bool bgp_evpn_is_esi_local(esi_t *esi)
+bool bgp_evpn_is_esi_local_and_non_bypass(esi_t *esi)
 {
 	struct bgp_evpn_es *es = NULL;
 
 	/* Lookup ESI hash - should exist. */
 	es = bgp_evpn_es_find(esi);
-	return es ? !!(es->flags & BGP_EVPNES_LOCAL) : false;
+
+	return es && bgp_evpn_is_es_local_and_non_bypass(es);
 }
 
 int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi)
