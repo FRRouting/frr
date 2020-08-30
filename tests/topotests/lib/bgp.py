@@ -46,6 +46,7 @@ from lib.common_config import (
 LOGDIR = "/tmp/topotests/"
 TMPDIR = None
 
+
 def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True):
     """
     API to configure bgp on router
@@ -1219,11 +1220,17 @@ def verify_bgp_convergence(tgen, topo, dut=None):
                                     no_of_peer += 1
 
                     if no_of_peer == total_peer:
-                        logger.info("[DUT: %s] VRF: %s, BGP is Converged for %s address-family",
-                                    router, vrf, addr_type)
+                        logger.info(
+                            "[DUT: %s] VRF: %s, BGP is Converged for %s address-family",
+                            router,
+                            vrf,
+                            addr_type,
+                        )
                     else:
-                        errormsg = ("[DUT: %s] VRF: %s, BGP is not converged for %s address-family" %
-                            (router, vrf, addr_type))
+                        errormsg = (
+                            "[DUT: %s] VRF: %s, BGP is not converged for %s address-family"
+                            % (router, vrf, addr_type)
+                        )
                         return errormsg
 
     logger.debug("Exiting API: verify_bgp_convergence()")
@@ -2553,10 +2560,19 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
                     missing_routes = []
                     st_found = False
                     nh_found = False
+
                     vrf = static_route.setdefault("vrf", None)
+                    community = static_route.setdefault("community", None)
+                    largeCommunity = static_route.setdefault("largeCommunity", None)
+
                     if vrf:
                         cmd = "{} vrf {} {}".format(command, vrf, addr_type)
 
+                        if community:
+                            cmd = "{} community {}".format(cmd, community)
+
+                        if largeCommunity:
+                            cmd = "{} large-community {}".format(cmd, largeCommunity)
                     else:
                         cmd = "{} {}".format(command, addr_type)
 
