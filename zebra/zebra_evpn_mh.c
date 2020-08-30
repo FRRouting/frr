@@ -1356,7 +1356,8 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es *es)
 	if (!(es->flags & ZEBRA_EVPNES_LOCAL))
 		return;
 
-	es->flags &= ~ZEBRA_EVPNES_LOCAL;
+	es->flags &= ~(ZEBRA_EVPNES_LOCAL | ZEBRA_EVPNES_READY_FOR_BGP);
+
 	/* if there any local macs referring to the ES as dest we
 	 * need to clear the static reference on them
 	 */
@@ -1613,9 +1614,13 @@ bool zebra_evpn_es_mac_ref(zebra_mac_t *mac, esi_t *esi)
 
 	es = zebra_evpn_es_find(esi);
 	if (!es) {
-		es = zebra_evpn_es_new(esi);
-		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-			zlog_debug("auto es %s add on mac ref", es->esi_str);
+		/* If non-zero esi implicitly create a new ES */
+		if (memcmp(esi, zero_esi, sizeof(esi_t))) {
+			es = zebra_evpn_es_new(esi);
+			if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+				zlog_debug("auto es %s add on mac ref",
+					   es->esi_str);
+		}
 	}
 
 	return zebra_evpn_es_mac_ref_entry(mac, es);
