@@ -29,7 +29,6 @@ import re
 import sys
 import functools
 import glob
-import StringIO
 import subprocess
 import tempfile
 import platform
@@ -1013,12 +1012,9 @@ class Router(Node):
         self.cmd("chown {0}:{0}vty /etc/{0}".format(self.routertype))
 
     def terminate(self):
-        # Delete Running Quagga or FRR Daemons
+        # Stop running FRR daemons
         self.stopRouter()
-        # rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
-        # for d in StringIO.StringIO(rundaemons):
-        #     self.cmd('kill -7 `cat %s`' % d.rstrip())
-        #     self.waitOutput()
+
         # Disable forwarding
         set_sysctl(self, "net.ipv4.ip_forward", 0)
         set_sysctl(self, "net.ipv6.conf.all.forwarding", 0)
@@ -1033,10 +1029,12 @@ class Router(Node):
         if re.search(r"No such file or directory", rundaemons):
             return 0
         if rundaemons is not None:
-            for d in StringIO.StringIO(rundaemons):
+            bet = rundaemons.split('\n')
+            for d in bet[:-1]:
                 daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                 if daemonpid.isdigit() and pid_exists(int(daemonpid)):
                     ret.append(os.path.basename(d.rstrip().rsplit(".", 1)[0]))
+
         return ret
 
     def stopRouter(self, wait=True, assertOnError=True, minErrorVersion="5.1"):
@@ -1046,7 +1044,9 @@ class Router(Node):
         if re.search(r"No such file or directory", rundaemons):
             return errors
         if rundaemons is not None:
-            for d in StringIO.StringIO(rundaemons):
+            dmns = rundaemons.split('\n')
+            # Exclude empty string at end of list
+            for d in dmns[:-1]:
                 daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                 if daemonpid.isdigit() and pid_exists(int(daemonpid)):
                     daemonname = os.path.basename(d.rstrip().rsplit(".", 1)[0])
@@ -1080,7 +1080,9 @@ class Router(Node):
 
             if running:
                 # 2nd round of kill if daemons didn't exit
-                for d in StringIO.StringIO(rundaemons):
+                dmns = rundaemons.split('\n')
+                # Exclude empty string at end of list
+                for d in dmns[:-1]:
                     daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                     if daemonpid.isdigit() and pid_exists(int(daemonpid)):
                         logger.info(
@@ -1330,7 +1332,9 @@ class Router(Node):
         for daemon in daemons:
             if rundaemons is not None and daemon in rundaemons:
                 numRunning = 0
-                for d in StringIO.StringIO(rundaemons):
+                dmns = rundaemons.split('\n')
+                # Exclude empty string at end of list
+                for d in dmns[:-1]:
                     if re.search(r"%s" % daemon, d):
                         daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                         if daemonpid.isdigit() and pid_exists(int(daemonpid)):
@@ -1351,8 +1355,9 @@ class Router(Node):
                                     self.name, daemon
                                 ),
                             )
+
                             # 2nd round of kill if daemons didn't exit
-                            for d in StringIO.StringIO(rundaemons):
+                            for d in dmns[:-1]:
                                 if re.search(r"%s" % daemon, d):
                                     daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                                     if daemonpid.isdigit() and pid_exists(

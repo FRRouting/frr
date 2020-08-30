@@ -30,13 +30,18 @@ from functools import wraps
 from re import search as re_search
 from tempfile import mkdtemp
 
-import StringIO
 import os
 import sys
-import ConfigParser
 import traceback
 import socket
 import ipaddress
+
+if sys.version_info[0] > 2:
+    import io
+    import configparser
+else:
+    import StringIO
+    import ConfigParser as configparser
 
 from lib.topolog import logger, logger_config
 from lib.topogen import TopoRouter, get_topogen
@@ -61,7 +66,7 @@ TMPDIR = None
 
 # NOTE: to save execution logs to log file frrtest_log_dir must be configured
 # in `pytest.ini`.
-config = ConfigParser.ConfigParser()
+config = configparser.ConfigParser()
 config.read(PYTESTINI_PATH)
 
 config_section = "topogen"
@@ -393,6 +398,14 @@ def check_router_status(tgen):
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
+def getStrIO():
+    """
+    Return a StringIO object appropriate for the current python version.
+    """
+    if sys.version_info[0] > 2:
+        return io.StringIO()
+    else:
+        return StringIO.StringIO()
 
 def reset_config_on_routers(tgen, routerName=None):
     """
@@ -465,7 +478,7 @@ def reset_config_on_routers(tgen, routerName=None):
             raise InvalidCLIError("Unknown error in %s", output)
 
         f = open(dname, "r")
-        delta = StringIO.StringIO()
+        delta = getStrIO()
         delta.write("configure terminal\n")
         t_delta = f.read()
 
@@ -499,7 +512,7 @@ def reset_config_on_routers(tgen, routerName=None):
         output = router.vtysh_multicmd(delta.getvalue(), pretty_output=False)
 
         delta.close()
-        delta = StringIO.StringIO()
+        delta = getStrIO()
         cfg = router.run("vtysh -c 'show running'")
         for line in cfg.split("\n"):
             line = line.strip()
@@ -713,8 +726,8 @@ def start_topology(tgen):
                 os.chdir("{}/{}".format(TMPDIR, rname))
                 os.system("touch zebra.conf bgpd.conf")
 
-        except IOError as (errno, strerror):
-            logger.error("I/O error({0}): {1}".format(errno, strerror))
+        except IOError as err:
+            logger.error("I/O error({0}): {1}".format(err.errno, err.strerror))
 
         # Loading empty zebra.conf file to router, to start the zebra deamon
         router.load_config(
@@ -2191,7 +2204,7 @@ def addKernelRoute(
             if mask == "32" or mask == "128":
                 grp_addr = ip
 
-        if not re_search(r"{}".format(grp_addr), result) and mask is not "0":
+        if not re_search(r"{}".format(grp_addr), result) and mask != "0":
             errormsg = (
                 "[DUT: {}]: Kernal route is not added for group"
                 " address {} Config output: {}".format(router, grp_addr, output)
