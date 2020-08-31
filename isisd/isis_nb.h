@@ -256,6 +256,14 @@ int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(
 int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify(
+	struct nb_cb_modify_args *args);
 struct yang_data *
 lib_interface_state_isis_get_elem(struct nb_cb_get_elem_args *args);
 const void *lib_interface_state_isis_adjacencies_adjacency_get_next(
@@ -432,6 +440,8 @@ void cli_show_ip_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults);
 void cli_show_ip_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults);
+void cli_show_ip_isis_ti_lfa(struct vty *vty, struct lyd_node *dnode,
+			     bool show_defaults);
 void cli_show_ip_isis_circ_type(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_ip_isis_network_type(struct vty *vty, struct lyd_node *dnode,

@@ -336,6 +336,26 @@ module frr-isisd {
     }
   }
 
+  grouping interface-config-ti-lfa {
+    container ti-lfa {
+      description
+        "TI-LFA configuration.";
+      leaf enable {
+        type boolean;
+        default false;
+        description
+          "Enables TI-LFA computation.";
+      }
+      leaf node-protection {
+        type boolean;
+        must ". = 'false' or ../enable = 'true'";
+        default false;
+        description
+          "Node protection is provided by the alternate.";
+      }
+    }
+  }
+
   grouping interface-config {
     description
       "Interface configuration grouping";
@@ -638,6 +658,20 @@ module frr-isisd {
       }
     }
 
+    container fast-reroute {
+      description
+        "Interface IP Fast-reroute configuration.";
+      container level-1 {
+        description
+          "Level-1 IP Fast-reroute configuration.";
+        uses interface-config-ti-lfa;
+      }
+      container level-2 {
+        description
+          "Level-2 IP Fast-reroute configuration.";
+        uses interface-config-ti-lfa;
+      }
+    }
   }
 
   grouping adjacency-state {
