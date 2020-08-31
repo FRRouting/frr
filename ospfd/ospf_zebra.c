@@ -1353,11 +1353,18 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 						default_refresh = 1;
 					else if (
 						(lsa = ospf_external_info_find_lsa(
-							 ospf, &ei->p)))
-						ospf_external_lsa_refresh(
-							ospf, lsa, ei,
-							LSA_REFRESH_IF_CHANGED);
-					else
+							 ospf, &ei->p))) {
+						if (!CHECK_FLAG(
+							    lsa->flags,
+							    OSPF_LSA_IN_MAXAGE))
+							ospf_external_lsa_refresh(
+								ospf, lsa, ei,
+								LSA_REFRESH_IF_CHANGED);
+						else
+							ospf_external_lsa_refresh(
+								ospf, lsa, ei,
+								LSA_REFRESH_FORCE);
+					} else
 						ospf_external_lsa_originate(
 							ospf, ei);
 				}
