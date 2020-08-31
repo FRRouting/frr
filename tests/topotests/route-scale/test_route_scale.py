@@ -135,6 +135,14 @@ def run_one_setup(r1, s):
     output = r1.vtysh_cmd("sharp data route", isjson=False)
     logger.info("1 million routes X {} ecmp installed".format(s['ecmp']))
     logger.info(output)
+
+    # Output some mem info
+    p = os.popen('free')
+    plines = p.readlines()
+    p.close()
+
+    logger.info('Mem info:\n{}'.format(plines))
+
     r1.vtysh_cmd("sharp remove route 1.0.0.0 1000000", isjson=False)
     test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_removed)
     success, result = topotest.run_and_expect(test_func, None, count, wait)
@@ -145,6 +153,12 @@ def run_one_setup(r1, s):
         s['ecmp']))
     logger.info(output)
 
+    # Output some mem info
+    p = os.popen('free')
+    plines = p.readlines()
+    p.close()
+
+    logger.info('Mem info:\n{}'.format(plines))
 
 def test_route_install():
     "Test route install for a variety of ecmp"
@@ -193,13 +207,15 @@ def test_route_install():
     # Avoid top ecmp case for runs with < 4G memory
     p = os.popen('free')
     plines = p.readlines()
+    p.close()
+
     l = plines[1].split()
+
+    logger.info('Mem info:\n{}'.format(plines))
+
     mem = int(l[1])
-    l = plines[2].split()
-    swap_mem = int(l[1])
     if mem < 4000000:
-        logger.info('Limited memory available: {}, {}, '\
-                    'skipping x32 ecmp testcase'.format(mem, swap_mem))
+        logger.info('Limited memory available: {}, skipping x32 testcase'.format(mem))
         scale_setups = scale_setups[0:-1]
 
     # Run each step using the dicts we've built
