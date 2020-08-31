@@ -63,7 +63,15 @@ static int nb_cli_classic_commit(struct vty *vty)
 	context.user = vty;
 	ret = nb_candidate_commit(&context, vty->candidate_config, true, NULL,
 				  NULL, errmsg, sizeof(errmsg));
-	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
+	switch (ret) {
+	case NB_OK:
+		/* Successful commit. Print warnings (if any). */
+		if (strlen(errmsg) > 0)
+			vty_out(vty, "%s\n", errmsg);
+		break;
+	case NB_ERR_NO_CHANGES:
+		break;
+	default:
 		vty_out(vty, "%% Configuration failed.\n\n");
 		vty_show_nb_errors(vty, ret, errmsg);
 		if (vty->t_pending_commit)
@@ -74,9 +82,7 @@ static int nb_cli_classic_commit(struct vty *vty)
 		/* Regenerate candidate for consistency. */
 		nb_config_replace(vty->candidate_config, running_config, true);
 		return CMD_WARNING_CONFIG_FAILED;
-	} else if (strlen(errmsg) > 0)
-		/* Successful commit. Print warnings (if any). */
-		vty_out(vty, "%s\n", errmsg);
+	}
 
 	return CMD_SUCCESS;
 }
