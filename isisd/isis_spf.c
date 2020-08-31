@@ -1236,6 +1236,29 @@ static void add_to_paths(struct isis_spftree *spftree,
 		   vertex->d_N);
 #endif /* EXTREME_DEBUG */
 
+	if (VTYPE_IS(vertex->type)
+	    && !CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES)) {
+		if (listcount(vertex->Adj_N) > 0) {
+			if (spftree->type == SPF_TYPE_TI_LFA) {
+				struct isis_adjacency *adj;
+
+				if (isis_lfa_check(spftree, vertex) != 0)
+					return;
+
+				adj = isis_adj_find(area, spftree->level,
+						    vertex->N.id);
+				if (adj)
+					sr_adj_sid_add_single(
+						adj, spftree->family, true,
+						vertex->Adj_N);
+			}
+		} else if (IS_DEBUG_SPF_EVENTS)
+			zlog_debug(
+				"ISIS-Spf: no adjacencies, do not install backup Adj-SID for %s depth %d dist %d",
+				vid2string(vertex, buff, sizeof(buff)),
+				vertex->depth, vertex->d_N);
+	}
+
 	if (VTYPE_IP(vertex->type)
 	    && !CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ROUTES)) {
 		if (listcount(vertex->Adj_N) > 0) {
@@ -1466,6 +1489,7 @@ static int isis_run_spf_cb(struct thread *thread)
 		return ISIS_WARNING;
 	}
 
+	isis_area_delete_backup_adj_sids(area, level);
 	isis_area_invalidate_routes(area, level);
 
 	if (IS_DEBUG_SPF_EVENTS)

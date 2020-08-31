@@ -471,6 +471,7 @@ void isis_zebra_send_prefix_sid(int cmd, const struct sr_prefix *srp)
  */
 void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 {
+	struct isis *isis = sra->adj->circuit->area->isis;
 	struct zapi_labels zl;
 	struct zapi_nexthop *znh;
 
@@ -482,11 +483,11 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 
 	sr_debug("  |- %s label %u for interface %s",
 		 cmd == ZEBRA_MPLS_LABELS_ADD ? "Add" : "Delete",
-		 sra->nexthop.label, sra->adj->circuit->interface->name);
+		 sra->input_label, sra->adj->circuit->interface->name);
 
 	memset(&zl, 0, sizeof(zl));
 	zl.type = ZEBRA_LSP_ISIS_SR;
-	zl.local_label = sra->nexthop.label;
+	zl.local_label = sra->input_label;
 	zl.nexthop_num = 1;
 	znh = &zl.nexthops[0];
 	znh->gate = sra->nexthop.address;
@@ -496,6 +497,24 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 	znh->ifindex = sra->adj->circuit->interface->ifindex;
 	znh->label_num = 1;
 	znh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
+
+	/* Set backup nexthops. */
+	if (sra->type == ISIS_SR_LAN_BACKUP) {
+		int count;
+
+		count = isis_zebra_add_nexthops(isis, sra->backup_nexthops,
+						zl.backup_nexthops,
+						ISIS_MPLS_NEXTHOP_BACKUP, 0);
+		if (count > 0) {
+			SET_FLAG(zl.message, ZAPI_LABELS_HAS_BACKUPS);
+			zl.backup_nexthop_num = count;
+
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
+			znh->backup_num = count;
+			for (int i = 0; i < count; i++)
+				znh->backup_idx[i] = i;
+		}
+	}
 
 	(void)zebra_send_mpls_labels(zclient, cmd, &zl);
 }

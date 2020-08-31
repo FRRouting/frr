@@ -678,8 +678,24 @@ int isis_lfa_check(struct isis_spftree *spftree_pc, struct isis_vertex *vertex)
 	}
 
 	/*
-	 * Check if the adjacency was already covered by node protection.
+	 * Check if the route/adjacency was already covered by node protection.
 	 */
+	if (VTYPE_IS(vertex->type)) {
+		struct isis_adjacency *adj;
+
+		adj = isis_adj_find(spftree_pc->area, spftree_pc->level,
+				    vertex->N.id);
+		if (adj
+		    && isis_sr_adj_sid_find(adj, spftree_pc->family,
+					    ISIS_SR_LAN_BACKUP)) {
+			if (IS_DEBUG_TILFA)
+				zlog_debug(
+					"ISIS-TI-LFA: %s %s already covered by node protection",
+					vtype2string(vertex->type), buf);
+
+			return -1;
+		}
+	}
 	if (VTYPE_IP(vertex->type)) {
 		struct route_table *route_table;
 

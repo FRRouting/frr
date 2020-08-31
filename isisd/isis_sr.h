@@ -84,12 +84,17 @@ struct sr_adjacency {
 	/* Adjacency type. */
 	enum sr_adj_type type;
 
+	/* Adjacency-SID input label. */
+	mpls_label_t input_label;
+
 	/* Adjacency-SID nexthop information. */
 	struct {
 		int family;
 		union g_addr address;
-		mpls_label_t label;
 	} nexthop;
+
+	/* Adjacency-SID TI-LFA backup nexthops. */
+	struct list *backup_nexthops;
 
 	/* (LAN-)Adjacency-SID Sub-TLV. */
 	union {
@@ -277,6 +282,12 @@ extern void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg,
 extern void isis_sr_nexthop_update(struct sr_nexthop_info *srnh,
 				   mpls_label_t label);
 extern void isis_sr_nexthop_reset(struct sr_nexthop_info *srnh);
+extern void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
+				  bool backup, struct list *nexthops);
+extern struct sr_adjacency *isis_sr_adj_sid_find(struct isis_adjacency *adj,
+						 int family,
+						 enum sr_adj_type type);
+extern void isis_area_delete_backup_adj_sids(struct isis_area *area, int level);
 extern void isis_area_verify_sr(struct isis_area *area);
 extern int isis_sr_start(struct isis_area *area);
 extern void isis_sr_stop(struct isis_area *area);
