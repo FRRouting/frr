@@ -420,9 +420,6 @@ struct zapi_nexthop {
 
 	/* SR-TE color. */
 	uint32_t srte_color;
-
-	/* TODO -- testing */
-	uint8_t dummy[512];
 };
 
 /*

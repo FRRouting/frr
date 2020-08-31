@@ -550,8 +550,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 	struct nexthop *nexthop;
 	uint8_t count = 0;
 	afi_t afi;
-	size_t stream_size =
-		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
+	size_t stream_size = 80 * 1000;
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = re->vrf_id;

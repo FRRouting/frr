@@ -67,8 +67,7 @@ struct zclient *zclient_new(struct thread_master *master,
 			    struct zclient_options *opt)
 {
 	struct zclient *zclient;
-	size_t stream_size =
-		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
+	size_t stream_size = 80 * 1000;
 
 	zclient = XCALLOC(MTYPE_ZCLIENT, sizeof(struct zclient));
 
