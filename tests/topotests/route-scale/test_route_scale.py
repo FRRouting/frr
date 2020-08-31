@@ -115,6 +115,8 @@ def test_converge_protocols():
 def run_one_setup(r1, s):
     "Run one ecmp config"
 
+    tgen = get_topogen()
+
     # Extract params
     expected_installed = s['expect_in']
     expected_removed = s['expect_rem']
@@ -136,13 +138,10 @@ def run_one_setup(r1, s):
     logger.info("1 million routes X {} ecmp installed".format(s['ecmp']))
     logger.info(output)
 
-    # Output some mem info
-    p = os.popen('free')
-    plines = p.readlines()
-    p.close()
+    # Enable cli
+    #tgen.mininet_cli()
 
-    logger.info('Mem info:\n{}'.format(plines))
-
+    logger.info('Testing route removal')
     r1.vtysh_cmd("sharp remove route 1.0.0.0 1000000", isjson=False)
     test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_removed)
     success, result = topotest.run_and_expect(test_func, None, count, wait)
@@ -152,13 +151,6 @@ def run_one_setup(r1, s):
     logger.info("1 million routes x {} ecmp removed".format(
         s['ecmp']))
     logger.info(output)
-
-    # Output some mem info
-    p = os.popen('free')
-    plines = p.readlines()
-    p.close()
-
-    logger.info('Mem info:\n{}'.format(plines))
 
 def test_route_install():
     "Test route install for a variety of ecmp"
@@ -209,9 +201,11 @@ def test_route_install():
     plines = p.readlines()
     p.close()
 
-    l = plines[1].split()
+    logger.info('Mem info:\n')
+    for i in plines:
+        logger.info(i.rstrip())
 
-    logger.info('Mem info:\n{}'.format(plines))
+    l = plines[1].split()
 
     mem = int(l[1])
     if mem < 4000000:
