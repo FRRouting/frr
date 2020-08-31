@@ -550,7 +550,8 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 	struct nexthop *nexthop;
 	uint8_t count = 0;
 	afi_t afi;
-	size_t stream_size = 80 * 1000;
+	size_t stream_size =
+		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = re->vrf_id;
@@ -747,7 +748,7 @@ static int route_notify_internal(const struct prefix *p, int type,
 			   vrf_id);
 	}
 
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	s = stream_new(200);
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, vrf_id);

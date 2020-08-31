@@ -514,6 +514,9 @@ struct zapi_route {
 
 	/* SR-TE color (used for nexthop updates only). */
 	uint32_t srte_color;
+
+	/* TODO -- testing */
+	uint8_t dummy[80 * 1000];
 };
 
 struct zapi_labels {

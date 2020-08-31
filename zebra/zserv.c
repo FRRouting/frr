@@ -724,7 +724,8 @@ static int zserv_handle_client_fail(struct thread *thread)
 static struct zserv *zserv_client_create(int sock)
 {
 	struct zserv *client;
-	size_t stream_size = 80 * 1000;
+	size_t stream_size =
+		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
 	int i;
 	afi_t afi;
 
