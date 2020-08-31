@@ -205,6 +205,8 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_modify(
 	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_unset_modify(
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_csnp_interval_level_1_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_csnp_interval_level_2_modify(

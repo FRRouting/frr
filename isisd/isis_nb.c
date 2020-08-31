@@ -538,6 +538,12 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid/n-flag-unset",
+			.cbs = {
+				.modify = isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_unset_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis",
 			.cbs = {
 				.create = lib_interface_isis_create,

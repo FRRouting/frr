@@ -127,6 +127,9 @@ struct sr_prefix {
 	struct srdb_node_prefix_item node_entry;
 	struct srdb_area_prefix_item area_entry;
 
+	/* IS-IS level: ISIS_LEVEL1 or ISIS_LEVEL2. */
+	int level;
+
 	/* IP prefix. */
 	struct prefix prefix;
 
@@ -149,11 +152,14 @@ struct sr_prefix {
 		} remote;
 	} u;
 
-	/* Backpointer to Segment Routing node. */
-	struct sr_node *srn;
+	/* Backpointer to IS-IS area. */
+	struct isis_area *area;
 
 	/* SR-Prefix State used while the LSPDB is being parsed. */
 	enum srdb_state state;
+
+	/* Reference counter (for Anycast-SIDs). */
+	unsigned int refcnt;
 };
 
 /* Segment Routing node. */
@@ -208,6 +214,9 @@ struct sr_prefix_cfg {
 
 	/* SID value type. */
 	enum sr_sid_value_type sid_type;
+
+	/* Indicates whether this is a node SID or not. */
+	bool n_flag_unset;
 
 	/* SID last hop behavior. */
 	enum sr_last_hop_behavior last_hop_behavior;

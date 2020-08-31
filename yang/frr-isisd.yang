@@ -1308,6 +1308,12 @@ module frr-isisd {
               description
                 "Configure last hop behavior.";
             }
+            leaf n-flag-unset {
+              type boolean;
+              default "false";
+              description
+                "Not a node SID";
+            }
           }
         }
       }

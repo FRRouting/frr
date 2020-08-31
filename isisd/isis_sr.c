@@ -50,6 +50,9 @@
 /* Local variables and functions */
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SR_INFO, "ISIS segment routing information")
 
+static struct sr_prefix *sr_prefix_find_by_area(struct isis_area *area,
+						int level,
+						union prefixconstptr prefix);
 static void sr_prefix_uninstall(struct sr_prefix *srp);
 static void sr_prefix_reinstall(struct sr_prefix *srp, bool make_before_break);
 static void sr_local_block_delete(struct isis_area *area);
@@ -352,7 +355,7 @@ void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg, bool external,
 	}
 	if (external)
 		SET_FLAG(psid->flags, ISIS_PREFIX_SID_READVERTISED);
-	if (pcfg->node_sid)
+	if (!pcfg->n_flag_unset && pcfg->node_sid)
 		SET_FLAG(psid->flags, ISIS_PREFIX_SID_NODE);
 
 	/* Set SID value. */
@@ -383,7 +386,21 @@ static struct sr_prefix *sr_prefix_add(struct isis_area *area,
 {
 	struct sr_prefix *srp;
 
+	srp = sr_prefix_find_by_area(area, srn->level, prefix);
+	if (srp) {
+		if (memcmp(&srp->sid, psid, sizeof(srp->sid)))
+			zlog_warn(
+				"%s: Prefix-SID %pFX already exists using a different value",
+				__func__, &srp->prefix);
+		else {
+			srp->refcnt++;
+			srdb_node_prefix_add(&srn->prefix_sids, srp);
+		}
+		return NULL;
+	}
+
 	srp = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*srp));
+	srp->refcnt = 1;
 	prefix_copy(&srp->prefix, prefix.p);
 	srp->sid = *psid;
 	srp->input_label = MPLS_INVALID_LABEL;
@@ -394,9 +411,9 @@ static struct sr_prefix *sr_prefix_add(struct isis_area *area,
 		srp->type = ISIS_SR_PREFIX_REMOTE;
 		srp->u.remote.rinfo = NULL;
 	}
-	srp->srn = srn;
+	srp->level = srn->level;
+	srp->area = area;
 	srdb_node_prefix_add(&srn->prefix_sids, srp);
-	/* TODO: this might fail if we have Anycast SIDs in the IS-IS area. */
 	srdb_area_prefix_add(&area->srdb.prefix_sids[srn->level - 1], srp);
 
 	sr_debug("  |- Added new SR Prefix-SID %pFX %s %u to SR Node %s",
@@ -421,10 +438,14 @@ static void sr_prefix_del(struct isis_area *area, struct sr_node *srn,
 		 &srp->prefix, IS_SID_VALUE(srp->sid.flags) ? "label" : "index",
 		 srp->sid.value, sysid_print(srn->sysid));
 
-	sr_prefix_uninstall(srp);
 	srdb_node_prefix_del(&srn->prefix_sids, srp);
-	srdb_area_prefix_del(&area->srdb.prefix_sids[srn->level - 1], srp);
-	XFREE(MTYPE_ISIS_SR_INFO, srp);
+	if (--srp->refcnt == 0) {
+		sr_prefix_uninstall(srp);
+		srdb_area_prefix_del(&area->srdb.prefix_sids[srn->level - 1],
+				     srp);
+		XFREE(MTYPE_ISIS_SR_INFO, srp);
+	} else
+		sr_prefix_reinstall(srp, true);
 }
 
 /**
@@ -492,7 +513,6 @@ static struct sr_node *sr_node_add(struct isis_area *area, int level,
 	return srn;
 }
 
-static void sr_node_del(struct isis_area *area, int level, struct sr_node *srn)
 /**
  * Remove Segment Routing Node from the Segment Routing Data Base.
  * All Prefix-SID attached to this Segment Routing Node are removed first.
@@ -501,6 +521,7 @@ static void sr_node_del(struct isis_area *area, int level, struct sr_node *srn)
  * @param level	 IS-IS level
  * @param srn	 Segment Routing Node to be deleted
  */
+static void sr_node_del(struct isis_area *area, int level, struct sr_node *srn)
 {
 
 	sr_debug("  |- Delete SR Node %s", sysid_print(srn->sysid));
@@ -620,10 +641,10 @@ static struct isis_route_info *sr_prefix_lookup_route(struct isis_area *area,
 						      struct sr_prefix *srp)
 {
 	struct route_node *rn;
-	int level = srp->srn->level;
 
-	rn = route_node_lookup(area->spftree[tree_id][level - 1]->route_table,
-			       &srp->prefix);
+	rn = route_node_lookup(
+		area->spftree[tree_id][srp->level - 1]->route_table,
+		&srp->prefix);
 	if (rn) {
 		route_unlock_node(rn);
 		if (rn->info)
@@ -642,8 +663,7 @@ static struct isis_route_info *sr_prefix_lookup_route(struct isis_area *area,
  */
 static mpls_label_t sr_prefix_in_label(const struct sr_prefix *srp)
 {
-	const struct sr_node *srn = srp->srn;
-	struct isis_area *area = srn->area;
+	struct isis_area *area = srp->area;
 
 	/* Return SID value as MPLS label if it is an Absolute SID */
 	if (CHECK_FLAG(srp->sid.flags,
@@ -674,12 +694,13 @@ static mpls_label_t sr_prefix_in_label(const struct sr_prefix *srp)
  */
 static mpls_label_t sr_prefix_out_label(const struct sr_prefix *srp,
 					const struct sr_node *srn_nexthop,
+					struct isis_route_info *rinfo,
 					const uint8_t *sysid)
 {
-	const struct sr_node *srn = srp->srn;
+	bool last_hop = (rinfo->depth == 2);
 
 	/* Check if the nexthop SR Node is the last hop? */
-	if (memcmp(sysid, srn->sysid, ISIS_SYS_ID_LEN) == 0) {
+	if (last_hop) {
 		/* SR-Node doesn't request NO-PHP. Return Implicit NULL label */
 		if (!CHECK_FLAG(srp->sid.flags, ISIS_PREFIX_SID_NO_PHP))
 			return MPLS_LABEL_IMPLICIT_NULL;
@@ -701,7 +722,7 @@ static mpls_label_t sr_prefix_out_label(const struct sr_prefix *srp,
 		 * V/L SIDs have local significance, so only adjacent routers
 		 * can use them (RFC8667 section #2.1.1.1)
 		 */
-		if (srp->srn != srn_nexthop)
+		if (!last_hop)
 			return MPLS_INVALID_LABEL;
 		return srp->sid.value;
 	}
@@ -729,7 +750,6 @@ static mpls_label_t sr_prefix_out_label(const struct sr_prefix *srp,
 static int sr_prefix_install_local(struct sr_prefix *srp)
 {
 	mpls_label_t input_label;
-	const struct sr_node *srn = srp->srn;
 
 	/*
 	 * No need to install Label for local Prefix-SID unless the
@@ -741,7 +761,7 @@ static int sr_prefix_install_local(struct sr_prefix *srp)
 
 	sr_debug("  |- Installing Prefix-SID %pFX %s %u (%s) with nexthop self",
 		 &srp->prefix, IS_SID_VALUE(srp->sid.flags) ? "label" : "index",
-		 srp->sid.value, circuit_t2string(srn->level));
+		 srp->sid.value, circuit_t2string(srp->level));
 
 	/* Compute input label and check that is valid. */
 	input_label = sr_prefix_in_label(srp);
@@ -768,8 +788,7 @@ static int sr_prefix_install_local(struct sr_prefix *srp)
  */
 static int sr_prefix_install_remote(struct sr_prefix *srp)
 {
-	const struct sr_node *srn = srp->srn;
-	struct isis_area *area = srn->area;
+	struct isis_area *area = srp->area;
 	enum spf_tree_id tree_id;
 	struct listnode *node;
 	struct isis_nexthop *nexthop;
@@ -790,7 +809,7 @@ static int sr_prefix_install_remote(struct sr_prefix *srp)
 
 	sr_debug("  |- Installing Prefix-SID %pFX %s %u (%s)", &srp->prefix,
 		 IS_SID_VALUE(srp->sid.flags) ? "label" : "index",
-		 srp->sid.value, circuit_t2string(srn->level));
+		 srp->sid.value, circuit_t2string(srp->level));
 
 	/* Process all SPF nexthops */
 	for (ALL_LIST_ELEMENTS_RO(srp->u.remote.rinfo->nexthops, node,
@@ -799,7 +818,7 @@ static int sr_prefix_install_remote(struct sr_prefix *srp)
 		mpls_label_t output_label;
 
 		/* Check if the nexthop advertised a SRGB. */
-		srn_nexthop = sr_node_find(area, srn->level, nexthop->sysid);
+		srn_nexthop = sr_node_find(area, srp->level, nexthop->sysid);
 		if (!srn_nexthop)
 			goto next;
 
@@ -814,8 +833,8 @@ static int sr_prefix_install_remote(struct sr_prefix *srp)
 			goto next;
 
 		/* Compute output label and check if it is valid */
-		output_label =
-			sr_prefix_out_label(srp, srn_nexthop, nexthop->sysid);
+		output_label = sr_prefix_out_label(
+			srp, srn_nexthop, srp->u.remote.rinfo, nexthop->sysid);
 		if (output_label == MPLS_INVALID_LABEL)
 			goto next;
 
@@ -857,8 +876,7 @@ static int sr_prefix_install_remote(struct sr_prefix *srp)
  */
 static void sr_prefix_install(struct sr_prefix *srp)
 {
-	const struct sr_node *srn = srp->srn;
-	struct isis_area *area = srn->area;
+	struct isis_area *area = srp->area;
 	int ret;
 
 	sr_debug("ISIS-Sr (%s): Install Prefix-SID %pFX %s %u", area->area_tag,
@@ -869,7 +887,7 @@ static void sr_prefix_install(struct sr_prefix *srp)
 	if (area->is_type == IS_LEVEL_1_AND_2) {
 		struct sr_prefix *srp_l1, *srp_l2;
 
-		switch (srn->level) {
+		switch (srp->level) {
 		case ISIS_LEVEL1:
 			srp_l2 = sr_prefix_find_by_area(area, ISIS_LEVEL2,
 							&srp->prefix);
@@ -1065,7 +1083,8 @@ static void parse_prefix_sid_subtlvs(struct sr_node *srn,
 
 		} else {
 			srp = sr_prefix_add(area, srn, prefix, local, psid);
-			srp->state = SRDB_STATE_NEW;
+			if (srp)
+				srp->state = SRDB_STATE_NEW;
 		}
 		/*
 		 * Stop the Prefix-SID iteration since we only support the SPF
