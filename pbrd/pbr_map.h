@@ -205,4 +205,11 @@ extern void pbr_map_install(struct pbr_map *pbrm);
 extern void pbr_map_policy_install(const char *name);
 extern void pbr_map_policy_delete(struct pbr_map *pbrm,
 				  struct pbr_map_interface *pmi);
+
+extern void pbr_map_check_vrf_nh_group_change(const char *nh_group,
+					      struct pbr_vrf *pbr_vrf,
+					      uint32_t old_vrf_id);
+extern void pbr_map_check_interface_nh_group_change(const char *nh_group,
+						    struct interface *ifp,
+						    ifindex_t oldifindex);
 #endif

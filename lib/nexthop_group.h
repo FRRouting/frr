@@ -135,6 +135,9 @@ extern bool nexthop_group_equal(const struct nexthop_group *nhg1,
 
 extern struct nexthop_group_cmd *nhgc_find(const char *name);
 
+extern void nexthop_group_write_nexthop_simple(struct vty *vty,
+					       const struct nexthop *nh,
+					       char *altifname);
 extern void nexthop_group_write_nexthop(struct vty *vty,
 					const struct nexthop *nh);
 

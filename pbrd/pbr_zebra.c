@@ -67,6 +67,7 @@ int pbr_ifp_create(struct interface *ifp)
 	if (!ifp->info)
 		pbr_if_new(ifp);
 
+	pbr_nht_interface_update(ifp);
 	/* Update nexthops tracked from a `set nexthop` command */
 	pbr_nht_nexthop_interface_update(ifp);
 

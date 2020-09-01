@@ -188,7 +188,9 @@ void if_destroy_via_zapi(struct interface *ifp)
 	if (ifp_master.destroy_hook)
 		(*ifp_master.destroy_hook)(ifp);
 
+	ifp->oldifindex = ifp->ifindex;
 	if_set_index(ifp, IFINDEX_INTERNAL);
+
 	if (!ifp->configured)
 		if_delete(&ifp);
 }

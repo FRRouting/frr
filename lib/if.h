@@ -224,6 +224,8 @@ struct interface {
 	   not work as expected.
 	 */
 	ifindex_t ifindex;
+	ifindex_t oldifindex;
+
 	/*
 	 * ifindex of parent interface, if any
 	 */

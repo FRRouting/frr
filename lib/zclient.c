@@ -2068,7 +2068,7 @@ static void zebra_interface_if_set_value(struct stream *s,
 	uint8_t link_params_status = 0;
 	ifindex_t old_ifindex, new_ifindex;
 
-	old_ifindex = ifp->ifindex;
+	old_ifindex = ifp->oldifindex;
 	/* Read interface's index. */
 	STREAM_GETL(s, new_ifindex);
 	if_set_index(ifp, new_ifindex);
