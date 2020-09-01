@@ -304,13 +304,24 @@ struct zclient {
 	/* Thread to write buffered data to zebra. */
 	struct thread *t_write;
 
+	/* The socket to zebra becomes full if the client is
+	 * sending messages faster than zebra can read and process them.
+	 * A client can get the PENDING result and supply a callback
+	 * indicating that the socket has become writable again.
+	 * The callback is called after any buffered data is written,
+	 * so the client callback should be able to actually write something
+	 * before the socket fills again.
+	 */
+	int (*zclient_writeable_cb)(struct zclient *zclient, void *ctxt);
+	void *zclient_writeable_ctxt;
+
 	/* Redistribute information. */
-	uint8_t redist_default; /* clients protocol */
+	uint8_t redist_default; /* Client's protocol */
 	unsigned short instance;
 	struct redist_proto mi_redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 	vrf_bitmap_t redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
-	/* Redistribute defauilt. */
+	/* Redistribute default. */
 	vrf_bitmap_t default_information[AFI_MAX];
 
 #define ZAPI_CALLBACK_ARGS                                                     \

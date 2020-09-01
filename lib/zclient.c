@@ -262,9 +262,19 @@ static int zclient_failed(struct zclient *zclient)
  */
 static int zclient_flush_data_cb(struct thread *thread)
 {
+	int ret;
 	struct zclient *zclient = THREAD_ARG(thread);
 
-	zclient_flush_data(zclient);
+	ret = zclient_flush_data(zclient);
+
+	if (ret == BUFFER_EMPTY && zclient->zclient_writeable_cb) {
+		/*
+		 * Client has registered a callback,
+		 * and there's no more buffered data pending.
+		 */
+		zclient->zclient_writeable_cb(zclient,
+					      zclient->zclient_writeable_ctxt);
+	}
 
 	return 0;
 }
