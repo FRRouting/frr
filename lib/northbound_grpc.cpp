@@ -1215,7 +1215,7 @@ class NorthboundImpl
 			yang_dnode_free(dnode);
 			return NULL;
 		}
-		if (ret == NB_ITER_STOP)
+		if (ret == NB_ITER_SUSPEND)
 			*output_offset = iter_output.offset_path;
 
 		return dnode;

@@ -662,7 +662,7 @@ struct nb_transaction {
 
 /* Return values of the 'nb_oper_data_cb' callback. */
 #define NB_ITER_CONTINUE 0
-#define NB_ITER_STOP 1
+#define NB_ITER_SUSPEND 1
 #define NB_ITER_FINISH 2
 #define NB_ITER_ABORT -1
 
@@ -1108,9 +1108,10 @@ extern int nb_running_lock_check(enum nb_client client, const void *user);
  *
  * Returns:
  *    - NB_ITER_FINISH on success (all requested elements were iterated over).
- *    - NB_ITER_STOP on success (iteration stopped due to the provided maximum
- *      number of elements).
- *    - NB_ITER_ABORT when an error occurred.
+ *    - NB_ITER_SUSPEND on success (iteration had to be suspended due to the
+ *      provided maximum number of elements).
+ *    - NB_ITER_ABORT when an error occurred. In this case, a human-readable
+ *      error message is available on the errmsg buffer of the output parameter.
  */
 extern int nb_oper_data_iterate(struct nb_oper_data_iter_input *input,
 				struct nb_oper_data_iter_output *output);

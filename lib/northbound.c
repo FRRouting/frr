@@ -1485,7 +1485,7 @@ nb_oper_data_check_stop_condition(struct nb_oper_data_iter_input *input,
 		/* Save where we stopped in the output parameters. */
 		strlcpy(output->offset_path, xpath,
 			sizeof(output->offset_path));
-		return NB_ITER_STOP;
+		return NB_ITER_SUSPEND;
 	}
 
 	return NB_ITER_CONTINUE;
@@ -2044,9 +2044,9 @@ exit:
 				"finished operational-data iteration (fetched %u elements)",
 				output->num_elements);
 			break;
-		case NB_ITER_STOP:
+		case NB_ITER_SUSPEND:
 			zlog_debug(
-				"stopping operational-data iteration at %s (fetched %u elements)",
+				"suspending operational-data iteration at %s (fetched %u elements)",
 				output->offset_path, output->num_elements);
 			break;
 		case NB_ITER_ABORT:

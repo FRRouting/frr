@@ -1471,7 +1471,7 @@ DEFPY (show_yang_operational_data,
 
 	for (;;) {
 		ret = nb_oper_data_iterate(&iter_input, &iter_output);
-		if (!repeat || ret != NB_ITER_STOP)
+		if (!repeat || ret != NB_ITER_SUSPEND)
 			break;
 
 		SET_FLAG(iter_input.flags, F_NB_OPER_DATA_ITER_OFFSET);
