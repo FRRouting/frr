@@ -231,13 +231,16 @@ struct sharp_install_ctx {
 /*
  * Callback to resume long-running route installation
  */
-static int sharp_install_cb(struct thread *thread)
+static int sharp_install_cb(struct zclient *zclient, void *ctxt)
 {
 	struct sharp_install_ctx *ctx;
 
-	ctx = THREAD_ARG(thread);
+	ctx = ctxt;
 	if (ctx == NULL)
 		return 0;
+
+	zclient->zclient_writeable_cb = NULL;
+	zclient->zclient_writeable_ctxt = NULL;
 
 	sharp_install_routes_helper(&ctx->p, ctx->vrf_id, ctx->instance,
 				    ctx->nhgid, ctx->nhg, ctx->backup_nhg,
@@ -281,9 +284,6 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 			p->u.val32[3] = htonl(++temp);
 	}
 
-	if (i != 0 && i != routes)
-		zlog_debug("Sent %u routes", i);
-
 	if (ret < 0) {
 		zlog_err("Failed to install route %pFX", p);
 	} else if (ret == BUFFER_PENDING && i != routes) {
@@ -299,7 +299,8 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 		ctx->backup_nhg = backup_nhg;
 		ctx->nroutes = routes - i;
 
-		thread_add_event(master, sharp_install_cb, ctx, 0, NULL);
+		zclient->zclient_writeable_ctxt = ctx;
+		zclient->zclient_writeable_cb = sharp_install_cb;
 	}
 }
 
