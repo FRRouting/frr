@@ -708,14 +708,14 @@ struct pbr_nht_individual {
 	struct pbr_nexthop_cache *pnhc;
 	vrf_id_t old_vrf_id;
 
-	uint32_t valid;
+	bool valid;
 
 	bool nhr_matched;
 };
 
 static bool
 pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
-				     const struct pbr_nht_individual *pnhi)
+				     struct pbr_nht_individual *pnhi)
 {
 	bool is_valid = pnhc->valid;
 
@@ -736,6 +736,7 @@ pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
 		break;
 	}
 
+	pnhi->nhr_matched = true;
 	if (!pnhi->nhr->nexthop_num) {
 		is_valid = false;
 		goto done;
@@ -767,8 +768,9 @@ done:
 	return pnhc->valid;
 }
 
-static bool pbr_nht_individual_nexthop_interface_update(
-	struct pbr_nexthop_cache *pnhc, const struct pbr_nht_individual *pnhi)
+static bool
+pbr_nht_individual_nexthop_interface_update(struct pbr_nexthop_cache *pnhc,
+					    struct pbr_nht_individual *pnhi)
 {
 	bool is_valid = pnhc->valid;
 
@@ -779,6 +781,7 @@ static bool pbr_nht_individual_nexthop_interface_update(
 	    != pnhi->ifp->ifindex) /* Un-related interface */
 		goto done;
 
+	pnhi->nhr_matched = true;
 	is_valid = !!if_is_up(pnhi->ifp);
 
 done:
@@ -793,9 +796,8 @@ done:
  * If the update is un-related, the subroutines shoud just return their cached
  * valid state.
  */
-static void
-pbr_nht_individual_nexthop_update(struct pbr_nexthop_cache *pnhc,
-				  const struct pbr_nht_individual *pnhi)
+static void pbr_nht_individual_nexthop_update(struct pbr_nexthop_cache *pnhc,
+					      struct pbr_nht_individual *pnhi)
 {
 	assert(pnhi->nhr || pnhi->ifp); /* Either nexthop or interface update */
 
@@ -837,7 +839,7 @@ static void pbr_nht_individual_nexthop_update_lookup(struct hash_bucket *b,
 	       pnhc->valid);
 
 	if (pnhc->valid)
-		pnhi->valid += 1;
+		pnhi->valid = true;
 }
 
 static void pbr_nexthop_group_cache_iterate_to_group(struct hash_bucket *b,
@@ -869,9 +871,13 @@ static void pbr_nht_nexthop_update_lookup(struct hash_bucket *b, void *data)
 	old_valid = pnhgc->valid;
 
 	pnhi.nhr = (struct zapi_route *)data;
-	pnhi.valid = 0;
+	pnhi.valid = false;
+	pnhi.nhr_matched = false;
 	hash_iterate(pnhgc->nhh, pbr_nht_individual_nexthop_update_lookup,
 		     &pnhi);
+
+	if (!pnhi.nhr_matched)
+		return;
 
 	/*
 	 * If any of the specified nexthops are valid we are valid
@@ -1085,7 +1091,7 @@ pbr_nht_individual_nexthop_interface_update_lookup(struct hash_bucket *b,
 	       old_valid, pnhc->valid);
 
 	if (pnhc->valid)
-		pnhi->valid += 1;
+		pnhi->valid = true;
 }
 
 static void pbr_nht_nexthop_interface_update_lookup(struct hash_bucket *b,
@@ -1098,14 +1104,14 @@ static void pbr_nht_nexthop_interface_update_lookup(struct hash_bucket *b,
 	old_valid = pnhgc->valid;
 
 	pnhi.ifp = data;
-	pnhi.valid = 0;
+	pnhi.valid = false;
 	hash_iterate(pnhgc->nhh,
 		     pbr_nht_individual_nexthop_interface_update_lookup, &pnhi);
 
 	/*
 	 * If any of the specified nexthops are valid we are valid
 	 */
-	pnhgc->valid = !!pnhi.valid;
+	pnhgc->valid = pnhi.valid;
 
 	if (old_valid != pnhgc->valid)
 		pbr_map_check_nh_group_change(pnhgc->name);
