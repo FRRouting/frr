@@ -2893,7 +2893,7 @@ struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id)
 
 struct nhg_score_proto_iter {
 	int type;
-	unsigned long found;
+	struct list *found;
 };
 
 static void zebra_nhg_score_proto_entry(struct hash_bucket *bucket, void *arg)
@@ -2906,27 +2906,42 @@ static void zebra_nhg_score_proto_entry(struct hash_bucket *bucket, void *arg)
 
 	/* Needs to match type and outside zebra ID space */
 	if (nhe->type == iter->type && nhe->id >= ZEBRA_NHG_PROTO_LOWER) {
-		iter->found++;
-
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 			zlog_debug(
 				"%s: found nhe %p (%u), vrf %d, type %s after client disconnect",
 				__func__, nhe, nhe->id, nhe->vrf_id,
 				zebra_route_string(nhe->type));
 
-		/* This should be the last ref if we remove client routes too */
-		zebra_nhg_decrement_ref(nhe);
+		/* Add to removal list */
+		listnode_add(iter->found, nhe);
 	}
 }
 
 /* Remove specific by proto NHGs */
 unsigned long zebra_nhg_score_proto(int type)
 {
+	struct nhg_hash_entry *nhe;
 	struct nhg_score_proto_iter iter = {};
+	struct listnode *ln;
+	unsigned long count;
 
 	iter.type = type;
+	iter.found = list_new();
 
+	/* Find matching entries to remove */
 	hash_iterate(zrouter.nhgs_id, zebra_nhg_score_proto_entry, &iter);
 
-	return iter.found;
+	/* Now remove them */
+	for (ALL_LIST_ELEMENTS_RO(iter.found, ln, nhe)) {
+		/*
+		 * This should be the last ref if we remove client routes too,
+		 * and thus should remove and free them.
+		 */
+		zebra_nhg_decrement_ref(nhe);
+	}
+
+	count = iter.found->count;
+	list_delete(&iter.found);
+
+	return count;
 }
