@@ -5,8 +5,12 @@ library.
 
 **Option 1: Binary Install**
 
-The FRR project builds binary ``libyang`` packages, which we offer for download
-`here <https://ci1.netdef.org/browse/LIBYANG-YANGRELEASE/latestSuccessful/artifact>`_.
+The FRR project builds some binary ``libyang`` packages.
+
+RPM packages are at our `RPM repository <rpm.frrouting.org>`_
+
+DEB packages are available as CI artifacts `here
+<https://ci1.netdef.org/browse/LIBYANG-LY1REL-DEB10AMD64-4/artifact>`_.
 
 .. warning::
 
@@ -50,4 +54,3 @@ The FRR project builds binary ``libyang`` packages, which we offer for download
          -D CMAKE_BUILD_TYPE:String="Release" ..
    make
    sudo make install
-
