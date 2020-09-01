@@ -782,7 +782,13 @@ extern void zclient_redistribute_default(int command, struct zclient *,
 
 /* Send the message in zclient->obuf to the zebra daemon (or enqueue it).
    Returns 0 for success or -1 on an I/O error. */
-extern int zclient_send_message(struct zclient *);
+extern int zclient_send_message(struct zclient *zclient);
+
+/* Send the message in zclient->obuf to the zebra daemon (or enqueue it).
+ * Returns 0 for success, BUFFER_PENDING if the write socket is blocked,
+ * and < 0 on an I/O error.
+ */
+int zclient_send_message_result(struct zclient *zclient);
 
 /* Attempt to send any queued, pending zapi messages. */
 int zclient_flush_data(struct zclient *zclient);

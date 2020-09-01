@@ -295,13 +295,18 @@ int zclient_flush_data(struct zclient *zclient)
 	return 0;
 }
 
-int zclient_send_message(struct zclient *zclient)
+/* Send the message in zclient->obuf to the zebra daemon (or enqueue it).
+ * Returns 0 for success, BUFFER_PENDING if the write socket is blocked,
+ * and < 0 on an I/O error.
+ */
+int zclient_send_message_result(struct zclient *zclient)
 {
-	if (zclient->sock < 0)
-		return -1;
-	switch (buffer_write(zclient->wb, zclient->sock,
-			     STREAM_DATA(zclient->obuf),
-			     stream_get_endp(zclient->obuf))) {
+	int ret;
+
+	ret = buffer_write(zclient->wb, zclient->sock,
+			   STREAM_DATA(zclient->obuf),
+			   stream_get_endp(zclient->obuf));
+	switch (ret) {
 	case BUFFER_ERROR:
 		flog_err(EC_LIB_ZAPI_SOCKET,
 			 "%s: buffer_write failed to zclient fd %d, closing",
@@ -315,6 +320,20 @@ int zclient_send_message(struct zclient *zclient)
 				 zclient, zclient->sock, &zclient->t_write);
 		break;
 	}
+
+	return ret;
+}
+
+/*
+ * Send the message in zclient->obuf to the zebra daemon (or enqueue it).
+ */
+int zclient_send_message(struct zclient *zclient)
+{
+	if (zclient->sock < 0)
+		return -1;
+
+	zclient_send_message_result(zclient);
+
 	return 0;
 }
 
@@ -780,7 +799,7 @@ int zclient_route_send(uint8_t cmd, struct zclient *zclient,
 {
 	if (zapi_route_encode(cmd, zclient->obuf, api) < 0)
 		return -1;
-	return zclient_send_message(zclient);
+	return zclient_send_message_result(zclient);
 }
 
 static int zapi_nexthop_labels_cmp(const struct zapi_nexthop *next1,
