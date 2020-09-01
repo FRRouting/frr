@@ -299,6 +299,11 @@ DEFPY (install_routes,
 	sg.r.inst = instance;
 	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
+
+	/* Capture start time */
+	monotime(&sg.r.t_start);
+
+	zlog_debug("Inserting %u routes", rts);
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid,
 				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
 				    rts);
@@ -379,6 +384,11 @@ DEFPY (remove_routes,
 	sg.r.inst = instance;
 	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
+
+	/* Capture start time */
+	monotime(&sg.r.t_start);
+
+	zlog_debug("Removing %u routes", rts);
 	sharp_remove_routes_helper(&prefix, sg.r.vrf_id,
 				   sg.r.inst, rts);
 

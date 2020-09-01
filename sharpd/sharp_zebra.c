@@ -45,6 +45,7 @@ extern struct thread_master *master;
 extern struct zebra_privs_t sharp_privs;
 
 DEFINE_MTYPE_STATIC(SHARPD, ZC, "Test zclients");
+DEFINE_MTYPE_STATIC(SHARPD, RCTX, "Route install ctx");
 
 /* Struct to hold list of test zclients */
 struct sharp_zclient {
@@ -216,6 +217,37 @@ int sharp_install_lsps_helper(bool install_p, bool update_p,
 	return ret;
 }
 
+struct sharp_install_ctx {
+	uint32_t nroutes;
+
+	struct prefix p;
+	vrf_id_t vrf_id;
+	uint8_t instance;
+	uint32_t nhgid;
+	const struct nexthop_group *nhg;
+	const struct nexthop_group *backup_nhg;
+};
+
+/*
+ * Callback to resume long-running route installation
+ */
+static int sharp_install_cb(struct thread *thread)
+{
+	struct sharp_install_ctx *ctx;
+
+	ctx = THREAD_ARG(thread);
+	if (ctx == NULL)
+		return 0;
+
+	sharp_install_routes_helper(&ctx->p, ctx->vrf_id, ctx->instance,
+				    ctx->nhgid, ctx->nhg, ctx->backup_nhg,
+				    ctx->nroutes);
+
+	XFREE(MTYPE_RCTX, ctx);
+
+	return 0;
+}
+
 void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 				 uint8_t instance, uint32_t nhgid,
 				 const struct nexthop_group *nhg,
@@ -224,8 +256,8 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 {
 	uint32_t temp, i;
 	bool v4 = false;
-
-	zlog_debug("Inserting %u routes", routes);
+	int ret = 0;
+	struct sharp_install_ctx *ctx;
 
 	if (p->family == AF_INET) {
 		v4 = true;
@@ -237,18 +269,37 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 	if (backup_nhg && (backup_nhg->nexthop == NULL))
 		backup_nhg = NULL;
 
-	monotime(&sg.r.t_start);
 	for (i = 0; i < routes; i++) {
-		route_add(p, vrf_id, (uint8_t)instance, nhgid, nhg, backup_nhg);
-
-		/* Periodically try sending some of the buffered messages */
-		if (i > 0 && (i % 100 == 0))
-			zclient_flush_data(zclient);
+		ret = route_add(p, vrf_id, (uint8_t)instance, nhgid, nhg,
+				backup_nhg);
+		if (ret != 0)
+			break;
 
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
 		else
 			p->u.val32[3] = htonl(++temp);
+	}
+
+	if (i != 0 && i != routes)
+		zlog_debug("Sent %u routes", i);
+
+	if (ret < 0) {
+		zlog_err("Failed to install route %pFX", p);
+	} else if (ret == BUFFER_PENDING && i != routes) {
+		/* Re-schedule and continue asynchronously */
+
+		ctx = XCALLOC(MTYPE_RCTX, sizeof(struct sharp_install_ctx));
+
+		memcpy(&ctx->p, p, sizeof(struct prefix));
+		ctx->vrf_id = vrf_id;
+		ctx->instance = instance;
+		ctx->nhgid = nhgid;
+		ctx->nhg = nhg;
+		ctx->backup_nhg = backup_nhg;
+		ctx->nroutes = routes - i;
+
+		thread_add_event(master, sharp_install_cb, ctx, 0, NULL);
 	}
 }
 
@@ -258,15 +309,12 @@ void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 	uint32_t temp, i;
 	bool v4 = false;
 
-	zlog_debug("Removing %u routes", routes);
-
 	if (p->family == AF_INET) {
 		v4 = true;
 		temp = ntohl(p->u.prefix4.s_addr);
 	} else
 		temp = ntohl(p->u.val32[3]);
 
-	monotime(&sg.r.t_start);
 	for (i = 0; i < routes; i++) {
 		route_delete(p, vrf_id, (uint8_t)instance);
 
@@ -291,12 +339,24 @@ static void handle_repeated(bool installed)
 
 	if (installed) {
 		sg.r.removed_routes = 0;
+
+		zlog_debug("Removing %u routes", sg.r.total_routes);
+
+		/* Capture start time */
+		monotime(&sg.r.t_start);
+
 		sharp_remove_routes_helper(&p, sg.r.vrf_id,
 					   sg.r.inst, sg.r.total_routes);
 	}
 
 	if (!installed) {
 		sg.r.installed_routes = 0;
+
+		zlog_debug("Installing %u routes", sg.r.total_routes);
+
+		/* Capture start time */
+		monotime(&sg.r.t_start);
+
 		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
 					    sg.r.nhgid, &sg.r.nhop_group,
 					    &sg.r.backup_nhop_group,
@@ -417,9 +477,9 @@ void nhg_del(uint32_t id)
 	zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
 }
 
-void route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
-	       uint32_t nhgid, const struct nexthop_group *nhg,
-	       const struct nexthop_group *backup_nhg)
+int route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
+	      uint32_t nhgid, const struct nexthop_group *nhg,
+	      const struct nexthop_group *backup_nhg)
 {
 	struct zapi_route api = {};
 	struct zapi_nexthop *api_nh;
@@ -466,7 +526,7 @@ void route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 		api.backup_nexthop_num = i;
 	}
 
-	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
 
 void route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
