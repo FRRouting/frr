@@ -1453,6 +1453,15 @@ void kernel_init(struct zebra_ns *zns)
 	if (ret < 0)
 		zlog_notice("Registration for extended dp ACK failed : %d %s",
 			    errno, safe_strerror(errno));
+
+	/*
+	 * Trim off the payload of the original netlink message in the
+	 * acknowledgment. This option is available since Linux 4.2, so if
+	 * setsockopt fails, ignore the error.
+	 */
+	one = 1;
+	ret = setsockopt(zns->netlink_dplane.sock, SOL_NETLINK, NETLINK_CAP_ACK,
+			 &one, sizeof(one));
 #endif
 
 	/* Register kernel socket. */
@@ -1469,8 +1478,11 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink_dplane.name, safe_strerror(errno), errno);
 
 	/* Set receive buffer size if it's set from command line */
-	if (nl_rcvbufsize)
+	if (nl_rcvbufsize) {
 		netlink_recvbuf(&zns->netlink, nl_rcvbufsize);
+		netlink_recvbuf(&zns->netlink_cmd, nl_rcvbufsize);
+		netlink_recvbuf(&zns->netlink_dplane, nl_rcvbufsize);
+	}
 
 	netlink_install_filter(zns->netlink.sock,
 			       zns->netlink_cmd.snl.nl_pid,
