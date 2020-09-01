@@ -72,7 +72,7 @@ static int ospf6_abr_nexthops_belong_to_area(struct ospf6_route *route,
 	struct ospf6_interface *oi;
 
 	oi = ospf6_interface_lookup_by_ifindex(
-		ospf6_route_get_first_nh_index(route));
+		ospf6_route_get_first_nh_index(route), area->ospf6->vrf_id);
 	if (oi && oi->area && oi->area == area)
 		return 1;
 	else

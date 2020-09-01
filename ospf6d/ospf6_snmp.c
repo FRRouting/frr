@@ -837,7 +837,7 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 				  int exact, size_t *var_len,
 				  WriteMethod **write_method)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct ospf6_lsa *lsa = NULL;
 	ifindex_t ifindex;
 	uint32_t area_id, id, instid, adv_router;
@@ -861,6 +861,7 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	if (ospf6 == NULL)
 		return NULL;
 
+	vrf = vrf_lookup_by_id(ospf6->vrf_id);
 	/* Get variable length. */
 	offset = name + v->namelen;
 	offsetlen = *length - v->namelen;
@@ -926,7 +927,8 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 				return NULL;
 			lsa = ospf6_lsdb_lookup(type, id, adv_router, oa->lsdb);
 		} else if (v->magic & OSPFv3WWLINKTABLE) {
-			oi = ospf6_interface_lookup_by_ifindex(ifindex);
+			oi = ospf6_interface_lookup_by_ifindex(ifindex,
+							       ospf6->vrf_id);
 			if (!oi || oi->instance_id != instid)
 				return NULL;
 			lsa = ospf6_lsdb_lookup(type, id, adv_router, oi->lsdb);
@@ -963,7 +965,7 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 				if (!iif->ifindex)
 					continue;
 				oi = ospf6_interface_lookup_by_ifindex(
-					iif->ifindex);
+					iif->ifindex, iif->vrf_id);
 				if (!oi)
 					continue;
 				if (iif->ifindex < ifindex)
@@ -1038,7 +1040,7 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 			      int exact, size_t *var_len,
 			      WriteMethod **write_method)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	ifindex_t ifindex = 0;
 	unsigned int instid = 0;
 	struct ospf6_interface *oi = NULL;
@@ -1058,6 +1060,7 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 	if (ospf6 == NULL)
 		return NULL;
 
+	vrf = vrf_lookup_by_id(ospf6->vrf_id);
 	/* Get variable length. */
 	offset = name + v->namelen;
 	offsetlen = *length - v->namelen;
@@ -1080,7 +1083,7 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 	// offsetlen -= len;
 
 	if (exact) {
-		oi = ospf6_interface_lookup_by_ifindex(ifindex);
+		oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
 		if (!oi || oi->instance_id != instid)
 			return NULL;
 	} else {
@@ -1095,7 +1098,8 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 		for (ALL_LIST_ELEMENTS_RO(ifslist, i, iif)) {
 			if (!iif->ifindex)
 				continue;
-			oi = ospf6_interface_lookup_by_ifindex(iif->ifindex);
+			oi = ospf6_interface_lookup_by_ifindex(iif->ifindex,
+							       iif->vrf_id);
 			if (!oi)
 				continue;
 			if (iif->ifindex > ifindex
@@ -1191,7 +1195,7 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 			       int exact, size_t *var_len,
 			       WriteMethod **write_method)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	ifindex_t ifindex = 0;
 	unsigned int instid, rtrid;
 	struct ospf6_interface *oi = NULL;
@@ -1212,6 +1216,7 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 	if (ospf6 == NULL)
 		return NULL;
 
+	vrf = vrf_lookup_by_id(ospf6->vrf_id);
 	/* Get variable length. */
 	offset = name + v->namelen;
 	offsetlen = *length - v->namelen;
@@ -1241,7 +1246,7 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 	// offsetlen -= len;
 
 	if (exact) {
-		oi = ospf6_interface_lookup_by_ifindex(ifindex);
+		oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
 		if (!oi || oi->instance_id != instid)
 			return NULL;
 		on = ospf6_neighbor_lookup(rtrid, oi);
@@ -1257,7 +1262,8 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 		for (ALL_LIST_ELEMENTS_RO(ifslist, i, iif)) {
 			if (!iif->ifindex)
 				continue;
-			oi = ospf6_interface_lookup_by_ifindex(iif->ifindex);
+			oi = ospf6_interface_lookup_by_ifindex(iif->ifindex,
+							       iif->vrf_id);
 			if (!oi)
 				continue;
 			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on)) {

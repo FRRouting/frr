@@ -307,14 +307,14 @@ void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 				inet_ntop(AF_INET6, &nh->address, buf,
 					  sizeof(buf));
 				ifname = ifindex2ifname(nh->ifindex,
-							VRF_DEFAULT);
+							ospf6->vrf_id);
 				zlog_debug("  nexthop: %s%%%.*s(%d)", buf,
 					   IFNAMSIZ, ifname, nh->ifindex);
 			}
 			if (i >= entries)
 				return;
 
-			nexthops[i].vrf_id = VRF_DEFAULT;
+			nexthops[i].vrf_id = ospf6->vrf_id;
 			nexthops[i].ifindex = nh->ifindex;
 			if (!IN6_IS_ADDR_UNSPECIFIED(&nh->address)) {
 				nexthops[i].gate.ipv6 = nh->address;
@@ -1042,6 +1042,11 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route)
 	struct listnode *node;
 	struct ospf6_nexthop *nh;
 
+	if (ospf6 == NULL) {
+		vty_out(vty, "OSPFv3 is not running\n");
+		return;
+	}
+
 	monotime(&now);
 	timersub(&now, &route->changed, &res);
 	timerstring(&res, duration, sizeof(duration));
@@ -1060,7 +1065,7 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route)
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
 		/* nexthop */
 		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
-		ifname = ifindex2ifname(nh->ifindex, VRF_DEFAULT);
+		ifname = ifindex2ifname(nh->ifindex, ospf6->vrf_id);
 
 		if (!i) {
 			vty_out(vty, "%c%1s %2s %-30s %-25s %6.*s %s\n",
@@ -1085,6 +1090,11 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 	char duration[64];
 	struct listnode *node;
 	struct ospf6_nexthop *nh;
+
+	if (ospf6 == NULL) {
+		vty_out(vty, "OSPFv3 is not running\n");
+		return;
+	}
 
 	monotime(&now);
 
@@ -1160,7 +1170,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
 		/* nexthop */
 		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
-		ifname = ifindex2ifname(nh->ifindex, VRF_DEFAULT);
+		ifname = ifindex2ifname(nh->ifindex, ospf6->vrf_id);
 		vty_out(vty, "  %s %.*s\n", nexthop, IFNAMSIZ, ifname);
 	}
 	vty_out(vty, "\n");
