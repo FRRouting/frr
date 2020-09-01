@@ -68,12 +68,6 @@ static void ospf_spf_set_reason(ospf_spf_reason_t reason)
 }
 
 static void ospf_vertex_free(void *);
-/*
- * List of allocated vertices, to simplify cleanup of SPF.
- * Not thread-safe obviously. If it ever needs to be, it'd have to be
- * dynamically allocated at begin of ospf_spf_calculate
- */
-static struct list vertex_list = {.del = ospf_vertex_free};
 
 /*
  * Heap related functions, for the managment of the candidates, to
@@ -184,7 +178,8 @@ static int vertex_parent_cmp(void *aa, void *bb)
 	return IPV4_ADDR_CMP(&a->nexthop->router, &b->nexthop->router);
 }
 
-static struct vertex *ospf_vertex_new(struct ospf_lsa *lsa)
+static struct vertex *ospf_vertex_new(struct ospf_area *area,
+				      struct ospf_lsa *lsa)
 {
 	struct vertex *new;
 
@@ -202,7 +197,7 @@ static struct vertex *ospf_vertex_new(struct ospf_lsa *lsa)
 
 	lsa->stat = new;
 
-	listnode_add(&vertex_list, new);
+	listnode_add(area->spf_vertex_list, new);
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: Created %s vertex %s", __func__,
@@ -292,12 +287,18 @@ static void ospf_vertex_add_parent(struct vertex *v)
 static void ospf_spf_init(struct ospf_area *area, struct ospf_lsa *root_lsa,
 			  bool is_dry_run, bool is_root_node)
 {
+	struct list *vertex_list;
 	struct vertex *v;
 
-	/* Create root node. */
-	v = ospf_vertex_new(root_lsa);
+	/* Create vertex list */
+	vertex_list = list_new();
+	vertex_list->del = ospf_vertex_free;
+	area->spf_vertex_list = vertex_list;
 
+	/* Create root node. */
+	v = ospf_vertex_new(area, root_lsa);
 	area->spf = v;
+
 	area->spf_dry_run = is_dry_run;
 	area->spf_root_node = is_root_node;
 
@@ -956,7 +957,7 @@ static void ospf_spf_next(struct vertex *v, struct ospf_area *area,
 		/* Is there already vertex W in candidate list? */
 		if (w_lsa->stat == LSA_SPF_NOT_EXPLORED) {
 			/* prepare vertex W. */
-			w = ospf_vertex_new(w_lsa);
+			w = ospf_vertex_new(area, w_lsa);
 
 			/* Calculate nexthop to W. */
 			if (ospf_nexthop_calculation(area, v, w, l, distance,
@@ -1146,6 +1147,19 @@ void ospf_rtrs_free(struct route_table *rtrs)
 	route_table_finish(rtrs);
 }
 
+void ospf_spf_cleanup(struct vertex *spf, struct list *vertex_list)
+{
+	/*
+	 * Free nexthop information, canonical versions of which are
+	 * attached the first level of router vertices attached to the
+	 * root vertex, see ospf_nexthop_calculation.
+	 */
+	ospf_canonical_nexthops_free(spf);
+
+	/* Free SPF vertices list with deconstructor ospf_vertex_free. */
+	list_delete(&vertex_list);
+}
+
 #if 0
 static void
 ospf_rtrs_print (struct route_table *rtrs)
@@ -1311,20 +1325,8 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 			   mtype_stats_alloc(MTYPE_OSPF_VERTEX));
 
 	/* If this is a dry run then keep the SPF data in place */
-	if (!area->spf_dry_run) {
-		/*
-		 * Free nexthop information, canonical versions of which are
-		 * attached the first level of router vertices attached to the
-		 * root vertex, see ospf_nexthop_calculation.
-		 */
-		ospf_canonical_nexthops_free(area->spf);
-
-		/*
-		 * Free SPF vertices, but not the list. List has
-		 * ospf_vertex_free as deconstructor.
-		 */
-		list_delete_all_node(&vertex_list);
-	}
+	if (!area->spf_dry_run)
+		ospf_spf_cleanup(area->spf, area->spf_vertex_list);
 }
 
 int ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
