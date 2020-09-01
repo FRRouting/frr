@@ -331,6 +331,18 @@ void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
 }
 
 /* External Route Aggregator Handlers */
+bool is_valid_summary_addr(struct prefix_ipv4 *p)
+{
+	/* Default prefix validation*/
+	if (p->prefix.s_addr == INADDR_ANY)
+		return false;
+
+	/*Host route shouldn't be configured as summary addres*/
+	if (p->prefixlen == IPV4_MAX_PREFIXLEN)
+		return false;
+
+	return true;
+}
 void ospf_asbr_external_aggregator_init(struct ospf *instance)
 {
 	instance->rt_aggr_tbl = route_table_init();
@@ -1083,4 +1095,124 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 	ospf->aggr_action = operation;
 	thread_add_timer(master, ospf_asbr_external_aggr_process, ospf,
 			 ospf->aggr_delay_interval, &ospf->t_external_aggr);
+}
+
+int ospf_asbr_external_aggregator_set(struct ospf *ospf, struct prefix_ipv4 *p,
+				      route_tag_t tag)
+{
+	struct ospf_external_aggr_rt *aggregator;
+
+	aggregator = ospf_extrenal_aggregator_lookup(ospf, p);
+
+	if (aggregator) {
+		if (CHECK_FLAG(aggregator->flags,
+			       OSPF_EXTERNAL_AGGRT_NO_ADVERTISE))
+			UNSET_FLAG(aggregator->flags,
+				   OSPF_EXTERNAL_AGGRT_NO_ADVERTISE);
+		else if (aggregator->tag == tag)
+			return OSPF_SUCCESS;
+
+		aggregator->tag = tag;
+
+		ospf_external_aggr_timer(ospf, aggregator,
+					 OSPF_ROUTE_AGGR_MODIFY);
+	} else {
+		aggregator = ospf_external_aggregator_new(p);
+		if (!aggregator)
+			return OSPF_FAILURE;
+
+		aggregator->tag = tag;
+
+		ospf_external_aggr_add(ospf, aggregator);
+		ospf_external_aggr_timer(ospf, aggregator, OSPF_ROUTE_AGGR_ADD);
+	}
+
+	return OSPF_SUCCESS;
+}
+
+int ospf_asbr_external_aggregator_unset(struct ospf *ospf,
+					struct prefix_ipv4 *p, route_tag_t tag)
+{
+	struct route_node *rn;
+	struct ospf_external_aggr_rt *aggr;
+
+	rn = route_node_lookup(ospf->rt_aggr_tbl, (struct prefix *)p);
+	if (!rn)
+		return OSPF_INVALID;
+
+	aggr = rn->info;
+
+	if (tag && (tag != aggr->tag))
+		return OSPF_INVALID;
+
+	if (!OSPF_EXTERNAL_RT_COUNT(aggr)) {
+		ospf_external_aggr_delete(ospf, rn);
+		ospf_external_aggregator_free(aggr);
+		return OSPF_SUCCESS;
+	}
+
+	ospf_external_aggr_timer(ospf, aggr, OSPF_ROUTE_AGGR_DEL);
+
+	return OSPF_SUCCESS;
+}
+
+int ospf_asbr_external_rt_no_advertise(struct ospf *ospf, struct prefix_ipv4 *p)
+{
+	struct ospf_external_aggr_rt *aggr;
+	route_tag_t tag = 0;
+
+	aggr = ospf_extrenal_aggregator_lookup(ospf, p);
+	if (aggr) {
+		if (CHECK_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_NO_ADVERTISE))
+			return OSPF_SUCCESS;
+
+		SET_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_NO_ADVERTISE);
+
+		aggr->tag = tag;
+
+		if (!OSPF_EXTERNAL_RT_COUNT(aggr))
+			return OSPF_SUCCESS;
+
+		ospf_external_aggr_timer(ospf, aggr, OSPF_ROUTE_AGGR_MODIFY);
+	} else {
+		aggr = ospf_external_aggregator_new(p);
+
+		if (!aggr)
+			return OSPF_FAILURE;
+
+		SET_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_NO_ADVERTISE);
+		ospf_external_aggr_add(ospf, aggr);
+		ospf_external_aggr_timer(ospf, aggr, OSPF_ROUTE_AGGR_ADD);
+	}
+
+	return OSPF_SUCCESS;
+}
+
+int ospf_asbr_external_rt_advertise(struct ospf *ospf, struct prefix_ipv4 *p)
+{
+	struct route_node *rn;
+	struct ospf_external_aggr_rt *aggr;
+
+	rn = route_node_lookup(ospf->rt_aggr_tbl, (struct prefix *)p);
+	if (!rn)
+		return OSPF_INVALID;
+
+	aggr = rn->info;
+
+	if (!CHECK_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_NO_ADVERTISE))
+		return OSPF_INVALID;
+
+	UNSET_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_NO_ADVERTISE);
+
+	if (!OSPF_EXTERNAL_RT_COUNT(aggr))
+		return OSPF_SUCCESS;
+
+	ospf_external_aggr_timer(ospf, aggr, OSPF_ROUTE_AGGR_MODIFY);
+	return OSPF_SUCCESS;
+}
+
+int ospf_external_aggregator_timer_set(struct ospf *ospf, unsigned int interval)
+{
+	ospf->aggr_delay_interval = interval;
+	return OSPF_SUCCESS;
 }
