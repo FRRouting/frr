@@ -708,7 +708,7 @@ struct pbr_nht_individual {
 	struct pbr_nexthop_cache *pnhc;
 	vrf_id_t old_vrf_id;
 
-	uint32_t valid;
+	bool valid;
 
 	bool nhr_matched;
 };
@@ -839,7 +839,7 @@ static void pbr_nht_individual_nexthop_update_lookup(struct hash_bucket *b,
 	       pnhc->valid);
 
 	if (pnhc->valid)
-		pnhi->valid += 1;
+		pnhi->valid = true;
 }
 
 static void pbr_nexthop_group_cache_iterate_to_group(struct hash_bucket *b,
@@ -871,7 +871,7 @@ static void pbr_nht_nexthop_update_lookup(struct hash_bucket *b, void *data)
 	old_valid = pnhgc->valid;
 
 	pnhi.nhr = (struct zapi_route *)data;
-	pnhi.valid = 0;
+	pnhi.valid = false;
 	pnhi.nhr_matched = false;
 	hash_iterate(pnhgc->nhh, pbr_nht_individual_nexthop_update_lookup,
 		     &pnhi);
@@ -1091,7 +1091,7 @@ pbr_nht_individual_nexthop_interface_update_lookup(struct hash_bucket *b,
 	       old_valid, pnhc->valid);
 
 	if (pnhc->valid)
-		pnhi->valid += 1;
+		pnhi->valid = true;
 }
 
 static void pbr_nht_nexthop_interface_update_lookup(struct hash_bucket *b,
@@ -1104,14 +1104,14 @@ static void pbr_nht_nexthop_interface_update_lookup(struct hash_bucket *b,
 	old_valid = pnhgc->valid;
 
 	pnhi.ifp = data;
-	pnhi.valid = 0;
+	pnhi.valid = false;
 	hash_iterate(pnhgc->nhh,
 		     pbr_nht_individual_nexthop_interface_update_lookup, &pnhi);
 
 	/*
 	 * If any of the specified nexthops are valid we are valid
 	 */
-	pnhgc->valid = !!pnhi.valid;
+	pnhgc->valid = pnhi.valid;
 
 	if (old_valid != pnhgc->valid)
 		pbr_map_check_nh_group_change(pnhgc->name);
