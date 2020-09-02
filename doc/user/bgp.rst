@@ -1216,7 +1216,7 @@ Defining Peers
    The time in milliseconds that BGP will delay before deciding what peers
    can be put into an update-group together in order to generate a single
    update for them.  The default time is 1000.
-   
+
 .. _bgp-configuring-peers:
 
 Configuring Peers
@@ -1352,6 +1352,9 @@ Configuring Peers
 .. clicmd:: [no] neighbor PEER maximum-prefix-out NUMBER
 
    Sets a maximum number of prefixes we can send to a given peer.
+
+   Since sent prefix count is managed by update-groups, this option
+   creates a separate update-group for outgoing updates.
 
 .. index:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
 .. clicmd:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
