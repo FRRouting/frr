@@ -54,13 +54,15 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO");
  * It is valid to put to anywhere within the size of the stream, but only
  * using stream_put..._at() functions.
  */
-#define STREAM_WARN_OFFSETS(S)                                                 \
-	do {                                                                   \
-		flog_warn(EC_LIB_STREAM,				       \
-			  "&(struct stream): %p, size: %lu, getp: %lu, endp: %lu", \
-			  (void *)(S), (unsigned long)(S)->size,	       \
-			  (unsigned long)(S)->getp, (unsigned long)(S)->endp); \
-		zlog_backtrace(LOG_WARNING);				       \
+#define STREAM_WARN_OFFSETS(S)                                                   \
+	do {                                                                     \
+		flog_warn(                                                       \
+			EC_LIB_STREAM,                                           \
+			"&(struct stream): %p, size: %lu, getp: %lu, endp: %lu", \
+			(void *)(S), (unsigned long)(S)->size,                   \
+			(unsigned long)(S)->getp, (unsigned long)(S)->endp);     \
+		/* FUZZING */                                                    \
+		/* zlog_backtrace(LOG_WARNING);	*/                               \
 	} while (0)
 
 #define STREAM_VERIFY_SANE(S)                                                  \
