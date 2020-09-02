@@ -102,7 +102,7 @@ def setup_module(module):
 
     # Starting Routers
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for rname, router in router_list.iteritems():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -536,6 +536,133 @@ def test_bgp_remove_metric_rmaps():
         _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
         assertmsg = "BGP routes on router r{} are wrong after removing metric route-maps".format(rtrNum)
         assert res is None, assertmsg
+
+
+def test_bgp_norib():
+    "Test BGP disable RIB (Zebra) Route Install"
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Configuring 'bgp no-rib' on router r1")
+
+    tgen.net['r1'].cmd('vtysh -c \"conf t\" -c \"bgp no-rib\"')
+
+    # Checking BGP config - should show the "bgp no-rib" under the router bgp section
+    logger.info("Checking BGP configuration for 'bgp no-rib'")
+
+    norib_cfg = tgen.net['r1'].cmd('vtysh -c "show running bgpd" | grep "^bgp no-rib"').rstrip()
+
+    assertmsg = "'bgp no-rib' configuration applied, but not visible in configuration"
+    assert norib_cfg == 'bgp no-rib', assertmsg
+
+
+def test_bgp_norib_routes():
+    "Test Routes in Zebra and BGP with the 'bgp-norib' configuration"
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Checking local BGP routes - they need to be gone from Zebra
+    logger.info("Checking Zebra routes after removing bgp shutdown on router r1")
+
+    router = tgen.gears["r1"]
+    reffile = os.path.join(CWD, "r1/ip_route_norib.json")
+    expected = json.loads(open(reffile).read())
+
+    test_func = functools.partial(
+        topotest.router_json_cmp, router, "show ip route json", expected
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
+    assertmsg = "Zebra IPv4 Routes after configuring 'bgp no-rib' (There should be no BGP routes in Zebra anymore)"
+    assert res is None, assertmsg
+
+    # Check BGP Summary on local and remote routers
+    for rtrNum in [1, 2, 4]:
+        logger.info("Checking BGP Summary after 'bgp no-rib' on router r1 on router r{}".format(rtrNum))
+
+        router = tgen.gears["r{}".format(rtrNum)]
+        reffile = os.path.join(CWD, "r{}/bgp_summary.json".format(rtrNum))
+        expected = json.loads(open(reffile).read())
+
+        test_func = functools.partial(
+            topotest.router_json_cmp, router, "show ip bgp summary json", expected
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
+        assertmsg = "BGP sessions on router R{} has incorrect routes after adding 'bgp no-rib on r1'".format(rtrNum)
+        assert res is None, assertmsg
+
+    # tgen.mininet_cli()
+
+
+def test_bgp_disable_norib():
+    "Test BGP disabling the no-RIB (Zebra) Route Install"
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Configuring 'no bgp no-rib' on router r1")
+
+    tgen.net['r1'].cmd('vtysh -c \"conf t\" -c \"no bgp no-rib\"')
+
+    # Checking BGP config - should show the "bgp no-rib" under the router bgp section
+    logger.info("Checking BGP configuration for 'bgp no-rib'")
+
+    norib_cfg = tgen.net['r1'].cmd('vtysh -c "show running bgpd" | grep "^ bgp no-rib"').rstrip()
+
+    assertmsg = "'no bgp no-rib'configuration applied, but still visible in configuration"
+    assert norib_cfg == '', assertmsg
+
+
+def test_bgp_disable_norib_routes():
+    "Test Routes in Zebra and BGP with the 'bgp-norib' configuration"
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Checking local BGP routes - they need to be gone from Zebra
+    logger.info("Checking Zebra routes after removing bgp shutdown on router r1")
+
+    router = tgen.gears["r1"]
+    reffile = os.path.join(CWD, "r1/ip_route.json")
+    expected = json.loads(open(reffile).read())
+
+    test_func = functools.partial(
+        topotest.router_json_cmp, router, "show ip route json", expected
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
+    assertmsg = "Zebra IPv4 Routes wrong after removing the 'bgp no-rib'"
+    assert res is None, assertmsg
+
+    # Check BGP Summary on local and remote routers
+    for rtrNum in [1, 2, 4]:
+        logger.info("Checking BGP Summary after removing the 'bgp no-rib' on router r1 on router r{}".format(rtrNum))
+
+        router = tgen.gears["r{}".format(rtrNum)]
+        reffile = os.path.join(CWD, "r{}/bgp_summary.json".format(rtrNum))
+        expected = json.loads(open(reffile).read())
+
+        test_func = functools.partial(
+            topotest.router_json_cmp, router, "show ip bgp summary json", expected
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
+        assertmsg = "BGP sessions on router R{} has incorrect routes after removing 'bgp no-rib on r1'".format(rtrNum)
+        assert res is None, assertmsg
+
+    # tgen.mininet_cli()
+
 
 
 if __name__ == "__main__":
