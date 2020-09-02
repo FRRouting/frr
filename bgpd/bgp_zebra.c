@@ -1543,6 +1543,30 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 						   pi, bgp, afi, safi);
 }
 
+/* Announce routes of any bgp subtype of a table to zebra */
+void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
+					   safi_t safi)
+{
+	struct bgp_dest *dest;
+	struct bgp_table *table;
+	struct bgp_path_info *pi;
+
+	if (!bgp_install_info_to_zebra(bgp))
+		return;
+
+	table = bgp->rib[afi][safi];
+	if (!table)
+		return;
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
+			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
+			    pi->type == ZEBRA_ROUTE_BGP)
+				bgp_zebra_announce(dest,
+						   bgp_dest_get_prefix(dest),
+						   pi, bgp, afi, safi);
+}
+
 void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,
 			struct bgp *bgp, safi_t safi)
 {
@@ -1584,6 +1608,30 @@ void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,
 	}
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+}
+
+/* Withdraw all entries in a BGP instances RIB table from Zebra */
+void bgp_zebra_withdraw_table_all_subtypes(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	struct bgp_dest *dest;
+	struct bgp_table *table;
+	struct bgp_path_info *pi;
+
+	if (!bgp_install_info_to_zebra(bgp))
+		return;
+
+	table = bgp->rib[afi][safi];
+	if (!table)
+		return;
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
+			    && (pi->type == ZEBRA_ROUTE_BGP))
+				bgp_zebra_withdraw(bgp_dest_get_prefix(dest),
+						   pi, bgp, safi);
+		}
+	}
 }
 
 struct bgp_redist *bgp_redist_lookup(struct bgp *bgp, afi_t afi, uint8_t type,

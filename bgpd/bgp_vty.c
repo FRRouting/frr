@@ -1411,6 +1411,41 @@ DEFUN (no_bgp_cluster_id,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_norib,
+       bgp_norib_cmd,
+       "bgp no-rib",
+       BGP_STR
+       "Disable BGP route installation to RIB (Zebra)\n")
+{
+	if (bgp_option_check(BGP_OPT_NO_FIB)) {
+		vty_out(vty,
+			"%% No-RIB option is already set, nothing to do here.\n");
+		return CMD_SUCCESS;
+	}
+
+	bgp_option_norib_set_runtime();
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_bgp_norib,
+       no_bgp_norib_cmd,
+       "no bgp no-rib",
+       NO_STR
+       BGP_STR
+       "Disable BGP route installation to RIB (Zebra)\n")
+{
+	if (!bgp_option_check(BGP_OPT_NO_FIB)) {
+		vty_out(vty,
+			"%% No-RIB option is not set, nothing to do here.\n");
+		return CMD_SUCCESS;
+	}
+
+	bgp_option_norib_unset_runtime();
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (bgp_confederation_identifier,
        bgp_confederation_identifier_cmd,
        "bgp confederation identifier (1-4294967295)",
@@ -15607,6 +15642,10 @@ int bgp_config_write(struct vty *vty)
 	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN))
 		vty_out(vty, "bgp graceful-shutdown\n");
 
+	/* No-RIB (Zebra) option flag configuration */
+	if (bgp_option_check(BGP_OPT_NO_FIB))
+		vty_out(vty, "bgp no-rib\n");
+
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 
@@ -16150,6 +16189,10 @@ void bgp_vty_init(void)
 	/* "bgp cluster-id" commands. */
 	install_element(BGP_NODE, &bgp_cluster_id_cmd);
 	install_element(BGP_NODE, &no_bgp_cluster_id_cmd);
+
+	/* "bgp no-rib" commands. */
+	install_element(CONFIG_NODE, &bgp_norib_cmd);
+	install_element(CONFIG_NODE, &no_bgp_norib_cmd);
 
 	/* "bgp confederation" commands. */
 	install_element(BGP_NODE, &bgp_confederation_identifier_cmd);
