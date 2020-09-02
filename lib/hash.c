@@ -77,9 +77,20 @@ void *hash_alloc_intern(void *arg)
 	return arg;
 }
 
+/*
+ * ssq = ssq + (new^2 - old^2)
+ *     = ssq + ((new + old) * (new - old))
+ */
 #define hash_update_ssq(hz, old, new)                                          \
-	atomic_fetch_add_explicit(&hz->stats.ssq, (new + old) * (new - old),   \
-				  memory_order_relaxed);
+	do {                                                                   \
+		int _adjust = (new + old) * (new - old);                       \
+		if (_adjust < 0)                                               \
+			atomic_fetch_sub_explicit(&hz->stats.ssq, -_adjust,    \
+						  memory_order_relaxed);       \
+		else                                                           \
+			atomic_fetch_add_explicit(&hz->stats.ssq, _adjust,     \
+						  memory_order_relaxed);       \
+	} while (0)
 
 /* Expand hash if the chain length exceeds the threshold. */
 static void hash_expand(struct hash *hash)
