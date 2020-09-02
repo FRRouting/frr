@@ -128,6 +128,7 @@ uint32_t jhash(const void *key, uint32_t length, uint32_t initval)
  * The length parameter here is the number of uint32_ts in the key.
  */
 uint32_t jhash2(const uint32_t *k, uint32_t length, uint32_t initval)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
 {
 	uint32_t a, b, c, len;
 
