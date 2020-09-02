@@ -3023,7 +3023,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 			size_t lfl =
 				CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN) ? 2 : 1;
 			/* Rewind to end of flag field */
-			stream_forward_getp(BGP_INPUT(peer), -(1 + lfl));
+			stream_rewind_getp(BGP_INPUT(peer), (1 + lfl));
 			/* Type */
 			stream_get(&ndata[0], BGP_INPUT(peer), 1);
 			/* Length */
