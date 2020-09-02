@@ -278,7 +278,7 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 		return;
 	}
 
-	oi = ospf6_interface_lookup_by_ifindex(ifindex);
+	oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
 	if (oi == NULL) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
 			zlog_debug("Can't find interface in SPF: ifindex %d",

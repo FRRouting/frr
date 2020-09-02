@@ -170,7 +170,8 @@ extern const char *const ospf6_interface_state_str[];
 
 /* Function Prototypes */
 
-extern struct ospf6_interface *ospf6_interface_lookup_by_ifindex(ifindex_t);
+extern struct ospf6_interface *
+ospf6_interface_lookup_by_ifindex(ifindex_t, vrf_id_t vrf_id);
 extern struct ospf6_interface *ospf6_interface_create(struct interface *);
 extern void ospf6_interface_delete(struct ospf6_interface *);
 

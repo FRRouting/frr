@@ -56,12 +56,13 @@ const char *const ospf6_interface_state_str[] = {
 	"None",    "Down", "Loopback", "Waiting", "PointToPoint",
 	"DROther", "BDR",  "DR",       NULL};
 
-struct ospf6_interface *ospf6_interface_lookup_by_ifindex(ifindex_t ifindex)
+struct ospf6_interface *ospf6_interface_lookup_by_ifindex(ifindex_t ifindex,
+							  vrf_id_t vrf_id)
 {
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 
-	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	ifp = if_lookup_by_index(ifindex, vrf_id);
 	if (ifp == NULL)
 		return (struct ospf6_interface *)NULL;
 
@@ -1022,7 +1023,7 @@ DEFUN (show_ipv6_ospf6_interface,
 	return CMD_SUCCESS;
 }
 
-static int ospf6_interface_show_traffic(struct vty *vty, uint32_t vrf_id,
+static int ospf6_interface_show_traffic(struct vty *vty,
 					struct interface *intf_ifp,
 					int display_once)
 {
@@ -1030,7 +1031,7 @@ static int ospf6_interface_show_traffic(struct vty *vty, uint32_t vrf_id,
 	struct vrf *vrf = NULL;
 	struct ospf6_interface *oi = NULL;
 
-	vrf = vrf_lookup_by_id(vrf_id);
+	vrf = vrf_lookup_by_id(intf_ifp->vrf_id);
 
 	if (!display_once) {
 		vty_out(vty, "\n");
@@ -1105,7 +1106,7 @@ DEFUN (show_ipv6_ospf6_interface_traffic,
 		}
 	}
 
-	ospf6_interface_show_traffic(vty, VRF_DEFAULT, ifp, display_once);
+	ospf6_interface_show_traffic(vty, ifp, display_once);
 
 
 	return CMD_SUCCESS;

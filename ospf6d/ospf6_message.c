@@ -1554,7 +1554,7 @@ int ospf6_receive(struct thread *thread)
 		return 0;
 	}
 
-	oi = ospf6_interface_lookup_by_ifindex(ifindex);
+	oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
 	if (oi == NULL || oi->area == NULL
 	    || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE)) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))

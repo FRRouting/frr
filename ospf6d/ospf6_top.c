@@ -232,7 +232,7 @@ static void ospf6_disable(struct ospf6 *o)
 			ospf6_area_disable(oa);
 
 		/* XXX: This also changes persistent settings */
-		ospf6_asbr_redistribute_reset();
+		ospf6_asbr_redistribute_reset(o->vrf_id);
 
 		ospf6_lsdb_remove_all(o->lsdb);
 		ospf6_route_remove_all(o->route_table);

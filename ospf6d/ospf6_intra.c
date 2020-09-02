@@ -1569,8 +1569,8 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 				if (intra_prefix_lsa->ref_adv_router
 				     == oa->ospf6->router_id) {
 					ifp = if_lookup_prefix(
-							&old_route->prefix,
-							VRF_DEFAULT);
+						&old_route->prefix,
+						oa->ospf6->vrf_id);
 					if (ifp)
 						ospf6_route_add_nexthop(
 								old_route,
@@ -1714,7 +1714,8 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 		memcpy(&route->path.ls_prefix, &ls_prefix,
 		       sizeof(struct prefix));
 		if (direct_connect) {
-			ifp = if_lookup_prefix(&route->prefix, VRF_DEFAULT);
+			ifp = if_lookup_prefix(&route->prefix,
+					       oa->ospf6->vrf_id);
 			if (ifp)
 				ospf6_route_add_nexthop(route, ifp->ifindex,
 							NULL);
