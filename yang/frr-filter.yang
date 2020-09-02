@@ -170,31 +170,22 @@ module frr-filter {
                   description "Match any";
                   type empty;
                 }
-              }
 
-              choice extended-value {
-                /*
-                 * Legacy note: before using the new access-list format the
-                 * cisco styled list only accepted identifiers using numbers
-                 * and they had the following restriction:
-                 *
-                 * when "../number >= 100 and ../number <= 199 or
-                 *     ../number >= 2000 and ../number <= 2699";
-                 */
-                description "Destination value to match";
-                mandatory true;
+                choice extended-value {
+                  description "Destination value to match";
 
-                leaf destination-host {
-                  description "Host to match";
-                  type inet:ipv4-address;
-                }
-                leaf destination-network {
-                  description "Network to match";
-                  type inet:ipv4-prefix;
-                }
-                leaf destination-any {
-                  description "Match any";
-                  type empty;
+                  leaf destination-host {
+                    description "Host to match";
+                    type inet:ipv4-address;
+                  }
+                  leaf destination-network {
+                    description "Network to match";
+                    type inet:ipv4-prefix;
+                  }
+                  leaf destination-any {
+                    description "Match any";
+                    type empty;
+                  }
                 }
               }
             }

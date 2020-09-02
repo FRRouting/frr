@@ -37,14 +37,8 @@
 
 #define ACCESS_LIST_STR "Access list entry\n"
 #define ACCESS_LIST_LEG_STR "IP standard access list\n"
-#define ACCESS_LIST_LEG_EXT_STR "IP standard access list (expanded range)\n"
 #define ACCESS_LIST_ELEG_STR "IP extended access list\n"
 #define ACCESS_LIST_ELEG_EXT_STR "IP extended access list (expanded range)\n"
-#define ACCESS_LIST_XLEG_STR                                                   \
-	ACCESS_LIST_LEG_STR                                                    \
-	ACCESS_LIST_LEG_EXT_STR                                                \
-	ACCESS_LIST_ELEG_STR                                                   \
-	ACCESS_LIST_ELEG_EXT_STR
 #define ACCESS_LIST_ZEBRA_STR "Access list entry\n"
 #define ACCESS_LIST_SEQ_STR                                                    \
 	"Sequence number of an entry\n"                                        \
@@ -68,7 +62,6 @@ static int64_t acl_cisco_get_seq(struct access_list *acl, const char *action,
 	struct filter f, *fn;
 
 	memset(&f, 0, sizeof(f));
-	memset(&fc, 0, sizeof(fc));
 	f.cisco = 1;
 	if (strcmp(action, "permit") == 0)
 		f.type = FILTER_PERMIT;
@@ -110,7 +103,8 @@ static int64_t acl_zebra_get_seq(struct access_list *acl, const char *action,
 		f.type = FILTER_DENY;
 
 	fz = &f.u.zfilter;
-	fz->prefix = *p;
+	if (p->family)
+		prefix_copy(&fz->prefix, p);
 	fz->exact = exact;
 
 	fn = filter_lookup_zebra(acl, &f);
@@ -130,6 +124,7 @@ static void concat_addr_mask_v4(const char *addr, const char *mask, char *dst,
 	int plen;
 
 	assert(inet_pton(AF_INET, mask, &ia) == 1);
+	ia.s_addr = ~ia.s_addr;
 	plen = ip_masklen(ia);
 	snprintf(dst, dstlen, "%s/%d", addr, plen);
 }
@@ -171,17 +166,15 @@ static long acl_get_seq(struct vty *vty, const char *xpath)
  */
 DEFPY_YANG(
 	access_list_std, access_list_std_cmd,
-	"access-list <(1-99)|(1300-1999)>$number [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask|any>",
+	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	ACCESS_LIST_STR
 	ACCESS_LIST_LEG_STR
-	ACCESS_LIST_LEG_EXT_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"A single host address\n"
 	"Address to match\n"
 	"Address to match\n"
-	"Wildcard bits\n"
-	"Any source host\n")
+	"Wildcard bits\n")
 {
 	int64_t sseq;
 	char ipmask[64];
@@ -193,8 +186,7 @@ DEFPY_YANG(
 	 * none given (backward compatibility).
 	 */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
-		 number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
@@ -222,18 +214,16 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_std, no_access_list_std_cmd,
-	"no access-list <(1-99)|(1300-1999)>$number [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask|any>",
+	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_LEG_STR
-	ACCESS_LIST_LEG_EXT_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"A single host address\n"
 	"Address to match\n"
 	"Address to match\n"
-	"Wildcard bits\n"
-	"Any source host\n")
+	"Wildcard bits\n")
 {
 	struct access_list *acl;
 	struct lyd_node *dnode;
@@ -246,15 +236,14 @@ DEFPY_YANG(
 		snprintf(
 			xpath, sizeof(xpath),
 			"/frr-filter:lib/access-list[type='ipv4'][name='%s']/entry[sequence='%s']",
-			number_str, seq_str);
+			name, seq_str);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
-		 number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
@@ -263,13 +252,9 @@ DEFPY_YANG(
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
 	acl = nb_running_get_entry(dnode, NULL, true);
-	if (host_str != NULL)
-		sseq = acl_cisco_get_seq(acl, action, host_str,
-					 mask_str ? mask_str : "0.0.0.0", NULL,
-					 NULL);
-	else
-		sseq = acl_cisco_get_seq(acl, action, "0.0.0.0",
-					 "255.255.255.255", NULL, NULL);
+	sseq = acl_cisco_get_seq(acl, action, host_str,
+				 mask_str ? mask_str : CISCO_HOST_WILDCARD_MASK,
+				 NULL, NULL);
 	if (sseq == -1)
 		return CMD_WARNING;
 
@@ -282,10 +267,9 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	access_list_ext, access_list_ext_cmd,
-	"access-list <(100-199)|(2000-2699)>$number [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
+	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	ACCESS_LIST_STR
 	ACCESS_LIST_ELEG_STR
-	ACCESS_LIST_ELEG_EXT_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"IPv4 address\n"
@@ -301,7 +285,7 @@ DEFPY_YANG(
 	"Any destination host\n")
 {
 	int64_t sseq;
-	char ipmask[64];
+	char ipmask[64], ipmask_dst[64];
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
 
@@ -310,8 +294,7 @@ DEFPY_YANG(
 	 * none given (backward compatibility).
 	 */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
-		 number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
@@ -337,12 +320,12 @@ DEFPY_YANG(
 
 	if (dst_str != NULL && dst_mask_str == NULL) {
 		nb_cli_enqueue_change(vty, "./destination-host", NB_OP_MODIFY,
-				      src_str);
+				      dst_str);
 	} else if (dst_str != NULL && dst_mask_str != NULL) {
-		concat_addr_mask_v4(dst_str, dst_mask_str, ipmask,
-				    sizeof(ipmask));
+		concat_addr_mask_v4(dst_str, dst_mask_str, ipmask_dst,
+				    sizeof(ipmask_dst));
 		nb_cli_enqueue_change(vty, "./destination-network",
-				      NB_OP_MODIFY, ipmask);
+				      NB_OP_MODIFY, ipmask_dst);
 	} else {
 		nb_cli_enqueue_change(vty, "./destination-any", NB_OP_CREATE,
 				      NULL);
@@ -353,11 +336,10 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_access_list_ext, no_access_list_ext_cmd,
-	"no access-list <(100-199)|(2000-2699)>$number [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
+	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	NO_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ELEG_STR
-	ACCESS_LIST_ELEG_EXT_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"Any Internet Protocol\n"
@@ -383,15 +365,14 @@ DEFPY_YANG(
 		snprintfrr(
 			xpath, sizeof(xpath),
 			"/frr-filter:lib/access-list[type='ipv4'][name='%s']/entry[sequence='%s']",
-			number_str, seq_str);
+			name, seq_str);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']",
-		 number_str);
+		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
@@ -404,24 +385,28 @@ DEFPY_YANG(
 		if (dst_str != NULL)
 			sseq = acl_cisco_get_seq(
 				acl, action, src_str,
-				src_mask_str ? src_mask_str : "0.0.0.0",
+				src_mask_str ? src_mask_str
+					     : CISCO_HOST_WILDCARD_MASK,
 				dst_str,
-				dst_mask_str ? dst_mask_str : "0.0.0.0");
+				dst_mask_str ? dst_mask_str
+					     : CISCO_HOST_WILDCARD_MASK);
 		else
-			sseq = acl_cisco_get_seq(acl, action, src_str,
-						 src_mask_str ? src_mask_str
-							      : "0.0.0.0",
-						 "0.0.0.0", "255.255.255.255");
+			sseq = acl_cisco_get_seq(
+				acl, action, src_str,
+				src_mask_str ? src_mask_str
+					     : CISCO_HOST_WILDCARD_MASK,
+				"0.0.0.0", CISCO_ANY_WILDCARD_MASK);
 	} else {
 		if (dst_str != NULL)
-			sseq = acl_cisco_get_seq(acl, action, "0.0.0.0",
-						 "255.255.255.255", dst_str,
-						 dst_mask_str ? dst_mask_str
-							      : "0.0.0.0");
+			sseq = acl_cisco_get_seq(
+				acl, action, "0.0.0.0", CISCO_ANY_WILDCARD_MASK,
+				dst_str,
+				dst_mask_str ? dst_mask_str
+					     : CISCO_HOST_WILDCARD_MASK);
 		else
-			sseq = acl_cisco_get_seq(acl, action, "0.0.0.0",
-						 "255.255.255.255", "0.0.0.0",
-						 "255.255.255.255");
+			sseq = acl_cisco_get_seq(
+				acl, action, "0.0.0.0", CISCO_ANY_WILDCARD_MASK,
+				"0.0.0.0", CISCO_ANY_WILDCARD_MASK);
 	}
 	if (sseq == -1)
 		return CMD_WARNING;
@@ -522,7 +507,7 @@ DEFPY_YANG(
 	/* Use access-list data structure to fetch sequence. */
 	dnode = yang_dnode_get(running_config->dnode, xpath);
 	acl = nb_running_get_entry(dnode, NULL, true);
-	if (prefix == NULL) {
+	if (prefix_str == NULL) {
 		memset(&pany, 0, sizeof(pany));
 		pany.family = AF_INET;
 		sseq = acl_zebra_get_seq(acl, action, &pany, exact);
