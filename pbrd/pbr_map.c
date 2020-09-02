@@ -785,8 +785,13 @@ void pbr_map_check_vrf_nh_group_change(const char *nh_group,
 			if (pbrms->nhgrp_name)
 				continue;
 
-			if (pbrms->nhg
-			    && strcmp(nh_group, pbrms->internal_nhg_name))
+			if (pbrms->nhg == NULL)
+				continue;
+
+			if (strcmp(nh_group, pbrms->internal_nhg_name))
+				continue;
+
+			if (pbrms->nhg->nexthop == NULL)
 				continue;
 
 			if (pbrms->nhg->nexthop->vrf_id != old_vrf_id)
@@ -810,8 +815,13 @@ void pbr_map_check_interface_nh_group_change(const char *nh_group,
 			if (pbrms->nhgrp_name)
 				continue;
 
-			if (pbrms->nhg
-			    && strcmp(nh_group, pbrms->internal_nhg_name))
+			if (pbrms->nhg == NULL)
+				continue;
+
+			if (strcmp(nh_group, pbrms->internal_nhg_name))
+				continue;
+
+			if (pbrms->nhg->nexthop == NULL)
 				continue;
 
 			if (pbrms->nhg->nexthop->ifindex != oldifindex)
