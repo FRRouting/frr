@@ -1031,7 +1031,10 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 	struct vrf *vrf = NULL;
 	struct ospf6_interface *oi = NULL;
 
-	vrf = vrf_lookup_by_id(intf_ifp->vrf_id);
+	if (intf_ifp)
+		vrf = vrf_lookup_by_id(intf_ifp->vrf_id);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (!display_once) {
 		vty_out(vty, "\n");
