@@ -199,8 +199,10 @@ struct zebra_if {
 	/* ethernet segment */
 	struct zebra_es_if_info es_info;
 
-	/* ARP snooping is enabled on bridge ports to
-	 * handle fast failover of ESs */
+	/*
+	 * ARP snooping is enabled on bridge ports to
+	 * handle fast failover of ESs
+	 */
 	struct zebra_arp_nd_if_info arp_nd_info;
 
 	/* bitmap of vlans associated with this interface */

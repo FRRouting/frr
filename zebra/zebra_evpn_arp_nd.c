@@ -1,20 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra EVPN ARP/ND packet handler
  *
  * Copyright (C) 2020 Cumulus Networks, Inc.
  * Anuradha Karuppiah
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
  */
 
 #include <zebra.h>
@@ -194,7 +183,7 @@ static void zebra_evpn_arp_nd_vxlan_encap(struct zebra_evpn *zevpn, struct ipadd
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
 		zlog_debug("evpn arp_nd of len %lu redirect to vni %d %pIA with vxh(0x%x 0x%x)",
-			   (long unsigned int)(len + sizeof(struct vxlanhdr)),
+			   (unsigned long)(len + sizeof(struct vxlanhdr)),
 			   zevpn->vni, &vtep_ip, vxh->vx_flags, vxh->vx_vni);
 
 	zebra_evpn_arp_nd_udp_send(vtep_ip, vxlan_data,
@@ -293,8 +282,10 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 		return 0;
 	}
 
-	/* dest ES is oper-down; see if there is an active peer we can
-	 * redirect the traffic to */
+	/*
+	 * dest ES is oper-down; see if there is an active peer we can
+	 * redirect the traffic to
+	 */
 	nh = zebra_evpn_arp_nd_get_vtep(es, ethh);
 	if (!ipaddr_is_zero(&nh)) {
 		++zevpn_arp_nd_info.stat.nh_missing;
@@ -382,7 +373,6 @@ static int zebra_evpn_arp_nd_recvmsg(int fd, uint8_t *buf, size_t len,
 static void zebra_evpn_arp_nd_read(struct event *thread);
 static void zebra_evpn_arp_nd_pkt_read_enable(struct zebra_if *zif)
 {
-	zif->arp_nd_info.t_pkt_read = NULL;
 	event_add_read(zrouter.master, zebra_evpn_arp_nd_read, zif,
 		       zif->arp_nd_info.pkt_fd, &zif->arp_nd_info.t_pkt_read);
 }
@@ -419,7 +409,9 @@ static void zebra_evpn_arp_nd_read(struct event *t)
 			break;
 	}
 
-	/* prepare for next installment of packets */
+	/*
+	 * prepare for next installment of packets
+	 */
 	zebra_evpn_arp_nd_pkt_read_enable(zif);
 }
 
@@ -630,7 +622,7 @@ void zebra_evpn_arp_nd_udp_sock_create(void)
 }
 
 /* Enable ARP/NA snooping on all existing brigde members */
-static void zebra_evpn_arp_nd_if_update_all(void)
+static void zebra_evpn_arp_nd_if_update_all(bool enable)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
@@ -641,7 +633,7 @@ static void zebra_evpn_arp_nd_if_update_all(void)
 				continue;
 			if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
 				continue;
-			zebra_evpn_arp_nd_if_update(ifp->info, true);
+			zebra_evpn_arp_nd_if_update(ifp->info, enable);
 		}
 	}
 }
@@ -661,11 +653,37 @@ void zebra_evpn_arp_nd_failover_enable(void)
 
 	zevpn_arp_nd_info.flags |= ZEBRA_EVPN_ARP_ND_FAILOVER;
 
-	/* create a UDP socket for sending the vxlan encapsulated
-	 * packets */
+	/*
+	 * create a UDP socket for sending the vxlan encapsulated
+	 * packets
+	 */
 	zebra_evpn_arp_nd_udp_sock_create();
 
-	/* walkthrough existing br-ports and enable
-	 * snooping on them */
-	zebra_evpn_arp_nd_if_update_all();
+	/*
+	 * walkthrough existing br-ports and enable
+	 * snooping on them
+	 */
+	zebra_evpn_arp_nd_if_update_all(true);
+}
+
+void zebra_evpn_arp_nd_failover_disable(void)
+{
+	/* If fast failover is not enabled there is nothing to do */
+	if (!(zevpn_arp_nd_info.flags & ZEBRA_EVPN_ARP_ND_FAILOVER))
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT)
+		zlog_debug("Disable arp_nd failover");
+
+	/*
+	 * walkthrough existing br-ports and disable
+	 * snooping on them
+	 */
+	zebra_evpn_arp_nd_if_update_all(false);
+
+	/* close the UDP tx socket */
+	close(zevpn_arp_nd_info.udp_fd);
+	zevpn_arp_nd_info.udp_fd = -1;
+
+	zevpn_arp_nd_info.flags &= ~ZEBRA_EVPN_ARP_ND_FAILOVER;
 }
