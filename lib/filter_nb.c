@@ -29,6 +29,7 @@
 #include "lib/filter.h"
 #include "lib/plist.h"
 #include "lib/plist_int.h"
+#include "lib/routemap.h"
 
 /* Helper function. */
 static in_addr_t
@@ -38,6 +39,22 @@ ipv4_network_addr(in_addr_t hostaddr, int masklen)
 
 	masklen2ip(masklen, &mask);
 	return hostaddr & mask.s_addr;
+}
+
+static void acl_notify_route_map(struct access_list *acl, int route_map_event)
+{
+	switch (route_map_event) {
+	case RMAP_EVENT_FILTER_ADDED:
+		if (acl->master->add_hook)
+			(*acl->master->add_hook)(acl);
+		break;
+	case RMAP_EVENT_FILTER_DELETED:
+		if (acl->master->delete_hook)
+			(*acl->master->delete_hook)(acl);
+		break;
+	}
+
+	route_map_notify_dependencies(acl->name, route_map_event);
 }
 
 static enum nb_error prefix_list_length_validate(struct nb_cb_modify_args *args)
@@ -268,6 +285,8 @@ lib_access_list_entry_action_modify(struct nb_cb_modify_args *args)
 	else
 		f->type = FILTER_DENY;
 
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
+
 	return NB_OK;
 }
 
@@ -288,6 +307,8 @@ lib_access_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
 	fz = &f->u.zfilter;
 	yang_dnode_get_prefix(&fz->prefix, args->dnode, NULL);
 
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
+
 	return NB_OK;
 }
 
@@ -303,6 +324,8 @@ lib_access_list_entry_ipv4_prefix_destroy(struct nb_cb_destroy_args *args)
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fz = &f->u.zfilter;
 	memset(&fz->prefix, 0, sizeof(fz->prefix));
+
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
 	return NB_OK;
 }
@@ -323,6 +346,8 @@ lib_access_list_entry_ipv4_exact_match_modify(struct nb_cb_modify_args *args)
 	fz = &f->u.zfilter;
 	fz->exact = yang_dnode_get_bool(args->dnode, NULL);
 
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
+
 	return NB_OK;
 }
 
@@ -338,6 +363,8 @@ lib_access_list_entry_ipv4_exact_match_destroy(struct nb_cb_destroy_args *args)
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fz = &f->u.zfilter;
 	fz->exact = 0;
+
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
 	return NB_OK;
 }
@@ -360,6 +387,8 @@ lib_access_list_entry_host_modify(struct nb_cb_modify_args *args)
 	yang_dnode_get_ipv4(&fc->addr, args->dnode, NULL);
 	fc->addr_mask.s_addr = CISCO_BIN_HOST_WILDCARD_MASK;
 
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
+
 	return NB_OK;
 }
 
@@ -375,6 +404,8 @@ lib_access_list_entry_host_destroy(struct nb_cb_destroy_args *args)
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
 	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
+
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
 	return NB_OK;
 }
@@ -400,6 +431,8 @@ lib_access_list_entry_network_modify(struct nb_cb_modify_args *args)
 	masklen2ip(p.prefixlen, &fc->addr_mask);
 	fc->addr_mask.s_addr = ~fc->addr_mask.s_addr;
 
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
+
 	return NB_OK;
 }
 
@@ -415,6 +448,8 @@ lib_access_list_entry_network_destroy(struct nb_cb_destroy_args *args)
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
 	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
+
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
 	return NB_OK;
 }
@@ -437,6 +472,8 @@ lib_access_list_entry_source_any_create(struct nb_cb_create_args *args)
 	fc->addr.s_addr = INADDR_ANY;
 	fc->addr_mask.s_addr = CISCO_BIN_ANY_WILDCARD_MASK;
 
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
+
 	return NB_OK;
 }
 
@@ -452,6 +489,8 @@ lib_access_list_entry_source_any_destroy(struct nb_cb_destroy_args *args)
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
 	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
+
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
 	return NB_OK;
 }
@@ -474,6 +513,8 @@ static int lib_access_list_entry_destination_host_modify(
 	yang_dnode_get_ipv4(&fc->mask, args->dnode, NULL);
 	fc->mask_mask.s_addr = CISCO_BIN_HOST_WILDCARD_MASK;
 
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
+
 	return NB_OK;
 }
 
@@ -490,6 +531,8 @@ static int lib_access_list_entry_destination_host_destroy(
 	fc = &f->u.cfilter;
 	fc->extended = 0;
 	cisco_unset_addr_mask(&fc->mask, &fc->mask_mask);
+
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
 	return NB_OK;
 }
@@ -515,6 +558,8 @@ static int lib_access_list_entry_destination_network_modify(
 	masklen2ip(p.prefixlen, &fc->mask_mask);
 	fc->mask_mask.s_addr = ~fc->mask_mask.s_addr;
 
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
+
 	return NB_OK;
 }
 
@@ -531,6 +576,8 @@ static int lib_access_list_entry_destination_network_destroy(
 	fc = &f->u.cfilter;
 	fc->extended = 0;
 	cisco_unset_addr_mask(&fc->mask, &fc->mask_mask);
+
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
 	return NB_OK;
 }
@@ -553,6 +600,8 @@ static int lib_access_list_entry_destination_any_create(
 	fc->mask.s_addr = INADDR_ANY;
 	fc->mask_mask.s_addr = CISCO_BIN_ANY_WILDCARD_MASK;
 
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
+
 	return NB_OK;
 }
 
@@ -569,6 +618,8 @@ static int lib_access_list_entry_destination_any_destroy(
 	fc = &f->u.cfilter;
 	fc->extended = 0;
 	cisco_unset_addr_mask(&fc->mask, &fc->mask_mask);
+
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
 	return NB_OK;
 }
@@ -603,6 +654,8 @@ static int lib_access_list_entry_any_create(struct nb_cb_create_args *args)
 		break;
 	}
 
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
+
 	return NB_OK;
 }
 
@@ -617,6 +670,8 @@ static int lib_access_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fz = &f->u.zfilter;
 	fz->prefix.family = 0;
+
+	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
 	return NB_OK;
 }
