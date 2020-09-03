@@ -64,6 +64,7 @@ struct zebra_evpn_arp_nd_info {
 
 /*****************************************************************************/
 extern void zebra_evpn_arp_nd_failover_enable(void);
+extern void zebra_evpn_arp_nd_failover_disable(void);
 extern void zebra_evpn_arp_nd_udp_sock_create(void);
 extern void zebra_evpn_arp_nd_if_update(struct zebra_if *zif, bool enable);
 extern void zebra_evpn_arp_nd_print_summary(struct vty *vty, bool uj);

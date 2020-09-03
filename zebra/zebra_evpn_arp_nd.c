@@ -380,7 +380,6 @@ static int zebra_evpn_arp_nd_recvmsg(int fd, uint8_t *buf, size_t len,
 static void zebra_evpn_arp_nd_read(struct event *thread);
 static void zebra_evpn_arp_nd_pkt_read_enable(struct zebra_if *zif)
 {
-	zif->arp_nd_info.t_pkt_read = NULL;
 	event_add_read(zrouter.master, zebra_evpn_arp_nd_read, zif,
 		       zif->arp_nd_info.pkt_fd, &zif->arp_nd_info.t_pkt_read);
 }
@@ -628,7 +627,7 @@ void zebra_evpn_arp_nd_udp_sock_create(void)
 }
 
 /* Enable ARP/NA snooping on all existing brigde members */
-static void zebra_evpn_arp_nd_if_update_all(void)
+static void zebra_evpn_arp_nd_if_update_all(bool enable)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
@@ -639,7 +638,7 @@ static void zebra_evpn_arp_nd_if_update_all(void)
 				continue;
 			if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
 				continue;
-			zebra_evpn_arp_nd_if_update(ifp->info, true);
+			zebra_evpn_arp_nd_if_update(ifp->info, enable);
 		}
 	}
 }
@@ -665,5 +664,25 @@ void zebra_evpn_arp_nd_failover_enable(void)
 
 	/* walkthrough existing br-ports and enable
 	 * snooping on them */
-	zebra_evpn_arp_nd_if_update_all();
+	zebra_evpn_arp_nd_if_update_all(true);
+}
+
+void zebra_evpn_arp_nd_failover_disable(void)
+{
+	/* If fast failover is not enabled there is nothing to do */
+	if (!(zevpn_arp_nd_info.flags & ZEBRA_EVPN_ARP_ND_FAILOVER))
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT)
+		zlog_debug("Disable arp_nd failover");
+
+	/* walkthrough existing br-ports and disable
+	 * snooping on them */
+	zebra_evpn_arp_nd_if_update_all(false);
+
+	/* close the UDP tx socket */
+	close(zevpn_arp_nd_info.udp_fd);
+	zevpn_arp_nd_info.udp_fd = -1;
+
+	zevpn_arp_nd_info.flags &= ~ZEBRA_EVPN_ARP_ND_FAILOVER;
 }
