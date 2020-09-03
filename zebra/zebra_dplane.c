@@ -2388,6 +2388,7 @@ dplane_route_update_internal(struct route_node *rn,
 						 NEXTHOP_FLAG_FIB);
 			}
 
+			dplane_ctx_free(&ctx);
 			return ZEBRA_DPLANE_REQUEST_SUCCESS;
 		}
 
