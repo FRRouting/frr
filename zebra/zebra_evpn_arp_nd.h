@@ -1,20 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra EVPN ARP/ND packet handler
  *
  * Copyright (C) 2020 Cumulus Networks, Inc.
  * Anuradha Karuppiah
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
  */
 
 #ifndef _ZEBRA_ARP_ND_H
@@ -55,8 +44,10 @@ struct zebra_evpn_arp_nd_info {
 	uint32_t flags;
 #define ZEBRA_EVPN_ARP_ND_FAILOVER (1 << 0)
 
-	/* number of ESs that are operationally down
-	 * XXX - use this to optimize packet parsing if needed */
+	/*
+	 * number of ESs that are operationally down
+	 * XXX - use this to optimize packet parsing if needed
+	 */
 	uint32_t down_es_cnt;
 	int udp_fd;
 	struct zebra_evpn_arp_nd_stats stat;
@@ -64,6 +55,7 @@ struct zebra_evpn_arp_nd_info {
 
 /*****************************************************************************/
 extern void zebra_evpn_arp_nd_failover_enable(void);
+extern void zebra_evpn_arp_nd_failover_disable(void);
 extern void zebra_evpn_arp_nd_udp_sock_create(void);
 extern void zebra_evpn_arp_nd_if_update(struct zebra_if *zif, bool enable);
 extern void zebra_evpn_arp_nd_print_summary(struct vty *vty, bool uj);
