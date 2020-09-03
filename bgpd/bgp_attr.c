@@ -1631,16 +1631,20 @@ bgp_attr_local_pref(struct bgp_attr_parser_args *args)
 	   external peer, then this attribute MUST be ignored by the
 	   receiving speaker. */
 	if (peer->sort == BGP_PEER_EBGP) {
-		stream_forward_getp(peer->curr, length);
+		STREAM_FORWARD_GETP(peer->curr, length);
 		return BGP_ATTR_PARSE_PROCEED;
 	}
 
-	attr->local_pref = stream_getl(peer->curr);
+	STREAM_GETL(peer->curr, attr->local_pref);
 
 	/* Set the local-pref flag. */
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
 
 	return BGP_ATTR_PARSE_PROCEED;
+
+stream_failure:
+	return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				  args->total);
 }
 
 /* Atomic aggregate. */
