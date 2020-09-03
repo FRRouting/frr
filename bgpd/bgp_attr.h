@@ -24,6 +24,7 @@
 #include "mpls.h"
 #include "bgp_attr_evpn.h"
 #include "bgpd/bgp_encap_types.h"
+#include "srte.h"
 
 /* Simple bit mapping. */
 #define BITMAP_NBBY 8
@@ -290,6 +291,9 @@ struct attr {
 
 	/* EVPN ES */
 	esi_t esi;
+
+	/* SR-TE Color */
+	uint32_t srte_color;
 };
 
 /* rmap_change_flags definition */

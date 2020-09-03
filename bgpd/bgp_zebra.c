@@ -1265,6 +1265,9 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		api.tableid = info->attr->rmap_table_id;
 	}
 
+	if (CHECK_FLAG(info->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
+		SET_FLAG(api.message, ZAPI_MESSAGE_SRTE);
+
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
 
@@ -1303,6 +1306,11 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 				continue;
 		}
 		api_nh = &api.nexthops[valid_nh_count];
+
+		if (CHECK_FLAG(info->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
+			api_nh->srte_color = info->attr->srte_color;
+
 		if (nh_family == AF_INET) {
 			if (bgp_debug_zebra(&api.prefix)) {
 				if (mpinfo->extra) {

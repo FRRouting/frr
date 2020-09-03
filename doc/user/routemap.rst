@@ -329,6 +329,12 @@ Route Map Set Command
 
    Set the BGP table to a given table identifier
 
+.. index:: set sr-te color (1-4294967295)
+.. clicmd:: set sr-te color (1-4294967295)
+
+   Set the color of a SR-TE Policy to be applied to a learned route. The SR-TE
+   Policy is uniquely determined by the color and the BGP nexthop.
+
 .. _route-map-call-command:
 
 Route Map Call Command
