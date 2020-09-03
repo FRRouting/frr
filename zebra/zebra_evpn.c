@@ -1046,6 +1046,9 @@ int zebra_evpn_del(zebra_evpn_t *zevpn)
 	hash_free(zevpn->mac_table);
 	zevpn->mac_table = NULL;
 
+	/* Remove references to the zevpn in the MH databases */
+	if (zevpn->vxlan_if)
+		zebra_evpn_vxl_evpn_set(zevpn->vxlan_if->info, zevpn, false);
 	zebra_evpn_es_evi_cleanup(zevpn);
 
 	/* Free the EVPN hash entry and allocated memory. */
