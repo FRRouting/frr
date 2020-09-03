@@ -119,10 +119,8 @@ extern "C" {
 	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_MAC)
 #define IS_ZEBRA_DEBUG_EVPN_MH_NEIGH \
 	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_NEIGH)
-#define IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT                                      \
-	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT)
-#define IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT                                      \
-	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
+#define IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT (zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT)
+#define IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT (zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
 
 #define IS_ZEBRA_DEBUG_PBR (zebra_debug_pbr & ZEBRA_DEBUG_PBR)
 

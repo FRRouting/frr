@@ -2748,17 +2748,16 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 			char vid_buf[16];
 
 			if (zebra_if->pvid)
-				snprintf(vid_buf, sizeof(vid_buf),
-						" PVID: %u", zebra_if->pvid);
+				snprintf(vid_buf, sizeof(vid_buf), " PVID: %u", zebra_if->pvid);
 			else
 				vid_buf[0] = '\0';
 
 			if (br_slave->br_if)
-				vty_out(vty, "  Master interface: %s%s\n",
-					br_slave->br_if->name, vid_buf);
+				vty_out(vty, "  Master interface: %s%s\n", br_slave->br_if->name,
+					vid_buf);
 			else
-				vty_out(vty, "  Master ifindex: %u%s\n",
-					br_slave->bridge_ifindex, vid_buf);
+				vty_out(vty, "  Master ifindex: %u%s\n", br_slave->bridge_ifindex,
+					vid_buf);
 		}
 	}
 

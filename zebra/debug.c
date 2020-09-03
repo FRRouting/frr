@@ -458,20 +458,16 @@ DEFPY(debug_zebra_evpn_mh, debug_zebra_evpn_mh_cmd,
 
 	if (arp_evt) {
 		if (no)
-			UNSET_FLAG(zebra_debug_evpn_mh,
-				   ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT);
+			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT);
 		else
-			SET_FLAG(zebra_debug_evpn_mh,
-				 ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT);
+			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT);
 	}
 
 	if (arp_pkt) {
 		if (no)
-			UNSET_FLAG(zebra_debug_evpn_mh,
-				   ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT);
+			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT);
 		else
-			SET_FLAG(zebra_debug_evpn_mh,
-				 ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT);
+			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT);
 	}
 
 	return CMD_SUCCESS;
