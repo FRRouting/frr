@@ -193,6 +193,9 @@ void		 lde_change_allocate_filter(int);
 void		 lde_change_advertise_filter(int);
 void		 lde_change_accept_filter(int);
 void		 lde_change_expnull_for_filter(int);
+void		 lde_route_update(struct iface *, int);
+void		 lde_route_update_release(struct iface *, int);
+void		 lde_route_update_release_all(int);
 struct lde_addr	*lde_address_find(struct lde_nbr *, int,
 		    union ldpd_addr *);
 

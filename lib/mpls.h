@@ -72,8 +72,7 @@ extern "C" {
 /* Maximum # labels that can be pushed. */
 #define MPLS_MAX_LABELS                    16
 
-#define IS_MPLS_RESERVED_LABEL(label)                                          \
-	(label >= MPLS_LABEL_RESERVED_MIN && label <= MPLS_LABEL_RESERVED_MAX)
+#define IS_MPLS_RESERVED_LABEL(label) (label <= MPLS_LABEL_RESERVED_MAX)
 
 #define IS_MPLS_UNRESERVED_LABEL(label)                                        \
 	(label >= MPLS_LABEL_UNRESERVED_MIN                                    \

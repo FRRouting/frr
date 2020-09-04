@@ -614,10 +614,8 @@ ldpe_dispatch_lde(struct thread *thread)
 			map = imsg.data;
 
 			nbr = nbr_find_peerid(imsg.hdr.peerid);
-			if (nbr == NULL) {
-				log_debug("ldpe_dispatch_lde: cannot find neighbor");
+			if (nbr == NULL)
 				break;
-			}
 			if (nbr->state != NBR_STA_OPER)
 				break;
 
@@ -641,10 +639,8 @@ ldpe_dispatch_lde(struct thread *thread)
 		case IMSG_REQUEST_ADD_END:
 		case IMSG_WITHDRAW_ADD_END:
 			nbr = nbr_find_peerid(imsg.hdr.peerid);
-			if (nbr == NULL) {
-				log_debug("ldpe_dispatch_lde: cannot find neighbor");
+			if (nbr == NULL)
 				break;
-			}
 			if (nbr->state != NBR_STA_OPER)
 				break;
 
