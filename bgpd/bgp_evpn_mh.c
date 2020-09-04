@@ -2723,6 +2723,10 @@ bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf, struct bgp_path_info *pi,
 
 	*nhg_p = 0;
 
+	/* we don't support NHG for routes leaked from another VRF yet */
+	if (pi->extra && pi->extra->bgp_orig)
+		return false;
+
 	parent_pi = get_route_parent_evpn(pi);
 	if (!parent_pi)
 		return false;
