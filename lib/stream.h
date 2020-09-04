@@ -160,7 +160,6 @@ extern size_t stream_resize_inplace(struct stream **sptr, size_t newsize);
 extern size_t stream_get_getp(const struct stream *s);
 extern size_t stream_get_endp(const struct stream *s);
 extern size_t stream_get_size(const struct stream *s);
-extern uint8_t *stream_get_data(struct stream *s);
 
 /**
  * Create a new stream structure; copy offset bytes from s1 to the new
