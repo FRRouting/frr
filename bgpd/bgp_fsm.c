@@ -1872,6 +1872,30 @@ static int bgp_establish(struct peer *peer)
 			}
 		}
 
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
+		if ((bgp_peer_gr_mode_get(peer) == PEER_GR)
+		    || ((bgp_peer_gr_mode_get(peer) == PEER_GLOBAL_INHERIT)
+			&& (bgp_global_gr_mode_get(peer->bgp) == GLOBAL_GR))) {
+			FOREACH_AFI_SAFI (afi, safi)
+				/* Send route processing complete
+				   message to RIB */
+				bgp_zebra_update(
+					afi, safi, peer->bgp->vrf_id,
+					ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
+		}
+	} else {
+		/* Peer sends R-bit. In this case, we need to send
+		 * ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE to Zebra. */
+		if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV)) {
+			FOREACH_AFI_SAFI (afi, safi)
+				/* Send route processing complete
+				   message to RIB */
+				bgp_zebra_update(
+					afi, safi, peer->bgp->vrf_id,
+					ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
+		}
+	}
+
 	peer->nsf_af_count = nsf_af_count;
 
 	if (nsf_af_count)

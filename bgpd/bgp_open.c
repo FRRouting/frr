@@ -1102,6 +1102,9 @@ int bgp_open_option_parse(struct peer *peer, uint8_t length, int *mp_capability)
 		zlog_debug("%s rcv OPEN w/ OPTION parameter len: %u",
 			   peer->host, length);
 
+	/* Unset any previously received GR capability. */
+	UNSET_FLAG(peer->cap, PEER_CAP_RESTART_RCV);
+
 	while (stream_get_getp(s) < end) {
 		uint8_t opt_type;
 		uint8_t opt_length;
