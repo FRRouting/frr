@@ -551,6 +551,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/vrf",
+			.cbs = {
+				.modify = lib_interface_isis_vrf_modify,
+			},
+		},
+
+		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/circuit-type",
 			.cbs = {
 				.cli_show = cli_show_ip_isis_circ_type,

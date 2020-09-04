@@ -73,7 +73,6 @@ struct isis_master {
 	struct list *isis;
 	/* ISIS thread master. */
 	struct thread_master *master;
-	/* Various OSPF global configuration. */
 	uint8_t options;
 };
 #define F_ISIS_UNIT_TEST 0x01
@@ -213,15 +212,19 @@ void isis_finish(struct isis *isis);
 void isis_master_init(struct thread_master *master);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
-void isis_global_instance_create(void);
+void isis_global_instance_create(const char *vrf_name);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
 struct isis *isis_lookup_by_vrfname(const char *vrfname);
 struct isis *isis_lookup_by_sysid(const uint8_t *sysid);
 
 void isis_init(void);
-struct isis *isis_new(vrf_id_t vrf_id);
+void isis_vrf_init(void);
+
+struct isis *isis_new(const char *vrf_name);
 struct isis_area *isis_area_create(const char *, const char *);
 struct isis_area *isis_area_lookup(const char *, vrf_id_t vrf_id);
+struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,
+					  const char *vrf_name);
 int isis_area_get(struct vty *vty, const char *area_tag);
 void isis_area_destroy(struct isis_area *area);
 void print_debug(struct vty *, int, int);

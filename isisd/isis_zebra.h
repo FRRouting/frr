@@ -57,5 +57,6 @@ bool isis_zebra_label_manager_ready(void);
 int isis_zebra_label_manager_connect(void);
 int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size);
 int isis_zebra_release_label_range(uint32_t start, uint32_t end);
+void isis_zebra_vrf_register(struct isis *isis);
 
 #endif /* _ZEBRA_ISIS_ZEBRA_H */

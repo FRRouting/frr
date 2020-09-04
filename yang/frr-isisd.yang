@@ -340,6 +340,13 @@ module frr-isisd {
         "Area-tag associated to this circuit.";
     }
 
+    leaf vrf {
+      type string;
+      default "default";
+      description
+        "VRF NAME.";
+    }
+
     leaf ipv4-routing {
       type boolean;
       default "false";
@@ -793,13 +800,19 @@ module frr-isisd {
     description
       "Configuration of the IS-IS routing daemon.";
     list instance {
-      key "area-tag";
+      key "area-tag vrf";
       description
         "IS-IS routing instance.";
       leaf area-tag {
         type string;
         description
           "Area-tag associated to this routing instance.";
+      }
+
+      leaf vrf {
+        type string;
+        description
+          "VRF NAME.";
       }
 
       leaf is-type {

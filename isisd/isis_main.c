@@ -236,13 +236,12 @@ int main(int argc, char **argv, char **envp)
 	/* thread master */
 	isis_master_init(frr_init());
 	master = im->master;
-
 	/*
 	 *  initializations
 	 */
 	isis_error_init();
 	access_list_init();
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	isis_vrf_init();
 	prefix_list_init();
 	isis_init();
 	isis_circuit_init();
@@ -261,7 +260,7 @@ int main(int argc, char **argv, char **envp)
 	mt_init();
 
 	/* create the global 'isis' instance */
-	isis_global_instance_create();
+	isis_global_instance_create(VRF_DEFAULT_NAME);
 
 	isis_zebra_init(master, instance);
 	isis_bfd_init();
