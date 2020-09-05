@@ -268,6 +268,30 @@ bool stream_forward_getp2(struct stream *s, size_t size)
 	return true;
 }
 
+void stream_rewind_getp(struct stream *s, size_t size)
+{
+	STREAM_VERIFY_SANE(s);
+
+	if (size > s->getp || !GETP_VALID(s, s->getp - size)) {
+		STREAM_BOUND_WARN(s, "rewind getp");
+		return;
+	}
+
+	s->getp -= size;
+}
+
+bool stream_rewind_getp2(struct stream *s, size_t size)
+{
+	STREAM_VERIFY_SANE(s);
+
+	if (size > s->getp || !GETP_VALID(s, s->getp - size))
+		return false;
+
+	s->getp -= size;
+
+	return true;
+}
+
 void stream_forward_endp(struct stream *s, size_t size)
 {
 	STREAM_VERIFY_SANE(s);

@@ -997,41 +997,41 @@ struct peer {
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t cap;
-#define PEER_CAP_REFRESH_ADV                (1 << 0) /* refresh advertised */
-#define PEER_CAP_REFRESH_OLD_RCV            (1 << 1) /* refresh old received */
-#define PEER_CAP_REFRESH_NEW_RCV            (1 << 2) /* refresh rfc received */
-#define PEER_CAP_DYNAMIC_ADV                (1 << 3) /* dynamic advertised */
-#define PEER_CAP_DYNAMIC_RCV                (1 << 4) /* dynamic received */
-#define PEER_CAP_RESTART_ADV                (1 << 5) /* restart advertised */
-#define PEER_CAP_RESTART_RCV                (1 << 6) /* restart received */
-#define PEER_CAP_AS4_ADV                    (1 << 7) /* as4 advertised */
-#define PEER_CAP_AS4_RCV                    (1 << 8) /* as4 received */
-#define PEER_CAP_RESTART_BIT_ADV            (1 << 9) /* sent restart state */
-#define PEER_CAP_RESTART_BIT_RCV            (1 << 10) /* peer restart state */
-#define PEER_CAP_ADDPATH_ADV                (1 << 11) /* addpath advertised */
-#define PEER_CAP_ADDPATH_RCV                (1 << 12) /* addpath received */
-#define PEER_CAP_ENHE_ADV                   (1 << 13) /* Extended nexthop advertised */
-#define PEER_CAP_ENHE_RCV                   (1 << 14) /* Extended nexthop received */
-#define PEER_CAP_HOSTNAME_ADV               (1 << 15) /* hostname advertised */
-#define PEER_CAP_HOSTNAME_RCV               (1 << 16) /* hostname received */
+#define PEER_CAP_REFRESH_ADV                (1U << 0) /* refresh advertised */
+#define PEER_CAP_REFRESH_OLD_RCV            (1U << 1) /* refresh old received */
+#define PEER_CAP_REFRESH_NEW_RCV            (1U << 2) /* refresh rfc received */
+#define PEER_CAP_DYNAMIC_ADV                (1U << 3) /* dynamic advertised */
+#define PEER_CAP_DYNAMIC_RCV                (1U << 4) /* dynamic received */
+#define PEER_CAP_RESTART_ADV                (1U << 5) /* restart advertised */
+#define PEER_CAP_RESTART_RCV                (1U << 6) /* restart received */
+#define PEER_CAP_AS4_ADV                    (1U << 7) /* as4 advertised */
+#define PEER_CAP_AS4_RCV                    (1U << 8) /* as4 received */
+#define PEER_CAP_RESTART_BIT_ADV            (1U << 9) /* sent restart state */
+#define PEER_CAP_RESTART_BIT_RCV            (1U << 10) /* peer restart state */
+#define PEER_CAP_ADDPATH_ADV                (1U << 11) /* addpath advertised */
+#define PEER_CAP_ADDPATH_RCV                (1U << 12) /* addpath received */
+#define PEER_CAP_ENHE_ADV                   (1U << 13) /* Extended nexthop advertised */
+#define PEER_CAP_ENHE_RCV                   (1U << 14) /* Extended nexthop received */
+#define PEER_CAP_HOSTNAME_ADV               (1U << 15) /* hostname advertised */
+#define PEER_CAP_HOSTNAME_RCV               (1U << 16) /* hostname received */
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
-#define PEER_CAP_ORF_PREFIX_SM_ADV          (1 << 0) /* send-mode advertised */
-#define PEER_CAP_ORF_PREFIX_RM_ADV          (1 << 1) /* receive-mode advertised */
-#define PEER_CAP_ORF_PREFIX_SM_RCV          (1 << 2) /* send-mode received */
-#define PEER_CAP_ORF_PREFIX_RM_RCV          (1 << 3) /* receive-mode received */
-#define PEER_CAP_ORF_PREFIX_SM_OLD_RCV      (1 << 4) /* send-mode received */
-#define PEER_CAP_ORF_PREFIX_RM_OLD_RCV      (1 << 5) /* receive-mode received */
-#define PEER_CAP_RESTART_AF_RCV             (1 << 6) /* graceful restart afi/safi received */
-#define PEER_CAP_RESTART_AF_PRESERVE_RCV    (1 << 7) /* graceful restart afi/safi F-bit received */
-#define PEER_CAP_ADDPATH_AF_TX_ADV          (1 << 8) /* addpath tx advertised */
-#define PEER_CAP_ADDPATH_AF_TX_RCV          (1 << 9) /* addpath tx received */
-#define PEER_CAP_ADDPATH_AF_RX_ADV          (1 << 10) /* addpath rx advertised */
-#define PEER_CAP_ADDPATH_AF_RX_RCV          (1 << 11) /* addpath rx received */
-#define PEER_CAP_ENHE_AF_ADV                (1 << 12) /* Extended nexthopi afi/safi advertised */
-#define PEER_CAP_ENHE_AF_RCV                (1 << 13) /* Extended nexthop afi/safi received */
-#define PEER_CAP_ENHE_AF_NEGO               (1 << 14) /* Extended nexthop afi/safi negotiated */
+#define PEER_CAP_ORF_PREFIX_SM_ADV          (1U << 0) /* send-mode advertised */
+#define PEER_CAP_ORF_PREFIX_RM_ADV          (1U << 1) /* receive-mode advertised */
+#define PEER_CAP_ORF_PREFIX_SM_RCV          (1U << 2) /* send-mode received */
+#define PEER_CAP_ORF_PREFIX_RM_RCV          (1U << 3) /* receive-mode received */
+#define PEER_CAP_ORF_PREFIX_SM_OLD_RCV      (1U << 4) /* send-mode received */
+#define PEER_CAP_ORF_PREFIX_RM_OLD_RCV      (1U << 5) /* receive-mode received */
+#define PEER_CAP_RESTART_AF_RCV             (1U << 6) /* graceful restart afi/safi received */
+#define PEER_CAP_RESTART_AF_PRESERVE_RCV    (1U << 7) /* graceful restart afi/safi F-bit received */
+#define PEER_CAP_ADDPATH_AF_TX_ADV          (1U << 8) /* addpath tx advertised */
+#define PEER_CAP_ADDPATH_AF_TX_RCV          (1U << 9) /* addpath tx received */
+#define PEER_CAP_ADDPATH_AF_RX_ADV          (1U << 10) /* addpath rx advertised */
+#define PEER_CAP_ADDPATH_AF_RX_RCV          (1U << 11) /* addpath rx received */
+#define PEER_CAP_ENHE_AF_ADV                (1U << 12) /* Extended nexthopi afi/safi advertised */
+#define PEER_CAP_ENHE_AF_RCV                (1U << 13) /* Extended nexthop afi/safi received */
+#define PEER_CAP_ENHE_AF_NEGO               (1U << 14) /* Extended nexthop afi/safi negotiated */
 
 	/* Global configuration flags. */
 	/*
@@ -1090,34 +1090,34 @@ struct peer {
 	 * flags_invert) must be respected.
 	 */
 	uint32_t flags;
-#define PEER_FLAG_PASSIVE                   (1 << 0) /* passive mode */
-#define PEER_FLAG_SHUTDOWN                  (1 << 1) /* shutdown */
-#define PEER_FLAG_DONT_CAPABILITY           (1 << 2) /* dont-capability */
-#define PEER_FLAG_OVERRIDE_CAPABILITY       (1 << 3) /* override-capability */
-#define PEER_FLAG_STRICT_CAP_MATCH          (1 << 4) /* strict-match */
-#define PEER_FLAG_DYNAMIC_CAPABILITY        (1 << 5) /* dynamic capability */
-#define PEER_FLAG_DISABLE_CONNECTED_CHECK   (1 << 6) /* disable-connected-check */
-#define PEER_FLAG_LOCAL_AS_NO_PREPEND       (1 << 7) /* local-as no-prepend */
-#define PEER_FLAG_LOCAL_AS_REPLACE_AS       (1 << 8) /* local-as no-prepend replace-as */
-#define PEER_FLAG_DELETE                    (1 << 9) /* mark the peer for deleting */
-#define PEER_FLAG_CONFIG_NODE               (1 << 10) /* the node to update configs on */
-#define PEER_FLAG_LONESOUL                  (1 << 11)
-#define PEER_FLAG_DYNAMIC_NEIGHBOR          (1 << 12) /* dynamic neighbor */
-#define PEER_FLAG_CAPABILITY_ENHE           (1 << 13) /* Extended next-hop (rfc 5549)*/
-#define PEER_FLAG_IFPEER_V6ONLY             (1 << 14) /* if-based peer is v6 only */
-#define PEER_FLAG_IS_RFAPI_HD               (1 << 15) /* attached to rfapi HD */
-#define PEER_FLAG_ENFORCE_FIRST_AS          (1 << 16) /* enforce-first-as */
-#define PEER_FLAG_ROUTEADV                  (1 << 17) /* route advertise */
-#define PEER_FLAG_TIMER                     (1 << 18) /* keepalive & holdtime */
-#define PEER_FLAG_TIMER_CONNECT             (1 << 19) /* connect timer */
-#define PEER_FLAG_PASSWORD                  (1 << 20) /* password */
-#define PEER_FLAG_LOCAL_AS                  (1 << 21) /* local-as */
-#define PEER_FLAG_UPDATE_SOURCE             (1 << 22) /* update-source */
+#define PEER_FLAG_PASSIVE                   (1U << 0) /* passive mode */
+#define PEER_FLAG_SHUTDOWN                  (1U << 1) /* shutdown */
+#define PEER_FLAG_DONT_CAPABILITY           (1U << 2) /* dont-capability */
+#define PEER_FLAG_OVERRIDE_CAPABILITY       (1U << 3) /* override-capability */
+#define PEER_FLAG_STRICT_CAP_MATCH          (1U << 4) /* strict-match */
+#define PEER_FLAG_DYNAMIC_CAPABILITY        (1U << 5) /* dynamic capability */
+#define PEER_FLAG_DISABLE_CONNECTED_CHECK   (1U << 6) /* disable-connected-check */
+#define PEER_FLAG_LOCAL_AS_NO_PREPEND       (1U << 7) /* local-as no-prepend */
+#define PEER_FLAG_LOCAL_AS_REPLACE_AS       (1U << 8) /* local-as no-prepend replace-as */
+#define PEER_FLAG_DELETE                    (1U << 9) /* mark the peer for deleting */
+#define PEER_FLAG_CONFIG_NODE               (1U << 10) /* the node to update configs on */
+#define PEER_FLAG_LONESOUL                  (1U << 11)
+#define PEER_FLAG_DYNAMIC_NEIGHBOR          (1U << 12) /* dynamic neighbor */
+#define PEER_FLAG_CAPABILITY_ENHE           (1U << 13) /* Extended next-hop (rfc 5549)*/
+#define PEER_FLAG_IFPEER_V6ONLY             (1U << 14) /* if-based peer is v6 only */
+#define PEER_FLAG_IS_RFAPI_HD               (1U << 15) /* attached to rfapi HD */
+#define PEER_FLAG_ENFORCE_FIRST_AS          (1U << 16) /* enforce-first-as */
+#define PEER_FLAG_ROUTEADV                  (1U << 17) /* route advertise */
+#define PEER_FLAG_TIMER                     (1U << 18) /* keepalive & holdtime */
+#define PEER_FLAG_TIMER_CONNECT             (1U << 19) /* connect timer */
+#define PEER_FLAG_PASSWORD                  (1U << 20) /* password */
+#define PEER_FLAG_LOCAL_AS                  (1U << 21) /* local-as */
+#define PEER_FLAG_UPDATE_SOURCE             (1U << 22) /* update-source */
 
 	/* BGP-GR Peer related  flags */
-#define PEER_FLAG_GRACEFUL_RESTART_HELPER   (1 << 23) /* Helper */
-#define PEER_FLAG_GRACEFUL_RESTART          (1 << 24) /* Graceful Restart */
-#define PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT (1 << 25) /* Global-Inherit */
+#define PEER_FLAG_GRACEFUL_RESTART_HELPER   (1U << 23) /* Helper */
+#define PEER_FLAG_GRACEFUL_RESTART          (1U << 24) /* Graceful Restart */
+#define PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT (1U << 25) /* Global-Inherit */
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1131,9 +1131,9 @@ struct peer {
 	uint8_t nsf_af_count;
 
 	uint8_t peer_gr_new_status_flag;
-#define PEER_GRACEFUL_RESTART_NEW_STATE_HELPER   (1 << 0)
-#define PEER_GRACEFUL_RESTART_NEW_STATE_RESTART  (1 << 1)
-#define PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT  (1 << 2)
+#define PEER_GRACEFUL_RESTART_NEW_STATE_HELPER   (1U << 0)
+#define PEER_GRACEFUL_RESTART_NEW_STATE_RESTART  (1U << 1)
+#define PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT  (1U << 2)
 
 	/* outgoing message sent in CEASE_ADMIN_SHUTDOWN notify */
 	char *tx_shutdown_message;
@@ -1155,33 +1155,33 @@ struct peer {
 	uint32_t af_flags_override[AFI_MAX][SAFI_MAX];
 	uint32_t af_flags_invert[AFI_MAX][SAFI_MAX];
 	uint32_t af_flags[AFI_MAX][SAFI_MAX];
-#define PEER_FLAG_SEND_COMMUNITY            (1 << 0) /* send-community */
-#define PEER_FLAG_SEND_EXT_COMMUNITY        (1 << 1) /* send-community ext. */
-#define PEER_FLAG_NEXTHOP_SELF              (1 << 2) /* next-hop-self */
-#define PEER_FLAG_REFLECTOR_CLIENT          (1 << 3) /* reflector-client */
-#define PEER_FLAG_RSERVER_CLIENT            (1 << 4) /* route-server-client */
-#define PEER_FLAG_SOFT_RECONFIG             (1 << 5) /* soft-reconfiguration */
-#define PEER_FLAG_AS_PATH_UNCHANGED         (1 << 6) /* transparent-as */
-#define PEER_FLAG_NEXTHOP_UNCHANGED         (1 << 7) /* transparent-next-hop */
-#define PEER_FLAG_MED_UNCHANGED             (1 << 8) /* transparent-next-hop */
-#define PEER_FLAG_DEFAULT_ORIGINATE         (1 << 9) /* default-originate */
-#define PEER_FLAG_REMOVE_PRIVATE_AS         (1 << 10) /* remove-private-as */
-#define PEER_FLAG_ALLOWAS_IN                (1 << 11) /* set allowas-in */
-#define PEER_FLAG_ORF_PREFIX_SM             (1 << 12) /* orf capability send-mode */
-#define PEER_FLAG_ORF_PREFIX_RM             (1 << 13) /* orf capability receive-mode */
-#define PEER_FLAG_MAX_PREFIX                (1 << 14) /* maximum prefix */
-#define PEER_FLAG_MAX_PREFIX_WARNING        (1 << 15) /* maximum prefix warning-only */
-#define PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED   (1 << 16) /* leave link-local nexthop unchanged */
-#define PEER_FLAG_FORCE_NEXTHOP_SELF        (1 << 17) /* next-hop-self force */
-#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL     (1 << 18) /* remove-private-as all */
-#define PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE (1 << 19) /* remove-private-as replace-as */
-#define PEER_FLAG_AS_OVERRIDE               (1 << 20) /* as-override */
-#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1 << 21) /* remove-private-as all replace-as */
-#define PEER_FLAG_WEIGHT                    (1 << 24) /* weight */
-#define PEER_FLAG_ALLOWAS_IN_ORIGIN         (1 << 25) /* allowas-in origin */
-#define PEER_FLAG_SEND_LARGE_COMMUNITY      (1 << 26) /* Send large Communities */
-#define PEER_FLAG_MAX_PREFIX_OUT            (1 << 27) /* outgoing maximum prefix */
-#define PEER_FLAG_MAX_PREFIX_FORCE          (1 << 28) /* maximum-prefix <num> force */
+#define PEER_FLAG_SEND_COMMUNITY            (1U << 0) /* send-community */
+#define PEER_FLAG_SEND_EXT_COMMUNITY        (1U << 1) /* send-community ext. */
+#define PEER_FLAG_NEXTHOP_SELF              (1U << 2) /* next-hop-self */
+#define PEER_FLAG_REFLECTOR_CLIENT          (1U << 3) /* reflector-client */
+#define PEER_FLAG_RSERVER_CLIENT            (1U << 4) /* route-server-client */
+#define PEER_FLAG_SOFT_RECONFIG             (1U << 5) /* soft-reconfiguration */
+#define PEER_FLAG_AS_PATH_UNCHANGED         (1U << 6) /* transparent-as */
+#define PEER_FLAG_NEXTHOP_UNCHANGED         (1U << 7) /* transparent-next-hop */
+#define PEER_FLAG_MED_UNCHANGED             (1U << 8) /* transparent-next-hop */
+#define PEER_FLAG_DEFAULT_ORIGINATE         (1U << 9) /* default-originate */
+#define PEER_FLAG_REMOVE_PRIVATE_AS         (1U << 10) /* remove-private-as */
+#define PEER_FLAG_ALLOWAS_IN                (1U << 11) /* set allowas-in */
+#define PEER_FLAG_ORF_PREFIX_SM             (1U << 12) /* orf capability send-mode */
+#define PEER_FLAG_ORF_PREFIX_RM             (1U << 13) /* orf capability receive-mode */
+#define PEER_FLAG_MAX_PREFIX                (1U << 14) /* maximum prefix */
+#define PEER_FLAG_MAX_PREFIX_WARNING        (1U << 15) /* maximum prefix warning-only */
+#define PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED   (1U << 16) /* leave link-local nexthop unchanged */
+#define PEER_FLAG_FORCE_NEXTHOP_SELF        (1U << 17) /* next-hop-self force */
+#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL     (1U << 18) /* remove-private-as all */
+#define PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE (1U << 19) /* remove-private-as replace-as */
+#define PEER_FLAG_AS_OVERRIDE               (1U << 20) /* as-override */
+#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1U << 21) /* remove-private-as all replace-as */
+#define PEER_FLAG_WEIGHT                    (1U << 24) /* weight */
+#define PEER_FLAG_ALLOWAS_IN_ORIGIN         (1U << 25) /* allowas-in origin */
+#define PEER_FLAG_SEND_LARGE_COMMUNITY      (1U << 26) /* Send large Communities */
+#define PEER_FLAG_MAX_PREFIX_OUT            (1U << 27) /* outgoing maximum prefix */
+#define PEER_FLAG_MAX_PREFIX_FORCE          (1U << 28) /* maximum-prefix <num> force */
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
 
@@ -1196,22 +1196,22 @@ struct peer {
 
 	/* Peer status flags. */
 	uint16_t sflags;
-#define PEER_STATUS_ACCEPT_PEER	      (1 << 0) /* accept peer */
-#define PEER_STATUS_PREFIX_OVERFLOW   (1 << 1) /* prefix-overflow */
-#define PEER_STATUS_CAPABILITY_OPEN   (1 << 2) /* capability open send */
-#define PEER_STATUS_HAVE_ACCEPT       (1 << 3) /* accept peer's parent */
-#define PEER_STATUS_GROUP             (1 << 4) /* peer-group conf */
-#define PEER_STATUS_NSF_MODE          (1 << 5) /* NSF aware peer */
-#define PEER_STATUS_NSF_WAIT          (1 << 6) /* wait comeback peer */
+#define PEER_STATUS_ACCEPT_PEER	      (1U << 0) /* accept peer */
+#define PEER_STATUS_PREFIX_OVERFLOW   (1U << 1) /* prefix-overflow */
+#define PEER_STATUS_CAPABILITY_OPEN   (1U << 2) /* capability open send */
+#define PEER_STATUS_HAVE_ACCEPT       (1U << 3) /* accept peer's parent */
+#define PEER_STATUS_GROUP             (1U << 4) /* peer-group conf */
+#define PEER_STATUS_NSF_MODE          (1U << 5) /* NSF aware peer */
+#define PEER_STATUS_NSF_WAIT          (1U << 6) /* wait comeback peer */
 
 	/* Peer status af flags (reset in bgp_stop) */
 	uint16_t af_sflags[AFI_MAX][SAFI_MAX];
-#define PEER_STATUS_ORF_PREFIX_SEND   (1 << 0) /* prefix-list send peer */
-#define PEER_STATUS_ORF_WAIT_REFRESH  (1 << 1) /* wait refresh received peer */
-#define PEER_STATUS_PREFIX_THRESHOLD  (1 << 2) /* exceed prefix-threshold */
-#define PEER_STATUS_PREFIX_LIMIT      (1 << 3) /* exceed prefix-limit */
-#define PEER_STATUS_EOR_SEND          (1 << 4) /* end-of-rib send to peer */
-#define PEER_STATUS_EOR_RECEIVED      (1 << 5) /* end-of-rib received from peer */
+#define PEER_STATUS_ORF_PREFIX_SEND   (1U << 0) /* prefix-list send peer */
+#define PEER_STATUS_ORF_WAIT_REFRESH  (1U << 1) /* wait refresh received peer */
+#define PEER_STATUS_PREFIX_THRESHOLD  (1U << 2) /* exceed prefix-threshold */
+#define PEER_STATUS_PREFIX_LIMIT      (1U << 3) /* exceed prefix-limit */
+#define PEER_STATUS_EOR_SEND          (1U << 4) /* end-of-rib send to peer */
+#define PEER_STATUS_EOR_RECEIVED      (1U << 5) /* end-of-rib received from peer */
 
 	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
@@ -1245,9 +1245,9 @@ struct peer {
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
-#define PEER_THREAD_WRITES_ON         (1 << 0)
-#define PEER_THREAD_READS_ON          (1 << 1)
-#define PEER_THREAD_KEEPALIVES_ON     (1 << 2)
+#define PEER_THREAD_WRITES_ON         (1U << 0)
+#define PEER_THREAD_READS_ON          (1U << 1)
+#define PEER_THREAD_KEEPALIVES_ON     (1U << 2)
 	/* workqueues */
 	struct work_queue *clear_node_queue;
 
@@ -1338,11 +1338,11 @@ struct peer {
 	 *   whether the filter in filter (struct bgp_filter) is peer-specific.
 	 */
 	uint8_t filter_override[AFI_MAX][SAFI_MAX][FILTER_MAX];
-#define PEER_FT_DISTRIBUTE_LIST       (1 << 0) /* distribute-list */
-#define PEER_FT_FILTER_LIST           (1 << 1) /* filter-list */
-#define PEER_FT_PREFIX_LIST           (1 << 2) /* prefix-list */
-#define PEER_FT_ROUTE_MAP             (1 << 3) /* route-map */
-#define PEER_FT_UNSUPPRESS_MAP        (1 << 4) /* unsuppress-map */
+#define PEER_FT_DISTRIBUTE_LIST       (1U << 0) /* distribute-list */
+#define PEER_FT_FILTER_LIST           (1U << 1) /* filter-list */
+#define PEER_FT_PREFIX_LIST           (1U << 2) /* prefix-list */
+#define PEER_FT_ROUTE_MAP             (1U << 3) /* route-map */
+#define PEER_FT_UNSUPPRESS_MAP        (1U << 4) /* unsuppress-map */
 
 	/* ORF Prefix-list */
 	struct prefix_list *orf_plist[AFI_MAX][SAFI_MAX];
@@ -1373,39 +1373,39 @@ struct peer {
 
 	/* peer reset cause */
 	uint8_t last_reset;
-#define PEER_DOWN_RID_CHANGE             1 /* bgp router-id command */
-#define PEER_DOWN_REMOTE_AS_CHANGE       2 /* neighbor remote-as command */
-#define PEER_DOWN_LOCAL_AS_CHANGE        3 /* neighbor local-as command */
-#define PEER_DOWN_CLID_CHANGE            4 /* bgp cluster-id command */
-#define PEER_DOWN_CONFED_ID_CHANGE       5 /* bgp confederation id command */
-#define PEER_DOWN_CONFED_PEER_CHANGE     6 /* bgp confederation peer command */
-#define PEER_DOWN_RR_CLIENT_CHANGE       7 /* neighbor rr-client command */
-#define PEER_DOWN_RS_CLIENT_CHANGE       8 /* neighbor rs-client command */
-#define PEER_DOWN_UPDATE_SOURCE_CHANGE   9 /* neighbor update-source command */
-#define PEER_DOWN_AF_ACTIVATE           10 /* neighbor activate command */
-#define PEER_DOWN_USER_SHUTDOWN         11 /* neighbor shutdown command */
-#define PEER_DOWN_USER_RESET            12 /* clear ip bgp command */
-#define PEER_DOWN_NOTIFY_RECEIVED       13 /* notification received */
-#define PEER_DOWN_NOTIFY_SEND           14 /* notification send */
-#define PEER_DOWN_CLOSE_SESSION         15 /* tcp session close */
-#define PEER_DOWN_NEIGHBOR_DELETE       16 /* neghbor delete */
-#define PEER_DOWN_RMAP_BIND             17 /* neghbor peer-group command */
-#define PEER_DOWN_RMAP_UNBIND           18 /* no neighbor peer-group command */
-#define PEER_DOWN_CAPABILITY_CHANGE     19 /* neighbor capability command */
-#define PEER_DOWN_PASSIVE_CHANGE        20 /* neighbor passive command */
-#define PEER_DOWN_MULTIHOP_CHANGE       21 /* neighbor multihop command */
-#define PEER_DOWN_NSF_CLOSE_SESSION     22 /* NSF tcp session close */
-#define PEER_DOWN_V6ONLY_CHANGE         23 /* if-based peering v6only toggled */
-#define PEER_DOWN_BFD_DOWN              24 /* BFD down */
-#define PEER_DOWN_IF_DOWN               25 /* Interface down */
-#define PEER_DOWN_NBR_ADDR_DEL          26 /* Peer address lost */
-#define PEER_DOWN_WAITING_NHT           27 /* Waiting for NHT to resolve */
-#define PEER_DOWN_NBR_ADDR              28 /* Waiting for peer IPv6 IP Addr */
-#define PEER_DOWN_VRF_UNINIT            29 /* Associated VRF is not init yet */
-#define PEER_DOWN_NOAFI_ACTIVATED       30 /* No AFI/SAFI activated for peer */
-#define PEER_DOWN_AS_SETS_REJECT        31 /* Reject routes with AS_SET */
-#define PEER_DOWN_WAITING_OPEN          32 /* Waiting for open to succeed */
-#define PEER_DOWN_PFX_COUNT             33 /* Reached received prefix count */
+#define PEER_DOWN_RID_CHANGE             1U /* bgp router-id command */
+#define PEER_DOWN_REMOTE_AS_CHANGE       2U /* neighbor remote-as command */
+#define PEER_DOWN_LOCAL_AS_CHANGE        3U /* neighbor local-as command */
+#define PEER_DOWN_CLID_CHANGE            4U /* bgp cluster-id command */
+#define PEER_DOWN_CONFED_ID_CHANGE       5U /* bgp confederation id command */
+#define PEER_DOWN_CONFED_PEER_CHANGE     6U /* bgp confederation peer command */
+#define PEER_DOWN_RR_CLIENT_CHANGE       7U /* neighbor rr-client command */
+#define PEER_DOWN_RS_CLIENT_CHANGE       8U /* neighbor rs-client command */
+#define PEER_DOWN_UPDATE_SOURCE_CHANGE   9U /* neighbor update-source command */
+#define PEER_DOWN_AF_ACTIVATE           10U /* neighbor activate command */
+#define PEER_DOWN_USER_SHUTDOWN         11U /* neighbor shutdown command */
+#define PEER_DOWN_USER_RESET            12U /* clear ip bgp command */
+#define PEER_DOWN_NOTIFY_RECEIVED       13U /* notification received */
+#define PEER_DOWN_NOTIFY_SEND           14U /* notification send */
+#define PEER_DOWN_CLOSE_SESSION         15U /* tcp session close */
+#define PEER_DOWN_NEIGHBOR_DELETE       16U /* neghbor delete */
+#define PEER_DOWN_RMAP_BIND             17U /* neghbor peer-group command */
+#define PEER_DOWN_RMAP_UNBIND           18U /* no neighbor peer-group command */
+#define PEER_DOWN_CAPABILITY_CHANGE     19U /* neighbor capability command */
+#define PEER_DOWN_PASSIVE_CHANGE        20U /* neighbor passive command */
+#define PEER_DOWN_MULTIHOP_CHANGE       21U /* neighbor multihop command */
+#define PEER_DOWN_NSF_CLOSE_SESSION     22U /* NSF tcp session close */
+#define PEER_DOWN_V6ONLY_CHANGE         23U /* if-based peering v6only toggled */
+#define PEER_DOWN_BFD_DOWN              24U /* BFD down */
+#define PEER_DOWN_IF_DOWN               25U /* Interface down */
+#define PEER_DOWN_NBR_ADDR_DEL          26U /* Peer address lost */
+#define PEER_DOWN_WAITING_NHT           27U /* Waiting for NHT to resolve */
+#define PEER_DOWN_NBR_ADDR              28U /* Waiting for peer IPv6 IP Addr */
+#define PEER_DOWN_VRF_UNINIT            29U /* Associated VRF is not init yet */
+#define PEER_DOWN_NOAFI_ACTIVATED       30U /* No AFI/SAFI activated for peer */
+#define PEER_DOWN_AS_SETS_REJECT        31U /* Reject routes with AS_SET */
+#define PEER_DOWN_WAITING_OPEN          32U /* Waiting for open to succeed */
+#define PEER_DOWN_PFX_COUNT             33U /* Reached received prefix count */
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
 	 * a new value to the last_reset reason
@@ -1416,15 +1416,15 @@ struct peer {
 
 	/* The kind of route-map Flags.*/
 	uint16_t rmap_type;
-#define PEER_RMAP_TYPE_IN             (1 << 0) /* neighbor route-map in */
-#define PEER_RMAP_TYPE_OUT            (1 << 1) /* neighbor route-map out */
-#define PEER_RMAP_TYPE_NETWORK        (1 << 2) /* network route-map */
-#define PEER_RMAP_TYPE_REDISTRIBUTE   (1 << 3) /* redistribute route-map */
-#define PEER_RMAP_TYPE_DEFAULT        (1 << 4) /* default-originate route-map */
-#define PEER_RMAP_TYPE_NOSET          (1 << 5) /* not allow to set commands */
-#define PEER_RMAP_TYPE_IMPORT         (1 << 6) /* neighbor route-map import */
-#define PEER_RMAP_TYPE_EXPORT         (1 << 7) /* neighbor route-map export */
-#define PEER_RMAP_TYPE_AGGREGATE      (1 << 8) /* aggregate-address route-map */
+#define PEER_RMAP_TYPE_IN             (1U << 0) /* neighbor route-map in */
+#define PEER_RMAP_TYPE_OUT            (1U << 1) /* neighbor route-map out */
+#define PEER_RMAP_TYPE_NETWORK        (1U << 2) /* network route-map */
+#define PEER_RMAP_TYPE_REDISTRIBUTE   (1U << 3) /* redistribute route-map */
+#define PEER_RMAP_TYPE_DEFAULT        (1U << 4) /* default-originate route-map */
+#define PEER_RMAP_TYPE_NOSET          (1U << 5) /* not allow to set commands */
+#define PEER_RMAP_TYPE_IMPORT         (1U << 6) /* neighbor route-map import */
+#define PEER_RMAP_TYPE_EXPORT         (1U << 7) /* neighbor route-map export */
+#define PEER_RMAP_TYPE_AGGREGATE      (1U << 8) /* aggregate-address route-map */
 
 	/* peer specific BFD information */
 	struct bfd_info *bfd_info;

@@ -1020,11 +1020,11 @@ void zprivs_get_ids(struct zprivs_ids_t *ids)
 
 	ids->uid_priv = getuid();
 	(zprivs_state.zuid) ? (ids->uid_normal = zprivs_state.zuid)
-			    : (ids->uid_normal = -1);
+			    : (ids->uid_normal = (uid_t)-1);
 	(zprivs_state.zgid) ? (ids->gid_normal = zprivs_state.zgid)
-			    : (ids->gid_normal = -1);
+			    : (ids->gid_normal = (uid_t)-1);
 	(zprivs_state.vtygrp) ? (ids->gid_vty = zprivs_state.vtygrp)
-			      : (ids->gid_vty = -1);
+			      : (ids->gid_vty = (uid_t)-1);
 
 	return;
 }
