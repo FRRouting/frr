@@ -26,18 +26,19 @@
 #include "sockopt.h"
 #include "privs.h"
 #include "lib_errors.h"
+#include "vrf.h"
 
 #include "libospf.h"
 #include "ospf6_proto.h"
 #include "ospf6_network.h"
 #include "ospf6d.h"
+#include "ospf6_top.h"
 
-int ospf6_sock;
 struct in6_addr allspfrouters6;
 struct in6_addr alldrouters6;
 
 /* setsockopt MulticastLoop to off */
-static void ospf6_reset_mcastloop(void)
+static void ospf6_reset_mcastloop(int ospf6_sock)
 {
 	unsigned int off = 0;
 	if (setsockopt(ospf6_sock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &off,
@@ -47,19 +48,19 @@ static void ospf6_reset_mcastloop(void)
 			  safe_strerror(errno));
 }
 
-static void ospf6_set_pktinfo(void)
+static void ospf6_set_pktinfo(int ospf6_sock)
 {
 	setsockopt_ipv6_pktinfo(ospf6_sock, 1);
 }
 
-static void ospf6_set_transport_class(void)
+static void ospf6_set_transport_class(int ospf6_sock)
 {
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	setsockopt_ipv6_tclass(ospf6_sock, IPTOS_PREC_INTERNETCONTROL);
 #endif
 }
 
-static void ospf6_set_checksum(void)
+static void ospf6_set_checksum(int ospf6_sock)
 {
 	int offset = 12;
 #ifndef DISABLE_IPV6_CHECKSUM
@@ -73,21 +74,30 @@ static void ospf6_set_checksum(void)
 #endif /* DISABLE_IPV6_CHECKSUM */
 }
 
-void ospf6_serv_close(void)
+void ospf6_serv_close(int *ospf6_sock)
 {
-	if (ospf6_sock > 0) {
-		close(ospf6_sock);
-		ospf6_sock = -1;
+	if (*ospf6_sock != -1) {
+		close(*ospf6_sock);
+		*ospf6_sock = -1;
 		return;
 	}
 }
 
 /* Make ospf6d's server socket. */
-int ospf6_serv_sock(void)
+int ospf6_serv_sock(struct ospf6 *ospf6)
 {
+	int ospf6_sock;
+
+	if (ospf6->fd != -1)
+		return -1;
+
+	if (ospf6->vrf_id == VRF_UNKNOWN)
+		return -1;
+
 	frr_with_privs(&ospf6d_privs) {
 
-		ospf6_sock = socket(AF_INET6, SOCK_RAW, IPPROTO_OSPFIGP);
+		ospf6_sock = vrf_socket(AF_INET6, SOCK_RAW, IPPROTO_OSPFIGP,
+					ospf6->vrf_id, ospf6->name);
 		if (ospf6_sock < 0) {
 			zlog_warn("Network: can't create OSPF6 socket.");
 			return -1;
@@ -100,11 +110,12 @@ int ospf6_serv_sock(void)
 #else
 	ospf6_set_reuseaddr();
 #endif /*1*/
-	ospf6_reset_mcastloop();
-	ospf6_set_pktinfo();
-	ospf6_set_transport_class();
-	ospf6_set_checksum();
+	ospf6_reset_mcastloop(ospf6_sock);
+	ospf6_set_pktinfo(ospf6_sock);
+	ospf6_set_transport_class(ospf6_sock);
+	ospf6_set_checksum(ospf6_sock);
 
+	ospf6->fd = ospf6_sock;
 	/* setup global in6_addr, allspf6 and alldr6 for later use */
 	inet_pton(AF_INET6, ALLSPFROUTERS6, &allspfrouters6);
 	inet_pton(AF_INET6, ALLDROUTERS6, &alldrouters6);
@@ -119,11 +130,14 @@ int ospf6_sso(ifindex_t ifindex, struct in6_addr *group, int option)
 	int ret;
 	int bufsize = (8 * 1024 * 1024);
 
+	if (ospf6->fd == -1)
+		return -1;
+
 	assert(ifindex);
 	mreq6.ipv6mr_interface = ifindex;
 	memcpy(&mreq6.ipv6mr_multiaddr, group, sizeof(struct in6_addr));
 
-	ret = setsockopt(ospf6_sock, IPPROTO_IPV6, option, &mreq6,
+	ret = setsockopt(ospf6->fd, IPPROTO_IPV6, option, &mreq6,
 			 sizeof(mreq6));
 	if (ret < 0) {
 		flog_err_sys(
@@ -133,8 +147,8 @@ int ospf6_sso(ifindex_t ifindex, struct in6_addr *group, int option)
 		return ret;
 	}
 
-	setsockopt_so_sendbuf(ospf6_sock, bufsize);
-	setsockopt_so_recvbuf(ospf6_sock, bufsize);
+	setsockopt_so_sendbuf(ospf6->fd, bufsize);
+	setsockopt_so_recvbuf(ospf6->fd, bufsize);
 
 	return 0;
 }
@@ -157,7 +171,7 @@ static int iov_totallen(struct iovec *iov)
 }
 
 int ospf6_sendmsg(struct in6_addr *src, struct in6_addr *dst,
-		  ifindex_t *ifindex, struct iovec *message)
+		  ifindex_t *ifindex, struct iovec *message, int ospf6_sock)
 {
 	int retval;
 	struct msghdr smsghdr;
@@ -216,7 +230,7 @@ int ospf6_sendmsg(struct in6_addr *src, struct in6_addr *dst,
 }
 
 int ospf6_recvmsg(struct in6_addr *src, struct in6_addr *dst,
-		  ifindex_t *ifindex, struct iovec *message)
+		  ifindex_t *ifindex, struct iovec *message, int ospf6_sock)
 {
 	int retval;
 	struct msghdr rmsghdr;

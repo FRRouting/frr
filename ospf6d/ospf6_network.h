@@ -21,17 +21,17 @@
 #ifndef OSPF6_NETWORK_H
 #define OSPF6_NETWORK_H
 
-extern int ospf6_sock;
+struct ospf6 *ospf6;
 extern struct in6_addr allspfrouters6;
 extern struct in6_addr alldrouters6;
 
-extern int ospf6_serv_sock(void);
-extern void ospf6_serv_close(void);
+extern int ospf6_serv_sock(struct ospf6 *ospf6);
+extern void ospf6_serv_close(int *ospf6_sock);
 extern int ospf6_sso(ifindex_t ifindex, struct in6_addr *group, int option);
 
 extern int ospf6_sendmsg(struct in6_addr *, struct in6_addr *, ifindex_t *,
-			 struct iovec *);
+			 struct iovec *, int ospf6_sock);
 extern int ospf6_recvmsg(struct in6_addr *, struct in6_addr *, ifindex_t *,
-			 struct iovec *);
+			 struct iovec *, int ospf6_sock);
 
 #endif /* OSPF6_NETWORK_H */

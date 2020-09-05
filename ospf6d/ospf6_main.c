@@ -55,7 +55,7 @@
 #define OSPF6_VTY_PORT             2606
 
 /* ospf6d privileges */
-zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
 
 struct zebra_privs_t ospf6d_privs = {
 #if defined(FRR_USER)
@@ -68,7 +68,7 @@ struct zebra_privs_t ospf6d_privs = {
 	.vty_group = VTY_GROUP,
 #endif
 	.caps_p = _caps_p,
-	.cap_num_p = 2,
+	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
 /* ospf6d options, we use GNU getopt library. */
@@ -86,6 +86,7 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	if (ospf6) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
+		ospf6_serv_close(&ospf6->fd);
 		ospf6_delete(ospf6);
 		ospf6 = NULL;
 	} else
@@ -101,7 +102,6 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 	ospf6_asbr_terminate();
 	ospf6_lsa_terminate();
 
-	ospf6_serv_close();
 	/* reverse access_list_init */
 	access_list_reset();
 
