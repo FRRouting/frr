@@ -3605,6 +3605,12 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		goto filtered;
 	}
 
+	/* Update Overlay Index */
+	if (afi == AFI_L2VPN) {
+		overlay_index_update(&new_attr,
+				     evpn == NULL ? NULL : &evpn->gw_ip);
+	}
+
 	attr_new = bgp_attr_intern(&new_attr);
 
 	/* If maximum prefix count is configured and current prefix
@@ -3850,12 +3856,6 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			}
 		}
 #endif
-		/* Update Overlay Index */
-		if (afi == AFI_L2VPN) {
-			overlay_index_update(
-				pi->attr,
-				evpn == NULL ? NULL : &evpn->gw_ip);
-		}
 
 		/* Update bgp route dampening information.  */
 		if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
