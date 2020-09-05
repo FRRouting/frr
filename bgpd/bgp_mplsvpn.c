@@ -101,11 +101,9 @@ void encode_label(mpls_label_t label, mpls_label_t *label_pnt)
 int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 		       struct bgp_nlri *packet)
 {
-	uint8_t *pnt;
-	uint8_t *lim;
 	struct prefix p;
-	int psize = 0;
-	int prefixlen;
+	uint8_t psize = 0;
+	uint8_t prefixlen;
 	uint16_t type;
 	struct rd_as rd_as;
 	struct rd_ip rd_ip;
@@ -115,13 +113,14 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	safi_t safi;
 	int addpath_encoded;
 	uint32_t addpath_id;
+	int ret = 0;
 
 	/* Make prefix_rd */
 	prd.family = AF_UNSPEC;
 	prd.prefixlen = 64;
 
-	pnt = packet->nlri;
-	lim = pnt + packet->length;
+	struct stream *data = stream_new(packet->length);
+	stream_put(data, packet->nlri, packet->length);
 	afi = packet->afi;
 	safi = packet->safi;
 	addpath_id = 0;
@@ -132,23 +131,26 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 			       PEER_CAP_ADDPATH_AF_TX_RCV));
 
 #define VPN_PREFIXLEN_MIN_BYTES (3 + 8) /* label + RD */
-	for (; pnt < lim; pnt += psize) {
+	while (STREAM_READABLE(data) > 0) {
 		/* Clear prefix structure. */
 		memset(&p, 0, sizeof(struct prefix));
 
 		if (addpath_encoded) {
-
-			/* When packet overflow occurs return immediately. */
-			if (pnt + BGP_ADDPATH_ID_LEN > lim)
-				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
-
-			memcpy(&addpath_id, pnt, BGP_ADDPATH_ID_LEN);
+			STREAM_GET(&addpath_id, data, BGP_ADDPATH_ID_LEN);
 			addpath_id = ntohl(addpath_id);
-			pnt += BGP_ADDPATH_ID_LEN;
+		}
+
+		if (STREAM_READABLE(data) < 1) {
+			flog_err(
+				EC_BGP_UPDATE_RCV,
+				"%s [Error] Update packet error / VPN (truncated NLRI of size %u; no prefix length)",
+				peer->host, packet->length);
+			ret = BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
+			goto done;
 		}
 
 		/* Fetch prefix length. */
-		prefixlen = *pnt++;
+		STREAM_GETC(data, prefixlen);
 		p.family = afi2family(packet->afi);
 		psize = PSIZE(prefixlen);
 
@@ -157,16 +159,18 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error / VPN (prefix length %d less than VPN min length)",
 				peer->host, prefixlen);
-			return BGP_NLRI_PARSE_ERROR_PREFIX_LENGTH;
+			ret = BGP_NLRI_PARSE_ERROR_PREFIX_LENGTH;
+			goto done;
 		}
 
 		/* sanity check against packet data */
-		if ((pnt + psize) > lim) {
+		if (STREAM_READABLE(data) < psize) {
 			flog_err(
 				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error / VPN (prefix length %d exceeds packet size %u)",
-				peer->host, prefixlen, (uint)(lim - pnt));
-			return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
+				peer->host, prefixlen, packet->length);
+			ret = BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
+			goto done;
 		}
 
 		/* sanity check against storage for the IP address portion */
@@ -177,7 +181,8 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 				peer->host,
 				prefixlen - VPN_PREFIXLEN_MIN_BYTES * 8,
 				sizeof(p.u));
-			return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
+			ret = BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
+			goto done;
 		}
 
 		/* Sanity check against max bitlen of the address family */
@@ -188,30 +193,48 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 				peer->host,
 				prefixlen - VPN_PREFIXLEN_MIN_BYTES * 8,
 				p.family, prefix_blen(&p));
-			return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
+			ret = BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
+			goto done;
 		}
 
 		/* Copy label to prefix. */
-		memcpy(&label, pnt, BGP_LABEL_BYTES);
+		if (STREAM_READABLE(data) < BGP_LABEL_BYTES) {
+			flog_err(
+				EC_BGP_UPDATE_RCV,
+				"%s [Error] Update packet error / VPN (truncated NLRI of size %u; no label)",
+				peer->host, packet->length);
+			ret = BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
+			goto done;
+		}
+
+		STREAM_GET(&label, data, BGP_LABEL_BYTES);
 		bgp_set_valid_label(&label);
 
 		/* Copy routing distinguisher to rd. */
-		memcpy(&prd.val, pnt + BGP_LABEL_BYTES, 8);
+		if (STREAM_READABLE(data) < 8) {
+			flog_err(
+				EC_BGP_UPDATE_RCV,
+				"%s [Error] Update packet error / VPN (truncated NLRI of size %u; no RD)",
+				peer->host, packet->length);
+			ret = BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
+			goto done;
+		}
+		STREAM_GET(&prd.val, data, 8);
 
 		/* Decode RD type. */
-		type = decode_rd_type(pnt + BGP_LABEL_BYTES);
+		type = decode_rd_type(prd.val);
 
 		switch (type) {
 		case RD_TYPE_AS:
-			decode_rd_as(pnt + 5, &rd_as);
+			decode_rd_as(&prd.val[2], &rd_as);
 			break;
 
 		case RD_TYPE_AS4:
-			decode_rd_as4(pnt + 5, &rd_as);
+			decode_rd_as4(&prd.val[2], &rd_as);
 			break;
 
 		case RD_TYPE_IP:
-			decode_rd_ip(pnt + 5, &rd_ip);
+			decode_rd_ip(&prd.val[2], &rd_ip);
 			break;
 
 #ifdef ENABLE_BGP_VNC
@@ -224,11 +247,9 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 			break; /* just report */
 		}
 
-		p.prefixlen =
-			prefixlen
-			- VPN_PREFIXLEN_MIN_BYTES * 8; /* exclude label & RD */
-		memcpy(p.u.val, pnt + VPN_PREFIXLEN_MIN_BYTES,
-		       psize - VPN_PREFIXLEN_MIN_BYTES);
+		/* exclude label & RD */
+		p.prefixlen = prefixlen - VPN_PREFIXLEN_MIN_BYTES * 8;
+		STREAM_GET(p.u.val, data, psize - VPN_PREFIXLEN_MIN_BYTES);
 
 		if (attr) {
 			bgp_update(peer, &p, addpath_id, attr, packet->afi,
@@ -241,15 +262,27 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 		}
 	}
 	/* Packet length consistency check. */
-	if (pnt != lim) {
+	if (STREAM_READABLE(data) != 0) {
 		flog_err(
 			EC_BGP_UPDATE_RCV,
 			"%s [Error] Update packet error / VPN (%td data remaining after parsing)",
-			peer->host, lim - pnt);
+			peer->host, STREAM_READABLE(data));
 		return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 	}
 
-	return 0;
+	goto done;
+
+stream_failure:
+	flog_err(
+		EC_BGP_UPDATE_RCV,
+		"%s [Error] Update packet error / VPN (NLRI of size %u - length error)",
+		peer->host, packet->length);
+	ret = BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
+
+done:
+	stream_free(data);
+	return ret;
+
 #undef VPN_PREFIXLEN_MIN_BYTES
 }
 
