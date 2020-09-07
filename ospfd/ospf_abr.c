@@ -1802,6 +1802,7 @@ static int ospf_abr_task_timer(struct thread *thread)
 
 	ospf_abr_task(ospf);
 	ospf_abr_nssa_task(ospf); /* if nssa-abr, then scan Type-7 LSDB */
+	ospf_asbr_nssa_redist_task(ospf);
 
 	return 0;
 }

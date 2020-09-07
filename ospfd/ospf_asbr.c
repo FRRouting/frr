@@ -275,6 +275,30 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
 	ospf_router_lsa_update(ospf);
 }
 
+/* If there's redistribution configured, we need to refresh external
+ * LSAs in order to install Type-7 and flood to all NSSA Areas
+ */
+void ospf_asbr_nssa_redist_task(struct ospf *ospf)
+{
+	int type;
+
+	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		struct list *red_list;
+		struct listnode *node;
+		struct ospf_redist *red;
+
+		red_list = ospf->redist[type];
+		if (!red_list)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
+			ospf_external_lsa_refresh_type(
+				ospf, type, red->instance, LSA_REFRESH_FORCE);
+	}
+
+	ospf_external_lsa_refresh_default(ospf);
+}
+
 void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
 				unsigned short instance)
 {
