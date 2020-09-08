@@ -9,6 +9,10 @@ submodule frr-bgp-common-structure {
     prefix inet;
   }
 
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   import frr-interface {
     prefix frr-interface;
   }
@@ -371,7 +375,7 @@ submodule frr-bgp-common-structure {
       }
 
       leaf rmap-policy-export {
-        type frr-bt:rmap-ref;
+        type frr-route-map:route-map-ref;
         description
           "Route-map to specify criteria to originate default.";
       }

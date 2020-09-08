@@ -41,10 +41,6 @@ module frr-bgp-types {
       "Initial revision.";
   }
 
-  typedef rmap-ref {
-    type string;
-  }
-
   typedef plist-ref {
     type string;
   }
