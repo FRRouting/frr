@@ -44,6 +44,7 @@ from lib.common_config import (
     create_route_maps,
     shutdown_bringup_interface,
     create_interfaces_cfg,
+    topo_daemons
 )
 from ipaddress import IPv4Address
 from lib.topogen import Topogen, get_topogen
@@ -138,9 +139,13 @@ def setup_module(mod):
     tgen = Topogen(CreateTopo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
+    # get list of daemons needs to be started for this suite.
+    daemons = topo_daemons(tgen, topo)
+
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers
-    start_topology(tgen)
+    start_topology(tgen, daemons)
+
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 

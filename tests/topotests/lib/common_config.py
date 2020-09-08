@@ -685,7 +685,7 @@ def generate_support_bundle():
     return True
 
 
-def start_topology(tgen):
+def start_topology(tgen, daemon=None):
     """
     Starting topology, create tmp files which are loaded to routers
     to start deamons and then start routers
@@ -737,14 +737,16 @@ def start_topology(tgen):
         router.load_config(
             TopoRouter.RD_ZEBRA, "{}/{}/zebra.conf".format(TMPDIR, rname)
         )
+
         # Loading empty bgpd.conf file to router, to start the bgp deamon
         router.load_config(TopoRouter.RD_BGP, "{}/{}/bgpd.conf".format(TMPDIR, rname))
 
-        # Loading empty ospf.conf file to router, to start the bgp deamon
-        router.load_config(
-            TopoRouter.RD_OSPF,
-            '{}/{}/ospfd.conf'.format(TMPDIR, rname)
-        )
+        if daemon and 'ospfd' in daemon:
+            # Loading empty ospf.conf file to router, to start the bgp deamon
+            router.load_config(
+                TopoRouter.RD_OSPF,
+                '{}/{}/ospfd.conf'.format(TMPDIR, rname)
+            )
         # Starting routers
     logger.info("Starting all routers once topology is created")
     tgen.start_router()
@@ -815,6 +817,24 @@ def number_to_column(routerName):
     z23 = column 26 etc
     """
     return ord(routerName[0]) - 97
+
+
+def topo_daemons(tgen, topo):
+    """
+    Returns daemon list required for the suite based on topojson.
+    """
+    daemon_list = []
+
+    router_list = tgen.routers()
+    ROUTER_LIST = sorted(
+        router_list.keys(), key=lambda x: int(re_search("\d+", x).group(0))
+    )
+
+    for rtr in ROUTER_LIST:
+        if 'ospf' in topo['routers'][rtr] and 'ospfd' not in daemon_list:
+            daemon_list.append('ospfd')
+
+    return daemon_list
 
 
 #############################################
