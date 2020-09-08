@@ -497,6 +497,7 @@ API for hash tables
       Items that compare as equal cannot be inserted.  Refer to the notes
       about sorted structures in the previous section.
 
+
 .. c:function:: void Z_init_size(struct Z_head *, size_t size)
 
    Same as :c:func:`Z_init()` but preset the minimum hash table to
@@ -505,6 +506,66 @@ API for hash tables
 Hash tables also support :c:func:`Z_add()` and :c:func:`Z_find()` with
 the same semantics as noted above. :c:func:`Z_find_gteq()` and
 :c:func:`Z_find_lt()` are **not** provided for hash tables.
+
+Hash table invariants
+^^^^^^^^^^^^^^^^^^^^^
+
+There are several ways to injure yourself using the hash table API.
+
+First, note that there are two functions related to computing uniqueness of
+objects inserted into the hash table. There is a hash function and a comparison
+function. The hash function computes the hash of the object. Our hash table
+implementation uses `chaining
+<https://en.wikipedia.org/wiki/Hash_table#Separate_chaining_with_linked_lists>`_.
+This means that your hash function does not have to be perfect; multiple
+objects having the same computed hash will be placed into a linked list
+corresponding to that key. The closer to perfect the hash function, the better
+performance, as items will be more evenly distributed and the chain length will
+not be long on any given lookup, minimizing the number of list operations
+required to find the correct item. However, the comparison function *must* be
+perfect, in the sense that any two unique items inserted into the hash table
+must compare not equal. At insertion time, if you try to insert an item that
+compares equal to an existing item the insertion will not happen and
+``hash_get()`` will return the existing item. However, this invariant *must* be
+maintained while the object is in the hash table. Suppose you insert items
+``A`` and ``B`` into the hash table which both hash to the same value ``1234``
+but do not compare equal. They will be placed in a chain like so::
+
+   1234 : A -> B
+
+Now suppose you do something like this elsewhere in the code::
+
+   *A = *B
+
+I.e. you copy all fields of ``B`` into ``A``, such that the comparison function
+now says that they are equal based on their contents. At this point when you
+look up ``B`` in the hash table, ``hash_get()`` will search the chain for the
+first item that compares equal to ``B``, which will be ``A``. This leads to
+insidious bugs.
+
+.. warning::
+
+   Never modify the values looked at by the comparison or hash functions after
+   inserting an item into a hash table.
+
+A similar situation can occur with the hash allocation function. ``hash_get()``
+accepts a function pointer that it will call to get the item that should be
+inserted into the list if the provided item is not already present. There is a
+builtin function, ``hash_alloc_intern``, that will simply return the item you
+provided; if you always want to store the value you pass to ``hash_get`` you
+should use this one. If you choose to provide a different one, that function
+*must* return a new item that hashes and compares equal to the one you provided
+to ``hash_get()``. If it does not the behavior of the hash table is undefined.
+
+.. warning::
+
+   Always make sure your hash allocation function returns a value that hashes
+   and compares equal to the item you provided to ``hash_get()``.
+
+Finally, if you maintain pointers to items you have inserted into a hash table,
+then before deallocating them you must release them from the hash table. This
+is basic memory management but worth repeating as bugs have arisen from failure
+to do this.
 
 
 API for heaps
