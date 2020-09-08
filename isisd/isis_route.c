@@ -239,41 +239,51 @@ static void isis_route_info_delete(struct isis_route_info *route_info)
 	XFREE(MTYPE_ISIS_ROUTE_INFO, route_info);
 }
 
-static int isis_route_info_same_attrib(struct isis_route_info *new,
-				       struct isis_route_info *old)
-{
-	if (new->cost != old->cost)
-		return 0;
-	if (new->depth != old->depth)
-		return 0;
-
-	return 1;
-}
-
 static int isis_route_info_same(struct isis_route_info *new,
-				struct isis_route_info *old, uint8_t family)
+				struct isis_route_info *old, char *buf,
+				size_t buf_size)
 {
 	struct listnode *node;
 	struct isis_nexthop *nexthop;
 
-	if (!CHECK_FLAG(old->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
+	if (new->cost != old->cost) {
+		if (buf)
+			snprintf(buf, buf_size, "cost (old: %u, new: %u)",
+				 old->cost, new->cost);
 		return 0;
+	}
 
-	if (CHECK_FLAG(new->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC))
+	if (new->depth != old->depth) {
+		if (buf)
+			snprintf(buf, buf_size, "depth (old: %u, new: %u)",
+				 old->depth, new->depth);
 		return 0;
+	}
 
-	if (!isis_route_info_same_attrib(new, old))
+	if (new->nexthops->count != old->nexthops->count) {
+		if (buf)
+			snprintf(buf, buf_size, "nhops num (old: %u, new: %u)",
+				 old->nexthops->count, new->nexthops->count);
 		return 0;
+	}
 
-	for (ALL_LIST_ELEMENTS_RO(new->nexthops, node, nexthop))
+	for (ALL_LIST_ELEMENTS_RO(new->nexthops, node, nexthop)) {
 		if (!nexthoplookup(old->nexthops, nexthop->family, &nexthop->ip,
-				   nexthop->ifindex))
+				   nexthop->ifindex)) {
+			if (buf)
+				snprintf(buf, buf_size,
+					 "new nhop"); /* TODO: print nhop */
 			return 0;
+		}
+	}
 
-	for (ALL_LIST_ELEMENTS_RO(old->nexthops, node, nexthop))
-		if (!nexthoplookup(new->nexthops, nexthop->family, &nexthop->ip,
-				   nexthop->ifindex))
-			return 0;
+	/* only the resync flag needs to be checked */
+	if (CHECK_FLAG(new->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC)
+	    != CHECK_FLAG(old->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC)) {
+		if (buf)
+			snprintf(buf, buf_size, "resync flag");
+		return 0;
+	}
 
 	return 1;
 }
@@ -289,9 +299,8 @@ struct isis_route_info *isis_route_create(struct prefix *prefix,
 	struct route_node *route_node;
 	struct isis_route_info *rinfo_new, *rinfo_old, *route_info = NULL;
 	char buff[PREFIX2STR_BUFFER];
-	uint8_t family;
+	char change_buf[64];
 
-	family = prefix->family;
 	/* for debugs */
 	prefix2str(prefix, buff, sizeof(buff));
 
@@ -311,19 +320,25 @@ struct isis_route_info *isis_route_create(struct prefix *prefix,
 		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 	} else {
 		route_unlock_node(route_node);
+#ifdef EXTREME_DEBUG
 		if (IS_DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Rte (%s) route already exists: %s",
 				   area->area_tag, buff);
-		if (isis_route_info_same(rinfo_new, rinfo_old, family)) {
+#endif /* EXTREME_DEBUG */
+		if (isis_route_info_same(rinfo_new, rinfo_old, change_buf,
+					 sizeof(change_buf))) {
+#ifdef EXTREME_DEBUG
 			if (IS_DEBUG_RTE_EVENTS)
 				zlog_debug("ISIS-Rte (%s) route unchanged: %s",
 					   area->area_tag, buff);
+#endif /* EXTREME_DEBUG */
 			isis_route_info_delete(rinfo_new);
 			route_info = rinfo_old;
 		} else {
 			if (IS_DEBUG_RTE_EVENTS)
-				zlog_debug("ISIS-Rte (%s) route changed: %s",
-					   area->area_tag, buff);
+				zlog_debug(
+					"ISIS-Rte (%s): route changed: %s, change: %s",
+					area->area_tag, buff, change_buf);
 			isis_route_info_delete(rinfo_old);
 			route_info = rinfo_new;
 			UNSET_FLAG(route_info->flag,
@@ -401,7 +416,9 @@ static void _isis_route_verify_table(struct isis_area *area,
 {
 	struct route_node *rnode, *drnode;
 	struct isis_route_info *rinfo;
+#ifdef EXTREME_DEBUG
 	char buff[SRCDEST2STR_BUFFER];
+#endif /* EXTREME_DEBUG */
 
 	for (rnode = route_top(table); rnode;
 	     rnode = srcdest_route_next(rnode)) {
@@ -416,6 +433,7 @@ static void _isis_route_verify_table(struct isis_area *area,
 				       (const struct prefix **)&dst_p,
 				       (const struct prefix **)&src_p);
 
+#ifdef EXTREME_DEBUG
 		if (IS_DEBUG_RTE_EVENTS) {
 			srcdest2str(dst_p, src_p, buff, sizeof(buff));
 			zlog_debug(
@@ -434,6 +452,7 @@ static void _isis_route_verify_table(struct isis_area *area,
 					 : "inactive"),
 				buff);
 		}
+#endif /* EXTREME_DEBUG */
 
 		isis_route_update(area, dst_p, src_p, rinfo);
 
