@@ -968,6 +968,9 @@ struct peer {
 	int fd;		     /* File descriptor */
 	int ttl;	     /* TTL of TCP connection to the peer. */
 	int rtt;	     /* Estimated round-trip-time from TCP_INFO */
+	int rtt_expected; /* Expected round-trip-time for a peer */
+	uint8_t rtt_keepalive_rcv; /* Received count for RTT shutdown */
+	uint8_t rtt_keepalive_conf; /* Configured count for RTT shutdown */
 	int gtsm_hops;       /* minimum hopcount to peer */
 	char *desc;	  /* Description of the peer. */
 	unsigned short port; /* Destination port for peer */
@@ -1118,6 +1121,7 @@ struct peer {
 #define PEER_FLAG_GRACEFUL_RESTART_HELPER   (1U << 23) /* Helper */
 #define PEER_FLAG_GRACEFUL_RESTART          (1U << 24) /* Graceful Restart */
 #define PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT (1U << 25) /* Global-Inherit */
+#define PEER_FLAG_RTT_SHUTDOWN (1U << 26) /* shutdown rtt */
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART

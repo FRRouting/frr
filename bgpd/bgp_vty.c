@@ -4480,6 +4480,64 @@ ALIAS(no_neighbor_shutdown_msg, no_neighbor_shutdown_cmd,
       NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
       "Administratively shut down this neighbor\n")
 
+DEFUN(neighbor_shutdown_rtt,
+      neighbor_shutdown_rtt_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> shutdown rtt (1-65535) [count (1-255)]",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Administratively shut down this neighbor\n"
+      "Shutdown if round-trip-time is higher than expected\n"
+      "Round-trip-time in milliseconds\n"
+      "Specify the number of keepalives before shutdown\n"
+      "The number of keepalives with higher RTT to shutdown\n")
+{
+	int idx_peer = 1;
+	int idx_rtt = 4;
+	int idx_count = 0;
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	peer->rtt_expected = strtol(argv[idx_rtt]->arg, NULL, 10);
+
+	if (argv_find(argv, argc, "count", &idx_count))
+		peer->rtt_keepalive_conf =
+			strtol(argv[idx_count + 1]->arg, NULL, 10);
+
+	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
+				 PEER_FLAG_RTT_SHUTDOWN);
+}
+
+DEFUN(no_neighbor_shutdown_rtt,
+      no_neighbor_shutdown_rtt_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> shutdown rtt [(1-65535) [count (1-255)]]",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Administratively shut down this neighbor\n"
+      "Shutdown if round-trip-time is higher than expected\n"
+      "Round-trip-time in milliseconds\n"
+      "Specify the number of keepalives before shutdown\n"
+      "The number of keepalives with higher RTT to shutdown\n")
+{
+	int idx_peer = 2;
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	peer->rtt_expected = 0;
+	peer->rtt_keepalive_conf = 1;
+
+	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
+				   PEER_FLAG_RTT_SHUTDOWN);
+}
+
 /* neighbor capability dynamic. */
 DEFUN (neighbor_capability_dynamic,
        neighbor_capability_dynamic_cmd,
@@ -14829,6 +14887,10 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, " neighbor %s shutdown\n", addr);
 	}
 
+	if (peergroup_flag_check(peer, PEER_FLAG_RTT_SHUTDOWN))
+		vty_out(vty, " neighbor %s shutdown rtt %u count %u\n", addr,
+			peer->rtt_expected, peer->rtt_keepalive_conf);
+
 	/* bfd */
 	if (peer->bfd_info) {
 		if (!peer_group_active(peer) || !g_peer->bfd_info) {
@@ -16628,6 +16690,8 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_neighbor_shutdown_cmd);
 	install_element(BGP_NODE, &neighbor_shutdown_msg_cmd);
 	install_element(BGP_NODE, &no_neighbor_shutdown_msg_cmd);
+	install_element(BGP_NODE, &neighbor_shutdown_rtt_cmd);
+	install_element(BGP_NODE, &no_neighbor_shutdown_rtt_cmd);
 
 	/* "neighbor capability extended-nexthop" commands.*/
 	install_element(BGP_NODE, &neighbor_capability_enhe_cmd);
