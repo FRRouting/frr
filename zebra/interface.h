@@ -395,6 +395,9 @@ struct zebra_if {
 	 */
 	enum protodown_reasons protodown_rc;
 
+	/* list of zebra_mac entries using this interface as destination */
+	struct list *mac_list;
+
 	/* Link fields - for sub-interfaces. */
 	ifindex_t link_ifindex;
 	struct interface *link;

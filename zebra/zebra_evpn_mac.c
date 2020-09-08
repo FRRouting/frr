@@ -94,6 +94,97 @@ uint32_t num_dup_detected_macs(zebra_evpn_t *zevpn)
 	return num_macs;
 }
 
+/* Setup mac_list against the access port. This is done when a mac uses
+ * the ifp as destination for the first time
+ */
+static void zebra_evpn_mac_ifp_new(struct zebra_if *zif)
+{
+	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		zlog_debug("MAC list created for ifp %s (%u)", zif->ifp->name,
+			   zif->ifp->ifindex);
+
+	zif->mac_list = list_new();
+	listset_app_node_mem(zif->mac_list);
+}
+
+/* Free up the mac_list if any as a part of the interface del/cleanup */
+void zebra_evpn_mac_ifp_del(struct interface *ifp)
+{
+	struct zebra_if *zif = ifp->info;
+
+	if (zif->mac_list) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			zlog_debug("MAC list deleted for ifp %s (%u)",
+				   zif->ifp->name, zif->ifp->ifindex);
+		list_delete(&zif->mac_list);
+	}
+}
+
+/* Unlink local mac from a destination access port */
+static void zebra_evpn_mac_ifp_unlink(zebra_mac_t *zmac)
+{
+	struct zebra_if *zif;
+	struct interface *ifp = zmac->ifp;
+
+	if (!ifp)
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		zlog_debug("VNI %d MAC %pEA unlinked from ifp %s (%u)",
+			   zmac->zevpn->vni,
+			   &zmac->macaddr,
+			   ifp->name, ifp->ifindex);
+
+	zif = ifp->info;
+	list_delete_node(zif->mac_list, &zmac->ifp_listnode);
+	zmac->ifp = NULL;
+}
+
+/* Link local mac to destination access port. This is done only if the
+ * local mac is associated with a zero ESI i.e. single attach or lacp-bypass
+ * bridge port member
+ */
+static void zebra_evpn_mac_ifp_link(zebra_mac_t *zmac, struct interface *ifp)
+{
+	struct zebra_if *zif;
+
+	if (!CHECK_FLAG(zmac->flags, ZEBRA_MAC_LOCAL))
+		return;
+
+	/* already linked to the destination */
+	if (zmac->ifp == ifp)
+		return;
+
+	/* unlink the mac from any old destination */
+	if (zmac->ifp)
+		zebra_evpn_mac_ifp_unlink(zmac);
+
+	if (!ifp)
+		return;
+
+	zif = ifp->info;
+	/* the interface mac_list is created on first mac link attempt */
+	if (!zif->mac_list)
+		zebra_evpn_mac_ifp_new(zif);
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		zlog_debug("VNI %d MAC %pEA linked to ifp %s (%u)",
+			   zmac->zevpn->vni,
+			   &zmac->macaddr,
+			   ifp->name, ifp->ifindex);
+
+	zmac->ifp = ifp;
+	listnode_init(&zmac->ifp_listnode, zmac);
+	listnode_add(zif->mac_list, &zmac->ifp_listnode);
+}
+
+/* If the mac is a local mac clear links to destination access port */
+void zebra_evpn_mac_clear_fwd_info(zebra_mac_t *zmac)
+{
+	zebra_evpn_mac_ifp_unlink(zmac);
+	memset(&zmac->fwd_info, 0, sizeof(zmac->fwd_info));
+}
+
 /*
  * Install remote MAC into the forwarding plane.
  */
@@ -1077,6 +1168,9 @@ int zebra_evpn_mac_del(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 	/* force de-ref any ES entry linked to the MAC */
 	zebra_evpn_es_mac_deref_entry(mac);
 
+	/* remove links to the destination access port */
+	zebra_evpn_mac_clear_fwd_info(mac);
+
 	/* Cancel proxy hold timer */
 	zebra_evpn_mac_stop_hold_timer(mac);
 
@@ -1686,7 +1780,7 @@ zebra_evpn_proc_sync_mac_update(zebra_evpn_t *zevpn, struct ethaddr *macaddr,
 			}
 		}
 		mac->rem_seq = 0;
-		memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
+		zebra_evpn_mac_clear_fwd_info(mac);
 		mac->flags = new_flags;
 
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC && (old_flags != new_flags)) {
@@ -1712,6 +1806,7 @@ zebra_evpn_proc_sync_mac_update(zebra_evpn_t *zevpn, struct ethaddr *macaddr,
 			inform_dataplane = true;
 			ctx->mac_inactive = true;
 		}
+
 		/* if peer-flag is being set notify dataplane that the
 		 * entry must not be expired because of local inactivity
 		 */
@@ -1798,7 +1893,7 @@ static bool zebra_evpn_local_mac_update_fwd_info(zebra_mac_t *mac,
 	if (zvrf && zvrf->zns)
 		local_ns_id = zvrf->zns->ns_id;
 
-	memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
+	zebra_evpn_mac_clear_fwd_info(mac);
 
 	es = zif->es_info.es;
 	if (es && (es->flags & ZEBRA_EVPNES_BYPASS))
@@ -1810,6 +1905,7 @@ static bool zebra_evpn_local_mac_update_fwd_info(zebra_mac_t *mac,
 		mac->fwd_info.local.ifindex = ifp->ifindex;
 		mac->fwd_info.local.ns_id = local_ns_id;
 		mac->fwd_info.local.vid = vid;
+		zebra_evpn_mac_ifp_link(mac, ifp);
 	}
 
 	return es_change;
@@ -2022,8 +2118,8 @@ int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 		}
 
 		/* Set "auto" and "remote" forwarding info. */
+		zebra_evpn_mac_clear_fwd_info(mac);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_ALL_LOCAL_FLAGS);
-		memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 		SET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 		mac->fwd_info.r_vtep_ip = vtep_ip;
 
@@ -2330,7 +2426,7 @@ int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, zebra_mac_t *mac,
 		/* this is a synced entry and can only be removed when the
 		 * es-peers stop advertising it.
 		 */
-		memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
+		zebra_evpn_mac_clear_fwd_info(mac);
 
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 			char mac_buf[MAC_BUF_SIZE];
@@ -2372,6 +2468,9 @@ int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, zebra_mac_t *mac,
 					  false /* force */);
 
 	zebra_evpn_es_mac_deref_entry(mac);
+
+	/* remove links to the destination access port */
+	zebra_evpn_mac_clear_fwd_info(mac);
 
 	/*
 	 * If there are no neigh associated with the mac delete the mac
@@ -2415,11 +2514,11 @@ int zebra_evpn_mac_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 	}
 
 	/* Set "local" forwarding info. */
+	zebra_evpn_mac_clear_fwd_info(mac);
 	SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
 	SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 	if (def_gw)
 		SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
-	memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 	mac->fwd_info.local.ifindex = ifp->ifindex;
 	mac->fwd_info.local.ns_id = local_ns_id;
 	mac->fwd_info.local.vid = vlan_id;

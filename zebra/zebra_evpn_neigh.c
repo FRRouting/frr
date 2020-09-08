@@ -1370,7 +1370,7 @@ int zebra_evpn_local_neigh_update(zebra_evpn_t *zevpn, struct interface *ifp,
 			return -1;
 		}
 
-		memset(&zmac->fwd_info, 0, sizeof(zmac->fwd_info));
+		zebra_evpn_mac_clear_fwd_info(zmac);
 		memset(&zmac->flags, 0, sizeof(uint32_t));
 		SET_FLAG(zmac->flags, ZEBRA_MAC_AUTO);
 	} else {

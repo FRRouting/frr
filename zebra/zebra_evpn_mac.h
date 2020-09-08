@@ -90,7 +90,9 @@ struct zebra_mac_t_ {
 	/* back pointer to zevpn */
 	zebra_evpn_t *zevpn;
 
-	/* Local or remote info. */
+	/* Local or remote info.
+	 * Note: fwd_info is only relevant if mac->es is NULL.
+	 */
 	union {
 		struct {
 			ifindex_t ifindex;
@@ -105,6 +107,16 @@ struct zebra_mac_t_ {
 	struct zebra_evpn_es *es;
 	/* memory used to link the mac to the es */
 	struct listnode es_listnode;
+
+	/* access-port/bridge member. only relevant for local macs that
+	 * are associated with a zero-ESI,
+	 * XXX - this belongs in fwd_info.local; however fwd_info is
+	 * being cleared and memset to zero in different ways that can
+	 * mess up the links.
+	 */
+	struct interface *ifp;
+	/* memory used to link the mac to the ifp */
+	struct listnode ifp_listnode;
 
 	/* Mobility sequence numbers associated with this entry. */
 	uint32_t rem_seq;
@@ -269,6 +281,8 @@ int zebra_evpn_mac_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 				bool def_gw);
 void zebra_evpn_mac_svi_add(struct interface *ifp, zebra_evpn_t *zevpn);
 void zebra_evpn_mac_svi_del(struct interface *ifp, zebra_evpn_t *zevpn);
+void zebra_evpn_mac_ifp_del(struct interface *ifp);
+void zebra_evpn_mac_clear_fwd_info(zebra_mac_t *zmac);
 
 #ifdef __cplusplus
 }
