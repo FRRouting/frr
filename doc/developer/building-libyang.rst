@@ -10,7 +10,7 @@ The FRR project builds binary ``libyang`` packages, which we offer for download
 
 .. warning::
 
-   ``libyang`` version 0.16.105 or newer is required to build FRR.
+   ``libyang`` version 1.0.184 or newer is required to build FRR.
 
 .. note::
 
@@ -50,8 +50,4 @@ The FRR project builds binary ``libyang`` packages, which we offer for download
          -D CMAKE_BUILD_TYPE:String="Release" ..
    make
    sudo make install
-
-When building ``libyang`` version ``0.16.x`` it's also necessary to pass the
-``-DENABLE_CACHE=OFF`` parameter to ``cmake`` to work around a
-`known bug <https://github.com/CESNET/libyang/issues/752>`_ in libyang.
 

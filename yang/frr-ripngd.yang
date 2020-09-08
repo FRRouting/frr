@@ -101,7 +101,7 @@ module frr-ripngd {
           "Enable RIPng on the specified IPv6 network.";
       }
       leaf-list interface {
-        type string;
+        type frr-interface:interface-ref;
         description
           "Enable RIPng on the specified interface.";
       }
