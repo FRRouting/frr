@@ -1103,6 +1103,41 @@ Redistribution
 
    Redistribute VNC direct (not via zebra) routes to BGP process.
 
+.. index:: bgp update-delay MAX-DELAY
+.. clicmd:: bgp update-delay MAX-DELAY
+
+.. index:: bgp update-delay MAX-DELAY ESTABLISH-WAIT
+.. clicmd:: bgp update-delay MAX-DELAY ESTABLISH-WAIT
+
+   This feature is used to enable read-only mode on BGP process restart or when
+   a BGP process is cleared using 'clear ip bgp \*'. Note that this command is
+   configured at the global level and applies to all bgp instances/vrfs.  It
+   cannot be used at the same time as the "update-delay" command described below,
+   which is entered in each bgp instance/vrf desired to delay update installation
+   and advertisements. The global and per-vrf approaches to defining update-delay
+   are mutually exclusive.
+
+   When applicable, read-only mode would begin as soon as the first peer reaches
+   Established status and a timer for max-delay seconds is started.  During this
+   mode BGP doesn't run any best-path or generate any updates to its peers. This
+   mode continues until:
+
+   1. All the configured peers, except the shutdown peers, have sent explicit EOR
+      (End-Of-RIB) or an implicit-EOR. The first keep-alive after BGP has reached
+      Established is considered an implicit-EOR.
+      If the establish-wait optional value is given, then BGP will wait for
+      peers to reach established from the beginning of the update-delay till the
+      establish-wait period is over, i.e. the minimum set of established peers for
+      which EOR is expected would be peers established during the establish-wait
+      window, not necessarily all the configured neighbors.
+   2. max-delay period is over.
+
+   On hitting any of the above two conditions, BGP resumes the decision process
+   and generates updates to its peers.
+
+   Default max-delay is 0, i.e. the feature is off by default.
+
+
 .. index:: update-delay MAX-DELAY
 .. clicmd:: update-delay MAX-DELAY
 
@@ -1110,12 +1145,17 @@ Redistribution
 .. clicmd:: update-delay MAX-DELAY ESTABLISH-WAIT
 
    This feature is used to enable read-only mode on BGP process restart or when
-   BGP process is cleared using 'clear ip bgp \*'. When applicable, read-only
-   mode would begin as soon as the first peer reaches Established status and a
-   timer for max-delay seconds is started.
+   a BGP process is cleared using 'clear ip bgp \*'.  Note that this command is
+   configured under the specific bgp instance/vrf that the feaure is enabled for.
+   It cannot be used at the same time as the global "bgp update-delay" described
+   above, which is entered at the global level and applies to all bgp instances.
+   The global and per-vrf approaches to defining update-delay are mutually
+   exclusive.
 
-   During this mode BGP doesn't run any best-path or generate any updates to its
-   peers. This mode continues until:
+   When applicable, read-only mode would begin as soon as the first peer reaches
+   Established status and a timer for max-delay seconds is started.  During this
+   mode BGP doesn't run any best-path or generate any updates to its peers. This
+   mode continues until:
 
    1. All the configured peers, except the shutdown peers, have sent explicit EOR
       (End-Of-RIB) or an implicit-EOR. The first keep-alive after BGP has reached

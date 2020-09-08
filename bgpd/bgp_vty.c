@@ -1642,16 +1642,91 @@ DEFUN (no_bgp_maxmed_onstartup,
 	return CMD_SUCCESS;
 }
 
-static int bgp_update_delay_config_vty(struct vty *vty, const char *delay,
-				       const char *wait)
+static int bgp_global_update_delay_config_vty(struct vty *vty,
+					      uint16_t update_delay,
+					      uint16_t establish_wait)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+	bool vrf_cfg = false;
+
+	/*
+	 * See if update-delay is set per-vrf and warn user to delete it
+	 * Note that we only need to check this if this is the first time
+	 * setting the global config.
+	 */
+	if (bm->v_update_delay == BGP_UPDATE_DELAY_DEF) {
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+			if (bgp->v_update_delay != BGP_UPDATE_DELAY_DEF) {
+				vty_out(vty,
+					"%% update-delay configuration found in vrf %s\n",
+					bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
+						? VRF_DEFAULT_NAME
+						: bgp->name);
+				vrf_cfg = true;
+			}
+		}
+	}
+
+	if (vrf_cfg) {
+		vty_out(vty,
+			"%%Failed: global update-delay config not permitted\n");
+		return CMD_WARNING;
+	}
+
+	if (!establish_wait) { /* update-delay <delay> */
+		bm->v_update_delay = update_delay;
+		bm->v_establish_wait = bm->v_update_delay;
+	} else {
+		/* update-delay <delay> <establish-wait> */
+		if (update_delay < establish_wait) {
+			vty_out(vty,
+				"%%Failed: update-delay less than the establish-wait!\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		bm->v_update_delay = update_delay;
+		bm->v_establish_wait = establish_wait;
+	}
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		bgp->v_update_delay = bm->v_update_delay;
+		bgp->v_establish_wait = bm->v_establish_wait;
+	}
+
+	return CMD_SUCCESS;
+}
+
+static int bgp_global_update_delay_deconfig_vty(struct vty *vty)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	bm->v_update_delay = BGP_UPDATE_DELAY_DEF;
+	bm->v_establish_wait = bm->v_update_delay;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		bgp->v_update_delay = bm->v_update_delay;
+		bgp->v_establish_wait = bm->v_establish_wait;
+	}
+
+	return CMD_SUCCESS;
+}
+
+static int bgp_update_delay_config_vty(struct vty *vty, uint16_t update_delay,
+				       uint16_t establish_wait)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	uint16_t update_delay;
-	uint16_t establish_wait;
 
-	update_delay = strtoul(delay, NULL, 10);
+	/* if configured globally, per-instance config is not allowed */
+	if (bm->v_update_delay) {
+		vty_out(vty,
+			"%%Failed: per-vrf update-delay config not permitted with global update-delay\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	if (!wait) /* update-delay <delay> */
+
+	if (!establish_wait) /* update-delay <delay> */
 	{
 		bgp->v_update_delay = update_delay;
 		bgp->v_establish_wait = bgp->v_update_delay;
@@ -1659,7 +1734,6 @@ static int bgp_update_delay_config_vty(struct vty *vty, const char *delay,
 	}
 
 	/* update-delay <delay> <establish-wait> */
-	establish_wait = atoi(wait);
 	if (update_delay < establish_wait) {
 		vty_out(vty,
 			"%%Failed: update-delay less than the establish-wait!\n");
@@ -1676,6 +1750,12 @@ static int bgp_update_delay_deconfig_vty(struct vty *vty)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
+	/* If configured globally, cannot remove from one bgp instance */
+	if (bm->v_update_delay) {
+		vty_out(vty,
+			"%%Failed: bgp update-delay configured globally. Delete per-vrf not permitted\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	bgp->v_update_delay = BGP_UPDATE_DELAY_DEF;
 	bgp->v_establish_wait = bgp->v_update_delay;
 
@@ -1684,7 +1764,8 @@ static int bgp_update_delay_deconfig_vty(struct vty *vty)
 
 void bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp)
 {
-	if (bgp->v_update_delay != BGP_UPDATE_DELAY_DEF) {
+	/* If configured globally, no need to display per-instance value */
+	if (bgp->v_update_delay != bm->v_update_delay) {
 		vty_out(vty, " update-delay %d", bgp->v_update_delay);
 		if (bgp->v_update_delay != bgp->v_establish_wait)
 			vty_out(vty, " %d", bgp->v_establish_wait);
@@ -1692,39 +1773,51 @@ void bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp)
 	}
 }
 
-
-/* Update-delay configuration */
-DEFUN (bgp_update_delay,
-       bgp_update_delay_cmd,
-       "update-delay (0-3600)",
-       "Force initial delay for best-path and updates\n"
-       "Seconds\n")
+/* Global update-delay configuration */
+DEFPY (bgp_global_update_delay,
+       bgp_global_update_delay_cmd,
+       "bgp update-delay (0-3600)$delay [(1-3600)$wait]",
+       BGP_STR
+       "Force initial delay for best-path and updates for all bgp instances\n"
+       "Max delay in seconds\n"
+       "Establish wait in seconds\n")
 {
-	int idx_number = 1;
-	return bgp_update_delay_config_vty(vty, argv[idx_number]->arg, NULL);
+	return bgp_global_update_delay_config_vty(vty, delay, wait);
 }
 
-DEFUN (bgp_update_delay_establish_wait,
-       bgp_update_delay_establish_wait_cmd,
-       "update-delay (0-3600) (1-3600)",
+/* Global update-delay deconfiguration */
+DEFPY (no_bgp_global_update_delay,
+       no_bgp_global_update_delay_cmd,
+       "no bgp update-delay [(0-3600) [(1-3600)]]",
+       NO_STR
+       BGP_STR
        "Force initial delay for best-path and updates\n"
-       "Seconds\n"
-       "Seconds\n")
+       "Max delay in seconds\n"
+       "Establish wait in seconds\n")
 {
-	int idx_number = 1;
-	int idx_number_2 = 2;
-	return bgp_update_delay_config_vty(vty, argv[idx_number]->arg,
-					   argv[idx_number_2]->arg);
+	return bgp_global_update_delay_deconfig_vty(vty);
+}
+
+/* Update-delay configuration */
+
+DEFPY (bgp_update_delay,
+       bgp_update_delay_cmd,
+       "update-delay (0-3600)$delay [(1-3600)$wait]",
+       "Force initial delay for best-path and updates\n"
+       "Max delay in seconds\n"
+       "Establish wait in seconds\n")
+{
+	return bgp_update_delay_config_vty(vty, delay, wait);
 }
 
 /* Update-delay deconfiguration */
-DEFUN (no_bgp_update_delay,
+DEFPY (no_bgp_update_delay,
        no_bgp_update_delay_cmd,
        "no update-delay [(0-3600) [(1-3600)]]",
        NO_STR
        "Force initial delay for best-path and updates\n"
-       "Seconds\n"
-       "Seconds\n")
+       "Max delay in seconds\n"
+       "Establish wait in seconds\n")
 {
 	return bgp_update_delay_deconfig_vty(vty);
 }
@@ -15429,6 +15522,13 @@ int bgp_config_write(struct vty *vty)
 		vty_out(vty, "bgp route-map delay-timer %u\n",
 			bm->rmap_update_timer);
 
+	if (bm->v_update_delay != BGP_UPDATE_DELAY_DEF) {
+		vty_out(vty, "bgp update-delay %d", bm->v_update_delay);
+		if (bm->v_update_delay != bm->v_establish_wait)
+			vty_out(vty, " %d", bm->v_establish_wait);
+		vty_out(vty, "\n");
+	}
+
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 
@@ -15943,6 +16043,10 @@ void bgp_vty_init(void)
 	install_element(CONFIG_NODE, &bgp_set_route_map_delay_timer_cmd);
 	install_element(CONFIG_NODE, &no_bgp_set_route_map_delay_timer_cmd);
 
+	/* global bgp update-delay command */
+	install_element(CONFIG_NODE, &bgp_global_update_delay_cmd);
+	install_element(CONFIG_NODE, &no_bgp_global_update_delay_cmd);
+
 	/* Dummy commands (Currently not supported) */
 	install_element(BGP_NODE, &no_synchronization_cmd);
 	install_element(BGP_NODE, &no_auto_summary_cmd);
@@ -15983,7 +16087,6 @@ void bgp_vty_init(void)
 	/* bgp update-delay command */
 	install_element(BGP_NODE, &bgp_update_delay_cmd);
 	install_element(BGP_NODE, &no_bgp_update_delay_cmd);
-	install_element(BGP_NODE, &bgp_update_delay_establish_wait_cmd);
 
 	install_element(BGP_NODE, &bgp_wpkt_quanta_cmd);
 	install_element(BGP_NODE, &bgp_rpkt_quanta_cmd);
