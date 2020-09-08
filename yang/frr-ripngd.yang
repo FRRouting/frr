@@ -12,6 +12,12 @@ module frr-ripngd {
   import frr-interface {
     prefix frr-interface;
   }
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+  import frr-route-map {
+    prefix frr-route-map;
+  }
   import frr-route-types {
     prefix frr-route-types;
   }
@@ -71,7 +77,7 @@ module frr-ripngd {
         "RIPng routing instance.";
 
       leaf vrf {
-        type string;
+        type frr-vrf:vrf-ref;
         description
           "VRF name.";
       }
@@ -170,9 +176,7 @@ module frr-ripngd {
           must '. != "ripng"';
         }
         leaf route-map {
-          type string {
-            length "1..max";
-          }
+          type frr-route-map:route-map-ref;
           description
             "Applies the conditions of the specified route-map to
              routes that are redistributed into the RIPng routing
@@ -298,7 +302,7 @@ module frr-ripngd {
                 "Next hop IPv6 address.";
             }
             leaf interface {
-              type string;
+              type frr-interface:interface-ref;
               description
                 "The interface that the route uses.";
             }
@@ -359,7 +363,7 @@ module frr-ripngd {
 
     input {
       leaf vrf {
-        type string;
+        type frr-vrf:vrf-ref;
         description
           "VRF name identifying a specific RIPng instance.
            This leaf is optional for the rpc.

@@ -15,6 +15,14 @@ module frr-isisd {
     prefix frr-interface;
   }
 
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   import frr-route-types {
     prefix frr-route-types;
   }
@@ -240,9 +248,7 @@ module frr-isisd {
     description
       "Common optional attributes of any redistribute entry.";
     leaf route-map {
-      type string {
-        length "1..max";
-      }
+      type frr-route-map:route-map-ref;
       description
         "Applies the conditions of the specified route-map to routes that
          are redistributed into this routing instance.";
@@ -341,7 +347,7 @@ module frr-isisd {
     }
 
     leaf vrf {
-      type string;
+      type frr-vrf:vrf-ref;
       default "default";
       description
         "VRF NAME.";
@@ -830,7 +836,7 @@ module frr-isisd {
       }
 
       leaf vrf {
-        type string;
+        type frr-vrf:vrf-ref;
         description
           "VRF NAME.";
       }

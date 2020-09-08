@@ -57,7 +57,7 @@ module frr-test-module {
         }
         container interfaces {
           leaf-list interface {
-            type string;
+            type frr-interface:interface-ref;
           }
         }
         container routes {
@@ -69,7 +69,7 @@ module frr-test-module {
               type inet:ipv4-address;
             }
             leaf interface {
-              type string;
+              type frr-interface:interface-ref;
             }
             leaf metric {
               type uint8;

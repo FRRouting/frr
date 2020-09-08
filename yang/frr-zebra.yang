@@ -2137,7 +2137,7 @@ module frr-zebra {
           "The admin distance to use for imported routes.";
       }
       leaf route-map {
-        type string;
+        type frr-route-map:route-map-ref;
         description
           "A route-map to filter imported routes.";
       }

@@ -12,6 +12,12 @@ module frr-eigrpd {
   import frr-interface {
     prefix frr-interface;
   }
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+  import frr-route-map {
+    prefix frr-route-map;
+  }
   import frr-route-types {
     prefix frr-route-types;
   }
@@ -109,9 +115,7 @@ module frr-eigrpd {
 
       leaf vrf {
         description "Virtual Routing Domain name";
-        type string {
-          length "0..16";
-        }
+        type frr-vrf:vrf-ref;
       }
 
       /*
@@ -235,9 +239,7 @@ module frr-eigrpd {
             "Applies the conditions of the specified route-map to
              routes that are redistributed into the EIGRP routing
              instance";
-          type string {
-            length "1..max";
-          }
+          type frr-route-map:route-map-ref;
         }
 
         container metrics {
