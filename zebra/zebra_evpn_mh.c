@@ -2682,6 +2682,7 @@ static void zebra_evpn_es_bypass_update_macs(struct zebra_evpn_es *es,
 	zebra_mac_t *mac;
 	struct listnode *node;
 	struct listnode *nnode;
+	struct zebra_if *zif;
 
 	/* Flush all MACs linked to the ES */
 	for (ALL_LIST_ELEMENTS(es->mac_list, node, nnode, mac)) {
@@ -2694,6 +2695,25 @@ static void zebra_evpn_es_bypass_update_macs(struct zebra_evpn_es *es,
 				   &mac->macaddr,
 				   bypass ? "bypass" : "non-bypass",
 				   es->esi_str);
+		zebra_evpn_flush_local_mac(mac, ifp);
+	}
+
+	/* While in bypass-mode locally learnt MACs are linked
+	 * to the access port instead of the ES
+	 */
+	zif = ifp->info;
+	if (!zif->mac_list)
+		return;
+
+	for (ALL_LIST_ELEMENTS(zif->mac_list, node, nnode, mac)) {
+		if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
+			continue;
+
+		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			zlog_debug("VNI %u mac %pEA %s update ifp %s",
+				   mac->zevpn->vni,
+				   &mac->macaddr,
+				   bypass ? "bypass" : "non-bypass", ifp->name);
 		zebra_evpn_flush_local_mac(mac, ifp);
 	}
 }
