@@ -137,14 +137,6 @@ static void vtysh_signal_set(int signo, void (*func)(int))
 	sigaction(signo, &sig, &osig);
 }
 
-/* Initialization of signal handles. */
-static void vtysh_signal_init(void)
-{
-	vtysh_signal_set(SIGINT, sigint);
-	vtysh_signal_set(SIGTSTP, sigtstp);
-	vtysh_signal_set(SIGPIPE, SIG_IGN);
-}
-
 /* Help information display. */
 static void usage(int status)
 {
@@ -170,6 +162,11 @@ static void usage(int status)
 		       "-u  --user               Run as an unprivileged user\n"
 		       "-w, --writeconfig        Write integrated config (frr.conf) and exit\n"
 		       "-H, --histfile           Override history file\n"
+		       "-r, --raw                Read commands from stdin,\n"
+		       "                         print commands output on stdout,\n"
+		       "                         all commands are terminated by a null byte\n"
+		       "                         and a byte conveying the command status\n"
+		       "                         (0 or 1), no prompt is displayed\n"
 		       "-h, --help               Display this help and exit\n\n"
 		       "Note that multiple commands may be executed from the command\n"
 		       "line by passing multiple -c args, or by embedding linefeed\n"
@@ -200,6 +197,7 @@ struct option longopts[] = {
 	{"mark", no_argument, NULL, 'm'},
 	{"writeconfig", no_argument, NULL, 'w'},
 	{"pathspace", required_argument, NULL, 'N'},
+	{"raw", no_argument, NULL, 'r'},
 	{"user", no_argument, NULL, 'u'},
 	{0}};
 
@@ -301,6 +299,50 @@ void suid_off(void)
 	}
 }
 
+static int raw_cmd_loop(void)
+{
+	char buf_in[BUFSIZ], buf_out[2];
+	const char *line;
+	int ret;
+
+	buf_out[0] = (char)0;
+
+	while (1) {
+		line = fgets(buf_in, sizeof(buf_in), stdin);
+		if (line == NULL) {
+			if (feof(stdin))
+				break;
+			perror("fgets");
+			goto fail;
+		}
+
+		ret = vtysh_execute_no_pager(line);
+		switch (ret) {
+		case CMD_SUCCESS:
+		case CMD_SUCCESS_DAEMON:
+		case CMD_WARNING:
+			buf_out[1] = (char)0;
+			break;
+		default:
+			buf_out[1] = (char)1;
+		}
+
+		if (fwrite(buf_out, sizeof(buf_out), 1, stdout) != 1) {
+			perror("fwrite");
+			goto fail;
+		}
+		if (fflush(stdout)) {
+			perror("fflush");
+			goto fail;
+		}
+	}
+
+	return 0;
+
+fail:
+	return 1;
+}
+
 /* VTY shell main routine. */
 int main(int argc, char **argv, char **env)
 {
@@ -322,6 +364,7 @@ int main(int argc, char **argv, char **env)
 	int ret = 0;
 	char *homedir = NULL;
 	int ditch_suid = 0;
+	int raw = 0;
 	char sysconfdir[MAXPATHLEN];
 	const char *pathspace_arg = NULL;
 	char pathspace[MAXPATHLEN] = "";
@@ -346,7 +389,7 @@ int main(int argc, char **argv, char **env)
 
 	/* Option handling. */
 	while (1) {
-		opt = getopt_long(argc, argv, "be:c:d:nf:H:mEhCwN:u", longopts,
+		opt = getopt_long(argc, argv, "be:c:d:nf:H:mEhCwN:ur", longopts,
 				  0);
 
 		if (opt == EOF)
@@ -386,6 +429,9 @@ int main(int argc, char **argv, char **env)
 			}
 			pathspace_arg = optarg;
 			snprintf(pathspace, sizeof(pathspace), "%s/", optarg);
+			break;
+		case 'r':
+			raw = 1;
 			break;
 		case 'd':
 			daemon_name = optarg;
@@ -448,12 +494,15 @@ int main(int argc, char **argv, char **env)
 		strlcat(vtydir, pathspace_arg, sizeof(vtydir));
 	}
 
-	/* Initialize user input buffer. */
-	line_read = NULL;
-	setlinebuf(stdout);
-
-	/* Signal and others. */
-	vtysh_signal_init();
+	if (!raw) {
+		/* Initialize user input buffer. */
+		line_read = NULL;
+		setlinebuf(stdout);
+		/* Signal and others. */
+		vtysh_signal_set(SIGINT, sigint);
+		vtysh_signal_set(SIGTSTP, sigtstp);
+	}
+	vtysh_signal_set(SIGPIPE, SIG_IGN);
 
 	/* Make vty structure and register commands. */
 	vtysh_init_vty();
@@ -553,6 +602,12 @@ int main(int argc, char **argv, char **env)
 
 	/* SUID: back down, don't need privs further on */
 	suid_off();
+
+	if (raw) {
+		if (!user_mode)
+			vtysh_execute_no_pager("enable");
+		return raw_cmd_loop();
+	}
 
 	if (writeconfig) {
 		if (user_mode) {
