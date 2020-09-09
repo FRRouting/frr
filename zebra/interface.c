@@ -464,17 +464,7 @@ int if_subnet_delete(struct interface *ifp, struct connected *ifc)
  */
 static void if_flags_mangle(struct interface *ifp, uint64_t *newflags)
 {
-#ifdef SUNOS_5
-	struct zebra_if *zif = ifp->info;
-
-	zif->primary_state = *newflags & (IFF_UP & 0xff);
-
-	if (CHECK_FLAG(zif->primary_state, IFF_UP)
-	    || listcount(ifp->connected) > 0)
-		SET_FLAG(*newflags, IFF_UP);
-	else
-		UNSET_FLAG(*newflags, IFF_UP);
-#endif /* SUNOS_5 */
+	return;
 }
 
 /* Update the flags field of the ifp with the new flag set provided.

@@ -802,44 +802,6 @@ void if_dump_all(void)
 			if_dump(ifp);
 }
 
-#ifdef SUNOS_5
-/* Need to handle upgrade from SUNWzebra to Quagga. SUNWzebra created
- * a seperate struct interface for each logical interface, so config
- * file may be full of 'interface fooX:Y'. Solaris however does not
- * expose logical interfaces via PF_ROUTE, so trying to track logical
- * interfaces can be fruitless, for that reason Quagga only tracks
- * the primary IP interface.
- *
- * We try accomodate SUNWzebra by:
- * - looking up the interface name, to see whether it exists, if so
- *   its useable
- *   - for protocol daemons, this could only because zebra told us of
- *     the interface
- *   - for zebra, only because it learnt from kernel
- * - if not:
- *   - search the name to see if it contains a sub-ipif / logical interface
- *     seperator, the ':' char. If it does:
- *     - text up to that char must be the primary name - get that name.
- *     if not:
- *     - no idea, just get the name in its entirety.
- */
-static struct interface *if_sunwzebra_get(const char *name, vrf_id_t vrf_id)
-{
-	struct interface *ifp;
-	char *cp;
-
-	if ((ifp = if_lookup_by_name(name, vrf_id)) != NULL)
-		return ifp;
-
-	/* hunt the primary interface name... */
-	cp = strchr(name, ':');
-	if (cp)
-		*cp = '\0';
-
-	return if_get_by_name(name, vrf_id);
-}
-#endif /* SUNOS_5 */
-
 #if 0
 /* For debug purpose. */
 DEFUN (show_address,
@@ -1554,11 +1516,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 	case NB_EV_APPLY:
 		vrf = vrf_lookup_by_name(vrfname);
 		assert(vrf);
-#ifdef SUNOS_5
-		ifp = if_sunwzebra_get(ifname, vrf->vrf_id);
-#else
 		ifp = if_get_by_name(ifname, vrf->vrf_id);
-#endif /* SUNOS_5 */
 
 		ifp->configured = true;
 		nb_running_set_entry(args->dnode, ifp);

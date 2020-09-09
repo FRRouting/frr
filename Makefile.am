@@ -135,7 +135,6 @@ include qpb/subdir.am
 include fpm/subdir.am
 include grpc/subdir.am
 include tools/subdir.am
-include solaris/subdir.am
 
 include bgpd/subdir.am
 include bgpd/rfp-example/librfp/subdir.am

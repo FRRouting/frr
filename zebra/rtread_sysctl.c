@@ -21,7 +21,7 @@
 
 #include <zebra.h>
 
-#if !defined(GNU_LINUX) && !defined(SUNOS_5)
+#if !defined(GNU_LINUX)
 
 #include "memory.h"
 #include "zebra_memory.h"
@@ -109,4 +109,4 @@ void kernel_read_pbr_rules(struct zebra_ns *zns)
 {
 }
 
-#endif /* !defined(GNU_LINUX) && !defined(SUNOS_5) */
+#endif /* !defined(GNU_LINUX) */

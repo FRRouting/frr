@@ -170,8 +170,6 @@ static void *program_counter(void *context)
 #elif defined(__powerpc__)
 #  define REG_INDEX 32
 #endif
-#elif defined(SUNOS_5) /* !GNU_LINUX */
-# define REG_INDEX REG_PC
 #endif		       /* GNU_LINUX */
 
 #ifdef REG_INDEX

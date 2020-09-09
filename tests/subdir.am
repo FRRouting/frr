@@ -17,16 +17,12 @@ TESTS_BGPD =
 endif
 
 if ISISD
-if SOLARIS
-TESTS_ISISD =
-else
 TESTS_ISISD = \
 	tests/isisd/test_fuzz_isis_tlv \
 	tests/isisd/test_isis_lspdb \
 	tests/isisd/test_isis_spf \
 	tests/isisd/test_isis_vertex_queue \
 	# end
-endif
 else
 TESTS_ISISD =
 endif

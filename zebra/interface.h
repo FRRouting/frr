@@ -334,15 +334,6 @@ struct zebra_if {
 	};
 #endif
 
-#ifdef SUNOS_5
-	/* the real IFF_UP state of the primary interface.
-	 * need this to differentiate between all interfaces being
-	 * down (but primary still plumbed) and primary having gone
-	 * ~IFF_UP, and all addresses gone.
-	 */
-	uint8_t primary_state;
-#endif /* SUNOS_5 */
-
 	/* ptm enable configuration */
 	uint8_t ptm_enable;
 

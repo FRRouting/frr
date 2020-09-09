@@ -33,11 +33,7 @@
 
 /* probably ought to have a field-specific define in config.h */
 #ifndef s6_addr32 /* for solaris/bsd */
-#ifdef SOLARIS_IPV6
-#   define	s6_addr32	_S6_un._S6_u32
-#else
 #   define	s6_addr32	__u6_addr.__u6_addr32
-#endif
 #endif
 
 #define RFAPI_V4_ADDR 0x04

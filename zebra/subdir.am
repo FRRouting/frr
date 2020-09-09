@@ -51,14 +51,11 @@ zebra_zebra_SOURCES = \
 	zebra/connected.c \
 	zebra/debug.c \
 	zebra/if_ioctl.c \
-	zebra/if_ioctl_solaris.c \
 	zebra/if_netlink.c \
 	zebra/if_sysctl.c \
 	zebra/interface.c \
 	zebra/ioctl.c \
-	zebra/ioctl_solaris.c \
 	zebra/ipforward_proc.c \
-	zebra/ipforward_solaris.c \
 	zebra/ipforward_sysctl.c \
 	zebra/kernel_netlink.c \
 	zebra/kernel_socket.c \
@@ -69,7 +66,6 @@ zebra_zebra_SOURCES = \
 	zebra/rt_netlink.c \
 	zebra/rt_socket.c \
 	zebra/rtadv.c \
-	zebra/rtread_getmsg.c \
 	zebra/rtread_netlink.c \
 	zebra/rtread_sysctl.c \
 	zebra/rule_netlink.c \
@@ -133,7 +129,6 @@ noinst_HEADERS += \
 	zebra/if_netlink.h \
 	zebra/interface.h \
 	zebra/ioctl.h \
-	zebra/ioctl_solaris.h \
 	zebra/ipforward.h \
 	zebra/irdp.h \
 	zebra/kernel_netlink.h \

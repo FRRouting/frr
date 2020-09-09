@@ -22,14 +22,10 @@
 #ifndef _ZEBRA_PREFIX_H
 #define _ZEBRA_PREFIX_H
 
-#ifdef SUNOS_5
-#include <sys/ethernet.h>
-#else
 #ifdef GNU_LINUX
 #include <net/ethernet.h>
 #else
 #include <netinet/if_ether.h>
-#endif
 #endif
 #include "sockunion.h"
 #include "ipaddr.h"
@@ -411,12 +407,7 @@ static inline void ipv4_addr_copy(struct in_addr *dst,
 
 /* glibc defines s6_addr32 to __in6_u.__u6_addr32 if __USE_{MISC || GNU} */
 #ifndef s6_addr32
-#if defined(SUNOS_5)
-/* Some SunOS define s6_addr32 only to kernel */
-#define s6_addr32 _S6_un._S6_u32
-#else
 #define s6_addr32 __u6_addr.__u6_addr32
-#endif /* SUNOS_5 */
 #endif /*s6_addr32*/
 
 /* Prototypes. */

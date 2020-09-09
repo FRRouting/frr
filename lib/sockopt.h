@@ -59,11 +59,7 @@ extern int setsockopt_ipv6_tclass(int, int);
 #if defined(IP_RECVIF)
 /* BSD/Solaris */
 
-#if defined(SUNOS_5)
-#define SOPT_SIZE_CMSG_RECVIF_IPV4()  (sizeof(uint_t))
-#else
 #define SOPT_SIZE_CMSG_RECVIF_IPV4()	(sizeof(struct sockaddr_dl))
-#endif /* SUNOS_5 */
 #endif /* IP_RECVIF */
 
 /* SOPT_SIZE_CMSG_IFINDEX_IPV4 - portable type */

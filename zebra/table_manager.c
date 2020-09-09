@@ -40,11 +40,7 @@
 /* routing table identifiers
  *
  */
-#ifdef SUNOS_5
-/* SunOS
- */
-#else
-#if !defined(GNU_LINUX) && !defined(SUNOS_5)
+#if !defined(GNU_LINUX)
 /* BSD systems
  */
 #else
@@ -55,8 +51,7 @@
 #define RT_TABLE_ID_DEFAULT                253
 #define RT_TABLE_ID_COMPAT                 252
 #define RT_TABLE_ID_UNSPEC                 0
-#endif /* !def(GNU_LINUX) && !defined(SUNOS_5) */
-#endif /* SUNOS_5 */
+#endif /* !def(GNU_LINUX) */
 #define RT_TABLE_ID_UNRESERVED_MIN         1
 #define RT_TABLE_ID_UNRESERVED_MAX         0xffffffff
 
@@ -126,11 +121,7 @@ struct table_manager_chunk *assign_table_chunk(uint8_t proto, uint16_t instance,
 		start = ((struct table_manager_chunk *)listgetdata(
 			   listtail(tbl_mgr.lc_list)))->end + 1;
 
-#ifdef SUNOS_5
-/* SunOS
- */
-#else
-#if !defined(GNU_LINUX) && !defined(SUNOS_5)
+#if !defined(GNU_LINUX)
 /* BSD systems
  */
 #else
@@ -143,8 +134,7 @@ struct table_manager_chunk *assign_table_chunk(uint8_t proto, uint16_t instance,
 				RT_TABLE_ID_COMPAT
 				- RT_TABLE_ID_UNRESERVED_MIN))
 		start = RT_TABLE_ID_LOCAL + 1;
-#endif /* !def(GNU_LINUX) && !defined(SUNOS_5) */
-#endif /* SUNOS_5 */
+#endif /* !def(GNU_LINUX) */
 	tmc->start = start;
 	if (RT_TABLE_ID_UNRESERVED_MAX - size  + 1 < start) {
 		flog_err(EC_ZEBRA_TM_EXHAUSTED_IDS,

@@ -1124,17 +1124,7 @@ is_linux=false
 AC_MSG_CHECKING([which operating system interface to use])
 case "$host_os" in
   sunos* | solaris2*)
-    AC_MSG_RESULT([Solaris])
-
-    AC_DEFINE([SUNOS_5], [1], [SunOS 5])
-    AC_DEFINE([SOLARIS_IPV6], [1], Solaris IPv6)
-    AC_DEFINE([_POSIX_C_SOURCE], [200809L], [enable POSIX.1-2008 and XPG7/SUSv4])
-
-    AC_CHECK_LIB([socket], [main])
-    AC_CHECK_LIB([nsl], [main])
-    AC_CHECK_LIB([umem], [main])
-    SOLARIS="solaris"
-    AC_MSG_WARN([--Solaris support is being considered for deprecation, please let us know if you are still using this--])
+    AC_MSG_FAILURE([Solaris support has been removed please see versions prior to 7.5])
     ;;
   linux*)
     AC_MSG_RESULT([Linux])
@@ -1167,7 +1157,6 @@ case "$host_os" in
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
     ;;
 esac
-AM_CONDITIONAL([SOLARIS], [test "$SOLARIS" = "solaris"])
 AM_CONDITIONAL([LINUX], [${is_linux}])
 
 AC_SYS_LARGEFILE
@@ -1391,10 +1380,6 @@ case "$host_os" in
     AC_MSG_RESULT([pfpacket])
     ISIS_METHOD_MACRO="ISIS_METHOD_PFPACKET"
     ;;
-  solaris* | sunos*)
-    AC_MSG_RESULT([DLPI])
-    ISIS_METHOD_MACRO="ISIS_METHOD_DLPI"
-    ;;
   *)
     if test "$ac_cv_header_net_bpf_h" = "no"; then
       if test "$ac_cv_header_sys_dlpi_h" = "no"; then
@@ -1512,7 +1497,6 @@ if test "$ac_cv_have_decl_TCP_MD5SIG" = "no"; then
        AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)])
 fi
 
-AC_SUBST([SOLARIS])
 AC_CHECK_LIB([crypt], [crypt], [],
 		    [AC_CHECK_LIB([crypto], [DES_crypt])])
 AC_CHECK_LIB([resolv], [res_init])
@@ -2143,17 +2127,6 @@ if test "$enable_capabilities" != "no"; then
        LIBCAP="-lcap"
        frr_ac_lcaps="yes"]
     )
-  else
-    AC_CHECK_HEADERS([priv.h],
-     [AC_MSG_CHECKING([Solaris style privileges are available])
-      AC_TRY_COMPILE([#include <priv.h>], [getpflags(PRIV_AWARE);],
-    	  [AC_MSG_RESULT([yes])
-    	   AC_DEFINE([HAVE_SOLARIS_CAPABILITIES], [1], [getpflags])
-    	   frr_ac_scaps="yes"],
-    	   AC_MSG_RESULT(no)
-      )
-     ]
-   )
   fi
   if test "$frr_ac_scaps" = "yes" \
        -o "$frr_ac_lcaps" = "yes"; then
@@ -2219,7 +2192,7 @@ dnl check for malloc mallinfo struct and call
 dnl this must try and link using LIBS, in
 dnl order to check no alternative allocator
 dnl has been specified, which might not provide
-dnl mallinfo, e.g. such as Umem on Solaris.
+dnl mallinfo
 dnl -----------------------------------------
 AC_CHECK_HEADERS([malloc.h malloc_np.h malloc/malloc.h],,, [FRR_INCLUDES])
 
@@ -2413,7 +2386,6 @@ AC_CONFIG_FILES([
 	  config.version
 	  changelog-auto
 	  redhat/frr.spec
-	  solaris/Makefile
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
