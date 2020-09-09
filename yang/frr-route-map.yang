@@ -373,15 +373,19 @@ module frr-route-map {
 
                 case add-metric {
                   leaf add-metric {
-                    description "Add unit to metric.";
-                    type boolean;
+                    description "Add value to metric.";
+                    type uint32 {
+                      range "0..4294967295";
+                    }
                   }
                 }
 
                 case subtract-metric {
                   leaf subtract-metric {
-                    description "Subtract unit from metric.";
-                    type boolean;
+                    description "Subtract value from metric.";
+                    type uint32 {
+                      range "0..4294967295";
+                    }
                   }
                 }
 
