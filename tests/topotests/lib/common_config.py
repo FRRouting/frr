@@ -2462,7 +2462,7 @@ def configure_interface_mac(tgen, input_dict):
 #############################################
 # Verification APIs
 #############################################
-@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=6, wait=2, return_is_str=True)
 def verify_rib(
     tgen,
     addr_type,
@@ -3495,7 +3495,7 @@ def verify_prefix_lists(tgen, input_dict):
     return True
 
 
-@retry(attempts=2, wait=4, return_is_str=True, initial_wait=2)
+@retry(attempts=3, wait=4, return_is_str=True)
 def verify_route_maps(tgen, input_dict):
     """
     Running "show route-map" command and verifying given route-map
@@ -3746,7 +3746,7 @@ def verify_cli_json(tgen, input_dict):
     return True
 
 
-@retry(attempts=2, wait=4, return_is_str=True, initial_wait=2)
+@retry(attempts=3, wait=4, return_is_str=True)
 def verify_evpn_vni(tgen, input_dict):
     """
     API to verify evpn vni details using "show evpn vni detail json"
@@ -3864,7 +3864,7 @@ def verify_evpn_vni(tgen, input_dict):
     return False
 
 
-@retry(attempts=2, wait=4, return_is_str=True, initial_wait=2)
+@retry(attempts=3, wait=4, return_is_str=True)
 def verify_vrf_vni(tgen, input_dict):
     """
     API to verify vrf vni details using "show vrf vni json"

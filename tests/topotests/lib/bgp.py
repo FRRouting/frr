@@ -2198,7 +2198,7 @@ def verify_bgp_attributes(
     return True
 
 
-@retry(attempts=4, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=5, wait=2, return_is_str=True)
 def verify_best_path_as_per_bgp_attribute(
     tgen, addr_type, router, input_dict, attribute
 ):
@@ -2513,7 +2513,7 @@ def verify_best_path_as_per_admin_distance(
     return True
 
 
-@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=6, wait=2, return_is_str=True)
 def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None):
     """
     This API is to verify whether bgp rib has any
@@ -2773,7 +2773,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
     return True
 
 
-@retry(attempts=4, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=5, wait=2, return_is_str=True)
 def verify_graceful_restart(tgen, topo, addr_type, input_dict, dut, peer):
     """
     This API is to verify verify_graceful_restart configuration of DUT and
@@ -3022,7 +3022,7 @@ def verify_graceful_restart(tgen, topo, addr_type, input_dict, dut, peer):
     return True
 
 
-@retry(attempts=4, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=5, wait=2, return_is_str=True)
 def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer):
     """
     This API is to verify r_bit in the BGP gr capability advertised
@@ -3140,7 +3140,7 @@ def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer):
     return True
 
 
-@retry(attempts=4, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=5, wait=2, return_is_str=True)
 def verify_eor(tgen, topo, addr_type, input_dict, dut, peer):
     """
     This API is to verify EOR
@@ -3303,7 +3303,7 @@ def verify_eor(tgen, topo, addr_type, input_dict, dut, peer):
     return True
 
 
-@retry(attempts=4, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=5, wait=2, return_is_str=True)
 def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer):
     """
     This API is to verify f_bit in the BGP gr capability advertised
@@ -3443,7 +3443,7 @@ def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer):
     return True
 
 
-@retry(attempts=4, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=5, wait=2, return_is_str=True)
 def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer):
     """
     This API is to verify graceful restart timers, configured and recieved
@@ -3569,7 +3569,7 @@ def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer)
     return True
 
 
-@retry(attempts=4, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=5, wait=2, return_is_str=True)
 def verify_gr_address_family(tgen, topo, addr_type, addr_family, dut):
     """
     This API is to verify gr_address_family in the BGP gr capability advertised
@@ -3659,7 +3659,7 @@ def verify_gr_address_family(tgen, topo, addr_type, addr_family, dut):
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
 
 
-@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=6, wait=2, return_is_str=True)
 def verify_attributes_for_evpn_routes(
     tgen,
     topo,
@@ -4060,7 +4060,7 @@ def verify_attributes_for_evpn_routes(
     return False
 
 
-@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=6, wait=2, return_is_str=True)
 def verify_evpn_routes(
     tgen, topo, dut, input_dict, routeType=5, EthTag=0, next_hop=None
 ):
