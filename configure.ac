@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.60])
 
-AC_INIT([frr], [7.5-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [7.6-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
