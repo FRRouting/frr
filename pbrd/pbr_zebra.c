@@ -208,15 +208,15 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 	enum zapi_rule_notify_owner note;
 	struct pbr_map_sequence *pbrms;
 	struct pbr_map_interface *pmi;
-	ifindex_t ifi;
+	char ifname[INTERFACE_NAMSIZ + 1];
 	uint64_t installed;
 
 	if (!zapi_rule_notify_decode(zclient->ibuf, &seqno, &priority, &unique,
-				     &ifi, &note))
+				     ifname, &note))
 		return -1;
 
 	pmi = NULL;
-	pbrms = pbrms_lookup_unique(unique, ifi, &pmi);
+	pbrms = pbrms_lookup_unique(unique, ifname, &pmi);
 	if (!pbrms) {
 		DEBUGD(&pbr_dbg_zebra,
 		       "%s: Failure to lookup pbrms based upon %u", __func__,
@@ -546,7 +546,7 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 		stream_putl(s, pbr_nht_get_table(pbrms->nhgrp_name));
 	else if (pbrms->nhg)
 		stream_putl(s, pbr_nht_get_table(pbrms->internal_nhg_name));
-	stream_putl(s, ifp->ifindex);
+	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
 }
 
 void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
