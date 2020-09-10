@@ -1681,7 +1681,7 @@ static void bgp_evpn_es_local_info_set(struct bgp *bgp, struct bgp_evpn_es *es)
 }
 
 /* clear any local info associated with the ES */
-static void bgp_evpn_es_local_info_clear(struct bgp_evpn_es *es)
+static void bgp_evpn_es_local_info_clear(struct bgp_evpn_es *es, bool finish)
 {
 	bool old_is_local;
 	bool is_local;
@@ -1693,7 +1693,7 @@ static void bgp_evpn_es_local_info_clear(struct bgp_evpn_es *es)
 	UNSET_FLAG(es->flags, BGP_EVPNES_LOCAL);
 
 	is_local = bgp_evpn_is_es_local_and_non_bypass(es);
-	if (old_is_local != is_local)
+	if (!finish && (old_is_local != is_local))
 		bgp_evpn_mac_update_on_es_local_chg(es, is_local);
 
 	/* remove from the ES local list */
@@ -2012,7 +2012,7 @@ static void bgp_evpn_local_es_do_del(struct bgp *bgp, struct bgp_evpn_es *es)
 	/* Clear local info associated with the ES and free it up if there is
 	 * no remote reference
 	 */
-	bgp_evpn_es_local_info_clear(es);
+	bgp_evpn_es_local_info_clear(es, false);
 }
 
 bool bgp_evpn_is_esi_local_and_non_bypass(esi_t *esi)
@@ -4662,7 +4662,7 @@ void bgp_evpn_mh_finish(void)
 
 	RB_FOREACH_SAFE (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree,
 			 es_next) {
-		bgp_evpn_es_local_info_clear(es);
+		bgp_evpn_es_local_info_clear(es, true);
 	}
 	if (bgp_mh_info->t_cons_check)
 		thread_cancel(&bgp_mh_info->t_cons_check);
