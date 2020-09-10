@@ -36,6 +36,8 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_advertise.h"
 
+const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
+
 /* Global variable to access damping configuration */
 static struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
 
@@ -653,16 +655,9 @@ const char *bgp_damp_reuse_time_vty(struct vty *vty, struct bgp_path_info *path,
 				  json);
 }
 
-int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi)
+static int bgp_print_dampening_parameters(struct bgp *bgp, struct vty *vty,
+					  afi_t afi, safi_t safi)
 {
-	struct bgp *bgp;
-	bgp = bgp_get_default();
-
-	if (bgp == NULL) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING;
-	}
-
 	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)) {
 		vty_out(vty, "Half-life time: %lld min\n",
 			(long long)damp[afi][safi].half_life / 60);
@@ -677,7 +672,52 @@ int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi)
 		vty_out(vty, "\n");
 	} else
 		vty_out(vty, "dampening not enabled for %s\n",
-			afi == AFI_IP ? "IPv4" : "IPv6");
+			get_afi_safi_str(afi, safi, false));
 
+	return CMD_SUCCESS;
+}
+
+int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi,
+				  uint8_t show_flags)
+{
+	struct bgp *bgp;
+	bgp = bgp_get_default();
+
+	if (bgp == NULL) {
+		vty_out(vty, "No BGP process is configured\n");
+		return CMD_WARNING;
+	}
+
+	if (!CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_ALL))
+		return bgp_print_dampening_parameters(bgp, vty, afi, safi);
+
+	if (CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_IP)
+	    || CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_IP6)) {
+		afi = CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_IP) ? AFI_IP
+								  : AFI_IP6;
+		FOREACH_SAFI (safi) {
+			if (strmatch(get_afi_safi_str(afi, safi, true),
+				     "Unknown"))
+				continue;
+
+			if (!CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON))
+				vty_out(vty, "\nFor address family: %s\n\n",
+					get_afi_safi_str(afi, safi, false));
+
+			bgp_print_dampening_parameters(bgp, vty, afi, safi);
+		}
+	} else {
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (strmatch(get_afi_safi_str(afi, safi, true),
+				     "Unknown"))
+				continue;
+
+			if (!CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON))
+				vty_out(vty, "\nFor address family: %s\n",
+					get_afi_safi_str(afi, safi, false));
+
+			bgp_print_dampening_parameters(bgp, vty, afi, safi);
+		}
+	}
 	return CMD_SUCCESS;
 }

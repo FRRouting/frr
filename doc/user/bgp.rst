@@ -2721,17 +2721,17 @@ daemon project, while :clicmd:`show bgp` command is the new format. The choice
 has been done to keep old format with IPv4 routing table, while new format
 displays IPv6 routing table.
 
-.. index:: show ip bgp [wide]
-.. clicmd:: show ip bgp [wide]
+.. index:: show ip bgp [all] [wide|json]
+.. clicmd:: show ip bgp [all] [wide|json]
 
-.. index:: show ip bgp A.B.C.D [wide]
-.. clicmd:: show ip bgp A.B.C.D [wide]
+.. index:: show ip bgp A.B.C.D [json]
+.. clicmd:: show ip bgp A.B.C.D [json]
 
-.. index:: show bgp [wide]
-.. clicmd:: show bgp [wide]
+.. index:: show bgp [all] [wide|json]
+.. clicmd:: show bgp [all] [wide|json]
 
-.. index:: show bgp X:X::X:X [wide]
-.. clicmd:: show bgp X:X::X:X [wide]
+.. index:: show bgp X:X::X:X [json]
+.. clicmd:: show bgp X:X::X:X [json]
 
    These commands display BGP routes. When no route is specified, the default
    is to display all BGP routes.
@@ -2753,6 +2753,11 @@ displays IPv6 routing table.
    This is especially handy dealing with IPv6 prefixes and
    if :clicmd:`[no] bgp default show-nexthop-hostname` is enabled.
 
+   If _all_ option is specified, _ip_ keyword is ignored, show bgp all and
+   show ip bgp all commands display routes for all AFIs and SAFIs.
+
+   If _json_ option is specified, output is displayed in JSON format.
+
 Some other commands provide additional options for filtering the output.
 
 .. index:: show [ip] bgp regexp LINE
@@ -2761,8 +2766,8 @@ Some other commands provide additional options for filtering the output.
    This command displays BGP routes using AS path regular expression
    (:ref:`bgp-regular-expressions`).
 
-.. index:: show [ip] bgp summary
-.. clicmd:: show [ip] bgp summary
+.. index:: show [ip] bgp [all] summary [json]
+.. clicmd:: show [ip] bgp [all] summary [json]
 
    Show a bgp peer summary for the specified address family.
 
@@ -2771,8 +2776,8 @@ and should no longer be used. In order to reach the other BGP routing tables
 other than the IPv6 routing table given by :clicmd:`show bgp`, the new command
 structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
-.. index:: show bgp [afi] [safi]
-.. clicmd:: show bgp [afi] [safi]
+.. index:: show bgp [afi] [safi] [all] [wide|json]
+.. clicmd:: show bgp [afi] [safi] [all] [wide|json]
 
 .. index:: show bgp <ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast>
 .. clicmd:: show bgp <ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast>
@@ -2788,20 +2793,20 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    Additionally, you can also filter this output by route type.
 
-.. index:: show bgp [afi] [safi] summary
-.. clicmd:: show bgp [afi] [safi] summary
+.. index:: show bgp [afi] [safi] [all] summary [json]
+.. clicmd:: show bgp [afi] [safi] [all] summary [json]
 
    Show a bgp peer summary for the specified address family, and subsequent
    address-family.
 
-.. index:: show bgp [afi] [safi] summary failed [json]
-.. clicmd:: show bgp [afi] [safi] summary failed [json]
+.. index:: show bgp [afi] [safi] [all] summary failed [json]
+.. clicmd:: show bgp [afi] [safi] [all] summary failed [json]
 
    Show a bgp peer summary for peers that are not succesfully exchanging routes
    for the specified address family, and subsequent address-family.
 
-.. index:: show bgp [afi] [safi] summary established [json]
-.. clicmd:: show bgp [afi] [safi] summary established [json]
+.. index:: show bgp [afi] [safi] [all] summary established [json]
+.. clicmd:: show bgp [afi] [safi] [all] summary established [json]
 
    Show a bgp peer summary for peers that are succesfully exchanging routes
    for the specified address family, and subsequent address-family.
@@ -2812,14 +2817,14 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    This command shows information on a specific BGP peer of the relevant
    afi and safi selected.
 
-.. index:: show bgp [afi] [safi] dampening dampened-paths
-.. clicmd:: show bgp [afi] [safi] dampening dampened-paths
+.. index:: show bgp [afi] [safi] [all] dampening dampened-paths [wide|json]
+.. clicmd:: show bgp [afi] [safi] [all] dampening dampened-paths [wide|json]
 
    Display paths suppressed due to dampening of the selected afi and safi
    selected.
 
-.. index:: show bgp [afi] [safi] dampening flap-statistics
-.. clicmd:: show bgp [afi] [safi] dampening flap-statistics
+.. index:: show bgp [afi] [safi] [all] dampening flap-statistics [wide|json]
+.. clicmd:: show bgp [afi] [safi] [all] dampening flap-statistics [wide|json]
 
    Display flap statistics of routes of the selected afi and safi selected.
 
@@ -2833,6 +2838,31 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    Display statistics of routes of all the afi and safi.
 
+.. index:: show [ip] bgp [afi] [safi] [all] cidr-only [wide|json]
+.. clicmd:: show [ip] bgp [afi] [safi] [all] cidr-only [wide|json]
+
+   Display routes with non-natural netmasks.
+
+.. index:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [json|wide]
+.. clicmd:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [json|wide]
+
+   Display the routes advertised to a BGP neighbor or received routes
+   from neighbor or filtered routes received from neighbor based on the
+   option specified.
+
+   If _wide_ option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
+
+   This is especially handy dealing with IPv6 prefixes and
+   if :clicmd:`[no] bgp default show-nexthop-hostname` is enabled.
+
+   If _all_ option is specified, _ip_ keyword is ignored and,
+   routes displayed for all AFIs and SAFIs.
+   if afi is specified, with _all_ option, routes will be displayed for
+   each SAFI in the selcted AFI
+
+   If _json_ option is specified, output is displayed in JSON format.
+
 .. _bgp-display-routes-by-community:
 
 Displaying Routes by Community Attribute
@@ -2841,14 +2871,14 @@ Displaying Routes by Community Attribute
 The following commands allow displaying routes based on their community
 attribute.
 
-.. index:: show [ip] bgp <ipv4|ipv6> community
-.. clicmd:: show [ip] bgp <ipv4|ipv6> community
+.. index:: show [ip] bgp <ipv4|ipv6> [all] community [wide|json]
+.. clicmd:: show [ip] bgp <ipv4|ipv6> [all] community [wide|json]
 
-.. index:: show [ip] bgp <ipv4|ipv6> community COMMUNITY
-.. clicmd:: show [ip] bgp <ipv4|ipv6> community COMMUNITY
+.. index:: show [ip] bgp <ipv4|ipv6> [all] community COMMUNITY [wide|json]
+.. clicmd:: show [ip] bgp <ipv4|ipv6> [all] community COMMUNITY [wide|json]
 
-.. index:: show [ip] bgp <ipv4|ipv6> community COMMUNITY exact-match
-.. clicmd:: show [ip] bgp <ipv4|ipv6> community COMMUNITY exact-match
+.. index:: show [ip] bgp <ipv4|ipv6> [all] community COMMUNITY exact-match [wide|json]
+.. clicmd:: show [ip] bgp <ipv4|ipv6> [all] community COMMUNITY exact-match [wide|json]
 
    These commands display BGP routes which have the community attribute.
    attribute. When ``COMMUNITY`` is specified, BGP routes that match that
@@ -2864,6 +2894,19 @@ attribute.
    These commands display BGP routes for the address family specified that
    match the specified community list. When `exact-match` is specified, it
    displays only routes that have an exact match.
+
+   If _wide_ option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
+
+   This is especially handy dealing with IPv6 prefixes and
+   if :clicmd:`[no] bgp default show-nexthop-hostname` is enabled.
+
+   If _all_ option is specified, _ip_ keyword is ignored and,
+   routes displayed for all AFIs and SAFIs.
+   if afi is specified, with _all_ option, routes will be displayed for
+   each SAFI in the selcted AFI
+
+   If _json_ option is specified, output is displayed in JSON format.
 
 .. _bgp-display-routes-by-lcommunity:
 
