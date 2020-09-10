@@ -337,17 +337,41 @@ static void community_list_entry_delete(struct community_list_master *cm,
 		community_list_delete(cm, list);
 }
 
+/*
+ * Replace community-list entry in the list. Note that entry is the new one
+ * and replace is one one being replaced.
+ */
+static void community_list_entry_replace(struct community_list *list,
+					 struct community_entry *replace,
+					 struct community_entry *entry)
+{
+	if (replace->next) {
+		entry->next = replace->next;
+		replace->next->prev = entry;
+	} else {
+		entry->next = NULL;
+		list->tail = entry;
+	}
+
+	if (replace->prev) {
+		entry->prev = replace->prev;
+		replace->prev->next = entry;
+	} else {
+		entry->prev = NULL;
+		list->head = entry;
+	}
+
+	community_entry_free(replace);
+}
+
 /* Add community-list entry to the list.  */
 static void community_list_entry_add(struct community_list *list,
 				     struct community_entry *entry,
 				     struct community_list_handler *ch,
 				     int master)
 {
-	struct community_list_master *cm = NULL;
 	struct community_entry *replace;
 	struct community_entry *point;
-
-	cm = community_list_master_lookup(ch, master);
 
 	/* Automatic assignment of seq no. */
 	if (entry->seq == COMMUNITY_SEQ_NUMBER_AUTO)
@@ -357,8 +381,10 @@ static void community_list_entry_add(struct community_list *list,
 		point = NULL;
 	else {
 		replace = bgp_clist_seq_check(list, entry->seq);
-		if (replace)
-			community_list_entry_delete(cm, list, entry);
+		if (replace) {
+			community_list_entry_replace(list, replace, entry);
+			return;
+		}
 
 		/* Check insert point. */
 		for (point = list->head; point; point = point->next)
