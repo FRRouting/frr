@@ -763,7 +763,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_set_metric, no_set_metric_cmd,
-	"no set metric [(0-4294967295)]",
+	"no set metric [OPTVAL]",
 	NO_STR
 	SET_STR
 	"Metric value for destination routing protocol\n"
