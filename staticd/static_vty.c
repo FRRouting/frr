@@ -81,11 +81,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 
 	ret = str2prefix(dest_str, &p);
 	if (ret <= 0) {
-		if (vty)
-			vty_out(vty, "%% Malformed address\n");
-		else
-			zlog_warn("%s: Malformed address: %s", __func__,
-				  dest_str);
+		vty_out(vty, "%% Malformed address\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -95,11 +91,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 		if (mask_str) {
 			ret = inet_aton(mask_str, &mask);
 			if (ret == 0) {
-				if (vty)
-					vty_out(vty, "%% Malformed address\n");
-				else
-					zlog_warn("%s: Malformed address: %s",
-						  __func__, mask_str);
+				vty_out(vty, "%% Malformed address\n");
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			p.prefixlen = ip_masklen(mask);
@@ -110,13 +102,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 		if (src_str) {
 			ret = str2prefix(src_str, &src);
 			if (ret <= 0 || src.family != AF_INET6) {
-				if (vty)
-					vty_out(vty,
-						"%% Malformed source address\n");
-				else
-					zlog_warn(
-						"%s: Malformed source address: %s",
-						__func__, src_str);
+				vty_out(vty, "%% Malformed source address\n");
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 		}
