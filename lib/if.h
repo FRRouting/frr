@@ -255,6 +255,15 @@ struct interface {
 	ifindex_t oldifindex;
 
 	/*
+	 * Virtual interface index.
+	 *
+	 * This is the real OS interface index that may be used by
+	 * multiple interfaces (real interfaces) in the alternative
+	 * southbound.
+	 */
+	ifindex_t vif_index;
+
+	/*
 	 * ifindex of parent interface, if any
 	 */
 	ifindex_t link_ifindex;

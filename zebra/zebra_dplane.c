@@ -265,6 +265,9 @@ struct dplane_intf_info {
 	uint32_t txqlen;
 	uint32_t cchanges;
 
+	/* Virtual interface index */
+	ifindex_t vif_index;
+
 	uint32_t metric;
 	uint32_t flags;
 	uint32_t change_flags;
@@ -3218,6 +3221,21 @@ uint32_t dplane_ctx_get_intf_txqlen(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.intf.txqlen;
+}
+
+void dplane_ctx_set_intf_vif_index(struct zebra_dplane_ctx *ctx,
+				   ifindex_t vif_index)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.vif_index = vif_index;
+}
+
+ifindex_t dplane_ctx_get_intf_vif_index(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.vif_index;
 }
 
 void dplane_ctx_set_intf_carrier_changes(struct zebra_dplane_ctx *ctx, uint32_t cchanges)

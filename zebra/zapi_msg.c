@@ -68,6 +68,7 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 
 	stream_put(s, ifp->name, IFNAMSIZ);
 	stream_putl(s, ifp->ifindex);
+	stream_putl(s, ifp->vif_index);
 	stream_putc(s, ifp->status);
 	stream_putq(s, ifp->flags);
 	stream_putc(s, ifp->ptm_enable);
