@@ -31,7 +31,8 @@ information, as well as links to additional resources.
 Several distributions provide packages for FRR. Check your distribution's
 repositories to find out if a suitable version is available.
 
-Up-to-date Debian packages are available at https://deb.frrouting.org/.
+Up-to-date Debian & Redhat packages are available at https://deb.frrouting.org/
+& https://rpm.frrouting.org/ respectively.
 
 For instructions on installing from source, refer to the
 `developer documentation <http://docs.frrouting.org/projects/dev-guide/en/latest/>`_.
