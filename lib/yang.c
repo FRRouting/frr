@@ -147,10 +147,14 @@ struct yang_module *yang_module_find(const char *module_name)
 }
 
 int yang_snodes_iterate_subtree(const struct lys_node *snode,
+				const struct lys_module *module,
 				yang_iterate_cb cb, uint16_t flags, void *arg)
 {
 	struct lys_node *child;
 	int ret = YANG_ITER_CONTINUE;
+
+	if (module && snode->module != module)
+		goto next;
 
 	if (CHECK_FLAG(flags, YANG_ITER_FILTER_IMPLICIT)) {
 		switch (snode->nodetype) {
@@ -214,11 +218,8 @@ next:
 		return YANG_ITER_CONTINUE;
 
 	LY_TREE_FOR (snode->child, child) {
-		if (!CHECK_FLAG(flags, YANG_ITER_ALLOW_AUGMENTATIONS)
-		    && child->parent != snode)
-			continue;
-
-		ret = yang_snodes_iterate_subtree(child, cb, flags, arg);
+		ret = yang_snodes_iterate_subtree(child, module, cb, flags,
+						  arg);
 		if (ret == YANG_ITER_STOP)
 			return ret;
 	}
@@ -233,15 +234,16 @@ int yang_snodes_iterate_module(const struct lys_module *module,
 	int ret = YANG_ITER_CONTINUE;
 
 	LY_TREE_FOR (module->data, snode) {
-		ret = yang_snodes_iterate_subtree(snode, cb, flags, arg);
+		ret = yang_snodes_iterate_subtree(snode, module, cb, flags,
+						  arg);
 		if (ret == YANG_ITER_STOP)
 			return ret;
 	}
 
 	for (uint8_t i = 0; i < module->augment_size; i++) {
 		ret = yang_snodes_iterate_subtree(
-			(const struct lys_node *)&module->augment[i], cb, flags,
-			arg);
+			(const struct lys_node *)&module->augment[i], module,
+			cb, flags, arg);
 		if (ret == YANG_ITER_STOP)
 			return ret;
 	}
@@ -255,9 +257,14 @@ int yang_snodes_iterate_all(yang_iterate_cb cb, uint16_t flags, void *arg)
 	int ret = YANG_ITER_CONTINUE;
 
 	RB_FOREACH (module, yang_modules, &yang_modules) {
-		ret = yang_snodes_iterate_module(module->info, cb, flags, arg);
-		if (ret == YANG_ITER_STOP)
-			return ret;
+		struct lys_node *snode;
+
+		LY_TREE_FOR (module->info->data, snode) {
+			ret = yang_snodes_iterate_subtree(snode, NULL, cb,
+							  flags, arg);
+			if (ret == YANG_ITER_STOP)
+				return ret;
+		}
 	}
 
 	return ret;

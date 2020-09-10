@@ -102,9 +102,6 @@ enum yang_iter_flags {
 
 	/* Filter implicitely created nodes. */
 	YANG_ITER_FILTER_IMPLICIT = (1<<3),
-
-	/* Allow iteration over augmentations. */
-	YANG_ITER_ALLOW_AUGMENTATIONS = (1<<4),
 };
 
 /* Callback used by the yang_snodes_iterate_*() family of functions. */
@@ -168,6 +165,9 @@ extern void yang_module_embed(struct yang_module_embed *embed);
  * snode
  *    YANG schema node to operate on.
  *
+ * module
+ *    When set, iterate over all nodes of the specified module only.
+ *
  * cb
  *    Function to call with each schema node.
  *
@@ -181,6 +181,7 @@ extern void yang_module_embed(struct yang_module_embed *embed);
  *    The return value of the last called callback.
  */
 extern int yang_snodes_iterate_subtree(const struct lys_node *snode,
+				       const struct lys_module *module,
 				       yang_iterate_cb cb, uint16_t flags,
 				       void *arg);
 
