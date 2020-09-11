@@ -102,7 +102,9 @@ enum bgp_show_adj_route_type {
 #define BGP_NLRI_PARSE_ERROR_EVPN_TYPE1_SIZE -15
 #define BGP_NLRI_PARSE_ERROR -32
 
-/* MAC-IP/type-2 path_info in the VNI routing table is linked to the
+/* 1. local MAC-IP/type-2 paths in the VNI routing table are linked to the
+ * destination ES
+ * 2. remote MAC-IP paths in the global routing table are linked to the
  * destination ES
  */
 struct bgp_path_es_info {
@@ -113,6 +115,21 @@ struct bgp_path_es_info {
 	struct bgp_evpn_es *es;
 	/* memory used for linking the path to the destination ES */
 	struct listnode es_listnode;
+};
+
+/* IP paths imported into the VRF from an EVPN route source
+ * are linked to the nexthop/VTEP IP
+ */
+struct bgp_path_mh_vrf_info {
+	/* back pointer to the route */
+	struct bgp_path_info *pi;
+	/* memory used for linking the path to the nexthop */
+	struct listnode nh_listnode;
+};
+
+struct bgp_path_mh_info {
+	struct bgp_path_es_info *es_info;
+	struct bgp_path_mh_vrf_info *vrf_info;
 };
 
 /* Ancillary information to struct bgp_path_info,
@@ -202,7 +219,7 @@ struct bgp_path_info_extra {
 	/* presence of FS pbr iprule based entry */
 	struct list *bgp_fs_iprule;
 	/* Destination Ethernet Segment links for EVPN MH */
-	struct bgp_path_es_info *es_info;
+	struct bgp_path_mh_info *mh_info;
 };
 
 struct bgp_path_info {
