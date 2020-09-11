@@ -273,12 +273,12 @@ parts:
            - libpcre3
         source: https://github.com/CESNET/libyang.git
         source-type: git
-        source-tag: v0.16-r3
+        source-tag: v1.0.184
         plugin: cmake
         configflags:
            - -DCMAKE_INSTALL_PREFIX:PATH=/usr
            - -DENABLE_LYD_PRIV=ON
-           - -DENABLE_CACHE=OFF
+           - -DENABLE_CACHE=ON
            - -DCMAKE_BUILD_TYPE:String="Release"
     frr: 
         after: [rtrlib,libyang]
