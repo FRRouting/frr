@@ -642,6 +642,15 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 	old = ospf_external_info_find_lsa(area->ospf, &p);
 
 	if (old) {
+		/* Do not continue if type 5 LSA not approved */
+		if (!CHECK_FLAG(old->flags, OSPF_LSA_APPROVED)) {
+			if (IS_DEBUG_OSPF_NSSA)
+				zlog_debug(
+					"ospf_abr_translate_nssa(): LSA Id %s type 5 is not approved",
+					inet_ntoa(old->data->id));
+			return 1;
+		}
+
 		if (IS_DEBUG_OSPF_NSSA)
 			zlog_debug(
 				"ospf_abr_translate_nssa(): found old translated LSA Id %s, refreshing",
