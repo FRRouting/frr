@@ -29,6 +29,8 @@
 #include "spf_backoff.h"
 #include "lib_errors.h"
 #include "vrf.h"
+#include "zclient.h"
+#include "ldp_sync.h"
 
 #include "isisd/isisd.h"
 #include "isisd/isis_nb.h"
@@ -45,6 +47,9 @@
 #include "isisd/isis_memory.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_redist.h"
+#include "isisd/isis_ldp_sync.h"
+
+extern struct zclient *zclient;
 
 /*
  * XPath: /frr-isisd:isis/instance
@@ -80,6 +85,10 @@ int isis_instance_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 	area = nb_running_unset_entry(args->dnode);
 	isis_area_destroy(area);
+
+	/* remove ldp-sync config */
+	if (area->isis->vrf_id == VRF_DEFAULT)
+		isis_ldp_sync_gbl_exit(true);
 
 	return NB_OK;
 }
@@ -1826,6 +1835,113 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_mo
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
+ */
+int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
+	struct listnode *node;
+	struct isis_circuit *circuit;
+	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (isis == NULL)
+			return NB_ERR_VALIDATION;
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* register with opaque client to recv LDP-IGP Sync msgs */
+		zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
+		zclient_register_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
+		zclient_register_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE);
+
+		if (!CHECK_FLAG(isis->ldp_sync_cmd.flags,
+				LDP_SYNC_FLAG_ENABLE)) {
+			SET_FLAG(isis->ldp_sync_cmd.flags,
+				 LDP_SYNC_FLAG_ENABLE);
+
+			/* turn on LDP-IGP Sync on all ptop ISIS interfaces */
+			FOR_ALL_INTERFACES (vrf, ifp) {
+				for (ALL_LIST_ELEMENTS_RO(isis->area_list, node,
+							  area)) {
+					circuit = circuit_lookup_by_ifp(
+						ifp, area->circuit_list);
+					if (circuit == NULL)
+						continue;
+					isis_if_set_ldp_sync_enable(circuit);
+				}
+			}
+		}
+		break;
+	}
+	return NB_OK;
+}
+
+int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* remove ldp-sync config */
+	isis_ldp_sync_gbl_exit(false);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/mpls/ldp-sync/holddown
+ */
+int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	struct listnode *node;
+	struct isis_circuit *circuit;
+	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	uint16_t holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (isis == NULL)
+			return NB_ERR_VALIDATION;
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		holddown = yang_dnode_get_uint16(args->dnode, NULL);
+
+		if (holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT)
+			UNSET_FLAG(isis->ldp_sync_cmd.flags,
+				   LDP_SYNC_FLAG_HOLDDOWN);
+		else
+			SET_FLAG(isis->ldp_sync_cmd.flags,
+				 LDP_SYNC_FLAG_HOLDDOWN);
+		isis->ldp_sync_cmd.holddown = holddown;
+
+		/* set holddown time on all ISIS interfaces */
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node,
+						  area)) {
+				circuit = circuit_lookup_by_ifp(ifp,
+							area->circuit_list);
+				if (circuit == NULL)
+					continue;
+				isis_if_set_ldp_sync_holddown(circuit);
+			}
+		}
+		break;
+	}
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis
  */
 int lib_interface_isis_create(struct nb_cb_create_args *args)
@@ -1914,6 +2030,9 @@ int lib_interface_isis_destroy(struct nb_cb_destroy_args *args)
 	circuit = nb_running_unset_entry(args->dnode);
 	if (!circuit)
 		return NB_ERR_INCONSISTENCY;
+
+	/* remove ldp-sync config */
+	isis_ldp_sync_if_remove(circuit, true);
 
 	/* disable both AFs for this circuit. this will also update the
 	 * CSM state by sending an ISIS_DISABLED signal. If there is no
@@ -2645,4 +2764,131 @@ int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(
 	return lib_interface_isis_multi_topology_common(
 		args->event, args->dnode, args->errmsg, args->errmsg_len,
 		ISIS_MT_IPV6_DSTSRC);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/mpls/ldp-sync
+ */
+int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+	struct ldp_sync_info *ldp_sync_info;
+	bool ldp_sync_enable;
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (isis == NULL)
+			return NB_ERR_VALIDATION;
+		break;
+
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		ldp_sync_enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (circuit->ldp_sync_info == NULL)
+			isis_ldp_sync_if_init(circuit, isis);
+		ldp_sync_info = circuit->ldp_sync_info;
+
+		if (ldp_sync_enable) {
+			/* enable LDP-SYNC on an interface
+			 *  if ptop interface send message to LDP to get state
+			 */
+			SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
+			ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
+			if (circuit->circ_type == CIRCUIT_T_P2P) {
+				ldp_sync_info->state =
+					LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
+				isis_ldp_sync_state_req_msg(circuit);
+			} else {
+				zlog_debug("ldp_sync: only runs on P2P links %s",
+					   circuit->interface->name);
+				ldp_sync_info->state =
+					LDP_IGP_SYNC_STATE_NOT_REQUIRED;
+			}
+		} else {
+			/* disable LDP-SYNC on an interface
+			 *  stop holddown timer if running
+			 *  restore isis metric
+			 */
+			SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
+			ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
+			ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
+			THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
+			ldp_sync_info->t_holddown = NULL;
+			isis_ldp_sync_set_if_metric(circuit, true);
+		}
+		break;
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/mpls/holddown
+ */
+int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+	struct ldp_sync_info *ldp_sync_info;
+	uint16_t holddown;
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (isis == NULL)
+			return NB_ERR_VALIDATION;
+		break;
+
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		holddown = yang_dnode_get_uint16(args->dnode, NULL);
+
+		if (circuit->ldp_sync_info == NULL)
+			isis_ldp_sync_if_init(circuit, isis);
+		ldp_sync_info = circuit->ldp_sync_info;
+
+		SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
+		ldp_sync_info->holddown = holddown;
+		break;
+	}
+	return NB_OK;
+}
+
+int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_circuit *circuit;
+	struct ldp_sync_info *ldp_sync_info;
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (isis == NULL)
+			return NB_ERR_VALIDATION;
+		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		if (circuit->ldp_sync_info == NULL)
+			return NB_ERR_VALIDATION;
+
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		ldp_sync_info = circuit->ldp_sync_info;
+		UNSET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
+
+		if (CHECK_FLAG(isis->ldp_sync_cmd.flags,
+			       LDP_SYNC_FLAG_HOLDDOWN))
+			ldp_sync_info->holddown = isis->ldp_sync_cmd.holddown;
+		else
+			ldp_sync_info->holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
+		break;
+	}
+	return NB_OK;
 }

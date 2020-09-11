@@ -60,6 +60,7 @@
 #define OSPF_DEBUG_EXT         0x08
 #define OSPF_DEBUG_SR          0x10
 #define OSPF_DEBUG_DEFAULTINFO 0x20
+#define OSPF_DEBUG_LDP_SYNC 0x40
 
 /* Macro for setting debug option. */
 #define CONF_DEBUG_PACKET_ON(a, b)	    conf_debug_ospf_packet[a] |= (b)
@@ -107,6 +108,8 @@
 
 #define IS_DEBUG_OSPF_DEFAULT_INFO IS_DEBUG_OSPF(defaultinfo, DEFAULTINFO)
 
+#define IS_DEBUG_OSPF_LDP_SYNC IS_DEBUG_OSPF(ldp_sync, LDP_SYNC)
+
 #define IS_CONF_DEBUG_OSPF_PACKET(a, b)                                        \
 	(conf_debug_ospf_packet[a] & OSPF_DEBUG_##b)
 #define IS_CONF_DEBUG_OSPF(a, b) (conf_debug_ospf_##a & OSPF_DEBUG_##b)
@@ -126,6 +129,7 @@ extern unsigned long term_debug_ospf_te;
 extern unsigned long term_debug_ospf_ext;
 extern unsigned long term_debug_ospf_sr;
 extern unsigned long term_debug_ospf_defaultinfo;
+extern unsigned long term_debug_ospf_ldp_sync;
 
 /* Message Strings. */
 extern char *ospf_lsa_type_str[];

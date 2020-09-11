@@ -230,6 +230,17 @@ DEFPY  (ldp_ordered_control,
 	return (ldp_vty_ordered_control(vty, no));
 }
 
+DEFPY  (ldp_wait_for_sync,
+        ldp_wait_for_sync_cmd,
+        "[no] wait-for-sync (1-10000)$waitforsync",
+        NO_STR
+        "Time to wait for LDP-IGP Sync to complete label exchange\n"
+        "Time (seconds)\n")
+{
+        return (ldp_vty_wait_for_sync_interval(vty, no, waitforsync));
+
+}
+
 DEFPY  (ldp_discovery_targeted_hello_accept,
 	ldp_discovery_targeted_hello_accept_cmd,
 	"[no] discovery targeted-hello accept [from <(1-199)|(1300-2699)|WORD>$from_acl]",
@@ -547,7 +558,7 @@ DEFPY  (ldp_debug_mpls_ldp_discovery_hello,
 
 DEFPY  (ldp_debug_mpls_ldp_type,
 	ldp_debug_mpls_ldp_type_cmd,
-	"[no] debug mpls ldp <errors|event|labels|zebra>$type",
+	"[no] debug mpls ldp <errors|event|labels|sync|zebra>$type",
 	NO_STR
 	"Debugging functions\n"
 	"MPLS information\n"
@@ -555,6 +566,7 @@ DEFPY  (ldp_debug_mpls_ldp_type,
 	"Errors\n"
 	"LDP event information\n"
 	"LDP label allocation information\n"
+	"LDP sync information\n"
 	"LDP zebra information\n")
 {
 	return (ldp_vty_debug(vty, no, type, NULL, NULL));
@@ -695,6 +707,18 @@ DEFPY  (ldp_show_mpls_ldp_neighbor_capabilities,
 	return (ldp_vty_show_neighbor(vty, lsr_id_str, 1, NULL, json));
 }
 
+DEFPY  (ldp_show_mpls_ldp_igp_sync,
+	ldp_show_mpls_ldp_igp_sync_cmd,
+	"show mpls ldp igp-sync [json]$json",
+	"Show mpls ldp ldp-sync information\n"
+	"MPLS information\n"
+	"Label Distribution Protocol\n"
+	"LDP-IGP Sync information\n"
+	JSON_STR)
+{
+	return (ldp_vty_show_ldp_sync(vty, json));
+}
+
 DEFPY  (ldp_show_l2vpn_atom_binding,
 	ldp_show_l2vpn_atom_binding_cmd,
 	"show l2vpn atom binding\
@@ -819,6 +843,7 @@ ldp_vty_init (void)
 	install_element(LDP_NODE, &ldp_neighbor_ttl_security_cmd);
 	install_element(LDP_NODE, &ldp_router_id_cmd);
 	install_element(LDP_NODE, &ldp_ordered_control_cmd);
+	install_element(LDP_NODE, &ldp_wait_for_sync_cmd);
 
 	install_element(LDP_IPV4_NODE, &ldp_discovery_link_holdtime_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_discovery_targeted_holdtime_cmd);
@@ -888,4 +913,5 @@ ldp_vty_init (void)
 	install_element(VIEW_NODE, &ldp_show_l2vpn_atom_binding_cmd);
 	install_element(VIEW_NODE, &ldp_show_l2vpn_atom_vc_cmd);
 	install_element(VIEW_NODE, &ldp_show_debugging_mpls_ldp_cmd);
+	install_element(VIEW_NODE, &ldp_show_mpls_ldp_igp_sync_cmd);
 }

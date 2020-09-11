@@ -1,0 +1,16 @@
+{
+    "1": {
+        "r2-eth1": [
+            {
+                "level": "Level-1",
+                "metric": "10"
+            }
+        ],
+        "r2-eth2": [
+            {
+                "level": "Level-1",
+                "metric": "10"
+            }
+        ]
+    }
+}

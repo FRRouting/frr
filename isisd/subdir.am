@@ -8,6 +8,7 @@ sbin_PROGRAMS += isisd/isisd
 dist_examples_DATA += isisd/isisd.conf.sample
 vtysh_scan += \
 	isisd/isis_cli.c \
+	isisd/isis_ldp_sync.c \
 	isisd/isis_redist.c \
 	isisd/isis_spf.c \
 	isisd/isis_te.c \
@@ -36,6 +37,7 @@ noinst_HEADERS += \
 	isisd/isis_errors.h \
 	isisd/isis_events.h \
 	isisd/isis_flags.h \
+	isisd/isis_ldp_sync.h \
 	isisd/isis_lsp.h \
 	isisd/isis_memory.h \
 	isisd/isis_misc.h \
@@ -69,6 +71,7 @@ LIBISIS_SOURCES = \
 	isisd/isis_errors.c \
 	isisd/isis_events.c \
 	isisd/isis_flags.c \
+	isisd/isis_ldp_sync.c \
 	isisd/isis_lsp.c \
 	isisd/isis_memory.c \
 	isisd/isis_misc.c \

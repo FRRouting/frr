@@ -52,6 +52,7 @@
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_sr.h"
+#include "isisd/isis_ldp_sync.h"
 
 struct zclient *zclient;
 static struct zclient *zclient_sync;
@@ -596,6 +597,44 @@ static void isis_zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
+/*
+ * opaque messages between processes
+ */
+static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s;
+	struct zapi_opaque_msg info;
+	struct ldp_igp_sync_if_state state;
+	struct ldp_igp_sync_announce announce;
+	struct ldp_igp_sync_hello hello;
+	int ret = 0;
+
+	s = zclient->ibuf;
+	if (zclient_opaque_decode(s, &info) != 0)
+		return -1;
+
+	switch (info.type) {
+	case LDP_IGP_SYNC_IF_STATE_UPDATE:
+		STREAM_GET(&state, s, sizeof(state));
+		ret = isis_ldp_sync_state_update(state);
+		break;
+	case LDP_IGP_SYNC_ANNOUNCE_UPDATE:
+		STREAM_GET(&announce, s, sizeof(announce));
+		ret = isis_ldp_sync_announce_update(announce);
+		break;
+	case LDP_IGP_SYNC_HELLO_UPDATE:
+		STREAM_GET(&hello, s, sizeof(hello));
+		ret = isis_ldp_sync_hello_update(hello);
+		break;
+	default:
+		break;
+	}
+
+stream_failure:
+
+	return ret;
+}
+
 void isis_zebra_init(struct thread_master *master, int instance)
 {
 	/* Initialize asynchronous zclient. */
@@ -622,6 +661,8 @@ void isis_zebra_init(struct thread_master *master, int instance)
 	 */
 	zclient_sync->session_id = 1;
 	zclient_sync->privs = &isisd_privs;
+
+	zclient->opaque_msg_handler = isis_opaque_msg_handler;
 }
 
 void isis_zebra_stop(void)

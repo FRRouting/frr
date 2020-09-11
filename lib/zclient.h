@@ -955,6 +955,14 @@ enum zapi_opaque_registry {
 	LINK_STATE_REQUEST = 1,
 	/* Update containing link-state db info */
 	LINK_STATE_UPDATE = 2,
+	/* Request LDP-SYNC state from LDP */
+	LDP_IGP_SYNC_IF_STATE_REQUEST = 3,
+	/* Update containing LDP IGP Sync State info */
+	LDP_IGP_SYNC_IF_STATE_UPDATE = 4,
+	/* Announce that LDP is up  */
+	LDP_IGP_SYNC_ANNOUNCE_UPDATE = 5,
+	/* Heartbeat indicating that LDP is running */
+	LDP_IGP_SYNC_HELLO_UPDATE = 6,
 };
 
 /* Send the hello message.

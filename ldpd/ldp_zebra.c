@@ -31,6 +31,7 @@
 #include "ldpd.h"
 #include "ldpe.h"
 #include "lde.h"
+#include "ldp_sync.h"
 #include "log.h"
 #include "ldp_debug.h"
 
@@ -45,6 +46,14 @@ static int	 ldp_zebra_read_route(ZAPI_CALLBACK_ARGS);
 static int	 ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS);
 static void	 ldp_zebra_connected(struct zclient *);
 static void	 ldp_zebra_filter_update(struct access_list *access);
+
+static void 	ldp_zebra_opaque_register(void);
+static void 	ldp_zebra_opaque_unregister(void);
+static int 	ldp_sync_zebra_send_announce(void);
+static int 	ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
+static void 	ldp_sync_zebra_start_hello_timer(void);
+static int 	ldp_sync_zebra_hello(struct thread *thread);
+static void 	ldp_sync_zebra_init(void);
 
 static struct zclient	*zclient;
 
@@ -102,6 +111,95 @@ pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw)
 	strlcpy(zpw->data.ldp.vpn_name, pw->l2vpn->name,
 	    sizeof(zpw->data.ldp.vpn_name));
 }
+
+static void
+ldp_zebra_opaque_register(void)
+{
+	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
+}
+
+static void
+ldp_zebra_opaque_unregister(void)
+{
+	zclient_unregister_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
+}
+
+int
+ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *state)
+{
+        return zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE,
+		(const uint8_t *) state, sizeof(*state));
+}
+
+static int
+ldp_sync_zebra_send_announce(void)
+{
+	struct ldp_igp_sync_announce announce;
+	announce.proto = ZEBRA_ROUTE_LDP;
+
+        return zclient_send_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE,
+		(const uint8_t *) &announce, sizeof(announce));
+}
+
+static int
+ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s;
+	struct zapi_opaque_msg info;
+	struct ldp_igp_sync_if_state_req state_req;
+
+        s = zclient->ibuf;
+
+        if (zclient_opaque_decode(s, &info) != 0)
+                return -1;
+
+	switch (info.type) {
+	case LDP_IGP_SYNC_IF_STATE_REQUEST:
+		STREAM_GET(&state_req, s, sizeof(state_req));
+		main_imsg_compose_ldpe(IMSG_LDP_SYNC_IF_STATE_REQUEST, 0, &state_req,
+			    sizeof(state_req));
+		break;
+	default:
+		break;
+	}
+
+stream_failure:
+        return 0;
+}
+
+static void
+ldp_sync_zebra_start_hello_timer(void)
+{
+	thread_add_timer_msec(master, ldp_sync_zebra_hello, NULL, 250, NULL);
+}
+
+static int
+ldp_sync_zebra_hello(struct thread *thread)
+{
+	static unsigned int sequence = 0;
+	struct ldp_igp_sync_hello hello;
+
+	sequence++;
+
+	hello.proto = ZEBRA_ROUTE_LDP;
+	hello.sequence = sequence;
+
+	zclient_send_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE,
+		(const uint8_t *) &hello, sizeof(hello));
+
+	ldp_sync_zebra_start_hello_timer();
+
+	return (0);
+}
+
+static void
+ldp_sync_zebra_init(void)
+{
+	ldp_sync_zebra_send_announce();
+
+	ldp_sync_zebra_start_hello_timer();
+}
+
 
 static int
 ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
@@ -299,7 +397,7 @@ ldp_ifp_destroy(struct interface *ifp)
 }
 
 static int
-ldp_interface_status_change_helper(struct interface *ifp)
+ldp_interface_status_change(struct interface *ifp)
 {
 	struct listnode		*node;
 	struct connected	*ifc;
@@ -330,12 +428,12 @@ ldp_interface_status_change_helper(struct interface *ifp)
 
 static int ldp_ifp_up(struct interface *ifp)
 {
-	return ldp_interface_status_change_helper(ifp);
+	return ldp_interface_status_change(ifp);
 }
 
 static int ldp_ifp_down(struct interface *ifp)
 {
-	return ldp_interface_status_change_helper(ifp);
+	return ldp_interface_status_change(ifp);
 }
 
 static int
@@ -525,6 +623,10 @@ ldp_zebra_connected(struct zclient *zclient)
 	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
 	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+
+	ldp_zebra_opaque_register();
+
+	ldp_sync_zebra_init();
 }
 
 static void
@@ -563,6 +665,7 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_add = ldp_zebra_read_route;
 	zclient->redistribute_route_del = ldp_zebra_read_route;
 	zclient->pw_status_update = ldp_zebra_read_pw_status_update;
+	zclient->opaque_msg_handler = ldp_zebra_opaque_msg_handler;
 
 	/* Access list initialize. */
 	access_list_add_hook(ldp_zebra_filter_update);
@@ -572,6 +675,7 @@ ldp_zebra_init(struct thread_master *master)
 void
 ldp_zebra_destroy(void)
 {
+	ldp_zebra_opaque_unregister();
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	zclient = NULL;

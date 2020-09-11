@@ -52,6 +52,7 @@
 #include "ospfd/ospf_vty.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_bfd.h"
+#include "ospfd/ospf_ldp_sync.h"
 
 FRR_CFG_DEFAULT_BOOL(OSPF_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = true, .match_profile = "datacenter", },
@@ -3222,6 +3223,10 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 				vty_out(vty, " Adjacency changes are logged\n");
 		}
 	}
+
+	/* show LDP-Sync status */
+	ospf_ldp_sync_show_info(vty, ospf, json_vrf, json ? 1 : 0);
+
 	/* Show each area status. */
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
 		show_ip_ospf_area(vty, area, json_areas, json ? 1 : 0);
@@ -9975,6 +9980,9 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "\n");
 			}
 
+			/* LDP-Sync print */
+			if (params && params->ldp_sync_info)
+				ospf_ldp_sync_if_write_config(vty, params);
 
 			while (1) {
 				if (rn == NULL)
@@ -10497,6 +10505,9 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	config_write_ospf_distance(vty, ospf);
 
 	ospf_opaque_config_write_router(vty, ospf);
+
+	/* LDP-Sync print */
+	ospf_ldp_sync_write_config(vty, ospf);
 
 	write++;
 	return write;

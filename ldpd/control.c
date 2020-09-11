@@ -263,6 +263,9 @@ control_dispatch_imsg(struct thread *thread)
 
 			nbr_clear_ctl(imsg.data);
 			break;
+		case IMSG_CTL_SHOW_LDP_SYNC:
+			ldpe_ldp_sync_ctl(c);
+			break;
 		case IMSG_CTL_LOG_VERBOSE:
 			/* ignore */
 			break;

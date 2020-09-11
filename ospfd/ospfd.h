@@ -25,6 +25,7 @@
 #include <zebra.h>
 #include "qobj.h"
 #include "libospf.h"
+#include "ldp_sync.h"
 
 #include "filter.h"
 #include "log.h"
@@ -319,6 +320,9 @@ struct ospf {
 	/* Redistributed external information. */
 	struct list *external[ZEBRA_ROUTE_MAX + 1];
 #define EXTERNAL_INFO(E)      (E->external_info)
+
+	/* MPLS LDP-IGP Sync */
+	struct ldp_sync_info_cmd ldp_sync_cmd;
 
 	QOBJ_FIELDS
 };

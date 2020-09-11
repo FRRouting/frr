@@ -54,6 +54,7 @@ unsigned long conf_debug_ospf_te = 0;
 unsigned long conf_debug_ospf_ext = 0;
 unsigned long conf_debug_ospf_sr = 0;
 unsigned long conf_debug_ospf_defaultinfo = 0;
+unsigned long conf_debug_ospf_ldp_sync = 0;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -67,6 +68,7 @@ unsigned long term_debug_ospf_te = 0;
 unsigned long term_debug_ospf_ext = 0;
 unsigned long term_debug_ospf_sr = 0;
 unsigned long term_debug_ospf_defaultinfo;
+unsigned long term_debug_ospf_ldp_sync;
 
 const char *ospf_redist_string(unsigned int route_type)
 {
@@ -1476,6 +1478,32 @@ DEFUN (no_debug_ospf_default_info,
 	return CMD_SUCCESS;
 }
 
+DEFUN(debug_ospf_ldp_sync,
+      debug_ospf_ldp_sync_cmd,
+      "debug ospf ldp-sync",
+      DEBUG_STR OSPF_STR
+      "OSPF LDP-Sync information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_ON(ldp_sync, LDP_SYNC);
+	TERM_DEBUG_ON(ldp_sync, LDP_SYNC);
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_debug_ospf_ldp_sync,
+      no_debug_ospf_ldp_sync_cmd,
+      "no debug ospf ldp-sync",
+      NO_STR
+      DEBUG_STR
+      OSPF_STR
+      "OSPF LDP-Sync information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_OFF(ldp_sync, LDP_SYNC);
+	TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_ospf,
        no_debug_ospf_cmd,
        "no debug ospf",
@@ -1505,6 +1533,7 @@ DEFUN (no_debug_ospf,
 		DEBUG_OFF(zebra, ZEBRA_INTERFACE);
 		DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
 		DEBUG_OFF(defaultinfo, DEFAULTINFO);
+		DEBUG_OFF(ldp_sync, LDP_SYNC);
 
 		for (i = 0; i < 5; i++)
 			DEBUG_PACKET_OFF(i, flag);
@@ -1532,6 +1561,7 @@ DEFUN (no_debug_ospf,
 	TERM_DEBUG_OFF(zebra, ZEBRA_INTERFACE);
 	TERM_DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
 	TERM_DEBUG_OFF(defaultinfo, DEFAULTINFO);
+	TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
 
 	return CMD_SUCCESS;
 }
@@ -1632,6 +1662,10 @@ static int show_debugging_ospf_common(struct vty *vty, struct ospf *ospf)
 	/* Show debug status for NSSA. */
 	if (IS_DEBUG_OSPF(nssa, NSSA) == OSPF_DEBUG_NSSA)
 		vty_out(vty, "  OSPF NSSA debugging is on\n");
+
+	/* Show debug status for LDP-SYNC. */
+	if (IS_DEBUG_OSPF(ldp_sync, LDP_SYNC) == OSPF_DEBUG_LDP_SYNC)
+		vty_out(vty, "  OSPF ldp-sync debugging is on\n");
 
 	vty_out(vty, "\n");
 
@@ -1814,6 +1848,11 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	/* debug ospf ldp-sync */
+	if (IS_CONF_DEBUG_OSPF(ldp_sync, LDP_SYNC) == OSPF_DEBUG_LDP_SYNC) {
+		vty_out(vty, "debug ospf%s ldp-sync\n", str);
+		write = 1;
+	}
 	return write;
 }
 
@@ -1832,6 +1871,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &debug_ospf_te_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_sr_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_default_info_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ism_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_lsa_cmd);
@@ -1841,6 +1881,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_ospf_te_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_sr_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_default_info_cmd);
+	install_element(ENABLE_NODE, &no_debug_ospf_ldp_sync_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_ospf_instance_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_packet_cmd);
@@ -1871,6 +1912,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &debug_ospf_te_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_sr_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_default_info_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_lsa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_zebra_cmd);
@@ -1879,6 +1921,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_ospf_te_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_sr_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_default_info_cmd);
+	install_element(CONFIG_NODE, &no_debug_ospf_ldp_sync_cmd);
 
 	install_element(CONFIG_NODE, &debug_ospf_instance_nsm_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_instance_lsa_cmd);

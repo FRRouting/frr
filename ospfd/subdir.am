@@ -9,6 +9,7 @@ dist_examples_DATA += ospfd/ospfd.conf.sample
 vtysh_scan += \
 	ospfd/ospf_bfd.c \
 	ospfd/ospf_dump.c \
+	ospfd/ospf_ldp_sync.c \
 	ospfd/ospf_opaque.c \
 	ospfd/ospf_ri.c \
 	ospfd/ospf_routemap.c \
@@ -37,6 +38,7 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_ia.c \
 	ospfd/ospf_interface.c \
 	ospfd/ospf_ism.c \
+	ospfd/ospf_ldp_sync.c \
 	ospfd/ospf_lsa.c \
 	ospfd/ospf_lsdb.c \
 	ospfd/ospf_memory.c \
@@ -74,6 +76,7 @@ endif
 
 clippy_scan += \
 	ospfd/ospf_vty.c \
+	ospfd/ospf_ldp_sync.c \
 	# end
 
 noinst_HEADERS += \
@@ -86,6 +89,7 @@ noinst_HEADERS += \
 	ospfd/ospf_flood.h \
 	ospfd/ospf_ia.h \
 	ospfd/ospf_interface.h \
+	ospfd/ospf_ldp_sync.h \
 	ospfd/ospf_memory.h \
 	ospfd/ospf_neighbor.h \
 	ospfd/ospf_network.h \
