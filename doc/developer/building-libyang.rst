@@ -7,7 +7,7 @@ library.
 
 The FRR project builds some binary ``libyang`` packages.
 
-RPM packages are at our `RPM repository <rpm.frrouting.org>`_
+RPM packages are at our `RPM repository <https://rpm.frrouting.org>`_.
 
 DEB packages are available as CI artifacts `here
 <https://ci1.netdef.org/browse/LIBYANG-LY1REL-DEB10AMD64-4/artifact>`_.
