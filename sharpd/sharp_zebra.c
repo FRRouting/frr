@@ -365,6 +365,13 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg)
 	struct nexthop *nh;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+		if (nexthop_num >= MULTIPATH_NUM) {
+			zlog_warn(
+				"%s: number of nexthops greater than max multipath size, truncating",
+				__func__);
+			break;
+		}
+
 		api_nh = &nh_array[nexthop_num];
 
 		zapi_nexthop_from_nexthop(api_nh, nh);
