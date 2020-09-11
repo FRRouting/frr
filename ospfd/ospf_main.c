@@ -279,6 +279,8 @@ int main(int argc, char **argv)
 		goto done;
 
 	LLVMFuzzerTestOneInput(input, r);
+
+	free(input);
 done:
 	return 0;
 #endif
