@@ -1016,6 +1016,10 @@ void zlog_init(const char *progname, const char *protoname,
 		goto out_warn;
 	}
 
+// #ifdef FUZZING
+	goto out_warn;
+// #endif
+
 #ifdef O_PATH
 	zlog_tmpdirfd = open(zlog_tmpdir,
 			     O_PATH | O_RDONLY | O_CLOEXEC);
