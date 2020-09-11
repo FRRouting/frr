@@ -423,7 +423,8 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 							nh->snh_label.label,
 							buf, sizeof(buf), 0));
 
-				if (nh->nh_vrf_id != GET_STABLE_VRF_ID(info))
+				if (!strmatch(nh->nh_vrfname,
+					      info->svrf->vrf->name))
 					vty_out(vty, " nexthop-vrf %s",
 						nh->nh_vrfname);
 
