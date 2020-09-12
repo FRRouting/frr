@@ -250,6 +250,26 @@ struct bgp_evpn_es_evi_vtep {
 	struct bgp_evpn_es_vtep *es_vtep;
 };
 
+/* A nexthop is created when a path (imported from an EVPN type-2 route)
+ * is added to the VRF route table using that nexthop.
+ * It is added on first pi reference and removed on last pi deref.
+ */
+struct bgp_evpn_nh {
+	/* backpointer to the VRF */
+	struct bgp *bgp_vrf;
+	/* nexthop/VTEP IP */
+	struct ipaddr ip;
+	/* description for easy logging */
+	char nh_str[INET6_ADDRSTRLEN];
+	struct ethaddr rmac;
+	/* pi from which we are pulling the nh RMAC */
+	struct bgp_path_info *ref_pi;
+	/* List of VRF paths using this nexthop */
+	struct list *pi_list;
+	uint8_t flags;
+#define BGP_EVPN_NH_READY_FOR_ZEBRA (1 << 0)
+};
+
 /* multihoming information stored in bgp_master */
 #define bgp_mh_info (bm->mh_info)
 struct bgp_evpn_mh_info {
@@ -286,6 +306,8 @@ struct bgp_evpn_mh_info {
 	 * L3 ecomm
 	 */
 	bool suppress_l3_ecomm_on_inactive_es;
+	/* Setup EVPN PE nexthops and their RMAC in bgpd */
+	bool bgp_evpn_nh_setup;
 };
 
 /****************************************************************************/
@@ -399,5 +421,10 @@ extern bool bgp_evpn_es_add_l3_ecomm_ok(esi_t *esi);
 extern void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi,
 				    bool *use_l3nhg, bool *is_l3nhg_active,
 				    struct bgp_evpn_es_vrf **es_vrf_p);
+extern void bgp_evpn_nh_init(struct bgp *bgp_vrf);
+extern void bgp_evpn_nh_finish(struct bgp *bgp_vrf);
+extern void bgp_evpn_nh_show(struct vty *vty, bool uj);
+extern void bgp_evpn_path_nh_add(struct bgp *bgp_vrf, struct bgp_path_info *pi);
+extern void bgp_evpn_path_nh_del(struct bgp *bgp_vrf, struct bgp_path_info *pi);
 
 #endif /* _FRR_BGP_EVPN_MH_H */

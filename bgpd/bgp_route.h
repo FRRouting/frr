@@ -120,16 +120,17 @@ struct bgp_path_es_info {
 /* IP paths imported into the VRF from an EVPN route source
  * are linked to the nexthop/VTEP IP
  */
-struct bgp_path_mh_vrf_info {
+struct bgp_path_evpn_nh_info {
 	/* back pointer to the route */
 	struct bgp_path_info *pi;
+	struct bgp_evpn_nh *nh;
 	/* memory used for linking the path to the nexthop */
 	struct listnode nh_listnode;
 };
 
 struct bgp_path_mh_info {
 	struct bgp_path_es_info *es_info;
-	struct bgp_path_mh_vrf_info *vrf_info;
+	struct bgp_path_evpn_nh_info *nh_info;
 };
 
 /* Ancillary information to struct bgp_path_info,

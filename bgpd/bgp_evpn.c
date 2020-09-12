@@ -2462,6 +2462,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	/* as it is an importation, change nexthop */
 	bgp_path_info_set_flag(dest, pi, BGP_PATH_ANNC_NH_SELF);
 
+	/* Link path to evpn nexthop */
+	bgp_evpn_path_nh_add(bgp_vrf, pi);
+
 	bgp_aggregate_increment(bgp_vrf, bgp_dest_get_prefix(dest), pi, afi,
 				safi);
 
@@ -2621,6 +2624,9 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 	/* Mark entry for deletion */
 	bgp_path_info_delete(dest, pi);
+
+	/* Unlink path to evpn nexthop */
+	bgp_evpn_path_nh_del(bgp_vrf, pi);
 
 	/* Perform route selection and update zebra, if required. */
 	bgp_process(bgp_vrf, dest, afi, safi);
@@ -5774,11 +5780,14 @@ void bgp_evpn_init(struct bgp *bgp)
 
 	/* Default BUM handling is to do head-end replication. */
 	bgp->vxlan_flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
+
+	bgp_evpn_nh_init(bgp);
 }
 
 void bgp_evpn_vrf_delete(struct bgp *bgp_vrf)
 {
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
+	bgp_evpn_nh_finish(bgp_vrf);
 }
 
 /*

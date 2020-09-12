@@ -74,6 +74,8 @@ static void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info);
 
 esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
 static int bgp_evpn_run_consistency_checks(struct thread *t);
+static void bgp_evpn_path_nh_info_free(struct bgp_path_evpn_nh_info *nh_info);
+static void bgp_evpn_path_nh_unlink(struct bgp_path_evpn_nh_info *nh_info);
 
 /******************************************************************************
  * per-ES (Ethernet Segment) routing table
@@ -1385,6 +1387,8 @@ void bgp_evpn_path_mh_info_free(struct bgp_path_mh_info *mh_info)
 {
 	if (mh_info->es_info)
 		bgp_evpn_path_es_info_free(mh_info->es_info);
+	if (mh_info->nh_info)
+		bgp_evpn_path_nh_info_free(mh_info->nh_info);
 	XFREE(MTYPE_BGP_EVPN_PATH_MH_INFO, mh_info);
 }
 
@@ -4007,6 +4011,514 @@ static int bgp_evpn_run_consistency_checks(struct thread *t)
 	return 0;
 }
 
+/*****************************************************************************
+ * EVPN-Nexthop and RMAC management: nexthops associated with Type-2 routes
+ * that have an ES as destination are consolidated by BGP into a per-VRF
+ * nh->rmac mapping which is sent to zebra. Zebra installs the nexthop
+ * as a remote neigh/fdb entry with a dummy (type-1) prefix referencing it.
+ *
+ * This handling is needed because Type-2 routes with ES as dest use NHG
+ * that is setup using EAD routes (i.e. such NHGs do not include the
+ * RMAC info).
+ ****************************************************************************/
+static void bgp_evpn_nh_zebra_update_send(struct bgp_evpn_nh *nh, bool add)
+{
+	struct stream *s;
+	struct bgp *bgp_vrf = nh->bgp_vrf;
+
+	/* Check socket. */
+	if (!zclient || zclient->sock < 0)
+		return;
+
+	/* Don't try to register if Zebra doesn't know of this instance. */
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp_vrf)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("No zebra instance, not %s remote nh %s",
+				   add ? "adding" : "deleting", nh->nh_str);
+		return;
+	}
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(
+		s, add ? ZEBRA_EVPN_REMOTE_NH_ADD : ZEBRA_EVPN_REMOTE_NH_DEL,
+		bgp_vrf->vrf_id);
+	stream_putl(s, bgp_vrf->vrf_id);
+	stream_put(s, &nh->ip, sizeof(nh->ip));
+	if (add)
+		stream_put(s, &nh->rmac, sizeof(nh->rmac));
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES)) {
+		if (add)
+			zlog_debug("evpn vrf %s nh %s rmac %pEA add to zebra",
+				   nh->bgp_vrf->name, nh->nh_str, &nh->rmac);
+		else if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+			zlog_debug("evpn vrf %s nh %s del to zebra",
+				   nh->bgp_vrf->name, nh->nh_str);
+	}
+
+	zclient_send_message(zclient);
+}
+
+static void bgp_evpn_nh_zebra_update(struct bgp_evpn_nh *nh, bool add)
+{
+	if (add && !is_zero_mac(&nh->rmac)) {
+		nh->flags |= BGP_EVPN_NH_READY_FOR_ZEBRA;
+		bgp_evpn_nh_zebra_update_send(nh, true);
+	} else {
+		if (!(nh->flags & BGP_EVPN_NH_READY_FOR_ZEBRA))
+			return;
+		nh->flags &= ~BGP_EVPN_NH_READY_FOR_ZEBRA;
+		bgp_evpn_nh_zebra_update_send(nh, false);
+	}
+}
+
+static void *bgp_evpn_nh_alloc(void *p)
+{
+	struct bgp_evpn_nh *tmp_n = p;
+	struct bgp_evpn_nh *n;
+
+	n = XCALLOC(MTYPE_BGP_EVPN_NH, sizeof(struct bgp_evpn_nh));
+	*n = *tmp_n;
+
+	return ((void *)n);
+}
+
+static struct bgp_evpn_nh *bgp_evpn_nh_find(struct bgp *bgp_vrf,
+					    struct ipaddr *ip)
+{
+	struct bgp_evpn_nh tmp;
+	struct bgp_evpn_nh *n;
+
+	memset(&tmp, 0, sizeof(tmp));
+	memcpy(&tmp.ip, ip, sizeof(struct ipaddr));
+	n = hash_lookup(bgp_vrf->evpn_nh_table, &tmp);
+
+	return n;
+}
+
+/* Add nexthop entry - implicitly created on first path reference */
+static struct bgp_evpn_nh *bgp_evpn_nh_add(struct bgp *bgp_vrf,
+					   struct ipaddr *ip,
+					   struct bgp_path_info *pi)
+{
+	struct bgp_evpn_nh tmp_n;
+	struct bgp_evpn_nh *n = NULL;
+
+	memset(&tmp_n, 0, sizeof(struct bgp_evpn_nh));
+	memcpy(&tmp_n.ip, ip, sizeof(struct ipaddr));
+	n = hash_get(bgp_vrf->evpn_nh_table, &tmp_n, bgp_evpn_nh_alloc);
+	ipaddr2str(ip, n->nh_str, sizeof(n->nh_str));
+	n->bgp_vrf = bgp_vrf;
+
+	n->pi_list = list_new();
+	listset_app_node_mem(n->pi_list);
+
+	/* Setup ref_pi when the nh is created */
+	if (CHECK_FLAG(pi->flags, BGP_PATH_VALID) && pi->attr) {
+		n->ref_pi = pi;
+		memcpy(&n->rmac, &pi->attr->rmac, ETH_ALEN);
+	}
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("evpn vrf %s nh %s rmac %pEA add", n->bgp_vrf->name,
+			   n->nh_str, &n->rmac);
+	bgp_evpn_nh_zebra_update(n, true);
+	return n;
+}
+
+/* Delete nexthop entry if there are no paths referencing it */
+static void bgp_evpn_nh_del(struct bgp_evpn_nh *n)
+{
+	struct bgp_evpn_nh *tmp_n;
+	struct bgp *bgp_vrf = n->bgp_vrf;
+
+	if (listcount(n->pi_list))
+		return;
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("evpn vrf %s nh %s del to zebra", bgp_vrf->name,
+			   n->nh_str);
+
+	bgp_evpn_nh_zebra_update(n, false);
+	list_delete(&n->pi_list);
+	tmp_n = hash_release(bgp_vrf->evpn_nh_table, n);
+	XFREE(MTYPE_BGP_EVPN_NH, tmp_n);
+}
+
+static unsigned int bgp_evpn_nh_hash_keymake(const void *p)
+{
+	const struct bgp_evpn_nh *n = p;
+	const struct ipaddr *ip = &n->ip;
+
+	if (IS_IPADDR_V4(ip))
+		return jhash_1word(ip->ipaddr_v4.s_addr, 0);
+
+	return jhash2(ip->ipaddr_v6.s6_addr32,
+		      array_size(ip->ipaddr_v6.s6_addr32), 0);
+}
+
+static bool bgp_evpn_nh_cmp(const void *p1, const void *p2)
+{
+	const struct bgp_evpn_nh *n1 = p1;
+	const struct bgp_evpn_nh *n2 = p2;
+
+	if (n1 == NULL && n2 == NULL)
+		return true;
+
+	if (n1 == NULL || n2 == NULL)
+		return false;
+
+	return (memcmp(&n1->ip, &n2->ip, sizeof(struct ipaddr)) == 0);
+}
+
+void bgp_evpn_nh_init(struct bgp *bgp_vrf)
+{
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("evpn vrf %s nh init", bgp_vrf->name);
+	bgp_vrf->evpn_nh_table = hash_create(
+		bgp_evpn_nh_hash_keymake, bgp_evpn_nh_cmp, "BGP EVPN NH table");
+}
+
+static void bgp_evpn_nh_flush_entry(struct bgp_evpn_nh *nh)
+{
+	struct listnode *node;
+	struct listnode *nnode;
+	struct bgp_path_evpn_nh_info *nh_info;
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("evpn vrf %s nh %s flush", nh->bgp_vrf->name,
+			   nh->nh_str);
+
+	/* force flush paths */
+	for (ALL_LIST_ELEMENTS(nh->pi_list, node, nnode, nh_info))
+		bgp_evpn_path_nh_del(nh->bgp_vrf, nh_info->pi);
+}
+
+static void bgp_evpn_nh_flush_cb(struct hash_bucket *bucket, void *ctxt)
+{
+	struct bgp_evpn_nh *nh = (struct bgp_evpn_nh *)bucket->data;
+
+	bgp_evpn_nh_flush_entry(nh);
+}
+
+void bgp_evpn_nh_finish(struct bgp *bgp_vrf)
+{
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("evpn vrf %s nh finish", bgp_vrf->name);
+	hash_iterate(
+		bgp_vrf->evpn_nh_table,
+		(void (*)(struct hash_bucket *, void *))bgp_evpn_nh_flush_cb,
+		NULL);
+	hash_free(bgp_vrf->evpn_nh_table);
+	bgp_vrf->evpn_nh_table = NULL;
+}
+
+static void bgp_evpn_nh_update_ref_pi(struct bgp_evpn_nh *nh)
+{
+	struct listnode *node;
+	struct bgp_path_info *pi;
+	struct bgp_path_evpn_nh_info *nh_info;
+
+	if (nh->ref_pi)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(nh->pi_list, node, nh_info)) {
+		pi = nh_info->pi;
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID) || !pi->attr)
+			continue;
+
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+			zlog_debug("evpn vrf %s nh %s ref_pi update",
+				   nh->bgp_vrf->name, nh->nh_str);
+		nh->ref_pi = pi;
+		/* If we have a new pi copy rmac from it and update
+		 * zebra if the new rmac is different
+		 */
+		if (memcmp(&nh->rmac, &nh->ref_pi->attr->rmac, ETH_ALEN)) {
+			memcpy(&nh->rmac, &nh->ref_pi->attr->rmac, ETH_ALEN);
+			bgp_evpn_nh_zebra_update(nh, true);
+		}
+		break;
+	}
+}
+
+static void bgp_evpn_nh_clear_ref_pi(struct bgp_evpn_nh *nh,
+				     struct bgp_path_info *pi)
+{
+	if (nh->ref_pi != pi)
+		return;
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("evpn vrf %s nh %s ref_pi clear", nh->bgp_vrf->name,
+			   nh->nh_str);
+	nh->ref_pi = NULL;
+	/* try to find another ref_pi */
+	bgp_evpn_nh_update_ref_pi(nh);
+	/* couldn't find one - clear the old rmac and notify zebra */
+	if (!nh->ref_pi) {
+		memset(&nh->rmac, 0, ETH_ALEN);
+		bgp_evpn_nh_zebra_update(nh, true);
+	}
+}
+
+static void bgp_evpn_path_nh_info_free(struct bgp_path_evpn_nh_info *nh_info)
+{
+	bgp_evpn_path_nh_unlink(nh_info);
+	XFREE(MTYPE_BGP_EVPN_PATH_NH_INFO, nh_info);
+}
+
+static struct bgp_path_evpn_nh_info *
+bgp_evpn_path_nh_info_new(struct bgp_path_info *pi)
+{
+	struct bgp_path_info_extra *e;
+	struct bgp_path_mh_info *mh_info;
+	struct bgp_path_evpn_nh_info *nh_info;
+
+	e = bgp_path_info_extra_get(pi);
+
+	/* If mh_info doesn't exist allocate it */
+	mh_info = e->mh_info;
+	if (!mh_info)
+		e->mh_info = mh_info = XCALLOC(MTYPE_BGP_EVPN_PATH_MH_INFO,
+					       sizeof(struct bgp_path_mh_info));
+
+	/* If nh_info doesn't exist allocate it */
+	nh_info = mh_info->nh_info;
+	if (!nh_info) {
+		mh_info->nh_info = nh_info =
+			XCALLOC(MTYPE_BGP_EVPN_PATH_NH_INFO,
+				sizeof(struct bgp_path_evpn_nh_info));
+		nh_info->pi = pi;
+	}
+
+	return nh_info;
+}
+
+static void bgp_evpn_path_nh_unlink(struct bgp_path_evpn_nh_info *nh_info)
+{
+	struct bgp_evpn_nh *nh = nh_info->nh;
+	struct bgp_path_info *pi;
+	char prefix_buf[PREFIX_STRLEN];
+
+	if (!nh)
+		return;
+
+	pi = nh_info->pi;
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+		zlog_debug("path %s unlinked from nh %s %s",
+			   pi->net ? prefix2str(&pi->net->p, prefix_buf,
+						sizeof(prefix_buf))
+				   : "",
+			   nh->bgp_vrf->name, nh->nh_str);
+
+	list_delete_node(nh->pi_list, &nh_info->nh_listnode);
+
+	nh_info->nh = NULL;
+
+	/* check if the ref_pi need to be updated */
+	bgp_evpn_nh_clear_ref_pi(nh, pi);
+
+	/* if there are no other references against the nh it
+	 * needs to be freed
+	 */
+	bgp_evpn_nh_del(nh);
+
+	/* Note we don't free the path nh_info on unlink; it will be freed up
+	 * along with the path.
+	 */
+}
+
+static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
+{
+	struct bgp_path_evpn_nh_info *nh_info;
+	struct bgp_evpn_nh *nh;
+	char prefix_buf[PREFIX_STRLEN];
+	struct ipaddr ip;
+
+	/* EVPN nexthop setup in bgp has been turned off */
+	if (!bgp_mh_info->bgp_evpn_nh_setup)
+		return;
+
+	if (!bgp_vrf->evpn_nh_table) {
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+			zlog_debug("path %s linked to vrf %s failed",
+				   prefix2str(&pi->net->p, prefix_buf,
+					      sizeof(prefix_buf)),
+				   bgp_vrf->name);
+		return;
+	}
+
+	nh_info = (pi->extra && pi->extra->mh_info)
+			  ? pi->extra->mh_info->nh_info
+			  : NULL;
+
+	/* if NHG is not being used for this path we don't need to manage the
+	 * nexthops in bgp (they are managed by zebra instead)
+	 */
+	if (!(pi->attr->es_flags & ATTR_ES_L3_NHG_USE)) {
+		if (nh_info)
+			bgp_evpn_path_nh_unlink(nh_info);
+		return;
+	}
+
+	/* setup nh_info against the path if it doesn't aleady exist */
+	if (!nh_info)
+		nh_info = bgp_evpn_path_nh_info_new(pi);
+
+	/* find-create nh */
+	memset(&ip, 0, sizeof(ip));
+	if (pi->net->p.family == AF_INET6) {
+		SET_IPADDR_V6(&ip);
+		memcpy(&ip.ipaddr_v6, &pi->attr->mp_nexthop_global,
+		       sizeof(ip.ipaddr_v6));
+	} else {
+		SET_IPADDR_V4(&ip);
+		memcpy(&ip.ipaddr_v4, &pi->attr->nexthop, sizeof(ip.ipaddr_v4));
+	}
+
+	nh = bgp_evpn_nh_find(bgp_vrf, &ip);
+	if (!nh)
+		nh = bgp_evpn_nh_add(bgp_vrf, &ip, pi);
+
+	/* dup check */
+	if (nh_info->nh == nh) {
+		/* Check if any of the paths are now valid */
+		bgp_evpn_nh_update_ref_pi(nh);
+		return;
+	}
+
+	/* unlink old nh if any */
+	bgp_evpn_path_nh_unlink(nh_info);
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+		zlog_debug(
+			"path %s linked to nh %s %s",
+			prefix2str(&pi->net->p, prefix_buf, sizeof(prefix_buf)),
+			nh->bgp_vrf->name, nh->nh_str);
+
+	/* link mac-ip path to the new nh */
+	nh_info->nh = nh;
+	listnode_init(&nh_info->nh_listnode, nh_info);
+	listnode_add(nh->pi_list, &nh_info->nh_listnode);
+	/* If a new valid path got linked to the nh see if can get the rmac
+	 * from it
+	 */
+	bgp_evpn_nh_update_ref_pi(nh);
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES)) {
+		if (!nh->ref_pi)
+			zlog_debug(
+				"path %s linked to nh %s %s with no valid pi",
+				prefix2str(&pi->net->p, prefix_buf,
+					   sizeof(prefix_buf)),
+				nh->bgp_vrf->name, nh->nh_str);
+	}
+}
+
+void bgp_evpn_path_nh_del(struct bgp *bgp_vrf, struct bgp_path_info *pi)
+{
+	struct bgp_path_evpn_nh_info *nh_info;
+
+	nh_info = (pi->extra && pi->extra->mh_info)
+			  ? pi->extra->mh_info->nh_info
+			  : NULL;
+
+	if (!nh_info)
+		return;
+
+	bgp_evpn_path_nh_unlink(nh_info);
+}
+
+void bgp_evpn_path_nh_add(struct bgp *bgp_vrf, struct bgp_path_info *pi)
+{
+	bgp_evpn_path_nh_link(bgp_vrf, pi);
+}
+
+static void bgp_evpn_nh_show_entry(struct bgp_evpn_nh *nh, struct vty *vty,
+				   json_object *json_array)
+{
+	json_object *json = NULL;
+	char mac_buf[ETHER_ADDR_STRLEN];
+	char prefix_buf[PREFIX_STRLEN];
+
+	if (json_array)
+		/* create a separate json object for each ES */
+		json = json_object_new_object();
+
+	prefix_mac2str(&nh->rmac, mac_buf, sizeof(mac_buf));
+	if (nh->ref_pi && nh->ref_pi->net)
+		prefix2str(&nh->ref_pi->net->p, prefix_buf, sizeof(prefix_buf));
+	else
+		prefix_buf[0] = '\0';
+	if (json) {
+		json_object_string_add(json, "vrf", nh->bgp_vrf->name);
+		json_object_string_add(json, "ip", nh->nh_str);
+		json_object_string_add(json, "rmac", mac_buf);
+		json_object_string_add(json, "basePath", prefix_buf);
+		json_object_int_add(json, "pathCount", listcount(nh->pi_list));
+	} else {
+		vty_out(vty, "%-15s %-15s %-17s %-10d %s\n", nh->bgp_vrf->name,
+			nh->nh_str, mac_buf, listcount(nh->pi_list),
+			prefix_buf);
+	}
+
+	/* add ES to the json array */
+	if (json_array)
+		json_object_array_add(json_array, json);
+}
+
+struct nh_show_ctx {
+	struct vty *vty;
+	json_object *json;
+};
+
+static void bgp_evpn_nh_show_hash_cb(struct hash_bucket *bucket, void *ctxt)
+{
+	struct bgp_evpn_nh *nh = (struct bgp_evpn_nh *)bucket->data;
+	struct nh_show_ctx *wctx = (struct nh_show_ctx *)ctxt;
+
+	bgp_evpn_nh_show_entry(nh, wctx->vty, wctx->json);
+}
+
+/* Display all evpn nexthops */
+void bgp_evpn_nh_show(struct vty *vty, bool uj)
+{
+	json_object *json_array = NULL;
+	struct bgp *bgp_vrf;
+	struct listnode *node;
+	struct nh_show_ctx wctx;
+
+	if (uj) {
+		/* create an array of nexthops */
+		json_array = json_object_new_array();
+	} else {
+		vty_out(vty, "%-15s %-15s %-17s %-10s %s\n", "VRF", "IP",
+			"RMAC", "#Paths", "Base Path");
+	}
+
+	wctx.vty = vty;
+	wctx.json = json_array;
+
+	/* walk through all vrfs */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		hash_iterate(bgp_vrf->evpn_nh_table,
+			     (void (*)(struct hash_bucket *,
+				       void *))bgp_evpn_nh_show_hash_cb,
+			     &wctx);
+	}
+
+	/* print the array of json-ESs */
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json_array, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_array);
+	}
+}
+
 /*****************************************************************************/
 void bgp_evpn_mh_init(void)
 {
@@ -4030,6 +4542,7 @@ void bgp_evpn_mh_init(void)
 	bgp_mh_info->install_l3nhg = false;
 	bgp_mh_info->host_routes_use_l3nhg = BGP_EVPN_MH_USE_ES_L3NHG_DEF;
 	bgp_mh_info->suppress_l3_ecomm_on_inactive_es = true;
+	bgp_mh_info->bgp_evpn_nh_setup = true;
 
 	memset(&zero_esi_buf, 0, sizeof(esi_t));
 }
