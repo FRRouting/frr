@@ -383,6 +383,10 @@ static void nb_config_diff_add_change(struct nb_config_cbs *changes,
 {
 	struct nb_config_change *change;
 
+	/* Ignore unimplemented nodes. */
+	if (!dnode->schema->priv)
+		return;
+
 	change = XCALLOC(MTYPE_TMP, sizeof(*change));
 	change->cb.operation = operation;
 	change->cb.seq = *seq;
@@ -415,6 +419,10 @@ static void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
 {
 	enum nb_operation operation;
 	struct lyd_node *child;
+
+	/* Ignore unimplemented nodes. */
+	if (!dnode->schema->priv)
+		return;
 
 	switch (dnode->schema->nodetype) {
 	case LYS_LEAF:
@@ -450,6 +458,10 @@ static void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
 static void nb_config_diff_deleted(const struct lyd_node *dnode, uint32_t *seq,
 				   struct nb_config_cbs *changes)
 {
+	/* Ignore unimplemented nodes. */
+	if (!dnode->schema->priv)
+		return;
+
 	if (nb_operation_is_valid(NB_OP_DESTROY, dnode->schema))
 		nb_config_diff_add_change(changes, NB_OP_DESTROY, seq, dnode);
 	else if (CHECK_FLAG(dnode->schema->nodetype, LYS_CONTAINER)) {
@@ -618,7 +630,7 @@ static int nb_candidate_validate_code(struct nb_context *context,
 			struct nb_node *nb_node;
 
 			nb_node = child->schema->priv;
-			if (!nb_node->cbs.pre_validate)
+			if (!nb_node || !nb_node->cbs.pre_validate)
 				goto next;
 
 			ret = nb_callback_pre_validate(context, nb_node, child,
@@ -1385,7 +1397,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction,
 			struct nb_node *nb_node;
 
 			nb_node = dnode->schema->priv;
-			if (!nb_node->cbs.apply_finish)
+			if (!nb_node || !nb_node->cbs.apply_finish)
 				goto next;
 
 			/*

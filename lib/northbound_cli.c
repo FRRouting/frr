@@ -573,7 +573,7 @@ void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
 		struct nb_node *nb_node;
 
 		nb_node = child->schema->priv;
-		if (!nb_node->cbs.cli_show)
+		if (!nb_node || !nb_node->cbs.cli_show)
 			goto next;
 
 		/* Skip default values. */
@@ -591,7 +591,7 @@ void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
 		parent = ly_iter_next_up(child);
 		if (parent != NULL) {
 			nb_node = parent->schema->priv;
-			if (nb_node->cbs.cli_show_end)
+			if (nb_node && nb_node->cbs.cli_show_end)
 				(*nb_node->cbs.cli_show_end)(vty, parent);
 		}
 
