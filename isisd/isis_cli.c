@@ -235,7 +235,7 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 	}
 
 	/* check if the interface is a loopback and if so set it as passive */
-	if (ifp && if_is_loopback(ifp))
+	if (if_is_loopback(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
 
@@ -326,7 +326,7 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 	}
 
 	/* check if the interface is a loopback and if so set it as passive */
-	if (ifp && if_is_loopback(ifp))
+	if (if_is_loopback(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
 
