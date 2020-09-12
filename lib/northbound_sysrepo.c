@@ -223,7 +223,7 @@ static int frr_sr_process_change(struct nb_config *candidate,
 
 	ret = nb_candidate_edit(candidate, nb_node, nb_op, xpath, NULL, data);
 	yang_data_free(data);
-	if (ret != NB_OK) {
+	if (ret != NB_OK && ret != NB_ERR_NOT_FOUND) {
 		flog_warn(
 			EC_LIB_NB_CANDIDATE_EDIT_ERROR,
 			"%s: failed to edit candidate configuration: operation [%s] xpath [%s]",
