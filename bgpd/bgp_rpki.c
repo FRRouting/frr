@@ -1060,67 +1060,6 @@ DEFUN (no_rpki_retry_interval,
 	return CMD_SUCCESS;
 }
 
-#if (CONFDATE > 20200901)
-CPP_NOTICE("bgpd: time to remove rpki timeout")
-CPP_NOTICE("bgpd: this includes rpki_timeout and rpki_synchronisation_timeout")
-#endif
-
-DEFPY_HIDDEN (rpki_timeout,
-       rpki_timeout_cmd,
-       "rpki timeout (1-4294967295)$to_arg",
-       RPKI_OUTPUT_STRING
-       "Set timeout\n"
-       "Timeout value\n")
-{
-	vty_out(vty,
-		"This config option is deprecated, and is scheduled for removal.\n");
-	vty_out(vty,
-		"This functionality has also already been removed because it caused bugs and was pointless\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_rpki_timeout,
-       no_rpki_timeout_cmd,
-       "no rpki timeout",
-       NO_STR
-       RPKI_OUTPUT_STRING
-       "Set timeout back to default\n")
-{
-	vty_out(vty,
-		"This config option is deprecated, and is scheduled for removal.\n");
-	vty_out(vty,
-		"This functionality has also already been removed because it caused bugs and was pointless\n");
-	return CMD_SUCCESS;
-}
-
-DEFPY_HIDDEN (rpki_synchronisation_timeout,
-       rpki_synchronisation_timeout_cmd,
-       "rpki initial-synchronisation-timeout (1-4294967295)$ito_arg",
-       RPKI_OUTPUT_STRING
-       "Set a timeout for the initial synchronisation of prefix validation data\n"
-       "Timeout value\n")
-{
-	vty_out(vty,
-		"This config option is deprecated, and is scheduled for removal.\n");
-	vty_out(vty,
-		"This functionality has also already been removed because it caused bugs and was pointless\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_rpki_synchronisation_timeout,
-       no_rpki_synchronisation_timeout_cmd,
-       "no rpki initial-synchronisation-timeout",
-       NO_STR
-       RPKI_OUTPUT_STRING
-       "Set the initial synchronisation timeout back to default (30 sec.)\n")
-{
-	vty_out(vty,
-		"This config option is deprecated, and is scheduled for removal.\n");
-	vty_out(vty,
-		"This functionality has also already been removed because it caused bugs and was pointless\n");
-	return CMD_SUCCESS;
-}
-
 DEFPY (rpki_cache,
        rpki_cache_cmd,
        "rpki cache <A.B.C.D|WORD><TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> preference (1-255)",
@@ -1515,14 +1454,6 @@ static void install_cli_commands(void)
 	/* Install rpki retry interval commands */
 	install_element(RPKI_NODE, &rpki_retry_interval_cmd);
 	install_element(RPKI_NODE, &no_rpki_retry_interval_cmd);
-
-	/* Install rpki timeout commands */
-	install_element(RPKI_NODE, &rpki_timeout_cmd);
-	install_element(RPKI_NODE, &no_rpki_timeout_cmd);
-
-	/* Install rpki synchronisation timeout commands */
-	install_element(RPKI_NODE, &rpki_synchronisation_timeout_cmd);
-	install_element(RPKI_NODE, &no_rpki_synchronisation_timeout_cmd);
 
 	/* Install rpki cache commands */
 	install_element(RPKI_NODE, &rpki_cache_cmd);
