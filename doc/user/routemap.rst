@@ -299,10 +299,13 @@ Route Map Set Command
 
    Set the route's weight.
 
-.. index:: set metric METRIC
-.. clicmd:: set metric METRIC
+.. index:: [no] set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt>
+.. clicmd:: [no] set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt>
 
-   Set the BGP attribute MED.
+   Set the BGP attribute MED to a specific value. Use `+`/`-` to add or subtract
+   the specified value to/from the MED. Use `rtt` to set the MED to the round
+   trip time or `+rtt`/`-rtt` to add/subtract the round trip time to/from the
+   MED.
 
 .. index:: set as-path prepend AS_PATH
 .. clicmd:: set as-path prepend AS_PATH
