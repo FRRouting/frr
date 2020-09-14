@@ -1939,7 +1939,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 						zlog_debug(
 							"Intf %s(%u) PTM up, notifying clients",
 							name, ifp->ifindex);
-					zebra_interface_up_update(ifp);
+					if_up(ifp);
 
 					/* Update EVPN VNI when SVI MAC change
 					 */
