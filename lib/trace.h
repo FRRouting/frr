@@ -107,6 +107,7 @@ THREAD_OPERATION_TRACEPOINT_INSTANCE(thread_call)
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>
+#include <lttng/tracelog.h>
 
 #else /* HAVE_LTTNG */
 
