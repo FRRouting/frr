@@ -94,7 +94,9 @@ irrelevant for the time being) for the specific type. For example, to add a
    thread_add_read(struct thread_master *master, int (*handler)(struct thread *), void *arg, int fd, struct thread **ref);
 
 The ``struct thread`` is then created and added to the appropriate internal
-datastructure within the ``threadmaster``.
+datastructure within the ``threadmaster``. Note that the ``READ`` and
+``WRITE`` tasks are independent - a ``READ`` task only tests for
+readability, for example.
 
 The Event Loop
 ^^^^^^^^^^^^^^
