@@ -423,6 +423,7 @@ uint32_t dplane_ctx_neigh_get_update_flags(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_rule_get_sock(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_rule_get_unique(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_rule_get_seq(const struct zebra_dplane_ctx *ctx);
+const char *dplane_ctx_rule_get_ifname(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_rule_get_priority(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_rule_get_old_priority(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_rule_get_table(const struct zebra_dplane_ctx *ctx);

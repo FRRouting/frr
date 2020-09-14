@@ -158,7 +158,7 @@ extern struct pbr_map_entry_head pbr_maps;
 
 extern struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno);
 extern struct pbr_map_sequence *
-pbrms_lookup_unique(uint32_t unique, ifindex_t ifindex,
+pbrms_lookup_unique(uint32_t unique, char *ifname,
 		    struct pbr_map_interface **ppmi);
 
 extern struct pbr_map *pbrm_find(const char *name);

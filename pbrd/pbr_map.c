@@ -293,7 +293,7 @@ void pbr_map_policy_interface_update(const struct interface *ifp, bool state_up)
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
 			if (pmi->ifp == ifp && pbr_map_interface_is_valid(pmi))
-				pbr_send_pbr_map(pbrms, pmi, state_up, false);
+				pbr_send_pbr_map(pbrms, pmi, state_up, true);
 }
 
 static void pbrms_vrf_update(struct pbr_map_sequence *pbrms,
@@ -398,7 +398,7 @@ void pbr_map_delete_vrf(struct pbr_map_sequence *pbrms)
 	pbr_map_delete_common(pbrms);
 }
 
-struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, ifindex_t ifindex,
+struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, char *ifname,
 					     struct pbr_map_interface **ppmi)
 {
 	struct pbr_map_sequence *pbrms;
@@ -408,7 +408,8 @@ struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, ifindex_t ifindex,
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
 		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi)) {
-			if (pmi->ifp->ifindex != ifindex)
+			if (strncmp(pmi->ifp->name, ifname, INTERFACE_NAMSIZ)
+			    != 0)
 				continue;
 
 			if (ppmi)
