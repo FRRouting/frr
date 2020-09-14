@@ -3350,6 +3350,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_NHG_ADD] = zread_nhg_add,
 	[ZEBRA_NHG_DEL] = zread_nhg_del,
 	[ZEBRA_ROUTE_NOTIFY_REQUEST] = zread_route_notify_request,
+	[ZEBRA_EVPN_REMOTE_NH_ADD] = zebra_evpn_proc_remote_nh,
+	[ZEBRA_EVPN_REMOTE_NH_DEL] = zebra_evpn_proc_remote_nh,
 };
 
 /*

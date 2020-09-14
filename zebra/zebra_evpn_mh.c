@@ -3867,6 +3867,47 @@ static void zebra_evpn_mh_startup_delay_timer_start(const char *rc)
 	}
 }
 
+/*****************************************************************************
+ * Nexthop management: nexthops associated with Type-2 routes that have
+ * an ES as destination are consolidated by BGP into a per-VRF nh->rmac
+ * mapping which is the installed as a remote neigh/fdb entry with a
+ * dummy (type-1) prefix referencing it.
+ * This handling is needed because Type-2 routes with ES as dest use NHG
+ * that are setup using EAD routes (i.e. such NHGs do not include the
+ * RMAC info).
+ ****************************************************************************/
+void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	vrf_id_t vrf_id;
+	struct ipaddr nh;
+	struct ethaddr rmac;
+	struct prefix_evpn dummy_prefix;
+
+	s = msg;
+	vrf_id = stream_getl(s);
+	stream_get(&nh, s, sizeof(nh));
+
+	memset(&dummy_prefix, 0, sizeof(dummy_prefix));
+	dummy_prefix.family = AF_EVPN;
+	dummy_prefix.prefixlen = (sizeof(struct evpn_addr) * 8);
+	dummy_prefix.prefix.route_type = 1; /* XXX - fixup to type-1 def */
+
+	if (hdr->command == ZEBRA_EVPN_REMOTE_NH_ADD) {
+		stream_get(&rmac, s, sizeof(rmac));
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("evpn remote nh %d %pIA rmac %pEA add",
+				   vrf_id, &nh, &rmac);
+		zebra_vxlan_evpn_vrf_route_add(vrf_id, &rmac, &nh,
+					       (struct prefix *)&dummy_prefix);
+	} else {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("evpn remote nh %d %pIA del", vrf_id, &nh);
+		zebra_vxlan_evpn_vrf_route_del(vrf_id, &nh,
+					       (struct prefix *)&dummy_prefix);
+	}
+}
+
 /*****************************************************************************/
 void zebra_evpn_mh_config_write(struct vty *vty)
 {
