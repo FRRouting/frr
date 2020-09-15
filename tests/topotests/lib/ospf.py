@@ -650,7 +650,7 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
     logger.debug("Exiting API: verify_ospf_neighbor()")
     return result
 
-@retry(attempts=20, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=21, wait=2, return_is_str=True)
 def verify_ospf_rib(tgen, dut, input_dict, next_hop=None,
             tag=None, metric=None, fib=None):
     """
@@ -965,7 +965,7 @@ def verify_ospf_interface(tgen, topo, dut=None,lan=False, input_dict=None):
     return result
 
 
-@retry(attempts=10, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=11, wait=2, return_is_str=True)
 def verify_ospf_database(tgen, topo, dut, input_dict):
     """
     This API is to verify ospf lsa's by running
