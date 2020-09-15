@@ -69,7 +69,6 @@ from lib.common_config import (
     create_static_routes,
     verify_rib,
     verify_admin_distance_for_static_routes,
-<<<<<<< ff9ae8fbb8f14b1cf5679d3278341edd09e7d8bf
     check_address_types,
     apply_raw_config,
     addKernelRoute,
@@ -77,9 +76,7 @@ from lib.common_config import (
     create_prefix_lists,
     create_route_maps,
     verify_bgp_community,
-=======
     required_linux_kernel_version
->>>>>>> tests: Moving kernel version check to API.
 )
 from lib.topolog import logger
 from lib.bgp import (
@@ -143,8 +140,8 @@ def setup_module(mod):
 
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version('4.15')
-    if result:
-        pytest.skip(result)
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
