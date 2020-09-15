@@ -104,6 +104,28 @@ THREAD_OPERATION_TRACEPOINT_INSTANCE(thread_cancel)
 THREAD_OPERATION_TRACEPOINT_INSTANCE(thread_cancel_async)
 THREAD_OPERATION_TRACEPOINT_INSTANCE(thread_call)
 
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	frr_pthread_run,
+	TP_ARGS(
+		char *, name
+	),
+	TP_FIELDS(
+		ctf_string(frr_pthread_name, name)
+	)
+)
+
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	frr_pthread_stop,
+	TP_ARGS(
+		char *, name
+	),
+	TP_FIELDS(
+		ctf_string(frr_pthread_name, name)
+	)
+)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>
