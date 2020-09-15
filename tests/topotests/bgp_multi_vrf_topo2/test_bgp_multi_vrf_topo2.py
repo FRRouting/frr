@@ -78,6 +78,7 @@ from lib.common_config import (
     get_frr_ipv6_linklocal,
     check_router_status,
     apply_raw_config,
+    required_linux_kernel_version
 )
 
 from lib.topolog import logger
@@ -141,6 +142,10 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version('4.15')
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))

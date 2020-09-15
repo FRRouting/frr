@@ -36,6 +36,8 @@ import ConfigParser
 import traceback
 import socket
 import ipaddress
+import platform
+
 
 if sys.version_info[0] > 2:
     import io
@@ -46,7 +48,7 @@ else:
 
 from lib.topolog import logger, logger_config
 from lib.topogen import TopoRouter, get_topogen
-from lib.topotest import interface_set_status
+from lib.topotest import interface_set_status, version_cmp
 
 FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
@@ -3973,3 +3975,30 @@ def verify_vrf_vni(tgen, input_dict):
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return False
+
+
+def required_linux_kernel_version(required_version):
+    """
+    This API is used to check linux version compatibility of the test suite.
+    If version mentioned in required_version is higher than the linux kernel
+    of the system, test suite will be skipped. This API returns true or errormsg.
+
+    Parameters
+    ----------
+    * `required_version` : Kernel version required for the suites to run.
+
+    Usage
+    -----
+    result = linux_kernel_version_lowerthan('4.15')
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+    system_kernel = platform.release()
+    if version_cmp(system_kernel, required_version) < 0:
+        error_msg = ('These tests will not run on kernel "{}", '
+            'they require kernel >= {})'.format(system_kernel,
+                required_version ))
+        return error_msg
+    return True
