@@ -97,6 +97,7 @@ static int isis_check_dr_change(struct isis_adjacency *adj, int level)
 	/* was there a DIS state transition ? */
 	{
 		adj->dischanges[level - 1]++;
+		adj->circuit->desig_changes[level - 1]++;
 		/* ok rotate the history list through */
 		for (i = DIS_RECORDS - 1; i > 0; i--) {
 			adj->dis_record[(i * ISIS_LEVELS) + level - 1].dis =

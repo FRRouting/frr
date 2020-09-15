@@ -107,7 +107,7 @@ sub scan_file {
             $protocol = "VTYSH_ALL";
         }
 	elsif ($file =~ /lib\/agentx\.c$/) {
-	    $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
+	    $protocol = "VTYSH_ISISD|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
 	}
 	elsif ($file =~ /lib\/nexthop_group\.c$/) {
 	    $protocol = "VTYSH_NH_GROUP";

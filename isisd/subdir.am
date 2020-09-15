@@ -17,6 +17,9 @@ vtysh_scan += \
 	isisd/isisd.c \
 	# end
 vtysh_daemons += isisd
+if SNMP
+module_LTLIBRARIES += isisd/isisd_snmp.la
+endif
 man8 += $(MANBUILD)/frr-isisd.8
 endif
 
@@ -137,7 +140,12 @@ isisd_isisd_SOURCES = $(ISIS_SOURCES)
 nodist_isisd_isisd_SOURCES = \
 	yang/frr-isisd.yang.c \
 	# end
-	
+
+isisd_isisd_snmp_la_SOURCES = isisd/isis_snmp.c
+isisd_isisd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
+isisd_isisd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+isisd_isisd_snmp_la_LIBADD = lib/libfrrsnmp.la
+
 # Building fabricd
 
 FABRICD_CPPFLAGS = -DFABRICD=1 $(AM_CPPFLAGS)

@@ -49,12 +49,20 @@
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
 
-static struct isis_adjacency *adj_alloc(const uint8_t *id)
+static struct isis_adjacency *adj_alloc(struct isis_circuit *circuit,
+					const uint8_t *id)
 {
 	struct isis_adjacency *adj;
 
 	adj = XCALLOC(MTYPE_ISIS_ADJACENCY, sizeof(struct isis_adjacency));
 	memcpy(adj->sysid, id, ISIS_SYS_ID_LEN);
+
+	adj->snmp_idx = ++circuit->snmp_adj_idx_gen;
+
+	if (circuit->snmp_adj_list == NULL)
+		circuit->snmp_adj_list = list_new();
+
+	adj->snmp_list_node = listnode_add(circuit->snmp_adj_list, adj);
 
 	return adj;
 }
@@ -65,7 +73,7 @@ struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 	struct isis_adjacency *adj;
 	int i;
 
-	adj = adj_alloc(id); /* P2P kludge */
+	adj = adj_alloc(circuit, id); /* P2P kludge */
 
 	if (snpa) {
 		memcpy(adj->snpa, snpa, ETH_ALEN);
@@ -146,6 +154,8 @@ void isis_delete_adj(void *arg)
 
 	if (!adj)
 		return;
+	/* Remove self from snmp list without walking the list*/
+	list_delete_node(adj->circuit->snmp_adj_list, adj->snmp_list_node);
 
 	thread_cancel(&adj->t_expire);
 	if (adj->adj_state != ISIS_ADJ_DOWN)
@@ -292,7 +302,6 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 	if (circuit->area->log_adj_changes)
 		isis_log_adj_change(adj, old_state, new_state, reason);
 
-	circuit->adj_state_changes++;
 #ifndef FABRICD
 	/* send northbound notification */
 	isis_notif_adj_state_change(adj, new_state, reason);
@@ -303,12 +312,14 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 			if ((adj->level & level) == 0)
 				continue;
 			if (new_state == ISIS_ADJ_UP) {
+				circuit->adj_state_changes++;
 				circuit->upadjcount[level - 1]++;
 				/* update counter & timers for debugging
 				 * purposes */
 				adj->last_flap = time(NULL);
 				adj->flaps++;
 			} else if (old_state == ISIS_ADJ_UP) {
+				circuit->adj_state_changes++;
 				listnode_delete(circuit->u.bc.adjdb[level - 1],
 						adj);
 
