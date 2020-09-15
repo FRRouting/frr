@@ -2853,7 +2853,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 }
 
 /* Delete NHE from upper level proto, caller must decrement ref */
-struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id)
+struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id, int type)
 {
 	struct nhg_hash_entry *nhe;
 
@@ -2863,6 +2863,15 @@ struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id)
 		if (IS_ZEBRA_DEBUG_NHG)
 			zlog_debug("%s: id %u, lookup failed", __func__, id);
 
+		return NULL;
+	}
+
+	if (type != nhe->type) {
+		if (IS_ZEBRA_DEBUG_NHG)
+			zlog_debug(
+				"%s: id %u, type %s mismatch, sent by %s, ignoring",
+				__func__, id, zebra_route_string(nhe->type),
+				zebra_route_string(type));
 		return NULL;
 	}
 

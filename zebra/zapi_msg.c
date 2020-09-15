@@ -1746,7 +1746,7 @@ static void zread_nhg_del(ZAPI_HANDLER_ARGS)
 	 * Delete the received nhg id
 	 */
 
-	nhe = zebra_nhg_proto_del(id);
+	nhe = zebra_nhg_proto_del(id, proto);
 
 	if (nhe) {
 		zebra_nhg_decrement_ref(nhe);

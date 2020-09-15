@@ -294,7 +294,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
  *
  * Caller must decrement ref with zebra_nhg_decrement_ref() when done.
  */
-struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id);
+struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id, int type);
 
 /*
  * Remove specific by proto NHGs.
