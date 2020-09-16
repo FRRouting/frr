@@ -438,7 +438,8 @@ struct thread_master *thread_master_create(const char *name)
 	pthread_cond_init(&rv->cancel_cond, NULL);
 
 	/* Set name */
-	rv->name = name ? XSTRDUP(MTYPE_THREAD_MASTER, name) : NULL;
+	name = name ? name : "default";
+	rv->name = XSTRDUP(MTYPE_THREAD_MASTER, name);
 
 	/* Initialize I/O task data structures */
 	getrlimit(RLIMIT_NOFILE, &limit);
@@ -449,10 +450,13 @@ struct thread_master *thread_master_create(const char *name)
 	rv->write = XCALLOC(MTYPE_THREAD_POLL,
 			    sizeof(struct thread *) * rv->fd_limit);
 
+	char tmhashname[strlen(name) + 32];
+	snprintf(tmhashname, sizeof(tmhashname), "%s - threadmaster event hash",
+		 name);
 	rv->cpu_record = hash_create_size(
 		8, (unsigned int (*)(const void *))cpu_record_hash_key,
 		(bool (*)(const void *, const void *))cpu_record_hash_cmp,
-		"Thread Hash");
+		tmhashname);
 
 	thread_list_init(&rv->event);
 	thread_list_init(&rv->ready);
