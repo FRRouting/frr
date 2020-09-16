@@ -19,6 +19,10 @@ module frr-bgp {
     prefix frr-interface;
   }
 
+  import frr-bgp-types {
+    prefix frr-bt;
+  }
+
   include "frr-bgp-common-structure";
 
   include "frr-bgp-common";
@@ -206,6 +210,25 @@ module frr-bgp {
               "The peer-group with which this neighbor is associated.";
           }
 
+          container neighbor-remote-as {
+            leaf remote-as-type {
+              type frr-bt:as-type;
+              mandatory true;
+              description
+                "Remote AS type.";
+            }
+
+            leaf remote-as {
+              when "../remote-as-type = 'as-specified'";
+              type inet:as-number;
+              description
+                "The remote autonomous system number received in
+                 the BGP OPEN message.";
+              reference
+                "RFC 4271";
+            }
+          }
+
           uses neighbor-parameters;
         }
 
@@ -237,6 +260,8 @@ module frr-bgp {
             description
               "The peer-group with which this neighbor is associated.";
           }
+
+          uses neighbor-remote-as;
 
           uses neighbor-parameters;
         }

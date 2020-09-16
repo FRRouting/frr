@@ -9,6 +9,10 @@ submodule frr-bgp-peer-group {
     prefix inet;
   }
 
+  import frr-bgp-types {
+    prefix frr-bt;
+  }
+
   include frr-bgp-common-structure;
   include frr-bgp-neighbor;
 
@@ -71,6 +75,8 @@ submodule frr-bgp-peer-group {
       description
         "Configure BGP dynamic neighbors listen range.";
     }
+
+    uses neighbor-remote-as;
 
     uses neighbor-parameters;
   }

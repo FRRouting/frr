@@ -194,5 +194,20 @@ extern const char *bgp_afi_safi_get_container_str(afi_t afi, safi_t safi);
 extern bool vpn_policy_check_import(struct bgp *bgp, afi_t afi, safi_t safi,
 				    bool v2vimport, char *errmsg,
 				    size_t errmsg_len);
+extern int bgp_nb_errmsg_return(char *errmsg, size_t errmsg_len, int ret);
+extern bool peer_address_self_check(struct bgp *bgp, union sockunion *su);
+extern int peer_local_interface_cfg(struct bgp *bgp, const char *ip_str,
+				    const char *str, char *errmsg,
+				    size_t errmsg_len);
+extern int peer_conf_interface_create(struct bgp *bgp, const char *conf_if,
+				      afi_t afi, safi_t safi, bool v6only,
+				      const char *peer_group_name, int as_type,
+				      as_t as, char *errmsg, size_t errmsg_len);
+extern int peer_flag_modify_nb(struct bgp *bgp, const char *ip_str,
+			       struct peer *peer, uint32_t flag, bool set,
+			       char *errmsg, size_t errmsg_len);
+extern int peer_af_flag_modify_nb(struct peer *peer, afi_t afi, safi_t safi,
+				  uint32_t flag, int set, char *errmsg,
+				  size_t errmsg_len);
 
 #endif /* _QUAGGA_BGP_VTY_H */

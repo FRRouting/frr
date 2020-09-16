@@ -110,7 +110,6 @@ submodule frr-bgp-common-structure {
     container local-as {
       leaf local-as {
         type inet:as-number;
-        mandatory true;
         description
           "The local autonomous system number that is to be used when
            establishing sessions with the remote peer or peer group, if
@@ -200,7 +199,6 @@ submodule frr-bgp-common-structure {
     container neighbor-remote-as {
       leaf remote-as-type {
         type frr-bt:as-type;
-        mandatory true;
         description
           "Remote AS type.";
       }
@@ -598,7 +596,7 @@ submodule frr-bgp-common-structure {
 
       leaf send-large-community {
         type boolean;
-        default "false";
+        default "true";
         description
           "Send large community attribute to this neighbor.";
       }
@@ -614,7 +612,6 @@ submodule frr-bgp-common-structure {
         "BGP Administrative Shutdown Communication.";
       leaf enable {
         type boolean;
-        mandatory true;
         description
           "When set to 'true', BGP shutdown communication is enabled.";
       }
