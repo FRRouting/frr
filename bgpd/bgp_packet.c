@@ -63,6 +63,7 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_flowspec.h"
+#include "bgpd/bgp_trace.h"
 
 DEFINE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
@@ -2366,6 +2367,7 @@ int bgp_process_packet(struct thread *thread)
 		 */
 		switch (type) {
 		case BGP_MSG_OPEN:
+			tracepoint(frr_bgp, open_process, peer, size);
 			atomic_fetch_add_explicit(&peer->open_in, 1,
 						  memory_order_relaxed);
 			mprc = bgp_open_receive(peer, size);
@@ -2376,6 +2378,7 @@ int bgp_process_packet(struct thread *thread)
 					__func__, peer->host);
 			break;
 		case BGP_MSG_UPDATE:
+			tracepoint(frr_bgp, update_process, peer, size);
 			atomic_fetch_add_explicit(&peer->update_in, 1,
 						  memory_order_relaxed);
 			peer->readtime = monotime(NULL);
@@ -2387,6 +2390,7 @@ int bgp_process_packet(struct thread *thread)
 					__func__, peer->host);
 			break;
 		case BGP_MSG_NOTIFY:
+			tracepoint(frr_bgp, notification_process, peer, size);
 			atomic_fetch_add_explicit(&peer->notify_in, 1,
 						  memory_order_relaxed);
 			mprc = bgp_notify_receive(peer, size);
@@ -2397,6 +2401,7 @@ int bgp_process_packet(struct thread *thread)
 					__func__, peer->host);
 			break;
 		case BGP_MSG_KEEPALIVE:
+			tracepoint(frr_bgp, keepalive_process, peer, size);
 			peer->readtime = monotime(NULL);
 			atomic_fetch_add_explicit(&peer->keepalive_in, 1,
 						  memory_order_relaxed);
@@ -2409,6 +2414,7 @@ int bgp_process_packet(struct thread *thread)
 			break;
 		case BGP_MSG_ROUTE_REFRESH_NEW:
 		case BGP_MSG_ROUTE_REFRESH_OLD:
+			tracepoint(frr_bgp, refresh_process, peer, size);
 			atomic_fetch_add_explicit(&peer->refresh_in, 1,
 						  memory_order_relaxed);
 			mprc = bgp_route_refresh_receive(peer, size);
@@ -2419,6 +2425,7 @@ int bgp_process_packet(struct thread *thread)
 					__func__, peer->host);
 			break;
 		case BGP_MSG_CAPABILITY:
+			tracepoint(frr_bgp, capability_process, peer, size);
 			atomic_fetch_add_explicit(&peer->dynamic_cap_in, 1,
 						  memory_order_relaxed);
 			mprc = bgp_capability_receive(peer, size);

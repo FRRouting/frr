@@ -39,6 +39,7 @@
 #include "bgpd/bgp_errors.h"	// for expanded error reference information
 #include "bgpd/bgp_fsm.h"	// for BGP_EVENT_ADD, bgp_event
 #include "bgpd/bgp_packet.h"	// for bgp_notify_send_with_data, bgp_notify...
+#include "bgpd/bgp_trace.h"	// for tracepoints
 #include "bgpd/bgpd.h"		// for peer, BGP_MARKER_SIZE, bgp_master, bm
 /* clang-format on */
 
@@ -235,6 +236,7 @@ static int bgp_process_reads(struct thread *thread)
 			stream_set_endp(pkt, pktsize);
 
 			frr_with_mutex(&peer->io_mtx) {
+				tracepoint(frr_bgp, packet_read, peer, pkt);
 				stream_fifo_push(peer->ibuf, pkt);
 			}
 
