@@ -175,6 +175,8 @@ void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 		hash->index[index] = bucket;
 		hash->count++;
 
+		tracepoint(frr_libfrr, hash_insert, hash, data, key);
+
 		int oldlen = bucket->next ? bucket->next->len : 0;
 		int newlen = oldlen + 1;
 

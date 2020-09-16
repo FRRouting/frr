@@ -56,6 +56,21 @@ TRACEPOINT_LOGLEVEL(frr_libfrr, hash_get, TRACE_INFO)
 
 TRACEPOINT_EVENT(
 	frr_libfrr,
+	hash_insert,
+	TP_ARGS(struct hash *, hash, void *, data, unsigned int, key),
+	TP_FIELDS(
+		ctf_string(name, hash->name ? hash->name : "(unnamed)")
+		ctf_integer(unsigned int, key, hash->size)
+		ctf_integer(unsigned int, index_size, hash->size)
+		ctf_integer(unsigned long, item_count, hash->count)
+		ctf_integer_hex(intptr_t, data_ptr, data)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_libfrr, hash_insert, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_libfrr,
 	hash_release,
 	TP_ARGS(struct hash *, hash, void *, data, void *, released_item),
 	TP_FIELDS(
