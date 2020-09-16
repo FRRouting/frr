@@ -27,6 +27,8 @@ extern void _zlog_assert_failed(const char *assertion, const char *file,
 				unsigned int line, const char *function)
 	__attribute__((noreturn));
 
+#undef __ASSERT_FUNCTION
+
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #define __ASSERT_FUNCTION    __func__
 #elif defined(__GNUC__)
