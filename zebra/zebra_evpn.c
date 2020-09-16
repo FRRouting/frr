@@ -921,7 +921,7 @@ zebra_evpn_t *zebra_evpn_add(vni_t vni)
 	zevpn = hash_get(zvrf->evpn_table, &tmp_zevpn, zebra_evpn_alloc);
 	assert(zevpn);
 
-	zebra_evpn_evpn_es_init(zevpn);
+	zebra_evpn_es_evi_init(zevpn);
 
 	/* Create hash table for MAC */
 	zevpn->mac_table = zebra_mac_db_create("Zebra EVPN MAC Table");
@@ -951,7 +951,7 @@ int zebra_evpn_del(zebra_evpn_t *zevpn)
 	hash_free(zevpn->mac_table);
 	zevpn->mac_table = NULL;
 
-	zebra_evpn_evpn_es_cleanup(zevpn);
+	zebra_evpn_es_evi_cleanup(zevpn);
 
 	/* Free the EVPN hash entry and allocated memory. */
 	tmp_zevpn = hash_release(zvrf->evpn_table, zevpn);
