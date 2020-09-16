@@ -563,7 +563,7 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 	if (addr)
 		return true;
 
-	if (new_afi == AF_INET) {
+	if (new_afi == AF_INET && hashcount(bgp->tip_hash)) {
 		memset(&tmp_tip, 0, sizeof(struct tip_addr));
 		tmp_tip.addr = attr->nexthop;
 
