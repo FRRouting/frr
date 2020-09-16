@@ -519,6 +519,8 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl)
 
 	if (!ecom_found)
 		listnode_add_sort(rtl, ecomadd);
+	else
+		ecommunity_free(&ecomadd);
 }
 
 /*
