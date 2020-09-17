@@ -85,15 +85,13 @@ int isis_instance_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 	area = nb_running_unset_entry(args->dnode);
-
 	vrf_id = area->isis->vrf_id;
-
-	isis_area_destroy(area);
 
 	/* remove ldp-sync config */
 	if (vrf_id == VRF_DEFAULT)
 		isis_ldp_sync_gbl_exit(true);
 
+	isis_area_destroy(area);
 	return NB_OK;
 }
 
@@ -1847,18 +1845,29 @@ int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
 	struct listnode *node;
 	struct isis_circuit *circuit;
 	struct interface *ifp;
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct vrf *vrf;
+	struct isis *isis;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (isis == NULL)
+		area = nb_running_get_entry(args->dnode, NULL, false);
+		if (area == NULL || area->isis == NULL)
 			return NB_ERR_VALIDATION;
+
+		if (area->isis->vrf_id != VRF_DEFAULT) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "LDP-Sync only runs on Default VRF");
+			return NB_ERR_VALIDATION;
+		}
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		isis = area->isis;
+		vrf = vrf_lookup_by_id(isis->vrf_id);
+
 		/* register with opaque client to recv LDP-IGP Sync msgs */
 		zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
 		zclient_register_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
@@ -1906,19 +1915,29 @@ int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args)
 	struct listnode *node;
 	struct isis_circuit *circuit;
 	struct interface *ifp;
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	uint16_t holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct isis *isis;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (isis == NULL)
+		area = nb_running_get_entry(args->dnode, NULL, false);
+		if (area == NULL || area->isis == NULL)
 			return NB_ERR_VALIDATION;
+
+		if (area->isis->vrf_id != VRF_DEFAULT) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "LDP-Sync only runs on Default VRF");
+			return NB_ERR_VALIDATION;
+		}
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		isis = area->isis;
+		vrf = vrf_lookup_by_id(isis->vrf_id);
 		holddown = yang_dnode_get_uint16(args->dnode, NULL);
 
 		if (holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT)
@@ -2778,23 +2797,31 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	bool ldp_sync_enable;
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct isis *isis;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (isis == NULL)
+		circuit = nb_running_get_entry(args->dnode, NULL, false);
+		if (circuit == NULL || circuit->area == NULL)
 			return NB_ERR_VALIDATION;
-		break;
 
+		if (circuit->area->isis->vrf_id != VRF_DEFAULT) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "LDP-Sync only runs on Default VRF");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
 		ldp_sync_enable = yang_dnode_get_bool(args->dnode, NULL);
+		isis = circuit->area->isis;
 
 		if (circuit->ldp_sync_info == NULL)
 			isis_ldp_sync_if_init(circuit, isis);
+		assert(circuit->ldp_sync_info != NULL);
 		ldp_sync_info = circuit->ldp_sync_info;
 
 		if (ldp_sync_enable) {
@@ -2838,23 +2865,31 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	uint16_t holddown;
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct isis *isis;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (isis == NULL)
+		circuit = nb_running_get_entry(args->dnode, NULL, false);
+		if (circuit == NULL || circuit->area == NULL)
 			return NB_ERR_VALIDATION;
-		break;
 
+		if (circuit->area->isis->vrf_id != VRF_DEFAULT) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "LDP-Sync only runs on Default VRF");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
 		holddown = yang_dnode_get_uint16(args->dnode, NULL);
+		isis = circuit->area->isis;
 
 		if (circuit->ldp_sync_info == NULL)
 			isis_ldp_sync_if_init(circuit, isis);
+		assert(circuit->ldp_sync_info != NULL);
 		ldp_sync_info = circuit->ldp_sync_info;
 
 		SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
@@ -2868,22 +2903,27 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
-	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct isis *isis;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (isis == NULL)
-			return NB_ERR_VALIDATION;
-		circuit = nb_running_get_entry(args->dnode, NULL, true);
-		if (circuit->ldp_sync_info == NULL)
+		circuit = nb_running_get_entry(args->dnode, NULL, false);
+		if (circuit == NULL || circuit->ldp_sync_info == NULL
+		    || circuit->area == NULL)
 			return NB_ERR_VALIDATION;
 
+		if (circuit->area->isis->vrf_id != VRF_DEFAULT) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "LDP-Sync only runs on Default VRF");
+			return NB_ERR_VALIDATION;
+		}
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		isis = circuit->area->isis;
 		ldp_sync_info = circuit->ldp_sync_info;
 		UNSET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
 
