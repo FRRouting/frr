@@ -37,6 +37,8 @@
 
 #include "hash.h"
 #include "thread.h"
+#include "memory.h"
+#include "linklist.h"
 
 /* clang-format off */
 
@@ -138,6 +140,82 @@ TRACEPOINT_EVENT(
 	),
 	TP_FIELDS(
 		ctf_string(frr_pthread_name, name)
+	)
+)
+
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	memalloc,
+	TP_ARGS(
+		struct memtype *, mt, void *, ptr, size_t, size
+	),
+	TP_FIELDS(
+		ctf_string(memtype, mt->name)
+		ctf_integer(size_t, size, size)
+		ctf_integer_hex(intptr_t, ptr, ptr)
+	)
+)
+
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	memfree,
+	TP_ARGS(
+		struct memtype *, mt, void *, ptr
+	),
+	TP_FIELDS(
+		ctf_string(memtype, mt->name)
+		ctf_integer_hex(intptr_t, ptr, ptr)
+	)
+)
+
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	list_add,
+	TP_ARGS(
+		struct list *, list, const void *, ptr
+	),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, list, list)
+		ctf_integer(unsigned int, count, list->count)
+		ctf_integer_hex(intptr_t, ptr, ptr)
+	)
+)
+
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	list_remove,
+	TP_ARGS(
+		struct list *, list, const void *, ptr
+	),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, list, list)
+		ctf_integer(unsigned int, count, list->count)
+		ctf_integer_hex(intptr_t, ptr, ptr)
+	)
+)
+
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	list_delete_node,
+	TP_ARGS(
+		struct list *, list, const void *, node
+	),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, list, list)
+		ctf_integer(unsigned int, count, list->count)
+		ctf_integer_hex(intptr_t, node, node)
+	)
+)
+
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	list_sort,
+	TP_ARGS(
+		struct list *, list
+	),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, list, list)
+		ctf_integer(unsigned int, count, list->count)
 	)
 )
 

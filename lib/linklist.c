@@ -23,6 +23,7 @@
 
 #include "linklist.h"
 #include "memory.h"
+#include "trace.h"
 
 DEFINE_MTYPE_STATIC(LIB, LINK_LIST, "Link List")
 DEFINE_MTYPE_STATIC(LIB, LINK_NODE, "Link Node")
@@ -66,6 +67,8 @@ static void listnode_free(struct list *list, struct listnode *node)
 
 struct listnode *listnode_add(struct list *list, void *val)
 {
+	tracepoint(frr_libfrr, list_add, list, val);
+
 	struct listnode *node;
 
 	assert(val != NULL);
@@ -281,6 +284,8 @@ void listnode_move_to_tail(struct list *l, struct listnode *n)
 
 void listnode_delete(struct list *list, const void *val)
 {
+	tracepoint(frr_libfrr, list_remove, list, val);
+
 	struct listnode *node = listnode_lookup(list, val);
 
 	if (node)
@@ -360,6 +365,8 @@ struct listnode *listnode_lookup_nocheck(struct list *list, void *data)
 
 void list_delete_node(struct list *list, struct listnode *node)
 {
+	tracepoint(frr_libfrr, list_delete_node, list, node);
+
 	if (node->prev)
 		node->prev->next = node->next;
 	else
@@ -374,6 +381,8 @@ void list_delete_node(struct list *list, struct listnode *node)
 
 void list_sort(struct list *list, int (*cmp)(const void **, const void **))
 {
+	tracepoint(frr_libfrr, list_sort, list);
+
 	struct listnode *ln, *nn;
 	int i = -1;
 	void *data;

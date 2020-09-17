@@ -403,7 +403,7 @@ lib_grammar_sandbox_LDADD = \
 
 lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY
 lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
-lib_clippy_LDADD = $(PYTHON_LIBS)
+lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS)
 lib_clippy_LDFLAGS = -export-dynamic
 lib_clippy_SOURCES = \
 	lib/clippy.c \
@@ -415,6 +415,7 @@ lib_clippy_SOURCES = \
 	lib/graph.c \
 	lib/memory.c \
 	lib/vector.c \
+	lib/trace.c \
 	# end
 
 # (global) clippy rules for all directories
