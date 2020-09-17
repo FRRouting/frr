@@ -1311,13 +1311,17 @@ DEFUN_YANG(no_router_bgp,
 	struct bgp *bgp;
 	const char *name = NULL;
 	char base_xpath[XPATH_MAXLEN];
+	const struct lyd_node *bgp_glb_dnode;
 
 	// "no router bgp" without an ASN
 	if (argc == 3) {
 		// Pending: Make VRF option available for ASN less config
-		bgp = bgp_get_default();
+		snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_GLOBAL_XPATH,
+			 "frr-bgp:bgp", "bgp", VRF_DEFAULT_NAME);
 
-		if (bgp == NULL) {
+		bgp_glb_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					       base_xpath);
+		if (!bgp_glb_dnode) {
 			vty_out(vty, "%% No BGP process is configured\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -1326,6 +1330,11 @@ DEFUN_YANG(no_router_bgp,
 			vty_out(vty, "%% Please specify ASN and VRF\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+
+		/* tcli mode bgp would not be set until apply stage. */
+		bgp = nb_running_get_entry(bgp_glb_dnode, NULL, false);
+		if (!bgp)
+			return CMD_SUCCESS;
 
 		if (bgp->l3vni) {
 			vty_out(vty, "%% Please unconfigure l3vni %u",
