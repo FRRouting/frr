@@ -136,6 +136,7 @@ extern const char *frr_get_progname(void);
 extern enum frr_cli_mode frr_get_cli_mode(void);
 
 DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
+DECLARE_HOOK(frr_very_late_init, (struct thread_master * tm), (tm))
 extern void frr_config_fork(void);
 
 extern void frr_run(struct thread_master *master);
