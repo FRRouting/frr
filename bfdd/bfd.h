@@ -762,10 +762,11 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
 /**
  * Initialize BFD data plane infrastructure for distributed BFD implementation.
  *
- * \param sa listening socket address.
- * \param salen listening socket address structure length.
+ * \param sa socket address.
+ * \param salen socket address structure length.
+ * \param client `true` means connecting socket, `false` listening socket.
  */
-void bfd_dplane_init(const struct sockaddr *sa, socklen_t salen);
+void bfd_dplane_init(const struct sockaddr *sa, socklen_t salen, bool client);
 
 /**
  * Attempts to delegate the BFD session liveness detection to hardware.

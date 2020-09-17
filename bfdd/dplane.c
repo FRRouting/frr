@@ -22,6 +22,7 @@
 #include <zebra.h>
 
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -35,6 +36,7 @@
 #include <time.h>
 
 #include "lib/hook.h"
+#include "lib/network.h"
 #include "lib/printfrr.h"
 #include "lib/stream.h"
 #include "lib/thread.h"
@@ -52,6 +54,19 @@ DEFINE_MTYPE_STATIC(BFDD, BFDD_DPLANE_CTX, "Data plane client allocated memory")
 struct bfd_dplane_ctx {
 	/** Client file descriptor. */
 	int sock;
+	/** Is this a connected or accepted? */
+	bool client;
+	/** Is the socket still connecting? */
+	bool connecting;
+	/** Client/server address. */
+	union {
+		struct sockaddr sa;
+		struct sockaddr_in sin;
+		struct sockaddr_in6 sin6;
+		struct sockaddr_un sun;
+	} addr;
+	/** Address length. */
+	socklen_t addrlen;
 	/** Data plane current last used ID. */
 	uint16_t last_id;
 
@@ -63,6 +78,8 @@ struct bfd_dplane_ctx {
 	struct thread *inbufev;
 	/** Output event data. */
 	struct thread *outbufev;
+	/** Connection event. */
+	struct thread *connectev;
 
 	/** Amount of bytes read. */
 	uint64_t in_bytes;
@@ -89,6 +106,8 @@ struct bfd_dplane_ctx {
  */
 typedef void (*bfd_dplane_expect_cb)(struct bfddp_message *msg, void *arg);
 
+static int bfd_dplane_client_connect(struct thread *t);
+static bool bfd_dplane_client_connecting(struct bfd_dplane_ctx *bdc);
 static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc);
 static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,
 				   struct bfd_session *bs);
@@ -310,7 +329,14 @@ static ssize_t bfd_dplane_flush(struct bfd_dplane_ctx *bdc)
 
 static int bfd_dplane_write(struct thread *t)
 {
-	bfd_dplane_flush(THREAD_ARG(t));
+	struct bfd_dplane_ctx *bdc = THREAD_ARG(t);
+
+	/* Handle connection stage. */
+	if (bdc->connecting && bfd_dplane_client_connecting(bdc))
+		return 0;
+
+	bfd_dplane_flush(bdc);
+
 	return 0;
 }
 
@@ -394,6 +420,10 @@ static int bfd_dplane_enqueue(struct bfd_dplane_ctx *bdc, const void *buf,
 			      size_t buflen)
 {
 	size_t rlen;
+
+	/* Handle not connected yet client. */
+	if (bdc->client && bdc->sock == -1)
+		return -1;
 
 	/* Not enough space. */
 	if (buflen > STREAM_WRITEABLE(bdc->outbuf)) {
@@ -626,6 +656,11 @@ static struct bfd_dplane_ctx *bfd_dplane_ctx_new(int sock)
 	bdc->sock = sock;
 	bdc->inbuf = stream_new(BFD_DPLANE_CLIENT_BUF_SIZE);
 	bdc->outbuf = stream_new(BFD_DPLANE_CLIENT_BUF_SIZE);
+
+	/* If not socket ready, skip read and session registration. */
+	if (sock == -1)
+		return bdc;
+
 	thread_add_read(master, bfd_dplane_read, bdc, sock, &bdc->inbufev);
 
 	/* Register all unattached sessions. */
@@ -654,6 +689,25 @@ static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc)
 		zlog_debug("%s: terminating data plane client %d", __func__,
 			   bdc->sock);
 
+	/* Client mode has special treatment. */
+	if (bdc->client) {
+		/* Disable connection event if any. */
+		THREAD_OFF(bdc->connectev);
+
+		/* Normal treatment on shutdown. */
+		if (bglobal.bg_shutdown)
+			goto free_resources;
+
+		/* Attempt reconnection. */
+		socket_close(&bdc->sock);
+		THREAD_OFF(bdc->inbufev);
+		THREAD_OFF(bdc->outbufev);
+		thread_add_timer(master, bfd_dplane_client_connect, bdc, 3,
+				 &bdc->connectev);
+		return;
+	}
+
+free_resources:
 	/* Remove from the list of attached data planes. */
 	TAILQ_REMOVE(&bglobal.bg_dplaneq, bdc, entry);
 
@@ -810,6 +864,146 @@ reschedule_and_return:
 	return 0;
 }
 
+/*
+ * Data plane connecting socket.
+ */
+static void _bfd_dplane_client_bootstrap(struct bfd_dplane_ctx *bdc)
+{
+	bdc->connecting = false;
+
+	/* Clean up buffers. */
+	stream_reset(bdc->inbuf);
+	stream_reset(bdc->outbuf);
+
+	/* Ask for read notifications. */
+	thread_add_read(master, bfd_dplane_read, bdc, bdc->sock, &bdc->inbufev);
+
+	/* Remove all sessions then register again to send them all. */
+	bfd_key_iterate(_bfd_session_unregister_dplane, bdc);
+	bfd_key_iterate(_bfd_session_register_dplane, bdc);
+}
+
+static bool bfd_dplane_client_connecting(struct bfd_dplane_ctx *bdc)
+{
+	int rv;
+	socklen_t rvlen = sizeof(rv);
+
+	/* Make sure `errno` is reset, then test `getsockopt` success. */
+	errno = 0;
+	if (getsockopt(bdc->sock, SOL_SOCKET, SO_ERROR, &rv, &rvlen) == -1)
+		rv = -1;
+
+	/* Connection successful. */
+	if (rv == 0) {
+		if (bglobal.debug_dplane)
+			zlog_debug("%s: connected to server: %d", __func__,
+				   bdc->sock);
+
+		_bfd_dplane_client_bootstrap(bdc);
+		return false;
+	}
+
+	switch (rv) {
+	case EINTR:
+	case EAGAIN:
+	case EALREADY:
+	case EINPROGRESS:
+		/* non error, wait more. */
+		return true;
+
+	default:
+		zlog_warn("%s: connection failed: %s", __func__,
+			  strerror(errno));
+		bfd_dplane_ctx_free(bdc);
+		return true;
+	}
+}
+
+static int bfd_dplane_client_connect(struct thread *t)
+{
+	struct bfd_dplane_ctx *bdc = THREAD_ARG(t);
+	int rv, sock;
+	socklen_t rvlen = sizeof(rv);
+
+	/* Allocate new socket. */
+	sock = socket(bdc->addr.sa.sa_family, SOCK_STREAM, 0);
+	if (sock == -1) {
+		zlog_warn("%s: failed to initialize socket: %s", __func__,
+			  strerror(errno));
+		goto reschedule_connect;
+	}
+
+	/* Set non blocking socket. */
+	set_nonblocking(sock);
+
+	/* Set 'no delay' (disables nagle algorithm) for IPv4/IPv6. */
+	rv = 1;
+	if (bdc->addr.sa.sa_family != AF_UNIX
+	    && setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &rv, rvlen) == -1)
+		zlog_warn("%s: TCP_NODELAY: %s", __func__, strerror(errno));
+
+	/* Attempt to connect. */
+	rv = connect(sock, &bdc->addr.sa, bdc->addrlen);
+	if (rv == -1 && (errno != EINPROGRESS && errno != EAGAIN)) {
+		zlog_warn("%s: data plane connection failed: %s", __func__,
+			  strerror(errno));
+		goto reschedule_connect;
+	}
+
+	bdc->sock = sock;
+	if (rv == -1) {
+		if (bglobal.debug_dplane)
+			zlog_debug("%s: server connection in progress: %d",
+				   __func__, sock);
+
+		/* If we are not connected yet, ask for write notifications. */
+		bdc->connecting = true;
+		thread_add_write(master, bfd_dplane_write, bdc, bdc->sock,
+				 &bdc->outbufev);
+	} else {
+		if (bglobal.debug_dplane)
+			zlog_debug("%s: server connection: %d", __func__, sock);
+
+		/* Otherwise just start accepting data. */
+		_bfd_dplane_client_bootstrap(bdc);
+	}
+
+	return 0;
+
+reschedule_connect:
+	THREAD_OFF(bdc->inbufev);
+	THREAD_OFF(bdc->outbufev);
+	socket_close(&sock);
+	thread_add_timer(master, bfd_dplane_client_connect, bdc, 3,
+			 &bdc->connectev);
+	return 0;
+}
+
+static void bfd_dplane_client_init(const struct sockaddr *sa, socklen_t salen)
+{
+	struct bfd_dplane_ctx *bdc;
+
+	/* Allocate context and copy address for reconnection. */
+	bdc = bfd_dplane_ctx_new(-1);
+	if (salen <= sizeof(bdc->addr)) {
+		memcpy(&bdc->addr, sa, salen);
+		bdc->addrlen = sizeof(bdc->addr);
+	} else {
+		memcpy(&bdc->addr, sa, sizeof(bdc->addr));
+		bdc->addrlen = sizeof(bdc->addr);
+		zlog_warn("%s: server address truncated (from %d to %d)",
+			  __func__, salen, bdc->addrlen);
+	}
+
+	bdc->client = true;
+
+	thread_add_timer(master, bfd_dplane_client_connect, bdc, 0,
+			 &bdc->connectev);
+
+	/* Insert into data plane lists. */
+	TAILQ_INSERT_TAIL(&bglobal.bg_dplaneq, bdc, entry);
+}
+
 /**
  * Termination phase of the distributed BFD infrastructure: free all allocated
  * resources.
@@ -835,11 +1029,26 @@ static int bfd_dplane_finish_late(void)
 /*
  * Data plane exported functions.
  */
-void bfd_dplane_init(const struct sockaddr *sa, socklen_t salen)
+void bfd_dplane_init(const struct sockaddr *sa, socklen_t salen, bool client)
 {
 	int sock;
 
 	zlog_info("initializing distributed BFD");
+
+	/* Initialize queue header. */
+	TAILQ_INIT(&bglobal.bg_dplaneq);
+
+	/* Initialize listening socket. */
+	bglobal.bg_dplane_sock = -1;
+
+	/* Observe shutdown events. */
+	hook_register(frr_fini, bfd_dplane_finish_late);
+
+	/* Handle client mode. */
+	if (client) {
+		bfd_dplane_client_init(sa, salen);
+		return;
+	}
 
 	/*
 	 * Data plane socket creation:
@@ -883,12 +1092,6 @@ void bfd_dplane_init(const struct sockaddr *sa, socklen_t salen)
 	bglobal.bg_dplane_sock = sock;
 	thread_add_read(master, bfd_dplane_accept, &bglobal, sock,
 			&bglobal.bg_dplane_sockev);
-
-	/* Initialize queue header. */
-	TAILQ_INIT(&bglobal.bg_dplaneq);
-
-	/* Observe shutdown events. */
-	hook_register(frr_fini, bfd_dplane_finish_late);
 }
 
 int bfd_dplane_add_session(struct bfd_session *bs)

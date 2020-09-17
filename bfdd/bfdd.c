@@ -204,6 +204,7 @@ static void
 distributed_bfd_init(const char *arg)
 {
 	char *sptr, *saux;
+	bool is_client = false;
 	size_t slen;
 	socklen_t salen;
 	char addr[64];
@@ -235,11 +236,17 @@ distributed_bfd_init(const char *arg)
 	memset(&sa, 0, sizeof(sa));
 
 	/* Fill the address information. */
-	if (strcmp(type, "unix") == 0) {
+	if (strcmp(type, "unix") == 0 || strcmp(type, "unixc") == 0) {
+		if (strcmp(type, "unixc") == 0)
+			is_client = true;
+
 		salen = sizeof(sa.sun);
 		sa.sun.sun_family = AF_UNIX;
 		strlcpy(sa.sun.sun_path, addr, sizeof(sa.sun.sun_path));
-	} else if (strcmp(type, "ipv4") == 0) {
+	} else if (strcmp(type, "ipv4") == 0 || strcmp(type, "ipv4c") == 0) {
+		if (strcmp(type, "ipv4c") == 0)
+			is_client = true;
+
 		salen = sizeof(sa.sin);
 		sa.sin.sin_family = AF_INET;
 
@@ -255,7 +262,10 @@ distributed_bfd_init(const char *arg)
 		if (inet_pton(AF_INET, addr, &sa.sin.sin_addr) != 1)
 			errx(1, "%s: inet_pton: invalid address %s", __func__,
 			     addr);
-	} else if (strcmp(type, "ipv6") == 0) {
+	} else if (strcmp(type, "ipv6") == 0 || strcmp(type, "ipv6c") == 0) {
+		if (strcmp(type, "ipv6c") == 0)
+			is_client = true;
+
 		salen = sizeof(sa.sin6);
 		sa.sin6.sin6_family = AF_INET6;
 
@@ -295,7 +305,7 @@ distributed_bfd_init(const char *arg)
 	}
 
 	/* Initialize BFD data plane listening socket. */
-	bfd_dplane_init((struct sockaddr *)&sa, salen);
+	bfd_dplane_init((struct sockaddr *)&sa, salen, is_client);
 }
 
 static void bg_init(void)

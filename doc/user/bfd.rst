@@ -73,6 +73,12 @@ may also be specified (:ref:`common-invocation-options`).
 
    (if ommited the default port is ``50700``).
 
+   It is also possible to operate in client mode (instead of listening for
+   connections). To connect to a data plane server append the letter 'c' to
+   the protocol, example:
+
+     --dplaneaddr ipv4c:127.0.0.1
+
 .. note::
 
    When using UNIX sockets don't forget to check the file permissions
