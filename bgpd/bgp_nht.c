@@ -846,7 +846,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 					"%s: Updating peer (%s(%s)) status with NHT",
 					__func__, peer->host,
 					peer->bgp->name_pretty);
-			bgp_fsm_event_update(peer, valid_nexthops);
+			bgp_fsm_nht_update(peer, !!valid_nexthops);
 			SET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 		}
 	}
