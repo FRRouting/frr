@@ -84,7 +84,7 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     # check for zebra capability
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         if router.check_capability(TopoRouter.RD_ZEBRA, "--vrfwnetns") == False:
             return pytest.skip(
                 "Skipping OSPF VRF NETNS feature. VRF NETNS backend not available on FRR"
@@ -106,7 +106,7 @@ def setup_module(mod):
         "ip netns exec {0}-cust1 ifconfig {0}-eth1 up",
     ]
 
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
 
         # create VRF rx-cust1 and link rx-eth0 to rx-cust1
         for cmd in cmds:
@@ -141,7 +141,7 @@ def teardown_module(mod):
     ]
 
     router_list = tgen.routers()
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         for cmd in cmds:
             tgen.net[rname].cmd(cmd.format(rname))
     tgen.stop_topology()
@@ -169,7 +169,7 @@ def test_ospf_convergence():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         logger.info('Waiting for router "%s" convergence', rname)
 
         # Load expected results from the command
@@ -216,7 +216,7 @@ def test_ospf_json():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         logger.info(
             'Comparing router "%s" "show ip ospf vrf %s-cust1 json" output',
             router.name,
@@ -283,7 +283,7 @@ def test_ospf_link_down():
     )
 
     # Expect convergence on all routers
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         logger.info('Waiting for router "%s" convergence after link failure', rname)
         # Load expected results from the command
         reffile = os.path.join(CWD, "{}/ospfroute_down.txt".format(rname))

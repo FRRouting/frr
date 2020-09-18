@@ -145,7 +145,7 @@ def setup_module(mod):
 
     link_data = [
         val
-        for links, val in topo["routers"]["r2"]["links"].iteritems()
+        for links, val in topo["routers"]["r2"]["links"].items()
         if "r3" in links
     ]
     for adt in ADDR_TYPES:
@@ -162,7 +162,7 @@ def setup_module(mod):
 
     link_data = [
         val
-        for links, val in topo["routers"]["r3"]["links"].iteritems()
+        for links, val in topo["routers"]["r3"]["links"].items()
         if "r2" in links
     ]
     INTF_LIST_R3 = [val["interface"].split("/")[0] for val in link_data]

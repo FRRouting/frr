@@ -367,7 +367,7 @@ def __create_bgp_unicast_neighbor(
 
     bgp_data = input_dict["address_family"]
 
-    for addr_type, addr_dict in bgp_data.iteritems():
+    for addr_type, addr_dict in bgp_data.items():
         if not addr_dict:
             continue
 
@@ -470,7 +470,7 @@ def __create_bgp_unicast_neighbor(
             )
             config_data.extend(neigh_data)
 
-    for addr_type, addr_dict in bgp_data.iteritems():
+    for addr_type, addr_dict in bgp_data.items():
         if not addr_dict or not check_address_types(addr_type):
             continue
 
@@ -508,7 +508,7 @@ def __create_l2vpn_evpn_address_family(
 
     bgp_data = input_dict["address_family"]
 
-    for family_type, family_dict in bgp_data.iteritems():
+    for family_type, family_dict in bgp_data.items():
         if family_type != "l2vpn":
             continue
 
@@ -664,8 +664,8 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
     bgp_data = input_dict["address_family"]
     neigh_data = bgp_data[addr_type]["unicast"]["neighbor"]
 
-    for name, peer_dict in neigh_data.iteritems():
-        for dest_link, peer in peer_dict["dest_link"].iteritems():
+    for name, peer_dict in neigh_data.items():
+        for dest_link, peer in peer_dict["dest_link"].items():
             nh_details = topo[name]
 
             if "vrfs" in topo[router] or type(nh_details["bgp"]) is list:
@@ -769,8 +769,8 @@ def __create_bgp_unicast_address_family(
     bgp_data = input_dict["address_family"]
     neigh_data = bgp_data[addr_type]["unicast"]["neighbor"]
 
-    for peer_name, peer_dict in deepcopy(neigh_data).iteritems():
-        for dest_link, peer in peer_dict["dest_link"].iteritems():
+    for peer_name, peer_dict in deepcopy(neigh_data).items():
+        for dest_link, peer in peer_dict["dest_link"].items():
             deactivate = None
             activate = None
             nh_details = topo[peer_name]
@@ -778,7 +778,7 @@ def __create_bgp_unicast_address_family(
             deactivate_addr_family = peer.setdefault("deactivate", None)
             # Loopback interface
             if "source_link" in peer and peer["source_link"] == "lo":
-                for destRouterLink, data in sorted(nh_details["links"].iteritems()):
+                for destRouterLink, data in sorted(nh_details["links"].items()):
                     if "type" in data and data["type"] == "loopback":
                         if dest_link == destRouterLink:
                             ip_addr = nh_details["links"][destRouterLink][
@@ -960,7 +960,7 @@ def modify_bgp_config_when_bgpd_down(tgen, topo, input_dict):
         # Copy bgp config file to /etc/frr
         for dut in input_dict.keys():
             router_list = tgen.routers()
-            for router, rnode in router_list.iteritems():
+            for router, rnode in router_list.items():
                 if router != dut:
                     continue
 
@@ -1082,7 +1082,7 @@ def verify_bgp_convergence(tgen, topo, dut=None):
     """
 
     logger.debug("Entering lib API: verify_bgp_convergence()")
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if "bgp" not in topo["routers"][router]:
             continue
 
@@ -1461,9 +1461,9 @@ def verify_as_numbers(tgen, topo, input_dict):
 
             bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
 
-            for bgp_neighbor, peer_data in bgp_neighbors.iteritems():
+            for bgp_neighbor, peer_data in bgp_neighbors.items():
                 remote_as = input_dict[bgp_neighbor]["bgp"]["local_as"]
-                for dest_link, peer_dict in peer_data["dest_link"].iteritems():
+                for dest_link, peer_dict in peer_data["dest_link"].items():
                     neighbor_ip = None
                     data = topo["routers"][bgp_neighbor]["links"]
 
@@ -1533,7 +1533,7 @@ def verify_bgp_convergence_from_running_config(tgen, dut=None):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if dut is not None and dut != router:
             continue
 
@@ -1685,8 +1685,8 @@ def clear_bgp_and_verify(tgen, topo, router):
         for addr_type in bgp_addr_type:
             bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
 
-            for bgp_neighbor, peer_data in bgp_neighbors.iteritems():
-                for dest_link, peer_dict in peer_data["dest_link"].iteritems():
+            for bgp_neighbor, peer_data in bgp_neighbors.items():
+                for dest_link, peer_dict in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -1767,8 +1767,8 @@ def clear_bgp_and_verify(tgen, topo, router):
         for addr_type in bgp_addr_type:
             bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
 
-            for bgp_neighbor, peer_data in bgp_neighbors.iteritems():
-                for dest_link, peer_dict in peer_data["dest_link"].iteritems():
+            for bgp_neighbor, peer_data in bgp_neighbors.items():
+                for dest_link, peer_dict in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -1872,8 +1872,8 @@ def verify_bgp_timers_and_functionality(tgen, topo, input_dict):
                 continue
 
             bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
-            for bgp_neighbor, peer_data in bgp_neighbors.iteritems():
-                for dest_link, peer_dict in peer_data["dest_link"].iteritems():
+            for bgp_neighbor, peer_data in bgp_neighbors.items():
+                for dest_link, peer_dict in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     keepalivetimer = peer_dict["keepalivetimer"]
@@ -2115,7 +2115,7 @@ def verify_bgp_attributes(
     """
 
     logger.debug("Entering lib API: verify_bgp_attributes()")
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if router != dut:
             continue
 
@@ -2329,7 +2329,7 @@ def verify_best_path_as_per_bgp_attribute(
                         # - rule is IGP>EGP>INCOMPLETE
                         _next_hop = [
                             key
-                            for (key, value) in attribute_dict.iteritems()
+                            for (key, value) in attribute_dict.items()
                             if value == "IGP"
                         ][0]
                         compare = ""
@@ -2549,7 +2549,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
     list1 = []
     list2 = []
     for routerInput in input_dict.keys():
-        for router, rnode in router_list.iteritems():
+        for router, rnode in router_list.items():
             if router != dut:
                 continue
 
@@ -2833,7 +2833,7 @@ def verify_graceful_restart(tgen, topo, addr_type, input_dict, dut, peer):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if router != dut:
             continue
 
@@ -3081,7 +3081,7 @@ def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if router != dut:
             continue
 
@@ -3199,7 +3199,7 @@ def verify_eor(tgen, topo, addr_type, input_dict, dut, peer):
     """
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if router != dut:
             continue
 
@@ -3364,7 +3364,7 @@ def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if router != dut:
             continue
 
@@ -3490,7 +3490,7 @@ def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer)
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if router != dut:
             continue
 
@@ -3594,7 +3594,7 @@ def verify_gr_address_family(tgen, topo, addr_type, addr_family, dut):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if router != dut:
             continue
 

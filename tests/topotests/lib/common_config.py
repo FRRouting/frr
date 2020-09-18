@@ -354,7 +354,7 @@ def kill_mininet_routers_process(tgen):
     """
 
     router_list = tgen.routers()
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         daemon_list = [
             "zebra",
             "ospfd",
@@ -381,7 +381,7 @@ def check_router_status(tgen):
 
     try:
         router_list = tgen.routers()
-        for router, rnode in router_list.iteritems():
+        for router, rnode in router_list.items():
 
             result = rnode.check_router_running()
             if result != "":
@@ -611,7 +611,7 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
     """
 
     router_list = tgen.routers()
-    for rname, rnode in router_list.iteritems():
+    for rname, rnode in router_list.items():
         if rname != router:
             continue
 
@@ -669,7 +669,7 @@ def generate_support_bundle():
     test_name = sys._getframe(2).f_code.co_name
     TMPDIR = os.path.join(LOGDIR, tgen.modname)
 
-    for rname, rnode in router_list.iteritems():
+    for rname, rnode in router_list.items():
         logger.info("Generating support bundle for {}".format(rname))
         rnode.run("mkdir -p /var/log/frr")
         bundle_log = rnode.run("python2 /usr/lib/frr/generate_support_bundle.py")
@@ -878,7 +878,7 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
         input_dict = deepcopy(input_dict)
 
     try:
-        for c_router, c_data in input_dict.iteritems():
+        for c_router, c_data in input_dict.items():
             rnode = tgen.routers()[c_router]
             if "vrfs" in c_data:
                 for vrf in c_data["vrfs"]:
@@ -923,7 +923,7 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
 
                             if "links" in c_data:
                                 for destRouterLink, data in sorted(
-                                    c_data["links"].iteritems()
+                                    c_data["links"].items()
                                 ):
                                     # Loopback interfaces
                                     if "type" in data and data["type"] == "loopback":
@@ -1158,7 +1158,7 @@ def find_interface_with_greater_ip(topo, router, loopback=True, interface=True):
     lo_list = []
     interfaces_list = []
     lo_exists = False
-    for destRouterLink, data in sorted(link_data.iteritems()):
+    for destRouterLink, data in sorted(link_data.items()):
         if loopback:
             if "type" in data and data["type"] == "loopback":
                 lo_exists = True
@@ -1352,9 +1352,9 @@ def create_interfaces_cfg(tgen, topo, build=False):
     topo = deepcopy(topo)
 
     try:
-        for c_router, c_data in topo.iteritems():
+        for c_router, c_data in topo.items():
             interface_data = []
-            for destRouterLink, data in sorted(c_data["links"].iteritems()):
+            for destRouterLink, data in sorted(c_data["links"].items()):
                 # Loopback interfaces
                 if "type" in data and data["type"] == "loopback":
                     interface_name = destRouterLink
@@ -1576,11 +1576,11 @@ def create_prefix_lists(tgen, input_dict, build=False):
 
             config_data = []
             prefix_lists = input_dict[router]["prefix_lists"]
-            for addr_type, prefix_data in prefix_lists.iteritems():
+            for addr_type, prefix_data in prefix_lists.items():
                 if not check_address_types(addr_type):
                     continue
 
-                for prefix_name, prefix_list in prefix_data.iteritems():
+                for prefix_name, prefix_list in prefix_data.items():
                     for prefix_dict in prefix_list:
                         if "action" not in prefix_dict or "network" not in prefix_dict:
                             errormsg = "'action' or network' missing in" " input_dict"
@@ -1717,7 +1717,7 @@ def create_route_maps(tgen, input_dict, build=False):
                 logger.debug("route_maps not present in input_dict")
                 continue
             rmap_data = []
-            for rmap_name, rmap_value in input_dict[router]["route_maps"].iteritems():
+            for rmap_name, rmap_value in input_dict[router]["route_maps"].items():
 
                 for rmap_dict in rmap_value:
                     del_action = rmap_dict.setdefault("delete", False)
@@ -2529,7 +2529,7 @@ def verify_rib(
     additional_nexthops_in_required_nhs = []
     found_hops = []
     for routerInput in input_dict.keys():
-        for router, rnode in router_list.iteritems():
+        for router, rnode in router_list.items():
             if router != dut:
                 continue
 
@@ -2882,7 +2882,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
 
     router_list = tgen.routers()
     for routerInput in input_dict.keys():
-        for router, rnode in router_list.iteritems():
+        for router, rnode in router_list.items():
             if router != dut:
                 continue
 
@@ -3138,7 +3138,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
 
     router_list = tgen.routers()
     for routerInput in input_dict.keys():
-        for router, rnode in router_list.iteritems():
+        for router, rnode in router_list.items():
             if router != dut:
                 continue
 

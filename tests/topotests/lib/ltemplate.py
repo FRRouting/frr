@@ -82,7 +82,7 @@ class LTemplate():
         router_list = tgen.routers()
 
         # For all registred routers, load the zebra configuration file
-        for rname, router in router_list.iteritems():
+        for rname, router in router_list.items():
             logger.info("Setting up %s" % rname)
             for rd_val in TopoRouter.RD:
                 config = os.path.join(self.testdir, '{}/{}.conf'.format(rname,TopoRouter.RD[rd_val]))

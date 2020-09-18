@@ -91,7 +91,7 @@ def build_topo_from_json(tgen, topo):
                     return int(re_search("\d+", x).group(0))
 
             for destRouterLink, data in sorted(
-                topo["routers"][curRouter]["links"].iteritems(),
+                topo["routers"][curRouter]["links"].items(),
                 key=lambda x: link_sort(x[0]),
             ):
                 currRouter_lo_json = topo["routers"][curRouter]["links"][destRouterLink]

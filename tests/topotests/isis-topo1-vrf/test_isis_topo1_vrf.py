@@ -113,7 +113,7 @@ def setup_module(mod):
     ]
 
     # For all registered routers, load the zebra configuration file
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         # create VRF rx-cust1 and link rx-eth0 to rx-cust1
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
@@ -127,7 +127,7 @@ def setup_module(mod):
                 "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept)
             )
 
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         router.load_config(
             TopoRouter.RD_ZEBRA, 
             os.path.join(CWD, "{}/zebra.conf".format(rname))
@@ -164,7 +164,7 @@ def test_isis_convergence():
 
     logger.info("waiting for ISIS protocol to converge")
  
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_topology.json".format(CWD, rname)
         expected = json.loads(open(filename).read())
         def compare_isis_topology(router, expected):
@@ -186,13 +186,13 @@ def test_isis_route_installation():
 
     logger.info("Checking routers for installed ISIS vrf routes")
     # Check for routes in 'show ip route vrf {}-cust1 json'
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = router.vtysh_cmd("show ip route vrf {0}-cust1 json".format(rname) , isjson=True)
         # Older FRR versions don't list interfaces in some ISIS routes
         if router.has_version("<", "3.1"):
-            for network, routes in expected.iteritems():
+            for network, routes in expected.items():
                 for route in routes:
                     if route["protocol"] != "isis":
                         continue
@@ -220,14 +220,14 @@ def test_isis_linux_route_installation():
 
     logger.info("Checking routers for installed ISIS vrf routes in OS")
     # Check for routes in `ip route show vrf {}-cust1`
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route_linux.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = topotest.ip4_vrf_route(router)
 
         # Older FRR versions install routes using different proto
         if router.has_version("<", "3.1"):
-            for network, netoptions in expected.iteritems():
+            for network, netoptions in expected.items():
                 if "proto" in netoptions and netoptions["proto"] == "187":
                     netoptions["proto"] = "zebra"
 
@@ -243,14 +243,14 @@ def test_isis_route6_installation():
 
     logger.info("Checking routers for installed ISIS vrf IPv6 routes")
     # Check for routes in 'show ipv6 route vrf {}-cust1 json'
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route6.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = router.vtysh_cmd("show ipv6 route vrf {}-cust1 json".format(rname) , isjson=True)
 
         # Older FRR versions don't list interfaces in some ISIS routes
         if router.has_version("<", "3.1"):
-            for network, routes in expected.iteritems():
+            for network, routes in expected.items():
                 for route in routes:
                     if route["protocol"] != "isis":
                         continue
@@ -277,14 +277,14 @@ def test_isis_linux_route6_installation():
 
     logger.info("Checking routers for installed ISIS vrf IPv6 routes in OS")
     # Check for routes in `ip -6 route show vrf {}-cust1`
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route6_linux.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = topotest.ip6_vrf_route(router)
 
         # Older FRR versions install routes using different proto
         if router.has_version("<", "3.1"):
-            for network, netoptions in expected.iteritems():
+            for network, netoptions in expected.items():
                 if "proto" in netoptions and netoptions["proto"] == "187":
                     netoptions["proto"] = "zebra"
 
@@ -323,7 +323,7 @@ def dict_merge(dct, merge_dct):
     Source:
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
-    for k, v in merge_dct.iteritems():
+    for k, v in merge_dct.items():
         if (
             k in dct
             and isinstance(dct[k], dict)

@@ -722,7 +722,7 @@ Example:
 .. code:: py
 
    # For all registered routers, load the zebra configuration file
-   for rname, router in router_list.iteritems():
+   for rname, router in router_list.items():
        router.load_config(
            TopoRouter.RD_ZEBRA,
            os.path.join(CWD, '{}/zebra.conf'.format(rname))

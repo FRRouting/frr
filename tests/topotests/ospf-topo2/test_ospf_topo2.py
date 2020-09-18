@@ -76,7 +76,7 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, '{}/zebra.conf'.format(rname))
@@ -118,7 +118,7 @@ def test_ospf_convergence():
     if tgen.routers_have_failure():
         pytest.skip('skipped because of router(s) failure')
 
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         logger.info('Waiting for router "%s" convergence', router)
 
         json_file = '{}/{}/ospf-route.json'.format(CWD, router)

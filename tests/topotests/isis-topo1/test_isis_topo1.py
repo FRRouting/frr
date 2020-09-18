@@ -91,7 +91,7 @@ def setup_module(mod):
     tgen.start_topology()
 
     # For all registered routers, load the zebra configuration file
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -129,12 +129,12 @@ def test_isis_convergence():
 
     logger.info("waiting for ISIS protocol to converge")
     # Code to generate the json files.
-    # for rname, router in tgen.routers().iteritems():
+    # for rname, router in tgen.routers().items():
     #     open('/tmp/{}_topology.json'.format(rname), 'w').write(
     #         json.dumps(show_isis_topology(router), indent=2, sort_keys=True)
     #     )
 
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_topology.json".format(CWD, rname)
         expected = json.loads(open(filename).read())
 
@@ -158,14 +158,14 @@ def test_isis_route_installation():
     logger.info("Checking routers for installed ISIS routes")
 
     # Check for routes in 'show ip route json'
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = router.vtysh_cmd("show ip route json", isjson=True)
 
         # Older FRR versions don't list interfaces in some ISIS routes
         if router.has_version("<", "3.1"):
-            for network, routes in expected.iteritems():
+            for network, routes in expected.items():
                 for route in routes:
                     if route["protocol"] != "isis":
                         continue
@@ -188,14 +188,14 @@ def test_isis_linux_route_installation():
     logger.info("Checking routers for installed ISIS routes in OS")
 
     # Check for routes in `ip route`
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route_linux.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = topotest.ip4_route(router)
 
         # Older FRR versions install routes using different proto
         if router.has_version("<", "3.1"):
-            for network, netoptions in expected.iteritems():
+            for network, netoptions in expected.items():
                 if "proto" in netoptions and netoptions["proto"] == "187":
                     netoptions["proto"] = "zebra"
 
@@ -213,14 +213,14 @@ def test_isis_route6_installation():
     logger.info("Checking routers for installed ISIS IPv6 routes")
 
     # Check for routes in 'show ip route json'
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route6.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = router.vtysh_cmd("show ipv6 route json", isjson=True)
 
         # Older FRR versions don't list interfaces in some ISIS routes
         if router.has_version("<", "3.1"):
-            for network, routes in expected.iteritems():
+            for network, routes in expected.items():
                 for route in routes:
                     # Older versions display different metrics for IPv6 routes
                     route.pop("metric", None)
@@ -246,14 +246,14 @@ def test_isis_linux_route6_installation():
     logger.info("Checking routers for installed ISIS IPv6 routes in OS")
 
     # Check for routes in `ip route`
-    for rname, router in tgen.routers().iteritems():
+    for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route6_linux.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
         actual = topotest.ip6_route(router)
 
         # Older FRR versions install routes using different proto
         if router.has_version("<", "3.1"):
-            for network, netoptions in expected.iteritems():
+            for network, netoptions in expected.items():
                 if "proto" in netoptions and netoptions["proto"] == "187":
                     netoptions["proto"] = "zebra"
 
@@ -293,7 +293,7 @@ def dict_merge(dct, merge_dct):
     Source:
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
-    for k, v in merge_dct.iteritems():
+    for k, v in merge_dct.items():
         if (
             k in dct
             and isinstance(dct[k], dict)
