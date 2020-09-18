@@ -384,7 +384,7 @@ def setup_module(module):
     # tgen.mininet_cli()
     # This is a sample of configuration loading.
     router_list = tgen.routers()
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -416,7 +416,7 @@ def check_local_es(esi, vtep_ips, dut_name, down_vteps):
     else:
         tor_ips_rack = tor_ips_rack_2
 
-    for tor_name, tor_ip in tor_ips_rack.iteritems():
+    for tor_name, tor_ip in tor_ips_rack.items():
         if dut_name not in tor_name:
             peer_ips.append(tor_ip)
 
@@ -442,7 +442,7 @@ def check_remote_es(esi, vtep_ips, dut_name, down_vteps):
     else:
         tor_ips_rack = tor_ips_rack_1
 
-    for tor_name, tor_ip in tor_ips_rack.iteritems():
+    for tor_name, tor_ip in tor_ips_rack.items():
         remote_ips.append(tor_ip)
 
     # remove down VTEPs from the remote check list
@@ -464,7 +464,7 @@ def check_es(dut):
 
     result = None
 
-    expected_es_set = set([v for k, v in host_es_map.iteritems()])
+    expected_es_set = set([v for k, v in host_es_map.items()])
     curr_es_set = []
 
     # check is ES content is correct
@@ -588,7 +588,7 @@ def check_mac(dut, vni, mac, m_type, esi, intf):
     out = dut.vtysh_cmd("show evpn mac vni %d mac %s json" % (vni, mac))
 
     mac_js = json.loads(out)
-    for mac, info in mac_js.iteritems():
+    for mac, info in mac_js.items():
         tmp_esi = info.get("esi", "")
         tmp_m_type =  info.get("type", "")
         tmp_intf = info.get("intf", "") if tmp_m_type == "local" else ""

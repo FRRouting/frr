@@ -95,7 +95,7 @@ def setup_module(mod):
         ospf6_config = "ospf6d.conf-pre-v4"
 
     router_list = tgen.routers()
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -146,7 +146,7 @@ def test_ospf_convergence():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         logger.info('Waiting for router "%s" convergence', router)
 
         # Load expected results from the command
@@ -335,7 +335,7 @@ def test_ospf_link_down():
     router3.peer_link_enable("r3-eth0", False)
 
     # Expect convergence on all routers
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         logger.info('Waiting for router "%s" convergence after link failure', router)
         # Load expected results from the command
         reffile = os.path.join(CWD, "{}/ospfroute_down.txt".format(router))

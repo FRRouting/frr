@@ -164,7 +164,7 @@ def setup_module(mod):
     # tgen.mininet_cli()
 
     router_list = tgen.routers()
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -209,7 +209,7 @@ def test_ospf6_converged():
         sys.stdout.flush()
 
         # Look for any node not yet converged
-        for router, rnode in tgen.routers().iteritems():
+        for router, rnode in tgen.routers().items():
             resStr = rnode.vtysh_cmd("show ipv6 ospf neigh")
 
             isConverged = False
@@ -287,7 +287,7 @@ def test_ospfv3_routingTable():
     # tgen.mininet_cli()
 
     # Verify OSPFv3 Routing Table
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         logger.info('Waiting for router "%s" convergence', router)
 
         # Load expected results from the command

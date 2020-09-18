@@ -254,7 +254,7 @@ class Topogen(object):
         ```py
         tgen = get_topogen()
         router_dict = tgen.get_gears(TopoRouter)
-        for router_name, router in router_dict.iteritems():
+        for router_name, router in router_dict.items():
             # Do stuff
         ```
         * List iteration:
@@ -267,7 +267,7 @@ class Topogen(object):
         """
         return dict(
             (name, gear)
-            for name, gear in self.gears.iteritems()
+            for name, gear in self.gears.items()
             if isinstance(gear, geartype)
         )
 
@@ -316,7 +316,7 @@ class Topogen(object):
         """
         if router is None:
             # pylint: disable=r1704
-            for _, router in self.routers().iteritems():
+            for _, router in self.routers().items():
                 router.start()
         else:
             if isinstance(router, str):
@@ -430,7 +430,7 @@ class TopoGear(object):
 
     def __str__(self):
         links = ""
-        for myif, dest in self.links.iteritems():
+        for myif, dest in self.links.items():
             _, destif = dest
             if links != "":
                 links += ","
@@ -684,7 +684,7 @@ class TopoRouter(TopoGear):
 
         # Enable all daemon command logging, logging files
         # and set them to the start dir.
-        for daemon, enabled in nrouter.daemons.iteritems():
+        for daemon, enabled in nrouter.daemons.items():
             if enabled == 0:
                 continue
             self.vtysh_cmd(
@@ -733,7 +733,7 @@ class TopoRouter(TopoGear):
 
         # Enable all daemon command logging, logging files
         # and set them to the start dir.
-        for daemon, enabled in nrouter.daemons.iteritems():
+        for daemon, enabled in nrouter.daemons.items():
             for d in daemons:
                 if enabled == 0:
                     continue

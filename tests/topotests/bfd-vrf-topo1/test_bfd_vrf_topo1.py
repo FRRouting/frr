@@ -79,7 +79,7 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     # check for zebra capability
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         if router.check_capability(TopoRouter.RD_ZEBRA, "--vrfwnetns") == False:
             return pytest.skip(
                 "Skipping BFD Topo1 VRF NETNS feature. VRF NETNS backend not available on FRR"
@@ -105,7 +105,7 @@ def setup_module(mod):
         "ip netns exec {0}-cust1 ifconfig {0}-eth2 up",
     ]
 
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         # create VRF rx-cust1 and link rx-eth0 to rx-cust1
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
@@ -113,7 +113,7 @@ def setup_module(mod):
             for cmd in cmds2:
                 output = tgen.net[rname].cmd(cmd.format(rname))
 
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, "{}/zebra.conf".format(rname)),
@@ -145,7 +145,7 @@ def teardown_module(_mod):
     ]
 
     router_list = tgen.routers()
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         if rname == "r2":
             for cmd in cmds2:
                 tgen.net[rname].cmd(cmd.format(rname))

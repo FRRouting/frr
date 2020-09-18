@@ -95,7 +95,7 @@ def setup_module(module):
 
     # Starting Routers
     router_list = tgen.routers()
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -107,7 +107,7 @@ def setup_module(module):
     # Starting Hosts and init ExaBGP on each of them
     topotest.sleep(10, "starting BGP on all {} peers".format(total_ebgp_peers))
     peer_list = tgen.exabgp_peers()
-    for pname, peer in peer_list.iteritems():
+    for pname, peer in peer_list.items():
         peer_dir = os.path.join(CWD, pname)
         env_file = os.path.join(CWD, "exabgp.env")
         peer.start(peer_dir, env_file)

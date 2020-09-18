@@ -84,7 +84,7 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         daemon_file = "{}/{}/bfdd.conf".format(CWD, rname)
         if os.path.isfile(daemon_file):
             router.load_config(TopoRouter.RD_BFD, daemon_file)

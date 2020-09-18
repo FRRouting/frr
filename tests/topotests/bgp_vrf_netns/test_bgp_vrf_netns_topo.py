@@ -140,7 +140,7 @@ def setup_module(module):
     # Starting Hosts and init ExaBGP on each of them
     logger.info("starting exaBGP on peer1")
     peer_list = tgen.exabgp_peers()
-    for pname, peer in peer_list.iteritems():
+    for pname, peer in peer_list.items():
         peer_dir = os.path.join(CWD, pname)
         env_file = os.path.join(CWD, "exabgp.env")
         logger.info("Running ExaBGP peer")
