@@ -39,6 +39,7 @@
 #include "thread.h"
 #include "memory.h"
 #include "linklist.h"
+#include "table.h"
 
 /* clang-format off */
 
@@ -216,6 +217,18 @@ TRACEPOINT_EVENT(
 	TP_FIELDS(
 		ctf_integer_hex(intptr_t, list, list)
 		ctf_integer(unsigned int, count, list->count)
+	)
+)
+
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	route_node_get,
+	TP_ARGS(
+		struct route_table *, table, char *, prefix
+	),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, table, table)
+		ctf_string(prefix, prefix)
 	)
 )
 
