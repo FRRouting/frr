@@ -658,6 +658,67 @@ def test_evpn_mac():
         assertmsg = '"{}" remote MAC content incorrect'.format(tor.name)
         assert result is None, assertmsg
 
+def check_df_role(dut, esi, role):
+    '''
+    Return error string if the df role on the dut is different
+    '''
+    es_json = dut.vtysh_cmd("show evpn es %s json" % esi)
+    es = json.loads(es_json)
+
+    if not es:
+        return "esi %s not found" % esi
+
+    flags = es.get("flags", [])
+    curr_role = "nonDF" if "nonDF" in flags else "DF"
+
+    if curr_role != role:
+        return "%s is %s for %s" % (dut.name, curr_role, esi)
+
+    return None
+
+def test_evpn_df():
+    '''
+    1. Check the DF role on all the PEs on rack-1.
+    2. Increase the DF preference on the non-DF and check if it becomes
+       the DF winner.
+    '''
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # We will run the tests on just one ES
+    esi = host_es_map.get("hostd11")
+    intf = "hostbond1"
+
+    tors = []
+    tors.append(tgen.gears["torm11"])
+    tors.append(tgen.gears["torm12"])
+    df_node = "torm11"
+
+    # check roles on rack-1
+    for tor in tors:
+        role = "DF" if tor.name == df_node else "nonDF"
+        test_fn = partial(check_df_role, tor, esi, role)
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        assertmsg = '"{}" DF role incorrect'.format(tor.name)
+        assert result is None, assertmsg
+
+    # change df preference on the nonDF to make it the df
+    torm12 = tgen.gears["torm12"]
+    torm12.vtysh_cmd("conf\ninterface %s\nevpn mh es-df-pref %d" % (intf, 60000))
+    df_node = "torm12"
+
+    # re-check roles on rack-1; we should have a new winner
+    for tor in tors:
+        role = "DF" if tor.name == df_node else "nonDF"
+        test_fn = partial(check_df_role, tor, esi, role)
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        assertmsg = '"{}" DF role incorrect'.format(tor.name)
+        assert result is None, assertmsg
+
+    # tgen.mininet_cli()
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
