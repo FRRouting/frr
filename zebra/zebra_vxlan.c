@@ -782,6 +782,43 @@ static void zl3vni_print_hash_detail(struct hash_bucket *bucket, void *data)
 		vty_out(vty, "\n");
 }
 
+static int zvni_map_to_svi_ns(struct ns *ns,
+			      void *_in_param,
+			      void **_p_ifp)
+{
+	struct zebra_ns *zns = ns->info;
+	struct route_node *rn;
+	struct zebra_from_svi_param *in_param =
+		(struct zebra_from_svi_param *)_in_param;
+	struct zebra_l2info_vlan *vl;
+	struct interface *tmp_if = NULL;
+	struct interface **p_ifp = (struct interface **)_p_ifp;
+	struct zebra_if *zif;
+
+	if (!in_param)
+		return NS_WALK_STOP;
+
+	/* TODO: Optimize with a hash. */
+	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
+		tmp_if = (struct interface *)rn->info;
+		/* Check oper status of the SVI. */
+		if (!tmp_if || !if_is_operative(tmp_if))
+			continue;
+		zif = tmp_if->info;
+		if (!zif || zif->zif_type != ZEBRA_IF_VLAN
+		    || zif->link != in_param->br_if)
+			continue;
+		vl = (struct zebra_l2info_vlan *)&zif->l2info.vl;
+
+		if (vl->vid == in_param->vid) {
+			if (p_ifp)
+				*p_ifp = tmp_if;
+			return NS_WALK_STOP;
+		}
+	}
+	return NS_WALK_CONTINUE;
+}
+
 /* Map to SVI on bridge corresponding to specified VLAN. This can be one
  * of two cases:
  * (a) In the case of a VLAN-aware bridge, the SVI is a L3 VLAN interface
@@ -791,15 +828,11 @@ static void zl3vni_print_hash_detail(struct hash_bucket *bucket, void *data)
  */
 struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 {
-	struct zebra_ns *zns;
-	struct route_node *rn;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
 	struct zebra_l2info_bridge *br;
-	struct zebra_l2info_vlan *vl;
-	uint8_t bridge_vlan_aware;
-	int found = 0;
-
+	struct zebra_from_svi_param in_param;
+	struct interface **p_ifp;
 	/* Defensive check, caller expected to invoke only with valid bridge. */
 	if (!br_if)
 		return NULL;
@@ -808,33 +841,19 @@ struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 	zif = br_if->info;
 	assert(zif);
 	br = &zif->l2info.br;
-	bridge_vlan_aware = br->vlan_aware;
-
+	in_param.bridge_vlan_aware = br->vlan_aware;
 	/* Check oper status of the SVI. */
-	if (!bridge_vlan_aware)
+	if (!in_param.bridge_vlan_aware)
 		return if_is_operative(br_if) ? br_if : NULL;
 
+	in_param.vid = vid;
+	in_param.br_if = br_if;
+	in_param.zif = NULL;
+	p_ifp = &tmp_if;
 	/* Identify corresponding VLAN interface. */
-	/* TODO: Optimize with a hash. */
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		tmp_if = (struct interface *)rn->info;
-		/* Check oper status of the SVI. */
-		if (!tmp_if || !if_is_operative(tmp_if))
-			continue;
-		zif = tmp_if->info;
-		if (!zif || zif->zif_type != ZEBRA_IF_VLAN
-		    || zif->link != br_if)
-			continue;
-		vl = &zif->l2info.vl;
-
-		if (vl->vid == vid) {
-			found = 1;
-			break;
-		}
-	}
-
-	return found ? tmp_if : NULL;
+	ns_walk_func(zvni_map_to_svi_ns, (void *)&in_param,
+		     (void **)p_ifp);
+	return tmp_if;
 }
 
 static int zebra_evpn_vxlan_del(zebra_evpn_t *zevpn)
@@ -846,18 +865,22 @@ static int zebra_evpn_vxlan_del(zebra_evpn_t *zevpn)
 
 	return zebra_evpn_del(zevpn);
 }
-/*
- * Build the VNI hash table by going over the VxLAN interfaces. This
- * is called when EVPN (advertise-all-vni) is enabled.
- */
-static void zevpn_build_hash_table(void)
+
+static int zevpn_build_hash_table_zns(struct ns *ns,
+				     void *param_in __attribute__((unused)),
+				     void **param_out __attribute__((unused)))
 {
-	struct zebra_ns *zns;
+	struct zebra_ns *zns = ns->info;
 	struct route_node *rn;
 	struct interface *ifp;
+	struct zebra_vrf *zvrf;
+
+	zvrf = zebra_vrf_get_evpn();
+
+	if (!zvrf)
+		return NS_WALK_STOP;
 
 	/* Walk VxLAN interfaces and create EVPN hash. */
-	zns = zebra_ns_lookup(NS_DEFAULT);
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		vni_t vni;
 		zebra_evpn_t *zevpn = NULL;
@@ -874,7 +897,15 @@ static void zevpn_build_hash_table(void)
 
 		vxl = &zif->l2info.vxl;
 		vni = vxl->vni;
-
+		/* link of VXLAN interface should be in zebra_evpn_vrf */
+		if (zvrf->zns->ns_id != vxl->link_nsid) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug(
+					"Intf %s(%u) VNI %u, link not in same "
+					"namespace than BGP EVPN core instance ",
+					ifp->name, ifp->ifindex, vni);
+			continue;
+		}
 		/* L3-VNI and L2-VNI are handled seperately */
 		zl3vni = zl3vni_lookup(vni);
 		if (zl3vni) {
@@ -943,7 +974,7 @@ static void zevpn_build_hash_table(void)
 					zlog_debug(
 						"Failed to add EVPN hash, IF %s(%u) L2-VNI %u",
 						ifp->name, ifp->ifindex, vni);
-					return;
+					return NS_WALK_CONTINUE;
 				}
 
 				if (zevpn->local_vtep_ip.s_addr !=
@@ -985,6 +1016,19 @@ static void zevpn_build_hash_table(void)
 			}
 		}
 	}
+	return NS_WALK_CONTINUE;
+}
+
+/*
+ * Build the VNI hash table by going over the VxLAN interfaces. This
+ * is called when EVPN (advertise-all-vni) is enabled.
+ */
+
+static void zevpn_build_hash_table(void)
+{
+	ns_walk_func(zevpn_build_hash_table_zns,
+		     (void *)NULL,
+		     (void **)NULL);
 }
 
 /*
@@ -1617,14 +1661,22 @@ static int zl3vni_del(zebra_l3vni_t *zl3vni)
 	return 0;
 }
 
-struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
+static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
+				     void *_zl3vni,
+				     void **_pifp)
 {
-	struct zebra_ns *zns = NULL;
+	struct zebra_ns *zns = ns->info;
+	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)_zl3vni;
 	struct route_node *rn = NULL;
 	struct interface *ifp = NULL;
+	struct zebra_vrf *zvrf;
+
+	zvrf = zebra_vrf_get_evpn();
+
+	if (!zvrf)
+		return NS_WALK_STOP;
 
 	/* loop through all vxlan-interface */
-	zns = zebra_ns_lookup(NS_DEFAULT);
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 
 		struct zebra_if *zif = NULL;
@@ -1639,13 +1691,39 @@ struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
 			continue;
 
 		vxl = &zif->l2info.vxl;
-		if (vxl->vni == zl3vni->vni) {
-			zl3vni->local_vtep_ip = vxl->vtep_ip;
-			return ifp;
+		if (vxl->vni != zl3vni->vni)
+			continue;
+
+		/* link of VXLAN interface should be in zebra_evpn_vrf */
+		if (zvrf->zns->ns_id != vxl->link_nsid) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug(
+					"Intf %s(%u) VNI %u, link not in same "
+					"namespace than BGP EVPN core instance ",
+					ifp->name, ifp->ifindex, vxl->vni);
+			continue;
 		}
+
+
+		zl3vni->local_vtep_ip = vxl->vtep_ip;
+		if (_pifp)
+			*_pifp = (void *)ifp;
+		return NS_WALK_STOP;
 	}
 
-	return NULL;
+	return NS_WALK_CONTINUE;
+}
+
+struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
+{
+	struct interface **p_ifp;
+	struct interface *ifp = NULL;
+
+	p_ifp = &ifp;
+
+	ns_walk_func(zl3vni_map_to_vxlan_if_ns,
+		     (void *)zl3vni, (void **)p_ifp);
+	return ifp;
 }
 
 struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni)
@@ -3987,11 +4065,10 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 		return -1;
 	}
 
-	zvrf = vrf_info_lookup(zevpn->vxlan_if->vrf_id);
+	zvrf = zebra_vrf_get_evpn();
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("        No Vrf found for vrf_id: %d",
-				   zevpn->vxlan_if->vrf_id);
+			zlog_debug("        No Evpn Global Vrf found");
 		return -1;
 	}
 
@@ -5447,6 +5524,25 @@ stream_failure:
 	return;
 }
 
+static int macfdb_read_ns(struct ns *ns,
+			  void *_in_param __attribute__((unused)),
+			  void **out_param __attribute__((unused)))
+{
+	struct zebra_ns *zns = ns->info;
+
+	macfdb_read(zns);
+	return NS_WALK_CONTINUE;
+}
+
+static int neigh_read_ns(struct ns *ns,
+			 void *_in_param __attribute__((unused)),
+			 void **out_param __attribute__((unused)))
+{
+	struct zebra_ns *zns = ns->info;
+
+	neigh_read(zns);
+	return NS_WALK_CONTINUE;
+}
 
 /*
  * Handle message from client to learn (or stop learning) about VNIs and MACs.
@@ -5499,10 +5595,10 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 			     zebra_evpn_gw_macip_add_for_evpn_hash, NULL);
 
 		/* Read the MAC FDB */
-		macfdb_read(zvrf->zns);
+		ns_walk_func(macfdb_read_ns, NULL, NULL);
 
 		/* Read neighbors */
-		neigh_read(zvrf->zns);
+		ns_walk_func(neigh_read_ns, NULL, NULL);
 	} else {
 		/* Cleanup VTEPs for all EVPNs - uninstall from
 		 * kernel and free entries.

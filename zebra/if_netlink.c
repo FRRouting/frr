@@ -798,8 +798,10 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
-	if (tb[IFLA_LINK_NETNSID])
+	if (tb[IFLA_LINK_NETNSID]) {
 		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
+		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+	}
 
 	/* Add interface.
 	 * We add by index first because in some cases such as the master
@@ -848,7 +850,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	netlink_interface_update_l2info(ifp, linkinfo[IFLA_INFO_DATA],
 					1, link_nsid);
 	if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
-		zebra_l2if_update_bridge_slave(ifp, bridge_ifindex);
+		zebra_l2if_update_bridge_slave(ifp, bridge_ifindex, ns_id);
 	else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 		zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 
@@ -1349,9 +1351,10 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
-	if (tb[IFLA_LINK_NETNSID])
+	if (tb[IFLA_LINK_NETNSID]) {
 		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
-
+		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+	}
 	if (tb[IFLA_IFALIAS]) {
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
 	}
@@ -1439,7 +1442,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				1, link_nsid);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
 				zebra_l2if_update_bridge_slave(ifp,
-							       bridge_ifindex);
+							       bridge_ifindex,
+							       ns_id);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 		} else if (ifp->vrf_id != vrf_id) {
@@ -1540,7 +1544,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				0, link_nsid);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) || was_bridge_slave)
 				zebra_l2if_update_bridge_slave(ifp,
-							       bridge_ifindex);
+							       bridge_ifindex,
+							       ns_id);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp) || was_bond_slave)
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 		}
