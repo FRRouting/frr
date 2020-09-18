@@ -3414,6 +3414,9 @@ DEFUN (show_zebra,
 {
 	struct vrf *vrf;
 
+	if (zrouter.asic_offloaded)
+		vty_out(vty, "Asic Offload is being used\n");
+
 	vty_out(vty,
 		"                            Route      Route      Neighbor   LSP        LSP\n");
 	vty_out(vty,

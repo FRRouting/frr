@@ -290,4 +290,6 @@ void zebra_router_init(void)
 	zrouter.nhgs_id =
 		hash_create_size(8, zebra_nhg_id_key, zebra_nhg_hash_id_equal,
 				 "Zebra Router Nexthop Groups ID index");
+
+	zrouter.asic_offloaded = false;
 }
