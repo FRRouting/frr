@@ -162,9 +162,9 @@ def router_compare_json_output(rname, command, reference):
     filename = "{}/{}/{}".format(CWD, rname, reference)
     expected = json.loads(open(filename).read())
 
-    # Run test function until we get an result. Wait at most 80 seconds.
+    # Run test function until we get an result.
     test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+    _, diff = topotest.run_and_expect(test_func, None, count=320, wait=0.5)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
 
