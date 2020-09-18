@@ -2165,6 +2165,23 @@ static inline int afindex(afi_t afi, safi_t safi)
 	}
 }
 
+static inline bool is_bgp_vrf_active(struct bgp *bgp)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	/* if there is one interface in the vrf which is up then it is deemed
+	 *  active
+	 */
+	vrf = vrf_lookup_by_name(bgp->name);
+	if (vrf == NULL)
+		return false;
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		if (if_is_up(ifp))
+			return true;
+	return false;
+}
+
 /* If the peer is not a peer-group but is bound to a peer-group return 1 */
 static inline int peer_group_active(struct peer *peer)
 {
