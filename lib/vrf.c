@@ -317,6 +317,14 @@ void vrf_disable(struct vrf *vrf)
 	/* Till now, nothing to be done for the default VRF. */
 	// Pending: see why this statement.
 
+
+	/*
+	 * When the vrf is disabled let's
+	 * handle all nexthop-groups associated
+	 * with this vrf
+	 */
+	nexthop_group_disable_vrf(vrf);
+
 	if (vrf_master.vrf_disable_hook)
 		(*vrf_master.vrf_disable_hook)(vrf);
 }
