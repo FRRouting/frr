@@ -698,7 +698,12 @@ static void isis_circuit_ldp_sync_print_vty(struct isis_circuit *circuit,
 		return;
 
 	ldp_sync_info = circuit->ldp_sync_info;
-	vty_out(vty, "%-10s\n", circuit->interface->name);
+	vty_out(vty, "%-16s\n", circuit->interface->name);
+	if (circuit->state == C_STATE_CONF) {
+		vty_out(vty, "  Interface down\n");
+		return;
+	}
+
 	vty_out(vty, "  LDP-IGP Synchronization enabled: %s\n",
 		ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED
 		? "yes"
@@ -751,6 +756,7 @@ DEFUN (show_isis_mpls_ldp_interface,
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	bool found = false;
 
 	if (!isis) {
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
@@ -769,9 +775,15 @@ DEFUN (show_isis_mpls_ldp_interface,
 		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
 			if (!ifname)
 				isis_circuit_ldp_sync_print_vty(circuit, vty);
-			else if (strcmp(circuit->interface->name, ifname) == 0)
+			else if (strcmp(circuit->interface->name, ifname)
+				 == 0) {
 				isis_circuit_ldp_sync_print_vty(circuit, vty);
+				found = true;
+			}
 	}
+
+	if (found == false && ifname)
+		vty_out(vty, "%-16s\n  ISIS not enabled\n", ifname);
 
 	return CMD_SUCCESS;
 }
