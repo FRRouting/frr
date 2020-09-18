@@ -65,6 +65,10 @@ from lib.ospf import (
 
 # Global variables
 topo = None
+
+# number of retries.
+nretry = 5
+
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/ospf_rte_calc.json".format(CWD)
 try:
@@ -220,7 +224,6 @@ def red_connected(dut, config=True):
 # ##################################
 
 
-@pytest.mark.precommit
 def test_ospf_redistribution_tc5_p0(request):
     """Test OSPF intra area route calculations."""
     tc_name = request.node.name
@@ -257,7 +260,7 @@ def test_ospf_redistribution_tc5_p0(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Delete the ip address on newly configured loopback of R0")
+    step("Delete the ip address on newly configured interface of R0")
     topo1 = {
         "r0": {
             "links": {
@@ -274,9 +277,12 @@ def test_ospf_redistribution_tc5_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     dut = "r1"
-    result = verify_ospf_rib(
-        tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
-    )
+    for num in range(0, nretry):
+        result = verify_ospf_rib(
+            tgen, dut, input_dict, next_hop=nh, expected=False)
+        if result is not True:
+            break
+
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )
@@ -392,9 +398,11 @@ def test_ospf_redistribution_tc6_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     dut = "r1"
-    result = verify_ospf_rib(
-        tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
-    )
+    for num in range(0, nretry):
+        result = verify_ospf_rib(
+            tgen, dut, input_dict, next_hop=nh, expected=False)
+        if result is not True:
+            break
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )
@@ -407,7 +415,6 @@ def test_ospf_redistribution_tc6_p0(request):
         input_dict,
         protocol=protocol,
         next_hop=nh,
-        attempts=5,
         expected=False,
     )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(

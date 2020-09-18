@@ -431,7 +431,7 @@ def test_ospf_lan_tc1_p0(request):
     intf = topo["routers"]["r0"]["links"]["s1"]["interface"]
     shutdown_bringup_interface(tgen, dut, intf, False)
 
-    result = verify_ospf_neighbor(tgen, topo, dut, lan=True)
+    result = verify_ospf_neighbor(tgen, topo, dut, lan=True, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result
     )
