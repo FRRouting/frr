@@ -40,6 +40,7 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_mplsvpn_snmp.h"
 
 /* BGP4-MIB described in RFC1657. */
 #define BGP4MIB 1,3,6,1,2,1,15
@@ -898,6 +899,7 @@ static int bgp_snmp_init(struct thread_master *tm)
 {
 	smux_init(tm);
 	REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
+	bgp_mpls_l3vpn_module_init();
 	return 0;
 }
 
