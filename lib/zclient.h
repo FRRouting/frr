@@ -480,6 +480,20 @@ struct zapi_route {
  * route entry.  This mainly is used for backup static routes.
  */
 #define ZEBRA_FLAG_RR_USE_DISTANCE    0x40
+/*
+ * This flag tells everyone that the route was intentionally
+ * not offloaded and the route will be sent to the cpu for
+ * forwarding.  This flag makes no sense unless you are in
+ * an asic offload situation
+ */
+#define ZEBRA_FLAG_TRAPPED            0x80
+/*
+ * This flag tells everyone that the route has been
+ * successfully offloaded to an asic for forwarding.
+ * This flag makes no sense unless you are in an asic
+ * offload situation.
+ */
+#define ZEBRA_FLAG_OFFLOADED          0x100
 
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;

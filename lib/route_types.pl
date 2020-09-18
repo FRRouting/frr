@@ -121,7 +121,10 @@ sub codelist {
 	}
 	$str =~ s/ $//;
 	push @lines, $str . "\\n\" \\\n";
-	push @lines, "  \"       > - selected route, * - FIB route, q - queued, r - rejected, b - backup\\n\\n\"";
+	push @lines, "  \"       > - selected route, * - FIB route, q - queued, r - rejected, b - backup\\n\"";
+	push @lines, "  \"       t - trapped, o - offload failure\\n\"";
+
+
 	return join("", @lines);
 }
 
