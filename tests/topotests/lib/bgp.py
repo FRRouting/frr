@@ -391,12 +391,11 @@ def __create_bgp_unicast_neighbor(
             del_action = advertise_network_dict.setdefault("delete", False)
 
             # Generating IPs for verification
-            prefix = str(ipaddress.ip_network(unicode(network[0])).prefixlen)
             network_list = generate_ips(network, no_of_network)
             for ip in network_list:
-                ip = str(ipaddress.ip_network(unicode(ip)).network_address)
+                ip = str(ipaddress.ip_network(unicode(ip)))
 
-                cmd = "network {}/{}".format(ip, prefix)
+                cmd = "network {}".format(ip)
                 if del_action:
                     cmd = "no {}".format(cmd)
 
