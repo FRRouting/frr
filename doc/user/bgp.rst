@@ -1399,6 +1399,9 @@ Configuring Peers
 
    Sets a maximum number of prefixes we can send to a given peer.
 
+   Since sent prefix count is managed by update-groups, this option
+   creates a separate update-group for outgoing updates.
+
 .. index:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
 .. clicmd:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
 
