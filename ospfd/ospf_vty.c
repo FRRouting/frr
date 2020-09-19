@@ -7305,6 +7305,7 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 
 	SET_IF_PARAM(params, v_wait);
 	params->v_wait = seconds;
+	params->is_v_wait_set = true;
 
 	/* Update timer values in neighbor structure. */
 	if (nbr_str) {
@@ -7414,6 +7415,7 @@ DEFUN (no_ip_ospf_dead_interval,
 
 	UNSET_IF_PARAM(params, v_wait);
 	params->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
+	params->is_v_wait_set = false;
 
 	UNSET_IF_PARAM(params, fast_hello);
 	params->fast_hello = OSPF_FAST_HELLO_DEFAULT;
@@ -7490,6 +7492,17 @@ DEFUN (ip_ospf_hello_interval,
 	SET_IF_PARAM(params, v_hello);
 	params->v_hello = seconds;
 
+	if (!params->is_v_wait_set) {
+		SET_IF_PARAM(params, v_wait);
+		/* As per RFC 4062
+		 * The router dead interval should
+		 * be some multiple of the HelloInterval (perhaps 4 times the
+		 * hello interval) and must be the same for all routers
+		 * attached to a common network.
+		 */
+		params->v_wait	= 4 * seconds;
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -7518,6 +7531,7 @@ DEFUN (no_ip_ospf_hello_interval,
 	int idx = 0;
 	struct in_addr addr;
 	struct ospf_if_params *params;
+	struct route_node *rn;
 
 	params = IF_DEF_PARAMS(ifp);
 
@@ -7535,6 +7549,25 @@ DEFUN (no_ip_ospf_hello_interval,
 
 	UNSET_IF_PARAM(params, v_hello);
 	params->v_hello = OSPF_HELLO_INTERVAL_DEFAULT;
+
+	if (!params->is_v_wait_set) {
+		UNSET_IF_PARAM(params, v_wait);
+		params->v_wait  = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
+	}
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		struct ospf_interface *oi = rn->info;
+
+		if (!oi)
+			continue;
+
+		oi->type = IF_DEF_PARAMS(ifp)->type;
+
+		if (oi->state > ISM_Down) {
+			OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
+			OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
+		}
+	}
 
 	if (params != IF_DEF_PARAMS(ifp)) {
 		ospf_free_if_params(ifp, addr);
