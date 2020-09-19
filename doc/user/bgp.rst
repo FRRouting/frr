@@ -2732,6 +2732,32 @@ The following are available in the ``router bgp`` mode:
    at a time in a loop. This setting controls how many iterations the loop runs
    for. As with write-quanta, it is best to leave this setting on the default.
 
+The following command is available in ``config`` mode as well as in the
+``router bgp`` mode:
+
+.. index:: bgp graceful-shutdown
+.. clicmd:: bgp graceful-shutdown
+
+   The purpose of this command is to initiate BGP Graceful Shutdown which
+   is described in :rfc:`8326`. The use case for this is to minimize or
+   eliminate the amount of traffic loss in a network when a planned
+   maintenance activity such as software upgrade or hardware replacement
+   is to be performed on a router. The feature works by re-announcing
+   routes to eBGP peers with the GRACEFUL_SHUTDOWN community included.
+   Peers are then expected to treat such paths with the lowest preference.
+   This happens automatically on a receiver running FRR; with other
+   routing protocol stacks, an inbound policy may have to be configured.
+   In FRR, triggering graceful shutdown also results in announcing a
+   LOCAL_PREF of 0 to iBGP peers.
+
+   Graceful shutdown can be configured per BGP instance or globally for
+   all of BGP. These two options are mutually exclusive. The no form of
+   the command causes graceful shutdown to be stopped, and routes will
+   be re-announced without the GRACEFUL_SHUTDOWN community and/or with
+   the usual LOCAL_PREF value. Note that if this option is saved to
+   the startup configuration, graceful shutdown will remain in effect
+   across restarts of *bgpd* and will need to be explicitly disabled.
+
 .. _bgp-displaying-bgp-information:
 
 Displaying BGP Information

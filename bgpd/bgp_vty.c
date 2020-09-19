@@ -2805,6 +2805,69 @@ DEFUN (no_bgp_graceful_restart_rib_stale_time,
 	return CMD_SUCCESS;
 }
 
+static inline void bgp_initiate_graceful_shut_unshut(struct vty *vty,
+						     struct bgp *bgp)
+{
+	bgp_static_redo_import_check(bgp);
+	bgp_redistribute_redo(bgp);
+	bgp_clear_star_soft_out(vty, bgp->name);
+	bgp_clear_star_soft_in(vty, bgp->name);
+}
+
+static int bgp_global_graceful_shutdown_config_vty(struct vty *vty)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+	bool vrf_cfg = false;
+
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN))
+		return CMD_SUCCESS;
+
+	/* See if graceful-shutdown is set per-vrf and warn user to delete */
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+			vty_out(vty,
+				"%% graceful-shutdown configuration found in vrf %s\n",
+				bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ?
+					VRF_DEFAULT_NAME : bgp->name);
+			vrf_cfg = true;
+		}
+	}
+
+	if (vrf_cfg) {
+		vty_out(vty,
+			"%%Failed: global graceful-shutdown not permitted\n");
+		return CMD_WARNING;
+	}
+
+	/* Set flag globally */
+	SET_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN);
+
+	/* Initiate processing for all BGP instances. */
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		bgp_initiate_graceful_shut_unshut(vty, bgp);
+
+	return CMD_SUCCESS;
+}
+
+static int bgp_global_graceful_shutdown_deconfig_vty(struct vty *vty)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	if (!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN))
+		return CMD_SUCCESS;
+
+	/* Unset flag globally */
+	UNSET_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN);
+
+	/* Initiate processing for all BGP instances. */
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		bgp_initiate_graceful_shut_unshut(vty, bgp);
+
+	return CMD_SUCCESS;
+}
+
 /* "bgp graceful-shutdown" configuration */
 DEFUN (bgp_graceful_shutdown,
        bgp_graceful_shutdown_cmd,
@@ -2812,14 +2875,21 @@ DEFUN (bgp_graceful_shutdown,
        BGP_STR
        "Graceful shutdown parameters\n")
 {
+	if (vty->node == CONFIG_NODE)
+		return bgp_global_graceful_shutdown_config_vty(vty);
+
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	/* if configured globally, per-instance config is not allowed */
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN)) {
+		vty_out(vty,
+			"%%Failed: per-vrf graceful-shutdown config not permitted with global graceful-shutdown\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
 		SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
-		bgp_static_redo_import_check(bgp);
-		bgp_redistribute_redo(bgp);
-		bgp_clear_star_soft_out(vty, bgp->name);
-		bgp_clear_star_soft_in(vty, bgp->name);
+		bgp_initiate_graceful_shut_unshut(vty, bgp);
 	}
 
 	return CMD_SUCCESS;
@@ -2832,14 +2902,21 @@ DEFUN (no_bgp_graceful_shutdown,
        BGP_STR
        "Graceful shutdown parameters\n")
 {
+	if (vty->node == CONFIG_NODE)
+		return bgp_global_graceful_shutdown_deconfig_vty(vty);
+
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	/* If configured globally, cannot remove from one bgp instance */
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN)) {
+		vty_out(vty,
+			"%%Failed: bgp graceful-shutdown configured globally. Delete per-vrf not permitted\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
 		UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
-		bgp_static_redo_import_check(bgp);
-		bgp_redistribute_redo(bgp);
-		bgp_clear_star_soft_out(vty, bgp->name);
-		bgp_clear_star_soft_in(vty, bgp->name);
+		bgp_initiate_graceful_shut_unshut(vty, bgp);
 	}
 
 	return CMD_SUCCESS;
@@ -6385,7 +6462,6 @@ DEFUN (no_bgp_set_route_map_delay_timer,
 
 	return CMD_SUCCESS;
 }
-
 
 /* neighbor interface */
 static int peer_interface_vty(struct vty *vty, const char *ip_str,
@@ -15528,6 +15604,9 @@ int bgp_config_write(struct vty *vty)
 		vty_out(vty, "\n");
 	}
 
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN))
+		vty_out(vty, "bgp graceful-shutdown\n");
+
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 
@@ -15679,6 +15758,14 @@ int bgp_config_write(struct vty *vty)
 		/* coalesce time */
 		bgp_config_write_coalesce_time(vty, bgp);
 
+		/* BGP per-instance graceful-shutdown */
+		/* BGP-wide settings and per-instance settings are mutually
+		 * exclusive.
+		 */
+		if (!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN))
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
+				vty_out(vty, " bgp graceful-shutdown\n");
+
 		/* BGP graceful-restart. */
 		if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
 			vty_out(vty,
@@ -15699,10 +15786,6 @@ int bgp_config_write(struct vty *vty)
 
 		if (bgp_global_gr_mode_get(bgp) == GLOBAL_DISABLE)
 			vty_out(vty, " bgp graceful-restart-disable\n");
-
-		/* BGP graceful-shutdown */
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
-			vty_out(vty, " bgp graceful-shutdown\n");
 
 		/* BGP graceful-restart Preserve State F bit. */
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD))
@@ -16045,6 +16128,10 @@ void bgp_vty_init(void)
 	/* global bgp update-delay command */
 	install_element(CONFIG_NODE, &bgp_global_update_delay_cmd);
 	install_element(CONFIG_NODE, &no_bgp_global_update_delay_cmd);
+
+	/* global bgp graceful-shutdown command */
+	install_element(CONFIG_NODE, &bgp_graceful_shutdown_cmd);
+	install_element(CONFIG_NODE, &no_bgp_graceful_shutdown_cmd);
 
 	/* Dummy commands (Currently not supported) */
 	install_element(BGP_NODE, &no_synchronization_cmd);
