@@ -947,13 +947,11 @@ def checkAddressSanitizerError(output, router, component):
 
 
 def addRouter(topo, name):
-    "Adding a FRRouter (or Quagga) to Topology"
+    "Adding a FRRouter to Topology"
 
     MyPrivateDirs = [
         "/etc/frr",
-        "/etc/quagga",
         "/var/run/frr",
-        "/var/run/quagga",
         "/var/log",
     ]
     if sys.platform.startswith("linux"):
@@ -985,7 +983,7 @@ def assert_sysctl(node, sysctl, value):
 
 
 class Router(Node):
-    "A Node with IPv4/IPv6 forwarding enabled and Quagga as Routing Engine"
+    "A Node with IPv4/IPv6 forwarding enabled"
 
     def __init__(self, name, **params):
         super(Router, self).__init__(name, **params)
@@ -997,7 +995,6 @@ class Router(Node):
             {
                 "verbosity": "info",
                 "frrdir": "/usr/lib/frr",
-                "quaggadir": "/usr/lib/quagga",
                 "routertype": "frr",
                 "memleak_path": None,
             }
@@ -1055,18 +1052,6 @@ class Router(Node):
         if not os.path.isfile(zebra_path):
             raise Exception("FRR zebra binary doesn't exist at {}".format(zebra_path))
 
-    def _config_quagga(self, **params):
-        "Configure Quagga binaries"
-        self.daemondir = params.get("quaggadir")
-        if self.daemondir is None:
-            self.daemondir = self.config_defaults.get("topogen", "quaggadir")
-
-        zebra_path = os.path.join(self.daemondir, "zebra")
-        if not os.path.isfile(zebra_path):
-            raise Exception(
-                "Quagga zebra binary doesn't exist at {}".format(zebra_path)
-            )
-
     # pylint: disable=W0221
     # Some params are only meaningful for the parent class.
     def config(self, **params):
@@ -1078,10 +1063,7 @@ class Router(Node):
             self.routertype = params.get(
                 "routertype", self.config_defaults.get("topogen", "routertype")
             )
-            if self.routertype == "quagga":
-                self._config_quagga(**params)
-            else:
-                self._config_frr(**params)
+            self._config_frr(**params)
         else:
             # Test the provided path
             zpath = os.path.join(self.daemondir, "zebra")
@@ -1406,7 +1388,7 @@ class Router(Node):
     def killRouterDaemons(
         self, daemons, wait=True, assertOnError=True, minErrorVersion="5.1"
     ):
-        # Kill Running Quagga or FRR specific
+        # Kill Running FRR
         # Daemons(user specified daemon only) using SIGKILL
         rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
         errors = ""
@@ -1668,7 +1650,7 @@ class Router(Node):
         return True
 
     def get_routertype(self):
-        "Return the type of Router (frr or quagga)"
+        "Return the type of Router (frr)"
 
         return self.routertype
 

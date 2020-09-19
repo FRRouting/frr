@@ -22,7 +22,7 @@
 #
 
 """
- test_bgp_ipv6_rtadv.py: Test the FRR/Quagga BGP daemon with BGP IPv6 interface
+ test_bgp_ipv6_rtadv.py: Test the FRR BGP daemon with BGP IPv6 interface
  with route advertisements on a separate netns.
 """
 

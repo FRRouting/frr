@@ -23,7 +23,7 @@
 #
 
 """
-test_bfd_topo2.py: Test the FRR/Quagga BFD daemon with multihop and BGP
+test_bfd_topo2.py: Test the FRR BFD daemon with multihop and BGP
 unnumbered.
 """
 

@@ -127,7 +127,7 @@ def setup_module(module):
         net["r%s" % i].loadConf("ripngd", "%s/r%s/ripngd.conf" % (thisDir, i))
         net["r%s" % i].startRouter()
 
-    # For debugging after starting Quagga/FRR daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -149,7 +149,7 @@ def test_router_running():
     if fatal_error != "":
         pytest.skip(fatal_error)
 
-    print("\n\n** Check if FRR/Quagga is running on each Router node")
+    print("\n\n** Check if FRR is running on each Router node")
     print("******************************************\n")
 
     # Starting Routers
@@ -157,7 +157,7 @@ def test_router_running():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -182,7 +182,7 @@ def test_converge_protocols():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -250,7 +250,7 @@ def test_ripng_status():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -317,7 +317,7 @@ def test_ripng_routes():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -351,7 +351,7 @@ def test_zebra_ipv6_routingTable():
             )
             # Mask out Link-Local mac address portion. They are random...
             actual = re.sub(r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual)
-            # Drop timers on end of line (older Quagga Versions)
+            # Drop timers on end of line
             actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
             # Fix newlines (make them all the same)
             actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
@@ -383,7 +383,7 @@ def test_zebra_ipv6_routingTable():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 

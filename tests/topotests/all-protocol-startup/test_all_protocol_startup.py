@@ -126,7 +126,7 @@ def setup_module(module):
         net['r%s' % i].loadConf('pbrd', '%s/r%s/pbrd.conf' % (thisDir, i))
         net['r%s' % i].startRouter()
 
-    # For debugging after starting Quagga/FRR daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -148,7 +148,7 @@ def test_router_running():
     if (fatal_error != ""):
         pytest.skip(fatal_error)
 
-    print("\n\n** Check if FRR/Quagga is running on each Router node")
+    print("\n\n** Check if FRR is running on each Router node")
     print("******************************************\n")
     sleep(5)
 
@@ -157,7 +157,7 @@ def test_router_running():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -213,7 +213,7 @@ def test_error_messages_vtysh():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -295,7 +295,7 @@ def test_error_messages_daemons():
 
     assert error_logs == "", "Daemons report errors to StdErr"
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -363,7 +363,7 @@ def test_converge_protocols():
 
         assert failures == 0, "IPv6 Routing table failed for r%s\n%s" % (i, diff)
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     ## CLI(net)
 
 def route_get_nhg_id(route_str):
@@ -527,7 +527,7 @@ def test_rip_status():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -582,7 +582,7 @@ def test_ripng_status():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -646,7 +646,7 @@ def test_ospfv2_interfaces():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -701,7 +701,7 @@ def test_isis_interfaces():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -782,7 +782,7 @@ def test_bgp_summary():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -864,7 +864,7 @@ def test_bgp_ipv6_summary():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -927,7 +927,7 @@ def test_bgp_ipv4():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -989,7 +989,7 @@ def test_bgp_ipv6():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 def test_route_map():
@@ -1155,7 +1155,7 @@ def test_mpls_interfaces():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 

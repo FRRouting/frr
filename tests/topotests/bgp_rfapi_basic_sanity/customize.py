@@ -23,7 +23,7 @@
 #
 
 """
-customize.py: Simple FRR/Quagga MPLS L3VPN test topology
+customize.py: Simple FRR MPLS L3VPN test topology
 
              +---------+
              |    r1   |
