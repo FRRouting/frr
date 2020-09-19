@@ -1355,16 +1355,26 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 					else if (
 						(lsa = ospf_external_info_find_lsa(
 							 ospf, &ei->p))) {
-						if (!CHECK_FLAG(
-							    lsa->flags,
-							    OSPF_LSA_IN_MAXAGE))
-							ospf_external_lsa_refresh(
-								ospf, lsa, ei,
-								LSA_REFRESH_IF_CHANGED);
-						else
-							ospf_external_lsa_refresh(
-								ospf, lsa, ei,
-								LSA_REFRESH_FORCE);
+						int force =
+							LSA_REFRESH_IF_CHANGED;
+						/* If this is a MaxAge LSA, we
+						 * need to force refresh it
+						 * because distribute settings
+						 * might have changed and now,
+						 * this LSA needs to be
+						 * originated, not be removed.
+						 * If we don't force refresh it,
+						 * it will remain a MaxAge LSA
+						 * because it will look like it
+						 * hasn't changed. Neighbors
+						 * will not receive updates for
+						 * this LSA.
+						 */
+						if (IS_LSA_MAXAGE(lsa))
+							force = LSA_REFRESH_FORCE;
+
+						ospf_external_lsa_refresh(
+							ospf, lsa, ei, force);
 					} else
 						ospf_external_lsa_originate(
 							ospf, ei);
