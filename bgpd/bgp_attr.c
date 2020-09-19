@@ -954,7 +954,7 @@ struct attr *bgp_attr_aggregate_intern(
 		/* If we are not shutting down ourselves and we are
 		 * aggregating a route that contains the GSHUT community we
 		 * need to remove that community when creating the aggregate */
-		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)
+		if (!bgp_in_graceful_shutdown(bgp)
 		    && community_include(community, gshut)) {
 			community_del_val(community, &gshut);
 		}
@@ -973,7 +973,7 @@ struct attr *bgp_attr_aggregate_intern(
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 	}
 
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
+	if (bgp_in_graceful_shutdown(bgp))
 		bgp_attr_add_gshut_community(&attr);
 
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
@@ -1016,13 +1016,13 @@ struct attr *bgp_attr_aggregate_intern(
 			return NULL;
 		}
 
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
+		if (bgp_in_graceful_shutdown(bgp))
 			bgp_attr_add_gshut_community(&attr_tmp);
 
 		new = bgp_attr_intern(&attr_tmp);
 	} else {
 
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
+		if (bgp_in_graceful_shutdown(bgp))
 			bgp_attr_add_gshut_community(&attr);
 
 		new = bgp_attr_intern(&attr);

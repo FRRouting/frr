@@ -2157,6 +2157,11 @@ static inline void bgp_vrf_unlink(struct bgp *bgp, struct vrf *vrf)
 	bgp->vrf_id = VRF_UNKNOWN;
 }
 
+static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
+{
+	return !!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
+}
+
 extern void bgp_unset_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
 
 /* For benefit of rfapi */

@@ -868,7 +868,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 			}
 
 			/* Advertise the default route */
-			if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
+			if (bgp_in_graceful_shutdown(bgp))
 				bgp_attr_add_gshut_community(new_attr);
 
 			SET_FLAG(subgrp->sflags,
