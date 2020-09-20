@@ -27,11 +27,11 @@ const struct frr_yang_module_info frr_bgp_info = {
 	.name = "frr-bgp",
 	.nodes = {
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global",
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp",
 			.cbs = {
 				.cli_show = cli_show_router_bgp,
-				.create = bgp_global_create,
-				.destroy = bgp_global_destroy,
+				.create = bgp_create,
+				.destroy = bgp_destroy,
 			}
 		},
 		{

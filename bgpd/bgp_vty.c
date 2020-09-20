@@ -1384,7 +1384,7 @@ void cli_show_router_bgp(struct vty *vty, struct lyd_node *dnode,
 
 	vrf_dnode = yang_dnode_get_parent(dnode, "control-plane-protocol");
 	vrf_name = yang_dnode_get_string(vrf_dnode, "./vrf");
-	as = yang_dnode_get_uint32(dnode, "./local-as");
+	as = yang_dnode_get_uint32(dnode, "./global/local-as");
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "router bgp %u", as);

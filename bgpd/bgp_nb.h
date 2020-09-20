@@ -26,8 +26,8 @@
 extern const struct frr_yang_module_info frr_bgp_info;
 
 /* prototypes */
-int bgp_global_create(struct nb_cb_create_args *args);
-int bgp_global_destroy(struct nb_cb_destroy_args *args);
+int bgp_create(struct nb_cb_create_args *args);
+int bgp_destroy(struct nb_cb_destroy_args *args);
 int bgp_global_local_as_modify(struct nb_cb_modify_args *args);
 int bgp_global_router_id_modify(struct nb_cb_modify_args *args);
 int bgp_global_router_id_destroy(struct nb_cb_destroy_args *args);
