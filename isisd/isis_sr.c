@@ -363,7 +363,7 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 
 	/* Set the N-flag when appropriate. */
 	ifp = if_lookup_prefix(prefix, VRF_DEFAULT);
-	if (ifp && sr_prefix_is_node_sid(ifp, prefix))
+	if (ifp && sr_prefix_is_node_sid(ifp, prefix) && !pcfg->n_flag_clear)
 		pcfg->node_sid = true;
 
 	/* Save prefix-sid configuration. */
@@ -949,7 +949,7 @@ static int sr_if_new_hook(struct interface *ifp)
 			continue;
 
 		if (sr_prefix_is_node_sid(ifp, &pcfg->prefix)
-		    && !pcfg->node_sid) {
+		    && !pcfg->n_flag_clear) {
 			pcfg->node_sid = true;
 			lsp_regenerate_schedule(area, area->is_type, 0);
 		}

@@ -515,14 +515,16 @@ Known limitations:
    MPLS dataplane. E.g. for Linux kernel, since version 4.13 the maximum value
    is 32.
 
-.. index:: [no] segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16-1048575)|index (0-65535)> [no-php-flag|explicit-null]
-.. clicmd:: [no] segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16-1048575)|index (0-65535) [no-php-flag|explicit-null]
+.. index:: [no] segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16-1048575)|index (0-65535)> [no-php-flag|explicit-null] [n-flag-clear]
+.. clicmd:: [no] segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16-1048575)|index (0-65535) [no-php-flag|explicit-null] [n-flag-clear]
 
    Set the Segment Routing index or absolute label value for the specified
    prefix. The 'no-php-flag' means NO Penultimate Hop Popping that allows SR
    node to request to its neighbor to not pop the label. The 'explicit-null'
    flag allows SR node to request to its neighbor to send IP packet with the
-   EXPLICIT-NULL label.
+   EXPLICIT-NULL label. The 'n-flag-clear' option can be used to explicitly
+   clear the Node flag that is set by default for Prefix-SIDs associated to
+   loopback addresses. This option is necessary to configure Anycast-SIDs.
 
 .. index:: show isis segment-routing prefix-sids
 .. clicmd:: show isis segment-routing prefix-sids

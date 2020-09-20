@@ -152,6 +152,9 @@ struct sr_prefix_cfg {
 	/* SID last hop behavior. */
 	enum sr_last_hop_behavior last_hop_behavior;
 
+	/* Indicates whether the node flag must be explicitly unset. */
+	bool n_flag_clear;
+
 	/* Does this Prefix-SID refer to a loopback address (Node-SID)? */
 	bool node_sid;
 

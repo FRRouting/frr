@@ -1628,7 +1628,7 @@ DEFPY_YANG (isis_sr_prefix_sid,
        "segment-routing prefix\
           <A.B.C.D/M|X:X::X:X/M>$prefix\
 	  <absolute$sid_type (16-1048575)$sid_value|index$sid_type (0-65535)$sid_value>\
-	  [<no-php-flag|explicit-null>$lh_behavior]",
+	  [<no-php-flag|explicit-null>$lh_behavior] [n-flag-clear$n_flag_clear]",
        SR_STR
        "Prefix SID\n"
        "IPv4 Prefix\n"
@@ -1638,7 +1638,8 @@ DEFPY_YANG (isis_sr_prefix_sid,
        "Specify the index of Prefix Segement ID\n"
        "The Prefix Segment ID index\n"
        "Don't request Penultimate Hop Popping (PHP)\n"
-       "Upstream neighbor must replace prefix-sid with explicit null label\n")
+       "Upstream neighbor must replace prefix-sid with explicit null label\n"
+       "Not a node SID\n")
 {
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./sid-value-type", NB_OP_MODIFY, sid_type);
@@ -1656,6 +1657,8 @@ DEFPY_YANG (isis_sr_prefix_sid,
 	} else
 		nb_cli_enqueue_change(vty, "./last-hop-behavior", NB_OP_MODIFY,
 				      NULL);
+	nb_cli_enqueue_change(vty, "./n-flag-clear", NB_OP_MODIFY,
+			      n_flag_clear ? "true" : "false");
 
 	return nb_cli_apply_changes(
 		vty, "./segment-routing/prefix-sid-map/prefix-sid[prefix='%s']",
@@ -1665,7 +1668,8 @@ DEFPY_YANG (isis_sr_prefix_sid,
 DEFPY_YANG (no_isis_sr_prefix_sid,
        no_isis_sr_prefix_sid_cmd,
        "no segment-routing prefix <A.B.C.D/M|X:X::X:X/M>$prefix\
-         [<absolute$sid_type (16-1048575)|index (0-65535)> [<no-php-flag|explicit-null>]]",
+         [<absolute$sid_type (16-1048575)|index (0-65535)> [<no-php-flag|explicit-null>]]\
+	 [n-flag-clear]",
        NO_STR
        SR_STR
        "Prefix SID\n"
@@ -1676,7 +1680,8 @@ DEFPY_YANG (no_isis_sr_prefix_sid,
        "Specify the index of Prefix Segement ID\n"
        "The Prefix Segment ID index\n"
        "Don't request Penultimate Hop Popping (PHP)\n"
-       "Upstream neighbor must replace prefix-sid with explicit null label\n")
+       "Upstream neighbor must replace prefix-sid with explicit null label\n"
+       "Not a node SID\n")
 {
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
@@ -1692,11 +1697,13 @@ void cli_show_isis_prefix_sid(struct vty *vty, struct lyd_node *dnode,
 	const char *lh_behavior;
 	const char *sid_value_type;
 	const char *sid_value;
+	bool n_flag_clear;
 
 	prefix = yang_dnode_get_string(dnode, "./prefix");
 	lh_behavior = yang_dnode_get_string(dnode, "./last-hop-behavior");
 	sid_value_type = yang_dnode_get_string(dnode, "./sid-value-type");
 	sid_value = yang_dnode_get_string(dnode, "./sid-value");
+	n_flag_clear = yang_dnode_get_bool(dnode, "./n-flag-clear");
 
 	vty_out(vty, " segment-routing prefix %s", prefix);
 	if (strmatch(sid_value_type, "absolute"))
@@ -1708,6 +1715,8 @@ void cli_show_isis_prefix_sid(struct vty *vty, struct lyd_node *dnode,
 		vty_out(vty, " no-php-flag");
 	else if (strmatch(lh_behavior, "explicit-null"))
 		vty_out(vty, " explicit-null");
+	if (n_flag_clear)
+		vty_out(vty, " n-flag-clear");
 	vty_out(vty, "\n");
 }
 
