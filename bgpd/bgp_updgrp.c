@@ -373,11 +373,13 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 * There are certain peers that must get their own update-group:
 	 * - lonesoul peers
 	 * - peers that negotiated ORF
+	 * - maximum-prefix-out is set
 	 */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL)
 	    || CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
 	    || CHECK_FLAG(peer->af_cap[afi][safi],
-			  PEER_CAP_ORF_PREFIX_SM_OLD_RCV))
+			  PEER_CAP_ORF_PREFIX_SM_OLD_RCV)
+	    || CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT))
 		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
 				  key);
 
