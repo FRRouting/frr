@@ -2603,8 +2603,8 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 		sbuf_push(
 			buf, indent,
 			"  Segment Routing: I:%s V:%s, Global Block Base: %u Range: %u\n",
-			IS_SR_IPV4(router_cap->srgb) ? "1" : "0",
-			IS_SR_IPV6(router_cap->srgb) ? "1" : "0",
+			IS_SR_IPV4(&router_cap->srgb) ? "1" : "0",
+			IS_SR_IPV6(&router_cap->srgb) ? "1" : "0",
 			router_cap->srgb.lower_bound,
 			router_cap->srgb.range_size);
 

@@ -71,7 +71,6 @@ static struct isis_nexthop *isis_nexthop_create(int family, union g_addr *ip,
 	nexthop->family = family;
 	nexthop->ifindex = ifindex;
 	nexthop->ip = *ip;
-	isis_sr_nexthop_reset(&nexthop->sr);
 
 	return nexthop;
 }
@@ -117,7 +116,7 @@ static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family,
 }
 
 void adjinfo2nexthop(int family, struct list *nexthops,
-		     struct isis_adjacency *adj,
+		     struct isis_adjacency *adj, struct isis_sr_psid_info *sr,
 		     struct mpls_label_stack *label_stack)
 {
 	struct isis_nexthop *nh;
@@ -134,6 +133,8 @@ void adjinfo2nexthop(int family, struct list *nexthops,
 					AF_INET, &ip,
 					adj->circuit->interface->ifindex);
 				memcpy(nh->sysid, adj->sysid, sizeof(nh->sysid));
+				if (sr)
+					nh->sr = *sr;
 				nh->label_stack = label_stack;
 				listnode_add(nexthops, nh);
 				break;
@@ -150,6 +151,8 @@ void adjinfo2nexthop(int family, struct list *nexthops,
 					AF_INET6, &ip,
 					adj->circuit->interface->ifindex);
 				memcpy(nh->sysid, adj->sysid, sizeof(nh->sysid));
+				if (sr)
+					nh->sr = *sr;
 				nh->label_stack = label_stack;
 				listnode_add(nexthops, nh);
 				break;
@@ -165,22 +168,22 @@ void adjinfo2nexthop(int family, struct list *nexthops,
 
 static void isis_route_add_dummy_nexthops(struct isis_route_info *rinfo,
 					  const uint8_t *sysid,
+					  struct isis_sr_psid_info *sr,
 					  struct mpls_label_stack *label_stack)
 {
 	struct isis_nexthop *nh;
 
 	nh = XCALLOC(MTYPE_ISIS_NEXTHOP, sizeof(struct isis_nexthop));
 	memcpy(nh->sysid, sysid, sizeof(nh->sysid));
-	isis_sr_nexthop_reset(&nh->sr);
+	nh->sr = *sr;
 	nh->label_stack = label_stack;
 	listnode_add(rinfo->nexthops, nh);
 }
 
-static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
-						   struct prefix_ipv6 *src_p,
-						   uint32_t cost,
-						   uint32_t depth,
-						   struct list *adjacencies)
+static struct isis_route_info *
+isis_route_info_new(struct prefix *prefix, struct prefix_ipv6 *src_p,
+		    uint32_t cost, uint32_t depth, struct isis_sr_psid_info *sr,
+		    struct list *adjacencies)
 {
 	struct isis_route_info *rinfo;
 	struct isis_vertex_adj *vadj;
@@ -192,6 +195,7 @@ static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
 	for (ALL_LIST_ELEMENTS_RO(adjacencies, node, vadj)) {
 		struct isis_spf_adj *sadj = vadj->sadj;
 		struct isis_adjacency *adj = sadj->adj;
+		struct isis_sr_psid_info *sr = &vadj->sr;
 		struct mpls_label_stack *label_stack = vadj->label_stack;
 
 		/*
@@ -199,7 +203,7 @@ static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
 		 * environment.
 		 */
 		if (CHECK_FLAG(im->options, F_ISIS_UNIT_TEST)) {
-			isis_route_add_dummy_nexthops(rinfo, sadj->id,
+			isis_route_add_dummy_nexthops(rinfo, sadj->id, sr,
 						      label_stack);
 			continue;
 		}
@@ -227,12 +231,13 @@ static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
 				 prefix->family);
 			exit(1);
 		}
-		adjinfo2nexthop(prefix->family, rinfo->nexthops, adj,
+		adjinfo2nexthop(prefix->family, rinfo->nexthops, adj, sr,
 				label_stack);
 	}
 
 	rinfo->cost = cost;
 	rinfo->depth = depth;
+	rinfo->sr = *sr;
 
 	return rinfo;
 }
@@ -254,12 +259,28 @@ void isis_route_node_cleanup(struct route_table *table, struct route_node *node)
 		isis_route_info_delete(node->info);
 }
 
+static bool isis_sr_psid_info_same(struct isis_sr_psid_info *new,
+				   struct isis_sr_psid_info *old)
+{
+	if (new->present != old->present)
+		return false;
+
+	if (new->label != old->label)
+		return false;
+
+	if (new->sid.flags != old->sid.flags
+	    || new->sid.value != old->sid.value)
+		return false;
+
+	return true;
+}
+
 static int isis_route_info_same(struct isis_route_info *new,
 				struct isis_route_info *old, char *buf,
 				size_t buf_size)
 {
 	struct listnode *node;
-	struct isis_nexthop *nexthop;
+	struct isis_nexthop *new_nh, *old_nh;
 
 	if (new->cost != old->cost) {
 		if (buf)
@@ -275,6 +296,12 @@ static int isis_route_info_same(struct isis_route_info *new,
 		return 0;
 	}
 
+	if (!isis_sr_psid_info_same(&new->sr, &old->sr)) {
+		if (buf)
+			snprintf(buf, buf_size, "SR input label");
+		return 0;
+	}
+
 	if (new->nexthops->count != old->nexthops->count) {
 		if (buf)
 			snprintf(buf, buf_size, "nhops num (old: %u, new: %u)",
@@ -282,12 +309,18 @@ static int isis_route_info_same(struct isis_route_info *new,
 		return 0;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(new->nexthops, node, nexthop)) {
-		if (!nexthoplookup(old->nexthops, nexthop->family, &nexthop->ip,
-				   nexthop->ifindex)) {
+	for (ALL_LIST_ELEMENTS_RO(new->nexthops, node, new_nh)) {
+		old_nh = nexthoplookup(old->nexthops, new_nh->family,
+				       &new_nh->ip, new_nh->ifindex);
+		if (!old_nh) {
 			if (buf)
 				snprintf(buf, buf_size,
 					 "new nhop"); /* TODO: print nhop */
+			return 0;
+		}
+		if (!isis_sr_psid_info_same(&new_nh->sr, &old_nh->sr)) {
+			if (buf)
+				snprintf(buf, buf_size, "nhop SR label");
 			return 0;
 		}
 	}
@@ -303,13 +336,11 @@ static int isis_route_info_same(struct isis_route_info *new,
 	return 1;
 }
 
-struct isis_route_info *isis_route_create(struct prefix *prefix,
-					  struct prefix_ipv6 *src_p,
-					  uint32_t cost,
-					  uint32_t depth,
-					  struct list *adjacencies,
-					  struct isis_area *area,
-					  struct route_table *table)
+struct isis_route_info *
+isis_route_create(struct prefix *prefix, struct prefix_ipv6 *src_p,
+		  uint32_t cost, uint32_t depth, struct isis_sr_psid_info *sr,
+		  struct list *adjacencies, struct isis_area *area,
+		  struct route_table *table)
 {
 	struct route_node *route_node;
 	struct isis_route_info *rinfo_new, *rinfo_old, *route_info = NULL;
@@ -318,8 +349,8 @@ struct isis_route_info *isis_route_create(struct prefix *prefix,
 	if (!table)
 		return NULL;
 
-	rinfo_new = isis_route_info_new(prefix, src_p, cost,
-					depth, adjacencies);
+	rinfo_new = isis_route_info_new(prefix, src_p, cost, depth, sr,
+					adjacencies);
 	route_node = srcdest_rnode_get(table, prefix, src_p);
 
 	rinfo_old = route_node->info;
@@ -351,6 +382,7 @@ struct isis_route_info *isis_route_create(struct prefix *prefix,
 				zlog_debug(
 					"ISIS-Rte (%s): route changed: %pFX, change: %s",
 					area->area_tag, prefix, change_buf);
+			rinfo_new->sr_previous = rinfo_old->sr;
 			isis_route_info_delete(rinfo_old);
 			route_info = rinfo_new;
 			UNSET_FLAG(route_info->flag,
@@ -406,7 +438,25 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 		if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 			return;
 
-		isis_zebra_route_add_route(area->isis, prefix, src_p, route_info);
+		/*
+		 * Explicitly uninstall previous Prefix-SID label if it has
+		 * changed or was removed.
+		 */
+		if (route_info->sr_previous.present
+		    && (!route_info->sr.present
+			|| route_info->sr_previous.label
+				   != route_info->sr.label))
+			isis_zebra_prefix_sid_uninstall(
+				area, prefix, route_info,
+				&route_info->sr_previous);
+
+		/* Install route. */
+		isis_zebra_route_add_route(area->isis, prefix, src_p,
+					   route_info);
+		/* Install/reinstall Prefix-SID label. */
+		if (route_info->sr.present)
+			isis_zebra_prefix_sid_install(area, prefix, route_info,
+						      &route_info->sr);
 		hook_call(isis_route_update_hook, area, prefix, route_info);
 
 		SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
@@ -415,7 +465,13 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 		if (!CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 			return;
 
-		isis_zebra_route_del_route(area->isis, prefix, src_p, route_info);
+		/* Uninstall Prefix-SID label. */
+		if (route_info->sr.present)
+			isis_zebra_prefix_sid_uninstall(
+				area, prefix, route_info, &route_info->sr);
+		/* Uninstall route. */
+		isis_zebra_route_del_route(area->isis, prefix, src_p,
+					   route_info);
 		hook_call(isis_route_update_hook, area, prefix, route_info);
 
 		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);

@@ -57,10 +57,24 @@
 #define SRLB_UPPER_BOUND               15999
 
 /* Segment Routing Data Base (SRDB) RB-Tree structure */
-PREDECL_RBTREE_UNIQ(srdb_node)
-PREDECL_RBTREE_UNIQ(srdb_node_prefix)
-PREDECL_RBTREE_UNIQ(srdb_area_prefix)
 PREDECL_RBTREE_UNIQ(srdb_prefix_cfg)
+
+/*
+ * Segment Routing Prefix-SID information.
+ *
+ * This structure is intended to be embedded inside other structures that
+ * might or might not contain Prefix-SID information.
+ */
+struct isis_sr_psid_info {
+	/* Prefix-SID Sub-TLV information. */
+	struct isis_prefix_sid sid;
+
+	/* Resolved input/output label. */
+	mpls_label_t label;
+
+	/* Indicates whether the Prefix-SID is present or not. */
+	bool present;
+};
 
 /* Segment Routing Local Block allocation */
 struct sr_local_block {
@@ -104,85 +118,6 @@ struct sr_adjacency {
 
 	/* Back pointer to IS-IS adjacency. */
 	struct isis_adjacency *adj;
-};
-
-/* Segment Routing Prefix-SID type. */
-enum sr_prefix_type {
-	ISIS_SR_PREFIX_LOCAL = 0,
-	ISIS_SR_PREFIX_REMOTE,
-};
-
-/* Segment Routing Nexthop Information. */
-struct sr_nexthop_info {
-	mpls_label_t label;
-	time_t uptime;
-};
-
-/* State of Object (SR-Node and SR-Prefix) stored in SRDB */
-enum srdb_state {
-	SRDB_STATE_VALIDATED = 0,
-	SRDB_STATE_NEW,
-	SRDB_STATE_MODIFIED,
-	SRDB_STATE_UNCHANGED
-};
-
-/* Segment Routing Prefix-SID. */
-struct sr_prefix {
-	/* SRDB RB-tree entries. */
-	struct srdb_node_prefix_item node_entry;
-	struct srdb_area_prefix_item area_entry;
-
-	/* IP prefix. */
-	struct prefix prefix;
-
-	/* SID value, algorithm and flags subTLVs. */
-	struct isis_prefix_sid sid;
-
-	/* Input label value. */
-	mpls_label_t input_label;
-
-	/* Prefix-SID type. */
-	enum sr_prefix_type type;
-	union {
-		struct {
-			/* Information about this local Prefix-SID. */
-			struct sr_nexthop_info info;
-		} local;
-		struct {
-			/* Route associated to this remote Prefix-SID. */
-			struct isis_route_info *rinfo;
-		} remote;
-	} u;
-
-	/* Backpointer to Segment Routing node. */
-	struct sr_node *srn;
-
-	/* SR-Prefix State used while the LSPDB is being parsed. */
-	enum srdb_state state;
-};
-
-/* Segment Routing node. */
-struct sr_node {
-	/* SRDB RB-tree entry. */
-	struct srdb_node_item entry;
-
-	/* IS-IS level: ISIS_LEVEL1 or ISIS_LEVEL2. */
-	int level;
-
-	/* IS-IS node identifier. */
-	uint8_t sysid[ISIS_SYS_ID_LEN];
-
-	/* Segment Routing node capabilities (SRGB, SR Algorithms) subTLVs. */
-	struct isis_router_cap cap;
-
-	/* List of Prefix-SIDs advertised by this node. */
-	struct srdb_node_prefix_head prefix_sids;
-
-	/* Backpointer to IS-IS area. */
-	struct isis_area *area;
-
-	/* SR-Node State used while the LSPDB is being parsed. */
-	enum srdb_state state;
 };
 
 /* SID type. NOTE: these values must be in sync with the YANG module. */
@@ -235,12 +170,6 @@ struct isis_sr_db {
 	/* List of local Adjacency-SIDs. */
 	struct list *adj_sids;
 
-	/* Segment Routing Node information per IS-IS level. */
-	struct srdb_node_head sr_nodes[ISIS_LEVELS];
-
-	/* Segment Routing Prefix-SIDs per IS-IS level. */
-	struct srdb_area_prefix_head prefix_sids[ISIS_LEVELS];
-
 	/* Management of SRLB & SRGB allocation */
 	struct sr_local_block srlb;
 	bool srgb_active;
@@ -267,6 +196,14 @@ struct isis_sr_db {
 };
 
 /* Prototypes. */
+extern struct isis_sr_block *isis_sr_find_srgb(struct lspdb_head *lspdb,
+					       const uint8_t *sysid);
+extern mpls_label_t sr_prefix_in_label(struct isis_area *area,
+				       struct isis_prefix_sid *psid,
+				       bool local);
+extern mpls_label_t sr_prefix_out_label(struct lspdb_head *lspdb, int family,
+					struct isis_prefix_sid *psid,
+					const uint8_t *nh_sysid, bool last_hop);
 extern int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 				   uint32_t upper_bound);
 extern int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
@@ -279,16 +216,14 @@ isis_sr_cfg_prefix_find(struct isis_area *area, union prefixconstptr prefix);
 extern void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg,
 				      bool external,
 				      struct isis_prefix_sid *psid);
-extern void isis_sr_nexthop_update(struct sr_nexthop_info *srnh,
-				   mpls_label_t label);
-extern void isis_sr_nexthop_reset(struct sr_nexthop_info *srnh);
 extern void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 				  bool backup, struct list *nexthops);
 extern struct sr_adjacency *isis_sr_adj_sid_find(struct isis_adjacency *adj,
 						 int family,
 						 enum sr_adj_type type);
 extern void isis_area_delete_backup_adj_sids(struct isis_area *area, int level);
-extern void isis_area_verify_sr(struct isis_area *area);
+extern char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
+		       mpls_label_t label_out);
 extern int isis_sr_start(struct isis_area *area);
 extern void isis_sr_stop(struct isis_area *area);
 extern void isis_sr_area_init(struct isis_area *area);

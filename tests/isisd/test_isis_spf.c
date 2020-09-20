@@ -66,7 +66,7 @@ static void test_run_spf(struct vty *vty, const struct isis_topology *topology,
 
 	/* Print the SPT and the corresponding routing table. */
 	isis_print_spftree(vty, spftree);
-	isis_print_routes(vty, spftree, false);
+	isis_print_routes(vty, spftree, false, false);
 
 	/* Cleanup SPF tree. */
 	isis_spftree_del(spftree);
@@ -122,7 +122,7 @@ static void test_run_ti_lfa(struct vty *vty,
 
 	/* Print the post-convergence SPT and the correspoding routing table. */
 	isis_print_spftree(vty, spftree_pc);
-	isis_print_routes(vty, spftree_self, true);
+	isis_print_routes(vty, spftree_self, false, true);
 
 	/* Cleanup everything. */
 	isis_spftree_del(spftree_self);

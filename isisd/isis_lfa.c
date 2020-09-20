@@ -180,23 +180,6 @@ bool isis_lfa_excise_node_check(const struct isis_spftree *spftree,
 	return false;
 }
 
-/* Find SRGB associated to a System ID. */
-static struct isis_sr_block *tilfa_find_srgb(struct lspdb_head *lspdb,
-					     const uint8_t *sysid)
-{
-	struct isis_lsp *lsp;
-
-	lsp = isis_root_system_lsp(lspdb, sysid);
-	if (!lsp)
-		return NULL;
-
-	if (!lsp->tlvs->router_cap
-	    || lsp->tlvs->router_cap->srgb.range_size == 0)
-		return NULL;
-
-	return &lsp->tlvs->router_cap->srgb;
-}
-
 struct tilfa_find_pnode_prefix_sid_args {
 	uint32_t sid_index;
 };
@@ -313,7 +296,7 @@ tilfa_compute_label_stack(struct lspdb_head *lspdb,
 
 		switch (sid->type) {
 		case TILFA_SID_PREFIX:
-			srgb = tilfa_find_srgb(lspdb, sadj->id);
+			srgb = isis_sr_find_srgb(lspdb, sadj->id);
 			if (!srgb) {
 				zlog_warn("%s: SRGB not found for node %s",
 					  __func__,
@@ -704,7 +687,7 @@ int isis_lfa_check(struct isis_spftree *spftree_pc, struct isis_vertex *vertex)
 		struct route_table *route_table;
 
 		route_table = spftree_pc->lfa.old.spftree->route_table_backup;
-		if (route_node_lookup(route_table, &vertex->N.ip.dest)) {
+		if (route_node_lookup(route_table, &vertex->N.ip.p.dest)) {
 			if (IS_DEBUG_TILFA)
 				zlog_debug(
 					"ISIS-TI-LFA: %s %s already covered by node protection",

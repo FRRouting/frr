@@ -68,7 +68,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 		       const char *func, const char *file, int line);
 void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree);
 void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
-		       bool backup);
+		       bool prefix_sid, bool backup);
 void isis_spf_init(void);
 void isis_spf_print(struct isis_spftree *spftree, struct vty *vty);
 void isis_run_spf(struct isis_spftree *spftree);
