@@ -434,7 +434,7 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree)
 	isis_vertex_queue_append(&spftree->paths, vertex);
 
 #ifdef EXTREME_DEBUG
-	zlog_debug("ISIS-Spf: added this IS %s %s depth %d dist %d to PATHS",
+	zlog_debug("ISIS-SPF: added this IS %s %s depth %d dist %d to PATHS",
 		   vtype2string(vertex->type),
 		   vid2string(vertex, buff, sizeof(buff)), vertex->depth,
 		   vertex->d_N);
@@ -515,7 +515,7 @@ static struct isis_vertex *isis_spf_add2tent(struct isis_spftree *spftree,
 
 #ifdef EXTREME_DEBUG
 	zlog_debug(
-		"ISIS-Spf: add to TENT %s %s %s depth %d dist %d adjcount %d",
+		"ISIS-SPF: add to TENT %s %s %s depth %d dist %d adjcount %d",
 		print_sys_hostname(vertex->N.id), vtype2string(vertex->type),
 		vid2string(vertex, buff, sizeof(buff)), vertex->depth,
 		vertex->d_N, listcount(vertex->Adj_N));
@@ -601,7 +601,7 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 	if (vertex) {
 #ifdef EXTREME_DEBUG
 		zlog_debug(
-			"ISIS-Spf: process_N %s %s %s dist %d already found from PATH",
+			"ISIS-SPF: process_N %s %s %s dist %d already found from PATH",
 			print_sys_hostname(vertex->N.id), vtype2string(vtype),
 			vid2string(vertex, buff, sizeof(buff)), dist);
 #endif /* EXTREME_DEBUG */
@@ -615,7 +615,7 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 /*        1) */
 #ifdef EXTREME_DEBUG
 		zlog_debug(
-			"ISIS-Spf: process_N %s %s %s dist %d parent %s adjcount %d",
+			"ISIS-SPF: process_N %s %s %s dist %d parent %s adjcount %d",
 			print_sys_hostname(vertex->N.id), vtype2string(vtype),
 			vid2string(vertex, buff, sizeof(buff)), dist,
 			(parent ? print_sys_hostname(parent->N.id) : "null"),
@@ -651,7 +651,7 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 	}
 
 #ifdef EXTREME_DEBUG
-	zlog_debug("ISIS-Spf: process_N add2tent %s %s dist %d parent %s",
+	zlog_debug("ISIS-SPF: process_N add2tent %s %s dist %d parent %s",
 		   print_sys_hostname(id), vtype2string(vtype), dist,
 		   (parent ? print_sys_hostname(parent->N.id) : "null"));
 #endif /* EXTREME_DEBUG */
@@ -711,7 +711,7 @@ lspfragloop:
 	}
 
 #ifdef EXTREME_DEBUG
-	zlog_debug("ISIS-Spf: process_lsp %s",
+	zlog_debug("ISIS-SPF: process_lsp %s",
 		   print_sys_hostname(lsp->hdr.lsp_id));
 #endif /* EXTREME_DEBUG */
 
@@ -970,7 +970,7 @@ static void isis_spf_preload_tent(struct isis_spftree *spftree,
 
 		if (isis_lfa_excise_adj_check(spftree, adj_id)) {
 			if (IS_DEBUG_TILFA)
-				zlog_debug("ISIS-Spf: excising adjacency %s",
+				zlog_debug("ISIS-SPF: excising adjacency %s",
 					   isis_format_id(sadj->id,
 							  ISIS_SYS_ID_LEN + 1));
 			continue;
@@ -1131,7 +1131,7 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 		lsp_pseudo = lsp_search(spftree->lspdb, lspid);
 		if (lsp_pseudo == NULL || lsp_pseudo->hdr.rem_lifetime == 0) {
 			zlog_warn(
-				"ISIS-Spf: No LSP found from root to L%d DR %s",
+				"ISIS-SPF: No LSP found from root to L%d DR %s",
 				spftree->level, rawlspid_print(id));
 			return;
 		}
@@ -1230,7 +1230,7 @@ static void add_to_paths(struct isis_spftree *spftree,
 	isis_vertex_queue_append(&spftree->paths, vertex);
 
 #ifdef EXTREME_DEBUG
-	zlog_debug("ISIS-Spf: added %s %s %s depth %d dist %d to PATHS",
+	zlog_debug("ISIS-SPF: added %s %s %s depth %d dist %d to PATHS",
 		   print_sys_hostname(vertex->N.id), vtype2string(vertex->type),
 		   vid2string(vertex, buff, sizeof(buff)), vertex->depth,
 		   vertex->d_N);
@@ -1254,7 +1254,7 @@ static void add_to_paths(struct isis_spftree *spftree,
 			}
 		} else if (IS_DEBUG_SPF_EVENTS)
 			zlog_debug(
-				"ISIS-Spf: no adjacencies, do not install backup Adj-SID for %s depth %d dist %d",
+				"ISIS-SPF: no adjacencies, do not install backup Adj-SID for %s depth %d dist %d",
 				vid2string(vertex, buff, sizeof(buff)),
 				vertex->depth, vertex->d_N);
 	}
@@ -1277,7 +1277,7 @@ static void add_to_paths(struct isis_spftree *spftree,
 					  vertex->Adj_N, area, route_table);
 		} else if (IS_DEBUG_SPF_EVENTS)
 			zlog_debug(
-				"ISIS-Spf: no adjacencies, do not install route for %s depth %d dist %d",
+				"ISIS-SPF: no adjacencies, do not install route for %s depth %d dist %d",
 				vid2string(vertex, buff, sizeof(buff)),
 				vertex->depth, vertex->d_N);
 	}
@@ -1307,7 +1307,7 @@ static void isis_spf_loop(struct isis_spftree *spftree,
 
 #ifdef EXTREME_DEBUG
 		zlog_debug(
-			"ISIS-Spf: get TENT node %s %s depth %d dist %d to PATHS",
+			"ISIS-SPF: get TENT node %s %s depth %d dist %d to PATHS",
 			print_sys_hostname(vertex->N.id),
 			vtype2string(vertex->type), vertex->depth, vertex->d_N);
 #endif /* EXTREME_DEBUG */
@@ -1318,7 +1318,7 @@ static void isis_spf_loop(struct isis_spftree *spftree,
 
 		lsp = lsp_for_vertex(spftree, vertex);
 		if (!lsp) {
-			zlog_warn("ISIS-Spf: No LSP found for %s",
+			zlog_warn("ISIS-SPF: No LSP found for %s",
 				  isis_format_id(vertex->N.id,
 						 sizeof(vertex->N.id)));
 			continue;
@@ -1380,7 +1380,7 @@ void isis_run_spf(struct isis_spftree *spftree)
 
 	root_lsp = isis_root_system_lsp(spftree->lspdb, spftree->sysid);
 	if (root_lsp == NULL) {
-		zlog_err("ISIS-Spf: could not find own l%d LSP!",
+		zlog_err("ISIS-SPF: could not find own l%d LSP!",
 			 spftree->level);
 		return;
 	}
@@ -1422,7 +1422,7 @@ void isis_run_spf(struct isis_spftree *spftree)
 	 */
 	if (!isis_vertex_queue_count(&spftree->tents)
 	    && (IS_DEBUG_SPF_EVENTS)) {
-		zlog_warn("ISIS-Spf: TENT is empty SPF-root:%s",
+		zlog_warn("ISIS-SPF: TENT is empty SPF-root:%s",
 			  print_sys_hostname(spftree->sysid));
 	}
 
@@ -1493,7 +1493,7 @@ static int isis_run_spf_cb(struct thread *thread)
 	isis_area_invalidate_routes(area, level);
 
 	if (IS_DEBUG_SPF_EVENTS)
-		zlog_debug("ISIS-Spf (%s) L%d SPF needed, periodic SPF",
+		zlog_debug("ISIS-SPF (%s) L%d SPF needed, periodic SPF",
 			   area->area_tag, level);
 
 	if (area->ip_circuits)
@@ -1546,7 +1546,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 
 	if (IS_DEBUG_SPF_EVENTS) {
 		zlog_debug(
-			"ISIS-Spf (%s) L%d SPF schedule called, lastrun %d sec ago Caller: %s %s:%d",
+			"ISIS-SPF (%s) L%d SPF schedule called, lastrun %d sec ago Caller: %s %s:%d",
 			area->area_tag, level, diff, func, file, line);
 	}
 
@@ -1581,7 +1581,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 
 		if (area->bfd_force_spf_refresh) {
 			zlog_debug(
-				"ISIS-Spf (%s) L%d SPF scheduled immediately due to BFD 'down' message",
+				"ISIS-SPF (%s) L%d SPF scheduled immediately due to BFD 'down' message",
 				area->area_tag, level);
 			area->bfd_force_spf_refresh = false;
 		}
@@ -1593,7 +1593,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 			 timer, &area->spf_timer[level - 1]);
 
 	if (IS_DEBUG_SPF_EVENTS)
-		zlog_debug("ISIS-Spf (%s) L%d SPF scheduled %ld sec from now",
+		zlog_debug("ISIS-SPF (%s) L%d SPF scheduled %ld sec from now",
 			   area->area_tag, level, timer);
 
 	return ISIS_OK;
