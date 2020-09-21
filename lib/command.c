@@ -1064,6 +1064,7 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 	/* look for `|` */
 	char *orig, *working, *token, *u;
 	char *pipe = strstr(cmd_in, "| ");
+	int ret = 0;
 
 	if (!pipe)
 		return 0;
@@ -1082,6 +1083,7 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 
 		if (!regexp) {
 			vty_out(vty, "%% Need a regexp to filter with\n");
+			ret = 1;
 			goto fail;
 		}
 
@@ -1089,6 +1091,7 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 
 		if (!succ) {
 			vty_out(vty, "%% Bad regexp '%s'\n", regexp);
+			ret = 1;
 			goto fail;
 		}
 		*cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
@@ -1096,12 +1099,13 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 		strsep(&u, "|");
 	} else {
 		vty_out(vty, "%% Unknown action '%s'\n", token);
+		ret = 1;
 		goto fail;
 	}
 
 fail:
 	XFREE(MTYPE_TMP, orig);
-	return 0;
+	return ret;
 }
 
 static int handle_pipe_action_done(struct vty *vty, const char *cmd_exec)
@@ -1117,10 +1121,15 @@ int cmd_execute(struct vty *vty, const char *cmd,
 {
 	int ret;
 	char *cmd_out = NULL;
-	const char *cmd_exec;
+	const char *cmd_exec = NULL;
 	vector vline;
 
-	hook_call(cmd_execute, vty, cmd, &cmd_out);
+	ret = hook_call(cmd_execute, vty, cmd, &cmd_out);
+	if (ret) {
+		ret = CMD_WARNING;
+		goto free;
+	}
+
 	cmd_exec = cmd_out ? (const char *)cmd_out : cmd;
 
 	vline = cmd_make_strvec(cmd_exec);
@@ -1132,6 +1141,7 @@ int cmd_execute(struct vty *vty, const char *cmd,
 		ret = CMD_SUCCESS;
 	}
 
+free:
 	hook_call(cmd_execute_done, vty, cmd_exec);
 
 	XFREE(MTYPE_TMP, cmd_out);
