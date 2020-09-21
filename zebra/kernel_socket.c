@@ -865,6 +865,7 @@ int ifam_read(struct ifa_msghdr *ifam)
 {
 	struct interface *ifp = NULL;
 	union sockunion addr, mask, brd;
+	bool dest_same = false;
 	char ifname[INTERFACE_NAMSIZ];
 	short ifnlen = 0;
 	char isalias = 0;
@@ -891,6 +892,10 @@ int ifam_read(struct ifa_msghdr *ifam)
 	   rely upon the interface type. */
 	if (if_is_pointopoint(ifp))
 		SET_FLAG(flags, ZEBRA_IFA_PEER);
+	else {
+		if (memcmp(&addr, &brd, sizeof(addr)) == 0)
+			dest_same = true;
+	}
 
 #if 0
   /* it might seem cute to grab the interface metric here, however
@@ -907,13 +912,14 @@ int ifam_read(struct ifa_msghdr *ifam)
 		if (ifam->ifam_type == RTM_NEWADDR)
 			connected_add_ipv4(ifp, flags, &addr.sin.sin_addr,
 					   ip_masklen(mask.sin.sin_addr),
-					   &brd.sin.sin_addr,
+					   dest_same ? NULL : &brd.sin.sin_addr,
 					   (isalias ? ifname : NULL),
 					   METRIC_MAX);
 		else
 			connected_delete_ipv4(ifp, flags, &addr.sin.sin_addr,
 					      ip_masklen(mask.sin.sin_addr),
-					      &brd.sin.sin_addr);
+					      dest_same ? NULL
+							: &brd.sin.sin_addr);
 		break;
 	case AF_INET6:
 		/* Unset interface index from link-local address when IPv6 stack
