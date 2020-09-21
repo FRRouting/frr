@@ -320,8 +320,10 @@ static int raw_cmd_loop(void)
 		switch (ret) {
 		case CMD_SUCCESS:
 		case CMD_SUCCESS_DAEMON:
-		case CMD_WARNING:
 			buf_out[1] = (char)0;
+			break;
+		case CMD_WARNING:
+			buf_out[1] = (char)2;
 			break;
 		default:
 			buf_out[1] = (char)1;
