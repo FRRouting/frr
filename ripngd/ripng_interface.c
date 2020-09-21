@@ -274,10 +274,11 @@ static int ripng_ifp_destroy(struct interface *ifp)
 		ripng_if_down(ifp);
 	}
 
-	zlog_info(
-		"interface delete %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
-		ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-		(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
+	if (IS_RIPNG_DEBUG_ZEBRA)
+		zlog_debug(
+			"interface delete %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
+			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
 
 	return 0;
 }
