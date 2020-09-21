@@ -1703,3 +1703,49 @@ void funcname_thread_execute(struct thread_master *m,
 	/* Give back or free thread. */
 	thread_add_unuse(m, thread);
 }
+
+/* Debug signal mask - if 'sigs' is NULL, use current effective mask. */
+void debug_signals(const sigset_t *sigs)
+{
+	int i, found;
+	sigset_t tmpsigs;
+	char buf[300];
+
+	/*
+	 * We're only looking at the non-realtime signals here, so we need
+	 * some limit value. Platform differences mean at some point we just
+	 * need to pick a reasonable value.
+	 */
+#if defined SIGRTMIN
+#  define LAST_SIGNAL SIGRTMIN
+#else
+#  define LAST_SIGNAL 32
+#endif
+
+
+	if (sigs == NULL) {
+		sigemptyset(&tmpsigs);
+		pthread_sigmask(SIG_BLOCK, NULL, &tmpsigs);
+		sigs = &tmpsigs;
+	}
+
+	found = 0;
+	buf[0] = '\0';
+
+	for (i = 0; i < LAST_SIGNAL; i++) {
+		char tmp[20];
+
+		if (sigismember(sigs, i) > 0) {
+			if (found > 0)
+				strlcat(buf, ",", sizeof(buf));
+			snprintf(tmp, sizeof(tmp), "%d", i);
+			strlcat(buf, tmp, sizeof(buf));
+			found++;
+		}
+	}
+
+	if (found == 0)
+		snprintf(buf, sizeof(buf), "<none>");
+
+	zlog_debug("%s: %s", __func__, buf);
+}
