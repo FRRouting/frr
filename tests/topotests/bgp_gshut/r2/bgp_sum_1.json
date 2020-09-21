@@ -1,0 +1,15 @@
+{
+"ipv4Unicast":{
+  "peers":{
+    "192.168.254.2":{
+      "remoteAs":65003,
+      "state":"Established"
+    },
+    "192.168.255.2":{
+      "remoteAs":65001,
+      "state":"Established"
+    }
+  },
+  "totalPeers":2
+}
+}
