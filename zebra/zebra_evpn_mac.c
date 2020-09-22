@@ -2010,6 +2010,8 @@ int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 	esi_t *old_esi;
 	bool old_static = false;
 	zebra_mac_t *mac;
+	bool old_es_present;
+	bool new_es_present;
 
 	sticky = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
 	remote_gw = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
@@ -2073,7 +2075,16 @@ int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 				    zevpn, mac, seq, ipa_len, ipaddr, false))
 				return -1;
 
+			old_es_present = !!mac->es;
 			zebra_evpn_es_mac_ref(mac, esi);
+			new_es_present = !!mac->es;
+			/* XXX - dataplane is curently not able to handle a MAC
+			 * replace if the destination changes from L2-NHG to
+			 * single VTEP and vice-versa. So delete the old entry
+			 * and re-install
+			 */
+			if (old_es_present != new_es_present)
+				zebra_evpn_rem_mac_uninstall(zevpn, mac, false);
 		}
 
 		/* Check MAC's curent state is local (this is the case
