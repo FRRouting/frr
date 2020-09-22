@@ -34,12 +34,7 @@
  * should be added by autoconf if not present?
  */
 #ifndef s6_addr32
-#if defined(SUNOS_5)
-/* Some SunOS define s6_addr32 only to kernel */
-#define s6_addr32 _S6_un._S6_u32
-#else
 #define s6_addr32 __u6_addr.__u6_addr32
-#endif /* SUNOS_5 */
 #endif /*s6_addr32*/
 
 struct thread_master *master;

@@ -36,8 +36,6 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/debug.h"
 
-#ifndef SUNOS_5
-
 #ifdef HAVE_BSD_LINK_DETECT
 #include <net/if_media.h>
 #endif /* HAVE_BSD_LINK_DETECT*/
@@ -166,11 +164,7 @@ void if_get_mtu(struct interface *ifp)
 		return;
 	}
 
-#ifdef SUNOS_5
-	ifp->mtu6 = ifp->mtu = ifreq.ifr_metric;
-#else
 	ifp->mtu6 = ifp->mtu = ifreq.ifr_mtu;
-#endif /* SUNOS_5 */
 
 	/* propogate */
 	zebra_interface_up_update(ifp);
@@ -378,11 +372,7 @@ int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	}
 
 	mask.sin_family = p->family;
-#ifdef SUNOS_5
-	memcpy(&mask, &ifreq.ifr_addr, sizeof(mask));
-#else
 	memcpy(&ifreq.ifr_addr, &mask, sizeof(struct sockaddr_in));
-#endif /* SUNOS5 */
 	ret = if_ioctl(SIOCSIFNETMASK, (caddr_t)&ifreq);
 	if (ret < 0)
 		return ret;
@@ -620,5 +610,3 @@ static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 #endif /* HAVE_STRUCT_IN6_ALIASREQ */
 
 #endif /* LINUX_IPV6 */
-
-#endif /* !SUNOS_5 */

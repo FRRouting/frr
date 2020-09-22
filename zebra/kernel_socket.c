@@ -80,12 +80,6 @@ extern struct zebra_privs_t zserv_privs;
 #define ROUNDUP(a)	RT_ROUNDUP(a)
 #endif /* defined(RT_ROUNDUP) */
 
-#if defined(SUNOS_5)
-/* Solaris has struct sockaddr_in[6] definitions at 16 / 32 bytes size,
- * so the whole concept doesn't really apply. */
-#define ROUNDUP(a)      (a)
-#endif
-
 /*
  * If ROUNDUP has not yet been defined in terms of platform-provided
  * defines, attempt to cope with heuristics.
@@ -547,18 +541,6 @@ int ifm_read(struct if_msghdr *ifm)
 	 */
 	cp = (void *)(ifm + 1);
 
-#ifdef SUNOS_5
-	/*
-	 * XXX This behavior should be narrowed to only the kernel versions
-	 * for which the structures returned do not match the headers.
-	 *
-	 * if_msghdr_t on 64 bit kernels in Solaris 9 and earlier versions
-	 * is 12 bytes larger than the 32 bit version.
-	 */
-	if (((struct sockaddr *)cp)->sa_family == AF_UNSPEC)
-		cp += 12;
-#endif
-
 	/* Look up for RTA_IFP and skip others. */
 	for (maskbit = 1; maskbit; maskbit <<= 1) {
 		if ((maskbit & ifm->ifm_addrs) == 0)
@@ -945,23 +927,6 @@ int ifam_read(struct ifa_msghdr *ifam)
 
 	/* Check interface flag for implicit up of the interface. */
 	if_refresh(ifp);
-
-#ifdef SUNOS_5
-	/* In addition to lacking IFANNOUNCE, on SUNOS IFF_UP is strange.
-	 * See comments for SUNOS_5 in interface.c::if_flags_mangle.
-	 *
-	 * Here we take care of case where the real IFF_UP was previously
-	 * unset (as kept in struct zebra_if.primary_state) and the mangled
-	 * IFF_UP (ie IFF_UP set || listcount(connected) has now transitioned
-	 * to unset due to the lost non-primary address having DELADDR'd.
-	 *
-	 * we must delete the interface, because in between here and next
-	 * event for this interface-name the administrator could unplumb
-	 * and replumb the interface.
-	 */
-	if (!if_is_up(ifp))
-		if_delete_update(ifp);
-#endif /* SUNOS_5 */
 
 	return 0;
 }

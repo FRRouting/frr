@@ -358,15 +358,6 @@ void vty_hello(struct vty *vty)
 			vty_out(vty, "MOTD file not found\n");
 	} else if (host.motd)
 		vty_out(vty, "%s", host.motd);
-
-#if CONFDATE > 20200901
-	CPP_NOTICE("Please remove solaris code from system as it is deprecated");
-#endif
-#ifdef SUNOS_5
-	zlog_warn("If you are using FRR on Solaris, the FRR developers would love to hear from you\n");
-	zlog_warn("Please send email to dev@lists.frrouting.org about this message\n");
-	zlog_warn("We are considering deprecating Solaris and want to find users of Solaris systems\n");
-#endif
 }
 
 /* Put out prompt and wait input from user. */

@@ -27,12 +27,6 @@
 
 #include "compiler.h"
 
-#ifdef SUNOS_5
-typedef unsigned int uint32_t;
-typedef unsigned short uint16_t;
-typedef unsigned char uint8_t;
-#endif /* SUNOS_5 */
-
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,11 +70,6 @@ typedef unsigned char uint8_t;
 #include <stdbool.h>
 
 /* machine dependent includes */
-#ifdef SUNOS_5
-#include <strings.h>
-#endif /* SUNOS_5 */
-
-/* machine dependent includes */
 #ifdef HAVE_LINUX_VERSION_H
 #include <linux/version.h>
 #endif /* HAVE_LINUX_VERSION_H */
@@ -111,10 +100,6 @@ typedef unsigned char uint8_t;
 #include <sys/capability.h>
 #include <sys/prctl.h>
 #endif /* HAVE_LCAPS */
-
-#ifdef HAVE_SOLARIS_CAPABILITIES
-#include <priv.h>
-#endif /* HAVE_SOLARIS_CAPABILITIES */
 
 /* network include group */
 
@@ -306,8 +291,7 @@ struct in_pktinfo {
 #if defined(__NetBSD__)                                                        \
 	|| (defined(__FreeBSD__) && (__FreeBSD_version < 1100030))             \
 	|| (defined(__OpenBSD__) && (OpenBSD < 200311))                        \
-	|| (defined(__APPLE__))                                                \
-	|| (defined(SUNOS_5) && defined(WORDS_BIGENDIAN))
+	|| (defined(__APPLE__))
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 

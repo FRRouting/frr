@@ -159,8 +159,8 @@ Basic Config Commands
    use the ``log record-priority`` global configuration command.
    To disable this option, use the ``no`` form of the command. By default,
    the severity level is not included in logged messages. Note: some
-   versions of syslogd (including Solaris) can be configured to include
-   the facility and level in the messages emitted.
+   versions of syslogd can be configured to include the facility and
+   level in the messages emitted.
 
 .. index::
    single: log timestamp precision (0-6)

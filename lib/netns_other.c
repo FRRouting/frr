@@ -18,8 +18,8 @@
  */
 
 
-#if !defined(GNU_LINUX) && (defined(SUNOS_5) || defined(OPEN_BSD))
-/* SUNOS_5 or OPEN_BSD */
+#if !defined(GNU_LINUX) && defined(OPEN_BSD)
+/* OPEN_BSD */
 
 #include <zebra.h>
 #include "ns.h"

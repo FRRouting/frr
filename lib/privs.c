@@ -37,12 +37,12 @@ DEFINE_MTYPE_STATIC(LIB, PRIVS, "Privilege information")
 #ifdef HAVE_CAPABILITIES
 #ifdef HAVE_LCAPS
 static const bool privs_per_process;  /* = false */
-#elif defined(HAVE_SOLARIS_CAPABILITIES)
-static const bool privs_per_process = true;
-#endif
 #else
 static const bool privs_per_process = true;
-#endif	/* HAVE_CAPABILITIES */
+#endif /* HAVE_LCAPS */
+#else /* HAVE_CAPABILITIES */
+static const bool privs_per_process = true;
+#endif
 
 #ifdef HAVE_CAPABILITIES
 
@@ -67,11 +67,7 @@ typedef cap_value_t pvalue_t;
 typedef struct _pset pset_t;
 typedef cap_t pstorage_t;
 
-#elif defined(HAVE_SOLARIS_CAPABILITIES)
-typedef priv_t pvalue_t;
-typedef priv_set_t pset_t;
-typedef priv_set_t *pstorage_t;
-#else /* neither LCAPS nor SOLARIS_CAPABILITIES */
+#else /* no LCAPS */
 #error "HAVE_CAPABILITIES defined, but neither LCAPS nor Solaris Capabilties!"
 #endif /* HAVE_LCAPS */
 #endif /* HAVE_CAPABILITIES */
@@ -163,67 +159,7 @@ static struct {
 			{
 				1, (pvalue_t[]){CAP_FOWNER},
 			},
-#elif defined(HAVE_SOLARIS_CAPABILITIES) /* HAVE_LCAPS */
-		/* Quagga -> Solaris privilege mappings */
-		[ZCAP_SETID] =
-			{
-				1, (pvalue_t[]){PRIV_PROC_SETID},
-			},
-		[ZCAP_BIND] =
-			{
-				1, (pvalue_t[]){PRIV_NET_PRIVADDR},
-			},
-/* IP_CONFIG is a subset of NET_CONFIG and is allowed in zones */
-#ifdef PRIV_SYS_IP_CONFIG
-		[ZCAP_NET_ADMIN] =
-			{
-				1, (pvalue_t[]){PRIV_SYS_IP_CONFIG},
-			},
-#else
-		[ZCAP_NET_ADMIN] =
-			{
-				1, (pvalue_t[]){PRIV_SYS_NET_CONFIG},
-			},
-#endif
-		[ZCAP_NET_RAW] =
-			{
-				2, (pvalue_t[]){PRIV_NET_RAWACCESS,
-						PRIV_NET_ICMPACCESS},
-			},
-		[ZCAP_CHROOT] =
-			{
-				1, (pvalue_t[]){PRIV_PROC_CHROOT},
-			},
-		[ZCAP_NICE] =
-			{
-				1, (pvalue_t[]){PRIV_PROC_PRIOCNTL},
-			},
-		[ZCAP_PTRACE] =
-			{
-				1, (pvalue_t[]){PRIV_PROC_SESSION},
-			},
-		[ZCAP_DAC_OVERRIDE] =
-			{
-				5, (pvalue_t[]){PRIV_FILE_DAC_EXECUTE,
-						PRIV_FILE_DAC_READ,
-						PRIV_FILE_DAC_SEARCH,
-						PRIV_FILE_DAC_WRITE,
-						PRIV_FILE_DAC_SEARCH},
-			},
-		[ZCAP_READ_SEARCH] =
-			{
-				2, (pvalue_t[]){PRIV_FILE_DAC_SEARCH,
-						PRIV_FILE_DAC_READ},
-			},
-		[ZCAP_SYS_ADMIN] =
-			{
-				1, (pvalue_t[]){PRIV_SYS_ADMIN},
-			},
-		[ZCAP_FOWNER] =
-			{
-				1, (pvalue_t[]){PRIV_FILE_OWNER},
-			},
-#endif /* HAVE_SOLARIS_CAPABILITIES */
+#endif /* HAVE_LCAPS */
 };
 
 #ifdef HAVE_LCAPS
@@ -432,225 +368,8 @@ static void zprivs_caps_terminate(void)
 
 	cap_free(zprivs_state.caps);
 }
-#elif defined(HAVE_SOLARIS_CAPABILITIES) /* !HAVE_LCAPS */
-
-/* Solaris specific capability/privilege methods
- *
- * Resources:
- * - the 'privileges' man page
- * - http://cvs.opensolaris.org
- * -
- * http://blogs.sun.com/roller/page/gbrunett?entry=privilege_enabling_set_id_programs1
- */
-
-static pset_t *zprivs_caps_minimal()
-{
-	pset_t *minimal;
-
-	if ((minimal = priv_str_to_set("basic", ",", NULL)) == NULL) {
-		fprintf(stderr, "%s: couldn't get basic set!\n", __func__);
-		exit(1);
-	}
-
-	/* create a minimal privilege set from the basic set */
-	(void)priv_delset(minimal, PRIV_PROC_EXEC);
-	(void)priv_delset(minimal, PRIV_PROC_INFO);
-	(void)priv_delset(minimal, PRIV_PROC_SESSION);
-	(void)priv_delset(minimal, PRIV_FILE_LINK_ANY);
-
-	return minimal;
-}
-
-/* convert zebras privileges to system capabilities */
-static pset_t *zcaps2sys(zebra_capabilities_t *zcaps, int num)
-{
-	pset_t *syscaps;
-	int i, j = 0;
-
-	if ((syscaps = priv_allocset()) == NULL) {
-		fprintf(stderr, "%s: could not allocate syscaps!\n", __func__);
-		exit(1);
-	}
-
-	priv_emptyset(syscaps);
-
-	for (i = 0; i < num; i++)
-		for (j = 0; j < cap_map[zcaps[i]].num; j++)
-			priv_addset(syscaps, cap_map[zcaps[i]].system_caps[j]);
-
-	return syscaps;
-}
-
-/* callback exported to users to RAISE and LOWER effective privileges
- * from nothing to the given permitted set and back down
- */
-int zprivs_change_caps(zebra_privs_ops_t op)
-{
-	pset_t *privset;
-
-	/* should be no possibility of being called without valid caps */
-	assert(zprivs_state.syscaps_p);
-	if (!zprivs_state.syscaps_p) {
-		fprintf(stderr, "%s: Eek, missing privileged caps!", __func__);
-		exit(1);
-	}
-
-	assert(zprivs_state.caps);
-	if (!zprivs_state.caps) {
-		fprintf(stderr, "%s: Eek, missing caps!", __func__);
-		exit(1);
-	}
-
-	/* to raise: copy original permitted as our working effective set
-	 * to lower: copy regular effective set stored in zprivs_state.caps
-	 */
-	if (op == ZPRIVS_RAISE)
-		privset = zprivs_state.syscaps_p;
-	else if (op == ZPRIVS_LOWER)
-		privset = zprivs_state.caps;
-	else
-		return -1;
-
-	if (setppriv(PRIV_SET, PRIV_EFFECTIVE, privset) != 0)
-		return -1;
-
-	return 0;
-}
-
-/* Retrieve current privilege state, is it RAISED or LOWERED? */
-zebra_privs_current_t zprivs_state_caps(void)
-{
-	zebra_privs_current_t result;
-	pset_t *effective;
-
-	if ((effective = priv_allocset()) == NULL) {
-		fprintf(stderr, "%s: failed to get priv_allocset! %s\n",
-			__func__, safe_strerror(errno));
-		return ZPRIVS_UNKNOWN;
-	}
-
-	if (getppriv(PRIV_EFFECTIVE, effective)) {
-		fprintf(stderr, "%s: failed to get state! %s\n", __func__,
-			safe_strerror(errno));
-		result = ZPRIVS_UNKNOWN;
-	} else {
-		if (priv_isequalset(effective, zprivs_state.syscaps_p))
-			result = ZPRIVS_RAISED;
-		else if (priv_isequalset(effective, zprivs_state.caps))
-			result = ZPRIVS_LOWERED;
-		else
-			result = ZPRIVS_UNKNOWN;
-	}
-
-	priv_freeset(effective);
-	return result;
-}
-
-static void zprivs_caps_init(struct zebra_privs_t *zprivs)
-{
-	pset_t *basic;
-	pset_t *minimal;
-
-	/* the specified sets */
-	zprivs_state.syscaps_p = zcaps2sys(zprivs->caps_p, zprivs->cap_num_p);
-	zprivs_state.syscaps_i = zcaps2sys(zprivs->caps_i, zprivs->cap_num_i);
-
-	/* nonsensical to have gotten here but not have capabilities */
-	if (!zprivs_state.syscaps_p) {
-		fprintf(stderr,
-			"%s: capabilities enabled, but no valid capabilities supplied\n",
-			__func__);
-	}
-
-	/* We retain the basic set in our permitted set, as Linux has no
-	 * equivalent. The basic set on Linux hence is implicit, always
-	 * there.
-	 */
-	if ((basic = priv_str_to_set("basic", ",", NULL)) == NULL) {
-		fprintf(stderr, "%s: couldn't get basic set!\n", __func__);
-		exit(1);
-	}
-
-	/* Add the basic set to the permitted set */
-	priv_union(basic, zprivs_state.syscaps_p);
-	priv_freeset(basic);
-
-	/* Hey kernel, we know about privileges!
-	 * this isn't strictly required, use of setppriv should have same effect
-	 */
-	if (setpflags(PRIV_AWARE, 1)) {
-		fprintf(stderr, "%s: error setting PRIV_AWARE!, %s\n", __func__,
-			safe_strerror(errno));
-		exit(1);
-	}
-
-	/* need either valid or empty sets for both p and i.. */
-	assert(zprivs_state.syscaps_i && zprivs_state.syscaps_p);
-
-	/* we have caps, we have no need to ever change back the original user
-	 * change real, effective and saved to the specified user.
-	 */
-	/* only change uid if we don't have the correct one */
-	if ((zprivs_state.zuid) && (zprivs_state.zsuid != zprivs_state.zuid)) {
-		if (setreuid(zprivs_state.zuid, zprivs_state.zuid)) {
-			fprintf(stderr, "%s: could not setreuid, %s\n",
-				__func__, safe_strerror(errno));
-			exit(1);
-		}
-	}
-
-	/* set the permitted set */
-	if (setppriv(PRIV_SET, PRIV_PERMITTED, zprivs_state.syscaps_p)) {
-		fprintf(stderr, "%s: error setting permitted set!, %s\n",
-			__func__, safe_strerror(errno));
-		exit(1);
-	}
-
-	/* set the inheritable set */
-	if (setppriv(PRIV_SET, PRIV_INHERITABLE, zprivs_state.syscaps_i)) {
-		fprintf(stderr, "%s: error setting inheritable set!, %s\n",
-			__func__, safe_strerror(errno));
-		exit(1);
-	}
-
-	/* we need a minimal basic set for 'effective', potentially for
-	 * inheritable too */
-	minimal = zprivs_caps_minimal();
-
-	/* now set the effective set with a subset of basic privileges */
-	if (setppriv(PRIV_SET, PRIV_EFFECTIVE, minimal)) {
-		fprintf(stderr, "%s: error setting effective set!, %s\n",
-			__func__, safe_strerror(errno));
-		exit(1);
-	}
-
-	/* we'll use the minimal set as our working-storage privset */
-	zprivs_state.caps = minimal;
-
-	/* set methods for the caller to use */
-	zprivs->change = zprivs_change_caps;
-	zprivs->current_state = zprivs_state_caps;
-}
-
-static void zprivs_caps_terminate(void)
-{
-	assert(zprivs_state.caps);
-
-	/* clear all capabilities by using working-storage privset */
-	setppriv(PRIV_SET, PRIV_EFFECTIVE, zprivs_state.caps);
-	setppriv(PRIV_SET, PRIV_PERMITTED, zprivs_state.caps);
-	setppriv(PRIV_SET, PRIV_INHERITABLE, zprivs_state.caps);
-
-	/* free up private state */
-	if (zprivs_state.syscaps_p)
-		priv_freeset(zprivs_state.syscaps_p);
-	if (zprivs_state.syscaps_i)
-		priv_freeset(zprivs_state.syscaps_i);
-
-	priv_freeset(zprivs_state.caps);
-}
-#else /* !HAVE_LCAPS && ! HAVE_SOLARIS_CAPABILITIES */
-#error "Neither Solaris nor Linux capabilities, dazed and confused..."
+#else /* !HAVE_LCAPS */
+#error "no Linux capabilities, dazed and confused..."
 #endif /* HAVE_LCAPS */
 #endif /* HAVE_CAPABILITIES */
 

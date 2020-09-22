@@ -21,7 +21,7 @@
 
 #include <zebra.h>
 
-#if !defined(GNU_LINUX) && !defined(OPEN_BSD) && !defined(SUNOS_5)
+#if !defined(GNU_LINUX) && !defined(OPEN_BSD)
 
 #include "if.h"
 #include "sockunion.h"
@@ -144,4 +144,4 @@ void interface_list(struct zebra_ns *zns)
 	XFREE(MTYPE_TMP, ref);
 }
 
-#endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) && !defined(SUNOS_5) */
+#endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) */

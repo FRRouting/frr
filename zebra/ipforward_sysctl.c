@@ -20,7 +20,7 @@
 
 #include <zebra.h>
 
-#if !defined(GNU_LINUX) && !defined(SUNOS_5)
+#if !defined(GNU_LINUX)
 
 #include "privs.h"
 #include "zebra/ipforward.h"
@@ -141,4 +141,4 @@ int ipforward_ipv6_off(void)
 	return ip6forwarding;
 }
 
-#endif /* !defined(GNU_LINUX) && !defined(SUNOS_5) */
+#endif /* !defined(GNU_LINUX) */
