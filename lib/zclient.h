@@ -439,6 +439,15 @@ struct zapi_nexthop {
 #define ZAPI_NEXTHOP_FLAG_HAS_BACKUP	0x08 /* Nexthop has a backup */
 
 /*
+ * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
+ */
+struct zapi_nhg {
+	uint32_t id;
+	uint16_t nexthop_num;
+	struct zapi_nexthop nexthops[MULTIPATH_NUM];
+};
+
+/*
  * Some of these data structures do not map easily to
  * a actual data structure size giving different compilers
  * and systems.  For those data structures we need
@@ -898,9 +907,8 @@ bool zapi_ipset_notify_decode(struct stream *s,
 			      uint32_t *unique,
 			     enum zapi_ipset_notify_owner *note);
 
-extern void zclient_nhg_add(struct zclient *zclient, uint32_t id, size_t nhops,
-			    struct zapi_nexthop *znh);
-extern void zclient_nhg_del(struct zclient *zclient, uint32_t id);
+extern int zclient_nhg_send(struct zclient *zclient, int cmd,
+			    struct zapi_nhg *api_nhg);
 
 #define ZEBRA_IPSET_NAME_SIZE   32
 

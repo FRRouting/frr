@@ -359,34 +359,35 @@ void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 
 void nhg_add(uint32_t id, const struct nexthop_group *nhg)
 {
-	struct zapi_nexthop nh_array[MULTIPATH_NUM];
+	struct zapi_nhg api_nhg = {};
 	struct zapi_nexthop *api_nh;
-	uint16_t nexthop_num = 0;
 	struct nexthop *nh;
 
+	api_nhg.id = id;
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
-		if (nexthop_num >= MULTIPATH_NUM) {
+		if (api_nhg.nexthop_num >= MULTIPATH_NUM) {
 			zlog_warn(
 				"%s: number of nexthops greater than max multipath size, truncating",
 				__func__);
 			break;
 		}
 
-		api_nh = &nh_array[nexthop_num];
+		api_nh = &api_nhg.nexthops[api_nhg.nexthop_num];
 
 		zapi_nexthop_from_nexthop(api_nh, nh);
-		nexthop_num++;
+		api_nhg.nexthop_num++;
 	}
 
-	zclient_nhg_add(zclient, id, nexthop_num, nh_array);
-
-	zclient_send_message(zclient);
+	zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
 }
 
 void nhg_del(uint32_t id)
 {
-	zclient_nhg_del(zclient, id);
-	zclient_send_message(zclient);
+	struct zapi_nhg api_nhg = {};
+
+	api_nhg.id = id;
+
+	zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
 }
 
 void route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
