@@ -2680,9 +2680,9 @@ int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
 static ssize_t netlink_neigh_update_msg_encode(
 	const struct zebra_dplane_ctx *ctx, int cmd, const struct ethaddr *mac,
 	const struct ipaddr *ip, bool replace_obj, uint8_t family, uint8_t type,
-	uint8_t flags, uint16_t state, uint32_t nhg_id,
-	bool nfy, uint8_t nfy_flags,
-	void *data, size_t datalen)
+	uint8_t flags, uint16_t state, uint32_t nhg_id, bool nfy,
+	uint8_t nfy_flags, bool ext, uint32_t ext_flags, void *data,
+	size_t datalen)
 {
 	uint8_t protocol = RTPROT_ZEBRA;
 	struct {
@@ -2731,6 +2731,12 @@ static ssize_t netlink_neigh_update_msg_encode(
 			return 0;
 	}
 
+	if (ext) {
+		if (!nl_attr_put(&req->n, datalen, NDA_EXT_FLAGS, &ext_flags,
+				 sizeof(ext_flags)))
+			return 0;
+	}
+
 	ipa_len = IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
 	if (!nl_attr_put(&req->n, datalen, NDA_DST, &ip->ip.addr, ipa_len))
 		return 0;
@@ -2764,7 +2770,8 @@ netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd,
 	return netlink_neigh_update_msg_encode(
 		ctx, cmd, &dst_mac, dplane_ctx_neigh_get_ipaddr(ctx), false,
 		PF_BRIDGE, 0, NTF_SELF, (NUD_NOARP | NUD_PERMANENT), 0 /*nhg*/,
-		false /*nfy*/, 0 /*nfy_flags*/, buf, buflen);
+		false /*nfy*/, 0 /*nfy_flags*/, false /*ext*/, 0 /*ext_flags*/,
+		buf, buflen);
 }
 
 #ifndef NDA_RTA
@@ -3174,30 +3181,26 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 		else
 			vid_buf[0] = '\0';
 
-		zlog_debug("Tx %s family %s IF %s(%u)%s %sMAC %s dst %s nhg %u%s%s%s%s%s",
-			   nl_msg_type_to_str(cmd), nl_family_to_str(AF_BRIDGE),
-			   dplane_ctx_get_ifname(ctx),
-			   dplane_ctx_get_ifindex(ctx), vid_buf,
-			   dplane_ctx_mac_is_sticky(ctx) ? "sticky " : "",
-			   prefix_mac2str(mac, buf, sizeof(buf)),
-			   ipaddr2str(&vtep_ip, ipbuf, sizeof(ipbuf)),
-			   nhg_id,
-			   (update_flags &
-				DPLANE_MAC_REMOTE) ? " rem" : "",
-			   (update_flags &
-				DPLANE_MAC_WAS_STATIC) ? " clr_sync" : "",
-			   (update_flags &
-				DPLANE_MAC_SET_STATIC) ? " static" : "",
-			   (update_flags &
-				DPLANE_MAC_SET_INACTIVE) ? " inactive" : "",
-			   (nfy &
-				DPLANE_MAC_SET_INACTIVE) ? " nfy" : "");
+		zlog_debug(
+			"Tx %s family %s IF %s(%u)%s %sMAC %s dst %s nhg %u%s%s%s%s%s",
+			nl_msg_type_to_str(cmd), nl_family_to_str(AF_BRIDGE),
+			dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
+			vid_buf, dplane_ctx_mac_is_sticky(ctx) ? "sticky " : "",
+			prefix_mac2str(mac, buf, sizeof(buf)),
+			ipaddr2str(&vtep_ip, ipbuf, sizeof(ipbuf)), nhg_id,
+			(update_flags & DPLANE_MAC_REMOTE) ? " rem" : "",
+			(update_flags & DPLANE_MAC_WAS_STATIC) ? " clr_sync"
+							       : "",
+			(update_flags & DPLANE_MAC_SET_STATIC) ? " static" : "",
+			(update_flags & DPLANE_MAC_SET_INACTIVE) ? " inactive"
+								 : "",
+			nfy ? " nfy" : "");
 	}
 
 	total = netlink_neigh_update_msg_encode(
 		ctx, cmd, dplane_ctx_mac_get_addr(ctx), &vtep_ip, true,
 		AF_BRIDGE, 0, flags, state, nhg_id, nfy, nfy_flags,
-		data, datalen);
+		false /*ext*/, 0 /*ext_flags*/, data, datalen);
 
 	return total;
 }
@@ -3598,17 +3601,42 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 	uint8_t flags;
 	uint16_t state;
 	uint8_t family;
+	uint32_t update_flags;
+	uint32_t ext_flags = 0;
+	bool ext = false;
 
 	ip = dplane_ctx_neigh_get_ipaddr(ctx);
 	mac = dplane_ctx_neigh_get_mac(ctx);
 	if (is_zero_mac(mac))
 		mac = NULL;
 
+	update_flags = dplane_ctx_neigh_get_update_flags(ctx);
 	flags = neigh_flags_to_netlink(dplane_ctx_neigh_get_flags(ctx));
 	state = neigh_state_to_netlink(dplane_ctx_neigh_get_state(ctx));
 
 	family = IS_IPADDR_V4(ip) ? AF_INET : AF_INET6;
 
+	if (update_flags & DPLANE_NEIGH_REMOTE) {
+		flags |= NTF_EXT_LEARNED;
+		/* if it was static-local previously we need to clear the
+		 * ext flags on replace with remote
+		 */
+		if (update_flags & DPLANE_NEIGH_WAS_STATIC)
+			ext = true;
+	} else {
+		ext = true;
+		/* local neigh */
+		if (update_flags & DPLANE_NEIGH_SET_STATIC)
+			ext_flags |= NTF_E_MH_PEER_SYNC;
+
+		/* the ndm_state set for local entries can be REACHABLE or
+		 * STALE. if the dataplane has already establish reachability
+		 * (in the meantime) FRR must not over-write it with STALE.
+		 * this accidental race/over-write is avoided by using the
+		 * WEAK_OVERRIDE_STATE
+		 */
+		ext_flags |= NTF_E_WEAK_OVERRIDE_STATE;
+	}
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char buf[INET6_ADDRSTRLEN];
 		char buf2[ETHER_ADDR_STRLEN];
@@ -3624,7 +3652,8 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 
 	return netlink_neigh_update_msg_encode(
 		ctx, cmd, mac, ip, true, family, RTN_UNICAST, flags, state,
-		0 /*nhg*/, false /*nfy*/, 0 /*nfy_flags*/, buf, buflen);
+		0 /*nhg*/, false /*nfy*/, 0 /*nfy_flags*/, ext, ext_flags, buf,
+		buflen);
 }
 
 static ssize_t netlink_neigh_msg_encoder(struct zebra_dplane_ctx *ctx,
