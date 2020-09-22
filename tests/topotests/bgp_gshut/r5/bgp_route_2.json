@@ -1,0 +1,16 @@
+{
+  "prefix":"14.1.1.1\/32",
+  "paths":[
+    {
+      "origin":"IGP",
+      "locPrf":0,
+      "valid":true,
+      "community":{
+        "string":"graceful-shutdown",
+        "list":[
+          "gracefulShutdown"
+        ]
+      }
+    }
+  ]
+}

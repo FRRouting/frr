@@ -173,6 +173,9 @@ struct bgp_master {
 	uint16_t v_update_delay;
 	uint16_t v_establish_wait;
 
+	uint32_t flags;
+#define BM_FLAG_GRACEFUL_SHUTDOWN        (1 << 0)
+
 	bool terminating;	/* global flag that sigint terminate seen */
 	QOBJ_FIELDS
 };
@@ -2155,6 +2158,13 @@ static inline void bgp_vrf_unlink(struct bgp *bgp, struct vrf *vrf)
 		bgp_unlock(bgp);
 	}
 	bgp->vrf_id = VRF_UNKNOWN;
+}
+
+static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
+{
+	/* True if either set for this instance or globally */
+	return (!!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN) ||
+	        !!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN));
 }
 
 extern void bgp_unset_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
