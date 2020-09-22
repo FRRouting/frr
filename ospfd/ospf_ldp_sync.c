@@ -710,8 +710,12 @@ static int show_ip_ospf_mpls_ldp_interface_common(struct vty *vty,
 			struct route_node *rn;
 			struct ospf_interface *oi;
 
-			if (ospf_oi_count(ifp) == 0)
+			if (ospf_oi_count(ifp) == 0 && !use_json) {
+				if (!if_is_up(ifp))
+					vty_out(vty, "%s\n  Interface down\n",
+						ifp->name);
 				continue;
+			}
 			for (rn = route_top(IF_OIFS(ifp)); rn;
 			     rn = route_next(rn)) {
 				oi = rn->info;
@@ -739,9 +743,12 @@ static int show_ip_ospf_mpls_ldp_interface_common(struct vty *vty,
 			struct ospf_interface *oi;
 
 			if (ospf_oi_count(ifp) == 0 && !use_json) {
-				vty_out(vty,
-					"  OSPF not enabled on this interface %s\n",
-					ifp->name);
+				if (if_is_up(ifp))
+					vty_out(vty, "%s\n  OSPF not enabled\n",
+						ifp->name);
+				else
+					vty_out(vty, "%s\n  Interface down\n",
+						ifp->name);
 				return CMD_SUCCESS;
 			}
 			for (rn = route_top(IF_OIFS(ifp)); rn;

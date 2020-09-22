@@ -470,16 +470,17 @@ def parse_show_isis_ldp_sync(lines, rname):
 
             if line.startswith(" LDP-IGP Synchronization enabled: "):
                 interface["ldpIgpSyncEnabled"] = line.endswith("yes")
+                line = it.next();
 
-            line = it.next();
+                if line.startswith(" holddown timer in seconds: "):
+                     interface["holdDownTimeInSec"] = int(line.split(": ")[-1])
+                     line = it.next();
 
-            if line.startswith(" holddown timer in seconds: "):
-                interface["holdDownTimeInSec"] = int(line.split(": ")[-1])
+                if line.startswith(" State: "):
+                     interface["ldpIgpSyncState"] = line.split(": ")[-1]
 
-            line = it.next();
-
-            if line.startswith(" State: "):
-                interface["ldpIgpSyncState"] = line.split(": ")[-1]
+            elif line.startswith(" Interface "):
+                interface["Interface"] = line.endswith("down")
 
             interfaces[interface_name] = interface
 
