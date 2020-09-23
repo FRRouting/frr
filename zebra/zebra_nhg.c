@@ -1366,7 +1366,6 @@ static struct nhg_hash_entry *depends_find_singleton(const struct nexthop *nh,
 static struct nhg_hash_entry *depends_find(const struct nexthop *nh, afi_t afi)
 {
 	struct nhg_hash_entry *nhe = NULL;
-	char rbuf[10];
 
 	if (!nh)
 		goto done;
@@ -1374,18 +1373,18 @@ static struct nhg_hash_entry *depends_find(const struct nexthop *nh, afi_t afi)
 	/* We are separating these functions out to increase handling speed
 	 * in the non-recursive case (by not alloc/freeing)
 	 */
-	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
 		nhe = depends_find_recursive(nh, afi);
-		strlcpy(rbuf, "(R)", sizeof(rbuf));
-	} else {
+	else
 		nhe = depends_find_singleton(nh, afi);
-		rbuf[0] = '\0';
-	}
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: nh %pNHv %s => %p (%u)",
-			   __func__, nh, rbuf,
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+		zlog_debug("%s: nh %pNHv %s => %p (%u)", __func__, nh,
+			   CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE) ? "(R)"
+									 : "",
 			   nhe, nhe ? nhe->id : 0);
+	}
 
 done:
 	return nhe;
