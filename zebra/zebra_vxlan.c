@@ -3749,7 +3749,7 @@ zebra_vxlan_remote_macip_helper(bool add, struct stream *s, vni_t *vni,
 	memset(ip, 0, sizeof(*ip));
 	STREAM_GETL(s, *vni);
 	STREAM_GET(macaddr->octet, s, ETH_ALEN);
-	STREAM_GETL(s, *ipa_len);
+	STREAM_GETW(s, *ipa_len);
 
 	if (*ipa_len) {
 		if (*ipa_len == IPV4_MAX_BYTELEN)
