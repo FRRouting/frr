@@ -117,6 +117,15 @@ static int zebra_mlag_read(struct thread *thread)
 	/* This will be the actual length of the packet */
 	tot_len = h_msglen + ZEBRA_MLAG_LEN_SIZE;
 
+	/*
+	 * If the buffer read we are about to do is too large
+	 * we are really really really not double plus good
+	 *
+	 * I'm not sure what to do here other than to bail
+	 * We'll need to revisit this in the future.
+	 */
+	assert(tot_len < ZEBRA_MLAG_BUF_LIMIT);
+
 	if (curr_len < tot_len) {
 		ssize_t data_len;
 
