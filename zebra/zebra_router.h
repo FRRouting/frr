@@ -182,6 +182,11 @@ struct zebra_router {
 	 */
 	struct hash *nhgs;
 	struct hash *nhgs_id;
+
+	/*
+	 * Does the underlying system provide an asic offload
+	 */
+	bool asic_offloaded;
 };
 
 #define GRACEFUL_RESTART_TIME 60
