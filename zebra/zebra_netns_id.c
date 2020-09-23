@@ -182,7 +182,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 	if (sock < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "netlink( %u) socket() error: %s",
 			     sock, safe_strerror(errno));
-		if (fd_param == -1)
+		if (netnspath)
 			close(fd);
 		return NS_UNKNOWN;
 	}
@@ -196,7 +196,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 			     "netlink( %u) socket() bind error: %s", sock,
 			     safe_strerror(errno));
 		close(sock);
-		if (fd_param == -1)
+		if (netnspath)
 			close(fd);
 		return NS_UNKNOWN;
 	}
@@ -219,7 +219,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 	ret = send_receive(sock, nlh, seq, buf);
 	if (ret < 0) {
 		close(sock);
-		if (fd_param == -1)
+		if (netnspath)
 			close(fd);
 		return NS_UNKNOWN;
 	}
@@ -264,7 +264,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 				"netlink( %u) recvfrom() error 2 when reading: %s",
 				fd, safe_strerror(errno));
 			close(sock);
-			if (fd_param == -1)
+			if (netnspath)
 				close(fd);
 			if (errno == ENOTSUP) {
 				zlog_debug("NEWNSID locally generated");
@@ -286,7 +286,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 		ret = send_receive(sock, nlh, seq, buf);
 		if (ret < 0) {
 			close(sock);
-			if (fd_param == -1)
+			if (netnspath)
 				close(fd);
 			return NS_UNKNOWN;
 		}
@@ -318,7 +318,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 		} while (len != 0 && ret == 0);
 	}
 
-	if (fd_param == -1)
+	if (netnspath)
 		close(fd);
 	close(sock);
 	return return_nsid;
