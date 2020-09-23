@@ -304,7 +304,6 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				continue;
 			if (new_state == ISIS_ADJ_UP) {
 				circuit->upadjcount[level - 1]++;
-				hook_call(isis_adj_state_change_hook, adj);
 				/* update counter & timers for debugging
 				 * purposes */
 				adj->last_flap = time(NULL);
@@ -317,7 +316,6 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				if (circuit->upadjcount[level - 1] == 0)
 					isis_tx_queue_clean(circuit->tx_queue);
 
-				hook_call(isis_adj_state_change_hook, adj);
 				if (new_state == ISIS_ADJ_DOWN)
 					del = true;
 			}
@@ -342,7 +340,6 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				continue;
 			if (new_state == ISIS_ADJ_UP) {
 				circuit->upadjcount[level - 1]++;
-				hook_call(isis_adj_state_change_hook, adj);
 
 				/* update counter & timers for debugging
 				 * purposes */
@@ -365,12 +362,13 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				if (circuit->upadjcount[level - 1] == 0)
 					isis_tx_queue_clean(circuit->tx_queue);
 
-				hook_call(isis_adj_state_change_hook, adj);
 				if (new_state == ISIS_ADJ_DOWN)
 					del = true;
 			}
 		}
 	}
+
+	hook_call(isis_adj_state_change_hook, adj);
 
 	if (del) {
 		isis_delete_adj(adj);
