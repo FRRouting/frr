@@ -673,6 +673,15 @@ AC_ARG_ENABLE([dev_build],
 AC_ARG_ENABLE([lua],
     AS_HELP_STRING([--enable-lua], [Build Lua scripting]))
 
+AC_ARG_ENABLE([netlink-debug],
+  AS_HELP_STRING([--disable-netlink-debug], [pretty print netlink debug messages]))
+
+if test "$enable_netlink_debug" != "no" ; then
+  AC_DEFINE([NETLINK_DEBUG], [1], [Netlink extra debugging code])
+fi
+
+AM_CONDITIONAL([NETLINK_DEBUG], [test "$enable_netlink_debug" != "no"])
+
 if test "$enable_time_check" != "no" ; then
   if test "$enable_time_check" = "yes" -o "$enable_time_check" = "" ; then
     AC_DEFINE([CONSUMED_TIME_CHECK], [5000000], [Consumed Time Check])

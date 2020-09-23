@@ -118,6 +118,29 @@ netlink_put_lsp_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 extern enum netlink_msg_status
 netlink_put_pw_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
+#ifdef NETLINK_DEBUG
+const char *nlmsg_type2str(uint16_t type);
+const char *af_type2str(int type);
+const char *ifi_type2str(int type);
+const char *rta_type2str(int type);
+const char *rtm_type2str(int type);
+const char *rtm_protocol2str(int type);
+const char *rtm_scope2str(int type);
+const char *rtm_rta2str(int type);
+const char *neigh_rta2str(int type);
+const char *ifa_rta2str(int type);
+const char *nhm_rta2str(int type);
+const char *nlmsg_flags2str(uint16_t flags, char *buf, size_t buflen);
+const char *if_flags2str(uint32_t flags, char *buf, size_t buflen);
+const char *rtm_flags2str(uint32_t flags, char *buf, size_t buflen);
+const char *neigh_state2str(uint32_t flags, char *buf, size_t buflen);
+const char *neigh_flags2str(uint32_t flags, char *buf, size_t buflen);
+const char *ifa_flags2str(uint32_t flags, char *buf, size_t buflen);
+const char *nh_flags2str(uint32_t flags, char *buf, size_t buflen);
+
+void nl_dump(void *msg, size_t msglen);
+#endif /* NETLINK_DEBUG */
+
 #ifdef __cplusplus
 }
 #endif
