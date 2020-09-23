@@ -1340,7 +1340,9 @@ class Router(Node):
         # If `daemons` was specified then some upper API called us with
         # specific daemons, otherwise just use our own configuration.
         daemons_list = []
-        if daemons is None:
+        if daemons != None:
+            daemons_list = daemons
+        else:
             # Append all daemons configured.
             for daemon in self.daemons:
                 if self.daemons[daemon] == 1:
