@@ -725,7 +725,7 @@ void pbr_map_policy_delete(struct pbr_map *pbrm, struct pbr_map_interface *pmi)
 
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
-		if (!pbr_send_pbr_map(pbrms, pmi, false, true))
+		if (pbr_send_pbr_map(pbrms, pmi, false, true))
 			sent = true; /* rule removal sent to zebra */
 
 	pmi->delete = true;

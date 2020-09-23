@@ -549,8 +549,8 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
 }
 
-int pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
-		     struct pbr_map_interface *pmi, bool install, bool changed)
+bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
+		      struct pbr_map_interface *pmi, bool install, bool changed)
 {
 	struct pbr_map *pbrm = pbrms->parent;
 	struct stream *s;
@@ -569,10 +569,10 @@ int pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	 * to delete just return.
 	 */
 	if (install && is_installed && !changed)
-		return 1;
+		return false;
 
 	if (!install && !is_installed)
-		return 1;
+		return false;
 
 	s = zclient->obuf;
 	stream_reset(s);
@@ -596,5 +596,5 @@ int pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 
 	zclient_send_message(zclient);
 
-	return 0;
+	return true;
 }
