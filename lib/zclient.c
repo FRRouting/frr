@@ -587,7 +587,7 @@ zclient_send_router_id_update(struct zclient *zclient,
 enum zclient_send_status
 zclient_send_interface_radv_req(struct zclient *zclient, vrf_id_t vrf_id,
 				struct interface *ifp, int enable,
-				int ra_interval)
+				uint32_t ra_interval)
 {
 	struct stream *s;
 
