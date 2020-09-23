@@ -26,9 +26,9 @@ Following tests are covered to test EVPN-Type5 functionality:
 1. RD verification (manual/auto).
 2. RT verification(manual)
 3. In an active/standby EVPN implementation, if active DCG goes down,
-	secondary takes over.
+        secondary takes over.
 4. EVPN routes are advertised/withdrawn, based on VNFs
-	advertising/withdrawing IP prefixes.
+        advertising/withdrawing IP prefixes.
 5. Route-map operations for EVPN address family.
 6. BGP attributes for EVPN address-family.
 """

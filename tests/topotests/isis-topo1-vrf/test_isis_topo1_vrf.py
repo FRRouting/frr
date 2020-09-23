@@ -210,7 +210,7 @@ def test_isis_linux_route_installation():
     dist = platform.dist()
 
     if (dist[1] == "16.04"):
-	pytest.skip("Kernel not supported for vrf")
+        pytest.skip("Kernel not supported for vrf")
 
     "Check whether all expected routes are present and installed in the OS"
     tgen = get_topogen()
@@ -267,7 +267,7 @@ def test_isis_linux_route6_installation():
     dist = platform.dist()
 
     if (dist[1] == "16.04"):
-	pytest.skip("Kernel not supported for vrf")
+        pytest.skip("Kernel not supported for vrf")
 
     "Check whether all expected routes are present and installed in the OS"
     tgen = get_topogen()

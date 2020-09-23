@@ -143,7 +143,7 @@ def setup_module(mod):
         logger.info('result: '+output);
     router = tgen.gears['r1']
 
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         if rname == 'r1':
             router.load_config(
                 TopoRouter.RD_ZEBRA,

@@ -216,7 +216,7 @@ def build_topo_from_json(tgen, topo):
         # Physical Interfaces
         if "links" in  topo['switches'][curSwitch]:
             for destRouterLink, data in sorted(
-                    topo['switches'][curSwitch]['links'].iteritems()):
+                    topo['switches'][curSwitch]['links'].items()):
 
                 # Loopback interfaces
                 if "dst_node" in data:

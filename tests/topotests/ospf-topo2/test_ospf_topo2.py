@@ -86,19 +86,19 @@ def setup_module(mod):
             os.path.join(CWD, '{}/ospfd.conf'.format(rname))
         )
 
-	# What is this?  OSPF Unnumbered depends on the rp_filter
-	# being set appropriately( HA! )
-	# Effectively we are putting different /32's on the interface
-	# the multicast packet delivery is somewhat controlled by
-	# the rp_filter.  Setting it to '0' allows the OS to pass
-	# up the mcast packet not destined for the local routers
-	# network.
-	topotest.set_sysctl(tgen.net['r1'],
-			    'net.ipv4.conf.r1-eth1.rp_filter', 0)
+        # What is this?  OSPF Unnumbered depends on the rp_filter
+        # being set appropriately( HA! )
+        # Effectively we are putting different /32's on the interface
+        # the multicast packet delivery is somewhat controlled by
+        # the rp_filter.  Setting it to '0' allows the OS to pass
+        # up the mcast packet not destined for the local routers
+        # network.
+        topotest.set_sysctl(tgen.net['r1'],
+                            'net.ipv4.conf.r1-eth1.rp_filter', 0)
         topotest.set_sysctl(tgen.net['r1'],
                             'net.ipv4.conf.all.rp_filter', 0)
-	topotest.set_sysctl(tgen.net['r2'],
-			    'net.ipv4.conf.r2-eth1.rp_filter', 0)
+        topotest.set_sysctl(tgen.net['r2'],
+                            'net.ipv4.conf.r2-eth1.rp_filter', 0)
         topotest.set_sysctl(tgen.net['r2'],
                             'net.ipv4.conf.all.rp_filter', 0)
 

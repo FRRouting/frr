@@ -516,7 +516,7 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
     logger.debug("Entering lib API: verify_ospf_neighbor()")
     result = False
     if input_dict:
-        for router, rnode in tgen.routers().iteritems():
+        for router, rnode in tgen.routers().items():
             if 'ospf' not in topo['routers'][router]:
                 continue
 
@@ -584,7 +584,7 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
                         return errormsg
                 continue
     else:
-        for router, rnode in tgen.routers().iteritems():
+        for router, rnode in tgen.routers().items():
             if 'ospf' not in topo['routers'][router]:
                 continue
 
@@ -694,7 +694,7 @@ def verify_ospf_rib(tgen, dut, input_dict, next_hop=None,
     additional_nexthops_in_required_nhs = []
     found_hops = []
     for routerInput in input_dict.keys():
-        for router, rnode in router_list.iteritems():
+        for router, rnode in router_list.items():
             if router != dut:
                 continue
 
@@ -927,7 +927,7 @@ def verify_ospf_interface(tgen, topo, dut=None,lan=False, input_dict=None):
 
     logger.debug("Entering lib API: verify_ospf_interface()")
     result = False
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if 'ospf' not in topo['routers'][router]:
             continue
 

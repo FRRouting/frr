@@ -31,16 +31,14 @@ from re import search as re_search
 from tempfile import mkdtemp
 
 import os
+import io
 import sys
-import ConfigParser
 import traceback
 import socket
 import ipaddress
 import platform
 
-
 if sys.version_info[0] > 2:
-    import io
     import configparser
 else:
     import StringIO

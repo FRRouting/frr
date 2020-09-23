@@ -477,9 +477,9 @@ def check_es(dut):
             vtep_ips.append(vtep["vtep_ip"])
 
         if "local" in types:
-	    result = check_local_es(esi, vtep_ips, dut.name, [])
+            result = check_local_es(esi, vtep_ips, dut.name, [])
         else:
-	    result = check_remote_es(esi, vtep_ips, dut.name, [])
+            result = check_remote_es(esi, vtep_ips, dut.name, [])
 
         if result:
             return result

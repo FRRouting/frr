@@ -992,11 +992,11 @@ class Router(Node):
         # Backward compatibility:
         #   Load configuration defaults like topogen.
         self.config_defaults = configparser.ConfigParser(
-            {
+            defaults = {
                 "verbosity": "info",
                 "frrdir": "/usr/lib/frr",
                 "routertype": "frr",
-                "memleak_path": None,
+                "memleak_path": "",
             }
         )
         self.config_defaults.read(
@@ -1523,7 +1523,7 @@ class Router(Node):
         for daemon in self.daemons:
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))
-                if daemon is "staticd":
+                if daemon == "staticd":
                     sys.stderr.write(
                         "You may have a copy of staticd installed but are attempting to test against\n"
                     )
@@ -1589,7 +1589,7 @@ class Router(Node):
             logger.info("{}: running version: {}".format(self.name, self.version))
 
         rversion = self.version
-        if rversion is None:
+        if rversion == None:
             return False
 
         result = version_cmp(rversion, version)
