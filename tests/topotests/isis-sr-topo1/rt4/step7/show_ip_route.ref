@@ -283,6 +283,7 @@
       "metric":30,
       "nexthops":[
         {
+          "fib":true,
           "ip":"10.0.7.6",
           "afi":"ipv4",
           "interfaceName":"eth-rt6",
@@ -322,6 +323,25 @@
           "afi":"ipv4",
           "interfaceName":"eth-rt6",
           "active":true
+        }
+      ]
+    }
+  ],
+  "10.10.10.10\/32":[
+    {
+      "prefix":"10.10.10.10\/32",
+      "protocol":"isis",
+      "distance":115,
+      "metric":30,
+      "nexthops":[
+        {
+          "ip":"10.0.7.6",
+          "afi":"ipv4",
+          "interfaceName":"eth-rt6",
+          "active":true,
+          "labels":[
+            18100
+          ]
         }
       ]
     }

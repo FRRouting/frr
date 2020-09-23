@@ -262,16 +262,33 @@
       "metric":40,
       "nexthops":[
         {
+          "fib":true,
           "ip":"10.0.2.2",
           "afi":"ipv4",
           "interfaceName":"eth-rt2-1",
           "active":true
         },
         {
+          "fib":true,
           "ip":"10.0.3.2",
           "afi":"ipv4",
           "interfaceName":"eth-rt2-2",
           "active":true
+        }
+      ]
+    }
+  ],
+  "10.0.7.0\/24":[
+    {
+      "prefix":"10.0.7.0\/24",
+      "protocol":"isis",
+      "distance":115,
+      "metric":20,
+      "nexthops":[
+        {
+          "ip":"10.0.7.6",
+          "afi":"ipv4",
+          "interfaceName":"eth-rt6"
         }
       ]
     }
@@ -299,6 +316,34 @@
           "afi":"ipv4",
           "interfaceName":"eth-rt2-2",
           "active":true
+        }
+      ]
+    }
+  ],
+  "10.10.10.10\/32":[
+    {
+      "prefix":"10.10.10.10\/32",
+      "protocol":"isis",
+      "distance":115,
+      "metric":40,
+      "nexthops":[
+        {
+          "ip":"10.0.2.2",
+          "afi":"ipv4",
+          "interfaceName":"eth-rt2-1",
+          "active":true,
+          "labels":[
+            16100
+          ]
+        },
+        {
+          "ip":"10.0.3.2",
+          "afi":"ipv4",
+          "interfaceName":"eth-rt2-2",
+          "active":true,
+          "labels":[
+            16100
+          ]
         }
       ]
     }

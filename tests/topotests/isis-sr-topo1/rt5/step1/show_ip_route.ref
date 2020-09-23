@@ -319,5 +319,24 @@
         }
       ]
     }
+  ],
+  "10.10.10.10\/32":[
+    {
+      "prefix":"10.10.10.10\/32",
+      "protocol":"isis",
+      "distance":115,
+      "metric":20,
+      "nexthops":[
+        {
+          "ip":"10.0.6.4",
+          "afi":"ipv4",
+          "interfaceName":"eth-rt4",
+          "active":true,
+          "labels":[
+            16100
+          ]
+        }
+      ]
+    }
   ]
 }

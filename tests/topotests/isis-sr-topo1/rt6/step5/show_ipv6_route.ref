@@ -12,14 +12,20 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt5",
-          "active":true
+          "interfaceName":"eth-rt4",
+          "active":true,
+          "labels":[
+            16011
+          ]
         },
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt4",
-          "active":true
+          "interfaceName":"eth-rt5",
+          "active":true,
+          "labels":[
+            16011
+          ]
         }
       ]
     }
@@ -38,7 +44,10 @@
           "fib":true,
           "afi":"ipv6",
           "interfaceName":"eth-rt4",
-          "active":true
+          "active":true,
+          "labels":[
+            16021
+          ]
         }
       ]
     }
@@ -57,7 +66,10 @@
           "fib":true,
           "afi":"ipv6",
           "interfaceName":"eth-rt5",
-          "active":true
+          "active":true,
+          "labels":[
+            16031
+          ]
         }
       ]
     }
@@ -76,7 +88,10 @@
           "fib":true,
           "afi":"ipv6",
           "interfaceName":"eth-rt4",
-          "active":true
+          "active":true,
+          "labels":[
+            16041
+          ]
         }
       ]
     }
@@ -95,7 +110,41 @@
           "fib":true,
           "afi":"ipv6",
           "interfaceName":"eth-rt5",
-          "active":true
+          "active":true,
+          "labels":[
+            16051
+          ]
+        }
+      ]
+    }
+  ],
+  "2001:db8:1000::10\/128":[
+    {
+      "prefix":"2001:db8:1000::10\/128",
+      "protocol":"isis",
+      "selected":true,
+      "destSelected":true,
+      "distance":115,
+      "metric":20,
+      "installed":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "afi":"ipv6",
+          "interfaceName":"eth-rt4",
+          "active":true,
+          "labels":[
+            16101
+          ]
+        },
+        {
+          "fib":true,
+          "afi":"ipv6",
+          "interfaceName":"eth-rt5",
+          "active":true,
+          "labels":[
+            16101
+          ]
         }
       ]
     }
