@@ -379,12 +379,20 @@ struct ns *ns_lookup(ns_id_t ns_id)
 	return ns_lookup_internal(ns_id);
 }
 
-void ns_walk_func(int (*func)(struct ns *))
+void ns_walk_func(int (*func)(struct ns *,
+			      void *param_in,
+			      void **param_out),
+		  void *param_in,
+		  void **param_out)
 {
 	struct ns *ns = NULL;
+	int ret;
 
-	RB_FOREACH (ns, ns_head, &ns_tree)
-		func(ns);
+	RB_FOREACH (ns, ns_head, &ns_tree) {
+		ret = func(ns, param_in, param_out);
+		if (ret == NS_WALK_STOP)
+			return;
+	}
 }
 
 const char *ns_get_name(struct ns *ns)
@@ -584,9 +592,35 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 	return ret;
 }
 
+/* if relative link_nsid matches default netns,
+ * then return default absolute netns value
+ * otherwise, return NS_UNKNOWN
+ */
+ns_id_t ns_id_get_absolute(ns_id_t ns_id_reference, ns_id_t link_nsid)
+{
+	struct ns *ns;
+
+	ns = ns_lookup(ns_id_reference);
+	if (!ns)
+		return NS_UNKNOWN;
+
+	if (ns->relative_default_ns != link_nsid)
+		return NS_UNKNOWN;
+
+	ns = ns_get_default();
+	assert(ns);
+	return ns->ns_id;
+}
+
 ns_id_t ns_get_default_id(void)
 {
 	if (default_ns)
 		return default_ns->ns_id;
 	return NS_DEFAULT_INTERNAL;
 }
+
+struct ns *ns_get_default(void)
+{
+	return default_ns;
+}
+
