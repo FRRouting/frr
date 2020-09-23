@@ -1927,6 +1927,10 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 		}
 	}
 	temp2.proto = bpf->protocol;
+	if (bpf->protocol) {
+		temp.protocol = bpf->protocol;
+		temp.flags |= MATCH_PROTOCOL_SET;
+	}
 
 	if (pkt_len) {
 		temp.pkt_len_min = pkt_len->min_port;
