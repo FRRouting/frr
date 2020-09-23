@@ -54,6 +54,7 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_nhg.h"
+#include "zebra/zebra_evpn_mh.h"
 #include "zebra/interface.h"
 #include "northbound_cli.h"
 #include "zebra/zebra_nb.h"
@@ -2355,6 +2356,33 @@ DEFUN (show_vrf,
 	return CMD_SUCCESS;
 }
 
+DEFPY (evpn_mh_mac_holdtime,
+       evpn_mh_mac_holdtime_cmd,
+       "[no$no] evpn mh mac-holdtime (0-86400)$duration",
+       NO_STR
+       "EVPN\n"
+       "Multihoming\n"
+       "MAC hold time\n"
+       "Duration in seconds\n")
+{
+	return zebra_evpn_mh_mac_holdtime_update(vty, duration,
+			no ? true : false);
+}
+
+DEFPY (evpn_mh_neigh_holdtime,
+       evpn_mh_neigh_holdtime_cmd,
+       "[no$no] evpn mh neigh-holdtime (0-86400)$duration",
+       NO_STR
+       "EVPN\n"
+       "Multihoming\n"
+       "Neighbor entry hold time\n"
+       "Duration in seconds\n")
+{
+
+	return zebra_evpn_mh_neigh_holdtime_update(vty, duration, 
+			no ? true : false);
+}
+
 DEFUN (default_vrf_vni_mapping,
        default_vrf_vni_mapping_cmd,
        "vni " CMD_VNI_RANGE "[prefix-routes-only]",
@@ -3403,6 +3431,8 @@ static int config_write_protocol(struct vty *vty)
 	/* Include dataplane info */
 	dplane_config_write_helper(vty);
 
+	zebra_evpn_mh_config_write(vty);
+
 	/* Include nexthop-group config */
 	if (!zebra_nhg_kernel_nexthops_enabled())
 		vty_out(vty, "no zebra nexthop kernel enable\n");
@@ -3899,6 +3929,8 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_pbr_ipset_cmd);
 	install_element(VIEW_NODE, &show_pbr_iptable_cmd);
 
+	install_element(CONFIG_NODE, &evpn_mh_mac_holdtime_cmd);
+	install_element(CONFIG_NODE, &evpn_mh_neigh_holdtime_cmd);
 	install_element(CONFIG_NODE, &default_vrf_vni_mapping_cmd);
 	install_element(CONFIG_NODE, &no_default_vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &vrf_vni_mapping_cmd);
