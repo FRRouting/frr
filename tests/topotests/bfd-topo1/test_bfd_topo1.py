@@ -23,7 +23,7 @@
 #
 
 """
-test_bfd_topo1.py: Test the FRR/Quagga BFD daemon.
+test_bfd_topo1.py: Test the FRR BFD daemon.
 """
 
 import os

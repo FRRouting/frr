@@ -22,7 +22,7 @@
 #
 
 """
-test_ldp_oc_acl_topo1.py: Simple FRR/Quagga LDP Test
+test_ldp_oc_acl_topo1.py: Simple FRR LDP Test
 
              +---------+
              |    r1   |

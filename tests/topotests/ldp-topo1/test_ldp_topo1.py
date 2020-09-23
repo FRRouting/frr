@@ -23,7 +23,7 @@
 #
 
 """
-test_ldp_topo1.py: Simple FRR/Quagga LDP Test
+test_ldp_topo1.py: Simple FRR LDP Test
 
              +---------+
              |    r1   |
@@ -186,7 +186,7 @@ def setup_module(module):
         if fatal_error != "":
             break
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -208,7 +208,7 @@ def test_router_running():
     if fatal_error != "":
         pytest.skip(fatal_error)
 
-    print("\n\n** Check if FRR/Quagga is running on each Router node")
+    print("\n\n** Check if FRR is running on each Router node")
     print("******************************************\n")
     sleep(5)
 
@@ -217,7 +217,7 @@ def test_router_running():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -283,7 +283,7 @@ def test_mpls_interfaces():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -420,7 +420,7 @@ def test_mpls_ldp_discovery():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -490,7 +490,7 @@ def test_mpls_ldp_neighbor():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -582,7 +582,7 @@ def test_mpls_ldp_binding():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -612,7 +612,7 @@ def test_zebra_ipv4_routingTable():
                 .cmd('vtysh -c "show ip route" 2> /dev/null | grep "^O"')
                 .rstrip()
             )
-            # Drop timers on end of line (older Quagga Versions)
+            # Drop timers on end of line
             actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
 
             # Mask out label - all LDP labels should be >= 10 (2-digit)
@@ -657,7 +657,7 @@ def test_zebra_ipv4_routingTable():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -736,7 +736,7 @@ def test_mpls_table():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
@@ -820,7 +820,7 @@ def test_linux_mpls_routes():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 

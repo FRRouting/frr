@@ -23,7 +23,7 @@
 #
 
 """
-test_ospf_topo1.py: Test the FRR/Quagga OSPF routing daemon.
+test_ospf_topo1.py: Test the FRR OSPF routing daemon.
 """
 
 import os

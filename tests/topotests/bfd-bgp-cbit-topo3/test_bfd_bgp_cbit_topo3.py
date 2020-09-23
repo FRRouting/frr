@@ -21,7 +21,7 @@
 #
 
 """
-test_bfd_bgp_cbit_topo3.py: Test the FRR/Quagga BFD daemon with multihop and BGP
+test_bfd_bgp_cbit_topo3.py: Test the FRR BFD daemon with multihop and BGP
 unnumbered.
 """
 

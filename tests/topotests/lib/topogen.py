@@ -96,7 +96,6 @@ def set_topogen(tgen):
 tgen_defaults = {
     "verbosity": "info",
     "frrdir": "/usr/lib/frr",
-    "quaggadir": "/usr/lib/quagga",
     "routertype": "frr",
     "memleak_path": None,
 }
@@ -173,7 +172,7 @@ class Topogen(object):
         options:
         * `name`: (optional) select the router name
         * `daemondir`: (optional) custom daemon binary directory
-        * `routertype`: (optional) `quagga` or `frr`
+        * `routertype`: (optional) `frr`
         Returns a TopoRouter.
         """
         if name is None:
@@ -182,7 +181,6 @@ class Topogen(object):
             raise KeyError("router already exists")
 
         params["frrdir"] = self.config.get(self.CONFIG_SECTION, "frrdir")
-        params["quaggadir"] = self.config.get(self.CONFIG_SECTION, "quaggadir")
         params["memleak_path"] = self.config.get(self.CONFIG_SECTION, "memleak_path")
         if not params.has_key("routertype"):
             params["routertype"] = self.config.get(self.CONFIG_SECTION, "routertype")
@@ -529,12 +527,10 @@ class TopoRouter(TopoGear):
     Router abstraction.
     """
 
-    # The default required directories by Quagga/FRR
+    # The default required directories by FRR
     PRIVATE_DIRS = [
         "/etc/frr",
-        "/etc/quagga",
         "/var/run/frr",
-        "/var/run/quagga",
         "/var/log",
     ]
 
@@ -581,7 +577,7 @@ class TopoRouter(TopoGear):
         * cls: router class that will be used to instantiate
         * name: router name
         * daemondir: daemon binary directory
-        * routertype: 'quagga' or 'frr'
+        * routertype: 'frr'
         """
         super(TopoRouter, self).__init__()
         self.tgen = tgen
@@ -626,7 +622,7 @@ class TopoRouter(TopoGear):
         except OSError:
             pass
 
-        # Allow unprivileged daemon user (frr/quagga) to create log files
+        # Allow unprivileged daemon user (frr) to create log files
         try:
             # Only allow group, if it exist.
             gid = grp.getgrnam(self.routertype)[2]
@@ -675,7 +671,7 @@ class TopoRouter(TopoGear):
         * Load modules
         * Clean up files
         * Configure interfaces
-        * Start daemons (e.g. FRR/Quagga)
+        * Start daemons (e.g. FRR)
         * Configure daemon logging files
         """
         self.logger.debug("starting")
@@ -724,7 +720,7 @@ class TopoRouter(TopoGear):
     def startDaemons(self, daemons):
         """
         Start Daemons: to start specific daemon(user defined daemon only)
-        * Start daemons (e.g. FRR/Quagga)
+        * Start daemons (e.g. FRR)
         * Configure daemon logging files
         """
         self.logger.debug('starting')
@@ -1041,12 +1037,10 @@ def diagnose_env_linux():
 
     # Assert that FRR utilities exist
     frrdir = config.get("topogen", "frrdir")
-    hasfrr = False
     if not os.path.isdir(frrdir):
         logger.error("could not find {} directory".format(frrdir))
         ret = False
     else:
-        hasfrr = True
         try:
             pwd.getpwnam("frr")[2]
         except KeyError:
@@ -1094,56 +1088,6 @@ def diagnose_env_linux():
                     continue
 
                 os.system("{} -v 2>&1 >/tmp/topotests/frr_zebra.txt".format(path))
-
-    # Assert that Quagga utilities exist
-    quaggadir = config.get("topogen", "quaggadir")
-    if hasfrr:
-        # if we have frr, don't check for quagga
-        pass
-    elif not os.path.isdir(quaggadir):
-        logger.info(
-            "could not find {} directory (quagga tests will not run)".format(quaggadir)
-        )
-    else:
-        ret = True
-        try:
-            pwd.getpwnam("quagga")[2]
-        except KeyError:
-            logger.info('could not find "quagga" user')
-
-        try:
-            grp.getgrnam("quagga")[2]
-        except KeyError:
-            logger.info('could not find "quagga" group')
-
-        try:
-            if "quagga" not in grp.getgrnam("quaggavty").gr_mem:
-                logger.error(
-                    '"quagga" user and group exist, but user is not under "quaggavty"'
-                )
-        except KeyError:
-            logger.warning('could not find "quaggavty" group')
-
-        for fname in [
-            "zebra",
-            "ospfd",
-            "ospf6d",
-            "bgpd",
-            "ripd",
-            "ripngd",
-            "isisd",
-            "pimd",
-            "pbrd"
-        ]:
-            path = os.path.join(quaggadir, fname)
-            if not os.path.isfile(path):
-                logger.warning("could not find {} in {}".format(fname, quaggadir))
-                ret = False
-            else:
-                if fname != "zebra":
-                    continue
-
-                os.system("{} -v 2>&1 >/tmp/topotests/quagga_zebra.txt".format(path))
 
     # Test MPLS availability
     krel = platform.release()
