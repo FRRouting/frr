@@ -111,10 +111,13 @@ void zebra_mlag_send_deregister(void)
 void zebra_mlag_process_mlag_data(uint8_t *data, uint32_t len)
 {
 	struct stream *s = NULL;
-	struct stream *s1 = NULL;
 	int msg_type = 0;
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	/*
+	 * Place holder we need the message type first
+	 */
+	stream_putl(s, msg_type);
 	msg_type = zebra_mlag_protobuf_decode_message(s, data, len);
 
 	if (msg_type <= 0) {
@@ -128,12 +131,9 @@ void zebra_mlag_process_mlag_data(uint8_t *data, uint32_t len)
 	/*
 	 * additional four bytes are for message type
 	 */
-	s1 = stream_new(stream_get_endp(s) + ZEBRA_MLAG_METADATA_LEN);
-	stream_putl(s1, msg_type);
-	stream_put(s1, s->data, stream_get_endp(s));
+	stream_putl_at(s, 0, msg_type);
 	thread_add_event(zrouter.master, zebra_mlag_post_data_from_main_thread,
-			 s1, 0, NULL);
-	stream_free(s);
+			 s, 0, NULL);
 }
 
 /**********************End of MLAG Interaction********************************/
