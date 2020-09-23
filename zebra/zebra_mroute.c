@@ -65,7 +65,7 @@ stream_failure:
 	stream_put_in_addr(s, &mroute.sg.src);
 	stream_put_in_addr(s, &mroute.sg.grp);
 	stream_put(s, &mroute.lastused, sizeof(mroute.lastused));
-	stream_putl(s, suc);
+	stream_putl(s, (uint32_t)suc);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zserv_send_message(client, s);
