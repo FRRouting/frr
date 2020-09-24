@@ -2178,7 +2178,7 @@ void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
 					 "[interface='%s']", bs->key.ifname);
 		else
 			slen += snprintf(xpath + slen, sizeof(xpath) - slen,
-					 "[interface='']");
+					 "[interface='*']");
 		snprintf(xpath + slen, sizeof(xpath) - slen, "[vrf='%s']/vrf",
 			 bs->key.vrfname);
 

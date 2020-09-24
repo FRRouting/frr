@@ -48,6 +48,9 @@ static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 	ifname = yang_dnode_get_string(dnode, "./interface");
 	vrfname = yang_dnode_get_string(dnode, "./vrf");
 
+	if (strcmp(ifname, "*") == 0)
+		ifname = NULL;
+
 	/* Generate the corresponding key. */
 	gen_bfd_key(bk, &psa, &lsa, mhop, ifname, vrfname);
 }
@@ -72,7 +75,7 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 		ifname = yang_dnode_get_string(dnode, "./interface");
 
 		if (p.family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)
-		    && strlen(ifname) == 0) {
+		    && strcmp(ifname, "*") == 0) {
 			zlog_warn(
 				"%s: when using link-local you must specify an interface.",
 				__func__);
