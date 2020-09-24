@@ -2158,6 +2158,7 @@ void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
 	if (yang_module_find("frr-bfdd") && bs->key.vrfname[0]) {
 		struct lyd_node *bfd_dnode;
 		char xpath[XPATH_MAXLEN], xpath_srcaddr[XPATH_MAXLEN + 32];
+		char oldpath[XPATH_MAXLEN], newpath[XPATH_MAXLEN];
 		char addr_buf[INET6_ADDRSTRLEN];
 		int slen;
 
@@ -2185,7 +2186,12 @@ void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
 		bfd_dnode = yang_dnode_get(running_config->dnode, xpath,
 					   bs->key.vrfname);
 		if (bfd_dnode) {
+			yang_dnode_get_path(bfd_dnode->parent, oldpath,
+					    sizeof(oldpath));
 			yang_dnode_change_leaf(bfd_dnode, vrf->name);
+			yang_dnode_get_path(bfd_dnode->parent, newpath,
+					    sizeof(newpath));
+			nb_running_move_tree(oldpath, newpath);
 			running_config->version++;
 		}
 	}
