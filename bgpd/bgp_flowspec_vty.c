@@ -268,12 +268,7 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 	json_object *json_ecom_path = NULL;
 	json_object *json_time_path = NULL;
 	char timebuf[BGP_UPTIME_LEN];
-	struct bgp_dest *dest = NULL;
 
-	if (path)
-		dest = path->net;
-	if (dest)
-		bgp_dest_get_bgp_table_info(dest);
 	if (p == NULL || p->family != AF_FLOWSPEC)
 		return;
 	if (json_paths) {
