@@ -1013,6 +1013,8 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)) != 0) {
 		zlog_warn("Could not bind IGMP socket for %s on %s",
 			  inet_ntoa(ifaddr), ifp->name);
+		close(fd);
+
 		return NULL;
 	}
 
