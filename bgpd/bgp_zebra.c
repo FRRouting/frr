@@ -2367,7 +2367,7 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 	struct prefix pfx;
 	uint8_t fam = AF_INET;
 
-	if (pbra && pbra->nh.type == NEXTHOP_TYPE_IPV6)
+	if (pbra->nh.type == NEXTHOP_TYPE_IPV6)
 		fam = AF_INET6;
 	stream_putl(s, 0); /* seqno unused */
 	if (pbr)
