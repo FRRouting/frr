@@ -1462,6 +1462,9 @@ void kernel_init(struct zebra_ns *zns)
 	one = 1;
 	ret = setsockopt(zns->netlink_dplane.sock, SOL_NETLINK, NETLINK_CAP_ACK,
 			 &one, sizeof(one));
+	if (ret < 0)
+		zlog_notice(
+			"Registration for reduced ACK packet size failed, probably running an early kernel");
 #endif
 
 	/* Register kernel socket. */
