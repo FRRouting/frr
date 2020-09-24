@@ -80,14 +80,18 @@ int isis_instance_create(struct nb_cb_create_args *args)
 int isis_instance_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
+	vrf_id_t vrf_id;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 	area = nb_running_unset_entry(args->dnode);
+
+	vrf_id = area->isis->vrf_id;
+
 	isis_area_destroy(area);
 
 	/* remove ldp-sync config */
-	if (area->isis->vrf_id == VRF_DEFAULT)
+	if (vrf_id == VRF_DEFAULT)
 		isis_ldp_sync_gbl_exit(true);
 
 	return NB_OK;
