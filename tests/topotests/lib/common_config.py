@@ -2944,8 +2944,7 @@ def verify_rib(
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
-
-@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=6, wait=2, return_is_str=True)
 def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
     """
     Data will be read from input_dict or input JSON file, API will generate
@@ -3396,7 +3395,7 @@ def verify_route_maps(tgen, input_dict):
     return True
 
 
-@retry(attempts=3, wait=4, return_is_str=True)
+@retry(attempts=4, wait=4, return_is_str=True)
 def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
     """
     API to veiryf BGP large community is attached in route for any given
