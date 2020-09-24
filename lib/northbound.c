@@ -122,9 +122,9 @@ static int nb_node_new_cb(const struct lys_node *snode, void *arg)
 	if (CHECK_FLAG(snode->nodetype, LYS_CONTAINER | LYS_LIST)) {
 		bool config_only = true;
 
-		yang_snodes_iterate_subtree(snode, NULL,
-					    nb_node_check_config_only, 0,
-					    &config_only);
+		(void)yang_snodes_iterate_subtree(snode, NULL,
+						  nb_node_check_config_only, 0,
+						  &config_only);
 		if (config_only)
 			SET_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY);
 	}
