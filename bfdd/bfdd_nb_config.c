@@ -45,11 +45,8 @@ static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 	if (yang_dnode_exists(dnode, "./source-addr"))
 		strtosa(yang_dnode_get_string(dnode, "./source-addr"), &lsa);
 
-	/* Get optional interface and vrf names. */
-	if (yang_dnode_exists(dnode, "./interface"))
-		ifname = yang_dnode_get_string(dnode, "./interface");
-	if (yang_dnode_exists(dnode, "./vrf"))
-		vrfname = yang_dnode_get_string(dnode, "./vrf");
+	ifname = yang_dnode_get_string(dnode, "./interface");
+	vrfname = yang_dnode_get_string(dnode, "./vrf");
 
 	/* Generate the corresponding key. */
 	gen_bfd_key(bk, &psa, &lsa, mhop, ifname, vrfname);
@@ -72,15 +69,7 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 		 */
 		yang_dnode_get_prefix(&p, dnode, "./dest-addr");
 
-		/*
-		 * To support old FRR versions we must allow empty
-		 * interface to be specified, however that should
-		 * change in the future.
-		 */
-		if (yang_dnode_exists(dnode, "./interface"))
-			ifname = yang_dnode_get_string(dnode, "./interface");
-		else
-			ifname = "";
+		ifname = yang_dnode_get_string(dnode, "./interface");
 
 		if (p.family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)
 		    && strlen(ifname) == 0) {
