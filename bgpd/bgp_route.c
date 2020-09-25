@@ -3340,14 +3340,20 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 		(type == ZEBRA_ROUTE_BGP && stype == BGP_ROUTE_STATIC) ? true
 								       : false;
 
-	/* Only validated for unicast and multicast currently. */
-	/* Also valid for EVPN where the nexthop is an IP address. */
-	if (safi != SAFI_UNICAST && safi != SAFI_MULTICAST && safi != SAFI_EVPN)
+	/*
+	 * Only validated for unicast and multicast currently.
+	 * Also valid for EVPN where the nexthop is an IP address.
+	 * If we are a bgp static route being checked then there is
+	 * no need to check to see if the nexthop is martian as
+	 * that it should be ok.
+	 */
+	if (is_bgp_static_route ||
+	    (safi != SAFI_UNICAST && safi != SAFI_MULTICAST && safi != SAFI_EVPN))
 		return false;
 
 	/* If NEXT_HOP is present, validate it. */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
-		if ((attr->nexthop.s_addr == INADDR_ANY && !is_bgp_static_route)
+		if (attr->nexthop.s_addr == INADDR_ANY
 		    || IPV4_CLASS_DE(ntohl(attr->nexthop.s_addr))
 		    || bgp_nexthop_self(bgp, afi, type, stype, attr, dest))
 			return true;
@@ -3366,8 +3372,7 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 		switch (attr->mp_nexthop_len) {
 		case BGP_ATTR_NHLEN_IPV4:
 		case BGP_ATTR_NHLEN_VPNV4:
-			ret = ((attr->mp_nexthop_global_in.s_addr == INADDR_ANY
-				&& !is_bgp_static_route)
+			ret = (attr->mp_nexthop_global_in.s_addr == INADDR_ANY
 			       || IPV4_CLASS_DE(
 				       ntohl(attr->mp_nexthop_global_in.s_addr))
 			       || bgp_nexthop_self(bgp, afi, type, stype, attr,
@@ -3376,9 +3381,8 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
 		case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
-			ret = ((IN6_IS_ADDR_UNSPECIFIED(
+			ret = (IN6_IS_ADDR_UNSPECIFIED(
 					&attr->mp_nexthop_global)
-				&& !is_bgp_static_route)
 			       || IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global)
 			       || IN6_IS_ADDR_MULTICAST(
 				       &attr->mp_nexthop_global)
