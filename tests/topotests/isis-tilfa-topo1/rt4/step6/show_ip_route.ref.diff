@@ -1,6 +1,33 @@
---- rt4/step5/show_ip_route.ref	2020-08-31 22:42:48.839561398 -0300
-+++ rt4/step6/show_ip_route.ref	2020-08-31 22:42:48.839561398 -0300
-@@ -102,7 +102,7 @@
+--- rt4/step5/show_ip_route.ref	2020-09-25 17:50:12.800576153 -0300
++++ rt4/step6/show_ip_route.ref	2020-09-25 17:51:15.725397558 -0300
+@@ -90,7 +90,7 @@
+           "interfaceName":"eth-rt5",
+           "active":true,
+           "labels":[
+-            16030,
++            30030,
+             16020
+           ]
+         }
+@@ -134,7 +134,7 @@
+           "interfaceName":"eth-rt5",
+           "active":true,
+           "labels":[
+-            16030
++            30030
+           ]
+         }
+       ]
+@@ -281,7 +281,7 @@
+           "interfaceName":"eth-rt5",
+           "active":true,
+           "labels":[
+-            16030
++            30030
+           ]
+         }
+       ]
+@@ -319,7 +319,7 @@
            "interfaceName":"eth-rt5",
            "active":true,
            "labels":[

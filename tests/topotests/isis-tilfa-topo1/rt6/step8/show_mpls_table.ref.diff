@@ -1,5 +1,5 @@
---- rt6/step7/show_mpls_table.ref	2020-08-31 22:42:48.847561334 -0300
-+++ rt6/step8/show_mpls_table.ref	2020-08-31 22:42:48.847561334 -0300
+--- rt6/step7/show_mpls_table.ref	2020-09-25 17:52:01.809999577 -0300
++++ rt6/step8/show_mpls_table.ref	2020-09-25 17:53:19.799019132 -0300
 @@ -166,5 +166,49 @@
          "interface":"eth-rt5"
        }

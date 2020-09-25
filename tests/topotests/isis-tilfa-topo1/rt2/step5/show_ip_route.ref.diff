@@ -1,6 +1,6 @@
---- rt2/step4/show_ip_route.ref	2020-08-31 22:42:48.835561429 -0300
-+++ rt2/step5/show_ip_route.ref	2020-08-31 22:42:48.835561429 -0300
-@@ -15,10 +15,34 @@
+--- rt2/step4/show_ip_route.ref	2020-09-25 17:49:01.763649797 -0300
++++ rt2/step5/show_ip_route.ref	2020-09-25 17:50:12.360570411 -0300
+@@ -15,10 +15,36 @@
            "afi":"ipv4",
            "interfaceName":"eth-sw1",
            "active":true,
@@ -20,7 +20,8 @@
 +          "interfaceName":"eth-rt4-1",
 +          "active":true,
 +          "labels":[
-+            16050
++            16050,
++            16010
 +          ]
 +        },
 +        {
@@ -29,13 +30,14 @@
 +          "interfaceName":"eth-rt4-2",
 +          "active":true,
 +          "labels":[
-+            16050
++            16050,
++            16010
 +          ]
 +        }
        ]
      }
    ],
-@@ -38,10 +62,34 @@
+@@ -38,10 +64,36 @@
            "afi":"ipv4",
            "interfaceName":"eth-sw1",
            "active":true,
@@ -55,7 +57,8 @@
 +          "interfaceName":"eth-rt4-1",
 +          "active":true,
 +          "labels":[
-+            16050
++            16050,
++            16030
 +          ]
 +        },
 +        {
@@ -64,20 +67,51 @@
 +          "interfaceName":"eth-rt4-2",
 +          "active":true,
 +          "labels":[
-+            16050
++            16050,
++            16030
 +          ]
 +        }
        ]
      }
    ],
-@@ -60,14 +108,20 @@
+@@ -63,6 +115,9 @@
+           "active":true,
+           "backupIndex":[
+             0
++          ],
++          "labels":[
++            3
+           ]
+         },
+         {
+@@ -73,6 +128,9 @@
+           "active":true,
+           "backupIndex":[
+             0
++          ],
++          "labels":[
++            3
+           ]
+         }
+       ],
+@@ -83,7 +141,8 @@
+           "interfaceName":"eth-sw1",
+           "active":true,
+           "labels":[
+-            16050
++            16050,
++            16040
+           ]
+         }
+       ]
+@@ -114,14 +173,20 @@
            "ip":"10.0.2.4",
            "afi":"ipv4",
            "interfaceName":"eth-rt4-1",
 -          "active":true
 +          "active":true,
 +          "labels":[
-+            3
++            16050
 +          ]
          },
          {
@@ -88,53 +122,32 @@
 -          "active":true
 +          "active":true,
 +          "labels":[
-+            3
++            16050
 +          ]
          }
        ]
      }
-@@ -99,7 +153,7 @@
-           "interfaceName":"eth-rt4-1",
+@@ -144,6 +209,9 @@
            "active":true,
-           "labels":[
--            3
-+            16050
+           "backupIndex":[
+             0
++          ],
++          "labels":[
++            16060
            ]
          },
          {
-@@ -109,7 +163,7 @@
-           "interfaceName":"eth-rt4-2",
+@@ -154,6 +222,9 @@
            "active":true,
-           "labels":[
--            3
-+            16050
+           "backupIndex":[
+             0
++          ],
++          "labels":[
++            16060
            ]
          }
-       ]
-@@ -130,14 +184,20 @@
-           "ip":"10.0.2.4",
-           "afi":"ipv4",
-           "interfaceName":"eth-rt4-1",
--          "active":true
-+          "active":true,
-+          "labels":[
-+            16060
-+          ]
-         },
-         {
-           "fib":true,
-           "ip":"10.0.3.4",
-           "afi":"ipv4",
-           "interfaceName":"eth-rt4-2",
--          "active":true
-+          "active":true,
-+          "labels":[
-+            16060
-+          ]
-         }
-       ]
-     }
-@@ -152,12 +212,34 @@
+       ],
+@@ -177,12 +248,40 @@
          {
            "ip":"10.0.1.1",
            "afi":"ipv4",
@@ -161,13 +174,19 @@
 +          "ip":"10.0.2.4",
 +          "afi":"ipv4",
 +          "interfaceName":"eth-rt4-1",
-+          "active":true
++          "active":true,
++          "labels":[
++            16050
++          ]
 +        },
 +        {
 +          "ip":"10.0.3.4",
 +          "afi":"ipv4",
 +          "interfaceName":"eth-rt4-2",
-+          "active":true
++          "active":true,
++          "labels":[
++            16050
++          ]
          }
        ]
      }

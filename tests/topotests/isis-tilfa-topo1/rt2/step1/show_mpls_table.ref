@@ -119,13 +119,26 @@
         "type":"SR (IS-IS)",
         "outLabel":3,
         "installed":true,
-        "nexthop":"10.0.3.4"
+        "nexthop":"10.0.3.4",
+        "backupIndex":[
+          0
+        ]
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":3,
         "installed":true,
-        "nexthop":"10.0.2.4"
+        "nexthop":"10.0.2.4",
+        "backupIndex":[
+          0
+        ]
+      }
+    ],
+    "backupNexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16050,
+        "nexthop":"10.0.1.3"
       }
     ]
   },
@@ -137,13 +150,26 @@
         "type":"SR (IS-IS)",
         "outLabel":3,
         "installed":true,
-        "interface":"eth-rt4-2"
+        "interface":"eth-rt4-2",
+        "backupIndex":[
+          0
+        ]
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":3,
         "installed":true,
-        "interface":"eth-rt4-1"
+        "interface":"eth-rt4-1",
+        "backupIndex":[
+          0
+        ]
+      }
+    ],
+    "backupNexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16051,
+        "interface":"eth-sw1"
       }
     ]
   },
@@ -203,13 +229,26 @@
         "type":"SR (IS-IS)",
         "outLabel":16060,
         "installed":true,
-        "nexthop":"10.0.3.4"
+        "nexthop":"10.0.3.4",
+        "backupIndex":[
+          0
+        ]
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16060,
         "installed":true,
-        "nexthop":"10.0.2.4"
+        "nexthop":"10.0.2.4",
+        "backupIndex":[
+          0
+        ]
+      }
+    ],
+    "backupNexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "nexthop":"10.0.1.3"
       }
     ]
   },
@@ -221,13 +260,26 @@
         "type":"SR (IS-IS)",
         "outLabel":16061,
         "installed":true,
-        "interface":"eth-rt4-2"
+        "interface":"eth-rt4-2",
+        "backupIndex":[
+          0
+        ]
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16061,
         "installed":true,
-        "interface":"eth-rt4-1"
+        "interface":"eth-rt4-1",
+        "backupIndex":[
+          0
+        ]
+      }
+    ],
+    "backupNexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "interface":"eth-sw1"
       }
     ]
   }

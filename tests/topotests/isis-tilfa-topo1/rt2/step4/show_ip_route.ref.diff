@@ -1,6 +1,6 @@
---- rt2/step3/show_ip_route.ref	2020-08-31 22:42:48.835561429 -0300
-+++ rt2/step4/show_ip_route.ref	2020-08-31 22:42:48.835561429 -0300
-@@ -15,34 +15,10 @@
+--- rt2/step3/show_ip_route.ref	2020-09-25 17:48:05.274913964 -0300
++++ rt2/step4/show_ip_route.ref	2020-09-25 17:49:01.763649797 -0300
+@@ -15,36 +15,10 @@
            "afi":"ipv4",
            "interfaceName":"eth-sw1",
            "active":true,
@@ -20,7 +20,8 @@
 -          "interfaceName":"eth-rt4-1",
 -          "active":true,
 -          "labels":[
--            16050
+-            16050,
+-            16010
 -          ]
 -        },
 -        {
@@ -29,13 +30,14 @@
 -          "interfaceName":"eth-rt4-2",
 -          "active":true,
 -          "labels":[
--            16050
+-            16050,
+-            16010
 -          ]
 -        }
        ]
      }
    ],
-@@ -62,34 +38,10 @@
+@@ -64,36 +38,10 @@
            "afi":"ipv4",
            "interfaceName":"eth-sw1",
            "active":true,
@@ -55,7 +57,8 @@
 -          "interfaceName":"eth-rt4-1",
 -          "active":true,
 -          "labels":[
--            16050
+-            16050,
+-            16030
 -          ]
 -        },
 -        {
@@ -64,19 +67,50 @@
 -          "interfaceName":"eth-rt4-2",
 -          "active":true,
 -          "labels":[
--            16050
+-            16050,
+-            16030
 -          ]
 -        }
        ]
      }
    ],
-@@ -108,20 +60,14 @@
+@@ -115,9 +63,6 @@
+           "active":true,
+           "backupIndex":[
+             0
+-          ],
+-          "labels":[
+-            3
+           ]
+         },
+         {
+@@ -128,9 +73,6 @@
+           "active":true,
+           "backupIndex":[
+             0
+-          ],
+-          "labels":[
+-            3
+           ]
+         }
+       ],
+@@ -141,8 +83,7 @@
+           "interfaceName":"eth-sw1",
+           "active":true,
+           "labels":[
+-            16050,
+-            16040
++            16050
+           ]
+         }
+       ]
+@@ -173,20 +114,14 @@
            "ip":"10.0.2.4",
            "afi":"ipv4",
            "interfaceName":"eth-rt4-1",
 -          "active":true,
 -          "labels":[
--            3
+-            16050
 -          ]
 +          "active":true
          },
@@ -87,54 +121,33 @@
            "interfaceName":"eth-rt4-2",
 -          "active":true,
 -          "labels":[
--            3
+-            16050
 -          ]
 +          "active":true
          }
        ]
      }
-@@ -153,7 +99,7 @@
-           "interfaceName":"eth-rt4-1",
+@@ -209,9 +144,6 @@
            "active":true,
-           "labels":[
--            16050
-+            3
+           "backupIndex":[
+             0
+-          ],
+-          "labels":[
+-            16060
            ]
          },
          {
-@@ -163,7 +109,7 @@
-           "interfaceName":"eth-rt4-2",
+@@ -222,9 +154,6 @@
            "active":true,
-           "labels":[
--            16050
-+            3
+           "backupIndex":[
+             0
+-          ],
+-          "labels":[
+-            16060
            ]
          }
-       ]
-@@ -184,20 +130,14 @@
-           "ip":"10.0.2.4",
-           "afi":"ipv4",
-           "interfaceName":"eth-rt4-1",
--          "active":true,
--          "labels":[
--            16060
--          ]
-+          "active":true
-         },
-         {
-           "fib":true,
-           "ip":"10.0.3.4",
-           "afi":"ipv4",
-           "interfaceName":"eth-rt4-2",
--          "active":true,
--          "labels":[
--            16060
--          ]
-+          "active":true
-         }
-       ]
-     }
-@@ -212,34 +152,12 @@
+       ],
+@@ -248,40 +177,12 @@
          {
            "ip":"10.0.1.1",
            "afi":"ipv4",
@@ -160,13 +173,19 @@
 -          "ip":"10.0.2.4",
 -          "afi":"ipv4",
 -          "interfaceName":"eth-rt4-1",
--          "active":true
+-          "active":true,
+-          "labels":[
+-            16050
+-          ]
 -        },
 -        {
 -          "ip":"10.0.3.4",
 -          "afi":"ipv4",
 -          "interfaceName":"eth-rt4-2",
--          "active":true
+-          "active":true,
+-          "labels":[
+-            16050
+-          ]
 +          "interfaceName":"eth-sw1"
          }
        ]

@@ -1,6 +1,6 @@
---- rt2/step4/show_ipv6_route.ref	2020-08-31 22:42:48.835561429 -0300
-+++ rt2/step5/show_ipv6_route.ref	2020-08-31 22:42:48.835561429 -0300
-@@ -14,10 +14,32 @@
+--- rt2/step4/show_ipv6_route.ref	2020-09-25 17:49:02.995665853 -0300
++++ rt2/step5/show_ipv6_route.ref	2020-09-25 17:50:13.636587060 -0300
+@@ -14,10 +14,34 @@
            "afi":"ipv6",
            "interfaceName":"eth-sw1",
            "active":true,
@@ -19,7 +19,8 @@
 +          "interfaceName":"eth-rt4-1",
 +          "active":true,
 +          "labels":[
-+            16051
++            16051,
++            16011
 +          ]
 +        },
 +        {
@@ -27,13 +28,14 @@
 +          "interfaceName":"eth-rt4-2",
 +          "active":true,
 +          "labels":[
-+            16051
++            16051,
++            16011
 +          ]
 +        }
        ]
      }
    ],
-@@ -36,10 +58,32 @@
+@@ -36,10 +60,34 @@
            "afi":"ipv6",
            "interfaceName":"eth-sw1",
            "active":true,
@@ -52,7 +54,8 @@
 +          "interfaceName":"eth-rt4-1",
 +          "active":true,
 +          "labels":[
-+            16051
++            16051,
++            16031
 +          ]
 +        },
 +        {
@@ -60,71 +63,82 @@
 +          "interfaceName":"eth-rt4-2",
 +          "active":true,
 +          "labels":[
-+            16051
++            16051,
++            16031
 +          ]
 +        }
        ]
      }
    ],
-@@ -57,13 +101,19 @@
-           "fib":true,
-           "afi":"ipv6",
-           "interfaceName":"eth-rt4-1",
--          "active":true
-+          "active":true,
+@@ -60,6 +108,9 @@
+           "active":true,
+           "backupIndex":[
+             0
++          ],
 +          "labels":[
 +            3
-+          ]
+           ]
          },
          {
+@@ -69,6 +120,9 @@
+           "active":true,
+           "backupIndex":[
+             0
++          ],
++          "labels":[
++            3
+           ]
+         }
+       ],
+@@ -78,7 +132,8 @@
+           "interfaceName":"eth-sw1",
+           "active":true,
+           "labels":[
+-            16051
++            16051,
++            16041
+           ]
+         }
+       ]
+@@ -107,13 +162,19 @@
            "fib":true,
            "afi":"ipv6",
            "interfaceName":"eth-rt4-2",
 -          "active":true
 +          "active":true,
 +          "labels":[
-+            3
++            16051
++          ]
+         },
+         {
+           "fib":true,
+           "afi":"ipv6",
+           "interfaceName":"eth-rt4-1",
+-          "active":true
++          "active":true,
++          "labels":[
++            16051
 +          ]
          }
        ]
      }
-@@ -84,7 +134,7 @@
-           "interfaceName":"eth-rt4-1",
+@@ -135,6 +196,9 @@
            "active":true,
-           "labels":[
--            3
-+            16051
+           "backupIndex":[
+             0
++          ],
++          "labels":[
++            16061
            ]
          },
          {
-@@ -102,7 +152,7 @@
-           "interfaceName":"eth-rt4-2",
+@@ -144,6 +208,9 @@
            "active":true,
-           "labels":[
--            3
-+            16051
+           "backupIndex":[
+             0
++          ],
++          "labels":[
++            16061
            ]
          }
-       ]
-@@ -122,13 +172,19 @@
-           "fib":true,
-           "afi":"ipv6",
-           "interfaceName":"eth-rt4-1",
--          "active":true
-+          "active":true,
-+          "labels":[
-+            16061
-+          ]
-         },
-         {
-           "fib":true,
-           "afi":"ipv6",
-           "interfaceName":"eth-rt4-2",
--          "active":true
-+          "active":true,
-+          "labels":[
-+            16061
-+          ]
-         }
-       ]
-     }
+       ],

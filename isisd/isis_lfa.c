@@ -291,25 +291,30 @@ tilfa_compute_label_stack(struct lspdb_head *lspdb,
 	label_stack->num_labels = listcount(repair_list);
 
 	for (ALL_LIST_ELEMENTS_RO(repair_list, node, sid)) {
+		const uint8_t *target_node;
 		struct isis_sr_block *srgb;
 		mpls_label_t label;
 
 		switch (sid->type) {
 		case TILFA_SID_PREFIX:
-			srgb = isis_sr_find_srgb(lspdb, sadj->id);
+			if (sid->value.index.remote)
+				target_node = sid->value.index.remote_sysid;
+			else
+				target_node = sadj->id;
+			srgb = isis_sr_find_srgb(lspdb, target_node);
 			if (!srgb) {
 				zlog_warn("%s: SRGB not found for node %s",
 					  __func__,
-					  print_sys_hostname(sadj->id));
+					  print_sys_hostname(target_node));
 				goto error;
 			}
 
 			/* Check if the SID index falls inside the SRGB. */
-			if (sid->value.index >= srgb->range_size) {
+			if (sid->value.index.value >= srgb->range_size) {
 				flog_warn(
 					EC_ISIS_SID_OVERFLOW,
 					"%s: SID index %u falls outside remote SRGB range",
-					__func__, sid->value.index);
+					__func__, sid->value.index.value);
 				goto error;
 			}
 
@@ -317,7 +322,7 @@ tilfa_compute_label_stack(struct lspdb_head *lspdb,
 			 * Prefix-SID: map SID index to label value within the
 			 * SRGB.
 			 */
-			label = srgb->lower_bound + sid->value.index;
+			label = srgb->lower_bound + sid->value.index.value;
 			break;
 		case TILFA_SID_ADJ:
 			/* Adj-SID: absolute label value can be used directly */
@@ -429,13 +434,32 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 	struct listnode *node;
 	bool is_pnode, is_qnode;
 	char buf[VID2STR_BUFFER];
-	struct isis_tilfa_sid sid_qnode, sid_pnode;
+	struct isis_tilfa_sid sid_dest = {}, sid_qnode = {}, sid_pnode = {};
+	uint32_t sid_index;
 	mpls_label_t label_qnode;
 
 	if (IS_DEBUG_TILFA) {
 		vid2string(vertex, buf, sizeof(buf));
 		zlog_debug("ISIS-TI-LFA: vertex %s %s",
 			   vtype2string(vertex->type), buf);
+	}
+
+	/* Push original Prefix-SID label when necessary. */
+	if (VTYPE_IP(vertex->type) && vertex->N.ip.sr.present) {
+		pvertex = listnode_head(vertex->parents);
+		assert(pvertex);
+
+		sid_index = vertex->N.ip.sr.sid.value;
+		if (IS_DEBUG_TILFA)
+			zlog_debug(
+				"ISIS-TI-LFA: pushing Prefix-SID to %pFX (index %u)",
+				&vertex->N.ip.p.dest, sid_index);
+		sid_dest.type = TILFA_SID_PREFIX;
+		sid_dest.value.index.value = sid_index;
+		sid_dest.value.index.remote = true;
+		memcpy(sid_dest.value.index.remote_sysid, pvertex->N.id,
+		       sizeof(sid_dest.value.index.remote_sysid));
+		listnode_add_head(repair_list, &sid_dest);
 	}
 
 	if (!vertex_child)
@@ -475,8 +499,6 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 
 	/* Push Prefix-SID label when necessary. */
 	if (is_pnode) {
-		uint32_t sid_index;
-
 		/* The same P-node can't be used more than once. */
 		if (isis_spf_node_find(used_pnodes, vertex->N.id)) {
 			if (IS_DEBUG_TILFA)
@@ -504,10 +526,10 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 
 		if (IS_DEBUG_TILFA)
 			zlog_debug(
-				"ISIS-TI-LFA: pushing Prefix-SID to %s (index %u)",
+				"ISIS-TI-LFA: pushing Node-SID to %s (index %u)",
 				print_sys_hostname(vertex->N.id), sid_index);
 		sid_pnode.type = TILFA_SID_PREFIX;
-		sid_pnode.value.index = sid_index;
+		sid_pnode.value.index.value = sid_index;
 		listnode_add_head(repair_list, &sid_pnode);
 
 		/* Apply repair list. */

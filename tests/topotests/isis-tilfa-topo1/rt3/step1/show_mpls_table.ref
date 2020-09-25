@@ -18,12 +18,12 @@
       {
         "type":"SR (IS-IS)",
         "outLabel":16040,
-        "nexthop":"10.0.5.5"
+        "nexthop":"10.0.4.5"
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16040,
-        "nexthop":"10.0.4.5"
+        "nexthop":"10.0.5.5"
       }
     ]
   },
@@ -46,12 +46,12 @@
       {
         "type":"SR (IS-IS)",
         "outLabel":16041,
-        "interface":"eth-rt5-2"
+        "interface":"eth-rt5-1"
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16041,
-        "interface":"eth-rt5-1"
+        "interface":"eth-rt5-2"
       }
     ]
   },
@@ -74,12 +74,12 @@
       {
         "type":"SR (IS-IS)",
         "outLabel":16040,
-        "nexthop":"10.0.5.5"
+        "nexthop":"10.0.4.5"
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16040,
-        "nexthop":"10.0.4.5"
+        "nexthop":"10.0.5.5"
       }
     ]
   },
@@ -102,12 +102,12 @@
       {
         "type":"SR (IS-IS)",
         "outLabel":16041,
-        "interface":"eth-rt5-2"
+        "interface":"eth-rt5-1"
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16041,
-        "interface":"eth-rt5-1"
+        "interface":"eth-rt5-2"
       }
     ]
   },
@@ -119,7 +119,7 @@
         "type":"SR (IS-IS)",
         "outLabel":16040,
         "installed":true,
-        "nexthop":"10.0.1.2"
+        "nexthop":"10.0.5.5"
       },
       {
         "type":"SR (IS-IS)",
@@ -131,7 +131,7 @@
         "type":"SR (IS-IS)",
         "outLabel":16040,
         "installed":true,
-        "nexthop":"10.0.5.5"
+        "nexthop":"10.0.1.2"
       }
     ]
   },
@@ -143,7 +143,7 @@
         "type":"SR (IS-IS)",
         "outLabel":16041,
         "installed":true,
-        "interface":"eth-sw1"
+        "interface":"eth-rt5-2"
       },
       {
         "type":"SR (IS-IS)",
@@ -155,7 +155,7 @@
         "type":"SR (IS-IS)",
         "outLabel":16041,
         "installed":true,
-        "interface":"eth-rt5-2"
+        "interface":"eth-sw1"
       }
     ]
   },
@@ -167,13 +167,26 @@
         "type":"SR (IS-IS)",
         "outLabel":3,
         "installed":true,
-        "nexthop":"10.0.4.5"
+        "nexthop":"10.0.5.5",
+        "backupIndex":[
+          0
+        ]
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":3,
         "installed":true,
-        "nexthop":"10.0.5.5"
+        "nexthop":"10.0.4.5",
+        "backupIndex":[
+          0
+        ]
+      }
+    ],
+    "backupNexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16040,
+        "nexthop":"10.0.1.2"
       }
     ]
   },
@@ -185,13 +198,26 @@
         "type":"SR (IS-IS)",
         "outLabel":3,
         "installed":true,
-        "interface":"eth-rt5-1"
+        "interface":"eth-rt5-2",
+        "backupIndex":[
+          0
+        ]
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":3,
         "installed":true,
-        "interface":"eth-rt5-2"
+        "interface":"eth-rt5-1",
+        "backupIndex":[
+          0
+        ]
+      }
+    ],
+    "backupNexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16041,
+        "interface":"eth-sw1"
       }
     ]
   },
@@ -203,13 +229,26 @@
         "type":"SR (IS-IS)",
         "outLabel":16060,
         "installed":true,
-        "nexthop":"10.0.4.5"
+        "nexthop":"10.0.5.5",
+        "backupIndex":[
+          0
+        ]
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16060,
         "installed":true,
-        "nexthop":"10.0.5.5"
+        "nexthop":"10.0.4.5",
+        "backupIndex":[
+          0
+        ]
+      }
+    ],
+    "backupNexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "nexthop":"10.0.1.2"
       }
     ]
   },
@@ -221,13 +260,26 @@
         "type":"SR (IS-IS)",
         "outLabel":16061,
         "installed":true,
-        "interface":"eth-rt5-1"
+        "interface":"eth-rt5-2",
+        "backupIndex":[
+          0
+        ]
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16061,
         "installed":true,
-        "interface":"eth-rt5-2"
+        "interface":"eth-rt5-1",
+        "backupIndex":[
+          0
+        ]
+      }
+    ],
+    "backupNexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "interface":"eth-sw1"
       }
     ]
   }

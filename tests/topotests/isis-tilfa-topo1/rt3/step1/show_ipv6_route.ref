@@ -26,18 +26,20 @@
       "backupNexthops":[
         {
           "afi":"ipv6",
-          "interfaceName":"eth-rt5-2",
+          "interfaceName":"eth-rt5-1",
           "active":true,
           "labels":[
-            16041
+            16041,
+            16011
           ]
         },
         {
           "afi":"ipv6",
-          "interfaceName":"eth-rt5-1",
+          "interfaceName":"eth-rt5-2",
           "active":true,
           "labels":[
-            16041
+            16041,
+            16011
           ]
         }
       ]
@@ -70,18 +72,20 @@
       "backupNexthops":[
         {
           "afi":"ipv6",
-          "interfaceName":"eth-rt5-2",
+          "interfaceName":"eth-rt5-1",
           "active":true,
           "labels":[
-            16041
+            16041,
+            16021
           ]
         },
         {
           "afi":"ipv6",
-          "interfaceName":"eth-rt5-1",
+          "interfaceName":"eth-rt5-2",
           "active":true,
           "labels":[
-            16041
+            16041,
+            16021
           ]
         }
       ]
@@ -100,6 +104,15 @@
         {
           "fib":true,
           "afi":"ipv6",
+          "interfaceName":"eth-sw1",
+          "active":true,
+          "labels":[
+            16041
+          ]
+        },
+        {
+          "fib":true,
+          "afi":"ipv6",
           "interfaceName":"eth-rt5-2",
           "active":true,
           "labels":[
@@ -110,15 +123,6 @@
           "fib":true,
           "afi":"ipv6",
           "interfaceName":"eth-rt5-1",
-          "active":true,
-          "labels":[
-            16041
-          ]
-        },
-        {
-          "fib":true,
-          "afi":"ipv6",
-          "interfaceName":"eth-sw1",
           "active":true,
           "labels":[
             16041
@@ -142,6 +146,9 @@
           "afi":"ipv6",
           "interfaceName":"eth-rt5-2",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             3
           ]
@@ -151,8 +158,22 @@
           "afi":"ipv6",
           "interfaceName":"eth-rt5-1",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             3
+          ]
+        }
+      ],
+      "backupNexthops":[
+        {
+          "afi":"ipv6",
+          "interfaceName":"eth-sw1",
+          "active":true,
+          "labels":[
+            16041,
+            16051
           ]
         }
       ]
@@ -173,6 +194,9 @@
           "afi":"ipv6",
           "interfaceName":"eth-rt5-2",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             16061
           ]
@@ -182,9 +206,19 @@
           "afi":"ipv6",
           "interfaceName":"eth-rt5-1",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             16061
           ]
+        }
+      ],
+      "backupNexthops":[
+        {
+          "afi":"ipv6",
+          "interfaceName":"eth-sw1",
+          "active":true
         }
       ]
     }

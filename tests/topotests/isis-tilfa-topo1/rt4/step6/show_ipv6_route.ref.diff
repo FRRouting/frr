@@ -1,6 +1,15 @@
---- rt4/step5/show_ipv6_route.ref	2020-08-31 22:42:48.839561398 -0300
-+++ rt4/step6/show_ipv6_route.ref	2020-08-31 22:42:48.839561398 -0300
-@@ -86,7 +86,7 @@
+--- rt4/step5/show_ipv6_route.ref	2020-09-25 17:50:14.040592332 -0300
++++ rt4/step6/show_ipv6_route.ref	2020-09-25 17:51:16.969413804 -0300
+@@ -84,7 +84,7 @@
+           "interfaceName":"eth-rt5",
+           "active":true,
+           "labels":[
+-            16031,
++            30031,
+             16021
+           ]
+         }
+@@ -116,7 +116,7 @@
            "interfaceName":"eth-rt5",
            "active":true,
            "labels":[

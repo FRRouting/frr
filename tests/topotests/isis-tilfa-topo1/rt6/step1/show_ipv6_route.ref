@@ -12,7 +12,7 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt4",
+          "interfaceName":"eth-rt5",
           "active":true,
           "labels":[
             16011
@@ -21,7 +21,7 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt5",
+          "interfaceName":"eth-rt4",
           "active":true,
           "labels":[
             16011
@@ -57,10 +57,7 @@
         {
           "afi":"ipv6",
           "interfaceName":"eth-rt5",
-          "active":true,
-          "labels":[
-            3
-          ]
+          "active":true
         }
       ]
     }
@@ -92,10 +89,7 @@
         {
           "afi":"ipv6",
           "interfaceName":"eth-rt4",
-          "active":true,
-          "labels":[
-            3
-          ]
+          "active":true
         }
       ]
     }
@@ -127,10 +121,7 @@
         {
           "afi":"ipv6",
           "interfaceName":"eth-rt5",
-          "active":true,
-          "labels":[
-            3
-          ]
+          "active":true
         }
       ]
     }
@@ -162,10 +153,7 @@
         {
           "afi":"ipv6",
           "interfaceName":"eth-rt4",
-          "active":true,
-          "labels":[
-            3
-          ]
+          "active":true
         }
       ]
     }
