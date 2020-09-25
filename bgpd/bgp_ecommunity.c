@@ -265,7 +265,8 @@ struct ecommunity *ecommunity_dup(struct ecommunity *ecom)
 	if (new->size) {
 		new->val = XMALLOC(MTYPE_ECOMMUNITY_VAL,
 				   ecom->size * ecom->unit_size);
-		memcpy(new->val, ecom->val, ecom->size * ecom->unit_size);
+		memcpy(new->val, ecom->val,
+		       (size_t)ecom->size * (size_t)ecom->unit_size);
 	} else
 		new->val = NULL;
 	return new;
@@ -285,18 +286,16 @@ struct ecommunity *ecommunity_merge(struct ecommunity *ecom1,
 				    struct ecommunity *ecom2)
 {
 	if (ecom1->val)
-		ecom1->val =
-			XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom1->val,
-				 (ecom1->size + ecom2->size) *
-				 ecom1->unit_size);
+		ecom1->val = XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom1->val,
+				      (size_t)(ecom1->size + ecom2->size)
+					      * (size_t)ecom1->unit_size);
 	else
-		ecom1->val =
-			XMALLOC(MTYPE_ECOMMUNITY_VAL,
-				(ecom1->size + ecom2->size) *
-				ecom1->unit_size);
+		ecom1->val = XMALLOC(MTYPE_ECOMMUNITY_VAL,
+				     (size_t)(ecom1->size + ecom2->size)
+					     * (size_t)ecom1->unit_size);
 
 	memcpy(ecom1->val + (ecom1->size * ecom1->unit_size), ecom2->val,
-	       ecom2->size * ecom1->unit_size);
+	       (size_t)ecom2->size * (size_t)ecom1->unit_size);
 	ecom1->size += ecom2->size;
 
 	return ecom1;
