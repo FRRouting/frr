@@ -1735,3 +1735,10 @@ class LegacySwitch(OVSSwitch):
     def __init__(self, name, **params):
         OVSSwitch.__init__(self, name, failMode="standalone", **params)
         self.switchIP = None
+
+def frr_unicode(s):
+    '''Convert string to unicode, depending on python version'''
+    if sys.version_info[0] > 2:
+        return s
+    else:
+        return unicode(s)

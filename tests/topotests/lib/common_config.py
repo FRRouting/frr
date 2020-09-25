@@ -46,7 +46,7 @@ else:
 
 from lib.topolog import logger, logger_config
 from lib.topogen import TopoRouter, get_topogen
-from lib.topotest import interface_set_status, version_cmp
+from lib.topotest import interface_set_status, version_cmp, frr_unicode
 
 FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
@@ -1150,10 +1150,10 @@ def generate_ips(network, no_of_ips):
 
         addr_type = validate_ip_address(start_ip)
         if addr_type == "ipv4":
-            start_ip = ipaddress.IPv4Address(unicode(start_ip))
+            start_ip = ipaddress.IPv4Address(frr_unicode(start_ip))
             step = 2 ** (32 - mask)
         if addr_type == "ipv6":
-            start_ip = ipaddress.IPv6Address(unicode(start_ip))
+            start_ip = ipaddress.IPv6Address(frr_unicode(start_ip))
             step = 2 ** (128 - mask)
 
         next_ip = start_ip
@@ -2665,7 +2665,7 @@ def verify_rib(
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -2861,7 +2861,7 @@ def verify_rib(
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -3010,7 +3010,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
                         #st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
@@ -3117,7 +3117,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
 
                 for st_rt in ip_list:
                     #st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
-                    st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -3266,7 +3266,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -3371,7 +3371,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
