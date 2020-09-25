@@ -1222,8 +1222,9 @@ static void isis_spf_build_adj_list(struct isis_spftree *spftree,
 static void add_to_paths(struct isis_spftree *spftree,
 			 struct isis_vertex *vertex)
 {
-	struct isis_area *area = spftree->area;
+#ifdef EXTREME_DEBUG
 	char buff[VID2STR_BUFFER];
+#endif /* EXTREME_DEBUG */
 
 	if (isis_find_vertex(&spftree->paths, &vertex->N, vertex->type))
 		return;
@@ -1235,6 +1236,24 @@ static void add_to_paths(struct isis_spftree *spftree,
 		   vid2string(vertex, buff, sizeof(buff)), vertex->depth,
 		   vertex->d_N);
 #endif /* EXTREME_DEBUG */
+}
+
+static void init_spt(struct isis_spftree *spftree, int mtid)
+{
+	/* Clear data from previous run. */
+	isis_spf_node_list_clear(&spftree->adj_nodes);
+	list_delete_all_node(spftree->sadj_list);
+	isis_vertex_queue_clear(&spftree->tents);
+	isis_vertex_queue_clear(&spftree->paths);
+
+	spftree->mtid = mtid;
+}
+
+static void spf_path_process(struct isis_spftree *spftree,
+			     struct isis_vertex *vertex)
+{
+	struct isis_area *area = spftree->area;
+	char buff[VID2STR_BUFFER];
 
 	if (VTYPE_IS(vertex->type)
 	    && !CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES)) {
@@ -1281,19 +1300,6 @@ static void add_to_paths(struct isis_spftree *spftree,
 				vid2string(vertex, buff, sizeof(buff)),
 				vertex->depth, vertex->d_N);
 	}
-
-	return;
-}
-
-static void init_spt(struct isis_spftree *spftree, int mtid)
-{
-	/* Clear data from previous run. */
-	isis_spf_node_list_clear(&spftree->adj_nodes);
-	list_delete_all_node(spftree->sadj_list);
-	isis_vertex_queue_clear(&spftree->tents);
-	isis_vertex_queue_clear(&spftree->paths);
-
-	spftree->mtid = mtid;
 }
 
 static void isis_spf_loop(struct isis_spftree *spftree,
@@ -1301,6 +1307,7 @@ static void isis_spf_loop(struct isis_spftree *spftree,
 {
 	struct isis_vertex *vertex;
 	struct isis_lsp *lsp;
+	struct listnode *node;
 
 	while (isis_vertex_queue_count(&spftree->tents)) {
 		vertex = isis_vertex_queue_pop(&spftree->tents);
@@ -1326,6 +1333,23 @@ static void isis_spf_loop(struct isis_spftree *spftree,
 
 		isis_spf_process_lsp(spftree, lsp, vertex->d_N, vertex->depth,
 				     root_sysid, vertex);
+	}
+
+	/* Generate routes once the SPT is formed. */
+	for (ALL_QUEUE_ELEMENTS_RO(&spftree->paths, node, vertex)) {
+		/* New-style TLVs take precedence over the old-style TLVs. */
+		switch (vertex->type) {
+		case VTYPE_IPREACH_INTERNAL:
+		case VTYPE_IPREACH_EXTERNAL:
+			if (isis_find_vertex(&spftree->paths, &vertex->N,
+					     VTYPE_IPREACH_TE))
+				continue;
+			break;
+		default:
+			break;
+		}
+
+		spf_path_process(spftree, vertex);
 	}
 }
 
