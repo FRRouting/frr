@@ -442,9 +442,14 @@ struct zapi_nexthop {
  * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
  */
 struct zapi_nhg {
+	uint16_t proto;
 	uint32_t id;
+
 	uint16_t nexthop_num;
 	struct zapi_nexthop nexthops[MULTIPATH_NUM];
+
+	uint16_t backup_nexthop_num;
+	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 };
 
 /*
@@ -907,6 +912,9 @@ bool zapi_ipset_notify_decode(struct stream *s,
 			      uint32_t *unique,
 			     enum zapi_ipset_notify_owner *note);
 
+
+extern int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
+extern int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 extern int zclient_nhg_send(struct zclient *zclient, int cmd,
 			    struct zapi_nhg *api_nhg);
 

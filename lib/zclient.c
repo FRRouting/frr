@@ -1017,9 +1017,10 @@ done:
 	return ret;
 }
 
-static int zapi_nhg_encode(struct stream *s, uint16_t proto, int cmd,
-			   struct zapi_nhg *api_nhg)
+int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 {
+	int i;
+
 	if (cmd != ZEBRA_NHG_DEL && cmd != ZEBRA_NHG_ADD) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: Specified zapi NHG command (%d) doesn't exist\n",
@@ -1030,17 +1031,26 @@ static int zapi_nhg_encode(struct stream *s, uint16_t proto, int cmd,
 	stream_reset(s);
 	zclient_create_header(s, cmd, VRF_DEFAULT);
 
-	stream_putw(s, proto);
+	stream_putw(s, api_nhg->proto);
 	stream_putl(s, api_nhg->id);
 
 	if (cmd == ZEBRA_NHG_ADD) {
+		/* Nexthops */
 		zapi_nexthop_group_sort(api_nhg->nexthops,
 					api_nhg->nexthop_num);
 
 		stream_putw(s, api_nhg->nexthop_num);
 
-		for (int i = 0; i < api_nhg->nexthop_num; i++)
+		for (i = 0; i < api_nhg->nexthop_num; i++)
 			zapi_nexthop_encode(s, &api_nhg->nexthops[i], 0, 0);
+
+		/* Backup nexthops */
+
+		stream_putw(s, api_nhg->backup_nexthop_num);
+
+		for (i = 0; i < api_nhg->backup_nexthop_num; i++)
+			zapi_nexthop_encode(s, &api_nhg->backup_nexthops[i], 0,
+					    0);
 	}
 
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -1050,8 +1060,9 @@ static int zapi_nhg_encode(struct stream *s, uint16_t proto, int cmd,
 
 int zclient_nhg_send(struct zclient *zclient, int cmd, struct zapi_nhg *api_nhg)
 {
-	if (zapi_nhg_encode(zclient->obuf, zclient->redist_default, cmd,
-			    api_nhg))
+	api_nhg->proto = zclient->redist_default;
+
+	if (zapi_nhg_encode(zclient->obuf, cmd, api_nhg))
 		return -1;
 
 	return zclient_send_message(zclient);

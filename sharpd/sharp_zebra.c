@@ -357,7 +357,8 @@ void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 	zclient_send_vrf_label(zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
 }
 
-void nhg_add(uint32_t id, const struct nexthop_group *nhg)
+void nhg_add(uint32_t id, const struct nexthop_group *nhg,
+	     const struct nexthop_group *backup_nhg)
 {
 	struct zapi_nhg api_nhg = {};
 	struct zapi_nexthop *api_nh;
@@ -376,6 +377,22 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg)
 
 		zapi_nexthop_from_nexthop(api_nh, nh);
 		api_nhg.nexthop_num++;
+	}
+
+	if (backup_nhg) {
+		for (ALL_NEXTHOPS_PTR(backup_nhg, nh)) {
+			if (api_nhg.backup_nexthop_num >= MULTIPATH_NUM) {
+				zlog_warn(
+					"%s: number of backup nexthops greater than max multipath size, truncating",
+					__func__);
+				break;
+			}
+			api_nh = &api_nhg.backup_nexthops
+					  [api_nhg.backup_nexthop_num];
+
+			zapi_backup_nexthop_from_nexthop(api_nh, nh);
+			api_nhg.backup_nexthop_num++;
+		}
 	}
 
 	zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);

@@ -2759,6 +2759,14 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	 * Once resolution is figured out, we won't need this!
 	 */
 	for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
+		if (CHECK_FLAG(newhop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+			if (IS_ZEBRA_DEBUG_NHG)
+				zlog_debug(
+					"%s: id %u, backup nexthops not supported",
+					__func__, id);
+			return NULL;
+		}
+
 		if (newhop->type == NEXTHOP_TYPE_BLACKHOLE) {
 			if (IS_ZEBRA_DEBUG_NHG)
 				zlog_debug(
