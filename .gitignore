@@ -28,7 +28,7 @@
 /aclocal.m4
 /libtool
 /libtool.orig
-/changelog-auto
+/debian/changelog-auto
 
 /Makefile
 /Makefile.in
