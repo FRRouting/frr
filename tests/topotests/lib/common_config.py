@@ -636,7 +636,7 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
                 ll_per_if_count = 0
 
             # Interface ip
-            m1 = re_search("inet6 (fe80[:a-fA-F0-9]+[\/0-9]+)", line)
+            m1 = re_search("inet6 (fe80[:a-fA-F0-9]+[/0-9]+)", line)
             if m1:
                 local = m1.group(1)
                 ll_per_if_count += 1
@@ -698,7 +698,7 @@ def start_topology(tgen, daemon=None):
 
     router_list = tgen.routers()
     ROUTER_LIST = sorted(
-        router_list.keys(), key=lambda x: int(re_search("\d+", x).group(0))
+        router_list.keys(), key=lambda x: int(re_search("[0-9]+", x).group(0))
     )
     TMPDIR = os.path.join(LOGDIR, tgen.modname)
 
@@ -827,7 +827,7 @@ def topo_daemons(tgen, topo):
 
     router_list = tgen.routers()
     ROUTER_LIST = sorted(
-        router_list.keys(), key=lambda x: int(re_search("\d+", x).group(0))
+        router_list.keys(), key=lambda x: int(re_search("[0-9]+", x).group(0))
     )
 
     for rtr in ROUTER_LIST:
