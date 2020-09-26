@@ -1,0 +1,4 @@
+check process watchfrr with pidfile /var/run/frr/watchfrr.pid
+        start program = "/etc/init.d/frr start watchfrr" with timeout 120 seconds
+        stop program = "/etc/init.d/frr stop watchfrr"
+        if 3 restarts within 10 cycles then timeout
