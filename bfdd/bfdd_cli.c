@@ -127,7 +127,7 @@ DEFPY_YANG_NOSH(
 				 "[interface='%s']", ifname);
 	else
 		slen += snprintf(xpath + slen, sizeof(xpath) - slen,
-				 "[interface='']");
+				 "[interface='*']");
 	if (vrf)
 		snprintf(xpath + slen, sizeof(xpath) - slen, "[vrf='%s']", vrf);
 	else
@@ -185,7 +185,7 @@ DEFPY_YANG(
 				 "[interface='%s']", ifname);
 	else
 		slen += snprintf(xpath + slen, sizeof(xpath) - slen,
-				 "[interface='']");
+				 "[interface='*']");
 	if (vrf)
 		snprintf(xpath + slen, sizeof(xpath) - slen, "[vrf='%s']", vrf);
 	else
@@ -218,7 +218,7 @@ static void _bfd_cli_show_peer(struct vty *vty, struct lyd_node *dnode,
 	if (strcmp(vrf, VRF_DEFAULT_NAME))
 		vty_out(vty, " vrf %s", vrf);
 
-	if (ifname[0])
+	if (strcmp(ifname, "*"))
 		vty_out(vty, " interface %s", ifname);
 
 	vty_out(vty, "\n");

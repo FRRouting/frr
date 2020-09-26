@@ -21,6 +21,8 @@
 #include <zebra.h>
 
 #include "filter.h"
+#include "if.h"
+#include "vrf.h"
 
 #include "bfd.h"
 #include "bfdd_nb.h"

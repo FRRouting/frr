@@ -17,6 +17,10 @@ submodule frr-bgp-common {
     prefix frr-bt;
   }
 
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   import frr-route-types {
     prefix frr-rt-type;
   }
@@ -73,25 +77,25 @@ submodule frr-bgp-common {
 
   grouping rmap-policy-import {
     leaf rmap-import {
-      type frr-bt:rmap-ref;
+      type frr-route-map:route-map-ref;
     }
   }
 
   grouping rmap-policy-export {
     leaf rmap-export {
-      type frr-bt:rmap-ref;
+      type frr-route-map:route-map-ref;
     }
   }
 
   grouping unsupress-map-policy-import {
     leaf unsupress-map-import {
-      type frr-bt:rmap-ref;
+      type frr-route-map:route-map-ref;
     }
   }
 
   grouping unsupress-map-policy-export {
     leaf unsupress-map-export {
-      type frr-bt:rmap-ref;
+      type frr-route-map:route-map-ref;
     }
   }
 
@@ -728,7 +732,7 @@ submodule frr-bgp-common {
       }
 
       leaf rmap-policy-import {
-        type frr-bt:rmap-ref;
+        type frr-route-map:route-map-ref;
         description
           "Route-map to be applied for redistributed routes into the bgp.";
       }
@@ -743,7 +747,7 @@ submodule frr-bgp-common {
     }
 
     leaf rmap-policy-export {
-      type frr-bt:rmap-ref;
+      type frr-route-map:route-map-ref;
       description
         "Route-map to modify the attributes for Routes going out
          via BGP updates.";
@@ -771,7 +775,7 @@ submodule frr-bgp-common {
     }
 
     leaf rmap-policy-export {
-      type frr-bt:rmap-ref;
+      type frr-route-map:route-map-ref;
       description
         "Apply route map to aggregate network.";
     }
@@ -1097,7 +1101,7 @@ submodule frr-bgp-common {
         }
 
         leaf rmap-policy-export {
-          type frr-bt:rmap-ref;
+          type frr-route-map:route-map-ref;
           description
             "Route-map to modify the attributes for Routes going out
              via BGP updates.";

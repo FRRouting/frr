@@ -12,6 +12,12 @@ module frr-ripd {
   import frr-interface {
     prefix frr-interface;
   }
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+  import frr-route-map {
+    prefix frr-route-map;
+  }
   import frr-route-types {
     prefix frr-route-types;
   }
@@ -72,7 +78,7 @@ module frr-ripd {
         "RIP routing instance.";
 
       leaf vrf {
-        type string;
+        type frr-vrf:vrf-ref;
         description
           "VRF name.";
       }
@@ -227,9 +233,7 @@ module frr-ripd {
           must '. != "rip"';
         }
         leaf route-map {
-          type string {
-            length "1..max";
-          }
+          type frr-route-map:route-map-ref;
           description
             "Applies the conditions of the specified route-map to
              routes that are redistributed into the RIP routing
@@ -396,7 +400,7 @@ module frr-ripd {
                 "Next hop IPv4 address.";
             }
             leaf interface {
-              type string;
+              type frr-interface:interface-ref;
               description
                 "The interface that the route uses.";
             }
@@ -587,7 +591,7 @@ module frr-ripd {
 
     input {
       leaf vrf {
-        type string;
+        type frr-vrf:vrf-ref;
         description
           "VRF name identifying a specific RIP instance.
            This leaf is optional for the rpc.
@@ -608,7 +612,7 @@ module frr-ripd {
        receives a PDU with the wrong authentication type
        field.";
     leaf interface-name {
-      type string;
+      type frr-interface:interface-ref;
       description
         "Describes the name of the RIP interface.";
     }
@@ -624,7 +628,7 @@ module frr-ripd {
        receives a PDU with the wrong authentication
        information.";
     leaf interface-name {
-      type string;
+      type frr-interface:interface-ref;
       description
         "Describes the name of the RIP interface.";
     }

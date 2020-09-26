@@ -249,7 +249,7 @@ module frr-routing {
              instance.";
         }
         leaf vrf {
-          type string;
+          type frr-vrf:vrf-ref;
           description
             "vrf for control-plane protocol";
         }

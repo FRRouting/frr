@@ -15,6 +15,10 @@ module frr-ospfd {
     prefix frr-interface;
   }
 
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   import frr-route-types {
     prefix frr-route-types;
   }
@@ -41,10 +45,6 @@ module frr-ospfd {
   }
 
   /* Policy types to be removed later, once policy Yang finalized */
-  typedef rmap-ref {
-    type string;
-  }
-
   typedef plist-ref {
     type string;
   }
@@ -425,7 +425,7 @@ module frr-ospfd {
     }
 
     leaf route-map {
-      type rmap-ref;
+      type frr-route-map:route-map-ref;
       description
         "Route map reference.";
     }
