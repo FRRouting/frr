@@ -1,3 +1,4 @@
+debian/frr.conf usr/lib/tmpfiles.d
 etc/
 tools/frr-reload usr/lib/frr/
 usr/bin/mtracebis
