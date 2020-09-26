@@ -6,7 +6,8 @@ Uploaders: FRRouting-dev <dev@lists.frrouting.org>,
            Ondřej Surý <ondrej@debian.org>
 Build-Depends: bison,
                chrpath,
-               debhelper (>= 10~),
+               debhelper (>= 10~) | dh-systemd,
+               debhelper (>= 9.20150101~),
                flex,
                gawk,
                install-info,
@@ -29,7 +30,7 @@ Build-Depends: bison,
                python3-pytest <!nocheck>,
                python3-sphinx,
                texinfo (>= 4.7)
-Standards-Version: 4.5.0.2
+Standards-Version: 4.5.0.3
 Homepage: https://www.frrouting.org/
 Vcs-Browser: https://github.com/FRRouting/frr/tree/debian/master
 Vcs-Git: https://github.com/FRRouting/frr.git -b debian/master
