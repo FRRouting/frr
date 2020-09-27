@@ -542,7 +542,7 @@ AC_ARG_ENABLE([fabricd],
 AC_ARG_ENABLE([vrrpd],
   AS_HELP_STRING([--disable-vrrpd], [do not build vrrpd]))
 AC_ARG_ENABLE([bgp-announce],
-  AS_HELP_STRING([--disable-bgp-announce,], [turn off BGP route announcement]))
+  AS_HELP_STRING([--disable-bgp-announce], [turn off BGP route announcement]))
 AC_ARG_ENABLE([bgp-vnc],
   AS_HELP_STRING([--disable-bgp-vnc],[turn off BGP VNC support]))
 AC_ARG_ENABLE([bgp-bmp],
@@ -593,7 +593,7 @@ AC_ARG_ENABLE([rusage],
 AC_ARG_ENABLE([gcc_ultra_verbose],
   AS_HELP_STRING([--enable-gcc-ultra-verbose], [enable ultra verbose GCC warnings]))
 AC_ARG_ENABLE([backtrace],
-  AS_HELP_STRING([--disable-backtrace,], [disable crash backtraces (default autodetect)]))
+  AS_HELP_STRING([--disable-backtrace], [disable crash backtraces (default autodetect)]))
 AC_ARG_ENABLE([time-check],
   AS_HELP_STRING([--disable-time-check], [disable slow thread warning messages]))
 AC_ARG_ENABLE([cpu-time],
