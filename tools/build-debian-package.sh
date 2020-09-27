@@ -1,6 +1,7 @@
 #!/bin/sh
 #
 # Written by Daniil Baturin, 2018
+# Rewritten by Ondřej Surý, 2020
 # This file is public domain
 set -e
 
