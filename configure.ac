@@ -2636,7 +2636,6 @@ AC_CONFIG_FILES([Makefile],[
 
 AC_CONFIG_FILES([
 	  config.version
-	  debian/changelog-auto
 	  redhat/frr.spec
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml

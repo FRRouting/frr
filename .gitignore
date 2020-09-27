@@ -28,7 +28,6 @@
 /aclocal.m4
 /libtool
 /libtool.orig
-/debian/changelog-auto
 /test-driver
 
 /Makefile

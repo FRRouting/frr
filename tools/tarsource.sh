@@ -271,17 +271,16 @@ lsfiles="frr-${PACKAGE_VERSION}.tar.$zip"
 
 if $debian; then
 	if ! $adjchangelog; then
-		GIT_DATE=$(git log --format=format:%ad -1 --date=rfc)
-		sed -e "s/@DATE@/$GIT_DATE/" \
-			< debian/changelog-auto \
-			> "$tmpdir/debian/changelog"
+		dch --force-bad-version \
+		    --force-distribution \
+		    --preserve \
+		    --newversion "$DEBVER" \
+		    "autoconf changelog entry -- for git autobuilds only."
 	fi
 	cat debian/changelog >> "$tmpdir/debian/changelog"
 	DEBVER="`dpkg-parsechangelog -l\"$tmpdir/debian/changelog\" -SVersion`"
 
 	eval $debsrc | tar -cho $taropt \
-		--exclude debian/changelog \
-		--exclude debian/subdir.am \
 		-T - -f ../frr_${DEBVER}.debian.tar
 	# add specially prepared files from above
 	tar -uf ../frr_${DEBVER}.debian.tar $taropt -C "$tmpdir" debian/changelog

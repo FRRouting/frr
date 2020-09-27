@@ -35,14 +35,11 @@ buster.)
    Alternatively, you can manually install build dependencies for your
    platform as outlined in :ref:`building`.
 
-4. Run ``tools/tarsource.sh -V``:
+4. Install `git-buildpackage` package:
 
    .. code-block:: shell
 
-      ./tools/tarsource.sh -V
-
-   This script sets up the ``debian/changelog-auto`` file with proper version
-   information.
+      sudo apt-get install git-buildpackage
 
 5. (optional) Append a distribution identifier if needed (see below under
    :ref:`multi-dist`.)
@@ -51,7 +48,7 @@ buster.)
 
    .. code-block:: shell
 
-      dpkg-buildpackage $options
+      gbp-buildpackage --git-builder=debuild $options
 
    Where `$options` may contain any or all of the following items:
 
