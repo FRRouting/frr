@@ -1,7 +1,0 @@
-frr (@VERSION@-0) UNRELEASED; urgency=medium
-
-  * autoconf changelog entry -- for git autobuilds only.
-    remove and replace when creating releases!
-    (tools/tarsource.sh will handle this)
-
- -- FRRouting-Dev <dev@lists.frrouting.org>  @DATE@
