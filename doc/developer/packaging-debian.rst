@@ -94,12 +94,6 @@ buster.)
    a manually maintained changelog that contains proper Debian release
    versioning.
 
-   Furthermore, official Debian packages are built in ``3.0 (quilt)`` format
-   with an "orig" tarball and a "debian" tarball.  These tarballs are created
-   by the ``tarsource.sh`` tool on any branch.  The git repository however
-   contains a ``3.0 (git)`` source format specifier to easily allow direct
-   git builds.
-
 
 .. _multi-dist:
 
@@ -108,7 +102,6 @@ Multi-Distribution builds
 
 You can optionally append a distribution identifier in case you want to
 make multiple versions of the package available in the same repository.
-Do the following after creating the changelog with `tarsource.sh`:
 
 .. code-block:: shell
 
