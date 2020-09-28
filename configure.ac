@@ -568,6 +568,8 @@ AC_ARG_ENABLE([zeromq],
   AS_HELP_STRING([--enable-zeromq], [enable ZeroMQ handler (libfrrzmq)]))
 AC_ARG_ENABLE([lttng],
   AS_HELP_STRING([--enable-lttng], [enable LTTng tracing]))
+AC_ARG_ENABLE([usdt],
+  AS_HELP_STRING([--enable-usdt], [enable USDT probes]))
 AC_ARG_WITH([libpam],
   AS_HELP_STRING([--with-libpam], [use libpam for PAM support in vtysh]))
 AC_ARG_ENABLE([ospfapi],
@@ -1862,6 +1864,18 @@ if test "$enable_lttng" = "yes"; then
     LTTNG=true
   ], [
     AC_MSG_ERROR([configuration specifies --enable-lttng but lttng-ust was not found])
+  ])
+fi
+
+dnl ----
+dnl USDT
+dnl ----
+if test "$enable_usdt" = "yes"; then
+  AC_CHECK_HEADERS([sys/sdt.h], [
+    AC_DEFINE([HAVE_USDT], [1], [Enable USDT probes])
+    USDT=true
+  ], [
+    AC_MSG_ERROR([configuration specifies --enable-usdt but no USDT kernel headers (sys/sdt.h) found])
   ])
 fi
 
