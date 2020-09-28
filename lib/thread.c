@@ -35,7 +35,7 @@
 #include "frratomic.h"
 #include "frr_pthread.h"
 #include "lib_errors.h"
-#include "trace.h"
+#include "libfrr_trace.h"
 
 DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread")
 DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")

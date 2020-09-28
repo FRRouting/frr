@@ -46,6 +46,7 @@ lib_libfrr_la_SOURCES = \
 	lib/lib_errors.c \
 	lib/lib_vty.c \
 	lib/libfrr.c \
+	lib/libfrr_trace.c \
 	lib/linklist.c \
 	lib/log.c \
 	lib/log_filter.c \
@@ -93,7 +94,6 @@ lib_libfrr_la_SOURCES = \
 	lib/table.c \
 	lib/termtable.c \
 	lib/thread.c \
-	lib/trace.c \
 	lib/typerb.c \
 	lib/typesafe.c \
 	lib/vector.c \
@@ -205,6 +205,7 @@ pkginclude_HEADERS += \
 	lib/lib_errors.h \
 	lib/lib_vty.h \
 	lib/libfrr.h \
+	lib/libfrr_trace.h \
 	lib/libospf.h \
 	lib/linklist.h \
 	lib/log.h \
@@ -252,7 +253,6 @@ pkginclude_HEADERS += \
 	lib/table.h \
 	lib/termtable.h \
 	lib/thread.h \
-	lib/trace.h \
 	lib/typerb.h \
 	lib/typesafe.h \
 	lib/vector.h \
@@ -413,9 +413,9 @@ lib_clippy_SOURCES = \
 	lib/command_py.c \
 	lib/defun_lex.l \
 	lib/graph.c \
+	lib/libfrr_trace.c \
 	lib/memory.c \
 	lib/vector.c \
-	lib/trace.c \
 	# end
 
 # (global) clippy rules for all directories

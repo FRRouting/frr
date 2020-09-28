@@ -23,7 +23,7 @@
 
 #include "linklist.h"
 #include "memory.h"
-#include "trace.h"
+#include "libfrr_trace.h"
 
 DEFINE_MTYPE_STATIC(LIB, LINK_LIST, "Link List")
 DEFINE_MTYPE_STATIC(LIB, LINK_NODE, "Link Node")

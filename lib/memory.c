@@ -29,7 +29,7 @@
 
 #include "memory.h"
 #include "log.h"
-#include "trace.h"
+#include "libfrr_trace.h"
 
 static struct memgroup *mg_first = NULL;
 struct memgroup **mg_insert = &mg_first;

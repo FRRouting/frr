@@ -29,7 +29,7 @@
 #include "command.h"
 #include "libfrr.h"
 #include "frr_pthread.h"
-#include "trace.h"
+#include "libfrr_trace.h"
 
 DEFINE_MTYPE_STATIC(LIB, HASH, "Hash")
 DEFINE_MTYPE_STATIC(LIB, HASH_BACKET, "Hash Bucket")

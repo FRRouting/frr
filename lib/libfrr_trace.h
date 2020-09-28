@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#if !defined(_TRACE_H) || defined(TRACEPOINT_HEADER_MULTI_READ)
-#define _TRACE_H
+#if !defined(_LIBFRR_TRACE_H_) || defined(TRACEPOINT_HEADER_MULTI_READ)
+#define _LIBFRR_TRACE_H_
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -31,7 +31,7 @@
 #define TRACEPOINT_PROVIDER frr_libfrr
 
 #undef TRACEPOINT_INCLUDE
-#define TRACEPOINT_INCLUDE "./trace.h"
+#define TRACEPOINT_INCLUDE "./libfrr_trace.h"
 
 #include <lttng/tracepoint.h>
 

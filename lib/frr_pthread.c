@@ -28,7 +28,7 @@
 #include "memory.h"
 #include "linklist.h"
 #include "zlog.h"
-#include "trace.h"
+#include "libfrr_trace.h"
 
 DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread")
 DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives")

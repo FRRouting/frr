@@ -27,7 +27,7 @@
 #include "table.h"
 #include "memory.h"
 #include "sockunion.h"
-#include "trace.h"
+#include "libfrr_trace.h"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_TABLE, "Route table")
 DEFINE_MTYPE(LIB, ROUTE_NODE, "Route node")
