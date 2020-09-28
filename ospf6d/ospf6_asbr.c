@@ -47,6 +47,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_flood.h"
 #include "ospf6d.h"
+#include "lib/json.h"
 
 static void ospf6_asbr_redistribute_set(int type, vrf_id_t vrf_id);
 static void ospf6_asbr_redistribute_unset(int type, vrf_id_t vrf_id);
@@ -1357,13 +1358,16 @@ int ospf6_redistribute_config_write(struct vty *vty, struct ospf6 *ospf6)
 	return 0;
 }
 
-static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6)
+static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6,
+					   json_object *json_array,
+					   json_object *json, bool use_json)
 {
 	int type;
 	int nroute[ZEBRA_ROUTE_MAX];
 	int total;
 	struct ospf6_route *route;
 	struct ospf6_external_info *info;
+	json_object *json_route;
 
 	total = 0;
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
@@ -1375,24 +1379,57 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6)
 		total++;
 	}
 
-	vty_out(vty, "Redistributing External Routes from:\n");
+	if (use_json)
+		json_route = json_object_new_object();
+	else
+		vty_out(vty, "Redistributing External Routes from:\n");
+
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
 		if (type == ZEBRA_ROUTE_OSPF6)
 			continue;
 		if (!ospf6_zebra_is_redistribute(type, ospf6->vrf_id))
 			continue;
 
-		if (ospf6->rmap[type].name)
-			vty_out(vty, "    %d: %s with route-map \"%s\"%s\n",
-				nroute[type], ZROUTE_NAME(type),
-				ospf6->rmap[type].name,
-				(ospf6->rmap[type].map ? ""
-						       : " (not found !)"));
-		else
-			vty_out(vty, "    %d: %s\n", nroute[type],
-				ZROUTE_NAME(type));
+		if (use_json) {
+			json_object_string_add(json_route, "routeType",
+					       ZROUTE_NAME(type));
+			json_object_int_add(json_route, "numberOfRoutes",
+					    nroute[type]);
+			json_object_boolean_add(json_route,
+						"routeMapNamePresent",
+						ospf6->rmap[type].name);
+		}
+
+		if (ospf6->rmap[type].name) {
+			if (use_json) {
+				json_object_string_add(json_route,
+						       "routeMapName",
+						       ospf6->rmap[type].name);
+				json_object_boolean_add(json_route,
+							"routeMapFound",
+							ospf6->rmap[type].map);
+			} else
+				vty_out(vty,
+					"    %d: %s with route-map \"%s\"%s\n",
+					nroute[type], ZROUTE_NAME(type),
+					ospf6->rmap[type].name,
+					(ospf6->rmap[type].map
+						 ? ""
+						 : " (not found !)"));
+		} else {
+			if (!use_json)
+				vty_out(vty, "    %d: %s\n", nroute[type],
+					ZROUTE_NAME(type));
+		}
+
+		if (use_json)
+			json_object_array_add(json_array, json_route);
 	}
-	vty_out(vty, "Total %d routes\n", total);
+	if (use_json) {
+		json_object_object_add(json, "redistributedRoutes", json_array);
+		json_object_int_add(json, "totalRoutes", total);
+	} else
+		vty_out(vty, "Total %d routes\n", total);
 }
 
 
@@ -1851,12 +1888,17 @@ static int ospf6_as_external_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 }
 
 static void ospf6_asbr_external_route_show(struct vty *vty,
-					   struct ospf6_route *route)
+					   struct ospf6_route *route,
+					   json_object *json_array,
+					   bool use_json)
 {
 	struct ospf6_external_info *info = route->route_option;
-	char id[16], forwarding[64];
+	char prefix[PREFIX2STR_BUFFER], id[16], forwarding[64];
 	uint32_t tmp_id;
+	json_object *json_route;
+	char route_type[2];
 
+	prefix2str(&route->prefix, prefix, sizeof(prefix));
 	tmp_id = ntohl(info->id);
 	inet_ntop(AF_INET, &tmp_id, id, sizeof(id));
 	if (!IN6_IS_ADDR_UNSPECIFIED(&info->forwarding))
@@ -1866,36 +1908,74 @@ static void ospf6_asbr_external_route_show(struct vty *vty,
 		snprintf(forwarding, sizeof(forwarding), ":: (ifindex %d)",
 			 ospf6_route_get_first_nh_index(route));
 
-	vty_out(vty, "%c %-32pFX %-15s type-%d %5lu %s\n",
-		zebra_route_char(info->type), &route->prefix, id,
-		route->path.metric_type,
-		(unsigned long)(route->path.metric_type == 2
-					? route->path.u.cost_e2
-					: route->path.cost),
-		forwarding);
+	if (use_json) {
+		json_route = json_object_new_object();
+		snprintf(route_type, sizeof(route_type), "%c",
+			 zebra_route_char(info->type));
+		json_object_string_add(json_route, "routeType", route_type);
+		json_object_string_add(json_route, "destination", prefix);
+		json_object_string_add(json_route, "id", id);
+		json_object_int_add(json_route, "metricType",
+				    route->path.metric_type);
+		json_object_int_add(
+			json_route, "routeCost",
+			(unsigned long)(route->path.metric_type == 2
+						? route->path.u.cost_e2
+						: route->path.cost));
+		json_object_string_add(json_route, "forwarding", forwarding);
+
+		json_object_array_add(json_array, json_route);
+	} else
+
+		vty_out(vty, "%c %-32pFX %-15s type-%d %5lu %s\n",
+			zebra_route_char(info->type), &route->prefix, id,
+			route->path.metric_type,
+			(unsigned long)(route->path.metric_type == 2
+						? route->path.u.cost_e2
+						: route->path.cost),
+			forwarding);
 }
 
 DEFUN (show_ipv6_ospf6_redistribute,
        show_ipv6_ospf6_redistribute_cmd,
-       "show ipv6 ospf6 redistribute",
+       "show ipv6 ospf6 redistribute [json]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        "redistributing External information\n"
-       )
+       JSON_STR)
 {
 	struct ospf6_route *route;
 	struct ospf6 *ospf6 = NULL;
+	json_object *json = NULL;
+	bool uj = use_json(argc, argv);
+	json_object *json_array_routes = NULL;
+	json_object *json_array_redistribute = NULL;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
 
-	ospf6_redistribute_show_config(vty, ospf6);
+	if (uj) {
+		json = json_object_new_object();
+		json_array_routes = json_object_new_array();
+		json_array_redistribute = json_object_new_array();
+	}
+	ospf6_redistribute_show_config(vty, ospf6, json_array_redistribute,
+				       json, uj);
 
 	for (route = ospf6_route_head(ospf6->external_table); route;
-	     route = ospf6_route_next(route))
-		ospf6_asbr_external_route_show(vty, route);
+	     route = ospf6_route_next(route)) {
+		ospf6_asbr_external_route_show(vty, route, json_array_routes,
+					       uj);
+	}
 
+	if (uj) {
+		json_object_object_add(json, "routes", json_array_routes);
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 	return CMD_SUCCESS;
 }
 
