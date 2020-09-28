@@ -290,7 +290,15 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 							bgp->name_pretty,
 							bgp->vrf_id,
 							inet_ntoa(*addr));
-					bgp_router_id_set(bgp, addr, false);
+					/*
+					 * if old router-id was 0x0, set flag
+					 * to use this new value
+					 */
+					bgp_router_id_set(bgp, addr,
+							  (bgp->router_id.s_addr
+							   == INADDR_ANY)
+								  ? true
+								  : false);
 				}
 			}
 		}
@@ -313,7 +321,15 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 							bgp->name_pretty,
 							bgp->vrf_id,
 							inet_ntoa(*addr));
-					bgp_router_id_set(bgp, addr, false);
+					/*
+					 * if old router-id was 0x0, set flag
+					 * to use this new value
+					 */
+					bgp_router_id_set(bgp, addr,
+							  (bgp->router_id.s_addr
+							   == INADDR_ANY)
+								  ? true
+								  : false);
 				}
 			}
 

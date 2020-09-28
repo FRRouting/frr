@@ -1319,11 +1319,18 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	else
 		peer->v_holdtime = send_holdtime;
 
-	if ((CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
-	    && (peer->keepalive < peer->v_holdtime / 3))
-		peer->v_keepalive = peer->keepalive;
-	else
-		peer->v_keepalive = peer->v_holdtime / 3;
+	/* Set effective keepalive to 1/3 the effective holdtime.
+	 * Use configured keeplive when < effective keepalive.
+	 */
+	peer->v_keepalive = peer->v_holdtime / 3;
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER)) {
+		if (peer->keepalive && peer->keepalive < peer->v_keepalive)
+			peer->v_keepalive = peer->keepalive;
+	} else {
+		if (peer->bgp->default_keepalive
+		    && peer->bgp->default_keepalive < peer->v_keepalive)
+			peer->v_keepalive = peer->bgp->default_keepalive;
+	}
 
 	/* Open option part parse. */
 	if (optlen != 0) {
