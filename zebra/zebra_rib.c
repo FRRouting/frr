@@ -235,7 +235,7 @@ int route_entry_update_nhe(struct route_entry *re,
 		goto done;
 	}
 
-	if ((re->nhe_id != 0) && (re->nhe_id != new_nhghe->id)) {
+	if ((re->nhe_id != 0) && re->nhe && (re->nhe != new_nhghe)) {
 		old = re->nhe;
 
 		route_entry_attach_ref(re, new_nhghe);
@@ -248,6 +248,29 @@ int route_entry_update_nhe(struct route_entry *re,
 
 done:
 	return ret;
+}
+
+void rib_handle_nhg_replace(struct nhg_hash_entry *old,
+			    struct nhg_hash_entry *new)
+{
+	struct zebra_router_table *zrt;
+	struct route_node *rn;
+	struct route_entry *re, *next;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: replacing routes nhe (%u) OLD %p NEW %p",
+			   __func__, new->id, new, old);
+
+	/* We have to do them ALL */
+	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
+		for (rn = route_top(zrt->table); rn;
+		     rn = srcdest_route_next(rn)) {
+			RNODE_FOREACH_RE_SAFE (rn, re, next) {
+				if (re->nhe && re->nhe == old)
+					route_entry_update_nhe(re, new);
+			}
+		}
+	}
 }
 
 struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
@@ -2906,14 +2929,14 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 	if (!table)
 		return -1;
 
-	if (re_nhe->id > 0) {
-		nhe = zebra_nhg_lookup_id(re_nhe->id);
+	if (re->nhe_id > 0) {
+		nhe = zebra_nhg_lookup_id(re->nhe_id);
 
 		if (!nhe) {
 			flog_err(
 				EC_ZEBRA_TABLE_LOOKUP_FAILED,
 				"Zebra failed to find the nexthop hash entry for id=%u in a route entry",
-				re_nhe->id);
+				re->nhe_id);
 
 			return -1;
 		}

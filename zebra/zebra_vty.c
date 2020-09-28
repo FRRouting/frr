@@ -1300,12 +1300,9 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nexthop_group *backup_nhg;
 
-	vty_out(vty, "ID: %u\n", nhe->id);
+	vty_out(vty, "ID: %u (%s)\n", nhe->id, zebra_route_string(nhe->type));
 	vty_out(vty, "     RefCnt: %d\n", nhe->refcnt);
 	vty_out(vty, "     VRF: %s\n", vrf_id_to_name(nhe->vrf_id));
-
-	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_UNHASHABLE))
-		vty_out(vty, "     Duplicate - from kernel not hashable\n");
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
 		vty_out(vty, "     Valid");
@@ -1566,6 +1563,17 @@ DEFPY_HIDDEN(nexthop_group_use_enable,
 	     "Enable kernel nexthops\n")
 {
 	zebra_nhg_enable_kernel_nexthops(!no);
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN(proto_nexthop_group_only, proto_nexthop_group_only_cmd,
+	     "[no] zebra nexthop proto only",
+	     NO_STR ZEBRA_STR
+	     "Nexthop configuration\n"
+	     "Configure exclusive use of proto nexthops\n"
+	     "Only use proto nexthops\n")
+{
+	zebra_nhg_set_proto_nexthops_only(!no);
 	return CMD_SUCCESS;
 }
 
@@ -3451,6 +3459,9 @@ static int config_write_protocol(struct vty *vty)
 	if (!zebra_nhg_kernel_nexthops_enabled())
 		vty_out(vty, "no zebra nexthop kernel enable\n");
 
+	if (zebra_nhg_proto_nexthops_only())
+		vty_out(vty, "zebra nexthop proto only\n");
+
 #ifdef HAVE_NETLINK
 	/* Include netlink info */
 	netlink_config_write_helper(vty);
@@ -3885,6 +3896,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &nexthop_group_use_enable_cmd);
+	install_element(CONFIG_NODE, &proto_nexthop_group_only_cmd);
 
 	install_element(VIEW_NODE, &show_nexthop_group_cmd);
 	install_element(VIEW_NODE, &show_interface_nexthop_group_cmd);

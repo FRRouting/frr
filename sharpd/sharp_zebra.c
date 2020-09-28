@@ -217,7 +217,7 @@ int sharp_install_lsps_helper(bool install_p, bool update_p,
 }
 
 void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
-				 uint8_t instance,
+				 uint8_t instance, uint32_t nhgid,
 				 const struct nexthop_group *nhg,
 				 const struct nexthop_group *backup_nhg,
 				 uint32_t routes)
@@ -239,7 +239,7 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 
 	monotime(&sg.r.t_start);
 	for (i = 0; i < routes; i++) {
-		route_add(p, vrf_id, (uint8_t)instance, nhg, backup_nhg);
+		route_add(p, vrf_id, (uint8_t)instance, nhgid, nhg, backup_nhg);
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
 		else
@@ -288,7 +288,7 @@ static void handle_repeated(bool installed)
 	if (!installed) {
 		sg.r.installed_routes = 0;
 		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
-					    &sg.r.nhop_group,
+					    sg.r.nhgid, &sg.r.nhop_group,
 					    &sg.r.backup_nhop_group,
 					    sg.r.total_routes);
 	}
@@ -357,8 +357,58 @@ void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 	zclient_send_vrf_label(zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
 }
 
-void route_add(const struct prefix *p, vrf_id_t vrf_id,
-	       uint8_t instance, const struct nexthop_group *nhg,
+void nhg_add(uint32_t id, const struct nexthop_group *nhg,
+	     const struct nexthop_group *backup_nhg)
+{
+	struct zapi_nhg api_nhg = {};
+	struct zapi_nexthop *api_nh;
+	struct nexthop *nh;
+
+	api_nhg.id = id;
+	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+		if (api_nhg.nexthop_num >= MULTIPATH_NUM) {
+			zlog_warn(
+				"%s: number of nexthops greater than max multipath size, truncating",
+				__func__);
+			break;
+		}
+
+		api_nh = &api_nhg.nexthops[api_nhg.nexthop_num];
+
+		zapi_nexthop_from_nexthop(api_nh, nh);
+		api_nhg.nexthop_num++;
+	}
+
+	if (backup_nhg) {
+		for (ALL_NEXTHOPS_PTR(backup_nhg, nh)) {
+			if (api_nhg.backup_nexthop_num >= MULTIPATH_NUM) {
+				zlog_warn(
+					"%s: number of backup nexthops greater than max multipath size, truncating",
+					__func__);
+				break;
+			}
+			api_nh = &api_nhg.backup_nexthops
+					  [api_nhg.backup_nexthop_num];
+
+			zapi_backup_nexthop_from_nexthop(api_nh, nh);
+			api_nhg.backup_nexthop_num++;
+		}
+	}
+
+	zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
+}
+
+void nhg_del(uint32_t id)
+{
+	struct zapi_nhg api_nhg = {};
+
+	api_nhg.id = id;
+
+	zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
+}
+
+void route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
+	       uint32_t nhgid, const struct nexthop_group *nhg,
 	       const struct nexthop_group *backup_nhg)
 {
 	struct zapi_route api;
@@ -376,14 +426,20 @@ void route_add(const struct prefix *p, vrf_id_t vrf_id,
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
-	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
-		api_nh = &api.nexthops[i];
+	/* Only send via ID if nhgroup has been successfully installed */
+	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_NHG);
+		api.nhgid = nhgid;
+	} else {
+		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+			api_nh = &api.nexthops[i];
 
-		zapi_nexthop_from_nexthop(api_nh, nh);
+			zapi_nexthop_from_nexthop(api_nh, nh);
 
-		i++;
+			i++;
+		}
+		api.nexthop_num = i;
 	}
-	api.nexthop_num = i;
 
 	/* Include backup nexthops, if present */
 	if (backup_nhg && backup_nhg->nexthop) {
@@ -668,6 +724,33 @@ void sharp_zebra_send_arp(const struct interface *ifp, const struct prefix *p)
 	zclient_send_neigh_discovery_req(zclient, ifp, p);
 }
 
+static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
+{
+	enum zapi_nhg_notify_owner note;
+	uint32_t id;
+
+	if (!zapi_nhg_notify_decode(zclient->ibuf, &id, &note))
+		return -1;
+
+	switch (note) {
+	case ZAPI_NHG_INSTALLED:
+		sharp_nhgroup_id_set_installed(id, true);
+		zlog_debug("Installed nhg %u", id);
+		break;
+	case ZAPI_NHG_FAIL_INSTALL:
+		zlog_debug("Failed install of nhg %u", id);
+		break;
+	case ZAPI_NHG_REMOVED:
+		zlog_debug("Removed nhg %u", id);
+		break;
+	case ZAPI_NHG_REMOVE_FAIL:
+		zlog_debug("Failed removal of nhg %u", id);
+		break;
+	}
+
+	return 0;
+}
+
 void sharp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = true};
@@ -684,6 +767,7 @@ void sharp_zebra_init(void)
 	zclient->route_notify_owner = route_notify_owner;
 	zclient->nexthop_update = sharp_nexthop_update;
 	zclient->import_check_update = sharp_nexthop_update;
+	zclient->nhg_notify_owner = nhg_notify_owner;
 
 	zclient->redistribute_route_add = sharp_redistribute_route;
 	zclient->redistribute_route_del = sharp_redistribute_route;

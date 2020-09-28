@@ -236,7 +236,8 @@ extern void *hash_release(struct hash *hash, void *data);
  * Iterate over the elements in a hash table.
  *
  * It is safe to delete items passed to the iteration function from the hash
- * table during iteration.  Please note that adding entries to the hash
+ * table during iteration. More than one item cannot be deleted during each
+ * iteration. Please note that adding entries to the hash
  * during the walk will cause undefined behavior in that some new entries
  * will be walked and some will not.  So do not do this.
  *

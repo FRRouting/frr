@@ -192,6 +192,7 @@ DEFPY (install_routes,
 	struct vrf *vrf;
 	struct prefix prefix;
 	uint32_t rts;
+	uint32_t nhgid = 0;
 
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
@@ -244,6 +245,8 @@ DEFPY (install_routes,
 			return CMD_WARNING;
 		}
 
+		nhgid = sharp_nhgroup_get_id(nexthop_group);
+		sg.r.nhgid = nhgid;
 		sg.r.nhop_group.nexthop = nhgc->nhg.nexthop;
 
 		/* Use group's backup nexthop info if present */
@@ -296,7 +299,7 @@ DEFPY (install_routes,
 	sg.r.inst = instance;
 	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
-	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst,
+	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid,
 				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
 				    rts);
 

@@ -73,6 +73,7 @@ const uint32_t DPLANE_DEFAULT_NEW_WORK = 100;
  */
 struct dplane_nexthop_info {
 	uint32_t id;
+	uint32_t old_id;
 	afi_t afi;
 	vrf_id_t vrf_id;
 	int type;
@@ -1242,6 +1243,12 @@ uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.nhe.id;
 }
 
+uint32_t dplane_ctx_get_old_nhe_id(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.old_id;
+}
+
 afi_t dplane_ctx_get_nhe_afi(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -1912,6 +1919,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		struct nhg_hash_entry *nhe = zebra_nhg_resolve(re->nhe);
 
 		ctx->u.rinfo.nhe.id = nhe->id;
+		ctx->u.rinfo.nhe.old_id = 0;
 		/*
 		 * Check if the nhe is installed/queued before doing anything
 		 * with this route.
@@ -2328,6 +2336,7 @@ dplane_route_update_internal(struct route_node *rn,
 			ctx->u.rinfo.zd_old_instance = old_re->instance;
 			ctx->u.rinfo.zd_old_distance = old_re->distance;
 			ctx->u.rinfo.zd_old_metric = old_re->metric;
+			ctx->u.rinfo.nhe.old_id = old_re->nhe->id;
 
 #ifndef HAVE_NETLINK
 			/* For bsd, capture previous re's nexthops too, sigh.
@@ -2347,6 +2356,40 @@ dplane_route_update_internal(struct route_node *rn,
 					copy_nexthops(nh, nhg->nexthop, NULL);
 			}
 #endif	/* !HAVE_NETLINK */
+		}
+
+		/*
+		 * If the old and new context type, and nexthop group id
+		 * are the same there is no need to send down a route replace
+		 * as that we know we have sent a nexthop group replace
+		 * or an upper level protocol has sent us the exact
+		 * same route again.
+		 */
+		if ((dplane_ctx_get_type(ctx) == dplane_ctx_get_old_type(ctx))
+		    && (dplane_ctx_get_nhe_id(ctx)
+			== dplane_ctx_get_old_nhe_id(ctx))
+		    && (dplane_ctx_get_nhe_id(ctx) >= ZEBRA_NHG_PROTO_LOWER)) {
+			struct nexthop *nexthop;
+
+			if (IS_ZEBRA_DEBUG_DPLANE)
+				zlog_debug(
+					"%s: Ignoring Route exactly the same",
+					__func__);
+
+			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
+					      nexthop)) {
+				if (CHECK_FLAG(nexthop->flags,
+					       NEXTHOP_FLAG_RECURSIVE))
+					continue;
+
+				if (CHECK_FLAG(nexthop->flags,
+					       NEXTHOP_FLAG_ACTIVE))
+					SET_FLAG(nexthop->flags,
+						 NEXTHOP_FLAG_FIB);
+			}
+
+			dplane_ctx_free(&ctx);
+			return ZEBRA_DPLANE_REQUEST_SUCCESS;
 		}
 
 		/* Enqueue context for processing */

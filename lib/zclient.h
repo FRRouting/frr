@@ -209,6 +209,9 @@ typedef enum {
 	ZEBRA_MLAG_CLIENT_REGISTER,
 	ZEBRA_MLAG_CLIENT_UNREGISTER,
 	ZEBRA_MLAG_FORWARD_MSG,
+	ZEBRA_NHG_ADD,
+	ZEBRA_NHG_DEL,
+	ZEBRA_NHG_NOTIFY_OWNER,
 	ZEBRA_ERROR,
 	ZEBRA_CLIENT_CAPABILITIES,
 	ZEBRA_OPAQUE_MESSAGE,
@@ -354,6 +357,7 @@ struct zclient {
 	int (*mlag_process_up)(void);
 	int (*mlag_process_down)(void);
 	int (*mlag_handle_msg)(struct stream *msg, int len);
+	int (*nhg_notify_owner)(ZAPI_CALLBACK_ARGS);
 	int (*handle_error)(enum zebra_error_types error);
 	int (*opaque_msg_handler)(ZAPI_CALLBACK_ARGS);
 	int (*opaque_register_handler)(ZAPI_CALLBACK_ARGS);
@@ -370,6 +374,7 @@ struct zclient {
 #define ZAPI_MESSAGE_SRCPFX   0x20
 /* Backup nexthops are present */
 #define ZAPI_MESSAGE_BACKUP_NEXTHOPS 0x40
+#define ZAPI_MESSAGE_NHG 0x80
 
 /*
  * This should only be used by a DAEMON that needs to communicate
@@ -432,6 +437,20 @@ struct zapi_nexthop {
 #define ZAPI_NEXTHOP_FLAG_LABEL		0x02
 #define ZAPI_NEXTHOP_FLAG_WEIGHT	0x04
 #define ZAPI_NEXTHOP_FLAG_HAS_BACKUP	0x08 /* Nexthop has a backup */
+
+/*
+ * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
+ */
+struct zapi_nhg {
+	uint16_t proto;
+	uint32_t id;
+
+	uint16_t nexthop_num;
+	struct zapi_nexthop nexthops[MULTIPATH_NUM];
+
+	uint16_t backup_nexthop_num;
+	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
+};
 
 /*
  * Some of these data structures do not map easily to
@@ -514,6 +533,8 @@ struct zapi_route {
 	uint16_t backup_nexthop_num;
 	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 
+	uint32_t nhgid;
+
 	uint8_t distance;
 
 	uint32_t metric;
@@ -590,6 +611,13 @@ enum zapi_route_notify_owner {
 	ZAPI_ROUTE_INSTALLED,
 	ZAPI_ROUTE_REMOVED,
 	ZAPI_ROUTE_REMOVE_FAIL,
+};
+
+enum zapi_nhg_notify_owner {
+	ZAPI_NHG_FAIL_INSTALL,
+	ZAPI_NHG_INSTALLED,
+	ZAPI_NHG_REMOVED,
+	ZAPI_NHG_REMOVE_FAIL,
 };
 
 enum zapi_rule_notify_owner {
@@ -670,6 +698,22 @@ struct zclient_options {
 };
 
 extern struct zclient_options zclient_options_default;
+
+/*
+ * We reserve the top 4 bits for l2-NHG, everything else
+ * is for zebra/proto l3-NHG.
+ *
+ * Each client is going to get it's own nexthop group space
+ * and we'll separate them, we'll figure out where to start based upon
+ * the route_types.h
+ */
+#define ZEBRA_NHG_PROTO_UPPER                                                  \
+	((uint32_t)250000000) /* Bottom 28 bits then rounded down */
+#define ZEBRA_NHG_PROTO_SPACING (ZEBRA_NHG_PROTO_UPPER / ZEBRA_ROUTE_MAX)
+#define ZEBRA_NHG_PROTO_LOWER                                                  \
+	(ZEBRA_NHG_PROTO_SPACING * (ZEBRA_ROUTE_CONNECT + 1))
+
+extern uint32_t zclient_get_nhg_start(uint32_t proto);
 
 extern struct zclient *zclient_new(struct thread_master *m,
 				   struct zclient_options *opt);
@@ -853,7 +897,11 @@ extern int zclient_send_rnh(struct zclient *zclient, int command,
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
-extern int zapi_route_decode(struct stream *, struct zapi_route *);
+extern int zapi_route_decode(struct stream *s, struct zapi_route *api);
+extern int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
+			       uint32_t api_flags, uint32_t api_message);
+bool zapi_nhg_notify_decode(struct stream *s, uint32_t *id,
+			    enum zapi_nhg_notify_owner *note);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note);
@@ -863,6 +911,12 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 bool zapi_ipset_notify_decode(struct stream *s,
 			      uint32_t *unique,
 			     enum zapi_ipset_notify_owner *note);
+
+
+extern int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
+extern int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
+extern int zclient_nhg_send(struct zclient *zclient, int cmd,
+			    struct zapi_nhg *api_nhg);
 
 #define ZEBRA_IPSET_NAME_SIZE   32
 
