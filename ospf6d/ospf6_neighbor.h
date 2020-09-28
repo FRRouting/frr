@@ -64,7 +64,7 @@ struct ospf6_neighbor {
 	/* Options field (Capability) */
 	char options[3];
 
-	/* IPaddr of I/F on our side link */
+	/* IPaddr of I/F on neighbour's link */
 	struct in6_addr linklocal_addr;
 
 	/* For Database Exchange */

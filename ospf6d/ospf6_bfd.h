@@ -19,7 +19,7 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-
+#include "lib/json.h"
 #ifndef OSPF6_BFD_H
 #define OSPF6_BFD_H
 
@@ -35,8 +35,8 @@ extern void ospf6_bfd_info_nbr_create(struct ospf6_interface *oi,
 
 extern void ospf6_bfd_info_free(void **bfd_info);
 
-extern void ospf6_bfd_show_info(struct vty *vty, void *bfd_info,
-				int param_only);
+extern void ospf6_bfd_show_info(struct vty *vty, void *bfd_info, int param_only,
+				json_object *json_obj, bool use_json);
 
 extern void ospf6_bfd_reg_dereg_nbr(struct ospf6_neighbor *on, int command);
 #endif /* OSPF6_BFD_H */
