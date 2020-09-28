@@ -84,10 +84,11 @@ static void bfdd_client_deregister(struct stream *msg);
 static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 {
 	char timers[3][128] = {};
+	char minttl_str[32] = {};
 	char addr[3][128] = {};
 	char profile[128] = {};
 	char cbit_str[32];
-	char msgbuf[256];
+	char msgbuf[512];
 	va_list vl;
 
 	/* Avoid debug calculations if it's disabled. */
@@ -120,6 +121,10 @@ static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 
 	snprintf(cbit_str, sizeof(cbit_str), " cbit:0x%02x", bpc->bpc_cbit);
 
+	if (bpc->bpc_has_minimum_ttl)
+		snprintf(minttl_str, sizeof(minttl_str), " minimum-ttl:%d",
+			 bpc->bpc_minimum_ttl);
+
 	if (bpc->bpc_has_profile)
 		snprintf(profile, sizeof(profile), " profile:%s",
 			 bpc->bpc_profile);
@@ -128,9 +133,10 @@ static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 	vsnprintf(msgbuf, sizeof(msgbuf), fmt, vl);
 	va_end(vl);
 
-	zlog_debug("%s [mhop:%s %s%s%s%s%s%s%s%s]", msgbuf,
+	zlog_debug("%s [mhop:%s %s%s%s%s%s%s%s%s%s]", msgbuf,
 		   bpc->bpc_mhop ? "yes" : "no", addr[0], addr[1], addr[2],
-		   timers[0], timers[1], timers[2], cbit_str, profile);
+		   timers[0], timers[1], timers[2], cbit_str, minttl_str,
+		   profile);
 }
 
 static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
