@@ -78,6 +78,34 @@ void oid_copy_addr(oid oid[], const struct in_addr *addr, int len)
 		oid[i] = *pnt++;
 }
 
+void oid2string(oid oid[], int len, char *string)
+{
+	int i;
+	uint8_t *pnt;
+
+	if (len == 0)
+		return;
+
+	pnt = (uint8_t *)string;
+
+	for (i = 0; i < len; i++)
+		*pnt++ = oid[i];
+}
+
+void oid_copy_str(oid oid[], const char *string, int len)
+{
+	int i;
+	const uint8_t *pnt;
+
+	if (len == 0)
+		return;
+
+	pnt = (uint8_t *)string;
+
+	for (i = 0; i < len; i++)
+		oid[i] = *pnt++;
+}
+
 int smux_header_generic(struct variable *v, oid *name, size_t *length,
 			int exact, size_t *var_len, WriteMethod **write_method)
 {

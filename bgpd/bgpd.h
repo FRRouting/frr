@@ -310,6 +310,13 @@ enum bgp_link_bw_handling {
 RB_HEAD(bgp_es_vrf_rb_head, bgp_evpn_es_vrf);
 RB_PROTOTYPE(bgp_es_vrf_rb_head, bgp_evpn_es_vrf, rb_node, bgp_es_vrf_rb_cmp);
 
+struct bgp_snmp_stats {
+	/* SNMP variables for mplsL3Vpn*/
+	time_t creation_time;
+	time_t modify_time;
+	bool active;
+};
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -362,6 +369,8 @@ struct bgp {
 		uint32_t subgrps_created;
 		uint32_t subgrps_deleted;
 	} update_group_stats;
+
+	struct bgp_snmp_stats *snmp_stats;
 
 	/* BGP configuration.  */
 	uint16_t config;
@@ -2165,23 +2174,6 @@ static inline int afindex(afi_t afi, safi_t safi)
 	}
 }
 
-static inline bool is_bgp_vrf_active(struct bgp *bgp)
-{
-	struct vrf *vrf;
-	struct interface *ifp;
-
-	/* if there is one interface in the vrf which is up then it is deemed
-	 *  active
-	 */
-	vrf = vrf_lookup_by_name(bgp->name);
-	if (vrf == NULL)
-		return false;
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
-		if (if_is_up(ifp))
-			return true;
-	return false;
-}
-
 /* If the peer is not a peer-group but is bound to a peer-group return 1 */
 static inline int peer_group_active(struct peer *peer)
 {
@@ -2263,6 +2255,27 @@ static inline struct vrf *bgp_vrf_lookup_by_instance_type(struct bgp *bgp)
 	return vrf;
 }
 
+static inline uint32_t bgp_vrf_interfaces(struct bgp *bgp, bool active)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+	uint32_t count = 0;
+
+	/* if there is one interface in the vrf which is up then it is deemed
+	 *  active
+	 */
+	vrf = bgp_vrf_lookup_by_instance_type(bgp);
+	if (vrf == NULL)
+		return 0;
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		if (strncmp(ifp->name, bgp->name, VRF_NAMSIZ) == 0)
+			continue;
+		if (!active || if_is_up(ifp))
+			count++;
+	}
+	return count;
+}
+
 /* Link BGP instance to VRF. */
 static inline void bgp_vrf_link(struct bgp *bgp, struct vrf *vrf)
 {
@@ -2300,7 +2313,11 @@ extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
 				      enum bgp_instance_type inst_type);
 
 /* Hooks */
-DECLARE_HOOK(peer_status_changed, (struct peer * peer), (peer))
+DECLARE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
+	     (bgp, ifp))
+DECLARE_HOOK(peer_status_changed, (struct peer *peer), (peer))
+DECLARE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp))
+DECLARE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp))
 void peer_nsf_stop(struct peer *peer);
 
 #endif /* _QUAGGA_BGPD_H */

@@ -32,6 +32,8 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_damp.h"
 
+DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp))
+
 FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
         { .val_ulong = 10, .match_profile = "datacenter", },
         { .val_ulong = 120 },
@@ -9862,6 +9864,7 @@ static int bgp_global_afi_safi_ip_unicast_vpn_config_import_export_vpn_modify(
 		UNSET_FLAG(bgp->af_flags[afi][safi], flag);
 	}
 
+	hook_call(bgp_snmp_init_stats, bgp);
 	return NB_OK;
 }
 

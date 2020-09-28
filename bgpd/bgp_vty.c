@@ -127,6 +127,7 @@ FRR_CFG_DEFAULT_BOOL(BGP_SUPPRESS_DUPLICATES,
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty))
+DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp))
 
 #define GR_NO_OPER                                                             \
 	"The Graceful Restart No Operation was executed as cmd same as previous one."
@@ -9141,6 +9142,7 @@ DEFPY (af_label_vpn_export,
 	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
 			    bgp_get_default(), bgp);
 
+	hook_call(bgp_snmp_update_last_changed, bgp);
 	return CMD_SUCCESS;
 }
 
