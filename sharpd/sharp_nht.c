@@ -86,7 +86,7 @@ static uint32_t nhg_id;
 
 static uint32_t sharp_get_next_nhid(void)
 {
-	zlog_debug("Id assigned: %u", nhg_id);
+	zlog_debug("NHG ID assigned: %u", nhg_id);
 	return nhg_id++;
 }
 
