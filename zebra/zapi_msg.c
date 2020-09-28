@@ -1622,14 +1622,14 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 	assert(!(png && pbnhg));
 
 	if (png)
-		*png = ng = nexthop_group_new();
+		ng = nexthop_group_new();
 
 	if (pbnhg && backup_nh_num > 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("%s: adding %d backup nexthops", __func__,
 				   backup_nh_num);
 
-		*pbnhg = bnhg = zebra_nhg_backup_alloc();
+		bnhg = zebra_nhg_backup_alloc();
 	}
 
 	/*
@@ -1704,7 +1704,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 				   __func__, nhbuf, api_nh->vrf_id, labelbuf);
 		}
 
-		if (png) {
+		if (ng) {
 			/* Add new nexthop to temporary list. This list is
 			 * canonicalized - sorted - so that it can be hashed
 			 * later in route processing. We expect that the sender
@@ -1728,6 +1728,14 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			last_nh = nexthop;
 		}
 	}
+
+
+	/* succesfully read, set caller pointers now */
+	if (png)
+		*png = ng;
+
+	if (pbnhg)
+		*pbnhg = bnhg;
 
 	return true;
 }
@@ -1847,9 +1855,6 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 
 		flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 			  "%s: Nexthop Group Creation failed", __func__);
-
-		nexthop_group_delete(&nhg);
-		zebra_nhg_backup_free(&bnhg);
 		return;
 	}
 
