@@ -67,7 +67,7 @@ static void listnode_free(struct list *list, struct listnode *node)
 
 struct listnode *listnode_add(struct list *list, void *val)
 {
-	tracepoint(frr_libfrr, list_add, list, val);
+	frrtrace(2, frr_libfrr, list_add, list, val);
 
 	struct listnode *node;
 
@@ -284,7 +284,7 @@ void listnode_move_to_tail(struct list *l, struct listnode *n)
 
 void listnode_delete(struct list *list, const void *val)
 {
-	tracepoint(frr_libfrr, list_remove, list, val);
+	frrtrace(2, frr_libfrr, list_remove, list, val);
 
 	struct listnode *node = listnode_lookup(list, val);
 
@@ -365,7 +365,7 @@ struct listnode *listnode_lookup_nocheck(struct list *list, void *data)
 
 void list_delete_node(struct list *list, struct listnode *node)
 {
-	tracepoint(frr_libfrr, list_delete_node, list, node);
+	frrtrace(2, frr_libfrr, list_delete_node, list, node);
 
 	if (node->prev)
 		node->prev->next = node->next;
@@ -381,7 +381,7 @@ void list_delete_node(struct list *list, struct listnode *node)
 
 void list_sort(struct list *list, int (*cmp)(const void **, const void **))
 {
-	tracepoint(frr_libfrr, list_sort, list);
+	frrtrace(1, frr_libfrr, list_sort, list);
 
 	struct listnode *ln, *nn;
 	int i = -1;

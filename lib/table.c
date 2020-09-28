@@ -277,10 +277,10 @@ struct route_node *route_node_lookup_maynull(struct route_table *table,
 struct route_node *route_node_get(struct route_table *table,
 				  union prefixconstptr pu)
 {
-	if (tracepoint_enabled(frr_libfrr, route_node_get)) {
+	if (frrtrace_enabled(frr_libfrr, route_node_get)) {
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(pu, buf, sizeof(buf));
-		tracepoint(frr_libfrr, route_node_get, table, buf);
+		frrtrace(2, frr_libfrr, route_node_get, table, buf);
 	}
 
 	struct route_node search;

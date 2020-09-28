@@ -168,7 +168,7 @@ int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 	sigfillset(&blocksigs);
 	pthread_sigmask(SIG_BLOCK, &blocksigs, &oldsigs);
 
-	tracepoint(frr_libfrr, frr_pthread_run, fpt->name);
+	frrtrace(1, frr_libfrr, frr_pthread_run, fpt->name);
 
 	fpt->rcu_thread = rcu_thread_prepare();
 	ret = pthread_create(&fpt->thread, attr, frr_pthread_inner, fpt);
@@ -207,7 +207,7 @@ void frr_pthread_notify_running(struct frr_pthread *fpt)
 
 int frr_pthread_stop(struct frr_pthread *fpt, void **result)
 {
-	tracepoint(frr_libfrr, frr_pthread_stop, fpt->name);
+	frrtrace(1, frr_libfrr, frr_pthread_stop, fpt->name);
 
 	int ret = (*fpt->attr.stop)(fpt, result);
 	memset(&fpt->thread, 0x00, sizeof(fpt->thread));

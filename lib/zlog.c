@@ -458,20 +458,20 @@ void vzlog(int prio, const char *fmt, va_list ap)
 
 	switch (prio) {
 	case LOG_ERR:
-		tracelog(TRACE_ERR, msg);
+		frrtracelog(TRACE_ERR, msg);
 		break;
 	case LOG_WARNING:
-		tracelog(TRACE_WARNING, msg);
+		frrtracelog(TRACE_WARNING, msg);
 		break;
 	case LOG_DEBUG:
-		tracelog(TRACE_DEBUG, msg);
+		frrtracelog(TRACE_DEBUG, msg);
 		break;
 	case LOG_NOTICE:
-		tracelog(TRACE_DEBUG, msg);
+		frrtracelog(TRACE_DEBUG, msg);
 		break;
 	case LOG_INFO:
 	default:
-		tracelog(TRACE_INFO, msg);
+		frrtracelog(TRACE_INFO, msg);
 		break;
 	}
 

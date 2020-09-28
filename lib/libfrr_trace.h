@@ -21,9 +21,7 @@
 #if !defined(_LIBFRR_TRACE_H_) || defined(TRACEPOINT_HEADER_MULTI_READ)
 #define _LIBFRR_TRACE_H_
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif /* HAVE_CONFIG_H */
+#include "trace.h"
 
 #ifdef HAVE_LTTNG
 
@@ -237,13 +235,6 @@ TRACEPOINT_EVENT(
 #include <lttng/tracepoint-event.h>
 #include <lttng/tracelog.h>
 
-#else /* HAVE_LTTNG */
-
-#define tracepoint(...)
-#define tracef(...)
-#define tracelog(...)
-#define tracepoint_enabled(...) true
-
 #endif /* HAVE_LTTNG */
 
-#endif /* _TRACE_H */
+#endif /* _LIBFRR_TRACE_H_ */

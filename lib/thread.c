@@ -789,11 +789,11 @@ struct thread *funcname_thread_add_read_write(int dir, struct thread_master *m,
 	struct thread **thread_array;
 
 	if (dir == THREAD_READ)
-		tracepoint(frr_libfrr, schedule_read, m, funcname, schedfrom,
-			   fromln, t_ptr, fd, 0, arg, 0);
+		frrtrace(9, frr_libfrr, schedule_read, m, funcname, schedfrom,
+			 fromln, t_ptr, fd, 0, arg, 0);
 	else
-		tracepoint(frr_libfrr, schedule_write, m, funcname, schedfrom,
-			   fromln, t_ptr, fd, 0, arg, 0);
+		frrtrace(9, frr_libfrr, schedule_write, m, funcname, schedfrom,
+			 fromln, t_ptr, fd, 0, arg, 0);
 
 	assert(fd >= 0 && fd < m->fd_limit);
 	frr_with_mutex(&m->mtx) {
@@ -869,8 +869,8 @@ funcname_thread_add_timer_timeval(struct thread_master *m,
 	assert(type == THREAD_TIMER);
 	assert(time_relative);
 
-	tracepoint(frr_libfrr, schedule_timer, m, funcname, schedfrom, fromln,
-		   t_ptr, 0, 0, arg, (long)time_relative->tv_sec);
+	frrtrace(9, frr_libfrr, schedule_timer, m, funcname, schedfrom, fromln,
+		 t_ptr, 0, 0, arg, (long)time_relative->tv_sec);
 
 	frr_with_mutex(&m->mtx) {
 		if (t_ptr && *t_ptr)
@@ -950,8 +950,8 @@ struct thread *funcname_thread_add_event(struct thread_master *m,
 {
 	struct thread *thread = NULL;
 
-	tracepoint(frr_libfrr, schedule_event, m, funcname, schedfrom, fromln,
-		   t_ptr, 0, val, arg, 0);
+	frrtrace(9, frr_libfrr, schedule_event, m, funcname, schedfrom, fromln,
+		 t_ptr, 0, val, arg, 0);
 
 	assert(m != NULL);
 
@@ -1181,10 +1181,9 @@ void thread_cancel(struct thread *thread)
 {
 	struct thread_master *master = thread->master;
 
-	tracepoint(frr_libfrr, thread_cancel, master, thread->funcname,
-		   thread->schedfrom, thread->schedfrom_line, NULL,
-		   thread->u.fd, thread->u.val, thread->arg,
-		   thread->u.sands.tv_sec);
+	frrtrace(9, frr_libfrr, thread_cancel, master, thread->funcname,
+		 thread->schedfrom, thread->schedfrom_line, NULL, thread->u.fd,
+		 thread->u.val, thread->arg, thread->u.sands.tv_sec);
 
 	assert(master->owner == pthread_self());
 
@@ -1227,14 +1226,14 @@ void thread_cancel_async(struct thread_master *master, struct thread **thread,
 	assert(!(thread && eventobj) && (thread || eventobj));
 
 	if (thread && *thread)
-		tracepoint(frr_libfrr, thread_cancel_async, master,
-			   (*thread)->funcname, (*thread)->schedfrom,
-			   (*thread)->schedfrom_line, NULL, (*thread)->u.fd,
-			   (*thread)->u.val, (*thread)->arg,
-			   (*thread)->u.sands.tv_sec);
+		frrtrace(9, frr_libfrr, thread_cancel_async, master,
+			 (*thread)->funcname, (*thread)->schedfrom,
+			 (*thread)->schedfrom_line, NULL, (*thread)->u.fd,
+			 (*thread)->u.val, (*thread)->arg,
+			 (*thread)->u.sands.tv_sec);
 	else
-		tracepoint(frr_libfrr, thread_cancel_async, master, NULL, NULL,
-			   0, NULL, 0, 0, eventobj, 0);
+		frrtrace(9, frr_libfrr, thread_cancel_async, master, NULL, NULL,
+			 0, NULL, 0, 0, eventobj, 0);
 
 	assert(master->owner != pthread_self());
 
@@ -1611,10 +1610,9 @@ void thread_call(struct thread *thread)
 	GETRUSAGE(&before);
 	thread->real = before.real;
 
-	tracepoint(frr_libfrr, thread_call, thread->master, thread->funcname,
-		   thread->schedfrom, thread->schedfrom_line, NULL,
-		   thread->u.fd, thread->u.val, thread->arg,
-		   thread->u.sands.tv_sec);
+	frrtrace(9, frr_libfrr, thread_call, thread->master, thread->funcname,
+		 thread->schedfrom, thread->schedfrom_line, NULL, thread->u.fd,
+		 thread->u.val, thread->arg, thread->u.sands.tv_sec);
 
 	pthread_setspecific(thread_current, thread);
 	(*thread->func)(thread);

@@ -139,7 +139,7 @@ static void hash_expand(struct hash *hash)
 
 void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 {
-	tracepoint(frr_libfrr, hash_get, hash, data);
+	frrtrace(2, frr_libfrr, hash_get, hash, data);
 
 	unsigned int key;
 	unsigned int index;
@@ -175,7 +175,7 @@ void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 		hash->index[index] = bucket;
 		hash->count++;
 
-		tracepoint(frr_libfrr, hash_insert, hash, data, key);
+		frrtrace(3, frr_libfrr, hash_insert, hash, data, key);
 
 		int oldlen = bucket->next ? bucket->next->len : 0;
 		int newlen = oldlen + 1;
@@ -246,7 +246,7 @@ void *hash_release(struct hash *hash, void *data)
 		pp = bucket;
 	}
 
-	tracepoint(frr_libfrr, hash_release, hash, data, ret);
+	frrtrace(3, frr_libfrr, hash_release, hash, data, ret);
 
 	return ret;
 }

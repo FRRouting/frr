@@ -21,9 +21,7 @@
 #if !defined(_BGP_TRACE_H) || defined(TRACEPOINT_HEADER_MULTI_READ)
 #define _BGP_TRACE_H
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include "lib/trace.h"
 
 #ifdef HAVE_LTTNG
 
@@ -121,13 +119,6 @@ TRACEPOINT_EVENT(
 TRACEPOINT_LOGLEVEL(frr_bgp, output_filter, TRACE_INFO)
 
 #include <lttng/tracepoint-event.h>
-
-#else /* HAVE_LTTNG */
-
-#define tracepoint(...)
-#define tracef(...)
-#define tracelog(...)
-#define tracepoint_enabled(...) true
 
 #endif /* HAVE_LTTNG */
 

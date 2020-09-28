@@ -1329,12 +1329,12 @@ static enum filter_type bgp_input_filter(struct peer *peer,
 	}
 
 done:
-	if (tracepoint_enabled(frr_bgp, input_filter)) {
+	if (frrtrace_enabled(frr_bgp, input_filter)) {
 		char pfxprint[PREFIX2STR_BUFFER];
 
 		prefix2str(p, pfxprint, sizeof(pfxprint));
-		tracepoint(frr_bgp, input_filter, peer, pfxprint, afi, safi,
-			   ret == FILTER_PERMIT ? "permit" : "deny");
+		frrtrace(5, frr_bgp, input_filter, peer, pfxprint, afi, safi,
+			 ret == FILTER_PERMIT ? "permit" : "deny");
 	}
 
 	return ret;
@@ -1386,12 +1386,12 @@ static enum filter_type bgp_output_filter(struct peer *peer,
 		}
 	}
 
-	if (tracepoint_enabled(frr_bgp, output_filter)) {
+	if (frrtrace_enabled(frr_bgp, output_filter)) {
 		char pfxprint[PREFIX2STR_BUFFER];
 
 		prefix2str(p, pfxprint, sizeof(pfxprint));
-		tracepoint(frr_bgp, output_filter, peer, pfxprint, afi, safi,
-			   ret == FILTER_PERMIT ? "permit" : "deny");
+		frrtrace(5, frr_bgp, output_filter, peer, pfxprint, afi, safi,
+			 ret == FILTER_PERMIT ? "permit" : "deny");
 	}
 
 done:
@@ -3463,12 +3463,12 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	uint8_t pi_type = 0;
 	uint8_t pi_sub_type = 0;
 
-	if (tracepoint_enabled(frr_bgp, process_update)) {
+	if (frrtrace_enabled(frr_bgp, process_update)) {
 		char pfxprint[PREFIX2STR_BUFFER];
 
 		prefix2str(p, pfxprint, sizeof(pfxprint));
-		tracepoint(frr_bgp, process_update, peer, pfxprint, addpath_id,
-			   afi, safi, attr);
+		frrtrace(6, frr_bgp, process_update, peer, pfxprint, addpath_id,
+			 afi, safi, attr);
 	}
 
 #ifdef ENABLE_BGP_VNC

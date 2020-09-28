@@ -78,7 +78,7 @@ static inline void mt_count_alloc(struct memtype *mt, size_t size, void *ptr)
 
 static inline void mt_count_free(struct memtype *mt, void *ptr)
 {
-	tracepoint(frr_libfrr, memfree, mt, ptr);
+	frrtrace(2, frr_libfrr, memfree, mt, ptr);
 
 	assert(mt->n_alloc);
 	atomic_fetch_sub_explicit(&mt->n_alloc, 1, memory_order_relaxed);
@@ -92,7 +92,7 @@ static inline void mt_count_free(struct memtype *mt, void *ptr)
 
 static inline void *mt_checkalloc(struct memtype *mt, void *ptr, size_t size)
 {
-	tracepoint(frr_libfrr, memalloc, mt, ptr, size);
+	frrtrace(3, frr_libfrr, memalloc, mt, ptr, size);
 
 	if (__builtin_expect(ptr == NULL, 0)) {
 		if (size) {
