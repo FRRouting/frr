@@ -204,6 +204,10 @@ static char re_status_output_char(const struct route_entry *re,
 				star_p = true;
 		}
 
+		if (zrouter.asic_offloaded &&
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED))
+			return 'q';
+
 		if (zrouter.asic_offloaded
 		    && CHECK_FLAG(re->flags, ZEBRA_FLAG_TRAPPED))
 			return 't';

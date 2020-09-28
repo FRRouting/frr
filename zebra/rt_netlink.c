@@ -642,7 +642,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 
 	selfroute = is_selfroute(rtm->rtm_protocol);
 
-	if (!startup && selfroute && h->nlmsg_type == RTM_NEWROUTE) {
+	if (!startup && selfroute
+	    && h->nlmsg_type == RTM_NEWROUTE
+	    && !zrouter.asic_offloaded) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Route type: %d Received that we think we have originated, ignoring",
 				   rtm->rtm_protocol);
