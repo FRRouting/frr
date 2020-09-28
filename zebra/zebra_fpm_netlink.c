@@ -335,10 +335,18 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 		}
 	}
 
-	/* If there is no useful nexthop then return. */
-	if (ri->rtm_type != RTN_BLACKHOLE && ri->num_nhs == 0) {
-		zfpm_debug("netlink_encode_route(): No useful nexthop.");
-		return 0;
+	if (ri->num_nhs == 0) {
+		switch (ri->rtm_type) {
+		case RTN_PROHIBIT:
+		case RTN_UNREACHABLE:
+		case RTN_BLACKHOLE:
+			break;
+		default:
+			/* If there is no useful nexthop then return. */
+			zfpm_debug(
+				"netlink_encode_route(): No useful nexthop.");
+			return 0;
+		}
 	}
 
 	return 1;
