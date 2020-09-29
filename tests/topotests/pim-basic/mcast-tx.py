@@ -24,7 +24,7 @@ import logging
 import socket
 import struct
 import time
-
+import sys
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s %(levelname)5s: %(message)s"
@@ -40,7 +40,7 @@ logging.addLevelName(
 log = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(
-    description="Multicast packet generator", version="1.0.0"
+    description="Multicast packet generator"
 )
 parser.add_argument("group", help="Multicast IP")
 parser.add_argument("ifname", help="Interface name")
@@ -57,9 +57,18 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # https://github.com/sivel/bonding/issues/10
 #
 # Bind our socket to ifname
-sock.setsockopt(
-    socket.SOL_SOCKET, 25, struct.pack("%ds" % len(args.ifname), args.ifname)
-)
+#
+# Note ugly python version incompatibility
+#
+if sys.version_info[0] > 2:
+    sock.setsockopt(
+        socket.SOL_SOCKET, 25, struct.pack("%ds" % len(args.ifname),
+                                           args.ifname.encode('utf-8'))
+    )
+else:
+    sock.setsockopt(
+        socket.SOL_SOCKET, 25, struct.pack("%ds" % len(args.ifname), args.ifname)
+    )
 
 # We need to make sure our sendto() finishes before we close the socket
 sock.setblocking(1)
@@ -70,11 +79,18 @@ sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack("b", arg
 ms = args.interval / 1000.0
 
 # Send data to the multicast group
-for x in xrange(args.count):
+for x in range(args.count):
     log.info(
         "TX multicast UDP packet to %s:%d on %s" % (args.group, args.port, args.ifname)
     )
-    sent = sock.sendto("foobar %d" % x, (args.group, args.port))
+
+    #
+    # Note ugly python version incompatibility
+    #
+    if sys.version_info[0] > 2:
+        sent = sock.sendto(b"foobar %d" % x, (args.group, args.port))
+    else:
+        sent = sock.sendto("foobar %d" % x, (args.group, args.port))
 
     if args.count > 1 and ms:
         time.sleep(ms)
