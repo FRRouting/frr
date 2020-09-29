@@ -35,7 +35,8 @@ import time
 
 
 def ifname_to_ifindex(ifname):
-    output = subprocess.check_output("ip link show %s" % ifname, shell=True)
+    output = subprocess.check_output("ip link show %s" % ifname,
+                                     shell=True, universal_newlines=True)
     first_line = output.split("\n")[0]
     re_index = re.search("^(\d+):", first_line)
 
@@ -65,7 +66,8 @@ logging.addLevelName(
 )
 log = logging.getLogger(__name__)
 
-parser = argparse.ArgumentParser(description="Multicast RX utility", version="1.0.0")
+parser = argparse.ArgumentParser(description="Multicast RX utility")
+
 parser.add_argument("group", help="Multicast IP")
 parser.add_argument("ifname", help="Interface name")
 parser.add_argument("--port", help="UDP port", default=1000)
