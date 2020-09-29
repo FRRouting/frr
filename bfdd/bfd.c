@@ -1745,18 +1745,19 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 	 * input has no iface nor local-address, but a context may
 	 * exist
 	 */
-	ctx.result = NULL;
-	ctx.given = &bs;
-	hash_walk(bfd_key_hash,
-		  &bfd_key_lookup_ignore_partial_walker,
-		  &ctx);
-	/* change key */
-	if (ctx.result) {
-		bsp = ctx.result;
-		if (bglobal.debug_peer_event)
-			zlog_debug(
-				" peer %s found, but ifp and/or loc-addr params ignored",
-				peer_buf);
+	if (!bs.key.mhop) {
+		ctx.result = NULL;
+		ctx.given = &bs;
+		hash_walk(bfd_key_hash, &bfd_key_lookup_ignore_partial_walker,
+			  &ctx);
+		/* change key */
+		if (ctx.result) {
+			bsp = ctx.result;
+			if (bglobal.debug_peer_event)
+				zlog_debug(
+					" peer %s found, but ifp and/or loc-addr params ignored",
+					peer_buf);
+		}
 	}
 	return bsp;
 }
