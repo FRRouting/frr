@@ -1561,8 +1561,68 @@ dnl --------------------
 dnl Daemon disable check
 dnl --------------------
 
+AS_IF([test "$enable_bgpd" != "no"], [
+  AC_DEFINE([HAVE_BGPD], [1], [bgpd])
+])
+
+AS_IF([test "$enable_ripd" != "no"], [
+  AC_DEFINE([HAVE_RIPD], [1], [ripd])
+])
+
+AS_IF([test "$enable_ripngd" != "no"], [
+  AC_DEFINE([HAVE_RIPNGD], [1], [ripngd])
+])
+
+AS_IF([test "$enable_ospfd" != "no"], [
+  AC_DEFINE([HAVE_OSPFD], [1], [ospfd])
+])
+
+AS_IF([test "$enable_ospf6d" != "no"], [
+  AC_DEFINE([HAVE_OSPF6D], [1], [ospf6d])
+])
+
 AS_IF([test "$enable_ldpd" != "no"], [
   AC_DEFINE([HAVE_LDPD], [1], [ldpd])
+])
+
+AS_IF([test "$enable_nhrpd" != "no"], [
+  AC_DEFINE([HAVE_NHRPD], [1], [nhrpd])
+])
+
+AS_IF([test "$enable_eigrpd" != "no"], [
+  AC_DEFINE([HAVE_EIGRPD], [1], [eigrpd])
+])
+
+AS_IF([test "$enable_babeld" != "no"], [
+  AC_DEFINE([HAVE_BABELD], [1], [babeld])
+])
+
+AS_IF([test "$enable_isisd" != "no"], [
+  AC_DEFINE([HAVE_ISISD], [1], [isisd])
+])
+
+AS_IF([test "$enable_pimd" != "no"], [
+  AC_DEFINE([HAVE_PIMD], [1], [pimd])
+])
+
+AS_IF([test "$enable_pbrd" != "no"], [
+  AC_DEFINE([HAVE_PBRD], [1], [pbrd])
+])
+
+AS_IF([test "$enable_sharpd" = "yes"], [
+  AC_DEFINE([HAVE_SHARPD], [1], [sharpd])
+])
+
+AS_IF([test "$enable_staticd" != "no"], [
+  AC_DEFINE([HAVE_STATICD], [1], [staticd])
+])
+
+AS_IF([test "$enable_fabricd" != "no"], [
+  AC_DEFINE([HAVE_FABRICD], [1], [fabricd])
+])
+
+AS_IF([test "$enable_vrrpd" != "no"], [
+  AC_DEFINE([HAVE_VRRPD], [1], [vrrpd])
 ])
 
 if test "$enable_bfdd" = "no"; then
