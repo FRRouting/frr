@@ -12,8 +12,10 @@ TESTS_BGPD = \
 	tests/bgpd/test_mp_attr \
 	tests/bgpd/test_mpath \
 	tests/bgpd/test_bgp_table
+IGNORE_BGPD =
 else
 TESTS_BGPD =
+IGNORE_BGPD = --ignore=bgpd/
 endif
 
 if ISISD
@@ -23,16 +25,20 @@ TESTS_ISISD = \
 	tests/isisd/test_isis_spf \
 	tests/isisd/test_isis_vertex_queue \
 	# end
+IGNORE_ISISD =
 else
 TESTS_ISISD =
+IGNORE_ISISD = --ignore=isisd/
 endif
 
 if OSPF6D
 TESTS_OSPF6D = \
 	tests/ospf6d/test_lsdb \
 	# end
+IGNORE_OSPF6D =
 else
 TESTS_OSPF6D =
+IGNORE_OSPF6D = --ignore=ospf6d/
 endif
 
 clippy_scan += \
@@ -368,7 +374,7 @@ EXTRA_DIST += \
 
 .PHONY: tests/tests.xml
 tests/tests.xml: $(check_PROGRAMS)
-	( cd tests; $(PYTHON) ../$(srcdir)/tests/runtests.py --junitxml=tests.xml -v ../$(srcdir)/tests; )
+	( cd tests; $(PYTHON) ../$(srcdir)/tests/runtests.py --junitxml=tests.xml -v ../$(srcdir)/tests $(IGNORE_BGPD) $(IGNORE_ISISD) $(IGNORE_OSPF6D); )
 check: tests/tests.xml
 
 clean-local: clean-tests
