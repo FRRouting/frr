@@ -1991,6 +1991,11 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				    || nexthop->type == NEXTHOP_TYPE_IPV6)
 					nexthop->ifindex = newhop->ifindex;
 				else if (nexthop->ifindex != newhop->ifindex) {
+					if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+						zlog_debug(
+							"%s: %pNHv given ifindex does not match nexthops ifindex found found: %pNHv",
+							__func__, nexthop,
+							newhop);
 					/*
 					 * NEXTHOP_TYPE_*_IFINDEX but ifindex
 					 * doesn't match what we found.
