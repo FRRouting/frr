@@ -1829,13 +1829,13 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)) {
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 		if (!ifp) {
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug("nexthop %pNHv marked onlink but nhif %u doesn't exist",
 					   nexthop, nexthop->ifindex);
 			return 0;
 		}
 		if (!if_is_operative(ifp)) {
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug("nexthop %pNHv marked onlink but nhif %s is not operational",
 					   nexthop, ifp->name);
 			return 0;
@@ -1991,7 +1991,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				    || nexthop->type == NEXTHOP_TYPE_IPV6)
 					nexthop->ifindex = newhop->ifindex;
 				else if (nexthop->ifindex != newhop->ifindex) {
-					if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 						zlog_debug(
 							"%s: %pNHv given ifindex does not match nexthops ifindex found found: %pNHv",
 							__func__, nexthop,
@@ -2017,7 +2017,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 			/* Only useful if installed */
 			if (!CHECK_FLAG(match->status, ROUTE_ENTRY_INSTALLED)) {
-				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug("%s: match %p (%u) not installed",
 						   __func__, match,
 						   match->nhe->id);
