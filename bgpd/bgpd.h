@@ -681,6 +681,10 @@ struct bgp {
 
 	/* Process Queue for handling routes */
 	struct work_queue *process_queue;
+	
+	/* BGP Conditional advertisement */
+	int condition_filter_count;
+	struct thread *t_condition_check;
 
 	QOBJ_FIELDS
 };
@@ -759,6 +763,10 @@ struct bgp_nexthop {
 #define BGP_GTSM_HOPS_DISABLED  0
 #define BGP_GTSM_HOPS_CONNECTED 1
 
+/* Advertise map */
+#define CONDITION_NON_EXIST	0
+#define CONDITION_EXIST 1
+
 #include "filter.h"
 
 /* BGP filter structure. */
@@ -792,6 +800,19 @@ struct bgp_filter {
 		char *name;
 		struct route_map *map;
 	} usmap;
+
+	/* Advertise-map */
+	struct {
+		char *aname;
+		struct route_map *amap;
+
+		bool condition;
+
+		char *cname;
+		struct route_map *cmap;
+
+		bool status;
+	} advmap;
 };
 
 /* IBGP/EBGP identifier.  We also have a CONFED peer, which is to say,
@@ -1355,6 +1376,7 @@ struct peer {
 #define PEER_FT_PREFIX_LIST           (1U << 2) /* prefix-list */
 #define PEER_FT_ROUTE_MAP             (1U << 3) /* route-map */
 #define PEER_FT_UNSUPPRESS_MAP        (1U << 4) /* unsuppress-map */
+#define PEER_FT_ADVERTISE_MAP         (1U << 5) /* advertise-map */
 
 	/* ORF Prefix-list */
 	struct prefix_list *orf_plist[AFI_MAX][SAFI_MAX];
@@ -1447,6 +1469,13 @@ struct peer {
 
 	/* Sender side AS path loop detection. */
 	bool as_path_loop_detection;
+
+	/* Conditional advertisement */
+	struct {
+		bool config_change;
+		enum route_map_cmd_result_t amap_prev_status;
+		enum route_map_cmd_result_t cmap_prev_status;
+	} advmap_info[AFI_MAX][SAFI_MAX];
 
 	QOBJ_FIELDS
 };
@@ -1939,10 +1968,22 @@ extern int peer_unsuppress_map_set(struct peer *peer, afi_t afi, safi_t safi,
 				   const char *name,
 				   struct route_map *route_map);
 
+extern int peer_advertise_map_set(struct peer *peer, afi_t afi, safi_t safi,
+				  const char *advertise_name,
+				  struct route_map *advertise_map,
+				  bool condition, const char *condition_name,
+				  struct route_map *condition_map);
+
 extern int peer_password_set(struct peer *, const char *);
 extern int peer_password_unset(struct peer *);
 
 extern int peer_unsuppress_map_unset(struct peer *, afi_t, safi_t);
+
+extern int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
+				    const char *advertise_name,
+				    struct route_map *advertise_map,
+				    bool condition, const char *condition_name,
+				    struct route_map *condition_map);
 
 extern int peer_maximum_prefix_set(struct peer *, afi_t, safi_t, uint32_t,
 				   uint8_t, int, uint16_t, bool force);

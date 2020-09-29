@@ -454,6 +454,14 @@ struct bgp_aggregate {
 #define UNSUPPRESS_MAP_NAME(F)  ((F)->usmap.name)
 #define UNSUPPRESS_MAP(F)       ((F)->usmap.map)
 
+#define ADVERTISE_MAP_NAME(F)	((F)->advmap.aname)
+#define ADVERTISE_MAP(F)	((F)->advmap.amap)
+
+#define ADVERTISE_CONDITION(F)	((F)->advmap.condition)
+
+#define CONDITION_MAP_NAME(F)	((F)->advmap.cname)
+#define CONDITION_MAP(F)	((F)->advmap.cmap)
+
 /* path PREFIX (addpath rxid NUMBER) */
 #define PATH_ADDPATH_STR_BUFFER PREFIX2STR_BUFFER + 32
 
@@ -671,7 +679,8 @@ extern void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 extern bool subgroup_announce_check(struct bgp_dest *dest,
 				    struct bgp_path_info *pi,
 				    struct update_subgroup *subgrp,
-				    const struct prefix *p, struct attr *attr);
+				    const struct prefix *p, struct attr *attr,
+				    bool skip_rmap_check);
 
 extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
 extern void bgp_process_queues_drain_immediate(void);

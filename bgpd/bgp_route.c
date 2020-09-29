@@ -1671,7 +1671,8 @@ static void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 
 bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			     struct update_subgroup *subgrp,
-			     const struct prefix *p, struct attr *attr)
+			     const struct prefix *p, struct attr *attr,
+			     bool skip_rmap_check)
 {
 	struct bgp_filter *filter;
 	struct peer *from;
@@ -1986,7 +1987,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bgp_peer_as_override(bgp, afi, safi, peer, attr);
 
 	/* Route map & unsuppress-map apply. */
-	if (ROUTE_MAP_OUT_NAME(filter) || bgp_path_suppressed(pi)) {
+	if (!skip_rmap_check
+	    && (ROUTE_MAP_OUT_NAME(filter)
+		|| (pi->extra && pi->extra->suppress))) {
 		struct bgp_path_info rmap_path = {0};
 		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
 		struct attr dummy_attr = {0};
@@ -2484,7 +2487,8 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	/* Announcement to the subgroup.  If the route is filtered withdraw it.
 	 */
 	if (selected) {
-		if (subgroup_announce_check(dest, selected, subgrp, p, &attr))
+		if (subgroup_announce_check(dest, selected, subgrp, p, &attr,
+					    false))
 			bgp_adj_out_set_subgroup(dest, subgrp, &attr, selected);
 		else
 			bgp_adj_out_unset_subgroup(dest, subgrp, 1,

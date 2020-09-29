@@ -3695,6 +3695,18 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 	if (filter->usmap.name && (strcmp(rmap_name, filter->usmap.name) == 0))
 		filter->usmap.map = map;
 
+	if (filter->advmap.aname
+	    && (strcmp(rmap_name, filter->advmap.aname) == 0)) {
+		filter->advmap.amap = map;
+		peer->advmap_info[afi][safi].config_change = true;
+	}
+
+	if (filter->advmap.cname
+	    && (strcmp(rmap_name, filter->advmap.cname) == 0)) {
+		filter->advmap.cmap = map;
+		peer->advmap_info[afi][safi].config_change = true;
+	}
+
 	if (peer->default_rmap[afi][safi].name
 	    && (strcmp(rmap_name, peer->default_rmap[afi][safi].name) == 0))
 		peer->default_rmap[afi][safi].map = map;
