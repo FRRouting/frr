@@ -23,6 +23,8 @@
 ## 02111-1307, USA.  
 ##
 
+use Getopt::Long;
+
 print <<EOF;
 #include <zebra.h>
 
@@ -199,18 +201,31 @@ sub scan_file {
     }
 }
 
+my $have_isisd = 0;
+my $have_fabricd = 0;
+
+GetOptions('have-isisd' => \$have_isisd, 'have-fabricd' => \$have_fabricd);
+
 foreach (@ARGV) {
     if (/(^|\/)isisd\//) {
         # We scan all the IS-IS files twice, once for isisd,
         # once for fabricd. Exceptions are made for the files
         # that are not shared between the two.
         if (/isis_vty_isisd.c/) {
-            scan_file($_, 0);
+            if ( $have_isisd ) {
+                scan_file($_, 0);
+            }
         } elsif (/isis_vty_fabricd.c/) {
-            scan_file($_, 1);
+            if ( $have_fabricd ) {
+                scan_file($_, 1);
+            }
         } else {
-            scan_file($_, 0);
-            scan_file($_, 1);
+            if ( $have_isisd ) {
+                scan_file($_, 0);
+            }
+            if ( $have_fabricd ) {
+                scan_file($_, 1);
+            }
         }
     } else {
         scan_file($_, 0);

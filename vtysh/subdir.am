@@ -31,5 +31,17 @@ am__v_EXTRACT_ = $(am__v_EXTRACT_$(AM_DEFAULT_VERBOSITY))
 am__v_EXTRACT_0 = @echo "  EXTRACT " $@;
 am__v_EXTRACT_1 =
 
+if ISISD
+HAVE_ISISD = --have-isisd
+else
+HAVE_ISISD =
+endif
+
+if FABRICD
+HAVE_FABRICD = --have-fabricd
+else
+HAVE_FABRICD =
+endif
+
 vtysh/vtysh_cmd.c: vtysh/extract.pl $(vtysh_scan)
-	$(AM_V_EXTRACT) $^ > vtysh/vtysh_cmd.c
+	$(AM_V_EXTRACT) $^ $(HAVE_ISISD) $(HAVE_FABRICD) > vtysh/vtysh_cmd.c
