@@ -14,6 +14,8 @@ from bgprib import bgpribRequireVpnRoutes, bgpribRequireUnicastRoutes
 want = [
     {"p": "5.1.0.0/24", "n": "99.0.0.1"},
     {"p": "5.1.1.0/24", "n": "99.0.0.1"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.1"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.1"},
     {"p": "99.0.0.1/32", "n": "0.0.0.0"},
 ]
 bgpribRequireUnicastRoutes("ce1", "ipv4", "", "Cust 1 routes in ce1", want)
@@ -21,6 +23,8 @@ bgpribRequireUnicastRoutes("ce1", "ipv4", "", "Cust 1 routes in ce1", want)
 want = [
     {"p": "5.1.0.0/24", "n": "99.0.0.2"},
     {"p": "5.1.1.0/24", "n": "99.0.0.2"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.2"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.2"},
     {"p": "99.0.0.2/32", "n": "0.0.0.0"},
 ]
 bgpribRequireUnicastRoutes("ce2", "ipv4", "", "Cust 2 routes in ce1", want)
@@ -28,6 +32,8 @@ bgpribRequireUnicastRoutes("ce2", "ipv4", "", "Cust 2 routes in ce1", want)
 want = [
     {"p": "5.1.2.0/24", "n": "99.0.0.3"},
     {"p": "5.1.3.0/24", "n": "99.0.0.3"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.3"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.3"},
     {"p": "99.0.0.3/32", "n": "0.0.0.0"},
 ]
 bgpribRequireUnicastRoutes("ce3", "ipv4", "", "Cust 3 routes in ce1", want)
@@ -35,6 +41,8 @@ bgpribRequireUnicastRoutes("ce3", "ipv4", "", "Cust 3 routes in ce1", want)
 want = [
     {"p": "5.4.2.0/24", "n": "99.0.0.4"},
     {"p": "5.4.3.0/24", "n": "99.0.0.4"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.4"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.4"},
     {"p": "99.0.0.4/32", "n": "0.0.0.0"},
 ]
 bgpribRequireUnicastRoutes("ce4", "ipv4", "ce4-cust2", "Cust 4 routes in ce1", want)
@@ -49,6 +57,8 @@ bgpribRequireUnicastRoutes("ce4", "ipv4", "ce4-cust2", "Cust 4 routes in ce1", w
 want_r1_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "99.0.0.1"},
     {"p": "5.1.1.0/24", "n": "99.0.0.1"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.1"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.1"},
     {"p": "99.0.0.1/32", "n": "192.168.1.2"},
 ]
 bgpribRequireUnicastRoutes(
@@ -58,6 +68,8 @@ bgpribRequireUnicastRoutes(
 want_r3_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "99.0.0.2"},
     {"p": "5.1.1.0/24", "n": "99.0.0.2"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.2"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.2"},
     {"p": "99.0.0.2/32", "n": "192.168.1.2"},
 ]
 bgpribRequireUnicastRoutes(
@@ -67,6 +79,8 @@ bgpribRequireUnicastRoutes(
 want_r4_cust1_routes = [
     {"p": "5.1.2.0/24", "n": "99.0.0.3"},
     {"p": "5.1.3.0/24", "n": "99.0.0.3"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.3"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.3"},
     {"p": "99.0.0.3/32", "n": "192.168.1.2"},
 ]
 bgpribRequireUnicastRoutes(
@@ -76,6 +90,8 @@ bgpribRequireUnicastRoutes(
 want_r4_cust2_routes = [
     {"p": "5.4.2.0/24", "n": "99.0.0.4"},
     {"p": "5.4.3.0/24", "n": "99.0.0.4"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.4"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.4"},
     {"p": "99.0.0.4/32", "n": "192.168.2.2"},
 ]
 bgpribRequireUnicastRoutes(
@@ -152,23 +168,27 @@ else:
     luCommand(
         "r1",
         'vtysh -c "show bgp ipv4 vpn"',
-        r"Distinguisher:  *10:1.*5.1.0.0/24 *99.0.0.1\b.*5.1.1.0/24 *99.0.0.1\b.*99.0.0.1/32 *192.168.1.2\b",
+        r"Distinguisher:  *10:1.*5.1.0.0/24 *99.0.0.1\b.*5.1.1.0/24 *99.0.0.1\b.*6.0.1.0/24 *99.0.0.1\b.*6.0.2.0/24 *99.0.0.1\b.*99.0.0.1/32 *192.168.1.2\b",
         "pass",
         "vrf->vpn routes",
     )
     luCommand(
         "r3",
         'vtysh -c "show bgp ipv4 vpn"',
-        r"Distinguisher:  *10:3.*5.1.0.0/24 *99.0.0.2\b.*5.1.1.0/24 *99.0.0.2\b.*99.0.0.2/32 *192.168.1.2\b",
+        r"Distinguisher:  *10:3.*5.1.0.0/24 *99.0.0.2\b.*5.1.1.0/24 *99.0.0.2\b.*6.0.1.0/24 *99.0.0.2\b.*6.0.2.0/24 *99.0.0.2\b.*99.0.0.2/32 *192.168.1.2\b",
         "pass",
         "vrf->vpn routes",
     )
     want = [
         {"rd": "10:41", "p": "5.1.2.0/24", "n": "99.0.0.3"},
         {"rd": "10:41", "p": "5.1.3.0/24", "n": "99.0.0.3"},
+        {"rd": "10:41", "p": "6.0.1.0/24", "n": "99.0.0.3"},
+        {"rd": "10:41", "p": "6.0.2.0/24", "n": "99.0.0.3"},
         {"rd": "10:41", "p": "99.0.0.3/32", "n": "192.168.1.2"},
         {"rd": "10:42", "p": "5.4.2.0/24", "n": "99.0.0.4"},
         {"rd": "10:42", "p": "5.4.3.0/24", "n": "99.0.0.4"},
+        {"rd": "10:42", "p": "6.0.1.0/24", "n": "99.0.0.4"},
+        {"rd": "10:42", "p": "6.0.2.0/24", "n": "99.0.0.4"},
         {"rd": "10:42", "p": "99.0.0.4/32", "n": "192.168.2.2"},
     ]
     bgpribRequireVpnRoutes("r4", "vrf->vpn routes", want)
@@ -268,6 +288,8 @@ bgpribRequireVpnRoutes(
 want_r1_remote_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "3.3.3.3"},
     {"p": "5.1.1.0/24", "n": "3.3.3.3"},
+    {"p": "6.0.1.0/24", "n": "3.3.3.3"},
+    {"p": "6.0.2.0/24", "n": "3.3.3.3"},
     {"p": "99.0.0.2/32", "n": "3.3.3.3"},
     {"p": "5.1.2.0/24", "n": "4.4.4.4"},
     {"p": "5.1.3.0/24", "n": "4.4.4.4"},
@@ -275,24 +297,34 @@ want_r1_remote_cust1_routes = [
     {"p": "5.4.2.0/24", "n": "4.4.4.4"},
     {"p": "5.4.3.0/24", "n": "4.4.4.4"},
     {"p": "99.0.0.3/32", "n": "4.4.4.4"},
+    {"p": "6.0.1.0/24", "n": "4.4.4.4"},
+    {"p": "6.0.2.0/24", "n": "4.4.4.4"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.1"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.1"},
 ]
 bgpribRequireUnicastRoutes(
-    "r1", "ipv4", "r1-cust1", "Customer 1 routes in r1 vrf", want_r1_remote_cust1_routes
+    "r1", "ipv4", "r1-cust1", "Customer 1 routes in r1 vrf (2)", want_r1_remote_cust1_routes
 )
 
 want_r3_remote_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "1.1.1.1"},
     {"p": "5.1.1.0/24", "n": "1.1.1.1"},
     {"p": "99.0.0.1/32", "n": "1.1.1.1"},
+    {"p": "6.0.1.0/24", "n": "1.1.1.1"},
+    {"p": "6.0.2.0/24", "n": "1.1.1.1"},
     {"p": "5.1.2.0/24", "n": "4.4.4.4"},
     {"p": "5.1.3.0/24", "n": "4.4.4.4"},
     {"p": "99.0.0.3/32", "n": "4.4.4.4"},
     {"p": "5.4.2.0/24", "n": "4.4.4.4"},
     {"p": "5.4.3.0/24", "n": "4.4.4.4"},
     {"p": "99.0.0.3/32", "n": "4.4.4.4"},
+    {"p": "6.0.1.0/24", "n": "4.4.4.4"},
+    {"p": "6.0.2.0/24", "n": "4.4.4.4"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.2"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.2"},
 ]
 bgpribRequireUnicastRoutes(
-    "r3", "ipv4", "r3-cust1", "Customer 1 routes in r3 vrf", want_r3_remote_cust1_routes
+    "r3", "ipv4", "r3-cust1", "Customer 1 routes in r3 vrf (2)", want_r3_remote_cust1_routes
 )
 
 want_r4_remote_cust1_routes = [
@@ -300,11 +332,19 @@ want_r4_remote_cust1_routes = [
     {"p": "5.1.1.0/24", "n": "1.1.1.1"},
     {"p": "5.1.0.0/24", "n": "3.3.3.3"},
     {"p": "5.1.1.0/24", "n": "3.3.3.3"},
+    {"p": "6.0.1.0/24", "n": "1.1.1.1"},
+    {"p": "6.0.2.0/24", "n": "1.1.1.1"},
+    {"p": "6.0.1.0/24", "n": "3.3.3.3"},
+    {"p": "6.0.2.0/24", "n": "3.3.3.3"},
     {"p": "99.0.0.1/32", "n": "1.1.1.1"},
     {"p": "99.0.0.2/32", "n": "3.3.3.3"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.3"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.3"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.4"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.4"},
 ]
 bgpribRequireUnicastRoutes(
-    "r4", "ipv4", "r4-cust1", "Customer 1 routes in r4 vrf", want_r4_remote_cust1_routes
+    "r4", "ipv4", "r4-cust1", "Customer 1 routes in r4 vrf (2)", want_r4_remote_cust1_routes
 )
 
 want_r4_remote_cust2_routes = [
@@ -312,11 +352,19 @@ want_r4_remote_cust2_routes = [
     {"p": "5.1.1.0/24", "n": "1.1.1.1"},
     {"p": "5.1.0.0/24", "n": "3.3.3.3"},
     {"p": "5.1.1.0/24", "n": "3.3.3.3"},
+    {"p": "6.0.1.0/24", "n": "1.1.1.1"},
+    {"p": "6.0.1.0/24", "n": "3.3.3.3"},
+    {"p": "6.0.2.0/24", "n": "1.1.1.1"},
+    {"p": "6.0.2.0/24", "n": "3.3.3.3"},
     {"p": "99.0.0.1/32", "n": "1.1.1.1"},
     {"p": "99.0.0.2/32", "n": "3.3.3.3"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.3"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.3"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.4"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.4"},
 ]
 bgpribRequireUnicastRoutes(
-    "r4", "ipv4", "r4-cust2", "Customer 2 routes in r4 vrf", want_r4_remote_cust2_routes
+    "r4", "ipv4", "r4-cust2", "Customer 2 routes in r4 vrf (2)", want_r4_remote_cust2_routes
 )
 
 
@@ -330,7 +378,7 @@ bgpribRequireUnicastRoutes(
 luCommand(
     "ce1",
     'vtysh -c "show bgp ipv4 uni"',
-    "10 routes and 10",
+    "12 routes and 12",
     "wait",
     "Local and remote routes",
     10,
@@ -340,13 +388,15 @@ want = [
     {"p": "5.1.3.0/24", "n": "192.168.1.1"},
     {"p": "5.4.2.0/24", "n": "192.168.1.1"},
     {"p": "5.4.3.0/24", "n": "192.168.1.1"},
+    {"p": "6.0.1.0/24", "n": "99.0.0.1"},
+    {"p": "6.0.2.0/24", "n": "99.0.0.1"},
 ]
 bgpribRequireUnicastRoutes("ce1", "ipv4", "", "Cust 1 routes from remote", want)
 
 luCommand(
     "ce2",
     'vtysh -c "show bgp ipv4 uni"',
-    "10 routes and 12",
+    "12 routes and 16",
     "wait",
     "Local and remote routes",
     10,
@@ -358,6 +408,8 @@ want = [
     {"p": "5.1.3.0/24", "n": "192.168.1.1"},
     {"p": "5.4.2.0/24", "n": "192.168.1.1"},
     {"p": "5.4.3.0/24", "n": "192.168.1.1"},
+    {"p": "6.0.1.0/24", "n": "192.168.1.1"},
+    {"p": "6.0.2.0/24", "n": "192.168.1.1"},
 ]
 bgpribRequireUnicastRoutes("ce2", "ipv4", "", "Cust 1 routes from remote", want)
 
@@ -371,7 +423,7 @@ luCommand("r4", 'vtysh -c "show ip route vrf r4-cust2"')
 luCommand(
     "ce3",
     'vtysh -c "show bgp ipv4 uni"',
-    "10 routes and 10",
+    "12 routes and 14",
     "wait",
     "Local and remote routes",
     10,
@@ -382,13 +434,15 @@ want = [
     {"p": "5.1.1.0/24", "n": "192.168.1.1"},
     {"p": "5.4.2.0/24", "n": "192.168.1.1"},
     {"p": "5.4.3.0/24", "n": "192.168.1.1"},
+    {"p": "6.0.1.0/24", "n": "192.168.1.1"},
+    {"p": "6.0.2.0/24", "n": "192.168.1.1"},
 ]
 bgpribRequireUnicastRoutes("ce3", "ipv4", "", "Cust 1 routes from remote", want)
 
 luCommand(
     "ce4",
     'vtysh -c "show bgp vrf ce4-cust2 ipv4 uni"',
-    "10 routes and 10",
+    "12 routes and 14",
     "wait",
     "Local and remote routes",
     10,
@@ -398,6 +452,8 @@ want = [
     {"p": "5.1.1.0/24", "n": "192.168.2.1"},
     {"p": "5.1.2.0/24", "n": "192.168.2.1"},
     {"p": "5.1.3.0/24", "n": "192.168.2.1"},
+    {"p": "6.0.1.0/24", "n": "192.168.2.1"},
+    {"p": "6.0.2.0/24", "n": "192.168.2.1"},
 ]
 bgpribRequireUnicastRoutes(
     "ce4", "ipv4", "ce4-cust2", "Cust 2 routes from remote", want
