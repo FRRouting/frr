@@ -336,7 +336,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 
 		/* notify bgp fsm if nbr ip goes from invalid->valid */
 		if (!bnc->nexthop_num)
-			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED_UP);
 
 		bnc->flags |= BGP_NEXTHOP_VALID;
 		bnc->metric = nhr->metric;
@@ -411,10 +411,11 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		bnc->nexthop = nhlist_head;
 	} else {
 		bnc->flags &= ~BGP_NEXTHOP_VALID;
-		bnc->nexthop_num = nhr->nexthop_num;
-
 		/* notify bgp fsm if nbr ip goes from valid->invalid */
-		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+		if (bnc->nexthop_num)
+			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED_DOWN);
+
+		bnc->nexthop_num = nhr->nexthop_num;
 
 		bnc_nexthop_free(bnc);
 		bnc->nexthop = NULL;
@@ -508,7 +509,8 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
 			/* Clear relevant flags. */
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
-			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED_UP);
+			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED_DOWN);
 		}
 	}
 }
@@ -840,14 +842,23 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		else
 			peer->last_reset = PEER_DOWN_WAITING_NHT;
 
-		if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED)) {
+		if ((valid_nexthops
+		     && !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED_UP))
+		    || (!valid_nexthops
+			&& !CHECK_FLAG(bnc->flags,
+				       BGP_NEXTHOP_PEER_NOTIFIED_DOWN))) {
 			if (BGP_DEBUG(nht, NHT))
 				zlog_debug(
 					"%s: Updating peer (%s(%s)) status with NHT",
 					__func__, peer->host,
 					peer->bgp->name_pretty);
 			bgp_fsm_nht_update(peer, !!valid_nexthops);
-			SET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+			if (valid_nexthops)
+				SET_FLAG(bnc->flags,
+					 BGP_NEXTHOP_PEER_NOTIFIED_UP);
+			else
+				SET_FLAG(bnc->flags,
+					 BGP_NEXTHOP_PEER_NOTIFIED_DOWN);
 		}
 	}
 
