@@ -93,7 +93,7 @@ class Logger(object):
         """
         if log_level is None:
             log_level = self.log_level
-        if self.loggers.has_key(name):
+        if name in self.loggers:
             return self.loggers[name]
 
         nlogger = logging.Logger(name, level=log_level)

@@ -113,8 +113,8 @@ def setup_module(module):
         net['r%s' % i].loadConf('ospfd', '%s/r%s/ospfd.conf' % (thisDir, i))
         if net['r1'].checkRouterVersion('<', '4.0'):
             net['r%s' % i].loadConf('ospf6d', '%s/r%s/ospf6d.conf-pre-v4' % (thisDir, i))
-	else:
-	    net['r%s' % i].loadConf('ospf6d', '%s/r%s/ospf6d.conf' % (thisDir, i))
+        else:
+            net['r%s' % i].loadConf('ospf6d', '%s/r%s/ospf6d.conf' % (thisDir, i))
         net['r%s' % i].loadConf('isisd', '%s/r%s/isisd.conf' % (thisDir, i))
         net['r%s' % i].loadConf('bgpd', '%s/r%s/bgpd.conf' % (thisDir, i))
         if net['r%s' % i].daemon_available('ldpd'):
@@ -621,7 +621,7 @@ def test_ospfv2_interfaces():
             actual = net['r%s' % i].cmd('vtysh -c "show ip ospf interface" 2> /dev/null').rstrip()
             # Mask out Bandwidth portion. They may change..
             actual = re.sub(r"BW [0-9]+ Mbit", "BW XX Mbit", actual)
-	    actual = re.sub(r"ifindex [0-9]", "ifindex X", actual)
+            actual = re.sub(r"ifindex [0-9]", "ifindex X", actual)
 
             # Drop time in next due 
             actual = re.sub(r"Hello due in [0-9\.]+s", "Hello due in XX.XXXs", actual)
@@ -892,45 +892,45 @@ def test_bgp_ipv4():
     print("******************************************\n")
     diffresult = {}
     for i in range(1, 2):
-	success = 0
-	for refTableFile in (glob.glob(
-		'%s/r%s/show_bgp_ipv4*.ref' % (thisDir, i))):
-	    if os.path.isfile(refTableFile):
-		# Read expected result from file
-		expected = open(refTableFile).read().rstrip()
-		# Fix newlines (make them all the same)
-		expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
+        success = 0
+        for refTableFile in (glob.glob(
+                '%s/r%s/show_bgp_ipv4*.ref' % (thisDir, i))):
+            if os.path.isfile(refTableFile):
+                # Read expected result from file
+                expected = open(refTableFile).read().rstrip()
+                # Fix newlines (make them all the same)
+                expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
 
-		# Actual output from router
-		actual = net['r%s' % i].cmd('vtysh -c "show bgp ipv4" 2> /dev/null').rstrip()
-		# Remove summary line (changed recently)
-		actual = re.sub(r'Total number.*', '', actual)
-		actual = re.sub(r'Displayed.*', '', actual)
-		actual = actual.rstrip()
-		# Fix newlines (make them all the same)
-		actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
+                # Actual output from router
+                actual = net['r%s' % i].cmd('vtysh -c "show bgp ipv4" 2> /dev/null').rstrip()
+                # Remove summary line (changed recently)
+                actual = re.sub(r'Total number.*', '', actual)
+                actual = re.sub(r'Displayed.*', '', actual)
+                actual = actual.rstrip()
+                # Fix newlines (make them all the same)
+                actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
-		# Generate Diff
-		diff = topotest.get_textdiff(actual, expected,
-		    title1="actual SHOW BGP IPv4",
-		    title2="expected SHOW BGP IPv4")
+                # Generate Diff
+                diff = topotest.get_textdiff(actual, expected,
+                    title1="actual SHOW BGP IPv4",
+                    title2="expected SHOW BGP IPv4")
 
-		# Empty string if it matches, otherwise diff contains unified diff
-		if diff:
-		    diffresult[refTableFile] = diff
-		else:
-		    success = 1
-		    print("template %s matched: r%s ok" % (refTableFile, i))
-		    break
+                # Empty string if it matches, otherwise diff contains unified diff
+                if diff:
+                    diffresult[refTableFile] = diff
+                else:
+                    success = 1
+                    print("template %s matched: r%s ok" % (refTableFile, i))
+                    break
 
-	if not success:
-	    resultstr = 'No template matched.\n'
-	    for f in diffresult.iterkeys():
-		resultstr += (
-		    'template %s: r%s failed SHOW BGP IPv4 check:\n%s\n'
-		    % (f, i, diffresult[f]))
-	    raise AssertionError(
-		"SHOW BGP IPv4 failed for router r%s:\n%s" % (i, resultstr))
+        if not success:
+            resultstr = 'No template matched.\n'
+            for f in diffresult.iterkeys():
+                resultstr += (
+                    'template %s: r%s failed SHOW BGP IPv4 check:\n%s\n'
+                    % (f, i, diffresult[f]))
+            raise AssertionError(
+                "SHOW BGP IPv4 failed for router r%s:\n%s" % (i, resultstr))
 
     # Make sure that all daemons are running
     for i in range(1, 2):
@@ -955,44 +955,44 @@ def test_bgp_ipv6():
     print("******************************************\n")
     diffresult = {}
     for i in range(1, 2):
-	success = 0
-	for refTableFile in (glob.glob(
-		'%s/r%s/show_bgp_ipv6*.ref' % (thisDir, i))):
-	    if os.path.isfile(refTableFile):
-		# Read expected result from file
-		expected = open(refTableFile).read().rstrip()
-		# Fix newlines (make them all the same)
-		expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
+        success = 0
+        for refTableFile in (glob.glob(
+                '%s/r%s/show_bgp_ipv6*.ref' % (thisDir, i))):
+            if os.path.isfile(refTableFile):
+                # Read expected result from file
+                expected = open(refTableFile).read().rstrip()
+                # Fix newlines (make them all the same)
+                expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
 
-		# Actual output from router
-		actual = net['r%s' % i].cmd('vtysh -c "show bgp ipv6" 2> /dev/null').rstrip()
-		# Remove summary line (changed recently)
-		actual = re.sub(r'Total number.*', '', actual)
-		actual = re.sub(r'Displayed.*', '', actual)
-		actual = actual.rstrip()
-		# Fix newlines (make them all the same)
-		actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
+                # Actual output from router
+                actual = net['r%s' % i].cmd('vtysh -c "show bgp ipv6" 2> /dev/null').rstrip()
+                # Remove summary line (changed recently)
+                actual = re.sub(r'Total number.*', '', actual)
+                actual = re.sub(r'Displayed.*', '', actual)
+                actual = actual.rstrip()
+                # Fix newlines (make them all the same)
+                actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
-		# Generate Diff
-		diff = topotest.get_textdiff(actual, expected,
-		    title1="actual SHOW BGP IPv6",
-		    title2="expected SHOW BGP IPv6")
+                # Generate Diff
+                diff = topotest.get_textdiff(actual, expected,
+                    title1="actual SHOW BGP IPv6",
+                    title2="expected SHOW BGP IPv6")
 
-		# Empty string if it matches, otherwise diff contains unified diff
-		if diff:
-		    diffresult[refTableFile] = diff
-		else:
-		    success = 1
-		    print("template %s matched: r%s ok" % (refTableFile, i))
+                # Empty string if it matches, otherwise diff contains unified diff
+                if diff:
+                    diffresult[refTableFile] = diff
+                else:
+                    success = 1
+                    print("template %s matched: r%s ok" % (refTableFile, i))
 
-	if not success:
-	    resultstr = 'No template matched.\n'
-	    for f in diffresult.iterkeys():
-		resultstr += (
-		    'template %s: r%s failed SHOW BGP IPv6 check:\n%s\n'
-		    % (f, i, diffresult[f]))
-	    raise AssertionError(
-		"SHOW BGP IPv6 failed for router r%s:\n%s" % (i, resultstr))
+        if not success:
+            resultstr = 'No template matched.\n'
+            for f in diffresult.iterkeys():
+                resultstr += (
+                    'template %s: r%s failed SHOW BGP IPv6 check:\n%s\n'
+                    % (f, i, diffresult[f]))
+            raise AssertionError(
+                "SHOW BGP IPv6 failed for router r%s:\n%s" % (i, resultstr))
 
     # Make sure that all daemons are running
     for i in range(1, 2):

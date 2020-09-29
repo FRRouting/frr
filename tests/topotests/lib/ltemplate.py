@@ -157,8 +157,8 @@ def ltemplateTest(script, SkipIfFailed=True, CallOnFail=None, CheckFuncStr=None,
     if SkipIfFailed and tgen.routers_have_failure():
         pytest.skip(tgen.errors)
     if numEntry > 0:
-	if not KeepGoing:
-	    pytest.skip("Have %d errors" % numEntry)
+        if not KeepGoing:
+            pytest.skip("Have %d errors" % numEntry)
 
     if CheckFuncStr != None:
         check = eval(CheckFuncStr)
@@ -172,8 +172,8 @@ def ltemplateTest(script, SkipIfFailed=True, CallOnFail=None, CheckFuncStr=None,
     if numFail > 0:
         luShowFail()
         fatal_error = "%d tests failed" % numFail
-	if not KeepGoing:
-	    assert "scripts/cleanup_all.py failed" == "See summary output above", fatal_error
+        if not KeepGoing:
+            assert "scripts/cleanup_all.py failed" == "See summary output above", fatal_error
 
 # Memory leak test template
 def test_memory_leak():

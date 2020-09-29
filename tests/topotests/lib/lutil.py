@@ -204,17 +204,17 @@ Total %-4d                                                           %-4d %d\n\
                     self.log('WARNING: JSON load failed -- confirm command output is in JSON format.')
         self.log('COMMAND OUTPUT:%s:' % report)
 
-	# Experiment: can we achieve the same match behavior via DOTALL
-	# without converting newlines to spaces?
-	out_nl = out
-	search_nl = re.search(regexp, out_nl, re.DOTALL);
-	self.l_last_nl = search_nl
-	# Set up for comparison
-	if search_nl != None:
-	    group_nl = search_nl.group()
-	    group_nl_converted = " ".join(group_nl.splitlines())
+        # Experiment: can we achieve the same match behavior via DOTALL
+        # without converting newlines to spaces?
+        out_nl = out
+        search_nl = re.search(regexp, out_nl, re.DOTALL);
+        self.l_last_nl = search_nl
+        # Set up for comparison
+        if search_nl != None:
+            group_nl = search_nl.group()
+            group_nl_converted = " ".join(group_nl.splitlines())
         else:
-	    group_nl_converted = None
+            group_nl_converted = None
 
         out = " ".join(out.splitlines())
         search = re.search(regexp, out)
@@ -234,9 +234,9 @@ Total %-4d                                                           %-4d %d\n\
                 success = False
                 level = 5
             self.log('found:%s:' % ret, level)
-	    # Experiment: compare matched strings obtained each way
-	    if self.l_dotall_experiment and (group_nl_converted != ret):
-		self.log('DOTALL experiment: strings differ dotall=[%s] orig=[%s]' % (group_nl_converted, ret), 9)
+            # Experiment: compare matched strings obtained each way
+            if self.l_dotall_experiment and (group_nl_converted != ret):
+                self.log('DOTALL experiment: strings differ dotall=[%s] orig=[%s]' % (group_nl_converted, ret), 9)
         if op == 'pass' or op == 'fail':
             self.result(target, success, result)
         if js != None:
@@ -297,13 +297,13 @@ def luCommand(target, command, regexp='.', op='none', result='', time=10, return
 
 def luLast(usenl=False):
     if usenl:
-	if LUtil.l_last_nl != None:
-	    LUtil.log('luLast:%s:' %  LUtil.l_last_nl.group(), 7)
-	return LUtil.l_last_nl
+        if LUtil.l_last_nl != None:
+            LUtil.log('luLast:%s:' %  LUtil.l_last_nl.group(), 7)
+        return LUtil.l_last_nl
     else:
-	if LUtil.l_last != None:
-	    LUtil.log('luLast:%s:' %  LUtil.l_last.group(), 7)
-	return LUtil.l_last
+        if LUtil.l_last != None:
+            LUtil.log('luLast:%s:' %  LUtil.l_last.group(), 7)
+        return LUtil.l_last
 
 def luInclude(filename, CallOnFail=None):
     tstFile = LUtil.base_script_dir + '/' + filename

@@ -252,7 +252,7 @@ def ip_eigrp_topo(node):
         if code not in ["P", "A", "U", "Q", "R", "r", "s"]:
             continue
 
-        if not result.has_key(code):
+        if code not in result:
             result[code] = {}
 
         # Split network from the rest

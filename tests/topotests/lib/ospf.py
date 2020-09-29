@@ -23,7 +23,7 @@ import traceback
 from time import sleep
 from lib.topolog import logger
 import ipaddr
-
+from lib.topotest import frr_unicode
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (create_common_configuration,
@@ -516,7 +516,7 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
     logger.debug("Entering lib API: verify_ospf_neighbor()")
     result = False
     if input_dict:
-        for router, rnode in tgen.routers().iteritems():
+        for router, rnode in tgen.routers().items():
             if 'ospf' not in topo['routers'][router]:
                 continue
 
@@ -584,7 +584,7 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
                         return errormsg
                 continue
     else:
-        for router, rnode in tgen.routers().iteritems():
+        for router, rnode in tgen.routers().items():
             if 'ospf' not in topo['routers'][router]:
                 continue
 
@@ -694,7 +694,7 @@ def verify_ospf_rib(tgen, dut, input_dict, next_hop=None,
     additional_nexthops_in_required_nhs = []
     found_hops = []
     for routerInput in input_dict.keys():
-        for router, rnode in router_list.iteritems():
+        for router, rnode in router_list.items():
             if router != dut:
                 continue
 
@@ -739,7 +739,7 @@ def verify_ospf_rib(tgen, dut, input_dict, next_hop=None,
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
+                        st_rt = str(ipaddr.IPNetwork(frr_unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != 'ipv4':
@@ -927,7 +927,7 @@ def verify_ospf_interface(tgen, topo, dut=None,lan=False, input_dict=None):
 
     logger.debug("Entering lib API: verify_ospf_interface()")
     result = False
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if 'ospf' not in topo['routers'][router]:
             continue
 

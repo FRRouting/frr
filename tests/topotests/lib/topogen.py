@@ -40,6 +40,7 @@ Basic usage instructions:
 
 import os
 import sys
+import io
 import logging
 import json
 
@@ -97,7 +98,7 @@ tgen_defaults = {
     "verbosity": "info",
     "frrdir": "/usr/lib/frr",
     "routertype": "frr",
-    "memleak_path": None,
+    "memleak_path": "",
 }
 
 
@@ -182,7 +183,7 @@ class Topogen(object):
 
         params["frrdir"] = self.config.get(self.CONFIG_SECTION, "frrdir")
         params["memleak_path"] = self.config.get(self.CONFIG_SECTION, "memleak_path")
-        if not params.has_key("routertype"):
+        if "routertype" not in params:
             params["routertype"] = self.config.get(self.CONFIG_SECTION, "routertype")
 
         self.gears[name] = TopoRouter(self, cls, name, **params)
@@ -360,7 +361,7 @@ class Topogen(object):
         memleak_file = os.environ.get("TOPOTESTS_CHECK_MEMLEAK") or self.config.get(
             self.CONFIG_SECTION, "memleak_path"
         )
-        if memleak_file is None:
+        if memleak_file == "" or memleak_file == None:
             return False
         return True
 
@@ -586,7 +587,7 @@ class TopoRouter(TopoGear):
         self.cls = cls
         self.options = {}
         self.routertype = params.get("routertype", "frr")
-        if not params.has_key("privateDirs"):
+        if "privateDirs" not in params:
             params["privateDirs"] = self.PRIVATE_DIRS
 
         self.options["memleak_path"] = params.get("memleak_path", None)
@@ -822,7 +823,7 @@ class TopoRouter(TopoGear):
         memleak_file = (
             os.environ.get("TOPOTESTS_CHECK_MEMLEAK") or self.options["memleak_path"]
         )
-        if memleak_file is None:
+        if memleak_file == "" or memleak_file == None:
             return
 
         self.stop()
@@ -1011,7 +1012,7 @@ def diagnose_env_linux():
     logger.info("Running environment diagnostics")
 
     # Load configuration
-    config = configparser.ConfigParser(tgen_defaults)
+    config = configparser.ConfigParser(defaults=tgen_defaults)
     pytestini_path = os.path.join(CWD, "../pytest.ini")
     config.read(pytestini_path)
 
@@ -1106,10 +1107,10 @@ def diagnose_env_linux():
 
     # TODO remove me when we start supporting exabgp >= 4
     try:
-        output = subprocess.check_output(["exabgp", "-v"])
-        line = output.split("\n")[0]
-        version = line.split(" ")[2]
-        if topotest.version_cmp(version, "4") >= 0:
+        p = os.popen("exabgp -v")
+        line = p.readlines()
+        version = line[0].split()
+        if topotest.version_cmp(version[2], "4") >= 0:
             logger.warning(
                 "BGP topologies are still using exabgp version 3, expect failures"
             )

@@ -28,6 +28,7 @@ from lib import topotest
 from lib.topolog import logger
 
 from lib.topogen import TopoRouter, get_topogen
+from lib.topotest import frr_unicode
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
@@ -393,7 +394,7 @@ def __create_bgp_unicast_neighbor(
             # Generating IPs for verification
             network_list = generate_ips(network, no_of_network)
             for ip in network_list:
-                ip = str(ipaddress.ip_network(unicode(ip)))
+                ip = str(ipaddress.ip_network(frr_unicode(ip)))
 
                 cmd = "network {}".format(ip)
                 if del_action:
@@ -1037,7 +1038,7 @@ def verify_router_id(tgen, topo, input_dict):
         logger.info("Checking router %s router-id", router)
         show_bgp_json = run_frr_cmd(rnode, "show bgp summary json", isjson=True)
         router_id_out = show_bgp_json["ipv4Unicast"]["routerId"]
-        router_id_out = ipaddress.IPv4Address(unicode(router_id_out))
+        router_id_out = ipaddress.IPv4Address(frr_unicode(router_id_out))
 
         # Once router-id is deleted, highest interface ip should become
         # router-id
@@ -1045,7 +1046,7 @@ def verify_router_id(tgen, topo, input_dict):
             router_id = find_interface_with_greater_ip(topo, router)
         else:
             router_id = input_dict[router]["bgp"]["router_id"]
-        router_id = ipaddress.IPv4Address(unicode(router_id))
+        router_id = ipaddress.IPv4Address(frr_unicode(router_id))
 
         if router_id == router_id_out:
             logger.info("Found expected router-id %s for router %s", router_id, router)
@@ -2286,7 +2287,7 @@ def verify_best_path_as_per_bgp_attribute(
 
             routes = generate_ips(_network, no_of_ip)
             for route in routes:
-                route = str(ipaddress.ip_network(unicode(route)))
+                route = str(ipaddress.ip_network(frr_unicode(route)))
 
                 if route in sh_ip_bgp_json["routes"]:
                     route_attributes = sh_ip_bgp_json["routes"][route]
@@ -2604,7 +2605,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
                     ip_list = generate_ips(network, no_of_ip)
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -2742,7 +2743,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
                     ip_list = generate_ips(network, no_of_network)
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:

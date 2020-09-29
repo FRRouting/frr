@@ -31,16 +31,14 @@ from re import search as re_search
 from tempfile import mkdtemp
 
 import os
+import io
 import sys
-import ConfigParser
 import traceback
 import socket
 import ipaddress
 import platform
 
-
 if sys.version_info[0] > 2:
-    import io
     import configparser
 else:
     import StringIO
@@ -48,7 +46,7 @@ else:
 
 from lib.topolog import logger, logger_config
 from lib.topogen import TopoRouter, get_topogen
-from lib.topotest import interface_set_status, version_cmp
+from lib.topotest import interface_set_status, version_cmp, frr_unicode
 
 FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
@@ -638,7 +636,7 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
                 ll_per_if_count = 0
 
             # Interface ip
-            m1 = re_search("inet6 (fe80[:a-fA-F0-9]+[\/0-9]+)", line)
+            m1 = re_search("inet6 (fe80[:a-fA-F0-9]+[/0-9]+)", line)
             if m1:
                 local = m1.group(1)
                 ll_per_if_count += 1
@@ -700,18 +698,20 @@ def start_topology(tgen, daemon=None):
 
     router_list = tgen.routers()
     ROUTER_LIST = sorted(
-        router_list.keys(), key=lambda x: int(re_search("\d+", x).group(0))
+        router_list.keys(), key=lambda x: int(re_search("[0-9]+", x).group(0))
     )
     TMPDIR = os.path.join(LOGDIR, tgen.modname)
 
+    linux_ver = ''
     router_list = tgen.routers()
     for rname in ROUTER_LIST:
         router = router_list[rname]
 
         # It will help in debugging the failures, will give more details on which
         # specific kernel version tests are failing
-        linux_ver = router.run("uname -a")
-        logger.info("Logging platform related details: \n %s \n", linux_ver)
+        if linux_ver == '':
+            linux_ver = router.run("uname -a")
+            logger.info("Logging platform related details: \n %s \n", linux_ver)
 
         try:
             os.chdir(TMPDIR)
@@ -827,7 +827,7 @@ def topo_daemons(tgen, topo):
 
     router_list = tgen.routers()
     ROUTER_LIST = sorted(
-        router_list.keys(), key=lambda x: int(re_search("\d+", x).group(0))
+        router_list.keys(), key=lambda x: int(re_search("[0-9]+", x).group(0))
     )
 
     for rtr in ROUTER_LIST:
@@ -1152,10 +1152,10 @@ def generate_ips(network, no_of_ips):
 
         addr_type = validate_ip_address(start_ip)
         if addr_type == "ipv4":
-            start_ip = ipaddress.IPv4Address(unicode(start_ip))
+            start_ip = ipaddress.IPv4Address(frr_unicode(start_ip))
             step = 2 ** (32 - mask)
         if addr_type == "ipv6":
-            start_ip = ipaddress.IPv6Address(unicode(start_ip))
+            start_ip = ipaddress.IPv6Address(frr_unicode(start_ip))
             step = 2 ** (128 - mask)
 
         next_ip = start_ip
@@ -2667,7 +2667,7 @@ def verify_rib(
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -2863,7 +2863,7 @@ def verify_rib(
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -3012,7 +3012,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
                         #st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
@@ -3119,7 +3119,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
 
                 for st_rt in ip_list:
                     #st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
-                    st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -3268,7 +3268,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -3373,7 +3373,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:

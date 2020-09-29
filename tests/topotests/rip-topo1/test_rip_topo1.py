@@ -91,11 +91,11 @@ class NetworkTopo(Topo):
         switch[4] = self.addSwitch("sw4", cls=topotest.LegacySwitch)
         self.addLink(switch[4], router[3], intfName2="r3-eth0")
 
-	switch[5] = self.addSwitch("sw5", cls=topotest.LegacySwitch)
-	self.addLink(switch[5], router[1], intfName2="r1-eth2")
+        switch[5] = self.addSwitch("sw5", cls=topotest.LegacySwitch)
+        self.addLink(switch[5], router[1], intfName2="r1-eth2")
 
-	switch[6] = self.addSwitch("sw6", cls=topotest.LegacySwitch)
-	self.addLink(switch[6], router[1], intfName2="r1-eth3")
+        switch[6] = self.addSwitch("sw6", cls=topotest.LegacySwitch)
+        self.addLink(switch[6], router[1], intfName2="r1-eth3")
 
 
 #####################################################
