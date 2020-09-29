@@ -1807,6 +1807,12 @@ extern int bgp_option_set(int);
 extern int bgp_option_unset(int);
 extern int bgp_option_check(int);
 
+/* set the bgp no-rib option during runtime and remove installed routes */
+extern void bgp_option_norib_set_runtime(void);
+
+/* unset the bgp no-rib option during runtime and reset all peers */
+extern void bgp_option_norib_unset_runtime(void);
+
 extern int bgp_get(struct bgp **, as_t *, const char *, enum bgp_instance_type);
 extern void bgp_instance_up(struct bgp *);
 extern void bgp_instance_down(struct bgp *);

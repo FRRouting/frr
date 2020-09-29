@@ -202,6 +202,52 @@ int bgp_option_check(int flag)
 	return CHECK_FLAG(bm->options, flag);
 }
 
+/* set the bgp no-rib option during runtime and remove installed routes */
+void bgp_option_norib_set_runtime(void)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	afi_t afi;
+	safi_t safi;
+
+	if (bgp_option_check(BGP_OPT_NO_FIB))
+		return;
+
+	bgp_option_set(BGP_OPT_NO_FIB);
+
+	zlog_info("Disabled BGP route installation to RIB (Zebra)");
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		FOREACH_AFI_SAFI(afi, safi)
+			bgp_zebra_withdraw_table_all_subtypes(bgp, afi, safi);
+	}
+
+	zlog_info("All routes have been withdrawn from RIB (Zebra)");
+}
+
+/* unset the bgp no-rib option during runtime and announce routes to Zebra */
+void bgp_option_norib_unset_runtime(void)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	afi_t afi;
+	safi_t safi;
+
+	if (!bgp_option_check(BGP_OPT_NO_FIB))
+		return;
+
+	bgp_option_unset(BGP_OPT_NO_FIB);
+
+	zlog_info("Enabled BGP route installation to RIB (Zebra)");
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		FOREACH_AFI_SAFI(afi, safi)
+			bgp_zebra_announce_table_all_subtypes(bgp, afi, safi);
+	}
+
+	zlog_info("All routes have been installed in RIB (Zebra)");
+}
+
 /* Internal function to set BGP structure configureation flag.  */
 static void bgp_config_set(struct bgp *bgp, int config)
 {

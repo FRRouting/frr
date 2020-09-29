@@ -42,6 +42,13 @@ be specified (:ref:`common-invocation-options`).
    processes in the same namespace.  This option is different than the --no_zebra
    option in that a ZAPI connection is made.
 
+   This option can also be toggled during runtime by using the
+   ``[no] bgp no-rib`` commands in VTY shell.
+
+   Note that this option will persist after saving the configuration during
+   runtime, unless unset by the ``no bgp no-rib`` command in VTY shell prior to
+   a configuration write operation.
+
 .. option:: -S, --skip_runas
 
    Skip the normal process of checking capabilities and changing user and group
@@ -3071,6 +3078,21 @@ by route reflectors to avoid looping.
 
 .. index:: bgp cluster-id A.B.C.D
 .. clicmd:: bgp cluster-id A.B.C.D
+
+.. index:: [no] bgp no-rib
+.. clicmd:: [no] bgp no-rib
+
+To set and unset the BGP daemon ``-n`` / ``--no_kernel`` options during runtime
+to disable BGP route installation to the RIB (Zebra), the ``[no] bgp no-rib``
+commands can be used;
+
+Please note that setting the option during runtime will withdraw all routes in
+the daemons RIB from Zebra and unsetting it will announce all routes in the
+daemons RIB to Zebra. If the option is passed as a command line argument when
+starting the daemon and the configuration gets saved, the option will persist
+unless removed from the configuration with the negating command prior to the
+configuration write operation.
+
 
 .. _routing-policy:
 
