@@ -396,13 +396,13 @@ struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf)
 
 struct interface *if_lookup_by_name_all_vrf(const char *name)
 {
-	struct vrf *vrf;
+	struct vrf *vrf, *vrf_next;
 	struct interface *ifp;
 
 	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
 		return NULL;
 
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+	RB_FOREACH_SAFE (vrf, vrf_id_head, &vrfs_by_id, vrf_next) {
 		ifp = if_lookup_by_name(name, vrf->vrf_id);
 		if (ifp)
 			return ifp;
@@ -413,13 +413,13 @@ struct interface *if_lookup_by_name_all_vrf(const char *name)
 
 struct interface *if_lookup_by_index_all_vrf(ifindex_t ifindex)
 {
-	struct vrf *vrf;
+	struct vrf *vrf, *vrf_next;
 	struct interface *ifp;
 
 	if (ifindex == IFINDEX_INTERNAL)
 		return NULL;
 
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+	RB_FOREACH_SAFE (vrf, vrf_id_head, &vrfs_by_id, vrf_next) {
 		ifp = if_lookup_by_ifindex(ifindex, vrf->vrf_id);
 		if (ifp)
 			return ifp;
