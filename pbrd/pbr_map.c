@@ -721,12 +721,23 @@ void pbr_map_policy_delete(struct pbr_map *pbrm, struct pbr_map_interface *pmi)
 {
 	struct listnode *node;
 	struct pbr_map_sequence *pbrms;
+	bool sent = false;
 
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
-		pbr_send_pbr_map(pbrms, pmi, false, false);
+		if (pbr_send_pbr_map(pbrms, pmi, false, true))
+			sent = true; /* rule removal sent to zebra */
 
 	pmi->delete = true;
+
+	/*
+	 * If we actually sent something for deletion, wait on zapi callback
+	 * before clearing data.
+	 */
+	if (sent)
+		return;
+
+	pbr_map_final_interface_deletion(pbrm, pmi);
 }
 
 /*
