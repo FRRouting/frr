@@ -889,6 +889,15 @@ enum node_type node_parent(enum node_type node)
 	case PCEP_PCC_NODE:
 		ret = PCEP_NODE;
 		break;
+	case SRV6_NODE:
+		ret = SEGMENT_ROUTING_NODE;
+		break;
+	case SRV6_LOCS_NODE:
+		ret = SRV6_NODE;
+		break;
+	case SRV6_LOC_NODE:
+		ret = SRV6_LOCS_NODE;
+		break;
 	default:
 		ret = CONFIG_NODE;
 		break;
