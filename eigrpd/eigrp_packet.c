@@ -162,7 +162,7 @@ int eigrp_make_md5_digest(struct eigrp_interface *ei, struct stream *s,
 
 int eigrp_check_md5_digest(struct stream *s,
 			   struct TLV_MD5_Authentication_Type *authTLV,
-			   struct eigrp_neighbor *nbr, uint8_t flags)
+			   struct eigrp_neighbor *nbr, struct eigrp_header *eigrph , uint8_t flags)
 {
 	MD5_CTX ctx;
 	unsigned char digest[EIGRP_AUTH_TYPE_MD5_LEN];
@@ -172,7 +172,7 @@ int eigrp_check_md5_digest(struct stream *s,
 	uint8_t *ibuf;
 	size_t backup_end;
 	struct TLV_MD5_Authentication_Type *auth_TLV;
-	struct eigrp_header *eigrph;
+	//struct eigrp_header *eigrph;
 
 	if (ntohl(nbr->crypt_seqnum) > ntohl(authTLV->key_sequence)) {
 		zlog_warn(
@@ -182,16 +182,15 @@ int eigrp_check_md5_digest(struct stream *s,
 		return 0;
 	}
 
-	eigrph = (struct eigrp_header *)s->data;
+	//eigrph = (struct eigrp_header *)s->data;
 	eigrph->checksum = 0;
 
-	auth_TLV = (struct TLV_MD5_Authentication_Type *)(s->data
-							  + EIGRP_HEADER_LEN);
+	auth_TLV = (struct TLV_MD5_Authentication_Type*)eigrph->tlv;
 	memcpy(orig, auth_TLV->digest, EIGRP_AUTH_TYPE_MD5_LEN);
 	memset(digest, 0, EIGRP_AUTH_TYPE_MD5_LEN);
 	memset(auth_TLV->digest, 0, EIGRP_AUTH_TYPE_MD5_LEN);
 
-	ibuf = s->data;
+	ibuf = eigrph;
 	backup_end = s->endp;
 
 	keychain = keychain_lookup(nbr->ei->params.auth_keychain);

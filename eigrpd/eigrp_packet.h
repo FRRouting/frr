@@ -146,7 +146,7 @@ extern int eigrp_make_md5_digest(struct eigrp_interface *, struct stream *,
 				 uint8_t);
 extern int eigrp_check_md5_digest(struct stream *,
 				  struct TLV_MD5_Authentication_Type *,
-				  struct eigrp_neighbor *, uint8_t);
+				  struct eigrp_neighbor *,struct eigrp_header *, uint8_t);
 extern int eigrp_make_sha256_digest(struct eigrp_interface *, struct stream *,
 				    uint8_t);
 extern int eigrp_check_sha256_digest(struct stream *,
