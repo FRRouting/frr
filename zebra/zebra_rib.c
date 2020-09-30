@@ -898,11 +898,22 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 						zebra_route_string(new->type));
 			}
 
-			/* If labeled-unicast route, uninstall transit LSP. */
-			if (zebra_rib_labeled_unicast(old))
-				zebra_mpls_lsp_uninstall(zvrf, rn, old);
+			/*
+			 * When we have gotten to this point
+			 * the new route entry has no nexthops
+			 * that are usable and as such we need
+			 * to remove the old route, but only
+			 * if we were the one who installed
+			 * the old route
+			 */
+			if (!RIB_SYSTEM_ROUTE(old)) {
+				/* If labeled-unicast route, uninstall transit
+				 * LSP. */
+				if (zebra_rib_labeled_unicast(old))
+					zebra_mpls_lsp_uninstall(zvrf, rn, old);
 
-			rib_uninstall_kernel(rn, old);
+				rib_uninstall_kernel(rn, old);
+			}
 		}
 	} else {
 		/*
