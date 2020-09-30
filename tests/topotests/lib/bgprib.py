@@ -18,8 +18,8 @@
 
 #
 # want_rd_routes = [
-#     {'rd':'10:1', 'p':'5.1.0.0/24', 'n':'1.1.1.1'},
-#     {'rd':'10:1', 'p':'5.1.0.0/24', 'n':'1.1.1.1'},
+#     {'rd':'10:1', 'p':'5.1.0.0/24', 'n':'1.1.1.1', 'bp': True},
+#     {'rd':'10:1', 'p':'5.1.0.0/24', 'n':'1.1.1.1', 'bp': False},
 #
 #     {'rd':'10:3', 'p':'5.1.0.0/24', 'n':'3.3.3.3'},
 # ]
@@ -34,39 +34,47 @@
 # ribRequireUnicastRoutes('r1','ipv4','','Customer routes in default',want_unicast_routes)
 #
 
-from lutil import luCommand, luResult
+from lutil import luCommand, luResult, LUtil
 import json
 import re
 
 # gpz: get rib in json form and compare against desired routes
 class BgpRib:
+
+    def log(self, str):
+        LUtil.log ("BgpRib: "+ str)
+
     def routes_include_wanted(self, pfxtbl, want, debug):
         # helper function to RequireVpnRoutes
         for pfx in pfxtbl.iterkeys():
             if debug:
-                print "trying pfx " + pfx
+                self.log("trying pfx %s" % pfx)
             if pfx != want["p"]:
                 if debug:
-                    print "want pfx=" + want["p"] + ", not " + pfx
+                    self.log("want pfx=" + want["p"] + ", not " + pfx)
                 continue
             if debug:
-                print "have pfx=" + pfx
+                self.log("have pfx=%s" % pfx)
             for r in pfxtbl[pfx]:
+                bp = r.get("bestpath", False)
                 if debug:
-                    print "trying route"
+                    self.log("trying route %s bp=%s" % (r, bp))
                 nexthops = r["nexthops"]
                 for nh in nexthops:
                     if debug:
-                        print "trying nh " + nh["ip"]
+                        self.log("trying nh %s" % nh["ip"])
                     if nh["ip"] == want["n"]:
                         if debug:
-                            print "found " + want["n"]
-                        return 1
+                            self.log("found %s" % want["n"])
+                        if bp == want.get("bp", bp):
+                            return 1
+                        elif debug:
+                            self.log("bestpath mismatch %s != %s" % (bp, want["bp"]))
                     else:
                         if debug:
-                            print "want nh=" + want["n"] + ", not " + nh["ip"]
+                            self.log("want nh=" + want["n"] + ", not " + nh["ip"])
             if debug:
-                print "missing route: pfx=" + want["p"] + ", nh=" + want["n"]
+                self.log("missing route: pfx=" + want["p"] + ", nh=" + want["n"])
             return 0
 
     def RequireVpnRoutes(self, target, title, wantroutes, debug=0):
@@ -99,12 +107,12 @@ class BgpRib:
         for want in wantroutes:
             found = 0
             if debug:
-                print "want rd " + want["rd"]
+                self.log("want rd %s" % want["rd"])
             for rd in rds.iterkeys():
                 if rd != want["rd"]:
                     continue
                 if debug:
-                    print "found rd " + rd
+                    self.log("found rd %s" % rd)
                 table = rds[rd]
                 if self.routes_include_wanted(table, want, debug):
                     found = 1
@@ -115,13 +123,13 @@ class BgpRib:
         luResult(target, True, title, logstr)
 
     def RequireUnicastRoutes(self, target, afi, vrf, title, wantroutes, debug=0):
-        logstr = "RequireVpnRoutes " + str(wantroutes)
+        logstr = "RequireVpnRoutes %s" % str(wantroutes)
         vrfstr = ""
         if vrf != "":
             vrfstr = "vrf %s" % (vrf)
 
         if (afi != "ipv4") and (afi != "ipv6"):
-            print "ERROR invalid afi"
+            self.log("ERROR invalid afi")
 
         cmdstr = "show bgp %s %s unicast" % (vrfstr, afi)
         # non json form for humans
@@ -148,7 +156,11 @@ class BgpRib:
                 errstr = "-script ERROR: check if vrf missing"
             luResult(target, False, title + errstr, logstr)
             return
+        #if debug:
+        #    self.log("table=%s" % table)
         for want in wantroutes:
+            if debug:
+                self.log("want=%s" % want)
             if not self.routes_include_wanted(table, want, debug):
                 luResult(target, False, title, logstr)
                 return
