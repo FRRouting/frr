@@ -40,6 +40,7 @@
 #include "ospf6_zebra.h"
 #include "ospf6d.h"
 #include "ospf6_area.h"
+#include "lib/json.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_DISTANCE, "OSPF6 distance")
 
@@ -219,31 +220,64 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-DEFUN (show_zebra,
-       show_ospf6_zebra_cmd,
-       "show ipv6 ospf6 zebra",
-       SHOW_STR
-       IPV6_STR
-       OSPF6_STR
-       ZEBRA_STR)
+DEFUN(show_zebra,
+      show_ospf6_zebra_cmd,
+      "show ipv6 ospf6 zebra [json]",
+      SHOW_STR
+      IPV6_STR
+      OSPF6_STR
+      ZEBRA_STR
+      JSON_STR)
 {
 	int i;
+	bool uj = use_json(argc, argv);
+	json_object *json;
+	json_object *json_zebra;
+	json_object *json_array;
+
 	if (zclient == NULL) {
 		vty_out(vty, "Not connected to zebra\n");
 		return CMD_SUCCESS;
 	}
 
-	vty_out(vty, "Zebra Information\n");
-	vty_out(vty, "  fail: %d\n", zclient->fail);
-	vty_out(vty, "  redistribute default: %d\n",
-		vrf_bitmap_check(zclient->default_information[AFI_IP6],
-				 VRF_DEFAULT));
-	vty_out(vty, "  redistribute:");
-	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (vrf_bitmap_check(zclient->redist[AFI_IP6][i], VRF_DEFAULT))
-			vty_out(vty, " %s", zebra_route_string(i));
+	if (uj) {
+		json = json_object_new_object();
+		json_zebra = json_object_new_object();
+		json_array = json_object_new_array();
+
+		json_object_int_add(json_zebra, "fail", zclient->fail);
+		json_object_int_add(
+			json_zebra, "redistributeDefault",
+			vrf_bitmap_check(zclient->default_information[AFI_IP6],
+					 VRF_DEFAULT));
+		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+			if (vrf_bitmap_check(zclient->redist[AFI_IP6][i],
+					     VRF_DEFAULT))
+				json_object_array_add(
+					json_array,
+					json_object_new_string(
+						zebra_route_string(i)));
+		}
+		json_object_object_add(json_zebra, "redistribute", json_array);
+		json_object_object_add(json, "zebraInformation", json_zebra);
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+	} else {
+		vty_out(vty, "Zebra Infomation\n");
+		vty_out(vty, "  fail: %d\n", zclient->fail);
+		vty_out(vty, "  redistribute default: %d\n",
+			vrf_bitmap_check(zclient->default_information[AFI_IP6],
+					 VRF_DEFAULT));
+		vty_out(vty, "  redistribute:");
+		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+			if (vrf_bitmap_check(zclient->redist[AFI_IP6][i],
+					     VRF_DEFAULT))
+				vty_out(vty, " %s", zebra_route_string(i));
+		}
+		vty_out(vty, "\n");
 	}
-	vty_out(vty, "\n");
 	return CMD_SUCCESS;
 }
 

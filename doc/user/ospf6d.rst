@@ -195,10 +195,11 @@ Showing OSPF6 information
 
    This command shows internal routing table.
 
-.. index:: show ipv6 ospf6 zebra
-.. clicmd:: show ipv6 ospf6 zebra
+.. index:: show ipv6 ospf6 zebra [json]
+.. clicmd:: show ipv6 ospf6 zebra [json]
 
-   Shows state about what is being redistributed between zebra and OSPF6
+   Shows state about what is being redistributed between zebra and OSPF6.
+   JSON output can be obtained by appending "json" at the end.
 
 OSPF6 Configuration Examples
 ============================
