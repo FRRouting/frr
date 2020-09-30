@@ -78,8 +78,6 @@ static int zebra_mlag_read(struct thread *thread)
 	uint32_t h_msglen;
 	uint32_t tot_len, curr_len = mlag_rd_buf_offset;
 
-	zrouter.mlag_info.t_read = NULL;
-
 	/*
 	 * Received message in sock_stream looks like below
 	 * | len-1 (4 Bytes) | payload-1 (len-1) |
