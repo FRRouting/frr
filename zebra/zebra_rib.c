@@ -1098,46 +1098,56 @@ static void rib_process(struct route_node *rn)
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
-		/* Skip unreachable nexthop. */
-		/* This first call to nexthop_active_update is merely to
-		 * determine if there's any change to nexthops associated
-		 * with this RIB entry. Now, rib_process() can be invoked due
-		 * to an external event such as link down or due to
-		 * next-hop-tracking evaluation. In the latter case,
-		 * a decision has already been made that the NHs have changed.
-		 * So, no need to invoke a potentially expensive call again.
-		 * Further, since the change might be in a recursive NH which
-		 * is not caught in the nexthop_active_update() code. Thus, we
-		 * might miss changes to recursive NHs.
+		/*
+		 * If the route entry has changed, verify/resolve
+		 * the nexthops associated with the entry.
+		 *
+		 * In any event if we have nexthops that are not active
+		 * then we cannot use this particular route entry so
+		 * skip it.
 		 */
-		if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)
-		    && !nexthop_active_update(rn, re)) {
-			if (re->type == ZEBRA_ROUTE_TABLE) {
-				/* XXX: HERE BE DRAGONS!!!!!
-				 * In all honesty, I have not yet figured out
-				 * what this part does or why the
-				 * ROUTE_ENTRY_CHANGED test above is correct
-				 * or why we need to delete a route here, and
-				 * also not whether this concerns both selected
-				 * and fib route, or only selected
-				 * or only fib
-				 *
-				 * This entry was denied by the 'ip protocol
-				 * table' route-map, we need to delete it */
-				if (re != old_selected) {
-					if (IS_ZEBRA_DEBUG_RIB)
-						zlog_debug(
-							"%s: %s(%u):%s: imported via import-table but denied by the ip protocol table route-map",
-							__func__,
-							VRF_LOGNAME(vrf),
-							vrf_id, buf);
-					rib_unlink(rn, re);
-				} else
-					SET_FLAG(re->status,
-						 ROUTE_ENTRY_REMOVED);
-			}
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
+			if (!nexthop_active_update(rn, re)) {
+				if (re->type == ZEBRA_ROUTE_TABLE) {
+					/* XXX: HERE BE DRAGONS!!!!!
+					 * In all honesty, I have not yet
+					 * figured out what this part does or
+					 * why the ROUTE_ENTRY_CHANGED test
+					 * above is correct or why we need to
+					 * delete a route here, and also not
+					 * whether this concerns both selected
+					 * and fib route, or only selected
+					 * or only fib
+					 *
+					 * This entry was denied by the 'ip
+					 * protocol
+					 * table' route-map, we need to delete
+					 * it */
+					if (re != old_selected) {
+						if (IS_ZEBRA_DEBUG_RIB)
+							zlog_debug(
+								"%s: %s(%u):%s: imported via import-table but denied by the ip protocol table route-map",
+								__func__,
+								VRF_LOGNAME(
+									vrf),
+								vrf_id, buf);
+						rib_unlink(rn, re);
+					} else
+						SET_FLAG(re->status,
+							 ROUTE_ENTRY_REMOVED);
+				}
 
-			continue;
+				continue;
+			}
+		} else {
+			/*
+			 * If the re has not changed and the nhg we have is
+			 * not usable, then we cannot use this route entry
+			 * for consideration, as that the route will just
+			 * not install if it is selected.
+			 */
+			if (!nexthop_group_active_nexthop_num(&re->nhe->nhg))
+				continue;
 		}
 
 		/* Infinite distance. */
