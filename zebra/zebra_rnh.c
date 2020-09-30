@@ -86,12 +86,6 @@ static inline struct route_table *get_rnh_table(vrf_id_t vrfid, afi_t afi,
 	return t;
 }
 
-char *rnh_str(struct rnh *rnh, char *buf, int size)
-{
-	prefix2str(&(rnh->node->p), buf, size);
-	return buf;
-}
-
 static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
@@ -106,15 +100,10 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 	if (!rn)
 		return;
 
-	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
-		char buf[PREFIX_STRLEN];
-		char buf1[PREFIX_STRLEN];
-
-		zlog_debug("%s: %u:%s removed from tracking on %s", __func__,
-			   rnh->vrf_id,
-			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
-			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
-	}
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+		zlog_debug("%s: %s(%u):%pRN removed from tracking on %pRN",
+			   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
+			   rnh->node, rn);
 
 	dest = rib_dest_from_rnode(rn);
 	rnh_list_del(&dest->nht, rnh);
@@ -132,15 +121,10 @@ static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 	if (!rn)
 		return;
 
-	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
-		char buf[PREFIX_STRLEN];
-		char buf1[PREFIX_STRLEN];
-
-		zlog_debug("%s: %u:%s added for tracking on %s", __func__,
-			   rnh->vrf_id,
-			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
-			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
-	}
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+		zlog_debug("%s: %s(%u):%pRN added for tracking on %pRN",
+			   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
+			   rnh->node, rn);
 
 	dest = rib_dest_from_rnode(rn);
 	rnh_list_add_tail(&dest->nht, rnh);
@@ -153,20 +137,21 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, enum rnh_type type,
 	struct route_table *table;
 	struct route_node *rn;
 	struct rnh *rnh = NULL;
-	char buf[PREFIX2STR_BUFFER];
 	afi_t afi = family2afi(p->family);
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		prefix2str(p, buf, sizeof(buf));
-		zlog_debug("%u: Add RNH %s type %s", vrfid, buf,
-			   rnh_type2str(type));
+		struct vrf *vrf = vrf_lookup_by_id(vrfid);
+
+		zlog_debug("%s(%u): Add RNH %pFX type %s", VRF_LOGNAME(vrf),
+			   vrfid, p, rnh_type2str(type));
 	}
 	table = get_rnh_table(vrfid, afi, type);
 	if (!table) {
-		prefix2str(p, buf, sizeof(buf));
+		struct vrf *vrf = vrf_lookup_by_id(vrfid);
+
 		flog_warn(EC_ZEBRA_RNH_NO_TABLE,
-			  "%u: Add RNH %s type %s - table not found", vrfid,
-			  buf, rnh_type2str(type));
+			  "%s(%u): Add RNH %pFX type %s - table not found",
+			  VRF_LOGNAME(vrf), vrfid, p, rnh_type2str(type));
 		exists = false;
 		return NULL;
 	}
@@ -270,9 +255,10 @@ static void zebra_delete_rnh(struct rnh *rnh, enum rnh_type type)
 		return;
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("%u: Del RNH %s type %s", rnh->vrf_id,
-			   rnh_str(rnh, buf, sizeof(buf)), rnh_type2str(type));
+		struct vrf *vrf = vrf_lookup_by_id(rnh->vrf_id);
+
+		zlog_debug("%s(%u): Del RNH %pRN type %s", VRF_LOGNAME(vrf),
+			   rnh->vrf_id, rnh->node, rnh_type2str(type));
 	}
 
 	zebra_free_rnh(rnh);
@@ -292,10 +278,12 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 			  enum rnh_type type, vrf_id_t vrf_id)
 {
 	if (IS_ZEBRA_DEBUG_NHT) {
-		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("%u: Client %s registers for RNH %s type %s", vrf_id,
-			   zebra_route_string(client->proto),
-			   rnh_str(rnh, buf, sizeof(buf)), rnh_type2str(type));
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+		zlog_debug("%s(%u): Client %s registers for RNH %pRN type %s",
+			   VRF_LOGNAME(vrf), vrf_id,
+			   zebra_route_string(client->proto), rnh->node,
+			   rnh_type2str(type));
 	}
 	if (!listnode_lookup(rnh->client_list, client))
 		listnode_add(rnh->client_list, client);
@@ -311,10 +299,11 @@ void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
 			     enum rnh_type type)
 {
 	if (IS_ZEBRA_DEBUG_NHT) {
-		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("Client %s unregisters for RNH %s type %s",
-			   zebra_route_string(client->proto),
-			   rnh_str(rnh, buf, sizeof(buf)), rnh_type2str(type));
+		struct vrf *vrf = vrf_lookup_by_id(rnh->vrf_id);
+
+		zlog_debug("Client %s unregisters for RNH %s(%u)%pRN type %s",
+			   zebra_route_string(client->proto), VRF_LOGNAME(vrf),
+			   vrf->vrf_id, rnh->node, rnh_type2str(type));
 	}
 	listnode_delete(rnh->client_list, client);
 	zebra_delete_rnh(rnh, type);
@@ -456,13 +445,9 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
 		return NULL;
 
 	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
-		char buf[PREFIX_STRLEN];
-		char buf1[SRCDEST2STR_BUFFER];
-
-		zlog_debug("%s: %u:%s Resolved Import Entry to %s", __func__,
-			   rnh->vrf_id,
-			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
-			   srcdest_rnode2str(rn, buf1, sizeof(buf1)));
+		zlog_debug("%s: %s(%u):%pRN Resolved Import Entry to %pRN",
+			   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
+			   rnh->node, rn);
 	}
 
 	/* Identify appropriate route entry. */
@@ -523,9 +508,9 @@ static void zebra_rnh_eval_import_check_entry(struct zebra_vrf *zvrf, afi_t afi,
 	if (state_changed || force) {
 		if (IS_ZEBRA_DEBUG_NHT) {
 			prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-			zlog_debug("%u:%s: Route import check %s %s",
-				   zvrf->vrf->vrf_id,
-				   bufn, rnh->state ? "passed" : "failed",
+			zlog_debug("%s(%u):%pRN: Route import check %s %s",
+				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id,
+				   nrn, rnh->state ? "passed" : "failed",
 				   state_changed ? "(state changed)" : "");
 		}
 		/* state changed, notify clients */
@@ -548,19 +533,17 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 {
 	struct listnode *node;
 	struct zserv *client;
-	char bufn[INET6_ADDRSTRLEN];
-	char bufp[INET6_ADDRSTRLEN];
 	int num_resolving_nh;
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
 		if (prn && re) {
-			srcdest_rnode2str(prn, bufp, INET6_ADDRSTRLEN);
-			zlog_debug("%u:%s: NH resolved over route %s",
-				   zvrf->vrf->vrf_id, bufn, bufp);
+			zlog_debug("%s(%u):%pRN: NH resolved over route %pRN",
+				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id,
+				   nrn, prn);
 		} else
-			zlog_debug("%u:%s: NH has become unresolved",
-				   zvrf->vrf->vrf_id, bufn);
+			zlog_debug("%s(%u):%pRN: NH has become unresolved",
+				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id,
+				   nrn);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
@@ -579,8 +562,9 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 
 			if (IS_ZEBRA_DEBUG_NHT)
 				zlog_debug(
-					"%u:%s: Notifying client %s about NH %s",
-					zvrf->vrf->vrf_id, bufn,
+					"%s(%u):%pRN: Notifying client %s about NH %s",
+					VRF_LOGNAME(zvrf->vrf),
+					zvrf->vrf->vrf_id, nrn,
 					zebra_route_string(client->proto),
 					num_resolving_nh
 						? ""
@@ -589,8 +573,9 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 			rnh->filtered[client->proto] = 0;
 			if (IS_ZEBRA_DEBUG_NHT)
 				zlog_debug(
-					"%u:%s: Notifying client %s about NH (unreachable)",
-					zvrf->vrf->vrf_id, bufn,
+					"%s(%u):%pRN: Notifying client %s about NH (unreachable)",
+					VRF_LOGNAME(zvrf->vrf),
+					zvrf->vrf->vrf_id, nrn,
 					zebra_route_string(client->proto));
 		}
 
@@ -648,15 +633,10 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	 * most-specific match. Do similar logic as in zebra_rib.c
 	 */
 	while (rn) {
-		if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
-			char buf[PREFIX_STRLEN];
-			char buf1[PREFIX_STRLEN];
-
-			zlog_debug("%s: %u:%s Possible Match to %s", __func__,
-				   rnh->vrf_id,
-				   prefix2str(&rnh->node->p, buf, sizeof(buf)),
-				   srcdest_rnode2str(rn, buf1, sizeof(buf)));
-		}
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug("%s: %s(%u):%pRN Possible Match to %pRN",
+				   __func__, VRF_LOGNAME(zvrf->vrf),
+				   rnh->vrf_id, rnh->node, rn);
 
 		/* Do not resolve over default route unless allowed &&
 		 * match route to be exact if so specified
@@ -819,12 +799,11 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
 	struct rnh *rnh;
 	struct route_entry *re;
 	struct route_node *prn;
-	char bufn[INET6_ADDRSTRLEN];
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-		zlog_debug("%u:%s: Evaluate RNH, type %s %s", zvrf->vrf->vrf_id,
-			   bufn, rnh_type2str(type), force ? "(force)" : "");
+		zlog_debug("%s(%u):%pRN: Evaluate RNH, type %s %s",
+			   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id, nrn,
+			   rnh_type2str(type), force ? "(force)" : "");
 	}
 
 	rnh = nrn->info;
@@ -1289,10 +1268,15 @@ static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, afi_t afi,
 	struct route_node *nrn;
 	struct rnh *rnh;
 
-	if (IS_ZEBRA_DEBUG_NHT)
-		zlog_debug("%u: Client %s RNH cleanup for family %s type %s",
-			   vrf_id, zebra_route_string(client->proto),
-			   afi2str(afi), rnh_type2str(type));
+	if (IS_ZEBRA_DEBUG_NHT) {
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+		zlog_debug(
+			"%s(%u): Client %s RNH cleanup for family %s type %s",
+			VRF_LOGNAME(vrf), vrf_id,
+			zebra_route_string(client->proto), afi2str(afi),
+			rnh_type2str(type));
+	}
 
 	ntable = get_rnh_table(vrf_id, afi, type);
 	if (!ntable) {
