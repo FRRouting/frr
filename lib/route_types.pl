@@ -29,6 +29,7 @@
 ##
 
 use strict;
+use Getopt::Long;
 
 # input processing
 #
@@ -36,6 +37,11 @@ my @protos;
 my %protodetail;
 
 my %daemons;
+
+my @enabled;
+
+GetOptions ("enabled=s" => \@enabled);
+@enabled = split(/,/,join(',',@enabled));
 
 while (<STDIN>) {
 	# skip comments and empty lines
@@ -56,7 +62,7 @@ while (<STDIN>) {
 
 	# else: 8-field line
 	my @f = split(/,/, $_);
-	unless (@f == 8 || @f == 9) {
+	unless (@f == 9 || @f == 10) {
 		die "invalid input on route_types line $.\n";
 	}
 
@@ -74,7 +80,8 @@ while (<STDIN>) {
 		"ipv6" => int($f[5]),
 		"redist" => int($f[6]),
 		"shorthelp" => $f[7],
-		"restrict2" => $f[8],
+		"enabled" => $f[8],
+		"restrict2" => $f[9],
 	};
 	push @protos, $proto;
 	$daemons{$f[2]} = {
@@ -109,6 +116,7 @@ sub codelist {
 	my (@lines) = ();
 	my $str = "  \"Codes: ";
 	for my $p (@protos) {
+		next unless (grep $_ eq $protodetail{$p}->{"enabled"}, @enabled);
 		my $s = sprintf("%s - %s, ",
 			$protodetail{$p}->{"char"},
 			$protodetail{$p}->{"shorthelp"});
@@ -141,6 +149,7 @@ sub collect {
 		next if ($protodetail{$p}->{"restrict2"} ne "" && 
 		         $protodetail{$p}->{"restrict2"} ne $daemon);
 		next if ($protodetail{$p}->{"redist"} eq 0);
+		next unless (grep $_ eq $protodetail{$p}->{"enabled"}, @enabled);
 		next unless (($ipv4 && $protodetail{$p}->{"ipv4"})
 			     || ($ipv6 && $protodetail{$p}->{"ipv6"}));
 		push @names, $protodetail{$p}->{"cname"};
