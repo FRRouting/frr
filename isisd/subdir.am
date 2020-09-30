@@ -23,6 +23,18 @@ if FABRICD
 noinst_LIBRARIES += isisd/libfabric.a
 sbin_PROGRAMS += isisd/fabricd
 dist_examples_DATA += isisd/fabricd.conf.sample
+if !ISISD
+vtysh_scan += \
+	isisd/isis_cli.c \
+	isisd/isis_ldp_sync.c \
+	isisd/isis_redist.c \
+	isisd/isis_spf.c \
+	isisd/isis_te.c \
+	isisd/isis_sr.c \
+	isisd/isis_vty_fabricd.c \
+	isisd/isisd.c \
+	# end
+endif
 endif
 
 noinst_HEADERS += \
