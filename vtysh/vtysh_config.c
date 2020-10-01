@@ -428,8 +428,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(BFD_NODE, line);
 		else {
 			if (strncmp(line, "log", strlen("log")) == 0
-			    || strncmp(line, "hostname", strlen("hostname"))
-				       == 0
+			    || strncmp(line, "hostname", strlen("hostname")) == 0
+			    || strncmp(line, "domainname", strlen("domainname")) == 0
 			    || strncmp(line, "frr", strlen("frr")) == 0
 			    || strncmp(line, "agentx", strlen("agentx")) == 0
 			    || strncmp(line, "no log", strlen("no log")) == 0
