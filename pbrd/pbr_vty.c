@@ -1147,7 +1147,7 @@ void pbr_vty_init(void)
 	install_node(&debug_node);
 	install_element(ENABLE_NODE, &debug_pbr_cmd);
 	install_element(CONFIG_NODE, &debug_pbr_cmd);
-	install_element(VIEW_NODE, &show_debugging_pbr_cmd);
+	install_element(ENABLE_NODE, &show_debugging_pbr_cmd);
 
 	install_default(PBRMAP_NODE);
 

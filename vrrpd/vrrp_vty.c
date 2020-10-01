@@ -775,7 +775,7 @@ void vrrp_vty_init(void)
 
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
 	install_element(VIEW_NODE, &vrrp_vrid_show_summary_cmd);
-	install_element(VIEW_NODE, &show_debugging_vrrp_cmd);
+	install_element(ENABLE_NODE, &show_debugging_vrrp_cmd);
 	install_element(ENABLE_NODE, &debug_vrrp_cmd);
 	install_element(CONFIG_NODE, &debug_vrrp_cmd);
 	install_element(CONFIG_NODE, &vrrp_autoconfigure_cmd);

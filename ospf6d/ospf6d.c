@@ -1236,7 +1236,7 @@ void ospf6_init(void)
 
 	install_element_ospf6_clear_interface();
 
-	install_element(VIEW_NODE, &show_debugging_ospf6_cmd);
+	install_element(ENABLE_NODE, &show_debugging_ospf6_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_border_routers_cmd);
 
