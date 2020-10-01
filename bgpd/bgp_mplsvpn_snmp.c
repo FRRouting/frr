@@ -53,6 +53,11 @@
 #define MPLSL3VPNVRFCONFRTEMXTHRSHTIME 6
 #define MPLSL3VPNILLLBLRCVTHRSH 7
 
+/* MPLSL3VPN IFConf Table */
+#define MPLSL3VPNIFVPNCLASSIFICATION 1
+#define MPLSL3VPNIFCONFSTORAGETYPE 2
+#define MPLSL3VPNIFCONFROWSTATUS 3
+
 /* MPLSL3VPN VRF Table */
 #define MPLSL3VPNVRFVPNID 1
 #define MPLSL3VPNVRFDESC 2
@@ -111,6 +116,9 @@ static uint8_t *mplsL3vpnIllLblRcvThrsh(struct variable *, oid[], size_t *, int,
 static uint8_t *mplsL3vpnVrfTable(struct variable *, oid[], size_t *, int,
 				  size_t *, WriteMethod **);
 
+static uint8_t *mplsL3vpnIfConfTable(struct variable *, oid[], size_t *, int,
+				     size_t *, WriteMethod **);
+
 
 static struct variable mpls_l3vpn_variables[] = {
 	/* BGP version. */
@@ -156,6 +164,26 @@ static struct variable mpls_l3vpn_variables[] = {
 	 mplsL3vpnIllLblRcvThrsh,
 	 3,
 	 {1, 1, 7} },
+
+	/* Ifconf Table */
+	{MPLSL3VPNIFVPNCLASSIFICATION,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnIfConfTable,
+	 5,
+	 {1, 2, 1, 1, 2} },
+	{MPLSL3VPNIFCONFSTORAGETYPE,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnIfConfTable,
+	 5,
+	 {1, 2, 1, 1, 4} },
+	{MPLSL3VPNIFCONFROWSTATUS,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnIfConfTable,
+	 5,
+	 {1, 2, 1, 1, 5} },
 
 	/* Vrf Table */
 	{MPLSL3VPNVRFVPNID,
@@ -455,10 +483,7 @@ static uint8_t *mplsL3vpnIllLblRcvThrsh(struct variable *v, oid name[],
 }
 
 
-/* 1.3.6.1.2.1.10.166.11.1.2.2.1.x = 14*/
-#define VRFTAB_NAMELEN 14
-
-static struct bgp *bgp_lookup_by_name_next(const char *vrf_name)
+static struct bgp *bgp_lookup_by_name_next(char *vrf_name)
 {
 	struct bgp *bgp, *bgp_next = NULL;
 	struct listnode *node, *nnode;
@@ -488,9 +513,102 @@ static struct bgp *bgp_lookup_by_name_next(const char *vrf_name)
 	return bgp_next;
 }
 
-static struct bgp *bgpL3vpnTable_lookup(struct variable *v, oid name[],
-					size_t *length, char *vrf_name,
-					int exact)
+/* 1.3.6.1.2.1.10.166.11.1.2.1.1.x = 14*/
+#define IFCONFTAB_NAMELEN 14
+static struct bgp *bgpL3vpnIfConf_lookup(struct variable *v, oid name[],
+					 size_t *length, char *vrf_name,
+					 ifindex_t *ifindex, int exact)
+{
+	struct bgp *bgp = NULL;
+	size_t namelen = v ? v->namelen : IFCONFTAB_NAMELEN;
+	struct interface *ifp;
+	int vrf_name_len, len;
+
+	/* too long ? */
+	if (*length - namelen > (VRF_NAMSIZ + sizeof(uint32_t)))
+		return NULL;
+	/* do we have index info in the oid ? */
+	if (*length - namelen != 0 && *length - namelen >= sizeof(uint32_t)) {
+		/* copy the info from the oid */
+		vrf_name_len = *length - (namelen + sizeof(ifindex_t));
+		oid2string(name + namelen, vrf_name_len, vrf_name);
+		oid2int(name + namelen + vrf_name_len, ifindex);
+	}
+
+	if (exact) {
+		/* Check the length. */
+		bgp = bgp_lookup_by_name(vrf_name);
+		if (bgp && !is_bgp_vrf_mplsvpn(bgp))
+			return NULL;
+		if (!bgp)
+			return NULL;
+		ifp = if_lookup_by_index(*ifindex, bgp->vrf_id);
+		if (!ifp)
+			return NULL;
+	} else {
+		if (strnlen(vrf_name, VRF_NAMSIZ) == 0)
+			bgp = bgp_lookup_by_name_next(vrf_name);
+		else
+			bgp = bgp_lookup_by_name(vrf_name);
+
+		while (bgp) {
+			ifp = if_vrf_lookup_by_index_next(*ifindex,
+							  bgp->vrf_id);
+			if (ifp) {
+				vrf_name_len = strnlen(bgp->name, VRF_NAMSIZ);
+				*ifindex = ifp->ifindex;
+				len = vrf_name_len + sizeof(ifindex_t);
+				oid_copy_str(name + namelen, bgp->name,
+					     vrf_name_len);
+				oid_copy_int(name + namelen + vrf_name_len,
+					     ifindex);
+				*length = len + namelen;
+
+				return bgp;
+			}
+			*ifindex = 0;
+			bgp = bgp_lookup_by_name_next(bgp->name);
+		}
+
+		return NULL;
+	}
+	return bgp;
+}
+
+static uint8_t *mplsL3vpnIfConfTable(struct variable *v, oid name[],
+				     size_t *length, int exact, size_t *var_len,
+				     WriteMethod **write_method)
+{
+	char vrf_name[VRF_NAMSIZ];
+	ifindex_t ifindex = 0;
+	struct bgp *l3vpn_bgp;
+
+	if (smux_header_table(v, name, length, exact, var_len, write_method)
+	    == MATCH_FAILED)
+		return NULL;
+
+	memset(vrf_name, 0, VRF_NAMSIZ);
+	l3vpn_bgp = bgpL3vpnIfConf_lookup(v, name, length, vrf_name, &ifindex,
+					  exact);
+	if (!l3vpn_bgp)
+		return NULL;
+
+	switch (v->magic) {
+	case MPLSL3VPNIFVPNCLASSIFICATION:
+		return SNMP_INTEGER(2);
+	case MPLSL3VPNIFCONFSTORAGETYPE:
+		return SNMP_INTEGER(2);
+	case MPLSL3VPNIFCONFROWSTATUS:
+		return SNMP_INTEGER(1);
+	}
+	return NULL;
+}
+
+/* 1.3.6.1.2.1.10.166.11.1.2.2.1.x = 14*/
+#define VRFTAB_NAMELEN 14
+
+static struct bgp *bgpL3vpnVrf_lookup(struct variable *v, oid name[],
+				      size_t *length, char *vrf_name, int exact)
 {
 	struct bgp *bgp = NULL;
 	size_t namelen = v ? v->namelen : VRFTAB_NAMELEN;
@@ -529,7 +647,7 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 		return NULL;
 
 	memset(vrf_name, 0, VRF_NAMSIZ);
-	l3vpn_bgp = bgpL3vpnTable_lookup(v, name, length, vrf_name, exact);
+	l3vpn_bgp = bgpL3vpnVrf_lookup(v, name, length, vrf_name, exact);
 
 	if (!l3vpn_bgp)
 		return NULL;
