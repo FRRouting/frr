@@ -7045,236 +7045,103 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	return CMD_SUCCESS;
 }
 
-DEFUN (aggregate_address,
-       aggregate_address_cmd,
-       "aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
-       "Configure BGP aggregate entries\n"
-       "Aggregate prefix\n"
-       "Generate AS set path information\n"
-       "Filter more specific routes from updates\n"
-       "Filter more specific routes from updates\n"
-       "Generate AS set path information\n"
-       "Apply route map to aggregate network\n"
-       "Name of route map\n"
-       "BGP origin code\n"
-       "Remote EGP\n"
-       "Local IGP\n"
-       "Unknown heritage\n")
+DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
+      "[no] aggregate-address <A.B.C.D/M$prefix|A.B.C.D$addr A.B.C.D$mask> {"
+      "as-set$as_set_s"
+      "|summary-only$summary_only"
+      "|route-map WORD$rmap_name"
+      "|origin <egp|igp|incomplete>$origin_s"
+      "}",
+      NO_STR
+      "Configure BGP aggregate entries\n"
+      "Aggregate prefix\n" "Aggregate address\n" "Aggregate mask\n"
+      "Generate AS set path information\n"
+      "Filter more specific routes from updates\n"
+      "Apply route map to aggregate network\n"
+      "Route map name\n"
+      "BGP origin code\n"
+      "Remote EGP\n"
+      "Local IGP\n"
+      "Unknown heritage\n")
 {
-	int idx = 0;
-	argv_find(argv, argc, "A.B.C.D/M", &idx);
-	char *prefix = argv[idx]->arg;
-	char *rmap = NULL;
+	const char *prefix_s = NULL;
+	safi_t safi = bgp_node_safi(vty);
 	uint8_t origin = BGP_ORIGIN_UNSPECIFIED;
-	int as_set = argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET
-							   : AGGREGATE_AS_UNSET;
-	idx = 0;
-	int summary_only = argv_find(argv, argc, "summary-only", &idx)
-				   ? AGGREGATE_SUMMARY_ONLY
-				   : 0;
+	int as_set = AGGREGATE_AS_UNSET;
+	char prefix_buf[PREFIX2STR_BUFFER];
 
-	idx = 0;
-	argv_find(argv, argc, "WORD", &idx);
-	if (idx)
-		rmap = argv[idx]->arg;
+	if (addr_str) {
+		if (netmask_str2prefix_str(addr_str, mask_str, prefix_buf)
+		    == 0) {
+			vty_out(vty, "%% Inconsistent address and mask\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		prefix_s = prefix_buf;
+	} else
+		prefix_s = prefix_str;
 
-	idx = 0;
-	if (argv_find(argv, argc, "origin", &idx)) {
-		if (strncmp(argv[idx + 1]->arg, "igp", 2) == 0)
-			origin = BGP_ORIGIN_IGP;
-		if (strncmp(argv[idx + 1]->arg, "egp", 1) == 0)
+	if (origin_s) {
+		if (strcmp(origin_s, "egp") == 0)
 			origin = BGP_ORIGIN_EGP;
-		if (strncmp(argv[idx + 1]->arg, "incomplete", 2) == 0)
+		else if (strcmp(origin_s, "igp") == 0)
+			origin = BGP_ORIGIN_IGP;
+		else if (strcmp(origin_s, "incomplete") == 0)
 			origin = BGP_ORIGIN_INCOMPLETE;
 	}
 
-	return bgp_aggregate_set(vty, prefix, AFI_IP, bgp_node_safi(vty), rmap,
-				 summary_only, as_set, origin);
+	if (as_set_s)
+		as_set = AGGREGATE_AS_SET;
+
+	/* Handle configuration removal, otherwise installation. */
+	if (no)
+		return bgp_aggregate_unset(vty, prefix_s, AFI_IP, safi);
+
+	return bgp_aggregate_set(vty, prefix_s, AFI_IP, safi, rmap_name,
+				 summary_only != NULL, as_set, origin);
 }
 
-DEFUN (aggregate_address_mask,
-       aggregate_address_mask_cmd,
-       "aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
-       "Configure BGP aggregate entries\n"
-       "Aggregate address\n"
-       "Aggregate mask\n"
-       "Generate AS set path information\n"
-       "Filter more specific routes from updates\n"
-       "Filter more specific routes from updates\n"
-       "Generate AS set path information\n"
-       "Apply route map to aggregate network\n"
-       "Name of route map\n"
-       "BGP origin code\n"
-       "Remote EGP\n"
-       "Local IGP\n"
-       "Unknown heritage\n")
+DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
+      "[no] aggregate-address X:X::X:X/M$prefix {"
+      "as-set$as_set_s"
+      "|summary-only$summary_only"
+      "|route-map WORD$rmap_name"
+      "|origin <egp|igp|incomplete>$origin_s"
+      "}",
+      NO_STR
+      "Configure BGP aggregate entries\n"
+      "Aggregate prefix\n"
+      "Generate AS set path information\n"
+      "Filter more specific routes from updates\n"
+      "Apply route map to aggregate network\n"
+      "Route map name\n"
+      "BGP origin code\n"
+      "Remote EGP\n"
+      "Local IGP\n"
+      "Unknown heritage\n")
 {
-	int idx = 0;
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	char *prefix = argv[idx]->arg;
-	char *mask = argv[idx + 1]->arg;
-	bool rmap_found;
-	char *rmap = NULL;
 	uint8_t origin = BGP_ORIGIN_UNSPECIFIED;
-	int as_set = argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET
-							   : AGGREGATE_AS_UNSET;
-	idx = 0;
-	int summary_only = argv_find(argv, argc, "summary-only", &idx)
-				   ? AGGREGATE_SUMMARY_ONLY
-				   : 0;
+	int as_set = AGGREGATE_AS_UNSET;
 
-	rmap_found = argv_find(argv, argc, "WORD", &idx);
-	if (rmap_found)
-		rmap = argv[idx]->arg;
-
-	char prefix_str[BUFSIZ];
-	int ret = netmask_str2prefix_str(prefix, mask, prefix_str);
-
-	if (!ret) {
-		vty_out(vty, "%% Inconsistent address and mask\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	idx = 0;
-	if (argv_find(argv, argc, "origin", &idx)) {
-		if (strncmp(argv[idx + 1]->arg, "igp", 2) == 0)
-			origin = BGP_ORIGIN_IGP;
-		if (strncmp(argv[idx + 1]->arg, "egp", 1) == 0)
+	if (origin_s) {
+		if (strcmp(origin_s, "egp") == 0)
 			origin = BGP_ORIGIN_EGP;
-		if (strncmp(argv[idx + 1]->arg, "incomplete", 2) == 0)
+		else if (strcmp(origin_s, "igp") == 0)
+			origin = BGP_ORIGIN_IGP;
+		else if (strcmp(origin_s, "incomplete") == 0)
 			origin = BGP_ORIGIN_INCOMPLETE;
 	}
 
-	return bgp_aggregate_set(vty, prefix_str, AFI_IP, bgp_node_safi(vty),
-				 rmap, summary_only, as_set, origin);
-}
+	if (as_set_s)
+		as_set = AGGREGATE_AS_SET;
 
-DEFUN (no_aggregate_address,
-       no_aggregate_address_cmd,
-       "no aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
-       NO_STR
-       "Configure BGP aggregate entries\n"
-       "Aggregate prefix\n"
-       "Generate AS set path information\n"
-       "Filter more specific routes from updates\n"
-       "Filter more specific routes from updates\n"
-       "Generate AS set path information\n"
-       "Apply route map to aggregate network\n"
-       "Name of route map\n"
-       "BGP origin code\n"
-       "Remote EGP\n"
-       "Local IGP\n"
-       "Unknown heritage\n")
-{
-	int idx = 0;
-	argv_find(argv, argc, "A.B.C.D/M", &idx);
-	char *prefix = argv[idx]->arg;
-	return bgp_aggregate_unset(vty, prefix, AFI_IP, bgp_node_safi(vty));
-}
+	/* Handle configuration removal, otherwise installation. */
+	if (no)
+		return bgp_aggregate_unset(vty, prefix_str, AFI_IP6,
+					   SAFI_UNICAST);
 
-DEFUN (no_aggregate_address_mask,
-       no_aggregate_address_mask_cmd,
-       "no aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
-       NO_STR
-       "Configure BGP aggregate entries\n"
-       "Aggregate address\n"
-       "Aggregate mask\n"
-       "Generate AS set path information\n"
-       "Filter more specific routes from updates\n"
-       "Filter more specific routes from updates\n"
-       "Generate AS set path information\n"
-       "Apply route map to aggregate network\n"
-       "Name of route map\n"
-       "BGP origin code\n"
-       "Remote EGP\n"
-       "Local IGP\n"
-       "Unknown heritage\n")
-{
-	int idx = 0;
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	char *prefix = argv[idx]->arg;
-	char *mask = argv[idx + 1]->arg;
-
-	char prefix_str[BUFSIZ];
-	int ret = netmask_str2prefix_str(prefix, mask, prefix_str);
-
-	if (!ret) {
-		vty_out(vty, "%% Inconsistent address and mask\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return bgp_aggregate_unset(vty, prefix_str, AFI_IP, bgp_node_safi(vty));
-}
-
-DEFUN (ipv6_aggregate_address,
-       ipv6_aggregate_address_cmd,
-       "aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
-       "Configure BGP aggregate entries\n"
-       "Aggregate prefix\n"
-       "Generate AS set path information\n"
-       "Filter more specific routes from updates\n"
-       "Filter more specific routes from updates\n"
-       "Generate AS set path information\n"
-       "Apply route map to aggregate network\n"
-       "Name of route map\n"
-       "BGP origin code\n"
-       "Remote EGP\n"
-       "Local IGP\n"
-       "Unknown heritage\n")
-{
-	int idx = 0;
-	argv_find(argv, argc, "X:X::X:X/M", &idx);
-	char *prefix = argv[idx]->arg;
-	char *rmap = NULL;
-	bool rmap_found;
-	uint8_t origin = BGP_ORIGIN_UNSPECIFIED;
-	int as_set = argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET
-							   : AGGREGATE_AS_UNSET;
-
-	idx = 0;
-	int sum_only = argv_find(argv, argc, "summary-only", &idx)
-			       ? AGGREGATE_SUMMARY_ONLY
-			       : 0;
-
-	rmap_found = argv_find(argv, argc, "WORD", &idx);
-	if (rmap_found)
-		rmap = argv[idx]->arg;
-
-	idx = 0;
-	if (argv_find(argv, argc, "origin", &idx)) {
-		if (strncmp(argv[idx + 1]->arg, "igp", 2) == 0)
-			origin = BGP_ORIGIN_IGP;
-		if (strncmp(argv[idx + 1]->arg, "egp", 1) == 0)
-			origin = BGP_ORIGIN_EGP;
-		if (strncmp(argv[idx + 1]->arg, "incomplete", 2) == 0)
-			origin = BGP_ORIGIN_INCOMPLETE;
-	}
-
-	return bgp_aggregate_set(vty, prefix, AFI_IP6, SAFI_UNICAST, rmap,
-				 sum_only, as_set, origin);
-}
-
-DEFUN (no_ipv6_aggregate_address,
-       no_ipv6_aggregate_address_cmd,
-       "no aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
-       NO_STR
-       "Configure BGP aggregate entries\n"
-       "Aggregate prefix\n"
-       "Generate AS set path information\n"
-       "Filter more specific routes from updates\n"
-       "Filter more specific routes from updates\n"
-       "Generate AS set path information\n"
-       "Apply route map to aggregate network\n"
-       "Name of route map\n"
-       "BGP origin code\n"
-       "Remote EGP\n"
-       "Local IGP\n"
-       "Unknown heritage\n")
-{
-	int idx = 0;
-	argv_find(argv, argc, "X:X::X:X/M", &idx);
-	char *prefix = argv[idx]->arg;
-	return bgp_aggregate_unset(vty, prefix, AFI_IP6, SAFI_UNICAST);
+	return bgp_aggregate_set(vty, prefix_str, AFI_IP6, SAFI_UNICAST,
+				 rmap_name, summary_only != NULL, as_set,
+				 origin);
 }
 
 /* Redistribute route treatment. */
@@ -13929,36 +13796,24 @@ void bgp_route_init(void)
 	install_element(BGP_NODE, &bgp_network_cmd);
 	install_element(BGP_NODE, &no_bgp_table_map_cmd);
 
-	install_element(BGP_NODE, &aggregate_address_cmd);
-	install_element(BGP_NODE, &aggregate_address_mask_cmd);
-	install_element(BGP_NODE, &no_aggregate_address_cmd);
-	install_element(BGP_NODE, &no_aggregate_address_mask_cmd);
+	install_element(BGP_NODE, &aggregate_addressv4_cmd);
 
 	/* IPv4 unicast configuration.  */
 	install_element(BGP_IPV4_NODE, &bgp_table_map_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_network_cmd);
 	install_element(BGP_IPV4_NODE, &no_bgp_table_map_cmd);
 
-	install_element(BGP_IPV4_NODE, &aggregate_address_cmd);
-	install_element(BGP_IPV4_NODE, &aggregate_address_mask_cmd);
-	install_element(BGP_IPV4_NODE, &no_aggregate_address_cmd);
-	install_element(BGP_IPV4_NODE, &no_aggregate_address_mask_cmd);
+	install_element(BGP_IPV4_NODE, &aggregate_addressv4_cmd);
 
 	/* IPv4 multicast configuration.  */
 	install_element(BGP_IPV4M_NODE, &bgp_table_map_cmd);
 	install_element(BGP_IPV4M_NODE, &bgp_network_cmd);
 	install_element(BGP_IPV4M_NODE, &no_bgp_table_map_cmd);
-	install_element(BGP_IPV4M_NODE, &aggregate_address_cmd);
-	install_element(BGP_IPV4M_NODE, &aggregate_address_mask_cmd);
-	install_element(BGP_IPV4M_NODE, &no_aggregate_address_cmd);
-	install_element(BGP_IPV4M_NODE, &no_aggregate_address_mask_cmd);
+	install_element(BGP_IPV4M_NODE, &aggregate_addressv4_cmd);
 
 	/* IPv4 labeled-unicast configuration.  */
 	install_element(BGP_IPV4L_NODE, &bgp_network_cmd);
-	install_element(BGP_IPV4L_NODE, &aggregate_address_cmd);
-	install_element(BGP_IPV4L_NODE, &aggregate_address_mask_cmd);
-	install_element(BGP_IPV4L_NODE, &no_aggregate_address_cmd);
-	install_element(BGP_IPV4L_NODE, &no_aggregate_address_mask_cmd);
+	install_element(BGP_IPV4L_NODE, &aggregate_addressv4_cmd);
 
 	install_element(VIEW_NODE, &show_ip_bgp_instance_all_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_cmd);
@@ -14003,15 +13858,13 @@ void bgp_route_init(void)
 	install_element(BGP_IPV6_NODE, &ipv6_bgp_network_cmd);
 	install_element(BGP_IPV6_NODE, &no_bgp_table_map_cmd);
 
-	install_element(BGP_IPV6_NODE, &ipv6_aggregate_address_cmd);
-	install_element(BGP_IPV6_NODE, &no_ipv6_aggregate_address_cmd);
+	install_element(BGP_IPV6_NODE, &aggregate_addressv6_cmd);
 
 	install_element(BGP_IPV6M_NODE, &ipv6_bgp_network_cmd);
 
 	/* IPv6 labeled unicast address family. */
 	install_element(BGP_IPV6L_NODE, &ipv6_bgp_network_cmd);
-	install_element(BGP_IPV6L_NODE, &ipv6_aggregate_address_cmd);
-	install_element(BGP_IPV6L_NODE, &no_ipv6_aggregate_address_cmd);
+	install_element(BGP_IPV6L_NODE, &aggregate_addressv6_cmd);
 
 	install_element(BGP_NODE, &bgp_distance_cmd);
 	install_element(BGP_NODE, &no_bgp_distance_cmd);
