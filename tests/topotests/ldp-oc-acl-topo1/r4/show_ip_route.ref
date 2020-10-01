@@ -13,7 +13,6 @@
           "fib":true,
           "ip":"10.0.2.2",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r4-eth0",
           "active":true
         }
@@ -34,7 +33,6 @@
           "fib":true,
           "ip":"10.0.2.2",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r4-eth0",
           "active":true
         }
@@ -55,7 +53,6 @@
           "fib":true,
           "ip":"10.0.2.3",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r4-eth0",
           "active":true
         }
@@ -71,7 +68,6 @@
       "nexthops":[
         {
           "directlyConnected":true,
-          "interfaceIndex":1,
           "interfaceName":"lo",
           "active":true
         }
@@ -89,7 +85,6 @@
         {
           "fib":true,
           "directlyConnected":true,
-          "interfaceIndex":1,
           "interfaceName":"lo",
           "active":true
         }
@@ -110,7 +105,6 @@
           "fib":true,
           "ip":"10.0.2.2",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r4-eth0",
           "active":true
         }
@@ -126,7 +120,6 @@
       "nexthops":[
         {
           "directlyConnected":true,
-          "interfaceIndex":2,
           "interfaceName":"r4-eth0",
           "active":true
         }
@@ -144,7 +137,6 @@
         {
           "fib":true,
           "directlyConnected":true,
-          "interfaceIndex":2,
           "interfaceName":"r4-eth0",
           "active":true
         }
@@ -165,7 +157,6 @@
           "fib":true,
           "ip":"10.0.2.3",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r4-eth0",
           "active":true
         }
@@ -186,7 +177,6 @@
           "fib":true,
           "ip":"10.0.2.2",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r4-eth0",
           "active":true
         }

@@ -9,7 +9,6 @@
         {
           "flags":1,
           "directlyConnected":true,
-          "interfaceIndex":1,
           "interfaceName":"lo",
           "active":true,
           "weight":1
@@ -29,7 +28,6 @@
           "flags":3,
           "fib":true,
           "directlyConnected":true,
-          "interfaceIndex":1,
           "interfaceName":"lo",
           "active":true
         }
@@ -51,7 +49,6 @@
           "fib":true,
           "ip":"192.168.1.2",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth1",
           "active":true,
           "weight":1
@@ -74,7 +71,6 @@
           "fib":true,
           "ip":"192.168.3.2",
           "afi":"ipv4",
-          "interfaceIndex":3,
           "interfaceName":"r1-eth2",
           "active":true,
           "weight":1
@@ -92,7 +88,6 @@
         {
           "flags":1,
           "directlyConnected":true,
-          "interfaceIndex":2,
           "interfaceName":"r1-eth1",
           "active":true,
           "weight":1
@@ -112,7 +107,6 @@
           "flags":3,
           "fib":true,
           "directlyConnected":true,
-          "interfaceIndex":2,
           "interfaceName":"r1-eth1",
           "active":true
         }
@@ -134,7 +128,6 @@
           "fib":true,
           "ip":"192.168.1.2",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth1",
           "active":true,
           "weight":1
@@ -144,7 +137,6 @@
           "fib":true,
           "ip":"192.168.3.2",
           "afi":"ipv4",
-          "interfaceIndex":3,
           "interfaceName":"r1-eth2",
           "active":true,
           "weight":1
@@ -162,7 +154,6 @@
         {
           "flags":1,
           "directlyConnected":true,
-          "interfaceIndex":3,
           "interfaceName":"r1-eth2",
           "active":true,
           "weight":1
@@ -182,7 +173,6 @@
           "flags":3,
           "fib":true,
           "directlyConnected":true,
-          "interfaceIndex":3,
           "interfaceName":"r1-eth2",
           "active":true
         }
@@ -199,7 +189,6 @@
         {
           "flags":1,
           "directlyConnected":true,
-          "interfaceIndex":5,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -219,7 +208,6 @@
           "flags":3,
           "fib":true,
           "directlyConnected":true,
-          "interfaceIndex":5,
           "interfaceName":"r1-eth0",
           "active":true
         }
@@ -241,7 +229,6 @@
           "fib":true,
           "ip":"192.168.1.2",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth1",
           "active":true,
           "weight":1
@@ -264,7 +251,6 @@
           "fib":true,
           "ip":"192.168.3.2",
           "afi":"ipv4",
-          "interfaceIndex":3,
           "interfaceName":"r1-eth2",
           "active":true,
           "weight":1
@@ -286,7 +272,6 @@
           "flags":3,
           "fib":true,
           "directlyConnected":true,
-          "interfaceIndex":4,
           "interfaceName":"r1-eth3",
           "active":true
         }

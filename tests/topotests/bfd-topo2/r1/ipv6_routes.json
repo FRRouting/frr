@@ -3,16 +3,13 @@
     {
       "distance": 20,
       "protocol": "bgp",
-      "internalFlags": 8,
       "metric": 0,
       "selected": true,
       "installed": true,
       "prefix": "2001:db8:4::/64",
-      "internalStatus": 16,
       "nexthops": [
         {
           "interfaceName": "r1-eth0",
-          "interfaceIndex": 2,
           "fib": true,
           "flags": 3,
           "active": true,
@@ -25,14 +22,11 @@
     {
       "distance": 20,
       "protocol": "bgp",
-      "internalFlags": 0,
       "metric": 0,
-      "internalStatus": 0,
       "prefix": "2001:db8:1::/64",
       "nexthops": [
         {
           "interfaceName": "r1-eth0",
-          "interfaceIndex": 2,
           "active": true,
           "afi": "ipv6"
         }
@@ -41,17 +35,14 @@
     {
       "distance": 0,
       "protocol": "connected",
-      "internalFlags": 8,
       "metric": 0,
       "selected": true,
       "installed": true,
       "prefix": "2001:db8:1::/64",
-      "internalStatus": 16,
       "nexthops": [
         {
           "directlyConnected": true,
           "interfaceName": "r1-eth0",
-          "interfaceIndex": 2,
           "fib": true,
           "flags": 3,
           "active": true
