@@ -547,8 +547,7 @@ static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 	struct zapi_route nhr;
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
-		zlog_warn("%s: Decode of update failed", __func__);
-
+		zlog_err("%s: Decode of update failed", __func__);
 		return 0;
 	}
 

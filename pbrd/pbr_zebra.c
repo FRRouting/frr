@@ -401,7 +401,7 @@ static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	uint32_t i;
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
-		zlog_warn("Failure to decode Nexthop update message");
+		zlog_err("Failure to decode Nexthop update message");
 		return 0;
 	}
 

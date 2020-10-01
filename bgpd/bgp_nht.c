@@ -441,9 +441,8 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	}
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
-		if (BGP_DEBUG(nht, NHT))
-			zlog_debug("%s[%s]: Failure to decode nexthop update",
-				   __PRETTY_FUNCTION__, bgp->name_pretty);
+		zlog_err("%s[%s]: Failure to decode nexthop update",
+			 __PRETTY_FUNCTION__, bgp->name_pretty);
 		return;
 	}
 
