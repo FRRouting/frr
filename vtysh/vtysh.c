@@ -2447,6 +2447,54 @@ DEFUNSH(VTYSH_INTERFACE, vtysh_quit_interface, vtysh_quit_interface_cmd, "quit",
 	return vtysh_exit_interface(self, vty, argc, argv);
 }
 
+static char *do_prepend(struct vty *vty, struct cmd_token **argv, int argc)
+{
+	const char *argstr[argc + 1];
+	int i, off = 0;
+
+	if (vty->node != VIEW_NODE) {
+		off = 1;
+		argstr[0] = "do";
+	}
+
+	for (i = 0; i < argc; i++)
+		argstr[i + off] = argv[i]->arg;
+
+	return frrstr_join(argstr, argc + off, " ");
+}
+
+static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
+			   const char *headline)
+{
+	unsigned int i;
+	int ret = CMD_SUCCESS;
+	char *line = do_prepend(vty, argv, argc);
+
+	for (i = 0; i < array_size(vtysh_client); i++)
+		if (vtysh_client[i].fd >= 0) {
+			vty_out(vty, headline, vtysh_client[i].name);
+			ret = vtysh_client_execute(&vtysh_client[i], line);
+			vty_out(vty, "\n");
+		}
+
+	XFREE(MTYPE_TMP, line);
+
+	return ret;
+}
+
+static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
+			   const char *name)
+{
+	int ret;
+	char *line = do_prepend(vty, argv, argc);
+
+	ret = vtysh_client_execute_name(name, line);
+
+	XFREE(MTYPE_TMP, line);
+
+	return ret;
+}
+
 DEFUN (vtysh_show_poll,
        vtysh_show_poll_cmd,
        "show thread poll",
@@ -2454,19 +2502,7 @@ DEFUN (vtysh_show_poll,
        "Thread information\n"
        "Thread Poll Information\n")
 {
-	unsigned int i;
-	int ret = CMD_SUCCESS;
-	char line[100];
-
-	snprintf(line, sizeof(line), "do show thread poll\n");
-	for (i = 0; i < array_size(vtysh_client); i++)
-		if (vtysh_client[i].fd >= 0) {
-			vty_out(vty, "Thread statistics for %s:\n",
-				vtysh_client[i].name);
-			ret = vtysh_client_execute(&vtysh_client[i], line);
-			vty_out(vty, "\n");
-		}
-	return ret;
+	return show_per_daemon(vty, argv, argc, "Thread statistics for %s:\n");
 }
 
 #ifndef EXCLUDE_CPU_TIME
@@ -2478,23 +2514,7 @@ DEFUN (vtysh_show_thread,
        "Thread CPU usage\n"
        "Display filter (rwtexb)\n")
 {
-	unsigned int i;
-	int idx = 0;
-	int ret = CMD_SUCCESS;
-	char line[100];
-
-	const char *filter =
-		argv_find(argv, argc, "FILTER", &idx) ? argv[idx]->arg : "";
-
-	snprintf(line, sizeof(line), "do show thread cpu %s\n", filter);
-	for (i = 0; i < array_size(vtysh_client); i++)
-		if (vtysh_client[i].fd >= 0) {
-			vty_out(vty, "Thread statistics for %s:\n",
-				vtysh_client[i].name);
-			ret = vtysh_client_execute(&vtysh_client[i], line);
-			vty_out(vty, "\n");
-		}
-	return ret;
+	return show_per_daemon(vty, argv, argc, "Thread statistics for %s:\n");
 }
 #endif
 
@@ -2504,19 +2524,8 @@ DEFUN (vtysh_show_work_queues,
        SHOW_STR
        "Work Queue information\n")
 {
-	unsigned int i;
-	int ret = CMD_SUCCESS;
-	char line[] = "do show work-queues\n";
-
-	for (i = 0; i < array_size(vtysh_client); i++)
-		if (vtysh_client[i].fd >= 0) {
-			vty_out(vty, "Work queue statistics for %s:\n",
-				vtysh_client[i].name);
-			ret = vtysh_client_execute(&vtysh_client[i], line);
-			vty_out(vty, "\n");
-		}
-
-	return ret;
+	return show_per_daemon(vty, argv, argc,
+			       "Work queue statistics for %s:\n");
 }
 
 DEFUN (vtysh_show_work_queues_daemon,
@@ -2526,10 +2535,7 @@ DEFUN (vtysh_show_work_queues_daemon,
        "Work Queue information\n"
        DAEMONS_STR)
 {
-	int idx_protocol = 2;
-
-	return vtysh_client_execute_name(argv[idx_protocol]->text,
-					 "show work-queues\n");
+	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
 }
 
 DEFUNSH(VTYSH_ZEBRA, vtysh_link_params, vtysh_link_params_cmd, "link-params",
@@ -2545,21 +2551,6 @@ DEFUNSH(VTYSH_ZEBRA, exit_link_params, exit_link_params_cmd, "exit-link-params",
 	if (vty->node == LINK_PARAMS_NODE)
 		vty->node = INTERFACE_NODE;
 	return CMD_SUCCESS;
-}
-
-static int show_per_daemon(const char *line, const char *headline)
-{
-	unsigned int i;
-	int ret = CMD_SUCCESS;
-
-	for (i = 0; i < array_size(vtysh_client); i++)
-		if (vtysh_client[i].fd >= 0) {
-			vty_out(vty, headline, vtysh_client[i].name);
-			ret = vtysh_client_execute(&vtysh_client[i], line);
-			vty_out(vty, "\n");
-		}
-
-	return ret;
 }
 
 DEFUNSH_HIDDEN (0x00,
@@ -2579,7 +2570,7 @@ DEFUN (vtysh_show_debugging,
        SHOW_STR
        DEBUG_STR)
 {
-	return show_per_daemon("do show debugging\n", "");
+	return show_per_daemon(vty, argv, argc, "");
 }
 
 DEFUN (vtysh_show_debugging_hashtable,
@@ -2590,6 +2581,8 @@ DEFUN (vtysh_show_debugging_hashtable,
        "Statistics about hash tables\n"
        "Statistics about hash tables\n")
 {
+	bool stats = strmatch(argv[argc - 1]->text, "statistics");
+
 	vty_out(vty, "\n");
 	vty_out(vty,
 		"Load factor (LF) - average number of elements across all buckets\n");
@@ -2601,7 +2594,7 @@ DEFUN (vtysh_show_debugging_hashtable,
 		"and indicates the typical deviation of bucket chain length\n");
 	vty_out(vty, "from the value in the corresponding load factor.\n\n");
 
-	return show_per_daemon("do show debugging hashtable\n",
+	return show_per_daemon(vty, argv, stats ? argc - 1 : argc,
 			       "Hashtable statistics for %s:\n");
 }
 
@@ -2621,12 +2614,7 @@ DEFUN (vtysh_show_error_code,
 
 	/* If it's not a shared code, send it to all the daemons */
 	if (arg < LIB_FERR_START || arg > LIB_FERR_END) {
-		char *fcmd = argv_concat(argv, argc, 0);
-		char cmd[256];
-
-		snprintf(cmd, sizeof(cmd), "do %s", fcmd);
-		show_per_daemon(cmd, "");
-		XFREE(MTYPE_TMP, fcmd);
+		show_per_daemon(vty, argv, argc, "");
 		/* Otherwise, print it ourselves to avoid duplication */
 	} else {
 		bool json = strmatch(argv[argc - 1]->text, "json");
@@ -2659,11 +2647,7 @@ DEFUN (show_yang_operational_data,
        "YANG module translator\n"
        DAEMONS_STR)
 {
-	int idx_protocol = argc - 1;
-	char *fcmd = argv_concat(argv, argc - 1, 0);
-	int ret = vtysh_client_execute_name(argv[idx_protocol]->text, fcmd);
-	XFREE(MTYPE_TMP, fcmd);
-	return ret;
+	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
 }
 
 DEFUNSH(VTYSH_ALL, debug_nb,
@@ -2696,7 +2680,7 @@ DEFUN (vtysh_show_memory,
        SHOW_STR
        "Memory statistics\n")
 {
-	return show_per_daemon("do show memory\n", "Memory statistics for %s:\n");
+	return show_per_daemon(vty, argv, argc, "Memory statistics for %s:\n");
 }
 
 DEFUN (vtysh_show_modules,
@@ -2705,8 +2689,7 @@ DEFUN (vtysh_show_modules,
        SHOW_STR
        "Loaded modules\n")
 {
-	return show_per_daemon("do show modules\n",
-			       "Module information for %s:\n");
+	return show_per_daemon(vty, argv, argc, "Module information for %s:\n");
 }
 
 /* Logging commands. */
@@ -2716,7 +2699,7 @@ DEFUN (vtysh_show_logging,
        SHOW_STR
        "Show current logging configuration\n")
 {
-	return show_per_daemon("do show logging\n",
+	return show_per_daemon(vty, argv, argc,
 			       "Logging configuration for %s:\n");
 }
 
