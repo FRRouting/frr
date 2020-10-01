@@ -444,12 +444,44 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 			 * yet.
 			 */
 			if (!next_pkt || !next_pkt->buffer) {
-				/* Make sure we supress BGP UPDATES
-				 * for normal processing later again.
-				 */
-				if (!paf->t_announce_route)
+				if (!paf->t_announce_route) {
+					/* Make sure we supress BGP UPDATES
+					 * for normal processing later again.
+					 */
 					UNSET_FLAG(paf->subgroup->sflags,
 						   SUBGRP_STATUS_FORCE_UPDATES);
+
+					/* If route-refresh BoRR message was
+					 * already sent and we are done with
+					 * re-announcing tables for a decent
+					 * afi/safi, we ready to send
+					 * EoRR request.
+					 */
+					if (CHECK_FLAG(
+						    peer->af_sflags[afi][safi],
+						    PEER_STATUS_BORR_SEND)) {
+						bgp_route_refresh_send(
+							peer, afi, safi, 0, 0,
+							0,
+							BGP_ROUTE_REFRESH_EORR);
+
+						SET_FLAG(peer->af_sflags[afi]
+									[safi],
+							 PEER_STATUS_EORR_SEND);
+						UNSET_FLAG(
+							peer->af_sflags[afi]
+								       [safi],
+							PEER_STATUS_BORR_SEND);
+
+						if (bgp_debug_neighbor_events(
+							    peer))
+							zlog_debug(
+								"%s sending route-refresh (EoRR) for %s/%s",
+								peer->host,
+								afi2str(afi),
+								safi2str(safi));
+					}
+				}
 
 				if (CHECK_FLAG(peer->cap,
 					       PEER_CAP_RESTART_RCV)) {
@@ -816,7 +848,7 @@ void bgp_notify_send(struct peer *peer, uint8_t code, uint8_t sub_code)
  */
 void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 			    uint8_t orf_type, uint8_t when_to_refresh,
-			    int remove)
+			    int remove, uint8_t subtype)
 {
 	struct stream *s;
 	struct bgp_filter *filter;
@@ -842,7 +874,10 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Encode Route Refresh message. */
 	stream_putw(s, pkt_afi);
-	stream_putc(s, 0);
+	if (subtype)
+		stream_putc(s, subtype);
+	else
+		stream_putc(s, 0);
 	stream_putc(s, pkt_safi);
 
 	if (orf_type == ORF_TYPE_PREFIX || orf_type == ORF_TYPE_PREFIX_OLD)
@@ -1460,6 +1495,29 @@ static int bgp_keepalive_receive(struct peer *peer, bgp_size_t size)
 	return Receive_KEEPALIVE_message;
 }
 
+static int bgp_refresh_stalepath_timer_expire(struct thread *thread)
+{
+	struct peer_af *paf;
+
+	paf = THREAD_ARG(thread);
+
+	afi_t afi = paf->afi;
+	safi_t safi = paf->safi;
+	struct peer *peer = paf->peer;
+
+	peer->t_refresh_stalepath = NULL;
+
+	if (peer->nsf[afi][safi])
+		bgp_clear_stale_route(peer, afi, safi);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s: route-refresh (BoRR) timer for %s/%s expired",
+			   peer->host, afi2str(afi), safi2str(safi));
+
+	bgp_timer_set(peer);
+
+	return 0;
+}
 
 /**
  * Process BGP UPDATE message for peer.
@@ -1888,6 +1946,9 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 	struct peer_af *paf;
 	struct update_group *updgrp;
 	struct peer *updgrp_peer;
+	uint8_t subtype;
+	bgp_size_t msg_length =
+		size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE);
 
 	/* If peer does not have the capability, send notification. */
 	if (!CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_ADV)) {
@@ -1915,7 +1976,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 
 	/* Parse packet. */
 	pkt_afi = stream_getw(s);
-	(void)stream_getc(s);
+	subtype = stream_getc(s);
 	pkt_safi = stream_getc(s);
 
 	if (bgp_debug_update(peer, NULL, NULL, 0))
@@ -1938,8 +1999,34 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 		uint8_t orf_type;
 		uint16_t orf_len;
 
-		if (size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE)
-		    < 5) {
+		if (subtype) {
+			/* If the length, excluding the fixed-size message
+			 * header, of the received ROUTE-REFRESH message with
+			 * Message Subtype 1 and 2 is not 4, then the BGP
+			 * speaker MUST send a NOTIFICATION message with the
+			 * Error Code of "ROUTE-REFRESH Message Error" and the
+			 * subcode of "Invalid Message Length".
+			 */
+			if (msg_length != 4) {
+				zlog_err(
+					"%s Enhanced Route Refresh message length error",
+					peer->host);
+				bgp_notify_send(
+					peer, BGP_NOTIFY_ROUTE_REFRESH_ERR,
+					BGP_NOTIFY_ROUTE_REFRESH_INVALID_MSG_LEN);
+			}
+
+			/* When the BGP speaker receives a ROUTE-REFRESH message
+			 * with a "Message Subtype" field other than 0, 1, or 2,
+			 * it MUST ignore the received ROUTE-REFRESH message.
+			 */
+			if (subtype > 2)
+				zlog_err(
+					"%s Enhanced Route Refresh invalid subtype",
+					peer->host);
+		}
+
+		if (msg_length < 5) {
 			zlog_info("%s ORF route refresh length error",
 				  peer->host);
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
@@ -2137,6 +2224,120 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 			       SUBGRP_STATUS_DEFAULT_ORIGINATE))
 			UNSET_FLAG(paf->subgroup->sflags,
 				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
+	}
+
+	if (subtype == BGP_ROUTE_REFRESH_BORR) {
+		/* A BGP speaker that has received the Graceful Restart
+		 * Capability from its neighbor MUST ignore any BoRRs for
+		 * an <AFI, SAFI> from the neighbor before the speaker
+		 * receives the EoR for the given <AFI, SAFI> from the
+		 * neighbor.
+		 */
+		if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)
+		    && !CHECK_FLAG(peer->af_sflags[afi][safi],
+				   PEER_STATUS_EOR_RECEIVED)) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s rcvd route-refresh (BoRR) for %s/%s before EoR",
+					peer->host, afi2str(afi),
+					safi2str(safi));
+			return BGP_PACKET_NOOP;
+		}
+
+		if (peer->t_refresh_stalepath) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s rcvd route-refresh (BoRR) for %s/%s, whereas BoRR already received",
+					peer->host, afi2str(afi),
+					safi2str(safi));
+			return BGP_PACKET_NOOP;
+		}
+
+		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_BORR_RECEIVED);
+		UNSET_FLAG(peer->af_sflags[afi][safi],
+			   PEER_STATUS_EORR_RECEIVED);
+
+		/* When a BGP speaker receives a BoRR message from
+		 * a peer, it MUST mark all the routes with the given
+		 * Address Family Identifier and Subsequent Address
+		 * Family Identifier, <AFI, SAFI> [RFC2918], from
+		 * that peer as stale.
+		 */
+		if (peer_active_nego(peer)) {
+			SET_FLAG(peer->af_sflags[afi][safi],
+				 PEER_STATUS_ENHANCED_REFRESH);
+			bgp_set_stale_route(peer, afi, safi);
+		}
+
+		if (peer->status == Established)
+			thread_add_timer(bm->master,
+					 bgp_refresh_stalepath_timer_expire,
+					 paf, peer->bgp->stalepath_time,
+					 &peer->t_refresh_stalepath);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug(
+				"%s rcvd route-refresh (BoRR) for %s/%s, triggering timer for %u seconds",
+				peer->host, afi2str(afi), safi2str(safi),
+				peer->bgp->stalepath_time);
+	} else if (subtype == BGP_ROUTE_REFRESH_EORR) {
+		if (!peer->t_refresh_stalepath) {
+			zlog_err(
+				"%s rcvd route-refresh (EoRR) for %s/%s, whereas no BoRR received",
+				peer->host, afi2str(afi), safi2str(safi));
+			return BGP_PACKET_NOOP;
+		}
+
+		BGP_TIMER_OFF(peer->t_refresh_stalepath);
+
+		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EORR_RECEIVED);
+		UNSET_FLAG(peer->af_sflags[afi][safi],
+			   PEER_STATUS_BORR_RECEIVED);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug(
+				"%s rcvd route-refresh (EoRR) for %s/%s, stopping BoRR timer",
+				peer->host, afi2str(afi), safi2str(safi));
+
+		if (peer->nsf[afi][safi])
+			bgp_clear_stale_route(peer, afi, safi);
+	} else {
+		/* In response to a "normal route refresh request" from the
+		 * peer, the speaker MUST send a BoRR message.
+		 */
+		if (CHECK_FLAG(peer->cap, PEER_CAP_ENHANCED_RR_RCV)) {
+			/* For a BGP speaker that supports the BGP Graceful
+			 * Restart, it MUST NOT send a BoRR for an <AFI, SAFI>
+			 * to a neighbor before it sends the EoR for the
+			 * <AFI, SAFI> to the neighbor.
+			 */
+			if (!CHECK_FLAG(peer->af_sflags[afi][safi],
+					PEER_STATUS_EOR_SEND)) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug(
+						"%s rcvd route-refresh (REQUEST) for %s/%s before EoR",
+						peer->host, afi2str(afi),
+						safi2str(safi));
+				return BGP_PACKET_NOOP;
+			}
+
+			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
+					       BGP_ROUTE_REFRESH_BORR);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s sending route-refresh (BoRR) for %s/%s",
+					peer->host, afi2str(afi),
+					safi2str(safi));
+
+			/* Set flag Ready-To-Send to know when we can send EoRR
+			 * message.
+			 */
+			SET_FLAG(peer->af_sflags[afi][safi],
+				 PEER_STATUS_BORR_SEND);
+			UNSET_FLAG(peer->af_sflags[afi][safi],
+				   PEER_STATUS_EORR_SEND);
+		}
 	}
 
 	/* Perform route refreshment to the peer */

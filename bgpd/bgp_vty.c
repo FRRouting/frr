@@ -13153,6 +13153,37 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							"received");
 				}
 
+				/* Enhanced Route Refresh */
+				if (CHECK_FLAG(p->cap, PEER_CAP_ENHANCED_RR_ADV)
+				    || CHECK_FLAG(p->cap,
+						  PEER_CAP_ENHANCED_RR_RCV)) {
+					if (CHECK_FLAG(p->cap,
+						       PEER_CAP_ENHANCED_RR_ADV)
+					    && CHECK_FLAG(
+						    p->cap,
+						    PEER_CAP_ENHANCED_RR_RCV))
+						json_object_string_add(
+							json_cap,
+							"enhancedRouteRefresh",
+							"advertisedAndReceived");
+					else if (
+						CHECK_FLAG(
+							p->cap,
+							PEER_CAP_ENHANCED_RR_ADV))
+						json_object_string_add(
+							json_cap,
+							"enhancedRouteRefresh",
+							"advertised");
+					else if (
+						CHECK_FLAG(
+							p->cap,
+							PEER_CAP_ENHANCED_RR_RCV))
+						json_object_string_add(
+							json_cap,
+							"enhancedRouteRefresh",
+							"received");
+				}
+
 				/* Multiprotocol Extensions */
 				json_object *json_multi = NULL;
 				json_multi = json_object_new_object();
@@ -13522,6 +13553,28 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 									  ? "old"
 									  : "new");
 
+					vty_out(vty, "\n");
+				}
+
+				/* Enhanced Route Refresh */
+				if (CHECK_FLAG(p->cap, PEER_CAP_ENHANCED_RR_ADV)
+				    || CHECK_FLAG(p->cap,
+						  PEER_CAP_ENHANCED_RR_RCV)) {
+					vty_out(vty,
+						"    Enhanced Route Refresh:");
+					if (CHECK_FLAG(
+						    p->cap,
+						    PEER_CAP_ENHANCED_RR_ADV))
+						vty_out(vty, " advertised");
+					if (CHECK_FLAG(
+						    p->cap,
+						    PEER_CAP_ENHANCED_RR_RCV))
+						vty_out(vty, " %sreceived",
+							CHECK_FLAG(
+								p->cap,
+								PEER_CAP_REFRESH_ADV)
+								? "and "
+								: "");
 					vty_out(vty, "\n");
 				}
 

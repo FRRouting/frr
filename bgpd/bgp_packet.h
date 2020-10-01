@@ -62,8 +62,9 @@ extern void bgp_open_send(struct peer *);
 extern void bgp_notify_send(struct peer *, uint8_t, uint8_t);
 extern void bgp_notify_send_with_data(struct peer *, uint8_t, uint8_t,
 				      uint8_t *, size_t);
-extern void bgp_route_refresh_send(struct peer *, afi_t, safi_t, uint8_t,
-				   uint8_t, int);
+extern void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
+				   uint8_t orf_type, uint8_t when_to_refresh,
+				   int remove, uint8_t subtype);
 extern void bgp_capability_send(struct peer *, afi_t, safi_t, int, int);
 
 extern int bgp_capability_receive(struct peer *, bgp_size_t);
