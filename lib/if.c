@@ -351,6 +351,40 @@ struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 	return NULL;
 }
 
+/* Interface existance check by index. */
+struct interface *if_vrf_lookup_by_index_next(ifindex_t ifindex,
+					      vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct interface *tmp_ifp;
+	bool found = false;
+
+	if (!vrf)
+		return NULL;
+
+	if (ifindex == 0) {
+		tmp_ifp = RB_MIN(if_index_head, &vrf->ifaces_by_index);
+		/* skip the vrf interface */
+		if (tmp_ifp && if_is_vrf(tmp_ifp))
+			ifindex = tmp_ifp->ifindex;
+		else
+			return tmp_ifp;
+	}
+
+	RB_FOREACH (tmp_ifp, if_index_head, &vrf->ifaces_by_index) {
+		if (found) {
+			/* skip the vrf interface */
+			if (tmp_ifp && if_is_vrf(tmp_ifp))
+				continue;
+			else
+				return tmp_ifp;
+		}
+		if (tmp_ifp->ifindex == ifindex)
+			found = true;
+	}
+	return NULL;
+}
+
 const char *ifindex2ifname(ifindex_t ifindex, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
