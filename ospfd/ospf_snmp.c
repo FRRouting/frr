@@ -2486,20 +2486,25 @@ static void ospfTrapVirtNbrStateChange(struct ospf_neighbor *on)
 static int ospf_snmp_nsm_change(struct ospf_neighbor *nbr, int next_state,
 				int old_state)
 {
-	/* Terminal state or regression */
-	if ((next_state == NSM_Full) || (next_state == NSM_TwoWay)
-	    || (next_state < old_state)) {
-		/* ospfVirtNbrStateChange */
-		if (nbr->oi->type == OSPF_IFTYPE_VIRTUALLINK)
-			ospfTrapVirtNbrStateChange(nbr);
-		/* ospfNbrStateChange trap  */
-		else
-			/* To/From FULL, only managed by DR */
-			if (((next_state != NSM_Full)
-			     && (nbr->state != NSM_Full))
-			    || (nbr->oi->state == ISM_DR))
-			ospfTrapNbrStateChange(nbr);
-	}
+	/* Transition to/from state Full should be handled only by
+	 * DR when in Broadcast or Non-Brodcast Multi-Access networks
+	 */
+	if ((next_state == NSM_Full || old_state == NSM_Full)
+	    && (nbr->oi->state != ISM_DR)
+	    && (nbr->oi->type == OSPF_IFTYPE_BROADCAST
+		|| nbr->oi->type == OSPF_IFTYPE_NBMA))
+		return 0;
+
+	/* State progression to non-terminal state */
+	if (next_state > old_state && next_state != NSM_Full
+	    && next_state != NSM_TwoWay)
+		return 0;
+
+	if (nbr->oi->type == OSPF_IFTYPE_VIRTUALLINK)
+		ospfTrapVirtNbrStateChange(nbr);
+	else
+		ospfTrapNbrStateChange(nbr);
+
 	return 0;
 }
 
