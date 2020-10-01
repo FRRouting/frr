@@ -31,14 +31,16 @@ from re import search as re_search
 from tempfile import mkdtemp
 
 import os
-import io
 import sys
 import traceback
 import socket
 import ipaddress
+import ipaddr
 import platform
 
+
 if sys.version_info[0] > 2:
+    import io
     import configparser
 else:
     import StringIO
@@ -257,6 +259,7 @@ def create_common_configuration(
             "bgp": "! BGP Config\n",
             "vrf": "! VRF Config\n",
             "ospf": "! OSPF Config\n",
+            "pim": "! PIM Config\n",
         }
     )
 
@@ -389,6 +392,8 @@ def check_router_status(tgen):
                     daemons.append("bgpd")
                 if "zebra" in result:
                     daemons.append("zebra")
+                if "pimd" in result:
+                    daemons.append("pimd")
 
                 rnode.startDaemons(daemons)
 
@@ -638,7 +643,7 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
                 ll_per_if_count = 0
 
             # Interface ip
-            m1 = re_search("inet6 (fe80[:a-fA-F0-9]+[/0-9]+)", line)
+            m1 = re_search("inet6 (fe80[:a-fA-F0-9]+[\/0-9]+)", line)
             if m1:
                 local = m1.group(1)
                 ll_per_if_count += 1
@@ -700,7 +705,7 @@ def start_topology(tgen, daemon=None):
 
     router_list = tgen.routers()
     ROUTER_LIST = sorted(
-        router_list.keys(), key=lambda x: int(re_search("[0-9]+", x).group(0))
+        router_list.keys(), key=lambda x: int(re_search("\d+", x).group(0))
     )
     TMPDIR = os.path.join(LOGDIR, tgen.modname)
 
@@ -714,6 +719,10 @@ def start_topology(tgen, daemon=None):
         if linux_ver == "":
             linux_ver = router.run("uname -a")
             logger.info("Logging platform related details: \n %s \n", linux_ver)
+
+        # Listing pip packages
+        pip_packages = router.run("pip freeze")
+        logger.info("pip packages insatlled and versions: \n %s \n", pip_packages)
 
         try:
             os.chdir(TMPDIR)
@@ -748,7 +757,14 @@ def start_topology(tgen, daemon=None):
             router.load_config(
                 TopoRouter.RD_OSPF, "{}/{}/ospfd.conf".format(TMPDIR, rname)
             )
-        # Starting routers
+
+        if daemon and "pimd" in daemon:
+            # Loading empty pimd.conf file to router, to start the pim deamon
+            router.load_config(
+                TopoRouter.RD_PIM, "{}/{}/pimd.conf".format(TMPDIR, rname)
+            )
+
+    # Starting routers
     logger.info("Starting all routers once topology is created")
     tgen.start_router()
 
@@ -828,12 +844,16 @@ def topo_daemons(tgen, topo):
 
     router_list = tgen.routers()
     ROUTER_LIST = sorted(
-        router_list.keys(), key=lambda x: int(re_search("[0-9]+", x).group(0))
+        router_list.keys(), key=lambda x: int(re_search("\d+", x).group(0))
     )
 
     for rtr in ROUTER_LIST:
         if "ospf" in topo["routers"][rtr] and "ospfd" not in daemon_list:
             daemon_list.append("ospfd")
+
+        if ("pim" in topo["routers"][rtr] or "bsm" in topo["routers"][rtr] ) \
+            and "pimd" not in daemon_list:
+            daemon_list.append("pimd")
 
     return daemon_list
 
@@ -1153,10 +1173,10 @@ def generate_ips(network, no_of_ips):
 
         addr_type = validate_ip_address(start_ip)
         if addr_type == "ipv4":
-            start_ip = ipaddress.IPv4Address(frr_unicode(start_ip))
+            start_ip = ipaddress.IPv4Address(unicode(start_ip))
             step = 2 ** (32 - mask)
         if addr_type == "ipv6":
-            start_ip = ipaddress.IPv6Address(frr_unicode(start_ip))
+            start_ip = ipaddress.IPv6Address(unicode(start_ip))
             step = 2 ** (128 - mask)
 
         next_ip = start_ip
@@ -1355,6 +1375,17 @@ def step(msg, reset=False):
     """
     _step = Stepper()
     _step(msg, reset)
+
+
+def do_countdown(secs):
+    """
+    Countdown timer display
+    """
+    for i in range(secs, 0, -1):
+        sys.stdout.write("{} ".format(str(i)))
+        sys.stdout.flush()
+        sleep(1)
+    return
 
 
 #############################################
@@ -2673,7 +2704,7 @@ def verify_rib(
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
@@ -2869,7 +2900,7 @@ def verify_rib(
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(unicode(st_rt)))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -2926,7 +2957,7 @@ def verify_rib(
     return True
 
 
-@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=6, wait=2, return_is_str=True)
 def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
     """
     Data will be read from input_dict or input JSON file, API will generate
@@ -3181,259 +3212,6 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
-
-@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
-def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
-    """
-    Data will be read from input_dict or input JSON file, API will generate
-    same prefixes, which were redistributed by either create_static_routes() or
-    advertise_networks_using_network_command() and will verify next_hop and
-    each prefix/routes is present in "show ip/ipv6 fib json"
-    command o/p.
-
-    Parameters
-    ----------
-    * `tgen` : topogen object
-    * `addr_type` : ip type, ipv4/ipv6
-    * `dut`: Device Under Test, for which user wants to test the data
-    * `input_dict` : input dict, has details of static routes
-    * `next_hop`[optional]: next_hop which needs to be verified,
-                           default: static
-
-    Usage
-    -----
-    input_routes_r1 = {
-        "r1": {
-            "static_routes": [{
-                "network": ["1.1.1.1/32],
-                "next_hop": "Null0",
-                "vrf": "RED"
-            }]
-        }
-    }
-    result = result = verify_fib_routes(tgen, "ipv4, "r1", input_routes_r1)
-
-    Returns
-    -------
-    errormsg(str) or True
-    """
-
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
-    router_list = tgen.routers()
-    for routerInput in input_dict.keys():
-        for router, rnode in router_list.items():
-            if router != dut:
-                continue
-
-            logger.info("Checking router %s FIB routes:", router)
-
-            # Verifying RIB routes
-            if addr_type == "ipv4":
-                command = "show ip fib"
-            else:
-                command = "show ipv6 fib"
-
-            found_routes = []
-            missing_routes = []
-
-            if "static_routes" in input_dict[routerInput]:
-                static_routes = input_dict[routerInput]["static_routes"]
-
-                for static_route in static_routes:
-                    if "vrf" in static_route and static_route["vrf"] is not None:
-
-                        logger.info(
-                            "[DUT: {}]: Verifying routes for VRF:"
-                            " {}".format(router, static_route["vrf"])
-                        )
-
-                        cmd = "{} vrf {}".format(command, static_route["vrf"])
-
-                    else:
-                        cmd = "{}".format(command)
-
-                    cmd = "{} json".format(cmd)
-
-                    rib_routes_json = run_frr_cmd(rnode, cmd, isjson=True)
-
-                    # Verifying output dictionary rib_routes_json is not empty
-                    if bool(rib_routes_json) is False:
-                        errormsg = "[DUT: {}]: No route found in fib".format(router)
-                        return errormsg
-
-                    network = static_route["network"]
-                    if "no_of_ip" in static_route:
-                        no_of_ip = static_route["no_of_ip"]
-                    else:
-                        no_of_ip = 1
-
-                    # Generating IPs for verification
-                    ip_list = generate_ips(network, no_of_ip)
-                    st_found = False
-                    nh_found = False
-
-                    for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
-
-                        _addr_type = validate_ip_address(st_rt)
-                        if _addr_type != addr_type:
-                            continue
-
-                        if st_rt in rib_routes_json:
-                            st_found = True
-                            found_routes.append(st_rt)
-
-                            if next_hop:
-                                if type(next_hop) is not list:
-                                    next_hop = [next_hop]
-
-                                count = 0
-                                for nh in next_hop:
-                                    for nh_dict in rib_routes_json[st_rt][0][
-                                        "nexthops"
-                                    ]:
-                                        if nh_dict["ip"] != nh:
-                                            continue
-                                        else:
-                                            count += 1
-
-                                if count == len(next_hop):
-                                    nh_found = True
-                                else:
-                                    missing_routes.append(st_rt)
-                                    errormsg = (
-                                        "Nexthop {} is Missing"
-                                        " for route {} in "
-                                        "RIB of router {}\n".format(
-                                            next_hop, st_rt, dut
-                                        )
-                                    )
-                                    return errormsg
-
-                        else:
-                            missing_routes.append(st_rt)
-
-                if len(missing_routes) > 0:
-                    errormsg = "[DUT: {}]: Missing route in FIB:" " {}".format(
-                        dut, missing_routes
-                    )
-                    return errormsg
-
-                if nh_found:
-                    logger.info(
-                        "Found next_hop {} for all routes in RIB"
-                        " of router {}\n".format(next_hop, dut)
-                    )
-
-                if found_routes:
-                    logger.info(
-                        "[DUT: %s]: Verified routes in FIB, found" " routes are: %s\n",
-                        dut,
-                        found_routes,
-                    )
-
-                continue
-
-            if "bgp" in input_dict[routerInput]:
-                if (
-                    "advertise_networks"
-                    not in input_dict[routerInput]["bgp"]["address_family"][addr_type][
-                        "unicast"
-                    ]
-                ):
-                    continue
-
-                found_routes = []
-                missing_routes = []
-                advertise_network = input_dict[routerInput]["bgp"]["address_family"][
-                    addr_type
-                ]["unicast"]["advertise_networks"]
-
-                # Continue if there are no network advertise
-                if len(advertise_network) == 0:
-                    continue
-
-                for advertise_network_dict in advertise_network:
-                    if "vrf" in advertise_network_dict:
-                        cmd = "{} vrf {} json".format(command, static_route["vrf"])
-                    else:
-                        cmd = "{} json".format(command)
-
-                rib_routes_json = run_frr_cmd(rnode, cmd, isjson=True)
-
-                # Verifying output dictionary rib_routes_json is not empty
-                if bool(rib_routes_json) is False:
-                    errormsg = "No route found in rib of router {}..".format(router)
-                    return errormsg
-
-                start_ip = advertise_network_dict["network"]
-                if "no_of_network" in advertise_network_dict:
-                    no_of_network = advertise_network_dict["no_of_network"]
-                else:
-                    no_of_network = 1
-
-                # Generating IPs for verification
-                ip_list = generate_ips(start_ip, no_of_network)
-                st_found = False
-                nh_found = False
-
-                for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
-
-                    _addr_type = validate_ip_address(st_rt)
-                    if _addr_type != addr_type:
-                        continue
-
-                    if st_rt in rib_routes_json:
-                        st_found = True
-                        found_routes.append(st_rt)
-
-                        if next_hop:
-                            if type(next_hop) is not list:
-                                next_hop = [next_hop]
-
-                            count = 0
-                            for nh in next_hop:
-                                for nh_dict in rib_routes_json[st_rt][0]["nexthops"]:
-                                    if nh_dict["ip"] != nh:
-                                        continue
-                                    else:
-                                        count += 1
-
-                            if count == len(next_hop):
-                                nh_found = True
-                            else:
-                                missing_routes.append(st_rt)
-                                errormsg = (
-                                    "Nexthop {} is Missing"
-                                    " for route {} in "
-                                    "RIB of router {}\n".format(next_hop, st_rt, dut)
-                                )
-                                return errormsg
-                    else:
-                        missing_routes.append(st_rt)
-
-                if len(missing_routes) > 0:
-                    errormsg = "[DUT: {}]: Missing route in FIB: " "{} \n".format(
-                        dut, missing_routes
-                    )
-                    return errormsg
-
-                if nh_found:
-                    logger.info(
-                        "Found next_hop {} for all routes in RIB"
-                        " of router {}\n".format(next_hop, dut)
-                    )
-
-                if found_routes:
-                    logger.info(
-                        "[DUT: {}]: Verified routes FIB"
-                        ", found routes  are: {}\n".format(dut, found_routes)
-                    )
-
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-    return True
 
 
 def verify_admin_distance_for_static_routes(tgen, input_dict):
@@ -4087,3 +3865,215 @@ def required_linux_kernel_version(required_version):
         )
         return error_msg
     return True
+
+
+def iperfSendIGMPJoin(
+    tgen, server, bindToAddress, l4Type="UDP", join_interval=1, inc_step=0, repeat=0
+):
+    """
+    Run iperf to send IGMP join and traffic
+
+    Parameters:
+    -----------
+    * `tgen`  : Topogen object
+    * `l4Type`: string, one of [ TCP, UDP ]
+    * `server`: iperf server, from where IGMP join would be sent
+    * `bindToAddress`: bind to <host>, an interface or multicast
+                       address
+    * `join_interval`: seconds between periodic bandwidth reports
+    * `inc_step`: increamental steps, by default 0
+    * `repeat`: Repetition of group, by default 0
+
+    returns:
+    --------
+    errormsg or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    rnode = tgen.routers()[server]
+
+    iperfArgs = "iperf -s "
+
+    # UDP/TCP
+    if l4Type == "UDP":
+        iperfArgs += "-u "
+
+    iperfCmd = iperfArgs
+    # Group address range to cover
+    if bindToAddress:
+        if type(bindToAddress) is not list:
+            Address = []
+            start = ipaddr.IPv4Address(bindToAddress)
+
+            Address = [start]
+            next_ip = start
+
+            count = 1
+            while count < repeat:
+                next_ip += inc_step
+                Address.append(next_ip)
+                count += 1
+            bindToAddress = Address
+
+    for bindTo in bindToAddress:
+        iperfArgs = iperfCmd
+        iperfArgs += "-B %s " % bindTo
+
+        # Join interval
+        if join_interval:
+            iperfArgs += "-i %d " % join_interval
+
+        iperfArgs += " &>/dev/null &"
+        # Run iperf command to send IGMP join
+        logger.debug("[DUT: {}]: Running command: [{}]".format(server, iperfArgs))
+        output = rnode.run("set +m; {} sleep 0.5".format(iperfArgs))
+
+        # Check if iperf process is running
+        if output:
+            pid = output.split()[1]
+            rnode.run("touch /var/run/frr/iperf_server.pid")
+            rnode.run("echo %s >> /var/run/frr/iperf_server.pid" % pid)
+        else:
+            errormsg = "IGMP join is not sent for {}. Error: {}".format(bindTo, output)
+            logger.error(output)
+            return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+def iperfSendTraffic(
+    tgen,
+    client,
+    bindToAddress,
+    ttl,
+    time=0,
+    l4Type="UDP",
+    inc_step=0,
+    repeat=0,
+    mappedAddress=None,
+):
+    """
+    Run iperf to send IGMP join and traffic
+
+    Parameters:
+    -----------
+    * `tgen`  : Topogen object
+    * `l4Type`: string, one of [ TCP, UDP ]
+    * `client`: iperf client, from where iperf traffic would be sent
+    * `bindToAddress`: bind to <host>, an interface or multicast
+                       address
+    * `ttl`: time to live
+    * `time`: time in seconds to transmit for
+    * `inc_step`: increamental steps, by default 0
+    * `repeat`: Repetition of group, by default 0
+    * `mappedAddress`: Mapped Interface ip address
+
+    returns:
+    --------
+    errormsg or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    rnode = tgen.routers()[client]
+
+    iperfArgs = "iperf -c "
+
+    iperfCmd = iperfArgs
+    # Group address range to cover
+    if bindToAddress:
+        if type(bindToAddress) is not list:
+            Address = []
+            start = ipaddr.IPv4Address(bindToAddress)
+
+            Address = [start]
+            next_ip = start
+
+            count = 1
+            while count < repeat:
+                next_ip += inc_step
+                Address.append(next_ip)
+                count += 1
+            bindToAddress = Address
+
+    for bindTo in bindToAddress:
+        iperfArgs = iperfCmd
+        iperfArgs += "%s " % bindTo
+
+        # Mapped Interface IP
+        if mappedAddress:
+            iperfArgs += "-B %s " % mappedAddress
+
+        # UDP/TCP
+        if l4Type == "UDP":
+            iperfArgs += "-u -b 0.012m "
+
+        # TTL
+        if ttl:
+            iperfArgs += "-T %d " % ttl
+
+        # Time
+        if time:
+            iperfArgs += "-t %d " % time
+
+        iperfArgs += " &>/dev/null &"
+
+        # Run iperf command to send multicast traffic
+        logger.debug("[DUT: {}]: Running command: [{}]".format(client, iperfArgs))
+        output = rnode.run("set +m; {} sleep 0.5".format(iperfArgs))
+
+        # Check if iperf process is running
+        if output:
+            pid = output.split()[1]
+            rnode.run("touch /var/run/frr/iperf_client.pid")
+            rnode.run("echo %s >> /var/run/frr/iperf_client.pid" % pid)
+        else:
+            errormsg = "Multicast traffic is not sent for {}. Error {}".format(
+                bindTo, output
+            )
+            logger.error(output)
+            return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+def kill_iperf(tgen, dut=None, action=None):
+    """
+    Killing iperf process if running for any router in topology
+    Parameters:
+    -----------
+    * `tgen`  : Topogen object
+    * `dut`   : Any iperf hostname to send igmp prune
+    * `action`: to kill igmp join iperf action is remove_join
+                to kill traffic iperf action is remove_traffic
+
+    Usage
+    ----
+    kill_iperf(tgen, dut ="i6", action="remove_join")
+
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    router_list = tgen.routers()
+    for router, rnode in router_list.items():
+        # Run iperf command to send IGMP join
+        pid_client = rnode.run("cat /var/run/frr/iperf_client.pid")
+        pid_server = rnode.run("cat /var/run/frr/iperf_server.pid")
+        if action == "remove_join":
+            pids = pid_server
+        elif action == "remove_traffic":
+            pids = pid_client
+        else:
+            pids = "\n".join([pid_client, pid_server])
+        for pid in pids.split("\n"):
+            pid = pid.strip()
+            if pid.isdigit():
+                cmd = "set +m; kill -9 %s &> /dev/null" % pid
+                logger.debug("[DUT: {}]: Running command: [{}]".format(router, cmd))
+                rnode.run(cmd)
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
