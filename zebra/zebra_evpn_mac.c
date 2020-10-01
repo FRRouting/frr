@@ -1395,16 +1395,21 @@ void zebra_evpn_sync_mac_del(zebra_mac_t *mac)
 static inline bool zebra_evpn_mac_is_bgp_seq_ok(zebra_evpn_t *zevpn,
 						zebra_mac_t *mac, uint32_t seq,
 						uint16_t ipa_len,
-						struct ipaddr *ipaddr)
+						struct ipaddr *ipaddr,
+						bool sync)
 {
 	char macbuf[ETHER_ADDR_STRLEN];
 	char ipbuf[INET6_ADDRSTRLEN];
 	uint32_t tmp_seq;
+	const char *n_type;
 
-	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
 		tmp_seq = mac->loc_seq;
-	else
+		n_type = "local";
+	} else {
 		tmp_seq = mac->rem_seq;
+		n_type = "remote";
+	}
 
 	if (seq < tmp_seq) {
 		/* if the mac was never advertised to bgp we must accept
@@ -1413,10 +1418,11 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(zebra_evpn_t *zevpn,
 		 */
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)
 		    && !zebra_evpn_mac_is_ready_for_bgp(mac->flags)) {
-			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC || IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"sync-macip accept vni %u mac %s%s%s lower seq %u f 0x%x",
-					zevpn->vni,
+					"%s-macip accept vni %u %s-mac %s%s%s lower seq %u f 0x%x",
+					sync ? "sync" : "rem", zevpn->vni,
+					n_type,
 					prefix_mac2str(&mac->macaddr, macbuf,
 						       sizeof(macbuf)),
 					ipa_len ? " IP " : "",
@@ -1427,10 +1433,10 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(zebra_evpn_t *zevpn,
 			return true;
 		}
 
-		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC || IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"sync-macip ignore vni %u mac %s%s%s as existing has higher seq %u f 0x%x",
-				zevpn->vni,
+				"%s-macip ignore vni %u %s-mac %s%s%s as existing has higher seq %u f 0x%x",
+				sync ? "sync" : "rem", zevpn->vni, n_type,
 				prefix_mac2str(&mac->macaddr, macbuf,
 					       sizeof(macbuf)),
 				ipa_len ? " IP " : "",
@@ -1518,7 +1524,7 @@ zebra_evpn_proc_sync_mac_update(zebra_evpn_t *zevpn, struct ethaddr *macaddr,
 			return NULL;
 		}
 		if (!zebra_evpn_mac_is_bgp_seq_ok(zevpn, mac, seq, ipa_len,
-						  ipaddr)) {
+						  ipaddr, true)) {
 			ctx->ignore_macip = true;
 			return NULL;
 		}
@@ -1768,7 +1774,6 @@ int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 {
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
-	uint32_t tmp_seq;
 	bool sticky;
 	bool remote_gw;
 	int update_mac = 0;
@@ -1836,26 +1841,9 @@ int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 			 * the sequence number and ignore this update
 			 * if appropriate.
 			 */
-			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
-				tmp_seq = mac->loc_seq;
-			else
-				tmp_seq = mac->rem_seq;
-
-			if (seq < tmp_seq) {
-				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug(
-						"Ignore remote MACIP ADD VNI %u MAC %s%s%s as existing MAC has higher seq %u flags 0x%x",
-						zevpn->vni,
-						prefix_mac2str(macaddr, buf,
-							       sizeof(buf)),
-						ipa_len ? " IP " : "",
-						ipa_len ? ipaddr2str(
-								  ipaddr, buf1,
-								  sizeof(buf1))
-							: "",
-						tmp_seq, mac->flags);
+			if (!zebra_evpn_mac_is_bgp_seq_ok(
+				    zevpn, mac, seq, ipa_len, ipaddr, false))
 				return -1;
-			}
 
 			zebra_evpn_es_mac_ref(mac, esi);
 		}

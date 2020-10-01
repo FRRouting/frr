@@ -237,7 +237,8 @@ int zebra_evpn_neigh_send_del_to_client(vni_t vni, struct ipaddr *ip,
 					struct ethaddr *macaddr, uint32_t flags,
 					int state, bool force);
 bool zebra_evpn_neigh_is_bgp_seq_ok(zebra_evpn_t *zevpn, zebra_neigh_t *n,
-				    struct ethaddr *macaddr, uint32_t seq);
+				    struct ethaddr *macaddr, uint32_t seq,
+				    bool sync);
 int zebra_evpn_neigh_del(zebra_evpn_t *zevpn, zebra_neigh_t *n);
 void zebra_evpn_sync_neigh_del(zebra_neigh_t *n);
 zebra_neigh_t *

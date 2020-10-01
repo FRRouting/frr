@@ -1336,7 +1336,8 @@ zebra_evpn_process_sync_macip_add(zebra_evpn_t *zevpn, struct ethaddr *macaddr,
 	if (ipa_len) {
 		n = zebra_evpn_neigh_lookup(zevpn, ipaddr);
 		if (n
-		    && !zebra_evpn_neigh_is_bgp_seq_ok(zevpn, n, macaddr, seq))
+		    && !zebra_evpn_neigh_is_bgp_seq_ok(zevpn, n, macaddr, seq,
+						       true))
 			return;
 	}
 
