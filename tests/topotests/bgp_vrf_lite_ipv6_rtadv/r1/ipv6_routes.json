@@ -6,12 +6,9 @@
       "vrfId":3,
       "distance": 20,
       "metric": 0,
-      "internalStatus": 0,
-      "internalFlags": 0,
       "nexthops": [
         {
           "afi": "ipv6",
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0",
           "active": true
         }
@@ -26,14 +23,11 @@
       "distance": 0,
       "metric": 0,
       "installed": true,
-      "internalStatus": 16,
-      "internalFlags": 8,
       "nexthops": [
         {
           "flags": 3,
           "fib": true,
           "directlyConnected": true,
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0",
           "active": true
         }

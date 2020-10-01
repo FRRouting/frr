@@ -9,14 +9,11 @@
       "distance": 0,
       "metric": 0,
       "installed": true,
-      "internalStatus": 16,
-      "internalFlags": 8,
        "nexthops": [
         {
           "flags": 3,
           "fib": true,
           "directlyConnected": true,
-          "interfaceIndex": 4,
           "interfaceName": "loop1",
           "active": true
         }
@@ -33,14 +30,11 @@
       "distance": 20,
       "metric": 0,
       "installed": true,
-      "internalStatus": 16,
-      "internalFlags": 8,
       "nexthops": [
         {
           "flags": 3,
           "fib": true,
           "afi": "ipv6",
-          "interfaceIndex": 2,
           "interfaceName": "r2-eth0",
           "active": true
         }
