@@ -268,7 +268,7 @@ static int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
 		table = zebra_vrf_table(afi, safi, zvrf->vrf->vrf_id);
 		if (table)
 			rib_update_table(table, RIB_UPDATE_RMAP_CHANGE,
-					 ZEBRA_ROUTE_ALL);
+					 rtype);
 	}
 
 	return CMD_SUCCESS;
@@ -296,7 +296,7 @@ static int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap,
 			table = zebra_vrf_table(afi, safi, zvrf->vrf->vrf_id);
 			if (table)
 				rib_update_table(table, RIB_UPDATE_RMAP_CHANGE,
-						 ZEBRA_ROUTE_ALL);
+						 rtype);
 		}
 		XFREE(MTYPE_ROUTE_MAP_NAME, PROTO_RM_NAME(zvrf, afi, rtype));
 	}
@@ -1456,8 +1456,6 @@ static void zebra_rib_table_rm_update(const char *rmap)
 	struct vrf *vrf = NULL;
 	struct zebra_vrf *zvrf = NULL;
 	char *rmap_name;
-	char afi_ip = 0;
-	char afi_ipv6 = 0;
 	struct route_map *old = NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -1488,17 +1486,12 @@ static void zebra_rib_table_rm_update(const char *rmap)
 						PROTO_RM_MAP(zvrf, AFI_IP, i));
 				/* There is single rib table for all protocols
 				 */
-				if (afi_ip == 0) {
-					table = zvrf->table[AFI_IP]
-							   [SAFI_UNICAST];
-					if (table) {
-
-						afi_ip = 1;
-						rib_update_table(
-							table,
-							RIB_UPDATE_RMAP_CHANGE,
-							ZEBRA_ROUTE_ALL);
-					}
+				table = zvrf->table[AFI_IP][SAFI_UNICAST];
+				if (table) {
+					rib_update_table(
+						table,
+						RIB_UPDATE_RMAP_CHANGE,
+						i);
 				}
 			}
 			rmap_name = PROTO_RM_NAME(zvrf, AFI_IP6, i);
@@ -1518,17 +1511,12 @@ static void zebra_rib_table_rm_update(const char *rmap)
 						PROTO_RM_MAP(zvrf, AFI_IP6, i));
 				/* There is single rib table for all protocols
 				 */
-				if (afi_ipv6 == 0) {
-					table = zvrf->table[AFI_IP6]
-							   [SAFI_UNICAST];
-					if (table) {
-
-						afi_ipv6 = 1;
-						rib_update_table(
-							table,
-							RIB_UPDATE_RMAP_CHANGE,
-							ZEBRA_ROUTE_ALL);
-					}
+				table = zvrf->table[AFI_IP6][SAFI_UNICAST];
+				if (table) {
+					rib_update_table(
+						table,
+						RIB_UPDATE_RMAP_CHANGE,
+						i);
 				}
 			}
 		}
