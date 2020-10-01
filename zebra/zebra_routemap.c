@@ -267,7 +267,8 @@ static int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
 		/* Process routes of interested address-families. */
 		table = zebra_vrf_table(afi, safi, zvrf->vrf->vrf_id);
 		if (table)
-			rib_update_table(table, RIB_UPDATE_RMAP_CHANGE);
+			rib_update_table(table, RIB_UPDATE_RMAP_CHANGE,
+					 ZEBRA_ROUTE_ALL);
 	}
 
 	return CMD_SUCCESS;
@@ -294,7 +295,8 @@ static int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap,
 			/* Process routes of interested address-families. */
 			table = zebra_vrf_table(afi, safi, zvrf->vrf->vrf_id);
 			if (table)
-				rib_update_table(table, RIB_UPDATE_RMAP_CHANGE);
+				rib_update_table(table, RIB_UPDATE_RMAP_CHANGE,
+						 ZEBRA_ROUTE_ALL);
 		}
 		XFREE(MTYPE_ROUTE_MAP_NAME, PROTO_RM_NAME(zvrf, afi, rtype));
 	}
@@ -1494,7 +1496,8 @@ static void zebra_rib_table_rm_update(const char *rmap)
 						afi_ip = 1;
 						rib_update_table(
 							table,
-							RIB_UPDATE_RMAP_CHANGE);
+							RIB_UPDATE_RMAP_CHANGE,
+							ZEBRA_ROUTE_ALL);
 					}
 				}
 			}
@@ -1523,7 +1526,8 @@ static void zebra_rib_table_rm_update(const char *rmap)
 						afi_ipv6 = 1;
 						rib_update_table(
 							table,
-							RIB_UPDATE_RMAP_CHANGE);
+							RIB_UPDATE_RMAP_CHANGE,
+							ZEBRA_ROUTE_ALL);
 					}
 				}
 			}
