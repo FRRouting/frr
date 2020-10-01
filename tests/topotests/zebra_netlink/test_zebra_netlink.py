@@ -109,7 +109,7 @@ def test_zebra_netlink_batching():
     )
     tgen = get_topogen()
     if tgen.routers_have_failure():
-        ptyest.skip("skipped because of preview test failure")
+        pytest.skip("skipped because of previous test failure")
     r1 = tgen.gears["r1"]
 
     # Reduce the size of the buffer to hit the limit.
