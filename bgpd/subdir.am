@@ -30,6 +30,8 @@ vtysh_scan += \
 vtysh_scan += bgpd/bgp_rpki.c
 vtysh_scan += bgpd/bgp_bmp.c
 
+vtysh_daemons += bgpd
+
 if ENABLE_BGP_VNC
 vtysh_scan += \
 	bgpd/rfapi/bgp_rfapi_cfg.c \

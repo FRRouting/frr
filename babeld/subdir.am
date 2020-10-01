@@ -11,6 +11,7 @@ vtysh_scan += \
 	babeld/babel_zebra.c \
 	babeld/babeld.c \
 	# end
+vtysh_daemons += babeld
 endif
 
 babeld_libbabel_a_SOURCES = \

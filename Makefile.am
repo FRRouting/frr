@@ -112,6 +112,7 @@ dist_examples_DATA =
 dist_yangmodels_DATA =
 man_MANS =
 vtysh_scan =
+vtysh_daemons =
 clippy_scan =
 
 ## libtool, the self-made GNU scourge

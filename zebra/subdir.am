@@ -25,6 +25,8 @@ vtysh_scan += \
 vtysh_scan += zebra/irdp_interface.c
 vtysh_scan += zebra/zebra_fpm.c
 
+vtysh_daemons += zebra
+
 if IRDP
 module_LTLIBRARIES += zebra/zebra_irdp.la
 endif

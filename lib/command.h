@@ -437,12 +437,6 @@ struct cmd_node {
 #define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nInterface name or neighbor tag\n"
 #define NEIGHBOR_ADDR_STR3 "Neighbor address\nIPv6 address\nInterface name\n"
 
-/* Daemons lists */
-#define DAEMONS_STR                                                            \
-	"For the zebra daemon\nFor the rip daemon\nFor the ripng daemon\nFor the ospf daemon\nFor the ospfv6 daemon\nFor the bgp daemon\nFor the isis daemon\nFor the pbr daemon\nFor the fabricd daemon\nFor the pim daemon\nFor the static daemon\nFor the sharpd daemon\nFor the vrrpd daemon\nFor the ldpd daemon\n"
-#define DAEMONS_LIST                                                           \
-	"<zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pbrd|fabricd|pimd|staticd|sharpd|vrrpd|ldpd>"
-
 /* Graceful Restart cli help strings */
 #define GR_CMD "Global Graceful Restart command\n"
 #define NO_GR_CMD "Undo Global Graceful Restart command\n"

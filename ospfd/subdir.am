@@ -17,6 +17,7 @@ vtysh_scan += \
 	ospfd/ospf_sr.c \
 	ospfd/ospf_vty.c \
 	# end
+vtysh_daemons += ospfd
 if SNMP
 module_LTLIBRARIES += ospfd/ospfd_snmp.la
 endif

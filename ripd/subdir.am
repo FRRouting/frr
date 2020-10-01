@@ -11,6 +11,7 @@ vtysh_scan += \
 	ripd/rip_debug.c \
 	ripd/ripd.c \
 	# end
+vtysh_daemons += ripd
 
 if SNMP
 module_LTLIBRARIES += ripd/ripd_snmp.la

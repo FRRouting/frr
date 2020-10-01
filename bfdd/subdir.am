@@ -8,6 +8,7 @@ sbin_PROGRAMS += bfdd/bfdd
 dist_examples_DATA += bfdd/bfdd.conf.sample
 vtysh_scan += bfdd/bfdd_vty.c
 vtysh_scan += bfdd/bfdd_cli.c
+vtysh_daemons += bfdd
 man8 += $(MANBUILD)/frr-bfdd.8
 endif
 
