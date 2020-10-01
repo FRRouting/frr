@@ -1109,10 +1109,11 @@ void nhrp_config_init(void)
 	access_list_init();
 
 	/* global commands */
-	install_element(VIEW_NODE, &show_debugging_nhrp_cmd);
 	install_element(VIEW_NODE, &show_ip_nhrp_cmd);
 	install_element(VIEW_NODE, &show_dmvpn_cmd);
 	install_element(ENABLE_NODE, &clear_nhrp_cmd);
+
+	install_element(ENABLE_NODE, &show_debugging_nhrp_cmd);
 
 	install_element(ENABLE_NODE, &debug_nhrp_cmd);
 	install_element(ENABLE_NODE, &no_debug_nhrp_cmd);

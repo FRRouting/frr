@@ -11236,7 +11236,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_mroute_summary_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_rib_cmd);
 	install_element(VIEW_NODE, &show_ip_ssmpingd_cmd);
-	install_element(VIEW_NODE, &show_debugging_pim_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_lookup_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsrp_cmd);
@@ -11251,6 +11250,8 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &clear_ip_pim_interface_traffic_cmd);
 	install_element(ENABLE_NODE, &clear_ip_pim_oil_cmd);
 	install_element(ENABLE_NODE, &clear_ip_pim_statistics_cmd);
+
+	install_element(ENABLE_NODE, &show_debugging_pim_cmd);
 
 	install_element(ENABLE_NODE, &debug_igmp_cmd);
 	install_element(ENABLE_NODE, &no_debug_igmp_cmd);
