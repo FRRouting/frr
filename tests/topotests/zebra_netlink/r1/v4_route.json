@@ -9,17 +9,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -37,17 +32,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -65,17 +55,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -93,17 +78,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -121,17 +101,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -149,17 +124,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -177,17 +147,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -205,17 +170,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -233,17 +193,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -261,17 +216,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -289,17 +239,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -317,17 +262,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -345,17 +285,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -373,17 +308,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -401,17 +331,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -429,17 +354,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -457,17 +377,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -485,17 +400,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -513,17 +423,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -541,17 +446,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -569,17 +469,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -597,17 +492,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -625,17 +515,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -653,17 +538,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -681,17 +561,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -709,17 +584,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -737,17 +607,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -765,17 +630,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -793,17 +653,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -821,17 +676,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -849,17 +699,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -877,17 +722,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -905,17 +745,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -933,17 +768,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -961,17 +791,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -989,17 +814,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1017,17 +837,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1045,17 +860,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1073,17 +883,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1101,17 +906,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1129,17 +929,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1157,17 +952,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1185,17 +975,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1213,17 +998,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1241,17 +1021,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1269,17 +1044,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1297,17 +1067,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1325,17 +1090,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1353,17 +1113,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1381,17 +1136,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1409,17 +1159,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1437,17 +1182,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1465,17 +1205,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1493,17 +1228,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1521,17 +1251,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1549,17 +1274,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1577,17 +1297,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1605,17 +1320,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1633,17 +1343,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1661,17 +1366,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1689,17 +1389,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1717,17 +1412,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1745,17 +1435,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1773,17 +1458,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1801,17 +1481,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1829,17 +1504,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1857,17 +1527,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1885,17 +1550,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1913,17 +1573,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1941,17 +1596,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1969,17 +1619,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -1997,17 +1642,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2025,17 +1665,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2053,17 +1688,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2081,17 +1711,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2109,17 +1734,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2137,17 +1757,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2165,17 +1780,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2193,17 +1803,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2221,17 +1826,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2249,17 +1849,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2277,17 +1872,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2305,17 +1895,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2333,17 +1918,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2361,17 +1941,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2389,17 +1964,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2417,17 +1987,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2445,17 +2010,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2473,17 +2033,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2501,17 +2056,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2529,17 +2079,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2557,17 +2102,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2585,17 +2125,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2613,17 +2148,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2641,17 +2171,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2669,17 +2194,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2697,17 +2217,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2725,17 +2240,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2753,17 +2263,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
@@ -2781,17 +2286,12 @@
       "metric":0,
       "installed":true,
       "table":254,
-      "internalStatus":16,
-      "internalFlags":9,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "ip":"192.168.1.1",
           "afi":"ipv4",
-          "interfaceIndex":2,
           "interfaceName":"r1-eth0",
           "active":true,
           "weight":1
