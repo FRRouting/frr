@@ -3579,26 +3579,6 @@ static int rib_update_handler(struct thread *thread)
  */
 static struct thread *t_rib_update_threads[RIB_UPDATE_MAX];
 
-/* Schedule a RIB update event for specific vrf */
-void rib_update_vrf(vrf_id_t vrf_id, enum rib_update_event event)
-{
-	struct rib_update_ctx *ctx;
-
-	ctx = rib_update_ctx_init(vrf_id, event);
-
-	/* Don't worry about making sure multiple rib updates for specific vrf
-	 * are scheduled at once for now. If it becomes a problem, we can use a
-	 * lookup of some sort to keep track of running threads via t_vrf_id
-	 * like how we are doing it in t_rib_update_threads[].
-	 */
-	thread_add_event(zrouter.master, rib_update_handler, ctx, 0, NULL);
-
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("%s: Scheduled VRF %s, event %s", __func__,
-			   vrf_id_to_name(ctx->vrf_id),
-			   rib_update_event2str(event));
-}
-
 /* Schedule a RIB update event for all vrfs */
 void rib_update(enum rib_update_event event)
 {

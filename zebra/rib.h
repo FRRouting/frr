@@ -406,7 +406,6 @@ extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
 					   vrf_id_t vrf_id);
 
 extern void rib_update(enum rib_update_event event);
-extern void rib_update_vrf(vrf_id_t vrf_id, enum rib_update_event event);
 extern void rib_update_table(struct route_table *table,
 			     enum rib_update_event event);
 extern int rib_sweep_route(struct thread *t);
