@@ -2824,8 +2824,8 @@ void isis_init(void)
 	install_element(VIEW_NODE, &show_isis_neighbor_cmd);
 	install_element(VIEW_NODE, &show_isis_neighbor_detail_cmd);
 	install_element(VIEW_NODE, &show_isis_neighbor_arg_cmd);
-	install_element(VIEW_NODE, &clear_isis_neighbor_cmd);
-	install_element(VIEW_NODE, &clear_isis_neighbor_arg_cmd);
+	install_element(ENABLE_NODE, &clear_isis_neighbor_cmd);
+	install_element(ENABLE_NODE, &clear_isis_neighbor_arg_cmd);
 
 	install_element(VIEW_NODE, &show_hostname_cmd);
 	install_element(VIEW_NODE, &show_database_cmd);
