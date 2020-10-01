@@ -4361,6 +4361,10 @@ static int bgp_announce_route_timer_expired(struct thread *t)
 		return 0;
 
 	peer_af_announce_route(paf, 1);
+
+	/* Notify BGP conditional advertisement scanner percess */
+	peer->advmap_info[paf->afi][paf->safi].config_change = true;
+
 	return 0;
 }
 

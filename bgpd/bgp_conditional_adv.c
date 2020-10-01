@@ -232,7 +232,6 @@ static int bgp_conditional_adv_timer(struct thread *t)
 	struct update_subgroup *subgrp = NULL;
 	enum route_map_cmd_result_t ret, prev_ret;
 	bool route_advertised = false;
-	bool adv_withdrawn = false;
 	int adv_conditional = 0;
 
 	bgp = THREAD_ARG(t);
@@ -278,7 +277,6 @@ static int bgp_conditional_adv_timer(struct thread *t)
 			/* cmap (route-map attached to exist-map or
 			 * non-exist-map) map validation
 			 */
-			adv_withdrawn = false;
 			adv_conditional = 0;
 
 			ret = bgp_check_rmap_prefixes_in_bgp_table(table,
@@ -288,41 +286,25 @@ static int bgp_conditional_adv_timer(struct thread *t)
 
 			switch (ret) {
 			case RMAP_NOOP:
-				if (prev_ret == RMAP_NOOP)
+				if (prev_ret == RMAP_NOOP) {
+					peer->advmap_info[afi][safi]
+						.config_change = false;
 					continue;
-
+				}
 				peer->advmap_info[afi][safi].cmap_prev_status =
 					ret;
-				if (filter->advmap.status)
-					continue;
 
-				/* advertise previously withdrawn routes */
-				adv_withdrawn = true;
 				break;
 
 			case RMAP_MATCH:
 				/* Handle configuration changes */
 				if (peer->advmap_info[afi][safi]
 					    .config_change) {
-					/* If configuration(ACL filetr prefixes)
-					 * is changed and if the advertise-map
-					 * filter previous status was withdraw
-					 * then we need to advertise the
-					 * previously withdrawn routes.
-					 * Nothing to do if the filter status
-					 * was advertise.
-					 */
-					if ((prev_ret != RMAP_NOOP)
-					    && !filter->advmap.status)
-						adv_withdrawn = true;
-
 					adv_conditional =
 						(filter->advmap.condition
 						 == CONDITION_EXIST)
 							? NLRI
 							: WITHDRAW;
-					peer->advmap_info[afi][safi]
-						.config_change = false;
 				} else {
 					if (prev_ret != RMAP_MATCH)
 						adv_conditional =
@@ -340,25 +322,11 @@ static int bgp_conditional_adv_timer(struct thread *t)
 				/* Handle configuration changes */
 				if (peer->advmap_info[afi][safi]
 					    .config_change) {
-					/* If configuration(ACL filetr prefixes)
-					 * is changed and if the advertise-map
-					 * filter previous status was withdraw
-					 * then we need to advertise the
-					 * previously withdrawn routes.
-					 * Nothing to do if the filter status
-					 * was advertise.
-					 */
-					if ((prev_ret != RMAP_NOOP)
-					    && !filter->advmap.status)
-						adv_withdrawn = true;
-
 					adv_conditional =
 						(filter->advmap.condition
 						 == CONDITION_EXIST)
 							? WITHDRAW
 							: NLRI;
-					peer->advmap_info[afi][safi]
-						.config_change = false;
 				} else {
 					if (prev_ret != RMAP_NOMATCH)
 						adv_conditional =
@@ -383,18 +351,9 @@ static int bgp_conditional_adv_timer(struct thread *t)
 			 */
 			ret = is_rmap_valid(filter->advmap.amap) ? RMAP_MATCH
 								 : RMAP_NOOP;
-			prev_ret =
-				peer->advmap_info[afi][safi].amap_prev_status;
 
-			if (ret == RMAP_NOOP) {
-				if (prev_ret == RMAP_NOOP) {
-					if (!adv_withdrawn)
-						continue;
-					/* Should not reach here. */
-				}
-				if (filter->advmap.status && !adv_withdrawn)
-					continue;
-			}
+			if ((ret == RMAP_NOOP) && (prev_ret == RMAP_NOOP))
+				continue;
 
 			/* Derive conditional advertisement status from
 			 * condition and return value of condition-map
@@ -411,7 +370,11 @@ static int bgp_conditional_adv_timer(struct thread *t)
 				 */
 			}
 
-			if (adv_withdrawn) {
+			/* Send regular update as per the existing policy.
+			 * There is a change in route-map, match-rule, ACLs,
+			 * or route-map filter configuration on the same peer.
+			 */
+			if (peer->advmap_info[afi][safi].config_change) {
 				paf = peer_af_find(peer, afi, safi);
 				if (paf) {
 					update_subgroup_split_peer(paf, NULL);
@@ -420,7 +383,11 @@ static int bgp_conditional_adv_timer(struct thread *t)
 						subgroup_announce_table(
 							paf->subgroup, NULL);
 				}
+				peer->advmap_info[afi][safi].config_change =
+					false;
 			}
+
+			/* Send update as per the conditional advertisement */
 			if (adv_conditional) {
 				route_advertised = bgp_conditional_adv_routes(
 					peer, afi, safi, table,
