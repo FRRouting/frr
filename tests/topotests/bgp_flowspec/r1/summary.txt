@@ -2,7 +2,6 @@
 "ipv4Unicast":{
   "routerId":"10.0.1.1",
   "as":100,
-  "vrfId":0,
   "vrfName":"default",
   "peerCount":1,
   "peers":{
@@ -19,7 +18,6 @@
 "ipv4Flowspec":{
   "routerId":"10.0.1.1",
   "as":100,
-  "vrfId":0,
   "vrfName":"default",
   "peerCount":1,
   "peers":{
@@ -36,7 +34,6 @@
 "ipv6Flowspec":{
   "routerId":"10.0.1.1",
   "as":100,
-  "vrfId":0,
   "vrfName":"default",
   "peerCount":1,
   "peers":{
