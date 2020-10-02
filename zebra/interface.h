@@ -486,7 +486,7 @@ extern void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 extern void if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(struct interface *ifp);
 extern void if_delete_update(struct interface *ifp);
 extern void if_add_update(struct interface *ifp);
-extern void if_up(struct interface *);
+extern void if_up(struct interface *ifp, bool install_connected);
 extern void if_down(struct interface *);
 extern void if_refresh(struct interface *);
 extern void if_flags_update(struct interface *, uint64_t);
