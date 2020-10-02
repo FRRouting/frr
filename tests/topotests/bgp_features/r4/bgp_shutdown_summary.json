@@ -2,7 +2,6 @@
 "ipv4Unicast":{
   "routerId":"192.168.100.1",
   "as":65100,
-  "vrfId":0,
   "vrfName":"default",
   "peerCount":1,
   "peers":{
