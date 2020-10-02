@@ -2399,6 +2399,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 		index = route_map_get_index(map, prefix, object,
 					    (uint8_t *)&match_ret);
 		if (index) {
+			index->applied++;
 			if (rmap_debug)
 				zlog_debug(
 					"Best match route-map: %s, sequence: %d for pfx: %pFX, result: %s",
