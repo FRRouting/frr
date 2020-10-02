@@ -1920,6 +1920,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			}
 
 			if (if_is_no_ptm_operative(ifp)) {
+				bool is_up = if_is_operative(ifp);
 				ifp->flags = ifi->ifi_flags & 0x0000fffff;
 				if (!if_is_no_ptm_operative(ifp) ||
 				    CHECK_FLAG(zif->flags,
@@ -1939,7 +1940,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 						zlog_debug(
 							"Intf %s(%u) PTM up, notifying clients",
 							name, ifp->ifindex);
-					if_up(ifp);
+					if_up(ifp, !is_up);
 
 					/* Update EVPN VNI when SVI MAC change
 					 */
@@ -1975,7 +1976,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 						zlog_debug(
 							"Intf %s(%u) has come UP",
 							name, ifp->ifindex);
-					if_up(ifp);
+					if_up(ifp, true);
 					if (IS_ZEBRA_IF_BRIDGE(ifp))
 						chgflags =
 							ZEBRA_BRIDGE_MASTER_UP;
