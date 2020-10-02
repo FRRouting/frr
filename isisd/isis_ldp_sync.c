@@ -748,7 +748,9 @@ DEFUN (show_isis_mpls_ldp_interface,
        PROTO_HELP
        MPLS_STR
        "LDP-IGP Sync information\n"
-       "Interface name\n")
+       "Interface information\n"
+       "Interface name\n"
+       "All interfaces\n")
 {
 	char *ifname = NULL;
 	int idx_intf = 0;

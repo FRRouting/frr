@@ -890,7 +890,8 @@ DEFPY (no_ospf_mpls_ldp_sync_holddown,
        NO_STR
        "MPLS specific commands\n"
        "Disable MPLS LDP-IGP Sync\n"
-       "holddown timer disable\n")
+       "holddown timer disable\n"
+       "Time in seconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
@@ -913,7 +914,6 @@ DEFPY (mpls_ldp_sync,
        IP_STR
        "OSPF interface commands\n"
        MPLS_STR
-       MPLS_LDP_SYNC_STR
        MPLS_LDP_SYNC_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
@@ -1035,7 +1035,8 @@ DEFPY (no_mpls_ldp_sync_holddown,
        "OSPF interface commands\n"
        MPLS_STR
        NO_MPLS_LDP_SYNC_STR
-       NO_MPLS_LDP_SYNC_HOLDDOWN_STR)
+       NO_MPLS_LDP_SYNC_HOLDDOWN_STR
+       "Time in seconds\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf_if_params *params;
@@ -1078,7 +1079,9 @@ DEFPY (show_ip_ospf_mpls_ldp_interface,
        "OSPF information\n"
        MPLS_STR
        "LDP-IGP Sync information\n"
+       "Interface information\n"
        "Interface name\n"
+       "All interfaces\n"
        JSON_STR)
 {
 	struct ospf *ospf;
