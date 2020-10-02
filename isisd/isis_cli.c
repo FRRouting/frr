@@ -340,7 +340,8 @@ DEFPY_YANG(no_ip_router_isis, no_ip_router_isis_cmd,
 	   "IP router interface commands\n"
 	   "IP router interface commands\n"
 	   "IS-IS routing protocol\n"
-	   "Routing process tag\n")
+	   "Routing process tag\n"
+	   VRF_CMD_HELP_STR)
 {
 	const struct lyd_node *dnode;
 
@@ -2425,7 +2426,7 @@ DEFPY(isis_mpls_ldp_sync_holddown, isis_mpls_ldp_sync_holddown_cmd,
 
 DEFPY(no_isis_mpls_ldp_sync_holddown, no_isis_mpls_ldp_sync_holddown_cmd,
       "no mpls ldp-sync holddown [<(1-10000)>]",
-      NO_STR MPLS_STR MPLS_LDP_SYNC_STR NO_MPLS_LDP_SYNC_HOLDDOWN_STR)
+      NO_STR MPLS_STR MPLS_LDP_SYNC_STR NO_MPLS_LDP_SYNC_HOLDDOWN_STR "Time in seconds\n")
 {
 	nb_cli_enqueue_change(vty, "./mpls/ldp-sync/holddown", NB_OP_DESTROY,
 			      NULL);
@@ -2521,7 +2522,7 @@ DEFPY(isis_mpls_if_ldp_sync_holddown, isis_mpls_if_ldp_sync_holddown_cmd,
 DEFPY(no_isis_mpls_if_ldp_sync_holddown, no_isis_mpls_if_ldp_sync_holddown_cmd,
       "no isis mpls ldp-sync holddown [<(1-10000)>]",
       NO_STR "IS-IS routing protocol\n" MPLS_STR NO_MPLS_LDP_SYNC_STR
-	      NO_MPLS_LDP_SYNC_HOLDDOWN_STR)
+	      NO_MPLS_LDP_SYNC_HOLDDOWN_STR "Time in seconds\n")
 {
 	const struct lyd_node *dnode;
 	struct interface *ifp;
