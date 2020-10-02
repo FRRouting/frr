@@ -14,7 +14,6 @@
       "prefix": "10.0.10.0/24", 
       "protocol": "isis", 
       "selected": true, 
-      "vrfId": 4,
       "vrfName": "r4-cust1"
     }
   ], 
@@ -29,7 +28,6 @@
       ], 
       "prefix": "10.0.11.0/24", 
       "protocol": "isis", 
-      "vrfId": 4,
       "vrfName": "r4-cust1"
     }, 
     {
@@ -44,7 +42,6 @@
       "prefix": "10.0.11.0/24", 
       "protocol": "connected", 
       "selected": true, 
-      "vrfId": 4,
       "vrfName": "r4-cust1"
     }
   ], 
@@ -62,7 +59,6 @@
       "prefix": "10.0.20.0/24", 
       "protocol": "isis", 
       "selected": true, 
-      "vrfId": 4,
       "vrfName": "r4-cust1"
     }
   ], 
@@ -77,7 +73,6 @@
       ], 
       "prefix": "10.0.21.0/24", 
       "protocol": "isis", 
-      "vrfId": 4,
       "vrfName": "r4-cust1"
     }, 
     {
@@ -92,7 +87,6 @@
       "prefix": "10.0.21.0/24", 
       "protocol": "connected", 
       "selected": true, 
-      "vrfId": 4,
       "vrfName": "r4-cust1"
     }
   ]

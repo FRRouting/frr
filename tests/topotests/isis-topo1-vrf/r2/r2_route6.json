@@ -12,7 +12,6 @@
       "prefix": "2001:db8:1:2::/64", 
       "protocol": "connected", 
       "selected": true, 
-      "vrfId": 3,
       "vrfName": "r2-cust1"
     }
   ], 
@@ -31,7 +30,6 @@
       "prefix": "2001:db8:2:2::/64", 
       "protocol": "isis", 
       "selected": true, 
-      "vrfId": 3,
       "vrfName": "r2-cust1"
     }
   ] 
