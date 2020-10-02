@@ -576,7 +576,7 @@ DEFUN (zebra_route_map_timer,
        ZEBRA_STR
        "Set route-map parameters\n"
        "Time to wait before route-map updates are processed\n"
-       "0 means event-driven updates are disabled\n")
+       "0 means route-map changes are run immediately instead of delaying\n")
 {
 	int idx_number = 3;
 	uint32_t rmap_delay_timer;
@@ -594,7 +594,7 @@ DEFUN (no_zebra_route_map_timer,
        ZEBRA_STR
        "Set route-map parameters\n"
        "Reset delay-timer to default value, 30 secs\n"
-       "0 means event-driven updates are disabled\n")
+       "0 means route-map changes are run immediately instead of delaying\n")
 {
 	zebra_route_map_set_delay_timer(ZEBRA_RMAP_DEFAULT_UPDATE_TIMER);
 
