@@ -93,6 +93,10 @@
 #include "bgpd/bgp_route_clippy.c"
 #endif
 
+DEFINE_HOOK(bgp_snmp_update_stats,
+	    (struct bgp_node *rn, struct bgp_path_info *pi, bool added),
+	    (rn, pi, added))
+
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
@@ -402,6 +406,7 @@ void bgp_path_info_add(struct bgp_dest *dest, struct bgp_path_info *pi)
 	bgp_dest_lock_node(dest);
 	peer_lock(pi->peer); /* bgp_path_info peer reference */
 	bgp_dest_set_defer_flag(dest, false);
+	hook_call(bgp_snmp_update_stats, dest, pi, true);
 }
 
 /* Do the actual removal of info from RIB, for use by bgp_process
@@ -417,6 +422,7 @@ void bgp_path_info_reap(struct bgp_dest *dest, struct bgp_path_info *pi)
 
 	bgp_path_info_mpath_dequeue(pi);
 	bgp_path_info_unlock(pi);
+	hook_call(bgp_snmp_update_stats, dest, pi, false);
 	bgp_dest_unlock_node(dest);
 }
 

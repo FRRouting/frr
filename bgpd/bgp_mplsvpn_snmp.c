@@ -35,6 +35,7 @@
 #include "version.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_route.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_mplsvpn_snmp.h"
 
@@ -73,6 +74,11 @@
 #define MPLSL3VPNVRFCONFROWSTATUS 12
 #define MPLSL3VPNVRFCONFADMINSTATUS 13
 #define MPLSL3VPNVRFCONFSTORAGETYPE 14
+
+/* MPLSL3VPN PERF Table */
+#define MPLSL3VPNVRFPERFROUTESADDED 1
+#define MPLSL3VPNVRFPERFROUTESDELETED 2
+#define MPLSL3VPNVRFPERFCURRNUMROUTES 3
 
 /* SNMP value hack. */
 #define INTEGER ASN_INTEGER
@@ -118,6 +124,9 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *, oid[], size_t *, int,
 
 static uint8_t *mplsL3vpnIfConfTable(struct variable *, oid[], size_t *, int,
 				     size_t *, WriteMethod **);
+
+static uint8_t *mplsL3vpnPerfTable(struct variable *, oid[], size_t *, int,
+				   size_t *, WriteMethod **);
 
 
 static struct variable mpls_l3vpn_variables[] = {
@@ -185,7 +194,7 @@ static struct variable mpls_l3vpn_variables[] = {
 	 5,
 	 {1, 2, 1, 1, 5} },
 
-	/* Vrf Table */
+	/* mplsL3VpnVrf Table */
 	{MPLSL3VPNVRFVPNID,
 	 OCTET_STRING,
 	 RONLY,
@@ -270,6 +279,26 @@ static struct variable mpls_l3vpn_variables[] = {
 	 mplsL3vpnVrfTable,
 	 5,
 	 {1, 2, 2, 1, 15} },
+
+	/* mplsL3VpnPerfTable */
+	{MPLSL3VPNVRFPERFROUTESADDED,
+	 COUNTER32,
+	 RONLY,
+	 mplsL3vpnPerfTable,
+	 5,
+	 {1, 3, 1, 1, 1} },
+	{MPLSL3VPNVRFPERFROUTESDELETED,
+	 COUNTER32,
+	 RONLY,
+	 mplsL3vpnPerfTable,
+	 5,
+	 {1, 3, 1, 1, 2} },
+	{MPLSL3VPNVRFPERFCURRNUMROUTES,
+	 GAUGE32,
+	 RONLY,
+	 mplsL3vpnPerfTable,
+	 5,
+	 {1, 3, 1, 1, 3} },
 };
 
 /* timeticks are in hundredths of a second */
@@ -289,6 +318,28 @@ static int bgp_mpls_l3vpn_update_last_changed(struct bgp *bgp)
 	return 0;
 }
 
+static uint32_t bgp_mpls_l3vpn_current_routes(struct bgp *l3vpn_bgp)
+{
+	uint32_t count = 0;
+	struct bgp_table *table;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+
+	table = l3vpn_bgp->rib[AFI_IP][SAFI_UNICAST];
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		pi = bgp_dest_get_bgp_path_info(dest);
+		for (; pi; pi = pi->next)
+			count++;
+	}
+	table = l3vpn_bgp->rib[AFI_IP6][SAFI_UNICAST];
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		pi = bgp_dest_get_bgp_path_info(dest);
+		for (; pi; pi = pi->next)
+			count++;
+	}
+	return count;
+}
+
 static int bgp_init_snmp_stats(struct bgp *bgp)
 {
 	if (is_bgp_vrf_mplsvpn(bgp)) {
@@ -296,9 +347,12 @@ static int bgp_init_snmp_stats(struct bgp *bgp)
 			bgp->snmp_stats = XCALLOC(
 				MTYPE_BGP, sizeof(struct bgp_snmp_stats));
 			/* fix up added routes */
-			if (bgp->snmp_stats)
+			if (bgp->snmp_stats) {
+				bgp->snmp_stats->routes_added =
+					bgp_mpls_l3vpn_current_routes(bgp);
 				bgp_mpls_l3vpn_update_timeticks(
 					&(bgp->snmp_stats->creation_time));
+			}
 		}
 	} else {
 		if (bgp->snmp_stats) {
@@ -308,6 +362,24 @@ static int bgp_init_snmp_stats(struct bgp *bgp)
 	}
 	/* Something changed - update the timestamp */
 	bgp_mpls_l3vpn_update_last_changed(bgp);
+	return 0;
+}
+
+static int bgp_snmp_update_route_stats(struct bgp_dest *dest,
+				       struct bgp_path_info *pi, bool added)
+{
+	struct bgp_table *table;
+
+	if (dest) {
+		table = bgp_dest_table(dest);
+		/* only update if we have a stats block - MPLSVPN vrfs for now*/
+		if (table && table->bgp && table->bgp->snmp_stats) {
+			if (added)
+				table->bgp->snmp_stats->routes_added++;
+			else
+				table->bgp->snmp_stats->routes_deleted++;
+		}
+	}
 	return 0;
 }
 
@@ -705,7 +777,37 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 		return SNMP_INTEGER(1);
 	case MPLSL3VPNVRFCONFSTORAGETYPE:
 		return SNMP_INTEGER(2);
+	}
+	return NULL;
+}
+
+/* 1.3.6.1.2.1.10.166.11.1.3.1.1.x = 14*/
+#define PERFTAB_NAMELEN 14
+
+static uint8_t *mplsL3vpnPerfTable(struct variable *v, oid name[],
+				   size_t *length, int exact, size_t *var_len,
+				   WriteMethod **write_method)
+{
+	char vrf_name[VRF_NAMSIZ];
+	struct bgp *l3vpn_bgp;
+
+	if (smux_header_table(v, name, length, exact, var_len, write_method)
+	    == MATCH_FAILED)
 		return NULL;
+
+	memset(vrf_name, 0, VRF_NAMSIZ);
+	l3vpn_bgp = bgpL3vpnVrf_lookup(v, name, length, vrf_name, exact);
+
+	if (!l3vpn_bgp)
+		return NULL;
+
+	switch (v->magic) {
+	case MPLSL3VPNVRFPERFROUTESADDED:
+		return SNMP_INTEGER(l3vpn_bgp->snmp_stats->routes_added);
+	case MPLSL3VPNVRFPERFROUTESDELETED:
+		return SNMP_INTEGER(l3vpn_bgp->snmp_stats->routes_deleted);
+	case MPLSL3VPNVRFPERFCURRNUMROUTES:
+		return SNMP_INTEGER(bgp_mpls_l3vpn_current_routes(l3vpn_bgp));
 	}
 	return NULL;
 }
@@ -716,6 +818,7 @@ void bgp_mpls_l3vpn_module_init(void)
 	hook_register(bgp_snmp_init_stats, bgp_init_snmp_stats);
 	hook_register(bgp_snmp_update_last_changed,
 		      bgp_mpls_l3vpn_update_last_changed);
+	hook_register(bgp_snmp_update_stats, bgp_snmp_update_route_stats);
 	REGISTER_MIB("mplsL3VpnMIB", mpls_l3vpn_variables, variable,
 		     mpls_l3vpn_oid);
 }

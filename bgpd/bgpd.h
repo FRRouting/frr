@@ -315,6 +315,8 @@ struct bgp_snmp_stats {
 	time_t creation_time;
 	time_t modify_time;
 	bool active;
+	uint32_t routes_added;
+	uint32_t routes_deleted;
 };
 
 /* BGP instance structure.  */
@@ -2318,6 +2320,9 @@ DECLARE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
 DECLARE_HOOK(peer_status_changed, (struct peer *peer), (peer))
 DECLARE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp))
 DECLARE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp))
+DECLARE_HOOK(bgp_snmp_update_stats,
+	     (struct bgp_node *rn, struct bgp_path_info *pi, bool added),
+	     (rn, pi, added))
 void peer_nsf_stop(struct peer *peer);
 
 #endif /* _QUAGGA_BGPD_H */
