@@ -340,7 +340,8 @@ DEFPY_YANG(no_ip_router_isis, no_ip_router_isis_cmd,
 	   "IP router interface commands\n"
 	   "IP router interface commands\n"
 	   "IS-IS routing protocol\n"
-	   "Routing process tag\n")
+	   "Routing process tag\n"
+           VRF_CMD_HELP_STR)
 {
 	const struct lyd_node *dnode;
 
