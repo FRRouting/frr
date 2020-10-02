@@ -12,6 +12,7 @@ vtysh_scan += \
 	eigrpd/eigrp_vty.c \
 	# end
 #	eigrpd/eigrp_routemap.c
+vtysh_daemons += eigrpd
 man8 += $(MANBUILD)/frr-eigrpd.8
 endif
 

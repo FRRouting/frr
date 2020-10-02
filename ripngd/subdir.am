@@ -10,6 +10,7 @@ vtysh_scan += \
 	ripngd/ripng_debug.c \
 	ripngd/ripngd.c \
 	# end
+vtysh_daemons += ripngd
 man8 += $(MANBUILD)/frr-ripngd.8
 endif
 

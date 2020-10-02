@@ -23,6 +23,7 @@ vtysh_scan += \
 	ospf6d/ospf6_zebra.c \
 	ospf6d/ospf6d.c \
 	# end
+vtysh_daemons += ospf6d
 if SNMP
 module_LTLIBRARIES += ospf6d/ospf6d_snmp.la
 endif

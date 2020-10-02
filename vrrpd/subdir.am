@@ -7,6 +7,7 @@ noinst_LIBRARIES += vrrpd/libvrrp.a
 sbin_PROGRAMS += vrrpd/vrrpd
 # dist_examples_DATA += staticd/staticd.conf.sample
 vtysh_scan += vrrpd/vrrp_vty.c
+vtysh_daemons += vrrpd
 man8 += $(MANBUILD)/frr-vrrpd.8
 endif
 

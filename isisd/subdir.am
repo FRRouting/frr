@@ -16,6 +16,7 @@ vtysh_scan += \
 	isisd/isis_vty_fabricd.c \
 	isisd/isisd.c \
 	# end
+vtysh_daemons += isisd
 man8 += $(MANBUILD)/frr-isisd.8
 endif
 
@@ -35,6 +36,7 @@ vtysh_scan += \
 	isisd/isisd.c \
 	# end
 endif
+vtysh_daemons += fabricd
 endif
 
 noinst_HEADERS += \

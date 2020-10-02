@@ -38,6 +38,7 @@
 #include "memory.h"
 #include "filter.h"
 #include "vtysh/vtysh.h"
+#include "vtysh/vtysh_daemons.h"
 #include "log.h"
 #include "bgpd/bgp_vty.h"
 #include "ns.h"
