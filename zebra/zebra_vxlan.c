@@ -36,6 +36,7 @@
 #ifdef GNU_LINUX
 #include <linux/neighbour.h>
 #endif
+#include "lib/printfrr.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/debug.h"
@@ -2994,7 +2995,8 @@ void zebra_vxlan_print_macs_vni_dad(struct vty *vty,
 }
 
 int zebra_vxlan_clear_dup_detect_vni_mac(struct zebra_vrf *zvrf, vni_t vni,
-					 struct ethaddr *macaddr)
+					 struct ethaddr *macaddr, char *errmsg,
+					 size_t errmsg_len)
 {
 	zebra_evpn_t *zevpn;
 	zebra_mac_t *mac;
@@ -3006,18 +3008,20 @@ int zebra_vxlan_clear_dup_detect_vni_mac(struct zebra_vrf *zvrf, vni_t vni,
 
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
-		zlog_warn("VNI %u does not exist\n", vni);
+		snprintfrr(errmsg, errmsg_len, "VNI %u does not exist", vni);
 		return -1;
 	}
 
 	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
 	if (!mac) {
-		zlog_warn("Requested MAC does not exist in VNI %u\n", vni);
+		snprintf(errmsg, errmsg_len,
+			 "Requested MAC does not exist in VNI %u\n", vni);
 		return -1;
 	}
 
 	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE)) {
-		zlog_warn("Requested MAC is not duplicate detected\n");
+		snprintfrr(errmsg, errmsg_len,
+			   "Requested MAC is not duplicate detected\n");
 		return -1;
 	}
 
@@ -3079,7 +3083,8 @@ int zebra_vxlan_clear_dup_detect_vni_mac(struct zebra_vrf *zvrf, vni_t vni,
 }
 
 int zebra_vxlan_clear_dup_detect_vni_ip(struct zebra_vrf *zvrf, vni_t vni,
-					struct ipaddr *ip)
+					struct ipaddr *ip, char *errmsg,
+					size_t errmsg_len)
 {
 	zebra_evpn_t *zevpn;
 	zebra_neigh_t *nbr;
@@ -3092,28 +3097,31 @@ int zebra_vxlan_clear_dup_detect_vni_ip(struct zebra_vrf *zvrf, vni_t vni,
 
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
-		zlog_debug("VNI %u does not exist\n", vni);
+		snprintfrr(errmsg, errmsg_len, "VNI %u does not exist\n", vni);
 		return -1;
 	}
 
 	nbr = zebra_evpn_neigh_lookup(zevpn, ip);
 	if (!nbr) {
-		zlog_warn("Requested host IP does not exist in VNI %u\n", vni);
+		snprintfrr(errmsg, errmsg_len,
+			   "Requested host IP does not exist in VNI %u\n", vni);
 		return -1;
 	}
 
 	ipaddr2str(&nbr->ip, buf, sizeof(buf));
 
 	if (!CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE)) {
-		zlog_warn("Requested host IP %s is not duplicate detected\n",
-			  buf);
+		snprintfrr(errmsg, errmsg_len,
+			   "Requested host IP %s is not duplicate detected\n",
+			   buf);
 		return -1;
 	}
 
 	mac = zebra_evpn_mac_lookup(zevpn, &nbr->emac);
 
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE)) {
-		zlog_warn(
+		snprintfrr(
+			errmsg, errmsg_len,
 			"Requested IP's associated MAC %s is still in duplicate state\n",
 			prefix_mac2str(&nbr->emac, buf2, sizeof(buf2)));
 		return -1;
