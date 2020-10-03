@@ -27,10 +27,13 @@
 #include <lib/vrf.h>
 #include <lib/memory.h>
 
+#include "printfrr.h"
+
 #include "static_vrf.h"
 #include "static_routes.h"
 #include "static_memory.h"
 #include "static_zebra.h"
+#include "static_debug.h"
 
 DEFINE_MTYPE_STATIC(STATIC, STATIC_ROUTE, "Static Route Info");
 DEFINE_MTYPE(STATIC, STATIC_PATH, "Static Path");
@@ -256,8 +259,12 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 	}
 	static_nexthop_list_add_after(&(pn->nexthop_list), cp, nh);
 
-	if (nh_svrf->vrf->vrf_id == VRF_UNKNOWN)
+	if (nh_svrf->vrf->vrf_id == VRF_UNKNOWN) {
+		zlog_warn(
+			"Static Route to %pFX not installed currently because dependent config not fully available",
+			&rn->p);
 		return nh;
+	}
 
 	/* check whether interface exists in system & install if it does */
 	switch (nh->type) {
@@ -301,11 +308,25 @@ void static_install_nexthop(struct route_node *rn, struct static_path *pn,
 
 	nh_svrf = static_vty_get_unknown_vrf(nh_vrf);
 
-	if (!nh_svrf)
-		return;
+	if (!nh_svrf) {
+		char nexthop_str[NEXTHOP_STR];
 
-	if (nh_svrf->vrf->vrf_id == VRF_UNKNOWN)
+		static_get_nh_str(nh, nexthop_str, sizeof(nexthop_str));
+		DEBUGD(&static_dbg_route,
+		       "Static Route %pFX not installed for %s vrf %s not ready",
+		       &rn->p, nexthop_str, nh_vrf);
 		return;
+	}
+
+	if (nh_svrf->vrf->vrf_id == VRF_UNKNOWN) {
+		char nexthop_str[NEXTHOP_STR];
+
+		static_get_nh_str(nh, nexthop_str, sizeof(nexthop_str));
+		DEBUGD(&static_dbg_route,
+		       "Static Route %pFX not installed for %s vrf %s is unknown",
+		       &rn->p, nexthop_str, nh_vrf);
+		return;
+	}
 
 	/* check whether interface exists in system & install if it does */
 	switch (nh->type) {
@@ -759,4 +780,31 @@ struct stable_info *static_get_stable_info(struct route_node *rn)
 void static_route_info_init(struct static_route_info *si)
 {
 	static_path_list_init(&(si->path_list));
+}
+
+
+void static_get_nh_str(struct static_nexthop *nh, char *nexthop, size_t size)
+{
+	switch (nh->type) {
+	case STATIC_IFNAME:
+		snprintfrr(nexthop, size, "ifindex : %s", nh->ifname);
+		break;
+	case STATIC_IPV4_GATEWAY:
+		snprintfrr(nexthop, size, "ip4 : %pI4", &nh->addr.ipv4);
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+		snprintfrr(nexthop, size, "ip4-ifindex : %pI4 : %s",
+			   &nh->addr.ipv4, nh->ifname);
+		break;
+	case STATIC_BLACKHOLE:
+		snprintfrr(nexthop, size, "blackhole : %d", nh->bh_type);
+		break;
+	case STATIC_IPV6_GATEWAY:
+		snprintfrr(nexthop, size, "ip6 : %pI6", &nh->addr.ipv6);
+		break;
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		snprintfrr(nexthop, size, "ip6-ifindex : %pI6 : %s",
+			   &nh->addr.ipv6, nh->ifname);
+		break;
+	};
 }

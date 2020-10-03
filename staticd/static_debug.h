@@ -30,6 +30,7 @@
 
 /* staticd debugging records */
 extern struct debug static_dbg_events;
+extern struct debug static_dbg_route;
 
 /*
  * Initialize staticd debugging.
@@ -67,7 +68,7 @@ int static_debug_status_write(struct vty *vty);
  *    Debug general internal events
  *
  */
-void static_debug_set(int vtynode, bool onoff, bool events);
+void static_debug_set(int vtynode, bool onoff, bool events, bool route);
 
 
 #endif /* _STATIC_DEBUG_H */

@@ -47,4 +47,10 @@ extern void static_nht_reset_start(struct prefix *nhp, afi_t afi,
  */
 extern void static_nht_mark_state(struct prefix *sp, vrf_id_t vrf_id,
 				  enum static_install_states state);
+
+/*
+ * For the given nexthop, returns the string
+ */
+extern void static_get_nh_str(struct static_nexthop *nh, char *nexthop,
+			      size_t size);
 #endif

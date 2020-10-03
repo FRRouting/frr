@@ -197,4 +197,17 @@ extern bool static_add_nexthop_validate(struct static_vrf *svrf,
 					struct ipaddr *ipaddr);
 extern struct stable_info *static_get_stable_info(struct route_node *rn);
 extern void static_route_info_init(struct static_route_info *si);
+
+/*
+ * Max string return via API static_get_nh_str in size_t
+ */
+
+#define NEXTHOP_STR (INET6_ADDRSTRLEN + INTERFACE_NAMSIZ + 25)
+/*
+ * For the given nexthop, returns the string
+ * nexthop : returns the formatted string in nexthop
+ * size : max size of formatted string
+ */
+extern void static_get_nh_str(struct static_nexthop *nh, char *nexthop,
+			      size_t size);
 #endif

@@ -222,6 +222,13 @@ static int nexthop_mpls_label_stack_entry_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if (!mpls_enabled) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"%% MPLS not turned on in kernel ignoring static route");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -481,6 +488,11 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 				yang_dnode_get_string(args->dnode, "./prefix"));
 			return NB_ERR;
 		}
+		if (vrf->vrf_id == VRF_UNKNOWN)
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Static Route to %s not installed currently because dependent config not fully available",
+				yang_dnode_get_string(args->dnode, "./prefix"));
 		nb_running_set_entry(args->dnode, rn);
 		break;
 	}
