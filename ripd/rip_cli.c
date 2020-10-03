@@ -1012,7 +1012,7 @@ DEFPY_YANG (clear_ip_rip,
 		listnode_add(input, yang_vrf);
 	}
 
-	ret = nb_cli_rpc("/frr-ripd:clear-rip-route", input, NULL);
+	ret = nb_cli_rpc(vty, "/frr-ripd:clear-rip-route", input, NULL);
 
 	list_delete(&input);
 

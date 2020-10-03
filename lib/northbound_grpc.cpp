@@ -962,6 +962,7 @@ class NorthboundImpl
 		struct listnode *node;
 		struct yang_data *data;
 		const char *xpath;
+		char errmsg[BUFSIZ] = {0};
 
 		switch (tag->state) {
 		case CREATE:
@@ -1012,7 +1013,7 @@ class NorthboundImpl
 
 			// Execute callback registered for this XPath.
 			if (nb_callback_rpc(nb_node, xpath, input_list,
-					    output_list)
+					    output_list, errmsg, sizeof(errmsg))
 			    != NB_OK) {
 				flog_warn(EC_LIB_NB_CB_RPC,
 					  "%s: rpc callback failed: %s",

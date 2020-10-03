@@ -1142,7 +1142,8 @@ const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 }
 
 int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
-		    const struct list *input, struct list *output)
+		    const struct list *input, struct list *output, char *errmsg,
+		    size_t errmsg_len)
 {
 	struct nb_cb_rpc_args args = {};
 
@@ -1151,6 +1152,8 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 	args.xpath = xpath;
 	args.input = input;
 	args.output = output;
+	args.errmsg = errmsg;
+	args.errmsg_len = errmsg_len;
 	return nb_node->cbs.rpc(&args);
 }
 
