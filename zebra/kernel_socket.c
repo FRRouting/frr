@@ -1340,12 +1340,26 @@ static int kernel_read(struct thread *thread)
 
 	nbytes = read(sock, &buf, sizeof(buf));
 
-	if (nbytes <= 0) {
-		if (nbytes < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
+	if (nbytes < 0) {
+		if (errno == ENOBUFS) {
+			flog_err(EC_ZEBRA_RECVMSG_OVERRUN,
+				 "routing socket overrun: %s",
+				 safe_strerror(errno));
+			/*
+			 *  In this case we are screwed.
+			 *  There is no good way to
+			 *  recover zebra at this point.
+			 */
+			exit(-1);
+		}
+		if (errno != EAGAIN && errno != EWOULDBLOCK)
 			flog_err_sys(EC_LIB_SOCKET, "routing socket error: %s",
 				     safe_strerror(errno));
 		return 0;
 	}
+
+	if (nbytes == 0)
+		return 0;
 
 	thread_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
 
@@ -1411,6 +1425,14 @@ static void routing_socket(struct zebra_ns *zns)
 			     "Can't init kernel dataplane routing socket");
 		return;
 	}
+
+#ifdef SO_RERROR
+	/* Allow reporting of route(4) buffer overflow errors */
+	int n = 1;
+	if (setsockopt(routing_sock, SOL_SOCKET, SO_RERROR, &n, sizeof(n)) < 0)
+		flog_err_sys(EC_LIB_SOCKET,
+			     "Can't set SO_RERROR on routing socket");
+#endif
 
 	/* XXX: Socket should be NONBLOCK, however as we currently
 	 * discard failed writes, this will lead to inconsistencies.
