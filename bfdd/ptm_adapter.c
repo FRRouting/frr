@@ -307,6 +307,8 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 
 	/*
 	 * Register/Deregister/Update Message format:
+	 *
+	 * Old format (being used by PTM BFD).
 	 * - header: Command, VRF
 	 * - l: pid
 	 * - w: family
@@ -322,16 +324,37 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	 *   - multihop:
 	 *     - w: family
 	 *       - AF_INET:
-	 *         - l: destination ipv4
+	 *         - l: source IPv4 address
 	 *       - AF_INET6:
-	 *         - 16 bytes: destination IPv6
+	 *         - 16 bytes: source IPv6 address
 	 *     - c: ttl
 	 *   - no multihop
 	 *     - AF_INET6:
 	 *       - w: family
-	 *       - 16 bytes: ipv6 address
+	 *       - 16 bytes: source IPv6 address
 	 *     - c: ifname length
 	 *     - X bytes: interface name
+	 *
+	 * New format:
+	 * - header: Command, VRF
+	 * - l: pid
+	 * - w: family
+	 *   - AF_INET:
+	 *     - l: destination IPv4 address
+	 *   - AF_INET6:
+	 *     - 16 bytes: destination IPv6 address
+	 * - l: min_rx
+	 * - l: min_tx
+	 * - c: detect multiplier
+	 * - c: is_multihop?
+	 * - w: family
+	 *   - AF_INET:
+	 *     - l: source IPv4 address
+	 *   - AF_INET6:
+	 *     - 16 bytes: source IPv6 address
+	 * - c: ttl
+	 * - c: ifname length
+	 * - X bytes: interface name
 	 * - c: bfd_cbit
 	 * - c: profile name length.
 	 * - X bytes: profile name.
@@ -355,58 +378,50 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	bpc->bpc_ipv4 = (bpc->bpc_peer.sa_sin.sin_family == AF_INET);
 
 	/* Get peer configuration. */
-	if (command != ZEBRA_BFD_DEST_DEREGISTER) {
-		STREAM_GETL(msg, bpc->bpc_recvinterval);
-		bpc->bpc_has_recvinterval =
-			(bpc->bpc_recvinterval != BPC_DEF_RECEIVEINTERVAL);
+	STREAM_GETL(msg, bpc->bpc_recvinterval);
+	bpc->bpc_has_recvinterval =
+		(bpc->bpc_recvinterval != BPC_DEF_RECEIVEINTERVAL);
 
-		STREAM_GETL(msg, bpc->bpc_txinterval);
-		bpc->bpc_has_txinterval =
-			(bpc->bpc_txinterval != BPC_DEF_TRANSMITINTERVAL);
+	STREAM_GETL(msg, bpc->bpc_txinterval);
+	bpc->bpc_has_txinterval =
+		(bpc->bpc_txinterval != BPC_DEF_TRANSMITINTERVAL);
 
-		STREAM_GETC(msg, bpc->bpc_detectmultiplier);
-		bpc->bpc_has_detectmultiplier =
-			(bpc->bpc_detectmultiplier != BPC_DEF_DETECTMULTIPLIER);
-	}
+	STREAM_GETC(msg, bpc->bpc_detectmultiplier);
+	bpc->bpc_has_detectmultiplier =
+		(bpc->bpc_detectmultiplier != BPC_DEF_DETECTMULTIPLIER);
 
 	/* Read (single|multi)hop and its options. */
 	STREAM_GETC(msg, bpc->bpc_mhop);
-	if (bpc->bpc_mhop) {
-		/* Read multihop source address and TTL. */
-		_ptm_msg_read_address(msg, &bpc->bpc_local);
-		STREAM_GETC(msg, bpc->bpc_minimum_ttl);
-		if (bpc->bpc_minimum_ttl >= BFD_TTL_VAL
-		    || bpc->bpc_minimum_ttl == 0) {
-			zlog_warn("%s: received invalid TTL configuration %d",
-				  __func__, bpc->bpc_has_minimum_ttl);
-			bpc->bpc_minimum_ttl = BFD_DEF_MHOP_TTL;
-			bpc->bpc_has_minimum_ttl = false;
-		} else {
-			bpc->bpc_minimum_ttl =
-				(BFD_TTL_VAL + 1) - bpc->bpc_minimum_ttl;
-			bpc->bpc_has_minimum_ttl = true;
-		}
+
+	/* Read multihop source address and TTL. */
+	_ptm_msg_read_address(msg, &bpc->bpc_local);
+
+	/* Read the minimum TTL (0 means unset or invalid). */
+	STREAM_GETC(msg, bpc->bpc_minimum_ttl);
+	if (bpc->bpc_minimum_ttl == 0) {
+		bpc->bpc_minimum_ttl = BFD_DEF_MHOP_TTL;
+		bpc->bpc_has_minimum_ttl = false;
 	} else {
-		/* If target is IPv6, then we must obtain local address. */
-		if (bpc->bpc_ipv4 == false)
-			_ptm_msg_read_address(msg, &bpc->bpc_local);
-
-		/*
-		 * Read interface name and make sure it fits our data
-		 * structure, otherwise fail.
-		 */
-		STREAM_GETC(msg, ifnamelen);
-		if (ifnamelen >= sizeof(bpc->bpc_localif)) {
-			zlog_err("ptm-read: interface name is too big");
-			return -1;
-		}
-
-		bpc->bpc_has_localif = ifnamelen > 0;
-		if (bpc->bpc_has_localif) {
-			STREAM_GET(bpc->bpc_localif, msg, ifnamelen);
-			bpc->bpc_localif[ifnamelen] = 0;
-		}
+		bpc->bpc_minimum_ttl = (BFD_TTL_VAL + 1) - bpc->bpc_minimum_ttl;
+		bpc->bpc_has_minimum_ttl = true;
 	}
+
+	/*
+	 * Read interface name and make sure it fits our data
+	 * structure, otherwise fail.
+	 */
+	STREAM_GETC(msg, ifnamelen);
+	if (ifnamelen >= sizeof(bpc->bpc_localif)) {
+		zlog_err("ptm-read: interface name is too big");
+		return -1;
+	}
+
+	bpc->bpc_has_localif = ifnamelen > 0;
+	if (bpc->bpc_has_localif) {
+		STREAM_GET(bpc->bpc_localif, msg, ifnamelen);
+		bpc->bpc_localif[ifnamelen] = 0;
+	}
+
 	if (vrf_id != VRF_DEFAULT) {
 		struct vrf *vrf;
 
@@ -424,6 +439,7 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 		strlcpy(bpc->bpc_vrfname, VRF_DEFAULT_NAME, sizeof(bpc->bpc_vrfname));
 	}
 
+	/* Read control plane independant configuration. */
 	STREAM_GETC(msg, bpc->bpc_cbit);
 
 	/* Handle profile names. */

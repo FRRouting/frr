@@ -468,6 +468,39 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 					    : sizeof(struct in6_addr);
 	stream_put(s, &args->dst, addrlen);
 
+	/*
+	 * For more BFD integration protocol details, see function
+	 * `_ptm_msg_read` in `bfdd/ptm_adapter.c`.
+	 */
+#if HAVE_BFDD > 0
+	/* Session timers. */
+	stream_putl(s, args->min_rx);
+	stream_putl(s, args->min_tx);
+	stream_putc(s, args->detection_multiplier);
+
+	/* Is multi hop? */
+	stream_putc(s, args->mhop != 0);
+
+	/* Source address. */
+	stream_putw(s, args->family);
+	stream_put(s, &args->src, addrlen);
+
+	/* Send the expected TTL. */
+	stream_putc(s, args->ttl);
+
+	/* Send interface name if any. */
+	stream_putc(s, args->ifnamelen);
+	if (args->ifnamelen)
+		stream_put(s, args->ifname, args->ifnamelen);
+
+	/* Send the C bit indicator. */
+	stream_putc(s, args->cbit);
+
+	/* Send profile name if any. */
+	stream_putc(s, args->profilelen);
+	if (args->profilelen)
+		stream_put(s, args->profile, args->profilelen);
+#else /* PTM BFD */
 	/* Encode timers if this is a registration message. */
 	if (args->command != ZEBRA_BFD_DEST_DEREGISTER) {
 		stream_putl(s, args->min_rx);
@@ -500,16 +533,6 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 		if (args->ifnamelen)
 			stream_put(s, args->ifname, args->ifnamelen);
 	}
-
-	/* Send the C bit indicator. */
-	stream_putc(s, args->cbit);
-
-	/* `ptm-bfd` doesn't support profiles yet. */
-#if HAVE_BFDD > 0
-	/* Send profile name if any. */
-	stream_putc(s, args->profilelen);
-	if (args->profilelen)
-		stream_put(s, args->profile, args->profilelen);
 #endif /* HAVE_BFDD */
 
 	/* Finish the message by writing the size. */
