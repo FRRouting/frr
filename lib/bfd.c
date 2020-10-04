@@ -104,7 +104,10 @@ void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
 		if (((*bfd_info)->required_min_rx != min_rx)
 		    || ((*bfd_info)->desired_min_tx != min_tx)
 		    || ((*bfd_info)->detect_mult != detect_mult)
-		    || (profile && strcmp((*bfd_info)->profile, profile)))
+		    || ((*bfd_info)->profile[0] == 0 && profile)
+		    || ((*bfd_info)->profile[0] && profile == NULL)
+		    || (profile && (*bfd_info)->profile[0]
+			&& strcmp((*bfd_info)->profile, profile)))
 			*command = ZEBRA_BFD_DEST_UPDATE;
 	}
 
