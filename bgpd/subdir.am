@@ -102,6 +102,8 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_vty.c \
 	bgpd/bgp_zebra.c \
 	bgpd/bgpd.c \
+	bgpd/bgp_nb.c \
+	bgpd/bgp_nb_config.c \
 	# end
 
 if ENABLE_BGP_VNC
@@ -175,6 +177,7 @@ noinst_HEADERS += \
 	bgpd/bgp_vty.h \
 	bgpd/bgp_zebra.h \
 	bgpd/bgpd.h \
+	bgpd/bgp_nb.h \
 	\
 	bgpd/rfapi/bgp_rfapi_cfg.h \
 	bgpd/rfapi/rfapi_import.h \
@@ -230,4 +233,17 @@ clippy_scan += \
 	bgpd/bgp_routemap.c \
 	bgpd/bgp_rpki.c \
 	bgpd/bgp_vty.c \
+	# end
+
+nodist_bgpd_bgpd_SOURCES = \
+	yang/frr-bgp-types.yang.c \
+	yang/frr-bgp.yang.c \
+	yang/frr-bgp-common-structure.yang.c \
+	yang/frr-bgp-common.yang.c \
+	yang/frr-bgp-common-multiprotocol.yang.c \
+	yang/frr-bgp-neighbor.yang.c \
+	yang/frr-bgp-peer-group.yang.c \
+	yang/frr-bgp-bmp.yang.c \
+	yang/frr-bgp-rpki.yang.c \
+	yang/frr-deviations-bgp-datacenter.yang.c \
 	# end

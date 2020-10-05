@@ -90,10 +90,10 @@ module frr-bgp {
           "BGP protocol augmentation of ietf-routing module
            control-plane-protocol.";
       }
+      presence "Enables configuration of BGP";
       description
         "Top-level configuration for the BGP router.";
       container global {
-        presence "Enables global configuration of BGP";
         description
           "Global configuration for the BGP router.";
         leaf local-as {

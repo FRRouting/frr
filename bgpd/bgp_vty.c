@@ -73,6 +73,11 @@
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
 
+#include "northbound.h"
+#include "northbound_cli.h"
+#include "bgpd/bgp_nb.h"
+
+
 FRR_CFG_DEFAULT_BOOL(BGP_IMPORT_CHECK,
 	{
 		.val_bool = false,
@@ -751,18 +756,19 @@ enum clear_sort {
 	clear_as
 };
 
-static void bgp_clear_vty_error(struct vty *vty, struct peer *peer, afi_t afi,
-				safi_t safi, int error)
+static void bgp_clear_vty_error(struct peer *peer, afi_t afi, safi_t safi,
+				int error, char *errmsg, size_t errmsg_len)
 {
 	switch (error) {
 	case BGP_ERR_AF_UNCONFIGURED:
-		vty_out(vty,
-			"%%BGP: Enable %s address family for the neighbor %s\n",
-			get_afi_safi_str(afi, safi, false), peer->host);
+		snprintf(errmsg, errmsg_len,
+			 "%%BGP: Enable %s address family for the neighbor %s",
+			 get_afi_safi_str(afi, safi, false), peer->host);
 		break;
 	case BGP_ERR_SOFT_RECONFIG_UNCONFIGURED:
-		vty_out(vty,
-			"%%BGP: Inbound soft reconfig for %s not possible as it\n      has neither refresh capability, nor inbound soft reconfig\n",
+		snprintf(
+			errmsg, errmsg_len,
+			"%%BGP: Inbound soft reconfig for %s not possible as it\n      has neither refresh capability, nor inbound soft reconfig",
 			peer->host);
 		break;
 	default:
@@ -820,9 +826,9 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 }
 
 /* `clear ip bgp' functions. */
-static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+static int bgp_clear(struct bgp *bgp, afi_t afi, safi_t safi,
 		     enum clear_sort sort, enum bgp_clear_type stype,
-		     const char *arg)
+		     const char *arg, char *errmsg, size_t errmsg_len)
 {
 	int ret = 0;
 	bool found = false;
@@ -848,7 +854,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 							  stype);
 
 			if (ret < 0)
-				bgp_clear_vty_error(vty, peer, afi, safi, ret);
+				bgp_clear_vty_error(peer, afi, safi, ret,
+						    errmsg, errmsg_len);
 		}
 
 		if (gr_router_detected
@@ -877,8 +884,9 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			if (!peer) {
 				peer = peer_lookup_by_hostname(bgp, arg);
 				if (!peer) {
-					vty_out(vty,
-						"Malformed address or name: %s\n",
+					snprintf(
+						errmsg, errmsg_len,
+						"Malformed address or name: %s",
 						arg);
 					return CMD_WARNING;
 				}
@@ -886,9 +894,9 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		} else {
 			peer = peer_lookup(bgp, &su);
 			if (!peer) {
-				vty_out(vty,
-					"%%BGP: Unknown neighbor - \"%s\"\n",
-					arg);
+				snprintf(errmsg, errmsg_len,
+					 "%%BGP: Unknown neighbor - \"%s\"",
+					 arg);
 				return CMD_WARNING;
 			}
 		}
@@ -903,7 +911,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			ret = BGP_ERR_AF_UNCONFIGURED;
 
 		if (ret < 0)
-			bgp_clear_vty_error(vty, peer, afi, safi, ret);
+			bgp_clear_vty_error(peer, afi, safi, ret, errmsg,
+					    errmsg_len);
 
 		return CMD_SUCCESS;
 	}
@@ -914,7 +923,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 		group = peer_group_lookup(bgp, arg);
 		if (!group) {
-			vty_out(vty, "%%BGP: No such peer-group %s\n", arg);
+			snprintf(errmsg, errmsg_len,
+				 "%%BGP: No such peer-group %s", arg);
 			return CMD_WARNING;
 		}
 
@@ -922,14 +932,16 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			ret = bgp_peer_clear(peer, afi, safi, &nnode, stype);
 
 			if (ret < 0)
-				bgp_clear_vty_error(vty, peer, afi, safi, ret);
+				bgp_clear_vty_error(peer, afi, safi, ret,
+						    errmsg, errmsg_len);
 			else
 				found = true;
 		}
 
 		if (!found)
-			vty_out(vty,
-				"%%BGP: No %s peer belonging to peer-group %s is configured\n",
+			snprintf(
+				errmsg, errmsg_len,
+				"%%BGP: No %s peer belonging to peer-group %s is configured",
 				get_afi_safi_str(afi, safi, false), arg);
 
 		return CMD_SUCCESS;
@@ -949,7 +961,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			ret = bgp_peer_clear(peer, afi, safi, &nnode, stype);
 
 			if (ret < 0)
-				bgp_clear_vty_error(vty, peer, afi, safi, ret);
+				bgp_clear_vty_error(peer, afi, safi, ret,
+						    errmsg, errmsg_len);
 			else
 				found = true;
 		}
@@ -963,9 +976,9 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		}
 
 		if (!found)
-			vty_out(vty,
-				"%%BGP: No external %s peer is configured\n",
-				get_afi_safi_str(afi, safi, false));
+			snprintf(errmsg, errmsg_len,
+				 "%%BGP: No external %s peer is configured",
+				 get_afi_safi_str(afi, safi, false));
 
 		return CMD_SUCCESS;
 	}
@@ -986,7 +999,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			ret = bgp_peer_clear(peer, afi, safi, &nnode, stype);
 
 			if (ret < 0)
-				bgp_clear_vty_error(vty, peer, afi, safi, ret);
+				bgp_clear_vty_error(peer, afi, safi, ret,
+						    errmsg, errmsg_len);
 			else
 				found = true;
 		}
@@ -1000,9 +1014,9 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		}
 
 		if (!found)
-			vty_out(vty,
-				"%%BGP: No %s peer is configured with AS %s\n",
-				get_afi_safi_str(afi, safi, false), arg);
+			snprintf(errmsg, errmsg_len,
+				 "%%BGP: No %s peer is configured with AS %s",
+				 get_afi_safi_str(afi, safi, false), arg);
 
 		return CMD_SUCCESS;
 	}
@@ -1010,9 +1024,9 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	return CMD_SUCCESS;
 }
 
-static int bgp_clear_vty(struct vty *vty, const char *name, afi_t afi,
-			 safi_t safi, enum clear_sort sort,
-			 enum bgp_clear_type stype, const char *arg)
+static int bgp_clear_vty(const char *name, afi_t afi, safi_t safi,
+			 enum clear_sort sort, enum bgp_clear_type stype,
+			 const char *arg, char *errmsg, size_t errmsg_len)
 {
 	struct bgp *bgp;
 
@@ -1020,40 +1034,56 @@ static int bgp_clear_vty(struct vty *vty, const char *name, afi_t afi,
 	if (name) {
 		bgp = bgp_lookup_by_name(name);
 		if (bgp == NULL) {
-			vty_out(vty, "Can't find BGP instance %s\n", name);
+			snprintf(errmsg, errmsg_len,
+				 "Can't find BGP instance %s", name);
 			return CMD_WARNING;
 		}
 	} else {
 		bgp = bgp_get_default();
 		if (bgp == NULL) {
-			vty_out(vty, "No BGP process is configured\n");
+			snprintf(errmsg, errmsg_len,
+				 "No BGP process is configured");
 			return CMD_WARNING;
 		}
 	}
 
-	return bgp_clear(vty, bgp, afi, safi, sort, stype, arg);
+	return bgp_clear(bgp, afi, safi, sort, stype, arg, errmsg, errmsg_len);
 }
 
 /* clear soft inbound */
-static void bgp_clear_star_soft_in(struct vty *vty, const char *name)
+int bgp_clear_star_soft_in(const char *name, char *errmsg, size_t errmsg_len)
 {
 	afi_t afi;
 	safi_t safi;
+	int ret;
 
-	FOREACH_AFI_SAFI (afi, safi)
-		bgp_clear_vty(vty, name, afi, safi, clear_all,
-			      BGP_CLEAR_SOFT_IN, NULL);
+	FOREACH_AFI_SAFI (afi, safi) {
+		ret = bgp_clear_vty(name, afi, safi, clear_all,
+				    BGP_CLEAR_SOFT_IN, NULL, errmsg,
+				    errmsg_len);
+		if (ret != CMD_SUCCESS)
+			return -1;
+	}
+
+	return 0;
 }
 
 /* clear soft outbound */
-static void bgp_clear_star_soft_out(struct vty *vty, const char *name)
+int bgp_clear_star_soft_out(const char *name, char *errmsg, size_t errmsg_len)
 {
 	afi_t afi;
 	safi_t safi;
+	int ret;
 
-	FOREACH_AFI_SAFI (afi, safi)
-		bgp_clear_vty(vty, name, afi, safi, clear_all,
-			      BGP_CLEAR_SOFT_OUT, NULL);
+	FOREACH_AFI_SAFI (afi, safi) {
+		ret = bgp_clear_vty(name, afi, safi, clear_all,
+				    BGP_CLEAR_SOFT_OUT, NULL, errmsg,
+				    errmsg_len);
+		if (ret != CMD_SUCCESS)
+			return -1;
+	}
+
+	return 0;
 }
 
 
@@ -1162,23 +1192,21 @@ DEFUN (no_auto_summary,
 }
 
 /* "router bgp" commands. */
-DEFUN_NOSH (router_bgp,
-       router_bgp_cmd,
-       "router bgp [(1-4294967295)$instasn [<view|vrf> VIEWVRFNAME]]",
-       ROUTER_STR
-       BGP_STR
-       AS_STR
-       BGP_INSTANCE_HELP_STR)
+DEFUN_YANG_NOSH(router_bgp,
+		router_bgp_cmd,
+		"router bgp [(1-4294967295)$instasn [<view|vrf> VIEWVRFNAME]]",
+		ROUTER_STR BGP_STR AS_STR BGP_INSTANCE_HELP_STR)
 {
 	int idx_asn = 2;
 	int idx_view_vrf = 3;
 	int idx_vrf = 4;
-	int is_new_bgp = 0;
-	int ret;
+	int ret = CMD_SUCCESS;
 	as_t as;
 	struct bgp *bgp;
 	const char *name = NULL;
+	char as_str[12] = {'\0'};
 	enum bgp_instance_type inst_type;
+	char base_xpath[XPATH_MAXLEN];
 
 	// "router bgp" without an ASN
 	if (argc == 2) {
@@ -1194,12 +1222,40 @@ DEFUN_NOSH (router_bgp,
 			vty_out(vty, "%% Please specify ASN and VRF\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+		/* unset the auto created flag as the user config is now present
+		 */
+		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
+
+		snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_GLOBAL_XPATH,
+			 "frr-bgp:bgp", "bgp", name ? name : VRF_DEFAULT_NAME);
+
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		snprintf(as_str, 12, "%d", bgp->as);
+		nb_cli_enqueue_change(vty, "./global/local-as", NB_OP_MODIFY,
+				      as_str);
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) {
+			nb_cli_enqueue_change(vty,
+					      "./global/instance-type-view",
+					      NB_OP_MODIFY, "true");
+		}
+
+		ret = nb_cli_apply_changes(vty, base_xpath);
+		if (ret == CMD_SUCCESS) {
+			VTY_PUSH_XPATH(BGP_NODE, base_xpath);
+
+			/*
+			 * For backward compatibility with old commands we still
+			 * need to use the qobj infrastructure.
+			 */
+			VTY_PUSH_CONTEXT(BGP_NODE, bgp);
+		}
+		return ret;
 	}
 
 	// "router bgp X"
 	else {
-		as = strtoul(argv[idx_asn]->arg, NULL, 10);
 
+		as = strtoul(argv[idx_asn]->arg, NULL, 10);
 		inst_type = BGP_INSTANCE_TYPE_DEFAULT;
 		if (argc > 3) {
 			name = argv[idx_vrf]->arg;
@@ -1209,70 +1265,63 @@ DEFUN_NOSH (router_bgp,
 					name = NULL;
 				else
 					inst_type = BGP_INSTANCE_TYPE_VRF;
-			} else if (!strcmp(argv[idx_view_vrf]->text, "view"))
+			} else if (!strcmp(argv[idx_view_vrf]->text, "view")) {
 				inst_type = BGP_INSTANCE_TYPE_VIEW;
+			}
+		}
+		snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_GLOBAL_XPATH,
+			 "frr-bgp:bgp", "bgp", name ? name : VRF_DEFAULT_NAME);
+
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./global/local-as", NB_OP_MODIFY,
+				      argv[idx_asn]->arg);
+		if (inst_type == BGP_INSTANCE_TYPE_VIEW) {
+			nb_cli_enqueue_change(vty,
+					      "./global/instance-type-view",
+					      NB_OP_MODIFY, "true");
 		}
 
-		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			is_new_bgp = (bgp_lookup(as, name) == NULL);
+		nb_cli_pending_commit_check(vty);
+		ret = nb_cli_apply_changes(vty, base_xpath);
+		if (ret == CMD_SUCCESS) {
+			VTY_PUSH_XPATH(BGP_NODE, base_xpath);
 
-		ret = bgp_get_vty(&bgp, &as, name, inst_type);
-		switch (ret) {
-		case BGP_ERR_AS_MISMATCH:
-			vty_out(vty, "BGP is already running; AS is %u\n", as);
-			return CMD_WARNING_CONFIG_FAILED;
-		case BGP_ERR_INSTANCE_MISMATCH:
-			vty_out(vty,
-				"BGP instance name and AS number mismatch\n");
-			vty_out(vty,
-				"BGP instance is already running; AS is %u\n",
-				as);
-			return CMD_WARNING_CONFIG_FAILED;
+			/*
+			 * For backward compatibility with old commands we still
+			 * need to use the qobj infrastructure.
+			 */
+			bgp = bgp_lookup(as, name);
+			if (bgp)
+				VTY_PUSH_CONTEXT(BGP_NODE, bgp);
 		}
-
-		/*
-		 * If we just instantiated the default instance, complete
-		 * any pending VRF-VPN leaking that was configured via
-		 * earlier "router bgp X vrf FOO" blocks.
-		 */
-		if (is_new_bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			vpn_leak_postchange_all();
-
-		if (inst_type == BGP_INSTANCE_TYPE_VRF)
-			bgp_vpn_leak_export(bgp);
-		/* Pending: handle when user tries to change a view to vrf n vv.
-		 */
 	}
 
-	/* unset the auto created flag as the user config is now present */
-	UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
-	VTY_PUSH_CONTEXT(BGP_NODE, bgp);
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
 /* "no router bgp" commands. */
-DEFUN (no_router_bgp,
-       no_router_bgp_cmd,
-       "no router bgp [(1-4294967295)$instasn [<view|vrf> VIEWVRFNAME]]",
-       NO_STR
-       ROUTER_STR
-       BGP_STR
-       AS_STR
-       BGP_INSTANCE_HELP_STR)
+DEFUN_YANG(no_router_bgp,
+	   no_router_bgp_cmd,
+	   "no router bgp [(1-4294967295)$instasn [<view|vrf> VIEWVRFNAME]]",
+	   NO_STR ROUTER_STR BGP_STR AS_STR BGP_INSTANCE_HELP_STR)
 {
 	int idx_asn = 3;
 	int idx_vrf = 5;
-	as_t as;
+	as_t as = 0;
 	struct bgp *bgp;
 	const char *name = NULL;
+	char base_xpath[XPATH_MAXLEN];
+	const struct lyd_node *bgp_glb_dnode;
 
 	// "no router bgp" without an ASN
 	if (argc == 3) {
 		// Pending: Make VRF option available for ASN less config
-		bgp = bgp_get_default();
+		snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_GLOBAL_XPATH,
+			 "frr-bgp:bgp", "bgp", VRF_DEFAULT_NAME);
 
-		if (bgp == NULL) {
+		bgp_glb_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					       base_xpath);
+		if (!bgp_glb_dnode) {
 			vty_out(vty, "%% No BGP process is configured\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -1281,6 +1330,11 @@ DEFUN (no_router_bgp,
 			vty_out(vty, "%% Please specify ASN and VRF\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+
+		/* tcli mode bgp would not be set until apply stage. */
+		bgp = nb_running_get_entry(bgp_glb_dnode, NULL, false);
+		if (!bgp)
+			return CMD_SUCCESS;
 
 		if (bgp->l3vni) {
 			vty_out(vty, "%% Please unconfigure l3vni %u",
@@ -1321,94 +1375,94 @@ DEFUN (no_router_bgp,
 			}
 		}
 	}
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_GLOBAL_XPATH,
+		 "frr-bgp:bgp", "bgp",
+		 bgp->name ? bgp->name : VRF_DEFAULT_NAME);
 
-	if (bgp_vpn_leak_unimport(bgp, vty))
-		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	bgp_delete(bgp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
+void cli_show_router_bgp(struct vty *vty, struct lyd_node *dnode,
+			 bool show_defaults)
+{
+	const struct lyd_node *vrf_dnode;
+	const char *vrf_name;
+	as_t as;
+
+	vrf_dnode = yang_dnode_get_parent(dnode, "control-plane-protocol");
+	vrf_name = yang_dnode_get_string(vrf_dnode, "./vrf");
+	as = yang_dnode_get_uint32(dnode, "./global/local-as");
+
+	vty_out(vty, "!\n");
+	vty_out(vty, "router bgp %u", as);
+	if (!strmatch(vrf_name, VRF_DEFAULT_NAME))
+		vty_out(vty, " vrf %s", vrf_name);
+	vty_out(vty, "\n");
+}
 
 /* BGP router-id.  */
 
-DEFPY (bgp_router_id,
-       bgp_router_id_cmd,
-       "bgp router-id A.B.C.D",
-       BGP_STR
-       "Override configured router identifier\n"
-       "Manually configured router identifier\n")
+DEFPY_YANG(bgp_router_id, bgp_router_id_cmd, "bgp router-id A.B.C.D",
+	   BGP_STR
+	   "Override configured router identifier\n"
+	   "Manually configured router identifier\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_router_id_static_set(bgp, router_id);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./global/router-id", NB_OP_MODIFY,
+			      router_id_str);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY (no_bgp_router_id,
-       no_bgp_router_id_cmd,
-       "no bgp router-id [A.B.C.D]",
-       NO_STR
-       BGP_STR
-       "Override configured router identifier\n"
-       "Manually configured router identifier\n")
+DEFPY_YANG(no_bgp_router_id, no_bgp_router_id_cmd, "no bgp router-id [A.B.C.D]",
+	   NO_STR BGP_STR
+	   "Override configured router identifier\n"
+	   "Manually configured router identifier\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	nb_cli_enqueue_change(vty, "./global/router-id", NB_OP_DESTROY,
+			      router_id_str ? router_id_str : NULL);
 
-	if (router_id_str) {
-		if (!IPV4_ADDR_SAME(&bgp->router_id_static, &router_id)) {
-			vty_out(vty, "%% BGP router-id doesn't match\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	router_id.s_addr = 0;
-	bgp_router_id_static_set(bgp, router_id);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
+void cli_show_router_bgp_router_id(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	vty_out(vty, " bgp router-id %s\n", yang_dnode_get_string(dnode, NULL));
+}
 
 /* BGP Cluster ID.  */
-DEFUN (bgp_cluster_id,
-       bgp_cluster_id_cmd,
-       "bgp cluster-id <A.B.C.D|(1-4294967295)>",
-       BGP_STR
-       "Configure Route-Reflector Cluster-id\n"
-       "Route-Reflector Cluster-id in IP address format\n"
-       "Route-Reflector Cluster-id as 32 bit quantity\n")
+DEFUN_YANG(bgp_cluster_id,
+	   bgp_cluster_id_cmd,
+	   "bgp cluster-id <A.B.C.D|(1-4294967295)>",
+	   BGP_STR
+	   "Configure Route-Reflector Cluster-id\n"
+	   "Route-Reflector Cluster-id in IP address format\n"
+	   "Route-Reflector Cluster-id as 32 bit quantity\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_ipv4 = 2;
-	int ret;
-	struct in_addr cluster;
 
-	ret = inet_aton(argv[idx_ipv4]->arg, &cluster);
-	if (!ret) {
-		vty_out(vty, "%% Malformed bgp cluster identifier\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	nb_cli_enqueue_change(
+		vty, "./global/route-reflector/route-reflector-cluster-id",
+		NB_OP_MODIFY, argv[idx_ipv4]->arg);
 
-	bgp_cluster_id_set(bgp, &cluster);
-	bgp_clear_star_soft_out(vty, bgp->name);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_cluster_id,
-       no_bgp_cluster_id_cmd,
-       "no bgp cluster-id [<A.B.C.D|(1-4294967295)>]",
-       NO_STR
-       BGP_STR
-       "Configure Route-Reflector Cluster-id\n"
-       "Route-Reflector Cluster-id in IP address format\n"
-       "Route-Reflector Cluster-id as 32 bit quantity\n")
+DEFUN_YANG(no_bgp_cluster_id,
+	   no_bgp_cluster_id_cmd,
+	   "no bgp cluster-id [<A.B.C.D|(1-4294967295)>]",
+	   NO_STR BGP_STR
+	   "Configure Route-Reflector Cluster-id\n"
+	   "Route-Reflector Cluster-id in IP address format\n"
+	   "Route-Reflector Cluster-id as 32 bit quantity\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_cluster_id_unset(bgp);
-	bgp_clear_star_soft_out(vty, bgp->name);
+	nb_cli_enqueue_change(
+		vty, "./global/route-reflector/route-reflector-cluster-id",
+		NB_OP_DESTROY, NULL);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (bgp_norib,
@@ -1446,87 +1500,86 @@ DEFPY (no_bgp_norib,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_confederation_identifier,
-       bgp_confederation_identifier_cmd,
-       "bgp confederation identifier (1-4294967295)",
-       "BGP specific commands\n"
-       "AS confederation parameters\n"
-       "AS number\n"
-       "Set routing domain confederation AS\n")
+DEFUN_YANG(bgp_confederation_identifier,
+	   bgp_confederation_identifier_cmd,
+	   "bgp confederation identifier (1-4294967295)",
+	   "BGP specific commands\n"
+	   "AS confederation parameters\n"
+	   "AS number\n"
+	   "Set routing domain confederation AS\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
-	as_t as;
 
-	as = strtoul(argv[idx_number]->arg, NULL, 10);
+	nb_cli_enqueue_change(vty, "./global/confederation/identifier",
+			      NB_OP_MODIFY, argv[idx_number]->arg);
 
-	bgp_confederation_id_set(bgp, as);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_confederation_identifier,
-       no_bgp_confederation_identifier_cmd,
-       "no bgp confederation identifier [(1-4294967295)]",
-       NO_STR
-       "BGP specific commands\n"
-       "AS confederation parameters\n"
-       "AS number\n"
-       "Set routing domain confederation AS\n")
+DEFUN_YANG(no_bgp_confederation_identifier,
+	   no_bgp_confederation_identifier_cmd,
+	   "no bgp confederation identifier [(1-4294967295)]",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "AS confederation parameters\n"
+	   "AS number\n"
+	   "Set routing domain confederation AS\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_confederation_id_unset(bgp);
+	nb_cli_enqueue_change(vty, "./global/confederation/identifier",
+			      NB_OP_DESTROY, NULL);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (bgp_confederation_peers,
-       bgp_confederation_peers_cmd,
-       "bgp confederation peers (1-4294967295)...",
-       "BGP specific commands\n"
-       "AS confederation parameters\n"
-       "Peer ASs in BGP confederation\n"
-       AS_STR)
+void cli_show_router_bgp_confederation_identifier(struct vty *vty,
+						  struct lyd_node *dnode,
+						  bool show_defaults)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	vty_out(vty, " bgp confederation identifier %u\n",
+		yang_dnode_get_uint32(dnode, NULL));
+}
+
+DEFUN_YANG(bgp_confederation_peers,
+	   bgp_confederation_peers_cmd,
+	   "bgp confederation peers (1-4294967295)...",
+	   "BGP specific commands\n"
+	   "AS confederation parameters\n"
+	   "Peer ASs in BGP confederation\n" AS_STR)
+{
 	int idx_asn = 3;
-	as_t as;
 	int i;
 
-	for (i = idx_asn; i < argc; i++) {
-		as = strtoul(argv[i]->arg, NULL, 10);
+	for (i = idx_asn; i < argc; i++)
+		nb_cli_enqueue_change(vty, "./global/confederation/member-as",
+				      NB_OP_CREATE, argv[i]->arg);
 
-		if (bgp->as == as) {
-			vty_out(vty,
-				"%% Local member-AS not allowed in confed peer list\n");
-			continue;
-		}
-
-		bgp_confederation_peers_add(bgp, as);
-	}
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_confederation_peers,
-       no_bgp_confederation_peers_cmd,
-       "no bgp confederation peers (1-4294967295)...",
-       NO_STR
-       "BGP specific commands\n"
-       "AS confederation parameters\n"
-       "Peer ASs in BGP confederation\n"
-       AS_STR)
+DEFUN_YANG(no_bgp_confederation_peers,
+	   no_bgp_confederation_peers_cmd,
+	   "no bgp confederation peers (1-4294967295)...",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "AS confederation parameters\n"
+	   "Peer ASs in BGP confederation\n" AS_STR)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_asn = 4;
-	as_t as;
 	int i;
 
-	for (i = idx_asn; i < argc; i++) {
-		as = strtoul(argv[i]->arg, NULL, 10);
+	for (i = idx_asn; i < argc; i++)
+		nb_cli_enqueue_change(vty, "./global/confederation/member-as",
+				      NB_OP_DESTROY, argv[i]->arg);
 
-		bgp_confederation_peers_remove(bgp, as);
-	}
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_bgp_confederation_member_as(struct vty *vty,
+						 struct lyd_node *dnode,
+						 bool show_defaults)
+{
+	vty_out(vty, " bgp confederation peers %u \n",
+		yang_dnode_get_uint32(dnode, NULL));
 }
 
 /**
@@ -1574,107 +1627,130 @@ static int bgp_maxpaths_config_vty(struct vty *vty, int peer_type,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_maxmed_admin,
-       bgp_maxmed_admin_cmd,
-       "bgp max-med administrative ",
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Administratively applied, for an indefinite period\n")
+void cli_show_router_bgp_med_config(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (yang_dnode_get_bool(dnode, "./enable-med-admin")) {
+		uint32_t med_admin_val;
 
-	bgp->v_maxmed_admin = 1;
-	bgp->maxmed_admin_value = BGP_MAXMED_VALUE_DEFAULT;
+		vty_out(vty, " bgp max-med administrative");
+		if ((med_admin_val =
+			     yang_dnode_get_uint32(dnode, "./max-med-admin"))
+		    != BGP_MAXMED_VALUE_DEFAULT)
+			vty_out(vty, " %u", med_admin_val);
+		vty_out(vty, "\n");
+	}
 
-	bgp_maxmed_update(bgp);
+	if (yang_dnode_exists(dnode, "./max-med-onstart-up-time")) {
+		uint32_t onstartup_val;
 
-	return CMD_SUCCESS;
+		vty_out(vty, " bgp max-med on-startup %u",
+			yang_dnode_get_uint32(dnode,
+					      "./max-med-onstart-up-time"));
+		onstartup_val = yang_dnode_get_uint32(
+			dnode, "./max-med-onstart-up-value");
+		if (onstartup_val != BGP_MAXMED_VALUE_DEFAULT)
+			vty_out(vty, " %u", onstartup_val);
+
+		vty_out(vty, "\n");
+	}
 }
 
-DEFUN (bgp_maxmed_admin_medv,
-       bgp_maxmed_admin_medv_cmd,
-       "bgp max-med administrative (0-4294967295)",
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Administratively applied, for an indefinite period\n"
-       "Max MED value to be used\n")
+DEFUN_YANG(bgp_maxmed_admin,
+	   bgp_maxmed_admin_cmd,
+	   "bgp max-med administrative ",
+	   BGP_STR
+	   "Advertise routes with max-med\n"
+	   "Administratively applied, for an indefinite period\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	nb_cli_enqueue_change(vty, "./global/med-config/enable-med-admin",
+			      NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_maxmed_admin_medv,
+	   bgp_maxmed_admin_medv_cmd,
+	   "bgp max-med administrative (0-4294967295)",
+	   BGP_STR
+	   "Advertise routes with max-med\n"
+	   "Administratively applied, for an indefinite period\n"
+	   "Max MED value to be used\n")
+{
 	int idx_number = 3;
 
-	bgp->v_maxmed_admin = 1;
-	bgp->maxmed_admin_value = strtoul(argv[idx_number]->arg, NULL, 10);
+	nb_cli_enqueue_change(vty, "./global/med-config/enable-med-admin",
+			      NB_OP_MODIFY, "true");
 
-	bgp_maxmed_update(bgp);
+	nb_cli_enqueue_change(vty, "./global/med-config/max-med-admin",
+			      NB_OP_MODIFY, argv[idx_number]->arg);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_maxmed_admin,
-       no_bgp_maxmed_admin_cmd,
-       "no bgp max-med administrative [(0-4294967295)]",
-       NO_STR
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Administratively applied, for an indefinite period\n"
-       "Max MED value to be used\n")
+DEFUN_YANG(no_bgp_maxmed_admin,
+	   no_bgp_maxmed_admin_cmd,
+	   "no bgp max-med administrative [(0-4294967295)]",
+	   NO_STR BGP_STR
+	   "Advertise routes with max-med\n"
+	   "Administratively applied, for an indefinite period\n"
+	   "Max MED value to be used\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp->v_maxmed_admin = BGP_MAXMED_ADMIN_UNCONFIGURED;
-	bgp->maxmed_admin_value = BGP_MAXMED_VALUE_DEFAULT;
-	bgp_maxmed_update(bgp);
+	nb_cli_enqueue_change(vty, "./global/med-config/enable-med-admin",
+			      NB_OP_MODIFY, "false");
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./global/med-config/max-med-admin",
+			      NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (bgp_maxmed_onstartup,
-       bgp_maxmed_onstartup_cmd,
-       "bgp max-med on-startup (5-86400) [(0-4294967295)]",
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Effective on a startup\n"
-       "Time (seconds) period for max-med\n"
-       "Max MED value to be used\n")
+DEFUN_YANG(bgp_maxmed_onstartup,
+	   bgp_maxmed_onstartup_cmd,
+	   "bgp max-med on-startup (5-86400) [(0-4294967295)]",
+	   BGP_STR
+	   "Advertise routes with max-med\n"
+	   "Effective on a startup\n"
+	   "Time (seconds) period for max-med\n"
+	   "Max MED value to be used\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx = 0;
 
 	argv_find(argv, argc, "(5-86400)", &idx);
-	bgp->v_maxmed_onstartup = strtoul(argv[idx]->arg, NULL, 10);
+	nb_cli_enqueue_change(vty,
+			      "./global/med-config/max-med-onstart-up-time",
+			      NB_OP_MODIFY, argv[idx]->arg);
+
 	if (argv_find(argv, argc, "(0-4294967295)", &idx))
-		bgp->maxmed_onstartup_value = strtoul(argv[idx]->arg, NULL, 10);
+		nb_cli_enqueue_change(
+			vty, "./global/med-config/max-med-onstart-up-value",
+			NB_OP_MODIFY, argv[idx]->arg);
 	else
-		bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
+		nb_cli_enqueue_change(
+			vty, "./global/med-config/max-med-onstart-up-value",
+			NB_OP_MODIFY, NULL);
 
-	bgp_maxmed_update(bgp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_maxmed_onstartup,
-       no_bgp_maxmed_onstartup_cmd,
-       "no bgp max-med on-startup [(5-86400) [(0-4294967295)]]",
-       NO_STR
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Effective on a startup\n"
-       "Time (seconds) period for max-med\n"
-       "Max MED value to be used\n")
+DEFUN_YANG(no_bgp_maxmed_onstartup,
+	   no_bgp_maxmed_onstartup_cmd,
+	   "no bgp max-med on-startup [(5-86400) [(0-4294967295)]]",
+	   NO_STR BGP_STR
+	   "Advertise routes with max-med\n"
+	   "Effective on a startup\n"
+	   "Time (seconds) period for max-med\n"
+	   "Max MED value to be used\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	nb_cli_enqueue_change(vty,
+			      "./global/med-config/max-med-onstart-up-time",
+			      NB_OP_DESTROY, NULL);
 
-	/* Cancel max-med onstartup if its on */
-	if (bgp->t_maxmed_onstartup) {
-		THREAD_TIMER_OFF(bgp->t_maxmed_onstartup);
-		bgp->maxmed_onstartup_over = 1;
-	}
+	nb_cli_enqueue_change(vty,
+			      "./global/med-config/max-med-onstart-up-value",
+			      NB_OP_MODIFY, NULL);
 
-	bgp->v_maxmed_onstartup = BGP_MAXMED_ONSTARTUP_UNCONFIGURED;
-	bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
-
-	bgp_maxmed_update(bgp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static int bgp_global_update_delay_config_vty(struct vty *vty,
@@ -1858,22 +1934,16 @@ DEFPY (no_bgp_update_delay,
 }
 
 
-static int bgp_wpkt_quanta_config_vty(struct vty *vty, uint32_t quanta,
-				      bool set)
+int bgp_wpkt_quanta_config_vty(struct bgp *bgp, uint32_t quanta, bool set)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
 	quanta = set ? quanta : BGP_WRITE_PACKET_MAX;
 	atomic_store_explicit(&bgp->wpkt_quanta, quanta, memory_order_relaxed);
 
 	return CMD_SUCCESS;
 }
 
-static int bgp_rpkt_quanta_config_vty(struct vty *vty, uint32_t quanta,
-				      bool set)
+int bgp_rpkt_quanta_config_vty(struct bgp *bgp, uint32_t quanta, bool set)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
 	quanta = set ? quanta : BGP_READ_PACKET_MAX;
 	atomic_store_explicit(&bgp->rpkt_quanta, quanta, memory_order_relaxed);
 
@@ -1904,24 +1974,46 @@ void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp)
  * Furthermore, the maximums used here should correspond to
  * BGP_WRITE_PACKET_MAX and BGP_READ_PACKET_MAX.
  */
-DEFPY (bgp_wpkt_quanta,
-       bgp_wpkt_quanta_cmd,
-       "[no] write-quanta (1-64)$quanta",
-       NO_STR
-       "How many packets to write to peer socket per run\n"
-       "Number of packets\n")
+DEFPY_YANG(bgp_wpkt_quanta,
+	   bgp_wpkt_quanta_cmd,
+	   "[no] write-quanta (1-64)$quanta",
+	   NO_STR
+	   "How many packets to write to peer socket per run\n"
+	   "Number of packets\n")
 {
-	return bgp_wpkt_quanta_config_vty(vty, quanta, !no);
+	if (!no)
+		nb_cli_enqueue_change(
+			vty,
+			"./global/global-neighbor-config/packet-quanta-config/wpkt-quanta",
+			NB_OP_MODIFY, quanta_str);
+	else
+		nb_cli_enqueue_change(
+			vty,
+			"./global/global-neighbor-config/packet-quanta-config/wpkt-quanta",
+			NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY (bgp_rpkt_quanta,
-       bgp_rpkt_quanta_cmd,
-       "[no] read-quanta (1-10)$quanta",
-       NO_STR
-       "How many packets to read from peer socket per I/O cycle\n"
-       "Number of packets\n")
+DEFPY_YANG(bgp_rpkt_quanta,
+	   bgp_rpkt_quanta_cmd,
+	   "[no] read-quanta (1-10)$quanta",
+	   NO_STR
+	   "How many packets to read from peer socket per I/O cycle\n"
+	   "Number of packets\n")
 {
-	return bgp_rpkt_quanta_config_vty(vty, quanta, !no);
+	if (!no)
+		nb_cli_enqueue_change(
+			vty,
+			"./global/global-neighbor-config/packet-quanta-config/rpkt-quanta",
+			NB_OP_MODIFY, quanta_str);
+	else
+		nb_cli_enqueue_change(
+			vty,
+			"./global/global-neighbor-config/packet-quanta-config/rpkt-quanta",
+			NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp)
@@ -1930,34 +2022,41 @@ void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp)
 		vty_out(vty, " coalesce-time %u\n", bgp->coalesce_time);
 }
 
-
-DEFUN (bgp_coalesce_time,
-       bgp_coalesce_time_cmd,
-       "coalesce-time (0-4294967295)",
-       "Subgroup coalesce timer\n"
-       "Subgroup coalesce timer value (in ms)\n")
+void cli_show_router_global_update_group_config_coalesce_time(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	int idx = 0;
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	bgp->heuristic_coalesce = false;
-	bgp->coalesce_time = strtoul(argv[idx]->arg, NULL, 10);
-	return CMD_SUCCESS;
+	vty_out(vty, " coalesce-time %u\n", yang_dnode_get_uint32(dnode, NULL));
 }
 
-DEFUN (no_bgp_coalesce_time,
-       no_bgp_coalesce_time_cmd,
-       "no coalesce-time (0-4294967295)",
-       NO_STR
-       "Subgroup coalesce timer\n"
-       "Subgroup coalesce timer value (in ms)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	bgp->heuristic_coalesce = true;
-	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
-	return CMD_SUCCESS;
+DEFUN_YANG(bgp_coalesce_time,
+	   bgp_coalesce_time_cmd,
+	   "coalesce-time (0-4294967295)",
+	   "Subgroup coalesce timer\n"
+	   "Subgroup coalesce timer value (in ms)\n")
+{
+	int idx = 0;
+
+	argv_find(argv, argc, "(0-4294967295)", &idx);
+	nb_cli_enqueue_change(
+		vty, "./global/global-update-group-config/coalesce-time",
+		NB_OP_MODIFY, argv[idx]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_coalesce_time,
+	   no_bgp_coalesce_time_cmd,
+	   "no coalesce-time (0-4294967295)",
+	   NO_STR
+	   "Subgroup coalesce timer\n"
+	   "Subgroup coalesce timer value (in ms)\n")
+{
+	nb_cli_enqueue_change(
+		vty, "./global/global-update-group-config/coalesce-time",
+		NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* Maximum-paths configuration */
@@ -2073,129 +2172,181 @@ static void bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp,
 
 /* BGP timers.  */
 
-DEFUN (bgp_timers,
-       bgp_timers_cmd,
-       "timers bgp (0-65535) (0-65535)",
-       "Adjust routing timers\n"
-       "BGP timers\n"
-       "Keepalive interval\n"
-       "Holdtime\n")
+DEFUN_YANG(bgp_timers,
+	   bgp_timers_cmd,
+	   "timers bgp (0-65535) (0-65535)",
+	   "Adjust routing timers\n"
+	   "BGP timers\n"
+	   "Keepalive interval\n"
+	   "Holdtime\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 2;
 	int idx_number_2 = 3;
-	unsigned long keepalive = 0;
-	unsigned long holdtime = 0;
 
-	keepalive = strtoul(argv[idx_number]->arg, NULL, 10);
-	holdtime = strtoul(argv[idx_number_2]->arg, NULL, 10);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive",
+			      NB_OP_MODIFY, argv[idx_number]->arg);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/hold-time",
+			      NB_OP_MODIFY, argv[idx_number_2]->arg);
 
-	/* Holdtime value check. */
-	if (holdtime < 3 && holdtime != 0) {
-		vty_out(vty,
-			"%% hold time value must be either 0 or greater than 3\n");
-		return CMD_WARNING_CONFIG_FAILED;
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_timers,
+	   no_bgp_timers_cmd,
+	   "no timers bgp [(0-65535) (0-65535)]",
+	   NO_STR
+	   "Adjust routing timers\n"
+	   "BGP timers\n"
+	   "Keepalive interval\n"
+	   "Holdtime\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive",
+			      NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/hold-time",
+			      NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_bgp_route_reflector(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, "./no-client-reflect"))
+		vty_out(vty, " no bgp client-to-client reflection\n");
+
+	if (yang_dnode_get_bool(dnode, "./allow-outbound-policy"))
+		vty_out(vty, " bgp route-reflector allow-outbound-policy\n");
+
+	if (yang_dnode_exists(dnode, "./route-reflector-cluster-id"))
+		vty_out(vty, " bgp cluster-id %s\n",
+			yang_dnode_get_string(dnode,
+					      "./route-reflector-cluster-id"));
+}
+
+DEFUN_YANG(bgp_client_to_client_reflection,
+	   bgp_client_to_client_reflection_cmd,
+	   "bgp client-to-client reflection",
+	   "BGP specific commands\n"
+	   "Configure client to client route reflection\n"
+	   "reflection of routes allowed\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-reflector/no-client-reflect",
+			      NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_client_to_client_reflection,
+	   no_bgp_client_to_client_reflection_cmd,
+	   "no bgp client-to-client reflection",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Configure client to client route reflection\n"
+	   "reflection of routes allowed\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-reflector/no-client-reflect",
+			      NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_bgp_route_selection(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults)
+{
+
+	if (yang_dnode_get_bool(dnode, "./always-compare-med"))
+		vty_out(vty, " bgp always-compare-med\n");
+
+	if (yang_dnode_get_bool(dnode, "./ignore-as-path-length"))
+		vty_out(vty, " bgp bestpath as-path ignore\n");
+
+	if (yang_dnode_get_bool(dnode, "./aspath-confed"))
+		vty_out(vty, " bgp bestpath as-path confed\n");
+
+	if (yang_dnode_get_bool(dnode, "./external-compare-router-id"))
+		vty_out(vty, " bgp bestpath compare-routerid\n");
+
+	if (yang_dnode_get_bool(dnode, "./allow-multiple-as")) {
+		if (yang_dnode_get_bool(dnode, "./multi-path-as-set"))
+			vty_out(vty,
+				" bgp bestpath as-path multipath-relax as-set\n");
+		else
+			vty_out(vty, " bgp bestpath as-path multipath-relax\n");
 	}
 
-	bgp_timers_set(bgp, keepalive, holdtime, DFLT_BGP_CONNECT_RETRY);
+	if (yang_dnode_get_bool(dnode, "./deterministic-med"))
+		vty_out(vty, " bgp deterministic-med\n");
 
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_timers,
-       no_bgp_timers_cmd,
-       "no timers bgp [(0-65535) (0-65535)]",
-       NO_STR
-       "Adjust routing timers\n"
-       "BGP timers\n"
-       "Keepalive interval\n"
-       "Holdtime\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_timers_set(bgp, DFLT_BGP_KEEPALIVE, DFLT_BGP_HOLDTIME,
-		       DFLT_BGP_CONNECT_RETRY);
-
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (bgp_client_to_client_reflection,
-       bgp_client_to_client_reflection_cmd,
-       "bgp client-to-client reflection",
-       "BGP specific commands\n"
-       "Configure client to client route reflection\n"
-       "reflection of routes allowed\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
-	bgp_clear_star_soft_out(vty, bgp->name);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_client_to_client_reflection,
-       no_bgp_client_to_client_reflection_cmd,
-       "no bgp client-to-client reflection",
-       NO_STR
-       "BGP specific commands\n"
-       "Configure client to client route reflection\n"
-       "reflection of routes allowed\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
-	bgp_clear_star_soft_out(vty, bgp->name);
-
-	return CMD_SUCCESS;
+	if (yang_dnode_get_bool(dnode, "./confed-med")
+	    || yang_dnode_get_bool(dnode, "./missing-as-worst-med")) {
+		vty_out(vty, " bgp bestpath med");
+		if (yang_dnode_get_bool(dnode, "./confed-med"))
+			vty_out(vty, " confed");
+		if (yang_dnode_get_bool(dnode, "./missing-as-worst-med"))
+			vty_out(vty, " missing-as-worst");
+		vty_out(vty, "\n");
+	}
 }
 
 /* "bgp always-compare-med" configuration. */
-DEFUN (bgp_always_compare_med,
-       bgp_always_compare_med_cmd,
-       "bgp always-compare-med",
-       "BGP specific commands\n"
-       "Allow comparing MED from different neighbors\n")
+DEFUN_YANG(bgp_always_compare_med,
+	   bgp_always_compare_med_cmd,
+	   "bgp always-compare-med",
+	   "BGP specific commands\n"
+	   "Allow comparing MED from different neighbors\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED);
-	bgp_recalculate_all_bestpaths(bgp);
+	nb_cli_enqueue_change(
+		vty, "./global/route-selection-options/always-compare-med",
+		NB_OP_MODIFY, "true");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_always_compare_med,
-       no_bgp_always_compare_med_cmd,
-       "no bgp always-compare-med",
-       NO_STR
-       "BGP specific commands\n"
-       "Allow comparing MED from different neighbors\n")
+DEFUN_YANG(no_bgp_always_compare_med,
+	   no_bgp_always_compare_med_cmd,
+	   "no bgp always-compare-med",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Allow comparing MED from different neighbors\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED);
-	bgp_recalculate_all_bestpaths(bgp);
+	nb_cli_enqueue_change(
+		vty, "./global/route-selection-options/always-compare-med",
+		NB_OP_MODIFY, "false");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-DEFUN(bgp_ebgp_requires_policy, bgp_ebgp_requires_policy_cmd,
-      "bgp ebgp-requires-policy",
-      "BGP specific commands\n"
-      "Require in and out policy for eBGP peers (RFC8212)\n")
+DEFUN_YANG(bgp_ebgp_requires_policy,
+	   bgp_ebgp_requires_policy_cmd,
+	   "bgp ebgp-requires-policy",
+	   "BGP specific commands\n"
+	   "Require in and out policy for eBGP peers (RFC8212)\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./global/ebgp-requires-policy",
+			      NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN(no_bgp_ebgp_requires_policy, no_bgp_ebgp_requires_policy_cmd,
-      "no bgp ebgp-requires-policy",
-      NO_STR
-      "BGP specific commands\n"
-      "Require in and out policy for eBGP peers (RFC8212)\n")
+DEFUN_YANG(no_bgp_ebgp_requires_policy,
+	   no_bgp_ebgp_requires_policy_cmd,
+	   "no bgp ebgp-requires-policy",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Require in and out policy for eBGP peers (RFC8212)\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./global/ebgp-requires-policy",
+			      NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_bgp_ebgp_requires_policy(struct vty *vty,
+					      struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL) != SAVE_BGP_EBGP_REQUIRES_POLICY)
+		vty_out(vty, " bgp ebgp-requires-policy\n");
 }
 
 DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
@@ -2250,62 +2401,31 @@ DEFUN(no_bgp_reject_as_sets, no_bgp_reject_as_sets_cmd,
 }
 
 /* "bgp deterministic-med" configuration. */
-DEFUN (bgp_deterministic_med,
+DEFUN_YANG (bgp_deterministic_med,
        bgp_deterministic_med_cmd,
        "bgp deterministic-med",
        "BGP specific commands\n"
        "Pick the best-MED path among paths advertised from the neighboring AS\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	nb_cli_enqueue_change(
+		vty, "./global/route-selection-options/deterministic-med",
+		NB_OP_MODIFY, "true");
 
-	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
-		SET_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED);
-		bgp_recalculate_all_bestpaths(bgp);
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_deterministic_med,
+DEFUN_YANG (no_bgp_deterministic_med,
        no_bgp_deterministic_med_cmd,
        "no bgp deterministic-med",
        NO_STR
        "BGP specific commands\n"
        "Pick the best-MED path among paths advertised from the neighboring AS\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int bestpath_per_as_used;
-	afi_t afi;
-	safi_t safi;
-	struct peer *peer;
-	struct listnode *node, *nnode;
+	nb_cli_enqueue_change(
+		vty, "./global/route-selection-options/deterministic-med",
+		NB_OP_MODIFY, "false");
 
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
-		bestpath_per_as_used = 0;
-
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			FOREACH_AFI_SAFI (afi, safi)
-				if (bgp_addpath_dmed_required(
-					peer->addpath_type[afi][safi])) {
-					bestpath_per_as_used = 1;
-					break;
-				}
-
-			if (bestpath_per_as_used)
-				break;
-		}
-
-		if (bestpath_per_as_used) {
-			vty_out(vty,
-				"bgp deterministic-med cannot be disabled while addpath-tx-bestpath-per-AS is in use\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		} else {
-			UNSET_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED);
-			bgp_recalculate_all_bestpaths(bgp);
-		}
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* "bgp graceful-restart mode" configuration. */
@@ -2840,13 +2960,18 @@ DEFUN (no_bgp_graceful_restart_rib_stale_time,
 	return CMD_SUCCESS;
 }
 
-static inline void bgp_initiate_graceful_shut_unshut(struct vty *vty,
-						     struct bgp *bgp)
+static inline int bgp_initiate_graceful_shut_unshut(struct bgp *bgp,
+						    char *errmsg,
+						    size_t errmsg_len)
 {
 	bgp_static_redo_import_check(bgp);
 	bgp_redistribute_redo(bgp);
-	bgp_clear_star_soft_out(vty, bgp->name);
-	bgp_clear_star_soft_in(vty, bgp->name);
+	if (bgp_clear_star_soft_out(bgp->name, errmsg, errmsg_len) < 0)
+		return -1;
+	if (bgp_clear_star_soft_in(bgp->name, errmsg, errmsg_len) < 0)
+		return -1;
+
+	return 0;
 }
 
 static int bgp_global_graceful_shutdown_config_vty(struct vty *vty)
@@ -2854,6 +2979,7 @@ static int bgp_global_graceful_shutdown_config_vty(struct vty *vty)
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
 	bool vrf_cfg = false;
+	char errmsg[BUFSIZ] = {'\0'};
 
 	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN))
 		return CMD_SUCCESS;
@@ -2879,8 +3005,13 @@ static int bgp_global_graceful_shutdown_config_vty(struct vty *vty)
 	SET_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN);
 
 	/* Initiate processing for all BGP instances. */
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-		bgp_initiate_graceful_shut_unshut(vty, bgp);
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_initiate_graceful_shut_unshut(bgp, errmsg,
+						      sizeof(errmsg))
+		    < 0)
+			if (strlen(errmsg))
+				vty_out(vty, "%s\n", errmsg);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -2889,6 +3020,7 @@ static int bgp_global_graceful_shutdown_deconfig_vty(struct vty *vty)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
+	char errmsg[BUFSIZ] = {'\0'};
 
 	if (!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN))
 		return CMD_SUCCESS;
@@ -2897,8 +3029,13 @@ static int bgp_global_graceful_shutdown_deconfig_vty(struct vty *vty)
 	UNSET_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN);
 
 	/* Initiate processing for all BGP instances. */
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-		bgp_initiate_graceful_shut_unshut(vty, bgp);
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_initiate_graceful_shut_unshut(bgp, errmsg,
+						      sizeof(errmsg))
+		    < 0)
+			if (strlen(errmsg))
+				vty_out(vty, "%s\n", errmsg);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -2913,24 +3050,13 @@ DEFUN (bgp_graceful_shutdown,
 	if (vty->node == CONFIG_NODE)
 		return bgp_global_graceful_shutdown_config_vty(vty);
 
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	nb_cli_enqueue_change(vty, "./global/graceful-shutdown/enable",
+			      NB_OP_MODIFY, "true");
 
-	/* if configured globally, per-instance config is not allowed */
-	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN)) {
-		vty_out(vty,
-			"%%Failed: per-vrf graceful-shutdown config not permitted with global graceful-shutdown\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
-		SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
-		bgp_initiate_graceful_shut_unshut(vty, bgp);
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_graceful_shutdown,
+DEFUN_YANG (no_bgp_graceful_shutdown,
        no_bgp_graceful_shutdown_cmd,
        "no bgp graceful-shutdown",
        NO_STR
@@ -2940,111 +3066,120 @@ DEFUN (no_bgp_graceful_shutdown,
 	if (vty->node == CONFIG_NODE)
 		return bgp_global_graceful_shutdown_deconfig_vty(vty);
 
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	nb_cli_enqueue_change(vty, "./global/graceful-shutdown/enable",
+			      NB_OP_MODIFY, "false");
 
-	/* If configured globally, cannot remove from one bgp instance */
-	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN)) {
-		vty_out(vty,
-			"%%Failed: bgp graceful-shutdown configured globally. Delete per-vrf not permitted\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	return nb_cli_apply_changes(vty, NULL);
+}
 
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
-		UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
-		bgp_initiate_graceful_shut_unshut(vty, bgp);
-	}
-
-	return CMD_SUCCESS;
+void cli_show_router_bgp_graceful_shutdown(struct vty *vty,
+					   struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp graceful-shutdown\n");
 }
 
 /* "bgp fast-external-failover" configuration. */
-DEFUN (bgp_fast_external_failover,
+DEFUN_YANG (bgp_fast_external_failover,
        bgp_fast_external_failover_cmd,
        "bgp fast-external-failover",
        BGP_STR
        "Immediately reset session if a link to a directly connected external peer goes down\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./global/fast-external-failover",
+			      NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_fast_external_failover,
+DEFUN_YANG (no_bgp_fast_external_failover,
        no_bgp_fast_external_failover_cmd,
        "no bgp fast-external-failover",
        NO_STR
        BGP_STR
        "Immediately reset session if a link to a directly connected external peer goes down\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./global/fast-external-failover",
+			      NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_bgp_fast_external_failover(struct vty *vty,
+						struct lyd_node *dnode,
+						bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no bgp fast-external-failover\n");
 }
 
 /* "bgp bestpath compare-routerid" configuration.  */
-DEFUN (bgp_bestpath_compare_router_id,
-       bgp_bestpath_compare_router_id_cmd,
-       "bgp bestpath compare-routerid",
-       "BGP specific commands\n"
-       "Change the default bestpath selection\n"
-       "Compare router-id for identical EBGP paths\n")
+DEFUN_YANG(bgp_bestpath_compare_router_id,
+	   bgp_bestpath_compare_router_id_cmd,
+	   "bgp bestpath compare-routerid",
+	   "BGP specific commands\n"
+	   "Change the default bestpath selection\n"
+	   "Compare router-id for identical EBGP paths\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID);
-	bgp_recalculate_all_bestpaths(bgp);
+	nb_cli_enqueue_change(
+		vty,
+		"./global/route-selection-options/external-compare-router-id",
+		NB_OP_MODIFY, "true");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_bestpath_compare_router_id,
-       no_bgp_bestpath_compare_router_id_cmd,
-       "no bgp bestpath compare-routerid",
-       NO_STR
-       "BGP specific commands\n"
-       "Change the default bestpath selection\n"
-       "Compare router-id for identical EBGP paths\n")
+DEFUN_YANG(no_bgp_bestpath_compare_router_id,
+	   no_bgp_bestpath_compare_router_id_cmd,
+	   "no bgp bestpath compare-routerid",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Change the default bestpath selection\n"
+	   "Compare router-id for identical EBGP paths\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID);
-	bgp_recalculate_all_bestpaths(bgp);
+	nb_cli_enqueue_change(
+		vty,
+		"./global/route-selection-options/external-compare-router-id",
+		NB_OP_MODIFY, "false");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* "bgp bestpath as-path ignore" configuration.  */
-DEFUN (bgp_bestpath_aspath_ignore,
-       bgp_bestpath_aspath_ignore_cmd,
-       "bgp bestpath as-path ignore",
-       "BGP specific commands\n"
-       "Change the default bestpath selection\n"
-       "AS-path attribute\n"
-       "Ignore as-path length in selecting a route\n")
+DEFUN_YANG(bgp_bestpath_aspath_ignore,
+	   bgp_bestpath_aspath_ignore_cmd,
+	   "bgp bestpath as-path ignore",
+	   "BGP specific commands\n"
+	   "Change the default bestpath selection\n"
+	   "AS-path attribute\n"
+	   "Ignore as-path length in selecting a route\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE);
-	bgp_recalculate_all_bestpaths(bgp);
+	nb_cli_enqueue_change(
+		vty, "./global/route-selection-options/ignore-as-path-length",
+		NB_OP_MODIFY, "true");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_bestpath_aspath_ignore,
-       no_bgp_bestpath_aspath_ignore_cmd,
-       "no bgp bestpath as-path ignore",
-       NO_STR
-       "BGP specific commands\n"
-       "Change the default bestpath selection\n"
-       "AS-path attribute\n"
-       "Ignore as-path length in selecting a route\n")
+DEFUN_YANG(no_bgp_bestpath_aspath_ignore,
+	   no_bgp_bestpath_aspath_ignore_cmd,
+	   "no bgp bestpath as-path ignore",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Change the default bestpath selection\n"
+	   "AS-path attribute\n"
+	   "Ignore as-path length in selecting a route\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE);
-	bgp_recalculate_all_bestpaths(bgp);
+	nb_cli_enqueue_change(
+		vty, "./global/route-selection-options/ignore-as-path-length",
+		NB_OP_MODIFY, "false");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* "bgp bestpath as-path confed" configuration.  */
-DEFUN (bgp_bestpath_aspath_confed,
+DEFUN_YANG (bgp_bestpath_aspath_confed,
        bgp_bestpath_aspath_confed_cmd,
        "bgp bestpath as-path confed",
        "BGP specific commands\n"
@@ -3052,14 +3187,14 @@ DEFUN (bgp_bestpath_aspath_confed,
        "AS-path attribute\n"
        "Compare path lengths including confederation sets & sequences in selecting a route\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED);
-	bgp_recalculate_all_bestpaths(bgp);
+	nb_cli_enqueue_change(vty,
+			      "./global/route-selection-options/aspath-confed",
+			      NB_OP_MODIFY, "true");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_bestpath_aspath_confed,
+DEFUN_YANG (no_bgp_bestpath_aspath_confed,
        no_bgp_bestpath_aspath_confed_cmd,
        "no bgp bestpath as-path confed",
        NO_STR
@@ -3068,15 +3203,15 @@ DEFUN (no_bgp_bestpath_aspath_confed,
        "AS-path attribute\n"
        "Compare path lengths including confederation sets & sequences in selecting a route\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED);
-	bgp_recalculate_all_bestpaths(bgp);
+	nb_cli_enqueue_change(vty,
+			      "./global/route-selection-options/aspath-confed",
+			      NB_OP_MODIFY, "false");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* "bgp bestpath as-path multipath-relax" configuration.  */
-DEFUN (bgp_bestpath_aspath_multipath_relax,
+DEFUN_YANG (bgp_bestpath_aspath_multipath_relax,
        bgp_bestpath_aspath_multipath_relax_cmd,
        "bgp bestpath as-path multipath-relax [<as-set|no-as-set>]",
        "BGP specific commands\n"
@@ -3086,23 +3221,26 @@ DEFUN (bgp_bestpath_aspath_multipath_relax,
        "Generate an AS_SET\n"
        "Do not generate an AS_SET\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx = 0;
-	SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
 
-	/* no-as-set is now the default behavior so we can silently
-	 * ignore it */
+	nb_cli_enqueue_change(
+		vty, "./global/route-selection-options/allow-multiple-as",
+		NB_OP_MODIFY, "true");
 	if (argv_find(argv, argc, "as-set", &idx))
-		SET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+		nb_cli_enqueue_change(
+			vty,
+			"./global/route-selection-options/multi-path-as-set",
+			NB_OP_MODIFY, "true");
 	else
-		UNSET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+		nb_cli_enqueue_change(
+			vty,
+			"./global/route-selection-options/multi-path-as-set",
+			NB_OP_MODIFY, "false");
 
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_bestpath_aspath_multipath_relax,
+DEFUN_YANG (no_bgp_bestpath_aspath_multipath_relax,
        no_bgp_bestpath_aspath_multipath_relax_cmd,
        "no bgp bestpath as-path multipath-relax [<as-set|no-as-set>]",
        NO_STR
@@ -3113,40 +3251,46 @@ DEFUN (no_bgp_bestpath_aspath_multipath_relax,
        "Generate an AS_SET\n"
        "Do not generate an AS_SET\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
-	bgp_recalculate_all_bestpaths(bgp);
+	nb_cli_enqueue_change(
+		vty, "./global/route-selection-options/allow-multiple-as",
+		NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(
+		vty, "./global/route-selection-options/multi-path-as-set",
+		NB_OP_MODIFY, "false");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* "bgp log-neighbor-changes" configuration.  */
-DEFUN (bgp_log_neighbor_changes,
-       bgp_log_neighbor_changes_cmd,
-       "bgp log-neighbor-changes",
-       "BGP specific commands\n"
-       "Log neighbor up/down and reset reason\n")
+DEFUN_YANG(bgp_log_neighbor_changes,
+	   bgp_log_neighbor_changes_cmd,
+	   "bgp log-neighbor-changes",
+	   "BGP specific commands\n"
+	   "Log neighbor up/down and reset reason\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(
+		vty, "./global/global-neighbor-config/log-neighbor-changes",
+		NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_log_neighbor_changes,
-       no_bgp_log_neighbor_changes_cmd,
-       "no bgp log-neighbor-changes",
-       NO_STR
-       "BGP specific commands\n"
-       "Log neighbor up/down and reset reason\n")
+DEFUN_YANG(no_bgp_log_neighbor_changes,
+	   no_bgp_log_neighbor_changes_cmd,
+	   "no bgp log-neighbor-changes",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Log neighbor up/down and reset reason\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(
+		vty, "./global/global-neighbor-config/log-neighbor-changes",
+		NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* "bgp bestpath med" configuration. */
-DEFUN (bgp_bestpath_med,
+DEFUN_YANG (bgp_bestpath_med,
        bgp_bestpath_med_cmd,
        "bgp bestpath med <confed [missing-as-worst]|missing-as-worst [confed]>",
        "BGP specific commands\n"
@@ -3157,21 +3301,30 @@ DEFUN (bgp_bestpath_med,
        "Treat missing MED as the least preferred one\n"
        "Compare MED among confederation paths\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
 	int idx = 0;
+	bool confed = false;
+	bool worst_med = false;
+
+
 	if (argv_find(argv, argc, "confed", &idx))
-		SET_FLAG(bgp->flags, BGP_FLAG_MED_CONFED);
+		confed = true;
+
+	nb_cli_enqueue_change(vty,
+			      "./global/route-selection-options/confed-med",
+			      NB_OP_MODIFY, confed ? "true" : "false");
+
 	idx = 0;
 	if (argv_find(argv, argc, "missing-as-worst", &idx))
-		SET_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST);
+		worst_med = true;
 
-	bgp_recalculate_all_bestpaths(bgp);
+	nb_cli_enqueue_change(
+		vty, "./global/route-selection-options/missing-as-worst-med",
+		NB_OP_MODIFY, worst_med ? "true" : "false");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_bestpath_med,
+DEFUN_YANG (no_bgp_bestpath_med,
        no_bgp_bestpath_med_cmd,
        "no bgp bestpath med <confed [missing-as-worst]|missing-as-worst [confed]>",
        NO_STR
@@ -3183,18 +3336,21 @@ DEFUN (no_bgp_bestpath_med,
        "Treat missing MED as the least preferred one\n"
        "Compare MED among confederation paths\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
 	int idx = 0;
+
 	if (argv_find(argv, argc, "confed", &idx))
-		UNSET_FLAG(bgp->flags, BGP_FLAG_MED_CONFED);
+		nb_cli_enqueue_change(
+			vty, "./global/route-selection-options/confed-med",
+			NB_OP_MODIFY, "false");
+
 	idx = 0;
 	if (argv_find(argv, argc, "missing-as-worst", &idx))
-		UNSET_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST);
+		nb_cli_enqueue_change(
+			vty,
+			"./global/route-selection-options/missing-as-worst-med",
+			NB_OP_MODIFY, "false");
 
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* "bgp bestpath bandwidth" configuration. */
@@ -3288,29 +3444,38 @@ DEFUN (bgp_default_ipv4_unicast,
 }
 
 /* Display hostname in certain command outputs */
-DEFUN (bgp_default_show_hostname,
+DEFUN_YANG (bgp_default_show_hostname,
        bgp_default_show_hostname_cmd,
        "bgp default show-hostname",
        "BGP specific commands\n"
        "Configure BGP defaults\n"
        "Show hostname in certain command outputs\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./global/show-hostname", NB_OP_MODIFY,
+			      "true");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_default_show_hostname,
-       no_bgp_default_show_hostname_cmd,
-       "no bgp default show-hostname",
-       NO_STR
-       "BGP specific commands\n"
-       "Configure BGP defaults\n"
-       "Show hostname in certain command outputs\n")
+DEFUN_YANG(no_bgp_default_show_hostname,
+	   no_bgp_default_show_hostname_cmd,
+	   "no bgp default show-hostname",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Configure BGP defaults\n"
+	   "Show hostname in certain command outputs\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./global/show-hostname", NB_OP_MODIFY,
+			      "false");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_bgp_show_hostname(struct vty *vty, struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL) != SAVE_BGP_SHOW_HOSTNAME)
+		vty_out(vty, " bgp default show-hostname\n");
 }
 
 /* Display hostname in certain command outputs */
@@ -3321,9 +3486,10 @@ DEFUN (bgp_default_show_nexthop_hostname,
        "Configure BGP defaults\n"
        "Show hostname for nexthop in certain command outputs\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./global/show-nexthop-hostname",
+			      NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_bgp_default_show_nexthop_hostname,
@@ -3334,26 +3500,32 @@ DEFUN (no_bgp_default_show_nexthop_hostname,
        "Configure BGP defaults\n"
        "Show hostname for nexthop in certain command outputs\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME);
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./global/show-nexthop-hostname",
+			      NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_bgp_show_nexthop_hostname(struct vty *vty,
+					       struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL) != SAVE_BGP_SHOW_HOSTNAME)
+		vty_out(vty, " bgp default show-nexthop-hostname\n");
 }
 
 /* "bgp network import-check" configuration.  */
-DEFUN (bgp_network_import_check,
-       bgp_network_import_check_cmd,
-       "bgp network import-check",
-       "BGP specific commands\n"
-       "BGP network command\n"
-       "Check BGP network route exists in IGP\n")
+DEFUN_YANG(bgp_network_import_check,
+	   bgp_network_import_check_cmd,
+	   "bgp network import-check",
+	   "BGP specific commands\n"
+	   "BGP network command\n"
+	   "Check BGP network route exists in IGP\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
-		SET_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK);
-		bgp_static_redo_import_check(bgp);
-	}
+	nb_cli_enqueue_change(vty, "./global/import-check", NB_OP_MODIFY,
+			      "true");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_HIDDEN(bgp_network_import_check, bgp_network_import_check_exact_cmd,
@@ -3363,162 +3535,195 @@ ALIAS_HIDDEN(bgp_network_import_check, bgp_network_import_check_exact_cmd,
 	     "Check BGP network route exists in IGP\n"
 	     "Match route precisely\n")
 
-DEFUN (no_bgp_network_import_check,
-       no_bgp_network_import_check_cmd,
-       "no bgp network import-check",
-       NO_STR
-       "BGP specific commands\n"
-       "BGP network command\n"
-       "Check BGP network route exists in IGP\n")
+DEFUN_YANG(no_bgp_network_import_check,
+	   no_bgp_network_import_check_cmd,
+	   "no bgp network import-check",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "BGP network command\n"
+	   "Check BGP network route exists in IGP\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
-		UNSET_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK);
-		bgp_static_redo_import_check(bgp);
+	nb_cli_enqueue_change(vty, "./global/import-check", NB_OP_MODIFY,
+			      "false");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_bgp_import_check(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL) != SAVE_BGP_IMPORT_CHECK)
+		vty_out(vty, " bgp network import-check\n");
+}
+
+DEFUN_YANG(bgp_default_local_preference,
+	   bgp_default_local_preference_cmd,
+	   "bgp default local-preference (0-4294967295)",
+	   "BGP specific commands\n"
+	   "Configure BGP defaults\n"
+	   "local preference (higher=more preferred)\n"
+	   "Configure default local preference value\n")
+{
+	int idx_number = 3;
+
+	nb_cli_enqueue_change(vty, "./global/local-pref", NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_default_local_preference,
+	   no_bgp_default_local_preference_cmd,
+	   "no bgp default local-preference [(0-4294967295)]",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Configure BGP defaults\n"
+	   "local preference (higher=more preferred)\n"
+	   "Configure default local preference value\n")
+{
+	nb_cli_enqueue_change(vty, "./global/local-pref", NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_bgp_local_pref(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	vty_out(vty, " bgp default local-preference %u\n",
+		yang_dnode_get_uint32(dnode, NULL));
+}
+
+
+DEFUN_YANG(bgp_default_subgroup_pkt_queue_max,
+	   bgp_default_subgroup_pkt_queue_max_cmd,
+	   "bgp default subgroup-pkt-queue-max (20-100)",
+	   "BGP specific commands\n"
+	   "Configure BGP defaults\n"
+	   "subgroup-pkt-queue-max\n"
+	   "Configure subgroup packet queue max\n")
+{
+	int idx_number = 3;
+
+	nb_cli_enqueue_change(
+		vty,
+		"./global/global-update-group-config/subgroup-pkt-queue-size",
+		NB_OP_MODIFY, argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_default_subgroup_pkt_queue_max,
+	   no_bgp_default_subgroup_pkt_queue_max_cmd,
+	   "no bgp default subgroup-pkt-queue-max [(20-100)]",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Configure BGP defaults\n"
+	   "subgroup-pkt-queue-max\n"
+	   "Configure subgroup packet queue max\n")
+{
+	nb_cli_enqueue_change(
+		vty,
+		"./global/global-update-group-config/subgroup-pkt-queue-size",
+		NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_global_update_group_config_subgroup_pkt_queue_size(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " bgp default subgroup-pkt-queue-max %u\n",
+		yang_dnode_get_uint32(dnode, NULL));
+}
+
+DEFUN_YANG(bgp_rr_allow_outbound_policy,
+	   bgp_rr_allow_outbound_policy_cmd,
+	   "bgp route-reflector allow-outbound-policy",
+	   "BGP specific commands\n"
+	   "Allow modifications made by out route-map\n"
+	   "on ibgp neighbors\n")
+{
+	nb_cli_enqueue_change(vty,
+			      "./global/route-reflector/allow-outbound-policy",
+			      NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_rr_allow_outbound_policy,
+	   no_bgp_rr_allow_outbound_policy_cmd,
+	   "no bgp route-reflector allow-outbound-policy",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Allow modifications made by out route-map\n"
+	   "on ibgp neighbors\n")
+{
+	nb_cli_enqueue_change(vty,
+			      "./global/route-reflector/allow-outbound-policy",
+			      NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
+void cli_show_router_global_neighbor_config(struct vty *vty,
+					    struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	uint32_t write_quanta, read_quanta;
+
+	if (yang_dnode_get_bool(dnode, "./log-neighbor-changes"))
+		vty_out(vty, " bgp log-neighbor-changes\n");
+
+	if (yang_dnode_exists(dnode, "./dynamic-neighbors-limit")) {
+		uint32_t listen_limit = yang_dnode_get_uint32(
+			dnode, "./dynamic-neighbors-limit");
+		vty_out(vty, " bgp listen limit %u\n", listen_limit);
 	}
 
-	return CMD_SUCCESS;
+	write_quanta = yang_dnode_get_uint32(
+		dnode, "./packet-quanta-config/wpkt-quanta");
+	if (write_quanta != BGP_WRITE_PACKET_MAX)
+		vty_out(vty, " write-quanta %d\n", write_quanta);
+
+	read_quanta = yang_dnode_get_uint32(
+		dnode, "./packet-quanta-config/rpkt-quanta");
+
+	if (read_quanta != BGP_READ_PACKET_MAX)
+		vty_out(vty, " read-quanta %d\n", read_quanta);
 }
 
-DEFUN (bgp_default_local_preference,
-       bgp_default_local_preference_cmd,
-       "bgp default local-preference (0-4294967295)",
-       "BGP specific commands\n"
-       "Configure BGP defaults\n"
-       "local preference (higher=more preferred)\n"
-       "Configure default local preference value\n")
+DEFUN_YANG(bgp_listen_limit,
+	   bgp_listen_limit_cmd,
+	   "bgp listen limit (1-5000)",
+	   "BGP specific commands\n"
+	   "BGP Dynamic Neighbors listen commands\n"
+	   "Maximum number of BGP Dynamic Neighbors that can be created\n"
+	   "Configure Dynamic Neighbors listen limit value\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
-	uint32_t local_pref;
 
-	local_pref = strtoul(argv[idx_number]->arg, NULL, 10);
+	nb_cli_enqueue_change(
+		vty, "./global/global-neighbor-config/dynamic-neighbors-limit",
+		NB_OP_MODIFY, argv[idx_number]->arg);
 
-	bgp_default_local_preference_set(bgp, local_pref);
-	bgp_clear_star_soft_in(vty, bgp->name);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_default_local_preference,
-       no_bgp_default_local_preference_cmd,
-       "no bgp default local-preference [(0-4294967295)]",
-       NO_STR
-       "BGP specific commands\n"
-       "Configure BGP defaults\n"
-       "local preference (higher=more preferred)\n"
-       "Configure default local preference value\n")
+DEFUN_YANG(no_bgp_listen_limit,
+	   no_bgp_listen_limit_cmd,
+	   "no bgp listen limit [(1-5000)]",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "BGP Dynamic Neighbors listen commands\n"
+	   "Maximum number of BGP Dynamic Neighbors that can be created\n"
+	   "Configure Dynamic Neighbors listen limit value\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_default_local_preference_unset(bgp);
-	bgp_clear_star_soft_in(vty, bgp->name);
+	nb_cli_enqueue_change(
+		vty, "./global/global-neighbor-config/dynamic-neighbors-limit",
+		NB_OP_DESTROY, NULL);
 
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (bgp_default_subgroup_pkt_queue_max,
-       bgp_default_subgroup_pkt_queue_max_cmd,
-       "bgp default subgroup-pkt-queue-max (20-100)",
-       "BGP specific commands\n"
-       "Configure BGP defaults\n"
-       "subgroup-pkt-queue-max\n"
-       "Configure subgroup packet queue max\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_number = 3;
-	uint32_t max_size;
-
-	max_size = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	bgp_default_subgroup_pkt_queue_max_set(bgp, max_size);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_default_subgroup_pkt_queue_max,
-       no_bgp_default_subgroup_pkt_queue_max_cmd,
-       "no bgp default subgroup-pkt-queue-max [(20-100)]",
-       NO_STR
-       "BGP specific commands\n"
-       "Configure BGP defaults\n"
-       "subgroup-pkt-queue-max\n"
-       "Configure subgroup packet queue max\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_default_subgroup_pkt_queue_max_unset(bgp);
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (bgp_rr_allow_outbound_policy,
-       bgp_rr_allow_outbound_policy_cmd,
-       "bgp route-reflector allow-outbound-policy",
-       "BGP specific commands\n"
-       "Allow modifications made by out route-map\n"
-       "on ibgp neighbors\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
-		SET_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
-		update_group_announce_rrclients(bgp);
-		bgp_clear_star_soft_out(vty, bgp->name);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_rr_allow_outbound_policy,
-       no_bgp_rr_allow_outbound_policy_cmd,
-       "no bgp route-reflector allow-outbound-policy",
-       NO_STR
-       "BGP specific commands\n"
-       "Allow modifications made by out route-map\n"
-       "on ibgp neighbors\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
-		UNSET_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
-		update_group_announce_rrclients(bgp);
-		bgp_clear_star_soft_out(vty, bgp->name);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (bgp_listen_limit,
-       bgp_listen_limit_cmd,
-       "bgp listen limit (1-5000)",
-       "BGP specific commands\n"
-       "BGP Dynamic Neighbors listen commands\n"
-       "Maximum number of BGP Dynamic Neighbors that can be created\n"
-       "Configure Dynamic Neighbors listen limit value\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_number = 3;
-	int listen_limit;
-
-	listen_limit = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	bgp_listen_limit_set(bgp, listen_limit);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_listen_limit,
-       no_bgp_listen_limit_cmd,
-       "no bgp listen limit [(1-5000)]",
-       NO_STR
-       "BGP specific commands\n"
-       "BGP Dynamic Neighbors listen commands\n"
-       "Maximum number of BGP Dynamic Neighbors that can be created\n"
-       "Configure Dynamic Neighbors listen limit value\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_listen_limit_unset(bgp);
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -3700,33 +3905,39 @@ void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 }
 
 
-DEFUN (bgp_disable_connected_route_check,
-       bgp_disable_connected_route_check_cmd,
-       "bgp disable-ebgp-connected-route-check",
-       "BGP specific commands\n"
-       "Disable checking if nexthop is connected on ebgp sessions\n")
+DEFUN_YANG(bgp_disable_connected_route_check,
+	   bgp_disable_connected_route_check_cmd,
+	   "bgp disable-ebgp-connected-route-check",
+	   "BGP specific commands\n"
+	   "Disable checking if nexthop is connected on ebgp sessions\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
-	bgp_clear_star_soft_in(vty, bgp->name);
+	nb_cli_enqueue_change(vty,
+			      "./global/ebgp-multihop-connected-route-check",
+			      NB_OP_MODIFY, "true");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_bgp_disable_connected_route_check,
-       no_bgp_disable_connected_route_check_cmd,
-       "no bgp disable-ebgp-connected-route-check",
-       NO_STR
-       "BGP specific commands\n"
-       "Disable checking if nexthop is connected on ebgp sessions\n")
+DEFUN_YANG(no_bgp_disable_connected_route_check,
+	   no_bgp_disable_connected_route_check_cmd,
+	   "no bgp disable-ebgp-connected-route-check",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Disable checking if nexthop is connected on ebgp sessions\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
-	bgp_clear_star_soft_in(vty, bgp->name);
+	nb_cli_enqueue_change(vty,
+			      "./global/ebgp-multihop-connected-route-check",
+			      NB_OP_MODIFY, "false");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
+void cli_show_router_global_ebgp_multihop_connected_route_check(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp disable-ebgp-connected-route-check\n");
+}
 
 static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 			      const char *as_str, afi_t afi, safi_t safi)
@@ -3792,17 +4003,25 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 	return bgp_vty_return(vty, ret);
 }
 
-DEFUN (bgp_default_shutdown,
-       bgp_default_shutdown_cmd,
-       "[no] bgp default shutdown",
-       NO_STR
-       BGP_STR
-       "Configure BGP defaults\n"
-       "Apply administrative shutdown to newly configured peers\n")
+DEFUN_YANG(bgp_default_shutdown,
+	   bgp_default_shutdown_cmd,
+	   "[no] bgp default shutdown",
+	   NO_STR BGP_STR
+	   "Configure BGP defaults\n"
+	   "Apply administrative shutdown to newly configured peers\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp->autoshutdown = !strmatch(argv[0]->text, "no");
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./global/default-shutdown", NB_OP_MODIFY,
+			      strmatch(argv[0]->text, "no") ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_bgp_default_shutdown(struct vty *vty,
+					  struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp default shutdown\n");
 }
 
 DEFPY(bgp_shutdown_msg, bgp_shutdown_msg_cmd, "bgp shutdown message MSG...",
@@ -8603,6 +8822,8 @@ DEFUN (clear_ip_bgp_all,
 	char *clr_arg = NULL;
 
 	int idx = 0;
+	char errmsg[BUFSIZ] = {'\0'};
+	int ret;
 
 	/* clear [ip] bgp */
 	if (argv_find(argv, argc, "ip", &idx))
@@ -8667,7 +8888,12 @@ DEFUN (clear_ip_bgp_all,
 	} else
 		clr_type = BGP_CLEAR_SOFT_NONE;
 
-	return bgp_clear_vty(vty, vrf, afi, safi, clr_sort, clr_type, clr_arg);
+	ret = bgp_clear_vty(vrf, afi, safi, clr_sort, clr_type, clr_arg, errmsg,
+			    sizeof(errmsg));
+	if (ret != NB_OK)
+		vty_out(vty, "Error description: %s\n", errmsg);
+
+	return ret;
 }
 
 DEFUN (clear_ip_bgp_prefix,

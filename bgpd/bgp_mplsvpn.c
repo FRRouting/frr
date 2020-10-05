@@ -2581,7 +2581,7 @@ void vpn_leak_postchange_all(void)
  * also VRF Y should unimport its routes from VRF X table.
  * This will ensure VPN table is cleaned up appropriately.
  */
-int bgp_vpn_leak_unimport(struct bgp *from_bgp, struct vty *vty)
+void bgp_vpn_leak_unimport(struct bgp *from_bgp)
 {
 	struct bgp *to_bgp;
 	const char *tmp_name;
@@ -2593,7 +2593,7 @@ int bgp_vpn_leak_unimport(struct bgp *from_bgp, struct vty *vty)
 	int debug;
 
 	if (from_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
-		return 0;
+		return;
 
 	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |
 		     BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
@@ -2662,7 +2662,7 @@ int bgp_vpn_leak_unimport(struct bgp *from_bgp, struct vty *vty)
 			}
 		}
 	}
-	return 0;
+	return;
 }
 
 /* When a router bgp is configured, there could be a bgp vrf
