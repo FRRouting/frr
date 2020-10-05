@@ -49,6 +49,7 @@ DEFINE_HOOK(zebra_mlag_private_cleanup_data, (), ())
 
 uint8_t mlag_wr_buffer[ZEBRA_MLAG_BUF_LIMIT];
 uint8_t mlag_rd_buffer[ZEBRA_MLAG_BUF_LIMIT];
+uint32_t mlag_rd_buf_offset;
 
 static bool test_mlag_in_progress;
 
