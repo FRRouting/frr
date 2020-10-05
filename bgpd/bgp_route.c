@@ -2030,6 +2030,27 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 					peer->host, p);
 
 			bgp_attr_flush(attr);
+
+			/* TBD : Not sure if this is the correct way to fetch
+			 * peer from group.
+			 * Notify BGP Conditional advertisement scanner process.
+			 */
+			if (ADVERTISE_MAP_NAME(filter)
+			    || CONDITION_MAP_NAME(filter)) {
+				struct peer *temp_peer;
+				struct listnode *temp_node, *temp_nnode = NULL;
+				for (ALL_LIST_ELEMENTS(bgp->peer, temp_node,
+						       temp_nnode, temp_peer)) {
+					if (!CHECK_FLAG(peer->flags,
+							PEER_FLAG_CONFIG_NODE))
+						continue;
+					if (strcmp(peer->host, temp_peer->host)
+					    != 0)
+						continue;
+					temp_peer->advmap_table_change = true;
+					break;
+				}
+			}
 			return false;
 		}
 	}
@@ -4363,7 +4384,7 @@ static int bgp_announce_route_timer_expired(struct thread *t)
 	peer_af_announce_route(paf, 1);
 
 	/* Notify BGP conditional advertisement scanner percess */
-	peer->advmap_info[paf->afi][paf->safi].config_change = true;
+	peer->advmap_config_change[paf->afi][paf->safi] = true;
 
 	return 0;
 }

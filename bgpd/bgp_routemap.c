@@ -3710,7 +3710,7 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 		peer->default_rmap[afi][safi].map = map;
 
 	/* Notify BGP conditional advertisement scanner percess */
-	peer->advmap_info[afi][safi].config_change = true;
+	peer->advmap_config_change[afi][safi] = true;
 }
 
 static void bgp_route_map_update_peer_group(const char *rmap_name,

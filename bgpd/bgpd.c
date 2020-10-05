@@ -6623,7 +6623,7 @@ int peer_advertise_map_set(struct peer *peer, afi_t afi, safi_t safi,
 	filter->advmap.cmap = condition_map;
 	filter->advmap.condition = condition;
 	route_map_counter_increment(advertise_map);
-	peer->advmap_info[afi][safi].config_change = true;
+	peer->advmap_config_change[afi][safi] = true;
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
@@ -6631,11 +6631,11 @@ int peer_advertise_map_set(struct peer *peer, afi_t afi, safi_t safi,
 		SET_FLAG(peer->filter_override[afi][safi][RMAP_OUT],
 			 PEER_FT_ADVERTISE_MAP);
 
-		/* Hold peer_on_policy_change() until timer thread is called */
-
-		/* To increment condition_filter_count and/or create timer */
+		/* Hold peer_on_policy_change() until timer thread is called.
+		 * Increment condition_filter_count and/or create timer.
+		 */
 		if (!filter_exists) {
-			filter->advmap.status = true;
+			filter->advmap.advertise = ADVERTISE;
 			bgp_conditional_adv_enable(peer, afi, safi);
 		}
 		/* Skip peer-group mechanics for regular peers. */
@@ -6671,11 +6671,11 @@ int peer_advertise_map_set(struct peer *peer, afi_t afi, safi_t safi,
 		filter->advmap.condition = condition;
 		route_map_counter_increment(advertise_map);
 
-		/* Hold peer_on_policy_change() until timer thread is called */
-
-		/* increment condition_filter_count, create timer if 1st one */
+		/* Hold peer_on_policy_change() until timer thread is called.
+		 * Increment condition_filter_count, create timer if 1st one
+		 */
 		if (!filter_exists) {
-			filter->advmap.status = true;
+			filter->advmap.advertise = ADVERTISE;
 			bgp_conditional_adv_enable(member, afi, safi);
 		}
 	}

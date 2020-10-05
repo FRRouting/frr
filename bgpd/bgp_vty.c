@@ -11417,8 +11417,9 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				filter->advmap.cname,
 				filter->advmap.amap ? "*" : "",
 				filter->advmap.aname,
-				filter->advmap.status ? "Advertise"
-						      : "Withdraw");
+				filter->advmap.advertise == ADVERTISE
+					? "Advertise"
+					: "Withdraw");
 
 		/* Receive prefix count */
 		vty_out(vty, "  %u accepted prefixes\n",
