@@ -1,7 +1,6 @@
 {
   "routerId":"10.0.255.1",
   "as":100,
-  "vrfId":0,
   "vrfName":"Default",
   "peerCount":20,
   "peers":{

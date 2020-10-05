@@ -61,6 +61,7 @@ from lib.common_config import (
     check_address_types,
     interface_status,
     reset_config_on_routers,
+    required_linux_kernel_version
 )
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp
@@ -107,6 +108,11 @@ def setup_module(mod):
     """
     global NEXT_HOPS, INTF_LIST_R3, INTF_LIST_R2, TEST_STATIC
     global ADDR_TYPES
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version('4.15')
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))

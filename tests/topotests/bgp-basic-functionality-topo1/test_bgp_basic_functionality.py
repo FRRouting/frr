@@ -76,6 +76,7 @@ from lib.common_config import (
     create_prefix_lists,
     create_route_maps,
     verify_bgp_community,
+    required_linux_kernel_version
 )
 from lib.topolog import logger
 from lib.bgp import (
@@ -136,6 +137,11 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version('4.15')
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))

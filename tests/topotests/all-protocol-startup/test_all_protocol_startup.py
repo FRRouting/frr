@@ -678,7 +678,8 @@ def test_isis_interfaces():
             # Mask out SNPA mac address portion. They are random...
             actual = re.sub(r"SNPA: [0-9a-f\.]+", "SNPA: XXXX.XXXX.XXXX", actual)
             # Mask out Circuit ID number
-            actual = re.sub(r"Circuit Id: 0x[0-9]+", "Circuit Id: 0xXX", actual)
+            actual = re.sub(r"Circuit Id: 0x[0-9a-f]+", "Circuit Id: 0xXX",
+                            actual)
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
