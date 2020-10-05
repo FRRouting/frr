@@ -1429,6 +1429,7 @@ static void routing_socket(struct zebra_ns *zns)
 #ifdef SO_RERROR
 	/* Allow reporting of route(4) buffer overflow errors */
 	int n = 1;
+
 	if (setsockopt(routing_sock, SOL_SOCKET, SO_RERROR, &n, sizeof(n)) < 0)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "Can't set SO_RERROR on routing socket");
