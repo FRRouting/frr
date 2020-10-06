@@ -550,7 +550,6 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	bool same_esi;
 	bool old_proxy;
 	bool new_proxy;
-	bool new_origin, exist_origin;
 
 	*paths_eq = 0;
 
@@ -795,12 +794,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	 *  - BGP_ROUTE_AGGREGATE
 	 *  - BGP_ROUTE_REDISTRIBUTE
 	 */
-	new_origin = !(new->sub_type == BGP_ROUTE_NORMAL ||
-		       new->sub_type == BGP_ROUTE_IMPORTED);
-	exist_origin = !(exist->sub_type == BGP_ROUTE_NORMAL ||
-			 exist->sub_type == BGP_ROUTE_IMPORTED);
-
-	if (new_origin && !exist_origin) {
+	if (!(new->sub_type == BGP_ROUTE_NORMAL ||
+	      new->sub_type == BGP_ROUTE_IMPORTED)) {
 		*reason = bgp_path_selection_local_route;
 		if (debug)
 			zlog_debug(
@@ -809,7 +804,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 1;
 	}
 
-	if (!new_origin && exist_origin) {
+	if (!(exist->sub_type == BGP_ROUTE_NORMAL ||
+	      exist->sub_type == BGP_ROUTE_IMPORTED)) {
 		*reason = bgp_path_selection_local_route;
 		if (debug)
 			zlog_debug(
