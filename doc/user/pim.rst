@@ -337,6 +337,42 @@ caution. Most of the time this will not be necessary.
    Insert into the Multicast Rib Route A.B.C.D/M using the specified INTERFACE.
    The distance can be specified as well if desired.
 
+.. _msdp-configuration
+
+Multicast Source Discovery Protocol (MSDP) Configuration
+====================
+
+.. index:: ip msdp mesh-group [WORD] member A.B.C.D
+.. clicmd:: ip msdp mesh-group [WORD] member A.B.C.D
+
+   Include a MSDP peer as a member of a MSDP mesh-group.
+
+.. index:: ip msdp mesh-group [WORD] source A.B.C.D
+.. clicmd:: ip msdp mesh-group [WORD] source A.B.C.D
+
+   Create a MSDP mesh-group, defining a name for it and an associated local source
+   address.
+
+.. index:: ip msdp peer A.B.C.D source A.B.C.D
+.. clicmd:: ip msdp peer A.B.C.D source A.B.C.D
+
+   Establish a MSDP connection with a peer.
+
+.. index:: no ip msdp mesh-group [WORD] member A.B.C.D
+.. clicmd:: no ip msdp mesh-group [WORD] member A.B.C.D
+
+   Remove a MSDP peer member from a MSDP mesh-group.
+
+.. index:: no ip msdp mesh-group [WORD] source A.B.C.D
+.. clicmd:: no ip msdp mesh-group [WORD] source A.B.C.D
+
+   Delete a MSDP mesh-group.
+
+.. index:: no ip msdp peer A.B.C.D
+.. clicmd:: no ip msdp peer A.B.C.D
+
+   Delete a MSDP peer connection.
+
 .. _show-pim-information:
 
 Show PIM Information
@@ -421,6 +457,19 @@ cause great confusion.
 
    Display total number of S,G mroutes and number of S,G mroutes
    installed into the kernel for all vrfs.
+
+.. index:: show ip msdp mesh-group
+.. clicmd:: show ip msdp mesh-group
+
+   Display the configured mesh-groups, the local address associated with each
+   mesh-group, the peer members included in each mesh-group, and their status.
+
+.. index:: show ip msdp peer
+.. clicmd:: show ip msdp peer
+
+   Display information about the MSDP peers. That includes the peer address,
+   the local address used to establish the connection to the peer, the
+   connection status, and the number of active sources.
 
 .. index:: show ip pim assert
 .. clicmd:: show ip pim assert

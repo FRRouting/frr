@@ -9694,7 +9694,7 @@ static int ip_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	return ret;
 }
 
-DEFUN_HIDDEN (ip_msdp_peer,
+DEFUN (ip_msdp_peer,
        ip_msdp_peer_cmd,
        "ip msdp peer A.B.C.D source A.B.C.D",
        IP_STR
@@ -9735,7 +9735,7 @@ static int ip_no_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (no_ip_msdp_peer,
+DEFUN (no_ip_msdp_peer,
        no_ip_msdp_peer_cmd,
        "no ip msdp peer A.B.C.D",
        NO_STR
