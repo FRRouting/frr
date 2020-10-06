@@ -387,7 +387,7 @@ bgpribRequireUnicastRoutes(
 luCommand(
     "ce1",
     'vtysh -c "show bgp ipv4 uni"',
-    "12 routes and 12",
+    "13 routes and 13",
     "wait",
     "Local and remote routes",
     10,
@@ -401,13 +401,14 @@ want = [
     {"p": "5.4.3.0/24", "n": "192.168.1.1", "bp": True},
     {"p": "6.0.1.0/24", "n": "99.0.0.1", "bp": True},
     {"p": "6.0.2.0/24", "n": "99.0.0.1", "bp": True},
+    {"p": "6.0.3.0/24", "n": "192.168.1.1", "bp": True},
 ]
 bgpribRequireUnicastRoutes("ce1", "ipv4", "", "Cust 1 routes from remote", want, debug=False)
 
 luCommand(
     "ce2",
     'vtysh -c "show bgp ipv4 uni"',
-    "12 routes and 15",
+    "13 routes and 16",
     "wait",
     "Local and remote routes",
     10,
@@ -424,6 +425,7 @@ want = [
     {"p": "6.0.1.0/24", "n": "192.168.1.1", "bp": False},
     {"p": "6.0.1.0/24", "n": "99.0.0.2", "bp": True},
     {"p": "6.0.2.0/24", "n": "99.0.0.2", "bp": True},
+    {"p": "6.0.3.0/24", "n": "99.0.0.2", "bp": True},
 ]
 bgpribRequireUnicastRoutes("ce2", "ipv4", "", "Cust 1 routes from remote", want, debug=False)
 
@@ -437,7 +439,7 @@ luCommand("r4", 'vtysh -c "show ip route vrf r4-cust2"')
 luCommand(
     "ce3",
     'vtysh -c "show bgp ipv4 uni"',
-    "12 routes and 14",
+    "13 routes and 15",
     "wait",
     "Local and remote routes",
     10,
@@ -452,13 +454,14 @@ want = [
     {"p": "6.0.2.0/24", "n": "192.168.1.1", "bp": False},
     {"p": "6.0.1.0/24", "n": "99.0.0.3", "bp": True},
     {"p": "6.0.2.0/24", "n": "99.0.0.3", "bp": True},
+    {"p": "6.0.3.0/24", "n": "192.168.1.1", "bp": True},
 ]
 bgpribRequireUnicastRoutes("ce3", "ipv4", "", "Cust 1 routes from remote", want, debug=False)
 
 luCommand(
     "ce4",
     'vtysh -c "show bgp vrf ce4-cust2 ipv4 uni"',
-    "12 routes and 14",
+    "13 routes and 15",
     "wait",
     "Local and remote routes",
     10,
@@ -472,6 +475,7 @@ want = [
     {"p": "6.0.2.0/24", "n": "192.168.2.1", "bp": False},
     {"p": "6.0.1.0/24", "n": "99.0.0.4", "bp": True},
     {"p": "6.0.2.0/24", "n": "99.0.0.4", "bp": True},
+    {"p": "6.0.3.0/24", "n": "99.0.0.4", "bp": True},
 ]
 bgpribRequireUnicastRoutes(
     "ce4", "ipv4", "ce4-cust2", "Cust 2 routes from remote", want, debug=False
@@ -531,4 +535,26 @@ luCommand("ce4",'vtysh -c "show bgp  vrf ce4-cust2 ipv4 6.0.2.0"',
           ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .Weight" +
           ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:14",
           "pass", "Redundant route 2 details")
+
+luCommand("ce1",'vtysh -c "show bgp ipv4 uni 6.0.3.0"',
+          ".* Local.* 192.168.1.1 from 192.168.1.1 .192.168.1.1" +
+          ".* Origin IGP, metric 100, localpref 100, valid, internal, best" +
+          ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:12",
+          "pass", "Redundant route 3 details")
+luCommand("ce2",'vtysh -c "show bgp ipv4 uni 6.0.3.0"',
+          ".* Local.* 99.0.0.2 from 0.0.0.0 .99.0.0.2" +
+          ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best" +
+          ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:12",
+          "pass", "Redundant route 3 details")
+luCommand("ce3",'vtysh -c "show bgp ipv4 uni 6.0.3.0"',
+          ".* Local.* 192.168.1.1 from 192.168.1.1 .192.168.1.1" +
+          ".* Origin IGP, metric 100, localpref 100, valid, internal, best" +
+          ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:14",
+          "pass", "Redundant route 3 details")
+luCommand("ce4",'vtysh -c "show bgp  vrf ce4-cust2 ipv4 6.0.3.0"',
+          "1 available, best .*192.168.2.1.*" +
+          ".* Local.* 99.0.0.4 from 0.0.0.0 .99.0.0.4" +
+          ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best" +
+          ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:14",
+          "pass", "Redundant route 3 details")
 #done
