@@ -55,12 +55,6 @@ enum blackhole_type {
 	BLACKHOLE_ADMINPROHIB,
 };
 
-/* IPV[46] -> IPV[46]_IFINDEX */
-#define NEXTHOP_FIRSTHOPTYPE(type)                                             \
-	((type) == NEXTHOP_TYPE_IFINDEX || (type) == NEXTHOP_TYPE_BLACKHOLE)   \
-		? (type)                                                       \
-		: ((type) | 1)
-
 enum nh_encap_type {
 	NET_VXLAN = 100, /* value copied from FPM_NH_ENCAP_VXLAN. */
 };
@@ -216,8 +210,6 @@ extern int nexthop_g_addr_cmp(enum nexthop_types_t type,
 extern const char *nexthop_type_to_str(enum nexthop_types_t nh_type);
 extern bool nexthop_labels_match(const struct nexthop *nh1,
 				 const struct nexthop *nh2);
-extern bool nexthop_same_firsthop(const struct nexthop *next1,
-				  const struct nexthop *next2);
 
 extern const char *nexthop2str(const struct nexthop *nexthop,
 			       char *str, int size);

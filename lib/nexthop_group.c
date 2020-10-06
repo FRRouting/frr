@@ -481,7 +481,7 @@ void nexthop_group_mark_duplicates(struct nexthop_group *nhg)
 		for (ALL_NEXTHOPS_PTR(nhg, prev)) {
 			if (prev == nexthop)
 				break;
-			if (nexthop_same_firsthop(nexthop, prev)) {
+			if (nexthop_same(nexthop, prev)) {
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_DUPLICATE);
 				break;
