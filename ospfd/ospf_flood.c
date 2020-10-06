@@ -383,7 +383,7 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 	if (!ospf_if_is_enable(oi))
 		return 0;
 
-	/* Remember if new LSA is aded to a retransmit list. */
+	/* Remember if new LSA is added to a retransmit list. */
 	retx_flag = 0;
 
 	/* Each of the neighbors attached to this interface are examined,
@@ -936,7 +936,7 @@ void ospf_ls_retransmit_delete_nbr_as(struct ospf *ospf, struct ospf_lsa *lsa)
 
 
 /* Sets ls_age to MaxAge and floods throu the area.
-   When we implement ASE routing, there will be anothe function
+   When we implement ASE routing, there will be another function
    flushing an LSA from the whole domain. */
 void ospf_lsa_flush_area(struct ospf_lsa *lsa, struct ospf_area *area)
 {
