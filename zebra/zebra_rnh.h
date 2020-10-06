@@ -61,7 +61,6 @@ extern void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 			       enum rnh_type type, struct prefix *p);
 extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
 				  enum rnh_type type, struct prefix *p);
-extern char *rnh_str(struct rnh *rnh, char *buf, int size);
 
 extern int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family);
 
