@@ -1864,6 +1864,8 @@ static void zebra_evpn_es_setup_evis(struct zebra_evpn_es *es)
 	uint16_t vid;
 	struct zebra_evpn_access_bd *acc_bd;
 
+	if (!bf_is_inited(zif->vlan_bitmap))
+		return;
 
 	bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX) {
 		acc_bd = zebra_evpn_acc_vl_find(vid);
