@@ -462,6 +462,14 @@ struct cmd_node {
 #define EVPN_TYPE_3_HELP_STR "Multicast (Type-3) route\n"
 #define EVPN_TYPE_4_HELP_STR "Ethernet Segment (Type-4) route\n"
 #define EVPN_TYPE_5_HELP_STR "Prefix (Type-5) route\n"
+#define EVPN_TYPE_ALL_LIST "<ead|1|macip|2|multicast|3|es|4|prefix|5>"
+#define EVPN_TYPE_ALL_LIST_HELP_STR                                            \
+	EVPN_TYPE_1_HELP_STR EVPN_TYPE_1_HELP_STR                              \
+	EVPN_TYPE_2_HELP_STR EVPN_TYPE_2_HELP_STR                              \
+	EVPN_TYPE_3_HELP_STR EVPN_TYPE_3_HELP_STR                              \
+	EVPN_TYPE_4_HELP_STR EVPN_TYPE_4_HELP_STR                              \
+	EVPN_TYPE_5_HELP_STR EVPN_TYPE_5_HELP_STR
+
 
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
