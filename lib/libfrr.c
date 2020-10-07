@@ -244,6 +244,9 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			break;
 		}
 
+		char mstr;
+		vasprintf(&mstr, "%s", "pogchamp");
+
 #if 1
 		/* force-disable this path, because tcp-zebra is a
 		 * SECURITY ISSUE.  there are no checks at all against
