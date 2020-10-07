@@ -57,6 +57,7 @@ static bool validate_header(struct peer *);
 
 void bgp_writes_on(struct peer *peer)
 {
+	fprintf(stderr, "test\n");
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
