@@ -43,6 +43,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 print('hello world')
+print('hello world')
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
