@@ -25,10 +25,6 @@ OPTIONS available for the |DAEMON| command:
 
    Runs in batch mode, zebra parses its config and exits.
 
-.. option:: -k, --keep_kernel
-
-   On startup, don't delete self inserted routes.
-
 .. option:: -s, --nl-bufsize <netlink-buffer-size>
 
    Set netlink receive buffer size. There are cases where zebra daemon can't handle flood of netlink messages from kernel. If you ever see "recvmsg overrun" messages in zebra log, you are in trouble.
