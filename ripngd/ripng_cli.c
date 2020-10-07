@@ -496,7 +496,7 @@ DEFPY_YANG (clear_ipv6_rip,
 		listnode_add(input, yang_vrf);
 	}
 
-	ret = nb_cli_rpc("/frr-ripngd:clear-ripng-route", input, NULL);
+	ret = nb_cli_rpc(vty, "/frr-ripngd:clear-ripng-route", input, NULL);
 
 	list_delete(&input);
 

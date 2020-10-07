@@ -284,10 +284,12 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	return CMD_SUCCESS;
 }
 
-int nb_cli_rpc(const char *xpath, struct list *input, struct list *output)
+int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,
+	       struct list *output)
 {
 	struct nb_node *nb_node;
 	int ret;
+	char errmsg[BUFSIZ] = {0};
 
 	nb_node = nb_node_find(xpath);
 	if (!nb_node) {
@@ -296,11 +298,14 @@ int nb_cli_rpc(const char *xpath, struct list *input, struct list *output)
 		return CMD_WARNING;
 	}
 
-	ret = nb_callback_rpc(nb_node, xpath, input, output);
+	ret = nb_callback_rpc(nb_node, xpath, input, output, errmsg,
+			      sizeof(errmsg));
 	switch (ret) {
 	case NB_OK:
 		return CMD_SUCCESS;
 	default:
+		if (strlen(errmsg))
+			vty_show_nb_errors(vty, ret, errmsg);
 		return CMD_WARNING;
 	}
 }

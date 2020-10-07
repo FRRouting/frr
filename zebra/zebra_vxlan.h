@@ -208,9 +208,12 @@ extern void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
 					   struct prefix *host_prefix);
 extern int zebra_vxlan_clear_dup_detect_vni_mac(struct zebra_vrf *zvrf,
 						vni_t vni,
-						struct ethaddr *macaddr);
+						struct ethaddr *macaddr,
+						char *errmsg,
+						size_t errmsg_len);
 extern int zebra_vxlan_clear_dup_detect_vni_ip(struct zebra_vrf *zvrf,
-					       vni_t vni, struct ipaddr *ip);
+					       vni_t vni, struct ipaddr *ip,
+					       char *errmsg, size_t errmsg_len);
 extern int zebra_vxlan_clear_dup_detect_vni_all(struct zebra_vrf *zvrf);
 extern int zebra_vxlan_clear_dup_detect_vni(struct zebra_vrf *zvrf, vni_t vni);
 extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx);

@@ -258,6 +258,12 @@ struct nb_cb_rpc_args {
 
 	/* List of output parameters to be populated by the callback. */
 	struct list *output;
+
+	/* Buffer to store human-readable error message in case of error. */
+	char *errmsg;
+
+	/* Size of errmsg. */
+	size_t errmsg_len;
 };
 
 /*
@@ -689,7 +695,8 @@ extern const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 					    const void *parent_list_entry,
 					    const struct yang_list_keys *keys);
 extern int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
-			   const struct list *input, struct list *output);
+			   const struct list *input, struct list *output,
+			   char *errmsg, size_t errmsg_len);
 
 /*
  * Create a northbound node for all YANG schema nodes.

@@ -3264,7 +3264,8 @@ DEFPY (clear_evpn_dup_addr,
 
 	if (yang_dup) {
 		listnode_add(input, yang_dup);
-		ret = nb_cli_rpc("/frr-zebra:clear-evpn-dup-addr", input, NULL);
+		ret = nb_cli_rpc(vty, "/frr-zebra:clear-evpn-dup-addr", input,
+				 NULL);
 	}
 
 	list_delete(&input);

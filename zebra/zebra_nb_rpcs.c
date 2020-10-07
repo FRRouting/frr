@@ -65,19 +65,22 @@ int clear_evpn_dup_addr_rpc(struct nb_cb_rpc_args *args)
 			if (yang_dup_mac) {
 				yang_str2mac(yang_dup_mac->value, &mac);
 				ret = zebra_vxlan_clear_dup_detect_vni_mac(
-					zvrf, vni, &mac);
+					zvrf, vni, &mac, args->errmsg,
+					args->errmsg_len);
 			} else if (yang_dup_ip) {
 				yang_str2ip(yang_dup_ip->value, &host_ip);
 				ret = zebra_vxlan_clear_dup_detect_vni_ip(
-					zvrf, vni, &host_ip);
+					zvrf, vni, &host_ip, args->errmsg,
+					args->errmsg_len);
 			} else
 				ret = zebra_vxlan_clear_dup_detect_vni(zvrf,
 								       vni);
 		}
 	}
-	ret = (ret != CMD_SUCCESS) ? NB_ERR : NB_OK;
+	if (ret < 0)
+		return NB_ERR;
 
-	return ret;
+	return NB_OK;
 }
 
 /*

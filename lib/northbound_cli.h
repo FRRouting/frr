@@ -75,6 +75,9 @@ extern int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt,
 /*
  * Execute a YANG RPC or Action.
  *
+ * vty
+ *    The vty terminal to dump any error.
+ *
  * xpath
  *    XPath of the YANG RPC or Action node.
  *
@@ -90,7 +93,7 @@ extern int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt,
  * Returns:
  *    CMD_SUCCESS on success, CMD_WARNING otherwise.
  */
-extern int nb_cli_rpc(const char *xpath, struct list *input,
+extern int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,
 		      struct list *output);
 
 /*
