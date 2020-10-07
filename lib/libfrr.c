@@ -244,8 +244,10 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			break;
 		}
 
-		char mstr;
+		char * mstr;
 		vasprintf(&mstr, "%s", "pogchamp");
+
+		sprintf(mstr, "%s", "uhhhhhh\n");
 
 #if 1
 		/* force-disable this path, because tcp-zebra is a
