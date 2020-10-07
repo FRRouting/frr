@@ -29,6 +29,7 @@
 #include "thread.h"
 #include "command.h"
 #include "defaults.h"
+#include "lib_errors.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_message.h"
@@ -41,6 +42,7 @@
 #include "ospf6_area.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
+#include "ospf6_network.h"
 
 #include "ospf6_flood.h"
 #include "ospf6_asbr.h"
@@ -141,15 +143,21 @@ static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 	ospf6_abr_originate_summary(route);
 }
 
-static struct ospf6 *ospf6_create(vrf_id_t vrf_id)
+static struct ospf6 *ospf6_create(const char *name)
 {
 	struct ospf6 *o;
+	struct vrf *vrf = NULL;
 
 	o = XCALLOC(MTYPE_OSPF6_TOP, sizeof(struct ospf6));
 
+	vrf = vrf_lookup_by_name(name);
+	if (vrf) {
+		o->vrf_id = vrf->vrf_id;
+		/* Freed in ospf6_delete */
+		o->name = XSTRDUP(MTYPE_OSPF6_TOP, name);
+	}
 	/* initialize */
 	monotime(&o->starttime);
-	o->vrf_id = vrf_id;
 	o->area_list = list_new();
 	o->area_list->cmp = ospf6_area_cmp;
 	o->lsdb = ospf6_lsdb_create(o);
@@ -183,10 +191,26 @@ static struct ospf6 *ospf6_create(vrf_id_t vrf_id)
 	o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
 
 	o->distance_table = route_table_init();
+	o->fd = -1;
 
 	QOBJ_REG(o, ospf6);
 
+	/* Make ospf protocol socket. */
+	ospf6_serv_sock(o);
+
 	return o;
+}
+
+void ospf6_instance_create(const char *name)
+{
+	ospf6 = ospf6_create(name);
+	if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
+		SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+	if (ospf6->router_id == 0)
+		ospf6_router_id_update();
+
+	thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
+			&ospf6->t_ospf6_receive);
 }
 
 void ospf6_delete(struct ospf6 *o)
@@ -217,6 +241,7 @@ void ospf6_delete(struct ospf6 *o)
 	ospf6_distance_reset(o);
 	route_table_finish(o->distance_table);
 
+	XFREE(MTYPE_OSPF6_TOP, o->name);
 	XFREE(MTYPE_OSPF6_TOP, o);
 }
 
@@ -242,6 +267,7 @@ static void ospf6_disable(struct ospf6 *o)
 		THREAD_OFF(o->t_spf_calc);
 		THREAD_OFF(o->t_ase_calc);
 		THREAD_OFF(o->t_distribute_update);
+		THREAD_OFF(o->t_ospf6_receive);
 	}
 }
 
@@ -325,14 +351,9 @@ DEFUN_NOSH (router_ospf6,
        ROUTER_STR
        OSPF6_STR)
 {
-	if (ospf6 == NULL) {
-		ospf6 = ospf6_create(VRF_DEFAULT);
-		if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
-			SET_FLAG(ospf6->config_flags,
-				 OSPF6_LOG_ADJACENCY_CHANGES);
-		if (ospf6->router_id == 0)
-			ospf6_router_id_update();
-	}
+	if (ospf6 == NULL)
+		ospf6_instance_create(VRF_DEFAULT_NAME);
+
 	/* set current ospf point. */
 	VTY_PUSH_CONTEXT(OSPF6_NODE, ospf6);
 
@@ -350,6 +371,7 @@ DEFUN (no_router_ospf6,
 	if (ospf6 == NULL)
 		vty_out(vty, "OSPFv3 is not configured\n");
 	else {
+		ospf6_serv_close(&ospf6->fd);
 		ospf6_delete(ospf6);
 		ospf6 = NULL;
 	}

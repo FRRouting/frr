@@ -40,6 +40,8 @@ struct ospf6 {
 	/* The relevant vrf_id */
 	vrf_id_t vrf_id;
 
+	char *name; /* VRF name */
+
 	/* my router id */
 	in_addr_t router_id;
 
@@ -92,11 +94,13 @@ struct ospf6 {
 	struct timeval ts_spf_duration; /* Execution time of last SPF */
 	unsigned int last_spf_reason;   /* Last SPF reason */
 
+	int fd;
 	/* Threads */
 	struct thread *t_spf_calc; /* SPF calculation timer. */
 	struct thread *t_ase_calc; /* ASE calculation timer. */
 	struct thread *maxage_remover;
 	struct thread *t_distribute_update; /* Distirbute update timer. */
+	struct thread *t_ospf6_receive; /* OSPF6 receive timer */
 
 	uint32_t ref_bandwidth;
 
@@ -130,5 +134,6 @@ extern void ospf6_delete(struct ospf6 *o);
 extern void ospf6_router_id_update(void);
 
 extern void ospf6_maxage_remove(struct ospf6 *o);
+extern void ospf6_instance_create(const char *name);
 
 #endif /* OSPF6_TOP_H */

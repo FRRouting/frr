@@ -1268,9 +1268,8 @@ void ospf6_init(void)
 		&show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_database_aggr_router_cmd);
 
-	/* Make ospf protocol socket. */
-	ospf6_serv_sock();
-	thread_add_read(master, ospf6_receive, NULL, ospf6_sock, NULL);
+	if (ospf6 == NULL)
+		ospf6_instance_create(VRF_DEFAULT_NAME);
 }
 
 void ospf6_clean(void)
