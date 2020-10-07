@@ -21,6 +21,7 @@
 # ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 #
+print('hello')
 
 """
 test_evpn_mh.py: Testing EVPN multihoming
