@@ -1402,17 +1402,17 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
        "Specify a prefix to debug\n"
        L2VPN_HELP_STR
        EVPN_HELP_STR
-       "Specify EVPN Route type\n"
-       "MAC-IP (Type-2) route\n"
+       EVPN_TYPE_HELP_STR
+       EVPN_TYPE_2_HELP_STR
        MAC_STR MAC_STR MAC_STR
        IP_STR
        "IPv4 address\n"
        "IPv6 address\n"
-       "Multicast (Type-3) route\n"
+       EVPN_TYPE_3_HELP_STR
        IP_STR
        "IPv4 address\n"
        "IPv6 address\n"
-       "Prefix (Type-5) route\n"
+       EVPN_TYPE_5_HELP_STR
        IP_STR
        "IPv4 prefix\n"
        "IPv6 prefix\n")
@@ -1466,17 +1466,17 @@ DEFPY (no_debug_bgp_update_prefix_afi_safi,
        "Specify a prefix to debug\n"
        L2VPN_HELP_STR
        EVPN_HELP_STR
-       "Specify EVPN Route type\n"
-       "MAC-IP (Type-2) route\n"
+       EVPN_TYPE_HELP_STR
+       EVPN_TYPE_2_HELP_STR
        MAC_STR MAC_STR MAC_STR
        IP_STR
        "IPv4 address\n"
        "IPv6 address\n"
-       "Multicast (Type-3) route\n"
+       EVPN_TYPE_3_HELP_STR
        IP_STR
        "IPv4 address\n"
        "IPv6 address\n"
-       "Prefix (Type-5) route\n"
+       EVPN_TYPE_5_HELP_STR
        IP_STR
        "IPv4 prefix\n"
        "IPv6 prefix\n")
