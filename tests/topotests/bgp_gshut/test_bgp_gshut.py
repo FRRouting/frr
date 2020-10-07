@@ -99,11 +99,13 @@ class TemplateTopo(Topo):
         switch.add_link(tgen.gears["r2"])
         switch.add_link(tgen.gears["r5"])
 
+
 def _run_cmd_and_check(router, cmd, results_file, retries=100, intvl=0.5):
     json_file = "{}/{}".format(CWD, results_file)
     expected = json.loads(open(json_file).read())
     test_func = partial(topotest.router_json_cmp, router, cmd, expected)
     return topotest.run_and_expect(test_func, None, retries, intvl)
+
 
 def setup_module(mod):
     tgen = Topogen(TemplateTopo, mod.__name__)
@@ -134,12 +136,14 @@ def setup_module(mod):
     tgen.start_router()
 
     # Basic peering test to see if things are ok
-    _, result = _run_cmd_and_check(r2, 'show ip bgp summary json', 'r2/bgp_sum_1.json')
-    assertmsg = 'R2: Basic sanity test after init failed -- global peerings not up'
+    _, result = _run_cmd_and_check(r2, "show ip bgp summary json", "r2/bgp_sum_1.json")
+    assertmsg = "R2: Basic sanity test after init failed -- global peerings not up"
     assert result is None, assertmsg
 
-    _, result = _run_cmd_and_check(r2, 'show ip bgp vrf vrf1 summary json', 'r2/bgp_sum_2.json')
-    assertmsg = 'R2: Basic sanity test after init failed -- VRF peerings not up'
+    _, result = _run_cmd_and_check(
+        r2, "show ip bgp vrf vrf1 summary json", "r2/bgp_sum_2.json"
+    )
+    assertmsg = "R2: Basic sanity test after init failed -- VRF peerings not up"
     assert result is None, assertmsg
 
 
@@ -160,80 +164,104 @@ def test_bgp_gshut():
     r4 = tgen.gears["r4"]
     r5 = tgen.gears["r5"]
 
-
     # Verify initial route states
-    logger.info('\nVerify initial route states')
+    logger.info("\nVerify initial route states")
 
-    _, result = _run_cmd_and_check(r1, 'show ip bgp 13.1.1.1/32 json', 'r1/bgp_route_1.json')
-    assertmsg = 'R1: Route 13.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r1, "show ip bgp 13.1.1.1/32 json", "r1/bgp_route_1.json"
+    )
+    assertmsg = "R1: Route 13.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    _, result = _run_cmd_and_check(r3, 'show ip bgp 11.1.1.1/32 json', 'r3/bgp_route_1.json')
-    assertmsg = 'R3: Route 11.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r3, "show ip bgp 11.1.1.1/32 json", "r3/bgp_route_1.json"
+    )
+    assertmsg = "R3: Route 11.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    _, result = _run_cmd_and_check(r5, 'show ip bgp 14.1.1.1/32 json', 'r5/bgp_route_1.json')
-    assertmsg = 'R5: Route 14.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r5, "show ip bgp 14.1.1.1/32 json", "r5/bgp_route_1.json"
+    )
+    assertmsg = "R5: Route 14.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    logger.info('\nInitial route states are as expected')
+    logger.info("\nInitial route states are as expected")
 
-
-    #"Test #1: Enable BGP-wide graceful-shutdown on R2 and check routes on peers"
-    logger.info('\nTest #1: Enable BGP-wide graceful-shutdown on R2 and check routes on peers')
+    # "Test #1: Enable BGP-wide graceful-shutdown on R2 and check routes on peers"
+    logger.info(
+        "\nTest #1: Enable BGP-wide graceful-shutdown on R2 and check routes on peers"
+    )
 
     r2.vtysh_cmd(
         """
           configure terminal
             bgp graceful-shutdown
         """
-        )
+    )
 
     # R1, R3 and R5 should see routes from R2 with GSHUT. In addition,
     # R1 should see LOCAL_PREF of 0
-    _, result = _run_cmd_and_check(r1, 'show ip bgp 13.1.1.1/32 json', 'r1/bgp_route_2.json')
-    assertmsg = 'R1: Route 13.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r1, "show ip bgp 13.1.1.1/32 json", "r1/bgp_route_2.json"
+    )
+    assertmsg = "R1: Route 13.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    _, result = _run_cmd_and_check(r3, 'show ip bgp 11.1.1.1/32 json', 'r3/bgp_route_2.json')
-    assertmsg = 'R3: Route 11.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r3, "show ip bgp 11.1.1.1/32 json", "r3/bgp_route_2.json"
+    )
+    assertmsg = "R3: Route 11.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    _, result = _run_cmd_and_check(r5, 'show ip bgp 14.1.1.1/32 json', 'r5/bgp_route_2.json')
-    assertmsg = 'R5: Route 14.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r5, "show ip bgp 14.1.1.1/32 json", "r5/bgp_route_2.json"
+    )
+    assertmsg = "R5: Route 14.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    logger.info('\nTest #1: Successful, routes have GSHUT and/or LPREF of 0 as expected')
+    logger.info(
+        "\nTest #1: Successful, routes have GSHUT and/or LPREF of 0 as expected"
+    )
 
-
-    #"Test #2: Turn off BGP-wide graceful-shutdown on R2 and check routes on peers"
-    logger.info('\nTest #2: Turn off BGP-wide graceful-shutdown on R2 and check routes on peers')
+    # "Test #2: Turn off BGP-wide graceful-shutdown on R2 and check routes on peers"
+    logger.info(
+        "\nTest #2: Turn off BGP-wide graceful-shutdown on R2 and check routes on peers"
+    )
 
     r2.vtysh_cmd(
         """
           configure terminal
             no bgp graceful-shutdown
         """
-        )
+    )
 
     # R1, R3 and R5 should see routes from R2 with their original attributes
-    _, result = _run_cmd_and_check(r1, 'show ip bgp 13.1.1.1/32 json', 'r1/bgp_route_1.json')
-    assertmsg = 'R1: Route 13.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r1, "show ip bgp 13.1.1.1/32 json", "r1/bgp_route_1.json"
+    )
+    assertmsg = "R1: Route 13.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    _, result = _run_cmd_and_check(r3, 'show ip bgp 11.1.1.1/32 json', 'r3/bgp_route_1.json')
-    assertmsg = 'R3: Route 11.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r3, "show ip bgp 11.1.1.1/32 json", "r3/bgp_route_1.json"
+    )
+    assertmsg = "R3: Route 11.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    _, result = _run_cmd_and_check(r5, 'show ip bgp 14.1.1.1/32 json', 'r5/bgp_route_1.json')
-    assertmsg = 'R5: Route 14.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r5, "show ip bgp 14.1.1.1/32 json", "r5/bgp_route_1.json"
+    )
+    assertmsg = "R5: Route 14.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    logger.info('\nTest #2: Successful, routes have their original attributes with default LPREF and without GSHUT')
+    logger.info(
+        "\nTest #2: Successful, routes have their original attributes with default LPREF and without GSHUT"
+    )
 
-
-    #"Test #3: Enable graceful-shutdown on R2 only in VRF1 and check routes on peers"
-    logger.info('\nTest #3: Enable graceful-shutdown on R2 only in VRF1 and check routes on peers')
+    # "Test #3: Enable graceful-shutdown on R2 only in VRF1 and check routes on peers"
+    logger.info(
+        "\nTest #3: Enable graceful-shutdown on R2 only in VRF1 and check routes on peers"
+    )
 
     r2.vtysh_cmd(
         """
@@ -241,44 +269,56 @@ def test_bgp_gshut():
             router bgp 65001 vrf vrf1
               bgp graceful-shutdown
         """
-        )
+    )
 
     # R1 and R3 should see no change to their routes
-    _, result = _run_cmd_and_check(r1, 'show ip bgp 13.1.1.1/32 json', 'r1/bgp_route_1.json')
-    assertmsg = 'R1: Route 13.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r1, "show ip bgp 13.1.1.1/32 json", "r1/bgp_route_1.json"
+    )
+    assertmsg = "R1: Route 13.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    _, result = _run_cmd_and_check(r3, 'show ip bgp 11.1.1.1/32 json', 'r3/bgp_route_1.json')
-    assertmsg = 'R3: Route 11.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r3, "show ip bgp 11.1.1.1/32 json", "r3/bgp_route_1.json"
+    )
+    assertmsg = "R3: Route 11.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
     # R5 should see routes from R2 with GSHUT.
-    _, result = _run_cmd_and_check(r5, 'show ip bgp 14.1.1.1/32 json', 'r5/bgp_route_2.json')
-    assertmsg = 'R5: Route 14.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r5, "show ip bgp 14.1.1.1/32 json", "r5/bgp_route_2.json"
+    )
+    assertmsg = "R5: Route 14.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    logger.info('\nTest #3: Successful, only VRF peers like R5 see routes with GSHUT')
+    logger.info("\nTest #3: Successful, only VRF peers like R5 see routes with GSHUT")
 
-
-    #"Test #4: Try to enable BGP-wide graceful-shutdown on R2 while it is configured in VRF1"
-    logger.info('\nTest #4: Try to enable BGP-wide graceful-shutdown on R2 while it is configured in VRF1')
+    # "Test #4: Try to enable BGP-wide graceful-shutdown on R2 while it is configured in VRF1"
+    logger.info(
+        "\nTest #4: Try to enable BGP-wide graceful-shutdown on R2 while it is configured in VRF1"
+    )
 
     ret = r2.vtysh_cmd(
         """
           configure terminal
             bgp graceful-shutdown
         """
-        )
+    )
 
     # This should fail
-    assertmsg = 'R2: BGP-wide graceful-shutdown config not rejected even though it is enabled in VRF1'
-    assert re.search("global graceful-shutdown not permitted", ret) is not None, assertmsg
+    assertmsg = "R2: BGP-wide graceful-shutdown config not rejected even though it is enabled in VRF1"
+    assert (
+        re.search("global graceful-shutdown not permitted", ret) is not None
+    ), assertmsg
 
-    logger.info('\nTest #4: Successful, BGP-wide graceful-shutdown rejected as it is enabled in VRF')
+    logger.info(
+        "\nTest #4: Successful, BGP-wide graceful-shutdown rejected as it is enabled in VRF"
+    )
 
-
-    #"Test #5: Turn off graceful-shutdown on R2 in VRF1 and check routes on peers"
-    logger.info('\nTest #5: Turn off graceful-shutdown on R2 in VRF1 and check routes on peers')
+    # "Test #5: Turn off graceful-shutdown on R2 in VRF1 and check routes on peers"
+    logger.info(
+        "\nTest #5: Turn off graceful-shutdown on R2 in VRF1 and check routes on peers"
+    )
 
     r2.vtysh_cmd(
         """
@@ -286,27 +326,34 @@ def test_bgp_gshut():
             router bgp 65001 vrf vrf1
               no bgp graceful-shutdown
         """
-        )
+    )
 
     # R1 and R3 should see no change to their routes
-    _, result = _run_cmd_and_check(r1, 'show ip bgp 13.1.1.1/32 json', 'r1/bgp_route_1.json')
-    assertmsg = 'R1: Route 13.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r1, "show ip bgp 13.1.1.1/32 json", "r1/bgp_route_1.json"
+    )
+    assertmsg = "R1: Route 13.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
-    _, result = _run_cmd_and_check(r3, 'show ip bgp 11.1.1.1/32 json', 'r3/bgp_route_1.json')
-    assertmsg = 'R3: Route 11.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r3, "show ip bgp 11.1.1.1/32 json", "r3/bgp_route_1.json"
+    )
+    assertmsg = "R3: Route 11.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
     # R5 should see routes from R2 with original attributes.
-    _, result = _run_cmd_and_check(r5, 'show ip bgp 14.1.1.1/32 json', 'r5/bgp_route_1.json')
-    assertmsg = 'R5: Route 14.1.1.1/32 not present or has unexpected params'
+    _, result = _run_cmd_and_check(
+        r5, "show ip bgp 14.1.1.1/32 json", "r5/bgp_route_1.json"
+    )
+    assertmsg = "R5: Route 14.1.1.1/32 not present or has unexpected params"
     assert result is None, assertmsg
 
+    logger.info(
+        "\nTest #5: Successful, routes have their original attributes with default LPREF and without GSHUT"
+    )
 
-    logger.info('\nTest #5: Successful, routes have their original attributes with default LPREF and without GSHUT')
+    # tgen.mininet_cli()
 
-
-    #tgen.mininet_cli()
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

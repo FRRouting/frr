@@ -90,84 +90,36 @@ def test_vrf_route_leak():
 
     # Test DONNA VRF.
     expect = {
-        '10.0.0.0/24': [
-            {
-                'protocol': 'connected',
-            }
+        "10.0.0.0/24": [{"protocol": "connected",}],
+        "10.0.1.0/24": [
+            {"protocol": "bgp", "selected": True, "nexthops": [{"fib": True}]}
         ],
-        '10.0.1.0/24': [
-            {
-                'protocol': 'bgp',
-                'selected': True,
-                'nexthops': [
-                    {
-                        'fib': True
-                    }
-                ]
-            }
+        "10.0.2.0/24": [{"protocol": "connected"}],
+        "10.0.3.0/24": [
+            {"protocol": "bgp", "selected": True, "nexthops": [{"fib": True}]}
         ],
-        '10.0.2.0/24': [
-            {
-                'protocol': 'connected'
-            }
-        ],
-        '10.0.3.0/24': [
-            {
-                'protocol': 'bgp',
-                'selected': True,
-                'nexthops': [
-                    {
-                        'fib': True
-                    }
-                ]
-            }
-        ]
     }
 
     test_func = partial(
-        topotest.router_json_cmp, r1, 'show ip route vrf DONNA json', expect
+        topotest.router_json_cmp, r1, "show ip route vrf DONNA json", expect
     )
     result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
     # Test EVA VRF.
     expect = {
-        '10.0.0.0/24': [
-            {
-                'protocol': 'bgp',
-                'selected': True,
-                'nexthops': [
-                    {
-                        'fib': True
-                    }
-                ]
-            }
+        "10.0.0.0/24": [
+            {"protocol": "bgp", "selected": True, "nexthops": [{"fib": True}]}
         ],
-        '10.0.1.0/24': [
-            {
-                'protocol': 'connected',
-            }
+        "10.0.1.0/24": [{"protocol": "connected",}],
+        "10.0.2.0/24": [
+            {"protocol": "bgp", "selected": True, "nexthops": [{"fib": True}]}
         ],
-        '10.0.2.0/24': [
-            {
-                'protocol': 'bgp',
-                'selected': True,
-                'nexthops': [
-                    {
-                        'fib': True
-                    }
-                ]
-            }
-        ],
-        '10.0.3.0/24': [
-            {
-                'protocol': 'connected',
-            }
-        ]
+        "10.0.3.0/24": [{"protocol": "connected",}],
     }
 
     test_func = partial(
-        topotest.router_json_cmp, r1, 'show ip route vrf EVA json', expect
+        topotest.router_json_cmp, r1, "show ip route vrf EVA json", expect
     )
     result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result, "BGP VRF EVA check failed:\n{}".format(diff)

@@ -283,8 +283,7 @@ def test_ldp_pseudowires_after_link_down():
     # for nexthop resolution). Give some extra wait time.
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
-            rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref",
-            count=160, wait=1
+            rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref", count=160, wait=1
         )
 
 

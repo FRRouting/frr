@@ -703,10 +703,8 @@ class TopoRouter(TopoGear):
         Stop router, private internal version
         * Kill daemons
         """
-        self.logger.debug("stopping: wait {}, assert {}".format(
-            wait, assertOnError))
+        self.logger.debug("stopping: wait {}, assert {}".format(wait, assertOnError))
         return self.tgen.net[self.name].stopRouter(wait, assertOnError)
-
 
     def stop(self):
         """
@@ -724,7 +722,7 @@ class TopoRouter(TopoGear):
         * Start daemons (e.g. FRR)
         * Configure daemon logging files
         """
-        self.logger.debug('starting')
+        self.logger.debug("starting")
         nrouter = self.tgen.net[self.name]
         result = nrouter.startRouterDaemons(daemons)
 
@@ -734,10 +732,12 @@ class TopoRouter(TopoGear):
             for d in daemons:
                 if enabled == 0:
                     continue
-                self.vtysh_cmd('configure terminal\nlog commands\nlog file {}.log'.\
-                    format(daemon), daemon=daemon)
+                self.vtysh_cmd(
+                    "configure terminal\nlog commands\nlog file {}.log".format(daemon),
+                    daemon=daemon,
+                )
 
-        if result != '':
+        if result != "":
             self.tgen.set_error(result)
 
         return result
@@ -747,7 +747,7 @@ class TopoRouter(TopoGear):
         Kill specific daemon(user defined daemon only)
         forcefully using SIGKILL
         """
-        self.logger.debug('Killing daemons using SIGKILL..')
+        self.logger.debug("Killing daemons using SIGKILL..")
         return self.tgen.net[self.name].killRouterDaemons(daemons, wait, assertOnError)
 
     def vtysh_cmd(self, command, isjson=False, daemon=None):
@@ -1070,7 +1070,7 @@ def diagnose_env_linux():
             "isisd",
             "pimd",
             "ldpd",
-            "pbrd"
+            "pbrd",
         ]:
             path = os.path.join(frrdir, fname)
             if not os.path.isfile(path):

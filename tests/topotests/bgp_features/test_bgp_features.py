@@ -188,11 +188,15 @@ def test_bgp_shutdown():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    tgen.net['r1'].cmd('vtysh -c \"conf t\" -c \"router bgp 65000\" -c \"bgp shutdown message ABCDabcd\"')
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" -c "bgp shutdown message ABCDabcd"'
+    )
 
     # Check BGP Summary on local and remote routers
     for rtrNum in [1, 2, 4]:
-        logger.info("Checking BGP Summary after shutdown of R1 BGP on router r{}".format(rtrNum))
+        logger.info(
+            "Checking BGP Summary after shutdown of R1 BGP on router r{}".format(rtrNum)
+        )
 
         router = tgen.gears["r{}".format(rtrNum)]
         reffile = os.path.join(CWD, "r{}/bgp_shutdown_summary.json".format(rtrNum))
@@ -202,7 +206,9 @@ def test_bgp_shutdown():
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
         _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
-        assertmsg = "BGP sessions on router R{} are in incorrect state (not down as expected?)".format(rtrNum)
+        assertmsg = "BGP sessions on router R{} are in incorrect state (not down as expected?)".format(
+            rtrNum
+        )
         assert res is None, assertmsg
 
 
@@ -218,18 +224,21 @@ def test_bgp_shutdown_message():
     for rtrNum in [2, 4]:
         logger.info("Checking BGP shutdown received on router r{}".format(rtrNum))
 
-        shut_message = tgen.net['r{}'.format(rtrNum)].cmd(
-            'tail bgpd.log | grep "NOTIFICATION.*Cease/Administratively Shutdown"')
+        shut_message = tgen.net["r{}".format(rtrNum)].cmd(
+            'tail bgpd.log | grep "NOTIFICATION.*Cease/Administratively Shutdown"'
+        )
         assertmsg = "BGP shutdown message not received on router R{}".format(rtrNum)
-        assert shut_message != '', assertmsg
+        assert shut_message != "", assertmsg
 
-        m = re.search('.*([0-9]+ bytes[ 0-9a-fA-F]+)', shut_message)
+        m = re.search(".*([0-9]+ bytes[ 0-9a-fA-F]+)", shut_message)
         if m:
             found = m.group(1)
         else:
-            found = ''
-        assertmsg = "Incorrect BGP shutdown message received on router R{}".format(rtrNum)
-        assert found == '8 bytes 41 42 43 44 61 62 63 64', assertmsg
+            found = ""
+        assertmsg = "Incorrect BGP shutdown message received on router R{}".format(
+            rtrNum
+        )
+        assert found == "8 bytes 41 42 43 44 61 62 63 64", assertmsg
 
     # tgen.mininet_cli()
 
@@ -243,11 +252,15 @@ def test_bgp_no_shutdown():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    tgen.net['r1'].cmd('vtysh -c \"conf t\" -c \"router bgp 65000\" -c \"no bgp shutdown\"')
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "router bgp 65000" -c "no bgp shutdown"')
 
     # Check BGP Summary on local and remote routers
     for rtrNum in [1, 2, 4]:
-        logger.info("Checking BGP Summary after removing bgp shutdown on router r1 on router r{}".format(rtrNum))
+        logger.info(
+            "Checking BGP Summary after removing bgp shutdown on router r1 on router r{}".format(
+                rtrNum
+            )
+        )
 
         router = tgen.gears["r{}".format(rtrNum)]
         reffile = os.path.join(CWD, "r{}/bgp_summary.json".format(rtrNum))
@@ -257,7 +270,9 @@ def test_bgp_no_shutdown():
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
         _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
-        assertmsg = "BGP sessions on router R{} are in incorrect state (not down as expected?)".format(rtrNum)
+        assertmsg = "BGP sessions on router R{} are in incorrect state (not down as expected?)".format(
+            rtrNum
+        )
         assert res is None, assertmsg
 
 
@@ -303,31 +318,43 @@ def test_bgp_metric_config():
     #  set metric +12
     # !
 
-    tgen.net['r1'].cmd('vtysh -c "conf t" -c "router bgp 65000" '+
-        '-c "address-family ipv4 unicast" '+
-        '-c "neighbor 192.168.0.2 route-map addmetric-in in" '+
-        '-c "neighbor 192.168.0.2 route-map addmetric-out out" '+
-        '-c "neighbor 192.168.101.2 route-map setmetric-in in" '+
-        '-c "neighbor 192.168.101.2 route-map setmetric-out out" ')
-    tgen.net['r1'].cmd('vtysh -c "conf t" '+
-        '-c "ip prefix-list net1 seq 10 permit 192.168.101.0/24" '+
-        '-c "ip prefix-list net2 seq 20 permit 192.168.1.0/24"')
-    tgen.net['r1'].cmd('vtysh -c "conf t" '+
-        '-c "route-map setmetric-in permit 10" '+
-        '-c "match ip address prefix-list net1" '+
-        '-c "set metric 111" '+
-        '-c "route-map setmetric-in permit 20"')
-    tgen.net['r1'].cmd('vtysh -c "conf t" '+
-        '-c "route-map setmetric-out permit 10" '+
-        '-c "match ip address prefix-list net2" '+
-        '-c "set metric 1011" '+
-        '-c "route-map setmetric-out permit 20"')
-    tgen.net['r1'].cmd('vtysh -c "conf t" '+
-        '-c "route-map addmetric-in permit 10" '+
-        '-c "set metric +11"')
-    tgen.net['r1'].cmd('vtysh -c "conf t" '+
-        '-c "route-map addmetric-out permit 10" '+
-        '-c "set metric +12"')
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" '
+        + '-c "address-family ipv4 unicast" '
+        + '-c "neighbor 192.168.0.2 route-map addmetric-in in" '
+        + '-c "neighbor 192.168.0.2 route-map addmetric-out out" '
+        + '-c "neighbor 192.168.101.2 route-map setmetric-in in" '
+        + '-c "neighbor 192.168.101.2 route-map setmetric-out out" '
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "ip prefix-list net1 seq 10 permit 192.168.101.0/24" '
+        + '-c "ip prefix-list net2 seq 20 permit 192.168.1.0/24"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "route-map setmetric-in permit 10" '
+        + '-c "match ip address prefix-list net1" '
+        + '-c "set metric 111" '
+        + '-c "route-map setmetric-in permit 20"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "route-map setmetric-out permit 10" '
+        + '-c "match ip address prefix-list net2" '
+        + '-c "set metric 1011" '
+        + '-c "route-map setmetric-out permit 20"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "route-map addmetric-in permit 10" '
+        + '-c "set metric +11"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "route-map addmetric-out permit 10" '
+        + '-c "set metric +12"'
+    )
 
     # # Adding the following configuration to r2:
     # router bgp 65000
@@ -360,50 +387,72 @@ def test_bgp_metric_config():
     #  set metric -23
     # !
 
-    tgen.net['r2'].cmd('vtysh -c "conf t" -c "router bgp 65000" '+
-        '-c "address-family ipv4 unicast" '+
-        '-c "neighbor 192.168.0.1 route-map subtractmetric-in in" '+
-        '-c "neighbor 192.168.0.1 route-map subtractmetric-out out" '+
-        '-c "neighbor 192.168.201.2 route-map setmetric-in in" ' +
-        '-c "neighbor 192.168.201.2 route-map setmetric-out out" ')
-    tgen.net['r2'].cmd('vtysh -c "conf t" '+
-        '-c "ip prefix-list net1 seq 10 permit 192.168.201.0/24" '+
-        '-c "ip prefix-list net2 seq 20 permit 192.168.2.0/24" ')
-    tgen.net['r2'].cmd('vtysh -c "conf t" '+
-        '-c "route-map setmetric-in permit 10" '+
-        '-c "match ip address prefix-list net1" '+
-        '-c "set metric 222" '+
-        '-c "route-map setmetric-in permit 20"')
-    tgen.net['r2'].cmd('vtysh -c "conf t" '+
-        '-c "route-map setmetric-out permit 10" '+
-        '-c "match ip address prefix-list net2" '+
-        '-c "set metric 2022" '+
-        '-c "route-map setmetric-out permit 20"')
-    tgen.net['r2'].cmd('vtysh -c "conf t" '+
-        '-c "route-map subtractmetric-in permit 10" '+
-        '-c "set metric -22"')
-    tgen.net['r2'].cmd('vtysh -c "conf t" '+
-        '-c "route-map subtractmetric-out permit 10" '+
-        '-c "set metric -23"')
+    tgen.net["r2"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" '
+        + '-c "address-family ipv4 unicast" '
+        + '-c "neighbor 192.168.0.1 route-map subtractmetric-in in" '
+        + '-c "neighbor 192.168.0.1 route-map subtractmetric-out out" '
+        + '-c "neighbor 192.168.201.2 route-map setmetric-in in" '
+        + '-c "neighbor 192.168.201.2 route-map setmetric-out out" '
+    )
+    tgen.net["r2"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "ip prefix-list net1 seq 10 permit 192.168.201.0/24" '
+        + '-c "ip prefix-list net2 seq 20 permit 192.168.2.0/24" '
+    )
+    tgen.net["r2"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "route-map setmetric-in permit 10" '
+        + '-c "match ip address prefix-list net1" '
+        + '-c "set metric 222" '
+        + '-c "route-map setmetric-in permit 20"'
+    )
+    tgen.net["r2"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "route-map setmetric-out permit 10" '
+        + '-c "match ip address prefix-list net2" '
+        + '-c "set metric 2022" '
+        + '-c "route-map setmetric-out permit 20"'
+    )
+    tgen.net["r2"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "route-map subtractmetric-in permit 10" '
+        + '-c "set metric -22"'
+    )
+    tgen.net["r2"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "route-map subtractmetric-out permit 10" '
+        + '-c "set metric -23"'
+    )
 
     # Clear IN the bgp neighbors to make sure the route-maps are applied
-    tgen.net['r1'].cmd('vtysh -c "clear ip bgp 192.168.0.2 in" '+
-        '-c "clear ip bgp 192.168.101.2 in"')
-    tgen.net['r2'].cmd('vtysh -c "clear ip bgp 192.168.0.1 in" '+
-        '-c "clear ip bgp 192.168.201.2 in"')
+    tgen.net["r1"].cmd(
+        'vtysh -c "clear ip bgp 192.168.0.2 in" ' + '-c "clear ip bgp 192.168.101.2 in"'
+    )
+    tgen.net["r2"].cmd(
+        'vtysh -c "clear ip bgp 192.168.0.1 in" ' + '-c "clear ip bgp 192.168.201.2 in"'
+    )
 
     # tgen.mininet_cli()
 
     # Checking BGP config - should show the bgp metric settings in the route-maps
     logger.info("Checking BGP configuration for correct 'set metric' values")
 
-    setmetric111 = tgen.net['r1'].cmd('vtysh -c "show running" | grep "^ set metric 111"').rstrip()
-    assertmsg = "'set metric 111' configuration applied to R1, but not visible in configuration"
-    assert setmetric111 == ' set metric 111', assertmsg
+    setmetric111 = (
+        tgen.net["r1"].cmd('vtysh -c "show running" | grep "^ set metric 111"').rstrip()
+    )
+    assertmsg = (
+        "'set metric 111' configuration applied to R1, but not visible in configuration"
+    )
+    assert setmetric111 == " set metric 111", assertmsg
 
-    setmetric222 = tgen.net['r2'].cmd('vtysh -c "show running" | grep "^ set metric 222"').rstrip()
-    assertmsg = "'set metric 222' configuration applied to R2, but not visible in configuration"
-    assert setmetric222 == ' set metric 222', assertmsg
+    setmetric222 = (
+        tgen.net["r2"].cmd('vtysh -c "show running" | grep "^ set metric 222"').rstrip()
+    )
+    assertmsg = (
+        "'set metric 222' configuration applied to R2, but not visible in configuration"
+    )
+    assert setmetric222 == " set metric 222", assertmsg
 
 
 def test_bgp_metric_add_config():
@@ -417,9 +466,13 @@ def test_bgp_metric_add_config():
 
     logger.info("Checking BGP configuration for correct 'set metric' ADD value")
 
-    setmetricP11 = tgen.net['r1'].cmd('vtysh -c "show running" | grep "^ set metric +11"').rstrip()
-    assertmsg = "'set metric +11' configuration applied to R1, but not visible in configuration"
-    assert setmetricP11 == ' set metric +11', assertmsg
+    setmetricP11 = (
+        tgen.net["r1"].cmd('vtysh -c "show running" | grep "^ set metric +11"').rstrip()
+    )
+    assertmsg = (
+        "'set metric +11' configuration applied to R1, but not visible in configuration"
+    )
+    assert setmetricP11 == " set metric +11", assertmsg
 
 
 def test_bgp_metric_subtract_config():
@@ -433,9 +486,13 @@ def test_bgp_metric_subtract_config():
 
     logger.info("Checking BGP configuration for correct 'set metric' SUBTRACT value")
 
-    setmetricM22 = tgen.net['r2'].cmd('vtysh -c "show running" | grep "^ set metric -22"').rstrip()
-    assertmsg = "'set metric -22' configuration applied to R2, but not visible in configuration"
-    assert setmetricM22 == ' set metric -22', assertmsg
+    setmetricM22 = (
+        tgen.net["r2"].cmd('vtysh -c "show running" | grep "^ set metric -22"').rstrip()
+    )
+    assertmsg = (
+        "'set metric -22' configuration applied to R2, but not visible in configuration"
+    )
+    assert setmetricM22 == " set metric -22", assertmsg
 
 
 def test_bgp_set_metric():
@@ -478,47 +535,49 @@ def test_bgp_remove_metric_rmaps():
 
     # Remove metric route-maps and relevant comfiguration
 
-    tgen.net['r1'].cmd('vtysh -c "conf t" -c "router bgp 65000" '+
-        '-c "address-family ipv4 unicast" '+
-        '-c "no neighbor 192.168.0.2 route-map addmetric-in in" '+
-        '-c "no neighbor 192.168.0.2 route-map addmetric-out out" '+
-        '-c "no neighbor 192.168.101.2 route-map setmetric-in in" '+
-        '-c "no neighbor 192.168.101.2 route-map setmetric-out out" ')
-    tgen.net['r1'].cmd('vtysh -c "conf t" '+
-        '-c "no ip prefix-list net1" '+
-        '-c "no ip prefix-list net2"')
-    tgen.net['r1'].cmd('vtysh -c "conf t" '+
-        '-c "no route-map setmetric-in" ')
-    tgen.net['r1'].cmd('vtysh -c "conf t" '+
-        '-c "no route-map setmetric-out" ')
-    tgen.net['r1'].cmd('vtysh -c "conf t" '+
-        '-c "no route-map addmetric-in" ')
-    tgen.net['r1'].cmd('vtysh -c "conf t" '+
-        '-c "no route-map addmetric-out" ')
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" '
+        + '-c "address-family ipv4 unicast" '
+        + '-c "no neighbor 192.168.0.2 route-map addmetric-in in" '
+        + '-c "no neighbor 192.168.0.2 route-map addmetric-out out" '
+        + '-c "no neighbor 192.168.101.2 route-map setmetric-in in" '
+        + '-c "no neighbor 192.168.101.2 route-map setmetric-out out" '
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "no ip prefix-list net1" '
+        + '-c "no ip prefix-list net2"'
+    )
+    tgen.net["r1"].cmd('vtysh -c "conf t" ' + '-c "no route-map setmetric-in" ')
+    tgen.net["r1"].cmd('vtysh -c "conf t" ' + '-c "no route-map setmetric-out" ')
+    tgen.net["r1"].cmd('vtysh -c "conf t" ' + '-c "no route-map addmetric-in" ')
+    tgen.net["r1"].cmd('vtysh -c "conf t" ' + '-c "no route-map addmetric-out" ')
 
-    tgen.net['r2'].cmd('vtysh -c "conf t" -c "router bgp 65000" '+
-        '-c "address-family ipv4 unicast" '+
-        '-c "no neighbor 192.168.0.1 route-map subtractmetric-in in" '+
-        '-c "no neighbor 192.168.0.1 route-map subtractmetric-out out" '+
-        '-c "no neighbor 192.168.201.2 route-map setmetric-in in" ' +
-        '-c "no neighbor 192.168.201.2 route-map setmetric-out out" ')
-    tgen.net['r2'].cmd('vtysh -c "conf t" '+
-        '-c "no ip prefix-list net1" '+
-        '-c "no ip prefix-list net2" ')
-    tgen.net['r2'].cmd('vtysh -c "conf t" '+
-        '-c "no route-map setmetric-in" ')
-    tgen.net['r2'].cmd('vtysh -c "conf t" '+
-        '-c "no route-map setmetric-out" ')
-    tgen.net['r2'].cmd('vtysh -c "conf t" '+
-        '-c "no route-map addmetric-in" ')
-    tgen.net['r2'].cmd('vtysh -c "conf t" '+
-        '-c "no route-map addmetric-out" ')
+    tgen.net["r2"].cmd(
+        'vtysh -c "conf t" -c "router bgp 65000" '
+        + '-c "address-family ipv4 unicast" '
+        + '-c "no neighbor 192.168.0.1 route-map subtractmetric-in in" '
+        + '-c "no neighbor 192.168.0.1 route-map subtractmetric-out out" '
+        + '-c "no neighbor 192.168.201.2 route-map setmetric-in in" '
+        + '-c "no neighbor 192.168.201.2 route-map setmetric-out out" '
+    )
+    tgen.net["r2"].cmd(
+        'vtysh -c "conf t" '
+        + '-c "no ip prefix-list net1" '
+        + '-c "no ip prefix-list net2" '
+    )
+    tgen.net["r2"].cmd('vtysh -c "conf t" ' + '-c "no route-map setmetric-in" ')
+    tgen.net["r2"].cmd('vtysh -c "conf t" ' + '-c "no route-map setmetric-out" ')
+    tgen.net["r2"].cmd('vtysh -c "conf t" ' + '-c "no route-map addmetric-in" ')
+    tgen.net["r2"].cmd('vtysh -c "conf t" ' + '-c "no route-map addmetric-out" ')
 
     # Clear IN the bgp neighbors to make sure the route-maps are applied
-    tgen.net['r1'].cmd('vtysh -c "clear ip bgp 192.168.0.2 in" '+
-        '-c "clear ip bgp 192.168.101.2 in"')
-    tgen.net['r2'].cmd('vtysh -c "clear ip bgp 192.168.0.1 in" '+
-        '-c "clear ip bgp 192.168.201.2 in"')
+    tgen.net["r1"].cmd(
+        'vtysh -c "clear ip bgp 192.168.0.2 in" ' + '-c "clear ip bgp 192.168.101.2 in"'
+    )
+    tgen.net["r2"].cmd(
+        'vtysh -c "clear ip bgp 192.168.0.1 in" ' + '-c "clear ip bgp 192.168.201.2 in"'
+    )
 
     # tgen.mininet_cli()
 
@@ -534,7 +593,9 @@ def test_bgp_remove_metric_rmaps():
             topotest.router_json_cmp, router, "show ip bgp json", expected
         )
         _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
-        assertmsg = "BGP routes on router r{} are wrong after removing metric route-maps".format(rtrNum)
+        assertmsg = "BGP routes on router r{} are wrong after removing metric route-maps".format(
+            rtrNum
+        )
         assert res is None, assertmsg
 
 
@@ -549,15 +610,17 @@ def test_bgp_norib():
 
     logger.info("Configuring 'bgp no-rib' on router r1")
 
-    tgen.net['r1'].cmd('vtysh -c \"conf t\" -c \"bgp no-rib\"')
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "bgp no-rib"')
 
     # Checking BGP config - should show the "bgp no-rib" under the router bgp section
     logger.info("Checking BGP configuration for 'bgp no-rib'")
 
-    norib_cfg = tgen.net['r1'].cmd('vtysh -c "show running bgpd" | grep "^bgp no-rib"').rstrip()
+    norib_cfg = (
+        tgen.net["r1"].cmd('vtysh -c "show running bgpd" | grep "^bgp no-rib"').rstrip()
+    )
 
     assertmsg = "'bgp no-rib' configuration applied, but not visible in configuration"
-    assert norib_cfg == 'bgp no-rib', assertmsg
+    assert norib_cfg == "bgp no-rib", assertmsg
 
 
 def test_bgp_norib_routes():
@@ -585,7 +648,11 @@ def test_bgp_norib_routes():
 
     # Check BGP Summary on local and remote routers
     for rtrNum in [1, 2, 4]:
-        logger.info("Checking BGP Summary after 'bgp no-rib' on router r1 on router r{}".format(rtrNum))
+        logger.info(
+            "Checking BGP Summary after 'bgp no-rib' on router r1 on router r{}".format(
+                rtrNum
+            )
+        )
 
         router = tgen.gears["r{}".format(rtrNum)]
         reffile = os.path.join(CWD, "r{}/bgp_summary.json".format(rtrNum))
@@ -595,7 +662,9 @@ def test_bgp_norib_routes():
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
         _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
-        assertmsg = "BGP sessions on router R{} has incorrect routes after adding 'bgp no-rib on r1'".format(rtrNum)
+        assertmsg = "BGP sessions on router R{} has incorrect routes after adding 'bgp no-rib on r1'".format(
+            rtrNum
+        )
         assert res is None, assertmsg
 
     # tgen.mininet_cli()
@@ -612,15 +681,21 @@ def test_bgp_disable_norib():
 
     logger.info("Configuring 'no bgp no-rib' on router r1")
 
-    tgen.net['r1'].cmd('vtysh -c \"conf t\" -c \"no bgp no-rib\"')
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "no bgp no-rib"')
 
     # Checking BGP config - should show the "bgp no-rib" under the router bgp section
     logger.info("Checking BGP configuration for 'bgp no-rib'")
 
-    norib_cfg = tgen.net['r1'].cmd('vtysh -c "show running bgpd" | grep "^ bgp no-rib"').rstrip()
+    norib_cfg = (
+        tgen.net["r1"]
+        .cmd('vtysh -c "show running bgpd" | grep "^ bgp no-rib"')
+        .rstrip()
+    )
 
-    assertmsg = "'no bgp no-rib'configuration applied, but still visible in configuration"
-    assert norib_cfg == '', assertmsg
+    assertmsg = (
+        "'no bgp no-rib'configuration applied, but still visible in configuration"
+    )
+    assert norib_cfg == "", assertmsg
 
 
 def test_bgp_disable_norib_routes():
@@ -648,7 +723,11 @@ def test_bgp_disable_norib_routes():
 
     # Check BGP Summary on local and remote routers
     for rtrNum in [1, 2, 4]:
-        logger.info("Checking BGP Summary after removing the 'bgp no-rib' on router r1 on router r{}".format(rtrNum))
+        logger.info(
+            "Checking BGP Summary after removing the 'bgp no-rib' on router r1 on router r{}".format(
+                rtrNum
+            )
+        )
 
         router = tgen.gears["r{}".format(rtrNum)]
         reffile = os.path.join(CWD, "r{}/bgp_summary.json".format(rtrNum))
@@ -658,11 +737,12 @@ def test_bgp_disable_norib_routes():
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
         _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
-        assertmsg = "BGP sessions on router R{} has incorrect routes after removing 'bgp no-rib on r1'".format(rtrNum)
+        assertmsg = "BGP sessions on router R{} has incorrect routes after removing 'bgp no-rib on r1'".format(
+            rtrNum
+        )
         assert res is None, assertmsg
 
     # tgen.mininet_cli()
-
 
 
 if __name__ == "__main__":

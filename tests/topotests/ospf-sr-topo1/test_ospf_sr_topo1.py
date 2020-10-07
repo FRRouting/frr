@@ -65,22 +65,22 @@ class OspfSrTopo(Topo):
             tgen.add_router("r{}".format(routern))
 
         # Interconect router 1 and 2 with 2 links
-        switch = tgen.add_switch('s1')
-        switch.add_link(tgen.gears['r1'])
-        switch.add_link(tgen.gears['r2'])
-        switch = tgen.add_switch('s2')
-        switch.add_link(tgen.gears['r1'])
-        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch("s1")
+        switch.add_link(tgen.gears["r1"])
+        switch.add_link(tgen.gears["r2"])
+        switch = tgen.add_switch("s2")
+        switch.add_link(tgen.gears["r1"])
+        switch.add_link(tgen.gears["r2"])
 
         # Interconect router 3 and 2
-        switch = tgen.add_switch('s3')
-        switch.add_link(tgen.gears['r3'])
-        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch("s3")
+        switch.add_link(tgen.gears["r3"])
+        switch.add_link(tgen.gears["r2"])
 
         # Interconect router 4 and 2
-        switch = tgen.add_switch('s4')
-        switch.add_link(tgen.gears['r4'])
-        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch("s4")
+        switch.add_link(tgen.gears["r4"])
+        switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
@@ -134,12 +134,13 @@ def test_ospf_sr():
         # Run test function until we get an result. Wait at most 60 seconds.
         rt = tgen.gears[router]
         test_func = partial(
-            topotest.router_json_cmp, rt, 'show ip ospf database segment-routing json', expected
+            topotest.router_json_cmp,
+            rt,
+            "show ip ospf database segment-routing json",
+            expected,
         )
         rv, diff = topotest.run_and_expect(test_func, None, count=25, wait=3)
-        assert rv, "OSPF did not start Segment Routing on {}:\n{}".format(
-            router, diff
-        )
+        assert rv, "OSPF did not start Segment Routing on {}:\n{}".format(router, diff)
 
 
 def test_ospf_kernel_route():
@@ -169,7 +170,7 @@ def test_ospf_kernel_route():
           }
         ]
         """
-        out = rt.vtysh_cmd('show mpls table json', isjson=True)
+        out = rt.vtysh_cmd("show mpls table json", isjson=True)
 
         outlist = []
         for key in out.keys():

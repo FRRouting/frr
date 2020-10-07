@@ -71,7 +71,7 @@ from lib.common_config import (
     configure_brctl,
     apply_raw_config,
     verify_vrf_vni,
-    verify_cli_json
+    verify_cli_json,
 )
 
 from lib.topolog import logger
@@ -81,7 +81,7 @@ from lib.bgp import (
     clear_bgp,
     verify_best_path_as_per_bgp_attribute,
     verify_attributes_for_evpn_routes,
-    verify_evpn_routes
+    verify_evpn_routes,
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
 
@@ -177,9 +177,11 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
-    if version_cmp(platform.release(), '4.19') < 0:
-        error_msg = ('EVPN tests will not run (have kernel "{}", '
-            'but it requires >= 4.19)'.format(platform.release()))
+    if version_cmp(platform.release(), "4.19") < 0:
+        error_msg = (
+            'EVPN tests will not run (have kernel "{}", '
+            "but it requires >= 4.19)".format(platform.release())
+        )
         pytest.skip(error_msg)
 
     global BGP_CONVERGENCE
@@ -389,9 +391,9 @@ def test_verify_overlay_index_p1(request):
                         "network": NETWORK3_1[addr_type],
                         "next_hop": NEXT_HOP_IP[addr_type],
                         "vrf": "GREEN",
-                    }
+                    },
                 ]
-            }
+            },
         }
 
         result = create_static_routes(tgen, input_dict_1)
@@ -463,7 +465,7 @@ def test_evpn_cli_json_available_p1(request):
             "cli": [
                 "show evpn vni detail",
                 "show bgp l2vpn evpn all overlay",
-                "show bgp l2vpn evpn vni"
+                "show bgp l2vpn evpn vni",
             ]
         }
     }
@@ -516,9 +518,9 @@ def test_RT_verification_auto_p0(request):
                         "network": NETWORK4_1[addr_type],
                         "next_hop": NEXT_HOP_IP[addr_type],
                         "vrf": "GREEN",
-                    }
+                    },
                 ]
-            }
+            },
         }
 
         result = create_static_routes(tgen, input_dict_1)

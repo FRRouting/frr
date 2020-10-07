@@ -45,6 +45,7 @@ from lib.common_config import (
 
 from lib.bgp import create_router_bgp
 from lib.ospf import create_router_ospf
+
 ROUTER_LIST = []
 
 
@@ -214,13 +215,14 @@ def build_topo_from_json(tgen, topo):
     while listSwitches != []:
         curSwitch = listSwitches.pop(0)
         # Physical Interfaces
-        if "links" in  topo['switches'][curSwitch]:
+        if "links" in topo["switches"][curSwitch]:
             for destRouterLink, data in sorted(
-                    topo['switches'][curSwitch]['links'].items()):
+                topo["switches"][curSwitch]["links"].items()
+            ):
 
                 # Loopback interfaces
                 if "dst_node" in data:
-                    destRouter = data['dst_node']
+                    destRouter = data["dst_node"]
 
                 elif "-" in destRouterLink:
                     # Spliting and storing destRouterLink data in tempList
@@ -232,39 +234,55 @@ def build_topo_from_json(tgen, topo):
 
                 if destRouter in listAllRouters:
 
-                    topo['routers'][destRouter]['links'][curSwitch] = \
-                        deepcopy(topo['switches'][curSwitch]['links'][destRouterLink])
+                    topo["routers"][destRouter]["links"][curSwitch] = deepcopy(
+                        topo["switches"][curSwitch]["links"][destRouterLink]
+                    )
 
                     # Assigning name to interfaces
-                    topo['routers'][destRouter]['links'][curSwitch]['interface'] = \
-                        '{}-{}-eth{}'.format(destRouter, curSwitch, topo['routers'] \
-                            [destRouter]['nextIfname'])
+                    topo["routers"][destRouter]["links"][curSwitch][
+                        "interface"
+                    ] = "{}-{}-eth{}".format(
+                        destRouter, curSwitch, topo["routers"][destRouter]["nextIfname"]
+                    )
 
-                    topo['switches'][curSwitch]['links'][destRouter]['interface'] = \
-                        '{}-{}-eth{}'.format(curSwitch, destRouter, topo['routers'] \
-                            [destRouter]['nextIfname'])
+                    topo["switches"][curSwitch]["links"][destRouter][
+                        "interface"
+                    ] = "{}-{}-eth{}".format(
+                        curSwitch, destRouter, topo["routers"][destRouter]["nextIfname"]
+                    )
 
-                    topo['routers'][destRouter]['nextIfname'] += 1
+                    topo["routers"][destRouter]["nextIfname"] += 1
 
                     # Add links
-                    dictSwitches[curSwitch].add_link(tgen.gears[destRouter], \
-                        topo['switches'][curSwitch]['links'][destRouter]['interface'],
-                        topo['routers'][destRouter]['links'][curSwitch]['interface'],
-                        )
+                    dictSwitches[curSwitch].add_link(
+                        tgen.gears[destRouter],
+                        topo["switches"][curSwitch]["links"][destRouter]["interface"],
+                        topo["routers"][destRouter]["links"][curSwitch]["interface"],
+                    )
 
                     # IPv4
-                    if 'ipv4' in topo['routers'][destRouter]['links'][curSwitch]:
-                        if topo['routers'][destRouter]['links'][curSwitch]['ipv4'] == 'auto':
-                            topo['routers'][destRouter]['links'][curSwitch]['ipv4'] = \
-                                '{}/{}'.format(ipv4Next, topo['link_ip_start'][ \
-                                    'v4mask'])
+                    if "ipv4" in topo["routers"][destRouter]["links"][curSwitch]:
+                        if (
+                            topo["routers"][destRouter]["links"][curSwitch]["ipv4"]
+                            == "auto"
+                        ):
+                            topo["routers"][destRouter]["links"][curSwitch][
+                                "ipv4"
+                            ] = "{}/{}".format(
+                                ipv4Next, topo["link_ip_start"]["v4mask"]
+                            )
                             ipv4Next += 1
                     # IPv6
-                    if 'ipv6' in topo['routers'][destRouter]['links'][curSwitch]:
-                        if topo['routers'][destRouter]['links'][curSwitch]['ipv6'] == 'auto':
-                            topo['routers'][destRouter]['links'][curSwitch]['ipv6'] = \
-                                '{}/{}'.format(ipv6Next, topo['link_ip_start'][ \
-                                    'v6mask'])
+                    if "ipv6" in topo["routers"][destRouter]["links"][curSwitch]:
+                        if (
+                            topo["routers"][destRouter]["links"][curSwitch]["ipv6"]
+                            == "auto"
+                        ):
+                            topo["routers"][destRouter]["links"][curSwitch][
+                                "ipv6"
+                            ] = "{}/{}".format(
+                                ipv6Next, topo["link_ip_start"]["v6mask"]
+                            )
                             ipv6Next = ipaddr.IPv6Address(int(ipv6Next) + ipv6Step)
 
             logger.debug(
@@ -294,7 +312,7 @@ def build_config_from_json(tgen, topo, save_bkup=True):
             ("bgp_community_list", create_bgp_community_lists),
             ("route_maps", create_route_maps),
             ("bgp", create_router_bgp),
-            ("ospf", create_router_ospf)
+            ("ospf", create_router_ospf),
         ]
     )
 

@@ -39,9 +39,7 @@ logging.addLevelName(
 )
 log = logging.getLogger(__name__)
 
-parser = argparse.ArgumentParser(
-    description="Multicast packet generator"
-)
+parser = argparse.ArgumentParser(description="Multicast packet generator")
 parser.add_argument("group", help="Multicast IP")
 parser.add_argument("ifname", help="Interface name")
 parser.add_argument("--port", type=int, help="UDP port number", default=1000)
@@ -62,8 +60,9 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 #
 if sys.version_info[0] > 2:
     sock.setsockopt(
-        socket.SOL_SOCKET, 25, struct.pack("%ds" % len(args.ifname),
-                                           args.ifname.encode('utf-8'))
+        socket.SOL_SOCKET,
+        25,
+        struct.pack("%ds" % len(args.ifname), args.ifname.encode("utf-8")),
     )
 else:
     sock.setsockopt(

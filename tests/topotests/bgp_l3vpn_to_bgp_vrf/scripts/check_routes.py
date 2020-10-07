@@ -306,8 +306,13 @@ want_r1_remote_cust1_routes = [
     {"p": "99.0.0.4/32", "n": "4.4.4.4"},
 ]
 bgpribRequireUnicastRoutes(
-    "r1", "ipv4", "r1-cust1", "Customer 1 routes in r1 vrf (2)", want_r1_remote_cust1_routes
-    , debug=False)
+    "r1",
+    "ipv4",
+    "r1-cust1",
+    "Customer 1 routes in r1 vrf (2)",
+    want_r1_remote_cust1_routes,
+    debug=False,
+)
 
 want_r3_remote_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "1.1.1.1", "bp": True},
@@ -329,8 +334,13 @@ want_r3_remote_cust1_routes = [
     {"p": "99.0.0.4/32", "n": "4.4.4.4", "bp": True},
 ]
 bgpribRequireUnicastRoutes(
-    "r3", "ipv4", "r3-cust1", "Customer 1 routes in r3 vrf (2)", want_r3_remote_cust1_routes
-    , debug=False)
+    "r3",
+    "ipv4",
+    "r3-cust1",
+    "Customer 1 routes in r3 vrf (2)",
+    want_r3_remote_cust1_routes,
+    debug=False,
+)
 
 want_r4_remote_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "1.1.1.1", "bp": True},
@@ -351,8 +361,13 @@ want_r4_remote_cust1_routes = [
     {"p": "99.0.0.4/32", "n": "192.168.2.2", "bp": True},
 ]
 bgpribRequireUnicastRoutes(
-    "r4", "ipv4", "r4-cust1", "Customer 1 routes in r4 vrf (2)", want_r4_remote_cust1_routes
-    , debug=False)
+    "r4",
+    "ipv4",
+    "r4-cust1",
+    "Customer 1 routes in r4 vrf (2)",
+    want_r4_remote_cust1_routes,
+    debug=False,
+)
 
 want_r4_remote_cust2_routes = [
     {"p": "5.1.0.0/24", "n": "1.1.1.1", "bp": True},
@@ -373,8 +388,13 @@ want_r4_remote_cust2_routes = [
     {"p": "99.0.0.4/32", "n": "192.168.2.2", "bp": True},
 ]
 bgpribRequireUnicastRoutes(
-    "r4", "ipv4", "r4-cust2", "Customer 2 routes in r4 vrf (2)", want_r4_remote_cust2_routes
-    , debug=False)
+    "r4",
+    "ipv4",
+    "r4-cust2",
+    "Customer 2 routes in r4 vrf (2)",
+    want_r4_remote_cust2_routes,
+    debug=False,
+)
 
 
 #########################################################################
@@ -402,7 +422,9 @@ want = [
     {"p": "6.0.1.0/24", "n": "99.0.0.1", "bp": True},
     {"p": "6.0.2.0/24", "n": "99.0.0.1", "bp": True},
 ]
-bgpribRequireUnicastRoutes("ce1", "ipv4", "", "Cust 1 routes from remote", want, debug=False)
+bgpribRequireUnicastRoutes(
+    "ce1", "ipv4", "", "Cust 1 routes from remote", want, debug=False
+)
 
 luCommand(
     "ce2",
@@ -425,7 +447,9 @@ want = [
     {"p": "6.0.1.0/24", "n": "99.0.0.2", "bp": True},
     {"p": "6.0.2.0/24", "n": "99.0.0.2", "bp": True},
 ]
-bgpribRequireUnicastRoutes("ce2", "ipv4", "", "Cust 1 routes from remote", want, debug=False)
+bgpribRequireUnicastRoutes(
+    "ce2", "ipv4", "", "Cust 1 routes from remote", want, debug=False
+)
 
 # human readable output for debugging
 luCommand("r4", 'vtysh -c "show bgp vrf r4-cust1 ipv4 uni"')
@@ -453,7 +477,9 @@ want = [
     {"p": "6.0.1.0/24", "n": "99.0.0.3", "bp": True},
     {"p": "6.0.2.0/24", "n": "99.0.0.3", "bp": True},
 ]
-bgpribRequireUnicastRoutes("ce3", "ipv4", "", "Cust 1 routes from remote", want, debug=False)
+bgpribRequireUnicastRoutes(
+    "ce3", "ipv4", "", "Cust 1 routes from remote", want, debug=False
+)
 
 luCommand(
     "ce4",
@@ -477,58 +503,91 @@ bgpribRequireUnicastRoutes(
     "ce4", "ipv4", "ce4-cust2", "Cust 2 routes from remote", want, debug=False
 )
 
-#verify details of exported/imported routes
-luCommand("ce1",'vtysh -c "show bgp ipv4 uni 6.0.1.0"',
-          "1 available.*192.168.1.1.*99.0.0.1.*Community: 0:67.*Extended Community: RT:89:123.*Large Community: 12:34:56",
-          "pass", "Redundant route 1 details")
-luCommand("ce2",'vtysh -c "show bgp ipv4 uni 6.0.1.0"',
-          "2 available, best .*192.168.1.1.* Local.* 192.168.1.1 from 192.168.1.1 .192.168.1.1" +
-          ".* Origin IGP, metric 98, localpref 123, valid, internal" +
-          ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:56",
-          ".* Local.* 99.0.0.2 from 0.0.0.0 .99.0.0.2" +
-          ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .Weight" +
-          ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:56",
-          "pass", "Redundant route 1 details")
-luCommand("ce3",'vtysh -c "show bgp ipv4 uni 6.0.1.0"',
-          "2 available, best .*192.168.1.1.* Local.* 99.0.0.3 from 0.0.0.0 .99.0.0.3" +
-          ".* Origin IGP, metric 200, localpref 50, weight 32768, valid, sourced, local, best .Weight" +
-          ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:56" +
-          ".* Local.* 192.168.1.1 from 192.168.1.1 .192.168.1.1" +
-          ".* Origin IGP, metric 98, localpref 123, valid, internal" +
-          ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:56",
-          "pass", "Redundant route 1 details")
-luCommand("ce4",'vtysh -c "show bgp vrf ce4-cust2 ipv4 6.0.1.0"',
-          "2 available, best .*192.168.2.1.* Local.* 192.168.2.1 from 192.168.2.1 .192.168.2.1" +
-          ".* Origin IGP, metric 98, localpref 123, valid, internal" +
-          ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:56" +
-          ".* Local.* 99.0.0.4 from 0.0.0.0 .99.0.0.4" +
-          ".* Origin IGP, metric 200, localpref 50, weight 32768, valid, sourced, local, best .Weight" +
-          ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:56",
-          "pass", "Redundant route 1 details")
+# verify details of exported/imported routes
+luCommand(
+    "ce1",
+    'vtysh -c "show bgp ipv4 uni 6.0.1.0"',
+    "1 available.*192.168.1.1.*99.0.0.1.*Community: 0:67.*Extended Community: RT:89:123.*Large Community: 12:34:56",
+    "pass",
+    "Redundant route 1 details",
+)
+luCommand(
+    "ce2",
+    'vtysh -c "show bgp ipv4 uni 6.0.1.0"',
+    "2 available, best .*192.168.1.1.* Local.* 192.168.1.1 from 192.168.1.1 .192.168.1.1"
+    + ".* Origin IGP, metric 98, localpref 123, valid, internal"
+    + ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:56",
+    ".* Local.* 99.0.0.2 from 0.0.0.0 .99.0.0.2"
+    + ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .Weight"
+    + ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:56",
+    "pass",
+    "Redundant route 1 details",
+)
+luCommand(
+    "ce3",
+    'vtysh -c "show bgp ipv4 uni 6.0.1.0"',
+    "2 available, best .*192.168.1.1.* Local.* 99.0.0.3 from 0.0.0.0 .99.0.0.3"
+    + ".* Origin IGP, metric 200, localpref 50, weight 32768, valid, sourced, local, best .Weight"
+    + ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:56"
+    + ".* Local.* 192.168.1.1 from 192.168.1.1 .192.168.1.1"
+    + ".* Origin IGP, metric 98, localpref 123, valid, internal"
+    + ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:56",
+    "pass",
+    "Redundant route 1 details",
+)
+luCommand(
+    "ce4",
+    'vtysh -c "show bgp vrf ce4-cust2 ipv4 6.0.1.0"',
+    "2 available, best .*192.168.2.1.* Local.* 192.168.2.1 from 192.168.2.1 .192.168.2.1"
+    + ".* Origin IGP, metric 98, localpref 123, valid, internal"
+    + ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:56"
+    + ".* Local.* 99.0.0.4 from 0.0.0.0 .99.0.0.4"
+    + ".* Origin IGP, metric 200, localpref 50, weight 32768, valid, sourced, local, best .Weight"
+    + ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:56",
+    "pass",
+    "Redundant route 1 details",
+)
 
-luCommand("ce1",'vtysh -c "show bgp ipv4 uni 6.0.2.0"',
-          "1 available, best .*192.168.1.1.* Local.* 99.0.0.1 from 0.0.0.0 .99.0.0.1" +
-          ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .First path received" +
-          ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:11",
-          "pass", "Redundant route 2 details")
-luCommand("ce2",'vtysh -c "show bgp ipv4 uni 6.0.2.0"', "1 available, best .*192.168.1.1.* Local.* 99.0.0.2 from 0.0.0.0 .99.0.0.2" +
-          ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .First path received" +
-          ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:12",
-          "pass", "Redundant route 2 details")
-luCommand("ce3",'vtysh -c "show bgp ipv4 uni 6.0.2.0"',
-          "2 available, best .*192.168.1.1.* Local.* 99.0.0.3 from 0.0.0.0 .99.0.0.3" +
-          ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .Weight" +
-          ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:13" +
-          ".* Local.* 192.168.1.1 from 192.168.1.1 .192.168.1.1" +
-          ".* Origin IGP, metric 100, localpref 100, valid, internal" +
-          ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:14",
-          "pass", "Redundant route 2 details")
-luCommand("ce4",'vtysh -c "show bgp  vrf ce4-cust2 ipv4 6.0.2.0"',
-          "2 available, best .*192.168.2.1.* Local.* 192.168.2.1 from 192.168.2.1 .192.168.2.1" +
-          ".* Origin IGP, metric 100, localpref 100, valid, internal" +
-          ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:13" +
-          ".* Local.* 99.0.0.4 from 0.0.0.0 .99.0.0.4" +
-          ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .Weight" +
-          ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:14",
-          "pass", "Redundant route 2 details")
-#done
+luCommand(
+    "ce1",
+    'vtysh -c "show bgp ipv4 uni 6.0.2.0"',
+    "1 available, best .*192.168.1.1.* Local.* 99.0.0.1 from 0.0.0.0 .99.0.0.1"
+    + ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .First path received"
+    + ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:11",
+    "pass",
+    "Redundant route 2 details",
+)
+luCommand(
+    "ce2",
+    'vtysh -c "show bgp ipv4 uni 6.0.2.0"',
+    "1 available, best .*192.168.1.1.* Local.* 99.0.0.2 from 0.0.0.0 .99.0.0.2"
+    + ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .First path received"
+    + ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:12",
+    "pass",
+    "Redundant route 2 details",
+)
+luCommand(
+    "ce3",
+    'vtysh -c "show bgp ipv4 uni 6.0.2.0"',
+    "2 available, best .*192.168.1.1.* Local.* 99.0.0.3 from 0.0.0.0 .99.0.0.3"
+    + ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .Weight"
+    + ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:13"
+    + ".* Local.* 192.168.1.1 from 192.168.1.1 .192.168.1.1"
+    + ".* Origin IGP, metric 100, localpref 100, valid, internal"
+    + ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:14",
+    "pass",
+    "Redundant route 2 details",
+)
+luCommand(
+    "ce4",
+    'vtysh -c "show bgp  vrf ce4-cust2 ipv4 6.0.2.0"',
+    "2 available, best .*192.168.2.1.* Local.* 192.168.2.1 from 192.168.2.1 .192.168.2.1"
+    + ".* Origin IGP, metric 100, localpref 100, valid, internal"
+    + ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:13"
+    + ".* Local.* 99.0.0.4 from 0.0.0.0 .99.0.0.4"
+    + ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .Weight"
+    + ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:14",
+    "pass",
+    "Redundant route 2 details",
+)
+# done

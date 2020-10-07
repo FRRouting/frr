@@ -35,8 +35,9 @@ import time
 
 
 def ifname_to_ifindex(ifname):
-    output = subprocess.check_output("ip link show %s" % ifname,
-                                     shell=True, universal_newlines=True)
+    output = subprocess.check_output(
+        "ip link show %s" % ifname, shell=True, universal_newlines=True
+    )
     first_line = output.split("\n")[0]
     re_index = re.search("^(\d+):", first_line)
 

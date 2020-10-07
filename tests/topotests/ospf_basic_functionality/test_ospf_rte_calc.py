@@ -50,7 +50,7 @@ from lib.common_config import (
     create_static_routes,
     step,
     shutdown_bringup_interface,
-    topo_daemons
+    topo_daemons,
 )
 from lib.bgp import verify_bgp_convergence, create_router_bgp
 from lib.topolog import logger
@@ -278,8 +278,7 @@ def test_ospf_redistribution_tc5_p0(request):
 
     dut = "r1"
     for num in range(0, nretry):
-        result = verify_ospf_rib(
-            tgen, dut, input_dict, next_hop=nh, expected=False)
+        result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh, expected=False)
         if result is not True:
             break
 
@@ -399,8 +398,7 @@ def test_ospf_redistribution_tc6_p0(request):
 
     dut = "r1"
     for num in range(0, nretry):
-        result = verify_ospf_rib(
-            tgen, dut, input_dict, next_hop=nh, expected=False)
+        result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh, expected=False)
         if result is not True:
             break
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
@@ -409,13 +407,7 @@ def test_ospf_redistribution_tc6_p0(request):
 
     protocol = "ospf"
     result = verify_rib(
-        tgen,
-        "ipv4",
-        dut,
-        input_dict,
-        protocol=protocol,
-        next_hop=nh,
-        expected=False,
+        tgen, "ipv4", dut, input_dict, protocol=protocol, next_hop=nh, expected=False,
     )
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result

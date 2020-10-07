@@ -20,6 +20,7 @@ import re
 import sys
 import json
 
+
 class FunctionNode(object):
     funcs = {}
 
@@ -39,7 +40,7 @@ class FunctionNode(object):
 
     def define(self, attrs):
         self.defined = True
-        self.defs.append((attrs['filename'], attrs['line']))
+        self.defs.append((attrs["filename"], attrs["line"]))
         return self
 
     def add_call(self, called, attrs):
@@ -63,11 +64,12 @@ class FunctionNode(object):
             return cls.funcs[name]
         return FunctionNode(name)
 
+
 class CallEdge(object):
     def __init__(self, i, o, attrs):
         self.i = i
         self.o = o
-        self.is_external = attrs['is_external']
+        self.is_external = attrs["is_external"]
         self.attrs = attrs
 
         i.out.append(self)
@@ -76,10 +78,12 @@ class CallEdge(object):
     def __repr__(self):
         return '<"%s()" -> "%s()">' % (self.i.name, self.o.name)
 
+
 def nameclean(n):
-    if '.' in n:
-        return n.split('.', 1)[0]
+    if "." in n:
+        return n.split(".", 1)[0]
     return n
+
 
 def calc_rank(queue, direction):
     nextq = queue
@@ -98,7 +102,7 @@ def calc_rank(queue, direction):
         queue = nextq
         nextq = []
 
-        #sys.stderr.write('rank %d\n' % currank)
+        # sys.stderr.write('rank %d\n' % currank)
 
         cont = False
 
@@ -122,6 +126,7 @@ def calc_rank(queue, direction):
         currank += direction
 
     return nextq
+
 
 class Graph(dict):
     class Subgraph(set):
@@ -166,6 +171,7 @@ class Graph(dict):
 
         def calls(self):
             return self._calls
+
         def calld(self):
             return self._calld
 
@@ -245,7 +251,7 @@ class Graph(dict):
                     else:
                         evalset.add(evnode)
 
-            #if len(candidates) > 1:
+            # if len(candidates) > 1:
             #    for candidate in candidates:
             #        if candidate != node:
             #            #node.merge(candidate)
@@ -266,7 +272,7 @@ class Graph(dict):
         self._linear_nodes = []
 
         while len(nodes):
-            sys.stderr.write('%d\n' % len(nodes))
+            sys.stderr.write("%d\n" % len(nodes))
             node = nodes.pop(0)
 
             down[node] = set()
@@ -304,106 +310,90 @@ class Graph(dict):
         return self._subgraphs, self._linear_nodes
 
 
-with open(sys.argv[1], 'r') as fd:
+with open(sys.argv[1], "r") as fd:
     data = json.load(fd)
 
 extra_info = {
     # zebra - LSP WQ
-    ('lsp_processq_add', 'work_queue_add'): [
-        'lsp_process',
-        'lsp_processq_del',
-        'lsp_processq_complete',
+    ("lsp_processq_add", "work_queue_add"): [
+        "lsp_process",
+        "lsp_processq_del",
+        "lsp_processq_complete",
     ],
     # zebra - main WQ
-    ('mq_add_handler', 'work_queue_add'): [
-        'meta_queue_process',
-    ],
-    ('meta_queue_process', 'work_queue_add'): [
-        'meta_queue_process',
-    ],
+    ("mq_add_handler", "work_queue_add"): ["meta_queue_process",],
+    ("meta_queue_process", "work_queue_add"): ["meta_queue_process",],
     # bgpd - label pool WQ
-    ('bgp_lp_get', 'work_queue_add'): [
-        'lp_cbq_docallback',
-    ],
-    ('bgp_lp_event_chunk', 'work_queue_add'): [
-        'lp_cbq_docallback',
-    ],
-    ('bgp_lp_event_zebra_up', 'work_queue_add'): [
-        'lp_cbq_docallback',
-    ],
+    ("bgp_lp_get", "work_queue_add"): ["lp_cbq_docallback",],
+    ("bgp_lp_event_chunk", "work_queue_add"): ["lp_cbq_docallback",],
+    ("bgp_lp_event_zebra_up", "work_queue_add"): ["lp_cbq_docallback",],
     # bgpd - main WQ
-    ('bgp_process', 'work_queue_add'): [
-        'bgp_process_wq',
-        'bgp_processq_del',
-    ],
-    ('bgp_add_eoiu_mark', 'work_queue_add'): [
-        'bgp_process_wq',
-        'bgp_processq_del',
-    ],
+    ("bgp_process", "work_queue_add"): ["bgp_process_wq", "bgp_processq_del",],
+    ("bgp_add_eoiu_mark", "work_queue_add"): ["bgp_process_wq", "bgp_processq_del",],
     # clear node WQ
-    ('bgp_clear_route_table', 'work_queue_add'): [
-        'bgp_clear_route_node',
-        'bgp_clear_node_queue_del',
-        'bgp_clear_node_complete',
+    ("bgp_clear_route_table", "work_queue_add"): [
+        "bgp_clear_route_node",
+        "bgp_clear_node_queue_del",
+        "bgp_clear_node_complete",
     ],
     # rfapi WQs
-    ('rfapi_close', 'work_queue_add'): [
-        'rfapi_deferred_close_workfunc',
-    ],
-    ('rfapiRibUpdatePendingNode', 'work_queue_add'): [
-        'rfapiRibDoQueuedCallback',
-        'rfapiRibQueueItemDelete',
+    ("rfapi_close", "work_queue_add"): ["rfapi_deferred_close_workfunc",],
+    ("rfapiRibUpdatePendingNode", "work_queue_add"): [
+        "rfapiRibDoQueuedCallback",
+        "rfapiRibQueueItemDelete",
     ],
 }
 
 
-for func, fdata in data['functions'].items():
+for func, fdata in data["functions"].items():
     func = nameclean(func)
     fnode = FunctionNode.get(func).define(fdata)
 
-    for call in fdata['calls']:
-        if call.get('type') in [None, 'unnamed', 'thread_sched']:
-            if call.get('target') is None:
+    for call in fdata["calls"]:
+        if call.get("type") in [None, "unnamed", "thread_sched"]:
+            if call.get("target") is None:
                 continue
-            tgt = nameclean(call['target'])
+            tgt = nameclean(call["target"])
             fnode.add_call(FunctionNode.get(tgt), call)
-            for fptr in call.get('funcptrs', []):
+            for fptr in call.get("funcptrs", []):
                 fnode.add_call(FunctionNode.get(nameclean(fptr)), call)
-            if tgt == 'work_queue_add':
+            if tgt == "work_queue_add":
                 if (func, tgt) not in extra_info:
-                    sys.stderr.write('%s:%d:%s(): work_queue_add() not handled\n' % (
-                        call['filename'], call['line'], func))
+                    sys.stderr.write(
+                        "%s:%d:%s(): work_queue_add() not handled\n"
+                        % (call["filename"], call["line"], func)
+                    )
                 else:
                     attrs = dict(call)
-                    attrs.update({'is_external': False, 'type': 'workqueue'})
+                    attrs.update({"is_external": False, "type": "workqueue"})
                     for dst in extra_info[func, tgt]:
                         fnode.add_call(FunctionNode.get(dst), call)
-        elif call['type'] == 'install_element':
-            vty_node = FunctionNode.get('VTY_NODE_%d' % call['vty_node'])
-            vty_node.add_call(FunctionNode.get(nameclean(call['target'])), call)
-        elif call['type'] == 'hook':
+        elif call["type"] == "install_element":
+            vty_node = FunctionNode.get("VTY_NODE_%d" % call["vty_node"])
+            vty_node.add_call(FunctionNode.get(nameclean(call["target"])), call)
+        elif call["type"] == "hook":
             # TODO: edges for hooks from data['hooks']
             pass
 
 n = FunctionNode.funcs
 
 # fix some very low end functions cycling back very far to the top
-if 'peer_free' in n:
-    n['peer_free'].unlink(n['bgp_timer_set'])
-    n['peer_free'].unlink(n['bgp_addpath_set_peer_type'])
-if 'bgp_path_info_extra_free' in n:
-    n['bgp_path_info_extra_free'].rank = 0
+if "peer_free" in n:
+    n["peer_free"].unlink(n["bgp_timer_set"])
+    n["peer_free"].unlink(n["bgp_addpath_set_peer_type"])
+if "bgp_path_info_extra_free" in n:
+    n["bgp_path_info_extra_free"].rank = 0
 
-if 'zlog_ref' in n:
-    n['zlog_ref'].rank = 0
-if 'mt_checkalloc' in n:
-    n['mt_checkalloc'].rank = 0
+if "zlog_ref" in n:
+    n["zlog_ref"].rank = 0
+if "mt_checkalloc" in n:
+    n["mt_checkalloc"].rank = 0
 
 queue = list(FunctionNode.funcs.values())
 queue = calc_rank(queue, 1)
 queue = calc_rank(queue, -1)
 
-sys.stderr.write('%d functions in cyclic set\n' % len(queue))
+sys.stderr.write("%d functions in cyclic set\n" % len(queue))
 
 graph = Graph(queue)
 graph.automerge()
@@ -411,10 +401,12 @@ graph.automerge()
 gv_nodes = []
 gv_edges = []
 
-sys.stderr.write('%d groups after automerge\n' % len(graph._groups))
+sys.stderr.write("%d groups after automerge\n" % len(graph._groups))
+
 
 def is_vnc(n):
-    return n.startswith('rfapi') or n.startswith('vnc') or ('_vnc_' in n)
+    return n.startswith("rfapi") or n.startswith("vnc") or ("_vnc_" in n)
+
 
 _vncstyle = ',fillcolor="#ffffcc",style=filled'
 cyclic_set_names = set([fn.name for fn in graph.values()])
@@ -422,55 +414,76 @@ cyclic_set_names = set([fn.name for fn in graph.values()])
 for i, group in enumerate(graph._groups):
     if len(group) > 1:
         group.num = i
-        gv_nodes.append('\tsubgraph cluster_%d {' % i)
-        gv_nodes.append('\t\tcolor=blue;')
+        gv_nodes.append("\tsubgraph cluster_%d {" % i)
+        gv_nodes.append("\t\tcolor=blue;")
         for gn in group:
             has_cycle_callers = set(gn.calld()) - group
-            has_ext_callers = set([edge.i.name for edge in gn._fn.inb]) - cyclic_set_names
+            has_ext_callers = (
+                set([edge.i.name for edge in gn._fn.inb]) - cyclic_set_names
+            )
 
-            style = ''
-            etext = ''
+            style = ""
+            etext = ""
             if is_vnc(gn.name):
                 style += _vncstyle
             if has_cycle_callers:
-                style += ',color=blue,penwidth=3'
+                style += ",color=blue,penwidth=3"
             if has_ext_callers:
                 style += ',fillcolor="#ffeebb",style=filled'
-                etext += '<br/><font point-size="10">(%d other callers)</font>' % (len(has_ext_callers))
+                etext += '<br/><font point-size="10">(%d other callers)</font>' % (
+                    len(has_ext_callers)
+                )
 
-            gv_nodes.append('\t\t"%s" [shape=box,label=<%s%s>%s];' % (gn.name, '<br/>'.join([fn.name for fn in gn._fns]), etext, style))
-        gv_nodes.append('\t}')
+            gv_nodes.append(
+                '\t\t"%s" [shape=box,label=<%s%s>%s];'
+                % (gn.name, "<br/>".join([fn.name for fn in gn._fns]), etext, style)
+            )
+        gv_nodes.append("\t}")
     else:
         for gn in group:
-            has_ext_callers = set([edge.i.name for edge in gn._fn.inb]) - cyclic_set_names
+            has_ext_callers = (
+                set([edge.i.name for edge in gn._fn.inb]) - cyclic_set_names
+            )
 
-            style = ''
-            etext = ''
+            style = ""
+            etext = ""
             if is_vnc(gn.name):
                 style += _vncstyle
             if has_ext_callers:
                 style += ',fillcolor="#ffeebb",style=filled'
-                etext += '<br/><font point-size="10">(%d other callers)</font>' % (len(has_ext_callers))
-            gv_nodes.append('\t"%s" [shape=box,label=<%s%s>%s];' % (gn.name, '<br/>'.join([fn.name for fn in gn._fns]), etext, style))
+                etext += '<br/><font point-size="10">(%d other callers)</font>' % (
+                    len(has_ext_callers)
+                )
+            gv_nodes.append(
+                '\t"%s" [shape=box,label=<%s%s>%s];'
+                % (gn.name, "<br/>".join([fn.name for fn in gn._fns]), etext, style)
+            )
 
 edges = set()
 for gn in graph.values():
     for calls in gn.calls():
         if gn._group == calls._group:
-            gv_edges.append('\t"%s" -> "%s" [color="#55aa55",style=dashed];' % (gn.name, calls.name))
+            gv_edges.append(
+                '\t"%s" -> "%s" [color="#55aa55",style=dashed];' % (gn.name, calls.name)
+            )
         else:
+
             def xname(nn):
                 if len(nn._group) > 1:
-                    return 'cluster_%d' % nn._group.num
+                    return "cluster_%d" % nn._group.num
                 else:
                     return nn.name
+
             tup = xname(gn), calls.name
             if tup[0] != tup[1] and tup not in edges:
                 gv_edges.append('\t"%s" -> "%s" [weight=0.0,w=0.0,color=blue];' % tup)
                 edges.add(tup)
 
-with open(sys.argv[2], 'w') as fd:
-    fd.write('''digraph {
+with open(sys.argv[2], "w") as fd:
+    fd.write(
+        """digraph {
     node [fontsize=13,fontname="Fira Sans"];
 %s
-}''' % '\n'.join(gv_nodes + [''] + gv_edges))
+}"""
+        % "\n".join(gv_nodes + [""] + gv_edges)
+    )

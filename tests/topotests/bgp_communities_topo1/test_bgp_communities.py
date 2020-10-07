@@ -54,7 +54,7 @@ from lib.common_config import (
     create_route_maps,
     create_prefix_lists,
     create_route_maps,
-    required_linux_kernel_version
+    required_linux_kernel_version,
 )
 from lib.topolog import logger
 from lib.bgp import (
@@ -104,7 +104,7 @@ def setup_module(mod):
     """
 
     # Required linux kernel version for this suite to run.
-    result = required_linux_kernel_version('4.15')
+    result = required_linux_kernel_version("4.15")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 

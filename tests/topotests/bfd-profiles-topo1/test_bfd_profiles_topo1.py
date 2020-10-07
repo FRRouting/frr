@@ -118,6 +118,7 @@ def teardown_module(_mod):
     tgen = get_topogen()
     tgen.stop_topology()
 
+
 def test_wait_protocols_convergence():
     "Wait for all protocols to converge"
     tgen = get_topogen()
@@ -128,41 +129,40 @@ def test_wait_protocols_convergence():
 
     def expect_loopback_route(router, iptype, route, proto):
         "Wait until route is present on RIB for protocol."
-        logger.info('waiting route {} in {}'.format(route, router))
+        logger.info("waiting route {} in {}".format(route, router))
         test_func = partial(
             topotest.router_json_cmp,
             tgen.gears[router],
-            'show {} route json'.format(iptype),
-            { route: [{ 'protocol': proto }] }
+            "show {} route json".format(iptype),
+            {route: [{"protocol": proto}]},
         )
         _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
         assertmsg = '"{}" OSPF convergence failure'.format(router)
         assert result is None, assertmsg
 
-
     # Wait for R1 <-> R6 convergence.
-    expect_loopback_route('r1', 'ip', '10.254.254.6/32', 'ospf')
+    expect_loopback_route("r1", "ip", "10.254.254.6/32", "ospf")
 
     # Wait for R6 <-> R1 convergence.
-    expect_loopback_route('r6', 'ip', '10.254.254.1/32', 'ospf')
+    expect_loopback_route("r6", "ip", "10.254.254.1/32", "ospf")
 
     # Wait for R2 <-> R3 convergence.
-    expect_loopback_route('r2', 'ip', '10.254.254.3/32', 'bgp')
+    expect_loopback_route("r2", "ip", "10.254.254.3/32", "bgp")
 
     # Wait for R3 <-> R2 convergence.
-    expect_loopback_route('r3', 'ip', '10.254.254.2/32', 'bgp')
+    expect_loopback_route("r3", "ip", "10.254.254.2/32", "bgp")
 
     # Wait for R3 <-> R4 convergence.
-    expect_loopback_route('r3', 'ipv6', '2001:db8:3::/64', 'isis')
+    expect_loopback_route("r3", "ipv6", "2001:db8:3::/64", "isis")
 
     # Wait for R4 <-> R3 convergence.
-    expect_loopback_route('r4', 'ipv6', '2001:db8:1::/64', 'isis')
+    expect_loopback_route("r4", "ipv6", "2001:db8:1::/64", "isis")
 
     # Wait for R4 <-> R5 convergence.
-    expect_loopback_route('r4', 'ipv6', '2001:db8:3::/64', 'ospf6')
+    expect_loopback_route("r4", "ipv6", "2001:db8:3::/64", "ospf6")
 
     # Wait for R5 <-> R4 convergence.
-    expect_loopback_route('r5', 'ipv6', '2001:db8:2::/64', 'ospf6')
+    expect_loopback_route("r5", "ipv6", "2001:db8:2::/64", "ospf6")
 
 
 def test_bfd_profile_values():

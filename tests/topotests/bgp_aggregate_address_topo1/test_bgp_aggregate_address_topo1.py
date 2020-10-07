@@ -47,16 +47,17 @@ class BgpAggregateAddressTopo1(Topo):
     def build(self, *_args, **_opts):
         tgen = get_topogen(self)
 
-        r1 = tgen.add_router('r1')
-        r2 = tgen.add_router('r2')
-        peer1 = tgen.add_exabgp_peer('peer1', ip='10.0.0.2',
-                                     defaultRoute='via 10.0.0.1')
+        r1 = tgen.add_router("r1")
+        r2 = tgen.add_router("r2")
+        peer1 = tgen.add_exabgp_peer(
+            "peer1", ip="10.0.0.2", defaultRoute="via 10.0.0.1"
+        )
 
-        switch = tgen.add_switch('s1')
+        switch = tgen.add_switch("s1")
         switch.add_link(r1)
         switch.add_link(peer1)
 
-        switch = tgen.add_switch('s2')
+        switch = tgen.add_switch("s2")
         switch.add_link(r1)
         switch.add_link(r2)
 
@@ -65,17 +66,17 @@ def setup_module(mod):
     tgen = Topogen(BgpAggregateAddressTopo1, mod.__name__)
     tgen.start_topology()
 
-    router = tgen.gears['r1']
+    router = tgen.gears["r1"]
     router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))
     router.load_config(TopoRouter.RD_BGP, os.path.join(CWD, "r1/bgpd.conf"))
     router.start()
 
-    router = tgen.gears['r2']
+    router = tgen.gears["r2"]
     router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r2/zebra.conf"))
     router.load_config(TopoRouter.RD_BGP, os.path.join(CWD, "r2/bgpd.conf"))
     router.start()
 
-    peer = tgen.gears['peer1']
+    peer = tgen.gears["peer1"]
     peer.start(os.path.join(CWD, "peer1"), os.path.join(CWD, "exabgp.env"))
 
 
@@ -92,21 +93,22 @@ def test_expect_convergence():
         pytest.skip(tgen.errors)
 
     logger.info("waiting for protocols to converge")
+
     def expect_loopback_route(router, iptype, route, proto):
         "Wait until route is present on RIB for protocol."
-        logger.info('waiting route {} in {}'.format(route, router))
+        logger.info("waiting route {} in {}".format(route, router))
         test_func = functools.partial(
             topotest.router_json_cmp,
             tgen.gears[router],
-            'show {} route json'.format(iptype),
-            { route: [{ 'protocol': proto }] }
+            "show {} route json".format(iptype),
+            {route: [{"protocol": proto}]},
         )
         _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
         assertmsg = '"{}" BGP convergence failure'.format(router)
         assert result is None, assertmsg
 
-    expect_loopback_route('r2', 'ip', '10.254.254.1/32', 'bgp')
-    expect_loopback_route('r2', 'ip', '10.254.254.3/32', 'bgp')
+    expect_loopback_route("r2", "ip", "10.254.254.1/32", "bgp")
+    expect_loopback_route("r2", "ip", "10.254.254.3/32", "bgp")
 
 
 def test_bgp_aggregate_address_matching_med_only():
@@ -122,19 +124,18 @@ def test_bgp_aggregate_address_matching_med_only():
         "192.168.0.1/32": [{"protocol": "bgp", "metric": 10}],
         "192.168.0.2/32": [{"protocol": "bgp", "metric": 10}],
         "192.168.0.3/32": [{"protocol": "bgp", "metric": 10}],
-
         # Non matching MED: aggregation must not exist.
         "192.168.1.0/24": None,
         "192.168.1.1/32": [{"protocol": "bgp", "metric": 10}],
         "192.168.1.2/32": [{"protocol": "bgp", "metric": 10}],
-        "192.168.1.3/32": [{"protocol": "bgp", "metric": 20}]
+        "192.168.1.3/32": [{"protocol": "bgp", "metric": 20}],
     }
 
     test_func = functools.partial(
         topotest.router_json_cmp,
-        tgen.gears['r2'],
-        'show ip route json',
-        routes_expected
+        tgen.gears["r2"],
+        "show ip route json",
+        routes_expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assertmsg = '"r2" BGP convergence failure'
@@ -148,7 +149,8 @@ def test_bgp_aggregate_address_match_and_supress():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    tgen.gears['r1'].vtysh_multicmd("""
+    tgen.gears["r1"].vtysh_multicmd(
+        """
 configure terminal
 router bgp 65000
 address-family ipv4 unicast
@@ -156,7 +158,8 @@ no aggregate-address 192.168.0.0/24 matching-MED-only
 no aggregate-address 192.168.1.0/24 matching-MED-only
 aggregate-address 192.168.0.0/24 matching-MED-only summary-only
 aggregate-address 192.168.1.0/24 matching-MED-only summary-only
-""")
+"""
+    )
 
     routes_expected = {
         # All MED matches, aggregation must exist.
@@ -164,19 +167,18 @@ aggregate-address 192.168.1.0/24 matching-MED-only summary-only
         "192.168.0.1/32": None,
         "192.168.0.2/32": None,
         "192.168.0.3/32": None,
-
         # Non matching MED: aggregation must not exist.
         "192.168.1.0/24": None,
         "192.168.1.1/32": [{"protocol": "bgp", "metric": 10}],
         "192.168.1.2/32": [{"protocol": "bgp", "metric": 10}],
-        "192.168.1.3/32": [{"protocol": "bgp", "metric": 20}]
+        "192.168.1.3/32": [{"protocol": "bgp", "metric": 20}],
     }
 
     test_func = functools.partial(
         topotest.router_json_cmp,
-        tgen.gears['r2'],
-        'show ip route json',
-        routes_expected
+        tgen.gears["r2"],
+        "show ip route json",
+        routes_expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=120, wait=1)
     assertmsg = '"r2" BGP convergence failure'

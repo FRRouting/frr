@@ -1,14 +1,16 @@
 import frrtest
 import re
 
-re_okfail = re.compile(r'^(?:\x1b\[3[12]m)?(?P<ret>OK|failed)'.encode('utf8'),
-                       re.MULTILINE)
+re_okfail = re.compile(
+    r"^(?:\x1b\[3[12]m)?(?P<ret>OK|failed)".encode("utf8"), re.MULTILINE
+)
+
 
 class TestAspath(frrtest.TestMultiOut):
-    program = './test_aspath'
+    program = "./test_aspath"
 
     def _parsertest(self, line):
-        if not hasattr(self, 'parserno'):
+        if not hasattr(self, "parserno"):
             self.parserno = -1
         self.parserno += 1
 
@@ -17,12 +19,13 @@ class TestAspath(frrtest.TestMultiOut):
         self._okfail("empty prepend %s:" % line, okfail=re_okfail)
 
     def _attrtest(self, line):
-        if not hasattr(self, 'attrno'):
+        if not hasattr(self, "attrno"):
             self.attrno = -1
         self.attrno += 1
 
         self._onesimple("aspath_attr test %d" % self.attrno)
         self._okfail(line, okfail=re_okfail)
+
 
 TestAspath.parsertest("seq1")
 TestAspath.parsertest("seq2")
