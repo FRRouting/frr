@@ -71,6 +71,7 @@ static void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set);
 static void zebra_evpn_mh_update_protodown_es(struct zebra_evpn_es *es,
 					      bool resync_dplane);
 static void zebra_evpn_mh_clear_protodown_es(struct zebra_evpn_es *es);
+static void zebra_evpn_mh_startup_delay_timer_start(const char *rc);
 
 esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
 
@@ -3383,6 +3384,13 @@ void zebra_evpn_mh_uplink_oper_update(struct zebra_if *zif)
 	if (old_protodown == new_protodown)
 		return;
 
+	/* if protodown_rc XXX_UPLINK_DOWN is about to be cleared
+	 * fire up the start-up delay timer to allow the EVPN network
+	 * to converge (Type-2 routes need to be advertised and processed)
+	 */
+	if (!new_protodown && (zmh_info->uplink_oper_up_cnt == 1))
+		zebra_evpn_mh_startup_delay_timer_start("uplink-up");
+
 	zebra_evpn_mh_update_protodown(ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN,
 				       new_protodown);
 }
@@ -3398,15 +3406,8 @@ static int zebra_evpn_mh_startup_delay_exp_cb(struct thread *t)
 	return 0;
 }
 
-static void zebra_evpn_mh_startup_delay_timer_start(bool init)
+static void zebra_evpn_mh_startup_delay_timer_start(const char *rc)
 {
-	/* 1. This timer can be started during init.
-	 * 2. It can also be restarted if it is alreay running and the
-	 * admin wants to increase or decrease its value
-	 */
-	if (!init && !zmh_info->startup_delay_timer)
-		return;
-
 	if (zmh_info->startup_delay_timer) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("startup-delay timer cancelled");
@@ -3416,8 +3417,9 @@ static void zebra_evpn_mh_startup_delay_timer_start(bool init)
 
 	if (zmh_info->startup_delay_time) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-			zlog_debug("startup-delay timer started for %d sec",
-				   zmh_info->startup_delay_time);
+			zlog_debug(
+				"startup-delay timer started for %d sec on %s",
+				zmh_info->startup_delay_time, rc);
 		thread_add_timer(zrouter.master,
 				 zebra_evpn_mh_startup_delay_exp_cb, NULL,
 				 zmh_info->startup_delay_time,
@@ -3478,7 +3480,12 @@ int zebra_evpn_mh_startup_delay_update(struct vty *vty, uint32_t duration,
 		duration = ZEBRA_EVPN_MH_STARTUP_DELAY_DEF;
 
 	zmh_info->startup_delay_time = duration;
-	zebra_evpn_mh_startup_delay_timer_start(false /* init */);
+
+	/* if startup_delay_timer is running allow it to be adjusted
+	 * up or down
+	 */
+	if (zmh_info->startup_delay_timer)
+		zebra_evpn_mh_startup_delay_timer_start("config");
 
 	return 0;
 }
@@ -3528,7 +3535,7 @@ void zebra_evpn_mh_init(void)
 			zebra_evpn_acc_vl_cmp, "access VLAN hash table");
 
 	zmh_info->startup_delay_time = ZEBRA_EVPN_MH_STARTUP_DELAY_DEF;
-	zebra_evpn_mh_startup_delay_timer_start(true /*init*/);
+	zebra_evpn_mh_startup_delay_timer_start("init");
 }
 
 void zebra_evpn_mh_terminate(void)
