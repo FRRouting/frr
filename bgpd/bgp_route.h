@@ -379,6 +379,25 @@ struct bgp_aggregate {
 
 	/* SAFI configuration. */
 	safi_t safi;
+
+	/** Match only equal MED. */
+	bool match_med;
+	/* MED matching state. */
+	/** Did we get the first MED value? */
+	bool med_initialized;
+	/** Are there MED mismatches? */
+	bool med_mismatched;
+	/** MED value found in current group. */
+	uint32_t med_matched_value;
+
+	/**
+	 * Test if aggregated address MED of all route match, otherwise
+	 * returns `false`. This macro will also return `true` if MED
+	 * matching is disabled.
+	 */
+#define AGGREGATE_MED_VALID(aggregate)                                         \
+	(((aggregate)->match_med && !(aggregate)->med_mismatched)              \
+	 || !(aggregate)->match_med)
 };
 
 #define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen)                                      \

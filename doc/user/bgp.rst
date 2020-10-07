@@ -999,6 +999,12 @@ Route Aggregation-IPv4 Address Family
    This command specifies an aggregate address. Aggregated routes will
    not be announced.
 
+.. index:: aggregate-address A.B.C.D/M matching-MED-only
+.. clicmd:: aggregate-address A.B.C.D/M matching-MED-only
+
+   Configure the aggregated address to only be created when the routes MED
+   match, otherwise no aggregated route will be created.
+
 .. index:: no aggregate-address A.B.C.D/M
 .. clicmd:: no aggregate-address A.B.C.D/M
 
@@ -1050,6 +1056,13 @@ Route Aggregation-IPv6 Address Family
 
    This command specifies an aggregate address. Aggregated routes will
    not be announced.
+
+.. index:: aggregate-address X:X::X:X/M matching-MED-only
+.. clicmd:: aggregate-address X:X::X:X/M matching-MED-only
+
+   Configure the aggregated address to only be created when the routes MED
+   match, otherwise no aggregated route will be created.
+
 
 .. index:: no aggregate-address X:X::X:X/M
 .. clicmd:: no aggregate-address X:X::X:X/M
