@@ -54,7 +54,7 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				       safi_t safi, struct bgp_table *table,
 				       struct route_map *rmap,
-				       enum advertise advertise)
+				       enum update_type advertise)
 {
 	int addpath_capable;
 	const struct prefix *dest_p;

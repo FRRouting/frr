@@ -764,10 +764,18 @@ struct bgp_nexthop {
 #define BGP_GTSM_HOPS_CONNECTED 1
 
 /* Advertise map */
-#define CONDITION_NON_EXIST 	false
-#define CONDITION_EXIST     	true
+#define CONDITION_NON_EXIST	false
+#define CONDITION_EXIST		true
 
-enum advertise { WITHDRAW, ADVERTISE };
+/* BGP peer RMAP options */
+#define BGP_PEER_ADVERTISE_MAP		(1 << 0)
+#define BGP_PEER_ROUTE_MAP		(1 << 1)
+#define BGP_PEER_UNSUPPRESS_MAP		(1 << 2)
+#define BGP_PEER_CONDITION_EXIST	(1 << 3)
+#define BGP_PEER_RMAP_DIRECTION		(1 << 4)
+#define BGP_PEER_RMAP_SET		(1 << 5)
+
+enum update_type { WITHDRAW, ADVERTISE };
 
 #include "filter.h"
 
@@ -813,7 +821,7 @@ struct bgp_filter {
 		char *cname;
 		struct route_map *cmap;
 
-		enum advertise advertise;
+		enum update_type advertise;
 	} advmap;
 };
 
@@ -1970,8 +1978,9 @@ extern int peer_unsuppress_map_set(struct peer *peer, afi_t afi, safi_t safi,
 extern int peer_advertise_map_set(struct peer *peer, afi_t afi, safi_t safi,
 				  const char *advertise_name,
 				  struct route_map *advertise_map,
-				  bool condition, const char *condition_name,
-				  struct route_map *condition_map);
+				  const char *condition_name,
+				  struct route_map *condition_map,
+				  bool condition);
 
 extern int peer_password_set(struct peer *, const char *);
 extern int peer_password_unset(struct peer *);
@@ -1981,8 +1990,9 @@ extern int peer_unsuppress_map_unset(struct peer *, afi_t, safi_t);
 extern int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 				    const char *advertise_name,
 				    struct route_map *advertise_map,
-				    bool condition, const char *condition_name,
-				    struct route_map *condition_map);
+				    const char *condition_name,
+				    struct route_map *condition_map,
+				    bool condition);
 
 extern int peer_maximum_prefix_set(struct peer *, afi_t, safi_t, uint32_t,
 				   uint8_t, int, uint16_t, bool force);

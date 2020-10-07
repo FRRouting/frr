@@ -2039,6 +2039,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			    || CONDITION_MAP_NAME(filter)) {
 				struct peer *temp_peer;
 				struct listnode *temp_node, *temp_nnode = NULL;
+
 				for (ALL_LIST_ELEMENTS(bgp->peer, temp_node,
 						       temp_nnode, temp_peer)) {
 					if (!CHECK_FLAG(peer->flags,
