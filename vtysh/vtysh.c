@@ -39,7 +39,6 @@
 #include "filter.h"
 #include "vtysh/vtysh.h"
 #include "log.h"
-#include "bgpd/bgp_vty.h"
 #include "ns.h"
 #include "vrf.h"
 #include "libfrr.h"
