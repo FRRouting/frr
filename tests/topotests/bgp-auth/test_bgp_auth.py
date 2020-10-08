@@ -270,7 +270,7 @@ def peer_name(rtr, prefix, vrf):
 
 def print_diag(vrf):
     "print failure disagnostics"
-    
+
     tgen = get_topogen()
     router_list = tgen.routers()
     for rname, router in router_list.items():
@@ -330,7 +330,7 @@ def clear_ospf(vrf=""):
 
 def check_neigh_state(router, peer, state, vrf=""):
     "check BGP neighbor state on a router"
-    
+
     count = 0
     matched = False
     neigh_output = ""

@@ -182,7 +182,9 @@ def test_isis_convergence():
         router_compare_json_output(
             rname,
             "show yang operational-data /frr-interface:lib isisd",
-            "show_yang_interface_isis_adjacencies.ref")
+            "show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib():
     logger.info("Test: verify RIB")
@@ -265,6 +267,7 @@ def test_ldp_pseudowires():
             rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref"
         )
 
+
 def test_ldp_igp_sync():
     logger.info("Test: verify LDP igp-sync")
     tgen = get_topogen()
@@ -278,6 +281,7 @@ def test_ldp_igp_sync():
             rname, "show mpls ldp igp-sync json", "show_ldp_igp_sync.ref"
         )
 
+
 def test_isis_ldp_sync():
     logger.info("Test: verify ISIS igp-sync")
     tgen = get_topogen()
@@ -287,9 +291,7 @@ def test_isis_ldp_sync():
         pytest.skip(tgen.errors)
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_ldp_sync(
-            rname, "show_isis_ldp_sync.ref"
-        )
+        (result, diff) = validate_show_isis_ldp_sync(rname, "show_isis_ldp_sync.ref")
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
     for rname in ["r1", "r2", "r3"]:
@@ -320,7 +322,9 @@ def test_r1_eth1_shutdown():
 
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
-            rname, "show mpls ldp igp-sync json", "show_ldp_igp_sync_r1_eth1_shutdown.ref"
+            rname,
+            "show mpls ldp igp-sync json",
+            "show_ldp_igp_sync_r1_eth1_shutdown.ref",
         )
 
     for rname in ["r1", "r2", "r3"]:
@@ -355,9 +359,7 @@ def test_r1_eth1_no_shutdown():
         )
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_ldp_sync(
-            rname, "show_isis_ldp_sync.ref"
-        )
+        (result, diff) = validate_show_isis_ldp_sync(rname, "show_isis_ldp_sync.ref")
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
     for rname in ["r1", "r2", "r3"]:
@@ -382,7 +384,9 @@ def test_r2_eth1_shutdown():
 
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
-            rname, "show mpls ldp igp-sync json", "show_ldp_igp_sync_r1_eth1_shutdown.ref"
+            rname,
+            "show mpls ldp igp-sync json",
+            "show_ldp_igp_sync_r1_eth1_shutdown.ref",
         )
 
     for rname in ["r1", "r2", "r3"]:
@@ -417,9 +421,7 @@ def test_r2_eth1_no_shutdown():
         )
 
     for rname in ["r1", "r2", "r3"]:
-        (result, diff) = validate_show_isis_ldp_sync(
-            rname, "show_isis_ldp_sync.ref"
-        )
+        (result, diff) = validate_show_isis_ldp_sync(rname, "show_isis_ldp_sync.ref")
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
     for rname in ["r1", "r2", "r3"]:
@@ -448,6 +450,7 @@ if __name__ == "__main__":
 # Auxiliary functions
 #
 
+
 def parse_show_isis_ldp_sync(lines, rname):
     """
     Parse the output of 'show isis mpls ldp sync' into a Python dict.
@@ -461,23 +464,23 @@ def parse_show_isis_ldp_sync(lines, rname):
             interface = {}
             interface_name = None
 
-            line = it.next();
+            line = it.next()
 
             if line.startswith(rname + "-eth"):
                 interface_name = line
 
-            line = it.next();
+            line = it.next()
 
             if line.startswith(" LDP-IGP Synchronization enabled: "):
                 interface["ldpIgpSyncEnabled"] = line.endswith("yes")
-                line = it.next();
+                line = it.next()
 
                 if line.startswith(" holddown timer in seconds: "):
-                     interface["holdDownTimeInSec"] = int(line.split(": ")[-1])
-                     line = it.next();
+                    interface["holdDownTimeInSec"] = int(line.split(": ")[-1])
+                    line = it.next()
 
                 if line.startswith(" State: "):
-                     interface["ldpIgpSyncState"] = line.split(": ")[-1]
+                    interface["ldpIgpSyncState"] = line.split(": ")[-1]
 
             elif line.startswith(" Interface "):
                 interface["Interface"] = line.endswith("down")
@@ -534,7 +537,7 @@ def parse_show_isis_interface_detail(lines, rname):
 
     while True:
         try:
-            line = it.next();
+            line = it.next()
 
             area_match = re.match(r"Area (.+):", line)
             if not area_match:
@@ -543,34 +546,36 @@ def parse_show_isis_interface_detail(lines, rname):
             area_id = area_match.group(1)
             area = {}
 
-            line = it.next();
+            line = it.next()
 
             while line.startswith(" Interface: "):
-                interface_name = re.split(':|,', line)[1].lstrip()
+                interface_name = re.split(":|,", line)[1].lstrip()
 
-                area[interface_name]= []
+                area[interface_name] = []
 
                 # Look for keyword: Level-1 or Level-2
                 while not line.startswith(" Level-"):
-                    line = it.next();
+                    line = it.next()
 
                 while line.startswith(" Level-"):
 
                     level = {}
 
                     level_name = line.split()[0]
-                    level['level'] = level_name
+                    level["level"] = level_name
 
-                    line = it.next();
+                    line = it.next()
 
                     if line.startswith(" Metric:"):
-                        level['metric'] = re.split(':|,', line)[1].lstrip()
+                        level["metric"] = re.split(":|,", line)[1].lstrip()
 
                     area[interface_name].append(level)
 
                     # Look for keyword: Level-1 or Level-2 or Interface:
-                    while not line.startswith(" Level-") and not line.startswith(" Interface: "):
-                        line = it.next();
+                    while not line.startswith(" Level-") and not line.startswith(
+                        " Interface: "
+                    ):
+                        line = it.next()
 
                     if line.startswith(" Level-"):
                         continue
@@ -623,4 +628,3 @@ def validate_show_isis_interface_detail(rname, fname):
     (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=160)
 
     return (result, diff)
-

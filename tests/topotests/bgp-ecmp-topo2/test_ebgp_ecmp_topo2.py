@@ -61,7 +61,7 @@ from lib.common_config import (
     check_address_types,
     interface_status,
     reset_config_on_routers,
-    required_linux_kernel_version
+    required_linux_kernel_version,
 )
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp
@@ -110,7 +110,7 @@ def setup_module(mod):
     global ADDR_TYPES
 
     # Required linux kernel version for this suite to run.
-    result = required_linux_kernel_version('4.15')
+    result = required_linux_kernel_version("4.15")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
@@ -144,9 +144,7 @@ def setup_module(mod):
     )
 
     link_data = [
-        val
-        for links, val in topo["routers"]["r2"]["links"].items()
-        if "r3" in links
+        val for links, val in topo["routers"]["r2"]["links"].items() if "r3" in links
     ]
     for adt in ADDR_TYPES:
         NEXT_HOPS[adt] = [val[adt].split("/")[0] for val in link_data]
@@ -161,9 +159,7 @@ def setup_module(mod):
     INTF_LIST_R2 = sorted(INTF_LIST_R2, key=lambda x: int(x.split("eth")[1]))
 
     link_data = [
-        val
-        for links, val in topo["routers"]["r3"]["links"].items()
-        if "r2" in links
+        val for links, val in topo["routers"]["r3"]["links"].items() if "r2" in links
     ]
     INTF_LIST_R3 = [val["interface"].split("/")[0] for val in link_data]
     INTF_LIST_R3 = sorted(INTF_LIST_R3, key=lambda x: int(x.split("eth")[1]))

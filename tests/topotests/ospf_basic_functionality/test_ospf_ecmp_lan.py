@@ -53,7 +53,7 @@ from lib.common_config import (
     shutdown_bringup_interface,
     stop_router,
     start_router,
-    topo_daemons
+    topo_daemons,
 )
 from lib.bgp import verify_bgp_convergence, create_router_bgp
 from lib.topolog import logger

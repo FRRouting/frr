@@ -35,7 +35,7 @@ import platform
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -47,27 +47,30 @@ from lib.topolog import logger
 from mininet.topo import Topo
 
 l3mdev_accept = 0
-krel = ''
+krel = ""
+
 
 class BGPEVPNTopo(Topo):
     "Test topology builder"
+
     def build(self, *_args, **_opts):
         "Build function"
         tgen = get_topogen(self)
 
-        tgen.add_router('r1')
-        tgen.add_router('r2')
+        tgen.add_router("r1")
+        tgen.add_router("r2")
 
-        switch = tgen.add_switch('s1')
-        switch.add_link(tgen.gears['r1'])
-        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch("s1")
+        switch.add_link(tgen.gears["r1"])
+        switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch('s2')
-        switch.add_link(tgen.gears['r1'])
+        switch = tgen.add_switch("s2")
+        switch.add_link(tgen.gears["r1"])
 
-        switch = tgen.add_switch('s3')
-        switch.add_link(tgen.gears['r2'])
-        
+        switch = tgen.add_switch("s3")
+        switch.add_link(tgen.gears["r2"])
+
+
 def setup_module(mod):
     "Sets up the pytest environment"
     global l3mdev_accept
@@ -79,99 +82,109 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     krel = platform.release()
-    if topotest.version_cmp(krel, '4.18') < 0:
-        logger.info('BGP EVPN RT5 NETNS tests will not run (have kernel "{}", but it requires 4.18)'.format(krel))
-        return pytest.skip('Skipping BGP EVPN RT5 NETNS Test. Kernel not supported')
+    if topotest.version_cmp(krel, "4.18") < 0:
+        logger.info(
+            'BGP EVPN RT5 NETNS tests will not run (have kernel "{}", but it requires 4.18)'.format(
+                krel
+            )
+        )
+        return pytest.skip("Skipping BGP EVPN RT5 NETNS Test. Kernel not supported")
 
     l3mdev_accept = 1
-    logger.info('setting net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept))
+    logger.info("setting net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
 
     # create VRF vrf-101 on R1 and R2
     # create loop101
-    cmds_vrflite = ['sysctl -w net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept),
-                    'ip link add {}-vrf-101 type vrf table 101',
-                    'ip ru add oif {}-vrf-101 table 101',
-                    'ip ru add iif {}-vrf-101 table 101',
-                    'ip link set dev {}-vrf-101 up',
-                    'sysctl -w net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept),
-                    'ip link add loop101 type dummy',
-                    'ip link set dev loop101 master {}-vrf-101',
-                    'ip link set dev loop101 up']
-    cmds_netns = ['ip netns add {}-vrf-101',
-                  'ip link add loop101 type dummy',
-                  'ip link set dev loop101 netns {}-vrf-101',
-                  'ip netns exec {}-vrf-101 ip link set dev loop101 up']
+    cmds_vrflite = [
+        "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept),
+        "ip link add {}-vrf-101 type vrf table 101",
+        "ip ru add oif {}-vrf-101 table 101",
+        "ip ru add iif {}-vrf-101 table 101",
+        "ip link set dev {}-vrf-101 up",
+        "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept),
+        "ip link add loop101 type dummy",
+        "ip link set dev loop101 master {}-vrf-101",
+        "ip link set dev loop101 up",
+    ]
+    cmds_netns = [
+        "ip netns add {}-vrf-101",
+        "ip link add loop101 type dummy",
+        "ip link set dev loop101 netns {}-vrf-101",
+        "ip netns exec {}-vrf-101 ip link set dev loop101 up",
+    ]
 
-    cmds_r2 = [ # config routing 101
-               'ip link add name bridge-101 up type bridge stp_state 0',
-               'ip link set bridge-101 master {}-vrf-101',
-               'ip link set dev bridge-101 up',
-               'ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192.168.100.41',
-               'ip link set dev vxlan-101 master bridge-101',
-               'ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off']
+    cmds_r2 = [  # config routing 101
+        "ip link add name bridge-101 up type bridge stp_state 0",
+        "ip link set bridge-101 master {}-vrf-101",
+        "ip link set dev bridge-101 up",
+        "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192.168.100.41",
+        "ip link set dev vxlan-101 master bridge-101",
+        "ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off",
+    ]
 
-    cmds_r1_netns_method3 = ['ip link add name vxlan-{1} type vxlan id {1} dstport 4789 dev {0}-eth0 local 192.168.100.21',
-                             'ip link set dev vxlan-{1} netns {0}-vrf-{1}',
-                             'ip netns exec {0}-vrf-{1} ip li set dev lo up',
-                             'ip netns exec {0}-vrf-{1} ip link add name bridge-{1} up type bridge stp_state 0',
-                             'ip netns exec {0}-vrf-{1} ip link set dev vxlan-{1} master bridge-{1}',
-                             'ip netns exec {0}-vrf-{1} ip link set bridge-{1} up',
-                             'ip netns exec {0}-vrf-{1} ip link set vxlan-{1} up']
+    cmds_r1_netns_method3 = [
+        "ip link add name vxlan-{1} type vxlan id {1} dstport 4789 dev {0}-eth0 local 192.168.100.21",
+        "ip link set dev vxlan-{1} netns {0}-vrf-{1}",
+        "ip netns exec {0}-vrf-{1} ip li set dev lo up",
+        "ip netns exec {0}-vrf-{1} ip link add name bridge-{1} up type bridge stp_state 0",
+        "ip netns exec {0}-vrf-{1} ip link set dev vxlan-{1} master bridge-{1}",
+        "ip netns exec {0}-vrf-{1} ip link set bridge-{1} up",
+        "ip netns exec {0}-vrf-{1} ip link set vxlan-{1} up",
+    ]
 
-    router = tgen.gears['r1']
+    router = tgen.gears["r1"]
     for cmd in cmds_netns:
-        logger.info('cmd to r1: '+cmd);
-        output = router.run(cmd.format('r1'))
-        logger.info('result: '+output);
+        logger.info("cmd to r1: " + cmd)
+        output = router.run(cmd.format("r1"))
+        logger.info("result: " + output)
 
-    router = tgen.gears['r2']
+    router = tgen.gears["r2"]
     for cmd in cmds_vrflite:
-        logger.info('cmd to r2: '+cmd.format('r2'));
-        output = router.run(cmd.format('r2'))
-        logger.info('result: '+output);
+        logger.info("cmd to r2: " + cmd.format("r2"))
+        output = router.run(cmd.format("r2"))
+        logger.info("result: " + output)
 
     for cmd in cmds_r2:
-        logger.info('cmd to r2: '+cmd.format('r2'));
-        output = router.run(cmd.format('r2'))
-        logger.info('result: '+output);
+        logger.info("cmd to r2: " + cmd.format("r2"))
+        output = router.run(cmd.format("r2"))
+        logger.info("result: " + output)
 
-    router = tgen.gears['r1']
-    bridge_id = '101'
+    router = tgen.gears["r1"]
+    bridge_id = "101"
     for cmd in cmds_r1_netns_method3:
-        logger.info('cmd to r1: '+cmd.format('r1', bridge_id));
-        output = router.run(cmd.format('r1', bridge_id))
-        logger.info('result: '+output);
-    router = tgen.gears['r1']
+        logger.info("cmd to r1: " + cmd.format("r1", bridge_id))
+        output = router.run(cmd.format("r1", bridge_id))
+        logger.info("result: " + output)
+    router = tgen.gears["r1"]
 
     for rname, router in router_list.items():
-        if rname == 'r1':
+        if rname == "r1":
             router.load_config(
                 TopoRouter.RD_ZEBRA,
-                os.path.join(CWD, '{}/zebra.conf'.format(rname)),
-                '--vrfwnetns -o vrf0'
+                os.path.join(CWD, "{}/zebra.conf".format(rname)),
+                "--vrfwnetns -o vrf0",
             )
         else:
             router.load_config(
-                TopoRouter.RD_ZEBRA,
-                os.path.join(CWD, '{}/zebra.conf'.format(rname))
+                TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
             )
         router.load_config(
-            TopoRouter.RD_BGP,
-            os.path.join(CWD, '{}/bgpd.conf'.format(rname))
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
 
     # Initialize all routers.
     tgen.start_router()
 
+
 def teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
-    cmds_rx_netns = ['ip netns del {}-vrf-101']
-    
-    router = tgen.gears['r1']
+    cmds_rx_netns = ["ip netns del {}-vrf-101"]
+
+    router = tgen.gears["r1"]
     for cmd in cmds_rx_netns:
-        logger.info('cmd to r1: '+cmd.format('r1'));
-        output = router.run(cmd.format('r1'))
+        logger.info("cmd to r1: " + cmd.format("r1"))
+        output = router.run(cmd.format("r1"))
     tgen.stop_topology()
 
 
@@ -183,52 +196,59 @@ def test_protocols_convergence():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    topotest.sleep(4, 'waiting 4 seconds for bgp convergence')
+    topotest.sleep(4, "waiting 4 seconds for bgp convergence")
     # Check IPv4/IPv6 routing tables.
-    output = tgen.gears['r1'].vtysh_cmd('show bgp l2vpn evpn', isjson=False)
-    logger.info('==== result from show bgp l2vpn evpn')
+    output = tgen.gears["r1"].vtysh_cmd("show bgp l2vpn evpn", isjson=False)
+    logger.info("==== result from show bgp l2vpn evpn")
     logger.info(output)
-    output = tgen.gears['r1'].vtysh_cmd('show bgp l2vpn evpn route detail', isjson=False)
-    logger.info('==== result from show bgp l2vpn evpn route detail')
+    output = tgen.gears["r1"].vtysh_cmd(
+        "show bgp l2vpn evpn route detail", isjson=False
+    )
+    logger.info("==== result from show bgp l2vpn evpn route detail")
     logger.info(output)
-    output = tgen.gears['r1'].vtysh_cmd('show bgp vrf r1-vrf-101 ipv4', isjson=False)
-    logger.info('==== result from show bgp vrf r1-vrf-101 ipv4')
+    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf r1-vrf-101 ipv4", isjson=False)
+    logger.info("==== result from show bgp vrf r1-vrf-101 ipv4")
     logger.info(output)
-    output = tgen.gears['r1'].vtysh_cmd('show bgp vrf r1-vrf-101', isjson=False)
-    logger.info('==== result from show bgp vrf r1-vrf-101 ')
+    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf r1-vrf-101", isjson=False)
+    logger.info("==== result from show bgp vrf r1-vrf-101 ")
     logger.info(output)
-    output = tgen.gears['r1'].vtysh_cmd('show ip route vrf r1-vrf-101', isjson=False)
-    logger.info('==== result from show ip route vrf r1-vrf-101')
+    output = tgen.gears["r1"].vtysh_cmd("show ip route vrf r1-vrf-101", isjson=False)
+    logger.info("==== result from show ip route vrf r1-vrf-101")
     logger.info(output)
-    output = tgen.gears['r1'].vtysh_cmd('show evpn vni detail', isjson=False)
-    logger.info('==== result from show evpn vni detail')
+    output = tgen.gears["r1"].vtysh_cmd("show evpn vni detail", isjson=False)
+    logger.info("==== result from show evpn vni detail")
     logger.info(output)
-    output = tgen.gears['r1'].vtysh_cmd('show evpn next-hops vni all', isjson=False)
-    logger.info('==== result from show evpn next-hops vni all')
+    output = tgen.gears["r1"].vtysh_cmd("show evpn next-hops vni all", isjson=False)
+    logger.info("==== result from show evpn next-hops vni all")
     logger.info(output)
-    output = tgen.gears['r1'].vtysh_cmd('show evpn rmac vni all', isjson=False)
-    logger.info('==== result from show evpn next-hops vni all')
+    output = tgen.gears["r1"].vtysh_cmd("show evpn rmac vni all", isjson=False)
+    logger.info("==== result from show evpn next-hops vni all")
     logger.info(output)
     # Check IPv4 and IPv6 connectivity between r1 and r2 ( routing vxlan evpn)
-    pingrouter = tgen.gears['r1']
-    logger.info('Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)')
-    output = pingrouter.run('ip netns exec r1-vrf-101 ping 192.168.101.41 -f -c 1000')
+    pingrouter = tgen.gears["r1"]
+    logger.info(
+        "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)"
+    )
+    output = pingrouter.run("ip netns exec r1-vrf-101 ping 192.168.101.41 -f -c 1000")
     logger.info(output)
-    if '1000 packets transmitted, 1000 received' not in output:
-        assertmsg = 'expected ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) should be ok'
+    if "1000 packets transmitted, 1000 received" not in output:
+        assertmsg = (
+            "expected ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) should be ok"
+        )
         assert 0, assertmsg
     else:
-        logger.info('Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK')
+        logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK")
+
 
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
-        pytest.skip('Memory leak test/report is disabled')
+        pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

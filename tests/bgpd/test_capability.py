@@ -1,7 +1,9 @@
 import frrtest
 
+
 class TestCapability(frrtest.TestMultiOut):
-    program = './test_capability'
+    program = "./test_capability"
+
 
 TestCapability.okfail("MP4: MP IP/Uni")
 TestCapability.okfail("MPv6: MP IPv6/Uni")
@@ -43,5 +45,9 @@ TestCapability.okfail("AS4real2: AS4 capability, in series of capabilities")
 TestCapability.okfail("DynCap: Dynamic Capability Message, IP/Multicast")
 TestCapability.okfail("DynCapLong: Dynamic Capability Message, IP/Multicast, truncated")
 TestCapability.okfail("DynCapPadded: Dynamic Capability Message, IP/Multicast, padded")
-TestCapability.okfail("DynCapMPCpadded: Dynamic Capability Message, IP/Multicast, cap data padded")
-TestCapability.okfail("DynCapMPCoverflow: Dynamic Capability Message, IP/Multicast, cap data != length")
+TestCapability.okfail(
+    "DynCapMPCpadded: Dynamic Capability Message, IP/Multicast, cap data padded"
+)
+TestCapability.okfail(
+    "DynCapMPCoverflow: Dynamic Capability Message, IP/Multicast, cap data != length"
+)

@@ -135,7 +135,7 @@ from lib.common_config import (
     kill_mininet_routers_process,
     get_frr_ipv6_linklocal,
     create_route_maps,
-    required_linux_kernel_version
+    required_linux_kernel_version,
 )
 
 # Reading the data from JSON File for topology and configuration creation
@@ -185,7 +185,7 @@ def setup_module(mod):
     """
 
     # Required linux kernel version for this suite to run.
-    result = required_linux_kernel_version('4.15')
+    result = required_linux_kernel_version("4.15")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 

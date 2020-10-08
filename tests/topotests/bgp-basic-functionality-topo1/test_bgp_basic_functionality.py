@@ -76,7 +76,7 @@ from lib.common_config import (
     create_prefix_lists,
     create_route_maps,
     verify_bgp_community,
-    required_linux_kernel_version
+    required_linux_kernel_version,
 )
 from lib.topolog import logger
 from lib.bgp import (
@@ -139,7 +139,7 @@ def setup_module(mod):
     """
 
     # Required linux kernel version for this suite to run.
-    result = required_linux_kernel_version('4.15')
+    result = required_linux_kernel_version("4.15")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
@@ -567,7 +567,7 @@ def test_BGP_attributes_with_vrf_default_keyword_p0(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    #reset_config_on_routers(tgen)
+    # reset_config_on_routers(tgen)
 
     step("Configure static routes and redistribute in BGP on R3")
     for addr_type in ADDR_TYPES:

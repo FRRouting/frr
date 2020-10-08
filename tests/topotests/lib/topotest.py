@@ -51,8 +51,9 @@ from mininet.log import setLogLevel, info
 from mininet.cli import CLI
 from mininet.link import Intf
 
+
 def gdb_core(obj, daemon, corefiles):
-    gdbcmds = '''
+    gdbcmds = """
         info threads
         bt full
         disassemble
@@ -66,20 +67,20 @@ def gdb_core(obj, daemon, corefiles):
         disassemble
         up
         disassemble
-    '''
-    gdbcmds = [['-ex', i.strip()] for i in gdbcmds.strip().split('\n')]
+    """
+    gdbcmds = [["-ex", i.strip()] for i in gdbcmds.strip().split("\n")]
     gdbcmds = [item for sl in gdbcmds for item in sl]
 
     daemon_path = os.path.join(obj.daemondir, daemon)
     backtrace = subprocess.check_output(
-        ['gdb', daemon_path, corefiles[0], '--batch'] + gdbcmds
+        ["gdb", daemon_path, corefiles[0], "--batch"] + gdbcmds
     )
     sys.stderr.write(
-        "\n%s: %s crashed. Core file found - Backtrace follows:\n"
-        % (obj.name, daemon)
+        "\n%s: %s crashed. Core file found - Backtrace follows:\n" % (obj.name, daemon)
     )
     sys.stderr.write("%s" % backtrace)
     return backtrace
+
 
 class json_cmp_result(object):
     "json_cmp result class for better assertion messages"
@@ -739,7 +740,8 @@ def ip4_vrf_route(node):
     }
     """
     output = normalize_text(
-            node.run("ip route show vrf {0}-cust1".format(node.name))).splitlines()
+        node.run("ip route show vrf {0}-cust1".format(node.name))
+    ).splitlines()
 
     result = {}
     for line in output:
@@ -821,7 +823,8 @@ def ip6_vrf_route(node):
     }
     """
     output = normalize_text(
-            node.run("ip -6 route show vrf {0}-cust1".format(node.name))).splitlines()
+        node.run("ip -6 route show vrf {0}-cust1".format(node.name))
+    ).splitlines()
     result = {}
     for line in output:
         columns = line.split(" ")
@@ -992,7 +995,7 @@ class Router(Node):
         # Backward compatibility:
         #   Load configuration defaults like topogen.
         self.config_defaults = configparser.ConfigParser(
-            defaults = {
+            defaults={
                 "verbosity": "info",
                 "frrdir": "/usr/lib/frr",
                 "routertype": "frr",
@@ -1095,7 +1098,7 @@ class Router(Node):
         if re.search(r"No such file or directory", rundaemons):
             return 0
         if rundaemons is not None:
-            bet = rundaemons.split('\n')
+            bet = rundaemons.split("\n")
             for d in bet[:-1]:
                 daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                 if daemonpid.isdigit() and pid_exists(int(daemonpid)):
@@ -1110,24 +1113,28 @@ class Router(Node):
         if re.search(r"No such file or directory", rundaemons):
             return errors
         if rundaemons is not None:
-            dmns = rundaemons.split('\n')
+            dmns = rundaemons.split("\n")
             # Exclude empty string at end of list
             for d in dmns[:-1]:
                 daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
                 if daemonpid.isdigit() and pid_exists(int(daemonpid)):
                     daemonname = os.path.basename(d.rstrip().rsplit(".", 1)[0])
-                    logger.info(
-                        "{}: stopping {}".format(
-                            self.name, daemonname
-                        )
-                    )
+                    logger.info("{}: stopping {}".format(self.name, daemonname))
                     try:
                         os.kill(int(daemonpid), signal.SIGTERM)
                     except OSError as err:
                         if err.errno == errno.ESRCH:
-                            logger.error("{}: {} left a dead pidfile (pid={})".format(self.name, daemonname, daemonpid))
+                            logger.error(
+                                "{}: {} left a dead pidfile (pid={})".format(
+                                    self.name, daemonname, daemonpid
+                                )
+                            )
                         else:
-                            logger.info("{}: {} could not kill pid {}: {}".format(self.name, daemonname, daemonpid, str(err)))
+                            logger.info(
+                                "{}: {} could not kill pid {}: {}".format(
+                                    self.name, daemonname, daemonpid, str(err)
+                                )
+                            )
 
             if not wait:
                 return errors
@@ -1135,18 +1142,28 @@ class Router(Node):
             running = self.listDaemons()
 
             if running:
-                sleep(0.1, "{}: waiting for daemons stopping: {}".format(self.name, ', '.join(running)))
+                sleep(
+                    0.1,
+                    "{}: waiting for daemons stopping: {}".format(
+                        self.name, ", ".join(running)
+                    ),
+                )
                 running = self.listDaemons()
 
                 counter = 20
                 while counter > 0 and running:
-                    sleep(0.5, "{}: waiting for daemons stopping: {}".format(self.name, ', '.join(running)))
+                    sleep(
+                        0.5,
+                        "{}: waiting for daemons stopping: {}".format(
+                            self.name, ", ".join(running)
+                        ),
+                    )
                     running = self.listDaemons()
                     counter -= 1
 
             if running:
                 # 2nd round of kill if daemons didn't exit
-                dmns = rundaemons.split('\n')
+                dmns = rundaemons.split("\n")
                 # Exclude empty string at end of list
                 for d in dmns[:-1]:
                     daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
@@ -1295,11 +1312,12 @@ class Router(Node):
     def startRouterDaemons(self, daemons=None):
         "Starts all FRR daemons for this router."
 
-        bundle_data = ''
+        bundle_data = ""
 
-        if os.path.exists('/etc/frr/support_bundle_commands.conf'):
+        if os.path.exists("/etc/frr/support_bundle_commands.conf"):
             bundle_data = subprocess.check_output(
-                ["cat /etc/frr/support_bundle_commands.conf"], shell=True)
+                ["cat /etc/frr/support_bundle_commands.conf"], shell=True
+            )
         self.cmd(
             "echo '{}' > /etc/frr/support_bundle_commands.conf".format(bundle_data)
         )
@@ -1400,7 +1418,7 @@ class Router(Node):
         for daemon in daemons:
             if rundaemons is not None and daemon in rundaemons:
                 numRunning = 0
-                dmns = rundaemons.split('\n')
+                dmns = rundaemons.split("\n")
                 # Exclude empty string at end of list
                 for d in dmns[:-1]:
                     if re.search(r"%s" % daemon, d):
@@ -1738,8 +1756,9 @@ class LegacySwitch(OVSSwitch):
         OVSSwitch.__init__(self, name, failMode="standalone", **params)
         self.switchIP = None
 
+
 def frr_unicode(s):
-    '''Convert string to unicode, depending on python version'''
+    """Convert string to unicode, depending on python version"""
     if sys.version_info[0] > 2:
         return s
     else:

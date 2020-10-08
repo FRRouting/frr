@@ -73,7 +73,7 @@ from functools import partial
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -84,8 +84,10 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+
 class TemplateTopo(Topo):
     "Test topology builder"
+
     def build(self, *_args, **_opts):
         "Build function"
         tgen = get_topogen(self)
@@ -93,44 +95,45 @@ class TemplateTopo(Topo):
         #
         # Define FRR Routers
         #
-        for router in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
+        for router in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
             tgen.add_router(router)
 
         #
         # Define connections
         #
-        switch = tgen.add_switch('s1')
-        switch.add_link(tgen.gears['rt1'], nodeif="eth-sw1")
-        switch.add_link(tgen.gears['rt2'], nodeif="eth-sw1")
-        switch.add_link(tgen.gears['rt3'], nodeif="eth-sw1")
+        switch = tgen.add_switch("s1")
+        switch.add_link(tgen.gears["rt1"], nodeif="eth-sw1")
+        switch.add_link(tgen.gears["rt2"], nodeif="eth-sw1")
+        switch.add_link(tgen.gears["rt3"], nodeif="eth-sw1")
 
-        switch = tgen.add_switch('s2')
-        switch.add_link(tgen.gears['rt2'], nodeif="eth-rt4-1")
-        switch.add_link(tgen.gears['rt4'], nodeif="eth-rt2-1")
+        switch = tgen.add_switch("s2")
+        switch.add_link(tgen.gears["rt2"], nodeif="eth-rt4-1")
+        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt2-1")
 
-        switch = tgen.add_switch('s3')
-        switch.add_link(tgen.gears['rt2'], nodeif="eth-rt4-2")
-        switch.add_link(tgen.gears['rt4'], nodeif="eth-rt2-2")
+        switch = tgen.add_switch("s3")
+        switch.add_link(tgen.gears["rt2"], nodeif="eth-rt4-2")
+        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt2-2")
 
-        switch = tgen.add_switch('s4')
-        switch.add_link(tgen.gears['rt3'], nodeif="eth-rt5-1")
-        switch.add_link(tgen.gears['rt5'], nodeif="eth-rt3-1")
+        switch = tgen.add_switch("s4")
+        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt5-1")
+        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt3-1")
 
-        switch = tgen.add_switch('s5')
-        switch.add_link(tgen.gears['rt3'], nodeif="eth-rt5-2")
-        switch.add_link(tgen.gears['rt5'], nodeif="eth-rt3-2")
+        switch = tgen.add_switch("s5")
+        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt5-2")
+        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt3-2")
 
-        switch = tgen.add_switch('s6')
-        switch.add_link(tgen.gears['rt4'], nodeif="eth-rt5")
-        switch.add_link(tgen.gears['rt5'], nodeif="eth-rt4")
+        switch = tgen.add_switch("s6")
+        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt5")
+        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt4")
 
-        switch = tgen.add_switch('s7')
-        switch.add_link(tgen.gears['rt4'], nodeif="eth-rt6")
-        switch.add_link(tgen.gears['rt6'], nodeif="eth-rt4")
+        switch = tgen.add_switch("s7")
+        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt6")
+        switch.add_link(tgen.gears["rt6"], nodeif="eth-rt4")
 
-        switch = tgen.add_switch('s8')
-        switch.add_link(tgen.gears['rt5'], nodeif="eth-rt6")
-        switch.add_link(tgen.gears['rt6'], nodeif="eth-rt5")
+        switch = tgen.add_switch("s8")
+        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt6")
+        switch.add_link(tgen.gears["rt6"], nodeif="eth-rt5")
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -142,15 +145,14 @@ def setup_module(mod):
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
         router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, '{}/zebra.conf'.format(rname))
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
-            TopoRouter.RD_ISIS,
-            os.path.join(CWD, '{}/isisd.conf'.format(rname))
+            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
         )
 
     tgen.start_router()
+
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -159,21 +161,22 @@ def teardown_module(mod):
     # This function tears down the whole topology.
     tgen.stop_topology()
 
+
 def router_compare_json_output(rname, command, reference):
     "Compare router JSON output"
 
     logger.info('Comparing router "%s" "%s" output', rname, command)
 
     tgen = get_topogen()
-    filename = '{}/{}/{}'.format(CWD, rname, reference)
+    filename = "{}/{}/{}".format(CWD, rname, reference)
     expected = json.loads(open(filename).read())
 
     # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = partial(topotest.router_json_cmp,
-        tgen.gears[rname], command, expected)
+    test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
     _, diff = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
+
 
 #
 # Step 1
@@ -188,9 +191,13 @@ def test_isis_adjacencies_step1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show yang operational-data /frr-interface:lib isisd",
-                                   "step1/show_yang_interface_isis_adjacencies.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step1/show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib_ipv4_step1():
     logger.info("Test (step 1): verify IPv4 RIB")
@@ -200,9 +207,11 @@ def test_rib_ipv4_step1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ip route isis json",
-                                   "step1/show_ip_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step1/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step1():
     logger.info("Test (step 1): verify IPv6 RIB")
@@ -212,9 +221,11 @@ def test_rib_ipv6_step1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ipv6 route isis json",
-                                   "step1/show_ipv6_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step1/show_ipv6_route.ref"
+        )
+
 
 def test_mpls_lib_step1():
     logger.info("Test (step 1): verify MPLS LIB")
@@ -224,9 +235,11 @@ def test_mpls_lib_step1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show mpls table json",
-                                   "step1/show_mpls_table.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", "step1/show_mpls_table.ref"
+        )
+
 
 #
 # Step 2
@@ -252,13 +265,21 @@ def test_isis_adjacencies_step2():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Disabling IS-IS on the eth-rt5 interface on rt4')
-    tgen.net['rt4'].cmd('vtysh -c "conf t" -c "interface eth-rt5" -c "no ip router isis 1"')
-    tgen.net['rt4'].cmd('vtysh -c "conf t" -c "interface eth-rt5" -c "no ipv6 router isis 1"')
+    logger.info("Disabling IS-IS on the eth-rt5 interface on rt4")
+    tgen.net["rt4"].cmd(
+        'vtysh -c "conf t" -c "interface eth-rt5" -c "no ip router isis 1"'
+    )
+    tgen.net["rt4"].cmd(
+        'vtysh -c "conf t" -c "interface eth-rt5" -c "no ipv6 router isis 1"'
+    )
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show yang operational-data /frr-interface:lib isisd",
-                                   "step2/show_yang_interface_isis_adjacencies.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step2/show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib_ipv4_step2():
     logger.info("Test (step 2): verify IPv4 RIB")
@@ -268,9 +289,11 @@ def test_rib_ipv4_step2():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ip route isis json",
-                                   "step2/show_ip_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step2/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step2():
     logger.info("Test (step 2): verify IPv6 RIB")
@@ -280,9 +303,11 @@ def test_rib_ipv6_step2():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ipv6 route isis json",
-                                   "step2/show_ipv6_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step2/show_ipv6_route.ref"
+        )
+
 
 def test_mpls_lib_step2():
     logger.info("Test (step 2): verify MPLS LIB")
@@ -292,9 +317,11 @@ def test_mpls_lib_step2():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show mpls table json",
-                                   "step2/show_mpls_table.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", "step2/show_mpls_table.ref"
+        )
+
 
 #
 # Step 3
@@ -318,14 +345,18 @@ def test_isis_adjacencies_step3():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Shutting down the eth-rt4 interface on rt6')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "interface eth-rt4" -c "shutdown"')
-    logger.info('Shutting down the eth-rt5 interface on rt6')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "interface eth-rt5" -c "shutdown"')
+    logger.info("Shutting down the eth-rt4 interface on rt6")
+    tgen.net["rt6"].cmd('vtysh -c "conf t" -c "interface eth-rt4" -c "shutdown"')
+    logger.info("Shutting down the eth-rt5 interface on rt6")
+    tgen.net["rt6"].cmd('vtysh -c "conf t" -c "interface eth-rt5" -c "shutdown"')
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show yang operational-data /frr-interface:lib isisd",
-                                   "step3/show_yang_interface_isis_adjacencies.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step3/show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib_ipv4_step3():
     logger.info("Test (step 3): verify IPv4 RIB")
@@ -335,9 +366,11 @@ def test_rib_ipv4_step3():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ip route isis json",
-                                   "step3/show_ip_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step3/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step3():
     logger.info("Test (step 3): verify IPv6 RIB")
@@ -347,9 +380,11 @@ def test_rib_ipv6_step3():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ipv6 route isis json",
-                                   "step3/show_ipv6_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step3/show_ipv6_route.ref"
+        )
+
 
 def test_mpls_lib_step3():
     logger.info("Test (step 3): verify MPLS LIB")
@@ -359,9 +394,11 @@ def test_mpls_lib_step3():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show mpls table json",
-                                   "step3/show_mpls_table.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", "step3/show_mpls_table.ref"
+        )
+
 
 #
 # Step 4
@@ -386,16 +423,22 @@ def test_isis_adjacencies_step4():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Bringing up the eth-rt4 interface on rt6')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "interface eth-rt4" -c "no shutdown"')
-    logger.info('Bringing up the eth-rt5 interface on rt6')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "interface eth-rt5" -c "no shutdown"')
-    logger.info('Changing rt6\'s SRGB')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 18000 25999"')
+    logger.info("Bringing up the eth-rt4 interface on rt6")
+    tgen.net["rt6"].cmd('vtysh -c "conf t" -c "interface eth-rt4" -c "no shutdown"')
+    logger.info("Bringing up the eth-rt5 interface on rt6")
+    tgen.net["rt6"].cmd('vtysh -c "conf t" -c "interface eth-rt5" -c "no shutdown"')
+    logger.info("Changing rt6's SRGB")
+    tgen.net["rt6"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 18000 25999"'
+    )
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show yang operational-data /frr-interface:lib isisd",
-                                   "step4/show_yang_interface_isis_adjacencies.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step4/show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib_ipv4_step4():
     logger.info("Test (step 4): verify IPv4 RIB")
@@ -405,9 +448,11 @@ def test_rib_ipv4_step4():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ip route isis json",
-                                   "step4/show_ip_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step4/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step4():
     logger.info("Test (step 4): verify IPv6 RIB")
@@ -417,9 +462,11 @@ def test_rib_ipv6_step4():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ipv6 route isis json",
-                                   "step4/show_ipv6_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step4/show_ipv6_route.ref"
+        )
+
 
 def test_mpls_lib_step4():
     logger.info("Test (step 4): verify MPLS LIB")
@@ -429,9 +476,11 @@ def test_mpls_lib_step4():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show mpls table json",
-                                   "step4/show_mpls_table.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", "step4/show_mpls_table.ref"
+        )
+
 
 #
 # Step 5
@@ -453,12 +502,18 @@ def test_isis_adjacencies_step5():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Disabling SR on rt6')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "router isis 1" -c "no segment-routing on"')
+    logger.info("Disabling SR on rt6")
+    tgen.net["rt6"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "no segment-routing on"'
+    )
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show yang operational-data /frr-interface:lib isisd",
-                                   "step5/show_yang_interface_isis_adjacencies.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step5/show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib_ipv4_step5():
     logger.info("Test (step 5): verify IPv4 RIB")
@@ -468,9 +523,11 @@ def test_rib_ipv4_step5():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ip route isis json",
-                                   "step5/show_ip_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step5/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step5():
     logger.info("Test (step 5): verify IPv6 RIB")
@@ -480,9 +537,11 @@ def test_rib_ipv6_step5():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ipv6 route isis json",
-                                   "step5/show_ipv6_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step5/show_ipv6_route.ref"
+        )
+
 
 def test_mpls_lib_step5():
     logger.info("Test (step 5): verify MPLS LIB")
@@ -492,9 +551,11 @@ def test_mpls_lib_step5():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show mpls table json",
-                                   "step5/show_mpls_table.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", "step5/show_mpls_table.ref"
+        )
+
 
 #
 # Step 6
@@ -516,12 +577,16 @@ def test_isis_adjacencies_step6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Enabling SR on rt6')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing on"')
+    logger.info("Enabling SR on rt6")
+    tgen.net["rt6"].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing on"')
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show yang operational-data /frr-interface:lib isisd",
-                                   "step6/show_yang_interface_isis_adjacencies.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step6/show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib_ipv4_step6():
     logger.info("Test (step 6): verify IPv4 RIB")
@@ -531,9 +596,11 @@ def test_rib_ipv4_step6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ip route isis json",
-                                   "step6/show_ip_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step6/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step6():
     logger.info("Test (step 6): verify IPv6 RIB")
@@ -543,9 +610,11 @@ def test_rib_ipv6_step6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ipv6 route isis json",
-                                   "step6/show_ipv6_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step6/show_ipv6_route.ref"
+        )
+
 
 def test_mpls_lib_step6():
     logger.info("Test (step 6): verify MPLS LIB")
@@ -555,9 +624,11 @@ def test_mpls_lib_step6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show mpls table json",
-                                   "step6/show_mpls_table.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", "step6/show_mpls_table.ref"
+        )
+
 
 #
 # Step 7
@@ -576,13 +647,21 @@ def test_isis_adjacencies_step7():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Deleting rt1\'s Prefix-SIDs')
-    tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "no segment-routing prefix 1.1.1.1/32 index 10"')
-    tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "no segment-routing prefix 2001:db8:1000::1/128 index 11"')
+    logger.info("Deleting rt1's Prefix-SIDs")
+    tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "no segment-routing prefix 1.1.1.1/32 index 10"'
+    )
+    tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "no segment-routing prefix 2001:db8:1000::1/128 index 11"'
+    )
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show yang operational-data /frr-interface:lib isisd",
-                                   "step7/show_yang_interface_isis_adjacencies.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step7/show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib_ipv4_step7():
     logger.info("Test (step 7): verify IPv4 RIB")
@@ -592,9 +671,11 @@ def test_rib_ipv4_step7():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ip route isis json",
-                                   "step7/show_ip_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step7/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step7():
     logger.info("Test (step 7): verify IPv6 RIB")
@@ -604,9 +685,11 @@ def test_rib_ipv6_step7():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ipv6 route isis json",
-                                   "step7/show_ipv6_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step7/show_ipv6_route.ref"
+        )
+
 
 def test_mpls_lib_step7():
     logger.info("Test (step 7): verify MPLS LIB")
@@ -616,9 +699,11 @@ def test_mpls_lib_step7():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show mpls table json",
-                                   "step7/show_mpls_table.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", "step7/show_mpls_table.ref"
+        )
+
 
 #
 # Step 8
@@ -637,13 +722,21 @@ def test_isis_adjacencies_step8():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Re-adding rt1\'s Prefix-SIDs')
-    tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 1.1.1.1/32 index 10"')
-    tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 2001:db8:1000::1/128 index 11"')
+    logger.info("Re-adding rt1's Prefix-SIDs")
+    tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 1.1.1.1/32 index 10"'
+    )
+    tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 2001:db8:1000::1/128 index 11"'
+    )
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show yang operational-data /frr-interface:lib isisd",
-                                   "step8/show_yang_interface_isis_adjacencies.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step8/show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib_ipv4_step8():
     logger.info("Test (step 8): verify IPv4 RIB")
@@ -653,9 +746,11 @@ def test_rib_ipv4_step8():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ip route isis json",
-                                   "step8/show_ip_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step8/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step8():
     logger.info("Test (step 8): verify IPv6 RIB")
@@ -665,9 +760,11 @@ def test_rib_ipv6_step8():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ipv6 route isis json",
-                                   "step8/show_ipv6_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step8/show_ipv6_route.ref"
+        )
+
 
 def test_mpls_lib_step8():
     logger.info("Test (step 8): verify MPLS LIB")
@@ -677,9 +774,11 @@ def test_mpls_lib_step8():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show mpls table json",
-                                   "step8/show_mpls_table.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", "step8/show_mpls_table.ref"
+        )
+
 
 #
 # Step 9
@@ -700,16 +799,28 @@ def test_isis_adjacencies_step9():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Changing rt1\'s Prefix-SIDs to use the no-php option')
-    tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 1.1.1.1/32 index 10 no-php-flag"')
-    tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 2001:db8:1000::1/128 index 11 no-php-flag"')
-    logger.info('Change rt6\'s Prefix-SIDs to stop using the explicit-null option')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 6.6.6.6/32 index 60"')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 2001:db8:1000::6/128 index 61"')
+    logger.info("Changing rt1's Prefix-SIDs to use the no-php option")
+    tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 1.1.1.1/32 index 10 no-php-flag"'
+    )
+    tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 2001:db8:1000::1/128 index 11 no-php-flag"'
+    )
+    logger.info("Change rt6's Prefix-SIDs to stop using the explicit-null option")
+    tgen.net["rt6"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 6.6.6.6/32 index 60"'
+    )
+    tgen.net["rt6"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 2001:db8:1000::6/128 index 61"'
+    )
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show yang operational-data /frr-interface:lib isisd",
-                                   "step9/show_yang_interface_isis_adjacencies.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step9/show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib_ipv4_step9():
     logger.info("Test (step 9): verify IPv4 RIB")
@@ -719,9 +830,11 @@ def test_rib_ipv4_step9():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ip route isis json",
-                                   "step9/show_ip_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step9/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step9():
     logger.info("Test (step 9): verify IPv6 RIB")
@@ -731,9 +844,11 @@ def test_rib_ipv6_step9():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ipv6 route isis json",
-                                   "step9/show_ipv6_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step9/show_ipv6_route.ref"
+        )
+
 
 def test_mpls_lib_step9():
     logger.info("Test (step 9): verify MPLS LIB")
@@ -743,9 +858,11 @@ def test_mpls_lib_step9():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show mpls table json",
-                                   "step9/show_mpls_table.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", "step9/show_mpls_table.ref"
+        )
+
 
 #
 # Step 10
@@ -766,12 +883,18 @@ def test_isis_adjacencies_step10():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Removing the IPv4 address from rt4\'s eth-rt2-1 interface')
-    tgen.net['rt4'].cmd('vtysh -c "conf t" -c "interface eth-rt2-1" -c "no ip address 10.0.2.4/24"')
+    logger.info("Removing the IPv4 address from rt4's eth-rt2-1 interface")
+    tgen.net["rt4"].cmd(
+        'vtysh -c "conf t" -c "interface eth-rt2-1" -c "no ip address 10.0.2.4/24"'
+    )
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show yang operational-data /frr-interface:lib isisd",
-                                   "step10/show_yang_interface_isis_adjacencies.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step10/show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib_ipv4_step10():
     logger.info("Test (step 10): verify IPv4 RIB")
@@ -781,9 +904,11 @@ def test_rib_ipv4_step10():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ip route isis json",
-                                   "step10/show_ip_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step10/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step10():
     logger.info("Test (step 10): verify IPv6 RIB")
@@ -793,9 +918,11 @@ def test_rib_ipv6_step10():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ipv6 route isis json",
-                                   "step10/show_ipv6_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step10/show_ipv6_route.ref"
+        )
+
 
 def test_mpls_lib_step10():
     logger.info("Test (step 10): verify MPLS LIB")
@@ -805,9 +932,11 @@ def test_mpls_lib_step10():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show mpls table json",
-                                   "step10/show_mpls_table.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", "step10/show_mpls_table.ref"
+        )
+
 
 #
 # Step 11
@@ -826,13 +955,26 @@ def test_isis_invalid_config_step11():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Entering invalid Segment Routing configuration...')
-    ret = tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 1.1.1.1/32 index 10000"')
-    assert re.search("Configuration failed", ret) is not None, "Invalid SR configuration wasn't rejected"
-    ret = tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 16000 14999"')
-    assert re.search("Configuration failed", ret) is not None, "Invalid SR configuration wasn't rejected"
-    ret = tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 16000 16001"')
-    assert re.search("Configuration failed", ret) is not None, "Invalid SR configuration wasn't rejected"
+    logger.info("Entering invalid Segment Routing configuration...")
+    ret = tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 1.1.1.1/32 index 10000"'
+    )
+    assert (
+        re.search("Configuration failed", ret) is not None
+    ), "Invalid SR configuration wasn't rejected"
+    ret = tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 16000 14999"'
+    )
+    assert (
+        re.search("Configuration failed", ret) is not None
+    ), "Invalid SR configuration wasn't rejected"
+    ret = tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 16000 16001"'
+    )
+    assert (
+        re.search("Configuration failed", ret) is not None
+    ), "Invalid SR configuration wasn't rejected"
+
 
 #
 # Step 12
@@ -851,19 +993,39 @@ def test_isis_adjacencies_step12():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info('Restoring the original network setup')
-    tgen.net['rt4'].cmd('vtysh -c "conf t" -c "interface eth-rt5" -c "ip router isis 1"')
-    tgen.net['rt4'].cmd('vtysh -c "conf t" -c "interface eth-rt5" -c "ipv6 router isis 1"')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 16000 23999"')
-    tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 1.1.1.1/32 index 10"')
-    tgen.net['rt1'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 2001:db8:1000::1/128 index 11"')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 6.6.6.6/32 index 60 explicit-null"')
-    tgen.net['rt6'].cmd('vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 2001:db8:1000::6/128 index 61 explicit-null"')
-    tgen.net['rt4'].cmd('vtysh -c "conf t" -c "interface eth-rt2-1" -c "ip address 10.0.2.4/24"')
+    logger.info("Restoring the original network setup")
+    tgen.net["rt4"].cmd(
+        'vtysh -c "conf t" -c "interface eth-rt5" -c "ip router isis 1"'
+    )
+    tgen.net["rt4"].cmd(
+        'vtysh -c "conf t" -c "interface eth-rt5" -c "ipv6 router isis 1"'
+    )
+    tgen.net["rt6"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 16000 23999"'
+    )
+    tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 1.1.1.1/32 index 10"'
+    )
+    tgen.net["rt1"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 2001:db8:1000::1/128 index 11"'
+    )
+    tgen.net["rt6"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 6.6.6.6/32 index 60 explicit-null"'
+    )
+    tgen.net["rt6"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 2001:db8:1000::6/128 index 61 explicit-null"'
+    )
+    tgen.net["rt4"].cmd(
+        'vtysh -c "conf t" -c "interface eth-rt2-1" -c "ip address 10.0.2.4/24"'
+    )
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show yang operational-data /frr-interface:lib isisd",
-                                   "step1/show_yang_interface_isis_adjacencies.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step1/show_yang_interface_isis_adjacencies.ref",
+        )
+
 
 def test_rib_ipv4_step12():
     logger.info("Test (step 12): verify IPv4 RIB")
@@ -873,9 +1035,11 @@ def test_rib_ipv4_step12():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ip route isis json",
-                                   "step1/show_ip_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step1/show_ip_route.ref"
+        )
+
 
 def test_rib_ipv6_step12():
     logger.info("Test (step 12): verify IPv6 RIB")
@@ -885,9 +1049,11 @@ def test_rib_ipv6_step12():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show ipv6 route isis json",
-                                   "step1/show_ipv6_route.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step1/show_ipv6_route.ref"
+        )
+
 
 def test_mpls_lib_step12():
     logger.info("Test (step 12): verify MPLS LIB")
@@ -897,19 +1063,22 @@ def test_mpls_lib_step12():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
-        router_compare_json_output(rname, "show mpls table json",
-                                   "step1/show_mpls_table.ref")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", "step1/show_mpls_table.ref"
+        )
+
 
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
-        pytest.skip('Memory leak test/report is disabled')
+        pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

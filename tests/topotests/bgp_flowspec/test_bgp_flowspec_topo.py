@@ -200,6 +200,7 @@ def test_bgp_flowspec():
     else:
         logger.info("Check BGP FS entry for 3::3 with redirect IP OK")
 
+
 if __name__ == "__main__":
 
     args = ["-s"] + sys.argv[1:]

@@ -95,7 +95,8 @@ def setup_module(module):
         )
 
     tgen.start_router()
-    #tgen.mininet_cli()
+    # tgen.mininet_cli()
+
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
@@ -103,6 +104,7 @@ def teardown_module(_mod):
 
     # This function tears down the whole topology.
     tgen.stop_topology()
+
 
 def test_converge_protocols():
     "Wait for protocol convergence"
@@ -112,37 +114,45 @@ def test_converge_protocols():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+
 def run_one_setup(r1, s):
     "Run one ecmp config"
 
     # Extract params
-    expected_installed = s['expect_in']
-    expected_removed = s['expect_rem']
+    expected_installed = s["expect_in"]
+    expected_removed = s["expect_rem"]
 
-    count = s['count']
-    wait = s['wait']
+    count = s["count"]
+    wait = s["wait"]
 
-    logger.info("Testing 1 million routes X {} ecmp".format(s['ecmp']))
+    logger.info("Testing 1 million routes X {} ecmp".format(s["ecmp"]))
 
-    r1.vtysh_cmd("sharp install route 1.0.0.0 \
-                  nexthop-group {} 1000000".format(s['nhg']),
-                 isjson=False)
+    r1.vtysh_cmd(
+        "sharp install route 1.0.0.0 \
+                  nexthop-group {} 1000000".format(
+            s["nhg"]
+        ),
+        isjson=False,
+    )
 
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_installed)
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route summary json", expected_installed
+    )
     success, result = topotest.run_and_expect(test_func, None, count, wait)
     assert success, "Route scale test install failed:\n{}".format(result)
 
     output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes X {} ecmp installed".format(s['ecmp']))
+    logger.info("1 million routes X {} ecmp installed".format(s["ecmp"]))
     logger.info(output)
     r1.vtysh_cmd("sharp remove route 1.0.0.0 1000000", isjson=False)
-    test_func = partial(topotest.router_json_cmp, r1, "show ip route summary json", expected_removed)
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route summary json", expected_removed
+    )
     success, result = topotest.run_and_expect(test_func, None, count, wait)
     assert success, "Route scale test remove failed:\n{}".format(result)
 
     output = r1.vtysh_cmd("sharp data route", isjson=False)
-    logger.info("1 million routes x {} ecmp removed".format(
-        s['ecmp']))
+    logger.info("1 million routes x {} ecmp removed".format(s["ecmp"]))
     logger.info(output)
 
 
@@ -164,19 +174,23 @@ def test_route_install():
 
     # dict keys of params: ecmp number, corresponding nhg name, timeout,
     # number of times to wait
-    scale_keys = ['ecmp', 'nhg', 'wait', 'count', 'expect_in', 'expect_rem']
+    scale_keys = ["ecmp", "nhg", "wait", "count", "expect_in", "expect_rem"]
 
     # Table of defaults, used for timeout values and 'expected' objects
-    scale_defaults = dict(zip(scale_keys, [None, None, 7, 30,
-                                           expected_installed,
-                                           expected_removed]))
+    scale_defaults = dict(
+        zip(scale_keys, [None, None, 7, 30, expected_installed, expected_removed])
+    )
 
     # List of params for each step in the test; note extra time given
     # for the highest ecmp steps. Executing 'show' at scale can be costly
     # so we widen the interval there too.
     scale_steps = [
-        [1, 'one'], [2, 'two'], [4, 'four'],
-        [8, 'eight'], [16, 'sixteen', 10, 40], [32, 'thirtytwo', 10, 40]
+        [1, "one"],
+        [2, "two"],
+        [4, "four"],
+        [8, "eight"],
+        [16, "sixteen", 10, 40],
+        [32, "thirtytwo", 10, 40],
     ]
 
     # Build up a list of dicts with params for each step of the test;
@@ -191,16 +205,17 @@ def test_route_install():
         scale_setups.append(d)
 
     # Avoid top ecmp case for runs with < 4G memory
-    p = os.popen('free')
+    p = os.popen("free")
     l = p.readlines()[1].split()
     mem = int(l[1])
     if mem < 4000000:
-        logger.info('Limited memory available: {}, skipping x32 testcase'.format(mem))
+        logger.info("Limited memory available: {}, skipping x32 testcase".format(mem))
         scale_setups = scale_setups[0:-1]
 
     # Run each step using the dicts we've built
     for s in scale_setups:
         run_one_setup(r1, s)
+
 
 # Mem leak testcase
 def test_memory_leak():
@@ -209,6 +224,7 @@ def test_memory_leak():
     if not tgen.is_memleak_enabled():
         pytest.skip("Memory leak test/report is disabled")
     tgen.report_memory_leaks()
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

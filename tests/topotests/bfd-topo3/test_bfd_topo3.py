@@ -103,44 +103,44 @@ def test_wait_bgp_convergence():
 
     def expect_loopback_route(router, iptype, route, proto):
         "Wait until route is present on RIB for protocol."
-        logger.info('waiting route {} in {}'.format(route, router))
+        logger.info("waiting route {} in {}".format(route, router))
         test_func = partial(
             topotest.router_json_cmp,
             tgen.gears[router],
-            'show {} route json'.format(iptype),
-            { route: [{ 'protocol': proto }] }
+            "show {} route json".format(iptype),
+            {route: [{"protocol": proto}]},
         )
         _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
         assertmsg = '"{}" OSPF convergence failure'.format(router)
         assert result is None, assertmsg
 
     # Wait for R1 <-> R2 convergence.
-    expect_loopback_route('r1', 'ip', '10.254.254.2/32', 'bgp')
+    expect_loopback_route("r1", "ip", "10.254.254.2/32", "bgp")
     # Wait for R1 <-> R3 convergence.
-    expect_loopback_route('r1', 'ip', '10.254.254.3/32', 'bgp')
+    expect_loopback_route("r1", "ip", "10.254.254.3/32", "bgp")
     # Wait for R1 <-> R4 convergence.
-    expect_loopback_route('r1', 'ip', '10.254.254.4/32', 'bgp')
+    expect_loopback_route("r1", "ip", "10.254.254.4/32", "bgp")
 
     # Wait for R2 <-> R1 convergence.
-    expect_loopback_route('r2', 'ip', '10.254.254.1/32', 'bgp')
+    expect_loopback_route("r2", "ip", "10.254.254.1/32", "bgp")
     # Wait for R2 <-> R3 convergence.
-    expect_loopback_route('r2', 'ip', '10.254.254.3/32', 'bgp')
+    expect_loopback_route("r2", "ip", "10.254.254.3/32", "bgp")
     # Wait for R2 <-> R4 convergence.
-    expect_loopback_route('r2', 'ip', '10.254.254.4/32', 'bgp')
+    expect_loopback_route("r2", "ip", "10.254.254.4/32", "bgp")
 
     # Wait for R3 <-> R1 convergence.
-    expect_loopback_route('r3', 'ip', '10.254.254.1/32', 'bgp')
+    expect_loopback_route("r3", "ip", "10.254.254.1/32", "bgp")
     # Wait for R3 <-> R2 convergence.
-    expect_loopback_route('r3', 'ip', '10.254.254.2/32', 'bgp')
+    expect_loopback_route("r3", "ip", "10.254.254.2/32", "bgp")
     # Wait for R3 <-> R4 convergence.
-    expect_loopback_route('r3', 'ip', '10.254.254.4/32', 'bgp')
+    expect_loopback_route("r3", "ip", "10.254.254.4/32", "bgp")
 
     # Wait for R4 <-> R1 convergence.
-    expect_loopback_route('r4', 'ip', '10.254.254.1/32', 'bgp')
+    expect_loopback_route("r4", "ip", "10.254.254.1/32", "bgp")
     # Wait for R4 <-> R2 convergence.
-    expect_loopback_route('r4', 'ip', '10.254.254.2/32', 'bgp')
+    expect_loopback_route("r4", "ip", "10.254.254.2/32", "bgp")
     # Wait for R4 <-> R3 convergence.
-    expect_loopback_route('r4', 'ip', '10.254.254.3/32', 'bgp')
+    expect_loopback_route("r4", "ip", "10.254.254.3/32", "bgp")
 
 
 def test_wait_bfd_convergence():
@@ -153,22 +153,22 @@ def test_wait_bfd_convergence():
 
     def expect_bfd_configuration(router):
         "Load JSON file and compare with 'show bfd peer json'"
-        logger.info('waiting BFD configuration on router {}'.format(router))
-        bfd_config = json.loads(open('{}/{}/bfd-peers.json'.format(CWD, router)).read())
+        logger.info("waiting BFD configuration on router {}".format(router))
+        bfd_config = json.loads(open("{}/{}/bfd-peers.json".format(CWD, router)).read())
         test_func = partial(
             topotest.router_json_cmp,
             tgen.gears[router],
-            'show bfd peers json',
-            bfd_config
+            "show bfd peers json",
+            bfd_config,
         )
         _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
         assertmsg = '"{}" BFD configuration failure'.format(router)
         assert result is None, assertmsg
 
-    expect_bfd_configuration('r1')
-    expect_bfd_configuration('r2')
-    expect_bfd_configuration('r3')
-    expect_bfd_configuration('r4')
+    expect_bfd_configuration("r1")
+    expect_bfd_configuration("r2")
+    expect_bfd_configuration("r3")
+    expect_bfd_configuration("r4")
 
 
 def teardown_module(_mod):

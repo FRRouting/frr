@@ -53,7 +53,7 @@ from lib.common_config import (
     create_route_maps,
     shutdown_bringup_interface,
     create_interfaces_cfg,
-    topo_daemons
+    topo_daemons,
 )
 from lib.topolog import logger
 

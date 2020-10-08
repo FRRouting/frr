@@ -132,7 +132,7 @@ from lib.common_config import (
     create_bgp_community_lists,
     check_router_status,
     apply_raw_config,
-    required_linux_kernel_version
+    required_linux_kernel_version,
 )
 
 from lib.topolog import logger
@@ -211,7 +211,7 @@ def setup_module(mod):
     * `mod`: module name
     """
     # Required linux kernel version for this suite to run.
-    result = required_linux_kernel_version('4.15')
+    result = required_linux_kernel_version("4.15")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
@@ -693,10 +693,12 @@ def test_static_routes_associated_to_specific_vrfs_p0(request):
         )
 
     step(
-        "Verify that static routes 1.x.x.x/32 and 1::x/128 appear " "in VRF BLUE_A table"
+        "Verify that static routes 1.x.x.x/32 and 1::x/128 appear "
+        "in VRF BLUE_A table"
     )
     step(
-        "Verify that static routes 2.x.x.x/32 and 2::x/128 appear " "in VRF BLUE_B table"
+        "Verify that static routes 2.x.x.x/32 and 2::x/128 appear "
+        "in VRF BLUE_B table"
     )
 
     for addr_type in ADDR_TYPES:

@@ -82,6 +82,7 @@ class ISISTopo1(Topo):
         sw.add_link(tgen.gears["r4"])
         sw.add_link(tgen.gears["r5"])
 
+
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(ISISTopo1, mod.__name__)
@@ -129,16 +130,14 @@ def setup_module(mod):
 
     for rname, router in tgen.routers().items():
         router.load_config(
-            TopoRouter.RD_ZEBRA, 
-            os.path.join(CWD, "{}/zebra.conf".format(rname))
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
-            TopoRouter.RD_ISIS, 
-            os.path.join(CWD, "{}/isisd.conf".format(rname))
+            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
         )
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
-    
+
     has_version_20 = False
     for router in tgen.routers().values():
         if router.has_version("<", "4"):
@@ -148,12 +147,14 @@ def setup_module(mod):
         logger.info("Skipping ISIS vrf tests for FRR 2.0")
         tgen.set_error("ISIS has convergence problems with IPv6")
 
+
 def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
     # move back rx-eth0 to default VRF
     # delete rx-vrf
     tgen.stop_topology()
+
 
 def test_isis_convergence():
     "Wait for the protocol to converge before starting to test"
@@ -163,10 +164,11 @@ def test_isis_convergence():
         pytest.skip(tgen.errors)
 
     logger.info("waiting for ISIS protocol to converge")
- 
+
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_topology.json".format(CWD, rname)
         expected = json.loads(open(filename).read())
+
         def compare_isis_topology(router, expected):
             "Helper function to test ISIS vrf topology convergence."
             actual = show_isis_topology(router)
@@ -176,6 +178,7 @@ def test_isis_convergence():
         test_func = functools.partial(compare_isis_topology, router, expected)
         (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=120)
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
+
 
 def test_isis_route_installation():
     "Check whether all expected routes are present"
@@ -189,7 +192,9 @@ def test_isis_route_installation():
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
-        actual = router.vtysh_cmd("show ip route vrf {0}-cust1 json".format(rname) , isjson=True)
+        actual = router.vtysh_cmd(
+            "show ip route vrf {0}-cust1 json".format(rname), isjson=True
+        )
         # Older FRR versions don't list interfaces in some ISIS routes
         if router.has_version("<", "3.1"):
             for network, routes in expected.items():
@@ -209,7 +214,7 @@ def test_isis_linux_route_installation():
 
     dist = platform.dist()
 
-    if (dist[1] == "16.04"):
+    if dist[1] == "16.04":
         pytest.skip("Kernel not supported for vrf")
 
     "Check whether all expected routes are present and installed in the OS"
@@ -234,6 +239,7 @@ def test_isis_linux_route_installation():
         assertmsg = "Router '{}' OS routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
+
 def test_isis_route6_installation():
     "Check whether all expected routes are present"
     tgen = get_topogen()
@@ -246,7 +252,9 @@ def test_isis_route6_installation():
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route6.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
-        actual = router.vtysh_cmd("show ipv6 route vrf {}-cust1 json".format(rname) , isjson=True)
+        actual = router.vtysh_cmd(
+            "show ipv6 route vrf {}-cust1 json".format(rname), isjson=True
+        )
 
         # Older FRR versions don't list interfaces in some ISIS routes
         if router.has_version("<", "3.1"):
@@ -262,11 +270,12 @@ def test_isis_route6_installation():
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
+
 def test_isis_linux_route6_installation():
 
     dist = platform.dist()
 
-    if (dist[1] == "16.04"):
+    if dist[1] == "16.04":
         pytest.skip("Kernel not supported for vrf")
 
     "Check whether all expected routes are present and installed in the OS"
@@ -290,6 +299,7 @@ def test_isis_linux_route6_installation():
 
         assertmsg = "Router '{}' OS routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
+
 
 def test_memory_leak():
     "Run the memory leak test and report results."
@@ -452,4 +462,3 @@ def show_isis_topology(router):
 
     dict_merge(l1, l2)
     return l1
-

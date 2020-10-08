@@ -77,7 +77,7 @@ from lib.common_config import (
     configure_vxlan,
     configure_brctl,
     verify_vrf_vni,
-    create_interface_in_kernel
+    create_interface_in_kernel,
 )
 
 from lib.topolog import logger
@@ -87,7 +87,7 @@ from lib.bgp import (
     clear_bgp,
     verify_best_path_as_per_bgp_attribute,
     verify_attributes_for_evpn_routes,
-    verify_evpn_routes
+    verify_evpn_routes,
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
 
@@ -179,9 +179,11 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
-    if version_cmp(platform.release(), '4.19') < 0:
-        error_msg = ('EVPN tests will not run (have kernel "{}", '
-            'but it requires >= 4.19)'.format(platform.release()))
+    if version_cmp(platform.release(), "4.19") < 0:
+        error_msg = (
+            'EVPN tests will not run (have kernel "{}", '
+            "but it requires >= 4.19)".format(platform.release())
+        )
         pytest.skip(error_msg)
 
     global BGP_CONVERGENCE
@@ -387,9 +389,9 @@ def test_RD_verification_manual_and_auto_p0(request):
                         "network": NETWORK3_1[addr_type],
                         "next_hop": NEXT_HOP_IP[addr_type],
                         "vrf": "GREEN",
-                    }
+                    },
                 ]
-            }
+            },
         }
 
         result = create_static_routes(tgen, input_dict_1)
@@ -453,7 +455,7 @@ def test_RD_verification_manual_and_auto_p0(request):
                     "vrf": "RED",
                     "address_family": {
                         "l2vpn": {"evpn": {"rd": "100.100.100.100:100"}}
-                    }
+                    },
                 }
             ]
         }
@@ -620,9 +622,9 @@ def test_RT_verification_manual_p0(request):
                         "network": NETWORK3_1[addr_type],
                         "next_hop": NEXT_HOP_IP[addr_type],
                         "vrf": "GREEN",
-                    }
+                    },
                 ]
-            }
+            },
         }
 
         result = create_static_routes(tgen, input_dict_1)
@@ -652,7 +654,7 @@ def test_RT_verification_manual_p0(request):
                         "l2vpn": {
                             "evpn": {"route-target": {"export": [{"value": "100:100"}]}}
                         },
-                    }
+                    },
                 }
             ]
         }
@@ -995,9 +997,9 @@ def test_active_standby_evpn_implementation_p1(request):
                         "network": NETWORK1_4[addr_type],
                         "next_hop": NEXT_HOP_IP[addr_type],
                         "vrf": "GREEN",
-                    }
+                    },
                 ]
-            }
+            },
         }
 
         result = create_static_routes(tgen, input_dict_1)
@@ -1249,9 +1251,9 @@ def test_evpn_routes_from_VNFs_p1(request):
                         "network": NETWORK3_1[addr_type],
                         "next_hop": NEXT_HOP_IP[addr_type],
                         "vrf": "GREEN",
-                    }
+                    },
                 ]
-            }
+            },
         }
 
         result = create_static_routes(tgen, input_dict_1)
@@ -1382,9 +1384,9 @@ def test_evpn_routes_from_VNFs_p1(request):
                         "network": NETWORK3_1[addr_type],
                         "next_hop": NEXT_HOP_IP[addr_type],
                         "vrf": "GREEN",
-                    }
+                    },
                 ]
-            }
+            },
         }
 
         result = create_static_routes(tgen, input_dict_1)
@@ -1617,9 +1619,9 @@ def test_route_map_operations_for_evpn_address_family_p1(request, attribute):
                         "network": NETWORK3_1[addr_type],
                         "next_hop": NEXT_HOP_IP[addr_type],
                         "vrf": "GREEN",
-                    }
+                    },
                 ]
-            }
+            },
         }
 
         result = create_static_routes(tgen, input_dict_1)
@@ -1811,9 +1813,9 @@ def test_bgp_attributes_for_evpn_address_family_p1(request, attribute):
                         "network": NETWORK3_1[addr_type],
                         "next_hop": NEXT_HOP_IP[addr_type],
                         "vrf": "GREEN",
-                    }
+                    },
                 ]
-            }
+            },
         }
 
         result = create_static_routes(tgen, input_dict_1)

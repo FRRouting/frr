@@ -20,11 +20,12 @@ import os, stat
 import _clippy
 from _clippy import parse, Graph, GraphNode
 
+
 def graph_iterate(graph):
-    '''iterator yielding all nodes of a graph
+    """iterator yielding all nodes of a graph
 
     nodes arrive in input/definition order, graph circles are avoided.
-    '''
+    """
 
     queue = [(graph.first(), frozenset(), 0)]
     while len(queue) > 0:
@@ -42,21 +43,25 @@ def graph_iterate(graph):
             if n not in stop and n is not node:
                 queue.insert(0, (n, stop, depth + 1))
 
+
 def dump(graph):
-    '''print out clippy.Graph'''
+    """print out clippy.Graph"""
 
     for i, depth in graph_iterate(graph):
-        print('\t%s%s %r' % ('  ' * (depth * 2), i.type, i.text))
+        print("\t%s%s %r" % ("  " * (depth * 2), i.type, i.text))
 
-def wrdiff(filename, buf, reffiles = []):
-    '''write buffer to file if contents changed'''
 
-    expl = ''
-    if hasattr(buf, 'getvalue'):
+def wrdiff(filename, buf, reffiles=[]):
+    """write buffer to file if contents changed"""
+
+    expl = ""
+    if hasattr(buf, "getvalue"):
         buf = buf.getvalue()
     old = None
-    try:    old = open(filename, 'r').read()
-    except: pass
+    try:
+        old = open(filename, "r").read()
+    except:
+        pass
     if old == buf:
         for reffile in reffiles:
             # ensure output timestamp is newer than inputs, for make
@@ -67,7 +72,7 @@ def wrdiff(filename, buf, reffiles = []):
         # sys.stderr.write('%s unchanged, not written\n' % (filename))
         return
 
-    newname = '%s.new-%d' % (filename, os.getpid())
-    with open(newname, 'w') as out:
+    newname = "%s.new-%d" % (filename, os.getpid())
+    with open(newname, "w") as out:
         out.write(buf)
     os.rename(newname, filename)

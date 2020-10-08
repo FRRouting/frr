@@ -35,7 +35,7 @@ import json
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -46,28 +46,30 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+
 class OSPFTopo(Topo):
     "Test topology builder"
+
     def build(self, *_args, **_opts):
         "Build function"
         tgen = get_topogen(self)
 
         # Create 4 routers
         for routern in range(1, 3):
-            tgen.add_router('r{}'.format(routern))
+            tgen.add_router("r{}".format(routern))
 
         # Create a empty network for router 1
-        switch = tgen.add_switch('s1')
-        switch.add_link(tgen.gears['r1'])
+        switch = tgen.add_switch("s1")
+        switch.add_link(tgen.gears["r1"])
 
         # Create a empty network for router 2
-        switch = tgen.add_switch('s2')
-        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch("s2")
+        switch.add_link(tgen.gears["r2"])
 
         # Interconect router 1, 2
-        switch = tgen.add_switch('s3')
-        switch.add_link(tgen.gears['r1'])
-        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch("s3")
+        switch.add_link(tgen.gears["r1"])
+        switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
@@ -78,12 +80,10 @@ def setup_module(mod):
     router_list = tgen.routers()
     for rname, router in router_list.items():
         router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, '{}/zebra.conf'.format(rname))
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
-            TopoRouter.RD_OSPF,
-            os.path.join(CWD, '{}/ospfd.conf'.format(rname))
+            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
         )
 
         # What is this?  OSPF Unnumbered depends on the rp_filter
@@ -93,18 +93,15 @@ def setup_module(mod):
         # the rp_filter.  Setting it to '0' allows the OS to pass
         # up the mcast packet not destined for the local routers
         # network.
-        topotest.set_sysctl(tgen.net['r1'],
-                            'net.ipv4.conf.r1-eth1.rp_filter', 0)
-        topotest.set_sysctl(tgen.net['r1'],
-                            'net.ipv4.conf.all.rp_filter', 0)
-        topotest.set_sysctl(tgen.net['r2'],
-                            'net.ipv4.conf.r2-eth1.rp_filter', 0)
-        topotest.set_sysctl(tgen.net['r2'],
-                            'net.ipv4.conf.all.rp_filter', 0)
+        topotest.set_sysctl(tgen.net["r1"], "net.ipv4.conf.r1-eth1.rp_filter", 0)
+        topotest.set_sysctl(tgen.net["r1"], "net.ipv4.conf.all.rp_filter", 0)
+        topotest.set_sysctl(tgen.net["r2"], "net.ipv4.conf.r2-eth1.rp_filter", 0)
+        topotest.set_sysctl(tgen.net["r2"], "net.ipv4.conf.all.rp_filter", 0)
 
     # Initialize all routers.
     tgen.start_router()
-    #tgen.mininet_cli()
+    # tgen.mininet_cli()
+
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -116,50 +113,54 @@ def test_ospf_convergence():
     "Test OSPF daemon convergence and that we have received the ospf routes"
     tgen = get_topogen()
     if tgen.routers_have_failure():
-        pytest.skip('skipped because of router(s) failure')
+        pytest.skip("skipped because of router(s) failure")
 
     for router, rnode in tgen.routers().items():
         logger.info('Waiting for router "%s" convergence', router)
 
-        json_file = '{}/{}/ospf-route.json'.format(CWD, router)
+        json_file = "{}/{}/ospf-route.json".format(CWD, router)
         expected = json.loads(open(json_file).read())
 
-        test_func = partial(topotest.router_json_cmp,
-                            rnode, 'show ip ospf route json', expected)
+        test_func = partial(
+            topotest.router_json_cmp, rnode, "show ip ospf route json", expected
+        )
         _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
         assertmsg = '"{}" JSON output mismatches'.format(router)
         assert result is None, assertmsg
-    #tgen.mininet_cli()
+    # tgen.mininet_cli()
+
 
 def test_ospf_kernel_route():
     "Test OSPF kernel route installation and we have the onlink success"
     tgen = get_topogen()
     if tgen.routers_have_failure():
-        pytest.skip('skipped because of router(s) failure')
+        pytest.skip("skipped because of router(s) failure")
 
     rlist = tgen.routers().values()
     for router in rlist:
         logger.info('Checking OSPF IPv4 kernel routes in "%s"', router.name)
 
-        json_file = '{}/{}/v4_route.json'.format(CWD, router.name)
+        json_file = "{}/{}/v4_route.json".format(CWD, router.name)
         expected = json.loads(open(json_file).read())
 
-        test_func = partial(topotest.router_json_cmp,
-                            router, 'show ip route json', expected)
-        _, result = topotest.run_and_expect(test_func, None, count=10, wait=.5)
+        test_func = partial(
+            topotest.router_json_cmp, router, "show ip route json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assertmsg = '"{}" JSON output mistmatches'.format(router)
         assert result is None, assertmsg
-    #tgen.mininet_cli()
+    # tgen.mininet_cli()
 
 
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
-        pytest.skip('Memory leak test/report is disabled')
+        pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

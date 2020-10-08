@@ -40,9 +40,8 @@ import re
 
 # gpz: get rib in json form and compare against desired routes
 class BgpRib:
-
     def log(self, str):
-        LUtil.log ("BgpRib: "+ str)
+        LUtil.log("BgpRib: " + str)
 
     def routes_include_wanted(self, pfxtbl, want, debug):
         # helper function to RequireVpnRoutes
@@ -156,7 +155,7 @@ class BgpRib:
                 errstr = "-script ERROR: check if vrf missing"
             luResult(target, False, title + errstr, logstr)
             return
-        #if debug:
+        # if debug:
         #    self.log("table=%s" % table)
         for want in wantroutes:
             if debug:
