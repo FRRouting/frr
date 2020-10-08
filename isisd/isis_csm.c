@@ -152,6 +152,7 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 		case IF_UP_FROM_Z:
 			isis_circuit_if_add(circuit, (struct interface *)arg);
 			if (isis_circuit_up(circuit) != ISIS_OK) {
+				isis_circuit_if_del(circuit, (struct interface *)arg);
 				flog_err(
 					EC_ISIS_CONFIG,
 					"Could not bring up %s because of invalid config.",
