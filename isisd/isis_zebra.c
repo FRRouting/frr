@@ -85,6 +85,7 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 
 static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 {
+	struct isis_circuit *circuit;
 	struct connected *c;
 	struct prefix *p;
 	char buf[PREFIX2STR_BUFFER];
@@ -104,16 +105,20 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	if (p->family == AF_INET6)
 		zlog_debug("connected IPv6 address %s", buf);
 #endif /* EXTREME_DEBUG */
-	if (if_is_operative(c->ifp))
-		isis_circuit_add_addr(circuit_scan_by_ifp(c->ifp), c);
+
+	if (if_is_operative(c->ifp)) {
+		circuit = circuit_scan_by_ifp(c->ifp);
+		if (circuit)
+			isis_circuit_add_addr(circuit, c);
+	}
 
 	return 0;
 }
 
 static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 {
+	struct isis_circuit *circuit;
 	struct connected *c;
-	struct interface *ifp;
 #ifdef EXTREME_DEBUG
 	struct prefix *p;
 	char buf[PREFIX2STR_BUFFER];
@@ -125,8 +130,6 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	if (c == NULL)
 		return 0;
 
-	ifp = c->ifp;
-
 #ifdef EXTREME_DEBUG
 	p = c->address;
 	prefix2str(p, buf, sizeof(buf));
@@ -137,8 +140,12 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		zlog_debug("disconnected IPv6 address %s", buf);
 #endif /* EXTREME_DEBUG */
 
-	if (if_is_operative(ifp))
-		isis_circuit_del_addr(circuit_scan_by_ifp(ifp), c);
+	if (if_is_operative(c->ifp)) {
+		circuit = circuit_scan_by_ifp(c->ifp);
+		if (circuit)
+			isis_circuit_del_addr(circuit, c);
+	}
+
 	connected_free(&c);
 
 	return 0;
