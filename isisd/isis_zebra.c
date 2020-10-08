@@ -87,8 +87,10 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct isis_circuit *circuit;
 	struct connected *c;
+#ifdef EXTREME_DEBUG
 	struct prefix *p;
 	char buf[PREFIX2STR_BUFFER];
+#endif /* EXTREME_DEBUG */
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_ADD,
 					 zclient->ibuf, vrf_id);
@@ -96,10 +98,10 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	if (c == NULL)
 		return 0;
 
-	p = c->address;
-
-	prefix2str(p, buf, sizeof(buf));
 #ifdef EXTREME_DEBUG
+	p = c->address;
+	prefix2str(p, buf, sizeof(buf));
+
 	if (p->family == AF_INET)
 		zlog_debug("connected IP address %s", buf);
 	if (p->family == AF_INET6)
