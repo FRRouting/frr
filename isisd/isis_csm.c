@@ -83,16 +83,17 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			circuit->state = C_STATE_CONF;
 			break;
 		case IF_UP_FROM_Z:
-			circuit = isis_circuit_new();
-			isis_circuit_if_add(circuit, (struct interface *)arg);
-			isis = isis_lookup_by_vrfid(circuit->interface->vrf_id);
+			isis = isis_lookup_by_vrfid(((struct interface *)arg)->vrf_id);
 			if (isis == NULL) {
 				zlog_warn(
 					" %s : ISIS routing instance not found",
 					__func__);
 				break;
 			}
+			circuit = isis_circuit_new();
+			isis_circuit_if_add(circuit, (struct interface *)arg);
 			listnode_add(isis->init_circ_list, circuit);
+			circuit->isis = isis;
 			circuit->state = C_STATE_INIT;
 			break;
 		case ISIS_DISABLE:
@@ -117,7 +118,7 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			circuit->state = C_STATE_UP;
 			isis_event_circuit_state_change(circuit, circuit->area,
 							1);
-			listnode_delete(circuit->area->isis->init_circ_list,
+			listnode_delete(circuit->isis->init_circ_list,
 					circuit);
 			break;
 		case IF_UP_FROM_Z:
@@ -129,15 +130,8 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			break;
 		case IF_DOWN_FROM_Z:
 			isis_circuit_if_del(circuit, (struct interface *)arg);
-			isis = isis_lookup_by_vrfid(circuit->interface->vrf_id);
-			if (isis == NULL) {
-				zlog_warn(
-					"%s : ISIS routing instance not found",
-					__func__);
-				break;
-			}
-
-			listnode_delete(isis->init_circ_list, circuit);
+			listnode_delete(circuit->isis->init_circ_list,
+					circuit);
 			isis_circuit_del(circuit);
 			circuit = NULL;
 			break;
@@ -184,22 +178,15 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			zlog_warn("circuit already connected");
 			break;
 		case ISIS_DISABLE:
+			isis = circuit->area->isis;
 			isis_circuit_down(circuit);
 			isis_circuit_deconfigure(circuit,
 						 (struct isis_area *)arg);
 			circuit->state = C_STATE_INIT;
 			isis_event_circuit_state_change(
 				circuit, (struct isis_area *)arg, 0);
-
-			isis = isis_lookup_by_vrfid(circuit->interface->vrf_id);
-			if (isis == NULL) {
-				zlog_warn(
-					"%s : ISIS routing instance not found",
-					__func__);
-				break;
-			}
-
 			listnode_add(isis->init_circ_list, circuit);
+			circuit->isis = isis;
 			break;
 		case IF_DOWN_FROM_Z:
 			isis_circuit_down(circuit);

@@ -79,6 +79,7 @@ struct isis_circuit_arg {
 struct isis_circuit {
 	int state;
 	uint8_t circuit_id;	  /* l1/l2 bcast CircuitID */
+	struct isis *isis;
 	struct isis_area *area;      /* back pointer to the area */
 	struct interface *interface; /* interface info from z */
 	int fd;			     /* IS-IS l1/2 socket */
