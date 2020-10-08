@@ -88,7 +88,7 @@ extern struct thread_master *master;
 #define OSPF6_ROUTER_ID_STR "Specify Router-ID\n"
 #define OSPF6_LS_ID_STR     "Specify Link State ID\n"
 
-#define OSPF6_CMD_CHECK_RUNNING()                                              \
+#define OSPF6_CMD_CHECK_RUNNING(ospf6)                                         \
 	if (ospf6 == NULL) {                                                   \
 		vty_out(vty, "OSPFv3 is not running\n");                       \
 		return CMD_SUCCESS;                                            \
@@ -100,6 +100,6 @@ extern struct zebra_privs_t ospf6d_privs;
 extern struct route_node *route_prev(struct route_node *node);
 
 extern void ospf6_debug(void);
-extern void ospf6_init(void);
+extern void ospf6_init(struct thread_master *master);
 
 #endif /* OSPF6D_H */

@@ -81,22 +81,23 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
+	struct ospf6 *ospf6;
+	struct listnode *node, *nnode;
 
 	frr_early_fini();
 
-	if (ospf6) {
+	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
 		ospf6_serv_close(&ospf6->fd);
+		FOR_ALL_INTERFACES (vrf, ifp)
+			if (ifp->info != NULL)
+				ospf6_interface_delete(ifp->info);
 		ospf6_delete(ospf6);
 		ospf6 = NULL;
-	} else
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	}
 
 	bfd_gbl_exit();
 
-	FOR_ALL_INTERFACES (vrf, ifp)
-		if (ifp->info != NULL)
-			ospf6_interface_delete(ifp->info);
 
 	ospf6_message_terminate();
 	ospf6_asbr_terminate();
@@ -216,17 +217,17 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	/* OSPF6 master init. */
-	ospf6_master_init();
+	ospf6_master_init(frr_init());
 
 	/* thread master */
-	master = frr_init();
+	master = om6->master;
 
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	access_list_init();
 	prefix_list_init();
 
 	/* initialize ospf6 */
-	ospf6_init();
+	ospf6_init(master);
 
 	frr_config_fork();
 	frr_run(master);

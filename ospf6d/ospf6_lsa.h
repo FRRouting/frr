@@ -20,6 +20,7 @@
 
 #ifndef OSPF6_LSA_H
 #define OSPF6_LSA_H
+#include "ospf6_top.h"
 
 /* Debug option */
 #define OSPF6_LSA_DEBUG           0x01
@@ -246,6 +247,6 @@ extern void ospf6_lsa_terminate(void);
 extern int config_write_ospf6_debug_lsa(struct vty *vty);
 extern void install_element_ospf6_debug_lsa(void);
 extern void ospf6_lsa_age_set(struct ospf6_lsa *lsa);
-extern void ospf6_flush_self_originated_lsas_now(void);
-
+extern void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6);
+extern struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa);
 #endif /* OSPF6_LSA_H */

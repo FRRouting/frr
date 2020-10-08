@@ -781,9 +781,9 @@ static void ospf6_dbdesc_recv(struct in6_addr *src, struct in6_addr *dst,
 
 	oi->db_desc_in++;
 
-	if (ntohl(oh->router_id) < ntohl(ospf6->router_id))
+	if (ntohl(oh->router_id) < ntohl(oi->area->ospf6->router_id))
 		ospf6_dbdesc_recv_master(oh, on);
-	else if (ntohl(ospf6->router_id) < ntohl(oh->router_id))
+	else if (ntohl(oi->area->ospf6->router_id) < ntohl(oh->router_id))
 		ospf6_dbdesc_recv_slave(oh, on);
 	else {
 		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))

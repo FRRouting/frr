@@ -117,7 +117,7 @@ struct ospf6_area {
 #define IS_AREA_TRANSIT(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_TRANSIT))
 #define IS_AREA_STUB(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_STUB))
 
-#define OSPF6_CMD_AREA_GET(str, oa)                                            \
+#define OSPF6_CMD_AREA_GET(str, oa, ospf6)                                     \
 	{                                                                      \
 		char *ep;                                                      \
 		uint32_t area_id = htonl(strtoul(str, &ep, 10));               \
@@ -138,6 +138,7 @@ extern int ospf6_area_cmp(void *va, void *vb);
 extern struct ospf6_area *ospf6_area_create(uint32_t, struct ospf6 *, int);
 extern void ospf6_area_delete(struct ospf6_area *);
 extern struct ospf6_area *ospf6_area_lookup(uint32_t, struct ospf6 *);
+extern struct ospf6_area *ospf6_area_lookup_by_area_id(uint32_t area_id);
 
 extern void ospf6_area_enable(struct ospf6_area *);
 extern void ospf6_area_disable(struct ospf6_area *);
@@ -145,7 +146,7 @@ extern void ospf6_area_disable(struct ospf6_area *);
 extern void ospf6_area_show(struct vty *, struct ospf6_area *);
 
 extern void ospf6_area_plist_update(struct prefix_list *plist, int add);
-extern void ospf6_area_config_write(struct vty *vty);
+extern void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6);
 extern void ospf6_area_init(void);
 struct ospf6_interface;
 extern void ospf6_area_interface_delete(struct ospf6_interface *oi);

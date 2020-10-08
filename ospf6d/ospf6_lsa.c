@@ -45,6 +45,27 @@
 
 vector ospf6_lsa_handler_vector;
 
+struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
+{
+	struct ospf6 *ospf6 = NULL;
+
+	switch (OSPF6_LSA_SCOPE(lsa->header->type)) {
+	case OSPF6_SCOPE_LINKLOCAL:
+		ospf6 = OSPF6_INTERFACE(lsa->lsdb->data)->area->ospf6;
+		break;
+	case OSPF6_SCOPE_AREA:
+		ospf6 = OSPF6_AREA(lsa->lsdb->data)->ospf6;
+		break;
+	case OSPF6_SCOPE_AS:
+		ospf6 = OSPF6_PROCESS(lsa->lsdb->data);
+		break;
+	default:
+		assert(0);
+		break;
+	}
+	return ospf6;
+}
+
 static int ospf6_unknown_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 {
 	uint8_t *start, *end, *current;
@@ -626,6 +647,7 @@ struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa)
 int ospf6_lsa_expire(struct thread *thread)
 {
 	struct ospf6_lsa *lsa;
+	struct ospf6 *ospf6;
 
 	lsa = (struct ospf6_lsa *)THREAD_ARG(thread);
 
@@ -642,7 +664,7 @@ int ospf6_lsa_expire(struct thread *thread)
 
 	if (CHECK_FLAG(lsa->flag, OSPF6_LSA_HEADERONLY))
 		return 0; /* dbexchange will do something ... */
-
+	ospf6 = ospf6_get_by_lsdb(lsa);
 	/* reinstall lsa */
 	ospf6_install_lsa(lsa);
 
@@ -703,7 +725,7 @@ int ospf6_lsa_refresh(struct thread *thread)
 	return 0;
 }
 
-void ospf6_flush_self_originated_lsas_now(void)
+void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6)
 {
 	struct listnode *node;
 	struct ospf6_area *oa;

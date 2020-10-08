@@ -370,7 +370,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 			continue;
 		}
 
-		if (ospf6->inst_shutdown) {
+		if (oi->area->ospf6->inst_shutdown) {
 			if (is_debug)
 				zlog_debug(
 					"%s: Send LSA %s (age %d) update now",
@@ -486,6 +486,12 @@ static void ospf6_flood_process(struct ospf6_neighbor *from,
 
 void ospf6_flood(struct ospf6_neighbor *from, struct ospf6_lsa *lsa)
 {
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_get_by_lsdb(lsa);
+	if (ospf6 == NULL)
+		return;
+
 	ospf6_flood_process(from, lsa, ospf6);
 }
 
@@ -555,6 +561,9 @@ static void ospf6_flood_clear_process(struct ospf6_lsa *lsa,
 
 void ospf6_flood_clear(struct ospf6_lsa *lsa)
 {
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_get_by_lsdb(lsa);
 	ospf6_flood_clear_process(lsa, ospf6);
 }
 

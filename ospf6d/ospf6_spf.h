@@ -139,7 +139,8 @@ static inline unsigned int ospf6_lsremove_to_spf_reason(struct ospf6_lsa *lsa)
 	return (reason);
 }
 
-extern void ospf6_spf_table_finish(struct ospf6_route_table *result_table);
+extern void ospf6_spf_table_finish(struct ospf6_route_table *result_table,
+				   struct ospf6 *ospf6);
 extern void ospf6_spf_calculation(uint32_t router_id,
 				  struct ospf6_route_table *result_table,
 				  struct ospf6_area *oa);
@@ -148,7 +149,7 @@ extern void ospf6_spf_schedule(struct ospf6 *ospf, unsigned int reason);
 extern void ospf6_spf_display_subtree(struct vty *vty, const char *prefix,
 				      int rest, struct ospf6_vertex *v);
 
-extern void ospf6_spf_config_write(struct vty *vty);
+extern void ospf6_spf_config_write(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_debug_spf(struct vty *vty);
 extern void install_element_ospf6_debug_spf(void);
 extern void ospf6_spf_init(void);

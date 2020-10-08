@@ -296,25 +296,24 @@ void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 {
 	struct ospf6_nexthop *nh;
 	struct listnode *node;
+	struct interface *ifp;
 	char buf[64];
 	int i;
 
 	if (route) {
 		i = 0;
 		for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
+			ifp = if_lookup_by_index_all_vrf(nh->ifindex);
 			if (IS_OSPF6_DEBUG_ZEBRA(SEND)) {
-				const char *ifname;
 				inet_ntop(AF_INET6, &nh->address, buf,
 					  sizeof(buf));
-				ifname = ifindex2ifname(nh->ifindex,
-							ospf6->vrf_id);
 				zlog_debug("  nexthop: %s%%%.*s(%d)", buf,
-					   IFNAMSIZ, ifname, nh->ifindex);
+					   IFNAMSIZ, ifp->name, nh->ifindex);
 			}
 			if (i >= entries)
 				return;
 
-			nexthops[i].vrf_id = ospf6->vrf_id;
+			nexthops[i].vrf_id = ifp->vrf_id;
 			nexthops[i].ifindex = nh->ifindex;
 			if (!IN6_IS_ADDR_UNSPECIFIED(&nh->address)) {
 				nexthops[i].gate.ipv6 = nh->address;
@@ -593,7 +592,8 @@ static void route_table_assert(struct ospf6_route_table *table)
 #endif /*DEBUG*/
 
 struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
-				    struct ospf6_route_table *table)
+				    struct ospf6_route_table *table,
+				    struct ospf6 *ospf6)
 {
 	struct route_node *node, *nextnode, *prevnode;
 	struct ospf6_route *current = NULL;
@@ -702,7 +702,7 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 		ospf6_route_table_assert(table);
 
 		if (table->hook_add)
-			(*table->hook_add)(route);
+			(*table->hook_add)(route, ospf6);
 
 		return route;
 	}
@@ -757,7 +757,7 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 
 		SET_FLAG(route->flag, OSPF6_ROUTE_ADD);
 		if (table->hook_add)
-			(*table->hook_add)(route);
+			(*table->hook_add)(route, ospf6);
 
 		return route;
 	}
@@ -823,13 +823,13 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 
 	SET_FLAG(route->flag, OSPF6_ROUTE_ADD);
 	if (table->hook_add)
-		(*table->hook_add)(route);
+		(*table->hook_add)(route, ospf6);
 
 	return route;
 }
 
 void ospf6_route_remove(struct ospf6_route *route,
-			struct ospf6_route_table *table)
+			struct ospf6_route_table *table, struct ospf6 *ospf6)
 {
 	struct route_node *node;
 	struct ospf6_route *current;
@@ -884,7 +884,7 @@ void ospf6_route_remove(struct ospf6_route *route,
 
 	/* Note hook_remove may call ospf6_route_remove */
 	if (table->hook_remove)
-		(*table->hook_remove)(route);
+		(*table->hook_remove)(route, ospf6);
 
 	ospf6_route_unlock(route);
 }
@@ -1004,12 +1004,13 @@ struct ospf6_route *ospf6_route_match_next(struct prefix *prefix,
 	return next;
 }
 
-void ospf6_route_remove_all(struct ospf6_route_table *table)
+void ospf6_route_remove_all(struct ospf6_route_table *table,
+			    struct ospf6 *ospf6)
 {
 	struct ospf6_route *route;
 	for (route = ospf6_route_head(table); route;
 	     route = ospf6_route_next(route))
-		ospf6_route_remove(route, table);
+		ospf6_route_remove(route, table, ospf6);
 }
 
 struct ospf6_route_table *ospf6_route_table_create(int s, int t)
@@ -1022,9 +1023,10 @@ struct ospf6_route_table *ospf6_route_table_create(int s, int t)
 	return new;
 }
 
-void ospf6_route_table_delete(struct ospf6_route_table *table)
+void ospf6_route_table_delete(struct ospf6_route_table *table,
+			      struct ospf6 *ospf6)
 {
-	ospf6_route_remove_all(table);
+	ospf6_route_remove_all(table, ospf6);
 	bf_free(table->idspace);
 	route_table_finish(table->table);
 	XFREE(MTYPE_OSPF6_ROUTE, table);
@@ -1037,12 +1039,11 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route)
 	int i;
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
 	char duration[64];
-	const char *ifname;
 	struct timeval now, res;
 	struct listnode *node;
 	struct ospf6_nexthop *nh;
 
-	if (ospf6 == NULL) {
+	if (om6->ospf6 == NULL) {
 		vty_out(vty, "OSPFv3 is not running\n");
 		return;
 	}
@@ -1063,27 +1064,26 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route)
 
 	i = 0;
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
+		struct interface *ifp;
 		/* nexthop */
 		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
-		ifname = ifindex2ifname(nh->ifindex, ospf6->vrf_id);
-
+		ifp = if_lookup_by_index_all_vrf(nh->ifindex);
 		if (!i) {
 			vty_out(vty, "%c%1s %2s %-30s %-25s %6.*s %s\n",
 				(ospf6_route_is_best(route) ? '*' : ' '),
 				OSPF6_DEST_TYPE_SUBSTR(route->type),
 				OSPF6_PATH_TYPE_SUBSTR(route->path.type),
-				destination, nexthop, IFNAMSIZ, ifname,
+				destination, nexthop, IFNAMSIZ, ifp->name,
 				duration);
 			i++;
 		} else
 			vty_out(vty, "%c%1s %2s %-30s %-25s %6.*s %s\n", ' ',
-				"", "", "", nexthop, IFNAMSIZ, ifname, "");
+				"", "", "", nexthop, IFNAMSIZ, ifp->name, "");
 	}
 }
 
 void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 {
-	const char *ifname;
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
 	char area_id[16], id[16], adv_router[16], capa[16], options[16];
 	struct timeval now, res;
@@ -1091,7 +1091,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 	struct listnode *node;
 	struct ospf6_nexthop *nh;
 
-	if (ospf6 == NULL) {
+	if (om6->ospf6 == NULL) {
 		vty_out(vty, "OSPFv3 is not running\n");
 		return;
 	}
@@ -1168,10 +1168,12 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 	/* Nexthops */
 	vty_out(vty, "Nexthop:\n");
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
+		struct interface *ifp;
 		/* nexthop */
 		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
-		ifname = ifindex2ifname(nh->ifindex, ospf6->vrf_id);
-		vty_out(vty, "  %s %.*s\n", nexthop, IFNAMSIZ, ifname);
+
+		ifp = if_lookup_by_index_all_vrf(nh->ifindex);
+		vty_out(vty, "  %s %.*s\n", nexthop, IFNAMSIZ, ifp->name);
 	}
 	vty_out(vty, "\n");
 }

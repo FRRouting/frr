@@ -786,8 +786,11 @@ DEFUN (show_ipv6_ospf6_neighbor,
 	struct ospf6_area *oa;
 	struct listnode *i, *j, *k;
 	void (*showfunc)(struct vty *, struct ospf6_neighbor *);
+	struct ospf6 *ospf6;
 
-	OSPF6_CMD_CHECK_RUNNING();
+	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
+
+	OSPF6_CMD_CHECK_RUNNING(ospf6);
 	showfunc = ospf6_neighbor_show;
 
 	if (argc == 5) {
@@ -831,8 +834,10 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
 	struct listnode *i, *j, *k;
 	void (*showfunc)(struct vty *, struct ospf6_neighbor *);
 	uint32_t router_id;
+	struct ospf6 *ospf6;
 
-	OSPF6_CMD_CHECK_RUNNING();
+	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
+	OSPF6_CMD_CHECK_RUNNING(ospf6);
 	showfunc = ospf6_neighbor_show_detail;
 
 	if ((inet_pton(AF_INET, argv[idx_ipv4]->arg, &router_id)) != 1) {

@@ -638,7 +638,9 @@ static uint8_t *ospfv3GeneralGroup(struct variable *v, oid *name,
 	uint16_t sum;
 	uint32_t count;
 	struct ospf6_lsa *lsa = NULL, *lsanext;
+	struct ospf6 *ospf6;
 
+	ospf6 = ospf6_lookup_by_vrf_id(VRF_DEFAULT);
 	/* Check whether the instance identifier is valid */
 	if (smux_header_generic(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -741,6 +743,9 @@ static uint8_t *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
 	unsigned int len;
 	char a[16];
 	struct ospf6_route *ro;
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_lookup_by_vrf_id(VRF_DEFAULT);
 
 	if (ospf6 == NULL)
 		return NULL;
@@ -850,6 +855,9 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	struct interface *iif;
 	struct ospf6_interface *oi = NULL;
 	struct list *ifslist;
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_lookup_by_vrf_id(VRF_DEFAULT);
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -1051,6 +1059,9 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 	oid *offset;
 	int offsetlen, len;
 	uint32_t sum;
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_lookup_by_vrf_id(VRF_DEFAULT);
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -1205,6 +1216,9 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 	struct list *ifslist;
 	oid *offset;
 	int offsetlen, len;
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_lookup_by_vrf_id(VRF_DEFAULT);
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
