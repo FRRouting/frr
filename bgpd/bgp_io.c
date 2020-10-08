@@ -235,8 +235,8 @@ static int bgp_process_reads(struct thread *thread)
 			assert(ringbuf_get(ibw, pkt->data, pktsize) == pktsize);
 			stream_set_endp(pkt, pktsize);
 
+			frrtrace(2, frr_bgp, packet_read, peer, pkt);
 			frr_with_mutex(&peer->io_mtx) {
-				frrtrace(2, frr_bgp, packet_read, peer, pkt);
 				stream_fifo_push(peer->ibuf, pkt);
 			}
 
