@@ -452,6 +452,17 @@ struct cmd_node {
 #define GR_NEIGHBOR_HELPER_CMD "Graceful Restart Helper command for a neighbor\n"
 #define NO_GR_NEIGHBOR_HELPER_CMD "Undo Graceful Restart Helper command for a neighbor\n"
 
+/* EVPN help Strings */
+#define EVPN_RT_HELP_STR "EVPN route information\n"
+#define EVPN_RT_DIST_HELP_STR "Route Distinguisher\n"
+#define EVPN_ASN_IP_HELP_STR "ASN:XX or A.B.C.D:XX\n"
+#define EVPN_TYPE_HELP_STR "Specify Route type\n"
+#define EVPN_TYPE_1_HELP_STR "EAD (Type-1) route\n"
+#define EVPN_TYPE_2_HELP_STR "MAC-IP (Type-2) route\n"
+#define EVPN_TYPE_3_HELP_STR "Multicast (Type-3) route\n"
+#define EVPN_TYPE_4_HELP_STR "Ethernet Segment (Type-4) route\n"
+#define EVPN_TYPE_5_HELP_STR "Prefix (Type-5) route\n"
+
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
 extern void install_default(enum node_type);
