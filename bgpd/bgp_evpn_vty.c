@@ -4602,7 +4602,7 @@ DEFUN(show_bgp_l2vpn_evpn_import_rt,
 	return CMD_SUCCESS;
 }
 
-DEFPY(test_es_add,
+DEFPY_HIDDEN(test_es_add,
       test_es_add_cmd,
       "[no$no] test es NAME$esi_str [state NAME$state_str]",
       NO_STR
@@ -4652,7 +4652,7 @@ DEFPY(test_es_add,
 	return CMD_SUCCESS;
 }
 
-DEFPY(test_es_vni_add,
+DEFPY_HIDDEN(test_es_vni_add,
       test_es_vni_add_cmd,
       "[no$no] test es NAME$esi_str vni (1-16777215)$vni",
       NO_STR
