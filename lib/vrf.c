@@ -39,8 +39,7 @@
 #include "northbound.h"
 #include "northbound_cli.h"
 
-/* default VRF ID value used when VRF backend is not NETNS */
-#define VRF_DEFAULT_INTERNAL 0
+/* default VRF name value used when VRF backend is not NETNS */
 #define VRF_DEFAULT_NAME_INTERNAL "default"
 
 DEFINE_MTYPE_STATIC(LIB, VRF, "VRF")
@@ -159,10 +158,6 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	struct vrf *vrf = NULL;
 	int new = 0;
 
-	if (debug_vrf)
-		zlog_debug("VRF_GET: %s(%u)", name == NULL ? "(NULL)" : name,
-			   vrf_id);
-
 	/* Nothing to see, move along here */
 	if (!name && vrf_id == VRF_UNKNOWN)
 		return NULL;
@@ -225,7 +220,8 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 void vrf_delete(struct vrf *vrf)
 {
 	if (debug_vrf)
-		zlog_debug("VRF %u is to be deleted.", vrf->vrf_id);
+		zlog_debug("VRF %s(%u) is to be deleted.", vrf->name,
+			   vrf->vrf_id);
 
 	if (vrf_is_enabled(vrf))
 		vrf_disable(vrf);
@@ -282,7 +278,7 @@ int vrf_enable(struct vrf *vrf)
 		return 1;
 
 	if (debug_vrf)
-		zlog_debug("VRF %u is enabled.", vrf->vrf_id);
+		zlog_debug("VRF %s(%u) is enabled.", vrf->name, vrf->vrf_id);
 
 	SET_FLAG(vrf->status, VRF_ACTIVE);
 
@@ -312,10 +308,19 @@ void vrf_disable(struct vrf *vrf)
 	UNSET_FLAG(vrf->status, VRF_ACTIVE);
 
 	if (debug_vrf)
-		zlog_debug("VRF %u is to be disabled.", vrf->vrf_id);
+		zlog_debug("VRF %s(%u) is to be disabled.", vrf->name,
+			   vrf->vrf_id);
 
 	/* Till now, nothing to be done for the default VRF. */
 	// Pending: see why this statement.
+
+
+	/*
+	 * When the vrf is disabled let's
+	 * handle all nexthop-groups associated
+	 * with this vrf
+	 */
+	nexthop_group_disable_vrf(vrf);
 
 	if (vrf_master.vrf_disable_hook)
 		(*vrf_master.vrf_disable_hook)(vrf);
@@ -324,6 +329,9 @@ void vrf_disable(struct vrf *vrf)
 const char *vrf_id_to_name(vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
+
+	if (vrf_id == VRF_DEFAULT)
+		return VRF_DEFAULT_NAME;
 
 	vrf = vrf_lookup_by_id(vrf_id);
 	return VRF_LOGNAME(vrf);
@@ -512,7 +520,7 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 
 		strlcpy(default_vrf->data.l.netns_name,
 			VRF_DEFAULT_NAME, NS_NAMSIZ);
-		ns = ns_lookup(ns_get_default_id());
+		ns = ns_lookup(NS_DEFAULT);
 		ns->vrf_ctxt = default_vrf;
 		default_vrf->ns_ctxt = ns;
 	}
@@ -938,17 +946,6 @@ void vrf_set_default_name(const char *default_name, bool force)
 const char *vrf_get_default_name(void)
 {
 	return vrf_default_name;
-}
-
-vrf_id_t vrf_get_default_id(void)
-{
-	/* backend netns is only known by zebra
-	 * for other daemons, we return VRF_DEFAULT_INTERNAL
-	 */
-	if (vrf_is_backend_netns())
-		return ns_get_default_id();
-	else
-		return VRF_DEFAULT_INTERNAL;
 }
 
 int vrf_bind(vrf_id_t vrf_id, int fd, const char *name)

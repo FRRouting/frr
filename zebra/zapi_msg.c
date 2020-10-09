@@ -815,7 +815,7 @@ void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 	stream_putl(s, dplane_ctx_rule_get_seq(ctx));
 	stream_putl(s, dplane_ctx_rule_get_priority(ctx));
 	stream_putl(s, dplane_ctx_rule_get_unique(ctx));
-	stream_putl(s, dplane_ctx_get_ifindex(ctx));
+	stream_put(s, dplane_ctx_rule_get_ifname(ctx), INTERFACE_NAMSIZ);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -1348,6 +1348,20 @@ static void zread_interface_add(ZAPI_HANDLER_ARGS)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
+
+	vrf_id_t vrf_id = zvrf_id(zvrf);
+	if (vrf_id != VRF_DEFAULT && vrf_id != VRF_UNKNOWN) {
+		FOR_ALL_INTERFACES (zvrf->vrf, ifp) {
+			/* Skip pseudo interface. */
+			if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
+				continue;
+
+			zsend_interface_add(client, ifp);
+			zsend_interface_link_params(client, ifp);
+			zsend_interface_addresses(client, ifp);
+		}
+		return;
+	}
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		FOR_ALL_INTERFACES (vrf, ifp) {
@@ -2737,6 +2751,7 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 	struct zebra_pbr_rule zpr;
 	struct stream *s;
 	uint32_t total, i;
+	char ifname[INTERFACE_NAMSIZ + 1] = {};
 
 	s = msg;
 	STREAM_GETL(s, total);
@@ -2762,21 +2777,10 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GETC(s, zpr.rule.filter.dsfield);
 		STREAM_GETL(s, zpr.rule.filter.fwmark);
 		STREAM_GETL(s, zpr.rule.action.table);
-		STREAM_GETL(s, zpr.rule.ifindex);
+		STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
 
-		if (zpr.rule.ifindex) {
-			struct interface *ifp;
-
-			ifp = if_lookup_by_index_per_ns(zvrf->zns,
-							zpr.rule.ifindex);
-			if (!ifp) {
-				zlog_debug("Failed to lookup ifindex: %u",
-					   zpr.rule.ifindex);
-				return;
-			}
-
-			strlcpy(zpr.ifname, ifp->name, sizeof(zpr.ifname));
-		}
+		strlcpy(zpr.ifname, ifname, sizeof(zpr.ifname));
+		strlcpy(zpr.rule.ifname, ifname, sizeof(zpr.rule.ifname));
 
 		if (!is_default_prefix(&zpr.rule.filter.src_ip))
 			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_IP;

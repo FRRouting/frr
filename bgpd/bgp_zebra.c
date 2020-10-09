@@ -2154,10 +2154,10 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 	enum zapi_rule_notify_owner note;
 	struct bgp_pbr_action *bgp_pbra;
 	struct bgp_pbr_rule *bgp_pbr = NULL;
-	ifindex_t ifi;
+	char ifname[INTERFACE_NAMSIZ + 1];
 
 	if (!zapi_rule_notify_decode(zclient->ibuf, &seqno, &priority, &unique,
-				     &ifi, &note))
+				     ifname, &note))
 		return -1;
 
 	bgp_pbra = bgp_pbr_action_rule_lookup(vrf_id, unique);
@@ -2367,7 +2367,7 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 	struct prefix pfx;
 	uint8_t fam = AF_INET;
 
-	if (pbra && pbra->nh.type == NEXTHOP_TYPE_IPV6)
+	if (pbra->nh.type == NEXTHOP_TYPE_IPV6)
 		fam = AF_INET6;
 	stream_putl(s, 0); /* seqno unused */
 	if (pbr)

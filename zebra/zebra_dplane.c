@@ -210,6 +210,7 @@ struct dplane_ctx_rule {
 	uint8_t dsfield;
 	struct prefix src_ip;
 	struct prefix dst_ip;
+	char ifname[INTERFACE_NAMSIZ + 1];
 };
 
 struct dplane_rule_info {
@@ -1632,6 +1633,13 @@ int dplane_ctx_rule_get_sock(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rule.sock;
 }
 
+const char *dplane_ctx_rule_get_ifname(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.ifname;
+}
+
 int dplane_ctx_rule_get_unique(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -2191,6 +2199,7 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 	dplane_rule->dsfield = rule->rule.filter.dsfield;
 	prefix_copy(&(dplane_rule->dst_ip), &rule->rule.filter.dst_ip);
 	prefix_copy(&(dplane_rule->src_ip), &rule->rule.filter.src_ip);
+	strlcpy(dplane_rule->ifname, rule->ifname, INTERFACE_NAMSIZ);
 }
 
 /**
@@ -2212,10 +2221,9 @@ static int dplane_ctx_rule_init(struct zebra_dplane_ctx *ctx,
 		char buf2[PREFIX_STRLEN];
 
 		zlog_debug(
-			"init dplane ctx %s: IF %s(%u) Prio %u Fwmark %u Src %s Dst %s Table %u",
+			"init dplane ctx %s: IF %s Prio %u Fwmark %u Src %s Dst %s Table %u",
 			dplane_op2str(op), new_rule->ifname,
-			new_rule->rule.ifindex, new_rule->rule.priority,
-			new_rule->rule.filter.fwmark,
+			new_rule->rule.priority, new_rule->rule.filter.fwmark,
 			prefix2str(&new_rule->rule.filter.src_ip, buf1,
 				   sizeof(buf1)),
 			prefix2str(&new_rule->rule.filter.dst_ip, buf2,
@@ -2232,7 +2240,6 @@ static int dplane_ctx_rule_init(struct zebra_dplane_ctx *ctx,
 
 	ctx->zd_vrf_id = new_rule->vrf_id;
 	memcpy(ctx->zd_ifname, new_rule->ifname, sizeof(new_rule->ifname));
-	ctx->zd_ifindex = new_rule->rule.ifindex;
 
 	ctx->u.rule.sock = new_rule->sock;
 	ctx->u.rule.unique = new_rule->rule.unique;

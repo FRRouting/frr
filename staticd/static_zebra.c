@@ -184,7 +184,7 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	afi_t afi = AFI_IP;
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
-		zlog_warn("Failure to decode nexthop update message");
+		zlog_err("Failure to decode nexthop update message");
 		return 1;
 	}
 

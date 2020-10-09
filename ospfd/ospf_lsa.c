@@ -1796,7 +1796,15 @@ struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 		return NULL;
 	}
 
-	extnew = (struct as_external_lsa *)new;
+	extnew = (struct as_external_lsa *)new->data;
+
+	if ((new = ospf_lsa_install(ospf, NULL, new)) == NULL) {
+		flog_warn(
+			EC_OSPF_LSA_INSTALL_FAILURE,
+			"ospf_lsa_translated_nssa_originate(): Could not install LSA id %s",
+			inet_ntoa(type7->data->id));
+		return NULL;
+	}
 
 	if (IS_DEBUG_OSPF_NSSA) {
 		zlog_debug(
@@ -1805,13 +1813,6 @@ struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 		zlog_debug("   Network mask: %d", ip_masklen(extnew->mask));
 		zlog_debug("   Forward addr: %s",
 			   inet_ntoa(extnew->e[0].fwd_addr));
-	}
-
-	if ((new = ospf_lsa_install(ospf, NULL, new)) == NULL) {
-		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
-			  "ospf_lsa_translated_nssa_originate(): Could not install LSA id %s",
-			  inet_ntoa(type7->data->id));
-		return NULL;
 	}
 
 	ospf->lsa_originate_count++;

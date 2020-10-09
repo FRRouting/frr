@@ -1366,7 +1366,6 @@ static struct nhg_hash_entry *depends_find_singleton(const struct nexthop *nh,
 static struct nhg_hash_entry *depends_find(const struct nexthop *nh, afi_t afi)
 {
 	struct nhg_hash_entry *nhe = NULL;
-	char rbuf[10];
 
 	if (!nh)
 		goto done;
@@ -1374,18 +1373,18 @@ static struct nhg_hash_entry *depends_find(const struct nexthop *nh, afi_t afi)
 	/* We are separating these functions out to increase handling speed
 	 * in the non-recursive case (by not alloc/freeing)
 	 */
-	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
 		nhe = depends_find_recursive(nh, afi);
-		strlcpy(rbuf, "(R)", sizeof(rbuf));
-	} else {
+	else
 		nhe = depends_find_singleton(nh, afi);
-		rbuf[0] = '\0';
-	}
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: nh %pNHv %s => %p (%u)",
-			   __func__, nh, rbuf,
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+		zlog_debug("%s: nh %pNHv %s => %p (%u)", __func__, nh,
+			   CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE) ? "(R)"
+									 : "",
 			   nhe, nhe ? nhe->id : 0);
+	}
 
 done:
 	return nhe;
@@ -1830,13 +1829,13 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)) {
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 		if (!ifp) {
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug("nexthop %pNHv marked onlink but nhif %u doesn't exist",
 					   nexthop, nexthop->ifindex);
 			return 0;
 		}
 		if (!if_is_operative(ifp)) {
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug("nexthop %pNHv marked onlink but nhif %s is not operational",
 					   nexthop, ifp->name);
 			return 0;
@@ -1992,6 +1991,11 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				    || nexthop->type == NEXTHOP_TYPE_IPV6)
 					nexthop->ifindex = newhop->ifindex;
 				else if (nexthop->ifindex != newhop->ifindex) {
+					if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+						zlog_debug(
+							"%s: %pNHv given ifindex does not match nexthops ifindex found found: %pNHv",
+							__func__, nexthop,
+							newhop);
 					/*
 					 * NEXTHOP_TYPE_*_IFINDEX but ifindex
 					 * doesn't match what we found.
@@ -2013,7 +2017,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 			/* Only useful if installed */
 			if (!CHECK_FLAG(match->status, ROUTE_ENTRY_INSTALLED)) {
-				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug("%s: match %p (%u) not installed",
 						   __func__, match,
 						   match->nhe->id);

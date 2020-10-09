@@ -138,7 +138,7 @@ struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 		if (ifaddr.s_addr == igmp->ifaddr.s_addr)
 			return igmp;
 
-	return 0;
+	return NULL;
 }
 
 struct igmp_sock *igmp_sock_lookup_by_fd(struct list *igmp_sock_list, int fd)
@@ -150,7 +150,7 @@ struct igmp_sock *igmp_sock_lookup_by_fd(struct list *igmp_sock_list, int fd)
 		if (fd == igmp->fd)
 			return igmp;
 
-	return 0;
+	return NULL;
 }
 
 static int pim_igmp_other_querier_expire(struct thread *t)
@@ -1004,7 +1004,7 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 	if (fd < 0) {
 		zlog_warn("Could not open IGMP socket for %s on %s",
 			  inet_ntoa(ifaddr), ifp->name);
-		return 0;
+		return NULL;
 	}
 
 	sin.sin_family = AF_INET;
@@ -1013,7 +1013,9 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)) != 0) {
 		zlog_warn("Could not bind IGMP socket for %s on %s",
 			  inet_ntoa(ifaddr), ifp->name);
-		return 0;
+		close(fd);
+
+		return NULL;
 	}
 
 	igmp = igmp_sock_new(fd, ifaddr, ifp, mtrace_only);

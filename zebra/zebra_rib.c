@@ -79,35 +79,35 @@ static const struct {
 	uint8_t meta_q_map;
 } route_info[ZEBRA_ROUTE_MAX] = {
 	[ZEBRA_ROUTE_NHG] = {ZEBRA_ROUTE_NHG, 255 /* Uneeded for nhg's */, 0},
-	[ZEBRA_ROUTE_SYSTEM] = {ZEBRA_ROUTE_SYSTEM, 0, 5},
-	[ZEBRA_ROUTE_KERNEL] = {ZEBRA_ROUTE_KERNEL, 0, 1},
+	[ZEBRA_ROUTE_SYSTEM] = {ZEBRA_ROUTE_SYSTEM, 0, 6},
+	[ZEBRA_ROUTE_KERNEL] = {ZEBRA_ROUTE_KERNEL, 0, 2},
 	[ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT, 0, 1},
-	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC, 1, 2},
-	[ZEBRA_ROUTE_RIP] = {ZEBRA_ROUTE_RIP, 120, 3},
-	[ZEBRA_ROUTE_RIPNG] = {ZEBRA_ROUTE_RIPNG, 120, 3},
-	[ZEBRA_ROUTE_OSPF] = {ZEBRA_ROUTE_OSPF, 110, 3},
-	[ZEBRA_ROUTE_OSPF6] = {ZEBRA_ROUTE_OSPF6, 110, 3},
-	[ZEBRA_ROUTE_ISIS] = {ZEBRA_ROUTE_ISIS, 115, 3},
-	[ZEBRA_ROUTE_BGP] = {ZEBRA_ROUTE_BGP, 20 /* IBGP is 200. */, 4},
-	[ZEBRA_ROUTE_PIM] = {ZEBRA_ROUTE_PIM, 255, 5},
-	[ZEBRA_ROUTE_EIGRP] = {ZEBRA_ROUTE_EIGRP, 90, 3},
-	[ZEBRA_ROUTE_NHRP] = {ZEBRA_ROUTE_NHRP, 10, 3},
-	[ZEBRA_ROUTE_HSLS] = {ZEBRA_ROUTE_HSLS, 255, 5},
-	[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, 255, 5},
-	[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, 150, 2},
-	[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, 150, 5},
-	[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, 20, 4},
-	[ZEBRA_ROUTE_VNC_DIRECT] = {ZEBRA_ROUTE_VNC_DIRECT, 20, 4},
-	[ZEBRA_ROUTE_VNC_DIRECT_RH] = {ZEBRA_ROUTE_VNC_DIRECT_RH, 20, 4},
-	[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT, 20, 4},
-	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20, 4},
-	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100, 3},
-	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150, 5},
-	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, 5},
-	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, 5},
-	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 3},
-	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, 255, 5},
-	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, 255, 5},
+	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC, 1, 3},
+	[ZEBRA_ROUTE_RIP] = {ZEBRA_ROUTE_RIP, 120, 4},
+	[ZEBRA_ROUTE_RIPNG] = {ZEBRA_ROUTE_RIPNG, 120, 4},
+	[ZEBRA_ROUTE_OSPF] = {ZEBRA_ROUTE_OSPF, 110, 4},
+	[ZEBRA_ROUTE_OSPF6] = {ZEBRA_ROUTE_OSPF6, 110, 4},
+	[ZEBRA_ROUTE_ISIS] = {ZEBRA_ROUTE_ISIS, 115, 4},
+	[ZEBRA_ROUTE_BGP] = {ZEBRA_ROUTE_BGP, 20 /* IBGP is 200. */, 5},
+	[ZEBRA_ROUTE_PIM] = {ZEBRA_ROUTE_PIM, 255, 6},
+	[ZEBRA_ROUTE_EIGRP] = {ZEBRA_ROUTE_EIGRP, 90, 4},
+	[ZEBRA_ROUTE_NHRP] = {ZEBRA_ROUTE_NHRP, 10, 4},
+	[ZEBRA_ROUTE_HSLS] = {ZEBRA_ROUTE_HSLS, 255, 6},
+	[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, 255, 6},
+	[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, 150, 3},
+	[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, 150, 6},
+	[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, 20, 5},
+	[ZEBRA_ROUTE_VNC_DIRECT] = {ZEBRA_ROUTE_VNC_DIRECT, 20, 5},
+	[ZEBRA_ROUTE_VNC_DIRECT_RH] = {ZEBRA_ROUTE_VNC_DIRECT_RH, 20, 5},
+	[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT, 20, 5},
+	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20, 5},
+	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100, 4},
+	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150, 6},
+	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, 6},
+	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, 6},
+	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 4},
+	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, 255, 6},
+	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, 255, 6},
 	/* Any new route type added to zebra, should be mirrored here */
 
 	/* no entry/default: 150 */
@@ -898,11 +898,22 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 						zebra_route_string(new->type));
 			}
 
-			/* If labeled-unicast route, uninstall transit LSP. */
-			if (zebra_rib_labeled_unicast(old))
-				zebra_mpls_lsp_uninstall(zvrf, rn, old);
+			/*
+			 * When we have gotten to this point
+			 * the new route entry has no nexthops
+			 * that are usable and as such we need
+			 * to remove the old route, but only
+			 * if we were the one who installed
+			 * the old route
+			 */
+			if (!RIB_SYSTEM_ROUTE(old)) {
+				/* If labeled-unicast route, uninstall transit
+				 * LSP. */
+				if (zebra_rib_labeled_unicast(old))
+					zebra_mpls_lsp_uninstall(zvrf, rn, old);
 
-			rib_uninstall_kernel(rn, old);
+				rib_uninstall_kernel(rn, old);
+			}
 		}
 	} else {
 		/*
@@ -1064,46 +1075,56 @@ static void rib_process(struct route_node *rn)
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
-		/* Skip unreachable nexthop. */
-		/* This first call to nexthop_active_update is merely to
-		 * determine if there's any change to nexthops associated
-		 * with this RIB entry. Now, rib_process() can be invoked due
-		 * to an external event such as link down or due to
-		 * next-hop-tracking evaluation. In the latter case,
-		 * a decision has already been made that the NHs have changed.
-		 * So, no need to invoke a potentially expensive call again.
-		 * Further, since the change might be in a recursive NH which
-		 * is not caught in the nexthop_active_update() code. Thus, we
-		 * might miss changes to recursive NHs.
+		/*
+		 * If the route entry has changed, verify/resolve
+		 * the nexthops associated with the entry.
+		 *
+		 * In any event if we have nexthops that are not active
+		 * then we cannot use this particular route entry so
+		 * skip it.
 		 */
-		if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)
-		    && !nexthop_active_update(rn, re)) {
-			if (re->type == ZEBRA_ROUTE_TABLE) {
-				/* XXX: HERE BE DRAGONS!!!!!
-				 * In all honesty, I have not yet figured out
-				 * what this part does or why the
-				 * ROUTE_ENTRY_CHANGED test above is correct
-				 * or why we need to delete a route here, and
-				 * also not whether this concerns both selected
-				 * and fib route, or only selected
-				 * or only fib
-				 *
-				 * This entry was denied by the 'ip protocol
-				 * table' route-map, we need to delete it */
-				if (re != old_selected) {
-					if (IS_ZEBRA_DEBUG_RIB)
-						zlog_debug(
-							"%s: %s(%u):%s: imported via import-table but denied by the ip protocol table route-map",
-							__func__,
-							VRF_LOGNAME(vrf),
-							vrf_id, buf);
-					rib_unlink(rn, re);
-				} else
-					SET_FLAG(re->status,
-						 ROUTE_ENTRY_REMOVED);
-			}
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
+			if (!nexthop_active_update(rn, re)) {
+				if (re->type == ZEBRA_ROUTE_TABLE) {
+					/* XXX: HERE BE DRAGONS!!!!!
+					 * In all honesty, I have not yet
+					 * figured out what this part does or
+					 * why the ROUTE_ENTRY_CHANGED test
+					 * above is correct or why we need to
+					 * delete a route here, and also not
+					 * whether this concerns both selected
+					 * and fib route, or only selected
+					 * or only fib
+					 *
+					 * This entry was denied by the 'ip
+					 * protocol
+					 * table' route-map, we need to delete
+					 * it */
+					if (re != old_selected) {
+						if (IS_ZEBRA_DEBUG_RIB)
+							zlog_debug(
+								"%s: %s(%u):%s: imported via import-table but denied by the ip protocol table route-map",
+								__func__,
+								VRF_LOGNAME(
+									vrf),
+								vrf_id, buf);
+						rib_unlink(rn, re);
+					} else
+						SET_FLAG(re->status,
+							 ROUTE_ENTRY_REMOVED);
+				}
 
-			continue;
+				continue;
+			}
+		} else {
+			/*
+			 * If the re has not changed and the nhg we have is
+			 * not usable, then we cannot use this route entry
+			 * for consideration, as that the route will just
+			 * not install if it is selected.
+			 */
+			if (!nexthop_group_active_nexthop_num(&re->nhe->nhg))
+				continue;
 		}
 
 		/* Infinite distance. */

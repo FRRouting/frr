@@ -76,6 +76,12 @@ void isis_event_circuit_state_change(struct isis_circuit *circuit,
 
 static void circuit_commence_level(struct isis_circuit *circuit, int level)
 {
+	if (IS_DEBUG_EVENTS)
+		zlog_debug(
+			"ISIS-Evt (%s) circuit %u on iface %s commencing on L%d",
+			circuit->area->area_tag, circuit->circuit_id,
+			circuit->interface->name, level);
+
 	if (!circuit->is_passive) {
 		if (level == 1) {
 			thread_add_timer(master, send_l1_psnp, circuit,
@@ -105,6 +111,12 @@ static void circuit_resign_level(struct isis_circuit *circuit, int level)
 {
 	int idx = level - 1;
 
+	if (IS_DEBUG_EVENTS)
+		zlog_debug(
+			"ISIS-Evt (%s) circuit %u on iface %s resigning on L%d",
+			circuit->area->area_tag, circuit->circuit_id,
+			circuit->interface->name, level);
+
 	THREAD_TIMER_OFF(circuit->t_send_csnp[idx]);
 	THREAD_TIMER_OFF(circuit->t_send_psnp[idx]);
 
@@ -114,6 +126,7 @@ static void circuit_resign_level(struct isis_circuit *circuit, int level)
 		THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[idx]);
 		circuit->lsp_regenerate_pending[idx] = 0;
 		circuit->u.bc.run_dr_elect[idx] = 0;
+		circuit->u.bc.is_dr[idx] = 0;
 		if (circuit->u.bc.lan_neighs[idx] != NULL)
 			list_delete(&circuit->u.bc.lan_neighs[idx]);
 	}

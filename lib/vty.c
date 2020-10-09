@@ -141,8 +141,8 @@ bool vty_set_include(struct vty *vty, const char *regexp)
 			  REG_EXTENDED | REG_NEWLINE | REG_NOSUB);
 	if (errcode) {
 		ret = false;
-		regerror(ret, &vty->include, errbuf, sizeof(errbuf));
-		vty_out(vty, "%% Regex compilation error: %s", errbuf);
+		regerror(errcode, &vty->include, errbuf, sizeof(errbuf));
+		vty_out(vty, "%% Regex compilation error: %s\n", errbuf);
 	} else {
 		vty->filter = true;
 	}

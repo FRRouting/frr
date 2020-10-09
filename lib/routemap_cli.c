@@ -719,15 +719,13 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	set_metric, set_metric_cmd,
-	"set metric <(0-4294967295)$metric|rtt$rtt|+rtt$artt|-rtt$srtt|+metric$ametric|-metric$smetric>",
+	"set metric <(-4294967295-4294967295)$metric|rtt$rtt|+rtt$artt|-rtt$srtt>",
 	SET_STR
 	"Metric value for destination routing protocol\n"
-	"Metric value\n"
+	"Metric value (use +/- for additions or subtractions)\n"
 	"Assign round trip time\n"
 	"Add round trip time\n"
-	"Subtract round trip time\n"
-	"Add metric\n"
-	"Subtract metric\n")
+	"Subtract round trip time\n")
 {
 	const char *xpath = "./set-action[action='metric']";
 	char xpath_value[XPATH_MAXLEN];
@@ -746,17 +744,17 @@ DEFPY_YANG(
 		snprintf(xpath_value, sizeof(xpath_value),
 			 "%s/subtract-round-trip-time", xpath);
 		snprintf(value, sizeof(value), "true");
-	} else if (ametric) {
+	} else if (metric_str && metric_str[0] == '+') {
 		snprintf(xpath_value, sizeof(xpath_value), "%s/add-metric",
 			 xpath);
-		snprintf(value, sizeof(value), "true");
-	} else if (smetric) {
+		snprintf(value, sizeof(value), "%s", ++metric_str);
+	} else if (metric_str && metric_str[0] == '-') {
 		snprintf(xpath_value, sizeof(xpath_value), "%s/subtract-metric",
 			 xpath);
-		snprintf(value, sizeof(value), "true");
+		snprintf(value, sizeof(value), "%s", ++metric_str);
 	} else {
 		snprintf(xpath_value, sizeof(xpath_value), "%s/value", xpath);
-		snprintf(value, sizeof(value), "%lu", metric);
+		snprintf(value, sizeof(value), "%s", metric_str);
 	}
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
 
@@ -765,7 +763,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_set_metric, no_set_metric_cmd,
-	"no set metric [(0-4294967295)]",
+	"no set metric [OPTVAL]",
 	NO_STR
 	SET_STR
 	"Metric value for destination routing protocol\n"
@@ -831,9 +829,12 @@ void route_map_action_show(struct vty *vty, struct lyd_node *dnode,
 		} else if (yang_dnode_get(dnode, "./subtract-round-trip-time")) {
 			vty_out(vty, " set metric -rtt\n");
 		} else if (yang_dnode_get(dnode, "./add-metric")) {
-			vty_out(vty, " set metric +metric\n");
+			vty_out(vty, " set metric +%s\n",
+				yang_dnode_get_string(dnode, "./add-metric"));
 		} else if (yang_dnode_get(dnode, "./subtract-metric")) {
-			vty_out(vty, " set metric -metric\n");
+			vty_out(vty, " set metric -%s\n",
+				yang_dnode_get_string(dnode,
+						      "./subtract-metric"));
 		} else {
 			vty_out(vty, " set metric %s\n",
 				yang_dnode_get_string(dnode, "./value"));

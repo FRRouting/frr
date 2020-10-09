@@ -2197,7 +2197,7 @@ DEFUNSH(VTYSH_EIGRPD, vtysh_quit_eigrpd, vtysh_quit_eigrpd_cmd, "quit",
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_EIGRPD, vtysh_exit_babeld, vtysh_exit_babeld_cmd, "exit",
+DEFUNSH(VTYSH_BABELD, vtysh_exit_babeld, vtysh_exit_babeld_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
@@ -2265,6 +2265,18 @@ DEFUNSH(VTYSH_FABRICD, vtysh_quit_fabricd, vtysh_quit_fabricd_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_fabricd(self, vty, argc, argv);
+}
+
+DEFUNSH(VTYSH_KEYS, vtysh_exit_keys, vtysh_exit_keys_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+DEFUNSH(VTYSH_KEYS, vtysh_quit_keys, vtysh_quit_keys_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit_keys(self, vty, argc, argv);
 }
 
 DEFUNSH(VTYSH_ALL, vtysh_exit_line_vty, vtysh_exit_line_vty_cmd, "exit",
@@ -3910,10 +3922,10 @@ void vtysh_init_vty(void)
 	install_element(ISIS_NODE, &vtysh_quit_isisd_cmd);
 	install_element(OPENFABRIC_NODE, &vtysh_exit_fabricd_cmd);
 	install_element(OPENFABRIC_NODE, &vtysh_quit_fabricd_cmd);
-	install_element(KEYCHAIN_NODE, &vtysh_exit_ripd_cmd);
-	install_element(KEYCHAIN_NODE, &vtysh_quit_ripd_cmd);
-	install_element(KEYCHAIN_KEY_NODE, &vtysh_exit_ripd_cmd);
-	install_element(KEYCHAIN_KEY_NODE, &vtysh_quit_ripd_cmd);
+	install_element(KEYCHAIN_NODE, &vtysh_exit_keys_cmd);
+	install_element(KEYCHAIN_NODE, &vtysh_quit_keys_cmd);
+	install_element(KEYCHAIN_KEY_NODE, &vtysh_exit_keys_cmd);
+	install_element(KEYCHAIN_KEY_NODE, &vtysh_quit_keys_cmd);
 	install_element(RMAP_NODE, &vtysh_exit_rmap_cmd);
 	install_element(RMAP_NODE, &vtysh_quit_rmap_cmd);
 	install_element(PBRMAP_NODE, &vtysh_exit_pbr_map_cmd);

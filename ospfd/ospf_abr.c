@@ -642,6 +642,15 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 	old = ospf_external_info_find_lsa(area->ospf, &p);
 
 	if (old) {
+		/* Do not continue if type 5 LSA not approved */
+		if (!CHECK_FLAG(old->flags, OSPF_LSA_APPROVED)) {
+			if (IS_DEBUG_OSPF_NSSA)
+				zlog_debug(
+					"ospf_abr_translate_nssa(): LSA Id %s type 5 is not approved",
+					inet_ntoa(old->data->id));
+			return 1;
+		}
+
 		if (IS_DEBUG_OSPF_NSSA)
 			zlog_debug(
 				"ospf_abr_translate_nssa(): found old translated LSA Id %s, refreshing",
@@ -1152,6 +1161,15 @@ static void ospf_abr_announce_rtr(struct ospf *ospf, struct prefix_ipv4 *p,
 
 		if (ospf_abr_nexthops_belong_to_area(or, area))
 			continue;
+
+		/* RFC3101: Do not generate ASBR type 4 LSA if NSSA ABR */
+		if (or->u.std.external_routing == OSPF_AREA_NSSA) {
+			if (IS_DEBUG_OSPF_EVENT)
+				zlog_debug(
+					"ospf_abr_announce_rtr(): do not generate LSA Type-4 %s from NSSA",
+					inet_ntoa(p->prefix));
+			continue;
+		}
 
 		if (area->external_routing != OSPF_AREA_DEFAULT) {
 			if (IS_DEBUG_OSPF_EVENT)

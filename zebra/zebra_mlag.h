@@ -30,7 +30,7 @@
 extern "C" {
 #endif
 
-#define ZEBRA_MLAG_BUF_LIMIT 2048
+#define ZEBRA_MLAG_BUF_LIMIT 32768
 #define ZEBRA_MLAG_LEN_SIZE 4
 
 DECLARE_HOOK(zebra_mlag_private_write_data,

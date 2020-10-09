@@ -2791,13 +2791,20 @@ static int ripng_vrf_enable(struct vrf *vrf)
 		 */
 		if (yang_module_find("frr-ripngd") && old_vrf_name) {
 			struct lyd_node *ripng_dnode;
+			char oldpath[XPATH_MAXLEN];
+			char newpath[XPATH_MAXLEN];
 
 			ripng_dnode = yang_dnode_get(
 				running_config->dnode,
 				"/frr-ripngd:ripngd/instance[vrf='%s']/vrf",
 				old_vrf_name);
 			if (ripng_dnode) {
+				yang_dnode_get_path(ripng_dnode->parent, oldpath,
+						    sizeof(oldpath));
 				yang_dnode_change_leaf(ripng_dnode, vrf->name);
+				yang_dnode_get_path(ripng_dnode->parent, newpath,
+						    sizeof(newpath));
+				nb_running_move_tree(oldpath, newpath);
 				running_config->version++;
 			}
 		}

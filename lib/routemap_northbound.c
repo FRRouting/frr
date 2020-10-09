@@ -983,8 +983,19 @@ lib_route_map_entry_set_action_value_destroy(struct nb_cb_destroy_args *args)
 static int
 lib_route_map_entry_set_action_add_metric_modify(struct nb_cb_modify_args *args)
 {
+	char metric_str[16];
+
+	if (args->event == NB_EV_VALIDATE
+	    && yang_dnode_get_uint32(args->dnode, NULL) == 0) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "Can't add zero to metric");
+		return NB_ERR_VALIDATION;
+	}
+
+	snprintf(metric_str, sizeof(metric_str), "+%s",
+		 yang_dnode_get_string(args->dnode, NULL));
 	return set_action_modify(args->event, args->dnode, args->resource,
-				 "+metric");
+				 metric_str);
 }
 
 static int lib_route_map_entry_set_action_add_metric_destroy(
@@ -999,8 +1010,19 @@ static int lib_route_map_entry_set_action_add_metric_destroy(
 static int lib_route_map_entry_set_action_subtract_metric_modify(
 	struct nb_cb_modify_args *args)
 {
+	char metric_str[16];
+
+	if (args->event == NB_EV_VALIDATE
+	    && yang_dnode_get_uint32(args->dnode, NULL) == 0) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "Can't subtract zero from metric");
+		return NB_ERR_VALIDATION;
+	}
+
+	snprintf(metric_str, sizeof(metric_str), "-%s",
+		 yang_dnode_get_string(args->dnode, NULL));
 	return set_action_modify(args->event, args->dnode, args->resource,
-				 "-metric");
+				 metric_str);
 }
 
 static int lib_route_map_entry_set_action_subtract_metric_destroy(

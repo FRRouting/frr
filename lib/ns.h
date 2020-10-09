@@ -161,10 +161,7 @@ extern ns_id_t ns_map_nsid_with_external(ns_id_t ns_id, bool map);
  */
 extern void ns_init(void);
 
-/* API to retrieve default NS */
-extern ns_id_t ns_get_default_id(void);
-
-#define NS_DEFAULT ns_get_default_id()
+#define NS_DEFAULT 0
 
 /* API that can be used to change from NS */
 extern int ns_switchback_to_initial(void);
