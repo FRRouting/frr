@@ -2135,11 +2135,11 @@ int lib_interface_isis_vrf_modify(struct nb_cb_modify_args *args)
 
 		vrf_name = yang_dnode_get_string(args->dnode, NULL);
 		circuit = circuit_scan_by_ifp(ifp);
-		if (circuit && circuit->area && circuit->area->isis
-		    && strcmp(circuit->area->isis->name, vrf_name)) {
+		if (circuit && circuit->area && circuit->isis
+		    && strcmp(circuit->isis->name, vrf_name)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "ISIS circuit is already defined on vrf  %s",
-				 circuit->area->isis->name);
+				 circuit->isis->name);
 			return NB_ERR_VALIDATION;
 		}
 	}
@@ -2805,7 +2805,7 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 		if (circuit == NULL || circuit->area == NULL)
 			return NB_ERR_VALIDATION;
 
-		if (circuit->area->isis->vrf_id != VRF_DEFAULT) {
+		if (circuit->isis->vrf_id != VRF_DEFAULT) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "LDP-Sync only runs on Default VRF");
 			return NB_ERR_VALIDATION;
@@ -2817,7 +2817,7 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
 		ldp_sync_enable = yang_dnode_get_bool(args->dnode, NULL);
-		isis = circuit->area->isis;
+		isis = circuit->isis;
 
 		if (circuit->ldp_sync_info == NULL)
 			isis_ldp_sync_if_init(circuit, isis);
@@ -2873,7 +2873,7 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 		if (circuit == NULL || circuit->area == NULL)
 			return NB_ERR_VALIDATION;
 
-		if (circuit->area->isis->vrf_id != VRF_DEFAULT) {
+		if (circuit->isis->vrf_id != VRF_DEFAULT) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "LDP-Sync only runs on Default VRF");
 			return NB_ERR_VALIDATION;
@@ -2885,7 +2885,7 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
 		holddown = yang_dnode_get_uint16(args->dnode, NULL);
-		isis = circuit->area->isis;
+		isis = circuit->isis;
 
 		if (circuit->ldp_sync_info == NULL)
 			isis_ldp_sync_if_init(circuit, isis);
@@ -2912,7 +2912,7 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 		    || circuit->area == NULL)
 			return NB_ERR_VALIDATION;
 
-		if (circuit->area->isis->vrf_id != VRF_DEFAULT) {
+		if (circuit->isis->vrf_id != VRF_DEFAULT) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "LDP-Sync only runs on Default VRF");
 			return NB_ERR_VALIDATION;
@@ -2923,7 +2923,7 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
-		isis = circuit->area->isis;
+		isis = circuit->isis;
 		ldp_sync_info = circuit->ldp_sync_info;
 		UNSET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
 
