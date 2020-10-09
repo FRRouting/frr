@@ -22,6 +22,7 @@
 #include "lib/json.h"
 #ifndef OSPF6_BFD_H
 #define OSPF6_BFD_H
+#include "lib/json.h"
 
 extern void ospf6_bfd_init(void);
 

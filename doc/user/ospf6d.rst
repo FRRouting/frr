@@ -174,10 +174,11 @@ Showing OSPF6 information
 
    This command shows LSA database summary. You can specify the type of LSA.
 
-.. index:: show ipv6 ospf6 interface
-.. clicmd:: show ipv6 ospf6 interface
+.. index:: show ipv6 ospf6 interface [json]
+.. clicmd:: show ipv6 ospf6 interface [json]
 
-   To see OSPF interface configuration like costs.
+   To see OSPF interface configuration like costs. JSON output can be
+   obtained by appending "json" in the end.
 
 .. index:: show ipv6 ospf6 neighbor [json]
 .. clicmd:: show ipv6 ospf6 neighbor [json]
