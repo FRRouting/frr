@@ -3422,6 +3422,8 @@ static void rip_distribute_update_all_wrapper(struct access_list *notused)
 /* Delete all added rip route. */
 void rip_clean(struct rip *rip)
 {
+	rip_interfaces_clean(rip);
+
 	if (rip->enabled)
 		rip_instance_disable(rip);
 
@@ -3443,7 +3445,6 @@ void rip_clean(struct rip *rip)
 	route_table_finish(rip->enable_network);
 	vector_free(rip->passive_nondefault);
 	list_delete(&rip->offset_list_master);
-	rip_interfaces_clean(rip);
 	route_table_finish(rip->distance_table);
 
 	RB_REMOVE(rip_instance_head, &rip_instances, rip);
