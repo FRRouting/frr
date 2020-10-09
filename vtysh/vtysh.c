@@ -2105,6 +2105,7 @@ DEFUNSH(VTYSH_BGPD, exit_vni, exit_vni_cmd, "exit-vni", "Exit from VNI mode\n")
 	return CMD_SUCCESS;
 }
 
+#ifdef ENABLE_BGP_VNC
 DEFUNSH(VTYSH_BGPD, exit_vnc_config, exit_vnc_config_cmd, "exit-vnc",
 	"Exit from VNC configuration mode\n")
 {
@@ -2115,6 +2116,15 @@ DEFUNSH(VTYSH_BGPD, exit_vnc_config, exit_vnc_config_cmd, "exit-vnc",
 	return CMD_SUCCESS;
 
 }
+
+DEFUNSH(VTYSH_BGPD, exit_vrf_policy, exit_vrf_policy_cmd, "exit-vrf-policy",
+	"Exit from VRF policy configuration mode\n")
+{
+	if (vty->node == BGP_VRF_POLICY_NODE)
+		vty->node = BGP_NODE;
+	return CMD_SUCCESS;
+}
+#endif
 
 DEFUNSH(VTYSH_BGPD, rpki_exit, rpki_exit_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
@@ -2142,13 +2152,6 @@ DEFUNSH(VTYSH_BGPD, bmp_quit, bmp_quit_cmd, "quit",
 	return bmp_exit(self, vty, argc, argv);
 }
 
-DEFUNSH(VTYSH_BGPD, exit_vrf_policy, exit_vrf_policy_cmd, "exit-vrf-policy",
-	"Exit from VRF policy configuration mode\n")
-{
-	if (vty->node == BGP_VRF_POLICY_NODE)
-		vty->node = BGP_NODE;
-	return CMD_SUCCESS;
-}
 #endif /* HAVE_BGPD */
 
 DEFUNSH(VTYSH_VRF, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
