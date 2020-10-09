@@ -283,6 +283,7 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 
 		break;
 	case STATIC_BLACKHOLE:
+		nh->bh_type = STATIC_BLACKHOLE_NULL;
 		break;
 	case STATIC_IFNAME:
 		ifp = if_lookup_by_name(ifname, nh_svrf->vrf->vrf_id);
