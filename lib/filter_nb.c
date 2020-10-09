@@ -77,11 +77,11 @@ static enum nb_error prefix_list_length_validate(struct nb_cb_modify_args *args)
 
 	/*
 	 * Check rule:
-	 * prefix length < ge.
+	 * prefix length <= ge.
 	 */
 	if (yang_dnode_exists(args->dnode, xpath_ge)) {
 		ge = yang_dnode_get_uint8(args->dnode, xpath_ge);
-		if (p.prefixlen >= ge)
+		if (p.prefixlen > ge)
 			goto log_and_fail;
 	}
 
@@ -102,7 +102,7 @@ static enum nb_error prefix_list_length_validate(struct nb_cb_modify_args *args)
 log_and_fail:
 	snprintfrr(
 		args->errmsg, args->errmsg_len,
-		"Invalid prefix range for %pFX: Make sure that mask length < ge <= le",
+		"Invalid prefix range for %pFX: Make sure that mask length <= ge <= le",
 		&p);
 	return NB_ERR_VALIDATION;
 }
