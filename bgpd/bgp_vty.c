@@ -1227,7 +1227,7 @@ DEFUN_YANG_NOSH(router_bgp,
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
 
 		snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_GLOBAL_XPATH,
-			 "frr-bgp:bgp", "bgp", name ? name : VRF_DEFAULT_NAME);
+			 "frr-bgp:bgp", "bgp", VRF_DEFAULT_NAME);
 
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		snprintf(as_str, 12, "%d", bgp->as);
