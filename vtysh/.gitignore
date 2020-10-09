@@ -1,3 +1,4 @@
 vtysh
 vtysh_cmd.c
+vtysh_daemons.h
 extract.pl
