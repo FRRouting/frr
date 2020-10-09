@@ -43,6 +43,7 @@
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 #include "ospf6_zebra.h"
+#include "lib/json.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names")
 DEFINE_QOBJ_TYPE(ospf6_interface)
@@ -1032,18 +1033,20 @@ DEFUN (show_ipv6_ospf6_interface,
 
 static int ospf6_interface_show_traffic(struct vty *vty,
 					struct interface *intf_ifp,
-					int display_once)
+					int display_once, json_object *json,
+					bool use_json)
 {
 	struct interface *ifp;
 	struct vrf *vrf = NULL;
 	struct ospf6_interface *oi = NULL;
+	json_object *json_interface;
 
 	if (intf_ifp)
 		vrf = vrf_lookup_by_id(intf_ifp->vrf_id);
 	else
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
-	if (!display_once) {
+	if (!display_once && !use_json) {
 		vty_out(vty, "\n");
 		vty_out(vty, "%-12s%-17s%-17s%-17s%-17s%-17s\n", "Interface",
 			"    HELLO", "    DB-Desc", "   LS-Req", "   LS-Update",
@@ -1062,61 +1065,158 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 			else
 				continue;
 
-			vty_out(vty,
-				"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
-				oi->interface->name, oi->hello_in,
-				oi->hello_out, oi->db_desc_in, oi->db_desc_out,
-				oi->ls_req_in, oi->ls_req_out, oi->ls_upd_in,
-				oi->ls_upd_out, oi->ls_ack_in, oi->ls_ack_out);
+			if (use_json) {
+				json_interface = json_object_new_object();
+				json_object_int_add(json_interface, "helloRx",
+						    oi->hello_in);
+				json_object_int_add(json_interface, "helloTx",
+						    oi->hello_out);
+				json_object_int_add(json_interface, "dbDescRx",
+						    oi->db_desc_in);
+				json_object_int_add(json_interface, "dbDescTx",
+						    oi->db_desc_out);
+				json_object_int_add(json_interface, "lsReqRx",
+						    oi->ls_req_in);
+				json_object_int_add(json_interface, "lsReqTx",
+						    oi->ls_req_out);
+				json_object_int_add(json_interface,
+						    "lsUpdateRx",
+						    oi->ls_upd_in);
+				json_object_int_add(json_interface,
+						    "lsUpdateTx",
+						    oi->ls_upd_out);
+				json_object_int_add(json_interface, "lsAckRx",
+						    oi->ls_ack_in);
+				json_object_int_add(json_interface, "lsAckTx",
+						    oi->ls_ack_out);
+
+				json_object_object_add(json,
+						       oi->interface->name,
+						       json_interface);
+			} else
+				vty_out(vty,
+					"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
+					oi->interface->name, oi->hello_in,
+					oi->hello_out, oi->db_desc_in,
+					oi->db_desc_out, oi->ls_req_in,
+					oi->ls_req_out, oi->ls_upd_in,
+					oi->ls_upd_out, oi->ls_ack_in,
+					oi->ls_ack_out);
 		}
 	} else {
 		oi = intf_ifp->info;
 		if (oi == NULL)
 			return CMD_WARNING;
 
-		vty_out(vty,
-			"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
-			oi->interface->name, oi->hello_in, oi->hello_out,
-			oi->db_desc_in, oi->db_desc_out, oi->ls_req_in,
-			oi->ls_req_out, oi->ls_upd_in, oi->ls_upd_out,
-			oi->ls_ack_in, oi->ls_ack_out);
+		if (use_json) {
+			json_interface = json_object_new_object();
+			json_object_int_add(json_interface, "helloRx",
+					    oi->hello_in);
+			json_object_int_add(json_interface, "helloTx",
+					    oi->hello_out);
+			json_object_int_add(json_interface, "dbDescRx",
+					    oi->db_desc_in);
+			json_object_int_add(json_interface, "dbDescTx",
+					    oi->db_desc_out);
+			json_object_int_add(json_interface, "lsReqRx",
+					    oi->ls_req_in);
+			json_object_int_add(json_interface, "lsReqTx",
+					    oi->ls_req_out);
+			json_object_int_add(json_interface, "lsUpdateRx",
+					    oi->ls_upd_in);
+			json_object_int_add(json_interface, "lsUpdateTx",
+					    oi->ls_upd_out);
+			json_object_int_add(json_interface, "lsAckRx",
+					    oi->ls_ack_in);
+			json_object_int_add(json_interface, "lsAckTx",
+					    oi->ls_ack_out);
+
+			json_object_object_add(json, oi->interface->name,
+					       json_interface);
+		} else
+			vty_out(vty,
+				"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
+				oi->interface->name, oi->hello_in,
+				oi->hello_out, oi->db_desc_in, oi->db_desc_out,
+				oi->ls_req_in, oi->ls_req_out, oi->ls_upd_in,
+				oi->ls_upd_out, oi->ls_ack_in, oi->ls_ack_out);
 	}
 
 	return CMD_SUCCESS;
 }
 
 /* show interface */
-DEFUN (show_ipv6_ospf6_interface_traffic,
-       show_ipv6_ospf6_interface_traffic_cmd,
-       "show ipv6 ospf6 interface traffic [IFNAME]",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       "Protocol Packet counters\n"
-       IFNAME_STR)
+DEFUN(show_ipv6_ospf6_interface_traffic,
+      show_ipv6_ospf6_interface_traffic_cmd,
+      "show ipv6 ospf6 interface traffic [IFNAME] [json]",
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      INTERFACE_STR
+      "Protocol Packet counters\n"
+      IFNAME_STR
+      JSON_STR)
 {
 	int idx_ifname = 0;
 	int display_once = 0;
 	char *intf_name = NULL;
 	struct interface *ifp = NULL;
+	json_object *json = NULL;
+	bool uj = use_json(argc, argv);
+
+	if (uj)
+		json = json_object_new_object();
 
 	if (argv_find(argv, argc, "IFNAME", &idx_ifname)) {
 		intf_name = argv[idx_ifname]->arg;
 		ifp = if_lookup_by_name(intf_name, VRF_DEFAULT);
-		if (ifp == NULL) {
-			vty_out(vty, "No such Interface: %s\n", intf_name);
-			return CMD_WARNING;
-		}
-		if (ifp->info == NULL) {
-			vty_out(vty,
-				"   OSPF not enabled on this interface %s\n",
-				intf_name);
-			return 0;
+		if (uj) {
+			if (ifp == NULL) {
+				json_object_string_add(json, "status",
+						       "No Such Interface");
+				json_object_string_add(json, "interface",
+						       intf_name);
+				vty_out(vty, "%s\n",
+					json_object_to_json_string_ext(
+						json, JSON_C_TO_STRING_PRETTY));
+				json_object_free(json);
+				return CMD_WARNING;
+			}
+			if (ifp->info == NULL) {
+				json_object_string_add(
+					json, "status",
+					"OSPF not enabled on this interface");
+				json_object_string_add(json, "interface",
+						       intf_name);
+				vty_out(vty, "%s\n",
+					json_object_to_json_string_ext(
+						json, JSON_C_TO_STRING_PRETTY));
+				json_object_free(json);
+				return 0;
+			}
+		} else {
+			if (ifp == NULL) {
+				vty_out(vty, "No such Interface: %s\n",
+					intf_name);
+				return CMD_WARNING;
+			}
+			if (ifp->info == NULL) {
+				vty_out(vty,
+					"   OSPF not enabled on this interface %s\n",
+					intf_name);
+				return 0;
+			}
 		}
 	}
 
-	ospf6_interface_show_traffic(vty, ifp, display_once);
+	ospf6_interface_show_traffic(vty, ifp, display_once, json, uj);
+
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 
 
 	return CMD_SUCCESS;
