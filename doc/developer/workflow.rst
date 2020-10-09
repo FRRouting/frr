@@ -779,13 +779,12 @@ necessary replacements.
 .. _style-exceptions:
 
 Exceptions
-^^^^^^^^^^
+""""""""""
 
 FRR project code comes from a variety of sources, so there are some
 stylistic exceptions in place. They are organized here by branch.
 
-For ``master``
-""""""""""""""
+For ``master``:
 
 BSD coding style applies to:
 
@@ -797,8 +796,7 @@ BSD coding style applies to:
 -  Indents are 4 spaces
 -  Function return types are on their own line
 
-For ``stable/3.0`` and ``stable/2.0``
-"""""""""""""""""""""""""""""""""""""
+For ``stable/3.0`` and ``stable/2.0``:
 
 GNU coding style apply to the following parts:
 
@@ -815,6 +813,21 @@ GNU coding style apply to the following parts:
 BSD coding style applies to:
 
 -  ``ldpd/``
+
+
+Python Code
+^^^^^^^^^^^
+
+Format all Python code with `black <https://github.com/psf/black>`_.
+
+In a line::
+
+   python3 -m black <file.py>
+
+Run this on any Python files you modify before committing.
+
+FRR's Python code has been formatted with black version 19.10b.
+
 
 YANG
 ^^^^
