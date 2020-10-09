@@ -26,25 +26,31 @@ static route_map_result_t
 bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 				     struct route_map *rmap)
 {
+	struct attr dummy_attr = {0};
 	struct bgp_dest *dest;
-	struct attr dummy_attr;
-	struct bgp_path_info path;
-	const struct prefix *dest_p;
 	struct bgp_path_info *pi;
-	route_map_result_t ret = RMAP_PERMITMATCH;
+	struct bgp_path_info path = {0};
+	struct bgp_path_info_extra path_extra = {0};
+	const struct prefix *dest_p;
+	route_map_result_t ret = RMAP_DENYMATCH;
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		dest_p = bgp_dest_get_prefix(dest);
-		if (!dest_p)
-			continue;
+		assert(dest_p);
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			dummy_attr = *pi->attr;
-			path.peer = pi->peer;
-			path.attr = &dummy_attr;
+
+			/* Fill temp path_info */
+			prep_for_rmap_apply(&path, &path_extra, dest, pi,
+					    pi->peer, &dummy_attr);
+
+			RESET_FLAG(dummy_attr.rmap_change_flags);
 
 			ret = route_map_apply(rmap, dest_p, RMAP_BGP, &path);
-			if (ret == RMAP_PERMITMATCH)
+			if (ret != RMAP_PERMITMATCH)
+				bgp_attr_flush(&dummy_attr);
+			else
 				return ret;
 		}
 	}
@@ -57,13 +63,14 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				       enum update_type advertise)
 {
 	int addpath_capable;
-	const struct prefix *dest_p;
-	struct attr dummy_attr, attr;
-	struct bgp_path_info path;
+	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
-	struct peer_af *paf = NULL;
-	struct bgp_dest *dest = NULL;
-	struct update_subgroup *subgrp = NULL;
+	struct bgp_path_info path;
+	struct peer_af *paf;
+	const struct prefix *dest_p;
+	struct update_subgroup *subgrp;
+	struct attr dummy_attr = {0}, attr = {0};
+	struct bgp_path_info_extra path_extra = {0};
 
 	paf = peer_af_find(peer, afi, safi);
 	if (!paf)
@@ -78,17 +85,22 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		dest_p = bgp_dest_get_prefix(dest);
-		if (!dest_p)
-			continue;
+		assert(dest_p);
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			dummy_attr = *pi->attr;
-			path.peer = pi->peer;
-			path.attr = &dummy_attr;
+
+			/* Fill temp path_info */
+			prep_for_rmap_apply(&path, &path_extra, dest, pi,
+					    pi->peer, &dummy_attr);
+
+			RESET_FLAG(dummy_attr.rmap_change_flags);
 
 			if (route_map_apply(rmap, dest_p, RMAP_BGP, &path)
-			    != RMAP_PERMITMATCH)
+			    != RMAP_PERMITMATCH) {
+				bgp_attr_flush(&dummy_attr);
 				continue;
+			}
 
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
 			    || (addpath_capable
@@ -166,12 +178,15 @@ static int bgp_conditional_adv_timer(struct thread *t)
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 			continue;
 
+		if (peer->status != Established)
+			continue;
+
 		FOREACH_AFI_SAFI (afi, safi) {
 			if (strmatch(get_afi_safi_str(afi, safi, true),
 				     "Unknown"))
 				continue;
 
-			if (!peer->afc[afi][safi])
+			if (!peer->afc_nego[afi][safi])
 				continue;
 
 			/* labeled-unicast routes are installed in the unicast

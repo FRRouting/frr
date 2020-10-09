@@ -7076,47 +7076,34 @@ static int peer_advertise_map_set_vty(struct vty *vty, const char *ip_str,
 
 DEFPY (neighbor_advertise_map,
        neighbor_advertise_map_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD> advertise-map WORD <exist-map WORD|non-exist-map WORD>",
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map WORD$advertise_str <exist-map|non-exist-map>$exist WORD$condition_str",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Route-map to conditionally advertise routes\n"
        "Name of advertise map\n"
        "Advertise routes only if prefixes in exist-map are installed in BGP table\n"
-       "Name of the exist map\n"
        "Advertise routes only if prefixes in non-exist-map are not installed in BGP table\n"
-       "Name of the non exist map\n")
+       "Name of the exist or non exist map\n")
 {
-	int idx = 0;
-	int idx_peer = 1;
-	int idx_advertise_word = 3;
-	int idx_condition_word = 5;
 	bool condition = CONDITION_EXIST;
 
-	if (no) {
-		idx_peer++;
-		idx_advertise_word++;
-		idx_condition_word++;
-	}
-
-	if (argv_find(argv, argc, "non-exist-map", &idx))
+	if (!strcmp(exist, "non-exist-map"))
 		condition = CONDITION_NON_EXIST;
 
-	return peer_advertise_map_set_vty(
-		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
-		argv[idx_advertise_word]->arg, argv[idx_condition_word]->arg,
-		condition, !no);
+	return peer_advertise_map_set_vty(vty, neighbor, bgp_node_afi(vty),
+					  bgp_node_safi(vty), advertise_str,
+					  condition_str, condition, !no);
 }
 
 ALIAS_HIDDEN(neighbor_advertise_map, neighbor_advertise_map_hidden_cmd,
-	     "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD> advertise-map WORD <exist-map WORD|non-exist-map WORD>",
+	     "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map WORD$advertise_str <exist-map|non-exist-map>$exist WORD$condition_str",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Route-map to conditionally advertise routes\n"
 	     "Name of advertise map\n"
 	     "Advertise routes only if prefixes in exist-map are installed in BGP table\n"
-	     "Name of the exist map\n"
 	     "Advertise routes only if prefixes in non-exist-map are not installed in BGP table\n"
-	     "Name of the non exist map\n")
+	     "Name of the exist or non exist map\n")
 
 /* Set route-map to the peer. */
 static int peer_route_map_set_vty(struct vty *vty, const char *ip_str,

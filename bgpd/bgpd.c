@@ -6611,8 +6611,9 @@ static void peer_update_rmap_filter_data(struct peer *peer, afi_t afi,
 		if (!CHECK_FLAG(config_flags, BGP_PEER_RMAP_SET)) {
 			memset(filter, 0, sizeof(struct bgp_filter));
 
-			/* decrement condition_filter_count delete timer if last
-			 * one */
+			/* decrement condition_filter_count delete timer if
+			 * this is the last advertise-map to be removed.
+			 */
 			if (filter_exists)
 				bgp_conditional_adv_disable(peer, afi, safi);
 
