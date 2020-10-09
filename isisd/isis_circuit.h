@@ -164,7 +164,7 @@ struct isis_circuit {
 DECLARE_QOBJ_TYPE(isis_circuit)
 
 void isis_circuit_init(void);
-struct isis_circuit *isis_circuit_new(void);
+struct isis_circuit *isis_circuit_new(struct isis *isis);
 void isis_circuit_del(struct isis_circuit *circuit);
 struct isis_circuit *circuit_lookup_by_ifp(struct interface *ifp,
 					   struct list *list);

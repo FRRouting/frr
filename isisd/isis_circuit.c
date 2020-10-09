@@ -71,13 +71,14 @@ DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp))
 int isis_if_new_hook(struct interface *);
 int isis_if_delete_hook(struct interface *);
 
-struct isis_circuit *isis_circuit_new(void)
+struct isis_circuit *isis_circuit_new(struct isis *isis)
 {
 	struct isis_circuit *circuit;
 	int i;
 
 	circuit = XCALLOC(MTYPE_ISIS_CIRCUIT, sizeof(struct isis_circuit));
 
+	circuit->isis = isis;
 	/*
 	 * Default values
 	 */
