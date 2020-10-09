@@ -337,10 +337,10 @@ caution. Most of the time this will not be necessary.
    Insert into the Multicast Rib Route A.B.C.D/M using the specified INTERFACE.
    The distance can be specified as well if desired.
 
-.. _msdp-configuration
+.. _msdp-configuration:
 
 Multicast Source Discovery Protocol (MSDP) Configuration
-====================
+========================================================
 
 .. index:: ip msdp mesh-group [WORD] member A.B.C.D
 .. clicmd:: ip msdp mesh-group [WORD] member A.B.C.D

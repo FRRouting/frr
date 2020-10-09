@@ -27,6 +27,7 @@
 #include "plist.h"
 
 #include "ospf6_proto.h"
+#include "ospf6_top.h"
 #include "ospf6_network.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -34,7 +35,6 @@
 #include "ospf6_route.h"
 #include "ospf6_zebra.h"
 #include "ospf6_spf.h"
-#include "ospf6_top.h"
 #include "ospf6_area.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
