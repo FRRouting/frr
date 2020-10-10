@@ -71,13 +71,14 @@ DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp))
 int isis_if_new_hook(struct interface *);
 int isis_if_delete_hook(struct interface *);
 
-struct isis_circuit *isis_circuit_new(void)
+struct isis_circuit *isis_circuit_new(struct isis *isis)
 {
 	struct isis_circuit *circuit;
 	int i;
 
 	circuit = XCALLOC(MTYPE_ISIS_CIRCUIT, sizeof(struct isis_circuit));
 
+	circuit->isis = isis;
 	/*
 	 * Default values
 	 */
@@ -626,8 +627,8 @@ int isis_circuit_up(struct isis_circuit *circuit)
 	}
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		circuit->circuit_id = isis_circuit_id_gen(circuit->area->isis,
-							  circuit->interface);
+		circuit->circuit_id =
+			isis_circuit_id_gen(circuit->isis, circuit->interface);
 		if (!circuit->circuit_id) {
 			flog_err(
 				EC_ISIS_CONFIG,
@@ -811,7 +812,7 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		circuit->lsp_regenerate_pending[0] = 0;
 		circuit->lsp_regenerate_pending[1] = 0;
 
-		_ISIS_CLEAR_FLAG(circuit->area->isis->circuit_ids_used,
+		_ISIS_CLEAR_FLAG(circuit->isis->circuit_ids_used,
 				 circuit->circuit_id);
 		circuit->circuit_id = 0;
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
