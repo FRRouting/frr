@@ -1167,7 +1167,7 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
 
-	install_element(VIEW_NODE, &show_debugging_static_cmd);
-	install_element(VIEW_NODE, &debug_staticd_cmd);
+	install_element(ENABLE_NODE, &show_debugging_static_cmd);
+	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
 }
