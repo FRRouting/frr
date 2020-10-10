@@ -44,6 +44,33 @@ FRR_CFG_DEFAULT_ULONG(BGP_KEEPALIVE,
         { .val_ulong = 60 },
 )
 
+
+static int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
+				      const char *name,
+				      enum bgp_instance_type inst_type)
+{
+	struct bgp *bgp;
+
+	if (name)
+		bgp = bgp_lookup_by_name(name);
+	else
+		bgp = bgp_get_default();
+
+	if (bgp) {
+		if (bgp->as != *as) {
+			*as = bgp->as;
+			return BGP_ERR_INSTANCE_MISMATCH;
+		}
+		if (bgp->inst_type != inst_type)
+			return BGP_ERR_INSTANCE_MISMATCH;
+		*bgp_val = bgp;
+	} else {
+		*bgp_val = NULL;
+	}
+
+	return BGP_SUCCESS;
+}
+
 int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args)
 {
@@ -107,8 +134,8 @@ int bgp_router_create(struct nb_cb_create_args *args)
 		if (ret == BGP_ERR_INSTANCE_MISMATCH) {
 			snprintf(
 				args->errmsg, args->errmsg_len,
-				"BGP instance name and AS number mismatch\nBGP instance is already running; AS is %u",
-				as);
+				"BGP instance name and AS number mismatch\nBGP instance is already running; AS is %u, input-as %u",
+				bgp->as, as);
 
 			return NB_ERR_INCONSISTENCY;
 		}
@@ -139,6 +166,9 @@ int bgp_router_destroy(struct nb_cb_destroy_args *args)
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		bgp = nb_running_get_entry(args->dnode, NULL, false);
+
+		if (!bgp)
+			return NB_OK;
 
 		if (bgp->l3vni) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -186,16 +216,42 @@ int bgp_global_local_as_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
 	as_t as;
+	const struct lyd_node *vrf_dnode;
+	const char *vrf_name;
+	const char *name = NULL;
+	enum bgp_instance_type inst_type;
+	int ret;
+	bool is_view_inst = false;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		as = yang_dnode_get_uint32(args->dnode, NULL);
 
-		bgp = nb_running_get_entry_non_rec(args->dnode, NULL, false);
-		if (bgp && bgp->as != as) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP instance is already running; AS is %u",
-				 bgp->as);
+		inst_type = BGP_INSTANCE_TYPE_DEFAULT;
+
+		vrf_dnode = yang_dnode_get_parent(args->dnode,
+						  "control-plane-protocol");
+		vrf_name = yang_dnode_get_string(vrf_dnode, "./vrf");
+
+		if (strmatch(vrf_name, VRF_DEFAULT_NAME)) {
+			name = NULL;
+		} else {
+			name = vrf_name;
+			inst_type = BGP_INSTANCE_TYPE_VRF;
+		}
+
+		is_view_inst = yang_dnode_get_bool(args->dnode,
+						   "../instance-type-view");
+		if (is_view_inst)
+			inst_type = BGP_INSTANCE_TYPE_VIEW;
+
+		ret = bgp_lookup_by_as_name_type(&bgp, &as, name, inst_type);
+		if (ret == BGP_ERR_INSTANCE_MISMATCH) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"BGP instance name and AS number mismatch\nBGP instance is already running; input-as %u",
+				as);
+
 			return NB_ERR_VALIDATION;
 		}
 
