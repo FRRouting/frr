@@ -39,7 +39,6 @@
 #include "filter.h"
 #include "vtysh/vtysh.h"
 #include "log.h"
-#include "bgpd/bgp_vty.h"
 #include "ns.h"
 #include "vrf.h"
 #include "libfrr.h"
@@ -4142,9 +4141,9 @@ void vtysh_init_vty(void)
 #endif
 
 	/* debugging */
-	install_element(VIEW_NODE, &vtysh_show_debugging_cmd);
 	install_element(VIEW_NODE, &vtysh_show_error_code_cmd);
-	install_element(VIEW_NODE, &vtysh_show_debugging_hashtable_cmd);
+	install_element(ENABLE_NODE, &vtysh_show_debugging_cmd);
+	install_element(ENABLE_NODE, &vtysh_show_debugging_hashtable_cmd);
 	install_element(ENABLE_NODE, &vtysh_debug_all_cmd);
 	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
 	install_element(ENABLE_NODE, &vtysh_debug_memstats_cmd);

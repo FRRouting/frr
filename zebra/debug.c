@@ -671,7 +671,7 @@ void zebra_debug_init(void)
 
 	install_node(&debug_node);
 
-	install_element(VIEW_NODE, &show_debugging_zebra_cmd);
+	install_element(ENABLE_NODE, &show_debugging_zebra_cmd);
 
 	install_element(ENABLE_NODE, &debug_zebra_events_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_nht_cmd);
