@@ -62,7 +62,7 @@ int routing_control_plane_protocols_name_validate(
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp
  */
-int bgp_create(struct nb_cb_create_args *args)
+int bgp_router_create(struct nb_cb_create_args *args)
 {
 	const struct lyd_node *vrf_dnode;
 	struct bgp *bgp;
@@ -132,7 +132,7 @@ int bgp_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int bgp_destroy(struct nb_cb_destroy_args *args)
+int bgp_router_destroy(struct nb_cb_destroy_args *args)
 {
 	struct bgp *bgp;
 
