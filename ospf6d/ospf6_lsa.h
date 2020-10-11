@@ -226,8 +226,8 @@ ospf6_lsa_create_headeronly(struct ospf6_lsa_header *header);
 extern void ospf6_lsa_delete(struct ospf6_lsa *lsa);
 extern struct ospf6_lsa *ospf6_lsa_copy(struct ospf6_lsa *);
 
-extern void ospf6_lsa_lock(struct ospf6_lsa *);
-extern struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *);
+extern struct ospf6_lsa *ospf6_lsa_lock(struct ospf6_lsa *lsa);
+extern struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa);
 
 extern int ospf6_lsa_expire(struct thread *);
 extern int ospf6_lsa_refresh(struct thread *);
