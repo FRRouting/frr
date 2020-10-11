@@ -39,6 +39,8 @@
 #include "sharpd/sharp_vty_clippy.c"
 #endif
 
+DEFINE_MTYPE_STATIC(SHARPD, SRV6_LOCATOR, "SRv6 Locator")
+
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
       "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
       "Sharp routing Protocol\n"
@@ -745,6 +747,103 @@ DEFPY (neigh_discover,
 	return CMD_SUCCESS;
 }
 
+DEFPY(sharp_srv6_manager_get_locator_chunk,
+      sharp_srv6_manager_get_locator_chunk_cmd,
+      "sharp srv6-manager get-locator-chunk NAME$locator_name",
+      SHARP_STR
+      "Segment-Routing IPv6\n"
+      "Get SRv6 locator-chunk\n"
+      "SRv6 Locator name\n")
+{
+	int ret;
+	struct listnode *node;
+	struct sharp_srv6_locator *loc;
+	struct sharp_srv6_locator *loc_found = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, node, loc)) {
+		if (strcmp(loc->name, locator_name))
+			continue;
+		loc_found = loc;
+		break;
+	}
+	if (!loc_found) {
+		loc = XCALLOC(MTYPE_SRV6_LOCATOR,
+			      sizeof(struct sharp_srv6_locator));
+		loc->chunks = list_new();
+		snprintf(loc->name, SRV6_LOCNAME_SIZE, "%s", locator_name);
+		listnode_add(sg.srv6_locators, loc);
+	}
+
+	ret = sharp_zebra_srv6_manager_get_locator_chunk(locator_name);
+	if (ret < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(sharp_srv6_manager_release_locator_chunk,
+      sharp_srv6_manager_release_locator_chunk_cmd,
+      "sharp srv6-manager release-locator-chunk NAME$locator_name",
+      SHARP_STR
+      "Segment-Routing IPv6\n"
+      "Release SRv6 locator-chunk\n"
+      "SRv6 Locator name\n")
+{
+	int ret;
+	struct listnode *loc_node;
+	struct sharp_srv6_locator *loc;
+
+	for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
+		if (!strcmp(loc->name, locator_name)) {
+			list_delete_all_node(loc->chunks);
+			list_delete(&loc->chunks);
+			listnode_delete(sg.srv6_locators, loc);
+			break;
+		}
+	}
+
+	ret = sharp_zebra_srv6_manager_release_locator_chunk(locator_name);
+	if (ret < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_sharp_segment_routing_srv6, show_sharp_segment_routing_srv6_cmd,
+      "show sharp segment-routing srv6",
+      SHOW_STR SHARP_STR
+      "Segment-Routing\n"
+      "Segment-Routing IPv6\n")
+{
+	char str[256];
+	struct listnode *loc_node;
+	struct listnode *chunk_node;
+	struct sharp_srv6_locator *loc;
+	struct prefix_ipv6 *chunk;
+	json_object *jo_locs = NULL;
+	json_object *jo_loc = NULL;
+	json_object *jo_chunks = NULL;
+
+	jo_locs = json_object_new_array();
+	for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
+		jo_loc = json_object_new_object();
+		json_object_array_add(jo_locs, jo_loc);
+		json_object_string_add(jo_loc, "name", loc->name);
+		jo_chunks = json_object_new_array();
+		json_object_object_add(jo_loc, "chunks", jo_chunks);
+		for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node, chunk)) {
+			prefix2str(chunk, str, sizeof(str));
+			json_array_string_add(jo_chunks, str);
+		}
+	}
+
+	vty_out(vty, "%s\n",
+		json_object_to_json_string_ext(jo_locs,
+					       JSON_C_TO_STRING_PRETTY));
+	json_object_free(jo_locs);
+	return CMD_SUCCESS;
+}
+
 DEFPY (import_te,
        import_te_cmd,
        "sharp import-te",
@@ -878,6 +977,7 @@ DEFUN (show_sharp_ted,
 				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
+
 	return CMD_SUCCESS;
 }
 
@@ -903,6 +1003,11 @@ void sharp_vty_init(void)
 
 	install_element(ENABLE_NODE, &show_debugging_sharpd_cmd);
 	install_element(ENABLE_NODE, &show_sharp_ted_cmd);
+
+	install_element(ENABLE_NODE, &sharp_srv6_manager_get_locator_chunk_cmd);
+	install_element(ENABLE_NODE,
+			&sharp_srv6_manager_release_locator_chunk_cmd);
+	install_element(ENABLE_NODE, &show_sharp_segment_routing_srv6_cmd);
 
 	return;
 }

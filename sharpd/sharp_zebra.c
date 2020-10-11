@@ -919,6 +919,67 @@ static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+int sharp_zebra_srv6_manager_get_locator_chunk(const char *locator_name)
+{
+	return srv6_manager_get_locator_chunk(zclient, locator_name);
+}
+
+int sharp_zebra_srv6_manager_release_locator_chunk(const char *locator_name)
+{
+	return srv6_manager_release_locator_chunk(zclient, locator_name);
+}
+
+static void sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s = NULL;
+	uint8_t proto;
+	uint16_t instance;
+	uint16_t len;
+	char name[256] = {0};
+	struct prefix_ipv6 *chunk = prefix_ipv6_new();
+	struct listnode *loc_node;
+	struct sharp_srv6_locator *loc;
+
+	s = zclient->ibuf;
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
+
+	STREAM_GETW(s, len);
+	STREAM_GET(name, s, len);
+
+	STREAM_GETW(s, chunk->prefixlen);
+	STREAM_GET(&chunk->prefix, s, 16);
+
+	if (zclient->redist_default != proto) {
+		zlog_err("Got SRv6 Manager msg with wrong proto %u", proto);
+		return;
+	}
+	if (zclient->instance != instance) {
+		zlog_err("Got SRv6 Manager msg with wrong instance %u", proto);
+		return;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
+		struct listnode *chunk_node;
+		struct prefix_ipv6 *c;
+
+		if (strcmp(loc->name, name))
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node, c))
+			if (!prefix_cmp(c, chunk))
+				return;
+
+		listnode_add(loc->chunks, chunk);
+	}
+	return;
+
+stream_failure:
+	free(chunk);
+
+	zlog_err("%s: can't get locator_chunk!!", __func__);
+}
+
 void sharp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = true};
@@ -940,4 +1001,6 @@ void sharp_zebra_init(void)
 	zclient->redistribute_route_add = sharp_redistribute_route;
 	zclient->redistribute_route_del = sharp_redistribute_route;
 	zclient->opaque_msg_handler = sharp_opaque_handler;
+	zclient->process_srv6_locator_chunk =
+		sharp_zebra_process_srv6_locator_chunk;
 }
