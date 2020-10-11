@@ -163,7 +163,7 @@ int ripngd_instance_default_information_originate_modify(
 	ripng = nb_running_get_entry(args->dnode, NULL, true);
 	default_information = yang_dnode_get_bool(args->dnode, NULL);
 
-	str2prefix_ipv6("::/0", &p);
+	(void)str2prefix_ipv6("::/0", &p);
 	if (default_information) {
 		ripng_redistribute_add(ripng, ZEBRA_ROUTE_RIPNG,
 				       RIPNG_ROUTE_DEFAULT, &p, 0, NULL, 0);
