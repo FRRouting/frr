@@ -5746,6 +5746,7 @@ void bgp_global_afi_safi_aggregate_route_apply_finish(
 						  "./rmap-policy-export");
 
 	origin = yang_dnode_get_enum(args->dnode, "./origin");
+	match_med = yang_dnode_get_bool(args->dnode, "./match-med");
 
 	bgp_aggregate_set(bgp, &prefix, afi, safi, rmap_name, summary_only,
 			  as_set, origin, match_med, suppress_map, args->errmsg,
@@ -5890,6 +5891,25 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_rmap_policy_expor
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/origin
  */
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_origin_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/match-med
+ */
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_match_med_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7926,6 +7946,25 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_origin_modify(
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/match-med
+ */
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_match_med_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance-route
  */
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_create(
@@ -9671,6 +9710,25 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_origin_modify(
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/match-med
+ */
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_match_med_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/admin-distance-route
  */
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_create(
@@ -10427,6 +10485,25 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_rmap_policy_exp
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/origin
  */
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_origin_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/match-med
+ */
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_match_med_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {

@@ -7562,6 +7562,12 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./summary-only", NB_OP_MODIFY,
 				      "false");
 
+	if (!no && match_med)
+		nb_cli_enqueue_change(vty, "./match-med", NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./match-med", NB_OP_MODIFY,
+				      "false");
+
 	if (rmap_name)
 		nb_cli_enqueue_change(vty, "./rmap-policy-export", NB_OP_MODIFY,
 				      rmap_name);
@@ -7624,6 +7630,12 @@ DEFPY_YANG(aggregate_addressv6, aggregate_addressv6_cmd,
 		nb_cli_enqueue_change(vty, "./summary-only", NB_OP_MODIFY,
 				      "false");
 
+	if (!no && match_med)
+		nb_cli_enqueue_change(vty, "./match-med", NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./match-med", NB_OP_MODIFY,
+				      "false");
+
 	if (rmap_name)
 		nb_cli_enqueue_change(vty, "./rmap-policy-export", NB_OP_MODIFY,
 				      rmap_name);
@@ -7663,6 +7675,9 @@ void cli_show_bgp_global_afi_safi_unicast_aggregate_route(
 	origin = yang_dnode_get_enum(dnode, "./origin");
 	if (origin != BGP_ORIGIN_UNSPECIFIED)
 		vty_out(vty, " origin %s", bgp_origin2str(origin));
+
+	if (yang_dnode_get_bool(dnode, "./match-med"))
+		vty_out(vty, " matching-MED-only");
 
 	vty_out(vty, "\n");
 }

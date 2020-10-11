@@ -807,6 +807,13 @@ submodule frr-bgp-common {
       description
         "BGP origin type.";
     }
+    leaf match-med {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true' aggregate-route matches only
+         med.";
+    }
   }
 
   grouping admin-distance {
