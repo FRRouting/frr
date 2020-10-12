@@ -43,6 +43,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_bfd.h"
+#include "ospfd/ospf_gr_helper.h"
 
 /* Fill in the the 'key' as appropriate to retrieve the entry for nbr
  * from the ospf_interface's nbrs table. Indexed by interface address
@@ -99,6 +100,14 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 	nbr->crypt_seqnum = 0;
 
 	ospf_bfd_info_nbr_create(oi, nbr);
+
+	/* Initialize GR Helper info*/
+	nbr->gr_helper_info.recvd_grace_period = 0;
+	nbr->gr_helper_info.actual_grace_period = 0;
+	nbr->gr_helper_info.gr_helper_status = OSPF_GR_NOT_HELPER;
+	nbr->gr_helper_info.helper_exit_reason = OSPF_GR_HELPER_EXIT_NONE;
+	nbr->gr_helper_info.gr_restart_reason = OSPF_GR_UNKNOWN_RESTART;
+
 	return nbr;
 }
 
@@ -141,6 +150,8 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	thread_cancel_event(master, nbr);
 
 	ospf_bfd_info_free(&nbr->bfd_info);
+
+	OSPF_NSM_TIMER_OFF(nbr->gr_helper_info.t_grace_timer);
 
 	nbr->oi = NULL;
 	XFREE(MTYPE_OSPF_NEIGHBOR, nbr);

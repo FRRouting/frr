@@ -319,7 +319,41 @@ struct ospf {
 
 	/* Redistributed external information. */
 	struct list *external[ZEBRA_ROUTE_MAX + 1];
-#define EXTERNAL_INFO(E)      (E->external_info)
+#define EXTERNAL_INFO(E) (E->external_info)
+
+	/* Gracefull restart Helper supported configs*/
+	/* Supported grace interval*/
+	uint32_t supported_grace_time;
+
+	/* Helper support
+	 * Supported : True
+	 * Not Supported : False.
+	 */
+	bool is_helper_supported;
+
+	/* Support for strict LSA check.
+	 * if it is set,Helper aborted
+	 * upon a TOPO change.
+	 */
+	bool strict_lsa_check;
+
+	/* Support as HELPER only for
+	 * planned restarts.
+	 */
+	bool only_planned_restart;
+
+	/* This list contains the advertisement
+	 * routerids which are not support for HELPERs.
+	 */
+	struct hash *enable_rtr_list;
+
+	/* HELPER for number of active
+	 * RESTARTERs.
+	 */
+	uint16_t active_restarter_cnt;
+
+	/* last HELPER exit reason */
+	uint32_t last_exit_reason;
 
 	/* MPLS LDP-IGP Sync */
 	struct ldp_sync_info_cmd ldp_sync_cmd;

@@ -22,6 +22,7 @@
 #ifndef _ZEBRA_OSPF_NEIGHBOR_H
 #define _ZEBRA_OSPF_NEIGHBOR_H
 
+#include <ospfd/ospf_gr_helper.h>
 #include <ospfd/ospf_packet.h>
 
 /* Neighbor Data Structure */
@@ -88,6 +89,9 @@ struct ospf_neighbor {
 
 	/* BFD information */
 	void *bfd_info;
+
+	/* ospf graceful restart HELPER info */
+	struct ospf_helper_info gr_helper_info;
 };
 
 /* Macros. */
@@ -113,5 +117,4 @@ extern struct ospf_neighbor *ospf_nbr_lookup_by_addr(struct route_table *,
 extern struct ospf_neighbor *ospf_nbr_lookup_by_routerid(struct route_table *,
 							 struct in_addr *);
 extern void ospf_renegotiate_optional_capabilities(struct ospf *top);
-
 #endif /* _ZEBRA_OSPF_NEIGHBOR_H */

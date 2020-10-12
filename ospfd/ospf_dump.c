@@ -41,6 +41,9 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_network.h"
+#ifndef VTYSH_EXTRACT_PL
+#include "ospfd/ospf_dump_clippy.c"
+#endif
 
 /* Configuration debug option variables. */
 unsigned long conf_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -55,6 +58,7 @@ unsigned long conf_debug_ospf_ext = 0;
 unsigned long conf_debug_ospf_sr = 0;
 unsigned long conf_debug_ospf_defaultinfo = 0;
 unsigned long conf_debug_ospf_ldp_sync = 0;
+unsigned long conf_debug_ospf_gr = 0;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -69,6 +73,7 @@ unsigned long term_debug_ospf_ext = 0;
 unsigned long term_debug_ospf_sr = 0;
 unsigned long term_debug_ospf_defaultinfo;
 unsigned long term_debug_ospf_ldp_sync;
+unsigned long term_debug_ospf_gr = 0;
 
 const char *ospf_redist_string(unsigned int route_type)
 {
@@ -1501,6 +1506,26 @@ DEFUN(no_debug_ospf_ldp_sync,
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_OFF(ldp_sync, LDP_SYNC);
 	TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_ospf_gr,
+       debug_ospf_gr_cmd,
+       "[no$no] debug ospf graceful-restart helper",
+       NO_STR
+       DEBUG_STR OSPF_STR
+       "Gracefull restart\n"
+       "Helper Information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_ON(gr, GR_HELPER);
+
+	if (!no)
+		TERM_DEBUG_ON(gr, GR_HELPER);
+	else
+		TERM_DEBUG_OFF(gr, GR_HELPER);
+
 	return CMD_SUCCESS;
 }
 
@@ -1666,6 +1691,10 @@ static int show_debugging_ospf_common(struct vty *vty, struct ospf *ospf)
 	/* Show debug status for LDP-SYNC. */
 	if (IS_DEBUG_OSPF(ldp_sync, LDP_SYNC) == OSPF_DEBUG_LDP_SYNC)
 		vty_out(vty, "  OSPF ldp-sync debugging is on\n");
+
+	/* Show debug status for GR helper. */
+	if (IS_DEBUG_OSPF(gr, GR_HELPER) == OSPF_DEBUG_GR_HELPER)
+		vty_out(vty, "  OSPF Graceful Restart Helper debugging is on\n");
 
 	vty_out(vty, "\n");
 
@@ -1853,6 +1882,13 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug ospf%s ldp-sync\n", str);
 		write = 1;
 	}
+
+	/* debug ospf gr helper */
+	if (IS_CONF_DEBUG_OSPF(gr, GR_HELPER) == OSPF_DEBUG_GR_HELPER) {
+		vty_out(vty, "debug ospf%s graceful-restart helper\n", str);
+		write = 1;
+	}
+
 	return write;
 }
 
@@ -1882,6 +1918,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_ospf_sr_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ldp_sync_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_gr_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_ospf_instance_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_packet_cmd);
@@ -1922,6 +1959,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_ospf_sr_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_ldp_sync_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_gr_cmd);
 
 	install_element(CONFIG_NODE, &debug_ospf_instance_nsm_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_instance_lsa_cmd);

@@ -796,8 +796,35 @@ int ospf_if_up(struct ospf_interface *oi)
 
 int ospf_if_down(struct ospf_interface *oi)
 {
+	struct ospf *ospf;
+
 	if (oi == NULL)
 		return 0;
+
+	ospf = oi->ospf;
+
+	/* Cease the HELPER role for all the neighbours
+	 * of this interface.
+	 */
+	if (ospf->is_helper_supported) {
+		struct route_node *rn = NULL;
+
+		if (ospf_interface_neighbor_count(oi)) {
+			for (rn = route_top(oi->nbrs); rn;
+			     rn = route_next(rn)) {
+				struct ospf_neighbor *nbr = NULL;
+
+				if (!rn->info)
+					continue;
+
+				nbr = rn->info;
+
+				if (OSPF_GR_IS_ACTIVE_HELPER(nbr))
+					ospf_gr_helper_exit(
+						nbr, OSPF_GR_HELPER_TOPO_CHG);
+			}
+		}
+	}
 
 	OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
 	/* delete position in router LSA */
