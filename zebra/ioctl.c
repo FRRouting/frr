@@ -425,26 +425,27 @@ void if_get_flags(struct interface *ifp)
 	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
 		goto out;
 
-	/* Per-default, IFF_RUNNING is held high, unless link-detect says
-	 * otherwise - we abuse IFF_RUNNING inside zebra as a link-state flag,
-	 * following practice on Linux and Solaris kernels
-	 */
+		/* Per-default, IFF_RUNNING is held high, unless link-detect
+		 * says otherwise - we abuse IFF_RUNNING inside zebra as a
+		 * link-state flag, following practice on Linux and Solaris
+		 * kernels
+		 */
 
 #ifdef SIOCGIFDATA
-	/*
-	 * BSD gets link state from ifi_link_link in struct if_data.
-	 * All BSD's have this in getifaddrs(3) ifa_data for AF_LINK addresses.
-	 * We can also access it via SIOCGIFDATA.
-	 */
+		/*
+		 * BSD gets link state from ifi_link_link in struct if_data.
+		 * All BSD's have this in getifaddrs(3) ifa_data for AF_LINK
+		 * addresses. We can also access it via SIOCGIFDATA.
+		 */
 
 #ifdef __NetBSD__
-	struct ifdatareq ifdr = { .ifdr_data.ifi_link_state = 0 };
+	struct ifdatareq ifdr = {.ifdr_data.ifi_link_state = 0};
 	struct if_data *ifdata = &ifdr.ifdr_data;
 
 	strlcpy(ifdr.ifdr_name, ifp->name, sizeof(ifdr.ifdr_name));
 	ret = vrf_if_ioctl(SIOCGIFDATA, (caddr_t)&ifdr, ifp->vrf_id);
 #else
-	struct if_data ifd = { .ifi_link_state = 0 };
+	struct if_data ifd = {.ifi_link_state = 0};
 	struct if_data *ifdata = &ifd;
 
 	ifreq.ifr_data = (caddr_t)ifdata;
@@ -477,7 +478,7 @@ void if_get_flags(struct interface *ifp)
 	 * Also, virtual interfaces such as PPP, VLAN, etc generally
 	 * don't support media at all, so the ioctl will just fail.
 	 */
-	struct ifmediareq ifmr = { .ifm_status = 0 };
+	struct ifmediareq ifmr = {.ifm_status = 0};
 
 	strlcpy(ifmr.ifm_name, ifp->name, sizeof(ifmr.ifm_name));
 
@@ -487,7 +488,7 @@ void if_get_flags(struct interface *ifp)
 				     "if_ioctl(SIOCGIFMEDIA) failed: %s",
 				     safe_strerror(errno));
 	} else if (ifmr.ifm_status & IFM_AVALID) { /* media state is valid */
-		if (ifmr.ifm_status & IFM_ACTIVE) /* media is active */
+		if (ifmr.ifm_status & IFM_ACTIVE)  /* media is active */
 			SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
 		else
 			UNSET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
