@@ -3238,12 +3238,10 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		return bgp_check_main_socket(create, bgp);
 }
 
-/* Called from VTY commands. */
-int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
-	    enum bgp_instance_type inst_type)
+int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *name,
+			       enum bgp_instance_type inst_type)
 {
 	struct bgp *bgp;
-	struct vrf *vrf = NULL;
 
 	/* Multiple instance check. */
 	if (name)
@@ -3251,7 +3249,6 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	else
 		bgp = bgp_get_default();
 
-	/* Already exists. */
 	if (bgp) {
 		if (bgp->as != *as) {
 			*as = bgp->as;
@@ -3261,6 +3258,27 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 			return BGP_ERR_INSTANCE_MISMATCH;
 		*bgp_val = bgp;
 		return BGP_SUCCESS;
+	}
+	*bgp_val = NULL;
+
+	return BGP_SUCCESS;
+}
+
+/* Called from VTY commands. */
+int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
+	    enum bgp_instance_type inst_type)
+{
+	struct bgp *bgp;
+	struct vrf *vrf = NULL;
+	int ret = 0;
+
+	ret = bgp_lookup_by_as_name_type(bgp_val, as, name, inst_type);
+	switch (ret) {
+	case BGP_ERR_INSTANCE_MISMATCH:
+		return ret;
+	case BGP_SUCCESS:
+		if (*bgp_val)
+			return ret;
 	}
 
 	bgp = bgp_create(as, name, inst_type);

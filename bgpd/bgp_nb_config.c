@@ -44,33 +44,6 @@ FRR_CFG_DEFAULT_ULONG(BGP_KEEPALIVE,
         { .val_ulong = 60 },
 )
 
-
-static int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
-				      const char *name,
-				      enum bgp_instance_type inst_type)
-{
-	struct bgp *bgp;
-
-	if (name)
-		bgp = bgp_lookup_by_name(name);
-	else
-		bgp = bgp_get_default();
-
-	if (bgp) {
-		if (bgp->as != *as) {
-			*as = bgp->as;
-			return BGP_ERR_INSTANCE_MISMATCH;
-		}
-		if (bgp->inst_type != inst_type)
-			return BGP_ERR_INSTANCE_MISMATCH;
-		*bgp_val = bgp;
-	} else {
-		*bgp_val = NULL;
-	}
-
-	return BGP_SUCCESS;
-}
-
 int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args)
 {
