@@ -12658,10 +12658,6 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 				   afi_t afi, safi_t safi,
 				   enum bgp_show_type type, bool use_json)
 {
-	/* labeled-unicast routes live in the unicast table */
-	if (safi == SAFI_LABELED_UNICAST)
-		safi = SAFI_UNICAST;
-
 	if (!peer || !peer->afc[afi][safi]) {
 		if (use_json) {
 			json_object *json_no = NULL;
@@ -12676,6 +12672,10 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 			vty_out(vty, "%% No such neighbor or address family\n");
 		return CMD_WARNING;
 	}
+
+	/* labeled-unicast routes live in the unicast table */
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
 
 	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->su, use_json,
 			false);
