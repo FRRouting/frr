@@ -277,11 +277,18 @@ static int zclient_flush_data(struct thread *thread)
 				 zclient->sock, &zclient->t_write);
 		break;
 	case BUFFER_EMPTY:
+		if (zclient->zebra_buffer_write_ready)
+			(*zclient->zebra_buffer_write_ready)();
 		break;
 	}
 	return 0;
 }
 
+/*
+ * -1 is a failure
+ *  0 means we sent
+ *  1 means we are buffering
+ */
 int zclient_send_message(struct zclient *zclient)
 {
 	if (zclient->sock < 0)
@@ -296,12 +303,16 @@ int zclient_send_message(struct zclient *zclient)
 		return zclient_failed(zclient);
 	case BUFFER_EMPTY:
 		THREAD_OFF(zclient->t_write);
+		return 0;
 		break;
 	case BUFFER_PENDING:
 		thread_add_write(zclient->master, zclient_flush_data, zclient,
 				 zclient->sock, &zclient->t_write);
+		return 1;
 		break;
 	}
+
+	/* should not get here */
 	return 0;
 }
 
@@ -406,8 +417,8 @@ int zclient_send_hello(struct zclient *zclient)
 	return 0;
 }
 
-void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
-			    mpls_label_t label, enum lsp_types_t ltype)
+int zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
+			   mpls_label_t label, enum lsp_types_t ltype)
 {
 	struct stream *s;
 
@@ -419,7 +430,7 @@ void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
 	stream_putc(s, afi);
 	stream_putc(s, ltype);
 	stream_putw_at(s, 0, stream_get_endp(s));
-	zclient_send_message(zclient);
+	return zclient_send_message(zclient);
 }
 
 /* Send register requests to zebra daemon for the information in a VRF. */
@@ -570,15 +581,15 @@ int zclient_send_router_id_update(struct zclient *zclient,
 }
 
 /* Send request to zebra daemon to start or stop RA. */
-void zclient_send_interface_radv_req(struct zclient *zclient, vrf_id_t vrf_id,
-				     struct interface *ifp, int enable,
-				     int ra_interval)
+int zclient_send_interface_radv_req(struct zclient *zclient, vrf_id_t vrf_id,
+				    struct interface *ifp, int enable,
+				    int ra_interval)
 {
 	struct stream *s;
 
 	/* If not connected to the zebra yet. */
 	if (zclient->sock < 0)
-		return;
+		return -1;
 
 	/* Form and send message. */
 	s = zclient->obuf;
@@ -594,7 +605,7 @@ void zclient_send_interface_radv_req(struct zclient *zclient, vrf_id_t vrf_id,
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	zclient_send_message(zclient);
+	return zclient_send_message(zclient);
 }
 
 int zclient_send_interface_protodown(struct zclient *zclient, vrf_id_t vrf_id,
@@ -611,9 +622,7 @@ int zclient_send_interface_protodown(struct zclient *zclient, vrf_id_t vrf_id,
 	stream_putl(s, ifp->ifindex);
 	stream_putc(s, !!down);
 	stream_putw_at(s, 0, stream_get_endp(s));
-	zclient_send_message(zclient);
-
-	return 0;
+	return zclient_send_message(zclient);
 }
 
 /* Make connection to zebra daemon. */
@@ -3281,7 +3290,7 @@ stream_failure:
 	return;
 }
 
-void zclient_send_mlag_register(struct zclient *client, uint32_t bit_map)
+int zclient_send_mlag_register(struct zclient *client, uint32_t bit_map)
 {
 	struct stream *s;
 
@@ -3292,15 +3301,15 @@ void zclient_send_mlag_register(struct zclient *client, uint32_t bit_map)
 	stream_putl(s, bit_map);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	zclient_send_message(client);
+	return zclient_send_message(client);
 }
 
-void zclient_send_mlag_deregister(struct zclient *client)
+int zclient_send_mlag_deregister(struct zclient *client)
 {
-	zebra_message_send(client, ZEBRA_MLAG_CLIENT_UNREGISTER, VRF_DEFAULT);
+	return zebra_message_send(client, ZEBRA_MLAG_CLIENT_UNREGISTER, VRF_DEFAULT);
 }
 
-void zclient_send_mlag_data(struct zclient *client, struct stream *client_s)
+int zclient_send_mlag_data(struct zclient *client, struct stream *client_s)
 {
 	struct stream *s;
 
@@ -3311,7 +3320,7 @@ void zclient_send_mlag_data(struct zclient *client, struct stream *client_s)
 	stream_put(s, client_s->data, client_s->endp);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	zclient_send_message(client);
+	return zclient_send_message(client);
 }
 
 static void zclient_mlag_process_up(ZAPI_CALLBACK_ARGS)
@@ -3339,7 +3348,6 @@ static void zclient_mlag_handle_msg(ZAPI_CALLBACK_ARGS)
 int zclient_send_opaque(struct zclient *zclient, uint32_t type,
 			const uint8_t *data, size_t datasize)
 {
-	int ret;
 	struct stream *s;
 	uint16_t flags = 0;
 
@@ -3363,9 +3371,7 @@ int zclient_send_opaque(struct zclient *zclient, uint32_t type,
 	/* Put length into the header at the start of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	ret = zclient_send_message(zclient);
-
-	return ret;
+	return zclient_send_message(zclient);
 }
 
 /*
@@ -3377,7 +3383,6 @@ int zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
 				uint32_t session_id, const uint8_t *data,
 				size_t datasize)
 {
-	int ret;
 	struct stream *s;
 	uint16_t flags = 0;
 
@@ -3407,9 +3412,7 @@ int zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
 	/* Put length into the header at the start of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	ret = zclient_send_message(zclient);
-
-	return ret;
+	return zclient_send_message(zclient);
 }
 
 /*
@@ -3444,7 +3447,6 @@ stream_failure:
  */
 int zclient_register_opaque(struct zclient *zclient, uint32_t type)
 {
-	int ret;
 	struct stream *s;
 
 	s = zclient->obuf;
@@ -3463,9 +3465,7 @@ int zclient_register_opaque(struct zclient *zclient, uint32_t type)
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	ret = zclient_send_message(zclient);
-
-	return ret;
+	return zclient_send_message(zclient);
 }
 
 /*
@@ -3473,7 +3473,6 @@ int zclient_register_opaque(struct zclient *zclient, uint32_t type)
  */
 int zclient_unregister_opaque(struct zclient *zclient, uint32_t type)
 {
-	int ret;
 	struct stream *s;
 
 	s = zclient->obuf;
@@ -3492,9 +3491,7 @@ int zclient_unregister_opaque(struct zclient *zclient, uint32_t type)
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	ret = zclient_send_message(zclient);
-
-	return ret;
+	return zclient_send_message(zclient);
 }
 
 /* Utility to decode opaque registration info */
@@ -3949,9 +3946,9 @@ static void zclient_event(enum event event, struct zclient *zclient)
 	}
 }
 
-void zclient_interface_set_master(struct zclient *client,
-				  struct interface *master,
-				  struct interface *slave)
+int zclient_interface_set_master(struct zclient *client,
+				 struct interface *master,
+				 struct interface *slave)
 {
 	struct stream *s;
 
@@ -3966,7 +3963,7 @@ void zclient_interface_set_master(struct zclient *client,
 	stream_putl(s, slave->ifindex);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	zclient_send_message(client);
+	return zclient_send_message(client);
 }
 
 /*

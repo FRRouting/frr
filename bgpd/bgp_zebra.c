@@ -3050,7 +3050,7 @@ void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra,
 	bgp_encode_pbr_rule_action(s, pbra, pbr);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	if (!zclient_send_message(zclient) && install) {
+	if ((zclient_send_message(zclient) != -1) && install) {
 		if (!pbr)
 			pbra->install_in_progress = true;
 		else
@@ -3081,7 +3081,7 @@ void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim, bool install)
 	bgp_encode_pbr_ipset_match(s, pbrim);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	if (!zclient_send_message(zclient) && install)
+	if ((zclient_send_message(zclient) != -1) && install)
 		pbrim->install_in_progress = true;
 }
 
@@ -3109,7 +3109,7 @@ void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
 	bgp_encode_pbr_ipset_entry_match(s, pbrime);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	if (!zclient_send_message(zclient) && install)
+	if ((zclient_send_message(zclient) != -1) && install)
 		pbrime->install_in_progress = true;
 }
 
@@ -3184,7 +3184,7 @@ void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 	stream_putw_at(s, 0, stream_get_endp(s));
 	ret = zclient_send_message(zclient);
 	if (install) {
-		if (ret)
+		if (ret != -1)
 			pba->refcnt++;
 		else
 			pbm->install_iptable_in_progress = true;
