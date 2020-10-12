@@ -706,7 +706,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	if (lookup->id == 0)
 		lookup->id = nhg_get_next_id();
 
-	if (lookup->id < ZEBRA_NHG_PROTO_LOWER) {
+	if (!from_dplane && lookup->id < ZEBRA_NHG_PROTO_LOWER) {
 		/*
 		 * This is a zebra hashed/owned NHG.
 		 *
@@ -716,7 +716,8 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 		zebra_nhg_insert_id(newnhe);
 	} else {
 		/*
-		 * This is upperproto owned NHG and should not be hashed to.
+		 * This is upperproto owned NHG or one we read in from dataplane
+		 * and should not be hashed to.
 		 *
 		 * It goes in ID table.
 		 */
@@ -856,7 +857,7 @@ static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
 	lookup.nhg = *nhg;
 
 	lookup.vrf_id = vrf_id;
-	if (lookup.nhg.nexthop->next) {
+	if (nhg_depends || lookup.nhg.nexthop->next) {
 		/* Groups can have all vrfs and AF's in them */
 		lookup.afi = AFI_UNSPEC;
 	} else {
