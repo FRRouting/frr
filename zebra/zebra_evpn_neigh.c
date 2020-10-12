@@ -722,9 +722,8 @@ zebra_evpn_proc_sync_neigh_update(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 					n->state, false /*force*/);
 				old_bgp_ready = false;
 			}
-			if (n->mac)
-				zebra_evpn_local_neigh_deref_mac(
-					n, false /*send_mac_update*/);
+			zebra_evpn_local_neigh_deref_mac(n,
+							 false /*send_mac_update*/);
 		}
 		/* clear old fwd info */
 		n->rem_seq = 0;

@@ -1006,9 +1006,9 @@ static void ospf6_asbr_redistribute_unset(int type, vrf_id_t vrf_id)
 /* When an area is unstubified, flood all the external LSAs in the area */
 void ospf6_asbr_send_externals_to_area(struct ospf6_area *oa)
 {
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa, *lsanext;
 
-	for (ALL_LSDB(oa->ospf6->lsdb, lsa)) {
+	for (ALL_LSDB(oa->ospf6->lsdb, lsa, lsanext)) {
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL) {
 			zlog_debug("%s: Flooding AS-External LSA %s",
 				   __func__, lsa->name);

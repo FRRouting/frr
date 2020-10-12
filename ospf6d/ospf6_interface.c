@@ -906,7 +906,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 	uint8_t default_iftype;
 	struct timeval res, now;
 	char duration[32];
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa, *lsanext;
 
 	default_iftype = ospf6_default_iftype(ifp);
 
@@ -977,7 +977,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 		"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
 		oi->lsupdate_list->count, duration,
 		(oi->thread_send_lsupdate ? "on" : "off"));
-	for (ALL_LSDB(oi->lsupdate_list, lsa))
+	for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext))
 		vty_out(vty, "      %s\n", lsa->name);
 
 	timerclear(&res);
@@ -987,7 +987,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 	vty_out(vty, "    %d Pending LSAs for LSAck in Time %s [thread %s]\n",
 		oi->lsack_list->count, duration,
 		(oi->thread_send_lsack ? "on" : "off"));
-	for (ALL_LSDB(oi->lsack_list, lsa))
+	for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
 		vty_out(vty, "      %s\n", lsa->name);
 	ospf6_bfd_show_info(vty, oi->bfd_info, 1);
 	return 0;

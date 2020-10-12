@@ -134,9 +134,10 @@ DEFPY(lsdb_walk, lsdb_walk_cmd,
       "LSDB\n"
       "walk entries\n")
 {
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa, *lsanext;
+
 	unsigned cnt = 0;
-	for (ALL_LSDB(lsdb, lsa)) {
+	for (ALL_LSDB(lsdb, lsa, lsanext)) {
 		lsa_show_oneline(vty, lsa);
 		cnt++;
 	}

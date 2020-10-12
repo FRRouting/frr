@@ -1082,9 +1082,9 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 
 void ospf6_remove_temp_router_lsa(struct ospf6_area *area)
 {
-	struct ospf6_lsa *lsa = NULL;
+	struct ospf6_lsa *lsa = NULL, *lsanext;
 
-	for (ALL_LSDB(area->temp_router_lsa_lsdb, lsa)) {
+	for (ALL_LSDB(area->temp_router_lsa_lsdb, lsa, lsanext)) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
 			zlog_debug(
 				"%s Remove LSA %s lsa->lock %u lsdb count %u",
