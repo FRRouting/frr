@@ -36,6 +36,8 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_attr.h"
+
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_mplsvpn_snmp.h"
 
@@ -80,6 +82,26 @@
 #define MPLSL3VPNVRFPERFROUTESDELETED 2
 #define MPLSL3VPNVRFPERFCURRNUMROUTES 3
 
+/* MPLSL3VPN RTE Table */
+#define MPLSL3VPNVRFRTEINETCIDRDESTTYPE 1
+#define MPLSL3VPNVRFRTEINETCIDRDEST 2
+#define MPLSL3VPNVRFRTEINETCIDRPFXLEN 3
+#define MPLSL3VPNVRFRTEINETCIDRPOLICY 4
+#define MPLSL3VPNVRFRTEINETCIDRNHOPTYPE 5
+#define MPLSL3VPNVRFRTEINETCIDRNEXTHOP 6
+#define MPLSL3VPNVRFRTEINETCIDRIFINDEX 7
+#define MPLSL3VPNVRFRTEINETCIDRTYPE 8
+#define MPLSL3VPNVRFRTEINETCIDRPROTO 9
+#define MPLSL3VPNVRFRTEINETCIDRAGE 10
+#define MPLSL3VPNVRFRTEINETCIDRNEXTHOPAS 11
+#define MPLSL3VPNVRFRTEINETCIDRMETRIC1 12
+#define MPLSL3VPNVRFRTEINETCIDRMETRIC2 13
+#define MPLSL3VPNVRFRTEINETCIDRMETRIC3 14
+#define MPLSL3VPNVRFRTEINETCIDRMETRIC4 15
+#define MPLSL3VPNVRFRTEINETCIDRMETRIC5 16
+#define MPLSL3VPNVRFRTEINETCIDRXCPOINTER 17
+#define MPLSL3VPNVRFRTEINETCIDRSTATUS 18
+
 /* SNMP value hack. */
 #define INTEGER ASN_INTEGER
 #define INTEGER32 ASN_INTEGER
@@ -88,14 +110,17 @@
 #define IPADDRESS ASN_IPADDRESS
 #define GAUGE32 ASN_UNSIGNED
 #define TIMETICKS ASN_TIMETICKS
+#define OID ASN_OBJECT_ID
 
 /* Declare static local variables for convenience. */
 SNMP_LOCAL_VARIABLES
 
-/* BGP-MPLS-MIB innstances */
+/* BGP-MPLS-MIB instances */
 static oid mpls_l3vpn_oid[] = {MPLSL3VPNMIB};
 static char rd_buf[RD_ADDRSTRLEN];
 static uint8_t bgp_mplsvpn_notif_enable = SNMP_FALSE;
+static oid mpls_l3vpn_policy_oid[2] = {0, 0};
+static const char *empty_nhop = "";
 
 static uint8_t *mplsL3vpnConfiguredVrfs(struct variable *, oid[], size_t *, int,
 					size_t *, WriteMethod **);
@@ -127,6 +152,9 @@ static uint8_t *mplsL3vpnIfConfTable(struct variable *, oid[], size_t *, int,
 
 static uint8_t *mplsL3vpnPerfTable(struct variable *, oid[], size_t *, int,
 				   size_t *, WriteMethod **);
+
+static uint8_t *mplsL3vpnRteTable(struct variable *, oid[], size_t *, int,
+				  size_t *, WriteMethod **);
 
 
 static struct variable mpls_l3vpn_variables[] = {
@@ -299,6 +327,116 @@ static struct variable mpls_l3vpn_variables[] = {
 	 mplsL3vpnPerfTable,
 	 5,
 	 {1, 3, 1, 1, 3} },
+
+	/* mplsVpnRteTable */
+	{MPLSL3VPNVRFRTEINETCIDRDESTTYPE,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 1} },
+	{MPLSL3VPNVRFRTEINETCIDRDEST,
+	 OCTET_STRING,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 2} },
+	{MPLSL3VPNVRFRTEINETCIDRPFXLEN,
+	 GAUGE32,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 3} },
+	{MPLSL3VPNVRFRTEINETCIDRPOLICY,
+	 OID,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 4} },
+	{MPLSL3VPNVRFRTEINETCIDRNHOPTYPE,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 5} },
+	{MPLSL3VPNVRFRTEINETCIDRNEXTHOP,
+	 OCTET_STRING,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 6} },
+	{MPLSL3VPNVRFRTEINETCIDRIFINDEX,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 7} },
+	{MPLSL3VPNVRFRTEINETCIDRTYPE,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 8} },
+	{MPLSL3VPNVRFRTEINETCIDRPROTO,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 9} },
+	{MPLSL3VPNVRFRTEINETCIDRAGE,
+	 GAUGE32,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 10} },
+	{MPLSL3VPNVRFRTEINETCIDRNEXTHOPAS,
+	 GAUGE32,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 11} },
+	{MPLSL3VPNVRFRTEINETCIDRMETRIC1,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 12} },
+	{MPLSL3VPNVRFRTEINETCIDRMETRIC2,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 13} },
+	{MPLSL3VPNVRFRTEINETCIDRMETRIC3,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 14} },
+	{MPLSL3VPNVRFRTEINETCIDRMETRIC4,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 15} },
+	{MPLSL3VPNVRFRTEINETCIDRMETRIC5,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 16} },
+	{MPLSL3VPNVRFRTEINETCIDRXCPOINTER,
+	 OCTET_STRING,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 17} },
+	{MPLSL3VPNVRFRTEINETCIDRSTATUS,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnRteTable,
+	 5,
+	 {1, 4, 1, 1, 18} },
 };
 
 /* timeticks are in hundredths of a second */
@@ -808,6 +946,461 @@ static uint8_t *mplsL3vpnPerfTable(struct variable *v, oid name[],
 		return SNMP_INTEGER(l3vpn_bgp->snmp_stats->routes_deleted);
 	case MPLSL3VPNVRFPERFCURRNUMROUTES:
 		return SNMP_INTEGER(bgp_mpls_l3vpn_current_routes(l3vpn_bgp));
+	}
+	return NULL;
+}
+
+static struct bgp_path_info *
+bgp_lookup_route(struct bgp *l3vpn_bgp, struct bgp_dest **dest,
+		 struct prefix *prefix, uint16_t policy, struct ipaddr *nexthop)
+{
+	struct bgp_path_info *pi = NULL;
+	struct bgp_table *table;
+
+	switch (prefix->family) {
+	case AF_INET:
+		table = l3vpn_bgp->rib[AFI_IP][SAFI_UNICAST];
+		break;
+	case AF_INET6:
+		table = l3vpn_bgp->rib[AFI_IP6][SAFI_UNICAST];
+		break;
+	default:
+		return NULL;
+	}
+
+	/*get the prefix */
+	*dest = bgp_node_lookup(table, prefix);
+	if (*dest == NULL)
+		return NULL;
+
+	/* now find the right path */
+	pi = bgp_dest_get_bgp_path_info(*dest);
+	for (; pi; pi = pi->next) {
+		switch (nexthop->ipa_type) {
+		case IPADDR_V4:
+			if (nexthop->ip._v4_addr.s_addr
+			    == pi->attr->nexthop.s_addr)
+				return pi;
+			break;
+		case IPADDR_V6:
+			if (memcmp(&nexthop->ip._v6_addr,
+				   &pi->attr->mp_nexthop_global,
+				   sizeof(struct in6_addr))
+			    == 0)
+				return pi;
+			break;
+		default:
+			return pi;
+		}
+	}
+	return NULL;
+}
+
+static struct bgp_path_info *bgp_lookup_route_next(struct bgp **l3vpn_bgp,
+						   struct bgp_dest **dest,
+						   struct prefix *prefix,
+						   uint16_t *policy,
+						   struct ipaddr *nexthop)
+{
+	struct bgp_path_info *pi = NULL;
+	struct bgp_table *table;
+	const struct prefix *p;
+	uint8_t family;
+
+	/* First route?*/
+	if (prefix->prefixlen == 0) {
+		/* try V4 table */
+		table = (*l3vpn_bgp)->rib[AFI_IP][SAFI_UNICAST];
+		for (*dest = bgp_table_top(table); *dest;
+		     *dest = bgp_route_next(*dest)) {
+			pi = bgp_dest_get_bgp_path_info(*dest);
+			if (pi)
+				break;
+		}
+
+		if (!pi) {
+			/* try V6 table */
+			table = (*l3vpn_bgp)->rib[AFI_IP6][SAFI_UNICAST];
+			for (*dest = bgp_table_top(table); *dest;
+			     *dest = bgp_route_next(*dest)) {
+				pi = bgp_dest_get_bgp_path_info(*dest);
+				if (pi)
+					break;
+			}
+		}
+		return pi;
+	}
+	/* real next search for the entry first use exact lookup */
+	pi = bgp_lookup_route(*l3vpn_bgp, dest, prefix, *policy, nexthop);
+
+	if (pi == NULL)
+		return NULL;
+
+	p = bgp_dest_get_prefix(*dest);
+	family = p->family;
+
+	/* We have found the input path let's find the next one in the list */
+	if (pi->next) {
+		/* ensure OID is always higher for multipath routes by
+		 * incrementing opaque policy oid
+		 */
+		*policy += 1;
+		return pi->next;
+	}
+
+	/* No more paths in the input route so find the next route */
+	for (; *l3vpn_bgp;
+	     *l3vpn_bgp = bgp_lookup_by_name_next((*l3vpn_bgp)->name)) {
+		*policy = 0;
+		if (!*dest) {
+			table = (*l3vpn_bgp)->rib[AFI_IP][SAFI_UNICAST];
+			*dest = bgp_table_top(table);
+			family = AF_INET;
+		} else
+			*dest = bgp_route_next(*dest);
+
+		while (true) {
+			for (; *dest; *dest = bgp_route_next(*dest)) {
+				pi = bgp_dest_get_bgp_path_info(*dest);
+
+				if (pi)
+					return pi;
+			}
+			if (family == AF_INET) {
+				table = (*l3vpn_bgp)
+						->rib[AFI_IP6][SAFI_UNICAST];
+				*dest = bgp_table_top(table);
+				family = AF_INET6;
+				continue;
+			}
+			break;
+		}
+	}
+
+	return NULL;
+}
+
+static bool is_addr_type(oid id)
+{
+	switch (id) {
+	case INETADDRESSTYPEUNKNOWN:
+	case INETADDRESSTYPEIPV4:
+	case INETADDRESSTYPEIPV6:
+		return true;
+	}
+	return false;
+}
+
+/* 1.3.6.1.2.1.10.166.11.1.4.1.1.x = 14*/
+#define PERFTAB_NAMELEN 14
+
+static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
+						size_t *length, char *vrf_name,
+						struct bgp **l3vpn_bgp,
+						struct bgp_dest **dest,
+						uint16_t *policy, int exact)
+{
+	uint8_t i;
+	uint8_t vrf_name_len = 0;
+	struct bgp_path_info *pi = NULL;
+	size_t namelen = v ? v->namelen : IFCONFTAB_NAMELEN;
+	struct prefix prefix = {0};
+	struct ipaddr nexthop = {0};
+	uint8_t prefix_type;
+	uint8_t nexthop_type;
+
+	if ((uint32_t)(*length - namelen) > (VRF_NAMSIZ + 37))
+		return NULL;
+
+	if (*length - namelen != 0) {
+		/* parse incoming OID */
+		for (i = namelen; i < (*length); i++) {
+			if (is_addr_type(name[i]))
+				break;
+			vrf_name_len++;
+		}
+		if (vrf_name_len > VRF_NAMSIZ)
+			return NULL;
+
+		oid2string(name + namelen, vrf_name_len, vrf_name);
+		prefix_type = name[i++];
+		switch (prefix_type) {
+		case INETADDRESSTYPEUNKNOWN:
+			prefix.family = AF_UNSPEC;
+			break;
+		case INETADDRESSTYPEIPV4:
+			prefix.family = AF_INET;
+			oid2in_addr(&name[i], sizeof(struct in_addr),
+				    &prefix.u.prefix4);
+			i += sizeof(struct in_addr);
+			break;
+		case INETADDRESSTYPEIPV6:
+			prefix.family = AF_INET6;
+			oid2in_addr(&name[i], sizeof(struct in6_addr),
+				    &prefix.u.prefix4); /* sic */
+			i += sizeof(struct in6_addr);
+			break;
+		}
+		prefix.prefixlen = (uint8_t)name[i++];
+		*policy |= name[i++] << 8;
+		*policy |= name[i++];
+		nexthop_type = name[i++];
+		switch (nexthop_type) {
+		case INETADDRESSTYPEUNKNOWN:
+			nexthop.ipa_type = (prefix.family == AF_INET)
+						   ? IPADDR_V4
+						   : IPADDR_V6;
+			break;
+		case INETADDRESSTYPEIPV4:
+			nexthop.ipa_type = IPADDR_V4;
+			oid2in_addr(&name[i], sizeof(struct in_addr),
+				    &nexthop.ip._v4_addr);
+			i += sizeof(struct in_addr);
+			break;
+		case INETADDRESSTYPEIPV6:
+			nexthop.ipa_type = IPADDR_V6;
+			oid2in_addr(&name[i], sizeof(struct in6_addr),
+				    &nexthop.ip._v4_addr); /* sic */
+			i += sizeof(struct in6_addr);
+			break;
+		}
+	}
+
+	if (exact) {
+		*l3vpn_bgp = bgp_lookup_by_name(vrf_name);
+		if (*l3vpn_bgp && !is_bgp_vrf_mplsvpn(*l3vpn_bgp))
+			return NULL;
+		if (*l3vpn_bgp == NULL)
+			return NULL;
+
+		/* now lookup the route in this bgp table */
+		pi = bgp_lookup_route(*l3vpn_bgp, dest, &prefix, *policy,
+				      &nexthop);
+	} else {
+		int str_len;
+
+		str_len = strnlen(vrf_name, VRF_NAMSIZ);
+		if (str_len == 0) {
+			*l3vpn_bgp = bgp_lookup_by_name_next(vrf_name);
+		} else
+			/* otherwise lookup the one we have */
+			*l3vpn_bgp = bgp_lookup_by_name(vrf_name);
+
+		if (l3vpn_bgp == NULL)
+			return NULL;
+
+		pi = bgp_lookup_route_next(l3vpn_bgp, dest, &prefix, policy,
+					   &nexthop);
+		if (pi) {
+			uint8_t vrf_name_len =
+				strnlen((*l3vpn_bgp)->name, VRF_NAMSIZ);
+			const struct prefix *p = bgp_dest_get_prefix(*dest);
+			uint8_t oid_index;
+			bool v4 = (p->family == AF_INET);
+			uint8_t addr_len = v4 ? sizeof(struct in_addr)
+					      : sizeof(struct in6_addr);
+			struct attr *attr = pi->attr;
+
+			/* copy the index parameters */
+			oid_copy_str(&name[namelen], (*l3vpn_bgp)->name,
+				     vrf_name_len);
+			oid_index = namelen + vrf_name_len;
+			name[oid_index++] =
+				v4 ? INETADDRESSTYPEIPV4 : INETADDRESSTYPEIPV6;
+			oid_copy_addr(&name[oid_index], &p->u.prefix4,
+				      addr_len);
+			oid_index += addr_len;
+			name[oid_index++] = p->prefixlen;
+			name[oid_index++] = *policy >> 8;
+			name[oid_index++] = *policy & 0xff;
+
+			if (!BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
+				if (attr->nexthop.s_addr == INADDR_ANY)
+					name[oid_index++] =
+						INETADDRESSTYPEUNKNOWN;
+				else {
+					name[oid_index++] = INETADDRESSTYPEIPV4;
+					oid_copy_addr(&name[oid_index],
+						      &attr->nexthop,
+						      sizeof(struct in_addr));
+					oid_index += sizeof(struct in_addr);
+				}
+			} else {
+				if (IN6_IS_ADDR_UNSPECIFIED(
+					    &attr->mp_nexthop_global))
+					name[oid_index++] =
+						INETADDRESSTYPEUNKNOWN;
+				else {
+					name[oid_index++] = INETADDRESSTYPEIPV6;
+					oid_copy_addr(
+						&name[oid_index],
+						(struct in_addr *)&attr
+							->mp_nexthop_global,
+						sizeof(struct in6_addr));
+					oid_index += sizeof(struct in6_addr);
+				}
+			}
+			*length = oid_index;
+		}
+	}
+	return pi;
+}
+
+static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
+				  size_t *length, int exact, size_t *var_len,
+				  WriteMethod **write_method)
+{
+	char vrf_name[VRF_NAMSIZ];
+	struct bgp *l3vpn_bgp;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+	const struct prefix *p;
+	uint16_t policy = 0;
+
+	if (smux_header_table(v, name, length, exact, var_len, write_method)
+	    == MATCH_FAILED)
+		return NULL;
+
+	memset(vrf_name, 0, VRF_NAMSIZ);
+	pi = bgpL3vpnRte_lookup(v, name, length, vrf_name, &l3vpn_bgp, &dest,
+				&policy, exact);
+
+
+	if (!pi)
+		return NULL;
+
+	p = bgp_dest_get_prefix(dest);
+
+	if (!p)
+		return NULL;
+
+	switch (v->magic) {
+	case MPLSL3VPNVRFRTEINETCIDRDESTTYPE:
+		switch (p->family) {
+		case AF_INET:
+			return SNMP_INTEGER(INETADDRESSTYPEIPV4);
+		case AF_INET6:
+			return SNMP_INTEGER(INETADDRESSTYPEIPV6);
+		default:
+			return SNMP_INTEGER(INETADDRESSTYPEUNKNOWN);
+		}
+	case MPLSL3VPNVRFRTEINETCIDRDEST:
+		switch (p->family) {
+		case AF_INET:
+			return SNMP_IPADDRESS(p->u.prefix4);
+		case AF_INET6:
+			return SNMP_IP6ADDRESS(p->u.prefix6);
+		default:
+			*var_len = 0;
+			return NULL;
+		}
+	case MPLSL3VPNVRFRTEINETCIDRPFXLEN:
+		return SNMP_INTEGER(p->prefixlen);
+	case MPLSL3VPNVRFRTEINETCIDRPOLICY:
+		*var_len = sizeof(mpls_l3vpn_policy_oid);
+		mpls_l3vpn_policy_oid[0] = policy >> 8;
+		mpls_l3vpn_policy_oid[1] = policy & 0xff;
+		return (uint8_t *)mpls_l3vpn_policy_oid;
+	case MPLSL3VPNVRFRTEINETCIDRNHOPTYPE:
+		if (!BGP_ATTR_NEXTHOP_AFI_IP6(pi->attr)) {
+			if (pi->attr->nexthop.s_addr == INADDR_ANY)
+				return SNMP_INTEGER(INETADDRESSTYPEUNKNOWN);
+			else
+				return SNMP_INTEGER(INETADDRESSTYPEIPV4);
+		} else if (IN6_IS_ADDR_UNSPECIFIED(
+				   &pi->attr->mp_nexthop_global))
+			return SNMP_INTEGER(INETADDRESSTYPEUNKNOWN);
+		else
+			return SNMP_INTEGER(INETADDRESSTYPEIPV6);
+
+	case MPLSL3VPNVRFRTEINETCIDRNEXTHOP:
+		if (!BGP_ATTR_NEXTHOP_AFI_IP6(pi->attr))
+			if (pi->attr->nexthop.s_addr == INADDR_ANY) {
+				*var_len = 0;
+				return (uint8_t *)empty_nhop;
+			} else
+				return SNMP_IPADDRESS(pi->attr->nexthop);
+		else if (IN6_IS_ADDR_UNSPECIFIED(
+				 &pi->attr->mp_nexthop_global)) {
+			*var_len = 0;
+			return (uint8_t *)empty_nhop;
+		} else
+			return SNMP_IP6ADDRESS(pi->attr->mp_nexthop_global);
+
+	case MPLSL3VPNVRFRTEINETCIDRIFINDEX:
+		if (pi->nexthop && pi->nexthop->nexthop)
+			return SNMP_INTEGER(pi->nexthop->nexthop->ifindex);
+		else
+			return SNMP_INTEGER(0);
+	case MPLSL3VPNVRFRTEINETCIDRTYPE:
+		if (pi->nexthop && pi->nexthop->nexthop) {
+			switch (pi->nexthop->nexthop->type) {
+			case NEXTHOP_TYPE_IFINDEX:
+				return SNMP_INTEGER(
+					MPLSL3VPNVRFRTECIDRTYPELOCAL);
+			case NEXTHOP_TYPE_IPV4:
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+			case NEXTHOP_TYPE_IPV6:
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				return SNMP_INTEGER(
+					MPLSL3VPNVRFRTECIDRTYPEREMOTE);
+			case NEXTHOP_TYPE_BLACKHOLE:
+				switch (pi->nexthop->nexthop->bh_type) {
+				case BLACKHOLE_REJECT:
+					return SNMP_INTEGER(
+						MPLSL3VPNVRFRTECIDRTYPEREJECT);
+				default:
+					return SNMP_INTEGER(
+						MPLSL3VPNVRFRTECIDRTYPEBLACKHOLE);
+				}
+			default:
+				return SNMP_INTEGER(
+					MPLSL3VPNVRFRTECIDRTYPEOTHER);
+			}
+		} else
+			return SNMP_INTEGER(MPLSL3VPNVRFRTECIDRTYPEOTHER);
+	case MPLSL3VPNVRFRTEINETCIDRPROTO:
+		switch (pi->type) {
+		case ZEBRA_ROUTE_CONNECT:
+			return SNMP_INTEGER(IANAIPROUTEPROTOCOLLOCAL);
+		case ZEBRA_ROUTE_STATIC:
+			return SNMP_INTEGER(IANAIPROUTEPROTOCOLNETMGMT);
+		case ZEBRA_ROUTE_RIP:
+		case ZEBRA_ROUTE_RIPNG:
+			return SNMP_INTEGER(IANAIPROUTEPROTOCOLRIP);
+		case ZEBRA_ROUTE_OSPF:
+		case ZEBRA_ROUTE_OSPF6:
+			return SNMP_INTEGER(IANAIPROUTEPROTOCOLOSPF);
+		case ZEBRA_ROUTE_ISIS:
+			return SNMP_INTEGER(IANAIPROUTEPROTOCOLISIS);
+		case ZEBRA_ROUTE_BGP:
+			return SNMP_INTEGER(IANAIPROUTEPROTOCOLBGP);
+		case ZEBRA_ROUTE_EIGRP:
+			return SNMP_INTEGER(IANAIPROUTEPROTOCOLCISCOEIGRP);
+		default:
+			return SNMP_INTEGER(IANAIPROUTEPROTOCOLOTHER);
+		}
+	case MPLSL3VPNVRFRTEINETCIDRAGE:
+		return SNMP_INTEGER(pi->uptime);
+	case MPLSL3VPNVRFRTEINETCIDRNEXTHOPAS:
+		return SNMP_INTEGER(pi->peer ? pi->peer->as : 0);
+	case MPLSL3VPNVRFRTEINETCIDRMETRIC1:
+		if (pi->extra)
+			return SNMP_INTEGER(pi->extra->igpmetric);
+		else
+			return SNMP_INTEGER(0);
+	case MPLSL3VPNVRFRTEINETCIDRMETRIC2:
+		return SNMP_INTEGER(-1);
+	case MPLSL3VPNVRFRTEINETCIDRMETRIC3:
+		return SNMP_INTEGER(-1);
+	case MPLSL3VPNVRFRTEINETCIDRMETRIC4:
+		return SNMP_INTEGER(-1);
+	case MPLSL3VPNVRFRTEINETCIDRMETRIC5:
+		return SNMP_INTEGER(-1);
+	case MPLSL3VPNVRFRTEINETCIDRXCPOINTER:
+		return SNMP_OCTET(0);
+	case MPLSL3VPNVRFRTEINETCIDRSTATUS:
+		return SNMP_INTEGER(1);
 	}
 	return NULL;
 }

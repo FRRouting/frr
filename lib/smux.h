@@ -62,6 +62,11 @@ extern "C" {
 #define IANAIPROUTEPROTOCOLIDPR 15
 #define IANAIPROUTEPROTOCOLCISCOEIGRP 16
 #define IANAIPROUTEPROTOCOLDVMRP 17
+
+#define INETADDRESSTYPEUNKNOWN 0
+#define INETADDRESSTYPEIPV4 1
+#define INETADDRESSTYPEIPV6 2
+
 #undef REGISTER_MIB
 #define REGISTER_MIB(descr, var, vartype, theoid)                              \
 	smux_register_mib(descr, (struct variable *)var,                       \
