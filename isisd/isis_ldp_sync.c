@@ -300,10 +300,7 @@ void isis_ldp_sync_ldp_fail(struct isis_circuit *circuit)
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		if (ldp_sync_info->t_holddown != NULL) {
-			THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
-			ldp_sync_info->t_holddown = NULL;
-		}
+		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		isis_ldp_sync_set_if_metric(circuit, true);
 	}
@@ -326,8 +323,7 @@ void isis_ldp_sync_if_remove(struct isis_circuit *circuit, bool remove)
 	ils_debug("ldp_sync: remove if %s", circuit->interface
 		  ? circuit->interface->name : "");
 
-	if (ldp_sync_info->t_holddown)
-		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
+	THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	isis_ldp_sync_set_if_metric(circuit, true);
 	if (remove) {

@@ -795,17 +795,14 @@ static void update_subgroup_delete(struct update_subgroup *subgrp)
 	if (subgrp->update_group)
 		UPDGRP_INCR_STAT(subgrp->update_group, subgrps_deleted);
 
-	if (subgrp->t_merge_check)
-		THREAD_OFF(subgrp->t_merge_check);
+	THREAD_OFF(subgrp->t_merge_check);
 
-	if (subgrp->t_coalesce)
-		THREAD_TIMER_OFF(subgrp->t_coalesce);
+	THREAD_TIMER_OFF(subgrp->t_coalesce);
 
 	bpacket_queue_cleanup(SUBGRP_PKTQ(subgrp));
 	subgroup_clear_table(subgrp);
 
-	if (subgrp->t_coalesce)
-		THREAD_TIMER_OFF(subgrp->t_coalesce);
+	THREAD_TIMER_OFF(subgrp->t_coalesce);
 	sync_delete(subgrp);
 
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS) && subgrp->update_group)
