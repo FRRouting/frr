@@ -44,6 +44,24 @@ extern "C" {
 
 #define IN_ADDR_SIZE sizeof(struct in_addr)
 
+/* IANAipRouteProtocol */
+#define IANAIPROUTEPROTOCOLOTHER 1
+#define IANAIPROUTEPROTOCOLLOCAL 2
+#define IANAIPROUTEPROTOCOLNETMGMT 3
+#define IANAIPROUTEPROTOCOLICMP 4
+#define IANAIPROUTEPROTOCOLEGP 5
+#define IANAIPROUTEPROTOCOLGGP 6
+#define IANAIPROUTEPROTOCOLHELLO 7
+#define IANAIPROUTEPROTOCOLRIP 8
+#define IANAIPROUTEPROTOCOLISIS 9
+#define IANAIPROUTEPROTOCOLESIS 10
+#define IANAIPROUTEPROTOCOLCISCOIGRP 11
+#define IANAIPROUTEPROTOCOLBBNSPFIGP 12
+#define IANAIPROUTEPROTOCOLOSPF 13
+#define IANAIPROUTEPROTOCOLBGP 14
+#define IANAIPROUTEPROTOCOLIDPR 15
+#define IANAIPROUTEPROTOCOLCISCOEIGRP 16
+#define IANAIPROUTEPROTOCOLDVMRP 17
 #undef REGISTER_MIB
 #define REGISTER_MIB(descr, var, vartype, theoid)                              \
 	smux_register_mib(descr, (struct variable *)var,                       \
@@ -68,6 +86,8 @@ struct trap_object {
 #define SNMP_IPADDRESS(V)                                                      \
 	(*var_len = sizeof(struct in_addr), snmp_in_addr_val = V,              \
 	 (uint8_t *)&snmp_in_addr_val)
+
+#define SNMP_IP6ADDRESS(V) (*var_len = sizeof(struct in6_addr), (uint8_t *)&V)
 
 extern void smux_init(struct thread_master *tm);
 extern void smux_register_mib(const char *, struct variable *, size_t, int,
