@@ -163,11 +163,12 @@ Redistribute routes to OSPF6
 Showing OSPF6 information
 =========================
 
-.. index:: show ipv6 ospf6 [INSTANCE_ID]
-.. clicmd:: show ipv6 ospf6 [INSTANCE_ID]
+.. index:: show ipv6 ospf6 [INSTANCE_ID] [json]
+.. clicmd:: show ipv6 ospf6 [INSTANCE_ID] [json]
 
    INSTANCE_ID is an optional OSPF instance ID. To see router ID and OSPF
-   instance ID, simply type "show ipv6 ospf6 <cr>".
+   instance ID, simply type "show ipv6 ospf6 <cr>". JSON output can be
+   obtained by appending 'json' to the end of command.
 
 .. index:: show ipv6 ospf6 database
 .. clicmd:: show ipv6 ospf6 database

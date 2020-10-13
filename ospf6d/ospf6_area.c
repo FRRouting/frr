@@ -359,40 +359,94 @@ void ospf6_area_disable(struct ospf6_area *oa)
 }
 
 
-void ospf6_area_show(struct vty *vty, struct ospf6_area *oa)
+void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
+		     json_object *json_areas, bool use_json)
 {
 	struct listnode *i;
 	struct ospf6_interface *oi;
 	unsigned long result;
+	json_object *json_area;
+	json_object *array_interfaces;
 
-	if (!IS_AREA_STUB(oa))
-		vty_out(vty, " Area %s\n", oa->name);
-	else {
-		if (oa->no_summary) {
-			vty_out(vty, " Area %s[Stub, No Summary]\n", oa->name);
-		} else {
-			vty_out(vty, " Area %s[Stub]\n", oa->name);
+	if (use_json) {
+		json_area = json_object_new_object();
+		json_object_boolean_add(json_area, "areaIsStub",
+					IS_AREA_STUB(oa));
+		if (IS_AREA_STUB(oa)) {
+			json_object_boolean_add(json_area, "areaNoSummary",
+						oa->no_summary);
 		}
+
+		json_object_int_add(json_area, "numberOfAreaScopedLsa",
+				    oa->lsdb->count);
+
+		/* Interfaces Attached */
+		array_interfaces = json_object_new_array();
+		for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi))
+			json_object_array_add(
+				array_interfaces,
+				json_object_new_string(oi->interface->name));
+
+		json_object_object_add(json_area, "interfacesAttachedToArea",
+				       array_interfaces);
+
+		if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec) {
+			json_object_boolean_true_add(json_area, "spfHasRun");
+			result = monotime_since(&oa->ts_spf, NULL);
+			if (result / TIMER_SECOND_MICRO > 0) {
+				json_object_int_add(
+					json_area, "spfLastExecutedSecs",
+					result / TIMER_SECOND_MICRO);
+
+				json_object_int_add(
+					json_area, "spfLastExecutedMicroSecs",
+					result % TIMER_SECOND_MICRO);
+			} else {
+				json_object_int_add(json_area,
+						    "spfLastExecutedSecs", 0);
+				json_object_int_add(json_area,
+						    "spfLastExecutedMicroSecs",
+						    result);
+			}
+		} else
+			json_object_boolean_false_add(json_area, "spfHasRun");
+
+
+		json_object_object_add(json_areas, oa->name, json_area);
+
+	} else {
+
+		if (!IS_AREA_STUB(oa))
+			vty_out(vty, " Area %s\n", oa->name);
+		else {
+			if (oa->no_summary) {
+				vty_out(vty, " Area %s[Stub, No Summary]\n",
+					oa->name);
+			} else {
+				vty_out(vty, " Area %s[Stub]\n", oa->name);
+			}
+		}
+		vty_out(vty, "     Number of Area scoped LSAs is %u\n",
+			oa->lsdb->count);
+
+		vty_out(vty, "     Interface attached to this area:");
+		for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi))
+			vty_out(vty, " %s", oi->interface->name);
+		vty_out(vty, "\n");
+
+		if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec) {
+			result = monotime_since(&oa->ts_spf, NULL);
+			if (result / TIMER_SECOND_MICRO > 0) {
+				vty_out(vty, "SPF last executed %ld.%lds ago\n",
+					result / TIMER_SECOND_MICRO,
+					result % TIMER_SECOND_MICRO);
+			} else {
+				vty_out(vty, "SPF last executed %ldus ago\n",
+					result);
+			}
+		} else
+			vty_out(vty, "SPF has not been run\n");
 	}
-	vty_out(vty, "     Number of Area scoped LSAs is %u\n",
-		oa->lsdb->count);
-
-	vty_out(vty, "     Interface attached to this area:");
-	for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi))
-		vty_out(vty, " %s", oi->interface->name);
-	vty_out(vty, "\n");
-
-	if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec) {
-		result = monotime_since(&oa->ts_spf, NULL);
-		if (result / TIMER_SECOND_MICRO > 0) {
-			vty_out(vty, "SPF last executed %ld.%lds ago\n",
-				result / TIMER_SECOND_MICRO,
-				result % TIMER_SECOND_MICRO);
-		} else {
-			vty_out(vty, "SPF last executed %ldus ago\n", result);
-		}
-	} else
-		vty_out(vty, "SPF has not been run\n");
 }
 
 DEFUN (area_range,
