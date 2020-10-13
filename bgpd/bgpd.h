@@ -2181,6 +2181,9 @@ extern struct peer *peer_new(struct bgp *bgp);
 
 extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 					const char *ip_str, bool use_json);
+extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
+				      const char *name,
+				      enum bgp_instance_type inst_type);
 
 /* Hooks */
 DECLARE_HOOK(peer_status_changed, (struct peer * peer), (peer))
