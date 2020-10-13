@@ -8085,6 +8085,7 @@ DEFUN (ip_ospf_area,
 	struct ospf *ospf = NULL;
 	unsigned short instance = 0;
 	char *areaid;
+	uint32_t count = 0;
 
 	if (argv_find(argv, argc, "(1-65535)", &idx))
 		instance = strtol(argv[idx]->arg, NULL, 10);
@@ -8109,15 +8110,28 @@ DEFUN (ip_ospf_area,
 		 * allow the other instance(process) handle
 		 * the configuration command.
 		 */
+		count = 0;
+
 		params = IF_DEF_PARAMS(ifp);
 		if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
 			UNSET_IF_PARAM(params, if_area);
-			ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+			count++;
+		}
+
+		for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn; rn = route_next(rn))
+			if ((params = rn->info) && OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
+				UNSET_IF_PARAM(params, if_area);
+				count++;
+			}
+
+		if (count > 0) {
+			ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
 			if (ospf) {
 				ospf_interface_area_unset(ospf, ifp);
-				ospf->if_ospf_cli_count--;
+				ospf->if_ospf_cli_count -= count;
 			}
 		}
+
 		return CMD_NOT_MY_INSTANCE;
 	}
 
