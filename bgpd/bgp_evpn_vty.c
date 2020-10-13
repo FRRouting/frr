@@ -3988,8 +3988,7 @@ DEFUN(show_bgp_l2vpn_evpn_summary,
 				    show_established, uj);
 }
 
-/* Parse type from "type <ead|1|...>", return -1 on failure */
-static int cli_parse_type(int *type, struct cmd_token **argv, int argc)
+int bgp_evpn_cli_parse_type(int *type, struct cmd_token **argv, int argc)
 {
 	int type_idx = 0;
 
@@ -4048,7 +4047,7 @@ DEFUN(show_bgp_l2vpn_evpn_route,
 	if (uj)
 		json = json_object_new_object();
 
-	if (cli_parse_type(&type, argv, argc) < 0)
+	if (bgp_evpn_cli_parse_type(&type, argv, argc) < 0)
 		return CMD_WARNING;
 
 	if (argv_find(argv, argc, "detail", &detail))
@@ -4108,7 +4107,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 		}
 	}
 
-	if (cli_parse_type(&type, argv, argc) < 0)
+	if (bgp_evpn_cli_parse_type(&type, argv, argc) < 0)
 		return CMD_WARNING;
 
 	evpn_show_route_rd(vty, bgp, &prd, type, json);
@@ -4293,7 +4292,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni, show_bgp_l2vpn_evpn_route_vni_cmd,
 
 	vni = strtoul(argv[idx + 3]->arg, NULL, 10);
 
-	if (cli_parse_type(&type, argv, argc) < 0)
+	if (bgp_evpn_cli_parse_type(&type, argv, argc) < 0)
 		return CMD_WARNING;
 
 	if (argv_find(argv, argc, "vtep", &vtep_idx)) {
