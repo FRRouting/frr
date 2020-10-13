@@ -380,6 +380,10 @@ options to the configuration script.
    Look for YANG modules in `dir` [`prefix`/share/yang]. Note that the FRR
    YANG modules will be installed here.
 
+.. option:: --with-vici-socket <path>
+
+   Set StrongSWAN vici interface socket path [/var/run/charon.vici].
+
 Python dependency, documentation and tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
