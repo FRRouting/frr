@@ -535,6 +535,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, auth_simple);
 	UNSET_IF_PARAM(oip, auth_crypt);
 	UNSET_IF_PARAM(oip, auth_type);
+	UNSET_IF_PARAM(oip, if_area);
 
 	oip->auth_crypt = list_new();
 
@@ -579,6 +580,7 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, type)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_type)
+	    && !OSPF_IF_PARAM_CONFIGURED(oip, if_area)
 	    && listcount(oip->auth_crypt) == 0) {
 		ospf_del_if_params(oip);
 		rn->info = NULL;
