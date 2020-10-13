@@ -1100,6 +1100,51 @@ static int ospf_spf_is_protected_link(struct ospf_area *area,
 }
 
 /*
+ * For TI-LFA we need the reverse SPF for Q spaces. The reverse SPF is created
+ * by honoring the weight of the reverse 'edge', e.g. the edge from W to V, and
+ * NOT the weight of the 'edge' from V to W as usual. Hence we need to find the
+ * corresponding link in the LSA of W and extract the particular weight.
+ *
+ * TODO: Only P2P supported by now!
+ */
+static uint16_t get_reverse_distance(struct vertex *v,
+				     struct router_lsa_link *l,
+				     struct ospf_lsa *w_lsa)
+{
+	uint8_t *p, *lim;
+	struct router_lsa_link *w_link;
+	uint16_t distance = 0;
+
+	p = ((uint8_t *)w_lsa->data) + OSPF_LSA_HEADER_SIZE + 4;
+	lim = ((uint8_t *)w_lsa->data) + ntohs(w_lsa->data->length);
+
+	while (p < lim) {
+		w_link = (struct router_lsa_link *)p;
+		p += (OSPF_ROUTER_LSA_LINK_SIZE
+		      + (w_link->m[0].tos_count * OSPF_ROUTER_LSA_TOS_SIZE));
+
+		/* Only care about P2P with link ID equal to V's router id */
+		if (w_link->m[0].type == LSA_LINK_TYPE_POINTOPOINT
+		    && w_link->link_id.s_addr == v->id.s_addr) {
+			distance = ntohs(w_link->m[0].metric);
+			break;
+		}
+	}
+
+	/*
+	 * This might happen if the LSA for W is not complete yet. In this
+	 * case we take the weight of the 'forward' link from V. When the LSA
+	 * for W is completed the reverse SPF is run again anyway.
+	 */
+	if (distance == 0)
+		distance = ntohs(l->m[0].metric);
+
+	zlog_debug("%s: reversed distance is %u", __func__, distance);
+
+	return distance;
+}
+
+/*
  * RFC2328 16.1 (2).
  * v is on the SPF tree. Examine the links in v's LSA. Update the list of
  * candidates with any vertices not already on the list. If a lower-cost path
@@ -1114,6 +1159,7 @@ static void ospf_spf_next(struct vertex *v, struct ospf_area *area,
 	struct router_lsa_link *l = NULL;
 	struct in_addr *r;
 	int type = 0, lsa_pos = -1, lsa_pos_next = 0;
+	uint16_t link_distance;
 
 	/*
 	 * If this is a router-LSA, and bit V of the router-LSA (see Section
@@ -1202,8 +1248,19 @@ static void ospf_spf_next(struct vertex *v, struct ospf_area *area,
 				continue;
 			}
 
+			/*
+			 * For TI-LFA we might need the reverse SPF.
+			 * Currently only works with P2P!
+			 */
+			if (type == LSA_LINK_TYPE_POINTOPOINT
+			    && area->spf_reversed)
+				link_distance =
+					get_reverse_distance(v, l, w_lsa);
+			else
+				link_distance = ntohs(l->m[0].metric);
+
 			/* step (d) below */
-			distance = v->distance + ntohs(l->m[0].metric);
+			distance = v->distance + link_distance;
 		} else {
 			/* In case of V is Network-LSA. */
 			r = (struct in_addr *)p;

@@ -249,10 +249,14 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	new_rtrs = route_table_init();
 
 	/*
-	 * Generate a new SPF tree for this vertex,
+	 * Generate a new (reversed!) SPF tree for this vertex,
 	 * dry run true, root node false
 	 */
+	area->spf_reversed = true;
 	ospf_spf_calculate(area, dest->lsa_p, new_table, new_rtrs, true, false);
+
+	/* Reset the flag for reverse SPF */
+	area->spf_reversed = false;
 
 	q_space->root = area->spf;
 	q_space->vertex_list = area->spf_vertex_list;

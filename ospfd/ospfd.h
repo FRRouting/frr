@@ -525,6 +525,9 @@ struct ospf_area {
 	/* Statistics field. */
 	uint32_t spf_calculation; /* SPF Calculation Count. */
 
+	/* reverse SPF (used for TI-LFA Q spaces) */
+	bool spf_reversed;
+
 	/* Time stamps. */
 	struct timeval ts_spf; /* SPF calculation time stamp. */
 
