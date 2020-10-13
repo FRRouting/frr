@@ -201,7 +201,6 @@ int ospf_sock_init(struct ospf *ospf)
 			flog_err(EC_LIB_SOCKET,
 				 "Can't set IP_HDRINCL option for fd %d: %s",
 				 ospf_sock, safe_strerror(errno));
-			close(ospf_sock);
 			break;
 		}
 #elif defined(IPTOS_PREC_INTERNETCONTROL)
@@ -213,7 +212,6 @@ int ospf_sock_init(struct ospf *ospf)
 			flog_err(EC_LIB_SOCKET,
 				 "can't set sockopt IP_TOS %d to socket %d: %s",
 				 tos, ospf_sock, safe_strerror(errno));
-			close(ospf_sock); /* Prevent sd leak. */
 			break;
 		}
 #else /* !IPTOS_PREC_INTERNETCONTROL */
