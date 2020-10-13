@@ -8104,6 +8104,16 @@ DEFUN (ip_ospf_area,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (ospf) {
+		for (rn = route_top(ospf->networks); rn; rn = route_next(rn)) {
+			if (rn->info != NULL) {
+				vty_out(vty,
+					"Please remove all network commands first.\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
+	}
+
 	params = IF_DEF_PARAMS(ifp);
 	if (OSPF_IF_PARAM_CONFIGURED(params, if_area)
 	    && !IPV4_ADDR_SAME(&params->if_area, &area_id)) {
@@ -8127,16 +8137,6 @@ DEFUN (ip_ospf_area,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		ospf_if_update_params((ifp), (addr));
-	}
-
-	if (ospf) {
-		for (rn = route_top(ospf->networks); rn; rn = route_next(rn)) {
-			if (rn->info != NULL) {
-				vty_out(vty,
-					"Please remove all network commands first.\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-		}
 	}
 
 	/* enable ospf on this interface with area_id */
