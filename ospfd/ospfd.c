@@ -398,9 +398,6 @@ struct ospf *ospf_get(unsigned short instance, const char *name, bool *created)
 		ospf = ospf_new(instance, name);
 		ospf_add(ospf);
 
-		if (ospf->router_id_static.s_addr == INADDR_ANY)
-			ospf_router_id_update(ospf);
-
 		ospf_opaque_type11_lsa_init(ospf);
 	}
 
@@ -416,9 +413,6 @@ struct ospf *ospf_get_instance(unsigned short instance, bool *created)
 	if (ospf == NULL) {
 		ospf = ospf_new(instance, NULL /* VRF_DEFAULT*/);
 		ospf_add(ospf);
-
-		if (ospf->router_id_static.s_addr == INADDR_ANY)
-			ospf_router_id_update(ospf);
 
 		ospf_opaque_type11_lsa_init(ospf);
 	}
