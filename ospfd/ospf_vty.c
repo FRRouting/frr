@@ -213,9 +213,6 @@ DEFUN_NOSH (router_ospf,
 	struct ospf *ospf = NULL;
 	int ret = CMD_SUCCESS;
 	unsigned short instance = 0;
-	struct vrf *vrf = NULL;
-	struct route_node *rn;
-	struct interface *ifp;
 
 	ospf = ospf_cmd_lookup_ospf(vty, argv, argc, 1, &instance);
 	if (!ospf)
@@ -227,46 +224,12 @@ DEFUN_NOSH (router_ospf,
 		VTY_PUSH_CONTEXT_NULL(OSPF_NODE);
 		ret = CMD_NOT_MY_INSTANCE;
 	} else {
-		if (ospf->vrf_id != VRF_UNKNOWN)
-			ospf->oi_running = 1;
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"Config command 'router ospf %d' received, vrf %s id %u oi_running %u",
 				instance, ospf->name ? ospf->name : "NIL",
 				ospf->vrf_id, ospf->oi_running);
 		VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
-
-		/* Activate 'ip ospf area x' configured interfaces for given
-		 * vrf. Activate area on vrf x aware interfaces.
-		 * vrf_enable callback calls router_id_update which
-		 * internally will call ospf_if_update to trigger
-		 * network_run_state
-		 */
-		vrf = vrf_lookup_by_id(ospf->vrf_id);
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			struct ospf_if_params *params;
-
-			params = IF_DEF_PARAMS(ifp);
-			if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
-				for (rn = route_top(ospf->networks); rn;
-				     rn = route_next(rn)) {
-					if (rn->info != NULL) {
-						vty_out(vty,
-							"Interface %s has area config but please remove all network commands first.\n",
-							ifp->name);
-						return ret;
-					}
-				}
-				if (!ospf_interface_area_is_already_set(ospf,
-									ifp)) {
-					ospf_interface_area_set(ospf, ifp);
-					ospf->if_ospf_cli_count++;
-				}
-			}
-		}
-
-		ospf_router_id_update(ospf);
 	}
 
 	return ret;
