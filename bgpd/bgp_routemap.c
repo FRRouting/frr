@@ -4034,32 +4034,64 @@ DEFUN (no_match_mac_address,
 				      RMAP_EVENT_FILTER_DELETED);
 }
 
+/*
+ * Helper to handle the case of the user passing in a number or type string
+ */
+static const char *parse_evpn_rt_type(const char *num_rt_type)
+{
+	switch (num_rt_type[0]) {
+	case '1':
+		return "ead";
+	case '2':
+		return "macip";
+	case '3':
+		return "multicast";
+	case '4':
+		return "es";
+	case '5':
+		return "prefix";
+	default:
+		break;
+	}
+
+	/* Was already full type string */
+	return num_rt_type;
+}
+
 DEFUN (match_evpn_route_type,
        match_evpn_route_type_cmd,
-       "match evpn route-type <macip | multicast | prefix>",
+       "match evpn route-type <macip|2|multicast|3|prefix|5>",
        MATCH_STR
        EVPN_HELP_STR
-       "Match route-type\n"
-       "mac-ip route\n"
-       "IMET route\n"
-       "prefix route\n")
+       EVPN_TYPE_HELP_STR
+       EVPN_TYPE_2_HELP_STR
+       EVPN_TYPE_2_HELP_STR
+       EVPN_TYPE_3_HELP_STR
+       EVPN_TYPE_3_HELP_STR
+       EVPN_TYPE_5_HELP_STR
+       EVPN_TYPE_5_HELP_STR)
 {
-	return bgp_route_match_add(vty, "evpn route-type", argv[3]->arg,
+	return bgp_route_match_add(vty, "evpn route-type",
+				   parse_evpn_rt_type(argv[3]->arg),
 				   RMAP_EVENT_MATCH_ADDED);
 }
 
 DEFUN (no_match_evpn_route_type,
        no_match_evpn_route_type_cmd,
-       "no match evpn route-type <macip | multicast | prefix>",
+       "no match evpn route-type <macip|2|multicast|3|prefix|5>",
        NO_STR
        MATCH_STR
        EVPN_HELP_STR
-       "Match route-type\n"
-       "mac-ip route\n"
-       "IMET route\n"
-       "prefix route\n")
+       EVPN_TYPE_HELP_STR
+       EVPN_TYPE_2_HELP_STR
+       EVPN_TYPE_2_HELP_STR
+       EVPN_TYPE_3_HELP_STR
+       EVPN_TYPE_3_HELP_STR
+       EVPN_TYPE_5_HELP_STR
+       EVPN_TYPE_5_HELP_STR)
 {
-	return bgp_route_match_delete(vty, "evpn route-type", argv[4]->arg,
+	return bgp_route_match_delete(vty, "evpn route-type",
+				      parse_evpn_rt_type(argv[4]->arg),
 				      RMAP_EVENT_MATCH_DELETED);
 }
 
