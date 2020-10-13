@@ -8187,7 +8187,7 @@ DEFUN (ip_ospf_area,
 		params = ospf_get_if_params((ifp), (addr));
 		if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
 			vty_out(vty,
-				"Must remove previous area/address config before changing ospf area");
+				"Must remove previous area/address config before changing ospf area\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		ospf_if_update_params((ifp), (addr));
