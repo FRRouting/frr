@@ -8135,12 +8135,25 @@ DEFUN (ip_ospf_area,
 		ospf = ospf_lookup_instance(instance);
 
 	if (instance && ospf == NULL) {
+		/*
+		 * At this point we know we have received
+		 * an instance and there is no ospf instance
+		 * associated with it.  This means we are
+		 * in a situation where we have an
+		 * ospf command that is setup for a different
+		 * process(instance).  We need to safely
+		 * remove the command from ourselves and
+		 * allow the other instance(process) handle
+		 * the configuration command.
+		 */
 		params = IF_DEF_PARAMS(ifp);
 		if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
 			UNSET_IF_PARAM(params, if_area);
 			ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-			ospf_interface_area_unset(ospf, ifp);
-			ospf->if_ospf_cli_count--;
+			if (ospf) {
+				ospf_interface_area_unset(ospf, ifp);
+				ospf->if_ospf_cli_count--;
+			}
 		}
 		return CMD_NOT_MY_INSTANCE;
 	}
