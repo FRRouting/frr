@@ -10774,6 +10774,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 	json_object *json_prefA = NULL;
 	json_object *json_prefB = NULL;
 	json_object *json_addr = NULL;
+	json_object *json_advmap = NULL;
 
 	if (use_json) {
 		json_addr = json_object_new_object();
@@ -11047,6 +11048,26 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			json_object_string_add(json_addr,
 					       "selectiveUnsuppressRouteMap",
 					       filter->usmap.name);
+
+		/* advertise-map */
+		if (filter->advmap.aname) {
+			json_advmap = json_object_new_object();
+			json_object_string_add(json_advmap, "condition",
+					       filter->advmap.condition
+						       ? "EXIST"
+						       : "NON_EXIST");
+			json_object_string_add(json_advmap, "conditionMap",
+					       filter->advmap.cname);
+			json_object_string_add(json_advmap, "advertiseMap",
+					       filter->advmap.aname);
+			json_object_string_add(json_advmap, "advertiseStatus",
+					       filter->advmap.update_type
+							       == ADVERTISE
+						       ? "Advertise"
+						       : "Withdraw");
+			json_object_object_add(json_addr, "advertiseMap",
+					       json_advmap);
+		}
 
 		/* Receive prefix count */
 		json_object_int_add(json_addr, "acceptedPrefixCounter",
@@ -11353,7 +11374,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				filter->advmap.cname,
 				filter->advmap.amap ? "*" : "",
 				filter->advmap.aname,
-				filter->advmap.advertise == ADVERTISE
+				filter->advmap.update_type == ADVERTISE
 					? "Advertise"
 					: "Withdraw");
 

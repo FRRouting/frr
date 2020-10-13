@@ -222,11 +222,11 @@ static int bgp_conditional_adv_timer(struct thread *t)
 			 * validation.
 			 */
 			if (filter->advmap.condition == CONDITION_EXIST)
-				filter->advmap.advertise =
+				filter->advmap.update_type =
 					(ret == RMAP_PERMITMATCH) ? ADVERTISE
 								  : WITHDRAW;
 			else
-				filter->advmap.advertise =
+				filter->advmap.update_type =
 					(ret == RMAP_PERMITMATCH) ? WITHDRAW
 								  : ADVERTISE;
 
@@ -249,7 +249,7 @@ static int bgp_conditional_adv_timer(struct thread *t)
 			/* Send update as per the conditional advertisement */
 			bgp_conditional_adv_routes(peer, afi, safi, table,
 						   filter->advmap.amap,
-						   filter->advmap.advertise);
+						   filter->advmap.update_type);
 		}
 		peer->advmap_table_change = false;
 	}

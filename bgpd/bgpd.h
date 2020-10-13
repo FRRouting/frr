@@ -767,14 +767,6 @@ struct bgp_nexthop {
 #define CONDITION_NON_EXIST	false
 #define CONDITION_EXIST		true
 
-/* BGP peer RMAP options */
-#define BGP_PEER_ADVERTISE_MAP		(1 << 0)
-#define BGP_PEER_ROUTE_MAP		(1 << 1)
-#define BGP_PEER_UNSUPPRESS_MAP		(1 << 2)
-#define BGP_PEER_CONDITION_EXIST	(1 << 3)
-#define BGP_PEER_RMAP_DIRECTION		(1 << 4)
-#define BGP_PEER_RMAP_SET		(1 << 5)
-
 enum update_type { WITHDRAW, ADVERTISE };
 
 #include "filter.h"
@@ -821,7 +813,7 @@ struct bgp_filter {
 		char *cname;
 		struct route_map *cmap;
 
-		enum update_type advertise;
+		enum update_type update_type;
 	} advmap;
 };
 
