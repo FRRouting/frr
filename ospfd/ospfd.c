@@ -580,7 +580,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	struct route_node *rn;
 	struct ospf_nbr_nbma *nbr_nbma;
 	struct ospf_lsa *lsa;
-	struct interface *ifp;
 	struct ospf_interface *oi;
 	struct ospf_area *area;
 	struct ospf_vl_data *vl_data;
@@ -618,15 +617,6 @@ static void ospf_finish_final(struct ospf *ospf)
 		ospf_vl_delete(ospf, vl_data);
 
 	list_delete(&ospf->vlinks);
-
-	/* Remove any ospf interface config params */
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		struct ospf_if_params *params;
-
-		params = IF_DEF_PARAMS(ifp);
-		if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
-			UNSET_IF_PARAM(params, if_area);
-	}
 
 	/* Reset interface. */
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi))
