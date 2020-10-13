@@ -570,8 +570,7 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, type)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_type)
-	    && listcount(oip->auth_crypt) == 0
-	    && ntohl(oip->network_lsa_seqnum) != OSPF_INITIAL_SEQUENCE_NUMBER) {
+	    && listcount(oip->auth_crypt) == 0) {
 		ospf_del_if_params(oip);
 		rn->info = NULL;
 		route_unlock_node(rn);
