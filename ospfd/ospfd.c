@@ -410,11 +410,20 @@ struct ospf *ospf_get(unsigned short instance, const char *name, bool *created)
 
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct ospf_if_params *params;
+			struct route_node *rn;
+			uint32_t count = 0;
 
 			params = IF_DEF_PARAMS(ifp);
-			if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
+			if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
+				count++;
+
+			for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn; rn = route_next(rn))
+				if ((params = rn->info) && OSPF_IF_PARAM_CONFIGURED(params, if_area))
+					count++;
+
+			if (count > 0) {
 				ospf_interface_area_set(ospf, ifp);
-				ospf->if_ospf_cli_count++;
+				ospf->if_ospf_cli_count += count;
 			}
 		}
 
