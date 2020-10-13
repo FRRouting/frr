@@ -8232,7 +8232,7 @@ DEFUN (no_ip_ospf_area,
 	else
 		ospf = ospf_lookup_instance(instance);
 
-	if (ospf == NULL)
+	if (instance && ospf == NULL)
 		return CMD_NOT_MY_INSTANCE;
 
 	argv_find(argv, argc, "area", &idx);
@@ -8262,8 +8262,11 @@ DEFUN (no_ip_ospf_area,
 		ospf_if_update_params((ifp), (addr));
 	}
 
-	ospf_interface_area_unset(ospf, ifp);
-	ospf->if_ospf_cli_count--;
+	if (ospf) {
+		ospf_interface_area_unset(ospf, ifp);
+		ospf->if_ospf_cli_count--;
+	}
+
 	return CMD_SUCCESS;
 }
 
