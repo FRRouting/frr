@@ -13933,48 +13933,9 @@ void cli_show_bgp_global_afi_safi_unicast_admin_distance_route(
 			: "");
 }
 
-DEFUN_YANG(bgp_damp_set, bgp_damp_set_cmd,
-	   "bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]",
-	   "BGP Specific commands\n"
-	   "Enable route-flap dampening\n"
-	   "Half-life time for the penalty\n"
-	   "Value to start reusing a route\n"
-	   "Value to start suppressing a route\n"
-	   "Maximum duration to suppress a stable route\n")
-{
-	int idx_half_life = 2;
-	int idx_reuse = 3;
-	int idx_suppress = 4;
-	int idx_max_suppress = 5;
-	afi_t afi;
-	safi_t safi;
-	char xpath[XPATH_MAXLEN];
-
-	afi = bgp_node_afi(vty);
-	safi = bgp_node_safi(vty);
-
-	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
-	if (argc == 6) {
-		nb_cli_enqueue_change(vty, "./reach-decay", NB_OP_MODIFY,
-				      argv[idx_half_life]->arg);
-		nb_cli_enqueue_change(vty, "./reuse-above", NB_OP_MODIFY,
-				      argv[idx_reuse]->arg);
-		nb_cli_enqueue_change(vty, "./suppress-above", NB_OP_MODIFY,
-				      argv[idx_suppress]->arg);
-		nb_cli_enqueue_change(vty, "./unreach-decay", NB_OP_MODIFY,
-				      argv[idx_max_suppress]->arg);
-	}
-	snprintf(
-		xpath, sizeof(xpath),
-		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/route-flap-dampening",
-		yang_afi_safi_value2identity(afi, safi),
-		bgp_afi_safi_get_container_str(afi, safi));
-
-	return nb_cli_apply_changes(vty, xpath);
-}
-
-DEFUN_YANG(bgp_damp_unset, bgp_damp_unset_cmd,
-	   "no bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]",
+DEFPY_YANG(bgp_dampening,
+	   bgp_dampening_cmd,
+	   "[no] bgp dampening [(1-45)$halflife [(1-20000)$reuse (1-20000)$suppress (1-255)$max_supress]]",
 	   NO_STR
 	   "BGP Specific commands\n"
 	   "Enable route-flap dampening\n"
@@ -13990,7 +13951,24 @@ DEFUN_YANG(bgp_damp_unset, bgp_damp_unset_cmd,
 	afi = bgp_node_afi(vty);
 	safi = bgp_node_safi(vty);
 
-	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "false");
+	if (!no) {
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
+		if (argc == 6) {
+			nb_cli_enqueue_change(vty, "./reach-decay",
+					      NB_OP_MODIFY, halflife_str);
+			nb_cli_enqueue_change(vty, "./reuse-above",
+					      NB_OP_MODIFY, reuse_str);
+			nb_cli_enqueue_change(vty, "./suppress-above",
+					      NB_OP_MODIFY, suppress_str);
+			nb_cli_enqueue_change(vty, "./unreach-decay",
+					      NB_OP_MODIFY, max_supress_str);
+		} if (argc == 3) {
+			nb_cli_enqueue_change(vty, "./reach-decay",
+					      NB_OP_MODIFY, halflife_str);
+		}
+	} else {
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "false");
+	}
 
 	snprintf(
 		xpath, sizeof(xpath),
@@ -14590,20 +14568,13 @@ void bgp_route_init(void)
 			&no_ipv6_bgp_distance_source_access_list_cmd);
 
 	/* BGP dampening */
-	install_element(BGP_NODE, &bgp_damp_set_cmd);
-	install_element(BGP_NODE, &bgp_damp_unset_cmd);
-	install_element(BGP_IPV4_NODE, &bgp_damp_set_cmd);
-	install_element(BGP_IPV4_NODE, &bgp_damp_unset_cmd);
-	install_element(BGP_IPV4M_NODE, &bgp_damp_set_cmd);
-	install_element(BGP_IPV4M_NODE, &bgp_damp_unset_cmd);
-	install_element(BGP_IPV4L_NODE, &bgp_damp_set_cmd);
-	install_element(BGP_IPV4L_NODE, &bgp_damp_unset_cmd);
-	install_element(BGP_IPV6_NODE, &bgp_damp_set_cmd);
-	install_element(BGP_IPV6_NODE, &bgp_damp_unset_cmd);
-	install_element(BGP_IPV6M_NODE, &bgp_damp_set_cmd);
-	install_element(BGP_IPV6M_NODE, &bgp_damp_unset_cmd);
-	install_element(BGP_IPV6L_NODE, &bgp_damp_set_cmd);
-	install_element(BGP_IPV6L_NODE, &bgp_damp_unset_cmd);
+	install_element(BGP_NODE, &bgp_dampening_cmd);
+	install_element(BGP_IPV4_NODE, &bgp_dampening_cmd);
+	install_element(BGP_IPV4M_NODE, &bgp_dampening_cmd);
+	install_element(BGP_IPV4L_NODE, &bgp_dampening_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_dampening_cmd);
+	install_element(BGP_IPV6M_NODE, &bgp_dampening_cmd);
+	install_element(BGP_IPV6L_NODE, &bgp_dampening_cmd);
 
 	/* Large Communities */
 	install_element(VIEW_NODE, &show_ip_bgp_large_community_list_cmd);
