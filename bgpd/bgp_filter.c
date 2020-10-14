@@ -507,13 +507,15 @@ DEFUN(no_as_path, no_bgp_as_path_cmd,
 	/* Lookup asfilter. */
 	asfilter = as_filter_lookup(aslist, regstr, type);
 
-	XFREE(MTYPE_TMP, regstr);
 	bgp_regex_free(regex);
 
 	if (asfilter == NULL) {
-		vty_out(vty, "\n");
+		vty_out(vty, "Regex entered %s does not exist\n", regstr);
+		XFREE(MTYPE_TMP, regstr);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	XFREE(MTYPE_TMP, regstr);
 
 	as_list_filter_delete(aslist, asfilter);
 
