@@ -37,7 +37,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
-
+#include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_mplsvpn_snmp.h"
 
@@ -77,6 +77,12 @@
 #define MPLSL3VPNVRFCONFADMINSTATUS 13
 #define MPLSL3VPNVRFCONFSTORAGETYPE 14
 
+/* MPLSL3VPN RT Table */
+#define MPLSL3VPNVRFRT 1
+#define MPLSL3VPNVRFRTDESCR 2
+#define MPLSL3VPNVRFRTROWSTATUS 3
+#define MPLSL3VPNVRFRTSTORAGETYPE 4
+
 /* MPLSL3VPN PERF Table */
 #define MPLSL3VPNVRFPERFROUTESADDED 1
 #define MPLSL3VPNVRFPERFROUTESDELETED 2
@@ -115,12 +121,15 @@
 /* Declare static local variables for convenience. */
 SNMP_LOCAL_VARIABLES
 
+#define RT_PREAMBLE_SIZE 20
+
 /* BGP-MPLS-MIB instances */
 static oid mpls_l3vpn_oid[] = {MPLSL3VPNMIB};
 static char rd_buf[RD_ADDRSTRLEN];
 static uint8_t bgp_mplsvpn_notif_enable = SNMP_FALSE;
 static oid mpls_l3vpn_policy_oid[2] = {0, 0};
 static const char *empty_nhop = "";
+char rt_description[VRF_NAMSIZ + RT_PREAMBLE_SIZE];
 
 static uint8_t *mplsL3vpnConfiguredVrfs(struct variable *, oid[], size_t *, int,
 					size_t *, WriteMethod **);
@@ -146,6 +155,9 @@ static uint8_t *mplsL3vpnIllLblRcvThrsh(struct variable *, oid[], size_t *, int,
 
 static uint8_t *mplsL3vpnVrfTable(struct variable *, oid[], size_t *, int,
 				  size_t *, WriteMethod **);
+
+static uint8_t *mplsL3vpnVrfRtTable(struct variable *, oid[], size_t *, int,
+				    size_t *, WriteMethod **);
 
 static uint8_t *mplsL3vpnIfConfTable(struct variable *, oid[], size_t *, int,
 				     size_t *, WriteMethod **);
@@ -307,6 +319,32 @@ static struct variable mpls_l3vpn_variables[] = {
 	 mplsL3vpnVrfTable,
 	 5,
 	 {1, 2, 2, 1, 15} },
+
+	/* mplsL3vpnVrfRt Table */
+	{MPLSL3VPNVRFRT,
+	 OCTET_STRING,
+	 RONLY,
+	 mplsL3vpnVrfRtTable,
+	 5,
+	 {1, 2, 3, 1, 4} },
+	{MPLSL3VPNVRFRTDESCR,
+	 OCTET_STRING,
+	 RONLY,
+	 mplsL3vpnVrfRtTable,
+	 5,
+	 {1, 2, 3, 1, 5} },
+	{MPLSL3VPNVRFRTROWSTATUS,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnVrfRtTable,
+	 5,
+	 {1, 2, 3, 1, 6} },
+	{MPLSL3VPNVRFRTSTORAGETYPE,
+	 INTEGER,
+	 RONLY,
+	 mplsL3vpnVrfRtTable,
+	 5,
+	 {1, 2, 3, 1, 7} },
 
 	/* mplsL3VpnPerfTable */
 	{MPLSL3VPNVRFPERFROUTESADDED,
@@ -914,6 +952,201 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 	case MPLSL3VPNVRFCONFADMINSTATUS:
 		return SNMP_INTEGER(1);
 	case MPLSL3VPNVRFCONFSTORAGETYPE:
+		return SNMP_INTEGER(2);
+	}
+	return NULL;
+}
+
+/* 1.3.6.1.2.1.10.166.11.1.2.3.1.x = 14*/
+#define VRFRTTAB_NAMELEN 14
+static struct bgp *bgpL3vpnVrfRt_lookup(struct variable *v, oid name[],
+					size_t *length, char *vrf_name,
+					uint32_t *rt_index, uint8_t *rt_type,
+					int exact)
+{
+	uint32_t type_index_size;
+	struct bgp *l3vpn_bgp;
+	size_t namelen = v ? v->namelen : VRFRTTAB_NAMELEN;
+	int vrf_name_len, len;
+
+	/* too long ? */
+	if (*length - namelen
+	    > (VRF_NAMSIZ + sizeof(uint32_t)) + sizeof(uint8_t))
+		return NULL;
+
+	type_index_size = sizeof(uint32_t) + sizeof(uint8_t);
+	/* do we have index info in the oid ? */
+	if (*length - namelen != 0 && *length - namelen >= type_index_size) {
+		/* copy the info from the oid */
+		vrf_name_len = *length - (namelen + type_index_size);
+		oid2string(name + namelen, vrf_name_len, vrf_name);
+		oid2int(name + namelen + vrf_name_len, (int *)rt_index);
+		*rt_type = name[namelen + vrf_name_len + sizeof(uint32_t)];
+	}
+
+	if (exact) {
+		l3vpn_bgp = bgp_lookup_by_name(vrf_name);
+		if (l3vpn_bgp && !is_bgp_vrf_mplsvpn(l3vpn_bgp))
+			return NULL;
+		if (!l3vpn_bgp)
+			return NULL;
+		/* check the index and type match up */
+		if ((*rt_index != AFI_IP) || (*rt_index != AFI_IP6))
+			return NULL;
+		/* do we have RT config */
+		if (!(l3vpn_bgp->vpn_policy[*rt_index]
+			      .rtlist[BGP_VPN_POLICY_DIR_FROMVPN]
+		      || l3vpn_bgp->vpn_policy[*rt_index]
+				 .rtlist[BGP_VPN_POLICY_DIR_TOVPN]))
+			return NULL;
+		return l3vpn_bgp;
+	}
+	if (strnlen(vrf_name, VRF_NAMSIZ) == 0)
+		l3vpn_bgp = bgp_lookup_by_name_next(vrf_name);
+	else
+		l3vpn_bgp = bgp_lookup_by_name(vrf_name);
+	while (l3vpn_bgp) {
+		switch (*rt_index) {
+		case 0:
+			*rt_index = AFI_IP;
+			break;
+		case AFI_IP:
+			*rt_index = AFI_IP6;
+			break;
+		case AFI_IP6:
+			*rt_index = 0;
+			continue;
+		}
+		if (*rt_index) {
+			switch (*rt_type) {
+			case 0:
+				*rt_type = MPLSVPNVRFRTTYPEIMPORT;
+				break;
+			case MPLSVPNVRFRTTYPEIMPORT:
+				*rt_type = MPLSVPNVRFRTTYPEEXPORT;
+				break;
+			case MPLSVPNVRFRTTYPEEXPORT:
+			case MPLSVPNVRFRTTYPEBOTH:
+				*rt_type = 0;
+				break;
+			}
+			if (*rt_type) {
+				bool import, export;
+
+				import =
+					(!!l3vpn_bgp->vpn_policy[*rt_index].rtlist
+						   [BGP_VPN_POLICY_DIR_FROMVPN]);
+				export =
+					(!!l3vpn_bgp->vpn_policy[*rt_index].rtlist
+						   [BGP_VPN_POLICY_DIR_TOVPN]);
+				if (*rt_type == MPLSVPNVRFRTTYPEIMPORT
+				    && !import)
+					continue;
+				if (*rt_type == MPLSVPNVRFRTTYPEEXPORT
+				    && !export)
+					continue;
+				/* ckeck for both */
+				if (*rt_type == MPLSVPNVRFRTTYPEIMPORT && import
+				    && export
+				    && ecommunity_cmp(
+					    l3vpn_bgp->vpn_policy[*rt_index].rtlist
+						    [BGP_VPN_POLICY_DIR_FROMVPN],
+					    l3vpn_bgp->vpn_policy[*rt_index].rtlist
+						    [BGP_VPN_POLICY_DIR_TOVPN]))
+					*rt_type = MPLSVPNVRFRTTYPEBOTH;
+
+				/* we have a match copy the oid info */
+				vrf_name_len =
+					strnlen(l3vpn_bgp->name, VRF_NAMSIZ);
+				len = vrf_name_len + sizeof(uint32_t)
+				      + sizeof(uint8_t);
+				oid_copy_str(name + namelen, l3vpn_bgp->name,
+					     vrf_name_len);
+				oid_copy_int(name + namelen + vrf_name_len,
+					     (int *)rt_index);
+				name[(namelen + len) - 1] = *rt_type;
+				*length = len + namelen;
+				return l3vpn_bgp;
+			}
+			l3vpn_bgp = bgp_lookup_by_name_next(l3vpn_bgp->name);
+		}
+	}
+	return NULL;
+}
+
+static const char *rt_type2str(uint8_t rt_type)
+{
+	switch (rt_type) {
+	case MPLSVPNVRFRTTYPEIMPORT:
+		return "import";
+	case MPLSVPNVRFRTTYPEEXPORT:
+		return "export";
+	case MPLSVPNVRFRTTYPEBOTH:
+		return "both";
+	default:
+		return "unknown";
+	}
+}
+static uint8_t *mplsL3vpnVrfRtTable(struct variable *v, oid name[],
+				    size_t *length, int exact, size_t *var_len,
+				    WriteMethod **write_method)
+{
+	char vrf_name[VRF_NAMSIZ];
+	struct bgp *l3vpn_bgp;
+	uint32_t rt_index = 0;
+	uint8_t rt_type = 0;
+	char *rt_b;
+
+	if (smux_header_table(v, name, length, exact, var_len, write_method)
+	    == MATCH_FAILED)
+		return NULL;
+
+	memset(vrf_name, 0, VRF_NAMSIZ);
+	l3vpn_bgp = bgpL3vpnVrfRt_lookup(v, name, length, vrf_name, &rt_index,
+					 &rt_type, exact);
+
+	if (!l3vpn_bgp)
+		return NULL;
+
+	switch (v->magic) {
+	case MPLSL3VPNVRFRT:
+		switch (rt_type) {
+		case MPLSVPNVRFRTTYPEIMPORT:
+			rt_b = ecommunity_ecom2str(
+				l3vpn_bgp->vpn_policy[rt_index]
+					.rtlist[BGP_VPN_POLICY_DIR_FROMVPN],
+				ECOMMUNITY_FORMAT_ROUTE_MAP,
+				ECOMMUNITY_ROUTE_TARGET);
+			break;
+		case MPLSVPNVRFRTTYPEEXPORT:
+		case MPLSVPNVRFRTTYPEBOTH:
+			rt_b = ecommunity_ecom2str(
+				l3vpn_bgp->vpn_policy[rt_index]
+					.rtlist[BGP_VPN_POLICY_DIR_TOVPN],
+				ECOMMUNITY_FORMAT_ROUTE_MAP,
+				ECOMMUNITY_ROUTE_TARGET);
+			break;
+		default:
+			rt_b = NULL;
+			break;
+		}
+		if (rt_b)
+			*var_len = strnlen(rt_b, ECOMMUNITY_STRLEN);
+		else
+			*var_len = 0;
+		return (uint8_t *)rt_b;
+	case MPLSL3VPNVRFRTDESCR:
+		/* since we dont have a description generate one */
+		memset(rt_description, 0, VRF_NAMSIZ + RT_PREAMBLE_SIZE);
+		snprintf(rt_description, VRF_NAMSIZ + RT_PREAMBLE_SIZE,
+			 "RT %s for VRF %s", rt_type2str(rt_type),
+			 l3vpn_bgp->name);
+		*var_len =
+			strnlen(rt_description, VRF_NAMSIZ + RT_PREAMBLE_SIZE);
+		return (uint8_t *)rt_description;
+	case MPLSL3VPNVRFRTROWSTATUS:
+		return SNMP_INTEGER(1);
+	case MPLSL3VPNVRFRTSTORAGETYPE:
 		return SNMP_INTEGER(2);
 	}
 	return NULL;
