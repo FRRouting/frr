@@ -269,7 +269,7 @@ struct sr_node {
 
 	/* List of Prefix & Link advertise by this node */
 	struct list *ext_prefix; /* For Node SID */
-	struct list *ext_link;   /* For Adj and LAN SID */
+	struct list *ext_link;   /* For Adjacency SID */
 
 	/* Pointer to FRR SR-Node or NULL if it is not a neighbor */
 	struct sr_node *neighbor;
