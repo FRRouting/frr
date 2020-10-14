@@ -200,12 +200,38 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
 
 	lsah = (struct lsa_header *)lsa->data;
 
-	length = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
+	length = ntohs(lsah->length);
+
+	/* Check LSA len */
+	if (length <= OSPF_LSA_HEADER_SIZE) {
+		if (IS_DEBUG_OSPF_GR_HELPER)
+			zlog_debug("%s: Malformed packet: Invalid LSA len:%d",
+				   __func__, length);
+		return OSPF_GR_FAILURE;
+	}
+
+	length -= OSPF_LSA_HEADER_SIZE;
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+
+		/* Check TLV len against overall LSA */
+		if (sum + TLV_SIZE(tlvh) > length) {
+			if (IS_DEBUG_OSPF_GR_HELPER)
+				zlog_debug("%s: Malformed packet: Invalid TLV len:%zu",
+					   __func__, TLV_SIZE(tlvh));
+			return OSPF_GR_FAILURE;
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case GRACE_PERIOD_TYPE:
+			if (TLV_SIZE(tlvh) <
+			    sizeof(struct grace_tlv_graceperiod)) {
+				zlog_debug("%s: Malformed packet: Invalid grace TLV len:%zu",
+					   __func__, TLV_SIZE(tlvh));
+				return OSPF_GR_FAILURE;
+			}
+
 			grace_period = (struct grace_tlv_graceperiod *)tlvh;
 			*interval = ntohl(grace_period->interval);
 			sum += TLV_SIZE(tlvh);
@@ -216,6 +242,13 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
 				return OSPF_GR_FAILURE;
 			break;
 		case RESTART_REASON_TYPE:
+			if (TLV_SIZE(tlvh) <
+			    sizeof(struct grace_tlv_restart_reason)) {
+				zlog_debug("%s: Malformed packet: Invalid reason TLV len:%zu",
+					   __func__, TLV_SIZE(tlvh));
+				return OSPF_GR_FAILURE;
+			}
+
 			gr_reason = (struct grace_tlv_restart_reason *)tlvh;
 			*reason = gr_reason->reason;
 			sum += TLV_SIZE(tlvh);
@@ -224,6 +257,13 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
 				return OSPF_GR_FAILURE;
 			break;
 		case RESTARTER_IP_ADDR_TYPE:
+			if (TLV_SIZE(tlvh) <
+			    sizeof(struct grace_tlv_restart_addr)) {
+				zlog_debug("%s: Malformed packet: Invalid addr TLV len:%zu",
+					   __func__, TLV_SIZE(tlvh));
+				return OSPF_GR_FAILURE;
+			}
+
 			restart_addr = (struct grace_tlv_restart_addr *)tlvh;
 			addr->s_addr = restart_addr->addr.s_addr;
 			sum += TLV_SIZE(tlvh);
@@ -524,7 +564,7 @@ void ospf_helper_handle_topo_chg(struct ospf *ospf, struct ospf_lsa *lsa)
 	if (!ospf->active_restarter_cnt)
 		return;
 
-	/* Topo change not required to be hanlded if strict
+	/* Topo change not required to be handled if strict
 	 * LSA check is disbaled for this router.
 	 */
 	if (!ospf->strict_lsa_check)
@@ -929,14 +969,36 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
 
 	lsah = (struct lsa_header *)lsa->data;
 
-	length = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
+	length = ntohs(lsah->length);
+
+	if (length <= OSPF_LSA_HEADER_SIZE) {
+		vty_out(vty, "%% Invalid LSA length: %d\n", length);
+		return;
+	}
+
+	length -= OSPF_LSA_HEADER_SIZE;
 
 	vty_out(vty, "  TLV info:\n");
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+		/* Check TLV len */
+		if (sum + TLV_SIZE(tlvh) > length) {
+			vty_out(vty, "%% Invalid TLV length: %zu\n",
+				TLV_SIZE(tlvh));
+			return;
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case GRACE_PERIOD_TYPE:
+			if (TLV_SIZE(tlvh) <
+			    sizeof(struct grace_tlv_graceperiod)) {
+				vty_out(vty,
+					"%% Invalid grace TLV length %zu\n",
+					TLV_SIZE(tlvh));
+				return;
+			}
+
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
 			sum += TLV_SIZE(tlvh);
 
@@ -944,6 +1006,14 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
 				ntohl(gracePeriod->interval));
 			break;
 		case RESTART_REASON_TYPE:
+			if (TLV_SIZE(tlvh) <
+			    sizeof(struct grace_tlv_restart_reason)) {
+				vty_out(vty,
+					"%% Invalid reason TLV length %zu\n",
+					TLV_SIZE(tlvh));
+				return;
+			}
+
 			grReason = (struct grace_tlv_restart_reason *)tlvh;
 			sum += TLV_SIZE(tlvh);
 
@@ -951,6 +1021,14 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
 				ospf_restart_reason_desc[grReason->reason]);
 			break;
 		case RESTARTER_IP_ADDR_TYPE:
+			if (TLV_SIZE(tlvh) <
+			    sizeof(struct grace_tlv_restart_addr)) {
+				vty_out(vty,
+					"%% Invalid addr TLV length %zu\n",
+					TLV_SIZE(tlvh));
+				return;
+			}
+
 			restartAddr = (struct grace_tlv_restart_addr *)tlvh;
 			sum += TLV_SIZE(tlvh);
 
@@ -958,6 +1036,9 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
 				inet_ntoa(restartAddr->addr));
 			break;
 		default:
+			vty_out(vty, "   Unknown TLV type %d\n",
+				ntohs(tlvh->type));
+
 			break;
 		}
 	}
