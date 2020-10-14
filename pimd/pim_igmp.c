@@ -270,6 +270,27 @@ void pim_igmp_other_querier_timer_off(struct igmp_sock *igmp)
 	THREAD_OFF(igmp->t_other_querier_timer);
 }
 
+int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len)
+{
+	uint16_t recv_checksum;
+	uint16_t checksum;
+
+	IGMP_GET_INT16((unsigned char *)(igmp_msg + IGMP_CHECKSUM_OFFSET),
+		       recv_checksum);
+
+	/* Clear the checksum field */
+	memset(igmp_msg + IGMP_CHECKSUM_OFFSET, 0, 2);
+
+	checksum = in_cksum(igmp_msg, igmp_msg_len);
+	if (ntohs(checksum) != recv_checksum) {
+		zlog_warn("Invalid checksum received %x, calculated %x",
+			  recv_checksum, ntohs(checksum));
+		return -1;
+	}
+
+	return 0;
+}
+
 static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 			   int max_resp_code, struct in_addr from,
 			   const char *from_str, char *igmp_msg,
@@ -278,8 +299,6 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 	struct in_addr group_addr;
-	uint16_t recv_checksum;
-	uint16_t checksum;
 
 	if (igmp->mtrace_only)
 		return 0;
@@ -289,17 +308,10 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 	ifp = igmp->interface;
 	pim_ifp = ifp->info;
 
-	recv_checksum = *(uint16_t *)(igmp_msg + IGMP_CHECKSUM_OFFSET);
-
-	/* for computing checksum */
-	*(uint16_t *)(igmp_msg + IGMP_CHECKSUM_OFFSET) = 0;
-
-	checksum = in_cksum(igmp_msg, igmp_msg_len);
-	if (checksum != recv_checksum) {
+	if (igmp_validate_checksum(igmp_msg, igmp_msg_len) == -1) {
 		zlog_warn(
-			"Recv IGMP query v%d from %s on %s: checksum mismatch: received=%x computed=%x",
-			query_version, from_str, ifp->name, recv_checksum,
-			checksum);
+			"Recv IGMP query v%d from %s on %s with invalid checksum",
+			query_version, from_str, ifp->name);
 		return -1;
 	}
 
@@ -424,6 +436,13 @@ static int igmp_v1_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		zlog_warn(
 			"Recv IGMP report v1 from %s on %s: size=%d other than correct=%d",
 			from_str, ifp->name, igmp_msg_len, IGMP_V12_MSG_SIZE);
+		return -1;
+	}
+
+	if (igmp_validate_checksum(igmp_msg, igmp_msg_len) == -1) {
+		zlog_warn(
+			"Recv IGMP report v1 from %s on %s with invalid checksum",
+			from_str, ifp->name);
 		return -1;
 	}
 

@@ -69,6 +69,12 @@
 
 #define IGMP_DEFAULT_VERSION (3)
 
+#define IGMP_GET_INT16(ptr, output)                                            \
+	do {                                                                   \
+		output = *(ptr) << 8;                                          \
+		output |= *((ptr) + 1);                                        \
+	} while (0)
+
 struct igmp_join {
 	struct in_addr group_addr;
 	struct in_addr source_addr;
@@ -115,6 +121,8 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp);
 void pim_igmp_general_query_off(struct igmp_sock *igmp);
 void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp);
 void pim_igmp_other_querier_timer_off(struct igmp_sock *igmp);
+
+int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len);
 
 #define IGMP_SOURCE_MASK_FORWARDING        (1 << 0)
 #define IGMP_SOURCE_MASK_DELETE            (1 << 1)
