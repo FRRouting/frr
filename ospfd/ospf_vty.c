@@ -5132,9 +5132,8 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 				"      Graceful Restart grace period time: %d (seconds).\n",
 				nbr->gr_helper_info.recvd_grace_period);
 			vty_out(vty, "      Graceful Restart reason: %s.\n",
-				ospf_restart_reason_desc
-					[nbr->gr_helper_info
-						 .gr_restart_reason]);
+				ospf_restart_reason2str(
+					nbr->gr_helper_info.gr_restart_reason));
 		} else {
 			vty_out(vty,
 				"      Graceful Restart HELPER Status : None\n");
@@ -5143,15 +5142,14 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 		if (nbr->gr_helper_info.rejected_reason
 		    != OSPF_HELPER_REJECTED_NONE)
 			vty_out(vty, "      Helper rejected reason: %s.\n",
-				ospf_rejected_reason_desc
-					[nbr->gr_helper_info.rejected_reason]);
+				ospf_rejected_reason2str(
+					nbr->gr_helper_info.rejected_reason));
 
 		if (nbr->gr_helper_info.helper_exit_reason
 		    != OSPF_GR_HELPER_EXIT_NONE)
 			vty_out(vty, "      Last helper exit reason: %s.\n\n",
-				ospf_exit_reason_desc
-					[nbr->gr_helper_info
-						 .helper_exit_reason]);
+				ospf_exit_reason2str(
+					nbr->gr_helper_info.helper_exit_reason));
 		else
 			vty_out(vty, "\n");
 	} else {
@@ -5165,25 +5163,24 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 				nbr->gr_helper_info.recvd_grace_period);
 			json_object_string_add(
 				json_neigh, "grRestartReason",
-				ospf_restart_reason_desc
-					[nbr->gr_helper_info
-						 .gr_restart_reason]);
+				ospf_restart_reason2str(
+					nbr->gr_helper_info.gr_restart_reason));
 		}
 
 		if (nbr->gr_helper_info.rejected_reason
 		    != OSPF_HELPER_REJECTED_NONE)
 			json_object_string_add(
 				json_neigh, "helperRejectReason",
-				ospf_rejected_reason_desc
-					[nbr->gr_helper_info.rejected_reason]);
+				ospf_rejected_reason2str(
+					nbr->gr_helper_info.rejected_reason));
 
 		if (nbr->gr_helper_info.helper_exit_reason
 		    != OSPF_GR_HELPER_EXIT_NONE)
 			json_object_string_add(
 				json_neigh, "helperExitReason",
-				ospf_exit_reason_desc
-					[nbr->gr_helper_info
-						 .helper_exit_reason]);
+				ospf_exit_reason2str(
+					nbr->gr_helper_info
+						 .helper_exit_reason));
 	}
 
 	ospf_bfd_show_info(vty, nbr->bfd_info, json_neigh, use_json, 0);
@@ -9308,7 +9305,7 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 
 		if (ospf->last_exit_reason != OSPF_GR_HELPER_EXIT_NONE) {
 			vty_out(vty, " Last Helper exit Reason :%s\n",
-				ospf_exit_reason_desc[ospf->last_exit_reason]);
+				ospf_exit_reason2str(ospf->last_exit_reason));
 		}
 
 		if (ospf->active_restarter_cnt)
@@ -9337,7 +9334,7 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 		if (ospf->last_exit_reason != OSPF_GR_HELPER_EXIT_NONE)
 			json_object_string_add(
 				json_vrf, "LastExitReason",
-				ospf_exit_reason_desc[ospf->last_exit_reason]);
+				ospf_exit_reason2str(ospf->last_exit_reason));
 
 		if (ospf->active_restarter_cnt)
 			json_object_int_add(json_vrf, "activeRestarterCnt",
@@ -9402,9 +9399,9 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 							.t_grace_timer));
 					vty_out(vty,
 						"   Graceful Restart reason: %s.\n\n",
-						ospf_restart_reason_desc
-							[nbr->gr_helper_info
-							.gr_restart_reason]);
+						ospf_restart_reason2str(
+							nbr->gr_helper_info
+							.gr_restart_reason));
 					cnt++;
 				} else {
 					json_neigh = json_object_new_object();
@@ -9432,9 +9429,9 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 							.t_grace_timer));
 					json_object_string_add(
 						json_neigh, "restartReason",
-						ospf_restart_reason_desc
-							[nbr->gr_helper_info
-							.gr_restart_reason]);
+						ospf_restart_reason2str(
+							nbr->gr_helper_info
+							.gr_restart_reason));
 					json_object_object_add(
 						json_neighbors,
 						inet_ntoa(nbr->src),
