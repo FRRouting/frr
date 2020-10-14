@@ -1035,7 +1035,8 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 		char prefix_buf[PREFIX_STRLEN];
 		char esi_buf[ESI_STR_LEN];
 		char esi_buf2[ESI_STR_LEN];
-		struct prefix_evpn *evp = (struct prefix_evpn *)&dest->p;
+		struct prefix_evpn *evp =
+			(struct prefix_evpn *)bgp_dest_get_prefix(dest);
 
 		zlog_debug("local path deleted %s es %s; new-path-es %s",
 				prefix2str(evp,
@@ -1426,7 +1427,8 @@ static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 					      uint32_t loc_seq, bool setup_sync)
 {
 	esi_t *esi;
-	struct prefix_evpn *evp = (struct prefix_evpn *)&dest->p;
+	struct prefix_evpn *evp =
+		(struct prefix_evpn *)bgp_dest_get_prefix(dest);
 
 	if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
 		return;
@@ -1953,7 +1955,8 @@ static void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 	int add_l3_ecomm = 0;
 	struct bgp_dest *global_dest;
 	struct bgp_path_info *global_pi;
-	struct prefix_evpn *evp = (struct prefix_evpn *)&dest->p;
+	struct prefix_evpn *evp =
+		(struct prefix_evpn *)bgp_dest_get_prefix(dest);
 	int route_change;
 	bool old_is_sync = false;
 

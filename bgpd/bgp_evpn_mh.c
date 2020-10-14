@@ -340,7 +340,7 @@ static int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	struct prefix_evpn *evp;
 
 	*ri = NULL;
-	evp = (struct prefix_evpn *)&dest->p;
+	evp = (struct prefix_evpn *)bgp_dest_get_prefix(dest);
 	*route_changed = 1;
 
 	/* locate the local and remote entries if any */
@@ -717,7 +717,7 @@ static int bgp_evpn_type4_remote_routes_import(struct bgp *bgp,
 		for (dest = bgp_table_top(table); dest;
 		     dest = bgp_route_next(dest)) {
 			struct prefix_evpn *evp =
-				(struct prefix_evpn *)&dest->p;
+				(struct prefix_evpn *)bgp_dest_get_prefix(dest);
 
 			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
 			     pi = pi->next) {
