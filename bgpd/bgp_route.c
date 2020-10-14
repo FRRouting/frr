@@ -13766,12 +13766,15 @@ void cli_show_bgp_global_afi_safi_admin_distance_config(struct vty *vty,
 		distance_local);
 }
 
-static int bgp_nb_distance_source_set(struct vty *vty, struct cmd_token **argv,
-				      int argc)
+DEFPY_YANG(bgp_distance_source,
+	   bgp_distance_source_cmd,
+	   "[no] distance (1-255) <A.B.C.D/M | X:X::X:X/M>$prefix [WORD$acl]",
+	   NO_STR
+	   "Define an administrative distance\n"
+	   "Distance value\n"
+	   "IP source prefix\n"
+	   "Access list name\n")
 {
-	int idx_number = 1;
-	int idx_ip_prefixlen = 2;
-	int idx_word = 3;
 	afi_t afi;
 	safi_t safi;
 	char xpath[XPATH_MAXLEN];
@@ -13779,146 +13782,29 @@ static int bgp_nb_distance_source_set(struct vty *vty, struct cmd_token **argv,
 	afi = bgp_node_afi(vty);
 	safi = bgp_node_safi(vty);
 
-	nb_cli_enqueue_change(vty, "./distance", NB_OP_MODIFY,
-			      argv[idx_number]->arg);
-
-	if (argv_find(argv, argc, "WORD", &idx_word))
-		nb_cli_enqueue_change(vty, "./access-list-policy-export",
-				      NB_OP_CREATE, argv[idx_word]->arg);
-
-	snprintf(
-		xpath, sizeof(xpath),
-		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance-route[prefix='%s']",
-		yang_afi_safi_value2identity(afi, safi),
-		bgp_afi_safi_get_container_str(afi, safi),
-		argv[idx_ip_prefixlen]->arg);
-
-	return nb_cli_apply_changes(vty, xpath);
-}
-
-static int bgp_nb_distance_source_unset(struct vty *vty,
-					struct cmd_token **argv, int argc)
-{
-	int idx_ip_prefixlen = 3;
-	afi_t afi;
-	safi_t safi;
-	char xpath[XPATH_MAXLEN];
-
-	afi = bgp_node_afi(vty);
-	safi = bgp_node_safi(vty);
-
-	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	if (!no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./distance", NB_OP_MODIFY,
+				      distance_str);
+		if (acl)
+			nb_cli_enqueue_change(vty,
+					      "./access-list-policy-export",
+					      NB_OP_CREATE, acl);
+		else
+			nb_cli_enqueue_change(vty,
+					      "./access-list-policy-export",
+					      NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	}
 
 	snprintf(
 		xpath, sizeof(xpath),
 		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance-route[prefix='%s']",
 		yang_afi_safi_value2identity(afi, safi),
-		bgp_afi_safi_get_container_str(afi, safi),
-		argv[idx_ip_prefixlen]->arg);
+		bgp_afi_safi_get_container_str(afi, safi), prefix_str);
 
 	return nb_cli_apply_changes(vty, xpath);
-}
-
-DEFUN_YANG(bgp_distance_source, bgp_distance_source_cmd,
-	   "distance (1-255) A.B.C.D/M",
-	   "Define an administrative distance\n"
-	   "Administrative distance\n"
-	   "IP source prefix\n")
-{
-	return bgp_nb_distance_source_set(vty, argv, argc);
-}
-
-DEFUN_YANG(no_bgp_distance_source, no_bgp_distance_source_cmd,
-	   "no distance (1-255) A.B.C.D/M",
-	   NO_STR
-	   "Define an administrative distance\n"
-	   "Administrative distance\n"
-	   "IP source prefix\n")
-{
-	return bgp_nb_distance_source_unset(vty, argv, argc);
-}
-
-DEFUN_YANG(bgp_distance_source_access_list, bgp_distance_source_access_list_cmd,
-	   "distance (1-255) A.B.C.D/M WORD",
-	   "Define an administrative distance\n"
-	   "Administrative distance\n"
-	   "IP source prefix\n"
-	   "Access list name\n")
-{
-	return bgp_nb_distance_source_set(vty, argv, argc);
-}
-
-DEFUN_YANG(no_bgp_distance_source_access_list,
-	   no_bgp_distance_source_access_list_cmd,
-	   "no distance (1-255) A.B.C.D/M WORD",
-	   NO_STR
-	   "Define an administrative distance\n"
-	   "Administrative distance\n"
-	   "IP source prefix\n"
-	   "Access list name\n")
-{
-	return bgp_nb_distance_source_unset(vty, argv, argc);
-}
-
-DEFUN_YANG(ipv6_bgp_distance_source, ipv6_bgp_distance_source_cmd,
-	   "distance (1-255) X:X::X:X/M",
-	   "Define an administrative distance\n"
-	   "Administrative distance\n"
-	   "IP source prefix\n")
-{
-	int idx_number = 1;
-	int idx_ip_prefixlen = 2;
-	afi_t afi;
-	safi_t safi;
-	char xpath[XPATH_MAXLEN];
-
-	afi = bgp_node_afi(vty);
-	safi = bgp_node_safi(vty);
-
-	nb_cli_enqueue_change(vty, "./distance", NB_OP_MODIFY,
-			      argv[idx_number]->arg);
-
-	snprintf(
-		xpath, sizeof(xpath),
-		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/admin-distance-route[prefix='%s']",
-		yang_afi_safi_value2identity(afi, safi),
-		bgp_afi_safi_get_container_str(afi, safi),
-		argv[idx_ip_prefixlen]->arg);
-
-	return nb_cli_apply_changes(vty, xpath);
-}
-
-DEFUN_YANG(no_ipv6_bgp_distance_source, no_ipv6_bgp_distance_source_cmd,
-	   "no distance (1-255) X:X::X:X/M",
-	   NO_STR
-	   "Define an administrative distance\n"
-	   "Administrative distance\n"
-	   "IP source prefix\n")
-{
-	return bgp_nb_distance_source_unset(vty, argv, argc);
-}
-
-DEFUN_YANG(ipv6_bgp_distance_source_access_list,
-	   ipv6_bgp_distance_source_access_list_cmd,
-	   "distance (1-255) X:X::X:X/M WORD",
-	   "Define an administrative distance\n"
-	   "Administrative distance\n"
-	   "IP source prefix\n"
-	   "Access list name\n")
-{
-	return bgp_nb_distance_source_set(vty, argv, argc);
-}
-
-DEFUN_YANG(no_ipv6_bgp_distance_source_access_list,
-	   no_ipv6_bgp_distance_source_access_list_cmd,
-	   "no distance (1-255) X:X::X:X/M WORD",
-	   NO_STR
-	   "Define an administrative distance\n"
-	   "Administrative distance\n"
-	   "IP source prefix\n"
-	   "Access list name\n")
-{
-	return bgp_nb_distance_source_unset(vty, argv, argc);
 }
 
 void cli_show_bgp_global_afi_safi_unicast_admin_distance_route(
@@ -14534,38 +14420,18 @@ void bgp_route_init(void)
 	install_element(BGP_NODE, &bgp_distance_cmd);
 	install_element(BGP_NODE, &no_bgp_distance_cmd);
 	install_element(BGP_NODE, &bgp_distance_source_cmd);
-	install_element(BGP_NODE, &no_bgp_distance_source_cmd);
-	install_element(BGP_NODE, &bgp_distance_source_access_list_cmd);
-	install_element(BGP_NODE, &no_bgp_distance_source_access_list_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_distance_cmd);
 	install_element(BGP_IPV4_NODE, &no_bgp_distance_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_distance_source_cmd);
-	install_element(BGP_IPV4_NODE, &no_bgp_distance_source_cmd);
-	install_element(BGP_IPV4_NODE, &bgp_distance_source_access_list_cmd);
-	install_element(BGP_IPV4_NODE, &no_bgp_distance_source_access_list_cmd);
 	install_element(BGP_IPV4M_NODE, &bgp_distance_cmd);
 	install_element(BGP_IPV4M_NODE, &no_bgp_distance_cmd);
 	install_element(BGP_IPV4M_NODE, &bgp_distance_source_cmd);
-	install_element(BGP_IPV4M_NODE, &no_bgp_distance_source_cmd);
-	install_element(BGP_IPV4M_NODE, &bgp_distance_source_access_list_cmd);
-	install_element(BGP_IPV4M_NODE,
-			&no_bgp_distance_source_access_list_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_distance_cmd);
 	install_element(BGP_IPV6_NODE, &no_bgp_distance_cmd);
-	install_element(BGP_IPV6_NODE, &ipv6_bgp_distance_source_cmd);
-	install_element(BGP_IPV6_NODE, &no_ipv6_bgp_distance_source_cmd);
-	install_element(BGP_IPV6_NODE,
-			&ipv6_bgp_distance_source_access_list_cmd);
-	install_element(BGP_IPV6_NODE,
-			&no_ipv6_bgp_distance_source_access_list_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_distance_source_cmd);
 	install_element(BGP_IPV6M_NODE, &bgp_distance_cmd);
 	install_element(BGP_IPV6M_NODE, &no_bgp_distance_cmd);
-	install_element(BGP_IPV6M_NODE, &ipv6_bgp_distance_source_cmd);
-	install_element(BGP_IPV6M_NODE, &no_ipv6_bgp_distance_source_cmd);
-	install_element(BGP_IPV6M_NODE,
-			&ipv6_bgp_distance_source_access_list_cmd);
-	install_element(BGP_IPV6M_NODE,
-			&no_ipv6_bgp_distance_source_access_list_cmd);
+	install_element(BGP_IPV6M_NODE, &bgp_distance_source_cmd);
 
 	/* BGP dampening */
 	install_element(BGP_NODE, &bgp_dampening_cmd);
