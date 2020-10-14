@@ -337,8 +337,7 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 				      (struct prefix *)p)
 		    == FILTER_DENY) {
 			if (IS_RIP_DEBUG_PACKET)
-				zlog_debug("%s/%d filtered by distribute %s",
-					   inet_ntoa(p->prefix), p->prefixlen,
+				zlog_debug("%pFX filtered by distribute %s", p,
 					   inout);
 			return -1;
 		}
@@ -348,8 +347,7 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 				      (struct prefix *)p)
 		    == PREFIX_DENY) {
 			if (IS_RIP_DEBUG_PACKET)
-				zlog_debug("%s/%d filtered by prefix-list %s",
-					   inet_ntoa(p->prefix), p->prefixlen,
+				zlog_debug("%pFX filtered by prefix-list %s", p,
 					   inout);
 			return -1;
 		}
@@ -367,9 +365,8 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 				    == FILTER_DENY) {
 					if (IS_RIP_DEBUG_PACKET)
 						zlog_debug(
-							"%s/%d filtered by distribute %s",
-							inet_ntoa(p->prefix),
-							p->prefixlen, inout);
+							"%pFX filtered by distribute %s",
+							p, inout);
 					return -1;
 				}
 			}
@@ -383,9 +380,8 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 				    == PREFIX_DENY) {
 					if (IS_RIP_DEBUG_PACKET)
 						zlog_debug(
-							"%s/%d filtered by prefix-list %s",
-							inet_ntoa(p->prefix),
-							p->prefixlen, inout);
+							"%pFX filtered by prefix-list %s",
+							p, inout);
 					return -1;
 				}
 			}
@@ -1603,8 +1599,7 @@ void rip_redistribute_add(struct rip *rip, int type, int sub_type,
 		(void)rip_ecmp_add(rip, &newinfo);
 
 	if (IS_RIP_DEBUG_EVENT) {
-		zlog_debug("Redistribute new prefix %s/%d",
-			   inet_ntoa(p->prefix), p->prefixlen);
+		zlog_debug("Redistribute new prefix %pFX", p);
 	}
 
 	rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
@@ -1641,9 +1636,8 @@ void rip_redistribute_delete(struct rip *rip, int type, int sub_type,
 
 				if (IS_RIP_DEBUG_EVENT)
 					zlog_debug(
-						"Poison %s/%d on the interface %s with an infinity metric [delete]",
-						inet_ntoa(p->prefix),
-						p->prefixlen,
+						"Poison %pFX on the interface %s with an infinity metric [delete]",
+						p,
 						ifindex2ifname(
 							ifindex,
 							rip->vrf->vrf_id));
@@ -2266,9 +2260,8 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 				if (ret == RMAP_DENYMATCH) {
 					if (IS_RIP_DEBUG_PACKET)
 						zlog_debug(
-							"RIP %s/%d is filtered by route-map out",
-							inet_ntoa(p->prefix),
-							p->prefixlen);
+							"RIP %pFX is filtered by route-map out",
+							p);
 					continue;
 				}
 			}
@@ -2283,9 +2276,8 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 				if (ret == RMAP_DENYMATCH) {
 					if (IS_RIP_DEBUG_PACKET)
 						zlog_debug(
-							"%s/%d is filtered by route-map",
-							inet_ntoa(p->prefix),
-							p->prefixlen);
+							"%pFX is filtered by route-map",
+							p);
 					continue;
 				}
 			}
@@ -2674,9 +2666,8 @@ void rip_redistribute_withdraw(struct rip *rip, int type)
 						(struct prefix_ipv4 *)&rp->p;
 
 					zlog_debug(
-						"Poisone %s/%d on the interface %s with an infinity metric [withdraw]",
-						inet_ntoa(p->prefix),
-						p->prefixlen,
+						"Poisone %pFX on the interface %s with an infinity metric [withdraw]",
+						p,
 						ifindex2ifname(
 							rinfo->nh.ifindex,
 							rip->vrf->vrf_id));
