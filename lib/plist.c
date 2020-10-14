@@ -901,14 +901,11 @@ static void __attribute__((unused)) prefix_list_print(struct prefix_list *plist)
 			printf("any %s\n", prefix_list_type_str(pentry));
 		else {
 			struct prefix *p;
-			char buf[BUFSIZ];
 
 			p = &pentry->prefix;
 
-			printf("  seq %lld %s %s/%d", (long long)pentry->seq,
-			       prefix_list_type_str(pentry),
-			       inet_ntop(p->family, p->u.val, buf, BUFSIZ),
-			       p->prefixlen);
+			printf("  seq %lld %s %pFX", (long long)pentry->seq,
+			       prefix_list_type_str(pentry), p);
 			if (pentry->ge)
 				printf(" ge %d", pentry->ge);
 			if (pentry->le)
@@ -1014,12 +1011,8 @@ static void vty_show_prefix_entry(struct vty *vty, afi_t afi,
 				vty_out(vty, "any");
 			else {
 				struct prefix *p = &pentry->prefix;
-				char buf[BUFSIZ];
 
-				vty_out(vty, "%s/%d",
-					inet_ntop(p->family, p->u.val, buf,
-						  BUFSIZ),
-					p->prefixlen);
+				vty_out(vty, "%pFX", p);
 
 				if (pentry->ge)
 					vty_out(vty, " ge %d", pentry->ge);
@@ -1121,12 +1114,8 @@ static int vty_show_prefix_list_prefix(struct vty *vty, afi_t afi,
 				vty_out(vty, "any");
 			else {
 				struct prefix *pf = &pentry->prefix;
-				char buf[BUFSIZ];
 
-				vty_out(vty, "%s/%d",
-					inet_ntop(pf->family, pf->u.val, buf,
-						  BUFSIZ),
-					pf->prefixlen);
+				vty_out(vty, "%pFX", pf);
 
 				if (pentry->ge)
 					vty_out(vty, " ge %d", pentry->ge);
@@ -1491,11 +1480,8 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 		for (pentry = plist->head; pentry; pentry = pentry->next) {
 			struct prefix *p = &pentry->prefix;
 			char buf_a[BUFSIZ];
-			char buf_b[BUFSIZ];
 
-			snprintf(buf_a, sizeof(buf_a), "%s/%d",
-				 inet_ntop(p->family, p->u.val, buf_b, BUFSIZ),
-				 p->prefixlen);
+			snprintf(buf_a, sizeof(buf_a), "%pFX", p);
 
 			json_object_int_add(json_list, "seq", pentry->seq);
 			json_object_string_add(json_list, "seqPrefixListType",
@@ -1526,13 +1512,9 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 
 		for (pentry = plist->head; pentry; pentry = pentry->next) {
 			struct prefix *p = &pentry->prefix;
-			char buf[BUFSIZ];
 
-			vty_out(vty, "   seq %" PRId64 " %s %s/%d",
-				pentry->seq,
-				prefix_list_type_str(pentry),
-				inet_ntop(p->family, p->u.val, buf, BUFSIZ),
-				p->prefixlen);
+			vty_out(vty, "   seq %" PRId64 " %s %pFX", pentry->seq,
+				prefix_list_type_str(pentry), p);
 
 			if (pentry->ge)
 				vty_out(vty, " ge %d", pentry->ge);
