@@ -1933,7 +1933,6 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 	struct interface *ifp;
 	struct vrf *vrf;
 	const char *area_tag, *ifname, *vrfname;
-	struct isis *isis = NULL;
 
 	if (args->event == NB_EV_VALIDATE) {
 		/* libyang doesn't like relative paths across module boundaries
@@ -1949,11 +1948,7 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 		if (!ifp)
 			return NB_OK;
 
-		isis = isis_lookup_by_vrfid(ifp->vrf_id);
-		if (isis == NULL)
-			return NB_ERR_VALIDATION;
-
-		circuit = circuit_lookup_by_ifp(ifp, isis->init_circ_list);
+		circuit = circuit_scan_by_ifp(ifp);
 		area_tag = yang_dnode_get_string(args->dnode, NULL);
 		if (circuit && circuit->area && circuit->area->area_tag
 		    && strcmp(circuit->area->area_tag, area_tag)) {
