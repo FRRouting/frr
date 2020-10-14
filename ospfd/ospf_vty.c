@@ -3465,9 +3465,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 						    "ipAddressPrefixlen",
 						    oi->address->prefixlen);
 			} else
-				vty_out(vty, "  Internet Address %s/%d,",
-					inet_ntoa(oi->address->u.prefix4),
-					oi->address->prefixlen);
+				vty_out(vty, "  Internet Address %pFX,",
+					oi->address);
 
 			/* For Vlinks, showing the peer address is
 			 * probably more informative than the local
