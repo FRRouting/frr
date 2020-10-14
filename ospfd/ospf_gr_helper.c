@@ -50,26 +50,26 @@
 #include "ospfd/ospf_ism.h"
 #include "ospfd/ospf_gr_helper.h"
 
-const char *ospf_exit_reason_desc[] = {
+static const char * const ospf_exit_reason_desc[] = {
 	"Unknown reason",
 	"Helper inprogress",
 	"Topology Change",
-	"Grace timer expairy",
+	"Grace timer expiry",
 	"Successful graceful restart",
 };
 
-const char *ospf_restart_reason_desc[] = {
+static const char * const ospf_restart_reason_desc[] = {
 	"Unknown restart",
 	"Software restart",
 	"Software reload/upgrade",
 	"Switch to redundant control processor",
 };
 
-const char *ospf_rejected_reason_desc[] = {
+static const char * const ospf_rejected_reason_desc[] = {
 	"Unknown reason",
 	"Helper support disabled",
 	"Neighbour is not in FULL state",
-	"Supports only planned restart but received for unplanned",
+	"Supports only planned restart but received unplanned",
 	"Topo change due to change in lsa rxmt list",
 	"LSA age is more than Grace interval",
 };
@@ -115,6 +115,39 @@ static void ospf_enable_rtr_hash_destroy(struct ospf *ospf)
 	hash_clean(ospf->enable_rtr_list, ospf_disable_rtr_hash_free);
 	hash_free(ospf->enable_rtr_list);
 	ospf->enable_rtr_list = NULL;
+}
+
+/*
+ * GR exit reason strings
+ */
+const char *ospf_exit_reason2str(unsigned int reason)
+{
+	if (reason < array_size(ospf_exit_reason_desc))
+		return(ospf_exit_reason_desc[reason]);
+	else
+		return "Invalid reason";
+}
+
+/*
+ * GR restart reason strings
+ */
+const char *ospf_restart_reason2str(unsigned int reason)
+{
+	if (reason < array_size(ospf_restart_reason_desc))
+		return(ospf_restart_reason_desc[reason]);
+	else
+		return "Invalid reason";
+}
+
+/*
+ * GR rejected reason strings
+ */
+const char *ospf_rejected_reason2str(unsigned int reason)
+{
+	if (reason < array_size(ospf_rejected_reason_desc))
+		return(ospf_rejected_reason_desc[reason]);
+	else
+		return "Invalid reason";
 }
 
 /*
@@ -346,7 +379,8 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 		zlog_debug(
 			"%s, Grace LSA received from %s, grace interval:%u, restartreason :%s",
 			__PRETTY_FUNCTION__, inet_ntoa(restart_addr),
-			grace_interval, ospf_restart_reason_desc[restart_reason]);
+			grace_interval,
+			ospf_restart_reason2str(restart_reason));
 
 	/* Incase of broadcast links, if RESTARTER is DR_OTHER,
 	 * grace LSA might be received from DR, so need to get
@@ -638,7 +672,7 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 	if (IS_DEBUG_OSPF_GR_HELPER)
 		zlog_debug("%s, Exiting from HELPER support to %s, due to %s",
 			   __PRETTY_FUNCTION__, inet_ntoa(nbr->src),
-			   ospf_exit_reason_desc[reason]);
+			   ospf_exit_reason2str(reason));
 
 	/* Reset helper status*/
 	nbr->gr_helper_info.gr_helper_status = OSPF_GR_NOT_HELPER;
@@ -1018,7 +1052,7 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
 			sum += TLV_SIZE(tlvh);
 
 			vty_out(vty, "   Restart reason:%s\n",
-				ospf_restart_reason_desc[grReason->reason]);
+				ospf_restart_reason2str(grReason->reason));
 			break;
 		case RESTARTER_IP_ADDR_TYPE:
 			if (TLV_SIZE(tlvh) <
