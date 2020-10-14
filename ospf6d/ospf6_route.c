@@ -714,7 +714,7 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 				"%s %p: route add %p cost %u: another path: prev %p, next %p node ref %u",
 				ospf6_route_table_name(table), (void *)table,
 				(void *)route, route->path.cost, (void *)prev,
-				(void *)next, node->lock);
+				(void *)next, route_node_get_lock_count(node));
 		else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 			zlog_debug("%s: route add cost %u: another path found",
 				   ospf6_route_table_name(table),

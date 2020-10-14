@@ -161,6 +161,11 @@ agg_node_get_prefix(const struct agg_node *node)
 	return &node->p;
 }
 
+static inline unsigned int agg_node_get_lock_count(const struct agg_node *node)
+{
+	return node->lock;
+}
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pRN"  (struct agg_node *)
 #endif

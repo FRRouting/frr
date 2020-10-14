@@ -119,7 +119,8 @@ static void route_table_free(struct route_table *rt)
 		node = node->parent;
 
 		tmp_node->table->count--;
-		tmp_node->lock = 0; /* to cause assert if unlocked after this */
+		tmp_node->lock =
+			0; /* to cause assert if unlocked after this */
 		rn_hash_node_del(&rt->hash, tmp_node);
 		route_node_free(rt, tmp_node);
 

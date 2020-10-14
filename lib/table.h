@@ -262,6 +262,11 @@ static inline void route_unlock_node(struct route_node *node)
 		route_node_delete(node);
 }
 
+static inline unsigned int route_node_get_lock_count(struct route_node *node)
+{
+	return node->lock;
+}
+
 /*
  * route_table_iter_next
  *

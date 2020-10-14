@@ -469,6 +469,11 @@ static inline const struct prefix *bgp_dest_get_prefix(const struct bgp_dest *de
 	return &dest->p;
 }
 
+static inline unsigned int bgp_dest_get_lock_count(const struct bgp_dest *dest)
+{
+	return dest->lock;
+}
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pRN"  (struct bgp_node *)
 #pragma FRR printfrr_ext "%pBD"  (struct bgp_dest *)

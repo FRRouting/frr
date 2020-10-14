@@ -216,7 +216,7 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 			unsigned refcount;
 
 			bpi = bgp_path_info_lock(bpi);
-			refcount = bpi->net->lock - 1;
+			refcount = bgp_dest_get_lock_count(bpi->net) - 1;
 			bgp_dest_unlock_node((struct bgp_dest *)bpi->net);
 			if (!refcount)
 				bpi->net = NULL;

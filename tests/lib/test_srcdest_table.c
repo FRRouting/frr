@@ -271,7 +271,7 @@ static void test_state_verify(struct test_state *test)
 						       associated with rn */
 				expected_lock++;
 
-			if (rn->lock != expected_lock)
+			if (route_node_get_lock_count(rn) != expected_lock)
 				test_failed(
 					test,
 					"Dest rnode lock count doesn't match expected count!",
@@ -283,7 +283,7 @@ static void test_state_verify(struct test_state *test)
 			    != NULL) /* The route node is not internal */
 				expected_lock++;
 
-			if (rn->lock != expected_lock) {
+			if (route_node_get_lock_count(rn) != expected_lock) {
 				srcdest_rnode_prefixes(
 					rn, (const struct prefix **)&dst_p,
 					(const struct prefix **)&src_p);

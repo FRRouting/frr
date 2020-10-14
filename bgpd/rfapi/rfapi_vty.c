@@ -751,7 +751,7 @@ void rfapiShowItNode(void *stream, struct agg_node *rn)
 	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
 		return;
 
-	fp(out, "%pRN @%p #%d%s", rn, rn, rn->lock, HVTYNL);
+	fp(out, "%pRN @%p #%d%s", rn, rn, agg_node_get_lock_count(rn), HVTYNL);
 
 	for (bpi = rn->info; bpi; bpi = bpi->next) {
 		rfapiPrintBi(stream, bpi);
@@ -787,7 +787,8 @@ void rfapiShowImportTable(void *stream, const char *label, struct agg_table *rt,
 		}
 
 		fp(out, "%s/%d @%p #%d%s", buf, p->prefixlen, rn,
-		   rn->lock - 1, /* account for loop iterator locking */
+		   agg_node_get_lock_count(rn)
+			   - 1, /* account for loop iterator locking */
 		   HVTYNL);
 
 		for (bpi = rn->info; bpi; bpi = bpi->next) {

@@ -3176,7 +3176,8 @@ DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
 				vty_out(vty, "    %s/%d (%d)\n",
 					inet_ntop(p->family, &p->u.prefix, buf,
 						  SU_ADDRSTRLEN),
-					p->prefixlen, rn->lock);
+					p->prefixlen,
+					route_node_get_lock_count(rn));
 
 				vty_out(vty, "(P) ");
 				prn = rn->parent;
@@ -3220,7 +3221,8 @@ DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
 				vty_out(vty, "    %s/%d (%d)\n",
 					inet_ntop(p->family, &p->u.prefix, buf,
 						  SU_ADDRSTRLEN),
-					p->prefixlen, rn->lock);
+					p->prefixlen,
+					route_node_get_lock_count(rn));
 
 				vty_out(vty, "(P) ");
 				prn = rn->parent;
