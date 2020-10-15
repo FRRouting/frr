@@ -517,6 +517,7 @@ void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *),
 unsigned long nhrp_vc_count(struct nhrp_vrf *nhrp_vrf);
 void nhrp_vc_reset(struct nhrp_vrf *nhrp_vrf);
 
+void nhrp_vc_force_ipsec_down(struct nhrp_vc *vc);
 void vici_init(struct nhrp_vrf *nhrp_vrf);
 void vici_terminate(struct nhrp_vrf *nhrp_vrf, bool complete);
 void vici_terminate_vc_by_profile_name(struct nhrp_vrf *nhrp_vrf, char *profile_name);

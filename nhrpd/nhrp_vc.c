@@ -102,6 +102,72 @@ static void nhrp_vc_ipsec_reset(struct nhrp_vc *vc)
 	vc->remote.certlen = 0;
 }
 
+void nhrp_vc_force_ipsec_down(struct nhrp_vc *vc)
+{
+	struct nhrp_vrf *nhrp_vrf = vc->nhrp_vrf;
+	size_t i = 0;
+	struct child_sa *lsa, *n, *lsa_save;
+	struct vici_conn *vici;
+	uint32_t ike_uniqueid;
+	struct list_head ike_list_head;
+
+	if (!vc || !vc->ipsec || !nhrp_vrf || !nhrp_vrf->vici_connection)
+		return;
+
+	/* Find all child SAs used by the vc, and terminate their parent IKE SAs.
+	 * Temporarily maintain the list 'list_ike' of child SA whose IKE SAs were
+	 * terminated to avoid duplicate requests.
+	 */
+	list_init(&ike_list_head);
+
+	vici = nhrp_vrf->vici_connection;
+
+	for (i = 0; i < array_size(nhrp_vrf->childlist_head); i++) {
+		list_for_each_entry_safe(lsa, n, &nhrp_vrf->childlist_head[i],
+					 childlist_entry) {
+			bool found_lsa = false;
+
+			if (lsa->vc != vc)
+				continue;
+			ike_uniqueid = lsa->ike_uniqueid;
+			/* Update by dereferencing the lsa from childlist
+			 * Also, decrement vc ipsec counter
+			 */
+			vc->ipsec--;
+			lsa->vc = NULL;
+			list_del(&lsa->childlist_entry);
+			list_for_each_entry(lsa_save, &ike_list_head, childlist_entry) {
+				if (lsa_save->ike_uniqueid == ike_uniqueid) {
+					found_lsa = true;
+					break;
+				}
+			}
+			/* store temporarily struct child_sa in list_ike
+			 * and flush ike_sa associated
+			 */
+			if (!found_lsa) {
+				list_add_tail(&lsa->childlist_entry,
+					      &ike_list_head);
+				vici_terminate_ike(vici, ike_uniqueid);
+			} else {
+				/* flush struct lsa since
+				 * ike_id already referenced in list_ike
+				 */
+				XFREE(MTYPE_NHRP_VC, lsa);
+			}
+		}
+	}
+	/* flush vc if ipsec is the last entry */
+	if (!vc->ipsec)
+		nhrp_vc_ipsec_reset(vc);
+	/* flush remaining struct child_sa */
+	list_for_each_entry_safe(lsa_save, n, &ike_list_head, childlist_entry) {
+		list_del(&lsa_save->childlist_entry);
+		XFREE(MTYPE_NHRP_VC, lsa_save);
+	}
+	return;
+}
+
 int nhrp_vc_ipsec_updown(uint32_t child_id,
 			 struct nhrp_vrf *nhrp_vrf,
 			 struct nhrp_vc *vc,

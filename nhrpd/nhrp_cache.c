@@ -599,5 +599,28 @@ void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *n,
 
 void nhrp_cache_notify_del(struct nhrp_cache *c, struct notifier_block *n)
 {
+	struct nhrp_peer *p = c->cur.peer;
+	struct interface *ifp = c->ifp;
+	struct nhrp_interface *nifp;
+	struct nhrp_afi_data *if_ad;
+
+	/* specific action for shortcut entries:
+	 * flush IPsec connection, found in c->cur.peer->vc
+	 * cache entry may be learnt either from remote spoke or from nhs
+	 * if it is the latter case, then the vc referenced is the connection
+	 * between spoke and nhs, and not the vc between both spokes: cancel action
+	 * vc between spokes can be determined as follows:
+	 * - if remote_nbma_natoa is not present: ok
+	 * - if remote_nbma_natoa != remote.nbma : nok
+	 */
+	if (p && ifp && ifp->info &&
+	    (sockunion_family(&c->cur.remote_nbma_natoa) == AF_UNSPEC ||
+	     sockunion_same(&c->cur.peer->vc->remote.nbma,
+			    &c->cur.remote_nbma_natoa))) {
+		nifp = ifp->info;
+		if_ad = &nifp->afi[family2afi(sockunion_family(&c->remote_addr))];
+		if (!(if_ad->flags & NHRP_IFF_SHORTCUT_KEEPSA))
+			nhrp_vc_force_ipsec_down(p->vc);
+	}
 	notifier_del(n);
 }
