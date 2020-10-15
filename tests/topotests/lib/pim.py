@@ -1587,6 +1587,17 @@ def verify_pim_interface(
 
                     if pim_interface in show_ip_pim_interface_json:
                         pim_intf_json = show_ip_pim_interface_json[pim_interface]
+                    else:
+                        errormsg = (
+                            "[DUT %s]: PIM interface: %s "
+                            "PIM interface ip: %s, not Found"
+                            % (
+                                dut,
+                                pim_interface,
+                                pim_intf_ip
+                            )
+                        )
+                        return errormsg
 
                     # Verifying PIM interface
                     if (
@@ -3461,6 +3472,134 @@ def verify_igmp_interface(tgen, topo, dut, igmp_iface, interface_ip, expected=Tr
                 % (dut, igmp_iface, interface_ip)
             )
             return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+def verify_pim_interface_traffic(tgen, input_dict, return_stats=True):
+    """
+    Verify ip pim interface traffice by running
+    "show ip pim interface traffic" cli
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `input_dict(dict)`: defines DUT, what and from which interfaces
+                          traffic needs to be verified
+    Usage
+    -----
+    input_dict = {
+        "r1": {
+            "r1-r0-eth0": {
+                "helloRx": 0,
+                "helloTx": 1,
+                "joinRx": 0,
+                "joinTx": 0
+            }
+        }
+    }
+
+    result = verify_pim_interface_traffic(tgen, input_dict)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    output_dict = {}
+    for dut in input_dict.keys():
+        if dut not in tgen.routers():
+            continue
+
+        rnode = tgen.routers()[dut]
+
+        logger.info("[DUT: %s]: Verifying pim interface traffic", dut)
+        show_pim_intf_traffic_json = \
+            run_frr_cmd(rnode, "show ip pim interface traffic json",
+                        isjson=True)
+
+        output_dict[dut]= {}
+        for intf, data in input_dict[dut].items():
+            interface_json = show_pim_intf_traffic_json[intf]
+            for state in data:
+
+                # Verify Tx/Rx
+                if state in interface_json:
+                    output_dict[dut][state] = interface_json[state]
+                else:
+                    errormsg = ("[DUT %s]: %s is not present"
+                                "for interface %s [FAILED]!! "
+                                % (dut, state, intf))
+                    return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True if return_stats == False else output_dict
+
+
+@retry(retry_timeout=62)
+def verify_local_igmp_groups(tgen, dut, interface, group_addresses):
+    """
+    Verify local IGMP groups are received from an intended interface
+    by running "show ip igmp join json" command
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `interface`: interface, from which IGMP groups are configured
+    * `group_addresses`: IGMP group address
+
+    Usage
+    -----
+    dut = "r1"
+    interface = "r1-r0-eth0"
+    group_address = "225.1.1.1"
+    result = verify_local_igmp_groups(tgen, dut, interface, group_address)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    if dut not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[dut]
+
+    logger.info("[DUT: %s]: Verifying local IGMP groups received:", dut)
+    show_ip_local_igmp_json = run_frr_cmd(rnode, "show ip igmp join json",
+                                    isjson=True)
+
+    if type(group_addresses) is not list:
+        group_addresses = [group_addresses]
+
+    if interface not in show_ip_local_igmp_json :
+
+        errormsg = ("[DUT %s]: Verifying local IGMP group received"
+                    " from interface %s [FAILED]!! "
+                    % (dut, interface))
+        return errormsg
+
+    for grp_addr in group_addresses:
+        found = False
+        for index in show_ip_local_igmp_json[interface]["groups"]:
+            if index['group'] == grp_addr:
+                found = True
+                break
+        if not found:
+            errormsg = ("[DUT %s]: Verifying local IGMP group received"
+                        " from interface %s [FAILED]!! "
+                        " Expected: %s " % (dut, interface, grp_addr))
+            return errormsg
+
+        logger.info("[DUT %s]: Verifying local IGMP group %s received "
+                    "from interface %s [PASSED]!! ",
+                    dut, grp_addr, interface)
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
