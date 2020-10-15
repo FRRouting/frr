@@ -950,14 +950,44 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 			pim_ifchannel_ifjoin_handler(ch, pim_ifp);
 		break;
 	case PIM_IFJOIN_PRUNE_PENDING:
+		/*
+		 * Transitions from Prune-Pending State (Receive Join)
+		 * RFC 7761 Sec 4.5.2:
+		 *    The (S,G) downstream state machine on interface I
+		 * transitions to the Join state.  The Prune-Pending Timer is
+		 * canceled (without triggering an expiry event).  The
+		 * Expiry Timer (ET) is restarted and is then set to the
+		 * maximum of its current value and the HoldTime from the
+		 * triggering Join/Prune message.
+		 */
 		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
-		if (source_flags & PIM_ENCODE_RPT_BIT) {
+
+		/* Check if SGRpt join Received */
+		if ((source_flags & PIM_ENCODE_RPT_BIT)
+		    && (sg->src.s_addr != INADDR_ANY)) {
+			/*
+			 * Transitions from Prune-Pending State (Rcv SGRpt Join)
+			 * RFC 7761 Sec 4.5.3:
+			 * The (S,G,rpt) downstream state machine on interface
+			 * I transitions to the NoInfo state.The ET and PPT are
+			 * cancelled.
+			 */
 			THREAD_OFF(ch->t_ifjoin_expiry_timer);
 			pim_ifchannel_ifjoin_switch(__func__, ch,
 						    PIM_IFJOIN_NOINFO);
-		} else {
-			pim_ifchannel_ifjoin_handler(ch, pim_ifp);
+			return;
 		}
+
+		pim_ifchannel_ifjoin_handler(ch, pim_ifp);
+
+		if (ch->t_ifjoin_expiry_timer) {
+			unsigned long remain = thread_timer_remain_second(
+				ch->t_ifjoin_expiry_timer);
+
+			if (remain > holdtime)
+				return;
+		}
+
 		break;
 	case PIM_IFJOIN_PRUNE_TMP:
 		break;
@@ -1034,7 +1064,14 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 		/* nothing to do */
 		break;
 	case PIM_IFJOIN_JOIN:
-		THREAD_OFF(ch->t_ifjoin_expiry_timer);
+		/*
+		 * The (S,G) downstream state machine on interface I
+		 * transitions to the Prune-Pending state.  The
+		 * Prune-Pending Timer is started.  It is set to the
+		 * J/P_Override_Interval(I) if the router has more than one
+		 * neighbor on that interface; otherwise, it is set to zero,
+		 * causing it to expire immediately.
+		 */
 
 		pim_ifchannel_ifjoin_switch(__func__, ch,
 					    PIM_IFJOIN_PRUNE_PENDING);
