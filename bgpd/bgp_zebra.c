@@ -2576,10 +2576,9 @@ static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 	active = stream_getc(s);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx add ESI %s originator-ip %s active %u",
-				esi_to_str(&esi, buf, sizeof(buf)),
-				inet_ntoa(originator_ip),
-				active);
+		zlog_debug("Rx add ESI %s originator-ip %pI4 active %u",
+			   esi_to_str(&esi, buf, sizeof(buf)), &originator_ip,
+			   active);
 
 	bgp_evpn_local_es_add(bgp, &esi, originator_ip, active);
 

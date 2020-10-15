@@ -29,6 +29,8 @@
 #include "jhash.h"
 #include "stream.h"
 
+#include "lib/printfrr.h"
+
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
@@ -819,8 +821,8 @@ static int ecommunity_rt_soo_str_internal(char *buf, size_t bufsz,
 		eip.val = (*pnt++ << 8);
 		eip.val |= (*pnt++);
 
-		len = snprintf(buf, bufsz, "%s%s:%u", prefix, inet_ntoa(eip.ip),
-			       eip.val);
+		len = snprintfrr(buf, bufsz, "%s%pI4:%u", prefix, &eip.ip,
+				 eip.val);
 	}
 
 	/* consume value */

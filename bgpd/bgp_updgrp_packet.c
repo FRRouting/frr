@@ -488,10 +488,10 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			stream_put_in_addr_at(s, offset_nh, mod_v4nh);
 
 		if (bgp_debug_update(peer, NULL, NULL, 0))
-			zlog_debug("u%" PRIu64 ":s%" PRIu64" %s send UPDATE w/ nexthop %s%s",
+			zlog_debug("u%" PRIu64 ":s%" PRIu64
+				   " %s send UPDATE w/ nexthop %pI4%s",
 				   PAF_SUBGRP(paf)->update_group->id,
-				   PAF_SUBGRP(paf)->id, peer->host,
-				   inet_ntoa(*mod_v4nh),
+				   PAF_SUBGRP(paf)->id, peer->host, mod_v4nh,
 				   (nhlen == BGP_ATTR_NHLEN_VPNV4 ? " and RD"
 								  : ""));
 	} else if (nhafi == AFI_IP6) {
@@ -642,10 +642,10 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			stream_put_in_addr_at(s, vec->offset + 1, mod_v4nh);
 
 		if (bgp_debug_update(peer, NULL, NULL, 0))
-			zlog_debug("u%" PRIu64 ":s%" PRIu64" %s send UPDATE w/ nexthop %s",
+			zlog_debug("u%" PRIu64 ":s%" PRIu64
+				   " %s send UPDATE w/ nexthop %pI4",
 				   PAF_SUBGRP(paf)->update_group->id,
-				   PAF_SUBGRP(paf)->id, peer->host,
-				   inet_ntoa(*mod_v4nh));
+				   PAF_SUBGRP(paf)->id, peer->host, mod_v4nh);
 	}
 
 	return s;

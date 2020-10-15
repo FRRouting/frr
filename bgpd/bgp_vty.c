@@ -9079,10 +9079,14 @@ DEFUN (show_bgp_vrfs,
 			int64_t vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
 						    ? -1
 						    : (int64_t)bgp->vrf_id;
+			char buf[BUFSIZ] = {0};
+
 			json_object_string_add(json_vrf, "type", type);
 			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
 			json_object_string_add(json_vrf, "routerId",
-					       inet_ntoa(bgp->router_id));
+					       inet_ntop(AF_INET,
+							 &bgp->router_id, buf,
+							 sizeof(buf)));
 			json_object_int_add(json_vrf, "numConfiguredPeers",
 					    peers_cfg);
 			json_object_int_add(json_vrf, "numEstablishedPeers",
@@ -9097,13 +9101,11 @@ DEFUN (show_bgp_vrfs,
 					       bgp->vrf_id));
 			json_object_object_add(json_vrfs, name, json_vrf);
 		} else {
-			vty_out(vty,
-				"%4s  %-5d  %-16s  %-9u  %-10u  %-37s\n",
+			vty_out(vty, "%4s  %-5d  %-16pI4  %-9u  %-10u  %-37s\n",
 				type,
 				bgp->vrf_id == VRF_UNKNOWN ? -1
 							   : (int)bgp->vrf_id,
-				inet_ntoa(bgp->router_id), peers_cfg,
-				peers_estb, name);
+				&bgp->router_id, peers_cfg, peers_estb, name);
 			vty_out(vty,"%11s  %-16u  %-21s  %-20s\n", " ",
 				bgp->l3vni,
 				prefix_mac2str(&bgp->rmac, buf, sizeof(buf)),
@@ -9148,8 +9150,7 @@ static void show_tip_entry(struct hash_bucket *bucket, void *args)
 	struct vty *vty = (struct vty *)args;
 	struct tip_addr *tip = (struct tip_addr *)bucket->data;
 
-	vty_out(vty, "addr: %s, count: %d\n", inet_ntoa(tip->addr),
-		tip->refcnt);
+	vty_out(vty, "addr: %pI4, count: %d\n", &tip->addr, tip->refcnt);
 }
 
 static void bgp_show_martian_nexthops(struct vty *vty, struct bgp *bgp)
@@ -9614,9 +9615,12 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 			/* Usage summary and header */
 			if (use_json) {
+				char buf[BUFSIZ] = {0};
+
 				json_object_string_add(
 					json, "routerId",
-					inet_ntoa(bgp->router_id));
+					inet_ntop(AF_INET, &bgp->router_id, buf,
+						  sizeof(buf)));
 				json_object_int_add(json, "as", bgp->as);
 				json_object_int_add(json, "vrfId", vrf_id_ui);
 				json_object_string_add(
@@ -9627,8 +9631,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						: bgp->name);
 			} else {
 				vty_out(vty,
-					"BGP router identifier %s, local AS number %u vrf-id %d",
-					inet_ntoa(bgp->router_id), bgp->as,
+					"BGP router identifier %pI4, local AS number %u vrf-id %d",
+					&bgp->router_id, bgp->as,
 					bgp->vrf_id == VRF_UNKNOWN
 						? -1
 						: (int)bgp->vrf_id);
@@ -15892,8 +15896,8 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP router ID. */
 		if (bgp->router_id_static.s_addr != 0)
-			vty_out(vty, " bgp router-id %s\n",
-				inet_ntoa(bgp->router_id_static));
+			vty_out(vty, " bgp router-id %pI4\n",
+				&bgp->router_id_static);
 
 		/* BGP log-neighbor-changes. */
 		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
@@ -15959,8 +15963,8 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP cluster ID. */
 		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
-			vty_out(vty, " bgp cluster-id %s\n",
-				inet_ntoa(bgp->cluster_id));
+			vty_out(vty, " bgp cluster-id %pI4\n",
+				&bgp->cluster_id);
 
 		/* Disable ebgp connected nexthop check */
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))

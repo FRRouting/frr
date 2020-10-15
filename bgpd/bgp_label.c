@@ -422,8 +422,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				  */
 				flog_err(
 					EC_BGP_UPDATE_RCV,
-					"%s: IPv4 labeled-unicast NLRI is multicast address %s, ignoring",
-					peer->host, inet_ntoa(p.u.prefix4));
+					"%s: IPv4 labeled-unicast NLRI is multicast address %pI4, ignoring",
+					peer->host, &p.u.prefix4);
 				continue;
 			}
 		}

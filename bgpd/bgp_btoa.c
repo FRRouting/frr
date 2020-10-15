@@ -108,7 +108,7 @@ static void attr_parse(struct stream *s, uint16_t len)
 		case BGP_ATTR_NEXT_HOP: {
 			struct in_addr nexthop;
 			nexthop.s_addr = stream_get_ipv4(s);
-			printf("NEXTHOP: %s\n", inet_ntoa(nexthop));
+			printf("NEXTHOP: %pI4\n", &nexthop);
 		} break;
 		default:
 			stream_getw_from(s, length);
@@ -244,7 +244,7 @@ int main(int argc, char **argv)
 			while (s->getp < len - 16) {
 				p.prefix.s_addr = stream_get_ipv4(s);
 				p.prefixlen = stream_getc(s);
-				printf("PREFIX: %s/%d\n", inet_ntoa(p.prefix),
+				printf("PREFIX: %pI4/%d\n", &p.prefix,
 				       p.prefixlen);
 
 				status = stream_getc(s);
@@ -252,8 +252,7 @@ int main(int argc, char **argv)
 				peer.s_addr = stream_get_ipv4(s);
 				source_as = stream_getw(s);
 
-				printf("FROM: %s AS%d\n", inet_ntoa(peer),
-				       source_as);
+				printf("FROM: %pI4 AS%d\n", &peer, source_as);
 				printf("ORIGINATED: %s", ctime(&originated));
 
 				attrlen = stream_getw(s);
@@ -278,8 +277,8 @@ int main(int argc, char **argv)
 			sip.s_addr = stream_get_ipv4(s);
 			dip.s_addr = stream_get_ipv4(s);
 
-			printf("saddr: %s\n", inet_ntoa(sip));
-			printf("daddr: %s\n", inet_ntoa(dip));
+			printf("saddr: %pI4\n", &sip);
+			printf("daddr: %pI4\n", &dip);
 
 			printf("\n");
 		}
