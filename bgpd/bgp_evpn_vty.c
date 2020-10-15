@@ -611,8 +611,8 @@ static void show_esi_routes(struct bgp *bgp,
 		json_object *json_prefix = NULL;
 		const struct prefix *p = bgp_dest_get_prefix(dest);
 
-		bgp_evpn_route2str((struct prefix_evpn *)p, prefix_str,
-				   sizeof(prefix_str));
+		prefix2str((struct prefix_evpn *)p, prefix_str,
+			   sizeof(prefix_str));
 
 		if (json)
 			json_prefix = json_object_new_object();
@@ -706,9 +706,8 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 		json_object *json_prefix = NULL;
 		const struct prefix *p = bgp_dest_get_prefix(dest);
 
-		bgp_evpn_route2str(
-			(struct prefix_evpn *)bgp_dest_get_prefix(dest),
-			prefix_str, sizeof(prefix_str));
+		prefix2str((struct prefix_evpn *)bgp_dest_get_prefix(dest),
+			   prefix_str, sizeof(prefix_str));
 
 		if (type && evp->prefix.route_type != type)
 			continue;
@@ -1250,9 +1249,8 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 
 				json_object_string_add(
 					json_prefix_info, "prefix",
-					bgp_evpn_route2str(
-						(struct prefix_evpn *)p, buf,
-						BUFSIZ));
+					prefix2str((struct prefix_evpn *)p, buf,
+						   BUFSIZ));
 
 				json_object_int_add(json_prefix_info,
 						    "prefixLen", p->prefixlen);
@@ -2441,7 +2439,7 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 		return;
 	}
 
-	bgp_evpn_route2str(&p, prefix_str, sizeof(prefix_str));
+	prefix2str(&p, prefix_str, sizeof(prefix_str));
 
 	/* Prefix and num paths displayed once per prefix. */
 	route_vty_out_detail_header(vty, bgp, dest, prd, afi, safi, json);
@@ -2522,8 +2520,8 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 		char prefix_str[BUFSIZ];
 		int add_prefix_to_json = 0;
 
-		bgp_evpn_route2str((struct prefix_evpn *)evp, prefix_str,
-				   sizeof(prefix_str));
+		prefix2str((struct prefix_evpn *)evp, prefix_str,
+			   sizeof(prefix_str));
 
 		if (type && evp->prefix.route_type != type)
 			continue;
@@ -2668,8 +2666,8 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 			int add_prefix_to_json = 0;
 			const struct prefix *p = bgp_dest_get_prefix(dest);
 
-			bgp_evpn_route2str((struct prefix_evpn *)p, prefix_str,
-					   sizeof(prefix_str));
+			prefix2str((struct prefix_evpn *)p, prefix_str,
+				   sizeof(prefix_str));
 
 			if (type && evp->prefix.route_type != type)
 				continue;

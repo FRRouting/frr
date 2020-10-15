@@ -154,8 +154,6 @@ extern void bgp_evpn_vrf_delete(struct bgp *bgp_vrf);
 extern void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw);
 extern char *bgp_evpn_label2str(mpls_label_t *label, uint32_t num_labels,
 				char *buf, int len);
-extern char *bgp_evpn_route2str(const struct prefix_evpn *p, char *buf,
-				int len);
 extern void bgp_evpn_route2json(const struct prefix_evpn *p, json_object *json);
 extern void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 				   const struct prefix_rd *prd,

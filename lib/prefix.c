@@ -909,14 +909,17 @@ int str2prefix(const char *str, struct prefix *p)
 static const char *prefixevpn_ead2str(const struct prefix_evpn *p, char *str,
 				      int size)
 {
+	uint8_t family;
 	char buf[ESI_STR_LEN];
+	char buf1[INET6_ADDRSTRLEN];
 
+	family = IS_IPADDR_V4(&p->prefix.ead_addr.ip) ? AF_INET : AF_INET6;
 	snprintf(str, size, "[%d]:[%u]:[%s]:[%d]:[%s]", p->prefix.route_type,
 		 p->prefix.ead_addr.eth_tag,
 		 esi_to_str(&p->prefix.ead_addr.esi, buf, sizeof(buf)),
-		 is_evpn_prefix_ipaddr_v4(p) ? IPV4_MAX_BITLEN
-					     : IPV6_MAX_BITLEN,
-		 inet_ntoa(p->prefix.ead_addr.ip.ipaddr_v4));
+		 (family == AF_INET) ? IPV4_MAX_BITLEN : IPV6_MAX_BITLEN,
+		 inet_ntop(family, &p->prefix.ead_addr.ip.ipaddr_v4, buf1,
+			   sizeof(buf1)));
 	return str;
 }
 
@@ -949,11 +952,15 @@ static const char *prefixevpn_macip2str(const struct prefix_evpn *p, char *str,
 static const char *prefixevpn_imet2str(const struct prefix_evpn *p, char *str,
 				       int size)
 {
+	uint8_t family;
+	char buf[INET6_ADDRSTRLEN];
+
+	family = IS_IPADDR_V4(&p->prefix.imet_addr.ip) ? AF_INET : AF_INET6;
 	snprintf(str, size, "[%d]:[%d]:[%d]:[%s]", p->prefix.route_type,
 		 p->prefix.imet_addr.eth_tag,
-		 is_evpn_prefix_ipaddr_v4(p) ? IPV4_MAX_BITLEN
-					     : IPV6_MAX_BITLEN,
-		 inet_ntoa(p->prefix.imet_addr.ip.ipaddr_v4));
+		 (family == AF_INET) ? IPV4_MAX_BITLEN : IPV6_MAX_BITLEN,
+		 inet_ntop(family, &p->prefix.imet_addr.ip.ipaddr_v4, buf,
+			   sizeof(buf)));
 
 	return str;
 }
@@ -961,13 +968,16 @@ static const char *prefixevpn_imet2str(const struct prefix_evpn *p, char *str,
 static const char *prefixevpn_es2str(const struct prefix_evpn *p, char *str,
 				     int size)
 {
+	uint8_t family;
 	char buf[ESI_STR_LEN];
+	char buf1[INET6_ADDRSTRLEN];
 
+	family = IS_IPADDR_V4(&p->prefix.es_addr.ip) ? AF_INET : AF_INET6;
 	snprintf(str, size, "[%d]:[%s]:[%d]:[%s]", p->prefix.route_type,
 		 esi_to_str(&p->prefix.es_addr.esi, buf, sizeof(buf)),
-		 is_evpn_prefix_ipaddr_v4(p) ? IPV4_MAX_BITLEN
-					     : IPV6_MAX_BITLEN,
-		 inet_ntoa(p->prefix.es_addr.ip.ipaddr_v4));
+		 (family == AF_INET) ? IPV4_MAX_BITLEN : IPV6_MAX_BITLEN,
+		 inet_ntop(family, &p->prefix.es_addr.ip.ipaddr_v4, buf1,
+			   sizeof(buf1)));
 
 	return str;
 }
@@ -975,12 +985,15 @@ static const char *prefixevpn_es2str(const struct prefix_evpn *p, char *str,
 static const char *prefixevpn_prefix2str(const struct prefix_evpn *p, char *str,
 					 int size)
 {
+	uint8_t family;
+	char buf[INET6_ADDRSTRLEN];
+
+	family = IS_IPADDR_V4(&p->prefix.prefix_addr.ip) ? AF_INET : AF_INET6;
 	snprintf(str, size, "[%d]:[%d]:[%d]:[%s]", p->prefix.route_type,
 		 p->prefix.prefix_addr.eth_tag,
 		 p->prefix.prefix_addr.ip_prefix_length,
-		 is_evpn_prefix_ipaddr_v4(p)
-			 ? inet_ntoa(p->prefix.prefix_addr.ip.ipaddr_v4)
-			 : inet6_ntoa(p->prefix.prefix_addr.ip.ipaddr_v6));
+		 inet_ntop(family, &p->prefix.prefix_addr.ip.ipaddr_v4, buf,
+			   sizeof(buf)));
 	return str;
 }
 
