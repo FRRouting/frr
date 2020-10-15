@@ -25,6 +25,7 @@ Installing Mininet Infrastructure
    pip install "pytest<5"
    pip install exabgp==3.4.17 (Newer 4.0 version of exabgp is not yet
    supported)
+   pip install "scapy>=2.4.2"
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
 Enable Coredumps
