@@ -62,6 +62,7 @@ static const struct message debug_flags_desc[] = {
 static const struct message interface_flags_desc[] = {
 	{NHRP_IFF_SHORTCUT, "shortcut"},
 	{NHRP_IFF_REDIRECT, "redirect"},
+	{NHRP_IFF_SHORTCUT_KEEPSA, "shortcut-keep-sa"},
 	{NHRP_IFF_REG_NO_UNIQUE, "registration no-unique"},
 	{0}};
 
@@ -485,11 +486,12 @@ DEFUN(if_no_nhrp_network_id, if_no_nhrp_network_id_cmd,
 }
 
 DEFUN(if_nhrp_flags, if_nhrp_flags_cmd,
-	AFI_CMD " nhrp <shortcut|redirect>",
+	AFI_CMD " nhrp <shortcut|redirect|shortcut-keep-sa>",
 	AFI_STR
 	NHRP_STR
 	"Allow shortcut establishment\n"
-	"Send redirect notifications\n")
+	"Send redirect notifications\n"
+	"Maintain Secured Connection on Shortcut, upon expiration\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
@@ -500,12 +502,13 @@ DEFUN(if_nhrp_flags, if_nhrp_flags_cmd,
 }
 
 DEFUN(if_no_nhrp_flags, if_no_nhrp_flags_cmd,
-	"no " AFI_CMD " nhrp <shortcut|redirect>",
+	"no " AFI_CMD " nhrp <shortcut|redirect|shortcut-keep-sa>",
 	NO_STR
 	AFI_STR
 	NHRP_STR
 	"Allow shortcut establishment\n"
-	"Send redirect notifications\n")
+	"Send redirect notifications\n"
+	"Close Secured Connection on Shortcut, upon expiration\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;

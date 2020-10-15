@@ -340,6 +340,7 @@ struct nhrp_registration {
 
 #define NHRP_IFF_SHORTCUT		0x0001
 #define NHRP_IFF_REDIRECT		0x0002
+#define NHRP_IFF_SHORTCUT_KEEPSA	0x0004
 #define NHRP_IFF_REG_NO_UNIQUE		0x0100
 
 struct nhrp_interface {
