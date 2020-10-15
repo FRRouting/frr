@@ -574,7 +574,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	int len;
 	struct rtmsg *rtm;
 	struct rtattr *tb[RTA_MAX + 1];
-	uint8_t flags = 0;
+	uint32_t flags = 0;
 	struct prefix p;
 	struct prefix_ipv6 src_p = {};
 	vrf_id_t vrf_id;
