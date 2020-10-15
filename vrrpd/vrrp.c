@@ -700,7 +700,6 @@ static int vrrp_master_down_timer_expire(struct thread *thread);
  */
 static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
 {
-	char ipstr[INET6_ADDRSTRLEN];
 	struct interface *ifp;
 
 	/*
@@ -754,20 +753,15 @@ static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
 	if (bind(r->sock_tx, (const struct sockaddr *)&su, sizeof(su)) < 0) {
 		zlog_err(
 			VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-			"Failed to bind Tx socket to primary IP address %s: %s",
-			r->vr->vrid, family2str(r->family),
-			inet_ntop(r->family,
-				  (const void *)&c->address->u.prefix, ipstr,
-				  sizeof(ipstr)),
+			"Failed to bind Tx socket to primary IP address %pFX: %s",
+			r->vr->vrid, family2str(r->family), c->address,
 			safe_strerror(errno));
 		ret = -1;
 	} else {
 		DEBUGD(&vrrp_dbg_sock,
 		       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-		       "Bound Tx socket to primary IP address %s",
-		       r->vr->vrid, family2str(r->family),
-		       inet_ntop(r->family, (const void *)&c->address->u.prefix,
-				 ipstr, sizeof(ipstr)));
+		       "Bound Tx socket to primary IP address %pFX",
+		       r->vr->vrid, family2str(r->family), c->address);
 	}
 
 	return ret;
@@ -1717,7 +1711,6 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_router *r)
 	struct listnode *ln;
 	struct connected *c = NULL;
 	bool is_v6_ll;
-	char ipbuf[INET6_ADDRSTRLEN];
 
 	if (!r->mvl_ifp)
 		return;
@@ -1730,12 +1723,10 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_router *r)
 		is_v6_ll = (c->address->family == AF_INET6
 			    && IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6));
 		if (c->address->family == r->family && !is_v6_ll) {
-			inet_ntop(r->family, &c->address->u.prefix, ipbuf,
-				  sizeof(ipbuf));
 			DEBUGD(&vrrp_dbg_auto,
 			       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-			       "Adding %s",
-			       r->vr->vrid, family2str(r->family), ipbuf);
+			       "Adding %pFX",
+			       r->vr->vrid, family2str(r->family), c->address);
 			if (r->family == AF_INET)
 				vrrp_add_ipv4(r->vr, c->address->u.prefix4);
 			else if (r->vr->version == 3)
