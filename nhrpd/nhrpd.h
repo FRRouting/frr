@@ -468,6 +468,7 @@ void nhrp_vc_notify_del(struct nhrp_vc *, struct notifier_block *);
 void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *), void *ctx);
 void nhrp_vc_reset(void);
 
+void nhrp_vc_force_ipsec_down(struct nhrp_vc *vc);
 void vici_init(void);
 void vici_terminate(void);
 void vici_terminate_vc_by_profile_name(char *profile_name);

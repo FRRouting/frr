@@ -101,6 +101,67 @@ static void nhrp_vc_ipsec_reset(struct nhrp_vc *vc)
 	vc->remote.certlen = 0;
 }
 
+void nhrp_vc_force_ipsec_down(struct nhrp_vc *vc)
+{
+	size_t i = 0;
+	struct child_sa *lsa, *lsa_save;
+	uint32_t ike_uniqueid;
+	struct childlist_head ike_list_head;
+
+	if (!vc || !vc->ipsec)
+		return;
+
+	/* Find all child SAs used by the vc, and terminate their parent IKE SAs.
+	 * Temporarily maintain the list 'list_ike' of child SA whose IKE SAs were
+	 * terminated to avoid duplicate requests.
+	 */
+	childlist_init(&ike_list_head);
+
+	for (i = 0; i < array_size(childlist_head); i++) {
+		frr_each_safe (childlist, &childlist_head[i], lsa) {
+			bool found_lsa = false;
+
+			if (lsa->vc != vc)
+				continue;
+			ike_uniqueid = lsa->ike_uniqueid;
+			/* Update by dereferencing the lsa from childlist
+			 * Also, decrement vc ipsec counter
+			 */
+			vc->ipsec--;
+			lsa->vc = NULL;
+			childlist_del(&childlist_head[i], lsa);
+			frr_each (childlist, &ike_list_head, lsa_save) {
+				if (lsa_save->ike_uniqueid == ike_uniqueid) {
+					found_lsa = true;
+					break;
+				}
+			}
+			/* store temporarily struct child_sa in list_ike
+			 * and flush ike_sa associated
+			 */
+			if (!found_lsa) {
+				childlist_add_tail(&ike_list_head,
+					      lsa);
+				vici_terminate_ike(ike_uniqueid);
+			} else {
+				/* flush struct lsa since
+				 * ike_id already referenced in list_ike
+				 */
+				XFREE(MTYPE_NHRP_VC, lsa);
+			}
+		}
+	}
+	/* flush vc if ipsec is the last entry */
+	if (!vc->ipsec)
+		nhrp_vc_ipsec_reset(vc);
+	/* flush remaining struct child_sa */
+	frr_each_safe (childlist, &ike_list_head, lsa_save) {
+		childlist_del(&ike_list_head, lsa_save);
+		XFREE(MTYPE_NHRP_VC, lsa_save);
+	}
+	return;
+}
+
 int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc,
 			 uint32_t ike_uniqueid)
 {
