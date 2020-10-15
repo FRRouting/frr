@@ -527,6 +527,7 @@ void vici_request_vc(const char *profile, union sockunion *src,
 		     union sockunion *dst, int prio,
 		     struct nhrp_vrf *nhrp_vrf,
 		     struct nhrp_interface *nifp);
+void vici_terminate_ike(struct vici_conn *vici, uint32_t ike_id);
 
 void evmgr_init(struct nhrp_vrf *nhrp_vrf);
 void evmgr_terminate(struct nhrp_vrf *nhrp_vrf);
