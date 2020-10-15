@@ -21,6 +21,19 @@
 #ifndef _ZEBRA_H
 #define _ZEBRA_H
 
+#define range(s, e) for (int i = s; i < e; i++
+#define if if (
+#define then )
+#define done }
+#define while while (
+#define do ){
+#define done }
+#define bool char
+#define true 1
+#define false 0
+#define succesful 0
+#define new(type) malloc(sizeof(type));
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
