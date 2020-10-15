@@ -18,7 +18,10 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_VC, "NHRP virtual connection");
 PREDECL_DLIST(childlist);
 
 struct child_sa {
+	/* child SA unique id */
 	uint32_t id;
+	/* IKE SA unique id */
+	uint32_t ike_uniqueid;
 	struct nhrp_vc *vc;
 	struct childlist_item childlist_entry;
 };
@@ -98,7 +101,8 @@ static void nhrp_vc_ipsec_reset(struct nhrp_vc *vc)
 	vc->remote.certlen = 0;
 }
 
-int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
+int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc,
+			 uint32_t ike_uniqueid)
 {
 	struct child_sa *sa = NULL, *lsa;
 	uint32_t child_hash = child_id % array_size(childlist_head);
@@ -107,6 +111,7 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 	frr_each (childlist, &childlist_head[child_hash], lsa) {
 		if (lsa->id == child_id) {
 			sa = lsa;
+			sa->ike_uniqueid = ike_uniqueid;
 			break;
 		}
 	}
@@ -120,6 +125,7 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 		*sa = (struct child_sa){
 			.id = child_id,
 			.vc = NULL,
+			.ike_uniqueid = ike_uniqueid,
 		};
 		childlist_add_tail(&childlist_head[child_hash], sa);
 	}
@@ -206,7 +212,7 @@ void nhrp_vc_reset(void)
 
 	for (i = 0; i < array_size(childlist_head); i++) {
 		frr_each_safe (childlist, &childlist_head[i], sa)
-			nhrp_vc_ipsec_updown(sa->id, 0);
+			nhrp_vc_ipsec_updown(sa->id, 0, sa->ike_uniqueid);
 	}
 }
 

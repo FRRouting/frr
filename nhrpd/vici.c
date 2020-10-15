@@ -188,14 +188,14 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 						     sizeof(vc->remote.cert)))
 						vc->remote.certlen =
 							sactx->remote.cert.len;
-					sactx->kill_ikesa |=
-						nhrp_vc_ipsec_updown(
-							sactx->child_uniqueid,
-							vc);
+					sactx->kill_ikesa |= nhrp_vc_ipsec_updown(
+						sactx->child_uniqueid, vc,
+						sactx->ike_uniqueid);
 					vc->ike_uniqueid = sactx->ike_uniqueid;
 				}
 			} else {
-				nhrp_vc_ipsec_updown(sactx->child_uniqueid, 0);
+				nhrp_vc_ipsec_updown(sactx->child_uniqueid, 0,
+						     sactx->ike_uniqueid);
 			}
 		}
 		break;
