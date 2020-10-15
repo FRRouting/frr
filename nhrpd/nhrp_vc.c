@@ -20,7 +20,10 @@
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_VC, "NHRP virtual connection");
 
 struct child_sa {
+	/* child SA unique id */
 	uint32_t id;
+	/* IKE SA unique id */
+	uint32_t ike_uniqueid;
 	struct nhrp_vc *vc;
 	struct list_head childlist_entry;
 };
@@ -99,7 +102,10 @@ static void nhrp_vc_ipsec_reset(struct nhrp_vc *vc)
 	vc->remote.certlen = 0;
 }
 
-int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vrf *nhrp_vrf, struct nhrp_vc *vc)
+int nhrp_vc_ipsec_updown(uint32_t child_id,
+			 struct nhrp_vrf *nhrp_vrf,
+			 struct nhrp_vc *vc,
+			 uint32_t ike_uniqueid)
 {
 	struct child_sa *sa = NULL, *lsa;
 	uint32_t child_hash = child_id % array_size(nhrp_vrf->childlist_head);
@@ -109,6 +115,7 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vrf *nhrp_vrf, struct nh
 	{
 		if (lsa->id == child_id) {
 			sa = lsa;
+			sa->ike_uniqueid = ike_uniqueid;
 			break;
 		}
 	}
@@ -124,6 +131,7 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vrf *nhrp_vrf, struct nh
 			.childlist_entry =
 				LIST_INITIALIZER(sa->childlist_entry),
 			.vc = NULL,
+			.ike_uniqueid = ike_uniqueid,
 		};
 		list_add_tail(&sa->childlist_entry,
 			      &vc->nhrp_vrf->childlist_head[child_hash]);
@@ -219,7 +227,7 @@ void nhrp_vc_reset(struct nhrp_vrf *nhrp_vrf)
 	for (i = 0; i < array_size(nhrp_vrf->childlist_head); i++) {
 		list_for_each_entry_safe(sa, n, &nhrp_vrf->childlist_head[i],
 					 childlist_entry)
-			nhrp_vc_ipsec_updown(sa->id, nhrp_vrf, 0);
+			nhrp_vc_ipsec_updown(sa->id, nhrp_vrf, 0, sa->ike_uniqueid);
 	}
 }
 

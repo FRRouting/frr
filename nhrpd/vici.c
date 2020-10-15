@@ -209,10 +209,12 @@ static void parse_sa_message_pervrf(struct hash_bucket *backet, void *arg)
 			sactx->kill_ikesa |=
 				nhrp_vc_ipsec_updown(
 						     sactx->child_uniqueid,
-						     nhrp_vrf, vc);
+						     nhrp_vrf, vc,
+						     sactx->ike_uniqueid);
 		}
 	} else {
-		nhrp_vc_ipsec_updown(sactx->child_uniqueid, nhrp_vrf, 0);
+		nhrp_vc_ipsec_updown(sactx->child_uniqueid, nhrp_vrf,
+				     0, sactx->ike_uniqueid);
 	}
 }
 

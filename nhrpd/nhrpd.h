@@ -506,7 +506,8 @@ void nhrp_vc_terminate(struct nhrp_vrf *nhrp_vrf);
 struct nhrp_vc *nhrp_vc_get(const union sockunion *src,
 			    const union sockunion *dst, int create,
 			    struct nhrp_vrf *nhrp_vrf);
-int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vrf *nhrp_vrf, struct nhrp_vc *vc);
+int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vrf *nhrp_vrf,
+			 struct nhrp_vc *vc, uint32_t ike_uniqueid);
 void nhrp_vc_notify_add(struct nhrp_vc *, struct notifier_block *,
 			notifier_fn_t);
 void nhrp_vc_notify_del(struct nhrp_vc *, struct notifier_block *);
