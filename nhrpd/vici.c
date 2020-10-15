@@ -60,6 +60,8 @@ struct vici_message_ctx {
 static void vici_reconnect(struct event *t);
 static void vici_submit_request(struct vici_conn *vici, const char *name, ...);
 
+static struct vici_conn vici_connection;
+
 static void vici_zbuf_puts(struct zbuf *obuf, const char *str)
 {
 	size_t len = strlen(str);
@@ -294,9 +296,27 @@ static void parse_cmd_response(struct vici_message_ctx *ctx,
 	}
 }
 
-static void vici_recv_sa(struct vici_conn *vici, struct zbuf *msg, int event)
+static void _vici_terminate_ike(struct vici_conn *vici, uint32_t ike_uniqueid)
 {
 	char buf[32];
+
+	if (!ike_uniqueid)
+		return;
+	debugf(NHRP_DEBUG_COMMON, "VICI: Deleting IKE_SA %u", ike_uniqueid);
+	snprintf(buf, sizeof(buf), "%u", ike_uniqueid);
+	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike-id",
+			    strlen(buf), buf, VICI_END);
+}
+
+void vici_terminate_ike(uint32_t ike_uniqueid)
+{
+	struct vici_conn *vici = &vici_connection;
+
+	_vici_terminate_ike(vici, ike_uniqueid);
+}
+
+static void vici_recv_sa(struct vici_conn *vici, struct zbuf *msg, int event)
+{
 	struct handle_sa_ctx ctx = {
 		.event = event,
 		.msgctx.nsections = 0
@@ -305,11 +325,7 @@ static void vici_recv_sa(struct vici_conn *vici, struct zbuf *msg, int event)
 	vici_parse_message(vici, msg, parse_sa_message, &ctx.msgctx);
 
 	if (ctx.kill_ikesa && ctx.ike_uniqueid) {
-		debugf(NHRP_DEBUG_COMMON, "VICI: Deleting IKE_SA %u",
-		       ctx.ike_uniqueid);
-		snprintf(buf, sizeof(buf), "%u", ctx.ike_uniqueid);
-		vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike-id",
-				    strlen(buf), buf, VICI_END);
+		_vici_terminate_ike(vici, ctx.ike_uniqueid);
 	}
 }
 
@@ -538,8 +554,6 @@ static void vici_reconnect(struct event *t)
 	vici_register_event(vici, "list-sa");
 	vici_submit_request(vici, "list-sas", VICI_END);
 }
-
-static struct vici_conn vici_connection;
 
 void vici_init(void)
 {

@@ -473,6 +473,7 @@ void vici_terminate_vc_by_profile_name(char *profile_name);
 void vici_terminate_vc_by_ike_id(unsigned int ike_id);
 void vici_request_vc(const char *profile, union sockunion *src,
 		     union sockunion *dst, int prio);
+void vici_terminate_ike(uint32_t ike_uniqueid);
 
 extern const char *nhrp_event_socket_path;
 
