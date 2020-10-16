@@ -875,6 +875,18 @@ enum node_type node_parent(enum node_type node)
 	case SR_CANDIDATE_DYN_NODE:
 		ret = SR_POLICY_NODE;
 		break;
+	case PCEP_NODE:
+		ret = SR_TRAFFIC_ENG_NODE;
+		break;
+	case PCEP_PCE_CONFIG_NODE:
+		ret = PCEP_NODE;
+		break;
+	case PCEP_PCE_NODE:
+		ret = PCEP_NODE;
+		break;
+	case PCEP_PCC_NODE:
+		ret = PCEP_NODE;
+		break;
 	default:
 		ret = CONFIG_NODE;
 		break;

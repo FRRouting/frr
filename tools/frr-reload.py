@@ -681,6 +681,27 @@ end
                 current_context_lines = []
                 new_ctx = False
                 log.debug("LINE %-50s: entering new context, %-50s", line, ctx_keys)
+
+            elif (
+                line.startswith("peer ")
+                and len(ctx_keys) == 4
+                and ctx_keys[0].startswith("segment-routing")
+                and ctx_keys[1].startswith("traffic-eng")
+                and ctx_keys[2].startswith("pcep")
+                and ctx_keys[3].startswith("pcc")
+            ):
+                # If there is no precedence, we add the default one (255) so
+                # the line is not removed and added back
+                m = re.search('peer ([^ ]*)', line)
+                if (m != None):
+                    (name,) = m.groups()
+                    line = "peer %s precedence 255" % (name,)
+
+                current_context_lines.append(line)
+                log.debug(
+                    "LINE %-50s: append to current_context_lines, %-50s", line, ctx_keys
+                )
+
             elif (
                 line.startswith("address-family ")
                 or line.startswith("vnc defaults")
@@ -802,6 +823,73 @@ end
                 main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug(
                     "LINE %-50s: entering candidate-path sub-context, append to ctx_keys", line
+                )
+                ctx_keys.append(line)
+
+            elif (
+                line.startswith("pcep")
+                and len(ctx_keys) == 2
+                and ctx_keys[0].startswith("segment-routing")
+                and ctx_keys[1].startswith("traffic-eng")
+            ):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                main_ctx_key = copy.deepcopy(ctx_keys)
+                log.debug(
+                    "LINE %-50s: entering pcep sub-context, append to ctx_keys", line
+                )
+                ctx_keys.append(line)
+
+            elif (
+                line.startswith("pce-config ")
+                and len(ctx_keys) == 3
+                and ctx_keys[0].startswith("segment-routing")
+                and ctx_keys[1].startswith("traffic-eng")
+                and ctx_keys[2].startswith("pcep")
+            ):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                main_ctx_key = copy.deepcopy(ctx_keys)
+                log.debug(
+                    "LINE %-50s: entering pce-config sub-context, append to ctx_keys", line
+                )
+                ctx_keys.append(line)
+
+            elif (
+                line.startswith("pce ")
+                and len(ctx_keys) == 3
+                and ctx_keys[0].startswith("segment-routing")
+                and ctx_keys[1].startswith("traffic-eng")
+                and ctx_keys[2].startswith("pcep")
+            ):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                main_ctx_key = copy.deepcopy(ctx_keys)
+                log.debug(
+                    "LINE %-50s: entering pce sub-context, append to ctx_keys", line
+                )
+                ctx_keys.append(line)
+
+            elif (
+                line.startswith("pcc")
+                and len(ctx_keys) == 3
+                and ctx_keys[0].startswith("segment-routing")
+                and ctx_keys[1].startswith("traffic-eng")
+                and ctx_keys[2].startswith("pcep")
+            ):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                main_ctx_key = copy.deepcopy(ctx_keys)
+                log.debug(
+                    "LINE %-50s: entering pcc sub-context, append to ctx_keys", line
                 )
                 ctx_keys.append(line)
 
@@ -1412,6 +1500,14 @@ def compare_context_objects(newconf, running):
                 len(running_ctx_keys) > 1
                 and len(running_ctx_keys) < 3
                 and running_ctx_keys[0].startswith('segment-routing')
+            ):
+                continue
+
+            # Neither the pcep command
+            elif (
+                len(running_ctx_keys) == 3
+                and running_ctx_keys[0].startswith('segment-routing')
+                and running_ctx_keys[2].startswith('pcep4')
             ):
                 continue
 

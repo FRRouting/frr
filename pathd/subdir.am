@@ -10,6 +10,12 @@ vtysh_scan += $(top_srcdir)/pathd/path_cli.c
 vtysh_daemons += pathd
 # TODO add man page
 #man8 += $(MANBUILD)/pathd.8
+
+if HAVE_PATHD_PCEP
+vtysh_scan += $(top_srcdir)/pathd/path_pcep_cli.c
+module_LTLIBRARIES += pathd/pathd_pcep.la
+endif
+
 endif
 
 pathd_libpath_a_SOURCES = \
@@ -29,20 +35,45 @@ clippy_scan += \
 	pathd/path_cli.c \
 	# end
 
+if HAVE_PATHD_PCEP
+clippy_scan += \
+	pathd/path_pcep_cli.c \
+	# end
+endif
+
 noinst_HEADERS += \
 	pathd/path_debug.h \
 	pathd/path_errors.h \
 	pathd/path_memory.h \
 	pathd/path_nb.h \
+	pathd/path_pcep.h \
+	pathd/path_pcep_cli.h \
+	pathd/path_pcep_controller.h \
+	pathd/path_pcep_debug.h \
+	pathd/path_pcep_lib.h \
+	pathd/path_pcep_memory.h \
+	pathd/path_pcep_config.h \
+	pathd/path_pcep_pcc.h \
 	pathd/path_zebra.h \
 	pathd/pathd.h \
 	# end
-
-pathd/path_cli_clippy.c: $(CLIPPY_DEPS)
-pathd/path_cli.$(OBJEXT): pathd/path_cli_clippy.c
 
 pathd_pathd_SOURCES = pathd/path_main.c
 nodist_pathd_pathd_SOURCES = \
 	yang/frr-pathd.yang.c \
 	# end
 pathd_pathd_LDADD = pathd/libpath.a lib/libfrr.la -lm $(LIBCAP)
+
+pathd_pathd_pcep_la_SOURCES = \
+	pathd/path_pcep.c \
+	pathd/path_pcep_cli.c \
+	pathd/path_pcep_controller.c \
+	pathd/path_pcep_debug.c \
+	pathd/path_pcep_lib.c \
+	pathd/path_pcep_memory.c \
+	pathd/path_pcep_config.c \
+	pathd/path_pcep_pcc.c \
+	# end
+pathd_pathd_pcep_la_CFLAGS = $(WERROR)
+pathd_pathd_pcep_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+pathd_pathd_pcep_la_LIBADD = @PATHD_PCEP_LIBS@

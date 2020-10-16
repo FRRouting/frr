@@ -29,5 +29,13 @@ segment-routing
     metric te 10
    !
   !
+  pcep
+   pcc-peer PCE1
+    address ip 127.0.0.1
+    sr-draft07
+   !
+   pcc
+    peer PCE1
+   !
  !
 !

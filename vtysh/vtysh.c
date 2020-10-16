@@ -541,8 +541,12 @@ static int vtysh_execute_func(const char *line, int pager)
 			vtysh_execute("exit");
 		} else if ((saved_node == SR_SEGMENT_LIST_NODE
 			    || saved_node == SR_POLICY_NODE
-			    || saved_node == SR_CANDIDATE_DYN_NODE)
-			    && (tried > 0)) {
+			    || saved_node == SR_CANDIDATE_DYN_NODE
+			    || saved_node == PCEP_NODE
+			    || saved_node == PCEP_PCE_CONFIG_NODE
+			    || saved_node == PCEP_PCE_NODE
+			    || saved_node == PCEP_PCC_NODE)
+			   && (tried > 0)) {
 			vtysh_execute("exit");
 		} else if (tried) {
 			vtysh_execute("end");
@@ -826,16 +830,24 @@ int vtysh_mark_file(const char *filename)
 				   && (tried == 1)) {
 				vty_out(vty, "exit\n");
 			} else if (((prev_node == SEGMENT_ROUTING_NODE)
-			            || (prev_node == SR_TRAFFIC_ENG_NODE)
-			            || (prev_node == SR_SEGMENT_LIST_NODE)
-			            || (prev_node == SR_POLICY_NODE)
-			            || (prev_node == SR_CANDIDATE_DYN_NODE))
+				    || (prev_node == SR_TRAFFIC_ENG_NODE)
+				    || (prev_node == SR_SEGMENT_LIST_NODE)
+				    || (prev_node == SR_POLICY_NODE)
+				    || (prev_node == SR_CANDIDATE_DYN_NODE)
+				    || (prev_node == PCEP_NODE)
+				    || (prev_node == PCEP_PCE_CONFIG_NODE)
+				    || (prev_node == PCEP_PCE_NODE)
+				    || (prev_node == PCEP_PCC_NODE))
 				   && (tried > 0)) {
 				ending = (vty->node != SEGMENT_ROUTING_NODE)
-				         && (vty->node != SR_TRAFFIC_ENG_NODE)
-				         && (vty->node != SR_SEGMENT_LIST_NODE)
-				         && (vty->node != SR_POLICY_NODE)
-				         && (vty->node != SR_CANDIDATE_DYN_NODE);
+					 && (vty->node != SR_TRAFFIC_ENG_NODE)
+					 && (vty->node != SR_SEGMENT_LIST_NODE)
+					 && (vty->node != SR_POLICY_NODE)
+					 && (vty->node != SR_CANDIDATE_DYN_NODE)
+					 && (vty->node != PCEP_NODE)
+					 && (vty->node != PCEP_PCE_CONFIG_NODE)
+					 && (vty->node != PCEP_PCE_NODE)
+					 && (vty->node != PCEP_PCC_NODE);
 				if (ending)
 					tried--;
 				while (tried-- > 0)
@@ -1282,6 +1294,34 @@ static struct cmd_node srte_candidate_dyn_node = {
 	.node = SR_CANDIDATE_DYN_NODE,
 	.parent_node = SR_POLICY_NODE,
 	.prompt = "%s(config-sr-te-candidate)# ",
+};
+
+static struct cmd_node pcep_node = {
+	.name = "srte pcep",
+	.node = PCEP_NODE,
+	.parent_node = SR_TRAFFIC_ENG_NODE,
+	.prompt = "%s(config-sr-te-pcep)# "
+};
+
+static struct cmd_node pcep_pcc_node = {
+	.name = "srte pcep pcc",
+	.node = PCEP_PCC_NODE,
+	.parent_node = PCEP_NODE,
+	.prompt = "%s(config-sr-te-pcep-pcc)# ",
+};
+
+static struct cmd_node pcep_pce_node = {
+	.name = "srte pcep pce-peer",
+	.node = PCEP_PCE_NODE,
+	.parent_node = PCEP_NODE,
+	.prompt = "%s(config-sr-te-pcep-pce-peer)# ",
+};
+
+static struct cmd_node pcep_pce_config_node = {
+	.name = "srte pcep pce-config",
+	.node = PCEP_PCE_CONFIG_NODE,
+	.parent_node = PCEP_NODE,
+	.prompt = "%s(pcep-sr-te-pcep-pce-config)# ",
 };
 
 static struct cmd_node vrf_node = {
@@ -2091,6 +2131,48 @@ DEFUNSH(VTYSH_PATHD, srte_policy_candidate_dyn_path,
 	vty->node = SR_CANDIDATE_DYN_NODE;
 	return CMD_SUCCESS;
 }
+
+#if defined(HAVE_PATHD_PCEP)
+
+DEFUNSH(VTYSH_PATHD, pcep, pcep_cmd,
+	"pcep",
+	"Configure SR pcep\n")
+{
+	vty->node = PCEP_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, pcep_cli_pcc, pcep_cli_pcc_cmd,
+	"[no] pcc",
+	NO_STR
+	"PCC configuration\n")
+{
+	vty->node = PCEP_PCC_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, pcep_cli_pce, pcep_cli_pce_cmd,
+	"[no] pce WORD",
+	NO_STR
+	"PCE configuration\n"
+	"Peer name\n")
+{
+	vty->node = PCEP_PCE_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, pcep_cli_pcep_pce_config, pcep_cli_pcep_pce_config_cmd,
+	"[no] pce-config WORD",
+	NO_STR
+	"PCEP peer Configuration Group\n"
+	"PCEP peer Configuration Group name\n")
+{
+	vty->node = PCEP_PCE_CONFIG_NODE;
+	return CMD_SUCCESS;
+}
+
+#endif /* HAVE_PATHD_PCEP */
+
 #endif /* HAVE_PATHD */
 
 DEFUNSH(VTYSH_RMAP, vtysh_route_map, vtysh_route_map_cmd,
@@ -4304,6 +4386,33 @@ void vtysh_init_vty(void)
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_segment_list_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_dyn_path_cmd);
+
+#if defined(HAVE_PATHD_PCEP)
+	install_node(&pcep_node);
+	install_node(&pcep_pcc_node);
+	install_node(&pcep_pce_node);
+	install_node(&pcep_pce_config_node);
+
+	install_element(PCEP_NODE, &vtysh_exit_pathd_cmd);
+	install_element(PCEP_NODE, &vtysh_quit_pathd_cmd);
+	install_element(PCEP_PCC_NODE, &vtysh_exit_pathd_cmd);
+	install_element(PCEP_PCC_NODE, &vtysh_quit_pathd_cmd);
+	install_element(PCEP_PCE_NODE, &vtysh_exit_pathd_cmd);
+	install_element(PCEP_PCE_NODE, &vtysh_quit_pathd_cmd);
+	install_element(PCEP_PCE_CONFIG_NODE, &vtysh_exit_pathd_cmd);
+	install_element(PCEP_PCE_CONFIG_NODE, &vtysh_quit_pathd_cmd);
+
+	install_element(PCEP_NODE, &vtysh_end_all_cmd);
+	install_element(PCEP_PCC_NODE, &vtysh_end_all_cmd);
+	install_element(PCEP_PCE_NODE, &vtysh_end_all_cmd);
+	install_element(PCEP_PCE_CONFIG_NODE, &vtysh_end_all_cmd);
+
+	install_element(SR_TRAFFIC_ENG_NODE, &pcep_cmd);
+	install_element(PCEP_NODE, &pcep_cli_pcc_cmd);
+	install_element(PCEP_NODE, &pcep_cli_pcep_pce_config_cmd);
+	install_element(PCEP_NODE, &pcep_cli_pce_cmd);
+#endif /* HAVE_PATHD_PCEP */
+
 #endif /* HAVE_PATHD */
 
 	/* keychain */

@@ -8,3 +8,4 @@ Internals
    :maxdepth: 2
 
    path-internals-daemon
+   path-internals-pcep

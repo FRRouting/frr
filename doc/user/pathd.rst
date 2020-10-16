@@ -25,6 +25,33 @@ present and the :file:`frr.conf` is read instead.
 documented elsewhere.
 
 
+PCEP Support
+============
+
+To build the PCC for pathd, the externall library `pceplib 1.2 <https://github.com/volta-networks/pceplib/tree/devel-1.2>`_ is required.
+
+To build FRR with support for PCEP the following steps must be followed:
+
+ - Checkout and build pceplib:
+
+```
+$ git clone https://github.com/volta-networks/pceplib
+$ cd pceplib
+$ make
+$ make install
+$ export PCEPLIB_ROOT=$PWD
+```
+
+ - Configure FRR with the extra parameters:
+
+```
+--enable-pcep LDFLAGS="-L${PCEPLIB_ROOT}/install/lib" CPPFLAGS="-I${PCEPLIB_ROOT}/install/include"
+```
+
+To start pathd with pcep support the extra parameter `-M pathd_pcep` should be
+passed to the pathd daemon.
+
+
 Pathd Configuration
 ===================
 
@@ -32,6 +59,7 @@ Example:
 
 .. code-block:: frr
 
+  debug pathd pcep basic
   segment-routing
    traffic-eng
     segment-list SL1
@@ -48,6 +76,25 @@ Example:
       metric bound msd 16 required
       metric te 10
       objective-function mcp required
+    !
+    pcep
+     pce-config GROUP1
+      source-address 1.1.1.1
+      tcp-md5-auth secret
+      timer keep-alive 30
+     !
+     pce PCE1
+      config GROUP1
+      address ip 10.10.10.10
+     !
+     pce PCE2
+      config GROUP1
+      address ip 9.9.9.9
+     !
+     pcc
+      peer PCE1 precedence 10
+      peer PCE2 precedence 20
+     !
     !
    !
   !
@@ -177,6 +224,121 @@ Configuration Commands
      - msn: Minimize the number of Shared Nodes [RFC8800]
 
 
+.. index:: [no] debug pathd pcep [basic|path|message|pceplib]
+.. clicmd:: [no] debug pathd pcep [basic|path|message|pceplib]
+
+   Enable or disable debugging for the pcep module:
+
+     - basic: Enable basic PCEP logging
+     - path: Log the path structures
+     - message: Log the PCEP messages
+     - pceplib: Enable pceplib logging
+
+
+.. index:: pcep
+.. clicmd:: pcep
+
+   Configure PCEP support.
+
+
+.. index:: [no] cep-config NAME
+.. clicmd:: [no] pce-config NAME
+
+   Define a shared PCE configuration that can be used in multiple PCE
+   declarations.
+
+
+.. index:: [no] pce NAME
+.. clicmd:: [no] pce NAME
+
+   Define or delete a PCE definition.
+
+
+.. index:: config WORD
+.. clicmd:: config WORD
+
+   Select a shared configuration. If not defined, the default
+   configuration will be used.
+
+
+.. index:: address <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)]
+.. clicmd:: address <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)]
+
+   Define the address and port of the PCE.
+
+   If not specified, the port is the standard PCEP port 4189.
+
+   This should be specified in the PCC peer definition.
+
+
+.. index:: source-address [ip A.B.C.D | ipv6 X:X::X:X] [port PORT]
+.. clicmd:: source-address [ip A.B.C.D | ipv6 X:X::X:X] [port PORT]
+
+   Define the address and/or port of the PCC as seen by the PCE.
+   This can be used in a configuration group or a PCC peer declaration.
+
+   If not specified, the source address will be the router identifier selected
+   by zebra, and the port will be the standard PCEP port 4189.
+
+   This can be specified in either the PCC peer definition or in a
+   configuration group.
+
+
+.. index:: tcp-md5-auth WORD
+.. clicmd:: tcp-md5-auth WORD
+
+   Enable TCP MD5 security with the given secret.
+
+   This can be specified in either the PCC peer definition or in a
+   configuration group.
+
+
+.. index:: sr-draft07
+.. clicmd:: sr-draft07
+
+   Specify if a PCE only support segment routing draft 7, this flag will limit
+   the PCC behavior to this draft.
+
+   This can be specified in either the PCC peer definition or in a
+   configuration group.
+
+
+.. index:: pce-initiated
+.. clicmd:: pce-initiated
+
+   Specify if PCE-initiated LSP should be allowed for this PCE.
+
+   This can be specified in either the PCC peer definition or in a
+   configuration group.
+
+
+.. index:: timer [keep-alive (1-63)] [min-peer-keep-alive (1-255)] [max-peer-keep-alive (1-255)] [dead-timer (4-255)] [min-peer-dead-timer (4-255)] [max-peer-dead-timer (4-255)] [pcep-request (1-120)] [session-timeout-interval (1-120)] [delegation-timeout (1-60)]
+.. clicmd:: timer [keep-alive (1-63)] [min-peer-keep-alive (1-255)] [max-peer-keep-alive (1-255)] [dead-timer (4-255)] [min-peer-dead-timer (4-255)] [max-peer-dead-timer (4-255)] [pcep-request (1-120)] [session-timeout-interval (1-120)] [delegation-timeout (1-60)]
+
+   Specify the PCEP timers.
+
+   This can be specified in either the PCC peer definition or in a
+   configuration group.
+
+
+.. index:: [no] pcc
+.. clicmd:: [no] pcc
+
+   Disable or start the definition of a PCC.
+
+
+.. index:: msd (1-32)
+.. clicmd:: msd (1-32)
+
+   Specify the maximum SID depth in a PCC definition.
+
+
+.. index:: [no] peer WORD [precedence (1-255)]
+.. clicmd:: [no] peer WORD [precedence (1-255)]
+
+   Specify a peer and its precedence in a PCC definition.
+
+
 Introspection Commands
 ----------------------
 
@@ -204,6 +366,54 @@ Introspection Commands
 
 The asterisk (*) marks the best, e.g. active, candidate path. Note that for segment-lists which are
 retrieved via PCEP a random number based name is generated.
+
+
+.. index:: show debugging pathd
+.. clicmd:: show debugging pathd
+
+   Display the current status of the pathd debugging.
+
+
+.. index:: show debugging pathd-pcep
+.. clicmd:: show debugging pathd-pcep
+
+   Display the current status of the pcep module debugging.
+
+
+.. index:: show sr-te pcep counters
+.. clicmd:: show sr-te pcep counters
+
+   Display the counters from pceplib.
+
+
+.. index:: show sr-te pcep pce-config [NAME]
+.. clicmd:: show sr-te pcep pce-config [NAME]
+
+   Display a shared configuration. if no name is specified, the default
+   configuration will be displayed.
+
+
+.. index:: show sr-te pcep pcc
+.. clicmd:: show sr-te pcep pcc
+
+   Display PCC information.
+
+
+.. index:: show sr-te pcep session [NAME]
+.. clicmd:: show sr-te pcep session [NAME]
+
+   Display the information of a PCEP session, if not name is specified all the
+   sessions will be displayed.
+
+
+Utility Commands
+----------------
+
+.. index:: clear sr-te pcep session [NAME]
+.. clicmd:: clear sr-te pcep session [NAME]
+
+   Reset the pcep session by disconnecting from the PCE and performing the
+   normal reconnection process. No configuration is changed.
 
 
 Usage with BGP route-maps

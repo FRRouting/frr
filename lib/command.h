@@ -150,6 +150,10 @@ enum node_type {
 	SR_SEGMENT_LIST_NODE,	 /* SR segment list config node */
 	SR_POLICY_NODE,		 /* SR policy config node */
 	SR_CANDIDATE_DYN_NODE,	 /* SR dynamic candidate path config node */
+	PCEP_NODE,	 	 /* PCEP node */
+	PCEP_PCE_CONFIG_NODE,	 /* PCE shared configuration node */
+	PCEP_PCE_NODE,		 /* PCE configuration node */
+	PCEP_PCC_NODE,		 /* PCC configuration node */
 	VTY_NODE,		 /* Vty node. */
 	FPM_NODE,		 /* Dataplane FPM node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */
