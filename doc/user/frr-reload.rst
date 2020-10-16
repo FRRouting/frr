@@ -39,3 +39,6 @@ There are several options that control the behavior of ``frr-reload``:
 * ``--overwrite``: overwrite the existing daemon config file with the new
   config after the delta has been applied. The file name will be ``frr.conf``
   for integrate config, or ``DAEMON.conf`` when using per-daemon config files.
+* ``--marked``: indicates that the provided input file(s) are already marked
+  and can be loaded directly. Otherwise (and by default) the inputs are marked
+  automatically by ``vtysh --markfile``.
