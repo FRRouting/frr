@@ -47,19 +47,6 @@
   ],
   "10.0.20.0/24": [
     {
-      "distance": 115,
-      "metric": 10,
-      "nexthops": [
-        {
-          "afi": "ipv4",
-          "interfaceName": "r3-eth0",
-          "ip": "10.0.20.2"
-        }
-      ],
-      "prefix": "10.0.20.0/24",
-      "protocol": "isis"
-    },
-    {
       "nexthops": [
         {
           "active": true,

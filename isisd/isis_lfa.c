@@ -614,6 +614,10 @@ static bool lfa_check_needs_protection(const struct isis_spftree *spftree_pc,
 	size_t affected_nhs = 0;
 	struct isis_vertex_adj *vadj;
 
+	/* Local routes don't need protection. */
+	if (VTYPE_IP(vertex->type) && vertex->depth == 1)
+		return false;
+
 	/* Only local adjacencies need Adj-SID protection. */
 	if (VTYPE_IS(vertex->type)
 	    && !isis_adj_find(spftree_pc->area, spftree_pc->level,

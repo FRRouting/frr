@@ -1280,7 +1280,7 @@ static void spf_path_process(struct isis_spftree *spftree,
 
 	if (VTYPE_IP(vertex->type)
 	    && !CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ROUTES)) {
-		if (listcount(vertex->Adj_N) > 0) {
+		if (vertex->depth == 1 || listcount(vertex->Adj_N) > 0) {
 			struct route_table *route_table;
 
 			if (spftree->type == SPF_TYPE_TI_LFA) {
