@@ -115,21 +115,6 @@ static int64_t acl_zebra_get_seq(struct access_list *acl, const char *action,
 }
 
 /*
- * Helper function to concatenate address with mask in Cisco style.
- */
-static void concat_addr_mask_v4(const char *addr, const char *mask, char *dst,
-				size_t dstlen)
-{
-	struct in_addr ia;
-	int plen;
-
-	assert(inet_pton(AF_INET, mask, &ia) == 1);
-	ia.s_addr = ~ia.s_addr;
-	plen = ip_masklen(ia);
-	snprintf(dst, dstlen, "%s/%d", addr, plen);
-}
-
-/*
  * Helper function to generate a sequence number for legacy commands.
  */
 static int acl_get_seq_cb(const struct lyd_node *dnode, void *arg)
@@ -177,7 +162,6 @@ DEFPY_YANG(
 	"Wildcard bits\n")
 {
 	int64_t sseq;
-	char ipmask[64];
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
 
@@ -203,8 +187,10 @@ DEFPY_YANG(
 	if (host_str != NULL && mask_str == NULL) {
 		nb_cli_enqueue_change(vty, "./host", NB_OP_MODIFY, host_str);
 	} else if (host_str != NULL && mask_str != NULL) {
-		concat_addr_mask_v4(host_str, mask_str, ipmask, sizeof(ipmask));
-		nb_cli_enqueue_change(vty, "./network", NB_OP_MODIFY, ipmask);
+		nb_cli_enqueue_change(vty, "./network/address", NB_OP_MODIFY,
+				      host_str);
+		nb_cli_enqueue_change(vty, "./network/mask", NB_OP_MODIFY,
+				      mask_str);
 	} else {
 		nb_cli_enqueue_change(vty, "./source-any", NB_OP_CREATE, NULL);
 	}
@@ -285,7 +271,6 @@ DEFPY_YANG(
 	"Any destination host\n")
 {
 	int64_t sseq;
-	char ipmask[64], ipmask_dst[64];
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
 
@@ -311,9 +296,10 @@ DEFPY_YANG(
 	if (src_str != NULL && src_mask_str == NULL) {
 		nb_cli_enqueue_change(vty, "./host", NB_OP_MODIFY, src_str);
 	} else if (src_str != NULL && src_mask_str != NULL) {
-		concat_addr_mask_v4(src_str, src_mask_str, ipmask,
-				    sizeof(ipmask));
-		nb_cli_enqueue_change(vty, "./network", NB_OP_MODIFY, ipmask);
+		nb_cli_enqueue_change(vty, "./network/address", NB_OP_MODIFY,
+				      src_str);
+		nb_cli_enqueue_change(vty, "./network/mask", NB_OP_MODIFY,
+				      src_mask_str);
 	} else {
 		nb_cli_enqueue_change(vty, "./source-any", NB_OP_CREATE, NULL);
 	}
@@ -322,10 +308,10 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./destination-host", NB_OP_MODIFY,
 				      dst_str);
 	} else if (dst_str != NULL && dst_mask_str != NULL) {
-		concat_addr_mask_v4(dst_str, dst_mask_str, ipmask_dst,
-				    sizeof(ipmask_dst));
-		nb_cli_enqueue_change(vty, "./destination-network",
-				      NB_OP_MODIFY, ipmask_dst);
+		nb_cli_enqueue_change(vty, "./destination-network/address",
+				      NB_OP_MODIFY, dst_str);
+		nb_cli_enqueue_change(vty, "./destination-network/mask",
+				      NB_OP_MODIFY, dst_mask_str);
 	} else {
 		nb_cli_enqueue_change(vty, "./destination-any", NB_OP_CREATE,
 				      NULL);
@@ -947,7 +933,7 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 	bool is_exact = false;
 	bool cisco_style = false;
 	bool cisco_extended = false;
-	struct in_addr mask;
+	struct in_addr addr, mask;
 	char macstr[PREFIX2STR_BUFFER];
 
 	is_any = yang_dnode_exists(dnode, "./any");
@@ -957,11 +943,12 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 			break;
 
 		if (yang_dnode_exists(dnode, "./host")
-		    || yang_dnode_exists(dnode, "./network")
+		    || yang_dnode_exists(dnode, "./network/address")
 		    || yang_dnode_exists(dnode, "./source-any")) {
 			cisco_style = true;
 			if (yang_dnode_exists(dnode, "./destination-host")
-			    || yang_dnode_exists(dnode, "./destination-network")
+			    || yang_dnode_exists(
+				    dnode, "./destination-network/address")
 			    || yang_dnode_exists(dnode, "./destination-any"))
 				cisco_extended = true;
 		} else {
@@ -998,9 +985,9 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 			vty_out(vty, " ip");
 
 		if (yang_dnode_exists(dnode, "./network")) {
-			yang_dnode_get_prefix(&p, dnode, "./network");
-			masklen2ip(p.prefixlen, &mask);
-			vty_out(vty, " %pI4 %pI4", &p.u.prefix4, &mask);
+			yang_dnode_get_ipv4(&addr, dnode, "./network/address");
+			yang_dnode_get_ipv4(&mask, dnode, "./network/mask");
+			vty_out(vty, " %pI4 %pI4", &addr, &mask);
 		} else if (yang_dnode_exists(dnode, "./host")) {
 			if (cisco_extended)
 				vty_out(vty, " host");
@@ -1018,10 +1005,11 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 
 		/* Handle destination address. */
 		if (yang_dnode_exists(dnode, "./destination-network")) {
-			yang_dnode_get_prefix(&p, dnode,
-					      "./destination-network");
-			masklen2ip(p.prefixlen, &mask);
-			vty_out(vty, " %pI4 %pI4", &p.u.prefix4, &mask);
+			yang_dnode_get_ipv4(&addr, dnode,
+					    "./destination-network/address");
+			yang_dnode_get_ipv4(&mask, dnode,
+					    "./destination-network/mask");
+			vty_out(vty, " %pI4 %pI4", &addr, &mask);
 		} else if (yang_dnode_exists(dnode, "./destination-host"))
 			vty_out(vty, " host %s",
 				yang_dnode_get_string(dnode,
