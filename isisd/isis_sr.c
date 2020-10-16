@@ -56,6 +56,7 @@ static void sr_local_block_delete(struct isis_area *area);
 static int sr_local_block_init(struct isis_area *area);
 static void sr_adj_sid_update(struct sr_adjacency *sra,
 			      struct sr_local_block *srlb);
+static void sr_adj_sid_del(struct sr_adjacency *sra);
 
 /* --- RB-Tree Management functions ----------------------------------------- */
 
@@ -1255,6 +1256,23 @@ static void process_node_changes(struct isis_area *area, int level,
 }
 
 /**
+ * Delete all backup Adj-SIDs.
+ *
+ * @param area	IS-IS area
+ * @param level	IS-IS level
+ */
+void isis_area_delete_backup_adj_sids(struct isis_area *area, int level)
+{
+	struct sr_adjacency *sra;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))
+		if (sra->type == ISIS_SR_LAN_BACKUP
+		    && (sra->adj->level & level))
+			sr_adj_sid_del(sra);
+}
+
+/**
  * Parse and process all SR-related Sub-TLVs after running the SPF algorithm.
  *
  * @param area	IS-IS area
@@ -1499,12 +1517,13 @@ static int sr_local_block_release_label(struct sr_local_block *srlb,
 /**
  * Add new local Adjacency-SID.
  *
- * @param adj	  IS-IS Adjacency
- * @param family  Inet Family (IPv4 or IPv6)
- * @param backup  True to initialize backup Adjacency SID
+ * @param adj	   IS-IS Adjacency
+ * @param family   Inet Family (IPv4 or IPv6)
+ * @param backup   True to initialize backup Adjacency SID
+ * @param nexthops List of backup nexthops (for backup Adj-SIDs only)
  */
-static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
-				  bool backup)
+void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
+			   struct list *nexthops)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
@@ -1555,9 +1574,25 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
 
 	sra = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*sra));
 	sra->type = backup ? ISIS_SR_LAN_BACKUP : ISIS_SR_ADJ_NORMAL;
+	sra->input_label = input_label;
 	sra->nexthop.family = family;
 	sra->nexthop.address = nexthop;
-	sra->nexthop.label = input_label;
+
+	if (backup && nexthops) {
+		struct isis_vertex_adj *vadj;
+		struct listnode *node;
+
+		sra->backup_nexthops = list_new();
+		for (ALL_LIST_ELEMENTS_RO(nexthops, node, vadj)) {
+			struct isis_adjacency *adj = vadj->sadj->adj;
+			struct mpls_label_stack *label_stack;
+
+			label_stack = vadj->label_stack;
+			adjinfo2nexthop(family, sra->backup_nexthops, adj,
+					label_stack);
+		}
+	}
+
 	switch (circuit->circ_type) {
 	/* LAN Adjacency-SID for Broadcast interface section #2.2.2 */
 	case CIRCUIT_T_BROADCAST:
@@ -1603,8 +1638,7 @@ static void sr_adj_sid_add_single(struct isis_adjacency *adj, int family,
  */
 static void sr_adj_sid_add(struct isis_adjacency *adj, int family)
 {
-	sr_adj_sid_add_single(adj, family, false);
-	sr_adj_sid_add_single(adj, family, true);
+	sr_adj_sid_add_single(adj, family, false, NULL);
 }
 
 static void sr_adj_sid_update(struct sr_adjacency *sra,
@@ -1616,16 +1650,16 @@ static void sr_adj_sid_update(struct sr_adjacency *sra,
 	isis_zebra_send_adjacency_sid(ZEBRA_MPLS_LABELS_DELETE, sra);
 
 	/* Got new label in the new SRLB */
-	sra->nexthop.label = sr_local_block_request_label(srlb);
-	if (sra->nexthop.label == MPLS_INVALID_LABEL)
+	sra->input_label = sr_local_block_request_label(srlb);
+	if (sra->input_label == MPLS_INVALID_LABEL)
 		return;
 
 	switch (circuit->circ_type) {
 	case CIRCUIT_T_BROADCAST:
-		sra->u.ladj_sid->sid = sra->nexthop.label;
+		sra->u.ladj_sid->sid = sra->input_label;
 		break;
 	case CIRCUIT_T_P2P:
-		sra->u.adj_sid->sid = sra->nexthop.label;
+		sra->u.adj_sid->sid = sra->input_label;
 		break;
 	default:
 		flog_warn(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u",
@@ -1669,10 +1703,36 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
 		exit(1);
 	}
 
+	if (sra->type == ISIS_SR_LAN_BACKUP && sra->backup_nexthops) {
+		sra->backup_nexthops->del =
+			(void (*)(void *))isis_nexthop_delete;
+		list_delete(&sra->backup_nexthops);
+	}
+
 	/* Remove Adjacency-SID from the SRDB */
 	listnode_delete(area->srdb.adj_sids, sra);
 	listnode_delete(sra->adj->adj_sids, sra);
 	XFREE(MTYPE_ISIS_SR_INFO, sra);
+}
+
+/**
+ * Lookup Segment Routing Adj-SID by family and type.
+ *
+ * @param adj	  IS-IS Adjacency
+ * @param family  Inet Family (IPv4 or IPv6)
+ * @param type    Adjacency SID type
+ */
+struct sr_adjacency *isis_sr_adj_sid_find(struct isis_adjacency *adj,
+					  int family, enum sr_adj_type type)
+{
+	struct sr_adjacency *sra;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(adj->adj_sids, node, sra))
+		if (sra->nexthop.family == family && sra->type == type)
+			return sra;
+
+	return NULL;
 }
 
 /**
@@ -1792,21 +1852,33 @@ static int sr_if_new_hook(struct interface *ifp)
 /**
  * Show LFIB operation in human readable format.
  *
- * @param buf	     Buffer to store string output. Must be pre-allocate
- * @param size	     Size of the buffer
- * @param label_in   Input Label
- * @param label_out  Output Label
+ * @param buf	      Buffer to store string output. Must be pre-allocate
+ * @param size	      Size of the buffer
+ * @param label_in    Input Label
+ * @param label_out   Output Label
+ * @param label_stack Output Label Stack (TI-LFA)
  *
  * @return	     String containing LFIB operation in human readable format
  */
 static char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
-		       mpls_label_t label_out)
+		       mpls_label_t label_out,
+		       const struct mpls_label_stack *label_stack)
 {
 	if (size < 24)
 		return NULL;
 
 	if (label_in == MPLS_INVALID_LABEL) {
 		snprintf(buf, size, "no-op.");
+		return buf;
+	}
+
+	if (label_stack) {
+		char buf_labels[256];
+
+		mpls_label2str(label_stack->num_labels, &label_stack->label[0],
+			       buf_labels, sizeof(buf_labels), 1);
+
+		snprintf(buf, size, "Swap(%u, %s)", label_in, buf_labels);
 		return buf;
 	}
 
@@ -1859,7 +1931,7 @@ static void show_prefix_sid_local(struct vty *vty, struct ttable *tt,
 		snprintf(buf_uptime, sizeof(buf_uptime), "-");
 	}
 	sr_op2str(buf_oper, sizeof(buf_oper), srp->input_label,
-		  MPLS_LABEL_IMPLICIT_NULL);
+		  MPLS_LABEL_IMPLICIT_NULL, NULL);
 
 	ttable_add_row(tt, "%s|%u|%s|-|%s|%s",
 		       prefix2str(&srp->prefix, buf_prefix, sizeof(buf_prefix)),
@@ -1876,7 +1948,7 @@ static void show_prefix_sid_local(struct vty *vty, struct ttable *tt,
  */
 static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 				   const struct isis_area *area,
-				   const struct sr_prefix *srp)
+				   const struct sr_prefix *srp, bool backup)
 {
 	struct isis_nexthop *nexthop;
 	struct listnode *node;
@@ -1886,19 +1958,22 @@ static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 	char buf_iface[BUFSIZ];
 	char buf_uptime[BUFSIZ];
 	bool first = true;
+	struct isis_route_info *rinfo;
 
 	(void)prefix2str(&srp->prefix, buf_prefix, sizeof(buf_prefix));
 
-	if (!srp->u.remote.rinfo) {
+	rinfo = srp->u.remote.rinfo;
+	if (rinfo && backup)
+		rinfo = rinfo->backup;
+	if (!rinfo) {
 		ttable_add_row(tt, "%s|%u|%s|-|-|-", buf_prefix, srp->sid.value,
 			       sr_op2str(buf_oper, sizeof(buf_oper),
 					 srp->input_label,
-					 MPLS_LABEL_IMPLICIT_NULL));
+					 MPLS_LABEL_IMPLICIT_NULL, NULL));
 		return;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(srp->u.remote.rinfo->nexthops, node,
-				  nexthop)) {
+	for (ALL_LIST_ELEMENTS_RO(rinfo->nexthops, node, nexthop)) {
 		struct interface *ifp;
 
 		inet_ntop(nexthop->family, &nexthop->ip, buf_nhop,
@@ -1915,7 +1990,7 @@ static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
 			log_uptime(nexthop->sr.uptime, buf_uptime,
 				   sizeof(buf_uptime));
 		sr_op2str(buf_oper, sizeof(buf_oper), srp->input_label,
-			  nexthop->sr.label);
+			  nexthop->sr.label, nexthop->label_stack);
 
 		if (first)
 			ttable_add_row(tt, "%s|%u|%s|%s|%s|%s", buf_prefix,
@@ -1935,7 +2010,8 @@ static void show_prefix_sid_remote(struct vty *vty, struct ttable *tt,
  * @param area	IS-IS area
  * @param level	IS-IS level
  */
-static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
+static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level,
+			     bool backup)
 {
 	struct sr_prefix *srp;
 	struct ttable *tt;
@@ -1960,7 +2036,7 @@ static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
 			show_prefix_sid_local(vty, tt, area, srp);
 			break;
 		case ISIS_SR_PREFIX_REMOTE:
-			show_prefix_sid_remote(vty, tt, area, srp);
+			show_prefix_sid_remote(vty, tt, area, srp, backup);
 			break;
 		}
 	}
@@ -1980,20 +2056,25 @@ static void show_prefix_sids(struct vty *vty, struct isis_area *area, int level)
  * Declaration of new show commands.
  */
 DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
-      "show isis [vrf <NAME|all>] segment-routing prefix-sids",
+      "show isis [vrf <NAME|all>] segment-routing prefix-sids [backup]",
       SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
       "All VRFs\n"
       "Segment-Routing\n"
-      "Segment-Routing Prefix-SIDs\n")
+      "Segment-Routing Prefix-SIDs\n"
+      "Show backup Prefix-SIDs\n")
 {
 	struct listnode *node, *inode;
 	struct isis_area *area;
 	struct isis *isis = NULL;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
-	int idx_vrf = 0;
+	bool backup = false;
+	int idx = 0;
 
-	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
+	if (argv_find(argv, argc, "backup", &idx))
+		backup = true;
+
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
@@ -2005,7 +2086,7 @@ DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
 					for (int level = ISIS_LEVEL1;
 					     level <= ISIS_LEVELS; level++)
 						show_prefix_sids(vty, area,
-								 level);
+								 level, backup);
 				}
 			}
 			return 0;
@@ -2019,7 +2100,8 @@ DEFUN(show_sr_prefix_sids, show_sr_prefix_sids_cmd,
 						       : "null");
 				for (int level = ISIS_LEVEL1;
 				     level <= ISIS_LEVELS; level++)
-					show_prefix_sids(vty, area, level);
+					show_prefix_sids(vty, area, level,
+							 backup);
 			}
 		}
 	}

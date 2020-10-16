@@ -106,6 +106,7 @@ static void lsp_add_ip_reach(struct isis_lsp *lsp,
 		pcfg.sid = *next_sid_index;
 		*next_sid_index = *next_sid_index + 1;
 		pcfg.sid_type = SR_SID_VALUE_TYPE_INDEX;
+		pcfg.node_sid = true;
 		pcfg.last_hop_behavior = SR_LAST_HOP_BEHAVIOR_PHP;
 	}
 

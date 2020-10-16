@@ -1,0 +1,102 @@
+--- rt4/step8/show_mpls_table.ref	2020-08-31 22:42:48.839561398 -0300
++++ rt4/step9/show_mpls_table.ref	2020-08-31 22:42:48.839561398 -0300
+@@ -119,15 +119,15 @@
+       }
+     ]
+   },
+-  "16050":{
+-    "inLabel":16050,
++  "16060":{
++    "inLabel":16060,
+     "installed":true,
+     "nexthops":[
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "nexthop":"10.0.6.5",
++        "nexthop":"10.0.7.6",
+         "backupIndex":[
+           0
+         ]
+@@ -137,19 +137,19 @@
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+-        "nexthop":"10.0.7.6"
++        "nexthop":"10.0.6.5"
+       }
+     ]
+   },
+-  "16051":{
+-    "inLabel":16051,
++  "16061":{
++    "inLabel":16061,
+     "installed":true,
+     "nexthops":[
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "interface":"eth-rt5",
++        "interface":"eth-rt6",
+         "backupIndex":[
+           0
+         ]
+@@ -159,19 +159,19 @@
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+-        "interface":"eth-rt6"
++        "interface":"eth-rt5"
+       }
+     ]
+   },
+-  "16060":{
+-    "inLabel":16060,
++  "16500":{
++    "inLabel":16500,
+     "installed":true,
+     "nexthops":[
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "nexthop":"10.0.7.6",
++        "nexthop":"10.0.6.5",
+         "backupIndex":[
+           0
+         ]
+@@ -181,19 +181,19 @@
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+-        "nexthop":"10.0.6.5"
++        "nexthop":"10.0.7.6"
+       }
+     ]
+   },
+-  "16061":{
+-    "inLabel":16061,
++  "16501":{
++    "inLabel":16501,
+     "installed":true,
+     "nexthops":[
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "interface":"eth-rt6",
++        "interface":"eth-rt5",
+         "backupIndex":[
+           0
+         ]
+@@ -203,7 +203,7 @@
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+-        "interface":"eth-rt5"
++        "interface":"eth-rt6"
+       }
+     ]
+   }

@@ -39,6 +39,7 @@
 enum test_type {
 	TEST_SPF = 1,
 	TEST_REVERSE_SPF,
+	TEST_TI_LFA,
 };
 
 #define F_DISPLAY_LSPDB 0x01
@@ -65,17 +66,78 @@ static void test_run_spf(struct vty *vty, const struct isis_topology *topology,
 
 	/* Print the SPT and the corresponding routing table. */
 	isis_print_spftree(vty, spftree);
-	isis_print_routes(vty, spftree);
+	isis_print_routes(vty, spftree, false);
 
 	/* Cleanup SPF tree. */
 	isis_spftree_del(spftree);
 }
 
+static void test_run_ti_lfa(struct vty *vty,
+			    const struct isis_topology *topology,
+			    const struct isis_test_node *root,
+			    struct isis_area *area, struct lspdb_head *lspdb,
+			    int level, int tree,
+			    struct lfa_protected_resource *protected_resource)
+{
+	struct isis_spftree *spftree_self;
+	struct isis_spftree *spftree_reverse;
+	struct isis_spftree *spftree_pc;
+	struct isis_spf_node *spf_node, *node;
+	uint8_t flags;
+
+	/* Run forward SPF in the root node. */
+	flags = F_SPFTREE_NO_ADJACENCIES;
+	spftree_self = isis_spftree_new(area, lspdb, root->sysid, level, tree,
+					SPF_TYPE_FORWARD, flags);
+	isis_run_spf(spftree_self);
+
+	/* Run reverse SPF in the root node. */
+	spftree_reverse = isis_spf_reverse_run(spftree_self);
+
+	/* Run forward SPF on all adjacent routers. */
+	isis_spf_run_neighbors(spftree_self);
+
+	/* Compute the TI-LFA repair paths. */
+	spftree_pc = isis_tilfa_compute(area, spftree_self, spftree_reverse,
+					protected_resource);
+
+	/* Print the extended P-space and Q-space. */
+	vty_out(vty, "P-space (self):\n");
+	RB_FOREACH (node, isis_spf_nodes, &spftree_pc->lfa.p_space)
+		vty_out(vty, " %s\n", print_sys_hostname(node->sysid));
+	vty_out(vty, "\n");
+	RB_FOREACH (spf_node, isis_spf_nodes, &spftree_self->adj_nodes) {
+		if (RB_EMPTY(isis_spf_nodes, &spf_node->lfa.p_space))
+			continue;
+		vty_out(vty, "P-space (%s):\n",
+			print_sys_hostname(spf_node->sysid));
+		RB_FOREACH (node, isis_spf_nodes, &spf_node->lfa.p_space)
+			vty_out(vty, " %s\n", print_sys_hostname(node->sysid));
+		vty_out(vty, "\n");
+	}
+	vty_out(vty, "Q-space:\n");
+	RB_FOREACH (node, isis_spf_nodes, &spftree_pc->lfa.q_space)
+		vty_out(vty, " %s\n", print_sys_hostname(node->sysid));
+	vty_out(vty, "\n");
+
+	/* Print the post-convergence SPT and the correspoding routing table. */
+	isis_print_spftree(vty, spftree_pc);
+	isis_print_routes(vty, spftree_self, true);
+
+	/* Cleanup everything. */
+	isis_spftree_del(spftree_self);
+	isis_spftree_del(spftree_reverse);
+	isis_spftree_del(spftree_pc);
+}
+
 static int test_run(struct vty *vty, const struct isis_topology *topology,
 		    const struct isis_test_node *root, enum test_type test_type,
-		    uint8_t flags)
+		    uint8_t flags, enum lfa_protection_type protection_type,
+		    const char *fail_sysid_str, uint8_t fail_pseudonode_id)
 {
 	struct isis_area *area;
+	struct lfa_protected_resource protected_resource = {};
+	uint8_t fail_id[ISIS_SYS_ID_LEN] = {};
 
 	/* Init topology. */
 	memcpy(isis->sysid, root->sysid, sizeof(isis->sysid));
@@ -85,6 +147,26 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 	if (test_topology_load(topology, area, area->lspdb) != 0) {
 		vty_out(vty, "%% Failed to load topology\n");
 		return CMD_WARNING;
+	}
+
+	/* Parse failed link/node. */
+	if (fail_sysid_str) {
+		if (sysid2buff(fail_id, fail_sysid_str) == 0) {
+			struct isis_dynhn *dynhn;
+
+			dynhn = dynhn_find_by_name(fail_sysid_str);
+			if (dynhn == NULL) {
+				vty_out(vty, "Invalid system id %s\n",
+					fail_sysid_str);
+				return CMD_WARNING;
+			}
+			memcpy(fail_id, dynhn->id, ISIS_SYS_ID_LEN);
+		}
+
+		protected_resource.type = protection_type;
+		memcpy(protected_resource.adjacency, fail_id, ISIS_SYS_ID_LEN);
+		LSP_PSEUDO_ID(protected_resource.adjacency) =
+			fail_pseudonode_id;
 	}
 
 	for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
@@ -120,6 +202,11 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 					     &area->lspdb[level - 1], level,
 					     tree, true);
 				break;
+			case TEST_TI_LFA:
+				test_run_ti_lfa(vty, topology, root, area,
+						&area->lspdb[level - 1], level,
+						tree, &protected_resource);
+				break;
 			}
 		}
 	}
@@ -138,6 +225,7 @@ DEFUN(test_isis, test_isis_cmd,
          <\
 	   spf\
 	   |reverse-spf\
+	   |ti-lfa system-id WORD [pseudonode-id <1-255>] [node-protection]\
 	 >\
 	 [display-lspdb] [<ipv4-only|ipv6-only>] [<level-1-only|level-2-only>]",
       "Test command\n"
@@ -148,6 +236,12 @@ DEFUN(test_isis, test_isis_cmd,
       "SPF root hostname\n"
       "Normal Shortest Path First\n"
       "Reverse Shortest Path First\n"
+      "Topology Independent LFA\n"
+      "System ID\n"
+      "System ID\n"
+      "Pseudonode-ID\n"
+      "Pseudonode-ID\n"
+      "Node protection\n"
       "Display the LSPDB\n"
       "Do IPv4 processing only\n"
       "Do IPv6 processing only\n"
@@ -158,6 +252,9 @@ DEFUN(test_isis, test_isis_cmd,
 	const struct isis_topology *topology;
 	const struct isis_test_node *root;
 	enum test_type test_type;
+	enum lfa_protection_type protection_type = 0;
+	const char *fail_sysid_str = NULL;
+	uint8_t fail_pseudonode_id = 0;
 	uint8_t flags = 0;
 	int idx = 0;
 
@@ -184,7 +281,18 @@ DEFUN(test_isis, test_isis_cmd,
 		test_type = TEST_SPF;
 	else if (argv_find(argv, argc, "reverse-spf", &idx))
 		test_type = TEST_REVERSE_SPF;
-	else
+	else if (argv_find(argv, argc, "ti-lfa", &idx)) {
+		test_type = TEST_TI_LFA;
+
+		fail_sysid_str = argv[idx + 2]->arg;
+		if (argv_find(argv, argc, "pseudonode-id", &idx))
+			fail_pseudonode_id =
+				strtoul(argv[idx + 1]->arg, NULL, 10);
+		if (argv_find(argv, argc, "node-protection", &idx))
+			protection_type = LFA_NODE_PROTECTION;
+		else
+			protection_type = LFA_LINK_PROTECTION;
+	} else
 		return CMD_WARNING;
 
 	/* Parse control flags. */
@@ -199,7 +307,8 @@ DEFUN(test_isis, test_isis_cmd,
 	else if (argv_find(argv, argc, "level-2-only", &idx))
 		SET_FLAG(flags, F_LEVEL2_ONLY);
 
-	return test_run(vty, topology, root, test_type, flags);
+	return test_run(vty, topology, root, test_type, flags, protection_type,
+			fail_sysid_str, fail_pseudonode_id);
 }
 
 static void vty_do_exit(int isexit)
@@ -295,6 +404,7 @@ int main(int argc, char **argv)
 	listnode_add(im->isis, isis);
 	SET_FLAG(im->options, F_ISIS_UNIT_TEST);
 	debug_spf_events |= DEBUG_SPF_EVENTS;
+	debug_tilfa |= DEBUG_TILFA;
 	debug_events |= DEBUG_EVENTS;
 	debug_rte_events |= DEBUG_RTE_EVENTS;
 

@@ -1,0 +1,210 @@
+--- rt2/step4/show_mpls_table.ref	2020-08-31 22:42:48.835561429 -0300
++++ rt2/step5/show_mpls_table.ref	2020-08-31 22:42:48.835561429 -0300
+@@ -7,7 +7,23 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "nexthop":"10.0.1.1"
++        "nexthop":"10.0.1.1",
++        "backupIndex":[
++          0,
++          1
++        ]
++      }
++    ],
++    "backupNexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16050,
++        "nexthop":"10.0.2.4"
++      },
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16050,
++        "nexthop":"10.0.3.4"
+       }
+     ]
+   },
+@@ -19,7 +35,23 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "interface":"eth-sw1"
++        "interface":"eth-sw1",
++        "backupIndex":[
++          0,
++          1
++        ]
++      }
++    ],
++    "backupNexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16051,
++        "interface":"eth-rt4-1"
++      },
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16051,
++        "interface":"eth-rt4-2"
+       }
+     ]
+   },
+@@ -31,7 +63,23 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "nexthop":"10.0.1.3"
++        "nexthop":"10.0.1.3",
++        "backupIndex":[
++          0,
++          1
++        ]
++      }
++    ],
++    "backupNexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16050,
++        "nexthop":"10.0.2.4"
++      },
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16050,
++        "nexthop":"10.0.3.4"
+       }
+     ]
+   },
+@@ -43,12 +91,28 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "interface":"eth-sw1"
++        "interface":"eth-sw1",
++        "backupIndex":[
++          0,
++          1
++        ]
++      }
++    ],
++    "backupNexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16051,
++        "interface":"eth-rt4-1"
++      },
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16051,
++        "interface":"eth-rt4-2"
+       }
+     ]
+   },
+-  "16050":{
+-    "inLabel":16050,
++  "16040":{
++    "inLabel":16040,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -62,6 +126,42 @@
+         "outLabel":3,
+         "installed":true,
+         "nexthop":"10.0.2.4"
++      }
++    ]
++  },
++  "16041":{
++    "inLabel":16041,
++    "installed":true,
++    "nexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":3,
++        "installed":true,
++        "interface":"eth-rt4-2"
++      },
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":3,
++        "installed":true,
++        "interface":"eth-rt4-1"
++      }
++    ]
++  },
++  "16050":{
++    "inLabel":16050,
++    "installed":true,
++    "nexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16050,
++        "installed":true,
++        "nexthop":"10.0.3.4"
++      },
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16050,
++        "installed":true,
++        "nexthop":"10.0.2.4"
+       },
+       {
+         "type":"SR (IS-IS)",
+@@ -77,13 +177,13 @@
+     "nexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":3,
++        "outLabel":16051,
+         "installed":true,
+         "interface":"eth-rt4-2"
+       },
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":3,
++        "outLabel":16051,
+         "installed":true,
+         "interface":"eth-rt4-1"
+       },
+@@ -94,5 +194,41 @@
+         "interface":"eth-sw1"
+       }
+     ]
++  },
++  "16060":{
++    "inLabel":16060,
++    "installed":true,
++    "nexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16060,
++        "installed":true,
++        "nexthop":"10.0.3.4"
++      },
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16060,
++        "installed":true,
++        "nexthop":"10.0.2.4"
++      }
++    ]
++  },
++  "16061":{
++    "inLabel":16061,
++    "installed":true,
++    "nexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16061,
++        "installed":true,
++        "interface":"eth-rt4-2"
++      },
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16061,
++        "installed":true,
++        "interface":"eth-rt4-1"
++      }
++    ]
+   }
+ }

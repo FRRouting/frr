@@ -1,0 +1,33 @@
+--- rt1/step4/show_mpls_table.ref	2020-08-31 22:42:48.831561460 -0300
++++ rt1/step5/show_mpls_table.ref	2020-08-31 22:42:48.831561460 -0300
+@@ -47,6 +47,30 @@
+       }
+     ]
+   },
++  "16040":{
++    "inLabel":16040,
++    "installed":true,
++    "nexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16040,
++        "installed":true,
++        "nexthop":"10.0.1.2"
++      }
++    ]
++  },
++  "16041":{
++    "inLabel":16041,
++    "installed":true,
++    "nexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16041,
++        "installed":true,
++        "interface":"eth-sw1"
++      }
++    ]
++  },
+   "16050":{
+     "inLabel":16050,
+     "installed":true,

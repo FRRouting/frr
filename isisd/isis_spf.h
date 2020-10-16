@@ -24,11 +24,14 @@
 #ifndef _ZEBRA_ISIS_SPF_H
 #define _ZEBRA_ISIS_SPF_H
 
+#include "isisd/isis_lfa.h"
+
 struct isis_spftree;
 
 enum spf_type {
 	SPF_TYPE_FORWARD = 1,
 	SPF_TYPE_REVERSE,
+	SPF_TYPE_TI_LFA,
 };
 
 struct isis_spf_adj {
@@ -56,17 +59,21 @@ void isis_spf_verify_routes(struct isis_area *area,
 void isis_spftree_del(struct isis_spftree *spftree);
 void spftree_area_init(struct isis_area *area);
 void spftree_area_del(struct isis_area *area);
+struct isis_lsp *isis_root_system_lsp(struct lspdb_head *lspdb,
+				      const uint8_t *sysid);
 #define isis_spf_schedule(area, level) \
 	_isis_spf_schedule((area), (level), __func__, \
 			   __FILE__, __LINE__)
 int _isis_spf_schedule(struct isis_area *area, int level,
 		       const char *func, const char *file, int line);
 void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree);
-void isis_print_routes(struct vty *vty, struct isis_spftree *spftree);
+void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
+		       bool backup);
 void isis_spf_init(void);
 void isis_spf_print(struct isis_spftree *spftree, struct vty *vty);
 void isis_run_spf(struct isis_spftree *spftree);
 struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
 					   uint8_t *sysid,
 					   struct isis_spftree *spftree);
+
 #endif /* _ZEBRA_ISIS_SPF_H */

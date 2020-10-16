@@ -2368,6 +2368,102 @@ void cli_show_ip_isis_priority(struct vty *vty, struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/ti-lfa/enable
+ */
+DEFPY(isis_ti_lfa, isis_ti_lfa_cmd,
+      "[no] isis fast-reroute ti-lfa [level-1|level-2]$level [node-protection$node_protection]",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Interface IP Fast-reroute configuration\n"
+      "Enable TI-LFA computation\n"
+      "Enable TI-LFA computation for Level 1 only\n"
+      "Enable TI-LFA computation for Level 2 only\n"
+      "Protect against node failures\n")
+{
+	if (!level || strmatch(level, "level-1")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/ti-lfa/enable",
+				NB_OP_MODIFY, "false");
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/ti-lfa/node-protection",
+				NB_OP_MODIFY, "false");
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/ti-lfa/enable",
+				NB_OP_MODIFY, "true");
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/ti-lfa/node-protection",
+				NB_OP_MODIFY,
+				node_protection ? "true" : "false");
+		}
+	}
+	if (!level || strmatch(level, "level-2")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/ti-lfa/enable",
+				NB_OP_MODIFY, "false");
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/ti-lfa/node-protection",
+				NB_OP_MODIFY, "false");
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/ti-lfa/enable",
+				NB_OP_MODIFY, "true");
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/ti-lfa/node-protection",
+				NB_OP_MODIFY,
+				node_protection ? "true" : "false");
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_ti_lfa(struct vty *vty, struct lyd_node *dnode,
+			     bool show_defaults)
+{
+	bool l1_enabled, l2_enabled;
+	bool l1_node_protection, l2_node_protection;
+
+	l1_enabled = yang_dnode_get_bool(dnode, "./level-1/ti-lfa/enable");
+	l2_enabled = yang_dnode_get_bool(dnode, "./level-2/ti-lfa/enable");
+	l1_node_protection =
+		yang_dnode_get_bool(dnode, "./level-1/ti-lfa/node-protection");
+	l2_node_protection =
+		yang_dnode_get_bool(dnode, "./level-2/ti-lfa/node-protection");
+
+	if (l1_enabled == l2_enabled
+	    && l1_node_protection == l2_node_protection) {
+		vty_out(vty, " isis fast-reroute ti-lfa");
+		if (l1_node_protection)
+			vty_out(vty, " node-protection");
+		vty_out(vty, "\n");
+	} else {
+		if (l1_enabled) {
+			vty_out(vty, " isis fast-reroute ti-lfa level-1");
+			if (l1_node_protection)
+				vty_out(vty, " node-protection");
+			vty_out(vty, "\n");
+		}
+		if (l2_enabled) {
+			vty_out(vty, " isis fast-reroute ti-lfa level-2");
+			if (l2_node_protection)
+				vty_out(vty, " node-protection");
+			vty_out(vty, "\n");
+		}
+	}
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/log-adjacency-changes
  */
 DEFPY_YANG(log_adj_changes, log_adj_changes_cmd, "[no] log-adjacency-changes",
@@ -2660,6 +2756,8 @@ void isis_cli_init(void)
 
 	install_element(INTERFACE_NODE, &isis_priority_cmd);
 	install_element(INTERFACE_NODE, &no_isis_priority_cmd);
+
+	install_element(INTERFACE_NODE, &isis_ti_lfa_cmd);
 
 	install_element(ISIS_NODE, &log_adj_changes_cmd);
 
