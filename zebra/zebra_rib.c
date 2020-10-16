@@ -1378,8 +1378,6 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 static bool rib_compare_routes(const struct route_entry *re1,
 			       const struct route_entry *re2)
 {
-	bool result = false;
-
 	if (re1->type != re2->type)
 		return false;
 
@@ -1393,17 +1391,14 @@ static bool rib_compare_routes(const struct route_entry *re1,
 	    re1->distance != re2->distance)
 		return false;
 
-	/* Only connected routes need more checking, nexthop-by-nexthop */
+	/* We support multiple connected routes: this supports multiple
+	 * v6 link-locals, and we also support multiple addresses in the same
+	 * subnet on a single interface.
+	 */
 	if (re1->type != ZEBRA_ROUTE_CONNECT)
 		return true;
 
-	/* Quick check if shared nhe */
-	if (re1->nhe == re2->nhe)
-		return true;
-
-	result = nexthop_group_equal_no_recurse(&re1->nhe->nhg, &re2->nhe->nhg);
-
-	return result;
+	return false;
 }
 
 /*
