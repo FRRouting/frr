@@ -120,8 +120,12 @@ int bgp_create(struct nb_cb_create_args *args)
 		if (is_new_bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			vpn_leak_postchange_all();
 
-		if (inst_type == BGP_INSTANCE_TYPE_VRF)
+		if (ret != BGP_INSTANCE_EXISTS
+		    || IS_BGP_INSTANCE_HIDDEN(bgp)) {
 			bgp_vpn_leak_export(bgp);
+			bgp_flag_unset(bgp, BGP_FLAG_INSTANCE_HIDDEN);
+			bgp_flag_unset(bgp, BGP_FLAG_DELETE_IN_PROGRESS);
+		}
 
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
 

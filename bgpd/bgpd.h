@@ -460,6 +460,7 @@ struct bgp {
 #define BGP_FLAG_GR_DISABLE_EOR           (1 << 24)
 #define BGP_FLAG_EBGP_REQUIRES_POLICY (1 << 25)
 #define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME (1 << 26)
+#define BGP_FLAG_INSTANCE_HIDDEN	  (1 << 27)
 
 /* This flag is set if the instance is in administrative shutdown */
 #define BGP_FLAG_SHUTDOWN (1 << 27)
@@ -1680,6 +1681,7 @@ enum bgp_clear_type {
 /* BGP error codes.  */
 #define BGP_SUCCESS                               0
 #define BGP_CREATED                               1
+#define BGP_INSTANCE_EXISTS                       2
 #define BGP_ERR_INVALID_VALUE                    -1
 #define BGP_ERR_INVALID_FLAG                     -2
 #define BGP_ERR_INVALID_AS                       -3
@@ -1807,6 +1809,10 @@ extern void bgp_session_reset(struct peer *);
 extern int bgp_option_set(int);
 extern int bgp_option_unset(int);
 extern int bgp_option_check(int);
+
+extern int bgp_flag_set(struct bgp *, int);
+extern int bgp_flag_unset(struct bgp *, int);
+extern int bgp_flag_check(struct bgp *, int);
 
 /* set the bgp no-rib option during runtime and remove installed routes */
 extern void bgp_option_norib_set_runtime(void);
@@ -2185,5 +2191,18 @@ extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 /* Hooks */
 DECLARE_HOOK(peer_status_changed, (struct peer * peer), (peer))
 void peer_nsf_stop(struct peer *peer);
+
+/* Macro to check if default bgp instance is hidden */
+#define IS_BGP_INSTANCE_HIDDEN(_bgp)				\
+	(bgp_flag_check(_bgp, BGP_FLAG_INSTANCE_HIDDEN) &&	\
+	 (_bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ||	\
+	  _bgp->inst_type == BGP_INSTANCE_TYPE_VRF))
+
+/* Macro to check if bgp instance delete in-progress and !hidden */
+#define BGP_INSTANCE_HIDDEN_DELETE_IN_PROGRESS(_bgp, _afi, _safi)	\
+	(bgp_flag_check(_bgp, BGP_FLAG_DELETE_IN_PROGRESS) &&		\
+	 !IS_BGP_INSTANCE_HIDDEN(_bgp) &&				\
+	 !(_afi == AFI_IP && _safi == SAFI_MPLS_VPN) &&			\
+	 !(_afi == AFI_IP6 && _safi == SAFI_MPLS_VPN))
 
 #endif /* _QUAGGA_BGPD_H */
