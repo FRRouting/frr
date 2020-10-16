@@ -49,14 +49,6 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_errors.h"
 
-/* debug isis-spf spf-events
- 4w4d: ISIS-Spf (tlt): L2 SPF needed, new adjacency, from 0x609229F4
- 4w4d: ISIS-Spf (tlt): L2, 0000.0000.0042.01-00 TLV contents changed, code 0x2
- 4w4d: ISIS-Spf (tlt): L2, new LSP 0 DEAD.BEEF.0043.00-00
- 4w5d: ISIS-Spf (tlt): L1 SPF needed, periodic SPF, from 0x6091C844
- 4w5d: ISIS-Spf (tlt): L2 SPF needed, periodic SPF, from 0x6091C844
-*/
-
 void isis_event_circuit_state_change(struct isis_circuit *circuit,
 				     struct isis_area *area, int up)
 {

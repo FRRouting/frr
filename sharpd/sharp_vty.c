@@ -716,7 +716,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &send_opaque_reg_cmd);
 	install_element(ENABLE_NODE, &neigh_discover_cmd);
 
-	install_element(VIEW_NODE, &show_debugging_sharpd_cmd);
+	install_element(ENABLE_NODE, &show_debugging_sharpd_cmd);
 
 	return;
 }

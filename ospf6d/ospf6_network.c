@@ -30,9 +30,9 @@
 
 #include "libospf.h"
 #include "ospf6_proto.h"
+#include "ospf6_top.h"
 #include "ospf6_network.h"
 #include "ospf6d.h"
-#include "ospf6_top.h"
 
 struct in6_addr allspfrouters6;
 struct in6_addr alldrouters6;

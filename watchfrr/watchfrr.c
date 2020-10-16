@@ -585,8 +585,7 @@ static void restart_done(struct daemon *dmn)
 			dmn->name, state_str[dmn->state]);
 		return;
 	}
-	if (dmn->t_wakeup)
-		THREAD_OFF(dmn->t_wakeup);
+	THREAD_OFF(dmn->t_wakeup);
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
 }

@@ -50,35 +50,12 @@ extern "C" {
 /* Typedefs */
 
 typedef struct zebra_ile_t_ zebra_ile_t;
-typedef struct zebra_snhlfe_t_ zebra_snhlfe_t;
-typedef struct zebra_slsp_t_ zebra_slsp_t;
 typedef struct zebra_nhlfe_t_ zebra_nhlfe_t;
 typedef struct zebra_lsp_t_ zebra_lsp_t;
 typedef struct zebra_fec_t_ zebra_fec_t;
 
 /* Declare LSP nexthop list types */
-PREDECL_DLIST(snhlfe_list);
 PREDECL_DLIST(nhlfe_list);
-
-/*
- * (Outgoing) nexthop label forwarding entry configuration
- */
-struct zebra_snhlfe_t_ {
-	/* Nexthop information */
-	enum nexthop_types_t gtype;
-	union g_addr gate;
-	char *ifname;
-	ifindex_t ifindex;
-
-	/* Out label. */
-	mpls_label_t out_label;
-
-	/* Backpointer to base entry. */
-	zebra_slsp_t *slsp;
-
-	/* Linkage for LSPs' lists */
-	struct snhlfe_list_item list;
-};
 
 /*
  * (Outgoing) nexthop label forwarding entry
@@ -113,17 +90,6 @@ struct zebra_nhlfe_t_ {
  */
 struct zebra_ile_t_ {
 	mpls_label_t in_label;
-};
-
-/*
- * Label swap entry static configuration.
- */
-struct zebra_slsp_t_ {
-	/* Incoming label */
-	zebra_ile_t ile;
-
-	/* List of outgoing nexthop static configuration */
-	struct snhlfe_list_head snhlfe_list;
 };
 
 /*

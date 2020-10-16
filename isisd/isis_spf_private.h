@@ -306,8 +306,10 @@ struct isis_spftree {
 	struct isis_vertex_queue paths; /* the SPT */
 	struct isis_vertex_queue tents; /* TENT */
 	struct route_table *route_table;
+	struct route_table *route_table_backup;
 	struct lspdb_head *lspdb; /* link-state db */
 	struct list *sadj_list;
+	struct isis_spf_nodes adj_nodes;
 	struct isis_area *area;    /* back pointer to area */
 	unsigned int runcount;     /* number of runs since uptime */
 	time_t last_run_timestamp; /* last run timestamp as wall time for display */
@@ -320,7 +322,20 @@ struct isis_spftree {
 	int family;
 	int level;
 	enum spf_tree_id tree_id;
-	bool hopcount_metric;
+	struct {
+		/* Original pre-failure local SPTs. */
+		struct {
+			struct isis_spftree *spftree;
+			struct isis_spftree *spftree_reverse;
+		} old;
+
+		/* Protected resource. */
+		struct lfa_protected_resource protected_resource;
+
+		/* P-space and Q-space. */
+		struct isis_spf_nodes p_space;
+		struct isis_spf_nodes q_space;
+	} lfa;
 	uint8_t flags;
 };
 #define F_SPFTREE_HOPCOUNT_METRIC 0x01
@@ -373,6 +388,7 @@ static struct isis_lsp *lsp_for_vertex(struct isis_spftree *spftree,
 }
 
 #define VID2STR_BUFFER SRCDEST2STR_BUFFER
-const char *vid2string(struct isis_vertex *vertex, char *buff, int size);
+const char *vtype2string(enum vertextype vtype);
+const char *vid2string(const struct isis_vertex *vertex, char *buff, int size);
 
 #endif

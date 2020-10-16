@@ -3176,7 +3176,8 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 		UNSET_FLAG(peer->af_sflags[afi][safi],
 			   PEER_STATUS_PREFIX_LIMIT);
 
-	if (pcount > (pcount * peer->pmax_threshold[afi][safi] / 100)) {
+	if (pcount
+	    > (peer->pmax[afi][safi] * peer->pmax_threshold[afi][safi] / 100)) {
 		if (CHECK_FLAG(peer->af_sflags[afi][safi],
 			       PEER_STATUS_PREFIX_THRESHOLD)
 		    && !always)
@@ -13008,10 +13009,6 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 	if (use_json)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 
-	/* labeled-unicast routes live in the unicast table */
-	if (safi == SAFI_LABELED_UNICAST)
-		safi = SAFI_UNICAST;
-
 	if (!peer || !peer->afc[afi][safi]) {
 		if (use_json) {
 			json_object *json_no = NULL;
@@ -13026,6 +13023,10 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 			vty_out(vty, "%% No such neighbor or address family\n");
 		return CMD_WARNING;
 	}
+
+	/* labeled-unicast routes live in the unicast table */
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
 
 	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->su, show_flags);
 }

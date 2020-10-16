@@ -66,11 +66,19 @@ extern struct ospf6_lsa *ospf6_lsdb_next(const struct route_node *iterend,
 	lsa;                                                                   \
 	lsa = ospf6_lsdb_next(iterend, lsa)
 
-#define ALL_LSDB(lsdb, lsa)                                                    \
+/*
+ * Since we are locking the lsa in ospf6_lsdb_head
+ * and then unlocking it in lspf6_lsa_lock, when
+ * we cache the next pointer we need to increment
+ * the lock for the lsa so we don't accidently free
+ * it really early.
+ */
+#define ALL_LSDB(lsdb, lsa, lsanext)                                           \
 	const struct route_node *iterend =                                     \
 		ospf6_lsdb_head(lsdb, 0, 0, 0, &lsa);                          \
-	lsa;                                                                   \
-	lsa = ospf6_lsdb_next(iterend, lsa)
+	(lsa) != NULL &&ospf6_lsa_lock(lsa)                                    \
+		&& ((lsanext) = ospf6_lsdb_next(iterend, (lsa)), 1);           \
+	ospf6_lsa_unlock(lsa), (lsa) = (lsanext)
 
 extern void ospf6_lsdb_remove_all(struct ospf6_lsdb *lsdb);
 extern void ospf6_lsdb_lsa_unlock(struct ospf6_lsa *lsa);

@@ -85,9 +85,12 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 
 static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 {
+	struct isis_circuit *circuit;
 	struct connected *c;
+#ifdef EXTREME_DEBUG
 	struct prefix *p;
 	char buf[PREFIX2STR_BUFFER];
+#endif /* EXTREME_DEBUG */
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_ADD,
 					 zclient->ibuf, vrf_id);
@@ -95,25 +98,29 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	if (c == NULL)
 		return 0;
 
-	p = c->address;
-
-	prefix2str(p, buf, sizeof(buf));
 #ifdef EXTREME_DEBUG
+	p = c->address;
+	prefix2str(p, buf, sizeof(buf));
+
 	if (p->family == AF_INET)
 		zlog_debug("connected IP address %s", buf);
 	if (p->family == AF_INET6)
 		zlog_debug("connected IPv6 address %s", buf);
 #endif /* EXTREME_DEBUG */
-	if (if_is_operative(c->ifp))
-		isis_circuit_add_addr(circuit_scan_by_ifp(c->ifp), c);
+
+	if (if_is_operative(c->ifp)) {
+		circuit = circuit_scan_by_ifp(c->ifp);
+		if (circuit)
+			isis_circuit_add_addr(circuit, c);
+	}
 
 	return 0;
 }
 
 static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 {
+	struct isis_circuit *circuit;
 	struct connected *c;
-	struct interface *ifp;
 #ifdef EXTREME_DEBUG
 	struct prefix *p;
 	char buf[PREFIX2STR_BUFFER];
@@ -125,8 +132,6 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	if (c == NULL)
 		return 0;
 
-	ifp = c->ifp;
-
 #ifdef EXTREME_DEBUG
 	p = c->address;
 	prefix2str(p, buf, sizeof(buf));
@@ -137,8 +142,12 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		zlog_debug("disconnected IPv6 address %s", buf);
 #endif /* EXTREME_DEBUG */
 
-	if (if_is_operative(ifp))
-		isis_circuit_del_addr(circuit_scan_by_ifp(ifp), c);
+	if (if_is_operative(c->ifp)) {
+		circuit = circuit_scan_by_ifp(c->ifp);
+		if (circuit)
+			isis_circuit_del_addr(circuit, c);
+	}
+
 	connected_free(&c);
 
 	return 0;
@@ -159,42 +168,29 @@ static int isis_zebra_link_params(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-void isis_zebra_route_add_route(struct isis *isis,
-				struct prefix *prefix,
-				struct prefix_ipv6 *src_p,
-				struct isis_route_info *route_info)
+enum isis_zebra_nexthop_type {
+	ISIS_ROUTE_NEXTHOP_MAIN = 0,
+	ISIS_ROUTE_NEXTHOP_BACKUP,
+	ISIS_MPLS_NEXTHOP_MAIN,
+	ISIS_MPLS_NEXTHOP_BACKUP,
+};
+
+static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
+				   struct zapi_nexthop zapi_nexthops[],
+				   enum isis_zebra_nexthop_type type,
+				   uint8_t backup_nhs)
 {
-	struct zapi_route api;
-	struct zapi_nexthop *api_nh;
 	struct isis_nexthop *nexthop;
 	struct listnode *node;
 	int count = 0;
 
-	if (zclient->sock < 0)
-		return;
-
-	memset(&api, 0, sizeof(api));
-	api.vrf_id = isis->vrf_id;
-	api.type = PROTO_TYPE;
-	api.safi = SAFI_UNICAST;
-	api.prefix = *prefix;
-	if (src_p && src_p->prefixlen) {
-		api.src_prefix = *src_p;
-		SET_FLAG(api.message, ZAPI_MESSAGE_SRCPFX);
-	}
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
-	api.metric = route_info->cost;
-#if 0
-	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
-	api.distance = route_info->depth;
-#endif
-
 	/* Nexthops */
-	for (ALL_LIST_ELEMENTS_RO(route_info->nexthops, node, nexthop)) {
+	for (ALL_LIST_ELEMENTS_RO(nexthops, node, nexthop)) {
+		struct zapi_nexthop *api_nh;
+
 		if (count >= MULTIPATH_NUM)
 			break;
-		api_nh = &api.nexthops[count];
+		api_nh = &zapi_nexthops[count];
 		if (fabricd)
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		api_nh->vrf_id = isis->vrf_id;
@@ -225,11 +221,98 @@ void isis_zebra_route_add_route(struct isis *isis,
 		}
 
 		api_nh->ifindex = nexthop->ifindex;
+
+		/* Add MPLS label(s). */
+		switch (type) {
+		case ISIS_ROUTE_NEXTHOP_MAIN:
+		case ISIS_ROUTE_NEXTHOP_BACKUP:
+			/*
+			 * SR/TI-LFA labels are installed using separate
+			 * messages.
+			 */
+			break;
+		case ISIS_MPLS_NEXTHOP_MAIN:
+			if (nexthop->sr.label != MPLS_INVALID_LABEL) {
+				api_nh->label_num = 1;
+				api_nh->labels[0] = nexthop->sr.label;
+			} else {
+				api_nh->label_num = 1;
+				api_nh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
+			}
+			break;
+		case ISIS_MPLS_NEXTHOP_BACKUP:
+			if (nexthop->label_stack) {
+				api_nh->label_num =
+					nexthop->label_stack->num_labels;
+				memcpy(api_nh->labels,
+				       nexthop->label_stack->label,
+				       sizeof(mpls_label_t)
+					       * api_nh->label_num);
+			} else {
+				api_nh->label_num = 1;
+				api_nh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
+			}
+			break;
+		}
+
+		/* Backup nexthop handling. */
+		if (backup_nhs) {
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
+			/*
+			 * If the backup has multiple nexthops, all of them
+			 * protect the same primary nexthop since ECMP routes
+			 * have no backups.
+			 */
+			api_nh->backup_num = backup_nhs;
+			for (int i = 0; i < backup_nhs; i++)
+				api_nh->backup_idx[i] = i;
+		}
 		count++;
 	}
-	if (!count)
+
+	return count;
+}
+
+void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
+				struct prefix_ipv6 *src_p,
+				struct isis_route_info *route_info)
+{
+	struct zapi_route api;
+	int count = 0;
+
+	if (zclient->sock < 0)
 		return;
 
+	memset(&api, 0, sizeof(api));
+	api.vrf_id = isis->vrf_id;
+	api.type = PROTO_TYPE;
+	api.safi = SAFI_UNICAST;
+	api.prefix = *prefix;
+	if (src_p && src_p->prefixlen) {
+		api.src_prefix = *src_p;
+		SET_FLAG(api.message, ZAPI_MESSAGE_SRCPFX);
+	}
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
+	api.metric = route_info->cost;
+
+	/* Add backup nexthops first. */
+	if (route_info->backup) {
+		count = isis_zebra_add_nexthops(
+			isis, route_info->backup->nexthops, api.backup_nexthops,
+			ISIS_ROUTE_NEXTHOP_BACKUP, 0);
+		if (count > 0) {
+			SET_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
+			api.backup_nexthop_num = count;
+		}
+	}
+
+	/* Add primary nexthops. */
+	count = isis_zebra_add_nexthops(isis, route_info->nexthops,
+					api.nexthops, ISIS_ROUTE_NEXTHOP_MAIN,
+					count);
+	if (!count)
+		return;
 	api.nexthop_num = count;
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
@@ -265,11 +348,12 @@ void isis_zebra_route_del_route(struct isis *isis,
  */
 static void isis_zebra_prefix_install_prefix_sid(const struct sr_prefix *srp)
 {
+	struct isis *isis = srp->srn->area->isis;
 	struct zapi_labels zl;
 	struct zapi_nexthop *znh;
-	struct listnode *node;
-	struct isis_nexthop *nexthop;
 	struct interface *ifp;
+	struct isis_route_info *rinfo;
+	int count = 0;
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
@@ -299,23 +383,27 @@ static void isis_zebra_prefix_install_prefix_sid(const struct sr_prefix *srp)
 		zl.route.type = ZEBRA_ROUTE_ISIS;
 		zl.route.instance = 0;
 
-		for (ALL_LIST_ELEMENTS_RO(srp->u.remote.rinfo->nexthops, node,
-					  nexthop)) {
-			if (nexthop->sr.label == MPLS_INVALID_LABEL)
-				continue;
+		rinfo = srp->u.remote.rinfo;
 
-			if (zl.nexthop_num >= MULTIPATH_NUM)
-				break;
-
-			znh = &zl.nexthops[zl.nexthop_num++];
-			znh->type = (srp->prefix.family == AF_INET)
-					    ? NEXTHOP_TYPE_IPV4_IFINDEX
-					    : NEXTHOP_TYPE_IPV6_IFINDEX;
-			znh->gate = nexthop->ip;
-			znh->ifindex = nexthop->ifindex;
-			znh->label_num = 1;
-			znh->labels[0] = nexthop->sr.label;
+		/* Add backup nexthops first. */
+		if (rinfo->backup) {
+			count = isis_zebra_add_nexthops(
+				isis, rinfo->backup->nexthops,
+				zl.backup_nexthops, ISIS_MPLS_NEXTHOP_BACKUP,
+				0);
+			if (count > 0) {
+				SET_FLAG(zl.message, ZAPI_LABELS_HAS_BACKUPS);
+				zl.backup_nexthop_num = count;
+			}
 		}
+
+		/* Add primary nexthops. */
+		count = isis_zebra_add_nexthops(isis, rinfo->nexthops,
+						zl.nexthops,
+						ISIS_MPLS_NEXTHOP_MAIN, count);
+		if (!count)
+			return;
+		zl.nexthop_num = count;
 		break;
 	}
 
@@ -383,6 +471,7 @@ void isis_zebra_send_prefix_sid(int cmd, const struct sr_prefix *srp)
  */
 void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 {
+	struct isis *isis = sra->adj->circuit->area->isis;
 	struct zapi_labels zl;
 	struct zapi_nexthop *znh;
 
@@ -394,11 +483,11 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 
 	sr_debug("  |- %s label %u for interface %s",
 		 cmd == ZEBRA_MPLS_LABELS_ADD ? "Add" : "Delete",
-		 sra->nexthop.label, sra->adj->circuit->interface->name);
+		 sra->input_label, sra->adj->circuit->interface->name);
 
 	memset(&zl, 0, sizeof(zl));
 	zl.type = ZEBRA_LSP_ISIS_SR;
-	zl.local_label = sra->nexthop.label;
+	zl.local_label = sra->input_label;
 	zl.nexthop_num = 1;
 	znh = &zl.nexthops[0];
 	znh->gate = sra->nexthop.address;
@@ -408,6 +497,24 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 	znh->ifindex = sra->adj->circuit->interface->ifindex;
 	znh->label_num = 1;
 	znh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
+
+	/* Set backup nexthops. */
+	if (sra->type == ISIS_SR_LAN_BACKUP) {
+		int count;
+
+		count = isis_zebra_add_nexthops(isis, sra->backup_nexthops,
+						zl.backup_nexthops,
+						ISIS_MPLS_NEXTHOP_BACKUP, 0);
+		if (count > 0) {
+			SET_FLAG(zl.message, ZAPI_LABELS_HAS_BACKUPS);
+			zl.backup_nexthop_num = count;
+
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
+			znh->backup_num = count;
+			for (int i = 0; i < count; i++)
+				znh->backup_idx[i] = i;
+		}
+	}
 
 	(void)zebra_send_mpls_labels(zclient, cmd, &zl);
 }

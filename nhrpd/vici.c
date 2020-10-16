@@ -478,7 +478,7 @@ static int vici_reconnect(struct thread *t)
 	if (vici->fd >= 0)
 		return 0;
 
-	fd = sock_open_unix("/var/run/charon.vici");
+	fd = sock_open_unix(VICI_SOCKET);
 	if (fd < 0) {
 		debugf(NHRP_DEBUG_VICI,
 		       "%s: failure connecting VICI socket: %s", __func__,

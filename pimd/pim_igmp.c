@@ -804,9 +804,7 @@ void igmp_group_delete(struct igmp_group *group)
 		igmp_source_delete(src);
 	}
 
-	if (group->t_group_query_retransmit_timer) {
-		THREAD_OFF(group->t_group_query_retransmit_timer);
-	}
+	THREAD_OFF(group->t_group_query_retransmit_timer);
 
 	group_timer_off(group);
 	igmp_group_count_decr(group->group_igmp_sock);

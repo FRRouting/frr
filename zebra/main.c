@@ -87,7 +87,6 @@ uint32_t nl_rcvbufsize = 4194304;
 const struct option longopts[] = {
 	{"batch", no_argument, NULL, 'b'},
 	{"allow_delete", no_argument, NULL, 'a'},
-	{"keep_kernel", no_argument, NULL, 'k'},
 	{"socket", required_argument, NULL, 'z'},
 	{"ecmp", required_argument, NULL, 'e'},
 	{"retain", no_argument, NULL, 'r'},

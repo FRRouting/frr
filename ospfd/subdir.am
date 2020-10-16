@@ -57,6 +57,7 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_vty.c \
 	ospfd/ospf_zebra.c \
 	ospfd/ospfd.c \
+	ospfd/ospf_gr_helper.c \
 	# end
 
 if OSPFD
@@ -78,6 +79,7 @@ endif
 clippy_scan += \
 	ospfd/ospf_vty.c \
 	ospfd/ospf_ldp_sync.c \
+	ospfd/ospf_dump.c \
 	# end
 
 noinst_HEADERS += \
@@ -102,6 +104,7 @@ noinst_HEADERS += \
 	ospfd/ospf_te.h \
 	ospfd/ospf_vty.h \
 	ospfd/ospf_zebra.h \
+	ospfd/ospf_gr_helper.h \
 	# end
 
 ospfd_ospfd_LDADD = ospfd/libfrrospf.a lib/libfrr.la $(LIBCAP) $(LIBM)

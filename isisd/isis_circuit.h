@@ -79,6 +79,7 @@ struct isis_circuit_arg {
 struct isis_circuit {
 	int state;
 	uint8_t circuit_id;	  /* l1/l2 bcast CircuitID */
+	struct isis *isis;
 	struct isis_area *area;      /* back pointer to the area */
 	struct interface *interface; /* interface info from z */
 	int fd;			     /* IS-IS l1/2 socket */
@@ -140,6 +141,8 @@ struct isis_circuit {
 	bool disable_threeway_adj;
 	struct bfd_info *bfd_info;
 	struct ldp_sync_info *ldp_sync_info;
+	bool tilfa_protection[ISIS_LEVELS];
+	bool tilfa_node_protection[ISIS_LEVELS];
 	/*
 	 * Counters as in 10589--11.2.5.9
 	 */
@@ -163,7 +166,7 @@ struct isis_circuit {
 DECLARE_QOBJ_TYPE(isis_circuit)
 
 void isis_circuit_init(void);
-struct isis_circuit *isis_circuit_new(void);
+struct isis_circuit *isis_circuit_new(struct isis *isis);
 void isis_circuit_del(struct isis_circuit *circuit);
 struct isis_circuit *circuit_lookup_by_ifp(struct interface *ifp,
 					   struct list *list);

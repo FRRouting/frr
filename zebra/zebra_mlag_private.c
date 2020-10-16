@@ -74,9 +74,10 @@ static void zebra_mlag_sched_read(void)
 
 static int zebra_mlag_read(struct thread *thread)
 {
+	static uint32_t mlag_rd_buf_offset;
 	uint32_t *msglen;
 	uint32_t h_msglen;
-	uint32_t tot_len, curr_len = 0;
+	uint32_t tot_len, curr_len = mlag_rd_buf_offset;
 
 	/*
 	 * Received message in sock_stream looks like below
@@ -99,6 +100,7 @@ static int zebra_mlag_read(struct thread *thread)
 			zebra_mlag_handle_process_state(MLAG_DOWN);
 			return -1;
 		}
+		mlag_rd_buf_offset += data_len;
 		if (data_len != (ssize_t)(ZEBRA_MLAG_LEN_SIZE - curr_len)) {
 			/* Try again later */
 			zebra_mlag_sched_read();
@@ -136,6 +138,7 @@ static int zebra_mlag_read(struct thread *thread)
 			zebra_mlag_handle_process_state(MLAG_DOWN);
 			return -1;
 		}
+		mlag_rd_buf_offset += data_len;
 		if (data_len != (ssize_t)(tot_len - curr_len)) {
 			/* Try again later */
 			zebra_mlag_sched_read();
@@ -157,6 +160,7 @@ static int zebra_mlag_read(struct thread *thread)
 
 	/* Register read thread. */
 	zebra_mlag_reset_read_buffer();
+	mlag_rd_buf_offset = 0;
 	zebra_mlag_sched_read();
 	return 0;
 }

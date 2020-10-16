@@ -117,8 +117,7 @@ static int pim_g2rp_list_compare(struct bsm_rpinfo *node1,
 
 static void pim_free_bsrp_node(struct bsm_rpinfo *bsrp_info)
 {
-	if (bsrp_info->g2rp_timer)
-		THREAD_OFF(bsrp_info->g2rp_timer);
+	THREAD_OFF(bsrp_info->g2rp_timer);
 	XFREE(MTYPE_PIM_BSRP_NODE, bsrp_info);
 }
 

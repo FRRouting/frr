@@ -1,0 +1,24 @@
+--- rt3/step6/show_ipv6_route.ref	2020-08-31 22:42:48.839561398 -0300
++++ rt3/step7/show_ipv6_route.ref	2020-08-31 22:42:48.839561398 -0300
+@@ -141,19 +141,13 @@
+           "fib":true,
+           "afi":"ipv6",
+           "interfaceName":"eth-rt5-2",
+-          "active":true,
+-          "labels":[
+-            3
+-          ]
++          "active":true
+         },
+         {
+           "fib":true,
+           "afi":"ipv6",
+           "interfaceName":"eth-rt5-1",
+-          "active":true,
+-          "labels":[
+-            3
+-          ]
++          "active":true
+         }
+       ]
+     }

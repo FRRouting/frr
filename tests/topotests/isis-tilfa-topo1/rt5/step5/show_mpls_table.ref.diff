@@ -1,0 +1,71 @@
+--- rt5/step4/show_mpls_table.ref	2020-08-31 22:42:48.843561366 -0300
++++ rt5/step5/show_mpls_table.ref	2020-08-31 22:42:48.843561366 -0300
+@@ -53,7 +53,7 @@
+       },
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":3,
++        "outLabel":16020,
+         "installed":true,
+         "nexthop":"10.0.6.4"
+       }
+@@ -77,7 +77,7 @@
+       },
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":3,
++        "outLabel":16021,
+         "installed":true,
+         "interface":"eth-rt4"
+       }
+@@ -119,6 +119,50 @@
+       }
+     ]
+   },
++  "16040":{
++    "inLabel":16040,
++    "installed":true,
++    "nexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":3,
++        "installed":true,
++        "nexthop":"10.0.6.4",
++        "backupIndex":[
++          0
++        ]
++      }
++    ],
++    "backupNexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":3,
++        "nexthop":"10.0.8.6"
++      }
++    ]
++  },
++  "16041":{
++    "inLabel":16041,
++    "installed":true,
++    "nexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":3,
++        "installed":true,
++        "interface":"eth-rt4",
++        "backupIndex":[
++          0
++        ]
++      }
++    ],
++    "backupNexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":3,
++        "interface":"eth-rt6"
++      }
++    ]
++  },
+   "16060":{
+     "inLabel":16060,
+     "installed":true,

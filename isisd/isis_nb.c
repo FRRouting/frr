@@ -819,6 +819,36 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute",
+			.cbs = {
+				.cli_show = cli_show_ip_isis_ti_lfa,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/ti-lfa/enable",
+			.cbs = {
+				.modify = lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/ti-lfa/node-protection",
+			.cbs = {
+				.modify = lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/ti-lfa/enable",
+			.cbs = {
+				.modify = lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/ti-lfa/node-protection",
+			.cbs = {
+				.modify = lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis",
 			.cbs = {
 				.get_elem = lib_interface_state_isis_get_elem,

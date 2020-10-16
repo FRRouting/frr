@@ -1,0 +1,11 @@
+--- rt1/step8/show_ipv6_route.ref	2020-08-31 22:42:48.835561429 -0300
++++ rt1/step9/show_ipv6_route.ref	2020-08-31 22:42:48.835561429 -0300
+@@ -81,7 +81,7 @@
+           "interfaceName":"eth-sw1",
+           "active":true,
+           "labels":[
+-            16051
++            16501
+           ]
+         }
+       ]

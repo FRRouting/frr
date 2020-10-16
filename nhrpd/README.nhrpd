@@ -126,7 +126,8 @@ Integration with strongSwan
 
 Contrary to opennhrp, Quagga/NHRP has tight integration with IKE daemon.
 Currently strongSwan is supported using the VICI protocol. strongSwan
-is connected using UNIX socket (hardcoded now as /var/run/charon.vici).
+is connected using UNIX socket (default /var/run/charon.vici use configure
+argument --with-vici-socket= to change).
 Thus nhrpd needs to be run as user that can open that file.
 
 Currently, you will need patched strongSwan. The working tree is at:

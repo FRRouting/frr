@@ -1,0 +1,110 @@
+--- rt5/step5/show_mpls_table.ref	2020-08-31 22:42:48.843561366 -0300
++++ rt5/step6/show_mpls_table.ref	2020-08-31 22:42:48.843561366 -0300
+@@ -1,6 +1,6 @@
+ {
+-  "16010":{
+-    "inLabel":16010,
++  "30010":{
++    "inLabel":30010,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -17,8 +17,8 @@
+       }
+     ]
+   },
+-  "16011":{
+-    "inLabel":16011,
++  "30011":{
++    "inLabel":30011,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -35,8 +35,8 @@
+       }
+     ]
+   },
+-  "16020":{
+-    "inLabel":16020,
++  "30020":{
++    "inLabel":30020,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -59,8 +59,8 @@
+       }
+     ]
+   },
+-  "16021":{
+-    "inLabel":16021,
++  "30021":{
++    "inLabel":30021,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -83,8 +83,8 @@
+       }
+     ]
+   },
+-  "16030":{
+-    "inLabel":16030,
++  "30030":{
++    "inLabel":30030,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -101,8 +101,8 @@
+       }
+     ]
+   },
+-  "16031":{
+-    "inLabel":16031,
++  "30031":{
++    "inLabel":30031,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -119,8 +119,8 @@
+       }
+     ]
+   },
+-  "16040":{
+-    "inLabel":16040,
++  "30040":{
++    "inLabel":30040,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -141,8 +141,8 @@
+       }
+     ]
+   },
+-  "16041":{
+-    "inLabel":16041,
++  "30041":{
++    "inLabel":30041,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -163,8 +163,8 @@
+       }
+     ]
+   },
+-  "16060":{
+-    "inLabel":16060,
++  "30060":{
++    "inLabel":30060,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -185,8 +185,8 @@
+       }
+     ]
+   },
+-  "16061":{
+-    "inLabel":16061,
++  "30061":{
++    "inLabel":30061,
+     "installed":true,
+     "nexthops":[
+       {

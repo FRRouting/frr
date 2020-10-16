@@ -355,6 +355,11 @@ ISIS interface
    Enable or disable :rfc:`5303` Three-Way Handshake for P2P adjacencies.
    Three-Way Handshake is enabled by default.
 
+.. index:: [no] isis fast-reroute ti-lfa [level-1|level-2] [node-protection]
+.. clicmd:: [no] isis fast-reroute ti-lfa [level-1|level-2] [node-protection]
+
+   Enable per-prefix TI-LFA fast reroute link or node protection.
+
 .. _showing-isis-information:
 
 Showing ISIS information
@@ -418,8 +423,8 @@ Showing ISIS information
    Show topology IS-IS paths to Intermediate Systems, globally, in area
    (level-1) or domain (level-2).
 
-.. index:: show isis route [level-1|level-2]
-.. clicmd:: show isis route [level-1|level-2]
+.. index:: show isis route [level-1|level-2] [backup]
+.. clicmd:: show isis route [level-1|level-2] [backup]
 
    Show the ISIS routing table, as determined by the most recent SPF
    calculation.
@@ -632,6 +637,14 @@ Debugging ISIS
 .. clicmd:: no debug isis sr-events
 
    IS-IS Segment Routing events.
+
+.. index:: debug isis ti-lfa
+.. clicmd:: debug isis ti-lfa
+
+.. index:: no debug isis ti-lfa
+.. clicmd:: no debug isis ti-lfa
+
+   IS-IS TI-LFA events.
 
 .. index:: show debugging isis
 .. clicmd:: show debugging isis

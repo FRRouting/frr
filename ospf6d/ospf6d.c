@@ -27,6 +27,7 @@
 #include "plist.h"
 
 #include "ospf6_proto.h"
+#include "ospf6_top.h"
 #include "ospf6_network.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -34,7 +35,6 @@
 #include "ospf6_route.h"
 #include "ospf6_zebra.h"
 #include "ospf6_spf.h"
-#include "ospf6_top.h"
 #include "ospf6_area.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
@@ -1236,7 +1236,7 @@ void ospf6_init(void)
 
 	install_element_ospf6_clear_interface();
 
-	install_element(VIEW_NODE, &show_debugging_ospf6_cmd);
+	install_element(ENABLE_NODE, &show_debugging_ospf6_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_border_routers_cmd);
 

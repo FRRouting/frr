@@ -119,6 +119,9 @@ struct ospf_lsa {
 
 	/* VRF Id */
 	vrf_id_t vrf_id;
+
+	/*For topo chg detection in HELPER role*/
+	bool to_be_acknowledged;
 };
 
 /* OSPF LSA Link Type. */
@@ -220,6 +223,11 @@ struct as_external_lsa {
 #define OSPF_LSA_UPDATE_TIMER_ON(T, F)                                         \
 	if (!(T))                                                              \
 	(T) = thread_add_timer(master, (F), 0, 2)
+
+#define CHECK_LSA_TYPE_1_TO_5_OR_7(type)                                       \
+	((type == OSPF_ROUTER_LSA) || (type == OSPF_NETWORK_LSA)               \
+	 || (type == OSPF_SUMMARY_LSA) || (type == OSPF_ASBR_SUMMARY_LSA)      \
+	 || (type == OSPF_AS_EXTERNAL_LSA) || (type == OSPF_AS_NSSA_LSA))
 
 /* Prototypes. */
 /* XXX: Eek, time functions, similar are in lib/thread.c */

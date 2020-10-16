@@ -164,6 +164,7 @@ struct ospf_lsa *ospf_lsa_new(void)
 	new->tv_orig = new->tv_recv;
 	new->refresh_list = -1;
 	new->vrf_id = VRF_DEFAULT;
+	new->to_be_acknowledged = 0;
 
 	return new;
 }
@@ -2578,8 +2579,19 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 
 	/* Do comparision and record if recalc needed. */
 	rt_recalc = 0;
-	if (old == NULL || ospf_lsa_different(old, lsa))
+	if (old == NULL || ospf_lsa_different(old, lsa)) {
+		/* Ref rfc3623 section 3.2.3
+		 * Installing new lsa or change in the existing LSA
+		 * or flushing existing LSA leads to topo change
+		 * and trigger SPF caculation.
+		 * So, router should be aborted from HELPER role
+		 * if it is detected as TOPO  change.
+		 */
+		if (CHECK_LSA_TYPE_1_TO_5_OR_7(lsa->data->type))
+			ospf_helper_handle_topo_chg(ospf, lsa);
+
 		rt_recalc = 1;
+	}
 
 	/*
 	   Sequence number check (Section 14.1 of rfc 2328)

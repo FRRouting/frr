@@ -81,7 +81,7 @@ extern void ospf_check_nbr_loading(struct ospf_neighbor *);
 extern int ospf_db_summary_isempty(struct ospf_neighbor *);
 extern int ospf_db_summary_count(struct ospf_neighbor *);
 extern void ospf_db_summary_clear(struct ospf_neighbor *);
-
+extern int nsm_should_adj(struct ospf_neighbor *nbr);
 DECLARE_HOOK(ospf_nsm_change,
 	     (struct ospf_neighbor * on, int state, int oldstate),
 	     (on, state, oldstate))

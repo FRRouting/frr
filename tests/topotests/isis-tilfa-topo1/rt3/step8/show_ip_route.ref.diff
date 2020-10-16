@@ -1,0 +1,25 @@
+--- rt3/step7/show_ip_route.ref	2020-08-31 22:42:48.839561398 -0300
++++ rt3/step8/show_ip_route.ref	2020-08-31 22:42:48.839561398 -0300
+@@ -151,14 +151,20 @@
+           "ip":"10.0.4.5",
+           "afi":"ipv4",
+           "interfaceName":"eth-rt5-1",
+-          "active":true
++          "active":true,
++          "labels":[
++            3
++          ]
+         },
+         {
+           "fib":true,
+           "ip":"10.0.5.5",
+           "afi":"ipv4",
+           "interfaceName":"eth-rt5-2",
+-          "active":true
++          "active":true,
++          "labels":[
++            3
++          ]
+         }
+       ]
+     }

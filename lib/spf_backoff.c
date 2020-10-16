@@ -132,7 +132,6 @@ static int spf_backoff_holddown_elapsed(struct thread *thread)
 {
 	struct spf_backoff *backoff = THREAD_ARG(thread);
 
-	backoff->t_holddown = NULL;
 	THREAD_TIMER_OFF(backoff->t_timetolearn);
 	timerclear(&backoff->first_event_time);
 	backoff->state = SPF_BACKOFF_QUIET;

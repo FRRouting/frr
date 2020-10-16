@@ -201,7 +201,7 @@ static void ospf_dr_change(struct ospf *ospf, struct route_table *nbrs)
 	}
 }
 
-static int ospf_dr_election(struct ospf_interface *oi)
+int ospf_dr_election(struct ospf_interface *oi)
 {
 	struct in_addr old_dr, old_bdr;
 	int old_state, new_state;

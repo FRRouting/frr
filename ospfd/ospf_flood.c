@@ -337,6 +337,45 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 	SET_FLAG(new->flags, OSPF_LSA_RECEIVED);
 	(void)ospf_lsa_is_self_originated(ospf, new); /* Let it set the flag */
 
+	/* Received Grace LSA */
+	if (IS_GRACE_LSA(new)) {
+
+		if (IS_LSA_MAXAGE(new)) {
+
+			/*  Handling Max age grace LSA.*/
+			if (IS_DEBUG_OSPF_GR_HELPER)
+				zlog_debug(
+					"%s, Received a maxage GRACE-LSA from router %s",
+					__PRETTY_FUNCTION__,
+					inet_ntoa(new->data->adv_router));
+
+			if (current) {
+				ospf_process_maxage_grace_lsa(ospf, new, nbr);
+			} else {
+				if (IS_DEBUG_OSPF_GR_HELPER)
+					zlog_debug(
+						"%s, Grace LSA doesn't exist in lsdb, so discarding grace lsa",
+						__PRETTY_FUNCTION__);
+				return -1;
+			}
+		} else {
+			if (IS_DEBUG_OSPF_GR_HELPER)
+				zlog_debug(
+					"%s, Received a GRACE-LSA from router %s",
+					__PRETTY_FUNCTION__,
+					inet_ntoa(new->data->adv_router));
+
+			if (ospf_process_grace_lsa(ospf, new, nbr)
+			    == OSPF_GR_NOT_HELPER) {
+				if (IS_DEBUG_OSPF_GR_HELPER)
+					zlog_debug(
+						"%s, Not moving to HELPER role, So discarding grace LSA",
+						__PRETTY_FUNCTION__);
+				return -1;
+			}
+		}
+	}
+
 	/* Install the new LSA in the link state database
 	   (replacing the current database copy).  This may cause the
 	   routing table calculation to be scheduled.  In addition,

@@ -70,7 +70,15 @@ static int ospf_inactivity_timer(struct thread *thread)
 			   IF_NAME(nbr->oi), inet_ntoa(nbr->router_id),
 			   ospf_get_name(nbr->oi->ospf));
 
-	OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
+	/* Dont trigger NSM_InactivityTimer event , if the current
+	 * router acting as HELPER for this neighbour.
+	 */
+	if (!OSPF_GR_IS_ACTIVE_HELPER(nbr))
+		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
+	else if (IS_DEBUG_OSPF_GR_HELPER)
+		zlog_debug(
+			"%s, Acting as HELPER for this neighbour, So inactivitytimer event will not be fired.",
+			__PRETTY_FUNCTION__);
 
 	return 0;
 }
@@ -144,7 +152,7 @@ static void nsm_timer_set(struct ospf_neighbor *nbr)
 /* 10.4 of RFC2328, indicate whether an adjacency is appropriate with
  * the given neighbour
  */
-static int nsm_should_adj(struct ospf_neighbor *nbr)
+int nsm_should_adj(struct ospf_neighbor *nbr)
 {
 	struct ospf_interface *oi = nbr->oi;
 
@@ -689,7 +697,11 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 				lookup_msg(ospf_nsm_state_msg, old_state, NULL),
 				lookup_msg(ospf_nsm_state_msg, state, NULL));
 
-		ospf_router_lsa_update_area(oi->area);
+		/* Dont originate router LSA if the current
+		 * router is acting as a HELPER for this neighbour.
+		 */
+		if (!OSPF_GR_IS_ACTIVE_HELPER(nbr))
+			ospf_router_lsa_update_area(oi->area);
 
 		if (oi->type == OSPF_IFTYPE_VIRTUALLINK) {
 			vl_area = ospf_area_lookup_by_area_id(
@@ -699,15 +711,21 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 				ospf_router_lsa_update_area(vl_area);
 		}
 
-		/* Originate network-LSA. */
-		if (oi->state == ISM_DR) {
-			if (oi->network_lsa_self && oi->full_nbrs == 0) {
-				ospf_lsa_flush_area(oi->network_lsa_self,
-						    oi->area);
-				ospf_lsa_unlock(&oi->network_lsa_self);
-				oi->network_lsa_self = NULL;
-			} else
-				ospf_network_lsa_update(oi);
+		/* Dont originate/flush network LSA if the current
+		 * router is acting as a HELPER for this neighbour.
+		 */
+		if (!OSPF_GR_IS_ACTIVE_HELPER(nbr)) {
+			/* Originate network-LSA. */
+			if (oi->state == ISM_DR) {
+				if (oi->network_lsa_self
+				    && oi->full_nbrs == 0) {
+					ospf_lsa_flush_area(
+						oi->network_lsa_self, oi->area);
+					ospf_lsa_unlock(&oi->network_lsa_self);
+					oi->network_lsa_self = NULL;
+				} else
+					ospf_network_lsa_update(oi);
+			}
 		}
 	}
 

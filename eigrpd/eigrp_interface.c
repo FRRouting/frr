@@ -331,8 +331,7 @@ int eigrp_if_down(struct eigrp_interface *ei)
 		return 0;
 
 	/* Shutdown packet reception and sending */
-	if (ei->t_hello)
-		THREAD_OFF(ei->t_hello);
+	THREAD_OFF(ei->t_hello);
 
 	eigrp_if_stream_unset(ei);
 

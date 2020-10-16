@@ -1611,7 +1611,7 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 	    || (circuit->u.bc.is_dr[level - 1] == 0))
 		return ISIS_ERROR;
 
-	memcpy(lsp_id, circuit->area->isis->sysid, ISIS_SYS_ID_LEN);
+	memcpy(lsp_id, circuit->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_FRAGMENT(lsp_id) = 0;
 	LSP_PSEUDO_ID(lsp_id) = circuit->circuit_id;
 
@@ -1671,7 +1671,7 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 	    || (circuit->u.bc.is_dr[level - 1] == 0))
 		return ISIS_ERROR;
 
-	memcpy(lsp_id, circuit->area->isis->sysid, ISIS_SYS_ID_LEN);
+	memcpy(lsp_id, circuit->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(lsp_id) = circuit->circuit_id;
 	LSP_FRAGMENT(lsp_id) = 0;
 
@@ -1728,7 +1728,7 @@ static int lsp_l1_refresh_pseudo(struct thread *thread)
 
 	if ((circuit->u.bc.is_dr[0] == 0)
 	    || (circuit->is_type & IS_LEVEL_1) == 0) {
-		memcpy(id, circuit->area->isis->sysid, ISIS_SYS_ID_LEN);
+		memcpy(id, circuit->isis->sysid, ISIS_SYS_ID_LEN);
 		LSP_PSEUDO_ID(id) = circuit->circuit_id;
 		LSP_FRAGMENT(id) = 0;
 		lsp_purge_pseudo(id, circuit, IS_LEVEL_1);
@@ -1750,7 +1750,7 @@ static int lsp_l2_refresh_pseudo(struct thread *thread)
 
 	if ((circuit->u.bc.is_dr[1] == 0)
 	    || (circuit->is_type & IS_LEVEL_2) == 0) {
-		memcpy(id, circuit->area->isis->sysid, ISIS_SYS_ID_LEN);
+		memcpy(id, circuit->isis->sysid, ISIS_SYS_ID_LEN);
 		LSP_PSEUDO_ID(id) = circuit->circuit_id;
 		LSP_FRAGMENT(id) = 0;
 		lsp_purge_pseudo(id, circuit, IS_LEVEL_2);

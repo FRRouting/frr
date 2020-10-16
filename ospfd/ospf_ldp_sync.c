@@ -274,10 +274,7 @@ void ospf_ldp_sync_ldp_fail(struct interface *ifp)
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		if (ldp_sync_info->t_holddown != NULL) {
-			THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
-			ldp_sync_info->t_holddown = NULL;
-		}
+		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_if_recalculate_output_cost(ifp);
 	}
@@ -340,8 +337,7 @@ void ospf_ldp_sync_if_remove(struct interface *ifp, bool remove)
 	 *  restore cost
 	 */
 	ols_debug("ldp_sync: Removed from if %s", ifp->name);
-	if (ldp_sync_info->t_holddown)
-		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
+	THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	ospf_if_recalculate_output_cost(ifp);
 	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))

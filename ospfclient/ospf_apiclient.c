@@ -49,6 +49,7 @@
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_api.h"
+#include "ospfd/ospf_errors.h"
 
 #include "ospf_apiclient.h"
 
@@ -564,15 +565,25 @@ static void ospf_apiclient_handle_lsa_update(struct ospf_apiclient *oclient,
 {
 	struct msg_lsa_change_notify *cn;
 	struct lsa_header *lsa;
-	int lsalen;
+	void *p;
+	uint16_t lsalen;
 
 	cn = (struct msg_lsa_change_notify *)STREAM_DATA(msg->s);
 
 	/* Extract LSA from message */
 	lsalen = ntohs(cn->data.length);
-	lsa = XMALLOC(MTYPE_OSPF_APICLIENT, lsalen);
+	if (lsalen > OSPF_MAX_LSA_SIZE) {
+		flog_warn(
+			EC_OSPF_LARGE_LSA,
+			"%s: message received size: %d is greater than a LSA size: %d",
+			__func__, lsalen, OSPF_MAX_LSA_SIZE);
+		return;
+	}
 
-	memcpy(lsa, &(cn->data), lsalen);
+	p = XMALLOC(MTYPE_OSPF_APICLIENT, lsalen);
+
+	memcpy(p, &(cn->data), lsalen);
+	lsa = p;
 
 	/* Invoke registered update callback function */
 	if (oclient->update_notify) {
@@ -581,7 +592,7 @@ static void ospf_apiclient_handle_lsa_update(struct ospf_apiclient *oclient,
 	}
 
 	/* free memory allocated by ospf apiclient library */
-	XFREE(MTYPE_OSPF_APICLIENT, lsa);
+	XFREE(MTYPE_OSPF_APICLIENT, p);
 }
 
 static void ospf_apiclient_handle_lsa_delete(struct ospf_apiclient *oclient,
@@ -589,15 +600,25 @@ static void ospf_apiclient_handle_lsa_delete(struct ospf_apiclient *oclient,
 {
 	struct msg_lsa_change_notify *cn;
 	struct lsa_header *lsa;
-	int lsalen;
+	void *p;
+	uint16_t lsalen;
 
 	cn = (struct msg_lsa_change_notify *)STREAM_DATA(msg->s);
 
 	/* Extract LSA from message */
 	lsalen = ntohs(cn->data.length);
-	lsa = XMALLOC(MTYPE_OSPF_APICLIENT, lsalen);
+	if (lsalen > OSPF_MAX_LSA_SIZE) {
+		flog_warn(
+			EC_OSPF_LARGE_LSA,
+			"%s: message received size: %d is greater than a LSA size: %d",
+			__func__, lsalen, OSPF_MAX_LSA_SIZE);
+		return;
+	}
 
-	memcpy(lsa, &(cn->data), lsalen);
+	p = XMALLOC(MTYPE_OSPF_APICLIENT, lsalen);
+
+	memcpy(p, &(cn->data), lsalen);
+	lsa = p;
 
 	/* Invoke registered update callback function */
 	if (oclient->delete_notify) {
@@ -606,7 +627,7 @@ static void ospf_apiclient_handle_lsa_delete(struct ospf_apiclient *oclient,
 	}
 
 	/* free memory allocated by ospf apiclient library */
-	XFREE(MTYPE_OSPF_APICLIENT, lsa);
+	XFREE(MTYPE_OSPF_APICLIENT, p);
 }
 
 static void ospf_apiclient_msghandle(struct ospf_apiclient *oclient,

@@ -2533,6 +2533,8 @@ static void ripng_distribute_update_all_wrapper(struct access_list *notused)
 /* delete all the added ripng routes. */
 void ripng_clean(struct ripng *ripng)
 {
+	ripng_interface_clean(ripng);
+
 	if (ripng->enabled)
 		ripng_instance_disable(ripng);
 
@@ -2554,7 +2556,6 @@ void ripng_clean(struct ripng *ripng)
 	agg_table_finish(ripng->enable_network);
 	vector_free(ripng->passive_interface);
 	list_delete(&ripng->offset_list_master);
-	ripng_interface_clean(ripng);
 
 	RB_REMOVE(ripng_instance_head, &ripng_instances, ripng);
 	XFREE(MTYPE_RIPNG_VRF_NAME, ripng->vrf_name);

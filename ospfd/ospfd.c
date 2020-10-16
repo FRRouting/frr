@@ -59,6 +59,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_ldp_sync.h"
+#include "ospfd/ospf_gr_helper.h"
 
 
 DEFINE_QOBJ_TYPE(ospf)
@@ -308,6 +309,8 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
 
 	new->proactive_arp = OSPF_PROACTIVE_ARP_DEFAULT;
+
+	ospf_gr_helper_init(new);
 
 	QOBJ_REG(new, ospf);
 
@@ -765,6 +768,9 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	list_delete(&ospf->areas);
 	list_delete(&ospf->oi_write_q);
+
+	/* Reset GR helper data structers */
+	ospf_gr_helper_stop(ospf);
 
 	close(ospf->fd);
 	stream_free(ospf->ibuf);

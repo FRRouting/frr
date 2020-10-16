@@ -21,7 +21,6 @@
 #ifndef OSPF6_NETWORK_H
 #define OSPF6_NETWORK_H
 
-struct ospf6 *ospf6;
 extern struct in6_addr allspfrouters6;
 extern struct in6_addr alldrouters6;
 

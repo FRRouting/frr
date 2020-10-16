@@ -54,6 +54,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_zebra.h"
+#include "ospfd/ospf_gr_helper.h"
 
 /*
  * OSPF Fragmentation / fragmented writes
@@ -1058,7 +1059,16 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_TwoWayReceived);
 		nbr->options |= hello->options;
 	} else {
-		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_OneWayReceived);
+		/* If the router is DR_OTHER, RESTARTER will not wait
+		 * until it receives the hello from it if it receives
+		 * from DR and BDR.
+		 * So, helper might receives ONW_WAY hello from
+		 * RESTARTER. So not allowing to change the state if it
+		 * receives one_way hellow when it acts as HELPER for
+		 * that specific neighbor.
+		 */
+		if (!OSPF_GR_IS_ACTIVE_HELPER(nbr))
+			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_OneWayReceived);
 		/* Set neighbor information. */
 		nbr->priority = hello->priority;
 		nbr->d_router = hello->d_router;
@@ -4261,6 +4271,12 @@ static int ospf_ls_ack_send_event(struct thread *thread)
 void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 {
 	struct ospf_interface *oi = nbr->oi;
+
+	if (IS_GRACE_LSA(lsa)) {
+		if (IS_DEBUG_OSPF_GR_HELPER)
+			zlog_debug("%s, Sending GRACE ACK to Restarter.",
+				   __PRETTY_FUNCTION__);
+	}
 
 	if (listcount(oi->ls_ack_direct.ls_ack) == 0)
 		oi->ls_ack_direct.dst = nbr->address.u.prefix4;
