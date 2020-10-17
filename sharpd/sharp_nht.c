@@ -77,7 +77,8 @@ struct sharp_nhg {
 
 	uint32_t id;
 
-	char name[256];
+#define NHG_NAME_LEN 256
+	char name[NHG_NAME_LEN];
 
 	bool installed;
 };
@@ -95,7 +96,7 @@ struct sharp_nhg_rb_head nhg_head;
 static int sharp_nhg_compare_func(const struct sharp_nhg *a,
 				  const struct sharp_nhg *b)
 {
-	return strncmp(a->name, b->name, strlen(a->name));
+	return strncmp(a->name, b->name, NHG_NAME_LEN);
 }
 
 DECLARE_RBTREE_UNIQ(sharp_nhg_rb, struct sharp_nhg, mylistitem,
