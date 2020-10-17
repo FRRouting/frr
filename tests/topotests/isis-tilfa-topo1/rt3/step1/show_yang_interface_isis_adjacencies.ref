@@ -11,7 +11,6 @@
                 {
                   "neighbor-sys-type": "level-1",
                   "neighbor-sysid": "0000.0000.0005",
-                  "neighbor-extended-circuit-id": 0,
                   "hold-timer": 9,
                   "neighbor-priority": 0,
                   "state": "up"
@@ -31,7 +30,6 @@
                 {
                   "neighbor-sys-type": "level-1",
                   "neighbor-sysid": "0000.0000.0005",
-                  "neighbor-extended-circuit-id": 0,
                   "hold-timer": 9,
                   "neighbor-priority": 0,
                   "state": "up"
@@ -51,7 +49,6 @@
                 {
                   "neighbor-sys-type": "level-1",
                   "neighbor-sysid": "0000.0000.0001",
-                  "neighbor-extended-circuit-id": 2,
                   "hold-timer": 9,
                   "neighbor-priority": 100,
                   "state": "up"
@@ -59,7 +56,6 @@
                 {
                   "neighbor-sys-type": "level-1",
                   "neighbor-sysid": "0000.0000.0002",
-                  "neighbor-extended-circuit-id": 2,
                   "hold-timer": 9,
                   "neighbor-priority": 64,
                   "state": "up"
