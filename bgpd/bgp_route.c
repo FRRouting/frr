@@ -7628,10 +7628,9 @@ static void route_vty_out_route(const struct prefix *p, struct vty *vty,
 		len = vty_out(vty, "%s", buf);
 	} else if (p->family == AF_EVPN) {
 		if (!json)
-			len = vty_out(
-				vty, "%s",
-				bgp_evpn_route2str((struct prefix_evpn *)p, buf,
-						   BUFSIZ));
+			len = vty_out(vty, "%s",
+				      prefix2str((struct prefix_evpn *)p, buf,
+						 BUFSIZ));
 		else
 			bgp_evpn_route2json((struct prefix_evpn *)p, json);
 	} else if (p->family == AF_FLOWSPEC) {
@@ -8985,10 +8984,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 		}
 		if (safi == SAFI_EVPN) {
 			if (!json_paths) {
-				bgp_evpn_route2str(
-					(struct prefix_evpn *)
-						bgp_dest_get_prefix(bn),
-					buf2, sizeof(buf2));
+				prefix2str((struct prefix_evpn *)
+						   bgp_dest_get_prefix(bn),
+					   buf2, sizeof(buf2));
 				vty_out(vty, "  Route %s", buf2);
 				if (tag_buf[0] != '\0')
 					vty_out(vty, " VNI %s", tag_buf);
@@ -9013,11 +9011,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 						pdest),
 					buf1, sizeof(buf1));
 				if (is_pi_family_evpn(parent_ri)) {
-					bgp_evpn_route2str(
-						(struct prefix_evpn *)
-							bgp_dest_get_prefix(
-								dest),
-						buf2, sizeof(buf2));
+					prefix2str((struct prefix_evpn *)
+							   bgp_dest_get_prefix(
+								   dest),
+						   buf2, sizeof(buf2));
 					vty_out(vty, "  Imported from %s:%s, VNI %s\n", buf1, buf2, tag_buf);
 				} else
 					vty_out(vty, "  Imported from %s:%s\n", buf1, buf2);
@@ -10369,9 +10366,10 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		if (!json) {
 			vty_out(vty, "BGP routing table entry for %s%s%s\n",
 				prd ? prefix_rd2str(prd, buf1, sizeof(buf1))
-				: "", prd ? ":" : "",
-				bgp_evpn_route2str((struct prefix_evpn *)p,
-				buf3, sizeof(buf3)));
+				    : "",
+				prd ? ":" : "",
+				prefix2str((struct prefix_evpn *)p, buf3,
+					   sizeof(buf3)));
 		} else {
 			json_object_string_add(json, "rd",
 				prd ? prefix_rd2str(prd, buf1, sizeof(buf1)) :
