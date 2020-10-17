@@ -122,9 +122,6 @@ struct bgp_master {
 	/* BGP thread master.  */
 	struct thread_master *master;
 
-	/* work queues */
-	struct work_queue *process_main_queue;
-
 	/* Listening sockets */
 	struct list *listen_sockets;
 
@@ -681,6 +678,9 @@ struct bgp {
 
 	/* Weighted ECMP related config. */
 	enum bgp_link_bw_handling lb_handling;
+
+	/* Process Queue for handling routes */
+	struct work_queue *process_queue;
 
 	QOBJ_FIELDS
 };

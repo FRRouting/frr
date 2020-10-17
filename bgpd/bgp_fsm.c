@@ -740,11 +740,12 @@ void bgp_update_delay_end(struct bgp *bgp)
 	bgp->main_zebra_update_hold = 1;
 	bgp->main_peers_update_hold = 1;
 
-	/* Resume the queue processing. This should trigger the event that would
-	   take
-	   care of processing any work that was queued during the read-only
-	   mode. */
-	work_queue_unplug(bm->process_main_queue);
+	/*
+	 * Resume the queue processing. This should trigger the event that would
+	 * take care of processing any work that was queued during the read-only
+	 * mode.
+	 */
+	work_queue_unplug(bgp->process_queue);
 }
 
 /**
@@ -997,7 +998,7 @@ static void bgp_update_delay_begin(struct bgp *bgp)
 	struct peer *peer;
 
 	/* Stop the processing of queued work. Enqueue shall continue */
-	work_queue_plug(bm->process_main_queue);
+	work_queue_plug(bgp->process_queue);
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
 		peer->update_delay_over = 0;
