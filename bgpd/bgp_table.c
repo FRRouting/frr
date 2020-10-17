@@ -26,6 +26,7 @@
 #include "queue.h"
 #include "filter.h"
 #include "command.h"
+#include "printfrr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -202,4 +203,15 @@ struct bgp_node *bgp_table_subtree_lookup(const struct bgp_table *table,
 
 	bgp_dest_lock_node(matched);
 	return matched;
+}
+
+printfrr_ext_autoreg_p("BD", printfrr_bd)
+static ssize_t printfrr_bd(char *buf, size_t bsz, const char *fmt,
+			   int prec, const void *ptr)
+{
+	const struct bgp_dest *dest = ptr;
+	const struct prefix *p = bgp_dest_get_prefix(dest);
+
+	prefix2str(p, buf, bsz);
+	return 2;
 }

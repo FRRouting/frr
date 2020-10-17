@@ -506,7 +506,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 
 	if (debug)
 		zlog_debug(
-			"%s: entry: leak-to=%s, p=%pRN, type=%d, sub_type=%d",
+			"%s: entry: leak-to=%s, p=%pBD, type=%d, sub_type=%d",
 			__func__, bgp->name_pretty, bn, source_bpi->type,
 			source_bpi->sub_type);
 
@@ -547,7 +547,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 			bgp_attr_unintern(&new_attr);
 			if (debug)
 				zlog_debug(
-					"%s: ->%s: %pRN: Found route, no change",
+					"%s: ->%s: %pBD: Found route, no change",
 					__func__, bgp->name_pretty, bn);
 			return NULL;
 		}
@@ -608,7 +608,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		bgp_dest_unlock_node(bn);
 
 		if (debug)
-			zlog_debug("%s: ->%s: %pRN Found route, changed attr",
+			zlog_debug("%s: ->%s: %pBD Found route, changed attr",
 				   __func__, bgp->name_pretty, bn);
 
 		return bpi;
@@ -674,7 +674,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	bgp_process(bgp, bn, afi, safi);
 
 	if (debug)
-		zlog_debug("%s: ->%s: %pRN: Added new route", __func__,
+		zlog_debug("%s: ->%s: %pBD: Added new route", __func__,
 			   bgp->name_pretty, bn);
 
 	return new;
@@ -929,7 +929,7 @@ void vpn_leak_from_vrf_withdraw(struct bgp *bgp_vpn,		/* to */
 
 	if (debug) {
 		zlog_debug(
-			"%s: entry: leak-from=%s, p=%pRN, type=%d, sub_type=%d",
+			"%s: entry: leak-from=%s, p=%pBD, type=%d, sub_type=%d",
 			__func__, bgp_vrf->name_pretty, path_vrf->net,
 			path_vrf->type, path_vrf->sub_type);
 	}
@@ -1009,7 +1009,7 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *bgp_vpn, /* to */
 		for (bn = bgp_table_top(table); bn; bn = bgp_route_next(bn)) {
 			bpi = bgp_dest_get_bgp_path_info(bn);
 			if (debug && bpi) {
-				zlog_debug("%s: looking at prefix %pRN",
+				zlog_debug("%s: looking at prefix %pBD",
 					   __func__, bn);
 			}
 
@@ -1262,7 +1262,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	}
 
 	if (debug)
-		zlog_debug("%s: pfx %pRN: num_labels %d", __func__,
+		zlog_debug("%s: pfx %pBD: num_labels %d", __func__,
 			   path_vpn->net, num_labels);
 
 	/*
@@ -1315,7 +1315,7 @@ void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,	    /* from */
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
 	if (debug)
-		zlog_debug("%s: entry: p=%pRN, type=%d, sub_type=%d", __func__,
+		zlog_debug("%s: entry: p=%pBD, type=%d, sub_type=%d", __func__,
 			   path_vpn->net, path_vpn->type, path_vpn->sub_type);
 
 	if (debug)

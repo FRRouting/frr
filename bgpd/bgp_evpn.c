@@ -64,9 +64,10 @@ DEFINE_QOBJ_TYPE(bgp_evpn_es)
  */
 static int delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn);
 static void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
-		struct bgpevpn *vpn,
-		struct bgp_node *rn, struct bgp_path_info *local_pi,
-		const char *caller);
+					      struct bgpevpn *vpn,
+					      struct bgp_dest *dest,
+					      struct bgp_path_info *local_pi,
+					      const char *caller);
 static struct in_addr zero_vtep_ip;
 
 /*
@@ -545,10 +546,10 @@ static void evpn_convert_nexthop_to_ipv6(struct attr *attr)
 	attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 }
 
-struct bgp_node *bgp_global_evpn_node_get(
-		struct bgp_table *table, afi_t afi,
-		safi_t safi, const struct prefix_evpn *evp,
-		struct prefix_rd *prd)
+struct bgp_dest *bgp_global_evpn_node_get(struct bgp_table *table, afi_t afi,
+					  safi_t safi,
+					  const struct prefix_evpn *evp,
+					  struct prefix_rd *prd)
 {
 	struct prefix_evpn global_p;
 
@@ -562,10 +563,10 @@ struct bgp_node *bgp_global_evpn_node_get(
 	return bgp_afi_node_get(table, afi, safi, (struct prefix *)evp, prd);
 }
 
-struct bgp_node *bgp_global_evpn_node_lookup(
-		struct bgp_table *table, afi_t afi,
-		safi_t safi, const struct prefix_evpn *evp,
-		struct prefix_rd *prd)
+struct bgp_dest *bgp_global_evpn_node_lookup(struct bgp_table *table, afi_t afi,
+					     safi_t safi,
+					     const struct prefix_evpn *evp,
+					     struct prefix_rd *prd)
 {
 	struct prefix_evpn global_p;
 
@@ -1034,7 +1035,8 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 		char prefix_buf[PREFIX_STRLEN];
 		char esi_buf[ESI_STR_LEN];
 		char esi_buf2[ESI_STR_LEN];
-		struct prefix_evpn *evp = (struct prefix_evpn *)&dest->p;
+		struct prefix_evpn *evp =
+			(struct prefix_evpn *)bgp_dest_get_prefix(dest);
 
 		zlog_debug("local path deleted %s es %s; new-path-es %s",
 				prefix2str(evp,
@@ -1359,9 +1361,9 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 }
 
 static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
-		struct bgp_node *rn, uint32_t loc_seq, uint32_t *max_sync_seq,
-		bool *active_on_peer, bool *peer_router,
-		bool *proxy_from_peer)
+				   struct bgp_dest *dest, uint32_t loc_seq,
+				   uint32_t *max_sync_seq, bool *active_on_peer,
+				   bool *peer_router, bool *proxy_from_peer)
 {
 	struct bgp_path_info *tmp_pi;
 	struct bgp_path_info *second_best_path = NULL;
@@ -1372,8 +1374,8 @@ static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
 	/* find the best non-local path. a local path can only be present
 	 * as best path
 	 */
-	for (tmp_pi = bgp_dest_get_bgp_path_info(rn); tmp_pi;
-			tmp_pi = tmp_pi->next) {
+	for (tmp_pi = bgp_dest_get_bgp_path_info(dest); tmp_pi;
+	     tmp_pi = tmp_pi->next) {
 		if (tmp_pi->sub_type != BGP_ROUTE_IMPORTED ||
 			!CHECK_FLAG(tmp_pi->flags, BGP_PATH_VALID))
 			continue;
@@ -1420,11 +1422,13 @@ static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
  * VPN route table. It will take precedence over all sync paths.
  */
 static void update_evpn_route_entry_sync_info(struct bgp *bgp,
-		struct bgp_node *rn, struct attr *attr, uint32_t loc_seq,
-		bool setup_sync)
+					      struct bgp_dest *dest,
+					      struct attr *attr,
+					      uint32_t loc_seq, bool setup_sync)
 {
 	esi_t *esi;
-	struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
+	struct prefix_evpn *evp =
+		(struct prefix_evpn *)bgp_dest_get_prefix(dest);
 
 	if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
 		return;
@@ -1437,9 +1441,9 @@ static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 			bool peer_router = false;
 			bool proxy_from_peer = false;
 
-			bgp_evpn_get_sync_info(bgp, esi, rn, loc_seq,
-					&max_sync_seq, &active_on_peer,
-					&peer_router, &proxy_from_peer);
+			bgp_evpn_get_sync_info(bgp, esi, dest, loc_seq,
+					       &max_sync_seq, &active_on_peer,
+					       &peer_router, &proxy_from_peer);
 			attr->mm_sync_seqnum = max_sync_seq;
 			if (active_on_peer)
 				attr->es_flags |= ATTR_ES_PEER_ACTIVE;
@@ -1660,7 +1664,7 @@ static void evpn_cleanup_local_non_best_route(struct bgp *bgp,
 {
 	/* local path was not picked as the winner; kick it out */
 	if (bgp_debug_zebra(NULL))
-		zlog_debug("evicting local evpn prefix %pRN as remote won",
+		zlog_debug("evicting local evpn prefix %pBD as remote won",
 			   dest);
 
 	evpn_delete_old_local_route(bgp, vpn, dest, local_pi, NULL);
@@ -1937,8 +1941,10 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 }
 
 static void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
-		struct bgpevpn *vpn, struct bgp_node *rn,
-		struct bgp_path_info *local_pi, const char *caller)
+					      struct bgpevpn *vpn,
+					      struct bgp_dest *dest,
+					      struct bgp_path_info *local_pi,
+					      const char *caller)
 {
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
@@ -1947,9 +1953,10 @@ static void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 	struct attr *attr_new;
 	uint32_t seq;
 	int add_l3_ecomm = 0;
-	struct bgp_node *global_rn;
+	struct bgp_dest *global_dest;
 	struct bgp_path_info *global_pi;
-	struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
+	struct prefix_evpn *evp =
+		(struct prefix_evpn *)bgp_dest_get_prefix(dest);
 	int route_change;
 	bool old_is_sync = false;
 
@@ -2008,9 +2015,9 @@ static void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 	}
 
 	/* Update the route entry. */
-	route_change = update_evpn_route_entry(bgp, vpn, afi, safi,
-			rn, &attr, 0, &pi, 0, seq,
-			true /* setup_sync */, &old_is_sync);
+	route_change = update_evpn_route_entry(
+		bgp, vpn, afi, safi, dest, &attr, 0, &pi, 0, seq,
+		true /* setup_sync */, &old_is_sync);
 
 	assert(pi);
 	attr_new = pi->attr;
@@ -2026,14 +2033,14 @@ static void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 	 * advertised to peers; otherwise, ensure it is evicted and
 	 * (re)install the remote route into zebra.
 	 */
-	evpn_route_select_install(bgp, vpn, rn);
+	evpn_route_select_install(bgp, vpn, dest);
 
 	if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 		route_change = 0;
 	} else {
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
 			route_change = 0;
-			evpn_cleanup_local_non_best_route(bgp, vpn, rn, pi);
+			evpn_cleanup_local_non_best_route(bgp, vpn, dest, pi);
 		} else {
 			bool new_is_sync;
 
@@ -2056,17 +2063,17 @@ static void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 
 	if (route_change) {
 		/* Update route in global routing table. */
-		global_rn = bgp_global_evpn_node_get(bgp->rib[afi][safi],
-				afi, safi, evp, &vpn->prd);
-		assert(global_rn);
-		update_evpn_route_entry(bgp, vpn, afi, safi, global_rn,
-				attr_new, 0, &global_pi, 0,
-				mac_mobility_seqnum(attr_new),
-				false /* setup_sync */, NULL /* old_is_sync */);
+		global_dest = bgp_global_evpn_node_get(bgp->rib[afi][safi], afi,
+						       safi, evp, &vpn->prd);
+		assert(global_dest);
+		update_evpn_route_entry(
+			bgp, vpn, afi, safi, global_dest, attr_new, 0,
+			&global_pi, 0, mac_mobility_seqnum(attr_new),
+			false /* setup_sync */, NULL /* old_is_sync */);
 
 		/* Schedule for processing and unlock node. */
-		bgp_process(bgp, global_rn, afi, safi);
-		bgp_dest_unlock_node(global_rn);
+		bgp_process(bgp, global_dest, afi, safi);
+		bgp_dest_unlock_node(global_dest);
 	}
 
 	/* Unintern temporary. */
@@ -5134,7 +5141,7 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 							      sizeof(attr_str));
 
 						zlog_debug(
-							"%u: prefix %pRN with attr %s - DENIED due to martian or self nexthop",
+							"%u: prefix %pBD with attr %s - DENIED due to martian or self nexthop",
 							bgp->vrf_id, dest,
 							attr_str);
 					}

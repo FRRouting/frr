@@ -156,7 +156,7 @@ struct bmp {
 	 * table entry, the sync* fields note down what we sent last
 	 */
 	struct prefix syncpos;
-	struct bgp_node *syncrdpos;
+	struct bgp_dest *syncrdpos;
 	uint64_t syncpeerid;
 	afi_t syncafi;
 	safi_t syncsafi;

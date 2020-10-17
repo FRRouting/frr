@@ -757,10 +757,10 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 		if (dest->pdest) {
 			prefix_rd2str((struct prefix_rd *)bgp_dest_get_prefix(dest->pdest),
 					buf1, sizeof(buf1));
-			vty_out(vty, "    %d/%d %pRN RD %s %s flags 0x%x\n",
+			vty_out(vty, "    %d/%d %pBD RD %s %s flags 0x%x\n",
 				afi, safi, dest, buf1, bgp_path->name_pretty, path->flags);
 		} else
-			vty_out(vty, "    %d/%d %pRN %s flags 0x%x\n",
+			vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
 				afi, safi, dest, bgp_path->name_pretty, path->flags);
 	}
 }

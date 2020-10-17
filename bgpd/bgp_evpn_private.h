@@ -603,11 +603,13 @@ extern void delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
 				    struct bgp_path_info **pi);
 int vni_list_cmp(void *p1, void *p2);
 extern int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
-		struct bgp_node *rn);
-extern struct bgp_node *bgp_global_evpn_node_get(
-		struct bgp_table *table, afi_t afi, safi_t safi,
-		const struct prefix_evpn *evp, struct prefix_rd *prd);
-extern struct bgp_node *bgp_global_evpn_node_lookup(
-		struct bgp_table *table, afi_t afi, safi_t safi,
-		const struct prefix_evpn *evp, struct prefix_rd *prd);
+				     struct bgp_dest *dest);
+extern struct bgp_dest *bgp_global_evpn_node_get(struct bgp_table *table,
+						 afi_t afi, safi_t safi,
+						 const struct prefix_evpn *evp,
+						 struct prefix_rd *prd);
+extern struct bgp_dest *
+bgp_global_evpn_node_lookup(struct bgp_table *table, afi_t afi, safi_t safi,
+			    const struct prefix_evpn *evp,
+			    struct prefix_rd *prd);
 #endif /* _BGP_EVPN_PRIVATE_H */
