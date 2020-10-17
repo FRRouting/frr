@@ -197,7 +197,8 @@ static int nhrp_reg_send_req(struct thread *t)
 
 	/* FIXME: push CIE for each local protocol address */
 	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, NULL, NULL);
-	cie->prefix_length = 0xff;
+	/* RFC2332 5.2.1 if unique is set then prefix length must be 0xff */
+	cie->prefix_length = (if_ad->flags & NHRP_IFF_REG_NO_UNIQUE) ? 8 * sockunion_get_addrlen(dst_proto) : 0xff;
 	cie->holding_time = htons(if_ad->holdtime);
 	cie->mtu = htons(if_ad->mtu);
 
