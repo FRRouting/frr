@@ -1046,6 +1046,7 @@ static void update_ext_link_sid(struct sr_node *srn, struct sr_link *srl,
 	struct listnode *node;
 	struct sr_link *lk;
 	bool found = false;
+	bool config = true;
 
 	/* Sanity check */
 	if ((srn == NULL) || (srl == NULL))
@@ -1053,11 +1054,11 @@ static void update_ext_link_sid(struct sr_node *srn, struct sr_link *srl,
 
 	osr_debug("  |-  Process Extended Link Adj/Lan-SID");
 
-	/* Skip Local Adj/Lan_Adj SID coming from neighbors */
+	/* Detect if Adj/Lan_Adj SID must be configured */
 	if (!CHECK_FLAG(lsa_flags, OSPF_LSA_SELF)
 	    && (CHECK_FLAG(srl->flags[0], EXT_SUBTLV_LINK_ADJ_SID_LFLG)
 		|| CHECK_FLAG(srl->flags[1], EXT_SUBTLV_LINK_ADJ_SID_LFLG)))
-		return;
+		config = false;
 
 	/* Search for existing Segment Link */
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_link, node, lk))
@@ -1077,28 +1078,31 @@ static void update_ext_link_sid(struct sr_node *srn, struct sr_link *srl,
 		IPV4_ADDR_COPY(&srl->adv_router, &srn->adv_router);
 		listnode_add(srn->ext_link, srl);
 		/* Try to set MPLS table */
-		if (compute_link_nhlfe(srl)) {
+		if (config && compute_link_nhlfe(srl)) {
 			add_adj_sid(srl->nhlfe[0]);
 			add_adj_sid(srl->nhlfe[1]);
 		}
 	} else {
+		/* Update SR-Link if they are different */
 		if (sr_link_cmp(lk, srl)) {
-			if (compute_link_nhlfe(srl)) {
-				update_adj_sid(lk->nhlfe[0], srl->nhlfe[0]);
-				update_adj_sid(lk->nhlfe[1], srl->nhlfe[1]);
-				/* Replace Segment List */
-				listnode_delete(srn->ext_link, lk);
-				XFREE(MTYPE_OSPF_SR_PARAMS, lk);
-				srl->srn = srn;
-				IPV4_ADDR_COPY(&srl->adv_router,
-					       &srn->adv_router);
-				listnode_add(srn->ext_link, srl);
-			} else {
-				/* New NHLFE was not found.
-				 * Just free the SR Link
-				 */
-				XFREE(MTYPE_OSPF_SR_PARAMS, srl);
+			/* Try to set MPLS table */
+			if (config) {
+				if (compute_link_nhlfe(srl)) {
+					update_adj_sid(lk->nhlfe[0],
+						       srl->nhlfe[0]);
+					update_adj_sid(lk->nhlfe[1],
+						       srl->nhlfe[1]);
+				} else {
+					del_adj_sid(lk->nhlfe[0]);
+					del_adj_sid(lk->nhlfe[1]);
+				}
 			}
+			/* Replace SR-Link in SR-Node Adjacency List */
+			listnode_delete(srn->ext_link, lk);
+			XFREE(MTYPE_OSPF_SR_PARAMS, lk);
+			srl->srn = srn;
+			IPV4_ADDR_COPY(&srl->adv_router, &srn->adv_router);
+			listnode_add(srn->ext_link, srl);
 		} else {
 			/*
 			 * This is just an LSA refresh.
