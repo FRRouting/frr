@@ -3845,6 +3845,16 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 			if (!aggregate)
 				continue;
 
+			/* Update suppress map pointer. */
+			if (aggregate->suppress_map_name
+			    && strmatch(aggregate->suppress_map_name,
+					rmap_name)) {
+				if (!aggregate->rmap.map)
+					route_map_counter_increment(map);
+
+				aggregate->suppress_map = map;
+			}
+
 			if (!aggregate->rmap.name
 			    || (strcmp(rmap_name, aggregate->rmap.name) != 0))
 				continue;

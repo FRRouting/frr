@@ -398,6 +398,11 @@ struct bgp_aggregate {
 #define AGGREGATE_MED_VALID(aggregate)                                         \
 	(((aggregate)->match_med && !(aggregate)->med_mismatched)              \
 	 || !(aggregate)->match_med)
+
+	/** Suppress map route map name (`NULL` when disabled). */
+	char *suppress_map_name;
+	/** Suppress map route map pointer. */
+	struct route_map *suppress_map;
 };
 
 #define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen)                                      \
