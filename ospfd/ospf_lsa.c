@@ -3636,3 +3636,34 @@ int ospf_lsa_refresh_walker(struct thread *t)
 
 	return 0;
 }
+
+/* Flush the LSAs for the specific area */
+void ospf_flush_lsa_from_area(struct ospf *ospf, struct in_addr area_id,
+			      int type)
+{
+	struct ospf_area *area;
+	struct route_node *rn;
+	struct ospf_lsa *lsa;
+
+	area = ospf_area_get(ospf, area_id);
+
+	switch (type) {
+	case OSPF_AS_EXTERNAL_LSA:
+		if ((area->external_routing == OSPF_AREA_NSSA) ||
+		    (area->external_routing == OSPF_AREA_STUB)) {
+			LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
+				if (IS_LSA_SELF(lsa) &&
+				    !(CHECK_FLAG(lsa->flags,
+						 OSPF_LSA_LOCAL_XLT)))
+					ospf_lsa_flush_area(lsa, area);
+		}
+		break;
+	case OSPF_AS_NSSA_LSA:
+		LSDB_LOOP (NSSA_LSDB(area), rn, lsa)
+			if (IS_LSA_SELF(lsa))
+				ospf_lsa_flush_area(lsa, area);
+		break;
+	default:
+		break;
+	}
+}
