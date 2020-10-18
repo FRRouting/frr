@@ -85,6 +85,20 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+def expect_route(router_name, routes_expected):
+    "Helper function to avoid repeated code."
+    tgen = get_topogen()
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        tgen.gears[router_name],
+        "show ip route json",
+        routes_expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=120, wait=1)
+    assertmsg = '"{}" BGP convergence failure'.format(router_name)
+    assert result is None, assertmsg
+
+
 def test_expect_convergence():
     "Test that BGP protocol converged."
 
@@ -183,6 +197,79 @@ aggregate-address 192.168.1.0/24 matching-MED-only summary-only
     _, result = topotest.run_and_expect(test_func, None, count=120, wait=1)
     assertmsg = '"r2" BGP convergence failure'
     assert result is None, assertmsg
+
+
+def test_bgp_aggregate_address_suppress_map():
+    "Test that the command suppress-map works."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    expect_route('r2', {
+        "192.168.2.0/24": [{"protocol": "bgp"}],
+        "192.168.2.1/32": None,
+        "192.168.2.2/32": [{"protocol": "bgp"}],
+        "192.168.2.3/32": [{"protocol": "bgp"}],
+    })
+
+    # Change route map and test again.
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+configure terminal
+router bgp 65000
+address-family ipv4 unicast
+no aggregate-address 192.168.2.0/24 suppress-map rm-sup-one
+aggregate-address 192.168.2.0/24 suppress-map rm-sup-two
+"""
+    )
+
+    expect_route('r2', {
+        "192.168.2.0/24": [{"protocol": "bgp"}],
+        "192.168.2.1/32": [{"protocol": "bgp"}],
+        "192.168.2.2/32": None,
+        "192.168.2.3/32": [{"protocol": "bgp"}],
+    })
+
+
+def test_bgp_aggregate_address_suppress_map_update_route_map():
+    "Test that the suppress-map late route map creation works."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+configure terminal
+router bgp 65000
+address-family ipv4 unicast
+no aggregate-address 192.168.2.0/24 suppress-map rm-sup-two
+aggregate-address 192.168.2.0/24 suppress-map rm-sup-three
+"""
+    )
+
+    expect_route('r2', {
+        "192.168.2.0/24": [{"protocol": "bgp"}],
+        "192.168.2.1/32": [{"protocol": "bgp"}],
+        "192.168.2.2/32": [{"protocol": "bgp"}],
+        "192.168.2.3/32": [{"protocol": "bgp"}],
+    })
+
+    # Create missing route map and test again.
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+configure terminal
+route-map rm-sup-three permit 10
+match ip address acl-sup-three
+"""
+    )
+
+    expect_route('r2', {
+        "192.168.2.0/24": [{"protocol": "bgp"}],
+        "192.168.2.1/32": [{"protocol": "bgp"}],
+        "192.168.2.2/32": [{"protocol": "bgp"}],
+        "192.168.2.3/32": None,
+    })
 
 
 def test_memory_leak():
