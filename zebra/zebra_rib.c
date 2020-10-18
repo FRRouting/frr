@@ -2240,8 +2240,17 @@ static void process_subq_route(struct listnode *lnode, uint8_t qindex)
 	rib_process(rnode);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-		struct route_entry *re = re_list_first(&dest->routes);
+		struct route_entry *re = NULL;
 		char buf[SRCDEST2STR_BUFFER];
+
+		/*
+		 * rib_process may have freed the dest
+		 * as part of the garbage collection.  Let's
+		 * prevent stupidity from happening.
+		 */
+		dest = rib_dest_from_rnode(rnode);
+		if (dest)
+			re = re_list_first(&dest->routes);
 
 		srcdest_rnode2str(rnode, buf, sizeof(buf));
 		zlog_debug("%s(%u:%u):%s: rn %p dequeued from sub-queue %u",
