@@ -907,7 +907,6 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 	struct listnode *i, *j;
 	int full_count = 0;
 	unsigned short prefix_num = 0;
-	char buf[PREFIX2STR_BUFFER];
 	struct ospf6_route_table *route_advertise;
 	int ls_id = 0;
 
@@ -985,10 +984,8 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 		/* connected prefix to advertise */
 		for (route = ospf6_route_head(oi->route_connected); route;
 		     route = ospf6_route_best_next(route)) {
-			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX)) {
-				prefix2str(&route->prefix, buf, sizeof(buf));
-				zlog_debug("    include %s", buf);
-			}
+			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
+				zlog_debug("    include %pFX", &route->prefix);
 			ospf6_route_add(ospf6_route_copy(route),
 					route_advertise);
 		}
@@ -1144,7 +1141,6 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 	struct ospf6_link_lsa *link_lsa;
 	char *start, *end, *current;
 	uint16_t type;
-	char buf[PREFIX2STR_BUFFER];
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 	oi->thread_intra_prefix_lsa = NULL;
@@ -1255,10 +1251,8 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 			route->path.area_id = oi->area->area_id;
 			route->path.type = OSPF6_PATH_TYPE_INTRA;
 
-			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX)) {
-				prefix2str(&route->prefix, buf, sizeof(buf));
-				zlog_debug("    include %s", buf);
-			}
+			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
+				zlog_debug("    include %pFX", &route->prefix);
 
 			ospf6_route_add(route, route_advertise);
 			prefix_num--;
@@ -1554,11 +1548,9 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 						ospf6_linkstate_prefix(
 						o_path->origin.adv_router,
 						o_path->origin.id, &adv_prefix);
-						prefix2str(&adv_prefix, buf,
-							   sizeof(buf));
 						zlog_debug(
-							"%s: adv_router %s lsa not found",
-							__func__, buf);
+							"%s: adv_router %pFX lsa not found",
+							__func__, &adv_prefix);
 					}
 					continue;
 				}
@@ -1582,16 +1574,15 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 				}
 			}
 
-			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
-				prefix2str(&route->prefix, buf, sizeof(buf));
+			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
 				zlog_debug(
-					"%s: route %s %p with final effective paths %u nh%u",
-					__func__, buf, (void *)old_route,
+					"%s: route %pFX %p with final effective paths %u nh%u",
+					__func__, &route->prefix,
+					(void *)old_route,
 					old_route->paths
 						? listcount(old_route->paths)
 						: 0,
 					listcount(old_route->nh_list));
-			}
 
 			/* used in intra_route_calculation() to add to
 			 * global ospf6 route table.

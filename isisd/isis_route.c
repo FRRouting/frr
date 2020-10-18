@@ -313,11 +313,7 @@ struct isis_route_info *isis_route_create(struct prefix *prefix,
 {
 	struct route_node *route_node;
 	struct isis_route_info *rinfo_new, *rinfo_old, *route_info = NULL;
-	char buff[PREFIX2STR_BUFFER];
 	char change_buf[64];
-
-	/* for debugs */
-	prefix2str(prefix, buff, sizeof(buff));
 
 	if (!table)
 		return NULL;
@@ -329,31 +325,32 @@ struct isis_route_info *isis_route_create(struct prefix *prefix,
 	rinfo_old = route_node->info;
 	if (!rinfo_old) {
 		if (IS_DEBUG_RTE_EVENTS)
-			zlog_debug("ISIS-Rte (%s) route created: %s",
-				   area->area_tag, buff);
+			zlog_debug("ISIS-Rte (%s) route created: %pFX",
+				   area->area_tag, prefix);
 		route_info = rinfo_new;
 		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 	} else {
 		route_unlock_node(route_node);
 #ifdef EXTREME_DEBUG
 		if (IS_DEBUG_RTE_EVENTS)
-			zlog_debug("ISIS-Rte (%s) route already exists: %s",
-				   area->area_tag, buff);
+			zlog_debug("ISIS-Rte (%s) route already exists: %pFX",
+				   area->area_tag, prefix);
 #endif /* EXTREME_DEBUG */
 		if (isis_route_info_same(rinfo_new, rinfo_old, change_buf,
 					 sizeof(change_buf))) {
 #ifdef EXTREME_DEBUG
 			if (IS_DEBUG_RTE_EVENTS)
-				zlog_debug("ISIS-Rte (%s) route unchanged: %s",
-					   area->area_tag, buff);
+				zlog_debug(
+					"ISIS-Rte (%s) route unchanged: %pFX",
+					area->area_tag, prefix);
 #endif /* EXTREME_DEBUG */
 			isis_route_info_delete(rinfo_new);
 			route_info = rinfo_old;
 		} else {
 			if (IS_DEBUG_RTE_EVENTS)
 				zlog_debug(
-					"ISIS-Rte (%s): route changed: %s, change: %s",
-					area->area_tag, buff, change_buf);
+					"ISIS-Rte (%s): route changed: %pFX, change: %s",
+					area->area_tag, prefix, change_buf);
 			isis_route_info_delete(rinfo_old);
 			route_info = rinfo_new;
 			UNSET_FLAG(route_info->flag,

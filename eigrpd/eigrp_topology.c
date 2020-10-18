@@ -133,14 +133,10 @@ void eigrp_prefix_entry_add(struct route_table *topology,
 
 	rn = route_node_get(topology, pe->destination);
 	if (rn->info) {
-		if (IS_DEBUG_EIGRP_EVENT) {
-			char buf[PREFIX_STRLEN];
-
+		if (IS_DEBUG_EIGRP_EVENT)
 			zlog_debug(
-				"%s: %s Should we have found this entry in the topo table?",
-				__func__,
-				prefix2str(pe->destination, buf, sizeof(buf)));
-		}
+				"%s: %pFX Should we have found this entry in the topo table?",
+				__func__, pe->destination);
 		route_unlock_node(rn);
 	}
 

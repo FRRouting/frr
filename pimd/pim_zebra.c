@@ -130,10 +130,8 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	p = c->address;
 
 	if (PIM_DEBUG_ZEBRA) {
-		char buf[BUFSIZ];
-		prefix2str(p, buf, BUFSIZ);
-		zlog_debug("%s: %s(%u) connected IP address %s flags %u %s",
-			   __func__, c->ifp->name, vrf_id, buf, c->flags,
+		zlog_debug("%s: %s(%u) connected IP address %pFX flags %u %s",
+			   __func__, c->ifp->name, vrf_id, p, c->flags,
 			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -149,17 +147,10 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 		struct in_addr primary_addr = pim_find_primary_addr(c->ifp);
 		if (p->family != AF_INET
 		    || primary_addr.s_addr != p->u.prefix4.s_addr) {
-			if (PIM_DEBUG_ZEBRA) {
-				/* but we had a primary address already */
-
-				char buf[BUFSIZ];
-
-				prefix2str(p, buf, BUFSIZ);
-
+			if (PIM_DEBUG_ZEBRA)
 				zlog_warn(
-					"%s: %s : forcing secondary flag on %s",
-					__func__, c->ifp->name, buf);
-			}
+					"%s: %s : forcing secondary flag on %pFX",
+					__func__, c->ifp->name, p);
 			SET_FLAG(c->flags, ZEBRA_IFA_SECONDARY);
 		}
 	}
@@ -211,11 +202,9 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	p = c->address;
 	if (p->family == AF_INET) {
 		if (PIM_DEBUG_ZEBRA) {
-			char buf[BUFSIZ];
-			prefix2str(p, buf, BUFSIZ);
 			zlog_debug(
-				"%s: %s(%u) disconnected IP address %s flags %u %s",
-				__func__, c->ifp->name, vrf_id, buf, c->flags,
+				"%s: %s(%u) disconnected IP address %pFX flags %u %s",
+				__func__, c->ifp->name, vrf_id, p, c->flags,
 				CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 					? "secondary"
 					: "primary");

@@ -20,6 +20,8 @@
 
 #include "zebra.h"
 
+#include "lib/printfrr.h"
+
 #include "prefix.h"
 #include "lib_errors.h"
 
@@ -211,14 +213,11 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 	switch (type) {
 	case BGP_FLOWSPEC_RETURN_STRING:
 		if (prefix_local.family == AF_INET6) {
-			char str[BGP_FLOWSPEC_STRING_DISPLAY_MAX];
 			int ret;
 
-			prefix2str(&prefix_local, str,
-				   BGP_FLOWSPEC_STRING_DISPLAY_MAX);
-			ret = snprintf(display, BGP_FLOWSPEC_STRING_DISPLAY_MAX,
-				       "%s/off %u",
-				       str, prefix_offset);
+			ret = snprintfrr(
+				display, BGP_FLOWSPEC_STRING_DISPLAY_MAX,
+				"%pFX/off %u", &prefix_local, prefix_offset);
 			if (ret < 0) {
 				*error = -1;
 				break;

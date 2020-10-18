@@ -60,14 +60,9 @@ void sharp_nh_tracker_dump(struct vty *vty)
 	struct listnode *node;
 	struct sharp_nh_tracker *nht;
 
-	for (ALL_LIST_ELEMENTS_RO(sg.nhs, node, nht)) {
-		char buf[PREFIX_STRLEN];
-
-		vty_out(vty, "%s: Nexthops: %u Updates: %u\n",
-			prefix2str(&nht->p, buf, sizeof(buf)),
-			nht->nhop_num,
-			nht->updates);
-	}
+	for (ALL_LIST_ELEMENTS_RO(sg.nhs, node, nht))
+		vty_out(vty, "%pFX: Nexthops: %u Updates: %u\n", &nht->p,
+			nht->nhop_num, nht->updates);
 }
 
 PREDECL_RBTREE_UNIQ(sharp_nhg_rb);

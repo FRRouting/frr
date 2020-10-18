@@ -220,8 +220,8 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 	/* On NHRP interfaces a host prefix is required */
 	if (best && if_ad->configured
 	    && best->address->prefixlen != 8 * prefix_blen(best->address)) {
-		zlog_notice("%s: %s is not a host prefix", ifp->name,
-			    prefix2str(best->address, buf, sizeof(buf)));
+		zlog_notice("%s: %pFX is not a host prefix", ifp->name,
+			    best->address);
 		best = NULL;
 	}
 
@@ -335,14 +335,13 @@ int nhrp_ifp_down(struct interface *ifp)
 int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
-	char buf[PREFIX_STRLEN];
 
 	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
 		return 0;
 
-	debugf(NHRP_DEBUG_IF, "if-addr-add: %s: %s", ifc->ifp->name,
-	       prefix2str(ifc->address, buf, sizeof(buf)));
+	debugf(NHRP_DEBUG_IF, "if-addr-add: %s: %pFX", ifc->ifp->name,
+	       ifc->address);
 
 	nhrp_interface_update_address(
 		ifc->ifp, family2afi(PREFIX_FAMILY(ifc->address)), 0);
@@ -353,14 +352,13 @@ int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
-	char buf[PREFIX_STRLEN];
 
 	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
 		return 0;
 
-	debugf(NHRP_DEBUG_IF, "if-addr-del: %s: %s", ifc->ifp->name,
-	       prefix2str(ifc->address, buf, sizeof(buf)));
+	debugf(NHRP_DEBUG_IF, "if-addr-del: %s: %pFX", ifc->ifp->name,
+	       ifc->address);
 
 	nhrp_interface_update_address(
 		ifc->ifp, family2afi(PREFIX_FAMILY(ifc->address)), 0);

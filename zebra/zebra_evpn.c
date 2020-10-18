@@ -349,7 +349,6 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 {
 	struct zserv *client = NULL;
 	struct stream *s = NULL;
-	char buf[PREFIX_STRLEN];
 
 	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
@@ -365,8 +364,7 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Send ip prefix %s %s on vrf %s",
-			   prefix2str(p, buf, sizeof(buf)),
+		zlog_debug("Send ip prefix %pFX %s on vrf %s", p,
 			   (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) ? "ADD" : "DEL",
 			   vrf_id_to_name(vrf_id));
 

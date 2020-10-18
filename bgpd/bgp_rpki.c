@@ -702,8 +702,6 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 	as_t as_number = 0;
 	struct lrtr_ip_addr ip_addr_prefix;
 	enum pfxv_state result;
-	char buf[BUFSIZ];
-	const char *prefix_string;
 
 	if (!is_synchronized())
 		return 0;
@@ -754,27 +752,26 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 			 prefix->prefixlen, &result);
 
 	// Print Debug output
-	prefix_string = prefix2str(prefix, buf, sizeof(buf));
 	switch (result) {
 	case BGP_PFXV_STATE_VALID:
 		RPKI_DEBUG(
-			"Validating Prefix %s from asn %u    Result: VALID",
-			prefix_string, as_number);
+			"Validating Prefix %pFX from asn %u    Result: VALID",
+			prefix, as_number);
 		return RPKI_VALID;
 	case BGP_PFXV_STATE_NOT_FOUND:
 		RPKI_DEBUG(
-			"Validating Prefix %s from asn %u    Result: NOT FOUND",
-			prefix_string, as_number);
+			"Validating Prefix %pFX from asn %u    Result: NOT FOUND",
+			prefix, as_number);
 		return RPKI_NOTFOUND;
 	case BGP_PFXV_STATE_INVALID:
 		RPKI_DEBUG(
-			"Validating Prefix %s from asn %u    Result: INVALID",
-			prefix_string, as_number);
+			"Validating Prefix %pFX from asn %u    Result: INVALID",
+			prefix, as_number);
 		return RPKI_INVALID;
 	default:
 		RPKI_DEBUG(
-			"Validating Prefix %s from asn %u    Result: CANNOT VALIDATE",
-			prefix_string, as_number);
+			"Validating Prefix %pFX from asn %u    Result: CANNOT VALIDATE",
+			prefix, as_number);
 		break;
 	}
 	return 0;

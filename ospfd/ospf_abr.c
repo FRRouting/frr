@@ -740,13 +740,9 @@ void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 			lsa = ospf_lsa_refresh(area->ospf, old);
 
 			if (!lsa) {
-				char buf[PREFIX2STR_BUFFER];
-
-				prefix2str((struct prefix *)p, buf,
-					   sizeof(buf));
 				flog_warn(EC_OSPF_LSA_MISSING,
-					  "%s: Could not refresh %s to %s",
-					  __func__, buf,
+					  "%s: Could not refresh %pFX to %s",
+					  __func__, (struct prefix *)p,
 					  inet_ntoa(area->area_id));
 				return;
 			}
@@ -762,12 +758,10 @@ void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 		/* This will flood through area. */
 
 		if (!lsa) {
-			char buf[PREFIX2STR_BUFFER];
-
-			prefix2str((struct prefix *)p, buf, sizeof(buf));
 			flog_warn(EC_OSPF_LSA_MISSING,
-				  "%s: Could not originate %s to %s", __func__,
-				  buf, inet_ntoa(area->area_id));
+				  "%s: Could not originate %pFX to %s",
+				  __func__, (struct prefix *)p,
+				  inet_ntoa(area->area_id));
 			return;
 		}
 
@@ -1118,12 +1112,10 @@ static void ospf_abr_announce_rtr_to_area(struct prefix_ipv4 *p, uint32_t cost,
 		} else
 			lsa = ospf_summary_asbr_lsa_originate(p, cost, area);
 		if (!lsa) {
-			char buf[PREFIX2STR_BUFFER];
-
-			prefix2str((struct prefix *)p, buf, sizeof(buf));
 			flog_warn(EC_OSPF_LSA_MISSING,
-				  "%s: Could not refresh/originate %s to %s",
-				  __func__, buf, inet_ntoa(area->area_id));
+				  "%s: Could not refresh/originate %pFX to %s",
+				  __func__, (struct prefix *)p,
+				  inet_ntoa(area->area_id));
 			return;
 		}
 

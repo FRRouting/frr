@@ -21,6 +21,7 @@
 
 #include "lib/log.h"
 #include "lib/northbound.h"
+#include "lib/printfrr.h"
 #include "libfrr.h"
 #include "lib/command.h"
 #include "lib/routemap.h"
@@ -839,7 +840,6 @@ int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
 	struct prefix prefix;
-	char buf[PREFIX_STRLEN] = {0};
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	// addr_family = yang_dnode_get_enum(dnode, "./address-family");
@@ -850,15 +850,13 @@ int lib_interface_zebra_ip_addrs_create(struct nb_cb_create_args *args)
 	case NB_EV_VALIDATE:
 		if (prefix.family == AF_INET
 		    && ipv4_martian(&prefix.u.prefix4)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "invalid address %s",
-				 prefix2str(&prefix, buf, sizeof(buf)));
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "invalid address %pFX", &prefix);
 			return NB_ERR_VALIDATION;
 		} else if (prefix.family == AF_INET6
 			   && ipv6_martian(&prefix.u.prefix6)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "invalid address %s",
-				 prefix2str(&prefix, buf, sizeof(buf)));
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "invalid address %pFX", &prefix);
 			return NB_ERR_VALIDATION;
 		}
 		break;

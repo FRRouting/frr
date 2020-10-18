@@ -2362,10 +2362,9 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 
 	fec = fec_find(table, p);
 	if (!fec) {
-		prefix2str(p, buf, BUFSIZ);
 		flog_err(EC_ZEBRA_FEC_RM_FAILED,
-			 "Failed to find FEC %s upon unregister, client %s",
-			 buf, zebra_route_string(client->proto));
+			 "Failed to find FEC %pFX upon unregister, client %s",
+			 p, zebra_route_string(client->proto));
 		return -1;
 	}
 
@@ -2530,9 +2529,8 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 		fec = fec_add(table, p, in_label, FEC_FLAG_CONFIGURED,
 			      MPLS_INVALID_LABEL_INDEX);
 		if (!fec) {
-			prefix2str(p, buf, BUFSIZ);
 			flog_err(EC_ZEBRA_FEC_ADD_FAILED,
-				 "Failed to add FEC %s upon config", buf);
+				 "Failed to add FEC %pFX upon config", p);
 			return -1;
 		}
 
@@ -2585,8 +2583,7 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 	}
 
 	if (IS_ZEBRA_DEBUG_MPLS) {
-		prefix2str(p, buf, BUFSIZ);
-		zlog_debug("Delete fec %s label %u label index %u", buf,
+		zlog_debug("Delete fec %pFX label %u label index %u", p,
 			   fec->label, fec->label_index);
 	}
 
@@ -2620,7 +2617,6 @@ int zebra_mpls_write_fec_config(struct vty *vty, struct zebra_vrf *zvrf)
 	struct route_node *rn;
 	int af;
 	zebra_fec_t *fec;
-	char buf[BUFSIZ];
 	int write = 0;
 
 	for (af = AFI_IP; af < AFI_MAX; af++) {
@@ -2639,8 +2635,7 @@ int zebra_mpls_write_fec_config(struct vty *vty, struct zebra_vrf *zvrf)
 				continue;
 
 			write = 1;
-			prefix2str(&rn->p, buf, BUFSIZ);
-			vty_out(vty, "mpls label bind %s %s\n", buf,
+			vty_out(vty, "mpls label bind %pFX %s\n", &rn->p,
 				label2str(fec->label, lstr, BUFSIZ));
 		}
 	}
@@ -2846,7 +2841,7 @@ int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 			     const struct zapi_labels *zl)
 {
 	int i, counter, ret = 0;
-	char buf[NEXTHOP_STRLEN], prefix_buf[PREFIX_STRLEN];
+	char buf[NEXTHOP_STRLEN];
 	const struct zapi_nexthop *znh;
 	struct route_table *table;
 	struct route_node *rn = NULL;
@@ -2910,12 +2905,10 @@ int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 			 * attempted to manage LSPs before trying to
 			 * find a route/FEC, so we'll continue that way.
 			 */
-			if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_MPLS) {
-				prefix2str(prefix, prefix_buf,
-					   sizeof(prefix_buf));
-				zlog_debug("%s: FTN update requested: no route for prefix %s",
-					   __func__, prefix_buf);
-			}
+			if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_MPLS)
+				zlog_debug(
+					"%s: FTN update requested: no route for prefix %pFX",
+					__func__, prefix);
 		}
 	}
 
@@ -2957,9 +2950,9 @@ int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 			counter++;
 		} else if (IS_ZEBRA_DEBUG_RECV | IS_ZEBRA_DEBUG_MPLS) {
 			zapi_nexthop2str(znh, buf, sizeof(buf));
-			prefix2str(prefix, prefix_buf, sizeof(prefix_buf));
-			zlog_debug("%s: Unable to update FEC: prefix %s, label %u, znh %s",
-				   __func__, prefix_buf, zl->local_label, buf);
+			zlog_debug(
+				"%s: Unable to update FEC: prefix %pFX, label %u, znh %s",
+				__func__, prefix, zl->local_label, buf);
 		}
 	}
 
@@ -3007,9 +3000,9 @@ int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 			counter++;
 		} else if (IS_ZEBRA_DEBUG_RECV | IS_ZEBRA_DEBUG_MPLS) {
 			zapi_nexthop2str(znh, buf, sizeof(buf));
-			prefix2str(prefix, prefix_buf, sizeof(prefix_buf));
-			zlog_debug("%s: Unable to update backup FEC: prefix %s, label %u, znh %s",
-				   __func__, prefix_buf, zl->local_label, buf);
+			zlog_debug(
+				"%s: Unable to update backup FEC: prefix %pFX, label %u, znh %s",
+				__func__, prefix, zl->local_label, buf);
 		}
 	}
 

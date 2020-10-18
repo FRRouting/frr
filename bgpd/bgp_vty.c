@@ -3883,7 +3883,6 @@ void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 	struct listnode *node, *nnode, *rnode, *nrnode;
 	struct prefix *range;
 	afi_t afi;
-	char buf[PREFIX2STR_BUFFER];
 
 	if (bgp->dynamic_neighbors_limit != BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT)
 		vty_out(vty, " bgp listen limit %d\n",
@@ -3893,10 +3892,9 @@ void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 			for (ALL_LIST_ELEMENTS(group->listen_range[afi], rnode,
 					       nrnode, range)) {
-				prefix2str(range, buf, sizeof(buf));
 				vty_out(vty,
-					" bgp listen range %s peer-group %s\n",
-					buf, group->name);
+					" bgp listen range %pFX peer-group %s\n",
+					range, group->name);
 			}
 		}
 	}
@@ -14112,7 +14110,6 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 	struct prefix *range;
 	struct peer *conf;
 	struct peer *peer;
-	char buf[PREFIX2STR_BUFFER];
 	afi_t afi;
 	safi_t safi;
 	const char *peer_status;
@@ -14166,10 +14163,8 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 
 
 			for (ALL_LIST_ELEMENTS(group->listen_range[afi], node,
-					       nnode, range)) {
-				prefix2str(range, buf, sizeof(buf));
-				vty_out(vty, "    %s\n", buf);
-			}
+					       nnode, range))
+				vty_out(vty, "    %pFX\n", range);
 		}
 	}
 

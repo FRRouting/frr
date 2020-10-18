@@ -267,13 +267,10 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 		nht_p.family = AF_INET;
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = up->upstream_addr;
-		if (PIM_DEBUG_PIM_TRACE) {
-			char buf[PREFIX2STR_BUFFER];
-			prefix2str(&nht_p, buf, sizeof(buf));
+		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
-				"%s: Deregister upstream %s addr %s with Zebra NHT",
-				__func__, up->sg_str, buf);
-		}
+				"%s: Deregister upstream %s addr %pFX with Zebra NHT",
+				__func__, up->sg_str, &nht_p);
 		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL, false);
 	}
 
@@ -1062,15 +1059,13 @@ struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
 	}
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		if (up) {
-			char buf[PREFIX2STR_BUFFER];
-			prefix2str(&up->rpf.rpf_addr, buf, sizeof(buf));
-			zlog_debug("%s(%s): %s, iif %s (%s) found: %d: ref_count: %d",
+		if (up)
+			zlog_debug("%s(%s): %s, iif %pFX (%s) found: %d: ref_count: %d",
 		   __func__, name,
-		   up->sg_str, buf, up->rpf.source_nexthop.interface ?
+		   up->sg_str, &up->rpf.rpf_addr, up->rpf.source_nexthop.interface ?
                    up->rpf.source_nexthop.interface->name : "Unknown" ,
 		   found, up->ref_count);
-		} else
+		else
 			zlog_debug("%s(%s): (%s) failure to create", __func__,
 				   name, pim_str_sg_dump(sg));
 	}

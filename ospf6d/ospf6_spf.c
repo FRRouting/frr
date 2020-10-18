@@ -320,7 +320,6 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 {
 	struct ospf6_route *route, *parent_route;
 	struct ospf6_vertex *prev;
-	char pbuf[PREFIX2STR_BUFFER];
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
 		zlog_debug("SPF install %s (lsa %s) hops %d cost %d", v->name,
@@ -335,12 +334,10 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 		ospf6_vertex_delete(v);
 		return -1;
 	} else if (route && route->path.cost == v->cost) {
-		if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
-			prefix2str(&route->prefix, pbuf, sizeof(pbuf));
+		if (IS_OSPF6_DEBUG_SPF(PROCESS))
 			zlog_debug(
-				"  another path found to route %s lsa %s, merge",
-				pbuf, v->lsa->name);
-		}
+				"  another path found to route %pFX lsa %s, merge",
+				&route->prefix, v->lsa->name);
 		ospf6_spf_merge_nexthops_to_route(route, v);
 
 		prev = (struct ospf6_vertex *)route->route_option;

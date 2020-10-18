@@ -385,24 +385,21 @@ static int bgp_bfd_dest_update(ZAPI_CALLBACK_ARGS)
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		struct vrf *vrf;
-		char buf[2][PREFIX2STR_BUFFER];
 
 		vrf = vrf_lookup_by_id(vrf_id);
-		prefix2str(&dp, buf[0], sizeof(buf[0]));
-		if (ifp) {
+
+		if (ifp)
 			zlog_debug(
-				"Zebra: vrf %s(%u) interface %s bfd destination %s %s %s",
-				VRF_LOGNAME(vrf), vrf_id, ifp->name,
-				buf[0], bfd_get_status_str(status),
-				remote_cbit ? "(cbit on)" : "");
-		} else {
-			prefix2str(&sp, buf[1], sizeof(buf[1]));
-			zlog_debug(
-				"Zebra: vrf %s(%u) source %s bfd destination %s %s %s",
-				VRF_LOGNAME(vrf), vrf_id, buf[1], buf[0],
+				"Zebra: vrf %s(%u) interface %s bfd destination %pFX %s %s",
+				VRF_LOGNAME(vrf), vrf_id, ifp->name, &dp,
 				bfd_get_status_str(status),
 				remote_cbit ? "(cbit on)" : "");
-		}
+		else
+			zlog_debug(
+				"Zebra: vrf %s(%u) source %pFX bfd destination %pFX %s %s",
+				VRF_LOGNAME(vrf), vrf_id, &sp, &dp,
+				bfd_get_status_str(status),
+				remote_cbit ? "(cbit on)" : "");
 	}
 
 	/* Bring the peer down if BFD is enabled in BGP */

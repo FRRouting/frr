@@ -363,15 +363,11 @@ static int vnc_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	else
 		vnc_redistribute_delete(&api.prefix, api.type);
 
-	if (BGP_DEBUG(zebra, ZEBRA)) {
-		char buf[PREFIX_STRLEN];
-
-		prefix2str(&api.prefix, buf, sizeof(buf));
+	if (BGP_DEBUG(zebra, ZEBRA))
 		vnc_zlog_debug_verbose(
-			"%s: Zebra rcvd: route delete %s %s metric %u",
-			__func__, zebra_route_string(api.type), buf,
+			"%s: Zebra rcvd: route delete %s %pFX metric %u",
+			__func__, zebra_route_string(api.type), &api.prefix,
 			api.metric);
-	}
 
 	return 0;
 }
@@ -425,14 +421,10 @@ static void vnc_zebra_route_msg(const struct prefix *p, unsigned int nhp_count,
 		}
 	}
 
-	if (BGP_DEBUG(zebra, ZEBRA)) {
-		char buf[PREFIX_STRLEN];
-
-		prefix2str(&api.prefix, buf, sizeof(buf));
+	if (BGP_DEBUG(zebra, ZEBRA))
 		vnc_zlog_debug_verbose(
-			"%s: Zebra send: route %s %s, nhp_count=%d", __func__,
-			(add ? "add" : "del"), buf, nhp_count);
-	}
+			"%s: Zebra send: route %s %pFX, nhp_count=%d", __func__,
+			(add ? "add" : "del"), &api.prefix, nhp_count);
 
 	zclient_route_send((add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE),
 			   zclient_vnc, &api);

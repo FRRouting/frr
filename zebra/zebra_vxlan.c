@@ -310,8 +310,7 @@ static void zl3vni_print_nh(zebra_neigh_t *n, struct vty *vty,
 			rb_host_count(&n->host_rb));
 		vty_out(vty, "  Prefixes:\n");
 		RB_FOREACH (hle, host_rb_tree_entry, &n->host_rb)
-			vty_out(vty, "    %s\n",
-				prefix2str(&hle->p, buf2, sizeof(buf2)));
+			vty_out(vty, "    %pFX\n", &hle->p);
 	} else {
 		json_hosts = json_object_new_array();
 		json_object_string_add(
@@ -346,8 +345,7 @@ static void zl3vni_print_rmac(zebra_mac_t *zrmac, struct vty *vty,
 		vty_out(vty, " Refcount: %d\n", rb_host_count(&zrmac->host_rb));
 		vty_out(vty, "  Prefixes:\n");
 		RB_FOREACH (hle, host_rb_tree_entry, &zrmac->host_rb)
-			vty_out(vty, "    %s\n",
-				prefix2str(&hle->p, buf2, sizeof(buf2)));
+			vty_out(vty, "    %pFX\n", &hle->p);
 	} else {
 		json_hosts = json_object_new_array();
 		json_object_string_add(
@@ -1270,7 +1268,6 @@ static int zl3vni_remote_rmac_add(zebra_l3vni_t *zl3vni,
 {
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
-	char buf2[PREFIX_STRLEN];
 	zebra_mac_t *zrmac = NULL;
 
 	zrmac = zl3vni_rmac_lookup(zl3vni, rmac);
@@ -1280,11 +1277,11 @@ static int zl3vni_remote_rmac_add(zebra_l3vni_t *zl3vni,
 		zrmac = zl3vni_rmac_add(zl3vni, rmac);
 		if (!zrmac) {
 			zlog_debug(
-				"Failed to add RMAC %s L3VNI %u Remote VTEP %s, prefix %s",
+				"Failed to add RMAC %s L3VNI %u Remote VTEP %s, prefix %pFX",
 				prefix_mac2str(rmac, buf, sizeof(buf)),
 				zl3vni->vni,
 				ipaddr2str(vtep_ip, buf1, sizeof(buf1)),
-				prefix2str(host_prefix, buf2, sizeof(buf2)));
+				host_prefix);
 			return -1;
 		}
 		memset(&zrmac->fwd_info, 0, sizeof(zrmac->fwd_info));
@@ -1300,12 +1297,12 @@ static int zl3vni_remote_rmac_add(zebra_l3vni_t *zl3vni,
 				   &vtep_ip->ipaddr_v4)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"L3VNI %u Remote VTEP change(%s -> %s) for RMAC %s, prefix %s",
+				"L3VNI %u Remote VTEP change(%s -> %s) for RMAC %s, prefix %pFX",
 				zl3vni->vni,
 				inet_ntoa(zrmac->fwd_info.r_vtep_ip),
 				ipaddr2str(vtep_ip, buf1, sizeof(buf1)),
 				prefix_mac2str(rmac, buf, sizeof(buf)),
-				prefix2str(host_prefix, buf2, sizeof(buf2)));
+				host_prefix);
 
 		zrmac->fwd_info.r_vtep_ip = vtep_ip->ipaddr_v4;
 
@@ -1465,7 +1462,6 @@ static int zl3vni_remote_nh_add(zebra_l3vni_t *zl3vni,
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
-	char buf3[PREFIX_STRLEN];
 	zebra_neigh_t *nh = NULL;
 
 	/* Create the next hop entry, or update its mac, if necessary. */
@@ -1474,11 +1470,10 @@ static int zl3vni_remote_nh_add(zebra_l3vni_t *zl3vni,
 		nh = zl3vni_nh_add(zl3vni, vtep_ip, rmac);
 		if (!nh) {
 			zlog_debug(
-				"Failed to add NH %s as Neigh (RMAC %s L3-VNI %u prefix %s)",
+				"Failed to add NH %s as Neigh (RMAC %s L3-VNI %u prefix %pFX)",
 				ipaddr2str(vtep_ip, buf1, sizeof(buf2)),
 				prefix_mac2str(rmac, buf, sizeof(buf)),
-				zl3vni->vni,
-				prefix2str(host_prefix, buf2, sizeof(buf2)));
+				zl3vni->vni, host_prefix);
 			return -1;
 		}
 
@@ -1486,12 +1481,13 @@ static int zl3vni_remote_nh_add(zebra_l3vni_t *zl3vni,
 		zl3vni_nh_install(zl3vni, nh);
 	} else if (memcmp(&nh->emac, rmac, ETH_ALEN) != 0) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("L3VNI %u RMAC change(%s --> %s) for nexthop %s, prefix %s",
-				   zl3vni->vni,
-				   prefix_mac2str(&nh->emac, buf, sizeof(buf)),
-				   prefix_mac2str(rmac, buf1, sizeof(buf1)),
-				   ipaddr2str(vtep_ip, buf2, sizeof(buf2)),
-				   prefix2str(host_prefix, buf3, sizeof(buf3)));
+			zlog_debug(
+				"L3VNI %u RMAC change(%s --> %s) for nexthop %s, prefix %pFX",
+				zl3vni->vni,
+				prefix_mac2str(&nh->emac, buf, sizeof(buf)),
+				prefix_mac2str(rmac, buf1, sizeof(buf1)),
+				ipaddr2str(vtep_ip, buf2, sizeof(buf2)),
+				host_prefix);
 
 		memcpy(&nh->emac, rmac, ETH_ALEN);
 		/* install (update) the nh neigh in kernel */

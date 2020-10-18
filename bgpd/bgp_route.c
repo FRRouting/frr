@@ -2428,12 +2428,8 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	onlypeer = ((SUBGRP_PCOUNT(subgrp) == 1) ? (SUBGRP_PFIRST(subgrp))->peer
 						 : NULL);
 
-	if (BGP_DEBUG(update, UPDATE_OUT)) {
-		char buf_prefix[PREFIX_STRLEN];
-		prefix2str(p, buf_prefix, sizeof(buf_prefix));
-		zlog_debug("%s: p=%s, selected=%p", __func__, buf_prefix,
-			   selected);
-	}
+	if (BGP_DEBUG(update, UPDATE_OUT))
+		zlog_debug("%s: p=%pFX, selected=%p", __func__, p, selected);
 
 	/* First update is deferred until ORF or ROUTE-REFRESH is received */
 	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
@@ -7617,13 +7613,10 @@ static void route_vty_out_route(const struct prefix *p, struct vty *vty,
 			json_object_string_add(json, "network", buf2);
 		}
 	} else if (p->family == AF_ETHERNET) {
-		prefix2str(p, buf, PREFIX_STRLEN);
 		len = vty_out(vty, "%pFX", p);
 	} else if (p->family == AF_EVPN) {
 		if (!json)
-			len = vty_out(vty, "%s",
-				      prefix2str((struct prefix_evpn *)p, buf,
-						 BUFSIZ));
+			len = vty_out(vty, "%pFX", (struct prefix_evpn *)p);
 		else
 			bgp_evpn_route2json((struct prefix_evpn *)p, json);
 	} else if (p->family == AF_FLOWSPEC) {
@@ -8951,7 +8944,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 {
 	char buf[INET6_ADDRSTRLEN];
 	char buf1[BUFSIZ];
-	char buf2[EVPN_ROUTE_STRLEN];
 	struct attr *attr = path->attr;
 	int sockunion_vty_out(struct vty *, union sockunion *);
 	time_t tbuf;
@@ -8989,7 +8981,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 	if (path->extra) {
 		char tag_buf[30];
 
-		buf2[0] = '\0';
 		tag_buf[0] = '\0';
 		if (path->extra && path->extra->num_labels) {
 			bgp_evpn_label2str(path->extra->label,
@@ -8998,10 +8989,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 		}
 		if (safi == SAFI_EVPN) {
 			if (!json_paths) {
-				prefix2str((struct prefix_evpn *)
-						   bgp_dest_get_prefix(bn),
-					   buf2, sizeof(buf2));
-				vty_out(vty, "  Route %s", buf2);
+				vty_out(vty, "  Route %pFX",
+					(struct prefix_evpn *)
+						bgp_dest_get_prefix(bn));
 				if (tag_buf[0] != '\0')
 					vty_out(vty, " VNI %s", tag_buf);
 				vty_out(vty, "\n");
@@ -9025,13 +9015,20 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 						pdest),
 					buf1, sizeof(buf1));
 				if (is_pi_family_evpn(parent_ri)) {
-					prefix2str((struct prefix_evpn *)
-							   bgp_dest_get_prefix(
-								   dest),
-						   buf2, sizeof(buf2));
-					vty_out(vty, "  Imported from %s:%s, VNI %s\n", buf1, buf2, tag_buf);
+					vty_out(vty,
+						"  Imported from %s:%pFX, VNI %s\n",
+						buf1,
+						(struct prefix_evpn *)
+							bgp_dest_get_prefix(
+								dest),
+						tag_buf);
 				} else
-					vty_out(vty, "  Imported from %s:%s\n", buf1, buf2);
+					vty_out(vty,
+						"  Imported from %s:%pFX\n",
+						buf1,
+						(struct prefix_evpn *)
+							bgp_dest_get_prefix(
+								dest));
 			}
 		}
 	}
@@ -10363,7 +10360,6 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	struct peer *peer;
 	struct listnode *node, *nnode;
 	char buf1[RD_ADDRSTRLEN];
-	char buf3[EVPN_ROUTE_STRLEN];
 	char prefix_str[BUFSIZ];
 	int count = 0;
 	int best = 0;
@@ -10395,12 +10391,10 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	if (safi == SAFI_EVPN) {
 
 		if (!json) {
-			vty_out(vty, "BGP routing table entry for %s%s%s\n",
+			vty_out(vty, "BGP routing table entry for %s%s%pFX\n",
 				prd ? prefix_rd2str(prd, buf1, sizeof(buf1))
 				    : "",
-				prd ? ":" : "",
-				prefix2str((struct prefix_evpn *)p, buf3,
-					   sizeof(buf3)));
+				prd ? ":" : "", (struct prefix_evpn *)p);
 		} else {
 			json_object_string_add(json, "rd",
 				prd ? prefix_rd2str(prd, buf1, sizeof(buf1)) :

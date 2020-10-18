@@ -827,16 +827,14 @@ static void pbr_nht_individual_nexthop_update_lookup(struct hash_bucket *b,
 {
 	struct pbr_nexthop_cache *pnhc = b->data;
 	struct pbr_nht_individual *pnhi = data;
-	char buf[PREFIX_STRLEN];
 	bool old_valid;
 
 	old_valid = pnhc->valid;
 
 	pbr_nht_individual_nexthop_update(pnhc, pnhi);
 
-	DEBUGD(&pbr_dbg_nht, "\tFound %s: old: %d new: %d",
-	       prefix2str(&pnhi->nhr->prefix, buf, sizeof(buf)), old_valid,
-	       pnhc->valid);
+	DEBUGD(&pbr_dbg_nht, "\tFound %pFX: old: %d new: %d",
+	       &pnhi->nhr->prefix, old_valid, pnhc->valid);
 
 	if (pnhc->valid)
 		pnhi->valid = true;

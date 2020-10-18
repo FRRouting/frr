@@ -1164,16 +1164,13 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 					inet_ntoa(pim_ifp->update_source));
 			}
 			if (pim_ifp->sec_addr_list) {
-				char pbuf[PREFIX2STR_BUFFER];
 				vty_out(vty, "Address    : %s (primary)\n",
 					inet_ntoa(ifaddr));
 				for (ALL_LIST_ELEMENTS_RO(
 					     pim_ifp->sec_addr_list, sec_node,
-					     sec_addr)) {
-					vty_out(vty, "             %s\n",
-						prefix2str(&sec_addr->addr,
-							   pbuf, sizeof(pbuf)));
-				}
+					     sec_addr))
+					vty_out(vty, "             %pFX\n",
+						&sec_addr->addr);
 			} else {
 				vty_out(vty, "Address    : %s\n",
 					inet_ntoa(ifaddr));
@@ -2331,16 +2328,10 @@ static void pim_show_neighbors_secondary(struct pim_instance *pim,
 				       neigh_src_str, sizeof(neigh_src_str));
 
 			for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list,
-						  prefix_node, p)) {
-				char neigh_sec_str[PREFIX2STR_BUFFER];
-
-				prefix2str(p, neigh_sec_str,
-					   sizeof(neigh_sec_str));
-
-				vty_out(vty, "%-16s %-15s %-15s %-15s\n",
+						  prefix_node, p))
+				vty_out(vty, "%-16s %-15s %-15s %-15pFX\n",
 					ifp->name, inet_ntoa(ifaddr),
-					neigh_src_str, neigh_sec_str);
-			}
+					neigh_src_str, p);
 		}
 	}
 }
@@ -3215,7 +3206,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 						       json_group);
 			}
 		} else {
-			vty_out(vty, "Group Address %s\n", grp_str);
+			vty_out(vty, "Group Address %pFX\n", &bsgrp->group);
 			vty_out(vty, "--------------------------\n");
 			vty_out(vty, "%-15s %-15s %-15s %-15s\n", "Rp Address",
 				"priority", "Holdtime", "Hash");

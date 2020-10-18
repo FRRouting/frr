@@ -163,19 +163,13 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	ifindex = api.nexthops[0].ifindex;
 	nexthop = &api.nexthops[0].gate.ipv6;
 
-	if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
-		char prefixstr[PREFIX2STR_BUFFER], nexthopstr[128];
-
-		prefix2str(&api.prefix, prefixstr, sizeof(prefixstr));
-		inet_ntop(AF_INET6, nexthop, nexthopstr, sizeof(nexthopstr));
-
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug(
-			"Zebra Receive route %s: %s %s nexthop %s ifindex %ld tag %" ROUTE_TAG_PRI,
+			"Zebra Receive route %s: %s %pFX nexthop %pI6 ifindex %ld tag %" ROUTE_TAG_PRI,
 			(cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD ? "add"
 							     : "delete"),
-			zebra_route_string(api.type), prefixstr, nexthopstr,
+			zebra_route_string(api.type), &api.prefix, nexthop,
 			ifindex, api.tag);
-	}
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		ospf6_asbr_redistribute_add(api.type, ifindex, &api.prefix,
@@ -219,16 +213,13 @@ DEFUN (show_zebra,
 static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
 {
 	struct zapi_route api;
-	char buf[PREFIX2STR_BUFFER];
 	int nhcount;
 	int ret = 0;
 	struct prefix *dest;
 
-	if (IS_OSPF6_DEBUG_ZEBRA(SEND)) {
-		prefix2str(&request->prefix, buf, sizeof(buf));
-		zlog_debug("Send %s route: %s",
-			   (type == REM ? "remove" : "add"), buf);
-	}
+	if (IS_OSPF6_DEBUG_ZEBRA(SEND))
+		zlog_debug("Send %s route: %pFX",
+			   (type == REM ? "remove" : "add"), &request->prefix);
 
 	if (zclient->sock < 0) {
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))

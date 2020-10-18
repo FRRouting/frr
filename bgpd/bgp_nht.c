@@ -315,15 +315,12 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	bnc->change_flags = 0;
 
 	/* debug print the input */
-	if (BGP_DEBUG(nht, NHT)) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(&nhr->prefix, buf, sizeof(buf));
+	if (BGP_DEBUG(nht, NHT))
 		zlog_debug(
-			"%s(%u): Rcvd NH update %s(%u) - metric %d/%d #nhops %d/%d flags 0x%x",
-			bnc->bgp->name_pretty, bnc->bgp->vrf_id, buf,
+			"%s(%u): Rcvd NH update %pFX(%u) - metric %d/%d #nhops %d/%d flags 0x%x",
+			bnc->bgp->name_pretty, bnc->bgp->vrf_id, &nhr->prefix,
 			bnc->srte_color, nhr->metric, bnc->metric,
 			nhr->nexthop_num, bnc->nexthop_num, bnc->flags);
-	}
 
 	if (nhr->metric != bnc->metric)
 		bnc->change_flags |= BGP_NEXTHOP_METRIC_CHANGED;
@@ -454,14 +451,10 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 	bnc = bnc_find(tree, &nhr.prefix, nhr.srte_color);
 	if (!bnc) {
-		if (BGP_DEBUG(nht, NHT)) {
-			char buf[PREFIX2STR_BUFFER];
-
-			prefix2str(&nhr.prefix, buf, sizeof(buf));
+		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
-				"parse nexthop update(%s(%u)(%s)): bnc info not found",
-				buf, nhr.srte_color, bgp->name_pretty);
-		}
+				"parse nexthop update(%pFX(%u)(%s)): bnc info not found",
+				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
 		return;
 	}
 

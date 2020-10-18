@@ -237,7 +237,6 @@ static void bgp_debug_list_print(struct vty *vty, const char *desc,
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
-	char buf[PREFIX2STR_BUFFER];
 
 	vty_out(vty, "%s", desc);
 
@@ -249,10 +248,8 @@ static void bgp_debug_list_print(struct vty *vty, const char *desc,
 
 			if (filter->p && filter->p->family == AF_EVPN)
 				bgp_debug_print_evpn_prefix(vty, "", filter->p);
-			else if (filter->p) {
-				prefix2str(filter->p, buf, sizeof(buf));
-				vty_out(vty, " %s", buf);
-			}
+			else if (filter->p)
+				vty_out(vty, " %pFX", filter->p);
 		}
 	}
 
@@ -268,7 +265,6 @@ static int bgp_debug_list_conf_print(struct vty *vty, const char *desc,
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
-	char buf[PREFIX2STR_BUFFER];
 	int write = 0;
 
 	if (list && !list_isempty(list)) {
@@ -283,8 +279,7 @@ static int bgp_debug_list_conf_print(struct vty *vty, const char *desc,
 							    filter->p);
 				write++;
 			} else if (filter->p) {
-				prefix2str(filter->p, buf, sizeof(buf));
-				vty_out(vty, "%s %s\n", desc, buf);
+				vty_out(vty, "%s %pFX\n", desc, filter->p);
 				write++;
 			}
 		}
@@ -1416,7 +1411,6 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 {
 	struct prefix *argv_p;
 	int ret = CMD_SUCCESS;
-	char buf[PREFIX2STR_BUFFER];
 
 	argv_p = prefix_new();
 
@@ -1429,12 +1423,10 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 	if (!bgp_debug_update_prefixes)
 		bgp_debug_update_prefixes = list_new();
 
-	prefix2str(argv_p, buf, sizeof(buf));
-
 	if (bgp_debug_list_has_entry(bgp_debug_update_prefixes, NULL, argv_p)) {
 		vty_out(vty,
-			"BGP updates debugging is already enabled for %s\n",
-			buf);
+			"BGP updates debugging is already enabled for %pFX\n",
+			argv_p);
 		prefix_free(&argv_p);
 		return CMD_SUCCESS;
 	}
@@ -1445,7 +1437,7 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 		DEBUG_ON(update, UPDATE_PREFIX);
 	} else {
 		TERM_DEBUG_ON(update, UPDATE_PREFIX);
-		vty_out(vty, "BGP updates debugging is on for %s\n", buf);
+		vty_out(vty, "BGP updates debugging is on for %pFX\n", argv_p);
 	}
 
 	prefix_free(&argv_p);
@@ -1484,7 +1476,6 @@ DEFPY (no_debug_bgp_update_prefix_afi_safi,
 	struct prefix *argv_p;
 	bool found_prefix = false;
 	int ret = CMD_SUCCESS;
-	char buf[PREFIX2STR_BUFFER];
 
 	argv_p = prefix_new();
 
@@ -1510,13 +1501,11 @@ DEFPY (no_debug_bgp_update_prefix_afi_safi,
 		}
 	}
 
-	prefix2str(argv_p, buf, sizeof(buf));
-
 	if (found_prefix)
-		vty_out(vty, "BGP updates debugging is off for %s\n", buf);
+		vty_out(vty, "BGP updates debugging is off for %pFX\n", argv_p);
 	else
-		vty_out(vty, "BGP updates debugging was not enabled for %s\n",
-			buf);
+		vty_out(vty, "BGP updates debugging was not enabled for %pFX\n",
+			argv_p);
 
 	prefix_free(&argv_p);
 
@@ -2643,7 +2632,6 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 				    char *str, int size)
 {
 	char rd_buf[RD_ADDRSTRLEN];
-	char pfx_buf[PREFIX_STRLEN];
 	char tag_buf[30];
 	/* ' with addpath ID '          17
 	 * max strlen of uint32       + 10
@@ -2681,10 +2669,9 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 	}
 
 	if (prd)
-		snprintf(str, size, "RD %s %s%s%s %s %s",
-			 prefix_rd2str(prd, rd_buf, sizeof(rd_buf)),
-			 prefix2str(pu, pfx_buf, sizeof(pfx_buf)), tag_buf,
-			 pathid_buf, afi2str(afi), safi2str(safi));
+		snprintfrr(str, size, "RD %s %pFX%s%s %s %s",
+			   prefix_rd2str(prd, rd_buf, sizeof(rd_buf)), pu.p,
+			   tag_buf, pathid_buf, afi2str(afi), safi2str(safi));
 	else if (safi == SAFI_FLOWSPEC) {
 		char return_string[BGP_FLOWSPEC_NLRI_STRING_MAX];
 		const struct prefix_fs *fs = pu.fs;
@@ -2697,9 +2684,8 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 		snprintf(str, size, "FS %s Match{%s}", afi2str(afi),
 			 return_string);
 	} else
-		snprintf(str, size, "%s%s%s %s %s",
-			 prefix2str(pu, pfx_buf, sizeof(pfx_buf)), tag_buf,
-			 pathid_buf, afi2str(afi), safi2str(safi));
+		snprintfrr(str, size, "%pFX%s%s %s %s", pu.p, tag_buf,
+			   pathid_buf, afi2str(afi), safi2str(safi));
 
 	return str;
 }
