@@ -1745,6 +1745,15 @@ DEFPY (show_route,
 	return CMD_SUCCESS;
 }
 
+ALIAS_HIDDEN (show_route,
+              show_ro_cmd,
+              "show <ip$ipv4|ipv6$ipv6> ro",
+              SHOW_STR
+              IP_STR
+              IPV6_STR
+              "IP routing table\n");
+
+
 DEFPY (show_route_detail,
        show_route_detail_cmd,
        "show\
@@ -3845,6 +3854,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_vrf_cmd);
 	install_element(VIEW_NODE, &show_vrf_vni_cmd);
 	install_element(VIEW_NODE, &show_route_cmd);
+	install_element(VIEW_NODE, &show_ro_cmd);
 	install_element(VIEW_NODE, &show_route_detail_cmd);
 	install_element(VIEW_NODE, &show_route_summary_cmd);
 	install_element(VIEW_NODE, &show_ip_nht_cmd);
