@@ -156,6 +156,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		if (nexthop_ref) {
 			api_nh->gate.ipv4 = nexthop_ref->sin.sin_addr;
 			api_nh->type = NEXTHOP_TYPE_IPV4;
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		}
 		if (ifp) {
 			api_nh->ifindex = ifp->ifindex;
@@ -175,6 +176,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		if (nexthop_ref) {
 			api_nh->gate.ipv6 = nexthop_ref->sin6.sin6_addr;
 			api_nh->type = NEXTHOP_TYPE_IPV6;
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		}
 		if (ifp) {
 			api_nh->ifindex = ifp->ifindex;
