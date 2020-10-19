@@ -18,8 +18,6 @@
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE, "NHRP cache entry");
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE_CONFIG, "NHRP cache config entry");
 
-unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
-
 const char *const nhrp_cache_type_str[] = {
 		[NHRP_CACHE_INVALID] = "invalid",
 		[NHRP_CACHE_INCOMPLETE] = "incomplete",
@@ -49,6 +47,7 @@ static bool nhrp_cache_protocol_cmp(const void *cache_data,
 static void *nhrp_cache_alloc(void *data)
 {
 	struct nhrp_cache *p, *key = data;
+	struct nhrp_vrf *nhrp_vrf = NULL;
 
 	p = XMALLOC(MTYPE_NHRP_CACHE, sizeof(struct nhrp_cache));
 
@@ -60,17 +59,24 @@ static void *nhrp_cache_alloc(void *data)
 		.notifier_list =
 		NOTIFIER_LIST_INITIALIZER(&p->notifier_list),
 	};
-	nhrp_cache_counts[p->cur.type]++;
-
+	if (key->ifp)
+		nhrp_vrf = find_nhrp_vrf_id(key->ifp->vrf_id);
+	if (nhrp_vrf)
+		nhrp_vrf->nhrp_cache_counts[p->cur.type]++;
 	return p;
 }
 
 static void nhrp_cache_free(struct nhrp_cache *c)
 {
 	struct nhrp_interface *nifp = c->ifp->info;
+	struct nhrp_vrf *nhrp_vrf = NULL;
+
+	if (c->ifp)
+		nhrp_vrf = find_nhrp_vrf_id(c->ifp->vrf_id);
 
 	debugf(NHRP_DEBUG_COMMON, "Deleting cache entry");
-	nhrp_cache_counts[c->cur.type]--;
+	if (nhrp_vrf)
+		nhrp_vrf->nhrp_cache_counts[c->cur.type]--;
 	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
 	assert(!notifier_active(&c->notifier_list));
 	hash_release(nifp->cache_hash, c);
@@ -373,8 +379,10 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 			nhrp_peer_notify_del(c->cur.peer, &c->peer_notifier);
 			nhrp_peer_unref(c->cur.peer);
 		}
-		nhrp_cache_counts[c->cur.type]--;
-		nhrp_cache_counts[c->new.type]++;
+		if (nhrp_vrf) {
+			nhrp_vrf->nhrp_cache_counts[c->cur.type]--;
+			nhrp_vrf->nhrp_cache_counts[c->new.type]++;
+		}
 		c->cur = c->new;
 		c->cur.peer = nhrp_peer_ref(c->cur.peer);
 		nhrp_cache_reset_new(c);

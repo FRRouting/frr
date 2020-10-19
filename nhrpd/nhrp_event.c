@@ -311,7 +311,7 @@ void evmgr_notify(const char *name, struct nhrp_cache *c,
 		  "local_addr=%U\n",
 		  name, nhrp_cache_type_str[c->new.type],
 		  nhrp_cache_type_str[c->cur.type],
-		  (unsigned int)nhrp_cache_counts[NHRP_CACHE_NHS], c->ifp->name,
+		  (unsigned int)nhrp_vrf->nhrp_cache_counts[NHRP_CACHE_NHS], c->ifp->name,
 		  &nifp->afi[afi].addr);
 
 	if (vc) {

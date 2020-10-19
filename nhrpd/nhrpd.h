@@ -87,6 +87,18 @@ static inline int notifier_active(struct notifier_list *l)
 	return !list_empty(&l->notifier_head);
 }
 
+enum nhrp_cache_type {
+	NHRP_CACHE_INVALID = 0,
+	NHRP_CACHE_INCOMPLETE,
+	NHRP_CACHE_NEGATIVE,
+	NHRP_CACHE_CACHED,
+	NHRP_CACHE_DYNAMIC,
+	NHRP_CACHE_NHS,
+	NHRP_CACHE_STATIC,
+	NHRP_CACHE_LOCAL,
+	NHRP_CACHE_NUM_TYPES
+};
+
 struct nhrp_vrf {
 	char *vrfname;
 	vrf_id_t vrf_id;
@@ -112,6 +124,7 @@ struct nhrp_vrf {
 	struct list_head childlist_head[512];
 	struct hash *nhrp_gre_list;
 	int nhrp_socket_fd;
+	unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
 
 	QOBJ_FIELDS;
 };
@@ -233,18 +246,6 @@ struct nhrp_reqid {
 extern struct list *nhrp_vrf_list;
 DECLARE_QOBJ_TYPE(nhrp_vrf);
 
-enum nhrp_cache_type {
-	NHRP_CACHE_INVALID = 0,
-	NHRP_CACHE_INCOMPLETE,
-	NHRP_CACHE_NEGATIVE,
-	NHRP_CACHE_CACHED,
-	NHRP_CACHE_DYNAMIC,
-	NHRP_CACHE_NHS,
-	NHRP_CACHE_STATIC,
-	NHRP_CACHE_LOCAL,
-	NHRP_CACHE_NUM_TYPES
-};
-
 extern struct nhrp_vrf *nhrp_get_context(const char *name);
 extern struct nhrp_vrf *find_nhrp_vrf(const char *vrfname);
 extern struct nhrp_vrf *find_nhrp_vrf_id(vrf_id_t vrf_id);
@@ -252,7 +253,6 @@ extern int nhrp_config_write_vrf(struct vty *vty,
 				 struct nhrp_vrf *nhrp_vrf);
 
 extern const char *const nhrp_cache_type_str[];
-extern unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
 
 struct nhrp_cache_config {
 	struct interface *ifp;
