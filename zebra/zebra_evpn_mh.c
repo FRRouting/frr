@@ -1931,9 +1931,10 @@ static int zebra_evpn_remote_es_add(esi_t *esi, struct in_addr vtep_ip,
 	}
 
 	if (df_alg != EVPN_MH_DF_ALG_PREF)
-		zlog_warn("remote es %s vtep %s add %s with unsupported df_alg %d",
-			   esi_to_str(esi, buf, sizeof(buf)),
-			   inet_ntoa(vtep_ip), esr_rxed ? "esr" : "", df_alg);
+		zlog_warn(
+			"remote es %s vtep %pI4 add %s with unsupported df_alg %d",
+			esi_to_str(esi, buf, sizeof(buf)), &vtep_ip,
+			esr_rxed ? "esr" : "", df_alg);
 
 	zebra_evpn_es_vtep_add(es, vtep_ip, esr_rxed, df_alg, df_pref);
 	zebra_evpn_es_remote_info_re_eval(&es);
@@ -2180,20 +2181,22 @@ static char *zebra_evpn_es_vtep_str(char *vtep_str, struct zebra_evpn_es *es,
 {
 	struct zebra_evpn_es_vtep *zvtep;
 	struct listnode	*node;
-	char buf[PREFIX_STRLEN];
 	bool first = true;
+	char ip_buf[INET6_ADDRSTRLEN];
 
 	vtep_str[0] = '\0';
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, zvtep)) {
 		if (first) {
 			first = false;
-			strlcat(vtep_str, inet_ntop(AF_INET, &zvtep->vtep_ip,
-						    buf, sizeof(buf)),
+			strlcat(vtep_str,
+				inet_ntop(AF_INET, &zvtep->vtep_ip, ip_buf,
+					  sizeof(ip_buf)),
 				vtep_str_size);
 		} else {
 			strlcat(vtep_str, ",", vtep_str_size);
-			strlcat(vtep_str, inet_ntop(AF_INET, &zvtep->vtep_ip,
-						    buf, sizeof(buf)),
+			strlcat(vtep_str,
+				inet_ntop(AF_INET, &zvtep->vtep_ip, ip_buf,
+					  sizeof(ip_buf)),
 				vtep_str_size);
 		}
 	}
@@ -2207,11 +2210,13 @@ static void zebra_evpn_es_json_vtep_fill(struct zebra_evpn_es *es,
 	struct listnode *node;
 	json_object *json_vtep_entry;
 	char alg_buf[EVPN_DF_ALG_STR_LEN];
+	char ip_buf[INET6_ADDRSTRLEN];
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
 		json_vtep_entry = json_object_new_object();
 		json_object_string_add(json_vtep_entry, "vtep",
-				       inet_ntoa(es_vtep->vtep_ip));
+				       inet_ntop(AF_INET, &es_vtep->vtep_ip,
+						 ip_buf, sizeof(ip_buf)));
 		if (es_vtep->flags & ZEBRA_EVPNES_VTEP_RXED_ESR) {
 			json_object_string_add(
 				json_vtep_entry, "dfAlgorithm",
