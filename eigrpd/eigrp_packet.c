@@ -172,7 +172,7 @@ int eigrp_check_md5_digest(struct stream *s,
 	uint8_t *ibuf;
 	size_t backup_end;
 	struct TLV_MD5_Authentication_Type *auth_TLV;
-	//struct eigrp_header *eigrph;
+	
 
 	if (ntohl(nbr->crypt_seqnum) > ntohl(authTLV->key_sequence)) {
 		zlog_warn(
@@ -182,7 +182,7 @@ int eigrp_check_md5_digest(struct stream *s,
 		return 0;
 	}
 
-	//eigrph = (struct eigrp_header *)s->data;
+	
 	eigrph->checksum = 0;
 
 	auth_TLV = (struct TLV_MD5_Authentication_Type*)eigrph->tlv;
