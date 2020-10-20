@@ -13,6 +13,7 @@
 #include "stream.h"
 #include "log.h"
 #include "zclient.h"
+#include "netlink.h"
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_ROUTE, "NHRP routing entry");
 
@@ -543,6 +544,9 @@ void nhrp_send_zebra_interface_redirect(struct interface *ifp,
 
 void nhrp_zebra_terminate(void)
 {
+	if (netlink_nflog_group)
+		nhrp_zebra_register_log(VRF_DEFAULT, netlink_nflog_group, false);
+
 	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP, false);
 	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP6, false);
 	zclient_stop(zclient);
