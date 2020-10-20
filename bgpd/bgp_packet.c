@@ -566,9 +566,9 @@ void bgp_open_send(struct peer *peer)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug(
-			"%s sending OPEN, version %d, my as %u, holdtime %d, id %s",
+			"%s sending OPEN, version %d, my as %u, holdtime %d, id %pI4",
 			peer->host, BGP_VERSION_4, local_as, send_holdtime,
-			inet_ntoa(peer->local_id));
+			&peer->local_id);
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
@@ -1022,8 +1022,8 @@ static int bgp_collision_detect(struct peer *new, struct in_addr remote_id)
 				    && peer->local_as == peer->as)
 					flog_err(
 						EC_BGP_ROUTER_ID_SAME,
-						"Peer's router-id %s is the same as ours",
-						inet_ntoa(remote_id));
+						"Peer's router-id %pI4 is the same as ours",
+						&remote_id);
 
 				/* 3. Otherwise, the local system closes newly
 				   created
@@ -1115,9 +1115,8 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	/* Receive OPEN message log  */
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug(
-			"%s rcv OPEN, version %d, remote-as (in open) %u, holdtime %d, id %s",
-			peer->host, version, remote_as, holdtime,
-			inet_ntoa(remote_id));
+			"%s rcv OPEN, version %d, remote-as (in open) %u, holdtime %d, id %pI4",
+			peer->host, version, remote_as, holdtime, &remote_id);
 
 	/* BEGIN to read the capability here, but dont do it yet */
 	mp_capability = 0;
@@ -1219,8 +1218,8 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	    || (peer->sort == BGP_PEER_IBGP
 		&& ntohl(peer->local_id.s_addr) == ntohl(remote_id.s_addr))) {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s bad OPEN, wrong router identifier %s",
-				   peer->host, inet_ntoa(remote_id));
+			zlog_debug("%s bad OPEN, wrong router identifier %pI4",
+				   peer->host, &remote_id);
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
 					  BGP_NOTIFY_OPEN_BAD_BGP_IDENT,
 					  notify_data_remote_id, 4);

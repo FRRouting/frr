@@ -29,6 +29,8 @@
 #include "filter.h"
 #include "frrstr.h"
 
+#include "lib/printfrr.h"
+
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_attr.h"
@@ -182,8 +184,7 @@ char *prefix_rd2str(const struct prefix_rd *prd, char *buf, size_t size)
 		return buf;
 	} else if (type == RD_TYPE_IP) {
 		decode_rd_ip(pnt + 2, &rd_ip);
-		snprintf(buf, size, "%s:%hu", inet_ntoa(rd_ip.ip),
-			 rd_ip.val);
+		snprintfrr(buf, size, "%pI4:%hu", &rd_ip.ip, rd_ip.val);
 		return buf;
 	}
 #ifdef ENABLE_BGP_VNC
@@ -210,6 +211,6 @@ void form_auto_rd(struct in_addr router_id,
 
 	prd->family = AF_UNSPEC;
 	prd->prefixlen = 64;
-	snprintf(buf, sizeof(buf), "%s:%hu", inet_ntoa(router_id), rd_id);
+	snprintfrr(buf, sizeof(buf), "%pI4:%hu", &router_id, rd_id);
 	(void)str2prefix_rd(buf, prd);
 }

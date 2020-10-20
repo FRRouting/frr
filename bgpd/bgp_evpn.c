@@ -31,6 +31,8 @@
 #include "jhash.h"
 #include "zclient.h"
 
+#include "lib/printfrr.h"
+
 #include "bgpd/bgp_attr_evpn.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -702,9 +704,9 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (bgp_debug_zebra(NULL))
-		zlog_debug("Tx %s Remote VTEP, VNI %u remote VTEP %s",
+		zlog_debug("Tx %s Remote VTEP, VNI %u remote VTEP %pI4",
 			   add ? "ADD" : "DEL", vpn->vni,
-			   inet_ntoa(p->prefix.imet_addr.ip.ipaddr_v4));
+			   &p->prefix.imet_addr.ip.ipaddr_v4);
 
 	return zclient_send_message(zclient);
 }
@@ -1722,15 +1724,14 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 		char buf1[PREFIX_STRLEN];
 		char buf3[ESI_STR_LEN];
 
-		zlog_debug("VRF %s vni %u type-2 route evp %s RMAC %s nexthop %s esi %s",
-				vpn->bgp_vrf ?
-				vrf_id_to_name(vpn->bgp_vrf->vrf_id) : " ",
-				vpn->vni,
-				prefix2str(p, buf1, sizeof(buf1)),
-				prefix_mac2str(&attr.rmac, buf,
-					sizeof(buf)),
-				inet_ntoa(attr.mp_nexthop_global_in),
-				esi_to_str(esi, buf3, sizeof(buf3)));
+		zlog_debug(
+			"VRF %s vni %u type-2 route evp %s RMAC %s nexthop %pI4 esi %s",
+			vpn->bgp_vrf ? vrf_id_to_name(vpn->bgp_vrf->vrf_id)
+				     : " ",
+			vpn->vni, prefix2str(p, buf1, sizeof(buf1)),
+			prefix_mac2str(&attr.rmac, buf, sizeof(buf)),
+			&attr.mp_nexthop_global_in,
+			esi_to_str(esi, buf3, sizeof(buf3)));
 	}
 	/* router mac is only needed for type-2 routes here. */
 	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
@@ -2003,15 +2004,15 @@ static void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 		char buf1[PREFIX_STRLEN];
 		char buf3[ESI_STR_LEN];
 
-		zlog_debug("VRF %s vni %u evp %s RMAC %s nexthop %s esi %s esf 0x%x from %s",
-				vpn->bgp_vrf ?
-				vrf_id_to_name(vpn->bgp_vrf->vrf_id) : " ",
-				vpn->vni,
-				prefix2str(evp, buf1, sizeof(buf1)),
-				prefix_mac2str(&attr.rmac, buf, sizeof(buf)),
-				inet_ntoa(attr.mp_nexthop_global_in),
-				esi_to_str(&attr.esi, buf3, sizeof(buf3)),
-				attr.es_flags, caller);
+		zlog_debug(
+			"VRF %s vni %u evp %s RMAC %s nexthop %pI4 esi %s esf 0x%x from %s",
+			vpn->bgp_vrf ? vrf_id_to_name(vpn->bgp_vrf->vrf_id)
+				     : " ",
+			vpn->vni, prefix2str(evp, buf1, sizeof(buf1)),
+			prefix_mac2str(&attr.rmac, buf, sizeof(buf)),
+			&attr.mp_nexthop_global_in,
+			esi_to_str(&attr.esi, buf3, sizeof(buf3)),
+			attr.es_flags, caller);
 	}
 
 	/* Update the route entry. */
@@ -4965,8 +4966,7 @@ void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn)
 
 	vpn->prd.family = AF_UNSPEC;
 	vpn->prd.prefixlen = 64;
-	snprintf(buf, sizeof(buf), "%s:%hu", inet_ntoa(bgp->router_id),
-		 vpn->rd_id);
+	snprintfrr(buf, sizeof(buf), "%pI4:%hu", &bgp->router_id, vpn->rd_id);
 	(void)str2prefix_rd(buf, &vpn->prd);
 	UNSET_FLAG(vpn->flags, VNI_FLAG_RD_CFGD);
 }

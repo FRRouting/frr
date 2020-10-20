@@ -21,6 +21,7 @@
 #include <zebra.h>
 
 #include <lib/version.h>
+#include "lib/printfrr.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "stream.h"
@@ -380,7 +381,7 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 	buf[0] = '\0';
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)))
-		snprintf(buf, size, "nexthop %s", inet_ntoa(attr->nexthop));
+		snprintfrr(buf, size, "nexthop %pI4", &attr->nexthop);
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN)))
 		snprintf(buf + strlen(buf), size - strlen(buf), ", origin %s",
@@ -400,7 +401,7 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 				   BUFSIZ));
 
 	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4)
-		snprintf(buf, size, "nexthop %s", inet_ntoa(attr->nexthop));
+		snprintfrr(buf, size, "nexthop %pI4", &attr->nexthop);
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
@@ -424,13 +425,13 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 			 ", atomic-aggregate");
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)))
-		snprintf(buf + strlen(buf), size - strlen(buf),
-			 ", aggregated by %u %s", attr->aggregator_as,
-			 inet_ntoa(attr->aggregator_addr));
+		snprintfrr(buf + strlen(buf), size - strlen(buf),
+			   ", aggregated by %u %pI4", attr->aggregator_as,
+			   &attr->aggregator_addr);
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))
-		snprintf(buf + strlen(buf), size - strlen(buf),
-			 ", originator %s", inet_ntoa(attr->originator_id));
+		snprintfrr(buf + strlen(buf), size - strlen(buf),
+			   ", originator %pI4", &attr->originator_id);
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))) {
 		int i;
@@ -438,8 +439,8 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", clusterlist");
 		for (i = 0; i < attr->cluster->length / 4; i++)
-			snprintf(buf + strlen(buf), size - strlen(buf), " %s",
-				 inet_ntoa(attr->cluster->list[i]));
+			snprintfrr(buf + strlen(buf), size - strlen(buf),
+				   " %pI4", &attr->cluster->list[i]);
 	}
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)))
@@ -592,9 +593,9 @@ static void bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
 					buf, PREFIX2STR_BUFFER));
 		}
 	} else if (p->u.prefix_evpn.route_type == BGP_EVPN_IMET_ROUTE) {
-		snprintf(evpn_desc, sizeof(evpn_desc),
-			 "l2vpn evpn type multicast ip %s",
-			 inet_ntoa(p->u.prefix_evpn.imet_addr.ip.ipaddr_v4));
+		snprintfrr(evpn_desc, sizeof(evpn_desc),
+			   "l2vpn evpn type multicast ip %pI4",
+			   &p->u.prefix_evpn.imet_addr.ip.ipaddr_v4);
 	} else if (p->u.prefix_evpn.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 		uint8_t family = is_evpn_prefix_ipaddr_v4(
 					(struct prefix_evpn *)p) ? AF_INET

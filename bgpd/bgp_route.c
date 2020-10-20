@@ -723,18 +723,18 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			*reason = bgp_path_selection_evpn_lower_ip;
 			if (debug)
 				zlog_debug(
-					"%s: %s wins over %s due to same MM seq %u and lower IP %s",
+					"%s: %s wins over %s due to same MM seq %u and lower IP %pI4",
 					pfx_buf, new_buf, exist_buf, new_mm_seq,
-					inet_ntoa(new->attr->nexthop));
+					&new->attr->nexthop);
 			return 1;
 		}
 		if (nh_cmp > 0) {
 			*reason = bgp_path_selection_evpn_lower_ip;
 			if (debug)
 				zlog_debug(
-					"%s: %s loses to %s due to same MM seq %u and higher IP %s",
+					"%s: %s loses to %s due to same MM seq %u and higher IP %pI4",
 					pfx_buf, new_buf, exist_buf, new_mm_seq,
-					inet_ntoa(new->attr->nexthop));
+					&new->attr->nexthop);
 			return 0;
 		}
 	}
@@ -4980,8 +4980,8 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 				 */
 				flog_err(
 					EC_BGP_UPDATE_RCV,
-					"%s: IPv4 unicast NLRI is multicast address %s, ignoring",
-					peer->host, inet_ntoa(p.u.prefix4));
+					"%s: IPv4 unicast NLRI is multicast address %pI4, ignoring",
+					peer->host, &p.u.prefix4);
 				continue;
 			}
 		}
@@ -7879,10 +7879,14 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		}
 	} else if (safi == SAFI_EVPN) {
 		if (json_paths) {
+			char buf[BUFSIZ] = {0};
+
 			json_nexthop_global = json_object_new_object();
 
 			json_object_string_add(json_nexthop_global, "ip",
-					       inet_ntoa(attr->nexthop));
+					       inet_ntop(AF_INET,
+							 &attr->nexthop, buf,
+							 sizeof(buf)));
 
 			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
@@ -7910,13 +7914,16 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	} else if (safi == SAFI_FLOWSPEC) {
 		if (attr->nexthop.s_addr != INADDR_ANY) {
 			if (json_paths) {
+				char buf[BUFSIZ] = {0};
+
 				json_nexthop_global = json_object_new_object();
 
 				json_object_string_add(json_nexthop_global,
 						       "afi", "ipv4");
 				json_object_string_add(
 					json_nexthop_global, "ip",
-					inet_ntoa(attr->nexthop));
+					inet_ntop(AF_INET, &attr->nexthop, buf,
+						  sizeof(buf)));
 
 				if (path->peer->hostname)
 					json_object_string_add(
@@ -7946,10 +7953,14 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		}
 	} else if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
 		if (json_paths) {
+			char buf[BUFSIZ] = {0};
+
 			json_nexthop_global = json_object_new_object();
 
 			json_object_string_add(json_nexthop_global, "ip",
-					       inet_ntoa(attr->nexthop));
+					       inet_ntop(AF_INET,
+							 &attr->nexthop, buf,
+							 sizeof(buf)));
 
 			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
@@ -8257,18 +8268,24 @@ void route_vty_out_tmp(struct vty *vty, const struct prefix *p,
 	/* Print attribute */
 	if (attr) {
 		if (use_json) {
+			char buf[BUFSIZ] = {0};
+
 			if (p->family == AF_INET
 			    && (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 				|| !BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
 				if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
 					json_object_string_add(
 						json_net, "nextHop",
-						inet_ntoa(
-							attr->mp_nexthop_global_in));
+						inet_ntop(
+							AF_INET,
+							&attr->mp_nexthop_global_in,
+							buf, sizeof(buf)));
 				else
 					json_object_string_add(
 						json_net, "nextHop",
-						inet_ntoa(attr->nexthop));
+						inet_ntop(AF_INET,
+							  &attr->nexthop, buf,
+							  sizeof(buf)));
 			} else if (p->family == AF_INET6
 				   || BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
 				char buf[BUFSIZ];
@@ -8278,11 +8295,16 @@ void route_vty_out_tmp(struct vty *vty, const struct prefix *p,
 					inet_ntop(AF_INET6,
 						  &attr->mp_nexthop_global, buf,
 						  BUFSIZ));
-			} else if (p->family == AF_EVPN &&
-				   !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
-				json_object_string_add(json_net,
-					"nextHop", inet_ntoa(
-					attr->mp_nexthop_global_in));
+			} else if (p->family == AF_EVPN
+				   && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
+				char buf[BUFSIZ] = {0};
+
+				json_object_string_add(
+					json_net, "nextHop",
+					inet_ntop(AF_INET,
+						  &attr->mp_nexthop_global_in,
+						  buf, sizeof(buf)));
+			}
 
 			if (attr->flag
 			    & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
@@ -8310,15 +8332,12 @@ void route_vty_out_tmp(struct vty *vty, const struct prefix *p,
 				|| !BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
 				if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 				    || safi == SAFI_EVPN)
-					vty_out(vty, "%-16s",
-						inet_ntoa(
-							attr->mp_nexthop_global_in));
+					vty_out(vty, "%-16pI4",
+						&attr->mp_nexthop_global_in);
 				else if (wide)
-					vty_out(vty, "%-41s",
-						inet_ntoa(attr->nexthop));
+					vty_out(vty, "%-41pI4", &attr->nexthop);
 				else
-					vty_out(vty, "%-16s",
-						inet_ntoa(attr->nexthop));
+					vty_out(vty, "%-16pI4", &attr->nexthop);
 			} else if (p->family == AF_INET6
 				   || BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
 				char buf[BUFSIZ];
@@ -8403,22 +8422,27 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 	     && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)))
 	    || (safi == SAFI_EVPN && !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 	    || (!BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
+		char buf[BUFSIZ] = {0};
+
 		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 		    || safi == SAFI_EVPN) {
 			if (json)
 				json_object_string_add(
 					json_out, "mpNexthopGlobalIn",
-					inet_ntoa(attr->mp_nexthop_global_in));
+					inet_ntop(AF_INET,
+						  &attr->mp_nexthop_global_in,
+						  buf, sizeof(buf)));
 			else
-				vty_out(vty, "%-16s",
-					inet_ntoa(attr->mp_nexthop_global_in));
+				vty_out(vty, "%-16pI4",
+					&attr->mp_nexthop_global_in);
 		} else {
 			if (json)
 				json_object_string_add(
 					json_out, "nexthop",
-					inet_ntoa(attr->nexthop));
+					inet_ntop(AF_INET, &attr->nexthop, buf,
+						  sizeof(buf)));
 			else
-				vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
+				vty_out(vty, "%-16pI4", &attr->nexthop);
 		}
 	} else if (((p->family == AF_INET6)
 		    && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)))
@@ -9044,11 +9068,14 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR))) {
 		if (json_paths) {
+			char buf[BUFSIZ] = {0};
+
 			json_object_int_add(json_path, "aggregatorAs",
 					    attr->aggregator_as);
-			json_object_string_add(
-				json_path, "aggregatorId",
-				inet_ntoa(attr->aggregator_addr));
+			json_object_string_add(json_path, "aggregatorId",
+					       inet_ntop(AF_INET,
+							 &attr->aggregator_addr,
+							 buf, sizeof(buf)));
 			if (attr->aggregator_as == BGP_AS_ZERO)
 				json_object_boolean_true_add(
 					json_path, "aggregatorAsMalformed");
@@ -9058,13 +9085,13 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 		} else {
 			if (attr->aggregator_as == BGP_AS_ZERO)
 				vty_out(vty,
-					", (aggregated by %u(malformed) %s)",
+					", (aggregated by %u(malformed) %pI4)",
 					attr->aggregator_as,
-					inet_ntoa(attr->aggregator_addr));
+					&attr->aggregator_addr);
 			else
-				vty_out(vty, ", (aggregated by %u %s)",
+				vty_out(vty, ", (aggregated by %u %pI4)",
 					attr->aggregator_as,
-					inet_ntoa(attr->aggregator_addr));
+					&attr->aggregator_addr);
 		}
 	}
 
@@ -9111,12 +9138,16 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 	     || bn_p->family == AF_EVPN)
 	    && (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN
 		|| !BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
+		char buf[BUFSIZ] = {0};
+
 		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 		    || safi == SAFI_EVPN) {
 			if (json_paths) {
 				json_object_string_add(
 					json_nexthop_global, "ip",
-					inet_ntoa(attr->mp_nexthop_global_in));
+					inet_ntop(AF_INET,
+						  &attr->mp_nexthop_global_in,
+						  buf, sizeof(buf)));
 
 				if (path->peer->hostname)
 					json_object_string_add(
@@ -9135,7 +9166,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 			if (json_paths) {
 				json_object_string_add(
 					json_nexthop_global, "ip",
-					inet_ntoa(attr->nexthop));
+					inet_ntop(AF_INET, &attr->nexthop, buf,
+						  sizeof(buf)));
 
 				if (path->peer->hostname)
 					json_object_string_add(
@@ -9232,11 +9264,16 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				vty_out(vty, " from :: ");
 		}
 
-		if (json_paths)
+		if (json_paths) {
+			char buf[BUFSIZ] = {0};
+
 			json_object_string_add(json_peer, "routerId",
-					       inet_ntoa(bgp->router_id));
-		else
-			vty_out(vty, "(%s)", inet_ntoa(bgp->router_id));
+					       inet_ntop(AF_INET,
+							 &bgp->router_id, buf,
+							 sizeof(buf)));
+		} else {
+			vty_out(vty, "(%pI4)", &bgp->router_id);
+		}
 	}
 
 	/* We RXed this path from one of our peers */
@@ -9289,8 +9326,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 			}
 
 			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
-				vty_out(vty, " (%s)",
-					inet_ntoa(attr->originator_id));
+				vty_out(vty, " (%pI4)", &attr->originator_id);
 			else
 				vty_out(vty, " (%s)",
 					inet_ntop(AF_INET,
@@ -9600,14 +9636,17 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 	/* Line 7 display Originator, Cluster-id */
 	if ((attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
 	    || (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))) {
+		char buf[BUFSIZ] = {0};
+
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)) {
 			if (json_paths)
 				json_object_string_add(
 					json_path, "originatorId",
-					inet_ntoa(attr->originator_id));
+					inet_ntop(AF_INET, &attr->originator_id,
+						  buf, sizeof(buf)));
 			else
-				vty_out(vty, "      Originator: %s",
-					inet_ntoa(attr->originator_id));
+				vty_out(vty, "      Originator: %pI4",
+					&attr->originator_id);
 		}
 
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST)) {
@@ -9621,8 +9660,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				for (i = 0; i < attr->cluster->length / 4;
 				     i++) {
 					json_string = json_object_new_string(
-						inet_ntoa(attr->cluster
-								  ->list[i]));
+						inet_ntop(
+							AF_INET,
+							&attr->cluster->list[i],
+							buf, sizeof(buf)));
 					json_object_array_add(
 						json_cluster_list_list,
 						json_string);
@@ -9646,9 +9687,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 
 				for (i = 0; i < attr->cluster->length / 4;
 				     i++) {
-					vty_out(vty, "%s ",
-						inet_ntoa(attr->cluster
-								  ->list[i]));
+					vty_out(vty, "%pI4 ",
+						&attr->cluster->list[i]);
 				}
 			}
 		}
@@ -9872,13 +9912,14 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 		}
 
 		vty_out(vty,
-			" \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64",\n \"routerId\": \"%s\",\n \"defaultLocPrf\": %u,\n"
+			" \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
+			",\n \"routerId\": \"%pI4\",\n \"defaultLocPrf\": %u,\n"
 			" \"localAS\": %u,\n \"routes\": { ",
 			bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
 			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
-						? VRF_DEFAULT_NAME
-						: bgp->name,
-			table->version, inet_ntoa(bgp->router_id),
+				? VRF_DEFAULT_NAME
+				: bgp->name,
+			table->version, &bgp->router_id,
 			bgp->default_local_pref, bgp->as);
 		if (rd) {
 			vty_out(vty, " \"routeDistinguishers\" : {");
@@ -10056,9 +10097,10 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			}
 
 			if (!use_json && header) {
-				vty_out(vty, "BGP table version is %" PRIu64", local router ID is %s, vrf id ",
-					table->version,
-					inet_ntoa(bgp->router_id));
+				vty_out(vty,
+					"BGP table version is %" PRIu64
+					", local router ID is %pI4, vrf id ",
+					table->version, &bgp->router_id);
 				if (bgp->vrf_id == VRF_UNKNOWN)
 					vty_out(vty, "%s", VRFID_NONE_STR);
 				else
@@ -12390,12 +12432,15 @@ static void show_adj_route_header(struct vty *vty, struct bgp *bgp,
 				  json_object *json_ocode, bool wide)
 {
 	uint64_t version = table ? table->version : 0;
+	char buf[BUFSIZ] = {0};
 
 	if (*header1) {
 		if (json) {
 			json_object_int_add(json, "bgpTableVersion", version);
 			json_object_string_add(json, "bgpLocalRouterId",
-					       inet_ntoa(bgp->router_id));
+					       inet_ntop(AF_INET,
+							 &bgp->router_id, buf,
+							 sizeof(buf)));
 			json_object_int_add(json, "defaultLocPrf",
 					    bgp->default_local_pref);
 			json_object_int_add(json, "localAS", bgp->as);
@@ -12405,8 +12450,9 @@ static void show_adj_route_header(struct vty *vty, struct bgp *bgp,
 					       json_ocode);
 		} else {
 			vty_out(vty,
-				"BGP table version is %" PRIu64 ", local router ID is %s, vrf id ",
-				version, inet_ntoa(bgp->router_id));
+				"BGP table version is %" PRIu64
+				", local router ID is %pI4, vrf id ",
+				version, &bgp->router_id);
 			if (bgp->vrf_id == VRF_UNKNOWN)
 				vty_out(vty, "%s", VRFID_NONE_STR);
 			else
@@ -12498,11 +12544,15 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 
 	if (type == bgp_show_adj_route_advertised && subgrp
 	    && CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
+		char buf[BUFSIZ] = {0};
+
 		if (use_json) {
 			json_object_int_add(json, "bgpTableVersion",
 					    table->version);
 			json_object_string_add(json, "bgpLocalRouterId",
-					       inet_ntoa(bgp->router_id));
+					       inet_ntop(AF_INET,
+							 &bgp->router_id, buf,
+							 sizeof(buf)));
 			json_object_int_add(json, "defaultLocPrf",
 						bgp->default_local_pref);
 			json_object_int_add(json, "localAS", bgp->as);
@@ -12514,8 +12564,10 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 				json, "bgpOriginatingDefaultNetwork",
 				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
 		} else {
-			vty_out(vty, "BGP table version is %" PRIu64", local router ID is %s, vrf id ",
-				table->version, inet_ntoa(bgp->router_id));
+			vty_out(vty,
+				"BGP table version is %" PRIu64
+				", local router ID is %pI4, vrf id ",
+				table->version, &bgp->router_id);
 			if (bgp->vrf_id == VRF_UNKNOWN)
 				vty_out(vty, "%s", VRFID_NONE_STR);
 			else

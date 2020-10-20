@@ -763,8 +763,7 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 	struct attr *attr = bucket->data;
 	char sid_str[BUFSIZ];
 
-	vty_out(vty, "attr[%ld] nexthop %s\n", attr->refcnt,
-		inet_ntoa(attr->nexthop));
+	vty_out(vty, "attr[%ld] nexthop %pI4\n", attr->refcnt, &attr->nexthop);
 
 	sid_str[0] = '\0';
 	if (attr->srv6_l3vpn)
