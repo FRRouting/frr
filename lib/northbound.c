@@ -2236,24 +2236,10 @@ static void nb_load_callbacks(const struct frr_yang_module_info *module)
 	}
 }
 
-void nb_init(struct thread_master *tm,
-	     const struct frr_yang_module_info *const modules[],
-	     size_t nmodules, bool db_enabled)
+void nb_validate_callbacks(void)
 {
 	unsigned int errors = 0;
 
-	/* Load YANG modules. */
-	for (size_t i = 0; i < nmodules; i++)
-		yang_module_load(modules[i]->name);
-
-	/* Create a nb_node for all YANG schema nodes. */
-	nb_nodes_create();
-
-	/* Load northbound callbacks. */
-	for (size_t i = 0; i < nmodules; i++)
-		nb_load_callbacks(modules[i]);
-
-	/* Validate northbound callbacks. */
 	yang_snodes_iterate(NULL, nb_node_validate, 0, &errors);
 	if (errors > 0) {
 		flog_err(
@@ -2262,8 +2248,32 @@ void nb_init(struct thread_master *tm,
 			__func__, errors);
 		exit(1);
 	}
+}
 
+void nb_load_module(const struct frr_yang_module_info *module_info)
+{
+	struct yang_module *module;
+
+	DEBUGD(&nb_dbg_events, "northbound: loading %s.yang",
+	       module_info->name);
+
+	module = yang_module_load(module_info->name);
+	yang_snodes_iterate(module->info, nb_node_new_cb, 0, NULL);
+	nb_load_callbacks(module_info);
+}
+
+void nb_init(struct thread_master *tm,
+	     const struct frr_yang_module_info *const modules[],
+	     size_t nmodules, bool db_enabled)
+{
 	nb_db_enabled = db_enabled;
+
+	/* Load YANG modules and their corresponding northbound callbacks. */
+	for (size_t i = 0; i < nmodules; i++)
+		nb_load_module(modules[i]);
+
+	/* Validate northbound callbacks. */
+	nb_validate_callbacks();
 
 	/* Create an empty running configuration. */
 	running_config = nb_config_new(NULL);

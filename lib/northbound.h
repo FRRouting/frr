@@ -1238,6 +1238,29 @@ extern const char *nb_err_name(enum nb_error error);
 extern const char *nb_client_name(enum nb_client client);
 
 /*
+ * Validate all northbound callbacks.
+ *
+ * Some errors, like missing callbacks or invalid priorities, are fatal and
+ * can't be recovered from. Other errors, like unneeded callbacks, are logged
+ * but otherwise ignored.
+ *
+ * Whenever a YANG module is loaded after startup, *all* northbound callbacks
+ * need to be validated and not only the callbacks from the newly loaded module.
+ * This is because augmentations can change the properties of the augmented
+ * module, making mandatory the implementation of additional callbacks.
+ */
+void nb_validate_callbacks(void);
+
+/*
+ * Load a YANG module with its corresponding northbound callbacks.
+ *
+ * module_info
+ *    Pointer to structure containing the module name and its northbound
+ *    callbacks.
+ */
+void nb_load_module(const struct frr_yang_module_info *module_info);
+
+/*
  * Initialize the northbound layer. Should be called only once during the
  * daemon initialization process.
  *
