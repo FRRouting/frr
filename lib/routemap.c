@@ -3156,8 +3156,6 @@ DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
 	struct list *rmap_index_list = NULL;
 	struct listnode *ln = NULL, *nln = NULL;
 	struct route_map_index *index = NULL;
-	struct prefix *p = NULL, *pp = NULL;
-	char buf[SU_ADDRSTRLEN], pbuf[SU_ADDRSTRLEN];
 	uint8_t len = 54;
 
 	vty_out(vty, "%s:\n", frr_protonameinst);
@@ -3171,22 +3169,13 @@ DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
 				"____________________");
 			for (rn = route_top(rm_pfx_tbl4); rn;
 			     rn = route_next(rn)) {
-				p = &rn->p;
-
-				vty_out(vty, "    %s/%d (%d)\n",
-					inet_ntop(p->family, &p->u.prefix, buf,
-						  SU_ADDRSTRLEN),
-					p->prefixlen, rn->lock);
+				vty_out(vty, "    %pRN (%d)\n", rn,
+					route_node_get_lock_count(rn));
 
 				vty_out(vty, "(P) ");
 				prn = rn->parent;
 				if (prn) {
-					pp = &prn->p;
-					vty_out(vty, "%s/%d\n",
-						inet_ntop(pp->family,
-							  &pp->u.prefix, pbuf,
-							  SU_ADDRSTRLEN),
-						pp->prefixlen);
+					vty_out(vty, "%pRN\n", prn);
 				}
 
 				vty_out(vty, "\n");
@@ -3215,22 +3204,13 @@ DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
 				"____________________");
 			for (rn = route_top(rm_pfx_tbl6); rn;
 			     rn = route_next(rn)) {
-				p = &rn->p;
-
-				vty_out(vty, "    %s/%d (%d)\n",
-					inet_ntop(p->family, &p->u.prefix, buf,
-						  SU_ADDRSTRLEN),
-					p->prefixlen, rn->lock);
+				vty_out(vty, "    %pRN (%d)\n", rn,
+					route_node_get_lock_count(rn));
 
 				vty_out(vty, "(P) ");
 				prn = rn->parent;
 				if (prn) {
-					pp = &prn->p;
-					vty_out(vty, "%s/%d\n",
-						inet_ntop(pp->family,
-							  &pp->u.prefix, pbuf,
-							  SU_ADDRSTRLEN),
-						pp->prefixlen);
+					vty_out(vty, "%pRN\n", prn);
 				}
 
 				vty_out(vty, "\n");

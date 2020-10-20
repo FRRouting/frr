@@ -802,7 +802,7 @@ int rfapiRibPreloadBi(
 	 */
 	trn = agg_node_get(rfd->rsp_times[afi], p); /* locks trn */
 	trn->info = (void *)(uintptr_t)bgp_clock();
-	if (trn->lock > 1)
+	if (agg_node_get_lock_count(trn) > 1)
 		agg_unlock_node(trn);
 
 	return 0;
@@ -1242,7 +1242,7 @@ callback:
 			trn = agg_node_get(rfd->rsp_times[afi],
 					   p); /* locks trn */
 			trn->info = (void *)(uintptr_t)bgp_clock();
-			if (trn->lock > 1)
+			if (agg_node_get_lock_count(trn) > 1)
 				agg_unlock_node(trn);
 
 			rfapiRfapiIpAddr2Str(&new->vn_address, buf, BUFSIZ);
@@ -1833,7 +1833,7 @@ int rfapiRibFTDFilterRecentPrefix(
 	 */
 	trn = agg_node_get(rfd->rsp_times[afi], p); /* locks trn */
 	prefix_time = (time_t)trn->info;
-	if (trn->lock > 1)
+	if (agg_node_get_lock_count(trn) > 1)
 		agg_unlock_node(trn);
 
 #ifdef DEBUG_FTD_FILTER_RECENT
@@ -2069,7 +2069,7 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		 */
 		trn = agg_node_get(rfd->rsp_times[afi], &pfx); /* locks trn */
 		trn->info = (void *)(uintptr_t)bgp_clock();
-		if (trn->lock > 1)
+		if (agg_node_get_lock_count(trn) > 1)
 			agg_unlock_node(trn);
 
 		{

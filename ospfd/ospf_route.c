@@ -989,9 +989,7 @@ int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_add_discard_route(): adding %s/%d",
-			inet_ntoa(p->prefix), p->prefixlen);
+		zlog_debug("ospf_add_discard_route(): adding %pFX", p);
 
 	new_or = ospf_route_new();
 	new_or->type = OSPF_DESTINATION_DISCARD;
@@ -1014,9 +1012,7 @@ void ospf_delete_discard_route(struct ospf *ospf, struct route_table *rt,
 	struct ospf_route * or ;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_delete_discard_route(): deleting %s/%d",
-			inet_ntoa(p->prefix), p->prefixlen);
+		zlog_debug("ospf_delete_discard_route(): deleting %pFX", p);
 
 	rn = route_node_lookup(rt, (struct prefix *)p);
 

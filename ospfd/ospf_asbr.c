@@ -53,8 +53,7 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 	rn = route_node_lookup(ospf->old_external_route, (struct prefix *)p);
 	if (rn)
 		if ((or = rn->info)) {
-			zlog_info("Route[%s/%d]: external path deleted",
-				  inet_ntoa(p->prefix), p->prefixlen);
+			zlog_info("Route[%pFX]: external path deleted", p);
 
 			/* Remove route from zebra. */
 			if (or->type == OSPF_DESTINATION_NETWORK)
@@ -69,8 +68,7 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 			return;
 		}
 
-	zlog_info("Route[%s/%d]: no such external path", inet_ntoa(p->prefix),
-		  p->prefixlen);
+	zlog_info("Route[%pFX]: no such external path", p);
 }
 
 /* Add an External info for AS-external-LSA. */

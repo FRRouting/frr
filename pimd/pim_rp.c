@@ -134,7 +134,7 @@ void pim_rp_init(struct pim_instance *pim)
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
 			"Allocated: %p for rp_info: %p(224.0.0.0/4) Lock: %d",
-			rn, rp_info, rn->lock);
+			rn, rp_info, route_node_get_lock_count(rn));
 }
 
 void pim_rp_free(struct pim_instance *pim)
@@ -254,7 +254,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 		zlog_debug("Lookedup: %p for rp_info: %p(%s) Lock: %d", rn,
 			   rp_info,
 			   prefix2str(&rp_info->group, buf, sizeof(buf)),
-			   rn->lock);
+			   route_node_get_lock_count(rn));
 	}
 
 	route_unlock_node(rn);
@@ -649,7 +649,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 		zlog_debug("Allocated: %p for rp_info: %p(%s) Lock: %d", rn,
 			   rp_info,
 			   prefix2str(&rp_info->group, buf, sizeof(buf)),
-			   rn->lock);
+			   route_node_get_lock_count(rn));
 	}
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
@@ -845,7 +845,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 					__func__, rn, rp_info,
 					prefix2str(&rp_info->group, buf,
 						   sizeof(buf)),
-					rn->lock);
+					route_node_get_lock_count(rn));
 			}
 			rn->info = NULL;
 			route_unlock_node(rn);

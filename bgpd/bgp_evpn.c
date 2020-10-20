@@ -2481,11 +2481,10 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	bgp_dest_unlock_node(dest);
 
 	if (bgp_debug_zebra(NULL))
-		zlog_debug(
-			"... %s pi dest %p (l %d) pi %p (l %d, f 0x%x)",
-			new_pi ? "new" : "update",
-			dest, bgp_dest_to_rnode(dest)->lock,
-			pi, pi->lock, pi->flags);
+		zlog_debug("... %s pi dest %p (l %d) pi %p (l %d, f 0x%x)",
+			   new_pi ? "new" : "update", dest,
+			   bgp_dest_get_lock_count(dest), pi, pi->lock,
+			   pi->flags);
 
 	return ret;
 }
@@ -2620,10 +2619,9 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		return 0;
 
 	if (bgp_debug_zebra(NULL))
-		zlog_debug(
-			"... delete dest %p (l %d) pi %p (l %d, f 0x%x)",
-			dest, bgp_dest_to_rnode(dest)->lock,
-			pi, pi->lock, pi->flags);
+		zlog_debug("... delete dest %p (l %d) pi %p (l %d, f 0x%x)",
+			   dest, bgp_dest_get_lock_count(dest), pi, pi->lock,
+			   pi->flags);
 
 	/* Process for route leaking. */
 	vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp_vrf, pi);

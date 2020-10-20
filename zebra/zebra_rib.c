@@ -2289,7 +2289,7 @@ static void process_subq_route(struct listnode *lnode, uint8_t qindex)
   else
     {
       zlog_debug ("%s: called for route_node (%p, %d) with no ribs",
-                  __func__, rnode, rnode->lock);
+                  __func__, rnode, route_node_get_lock_count(rnode));
       zlog_backtrace(LOG_DEBUG);
     }
 #endif
@@ -2464,8 +2464,8 @@ int rib_queue_add(struct route_node *rn)
 	/* Pointless to queue a route_node with no RIB entries to add or remove
 	 */
 	if (!rnode_to_ribs(rn)) {
-		zlog_debug("%s: called for route_node (%p, %d) with no ribs",
-			   __func__, (void *)rn, rn->lock);
+		zlog_debug("%s: called for route_node (%p, %u) with no ribs",
+			   __func__, (void *)rn, route_node_get_lock_count(rn));
 		zlog_backtrace(LOG_DEBUG);
 		return -1;
 	}

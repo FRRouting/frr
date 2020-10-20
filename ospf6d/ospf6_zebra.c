@@ -99,7 +99,6 @@ void ospf6_zebra_no_redistribute(int type, vrf_id_t vrf_id)
 static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
-	char buf[128];
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_ADD,
 					 zclient->ibuf, vrf_id);
@@ -107,11 +106,9 @@ static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
-		zlog_debug("Zebra Interface address add: %s %5s %s/%d",
+		zlog_debug("Zebra Interface address add: %s %5s %pFX",
 			   c->ifp->name, prefix_family_str(c->address),
-			   inet_ntop(c->address->family, &c->address->u.prefix,
-				     buf, sizeof(buf)),
-			   c->address->prefixlen);
+			   c->address);
 
 	if (c->address->family == AF_INET6) {
 		ospf6_interface_state_update(c->ifp);
@@ -123,7 +120,6 @@ static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 static int ospf6_zebra_if_address_update_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
-	char buf[128];
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_DELETE,
 					 zclient->ibuf, vrf_id);
@@ -131,11 +127,9 @@ static int ospf6_zebra_if_address_update_delete(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
-		zlog_debug("Zebra Interface address delete: %s %5s %s/%d",
+		zlog_debug("Zebra Interface address delete: %s %5s %pFX",
 			   c->ifp->name, prefix_family_str(c->address),
-			   inet_ntop(c->address->family, &c->address->u.prefix,
-				     buf, sizeof(buf)),
-			   c->address->prefixlen);
+			   c->address);
 
 	if (c->address->family == AF_INET6) {
 		ospf6_interface_connected_route_update(c->ifp);
@@ -325,7 +319,6 @@ void ospf6_zebra_route_update_remove(struct ospf6_route *request)
 void ospf6_zebra_add_discard(struct ospf6_route *request)
 {
 	struct zapi_route api;
-	char buf[INET6_ADDRSTRLEN];
 	struct prefix *dest = &request->prefix;
 
 	if (!CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
@@ -339,26 +332,20 @@ void ospf6_zebra_add_discard(struct ospf6_route *request)
 		zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
-			zlog_debug("Zebra: Route add discard %s/%d",
-				   inet_ntop(AF_INET6, &dest->u.prefix6, buf,
-					     INET6_ADDRSTRLEN),
-				   dest->prefixlen);
+			zlog_debug("Zebra: Route add discard %pFX", dest);
 
 		SET_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED);
 	} else {
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
 			zlog_debug(
-				"Zebra: Blackhole route present already %s/%d",
-				inet_ntop(AF_INET6, &dest->u.prefix6, buf,
-					  INET6_ADDRSTRLEN),
-				dest->prefixlen);
+				"Zebra: Blackhole route present already %pFX",
+				dest);
 	}
 }
 
 void ospf6_zebra_delete_discard(struct ospf6_route *request)
 {
 	struct zapi_route api;
-	char buf[INET6_ADDRSTRLEN];
 	struct prefix *dest = &request->prefix;
 
 	if (CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
@@ -372,19 +359,14 @@ void ospf6_zebra_delete_discard(struct ospf6_route *request)
 		zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
-			zlog_debug("Zebra: Route delete discard %s/%d",
-				   inet_ntop(AF_INET6, &dest->u.prefix6, buf,
-					     INET6_ADDRSTRLEN),
-				   dest->prefixlen);
+			zlog_debug("Zebra: Route delete discard %pFX", dest);
 
 		UNSET_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED);
 	} else {
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
 			zlog_debug(
-				"Zebra: Blackhole route already deleted %s/%d",
-				inet_ntop(AF_INET6, &dest->u.prefix6, buf,
-					  INET6_ADDRSTRLEN),
-				dest->prefixlen);
+				"Zebra: Blackhole route already deleted %pFX",
+				dest);
 	}
 }
 

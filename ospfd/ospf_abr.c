@@ -868,16 +868,16 @@ static void ospf_abr_announce_network(struct ospf *ospf, struct prefix_ipv4 *p,
 		if (!ospf_abr_should_accept(p, area)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"ospf_abr_announce_network(): prefix %s/%d was denied by import-list",
-					inet_ntoa(p->prefix), p->prefixlen);
+					"ospf_abr_announce_network(): prefix %pFX was denied by import-list",
+					p);
 			continue;
 		}
 
 		if (!ospf_abr_plist_in_check(area, or, p)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"ospf_abr_announce_network(): prefix %s/%d was denied by prefix-list",
-					inet_ntoa(p->prefix), p->prefixlen);
+					"ospf_abr_announce_network(): prefix %pFX was denied by prefix-list",
+					p);
 			continue;
 		}
 
@@ -893,8 +893,8 @@ static void ospf_abr_announce_network(struct ospf *ospf, struct prefix_ipv4 *p,
 		if (or->path_type == OSPF_PATH_INTER_AREA) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"ospf_abr_announce_network(): this is inter-area route to %s/%d",
-					inet_ntoa(p->prefix), p->prefixlen);
+					"ospf_abr_announce_network(): this is inter-area route to %pFX",
+					p);
 
 			if (!OSPF_IS_AREA_BACKBONE(area))
 				ospf_abr_announce_network_to_area(p, or->cost,
@@ -904,8 +904,8 @@ static void ospf_abr_announce_network(struct ospf *ospf, struct prefix_ipv4 *p,
 		if (or->path_type == OSPF_PATH_INTRA_AREA) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"ospf_abr_announce_network(): this is intra-area route to %s/%d",
-					inet_ntoa(p->prefix), p->prefixlen);
+					"ospf_abr_announce_network(): this is intra-area route to %pFX",
+					p);
 			if ((range = ospf_area_range_match(or_area, p))
 			    && !ospf_area_is_transit(area))
 				ospf_abr_update_aggregate(range, or, area);

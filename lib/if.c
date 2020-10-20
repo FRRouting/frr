@@ -826,7 +826,7 @@ DEFUN (show_address,
 			p = ifc->address;
 
 			if (p->family == AF_INET)
-				vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
+				vty_out (vty, "%pFX\n", p);
 		}
 	}
 	return CMD_SUCCESS;
@@ -858,7 +858,7 @@ DEFUN (show_address_vrf_all,
 				p = ifc->address;
 
 				if (p->family == AF_INET)
-					vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
+					vty_out (vty, "%pFX\n", p);
 			}
 		}
 	}
@@ -929,10 +929,9 @@ connected_log(struct connected *connected, char *str)
 	p = connected->address;
 
 	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	snprintf(logbuf, sizeof(logbuf), "%s interface %s vrf %s(%u) %s %s/%d ",
+	snprintf(logbuf, sizeof(logbuf), "%s interface %s vrf %s(%u) %s %pFX ",
 		 str, ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id,
-		 prefix_family_str(p),
-		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
+		 prefix_family_str(p), p);
 
 	p = connected->destination;
 	if (p) {
@@ -949,14 +948,12 @@ nbr_connected_log(struct nbr_connected *connected, char *str)
 	struct prefix *p;
 	struct interface *ifp;
 	char logbuf[BUFSIZ];
-	char buf[BUFSIZ];
 
 	ifp = connected->ifp;
 	p = connected->address;
 
-	snprintf(logbuf, sizeof(logbuf), "%s interface %s %s %s/%d ", str,
-		 ifp->name, prefix_family_str(p),
-		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
+	snprintf(logbuf, sizeof(logbuf), "%s interface %s %s %pFX ", str,
+		 ifp->name, prefix_family_str(p), p);
 
 	zlog_info("%s", logbuf);
 }

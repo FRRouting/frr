@@ -265,11 +265,12 @@ void rfapiCheckRefcount(struct agg_node *rn, safi_t safi, int lockoffset)
 		}
 	}
 
-	if (count_bpi + count_monitor + lockoffset != rn->lock) {
+	if (count_bpi + count_monitor + lockoffset
+	    != agg_node_get_lock_count(rn)) {
 		vnc_zlog_debug_verbose(
 			"%s: count_bpi=%d, count_monitor=%d, lockoffset=%d, rn->lock=%d",
 			__func__, count_bpi, count_monitor, lockoffset,
-			rn->lock);
+			agg_node_get_lock_count(rn));
 		assert(0);
 	}
 }
@@ -3665,7 +3666,8 @@ void rfapiBgpInfoFilteredImportVPN(
 	}
 
 	vnc_zlog_debug_verbose("%s: inserting bpi %p at prefix %pRN #%d",
-			       __func__, info_new, rn, rn->lock);
+			       __func__, info_new, rn,
+			       agg_node_get_lock_count(rn));
 
 	rfapiBgpInfoAttachSorted(rn, info_new, afi, SAFI_MPLS_VPN);
 	rfapiItBiIndexAdd(rn, info_new);
