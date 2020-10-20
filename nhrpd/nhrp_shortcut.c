@@ -148,7 +148,7 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 
 static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 {
-	struct route_node *rn;
+	struct route_node *rn = NULL;
 	afi_t afi = family2afi(PREFIX_FAMILY(s->p));
 	struct nhrp_vrf *nhrp_vrf = s->nhrp_vrf;
 
@@ -160,7 +160,8 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	nhrp_shortcut_update_binding(s, NHRP_CACHE_INVALID, NULL, 0);
 
 	/* Delete node */
-	rn = route_node_lookup(nhrp_vrf->shortcut_rib[afi], s->p);
+	if (nhrp_vrf->shortcut_rib[afi])
+		rn = route_node_lookup(nhrp_vrf->shortcut_rib[afi], s->p);
 	if (rn) {
 		XFREE(MTYPE_NHRP_SHORTCUT, rn->info);
 		rn->info = NULL;
