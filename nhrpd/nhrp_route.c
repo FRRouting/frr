@@ -571,6 +571,11 @@ void nhrp_zebra_terminate(struct nhrp_vrf *nhrp_vrf)
 
 	nhrp_vrf->zebra_rib[AFI_IP]->cleanup = nhrp_table_node_cleanup;
 	nhrp_vrf->zebra_rib[AFI_IP6]->cleanup = nhrp_table_node_cleanup;
+
+	if (nhrp_vrf->netlink_nflog_group)
+		nhrp_zebra_register_log(nhrp_vrf->vrf_id,
+					nhrp_vrf->netlink_nflog_group, false);
+
 	route_table_finish(nhrp_vrf->zebra_rib[AFI_IP]);
 	route_table_finish(nhrp_vrf->zebra_rib[AFI_IP6]);
 }
