@@ -560,6 +560,7 @@ struct bgp {
 	uint32_t default_holdtime;
 	uint32_t default_keepalive;
 	uint32_t default_connect_retry;
+	uint32_t default_delayopen;
 
 	/* BGP graceful restart */
 	uint32_t restart_time;
@@ -904,12 +905,14 @@ enum bgp_fsm_events {
 	BGP_Start = 1,
 	BGP_Stop,
 	TCP_connection_open,
+	TCP_connection_open_w_delay,
 	TCP_connection_closed,
 	TCP_connection_open_failed,
 	TCP_fatal_error,
 	ConnectRetry_timer_expired,
 	Hold_Timer_expired,
 	KeepAlive_timer_expired,
+	DelayOpen_timer_expired,
 	Receive_OPEN_message,
 	Receive_KEEPALIVE_message,
 	Receive_UPDATE_message,
@@ -1166,6 +1169,8 @@ struct peer {
 	 *and PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT
 	 */
 
+#define PEER_FLAG_TIMER_DELAYOPEN (1 << 27) /* delayopen timer */
+
 	struct bgp_peer_gr PEER_GR_FSM[BGP_PEER_GR_MODE][BGP_PEER_GR_EVENT_CMD];
 	enum peer_mode peer_gr_present_state;
 	/* Non stop forwarding afi-safi count for BGP gr feature*/
@@ -1259,6 +1264,7 @@ struct peer {
 	_Atomic uint32_t keepalive;
 	_Atomic uint32_t connect;
 	_Atomic uint32_t routeadv;
+	_Atomic uint32_t delayopen;
 
 	/* Timer values. */
 	_Atomic uint32_t v_start;
@@ -1266,6 +1272,7 @@ struct peer {
 	_Atomic uint32_t v_holdtime;
 	_Atomic uint32_t v_keepalive;
 	_Atomic uint32_t v_routeadv;
+	_Atomic uint32_t v_delayopen;
 	_Atomic uint32_t v_pmax_restart;
 	_Atomic uint32_t v_gr_restart;
 
@@ -1278,6 +1285,7 @@ struct peer {
 	struct thread *t_connect;
 	struct thread *t_holdtime;
 	struct thread *t_routeadv;
+	struct thread *t_delayopen;
 	struct thread *t_pmax_restart;
 	struct thread *t_gr_restart;
 	struct thread *t_gr_stale;
@@ -1673,6 +1681,9 @@ struct bgp_nlri {
 #define BGP_DEFAULT_EBGP_ROUTEADV                0
 #define BGP_DEFAULT_IBGP_ROUTEADV                0
 
+/* BGP RFC 4271 DelayOpenTime default value */
+#define BGP_DEFAULT_DELAYOPEN 120
+
 /* BGP default local preference.  */
 #define BGP_DEFAULT_LOCAL_PREF                 100
 
@@ -1877,7 +1888,7 @@ extern int bgp_confederation_peers_add(struct bgp *, as_t);
 extern int bgp_confederation_peers_remove(struct bgp *, as_t);
 
 extern void bgp_timers_set(struct bgp *, uint32_t keepalive, uint32_t holdtime,
-			   uint32_t connect_retry);
+			   uint32_t connect_retry, uint32_t delayopen);
 extern void bgp_timers_unset(struct bgp *);
 
 extern int bgp_default_local_preference_set(struct bgp *, uint32_t);
@@ -1952,6 +1963,9 @@ extern int peer_timers_connect_unset(struct peer *);
 
 extern int peer_advertise_interval_set(struct peer *, uint32_t);
 extern int peer_advertise_interval_unset(struct peer *);
+
+extern int peer_timers_delayopen_set(struct peer *peer, uint32_t delayopen);
+extern int peer_timers_delayopen_unset(struct peer *peer);
 
 extern void peer_interface_set(struct peer *, const char *);
 extern void peer_interface_unset(struct peer *);

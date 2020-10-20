@@ -1425,8 +1425,8 @@ int bgp_global_global_config_timers_hold_time_modify(
 		keepalive = yang_dnode_get_uint16(args->dnode, "../keepalive");
 		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
 
-		bgp_timers_set(bgp, keepalive, holdtime,
-			       DFLT_BGP_CONNECT_RETRY);
+		bgp_timers_set(bgp, keepalive, holdtime, DFLT_BGP_CONNECT_RETRY,
+			       BGP_DEFAULT_DELAYOPEN);
 
 		break;
 	}
@@ -1466,8 +1466,8 @@ int bgp_global_global_config_timers_keepalive_modify(
 		keepalive = yang_dnode_get_uint16(args->dnode, NULL);
 		holdtime = yang_dnode_get_uint16(args->dnode, "../hold-time");
 
-		bgp_timers_set(bgp, keepalive, holdtime,
-			       DFLT_BGP_CONNECT_RETRY);
+		bgp_timers_set(bgp, keepalive, holdtime, DFLT_BGP_CONNECT_RETRY,
+			       BGP_DEFAULT_DELAYOPEN);
 
 		break;
 	}
