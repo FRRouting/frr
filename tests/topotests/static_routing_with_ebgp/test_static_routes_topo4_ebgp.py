@@ -169,7 +169,7 @@ def teardown_module(mod):
 #   Tests starting
 #
 #####################################################
-def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
+def static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
     """
     Verify static route are blocked from route-map & prefix-list applied in BGP
     nbrs

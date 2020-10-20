@@ -37,7 +37,6 @@ import traceback
 import socket
 import ipaddress
 import platform
-
 if sys.version_info[0] > 2:
     import configparser
 else:
@@ -1159,13 +1158,13 @@ def generate_ips(network, no_of_ips):
             if start_ip == "0.0.0.0" and mask == 0 and no_of_ips == 1:
                 ipaddress_list.append("{}/{}".format(start_ip, mask))
                 return ipaddress_list
-            start_ip = ipaddr.IPv4Address(unicode(start_ip))
+            start_ip = ipaddress.IPv4Address(unicode(start_ip))
             step = 2 ** (32 - mask)
         if addr_type == "ipv6":
             if start_ip == "0::0" and mask == 0 and no_of_ips == 1:
                 ipaddress_list.append("{}/{}".format(start_ip, mask))
                 return ipaddress_list
-            start_ip = ipaddr.IPv6Address(unicode(start_ip))
+            start_ip = ipaddress.IPv6Address(unicode(start_ip))
             step = 2 ** (128 - mask)
 
         next_ip = start_ip

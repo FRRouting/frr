@@ -413,60 +413,7 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ibgp(request):
             assert result is True, "Testcase {} : Failed\nError: Routes are"
             " missing in RIB".format(tc_name)
 
-    dut = "r2"
     protocol = "static"
-    step("Shut nexthop interfaces N1 to N3 one by one")
-    for intfr in range(0, 3):
-        intf = topo["routers"]["r2"]["links"]["r1-link{}".format(intfr)]["interface"]
-        shutdown_bringup_interface(tgen, dut, intf, False)
-        for addr_type in ADDR_TYPES:
-            nhp = intfr + 1
-            input_dict_4 = {
-                "r2": {
-                    "static_routes": [
-                        {
-                            "network": PREFIX1[addr_type],
-                            "next_hop": NEXT_HOP_IP["nh" + str(nhp)][addr_type],
-                        }
-                    ]
-                }
-            }
-            nh = NEXT_HOP_IP["nh" + str(nhp)][addr_type]
-            result = verify_rib(
-                tgen,
-                addr_type,
-                dut,
-                input_dict_4,
-                next_hop=nh,
-                protocol=protocol,
-                expected=False,
-            )
-            assert result is not True, "Testcase {}: Failed\nError: Routes are"
-            " still present in RIB".format(tc_name)
-
-    step("No shut the nexthop interfaces N1 to N3 one by one .")
-    for intfr in range(0, 3):
-        intf = topo["routers"]["r2"]["links"]["r1-link{}".format(intfr)]["interface"]
-        shutdown_bringup_interface(tgen, dut, intf, True)
-        for addr_type in ADDR_TYPES:
-            nhp = intfr + 1
-            input_dict_4 = {
-                "r2": {
-                    "static_routes": [
-                        {
-                            "network": PREFIX1[addr_type],
-                            "next_hop": NEXT_HOP_IP["nh" + str(nhp)][addr_type],
-                        }
-                    ]
-                }
-            }
-            nh = NEXT_HOP_IP["nh" + str(nhp)][addr_type]
-            result = verify_rib(
-                tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol
-            )
-            assert result is True, "Testcase {} : Failed \nError: Routes are"
-            " missing in RIB".format(tc_name)
-
     step("Random shut of the nexthop interfaces")
     randnum = random.randint(0, 7)
     # Shutdown interface
@@ -882,27 +829,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ibgp(request):
         assert result is True, "Testcase {} : Failed \n"
         "Error: Routes are missing in RIB".format(tc_name)
 
-    dut = "r2"
-    step("Shut the interfaces connected between R2 and R3 one by one")
-    for nhp in range(0, 3):
-        intf = topo["routers"]["r2"]["links"]["r3-link" + str(nhp)]["interface"]
-        shutdown_bringup_interface(tgen, dut, intf, False)
-
     protocol = "bgp"
-    for addr_type in ADDR_TYPES:
-        input_dict_4 = {"r2": {"static_routes": [{"network": PREFIX1[addr_type]}]}}
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_4, protocol=protocol, expected=False
-        )
-        assert result is not True, "Testcase {} : Failed \n"
-        "Error: Routes are still present in RIB".format(tc_name)
-
-    step("No shut the interfaces between R2 and R3 one by one")
-    dut = "r2"
-    for nhp in range(0, 3):
-        intf = topo["routers"]["r2"]["links"]["r3-link" + str(nhp)]["interface"]
-        shutdown_bringup_interface(tgen, dut, intf, True)
-
     # this is next hop reachability route  in r3 as we are using ibgp
     dut = "r3"
     for addr_type in ADDR_TYPES:
@@ -1291,25 +1218,7 @@ def test_static_route_8nh_diff_AD_ibgp_ecmp_p1_tc7_ibgp(request):
         "Error: Routes are missing in RIB".format(tc_name)
 
     dut = "r2"
-    step("Shut the interfaces connected between R2 and R3 one by one")
-    for nhp in range(0, 3):
-        intf = topo["routers"]["r2"]["links"]["r3-link" + str(nhp)]["interface"]
-        shutdown_bringup_interface(tgen, dut, intf, False)
-
     protocol = "bgp"
-    for addr_type in ADDR_TYPES:
-        input_dict_4 = {"r2": {"static_routes": [{"network": PREFIX1[addr_type]}]}}
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_4, protocol=protocol, expected=False
-        )
-        assert result is not True, "Testcase {} : Failed \n"
-        "Error: Routes are still present in RIB".format(tc_name)
-
-    step("No shut the interfaces between R2 and R3 one by one")
-    dut = "r2"
-    for nhp in range(0, 3):
-        intf = topo["routers"]["r2"]["links"]["r3-link" + str(nhp)]["interface"]
-        shutdown_bringup_interface(tgen, dut, intf, True)
 
     # this is next hop reachability route  in r3 as we are using ibgp
     dut = "r3"
@@ -1653,40 +1562,6 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ibgp(request):
         )
         assert result is True, "Testcase {} : Failed \nError: Route with "
         "lowest AD  is missing in RIB".format(tc_name)
-
-    step("Shut nexthop interfaces N1 to N3 one by one")
-    for addr_type in ADDR_TYPES:
-        for nhp in range(0, 3):
-            intf = topo["routers"]["r2"]["links"]["r1-link" + str(nhp)]["interface"]
-            shutdown_bringup_interface(tgen, dut, intf, False)
-        input_dict_4 = {"r2": {"static_routes": [{"network": PREFIX1[addr_type],}]}}
-        nh = NEXT_HOP_IP["nh1"][addr_type]
-        result = verify_rib(
-            tgen,
-            addr_type,
-            dut,
-            input_dict_4,
-            next_hop=nh,
-            protocol=protocol,
-            fib=True,
-            expected=False,
-        )
-        assert result is not True, "Testcase {} : Failed \n"
-        "Error: Routes are still present in RIB".format(tc_name)
-
-    step("No shut the nexthop interfaces N1 to N3 one by one .")
-
-    for addr_type in ADDR_TYPES:
-        for nhp in range(0, 3):
-            intf = topo["routers"]["r2"]["links"]["r1-link" + str(nhp)]["interface"]
-            shutdown_bringup_interface(tgen, dut, intf, True)
-        input_dict_4 = {"r2": {"static_routes": [{"network": PREFIX1[addr_type],}]}}
-        nh = NEXT_HOP_IP["nh1"][addr_type]
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol=protocol, fib=True
-        )
-    assert result is True, "Testcase {} : Failed \n"
-    "Error: Routes are missing in RIB".format(tc_name)
 
     step("Random shut of the nexthop interfaces")
     randnum = random.randint(0, 7)
