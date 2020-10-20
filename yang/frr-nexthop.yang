@@ -275,7 +275,7 @@ module frr-nexthop {
       description
         "List of nexthop groups, each contains group of nexthops";
       leaf name {
-        type nexthop-group-ref;
+        type string;
         description
           "The nexthop-group name.";
       }
