@@ -315,6 +315,9 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	list_delete_all_node(zvrf->rid_all_sorted_list);
 	list_delete_all_node(zvrf->rid_lo_sorted_list);
 
+	list_delete_all_node(zvrf->rid6_all_sorted_list);
+	list_delete_all_node(zvrf->rid6_lo_sorted_list);
+
 	otable_fini(&zvrf->other_tables);
 	XFREE(MTYPE_ZEBRA_VRF, zvrf);
 	vrf->info = NULL;
