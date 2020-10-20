@@ -542,9 +542,12 @@ static bool zebra_nhrp_6wind_action_ctx(struct zebra_nhrp_ctx *ctx)
 	for (i = 0; i < AFI_MAX; i++) {
 		if (ctx->nhrp_6wind_notify_differ[i]) {
 			ctx->retry[i]++;
-			ret = zebra_nhrp_configure(true, i == AFI_IP ? true : false,
-						   true, ctx->ifp, ctx->nflog_group,
-						   &ctx->vrid_fastpath);
+			if (ctx->ifp->ifindex == IFINDEX_INTERNAL)
+				ret = 1;
+			else
+				ret = zebra_nhrp_configure(true, i == AFI_IP ? true : false,
+							   true, ctx->ifp, ctx->nflog_group,
+							   &ctx->vrid_fastpath);
 			if (ret) {
 				if (ctx->retry[i] == NHRP_RETRY_MAX) {
 					zlog_debug("%s(): failed to configure nhrp 6wind for afi %d, if %s",
@@ -839,13 +842,12 @@ void zebra_nhrp_interface_configure(struct interface *ifp, bool nhrp_6wind,
 	/* will be triggered by if_new_hook() */
 	if (ifp->ifindex == IFINDEX_INTERNAL && enabled) {
 		ctx->nhrp_6wind_notify_differ[afi] = ctx->nhrp_6wind_notify[afi];
-		return;
-	}
+		ret = 1;
+	} else
+		ret = zebra_nhrp_configure(nhrp_6wind, afi == AFI_IP, enabled, ifp,
+			     ctx->nflog_group, &ctx->vrid_fastpath);
 
 	/* retry mechanism */
-	ret = zebra_nhrp_configure(nhrp_6wind, afi == AFI_IP, enabled, ifp,
-		     ctx->nflog_group, &ctx->vrid_fastpath);
-
 	if (ret && ctx->nhrp_6wind_notify[afi]) {
 		ctx->nhrp_6wind_notify_differ[afi] = ctx->nhrp_6wind_notify[afi];
 		event_add_timer(zrouter.master, zebra_nhrp_6wind_notify_differ,
