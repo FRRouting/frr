@@ -41,6 +41,7 @@
 #include "ospf6_area.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
+#include "ospf6_network.h"
 
 #include "ospf6_flood.h"
 #include "ospf6_asbr.h"
@@ -186,6 +187,10 @@ static struct ospf6 *ospf6_create(vrf_id_t vrf_id)
 
 	QOBJ_REG(o, ospf6);
 
+	ospf6_serv_sock();
+
+	thread_add_read(master, ospf6_receive, NULL, ospf6_sock, &o->t_ospf6_receive);
+
 	return o;
 }
 
@@ -198,6 +203,8 @@ void ospf6_delete(struct ospf6 *o)
 
 	ospf6_flush_self_originated_lsas_now();
 	ospf6_disable(ospf6);
+
+	ospf6_serv_close();
 
 	for (ALL_LIST_ELEMENTS(o->area_list, node, nnode, oa))
 		ospf6_area_delete(oa);
@@ -242,6 +249,7 @@ static void ospf6_disable(struct ospf6 *o)
 		THREAD_OFF(o->t_spf_calc);
 		THREAD_OFF(o->t_ase_calc);
 		THREAD_OFF(o->t_distribute_update);
+		THREAD_OFF(o->t_ospf6_receive);
 	}
 }
 
