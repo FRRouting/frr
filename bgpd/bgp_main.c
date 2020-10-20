@@ -60,6 +60,7 @@
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_errors.h"
+#include "bgpd/bgp_evpn_mh.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -204,6 +205,8 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 		bgp_delete(bgp_evpn);
 	if (bgp_default)
 		bgp_delete(bgp_default);
+
+	bgp_evpn_mh_finish();
 
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();
