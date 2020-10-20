@@ -3986,12 +3986,40 @@ DEFUN(show_bgp_l2vpn_evpn_summary,
 				    show_established, uj);
 }
 
+int bgp_evpn_cli_parse_type(int *type, struct cmd_token **argv, int argc)
+{
+	int type_idx = 0;
+
+	if (argv_find(argv, argc, "type", &type_idx)) {
+		/* Specific type is requested */
+		if ((strncmp(argv[type_idx + 1]->arg, "ma", 2) == 0)
+		    || (strmatch(argv[type_idx + 1]->arg, "2")))
+			*type = BGP_EVPN_MAC_IP_ROUTE;
+		else if ((strncmp(argv[type_idx + 1]->arg, "mu", 2) == 0)
+			 || (strmatch(argv[type_idx + 1]->arg, "3")))
+			*type = BGP_EVPN_IMET_ROUTE;
+		else if ((strncmp(argv[type_idx + 1]->arg, "es", 2) == 0)
+			 || (strmatch(argv[type_idx + 1]->arg, "4")))
+			*type = BGP_EVPN_ES_ROUTE;
+		else if ((strncmp(argv[type_idx + 1]->arg, "ea", 2) == 0)
+			 || (strmatch(argv[type_idx + 1]->arg, "1")))
+			*type = BGP_EVPN_AD_ROUTE;
+		else if ((strncmp(argv[type_idx + 1]->arg, "p", 1) == 0)
+			 || (strmatch(argv[type_idx + 1]->arg, "5")))
+			*type = BGP_EVPN_IP_PREFIX_ROUTE;
+		else
+			return -1;
+	}
+
+	return 0;
+}
+
 /*
  * Display global EVPN routing table.
  */
 DEFUN(show_bgp_l2vpn_evpn_route,
       show_bgp_l2vpn_evpn_route_cmd,
-      "show bgp l2vpn evpn route [detail] [type <ead|1|macip|2|multicast|3|es|4|prefix|5>] [json]",
+      "show bgp l2vpn evpn route [detail] [type "EVPN_TYPE_ALL_LIST"] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -3999,20 +4027,10 @@ DEFUN(show_bgp_l2vpn_evpn_route,
       EVPN_RT_HELP_STR
       "Display Detailed Information\n"
       EVPN_TYPE_HELP_STR
-      EVPN_TYPE_1_HELP_STR
-      EVPN_TYPE_1_HELP_STR
-      EVPN_TYPE_2_HELP_STR
-      EVPN_TYPE_2_HELP_STR
-      EVPN_TYPE_3_HELP_STR
-      EVPN_TYPE_3_HELP_STR
-      EVPN_TYPE_4_HELP_STR
-      EVPN_TYPE_4_HELP_STR
-      EVPN_TYPE_5_HELP_STR
-      EVPN_TYPE_5_HELP_STR
+      EVPN_TYPE_ALL_LIST_HELP_STR
       JSON_STR)
 {
 	struct bgp *bgp;
-	int type_idx = 0;
 	int detail = 0;
 	int type = 0;
 	bool uj = false;
@@ -4027,27 +4045,8 @@ DEFUN(show_bgp_l2vpn_evpn_route,
 	if (uj)
 		json = json_object_new_object();
 
-	/* get the type */
-	if (argv_find(argv, argc, "type", &type_idx)) {
-		/* Specific type is requested */
-		if ((strncmp(argv[type_idx + 1]->arg, "ma", 2) == 0)
-		    || (strmatch(argv[type_idx + 1]->arg, "2")))
-			type = BGP_EVPN_MAC_IP_ROUTE;
-		else if ((strncmp(argv[type_idx + 1]->arg, "mu", 2) == 0)
-			 || (strmatch(argv[type_idx + 1]->arg, "3")))
-			type = BGP_EVPN_IMET_ROUTE;
-		else if ((strncmp(argv[type_idx + 1]->arg, "es", 2) == 0)
-			 || (strmatch(argv[type_idx + 1]->arg, "4")))
-			type = BGP_EVPN_ES_ROUTE;
-		else if ((strncmp(argv[type_idx + 1]->arg, "ea", 2) == 0)
-			 || (strmatch(argv[type_idx + 1]->arg, "1")))
-			type = BGP_EVPN_AD_ROUTE;
-		else if ((strncmp(argv[type_idx + 1]->arg, "p", 1) == 0)
-			 || (strmatch(argv[type_idx + 1]->arg, "5")))
-			type = BGP_EVPN_IP_PREFIX_ROUTE;
-		else
-			return CMD_WARNING;
-	}
+	if (bgp_evpn_cli_parse_type(&type, argv, argc) < 0)
+		return CMD_WARNING;
 
 	if (argv_find(argv, argc, "detail", &detail))
 		detail = 1;
@@ -4067,7 +4066,7 @@ DEFUN(show_bgp_l2vpn_evpn_route,
  */
 DEFUN(show_bgp_l2vpn_evpn_route_rd,
       show_bgp_l2vpn_evpn_route_rd_cmd,
-      "show bgp l2vpn evpn route rd ASN:NN_OR_IP-ADDRESS:NN [type <ead|macip|multicast|es|prefix>] [json]",
+      "show bgp l2vpn evpn route rd ASN:NN_OR_IP-ADDRESS:NN [type "EVPN_TYPE_ALL_LIST"] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -4076,11 +4075,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
       EVPN_RT_DIST_HELP_STR
       EVPN_ASN_IP_HELP_STR
       EVPN_TYPE_HELP_STR
-      EVPN_TYPE_1_HELP_STR
-      EVPN_TYPE_2_HELP_STR
-      EVPN_TYPE_3_HELP_STR
-      EVPN_TYPE_4_HELP_STR
-      EVPN_TYPE_5_HELP_STR
+      EVPN_TYPE_ALL_LIST_HELP_STR
       JSON_STR)
 {
 	struct bgp *bgp;
@@ -4088,7 +4083,6 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 	struct prefix_rd prd;
 	int type = 0;
 	int rd_idx = 0;
-	int type_idx = 0;
 	bool uj = false;
 	json_object *json = NULL;
 
@@ -4111,22 +4105,8 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 		}
 	}
 
-	/* get the type */
-	if (argv_find(argv, argc, "type", &type_idx)) {
-		/* Specific type is requested */
-		if (strncmp(argv[type_idx + 1]->arg, "ma", 2) == 0)
-			type = BGP_EVPN_MAC_IP_ROUTE;
-		else if (strncmp(argv[type_idx + 1]->arg, "mu", 2) == 0)
-			type = BGP_EVPN_IMET_ROUTE;
-		else if (strncmp(argv[type_idx + 1]->arg, "es", 2) == 0)
-			type = BGP_EVPN_ES_ROUTE;
-		else if (strncmp(argv[type_idx + 1]->arg, "ea", 2) == 0)
-			type = BGP_EVPN_AD_ROUTE;
-		else if (strncmp(argv[type_idx + 1]->arg, "pr", 2) == 0)
-			type = BGP_EVPN_IP_PREFIX_ROUTE;
-		else
-			return CMD_WARNING;
-	}
+	if (bgp_evpn_cli_parse_type(&type, argv, argc) < 0)
+		return CMD_WARNING;
 
 	evpn_show_route_rd(vty, bgp, &prd, type, json);
 
@@ -4266,7 +4246,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_esi,
  * Display per-VNI EVPN routing table.
  */
 DEFUN(show_bgp_l2vpn_evpn_route_vni, show_bgp_l2vpn_evpn_route_vni_cmd,
-      "show bgp l2vpn evpn route vni " CMD_VNI_RANGE " [<type <ead|macip|multicast> | vtep A.B.C.D>] [json]",
+      "show bgp l2vpn evpn route vni " CMD_VNI_RANGE " [<type <ead|1|macip|2|multicast|3> | vtep A.B.C.D>] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -4276,7 +4256,10 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni, show_bgp_l2vpn_evpn_route_vni_cmd,
       "VNI number\n"
       EVPN_TYPE_HELP_STR
       EVPN_TYPE_1_HELP_STR
+      EVPN_TYPE_1_HELP_STR
       EVPN_TYPE_2_HELP_STR
+      EVPN_TYPE_2_HELP_STR
+      EVPN_TYPE_3_HELP_STR
       EVPN_TYPE_3_HELP_STR
       "Remote VTEP\n"
       "Remote VTEP IP address\n"
@@ -4287,6 +4270,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni, show_bgp_l2vpn_evpn_route_vni_cmd,
 	struct in_addr vtep_ip;
 	int type = 0;
 	int idx = 0;
+	int vtep_idx = 0;
 	bool uj = false;
 	json_object *json = NULL;
 
@@ -4306,24 +4290,14 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni, show_bgp_l2vpn_evpn_route_vni_cmd,
 
 	vni = strtoul(argv[idx + 3]->arg, NULL, 10);
 
-	if ((!uj && ((argc == (idx + 1 + 5)) && argv[idx + 4]->arg))
-	    || (uj && ((argc == (idx + 1 + 6)) && argv[idx + 4]->arg))) {
-		if (strncmp(argv[idx + 4]->arg, "type", 4) == 0) {
-			if (strncmp(argv[idx + 5]->arg, "ma", 2) == 0)
-				type = BGP_EVPN_MAC_IP_ROUTE;
-			else if (strncmp(argv[idx + 5]->arg, "mu", 2) == 0)
-				type = BGP_EVPN_IMET_ROUTE;
-			else if (strncmp(argv[idx + 5]->arg, "ea", 2) == 0)
-				type = BGP_EVPN_AD_ROUTE;
-			else
-				return CMD_WARNING;
-		} else if (strncmp(argv[idx + 4]->arg, "vtep", 4) == 0) {
-			if (!inet_aton(argv[idx + 5]->arg, &vtep_ip)) {
-				vty_out(vty, "%% Malformed VTEP IP address\n");
-				return CMD_WARNING;
-			}
-		} else
+	if (bgp_evpn_cli_parse_type(&type, argv, argc) < 0)
+		return CMD_WARNING;
+
+	if (argv_find(argv, argc, "vtep", &vtep_idx)) {
+		if (!inet_aton(argv[vtep_idx + 1]->arg, &vtep_ip)) {
+			vty_out(vty, "%% Malformed VTEP IP address\n");
 			return CMD_WARNING;
+		}
 	}
 
 	evpn_show_routes_vni(vty, bgp, vni, type, vtep_ip, json);
@@ -4702,23 +4676,27 @@ ALIAS_HIDDEN(show_bgp_l2vpn_evpn_summary, show_bgp_evpn_summary_cmd,
 	     "Summary of BGP neighbor status\n" JSON_STR)
 
 ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route, show_bgp_evpn_route_cmd,
-	     "show bgp evpn route [detail] [type <macip|multicast>]",
+	     "show bgp evpn route [detail] [type <macip|2|multicast|3>]",
 	     SHOW_STR BGP_STR EVPN_HELP_STR
 	     EVPN_RT_HELP_STR
 	     "Display Detailed Information\n"
 	     EVPN_TYPE_HELP_STR
 	     EVPN_TYPE_2_HELP_STR
+	     EVPN_TYPE_2_HELP_STR
+	     EVPN_TYPE_3_HELP_STR
 	     EVPN_TYPE_3_HELP_STR)
 
 ALIAS_HIDDEN(
 	show_bgp_l2vpn_evpn_route_rd, show_bgp_evpn_route_rd_cmd,
-	"show bgp evpn route rd ASN:NN_OR_IP-ADDRESS:NN [type <macip|multicast>]",
+	"show bgp evpn route rd ASN:NN_OR_IP-ADDRESS:NN [type <macip|2|multicast|3>]",
 	SHOW_STR BGP_STR EVPN_HELP_STR
 	EVPN_RT_HELP_STR
 	EVPN_RT_DIST_HELP_STR
 	EVPN_ASN_IP_HELP_STR
 	EVPN_TYPE_HELP_STR
 	EVPN_TYPE_2_HELP_STR
+	EVPN_TYPE_2_HELP_STR
+	EVPN_TYPE_3_HELP_STR
 	EVPN_TYPE_3_HELP_STR)
 
 ALIAS_HIDDEN(
@@ -4735,13 +4713,15 @@ ALIAS_HIDDEN(
 
 ALIAS_HIDDEN(
 	show_bgp_l2vpn_evpn_route_vni, show_bgp_evpn_route_vni_cmd,
-	"show bgp evpn route vni " CMD_VNI_RANGE " [<type <macip|multicast> | vtep A.B.C.D>]",
+	"show bgp evpn route vni " CMD_VNI_RANGE " [<type <macip|2|multicast|3> | vtep A.B.C.D>]",
 	SHOW_STR BGP_STR EVPN_HELP_STR
 	EVPN_RT_HELP_STR
 	"VXLAN Network Identifier\n"
 	"VNI number\n"
 	EVPN_TYPE_HELP_STR
 	EVPN_TYPE_2_HELP_STR
+	EVPN_TYPE_2_HELP_STR
+	EVPN_TYPE_3_HELP_STR
 	EVPN_TYPE_3_HELP_STR
 	"Remote VTEP\n"
 	"Remote VTEP IP address\n")

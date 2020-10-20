@@ -616,21 +616,14 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 	struct prefix *argv_p;
 	struct ethaddr mac;
 	struct ipaddr ip;
-	int evpn_type;
-	int type_idx = 0;
+	int evpn_type = 0;
 	int mac_idx = 0;
 	int ip_idx = 0;
 
 	argv_p = *argv_pp;
 
-	if (argv_find(argv, argc, "macip", &type_idx))
-		evpn_type = BGP_EVPN_MAC_IP_ROUTE;
-	else if (argv_find(argv, argc, "multicast", &type_idx))
-		evpn_type = BGP_EVPN_IMET_ROUTE;
-	else if (argv_find(argv, argc, "prefix", &type_idx))
-		evpn_type = BGP_EVPN_IP_PREFIX_ROUTE;
-	else
-		evpn_type = 0;
+	if (bgp_evpn_cli_parse_type(&evpn_type, argv, argc) < 0)
+		return CMD_WARNING;
 
 	if (evpn_type == BGP_EVPN_MAC_IP_ROUTE) {
 		memset(&ip, 0, sizeof(struct ipaddr));
@@ -1395,24 +1388,27 @@ DEFUN (no_debug_bgp_update_direct_peer,
 
 DEFPY (debug_bgp_update_prefix_afi_safi,
        debug_bgp_update_prefix_afi_safi_cmd,
-       "debug bgp updates prefix l2vpn$afi evpn$safi type <macip mac <X:X:X:X:X:X|X:X:X:X:X:X/M> [ip <A.B.C.D|X:X::X:X>]|multicast ip <A.B.C.D|X:X::X:X>|prefix ip <A.B.C.D/M|X:X::X:X/M>>",
+       "debug bgp updates prefix l2vpn$afi evpn$safi type <<macip|2> mac <X:X:X:X:X:X|X:X:X:X:X:X/M> [ip <A.B.C.D|X:X::X:X>]|<multicast|3> ip <A.B.C.D|X:X::X:X>|<prefix|5> ip <A.B.C.D/M|X:X::X:X/M>>",
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
        "Specify a prefix to debug\n"
        L2VPN_HELP_STR
        EVPN_HELP_STR
-       "Specify EVPN Route type\n"
-       "MAC-IP (Type-2) route\n"
+       EVPN_TYPE_HELP_STR
+       EVPN_TYPE_2_HELP_STR
+       EVPN_TYPE_2_HELP_STR
        MAC_STR MAC_STR MAC_STR
        IP_STR
        "IPv4 address\n"
        "IPv6 address\n"
-       "Multicast (Type-3) route\n"
+       EVPN_TYPE_3_HELP_STR
+       EVPN_TYPE_3_HELP_STR
        IP_STR
        "IPv4 address\n"
        "IPv6 address\n"
-       "Prefix (Type-5) route\n"
+       EVPN_TYPE_5_HELP_STR
+       EVPN_TYPE_5_HELP_STR
        IP_STR
        "IPv4 prefix\n"
        "IPv6 prefix\n")
@@ -1458,7 +1454,7 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 
 DEFPY (no_debug_bgp_update_prefix_afi_safi,
        no_debug_bgp_update_prefix_afi_safi_cmd,
-       "no debug bgp updates prefix l2vpn$afi evpn$safi type <macip mac <X:X:X:X:X:X|X:X:X:X:X:X/M> [ip <A.B.C.D|X:X::X:X>]|multicast ip <A.B.C.D|X:X::X:X>|prefix ip <A.B.C.D/M|X:X::X:X/M>>",
+       "no debug bgp updates prefix l2vpn$afi evpn$safi type <<macip|2> mac <X:X:X:X:X:X|X:X:X:X:X:X/M> [ip <A.B.C.D|X:X::X:X>]|<multicast|3> ip <A.B.C.D|X:X::X:X>|<prefix|5> ip <A.B.C.D/M|X:X::X:X/M>>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -1466,17 +1462,20 @@ DEFPY (no_debug_bgp_update_prefix_afi_safi,
        "Specify a prefix to debug\n"
        L2VPN_HELP_STR
        EVPN_HELP_STR
-       "Specify EVPN Route type\n"
-       "MAC-IP (Type-2) route\n"
+       EVPN_TYPE_HELP_STR
+       EVPN_TYPE_2_HELP_STR
+       EVPN_TYPE_2_HELP_STR
        MAC_STR MAC_STR MAC_STR
        IP_STR
        "IPv4 address\n"
        "IPv6 address\n"
-       "Multicast (Type-3) route\n"
+       EVPN_TYPE_3_HELP_STR
+       EVPN_TYPE_3_HELP_STR
        IP_STR
        "IPv4 address\n"
        "IPv6 address\n"
-       "Prefix (Type-5) route\n"
+       EVPN_TYPE_5_HELP_STR
+       EVPN_TYPE_5_HELP_STR
        IP_STR
        "IPv4 prefix\n"
        "IPv6 prefix\n")
