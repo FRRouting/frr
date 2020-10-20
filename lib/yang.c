@@ -230,22 +230,23 @@ next:
 int yang_snodes_iterate_module(const struct lys_module *module,
 			       yang_iterate_cb cb, uint16_t flags, void *arg)
 {
-	struct lys_node *snode;
+	const struct lys_module *module_iter;
+	uint32_t idx = 0;
 	int ret = YANG_ITER_CONTINUE;
 
-	LY_TREE_FOR (module->data, snode) {
-		ret = yang_snodes_iterate_subtree(snode, module, cb, flags,
-						  arg);
-		if (ret == YANG_ITER_STOP)
-			return ret;
-	}
+	idx = ly_ctx_internal_modules_count(ly_native_ctx);
+	while ((module_iter = ly_ctx_get_module_iter(ly_native_ctx, &idx))) {
+		struct lys_node *snode;
 
-	for (uint8_t i = 0; i < module->augment_size; i++) {
-		ret = yang_snodes_iterate_subtree(
-			(const struct lys_node *)&module->augment[i], module,
-			cb, flags, arg);
-		if (ret == YANG_ITER_STOP)
-			return ret;
+		if (!module_iter->implemented)
+			continue;
+
+		LY_TREE_FOR (module_iter->data, snode) {
+			ret = yang_snodes_iterate_subtree(snode, module, cb,
+							  flags, arg);
+			if (ret == YANG_ITER_STOP)
+				return ret;
+		}
 	}
 
 	return ret;

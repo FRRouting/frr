@@ -152,8 +152,10 @@ static int nb_node_del_cb(const struct lys_node *snode, void *arg)
 	struct nb_node *nb_node;
 
 	nb_node = snode->priv;
-	lys_set_private(snode, NULL);
-	XFREE(MTYPE_NB_NODE, nb_node);
+	if (nb_node) {
+		lys_set_private(snode, NULL);
+		XFREE(MTYPE_NB_NODE, nb_node);
+	}
 
 	return YANG_ITER_CONTINUE;
 }
@@ -273,8 +275,10 @@ static int nb_node_validate(const struct lys_node *snode, void *arg)
 	unsigned int *errors = arg;
 
 	/* Validate callbacks and priority. */
-	*errors += nb_node_validate_cbs(nb_node);
-	*errors += nb_node_validate_priority(nb_node);
+	if (nb_node) {
+		*errors += nb_node_validate_cbs(nb_node);
+		*errors += nb_node_validate_priority(nb_node);
+	}
 
 	return YANG_ITER_CONTINUE;
 }
