@@ -638,19 +638,23 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 	}
 
 	/* try find existing AS-External LSA for this prefix */
-
 	old = ospf_external_info_find_lsa(area->ospf, &p);
 
-	if (old) {
-		/* Do not continue if type 5 LSA not approved */
-		if (!CHECK_FLAG(old->flags, OSPF_LSA_APPROVED)) {
+	if (CHECK_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE)) {
+		/* if type-7 is removed, remove old translated type-5 lsa */
+		if (old) {
+			UNSET_FLAG(old->flags, OSPF_LSA_APPROVED);
 			if (IS_DEBUG_OSPF_NSSA)
 				zlog_debug(
-					"ospf_abr_translate_nssa(): LSA Id %s type 5 is not approved",
+					"ospf_abr_translate_nssa(): remove old translated LSA id %s",
 					inet_ntoa(old->data->id));
-			return 1;
 		}
+		/* if type-7 is removed and type-5 does not exist, do not
+		 * originate */
+		return 1;
+	}
 
+	if (old && CHECK_FLAG(old->flags, OSPF_LSA_APPROVED)) {
 		if (IS_DEBUG_OSPF_NSSA)
 			zlog_debug(
 				"ospf_abr_translate_nssa(): found old translated LSA Id %s, refreshing",
