@@ -1596,6 +1596,15 @@ Configuring Peers
    peer in question.  This number is between 0 and 600 seconds,
    with the default advertisement interval being 0.
 
+.. index:: [no] neighbor PEER timers delayopen (1-240)
+.. clicmd:: [no] neighbor PEER timers delayopen (1-240)
+
+   This command allows the user enable the
+   `RFC 4271 <https://tools.ietf.org/html/rfc4271/>` DelayOpenTimer with the
+   specified interval or disable it with the negating command for the peer. By
+   default, the DelayOpenTimer is disabled. The timer interval may be set to a
+   duration of 1 to 240 seconds.
+
 Displaying Information about Peers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
