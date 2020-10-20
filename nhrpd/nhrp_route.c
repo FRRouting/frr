@@ -149,15 +149,18 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 	}
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	api.nexthop_num = 1;
-	api_nh = &api.nexthops[0];
-	api_nh->vrf_id = api.vrf_id;
-
+	if (!ifp && !nexthop)
+		api.nexthop_num = 0;
+	else {
+		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+		api.nexthop_num = 1;
+		api_nh = &api.nexthops[0];
+		api_nh->vrf_id = api.vrf_id;
+	}
 	switch (api.prefix.family) {
 	case AF_INET:
 		if (api.prefix.prefixlen == IPV4_MAX_BITLEN &&
-		    nexthop_ref &&
+		    nexthop &&
 		    memcmp(&nexthop_ref->sin.sin_addr, &api.prefix.u.prefix4,
 			   sizeof(struct in_addr)) == 0) {
 			nexthop_ref = NULL;
@@ -176,7 +179,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		break;
 	case AF_INET6:
 		if (api.prefix.prefixlen == IPV6_MAX_BITLEN &&
-		    nexthop_ref &&
+		    nexthop &&
 		    memcmp(&nexthop_ref->sin6.sin6_addr, &api.prefix.u.prefix6,
 			   sizeof(struct in6_addr)) == 0) {
 			nexthop_ref = NULL;
@@ -193,6 +196,8 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 				api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		}
 		break;
+	default:
+		return;
 	}
 	if (mtu) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
