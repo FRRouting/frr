@@ -32,6 +32,7 @@ import os
 import sys
 import pytest
 import re
+import time
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -743,6 +744,215 @@ def test_bgp_disable_norib_routes():
         assert res is None, assertmsg
 
     # tgen.mininet_cli()
+
+
+def test_bgp_delayopen_without():
+    "Optional test of BGP functionality and behaviour without DelayOpenTimer enabled to establish a reference for following tests"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # part 1: no delay r1 <=> no delay r4
+    logger.info("Starting optional test of BGP functionality without DelayOpenTimer enabled to establish a reference for following tests")
+
+    # 1.1 enable peering shutdown
+    logger.info("Enable shutdown of peering between r1 and r4")
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "router bgp 65000" -c "neighbor 192.168.101.2 shutdown"')
+    tgen.net["r4"].cmd('vtysh -c "conf t" -c "router bgp 65100" -c "neighbor 192.168.101.1 shutdown"')
+
+    # 1.2 wait for peers to shut down (poll output)
+    for router_num in [1, 4]:
+        logger.info("Checking BGP summary after enabling shutdown of peering on r{}".format(router_num))
+        router = tgen.gears["r{}".format(router_num)]
+        reffile = os.path.join(CWD, "r{}/bgp_delayopen_summary_shutdown.json".format(router_num))
+        expected = json.loads(open(reffile).read())
+        test_func = functools.partial(topotest.router_json_cmp, router, "show ip bgp summary json", expected)
+        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        assertmsg = "BGP session on r{} did not shut down peer".format(router_num)
+        assert res is None, assertmsg
+
+    # 1.3 disable peering shutdown
+    logger.info("Disable shutdown of peering between r1 and r4")
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "router bgp 65000" -c "no neighbor 192.168.101.2 shutdown"')
+    tgen.net["r4"].cmd('vtysh -c "conf t" -c "router bgp 65100" -c "no neighbor 192.168.101.1 shutdown"')
+
+    # 1.4 wait for peers to establish connection (poll output)
+    for router_num in [1, 4]:
+        logger.info("Checking BGP summary after disabling shutdown of peering on r{}".format(router_num))
+        router = tgen.gears["r{}".format(router_num)]
+        reffile = os.path.join(CWD, "r{}/bgp_delayopen_summary_established.json".format(router_num))
+        expected = json.loads(open(reffile).read())
+        test_func = functools.partial(topotest.router_json_cmp, router, "show ip bgp summary json", expected)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
+        assertmsg = "BGP session on r{} did not establish a connection with peer".format(router_num)
+        assert res is None, assertmsg
+
+    #tgen.mininet_cli()
+
+    # end test_bgp_delayopen_without
+
+
+def test_bgp_delayopen_singular():
+    "Test of BGP functionality and behaviour with DelayOpenTimer enabled on one side of the peering"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # part 2: delay 240s r1 <=> no delay r4
+    logger.info("Starting test of BGP functionality and behaviour with DelayOpenTimer enabled on one side of the peering")
+
+    # 2.1 enable peering shutdown
+    logger.info("Enable shutdown of peering between r1 and r4")
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "router bgp 65000" -c "neighbor 192.168.101.2 shutdown"')
+    tgen.net["r4"].cmd('vtysh -c "conf t" -c "router bgp 65100" -c "neighbor 192.168.101.1 shutdown"')
+
+    # 2.2 wait for peers to shut down (poll output)
+    for router_num in [1, 4]:
+        logger.info("Checking BGP summary after disabling shutdown of peering on r{}".format(router_num))
+        router = tgen.gears["r{}".format(router_num)]
+        reffile = os.path.join(CWD, "r{}/bgp_delayopen_summary_shutdown.json".format(router_num))
+        expected = json.loads(open(reffile).read())
+        test_func = functools.partial(topotest.router_json_cmp, router, "show ip bgp summary json", expected)
+        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        assertmsg = "BGP session on r{} did not shut down peer".format(router_num)
+        assert res is None, assertmsg
+
+    # 2.3 set delayopen on R1 to 240
+    logger.info("Setting DelayOpenTime for neighbor r4 to 240 seconds on r1")
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "router bgp 65000" -c "neighbor 192.168.101.2 timers delayopen 240"')
+
+    # 2.4 check config (poll output)
+    logger.info("Checking BGP neighbor configuration after setting DelayOpenTime on r1")
+    router = tgen.gears["r1"]
+    reffile = os.path.join(CWD, "r1/bgp_delayopen_neighbor.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(topotest.router_json_cmp, router, "show bgp neighbors json", expected)
+    _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+    assertmsg = "BGP session on r1 failed to set DelayOpenTime for r4"
+    assert res is None, assertmsg
+
+    # 2.5 disable peering shutdown
+    logger.info("Disable shutdown of peering between r1 and r4")
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "router bgp 65000" -c "no neighbor 192.168.101.2 shutdown"')
+    tgen.net["r4"].cmd('vtysh -c "conf t" -c "router bgp 65100" -c "no neighbor 192.168.101.1 shutdown"')
+
+    # 2.6 wait for peers to establish connection (poll output)
+    for router_num in [1, 4]:
+        logger.info("Checking BGP summary after disabling shutdown of peering on r{}".format(router_num))
+        router = tgen.gears["r{}".format(router_num)]
+        reffile = os.path.join(CWD, "r{}/bgp_delayopen_summary_established.json".format(router_num))
+        expected = json.loads(open(reffile).read())
+        test_func = functools.partial(topotest.router_json_cmp, router, "show ip bgp summary json", expected)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
+        assertmsg = "BGP session on r{} did not establish a connection with peer".format(router_num)
+        assert res is None, assertmsg
+
+    # 2.7 unset delayopen on R1
+    logger.info("Disabling DelayOpenTimer for neighbor r4 on r1")
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "router bgp 65000" -c "no neighbor 192.168.101.2 timers delayopen"')
+
+    # 2.8 check config (poll output)
+    logger.info("Checking BGP neighbor configuration after disabling DelayOpenTimer on r1")
+    delayopen_cfg = tgen.net["r1"].cmd('vtysh -c "show bgp neighbors json" | grep "DelayOpenTimeMsecs"').rstrip()
+    assertmsg = "BGP session on r1 failed disable DelayOpenTimer for peer r4"
+    assert delayopen_cfg == "", assertmsg
+
+    #tgen.mininet_cli()
+
+    # end test_bgp_delayopen_singular
+
+
+def test_bgp_delayopen_dual():
+    "Test of BGP functionality and behaviour with DelayOpenTimer enabled on both sides of the peering with different timer intervals"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # part 3: delay 60s R2 <=> delay 30s R5
+    logger.info("Starting test of BGP functionality and behaviour with DelayOpenTimer enabled on both sides of the peering with different timer intervals")
+
+    # 3.1 enable peering shutdown
+    logger.info("Enable shutdown of peering between r2 and r5")
+    tgen.net["r2"].cmd('vtysh -c "conf t" -c "router bgp 65000" -c "neighbor 192.168.201.2 shutdown"')
+    tgen.net["r5"].cmd('vtysh -c "conf t" -c "router bgp 65200" -c "neighbor 192.168.201.1 shutdown"')
+
+    # 3.2 wait for peers to shut down (pool output)
+    for router_num in [2, 5]:
+        logger.info("Checking BGP summary after disabling shutdown of peering on r{}".format(router_num))
+        router = tgen.gears["r{}".format(router_num)]
+        reffile = os.path.join(CWD, "r{}/bgp_delayopen_summary_shutdown.json".format(router_num))
+        expected = json.loads(open(reffile).read())
+        test_func = functools.partial(topotest.router_json_cmp, router, "show ip bgp summary json", expected)
+        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        assertmsg = "BGP session on r{} did not shut down peer".format(router_num)
+        assert res is None, assertmsg
+
+    # 3.3 set delayopen on R2 to 60s and on R5 to 30s
+    logger.info("Setting DelayOpenTime for neighbor r5 to 60 seconds on r2")
+    tgen.net["r2"].cmd('vtysh -c "conf t" -c "router bgp 65000" -c "neighbor 192.168.201.2 timers delayopen 60"')
+    logger.info("Setting DelayOpenTime for neighbor r2 to 30 seconds on r5")
+    tgen.net["r5"].cmd('vtysh -c "conf t" -c "router bgp 65200" -c "neighbor 192.168.201.1 timers delayopen 30"')
+
+    # 3.4 check config (poll output)
+    for router_num in [2, 5]:
+        logger.info("Checking BGP neighbor configuration after setting DelayOpenTime on r{}i".format(router_num))
+        router = tgen.gears["r{}".format(router_num)]
+        reffile = os.path.join(CWD, "r{}/bgp_delayopen_neighbor.json".format(router_num))
+        expected = json.loads(open(reffile).read())
+        test_func = functools.partial(topotest.router_json_cmp, router, "show bgp neighbors json", expected)
+        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        assertmsg = "BGP session on r{} failed to set DelayOpenTime".format(router_num)
+        assert res is None, assertmsg
+
+    ## 3.5 disable peering shutdown
+    logger.info("Disable shutdown of peering between r2 and r5")
+    tgen.net["r2"].cmd('vtysh -c "conf t" -c "router bgp 65000" -c "no neighbor 192.168.201.2 shutdown"')
+    tgen.net["r5"].cmd('vtysh -c "conf t" -c "router bgp 65200" -c "no neighbor 192.168.201.1 shutdown"')
+
+    ## 3.6 wait for peers to reach connect or active state (poll output)
+    delay_start = int(time.time())
+    for router_num in [2, 5]:
+        logger.info("Checking BGP summary after disabling shutdown of peering on r{}".format(router_num))
+        router = tgen.gears["r{}".format(router_num)]
+        reffile = os.path.join(CWD, "r{}/bgp_delayopen_summary_connect.json".format(router_num))
+        expected = json.loads(open(reffile).read())
+        test_func = functools.partial(topotest.router_json_cmp, router, "show ip bgp summary json", expected)
+        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        assertmsg = "BGP session on r{} did not enter Connect state with peer".format(router_num)
+        assert res is None, assertmsg
+
+    ## 3.7 wait for peers to establish connection (poll output)
+    for router_num in [2, 5]:
+        logger.info("Checking BGP summary after disabling shutdown of peering on r{}".format(router_num))
+        router = tgen.gears["r{}".format(router_num)]
+        reffile = os.path.join(CWD, "r{}/bgp_delayopen_summary_established.json".format(router_num))
+        expected = json.loads(open(reffile).read())
+        test_func = functools.partial(topotest.router_json_cmp, router, "show ip bgp summary json", expected)
+        _, res = topotest.run_and_expect(test_func, None, count=35, wait=1)
+        assertmsg = "BGP session on r{} did not establish a connection with peer".format(router_num)
+        assert res is None, assertmsg
+
+    delay_stop = int(time.time())
+    assertmsg = "BGP peering between r2 and r5 was established before DelayOpenTimer (30sec) on r2 could expire"
+    assert (delay_stop - delay_start) > 30, assertmsg
+
+    # 3.8 unset delayopen on R2 and R5
+    logger.info("Disabling DelayOpenTimer for neighbor r5 on r2")
+    tgen.net["r2"].cmd('vtysh -c "conf t" -c "router bgp 65000" -c "no neighbor 192.168.201.2 timers delayopen"')
+    logger.info("Disabling DelayOpenTimer for neighbor r2 on r5")
+    tgen.net["r5"].cmd('vtysh -c "conf t" -c "router bgp 65200" -c "no neighbor 192.168.201.1 timers delayopen"')
+
+    # 3.9 check config (poll output)
+    for router_num in [2, 5]:
+        logger.info("Checking BGP neighbor configuration after disabling DelayOpenTimer on r{}".format(router_num))
+        delayopen_cfg = tgen.net["r{}".format(router_num)].cmd('vtysh -c "show bgp neighbors json" | grep "DelayOpenTimeMsecs"').rstrip()
+        assertmsg = "BGP session on r{} failed disable DelayOpenTimer".format(router_num)
+        assert delayopen_cfg == "", assertmsg
+
+    #tgen.mininet_cli()
+
+    # end test_bgp_delayopen_dual
 
 
 if __name__ == "__main__":
