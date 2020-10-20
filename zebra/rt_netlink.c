@@ -2097,6 +2097,8 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 	int num_labels = 0;
 	uint32_t id = dplane_ctx_get_nhe_id(ctx);
 	int type = dplane_ctx_get_nhe_type(ctx);
+	struct rtattr *nest;
+	uint16_t encap;
 
 	if (!id) {
 		flog_err(
@@ -2225,34 +2227,21 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				 */
 				if (req->nhm.nh_family == AF_MPLS)
 					goto nexthop_done;
-#if 0
-					if (!nl_attr_put(&req->n, buflen, NHA_NEWDST,
-						  &out_lse,
-						  num_labels
-							  * sizeof(mpls_lse_t)))
-						return 0;
-#endif
-				else {
-					struct rtattr *nest;
-					uint16_t encap = LWTUNNEL_ENCAP_MPLS;
 
-					if (!nl_attr_put16(&req->n, buflen,
-							   NHA_ENCAP_TYPE,
-							   encap))
-						return 0;
-					nest = nl_attr_nest(&req->n, buflen,
-							    NHA_ENCAP);
-					if (!nest)
-						return 0;
-					if (!nl_attr_put(
-						    &req->n, buflen,
-						    MPLS_IPTUNNEL_DST, &out_lse,
-						    num_labels
-							    * sizeof(
-								    mpls_lse_t)))
-						return 0;
-					nl_attr_nest_end(&req->n, nest);
-				}
+				encap = LWTUNNEL_ENCAP_MPLS;
+				if (!nl_attr_put16(&req->n, buflen,
+						   NHA_ENCAP_TYPE, encap))
+					return 0;
+				nest = nl_attr_nest(&req->n, buflen, NHA_ENCAP);
+				if (!nest)
+					return 0;
+				if (!nl_attr_put(
+					    &req->n, buflen, MPLS_IPTUNNEL_DST,
+					    &out_lse,
+					    num_labels * sizeof(mpls_lse_t)))
+					return 0;
+
+				nl_attr_nest_end(&req->n, nest);
 			}
 
 nexthop_done:
@@ -2262,9 +2251,9 @@ nexthop_done:
 					   __func__, id, nh, nh->ifindex,
 					   vrf_id_to_name(nh->vrf_id),
 					   nh->vrf_id, label_buf);
-}
+		}
 
-req->nhm.nh_protocol = zebra2proto(type);
+		req->nhm.nh_protocol = zebra2proto(type);
 
 	} else if (cmd != RTM_DELNEXTHOP) {
 		flog_err(
