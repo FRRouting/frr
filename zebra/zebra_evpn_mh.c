@@ -62,8 +62,7 @@ static void zebra_evpn_es_get_one_base_evpn(void);
 static int zebra_evpn_es_evi_send_to_client(struct zebra_evpn_es *es,
 		zebra_evpn_t *zevpn, bool add);
 static void zebra_evpn_local_es_del(struct zebra_evpn_es **esp);
-static int zebra_evpn_local_es_update(struct zebra_if *zif, uint32_t lid,
-		struct ethaddr *sysmac);
+static int zebra_evpn_local_es_update(struct zebra_if *zif, esi_t *esi);
 static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 						const char *caller);
 static void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set);
@@ -934,7 +933,7 @@ void zebra_evpn_if_init(struct zebra_if *zif)
 	/* if an es_id and sysmac are already present against the interface
 	 * activate it
 	 */
-	zebra_evpn_local_es_update(zif, zif->es_info.lid, &zif->es_info.sysmac);
+	zebra_evpn_local_es_update(zif, &zif->es_info.esi);
 }
 
 /* handle deletion of an access port by removing it from all associated
@@ -1396,6 +1395,9 @@ static struct zebra_evpn_es *zebra_evpn_es_new(esi_t *esi)
 {
 	struct zebra_evpn_es *es;
 
+	if (!memcmp(esi, zero_esi, sizeof(esi_t)))
+		return NULL;
+
 	es = XCALLOC(MTYPE_ZES, sizeof(struct zebra_evpn_es));
 
 	/* fill in ESI */
@@ -1818,17 +1820,50 @@ static void zebra_evpn_es_remote_info_re_eval(struct zebra_evpn_es **esp)
 /* A new local es is created when a local-es-id and sysmac is configured
  * against an interface.
  */
-static int zebra_evpn_local_es_update(struct zebra_if *zif, uint32_t lid,
-		struct ethaddr *sysmac)
+static int zebra_evpn_local_es_update(struct zebra_if *zif, esi_t *esi)
 {
 	struct zebra_evpn_es *old_es = zif->es_info.es;
 	struct zebra_evpn_es *es;
+
+	memcpy(&zif->es_info.esi, esi, sizeof(*esi));
+	if (old_es && !memcmp(&old_es->esi, esi, sizeof(*esi)))
+		/* dup - nothing to be done */
+		return 0;
+
+	/* release the old_es against the zif */
+	if (old_es)
+		zebra_evpn_local_es_del(&old_es);
+
+	es = zebra_evpn_es_find(esi);
+	if (es) {
+		/* if it exists against another interface flag an error */
+		if (es->zif && es->zif != zif) {
+			memset(&zif->es_info.esi, 0, sizeof(*esi));
+			return -1;
+		}
+	} else {
+		/* create new es */
+		es = zebra_evpn_es_new(esi);
+	}
+
+	if (es)
+		zebra_evpn_es_local_info_set(es, zif);
+
+	return 0;
+}
+
+static int zebra_evpn_type3_esi_update(struct zebra_if *zif, uint32_t lid,
+				       struct ethaddr *sysmac)
+{
+	struct zebra_evpn_es *old_es = zif->es_info.es;
 	esi_t esi;
 	int offset = 0;
 	int field_bytes = 0;
 
 	/* Complete config of the ES-ID bootstraps the ES */
 	if (!lid || is_zero_mac(sysmac)) {
+		/* clear old esi */
+		memset(&zif->es_info.esi, 0, sizeof(zif->es_info.esi));
 		/* if in ES is attached to zif delete it */
 		if (old_es)
 			zebra_evpn_local_es_del(&old_es);
@@ -1850,27 +1885,7 @@ static int zebra_evpn_local_es_update(struct zebra_if *zif, uint32_t lid,
 	esi.val[offset++] = (uint8_t)(lid >> 8);
 	esi.val[offset++] = (uint8_t)lid;
 
-	if (old_es && !memcmp(&old_es->esi, &esi, sizeof(esi_t)))
-		/* dup - nothing to be done */
-		return 0;
-
-	/* release the old_es against the zif */
-	if (old_es)
-		zebra_evpn_local_es_del(&old_es);
-
-	es = zebra_evpn_es_find(&esi);
-	if (es) {
-		/* if it exists against another interface flag an error */
-		if (es->zif && es->zif != zif)
-			return -1;
-	} else {
-		/* create new es */
-		es = zebra_evpn_es_new(&esi);
-	}
-
-	zebra_evpn_es_local_info_set(es, zif);
-
-	return 0;
+	return zebra_evpn_local_es_update(zif, &esi);
 }
 
 static int zebra_evpn_remote_es_del(esi_t *esi, struct in_addr vtep_ip)
@@ -2077,7 +2092,7 @@ static int zebra_evpn_es_sys_mac_update(struct zebra_if *zif,
 {
 	int rv;
 
-	rv = zebra_evpn_local_es_update(zif, zif->es_info.lid, sysmac);
+	rv = zebra_evpn_type3_esi_update(zif, zif->es_info.lid, sysmac);
 	if (!rv)
 		memcpy(&zif->es_info.sysmac, sysmac, sizeof(struct ethaddr));
 
@@ -2089,9 +2104,25 @@ static int zebra_evpn_es_lid_update(struct zebra_if *zif, uint32_t lid)
 {
 	int rv;
 
-	rv = zebra_evpn_local_es_update(zif, lid, &zif->es_info.sysmac);
+	rv = zebra_evpn_type3_esi_update(zif, lid, &zif->es_info.sysmac);
 	if (!rv)
 		zif->es_info.lid = lid;
+
+	return rv;
+}
+
+/* type-0 esi has changed */
+static int zebra_evpn_es_type0_esi_update(struct zebra_if *zif, esi_t *esi)
+{
+	int rv;
+
+	rv = zebra_evpn_local_es_update(zif, esi);
+
+	/* clear the old es_lid, es_sysmac - type-0 is being set so old
+	 * type-3 params need to be flushed
+	 */
+	memset(&zif->es_info.sysmac, 0, sizeof(struct ethaddr));
+	zif->es_info.lid = 0;
 
 	return rv;
 }
@@ -2153,6 +2184,7 @@ void zebra_evpn_if_es_print(struct vty *vty, struct zebra_if *zif)
 	char buf[ETHER_ADDR_STRLEN];
 	char mh_buf[80];
 	bool vty_print = false;
+	char esi_buf[ESI_STR_LEN];
 
 	mh_buf[0] = '\0';
 	snprintf(mh_buf + strlen(mh_buf), sizeof(mh_buf) - strlen(mh_buf),
@@ -2164,6 +2196,13 @@ void zebra_evpn_if_es_print(struct vty *vty, struct zebra_if *zif)
 			sizeof(mh_buf) - strlen(mh_buf),
 			" ES id %u ES sysmac %s", zif->es_info.lid,
 			prefix_mac2str(&zif->es_info.sysmac, buf, sizeof(buf)));
+	} else if (memcmp(&zif->es_info.esi, zero_esi, sizeof(*zero_esi))) {
+		vty_print = true;
+		snprintf(mh_buf + strnlen(mh_buf, sizeof(mh_buf)),
+			 sizeof(mh_buf) - strnlen(mh_buf, sizeof(mh_buf)),
+			 " ES id %s",
+			 esi_to_str(&zif->es_info.esi, esi_buf,
+				    sizeof(esi_buf)));
 	}
 
 	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK) {
@@ -2495,14 +2534,25 @@ int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp)
 {
 	struct zebra_if *zif = ifp->info;
 	char buf[ETHER_ADDR_STRLEN];
+	bool type_3_esi = false;
+	char esi_buf[ESI_STR_LEN];
 
-	if (zif->es_info.lid)
+	if (zif->es_info.lid) {
 		vty_out(vty, " evpn mh es-id %u\n", zif->es_info.lid);
+		type_3_esi = true;
+	}
 
-	if (!is_zero_mac(&zif->es_info.sysmac))
+	if (!is_zero_mac(&zif->es_info.sysmac)) {
 		vty_out(vty, " evpn mh es-sys-mac %s\n",
 				prefix_mac2str(&zif->es_info.sysmac,
 					buf, sizeof(buf)));
+		type_3_esi = true;
+	}
+
+	if (!type_3_esi
+	    && memcmp(&zif->es_info.esi, zero_esi, sizeof(*zero_esi)))
+		vty_out(vty, " evpn mh es-id %s\n",
+				esi_to_str(&zif->es_info.esi, esi_buf, sizeof(esi_buf)));
 
 	if (zif->es_info.df_pref)
 		vty_out(vty, " evpn mh es-df-pref %u\n", zif->es_info.df_pref);
@@ -2591,22 +2641,28 @@ DEFPY(zebra_evpn_es_sys_mac,
 /* CLI for setting up local-ID part of ESI on an access port */
 DEFPY(zebra_evpn_es_id,
       zebra_evpn_es_id_cmd,
-      "[no$no] evpn mh es-id [(1-16777215)$es_lid]",
+      "[no$no] evpn mh es-id [(1-16777215)$es_lid | NAME$esi_str]",
       NO_STR
       "EVPN\n"
       EVPN_MH_VTY_STR
-      "Ethernet segment local identifier\n"
-      "ID\n"
+      "Ethernet segment identifier\n"
+      "local discriminator\n"
+      "10-byte ID - 00:AA:BB:CC:DD:EE:FF:GG:HH:II\n"
 )
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif;
-	int ret;
+	int ret = 0;
+	esi_t esi;
 
 	zif = ifp->info;
 
 	if (no) {
-		ret = zebra_evpn_es_lid_update(zif, 0);
+		if (zif->es_info.lid)
+			ret = zebra_evpn_es_lid_update(zif, 0);
+		else if (memcmp(&zif->es_info.esi, zero_esi, sizeof(*zero_esi)))
+			ret = zebra_evpn_es_type0_esi_update(zif, zero_esi);
+
 		if (ret == -1) {
 			vty_out(vty, "%%Failed to clear ES local id\n");
 			return CMD_WARNING;
@@ -2618,14 +2674,23 @@ DEFPY(zebra_evpn_es_id,
 			return CMD_WARNING;
 		}
 
-		if  (!es_lid) {
-			vty_out(vty, "%%Specify local ES ID\n");
-			return CMD_WARNING;
+		if (esi_str) {
+			if (!str_to_esi(esi_str, &esi)) {
+				vty_out(vty, "%% Malformed ESI\n");
+				return CMD_WARNING;
+			}
+			ret = zebra_evpn_es_type0_esi_update(zif, &esi);
+		} else {
+			if (!es_lid) {
+				vty_out(vty, "%%Specify local ES ID\n");
+				return CMD_WARNING;
+			}
+			ret = zebra_evpn_es_lid_update(zif, es_lid);
 		}
-		ret = zebra_evpn_es_lid_update(zif, es_lid);
+
 		if (ret == -1) {
 			vty_out(vty,
-				"%%ESI already exists on a different interface\n");
+					"%%ESI already exists on a different interface\n");
 			return CMD_WARNING;
 		}
 	}
