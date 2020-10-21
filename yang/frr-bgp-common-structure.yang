@@ -400,7 +400,14 @@ submodule frr-bgp-common-structure {
              neighbour.";
         }
 
-        container prefix-limit-options {
+        leaf force-check {
+          type boolean;
+          default false;
+          description
+            "Force check all received routes.";
+        }
+
+        container options {
           when "../direction = 'in'";
           choice options {
             case warning {
@@ -444,7 +451,7 @@ submodule frr-bgp-common-structure {
               }
 
               leaf tr-restart-timer {
-                type uint32;
+                type uint16;
                 units "minutes";
                 description
                   "Time interval in seconds after which the BGP session is
