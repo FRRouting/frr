@@ -2937,18 +2937,21 @@ static void bgp_processq_del(struct work_queue *wq, void *data)
 	XFREE(MTYPE_BGP_PROCESS_QUEUE, pqnode);
 }
 
-void bgp_process_queue_init(void)
+void bgp_process_queue_init(struct bgp *bgp)
 {
-	if (!bm->process_main_queue)
-		bm->process_main_queue =
-			work_queue_new(bm->master, "process_main_queue");
+	if (!bgp->process_queue) {
+		char name[BUFSIZ];
 
-	bm->process_main_queue->spec.workfunc = &bgp_process_wq;
-	bm->process_main_queue->spec.del_item_data = &bgp_processq_del;
-	bm->process_main_queue->spec.max_retries = 0;
-	bm->process_main_queue->spec.hold = 50;
+		snprintf(name, BUFSIZ, "process_queue %s", bgp->name_pretty);
+		bgp->process_queue = work_queue_new(bm->master, name);
+	}
+
+	bgp->process_queue->spec.workfunc = &bgp_process_wq;
+	bgp->process_queue->spec.del_item_data = &bgp_processq_del;
+	bgp->process_queue->spec.max_retries = 0;
+	bgp->process_queue->spec.hold = 50;
 	/* Use a higher yield value of 50ms for main queue processing */
-	bm->process_main_queue->spec.yield = 50 * 1000L;
+	bgp->process_queue->spec.yield = 50 * 1000L;
 }
 
 static struct bgp_process_queue *bgp_processq_alloc(struct bgp *bgp)
@@ -2968,7 +2971,7 @@ static struct bgp_process_queue *bgp_processq_alloc(struct bgp *bgp)
 void bgp_process(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi)
 {
 #define ARBITRARY_PROCESS_QLEN		10000
-	struct work_queue *wq = bm->process_main_queue;
+	struct work_queue *wq = bgp->process_queue;
 	struct bgp_process_queue *pqnode;
 	int pqnode_reuse = 0;
 
@@ -3025,13 +3028,13 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 {
 	struct bgp_process_queue *pqnode;
 
-	if (bm->process_main_queue == NULL)
+	if (bgp->process_queue == NULL)
 		return;
 
 	pqnode = bgp_processq_alloc(bgp);
 
 	SET_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER);
-	work_queue_add(bm->process_main_queue, pqnode);
+	work_queue_add(bgp->process_queue, pqnode);
 }
 
 static int bgp_maximum_prefix_restart_timer(struct thread *thread)
@@ -4543,7 +4546,7 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 				  struct bgp_table *table)
 {
 	struct bgp_dest *dest;
-	int force = bm->process_main_queue ? 0 : 1;
+	int force = peer->bgp->process_queue ? 0 : 1;
 
 	if (!table)
 		table = peer->bgp->rib[afi][safi];

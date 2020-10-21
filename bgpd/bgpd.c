@@ -2981,6 +2981,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	}
 
 	bgp_lock(bgp);
+
+	bgp_process_queue_init(bgp);
 	bgp->heuristic_coalesce = true;
 	bgp->inst_type = inst_type;
 	bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? VRF_DEFAULT
@@ -3504,6 +3506,9 @@ int bgp_delete(struct bgp *bgp)
 		else
 			bgp_set_evpn(bgp_get_default());
 	}
+
+	if (bgp->process_queue)
+		work_queue_free_and_null(&bgp->process_queue);
 
 	thread_master_free_unused(bm->master);
 	bgp_unlock(bgp); /* initial reference */
@@ -7085,8 +7090,6 @@ void bgp_master_init(struct thread_master *master, const int buffer_size)
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
 
-	bgp_process_queue_init();
-
 	bgp_mac_init();
 	/* init the rd id space.
 	   assign 0th index in the bitfield,
@@ -7290,9 +7293,6 @@ void bgp_terminate(void)
 			    || peer->status == OpenConfirm)
 				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_CEASE_PEER_UNCONFIG);
-
-	if (bm->process_main_queue)
-		work_queue_free_and_null(&bm->process_main_queue);
 
 	if (bm->t_rmap_update)
 		BGP_TIMER_OFF(bm->t_rmap_update);

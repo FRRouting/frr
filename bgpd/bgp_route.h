@@ -527,7 +527,7 @@ DECLARE_HOOK(bgp_process,
 /* Prototypes. */
 extern void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 			   struct peer *peer, afi_t afi, safi_t safi);
-extern void bgp_process_queue_init(void);
+extern void bgp_process_queue_init(struct bgp *bgp);
 extern void bgp_route_init(void);
 extern void bgp_route_finish(void);
 extern void bgp_cleanup_routes(struct bgp *);
