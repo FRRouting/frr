@@ -108,6 +108,10 @@
 #define MPLSL3VPNVRFRTEINETCIDRXCPOINTER 17
 #define MPLSL3VPNVRFRTEINETCIDRSTATUS 18
 
+/* BGP Trap */
+#define MPLSL3VPNVRFUP 1
+#define MPLSL3VPNDOWN 2
+
 /* SNMP value hack. */
 #define INTEGER ASN_INTEGER
 #define INTEGER32 ASN_INTEGER
@@ -125,8 +129,10 @@ SNMP_LOCAL_VARIABLES
 
 /* BGP-MPLS-MIB instances */
 static oid mpls_l3vpn_oid[] = {MPLSL3VPNMIB};
+static oid mpls_l3vpn_trap_oid[] = {MPLSL3VPNMIB, 0};
 static char rd_buf[RD_ADDRSTRLEN];
-static uint8_t bgp_mplsvpn_notif_enable = SNMP_FALSE;
+/* Notifications enabled by default */
+static uint8_t bgp_mplsvpn_notif_enable = SNMP_TRUE;
 static oid mpls_l3vpn_policy_oid[2] = {0, 0};
 static const char *empty_nhop = "";
 char rt_description[VRF_NAMSIZ + RT_PREAMBLE_SIZE];
@@ -581,17 +587,52 @@ static bool is_bgp_vrf_active(struct bgp *bgp)
 	return false;
 }
 
+/* BGP Traps. */
+static struct trap_object l3vpn_trap_list[] = {{5, {1, 2, 1, 1, 5} },
+					       {5, {1, 2, 2, 1, 6} } };
+
 static int bgp_vrf_check_update_active(struct bgp *bgp, struct interface *ifp)
 {
 	bool new_active = false;
+	oid trap;
+	struct index_oid trap_index[2];
 
-	if (!is_bgp_vrf_mplsvpn(bgp) || bgp->snmp_stats == NULL)
+	if (!is_bgp_vrf_mplsvpn(bgp) || bgp->snmp_stats == NULL
+	    || !bgp_mplsvpn_notif_enable)
 		return 0;
 	new_active = is_bgp_vrf_active(bgp);
 	if (bgp->snmp_stats->active != new_active) {
 		/* add trap in here */
 		bgp->snmp_stats->active = new_active;
+
+		/* send relevent trap */
+		if (bgp->snmp_stats->active)
+			trap = MPLSL3VPNVRFUP;
+		else
+			trap = MPLSL3VPNDOWN;
+
+		/*
+		 * first index vrf_name + ifindex
+		 * second index vrf_name
+		 */
+		trap_index[1].indexlen = strnlen(bgp->name, VRF_NAMSIZ);
+		oid_copy_str(trap_index[0].indexname, bgp->name,
+			     trap_index[1].indexlen);
+		oid_copy_str(trap_index[1].indexname, bgp->name,
+			     trap_index[1].indexlen);
+		trap_index[0].indexlen =
+			trap_index[1].indexlen + sizeof(ifindex_t);
+		oid_copy_int(trap_index[0].indexname + trap_index[1].indexlen,
+			     (int *)&(ifp->ifindex));
+
+		smux_trap_multi_index(
+			mpls_l3vpn_variables, array_size(mpls_l3vpn_variables),
+			mpls_l3vpn_trap_oid, array_size(mpls_l3vpn_trap_oid),
+			mpls_l3vpn_oid, sizeof(mpls_l3vpn_oid) / sizeof(oid),
+			trap_index, array_size(trap_index), l3vpn_trap_list,
+			array_size(l3vpn_trap_list), trap);
 	}
+	bgp_mpls_l3vpn_update_last_changed(bgp);
 	return 0;
 }
 
@@ -668,13 +709,11 @@ static int write_mplsL3vpnNotificationEnable(int action, uint8_t *var_val,
 {
 	uint32_t intval;
 
-	if (var_val_type != ASN_INTEGER) {
+	if (var_val_type != ASN_INTEGER)
 		return SNMP_ERR_WRONGTYPE;
-	}
 
-	if (var_val_len != sizeof(long)) {
+	if (var_val_len != sizeof(long))
 		return SNMP_ERR_WRONGLENGTH;
-	}
 
 	intval = *(long *)var_val;
 	bgp_mplsvpn_notif_enable = intval;
