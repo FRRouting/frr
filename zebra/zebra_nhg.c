@@ -442,8 +442,11 @@ static void *zebra_nhg_hash_alloc(void *arg)
 	/* Mark duplicate nexthops in a group at creation time. */
 	nexthop_group_mark_duplicates(&(nhe->nhg));
 
+	zebra_nhg_connect_depends(nhe, &(copy->nhg_depends));
+
 	/* Add the ifp now if it's not a group or recursive and has ifindex */
-	if (nhe->nhg.nexthop && nhe->nhg.nexthop->ifindex) {
+	if (zebra_nhg_depends_is_empty(nhe) && nhe->nhg.nexthop
+	    && nhe->nhg.nexthop->ifindex) {
 		struct interface *ifp = NULL;
 
 		ifp = if_lookup_by_index(nhe->nhg.nexthop->ifindex,
@@ -457,6 +460,7 @@ static void *zebra_nhg_hash_alloc(void *arg)
 				nhe->nhg.nexthop->ifindex,
 				nhe->nhg.nexthop->vrf_id, nhe->id);
 	}
+
 
 	return nhe;
 }
@@ -750,7 +754,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	 * resolving nexthop; or a group of nexthops, where we need
 	 * relationships with the corresponding singletons.
 	 */
-	zebra_nhg_depends_init(newnhe);
+	zebra_nhg_depends_init(lookup);
 
 	nh = newnhe->nhg.nexthop;
 
@@ -782,14 +786,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	}
 
 	if (recursive)
-		SET_FLAG(newnhe->flags, NEXTHOP_GROUP_RECURSIVE);
-
-	/* Attach dependent backpointers to singletons */
-	zebra_nhg_connect_depends(newnhe, &newnhe->nhg_depends);
-
-	/**
-	 * Backup Nexthops
-	 */
+		SET_FLAG((*nhe)->flags, NEXTHOP_GROUP_RECURSIVE);
 
 	if (zebra_nhg_get_backup_nhg(newnhe) == NULL ||
 	    zebra_nhg_get_backup_nhg(newnhe)->nexthop == NULL)
@@ -831,9 +828,6 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 
 	if (recursive)
 		SET_FLAG(backup_nhe->flags, NEXTHOP_GROUP_RECURSIVE);
-
-	/* Attach dependent backpointers to singletons */
-	zebra_nhg_connect_depends(backup_nhe, &backup_nhe->nhg_depends);
 
 done:
 
@@ -1594,7 +1588,6 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 
 void zebra_nhg_hash_free(void *p)
 {
-	zebra_nhg_release_all_deps((struct nhg_hash_entry *)p);
 	zebra_nhg_free((struct nhg_hash_entry *)p);
 }
 
@@ -2821,15 +2814,10 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	if (old) {
 		/*
 		 * This is a replace, just release NHE from ID for now, The
-		 * depends/dependents may still be used in the replacement so
-		 * we don't touch them other than to remove their refs to their
-		 * old parent.
+		 * depends/dependents may still be used in the replacement.
 		 */
 		replace = true;
 		hash_release(zrouter.nhgs_id, old);
-
-		/* Free all the things */
-		zebra_nhg_release_all_deps(old);
 	}
 
 	new = zebra_nhg_rib_find_nhe(&lookup, afi);
@@ -2865,6 +2853,9 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 				  rb_node_dep)
 				zebra_nhg_decrement_ref(rb_node_dep->nhe);
 		}
+
+		/* Free all the things */
+		zebra_nhg_release_all_deps(old);
 
 		/* Dont call the dec API, we dont want to uninstall the ID */
 		old->refcnt = 0;
