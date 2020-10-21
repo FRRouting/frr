@@ -919,9 +919,9 @@ static void zebra_evpn_nh_add(struct zebra_evpn_es_vtep *es_vtep)
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NH)
-		zlog_debug("es %s vtep %s nh 0x%x add",
+		zlog_debug("es %s vtep %pI4 nh 0x%x add",
 				es_vtep->es->esi_str,
-				inet_ntoa(es_vtep->vtep_ip), es_vtep->nh_id);
+				&es_vtep->vtep_ip, es_vtep->nh_id);
 	/* install the NH */
 	kernel_upd_mac_nh(es_vtep->nh_id, es_vtep->vtep_ip);
 	/* add the NH to the parent NHG */
@@ -936,9 +936,9 @@ static void zebra_evpn_nh_del(struct zebra_evpn_es_vtep *es_vtep)
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NH)
-		zlog_debug("es %s vtep %s nh 0x%x del",
+		zlog_debug("es %s vtep %pI4 nh 0x%x del",
 				es_vtep->es->esi_str,
-				inet_ntoa(es_vtep->vtep_ip), es_vtep->nh_id);
+				&es_vtep->vtep_ip, es_vtep->nh_id);
 
 	nh_id = es_vtep->nh_id;
 	es_vtep->nh_id = 0;
@@ -1024,8 +1024,8 @@ static void zebra_evpn_es_vtep_add(struct zebra_evpn_es *es,
 
 	if (!es_vtep) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-			zlog_debug("es %s vtep %s add",
-					es->esi_str, inet_ntoa(vtep_ip));
+			zlog_debug("es %s vtep %pI4 add",
+					es->esi_str, &vtep_ip);
 		es_vtep = zebra_evpn_es_vtep_new(es, vtep_ip);
 		/* update the L2-NHG associated with the ES */
 		zebra_evpn_nh_add(es_vtep);
@@ -1041,8 +1041,8 @@ static void zebra_evpn_es_vtep_del(struct zebra_evpn_es *es,
 
 	if (es_vtep) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-			zlog_debug("es %s vtep %s del",
-					es->esi_str, inet_ntoa(vtep_ip));
+			zlog_debug("es %s vtep %pI4 del",
+					es->esi_str, &vtep_ip);
 		zebra_evpn_es_vtep_free(es_vtep);
 	}
 }
@@ -1168,9 +1168,9 @@ static int zebra_evpn_es_send_add_to_client(struct zebra_evpn_es *es)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("send add local es %s %s to %s",
+		zlog_debug("send add local es %s %pI4 to %s",
 				es->esi_str,
-				inet_ntoa(zmh_info->es_originator_ip),
+				&zmh_info->es_originator_ip,
 				zebra_route_string(client->proto));
 
 	client->local_es_add_cnt++;
@@ -1498,9 +1498,8 @@ static int zebra_evpn_remote_es_del(esi_t *esi, struct in_addr vtep_ip)
 	struct zebra_evpn_es *es;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("remote es %s vtep %s del",
-				esi_to_str(esi, buf, sizeof(buf)),
-				inet_ntoa(vtep_ip));
+		zlog_debug("remote es %s vtep %pI4 del",
+			   esi_to_str(esi, buf, sizeof(buf)), &vtep_ip);
 
 	es = zebra_evpn_es_find(esi);
 	if (!es) {
@@ -1525,9 +1524,9 @@ static void zebra_evpn_remote_es_flush(struct zebra_evpn_es **esp)
 
 	for (ALL_LIST_ELEMENTS(es->es_vtep_list, node, nnode, es_vtep)) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-			zlog_debug("es %s vtep %s flush",
+			zlog_debug("es %s vtep %pI4 flush",
 					es->esi_str,
-					inet_ntoa(es_vtep->vtep_ip));
+					&es_vtep->vtep_ip);
 		zebra_evpn_es_vtep_free(es_vtep);
 	}
 	zebra_evpn_es_remote_info_re_eval(esp);
@@ -1539,9 +1538,8 @@ static int zebra_evpn_remote_es_add(esi_t *esi, struct in_addr vtep_ip)
 	struct zebra_evpn_es *es;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("remote es %s vtep %s add",
-				esi_to_str(esi, buf, sizeof(buf)),
-				inet_ntoa(vtep_ip));
+		zlog_debug("remote es %s vtep %pI4 add",
+				esi_to_str(esi, buf, sizeof(buf)), &vtep_ip);
 
 	es = zebra_evpn_es_find(esi);
 	if (!es) {
@@ -1756,17 +1754,20 @@ static char *zebra_evpn_es_vtep_str(char *vtep_str, struct zebra_evpn_es *es,
 {
 	struct zebra_evpn_es_vtep *zvtep;
 	struct listnode	*node;
+	char buf[PREFIX_STRLEN];
 	bool first = true;
 
 	vtep_str[0] = '\0';
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, zvtep)) {
 		if (first) {
 			first = false;
-			strlcat(vtep_str, inet_ntoa(zvtep->vtep_ip),
+			strlcat(vtep_str, inet_ntop(AF_INET, &zvtep->vtep_ip,
+						    buf, sizeof(buf)),
 				vtep_str_size);
 		} else {
 			strlcat(vtep_str, ",", vtep_str_size);
-			strlcat(vtep_str, inet_ntoa(zvtep->vtep_ip),
+			strlcat(vtep_str, inet_ntop(AF_INET, &zvtep->vtep_ip,
+						    buf, sizeof(buf)),
 				vtep_str_size);
 		}
 	}
@@ -1832,8 +1833,8 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 		vty_out(vty, " Nexthop group: 0x%x\n", es->nhg_id);
 		vty_out(vty, " VTEPs:\n");
 		for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, zvtep))
-			vty_out(vty, "     %s nh: 0x%x\n",
-					inet_ntoa(zvtep->vtep_ip),
+			vty_out(vty, "     %pI4 nh: 0x%x\n",
+					&zvtep->vtep_ip,
 					zvtep->nh_id);
 
 		vty_out(vty, "\n");
@@ -2029,8 +2030,8 @@ void zebra_evpn_es_set_base_evpn(zebra_evpn_t *zevpn)
 		zmh_info->es_base_evpn->local_vtep_ip.s_addr;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("es originator ip set to %s",
-			inet_ntoa(zmh_info->es_base_evpn->local_vtep_ip));
+		zlog_debug("es originator ip set to %pI4",
+			&zmh_info->es_base_evpn->local_vtep_ip);
 
 	/* if originator ip changes we need to update bgp */
 	for (ALL_LIST_ELEMENTS_RO(zmh_info->local_es_list, node, es)) {

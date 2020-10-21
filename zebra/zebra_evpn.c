@@ -109,6 +109,7 @@ void zebra_evpn_print(zebra_evpn_t *zevpn, void **ctxt)
 	json_object *json = NULL;
 	json_object *json_vtep_list = NULL;
 	json_object *json_ip_str = NULL;
+	char buf[PREFIX_STRLEN];
 
 	vty = ctxt[0];
 	json = ctxt[1];
@@ -134,18 +135,20 @@ void zebra_evpn_print(zebra_evpn_t *zevpn, void **ctxt)
 	if (json == NULL) {
 		vty_out(vty, " VxLAN interface: %s\n", zevpn->vxlan_if->name);
 		vty_out(vty, " VxLAN ifIndex: %u\n", zevpn->vxlan_if->ifindex);
-		vty_out(vty, " Local VTEP IP: %s\n",
-			inet_ntoa(zevpn->local_vtep_ip));
-		vty_out(vty, " Mcast group: %s\n",
-				inet_ntoa(zevpn->mcast_grp));
+		vty_out(vty, " Local VTEP IP: %pI4\n",
+			&zevpn->local_vtep_ip);
+		vty_out(vty, " Mcast group: %pI4\n",
+				&zevpn->mcast_grp);
 	} else {
 		json_object_string_add(json, "vxlanInterface",
 				       zevpn->vxlan_if->name);
 		json_object_int_add(json, "ifindex", zevpn->vxlan_if->ifindex);
 		json_object_string_add(json, "vtepIp",
-				       inet_ntoa(zevpn->local_vtep_ip));
+				       inet_ntop(AF_INET, &zevpn->local_vtep_ip,
+						 buf, sizeof(buf)));
 		json_object_string_add(json, "mcastGroup",
-				inet_ntoa(zevpn->mcast_grp));
+				       inet_ntop(AF_INET, &zevpn->mcast_grp,
+						 buf, sizeof(buf)));
 		json_object_string_add(json, "advertiseGatewayMacip",
 				       zevpn->advertise_gw_macip ? "Yes" : "No");
 		json_object_int_add(json, "numMacs", num_macs);
@@ -165,12 +168,14 @@ void zebra_evpn_print(zebra_evpn_t *zevpn, void **ctxt)
 					VXLAN_FLOOD_STR_DEFAULT);
 
 			if (json == NULL) {
-				vty_out(vty, "  %s flood: %s\n",
-						inet_ntoa(zvtep->vtep_ip),
+				vty_out(vty, "  %pI4 flood: %s\n",
+						&zvtep->vtep_ip,
 						flood_str);
 			} else {
 				json_ip_str = json_object_new_string(
-						inet_ntoa(zvtep->vtep_ip));
+						inet_ntop(AF_INET,
+							  &zvtep->vtep_ip, buf,
+							  sizeof(buf)));
 				json_object_array_add(json_vtep_list,
 						json_ip_str);
 			}
@@ -207,6 +212,7 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 	json_object *json_evpn = NULL;
 	json_object *json_ip_str = NULL;
 	json_object *json_vtep_list = NULL;
+	char buf[PREFIX_STRLEN];
 
 	vty = ctxt[0];
 	json = ctxt[1];
@@ -245,7 +251,8 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 			json_vtep_list = json_object_new_array();
 			for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next) {
 				json_ip_str = json_object_new_string(
-					inet_ntoa(zvtep->vtep_ip));
+					inet_ntop(AF_INET, &zvtep->vtep_ip, buf,
+						  sizeof(buf)));
 				json_object_array_add(json_vtep_list,
 						      json_ip_str);
 			}
@@ -1074,8 +1081,8 @@ int zebra_evpn_send_add_to_client(zebra_evpn_t *zevpn)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Send EVPN_ADD %u %s tenant vrf %s to %s", zevpn->vni,
-			   inet_ntoa(zevpn->local_vtep_ip),
+		zlog_debug("Send EVPN_ADD %u %pI4 tenant vrf %s to %s", zevpn->vni,
+			   &zevpn->local_vtep_ip,
 			   vrf_id_to_name(zevpn->vrf_id),
 			   zebra_route_string(client->proto));
 

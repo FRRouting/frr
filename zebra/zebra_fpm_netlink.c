@@ -44,41 +44,6 @@
 #include "zebra/zebra_vxlan_private.h"
 
 /*
- * addr_to_a
- *
- * Returns string representation of an address of the given AF.
- */
-static inline const char *addr_to_a(uint8_t af, void *addr)
-{
-	if (!addr)
-		return "<No address>";
-
-	switch (af) {
-
-	case AF_INET:
-		return inet_ntoa(*((struct in_addr *)addr));
-	case AF_INET6:
-		return inet6_ntoa(*((struct in6_addr *)addr));
-	default:
-		return "<Addr in unknown AF>";
-	}
-}
-
-/*
- * prefix_addr_to_a
- *
- * Convience wrapper that returns a human-readable string for the
- * address in a prefix.
- */
-static const char *prefix_addr_to_a(struct prefix *prefix)
-{
-	if (!prefix)
-		return "<No address>";
-
-	return addr_to_a(prefix->family, &prefix->u.prefix);
-}
-
-/*
  * af_addr_size
  *
  * The size of an address in a given address family.
@@ -525,18 +490,24 @@ static void zfpm_log_route_info(struct netlink_route_info *ri,
 {
 	struct netlink_nh_info *nhi;
 	unsigned int i;
+	char buf[PREFIX_STRLEN];
 
-	zfpm_debug("%s : %s %s/%d, Proto: %s, Metric: %u", label,
+	zfpm_debug("%s : %s %s, Proto: %s, Metric: %u", label,
 		   nl_msg_type_to_str(ri->nlmsg_type),
-		   prefix_addr_to_a(ri->prefix), ri->prefix->prefixlen,
+		   prefix2str(ri->prefix, buf, sizeof(buf)),
 		   nl_rtproto_to_str(ri->rtm_protocol),
 		   ri->metric ? *ri->metric : 0);
 
 	for (i = 0; i < ri->num_nhs; i++) {
 		nhi = &ri->nhs[i];
+
+		if (ri->af == AF_INET)
+			inet_ntop(AF_INET, &nhi->gateway, buf, sizeof(buf));
+		else
+			inet_ntop(AF_INET6, &nhi->gateway, buf, sizeof(buf));
+
 		zfpm_debug("  Intf: %u, Gateway: %s, Recursive: %s, Type: %s, Encap type: %s",
-			   nhi->if_index, addr_to_a(ri->af, nhi->gateway),
-			   nhi->recursive ? "yes" : "no",
+			   nhi->if_index, buf, nhi->recursive ? "yes" : "no",
 			   nexthop_type_to_str(nhi->type),
 			   fpm_nh_encap_type_to_str(nhi->encap_info.encap_type)
 			   );
@@ -621,11 +592,11 @@ int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 
 	assert(req->hdr.nlmsg_len < in_buf_len);
 
-	zfpm_debug("Tx %s family %s ifindex %u MAC %s DEST %s",
+	zfpm_debug("Tx %s family %s ifindex %u MAC %s DEST %pI4",
 		   nl_msg_type_to_str(req->hdr.nlmsg_type),
 		   nl_family_to_str(req->ndm.ndm_family), req->ndm.ndm_ifindex,
 		   prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1)),
-		   inet_ntoa(mac->r_vtep_ip));
+		   &mac->r_vtep_ip);
 
 	return req->hdr.nlmsg_len;
 }

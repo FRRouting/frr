@@ -304,8 +304,8 @@ static void show_nexthop_detail_helper(struct vty *vty,
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		vty_out(vty, " %s",
-			inet_ntoa(nexthop->gate.ipv4));
+		vty_out(vty, " %pI4",
+			&nexthop->gate.ipv4);
 		if (nexthop->ifindex)
 			vty_out(vty, ", via %s",
 				ifindex2ifname(
@@ -508,7 +508,7 @@ static void show_route_nexthop_helper(struct vty *vty,
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		vty_out(vty, " via %s", inet_ntoa(nexthop->gate.ipv4));
+		vty_out(vty, " via %pI4", &nexthop->gate.ipv4);
 		if (nexthop->ifindex)
 			vty_out(vty, ", %s",
 				ifindex2ifname(nexthop->ifindex,
@@ -636,7 +636,8 @@ static void show_nexthop_json_helper(json_object *json_nexthop,
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		json_object_string_add(
 			json_nexthop, "ip",
-			inet_ntoa(nexthop->gate.ipv4));
+			inet_ntop(AF_INET, &nexthop->gate.ipv4,
+				  buf, sizeof(buf)));
 		json_object_string_add(json_nexthop, "afi",
 				       "ipv4");
 

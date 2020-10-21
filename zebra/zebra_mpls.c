@@ -1502,7 +1502,8 @@ static json_object *nhlfe_json(zebra_nhlfe_t *nhlfe)
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		json_object_string_add(json_nhlfe, "nexthop",
-				       inet_ntoa(nexthop->gate.ipv4));
+				       inet_ntop(AF_INET, &nexthop->gate.ipv4,
+						 buf, sizeof(buf)));
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -1560,7 +1561,7 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty,
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		vty_out(vty, "  via %s", inet_ntoa(nexthop->gate.ipv4));
+		vty_out(vty, "  via %pI4", &nexthop->gate.ipv4);
 		if (nexthop->ifindex)
 			vty_out(vty, " dev %s",
 				ifindex2ifname(nexthop->ifindex,
