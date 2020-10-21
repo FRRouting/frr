@@ -79,6 +79,10 @@ struct trap_object {
 	oid name[MAX_OID_LEN];
 };
 
+struct index_oid {
+	int indexlen;
+	oid indexname[MAX_OID_LEN];
+};
 /* Declare SMUX return value. */
 #define SNMP_LOCAL_VARIABLES                                                   \
 	static long snmp_int_val __attribute__((unused));                      \
@@ -131,6 +135,12 @@ extern int smux_trap(struct variable *, size_t, const oid *, size_t,
 		     const oid *, size_t, const oid *, size_t,
 		     const struct trap_object *, size_t, uint8_t);
 
+extern int smux_trap_multi_index(struct variable *vp, size_t vp_len,
+				 const oid *ename, size_t enamelen,
+				 const oid *name, size_t namelen,
+				 struct index_oid *iname, size_t index_len,
+				 const struct trap_object *trapobj,
+				 size_t trapobjlen, uint8_t sptrap);
 extern int oid_compare(const oid *, int, const oid *, int);
 extern void oid2in_addr(oid[], int, struct in_addr *);
 extern void oid2int(oid oid[], int *dest);
