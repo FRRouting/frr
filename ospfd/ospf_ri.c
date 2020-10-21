@@ -544,8 +544,8 @@ static void initialize_params(struct ospf_router_info *ori)
 		if (!list_isempty(OspfRI.area_info))
 			list_delete_all_node(OspfRI.area_info);
 		for (ALL_LIST_ELEMENTS(top->areas, node, nnode, area)) {
-			zlog_debug("RI (%s): Add area %s to Router Information",
-				__func__, inet_ntoa(area->area_id));
+			zlog_debug("RI (%s): Add area %pI4 to Router Information",
+				__func__, &area->area_id);
 			new = XCALLOC(MTYPE_OSPF_ROUTER_INFO,
 				sizeof(struct ospf_ri_area_info));
 			new->area = area;
@@ -795,8 +795,8 @@ static struct ospf_lsa *ospf_router_info_lsa_new(struct ospf_area *area)
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 		zlog_debug(
-			"LSA[Type%d:%s]: Create an Opaque-LSA/ROUTER INFORMATION instance",
-			lsa_type, inet_ntoa(lsa_id));
+			"LSA[Type%d:%pI4]: Create an Opaque-LSA/ROUTER INFORMATION instance",
+			lsa_type, &lsa_id);
 
 	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
@@ -874,8 +874,8 @@ static int ospf_router_info_lsa_originate_as(void *arg)
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 		zlog_debug(
-			"LSA[Type%d:%s]: Originate Opaque-LSA/ROUTER INFORMATION",
-			new->data->type, inet_ntoa(new->data->id));
+			"LSA[Type%d:%pI4]: Originate Opaque-LSA/ROUTER INFORMATION",
+			new->data->type, &new->data->id);
 		ospf_lsa_header_dump(new->data);
 	}
 
@@ -943,8 +943,8 @@ static int ospf_router_info_lsa_originate_area(void *arg)
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 		zlog_debug(
-			"LSA[Type%d:%s]: Originate Opaque-LSA/ROUTER INFORMATION",
-			new->data->type, inet_ntoa(new->data->id));
+			"LSA[Type%d:%pI4]: Originate Opaque-LSA/ROUTER INFORMATION",
+			new->data->type, &new->data->id);
 		ospf_lsa_header_dump(new->data);
 	}
 
@@ -1094,8 +1094,8 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 	/* Debug logging. */
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 		zlog_debug(
-			"LSA[Type%d:%s]: Refresh Opaque-LSA/ROUTER INFORMATION",
-			new->data->type, inet_ntoa(new->data->id));
+			"LSA[Type%d:%pI4]: Refresh Opaque-LSA/ROUTER INFORMATION",
+			new->data->type, &new->data->id);
 		ospf_lsa_header_dump(new->data);
 	}
 
@@ -1247,11 +1247,11 @@ static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
 
 	if (ntohs(top->address.type) == PCE_ADDRESS_TYPE_IPV4) {
 		if (vty != NULL)
-			vty_out(vty, "  PCE Address: %s\n",
-				inet_ntoa(top->address.value));
+			vty_out(vty, "  PCE Address: %pI4\n",
+				&top->address.value);
 		else
-			zlog_debug("    PCE Address: %s",
-				   inet_ntoa(top->address.value));
+			zlog_debug("    PCE Address: %pI4",
+				   &top->address.value);
 	} else {
 		/* TODO: Add support to IPv6 with inet_ntop() */
 		if (vty != NULL)
@@ -1288,9 +1288,9 @@ static uint16_t show_vty_pce_subtlv_domain(struct vty *vty,
 	if (ntohs(top->type) == PCE_DOMAIN_TYPE_AREA) {
 		tmp.s_addr = top->value;
 		if (vty != NULL)
-			vty_out(vty, "  PCE domain Area: %s\n", inet_ntoa(tmp));
+			vty_out(vty, "  PCE domain Area: %pI4\n", &tmp);
 		else
-			zlog_debug("    PCE domain Area: %s", inet_ntoa(tmp));
+			zlog_debug("    PCE domain Area: %pI4", &tmp);
 	} else {
 		if (vty != NULL)
 			vty_out(vty, "  PCE domain AS: %d\n",
@@ -1312,10 +1312,10 @@ static uint16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
 	if (ntohs(top->type) == PCE_DOMAIN_TYPE_AREA) {
 		tmp.s_addr = top->value;
 		if (vty != NULL)
-			vty_out(vty, "  PCE neighbor Area: %s\n",
-				inet_ntoa(tmp));
+			vty_out(vty, "  PCE neighbor Area: %pI4\n",
+				&tmp);
 		else
-			zlog_debug("    PCE neighbor Area: %s", inet_ntoa(tmp));
+			zlog_debug("    PCE neighbor Area: %pI4", &tmp);
 	} else {
 		if (vty != NULL)
 			vty_out(vty, "  PCE neighbor AS: %d\n",
@@ -1543,8 +1543,8 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 	if (OspfRI.pce_info.enabled) {
 
 		if (pce->pce_address.header.type != 0)
-			vty_out(vty, "  pce address %s\n",
-				inet_ntoa(pce->pce_address.address.value));
+			vty_out(vty, "  pce address %pI4\n",
+				&pce->pce_address.address.value);
 
 		if (pce->pce_cap_flag.header.type != 0)
 			vty_out(vty, "  pce flag 0x%x\n",
@@ -1554,8 +1554,8 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 			if (domain->header.type != 0) {
 				if (domain->type == PCE_DOMAIN_TYPE_AREA) {
 					tmp.s_addr = domain->value;
-					vty_out(vty, "  pce domain area %s\n",
-						inet_ntoa(tmp));
+					vty_out(vty, "  pce domain area %pI4\n",
+						&tmp);
 				} else {
 					vty_out(vty, "  pce domain as %d\n",
 						ntohl(domain->value));
@@ -1567,8 +1567,9 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 			if (neighbor->header.type != 0) {
 				if (neighbor->type == PCE_DOMAIN_TYPE_AREA) {
 					tmp.s_addr = neighbor->value;
-					vty_out(vty, "  pce neighbor area %s\n",
-						inet_ntoa(tmp));
+					vty_out(vty,
+						"  pce neighbor area %pI4\n",
+						&tmp);
 				} else {
 					vty_out(vty, "  pce neighbor as %d\n",
 						ntohl(neighbor->value));

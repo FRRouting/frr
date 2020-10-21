@@ -387,8 +387,8 @@ int ospf_apiserver_read(struct thread *thread)
 		apiserv->t_sync_read = NULL;
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("API: ospf_apiserver_read: Peer: %s/%u",
-				   inet_ntoa(apiserv->peer_sync.sin_addr),
+			zlog_debug("API: ospf_apiserver_read: Peer: %pI4/%u",
+				   &apiserv->peer_sync.sin_addr,
 				   ntohs(apiserv->peer_sync.sin_port));
 	}
 #ifdef USE_ASYNC_READ
@@ -397,8 +397,8 @@ int ospf_apiserver_read(struct thread *thread)
 		apiserv->t_async_read = NULL;
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("API: ospf_apiserver_read: Peer: %s/%u",
-				   inet_ntoa(apiserv->peer_async.sin_addr),
+			zlog_debug("API: ospf_apiserver_read: Peer: %pI4/%u",
+				   &apiserv->peer_async.sin_addr,
 				   ntohs(apiserv->peer_async.sin_port));
 	}
 #endif /* USE_ASYNC_READ */
@@ -455,8 +455,8 @@ int ospf_apiserver_sync_write(struct thread *thread)
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("API: ospf_apiserver_sync_write: Peer: %s/%u",
-			   inet_ntoa(apiserv->peer_sync.sin_addr),
+		zlog_debug("API: ospf_apiserver_sync_write: Peer: %pI4/%u",
+			   &apiserv->peer_sync.sin_addr,
 			   ntohs(apiserv->peer_sync.sin_port));
 
 	/* Check whether there is really a message in the fifo. */
@@ -519,8 +519,8 @@ int ospf_apiserver_async_write(struct thread *thread)
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("API: ospf_apiserver_async_write: Peer: %s/%u",
-			   inet_ntoa(apiserv->peer_async.sin_addr),
+		zlog_debug("API: ospf_apiserver_async_write: Peer: %pI4/%u",
+			   &apiserv->peer_async.sin_addr,
 			   ntohs(apiserv->peer_async.sin_port));
 
 	/* Check whether there is really a message in the fifo. */
@@ -645,8 +645,8 @@ int ospf_apiserver_accept(struct thread *thread)
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("API: ospf_apiserver_accept: New peer: %s/%u",
-			   inet_ntoa(peer_sync.sin_addr),
+		zlog_debug("API: ospf_apiserver_accept: New peer: %pI4/%u",
+			   &peer_sync.sin_addr,
 			   ntohs(peer_sync.sin_port));
 
 	/* Create new socket for asynchronous messages. */
@@ -657,8 +657,8 @@ int ospf_apiserver_accept(struct thread *thread)
 	 */
 	if (ntohs(peer_async.sin_port) == ospf_apiserver_getport()) {
 		zlog_warn(
-			"API: ospf_apiserver_accept: Peer(%s/%u): Invalid async port number?",
-			inet_ntoa(peer_async.sin_addr),
+			"API: ospf_apiserver_accept: Peer(%pI4/%u): Invalid async port number?",
+			&peer_async.sin_addr,
 			ntohs(peer_async.sin_port));
 		close(new_sync_sock);
 		return -1;
@@ -1409,8 +1409,8 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 	options |= OSPF_OPTION_O; /* Don't forget to set option bit */
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: Creating an Opaque-LSA instance",
-			   protolsa->type, inet_ntoa(protolsa->id));
+		zlog_debug("LSA[Type%d:%pI4]: Creating an Opaque-LSA instance",
+			   protolsa->type, &protolsa->id);
 	}
 
 	/* Set opaque-LSA header fields. */
@@ -1510,8 +1510,8 @@ int ospf_apiserver_handle_originate_request(struct ospf_apiserver *apiserv,
 	case OSPF_OPAQUE_LINK_LSA:
 		oi = ospf_apiserver_if_lookup_by_addr(omsg->ifaddr);
 		if (!oi) {
-			zlog_warn("apiserver_originate: unknown interface %s",
-				  inet_ntoa(omsg->ifaddr));
+			zlog_warn("apiserver_originate: unknown interface %pI4",
+				  &omsg->ifaddr);
 			rc = OSPF_API_NOSUCHINTERFACE;
 			goto out;
 		}
@@ -1521,8 +1521,8 @@ int ospf_apiserver_handle_originate_request(struct ospf_apiserver *apiserv,
 	case OSPF_OPAQUE_AREA_LSA:
 		area = ospf_area_lookup_by_area_id(ospf, omsg->area_id);
 		if (!area) {
-			zlog_warn("apiserver_originate: unknown area %s",
-				  inet_ntoa(omsg->area_id));
+			zlog_warn("apiserver_originate: unknown area %pI4",
+				  &omsg->area_id);
 			rc = OSPF_API_NOSUCHAREA;
 			goto out;
 		}
@@ -1791,8 +1791,8 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 
 	/* Debug logging. */
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: Refresh Opaque LSA",
-			   new->data->type, inet_ntoa(new->data->id));
+		zlog_debug("LSA[Type%d:%pI4]: Refresh Opaque LSA",
+			   new->data->type, &new->data->id);
 		ospf_lsa_header_dump(new->data);
 	}
 
@@ -1829,8 +1829,8 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 	case OSPF_OPAQUE_AREA_LSA:
 		area = ospf_area_lookup_by_area_id(ospf, dmsg->area_id);
 		if (!area) {
-			zlog_warn("ospf_apiserver_lsa_delete: unknown area %s",
-				  inet_ntoa(dmsg->area_id));
+			zlog_warn("ospf_apiserver_lsa_delete: unknown area %pI4",
+				  &dmsg->area_id);
 			rc = OSPF_API_NOSUCHAREA;
 			goto out;
 		}
@@ -1872,8 +1872,8 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 	old = ospf_lsa_lookup(ospf, area, dmsg->lsa_type, id, ospf->router_id);
 	if (!old) {
 		zlog_warn(
-			"ospf_apiserver_lsa_delete: LSA[Type%d:%s] not in LSDB",
-			dmsg->lsa_type, inet_ntoa(id));
+			"ospf_apiserver_lsa_delete: LSA[Type%d:%pI4] not in LSDB",
+			dmsg->lsa_type, &id);
 		rc = OSPF_API_NOSUCHLSA;
 		goto out;
 	}

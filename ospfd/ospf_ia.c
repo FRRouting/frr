@@ -130,6 +130,7 @@ static void ospf_ia_router_route(struct ospf *ospf, struct route_table *rtrs,
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospf_ia_router_route(): considering %pFX", p);
+
 	/* Find a route to the same dest */
 	rn = route_node_get(rtrs, (struct prefix *)p);
 
@@ -201,8 +202,8 @@ static int process_summary_lsa(struct ospf_area *area, struct route_table *rt,
 	sl = (struct summary_lsa *)lsa->data;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("process_summary_lsa(): LS ID: %s",
-			   inet_ntoa(sl->header.id));
+		zlog_debug("process_summary_lsa(): LS ID: %pI4",
+			   &sl->header.id);
 
 	metric = GET_METRIC(sl->metric);
 
@@ -523,8 +524,8 @@ static int process_transit_summary_lsa(struct ospf_area *area,
 	sl = (struct summary_lsa *)lsa->data;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("process_transit_summaries(): LS ID: %s",
-			   inet_ntoa(lsa->data->id));
+		zlog_debug("process_transit_summaries(): LS ID: %pI4",
+			   &lsa->data->id);
 	metric = GET_METRIC(sl->metric);
 
 	if (metric == OSPF_LS_INFINITY) {

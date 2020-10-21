@@ -1043,8 +1043,8 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
 
 	if (IS_DEBUG_OSPF_TE)
 		zlog_debug(
-			"MPLS-TE (%s): Add Link-ID %s for interface %s ",
-			__func__, inet_ntoa(lp->link_id.value), oi->ifp->name);
+			"MPLS-TE (%s): Add Link-ID %pI4 for interface %s ",
+			__func__, &lp->link_id.value, oi->ifp->name);
 
 	/* Try to Schedule LSA */
 	if (OspfMplsTE.enabled) {
@@ -1187,8 +1187,8 @@ static struct ospf_lsa *ospf_mpls_te_lsa_new(struct ospf *ospf,
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 		zlog_debug(
-			"LSA[Type%d:%s]: Create an Opaque-LSA/MPLS-TE instance",
-			lsa_type, inet_ntoa(lsa_id));
+			"LSA[Type%d:%pI4]: Create an Opaque-LSA/MPLS-TE instance",
+			lsa_type, &lsa_id);
 
 	/* Set opaque-LSA body fields. */
 	ospf_mpls_te_lsa_body_set(s, lp);
@@ -1243,11 +1243,9 @@ static int ospf_mpls_te_lsa_originate1(struct ospf_area *area,
 	ospf_flood_through_area(area, NULL /*nbr*/, new);
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		char area_id[INET_ADDRSTRLEN];
-		strlcpy(area_id, inet_ntoa(area->area_id), sizeof(area_id));
 		zlog_debug(
-			"LSA[Type%d:%s]: Originate Opaque-LSA/MPLS-TE: Area(%s), Link(%s)",
-			new->data->type, inet_ntoa(new->data->id), area_id,
+			"LSA[Type%d:%pI4]: Originate Opaque-LSA/MPLS-TE: Area(%pI4), Link(%s)",
+			new->data->type, &new->data->id, &area->area_id,
 			lp->ifp->name);
 		ospf_lsa_header_dump(new->data);
 	}
@@ -1302,8 +1300,8 @@ static int ospf_mpls_te_lsa_originate_area(void *arg)
 		/* Ok, let's try to originate an LSA for this area and Link. */
 		if (IS_DEBUG_OSPF_TE)
 			zlog_debug(
-				"MPLS-TE(ospf_mpls_te_lsa_originate_area) Let's finally reoriginate the LSA %d through the Area %s for Link %s",
-				lp->instance, inet_ntoa(area->area_id),
+				"MPLS-TE(ospf_mpls_te_lsa_originate_area) Let's finally reoriginate the LSA %d through the Area %pI4 for Link %s",
+				lp->instance, &area->area_id,
 				lp->ifp ? lp->ifp->name : "?");
 		if (ospf_mpls_te_lsa_originate1(area, lp) != 0)
 			return rc;
@@ -1347,8 +1345,8 @@ static int ospf_mpls_te_lsa_originate2(struct ospf *top,
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 		zlog_debug(
-			"LSA[Type%d:%s]: Originate Opaque-LSA/MPLS-TE Inter-AS",
-			new->data->type, inet_ntoa(new->data->id));
+			"LSA[Type%d:%pI4]: Originate Opaque-LSA/MPLS-TE Inter-AS",
+			new->data->type, &new->data->id);
 		ospf_lsa_header_dump(new->data);
 	}
 
@@ -1490,8 +1488,8 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 
 	/* Debug logging. */
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: Refresh Opaque-LSA/MPLS-TE",
-			   new->data->type, inet_ntoa(new->data->id));
+		zlog_debug("LSA[Type%d:%pI4]: Refresh Opaque-LSA/MPLS-TE",
+			   new->data->type, &new->data->id);
 		ospf_lsa_header_dump(new->data);
 	}
 
@@ -1593,9 +1591,9 @@ static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
 	struct te_tlv_router_addr *top = (struct te_tlv_router_addr *)tlvh;
 
 	if (vty != NULL)
-		vty_out(vty, "  Router-Address: %s\n", inet_ntoa(top->value));
+		vty_out(vty, "  Router-Address: %pI4\n", &top->value);
 	else
-		zlog_debug("    Router-Address: %s", inet_ntoa(top->value));
+		zlog_debug("    Router-Address: %pI4", &top->value);
 
 	return TLV_SIZE(tlvh);
 }
@@ -1648,9 +1646,9 @@ static uint16_t show_vty_link_subtlv_link_id(struct vty *vty,
 
 	top = (struct te_link_subtlv_link_id *)tlvh;
 	if (vty != NULL)
-		vty_out(vty, "  Link-ID: %s\n", inet_ntoa(top->value));
+		vty_out(vty, "  Link-ID: %pI4\n", &top->value);
 	else
-		zlog_debug("    Link-ID: %s", inet_ntoa(top->value));
+		zlog_debug("    Link-ID: %pI4", &top->value);
 
 	return TLV_SIZE(tlvh);
 }
@@ -1671,11 +1669,9 @@ static uint16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
 
 	for (i = 0; i < n; i++) {
 		if (vty != NULL)
-			vty_out(vty, "    #%d: %s\n", i,
-				inet_ntoa(top->value[i]));
+			vty_out(vty, "    #%d: %pI4\n", i, &top->value[i]);
 		else
-			zlog_debug("      #%d: %s", i,
-				   inet_ntoa(top->value[i]));
+			zlog_debug("      #%d: %pI4", i, &top->value[i]);
 	}
 	return TLV_SIZE(tlvh);
 }
@@ -1695,11 +1691,9 @@ static uint16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
 
 	for (i = 0; i < n; i++) {
 		if (vty != NULL)
-			vty_out(vty, "    #%d: %s\n", i,
-				inet_ntoa(top->value[i]));
+			vty_out(vty, "    #%d: %pI4\n", i, &top->value[i]);
 		else
-			zlog_debug("      #%d: %s", i,
-				   inet_ntoa(top->value[i]));
+			zlog_debug("      #%d: %pI4", i, &top->value[i]);
 	}
 	return TLV_SIZE(tlvh);
 }
@@ -1811,15 +1805,15 @@ static uint16_t show_vty_link_subtlv_lrrid(struct vty *vty,
 	top = (struct te_link_subtlv_lrrid *)tlvh;
 
 	if (vty != NULL) {
-		vty_out(vty, "  Local  TE Router ID: %s\n",
-			inet_ntoa(top->local));
-		vty_out(vty, "  Remote TE Router ID: %s\n",
-			inet_ntoa(top->remote));
+		vty_out(vty, "  Local  TE Router ID: %pI4\n",
+			&top->local);
+		vty_out(vty, "  Remote TE Router ID: %pI4\n",
+			&top->remote);
 	} else {
-		zlog_debug("    Local  TE Router ID: %s",
-			   inet_ntoa(top->local));
-		zlog_debug("    Remote TE Router ID: %s",
-			   inet_ntoa(top->remote));
+		zlog_debug("    Local  TE Router ID: %pI4",
+			   &top->local);
+		zlog_debug("    Remote TE Router ID: %pI4",
+			   &top->remote);
 	}
 
 	return TLV_SIZE(tlvh);
@@ -1855,11 +1849,11 @@ static uint16_t show_vty_link_subtlv_rip(struct vty *vty,
 	top = (struct te_link_subtlv_rip *)tlvh;
 
 	if (vty != NULL)
-		vty_out(vty, "  Inter-AS TE Remote ASBR IP address: %s\n",
-			inet_ntoa(top->value));
+		vty_out(vty, "  Inter-AS TE Remote ASBR IP address: %pI4\n",
+			&top->value);
 	else
-		zlog_debug("    Inter-AS TE Remote ASBR IP address: %s",
-			   inet_ntoa(top->value));
+		zlog_debug("    Inter-AS TE Remote ASBR IP address: %pI4",
+			   &top->value);
 
 	return TLV_SIZE(tlvh);
 }
@@ -2160,15 +2154,15 @@ static void ospf_mpls_te_config_write_router(struct vty *vty)
 
 	if (OspfMplsTE.enabled) {
 		vty_out(vty, " mpls-te on\n");
-		vty_out(vty, " mpls-te router-address %s\n",
-			inet_ntoa(OspfMplsTE.router_addr.value));
+		vty_out(vty, " mpls-te router-address %pI4\n",
+			&OspfMplsTE.router_addr.value);
 	}
 
 	if (OspfMplsTE.inter_as == AS)
 		vty_out(vty, "  mpls-te inter-as as\n");
 	if (OspfMplsTE.inter_as == Area)
-		vty_out(vty, "  mpls-te inter-as area %s \n",
-			inet_ntoa(OspfMplsTE.interas_areaid));
+		vty_out(vty, "  mpls-te inter-as area %pI4 \n",
+			&OspfMplsTE.interas_areaid);
 
 	return;
 }

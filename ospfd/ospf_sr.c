@@ -1947,10 +1947,8 @@ void ospf_sr_config_write_router(struct vty *vty)
 			for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node,
 						  srp)) {
 				vty_out(vty,
-					" segment-routing prefix %s/%u "
-					"index %u",
-					inet_ntoa(srp->prefv4.prefix),
-					srp->prefv4.prefixlen, srp->sid);
+					" segment-routing prefix %pFX index %u",
+					&srp->prefv4, srp->sid);
 				if (CHECK_FLAG(srp->flags,
 					       EXT_SUBTLV_PREFIX_SID_EFLG))
 					vty_out(vty, " explicit-null\n");
@@ -2449,8 +2447,8 @@ DEFUN (sr_prefix_sid,
 	new->instance = ospf_ext_schedule_prefix_index(
 		ifp, new->sid, &new->prefv4, new->flags);
 	if (new->instance == 0) {
-		vty_out(vty, "Unable to set index %u for prefix %s/%u\n", index,
-			inet_ntoa(p.u.prefix4), p.prefixlen);
+		vty_out(vty, "Unable to set index %u for prefix %pFX\n",
+			index, &p);
 		return CMD_WARNING;
 	}
 
@@ -2572,6 +2570,7 @@ static void show_sr_prefix(struct sbuf *sbuf, struct json_object *json,
 	char pref[19];
 	char sid[22];
 	char op[32];
+	char buf[PREFIX_STRLEN];
 	int indent = 0;
 
 	snprintfrr(pref, 19, "%pFX", (struct prefix *)&srp->prefv4);
@@ -2598,15 +2597,18 @@ static void show_sr_prefix(struct sbuf *sbuf, struct json_object *json,
 					    srp->nhlfe.label_out);
 			json_object_string_add(json_obj, "interface",
 					       itf ? itf->name : "-");
-			json_object_string_add(json_obj, "nexthop",
-					       inet_ntoa(srp->nhlfe.nexthop));
+			json_object_string_add(
+				json_obj, "nexthop",
+				inet_ntop(AF_INET, &srp->nhlfe.nexthop,
+					  buf, sizeof(buf)));
 			json_object_array_add(json_route, json_obj);
 		} else {
 			sbuf_push(sbuf, 0, "%20s  %9s  %15s\n",
 				  sr_op2str(op, 32, srp->label_in,
 					    srp->nhlfe.label_out),
 				  itf ? itf->name : "-",
-				  inet_ntoa(srp->nhlfe.nexthop));
+				  inet_ntop(AF_INET, &srp->nhlfe.nexthop,
+					    buf, sizeof(buf)));
 		}
 		return;
 	}
@@ -2633,15 +2635,18 @@ static void show_sr_prefix(struct sbuf *sbuf, struct json_object *json,
 					    path->srni.label_out);
 			json_object_string_add(json_obj, "interface",
 					       itf ? itf->name : "-");
-			json_object_string_add(json_obj, "nexthop",
-					       inet_ntoa(path->nexthop));
+			json_object_string_add(
+				json_obj, "nexthop",
+				inet_ntop(AF_INET, &path->nexthop,
+					  buf, sizeof(buf)));
 			json_object_array_add(json_route, json_obj);
 		} else {
 			sbuf_push(sbuf, indent, "%20s  %9s  %15s\n",
 				  sr_op2str(op, 32, srp->label_in,
 					    path->srni.label_out),
 				  itf ? itf->name : "-",
-				  inet_ntoa(path->nexthop));
+				  inet_ntop(AF_INET, &path->nexthop, buf,
+					    sizeof(buf)));
 			/* Offset to align information for ECMP */
 			indent = 43;
 		}
@@ -2660,6 +2665,7 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 	char pref[19];
 	char sid[22];
 	char op[32];
+	char buf[PREFIX_STRLEN];
 	uint32_t upper;
 	json_object *json_node = NULL, *json_algo, *json_obj;
 	json_object *json_prefix = NULL, *json_link = NULL;
@@ -2673,7 +2679,8 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 	if (json) {
 		json_node = json_object_new_object();
 		json_object_string_add(json_node, "routerID",
-				       inet_ntoa(srn->adv_router));
+				       inet_ntop(AF_INET, &srn->adv_router,
+						 buf, sizeof(buf)));
 		json_object_int_add(json_node, "srgbSize",
 				    srn->srgb.range_size);
 		json_object_int_add(json_node, "srgbLabel",
@@ -2700,7 +2707,7 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 		if (srn->msd != 0)
 			json_object_int_add(json_node, "nodeMsd", srn->msd);
 	} else {
-		sbuf_push(&sbuf, 0, "SR-Node: %s", inet_ntoa(srn->adv_router));
+		sbuf_push(&sbuf, 0, "SR-Node: %pI4", &srn->adv_router);
 		upper = srn->srgb.lower_bound + srn->srgb.range_size - 1;
 		sbuf_push(&sbuf, 0, "\tSRGB: [%u/%u]",
 			  srn->srgb.lower_bound, upper);
@@ -2764,7 +2771,8 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 					       itf ? itf->name : "-");
 			json_object_string_add(
 				json_obj, "nexthop",
-				inet_ntoa(srl->nhlfe[0].nexthop));
+				inet_ntop(AF_INET, &srl->nhlfe[0].nexthop,
+					  buf, sizeof(buf)));
 			json_object_array_add(json_link, json_obj);
 			/* Backup Link */
 			json_obj = json_object_new_object();
@@ -2779,7 +2787,8 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 					       itf ? itf->name : "-");
 			json_object_string_add(
 				json_obj, "nexthop",
-				inet_ntoa(srl->nhlfe[1].nexthop));
+				inet_ntop(AF_INET, &srl->nhlfe[1].nexthop,
+					  buf, sizeof(buf)));
 			json_object_array_add(json_link, json_obj);
 		} else {
 			sbuf_push(&sbuf, 0, "%18s  %21s  %20s  %9s  %15s\n",
@@ -2787,14 +2796,16 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 				  sr_op2str(op, 32, srl->nhlfe[0].label_in,
 					    srl->nhlfe[0].label_out),
 				  itf ? itf->name : "-",
-				  inet_ntoa(srl->nhlfe[0].nexthop));
+				  inet_ntop(AF_INET, &srl->nhlfe[0].nexthop,
+					    buf, sizeof(buf)));
 			snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[1]);
 			sbuf_push(&sbuf, 0, "%18s  %21s  %20s  %9s  %15s\n",
 				  pref, sid,
 				  sr_op2str(op, 32, srl->nhlfe[1].label_in,
 					    srl->nhlfe[1].label_out),
 				  itf ? itf->name : "-",
-				  inet_ntoa(srl->nhlfe[1].nexthop));
+				  inet_ntop(AF_INET, &srl->nhlfe[1].nexthop,
+					  buf, sizeof(buf)));
 		}
 	}
 	if (json)
@@ -2837,6 +2848,7 @@ DEFUN (show_ip_opsf_srdb,
 	int idx = 0;
 	struct in_addr rid;
 	struct sr_node *srn;
+	char buf[PREFIX_STRLEN];
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL, *json_node_array = NULL;
 
@@ -2848,13 +2860,15 @@ DEFUN (show_ip_opsf_srdb,
 	if (uj) {
 		json = json_object_new_object();
 		json_node_array = json_object_new_array();
-		json_object_string_add(json, "srdbID",
-				       inet_ntoa(OspfSR.self->adv_router));
+		json_object_string_add(
+			json, "srdbID",
+			inet_ntop(AF_INET, &OspfSR.self->adv_router,
+				  buf, sizeof(buf)));
 		json_object_object_add(json, "srNodes", json_node_array);
 	} else {
 		vty_out(vty,
-			"\n\t\tOSPF Segment Routing database for ID %s\n\n",
-			inet_ntoa(OspfSR.self->adv_router));
+			"\n\t\tOSPF Segment Routing database for ID %pI4\n\n",
+			&OspfSR.self->adv_router);
 	}
 
 	if (argv_find(argv, argc, "self-originate", &idx)) {
