@@ -403,12 +403,13 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 	/*
 	 * The code beyond this part deals with update packets, proceed only
 	 * if peer is Established and updates are not on hold (as part of
-	 * update-delay post processing).
+	 * update-delay processing).
 	 */
 	if (peer->status != Established)
 		return 0;
 
-	if (peer->bgp->main_peers_update_hold)
+	if ((peer->bgp->main_peers_update_hold)
+	    || bgp_update_delay_active(peer->bgp))
 		return 0;
 
 	if (peer->t_routeadv)
