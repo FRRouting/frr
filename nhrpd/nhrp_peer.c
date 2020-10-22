@@ -40,7 +40,7 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir);
 
 static void nhrp_peer_check_delete(struct nhrp_peer *p)
 {
-	struct nhrp_interface *nifp = p->ifp->info;
+	struct nhrp_interface *nifp = NULL;
 
 	if (p->ref || notifier_active(&p->notifier_list))
 		return;
@@ -50,8 +50,11 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 
 	THREAD_OFF(p->t_fallback);
 	THREAD_OFF(p->t_timer);
-	hash_release(nifp->peer_hash, p);
-	nhrp_interface_notify_del(p->ifp, &p->ifp_notifier);
+	if (p->ifp && p->ifp->info) {
+		nifp = p->ifp->info;
+		hash_release(nifp->peer_hash, p);
+		nhrp_interface_notify_del(p->ifp, &p->ifp_notifier);
+	}
 	nhrp_vc_notify_del(p->vc, &p->vc_notifier);
 	XFREE(MTYPE_NHRP_PEER, p);
 }
