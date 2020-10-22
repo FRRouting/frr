@@ -504,10 +504,22 @@ void nhrp_shortcut_init(struct nhrp_vrf *nhrp_vrf)
 	nhrp_vrf->shortcut_rib[AFI_IP6] = route_table_init();
 }
 
+struct purge_ctx {
+	const struct prefix *p;
+	int deleted;
+};
+
 void nhrp_shortcut_terminate(struct nhrp_vrf *nhrp_vrf)
 {
+	/* for pending shortcuts, unlink prefix */
+	nhrp_shortcut_foreach(AFI_IP, nhrp_shortcut_force_purge, NULL, nhrp_vrf);
+	nhrp_shortcut_foreach(AFI_IP6, nhrp_shortcut_force_purge, NULL, nhrp_vrf);
+
+	/* then free table */
 	route_table_finish(nhrp_vrf->shortcut_rib[AFI_IP]);
+	nhrp_vrf->shortcut_rib[AFI_IP] = NULL;
 	route_table_finish(nhrp_vrf->shortcut_rib[AFI_IP6]);
+	nhrp_vrf->shortcut_rib[AFI_IP6] = NULL;
 }
 
 void nhrp_shortcut_clean_per_cache(struct nhrp_vrf *nhrp_vrf, struct nhrp_cache *c)
@@ -535,11 +547,6 @@ void nhrp_shortcut_foreach(afi_t afi,
 	}
 	route_table_iter_cleanup(&iter);
 }
-
-struct purge_ctx {
-	const struct prefix *p;
-	int deleted;
-};
 
 void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force)
 {
