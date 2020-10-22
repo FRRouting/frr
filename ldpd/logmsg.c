@@ -17,6 +17,7 @@
  */
 
 #include <zebra.h>
+#include "lib/printfrr.h"
 
 #include "mpls.h"
 
@@ -254,10 +255,10 @@ log_fec(const struct fec *fec)
 			return ("???");
 		break;
 	case FEC_TYPE_PWID:
-		if (snprintf(buf, sizeof(buf),
-		    "pwid %u (%s) - %s",
-		    fec->u.pwid.pwid, pw_type_name(fec->u.pwid.type),
-		    inet_ntoa(fec->u.pwid.lsr_id)) == -1)
+		if (snprintfrr(buf, sizeof(buf),
+			       "pwid %u (%s) - %pI4",
+			       fec->u.pwid.pwid, pw_type_name(fec->u.pwid.type),
+			       &fec->u.pwid.lsr_id) == -1)
 			return ("???");
 		break;
 	default:

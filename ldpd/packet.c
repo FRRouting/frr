@@ -366,7 +366,7 @@ session_accept(struct thread *thread)
 		return (0);
 	}
 	if (nbr->state != NBR_STA_PRESENT) {
-		log_debug("%s: lsr-id %s: rejecting additional transport connection", __func__, inet_ntoa(nbr->id));
+		log_debug("%s: lsr-id %pI4: rejecting additional transport connection", __func__, &nbr->id);
 		close(newfd);
 		return (0);
 	}
@@ -558,8 +558,8 @@ session_read(struct thread *thread)
 				    type);
 				break;
 			default:
-				log_debug("%s: unknown LDP message from nbr %s",
-				    __func__, inet_ntoa(nbr->id));
+				log_debug("%s: unknown LDP message from nbr %pI4",
+				    __func__, &nbr->id);
 				if (!(ntohs(msg->type) & UNKNOWN_FLAG))
 					send_notification(nbr->tcp,
 					    S_UNKNOWN_MSG, msg->id, msg->type);
@@ -680,8 +680,8 @@ session_shutdown(struct nbr *nbr, uint32_t status, uint32_t msg_id,
 void
 session_close(struct nbr *nbr)
 {
-	log_debug("%s: closing session with lsr-id %s", __func__,
-	    inet_ntoa(nbr->id));
+	log_debug("%s: closing session with lsr-id %pI4", __func__,
+	    &nbr->id);
 
 	ldp_sync_fsm_nbr_event(nbr, LDP_SYNC_EVT_SESSION_CLOSE);
 
