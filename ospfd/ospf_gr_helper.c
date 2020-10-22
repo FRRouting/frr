@@ -377,8 +377,8 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 
 	if (IS_DEBUG_OSPF_GR_HELPER)
 		zlog_debug(
-			"%s, Grace LSA received from %s, grace interval:%u, restartreason :%s",
-			__PRETTY_FUNCTION__, inet_ntoa(restart_addr),
+			"%s, Grace LSA received from %pI4, grace interval:%u, restartreason :%s",
+			__PRETTY_FUNCTION__, &restart_addr,
 			grace_interval,
 			ospf_restart_reason2str(restart_reason));
 
@@ -392,9 +392,9 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 		if (!restarter) {
 			if (IS_DEBUG_OSPF_GR_HELPER)
 				zlog_debug(
-					"%s, Restarter is not a nbr(%s) for this router.",
+					"%s, Restarter is not a nbr(%pI4) for this router.",
 					__PRETTY_FUNCTION__,
-					inet_ntoa(restart_addr));
+					&restart_addr);
 			return OSPF_GR_NOT_HELPER;
 		}
 	} else
@@ -425,8 +425,8 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	if (!IS_NBR_STATE_FULL(restarter)) {
 		if (IS_DEBUG_OSPF_GR_HELPER)
 			zlog_debug(
-				"%s, This Neighbour %s is not in FULL state.",
-				__PRETTY_FUNCTION__, inet_ntoa(restarter->src));
+				"%s, This Neighbour %pI4 is not in FULL state.",
+				__PRETTY_FUNCTION__, &restarter->src);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF_HELPER_NOT_A_VALID_NEIGHBOUR;
 		return OSPF_GR_NOT_HELPER;
@@ -501,8 +501,8 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	} else {
 		if (IS_DEBUG_OSPF_GR_HELPER)
 			zlog_debug(
-				"%s, This Router becomes a HELPER for the neighbour %s",
-				__PRETTY_FUNCTION__, inet_ntoa(restarter->src));
+				"%s, This Router becomes a HELPER for the neighbour %pI4",
+				__PRETTY_FUNCTION__, &restarter->src);
 	}
 
 	/* Became a Helper to the RESTART neighbour.
@@ -606,8 +606,8 @@ void ospf_helper_handle_topo_chg(struct ospf *ospf, struct ospf_lsa *lsa)
 
 	if (IS_DEBUG_OSPF_GR_HELPER)
 		zlog_debug(
-			"%s, Topo change detected due to lsa LSID:%s type:%d",
-			__PRETTY_FUNCTION__, inet_ntoa(lsa->data->id),
+			"%s, Topo change detected due to lsa LSID:%pI4 type:%d",
+			__PRETTY_FUNCTION__, &lsa->data->id,
 			lsa->data->type);
 
 	lsa->to_be_acknowledged = OSPF_GR_TRUE;
@@ -670,8 +670,8 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 		return;
 
 	if (IS_DEBUG_OSPF_GR_HELPER)
-		zlog_debug("%s, Exiting from HELPER support to %s, due to %s",
-			   __PRETTY_FUNCTION__, inet_ntoa(nbr->src),
+		zlog_debug("%s, Exiting from HELPER support to %pI4, due to %s",
+			   __PRETTY_FUNCTION__, &nbr->src,
 			   ospf_exit_reason2str(reason));
 
 	/* Reset helper status*/
@@ -758,8 +758,8 @@ void ospf_process_maxage_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	}
 
 	if (IS_DEBUG_OSPF_GR_HELPER)
-		zlog_debug("%s, GraceLSA received for neighbour %s.",
-			   __PRETTY_FUNCTION__, inet_ntoa(restartAddr));
+		zlog_debug("%s, GraceLSA received for neighbour %pI4",
+			   __PRETTY_FUNCTION__, &restartAddr);
 
 	/* In case of broadcast links, if RESTARTER is DR_OTHER,
 	 * grace LSA might be received from DR, so fetching the
@@ -1066,8 +1066,8 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
 			restartAddr = (struct grace_tlv_restart_addr *)tlvh;
 			sum += TLV_SIZE(tlvh);
 
-			vty_out(vty, "   Restarter address:%s\n",
-				inet_ntoa(restartAddr->addr));
+			vty_out(vty, "   Restarter address:%pI4\n",
+				&restartAddr->addr);
 			break;
 		default:
 			vty_out(vty, "   Unknown TLV type %d\n",

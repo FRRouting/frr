@@ -3209,8 +3209,8 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp,
 	struct ipaddr addr;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Install %s into flood list for VNI %u intf %s(%u)",
-			   inet_ntoa(*ip), vni, ifp->name, ifp->ifindex);
+		zlog_debug("Install %pI4 into flood list for VNI %u intf %s(%u)",
+			   ip, vni, ifp->name, ifp->ifindex);
 
 	SET_IPADDR_V4(&addr);
 	addr.ipaddr_v4 = *ip;
@@ -3234,8 +3234,8 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
-			"Uninstall %s from flood list for VNI %u intf %s(%u)",
-			inet_ntoa(*ip), vni, ifp->name, ifp->ifindex);
+			"Uninstall %pI4 from flood list for VNI %u intf %s(%u)",
+			ip, vni, ifp->name, ifp->ifindex);
 
 	SET_IPADDR_V4(&addr);
 	addr.ipaddr_v4 = *ip;

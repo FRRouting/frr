@@ -76,9 +76,9 @@ static void ospf_bfd_reg_dereg_nbr(struct ospf_neighbor *nbr, int command)
 	bfd_info = (struct bfd_info *)params->bfd_info;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("%s nbr (%s) with BFD. OSPF vrf %s",
+		zlog_debug("%s nbr (%pI4) with BFD. OSPF vrf %s",
 			   bfd_get_command_dbg_str(command),
-			   inet_ntoa(nbr->src),
+			   &nbr->src,
 			   ospf_vrf_id_to_name(oi->ospf->vrf_id));
 
 	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
@@ -180,8 +180,8 @@ static int ospf_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 					continue;
 
 				if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-					zlog_debug("Replaying nbr (%s) to BFD",
-						   inet_ntoa(nbr->src));
+					zlog_debug("Replaying nbr (%pI4) to BFD",
+						   &nbr->src);
 
 				ospf_bfd_reg_dereg_nbr(nbr,
 						       ZEBRA_BFD_DEST_UPDATE);
@@ -266,18 +266,18 @@ static int ospf_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 		if ((status == BFD_STATUS_DOWN)
 		    && (old_status == BFD_STATUS_UP)) {
 			if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-				zlog_debug("NSM[%s:%s]: BFD Down",
+				zlog_debug("NSM[%s:%pI4]: BFD Down",
 					   IF_NAME(nbr->oi),
-					   inet_ntoa(nbr->address.u.prefix4));
+					   &nbr->address.u.prefix4);
 
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
 		}
 		if ((status == BFD_STATUS_UP)
 		    && (old_status == BFD_STATUS_DOWN)) {
 			if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-				zlog_debug("NSM[%s:%s]: BFD Up",
+				zlog_debug("NSM[%s:%pI4]: BFD Up",
 					   IF_NAME(nbr->oi),
-					   inet_ntoa(nbr->address.u.prefix4));
+					   &nbr->address.u.prefix4);
 		}
 	}
 

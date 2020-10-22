@@ -1197,7 +1197,7 @@ static void print_nh(struct nexthop *nexthop, struct vty *vty)
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		vty_out(vty, " via %s", inet_ntoa(nexthop->gate.ipv4));
+		vty_out(vty, " via %pI4", &nexthop->gate.ipv4);
 		if (nexthop->ifindex)
 			vty_out(vty, ", %s",
 				ifindex2ifname_per_ns(zns, nexthop->ifindex));

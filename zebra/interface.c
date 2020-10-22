@@ -1494,14 +1494,14 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vxlan_info = &zebra_if->l2info.vxl;
 		vty_out(vty, "  VxLAN Id %u", vxlan_info->vni);
 		if (vxlan_info->vtep_ip.s_addr != INADDR_ANY)
-			vty_out(vty, " VTEP IP: %s",
-				inet_ntoa(vxlan_info->vtep_ip));
+			vty_out(vty, " VTEP IP: %pI4",
+				&vxlan_info->vtep_ip);
 		if (vxlan_info->access_vlan)
 			vty_out(vty, " Access VLAN Id %u\n",
 				vxlan_info->access_vlan);
 		if (vxlan_info->mcast_grp.s_addr != INADDR_ANY)
-			vty_out(vty, "  Mcast Group %s",
-					inet_ntoa(vxlan_info->mcast_grp));
+			vty_out(vty, "  Mcast Group %pI4",
+					&vxlan_info->mcast_grp);
 		if (vxlan_info->ifindex_link &&
 		    (vxlan_info->link_nsid != NS_UNKNOWN)) {
 				struct interface *ifp;
@@ -1607,8 +1607,8 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 			vty_out(vty, "    Utilized Bandwidth %g (Byte/s)\n",
 				iflp->use_bw);
 		if (IS_PARAM_SET(iflp, LP_RMT_AS))
-			vty_out(vty, "    Neighbor ASBR IP: %s AS: %u \n",
-				inet_ntoa(iflp->rmt_ip), iflp->rmt_as);
+			vty_out(vty, "    Neighbor ASBR IP: %pI4 AS: %u \n",
+				&iflp->rmt_ip, iflp->rmt_as);
 	}
 
 	hook_call(zebra_if_extra_info, vty, ifp);
@@ -3496,7 +3496,7 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 	if (IS_PARAM_SET(iflp, LP_USE_BW))
 		vty_out(vty, "  use-bw %g\n", iflp->use_bw);
 	if (IS_PARAM_SET(iflp, LP_RMT_AS))
-		vty_out(vty, "  neighbor %s as %u\n", inet_ntoa(iflp->rmt_ip),
+		vty_out(vty, "  neighbor %pI4 as %u\n", &iflp->rmt_ip,
 			iflp->rmt_as);
 	vty_out(vty, "  exit-link-params\n");
 	return 0;

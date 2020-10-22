@@ -903,8 +903,6 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 	int count;
 	int oif[256];
 	int oif_count = 0;
-	char sbuf[40];
-	char gbuf[40];
 	char oif_list[256] = "\0";
 	vrf_id_t vrf;
 	int table;
@@ -966,8 +964,6 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 		struct interface *ifp = NULL;
 		struct zebra_vrf *zvrf = NULL;
 
-		strlcpy(sbuf, inet_ntoa(m->sg.src), sizeof(sbuf));
-		strlcpy(gbuf, inet_ntoa(m->sg.grp), sizeof(gbuf));
 		for (count = 0; count < oif_count; count++) {
 			ifp = if_lookup_by_index(oif[count], vrf);
 			char temp[256];
@@ -979,9 +975,10 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 		zvrf = zebra_vrf_lookup_by_id(vrf);
 		ifp = if_lookup_by_index(iif, vrf);
 		zlog_debug(
-			"MCAST VRF: %s(%d) %s (%s,%s) IIF: %s(%d) OIF: %s jiffies: %lld",
+			"MCAST VRF: %s(%d) %s (%pI4,%pI4) IIF: %s(%d) OIF: %s jiffies: %lld",
 			zvrf_name(zvrf), vrf, nl_msg_type_to_str(h->nlmsg_type),
-			sbuf, gbuf, ifp ? ifp->name : "Unknown", iif, oif_list,
+			&m->sg.src, &m->sg.grp, ifp ? ifp->name : "Unknown",
+			iif, oif_list,
 			m->lastused);
 	}
 	return 0;
@@ -2890,8 +2887,8 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		dst_present = 1;
 		memcpy(&vtep_ip.s_addr, RTA_DATA(tb[NDA_DST]),
 		       IPV4_MAX_BYTELEN);
-		snprintf(dst_buf, sizeof(dst_buf), " dst %s",
-			 inet_ntoa(vtep_ip));
+		snprintfrr(dst_buf, sizeof(dst_buf), " dst %pI4",
+			   &vtep_ip);
 	}
 
 	if (tb[NDA_NH_ID])
@@ -3948,8 +3945,8 @@ static int netlink_fdb_nh_update(uint32_t nh_id, struct in_addr vtep_ip)
 		return -1;
 
 	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH) {
-		zlog_debug("Tx %s fdb-nh 0x%x %s",
-			   nl_msg_type_to_str(cmd), nh_id, inet_ntoa(vtep_ip));
+		zlog_debug("Tx %s fdb-nh 0x%x %pI4",
+			   nl_msg_type_to_str(cmd), nh_id, &vtep_ip);
 	}
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,

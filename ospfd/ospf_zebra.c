@@ -408,8 +408,8 @@ bool ospf_external_default_routemap_apply_walk(struct ospf *ospf,
 
 	if (ret && ei) {
 		if (IS_DEBUG_OSPF_DEFAULT_INFO)
-			zlog_debug("Default originate routemap permit ei: %s",
-				   inet_ntoa(ei->p.prefix));
+			zlog_debug("Default originate routemap permit ei: %pI4",
+				   &ei->p.prefix);
 		return true;
 	}
 
@@ -850,8 +850,8 @@ static int ospf_external_lsa_originate_check(struct ospf *ospf,
 	/* If prefix is multicast, then do not originate LSA. */
 	if (IN_MULTICAST(htonl(ei->p.prefix.s_addr))) {
 		zlog_info(
-			"LSA[Type5:%s]: Not originate AS-external-LSA, Prefix belongs multicast",
-			inet_ntoa(ei->p.prefix));
+			"LSA[Type5:%pI4]: Not originate AS-external-LSA, Prefix belongs multicast",
+			&ei->p.prefix);
 		return 0;
 	}
 
@@ -943,16 +943,16 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 	}
 
 	if (IS_DEBUG_OSPF_DEFAULT_INFO)
-		zlog_debug("Apply default originate routemap on ei: %s cmd: %d",
-			   inet_ntoa(ei->p.prefix), cmd);
+		zlog_debug("Apply default originate routemap on ei: %pI4 cmd: %d",
+			   &ei->p.prefix, cmd);
 
 	ret = ospf_external_info_apply_default_routemap(ospf, ei, default_ei);
 
 	/* If deny then nothing to be done both in add and del case. */
 	if (!ret) {
 		if (IS_DEBUG_OSPF_DEFAULT_INFO)
-			zlog_debug("Default originte routemap deny for ei: %s",
-				   inet_ntoa(ei->p.prefix));
+			zlog_debug("Default originte routemap deny for ei: %pI4",
+				   &ei->p.prefix);
 		return false;
 	}
 
@@ -990,8 +990,8 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 
 		if (IS_DEBUG_OSPF_DEFAULT_INFO)
 			zlog_debug(
-				"Running default route-map again as ei: %s deleted",
-				inet_ntoa(ei->p.prefix));
+				"Running default route-map again as ei: %pI4 deleted",
+				&ei->p.prefix);
 		/*
 		 * if this route delete was permitted then we need to check
 		 * there are any other external info which can still trigger
@@ -1192,9 +1192,8 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 							    zebra,
 							    ZEBRA_REDISTRIBUTE))
 							zlog_debug(
-								"ospf_zebra_read_route() : %s refreshing LSA",
-								inet_ntoa(
-									p.prefix));
+								"ospf_zebra_read_route() : %pI4 refreshing LSA",
+								&p.prefix);
 						ospf_external_lsa_refresh(
 							ospf, current, ei,
 							LSA_REFRESH_FORCE);
