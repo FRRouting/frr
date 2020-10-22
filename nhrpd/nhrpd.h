@@ -472,6 +472,7 @@ extern int interface_config_write_vrf(struct vty *vty,
 extern void nhrp_instance_register(struct nhrp_vrf *nhrp_vrf, bool on);
 void nhrp_config_init(void);
 
+void nhrp_shortcut_clean_per_cache(struct nhrp_vrf *nhrp_vrf, struct nhrp_cache *c);
 void nhrp_shortcut_init(struct nhrp_vrf *nhrp_vrf);
 void nhrp_shortcut_terminate(struct nhrp_vrf *nhrp_vrf);
 void nhrp_shortcut_initiate(union sockunion *addr, struct nhrp_vrf *nhrp_vrf);

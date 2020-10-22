@@ -90,7 +90,6 @@ static int nhrp_if_new_hook(struct interface *ifp)
 
 static int nhrp_if_delete_hook(struct interface *ifp)
 {
-
 	struct nhrp_interface *nifp = ifp->info;
 
 	debugf(NHRP_DEBUG_IF, "Deleted interface (%s)", ifp->name);

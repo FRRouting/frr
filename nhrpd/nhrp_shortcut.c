@@ -469,6 +469,17 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	zbuf_free(zb);
 }
 
+static void nhrp_shortcut_force_purge(struct nhrp_shortcut *s, void *ctx)
+{
+	struct nhrp_cache *ref = (struct nhrp_cache *)ctx;
+
+	if (ref && s->cache != ref)
+		return;
+	s->p = NULL;
+	nhrp_shortcut_delete(s);
+	return;
+}
+
 void nhrp_shortcut_initiate(union sockunion *addr, struct nhrp_vrf *nhrp_vrf)
 {
 	struct prefix p;
@@ -497,6 +508,12 @@ void nhrp_shortcut_terminate(struct nhrp_vrf *nhrp_vrf)
 {
 	route_table_finish(nhrp_vrf->shortcut_rib[AFI_IP]);
 	route_table_finish(nhrp_vrf->shortcut_rib[AFI_IP6]);
+}
+
+void nhrp_shortcut_clean_per_cache(struct nhrp_vrf *nhrp_vrf, struct nhrp_cache *c)
+{
+	nhrp_shortcut_foreach(AFI_IP, nhrp_shortcut_force_purge, c, nhrp_vrf);
+	nhrp_shortcut_foreach(AFI_IP6, nhrp_shortcut_force_purge, c, nhrp_vrf);
 }
 
 void nhrp_shortcut_foreach(afi_t afi,

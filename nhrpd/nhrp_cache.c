@@ -133,6 +133,11 @@ void nhrp_cache_config_clean(struct hash_bucket *b, void *data)
 void nhrp_cache_clean(struct hash_bucket *b, void *data)
 {
 	struct nhrp_cache *c = (struct nhrp_cache *)b->data;
+	struct nhrp_vrf *nhrp_vrf = (struct nhrp_vrf *)data;
+
+	/* clean shortcut */
+	if (nhrp_vrf)
+		nhrp_shortcut_clean_per_cache(nhrp_vrf, c);
 
 	if (c->cur.type != NHRP_CACHE_INVALID)
 		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
@@ -195,12 +200,15 @@ static void do_nhrp_cache_config_free(struct hash_bucket *hb,
 void nhrp_cache_interface_del(struct interface *ifp)
 {
 	struct nhrp_interface *nifp = ifp->info;
+	struct nhrp_vrf *nhrp_vrf;
 
 	debugf(NHRP_DEBUG_COMMON, "Cleaning up undeleted cache entries (%lu)",
 	       nifp->cache_hash ? nifp->cache_hash->count : 0);
 
+	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
+
 	if (nifp->cache_hash) {
-		hash_iterate(nifp->cache_hash, do_nhrp_cache_free, NULL);
+		hash_iterate(nifp->cache_hash, do_nhrp_cache_free, nhrp_vrf);
 		hash_free(nifp->cache_hash);
 	}
 
