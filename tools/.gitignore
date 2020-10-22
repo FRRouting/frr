@@ -6,3 +6,5 @@
 /watchfrr.sh
 /frrinit.sh
 /frrcommon.sh
+/frr.service
+/frr@.service
