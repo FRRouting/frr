@@ -276,8 +276,15 @@ struct zebra_dplane_ctx;
 extern void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx);
 
 
-/* Sweet the nhg hash tables for old entries on restart */
+/* Sweep the nhg hash tables for old entries on restart */
 extern void zebra_nhg_sweep_table(struct hash *hash);
+
+/*
+ * We are shutting down but the nexthops should be kept
+ * as that -r has been specified and we don't want to delete
+ * the routes unintentionally
+ */
+extern void zebra_nhg_mark_keep(void);
 
 /* Nexthop resolution processing */
 struct route_entry; /* Forward ref to avoid circular includes */
