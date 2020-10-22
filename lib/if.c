@@ -1106,8 +1106,8 @@ ifaddr_ipv4_add (struct in_addr *ifaddr, struct interface *ifp)
   if (rn)
     {
       route_unlock_node (rn);
-      zlog_info ("ifaddr_ipv4_add(): address %s is already added",
-		 inet_ntoa (*ifaddr));
+      zlog_info("ifaddr_ipv4_add(): address %pI4 is already added",
+				ifaddr);
       return;
     }
   rn->info = ifp;
@@ -1126,8 +1126,7 @@ ifaddr_ipv4_delete (struct in_addr *ifaddr, struct interface *ifp)
   rn = route_node_lookup (ifaddr_ipv4_table, (struct prefix *) &p);
   if (! rn)
     {
-      zlog_info ("ifaddr_ipv4_delete(): can't find address %s",
-		 inet_ntoa (*ifaddr));
+      zlog_info("%s: can't find address %pI4", __func__, ifaddr);
       return;
     }
   rn->info = NULL;

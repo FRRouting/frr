@@ -587,15 +587,11 @@ static void __attribute__((unused)) sockunion_print(const union sockunion *su)
 
 	switch (su->sa.sa_family) {
 	case AF_INET:
-		printf("%s\n", inet_ntoa(su->sin.sin_addr));
+		printf("%pI4\n", &su->sin.sin_addr);
 		break;
-	case AF_INET6: {
-		char buf[SU_ADDRSTRLEN];
-
-		printf("%s\n", inet_ntop(AF_INET6, &(su->sin6.sin6_addr), buf,
-					 sizeof(buf)));
-	} break;
-
+	case AF_INET6:
+		printf("%pI6\n", &su->sin6.sin6_addr);
+		break;
 #ifdef AF_LINK
 	case AF_LINK: {
 		struct sockaddr_dl *sdl;
