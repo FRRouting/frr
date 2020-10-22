@@ -110,8 +110,8 @@ struct bgp_path_info_extra {
 	/* Pointer to dampening structure.  */
 	struct bgp_damp_info *damp_info;
 
-	/* This route is suppressed with aggregation.  */
-	int suppress;
+	/** List of aggregations that suppress this path. */
+	struct list *aggr_suppressors;
 
 	/* Nexthop reachability check.  */
 	uint32_t igpmetric;
@@ -715,4 +715,8 @@ extern bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				       struct attr *attr, struct bgp_dest *dest);
 extern int bgp_evpn_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			     struct bgp_path_info *exist, int *paths_eq);
+extern void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
+					    struct bgp *bgp,
+					    const struct prefix *p, afi_t afi,
+					    safi_t safi, bool suppress);
 #endif /* _QUAGGA_BGP_ROUTE_H */
