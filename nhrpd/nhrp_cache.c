@@ -63,13 +63,16 @@ static void *nhrp_cache_alloc(void *data)
 
 static void nhrp_cache_free(struct nhrp_cache *c)
 {
-	struct nhrp_interface *nifp = c->ifp->info;
+	struct nhrp_interface *nifp;
 
 	debugf(NHRP_DEBUG_COMMON, "Deleting cache entry");
 	nhrp_cache_counts[c->cur.type]--;
 	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
 	assert(!notifier_active(&c->notifier_list));
-	hash_release(nifp->cache_hash, c);
+	if (c->ifp && c->ifp->info) {
+		nifp = c->ifp->info;
+		hash_release(nifp->cache_hash, c);
+	}
 	if (c->cur.peer)
 		nhrp_peer_notify_del(c->cur.peer, &c->peer_notifier);
 	nhrp_peer_unref(c->cur.peer);

@@ -88,6 +88,8 @@ static int nhrp_if_delete_hook(struct interface *ifp)
 
 	debugf(NHRP_DEBUG_IF, "Deleted interface (%s)", ifp->name);
 
+	nifp->enabled = 0;
+
 	nhrp_cache_interface_del(ifp);
 	nhrp_nhs_interface_del(ifp);
 	nhrp_multicast_interface_del(ifp);
