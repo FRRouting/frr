@@ -336,10 +336,8 @@ DEFUN(show_isis_mpls_te_router,
 					if (ntohs(area->mta->router_id.s_addr)
 					    != 0)
 						vty_out(vty,
-							"  MPLS-TE Router-Address: %s\n",
-							inet_ntoa(
-								area->mta
-									->router_id));
+							"  MPLS-TE Router-Address: %pI4\n",
+							&area->mta->router_id);
 					else
 						vty_out(vty, "  N/A\n");
 				}
@@ -357,9 +355,8 @@ DEFUN(show_isis_mpls_te_router,
 				vty_out(vty, "Area %s:\n", area->area_tag);
 				if (ntohs(area->mta->router_id.s_addr) != 0)
 					vty_out(vty,
-						"  MPLS-TE Router-Address: %s\n",
-						inet_ntoa(
-							area->mta->router_id));
+						"  MPLS-TE Router-Address: %pI4\n",
+						&area->mta->router_id);
 				else
 					vty_out(vty, "  N/A\n");
 			}
@@ -394,11 +391,11 @@ static void show_ext_sub(struct vty *vty, char *name,
 			  ext->remote_llri);
 	}
 	if (IS_SUBTLV(ext, EXT_LOCAL_ADDR))
-		sbuf_push(&buf, 4, "Local Interface IP Address(es): %s\n",
-			  inet_ntoa(ext->local_addr));
+		sbuf_push(&buf, 4, "Local Interface IP Address(es): %pI4\n",
+			  &ext->local_addr);
 	if (IS_SUBTLV(ext, EXT_NEIGH_ADDR))
-		sbuf_push(&buf, 4, "Remote Interface IP Address(es): %s\n",
-			  inet_ntoa(ext->neigh_addr));
+		sbuf_push(&buf, 4, "Remote Interface IP Address(es): %pI4\n",
+			  &ext->neigh_addr);
 	if (IS_SUBTLV(ext, EXT_LOCAL_ADDR6))
 		sbuf_push(&buf, 4, "Local Interface IPv6 Address(es): %s\n",
 			  inet_ntop(AF_INET6, &ext->local_addr6, ibuf,
@@ -432,8 +429,8 @@ static void show_ext_sub(struct vty *vty, char *name,
 			  ext->remote_as);
 	if (IS_SUBTLV(ext, EXT_RMT_IP))
 		sbuf_push(&buf, 4,
-			  "Inter-AS TE Remote ASBR IP address: %s\n",
-			  inet_ntoa(ext->remote_ip));
+			  "Inter-AS TE Remote ASBR IP address: %pI4\n",
+			  &ext->remote_ip);
 	if (IS_SUBTLV(ext, EXT_DELAY))
 		sbuf_push(&buf, 4,
 			  "%s Average Link Delay: %u (micro-sec)\n",

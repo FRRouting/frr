@@ -209,11 +209,11 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			  exts->remote_llri);
 	}
 	if (IS_SUBTLV(exts, EXT_LOCAL_ADDR))
-		sbuf_push(buf, indent, "Local Interface IP Address(es): %s\n",
-			  inet_ntoa(exts->local_addr));
+		sbuf_push(buf, indent, "Local Interface IP Address(es): %pI4\n",
+			  &exts->local_addr);
 	if (IS_SUBTLV(exts, EXT_NEIGH_ADDR))
-		sbuf_push(buf, indent, "Remote Interface IP Address(es): %s\n",
-			  inet_ntoa(exts->neigh_addr));
+		sbuf_push(buf, indent, "Remote Interface IP Address(es): %pI4\n",
+			  &exts->neigh_addr);
 	if (IS_SUBTLV(exts, EXT_LOCAL_ADDR6))
 		sbuf_push(buf, indent, "Local Interface IPv6 Address(es): %s\n",
 			inet_ntop(AF_INET6, &exts->local_addr6, ibuf,
@@ -247,8 +247,8 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			  exts->remote_as);
 	if (IS_SUBTLV(exts, EXT_RMT_IP))
 		sbuf_push(buf, indent,
-			  "Inter-AS TE Remote ASBR IP address: %s\n",
-			  inet_ntoa(exts->remote_ip));
+			  "Inter-AS TE Remote ASBR IP address: %pI4\n",
+			  &exts->remote_ip);
 	/* Extended metrics */
 	if (IS_SUBTLV(exts, EXT_DELAY))
 		sbuf_push(buf, indent,
