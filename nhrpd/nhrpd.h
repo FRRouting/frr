@@ -519,9 +519,10 @@ void nhrp_vc_notify_del(struct nhrp_vc *, struct notifier_block *);
 void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *),
 		     void *ctx, struct nhrp_vrf *nhrp_vrf);
 unsigned long nhrp_vc_count(struct nhrp_vrf *nhrp_vrf);
-void nhrp_vc_reset(struct nhrp_vrf *nhrp_vrf);
+void nhrp_vc_reset(struct nhrp_vrf *nhrp_vrf, struct interface *ifp);
 
 void nhrp_vc_force_ipsec_down(struct nhrp_vc *vc);
+void nhrp_vc_free_per_interface(struct hash_bucket *b, void *data);
 void vici_init(struct nhrp_vrf *nhrp_vrf);
 void vici_terminate(struct nhrp_vrf *nhrp_vrf, bool complete);
 void vici_terminate_vc_by_profile_name(struct nhrp_vrf *nhrp_vrf, char *profile_name);

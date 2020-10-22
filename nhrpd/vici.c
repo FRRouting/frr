@@ -82,7 +82,7 @@ static void vici_zbuf_puts(struct zbuf *obuf, const char *str)
 
 static void vici_connection_error(struct vici_conn *vici)
 {
-	nhrp_vc_reset(vici->nhrp_vrf);
+	nhrp_vc_reset(vici->nhrp_vrf, NULL);
 
 	THREAD_OFF(vici->t_read);
 	THREAD_OFF(vici->t_write);

@@ -66,6 +66,43 @@ static void nhrp_vc_free(void *data)
 	XFREE(MTYPE_NHRP_VC, data);
 }
 
+struct nhrp_vc_if {
+	struct interface *ifp;
+	struct child_sa *sa;
+	struct nhrp_vrf *nhrp_vrf;
+	struct nhrp_vc *vc;
+};
+
+static void nhrp_vc_free_per_interface_walker(struct hash_bucket *b, void *data)
+{
+	struct nhrp_vc_if *ctx = (struct nhrp_vc_if *)data;
+	struct nhrp_peer *p = (struct nhrp_peer *)b->data;
+
+	if (!ctx)
+		return;
+	if (p->ifp == ctx->ifp && p->vc == ctx->vc)
+		XFREE(MTYPE_NHRP_VC, data);
+	return;
+}
+
+void nhrp_vc_free_per_interface(struct hash_bucket *b, void *data)
+{
+	struct interface *ifp = (struct interface *)data;
+	struct nhrp_vc *vc = (struct nhrp_vc *)b->data;
+	struct nhrp_vc_if ctx;
+	struct nhrp_interface *nifp;
+
+	if (!ifp)
+		return;
+	nifp = ifp->info;
+	if (!nifp || !nifp->peer_hash)
+		return;
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.ifp = ifp;
+	ctx.vc = vc;
+	hash_iterate(nifp->peer_hash, nhrp_vc_free_per_interface_walker, &ctx);
+}
+
 struct nhrp_vc *nhrp_vc_get(const union sockunion *src,
 			    const union sockunion *dst, int create,
 			    struct nhrp_vrf *nhrp_vrf)
@@ -285,20 +322,60 @@ void nhrp_vc_init(struct nhrp_vrf *nhrp_vrf)
 		list_init(&nhrp_vrf->childlist_head[i]);
 }
 
-void nhrp_vc_reset(struct nhrp_vrf *nhrp_vrf)
+static void nhrp_vc_reset_per_interface_walker(struct hash_bucket *b, void *data)
+{
+	struct nhrp_vc_if *ctx = (struct nhrp_vc_if *)data;
+	struct nhrp_peer *p = (struct nhrp_peer *)b->data;
+	struct nhrp_vc *vc;
+
+	if (!ctx || !ctx->sa || !ctx->sa->vc || !ctx->ifp)
+		return;
+	vc = ctx->sa->vc;
+	if (p->vc == vc && p->ifp == ctx->ifp)
+		nhrp_vc_ipsec_updown(ctx->sa->id, ctx->nhrp_vrf, 0, ctx->sa->ike_uniqueid);
+	return;
+}
+
+/* parse peer interface to see if vc is impacted by ifp
+ * struct nhrp_peer contains both vc and ifp
+ * if both are contained in nhrp_peer, then this vc entry
+ * should be updated
+ */
+static void nhrp_vc_reset_match(struct nhrp_vrf *nhrp_vrf, struct child_sa *sa, struct interface *ifp)
+{
+	struct nhrp_vc_if ctx;
+	struct nhrp_interface *nifp;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.ifp = ifp;
+	ctx.sa = sa;
+	ctx.nhrp_vrf = nhrp_vrf;
+
+	nifp = ifp->info;
+
+	if (!nifp || !nifp->peer_hash)
+		return;
+	hash_iterate(nifp->peer_hash, nhrp_vc_reset_per_interface_walker, &ctx);
+}
+
+void nhrp_vc_reset(struct nhrp_vrf *nhrp_vrf, struct interface *ifp)
 {
 	struct child_sa *sa, *n;
 	size_t i;
 
 	for (i = 0; i < array_size(nhrp_vrf->childlist_head); i++) {
 		list_for_each_entry_safe(sa, n, &nhrp_vrf->childlist_head[i],
-					 childlist_entry)
-			nhrp_vc_ipsec_updown(sa->id, nhrp_vrf, 0, sa->ike_uniqueid);
+					 childlist_entry) {
+			if (ifp)
+				nhrp_vc_reset_match(nhrp_vrf, sa, ifp);
+			else
+				nhrp_vc_ipsec_updown(sa->id, nhrp_vrf, 0, sa->ike_uniqueid);
+		}
 	}
 }
 
 void nhrp_vc_terminate(struct nhrp_vrf *nhrp_vrf)
 {
-	nhrp_vc_reset(nhrp_vrf);
+	nhrp_vc_reset(nhrp_vrf, NULL);
 	hash_clean(nhrp_vrf->nhrp_vc_hash, nhrp_vc_free);
 }

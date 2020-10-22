@@ -91,10 +91,21 @@ static int nhrp_if_new_hook(struct interface *ifp)
 static int nhrp_if_delete_hook(struct interface *ifp)
 {
 	struct nhrp_interface *nifp = ifp->info;
+	struct nhrp_vrf *nhrp_vrf;
 
 	debugf(NHRP_DEBUG_IF, "Deleted interface (%s)", ifp->name);
 
 	nifp->enabled = 0;
+
+	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
+
+	/* vc reset - ipsec connections if needed */
+	if (nhrp_vrf)
+		nhrp_vc_reset(nhrp_vrf, ifp);
+
+	/* vc destruction - for all connections - */
+	if (nhrp_vrf && nhrp_vrf->nhrp_vc_hash)
+		hash_iterate(nhrp_vrf->nhrp_vc_hash, nhrp_vc_free_per_interface, ifp);
 
 	nhrp_cache_interface_del(ifp);
 	nhrp_nhs_interface_del(ifp);
@@ -107,6 +118,9 @@ static int nhrp_if_delete_hook(struct interface *ifp)
 		free(nifp->ipsec_fallback_profile);
 	if (nifp->source)
 		free(nifp->source);
+
+	/* vici unregister */
+	nhrp_interface_set_protection(ifp, NULL, NULL);
 
 	XFREE(MTYPE_NHRP_IF, ifp->info);
 	ifp->info = NULL;
@@ -600,7 +614,7 @@ void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
 	if (nifp->ipsec_profile) {
 		if (nhrp_vrf) {
 			vici_terminate_vc_by_profile_name(nhrp_vrf, nifp->ipsec_profile);
-			nhrp_vc_reset(nhrp_vrf);
+			nhrp_vc_reset(nhrp_vrf, ifp);
 		}
 		free(nifp->ipsec_profile);
 	}
@@ -609,7 +623,7 @@ void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
 	if (nifp->ipsec_fallback_profile) {
 		if (nhrp_vrf) {
 			vici_terminate_vc_by_profile_name(nhrp_vrf, nifp->ipsec_fallback_profile);
-			nhrp_vc_reset(nhrp_vrf);
+			nhrp_vc_reset(nhrp_vrf, ifp);
 		}
 		free(nifp->ipsec_fallback_profile);
 	}
