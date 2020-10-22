@@ -124,11 +124,17 @@ static void inject_router_lsa(struct vty *vty, struct ospf *ospf,
 	}
 }
 
-static void inject_sr_db_entry(struct vty *vty, struct ospf_test_node *tnode)
+static void inject_sr_db_entry(struct vty *vty, struct ospf_test_node *tnode,
+			       struct ospf_topology *topology)
 {
+	struct ospf_test_node *tfound_adj_node;
+	struct ospf_test_adj *tadj;
 	struct in_addr router_id;
+	struct in_addr remote_id;
 	struct sr_node *srn;
 	struct sr_prefix *srp;
+	struct sr_link *srl;
+	int link_count;
 
 	inet_aton(tnode->router_id, &router_id);
 
@@ -138,13 +144,35 @@ static void inject_sr_db_entry(struct vty *vty, struct ospf_test_node *tnode)
 	srn->srgb.lower_bound = 16000;
 	srn->msd = 16;
 
-	srp = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
+	srn->srlb.range_size = 1000;
+	srn->srlb.lower_bound = 15000;
 
+	/* Prefix SID */
+	srp = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
 	srp->adv_router = router_id;
 	srp->sid = tnode->label;
 	srp->srn = srn;
 
 	listnode_add(srn->ext_prefix, srp);
+
+	/* Adjacency SIDs for all adjacencies */
+	for (link_count = 0; tnode->adjacencies[link_count].hostname[0];
+	     link_count++) {
+		tadj = &tnode->adjacencies[link_count];
+		tfound_adj_node = test_find_node(topology, tadj->hostname);
+
+		srl = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_link));
+		srl->adv_router = router_id;
+
+		inet_aton(tfound_adj_node->router_id, &remote_id);
+		srl->remote_id = remote_id;
+
+		srl->type = ADJ_SID;
+		srl->sid[0] = srn->srlb.lower_bound + tadj->label;
+		srl->srn = srn;
+
+		listnode_add(srn->ext_link, srl);
+	}
 }
 
 int topology_load(struct vty *vty, struct ospf_topology *topology,
@@ -162,7 +190,7 @@ int topology_load(struct vty *vty, struct ospf_topology *topology,
 		 * SR information could also be inected via LSAs, but directly
 		 * filling the SR DB with labels is just easier.
 		 */
-		inject_sr_db_entry(vty, tnode);
+		inject_sr_db_entry(vty, tnode, topology);
 	}
 
 	return 0;

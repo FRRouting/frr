@@ -90,6 +90,8 @@ extern int ospf_spf_remove_link(struct vertex *vertex, struct list *vertex_list,
 				struct router_lsa_link *link);
 extern struct vertex *ospf_spf_vertex_find(struct in_addr id,
 					   struct list *vertex_list);
+extern struct vertex_parent *ospf_spf_vertex_parent_find(struct in_addr id,
+							 struct vertex *vertex);
 extern int vertex_parent_cmp(void *aa, void *bb);
 
 extern void ospf_spf_print(struct vty *vty, struct vertex *v, int i);

@@ -178,6 +178,7 @@ static void ospf_ti_lfa_generate_label_stack(struct p_space *p_space,
 
 	pc_node = ospf_spf_vertex_find(q_space->root->id,
 				       p_space->pc_vertex_list);
+
 	if (!pc_node) {
 		zlog_debug(
 			"%s: There seems to be no post convergence path (yet).",
@@ -193,10 +194,22 @@ static void ospf_ti_lfa_generate_label_stack(struct p_space *p_space,
 
 	/* Found a PQ node? Then we are done here. */
 	if (q_node_info.type == OSPF_TI_LFA_PQ_NODE) {
-		labels[0] = ospf_sr_get_prefix_sid_by_id(&q_node_info.node->id);
+		/*
+		 * If the PQ node is a child of the root, then we can use an
+		 * adjacency SID instead of a prefix SID for the backup path.
+		 */
+		if (ospf_spf_vertex_parent_find(p_space->root->id,
+						q_node_info.node))
+			labels[0] = ospf_sr_get_adj_sid_by_id(
+				&p_space->root->id, &q_node_info.node->id);
+		else
+			labels[0] = ospf_sr_get_prefix_sid_by_id(
+				&q_node_info.node->id);
+
 		q_space->label_stack =
 			ospf_ti_lfa_create_label_stack(labels, 1);
 		q_space->nexthop = q_node_info.nexthop;
+
 		return;
 	}
 
@@ -211,19 +224,33 @@ static void ospf_ti_lfa_generate_label_stack(struct p_space *p_space,
 
 	/*
 	 * It can happen that the P node is the root itself, therefore we don't
-	 * need a label for it.
+	 * need a label for it. So just one adjacency SID for the Q node.
 	 */
 	if (p_node_info.node->id.s_addr == p_space->root->id.s_addr) {
-		labels[0] = ospf_sr_get_prefix_sid_by_id(&q_node_info.node->id);
+		labels[0] = ospf_sr_get_adj_sid_by_id(&p_space->root->id,
+						      &q_node_info.node->id);
 		q_space->label_stack =
 			ospf_ti_lfa_create_label_stack(labels, 1);
 		q_space->nexthop = q_node_info.nexthop;
 		return;
 	}
 
-	/* Otherwise we have a P and also a Q node which we need labels for. */
-	labels[0] = ospf_sr_get_prefix_sid_by_id(&p_node_info.node->id);
-	labels[1] = ospf_sr_get_prefix_sid_by_id(&q_node_info.node->id);
+	/*
+	 * Otherwise we have a P and also a Q node (which are adjacent).
+	 *
+	 * It can happen that the P node is a child of the root, therefore we
+	 * might just need the adjacency SID for the P node instead of the
+	 * prefix SID. For the Q node always take the adjacency SID.
+	 */
+	if (ospf_spf_vertex_parent_find(p_space->root->id, p_node_info.node))
+		labels[0] = ospf_sr_get_adj_sid_by_id(&p_space->root->id,
+						      &p_node_info.node->id);
+	else
+		labels[0] = ospf_sr_get_prefix_sid_by_id(&p_node_info.node->id);
+
+	labels[1] = ospf_sr_get_adj_sid_by_id(&p_node_info.node->id,
+					      &q_node_info.node->id);
+
 	q_space->label_stack = ospf_ti_lfa_create_label_stack(labels, 2);
 	q_space->nexthop = p_node_info.nexthop;
 }

@@ -8,6 +8,7 @@ struct ospf_test_adj {
 	char hostname[256];
 	char network[256];
 	uint32_t metric;
+	mpls_label_t label;
 };
 
 struct ospf_test_node {

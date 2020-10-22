@@ -290,6 +290,9 @@ struct sr_link {
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
 	uint32_t instance;
 
+	/* Addressed (remote) router id */
+	struct in_addr remote_id;
+
 	/* Interface address */
 	struct in_addr itf_addr;
 
@@ -364,6 +367,8 @@ extern void ospf_sr_update_task(struct ospf *ospf);
 
 /* Support for TI-LFA */
 extern mpls_label_t ospf_sr_get_prefix_sid_by_id(struct in_addr *id);
+extern mpls_label_t ospf_sr_get_adj_sid_by_id(struct in_addr *root_id,
+					      struct in_addr *neighbor_id);
 extern struct sr_node *ospf_sr_node_create(struct in_addr *rid);
 
 #endif /* _FRR_OSPF_SR_H */

@@ -305,6 +305,21 @@ struct vertex *ospf_spf_vertex_find(struct in_addr id, struct list *vertex_list)
 	return NULL;
 }
 
+/* Find a vertex parent according to its router id */
+struct vertex_parent *ospf_spf_vertex_parent_find(struct in_addr id,
+						  struct vertex *vertex)
+{
+	struct listnode *node;
+	struct vertex_parent *found;
+
+	for (ALL_LIST_ELEMENTS_RO(vertex->parents, node, found)) {
+		if (found->parent->id.s_addr == id.s_addr)
+			return found;
+	}
+
+	return NULL;
+}
+
 /* Create a deep copy of a SPF vertex without children and parents */
 static struct vertex *ospf_spf_vertex_copy(struct vertex *vertex)
 {

@@ -687,6 +687,32 @@ mpls_label_t ospf_sr_get_prefix_sid_by_id(struct in_addr *id)
 	return label;
 }
 
+/* Get the adjacency sid for a specific 'root' id and 'neighbor' id */
+mpls_label_t ospf_sr_get_adj_sid_by_id(struct in_addr *root_id,
+				       struct in_addr *neighbor_id)
+{
+	struct sr_node *srn;
+	struct sr_link *srl;
+	mpls_label_t label;
+	struct listnode *node;
+
+	srn = (struct sr_node *)hash_lookup(OspfSR.neighbors, root_id);
+
+	label = MPLS_INVALID_LABEL;
+
+	if (srn) {
+		for (ALL_LIST_ELEMENTS_RO(srn->ext_link, node, srl)) {
+			if (srl->type == ADJ_SID
+			    && srl->remote_id.s_addr == neighbor_id->s_addr) {
+				label = srl->sid[0];
+				break;
+			}
+		}
+	}
+
+	return label;
+}
+
 /* Get neighbor full structure from address */
 static struct ospf_neighbor *get_neighbor_by_addr(struct ospf *top,
 						  struct in_addr addr)
@@ -1596,6 +1622,7 @@ void ospf_sr_ext_itf_add(struct ext_itf *exti)
 	srl->itf_addr = exti->link.link_data;
 	srl->instance =
 		SET_OPAQUE_LSID(OPAQUE_TYPE_EXTENDED_LINK_LSA, exti->instance);
+	srl->remote_id = exti->link.link_id;
 	switch (exti->stype) {
 	case ADJ_SID:
 		srl->type = ADJ_SID;

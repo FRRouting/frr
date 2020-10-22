@@ -43,12 +43,14 @@ struct ospf_topology topo1 = {
 							.network =
 								"10.0.1.1/24",
 							.metric = 10,
+							.label = 1,
 						},
 						{
 							.hostname = "rt3",
 							.network =
 								"10.0.3.1/24",
 							.metric = 10,
+							.label = 2,
 						},
 					},
 			},
@@ -63,12 +65,14 @@ struct ospf_topology topo1 = {
 							.network =
 								"10.0.1.2/24",
 							.metric = 10,
+							.label = 3,
 						},
 						{
 							.hostname = "rt3",
 							.network =
 								"10.0.2.1/24",
 							.metric = 10,
+							.label = 4,
 						},
 					},
 			},
@@ -83,12 +87,14 @@ struct ospf_topology topo1 = {
 							.network =
 								"10.0.3.2/24",
 							.metric = 10,
+							.label = 5,
 						},
 						{
 							.hostname = "rt2",
 							.network =
 								"10.0.2.2/24",
 							.metric = 10,
+							.label = 6,
 						},
 					},
 			},
@@ -134,12 +140,14 @@ struct ospf_topology topo2 = {
 							.network =
 								"10.0.1.1/24",
 							.metric = 10,
+							.label = 1,
 						},
 						{
 							.hostname = "rt3",
 							.network =
 								"10.0.3.1/24",
 							.metric = 30,
+							.label = 2,
 						},
 					},
 			},
@@ -154,12 +162,14 @@ struct ospf_topology topo2 = {
 							.network =
 								"10.0.1.2/24",
 							.metric = 10,
+							.label = 3,
 						},
 						{
 							.hostname = "rt3",
 							.network =
 								"10.0.2.1/24",
 							.metric = 10,
+							.label = 4,
 						},
 					},
 			},
@@ -174,12 +184,14 @@ struct ospf_topology topo2 = {
 							.network =
 								"10.0.3.2/24",
 							.metric = 30,
+							.label = 5,
 						},
 						{
 							.hostname = "rt2",
 							.network =
 								"10.0.2.2/24",
 							.metric = 10,
+							.label = 6,
 						},
 					},
 			},
@@ -207,7 +219,7 @@ struct ospf_topology topo2 = {
  *
  * Regarding the protected subnet 10.0.4.0/24, the P and Q spaces for root RT1
  * and destination RT4 are disjunct and the P node is RT2 while RT3 is the Q
- * node. Hence the backup label stack here is 16020/16030. Note that here the
+ * node. Hence the backup label stack here is 16020/15004. Note that here the
  * P and Q nodes are neither the root nor the destination nodes, so this is a
  * case where you really need a label stack consisting of two labels.
  */
@@ -225,12 +237,14 @@ struct ospf_topology topo3 = {
 							.network =
 								"10.0.1.1/24",
 							.metric = 10,
+							.label = 1,
 						},
 						{
 							.hostname = "rt4",
 							.network =
 								"10.0.4.1/24",
 							.metric = 10,
+							.label = 2,
 						},
 					},
 			},
@@ -245,12 +259,14 @@ struct ospf_topology topo3 = {
 							.network =
 								"10.0.1.2/24",
 							.metric = 10,
+							.label = 3,
 						},
 						{
 							.hostname = "rt3",
 							.network =
 								"10.0.2.1/24",
 							.metric = 20,
+							.label = 4,
 						},
 					},
 			},
@@ -265,12 +281,14 @@ struct ospf_topology topo3 = {
 							.network =
 								"10.0.2.2/24",
 							.metric = 20,
+							.label = 5,
 						},
 						{
 							.hostname = "rt4",
 							.network =
 								"10.0.3.1/24",
 							.metric = 10,
+							.label = 6,
 						},
 					},
 			},
@@ -285,12 +303,14 @@ struct ospf_topology topo3 = {
 							.network =
 								"10.0.4.2/24",
 							.metric = 10,
+							.label = 7,
 						},
 						{
 							.hostname = "rt3",
 							.network =
 								"10.0.3.2/24",
 							.metric = 10,
+							.label = 8,
 						},
 					},
 			},
