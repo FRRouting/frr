@@ -59,24 +59,16 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
         if (access_list_apply (babel_ifp->list[distribute], &p)
             == FILTER_DENY) {
             debugf(BABEL_DEBUG_FILTER,
-                   "%s/%d filtered by distribute %s",
-                   p.family == AF_INET ?
-                   inet_ntoa(p.u.prefix4) :
-                   inet6_ntoa (p.u.prefix6),
-                   p.prefixlen,
-                   output ? "out" : "in");
+                   "%pFX filtered by distribute %s",
+                   &p, output ? "out" : "in");
             return INFINITY;
 	}
     }
     if (babel_ifp != NULL && babel_ifp->prefix[distribute]) {
         if (prefix_list_apply (babel_ifp->prefix[distribute], &p)
             == PREFIX_DENY) {
-            debugf(BABEL_DEBUG_FILTER, "%s/%d filtered by distribute %s",
-                   p.family == AF_INET ?
-                   inet_ntoa(p.u.prefix4) :
-                   inet6_ntoa (p.u.prefix6),
-                   p.prefixlen,
-                   output ? "out" : "in");
+            debugf(BABEL_DEBUG_FILTER, "%pFX filtered by distribute %s",
+                   &p, output ? "out" : "in");
             return INFINITY;
 	}
     }
@@ -91,12 +83,8 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
 
             if (alist) {
                 if (access_list_apply (alist, &p) == FILTER_DENY) {
-                    debugf(BABEL_DEBUG_FILTER,"%s/%d filtered by distribute %s",
-                           p.family == AF_INET ?
-                           inet_ntoa(p.u.prefix4) :
-                           inet6_ntoa (p.u.prefix6),
-                           p.prefixlen,
-                           output ? "out" : "in");
+                    debugf(BABEL_DEBUG_FILTER,"%pFX filtered by distribute %s",
+                           &p, output ? "out" : "in");
                     return INFINITY;
 		}
 	    }
@@ -105,12 +93,8 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
             plist = prefix_list_lookup (p.family, dist->prefix[distribute]);
             if (plist) {
                 if (prefix_list_apply (plist, &p) == PREFIX_DENY) {
-                    debugf(BABEL_DEBUG_FILTER,"%s/%d filtered by distribute %s",
-                           p.family == AF_INET ?
-                           inet_ntoa(p.u.prefix4) :
-                           inet6_ntoa (p.u.prefix6),
-                           p.prefixlen,
-                           output ? "out" : "in");
+                    debugf(BABEL_DEBUG_FILTER,"%pFX filtered by distribute %s",
+                           &p, output ? "out" : "in");
                     return INFINITY;
 		}
 	    }
