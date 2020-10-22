@@ -451,6 +451,11 @@ fi
 AC_SUBST([AC_LDFLAGS])
 AM_CONDITIONAL([STATIC_BIN], [test "$enable_static_bin" = "yes"])
 
+AC_ARG_ENABLE([rpath],
+  [AS_HELP_STRING([--enable-rpath], [set hardcoded rpaths in the executable @<:@default=yes@:>@])],
+  [],
+  [enable_rpath=yes])
+
 dnl $AR and $RANLIB are set by LT_INIT above
 AC_MSG_CHECKING([whether $AR supports D option])
 if $AR crD conftest.a >/dev/null 2>/dev/null; then
@@ -2498,6 +2503,14 @@ AS_IF([test "$with_pkg_git_version" = "yes"], [
 ## Hack, but working solution to avoid rebuilding of frr.info.
 ## It's already in CVS until texinfo 4.7 is more common.
 AC_OUTPUT
+
+if test "$enable_rpath" = "yes" ; then
+	true
+else
+	# See https://old-en.opensuse.org/openSUSE:Packaging_Guidelines#Removing_Rpath
+	sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
+	sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
+fi
 
 echo "
 FRRouting configuration
