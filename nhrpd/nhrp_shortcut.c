@@ -78,11 +78,10 @@ static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 		break;
 	case NOTIFY_CACHE_DOWN:
 	case NOTIFY_CACHE_DELETE:
-		if (s->route_installed) {
+		if (s->route_installed && s->p)
 			nhrp_route_announce(0, NHRP_CACHE_INVALID, s->p, NULL,
 					    NULL, 0, s->nhrp_vrf->vrf_id);
-			s->route_installed = 0;
-		}
+		s->route_installed = 0;
 		if (cmd == NOTIFY_CACHE_DELETE)
 			nhrp_shortcut_delete(s);
 		break;
@@ -149,16 +148,21 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 {
 	struct route_node *rn = NULL;
-	afi_t afi = family2afi(PREFIX_FAMILY(s->p));
+	afi_t afi;
 	struct nhrp_vrf *nhrp_vrf = s->nhrp_vrf;
 
 	THREAD_OFF(s->t_timer);
 	nhrp_reqid_free(nhrp_vrf->nhrp_packet_reqid, &s->reqid);
 
-	debugf(NHRP_DEBUG_ROUTE, "Shortcut %pFX purged", s->p);
+	if (s->p)
+		debugf(NHRP_DEBUG_ROUTE, "Shortcut %pFX purged", s->p);
 
 	nhrp_shortcut_update_binding(s, NHRP_CACHE_INVALID, NULL, 0);
 
+	if (!s->p)
+		return;
+
+	afi = family2afi(PREFIX_FAMILY(s->p));
 	/* Delete node */
 	if (nhrp_vrf->shortcut_rib[afi])
 		rn = route_node_lookup(nhrp_vrf->shortcut_rib[afi], s->p);
