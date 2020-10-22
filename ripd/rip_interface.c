@@ -172,8 +172,8 @@ static void rip_request_interface_send(struct interface *ifp, uint8_t version)
 				continue;
 
 			if (IS_RIP_DEBUG_EVENT)
-				zlog_debug("SEND request to %s",
-					   inet_ntoa(to.sin_addr));
+				zlog_debug("SEND request to %pI4",
+					   &to.sin_addr);
 
 			rip_request_send(&to, ifp, version, connected);
 		}
@@ -1174,9 +1174,7 @@ int rip_show_network_config(struct vty *vty, struct rip *rip)
 	for (node = route_top(rip->enable_network); node;
 	     node = route_next(node))
 		if (node->info)
-			vty_out(vty, "    %s/%u\n",
-				inet_ntoa(node->p.u.prefix4),
-				node->p.prefixlen);
+			vty_out(vty, "    %pFX\n", &node->p);
 
 	/* Interface name RIP enable statement. */
 	for (i = 0; i < vector_active(rip->enable_interface); i++)
@@ -1186,7 +1184,7 @@ int rip_show_network_config(struct vty *vty, struct rip *rip)
 	/* RIP neighbors listing. */
 	for (node = route_top(rip->neighbor); node; node = route_next(node))
 		if (node->info)
-			vty_out(vty, "    %s\n", inet_ntoa(node->p.u.prefix4));
+			vty_out(vty, "    %pI4\n", &node->p.u.prefix4);
 
 	return 0;
 }
