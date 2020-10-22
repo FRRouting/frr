@@ -84,7 +84,7 @@ adj_new(struct in_addr lsr_id, struct hello_source *source,
 {
 	struct adj	*adj;
 
-	log_debug("%s: lsr-id %s, %s", __func__, inet_ntoa(lsr_id),
+	log_debug("%s: lsr-id %pI4, %s", __func__, &lsr_id,
 	    log_hello_src(source));
 
 	if ((adj = calloc(1, sizeof(*adj))) == NULL)
@@ -114,7 +114,7 @@ adj_del(struct adj *adj, uint32_t notif_status)
 {
 	struct nbr	*nbr = adj->nbr;
 
-	log_debug("%s: lsr-id %s, %s (%s)", __func__, inet_ntoa(adj->lsr_id),
+	log_debug("%s: lsr-id %pI4, %s (%s)", __func__, &adj->lsr_id,
 	    log_hello_src(&adj->source), af_name(adj_get_af(adj)));
 
 	adj_stop_itimer(adj);
@@ -179,7 +179,7 @@ adj_itimer(struct thread *thread)
 
 	adj->inactivity_timer = NULL;
 
-	log_debug("%s: lsr-id %s", __func__, inet_ntoa(adj->lsr_id));
+	log_debug("%s: lsr-id %pI4", __func__, &adj->lsr_id);
 
 	if (adj->source.type == HELLO_TARGETED) {
 		if (!(adj->source.target->flags & F_TNBR_CONFIGURED) &&

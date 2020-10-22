@@ -410,8 +410,8 @@ static void
 log_msg_address(int out, uint16_t msg_type, struct nbr *nbr, int af,
     union ldpd_addr *addr)
 {
-	debug_msg(out, "%s: lsr-id %s, address %s", msg_name(msg_type),
-	    inet_ntoa(nbr->id), log_addr(af, addr));
+	debug_msg(out, "%s: lsr-id %pI4, address %s", msg_name(msg_type),
+	    &nbr->id, log_addr(af, addr));
 }
 
 static void
@@ -419,7 +419,7 @@ log_msg_mac_withdrawal(int out, struct nbr *nbr, uint8_t *mac)
 {
 	char buf[ETHER_ADDR_STRLEN];
 
-	debug_msg(out, "mac withdrawal: lsr-id %s, mac %s", inet_ntoa(nbr->id),
+	debug_msg(out, "mac withdrawal: lsr-id %pI4, mac %s", &nbr->id,
 	    (mac) ? prefix_mac2str((struct ethaddr *)mac, buf, sizeof(buf)) :
 	    "wildcard");
 }

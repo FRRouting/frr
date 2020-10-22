@@ -359,7 +359,7 @@ ldp_router_id_update(ZAPI_CALLBACK_ARGS)
 	if (bad_addr_v4(router_id.u.prefix4))
 		return (0);
 
-	debug_zebra_in("router-id update %s", inet_ntoa(router_id.u.prefix4));
+	debug_zebra_in("router-id update %pI4", &router_id.u.prefix4);
 
 	global.rtr_id.s_addr = router_id.u.prefix4.s_addr;
 	main_imsg_compose_ldpe(IMSG_RTRID_UPDATE, 0, &global.rtr_id,

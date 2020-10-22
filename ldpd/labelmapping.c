@@ -910,6 +910,6 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 static void
 log_msg_mapping(int out, uint16_t msg_type, struct nbr *nbr, struct map *map)
 {
-	debug_msg(out, "%s: lsr-id %s, fec %s, label %s", msg_name(msg_type),
-	    inet_ntoa(nbr->id), log_map(map), log_label(map->label));
+	debug_msg(out, "%s: lsr-id %pI4, fec %s, label %s", msg_name(msg_type),
+	    &nbr->id, log_map(map), log_label(map->label));
 }
