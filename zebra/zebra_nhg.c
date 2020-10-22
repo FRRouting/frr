@@ -832,9 +832,6 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	if (recursive)
 		SET_FLAG(backup_nhe->flags, NEXTHOP_GROUP_RECURSIVE);
 
-	/* Attach dependent backpointers to singletons */
-	zebra_nhg_connect_depends(backup_nhe, &backup_nhe->nhg_depends);
-
 done:
 
 	return created;
