@@ -170,14 +170,8 @@ struct rfapi_nve_group_cfg *bgp_rfapi_cfg_match_group(struct rfapi_cfg *hc,
 
 #ifdef BGP_VNC_DEBUG_MATCH_GROUP
 	{
-		char buf[PREFIX_STRLEN];
-
-		prefix2str(vn, buf, sizeof(buf));
-		vnc_zlog_debug_verbose("%s: vn prefix: %s", __func__, buf);
-
-		prefix2str(un, buf, sizeof(buf));
-		vnc_zlog_debug_verbose("%s: un prefix: %s", __func__, buf);
-
+		vnc_zlog_debug_verbose("%s: vn prefix: %pFX", __func__, vn);
+		vnc_zlog_debug_verbose("%s: un prefix: %pFX", __func__, un);
 		vnc_zlog_debug_verbose(
 			"%s: rn_vn=%p, rn_un=%p, rfg_vn=%p, rfg_un=%p",
 			__func__, rn_vn, rn_un, rfg_vn, rfg_un);
@@ -4215,23 +4209,13 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 				++write;
 				vty_out(vty, " vnc nve-group %s\n", rfg->name);
 
-				if (rfg->vn_prefix.family && rfg->vn_node) {
-					char buf[PREFIX_STRLEN];
+				if (rfg->vn_prefix.family && rfg->vn_node)
+					vty_out(vty, "  prefix %s %pFX\n", "vn",
+						&rfg->vn_prefix);
 
-					prefix2str(&rfg->vn_prefix, buf,
-						   sizeof(buf));
-					vty_out(vty, "  prefix %s %s\n", "vn",
-						buf);
-				}
-
-				if (rfg->un_prefix.family && rfg->un_node) {
-					char buf[PREFIX_STRLEN];
-
-					prefix2str(&rfg->un_prefix, buf,
-						   sizeof(buf));
-					vty_out(vty, "  prefix %s %s\n", "un",
-						buf);
-				}
+				if (rfg->un_prefix.family && rfg->un_node)
+					vty_out(vty, "  prefix %s %pFX\n", "un",
+						&rfg->un_prefix);
 
 
 				if (rfg->rd.prefixlen) {

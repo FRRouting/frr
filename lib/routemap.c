@@ -2377,7 +2377,6 @@ route_map_result_t route_map_apply(struct route_map *map,
 	route_map_result_t ret = RMAP_PERMITMATCH;
 	struct route_map_index *index = NULL;
 	struct route_map_rule *set = NULL;
-	char buf[PREFIX_STRLEN];
 	bool skip_match_clause = false;
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
@@ -2403,16 +2402,14 @@ route_map_result_t route_map_apply(struct route_map *map,
 		if (index) {
 			if (rmap_debug)
 				zlog_debug(
-					"Best match route-map: %s, sequence: %d for pfx: %s, result: %s",
-					map->name, index->pref,
-					prefix2str(prefix, buf, sizeof(buf)),
+					"Best match route-map: %s, sequence: %d for pfx: %pFX, result: %s",
+					map->name, index->pref, prefix,
 					route_map_cmd_result_str(match_ret));
 		} else {
 			if (rmap_debug)
 				zlog_debug(
-					"No best match sequence for pfx: %s in route-map: %s, result: %s",
-					prefix2str(prefix, buf, sizeof(buf)),
-					map->name,
+					"No best match sequence for pfx: %pFX in route-map: %s, result: %s",
+					prefix, map->name,
 					route_map_cmd_result_str(match_ret));
 			/*
 			 * No index matches this prefix. Return deny unless,
@@ -2437,9 +2434,8 @@ route_map_result_t route_map_apply(struct route_map *map,
 							  prefix, type, object);
 			if (rmap_debug) {
 				zlog_debug(
-					"Route-map: %s, sequence: %d, prefix: %s, result: %s",
-					map->name, index->pref,
-					prefix2str(prefix, buf, sizeof(buf)),
+					"Route-map: %s, sequence: %d, prefix: %pFX, result: %s",
+					map->name, index->pref, prefix,
 					route_map_cmd_result_str(match_ret));
 			}
 		} else
@@ -2549,12 +2545,10 @@ route_map_result_t route_map_apply(struct route_map *map,
 	}
 
 route_map_apply_end:
-	if (rmap_debug) {
-		zlog_debug("Route-map: %s, prefix: %s, result: %s",
-			   (map ? map->name : "null"),
-			   prefix2str(prefix, buf, sizeof(buf)),
+	if (rmap_debug)
+		zlog_debug("Route-map: %s, prefix: %pFX, result: %s",
+			   (map ? map->name : "null"), prefix,
 			   route_map_result_str(ret));
-	}
 
 	return (ret);
 }

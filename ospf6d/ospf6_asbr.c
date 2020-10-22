@@ -63,13 +63,11 @@ static void ospf6_as_external_lsa_originate(struct ospf6_route *route)
 	struct ospf6_external_info *info = route->route_option;
 
 	struct ospf6_as_external_lsa *as_external_lsa;
-	char buf[PREFIX2STR_BUFFER];
 	caddr_t p;
 
-	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL)) {
-		prefix2str(&route->prefix, buf, sizeof(buf));
-		zlog_debug("Originate AS-External-LSA for %s", buf);
-	}
+	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL))
+		zlog_debug("Originate AS-External-LSA for %pFX",
+			   &route->prefix);
 
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
@@ -211,7 +209,6 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 	struct listnode *anode, *anext;
 	struct listnode *nnode, *rnode, *rnext;
 	struct ospf6_nexthop *nh, *rnh;
-	char buf[PREFIX2STR_BUFFER];
 	bool route_found = false;
 
 	/* check for old entry match with new route origin,
@@ -371,11 +368,9 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 				listnode_add_sort(old_route->paths, ecmp_path);
 
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-					prefix2str(&route->prefix, buf,
-						   sizeof(buf));
 					zlog_debug(
-						"%s: route %s another path added with nh %u, effective paths %u nh %u",
-						__func__, buf,
+						"%s: route %pFX another path added with nh %u, effective paths %u nh %u",
+						__func__, &route->prefix,
 						listcount(ecmp_path->nh_list),
 						old_route->paths ? listcount(
 							old_route->paths)
@@ -401,32 +396,27 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 							&o_path->ls_prefix,
 							ospf6->brouter_table);
 				if (asbr_entry == NULL) {
-					if (IS_OSPF6_DEBUG_EXAMIN(
-							AS_EXTERNAL)) {
-						prefix2str(&old_route->prefix,
-							   buf, sizeof(buf));
+					if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
 						zlog_debug(
-							"%s: ls_prfix %s asbr_entry not found.",
-							__func__, buf);
-					}
+							"%s: ls_prfix %pFX asbr_entry not found.",
+							__func__,
+							&old_route->prefix);
 					continue;
 				}
 				ospf6_route_merge_nexthops(old_route,
 							   asbr_entry);
 			}
 
-			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-				prefix2str(&route->prefix, buf, sizeof(buf));
+			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
 				zlog_debug(
-					"%s: route %s with effective paths %u nh %u",
-					__func__, buf,
+					"%s: route %pFX with effective paths %u nh %u",
+					__func__, &route->prefix,
 					old_route->paths
 						? listcount(old_route->paths)
 						: 0,
 					old_route->nh_list
 						? listcount(old_route->nh_list)
 						: 0);
-			}
 
 			/* Update RIB/FIB */
 			if (ospf6->route_table->hook_add)
@@ -453,7 +443,6 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	struct prefix asbr_id;
 	struct ospf6_route *asbr_entry, *route, *old;
 	struct ospf6_path *path;
-	char buf[PREFIX2STR_BUFFER];
 
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 		lsa->header);
@@ -484,10 +473,8 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	asbr_entry = ospf6_route_lookup(&asbr_id, ospf6->brouter_table);
 	if (asbr_entry == NULL
 	    || !CHECK_FLAG(asbr_entry->path.router_bits, OSPF6_ROUTER_BIT_E)) {
-		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-			prefix2str(&asbr_id, buf, sizeof(buf));
-			zlog_debug("ASBR entry not found: %s", buf);
-		}
+		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
+			zlog_debug("ASBR entry not found: %pFX", &asbr_id);
 		return;
 	}
 
@@ -527,15 +514,13 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	listnode_add_sort(route->paths, path);
 
 
-	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-		prefix2str(&route->prefix, buf, sizeof(buf));
-		zlog_debug("%s: AS-External %u route add %s cost %u(%u) nh %u",
-			   __func__,
-			   (route->path.type == OSPF6_PATH_TYPE_EXTERNAL1) ? 1
-									   : 2,
-			   buf, route->path.cost, route->path.u.cost_e2,
-			   listcount(route->nh_list));
-	}
+	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
+		zlog_debug(
+			"%s: AS-External %u route add %pFX cost %u(%u) nh %u",
+			__func__,
+			(route->path.type == OSPF6_PATH_TYPE_EXTERNAL1) ? 1 : 2,
+			&route->prefix, route->path.cost, route->path.u.cost_e2,
+			listcount(route->nh_list));
 
 	old = ospf6_route_lookup(&route->prefix, ospf6->route_table);
 	if (!old) {
@@ -1029,7 +1014,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	struct ospf6_external_info *info;
 	struct prefix prefix_id;
 	struct route_node *node;
-	char pbuf[PREFIX2STR_BUFFER], ibuf[16];
+	char ibuf[16];
 	struct listnode *lnode, *lnnode;
 	struct ospf6_area *oa;
 
@@ -1039,10 +1024,8 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	memset(&troute, 0, sizeof(troute));
 	memset(&tinfo, 0, sizeof(tinfo));
 
-	if (IS_OSPF6_DEBUG_ASBR) {
-		prefix2str(prefix, pbuf, sizeof(pbuf));
-		zlog_debug("Redistribute %s (%s)", pbuf, ZROUTE_NAME(type));
-	}
+	if (IS_OSPF6_DEBUG_ASBR)
+		zlog_debug("Redistribute %pFX (%s)", prefix, ZROUTE_NAME(type));
 
 	/* if route-map was specified but not found, do not advertise */
 	if (ospf6->rmap[type].name) {
@@ -1109,10 +1092,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 		if (IS_OSPF6_DEBUG_ASBR) {
 			inet_ntop(AF_INET, &prefix_id.u.prefix4, ibuf,
 				  sizeof(ibuf));
-			prefix2str(prefix, pbuf, sizeof(pbuf));
 			zlog_debug(
-				"Advertise as AS-External Id:%s prefix %s metric %u",
-				ibuf, pbuf, match->path.metric_type);
+				"Advertise as AS-External Id:%s prefix %pFX metric %u",
+				ibuf, prefix, match->path.metric_type);
 		}
 
 		match->path.origin.id = htonl(info->id);
@@ -1163,9 +1145,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 	if (IS_OSPF6_DEBUG_ASBR) {
 		inet_ntop(AF_INET, &prefix_id.u.prefix4, ibuf, sizeof(ibuf));
-		prefix2str(prefix, pbuf, sizeof(pbuf));
-		zlog_debug("Advertise as AS-External Id:%s prefix %s metric %u",
-			   ibuf, pbuf, route->path.metric_type);
+		zlog_debug(
+			"Advertise as AS-External Id:%s prefix %pFX metric %u",
+			ibuf, prefix, route->path.metric_type);
 	}
 
 	route->path.origin.id = htonl(info->id);
@@ -1184,16 +1166,14 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 	struct route_node *node;
 	struct ospf6_lsa *lsa;
 	struct prefix prefix_id;
-	char pbuf[PREFIX2STR_BUFFER], ibuf[16];
+	char ibuf[16];
 	struct listnode *lnode, *lnnode;
 	struct ospf6_area *oa;
 
 	match = ospf6_route_lookup(prefix, ospf6->external_table);
 	if (match == NULL) {
-		if (IS_OSPF6_DEBUG_ASBR) {
-			prefix2str(prefix, pbuf, sizeof(pbuf));
-			zlog_debug("No such route %s to withdraw", pbuf);
-		}
+		if (IS_OSPF6_DEBUG_ASBR)
+			zlog_debug("No such route %pFX to withdraw", prefix);
 		return;
 	}
 
@@ -1201,17 +1181,14 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 	assert(info);
 
 	if (info->type != type) {
-		if (IS_OSPF6_DEBUG_ASBR) {
-			prefix2str(prefix, pbuf, sizeof(pbuf));
-			zlog_debug("Original protocol mismatch: %s", pbuf);
-		}
+		if (IS_OSPF6_DEBUG_ASBR)
+			zlog_debug("Original protocol mismatch: %pFX", prefix);
 		return;
 	}
 
 	if (IS_OSPF6_DEBUG_ASBR) {
-		prefix2str(prefix, pbuf, sizeof(pbuf));
 		inet_ntop(AF_INET, &prefix_id.u.prefix4, ibuf, sizeof(ibuf));
-		zlog_debug("Withdraw %s (AS-External Id:%s)", pbuf, ibuf);
+		zlog_debug("Withdraw %pFX (AS-External Id:%s)", prefix, ibuf);
 	}
 
 	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
@@ -1823,10 +1800,9 @@ static void ospf6_asbr_external_route_show(struct vty *vty,
 					   struct ospf6_route *route)
 {
 	struct ospf6_external_info *info = route->route_option;
-	char prefix[PREFIX2STR_BUFFER], id[16], forwarding[64];
+	char id[16], forwarding[64];
 	uint32_t tmp_id;
 
-	prefix2str(&route->prefix, prefix, sizeof(prefix));
 	tmp_id = ntohl(info->id);
 	inet_ntop(AF_INET, &tmp_id, id, sizeof(id));
 	if (!IN6_IS_ADDR_UNSPECIFIED(&info->forwarding))
@@ -1836,8 +1812,8 @@ static void ospf6_asbr_external_route_show(struct vty *vty,
 		snprintf(forwarding, sizeof(forwarding), ":: (ifindex %d)",
 			 ospf6_route_get_first_nh_index(route));
 
-	vty_out(vty, "%c %-32s %-15s type-%d %5lu %s\n",
-		zebra_route_char(info->type), prefix, id,
+	vty_out(vty, "%c %-32pFX %-15s type-%d %5lu %s\n",
+		zebra_route_char(info->type), &route->prefix, id,
 		route->path.metric_type,
 		(unsigned long)(route->path.metric_type == 2
 					? route->path.u.cost_e2

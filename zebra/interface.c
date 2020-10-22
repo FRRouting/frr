@@ -1296,8 +1296,6 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 	bool print_header = true;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		char global_pfx[PREFIX_STRLEN] = {0};
-		char buf[PREFIX_STRLEN] = {0};
 		bool first_pfx_printed = false;
 
 		if (print_header) {
@@ -1329,17 +1327,17 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 				if (!CHECK_FLAG(connected->flags,
 						ZEBRA_IFA_SECONDARY)) {
 					p = connected->address;
-					prefix2str(p, buf, sizeof(buf));
 					if (first_pfx_printed) {
-						/* padding to prepare row only for ip addr */
+						/* padding to prepare row only
+						 * for ip addr */
 						vty_out(vty, "%-40s", "");
 						if (list_size > 1)
 							vty_out(vty, "+ ");
-						vty_out(vty, "%s\n", buf);
+						vty_out(vty, "%pFX\n", p);
 					} else {
 						if (list_size > 1)
 							vty_out(vty, "+ ");
-						vty_out(vty, "%s\n", buf);
+						vty_out(vty, "%pFX\n", p);
 					}
 					first_pfx_printed = true;
 					break;
@@ -1361,17 +1359,17 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 				p = connected->address;
 				/* Don't print link local pfx */
 				if (!IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6)) {
-					prefix2str(p, global_pfx, PREFIX_STRLEN);
 					if (first_pfx_printed) {
-						/* padding to prepare row only for ip addr */
+						/* padding to prepare row only
+						 * for ip addr */
 						vty_out(vty, "%-40s", "");
 						if (v6_list_size > 1)
 							vty_out(vty, "+ ");
-						vty_out(vty, "%s\n", global_pfx);
+						vty_out(vty, "%pFX\n", p);
 					} else {
 						if (v6_list_size > 1)
 							vty_out(vty, "+ ");
-						vty_out(vty, "%s\n", global_pfx);
+						vty_out(vty, "%pFX\n", p);
 					}
 					first_pfx_printed = true;
 					break;

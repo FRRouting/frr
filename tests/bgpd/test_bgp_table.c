@@ -109,10 +109,7 @@ static void check_lookup_result(struct bgp_dest *match, va_list arglist)
 
 		if (bgp_dest_has_bgp_path_info_data(dest)
 		    && !prefix_in_array(dest_p, prefixes, prefix_count)) {
-			char buf[PREFIX2STR_BUFFER];
-
-			prefix2str(dest_p, buf, PREFIX2STR_BUFFER);
-			printf("prefix %s was not expected!\n", buf);
+			printf("prefix %pFX was not expected!\n", dest_p);
 			assert(0);
 		}
 	}

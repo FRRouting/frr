@@ -75,8 +75,6 @@ netlink_rule_msg_encode(int cmd, const struct zebra_dplane_ctx *ctx,
 	} *req = buf;
 
 	const char *ifname = dplane_ctx_rule_get_ifname(ctx);
-	char buf1[PREFIX_STRLEN];
-	char buf2[PREFIX_STRLEN];
 
 	if (buflen < sizeof(*req))
 		return 0;
@@ -141,11 +139,9 @@ netlink_rule_msg_encode(int cmd, const struct zebra_dplane_ctx *ctx,
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
-			"Tx %s family %s IF %s Pref %u Fwmark %u Src %s Dst %s Table %u",
+			"Tx %s family %s IF %s Pref %u Fwmark %u Src %pFX Dst %pFX Table %u",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
-			ifname, priority, fwmark,
-			prefix2str(src_ip, buf1, sizeof(buf1)),
-			prefix2str(dst_ip, buf2, sizeof(buf2)), table);
+			ifname, priority, fwmark, src_ip, dst_ip, table);
 
 	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
@@ -231,8 +227,6 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	int len;
 	char *ifname;
 	struct zebra_pbr_rule rule = {};
-	char buf1[PREFIX_STRLEN];
-	char buf2[PREFIX_STRLEN];
 	uint8_t proto = 0;
 
 	/* Basic validation followed by extracting attributes. */
@@ -324,17 +318,14 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			ret = dplane_pbr_rule_delete(&rule);
 
 			zlog_debug(
-				"%s: %s leftover rule: family %s IF %s Pref %u Src %s Dst %s Table %u",
+				"%s: %s leftover rule: family %s IF %s Pref %u Src %pFX Dst %pFX Table %u",
 				__func__,
 				((ret == ZEBRA_DPLANE_REQUEST_FAILURE)
 					 ? "Failed to remove"
 					 : "Removed"),
 				nl_family_to_str(frh->family), rule.ifname,
-				rule.rule.priority,
-				prefix2str(&rule.rule.filter.src_ip, buf1,
-					   sizeof(buf1)),
-				prefix2str(&rule.rule.filter.dst_ip, buf2,
-					   sizeof(buf2)),
+				rule.rule.priority, &rule.rule.filter.src_ip,
+				&rule.rule.filter.dst_ip,
 				rule.rule.action.table);
 		}
 
@@ -350,15 +341,11 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
-			"Rx %s family %s IF %s Pref %u Src %s Dst %s Table %u",
+			"Rx %s family %s IF %s Pref %u Src %pFX Dst %pFX Table %u",
 			nl_msg_type_to_str(h->nlmsg_type),
 			nl_family_to_str(frh->family), rule.ifname,
-			rule.rule.priority,
-			prefix2str(&rule.rule.filter.src_ip, buf1,
-				   sizeof(buf1)),
-			prefix2str(&rule.rule.filter.dst_ip, buf2,
-				   sizeof(buf2)),
-			rule.rule.action.table);
+			rule.rule.priority, &rule.rule.filter.src_ip,
+			&rule.rule.filter.dst_ip, rule.rule.action.table);
 
 	return kernel_pbr_rule_del(&rule);
 }

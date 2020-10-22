@@ -731,11 +731,10 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		p.prefixlen = rtm->rtm_dst_len;
 
 		if (rtm->rtm_src_len != 0) {
-			char buf[PREFIX_STRLEN];
 			flog_warn(
 				EC_ZEBRA_UNSUPPORTED_V4_SRCDEST,
-				"unsupported IPv4 sourcedest route (dest %s vrf %u)",
-				prefix2str(&p, buf, sizeof(buf)), vrf_id);
+				"unsupported IPv4 sourcedest route (dest %pFX vrf %u)",
+				&p, vrf_id);
 			return 0;
 		}
 
@@ -786,12 +785,11 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
-		char buf[PREFIX_STRLEN];
 		char buf2[PREFIX_STRLEN];
+
 		zlog_debug(
-			"%s %s%s%s vrf %s(%u) table_id: %u metric: %d Admin Distance: %d",
-			nl_msg_type_to_str(h->nlmsg_type),
-			prefix2str(&p, buf, sizeof(buf)),
+			"%s %pFX%s%s vrf %s(%u) table_id: %u metric: %d Admin Distance: %d",
+			nl_msg_type_to_str(h->nlmsg_type), &p,
 			src_p.prefixlen ? " from " : "",
 			src_p.prefixlen ? prefix2str(&src_p, buf2, sizeof(buf2))
 					: "",

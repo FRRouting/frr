@@ -1106,13 +1106,9 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 		return;
 	}
 
-	if (debug) {
-		char buf_prefix[PREFIX_STRLEN];
-
-		prefix2str(p, buf_prefix, sizeof(buf_prefix));
-		zlog_debug("%s: updating %s to vrf %s", __func__,
-				buf_prefix, bgp_vrf->name_pretty);
-	}
+	if (debug)
+		zlog_debug("%s: updating %pFX to vrf %s", __func__, p,
+			   bgp_vrf->name_pretty);
 
 	/* shallow copy */
 	static_attr = *path_vpn->attr;

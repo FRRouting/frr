@@ -73,12 +73,9 @@ static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	struct prefix router_id;
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE)) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(&router_id, buf, sizeof(buf));
-		zlog_debug("Zebra rcvd: router id update %s vrf %s id %u", buf,
-			   ospf_vrf_id_to_name(vrf_id), vrf_id);
-	}
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra rcvd: router id update %pFX vrf %s id %u",
+			   &router_id, ospf_vrf_id_to_name(vrf_id), vrf_id);
 
 	ospf = ospf_lookup_by_vrf_id(vrf_id);
 
@@ -86,15 +83,11 @@ static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 		ospf->router_id_zebra = router_id.u.prefix4;
 		ospf_router_id_update(ospf);
 	} else {
-		if (IS_DEBUG_OSPF_EVENT) {
-			char buf[PREFIX2STR_BUFFER];
-
-			prefix2str(&router_id, buf, sizeof(buf));
+		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"%s: ospf instance not found for vrf %s id %u router_id %s",
+				"%s: ospf instance not found for vrf %s id %u router_id %pFX",
 				__func__, ospf_vrf_id_to_name(vrf_id), vrf_id,
-				buf);
-		}
+				&router_id);
 	}
 	return 0;
 }
@@ -110,13 +103,10 @@ static int ospf_interface_address_add(ZAPI_CALLBACK_ARGS)
 	if (c == NULL)
 		return 0;
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE)) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(c->address, buf, sizeof(buf));
-		zlog_debug("Zebra: interface %s address add %s vrf %s id %u",
-			   c->ifp->name, buf, ospf_vrf_id_to_name(vrf_id),
-			   vrf_id);
-	}
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: interface %s address add %pFX vrf %s id %u",
+			   c->ifp->name, c->address,
+			   ospf_vrf_id_to_name(vrf_id), vrf_id);
 
 	ospf = ospf_lookup_by_vrf_id(vrf_id);
 	if (!ospf)
@@ -142,12 +132,9 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	if (c == NULL)
 		return 0;
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE)) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(c->address, buf, sizeof(buf));
-		zlog_debug("Zebra: interface %s address delete %s",
-			   c->ifp->name, buf);
-	}
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: interface %s address delete %pFX",
+			   c->ifp->name, c->address);
 
 	ifp = c->ifp;
 	p = *c->address;
@@ -279,17 +266,14 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		count++;
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-			char buf[2][PREFIX2STR_BUFFER];
 			struct interface *ifp;
 
 			ifp = if_lookup_by_index(path->ifindex, ospf->vrf_id);
 
 			zlog_debug(
-				"Zebra: Route add %s nexthop %s, ifindex=%d %s",
-				prefix2str(p, buf[0], sizeof(buf[0])),
-			        inet_ntop(AF_INET, &path->nexthop,
-					  buf[1], sizeof(buf[1])),
-				path->ifindex, ifp ? ifp->name : " ");
+				"Zebra: Route add %pFX nexthop %pI4, ifindex=%d %s",
+				p, &path->nexthop, path->ifindex,
+				ifp ? ifp->name : " ");
 		}
 	}
 	api.nexthop_num = count;
@@ -309,11 +293,8 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("Zebra: Route delete %s",
-			   prefix2str(p, buf, sizeof(buf)));
-	}
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+		zlog_debug("Zebra: Route delete %pFX", p);
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 }
@@ -332,11 +313,8 @@ void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("Zebra: Route add discard %s",
-			   prefix2str(p, buf, sizeof(buf)));
-	}
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+		zlog_debug("Zebra: Route add discard %pFX", p);
 }
 
 void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
@@ -353,11 +331,8 @@ void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("Zebra: Route delete discard %s",
-			   prefix2str(p, buf, sizeof(buf)));
-	}
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+		zlog_debug("Zebra: Route delete discard %pFX", p);
 }
 
 struct ospf_external *ospf_external_lookup(struct ospf *ospf, uint8_t type,
@@ -1061,13 +1036,10 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 		if (DISTRIBUTE_LIST(ospf, type))
 			if (access_list_apply(DISTRIBUTE_LIST(ospf, type), p)
 			    == FILTER_DENY) {
-				if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-					char buf[PREFIX2STR_BUFFER];
+				if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 					zlog_debug(
-						"Redistribute[%s]: %s filtered by distribute-list.",
-						ospf_redist_string(type),
-						prefix2str(p, buf, sizeof(buf)));
-				}
+						"Redistribute[%s]: %pFX filtered by distribute-list.",
+						ospf_redist_string(type), p);
 				return 0;
 			}
 
@@ -1088,13 +1060,10 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 
 		if (ret == RMAP_DENYMATCH) {
 			ei->route_map_set = save_values;
-			if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-				char buf[PREFIX2STR_BUFFER];
+			if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 				zlog_debug(
-					"Redistribute[%s]: %s filtered by route-map.",
-					ospf_redist_string(type),
-					prefix2str(p, buf, sizeof(buf)));
-			}
+					"Redistribute[%s]: %pFX filtered by route-map.",
+					ospf_redist_string(type), p);
 			return 0;
 		}
 
@@ -1171,14 +1140,10 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (is_prefix_default(&p))
 		rt_type = DEFAULT_ROUTE;
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf_prefix[PREFIX_STRLEN];
-		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
-
-		zlog_debug("%s: cmd %s from client %s: vrf_id %d, p %s",
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+		zlog_debug("%s: cmd %s from client %s: vrf_id %d, p %pFX",
 			   __func__, zserv_command_string(cmd),
-			   zebra_route_string(api.type), vrf_id, buf_prefix);
-	}
+			   zebra_route_string(api.type), vrf_id, &api.prefix);
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
 		/* XXX|HACK|TODO|FIXME:

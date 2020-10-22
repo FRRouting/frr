@@ -104,7 +104,6 @@ static void add_nodes(struct route_table *table, ...)
 static void print_subtree(struct route_node *rn, const char *legend,
 			  int indent_level)
 {
-	char buf[PREFIX2STR_BUFFER];
 	int i;
 
 	/*
@@ -114,8 +113,7 @@ static void print_subtree(struct route_node *rn, const char *legend,
 		printf("  ");
 	}
 
-	prefix2str(&rn->p, buf, sizeof(buf));
-	printf("%s: %s", legend, buf);
+	printf("%s: %pFX", legend, &rn->p);
 	if (!rn->info) {
 		printf(" (internal)");
 	}

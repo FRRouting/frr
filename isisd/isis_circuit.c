@@ -253,9 +253,6 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 {
 	struct listnode *node;
 	struct prefix_ipv4 *ipv4;
-#if defined(EXTREME_DEBUG)
-	char buf[PREFIX2STR_BUFFER];
-#endif
 	struct prefix_ipv6 *ipv6;
 
 	if (connected->address->family == AF_INET) {
@@ -287,9 +284,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 						0);
 
 #ifdef EXTREME_DEBUG
-		prefix2str(connected->address, buf, sizeof(buf));
-		zlog_debug("Added IP address %s to circuit %s", buf,
-			   circuit->interface->name);
+		zlog_debug("Added IP address %pFX to circuit %s",
+			   connected->address, circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 	if (connected->address->family == AF_INET6) {
@@ -318,9 +314,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 						0);
 
 #ifdef EXTREME_DEBUG
-		prefix2str(connected->address, buf, sizeof(buf));
-		zlog_debug("Added IPv6 address %s to circuit %s", buf,
-			   circuit->interface->name);
+		zlog_debug("Added IPv6 address %pFX to circuit %s",
+			   connected->address, circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 	return;
@@ -331,7 +326,6 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 {
 	struct prefix_ipv4 *ipv4, *ip = NULL;
 	struct listnode *node;
-	char buf[PREFIX2STR_BUFFER];
 	struct prefix_ipv6 *ipv6, *ip6 = NULL;
 	int found = 0;
 
@@ -352,16 +346,14 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 				lsp_regenerate_schedule(circuit->area,
 							circuit->is_type, 0);
 		} else {
-			prefix2str(connected->address, buf, sizeof(buf));
 			zlog_warn(
-				"Nonexistent ip address %s removal attempt from circuit %s",
-				buf, circuit->interface->name);
+				"Nonexistent ip address %pFX removal attempt from circuit %s",
+				connected->address, circuit->interface->name);
 			zlog_warn("Current ip addresses on %s:",
 				  circuit->interface->name);
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
 						  ip)) {
-				prefix2str(ip, buf, sizeof(buf));
-				zlog_warn("  %s", buf);
+				zlog_warn("  %pFX", ip);
 			}
 			zlog_warn("End of addresses");
 		}
@@ -400,25 +392,18 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 		}
 
 		if (!found) {
-			prefix2str(connected->address, buf, sizeof(buf));
 			zlog_warn(
-				"Nonexistent ip address %s removal attempt from circuit %s",
-				buf, circuit->interface->name);
+				"Nonexistent ip address %pFX removal attempt from circuit %s",
+				connected->address, circuit->interface->name);
 			zlog_warn("Current ip addresses on %s:",
 				  circuit->interface->name);
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node,
-						  ip6)) {
-				prefix2str((struct prefix *)ip6, (char *)buf,
-					   sizeof(buf));
-				zlog_warn("  %s", buf);
-			}
+						  ip6))
+				zlog_warn("  %pFX", (struct prefix *)ip6);
 			zlog_warn(" -----");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node,
-						  ip6)) {
-				prefix2str((struct prefix *)ip6, (char *)buf,
-					   sizeof(buf));
-				zlog_warn("  %s", buf);
-			}
+						  ip6))
+				zlog_warn("  %pFX", (struct prefix *)ip6);
 			zlog_warn("End of addresses");
 		} else if (circuit->area)
 			lsp_regenerate_schedule(circuit->area, circuit->is_type,
@@ -895,7 +880,6 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 	if (detail == ISIS_UI_LEVEL_DETAIL) {
 		struct listnode *node;
 		struct prefix *ip_addr;
-		char buf[BUFSIZ];
 
 		vty_out(vty, "  Interface: %s", circuit->interface->name);
 		vty_out(vty, ", State: %s",
@@ -980,27 +964,21 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 		if (circuit->ip_addrs && listcount(circuit->ip_addrs) > 0) {
 			vty_out(vty, "    IP Prefix(es):\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
-						  ip_addr)) {
-				prefix2str(ip_addr, buf, sizeof(buf));
-				vty_out(vty, "      %s\n", buf);
-			}
+						  ip_addr))
+				vty_out(vty, "      %pFX\n", ip_addr);
 		}
 		if (circuit->ipv6_link && listcount(circuit->ipv6_link) > 0) {
 			vty_out(vty, "    IPv6 Link-Locals:\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node,
-						  ip_addr)) {
-				prefix2str(ip_addr, (char *)buf, BUFSIZ);
-				vty_out(vty, "      %s\n", buf);
-			}
+						  ip_addr))
+				vty_out(vty, "      %pFX\n", ip_addr);
 		}
 		if (circuit->ipv6_non_link
 		    && listcount(circuit->ipv6_non_link) > 0) {
 			vty_out(vty, "    IPv6 Prefixes:\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node,
-						  ip_addr)) {
-				prefix2str(ip_addr, (char *)buf, BUFSIZ);
-				vty_out(vty, "      %s\n", buf);
-			}
+						  ip_addr))
+				vty_out(vty, "      %pFX\n", ip_addr);
 		}
 
 		vty_out(vty, "\n");

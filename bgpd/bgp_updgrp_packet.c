@@ -1137,7 +1137,6 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	/* Logging the attribute. */
 	if (bgp_debug_update(NULL, &p, subgrp->update_group, 0)) {
 		char attrstr[BUFSIZ];
-		char buf[PREFIX_STRLEN];
 		/* ' with addpath ID '          17
 		 * max strlen of uint32       + 10
 		 * +/- (just in case)         +  1
@@ -1156,10 +1155,9 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 		else
 			tx_id_buf[0] = '\0';
 
-		zlog_debug("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s%s %s",
-			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id,
-			   prefix2str(&p, buf, sizeof(buf)), tx_id_buf,
-			   attrstr);
+		zlog_debug("u%" PRIu64 ":s%" PRIu64 " send UPDATE %pFX%s %s",
+			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id, &p,
+			   tx_id_buf, attrstr);
 	}
 
 	s = stream_new(BGP_MAX_PACKET_SIZE);
@@ -1222,7 +1220,6 @@ void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
 	p.prefixlen = 0;
 
 	if (bgp_debug_update(NULL, &p, subgrp->update_group, 0)) {
-		char buf[PREFIX_STRLEN];
 		/* ' with addpath ID '          17
 		 * max strlen of uint32       + 10
 		 * +/- (just in case)         +  1
@@ -1235,9 +1232,10 @@ void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
 				 " with addpath ID %u",
 				 BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
 
-		zlog_debug("u%" PRIu64 ":s%" PRIu64" send UPDATE %s%s -- unreachable",
-			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id,
-			   prefix2str(&p, buf, sizeof(buf)), tx_id_buf);
+		zlog_debug("u%" PRIu64 ":s%" PRIu64
+			   " send UPDATE %pFX%s -- unreachable",
+			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id, &p,
+			   tx_id_buf);
 	}
 
 	s = stream_new(BGP_MAX_PACKET_SIZE);

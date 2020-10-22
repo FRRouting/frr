@@ -2337,7 +2337,6 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 	struct rtadv_prefix *rprefix;
 	struct rtadv_rdnss *rdnss;
 	struct rtadv_dnssl *dnssl;
-	char buf[PREFIX_STRLEN];
 	int interval;
 
 	zif = ifp->info;
@@ -2408,8 +2407,7 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvPrefixList, node, rprefix)) {
 		if ((rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL)
 		    || (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH)) {
-			vty_out(vty, " ipv6 nd prefix %s",
-				prefix2str(&rprefix->prefix, buf, sizeof(buf)));
+			vty_out(vty, " ipv6 nd prefix %pFX", &rprefix->prefix);
 			if ((rprefix->AdvValidLifetime != RTADV_VALID_LIFETIME)
 			    || (rprefix->AdvPreferredLifetime
 				!= RTADV_PREFERRED_LIFETIME)) {

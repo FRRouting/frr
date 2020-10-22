@@ -80,10 +80,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	bool gate = false;
 	int error;
 	char gate_buf[INET6_BUFSIZ];
-	char prefix_buf[PREFIX_STRLEN];
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
-
-	prefix2str(p, prefix_buf, sizeof(prefix_buf));
 
 	/*
 	 * We only have the ability to ADD or DELETE at this point
@@ -91,8 +88,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	 */
 	if (cmd != RTM_ADD && cmd != RTM_DELETE) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: %s odd command %s",
-				   __func__, prefix_buf,
+			zlog_debug("%s: %pFX odd command %s", __func__, p,
 				   lookup_msg(rtm_type_str, cmd, NULL));
 		return 0;
 	}
@@ -237,8 +233,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		if (IS_ZEBRA_DEBUG_KERNEL) {
 			if (!gate) {
 				zlog_debug(
-					"%s: %s: attention! gate not found for re",
-					__func__, prefix_buf);
+					"%s: %pFX: attention! gate not found for re",
+					__func__, p);
 			} else {
 				switch (p->family) {
 				case AF_INET:
@@ -266,8 +262,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		case ZEBRA_ERR_NOERROR:
 			nexthop_num++;
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("%s: %s: successfully did NH %s",
-					   __func__, prefix_buf, gate_buf);
+				zlog_debug("%s: %pFX: successfully did NH %s",
+					   __func__, p, gate_buf);
 			if (cmd == RTM_ADD)
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 			break;
@@ -289,8 +285,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		default:
 			flog_err(
 				EC_LIB_SYSTEM_CALL,
-				"%s: %s: rtm_write() unexpectedly returned %d for command %s",
-				__func__, prefix_buf, error,
+				"%s: %pFX: rtm_write() unexpectedly returned %d for command %s",
+				__func__, p, error,
 				lookup_msg(rtm_type_str, cmd, NULL));
 			break;
 		}
@@ -300,8 +296,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	if (nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"%s: No useful nexthops were found in RIB prefix %s",
-				__func__, prefix_buf);
+				"%s: No useful nexthops were found in RIB prefix %pFX",
+				__func__, p);
 		return 1;
 	}
 

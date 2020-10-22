@@ -207,11 +207,7 @@ struct ospf6_lsa *ospf6_lsdb_lookup_next(uint16_t type, uint32_t id,
 	ospf6_lsdb_set_key(&key, &adv_router, sizeof(adv_router));
 	ospf6_lsdb_set_key(&key, &id, sizeof(id));
 
-	{
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(&key, buf, sizeof(buf));
-		zlog_debug("lsdb_lookup_next: key: %s", buf);
-	}
+	zlog_debug("lsdb_lookup_next: key: %pFX", &key);
 
 	node = route_table_get_next(lsdb->table, &key);
 

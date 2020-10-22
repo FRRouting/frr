@@ -109,24 +109,21 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 	struct prefix p;
 	enum zapi_route_notify_owner note;
 	uint32_t table_id;
-	char buf[PREFIX_STRLEN];
 
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note))
 		return -1;
 
-	prefix2str(&p, buf, sizeof(buf));
-
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
 		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
-		zlog_warn("%s: Route %s failed to install for table: %u",
-			  __func__, buf, table_id);
+		zlog_warn("%s: Route %pFX failed to install for table: %u",
+			  __func__, &p, table_id);
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
 		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn(
-			"%s: Route %s over-ridden by better route for table: %u",
-			__func__, buf, table_id);
+			"%s: Route %pFX over-ridden by better route for table: %u",
+			__func__, &p, table_id);
 		break;
 	case ZAPI_ROUTE_INSTALLED:
 		static_nht_mark_state(&p, vrf_id, STATIC_INSTALLED);
@@ -136,8 +133,8 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 		break;
 	case ZAPI_ROUTE_REMOVE_FAIL:
 		static_nht_mark_state(&p, vrf_id, STATIC_INSTALLED);
-		zlog_warn("%s: Route %s failure to remove for table: %u",
-			  __func__, buf, table_id);
+		zlog_warn("%s: Route %pFX failure to remove for table: %u",
+			  __func__, &p, table_id);
 		break;
 	}
 

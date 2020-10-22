@@ -1059,15 +1059,11 @@ static int ospf6_distance_config_write(struct vty *vty)
 	}
 
 	for (rn = route_top(ospf6->distance_table); rn; rn = route_next(rn))
-		if ((odistance = rn->info) != NULL) {
-			char buf[PREFIX_STRLEN];
-
-			vty_out(vty, " distance %u %s %s\n",
-				odistance->distance,
-				prefix2str(&rn->p, buf, sizeof(buf)),
+		if ((odistance = rn->info) != NULL)
+			vty_out(vty, " distance %u %pFX %s\n",
+				odistance->distance, &rn->p,
 				odistance->access_list ? odistance->access_list
 						       : "");
-		}
 	return 0;
 }
 

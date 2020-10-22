@@ -150,12 +150,9 @@ static int eigrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 	if (c == NULL)
 		return 0;
 
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE)) {
-		char buf[128];
-		prefix2str(c->address, buf, sizeof(buf));
-		zlog_debug("Zebra: interface %s address add %s", c->ifp->name,
-			   buf);
-	}
+	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: interface %s address add %pFX", c->ifp->name,
+			   c->address);
 
 	eigrp_if_update(c->ifp);
 
@@ -173,12 +170,9 @@ static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	if (c == NULL)
 		return 0;
 
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE)) {
-		char buf[128];
-		prefix2str(c->address, buf, sizeof(buf));
-		zlog_debug("Zebra: interface %s address delete %s",
-			   c->ifp->name, buf);
-	}
+	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: interface %s address delete %pFX",
+			   c->ifp->name, c->address);
 
 	ifp = c->ifp;
 	ei = ifp->info;
@@ -234,10 +228,9 @@ void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 	api.nexthop_num = count;
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[2][PREFIX_STRLEN];
-		zlog_debug("Zebra: Route add %s nexthop %s",
-			   prefix2str(p, buf[0], PREFIX_STRLEN),
-			   inet_ntop(AF_INET, 0, buf[1], PREFIX_STRLEN));
+		char buf[PREFIX_STRLEN];
+		zlog_debug("Zebra: Route add %pFX nexthop %s", p,
+			   inet_ntop(AF_INET, 0, buf, PREFIX_STRLEN));
 	}
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
@@ -257,11 +250,8 @@ void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *p)
 	memcpy(&api.prefix, p, sizeof(*p));
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[PREFIX_STRLEN];
-		zlog_debug("Zebra: Route del %s",
-			   prefix2str(p, buf, PREFIX_STRLEN));
-	}
+	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE))
+		zlog_debug("Zebra: Route del %pFX", p);
 
 	return;
 }

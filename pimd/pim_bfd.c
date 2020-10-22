@@ -244,12 +244,9 @@ static int pim_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 	}
 
-	if (PIM_DEBUG_PIM_TRACE) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(&p, buf, sizeof(buf));
-		zlog_debug("%s: interface %s bfd destination %s %s", __func__,
-			   ifp->name, buf, bfd_get_status_str(status));
-	}
+	if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s: interface %s bfd destination %pFX %s", __func__,
+			   ifp->name, &p, bfd_get_status_str(status));
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->pim_neighbor_list, neigh_node,
 			       neigh_nextnode, neigh)) {

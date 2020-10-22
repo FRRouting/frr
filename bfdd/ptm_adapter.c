@@ -783,17 +783,16 @@ static void bfdd_sessions_enable_address(struct connected *ifc)
 static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
-	char buf[64];
 
 	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
 		return 0;
 
 	if (bglobal.debug_zebra)
-		zlog_debug("zclient: %s local address %s",
+		zlog_debug("zclient: %s local address %pFX",
 			   cmd == ZEBRA_INTERFACE_ADDRESS_ADD ? "add"
 							      : "delete",
-			   prefix2str(ifc->address, buf, sizeof(buf)));
+			   ifc->address);
 
 	bfdd_sessions_enable_address(ifc);
 

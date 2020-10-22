@@ -156,46 +156,36 @@ extern vector ospf6_lsa_handler_vector;
 /* addr is (struct prefix *) */
 #define CONTINUE_IF_ADDRESS_LINKLOCAL(debug, addr)                             \
 	if (IN6_IS_ADDR_LINKLOCAL(&(addr)->u.prefix6)) {                       \
-		char buf[PREFIX2STR_BUFFER];                                   \
-		prefix2str(addr, buf, sizeof(buf));                            \
 		if (debug)                                                     \
-			zlog_debug("Filter out Linklocal: %s", buf);           \
+			zlog_debug("Filter out Linklocal: %pFX", addr);        \
 		continue;                                                      \
 	}
 
 #define CONTINUE_IF_ADDRESS_UNSPECIFIED(debug, addr)                           \
 	if (IN6_IS_ADDR_UNSPECIFIED(&(addr)->u.prefix6)) {                     \
-		char buf[PREFIX2STR_BUFFER];                                   \
-		prefix2str(addr, buf, sizeof(buf));                            \
 		if (debug)                                                     \
-			zlog_debug("Filter out Unspecified: %s", buf);         \
+			zlog_debug("Filter out Unspecified: %pFX", addr);      \
 		continue;                                                      \
 	}
 
 #define CONTINUE_IF_ADDRESS_LOOPBACK(debug, addr)                              \
 	if (IN6_IS_ADDR_LOOPBACK(&(addr)->u.prefix6)) {                        \
-		char buf[PREFIX2STR_BUFFER];                                   \
-		prefix2str(addr, buf, sizeof(buf));                            \
 		if (debug)                                                     \
-			zlog_debug("Filter out Loopback: %s", buf);            \
+			zlog_debug("Filter out Loopback: %pFX", addr);         \
 		continue;                                                      \
 	}
 
 #define CONTINUE_IF_ADDRESS_V4COMPAT(debug, addr)                              \
 	if (IN6_IS_ADDR_V4COMPAT(&(addr)->u.prefix6)) {                        \
-		char buf[PREFIX2STR_BUFFER];                                   \
-		prefix2str(addr, buf, sizeof(buf));                            \
 		if (debug)                                                     \
-			zlog_debug("Filter out V4Compat: %s", buf);            \
+			zlog_debug("Filter out V4Compat: %pFX", addr);         \
 		continue;                                                      \
 	}
 
 #define CONTINUE_IF_ADDRESS_V4MAPPED(debug, addr)                              \
 	if (IN6_IS_ADDR_V4MAPPED(&(addr)->u.prefix6)) {                        \
-		char buf[PREFIX2STR_BUFFER];                                   \
-		prefix2str(addr, buf, sizeof(buf));                            \
 		if (debug)                                                     \
-			zlog_debug("Filter out V4Mapped: %s", buf);            \
+			zlog_debug("Filter out V4Mapped: %pFX", addr);         \
 		continue;                                                      \
 	}
 

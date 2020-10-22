@@ -699,7 +699,6 @@ static int bgp_evpn_type4_remote_routes_import(struct bgp *bgp,
 	int ret;
 	afi_t afi;
 	safi_t safi;
-	char buf[PREFIX_STRLEN];
 	struct bgp_dest *rd_dest, *dest;
 	struct bgp_table *table;
 	struct bgp_path_info *pi;
@@ -744,13 +743,11 @@ static int bgp_evpn_type4_remote_routes_import(struct bgp *bgp,
 
 				if (ret) {
 					flog_err(
-							EC_BGP_EVPN_FAIL,
-							"Failed to %s EVPN %s route in ESI %s",
-							install ? "install"
+						EC_BGP_EVPN_FAIL,
+						"Failed to %s EVPN %pFX route in ESI %s",
+						install ? "install"
 							: "uninstall",
-							prefix2str(evp, buf,
-								sizeof(buf)),
-							es->esi_str);
+						evp, es->esi_str);
 					return ret;
 				}
 			}

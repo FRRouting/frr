@@ -23,6 +23,8 @@
 #include "jhash.h"
 #include "pbr.h"
 
+#include "lib/printfrr.h"
+
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_debug.h"
@@ -1438,7 +1440,6 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 	int i = 0;
 	char return_string[512];
 	char *ptr = return_string;
-	char buff[64];
 	int nb_items = 0;
 	int delta, len = sizeof(return_string);
 
@@ -1449,12 +1450,10 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 		struct prefix *p = &(api->src_prefix);
 
 		if (api->src_prefix_offset)
-			delta = snprintf(ptr, len, "@src %s/off%u",
-				       prefix2str(p, buff, 64),
-				       api->src_prefix_offset);
+			delta = snprintfrr(ptr, len, "@src %pFX/off%u", p,
+					   api->src_prefix_offset);
 		else
-			delta = snprintf(ptr, len, "@src %s",
-				       prefix2str(p, buff, 64));
+			delta = snprintfrr(ptr, len, "@src %pFX", p);
 		len -= delta;
 		ptr += delta;
 		INCREMENT_DISPLAY(ptr, nb_items, len);
@@ -1464,12 +1463,10 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 
 		INCREMENT_DISPLAY(ptr, nb_items, len);
 		if (api->dst_prefix_offset)
-			delta = snprintf(ptr, len, "@dst %s/off%u",
-				       prefix2str(p, buff, 64),
-				       api->dst_prefix_offset);
+			delta = snprintfrr(ptr, len, "@dst %pFX/off%u", p,
+					   api->dst_prefix_offset);
 		else
-			delta = snprintf(ptr, len, "@dst %s",
-					 prefix2str(p, buff, 64));
+			delta = snprintfrr(ptr, len, "@dst %pFX", p);
 		len -= delta;
 		ptr += delta;
 	}

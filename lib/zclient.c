@@ -1116,13 +1116,11 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
 		/* limit the number of nexthops if necessary */
 		if (api->nexthop_num > MULTIPATH_NUM) {
-			char buf[PREFIX2STR_BUFFER];
-
-			prefix2str(&api->prefix, buf, sizeof(buf));
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
-				"%s: prefix %s: can't encode %u nexthops (maximum is %u)",
-				__func__, buf, api->nexthop_num, MULTIPATH_NUM);
+				"%s: prefix %pFX: can't encode %u nexthops (maximum is %u)",
+				__func__, &api->prefix, api->nexthop_num,
+				MULTIPATH_NUM);
 			return -1;
 		}
 
@@ -1139,15 +1137,11 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 
 			/* MPLS labels for BGP-LU or Segment Routing */
 			if (api_nh->label_num > MPLS_MAX_LABELS) {
-				char buf[PREFIX2STR_BUFFER];
-
-				prefix2str(&api->prefix, buf, sizeof(buf));
-
-				flog_err(EC_LIB_ZAPI_ENCODE,
-					 "%s: prefix %s: can't encode %u labels (maximum is %u)",
-					 __func__, buf,
-					 api_nh->label_num,
-					 MPLS_MAX_LABELS);
+				flog_err(
+					EC_LIB_ZAPI_ENCODE,
+					"%s: prefix %pFX: can't encode %u labels (maximum is %u)",
+					__func__, &api->prefix,
+					api_nh->label_num, MPLS_MAX_LABELS);
 				return -1;
 			}
 
@@ -1162,13 +1156,10 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_BACKUP_NEXTHOPS)) {
 		/* limit the number of nexthops if necessary */
 		if (api->backup_nexthop_num > MULTIPATH_NUM) {
-			char buf[PREFIX2STR_BUFFER];
-
-			prefix2str(&api->prefix, buf, sizeof(buf));
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
-				"%s: prefix %s: can't encode %u backup nexthops (maximum is %u)",
-				__func__, buf, api->backup_nexthop_num,
+				"%s: prefix %pFX: can't encode %u backup nexthops (maximum is %u)",
+				__func__, &api->prefix, api->backup_nexthop_num,
 				MULTIPATH_NUM);
 			return -1;
 		}
@@ -1185,15 +1176,11 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 
 			/* MPLS labels for BGP-LU or Segment Routing */
 			if (api_nh->label_num > MPLS_MAX_LABELS) {
-				char buf[PREFIX2STR_BUFFER];
-
-				prefix2str(&api->prefix, buf, sizeof(buf));
-
-				flog_err(EC_LIB_ZAPI_ENCODE,
-					 "%s: prefix %s: backup: can't encode %u labels (maximum is %u)",
-					 __func__, buf,
-					 api_nh->label_num,
-					 MPLS_MAX_LABELS);
+				flog_err(
+					EC_LIB_ZAPI_ENCODE,
+					"%s: prefix %pFX: backup: can't encode %u labels (maximum is %u)",
+					__func__, &api->prefix,
+					api_nh->label_num, MPLS_MAX_LABELS);
 				return -1;
 			}
 
@@ -2319,13 +2306,10 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 			else if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER)) {
 				/* carp interfaces on OpenBSD with 0.0.0.0/0 as
 				 * "peer" */
-				char buf[PREFIX_STRLEN];
 				flog_err(
 					EC_LIB_ZAPI_ENCODE,
-					"warning: interface %s address %s with peer flag set, but no peer address!",
-					ifp->name,
-					prefix2str(ifc->address, buf,
-						   sizeof(buf)));
+					"warning: interface %s address %pFX with peer flag set, but no peer address!",
+					ifp->name, ifc->address);
 				UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 			}
 		}

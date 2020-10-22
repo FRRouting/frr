@@ -907,10 +907,6 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			delete_list = list_new();
 			while (0
 			       == skiplist_first(slRibPt, NULL, (void **)&ri)) {
-
-				char buf[PREFIX_STRLEN];
-				char buf2[PREFIX_STRLEN];
-
 				listnode_add(delete_list, ri);
 				vnc_zlog_debug_verbose(
 					"%s: after listnode_add, delete_list->count=%d",
@@ -927,12 +923,10 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 					ri->timer = NULL;
 				}
 
-				prefix2str(&ri->rk.vn, buf, sizeof(buf));
-				prefix2str(&ri->un, buf2, sizeof(buf2));
 				vnc_zlog_debug_verbose(
-					"%s:   put dl pfx=%pRN vn=%s un=%s cost=%d life=%d vn_options=%p",
-					__func__, pn, buf, buf2, ri->cost,
-					ri->lifetime, ri->vn_options);
+					"%s:   put dl pfx=%pRN vn=%pFX un=%pFX cost=%d life=%d vn_options=%p",
+					__func__, pn, &ri->rk.vn, &ri->un,
+					ri->cost, ri->lifetime, ri->vn_options);
 
 				skiplist_delete_first(slRibPt);
 			}
@@ -1589,7 +1583,6 @@ void rfapiRibUpdatePendingNode(
 	afi_t afi;
 	uint32_t queued_flag;
 	int count = 0;
-	char buf[PREFIX_STRLEN];
 
 	vnc_zlog_debug_verbose("%s: entry", __func__);
 
@@ -1602,8 +1595,7 @@ void rfapiRibUpdatePendingNode(
 
 	prefix = agg_node_get_prefix(it_node);
 	afi = family2afi(prefix->family);
-	prefix2str(prefix, buf, sizeof(buf));
-	vnc_zlog_debug_verbose("%s: prefix=%s", __func__, buf);
+	vnc_zlog_debug_verbose("%s: prefix=%pFX", __func__, prefix);
 
 	pn = agg_node_get(rfd->rib_pending[afi], prefix);
 	assert(pn);
@@ -1809,11 +1801,8 @@ int rfapiRibFTDFilterRecentPrefix(
 
 #ifdef DEBUG_FTD_FILTER_RECENT
 	{
-		char buf_pfx[PREFIX_STRLEN];
-
-		prefix2str(agg_node_get_prefix(it_rn), buf_pfx,
-			   sizeof(buf_pfx));
-		vnc_zlog_debug_verbose("%s: prefix %s", __func__, buf_pfx);
+		vnc_zlog_debug_verbose("%s: prefix %pFX", __func__,
+				       agg_node_get_prefix(it_rn));
 	}
 #endif
 
@@ -1974,21 +1963,18 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 
 #if DEBUG_NHL
 		{
-			char str_vn[PREFIX_STRLEN];
 			char str_aux_prefix[PREFIX_STRLEN];
 
-			str_vn[0] = 0;
 			str_aux_prefix[0] = 0;
 
-			prefix2str(&rk.vn, str_vn, sizeof(str_vn));
 			prefix2str(&rk.aux_prefix, str_aux_prefix,
 				   sizeof(str_aux_prefix));
 
 			if (!rk.aux_prefix.family) {
 			}
 			vnc_zlog_debug_verbose(
-				"%s:   rk.vn=%s rk.aux_prefix=%s", __func__,
-				str_vn,
+				"%s:   rk.vn=%pFX rk.aux_prefix=%s", __func__,
+				&rk.vn,
 				(rk.aux_prefix.family ? str_aux_prefix : "-"));
 		}
 		vnc_zlog_debug_verbose(
@@ -2072,17 +2058,10 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		if (agg_node_get_lock_count(trn) > 1)
 			agg_unlock_node(trn);
 
-		{
-			char str_pfx[PREFIX_STRLEN];
-			char str_pfx_vn[PREFIX_STRLEN];
-
-			prefix2str(&pfx, str_pfx, sizeof(str_pfx));
-			prefix2str(&rk.vn, str_pfx_vn, sizeof(str_pfx_vn));
-			vnc_zlog_debug_verbose(
-				"%s:   added pfx=%s nh[vn]=%s, cost=%u, lifetime=%u, allowed=%d",
-				__func__, str_pfx, str_pfx_vn, nhp->prefix.cost,
-				nhp->lifetime, allowed);
-		}
+		vnc_zlog_debug_verbose(
+			"%s:   added pfx=%pFX nh[vn]=%pFX, cost=%u, lifetime=%u, allowed=%d",
+			__func__, &pfx, &rk.vn, nhp->prefix.cost, nhp->lifetime,
+			allowed);
 
 		if (allowed) {
 			if (tail)

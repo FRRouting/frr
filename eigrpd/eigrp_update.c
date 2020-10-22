@@ -141,10 +141,8 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 
 	/* iterate over all prefixes which weren't advertised by neighbor */
 	for (ALL_LIST_ELEMENTS_RO(nbr_prefixes, node1, prefix)) {
-		char buffer[PREFIX_STRLEN];
-		zlog_debug(
-			"GR receive: Neighbor not advertised %s",
-			prefix2str(prefix->destination, buffer, PREFIX_STRLEN));
+		zlog_debug("GR receive: Neighbor not advertised %pFX",
+			   prefix->destination);
 
 		fsm_msg.metrics = prefix->reported_metric;
 		/* set delay to MAX */

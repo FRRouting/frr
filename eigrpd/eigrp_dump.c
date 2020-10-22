@@ -239,12 +239,10 @@ void show_ip_eigrp_topology_header(struct vty *vty, struct eigrp *eigrp)
 void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 {
 	struct list *successors = eigrp_topology_get_successor(tn);
-	char buffer[PREFIX_STRLEN];
 
 	vty_out(vty, "%-3c", (tn->state > 0) ? 'A' : 'P');
 
-	vty_out(vty, "%s, ",
-		prefix2str(tn->destination, buffer, PREFIX_STRLEN));
+	vty_out(vty, "%pFX, ", tn->destination);
 	vty_out(vty, "%u successors, ", (successors) ? successors->count : 0);
 	vty_out(vty, "FD is %u, serno: %" PRIu64 " \n", tn->fdistance,
 		tn->serno);

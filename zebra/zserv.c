@@ -1172,11 +1172,9 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 				}
 			}
 			vty_out(vty, "Current AFI : %d\n", info->current_afi);
-			if (info->current_prefix) {
-				prefix2str(info->current_prefix, buf,
-					   sizeof(buf));
-				vty_out(vty, "Current prefix : %s\n", buf);
-			}
+			if (info->current_prefix)
+				vty_out(vty, "Current prefix : %pFX\n",
+					info->current_prefix);
 		}
 	}
 	vty_out(vty, "\n");

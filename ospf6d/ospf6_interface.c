@@ -436,16 +436,14 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 		if (oi->plist_name) {
 			struct prefix_list *plist;
 			enum prefix_list_type ret;
-			char buf[PREFIX2STR_BUFFER];
 
-			prefix2str(c->address, buf, sizeof(buf));
 			plist = prefix_list_lookup(AFI_IP6, oi->plist_name);
 			ret = prefix_list_apply(plist, (void *)c->address);
 			if (ret == PREFIX_DENY) {
 				if (IS_OSPF6_DEBUG_INTERFACE)
 					zlog_debug(
-						"%s on %s filtered by prefix-list %s ",
-						buf, oi->interface->name,
+						"%pFX on %s filtered by prefix-list %s ",
+						c->address, oi->interface->name,
 						oi->plist_name);
 				continue;
 			}
@@ -929,16 +927,15 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, i, c)) {
 		p = c->address;
-		prefix2str(p, strbuf, sizeof(strbuf));
 		switch (p->family) {
 		case AF_INET:
-			vty_out(vty, "    inet : %s\n", strbuf);
+			vty_out(vty, "    inet : %pFX\n", p);
 			break;
 		case AF_INET6:
-			vty_out(vty, "    inet6: %s\n", strbuf);
+			vty_out(vty, "    inet6: %pFX\n", p);
 			break;
 		default:
-			vty_out(vty, "    ???  : %s\n", strbuf);
+			vty_out(vty, "    ???  : %pFX\n", p);
 			break;
 		}
 	}

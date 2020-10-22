@@ -87,10 +87,6 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct isis_circuit *circuit;
 	struct connected *c;
-#ifdef EXTREME_DEBUG
-	struct prefix *p;
-	char buf[PREFIX2STR_BUFFER];
-#endif /* EXTREME_DEBUG */
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_ADD,
 					 zclient->ibuf, vrf_id);
@@ -99,13 +95,10 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 #ifdef EXTREME_DEBUG
-	p = c->address;
-	prefix2str(p, buf, sizeof(buf));
-
 	if (p->family == AF_INET)
-		zlog_debug("connected IP address %s", buf);
+		zlog_debug("connected IP address %pFX", c->address);
 	if (p->family == AF_INET6)
-		zlog_debug("connected IPv6 address %s", buf);
+		zlog_debug("connected IPv6 address %pFX", c->address);
 #endif /* EXTREME_DEBUG */
 
 	if (if_is_operative(c->ifp)) {
@@ -121,10 +114,6 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 {
 	struct isis_circuit *circuit;
 	struct connected *c;
-#ifdef EXTREME_DEBUG
-	struct prefix *p;
-	char buf[PREFIX2STR_BUFFER];
-#endif /* EXTREME_DEBUG */
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_DELETE,
 					 zclient->ibuf, vrf_id);
@@ -133,13 +122,10 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 #ifdef EXTREME_DEBUG
-	p = c->address;
-	prefix2str(p, buf, sizeof(buf));
-
 	if (p->family == AF_INET)
-		zlog_debug("disconnected IP address %s", buf);
+		zlog_debug("disconnected IP address %pFX", c->address);
 	if (p->family == AF_INET6)
-		zlog_debug("disconnected IPv6 address %s", buf);
+		zlog_debug("disconnected IPv6 address %pFX", c->address);
 #endif /* EXTREME_DEBUG */
 
 	if (if_is_operative(c->ifp)) {
