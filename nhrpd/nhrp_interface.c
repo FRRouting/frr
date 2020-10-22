@@ -99,6 +99,10 @@ static int nhrp_if_delete_hook(struct interface *ifp)
 
 	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
 
+	/* nhs server free */
+	if (nhrp_vrf)
+		nhrp_nhs_terminate(nhrp_vrf, ifp);
+
 	/* vc reset - ipsec connections if needed */
 	if (nhrp_vrf)
 		nhrp_vc_reset(nhrp_vrf, ifp);

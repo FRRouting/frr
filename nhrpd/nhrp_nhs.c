@@ -460,7 +460,7 @@ void nhrp_nhs_init(struct nhrp_vrf *nhrp_vrf)
 						      sizeof(struct nhrp_reqid_pool));
 }
 
-void nhrp_nhs_terminate(struct nhrp_vrf *nhrp_vrf)
+void nhrp_nhs_terminate(struct nhrp_vrf *nhrp_vrf, struct interface *ifp_to_remove)
 {
 	struct vrf *vrf = vrf_lookup_by_id(nhrp_vrf->vrf_id);
 	struct interface *ifp;
@@ -470,6 +470,8 @@ void nhrp_nhs_terminate(struct nhrp_vrf *nhrp_vrf)
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		nifp = ifp->info;
+		if (ifp_to_remove && ifp != ifp_to_remove)
+			continue;
 		for (afi = 0; afi < AFI_MAX; afi++) {
 			list_for_each_entry_safe(
 				nhs, tmp, &nifp->afi[afi].nhslist_head,

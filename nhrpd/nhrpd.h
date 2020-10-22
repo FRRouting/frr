@@ -434,7 +434,7 @@ int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 int nhrp_nhs_del(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		 const char *nbma_fqdn);
 int nhrp_nhs_free(struct nhrp_nhs *nhs);
-void nhrp_nhs_terminate(struct nhrp_vrf *nhrp_vrf);
+void nhrp_nhs_terminate(struct nhrp_vrf *nhrp_vrf, struct interface *ifp);
 void nhrp_nhs_init(struct nhrp_vrf *nhrp_vrf);
 void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
 		      void (*cb)(struct nhrp_nhs *, struct nhrp_registration *,
