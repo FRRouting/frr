@@ -6257,6 +6257,10 @@ static bool aggr_suppress_path(struct bgp_aggregate *aggregate,
 
 	/* Only mark for processing if suppressed. */
 	if (listcount(pie->aggr_suppressors) == 1) {
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug("aggregate-address suppressing: %pFX",
+				   bgp_dest_get_prefix(pi->net));
+
 		bgp_path_info_set_flag(pi->net, pi, BGP_PATH_ATTR_CHANGED);
 		return true;
 	}
@@ -6280,6 +6284,10 @@ static bool aggr_unsuppress_path(struct bgp_aggregate *aggregate,
 
 	/* Unsuppress and free extra memory if last item. */
 	if (listcount(pi->extra->aggr_suppressors) == 0) {
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug("aggregate-address unsuppressing: %pFX",
+				   bgp_dest_get_prefix(pi->net));
+
 		list_delete(&pi->extra->aggr_suppressors);
 		bgp_path_info_set_flag(pi->net, pi, BGP_PATH_ATTR_CHANGED);
 		return true;
