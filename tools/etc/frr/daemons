@@ -12,7 +12,7 @@
 # When using "vtysh" such a config file is also needed. It should be owned by
 # group "frrvty" and set to ug=rw,o= though. Check /etc/pam.d/frr, too.
 #
-# The watchfrr and zebra daemons are always started.
+# The watchfrr, zebra and staticd daemons are always started.
 #
 bgpd=no
 ospfd=no
