@@ -810,9 +810,9 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug(
-					"%s: NHT addr %pFX(%s) %d-nhop via %s(%s) type %d distance:%u metric:%u ",
+					"%s: NHT addr %pFX(%s) %d-nhop via %pI4(%s) type %d distance:%u metric:%u ",
 					__func__, &nhr.prefix, pim->vrf->name,
-					i + 1, inet_ntoa(nexthop->gate.ipv4),
+					i + 1, &nexthop->gate.ipv4,
 					ifp->name, nexthop->type, nhr.distance,
 					nhr.metric);
 

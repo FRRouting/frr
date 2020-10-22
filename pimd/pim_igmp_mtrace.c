@@ -447,8 +447,8 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	}
 
 	if (PIM_DEBUG_MTRACE) {
-		zlog_debug("Fwd mtrace packet len=%u to %s ttl=%u",
-			   ntohs(ip_hdr->ip_len), inet_ntoa(ip_hdr->ip_dst),
+		zlog_debug("Fwd mtrace packet len=%u to %pI4 ttl=%u",
+			   ntohs(ip_hdr->ip_len), &ip_hdr->ip_dst,
 			   ip_hdr->ip_ttl);
 	}
 
@@ -472,9 +472,9 @@ static int mtrace_mc_forward_packet(struct pim_instance *pim, struct ip *ip_hdr)
 	if (c_oil == NULL) {
 		if (PIM_DEBUG_MTRACE) {
 			zlog_debug(
-				"Dropping mtrace multicast packet len=%u to %s ttl=%u",
+				"Dropping mtrace multicast packet len=%u to %pI4 ttl=%u",
 				ntohs(ip_hdr->ip_len),
-				inet_ntoa(ip_hdr->ip_dst), ip_hdr->ip_ttl);
+				&ip_hdr->ip_dst, ip_hdr->ip_ttl);
 		}
 		return -1;
 	}
@@ -523,9 +523,9 @@ static int mtrace_send_mc_response(struct pim_instance *pim,
 	if (c_oil == NULL) {
 		if (PIM_DEBUG_MTRACE) {
 			zlog_debug(
-				"Dropping mtrace multicast response packet len=%u to %s",
+				"Dropping mtrace multicast response packet len=%u to %pI4",
 				(unsigned int)mtrace_len,
-				inet_ntoa(mtracep->rsp_addr));
+				&mtracep->rsp_addr);
 		}
 		return -1;
 	}
@@ -716,8 +716,8 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	    && !IPV4_MC_LINKLOCAL(ntohl(ip_hdr->ip_dst.s_addr))) {
 		if (PIM_DEBUG_MTRACE)
 			zlog_warn(
-				"Recv mtrace packet from %s on %s: not link-local multicast %s",
-				from_str, ifp->name, inet_ntoa(ip_hdr->ip_dst));
+				"Recv mtrace packet from %s on %s: not link-local multicast %pI4",
+				from_str, ifp->name, &ip_hdr->ip_dst);
 		return -1;
 	}
 
