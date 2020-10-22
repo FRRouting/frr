@@ -360,14 +360,14 @@ DEFPY (clear_ip_eigrp_neighbors,
 		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
 			if (nbr->state != EIGRP_NEIGHBOR_DOWN) {
 				zlog_debug(
-					"Neighbor %s (%s) is down: manually cleared",
-					inet_ntoa(nbr->src),
+					"Neighbor %pI4 (%s) is down: manually cleared",
+					&nbr->src,
 					ifindex2ifname(nbr->ei->ifp->ifindex,
 						       eigrp->vrf_id));
 				vty_time_print(vty, 0);
 				vty_out(vty,
-					"Neighbor %s (%s) is down: manually cleared\n",
-					inet_ntoa(nbr->src),
+					"Neighbor %pI4 (%s) is down: manually cleared\n",
+					&nbr->src,
 					ifindex2ifname(nbr->ei->ifp->ifindex,
 						       eigrp->vrf_id));
 
@@ -420,14 +420,15 @@ DEFPY (clear_ip_eigrp_neighbors_int,
 	/* iterate over all neighbors on eigrp interface */
 	for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
 		if (nbr->state != EIGRP_NEIGHBOR_DOWN) {
-			zlog_debug("Neighbor %s (%s) is down: manually cleared",
-				   inet_ntoa(nbr->src),
-				   ifindex2ifname(nbr->ei->ifp->ifindex,
-						  eigrp->vrf_id));
+			zlog_debug(
+				"Neighbor %pI4 (%s) is down: manually cleared",
+				&nbr->src,
+				ifindex2ifname(nbr->ei->ifp->ifindex,
+					       eigrp->vrf_id));
 			vty_time_print(vty, 0);
 			vty_out(vty,
-				"Neighbor %s (%s) is down: manually cleared\n",
-				inet_ntoa(nbr->src),
+				"Neighbor %pI4 (%s) is down: manually cleared\n",
+				&nbr->src,
 				ifindex2ifname(nbr->ei->ifp->ifindex,
 					       eigrp->vrf_id));
 

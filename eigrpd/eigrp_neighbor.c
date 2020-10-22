@@ -87,10 +87,6 @@ static struct eigrp_neighbor *eigrp_nbr_add(struct eigrp_interface *ei,
 	nbr = eigrp_nbr_new(ei);
 	nbr->src = iph->ip_src;
 
-	//  if (IS_DEBUG_EIGRP_EVENT)
-	//    zlog_debug("NSM[%s:%s]: start", IF_NAME (nbr->oi),
-	//               inet_ntoa (nbr->router_id));
-
 	return nbr;
 }
 
@@ -197,8 +193,7 @@ int holddown_timer_expired(struct thread *thread)
 	struct eigrp_neighbor *nbr = THREAD_ARG(thread);
 	struct eigrp *eigrp = nbr->ei->eigrp;
 
-	zlog_info("Neighbor %s (%s) is down: holding time expired",
-		  inet_ntoa(nbr->src),
+	zlog_info("Neighbor %pI4 (%s) is down: holding time expired", &nbr->src,
 		  ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 	nbr->state = EIGRP_NEIGHBOR_DOWN;
 	eigrp_nbr_delete(nbr);
@@ -330,13 +325,12 @@ void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 {
 	struct eigrp *eigrp = nbr->ei->eigrp;
 
-	zlog_debug("Neighbor %s (%s) is down: manually cleared",
-		   inet_ntoa(nbr->src),
+	zlog_debug("Neighbor %pI4 (%s) is down: manually cleared", &nbr->src,
 		   ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 	if (vty != NULL) {
 		vty_time_print(vty, 0);
-		vty_out(vty, "Neighbor %s (%s) is down: manually cleared\n",
-			inet_ntoa(nbr->src),
+		vty_out(vty, "Neighbor %pI4 (%s) is down: manually cleared\n",
+			&nbr->src,
 			ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 	}
 

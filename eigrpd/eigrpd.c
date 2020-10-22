@@ -110,10 +110,6 @@ void eigrp_router_id_update(struct eigrp *eigrp)
 
 	eigrp->router_id = router_id;
 	if (router_id_old.s_addr != router_id.s_addr) {
-		//      if (IS_DEBUG_EIGRP_EVENT)
-		//        zlog_debug("Router-ID[NEW:%s]: Update",
-		//        inet_ntoa(eigrp->router_id));
-
 		/* update eigrp_interface's */
 		FOR_ALL_INTERFACES (vrf, ifp)
 			eigrp_if_update(ifp);
