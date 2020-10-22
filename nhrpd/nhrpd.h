@@ -18,6 +18,7 @@
 #include "debug.h"
 #include "memory.h"
 #include "resolver.h"
+#include "hash.h"
 
 DECLARE_MGROUP(NHRPD);
 
@@ -484,6 +485,8 @@ void nhrp_shortcut_prefix_change(const struct prefix *p, int deleted,
 
 void nhrp_cache_interface_del(struct interface *ifp);
 void nhrp_cache_config_free(struct nhrp_cache_config *c);
+void nhrp_cache_clean(struct hash_bucket *b, void *data);
+void nhrp_cache_config_clean(struct hash_bucket *b, void *data);
 struct nhrp_cache_config *nhrp_cache_config_get(struct interface *ifp,
 						union sockunion *remote_addr,
 						int create);

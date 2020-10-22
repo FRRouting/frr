@@ -68,7 +68,7 @@ static void *nhrp_cache_alloc(void *data)
 
 static void nhrp_cache_free(struct nhrp_cache *c)
 {
-	struct nhrp_interface *nifp = c->ifp->info;
+	struct nhrp_interface *nifp;
 	struct nhrp_vrf *nhrp_vrf = NULL;
 
 	if (c->ifp)
@@ -79,7 +79,10 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 		nhrp_vrf->nhrp_cache_counts[c->cur.type]--;
 	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
 	assert(!notifier_active(&c->notifier_list));
-	hash_release(nifp->cache_hash, c);
+	if (c->ifp && c->ifp->info) {
+		nifp = c->ifp->info;
+		hash_release(nifp->cache_hash, c);
+	}
 	THREAD_OFF(c->t_timeout);
 	THREAD_OFF(c->t_auth);
 	XFREE(MTYPE_NHRP_CACHE, c);
@@ -115,6 +118,32 @@ static void *nhrp_cache_config_alloc(void *data)
 		.ifp = key->ifp,
 	};
 	return p;
+}
+
+void nhrp_cache_config_clean(struct hash_bucket *b, void *data)
+{
+	struct nhrp_cache_config *c = (struct nhrp_cache_config *)b->data;
+	struct hash *cache_config_hash = (struct hash *)data;
+
+	hash_release(cache_config_hash, c);
+	/* free since it is not referenced in other places */
+	XFREE(MTYPE_NHRP_CACHE_CONFIG, c);
+}
+
+void nhrp_cache_clean(struct hash_bucket *b, void *data)
+{
+	struct nhrp_cache *c = (struct nhrp_cache *)b->data;
+
+	if (c->cur.type != NHRP_CACHE_INVALID)
+		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
+					  NULL);
+	THREAD_OFF(c->t_timeout);
+	THREAD_OFF(c->t_auth);
+	c->cur.type = NHRP_CACHE_INVALID;
+	c->new.type = NHRP_CACHE_INVALID;
+	c->cur.peer = NULL;
+	c->new.peer = NULL;
+	nhrp_cache_free(c);
 }
 
 void nhrp_cache_config_free(struct nhrp_cache_config *c)
