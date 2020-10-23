@@ -8979,27 +8979,50 @@ DEFUN (ip_pim_bfd,
        PIM_STR
        "Enables BFD support\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
 	struct bfd_info *bfd_info = NULL;
+	char default_rx_interval[5];
+	char default_tx_interval[5];
+	char default_detect_mult[3];
+	const struct lyd_node *igmp_enable_dnode;
+	char bfd_xpath[XPATH_MAXLEN];
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(vty, ifp)) {
-			vty_out(vty,
-				"Could not enable PIM SM on interface %s\n",
-				ifp->name);
-			return CMD_WARNING;
-		}
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/frr-igmp:igmp/igmp-enable",
+			VTY_CURR_XPATH);
+	if (!igmp_enable_dnode)
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				"true");
+	else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					"true");
 	}
-	pim_ifp = ifp->info;
 
-	bfd_info = pim_ifp->bfd_info;
+	snprintf(default_rx_interval, sizeof(default_rx_interval), "%d",
+			BFD_DEF_MIN_RX);
+	snprintf(default_tx_interval, sizeof(default_tx_interval), "%d",
+			BFD_DEF_MIN_TX);
+	snprintf(default_detect_mult, sizeof(default_detect_mult), "%d",
+			BFD_DEF_DETECT_MULT);
 
-	if (!bfd_info || !CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
-		pim_bfd_if_param_set(ifp, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
-				     BFD_DEF_DETECT_MULT, 1);
+	snprintf(bfd_xpath, sizeof(bfd_xpath), "%s/frr-pim:pim/bfd",
+			VTY_CURR_XPATH);
+	bfd_info = nb_running_get_entry(NULL, bfd_xpath, false);
 
-	return CMD_SUCCESS;
+	if (!bfd_info ||
+	    !CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG)) {
+		nb_cli_enqueue_change(vty, "./bfd/min-rx-interval",
+				NB_OP_MODIFY, default_rx_interval);
+		nb_cli_enqueue_change(vty, "./bfd/min-tx-interval",
+				NB_OP_MODIFY, default_tx_interval);
+		nb_cli_enqueue_change(vty, "./bfd/detect_mult",
+				NB_OP_MODIFY,
+				default_detect_mult);
+
+		return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	}
+
+	return NB_OK;
 }
 
 DEFUN (no_ip_pim_bfd,
@@ -9010,20 +9033,9 @@ DEFUN (no_ip_pim_bfd,
        PIM_STR
        "Disables BFD support\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./bfd", NB_OP_DESTROY, NULL);
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING;
-	}
-
-	if (pim_ifp->bfd_info) {
-		pim_bfd_reg_dereg_all_nbr(ifp, ZEBRA_BFD_DEST_DEREGISTER);
-		bfd_info_free(&(pim_ifp->bfd_info));
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (ip_pim_bsm,
@@ -9128,7 +9140,6 @@ DEFUN(
        "Desired min transmit interval\n")
 #endif /* HAVE_BFDD */
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
 	int idx_number_2 = 4;
 	int idx_number_3 = 5;
@@ -9136,26 +9147,35 @@ DEFUN(
 	uint32_t tx_val;
 	uint8_t dm_val;
 	int ret;
-	struct pim_interface *pim_ifp = ifp->info;
+	const struct lyd_node *igmp_enable_dnode;
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(vty, ifp)) {
-			vty_out(vty,
-				"Could not enable PIM SM on interface %s\n",
-				ifp->name);
-			return CMD_WARNING;
-		}
-	}
-
-	if ((ret = bfd_validate_param(
-		     vty, argv[idx_number]->arg, argv[idx_number_2]->arg,
-		     argv[idx_number_3]->arg, &dm_val, &rx_val, &tx_val))
-	    != CMD_SUCCESS)
+	if ((ret = bfd_validate_param(vty, argv[idx_number]->arg,
+					argv[idx_number_2]->arg,
+					argv[idx_number_3]->arg, &dm_val, &rx_val,
+					&tx_val))
+			!= CMD_SUCCESS)
 		return ret;
 
-	pim_bfd_if_param_set(ifp, rx_val, tx_val, dm_val, 0);
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/frr-igmp:igmp/igmp-enable",
+			VTY_CURR_XPATH);
+	if (!igmp_enable_dnode)
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				"true");
+	else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					"true");
+	}
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./bfd/min-rx-interval", NB_OP_MODIFY,
+			argv[idx_number_2]->arg);
+	nb_cli_enqueue_change(vty, "./bfd/min-tx-interval", NB_OP_MODIFY,
+			argv[idx_number_3]->arg);
+	nb_cli_enqueue_change(vty, "./bfd/detect_mult", NB_OP_MODIFY,
+			argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 #if HAVE_BFDD == 0

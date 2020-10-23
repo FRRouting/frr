@@ -23,6 +23,7 @@
 #include "pim_igmpv3.h"
 #include "pim_pim.h"
 #include "pim_mlag.h"
+#include "pim_bfd.h"
 
 static void pim_if_membership_clear(struct interface *ifp)
 {
@@ -1159,7 +1160,6 @@ int lib_interface_pim_bfd_create(struct nb_cb_create_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1168,16 +1168,66 @@ int lib_interface_pim_bfd_create(struct nb_cb_create_args *args)
 
 int lib_interface_pim_bfd_destroy(struct nb_cb_destroy_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Pim not enabled on this interface");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode->parent, NULL, true);
+		pim_ifp = ifp->info;
+		if (pim_ifp->bfd_info) {
+			pim_bfd_reg_dereg_all_nbr(ifp,
+					ZEBRA_BFD_DEST_DEREGISTER);
+			bfd_info_free(&(pim_ifp->bfd_info));
+		}
 		break;
 	}
 
 	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/bfd
+ */
+void lib_interface_pim_bfd_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	uint32_t min_rx;
+	uint32_t min_tx;
+	uint8_t detect_mult;
+
+	ifp = nb_running_get_entry(args->dnode->parent, NULL, true);
+	pim_ifp = ifp->info;
+
+	if (!pim_ifp) {
+		zlog_debug("Pim not enabled on this interface");
+		return;
+	}
+
+	min_rx = yang_dnode_get_uint16(args->dnode, "./min-rx-interval");
+	min_tx = yang_dnode_get_uint16(args->dnode, "./min-tx-interval");
+	detect_mult = yang_dnode_get_uint8(args->dnode, "./detect_mult");
+
+	if ((min_rx == BFD_DEF_MIN_RX) && (min_tx == BFD_DEF_MIN_TX)
+			&& (detect_mult == BFD_DEF_DETECT_MULT))
+		pim_bfd_if_param_set(ifp, min_rx, min_tx, detect_mult, 1);
+	else
+		pim_bfd_if_param_set(ifp, min_rx, min_tx, detect_mult, 0);
+
+	nb_running_set_entry(args->dnode, pim_ifp->bfd_info);
 }
 
 /*
@@ -1190,7 +1240,6 @@ int lib_interface_pim_bfd_min_rx_interval_modify(struct nb_cb_modify_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1207,7 +1256,6 @@ int lib_interface_pim_bfd_min_tx_interval_modify(struct nb_cb_modify_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1224,7 +1272,6 @@ int lib_interface_pim_bfd_detect_mult_modify(struct nb_cb_modify_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
