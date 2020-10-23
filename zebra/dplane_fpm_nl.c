@@ -377,7 +377,6 @@ static int fpm_write_config(struct vty *vty)
 	struct sockaddr_in *sin;
 	struct sockaddr_in6 *sin6;
 	int written = 0;
-	char addrstr[INET6_ADDRSTRLEN];
 
 	if (gfnc->disabled)
 		return written;
@@ -386,8 +385,7 @@ static int fpm_write_config(struct vty *vty)
 	case AF_INET:
 		written = 1;
 		sin = (struct sockaddr_in *)&gfnc->addr;
-		inet_ntop(AF_INET, &sin->sin_addr, addrstr, sizeof(addrstr));
-		vty_out(vty, "fpm address %s", addrstr);
+		vty_out(vty, "fpm address %pI4", &sin->sin_addr);
 		if (sin->sin_port != htons(SOUTHBOUND_DEFAULT_PORT))
 			vty_out(vty, " port %d", ntohs(sin->sin_port));
 
@@ -396,8 +394,7 @@ static int fpm_write_config(struct vty *vty)
 	case AF_INET6:
 		written = 1;
 		sin6 = (struct sockaddr_in6 *)&gfnc->addr;
-		inet_ntop(AF_INET, &sin6->sin6_addr, addrstr, sizeof(addrstr));
-		vty_out(vty, "fpm address %s", addrstr);
+		vty_out(vty, "fpm address %pI6", &sin6->sin6_addr);
 		if (sin6->sin6_port != htons(SOUTHBOUND_DEFAULT_PORT))
 			vty_out(vty, " port %d", ntohs(sin6->sin6_port));
 
