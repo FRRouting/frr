@@ -185,6 +185,31 @@ static int interface_pim_use_src_cmd_worker(struct interface *ifp,
 	return ret;
 }
 
+static int pim_cmd_spt_switchover(struct pim_instance *pim,
+		enum pim_spt_switchover spt,
+		const char *plist)
+{
+	pim->spt.switchover = spt;
+
+	switch (pim->spt.switchover) {
+	case PIM_SPT_IMMEDIATE:
+		XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
+
+		pim_upstream_add_lhr_star_pimreg(pim);
+		break;
+	case PIM_SPT_INFINITY:
+		pim_upstream_remove_lhr_star_pimreg(pim, plist);
+
+		XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
+
+		if (plist)
+			pim->spt.plist = XSTRDUP(MTYPE_PIM_PLIST_NAME, plist);
+		break;
+	}
+
+	return NB_OK;
+}
+
 static bool is_pim_interface(const struct lyd_node *dnode)
 {
 	char if_xpath[XPATH_MAXLEN];
@@ -569,12 +594,18 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_de
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_send_v6_secondary_modify(struct nb_cb_modify_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim->send_v6_secondary = yang_dnode_get_bool(args->dnode, NULL);
 		break;
 	}
 
@@ -588,11 +619,41 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_se
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
 	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/spt-switchover
+ */
+void routing_control_plane_protocols_control_plane_protocol_pim_address_family_spt_switchover_apply_finish(
+		struct nb_cb_apply_finish_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	int spt_switch_action;
+	const char *prefix_list = NULL;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	pim = vrf->info;
+	spt_switch_action = yang_dnode_get_enum(args->dnode, "./spt-action");
+
+	switch (spt_switch_action) {
+	case PIM_SPT_INFINITY:
+		if (yang_dnode_exists(args->dnode,
+				      "./spt-infinity-prefix-list"))
+			prefix_list = yang_dnode_get_string(
+					args->dnode, "./spt-infinity-prefix-list");
+
+		pim_cmd_spt_switchover(pim, PIM_SPT_INFINITY,
+					prefix_list);
+		break;
+	case PIM_SPT_IMMEDIATE:
+		pim_cmd_spt_switchover(pim, PIM_SPT_IMMEDIATE, NULL);
+	}
 }
 
 /*
@@ -605,7 +666,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_sp
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -622,7 +682,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_sp
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -636,7 +695,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_sp
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 

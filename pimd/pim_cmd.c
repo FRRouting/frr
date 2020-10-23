@@ -6740,32 +6740,6 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	return CMD_SUCCESS;
 }
 
-static int pim_cmd_spt_switchover(struct pim_instance *pim,
-				  enum pim_spt_switchover spt,
-				  const char *plist)
-{
-	pim->spt.switchover = spt;
-
-	switch (pim->spt.switchover) {
-	case PIM_SPT_IMMEDIATE:
-		XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
-
-		pim_upstream_add_lhr_star_pimreg(pim);
-		break;
-	case PIM_SPT_INFINITY:
-		pim_upstream_remove_lhr_star_pimreg(pim, plist);
-
-		XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
-
-		if (plist)
-			pim->spt.plist =
-				XSTRDUP(MTYPE_PIM_PLIST_NAME, plist);
-		break;
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (ip_pim_spt_switchover_infinity,
        ip_pim_spt_switchover_infinity_cmd,
        "ip pim spt-switchover infinity-and-beyond",
@@ -6774,8 +6748,45 @@ DEFUN (ip_pim_spt_switchover_infinity,
        "SPT-Switchover\n"
        "Never switch to SPT Tree\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_INFINITY, NULL);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
+		sizeof(spt_plist_xpath));
+
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
+		sizeof(spt_action_xpath));
+
+	if (yang_dnode_exists(vty->candidate_config->dnode, spt_plist_xpath))
+		nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY,
+				NULL);
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			"PIM_SPT_INFINITY");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_spt_switchover_infinity_plist,
@@ -6788,8 +6799,44 @@ DEFUN (ip_pim_spt_switchover_infinity_plist,
        "Prefix-List to control which groups to switch\n"
        "Prefix-List name\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_INFINITY, argv[5]->arg);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
+		sizeof(spt_plist_xpath));
+
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
+		sizeof(spt_action_xpath));
+
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			"PIM_SPT_INFINITY");
+	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_MODIFY,
+			argv[5]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_spt_switchover_infinity,
@@ -6801,8 +6848,43 @@ DEFUN (no_ip_pim_spt_switchover_infinity,
        "SPT_Switchover\n"
        "Never switch to SPT Tree\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_IMMEDIATE, NULL);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
+		sizeof(spt_plist_xpath));
+
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
+		sizeof(spt_action_xpath));
+
+	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			"PIM_SPT_IMMEDIATE");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_spt_switchover_infinity_plist,
@@ -6816,8 +6898,43 @@ DEFUN (no_ip_pim_spt_switchover_infinity_plist,
        "Prefix-List to control which groups to switch\n"
        "Prefix-List name\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_IMMEDIATE, NULL);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
+		sizeof(spt_plist_xpath));
+
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
+		sizeof(spt_action_xpath));
+
+	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			"PIM_SPT_IMMEDIATE");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (pim_register_accept_list,
@@ -7131,10 +7248,33 @@ DEFUN (ip_pim_v6_secondary,
        "pim multicast routing\n"
        "Send v6 secondary addresses\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->send_v6_secondary = 1;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char send_v6_secondary_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(send_v6_secondary_xpath, sizeof(send_v6_secondary_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(send_v6_secondary_xpath, "/send-v6-secondary",
+		sizeof(send_v6_secondary_xpath));
+
+	nb_cli_enqueue_change(vty, send_v6_secondary_xpath, NB_OP_MODIFY,
+			"true");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_v6_secondary,
@@ -7145,10 +7285,33 @@ DEFUN (no_ip_pim_v6_secondary,
        "pim multicast routing\n"
        "Send v6 secondary addresses\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->send_v6_secondary = 0;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char send_v6_secondary_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(send_v6_secondary_xpath, sizeof(send_v6_secondary_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(send_v6_secondary_xpath, "/send-v6-secondary",
+		sizeof(send_v6_secondary_xpath));
+
+	nb_cli_enqueue_change(vty, send_v6_secondary_xpath, NB_OP_MODIFY,
+			"false");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_rp,
