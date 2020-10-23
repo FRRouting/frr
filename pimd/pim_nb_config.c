@@ -27,6 +27,7 @@
 #include "pim_static.h"
 #include "pim_ssm.h"
 #include "pim_ssmpingd.h"
+#include "pim_vxlan.h"
 
 static void pim_if_membership_clear(struct interface *ifp)
 {
@@ -1404,7 +1405,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ml
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1413,17 +1413,51 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ml
 
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_destroy(struct nb_cb_destroy_args *args)
 {
+	struct in_addr addr;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
+	case NB_EV_APPLY:
+		addr.s_addr = 0;
+		pim_vxlan_mlag_update(true/*mlag_enable*/,
+				false/*peer_state*/, MLAG_ROLE_NONE,
+				NULL/*peerlink*/, &addr);
 	}
 
 	return NB_OK;
 }
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mlag
+ */
+void routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_apply_finish(
+		struct nb_cb_apply_finish_args *args)
+{
+	const char *ifname;
+	uint32_t role;
+	bool peer_state;
+	struct interface *ifp;
+	struct ipaddr reg_addr;
+
+	ifname = yang_dnode_get_string(args->dnode, "./peerlink-rif");
+	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+	if (!ifp) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "No such interface name %s", ifname);
+		return;
+	}
+	role = yang_dnode_get_enum(args->dnode, "./my-role");
+	peer_state = yang_dnode_get_bool(args->dnode, "./peer-state");
+	yang_dnode_get_ip(&reg_addr, args->dnode, "./reg-address");
+
+	pim_vxlan_mlag_update(true, peer_state, role, ifp,
+			&reg_addr.ip._v4_addr);
+}
+
 
 /*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mlag/peerlink-rif
@@ -1435,7 +1469,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ml
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1449,7 +1482,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ml
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1466,7 +1498,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ml
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1480,7 +1511,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ml
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1497,7 +1527,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ml
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1514,7 +1543,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ml
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1526,26 +1554,44 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ml
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_register_accept_list_modify(struct nb_cb_modify_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	const char *plist;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+        case NB_EV_PREPARE:
+        case NB_EV_ABORT:
+                break;
+        case NB_EV_APPLY:
+                vrf = nb_running_get_entry(args->dnode, NULL, true);
+                pim = vrf->info;
+                plist = yang_dnode_get_string(args->dnode, NULL);
 
-	return NB_OK;
+                XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
+                pim->register_plist = XSTRDUP(MTYPE_PIM_PLIST_NAME, plist);
+
+                break;
+        }
+
+        return NB_OK;
 }
 
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_register_accept_list_destroy(struct nb_cb_destroy_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+
+		XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
 		break;
 	}
 

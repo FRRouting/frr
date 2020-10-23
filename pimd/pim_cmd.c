@@ -6946,15 +6946,37 @@ DEFPY (pim_register_accept_list,
        "Only accept registers from a specific source prefix list\n"
        "Prefix-List name\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char reg_alist_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(reg_alist_xpath, sizeof(reg_alist_xpath),
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
+	strlcat(reg_alist_xpath, "/register-accept-list",
+		sizeof(reg_alist_xpath));
 
 	if (no)
-		XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
-	else {
-		XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
-		pim->register_plist = XSTRDUP(MTYPE_PIM_PLIST_NAME, word);
-	}
-	return CMD_SUCCESS;
+		nb_cli_enqueue_change(vty, reg_alist_xpath,
+				NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, reg_alist_xpath,
+				NB_OP_MODIFY, word);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_joinprune_time,
@@ -10976,14 +10998,16 @@ DEFUN_HIDDEN (no_ip_pim_mlag,
        PIM_STR
        "MLAG\n")
 {
-	struct in_addr addr;
+	char mlag_xpath[XPATH_MAXLEN];
 
-	addr.s_addr = 0;
-	pim_vxlan_mlag_update(true/*mlag_enable*/,
-		false/*peer_state*/, MLAG_ROLE_NONE,
-		NULL/*peerlink*/, &addr);
+	snprintf(mlag_xpath, sizeof(mlag_xpath), FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
+	strlcat(mlag_xpath, "/mlag", sizeof(mlag_xpath));
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, mlag_xpath, NB_OP_DESTROY, NULL);
+
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_HIDDEN (ip_pim_mlag,
@@ -11002,53 +11026,73 @@ DEFUN_HIDDEN (ip_pim_mlag,
        "configure PIP\n"
        "unique ip address\n")
 {
-	struct interface *ifp;
-	const char *peerlink;
-	uint32_t role;
 	int idx;
-	bool peer_state;
-	int result;
-	struct in_addr reg_addr;
+	char mlag_peerlink_rif_xpath[XPATH_MAXLEN];
+	char mlag_my_role_xpath[XPATH_MAXLEN];
+	char mlag_peer_state_xpath[XPATH_MAXLEN];
+	char mlag_reg_address_xpath[XPATH_MAXLEN];
+
+	snprintf(mlag_peerlink_rif_xpath, sizeof(mlag_peerlink_rif_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
+	strlcat(mlag_peerlink_rif_xpath, "/mlag/peerlink-rif",
+		sizeof(mlag_peerlink_rif_xpath));
 
 	idx = 3;
-	peerlink = argv[idx]->arg;
-	ifp = if_lookup_by_name(peerlink, VRF_DEFAULT);
-	if (!ifp) {
-		vty_out(vty, "No such interface name %s\n", peerlink);
-		return CMD_WARNING;
-	}
+	nb_cli_enqueue_change(vty, mlag_peerlink_rif_xpath, NB_OP_MODIFY,
+			argv[idx]->arg);
+
+	snprintf(mlag_my_role_xpath, sizeof(mlag_my_role_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
+	strlcat(mlag_my_role_xpath, "/mlag/my-role",
+		sizeof(mlag_my_role_xpath));
 
 	idx += 2;
 	if (!strcmp(argv[idx]->arg, "primary")) {
-		role = MLAG_ROLE_PRIMARY;
+		nb_cli_enqueue_change(vty, mlag_my_role_xpath, NB_OP_MODIFY,
+				"MLAG_ROLE_PRIMARY");
+
 	} else if (!strcmp(argv[idx]->arg, "secondary")) {
-		role = MLAG_ROLE_SECONDARY;
+		nb_cli_enqueue_change(vty, mlag_my_role_xpath, NB_OP_MODIFY,
+				"MLAG_ROLE_SECONDARY");
+
 	} else {
 		vty_out(vty, "unknown MLAG role %s\n", argv[idx]->arg);
 		return CMD_WARNING;
 	}
 
+	snprintf(mlag_peer_state_xpath, sizeof(mlag_peer_state_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
+	strlcat(mlag_peer_state_xpath, "/mlag/peer-state",
+		sizeof(mlag_peer_state_xpath));
+
 	idx += 2;
 	if (!strcmp(argv[idx]->arg, "up")) {
-		peer_state = true;
+		nb_cli_enqueue_change(vty, mlag_peer_state_xpath, NB_OP_MODIFY,
+				"true");
+
 	} else if (strcmp(argv[idx]->arg, "down")) {
-		peer_state = false;
+		nb_cli_enqueue_change(vty, mlag_peer_state_xpath, NB_OP_MODIFY,
+				"false");
+
 	} else {
 		vty_out(vty, "unknown MLAG state %s\n", argv[idx]->arg);
 		return CMD_WARNING;
 	}
 
-	idx += 2;
-	result = inet_pton(AF_INET, argv[idx]->arg, &reg_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad reg address %s: errno=%d: %s\n",
-			argv[idx]->arg,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	pim_vxlan_mlag_update(true, peer_state, role, ifp, &reg_addr);
+	snprintf(mlag_reg_address_xpath, sizeof(mlag_reg_address_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
+	strlcat(mlag_reg_address_xpath, "/mlag/reg-address",
+		sizeof(mlag_reg_address_xpath));
 
-	return CMD_SUCCESS;
+	idx += 2;
+	nb_cli_enqueue_change(vty, mlag_reg_address_xpath, NB_OP_MODIFY,
+			argv[idx]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void pim_cmd_init(void)
