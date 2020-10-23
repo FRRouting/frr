@@ -35,7 +35,7 @@
 #include "static_zebra.h"
 #include "static_debug.h"
 
-DEFINE_MTYPE_STATIC(STATIC, STATIC_ROUTE, "Static Route Info");
+DEFINE_MTYPE(STATIC, STATIC_ROUTE, "Static Route Info");
 DEFINE_MTYPE(STATIC, STATIC_PATH, "Static Path");
 
 /* Install static path into rib. */
