@@ -1535,7 +1535,7 @@ int ospf6_receive(struct thread *thread)
 
 	/* add next read thread */
 	sockfd = THREAD_FD(thread);
-	thread_add_read(master, ospf6_receive, NULL, sockfd, NULL);
+	thread_add_read(master, ospf6_receive, NULL, sockfd, &ospf6->t_ospf6_receive);
 
 	/* initialize */
 	memset(&src, 0, sizeof(src));

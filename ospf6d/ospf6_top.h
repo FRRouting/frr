@@ -97,6 +97,7 @@ struct ospf6 {
 	struct thread *t_ase_calc; /* ASE calculation timer. */
 	struct thread *maxage_remover;
 	struct thread *t_distribute_update; /* Distirbute update timer. */
+	struct thread *t_ospf6_receive; /* OSPF6 receive timer */
 
 	uint32_t ref_bandwidth;
 
