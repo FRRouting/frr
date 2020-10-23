@@ -104,94 +104,6 @@ static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 	return vrf;
 }
 
-void pim_if_membership_clear(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp;
-
-	pim_ifp = ifp->info;
-	zassert(pim_ifp);
-
-	if (PIM_IF_TEST_PIM(pim_ifp->options)
-	    && PIM_IF_TEST_IGMP(pim_ifp->options)) {
-		return;
-	}
-
-	pim_ifchannel_membership_clear(ifp);
-}
-
-/*
-  When PIM is disabled on interface, IGMPv3 local membership
-  information is not injected into PIM interface state.
-
-  The function pim_if_membership_refresh() fetches all IGMPv3 local
-  membership information into PIM. It is intented to be called
-  whenever PIM is enabled on the interface in order to collect missed
-  local membership information.
- */
-void pim_if_membership_refresh(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp;
-	struct listnode *sock_node;
-	struct igmp_sock *igmp;
-
-	pim_ifp = ifp->info;
-	zassert(pim_ifp);
-
-	if (!PIM_IF_TEST_PIM(pim_ifp->options))
-		return;
-	if (!PIM_IF_TEST_IGMP(pim_ifp->options))
-		return;
-
-	/*
-	  First clear off membership from all PIM (S,G) entries on the
-	  interface
-	*/
-
-	pim_ifchannel_membership_clear(ifp);
-
-	/*
-	  Then restore PIM (S,G) membership from all IGMPv3 (S,G) entries on
-	  the interface
-	*/
-
-	/* scan igmp sockets */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-		struct listnode *grpnode;
-		struct igmp_group *grp;
-
-		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grpnode,
-					  grp)) {
-			struct listnode *srcnode;
-			struct igmp_source *src;
-
-			/* scan group sources */
-			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
-						  srcnode, src)) {
-
-				if (IGMP_SOURCE_TEST_FORWARDING(
-					    src->source_flags)) {
-					struct prefix_sg sg;
-
-					memset(&sg, 0,
-					       sizeof(struct prefix_sg));
-					sg.src = src->source_addr;
-					sg.grp = grp->group_addr;
-					pim_ifchannel_local_membership_add(ifp,
-						&sg, false /*is_vxlan*/);
-				}
-
-			} /* scan group sources */
-		}	 /* scan igmp groups */
-	}		  /* scan igmp sockets */
-
-	/*
-	  Finally delete every PIM (S,G) entry lacking all state info
-	 */
-
-	pim_ifchannel_delete_on_noinfo(ifp);
-}
-
 static void pim_show_assert_helper(struct vty *vty,
 				   struct pim_interface *pim_ifp,
 				   struct pim_ifchannel *ch, time_t now)
@@ -7905,26 +7817,12 @@ DEFUN (interface_ip_pim_drprio,
        "Set the Designated Router Election Priority\n"
        "Value of the new DR Priority\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
-	struct pim_interface *pim_ifp = ifp->info;
-	uint32_t old_dr_prio;
 
-	if (!pim_ifp) {
-		vty_out(vty, "Please enable PIM on interface, first\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY,
+			      argv[idx_number]->arg);
 
-	old_dr_prio = pim_ifp->pim_dr_priority;
-
-	pim_ifp->pim_dr_priority = strtol(argv[idx_number]->arg, NULL, 10);
-
-	if (old_dr_prio != pim_ifp->pim_dr_priority) {
-		pim_if_dr_election(ifp);
-		pim_hello_restart_now(ifp);
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (interface_no_ip_pim_drprio,
@@ -7936,21 +7834,15 @@ DEFUN (interface_no_ip_pim_drprio,
        "Revert the Designated Router Priority to default\n"
        "Old Value of the Priority\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char default_priority[10];
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(default_priority, sizeof(default_priority), "%d",
+		 PIM_DEFAULT_DR_PRIORITY);
 
-	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
-		pim_ifp->pim_dr_priority = PIM_DEFAULT_DR_PRIORITY;
-		pim_if_dr_election(ifp);
-		pim_hello_restart_now(ifp);
-	}
+	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY,
+			      default_priority);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFPY_HIDDEN (interface_ip_igmp_query_generate,
@@ -7977,30 +7869,6 @@ DEFPY_HIDDEN (interface_ip_igmp_query_generate,
 	igmp_send_query_on_intf(ifp, igmp_version);
 
 	return CMD_SUCCESS;
-}
-
-static int pim_cmd_interface_add(struct vty *vty, struct interface *ifp)
-{
-	struct pim_interface *pim_ifp = ifp->info;
-	struct pim_instance *pim;
-
-	if (!pim_ifp) {
-		pim = pim_get_pim_instance(ifp->vrf_id);
-		/* Limiting mcast interfaces to number of VIFs */
-		if (pim->mcast_if_count == MAXVIFS) {
-			vty_out(vty, "Max multicast interfaces(%d) reached.",
-				MAXVIFS);
-			return 0;
-		}
-		pim_ifp = pim_if_new(ifp, false, true, false, false);
-	} else
-		PIM_IF_DO_PIM(pim_ifp->options);
-
-	pim_if_addr_add_all(ifp);
-	pim_if_membership_refresh(ifp);
-
-	pim_if_create_pimreg(pim_ifp->pim);
-	return 1;
 }
 
 DEFPY_HIDDEN (pim_test_sg_keepalive,
@@ -8061,28 +7929,18 @@ DEFPY (interface_ip_pim_activeactive,
        PIM_STR
        "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp;
+	if (no)
+		nb_cli_enqueue_change(vty, "./active-active", NB_OP_MODIFY,
+				      "false");
+	else {
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
 
-	if (!no && !pim_cmd_interface_add(vty, ifp)) {
-		vty_out(vty,
-			"Could not enable PIM SM active-active on interface %s\n",
-			ifp->name);
-		return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, "./active-active", NB_OP_MODIFY,
+				      "true");
 	}
 
-
-	if (PIM_DEBUG_MLAG)
-		zlog_debug("%sConfiguring PIM active-active on Interface: %s",
-			   no ? "Un-" : " ", ifp->name);
-
-	pim_ifp = ifp->info;
-	if (no)
-		pim_if_unconfigure_mlag_dualactive(pim_ifp);
-	else
-		pim_if_configure_mlag_dualactive(pim_ifp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN_HIDDEN (interface_ip_pim_ssm,
@@ -8409,28 +8267,30 @@ DEFUN (interface_ip_pim_hello,
        IFACE_PIM_HELLO_TIME_STR
        IFACE_PIM_HELLO_HOLD_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_time = 3;
 	int idx_hold = 4;
-	struct pim_interface *pim_ifp = ifp->info;
+	const struct lyd_node *igmp_enable_dnode;
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(vty, ifp)) {
-			vty_out(vty,
-				"Could not enable PIM SM on interface %s\n",
-				ifp->name);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/frr-igmp:igmp/igmp-enable",
+			VTY_CURR_XPATH);
+	if (!igmp_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				"true");
+	} else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					"true");
 	}
 
-	pim_ifp = ifp->info;
-	pim_ifp->pim_hello_period = strtol(argv[idx_time]->arg, NULL, 10);
+	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_MODIFY,
+			argv[idx_time]->arg);
 
 	if (argc == idx_hold + 1)
-		pim_ifp->pim_default_holdtime =
-			strtol(argv[idx_hold]->arg, NULL, 10);
+		nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_MODIFY,
+				argv[idx_hold]->arg);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (interface_no_ip_pim_hello,
@@ -8443,18 +8303,16 @@ DEFUN (interface_no_ip_pim_hello,
        IFACE_PIM_HELLO_TIME_STR
        IFACE_PIM_HELLO_HOLD_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char hello_default_timer[3];
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(hello_default_timer, sizeof(hello_default_timer), "%d",
+		 PIM_DEFAULT_HELLO_PERIOD);
 
-	pim_ifp->pim_hello_period = PIM_DEFAULT_HELLO_PERIOD;
-	pim_ifp->pim_default_holdtime = -1;
+	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_MODIFY,
+			      hello_default_timer);
+	nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_DESTROY, NULL);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (debug_igmp,
@@ -9091,40 +8949,6 @@ DEFUN_NOSH (show_debugging_pim,
 	return CMD_SUCCESS;
 }
 
-static int interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
-{
-	int result;
-	struct in_addr source_addr;
-	int ret = CMD_SUCCESS;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	result = inet_pton(AF_INET, source, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n", source,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_update_source_set(ifp, source_addr);
-	switch (result) {
-	case PIM_SUCCESS:
-		break;
-	case PIM_IFACE_NOT_FOUND:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "Pim not enabled on this interface\n");
-		break;
-	case PIM_UPDATE_SOURCE_DUP:
-		ret = CMD_WARNING;
-		vty_out(vty, "%% Source already set to %s\n", source);
-		break;
-	default:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Source set failed\n");
-	}
-
-	return ret;
-}
-
 DEFUN (interface_pim_use_source,
        interface_pim_use_source_cmd,
        "ip pim use-source A.B.C.D",
@@ -9209,22 +9033,23 @@ DEFUN (ip_pim_bsm,
        PIM_STR
        "Enables BSM support on the interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	const struct lyd_node *igmp_enable_dnode;
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(vty, ifp)) {
-			vty_out(vty,
-				"Could not enable PIM SM on interface %s\n",
-				ifp->name);
-			return CMD_WARNING;
-		}
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					   "%s/frr-igmp:igmp/igmp-enable",
+					   VTY_CURR_XPATH);
+	if (!igmp_enable_dnode)
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
 	}
 
-	pim_ifp = ifp->info;
-	pim_ifp->bsm_enable = true;
+	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "true");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (no_ip_pim_bsm,
@@ -9235,17 +9060,9 @@ DEFUN (no_ip_pim_bsm,
        PIM_STR
        "Disables BSM support\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "false");
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING;
-	}
-
-	pim_ifp->bsm_enable = false;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (ip_pim_ucast_bsm,
@@ -9255,22 +9072,23 @@ DEFUN (ip_pim_ucast_bsm,
        PIM_STR
        "Accept/Send unicast BSM on the interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	const struct lyd_node *igmp_enable_dnode;
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(vty, ifp)) {
-			vty_out(vty,
-				"Could not enable PIM SM on interface %s\n",
-				ifp->name);
-			return CMD_WARNING;
-		}
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					   "%s/frr-igmp:igmp/igmp-enable",
+					   VTY_CURR_XPATH);
+	if (!igmp_enable_dnode)
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
 	}
 
-	pim_ifp = ifp->info;
-	pim_ifp->ucast_bsm_accept = true;
+	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "true");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (no_ip_pim_ucast_bsm,
@@ -9281,17 +9099,9 @@ DEFUN (no_ip_pim_ucast_bsm,
        PIM_STR
        "Block send/receive unicast BSM on this interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "false");
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING;
-	}
-
-	pim_ifp->ucast_bsm_accept = false;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 #if HAVE_BFDD > 0

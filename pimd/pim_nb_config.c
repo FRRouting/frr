@@ -22,6 +22,7 @@
 #include "lib/northbound_cli.h"
 #include "pim_igmpv3.h"
 #include "pim_pim.h"
+#include "pim_mlag.h"
 
 static void pim_if_membership_clear(struct interface *ifp)
 {
@@ -1085,12 +1086,19 @@ int lib_interface_pim_pim_enable_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_pim_hello_interval_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->pim_hello_period =
+			yang_dnode_get_uint8(args->dnode, NULL);
 		break;
 	}
 
@@ -1102,32 +1110,45 @@ int lib_interface_pim_hello_interval_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_pim_hello_holdtime_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->pim_default_holdtime =
+			yang_dnode_get_uint8(args->dnode, NULL);
 		break;
 	}
 
 	return NB_OK;
+
 }
 
 int lib_interface_pim_hello_holdtime_destroy(struct nb_cb_destroy_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->pim_default_holdtime = -1;
 		break;
 	}
 
 	return NB_OK;
 }
-
 /*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/bfd
  */
@@ -1215,16 +1236,23 @@ int lib_interface_pim_bfd_detect_mult_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_pim_bsm_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+        case NB_EV_PREPARE:
+        case NB_EV_ABORT:
+                break;
+        case NB_EV_APPLY:
+                ifp = nb_running_get_entry(args->dnode, NULL, true);
+                pim_ifp = ifp->info;
+                pim_ifp->bsm_enable = yang_dnode_get_bool(args->dnode, NULL);
 
-	return NB_OK;
+                break;
+        }
+
+        return NB_OK;
 }
 
 /*
@@ -1232,12 +1260,20 @@ int lib_interface_pim_bsm_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_pim_unicast_bsm_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->ucast_bsm_accept =
+			yang_dnode_get_bool(args->dnode, NULL);
+
 		break;
 	}
 
@@ -1249,16 +1285,36 @@ int lib_interface_pim_unicast_bsm_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_pim_active_active_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (yang_dnode_get_bool(args->dnode, NULL)) {
+			if (PIM_DEBUG_MLAG)
+				zlog_debug(
+					"Configuring PIM active-active on Interface: %s",
+					ifp->name);
+			pim_if_configure_mlag_dualactive(pim_ifp);
+		} else {
+			if (PIM_DEBUG_MLAG)
+				zlog_debug(
+					"UnConfiguring PIM active-active on Interface: %s",
+					ifp->name);
+			pim_if_unconfigure_mlag_dualactive(pim_ifp);
+		}
+
 		break;
 	}
 
 	return NB_OK;
+
 }
 
 /*
@@ -1266,12 +1322,34 @@ int lib_interface_pim_active_active_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_pim_dr_priority_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	uint32_t old_dr_prio;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"Pim not enabled on this interface");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		old_dr_prio = pim_ifp->pim_dr_priority;
+		pim_ifp->pim_dr_priority = yang_dnode_get_uint32(args->dnode,
+				NULL);
+
+		if (old_dr_prio != pim_ifp->pim_dr_priority) {
+			pim_if_dr_election(ifp);
+			pim_hello_restart_now(ifp);
+		}
 		break;
 	}
 
