@@ -393,7 +393,7 @@ void isis_adj_print(struct isis_adjacency *adj)
 	if (adj->ipv4_address_count) {
 		zlog_debug("IPv4 Address(es):");
 		for (unsigned int i = 0; i < adj->ipv4_address_count; i++)
-			zlog_debug("%s", inet_ntoa(adj->ipv4_addresses[i]));
+			zlog_debug("%pI4", &adj->ipv4_addresses[i]);
 	}
 
 	if (adj->ipv6_address_count) {
@@ -562,8 +562,8 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			vty_out(vty, "    IPv4 Address(es):\n");
 			for (unsigned int i = 0; i < adj->ipv4_address_count;
 			     i++)
-				vty_out(vty, "      %s\n",
-					inet_ntoa(adj->ipv4_addresses[i]));
+				vty_out(vty, "      %pI4\n",
+					&adj->ipv4_addresses[i]);
 		}
 		if (adj->ipv6_address_count) {
 			vty_out(vty, "    IPv6 Address(es):\n");

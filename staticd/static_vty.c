@@ -365,8 +365,7 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 
 				switch (nh->type) {
 				case STATIC_IPV4_GATEWAY:
-					vty_out(vty, " %s",
-						inet_ntoa(nh->addr.ipv4));
+					vty_out(vty, " %pI4", &nh->addr.ipv4);
 					break;
 				case STATIC_IPV6_GATEWAY:
 					vty_out(vty, " %s",
