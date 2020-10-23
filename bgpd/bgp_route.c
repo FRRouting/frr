@@ -5747,9 +5747,9 @@ void bgp_static_delete(struct bgp *bgp)
 							bgp_dest_get_prefix(
 								dest));
 					bgp_static_free(bgp_static);
-					bgp_dest_set_bgp_static_info(dest,
+					bgp_dest_set_bgp_static_info(rm,
 								     NULL);
-					bgp_dest_unlock_node(dest);
+					bgp_dest_unlock_node(rm);
 				}
 			} else {
 				bgp_static = bgp_dest_get_bgp_static_info(dest);
