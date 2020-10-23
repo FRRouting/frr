@@ -514,6 +514,7 @@ static int mtrace_send_mc_response(struct pim_instance *pim,
 	struct listnode *chnextnode;
 	struct pim_ifchannel *ch = NULL;
 	int ret = -1;
+	char buf[PREFIX_STRLEN];
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	sg.grp = mtracep->rsp_addr;
@@ -523,9 +524,10 @@ static int mtrace_send_mc_response(struct pim_instance *pim,
 	if (c_oil == NULL) {
 		if (PIM_DEBUG_MTRACE) {
 			zlog_debug(
-				"Dropping mtrace multicast response packet len=%u to %pI4",
+				"Dropping mtrace multicast response packet len=%u to %s",
 				(unsigned int)mtrace_len,
-				&mtracep->rsp_addr);
+				inet_ntop(AF_INET, &mtracep->rsp_addr,
+					  buf, sizeof(buf)));
 		}
 		return -1;
 	}
