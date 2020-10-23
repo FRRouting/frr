@@ -24,6 +24,7 @@
 #include "pim_pim.h"
 #include "pim_mlag.h"
 #include "pim_bfd.h"
+#include "pim_static.h"
 
 static void pim_if_membership_clear(struct interface *ifp)
 {
@@ -152,6 +153,36 @@ static int pim_cmd_interface_delete(struct interface *ifp)
         }
 
         return 1;
+}
+
+static int interface_pim_use_src_cmd_worker(struct interface *ifp,
+		struct in_addr source_addr,
+		char *errmsg, size_t errmsg_len)
+{
+	int result;
+	int ret = NB_OK;
+
+	result = pim_update_source_set(ifp, source_addr);
+
+	switch (result) {
+	case PIM_SUCCESS:
+		break;
+	case PIM_IFACE_NOT_FOUND:
+		ret = NB_ERR;
+		snprintf(errmsg, errmsg_len,
+			 "Pim not enabled on this interface %s",
+			 ifp->name);
+			break;
+	case PIM_UPDATE_SOURCE_DUP:
+		ret = NB_ERR;
+		snprintf(errmsg, errmsg_len, "Source already set");
+		break;
+	default:
+		ret = NB_ERR;
+		snprintf(errmsg, errmsg_len, "Source set failed");
+	}
+
+	return ret;
 }
 
 static bool is_pim_interface(const struct lyd_node *dnode)
@@ -1413,7 +1444,6 @@ int lib_interface_pim_address_family_create(struct nb_cb_create_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1427,7 +1457,6 @@ int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1439,12 +1468,34 @@ int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_interface_pim_address_family_use_source_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct ipaddr source_addr;
+	int result;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"Pim not enabled on this interface");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		yang_dnode_get_ip(&source_addr, args->dnode, NULL);
+
+		result = interface_pim_use_src_cmd_worker(
+				ifp, source_addr.ip._v4_addr,
+				args->errmsg, args->errmsg_len);
+
+		if (result != PIM_SUCCESS)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -1453,12 +1504,33 @@ int lib_interface_pim_address_family_use_source_modify(struct nb_cb_modify_args 
 
 int lib_interface_pim_address_family_use_source_destroy(struct nb_cb_destroy_args *args)
 {
+	struct interface *ifp;
+	struct in_addr source_addr = {INADDR_ANY};
+	int result;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"Pim not enabled on this interface");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+		result = interface_pim_use_src_cmd_worker(ifp, source_addr,
+				args->errmsg,
+				args->errmsg_len);
+
+		if (result != PIM_SUCCESS)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -1470,12 +1542,34 @@ int lib_interface_pim_address_family_use_source_destroy(struct nb_cb_destroy_arg
  */
 int lib_interface_pim_address_family_multicast_boundary_oil_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const char *plist;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"Pim not enabled on this interface");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		plist = yang_dnode_get_string(args->dnode, NULL);
+
+		if (pim_ifp->boundary_oil_plist)
+			XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
+
+		pim_ifp->boundary_oil_plist =
+			XSTRDUP(MTYPE_PIM_INTERFACE, plist);
+
 		break;
 	}
 
@@ -1484,12 +1578,27 @@ int lib_interface_pim_address_family_multicast_boundary_oil_modify(struct nb_cb_
 
 int lib_interface_pim_address_family_multicast_boundary_oil_destroy(struct nb_cb_destroy_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"%% Enable PIM and/or IGMP on this interface first");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (pim_ifp->boundary_oil_plist)
+			XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
 		break;
 	}
 
@@ -1506,7 +1615,6 @@ int lib_interface_pim_address_family_mroute_create(struct nb_cb_create_args *arg
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1515,12 +1623,52 @@ int lib_interface_pim_address_family_mroute_create(struct nb_cb_create_args *arg
 
 int lib_interface_pim_address_family_mroute_destroy(struct nb_cb_destroy_args *args)
 {
+	struct pim_instance *pim;
+	struct pim_interface *pim_iifp;
+	struct interface *iif;
+	struct interface *oif;
+	const char *oifname;
+	struct ipaddr source_addr;
+	struct ipaddr group_addr;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"%% Enable PIM and/or IGMP on this interface first");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		iif = nb_running_get_entry(args->dnode, NULL, true);
+		pim_iifp = iif->info;
+		pim = pim_iifp->pim;
+
+		oifname = yang_dnode_get_string(args->dnode, "./oif");
+		oif = if_lookup_by_name(oifname, pim->vrf_id);
+
+		if (!oif) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"No such interface name %s",
+					oifname);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		yang_dnode_get_ip(&source_addr, args->dnode, "./source-addr");
+		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
+
+		if (pim_static_del(pim, iif, oif, group_addr.ip._v4_addr,
+					source_addr.ip._v4_addr)) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"Failed to remove static mroute");
+			return NB_ERR_INCONSISTENCY;
+		}
+
 		break;
 	}
 
@@ -1532,12 +1680,52 @@ int lib_interface_pim_address_family_mroute_destroy(struct nb_cb_destroy_args *a
  */
 int lib_interface_pim_address_family_mroute_oif_modify(struct nb_cb_modify_args *args)
 {
+	struct pim_instance *pim;
+	struct pim_interface *pim_iifp;
+	struct interface *iif;
+	struct interface *oif;
+	const char *oifname;
+	struct ipaddr source_addr;
+	struct ipaddr group_addr;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"%% Enable PIM and/or IGMP on this interface first");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		iif = nb_running_get_entry(args->dnode, NULL, true);
+		pim_iifp = iif->info;
+		pim = pim_iifp->pim;
+
+		oifname = yang_dnode_get_string(args->dnode, NULL);
+		oif = if_lookup_by_name(oifname, pim->vrf_id);
+
+		if (!oif) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"No such interface name %s",
+					oifname);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		yang_dnode_get_ip(&source_addr, args->dnode, "../source-addr");
+		yang_dnode_get_ip(&group_addr, args->dnode, "../group-addr");
+
+		if (pim_static_add(pim, iif, oif, group_addr.ip._v4_addr,
+					source_addr.ip._v4_addr)) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"Failed to add static mroute");
+			return NB_ERR_INCONSISTENCY;
+		}
+
 		break;
 	}
 
@@ -1551,7 +1739,6 @@ int lib_interface_pim_address_family_mroute_oif_destroy(struct nb_cb_destroy_arg
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 

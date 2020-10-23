@@ -8093,22 +8093,13 @@ DEFUN(interface_ip_pim_boundary_oil,
       "Filter OIL by group using prefix list\n"
       "Prefix list to filter OIL with\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	int idx = 0;
+	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_MODIFY,
+			argv[4]->arg);
 
-	argv_find(argv, argc, "WORD", &idx);
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-
-	if (pim_ifp->boundary_oil_plist)
-		XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
-
-	pim_ifp->boundary_oil_plist =
-		XSTRDUP(MTYPE_PIM_INTERFACE, argv[idx]->arg);
-
-	/* Interface will be pruned from OIL on next Join */
-	return CMD_SUCCESS;
 }
 
 DEFUN(interface_no_ip_pim_boundary_oil,
@@ -8121,18 +8112,12 @@ DEFUN(interface_no_ip_pim_boundary_oil,
       "Filter OIL by group using prefix list\n"
       "Prefix list to filter OIL with\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	int idx = 0;
+	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_DESTROY,
+			NULL);
 
-	argv_find(argv, argc, "WORD", &idx);
-
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-
-	if (pim_ifp->boundary_oil_plist)
-		XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_mroute,
@@ -8144,56 +8129,21 @@ DEFUN (interface_ip_mroute,
        "Group address\n"
        "Source address\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
 	int idx_interface = 2;
 	int idx_ipv4 = 3;
-	struct interface *oif;
-	const char *oifname;
-	const char *grp_str;
-	struct in_addr grp_addr;
-	const char *src_str;
-	struct in_addr src_addr;
-	int result;
+	const char *source_str;
 
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-	pim = pim_ifp->pim;
+	if (argc == (idx_ipv4 + 1))
+		source_str = "0.0.0.0";
+	else
+		source_str = argv[idx_ipv4 + 1]->arg;
 
-	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf_id);
-	if (!oif) {
-		vty_out(vty, "No such interface name %s\n", oifname);
-		return CMD_WARNING;
-	}
+	nb_cli_enqueue_change(vty, "./oif", NB_OP_MODIFY,
+			argv[idx_interface]->arg);
 
-	grp_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, grp_str, &grp_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", grp_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
-
-        if (argc == (idx_ipv4 + 1)) {
-                src_addr.s_addr = INADDR_ANY;
-        }
-        else {
-                src_str = argv[idx_ipv4 + 1]->arg;
-                result = inet_pton(AF_INET, src_str, &src_addr);
-                if (result <= 0) {
-                        vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
-                                errno, safe_strerror(errno));
-                        return CMD_WARNING;
-                }
-        }
-
-	if (pim_static_add(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to add static mroute\n");
-		return CMD_WARNING;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']/mroute[source-addr='%s'][group-addr='%s']",
+			"frr-routing:ipv4", source_str, argv[idx_ipv4]->arg);
 }
 
 DEFUN (interface_no_ip_mroute,
@@ -8206,56 +8156,19 @@ DEFUN (interface_no_ip_mroute,
        "Group Address\n"
        "Source Address\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	int idx_interface = 3;
 	int idx_ipv4 = 4;
-	struct interface *oif;
-	const char *oifname;
-	const char *grp_str;
-	struct in_addr grp_addr;
-	const char *src_str;
-	struct in_addr src_addr;
-	int result;
+	const char *source_str;
 
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-	pim = pim_ifp->pim;
+	if (argc == (idx_ipv4 + 1))
+		source_str = "0.0.0.0";
+	else
+		source_str = argv[idx_ipv4 + 1]->arg;
 
-	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf_id);
-	if (!oif) {
-		vty_out(vty, "No such interface name %s\n", oifname);
-		return CMD_WARNING;
-	}
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	grp_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, grp_str, &grp_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", grp_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
-
-        if (argc == (idx_ipv4 + 1)) {
-                src_addr.s_addr = INADDR_ANY;
-        }
-        else {
-                src_str = argv[idx_ipv4 + 1]->arg;
-                result = inet_pton(AF_INET, src_str, &src_addr);
-                if (result <= 0) {
-                        vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
-                                errno, safe_strerror(errno));
-                        return CMD_WARNING;
-                }
-        }
-
-	if (pim_static_del(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to remove static mroute\n");
-		return CMD_WARNING;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']/mroute[source-addr='%s'][group-addr='%s']",
+			"frr-routing:ipv4", source_str, argv[idx_ipv4]->arg);
 }
 
 DEFUN (interface_ip_pim_hello,
@@ -8957,7 +8870,11 @@ DEFUN (interface_pim_use_source,
        "Configure primary IP address\n"
        "source ip address\n")
 {
-	return interface_pim_use_src_cmd_worker(vty, argv[3]->arg);
+	nb_cli_enqueue_change(vty, "./use-source", NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_no_pim_use_source,
@@ -8969,7 +8886,11 @@ DEFUN (interface_no_pim_use_source,
        "Delete source IP address\n"
        "source ip address\n")
 {
-	return interface_pim_use_src_cmd_worker(vty, "0.0.0.0");
+	nb_cli_enqueue_change(vty, "./use-source", NB_OP_MODIFY, "0.0.0.0");
+
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (ip_pim_bfd,
