@@ -20,6 +20,192 @@
 #include "pimd.h"
 #include "pim_nb.h"
 #include "lib/northbound_cli.h"
+#include "pim_igmpv3.h"
+
+void pim_if_membership_clear(struct interface *ifp);
+void pim_if_membership_refresh(struct interface *ifp);
+
+static bool is_pim_interface(const struct lyd_node *dnode)
+{
+	char if_xpath[XPATH_MAXLEN];
+	const struct lyd_node *pim_enable_dnode;
+	const struct lyd_node *igmp_enable_dnode;
+
+	yang_dnode_get_path(dnode, if_xpath, sizeof(if_xpath));
+	pim_enable_dnode = yang_dnode_get(dnode, "%s/frr-pim:pim/pim-enable",
+					  if_xpath);
+	igmp_enable_dnode = yang_dnode_get(dnode, "%s/frr-igmp:igmp/igmp-enable",
+					   if_xpath);
+
+	if (((pim_enable_dnode) &&
+	     (yang_dnode_get_bool(pim_enable_dnode, "."))) ||
+	     ((igmp_enable_dnode) &&
+	     (yang_dnode_get_bool(igmp_enable_dnode, "."))))
+		return true;
+
+	return false;
+}
+
+static int pim_cmd_igmp_start(struct interface *ifp)
+{
+        struct pim_interface *pim_ifp;
+        uint8_t need_startup = 0;
+
+        pim_ifp = ifp->info;
+
+        if (!pim_ifp) {
+                (void)pim_if_new(ifp, true, false, false, false);
+                need_startup = 1;
+        } else {
+                if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
+                        PIM_IF_DO_IGMP(pim_ifp->options);
+                        need_startup = 1;
+                }
+        }
+
+        /* 'ip igmp' executed multiple times, with need_startup
+         * avoid multiple if add all and membership refresh
+         */
+        if (need_startup) {
+                pim_if_addr_add_all(ifp);
+                pim_if_membership_refresh(ifp);
+        }
+
+        return NB_OK;
+}
+
+/*
+ * CLI reconfiguration affects the interface level (struct pim_interface).
+ * This function propagates the reconfiguration to every active socket
+ * for that interface.
+ */
+static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	zassert(igmp);
+
+	/* other querier present? */
+
+	if (igmp->t_other_querier_timer)
+		return;
+
+	/* this is the querier */
+
+	zassert(igmp->interface);
+	zassert(igmp->interface->info);
+
+	ifp = igmp->interface;
+	pim_ifp = ifp->info;
+
+	if (PIM_DEBUG_IGMP_TRACE) {
+		char ifaddr_str[INET_ADDRSTRLEN];
+
+		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
+				sizeof(ifaddr_str));
+		zlog_debug("%s: Querier %s on %s reconfig query_interval=%d",
+				__func__, ifaddr_str, ifp->name,
+				pim_ifp->igmp_default_query_interval);
+	}
+
+	/*
+	 * igmp_startup_mode_on() will reset QQI:
+
+	 * igmp->querier_query_interval = pim_ifp->igmp_default_query_interval;
+	 */
+	igmp_startup_mode_on(igmp);
+}
+
+static void igmp_sock_query_reschedule(struct igmp_sock *igmp)
+{
+	if (igmp->mtrace_only)
+		return;
+
+	if (igmp->t_igmp_query_timer) {
+		/* other querier present */
+		zassert(igmp->t_igmp_query_timer);
+		zassert(!igmp->t_other_querier_timer);
+
+		pim_igmp_general_query_off(igmp);
+		pim_igmp_general_query_on(igmp);
+
+		zassert(igmp->t_igmp_query_timer);
+		zassert(!igmp->t_other_querier_timer);
+	} else {
+		/* this is the querier */
+
+		zassert(!igmp->t_igmp_query_timer);
+		zassert(igmp->t_other_querier_timer);
+
+		pim_igmp_other_querier_timer_off(igmp);
+		pim_igmp_other_querier_timer_on(igmp);
+
+		zassert(!igmp->t_igmp_query_timer);
+		zassert(igmp->t_other_querier_timer);
+	}
+}
+
+static void change_query_interval(struct pim_interface *pim_ifp,
+		int query_interval)
+{
+	struct listnode *sock_node;
+	struct igmp_sock *igmp;
+
+	pim_ifp->igmp_default_query_interval = query_interval;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
+		igmp_sock_query_interval_reconfig(igmp);
+		igmp_sock_query_reschedule(igmp);
+	}
+}
+
+static void change_query_max_response_time(struct pim_interface *pim_ifp,
+		int query_max_response_time_dsec)
+{
+	struct listnode *sock_node;
+	struct igmp_sock *igmp;
+
+	pim_ifp->igmp_query_max_response_time_dsec =
+		query_max_response_time_dsec;
+
+	/*
+	 * Below we modify socket/group/source timers in order to quickly
+	 * reflect the change. Otherwise, those timers would args->eventually
+	 * catch up.
+	 */
+
+	/* scan all sockets */
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
+		struct listnode *grp_node;
+		struct igmp_group *grp;
+
+		/* reschedule socket general query */
+		igmp_sock_query_reschedule(igmp);
+
+		/* scan socket groups */
+		for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grp_node,
+					grp)) {
+			struct listnode *src_node;
+			struct igmp_source *src;
+
+			/* reset group timers for groups in EXCLUDE mode */
+			if (grp->group_filtermode_isexcl)
+				igmp_group_reset_gmi(grp);
+
+			/* scan group sources */
+			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
+						src_node, src)) {
+
+				/* reset source timers for sources with running
+				 * timers
+				 */
+				if (src->t_source_timer)
+					igmp_source_reset_gmi(igmp, grp, src);
+			}
+		}
+	}
+}
 
 int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args)
@@ -1174,7 +1360,6 @@ int lib_interface_igmp_create(struct nb_cb_create_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1183,13 +1368,29 @@ int lib_interface_igmp_create(struct nb_cb_create_args *args)
 
 int lib_interface_igmp_destroy(struct nb_cb_destroy_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			return NB_OK;
+
+		PIM_IF_DONT_IGMP(pim_ifp->options);
+
+		pim_if_membership_clear(ifp);
+
+		pim_if_addr_del_all_igmp(ifp);
+
+		if (!PIM_IF_TEST_PIM(pim_ifp->options))
+			pim_if_delete(ifp);
 	}
 
 	return NB_OK;
@@ -1200,13 +1401,52 @@ int lib_interface_igmp_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	bool igmp_enable;
+	struct pim_interface *pim_ifp;
+	int mcast_if_count;
+	const char *ifp_name;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		ifp_name = yang_dnode_get_string(if_dnode, ".");
+		mcast_if_count =
+			yang_get_list_elements_count(if_dnode);
+		/* Limiting mcast interfaces to number of VIFs */
+		if (mcast_if_count == MAXVIFS) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"Max multicast interfaces(%d) Reached. Could not enable IGMP on interface %s",
+					MAXVIFS, ifp_name);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		igmp_enable = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (igmp_enable)
+			return pim_cmd_igmp_start(ifp);
+
+		else {
+			pim_ifp = ifp->info;
+
+			if (!pim_ifp)
+				return NB_ERR_INCONSISTENCY;
+
+			PIM_IF_DONT_IGMP(pim_ifp->options);
+
+			pim_if_membership_clear(ifp);
+
+			pim_if_addr_del_all_igmp(ifp);
+
+			if (!PIM_IF_TEST_PIM(pim_ifp->options))
+				pim_if_delete(ifp);
+		}
 	}
 
 	return NB_OK;
@@ -1217,12 +1457,34 @@ int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_igmp_version_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	int igmp_version, old_version = 0;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			return NB_ERR_INCONSISTENCY;
+
+		igmp_version = yang_dnode_get_uint8(args->dnode, NULL);
+		old_version = pim_ifp->igmp_version;
+		pim_ifp->igmp_version = igmp_version;
+
+		old_version = igmp_version;
+
+		/* Current and new version is different refresh existing
+		 * membership. Going from 3 -> 2 or 2 -> 3.
+		 */
+		if (old_version != igmp_version)
+			pim_if_membership_refresh(ifp);
+
 		break;
 	}
 
@@ -1231,12 +1493,18 @@ int lib_interface_igmp_version_modify(struct nb_cb_modify_args *args)
 
 int lib_interface_igmp_version_destroy(struct nb_cb_destroy_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
 		break;
 	}
 
@@ -1248,13 +1516,30 @@ int lib_interface_igmp_version_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_interface_igmp_query_interval_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	int query_interval;
+	int query_interval_dsec;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		query_interval = yang_dnode_get_uint16(args->dnode, NULL);
+		query_interval_dsec = 10 * query_interval;
+		if (query_interval_dsec <=
+				pim_ifp->igmp_query_max_response_time_dsec) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"Can't set general query interval %d dsec <= query max response time %d dsec.",
+					query_interval_dsec,
+					pim_ifp->igmp_query_max_response_time_dsec);
+			return NB_ERR_INCONSISTENCY;
+		}
+		change_query_interval(pim_ifp, query_interval);
 	}
 
 	return NB_OK;
@@ -1265,13 +1550,35 @@ int lib_interface_igmp_query_interval_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_igmp_query_max_response_time_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	int query_max_response_time_dsec;
+	int default_query_interval_dsec;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		query_max_response_time_dsec =
+			yang_dnode_get_uint8(args->dnode, NULL);
+		default_query_interval_dsec =
+			10 * pim_ifp->igmp_default_query_interval;
+
+		if (query_max_response_time_dsec
+				>= default_query_interval_dsec) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"Can't set query max response time %d sec >= general query interval %d sec",
+					query_max_response_time_dsec,
+					pim_ifp->igmp_default_query_interval);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		change_query_max_response_time(pim_ifp,
+				query_max_response_time_dsec);
 	}
 
 	return NB_OK;
@@ -1282,12 +1589,23 @@ int lib_interface_igmp_query_max_response_time_modify(struct nb_cb_modify_args *
  */
 int lib_interface_igmp_last_member_query_interval_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	int last_member_query_interval;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		last_member_query_interval = yang_dnode_get_uint8(args->dnode,
+				NULL);
+		pim_ifp->igmp_specific_query_max_response_time_dsec =
+			last_member_query_interval;
+
 		break;
 	}
 
@@ -1299,12 +1617,22 @@ int lib_interface_igmp_last_member_query_interval_modify(struct nb_cb_modify_arg
  */
 int lib_interface_igmp_robustness_variable_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	int last_member_query_count;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		last_member_query_count = yang_dnode_get_uint8(args->dnode,
+				NULL);
+		pim_ifp->igmp_last_member_query_count = last_member_query_count;
+
 		break;
 	}
 
@@ -1321,7 +1649,6 @@ int lib_interface_igmp_address_family_create(struct nb_cb_create_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1335,7 +1662,6 @@ int lib_interface_igmp_address_family_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -1347,13 +1673,39 @@ int lib_interface_igmp_address_family_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_interface_igmp_address_family_static_group_create(struct nb_cb_create_args *args)
 {
+	struct interface *ifp;
+	struct ipaddr source_addr;
+	struct ipaddr group_addr;
+	int result;
+	const char *ifp_name;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if_dnode =  yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			ifp_name = yang_dnode_get_string(if_dnode, ".");
+			snprintf(args->errmsg, args->errmsg_len,
+					"multicast not enabled on interface %s",
+					ifp_name);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		yang_dnode_get_ip(&source_addr, args->dnode, "./source-addr");
+		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
+
+		result = pim_if_igmp_join_add(ifp, group_addr.ip._v4_addr,
+				source_addr.ip._v4_addr);
+		if (result) {
+			snprintf(args->errmsg, args->errmsg_len,
+					"Failure joining IGMP group");
+			return NB_ERR_INCONSISTENCY;
+		}
 	}
 
 	return NB_OK;
@@ -1361,12 +1713,38 @@ int lib_interface_igmp_address_family_static_group_create(struct nb_cb_create_ar
 
 int lib_interface_igmp_address_family_static_group_destroy(struct nb_cb_destroy_args *args)
 {
+	struct interface *ifp;
+	struct ipaddr source_addr;
+	struct ipaddr group_addr;
+	int result;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		yang_dnode_get_ip(&source_addr, args->dnode, "./source-addr");
+		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
+
+		result = pim_if_igmp_join_del(ifp, group_addr.ip._v4_addr,
+				source_addr.ip._v4_addr);
+
+		if (result) {
+			char src_str[INET_ADDRSTRLEN];
+			char grp_str[INET_ADDRSTRLEN];
+
+			ipaddr2str(&source_addr, src_str, sizeof(src_str));
+			ipaddr2str(&group_addr, grp_str, sizeof(grp_str));
+
+			snprintf(args->errmsg, args->errmsg_len,
+					"%% Failure leaving IGMP group %s %s on interface %s: %d",
+					src_str, grp_str, ifp->name, result);
+
+			return NB_ERR_INCONSISTENCY;
+		}
+
 		break;
 	}
 

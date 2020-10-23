@@ -64,6 +64,9 @@
 #include "pim_mlag.h"
 #include "bfd.h"
 #include "pim_bsm.h"
+#include "lib/northbound_cli.h"
+#include "pim_errors.h"
+#include "pim_nb.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim_cmd_clippy.c"
@@ -101,7 +104,7 @@ static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 	return vrf;
 }
 
-static void pim_if_membership_clear(struct interface *ifp)
+void pim_if_membership_clear(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
@@ -125,7 +128,7 @@ static void pim_if_membership_clear(struct interface *ifp)
   whenever PIM is enabled on the interface in order to collect missed
   local membership information.
  */
-static void pim_if_membership_refresh(struct interface *ifp)
+void pim_if_membership_refresh(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *sock_node;
@@ -7517,51 +7520,15 @@ DEFUN (no_ip_pim_ecmp_rebalance,
 	return CMD_SUCCESS;
 }
 
-static int pim_cmd_igmp_start(struct vty *vty, struct interface *ifp)
-{
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	uint8_t need_startup = 0;
-
-	pim_ifp = ifp->info;
-
-	if (!pim_ifp) {
-		pim = pim_get_pim_instance(ifp->vrf_id);
-		/* Limit mcast interfaces to number of vifs available */
-		if (pim->mcast_if_count == MAXVIFS) {
-			vty_out(vty,
-				"Max multicast interfaces(%d) Reached. Could not enable IGMP on interface %s\n",
-				MAXVIFS, ifp->name);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		(void)pim_if_new(ifp, true, false, false, false);
-		need_startup = 1;
-	} else {
-		if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
-			PIM_IF_DO_IGMP(pim_ifp->options);
-			need_startup = 1;
-		}
-	}
-
-	/* 'ip igmp' executed multiple times, with need_startup
-	  avoid multiple if add all and membership refresh */
-	if (need_startup) {
-		pim_if_addr_add_all(ifp);
-		pim_if_membership_refresh(ifp);
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (interface_ip_igmp,
        interface_ip_igmp_cmd,
        "ip igmp",
        IP_STR
        IFACE_IGMP_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY, "true");
 
-	return pim_cmd_igmp_start(vty, ifp);
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp,
@@ -7571,23 +7538,28 @@ DEFUN (interface_no_ip_igmp,
        IP_STR
        IFACE_IGMP_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	const struct lyd_node *pim_enable_dnode;
+	char pim_if_xpath[XPATH_MAXLEN];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
+			"%s/frr-pim:pim", VTY_CURR_XPATH);
 
-	PIM_IF_DONT_IGMP(pim_ifp->options);
-
-	pim_if_membership_clear(ifp);
-
-	pim_if_addr_del_all_igmp(ifp);
-
-	if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
-		pim_if_delete(ifp);
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/pim-enable", pim_if_xpath);
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, pim_if_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, ".")) {
+			nb_cli_enqueue_change(vty, pim_if_xpath, NB_OP_DESTROY,
+					NULL);
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+		} else
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					NB_OP_MODIFY, "false");
 	}
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_ip_igmp_join,
@@ -7599,46 +7571,28 @@ DEFUN (interface_ip_igmp_join,
        "Multicast group address\n"
        "Source address\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_ipv4 = 3;
-	int idx_ipv4_2 = 4;
-	const char *group_str;
+	int idx_group = 3;
+	int idx_source = 4;
 	const char *source_str;
-	struct in_addr group_addr;
-	struct in_addr source_addr;
-	int result;
+	char xpath[XPATH_MAXLEN];
 
-	/* Group address */
-	group_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, group_str, &group_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", group_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (argc == 5) {
+		source_str = argv[idx_source]->arg;
 
-	/* Source address */
-	if (argc == (idx_ipv4_2 + 1)) {
-		source_str = argv[idx_ipv4_2]->arg;
-		result = inet_pton(AF_INET, source_str, &source_addr);
-		if (result <= 0) {
-			vty_out(vty, "Bad source address %s: errno=%d: %s\n",
-				source_str, errno, safe_strerror(errno));
+		if (strcmp(source_str, "0.0.0.0") == 0) {
+			vty_out(vty, "Bad source address %s\n",
+					argv[idx_source]->arg);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		/* Reject 0.0.0.0. Reserved for any source. */
-		if (source_addr.s_addr == INADDR_ANY) {
-			vty_out(vty, "Bad source address %s\n", source_str);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else {
-		source_addr.s_addr = INADDR_ANY;
-	}
+	} else
+		source_str = "0.0.0.0";
 
-	CMD_FERR_RETURN(pim_if_igmp_join_add(ifp, group_addr, source_addr),
-			"Failure joining IGMP group: $ERR");
+	snprintf(xpath, sizeof(xpath), FRR_IGMP_JOIN_XPATH,
+			"frr-routing:ipv4", argv[idx_group]->arg, source_str);
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (interface_no_ip_igmp_join,
@@ -7651,189 +7605,29 @@ DEFUN (interface_no_ip_igmp_join,
        "Multicast group address\n"
        "Source address\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_ipv4 = 4;
-	int idx_ipv4_2 = 5;
-	const char *group_str;
+	int idx_group = 4;
+	int idx_source = 5;
 	const char *source_str;
-	struct in_addr group_addr;
-	struct in_addr source_addr;
-	int result;
+	char xpath[XPATH_MAXLEN];
 
-	/* Group address */
-	group_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, group_str, &group_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", group_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (argc == 6) {
+		source_str = argv[idx_source]->arg;
 
-	/* Source address */
-	if (argc == (idx_ipv4_2 + 1)) {
-		source_str = argv[idx_ipv4_2]->arg;
-		result = inet_pton(AF_INET, source_str, &source_addr);
-		if (result <= 0) {
-			vty_out(vty, "Bad source address %s: errno=%d: %s\n",
-				source_str, errno, safe_strerror(errno));
+		if (strcmp(source_str, "0.0.0.0") == 0) {
+			vty_out(vty, "Bad source address %s\n",
+					argv[idx_source]->arg);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		/* Reject 0.0.0.0. Reserved for any source. */
-		if (source_addr.s_addr == INADDR_ANY) {
-			vty_out(vty, "Bad source address %s\n", source_str);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else {
-		source_str = "*";
-		source_addr.s_addr = INADDR_ANY;
-	}
+	} else
+		source_str = "0.0.0.0";
 
-	result = pim_if_igmp_join_del(ifp, group_addr, source_addr);
-	if (result) {
-		vty_out(vty,
-			"%% Failure leaving IGMP group %s source %s on interface %s: %d\n",
-			group_str, source_str, ifp->name, result);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(xpath, sizeof(xpath), FRR_IGMP_JOIN_XPATH,
+			"frr-routing:ipv4", argv[idx_group]->arg, source_str);
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
-
-/*
-  CLI reconfiguration affects the interface level (struct pim_interface).
-  This function propagates the reconfiguration to every active socket
-  for that interface.
- */
-static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
-{
-	struct interface *ifp;
-	struct pim_interface *pim_ifp;
-
-	zassert(igmp);
-
-	/* other querier present? */
-
-	if (igmp->t_other_querier_timer)
-		return;
-
-	/* this is the querier */
-
-	zassert(igmp->interface);
-	zassert(igmp->interface->info);
-
-	ifp = igmp->interface;
-	pim_ifp = ifp->info;
-
-	if (PIM_DEBUG_IGMP_TRACE) {
-		char ifaddr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-			       sizeof(ifaddr_str));
-		zlog_debug("%s: Querier %s on %s reconfig query_interval=%d",
-			   __func__, ifaddr_str, ifp->name,
-			   pim_ifp->igmp_default_query_interval);
-	}
-
-	/*
-	  igmp_startup_mode_on() will reset QQI:
-
-	  igmp->querier_query_interval = pim_ifp->igmp_default_query_interval;
-	*/
-	igmp_startup_mode_on(igmp);
-}
-
-static void igmp_sock_query_reschedule(struct igmp_sock *igmp)
-{
-	if (igmp->mtrace_only)
-		return;
-
-	if (igmp->t_igmp_query_timer) {
-		/* other querier present */
-		zassert(igmp->t_igmp_query_timer);
-		zassert(!igmp->t_other_querier_timer);
-
-		pim_igmp_general_query_off(igmp);
-		pim_igmp_general_query_on(igmp);
-
-		zassert(igmp->t_igmp_query_timer);
-		zassert(!igmp->t_other_querier_timer);
-	} else {
-		/* this is the querier */
-
-		zassert(!igmp->t_igmp_query_timer);
-		zassert(igmp->t_other_querier_timer);
-
-		pim_igmp_other_querier_timer_off(igmp);
-		pim_igmp_other_querier_timer_on(igmp);
-
-		zassert(!igmp->t_igmp_query_timer);
-		zassert(igmp->t_other_querier_timer);
-	}
-}
-
-static void change_query_interval(struct pim_interface *pim_ifp,
-				  int query_interval)
-{
-	struct listnode *sock_node;
-	struct igmp_sock *igmp;
-
-	pim_ifp->igmp_default_query_interval = query_interval;
-
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-		igmp_sock_query_interval_reconfig(igmp);
-		igmp_sock_query_reschedule(igmp);
-	}
-}
-
-static void change_query_max_response_time(struct pim_interface *pim_ifp,
-					   int query_max_response_time_dsec)
-{
-	struct listnode *sock_node;
-	struct igmp_sock *igmp;
-
-	pim_ifp->igmp_query_max_response_time_dsec =
-		query_max_response_time_dsec;
-
-	/*
-	  Below we modify socket/group/source timers in order to quickly
-	  reflect the change. Otherwise, those timers would eventually catch
-	  up.
-	 */
-
-	/* scan all sockets */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-		struct listnode *grp_node;
-		struct igmp_group *grp;
-
-		/* reschedule socket general query */
-		igmp_sock_query_reschedule(igmp);
-
-		/* scan socket groups */
-		for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grp_node,
-					  grp)) {
-			struct listnode *src_node;
-			struct igmp_source *src;
-
-			/* reset group timers for groups in EXCLUDE mode */
-			if (grp->group_filtermode_isexcl) {
-				igmp_group_reset_gmi(grp);
-			}
-
-			/* scan group sources */
-			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
-						  src_node, src)) {
-
-				/* reset source timers for sources with running
-				 * timers */
-				if (src->t_source_timer) {
-					igmp_source_reset_gmi(igmp, grp, src);
-				}
-			}
-		}
-	}
-}
-
-#define IGMP_QUERY_INTERVAL_MIN (1)
-#define IGMP_QUERY_INTERVAL_MAX (1800)
 
 DEFUN (interface_ip_igmp_query_interval,
        interface_ip_igmp_query_interval_cmd,
@@ -7843,50 +7637,24 @@ DEFUN (interface_ip_igmp_query_interval,
        IFACE_IGMP_QUERY_INTERVAL_STR
        "Query interval in seconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int query_interval;
-	int query_interval_dsec;
-	int ret;
+	const struct lyd_node *pim_enable_dnode;
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/frr-pim:pim/pim-enable",
+			VTY_CURR_XPATH);
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+				"true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					NB_OP_MODIFY, "true");
 	}
 
-	query_interval = atoi(argv[3]->arg);
-	query_interval_dsec = 10 * query_interval;
+	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
+			argv[3]->arg);
 
-	/*
-	  It seems we don't need to check bounds since command.c does it
-	  already, but we verify them anyway for extra safety.
-	*/
-	if (query_interval < IGMP_QUERY_INTERVAL_MIN) {
-		vty_out(vty,
-			"General query interval %d lower than minimum %d\n",
-			query_interval, IGMP_QUERY_INTERVAL_MIN);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (query_interval > IGMP_QUERY_INTERVAL_MAX) {
-		vty_out(vty,
-			"General query interval %d higher than maximum %d\n",
-			query_interval, IGMP_QUERY_INTERVAL_MAX);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (query_interval_dsec <= pim_ifp->igmp_query_max_response_time_dsec) {
-		vty_out(vty,
-			"Can't set general query interval %d dsec <= query max response time %d dsec.\n",
-			query_interval_dsec,
-			pim_ifp->igmp_query_max_response_time_dsec);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	change_query_interval(pim_ifp, query_interval);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_query_interval,
@@ -7897,27 +7665,15 @@ DEFUN (interface_no_ip_igmp_query_interval,
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_INTERVAL_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int default_query_interval_dsec;
+	char default_query_interval[5];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(default_query_interval, sizeof(default_query_interval), "%d",
+			IGMP_GENERAL_QUERY_INTERVAL);
 
-	default_query_interval_dsec = IGMP_GENERAL_QUERY_INTERVAL * 10;
+	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
+			default_query_interval);
 
-	if (default_query_interval_dsec
-	    <= pim_ifp->igmp_query_max_response_time_dsec) {
-		vty_out(vty,
-			"Can't set default general query interval %d dsec <= query max response time %d dsec.\n",
-			default_query_interval_dsec,
-			pim_ifp->igmp_query_max_response_time_dsec);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	change_query_interval(pim_ifp, IGMP_GENERAL_QUERY_INTERVAL);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_ip_igmp_version,
@@ -7928,36 +7684,11 @@ DEFUN (interface_ip_igmp_version,
        "IGMP version\n"
        "IGMP version number\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int igmp_version, old_version = 0;
-	int ret;
+	nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+			"true");
+	nb_cli_enqueue_change(vty, "./version", NB_OP_MODIFY, argv[3]->arg);
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
-	}
-
-	igmp_version = atoi(argv[3]->arg);
-	old_version = pim_ifp->igmp_version;
-	pim_ifp->igmp_version = igmp_version;
-
-	// Check if IGMP is Enabled otherwise, enable on interface
-	if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
-		PIM_IF_DO_IGMP(pim_ifp->options);
-		pim_if_addr_add_all(ifp);
-		pim_if_membership_refresh(ifp);
-		old_version = igmp_version;
-		// avoid refreshing membership again.
-	}
-	/* Current and new version is different refresh existing
-	   membership. Going from 3 -> 2 or 2 -> 3. */
-	if (old_version != igmp_version)
-		pim_if_membership_refresh(ifp);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_version,
@@ -7969,19 +7700,10 @@ DEFUN (interface_no_ip_igmp_version,
        "IGMP version\n"
        "IGMP version number\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./version", NB_OP_DESTROY, NULL);
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
-
-	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
-
-#define IGMP_QUERY_MAX_RESPONSE_TIME_MIN_DSEC (10)
-#define IGMP_QUERY_MAX_RESPONSE_TIME_MAX_DSEC (250)
 
 DEFUN (interface_ip_igmp_query_max_response_time,
        interface_ip_igmp_query_max_response_time_cmd,
@@ -7991,32 +7713,25 @@ DEFUN (interface_ip_igmp_query_max_response_time,
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
        "Query response value in deci-seconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int query_max_response_time;
-	int ret;
+	const struct lyd_node *pim_enable_dnode;
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/frr-pim:pim/pim-enable",
+			VTY_CURR_XPATH);
+
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+				"true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					NB_OP_MODIFY, "true");
 	}
 
-	query_max_response_time = atoi(argv[3]->arg);
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
+			argv[3]->arg);
 
-	if (query_max_response_time
-	    >= pim_ifp->igmp_default_query_interval * 10) {
-		vty_out(vty,
-			"Can't set query max response time %d sec >= general query interval %d sec\n",
-			query_max_response_time,
-			pim_ifp->igmp_default_query_interval);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	change_query_max_response_time(pim_ifp, query_max_response_time);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_query_max_response_time,
@@ -8028,20 +7743,16 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
        "Time for response in deci-seconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char default_query_max_response_time[4];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(default_query_max_response_time,
+			sizeof(default_query_max_response_time),
+			"%d", IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
 
-	change_query_max_response_time(pim_ifp,
-				       IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
-
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
+			default_query_max_response_time);
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
-
-#define IGMP_QUERY_MAX_RESPONSE_TIME_MIN_DSEC (10)
-#define IGMP_QUERY_MAX_RESPONSE_TIME_MAX_DSEC (250)
 
 DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 	      interface_ip_igmp_query_max_response_time_dsec_cmd,
@@ -8051,34 +7762,24 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR
 	      "Query response value in deciseconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int query_max_response_time_dsec;
-	int default_query_interval_dsec;
-	int ret;
+	const struct lyd_node *pim_enable_dnode;
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/frr-pim:pim/pim-enable",
+			VTY_CURR_XPATH);
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+				"true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					NB_OP_MODIFY, "true");
 	}
 
-	query_max_response_time_dsec = atoi(argv[4]->arg);
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
+			argv[3]->arg);
 
-	default_query_interval_dsec = 10 * pim_ifp->igmp_default_query_interval;
-
-	if (query_max_response_time_dsec >= default_query_interval_dsec) {
-		vty_out(vty,
-			"Can't set query max response time %d dsec >= general query interval %d dsec\n",
-			query_max_response_time_dsec,
-			default_query_interval_dsec);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	change_query_max_response_time(pim_ifp, query_max_response_time_dsec);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
@@ -8089,20 +7790,17 @@ DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 	      IFACE_IGMP_STR
 	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char default_query_max_response_time[4];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(default_query_max_response_time,
+			sizeof(default_query_max_response_time),
+			"%d", IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
 
-	change_query_max_response_time(pim_ifp,
-				       IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
+			default_query_max_response_time);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
-
-#define IGMP_LAST_MEMBER_QUERY_COUNT_MIN (1)
-#define IGMP_LAST_MEMBER_QUERY_COUNT_MAX (7)
 
 DEFUN (interface_ip_igmp_last_member_query_count,
        interface_ip_igmp_last_member_query_count_cmd,
@@ -8112,23 +7810,24 @@ DEFUN (interface_ip_igmp_last_member_query_count,
        IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR
        "Last member query count\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int last_member_query_count;
-	int ret;
+	const struct lyd_node *pim_enable_dnode;
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/frr-pim:pim/pim-enable",
+			VTY_CURR_XPATH);
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+				"true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					NB_OP_MODIFY, "true");
 	}
 
-	last_member_query_count = atoi(argv[3]->arg);
+	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY,
+			argv[3]->arg);
 
-	pim_ifp->igmp_last_member_query_count = last_member_query_count;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_last_member_query_count,
@@ -8139,20 +7838,16 @@ DEFUN (interface_no_ip_igmp_last_member_query_count,
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char default_robustness[2];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(default_robustness, sizeof(default_robustness), "%d",
+			IGMP_DEFAULT_ROBUSTNESS_VARIABLE);
 
-	pim_ifp->igmp_last_member_query_count =
-		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY,
+			default_robustness);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
-
-#define IGMP_LAST_MEMBER_QUERY_INTERVAL_MIN (1)
-#define IGMP_LAST_MEMBER_QUERY_INTERVAL_MAX (255)
 
 DEFUN (interface_ip_igmp_last_member_query_interval,
        interface_ip_igmp_last_member_query_interval_cmd,
@@ -8162,23 +7857,24 @@ DEFUN (interface_ip_igmp_last_member_query_interval,
        IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR
        "Last member query interval in deciseconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int last_member_query_interval;
-	int ret;
+	const struct lyd_node *pim_enable_dnode;
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
+	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/frr-pim:pim/pim-enable",
+			VTY_CURR_XPATH);
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+				"true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./igmp-enable",
+					NB_OP_MODIFY, "true");
 	}
 
-	last_member_query_interval = atoi(argv[3]->arg);
-	pim_ifp->igmp_specific_query_max_response_time_dsec
-		= last_member_query_interval;
+	nb_cli_enqueue_change(vty, "./last-member-query-interval", NB_OP_MODIFY,
+			argv[3]->arg);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_last_member_query_interval,
@@ -8189,16 +7885,16 @@ DEFUN (interface_no_ip_igmp_last_member_query_interval,
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	char default_last_member_query_count[4];
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	snprintf(default_last_member_query_count,
+			sizeof(default_last_member_query_count),
+			"%d", IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC);
 
-	pim_ifp->igmp_specific_query_max_response_time_dsec =
-		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
+	nb_cli_enqueue_change(vty, "./last-member-query-interval", NB_OP_MODIFY,
+			default_last_member_query_count);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_ip_pim_drprio,
