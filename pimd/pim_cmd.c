@@ -6689,57 +6689,6 @@ DEFUN (show_ip_ssmpingd,
 	return CMD_SUCCESS;
 }
 
-static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
-			     const char *rp, const char *group,
-			     const char *plist)
-{
-	int result;
-
-	result = pim_rp_new_config(pim, rp, group, plist);
-
-	if (result == PIM_GROUP_BAD_ADDR_MASK_COMBO) {
-		vty_out(vty, "%% Inconsistent address and mask: %s\n",
-			group ? group : "No Group Address");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (result == PIM_GROUP_BAD_ADDRESS) {
-		vty_out(vty, "%% Bad group address specified: %s\n",
-			group ? group : "No Group Address");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (result == PIM_RP_BAD_ADDRESS) {
-		vty_out(vty, "%% Bad RP address specified: %s\n", rp);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (result == PIM_RP_NO_PATH) {
-		vty_out(vty, "%% No Path to RP address specified: %s\n", rp);
-		return CMD_WARNING;
-	}
-
-	if (result == PIM_GROUP_OVERLAP) {
-		vty_out(vty,
-			"%% Group range specified cannot exact match another\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (result == PIM_GROUP_PFXLIST_OVERLAP) {
-		vty_out(vty,
-			"%% This group is already covered by a RP prefix-list\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (result == PIM_RP_PFXLIST_IN_USE) {
-		vty_out(vty,
-			"%% The same prefix-list cannot be applied to multiple RPs\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (ip_pim_spt_switchover_infinity,
        ip_pim_spt_switchover_infinity_cmd,
        "ip pim spt-switchover infinity-and-beyond",
@@ -7345,15 +7294,66 @@ DEFUN (ip_pim_rp,
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	int idx_ipv4 = 3;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	int idx_rp = 3, idx_group = 4;
+	char rp_group_xpath[XPATH_MAXLEN];
+	int result = 0;
+	struct prefix group;
+	struct in_addr rp_addr;
+	const char *group_str =
+		(argc == 5) ? argv[idx_group]->arg : "224.0.0.0/4";
 
-	if (argc == (idx_ipv4 + 1))
-		return pim_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg, NULL,
-					 NULL);
-	else
-		return pim_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg,
-					 argv[idx_ipv4 + 1]->arg, NULL);
+	result = str2prefix(group_str, &group);
+	if (result) {
+		struct prefix temp;
+
+		prefix_copy(&temp, &group);
+		apply_mask(&temp);
+		if (!prefix_same(&group, &temp)) {
+			vty_out(vty, "%% Inconsistent address and mask: %s\n",
+				group_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (!result) {
+		vty_out(vty, "%% Bad group address specified: %s\n",
+			group_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	result = inet_pton(AF_INET, argv[idx_rp]->arg, &rp_addr);
+	if (result <= 0) {
+		vty_out(vty, "%% Bad RP address specified: %s\n",
+			argv[idx_rp]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(rp_group_xpath, sizeof(rp_group_xpath),
+		 FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
+		 argv[idx_rp]->arg);
+	strlcat(rp_group_xpath, "/group-list", sizeof(rp_group_xpath));
+
+	nb_cli_enqueue_change(vty, rp_group_xpath, NB_OP_CREATE, group_str);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_rp_prefix_list,
@@ -7366,33 +7366,36 @@ DEFUN (ip_pim_rp_prefix_list,
        "group prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_rp_cmd_worker(pim, vty, argv[3]->arg, NULL, argv[5]->arg);
-}
+	int idx_rp = 3, idx_plist = 5;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char rp_plist_xpath[XPATH_MAXLEN];
 
-static int pim_no_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
-				const char *rp, const char *group,
-				const char *plist)
-{
-	int result = pim_rp_del_config(pim, rp, group, plist);
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
 
-	if (result == PIM_GROUP_BAD_ADDRESS) {
-		vty_out(vty, "%% Bad group address specified: %s\n",
-			group ? group : "No Group Address");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 
-	if (result == PIM_RP_BAD_ADDRESS) {
-		vty_out(vty, "%% Bad RP address specified: %s\n", rp);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	if (result == PIM_RP_NOT_FOUND) {
-		vty_out(vty, "%% Unable to find specified RP\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(rp_plist_xpath, sizeof(rp_plist_xpath),
+		 FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
+		 argv[idx_rp]->arg);
+	strlcat(rp_plist_xpath, "/prefix-list", sizeof(rp_plist_xpath));
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, rp_plist_xpath, NB_OP_MODIFY,
+			argv[idx_plist]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_rp,
@@ -7405,15 +7408,55 @@ DEFUN (no_ip_pim_rp,
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	int idx_ipv4 = 4, idx_group = 0;
+	int idx_rp = 4, idx_group = 5;
+	const char *group_str =
+		(argc == 6) ? argv[idx_group]->arg : "224.0.0.0/4";
+	char group_xpath[XPATH_MAXLEN];
+	char temp_xpath[XPATH_MAXLEN];
+	char rp_xpath[XPATH_MAXLEN];
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	const struct lyd_node *group_dnode;
 
-	if (argv_find(argv, argc, "A.B.C.D/M", &idx_group))
-		return pim_no_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg,
-					    argv[idx_group]->arg, NULL);
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
+		 argv[idx_rp]->arg);
+
+	snprintf(group_xpath, sizeof(group_xpath), FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
+		 argv[idx_rp]->arg);
+	snprintf(temp_xpath, sizeof(temp_xpath), "/group-list[.='%s']",
+		 group_str);
+	strlcat(group_xpath, temp_xpath, sizeof(group_xpath));
+
+	if (!yang_dnode_exists(vty->candidate_config->dnode, group_xpath)) {
+		vty_out(vty, "%% Unable to find specified RP\n");
+		return NB_OK;
+	}
+
+	group_dnode = yang_dnode_get(vty->candidate_config->dnode, group_xpath);
+
+	if (yang_is_last_list_dnode(group_dnode))
+		nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
 	else
-		return pim_no_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg, NULL,
-					    NULL);
+		nb_cli_enqueue_change(vty, group_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_rp_prefix_list,
@@ -7427,8 +7470,52 @@ DEFUN (no_ip_pim_rp_prefix_list,
        "group prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_no_rp_cmd_worker(pim, vty, argv[4]->arg, NULL, argv[6]->arg);
+	int idx_rp = 4;
+	int idx_plist = 6;
+	char rp_xpath[XPATH_MAXLEN];
+	char plist_xpath[XPATH_MAXLEN];
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	const struct lyd_node *plist_dnode;
+	const char *plist;
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
+		 argv[idx_rp]->arg);
+
+	snprintf(plist_xpath, sizeof(plist_xpath), FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
+		 argv[idx_rp]->arg);
+	strlcat(plist_xpath, "/prefix-list", sizeof(plist_xpath));
+
+	plist_dnode = yang_dnode_get(vty->candidate_config->dnode, plist_xpath);
+	if (!plist_dnode) {
+		vty_out(vty, "%% Unable to find specified RP\n");
+		return NB_OK;
+	}
+
+	plist = yang_dnode_get_string(plist_dnode, plist_xpath);
+	if (strcmp(argv[idx_plist]->arg, plist)) {
+		vty_out(vty, "%% Unable to find specified RP\n");
+		return NB_OK;
+	}
+
+	nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_ssm_prefix_list,

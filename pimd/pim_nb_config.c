@@ -439,6 +439,79 @@ static int ip_no_msdp_peer_cmd_worker(struct pim_instance *pim,
 	return result ? NB_ERR : NB_OK;
 }
 
+static int pim_rp_cmd_worker(struct pim_instance *pim,
+		struct in_addr rp_addr,
+		struct prefix group, const char *plist,
+		char *errmsg, size_t errmsg_len)
+{       
+	char rp_str[INET_ADDRSTRLEN];
+	int result;
+
+	inet_ntop(AF_INET, &rp_addr, rp_str, sizeof(rp_str));
+
+	result = pim_rp_new(pim, rp_addr, group, plist, RP_SRC_STATIC);
+
+	if (result == PIM_RP_NO_PATH) {
+		snprintf(errmsg, errmsg_len,
+			 "No Path to RP address specified: %s", rp_str);
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	if (result == PIM_GROUP_OVERLAP) {
+		snprintf(errmsg, errmsg_len,
+			 "Group range specified cannot exact match another");
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	if (result == PIM_GROUP_PFXLIST_OVERLAP) {
+		snprintf(errmsg, errmsg_len,
+			 "This group is already covered by a RP prefix-list");
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	if (result == PIM_RP_PFXLIST_IN_USE) {
+		snprintf(errmsg, errmsg_len,
+			 "The same prefix-list cannot be applied to multiple RPs");
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	return NB_OK;
+}
+
+static int pim_no_rp_cmd_worker(struct pim_instance *pim,
+                                struct in_addr rp_addr, struct prefix group,
+                                const char *plist,
+                                char *errmsg, size_t errmsg_len)
+{
+	char rp_str[INET_ADDRSTRLEN];
+	char group_str[PREFIX2STR_BUFFER];
+	int result;
+
+	inet_ntop(AF_INET, &rp_addr, rp_str, sizeof(rp_str));
+	prefix2str(&group, group_str, sizeof(group_str));
+
+	result = pim_rp_del(pim, rp_addr, group, plist, RP_SRC_STATIC);
+
+	if (result == PIM_GROUP_BAD_ADDRESS) {
+		snprintf(errmsg, errmsg_len,
+			 "Bad group address specified: %s", group_str);
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	if (result == PIM_RP_BAD_ADDRESS) {
+		snprintf(errmsg, errmsg_len,
+			 "Bad RP address specified: %s", rp_str);
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	if (result == PIM_RP_NOT_FOUND) {
+		snprintf(errmsg, errmsg_len,
+			 "Unable to find specified RP");
+		return NB_ERR_INCONSISTENCY;
+	}
+
+	return NB_OK;
+}
 
 static bool is_pim_interface(const struct lyd_node *dnode)
 {
@@ -2346,16 +2419,47 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_destroy(struct nb_cb_destroy_args *args)
 {
-        switch (args->event) {
-        case NB_EV_VALIDATE:
-        case NB_EV_PREPARE:
-        case NB_EV_ABORT:
-        case NB_EV_APPLY:
-                /* TODO: implement me. */
-                break;
-        }
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct prefix group;
+	struct ipaddr rp_addr;
+	const char *plist;
+	int result = 0;
 
-        return NB_OK;
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		yang_dnode_get_ip(&rp_addr, args->dnode, "./rp-address");
+
+		if (yang_dnode_get(args->dnode, "./group-list")) {
+			yang_dnode_get_ipv4p(&group, args->dnode,
+					"./group-list");
+			result = pim_no_rp_cmd_worker(pim, rp_addr.ip._v4_addr,
+					group, NULL, args->errmsg,
+					args->errmsg_len);
+		}
+
+		else if (yang_dnode_get(args->dnode, "./prefix-list")) {
+			plist = yang_dnode_get_string(args->dnode,
+					"./prefix-list");
+			str2prefix("224.0.0.0/4", &group);
+			result = pim_no_rp_cmd_worker(pim, rp_addr.ip._v4_addr,
+					group, plist,
+					args->errmsg,
+					args->errmsg_len);
+		}
+
+		if (result)
+			return NB_ERR_INCONSISTENCY;
+		break;
+	}
+
+	return NB_OK;
 }
 
 /*
@@ -2363,30 +2467,53 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_group_list_create(struct nb_cb_create_args *args)
 {
-        switch (args->event) {
-        case NB_EV_VALIDATE:
-        case NB_EV_PREPARE:
-        case NB_EV_ABORT:
-        case NB_EV_APPLY:
-                /* TODO: implement me. */
-                break;
-        }
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct prefix group;
+	struct ipaddr rp_addr;
 
-        return NB_OK;
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
+		yang_dnode_get_ipv4p(&group, args->dnode, NULL);
+
+		return pim_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
+				NULL, args->errmsg, args->errmsg_len);
+	}
+
+	return NB_OK;
 }
 
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_group_list_destroy(struct nb_cb_destroy_args *args)
 {
-        switch (args->event) {
-        case NB_EV_VALIDATE:
-        case NB_EV_PREPARE:
-        case NB_EV_ABORT:
-        case NB_EV_APPLY:
-                /* TODO: implement me. */
-                break;
-        }
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct prefix group;
+	struct ipaddr rp_addr;
 
-        return NB_OK;
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
+		yang_dnode_get_ipv4p(&group, args->dnode, NULL);
+
+		return pim_no_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
+				NULL, args->errmsg,
+				args->errmsg_len);
+	}
+
+	return NB_OK;
 }
 
 /*
@@ -2394,30 +2521,56 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_prefix_list_modify(struct nb_cb_modify_args *args)
 {
-        switch (args->event) {
-        case NB_EV_VALIDATE:
-        case NB_EV_PREPARE:
-        case NB_EV_ABORT:
-        case NB_EV_APPLY:
-                /* TODO: implement me. */
-                break;
-        }
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct prefix group;
+	struct ipaddr rp_addr;
+	const char *plist;
 
-        return NB_OK;
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		plist = yang_dnode_get_string(args->dnode, NULL);
+		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
+		str2prefix("224.0.0.0/4", &group);
+		return pim_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
+				plist, args->errmsg, args->errmsg_len);
+	}
+
+	return NB_OK;
 }
 
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_prefix_list_destroy(struct nb_cb_destroy_args *args)
 {
-        switch (args->event) {
-        case NB_EV_VALIDATE:
-        case NB_EV_PREPARE:
-        case NB_EV_ABORT:
-        case NB_EV_APPLY:
-                /* TODO: implement me. */
-                break;
-        }
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct prefix group;
+	struct ipaddr rp_addr;
+	const char *plist;
 
-        return NB_OK;
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
+		plist = yang_dnode_get_string(args->dnode, NULL);
+		str2prefix("224.0.0.0/4", &group);
+		return pim_no_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
+				plist, args->errmsg,
+				args->errmsg_len);
+		break;
+	}
+
+	return NB_OK;
 }
 
 /*
