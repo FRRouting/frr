@@ -115,6 +115,14 @@ DEFINE_HOOK(bgp_process,
 	     struct peer *peer, bool withdraw),
 	    (bgp, afi, safi, bn, peer, withdraw))
 
+/** Test if path is suppressed. */
+static bool bgp_path_suppressed(struct bgp_path_info *pi)
+{
+	if (pi->extra == NULL || pi->extra->aggr_suppressors == NULL)
+		return false;
+
+	return listcount(pi->extra->aggr_suppressors) > 0;
+}
 
 struct bgp_dest *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 				  safi_t safi, const struct prefix *p,
@@ -1704,10 +1712,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	}
 
 	/* Aggregate-address suppress check. */
-	if (pi->extra && pi->extra->suppress)
-		if (!UNSUPPRESS_MAP_NAME(filter)) {
-			return false;
-		}
+	if (bgp_path_suppressed(pi) && !UNSUPPRESS_MAP_NAME(filter))
+		return false;
 
 	/*
 	 * If we are doing VRF 2 VRF leaking via the import
@@ -1944,7 +1950,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bgp_peer_as_override(bgp, afi, safi, peer, attr);
 
 	/* Route map & unsuppress-map apply. */
-	if (ROUTE_MAP_OUT_NAME(filter) || (pi->extra && pi->extra->suppress)) {
+	if (ROUTE_MAP_OUT_NAME(filter) || bgp_path_suppressed(pi)) {
 		struct bgp_path_info rmap_path = {0};
 		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
 		struct attr dummy_attr = {0};
@@ -1969,7 +1975,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 		SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT);
 
-		if (pi->extra && pi->extra->suppress)
+		if (bgp_path_suppressed(pi))
 			ret = route_map_apply(UNSUPPRESS_MAP(filter), p,
 					      RMAP_BGP, &rmap_path);
 		else
@@ -6176,9 +6182,117 @@ static struct bgp_aggregate *bgp_aggregate_new(void)
 
 static void bgp_aggregate_free(struct bgp_aggregate *aggregate)
 {
+	XFREE(MTYPE_ROUTE_MAP_NAME, aggregate->suppress_map_name);
+	route_map_counter_decrement(aggregate->suppress_map);
 	XFREE(MTYPE_ROUTE_MAP_NAME, aggregate->rmap.name);
 	route_map_counter_decrement(aggregate->rmap.map);
 	XFREE(MTYPE_BGP_AGGREGATE, aggregate);
+}
+
+/**
+ * Helper function to avoid repeated code: prepare variables for a
+ * `route_map_apply` call.
+ *
+ * \returns `true` on route map match, otherwise `false`.
+ */
+static bool aggr_suppress_map_test(struct bgp *bgp,
+				   struct bgp_aggregate *aggregate,
+				   struct bgp_path_info *pi)
+{
+	const struct prefix *p = bgp_dest_get_prefix(pi->net);
+	route_map_result_t rmr = RMAP_DENYMATCH;
+	struct bgp_path_info rmap_path = {};
+	struct attr attr = {};
+
+	/* No route map entries created, just don't match. */
+	if (aggregate->suppress_map == NULL)
+		return false;
+
+	/* Call route map matching and return result. */
+	attr.aspath = aspath_empty();
+	rmap_path.peer = bgp->peer_self;
+	rmap_path.attr = &attr;
+
+	SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_AGGREGATE);
+	rmr = route_map_apply(aggregate->suppress_map, p, RMAP_BGP, &rmap_path);
+	bgp->peer_self->rmap_type = 0;
+
+	bgp_attr_flush(&attr);
+
+	return rmr == RMAP_PERMITMATCH;
+}
+
+/** Test whether the aggregation has suppressed this path or not. */
+static bool aggr_suppress_exists(struct bgp_aggregate *aggregate,
+				 struct bgp_path_info *pi)
+{
+	if (pi->extra == NULL || pi->extra->aggr_suppressors == NULL)
+		return false;
+
+	return listnode_lookup(pi->extra->aggr_suppressors, aggregate) != NULL;
+}
+
+/**
+ * Suppress this path and keep the reference.
+ *
+ * \returns `true` if needs processing otherwise `false`.
+ */
+static bool aggr_suppress_path(struct bgp_aggregate *aggregate,
+			       struct bgp_path_info *pi)
+{
+	struct bgp_path_info_extra *pie;
+
+	/* Path is already suppressed by this aggregation. */
+	if (aggr_suppress_exists(aggregate, pi))
+		return false;
+
+	pie = bgp_path_info_extra_get(pi);
+
+	/* This is the first suppression, allocate memory and list it. */
+	if (pie->aggr_suppressors == NULL)
+		pie->aggr_suppressors = list_new();
+
+	listnode_add(pie->aggr_suppressors, aggregate);
+
+	/* Only mark for processing if suppressed. */
+	if (listcount(pie->aggr_suppressors) == 1) {
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug("aggregate-address suppressing: %pFX",
+				   bgp_dest_get_prefix(pi->net));
+
+		bgp_path_info_set_flag(pi->net, pi, BGP_PATH_ATTR_CHANGED);
+		return true;
+	}
+
+	return false;
+}
+
+/**
+ * Unsuppress this path and remove the reference.
+ *
+ * \returns `true` if needs processing otherwise `false`.
+ */
+static bool aggr_unsuppress_path(struct bgp_aggregate *aggregate,
+				 struct bgp_path_info *pi)
+{
+	/* Path wasn't suppressed. */
+	if (!aggr_suppress_exists(aggregate, pi))
+		return false;
+
+	listnode_delete(pi->extra->aggr_suppressors, aggregate);
+
+	/* Unsuppress and free extra memory if last item. */
+	if (listcount(pi->extra->aggr_suppressors) == 0) {
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug("aggregate-address unsuppressing: %pFX",
+				   bgp_dest_get_prefix(pi->net));
+
+		list_delete(&pi->extra->aggr_suppressors);
+		bgp_path_info_set_flag(pi->net, pi, BGP_PATH_ATTR_CHANGED);
+		return true;
+	}
+
+	return false;
 }
 
 static bool bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
@@ -6375,13 +6489,11 @@ static bool bgp_aggregate_test_all_med(struct bgp_aggregate *aggregate,
  * Toggles the route suppression status for this aggregate address
  * configuration.
  */
-static void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
-					    struct bgp *bgp,
-					    const struct prefix *p, afi_t afi,
-					    safi_t safi, bool suppress)
+void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
+				     struct bgp *bgp, const struct prefix *p,
+				     afi_t afi, safi_t safi, bool suppress)
 {
 	struct bgp_table *table = bgp->rib[afi][safi];
-	struct bgp_path_info_extra *pie;
 	const struct prefix *dest_p;
 	struct bgp_dest *dest, *top;
 	struct bgp_path_info *pi;
@@ -6402,32 +6514,17 @@ static void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 			if (pi->sub_type == BGP_ROUTE_AGGREGATE)
 				continue;
 
-			/*
-			 * On installation it is possible that pi->extra is
-			 * set to NULL, otherwise it must exists.
-			 */
-			assert(!suppress && pi->extra != NULL);
-
 			/* We are toggling suppression back. */
 			if (suppress) {
-				pie = bgp_path_info_extra_get(pi);
 				/* Suppress route if not suppressed already. */
-				pie->suppress++;
-				bgp_path_info_set_flag(dest, pi,
-						       BGP_PATH_ATTR_CHANGED);
-				toggle_suppression = true;
+				if (aggr_suppress_path(aggregate, pi))
+					toggle_suppression = true;
 				continue;
 			}
 
-			pie = pi->extra;
-			assert(pie->suppress > 0);
-			pie->suppress--;
 			/* Install route if there is no more suppression. */
-			if (pie->suppress == 0) {
-				bgp_path_info_set_flag(dest, pi,
-						       BGP_PATH_ATTR_CHANGED);
+			if (aggr_unsuppress_path(aggregate, pi))
 				toggle_suppression = true;
-			}
 		}
 
 		if (toggle_suppression)
@@ -6514,6 +6611,17 @@ void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 	if (aggregate->match_med)
 		bgp_aggregate_test_all_med(aggregate, bgp, p, afi, safi);
 
+	/*
+	 * Reset aggregate count: we might've been called from route map
+	 * update so in that case we must retest all more specific routes.
+	 *
+	 * \see `bgp_route_map_process_update`.
+	 */
+	aggregate->count = 0;
+	aggregate->incomplete_origin_count = 0;
+	aggregate->incomplete_origin_count = 0;
+	aggregate->egp_origin_count = 0;
+
 	/* ORIGIN attribute: If at least one route among routes that are
 	   aggregated has ORIGIN with the value INCOMPLETE, then the
 	   aggregated route must have the ORIGIN attribute with the value
@@ -6558,10 +6666,24 @@ void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			 */
 			if (aggregate->summary_only
 			    && AGGREGATE_MED_VALID(aggregate)) {
-				(bgp_path_info_extra_get(pi))->suppress++;
-				bgp_path_info_set_flag(dest, pi,
-						       BGP_PATH_ATTR_CHANGED);
-				match++;
+				if (aggr_suppress_path(aggregate, pi))
+					match++;
+			}
+
+			/*
+			 * Suppress more specific routes that match the route
+			 * map results.
+			 *
+			 * MED matching:
+			 * Don't suppress routes if MED matching is enabled and
+			 * it mismatched otherwise we might end up with no
+			 * routes for this path.
+			 */
+			if (aggregate->suppress_map_name
+			    && AGGREGATE_MED_VALID(aggregate)
+			    && aggr_suppress_map_test(bgp, aggregate, pi)) {
+				if (aggr_suppress_path(aggregate, pi))
+					match++;
 			}
 
 			aggregate->count++;
@@ -6701,15 +6823,17 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 
 			if (aggregate->summary_only && pi->extra
 			    && AGGREGATE_MED_VALID(aggregate)) {
-				pi->extra->suppress--;
-
-				if (pi->extra->suppress == 0) {
-					bgp_path_info_set_flag(
-						dest, pi,
-						BGP_PATH_ATTR_CHANGED);
+				if (aggr_unsuppress_path(aggregate, pi))
 					match++;
-				}
 			}
+
+			if (aggregate->suppress_map_name
+			    && AGGREGATE_MED_VALID(aggregate)
+			    && aggr_suppress_map_test(bgp, aggregate, pi)) {
+				if (aggr_unsuppress_path(aggregate, pi))
+					match++;
+			}
+
 			aggregate->count--;
 
 			if (pi->attr->origin == BGP_ORIGIN_INCOMPLETE)
@@ -6800,7 +6924,11 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp,
 					 pinew, true);
 
 	if (aggregate->summary_only && AGGREGATE_MED_VALID(aggregate))
-		(bgp_path_info_extra_get(pinew))->suppress++;
+		aggr_suppress_path(aggregate, pinew);
+
+	if (aggregate->suppress_map_name && AGGREGATE_MED_VALID(aggregate)
+	    && aggr_suppress_map_test(bgp, aggregate, pinew))
+		aggr_suppress_path(aggregate, pinew);
 
 	switch (pinew->attr->origin) {
 	case BGP_ORIGIN_INCOMPLETE:
@@ -6896,19 +7024,17 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 	if (pi->sub_type == BGP_ROUTE_AGGREGATE)
 		return;
 
-	if (aggregate->summary_only && pi->extra && pi->extra->suppress > 0
-	    && AGGREGATE_MED_VALID(aggregate)) {
-		pi->extra->suppress--;
-
-		if (pi->extra->suppress == 0) {
-			bgp_path_info_set_flag(pi->net, pi,
-					       BGP_PATH_ATTR_CHANGED);
+	if (aggregate->summary_only && AGGREGATE_MED_VALID(aggregate))
+		if (aggr_unsuppress_path(aggregate, pi))
 			match++;
-		}
-	}
+
+	if (aggregate->suppress_map_name && AGGREGATE_MED_VALID(aggregate)
+	    && aggr_suppress_map_test(bgp, aggregate, pi))
+		if (aggr_unsuppress_path(aggregate, pi))
+			match++;
 
 	/*
-	 * This must be called after `summary` check to avoid
+	 * This must be called after `summary`, `suppress-map` check to avoid
 	 * "unsuppressing" twice.
 	 */
 	if (aggregate->match_med)
@@ -7171,7 +7297,8 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 			     safi_t safi, const char *rmap,
 			     uint8_t summary_only, uint8_t as_set,
-			     uint8_t origin, bool match_med)
+			     uint8_t origin, bool match_med,
+			     const char *suppress_map)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
@@ -7179,6 +7306,12 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	struct bgp_dest *dest;
 	struct bgp_aggregate *aggregate;
 	uint8_t as_set_new = as_set;
+
+	if (suppress_map && summary_only) {
+		vty_out(vty,
+			"'summary-only' and 'suppress-map' can't be used at the same time\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Convert string to prefix structure. */
 	ret = str2prefix(prefix_str, &p);
@@ -7251,6 +7384,18 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 		aggregate->rmap.map = route_map_lookup_by_name(rmap);
 		route_map_counter_increment(aggregate->rmap.map);
 	}
+
+	if (suppress_map) {
+		XFREE(MTYPE_ROUTE_MAP_NAME, aggregate->suppress_map_name);
+		route_map_counter_decrement(aggregate->suppress_map);
+
+		aggregate->suppress_map_name =
+			XSTRDUP(MTYPE_ROUTE_MAP_NAME, suppress_map);
+		aggregate->suppress_map =
+			route_map_lookup_by_name(aggregate->suppress_map_name);
+		route_map_counter_increment(aggregate->suppress_map);
+	}
+
 	bgp_dest_set_bgp_aggregate_info(dest, aggregate);
 
 	/* Aggregate address insert into BGP routing table. */
@@ -7266,6 +7411,7 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
       "|route-map WORD$rmap_name"
       "|origin <egp|igp|incomplete>$origin_s"
       "|matching-MED-only$match_med"
+      "|suppress-map WORD$suppress_map"
       "}",
       NO_STR
       "Configure BGP aggregate entries\n"
@@ -7278,7 +7424,9 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
       "Remote EGP\n"
       "Local IGP\n"
       "Unknown heritage\n"
-      "Only aggregate routes with matching MED\n")
+      "Only aggregate routes with matching MED\n"
+      "Suppress the selected more specific routes\n"
+      "Route map with the route selectors\n")
 {
 	const char *prefix_s = NULL;
 	safi_t safi = bgp_node_safi(vty);
@@ -7314,7 +7462,7 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
 
 	return bgp_aggregate_set(vty, prefix_s, AFI_IP, safi, rmap_name,
 				 summary_only != NULL, as_set, origin,
-				 match_med != NULL);
+				 match_med != NULL, suppress_map);
 }
 
 DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
@@ -7324,6 +7472,7 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
       "|route-map WORD$rmap_name"
       "|origin <egp|igp|incomplete>$origin_s"
       "|matching-MED-only$match_med"
+      "|suppress-map WORD$suppress_map"
       "}",
       NO_STR
       "Configure BGP aggregate entries\n"
@@ -7336,7 +7485,9 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
       "Remote EGP\n"
       "Local IGP\n"
       "Unknown heritage\n"
-      "Only aggregate routes with matching MED\n")
+      "Only aggregate routes with matching MED\n"
+      "Suppress the selected more specific routes\n"
+      "Route map with the route selectors\n")
 {
 	uint8_t origin = BGP_ORIGIN_UNSPECIFIED;
 	int as_set = AGGREGATE_AS_UNSET;
@@ -7360,7 +7511,7 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
 
 	return bgp_aggregate_set(vty, prefix_str, AFI_IP6, SAFI_UNICAST,
 				 rmap_name, summary_only != NULL, as_set,
-				 origin, match_med != NULL);
+				 origin, match_med != NULL, suppress_map);
 }
 
 /* Redistribute route treatment. */
@@ -7668,7 +7819,7 @@ static void route_vty_short_status_out(struct vty *vty,
 		if (CHECK_FLAG(path->flags, BGP_PATH_STALE))
 			json_object_boolean_true_add(json_path, "stale");
 
-		if (path->extra && path->extra->suppress)
+		if (path->extra && bgp_path_suppressed(path))
 			json_object_boolean_true_add(json_path, "suppressed");
 
 		if (CHECK_FLAG(path->flags, BGP_PATH_VALID)
@@ -7705,7 +7856,7 @@ static void route_vty_short_status_out(struct vty *vty,
 		vty_out(vty, "R");
 	else if (CHECK_FLAG(path->flags, BGP_PATH_STALE))
 		vty_out(vty, "S");
-	else if (path->extra && path->extra->suppress)
+	else if (bgp_path_suppressed(path))
 		vty_out(vty, "s");
 	else if (CHECK_FLAG(path->flags, BGP_PATH_VALID)
 		 && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
@@ -10433,7 +10584,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		count++;
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
 			best = count;
-			if (pi->extra && pi->extra->suppress)
+			if (bgp_path_suppressed(pi))
 				suppress = 1;
 
 			if (pi->attr->community == NULL)
@@ -13997,6 +14148,10 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 		if (bgp_aggregate->match_med)
 			vty_out(vty, " matching-MED-only");
+
+		if (bgp_aggregate->suppress_map_name)
+			vty_out(vty, " suppress-map %s",
+				bgp_aggregate->suppress_map_name);
 
 		vty_out(vty, "\n");
 	}

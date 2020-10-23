@@ -1005,6 +1005,12 @@ Route Aggregation-IPv4 Address Family
    Configure the aggregated address to only be created when the routes MED
    match, otherwise no aggregated route will be created.
 
+.. index:: aggregate-address A.B.C.D/M suppress-map NAME
+.. clicmd:: aggregate-address A.B.C.D/M suppress-map NAME
+
+   Similar to `summary-only`, but will only suppress more specific routes that
+   are matched by the selected route-map.
+
 .. index:: no aggregate-address A.B.C.D/M
 .. clicmd:: no aggregate-address A.B.C.D/M
 
@@ -1063,6 +1069,11 @@ Route Aggregation-IPv6 Address Family
    Configure the aggregated address to only be created when the routes MED
    match, otherwise no aggregated route will be created.
 
+.. index:: aggregate-address X:X::X:X/M suppress-map NAME
+.. clicmd:: aggregate-address X:X::X:X/M suppress-map NAME
+
+   Similar to `summary-only`, but will only suppress more specific routes that
+   are matched by the selected route-map.
 
 .. index:: no aggregate-address X:X::X:X/M
 .. clicmd:: no aggregate-address X:X::X:X/M
