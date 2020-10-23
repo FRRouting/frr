@@ -516,6 +516,9 @@ static int ospf_sr_start(struct ospf *ospf)
 static void ospf_sr_stop(void)
 {
 
+	if (OspfSR.status == SR_OFF)
+		return;
+
 	osr_debug("SR (%s): Stop Segment Routing", __func__);
 
 	/* Disable any re-attempt to connect to Label Manager */
@@ -1883,7 +1886,8 @@ void ospf_sr_update_task(struct ospf *ospf)
 
 	struct timeval start_time, stop_time;
 
-	if (ospf == NULL)
+	/* Check ospf and SR status */
+	if ((ospf == NULL) || (OspfSR.status != SR_UP))
 		return;
 
 	monotime(&start_time);
