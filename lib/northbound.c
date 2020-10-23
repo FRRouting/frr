@@ -162,12 +162,12 @@ static int nb_node_del_cb(const struct lys_node *snode, void *arg)
 
 void nb_nodes_create(void)
 {
-	yang_snodes_iterate_all(nb_node_new_cb, 0, NULL);
+	yang_snodes_iterate(NULL, nb_node_new_cb, 0, NULL);
 }
 
 void nb_nodes_delete(void)
 {
-	yang_snodes_iterate_all(nb_node_del_cb, 0, NULL);
+	yang_snodes_iterate(NULL, nb_node_del_cb, 0, NULL);
 }
 
 struct nb_node *nb_node_find(const char *xpath)
@@ -2254,7 +2254,7 @@ void nb_init(struct thread_master *tm,
 		nb_load_callbacks(modules[i]);
 
 	/* Validate northbound callbacks. */
-	yang_snodes_iterate_all(nb_node_validate, 0, &errors);
+	yang_snodes_iterate(NULL, nb_node_validate, 0, &errors);
 	if (errors > 0) {
 		flog_err(
 			EC_LIB_NB_CBS_VALIDATION,

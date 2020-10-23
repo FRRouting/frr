@@ -1279,7 +1279,7 @@ static int frr_confd_init_dp(const char *program_name)
 	 * Iterate over all loaded YANG modules and subscribe to the paths
 	 * referent to state data.
 	 */
-	yang_snodes_iterate_all(frr_confd_subscribe_state, 0, &data_cbs);
+	yang_snodes_iterate(NULL, frr_confd_subscribe_state, 0, &data_cbs);
 
 	/* Register notification stream. */
 	memset(&ncbs, 0, sizeof(ncbs));
@@ -1430,7 +1430,7 @@ static int frr_confd_init(const char *program_name)
 		goto error;
 	}
 
-	yang_snodes_iterate_all(frr_confd_calculate_snode_hash, 0, NULL);
+	yang_snodes_iterate(NULL, frr_confd_calculate_snode_hash, 0, NULL);
 
 	hook_register(nb_notification_send, frr_confd_notification_send);
 

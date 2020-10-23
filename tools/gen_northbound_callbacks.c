@@ -368,13 +368,12 @@ int main(int argc, char *argv[])
 	/* Generate callback prototypes. */
 	if (!static_cbs) {
 		printf("/* prototypes */\n");
-		yang_snodes_iterate_module(module->info, generate_prototypes, 0,
-					   NULL);
+		yang_snodes_iterate(module->info, generate_prototypes, 0, NULL);
 		printf("\n");
 	}
 
 	/* Generate callback functions. */
-	yang_snodes_iterate_module(module->info, generate_callbacks, 0, NULL);
+	yang_snodes_iterate(module->info, generate_callbacks, 0, NULL);
 
 	strlcpy(module_name_underscores, module->name,
 		sizeof(module_name_underscores));
@@ -386,7 +385,7 @@ int main(int argc, char *argv[])
 	       "\t.name = \"%s\",\n"
 	       "\t.nodes = {\n",
 	       module_name_underscores, module->name);
-	yang_snodes_iterate_module(module->info, generate_nb_nodes, 0, NULL);
+	yang_snodes_iterate(module->info, generate_nb_nodes, 0, NULL);
 	printf("\t\t{\n"
 	       "\t\t\t.xpath = NULL,\n"
 	       "\t\t},\n");

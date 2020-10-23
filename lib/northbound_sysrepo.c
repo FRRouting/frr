@@ -690,10 +690,10 @@ static int frr_sr_init(void)
 		int event_pipe;
 
 		frr_sr_subscribe_config(module);
-		yang_snodes_iterate_module(module->info, frr_sr_subscribe_state,
-					   0, module);
-		yang_snodes_iterate_module(module->info, frr_sr_subscribe_rpc,
-					   0, module);
+		yang_snodes_iterate(module->info, frr_sr_subscribe_state, 0,
+				    module);
+		yang_snodes_iterate(module->info, frr_sr_subscribe_rpc, 0,
+				    module);
 
 		/* Watch subscriptions. */
 		ret = sr_get_event_pipe(module->sr_subscription, &event_pipe);

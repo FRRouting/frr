@@ -227,8 +227,8 @@ next:
 	return ret;
 }
 
-int yang_snodes_iterate_module(const struct lys_module *module,
-			       yang_iterate_cb cb, uint16_t flags, void *arg)
+int yang_snodes_iterate(const struct lys_module *module, yang_iterate_cb cb,
+			uint16_t flags, void *arg)
 {
 	const struct lys_module *module_iter;
 	uint32_t idx = 0;
@@ -243,25 +243,6 @@ int yang_snodes_iterate_module(const struct lys_module *module,
 
 		LY_TREE_FOR (module_iter->data, snode) {
 			ret = yang_snodes_iterate_subtree(snode, module, cb,
-							  flags, arg);
-			if (ret == YANG_ITER_STOP)
-				return ret;
-		}
-	}
-
-	return ret;
-}
-
-int yang_snodes_iterate_all(yang_iterate_cb cb, uint16_t flags, void *arg)
-{
-	struct yang_module *module;
-	int ret = YANG_ITER_CONTINUE;
-
-	RB_FOREACH (module, yang_modules, &yang_modules) {
-		struct lys_node *snode;
-
-		LY_TREE_FOR (module->info->data, snode) {
-			ret = yang_snodes_iterate_subtree(snode, NULL, cb,
 							  flags, arg);
 			if (ret == YANG_ITER_STOP)
 				return ret;

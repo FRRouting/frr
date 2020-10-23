@@ -71,8 +71,8 @@ int main(int argc, char *argv[])
 	module = yang_module_load(argv[0]);
 
 	/* Generate deviations. */
-	yang_snodes_iterate_module(module->info, generate_yang_deviation,
-				   YANG_ITER_FILTER_IMPLICIT, NULL);
+	yang_snodes_iterate(module->info, generate_yang_deviation,
+			    YANG_ITER_FILTER_IMPLICIT, NULL);
 
 	/* Cleanup and exit. */
 	yang_terminate();

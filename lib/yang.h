@@ -186,10 +186,11 @@ extern int yang_snodes_iterate_subtree(const struct lys_node *snode,
 				       void *arg);
 
 /*
- * Iterate over all libyang schema nodes from the given YANG module.
+ * Iterate over all libyang schema nodes from all loeaded modules of from the
+ * given YANG module.
  *
  * module
- *    YANG module to operate on.
+ *    When set, iterate over all nodes of the specified module only.
  *
  * cb
  *    Function to call with each schema node.
@@ -203,27 +204,8 @@ extern int yang_snodes_iterate_subtree(const struct lys_node *snode,
  * Returns:
  *    The return value of the last called callback.
  */
-extern int yang_snodes_iterate_module(const struct lys_module *module,
-				      yang_iterate_cb cb, uint16_t flags,
-				      void *arg);
-
-/*
- * Iterate over all libyang schema nodes from all loaded YANG modules.
- *
- * cb
- *    Function to call with each schema node.
- *
- * flags
- *    YANG_ITER_* flags to control how the iteration is performed.
- *
- * arg
- *    Arbitrary argument passed as the second parameter in each call to 'cb'.
- *
- * Returns:
- *    The return value of the last called callback.
- */
-extern int yang_snodes_iterate_all(yang_iterate_cb cb, uint16_t flags,
-				   void *arg);
+extern int yang_snodes_iterate(const struct lys_module *module,
+			       yang_iterate_cb cb, uint16_t flags, void *arg);
 
 /*
  * Build schema path or data path of the schema node.

@@ -469,12 +469,12 @@ static unsigned int yang_translator_validate(struct yang_translator *translator)
 	args.errors = 0;
 
 	for (ALL_LIST_ELEMENTS_RO(translator->modules, ln, tmodule)) {
-		yang_snodes_iterate_module(
-			tmodule->module, yang_translator_validate_cb,
-			YANG_ITER_FILTER_NPCONTAINERS
-				| YANG_ITER_FILTER_LIST_KEYS
-				| YANG_ITER_FILTER_INPUT_OUTPUT,
-			&args);
+		yang_snodes_iterate(tmodule->module,
+				    yang_translator_validate_cb,
+				    YANG_ITER_FILTER_NPCONTAINERS
+					    | YANG_ITER_FILTER_LIST_KEYS
+					    | YANG_ITER_FILTER_INPUT_OUTPUT,
+				    &args);
 	}
 
 	if (args.errors)
@@ -500,11 +500,11 @@ static unsigned int yang_module_nodes_count(const struct lys_module *module)
 {
 	unsigned int total = 0;
 
-	yang_snodes_iterate_module(module, yang_module_nodes_count_cb,
-				   YANG_ITER_FILTER_NPCONTAINERS
-					   | YANG_ITER_FILTER_LIST_KEYS
-					   | YANG_ITER_FILTER_INPUT_OUTPUT,
-				   &total);
+	yang_snodes_iterate(module, yang_module_nodes_count_cb,
+			    YANG_ITER_FILTER_NPCONTAINERS
+				    | YANG_ITER_FILTER_LIST_KEYS
+				    | YANG_ITER_FILTER_INPUT_OUTPUT,
+			    &total);
 
 	return total;
 }
