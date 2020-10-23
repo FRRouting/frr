@@ -446,13 +446,18 @@ int pim_register_suppress_time_modify(struct nb_cb_modify_args *args)
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_ecmp_modify(struct nb_cb_modify_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim->ecmp_enable = yang_dnode_get_bool(args->dnode, NULL);
 	}
 
 	return NB_OK;
@@ -463,13 +468,19 @@ int routing_control_plane_protocols_control_plane_protocol_pim_ecmp_modify(struc
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_ecmp_rebalance_modify(struct nb_cb_modify_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim->ecmp_rebalance_enable =
+			yang_dnode_get_bool(args->dnode, NULL);
 	}
 
 	return NB_OK;
@@ -480,12 +491,18 @@ int routing_control_plane_protocols_control_plane_protocol_pim_ecmp_rebalance_mo
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_keep_alive_timer_modify(struct nb_cb_modify_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim->keep_alive_time = yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
 
@@ -497,12 +514,19 @@ int routing_control_plane_protocols_control_plane_protocol_pim_keep_alive_timer_
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_rp_keep_alive_timer_modify(struct nb_cb_modify_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim->rp_keep_alive_time = yang_dnode_get_uint16(args->dnode,
+				NULL);
 		break;
 	}
 

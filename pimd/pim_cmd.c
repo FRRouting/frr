@@ -6917,9 +6917,32 @@ DEFUN (ip_pim_rp_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->rp_keep_alive_time = atoi(argv[4]->arg);
-	return CMD_SUCCESS;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char rp_ka_timer_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
+		 FRR_PIM_XPATH, "frr-pim:pimd", "pim", vrfname);
+	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
+		sizeof(rp_ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
+			argv[4]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_rp_keep_alive,
@@ -6932,9 +6955,36 @@ DEFUN (no_ip_pim_rp_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->rp_keep_alive_time = PIM_KEEPALIVE_PERIOD;
-	return CMD_SUCCESS;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char rp_ka_timer[5];
+	char rp_ka_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%d", PIM_KEEPALIVE_PERIOD);
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+
+	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
+		 FRR_PIM_XPATH, "frr-pim:pimd", "pim", vrfname);
+	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
+		sizeof(rp_ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
+			rp_ka_timer);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_keep_alive,
@@ -6945,9 +6995,31 @@ DEFUN (ip_pim_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->keep_alive_time = atoi(argv[3]->arg);
-	return CMD_SUCCESS;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ka_timer_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
+			argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_keep_alive,
@@ -6959,9 +7031,34 @@ DEFUN (no_ip_pim_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->keep_alive_time = PIM_KEEPALIVE_PERIOD;
-	return CMD_SUCCESS;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ka_timer[5];
+	char ka_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(ka_timer, sizeof(ka_timer), "%d", PIM_KEEPALIVE_PERIOD);
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
+			ka_timer);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_packets,
@@ -7403,10 +7500,29 @@ DEFUN (ip_pim_ecmp,
        "pim multicast routing\n"
        "Enable PIM ECMP \n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_enable = true;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ecmp_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
+
+	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_ecmp,
@@ -7417,10 +7533,30 @@ DEFUN (no_ip_pim_ecmp,
        "pim multicast routing\n"
        "Disable PIM ECMP \n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_enable = false;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ecmp_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
+
+	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_ecmp_rebalance,
@@ -7431,11 +7567,37 @@ DEFUN (ip_pim_ecmp_rebalance,
        "Enable PIM ECMP \n"
        "Enable PIM ECMP Rebalance\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_enable = true;
-	pim->ecmp_rebalance_enable = true;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ecmp_xpath[XPATH_MAXLEN];
+	char ecmp_rebalance_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
+	snprintf(ecmp_rebalance_xpath, sizeof(ecmp_rebalance_xpath),
+		 FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ecmp_rebalance_xpath, "/ecmp-rebalance",
+		sizeof(ecmp_rebalance_xpath));
+
+	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, ecmp_rebalance_xpath, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_ecmp_rebalance,
@@ -7447,10 +7609,32 @@ DEFUN (no_ip_pim_ecmp_rebalance,
        "Disable PIM ECMP \n"
        "Disable PIM ECMP Rebalance\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_rebalance_enable = false;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ecmp_rebalance_xpath[XPATH_MAXLEN];
 
-	return CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ecmp_rebalance_xpath, sizeof(ecmp_rebalance_xpath),
+		 FRR_PIM_XPATH,
+		 "frr-pim:pimd", "pim", vrfname);
+	strlcat(ecmp_rebalance_xpath, "/ecmp-rebalance",
+		sizeof(ecmp_rebalance_xpath));
+
+	nb_cli_enqueue_change(vty, ecmp_rebalance_xpath, NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (interface_ip_igmp,
