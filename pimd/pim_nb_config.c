@@ -390,8 +390,10 @@ int pim_packets_modify(struct nb_cb_modify_args *args)
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		router->packet_process = yang_dnode_get_uint8(args->dnode,
+				NULL);
 		break;
 	}
 
@@ -407,8 +409,9 @@ int pim_join_prune_interval_modify(struct nb_cb_modify_args *args)
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		router->t_periodic = yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
 
@@ -420,12 +423,18 @@ int pim_join_prune_interval_modify(struct nb_cb_modify_args *args)
  */
 int pim_register_suppress_time_modify(struct nb_cb_modify_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim->keep_alive_time = yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
 
