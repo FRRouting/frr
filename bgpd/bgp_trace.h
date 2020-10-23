@@ -66,7 +66,8 @@ TRACEPOINT_EVENT(
 	TP_ARGS(struct peer *, peer, struct stream *, pkt),
 	TP_FIELDS(
 		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
-		ctf_sequence_hex(uint8_t, packet, pkt->data, size_t, STREAM_READABLE(pkt))
+		ctf_sequence_hex(uint8_t, packet, pkt->data, size_t,
+				 STREAM_READABLE(pkt))
 	)
 )
 
@@ -75,7 +76,8 @@ TRACEPOINT_LOGLEVEL(frr_bgp, packet_read, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	process_update,
-	TP_ARGS(struct peer *, peer, char *, pfx, uint32_t, addpath_id, afi_t, afi, safi_t, safi, struct attr *, attr),
+	TP_ARGS(struct peer *, peer, char *, pfx, uint32_t, addpath_id, afi_t,
+		afi, safi_t, safi, struct attr *, attr),
 	TP_FIELDS(
 		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
 		ctf_string(prefix, pfx)
@@ -91,7 +93,8 @@ TRACEPOINT_LOGLEVEL(frr_bgp, process_update, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	input_filter,
-	TP_ARGS(struct peer *, peer, char *, pfx, afi_t, afi, safi_t, safi, const char *, result),
+	TP_ARGS(struct peer *, peer, char *, pfx, afi_t, afi, safi_t, safi,
+		const char *, result),
 	TP_FIELDS(
 		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
 		ctf_string(prefix, pfx)
@@ -106,7 +109,8 @@ TRACEPOINT_LOGLEVEL(frr_bgp, input_filter, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	output_filter,
-	TP_ARGS(struct peer *, peer, char *, pfx, afi_t, afi, safi_t, safi, const char *, result),
+	TP_ARGS(struct peer *, peer, char *, pfx, afi_t, afi, safi_t, safi,
+		const char *, result),
 	TP_FIELDS(
 		ctf_string(peer, peer->host ? peer->host : "(unknown peer)")
 		ctf_string(prefix, pfx)
@@ -117,6 +121,8 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_LOGLEVEL(frr_bgp, output_filter, TRACE_INFO)
+
+/* clang-format on */
 
 #include <lttng/tracepoint-event.h>
 
