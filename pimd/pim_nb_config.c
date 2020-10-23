@@ -21,9 +21,136 @@
 #include "pim_nb.h"
 #include "lib/northbound_cli.h"
 #include "pim_igmpv3.h"
+#include "pim_pim.h"
 
-void pim_if_membership_clear(struct interface *ifp);
-void pim_if_membership_refresh(struct interface *ifp);
+static void pim_if_membership_clear(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp;
+
+	pim_ifp = ifp->info;
+	zassert(pim_ifp);
+
+	if (PIM_IF_TEST_PIM(pim_ifp->options)
+	    && PIM_IF_TEST_IGMP(pim_ifp->options)) {
+		return;
+	}
+
+	pim_ifchannel_membership_clear(ifp);
+}
+
+/*
+ * When PIM is disabled on interface, IGMPv3 local membership
+ * information is not injected into PIM interface state.
+
+ * The function pim_if_membership_refresh() fetches all IGMPv3 local
+ * membership information into PIM. It is intented to be called
+ * whenever PIM is enabled on the interface in order to collect missed
+ * local membership information.
+ */
+static void pim_if_membership_refresh(struct interface *ifp)
+{       
+	struct pim_interface *pim_ifp;
+	struct listnode *sock_node;
+	struct igmp_sock *igmp;
+
+	pim_ifp = ifp->info;
+	zassert(pim_ifp);
+
+	if (!PIM_IF_TEST_PIM(pim_ifp->options))
+		return;
+	if (!PIM_IF_TEST_IGMP(pim_ifp->options))
+		return;
+
+	/*
+	 * First clear off membership from all PIM (S,G) entries on the
+	 * interface
+	 */
+
+	pim_ifchannel_membership_clear(ifp);
+
+	/*
+	 * Then restore PIM (S,G) membership from all IGMPv3 (S,G) entries on
+	 * the interface
+	 */
+
+	/* scan igmp sockets */
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
+		struct listnode *grpnode;
+		struct igmp_group *grp;
+
+		/* scan igmp groups */
+		for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grpnode,
+					  grp)) {
+			struct listnode *srcnode;
+			struct igmp_source *src;
+
+			/* scan group sources */
+			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
+						  srcnode, src)) {
+
+				if (IGMP_SOURCE_TEST_FORWARDING(
+				    src->source_flags)) {
+					struct prefix_sg sg;
+
+					memset(&sg, 0,
+					       sizeof(struct prefix_sg));
+					sg.src = src->source_addr;
+					sg.grp = grp->group_addr;
+					pim_ifchannel_local_membership_add(
+							ifp, &sg, false /*is_vxlan*/);
+				}
+
+			} /* scan group sources */
+		}        /* scan igmp groups */
+	}                 /* scan igmp sockets */
+
+	/*
+	 * Finally delete every PIM (S,G) entry lacking all state info
+	 */
+
+	pim_ifchannel_delete_on_noinfo(ifp);
+}
+
+static int pim_cmd_interface_add(struct interface *ifp)
+{
+        struct pim_interface *pim_ifp = ifp->info;
+
+        if (!pim_ifp)
+                pim_ifp = pim_if_new(ifp, false, true, false, false);
+        else
+                PIM_IF_DO_PIM(pim_ifp->options);
+
+        pim_if_addr_add_all(ifp);
+        pim_if_membership_refresh(ifp);
+
+        pim_if_create_pimreg(pim_ifp->pim);
+        return 1;
+}
+
+static int pim_cmd_interface_delete(struct interface *ifp)
+{
+        struct pim_interface *pim_ifp = ifp->info;
+
+        if (!pim_ifp)
+                return 1;
+
+        PIM_IF_DONT_PIM(pim_ifp->options);
+
+        pim_if_membership_clear(ifp);
+
+        /*
+         * pim_sock_delete() removes all neighbors from
+         * pim_ifp->pim_neighbor_list.
+         */
+        pim_sock_delete(ifp, "pim unconfigured on interface");
+
+        if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
+                pim_if_addr_del_all(ifp);
+                pim_if_delete(ifp);
+        }
+
+        return 1;
+}
 
 static bool is_pim_interface(const struct lyd_node *dnode)
 {
@@ -866,7 +993,6 @@ int lib_interface_pim_create(struct nb_cb_create_args *args)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -875,13 +1001,26 @@ int lib_interface_pim_create(struct nb_cb_create_args *args)
 
 int lib_interface_pim_destroy(struct nb_cb_destroy_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			return NB_OK;
+
+		if (!pim_cmd_interface_delete(ifp)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Unable to delete interface information %s",
+				 ifp->name);
+			return NB_ERR_INCONSISTENCY;
+		}
 	}
 
 	return NB_OK;
@@ -892,12 +1031,49 @@ int lib_interface_pim_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_interface_pim_pim_enable_modify(struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	int mcast_if_count;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		mcast_if_count =
+			yang_get_list_elements_count(if_dnode);
+
+		/* Limiting mcast interfaces to number of VIFs */
+		if (mcast_if_count == MAXVIFS) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Max multicast interfaces(%d) reached.",
+				 MAXVIFS);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+		if (yang_dnode_get_bool(args->dnode, NULL)) {
+			if (!pim_cmd_interface_add(ifp)) {
+				snprintf(args->errmsg, args->errmsg_len,
+					 "Could not enable PIM SM on interface %s",
+					 ifp->name);
+				return NB_ERR_INCONSISTENCY;
+			}
+		} else {
+			pim_ifp = ifp->info;
+			if (!pim_ifp)
+				return NB_ERR_INCONSISTENCY;
+
+			if (!pim_cmd_interface_delete(ifp)) {
+				snprintf(args->errmsg, args->errmsg_len,
+					 "Unable to delete interface information");
+				return NB_ERR_INCONSISTENCY;
+			}
+		}
 		break;
 	}
 

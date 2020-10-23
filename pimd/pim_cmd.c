@@ -8092,36 +8092,19 @@ DEFUN_HIDDEN (interface_ip_pim_ssm,
        PIM_STR
        IFACE_PIM_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int ret;
 
-	if (!pim_cmd_interface_add(vty, ifp)) {
-		vty_out(vty, "Could not enable PIM SM on interface %s\n",
-			ifp->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
+
+	ret = nb_cli_apply_changes(vty, "./frr-pim:pim");
+
+	if (ret != NB_OK)
+		return ret;
 
 	vty_out(vty,
 		"WARN: Enabled PIM SM on interface; configure PIM SSM range if needed\n");
-	return CMD_SUCCESS;
-}
 
-static int interface_ip_pim_helper(struct vty *vty)
-{
-	struct pim_interface *pim_ifp;
-
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	if (!pim_cmd_interface_add(vty, ifp)) {
-		vty_out(vty, "Could not enable PIM SM on interface %s\n",
-			ifp->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	pim_ifp = ifp->info;
-
-	pim_if_create_pimreg(pim_ifp->pim);
-
-	return CMD_SUCCESS;
+	return NB_OK;
 }
 
 DEFUN_HIDDEN (interface_ip_pim_sm,
@@ -8131,7 +8114,9 @@ DEFUN_HIDDEN (interface_ip_pim_sm,
        PIM_STR
        IFACE_PIM_SM_STR)
 {
-	return interface_ip_pim_helper(vty);
+	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (interface_ip_pim,
@@ -8140,43 +8125,9 @@ DEFUN (interface_ip_pim,
        IP_STR
        PIM_STR)
 {
-	return interface_ip_pim_helper(vty);
-}
+	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
 
-static int pim_cmd_interface_delete(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp = ifp->info;
-
-	if (!pim_ifp)
-		return 1;
-
-	PIM_IF_DONT_PIM(pim_ifp->options);
-
-	pim_if_membership_clear(ifp);
-
-	/*
-	  pim_sock_delete() removes all neighbors from
-	  pim_ifp->pim_neighbor_list.
-	 */
-	pim_sock_delete(ifp, "pim unconfigured on interface");
-
-	if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
-		pim_if_addr_del_all(ifp);
-		pim_if_delete(ifp);
-	}
-
-	return 1;
-}
-
-static int interface_no_ip_pim_helper(struct vty *vty)
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	if (!pim_cmd_interface_delete(ifp)) {
-		vty_out(vty, "Unable to delete interface information\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN_HIDDEN (interface_no_ip_pim_ssm,
@@ -8187,7 +8138,28 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
        PIM_STR
        IFACE_PIM_STR)
 {
-	return interface_no_ip_pim_helper(vty);
+	const struct lyd_node *igmp_enable_dnode;
+	char igmp_if_xpath[XPATH_MAXLEN];
+
+	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
+			"%s/frr-igmp:igmp", VTY_CURR_XPATH);
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/igmp-enable", igmp_if_xpath);
+
+	if (!igmp_enable_dnode) {
+		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, ".")) {
+			nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY,
+					NULL);
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+		} else
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					"false");
+	}
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN_HIDDEN (interface_no_ip_pim_sm,
@@ -8198,7 +8170,28 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
        PIM_STR
        IFACE_PIM_SM_STR)
 {
-	return interface_no_ip_pim_helper(vty);
+	const struct lyd_node *igmp_enable_dnode;
+	char igmp_if_xpath[XPATH_MAXLEN];
+
+	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
+		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/igmp-enable", igmp_if_xpath);
+
+	if (!igmp_enable_dnode) {
+		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, ".")) {
+			nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY,
+					NULL);
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+		} else
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					"false");
+	}
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (interface_no_ip_pim,
@@ -8208,7 +8201,28 @@ DEFUN (interface_no_ip_pim,
        IP_STR
        PIM_STR)
 {
-	return interface_no_ip_pim_helper(vty);
+	const struct lyd_node *igmp_enable_dnode;
+	char igmp_if_xpath[XPATH_MAXLEN];
+
+	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
+			"%s/frr-igmp:igmp", VTY_CURR_XPATH);
+	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			"%s/igmp-enable", igmp_if_xpath);
+
+	if (!igmp_enable_dnode) {
+		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		if (!yang_dnode_get_bool(igmp_enable_dnode, ".")) {
+			nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY,
+					NULL);
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+		} else
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					"false");
+	}
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 /* boundaries */
