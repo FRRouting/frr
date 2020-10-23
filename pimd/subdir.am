@@ -41,6 +41,8 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_msdp_packet.c \
 	pimd/pim_msdp_socket.c \
 	pimd/pim_msg.c \
+	pimd/pim_nb.c \
+	pimd/pim_nb_config.c \
 	pimd/pim_neighbor.c \
 	pimd/pim_nht.c \
 	pimd/pim_oil.c \
@@ -66,6 +68,9 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_vxlan.c \
 	pimd/pim_zpthread.c \
 	pimd/pimd.c \
+	yang/frr-pim.yang.c \
+	yang/frr-pim-rp.yang.c \
+	yang/frr-igmp.yang.c \
 	# end
 
 noinst_HEADERS += \
@@ -96,6 +101,7 @@ noinst_HEADERS += \
 	pimd/pim_msdp_packet.h \
 	pimd/pim_msdp_socket.h \
 	pimd/pim_msg.h \
+	pimd/pim_nb.h \
 	pimd/pim_neighbor.h \
 	pimd/pim_nht.h \
 	pimd/pim_oil.h \
@@ -145,3 +151,9 @@ pimd_mtracebis_SOURCES = pimd/mtracebis.c \
 			 pimd/mtracebis_netlink.c \
 			 pimd/mtracebis_routeget.c \
 			 # end
+
+nodist_pimd_pimd_SOURCES = \
+	yang/frr-pim.yang.c \
+	yang/frr-pim-rp.yang.c \
+	yang/frr-igmp.yang.c \
+	# end
