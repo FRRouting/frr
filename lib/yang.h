@@ -605,6 +605,11 @@ extern uint32_t yang_get_list_elements_count(const struct lyd_node *node);
 /* To get the immediate child of a dnode */
 const struct lyd_node *yang_dnode_get_child(const struct lyd_node *dnode);
 
+/* API to check if the given node is last node in the list */
+bool yang_is_last_list_dnode(const struct lyd_node *dnode);
+
+/* API to check if the given node is last node in the data tree level */
+bool yang_is_last_level_dnode(const struct lyd_node *dnode);
 
 #ifdef __cplusplus
 }

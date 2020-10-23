@@ -9553,53 +9553,6 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
       "Desired min transmit interval\n")
 #endif /* !HAVE_BFDD */
 
-static int ip_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
-				   const char *peer, const char *local)
-{
-	enum pim_msdp_err result;
-	struct in_addr peer_addr;
-	struct in_addr local_addr;
-	int ret = CMD_SUCCESS;
-
-	result = inet_pton(AF_INET, peer, &peer_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad peer address %s: errno=%d: %s\n", peer,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = inet_pton(AF_INET, local, &local_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n", local,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_msdp_peer_add(pim, peer_addr, local_addr, "default",
-				   NULL /* mp_p */);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_OOM:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Out of memory\n");
-		break;
-	case PIM_MSDP_ERR_PEER_EXISTS:
-		ret = CMD_WARNING;
-		vty_out(vty, "%% Peer exists\n");
-		break;
-	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Only one mesh-group allowed currently\n");
-		break;
-	default:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% peer add failed\n");
-	}
-
-	return ret;
-}
-
 DEFUN (ip_msdp_peer,
        ip_msdp_peer_cmd,
        "ip msdp peer A.B.C.D source A.B.C.D",
@@ -9610,35 +9563,37 @@ DEFUN (ip_msdp_peer,
        "Source address for TCP connection\n"
        "local ip address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_peer_cmd_worker(pim, vty, argv[3]->arg, argv[5]->arg);
-}
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char temp_xpath[XPATH_MAXLEN];
+	char msdp_peer_source_xpath[XPATH_MAXLEN];
 
-static int ip_no_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
-				      const char *peer)
-{
-	enum pim_msdp_err result;
-	struct in_addr peer_addr;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = inet_pton(AF_INET, peer, &peer_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad peer address %s: errno=%d: %s\n", peer,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(msdp_peer_source_xpath, sizeof(msdp_peer_source_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	snprintf(temp_xpath, sizeof(temp_xpath),
+		 "/msdp-peer[peer-ip='%s']/source-ip",
+		 argv[3]->arg);
+	strlcat(msdp_peer_source_xpath, temp_xpath,
+		sizeof(msdp_peer_source_xpath));
 
-	result = pim_msdp_peer_del(pim, peer_addr);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_PEER:
-		vty_out(vty, "%% Peer does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% peer del failed\n");
-	}
+	nb_cli_enqueue_change(vty, msdp_peer_source_xpath, NB_OP_MODIFY,
+			argv[5]->arg);
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_msdp_peer,
@@ -9650,47 +9605,36 @@ DEFUN (no_ip_msdp_peer,
        "Delete MSDP peer\n"
        "peer ip address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_no_msdp_peer_cmd_worker(pim, vty, argv[4]->arg);
-}
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char msdp_peer_xpath[XPATH_MAXLEN];
+	char temp_xpath[XPATH_MAXLEN];
 
-static int ip_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
-						struct vty *vty, const char *mg,
-						const char *mbr)
-{
-	enum pim_msdp_err result;
-	struct in_addr mbr_ip;
-	int ret = CMD_SUCCESS;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = inet_pton(AF_INET, mbr, &mbr_ip);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad member address %s: errno=%d: %s\n", mbr,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(msdp_peer_xpath, sizeof(msdp_peer_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	snprintf(temp_xpath, sizeof(temp_xpath),
+		 "/msdp-peer[peer-ip='%s']",
+		 argv[4]->arg);
 
-	result = pim_msdp_mg_mbr_add(pim, mg, mbr_ip);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_OOM:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Out of memory\n");
-		break;
-	case PIM_MSDP_ERR_MG_MBR_EXISTS:
-		ret = CMD_WARNING;
-		vty_out(vty, "%% mesh-group member exists\n");
-		break;
-	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Only one mesh-group allowed currently\n");
-		break;
-	default:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% member add failed\n");
-	}
+	strlcat(msdp_peer_xpath, temp_xpath, sizeof(msdp_peer_xpath));
 
-	return ret;
+	nb_cli_enqueue_change(vty, msdp_peer_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_msdp_mesh_group_member,
@@ -9703,42 +9647,44 @@ DEFUN (ip_msdp_mesh_group_member,
        "mesh group member\n"
        "peer ip address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_mesh_group_member_cmd_worker(pim, vty, argv[3]->arg,
-						    argv[5]->arg);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char msdp_mesh_group_name_xpath[XPATH_MAXLEN];
+	char msdp_mesh_group_member_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(msdp_mesh_group_name_xpath, sizeof(msdp_mesh_group_name_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
+		sizeof(msdp_mesh_group_name_xpath));
+	snprintf(msdp_mesh_group_member_xpath,
+		 sizeof(msdp_mesh_group_member_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_group_member_xpath, "/msdp-mesh-group/member-ip",
+		sizeof(msdp_mesh_group_member_xpath));
+
+	nb_cli_enqueue_change(vty, msdp_mesh_group_name_xpath, NB_OP_MODIFY,
+			argv[3]->arg);
+	nb_cli_enqueue_change(vty, msdp_mesh_group_member_xpath, NB_OP_CREATE,
+			argv[5]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-static int ip_no_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
-						   struct vty *vty,
-						   const char *mg,
-						   const char *mbr)
-{
-	enum pim_msdp_err result;
-	struct in_addr mbr_ip;
-
-	result = inet_pton(AF_INET, mbr, &mbr_ip);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad member address %s: errno=%d: %s\n", mbr,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_msdp_mg_mbr_del(pim, mg, mbr_ip);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		vty_out(vty, "%% mesh-group does not exist\n");
-		break;
-	case PIM_MSDP_ERR_NO_MG_MBR:
-		vty_out(vty, "%% mesh-group member does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% mesh-group member del failed\n");
-	}
-
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
-}
 DEFUN (no_ip_msdp_mesh_group_member,
        no_ip_msdp_mesh_group_member_cmd,
        "no ip msdp mesh-group WORD member A.B.C.D",
@@ -9750,42 +9696,89 @@ DEFUN (no_ip_msdp_mesh_group_member,
        "mesh group member\n"
        "peer ip address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_no_msdp_mesh_group_member_cmd_worker(pim, vty, argv[4]->arg,
-						       argv[6]->arg);
-}
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char temp_xpath[XPATH_MAXLEN];
+	char mesh_group_xpath[XPATH_MAXLEN];
+	char group_member_xpath[XPATH_MAXLEN];
+	char source_xpath[XPATH_MAXLEN];
+	char mesh_group_name_xpath[XPATH_MAXLEN];
+	const char *mesh_group_name;
+	const struct lyd_node *member_dnode;
 
-static int ip_msdp_mesh_group_source_cmd_worker(struct pim_instance *pim,
-						struct vty *vty, const char *mg,
-						const char *src)
-{
-	enum pim_msdp_err result;
-	struct in_addr src_ip;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = inet_pton(AF_INET, src, &src_ip);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n", src,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
+	snprintf(mesh_group_xpath, sizeof(mesh_group_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(mesh_group_xpath, "/msdp-mesh-group", sizeof(mesh_group_xpath));
+
+	snprintf(group_member_xpath, sizeof(group_member_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	snprintf(temp_xpath, sizeof(temp_xpath),
+		 "/msdp-mesh-group/member-ip[.='%s']", argv[6]->arg);
+	strlcat(group_member_xpath, temp_xpath, sizeof(group_member_xpath));
+
+	snprintf(source_xpath, sizeof(source_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	snprintf(temp_xpath, sizeof(temp_xpath),
+		 "/msdp-mesh-group/source-ip");
+	strlcat(source_xpath, temp_xpath, sizeof(source_xpath));
+
+	snprintf(mesh_group_name_xpath, sizeof(mesh_group_name_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
+		sizeof(mesh_group_name_xpath));
+
+	if (yang_dnode_exists(running_config->dnode, mesh_group_name_xpath)
+			== true) {
+		mesh_group_name = yang_dnode_get_string(running_config->dnode,
+				mesh_group_name_xpath);
+		if (strcmp(mesh_group_name, argv[4]->arg)) {
+			vty_out(vty, "%% mesh-group does not exist\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
 
-	result = pim_msdp_mg_src_add(pim, mg, src_ip);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_OOM:
-		vty_out(vty, "%% Out of memory\n");
-		break;
-	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-		vty_out(vty, "%% Only one mesh-group allowed currently\n");
-		break;
-	default:
-		vty_out(vty, "%% source add failed\n");
+	if (yang_dnode_exists(vty->candidate_config->dnode,
+				group_member_xpath)) {
+		if (!yang_dnode_exists(vty->candidate_config->dnode,
+					source_xpath)) {
+			member_dnode = yang_dnode_get(
+					vty->candidate_config->dnode,
+					group_member_xpath);
+			if (yang_is_last_list_dnode(member_dnode)) {
+				nb_cli_enqueue_change(vty, mesh_group_xpath,
+						NB_OP_DESTROY, NULL);
+				return nb_cli_apply_changes(vty, NULL);
+			}
+			nb_cli_enqueue_change(vty, group_member_xpath,
+					NB_OP_DESTROY, NULL);
+			return nb_cli_apply_changes(vty, NULL);
+		}
+		nb_cli_enqueue_change(vty, group_member_xpath,
+				NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
 	}
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
-}
+	vty_out(vty, "%% mesh-group member does not exist\n");
 
+	return CMD_SUCCESS;
+}
 
 DEFUN (ip_msdp_mesh_group_source,
        ip_msdp_mesh_group_source_cmd,
@@ -9797,48 +9790,42 @@ DEFUN (ip_msdp_mesh_group_source,
        "mesh group local address\n"
        "source ip address for the TCP connection\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_mesh_group_source_cmd_worker(pim, vty, argv[3]->arg,
-						    argv[5]->arg);
-}
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char msdp_mesh_source_ip_xpath[XPATH_MAXLEN];
+	char msdp_mesh_group_name_xpath[XPATH_MAXLEN];
 
-static int ip_no_msdp_mesh_group_source_cmd_worker(struct pim_instance *pim,
-						   struct vty *vty,
-						   const char *mg)
-{
-	enum pim_msdp_err result;
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = pim_msdp_mg_src_del(pim, mg);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		vty_out(vty, "%% mesh-group does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% mesh-group source del failed\n");
-	}
+	snprintf(msdp_mesh_group_name_xpath, sizeof(msdp_mesh_group_name_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
+		sizeof(msdp_mesh_group_name_xpath));
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
-}
+	snprintf(msdp_mesh_source_ip_xpath, sizeof(msdp_mesh_source_ip_xpath),
+		FRR_PIM_AF_XPATH,
+		"frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_source_ip_xpath, "/msdp-mesh-group/source-ip",
+		sizeof(msdp_mesh_source_ip_xpath));
 
-static int ip_no_msdp_mesh_group_cmd_worker(struct pim_instance *pim,
-					    struct vty *vty, const char *mg)
-{
-	enum pim_msdp_err result;
+	nb_cli_enqueue_change(vty, msdp_mesh_group_name_xpath, NB_OP_MODIFY,
+			argv[3]->arg);
+	nb_cli_enqueue_change(vty, msdp_mesh_source_ip_xpath, NB_OP_MODIFY,
+			argv[5]->arg);
 
-	result = pim_msdp_mg_del(pim, mg);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		vty_out(vty, "%% mesh-group does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% mesh-group source del failed\n");
-	}
-
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_msdp_mesh_group_source,
@@ -9852,9 +9839,69 @@ DEFUN (no_ip_msdp_mesh_group_source,
        "mesh group source\n"
        "mesh group local address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char msdp_mesh_xpath[XPATH_MAXLEN];
+	char source_xpath[XPATH_MAXLEN];
+	char group_member_xpath[XPATH_MAXLEN];
+	char mesh_group_name_xpath[XPATH_MAXLEN];
+	const char *mesh_group_name;
 
-	return ip_no_msdp_mesh_group_source_cmd_worker(pim, vty, argv[4]->arg);
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(msdp_mesh_xpath, sizeof(msdp_mesh_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_xpath, "/msdp-mesh-group", sizeof(msdp_mesh_xpath));
+
+	snprintf(source_xpath, sizeof(source_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(source_xpath, "/msdp-mesh-group/source-ip",
+		sizeof(source_xpath));
+
+	snprintf(group_member_xpath,
+		 sizeof(group_member_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(group_member_xpath, "/msdp-mesh-group/member-ip",
+		sizeof(group_member_xpath));
+
+	snprintf(mesh_group_name_xpath, sizeof(mesh_group_name_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
+		sizeof(mesh_group_name_xpath));
+
+	if (yang_dnode_exists(running_config->dnode, mesh_group_name_xpath)
+			== true) {
+		mesh_group_name = yang_dnode_get_string(running_config->dnode,
+				mesh_group_name_xpath);
+		if (strcmp(mesh_group_name, argv[4]->arg)) {
+			vty_out(vty, "%% mesh-group does not exist\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (!yang_dnode_exists(vty->candidate_config->dnode,
+				group_member_xpath)) {
+		nb_cli_enqueue_change(vty, msdp_mesh_xpath, NB_OP_DESTROY,
+				NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+	nb_cli_enqueue_change(vty, source_xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_msdp_mesh_group,
@@ -9866,12 +9913,50 @@ DEFUN (no_ip_msdp_mesh_group,
        "Delete MSDP mesh-group\n"
        "mesh group name")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	const char *mesh_group_name;
+	char xpath[XPATH_MAXLEN];
+	char msdp_mesh_xpath[XPATH_MAXLEN];
 
-	if (argc == 5)
-		return ip_no_msdp_mesh_group_cmd_worker(pim, vty, argv[4]->arg);
-	else
-		return ip_no_msdp_mesh_group_cmd_worker(pim, vty, NULL);
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	if (argc == 5) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_AF_XPATH, "frr-pim:pimd",
+			 "pim", vrfname, "frr-routing:ipv4");
+		strlcat(xpath, "/msdp-mesh-group/mesh-group-name",
+			sizeof(xpath));
+
+		if (yang_dnode_exists(running_config->dnode, xpath) == true) {
+			mesh_group_name =
+				yang_dnode_get_string(running_config->dnode,
+						xpath);
+
+			if (strcmp(mesh_group_name, argv[4]->arg)) {
+				vty_out(vty, "%% mesh-group does not exist\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
+	}
+
+	snprintf(msdp_mesh_xpath, sizeof(msdp_mesh_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(msdp_mesh_xpath, "/msdp-mesh-group", sizeof(msdp_mesh_xpath));
+
+	nb_cli_enqueue_change(vty, msdp_mesh_xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static void print_empty_json_obj(struct vty *vty)
