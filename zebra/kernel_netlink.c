@@ -1051,7 +1051,7 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 {
 	struct nlmsghdr *h;
 	struct sockaddr_nl snl;
-	struct msghdr msg;
+	struct msghdr msg = {};
 	int status, seq;
 	const struct nlsock *nl;
 	struct zebra_dplane_ctx *ctx;
