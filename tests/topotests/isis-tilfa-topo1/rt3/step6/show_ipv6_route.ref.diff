@@ -1,6 +1,42 @@
---- rt3/step5/show_ipv6_route.ref	2020-08-31 22:42:48.839561398 -0300
-+++ rt3/step6/show_ipv6_route.ref	2020-08-31 22:42:48.839561398 -0300
+--- rt3/step5/show_ipv6_route.ref	2020-09-25 17:50:13.840589722 -0300
++++ rt3/step6/show_ipv6_route.ref	2020-09-25 17:51:16.757411035 -0300
 @@ -29,7 +29,7 @@
+           "interfaceName":"eth-rt5-1",
+           "active":true,
+           "labels":[
+-            16041,
++            30041,
+             16011
+           ]
+         },
+@@ -38,7 +38,7 @@
+           "interfaceName":"eth-rt5-2",
+           "active":true,
+           "labels":[
+-            16041,
++            30041,
+             16011
+           ]
+         }
+@@ -75,7 +75,7 @@
+           "interfaceName":"eth-rt5-1",
+           "active":true,
+           "labels":[
+-            16041,
++            30041,
+             16021
+           ]
+         },
+@@ -84,7 +84,7 @@
+           "interfaceName":"eth-rt5-2",
+           "active":true,
+           "labels":[
+-            16041,
++            30041,
+             16021
+           ]
+         }
+@@ -116,7 +116,7 @@
            "interfaceName":"eth-rt5-2",
            "active":true,
            "labels":[
@@ -9,7 +45,7 @@
            ]
          },
          {
-@@ -37,7 +37,7 @@
+@@ -125,7 +125,7 @@
            "interfaceName":"eth-rt5-1",
            "active":true,
            "labels":[
@@ -18,57 +54,30 @@
            ]
          }
        ]
-@@ -73,7 +73,7 @@
-           "interfaceName":"eth-rt5-2",
+@@ -173,7 +173,7 @@
            "active":true,
            "labels":[
--            16041
-+            30041
-           ]
-         },
-         {
-@@ -81,7 +81,7 @@
-           "interfaceName":"eth-rt5-1",
-           "active":true,
-           "labels":[
--            16041
-+            30041
+             16041,
+-            16051
++            30051
            ]
          }
        ]
-@@ -103,7 +103,7 @@
-           "interfaceName":"eth-rt5-2",
-           "active":true,
-           "labels":[
--            16041
-+            30041
-           ]
-         },
-         {
-@@ -112,7 +112,7 @@
-           "interfaceName":"eth-rt5-1",
-           "active":true,
-           "labels":[
--            16041
-+            30041
-           ]
-         },
-         {
-@@ -174,7 +174,7 @@
-           "interfaceName":"eth-rt5-2",
-           "active":true,
+@@ -198,7 +198,7 @@
+             0
+           ],
            "labels":[
 -            16061
 +            30061
            ]
          },
          {
-@@ -183,7 +183,7 @@
-           "interfaceName":"eth-rt5-1",
-           "active":true,
+@@ -210,7 +210,7 @@
+             0
+           ],
            "labels":[
 -            16061
 +            30061
            ]
          }
-       ]
+       ],

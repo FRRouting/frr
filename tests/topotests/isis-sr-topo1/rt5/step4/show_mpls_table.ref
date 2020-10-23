@@ -176,5 +176,28 @@
         "interface":"eth-rt6"
       }
     ]
+  },
+  "16100":{
+    "inLabel":16100,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":18100,
+        "installed":true,
+        "nexthop":"10.0.8.6"
+      }
+    ]
+  },
+  "16101":{
+    "inLabel":16101,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true
+      }
+    ]
   }
 }

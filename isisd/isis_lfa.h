@@ -28,7 +28,11 @@ enum isis_tilfa_sid_type {
 struct isis_tilfa_sid {
 	enum isis_tilfa_sid_type type;
 	union {
-		uint32_t index;
+		struct {
+			uint32_t value;
+			bool remote;
+			uint8_t remote_sysid[ISIS_SYS_ID_LEN];
+		} index;
 		mpls_label_t label;
 	} value;
 };

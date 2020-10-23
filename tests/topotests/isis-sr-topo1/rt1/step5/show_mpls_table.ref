@@ -94,5 +94,41 @@
         "interface":"eth-sw1"
       }
     ]
+  },
+  "16100":{
+    "inLabel":16100,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16100,
+        "installed":true,
+        "nexthop":"10.0.1.2"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17100,
+        "installed":true,
+        "nexthop":"10.0.1.3"
+      }
+    ]
+  },
+  "16101":{
+    "inLabel":16101,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16101,
+        "installed":true,
+        "interface":"eth-sw1"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17101,
+        "installed":true,
+        "interface":"eth-sw1"
+      }
+    ]
   }
 }

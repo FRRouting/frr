@@ -1,5 +1,5 @@
---- rt2/step7/show_mpls_table.ref	2020-08-31 22:42:48.835561429 -0300
-+++ rt2/step8/show_mpls_table.ref	2020-08-31 22:42:48.835561429 -0300
+--- rt2/step7/show_mpls_table.ref	2020-09-25 17:52:00.973988653 -0300
++++ rt2/step8/show_mpls_table.ref	2020-09-25 17:53:18.923007676 -0300
 @@ -7,7 +7,23 @@
          "type":"SR (IS-IS)",
          "outLabel":3,
@@ -100,10 +100,63 @@
        }
      ]
    },
-@@ -83,6 +147,54 @@
+@@ -55,13 +119,26 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "nexthop":"10.0.3.4"
++        "nexthop":"10.0.3.4",
++        "backupIndex":[
++          0
++        ]
+       },
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "nexthop":"10.0.2.4"
++        "nexthop":"10.0.2.4",
++        "backupIndex":[
++          0
++        ]
++      }
++    ],
++    "backupNexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16050,
++        "nexthop":"10.0.1.3"
        }
      ]
    },
+@@ -73,13 +150,74 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "interface":"eth-rt4-2"
++        "interface":"eth-rt4-2",
++        "backupIndex":[
++          0
++        ]
+       },
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
++        "interface":"eth-rt4-1",
++        "backupIndex":[
++          0
++        ]
++      }
++    ],
++    "backupNexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16051,
++        "interface":"eth-sw1"
++      }
++    ]
++  },
 +  "16050":{
 +    "inLabel":16050,
 +    "installed":true,
@@ -142,16 +195,13 @@
 +        "type":"SR (IS-IS)",
 +        "outLabel":16051,
 +        "installed":true,
-+        "interface":"eth-rt4-1"
+         "interface":"eth-rt4-1"
 +      },
 +      {
 +        "type":"SR (IS-IS)",
 +        "outLabel":16051,
 +        "installed":true,
 +        "interface":"eth-sw1"
-+      }
-+    ]
-+  },
-   "16060":{
-     "inLabel":16060,
-     "installed":true,
+       }
+     ]
+   },

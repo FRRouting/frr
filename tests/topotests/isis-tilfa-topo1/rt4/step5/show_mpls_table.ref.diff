@@ -1,135 +1,126 @@
---- rt4/step4/show_mpls_table.ref	2020-08-31 22:42:48.839561398 -0300
-+++ rt4/step5/show_mpls_table.ref	2020-08-31 22:42:48.839561398 -0300
-@@ -1,2 +1,210 @@
- {
-+  "16010":{
-+    "inLabel":16010,
-+    "installed":true,
-+    "nexthops":[
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":16010,
-+        "installed":true,
-+        "nexthop":"10.0.3.2"
-+      },
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":16010,
-+        "installed":true,
-+        "nexthop":"10.0.2.2"
+--- rt4/step4/show_mpls_table.ref	2020-09-25 17:49:00.959639319 -0300
++++ rt4/step5/show_mpls_table.ref	2020-09-25 17:50:11.488559034 -0300
+@@ -7,13 +7,26 @@
+         "type":"SR (IS-IS)",
+         "outLabel":16010,
+         "installed":true,
+-        "nexthop":"10.0.3.2"
++        "nexthop":"10.0.3.2",
++        "backupIndex":[
++          0
++        ]
+       },
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":16010,
+         "installed":true,
+-        "nexthop":"10.0.2.2"
++        "nexthop":"10.0.2.2",
++        "backupIndex":[
++          0
++        ]
 +      }
-+    ]
-+  },
-+  "16011":{
-+    "inLabel":16011,
-+    "installed":true,
-+    "nexthops":[
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":16011,
-+        "installed":true,
-+        "interface":"eth-rt2-2"
-+      },
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":16011,
-+        "installed":true,
-+        "interface":"eth-rt2-1"
-+      }
-+    ]
-+  },
-+  "16020":{
-+    "inLabel":16020,
-+    "installed":true,
-+    "nexthops":[
++    ],
++    "backupNexthops":[
 +      {
 +        "type":"SR (IS-IS)",
 +        "outLabel":3,
-+        "installed":true,
-+        "nexthop":"10.0.3.2"
-+      },
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":3,
-+        "installed":true,
-+        "nexthop":"10.0.2.2"
-+      }
-+    ]
-+  },
-+  "16021":{
-+    "inLabel":16021,
-+    "installed":true,
-+    "nexthops":[
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":3,
-+        "installed":true,
-+        "interface":"eth-rt2-2"
-+      },
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":3,
-+        "installed":true,
-+        "interface":"eth-rt2-1"
-+      }
-+    ]
-+  },
-+  "16030":{
-+    "inLabel":16030,
-+    "installed":true,
-+    "nexthops":[
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":16030,
-+        "installed":true,
-+        "nexthop":"10.0.3.2"
-+      },
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":16030,
-+        "installed":true,
-+        "nexthop":"10.0.2.2"
-+      },
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":16030,
-+        "installed":true,
 +        "nexthop":"10.0.6.5"
+       }
+     ]
+   },
+@@ -25,13 +38,26 @@
+         "type":"SR (IS-IS)",
+         "outLabel":16011,
+         "installed":true,
+-        "interface":"eth-rt2-2"
++        "interface":"eth-rt2-2",
++        "backupIndex":[
++          0
++        ]
+       },
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":16011,
+         "installed":true,
+-        "interface":"eth-rt2-1"
++        "interface":"eth-rt2-1",
++        "backupIndex":[
++          0
++        ]
 +      }
-+    ]
-+  },
-+  "16031":{
-+    "inLabel":16031,
-+    "installed":true,
-+    "nexthops":[
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":16031,
-+        "installed":true,
-+        "interface":"eth-rt2-2"
-+      },
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":16031,
-+        "installed":true,
-+        "interface":"eth-rt2-1"
-+      },
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":16031,
-+        "installed":true,
-+        "interface":"eth-rt5"
-+      }
-+    ]
-+  },
-+  "16050":{
-+    "inLabel":16050,
-+    "installed":true,
-+    "nexthops":[
++    ],
++    "backupNexthops":[
 +      {
 +        "type":"SR (IS-IS)",
 +        "outLabel":3,
-+        "installed":true,
++        "interface":"eth-rt5"
+       }
+     ]
+   },
+@@ -43,13 +69,26 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "nexthop":"10.0.3.2"
++        "nexthop":"10.0.3.2",
++        "backupIndex":[
++          0
++        ]
+       },
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "nexthop":"10.0.2.2"
++        "nexthop":"10.0.2.2",
++        "backupIndex":[
++          0
++        ]
++      }
++    ],
++    "backupNexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16030,
++        "nexthop":"10.0.6.5"
+       }
+     ]
+   },
+@@ -61,13 +100,26 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "interface":"eth-rt2-2"
++        "interface":"eth-rt2-2",
++        "backupIndex":[
++          0
++        ]
+       },
+       {
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "interface":"eth-rt2-1"
++        "interface":"eth-rt2-1",
++        "backupIndex":[
++          0
++        ]
++      }
++    ],
++    "backupNexthops":[
++      {
++        "type":"SR (IS-IS)",
++        "outLabel":16031,
++        "interface":"eth-rt5"
+       }
+     ]
+   },
+@@ -127,7 +179,17 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "nexthop":"10.0.6.5"
 +        "nexthop":"10.0.6.5",
 +        "backupIndex":[
 +          0
@@ -141,17 +132,14 @@
 +        "type":"SR (IS-IS)",
 +        "outLabel":3,
 +        "nexthop":"10.0.7.6"
-+      }
-+    ]
-+  },
-+  "16051":{
-+    "inLabel":16051,
-+    "installed":true,
-+    "nexthops":[
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":3,
-+        "installed":true,
+       }
+     ]
+   },
+@@ -139,7 +201,17 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "interface":"eth-rt5"
 +        "interface":"eth-rt5",
 +        "backupIndex":[
 +          0
@@ -163,17 +151,14 @@
 +        "type":"SR (IS-IS)",
 +        "outLabel":3,
 +        "interface":"eth-rt6"
-+      }
-+    ]
-+  },
-+  "16060":{
-+    "inLabel":16060,
-+    "installed":true,
-+    "nexthops":[
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":3,
-+        "installed":true,
+       }
+     ]
+   },
+@@ -151,7 +223,17 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "nexthop":"10.0.7.6"
 +        "nexthop":"10.0.7.6",
 +        "backupIndex":[
 +          0
@@ -185,17 +170,14 @@
 +        "type":"SR (IS-IS)",
 +        "outLabel":3,
 +        "nexthop":"10.0.6.5"
-+      }
-+    ]
-+  },
-+  "16061":{
-+    "inLabel":16061,
-+    "installed":true,
-+    "nexthops":[
-+      {
-+        "type":"SR (IS-IS)",
-+        "outLabel":3,
-+        "installed":true,
+       }
+     ]
+   },
+@@ -163,7 +245,17 @@
+         "type":"SR (IS-IS)",
+         "outLabel":3,
+         "installed":true,
+-        "interface":"eth-rt6"
 +        "interface":"eth-rt6",
 +        "backupIndex":[
 +          0
@@ -207,7 +189,6 @@
 +        "type":"SR (IS-IS)",
 +        "outLabel":3,
 +        "interface":"eth-rt5"
-+      }
-+    ]
-+  }
- }
+       }
+     ]
+   }

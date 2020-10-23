@@ -138,8 +138,8 @@ struct isis_threeway_adj {
 /* Segment Routing subTLV's as per RFC8667 */
 #define ISIS_SUBTLV_SRGB_FLAG_I		0x80
 #define ISIS_SUBTLV_SRGB_FLAG_V		0x40
-#define IS_SR_IPV4(srgb)               (srgb.flags & ISIS_SUBTLV_SRGB_FLAG_I)
-#define IS_SR_IPV6(srgb)               (srgb.flags & ISIS_SUBTLV_SRGB_FLAG_V)
+#define IS_SR_IPV4(srgb)               ((srgb)->flags & ISIS_SUBTLV_SRGB_FLAG_I)
+#define IS_SR_IPV6(srgb)               ((srgb)->flags & ISIS_SUBTLV_SRGB_FLAG_V)
 #define SUBTLV_SR_BLOCK_SIZE            6
 #define SUBTLV_RANGE_INDEX_SIZE         10
 #define SUBTLV_RANGE_LABEL_SIZE         9

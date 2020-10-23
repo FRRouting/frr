@@ -12,7 +12,7 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt2-2",
+          "interfaceName":"eth-rt2-1",
           "active":true,
           "labels":[
             16011
@@ -21,7 +21,7 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt2-1",
+          "interfaceName":"eth-rt2-2",
           "active":true,
           "labels":[
             16011
@@ -43,7 +43,7 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt2-2",
+          "interfaceName":"eth-rt2-1",
           "active":true,
           "labels":[
             16021
@@ -52,7 +52,7 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt2-1",
+          "interfaceName":"eth-rt2-2",
           "active":true,
           "labels":[
             16021
@@ -74,6 +74,15 @@
         {
           "fib":true,
           "afi":"ipv6",
+          "interfaceName":"eth-rt2-1",
+          "active":true,
+          "labels":[
+            16031
+          ]
+        },
+        {
+          "fib":true,
+          "afi":"ipv6",
           "interfaceName":"eth-rt2-2",
           "active":true,
           "labels":[
@@ -84,15 +93,6 @@
           "fib":true,
           "afi":"ipv6",
           "interfaceName":"eth-rt5",
-          "active":true,
-          "labels":[
-            16031
-          ]
-        },
-        {
-          "fib":true,
-          "afi":"ipv6",
-          "interfaceName":"eth-rt2-1",
           "active":true,
           "labels":[
             16031

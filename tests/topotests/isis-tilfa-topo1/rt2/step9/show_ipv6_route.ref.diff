@@ -1,51 +1,51 @@
---- rt2/step8/show_ipv6_route.ref	2020-08-31 22:42:48.835561429 -0300
-+++ rt2/step9/show_ipv6_route.ref	2020-08-31 22:42:48.835561429 -0300
+--- rt2/step8/show_ipv6_route.ref	2020-09-25 17:53:21.443040633 -0300
++++ rt2/step9/show_ipv6_route.ref	2020-09-25 17:54:39.112056848 -0300
 @@ -29,7 +29,7 @@
            "interfaceName":"eth-rt4-1",
            "active":true,
            "labels":[
--            16051
-+            16501
+-            16051,
++            16501,
+             16011
            ]
          },
-         {
-@@ -37,7 +37,7 @@
+@@ -38,7 +38,7 @@
            "interfaceName":"eth-rt4-2",
            "active":true,
            "labels":[
--            16051
-+            16501
+-            16051,
++            16501,
+             16011
            ]
          }
-       ]
-@@ -73,7 +73,7 @@
+@@ -75,7 +75,7 @@
            "interfaceName":"eth-rt4-1",
            "active":true,
            "labels":[
--            16051
-+            16501
+-            16051,
++            16501,
+             16031
            ]
          },
-         {
-@@ -81,7 +81,7 @@
+@@ -84,7 +84,7 @@
            "interfaceName":"eth-rt4-2",
            "active":true,
            "labels":[
--            16051
-+            16501
+-            16051,
++            16501,
+             16031
            ]
          }
-       ]
-@@ -134,7 +134,7 @@
-           "interfaceName":"eth-rt4-1",
+@@ -132,7 +132,7 @@
+           "interfaceName":"eth-sw1",
            "active":true,
            "labels":[
--            16051
-+            16501
+-            16051,
++            16501,
+             16041
            ]
-         },
-         {
-@@ -143,7 +143,7 @@
+         }
+@@ -155,7 +155,7 @@
            "interfaceName":"eth-sw1",
            "active":true,
            "labels":[
@@ -54,8 +54,17 @@
            ]
          },
          {
-@@ -152,7 +152,7 @@
+@@ -164,7 +164,7 @@
            "interfaceName":"eth-rt4-2",
+           "active":true,
+           "labels":[
+-            16051
++            16501
+           ]
+         },
+         {
+@@ -173,7 +173,7 @@
+           "interfaceName":"eth-rt4-1",
            "active":true,
            "labels":[
 -            16051

@@ -155,16 +155,14 @@ static int isis_zebra_link_params(ZAPI_CALLBACK_ARGS)
 }
 
 enum isis_zebra_nexthop_type {
-	ISIS_ROUTE_NEXTHOP_MAIN = 0,
-	ISIS_ROUTE_NEXTHOP_BACKUP,
-	ISIS_MPLS_NEXTHOP_MAIN,
-	ISIS_MPLS_NEXTHOP_BACKUP,
+	ISIS_NEXTHOP_MAIN = 0,
+	ISIS_NEXTHOP_BACKUP,
 };
 
 static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 				   struct zapi_nexthop zapi_nexthops[],
 				   enum isis_zebra_nexthop_type type,
-				   uint8_t backup_nhs)
+				   bool mpls_lsp, uint8_t backup_nhs)
 {
 	struct isis_nexthop *nexthop;
 	struct listnode *node;
@@ -210,23 +208,18 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 
 		/* Add MPLS label(s). */
 		switch (type) {
-		case ISIS_ROUTE_NEXTHOP_MAIN:
-		case ISIS_ROUTE_NEXTHOP_BACKUP:
-			/*
-			 * SR/TI-LFA labels are installed using separate
-			 * messages.
-			 */
-			break;
-		case ISIS_MPLS_NEXTHOP_MAIN:
-			if (nexthop->sr.label != MPLS_INVALID_LABEL) {
+		case ISIS_NEXTHOP_MAIN:
+			if (nexthop->sr.present) {
 				api_nh->label_num = 1;
 				api_nh->labels[0] = nexthop->sr.label;
-			} else {
-				api_nh->label_num = 1;
-				api_nh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
-			}
+			} else if (mpls_lsp)
+				/*
+				 * Do not use non-SR enabled nexthops to prevent
+				 * broken LSPs from being formed.
+				 */
+				continue;
 			break;
-		case ISIS_MPLS_NEXTHOP_BACKUP:
+		case ISIS_NEXTHOP_BACKUP:
 			if (nexthop->label_stack) {
 				api_nh->label_num =
 					nexthop->label_stack->num_labels;
@@ -234,7 +227,11 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 				       nexthop->label_stack->label,
 				       sizeof(mpls_label_t)
 					       * api_nh->label_num);
-			} else {
+			} else if (mpls_lsp) {
+				/*
+				 * This is necessary because zebra requires
+				 * the nexthops of MPLS LSPs to be labeled.
+				 */
 				api_nh->label_num = 1;
 				api_nh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
 			}
@@ -266,7 +263,7 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 	struct zapi_route api;
 	int count = 0;
 
-	if (zclient->sock < 0)
+	if (zclient->sock < 0 || list_isempty(route_info->nexthops))
 		return;
 
 	memset(&api, 0, sizeof(api));
@@ -286,7 +283,7 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 	if (route_info->backup) {
 		count = isis_zebra_add_nexthops(
 			isis, route_info->backup->nexthops, api.backup_nexthops,
-			ISIS_ROUTE_NEXTHOP_BACKUP, 0);
+			ISIS_NEXTHOP_BACKUP, false, 0);
 		if (count > 0) {
 			SET_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
 			api.backup_nexthop_num = count;
@@ -295,7 +292,7 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 
 	/* Add primary nexthops. */
 	count = isis_zebra_add_nexthops(isis, route_info->nexthops,
-					api.nexthops, ISIS_ROUTE_NEXTHOP_MAIN,
+					api.nexthops, ISIS_NEXTHOP_MAIN, false,
 					count);
 	if (!count)
 		return;
@@ -328,31 +325,39 @@ void isis_zebra_route_del_route(struct isis *isis,
 }
 
 /**
- * Install Prefix-SID in the forwarding plane through Zebra.
+ * Install Prefix-SID label entry in the forwarding plane through Zebra.
  *
- * @param srp	Segment Routing Prefix-SID
+ * @param area		IS-IS area
+ * @param prefix	Route prefix
+ * @param rinfo		Route information
+ * @param psid		Prefix-SID information
  */
-static void isis_zebra_prefix_install_prefix_sid(const struct sr_prefix *srp)
+void isis_zebra_prefix_sid_install(struct isis_area *area,
+				   struct prefix *prefix,
+				   struct isis_route_info *rinfo,
+				   struct isis_sr_psid_info *psid)
 {
-	struct isis *isis = srp->srn->area->isis;
 	struct zapi_labels zl;
-	struct zapi_nexthop *znh;
-	struct interface *ifp;
-	struct isis_route_info *rinfo;
 	int count = 0;
+
+	sr_debug("ISIS-Sr (%s): update label %u for prefix %pFX",
+		 area->area_tag, psid->label, prefix);
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
 	zl.type = ZEBRA_LSP_ISIS_SR;
-	zl.local_label = srp->input_label;
+	zl.local_label = psid->label;
 
-	switch (srp->type) {
-	case ISIS_SR_PREFIX_LOCAL:
+	/* Local routes don't have any nexthop and require special handling. */
+	if (list_isempty(rinfo->nexthops)) {
+		struct zapi_nexthop *znh;
+		struct interface *ifp;
+
 		ifp = if_lookup_by_name("lo", VRF_DEFAULT);
 		if (!ifp) {
 			zlog_warn(
 				"%s: couldn't install Prefix-SID %pFX: loopback interface not found",
-				__func__, &srp->prefix);
+				__func__, prefix);
 			return;
 		}
 
@@ -361,21 +366,12 @@ static void isis_zebra_prefix_install_prefix_sid(const struct sr_prefix *srp)
 		znh->ifindex = ifp->ifindex;
 		znh->label_num = 1;
 		znh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
-		break;
-	case ISIS_SR_PREFIX_REMOTE:
-		/* Update route in the RIB too. */
-		SET_FLAG(zl.message, ZAPI_LABELS_FTN);
-		zl.route.prefix = srp->prefix;
-		zl.route.type = ZEBRA_ROUTE_ISIS;
-		zl.route.instance = 0;
-
-		rinfo = srp->u.remote.rinfo;
-
+	} else {
 		/* Add backup nexthops first. */
 		if (rinfo->backup) {
 			count = isis_zebra_add_nexthops(
-				isis, rinfo->backup->nexthops,
-				zl.backup_nexthops, ISIS_MPLS_NEXTHOP_BACKUP,
+				area->isis, rinfo->backup->nexthops,
+				zl.backup_nexthops, ISIS_NEXTHOP_BACKUP, true,
 				0);
 			if (count > 0) {
 				SET_FLAG(zl.message, ZAPI_LABELS_HAS_BACKUPS);
@@ -384,13 +380,12 @@ static void isis_zebra_prefix_install_prefix_sid(const struct sr_prefix *srp)
 		}
 
 		/* Add primary nexthops. */
-		count = isis_zebra_add_nexthops(isis, rinfo->nexthops,
-						zl.nexthops,
-						ISIS_MPLS_NEXTHOP_MAIN, count);
+		count = isis_zebra_add_nexthops(area->isis, rinfo->nexthops,
+						zl.nexthops, ISIS_NEXTHOP_MAIN,
+						true, count);
 		if (!count)
 			return;
 		zl.nexthop_num = count;
-		break;
 	}
 
 	/* Send message to zebra. */
@@ -398,55 +393,30 @@ static void isis_zebra_prefix_install_prefix_sid(const struct sr_prefix *srp)
 }
 
 /**
- * Uninstall Prefix-SID from the forwarding plane through Zebra.
+ * Uninstall Prefix-SID label entry from the forwarding plane through Zebra.
  *
- * @param srp	Segment Routing Prefix-SID
+ * @param area		IS-IS area
+ * @param prefix	Route prefix
+ * @param rinfo		Route information
+ * @param psid		Prefix-SID information
  */
-static void isis_zebra_uninstall_prefix_sid(const struct sr_prefix *srp)
+void isis_zebra_prefix_sid_uninstall(struct isis_area *area,
+				     struct prefix *prefix,
+				     struct isis_route_info *rinfo,
+				     struct isis_sr_psid_info *psid)
 {
 	struct zapi_labels zl;
+
+	sr_debug("ISIS-Sr (%s): delete label %u for prefix %pFX",
+		 area->area_tag, psid->label, prefix);
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
 	zl.type = ZEBRA_LSP_ISIS_SR;
-	zl.local_label = srp->input_label;
-
-	if (srp->type == ISIS_SR_PREFIX_REMOTE) {
-		/* Update route in the RIB too. */
-		SET_FLAG(zl.message, ZAPI_LABELS_FTN);
-		zl.route.prefix = srp->prefix;
-		zl.route.type = ZEBRA_ROUTE_ISIS;
-		zl.route.instance = 0;
-	}
+	zl.local_label = psid->label;
 
 	/* Send message to zebra. */
 	(void)zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_DELETE, &zl);
-}
-
-/**
- * Send Prefix-SID to ZEBRA for installation or deletion.
- *
- * @param cmd	ZEBRA_MPLS_LABELS_REPLACE or ZEBRA_ROUTE_DELETE
- * @param srp	Segment Routing Prefix-SID
- */
-void isis_zebra_send_prefix_sid(int cmd, const struct sr_prefix *srp)
-{
-
-	if (cmd != ZEBRA_MPLS_LABELS_REPLACE
-	    && cmd != ZEBRA_MPLS_LABELS_DELETE) {
-		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong ZEBRA command",
-			  __func__);
-		return;
-	}
-
-	sr_debug("  |- %s label %u for prefix %pFX",
-		 cmd == ZEBRA_MPLS_LABELS_REPLACE ? "Update" : "Delete",
-		 srp->input_label, &srp->prefix);
-
-	if (cmd == ZEBRA_MPLS_LABELS_REPLACE)
-		isis_zebra_prefix_install_prefix_sid(srp);
-	else
-		isis_zebra_uninstall_prefix_sid(srp);
 }
 
 /**
@@ -490,7 +460,7 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 
 		count = isis_zebra_add_nexthops(isis, sra->backup_nexthops,
 						zl.backup_nexthops,
-						ISIS_MPLS_NEXTHOP_BACKUP, 0);
+						ISIS_NEXTHOP_BACKUP, true, 0);
 		if (count > 0) {
 			SET_FLAG(zl.message, ZAPI_LABELS_HAS_BACKUPS);
 			zl.backup_nexthop_num = count;

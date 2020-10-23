@@ -164,5 +164,41 @@
         "interface":"eth-rt5-1"
       }
     ]
+  },
+  "17100":{
+    "inLabel":17100,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16100,
+        "installed":true,
+        "nexthop":"10.0.5.5"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16100,
+        "installed":true,
+        "nexthop":"10.0.4.5"
+      }
+    ]
+  },
+  "17101":{
+    "inLabel":17101,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16101,
+        "installed":true,
+        "interface":"eth-rt5-2"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16101,
+        "installed":true,
+        "interface":"eth-rt5-1"
+      }
+    ]
   }
 }

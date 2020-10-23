@@ -14,14 +14,20 @@
           "ip":"10.0.7.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
-          "active":true
+          "active":true,
+          "labels":[
+            16010
+          ]
         },
         {
           "fib":true,
           "ip":"10.0.8.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
-          "active":true
+          "active":true,
+          "labels":[
+            16010
+          ]
         }
       ]
     }
@@ -41,7 +47,10 @@
           "ip":"10.0.7.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
-          "active":true
+          "active":true,
+          "labels":[
+            16020
+          ]
         }
       ]
     }
@@ -61,7 +70,10 @@
           "ip":"10.0.8.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
-          "active":true
+          "active":true,
+          "labels":[
+            16030
+          ]
         }
       ]
     }
@@ -81,7 +93,10 @@
           "ip":"10.0.7.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
-          "active":true
+          "active":true,
+          "labels":[
+            16040
+          ]
         }
       ]
     }
@@ -101,7 +116,10 @@
           "ip":"10.0.8.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
-          "active":true
+          "active":true,
+          "labels":[
+            16050
+          ]
         }
       ]
     }
@@ -259,6 +277,39 @@
           "ip":"10.0.8.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5"
+        }
+      ]
+    }
+  ],
+  "10.10.10.10\/32":[
+    {
+      "prefix":"10.10.10.10\/32",
+      "protocol":"isis",
+      "selected":true,
+      "destSelected":true,
+      "distance":115,
+      "metric":20,
+      "installed":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "ip":"10.0.7.4",
+          "afi":"ipv4",
+          "interfaceName":"eth-rt4",
+          "active":true,
+          "labels":[
+            16100
+          ]
+        },
+        {
+          "fib":true,
+          "ip":"10.0.8.5",
+          "afi":"ipv4",
+          "interfaceName":"eth-rt5",
+          "active":true,
+          "labels":[
+            16100
+          ]
         }
       ]
     }

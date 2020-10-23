@@ -29,7 +29,8 @@
           "interfaceName":"eth-rt4-1",
           "active":true,
           "labels":[
-            16051
+            16051,
+            16011
           ]
         },
         {
@@ -37,7 +38,8 @@
           "interfaceName":"eth-rt4-2",
           "active":true,
           "labels":[
-            16051
+            16051,
+            16011
           ]
         }
       ]
@@ -73,7 +75,8 @@
           "interfaceName":"eth-rt4-1",
           "active":true,
           "labels":[
-            16051
+            16051,
+            16031
           ]
         },
         {
@@ -81,7 +84,8 @@
           "interfaceName":"eth-rt4-2",
           "active":true,
           "labels":[
-            16051
+            16051,
+            16031
           ]
         }
       ]
@@ -100,8 +104,11 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt4-1",
+          "interfaceName":"eth-rt4-2",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             3
           ]
@@ -109,10 +116,24 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt4-2",
+          "interfaceName":"eth-rt4-1",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             3
+          ]
+        }
+      ],
+      "backupNexthops":[
+        {
+          "afi":"ipv6",
+          "interfaceName":"eth-sw1",
+          "active":true,
+          "labels":[
+            16051,
+            16041
           ]
         }
       ]
@@ -131,15 +152,6 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt4-1",
-          "active":true,
-          "labels":[
-            16051
-          ]
-        },
-        {
-          "fib":true,
-          "afi":"ipv6",
           "interfaceName":"eth-sw1",
           "active":true,
           "labels":[
@@ -150,6 +162,15 @@
           "fib":true,
           "afi":"ipv6",
           "interfaceName":"eth-rt4-2",
+          "active":true,
+          "labels":[
+            16051
+          ]
+        },
+        {
+          "fib":true,
+          "afi":"ipv6",
+          "interfaceName":"eth-rt4-1",
           "active":true,
           "labels":[
             16051
@@ -171,8 +192,11 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt4-1",
+          "interfaceName":"eth-rt4-2",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             16061
           ]
@@ -180,11 +204,21 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt4-2",
+          "interfaceName":"eth-rt4-1",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             16061
           ]
+        }
+      ],
+      "backupNexthops":[
+        {
+          "afi":"ipv6",
+          "interfaceName":"eth-sw1",
+          "active":true
         }
       ]
     }

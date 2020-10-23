@@ -61,10 +61,7 @@
           "ip":"10.0.8.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
-          "active":true,
-          "labels":[
-            3
-          ]
+          "active":true
         }
       ]
     }
@@ -98,10 +95,7 @@
           "ip":"10.0.7.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
-          "active":true,
-          "labels":[
-            3
-          ]
+          "active":true
         }
       ]
     }
@@ -135,10 +129,7 @@
           "ip":"10.0.8.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
-          "active":true,
-          "labels":[
-            3
-          ]
+          "active":true
         }
       ]
     }
@@ -172,10 +163,7 @@
           "ip":"10.0.7.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
-          "active":true,
-          "labels":[
-            3
-          ]
+          "active":true
         }
       ]
     }

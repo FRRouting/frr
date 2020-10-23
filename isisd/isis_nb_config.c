@@ -1838,6 +1838,23 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_mo
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid/n-flag-clear
+ */
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg->n_flag_clear = yang_dnode_get_bool(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)

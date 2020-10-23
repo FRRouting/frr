@@ -1,25 +1,32 @@
---- rt3/step6/show_ip_route.ref	2020-08-31 22:42:48.839561398 -0300
-+++ rt3/step7/show_ip_route.ref	2020-08-31 22:42:48.839561398 -0300
-@@ -151,20 +151,14 @@
-           "ip":"10.0.4.5",
-           "afi":"ipv4",
-           "interfaceName":"eth-rt5-1",
--          "active":true,
+--- rt3/step6/show_ip_route.ref	2020-09-25 17:51:15.521394894 -0300
++++ rt3/step7/show_ip_route.ref	2020-09-25 17:52:02.414007470 -0300
+@@ -158,9 +158,6 @@
+           "active":true,
+           "backupIndex":[
+             0
+-          ],
 -          "labels":[
 -            3
--          ]
-+          "active":true
+           ]
          },
          {
-           "fib":true,
-           "ip":"10.0.5.5",
-           "afi":"ipv4",
-           "interfaceName":"eth-rt5-2",
--          "active":true,
+@@ -171,9 +168,6 @@
+           "active":true,
+           "backupIndex":[
+             0
+-          ],
 -          "labels":[
 -            3
--          ]
-+          "active":true
+           ]
+         }
+       ],
+@@ -184,8 +178,7 @@
+           "interfaceName":"eth-sw1",
+           "active":true,
+           "labels":[
+-            16040,
+-            30050
++            16040
+           ]
          }
        ]
-     }

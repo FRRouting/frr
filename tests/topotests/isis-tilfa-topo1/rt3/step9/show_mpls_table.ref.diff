@@ -1,6 +1,6 @@
---- rt3/step8/show_mpls_table.ref	2020-08-31 22:42:48.839561398 -0300
-+++ rt3/step9/show_mpls_table.ref	2020-08-31 22:42:48.839561398 -0300
-@@ -159,73 +159,73 @@
+--- rt3/step8/show_mpls_table.ref	2020-09-25 17:53:19.135010448 -0300
++++ rt3/step9/show_mpls_table.ref	2020-09-25 17:54:36.852027268 -0300
+@@ -159,13 +159,13 @@
        }
      ]
    },
@@ -15,14 +15,24 @@
 -        "outLabel":3,
 +        "outLabel":30060,
          "installed":true,
-         "nexthop":"10.0.4.5"
+         "nexthop":"10.0.5.5",
+         "backupIndex":[
+@@ -174,7 +174,7 @@
        },
        {
          "type":"SR (IS-IS)",
 -        "outLabel":3,
 +        "outLabel":30060,
          "installed":true,
-         "nexthop":"10.0.5.5"
+         "nexthop":"10.0.4.5",
+         "backupIndex":[
+@@ -185,18 +185,18 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16040,
++        "outLabel":3,
+         "nexthop":"10.0.1.2"
        }
      ]
    },
@@ -37,14 +47,24 @@
 -        "outLabel":3,
 +        "outLabel":30061,
          "installed":true,
-         "interface":"eth-rt5-1"
+         "interface":"eth-rt5-2",
+         "backupIndex":[
+@@ -205,7 +205,7 @@
        },
        {
          "type":"SR (IS-IS)",
 -        "outLabel":3,
 +        "outLabel":30061,
          "installed":true,
-         "interface":"eth-rt5-2"
+         "interface":"eth-rt5-1",
+         "backupIndex":[
+@@ -216,18 +216,18 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16041,
++        "outLabel":3,
+         "interface":"eth-sw1"
        }
      ]
    },
@@ -59,14 +79,24 @@
 -        "outLabel":30060,
 +        "outLabel":3,
          "installed":true,
-         "nexthop":"10.0.4.5"
+         "nexthop":"10.0.5.5",
+         "backupIndex":[
+@@ -236,7 +236,7 @@
        },
        {
          "type":"SR (IS-IS)",
 -        "outLabel":30060,
 +        "outLabel":3,
          "installed":true,
-         "nexthop":"10.0.5.5"
+         "nexthop":"10.0.4.5",
+         "backupIndex":[
+@@ -247,18 +247,18 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":3,
++        "outLabel":16040,
+         "nexthop":"10.0.1.2"
        }
      ]
    },
@@ -81,12 +111,23 @@
 -        "outLabel":30061,
 +        "outLabel":3,
          "installed":true,
-         "interface":"eth-rt5-1"
+         "interface":"eth-rt5-2",
+         "backupIndex":[
+@@ -267,7 +267,7 @@
        },
        {
          "type":"SR (IS-IS)",
 -        "outLabel":30061,
 +        "outLabel":3,
          "installed":true,
-         "interface":"eth-rt5-2"
+         "interface":"eth-rt5-1",
+         "backupIndex":[
+@@ -278,7 +278,7 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":3,
++        "outLabel":16041,
+         "interface":"eth-sw1"
        }
+     ]

@@ -78,7 +78,7 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt5-2",
+          "interfaceName":"eth-rt5-1",
           "active":true,
           "labels":[
             16051
@@ -87,10 +87,41 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt5-1",
+          "interfaceName":"eth-rt5-2",
           "active":true,
           "labels":[
             16051
+          ]
+        }
+      ]
+    }
+  ],
+  "2001:db8:1000::10\/128":[
+    {
+      "prefix":"2001:db8:1000::10\/128",
+      "protocol":"isis",
+      "selected":true,
+      "destSelected":true,
+      "distance":115,
+      "metric":20,
+      "installed":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "afi":"ipv6",
+          "interfaceName":"eth-rt5-1",
+          "active":true,
+          "labels":[
+            16101
+          ]
+        },
+        {
+          "fib":true,
+          "afi":"ipv6",
+          "interfaceName":"eth-rt5-2",
+          "active":true,
+          "labels":[
+            16101
           ]
         }
       ]

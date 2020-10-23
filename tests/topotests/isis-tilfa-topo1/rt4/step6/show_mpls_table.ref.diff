@@ -1,6 +1,24 @@
---- rt4/step5/show_mpls_table.ref	2020-08-31 22:42:48.839561398 -0300
-+++ rt4/step6/show_mpls_table.ref	2020-08-31 22:42:48.839561398 -0300
-@@ -89,7 +89,7 @@
+--- rt4/step5/show_mpls_table.ref	2020-09-25 17:50:11.488559034 -0300
++++ rt4/step6/show_mpls_table.ref	2020-09-25 17:51:14.481381312 -0300
+@@ -87,7 +87,7 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16030,
++        "outLabel":30030,
+         "nexthop":"10.0.6.5"
+       }
+     ]
+@@ -118,7 +118,7 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16031,
++        "outLabel":30031,
+         "interface":"eth-rt5"
+       }
+     ]
+@@ -141,7 +141,7 @@
        },
        {
          "type":"SR (IS-IS)",
@@ -9,7 +27,7 @@
          "installed":true,
          "nexthop":"10.0.6.5"
        }
-@@ -113,7 +113,7 @@
+@@ -165,7 +165,7 @@
        },
        {
          "type":"SR (IS-IS)",

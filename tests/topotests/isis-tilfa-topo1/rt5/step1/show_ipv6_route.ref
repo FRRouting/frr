@@ -14,6 +14,9 @@
           "afi":"ipv6",
           "interfaceName":"eth-rt3-1",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             16011
           ]
@@ -23,9 +26,19 @@
           "afi":"ipv6",
           "interfaceName":"eth-rt3-2",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             16011
           ]
+        }
+      ],
+      "backupNexthops":[
+        {
+          "afi":"ipv6",
+          "interfaceName":"eth-rt4",
+          "active":true
         }
       ]
     }
@@ -43,7 +56,7 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt3-1",
+          "interfaceName":"eth-rt4",
           "active":true,
           "labels":[
             16021
@@ -52,7 +65,7 @@
         {
           "fib":true,
           "afi":"ipv6",
-          "interfaceName":"eth-rt4",
+          "interfaceName":"eth-rt3-1",
           "active":true,
           "labels":[
             16021
@@ -85,6 +98,9 @@
           "afi":"ipv6",
           "interfaceName":"eth-rt3-1",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             3
           ]
@@ -94,8 +110,22 @@
           "afi":"ipv6",
           "interfaceName":"eth-rt3-2",
           "active":true,
+          "backupIndex":[
+            0
+          ],
           "labels":[
             3
+          ]
+        }
+      ],
+      "backupNexthops":[
+        {
+          "afi":"ipv6",
+          "interfaceName":"eth-rt4",
+          "active":true,
+          "labels":[
+            16021,
+            16031
           ]
         }
       ]
@@ -128,10 +158,7 @@
         {
           "afi":"ipv6",
           "interfaceName":"eth-rt6",
-          "active":true,
-          "labels":[
-            3
-          ]
+          "active":true
         }
       ]
     }
@@ -163,10 +190,7 @@
         {
           "afi":"ipv6",
           "interfaceName":"eth-rt4",
-          "active":true,
-          "labels":[
-            3
-          ]
+          "active":true
         }
       ]
     }

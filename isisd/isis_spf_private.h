@@ -52,6 +52,7 @@ struct prefix_pair {
 
 struct isis_vertex_adj {
 	struct isis_spf_adj *sadj;
+	struct isis_sr_psid_info sr;
 	struct mpls_label_stack *label_stack;
 };
 
@@ -62,7 +63,10 @@ struct isis_vertex {
 	enum vertextype type;
 	union {
 		uint8_t id[ISIS_SYS_ID_LEN + 1];
-		struct prefix_pair ip;
+		struct {
+			struct prefix_pair p;
+			struct isis_sr_psid_info sr;
+		} ip;
 	} N;
 	uint32_t d_N;	  /* d(N) Distance from this IS      */
 	uint16_t depth;	/* The depth in the imaginary tree */
@@ -91,8 +95,8 @@ static unsigned isis_vertex_queue_hash_key(const void *vp)
 	if (VTYPE_IP(vertex->type)) {
 		uint32_t key;
 
-		key = prefix_hash_key(&vertex->N.ip.dest);
-		key = jhash_1word(prefix_hash_key(&vertex->N.ip.src), key);
+		key = prefix_hash_key(&vertex->N.ip.p.dest);
+		key = jhash_1word(prefix_hash_key(&vertex->N.ip.p.src), key);
 		return key;
 	}
 
@@ -108,11 +112,12 @@ static bool isis_vertex_queue_hash_cmp(const void *a, const void *b)
 		return false;
 
 	if (VTYPE_IP(va->type)) {
-		if (prefix_cmp(&va->N.ip.dest, &vb->N.ip.dest))
+		if (prefix_cmp(&va->N.ip.p.dest, &vb->N.ip.p.dest))
 			return false;
 
-		return prefix_cmp((const struct prefix *)&va->N.ip.src,
-				  (const struct prefix *)&vb->N.ip.src) == 0;
+		return prefix_cmp((const struct prefix *)&va->N.ip.p.src,
+				  (const struct prefix *)&vb->N.ip.p.src)
+		       == 0;
 	}
 
 	return memcmp(va->N.id, vb->N.id, ISIS_SYS_ID_LEN + 1) == 0;
@@ -351,7 +356,7 @@ static void isis_vertex_id_init(struct isis_vertex *vertex, const void *id,
 	if (VTYPE_IS(vtype) || VTYPE_ES(vtype)) {
 		memcpy(vertex->N.id, id, ISIS_SYS_ID_LEN + 1);
 	} else if (VTYPE_IP(vtype)) {
-		memcpy(&vertex->N.ip, id, sizeof(vertex->N.ip));
+		memcpy(&vertex->N.ip.p, id, sizeof(vertex->N.ip.p));
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT, "Unknown Vertex Type");
 	}
