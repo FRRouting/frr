@@ -6717,6 +6717,11 @@ int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 	/* Check if handling a regular peer and skip peer-group mechanics. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		/* Process peer route updates. */
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug("%s: Send normal update to %s for %s",
+				   __func__, peer->host,
+				   get_afi_safi_str(afi, safi, false));
+
 		peer_on_policy_change(peer, afi, safi, 1);
 		return 0;
 	}
@@ -6736,6 +6741,11 @@ int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 			condition_name, condition_map, condition, false);
 
 		/* Process peer route updates. */
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug("%s: Send normal update to %s for %s ",
+				   __func__, member->host,
+				   get_afi_safi_str(afi, safi, false));
+
 		peer_on_policy_change(member, afi, safi, 1);
 	}
 

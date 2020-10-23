@@ -681,7 +681,7 @@ struct bgp {
 
 	/* Process Queue for handling routes */
 	struct work_queue *process_queue;
-	
+
 	/* BGP Conditional advertisement */
 	uint32_t condition_filter_count;
 	struct thread *t_condition_check;

@@ -215,6 +215,9 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 				}
 			}
 		}
+
+		/* Notify BGP Conditional advertisement */
+		bgp_notify_conditional_adv_scanner(subgrp);
 	}
 
 	return UPDWALK_CONTINUE;

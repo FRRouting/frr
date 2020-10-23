@@ -671,6 +671,8 @@ extern void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 				  struct bgp_path_info *path, int display,
 				  json_object *json);
 
+extern void bgp_notify_conditional_adv_scanner(struct update_subgroup *subgrp);
+
 extern void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					       struct bgp_path_info *selected,
 					       struct bgp_dest *dest,

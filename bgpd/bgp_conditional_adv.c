@@ -50,17 +50,28 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 			ret = route_map_apply(rmap, dest_p, RMAP_BGP, &path);
 			if (ret != RMAP_PERMITMATCH)
 				bgp_attr_flush(&dummy_attr);
-			else
+			else {
+				if (BGP_DEBUG(update, UPDATE_OUT))
+					zlog_debug(
+						"%s: Condition map routes present in BGP table",
+						__func__);
+
 				return ret;
+			}
 		}
 	}
+
+	if (BGP_DEBUG(update, UPDATE_OUT))
+		zlog_debug("%s: Condition map routes not present in BGP table",
+			   __func__);
+
 	return ret;
 }
 
 static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				       safi_t safi, struct bgp_table *table,
 				       struct route_map *rmap,
-				       enum update_type advertise)
+				       enum update_type update_type)
 {
 	int addpath_capable;
 	struct bgp_dest *dest;
@@ -80,6 +91,11 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 	/* Ignore if subgroup doesn't exist (implies AF is not negotiated) */
 	if (!subgrp)
 		return;
+
+	if (BGP_DEBUG(update, UPDATE_OUT))
+		zlog_debug("%s: %s routes to/from %s for %s", __func__,
+			   update_type == ADVERTISE ? "Advertise" : "Withdraw",
+			   peer->host, get_afi_safi_str(afi, safi, false));
 
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
@@ -115,7 +131,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				 * on same peer, routes in advertise-map may not
 				 * be advertised as expected.
 				 */
-				if ((advertise == ADVERTISE)
+				if ((update_type == ADVERTISE)
 				    && subgroup_announce_check(dest, pi, subgrp,
 							       dest_p, &attr,
 							       true))
@@ -165,7 +181,6 @@ static int bgp_conditional_adv_timer(struct thread *t)
 	bgp = THREAD_ARG(t);
 	assert(bgp);
 
-	bgp->t_condition_check = NULL;
 	thread_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
 			 CONDITIONAL_ROUTES_POLL_TIME, &bgp->t_condition_check);
 
@@ -211,6 +226,19 @@ static int bgp_conditional_adv_timer(struct thread *t)
 			    && !peer->advmap_table_change)
 				continue;
 
+			if (BGP_DEBUG(update, UPDATE_OUT)) {
+				if (peer->advmap_table_change)
+					zlog_debug(
+						"%s: %s - routes changed in BGP table.",
+						__func__, peer->host);
+				if (peer->advmap_config_change[afi][safi])
+					zlog_debug(
+						"%s: %s for %s - advertise/condition map configuration is changed.",
+						__func__, peer->host,
+						get_afi_safi_str(afi, safi,
+								 false));
+			}
+
 			/* cmap (route-map attached to exist-map or
 			 * non-exist-map) map validation
 			 */
@@ -235,6 +263,14 @@ static int bgp_conditional_adv_timer(struct thread *t)
 			 * or route-map filter configuration on the same peer.
 			 */
 			if (peer->advmap_config_change[afi][safi]) {
+
+				if (BGP_DEBUG(update, UPDATE_OUT))
+					zlog_debug(
+						"%s: Configuration is changed on peer %s for %s, send the normal update first.",
+						__func__, peer->host,
+						get_afi_safi_str(afi, safi,
+								 false));
+
 				paf = peer_af_find(peer, afi, safi);
 				if (paf) {
 					update_subgroup_split_peer(paf, NULL);
@@ -271,8 +307,13 @@ void bgp_conditional_adv_enable(struct peer *peer, afi_t afi, safi_t safi)
 	/* advertise-map is already configured on atleast one of its
 	 * neighbors (AFI/SAFI). So just increment the counter.
 	 */
-	if (++bgp->condition_filter_count > 1)
+	if (++bgp->condition_filter_count > 1) {
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug("%s: condition_filter_count %d", __func__,
+				   bgp->condition_filter_count);
+
 		return;
+	}
 
 	/* Register for conditional routes polling timer */
 	thread_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
@@ -289,8 +330,13 @@ void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
 	 * it is configured on more than one neighbor(AFI/SAFI).
 	 * So there's nothing to do except decrementing the counter.
 	 */
-	if (--bgp->condition_filter_count != 0)
+	if (--bgp->condition_filter_count != 0) {
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug("%s: condition_filter_count %d", __func__,
+				   bgp->condition_filter_count);
+
 		return;
+	}
 
 	/* Last filter removed. So cancel conditional routes polling thread. */
 	THREAD_OFF(bgp->t_condition_check);

@@ -38,6 +38,7 @@ Conditional advertisement
 -------------------------
 TC11: R3 BGP convergence, without advertise-map configuration.
       All routes are advertised to R3.
+
 TC21: exist-map routes present in R2's BGP table.
       advertise-map routes present in R2's BGP table are advertised to R3.
 TC22: exist-map routes not present in R2's BGP table
@@ -46,13 +47,14 @@ TC31: non-exist-map routes not present in R2's BGP table
       advertise-map routes present in R2's BGP table are advertised to R3.
 TC32: non-exist-map routes present in R2's BGP table
       advertise-map routes present in R2's BGP table are withdrawn from R3.
+
 TC41: non-exist-map route-map configuration removed in R2.
       advertise-map routes present in R2's BGP table are advertised to R3.
 TC42: exist-map route-map configuration removed in R2
       advertise-map routes present in R2's BGP table are withdrawn from R3.
 
-Conditional advertisement along with Route-map Filter
------------------------------------------------------
+Conditional advertisement(received routes) along with Route-map Filter
+----------------------------------------------------------------------
 TC51: exist-map routes present in R2's BGP table, with route-map filter.
       All routes are withdrawn from R3 except advertise-map routes.
 TC52: exist-map routes present in R2's BGP table, without route-map filter.
@@ -61,6 +63,7 @@ TC53: non-exist-map routes present in R2's BGP table, with route-map filter.
       All routes are withdrawn from R3 including advertise-map routes.
 TC54: non-exist-map routes present in R2's BGP table, without route-map filter.
       All routes are advertised to R3 except advertise-map routes.
+
 TC61: exist-map routes not present in R2's BGP table, with route-map filter.
       All routes are withdrawn from R3 including advertise-map routes.
 TC62: exist-map routes not present in R2's BGP table, without route-map filter.
@@ -70,6 +73,34 @@ TC63: non-exist-map routes not present in R2's BGP table, with route-map filter.
 TC64: non-exist-map routes not present in R2's BGP table, without route-map filter.
       All routes are advertised to R3 including advertise-map routes.
 
+Conditional advertisement(attached routes) along with Route-map Filter
+-----------------------------------------------------------------
+TC71: exist-map routes present in R2's BGP table, with route-map filter.
+      All routes are withdrawn from R3 except advertise-map routes.
+TC72: exist-map routes present in R2's BGP table, without route-map filter.
+      All routes are advertised to R3 including advertise-map routes.
+TC73: non-exist-map routes present in R2's BGP table, with route-map filter.
+      All routes are withdrawn from R3 including advertise-map routes.
+TC74: non-exist-map routes present in R2's BGP table, without route-map filter.
+      All routes are advertised to R3 except advertise-map routes.
+
+TC81: exist-map routes not present in R2's BGP table, with route-map filter.
+      All routes are withdrawn from R3 including advertise-map routes.
+TC82: exist-map routes not present in R2's BGP table, without route-map filter.
+      All routes are advertised to R3 except advertise-map routes.
+TC83: non-exist-map routes not present in R2's BGP table, with route-map filter.
+      All routes are withdrawn from R3 except advertise-map routes.
+TC84: non-exist-map routes not present in R2's BGP table, without route-map filter.
+      All routes are advertised to R3 including advertise-map routes.
+
+TC91: exist-map routes present in R2's BGP table, with route-map filter and network.
+      All routes are advertised to R3 including advertise-map routes.
+TC92: exist-map routes present in R2's BGP table, with route-map filter and no network.
+      All routes are advertised to R3 except advertise-map routes.
+TC93: non-exist-map routes not present in R2's BGP table, with route-map filter and network.
+      All routes are advertised to R3 including advertise-map routes.
+TC94: non-exist-map routes not present in R2's BGP table, with route-map filter and no network.
+      All routes are advertised to R3 except advertise-map routes.
 
 i.e.
 +----------------+-------------------------+------------------------+
@@ -191,6 +222,7 @@ def test_bgp_conditional_advertisement():
             "192.0.2.1/32": [{"protocol": "bgp"}],
             "192.0.2.5/32": [{"protocol": "bgp"}],
             "10.139.224.0/20": [{"protocol": "bgp"}],
+            "203.0.113.1/32": [{"protocol": "bgp"}],
         }
         return topotest.json_cmp(output, expected)
 
@@ -201,9 +233,12 @@ def test_bgp_conditional_advertisement():
             "192.0.2.1/32": None,
             "192.0.2.5/32": None,
             "10.139.224.0/20": None,
+            "203.0.113.1/32": None,
         }
         return topotest.json_cmp(output, expected)
 
+    # BGP conditional advertisement with route-maps
+    # EXIST-MAP, ADV-MAP-1 and RMAP-1
     def _exist_map_routes_present(router):
         return _all_routes_advertised(router)
 
@@ -214,6 +249,7 @@ def test_bgp_conditional_advertisement():
             "192.0.2.1/32": None,
             "192.0.2.5/32": [{"protocol": "bgp"}],
             "10.139.224.0/20": None,
+            "203.0.113.1/32": [{"protocol": "bgp"}],
         }
         return topotest.json_cmp(output, expected)
 
@@ -224,6 +260,7 @@ def test_bgp_conditional_advertisement():
             "192.0.2.1/32": None,
             "192.0.2.5/32": [{"protocol": "bgp"}],
             "10.139.224.0/20": None,
+            "203.0.113.1/32": [{"protocol": "bgp"}],
         }
         return topotest.json_cmp(output, expected)
 
@@ -234,6 +271,7 @@ def test_bgp_conditional_advertisement():
             "192.0.2.1/32": [{"protocol": "bgp"}],
             "192.0.2.5/32": [{"protocol": "bgp"}],
             "10.139.224.0/20": [{"protocol": "bgp"}],
+            "203.0.113.1/32": [{"protocol": "bgp"}],
         }
         return topotest.json_cmp(output, expected)
 
@@ -250,6 +288,7 @@ def test_bgp_conditional_advertisement():
             "192.0.2.1/32": [{"protocol": "bgp"}],
             "192.0.2.5/32": None,
             "10.139.224.0/20": [{"protocol": "bgp"}],
+            "203.0.113.1/32": None,
         }
         return topotest.json_cmp(output, expected)
 
@@ -274,6 +313,68 @@ def test_bgp_conditional_advertisement():
     def _non_exist_map_routes_not_present_no_rmap_filter(router):
         return _non_exist_map_routes_not_present(router)
 
+    # BGP conditional advertisement with route-maps
+    # EXIST-MAP, ADV-MAP-2 and RMAP-2
+    def _exist_map_routes_not_present_rmap2_filter(router):
+        return _all_routes_withdrawn(router)
+
+    def _exist_map_routes_not_present_no_rmap2_filter(router):
+        output = json.loads(router.vtysh_cmd("show ip route json"))
+        expected = {
+            "0.0.0.0/0": None,
+            "192.0.2.1/32": [{"protocol": "bgp"}],
+            "192.0.2.5/32": [{"protocol": "bgp"}],
+            "10.139.224.0/20": [{"protocol": "bgp"}],
+            "203.0.113.1/32": None,
+        }
+        return topotest.json_cmp(output, expected)
+
+    def _non_exist_map_routes_not_present_rmap2_filter(router):
+        output = json.loads(router.vtysh_cmd("show ip route json"))
+        expected = {
+            "0.0.0.0/0": None,
+            "192.0.2.1/32": None,
+            "192.0.2.5/32": None,
+            "10.139.224.0/20": None,
+            "203.0.113.1/32": [{"protocol": "bgp"}],
+        }
+        return topotest.json_cmp(output, expected)
+
+    def _non_exist_map_routes_not_present_no_rmap2_filter(router):
+        return _non_exist_map_routes_not_present(router)
+
+    def _exist_map_routes_present_rmap2_filter(router):
+        return _non_exist_map_routes_not_present_rmap2_filter(router)
+
+    def _exist_map_routes_present_no_rmap2_filter(router):
+        return _all_routes_advertised(router)
+
+    def _non_exist_map_routes_present_rmap2_filter(router):
+        return _all_routes_withdrawn(router)
+
+    def _non_exist_map_routes_present_no_rmap2_filter(router):
+        output = json.loads(router.vtysh_cmd("show ip route json"))
+        expected = {
+            "0.0.0.0/0": [{"protocol": "bgp"}],
+            "192.0.2.1/32": [{"protocol": "bgp"}],
+            "192.0.2.5/32": [{"protocol": "bgp"}],
+            "10.139.224.0/20": [{"protocol": "bgp"}],
+            "203.0.113.1/32": None,
+        }
+        return topotest.json_cmp(output, expected)
+
+    def _exist_map_routes_present_rmap2_network(router):
+        return _non_exist_map_routes_not_present_rmap2_filter(router)
+
+    def _exist_map_routes_present_rmap2_no_network(router):
+        return _all_routes_withdrawn(router)
+
+    def _non_exist_map_routes_not_present_rmap2_network(router):
+        return _non_exist_map_routes_not_present_rmap2_filter(router)
+
+    def _non_exist_map_routes_not_present_rmap2_no_network(router):
+        return _all_routes_withdrawn(router)
+
     # TC11: R3 BGP convergence, without advertise-map configuration.
     # All routes are advertised to R3.
     test_func = functools.partial(_all_routes_advertised, router3)
@@ -291,7 +392,7 @@ def test_bgp_conditional_advertisement():
           configure terminal
             router bgp 2
               address-family ipv4 unicast
-               neighbor 10.10.20.3 advertise-map ADV-MAP exist-map EXIST-MAP
+               neighbor 10.10.20.3 advertise-map ADV-MAP-1 exist-map EXIST-MAP
         """
     )
 
@@ -329,7 +430,7 @@ def test_bgp_conditional_advertisement():
           configure terminal
             router bgp 2
               address-family ipv4 unicast
-               neighbor 10.10.20.3 advertise-map ADV-MAP non-exist-map EXIST-MAP
+               neighbor 10.10.20.3 advertise-map ADV-MAP-1 non-exist-map EXIST-MAP
         """
     )
 
@@ -384,7 +485,7 @@ def test_bgp_conditional_advertisement():
           configure terminal
             router bgp 2
               address-family ipv4 unicast
-               neighbor 10.10.20.3 advertise-map ADV-MAP exist-map EXIST-MAP
+               neighbor 10.10.20.3 advertise-map ADV-MAP-1 exist-map EXIST-MAP
         """
     )
 
@@ -405,12 +506,9 @@ def test_bgp_conditional_advertisement():
             match community DEFAULT-ROUTE
             match ip address prefix-list DEFAULT-ROUTE
            !
-           route-map RMAP deny 10
-            match ip address prefix-list IP1
-           !
            router bgp 2
             address-family ipv4 unicast
-             neighbor 10.10.20.3 route-map RMAP out
+             neighbor 10.10.20.3 route-map RMAP-1 out
         """
     )
 
@@ -429,7 +527,7 @@ def test_bgp_conditional_advertisement():
           configure terminal
            router bgp 2
             address-family ipv4 unicast
-             no neighbor 10.10.20.3 route-map RMAP out
+             no neighbor 10.10.20.3 route-map RMAP-1 out
         """
     )
 
@@ -448,8 +546,8 @@ def test_bgp_conditional_advertisement():
           configure terminal
             router bgp 2
               address-family ipv4 unicast
-               neighbor 10.10.20.3 route-map RMAP out
-               neighbor 10.10.20.3 advertise-map ADV-MAP non-exist-map EXIST-MAP
+               neighbor 10.10.20.3 route-map RMAP-1 out
+               neighbor 10.10.20.3 advertise-map ADV-MAP-1 non-exist-map EXIST-MAP
         """
     )
 
@@ -468,7 +566,7 @@ def test_bgp_conditional_advertisement():
           configure terminal
             router bgp 2
               address-family ipv4 unicast
-               no neighbor 10.10.20.3 route-map RMAP out
+               no neighbor 10.10.20.3 route-map RMAP-1 out
         """
     )
 
@@ -495,8 +593,8 @@ def test_bgp_conditional_advertisement():
           configure terminal
            router bgp 2
             address-family ipv4 unicast
-             neighbor 10.10.20.3 route-map RMAP out
-             neighbor 10.10.20.3 advertise-map ADV-MAP exist-map EXIST-MAP
+             neighbor 10.10.20.3 route-map RMAP-1 out
+             neighbor 10.10.20.3 advertise-map ADV-MAP-1 exist-map EXIST-MAP
         """
     )
 
@@ -515,7 +613,7 @@ def test_bgp_conditional_advertisement():
           configure terminal
            router bgp 2
             address-family ipv4 unicast
-             no neighbor 10.10.20.3 route-map RMAP out
+             no neighbor 10.10.20.3 route-map RMAP-1 out
         """
     )
 
@@ -534,8 +632,8 @@ def test_bgp_conditional_advertisement():
           configure terminal
            router bgp 2
             address-family ipv4 unicast
-             neighbor 10.10.20.3 route-map RMAP out
-             neighbor 10.10.20.3 advertise-map ADV-MAP non-exist-map EXIST-MAP
+             neighbor 10.10.20.3 route-map RMAP-1 out
+             neighbor 10.10.20.3 advertise-map ADV-MAP-1 non-exist-map EXIST-MAP
         """
     )
 
@@ -556,7 +654,7 @@ def test_bgp_conditional_advertisement():
           configure terminal
            router bgp 2
             address-family ipv4 unicast
-             no neighbor 10.10.20.3 route-map RMAP out
+             no neighbor 10.10.20.3 route-map RMAP-1 out
         """
     )
 
@@ -566,6 +664,284 @@ def test_bgp_conditional_advertisement():
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC64: non-exist-map routes not present, no route-map filter - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC71: exist-map routes present in R2's BGP table, with route-map filter.
+    # All routes are withdrawn from R3 except advertise-map routes.
+    router1.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 1
+            address-family ipv4 unicast
+             network 0.0.0.0/0 route-map DEF
+        """
+    )
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             neighbor 10.10.20.3 route-map RMAP-2 out
+             neighbor 10.10.20.3 advertise-map ADV-MAP-2 exist-map EXIST-MAP
+        """
+    )
+
+    test_func = functools.partial(_exist_map_routes_present_rmap2_filter, router3)
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC71: exist-map routes present, route-map filter - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC72: exist-map routes present in R2's BGP table, without route-map filter.
+    # All routes are advertised to R3 including advertise-map routes.
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             no neighbor 10.10.20.3 route-map RMAP-2 out
+        """
+    )
+
+    test_func = functools.partial(_exist_map_routes_present_no_rmap2_filter, router3)
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC72: exist-map routes present, no route-map filter - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC73: non-exist-map routes present in R2's BGP table, with route-map filter.
+    # All routes are advertised to R3 including advertise-map routes.
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             neighbor 10.10.20.3 route-map RMAP-2 out
+             neighbor 10.10.20.3 advertise-map ADV-MAP-2 non-exist-map EXIST-MAP
+        """
+    )
+
+    test_func = functools.partial(_non_exist_map_routes_present_rmap2_filter, router3)
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC73: non-exist-map routes present, route-map filter - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC74: non-exist-map routes present in R2's BGP table, without route-map filter.
+    # All routes are advertised to R3 including advertise-map routes.
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             no neighbor 10.10.20.3 route-map RMAP-2 out
+        """
+    )
+
+    test_func = functools.partial(
+        _non_exist_map_routes_present_no_rmap2_filter, router3
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC74: non-exist-map routes present, no route-map filter - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC81: exist-map routes not present in R2's BGP table, with route-map filter.
+    # All routes are withdrawn from R3 including advertise-map routes.
+    router1.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 1
+            address-family ipv4 unicast
+             no network 0.0.0.0/0 route-map DEF
+        """
+    )
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             neighbor 10.10.20.3 route-map RMAP-2 out
+             neighbor 10.10.20.3 advertise-map ADV-MAP-2 exist-map EXIST-MAP
+        """
+    )
+
+    test_func = functools.partial(_exist_map_routes_not_present_rmap2_filter, router3)
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC81: exist-map routes not present, route-map filter - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC82: exist-map routes not present in R2's BGP table, without route-map filter.
+    # All routes are advertised to R3 except advertise-map routes.
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             no neighbor 10.10.20.3 route-map RMAP-2 out
+        """
+    )
+
+    test_func = functools.partial(
+        _exist_map_routes_not_present_no_rmap2_filter, router3
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC82: exist-map routes not present, no route-map filter - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC83: non-exist-map routes not present in R2's BGP table, with route-map filter.
+    # All routes are advertised to R3 including advertise-map routes.
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             neighbor 10.10.20.3 route-map RMAP-2 out
+             neighbor 10.10.20.3 advertise-map ADV-MAP-2 non-exist-map EXIST-MAP
+        """
+    )
+
+    test_func = functools.partial(
+        _non_exist_map_routes_not_present_rmap2_filter, router3
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC83: non-exist-map routes not present, route-map filter - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC84: non-exist-map routes not present in R2's BGP table, without route-map filter.
+    # All routes are advertised to R3 including advertise-map routes.
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             no neighbor 10.10.20.3 route-map RMAP-2 out
+        """
+    )
+
+    test_func = functools.partial(
+        _non_exist_map_routes_not_present_no_rmap2_filter, router3
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC84: non-exist-map routes not present, no route-map filter - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC91: exist-map routes present in R2's BGP table, with route-map filter and network.
+    # All routes are advertised to R3 including advertise-map routes.
+    router1.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 1
+            address-family ipv4 unicast
+             network 0.0.0.0/0 route-map DEF
+        """
+    )
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             neighbor 10.10.20.3 route-map RMAP-2 out
+             neighbor 10.10.20.3 advertise-map ADV-MAP-2 exist-map EXIST-MAP
+        """
+    )
+
+    test_func = functools.partial(_exist_map_routes_present_rmap2_network, router3)
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC91: exist-map routes present, route-map filter and network - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC92: exist-map routes present in R2's BGP table, with route-map filter and no network.
+    # All routes are advertised to R3 except advertise-map routes.
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             no network 203.0.113.1/32
+        """
+    )
+
+    test_func = functools.partial(_exist_map_routes_present_rmap2_no_network, router3)
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC92: exist-map routes present, route-map filter and no network - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC93: non-exist-map routes not present in R2's BGP table, with route-map filter and network.
+    # All routes are advertised to R3 including advertise-map routes.
+    router1.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 1
+            address-family ipv4 unicast
+             no network 0.0.0.0/0 route-map DEF
+        """
+    )
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             network 203.0.113.1/32
+             neighbor 10.10.20.3 advertise-map ADV-MAP-2 non-exist-map EXIST-MAP
+        """
+    )
+
+    test_func = functools.partial(
+        _non_exist_map_routes_not_present_rmap2_network, router3
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC93: non-exist-map routes not present, route-map filter and network - "
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+    # TC94: non-exist-map routes not present in R2's BGP table, with route-map filter and no network.
+    # All routes are advertised to R3 except advertise-map routes.
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             no network 203.0.113.1/32
+        """
+    )
+
+    test_func = functools.partial(
+        _non_exist_map_routes_not_present_rmap2_no_network, router3
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = "TC94: non-exist-map routes not present, route-map filter and no network - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
