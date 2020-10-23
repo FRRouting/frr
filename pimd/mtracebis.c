@@ -26,7 +26,6 @@
 #include "checksum.h"
 #include "prefix.h"
 #include "mtracebis_routeget.h"
-
 #include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -64,13 +63,14 @@ static void version(void)
 static void print_host(struct in_addr addr)
 {
 	struct hostent *h;
+	char buf[PREFIX_STRLEN];
 
 	h = gethostbyaddr(&addr, sizeof(addr), AF_INET);
 	if (h == NULL)
 		printf("?");
 	else
 		printf("%s", h->h_name);
-	printf(" (%s) ", inet_ntoa(addr));
+	printf(" (%s) ", inet_ntop(AF_INET, &addr, buf, sizeof(buf)));
 }
 
 static void print_line_no(int i)

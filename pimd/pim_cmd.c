@@ -199,6 +199,7 @@ static void pim_show_assert_helper(struct vty *vty,
 	struct in_addr ifaddr;
 	char uptime[10];
 	char timer[10];
+	char buf[PREFIX_STRLEN];
 
 	ifaddr = pim_ifp->primary_address;
 
@@ -211,9 +212,10 @@ static void pim_show_assert_helper(struct vty *vty,
 	pim_time_timer_to_mmss(timer, sizeof(timer), ch->t_ifassert_timer);
 
 	vty_out(vty, "%-16s %-15s %-15s %-15s %-6s %-15s %-8s %-5s\n",
-		ch->interface->name, inet_ntoa(ifaddr), ch_src_str, ch_grp_str,
-		pim_ifchannel_ifassert_name(ch->ifassert_state), winner_str,
-		uptime, timer);
+		ch->interface->name,
+		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)), ch_src_str,
+		ch_grp_str, pim_ifchannel_ifassert_name(ch->ifassert_state),
+		winner_str, uptime, timer);
 }
 
 static void pim_show_assert(struct pim_instance *pim, struct vty *vty)
@@ -246,13 +248,16 @@ static void pim_show_assert_internal_helper(struct vty *vty,
 	char ch_src_str[INET_ADDRSTRLEN];
 	char ch_grp_str[INET_ADDRSTRLEN];
 	struct in_addr ifaddr;
+	char buf[PREFIX_STRLEN];
 
 	ifaddr = pim_ifp->primary_address;
 
 	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str, sizeof(ch_src_str));
 	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str, sizeof(ch_grp_str));
 	vty_out(vty, "%-16s %-15s %-15s %-15s %-3s %-3s %-3s %-4s\n",
-		ch->interface->name, inet_ntoa(ifaddr), ch_src_str, ch_grp_str,
+		ch->interface->name,
+		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)),
+		ch_src_str, ch_grp_str,
 		PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags) ? "yes" : "no",
 		pim_macro_ch_could_assert_eval(ch) ? "yes" : "no",
 		PIM_IF_FLAG_TEST_ASSERT_TRACKING_DESIRED(ch->flags) ? "yes"
@@ -294,6 +299,7 @@ static void pim_show_assert_metric_helper(struct vty *vty,
 	char addr_str[INET_ADDRSTRLEN];
 	struct pim_assert_metric am;
 	struct in_addr ifaddr;
+	char buf[PREFIX_STRLEN];
 
 	ifaddr = pim_ifp->primary_address;
 
@@ -305,9 +311,10 @@ static void pim_show_assert_metric_helper(struct vty *vty,
 	pim_inet4_dump("<addr?>", am.ip_address, addr_str, sizeof(addr_str));
 
 	vty_out(vty, "%-16s %-15s %-15s %-15s %-3s %4u %6u %-15s\n",
-		ch->interface->name, inet_ntoa(ifaddr), ch_src_str, ch_grp_str,
-		am.rpt_bit_flag ? "yes" : "no", am.metric_preference,
-		am.route_metric, addr_str);
+		ch->interface->name,
+		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)),
+		ch_src_str, ch_grp_str,	am.rpt_bit_flag ? "yes" : "no",
+		am.metric_preference, am.route_metric, addr_str);
 }
 
 static void pim_show_assert_metric(struct pim_instance *pim, struct vty *vty)
@@ -341,6 +348,7 @@ static void pim_show_assert_winner_metric_helper(struct vty *vty,
 	struct in_addr ifaddr;
 	char pref_str[16];
 	char metr_str[16];
+	char buf[PREFIX_STRLEN];
 
 	ifaddr = pim_ifp->primary_address;
 
@@ -362,8 +370,10 @@ static void pim_show_assert_winner_metric_helper(struct vty *vty,
 		snprintf(metr_str, sizeof(metr_str), "%6u", am->route_metric);
 
 	vty_out(vty, "%-16s %-15s %-15s %-15s %-3s %-4s %-6s %-15s\n",
-		ch->interface->name, inet_ntoa(ifaddr), ch_src_str, ch_grp_str,
-		am->rpt_bit_flag ? "yes" : "no", pref_str, metr_str, addr_str);
+		ch->interface->name,
+		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)), ch_src_str,
+		ch_grp_str, am->rpt_bit_flag ? "yes" : "no", pref_str, metr_str,
+		addr_str);
 }
 
 static void pim_show_assert_winner_metric(struct pim_instance *pim,
@@ -391,12 +401,14 @@ static void json_object_pim_ifp_add(struct json_object *json,
 				    struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
+	char buf[PREFIX_STRLEN];
 
 	pim_ifp = ifp->info;
 	json_object_string_add(json, "name", ifp->name);
 	json_object_string_add(json, "state", if_is_up(ifp) ? "up" : "down");
 	json_object_string_add(json, "address",
-			       inet_ntoa(pim_ifp->primary_address));
+			       inet_ntop(AF_INET, &pim_ifp->primary_address,
+					 buf, sizeof(buf)));
 	json_object_int_add(json, "index", ifp->ifindex);
 
 	if (if_is_multicast(ifp))
@@ -569,6 +581,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 {
 	struct interface *ifp;
 	time_t now;
+	char buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 
@@ -632,7 +645,8 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 						? (igmp->mtrace_only ? "mtrc"
 								     : "up")
 						: "down",
-					inet_ntoa(igmp->ifaddr),
+					inet_ntop(AF_INET, &igmp->ifaddr,
+						  buf, sizeof(buf)),
 					pim_ifp->igmp_version,
 					igmp->t_igmp_query_timer ? "local"
 								 : "other",
@@ -797,8 +811,8 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 						? (igmp->mtrace_only ? "mtrace"
 								     : "up")
 						: "down");
-				vty_out(vty, "Address   : %s\n",
-					inet_ntoa(pim_ifp->primary_address));
+				vty_out(vty, "Address   : %pI4\n",
+					&pim_ifp->primary_address);
 				vty_out(vty, "Uptime    : %s\n", uptime);
 				vty_out(vty, "Version   : %d\n",
 					pim_ifp->igmp_version);
@@ -940,6 +954,7 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 	int mloop = 0;
 	int found_ifname = 0;
 	int print_header;
+	char buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 	json_object *json_pim_neighbor = NULL;
@@ -992,7 +1007,9 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			if (pim_ifp->update_source.s_addr != INADDR_ANY) {
 				json_object_string_add(
 					json_row, "useSource",
-					inet_ntoa(pim_ifp->update_source));
+					inet_ntop(AF_INET,
+						  &pim_ifp->update_source,
+						  buf, sizeof(buf)));
 			}
 			if (pim_ifp->sec_addr_list) {
 				json_object *sec_list = NULL;
@@ -1160,20 +1177,20 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			vty_out(vty, "State      : %s\n",
 				if_is_up(ifp) ? "up" : "down");
 			if (pim_ifp->update_source.s_addr != INADDR_ANY) {
-				vty_out(vty, "Use Source : %s\n",
-					inet_ntoa(pim_ifp->update_source));
+				vty_out(vty, "Use Source : %pI4\n",
+					&pim_ifp->update_source);
 			}
 			if (pim_ifp->sec_addr_list) {
-				vty_out(vty, "Address    : %s (primary)\n",
-					inet_ntoa(ifaddr));
+				vty_out(vty, "Address    : %pI4 (primary)\n",
+					&ifaddr);
 				for (ALL_LIST_ELEMENTS_RO(
 					     pim_ifp->sec_addr_list, sec_node,
 					     sec_addr))
 					vty_out(vty, "             %pFX\n",
 						&sec_addr->addr);
 			} else {
-				vty_out(vty, "Address    : %s\n",
-					inet_ntoa(ifaddr));
+				vty_out(vty, "Address    : %pI4\n",
+					&ifaddr);
 			}
 			vty_out(vty, "\n");
 
@@ -1397,6 +1414,7 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 	int fhr = 0;
 	int pim_nbrs = 0;
 	int pim_ifchannels = 0;
+	char buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 	json_object *json_tmp;
@@ -1427,7 +1445,9 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		json_object_int_add(json_row, "pimIfChannels", pim_ifchannels);
 		json_object_int_add(json_row, "firstHopRouterCount", fhr);
 		json_object_string_add(json_row, "pimDesignatedRouter",
-				       inet_ntoa(pim_ifp->pim_dr_addr));
+				       inet_ntop(AF_INET,
+						 &pim_ifp->pim_dr_addr, buf,
+						 sizeof(buf)));
 
 		if (pim_ifp->pim_dr_addr.s_addr
 		    == pim_ifp->primary_address.s_addr)
@@ -1682,6 +1702,7 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 	char uptime[10];
 	char expire[10];
 	char prune[10];
+	char buf[PREFIX_STRLEN];
 
 	ifaddr = pim_ifp->primary_address;
 
@@ -1730,8 +1751,9 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 			json_object_object_add(json_grp, ch_src_str, json_row);
 	} else {
 		vty_out(vty, "%-16s %-15s %-15s %-15s %-10s %8s %-6s %5s\n",
-			ch->interface->name, inet_ntoa(ifaddr), ch_src_str,
-			ch_grp_str,
+			ch->interface->name,
+			inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)),
+			ch_src_str, ch_grp_str,
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
 			uptime, expire, prune);
 	}
@@ -2304,6 +2326,7 @@ static void pim_show_neighbors_secondary(struct pim_instance *pim,
 		struct in_addr ifaddr;
 		struct listnode *neighnode;
 		struct pim_neighbor *neigh;
+		char buf[PREFIX_STRLEN];
 
 		pim_ifp = ifp->info;
 
@@ -2330,7 +2353,9 @@ static void pim_show_neighbors_secondary(struct pim_instance *pim,
 			for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list,
 						  prefix_node, p))
 				vty_out(vty, "%-16s %-15s %-15s %-15pFX\n",
-					ifp->name, inet_ntoa(ifaddr),
+					ifp->name,
+					inet_ntop(AF_INET, &ifaddr,
+						  buf, sizeof(buf)),
 					neigh_src_str, p);
 		}
 	}
@@ -2975,14 +3000,17 @@ static int pim_print_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 	struct nexthop *nh_node = NULL;
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
+	char buf[PREFIX_STRLEN];
 
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
 
-		vty_out(vty, "%-15s ", inet_ntoa(pnc->rpf.rpf_addr.u.prefix4));
+		vty_out(vty, "%-15s ", inet_ntop(AF_INET,
+						 &pnc->rpf.rpf_addr.u.prefix4,
+						 buf, sizeof(buf)));
 		vty_out(vty, "%-16s ", ifp ? ifp->name : "NULL");
-		vty_out(vty, "%s ", inet_ntoa(nh_node->gate.ipv4));
+		vty_out(vty, "%pI4 ", &nh_node->gate.ipv4);
 		vty_out(vty, "\n");
 	}
 	return CMD_SUCCESS;
@@ -5656,6 +5684,7 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 				      bool uj)
 {
 	struct interface *ifp;
+	char buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 
@@ -5696,7 +5725,8 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 					       if_is_up(ifp) ? "up" : "down");
 			json_object_string_add(
 				json_row, "address",
-				inet_ntoa(pim_ifp->primary_address));
+				inet_ntop(AF_INET, &pim_ifp->primary_address,
+					  buf, sizeof(buf)));
 			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
 			json_object_int_add(json_row, "vif",
 					    pim_ifp->mroute_vif_index);
@@ -5712,8 +5742,9 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 		} else {
 			vty_out(vty,
 				"%-16s %-15s %3d %3d %7lu %7lu %10lu %10lu\n",
-				ifp->name, inet_ntoa(ifaddr), ifp->ifindex,
-				pim_ifp->mroute_vif_index,
+				ifp->name,
+				inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)),
+				ifp->ifindex, pim_ifp->mroute_vif_index,
 				(unsigned long)vreq.icount,
 				(unsigned long)vreq.ocount,
 				(unsigned long)vreq.ibytes,

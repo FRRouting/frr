@@ -1921,10 +1921,10 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 
 		if (PIM_DEBUG_IGMP_PACKETS) {
 			zlog_debug(
-				"    Recv IGMP report v3 from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%s",
+				"    Recv IGMP report v3 from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%pI4",
 				from_str, ifp->name, i, rec_type,
 				rec_auxdatalen, rec_num_sources,
-				inet_ntoa(rec_group));
+				&rec_group);
 		}
 
 		/* Scan sources */
@@ -1949,9 +1949,9 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 						 "<source?>");
 
 				zlog_debug(
-					"        Recv IGMP report v3 from %s on %s: record=%d group=%s source=%s",
+					"        Recv IGMP report v3 from %s on %s: record=%d group=%pI4 source=%s",
 					from_str, ifp->name, i,
-					inet_ntoa(rec_group), src_str);
+					&rec_group, src_str);
 			}
 		} /* for (sources) */
 
@@ -1969,8 +1969,8 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 
 		if (PIM_DEBUG_IGMP_PACKETS && filtered)
 			zlog_debug(
-				"Filtering IGMPv3 group record %s from %s on %s per prefix-list %s",
-				inet_ntoa(rec_group), from_str, ifp->name,
+				"Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s",
+				&rec_group, from_str, ifp->name,
 				pim_ifp->boundary_oil_plist);
 
 		/*

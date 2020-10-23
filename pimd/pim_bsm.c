@@ -376,9 +376,9 @@ static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)
 	THREAD_OFF(bsrp->g2rp_timer);
 	if (PIM_DEBUG_BSM)
 		zlog_debug(
-			"%s : starting g2rp timer for grp: %pFX - rp: %s with timeout  %d secs(Actual Hold time : %d secs)",
+			"%s : starting g2rp timer for grp: %pFX - rp: %pI4 with timeout  %d secs(Actual Hold time : %d secs)",
 			__func__, &bsrp->bsgrp_node->group,
-			inet_ntoa(bsrp->rp_address), hold_time,
+			&bsrp->rp_address, hold_time,
 			bsrp->rp_holdtime);
 
 	thread_add_timer(router->master, pim_on_g2rp_timer, bsrp, hold_time,
@@ -397,9 +397,9 @@ static void pim_g2rp_timer_stop(struct bsm_rpinfo *bsrp)
 		return;
 
 	if (PIM_DEBUG_BSM)
-		zlog_debug("%s : stopping g2rp timer for grp: %pFX - rp: %s",
+		zlog_debug("%s : stopping g2rp timer for grp: %pFX - rp: %pI4",
 			   __func__, &bsrp->bsgrp_node->group,
-			   inet_ntoa(bsrp->rp_address));
+			   &bsrp->rp_address);
 
 	THREAD_OFF(bsrp->g2rp_timer);
 }

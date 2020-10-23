@@ -951,8 +951,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_debug(
-			"%s: Created Upstream %s upstream_addr %s ref count %d increment",
-			__func__, up->sg_str, inet_ntoa(up->upstream_addr),
+			"%s: Created Upstream %s upstream_addr %pI4 ref count %d increment",
+			__func__, up->sg_str, &up->upstream_addr,
 			up->ref_count);
 	}
 

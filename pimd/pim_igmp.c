@@ -63,8 +63,8 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 				++join;
 		} else {
 			zlog_warn(
-				"%s %s: IGMP socket fd=%d interface %s: could not solve %s to group address: errno=%d: %s",
-				__FILE__, __func__, fd, inet_ntoa(ifaddr),
+				"%s %s: IGMP socket fd=%d interface %pI4: could not solve %s to group address: errno=%d: %s",
+				__FILE__, __func__, fd, &ifaddr,
 				PIM_ALL_ROUTERS, errno, safe_strerror(errno));
 		}
 	}
@@ -79,8 +79,8 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 			++join;
 	} else {
 		zlog_warn(
-			"%s %s: IGMP socket fd=%d interface %s: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __func__, fd, inet_ntoa(ifaddr),
+			"%s %s: IGMP socket fd=%d interface %pI4: could not solve %s to group address: errno=%d: %s",
+			__FILE__, __func__, fd, &ifaddr,
 			PIM_ALL_SYSTEMS, errno, safe_strerror(errno));
 	}
 
@@ -90,16 +90,16 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 		}
 	} else {
 		zlog_warn(
-			"%s %s: IGMP socket fd=%d interface %s: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __func__, fd, inet_ntoa(ifaddr),
+			"%s %s: IGMP socket fd=%d interface %pI4: could not solve %s to group address: errno=%d: %s",
+			__FILE__, __func__, fd, &ifaddr,
 			PIM_ALL_IGMP_ROUTERS, errno, safe_strerror(errno));
 	}
 
 	if (!join) {
 		flog_err_sys(
 			EC_LIB_SOCKET,
-			"IGMP socket fd=%d could not join any group on interface address %s",
-			fd, inet_ntoa(ifaddr));
+			"IGMP socket fd=%d could not join any group on interface address %pI4",
+			fd, &ifaddr);
 		close(fd);
 		fd = -1;
 	}
@@ -117,8 +117,8 @@ static void igmp_sock_dump(array_t *igmp_sock_array)
 
 		struct igmp_sock *igmp = array_get(igmp_sock_array, i);
 
-		zlog_debug("%s %s: [%d/%d] igmp_addr=%s fd=%d", __FILE__,
-			   __func__, i, size, inet_ntoa(igmp->ifaddr),
+		zlog_debug("%s %s: [%d/%d] igmp_addr=%pI4 fd=%d", __FILE__,
+			   __func__, i, size, &igmp->ifaddr,
 			   igmp->fd);
 	}
 }
@@ -701,8 +701,8 @@ static void sock_close(struct igmp_sock *igmp)
 	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
 		if (igmp->t_igmp_read) {
 			zlog_debug(
-				"Cancelling READ event on IGMP socket %s fd=%d on interface %s",
-				inet_ntoa(igmp->ifaddr), igmp->fd,
+				"Cancelling READ event on IGMP socket %pI4 fd=%d on interface %s",
+				&igmp->ifaddr, igmp->fd,
 				igmp->interface->name);
 		}
 	}
@@ -711,14 +711,14 @@ static void sock_close(struct igmp_sock *igmp)
 	if (close(igmp->fd)) {
 		flog_err(
 			EC_LIB_SOCKET,
-			"Failure closing IGMP socket %s fd=%d on interface %s: errno=%d: %s",
-			inet_ntoa(igmp->ifaddr), igmp->fd,
+			"Failure closing IGMP socket %pI4 fd=%d on interface %s: errno=%d: %s",
+			&igmp->ifaddr, igmp->fd,
 			igmp->interface->name, errno, safe_strerror(errno));
 	}
 
 	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
-		zlog_debug("Deleted IGMP socket %s fd=%d on interface %s",
-			   inet_ntoa(igmp->ifaddr), igmp->fd,
+		zlog_debug("Deleted IGMP socket %pI4 fd=%d on interface %s",
+			   &igmp->ifaddr, igmp->fd,
 			   igmp->interface->name);
 	}
 }
@@ -900,8 +900,8 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		zlog_debug(
-			"Creating IGMP socket fd=%d for address %s on interface %s",
-			fd, inet_ntoa(ifaddr), ifp->name);
+			"Creating IGMP socket fd=%d for address %pI4 on interface %s",
+			fd, &ifaddr, ifp->name);
 	}
 
 	igmp = XCALLOC(MTYPE_PIM_IGMP_SOCKET, sizeof(*igmp));
@@ -1000,8 +1000,8 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 
 	fd = igmp_sock_open(ifaddr, ifp, pim_ifp->options);
 	if (fd < 0) {
-		zlog_warn("Could not open IGMP socket for %s on %s",
-			  inet_ntoa(ifaddr), ifp->name);
+		zlog_warn("Could not open IGMP socket for %pI4 on %s",
+			  &ifaddr, ifp->name);
 		return NULL;
 	}
 
@@ -1009,8 +1009,8 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 	sin.sin_addr = ifaddr;
 	sin.sin_port = 0;
 	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)) != 0) {
-		zlog_warn("Could not bind IGMP socket for %s on %s",
-			  inet_ntoa(ifaddr), ifp->name);
+		zlog_warn("Could not bind IGMP socket for %pI4 on %s",
+			  &ifaddr, ifp->name);
 		close(fd);
 
 		return NULL;
@@ -1153,8 +1153,8 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 	if (pim_is_group_224_0_0_0_24(group_addr)) {
 		if (PIM_DEBUG_IGMP_TRACE)
 			zlog_debug(
-				"%s: Group specified %s is part of 224.0.0.0/24",
-				__func__, inet_ntoa(group_addr));
+				"%s: Group specified %pI4 is part of 224.0.0.0/24",
+				__func__, &group_addr);
 		return NULL;
 	}
 	/*

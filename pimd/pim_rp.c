@@ -350,8 +350,8 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 				 up->sg.grp);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: pim upstream update for  old upstream %s",
-			   __func__, inet_ntoa(old_upstream_addr));
+		zlog_debug("%s: pim upstream update for  old upstream %pI4",
+			   __func__, &old_upstream_addr);
 
 	if (old_upstream_addr.s_addr == new_upstream_addr.s_addr)
 		return;
@@ -1204,6 +1204,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 	struct rp_info *prev_rp_info = NULL;
 	struct listnode *node;
 	char source[7];
+	char buf[PREFIX_STRLEN];
 
 	json_object *json = NULL;
 	json_object *json_rp_rows = NULL;
@@ -1236,9 +1237,11 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 							  .s_addr) {
 					json_object_object_add(
 						json,
-						inet_ntoa(prev_rp_info->rp
+						inet_ntop(AF_INET,
+							  &prev_rp_info->rp
 								  .rpf_addr.u
-								  .prefix4),
+								  .prefix4,
+							  buf, sizeof(buf)),
 						json_rp_rows);
 					json_rp_rows = NULL;
 				}
@@ -1249,8 +1252,10 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 				json_row = json_object_new_object();
 				json_object_string_add(
 					json_row, "rpAddress",
-					inet_ntoa(rp_info->rp.rpf_addr.u
-							  .prefix4));
+					inet_ntop(AF_INET,
+						  &rp_info->rp.rpf_addr.u
+						      .prefix4,
+						  buf, sizeof(buf)));
 				if (rp_info->rp.source_nexthop.interface)
 					json_object_string_add(
 						json_row, "outboundInterface",
@@ -1282,8 +1287,10 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 				json_object_array_add(json_rp_rows, json_row);
 			} else {
 				vty_out(vty, "%-15s  ",
-					inet_ntoa(rp_info->rp.rpf_addr.u
-							  .prefix4));
+					inet_ntop(AF_INET,
+						  &rp_info->rp.rpf_addr.u
+							  .prefix4,
+						  buf, sizeof(buf)));
 
 				if (rp_info->plist)
 					vty_out(vty, "%-18s  ", rp_info->plist);
@@ -1313,7 +1320,9 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 		if (prev_rp_info && json_rp_rows)
 			json_object_object_add(
 				json,
-				inet_ntoa(prev_rp_info->rp.rpf_addr.u.prefix4),
+				inet_ntop(AF_INET,
+					  &prev_rp_info->rp.rpf_addr.u.prefix4,
+					  buf, sizeof(buf)),
 				json_rp_rows);
 
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(

@@ -98,8 +98,8 @@ static void dump_if_address(struct interface *ifp)
 		if (p->family != AF_INET)
 			continue;
 
-		zlog_debug("%s %s: interface %s address %s %s", __FILE__,
-			   __func__, ifp->name, inet_ntoa(p->u.prefix4),
+		zlog_debug("%s %s: interface %s address %pI4 %s", __FILE__,
+			   __func__, ifp->name, &p->u.prefix4,
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -837,9 +837,9 @@ void pim_forward_start(struct pim_ifchannel *ch)
 			       sizeof(group_str));
 		pim_inet4_dump("<upstream?>", up->upstream_addr, upstream_str,
 			       sizeof(upstream_str));
-		zlog_debug("%s: (S,G)=(%s,%s) oif=%s (%s)", __func__,
+		zlog_debug("%s: (S,G)=(%s,%s) oif=%s (%pI4)", __func__,
 			   source_str, group_str, ch->interface->name,
-			   inet_ntoa(up->upstream_addr));
+			   &up->upstream_addr);
 	}
 
 	if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
