@@ -71,14 +71,13 @@ module frr-igmp {
       type boolean;
       default "false";
       description
-        "Enable IGMP protocol on the interface.";
+        "Enable IGMP flag on the interface.";
     }
 
     leaf version {
       type uint8 {
         range "2..3";
       }
-      default "3";
       description
         "IGMP version.";
     }
@@ -156,8 +155,8 @@ module frr-igmp {
    */
   augment "/frr-interface:lib/frr-interface:interface" {
     container igmp {
-      description
-        "IGMP interface parameters.";
+      presence
+        "Configure IGMP on an interface.";
       uses interface-config-attributes;
       list address-family {
         key "address-family";
