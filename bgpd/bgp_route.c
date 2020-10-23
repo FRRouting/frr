@@ -7515,6 +7515,7 @@ DEFPY_YANG(
 	"|route-map WORD$rmap_name"
 	"|origin <egp|igp|incomplete>$origin_s"
 	"|matching-MED-only$match_med"
+	"|suppress-map WORD$suppress_map"
 	"}",
 	NO_STR
 	"Configure BGP aggregate entries\n"
@@ -7530,8 +7531,8 @@ DEFPY_YANG(
 	"Local IGP\n"
 	"Unknown heritage\n"
 	"Only aggregate routes with matching MED\n"
-        "Suppress the selected more specific routes\n"
-        "Route map with the route selectors\n")
+	"Suppress the selected more specific routes\n"
+	"Route map with the route selectors\n")
 {
 	char base_xpath[XPATH_MAXLEN];
 	safi_t safi = bgp_node_safi(vty);
@@ -7575,6 +7576,13 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./rmap-policy-export",
 				      NB_OP_DESTROY, NULL);
 
+	if (suppress_map)
+		nb_cli_enqueue_change(vty, "./suppress-map", NB_OP_MODIFY,
+				      suppress_map);
+	else
+		nb_cli_enqueue_change(vty, "./suppress-map", NB_OP_DESTROY,
+				      NULL);
+
 	snprintf(
 		base_xpath, sizeof(base_xpath),
 		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/aggregate-route[prefix='%s']",
@@ -7596,6 +7604,7 @@ DEFPY_YANG(aggregate_addressv6, aggregate_addressv6_cmd,
 	   "|route-map WORD$rmap_name"
 	   "|origin <egp|igp|incomplete>$origin_s"
 	   "|matching-MED-only$match_med"
+	   "|suppress-map WORD$suppress_map"
 	   "}",
 	   NO_STR
 	   "Configure BGP aggregate entries\n"
@@ -7610,7 +7619,7 @@ DEFPY_YANG(aggregate_addressv6, aggregate_addressv6_cmd,
 	   "Unknown heritage\n"
 	   "Only aggregate routes with matching MED\n"
 	   "Suppress the selected more specific routes\n"
-           "Route map with the route selectors\n")
+	   "Route map with the route selectors\n")
 {
 	char base_xpath[XPATH_MAXLEN];
 	safi_t safi = bgp_node_safi(vty);
@@ -7639,6 +7648,13 @@ DEFPY_YANG(aggregate_addressv6, aggregate_addressv6_cmd,
 	if (rmap_name)
 		nb_cli_enqueue_change(vty, "./rmap-policy-export", NB_OP_MODIFY,
 				      rmap_name);
+
+	if (suppress_map)
+		nb_cli_enqueue_change(vty, "./suppress-map", NB_OP_MODIFY,
+				      suppress_map);
+	else
+		nb_cli_enqueue_change(vty, "./suppress-map", NB_OP_DESTROY,
+				      NULL);
 
 	snprintf(
 		base_xpath, sizeof(base_xpath),

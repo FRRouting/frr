@@ -572,6 +572,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_origin_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_match_med_modify(
 	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_suppress_map_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_suppress_map_destroy(
+	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_create(
 	struct nb_cb_create_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_destroy(
@@ -708,6 +712,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_origin_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_match_med_modify(
 	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_suppress_map_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_suppress_map_destroy(
+	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_create(
 	struct nb_cb_create_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_destroy(
@@ -898,6 +906,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_origin_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_match_med_modify(
 	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_suppress_map_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_suppress_map_destroy(
+	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_create(
 	struct nb_cb_create_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_destroy(
@@ -966,6 +978,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_origin_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_match_med_modify(
 	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_suppress_map_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_suppress_map_destroy(
+	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_create(
 	struct nb_cb_create_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_destroy(
