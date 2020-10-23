@@ -95,8 +95,7 @@ static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
 	peer = ripng_peer_lookup(ripng, addr);
 
 	if (peer) {
-		if (peer->t_timeout)
-			thread_cancel(peer->t_timeout);
+		thread_cancel(&peer->t_timeout);
 	} else {
 		peer = ripng_peer_new();
 		peer->ripng = ripng;
@@ -105,7 +104,6 @@ static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
 	}
 
 	/* Update timeout thread. */
-	peer->t_timeout = NULL;
 	thread_add_timer(master, ripng_peer_timeout, peer,
 			 RIPNG_PEER_TIMER_DEFAULT, &peer->t_timeout);
 

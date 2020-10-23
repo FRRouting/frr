@@ -321,10 +321,7 @@ void ripng_interface_clean(struct ripng *ripng)
 		ri->enable_interface = 0;
 		ri->running = 0;
 
-		if (ri->t_wakeup) {
-			thread_cancel(ri->t_wakeup);
-			ri->t_wakeup = NULL;
-		}
+		thread_cancel(&ri->t_wakeup);
 	}
 }
 

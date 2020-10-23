@@ -2284,7 +2284,7 @@ void isis_sr_stop(struct isis_area *area)
 		 area->area_tag);
 
 	/* Disable any re-attempt to connect to Label Manager */
-	THREAD_TIMER_OFF(srdb->t_start_lm);
+	thread_cancel(&srdb->t_start_lm);
 
 	/* Uninstall all local Adjacency-SIDs. */
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))

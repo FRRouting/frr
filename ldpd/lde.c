@@ -415,8 +415,8 @@ lde_dispatch_imsg(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_READ_OFF(iev->ev_read);
-		THREAD_WRITE_OFF(iev->ev_write);
+		thread_cancel(&iev->ev_read);
+		thread_cancel(&iev->ev_write);
 		lde_shutdown();
 	}
 
@@ -661,8 +661,8 @@ lde_dispatch_parent(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_READ_OFF(iev->ev_read);
-		THREAD_WRITE_OFF(iev->ev_write);
+		thread_cancel(&iev->ev_read);
+		thread_cancel(&iev->ev_write);
 		lde_shutdown();
 	}
 

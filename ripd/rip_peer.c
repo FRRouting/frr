@@ -86,8 +86,7 @@ static struct rip_peer *rip_peer_get(struct rip *rip, struct in_addr *addr)
 	peer = rip_peer_lookup(rip, addr);
 
 	if (peer) {
-		if (peer->t_timeout)
-			thread_cancel(peer->t_timeout);
+		thread_cancel(&peer->t_timeout);
 	} else {
 		peer = rip_peer_new();
 		peer->rip = rip;

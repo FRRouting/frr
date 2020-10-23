@@ -509,7 +509,7 @@ int bgp_global_med_config_max_med_onstart_up_time_destroy(
 
 		/* Cancel max-med onstartup if its on */
 		if (bgp->t_maxmed_onstartup) {
-			THREAD_TIMER_OFF(bgp->t_maxmed_onstartup);
+			THREAD_OFF(bgp->t_maxmed_onstartup);
 			bgp->maxmed_onstartup_over = 1;
 		}
 

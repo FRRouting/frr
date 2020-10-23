@@ -269,9 +269,8 @@ static void rfapi_info_free(struct rfapi_info *goner)
 			struct rfapi_rib_tcb *tcb;
 
 			tcb = goner->timer->arg;
-			thread_cancel(goner->timer);
+			thread_cancel(&goner->timer);
 			XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
-			goner->timer = NULL;
 		}
 		XFREE(MTYPE_RFAPI_INFO, goner);
 	}
@@ -338,13 +337,11 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 			       struct agg_node *rn, /* route node attached to */
 			       int deleted)
 {
-	struct thread *t = ri->timer;
 	struct rfapi_rib_tcb *tcb = NULL;
 
-	if (t) {
-		tcb = t->arg;
-		thread_cancel(t);
-		ri->timer = NULL;
+	if (ri->timer) {
+		tcb = ri->timer->arg;
+		thread_cancel(&ri->timer);
 	} else {
 		tcb = XCALLOC(MTYPE_RFAPI_RECENT_DELETE,
 			      sizeof(struct rfapi_rib_tcb));
@@ -917,10 +914,9 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				if (ri->timer) {
 					struct rfapi_rib_tcb *tcb;
 
-					tcb = ((struct thread *)ri->timer)->arg;
-					thread_cancel(ri->timer);
+					tcb = ri->timer->arg;
+					thread_cancel(&ri->timer);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
-					ri->timer = NULL;
 				}
 
 				vnc_zlog_debug_verbose(
@@ -1003,11 +999,9 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				if (ori->timer) {
 					struct rfapi_rib_tcb *tcb;
 
-					tcb = ((struct thread *)ori->timer)
-						      ->arg;
-					thread_cancel(ori->timer);
+					tcb = ori->timer->arg;
+					thread_cancel(&ori->timer);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
-					ori->timer = NULL;
 				}
 
 #if DEBUG_PROCESS_PENDING_NODE
@@ -1351,11 +1345,9 @@ callback:
 				if (ri->timer) {
 					struct rfapi_rib_tcb *tcb;
 
-					tcb = ((struct thread *)ri->timer)->arg;
-					thread_cancel(
-						(struct thread *)ri->timer);
+					tcb = ri->timer->arg;
+					thread_cancel(&ri->timer);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
-					ri->timer = NULL;
 				}
 				RFAPI_RIB_CHECK_COUNTS(0, delete_list->count);
 

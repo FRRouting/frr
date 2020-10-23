@@ -31,7 +31,7 @@
 
 #define BGP_TIMER_OFF(T)                                                       \
 	do {                                                                   \
-		THREAD_TIMER_OFF(T);                                           \
+		THREAD_OFF(T);						       \
 	} while (0)
 
 #define BGP_EVENT_ADD(P, E)                                                    \

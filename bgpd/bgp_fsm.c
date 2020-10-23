@@ -704,8 +704,8 @@ bool bgp_update_delay_configured(struct bgp *bgp)
    on ending the update delay. */
 void bgp_update_delay_end(struct bgp *bgp)
 {
-	THREAD_TIMER_OFF(bgp->t_update_delay);
-	THREAD_TIMER_OFF(bgp->t_establish_wait);
+	THREAD_OFF(bgp->t_update_delay);
+	THREAD_OFF(bgp->t_establish_wait);
 
 	/* Reset update-delay related state */
 	bgp->update_delay_over = 1;
@@ -924,7 +924,7 @@ static int bgp_maxmed_onstartup_timer(struct thread *thread)
 	zlog_info("Max med on startup ended - timer expired.");
 
 	bgp = THREAD_ARG(thread);
-	THREAD_TIMER_OFF(bgp->t_maxmed_onstartup);
+	THREAD_OFF(bgp->t_maxmed_onstartup);
 	bgp->maxmed_onstartup_over = 1;
 
 	bgp_maxmed_update(bgp);
@@ -968,7 +968,7 @@ static int bgp_update_delay_timer(struct thread *thread)
 	zlog_info("Update delay ended - timer expired.");
 
 	bgp = THREAD_ARG(thread);
-	THREAD_TIMER_OFF(bgp->t_update_delay);
+	THREAD_OFF(bgp->t_update_delay);
 	bgp_update_delay_end(bgp);
 
 	return 0;
@@ -982,7 +982,7 @@ static int bgp_establish_wait_timer(struct thread *thread)
 	zlog_info("Establish wait - timer expired.");
 
 	bgp = THREAD_ARG(thread);
-	THREAD_TIMER_OFF(bgp->t_establish_wait);
+	THREAD_OFF(bgp->t_establish_wait);
 	bgp_check_update_delay(bgp);
 
 	return 0;

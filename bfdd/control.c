@@ -145,10 +145,7 @@ void control_shutdown(void)
 {
 	struct bfd_control_socket *bcs;
 
-	if (bglobal.bg_csockev) {
-		thread_cancel(bglobal.bg_csockev);
-		bglobal.bg_csockev = NULL;
-	}
+	thread_cancel(&bglobal.bg_csockev);
 
 	socket_close(&bglobal.bg_csock);
 
@@ -204,15 +201,8 @@ static void control_free(struct bfd_control_socket *bcs)
 	struct bfd_control_queue *bcq;
 	struct bfd_notify_peer *bnp;
 
-	if (bcs->bcs_ev) {
-		thread_cancel(bcs->bcs_ev);
-		bcs->bcs_ev = NULL;
-	}
-
-	if (bcs->bcs_outev) {
-		thread_cancel(bcs->bcs_outev);
-		bcs->bcs_outev = NULL;
-	}
+	thread_cancel(&(bcs->bcs_ev));
+	thread_cancel(&(bcs->bcs_outev));
 
 	close(bcs->bcs_sd);
 
@@ -318,10 +308,7 @@ static int control_queue_dequeue(struct bfd_control_socket *bcs)
 	return 1;
 
 empty_list:
-	if (bcs->bcs_outev) {
-		thread_cancel(bcs->bcs_outev);
-		bcs->bcs_outev = NULL;
-	}
+	thread_cancel(&(bcs->bcs_outev));
 	bcs->bcs_bout = NULL;
 	return 0;
 }

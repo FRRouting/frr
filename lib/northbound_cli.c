@@ -89,7 +89,7 @@ static int nb_cli_classic_commit(struct vty *vty)
 
 static void nb_cli_pending_commit_clear(struct vty *vty)
 {
-	THREAD_TIMER_OFF(vty->t_pending_commit);
+	THREAD_OFF(vty->t_pending_commit);
 	vty->backoff_cmd_count = 0;
 	XFREE(MTYPE_TMP, vty->pending_cmds_buf);
 	vty->pending_cmds_buflen = 0;
@@ -154,7 +154,7 @@ static int nb_cli_schedule_command(struct vty *vty)
 					   vty->pending_cmds_buflen);
 
 	/* Schedule the commit operation. */
-	THREAD_TIMER_OFF(vty->t_pending_commit);
+	THREAD_OFF(vty->t_pending_commit);
 	thread_add_timer_msec(master, nb_cli_pending_commit_cb, vty, 100,
 			      &vty->t_pending_commit);
 
@@ -312,7 +312,7 @@ int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,
 
 void nb_cli_confirmed_commit_clean(struct vty *vty)
 {
-	THREAD_TIMER_OFF(vty->t_confirmed_commit_timeout);
+	thread_cancel(&vty->t_confirmed_commit_timeout);
 	nb_config_free(vty->confirmed_commit_rollback);
 	vty->confirmed_commit_rollback = NULL;
 }
@@ -377,7 +377,7 @@ static int nb_cli_commit(struct vty *vty, bool force,
 				"%% Resetting confirmed-commit timeout to %u minute(s)\n\n",
 				confirmed_timeout);
 
-			THREAD_TIMER_OFF(vty->t_confirmed_commit_timeout);
+			thread_cancel(&vty->t_confirmed_commit_timeout);
 			thread_add_timer(master,
 					 nb_cli_confirmed_commit_timeout, vty,
 					 confirmed_timeout * 60,

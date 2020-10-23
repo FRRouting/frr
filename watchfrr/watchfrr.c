@@ -409,8 +409,8 @@ static void sigchild(void)
 		what = restart->what;
 		restart->pid = 0;
 		gs.numpids--;
-		thread_cancel(restart->t_kill);
-		restart->t_kill = NULL;
+		thread_cancel(&restart->t_kill);
+
 		/* Update restart time to reflect the time the command
 		 * completed. */
 		gettimeofday(&restart->time, NULL);
@@ -586,6 +586,7 @@ static void restart_done(struct daemon *dmn)
 		return;
 	}
 	THREAD_OFF(dmn->t_wakeup);
+
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
 }
@@ -678,8 +679,7 @@ static int handle_read(struct thread *t_read)
 			   dmn->name, (long)delay.tv_sec, (long)delay.tv_usec);
 
 	SET_READ_HANDLER(dmn);
-	if (dmn->t_wakeup)
-		thread_cancel(dmn->t_wakeup);
+	thread_cancel(&dmn->t_wakeup);
 	SET_WAKEUP_ECHO(dmn);
 
 	return 0;
@@ -866,9 +866,8 @@ static int phase_hanging(struct thread *t_hanging)
 static void set_phase(restart_phase_t new_phase)
 {
 	gs.phase = new_phase;
-	if (gs.t_phase_hanging)
-		thread_cancel(gs.t_phase_hanging);
-	gs.t_phase_hanging = NULL;
+	thread_cancel(&gs.t_phase_hanging);
+
 	thread_add_timer(master, phase_hanging, NULL, PHASE_TIMEOUT,
 			 &gs.t_phase_hanging);
 }

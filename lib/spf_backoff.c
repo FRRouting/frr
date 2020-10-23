@@ -110,8 +110,8 @@ void spf_backoff_free(struct spf_backoff *backoff)
 	if (!backoff)
 		return;
 
-	THREAD_TIMER_OFF(backoff->t_holddown);
-	THREAD_TIMER_OFF(backoff->t_timetolearn);
+	thread_cancel(&backoff->t_holddown);
+	thread_cancel(&backoff->t_timetolearn);
 	XFREE(MTYPE_SPF_BACKOFF_NAME, backoff->name);
 
 	XFREE(MTYPE_SPF_BACKOFF, backoff);
@@ -121,7 +121,6 @@ static int spf_backoff_timetolearn_elapsed(struct thread *thread)
 {
 	struct spf_backoff *backoff = THREAD_ARG(thread);
 
-	backoff->t_timetolearn = NULL;
 	backoff->state = SPF_BACKOFF_LONG_WAIT;
 	backoff_debug("SPF Back-off(%s) TIMETOLEARN elapsed, move to state %s",
 		      backoff->name, spf_backoff_state2str(backoff->state));
@@ -132,7 +131,7 @@ static int spf_backoff_holddown_elapsed(struct thread *thread)
 {
 	struct spf_backoff *backoff = THREAD_ARG(thread);
 
-	THREAD_TIMER_OFF(backoff->t_timetolearn);
+	THREAD_OFF(backoff->t_timetolearn);
 	timerclear(&backoff->first_event_time);
 	backoff->state = SPF_BACKOFF_QUIET;
 	backoff_debug("SPF Back-off(%s) HOLDDOWN elapsed, move to state %s",
@@ -166,7 +165,7 @@ long spf_backoff_schedule(struct spf_backoff *backoff)
 		break;
 	case SPF_BACKOFF_SHORT_WAIT:
 	case SPF_BACKOFF_LONG_WAIT:
-		THREAD_TIMER_OFF(backoff->t_holddown);
+		thread_cancel(&backoff->t_holddown);
 		thread_add_timer_msec(backoff->m, spf_backoff_holddown_elapsed,
 				      backoff, backoff->holddown,
 				      &backoff->t_holddown);

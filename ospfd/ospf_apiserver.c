@@ -317,21 +317,12 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 	struct listnode *node;
 
 	/* Cancel read and write threads. */
-	if (apiserv->t_sync_read) {
-		thread_cancel(apiserv->t_sync_read);
-	}
+	thread_cancel(&apiserv->t_sync_read);
 #ifdef USE_ASYNC_READ
-	if (apiserv->t_async_read) {
-		thread_cancel(apiserv->t_async_read);
-	}
+	thread_cancel(&apiserv->t_async_read);
 #endif /* USE_ASYNC_READ */
-	if (apiserv->t_sync_write) {
-		thread_cancel(apiserv->t_sync_write);
-	}
-
-	if (apiserv->t_async_write) {
-		thread_cancel(apiserv->t_async_write);
-	}
+	thread_cancel(&apiserv->t_sync_write);
+	thread_cancel(&apiserv->t_async_write);
 
 	/* Unregister all opaque types that application registered
 	   and flush opaque LSAs if still in LSDB. */

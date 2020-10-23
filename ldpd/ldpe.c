@@ -208,7 +208,7 @@ ldpe_shutdown(void)
 
 #ifdef __OpenBSD__
 	if (sysdep.no_pfkey == 0) {
-		THREAD_READ_OFF(pfkey_ev);
+		thread_cancel(&pfkey_ev);
 		close(global.pfkeysock);
 	}
 #endif
@@ -580,8 +580,8 @@ ldpe_dispatch_main(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_READ_OFF(iev->ev_read);
-		THREAD_WRITE_OFF(iev->ev_write);
+		thread_cancel(&iev->ev_read);
+		thread_cancel(&iev->ev_write);
 		ldpe_shutdown();
 	}
 
@@ -719,8 +719,8 @@ ldpe_dispatch_lde(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_READ_OFF(iev->ev_read);
-		THREAD_WRITE_OFF(iev->ev_write);
+		thread_cancel(&iev->ev_read);
+		thread_cancel(&iev->ev_write);
 		ldpe_shutdown();
 	}
 
@@ -778,14 +778,14 @@ ldpe_close_sockets(int af)
 	af_global = ldp_af_global_get(&global, af);
 
 	/* discovery socket */
-	THREAD_READ_OFF(af_global->disc_ev);
+	thread_cancel(&af_global->disc_ev);
 	if (af_global->ldp_disc_socket != -1) {
 		close(af_global->ldp_disc_socket);
 		af_global->ldp_disc_socket = -1;
 	}
 
 	/* extended discovery socket */
-	THREAD_READ_OFF(af_global->edisc_ev);
+	thread_cancel(&af_global->edisc_ev);
 	if (af_global->ldp_edisc_socket != -1) {
 		close(af_global->ldp_edisc_socket);
 		af_global->ldp_edisc_socket = -1;

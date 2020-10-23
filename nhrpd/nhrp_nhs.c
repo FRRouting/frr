@@ -137,7 +137,7 @@ static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
 		debugf(NHRP_DEBUG_COMMON, "NHS: Flush timer for %s",
 		       sockunion2str(&r->peer->vc->remote.nbma, buf,
 				     sizeof(buf)));
-		THREAD_TIMER_OFF(r->t_register);
+		THREAD_OFF(r->t_register);
 		thread_add_timer_msec(master, nhrp_reg_send_req, r, 10,
 				      &r->t_register);
 		break;
