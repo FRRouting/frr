@@ -7409,30 +7409,6 @@ DEFUN (no_ip_pim_rp_prefix_list,
 	return pim_no_rp_cmd_worker(pim, vty, argv[4]->arg, NULL, argv[6]->arg);
 }
 
-static int pim_ssm_cmd_worker(struct pim_instance *pim, struct vty *vty,
-			      const char *plist)
-{
-	int result = pim_ssm_range_set(pim, pim->vrf_id, plist);
-	int ret = CMD_WARNING_CONFIG_FAILED;
-
-	if (result == PIM_SSM_ERR_NONE)
-		return CMD_SUCCESS;
-
-	switch (result) {
-	case PIM_SSM_ERR_NO_VRF:
-		vty_out(vty, "%% VRF doesn't exist\n");
-		break;
-	case PIM_SSM_ERR_DUP:
-		vty_out(vty, "%% duplicate config\n");
-		ret = CMD_WARNING;
-		break;
-	default:
-		vty_out(vty, "%% ssm range config failed\n");
-	}
-
-	return ret;
-}
-
 DEFUN (ip_pim_ssm_prefix_list,
        ip_pim_ssm_prefix_list_cmd,
        "ip pim ssm prefix-list WORD",
@@ -7442,8 +7418,31 @@ DEFUN (ip_pim_ssm_prefix_list,
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_ssm_cmd_worker(pim, vty, argv[4]->arg);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ssm_plist_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
+
+	nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_MODIFY, argv[4]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_ssm_prefix_list,
@@ -7455,8 +7454,31 @@ DEFUN (no_ip_pim_ssm_prefix_list,
        "Source Specific Multicast\n"
        "group range prefix-list filter\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_ssm_cmd_worker(pim, vty, NULL);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ssm_plist_xpath[XPATH_MAXLEN];
+
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
+
+	nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_pim_ssm_prefix_list_name,
@@ -7469,11 +7491,50 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	struct pim_ssm *ssm = pim->ssm_info;
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	const struct lyd_node *ssm_plist_dnode;
+	char ssm_plist_xpath[XPATH_MAXLEN];
+	const char *ssm_plist_name;
 
-	if (ssm->plist_name && !strcmp(ssm->plist_name, argv[5]->arg))
-		return pim_ssm_cmd_worker(pim, vty, NULL);
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
+
+
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
+	ssm_plist_dnode = yang_dnode_get(vty->candidate_config->dnode,
+			ssm_plist_xpath);
+
+	if (!ssm_plist_dnode) {
+		vty_out(vty,
+			"%% pim ssm prefix-list %s doesn't exist\n",
+			argv[5]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ssm_plist_name = yang_dnode_get_string(ssm_plist_dnode, ".");
+
+	if (ssm_plist_name && !strcmp(ssm_plist_name, argv[5]->arg)) {
+		nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY,
+				NULL);
+
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", argv[5]->arg);
 
@@ -7602,27 +7663,35 @@ DEFUN (ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
 	int idx_ipv4 = 2;
-	int result;
-	struct in_addr source_addr;
 	const char *source_str = (argc == 3) ? argv[idx_ipv4]->arg : "0.0.0.0";
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
+	char ssmpingd_ip_xpath[XPATH_MAXLEN];
 
-	result = inet_pton(AF_INET, source_str, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n",
-			source_str, errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = pim_ssmpingd_start(pim, source_addr);
-	if (result) {
-		vty_out(vty, "%% Failure starting ssmpingd for source %s: %d\n",
-			source_str, result);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(ssmpingd_ip_xpath, "/ssm-pingd-source-ip",
+		sizeof(ssmpingd_ip_xpath));
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, ssmpingd_ip_xpath, NB_OP_CREATE,
+			source_str);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (no_ip_ssmpingd,
@@ -7633,27 +7702,35 @@ DEFUN (no_ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	const struct lyd_node *vrf_dnode;
+	const char *vrfname;
 	int idx_ipv4 = 3;
-	int result;
-	struct in_addr source_addr;
 	const char *source_str = (argc == 4) ? argv[idx_ipv4]->arg : "0.0.0.0";
+	char ssmpingd_ip_xpath[XPATH_MAXLEN];
 
-	result = inet_pton(AF_INET, source_str, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n",
-			source_str, errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (vty->xpath_index) {
+		vrf_dnode =
+			yang_dnode_get(vty->candidate_config->dnode,
+					VTY_CURR_XPATH);
+		if (!vrf_dnode) {
+			vty_out(vty,
+				"%% Failed to get vrf dnode in candidate db\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		vrfname = yang_dnode_get_string(vrf_dnode, "./name");
+	} else
+		vrfname = VRF_DEFAULT_NAME;
 
-	result = pim_ssmpingd_stop(pim, source_addr);
-	if (result) {
-		vty_out(vty, "%% Failure stopping ssmpingd for source %s: %d\n",
-			source_str, result);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
+	strlcat(ssmpingd_ip_xpath, "/ssm-pingd-source-ip",
+		sizeof(ssmpingd_ip_xpath));
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, ssmpingd_ip_xpath, NB_OP_DESTROY,
+			source_str);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_ecmp,

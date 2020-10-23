@@ -25,6 +25,8 @@
 #include "pim_mlag.h"
 #include "pim_bfd.h"
 #include "pim_static.h"
+#include "pim_ssm.h"
+#include "pim_ssmpingd.h"
 
 static void pim_if_membership_clear(struct interface *ifp)
 {
@@ -208,6 +210,32 @@ static int pim_cmd_spt_switchover(struct pim_instance *pim,
 	}
 
 	return NB_OK;
+}
+
+static int pim_ssm_cmd_worker(struct pim_instance *pim, const char *plist,
+		char *errmsg, size_t errmsg_len)
+{
+	int result = pim_ssm_range_set(pim, pim->vrf_id, plist);
+	int ret = NB_ERR;
+
+	if (result == PIM_SSM_ERR_NONE)
+		return NB_OK;
+
+	switch (result) {
+	case PIM_SSM_ERR_NO_VRF:
+		snprintf(errmsg, errmsg_len,
+			 "VRF doesn't exist");
+		break;
+	case PIM_SSM_ERR_DUP:
+		snprintf(errmsg, errmsg_len,
+			 "duplicate config");
+		break;
+	default:
+		snprintf(errmsg, errmsg_len,
+			 "ssm range config failed");
+	}
+
+	return ret;
 }
 
 static bool is_pim_interface(const struct lyd_node *dnode)
@@ -706,12 +734,26 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_sp
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ssm_prefix_list_modify(struct nb_cb_modify_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	const char *plist_name;
+	int result;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		plist_name = yang_dnode_get_string(args->dnode, NULL);
+		result = pim_ssm_cmd_worker(pim, plist_name, args->errmsg,
+				args->errmsg_len);
+
+		if (result)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -720,12 +762,24 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ssm_prefix_list_destroy(struct nb_cb_destroy_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	int result;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		result = pim_ssm_cmd_worker(pim, NULL, args->errmsg,
+				args->errmsg_len);
+
+		if (result)
+			return NB_ERR_INCONSISTENCY;
+
 		break;
 	}
 
@@ -737,13 +791,31 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ssm_pingd_source_ip_create(struct nb_cb_create_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	int result;
+	struct ipaddr source_addr;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		yang_dnode_get_ip(&source_addr, args->dnode, NULL);
+		result = pim_ssmpingd_start(pim, source_addr.ip._v4_addr);
+		if (result) {
+			char source_str[INET_ADDRSTRLEN];
+
+			ipaddr2str(&source_addr, source_str,
+					sizeof(source_str));
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Failure starting ssmpingd for source %s: %d",
+				 source_str, result);
+			return NB_ERR_INCONSISTENCY;
+		}
 	}
 
 	return NB_OK;
@@ -751,12 +823,32 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ssm_pingd_source_ip_destroy(struct nb_cb_destroy_args *args)
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	int result;
+	struct ipaddr source_addr;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		yang_dnode_get_ip(&source_addr, args->dnode, NULL);
+		result = pim_ssmpingd_stop(pim, source_addr.ip._v4_addr);
+		if (result) {
+			char source_str[INET_ADDRSTRLEN];
+
+			ipaddr2str(&source_addr, source_str,
+				   sizeof(source_str));
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Failure stopping ssmpingd for source %s: %d",
+				  source_str, result);
+			return NB_ERR_INCONSISTENCY;
+		}
+
 		break;
 	}
 
