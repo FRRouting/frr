@@ -462,6 +462,10 @@ static void set_rmt_itf_addr(struct ext_itf *exti, struct in_addr rmtif)
 static void ospf_extended_lsa_delete(struct ext_itf *exti)
 {
 
+	/* Avoid deleting LSA if Extended is not enable */
+	if (!OspfEXT.enabled)
+		return;
+
 	/* Process only Active Extended Prefix/Link LSA */
 	if (!CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE))
 		return;
@@ -755,16 +759,16 @@ static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status)
 	if (oi->type == OSPF_IFTYPE_LOOPBACK) {
 		exti->stype = PREF_SID;
 		exti->type = OPAQUE_TYPE_EXTENDED_PREFIX_LSA;
-		exti->flags = EXT_LPFLG_LSA_ACTIVE;
 		exti->instance = get_ext_pref_instance_value();
 		exti->area = oi->area;
 
-		osr_debug("EXT (%s): Set Prefix SID to interface %s ",
-			  __func__, oi->ifp->name);
-
 		/* Complete SRDB if the interface belongs to a Prefix */
-		if (OspfEXT.enabled)
+		if (OspfEXT.enabled) {
+			osr_debug("EXT (%s): Set Prefix SID to interface %s ",
+				  __func__, oi->ifp->name);
+			exti->flags = EXT_LPFLG_LSA_ACTIVE;
 			ospf_sr_update_local_prefix(oi->ifp, oi->address);
+		}
 	} else {
 		/* Determine if interface is related to Adj. or LAN Adj. SID */
 		if (oi->state == ISM_DR)
@@ -780,9 +784,11 @@ static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status)
 		 * Note: Adjacency SID information are completed when ospf
 		 * adjacency become up see ospf_ext_link_nsm_change()
 		 */
-		osr_debug("EXT (%s): Set %sAdjacency SID for interface %s ",
-			  __func__, exti->stype == ADJ_SID ? "" : "LAN-",
-			  oi->ifp->name);
+		if (OspfEXT.enabled)
+			osr_debug(
+				"EXT (%s): Set %sAdjacency SID for interface %s ",
+				__func__, exti->stype == ADJ_SID ? "" : "LAN-",
+				oi->ifp->name);
 	}
 }
 
@@ -817,7 +823,8 @@ static void ospf_ext_link_nsm_change(struct ospf_neighbor *nbr, int old_status)
 	}
 
 	/* Remove Extended Link if Neighbor State goes Down or Deleted */
-	if (nbr->state == NSM_Down || nbr->state == NSM_Deleted) {
+	if (OspfEXT.enabled
+	    && (nbr->state == NSM_Down || nbr->state == NSM_Deleted)) {
 		ospf_ext_link_delete_adj_sid(exti);
 		if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ENGAGED))
 			ospf_ext_link_lsa_schedule(exti, FLUSH_THIS_LSA);
