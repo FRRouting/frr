@@ -33,11 +33,13 @@
 #include "memory.h"
 #include "prefix.h"
 #include "if.h"
+#include "hash.h"
 #include "table.h"
 #include "spf_backoff.h"
 #include "srcdest_table.h"
 #include "vrf.h"
 
+#include "isis_errors.h"
 #include "isis_constants.h"
 #include "isis_common.h"
 #include "isis_flags.h"
@@ -184,6 +186,36 @@ const char *vid2string(const struct isis_vertex *vertex, char *buff, int size)
 	return "UNKNOWN";
 }
 
+static bool prefix_sid_cmp(const void *value1, const void *value2)
+{
+	const struct isis_vertex *c1 = value1;
+	const struct isis_vertex *c2 = value2;
+
+	if (CHECK_FLAG(c1->N.ip.sr.sid.flags,
+		       ISIS_PREFIX_SID_VALUE | ISIS_PREFIX_SID_LOCAL)
+	    != CHECK_FLAG(c2->N.ip.sr.sid.flags,
+			  ISIS_PREFIX_SID_VALUE | ISIS_PREFIX_SID_LOCAL))
+		return false;
+
+	return c1->N.ip.sr.sid.value == c2->N.ip.sr.sid.value;
+}
+
+static unsigned int prefix_sid_key_make(const void *value)
+{
+	const struct isis_vertex *vertex = value;
+
+	return jhash_1word(vertex->N.ip.sr.sid.value, 0);
+}
+
+struct isis_vertex *isis_spf_prefix_sid_lookup(struct isis_spftree *spftree,
+					       struct isis_prefix_sid *psid)
+{
+	struct isis_vertex lookup = {};
+
+	lookup.N.ip.sr.sid = *psid;
+	return hash_lookup(spftree->prefix_sids, &lookup);
+}
+
 static void isis_vertex_adj_free(void *arg)
 {
 	struct isis_vertex_adj *vadj = arg;
@@ -310,6 +342,8 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area,
 	tree->route_table_backup->cleanup = isis_route_node_cleanup;
 	tree->area = area;
 	tree->lspdb = lspdb;
+	tree->prefix_sids = hash_create(prefix_sid_key_make, prefix_sid_cmp,
+					"SR Prefix-SID Entries");
 	tree->sadj_list = list_new();
 	tree->sadj_list->del = isis_spf_adj_free;
 	tree->last_run_timestamp = 0;
@@ -332,6 +366,8 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area,
 
 void isis_spftree_del(struct isis_spftree *spftree)
 {
+	hash_clean(spftree->prefix_sids, NULL);
+	hash_free(spftree->prefix_sids);
 	if (spftree->type == SPF_TYPE_TI_LFA) {
 		isis_spf_node_list_clear(&spftree->lfa.q_space);
 		isis_spf_node_list_clear(&spftree->lfa.p_space);
@@ -515,14 +551,39 @@ isis_spf_add2tent(struct isis_spftree *spftree, enum vertextype vtype, void *id,
 	vertex->d_N = cost;
 	vertex->depth = depth;
 	if (VTYPE_IP(vtype) && psid) {
-		bool local;
+		struct isis_area *area = spftree->area;
+		struct isis_vertex *vertex_psid;
 
-		local = (vertex->depth == 1);
-		vertex->N.ip.sr.sid = *psid;
-		vertex->N.ip.sr.label =
-			sr_prefix_in_label(spftree->area, psid, local);
-		if (vertex->N.ip.sr.label != MPLS_INVALID_LABEL)
-			vertex->N.ip.sr.present = true;
+		/*
+		 * Check if the Prefix-SID is already in use by another prefix.
+		 */
+		vertex_psid = isis_spf_prefix_sid_lookup(spftree, psid);
+		if (vertex_psid
+		    && !prefix_same(&vertex_psid->N.ip.p.dest,
+				    &vertex->N.ip.p.dest)) {
+			flog_warn(
+				EC_ISIS_SID_COLLISION,
+				"ISIS-Sr (%s): collision detected, prefixes %pFX and %pFX share the same SID %s (%u)",
+				area->area_tag, &vertex->N.ip.p.dest,
+				&vertex_psid->N.ip.p.dest,
+				CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_VALUE)
+					? "label"
+					: "index",
+				psid->value);
+			psid = NULL;
+		} else {
+			bool local;
+
+			local = (vertex->depth == 1);
+			vertex->N.ip.sr.sid = *psid;
+			vertex->N.ip.sr.label =
+				sr_prefix_in_label(area, psid, local);
+			if (vertex->N.ip.sr.label != MPLS_INVALID_LABEL)
+				vertex->N.ip.sr.present = true;
+
+			hash_get(spftree->prefix_sids, vertex,
+				 hash_alloc_intern);
+		}
 	}
 
 	if (parent) {
@@ -1352,6 +1413,7 @@ static void add_to_paths(struct isis_spftree *spftree,
 static void init_spt(struct isis_spftree *spftree, int mtid)
 {
 	/* Clear data from previous run. */
+	hash_clean(spftree->prefix_sids, NULL);
 	isis_spf_node_list_clear(&spftree->adj_nodes);
 	list_delete_all_node(spftree->sadj_list);
 	isis_vertex_queue_clear(&spftree->tents);

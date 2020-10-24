@@ -313,6 +313,7 @@ struct isis_spftree {
 	struct route_table *route_table;
 	struct route_table *route_table_backup;
 	struct lspdb_head *lspdb; /* link-state db */
+	struct hash *prefix_sids; /* SR Prefix-SIDs. */
 	struct list *sadj_list;
 	struct isis_spf_nodes adj_nodes;
 	struct isis_area *area;    /* back pointer to area */

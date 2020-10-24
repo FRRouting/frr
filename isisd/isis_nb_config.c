@@ -22,6 +22,7 @@
 
 #include <zebra.h>
 
+#include "printfrr.h"
 #include "northbound.h"
 #include "linklist.h"
 #include "log.h"
@@ -1739,12 +1740,17 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy(
 int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
 	struct nb_cb_pre_validate_args *args)
 {
+	const struct lyd_node *area_dnode;
+	struct isis_area *area;
+	struct prefix prefix;
 	uint32_t srgb_lbound;
 	uint32_t srgb_ubound;
 	uint32_t srgb_range;
 	uint32_t sid;
 	enum sr_sid_value_type sid_type;
+	struct isis_prefix_sid psid = {};
 
+	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
 	srgb_lbound = yang_dnode_get_uint32(args->dnode,
 					    "../../srgb/lower-bound");
 	srgb_ubound = yang_dnode_get_uint32(args->dnode,
@@ -1752,7 +1758,9 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
 	sid = yang_dnode_get_uint32(args->dnode, "./sid-value");
 	sid_type = yang_dnode_get_enum(args->dnode, "./sid-value-type");
 
+	/* Check for invalid indexes/labels. */
 	srgb_range = srgb_ubound - srgb_lbound + 1;
+	psid.value = sid;
 	switch (sid_type) {
 	case SR_SID_VALUE_TYPE_INDEX:
 		if (sid >= srgb_range) {
@@ -1766,7 +1774,47 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
 			zlog_warn("Invalid absolute SID %u", sid);
 			return NB_ERR_VALIDATION;
 		}
+		SET_FLAG(psid.flags, ISIS_PREFIX_SID_VALUE);
+		SET_FLAG(psid.flags, ISIS_PREFIX_SID_LOCAL);
 		break;
+	}
+
+	/* Check for Prefix-SID collisions. */
+	area_dnode = yang_dnode_get_parent(args->dnode, "instance");
+	area = nb_running_get_entry(area_dnode, NULL, false);
+	if (area) {
+		for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2;
+			     level++) {
+				struct isis_spftree *spftree;
+				struct isis_vertex *vertex_psid;
+
+				if (!(area->is_type & level))
+					continue;
+				spftree = area->spftree[tree][level - 1];
+				if (!spftree)
+					continue;
+
+				vertex_psid = isis_spf_prefix_sid_lookup(
+					spftree, &psid);
+				if (vertex_psid
+				    && !prefix_same(&vertex_psid->N.ip.p.dest,
+						    &prefix)) {
+					snprintfrr(
+						args->errmsg, args->errmsg_len,
+						"Prefix-SID collision detected, SID %s %u is already in use by prefix %pFX (L%u)",
+						CHECK_FLAG(
+							psid.flags,
+							ISIS_PREFIX_SID_VALUE)
+							? "label"
+							: "index",
+						psid.value,
+						&vertex_psid->N.ip.p.dest,
+						level);
+					return NB_ERR_VALIDATION;
+				}
+			}
+		}
 	}
 
 	return NB_OK;
