@@ -3,7 +3,7 @@
 #
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(LIBM)
+lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
@@ -46,6 +46,7 @@ lib_libfrr_la_SOURCES = \
 	lib/lib_errors.c \
 	lib/lib_vty.c \
 	lib/libfrr.c \
+	lib/libfrr_trace.c \
 	lib/linklist.c \
 	lib/log.c \
 	lib/log_filter.c \
@@ -204,6 +205,7 @@ pkginclude_HEADERS += \
 	lib/lib_errors.h \
 	lib/lib_vty.h \
 	lib/libfrr.h \
+	lib/libfrr_trace.h \
 	lib/libospf.h \
 	lib/linklist.h \
 	lib/log.h \
@@ -251,6 +253,7 @@ pkginclude_HEADERS += \
 	lib/table.h \
 	lib/termtable.h \
 	lib/thread.h \
+	lib/trace.h \
 	lib/typerb.h \
 	lib/typesafe.h \
 	lib/vector.h \
@@ -401,7 +404,7 @@ lib_grammar_sandbox_LDADD = \
 
 lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY
 lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
-lib_clippy_LDADD = $(PYTHON_LIBS)
+lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS)
 lib_clippy_LDFLAGS = -export-dynamic
 lib_clippy_SOURCES = \
 	lib/clippy.c \
@@ -411,6 +414,7 @@ lib_clippy_SOURCES = \
 	lib/command_py.c \
 	lib/defun_lex.l \
 	lib/graph.c \
+	lib/libfrr_trace.c \
 	lib/memory.c \
 	lib/vector.c \
 	# end

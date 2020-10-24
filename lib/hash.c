@@ -29,6 +29,7 @@
 #include "command.h"
 #include "libfrr.h"
 #include "frr_pthread.h"
+#include "libfrr_trace.h"
 
 DEFINE_MTYPE_STATIC(LIB, HASH, "Hash")
 DEFINE_MTYPE_STATIC(LIB, HASH_BACKET, "Hash Bucket")
@@ -138,6 +139,8 @@ static void hash_expand(struct hash *hash)
 
 void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 {
+	frrtrace(2, frr_libfrr, hash_get, hash, data);
+
 	unsigned int key;
 	unsigned int index;
 	void *newdata;
@@ -171,6 +174,8 @@ void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 		bucket->next = hash->index[index];
 		hash->index[index] = bucket;
 		hash->count++;
+
+		frrtrace(3, frr_libfrr, hash_insert, hash, data, key);
 
 		int oldlen = bucket->next ? bucket->next->len : 0;
 		int newlen = oldlen + 1;
@@ -206,7 +211,7 @@ unsigned int string_hash_make(const char *str)
 
 void *hash_release(struct hash *hash, void *data)
 {
-	void *ret;
+	void *ret = NULL;
 	unsigned int key;
 	unsigned int index;
 	struct hash_bucket *bucket;
@@ -236,11 +241,14 @@ void *hash_release(struct hash *hash, void *data)
 			ret = bucket->data;
 			XFREE(MTYPE_HASH_BACKET, bucket);
 			hash->count--;
-			return ret;
+			break;
 		}
 		pp = bucket;
 	}
-	return NULL;
+
+	frrtrace(3, frr_libfrr, hash_release, hash, data, ret);
+
+	return ret;
 }
 
 void hash_iterate(struct hash *hash, void (*func)(struct hash_bucket *, void *),

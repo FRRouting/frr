@@ -70,6 +70,7 @@
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_network.h"
+#include "bgpd/bgp_trace.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -1296,6 +1297,7 @@ static enum filter_type bgp_input_filter(struct peer *peer,
 					 safi_t safi)
 {
 	struct bgp_filter *filter;
+	enum filter_type ret = FILTER_PERMIT;
 
 	filter = &peer->filter[afi][safi];
 
@@ -1307,26 +1309,43 @@ static enum filter_type bgp_input_filter(struct peer *peer,
 	if (DISTRIBUTE_IN_NAME(filter)) {
 		FILTER_EXIST_WARN(DISTRIBUTE, distribute, filter);
 
-		if (access_list_apply(DISTRIBUTE_IN(filter), p) == FILTER_DENY)
-			return FILTER_DENY;
+		if (access_list_apply(DISTRIBUTE_IN(filter), p)
+		    == FILTER_DENY) {
+			ret = FILTER_DENY;
+			goto done;
+		}
 	}
 
 	if (PREFIX_LIST_IN_NAME(filter)) {
 		FILTER_EXIST_WARN(PREFIX_LIST, prefix, filter);
 
-		if (prefix_list_apply(PREFIX_LIST_IN(filter), p) == PREFIX_DENY)
-			return FILTER_DENY;
+		if (prefix_list_apply(PREFIX_LIST_IN(filter), p)
+		    == PREFIX_DENY) {
+			ret = FILTER_DENY;
+			goto done;
+		}
 	}
 
 	if (FILTER_LIST_IN_NAME(filter)) {
 		FILTER_EXIST_WARN(FILTER_LIST, as, filter);
 
 		if (as_list_apply(FILTER_LIST_IN(filter), attr->aspath)
-		    == AS_FILTER_DENY)
-			return FILTER_DENY;
+		    == AS_FILTER_DENY) {
+			ret = FILTER_DENY;
+			goto done;
+		}
 	}
 
-	return FILTER_PERMIT;
+done:
+	if (frrtrace_enabled(frr_bgp, input_filter)) {
+		char pfxprint[PREFIX2STR_BUFFER];
+
+		prefix2str(p, pfxprint, sizeof(pfxprint));
+		frrtrace(5, frr_bgp, input_filter, peer, pfxprint, afi, safi,
+			 ret == FILTER_PERMIT ? "permit" : "deny");
+	}
+
+	return ret;
 #undef FILTER_EXIST_WARN
 }
 
@@ -1336,6 +1355,7 @@ static enum filter_type bgp_output_filter(struct peer *peer,
 					  safi_t safi)
 {
 	struct bgp_filter *filter;
+	enum filter_type ret = FILTER_PERMIT;
 
 	filter = &peer->filter[afi][safi];
 
@@ -1347,27 +1367,43 @@ static enum filter_type bgp_output_filter(struct peer *peer,
 	if (DISTRIBUTE_OUT_NAME(filter)) {
 		FILTER_EXIST_WARN(DISTRIBUTE, distribute, filter);
 
-		if (access_list_apply(DISTRIBUTE_OUT(filter), p) == FILTER_DENY)
-			return FILTER_DENY;
+		if (access_list_apply(DISTRIBUTE_OUT(filter), p)
+		    == FILTER_DENY) {
+			ret = FILTER_DENY;
+			goto done;
+		}
 	}
 
 	if (PREFIX_LIST_OUT_NAME(filter)) {
 		FILTER_EXIST_WARN(PREFIX_LIST, prefix, filter);
 
 		if (prefix_list_apply(PREFIX_LIST_OUT(filter), p)
-		    == PREFIX_DENY)
-			return FILTER_DENY;
+		    == PREFIX_DENY) {
+			ret = FILTER_DENY;
+			goto done;
+		}
 	}
 
 	if (FILTER_LIST_OUT_NAME(filter)) {
 		FILTER_EXIST_WARN(FILTER_LIST, as, filter);
 
 		if (as_list_apply(FILTER_LIST_OUT(filter), attr->aspath)
-		    == AS_FILTER_DENY)
-			return FILTER_DENY;
+		    == AS_FILTER_DENY) {
+			ret = FILTER_DENY;
+			goto done;
+		}
 	}
 
-	return FILTER_PERMIT;
+	if (frrtrace_enabled(frr_bgp, output_filter)) {
+		char pfxprint[PREFIX2STR_BUFFER];
+
+		prefix2str(p, pfxprint, sizeof(pfxprint));
+		frrtrace(5, frr_bgp, output_filter, peer, pfxprint, afi, safi,
+			 ret == FILTER_PERMIT ? "permit" : "deny");
+	}
+
+done:
+	return ret;
 #undef FILTER_EXIST_WARN
 }
 
@@ -3431,6 +3467,14 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	afi_t nh_afi;
 	uint8_t pi_type = 0;
 	uint8_t pi_sub_type = 0;
+
+	if (frrtrace_enabled(frr_bgp, process_update)) {
+		char pfxprint[PREFIX2STR_BUFFER];
+
+		prefix2str(p, pfxprint, sizeof(pfxprint));
+		frrtrace(6, frr_bgp, process_update, peer, pfxprint, addpath_id,
+			 afi, safi, attr);
+	}
 
 #ifdef ENABLE_BGP_VNC
 	int vnc_implicit_withdraw = 0;

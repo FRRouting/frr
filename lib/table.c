@@ -27,6 +27,7 @@
 #include "table.h"
 #include "memory.h"
 #include "sockunion.h"
+#include "libfrr_trace.h"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_TABLE, "Route table")
 DEFINE_MTYPE(LIB, ROUTE_NODE, "Route node")
@@ -276,6 +277,12 @@ struct route_node *route_node_lookup_maynull(struct route_table *table,
 struct route_node *route_node_get(struct route_table *table,
 				  union prefixconstptr pu)
 {
+	if (frrtrace_enabled(frr_libfrr, route_node_get)) {
+		char buf[PREFIX2STR_BUFFER];
+		prefix2str(pu, buf, sizeof(buf));
+		frrtrace(2, frr_libfrr, route_node_get, table, buf);
+	}
+
 	struct route_node search;
 	struct prefix *p = &search.p;
 

@@ -29,6 +29,7 @@
 
 #include "memory.h"
 #include "log.h"
+#include "libfrr_trace.h"
 
 static struct memgroup *mg_first = NULL;
 struct memgroup **mg_insert = &mg_first;
@@ -77,6 +78,8 @@ static inline void mt_count_alloc(struct memtype *mt, size_t size, void *ptr)
 
 static inline void mt_count_free(struct memtype *mt, void *ptr)
 {
+	frrtrace(2, frr_libfrr, memfree, mt, ptr);
+
 	assert(mt->n_alloc);
 	atomic_fetch_sub_explicit(&mt->n_alloc, 1, memory_order_relaxed);
 
@@ -89,6 +92,8 @@ static inline void mt_count_free(struct memtype *mt, void *ptr)
 
 static inline void *mt_checkalloc(struct memtype *mt, void *ptr, size_t size)
 {
+	frrtrace(3, frr_libfrr, memalloc, mt, ptr, size);
+
 	if (__builtin_expect(ptr == NULL, 0)) {
 		if (size) {
 			/* malloc(0) is allowed to return NULL */

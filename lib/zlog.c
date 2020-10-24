@@ -52,6 +52,7 @@
 #include "printfrr.h"
 #include "frrcu.h"
 #include "zlog.h"
+#include "libfrr_trace.h"
 
 DEFINE_MTYPE_STATIC(LIB, LOG_MESSAGE,  "log message")
 DEFINE_MTYPE_STATIC(LIB, LOG_TLSBUF,   "log thread-local buffer")
@@ -449,6 +450,34 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, int prio,
 void vzlog(int prio, const char *fmt, va_list ap)
 {
 	struct zlog_tls *zlog_tls = zlog_tls_get();
+
+#ifdef HAVE_LTTNG
+	va_list copy;
+	va_copy(copy, ap);
+	char *msg = vasprintfrr(MTYPE_LOG_MESSAGE, fmt, copy);
+
+	switch (prio) {
+	case LOG_ERR:
+		frrtracelog(TRACE_ERR, msg);
+		break;
+	case LOG_WARNING:
+		frrtracelog(TRACE_WARNING, msg);
+		break;
+	case LOG_DEBUG:
+		frrtracelog(TRACE_DEBUG, msg);
+		break;
+	case LOG_NOTICE:
+		frrtracelog(TRACE_DEBUG, msg);
+		break;
+	case LOG_INFO:
+	default:
+		frrtracelog(TRACE_INFO, msg);
+		break;
+	}
+
+	va_end(copy);
+	XFREE(MTYPE_LOG_MESSAGE, msg);
+#endif
 
 	if (zlog_tls)
 		vzlog_tls(zlog_tls, prio, fmt, ap);

@@ -104,6 +104,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgpd.c \
 	bgpd/bgp_nb.c \
 	bgpd/bgp_nb_config.c \
+	bgpd/bgp_trace.c \
 	# end
 
 if ENABLE_BGP_VNC
@@ -178,6 +179,7 @@ noinst_HEADERS += \
 	bgpd/bgp_zebra.h \
 	bgpd/bgpd.h \
 	bgpd/bgp_nb.h \
+	bgpd/bgp_trace.h \
 	\
 	bgpd/rfapi/bgp_rfapi_cfg.h \
 	bgpd/rfapi/rfapi_import.h \
@@ -208,8 +210,8 @@ bgpd_bgpd_CFLAGS = $(AM_CFLAGS)
 bgpd_bgp_btoa_CFLAGS = $(AM_CFLAGS)
 
 # RFPLDADD is set in bgpd/rfp-example/librfp/subdir.am
-bgpd_bgpd_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBCAP) $(LIBM)
-bgpd_bgp_btoa_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBCAP) $(LIBM)
+bgpd_bgpd_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBCAP) $(LIBM) $(UST_LIBS)
+bgpd_bgp_btoa_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBCAP) $(LIBM) $(UST_LIBS)
 
 bgpd_bgpd_snmp_la_SOURCES = bgpd/bgp_snmp.c
 bgpd_bgpd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99

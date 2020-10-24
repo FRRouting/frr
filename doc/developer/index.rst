@@ -9,6 +9,7 @@ FRRouting Developer's Guide
    packaging
    process-architecture
    library
+   tracing
    testing
    bgpd
    fpm
