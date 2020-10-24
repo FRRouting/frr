@@ -7199,56 +7199,94 @@ ALIAS_HIDDEN(no_neighbor_weight, no_neighbor_weight_hidden_cmd,
 
 
 /* Override capability negotiation. */
-DEFUN (neighbor_override_capability,
-       neighbor_override_capability_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> override-capability",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Override capability negotiation result\n")
+DEFUN_YANG (neighbor_override_capability,
+	    neighbor_override_capability_cmd,
+	    "neighbor <A.B.C.D|X:X::X:X|WORD> override-capability",
+	    NEIGHBOR_STR
+	    NEIGHBOR_ADDR_STR2
+	    "Override capability negotiation result\n")
 {
 	int idx_peer = 1;
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_OVERRIDE_CAPABILITY);
+	char base_xpath[XPATH_MAXLEN];
+
+	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
+				     sizeof(base_xpath), NULL)
+	    < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	nb_cli_enqueue_change(
+		vty, "./capability-options/override-capability",
+		NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFUN (no_neighbor_override_capability,
-       no_neighbor_override_capability_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> override-capability",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Override capability negotiation result\n")
+DEFUN_YANG (no_neighbor_override_capability,
+	    no_neighbor_override_capability_cmd,
+	    "no neighbor <A.B.C.D|X:X::X:X|WORD> override-capability",
+	    NO_STR
+	    NEIGHBOR_STR
+	    NEIGHBOR_ADDR_STR2
+	    "Override capability negotiation result\n")
 {
 	int idx_peer = 2;
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_OVERRIDE_CAPABILITY);
+	char base_xpath[XPATH_MAXLEN];
+
+	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
+				     sizeof(base_xpath), NULL)
+	    < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	nb_cli_enqueue_change(
+		vty, "./capability-options/override-capability",
+		NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFUN (neighbor_strict_capability,
-       neighbor_strict_capability_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> strict-capability-match",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Strict capability negotiation match\n")
+DEFUN_YANG (neighbor_strict_capability,
+	    neighbor_strict_capability_cmd,
+	    "neighbor <A.B.C.D|X:X::X:X|WORD> strict-capability-match",
+	    NEIGHBOR_STR
+	    NEIGHBOR_ADDR_STR2
+	    "Strict capability negotiation match\n")
 {
 	int idx_peer = 1;
+	char base_xpath[XPATH_MAXLEN];
 
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_STRICT_CAP_MATCH);
+	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
+				     sizeof(base_xpath), NULL)
+	    < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	nb_cli_enqueue_change(
+		vty, "./capability-options/strict-capability",
+		NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFUN (no_neighbor_strict_capability,
-       no_neighbor_strict_capability_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> strict-capability-match",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Strict capability negotiation match\n")
+DEFUN_YANG (no_neighbor_strict_capability,
+	    no_neighbor_strict_capability_cmd,
+	    "no neighbor <A.B.C.D|X:X::X:X|WORD> strict-capability-match",
+	    NO_STR
+	    NEIGHBOR_STR
+	    NEIGHBOR_ADDR_STR2
+	    "Strict capability negotiation match\n")
 {
 	int idx_peer = 2;
+	char base_xpath[XPATH_MAXLEN];
 
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_STRICT_CAP_MATCH);
+	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
+				     sizeof(base_xpath), NULL)
+	    < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	nb_cli_enqueue_change(
+		vty, "./capability-options/strict-capability",
+		NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 DEFUN_YANG (neighbor_timers,
