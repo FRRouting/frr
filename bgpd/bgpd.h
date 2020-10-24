@@ -163,6 +163,18 @@ struct bgp_master {
 	uint32_t flags;
 #define BM_FLAG_GRACEFUL_SHUTDOWN        (1 << 0)
 #define BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA (1 << 1)
+#define BM_FLAG_MAINTENANCE_MODE	 (1 << 2)
+#define BM_FLAG_GR_RESTARTER		 (1 << 3)
+#define BM_FLAG_GR_DISABLED		 (1 << 4)
+#define BM_FLAG_GR_PRESERVE_FWD		 (1 << 5)
+
+#define BM_FLAG_GR_CONFIGURED (BM_FLAG_GR_RESTARTER | BM_FLAG_GR_DISABLED)
+
+	/* BGP-wide graceful restart config params */
+	uint32_t restart_time;
+	uint32_t stalepath_time;
+	uint32_t select_defer_time;
+	uint32_t rib_stale_time;
 
 	bool terminating;	/* global flag that sigint terminate seen */
 

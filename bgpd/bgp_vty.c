@@ -3019,6 +3019,98 @@ DEFUN (no_bgp_deterministic_med,
 	return CMD_SUCCESS;
 }
 
+static int bgp_inst_gr_config_vty(struct vty *vty, struct bgp *bgp, bool on,
+				  bool disable)
+{
+	int ret = BGP_GR_FAILURE;
+
+	/*
+	 * Update the instance and all its peers, if appropriate.
+	 * Then, inform zebra of BGP's GR capabilities, if needed.
+	 */
+	if (disable)
+		ret = bgp_gr_update_all(bgp, on ? GLOBAL_DISABLE_CMD
+						: NO_GLOBAL_DISABLE_CMD);
+	else
+		ret = bgp_gr_update_all(bgp,
+					on ? GLOBAL_GR_CMD : NO_GLOBAL_GR_CMD);
+
+	VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer,
+							      ret);
+	return ret;
+}
+
+static int bgp_global_gr_config_vty(struct vty *vty, bool on, bool disable)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+	bool vrf_cfg = false;
+	int ret = BGP_GR_FAILURE;
+
+	if (disable) {
+		if ((on && CHECK_FLAG(bm->flags, BM_FLAG_GR_DISABLED)) ||
+		    (!on && !CHECK_FLAG(bm->flags, BM_FLAG_GR_DISABLED)))
+			return CMD_SUCCESS;
+	} else {
+		if ((on && CHECK_FLAG(bm->flags, BM_FLAG_GR_RESTARTER)) ||
+		    (!on && !CHECK_FLAG(bm->flags, BM_FLAG_GR_RESTARTER)))
+			return CMD_SUCCESS;
+	}
+
+	/* See if GR is set per-vrf and warn user to delete */
+	if (!CHECK_FLAG(bm->flags, BM_FLAG_GR_CONFIGURED)) {
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+			enum global_mode gr_mode = bgp_global_gr_mode_get(bgp);
+
+			if (gr_mode != GLOBAL_HELPER) {
+				vty_out(vty,
+					"%% graceful-restart configuration found in %s, mode %d\n",
+					bgp->name_pretty, gr_mode);
+				vrf_cfg = true;
+			}
+		}
+	}
+
+	if (vrf_cfg) {
+		vty_out(vty,
+			"%%Failed: global graceful-restart not permitted with per-vrf configuration\n");
+		return CMD_WARNING;
+	}
+
+	/* Set flag globally */
+	if (on) {
+		if (disable) {
+			UNSET_FLAG(bm->flags, BM_FLAG_GR_RESTARTER);
+			SET_FLAG(bm->flags, BM_FLAG_GR_DISABLED);
+		} else {
+			SET_FLAG(bm->flags, BM_FLAG_GR_RESTARTER);
+			UNSET_FLAG(bm->flags, BM_FLAG_GR_DISABLED);
+		}
+	} else {
+		if (disable)
+			UNSET_FLAG(bm->flags, BM_FLAG_GR_DISABLED);
+		else
+			UNSET_FLAG(bm->flags, BM_FLAG_GR_RESTARTER);
+	}
+
+	/* Initiate processing for all BGP instances. */
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		ret = bgp_inst_gr_config_vty(vty, bgp, on, disable);
+		if (ret != BGP_GR_SUCCESS)
+			vty_out(vty,
+				"%% Applying global graceful-restart %s config to vrf %s failed, error %d\n",
+				(disable) ? "disable" : "",
+				bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
+					? "Default"
+					: bgp->name,
+				ret);
+	}
+
+	vty_out(vty,
+		"Graceful restart configuration changed, reset all peers to take effect\n");
+	return bgp_vty_return(vty, ret);
+}
+
 /* "bgp graceful-restart mode" configuration. */
 DEFUN (bgp_graceful_restart,
 	bgp_graceful_restart_cmd,
@@ -3027,6 +3119,9 @@ DEFUN (bgp_graceful_restart,
 	GR_CMD
       )
 {
+	if (vty->node == CONFIG_NODE)
+		return bgp_global_gr_config_vty(vty, true, false);
+
 	int ret = BGP_GR_FAILURE;
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
@@ -3034,11 +3129,8 @@ DEFUN (bgp_graceful_restart,
 
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	ret = bgp_gr_update_all(bgp, GLOBAL_GR_CMD);
+	ret = bgp_inst_gr_config_vty(vty, bgp, true, false);
 	if (ret == BGP_GR_SUCCESS) {
-		VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp,
-								      bgp->peer,
-								      ret);
 		vty_out(vty,
 			"Graceful restart configuration changed, reset all peers to take effect\n");
 	}
@@ -3057,6 +3149,9 @@ DEFUN (no_bgp_graceful_restart,
 	NO_GR_CMD
       )
 {
+	if (vty->node == CONFIG_NODE)
+		return bgp_global_gr_config_vty(vty, false, false);
+
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
@@ -3064,7 +3159,7 @@ DEFUN (no_bgp_graceful_restart,
 
 	int ret = BGP_GR_FAILURE;
 
-	ret = bgp_gr_update_all(bgp, NO_GLOBAL_GR_CMD);
+	ret = bgp_inst_gr_config_vty(vty, bgp, false, false);
 	if (ret == BGP_GR_SUCCESS) {
 		VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp,
 								      bgp->peer,
@@ -3087,12 +3182,21 @@ DEFUN (bgp_graceful_restart_stalepath_time,
 	"Set the max time to hold onto restarting peer's stale paths\n"
 	"Delay value (seconds)\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
 	uint32_t stalepath;
 
 	stalepath = strtoul(argv[idx_number]->arg, NULL, 10);
-	bgp->stalepath_time = stalepath;
+	if (vty->node == CONFIG_NODE) {
+		struct listnode *node, *nnode;
+		struct bgp *bgp;
+
+		bm->stalepath_time = stalepath;
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+			bgp->stalepath_time = stalepath;
+	} else {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		bgp->stalepath_time = stalepath;
+	}
 	return CMD_SUCCESS;
 }
 
@@ -3104,20 +3208,32 @@ DEFUN (bgp_graceful_restart_restart_time,
 	"Set the time to wait to delete stale routes before a BGP open message is received\n"
 	"Delay value (seconds)\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
 	uint32_t restart;
 	struct listnode *node, *nnode;
 	struct peer *peer;
 
 	restart = strtoul(argv[idx_number]->arg, NULL, 10);
-	bgp->restart_time = restart;
 
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-				    CAPABILITY_CODE_RESTART,
-				    CAPABILITY_ACTION_SET);
+	if (vty->node == CONFIG_NODE) {
+		struct bgp *bgp;
 
+		bm->restart_time = restart;
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+			bgp->restart_time = restart;
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+						    CAPABILITY_CODE_RESTART,
+						    CAPABILITY_ACTION_SET);
+		}
+	} else {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		bgp->restart_time = restart;
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_RESTART,
+					    CAPABILITY_ACTION_SET);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -3129,16 +3245,32 @@ DEFUN (bgp_graceful_restart_select_defer_time,
        "Set the time to defer the BGP route selection after restart\n"
        "Delay value (seconds, 0 - disable)\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
 	uint32_t defer_time;
 
 	defer_time = strtoul(argv[idx_number]->arg, NULL, 10);
-	bgp->select_defer_time = defer_time;
-	if (defer_time == 0)
-		SET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
-	else
-		UNSET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
+	if (vty->node == CONFIG_NODE) {
+		struct listnode *node, *nnode;
+		struct bgp *bgp;
+
+		bm->select_defer_time = defer_time;
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+			bgp->select_defer_time = defer_time;
+			if (defer_time == 0)
+				SET_FLAG(bgp->flags,
+					 BGP_FLAG_SELECT_DEFER_DISABLE);
+			else
+				UNSET_FLAG(bgp->flags,
+					   BGP_FLAG_SELECT_DEFER_DISABLE);
+		}
+	} else {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		bgp->select_defer_time = defer_time;
+		if (defer_time == 0)
+			SET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
+		else
+			UNSET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -3152,9 +3284,17 @@ DEFUN (no_bgp_graceful_restart_stalepath_time,
 	"Set the max time to hold onto restarting peer's stale paths\n"
 	"Delay value (seconds)\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (vty->node == CONFIG_NODE) {
+		struct listnode *node, *nnode;
+		struct bgp *bgp;
 
-	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+		bm->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+			bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+	} else {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+	}
 	return CMD_SUCCESS;
 }
 
@@ -3167,17 +3307,30 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 	"Set the time to wait to delete stale routes before a BGP open message is received\n"
 	"Delay value (seconds)\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	struct listnode *node, *nnode;
 	struct peer *peer;
 
-	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
+	if (vty->node == CONFIG_NODE) {
+		struct bgp *bgp;
 
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-				    CAPABILITY_CODE_RESTART,
-				    CAPABILITY_ACTION_UNSET);
+		bm->restart_time = BGP_DEFAULT_RESTART_TIME;
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+			bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+						    CAPABILITY_CODE_RESTART,
+						    CAPABILITY_ACTION_UNSET);
+		}
+	} else {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
+
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_RESTART,
+					    CAPABILITY_ACTION_UNSET);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -3190,10 +3343,21 @@ DEFUN (no_bgp_graceful_restart_select_defer_time,
        "Set the time to defer the BGP route selection after restart\n"
        "Delay value (seconds)\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (vty->node == CONFIG_NODE) {
+		struct listnode *node, *nnode;
+		struct bgp *bgp;
 
-	bgp->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
-	UNSET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
+		bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+			bgp->select_defer_time =
+				BGP_DEFAULT_SELECT_DEFERRAL_TIME;
+			UNSET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
+		}
+	} else {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		bgp->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -3205,8 +3369,17 @@ DEFUN (bgp_graceful_restart_preserve_fw,
 	"Graceful restart capability parameters\n"
 	"Sets F-bit indication that fib is preserved while doing Graceful Restart\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	if (vty->node == CONFIG_NODE) {
+		struct listnode *node, *nnode;
+		struct bgp *bgp;
+
+		SET_FLAG(bm->flags, BM_FLAG_GR_PRESERVE_FWD);
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+			SET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	} else {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		SET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -3218,8 +3391,17 @@ DEFUN (no_bgp_graceful_restart_preserve_fw,
 	"Graceful restart capability parameters\n"
 	"Unsets F-bit indication that fib is preserved while doing Graceful Restart\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	if (vty->node == CONFIG_NODE) {
+		struct listnode *node, *nnode;
+		struct bgp *bgp;
+
+		UNSET_FLAG(bm->flags, BM_FLAG_GR_PRESERVE_FWD);
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+			UNSET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	} else {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		UNSET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -3271,6 +3453,9 @@ DEFUN (bgp_graceful_restart_disable,
 	BGP_STR
 	GR_DISABLE)
 {
+	if (vty->node == CONFIG_NODE)
+		return bgp_global_gr_config_vty(vty, true, true);
+
 	int ret = BGP_GR_FAILURE;
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -3281,11 +3466,8 @@ DEFUN (bgp_graceful_restart_disable,
 
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	ret = bgp_gr_update_all(bgp, GLOBAL_DISABLE_CMD);
+	ret = bgp_inst_gr_config_vty(vty, bgp, true, true);
 	if (ret == BGP_GR_SUCCESS) {
-		VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp,
-								      bgp->peer,
-								      ret);
 		vty_out(vty,
 			"Graceful restart configuration changed, reset all peers to take effect\n");
 
@@ -3313,6 +3495,9 @@ DEFUN (no_bgp_graceful_restart_disable,
 	NO_GR_DISABLE
       )
 {
+	if (vty->node == CONFIG_NODE)
+		return bgp_global_gr_config_vty(vty, false, true);
+
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
@@ -3321,11 +3506,8 @@ DEFUN (no_bgp_graceful_restart_disable,
 
 	int ret = BGP_GR_FAILURE;
 
-	ret = bgp_gr_update_all(bgp, NO_GLOBAL_DISABLE_CMD);
+	ret = bgp_inst_gr_config_vty(vty, bgp, false, true);
 	if (ret == BGP_GR_SUCCESS) {
-		VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp,
-								      bgp->peer,
-								      ret);
 		vty_out(vty,
 			"Graceful restart configuration changed, reset all peers to take effect\n");
 	}
@@ -19166,6 +19348,7 @@ int bgp_config_write(struct vty *vty)
 
 	hook_call(bgp_snmp_traps_config_write, vty);
 
+	vty_out(vty, "!\n");
 	if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
 		vty_out(vty, "bgp route-map delay-timer %u\n",
 			bm->rmap_update_timer);
@@ -19179,6 +19362,30 @@ int bgp_config_write(struct vty *vty)
 
 	if (bm->wait_for_fib)
 		vty_out(vty, "bgp suppress-fib-pending\n");
+
+	if (bm->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
+		vty_out(vty, "bgp graceful-restart stalepath-time %u\n",
+			bm->stalepath_time);
+
+	if (bm->restart_time != BGP_DEFAULT_RESTART_TIME)
+		vty_out(vty, "bgp graceful-restart restart-time %u\n",
+			bm->restart_time);
+
+	if (bm->select_defer_time != BGP_DEFAULT_SELECT_DEFERRAL_TIME)
+		vty_out(vty, "bgp graceful-restart select-defer-time %u\n",
+			bm->select_defer_time);
+
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GR_RESTARTER))
+		vty_out(vty, "bgp graceful-restart\n");
+	else if (CHECK_FLAG(bm->flags, BM_FLAG_GR_DISABLED))
+		vty_out(vty, "bgp graceful-restart-disable\n");
+
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GR_PRESERVE_FWD))
+		vty_out(vty, "bgp graceful-restart preserve-fw-state\n");
+
+	if (bm->rib_stale_time != BGP_DEFAULT_RIB_STALE_TIME)
+		vty_out(vty, "bgp graceful-restart rib-stale-time %u\n",
+			bm->rib_stale_time);
 
 	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN))
 		vty_out(vty, "bgp graceful-shutdown\n");
@@ -19442,15 +19649,21 @@ int bgp_config_write(struct vty *vty)
 				" bgp long-lived-graceful-restart stale-time %u\n",
 				bgp->llgr_stale_time);
 
-		/* BGP graceful-restart. */
-		if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
-			vty_out(vty,
-				" bgp graceful-restart stalepath-time %u\n",
-				bgp->stalepath_time);
+		/* BGP per-instance graceful-restart. */
+		/* BGP-wide settings and per-instance settings are mutually
+		 * exclusive.
+		 */
+		if (bm->stalepath_time == BGP_DEFAULT_STALEPATH_TIME)
+			if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
+				vty_out(vty,
+					" bgp graceful-restart stalepath-time %u\n",
+					bgp->stalepath_time);
 
-		if (bgp->restart_time != BGP_DEFAULT_RESTART_TIME)
-			vty_out(vty, " bgp graceful-restart restart-time %u\n",
-				bgp->restart_time);
+		if (bm->restart_time == BGP_DEFAULT_RESTART_TIME)
+			if (bgp->restart_time != BGP_DEFAULT_RESTART_TIME)
+				vty_out(vty,
+					" bgp graceful-restart restart-time %u\n",
+					bgp->restart_time);
 
 		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION) !=
 		    SAVE_BGP_GRACEFUL_NOTIFICATION)
@@ -19460,30 +19673,34 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
-		if (bgp->select_defer_time != BGP_DEFAULT_SELECT_DEFERRAL_TIME)
-			vty_out(vty,
-				" bgp graceful-restart select-defer-time %u\n",
-				bgp->select_defer_time);
+		if (bm->select_defer_time == BGP_DEFAULT_SELECT_DEFERRAL_TIME)
+			if (bgp->select_defer_time !=
+			    BGP_DEFAULT_SELECT_DEFERRAL_TIME)
+				vty_out(vty,
+					" bgp graceful-restart select-defer-time %u\n",
+					bgp->select_defer_time);
 
-		if (bgp_global_gr_mode_get(bgp) == GLOBAL_GR)
-			vty_out(vty, " bgp graceful-restart\n");
+		if (!CHECK_FLAG(bm->flags, BM_FLAG_GR_CONFIGURED)) {
+			if (bgp_global_gr_mode_get(bgp) == GLOBAL_GR)
+				vty_out(vty, " bgp graceful-restart\n");
 
-		if (bgp_global_gr_mode_get(bgp) == GLOBAL_DISABLE)
-			vty_out(vty, " bgp graceful-restart-disable\n");
+			if (bgp_global_gr_mode_get(bgp) == GLOBAL_DISABLE)
+				vty_out(vty, " bgp graceful-restart-disable\n");
+		}
 
-		/* BGP graceful-restart Preserve State F bit. */
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD))
-			vty_out(vty,
-				" bgp graceful-restart preserve-fw-state\n");
+		if (!CHECK_FLAG(bm->flags, BM_FLAG_GR_PRESERVE_FWD))
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD))
+				vty_out(vty,
+					" bgp graceful-restart preserve-fw-state\n");
 
 		/* BGP TCP keepalive */
 		bgp_config_tcp_keepalive(vty, bgp);
 
-		/* Stale timer for RIB */
-		if (bgp->rib_stale_time != BGP_DEFAULT_RIB_STALE_TIME)
-			vty_out(vty,
-				" bgp graceful-restart rib-stale-time %u\n",
-				bgp->rib_stale_time);
+		if (bm->rib_stale_time == BGP_DEFAULT_RIB_STALE_TIME)
+			if (bgp->rib_stale_time != BGP_DEFAULT_RIB_STALE_TIME)
+				vty_out(vty,
+					" bgp graceful-restart rib-stale-time %u\n",
+					bgp->rib_stale_time);
 
 		/* BGP bestpath method. */
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE))
@@ -20141,6 +20358,26 @@ void bgp_vty_init(void)
 	/* global bgp graceful-shutdown command */
 	install_element(CONFIG_NODE, &bgp_graceful_shutdown_cmd);
 	install_element(CONFIG_NODE, &no_bgp_graceful_shutdown_cmd);
+
+	/* BGP-wide graceful-restart commands. */
+	install_element(CONFIG_NODE, &bgp_graceful_restart_cmd);
+	install_element(CONFIG_NODE, &no_bgp_graceful_restart_cmd);
+	install_element(CONFIG_NODE, &bgp_graceful_restart_disable_cmd);
+	install_element(CONFIG_NODE, &no_bgp_graceful_restart_disable_cmd);
+	install_element(CONFIG_NODE, &bgp_graceful_restart_stalepath_time_cmd);
+	install_element(CONFIG_NODE,
+			&no_bgp_graceful_restart_stalepath_time_cmd);
+	install_element(CONFIG_NODE, &bgp_graceful_restart_restart_time_cmd);
+	install_element(CONFIG_NODE, &no_bgp_graceful_restart_restart_time_cmd);
+	install_element(CONFIG_NODE,
+			&bgp_graceful_restart_select_defer_time_cmd);
+	install_element(CONFIG_NODE,
+			&no_bgp_graceful_restart_select_defer_time_cmd);
+	install_element(CONFIG_NODE, &bgp_graceful_restart_preserve_fw_cmd);
+	install_element(CONFIG_NODE, &no_bgp_graceful_restart_preserve_fw_cmd);
+	install_element(CONFIG_NODE, &bgp_graceful_restart_rib_stale_time_cmd);
+	install_element(CONFIG_NODE,
+			&no_bgp_graceful_restart_rib_stale_time_cmd);
 
 	/* Dummy commands (Currently not supported) */
 	install_element(BGP_NODE, &no_synchronization_cmd);

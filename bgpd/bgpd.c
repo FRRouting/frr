@@ -1391,8 +1391,30 @@ int bgp_global_gr_init(struct bgp *bgp)
 	memcpy(bgp->GLOBAL_GR_FSM, local_GLOBAL_GR_FSM,
 					sizeof(local_GLOBAL_GR_FSM));
 
-	bgp->global_gr_present_state = GLOBAL_HELPER;
+	/* Inherit any BGP-wide configuration. */
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GR_RESTARTER))
+		bgp->global_gr_present_state = GLOBAL_GR;
+	else if (CHECK_FLAG(bm->flags, BM_FLAG_GR_DISABLED))
+		bgp->global_gr_present_state = GLOBAL_DISABLE;
+	else
+		bgp->global_gr_present_state = GLOBAL_HELPER;
+
+	if (bm->restart_time != BGP_DEFAULT_RESTART_TIME)
+		bgp->restart_time = bm->restart_time;
+	if (bm->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
+		bgp->stalepath_time = bm->stalepath_time;
+	if (bm->select_defer_time != BGP_DEFAULT_SELECT_DEFERRAL_TIME)
+		bgp->select_defer_time = bm->select_defer_time;
+	if (bm->rib_stale_time != BGP_DEFAULT_RIB_STALE_TIME)
+		bgp->rib_stale_time = bm->rib_stale_time;
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GR_PRESERVE_FWD))
+		SET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+
 	bgp->present_zebra_gr_state = ZEBRA_GR_DISABLE;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Global GR state is %s", bgp->name_pretty,
+			   print_global_gr_mode(bgp->global_gr_present_state));
 
 	return BGP_GR_SUCCESS;
 }
@@ -8405,6 +8427,10 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->t_bgp_sync_label_manager = NULL;
 	bm->t_bgp_start_label_manager = NULL;
 	bm->t_bgp_zebra_route = NULL;
+	bm->restart_time = BGP_DEFAULT_RESTART_TIME;
+	bm->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+	bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
+	bm->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
 
 	bgp_mac_init();
 	/* init the rd id space.
