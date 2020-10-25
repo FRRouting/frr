@@ -1475,9 +1475,7 @@ int bgp_peer_gr_init(struct peer *peer)
 		{ PEER_HELPER, bgp_peer_gr_action }, { PEER_GLOBAL_INHERIT, NULL }
 	}
 	};
-	memcpy(&peer->PEER_GR_FSM, local_Peer_GR_FSM,
-					sizeof(local_Peer_GR_FSM));
-	peer->peer_gr_present_state = PEER_GLOBAL_INHERIT;
+	memcpy(&peer->PEER_GR_FSM, local_Peer_GR_FSM, sizeof(local_Peer_GR_FSM));
 	bgp_peer_move_to_gr_mode(peer, PEER_GLOBAL_INHERIT);
 
 	return BGP_GR_SUCCESS;
