@@ -577,6 +577,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-as-path-options;
 
+    uses structure-neighbor-default-originate-options;
+
     uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-orf-capability;
@@ -602,6 +604,8 @@ module frr-bgp {
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
 
     uses structure-neighbor-group-attr-unchanged;
 
@@ -629,6 +633,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-as-path-options;
 
+    uses structure-neighbor-default-originate-options;
+
     uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-orf-capability;
@@ -655,6 +661,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-as-path-options;
 
+    uses structure-neighbor-default-originate-options;
+
     uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-orf-capability;
@@ -680,6 +688,8 @@ module frr-bgp {
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
 
     uses structure-neighbor-group-attr-unchanged;
 
@@ -824,6 +834,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-as-path-options;
 
+    uses structure-neighbor-default-originate-options;
+
     uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-orf-capability;
@@ -849,6 +861,8 @@ module frr-bgp {
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
 
     uses structure-neighbor-group-attr-unchanged;
 
@@ -876,6 +890,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-as-path-options;
 
+    uses structure-neighbor-default-originate-options;
+
     uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-orf-capability;
@@ -902,6 +918,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-as-path-options;
 
+    uses structure-neighbor-default-originate-options;
+
     uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-orf-capability;
@@ -927,6 +945,8 @@ module frr-bgp {
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
 
     uses structure-neighbor-group-attr-unchanged;
 
@@ -1071,6 +1091,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-as-path-options;
 
+    uses structure-neighbor-default-originate-options;
+
     uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-orf-capability;
@@ -1096,6 +1118,8 @@ module frr-bgp {
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
 
     uses structure-neighbor-group-attr-unchanged;
 
@@ -1123,6 +1147,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-as-path-options;
 
+    uses structure-neighbor-default-originate-options;
+
     uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-orf-capability;
@@ -1149,6 +1175,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-as-path-options;
 
+    uses structure-neighbor-default-originate-options;
+
     uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-orf-capability;
@@ -1174,6 +1202,8 @@ module frr-bgp {
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
 
     uses structure-neighbor-group-attr-unchanged;
 

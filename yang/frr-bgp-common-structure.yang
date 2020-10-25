@@ -361,18 +361,18 @@ submodule frr-bgp-common-structure {
     description
       "Structural grouping used to include default-originate
        configuration for both BGP neighbors and peer groups.";
-    container default-originate-options {
+    container default-originate {
       description
         "default originate parameters for the BGP neighbor or
          group.";
-      leaf send-default-route {
+      leaf originate {
         type boolean;
         default "false";
         description
           "If set to 'true', send the default-route to the neighbour(s).";
       }
 
-      leaf rmap-policy-export {
+      leaf route-map {
         type frr-route-map:route-map-ref;
         description
           "Route-map to specify criteria to originate default.";
