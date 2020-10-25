@@ -13978,6 +13978,70 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_options_repla
 	return NB_OK;
 }
 
+static int
+bgp_peer_afi_safi_default_originate_apply(struct nb_cb_apply_finish_args *args,
+					  struct peer *peer, afi_t afi,
+					  safi_t safi)
+{
+	bool originate = false;
+	int ret = 0;
+	struct route_map *route_map = NULL;
+	const char *rmap = NULL;
+
+	originate = yang_dnode_get_bool(args->dnode, "./originate");
+
+	if (yang_dnode_exists(args->dnode, "./route-map")) {
+		rmap = yang_dnode_get_string(args->dnode, "./route-map");
+		route_map = route_map_lookup_by_name(rmap);
+		if (!route_map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "The route-map '%s' does not exist.", rmap);
+			return -1;
+		}
+	}
+
+	// zlog_debug("%s: originate %u route-map %s", __func__, originate,
+	// rmap);
+	if (originate)
+		ret = peer_default_originate_set(peer, afi, safi, rmap,
+						 route_map);
+	else
+		ret = peer_default_originate_unset(peer, afi, safi);
+
+	return bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret);
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate
+ */
+void bgp_neighbor_afi_safi_default_originate_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./remote-address");
+	peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+					args->errmsg_len);
+	if (!peer)
+		return;
+
+	bgp_peer_afi_safi_default_originate_apply(args, peer, afi, safi);
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate/originate
@@ -22325,6 +22389,37 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_as_path_op
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate
+ */
+void bgp_unnumbered_neighbor_afi_safi_default_originate_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "unnumbered-neighbor");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./interface");
+	peer = bgp_unnumbered_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
+						   args->errmsg_len);
+	if (!peer)
+		return;
+
+	bgp_peer_afi_safi_default_originate_apply(args, peer, afi, safi);
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate/originate
  */
 int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_default_originate_originate_modify(
@@ -30612,6 +30707,36 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_as_path_options_r
 	}
 
 	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/default-originate
+ */
+void bgp_peer_group_afi_safi_default_originate_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	struct peer *peer;
+	const struct lyd_node *nbr_dnode;
+	const struct lyd_node *nbr_af_dnode;
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	nbr_af_dnode = yang_dnode_get_parent(args->dnode, "afi-safi");
+	af_name = yang_dnode_get_string(nbr_af_dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	nbr_dnode = yang_dnode_get_parent(nbr_af_dnode, "peer-group");
+	bgp = nb_running_get_entry(nbr_dnode, NULL, true);
+	peer_str = yang_dnode_get_string(nbr_dnode, "./peer-group-name");
+	peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+	if (!peer)
+		return;
+
+	bgp_peer_afi_safi_default_originate_apply(args, peer, afi, safi);
 }
 
 /*

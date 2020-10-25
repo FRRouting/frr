@@ -3761,6 +3761,12 @@ void bgp_unnumbered_neighbor_afi_safi_prefix_limit_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 void bgp_peer_group_afi_safi_prefix_limit_apply_finish(
 	struct nb_cb_apply_finish_args *args);
+void bgp_neighbor_afi_safi_default_originate_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_unnumbered_neighbor_afi_safi_default_originate_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_peer_group_afi_safi_default_originate_apply_finish(
+	struct nb_cb_apply_finish_args *args);
 
 /* xpath macros */
 /* route-list */
