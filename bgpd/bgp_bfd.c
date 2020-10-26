@@ -598,6 +598,7 @@ static int bgp_bfd_peer_param_type_set(struct peer *peer,
 	return 0;
 }
 
+#if HAVE_BFDD > 0
 /**
  * Set peer BFD profile configuration.
  */
@@ -652,6 +653,7 @@ static int bgp_bfd_peer_set_profile(struct peer *peer, const char *profile)
 
 	return 0;
 }
+#endif
 
 /*
  * bgp_bfd_peer_config_write - Write the peer BFD configuration.
