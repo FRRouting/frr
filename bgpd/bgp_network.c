@@ -530,8 +530,10 @@ static void bgp_accept(struct thread *thread)
 	}
 
 	if (bgp_debug_neighbor_events(peer1))
-		zlog_debug("[Event] BGP connection from host %s fd %d",
-			   inet_sutop(&su, buf), bgp_sock);
+		zlog_debug(
+			"[Event] connection from %s fd %d, active peer status %d fd %d",
+			inet_sutop(&su, buf), bgp_sock, peer1->status,
+			peer1->fd);
 
 	if (peer1->doppelganger) {
 		/* We have an existing connection. Kill the existing one and run
