@@ -1495,7 +1495,6 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 				   struct route_node *rn,
 				   struct zebra_dplane_ctx *ctx)
 {
-	char dest_str[PREFIX_STRLEN] = "";
 	struct nexthop *nexthop;
 	bool matched;
 	const struct nexthop_group *ctxnhg;
@@ -1507,19 +1506,13 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 
 	vrf = vrf_lookup_by_id(re->vrf_id);
 
-	/* Note well: only capturing the prefix string if debug is enabled here;
-	 * unconditional log messages will have to generate the string.
-	 */
-	if (IS_ZEBRA_DEBUG_RIB)
-		prefix2str(&(rn->p), dest_str, sizeof(dest_str));
-
 	dest = rib_dest_from_rnode(rn);
 	if (dest)
 		is_selected = (re == dest->selected_fib);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("update_from_ctx: %s(%u:%u):%s: %sSELECTED, re %p",
-			   VRF_LOGNAME(vrf), re->vrf_id, re->table, dest_str,
+		zlog_debug("update_from_ctx: %s(%u:%u):%pRN: %sSELECTED, re %p",
+			   VRF_LOGNAME(vrf), re->vrf_id, re->table, rn,
 			   (is_selected ? "" : "NOT "), re);
 
 	/* Update zebra's nexthop FIB flag for each nexthop that was installed.
@@ -1545,9 +1538,8 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	if (matched) {
 		if (IS_ZEBRA_DEBUG_RIB)
 			zlog_debug(
-				"%s(%u:%u):%s update_from_ctx(): existing fib nhg, no change",
-				VRF_LOGNAME(vrf), re->vrf_id, re->table,
-				dest_str);
+				"%s(%u:%u):%pRN update_from_ctx(): existing fib nhg, no change",
+				VRF_LOGNAME(vrf), re->vrf_id, re->table, rn);
 		goto check_backups;
 
 	} else if (CHECK_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG)) {
@@ -1556,9 +1548,8 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 		 */
 		if (IS_ZEBRA_DEBUG_RIB)
 			zlog_debug(
-				"%s(%u:%u):%s update_from_ctx(): replacing fib nhg",
-				VRF_LOGNAME(vrf), re->vrf_id, re->table,
-				dest_str);
+				"%s(%u:%u):%pRN update_from_ctx(): replacing fib nhg",
+				VRF_LOGNAME(vrf), re->vrf_id, re->table, rn);
 		nexthops_free(re->fib_ng.nexthop);
 		re->fib_ng.nexthop = NULL;
 
@@ -1568,9 +1559,9 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 		changed_p = true;
 	} else {
 		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("%s(%u:%u):%s update_from_ctx(): no fib nhg",
-				   VRF_LOGNAME(vrf), re->vrf_id, re->table,
-				   dest_str);
+			zlog_debug(
+				"%s(%u:%u):%pRN update_from_ctx(): no fib nhg",
+				VRF_LOGNAME(vrf), re->vrf_id, re->table, rn);
 	}
 
 	/*
@@ -1597,9 +1588,9 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	if (matched) {
 		if (IS_ZEBRA_DEBUG_RIB)
 			zlog_debug(
-				"%s(%u:%u):%s update_from_ctx(): rib nhg matched, changed '%s'",
-				VRF_LOGNAME(vrf), re->vrf_id, re->table,
-				dest_str, (changed_p ? "true" : "false"));
+				"%s(%u:%u):%pRN update_from_ctx(): rib nhg matched, changed '%s'",
+				VRF_LOGNAME(vrf), re->vrf_id, re->table, rn,
+				(changed_p ? "true" : "false"));
 		goto check_backups;
 	}
 
@@ -1610,8 +1601,8 @@ no_nexthops:
 	 */
 	if (IS_ZEBRA_DEBUG_RIB)
 		zlog_debug(
-			"%s(%u:%u):%s update_from_ctx(): changed %s, adding new fib nhg%s",
-			VRF_LOGNAME(vrf), re->vrf_id, re->table, dest_str,
+			"%s(%u:%u):%pRN update_from_ctx(): changed %s, adding new fib nhg%s",
+			VRF_LOGNAME(vrf), re->vrf_id, re->table, rn,
 			(changed_p ? "true" : "false"),
 			ctxnhg->nexthop != NULL ? "" : " (empty)");
 
@@ -1645,8 +1636,8 @@ check_backups:
 	if (matched) {
 		if (IS_ZEBRA_DEBUG_RIB)
 			zlog_debug(
-				"%s(%u):%s update_from_ctx(): existing fib backup nhg, no change",
-				VRF_LOGNAME(vrf), re->vrf_id, dest_str);
+				"%s(%u):%pRN update_from_ctx(): existing fib backup nhg, no change",
+				VRF_LOGNAME(vrf), re->vrf_id, rn);
 		goto done;
 
 	} else if (re->fib_backup_ng.nexthop) {
@@ -1656,8 +1647,8 @@ check_backups:
 		 */
 		if (IS_ZEBRA_DEBUG_RIB)
 			zlog_debug(
-				"%s(%u):%s update_from_ctx(): replacing fib backup nhg",
-				VRF_LOGNAME(vrf), re->vrf_id, dest_str);
+				"%s(%u):%pRN update_from_ctx(): replacing fib backup nhg",
+				VRF_LOGNAME(vrf), re->vrf_id, rn);
 		nexthops_free(re->fib_backup_ng.nexthop);
 		re->fib_backup_ng.nexthop = NULL;
 
@@ -1665,8 +1656,9 @@ check_backups:
 		changed_p = true;
 	} else {
 		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("%s(%u):%s update_from_ctx(): no fib backup nhg",
-				   VRF_LOGNAME(vrf), re->vrf_id, dest_str);
+			zlog_debug(
+				"%s(%u):%pRN update_from_ctx(): no fib backup nhg",
+				VRF_LOGNAME(vrf), re->vrf_id, rn);
 	}
 
 	/*
@@ -1685,9 +1677,10 @@ check_backups:
 			goto done;
 
 		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("%s(%u):%s update_from_ctx(): changed %s, adding new backup fib nhg",
-				   VRF_LOGNAME(vrf), re->vrf_id, dest_str,
-				   (changed_p ? "true" : "false"));
+			zlog_debug(
+				"%s(%u):%pRN update_from_ctx(): changed %s, adding new backup fib nhg",
+				VRF_LOGNAME(vrf), re->vrf_id, rn,
+				(changed_p ? "true" : "false"));
 
 		copy_nexthops(&(re->fib_backup_ng.nexthop), ctxnhg->nexthop,
 			      NULL);
@@ -1749,7 +1742,6 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	struct route_node *rn = NULL;
 	struct route_entry *re = NULL, *old_re = NULL, *rib;
 	bool is_update = false;
-	char dest_str[PREFIX_STRLEN] = "";
 	enum dplane_op_e op;
 	enum zebra_dplane_result status;
 	const struct prefix *dest_pfx, *src_pfx;
@@ -1761,20 +1753,14 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	vrf = vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
 	dest_pfx = dplane_ctx_get_dest(ctx);
 
-	/* Note well: only capturing the prefix string if debug is enabled here;
-	 * unconditional log messages will have to generate the string.
-	 */
-	if (IS_ZEBRA_DEBUG_DPLANE)
-		prefix2str(dest_pfx, dest_str, sizeof(dest_str));
-
 	/* Locate rn and re(s) from ctx */
 	rn = rib_find_rn_from_ctx(ctx);
 	if (rn == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
 			zlog_debug(
-				"Failed to process dplane results: no route for %s(%u):%s",
+				"Failed to process dplane results: no route for %s(%u):%pFX",
 				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dest_str);
+				dest_pfx);
 		}
 		goto done;
 	}
@@ -1787,9 +1773,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug(
-			"%s(%u:%u):%s Processing dplane result ctx %p, op %s result %s",
+			"%s(%u:%u):%pFX Processing dplane result ctx %p, op %s result %s",
 			VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-			dplane_ctx_get_table(ctx), dest_str, ctx,
+			dplane_ctx_get_table(ctx), dest_pfx, ctx,
 			dplane_op2str(op), dplane_res2str(status));
 
 	/*
@@ -1829,9 +1815,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		if (re->dplane_sequence != seq) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 				zlog_debug(
-					"%s(%u):%s Stale dplane result for re %p",
+					"%s(%u):%pFX Stale dplane result for re %p",
 					VRF_LOGNAME(vrf),
-					dplane_ctx_get_vrf(ctx), dest_str, re);
+					dplane_ctx_get_vrf(ctx), dest_pfx, re);
 		} else
 			UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 	}
@@ -1840,10 +1826,10 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		if (old_re->dplane_sequence != dplane_ctx_get_old_seq(ctx)) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 				zlog_debug(
-					"%s(%u:%u):%s Stale dplane result for old_re %p",
+					"%s(%u:%u):%pFX Stale dplane result for old_re %p",
 					VRF_LOGNAME(vrf),
 					dplane_ctx_get_vrf(ctx), old_re->table,
-					dest_str, old_re);
+					dest_pfx, old_re);
 		} else
 			UNSET_FLAG(old_re->status, ROUTE_ENTRY_QUEUED);
 	}
@@ -1881,12 +1867,12 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				if (!fib_changed) {
 					if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 						zlog_debug(
-							"%s(%u:%u):%s no fib change for re",
+							"%s(%u:%u):%pFX no fib change for re",
 							VRF_LOGNAME(vrf),
 							dplane_ctx_get_vrf(ctx),
 							dplane_ctx_get_table(
 								ctx),
-							dest_str);
+							dest_pfx);
 				}
 
 				/* Redistribute if this is the selected re */
@@ -2027,7 +2013,6 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	struct route_entry *re = NULL;
 	struct vrf *vrf;
 	struct nexthop *nexthop;
-	char dest_str[PREFIX_STRLEN] = "";
 	const struct prefix *dest_pfx, *src_pfx;
 	rib_dest_t *dest;
 	bool fib_changed = false;
@@ -2036,20 +2021,14 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	dest_pfx = dplane_ctx_get_dest(ctx);
 	vrf = vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
 
-	/* Note well: only capturing the prefix string if debug is enabled here;
-	 * unconditional log messages will have to generate the string.
-	 */
-	if (debug_p)
-		prefix2str(dest_pfx, dest_str, sizeof(dest_str));
-
 	/* Locate rn and re(s) from ctx */
 	rn = rib_find_rn_from_ctx(ctx);
 	if (rn == NULL) {
 		if (debug_p) {
 			zlog_debug(
-				"Failed to process dplane notification: no routes for %s(%u:%u):%s",
+				"Failed to process dplane notification: no routes for %s(%u:%u):%pFX",
 				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), dest_str);
+				dplane_ctx_get_table(ctx), dest_pfx);
 		}
 		goto done;
 	}
@@ -2058,9 +2037,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	srcdest_rnode_prefixes(rn, &dest_pfx, &src_pfx);
 
 	if (debug_p)
-		zlog_debug("%s(%u:%u):%s Processing dplane notif ctx %p",
+		zlog_debug("%s(%u:%u):%pFX Processing dplane notif ctx %p",
 			   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-			   dplane_ctx_get_table(ctx), dest_str, ctx);
+			   dplane_ctx_get_table(ctx), dest_pfx, ctx);
 
 	/*
 	 * Take a pass through the routes, look for matches with the context
@@ -2075,9 +2054,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	if (re == NULL) {
 		if (debug_p)
 			zlog_debug(
-				"%s(%u:%u):%s Unable to process dplane notification: no entry for type %s",
+				"%s(%u:%u):%pFX Unable to process dplane notification: no entry for type %s",
 				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), dest_str,
+				dplane_ctx_get_table(ctx), dest_pfx,
 				zebra_route_string(dplane_ctx_get_type(ctx)));
 
 		goto done;
@@ -2109,20 +2088,20 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 				UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 			if (debug_p)
 				zlog_debug(
-					"%s(%u:%u):%s dplane notif, uninstalled type %s route",
+					"%s(%u:%u):%pFX dplane notif, uninstalled type %s route",
 					VRF_LOGNAME(vrf),
 					dplane_ctx_get_vrf(ctx),
-					dplane_ctx_get_table(ctx), dest_str,
+					dplane_ctx_get_table(ctx), dest_pfx,
 					zebra_route_string(
 						dplane_ctx_get_type(ctx)));
 		} else {
 			/* At least report on the event. */
 			if (debug_p)
 				zlog_debug(
-					"%s(%u:%u):%s dplane notif, but type %s not selected_fib",
+					"%s(%u:%u):%pFX dplane notif, but type %s not selected_fib",
 					VRF_LOGNAME(vrf),
 					dplane_ctx_get_vrf(ctx),
-					dplane_ctx_get_table(ctx), dest_str,
+					dplane_ctx_get_table(ctx), dest_pfx,
 					zebra_route_string(
 						dplane_ctx_get_type(ctx)));
 		}
@@ -2146,9 +2125,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	if (!fib_changed) {
 		if (debug_p)
 			zlog_debug(
-				"%s(%u:%u):%s dplane notification: rib_update returns FALSE",
+				"%s(%u:%u):%pFX dplane notification: rib_update returns FALSE",
 				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), dest_str);
+				dplane_ctx_get_table(ctx), dest_pfx);
 	}
 
 	/*
@@ -2163,9 +2142,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	if (start_count > 0 && end_count > 0) {
 		if (debug_p)
 			zlog_debug(
-				"%s(%u:%u):%s applied nexthop changes from dplane notification",
+				"%s(%u:%u):%pFX applied nexthop changes from dplane notification",
 				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), dest_str);
+				dplane_ctx_get_table(ctx), dest_pfx);
 
 		/* Changed nexthops - update kernel/others */
 		dplane_route_notif_update(rn, re,
@@ -2174,9 +2153,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	} else if (start_count == 0 && end_count > 0) {
 		if (debug_p)
 			zlog_debug(
-				"%s(%u:%u):%s installed transition from dplane notification",
+				"%s(%u:%u):%pFX installed transition from dplane notification",
 				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), dest_str);
+				dplane_ctx_get_table(ctx), dest_pfx);
 
 		/* We expect this to be the selected route, so we want
 		 * to tell others about this transition.
@@ -2192,9 +2171,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	} else if (start_count > 0 && end_count == 0) {
 		if (debug_p)
 			zlog_debug(
-				"%s(%u:%u):%s un-installed transition from dplane notification",
+				"%s(%u:%u):%pFX un-installed transition from dplane notification",
 				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), dest_str);
+				dplane_ctx_get_table(ctx), dest_pfx);
 
 		/* Transition from _something_ installed to _nothing_
 		 * installed.
