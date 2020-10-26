@@ -47,13 +47,15 @@ static struct ospf *test_init(struct ospf_test_node *root)
 	return ospf;
 }
 
-static void test_run_spf(struct vty *vty, struct ospf *ospf)
+static void test_run_spf(struct vty *vty, struct ospf *ospf,
+			 enum protection_type protection_type)
 {
 	struct route_table *new_table, *new_rtrs;
 	struct ospf_area *area;
 	struct p_space *p_space;
 	struct q_space *q_space;
-	char buf[MPLS_LABEL_STRLEN];
+	char label_buf[MPLS_LABEL_STRLEN];
+	char res_buf[PROTECTED_RESOURCE_STRLEN];
 
 	/* Just use the backbone for testing */
 	area = ospf->backbone;
@@ -69,13 +71,15 @@ static void test_run_spf(struct vty *vty, struct ospf *ospf)
 	ospf_route_table_print(vty, new_table);
 
 	/* TI-LFA testrun */
-	ospf_ti_lfa_generate_p_spaces(area);
+	ospf_ti_lfa_generate_p_spaces(area, protection_type);
 	ospf_ti_lfa_insert_backup_paths(area, new_table);
 
 	/* Print P/Q space information */
 	frr_each(p_spaces, area->p_spaces, p_space) {
-		vty_out(vty, "\n\nP Space for root %pI4 and link %pI4:\n",
-			&p_space->root->id, &p_space->protected_link->link_id);
+		ospf_print_protected_resource(p_space->protected_resource,
+					      res_buf);
+		vty_out(vty, "\n\nP Space for root %pI4 and %s\n",
+			&p_space->root->id, res_buf);
 		ospf_spf_print(vty, p_space->root, 0);
 
 		frr_each(q_spaces, p_space->q_spaces, q_space) {
@@ -84,17 +88,17 @@ static void test_run_spf(struct vty *vty, struct ospf *ospf)
 			ospf_spf_print(vty, q_space->root, 0);
 			if (q_space->label_stack) {
 				mpls_label2str(q_space->label_stack->num_labels,
-					       q_space->label_stack->label, buf,
-					       MPLS_LABEL_STRLEN, true);
-				vty_out(vty, "\nLabel stack: %s\n", buf);
+					       q_space->label_stack->label,
+					       label_buf, MPLS_LABEL_STRLEN,
+					       true);
+				vty_out(vty, "\nLabel stack: %s\n", label_buf);
 			} else {
 				vty_out(vty, "\nLabel stack not generated!\n");
 			}
 		}
 
-		vty_out(vty,
-			"\nPost-convergence path for root %pI4 and link %pI4:\n",
-			&p_space->root->id, &p_space->protected_link->link_id);
+		vty_out(vty, "\nPost-convergence path for root %pI4 and %s\n",
+			&p_space->root->id, res_buf);
 		ospf_spf_print(vty, p_space->pc_spf, 0);
 	}
 
@@ -111,7 +115,8 @@ static void test_run_spf(struct vty *vty, struct ospf *ospf)
 }
 
 static int test_run(struct vty *vty, struct ospf_topology *topology,
-		    struct ospf_test_node *root)
+		    struct ospf_test_node *root,
+		    enum protection_type protection_type)
 {
 	struct ospf *ospf;
 
@@ -126,21 +131,25 @@ static int test_run(struct vty *vty, struct ospf_topology *topology,
 	vty_out(vty, "\n");
 	show_ip_ospf_database_summary(vty, ospf, 0, NULL);
 
-	test_run_spf(vty, ospf);
+	test_run_spf(vty, ospf, protection_type);
 
 	return 0;
 }
 
-DEFUN(test_ospf, test_ospf_cmd, "test ospf topology WORD root HOSTNAME",
+DEFUN(test_ospf, test_ospf_cmd,
+      "test ospf topology WORD root HOSTNAME ti-lfa [node-protection]",
       "Test mode\n"
       "Choose OSPF for SPF testing\n"
       "Network topology to choose\n"
       "Name of the network topology to choose\n"
       "Root node to choose\n"
-      "Hostname of the root node to choose\n")
+      "Hostname of the root node to choose\n"
+      "Use Topology-Independent LFA\n"
+      "Use node protection (default is link protection)\n")
 {
 	struct ospf_topology *topology;
 	struct ospf_test_node *root;
+	enum protection_type protection_type;
 	int idx = 0;
 
 	/* Parse topology. */
@@ -158,7 +167,12 @@ DEFUN(test_ospf, test_ospf_cmd, "test ospf topology WORD root HOSTNAME",
 		return CMD_WARNING;
 	}
 
-	return test_run(vty, topology, root);
+	if (argc == 8)
+		protection_type = OSPF_TI_LFA_NODE_PROTECTION;
+	else
+		protection_type = OSPF_TI_LFA_LINK_PROTECTION;
+
+	return test_run(vty, topology, root, protection_type);
 }
 
 static void vty_do_exit(int isexit)

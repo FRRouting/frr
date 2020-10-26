@@ -142,7 +142,7 @@ static void ospf_canonical_nexthops_free(struct vertex *root)
 			ospf_canonical_nexthops_free(child);
 
 		/* Free child nexthops pointing back to this root vertex */
-		for (ALL_LIST_ELEMENTS(child->parents, n2, nn2, vp))
+		for (ALL_LIST_ELEMENTS(child->parents, n2, nn2, vp)) {
 			if (vp->parent == root && vp->nexthop) {
 				vertex_nexthop_free(vp->nexthop);
 				vp->nexthop = NULL;
@@ -151,6 +151,7 @@ static void ospf_canonical_nexthops_free(struct vertex *root)
 					vp->local_nexthop = NULL;
 				}
 			}
+		}
 	}
 }
 
@@ -320,6 +321,22 @@ struct vertex_parent *ospf_spf_vertex_parent_find(struct in_addr id,
 	return NULL;
 }
 
+struct vertex *ospf_spf_vertex_by_nexthop(struct vertex *root,
+					  struct in_addr *nexthop)
+{
+	struct listnode *node;
+	struct vertex *child;
+	struct vertex_parent *vertex_parent;
+
+	for (ALL_LIST_ELEMENTS_RO(root->children, node, child)) {
+		vertex_parent = ospf_spf_vertex_parent_find(root->id, child);
+		if (vertex_parent->nexthop->router.s_addr == nexthop->s_addr)
+			return child;
+	}
+
+	return NULL;
+}
+
 /* Create a deep copy of a SPF vertex without children and parents */
 static struct vertex *ospf_spf_vertex_copy(struct vertex *vertex)
 {
@@ -345,10 +362,9 @@ ospf_spf_vertex_parent_copy(struct vertex_parent *vertex_parent)
 
 	vertex_parent_copy =
 		XCALLOC(MTYPE_OSPF_VERTEX, sizeof(struct vertex_parent));
-	nexthop_copy =
-		XCALLOC(MTYPE_OSPF_VERTEX, sizeof(struct vertex_nexthop));
-	local_nexthop_copy =
-		XCALLOC(MTYPE_OSPF_VERTEX, sizeof(struct vertex_nexthop));
+
+	nexthop_copy = vertex_nexthop_new();
+	local_nexthop_copy = vertex_nexthop_new();
 
 	memcpy(vertex_parent_copy, vertex_parent, sizeof(struct vertex_parent));
 	memcpy(nexthop_copy, vertex_parent->nexthop,
@@ -459,8 +475,8 @@ static void ospf_spf_remove_branch(struct vertex_parent *vertex_parent,
 	}
 }
 
-int ospf_spf_remove_link(struct vertex *vertex, struct list *vertex_list,
-			 struct router_lsa_link *link)
+static int ospf_spf_remove_link(struct vertex *vertex, struct list *vertex_list,
+				struct router_lsa_link *link)
 {
 	struct listnode *node, *inner_node;
 	struct vertex *child;
@@ -492,6 +508,39 @@ int ospf_spf_remove_link(struct vertex *vertex, struct list *vertex_list,
 
 	/* link was not removed yet */
 	return 1;
+}
+
+void ospf_spf_remove_resource(struct vertex *vertex, struct list *vertex_list,
+			      struct protected_resource *resource)
+{
+	struct listnode *node, *nnode;
+	struct vertex *found;
+	struct vertex_parent *vertex_parent;
+
+	switch (resource->type) {
+	case OSPF_TI_LFA_LINK_PROTECTION:
+		ospf_spf_remove_link(vertex, vertex_list, resource->link);
+		break;
+	case OSPF_TI_LFA_NODE_PROTECTION:
+		found = ospf_spf_vertex_find(resource->router_id, vertex_list);
+		if (!found)
+			break;
+
+		/*
+		 * Remove the node by removing all links from its parents. Note
+		 * that the child is automatically removed here with the last
+		 * link from a parent, hence no explicit removal of the node.
+		 */
+		for (ALL_LIST_ELEMENTS(found->parents, node, nnode,
+				       vertex_parent))
+			ospf_spf_remove_branch(vertex_parent, found,
+					       vertex_list);
+
+		break;
+	default:
+		/* do nothing */
+		break;
+	}
 }
 
 static void ospf_spf_init(struct ospf_area *area, struct ospf_lsa *root_lsa,
@@ -1098,18 +1147,83 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 	return added;
 }
 
-static int ospf_spf_is_protected_link(struct ospf_area *area,
-				      struct router_lsa_link *link)
+static int ospf_spf_is_protected_resource(struct ospf_area *area,
+					  struct router_lsa_link *link,
+					  struct lsa_header *lsa)
 {
+	uint8_t *p, *lim;
 	struct router_lsa_link *p_link;
+	struct router_lsa_link *l = NULL;
+	struct in_addr router_id;
+	int link_type;
 
-	p_link = area->spf_protected_link;
-	if (!p_link)
+	if (!area->spf_protected_resource)
 		return 0;
 
-	if ((p_link->link_id.s_addr & p_link->link_data.s_addr)
-	    == (link->link_data.s_addr & p_link->link_data.s_addr))
-		return 1;
+	link_type = link->m[0].type;
+
+	switch (area->spf_protected_resource->type) {
+	case OSPF_TI_LFA_LINK_PROTECTION:
+		p_link = area->spf_protected_resource->link;
+		if (!p_link)
+			return 0;
+
+		/* For P2P: check if the link belongs to the same subnet */
+		if (link_type == LSA_LINK_TYPE_POINTOPOINT
+		    && (p_link->link_id.s_addr & p_link->link_data.s_addr)
+			       == (link->link_data.s_addr
+				   & p_link->link_data.s_addr))
+			return 1;
+
+		/* For stub: check if this the same subnet */
+		if (link_type == LSA_LINK_TYPE_STUB
+		    && (p_link->link_id.s_addr == link->link_id.s_addr)
+		    && (p_link->link_data.s_addr == link->link_data.s_addr))
+			return 1;
+
+		break;
+	case OSPF_TI_LFA_NODE_PROTECTION:
+		router_id = area->spf_protected_resource->router_id;
+		if (router_id.s_addr == INADDR_ANY)
+			return 0;
+
+		/* For P2P: check if the link leads to the protected node */
+		if (link_type == LSA_LINK_TYPE_POINTOPOINT
+		    && link->link_id.s_addr == router_id.s_addr)
+			return 1;
+
+		/* The rest is about stub links! */
+		if (link_type != LSA_LINK_TYPE_STUB)
+			return 0;
+
+		/*
+		 * Check if there's a P2P link in the router LSA with the
+		 * corresponding link data in the same subnet.
+		 */
+
+		p = ((uint8_t *)lsa) + OSPF_LSA_HEADER_SIZE + 4;
+		lim = ((uint8_t *)lsa) + ntohs(lsa->length);
+
+		while (p < lim) {
+			l = (struct router_lsa_link *)p;
+			p += (OSPF_ROUTER_LSA_LINK_SIZE
+			      + (l->m[0].tos_count * OSPF_ROUTER_LSA_TOS_SIZE));
+
+			/* We only care about P2P with the proper link id */
+			if ((l->m[0].type != LSA_LINK_TYPE_POINTOPOINT)
+			    || (l->link_id.s_addr != router_id.s_addr))
+				continue;
+
+			/* Link data in the subnet given by the link? */
+			if ((link->link_id.s_addr & link->link_data.s_addr)
+			    == (l->link_data.s_addr & link->link_data.s_addr))
+				return 1;
+		}
+
+		break;
+	case OSPF_TI_LFA_UNDEFINED_PROTECTION:
+		break;
+	}
 
 	return 0;
 }
@@ -1217,13 +1331,13 @@ static void ospf_spf_next(struct vertex *v, struct ospf_area *area,
 				continue;
 
 			/*
-			 * Don't process TI-LFA protected links.
+			 * Don't process TI-LFA protected resources.
 			 *
 			 * TODO: Replace this by a proper solution, e.g. remove
 			 * corresponding links from the LSDB and run the SPF
 			 * algo with the stripped-down LSDB.
 			 */
-			if (ospf_spf_is_protected_link(area, l))
+			if (ospf_spf_is_protected_resource(area, l, v->lsa))
 				continue;
 
 			/*
@@ -1475,9 +1589,9 @@ static void ospf_spf_process_stubs(struct ospf_area *area, struct vertex *v,
 			p += (OSPF_ROUTER_LSA_LINK_SIZE
 			      + (l->m[0].tos_count * OSPF_ROUTER_LSA_TOS_SIZE));
 
-			/* Don't process TI-LFA protected links */
+			/* Don't process TI-LFA protected resources */
 			if (l->m[0].type == LSA_LINK_TYPE_STUB
-			    && !ospf_spf_is_protected_link(area, l))
+			    && !ospf_spf_is_protected_resource(area, l, v->lsa))
 				ospf_intra_add_stub(rt, l, v, area,
 						    parent_is_root, lsa_pos);
 			lsa_pos++;
@@ -1534,7 +1648,6 @@ void ospf_rtrs_free(struct route_table *rtrs)
 
 void ospf_spf_cleanup(struct vertex *spf, struct list *vertex_list)
 {
-
 	/*
 	 * Free nexthop information, canonical versions of which are
 	 * attached the first level of router vertices attached to the
@@ -1721,7 +1834,8 @@ void ospf_spf_calculate_area(struct ospf *ospf, struct ospf_area *area,
 			   false, true);
 
 	if (ospf->ti_lfa_enabled)
-		ospf_ti_lfa_compute(area, new_table);
+		ospf_ti_lfa_compute(area, new_table,
+				    ospf->ti_lfa_protection_type);
 
 	ospf_spf_cleanup(area->spf, area->spf_vertex_list);
 }

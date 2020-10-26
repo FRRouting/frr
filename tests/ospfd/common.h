@@ -34,6 +34,7 @@ extern struct thread_master *master;
 extern struct ospf_topology topo1;
 extern struct ospf_topology topo2;
 extern struct ospf_topology topo3;
+extern struct ospf_topology topo4;
 extern struct zebra_privs_t ospfd_privs;
 
 #endif /* _COMMON_OSPF_H */

@@ -127,6 +127,13 @@ enum {
 	OSPF_LOG_ADJACENCY_DETAIL =	(1 << 4),
 };
 
+/* TI-LFA */
+enum protection_type {
+	OSPF_TI_LFA_UNDEFINED_PROTECTION,
+	OSPF_TI_LFA_LINK_PROTECTION,
+	OSPF_TI_LFA_NODE_PROTECTION,
+};
+
 /* OSPF instance structure. */
 struct ospf {
 	/* OSPF's running state based on the '[no] router ospf [<instance>]'
@@ -377,6 +384,7 @@ struct ospf {
 
 	/* TI-LFA support for all interfaces. */
 	bool ti_lfa_enabled;
+	enum protection_type ti_lfa_protection_type;
 
 	QOBJ_FIELDS
 };
@@ -395,6 +403,16 @@ struct ospf_ti_lfa_node_info {
 	struct in_addr nexthop;
 };
 
+struct protected_resource {
+	enum protection_type type;
+
+	/* Link Protection */
+	struct router_lsa_link *link;
+
+	/* Node Protection */
+	struct in_addr router_id;
+};
+
 PREDECL_RBTREE_UNIQ(q_spaces)
 struct q_space {
 	struct vertex *root;
@@ -407,7 +425,7 @@ struct q_space {
 PREDECL_RBTREE_UNIQ(p_spaces)
 struct p_space {
 	struct vertex *root;
-	struct router_lsa_link *protected_link;
+	struct protected_resource *protected_resource;
 	struct q_spaces_head *q_spaces;
 	struct list *vertex_list;
 	struct vertex *pc_spf;
@@ -513,7 +531,7 @@ struct ospf_area {
 			       root node of the SPF tree */
 
 	/* TI-LFA protected link for SPF calculations */
-	struct router_lsa_link *spf_protected_link;
+	struct protected_resource *spf_protected_resource;
 
 	/* P/Q spaces for TI-LFA */
 	struct p_spaces_head *p_spaces;

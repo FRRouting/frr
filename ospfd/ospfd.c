@@ -89,8 +89,18 @@ static void ospf_finish_final(struct ospf *);
 
 int p_spaces_compare_func(const struct p_space *a, const struct p_space *b)
 {
-	return (a->protected_link->link_id.s_addr
-		- b->protected_link->link_id.s_addr);
+	if (a->protected_resource->type == OSPF_TI_LFA_LINK_PROTECTION
+	    && b->protected_resource->type == OSPF_TI_LFA_LINK_PROTECTION)
+		return (a->protected_resource->link->link_id.s_addr
+			- b->protected_resource->link->link_id.s_addr);
+
+	if (a->protected_resource->type == OSPF_TI_LFA_NODE_PROTECTION
+	    && b->protected_resource->type == OSPF_TI_LFA_NODE_PROTECTION)
+		return (a->protected_resource->router_id.s_addr
+			- b->protected_resource->router_id.s_addr);
+
+	/* This should not happen */
+	return 0;
 }
 
 int q_spaces_compare_func(const struct q_space *a, const struct q_space *b)

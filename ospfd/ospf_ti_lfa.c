@@ -24,6 +24,7 @@
 
 #include "prefix.h"
 #include "table.h"
+#include "printfrr.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
@@ -39,6 +40,29 @@ DECLARE_RBTREE_UNIQ(p_spaces, struct p_space, p_spaces_item,
 DECLARE_RBTREE_UNIQ(q_spaces, struct q_space, q_spaces_item,
 		    q_spaces_compare_func)
 
+void ospf_print_protected_resource(
+	struct protected_resource *protected_resource, char *buf)
+{
+	struct router_lsa_link *link;
+
+	switch (protected_resource->type) {
+	case OSPF_TI_LFA_LINK_PROTECTION:
+		link = protected_resource->link;
+		snprintfrr(buf, PROTECTED_RESOURCE_STRLEN,
+			   "protected link: %pI4 %pI4", &link->link_id,
+			   &link->link_data);
+		break;
+	case OSPF_TI_LFA_NODE_PROTECTION:
+		snprintfrr(buf, PROTECTED_RESOURCE_STRLEN,
+			   "protected node: %pI4",
+			   &protected_resource->router_id);
+		break;
+	case OSPF_TI_LFA_UNDEFINED_PROTECTION:
+		snprintfrr(buf, PROTECTED_RESOURCE_STRLEN,
+			   "undefined protected resource");
+		break;
+	}
+}
 
 static void ospf_ti_lfa_find_p_node(struct vertex *pc_node,
 				    struct p_space *p_space,
@@ -263,7 +287,23 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	struct vertex *child;
 	struct route_table *new_table, *new_rtrs;
 	struct q_space *q_space, q_space_search;
-	char buf[MPLS_LABEL_STRLEN];
+	char label_buf[MPLS_LABEL_STRLEN];
+	char res_buf[PROTECTED_RESOURCE_STRLEN];
+
+	ospf_print_protected_resource(p_space->protected_resource, res_buf);
+
+	/*
+	 * If node protection is used, don't build a Q space for the protected
+	 * node of that particular P space. Move on with children instead.
+	 */
+	if (p_space->protected_resource->type == OSPF_TI_LFA_NODE_PROTECTION
+	    && dest->id.s_addr
+		       == p_space->protected_resource->router_id.s_addr) {
+		/* Recursively generate Q spaces for all children */
+		for (ALL_LIST_ELEMENTS_RO(dest->children, node, child))
+			ospf_ti_lfa_generate_q_spaces(area, p_space, child);
+		return;
+	}
 
 	/* Check if we already have a Q space for this destination */
 	q_space_search.root = dest;
@@ -289,9 +329,9 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	q_space->vertex_list = area->spf_vertex_list;
 	q_space->label_stack = NULL;
 
-	/* 'Cut' the branch of the protected link out of the new SPF tree */
-	ospf_spf_remove_link(q_space->root, q_space->vertex_list,
-			     p_space->protected_link);
+	/* 'Cut' the protected resource out of the new SPF tree */
+	ospf_spf_remove_resource(q_space->root, q_space->vertex_list,
+				 p_space->protected_resource);
 
 	/*
 	 * Generate the smallest possible label stack from the root of the P
@@ -299,19 +339,20 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	 */
 	ospf_ti_lfa_generate_label_stack(p_space, q_space);
 
+
 	if (q_space->label_stack) {
 		mpls_label2str(q_space->label_stack->num_labels,
-			       q_space->label_stack->label, buf,
+			       q_space->label_stack->label, label_buf,
 			       MPLS_LABEL_STRLEN, true);
 		zlog_info(
-			"%s: Generated label stack %s for root %pI4 and destination %pI4 for protected link %pI4",
-			__func__, buf, &p_space->root->id, &q_space->root->id,
-			&p_space->protected_link->link_id);
+			"%s: Generated label stack %s for root %pI4 and destination %pI4 for %s",
+			__func__, label_buf, &p_space->root->id,
+			&q_space->root->id, res_buf);
 	} else {
 		zlog_info(
-			"%s: NO label stack generated for root %pI4 and destination %pI4 for protected link %pI4",
+			"%s: NO label stack generated for root %pI4 and destination %pI4 for %s",
 			__func__, &p_space->root->id, &q_space->root->id,
-			&p_space->protected_link->link_id);
+			res_buf);
 	}
 
 	/* We are finished, store the new Q space in the P space struct */
@@ -330,20 +371,22 @@ static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
 	new_table = route_table_init();
 	new_rtrs = route_table_init();
 
-	area->spf_protected_link = p_space->protected_link;
+	area->spf_protected_resource = p_space->protected_resource;
 
 	/*
 	 * The 'post convergence' SPF tree is generated here
 	 * dry run true, root node false
 	 *
 	 * So how does this work? During the SPF calculation the algorithm
-	 * checks if a link belongs to a protected stub and then just ignores
-	 * it. This is actually _NOT_ a good way to calculate the post
+	 * checks if a link belongs to a protected resource and then just
+	 * ignores it.
+	 * This is actually _NOT_ a good way to calculate the post
 	 * convergence SPF tree. The preferred way would be to delete the
-	 * relevant links from a copy of the LSDB and then just run the SPF
-	 * algorithm on that as usual. However, removing links from router
-	 * LSAs appears to be its own endeavour (because LSAs are stored as a
-	 * 'raw' stream), so we go with this rather hacky way for now.
+	 * relevant links (and nodes) from a copy of the LSDB and then just run
+	 * the SPF algorithm on that as usual.
+	 * However, removing links from router LSAs appears to be its own
+	 * endeavour (because LSAs are stored as a 'raw' stream), so we go with
+	 * this rather hacky way for now.
 	 */
 	ospf_spf_calculate(area, area->router_lsa_self, new_table, new_rtrs,
 			   true, false);
@@ -351,12 +394,12 @@ static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
 	p_space->pc_spf = area->spf;
 	p_space->pc_vertex_list = area->spf_vertex_list;
 
-	area->spf_protected_link = NULL;
+	area->spf_protected_resource = NULL;
 }
 
-static void ospf_ti_lfa_generate_p_space(struct ospf_area *area,
-					 struct vertex *child,
-					 struct router_lsa_link *link)
+static void
+ospf_ti_lfa_generate_p_space(struct ospf_area *area, struct vertex *child,
+			     struct protected_resource *protected_resource)
 {
 	struct vertex *spf_orig;
 	struct list *vertex_list, *vertex_list_orig;
@@ -369,16 +412,16 @@ static void ospf_ti_lfa_generate_p_space(struct ospf_area *area,
 	ospf_spf_copy(area->spf, vertex_list);
 	p_space->root = listnode_head(vertex_list);
 	p_space->vertex_list = vertex_list;
-	p_space->protected_link = link;
+	p_space->protected_resource = protected_resource;
 
-	/* Initialize the Q spaces for this P space and protected link */
+	/* Initialize the Q spaces for this P space and protected resource */
 	p_space->q_spaces =
 		XCALLOC(MTYPE_OSPF_Q_SPACE, sizeof(struct q_spaces_head));
 	q_spaces_init(p_space->q_spaces);
 
-	/* 'Cut' the child branch out of the new SPF tree */
-	ospf_spf_remove_link(p_space->root, p_space->vertex_list,
-			     p_space->protected_link);
+	/* 'Cut' the protected resource out of the new SPF tree */
+	ospf_spf_remove_resource(p_space->root, p_space->vertex_list,
+				 p_space->protected_resource);
 
 	/*
 	 * Since we are going to calculate more SPF trees for Q spaces, keep the
@@ -401,7 +444,8 @@ static void ospf_ti_lfa_generate_p_space(struct ospf_area *area,
 	p_spaces_add(area->p_spaces, p_space);
 }
 
-void ospf_ti_lfa_generate_p_spaces(struct ospf_area *area)
+void ospf_ti_lfa_generate_p_spaces(struct ospf_area *area,
+				   enum protection_type protection_type)
 {
 	struct listnode *node, *inner_node;
 	struct vertex *root, *child;
@@ -409,6 +453,7 @@ void ospf_ti_lfa_generate_p_spaces(struct ospf_area *area)
 	uint8_t *p, *lim;
 	struct router_lsa_link *l = NULL;
 	struct prefix stub_prefix, child_prefix;
+	struct protected_resource *protected_resource;
 
 	area->p_spaces =
 		XCALLOC(MTYPE_OSPF_P_SPACE, sizeof(struct p_spaces_head));
@@ -439,6 +484,30 @@ void ospf_ti_lfa_generate_p_spaces(struct ospf_area *area)
 		p += (OSPF_ROUTER_LSA_LINK_SIZE
 		      + (l->m[0].tos_count * OSPF_ROUTER_LSA_TOS_SIZE));
 
+		/* First comes node protection */
+		if (protection_type == OSPF_TI_LFA_NODE_PROTECTION) {
+			if (l->m[0].type == LSA_LINK_TYPE_POINTOPOINT) {
+				protected_resource = XCALLOC(
+					MTYPE_OSPF_P_SPACE,
+					sizeof(struct protected_resource));
+				protected_resource->type = protection_type;
+				protected_resource->router_id = l->link_id;
+				child = ospf_spf_vertex_find(
+					protected_resource->router_id,
+					root->children);
+				if (child)
+					ospf_ti_lfa_generate_p_space(
+						area, child,
+						protected_resource);
+			}
+
+			continue;
+		}
+
+		/* The rest is about link protection */
+		if (protection_type != OSPF_TI_LFA_LINK_PROTECTION)
+			continue;
+
 		if (l->m[0].type != LSA_LINK_TYPE_STUB)
 			continue;
 
@@ -467,26 +536,50 @@ void ospf_ti_lfa_generate_p_spaces(struct ospf_area *area)
 					zlog_info(
 						"%s: Generating P space for %pI4",
 						__func__, &l->link_id);
-					ospf_ti_lfa_generate_p_space(area,
-								     child, l);
+
+					protected_resource = XCALLOC(
+						MTYPE_OSPF_P_SPACE,
+						sizeof(struct
+						       protected_resource));
+					protected_resource->type =
+						protection_type;
+					protected_resource->link = l;
+
+					ospf_ti_lfa_generate_p_space(
+						area, child,
+						protected_resource);
 				}
 			}
 		}
 	}
 }
 
-static struct p_space *
-ospf_ti_lfa_get_p_space_by_nexthop(struct ospf_area *area,
-				   struct in_addr *nexthop)
+static struct p_space *ospf_ti_lfa_get_p_space_by_path(struct ospf_area *area,
+						       struct ospf_path *path)
 {
 	struct p_space *p_space;
 	struct router_lsa_link *link;
+	struct vertex *child;
+	int type;
 
 	frr_each(p_spaces, area->p_spaces, p_space) {
-		link = p_space->protected_link;
-		if ((nexthop->s_addr & link->link_data.s_addr)
-		    == (link->link_id.s_addr & link->link_data.s_addr))
-			return p_space;
+		type = p_space->protected_resource->type;
+
+		if (type == OSPF_TI_LFA_LINK_PROTECTION) {
+			link = p_space->protected_resource->link;
+			if ((path->nexthop.s_addr & link->link_data.s_addr)
+			    == (link->link_id.s_addr & link->link_data.s_addr))
+				return p_space;
+		}
+
+		if (type == OSPF_TI_LFA_NODE_PROTECTION) {
+			child = ospf_spf_vertex_by_nexthop(area->spf,
+							   &path->nexthop);
+			if (child
+			    && p_space->protected_resource->router_id.s_addr
+				       == child->id.s_addr)
+				return p_space;
+		}
 	}
 
 	return NULL;
@@ -502,6 +595,7 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 	struct p_space *p_space;
 	struct q_space *q_space, q_space_search;
 	struct vertex root_search;
+	char label_buf[MPLS_LABEL_STRLEN];
 
 	for (rn = route_top(new_table); rn; rn = route_next(rn)) {
 		or = rn->info;
@@ -510,12 +604,22 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 
 		/* Insert a backup path for all OSPF paths */
 		for (ALL_LIST_ELEMENTS_RO(or->paths, node, path)) {
-			p_space = ospf_ti_lfa_get_p_space_by_nexthop(
-				area, &path->nexthop);
+
+			if (path->adv_router.s_addr == INADDR_ANY
+			    || path->nexthop.s_addr == INADDR_ANY)
+				continue;
+
+			zlog_debug(
+				"%s: attempting to insert backup path for prefix %pFX, router id %pI4 and nexthop %pI4.",
+				__func__, &rn->p, &path->adv_router,
+				&path->nexthop);
+
+			p_space = ospf_ti_lfa_get_p_space_by_path(area, path);
 			if (!p_space) {
 				zlog_debug(
-					"%s: P space not found for nexthop %pI4.",
-					__func__, &path->nexthop);
+					"%s: P space not found for router id %pI4 and nexthop %pI4.",
+					__func__, &path->adv_router,
+					&path->nexthop);
 				continue;
 			}
 
@@ -532,6 +636,22 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 
 			path->srni.backup_label_stack = q_space->label_stack;
 			path->srni.backup_nexthop = q_space->nexthop;
+
+			if (path->srni.backup_label_stack) {
+				mpls_label2str(q_space->label_stack->num_labels,
+					       q_space->label_stack->label,
+					       label_buf, MPLS_LABEL_STRLEN,
+					       true);
+				zlog_debug(
+					"%s: inserted backup path %s for prefix %pFX, router id %pI4 and nexthop %pI4.",
+					__func__, label_buf, &rn->p,
+					&path->adv_router, &path->nexthop);
+			} else {
+				zlog_debug(
+					"%s: inserted NO backup path for prefix %pFX, router id %pI4 and nexthop %pI4.",
+					__func__, &rn->p, &path->adv_router,
+					&path->nexthop);
+			}
 		}
 	}
 }
@@ -554,6 +674,7 @@ void ospf_ti_lfa_free_p_spaces(struct ospf_area *area)
 		}
 		ospf_spf_cleanup(p_space->root, p_space->vertex_list);
 		ospf_spf_cleanup(p_space->pc_spf, p_space->pc_vertex_list);
+		XFREE(MTYPE_OSPF_P_SPACE, p_space->protected_resource);
 
 		q_spaces_fini(p_space->q_spaces);
 		XFREE(MTYPE_OSPF_Q_SPACE, p_space->q_spaces);
@@ -563,13 +684,15 @@ void ospf_ti_lfa_free_p_spaces(struct ospf_area *area)
 	XFREE(MTYPE_OSPF_P_SPACE, area->p_spaces);
 }
 
-void ospf_ti_lfa_compute(struct ospf_area *area, struct route_table *new_table)
+void ospf_ti_lfa_compute(struct ospf_area *area, struct route_table *new_table,
+			 enum protection_type protection_type)
 {
 	/*
-	 * Generate P spaces per protected link and their respective Q spaces,
-	 * generate backup paths (MPLS label stacks) by finding P/Q nodes.
+	 * Generate P spaces per protected link/node and their respective Q
+	 * spaces, generate backup paths (MPLS label stacks) by finding P/Q
+	 * nodes.
 	 */
-	ospf_ti_lfa_generate_p_spaces(area);
+	ospf_ti_lfa_generate_p_spaces(area, protection_type);
 
 	/* Insert the generated backup paths into the routing table. */
 	ospf_ti_lfa_insert_backup_paths(area, new_table);

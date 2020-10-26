@@ -27,6 +27,8 @@ struct ospf_topology *test_find_topology(const char *name)
 		return &topo2;
 	else if (strmatch(name, "topo3"))
 		return &topo3;
+	else if (strmatch(name, "topo4"))
+		return &topo4;
 
 	return NULL;
 }
