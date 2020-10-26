@@ -672,6 +672,8 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		flags |= ZEBRA_FLAG_TRAPPED;
 	if (rtm->rtm_flags & RTM_F_OFFLOAD)
 		flags |= ZEBRA_FLAG_OFFLOADED;
+	if (rtm->rtm_flags & RTM_F_OFFLOAD_FAILED)
+		flags |= ZEBRA_FLAG_OFFLOAD_FAILED;
 
 	/* Route which inserted by Zebra. */
 	if (selfroute) {

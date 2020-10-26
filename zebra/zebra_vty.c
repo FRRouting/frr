@@ -209,7 +209,7 @@ static char re_status_output_char(const struct route_entry *re,
 			return 't';
 
 		if (zrouter.asic_offloaded
-		    && !CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED))
+		    && CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))
 			return 'o';
 
 		if (star_p)
@@ -869,6 +869,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED))
 			json_object_boolean_true_add(json_route, "offloaded");
+
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))
+			json_object_boolean_false_add(json_route, "offloaded");
 
 		if (re->tag)
 			json_object_int_add(json_route, "tag", re->tag);
