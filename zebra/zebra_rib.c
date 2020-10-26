@@ -3083,15 +3083,14 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	/* Lookup route node. */
 	rn = srcdest_rnode_lookup(table, p, src_p);
 	if (!rn) {
-		char src_buf[PREFIX_STRLEN];
-
-		if (src_p && src_p->prefixlen)
-			prefix2str(src_p, src_buf, sizeof(src_buf));
-		else
-			src_buf[0] = '\0';
-
 		if (IS_ZEBRA_DEBUG_RIB) {
+			char src_buf[PREFIX_STRLEN];
 			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+			if (src_p && src_p->prefixlen)
+				prefix2str(src_p, src_buf, sizeof(src_buf));
+			else
+				src_buf[0] = '\0';
 
 			zlog_debug("%s[%d]:%pFX%s%s doesn't exist in rib",
 				   vrf->name, table_id, p,
