@@ -3652,7 +3652,7 @@ DEFUN (bgp_neighbor_graceful_restart_disable_set,
 
 	ret = bgp_neighbor_graceful_restart(peer, PEER_DISABLE_CMD);
 	if (ret == BGP_GR_SUCCESS) {
-		if (peer->bgp->t_startup)
+		if (peer->bgp->t_startup || bgp_in_graceful_restart())
 			bgp_peer_gr_flags_update(peer);
 
 		VTY_BGP_GR_ROUTER_DETECT(bgp, peer, peer->bgp->peer);

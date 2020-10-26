@@ -2046,9 +2046,10 @@ static int bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 	}
 	gr_info->eor_required++;
 	/* Send message to RIB indicating route update pending */
-	if (gr_info->af_enabled[afi][safi] == false) {
-		gr_info->af_enabled[afi][safi] = true;
-		/* Send message to RIB */
+	if (gr_info->af_enabled == false) {
+		gr_info->af_enabled = true;
+		gr_info->route_sync = false;
+		bgp->gr_route_sync_pending = true;
 		bgp_zebra_update(bgp, afi, safi,
 				 ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
 	}
@@ -2082,7 +2083,7 @@ static int bgp_update_gr_info(struct peer *peer, afi_t afi, safi_t safi)
 	if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)
 	    && BGP_PEER_RESTARTING_MODE(peer)) {
 		/* Check if the forwarding state is preserved */
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD)) {
+		if (bgp_gr_is_forwarding_preserved(bgp)) {
 			gr_info = &(bgp->gr_info[afi][safi]);
 			ret = bgp_start_deferral_timer(bgp, afi, safi, gr_info);
 		}
@@ -2199,8 +2200,7 @@ bgp_establish(struct peer_connection *connection)
 			} else {
 				if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer) &&
 				    BGP_PEER_RESTARTING_MODE(peer) &&
-				    CHECK_FLAG(peer->bgp->flags,
-					       BGP_FLAG_GR_PRESERVE_FWD))
+				    bgp_gr_is_forwarding_preserved(peer->bgp))
 					peer->bgp->gr_info[afi][safi]
 						.eor_required++;
 			}
@@ -2702,10 +2702,14 @@ bgp_peer_inherit_global_gr_mode(struct peer *peer,
 	switch (global_gr_mode) {
 	case GLOBAL_HELPER:
 		BGP_PEER_GR_HELPER_ENABLE(peer);
+		break;
 	case GLOBAL_GR:
 		BGP_PEER_GR_ENABLE(peer);
+		break;
 	case GLOBAL_DISABLE:
 		BGP_PEER_GR_DISABLE(peer);
+		break;
+	case GLOBAL_INVALID:
 	default:
 		zlog_err("Unexpected Global GR mode %d", global_gr_mode);
 	}
