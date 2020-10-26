@@ -575,6 +575,8 @@ static int frr_sr_subscribe_state(const struct lys_node *snode, void *arg)
 		return YANG_ITER_CONTINUE;
 
 	nb_node = snode->priv;
+	if (!nb_node)
+		return YANG_ITER_CONTINUE;
 
 	DEBUGD(&nb_dbg_client_sysrepo, "sysrepo: providing data to '%s'",
 	       nb_node->xpath);
@@ -599,6 +601,8 @@ static int frr_sr_subscribe_rpc(const struct lys_node *snode, void *arg)
 		return YANG_ITER_CONTINUE;
 
 	nb_node = snode->priv;
+	if (!nb_node)
+		return YANG_ITER_CONTINUE;
 
 	DEBUGD(&nb_dbg_client_sysrepo, "sysrepo: providing RPC to '%s'",
 	       nb_node->xpath);
@@ -686,10 +690,10 @@ static int frr_sr_init(void)
 		int event_pipe;
 
 		frr_sr_subscribe_config(module);
-		yang_snodes_iterate_module(module->info, frr_sr_subscribe_state,
-					   0, module);
-		yang_snodes_iterate_module(module->info, frr_sr_subscribe_rpc,
-					   0, module);
+		yang_snodes_iterate(module->info, frr_sr_subscribe_state, 0,
+				    module);
+		yang_snodes_iterate(module->info, frr_sr_subscribe_rpc, 0,
+				    module);
 
 		/* Watch subscriptions. */
 		ret = sr_get_event_pipe(module->sr_subscription, &event_pipe);

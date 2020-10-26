@@ -550,6 +550,9 @@ static int frr_confd_init_cdb(void)
 				continue;
 
 			nb_node = snode->priv;
+			if (!nb_node)
+				continue;
+
 			DEBUGD(&nb_dbg_client_confd, "%s: subscribing to '%s'",
 			       __func__, nb_node->xpath);
 
@@ -1189,7 +1192,7 @@ static int frr_confd_subscribe_state(const struct lys_node *snode, void *arg)
 	struct nb_node *nb_node = snode->priv;
 	struct confd_data_cbs *data_cbs = arg;
 
-	if (!CHECK_FLAG(snode->flags, LYS_CONFIG_R))
+	if (!nb_node || !CHECK_FLAG(snode->flags, LYS_CONFIG_R))
 		return YANG_ITER_CONTINUE;
 	/* We only need to subscribe to the root of the state subtrees. */
 	if (snode->parent && CHECK_FLAG(snode->parent->flags, LYS_CONFIG_R))
@@ -1276,7 +1279,7 @@ static int frr_confd_init_dp(const char *program_name)
 	 * Iterate over all loaded YANG modules and subscribe to the paths
 	 * referent to state data.
 	 */
-	yang_snodes_iterate_all(frr_confd_subscribe_state, 0, &data_cbs);
+	yang_snodes_iterate(NULL, frr_confd_subscribe_state, 0, &data_cbs);
 
 	/* Register notification stream. */
 	memset(&ncbs, 0, sizeof(ncbs));
@@ -1393,7 +1396,8 @@ static int frr_confd_calculate_snode_hash(const struct lys_node *snode,
 {
 	struct nb_node *nb_node = snode->priv;
 
-	nb_node->confd_hash = confd_str2hash(snode->name);
+	if (nb_node)
+		nb_node->confd_hash = confd_str2hash(snode->name);
 
 	return YANG_ITER_CONTINUE;
 }
@@ -1426,7 +1430,7 @@ static int frr_confd_init(const char *program_name)
 		goto error;
 	}
 
-	yang_snodes_iterate_all(frr_confd_calculate_snode_hash, 0, NULL);
+	yang_snodes_iterate(NULL, frr_confd_calculate_snode_hash, 0, NULL);
 
 	hook_register(nb_notification_send, frr_confd_notification_send);
 
