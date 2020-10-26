@@ -2653,12 +2653,7 @@ static void bgp_route_select_timer_expire(struct thread *thread)
 	safi = info->safi;
 	bgp = info->bgp;
 
-	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug("afi %d, safi %d : route select timer expired", afi,
-			   safi);
-
 	bgp->gr_info[afi][safi].t_route_select = NULL;
-
 	XFREE(MTYPE_TMP, info);
 
 	/* Best path selection */
