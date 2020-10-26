@@ -696,10 +696,9 @@ void bgp_open_send(struct peer_connection *connection)
 	bgp_packet_set_size(s);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug(
-			"%s sending OPEN, version %d, my as %u, holdtime %d, id %pI4",
-			peer->host, BGP_VERSION_4, local_as, send_holdtime,
-			&peer->local_id);
+		zlog_debug("%pBP fd %d sending OPEN, version %d, my as %u, holdtime %d, id %pI4",
+			   peer, peer->connection->fd, BGP_VERSION_4, local_as,
+			   send_holdtime, &peer->local_id);
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
