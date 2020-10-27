@@ -1170,6 +1170,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			}
 		}
 
+		bgp_peer_gr_flags_update(peer);
 		VTY_BGP_GR_ROUTER_DETECT(bgp, peer, peer->bgp->peer);
 		VTY_SEND_BGP_GR_CAPABILITY_TO_ZEBRA(peer->bgp, ret);
 
