@@ -289,8 +289,9 @@ void ospf_asbr_nssa_redist_task(struct ospf *ospf)
 			continue;
 
 		for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
-			ospf_external_lsa_refresh_type(
-				ospf, type, red->instance, LSA_REFRESH_FORCE);
+			ospf_external_lsa_refresh_type(ospf, type,
+						       red->instance,
+						       LSA_REFRESH_IF_CHANGED);
 	}
 
 	ospf_external_lsa_refresh_default(ospf);
