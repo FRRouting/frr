@@ -499,12 +499,6 @@ DEFPY_YANG(ip_route_blackhole,
       "Table to configure\n"
       "The table number to configure\n")
 {
-	if (table_str && vrf && !vrf_is_backend_netns()) {
-		vty_out(vty,
-			"%% table param only available when running on netns-based vrfs\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	return static_route(vty, AFI_IP, SAFI_UNICAST, no, prefix,
 			    mask_str, NULL, NULL, NULL, flag, tag_str,
 			    distance_str, vrf, label, table_str);
@@ -818,12 +812,6 @@ DEFPY_YANG(ipv6_route_blackhole,
       "Table to configure\n"
       "The table number to configure\n")
 {
-	if (table_str && vrf && !vrf_is_backend_netns()) {
-		vty_out(vty,
-			"%% table param only available when running on netns-based vrfs\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	return static_route(vty, AFI_IP6, SAFI_UNICAST, no, prefix_str,
 			    NULL, from_str, NULL, NULL, flag, tag_str,
 			    distance_str, vrf, label, table_str);
