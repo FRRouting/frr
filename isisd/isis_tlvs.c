@@ -2400,11 +2400,11 @@ static int unpack_tlv_threeway_adj(enum isis_tlv_context context,
 }
 
 /* Functions related to TLVs 236/237 IPv6/MT-IPv6 reach */
-
 static struct isis_item *copy_item_ipv6_reach(struct isis_item *i)
 {
 	struct isis_ipv6_reach *r = (struct isis_ipv6_reach *)i;
 	struct isis_ipv6_reach *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
 	rv->metric = r->metric;
 	rv->down = r->down;
 	rv->external = r->external;
@@ -2573,10 +2573,12 @@ out:
 static struct isis_router_cap *copy_tlv_router_cap(
 			       const struct isis_router_cap *router_cap)
 {
-	struct isis_router_cap *rv = XMALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+	struct isis_router_cap *rv;
 
 	if (!router_cap)
 		return NULL;
+
+	rv = XMALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	memcpy(rv, router_cap, sizeof(*rv));
 
