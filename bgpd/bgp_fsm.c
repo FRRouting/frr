@@ -2169,6 +2169,75 @@ bgp_fsm_delayopen_timer_expire(struct peer_connection *connection)
 	return BGP_FSM_SUCCESS;
 }
 
+/*
+ * Upon session becoming established, process the GR capabilities announced
+ * by the peer, and clear stale routes if the peer has not announced a
+ * previously announced (afi,safi) or doesn't preserve forwarding for them.
+ * The clearing of stale routes applies only to a Helper router.
+ */
+static void bgp_peer_process_gr_cap_clear_stale(struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+	int nsf_af_count = 0;
+
+	if (peer->connection->t_gr_restart) {
+		EVENT_OFF(peer->connection->t_gr_restart);
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s: graceful restart timer stopped",
+				   peer->host);
+	}
+
+	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
+			if (peer->afc_nego[afi][safi] &&
+			    CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
+			    CHECK_FLAG(peer->af_cap[afi][safi],
+				       PEER_CAP_RESTART_AF_RCV)) {
+				/*
+				 * If an (afi,safi) is negotiated with the
+				 * peer and it has announced the GR capab
+				 * for it, it supports NSF for this (afi,
+				 * safi). However, if the peer didn't adv
+				 * the F-bit, any previous (stale) routes
+				 * should be flushed.
+				 */
+				if (peer->nsf[afi][safi] &&
+				    !CHECK_FLAG(peer->af_cap[afi][safi],
+						PEER_CAP_RESTART_AF_PRESERVE_RCV))
+					bgp_clear_stale_route(peer, afi, safi);
+
+				peer->nsf[afi][safi] = 1;
+				nsf_af_count++;
+			} else {
+				/*
+				 * Some other situation like (afi,safi) not
+				 * negotiated, GR not negotiated etc. Clear
+				 * any previous (stale) routes.
+				 */
+				if (peer->nsf[afi][safi])
+					bgp_clear_stale_route(peer, afi, safi);
+				peer->nsf[afi][safi] = 0;
+			}
+		}
+	}
+
+	peer->nsf_af_count = nsf_af_count;
+
+	if (nsf_af_count)
+		SET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+	else {
+		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+		if (peer->connection->t_gr_stale) {
+			EVENT_OFF(peer->connection->t_gr_stale);
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s: graceful restart stalepath timer stopped",
+					   peer->host);
+		}
+	}
+}
+
 /**
  * Transition to Established state.
  *
@@ -2180,7 +2249,6 @@ bgp_establish(struct peer_connection *connection)
 {
 	afi_t afi;
 	safi_t safi;
-	int nsf_af_count = 0;
 	enum bgp_fsm_state_progress ret = BGP_FSM_SUCCESS;
 	struct peer *other;
 	struct peer *peer = connection->peer;
@@ -2236,82 +2304,12 @@ bgp_establish(struct peer_connection *connection)
 					 : VRF_DEFAULT_NAME)
 			      : "");
 	}
+
 	/* assign update-group/subgroup */
 	update_group_adjust_peer_afs(peer);
 
-	/* graceful restart */
-	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
-	if (bgp_debug_neighbor_events(peer)) {
-		if (BGP_PEER_RESTARTING_MODE(peer))
-			zlog_debug("%pBP BGP_RESTARTING_MODE", peer);
-		else if (BGP_PEER_HELPER_MODE(peer))
-			zlog_debug("%pBP BGP_HELPER_MODE", peer);
-	}
-
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		if (peer->afc_nego[afi][safi] &&
-		    CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
-		    CHECK_FLAG(peer->af_cap[afi][safi],
-			       PEER_CAP_RESTART_AF_RCV)) {
-			if (peer->nsf[afi][safi] &&
-			    !CHECK_FLAG(peer->af_cap[afi][safi],
-					PEER_CAP_RESTART_AF_PRESERVE_RCV))
-				bgp_clear_stale_route(peer, afi, safi);
-
-			peer->nsf[afi][safi] = 1;
-			nsf_af_count++;
-		} else {
-			if (peer->nsf[afi][safi])
-				bgp_clear_stale_route(peer, afi, safi);
-			peer->nsf[afi][safi] = 0;
-		}
-	}
-
-	if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
-		if ((bgp_peer_gr_mode_get(peer) == PEER_GR)
-		    || ((bgp_peer_gr_mode_get(peer) == PEER_GLOBAL_INHERIT)
-			&& (bgp_global_gr_mode_get(peer->bgp) == GLOBAL_GR))) {
-			FOREACH_AFI_SAFI (afi, safi)
-				/* Send route processing complete
-				   message to RIB */
-				bgp_zebra_update(
-					peer->bgp, afi, safi,
-					ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
-		}
-	} else {
-		/* Peer sends R-bit. In this case, we need to send
-		 * ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE to Zebra. */
-		if (CHECK_FLAG(peer->cap,
-			       PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)) {
-			FOREACH_AFI_SAFI (afi, safi)
-				/* Send route processing complete
-				   message to RIB */
-				bgp_zebra_update(
-					peer->bgp, afi, safi,
-					ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
-		}
-	}
-
-	peer->nsf_af_count = nsf_af_count;
-
-	if (nsf_af_count)
-		SET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
-	else {
-		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
-		if (connection->t_gr_stale) {
-			EVENT_OFF(connection->t_gr_stale);
-			if (bgp_debug_neighbor_events(peer))
-				zlog_debug(
-					"%pBP graceful restart stalepath timer stopped",
-					peer);
-		}
-	}
-
-	if (connection->t_gr_restart) {
-		EVENT_OFF(connection->t_gr_restart);
-		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%pBP graceful restart timer stopped", peer);
-	}
+	/* graceful restart handling */
+	bgp_peer_process_gr_cap_clear_stale(peer);
 
 	/* Reset uptime, turn on keepalives, send current table. */
 	if (!peer->v_holdtime)
