@@ -2595,6 +2595,194 @@ This makes it possible to separate not only layer 3 networks like VRF-lite netwo
 Also, VRF netns based make possible to separate layer 2 networks on separate VRF
 instances.
 
+.. _bgp-conditional-advertisement:
+
+BGP Conditional Advertisement
+-----------------------------
+The BGP conditional advertisement feature uses the ``non-exist-map`` or the
+``exist-map`` and the ``advertise-map`` keywords of the neighbor advertise-map
+command in order to track routes by the route prefix.
+
+``non-exist-map``
+   1. If a route prefix is not present in the output of non-exist-map command,
+      then advertise the route specified by the advertise-map command.
+
+   2. If a route prefix is present in the output of non-exist-map command,
+      then do not advertise the route specified by the addvertise-map command.
+
+``exist-map``
+   1. If a route prefix is present in the output of exist-map command,
+      then advertise the route specified by the advertise-map command.
+
+   2. If a route prefix is not present in the output of exist-map command,
+      then do not advertise the route specified by the advertise-map command.
+
+This feature is useful when some prefixes are advertised to one of its peers
+only if the information from the other peer is not present (due to failure in
+peering session or partial reachability etc).
+
+The conditional BGP announcements are sent in addition to the normal
+announcements that a BGP router sends to its peer.
+
+The conditional advertisement process is triggered by the BGP scanner process,
+which runs every 60 seconds. This means that the maximum time for the conditional
+advertisement to take effect is 60 seconds. The conditional advertisement can take
+effect depending on when the tracked route is removed from the BGP table and
+when the next instance of the BGP scanner occurs.
+
+.. index:: [no] neighbor A.B.C.D advertise-map NAME [exist-map|non-exist-map] NAME
+.. clicmd:: [no] neighbor A.B.C.D advertise-map NAME [exist-map|non-exist-map] NAME
+
+   This command enables BGP scanner process to monitor routes specified by
+   exist-map or non-exist-map command in BGP table and conditionally advertises
+   the routes specified by advertise-map command.
+
+Sample Configuration
+^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: frr
+
+   interface enp0s9
+    ip address 10.10.10.2/24
+   !
+   interface enp0s10
+    ip address 10.10.20.2/24
+   !
+   interface lo
+    ip address 203.0.113.1/32
+   !
+   router bgp 2
+    bgp log-neighbor-changes
+    no bgp ebgp-requires-policy
+    neighbor 10.10.10.1 remote-as 1
+    neighbor 10.10.20.3 remote-as 3
+    !
+    address-family ipv4 unicast
+     neighbor 10.10.10.1 soft-reconfiguration inbound
+     neighbor 10.10.20.3 soft-reconfiguration inbound
+     neighbor 10.10.20.3 advertise-map ADV-MAP non-exist-map EXIST-MAP
+    exit-address-family
+   !
+   ip prefix-list DEFAULT seq 5 permit 192.0.2.5/32
+   ip prefix-list DEFAULT seq 10 permit 192.0.2.1/32
+   ip prefix-list EXIST seq 5 permit 10.10.10.10/32
+   ip prefix-list DEFAULT-ROUTE seq 5 permit 0.0.0.0/0
+   ip prefix-list IP1 seq 5 permit 10.139.224.0/20
+   !
+   bgp community-list standard DC-ROUTES seq 5 permit 64952:3008
+   bgp community-list standard DC-ROUTES seq 10 permit 64671:501
+   bgp community-list standard DC-ROUTES seq 15 permit 64950:3009
+   bgp community-list standard DEFAULT-ROUTE seq 5 permit 65013:200
+   !
+   route-map ADV-MAP permit 10
+    match ip address prefix-list IP1
+   !
+   route-map ADV-MAP permit 20
+    match community DC-ROUTES
+   !
+   route-map EXIST-MAP permit 10
+    match community DEFAULT-ROUTE
+    match ip address prefix-list DEFAULT-ROUTE
+   !
+
+Sample Output
+^^^^^^^^^^^^^
+
+When default route is present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2.1/32 are not advertised to R3.
+
+.. code-block:: frr
+
+   Router2# show ip bgp
+   BGP table version is 20, local router ID is 203.0.113.1, vrf id 0
+   Default local pref 100, local AS 2
+   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+                  i internal, r RIB-failure, S Stale, R Removed
+   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+   Origin codes:  i - IGP, e - EGP, ? - incomplete
+
+      Network          Next Hop            Metric LocPrf Weight Path
+   *> 0.0.0.0/0        10.10.10.1               0             0 1 i
+   *> 10.139.224.0/20  10.10.10.1               0             0 1 ?
+   *> 192.0.2.1/32     10.10.10.1               0             0 1 i
+   *> 192.0.2.5/32     10.10.10.1               0             0 1 i
+
+   Displayed  4 routes and 4 total paths
+   Router2# show ip bgp neighbors 10.10.20.3
+
+   !--- Output suppressed.
+
+   For address family: IPv4 Unicast
+   Update group 7, subgroup 7
+   Packet Queue length 0
+   Inbound soft reconfiguration allowed
+   Community attribute sent to this neighbor(all)
+   Condition NON_EXIST, Condition-map *EXIST-MAP, Advertise-map *ADV-MAP, status: Withdraw
+   0 accepted prefixes
+
+   !--- Output suppressed.
+
+   Router2# show ip bgp neighbors 10.10.20.3 advertised-routes
+   BGP table version is 20, local router ID is 203.0.113.1, vrf id 0
+   Default local pref 100, local AS 2
+   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+               i internal, r RIB-failure, S Stale, R Removed
+   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+   Origin codes:  i - IGP, e - EGP, ? - incomplete
+
+      Network          Next Hop            Metric LocPrf Weight Path
+   *> 0.0.0.0/0        0.0.0.0                                0 1 i
+   *> 192.0.2.5/32     0.0.0.0                                0 1 i
+
+   Total number of prefixes 2
+
+When default route is not present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2.1/32 are advertised to R3.
+
+.. code-block:: frr
+
+   Router2# show ip bgp
+   BGP table version is 21, local router ID is 203.0.113.1, vrf id 0
+   Default local pref 100, local AS 2
+   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+                  i internal, r RIB-failure, S Stale, R Removed
+   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+   Origin codes:  i - IGP, e - EGP, ? - incomplete
+
+      Network          Next Hop            Metric LocPrf Weight Path
+   *> 10.139.224.0/20  10.10.10.1               0             0 1 ?
+   *> 192.0.2.1/32     10.10.10.1               0             0 1 i
+   *> 192.0.2.5/32     10.10.10.1               0             0 1 i
+
+   Displayed  3 routes and 3 total paths
+
+   Router2# show ip bgp neighbors 10.10.20.3
+
+   !--- Output suppressed.
+
+   For address family: IPv4 Unicast
+   Update group 7, subgroup 7
+   Packet Queue length 0
+   Inbound soft reconfiguration allowed
+   Community attribute sent to this neighbor(all)
+   Condition NON_EXIST, Condition-map *EXIST-MAP, Advertise-map *ADV-MAP, status: Advertise
+   0 accepted prefixes
+
+   !--- Output suppressed.
+
+   Router2# show ip bgp neighbors 10.10.20.3 advertised-routes
+   BGP table version is 21, local router ID is 203.0.113.1, vrf id 0
+   Default local pref 100, local AS 2
+   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+                  i internal, r RIB-failure, S Stale, R Removed
+   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+   Origin codes:  i - IGP, e - EGP, ? - incomplete
+
+      Network          Next Hop            Metric LocPrf Weight Path
+   *> 10.139.224.0/20  0.0.0.0                                0 1 ?
+   *> 192.0.2.1/32     0.0.0.0                                0 1 i
+   *> 192.0.2.5/32     0.0.0.0                                0 1 i
+
+   Total number of prefixes 3
+   Router2#
+
 .. _bgp-debugging:
 
 Debugging

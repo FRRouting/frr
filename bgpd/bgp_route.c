@@ -1660,6 +1660,33 @@ void bgp_attr_add_gshut_community(struct attr *attr)
 }
 
 
+/* Notify BGP Conditional advertisement scanner process. */
+void bgp_notify_conditional_adv_scanner(struct update_subgroup *subgrp)
+{
+	struct peer *temp_peer;
+	struct peer *peer = SUBGRP_PEER(subgrp);
+	struct listnode *temp_node, *temp_nnode = NULL;
+	afi_t afi = SUBGRP_AFI(subgrp);
+	safi_t safi = SUBGRP_SAFI(subgrp);
+	struct bgp *bgp = SUBGRP_INST(subgrp);
+	struct bgp_filter *filter = &peer->filter[afi][safi];
+
+	if (!ADVERTISE_MAP_NAME(filter))
+		return;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, temp_node, temp_nnode, temp_peer)) {
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			continue;
+
+		if (peer != temp_peer)
+			continue;
+
+		temp_peer->advmap_table_change = true;
+		break;
+	}
+}
+
+
 static void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 {
 	if (family == AF_INET) {
@@ -1674,7 +1701,8 @@ static void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 
 bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			     struct update_subgroup *subgrp,
-			     const struct prefix *p, struct attr *attr)
+			     const struct prefix *p, struct attr *attr,
+			     bool skip_rmap_check)
 {
 	struct bgp_filter *filter;
 	struct peer *from;
@@ -1989,7 +2017,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bgp_peer_as_override(bgp, afi, safi, peer, attr);
 
 	/* Route map & unsuppress-map apply. */
-	if (ROUTE_MAP_OUT_NAME(filter) || bgp_path_suppressed(pi)) {
+	if (!skip_rmap_check
+	    && (ROUTE_MAP_OUT_NAME(filter) || bgp_path_suppressed(pi))) {
 		struct bgp_path_info rmap_path = {0};
 		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
 		struct attr dummy_attr = {0};
@@ -2487,7 +2516,8 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	/* Announcement to the subgroup.  If the route is filtered withdraw it.
 	 */
 	if (selected) {
-		if (subgroup_announce_check(dest, selected, subgrp, p, &attr))
+		if (subgroup_announce_check(dest, selected, subgrp, p, &attr,
+					    false))
 			bgp_adj_out_set_subgroup(dest, subgrp, &attr, selected);
 		else
 			bgp_adj_out_unset_subgroup(dest, subgrp, 1,
@@ -4360,6 +4390,10 @@ static int bgp_announce_route_timer_expired(struct thread *t)
 		return 0;
 
 	peer_af_announce_route(paf, 1);
+
+	/* Notify BGP conditional advertisement scanner percess */
+	peer->advmap_config_change[paf->afi][paf->safi] = true;
+
 	return 0;
 }
 

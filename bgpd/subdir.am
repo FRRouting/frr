@@ -61,6 +61,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_bfd.c \
 	bgpd/bgp_clist.c \
 	bgpd/bgp_community.c \
+	bgpd/bgp_conditional_adv.c \
 	bgpd/bgp_damp.c \
 	bgpd/bgp_debug.c \
 	bgpd/bgp_dump.c \
@@ -137,6 +138,7 @@ noinst_HEADERS += \
 	bgpd/bgp_bfd.h \
 	bgpd/bgp_clist.h \
 	bgpd/bgp_community.h \
+	bgpd/bgp_conditional_adv.h \
 	bgpd/bgp_damp.h \
 	bgpd/bgp_debug.h \
 	bgpd/bgp_dump.h \

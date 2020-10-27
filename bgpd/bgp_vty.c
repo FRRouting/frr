@@ -7175,6 +7175,68 @@ ALIAS_HIDDEN(no_neighbor_filter_list, no_neighbor_filter_list_hidden_cmd,
 	     "Filter incoming routes\n"
 	     "Filter outgoing routes\n")
 
+/* Set advertise-map to the peer. */
+static int peer_advertise_map_set_vty(struct vty *vty, const char *ip_str,
+				      afi_t afi, safi_t safi,
+				      const char *advertise_str,
+				      const char *condition_str, bool condition,
+				      bool set)
+{
+	int ret = CMD_WARNING_CONFIG_FAILED;
+	struct peer *peer;
+	struct route_map *advertise_map;
+	struct route_map *condition_map;
+
+	peer = peer_and_group_lookup_vty(vty, ip_str);
+	if (!peer)
+		return ret;
+
+	condition_map = route_map_lookup_warn_noexist(vty, condition_str);
+	advertise_map = route_map_lookup_warn_noexist(vty, advertise_str);
+
+	if (set)
+		ret = peer_advertise_map_set(peer, afi, safi, advertise_str,
+					     advertise_map, condition_str,
+					     condition_map, condition);
+	else
+		ret = peer_advertise_map_unset(peer, afi, safi, advertise_str,
+					       advertise_map, condition_str,
+					       condition_map, condition);
+
+	return bgp_vty_return(vty, ret);
+}
+
+DEFPY (neighbor_advertise_map,
+       neighbor_advertise_map_cmd,
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map WORD$advertise_str <exist-map|non-exist-map>$exist WORD$condition_str",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Route-map to conditionally advertise routes\n"
+       "Name of advertise map\n"
+       "Advertise routes only if prefixes in exist-map are installed in BGP table\n"
+       "Advertise routes only if prefixes in non-exist-map are not installed in BGP table\n"
+       "Name of the exist or non exist map\n")
+{
+	bool condition = CONDITION_EXIST;
+
+	if (!strcmp(exist, "non-exist-map"))
+		condition = CONDITION_NON_EXIST;
+
+	return peer_advertise_map_set_vty(vty, neighbor, bgp_node_afi(vty),
+					  bgp_node_safi(vty), advertise_str,
+					  condition_str, condition, !no);
+}
+
+ALIAS_HIDDEN(neighbor_advertise_map, neighbor_advertise_map_hidden_cmd,
+	     "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map WORD$advertise_str <exist-map|non-exist-map>$exist WORD$condition_str",
+	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	     "Route-map to conditionally advertise routes\n"
+	     "Name of advertise map\n"
+	     "Advertise routes only if prefixes in exist-map are installed in BGP table\n"
+	     "Advertise routes only if prefixes in non-exist-map are not installed in BGP table\n"
+	     "Name of the exist or non exist map\n")
+
 /* Set route-map to the peer. */
 static int peer_route_map_set_vty(struct vty *vty, const char *ip_str,
 				  afi_t afi, safi_t safi, const char *name_str,
@@ -10879,6 +10941,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 	json_object *json_prefA = NULL;
 	json_object *json_prefB = NULL;
 	json_object *json_addr = NULL;
+	json_object *json_advmap = NULL;
 
 	if (use_json) {
 		json_addr = json_object_new_object();
@@ -11152,6 +11215,26 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			json_object_string_add(json_addr,
 					       "selectiveUnsuppressRouteMap",
 					       filter->usmap.name);
+
+		/* advertise-map */
+		if (filter->advmap.aname) {
+			json_advmap = json_object_new_object();
+			json_object_string_add(json_advmap, "condition",
+					       filter->advmap.condition
+						       ? "EXIST"
+						       : "NON_EXIST");
+			json_object_string_add(json_advmap, "conditionMap",
+					       filter->advmap.cname);
+			json_object_string_add(json_advmap, "advertiseMap",
+					       filter->advmap.aname);
+			json_object_string_add(json_advmap, "advertiseStatus",
+					       filter->advmap.update_type
+							       == ADVERTISE
+						       ? "Advertise"
+						       : "Withdraw");
+			json_object_object_add(json_addr, "advertiseMap",
+					       json_advmap);
+		}
 
 		/* Receive prefix count */
 		json_object_int_add(json_addr, "acceptedPrefixCounter",
@@ -11447,6 +11530,20 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				"  Route map for selective unsuppress is %s%s\n",
 				filter->usmap.map ? "*" : "",
 				filter->usmap.name);
+
+		/* advertise-map */
+		if (filter->advmap.aname && filter->advmap.cname)
+			vty_out(vty,
+				"  Condition %s, Condition-map %s%s, Advertise-map %s%s, status: %s\n",
+				filter->advmap.condition ? "EXIST"
+							 : "NON_EXIST",
+				filter->advmap.cmap ? "*" : "",
+				filter->advmap.cname,
+				filter->advmap.amap ? "*" : "",
+				filter->advmap.aname,
+				filter->advmap.update_type == ADVERTISE
+					? "Advertise"
+					: "Withdraw");
 
 		/* Receive prefix count */
 		vty_out(vty, "  %u accepted prefixes\n",
@@ -15112,6 +15209,10 @@ static bool peergroup_filter_check(struct peer *peer, afi_t afi, safi_t safi,
 		return !!(filter->map[direct].name);
 	case PEER_FT_UNSUPPRESS_MAP:
 		return !!(filter->usmap.name);
+	case PEER_FT_ADVERTISE_MAP:
+		return !!(filter->advmap.aname
+			  && ((filter->advmap.condition == direct)
+			      && filter->advmap.cname));
 	default:
 		return false;
 	}
@@ -15296,6 +15397,18 @@ static void bgp_config_write_filter(struct vty *vty, struct peer *peer,
 	if (peergroup_filter_check(peer, afi, safi, PEER_FT_UNSUPPRESS_MAP, 0))
 		vty_out(vty, "  neighbor %s unsuppress-map %s\n", addr,
 			filter->usmap.name);
+
+	/* advertise-map : always applied in OUT direction*/
+	if (peergroup_filter_check(peer, afi, safi, PEER_FT_ADVERTISE_MAP,
+				   CONDITION_NON_EXIST))
+		vty_out(vty,
+			"  neighbor %s advertise-map %s non-exist-map %s\n",
+			addr, filter->advmap.aname, filter->advmap.cname);
+
+	if (peergroup_filter_check(peer, afi, safi, PEER_FT_ADVERTISE_MAP,
+				   CONDITION_EXIST))
+		vty_out(vty, "  neighbor %s advertise-map %s exist-map %s\n",
+			addr, filter->advmap.aname, filter->advmap.cname);
 
 	/* filter-list. */
 	if (peergroup_filter_check(peer, afi, safi, PEER_FT_FILTER_LIST,
@@ -17500,6 +17613,17 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_unsuppress_map_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_unsuppress_map_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_unsuppress_map_cmd);
+
+	/* "neighbor advertise-map" commands. */
+	install_element(BGP_NODE, &neighbor_advertise_map_hidden_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_advertise_map_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_advertise_map_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_advertise_map_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_advertise_map_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_advertise_map_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_advertise_map_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_advertise_map_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_advertise_map_cmd);
 
 	/* neighbor maximum-prefix-out commands. */
 	install_element(BGP_NODE, &neighbor_maximum_prefix_out_cmd);
