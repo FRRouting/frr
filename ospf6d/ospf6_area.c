@@ -380,22 +380,6 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa)
 		vty_out(vty, "SPF has not been run\n");
 }
 
-
-#define OSPF6_CMD_AREA_GET(str, oa)                                            \
-	{                                                                      \
-		char *ep;                                                      \
-		uint32_t area_id = htonl(strtoul(str, &ep, 10));               \
-		if (*ep && inet_pton(AF_INET, str, &area_id) != 1) {           \
-			vty_out(vty, "Malformed Area-ID: %s\n", str);          \
-			return CMD_SUCCESS;                                    \
-		}                                                              \
-		int format = !*ep ? OSPF6_AREA_FMT_DECIMAL                     \
-				  : OSPF6_AREA_FMT_DOTTEDQUAD;                 \
-		oa = ospf6_area_lookup(area_id, ospf6);                        \
-		if (oa == NULL)                                                \
-			oa = ospf6_area_create(area_id, ospf6, format);        \
-	}
-
 DEFUN (area_range,
        area_range_cmd,
        "area <A.B.C.D|(0-4294967295)> range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]",

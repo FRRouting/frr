@@ -109,7 +109,7 @@ DEFPY_NOSH(
 	VRF_NAME_STR)
 {
 	int ret, slen;
-	char source_str[INET6_ADDRSTRLEN];
+	char source_str[INET6_ADDRSTRLEN + 32];
 	char xpath[XPATH_MAXLEN], xpath_srcaddr[XPATH_MAXLEN + 32];
 
 	if (multihop)
@@ -168,7 +168,7 @@ DEFPY(
 {
 	int slen;
 	char xpath[XPATH_MAXLEN];
-	char source_str[INET6_ADDRSTRLEN];
+	char source_str[INET6_ADDRSTRLEN + 32];
 
 	if (multihop)
 		snprintf(source_str, sizeof(source_str), "[source-addr='%s']",
