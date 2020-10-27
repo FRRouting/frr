@@ -129,6 +129,8 @@ struct zebra_mac_t_ {
 	 * ZEBRA_MAC_ES_PEER_ACTIVE or ZEBRA_NEIGH_ES_PEER_PROXY
 	 */
 	uint32_t sync_neigh_cnt;
+
+	time_t uptime;
 };
 
 /*

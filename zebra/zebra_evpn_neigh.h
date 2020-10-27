@@ -113,6 +113,8 @@ struct zebra_neigh_t_ {
 
 	time_t dad_dup_detect_time;
 
+	time_t uptime;
+
 	/* used for ageing out the PEER_ACTIVE flag */
 	struct thread *hold_timer;
 };

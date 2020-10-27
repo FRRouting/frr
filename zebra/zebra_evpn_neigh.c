@@ -592,6 +592,7 @@ static zebra_neigh_t *zebra_evpn_neigh_add(zebra_evpn_t *zevpn,
 	n->zevpn = zevpn;
 	n->dad_ip_auto_recovery_timer = NULL;
 	n->flags = n_flags;
+	n->uptime = monotime(NULL);
 
 	if (!zmac)
 		zmac = zebra_evpn_mac_lookup(zevpn, mac);
@@ -802,6 +803,8 @@ zebra_evpn_proc_sync_neigh_update(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 			n->ifindex = ifindex;
 			inform_dataplane = true;
 		}
+
+		n->uptime = monotime(NULL);
 	}
 
 	/* update the neigh seq. we don't bother with the mac seq as
@@ -1798,10 +1801,17 @@ void zebra_evpn_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 	struct timeval detect_start_time = {0, 0};
 	char timebuf[MONOTIME_STRLEN];
 	char thread_buf[THREAD_TIMER_STRLEN];
+	time_t uptime;
+	char up_str[MONOTIME_STRLEN];
 
 	zvrf = zebra_vrf_get_evpn();
 	if (!zvrf)
 		return;
+
+	uptime = monotime(NULL);
+	uptime -= n->uptime;
+
+	frrtime_to_interval(uptime, up_str, sizeof(up_str));
 
 	ipaddr2str(&n->ip, buf2, sizeof(buf2));
 	prefix_mac2str(&n->emac, buf1, sizeof(buf1));
@@ -1815,6 +1825,7 @@ void zebra_evpn_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 			ipaddr2str(&n->ip, buf2, sizeof(buf2)));
 		vty_out(vty, " Type: %s\n", type_str);
 		vty_out(vty, " State: %s\n", state_str);
+		vty_out(vty, " Uptime: %s\n", up_str);
 		vty_out(vty, " MAC: %s\n",
 			prefix_mac2str(&n->emac, buf1, sizeof(buf1)));
 		vty_out(vty, " Sync-info:");
@@ -1841,6 +1852,7 @@ void zebra_evpn_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 			vty_out(vty, " -");
 		vty_out(vty, "\n");
 	} else {
+		json_object_string_add(json, "uptime", up_str);
 		json_object_string_add(json, "ip", buf2);
 		json_object_string_add(json, "type", type_str);
 		json_object_string_add(json, "state", state_str);

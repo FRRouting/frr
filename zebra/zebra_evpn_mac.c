@@ -490,6 +490,8 @@ void zebra_evpn_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 	struct timeval detect_start_time = {0, 0};
 	char timebuf[MONOTIME_STRLEN];
 	char thread_buf[THREAD_TIMER_STRLEN];
+	time_t uptime;
+	char up_str[MONOTIME_STRLEN];
 
 	zvrf = zebra_vrf_get_evpn();
 	if (!zvrf)
@@ -497,6 +499,11 @@ void zebra_evpn_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 
 	vty = (struct vty *)ctxt;
 	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
+
+	uptime = monotime(NULL);
+	uptime -= mac->uptime;
+
+	frrtime_to_interval(uptime, up_str, sizeof(up_str));
 
 	if (json) {
 		json_object *json_mac = json_object_new_object();
@@ -535,6 +542,7 @@ void zebra_evpn_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 			json_object_boolean_true_add(json_mac,
 						     "remoteGatewayMac");
 
+		json_object_string_add(json_mac, "uptime", up_str);
 		json_object_int_add(json_mac, "localSequence", mac->loc_seq);
 		json_object_int_add(json_mac, "remoteSequence", mac->rem_seq);
 
@@ -648,9 +656,9 @@ void zebra_evpn_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 						       sizeof(thread_buf),
 						       mac->hold_timer));
 		vty_out(vty, "\n");
-		vty_out(vty, " Local Seq: %u Remote Seq: %u", mac->loc_seq,
+		vty_out(vty, " Local Seq: %u Remote Seq: %u\n", mac->loc_seq,
 			mac->rem_seq);
-		vty_out(vty, "\n");
+		vty_out(vty, " Uptime: %s\n", up_str);
 
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE)) {
 			vty_out(vty, " Duplicate, detected at %s",
@@ -972,6 +980,7 @@ zebra_mac_t *zebra_evpn_mac_add(zebra_evpn_t *zevpn, struct ethaddr *macaddr)
 	mac->neigh_list = list_new();
 	mac->neigh_list->cmp = neigh_list_cmp;
 
+	mac->uptime = monotime(NULL);
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char buf[ETHER_ADDR_STRLEN];
 
@@ -1458,6 +1467,8 @@ zebra_evpn_proc_sync_mac_update(zebra_evpn_t *zevpn, struct ethaddr *macaddr,
 		bool new_static;
 		bool sticky;
 		bool remote_gw;
+
+		mac->uptime = monotime(NULL);
 
 		old_flags = mac->flags;
 		sticky = !!CHECK_FLAG(old_flags, ZEBRA_MAC_STICKY);
