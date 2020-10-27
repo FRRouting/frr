@@ -2691,8 +2691,7 @@ void bgp_vpn_leak_export(struct bgp *from_bgp)
 	idir = BGP_VPN_POLICY_DIR_FROMVPN;
 	edir = BGP_VPN_POLICY_DIR_TOVPN;
 
-	export_name = (from_bgp->name ? XSTRDUP(MTYPE_TMP, from_bgp->name)
-			       : XSTRDUP(MTYPE_TMP, VRF_DEFAULT_NAME));
+	export_name = from_bgp->name ? from_bgp->name : VRF_DEFAULT_NAME;
 
 	for (afi = 0; afi < AFI_MAX; ++afi) {
 		/* vrf leak is for IPv4 and IPv6 Unicast only */
