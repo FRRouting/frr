@@ -2574,6 +2574,113 @@ the same behavior of using same next-hop and RMAC values.
 Enables or disables advertise-pip feature, specifiy system-IP and/or system-MAC
 parameters.
 
+EVPN Multihoming
+^^^^^^^^^^^^^^^^
+
+All-Active Multihoming is used for redundancy and load sharing. Servers
+are attached to two or more PEs and the links are bonded (link-aggregation).
+This group of server links is referred to as an Ethernet Segment.
+
+Ethernet Segments
+"""""""""""""""""
+An Ethernet Segment can be configured by specifying a system-MAC and a
+local discriminatior against the bond interface on the PE (via zebra) -
+
+.. index:: [no] evpn mh es-id [(1-16777215)$es_lid]
+.. clicmd:: [no] evpn mh es-id [(1-16777215)$es_lid]
+
+.. index:: [no$no] evpn mh es-sys-mac [X:X:X:X:X:X$mac]
+.. clicmd:: [no$no] evpn mh es-sys-mac [X:X:X:X:X:X$mac]
+
+The sys-mac and local discriminator are used for generating a 10-byte,
+Type-3 Ethernet Segment ID.
+
+Type-1 (EAS-per-ES and EAD-per-EVI) routes are used to advertise the locally
+attached ESs and to learn off remote ESs in the network. Local Type-2/MAC-IP
+routes are also advertised with a destination ESI allowing for MAC-IP syncing
+between Ethernet Segment peers.
+Reference: RFC 7432, RFC 8365
+
+EVPN-MH is intended as a replacement for MLAG or Anycast VTEPs. In
+multihoming each PE has an unique VTEP address which requires the introduction
+of a new dataplane construct, MAC-ECMP. Here a MAC/FDB entry can point to a
+list of remote PEs/VTEPs.
+
+BUM handling
+""""""""""""
+Type-4 (ESR) routes are used for Designated Forwarder (DF) election. DFs
+forward BUM traffic received via the overlay network. This implementation
+uses a preference based DF election specified by draft-ietf-bess-evpn-pref-df.
+The DF preference is configurable per-ES (via zebra) -
+
+.. index:: [no] evpn mh es-df-pref [(1-16777215)$df_pref]
+.. clicmd:: [no] evpn mh es-df-pref [(1-16777215)$df_pref]
+
+BUM traffic is rxed via the overlay by all PEs attached to a server but
+only the DF can forward the de-capsulated traffic to the access port. To
+accomodate that non-DF filters are installed in the dataplane to drop
+the traffic.
+
+Similarly traffic received from ES peers via the overlay cannot be forwarded
+to the server. This is split-horizon-filtering with local bias.
+
+Fast failover
+"""""""""""""
+As the primary purpose of EVPN-MH is redundancy keeping the failover efficient
+is a recurring theme in the implementation. Following sub-features have
+been introduced for the express purpose of efficient ES failovers.
+
+- Layer-2 Nexthop Groups and MAC-ECMP via L2NHG.
+
+- Host routes (for symmetric IRB) via L3NHG.
+  On dataplanes that support layer3 nexthop groups the feature can be turned
+  on via the following BGP config -
+
+.. index:: [no$no] use-es-l3nhg
+.. clicmd:: [no$no] use-es-l3nhg
+
+- Local ES (MAC/Neigh) failover via ES-redirect.
+  On dataplanes that do not have support for ES-redirect the feature can be
+  turned off via the following zebra config -
+
+.. index:: [no$no] evpn mh redirect-off
+.. clicmd:: [no$no] evpn mh redirect-off
+
+Uplink/Core tracking
+""""""""""""""""""""
+When all the underlay links go down the PE no longer has access to the VxLAN
++overlay. To prevent blackholing of traffic the server/ES links are
+protodowned on the PE. A link can be setup for uplink tracking via the
+following zebra configuration -
+
+.. index:: [no] evpn mh uplink
+.. clicmd:: [no] evpn mh uplink
+
+Proxy advertisements
+""""""""""""""""""""
+To handle hitless upgrades support for proxy advertisement has been added
+as specified by draft-rbickhart-evpn-ip-mac-proxy-adv. This allows a PE
+(say PE1) to proxy advertise a MAC-IP rxed from an ES peer (say PE2). When
+the ES peer (PE2) goes down PE1 continues to advertise hosts learnt from PE2
+for a holdtime during which it attempts to establish local reachability of
+the host. This holdtime is configurable via the following zebra commands -
+
+.. index:: [no$no] evpn mh neigh-holdtime (0-86400)$duration
+.. clicmd:: [no$no] evpn mh neigh-holdtime (0-86400)$duration
+
+.. index:: [no$no] evpn mh mac-holdtime (0-86400)$duration
+.. clicmd:: [no$no] evpn mh mac-holdtime (0-86400)$duration
+
+Startup delay
+"""""""""""""
+When a switch is rebooted we wait for a brief period to allow the underlay
+and EVPN network to converge before enabling the ESs. For this duration the
+ES bonds are held protodown. The startup delay is configurable via the
+following zebra command -
+
+.. index:: [no] evpn mh startup-delay(0-3600)$duration
+.. clicmd:: [no] evpn mh startup-delay(0-3600)$duration
+
 +Support with VRF network namespace backend
 +^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 It is possible to separate overlay networks contained in VXLAN interfaces from
