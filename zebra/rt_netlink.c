@@ -2761,10 +2761,6 @@ static ssize_t netlink_neigh_update_msg_encode(
 			return 0;
 	}
 
-	if (nhg_id) {
-		if (!nl_attr_put32(&req->n, datalen, NDA_NH_ID, nhg_id))
-			return 0;
-	}
 	if (nfy) {
 		if (!nl_attr_put(&req->n, datalen, NDA_NOTIFY,
 				&nfy_flags, sizeof(nfy_flags)))
@@ -2777,9 +2773,16 @@ static ssize_t netlink_neigh_update_msg_encode(
 			return 0;
 	}
 
-	ipa_len = IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
-	if (!nl_attr_put(&req->n, datalen, NDA_DST, &ip->ip.addr, ipa_len))
-		return 0;
+	if (nhg_id) {
+		if (!nl_attr_put32(&req->n, datalen, NDA_NH_ID, nhg_id))
+			return 0;
+	} else {
+		ipa_len =
+			IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
+		if (!nl_attr_put(&req->n, datalen, NDA_DST, &ip->ip.addr,
+				 ipa_len))
+			return 0;
+	}
 
 	if (op == DPLANE_OP_MAC_INSTALL || op == DPLANE_OP_MAC_DELETE) {
 		vlanid_t vid = dplane_ctx_mac_get_vlan(ctx);
