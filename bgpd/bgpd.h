@@ -301,10 +301,9 @@ enum bgp_instance_type {
 };
 
 #define BGP_SEND_EOR(bgp, afi, safi)                                           \
-	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR)                      \
-	 && ((bgp->gr_info[afi][safi].t_select_deferral == NULL)               \
-	     || (bgp->gr_info[afi][safi].eor_required                          \
-		 == bgp->gr_info[afi][safi].eor_received)))
+	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR) &&                   \
+	 (!bgp_in_graceful_restart() ||                                        \
+	  bgp->gr_info[afi][safi].select_defer_over))
 
 /* BGP GR Global ds */
 
@@ -313,10 +312,6 @@ enum bgp_instance_type {
 
 /* Graceful restart selection deferral timer info */
 struct graceful_restart_info {
-	/* Count of EOR message expected */
-	uint32_t eor_required;
-	/* Count of EOR received */
-	uint32_t eor_received;
 	/* Deferral Timer */
 	struct event *t_select_deferral;
 	/* Routes Deferred */
@@ -327,6 +322,7 @@ struct graceful_restart_info {
 	bool af_enabled;
 	/* Route update completed */
 	bool route_sync;
+	bool select_defer_over;
 };
 
 enum global_mode {
