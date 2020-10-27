@@ -1446,6 +1446,8 @@ DEFUN (ospf_area_stub,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* Flush the external LSAs from the specified area */
+	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
 	ospf_area_no_summary_unset(ospf, area_id);
 
 	return CMD_SUCCESS;
@@ -1568,6 +1570,8 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 			ospf_area_no_summary_unset(ospf, area_id);
 	}
 
+	/* Flush the external LSA for the specified area */
+	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
 	ospf_schedule_abr_task(ospf);
 
 	return CMD_SUCCESS;
@@ -1673,6 +1677,8 @@ DEFUN (no_ospf_area_nssa,
 	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
 				   argv[idx_ipv4_number]->arg);
 
+	/* Flush the NSSA LSA for the specified area */
+	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_NSSA_LSA);
 	ospf_area_nssa_unset(ospf, area_id, argc);
 
 	ospf_schedule_abr_task(ospf);
