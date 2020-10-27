@@ -1,6 +1,6 @@
 /*
  * BGP Conditional advertisement
- * Copyright (C) 2020  Samsung Research Institute Bangalore.
+ * Copyright (C) 2020  Samsung R&D Institute India - Bangalore.
  *			Madhurilatha Kuruganti
  *
  * This program is free software; you can redistribute it and/or modify it

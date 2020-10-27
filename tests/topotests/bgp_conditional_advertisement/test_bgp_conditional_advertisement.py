@@ -2,10 +2,10 @@
 
 #
 # test_bgp_conditional_advertisement.py
-# Part of NetDEF Topology Tests
 #
 # Copyright (c) 2020 by
-# Network Device Education Foundation, Inc. ("NetDEF")
+# Samsung R&D Institute India - Bangalore.
+# Madhurilatha Kuruganti
 #
 # Permission to use, copy, modify, and/or distribute this software
 # for any purpose with or without fee is hereby granted, provided
