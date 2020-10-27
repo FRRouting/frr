@@ -1590,9 +1590,6 @@ struct peer *peer_new(struct bgp *bgp)
 	SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_FQDN);
 	SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN);
 
-	/* Initialize per peer bgp GR FSM */
-	bgp_peer_gr_init(peer);
-
 	/* Get service port number.  */
 	sp = getservbyname("bgp", "tcp");
 	peer->port = (sp == NULL) ? BGP_PORT_DEFAULT : ntohs(sp->s_port);
@@ -2038,7 +2035,9 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	else if (!active && peer_active(peer))
 		bgp_timer_set(peer->connection);
 
-	bgp_peer_gr_flags_update(peer);
+	/* Initialize per peer bgp GR FSM */
+	bgp_peer_gr_init(peer);
+
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 
 	return peer;
@@ -2054,6 +2053,9 @@ struct peer *peer_create_accept(struct bgp *bgp)
 	peer = peer_lock(peer); /* bgp peer list reference */
 	listnode_add_sort(bgp->peer, peer);
 	(void)hash_get(bgp->peerhash, peer, hash_alloc_intern);
+
+	/* Initialize per peer bgp GR FSM */
+	bgp_peer_gr_init(peer);
 
 	return peer;
 }
