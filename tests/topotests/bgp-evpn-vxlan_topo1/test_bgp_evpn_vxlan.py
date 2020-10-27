@@ -197,8 +197,12 @@ def mac_learn_test(host, local):
 
     host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
     int_lines = host_output.splitlines()
-    line_items = int_lines[7].split(": ")
-    mac = line_items[1]
+    for line in int_lines:
+        line_items = line.split(": ")
+        if "HWaddr" in line_items[0]:
+            mac = line_items[1]
+            break
+
     mac_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
     mac_output_json = json.loads(mac_output)
     assertmsg = "Local MAC output does not match interface mac {}".format(mac)
@@ -287,8 +291,11 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
     "check the host IP gets learned by the VNI"
     host_output = host.vtysh_cmd("show interface {}-eth0".format(host.name))
     int_lines = host_output.splitlines()
-    mac_line = int_lines[7].split(": ")
-    mac = mac_line[1]
+    for line in int_lines:
+        line_items = line.split(": ")
+        if "HWaddr" in line_items[0]:
+            mac = line_items[1]
+            break
     print(host_output)
 
     # check we have a local association between the MAC and IP
