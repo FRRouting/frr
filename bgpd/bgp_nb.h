@@ -568,6 +568,14 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_rmap_policy_expor
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_origin_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_match_med_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_suppress_map_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_unicast_aggregate_route_suppress_map_destroy(
+	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_create(
 	struct nb_cb_create_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_route_destroy(
@@ -618,16 +626,10 @@ int bgp_global_afi_safis_afi_safi_ipv4_unicast_redistribution_list_rmap_policy_i
 	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_external_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_internal_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_local_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_unicast_filter_config_rmap_export_destroy(
@@ -706,6 +708,14 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_rmap_policy_expor
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_origin_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_match_med_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_suppress_map_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_aggregate_route_suppress_map_destroy(
+	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_create(
 	struct nb_cb_create_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_destroy(
@@ -715,6 +725,24 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_distance_mod
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_policy_export_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_route_access_list_policy_export_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_enable_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reach_decay_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reach_decay_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reuse_above_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_reuse_above_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_suppress_above_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_suppress_above_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_unreach_decay_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_unicast_route_flap_dampening_unreach_decay_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args);
@@ -738,16 +766,10 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_redistribution_list_rmap_policy_i
 	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_external_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_internal_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_local_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_export_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_filter_config_rmap_export_destroy(
@@ -808,6 +830,26 @@ int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_c
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
 	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_enable_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reach_decay_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reach_decay_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reuse_above_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_reuse_above_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_suppress_above_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_suppress_above_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_unreach_decay_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_labeled_unicast_route_flap_dampening_unreach_decay_destroy(
+	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ebgp_maximum_paths_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_maximum_paths_modify(
@@ -815,6 +857,24 @@ int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_m
 int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_use_multiple_paths_ibgp_cluster_length_list_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_enable_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reach_decay_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reach_decay_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reuse_above_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_reuse_above_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_suppress_above_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_suppress_above_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_unreach_decay_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_labeled_unicast_route_flap_dampening_unreach_decay_destroy(
 	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_network_config_create(
 	struct nb_cb_create_args *args);
@@ -842,22 +902,30 @@ int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_rmap_policy_exp
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_origin_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_match_med_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_suppress_map_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_aggregate_route_suppress_map_destroy(
+	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_create(
 	struct nb_cb_create_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_destroy(
 	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_distance_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_access_list_policy_export_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_route_access_list_policy_export_destroy(
+	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_external_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_internal_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_local_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_enable_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_multicast_route_flap_dampening_reach_decay_modify(
@@ -906,22 +974,48 @@ int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_rmap_policy_exp
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_rmap_policy_export_destroy(
 	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_origin_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_match_med_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_suppress_map_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_aggregate_route_suppress_map_destroy(
+	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_create(
 	struct nb_cb_create_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_destroy(
 	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_distance_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_access_list_policy_export_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_route_access_list_policy_export_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_enable_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reach_decay_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reach_decay_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reuse_above_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_reuse_above_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_suppress_above_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_suppress_above_destroy(
+	struct nb_cb_destroy_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_unreach_decay_modify(
+	struct nb_cb_modify_args *args);
+int bgp_global_afi_safis_afi_safi_ipv6_multicast_route_flap_dampening_unreach_decay_destroy(
+	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_external_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_internal_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_modify(
 	struct nb_cb_modify_args *args);
-int bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_local_destroy(
-	struct nb_cb_destroy_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_flowspec_flow_spec_config_interface_modify(
 	struct nb_cb_modify_args *args);
 int bgp_global_afi_safis_afi_safi_ipv4_flowspec_flow_spec_config_interface_destroy(
@@ -3421,10 +3515,68 @@ void cli_show_router_bgp_graceful_shutdown(struct vty *vty,
 					   bool show_defaults);
 void cli_show_router_bgp_med_config(struct vty *vty, struct lyd_node *dnode,
 				    bool show_defaults);
+void cli_show_bgp_global_afi_safi_header(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults);
+void cli_show_bgp_global_afi_safi_header_end(struct vty *vty,
+					     struct lyd_node *dnode);
+void cli_show_bgp_global_afi_safi_network_config(struct vty *vty,
+						 struct lyd_node *dnode,
+						 bool show_defaults);
+void cli_show_bgp_global_afi_safi_unicast_aggregate_route(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_admin_distance_config(struct vty *vty,
+							struct lyd_node *dnode,
+							bool show_defaults);
+void cli_show_bgp_global_afi_safi_route_flap_dampening(struct vty *vty,
+						       struct lyd_node *dnode,
+						       bool show_defaults);
+void cli_show_bgp_global_afi_safi_unicast_admin_distance_route(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_unicast_use_multiple_paths_ebgp_maximum_paths(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_use_multiple_paths_ibgp_maximum_paths(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_redistribution_list(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_nexthop(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_rd(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_import_vpn(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_export_vpn(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_import_vrfs(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_rmap_export(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
 
 void bgp_global_route_selection_options_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 void bgp_global_med_config_apply_finish(struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_network_config_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safi_aggregate_route_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_ipv4_unicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_ipv6_unicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_ipv4_multicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_ipv6_multicast_admin_distance_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safi_admin_distance_route_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safi_ip_unicast_use_multiple_paths_ibgp_maximum_paths_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safi_ip_unicast_redistribution_list_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void bgp_global_afi_safis_afi_safi_route_flap_dampening_apply_finish(
+	struct nb_cb_apply_finish_args *args);
 
 /* xpath macros */
 /* route-list */
@@ -3437,5 +3589,8 @@ void bgp_global_med_config_apply_finish(struct nb_cb_apply_finish_args *args);
 	"/frr-routing:routing/control-plane-protocols/"                        \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
 	"frr-bgp:bgp/local-as"
+#define FRR_BGP_AFI_SAFI_REDIST_XPATH                                          \
+	"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/"                  \
+	"redistribution-list[route-type='%s'][route-instance='%s']"
 
 #endif

@@ -273,6 +273,37 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 		return "Unknown";
 }
 
+/* return string maps to afi-safi specific container names
+ * defined in bgp yang file.
+ */
+const char *bgp_afi_safi_get_container_str(afi_t afi, safi_t safi)
+{
+	if (afi == AFI_IP && safi == SAFI_UNICAST)
+		return "ipv4-unicast";
+	else if (afi == AFI_IP && safi == SAFI_MULTICAST)
+		return "ipv4-multicast";
+	else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
+		return "ipv4-labeled-unicast";
+	else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
+		return "l3vpn-ipv4-unicast";
+	else if (afi == AFI_IP && safi == SAFI_FLOWSPEC)
+		return "ipv4-flowspec";
+	else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
+		return "ipv6-unicast";
+	else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
+		return "ipv6-multicast";
+	else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
+		return "ipv6-labeled-unicast";
+	else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
+		return "l3vpn-ipv6-unicast";
+	else if (afi == AFI_IP6 && safi == SAFI_FLOWSPEC)
+		return "ipv6-flowspec";
+	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
+		return "l2vpn-evpn";
+	else
+		return "Unknown";
+}
+
 /* Utility function to get address family from current node.  */
 afi_t bgp_node_afi(struct vty *vty)
 {
@@ -1585,23 +1616,16 @@ void cli_show_router_bgp_confederation_member_as(struct vty *vty,
  * @peer_type: BGP_PEER_EBGP or BGP_PEER_IBGP
  * @set: 1 for setting values, 0 for removing the max-paths config.
  */
-static int bgp_maxpaths_config_vty(struct vty *vty, int peer_type,
-				   const char *mpaths, uint16_t options,
-				   int set)
+int bgp_maxpaths_config_vty(struct bgp *bgp, afi_t afi, safi_t safi,
+			    int peer_type, uint16_t maxpaths, uint16_t options,
+			    int set, char *errmsg, size_t errmsg_len)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	uint16_t maxpaths = 0;
 	int ret;
-	afi_t afi;
-	safi_t safi;
-
-	afi = bgp_node_afi(vty);
-	safi = bgp_node_safi(vty);
 
 	if (set) {
-		maxpaths = strtol(mpaths, NULL, 10);
 		if (maxpaths > multipath_num) {
-			vty_out(vty,
+			snprintf(
+				errmsg, errmsg_len,
 				"%% Maxpaths Specified: %d is > than multipath num specified on bgp command line %d",
 				maxpaths, multipath_num);
 			return CMD_WARNING_CONFIG_FAILED;
@@ -1612,7 +1636,8 @@ static int bgp_maxpaths_config_vty(struct vty *vty, int peer_type,
 		ret = bgp_maximum_paths_unset(bgp, afi, safi, peer_type);
 
 	if (ret < 0) {
-		vty_out(vty,
+		snprintf(
+			errmsg, errmsg_len,
 			"%% Failed to %sset maximum-paths %s %u for afi %u, safi %u\n",
 			(set == 1) ? "" : "un",
 			(peer_type == BGP_PEER_EBGP) ? "ebgp" : "ibgp",
@@ -1703,14 +1728,14 @@ DEFUN_YANG(no_bgp_maxmed_admin,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN_YANG(bgp_maxmed_onstartup,
-	   bgp_maxmed_onstartup_cmd,
-	   "bgp max-med on-startup (5-86400) [(0-4294967295)]",
-	   BGP_STR
-	   "Advertise routes with max-med\n"
-	   "Effective on a startup\n"
-	   "Time (seconds) period for max-med\n"
-	   "Max MED value to be used\n")
+DEFUN_YANG (bgp_maxmed_onstartup,
+	    bgp_maxmed_onstartup_cmd,
+	    "bgp max-med on-startup (5-86400) [(0-4294967295)]",
+	    BGP_STR
+	    "Advertise routes with max-med\n"
+	    "Effective on a startup\n"
+	    "Time (seconds) period for max-med\n"
+	    "Max MED value to be used\n")
 {
 	int idx = 0;
 
@@ -1731,14 +1756,14 @@ DEFUN_YANG(bgp_maxmed_onstartup,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN_YANG(no_bgp_maxmed_onstartup,
-	   no_bgp_maxmed_onstartup_cmd,
-	   "no bgp max-med on-startup [(5-86400) [(0-4294967295)]]",
-	   NO_STR BGP_STR
-	   "Advertise routes with max-med\n"
-	   "Effective on a startup\n"
-	   "Time (seconds) period for max-med\n"
-	   "Max MED value to be used\n")
+DEFUN_YANG (no_bgp_maxmed_onstartup,
+	    no_bgp_maxmed_onstartup_cmd,
+	    "no bgp max-med on-startup [(5-86400) [(0-4294967295)]]",
+	    NO_STR BGP_STR
+	    "Advertise routes with max-med\n"
+	    "Effective on a startup\n"
+	    "Time (seconds) period for max-med\n"
+	    "Max MED value to be used\n")
 {
 	nb_cli_enqueue_change(vty,
 			      "./global/med-config/max-med-onstart-up-time",
@@ -1972,12 +1997,12 @@ void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp)
  * Furthermore, the maximums used here should correspond to
  * BGP_WRITE_PACKET_MAX and BGP_READ_PACKET_MAX.
  */
-DEFPY_YANG(bgp_wpkt_quanta,
-	   bgp_wpkt_quanta_cmd,
-	   "[no] write-quanta (1-64)$quanta",
-	   NO_STR
-	   "How many packets to write to peer socket per run\n"
-	   "Number of packets\n")
+DEFPY_YANG (bgp_wpkt_quanta,
+	    bgp_wpkt_quanta_cmd,
+	    "[no] write-quanta (1-64)$quanta",
+	    NO_STR
+	    "How many packets to write to peer socket per run\n"
+	    "Number of packets\n")
 {
 	if (!no)
 		nb_cli_enqueue_change(
@@ -1993,12 +2018,12 @@ DEFPY_YANG(bgp_wpkt_quanta,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG(bgp_rpkt_quanta,
-	   bgp_rpkt_quanta_cmd,
-	   "[no] read-quanta (1-10)$quanta",
-	   NO_STR
-	   "How many packets to read from peer socket per I/O cycle\n"
-	   "Number of packets\n")
+DEFPY_YANG (bgp_rpkt_quanta,
+	    bgp_rpkt_quanta_cmd,
+	    "[no] read-quanta (1-10)$quanta",
+	    NO_STR
+	    "How many packets to read from peer socket per I/O cycle\n"
+	    "Number of packets\n")
 {
 	if (!no)
 		nb_cli_enqueue_change(
@@ -2027,11 +2052,11 @@ void cli_show_router_global_update_group_config_coalesce_time(
 }
 
 
-DEFUN_YANG(bgp_coalesce_time,
-	   bgp_coalesce_time_cmd,
-	   "coalesce-time (0-4294967295)",
-	   "Subgroup coalesce timer\n"
-	   "Subgroup coalesce timer value (in ms)\n")
+DEFUN_YANG (bgp_coalesce_time,
+	    bgp_coalesce_time_cmd,
+	    "coalesce-time (0-4294967295)",
+	    "Subgroup coalesce timer\n"
+	    "Subgroup coalesce timer value (in ms)\n")
 {
 	int idx = 0;
 
@@ -2058,15 +2083,37 @@ DEFUN_YANG(no_bgp_coalesce_time,
 }
 
 /* Maximum-paths configuration */
-DEFUN (bgp_maxpaths,
-       bgp_maxpaths_cmd,
-       "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
-       "Forward packets over multiple paths\n"
-       "Number of paths\n")
+DEFUN_YANG (bgp_maxpaths,
+	    bgp_maxpaths_cmd,
+	    "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
+	    "Forward packets over multiple paths\n"
+	    "Number of paths\n")
 {
 	int idx_number = 1;
-	return bgp_maxpaths_config_vty(vty, BGP_PEER_EBGP,
-				       argv[idx_number]->arg, 0, 1);
+	char base_xpath[XPATH_MAXLEN];
+	afi_t afi;
+	safi_t safi;
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/use-multiple-paths/ebgp/maximum-paths",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+
+	nb_cli_enqueue_change(vty, base_xpath, NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_bgp_global_afi_safi_unicast_use_multiple_paths_ebgp_maximum_paths(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  maximum-paths %d\n",
+		yang_dnode_get_uint16(dnode, NULL));
 }
 
 ALIAS_HIDDEN(bgp_maxpaths, bgp_maxpaths_hidden_cmd,
@@ -2074,16 +2121,31 @@ ALIAS_HIDDEN(bgp_maxpaths, bgp_maxpaths_hidden_cmd,
 	     "Forward packets over multiple paths\n"
 	     "Number of paths\n")
 
-DEFUN (bgp_maxpaths_ibgp,
-       bgp_maxpaths_ibgp_cmd,
-       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
-       "Forward packets over multiple paths\n"
-       "iBGP-multipath\n"
-       "Number of paths\n")
+DEFUN_YANG (bgp_maxpaths_ibgp,
+	    bgp_maxpaths_ibgp_cmd,
+	    "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
+	    "Forward packets over multiple paths\n"
+	    "iBGP-multipath\n"
+	    "Number of paths\n")
 {
 	int idx_number = 2;
-	return bgp_maxpaths_config_vty(vty, BGP_PEER_IBGP,
-				       argv[idx_number]->arg, 0, 1);
+	char base_xpath[XPATH_MAXLEN];
+	afi_t afi;
+	safi_t safi;
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/use-multiple-paths/ibgp/maximum-paths",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+
+	nb_cli_enqueue_change(vty, base_xpath, NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_HIDDEN(bgp_maxpaths_ibgp, bgp_maxpaths_ibgp_hidden_cmd,
@@ -2092,18 +2154,50 @@ ALIAS_HIDDEN(bgp_maxpaths_ibgp, bgp_maxpaths_ibgp_hidden_cmd,
 	     "iBGP-multipath\n"
 	     "Number of paths\n")
 
-DEFUN (bgp_maxpaths_ibgp_cluster,
-       bgp_maxpaths_ibgp_cluster_cmd,
-       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
-       "Forward packets over multiple paths\n"
-       "iBGP-multipath\n"
-       "Number of paths\n"
-       "Match the cluster length\n")
+DEFUN_YANG (bgp_maxpaths_ibgp_cluster,
+	    bgp_maxpaths_ibgp_cluster_cmd,
+	    "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
+	    "Forward packets over multiple paths\n"
+	    "iBGP-multipath\n"
+	    "Number of paths\n"
+	    "Match the cluster length\n")
 {
 	int idx_number = 2;
-	return bgp_maxpaths_config_vty(
-		vty, BGP_PEER_IBGP, argv[idx_number]->arg,
-		BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN, 1);
+	char base_xpath[XPATH_MAXLEN];
+	afi_t afi;
+	safi_t safi;
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/use-multiple-paths/ibgp/maximum-paths",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+
+	nb_cli_enqueue_change(vty, base_xpath, NB_OP_MODIFY,
+			      argv[idx_number]->arg);
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/use-multiple-paths/ibgp/cluster-length-list",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+
+	nb_cli_enqueue_change(vty, base_xpath, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_bgp_global_afi_safi_ip_unicast_use_multiple_paths_ibgp_maximum_paths(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  maximum-paths ibgp %d",
+		yang_dnode_get_uint16(dnode, "./maximum-paths"));
+	if (yang_dnode_get_bool(dnode, "./cluster-length-list"))
+		vty_out(vty, " equal-cluster-length");
+	vty_out(vty, "\n");
 }
 
 ALIAS_HIDDEN(bgp_maxpaths_ibgp_cluster, bgp_maxpaths_ibgp_cluster_hidden_cmd,
@@ -2114,14 +2208,29 @@ ALIAS_HIDDEN(bgp_maxpaths_ibgp_cluster, bgp_maxpaths_ibgp_cluster_hidden_cmd,
 	     "Number of paths\n"
 	     "Match the cluster length\n")
 
-DEFUN (no_bgp_maxpaths,
-       no_bgp_maxpaths_cmd,
-       "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
-       NO_STR
-       "Forward packets over multiple paths\n"
-       "Number of paths\n")
+DEFUN_YANG (no_bgp_maxpaths,
+	    no_bgp_maxpaths_cmd,
+	    "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
+	    NO_STR
+	    "Forward packets over multiple paths\n"
+	    "Number of paths\n")
 {
-	return bgp_maxpaths_config_vty(vty, BGP_PEER_EBGP, NULL, 0, 0);
+	char base_xpath[XPATH_MAXLEN];
+	afi_t afi;
+	safi_t safi;
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/use-multiple-paths/ebgp/maximum-paths",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+
+	nb_cli_enqueue_change(vty, base_xpath, NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_HIDDEN(no_bgp_maxpaths, no_bgp_maxpaths_hidden_cmd,
@@ -2129,16 +2238,39 @@ ALIAS_HIDDEN(no_bgp_maxpaths, no_bgp_maxpaths_hidden_cmd,
 	     "Forward packets over multiple paths\n"
 	     "Number of paths\n")
 
-DEFUN (no_bgp_maxpaths_ibgp,
-       no_bgp_maxpaths_ibgp_cmd,
-       "no maximum-paths ibgp [" CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]]",
-       NO_STR
-       "Forward packets over multiple paths\n"
-       "iBGP-multipath\n"
-       "Number of paths\n"
-       "Match the cluster length\n")
+DEFUN_YANG (no_bgp_maxpaths_ibgp,
+	    no_bgp_maxpaths_ibgp_cmd,
+	    "no maximum-paths ibgp [" CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]]",
+	    NO_STR
+	    "Forward packets over multiple paths\n"
+	    "iBGP-multipath\n"
+	    "Number of paths\n"
+	    "Match the cluster length\n")
 {
-	return bgp_maxpaths_config_vty(vty, BGP_PEER_IBGP, NULL, 0, 0);
+	char base_xpath[XPATH_MAXLEN];
+	afi_t afi;
+	safi_t safi;
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/use-multiple-paths/ibgp/maximum-paths",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+
+	nb_cli_enqueue_change(vty, base_xpath, NB_OP_MODIFY, NULL);
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/use-multiple-paths/ibgp/cluster-length-list",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
+
+	nb_cli_enqueue_change(vty, base_xpath, NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_HIDDEN(no_bgp_maxpaths_ibgp, no_bgp_maxpaths_ibgp_hidden_cmd,
@@ -2170,13 +2302,13 @@ static void bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp,
 
 /* BGP timers.  */
 
-DEFUN_YANG(bgp_timers,
-	   bgp_timers_cmd,
-	   "timers bgp (0-65535) (0-65535)",
-	   "Adjust routing timers\n"
-	   "BGP timers\n"
-	   "Keepalive interval\n"
-	   "Holdtime\n")
+DEFUN_YANG (bgp_timers,
+	    bgp_timers_cmd,
+	    "timers bgp (0-65535) (0-65535)",
+	    "Adjust routing timers\n"
+	    "BGP timers\n"
+	    "Keepalive interval\n"
+	    "Holdtime\n")
 {
 	int idx_number = 2;
 	int idx_number_2 = 3;
@@ -2189,14 +2321,14 @@ DEFUN_YANG(bgp_timers,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN_YANG(no_bgp_timers,
-	   no_bgp_timers_cmd,
-	   "no timers bgp [(0-65535) (0-65535)]",
-	   NO_STR
-	   "Adjust routing timers\n"
-	   "BGP timers\n"
-	   "Keepalive interval\n"
-	   "Holdtime\n")
+DEFUN_YANG (no_bgp_timers,
+	    no_bgp_timers_cmd,
+	    "no timers bgp [(0-65535) (0-65535)]",
+	    NO_STR
+	    "Adjust routing timers\n"
+	    "BGP timers\n"
+	    "Keepalive interval\n"
+	    "Holdtime\n")
 {
 	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive",
 			      NB_OP_DESTROY, NULL);
@@ -7890,6 +8022,33 @@ static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
 	return CMD_SUCCESS;
 }
 
+bool vpn_policy_check_import(struct bgp *bgp, afi_t afi, safi_t safi,
+			     bool v2vimport, char *errmsg, size_t errmsg_len)
+{
+	if (!v2vimport) {
+		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+			       BGP_CONFIG_VRF_TO_VRF_IMPORT)
+		    || CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+				  BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
+			snprintf(
+				errmsg, errmsg_len, "%s",
+				"%% error: Please unconfigure import vrf commands before using vpn commands");
+			return false;
+		}
+	} else {
+		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+			       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)
+		    || CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+				  BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)) {
+			snprintf(
+				errmsg, errmsg_len, "%s",
+				"%% error: Please unconfigure vpn to vrf commands before using import vrf commands");
+			return false;
+		}
+	}
+	return true;
+}
+
 /*
  * v2vimport is true if we are handling a `import vrf ...` command
  */
@@ -7932,57 +8091,45 @@ static afi_t vpn_policy_getafi(struct vty *vty, struct bgp *bgp, bool v2vimport)
 	return afi;
 }
 
-DEFPY (af_rd_vpn_export,
-       af_rd_vpn_export_cmd,
-       "[no] rd vpn export ASN:NN_OR_IP-ADDRESS:NN$rd_str",
-       NO_STR
-       "Specify route distinguisher\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from current address-family to vpn\n"
-       "Route Distinguisher (<as-number>:<number> | <ip-address>:<number>)\n")
+DEFPY_YANG(
+	af_rd_vpn_export,
+	af_rd_vpn_export_cmd,
+	"[no] rd vpn export ASN:NN_OR_IP-ADDRESS:NN$rd_str",
+	NO_STR
+	"Specify route distinguisher\n"
+	"Between current address-family and vpn\n"
+	"For routes leaked from current address-family to vpn\n"
+	"Route Distinguisher (<as-number>:<number> | <ip-address>:<number>)\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct prefix_rd prd;
-	int ret;
+	char base_xpath[XPATH_MAXLEN];
 	afi_t afi;
+	safi_t safi;
 	int idx = 0;
-	bool yes = true;
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/vpn-config",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
 
 	if (argv_find(argv, argc, "no", &idx))
-		yes = false;
+		nb_cli_enqueue_change(vty, "./rd", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./rd", NB_OP_MODIFY, rd_str);
 
-	if (yes) {
-		ret = str2prefix_rd(rd_str, &prd);
-		if (!ret) {
-			vty_out(vty, "%% Malformed rd\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
+	return nb_cli_apply_changes(vty, base_xpath);
+}
 
-	afi = vpn_policy_getafi(vty, bgp, false);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_rd(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	int indent = 2;
 
-	/*
-	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
-	 */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-			   bgp_get_default(), bgp);
-
-	if (yes) {
-		bgp->vpn_policy[afi].tovpn_rd = prd;
-		SET_FLAG(bgp->vpn_policy[afi].flags,
-			 BGP_VPN_POLICY_TOVPN_RD_SET);
-	} else {
-		UNSET_FLAG(bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_RD_SET);
-	}
-
-	/* post-change: re-export vpn routes */
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-			    bgp_get_default(), bgp);
-
-	return CMD_SUCCESS;
+	vty_out(vty, "%*srd vpn export %s\n", indent, "",
+		yang_dnode_get_string(dnode, NULL));
 }
 
 ALIAS (af_rd_vpn_export,
@@ -8083,7 +8230,7 @@ ALIAS (af_label_vpn_export,
        "Between current address-family and vpn\n"
        "For routes leaked from current address-family to vpn\n")
 
-DEFPY (af_nexthop_vpn_export,
+DEFPY_YANG (af_nexthop_vpn_export,
        af_nexthop_vpn_export_cmd,
        "[no] nexthop vpn export [<A.B.C.D|X:X::X:X>$nexthop_su]",
        NO_STR
@@ -8093,8 +8240,10 @@ DEFPY (af_nexthop_vpn_export,
        "IPv4 prefix\n"
        "IPv6 prefix\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	char base_xpath[XPATH_MAXLEN];
 	afi_t afi;
+	safi_t safi;
+	int idx = 0;
 	struct prefix p;
 
 	if (!no) {
@@ -8106,30 +8255,31 @@ DEFPY (af_nexthop_vpn_export,
 			return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	afi = vpn_policy_getafi(vty, bgp, false);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
 
-	/*
-	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
-	 */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-			   bgp_get_default(), bgp);
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/vpn-config",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
 
-	if (!no) {
-		bgp->vpn_policy[afi].tovpn_nexthop = p;
-		SET_FLAG(bgp->vpn_policy[afi].flags,
-			 BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
-	} else {
-		UNSET_FLAG(bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
-	}
+	if (argv_find(argv, argc, "no", &idx))
+		nb_cli_enqueue_change(vty, "./nexthop", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./nexthop", NB_OP_MODIFY,
+				      nexthop_su_str);
 
-	/* post-change: re-export vpn routes */
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-			    bgp_get_default(), bgp);
+	return nb_cli_apply_changes(vty, base_xpath);
+}
 
-	return CMD_SUCCESS;
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_nexthop(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	int indent = 2;
+
+	vty_out(vty, "%*snexthop vpn export %s\n", indent, "",
+		yang_dnode_get_string(dnode, NULL));
 }
 
 static int vpn_policy_getdirs(struct vty *vty, const char *dstr, int *dodir)
@@ -8230,7 +8380,7 @@ ALIAS (af_rt_vpn_imexport,
        "For routes leaked from current address-family to vpn\n"
        "both import and export\n")
 
-DEFPY (af_route_map_vpn_imexport,
+DEFPY_YANG (af_route_map_vpn_imexport,
        af_route_map_vpn_imexport_cmd,
 /* future: "route-map <vpn|evpn|vrf NAME> <import|export> RMAP" */
        "[no] route-map vpn <import|export>$direction_str RMAP$rmap_str",
@@ -8241,53 +8391,54 @@ DEFPY (af_route_map_vpn_imexport,
        "For routes leaked from current address-family to vpn\n"
        "name of route-map\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int ret;
-	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
-	vpn_policy_direction_t dir;
+	char base_xpath[XPATH_MAXLEN];
 	afi_t afi;
+	safi_t safi;
 	int idx = 0;
-	bool yes = true;
 
-	if (argv_find(argv, argc, "no", &idx))
-		yes = false;
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
 
-	afi = vpn_policy_getafi(vty, bgp, false);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/vpn-config",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi));
 
-	ret = vpn_policy_getdirs(vty, direction_str, dodir);
-	if (ret != CMD_SUCCESS)
-		return ret;
-
-	for (dir = 0; dir < BGP_VPN_POLICY_DIR_MAX; ++dir) {
-		if (!dodir[dir])
-			continue;
-
-		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
-
-		if (yes) {
-			if (bgp->vpn_policy[afi].rmap_name[dir])
-				XFREE(MTYPE_ROUTE_MAP_NAME,
-				      bgp->vpn_policy[afi].rmap_name[dir]);
-			bgp->vpn_policy[afi].rmap_name[dir] = XSTRDUP(
-								      MTYPE_ROUTE_MAP_NAME, rmap_str);
-			bgp->vpn_policy[afi].rmap[dir] =
-				route_map_lookup_warn_noexist(vty, rmap_str);
-			if (!bgp->vpn_policy[afi].rmap[dir])
-				return CMD_SUCCESS;
-		} else {
-			if (bgp->vpn_policy[afi].rmap_name[dir])
-				XFREE(MTYPE_ROUTE_MAP_NAME,
-				      bgp->vpn_policy[afi].rmap_name[dir]);
-			bgp->vpn_policy[afi].rmap_name[dir] = NULL;
-			bgp->vpn_policy[afi].rmap[dir] = NULL;
-		}
-
-		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+	if (argv_find(argv, argc, "no", &idx)) {
+		if (!strcmp(direction_str, "import"))
+			nb_cli_enqueue_change(vty, "./rmap-import",
+					      NB_OP_DESTROY, NULL);
+		else if (!strcmp(direction_str, "export"))
+			nb_cli_enqueue_change(vty, "./rmap-export",
+					      NB_OP_DESTROY, NULL);
+	} else {
+		if (!strcmp(direction_str, "import"))
+			nb_cli_enqueue_change(vty, "./rmap-import",
+					      NB_OP_MODIFY, rmap_str);
+		if (!strcmp(direction_str, "export"))
+			nb_cli_enqueue_change(vty, "./rmap-export",
+					      NB_OP_MODIFY, rmap_str);
 	}
+	return nb_cli_apply_changes(vty, base_xpath);
+}
 
-	return CMD_SUCCESS;
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_rmap_import(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	int indent = 2;
+
+	vty_out(vty, "%*sroute-map vpn import %s\n", indent, "",
+		yang_dnode_get_string(dnode, NULL));
+}
+
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_rmap_export(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	int indent = 2;
+
+	vty_out(vty, "%*sroute-map vpn import %s\n", indent, "",
+		yang_dnode_get_string(dnode, NULL));
 }
 
 ALIAS (af_route_map_vpn_imexport,
@@ -8384,24 +8535,18 @@ DEFPY(af_no_import_vrf_route_map, af_no_import_vrf_route_map_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
-      "[no] import vrf VIEWVRFNAME$import_name",
-      NO_STR
-      "Import routes from another VRF\n"
-      "VRF to import from\n"
-      "The name of the VRF\n")
+DEFPY_YANG(bgp_imexport_vrf,
+	   bgp_imexport_vrf_cmd,
+	   "[no] import vrf VIEWVRFNAME$import_name",
+	   NO_STR
+	   "Import routes from another VRF\n"
+	   "VRF to import from\n"
+	   "The name of the VRF\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct listnode *node;
-	struct bgp *vrf_bgp, *bgp_default;
-	int32_t ret = 0;
-	as_t as = bgp->as;
-	bool remove = false;
-	int32_t idx = 0;
-	char *vname;
-	enum bgp_instance_type bgp_type = BGP_INSTANCE_TYPE_VRF;
+	char base_xpath[XPATH_MAXLEN];
 	safi_t safi;
 	afi_t afi;
+	int32_t idx = 0;
 
 	if (import_name == NULL) {
 		vty_out(vty, "%% Missing import name\n");
@@ -8413,70 +8558,32 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 		return CMD_WARNING;
 	}
 
-	if (argv_find(argv, argc, "no", &idx))
-		remove = true;
-
-	afi = vpn_policy_getafi(vty, bgp, true);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
-
+	afi = bgp_node_afi(vty);
 	safi = bgp_node_safi(vty);
 
-	if (((BGP_INSTANCE_TYPE_DEFAULT == bgp->inst_type)
-	     && (strcmp(import_name, VRF_DEFAULT_NAME) == 0))
-	    || (bgp->name && (strcmp(import_name, bgp->name) == 0))) {
-		vty_out(vty, "%% Cannot %s vrf %s into itself\n",
-			remove ? "unimport" : "import", import_name);
-		return CMD_WARNING;
-	}
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/vpn-config/import-vrf-list[vrf='%s']",
+		yang_afi_safi_value2identity(afi, safi),
+		bgp_afi_safi_get_container_str(afi, safi), import_name);
 
-	bgp_default = bgp_get_default();
-	if (!bgp_default) {
-		/* Auto-create assuming the same AS */
-		ret = bgp_get_vty(&bgp_default, &as, NULL,
-				  BGP_INSTANCE_TYPE_DEFAULT);
+	if (argv_find(argv, argc, "no", &idx))
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
-		if (ret) {
-			vty_out(vty,
-				"VRF default is not configured as a bgp instance\n");
-			return CMD_WARNING;
-		}
-	}
+	return nb_cli_apply_changes(vty, base_xpath);
+}
 
-	vrf_bgp = bgp_lookup_by_name(import_name);
-	if (!vrf_bgp) {
-		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0)
-			vrf_bgp = bgp_default;
-		else
-			/* Auto-create assuming the same AS */
-			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type);
-
-		if (ret) {
-			vty_out(vty,
-				"VRF %s is not configured as a bgp instance\n",
-				import_name);
-			return CMD_WARNING;
-		}
-	}
-
-	if (remove) {
-		vrf_unimport_from_vrf(bgp, vrf_bgp, afi, safi);
-	} else {
-		/* Already importing from "import_vrf"? */
-		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
-					  vname)) {
-			if (strcmp(vname, import_name) == 0)
-				return CMD_WARNING;
-		}
-
-		vrf_import_from_vrf(bgp, vrf_bgp, afi, safi);
-	}
-
-	return CMD_SUCCESS;
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_import_vrfs(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  import vrf %s\n",
+		yang_dnode_get_string(dnode, "./vrf"));
 }
 
 /* This command is valid only in a bgp vrf instance or the default instance */
-DEFPY (bgp_imexport_vpn,
+DEFPY_YANG (bgp_imexport_vpn,
        bgp_imexport_vpn_cmd,
        "[no] <import|export>$direction_str vpn",
        NO_STR
@@ -8484,60 +8591,51 @@ DEFPY (bgp_imexport_vpn,
        "Export routes from this address-family\n"
        "to/from default instance VPN RIB\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int previous_state;
-	afi_t afi;
+	char base_xpath[XPATH_MAXLEN];
 	safi_t safi;
-	int idx = 0;
-	bool yes = true;
-	int flag;
-	vpn_policy_direction_t dir;
-
-	if (argv_find(argv, argc, "no", &idx))
-		yes = false;
-
-	if (BGP_INSTANCE_TYPE_VRF != bgp->inst_type &&
-		BGP_INSTANCE_TYPE_DEFAULT != bgp->inst_type) {
-
-		vty_out(vty, "%% import|export vpn valid only for bgp vrf or default instance\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	afi_t afi;
+	int32_t idx = 0;
 
 	afi = bgp_node_afi(vty);
 	safi = bgp_node_safi(vty);
-	if ((SAFI_UNICAST != safi) || ((AFI_IP != afi) && (AFI_IP6 != afi))) {
-		vty_out(vty, "%% import|export vpn valid only for unicast ipv4|ipv6\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	if (!strcmp(direction_str, "import")) {
-		flag = BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT;
-		dir = BGP_VPN_POLICY_DIR_FROMVPN;
+		snprintf(
+			base_xpath, sizeof(base_xpath),
+			"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/vpn-config/import-vpn",
+			yang_afi_safi_value2identity(afi, safi),
+			bgp_afi_safi_get_container_str(afi, safi));
 	} else if (!strcmp(direction_str, "export")) {
-		flag = BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT;
-		dir = BGP_VPN_POLICY_DIR_TOVPN;
+		snprintf(
+			base_xpath, sizeof(base_xpath),
+			"./global/afi-safis/afi-safi[afi-safi-name='%s']/%s/vpn-config/export-vpn",
+			yang_afi_safi_value2identity(afi, safi),
+			bgp_afi_safi_get_container_str(afi, safi));
 	} else {
 		vty_out(vty, "%% unknown direction %s\n", direction_str);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	previous_state = CHECK_FLAG(bgp->af_flags[afi][safi], flag);
+	if (argv_find(argv, argc, "no", &idx))
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, "true");
 
-	if (yes) {
-		SET_FLAG(bgp->af_flags[afi][safi], flag);
-		if (!previous_state) {
-			/* trigger export current vrf */
-			vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
-		}
-	} else {
-		if (previous_state) {
-			/* trigger un-export current vrf */
-			vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
-		}
-		UNSET_FLAG(bgp->af_flags[afi][safi], flag);
-	}
+	return nb_cli_apply_changes(vty, base_xpath);
+}
 
-	return CMD_SUCCESS;
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_import_vpn(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  import vpn\n");
+}
+
+void cli_show_bgp_global_afi_safi_ip_unicast_vpn_config_export_vpn(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  export vpn\n");
 }
 
 DEFPY (af_routetarget_import,
@@ -8603,6 +8701,51 @@ DEFPY (af_routetarget_import,
 	return CMD_SUCCESS;
 }
 
+void cli_show_bgp_global_afi_safi_header(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	const char *af_name;
+	afi_t afi;
+	safi_t safi;
+
+	af_name = yang_dnode_get_string(dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(af_name, &afi, &safi);
+
+	vty_out(vty, " !\n address-family ");
+	if (afi == AFI_IP) {
+		if (safi == SAFI_UNICAST)
+			vty_out(vty, "ipv4 unicast");
+		else if (safi == SAFI_LABELED_UNICAST)
+			vty_out(vty, "ipv4 labeled-unicast");
+		else if (safi == SAFI_MULTICAST)
+			vty_out(vty, "ipv4 multicast");
+		else if (safi == SAFI_MPLS_VPN)
+			vty_out(vty, "ipv4 vpn");
+		else if (safi == SAFI_ENCAP)
+			vty_out(vty, "ipv4 encap");
+		else if (safi == SAFI_FLOWSPEC)
+			vty_out(vty, "ipv4 flowspec");
+	} else if (afi == AFI_IP6) {
+		if (safi == SAFI_UNICAST)
+			vty_out(vty, "ipv6 unicast");
+		else if (safi == SAFI_LABELED_UNICAST)
+			vty_out(vty, "ipv6 labeled-unicast");
+		else if (safi == SAFI_MULTICAST)
+			vty_out(vty, "ipv6 multicast");
+		else if (safi == SAFI_MPLS_VPN)
+			vty_out(vty, "ipv6 vpn");
+		else if (safi == SAFI_ENCAP)
+			vty_out(vty, "ipv6 encap");
+		else if (safi == SAFI_FLOWSPEC)
+			vty_out(vty, "ipv6 flowspec");
+	} else if (afi == AFI_L2VPN) {
+		if (safi == SAFI_EVPN)
+			vty_out(vty, "l2vpn evpn");
+	}
+	vty_out(vty, "\n");
+}
+
 DEFUN_NOSH (address_family_ipv4_safi,
 	address_family_ipv4_safi_cmd,
 	"address-family ipv4 [<unicast|multicast|vpn|labeled-unicast|flowspec>]",
@@ -8611,19 +8754,28 @@ DEFUN_NOSH (address_family_ipv4_safi,
 	BGP_SAFI_WITH_LABEL_HELP_STR)
 {
 
+	safi_t safi = SAFI_UNICAST;
+	const struct lyd_node *vrf_dnode, *bgp_glb_dnode;
+	const char *vrf_name = NULL;
+
 	if (argc == 3) {
-		VTY_DECLVAR_CONTEXT(bgp, bgp);
-		safi_t safi = bgp_vty_safi_from_str(argv[2]->text);
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT
+		safi = bgp_vty_safi_from_str(argv[2]->text);
+
+		bgp_glb_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					       VTY_CURR_XPATH);
+		vrf_dnode = yang_dnode_get_parent(bgp_glb_dnode,
+						  "control-plane-protocol");
+		vrf_name = yang_dnode_get_string(vrf_dnode, "./vrf");
+
+		if (!strmatch(vrf_name, VRF_DEFAULT_NAME)
 		    && safi != SAFI_UNICAST && safi != SAFI_MULTICAST
 		    && safi != SAFI_EVPN) {
 			vty_out(vty,
 				"Only Unicast/Multicast/EVPN SAFIs supported in non-core instances.\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		vty->node = bgp_node_type(AFI_IP, safi);
-	} else
-		vty->node = BGP_IPV4_NODE;
+	}
+	vty->node = bgp_node_type(AFI_IP, safi);
 
 	return CMD_SUCCESS;
 }
@@ -8635,19 +8787,27 @@ DEFUN_NOSH (address_family_ipv6_safi,
 	"Address Family\n"
 	BGP_SAFI_WITH_LABEL_HELP_STR)
 {
+	safi_t safi = SAFI_UNICAST;
+	const struct lyd_node *vrf_dnode, *bgp_glb_dnode;
+	const char *vrf_name = NULL;
+
 	if (argc == 3) {
-		VTY_DECLVAR_CONTEXT(bgp, bgp);
-		safi_t safi = bgp_vty_safi_from_str(argv[2]->text);
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT
+		safi = bgp_vty_safi_from_str(argv[2]->text);
+		bgp_glb_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					       VTY_CURR_XPATH);
+		vrf_dnode = yang_dnode_get_parent(bgp_glb_dnode,
+						  "control-plane-protocol");
+		vrf_name = yang_dnode_get_string(vrf_dnode, "./vrf");
+
+		if (!strmatch(vrf_name, VRF_DEFAULT_NAME)
 		    && safi != SAFI_UNICAST && safi != SAFI_MULTICAST
 		    && safi != SAFI_EVPN) {
 			vty_out(vty,
 				"Only Unicast/Multicast/EVPN SAFIs supported in non-core instances.\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		vty->node = bgp_node_type(AFI_IP6, safi);
-	} else
-		vty->node = BGP_IPV6_NODE;
+	}
+	vty->node = bgp_node_type(AFI_IP6, safi);
 
 	return CMD_SUCCESS;
 }
@@ -8702,6 +8862,13 @@ DEFUN_NOSH (exit_address_family,
 	    || vty->node == BGP_FLOWSPECV6_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
+}
+
+void cli_show_bgp_global_afi_safi_header_end(struct vty *vty,
+					     struct lyd_node *dnode
+					     __attribute__((__unused__)))
+{
+	vty_out(vty, " exit-address-family\n");
 }
 
 /* Recalculate bestpath and re-advertise a prefix */
@@ -14247,24 +14414,23 @@ DEFUN (show_ip_bgp_peer_groups,
 
 /* Redistribute VTY commands.  */
 
-DEFUN (bgp_redistribute_ipv4,
-       bgp_redistribute_ipv4_cmd,
-       "redistribute " FRR_IP_REDIST_STR_BGPD,
-       "Redistribute information from another routing protocol\n"
-       FRR_IP_REDIST_HELP_STR_BGPD)
+DEFUN_YANG (bgp_redistribute_ipv4,
+	    bgp_redistribute_ipv4_cmd,
+	    "redistribute " FRR_IP_REDIST_STR_BGPD,
+	    "Redistribute information from another routing protocol\n"
+	    FRR_IP_REDIST_HELP_STR_BGPD)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
-	int type;
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
 
-	bgp_redist_add(bgp, AFI_IP, type, 0);
-	return bgp_redistribute_set(bgp, AFI_IP, type, 0, false);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(
@@ -14272,33 +14438,28 @@ ALIAS_HIDDEN(
 	"redistribute " FRR_IP_REDIST_STR_BGPD,
 	"Redistribute information from another routing protocol\n" FRR_IP_REDIST_HELP_STR_BGPD)
 
-DEFUN (bgp_redistribute_ipv4_rmap,
-       bgp_redistribute_ipv4_rmap_cmd,
-       "redistribute " FRR_IP_REDIST_STR_BGPD " route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       FRR_IP_REDIST_HELP_STR_BGPD
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
+DEFUN_YANG (bgp_redistribute_ipv4_rmap,
+	    bgp_redistribute_ipv4_rmap_cmd,
+	    "redistribute " FRR_IP_REDIST_STR_BGPD " route-map WORD",
+	    "Redistribute information from another routing protocol\n"
+	    FRR_IP_REDIST_HELP_STR_BGPD
+	    "Route map reference\n"
+	    "Pointer to route-map entries\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_word = 3;
-	int type;
-	struct bgp_redist *red;
-	bool changed;
-	struct route_map *route_map = route_map_lookup_warn_noexist(
-		vty, argv[idx_word]->arg);
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
 
-	red = bgp_redist_add(bgp, AFI_IP, type, 0);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
-	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./rmap-policy-import", NB_OP_CREATE,
+			      argv[idx_word]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(
@@ -14308,32 +14469,28 @@ ALIAS_HIDDEN(
 	"Route map reference\n"
 	"Pointer to route-map entries\n")
 
-DEFUN (bgp_redistribute_ipv4_metric,
-       bgp_redistribute_ipv4_metric_cmd,
-       "redistribute " FRR_IP_REDIST_STR_BGPD " metric (0-4294967295)",
-       "Redistribute information from another routing protocol\n"
-       FRR_IP_REDIST_HELP_STR_BGPD
-       "Metric for redistributed routes\n"
-       "Default metric\n")
+DEFUN_YANG (bgp_redistribute_ipv4_metric,
+	    bgp_redistribute_ipv4_metric_cmd,
+	    "redistribute " FRR_IP_REDIST_STR_BGPD " metric (0-4294967295)",
+	    "Redistribute information from another routing protocol\n"
+	    FRR_IP_REDIST_HELP_STR_BGPD
+	    "Metric for redistributed routes\n"
+	    "Default metric\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_number = 3;
-	int type;
-	uint32_t metric;
-	struct bgp_redist *red;
-	bool changed;
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	metric = strtoul(argv[idx_number]->arg, NULL, 10);
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
 
-	red = bgp_redist_add(bgp, AFI_IP, type, 0);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
-	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./metric", NB_OP_CREATE,
+			      argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(
@@ -14343,39 +14500,34 @@ ALIAS_HIDDEN(
 	"Metric for redistributed routes\n"
 	"Default metric\n")
 
-DEFUN (bgp_redistribute_ipv4_rmap_metric,
-       bgp_redistribute_ipv4_rmap_metric_cmd,
-       "redistribute " FRR_IP_REDIST_STR_BGPD " route-map WORD metric (0-4294967295)",
-       "Redistribute information from another routing protocol\n"
-       FRR_IP_REDIST_HELP_STR_BGPD
-       "Route map reference\n"
-       "Pointer to route-map entries\n"
-       "Metric for redistributed routes\n"
-       "Default metric\n")
+DEFUN_YANG(
+	bgp_redistribute_ipv4_rmap_metric,
+	bgp_redistribute_ipv4_rmap_metric_cmd,
+	"redistribute " FRR_IP_REDIST_STR_BGPD
+	" route-map WORD metric (0-4294967295)",
+	"Redistribute information from another routing protocol\n" FRR_IP_REDIST_HELP_STR_BGPD
+	"Route map reference\n"
+	"Pointer to route-map entries\n"
+	"Metric for redistributed routes\n"
+	"Default metric\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_word = 3;
 	int idx_number = 5;
-	int type;
-	uint32_t metric;
-	struct bgp_redist *red;
-	bool changed;
-	struct route_map *route_map =
-		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	metric = strtoul(argv[idx_number]->arg, NULL, 10);
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
 
-	red = bgp_redist_add(bgp, AFI_IP, type, 0);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
-	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
-	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./rmap-policy-import", NB_OP_CREATE,
+			      argv[idx_word]->arg);
+	nb_cli_enqueue_change(vty, "./metric", NB_OP_CREATE,
+			      argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(
@@ -14389,39 +14541,34 @@ ALIAS_HIDDEN(
 	"Metric for redistributed routes\n"
 	"Default metric\n")
 
-DEFUN (bgp_redistribute_ipv4_metric_rmap,
-       bgp_redistribute_ipv4_metric_rmap_cmd,
-       "redistribute " FRR_IP_REDIST_STR_BGPD " metric (0-4294967295) route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       FRR_IP_REDIST_HELP_STR_BGPD
-       "Metric for redistributed routes\n"
-       "Default metric\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
+DEFUN_YANG(
+	bgp_redistribute_ipv4_metric_rmap,
+	bgp_redistribute_ipv4_metric_rmap_cmd,
+	"redistribute " FRR_IP_REDIST_STR_BGPD
+	" metric (0-4294967295) route-map WORD",
+	"Redistribute information from another routing protocol\n" FRR_IP_REDIST_HELP_STR_BGPD
+	"Metric for redistributed routes\n"
+	"Default metric\n"
+	"Route map reference\n"
+	"Pointer to route-map entries\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
-	int idx_number = 3;
 	int idx_word = 5;
-	int type;
-	uint32_t metric;
-	struct bgp_redist *red;
-	bool changed;
-	struct route_map *route_map =
-		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
+	int idx_number = 3;
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	metric = strtoul(argv[idx_number]->arg, NULL, 10);
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
 
-	red = bgp_redist_add(bgp, AFI_IP, type, 0);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
-	changed |=
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
-	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./metric", NB_OP_CREATE,
+			      argv[idx_number]->arg);
+	nb_cli_enqueue_change(vty, "./rmap-policy-import", NB_OP_CREATE,
+			      argv[idx_word]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(
@@ -14435,29 +14582,26 @@ ALIAS_HIDDEN(
 	"Route map reference\n"
 	"Pointer to route-map entries\n")
 
-DEFUN (bgp_redistribute_ipv4_ospf,
-       bgp_redistribute_ipv4_ospf_cmd,
-       "redistribute <ospf|table> (1-65535)",
-       "Redistribute information from another routing protocol\n"
-       "Open Shortest Path First (OSPFv2)\n"
-       "Non-main Kernel Routing Table\n"
-       "Instance ID/Table ID\n")
+DEFUN_YANG (bgp_redistribute_ipv4_ospf,
+	    bgp_redistribute_ipv4_ospf_cmd,
+	    "redistribute <ospf|table> (1-65535)",
+	    "Redistribute information from another routing protocol\n"
+	    "Open Shortest Path First (OSPFv2)\n"
+	    "Non-main Kernel Routing Table\n"
+	    "Instance ID/Table ID\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_ospf_table = 1;
+	int idx_protocol = 1;
 	int idx_number = 2;
-	unsigned short instance;
-	unsigned short protocol;
+	char base_xpath[XPATH_MAXLEN];
 
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, argv[idx_number]->arg);
 
-	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
-		protocol = ZEBRA_ROUTE_OSPF;
-	else
-		protocol = ZEBRA_ROUTE_TABLE;
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
-	bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, false);
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(bgp_redistribute_ipv4_ospf, bgp_redistribute_ipv4_ospf_hidden_cmd,
@@ -14467,37 +14611,32 @@ ALIAS_HIDDEN(bgp_redistribute_ipv4_ospf, bgp_redistribute_ipv4_ospf_hidden_cmd,
 	     "Non-main Kernel Routing Table\n"
 	     "Instance ID/Table ID\n")
 
-DEFUN (bgp_redistribute_ipv4_ospf_rmap,
-       bgp_redistribute_ipv4_ospf_rmap_cmd,
-       "redistribute <ospf|table> (1-65535) route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Open Shortest Path First (OSPFv2)\n"
-       "Non-main Kernel Routing Table\n"
-       "Instance ID/Table ID\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
+DEFUN_YANG (bgp_redistribute_ipv4_ospf_rmap,
+	    bgp_redistribute_ipv4_ospf_rmap_cmd,
+	    "redistribute <ospf|table> (1-65535) route-map WORD",
+	    "Redistribute information from another routing protocol\n"
+	    "Open Shortest Path First (OSPFv2)\n"
+	    "Non-main Kernel Routing Table\n"
+	    "Instance ID/Table ID\n"
+	    "Route map reference\n"
+	    "Pointer to route-map entries\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_ospf_table = 1;
+	int idx_protocol = 1;
 	int idx_number = 2;
 	int idx_word = 4;
-	struct bgp_redist *red;
-	unsigned short instance;
-	int protocol;
-	bool changed;
-	struct route_map *route_map =
-		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
+	char base_xpath[XPATH_MAXLEN];
 
-	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
-		protocol = ZEBRA_ROUTE_OSPF;
-	else
-		protocol = ZEBRA_ROUTE_TABLE;
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, argv[idx_number]->arg);
 
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
-	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+	nb_cli_enqueue_change(vty, "./rmap-policy-import", NB_OP_CREATE,
+			      argv[idx_word]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(bgp_redistribute_ipv4_ospf_rmap,
@@ -14510,38 +14649,32 @@ ALIAS_HIDDEN(bgp_redistribute_ipv4_ospf_rmap,
 	     "Route map reference\n"
 	     "Pointer to route-map entries\n")
 
-DEFUN (bgp_redistribute_ipv4_ospf_metric,
-       bgp_redistribute_ipv4_ospf_metric_cmd,
-       "redistribute <ospf|table> (1-65535) metric (0-4294967295)",
-       "Redistribute information from another routing protocol\n"
-       "Open Shortest Path First (OSPFv2)\n"
-       "Non-main Kernel Routing Table\n"
-       "Instance ID/Table ID\n"
-       "Metric for redistributed routes\n"
-       "Default metric\n")
+DEFUN_YANG(bgp_redistribute_ipv4_ospf_metric,
+	   bgp_redistribute_ipv4_ospf_metric_cmd,
+	   "redistribute <ospf|table> (1-65535) metric (0-4294967295)",
+	   "Redistribute information from another routing protocol\n"
+	   "Open Shortest Path First (OSPFv2)\n"
+	   "Non-main Kernel Routing Table\n"
+	   "Instance ID/Table ID\n"
+	   "Metric for redistributed routes\n"
+	   "Default metric\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_ospf_table = 1;
+	int idx_protocol = 1;
 	int idx_number = 2;
 	int idx_number_2 = 4;
-	uint32_t metric;
-	struct bgp_redist *red;
-	unsigned short instance;
-	int protocol;
-	bool changed;
+	char base_xpath[XPATH_MAXLEN];
 
-	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
-		protocol = ZEBRA_ROUTE_OSPF;
-	else
-		protocol = ZEBRA_ROUTE_TABLE;
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, argv[idx_number]->arg);
 
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
-	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol,
-						metric);
-	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
+	nb_cli_enqueue_change(vty, "./metric", NB_OP_CREATE,
+			      argv[idx_number_2]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(bgp_redistribute_ipv4_ospf_metric,
@@ -14554,45 +14687,38 @@ ALIAS_HIDDEN(bgp_redistribute_ipv4_ospf_metric,
 	     "Metric for redistributed routes\n"
 	     "Default metric\n")
 
-DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
-       bgp_redistribute_ipv4_ospf_rmap_metric_cmd,
-       "redistribute <ospf|table> (1-65535) route-map WORD metric (0-4294967295)",
-       "Redistribute information from another routing protocol\n"
-       "Open Shortest Path First (OSPFv2)\n"
-       "Non-main Kernel Routing Table\n"
-       "Instance ID/Table ID\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n"
-       "Metric for redistributed routes\n"
-       "Default metric\n")
+DEFUN_YANG(
+	bgp_redistribute_ipv4_ospf_rmap_metric,
+	bgp_redistribute_ipv4_ospf_rmap_metric_cmd,
+	"redistribute <ospf|table> (1-65535) route-map WORD metric (0-4294967295)",
+	"Redistribute information from another routing protocol\n"
+	"Open Shortest Path First (OSPFv2)\n"
+	"Non-main Kernel Routing Table\n"
+	"Instance ID/Table ID\n"
+	"Route map reference\n"
+	"Pointer to route-map entries\n"
+	"Metric for redistributed routes\n"
+	"Default metric\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_ospf_table = 1;
+	int idx_protocol = 1;
 	int idx_number = 2;
 	int idx_word = 4;
 	int idx_number_2 = 6;
-	uint32_t metric;
-	struct bgp_redist *red;
-	unsigned short instance;
-	int protocol;
-	bool changed;
-	struct route_map *route_map =
-		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
+	char base_xpath[XPATH_MAXLEN];
 
-	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
-		protocol = ZEBRA_ROUTE_OSPF;
-	else
-		protocol = ZEBRA_ROUTE_TABLE;
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, argv[idx_number]->arg);
 
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
-	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
-	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol,
-						metric);
-	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
+	nb_cli_enqueue_change(vty, "./rmap-policy-import", NB_OP_CREATE,
+			      argv[idx_word]->arg);
+	nb_cli_enqueue_change(vty, "./metric", NB_OP_CREATE,
+			      argv[idx_number_2]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(
@@ -14608,45 +14734,38 @@ ALIAS_HIDDEN(
 	"Metric for redistributed routes\n"
 	"Default metric\n")
 
-DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
-       bgp_redistribute_ipv4_ospf_metric_rmap_cmd,
-       "redistribute <ospf|table> (1-65535) metric (0-4294967295) route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Open Shortest Path First (OSPFv2)\n"
-       "Non-main Kernel Routing Table\n"
-       "Instance ID/Table ID\n"
-       "Metric for redistributed routes\n"
-       "Default metric\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
+DEFUN_YANG(
+	bgp_redistribute_ipv4_ospf_metric_rmap,
+	bgp_redistribute_ipv4_ospf_metric_rmap_cmd,
+	"redistribute <ospf|table> (1-65535) metric (0-4294967295) route-map WORD",
+	"Redistribute information from another routing protocol\n"
+	"Open Shortest Path First (OSPFv2)\n"
+	"Non-main Kernel Routing Table\n"
+	"Instance ID/Table ID\n"
+	"Metric for redistributed routes\n"
+	"Default metric\n"
+	"Route map reference\n"
+	"Pointer to route-map entries\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_ospf_table = 1;
+	int idx_protocol = 1;
 	int idx_number = 2;
 	int idx_number_2 = 4;
 	int idx_word = 6;
-	uint32_t metric;
-	struct bgp_redist *red;
-	unsigned short instance;
-	int protocol;
-	bool changed;
-	struct route_map *route_map =
-		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
+	char base_xpath[XPATH_MAXLEN];
 
-	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
-		protocol = ZEBRA_ROUTE_OSPF;
-	else
-		protocol = ZEBRA_ROUTE_TABLE;
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, argv[idx_number]->arg);
 
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
-	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol,
-						metric);
-	changed |=
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
-	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
+	nb_cli_enqueue_change(vty, "./metric", NB_OP_CREATE,
+			      argv[idx_number_2]->arg);
+	nb_cli_enqueue_change(vty, "./rmap-policy-import", NB_OP_CREATE,
+			      argv[idx_word]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(
@@ -14662,32 +14781,31 @@ ALIAS_HIDDEN(
 	"Route map reference\n"
 	"Pointer to route-map entries\n")
 
-DEFUN (no_bgp_redistribute_ipv4_ospf,
-       no_bgp_redistribute_ipv4_ospf_cmd,
-       "no redistribute <ospf|table> (1-65535) [{metric (0-4294967295)|route-map WORD}]",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Open Shortest Path First (OSPFv2)\n"
-       "Non-main Kernel Routing Table\n"
-       "Instance ID/Table ID\n"
-       "Metric for redistributed routes\n"
-       "Default metric\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
+DEFUN_YANG (no_bgp_redistribute_ipv4_ospf,
+	    no_bgp_redistribute_ipv4_ospf_cmd,
+	    "no redistribute <ospf|table> (1-65535) [{metric (0-4294967295)|route-map WORD}]",
+	    NO_STR
+	    "Redistribute information from another routing protocol\n"
+	    "Open Shortest Path First (OSPFv2)\n"
+	    "Non-main Kernel Routing Table\n"
+	    "Instance ID/Table ID\n"
+	    "Metric for redistributed routes\n"
+	    "Default metric\n"
+	    "Route map reference\n"
+	    "Pointer to route-map entries\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_ospf_table = 2;
+	int idx_protocol = 2;
 	int idx_number = 3;
-	unsigned short instance;
-	int protocol;
+	char base_xpath[XPATH_MAXLEN];
 
-	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
-		protocol = ZEBRA_ROUTE_OSPF;
-	else
-		protocol = ZEBRA_ROUTE_TABLE;
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, argv[idx_number]->arg);
 
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	return bgp_redistribute_unset(bgp, AFI_IP, protocol, instance);
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(
@@ -14703,27 +14821,28 @@ ALIAS_HIDDEN(
 	"Route map reference\n"
 	"Pointer to route-map entries\n")
 
-DEFUN (no_bgp_redistribute_ipv4,
-       no_bgp_redistribute_ipv4_cmd,
-       "no redistribute " FRR_IP_REDIST_STR_BGPD " [{metric (0-4294967295)|route-map WORD}]",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       FRR_IP_REDIST_HELP_STR_BGPD
-       "Metric for redistributed routes\n"
-       "Default metric\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
+DEFUN_YANG (no_bgp_redistribute_ipv4,
+	    no_bgp_redistribute_ipv4_cmd,
+	    "no redistribute " FRR_IP_REDIST_STR_BGPD " [{metric (0-4294967295)|route-map WORD}]",
+	    NO_STR
+	    "Redistribute information from another routing protocol\n"
+	    FRR_IP_REDIST_HELP_STR_BGPD
+	    "Metric for redistributed routes\n"
+	    "Default metric\n"
+	    "Route map reference\n"
+	    "Pointer to route-map entries\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 2;
-	int type;
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return bgp_redistribute_unset(bgp, AFI_IP, type, 0);
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
+
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(
@@ -14737,56 +14856,50 @@ ALIAS_HIDDEN(
 	"Route map reference\n"
 	"Pointer to route-map entries\n")
 
-DEFUN (bgp_redistribute_ipv6,
-       bgp_redistribute_ipv6_cmd,
-       "redistribute " FRR_IP6_REDIST_STR_BGPD,
-       "Redistribute information from another routing protocol\n"
-       FRR_IP6_REDIST_HELP_STR_BGPD)
+DEFUN_YANG (bgp_redistribute_ipv6,
+	    bgp_redistribute_ipv6_cmd,
+	    "redistribute " FRR_IP6_REDIST_STR_BGPD,
+	    "Redistribute information from another routing protocol\n"
+	    FRR_IP6_REDIST_HELP_STR_BGPD)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
-	int type;
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP6, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
 
-	bgp_redist_add(bgp, AFI_IP6, type, 0);
-	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, false);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFUN (bgp_redistribute_ipv6_rmap,
-       bgp_redistribute_ipv6_rmap_cmd,
-       "redistribute " FRR_IP6_REDIST_STR_BGPD " route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       FRR_IP6_REDIST_HELP_STR_BGPD
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
+DEFUN_YANG (bgp_redistribute_ipv6_rmap,
+	    bgp_redistribute_ipv6_rmap_cmd,
+	    "redistribute " FRR_IP6_REDIST_STR_BGPD " route-map WORD",
+	    "Redistribute information from another routing protocol\n"
+	    FRR_IP6_REDIST_HELP_STR_BGPD
+	    "Route map reference\n"
+	    "Pointer to route-map entries\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_word = 3;
-	int type;
-	struct bgp_redist *red;
-	bool changed;
-	struct route_map *route_map =
-		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP6, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
 
-	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
-	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./rmap-policy-import", NB_OP_CREATE,
+			      argv[idx_word]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFUN (bgp_redistribute_ipv6_metric,
+DEFUN_YANG (bgp_redistribute_ipv6_metric,
        bgp_redistribute_ipv6_metric_cmd,
        "redistribute " FRR_IP6_REDIST_STR_BGPD " metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
@@ -14794,120 +14907,123 @@ DEFUN (bgp_redistribute_ipv6_metric,
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_number = 3;
-	int type;
-	uint32_t metric;
-	struct bgp_redist *red;
-	bool changed;
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	metric = strtoul(argv[idx_number]->arg, NULL, 10);
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP6, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
 
-	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP6, type, metric);
-	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./metric", NB_OP_CREATE,
+			      argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFUN (bgp_redistribute_ipv6_rmap_metric,
-       bgp_redistribute_ipv6_rmap_metric_cmd,
-       "redistribute " FRR_IP6_REDIST_STR_BGPD " route-map WORD metric (0-4294967295)",
-       "Redistribute information from another routing protocol\n"
-       FRR_IP6_REDIST_HELP_STR_BGPD
-       "Route map reference\n"
-       "Pointer to route-map entries\n"
-       "Metric for redistributed routes\n"
-       "Default metric\n")
+DEFUN_YANG(
+	bgp_redistribute_ipv6_rmap_metric,
+	bgp_redistribute_ipv6_rmap_metric_cmd,
+	"redistribute " FRR_IP6_REDIST_STR_BGPD
+	" route-map WORD metric (0-4294967295)",
+	"Redistribute information from another routing protocol\n" FRR_IP6_REDIST_HELP_STR_BGPD
+	"Route map reference\n"
+	"Pointer to route-map entries\n"
+	"Metric for redistributed routes\n"
+	"Default metric\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_word = 3;
 	int idx_number = 5;
-	int type;
-	uint32_t metric;
-	struct bgp_redist *red;
-	bool changed;
-	struct route_map *route_map =
-		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	metric = strtoul(argv[idx_number]->arg, NULL, 10);
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP6, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
 
-	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
-	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP6, type,
-						metric);
-	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./rmap-policy-import", NB_OP_CREATE,
+			      argv[idx_word]->arg);
+	nb_cli_enqueue_change(vty, "./metric", NB_OP_CREATE,
+			      argv[idx_number]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFUN (bgp_redistribute_ipv6_metric_rmap,
-       bgp_redistribute_ipv6_metric_rmap_cmd,
-       "redistribute " FRR_IP6_REDIST_STR_BGPD " metric (0-4294967295) route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       FRR_IP6_REDIST_HELP_STR_BGPD
-       "Metric for redistributed routes\n"
-       "Default metric\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
+DEFUN_YANG(
+	bgp_redistribute_ipv6_metric_rmap,
+	bgp_redistribute_ipv6_metric_rmap_cmd,
+	"redistribute " FRR_IP6_REDIST_STR_BGPD
+	" metric (0-4294967295) route-map WORD",
+	"Redistribute information from another routing protocol\n" FRR_IP6_REDIST_HELP_STR_BGPD
+	"Metric for redistributed routes\n"
+	"Default metric\n"
+	"Route map reference\n"
+	"Pointer to route-map entries\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
-	int idx_number = 3;
 	int idx_word = 5;
-	int type;
-	uint32_t metric;
-	struct bgp_redist *red;
-	bool changed;
-	struct route_map *route_map =
-		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
+	int idx_number = 3;
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	metric = strtoul(argv[idx_number]->arg, NULL, 10);
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP6, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
 
-	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP6, SAFI_UNICAST,
-						metric);
-	changed |=
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
-	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./metric", NB_OP_CREATE,
+			      argv[idx_number]->arg);
+	nb_cli_enqueue_change(vty, "./rmap-policy-import", NB_OP_CREATE,
+			      argv[idx_word]->arg);
+
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-DEFUN (no_bgp_redistribute_ipv6,
-       no_bgp_redistribute_ipv6_cmd,
-       "no redistribute " FRR_IP6_REDIST_STR_BGPD " [{metric (0-4294967295)|route-map WORD}]",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       FRR_IP6_REDIST_HELP_STR_BGPD
-       "Metric for redistributed routes\n"
-       "Default metric\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
+DEFUN_YANG(
+	no_bgp_redistribute_ipv6,
+	no_bgp_redistribute_ipv6_cmd,
+	"no redistribute " FRR_IP6_REDIST_STR_BGPD
+	" [{metric (0-4294967295)|route-map WORD}]",
+	NO_STR
+	"Redistribute information from another routing protocol\n" FRR_IP6_REDIST_HELP_STR_BGPD
+	"Metric for redistributed routes\n"
+	"Default metric\n"
+	"Route map reference\n"
+	"Pointer to route-map entries\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 2;
-	int type;
+	char base_xpath[XPATH_MAXLEN];
 
-	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	snprintf(base_xpath, sizeof(base_xpath), FRR_BGP_AFI_SAFI_REDIST_XPATH,
+		 yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST),
+		 bgp_afi_safi_get_container_str(AFI_IP6, SAFI_UNICAST),
+		 argv[idx_protocol]->text, "0");
 
-	return bgp_redistribute_unset(bgp, AFI_IP6, type, 0);
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, base_xpath);
+}
+
+void cli_show_bgp_global_afi_safi_ip_unicast_redistribution_list(
+	struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t instance = 0;
+
+	vty_out(vty, "  redistribute %s",
+		yang_dnode_get_string(dnode, "./route-type"));
+	if ((instance = yang_dnode_get_uint16(dnode, "./route-instance")))
+		vty_out(vty, " %d", instance);
+	if (yang_dnode_exists(dnode, "./metric"))
+		vty_out(vty, " metric %u",
+			yang_dnode_get_uint32(dnode, "./metric"));
+	if (yang_dnode_exists(dnode, "./rmap-policy-import"))
+		vty_out(vty, " route-map %s",
+			yang_dnode_get_string(dnode, "./rmap-policy-import"));
+	vty_out(vty, "\n");
 }
 
 static void bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp,

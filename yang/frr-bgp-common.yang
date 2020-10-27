@@ -779,6 +779,48 @@ submodule frr-bgp-common {
       description
         "Apply route map to aggregate network.";
     }
+
+    leaf origin {
+      type enumeration {
+        enum "igp" {
+          value 0;
+          description
+            "Local IGP.";
+        }
+        enum "egp" {
+          value 1;
+          description
+            "Remote EGP.";
+        }
+        enum "incomplete" {
+          value 2;
+          description
+            "Unknown heritage.";
+        }
+        enum "unspecified" {
+          value 255;
+          description
+            "Unspecified.";
+        }
+      }
+      default "unspecified";
+      description
+        "BGP origin type.";
+    }
+
+    leaf match-med {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true' aggregate-route matches only
+         med.";
+    }
+
+    leaf suppress-map {
+      type string;
+      description
+        "Suppress more specific routes specified in route-map.";
+    }
   }
 
   grouping admin-distance {
@@ -791,6 +833,7 @@ submodule frr-bgp-common {
         type uint8 {
           range "1..255";
         }
+        default "20";
         description
           "Administrative distance for routes learned from
            external BGP (EBGP).";
@@ -800,6 +843,7 @@ submodule frr-bgp-common {
         type uint8 {
           range "1..255";
         }
+        default "200";
         description
           "Administrative distance for routes learned from
            internal BGP (IBGP).";
@@ -809,6 +853,7 @@ submodule frr-bgp-common {
         type uint8 {
           range "1..255";
         }
+        default "200";
         description
           "Administrative distance for routes learned from
            local.";
@@ -1017,6 +1062,7 @@ submodule frr-bgp-common {
       case import-export {
         uses rt-list;
       }
+
       case both {
         leaf-list rt-list {
           type rt-types:route-target;
@@ -1064,7 +1110,11 @@ submodule frr-bgp-common {
 
   grouping global-afi-safi-vpn-config {
     container vpn-config {
-      uses route-distinguisher-params;
+      leaf rd {
+        type string;
+        description
+          "Route distinguisher value as per RFC4364.";
+      }
 
       uses vpn-label-params;
 
