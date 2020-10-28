@@ -720,6 +720,64 @@ def test_evpn_df():
 
     # tgen.mininet_cli()
 
+def check_protodown_rc(dut, protodown_rc):
+    '''
+    check if specified protodown reason code is set
+    '''
+
+    out = dut.vtysh_cmd("show evpn json")
+
+    evpn_js = json.loads(out)
+    tmp_rc = evpn_js.get("protodownReasons", [])
+
+    if protodown_rc:
+        if protodown_rc not in tmp_rc:
+            return "protodown %s missing in %s" % (protodown_rc, tmp_rc)
+    else:
+        if tmp_rc:
+            return "unexpected protodown rc %s" % (tmp_rc)
+
+    return None
+
+def test_evpn_uplink_tracking():
+    '''
+    1. Wait for access ports to come out of startup-delay
+    2. disable uplinks and check if access ports have been protodowned
+    3. enable uplinks and check if access ports have been moved out
+       of protodown
+    '''
+
+    tgen = get_topogen()
+
+    dut_name = "torm11"
+    dut = tgen.gears[dut_name]
+
+    # wait for protodown rc to clear after startup
+    test_fn = partial(check_protodown_rc, dut, None)
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+    assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
+    assert result is None, assertmsg
+
+    # disable the uplinks
+    dut.run("ip link set %s-eth0 down" % dut_name)
+    dut.run("ip link set %s-eth1 down" % dut_name)
+
+    # check if the access ports have been protodowned
+    test_fn = partial(check_protodown_rc, dut, "uplinkDown")
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+    assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
+    assert result is None, assertmsg
+
+    # enable the uplinks
+    dut.run("ip link set %s-eth0 up" % dut_name)
+    dut.run("ip link set %s-eth1 up" % dut_name)
+
+    # check if the access ports have been moved out of protodown
+    test_fn = partial(check_protodown_rc, dut, None)
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+    assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
+    assert result is None, assertmsg
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
