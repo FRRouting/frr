@@ -1230,10 +1230,11 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi)
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("....examining peer %s flags 0x%" PRIx64
+			zlog_debug("....examining peer %s status %s flags 0x%" PRIx64
 				   " af_sflags 0x%x",
-				   peer->host, peer->flags,
-				   peer->af_sflags[afi][safi]);
+				   peer->host,
+				   lookup_msg(bgp_status_msg, peer->connection->status, NULL),
+				   peer->flags, peer->af_sflags[afi][safi]);
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) ||
 		    CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN) ||
 		    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
@@ -1242,6 +1243,7 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi)
 		if (!CHECK_FLAG(peer->af_sflags[afi][safi],
 				PEER_STATUS_GR_WAIT_EOR))
 			continue;
+
 		if (!CHECK_FLAG(peer->af_sflags[afi][safi],
 				PEER_STATUS_EOR_RECEIVED)) {
 			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
@@ -1283,12 +1285,17 @@ static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/*
 	 * When starting to defer the path-selection for an instance and
-	 * AFI/SAFI, mark that EOR is required from all peers. We can
-	 * simply mark all peers here, when we check we only consider the
-	 * relevant subset (i.e., skip disabled peers etc.)
+	 * AFI/SAFI, mark that EOR is required from all peers.
+	 * For non-established peers, simply mark EOR required, the flag
+	 * will be reset based on negotiated AFI/SAFI later on.
+	 * For established peers, the caller would have set this already
+	 * for negotiated AFI/SAFI.
 	 */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (peer->connection->status != Established)
+			SET_FLAG(peer->af_sflags[afi][safi],
+				 PEER_STATUS_GR_WAIT_EOR);
+	}
 
 	/* Start the timer */
 	thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
@@ -1361,8 +1368,13 @@ static void bgp_gr_process_peer_status_change(struct peer *peer)
 				     safi++) {
 					struct graceful_restart_info *gr_info;
 
-					if (!peer->afc_nego[afi][safi])
+					if (!peer->afc_nego[afi][safi]) {
+						UNSET_FLAG(
+							peer->af_sflags[afi]
+								       [safi],
+							PEER_STATUS_GR_WAIT_EOR);
 						continue;
+					}
 
 					SET_FLAG(peer->af_sflags[afi][safi],
 						 PEER_STATUS_GR_WAIT_EOR);
