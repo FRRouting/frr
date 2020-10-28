@@ -59,6 +59,11 @@ struct pbr_interface *pbr_if_new(struct interface *ifp)
 	return pbr_ifp;
 }
 
+void pbr_if_del(struct interface *ifp)
+{
+	XFREE(MTYPE_PBR_INTERFACE, ifp->info);
+}
+
 /* Inteface addition message from zebra. */
 int pbr_ifp_create(struct interface *ifp)
 {
