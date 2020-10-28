@@ -1368,7 +1368,9 @@ static void bgp_gr_process_peer_status_change(struct peer *peer)
 				     safi++) {
 					struct graceful_restart_info *gr_info;
 
-					if (!peer->afc_nego[afi][safi]) {
+					if (!peer->afc_nego[afi][safi] ||
+					    !bgp_gr_supported_for_afi_safi(
+						    afi, safi)) {
 						UNSET_FLAG(
 							peer->af_sflags[afi]
 								       [safi],
