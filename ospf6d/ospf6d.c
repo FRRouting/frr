@@ -1006,7 +1006,7 @@ DEFUN (show_ipv6_ospf6_border_routers,
 		if (strmatch(argv[idx_ipv4]->text, "detail")) {
 			for (ro = ospf6_route_head(ospf6->brouter_table); ro;
 			     ro = ospf6_route_next(ro))
-				ospf6_route_show_detail(vty, ro);
+				ospf6_route_show_detail(vty, ro, NULL, false);
 		} else {
 			inet_pton(AF_INET, argv[idx_ipv4]->arg, &adv_router);
 
@@ -1019,7 +1019,7 @@ DEFUN (show_ipv6_ospf6_border_routers,
 				return CMD_SUCCESS;
 			}
 
-			ospf6_route_show_detail(vty, ro);
+			ospf6_route_show_detail(vty, ro, NULL, false);
 			return CMD_SUCCESS;
 		}
 	} else {

@@ -240,6 +240,21 @@ Showing OSPF6 information
    Shows the routes which are redistributed by the router. JSON output can
    be obtained by appending 'json' at the end.
 
+.. index:: show ipv6 ospf6 route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>] [json]
+.. clicmd:: show ipv6 ospf6 route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>] [json]
+
+   This command displays the ospfv3 routing table as determined by the most
+   recent SPF calculations. Options are provided to view the different types
+   of routes. Other than the standard view there are two other options, detail
+   and summary. JSON output can be obtained by appending 'json' to the end of
+   command.
+
+.. index:: show ipv6 ospf6 route X:X::X:X/M match [detail] [json]
+.. clicmd:: show ipv6 ospf6 route X:X::X:X/M match [detail] [json]
+
+   The additional match option will match the given address to the destination
+   of the routes, and return the result accordingly.
+
 OSPF6 Configuration Examples
 ============================
 

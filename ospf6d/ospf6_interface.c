@@ -1447,8 +1447,8 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
 		return CMD_WARNING;
 	}
 
-	ospf6_route_table_show(vty, idx_prefix, argc, argv,
-			       oi->route_connected);
+	ospf6_route_table_show(vty, idx_prefix, argc, argv, oi->route_connected,
+			       false);
 
 	return CMD_SUCCESS;
 }
@@ -1482,7 +1482,7 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
 			continue;
 
 		ospf6_route_table_show(vty, idx_prefix, argc, argv,
-				       oi->route_connected);
+				       oi->route_connected, false);
 	}
 
 	return CMD_SUCCESS;
