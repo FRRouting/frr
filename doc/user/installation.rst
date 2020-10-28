@@ -273,15 +273,15 @@ options from the list below.
    With this option, we provide a way to strip out these characters for APK dev
    package builds.
 
-..option:: --disable-version-build-config
+.. option:: --disable-version-build-config
 
    Remove the "configuerd with" field that has all of the build configuration
    arguments when reporting the version string in `show version` command.
 
-..option:: --with-pkg-extra-version=VER
+.. option:: --with-pkg-extra-version=VER
    Add extra version field, for packagers/distributions
 
-..option::  --with-pkg-git-version
+.. option::  --with-pkg-git-version
 
    Add git information to MOTD and build version string
 
@@ -354,6 +354,10 @@ options from the list below.
 .. option:: --enable-pcreposix
 
    Turn on the usage of PCRE Posix libs for regex functionality.
+
+.. option:: --enable-rpath
+
+   Set hardcoded rpaths in the executable [default=yes].
 
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
