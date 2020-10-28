@@ -1309,7 +1309,7 @@ static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 	 * for negotiated AFI/SAFI.
 	 */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (peer->connection->status != Established)
+		if (peer_established(peer->connection))
 			SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
 	}
 
@@ -1375,7 +1375,8 @@ static void bgp_gr_process_peer_status_change(struct peer *peer)
 				for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
 					struct graceful_restart_info *gr_info;
 
-					if (!peer->afc_nego[afi][safi]) {
+					if (!peer->afc_nego[afi][safi] ||
+					    !bgp_gr_supported_for_afi_safi(afi, safi)) {
 						UNSET_FLAG(peer->af_sflags[afi][safi],
 							   PEER_STATUS_GR_WAIT_EOR);
 						continue;

@@ -2246,7 +2246,8 @@ static void bgp_update_receive_eor(struct bgp *bgp, struct peer *peer, afi_t afi
 
 		/* graceful-restart related processing */
 		UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
-		if (bgp->t_startup || bgp_in_graceful_restart()) {
+		if ((bgp->t_startup || bgp_in_graceful_restart()) &&
+		    bgp_gr_supported_for_afi_safi(afi, safi)) {
 			struct graceful_restart_info *gr_info;
 
 			gr_info = &(bgp->gr_info[afi][safi]);
