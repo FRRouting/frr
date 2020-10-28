@@ -1259,6 +1259,32 @@ void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 	}
 }
 
+static void bgp_gr_mark_for_deferred_selection(struct bgp *bgp)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	/*
+	 * Mark all peers in the instance for EOR wait for the
+	 * AFI/SAFI supported for GR.
+	 */
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN;
+			     safi++) {
+				if (bgp_gr_supported_for_afi_safi(afi, safi))
+					SET_FLAG(peer->af_sflags[afi][safi],
+						 PEER_STATUS_GR_WAIT_EOR);
+				else
+					UNSET_FLAG(peer->af_sflags[afi][safi],
+						   PEER_STATUS_GR_WAIT_EOR);
+			}
+		}
+	}
+}
+
 /*
  * Start the selection deferral timer thread for the specified AFI, SAFI,
  * mark peers from whom we need an EOR and inform zebra
@@ -1266,8 +1292,6 @@ void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 				     struct graceful_restart_info *gr_info)
 {
-	struct listnode *node, *nnode;
-	struct peer *peer;
 	struct afi_safi_info *thread_info;
 
 	/*
@@ -1278,11 +1302,6 @@ static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 	 * For established peers, the caller would have set this already
 	 * for negotiated AFI/SAFI.
 	 */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (peer->connection->status != Established)
-			SET_FLAG(peer->af_sflags[afi][safi],
-				 PEER_STATUS_GR_WAIT_EOR);
-	}
 
 	/* Start the timer */
 	thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
@@ -1307,6 +1326,62 @@ static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 			   bgp->select_defer_time);
 }
 
+static void bgp_gr_process_peer_up_ignore(struct bgp *bgp, struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+
+	/*
+	 * If peer has restarted, GR is disabled for peer or not negotiated
+	 * with the peer, we have to ignore this peer for EOR-wait. This
+	 * might also be the last peer we were waiting for, so check if
+	 * we can move forward with path-selection.
+	 */
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
+			UNSET_FLAG(peer->af_sflags[afi][safi],
+				   PEER_STATUS_GR_WAIT_EOR);
+			if (bgp_gr_supported_for_afi_safi(afi, safi))
+				bgp_gr_check_path_select(bgp, afi, safi);
+		}
+	}
+}
+
+static void bgp_gr_process_peer_up_include(struct bgp *bgp, struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+	struct graceful_restart_info *gr_info;
+
+	/*
+	 * If peer has not restarted and is potentially a valid Helper,
+	 * we need to wait for EOR from the peer for each AFI/SAFI that
+	 * has been negotiated. This should also start the path selection
+	 * deferral, if not yet done. OTOH, for non-negotiated AFI/SAFI,
+	 * we need to check if path-selection can proceed.
+	 */
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
+			if (!peer->afc_nego[afi][safi]) {
+				UNSET_FLAG(peer->af_sflags[afi][safi],
+					   PEER_STATUS_GR_WAIT_EOR);
+				if (bgp_gr_supported_for_afi_safi(afi, safi))
+					bgp_gr_check_path_select(bgp, afi, safi);
+			} else if (!bgp_gr_supported_for_afi_safi(afi, safi)) {
+				UNSET_FLAG(peer->af_sflags[afi][safi],
+					   PEER_STATUS_GR_WAIT_EOR);
+			} else {
+				SET_FLAG(peer->af_sflags[afi][safi],
+					 PEER_STATUS_GR_WAIT_EOR);
+				gr_info = &(bgp->gr_info[afi][safi]);
+				if (!gr_info->t_select_deferral)
+					bgp_start_deferral_timer(bgp, afi, safi,
+								 gr_info);
+			}
+		}
+	}
+}
+
 static void bgp_gr_process_peer_status_change(struct peer *peer)
 {
 	struct bgp *bgp;
@@ -1315,6 +1390,22 @@ static void bgp_gr_process_peer_status_change(struct peer *peer)
 
 	bgp = peer->bgp;
 	if (peer->connection->status == Established) {
+		/*
+		 * If we haven't yet evaluated for path selection deferral,
+		 * do it now.
+		 */
+		if (!bgp->gr_select_defer_evaluated) {
+			bgp_gr_mark_for_deferred_selection(bgp);
+			bgp->gr_select_defer_evaluated = true;
+		}
+
+		/*
+		 * Peer has come up. We need to figure out if we need to
+		 * wait for EOR from this peer for negotiated AFI/SAFI
+		 * and potentially start deferred path selection. For any
+		 * non-negotiated AFI/SAFI or if the peer has restarted etc.,
+		 * evaluate if path-selection deferral should end
+		 */
 		if (CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV) ||
 		    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) ||
 		    !BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)) {
@@ -1325,51 +1416,9 @@ static void bgp_gr_process_peer_status_change(struct peer *peer)
 					   bgp->name_pretty, peer->host,
 					   peer->cap, peer->flags);
 
-			/*
-			 * If peer has restarted, GR is disabled for peer
-			 * or not negotiated with the peer, do not require
-			 * EOR from this peer for any AFI/SAFI. Also, see
-			 * if we can move forward with path-selection.
-			 */
-			for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-				for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN;
-				     safi++) {
-					UNSET_FLAG(peer->af_sflags[afi][safi],
-						   PEER_STATUS_GR_WAIT_EOR);
-					bgp_gr_check_path_select(bgp, afi, safi);
-				}
-			}
+			bgp_gr_process_peer_up_ignore(bgp, peer);
 		} else {
-			/*
-			 * Peer has not restarted and is acting as a Helper,
-			 * we need to wait for EOR from the peer for each
-			 * AFI/SAFI negotiated. This should also start the
-			 * path selection deferral, if not yet done.
-			 */
-			for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-				for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN;
-				     safi++) {
-					struct graceful_restart_info *gr_info;
-
-					if (!peer->afc_nego[afi][safi] ||
-					    !bgp_gr_supported_for_afi_safi(afi,
-									   safi)) {
-						UNSET_FLAG(peer->af_sflags[afi]
-									  [safi],
-							   PEER_STATUS_GR_WAIT_EOR);
-						continue;
-					}
-
-					SET_FLAG(peer->af_sflags[afi][safi],
-						 PEER_STATUS_GR_WAIT_EOR);
-					gr_info = &(bgp->gr_info[afi][safi]);
-					if (!gr_info->t_select_deferral)
-						bgp_start_deferral_timer(bgp,
-									 afi,
-									 safi,
-									 gr_info);
-				}
-			}
+			bgp_gr_process_peer_up_include(bgp, peer);
 		}
 	} else if (peer->connection->ostatus == Established) {
 		/*
@@ -1398,6 +1447,8 @@ static bool gr_path_select_deferral_applicable(struct bgp *bgp)
 		return false;
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
+			if (!bgp_gr_supported_for_afi_safi(afi, safi))
+				continue;
 			gr_info = &(bgp->gr_info[afi][safi]);
 			if (!gr_info->select_defer_over)
 				return true;

@@ -562,6 +562,11 @@ struct bgp {
 	 */
 	enum zebra_gr_mode present_zebra_gr_state;
 
+	/* Is deferred path selection evaluated? Currently, this is done
+	 * upon first peer establishing in an instance.
+	 */
+	bool gr_select_defer_evaluated;
+
 	/* Is deferred path selection still not complete? */
 	bool gr_route_sync_pending;
 
