@@ -1219,8 +1219,8 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi)
 			zlog_debug("....examining peer %s status %s flags 0x%" PRIx64
 				   " af_sflags 0x%x",
 				   peer->host,
-				   lookup_msg(bgp_status_msg, peer->status,
-					      NULL),
+				   lookup_msg(bgp_status_msg,
+					      peer->connection->status, NULL),
 				   peer->flags, peer->af_sflags[afi][safi]);
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) ||
 		    CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN) ||
@@ -1279,7 +1279,7 @@ static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 	 * for negotiated AFI/SAFI.
 	 */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (peer->status != Established)
+		if (peer->connection->status != Established)
 			SET_FLAG(peer->af_sflags[afi][safi],
 				 PEER_STATUS_GR_WAIT_EOR);
 	}
@@ -1351,7 +1351,9 @@ static void bgp_gr_process_peer_status_change(struct peer *peer)
 				     safi++) {
 					struct graceful_restart_info *gr_info;
 
-					if (!peer->afc_nego[afi][safi]) {
+					if (!peer->afc_nego[afi][safi] ||
+					    !bgp_gr_supported_for_afi_safi(afi,
+									   safi)) {
 						UNSET_FLAG(peer->af_sflags[afi]
 									  [safi],
 							   PEER_STATUS_GR_WAIT_EOR);

@@ -1631,6 +1631,8 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 
 			if (!peer->afc[afi][safi])
 				continue;
+			if (!bgp_gr_supported_for_afi_safi(afi, safi))
+				continue;
 
 			/* Convert AFI, SAFI to values for
 			 * packet.
