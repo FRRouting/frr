@@ -135,6 +135,8 @@ FRR_CFG_DEFAULT_BOOL(BGP_ENFORCE_FIRST_AS,
 	{ .val_bool = true },
 );
 
+extern const char *bgp_global_gr_mode_str[];
+
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty));
@@ -11341,6 +11343,35 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 						       bgp->vrf_id),
 					&bgp->rmac);
 			}
+			if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART)) {
+				afi_t afi;
+				safi_t safi = SAFI_UNICAST;
+				struct graceful_restart_info *gr_info;
+
+				for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+					vty_out(vty, "For address-family %s:\n",
+						get_afi_safi_str(afi, safi,
+								 false));
+					gr_info = &(bgp->gr_info[afi][safi]);
+					vty_out(vty,
+						"  GR enabled %s Path Selection Deferral %s\n",
+						gr_info->af_enabled ? "YES"
+								    : "NO",
+						gr_info->select_defer_over
+							? "DONE"
+							: "IN-PROGRESS");
+
+					if (gr_info->t_select_deferral)
+						vty_out(vty,
+							"  Path selection deferral timer running, remaining time %lus\n",
+							event_timer_remain_second(
+								gr_info->t_select_deferral));
+				}
+				vty_out(vty, "Route sync with zebra %s\n",
+					bgp->gr_route_sync_pending
+						? "pending"
+						: "completed");
+			}
 		}
 	} else {
 		if (json) {
@@ -11466,6 +11497,33 @@ DEFPY (show_bgp_vrfs,
 				"\nTotal number of VRFs (including default): %d\n",
 				count);
 	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_bgp_router,
+       show_bgp_router_cmd,
+       "show bgp router",
+       SHOW_STR
+       BGP_STR
+       "Overall BGP information\n")
+{
+	char timebuf[BGP_UPTIME_LEN];
+
+	time_to_string(bm->startup_time, timebuf);
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART)) {
+		vty_out(vty, "BGP started gracefully at %s", timebuf);
+		if (CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE)) {
+			time_to_string(bm->gr_completion_time, timebuf);
+			vty_out(vty, "Graceful restart completed at %s",
+				timebuf);
+		} else
+			vty_out(vty, "Graceful restart is in progress\n");
+	} else
+		vty_out(vty, "BGP started at %s", timebuf);
+
+	vty_out(vty, "Number of BGP instances (including default): %d\n",
+		listcount(bm->bgp));
 
 	return CMD_SUCCESS;
 }
@@ -21838,6 +21896,9 @@ void bgp_vty_init(void)
 
 	/* "show [ip] bgp vrfs" commands. */
 	install_element(VIEW_NODE, &show_bgp_vrfs_cmd);
+
+	/* BGP-wide show */
+	install_element(VIEW_NODE, &show_bgp_router_cmd);
 
 	/* Community-list. */
 	community_list_vty();
