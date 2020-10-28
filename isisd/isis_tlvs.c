@@ -2400,11 +2400,11 @@ static int unpack_tlv_threeway_adj(enum isis_tlv_context context,
 }
 
 /* Functions related to TLVs 236/237 IPv6/MT-IPv6 reach */
-
 static struct isis_item *copy_item_ipv6_reach(struct isis_item *i)
 {
 	struct isis_ipv6_reach *r = (struct isis_ipv6_reach *)i;
 	struct isis_ipv6_reach *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
 	rv->metric = r->metric;
 	rv->down = r->down;
 	rv->external = r->external;
@@ -2573,10 +2573,12 @@ out:
 static struct isis_router_cap *copy_tlv_router_cap(
 			       const struct isis_router_cap *router_cap)
 {
-	struct isis_router_cap *rv = XMALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+	struct isis_router_cap *rv;
 
 	if (!router_cap)
 		return NULL;
+
+	rv = XMALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	memcpy(rv, router_cap, sizeof(*rv));
 
@@ -4412,11 +4414,19 @@ static void tlvs_area_addresses_to_adj(struct isis_tlvs *tlvs,
 				       bool *changed)
 {
 	if (adj->area_address_count != tlvs->area_addresses.count) {
+		uint32_t oc = adj->area_address_count;
+
 		*changed = true;
 		adj->area_address_count = tlvs->area_addresses.count;
 		adj->area_addresses = XREALLOC(
 			MTYPE_ISIS_ADJACENCY_INFO, adj->area_addresses,
 			adj->area_address_count * sizeof(*adj->area_addresses));
+
+		for (; oc < adj->area_address_count; oc++) {
+			adj->area_addresses[oc].addr_len = 0;
+			memset(&adj->area_addresses[oc].area_addr, 0,
+			       sizeof(adj->area_addresses[oc].area_addr));
+		}
 	}
 
 	struct isis_area_address *addr = NULL;
@@ -4494,11 +4504,18 @@ static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs,
 		hook_call(isis_adj_ip_disabled_hook, adj, AF_INET);
 
 	if (adj->ipv4_address_count != tlvs->ipv4_address.count) {
+		uint32_t oc = adj->ipv4_address_count;
+
 		*changed = true;
 		adj->ipv4_address_count = tlvs->ipv4_address.count;
 		adj->ipv4_addresses = XREALLOC(
 			MTYPE_ISIS_ADJACENCY_INFO, adj->ipv4_addresses,
 			adj->ipv4_address_count * sizeof(*adj->ipv4_addresses));
+
+		for (; oc < adj->ipv4_address_count; oc++) {
+			memset(&adj->ipv4_addresses[oc], 0,
+			       sizeof(adj->ipv4_addresses[oc]));
+		}
 	}
 
 	struct isis_ipv4_address *addr = NULL;
@@ -4533,11 +4550,18 @@ static void tlvs_ipv6_addresses_to_adj(struct isis_tlvs *tlvs,
 		hook_call(isis_adj_ip_disabled_hook, adj, AF_INET6);
 
 	if (adj->ipv6_address_count != tlvs->ipv6_address.count) {
+		uint32_t oc = adj->ipv6_address_count;
+
 		*changed = true;
 		adj->ipv6_address_count = tlvs->ipv6_address.count;
 		adj->ipv6_addresses = XREALLOC(
 			MTYPE_ISIS_ADJACENCY_INFO, adj->ipv6_addresses,
 			adj->ipv6_address_count * sizeof(*adj->ipv6_addresses));
+
+		for (; oc < adj->ipv6_address_count; oc++) {
+			memset(&adj->ipv6_addresses[oc], 0,
+			       sizeof(adj->ipv6_addresses[oc]));
+		}
 	}
 
 	struct isis_ipv6_address *addr = NULL;

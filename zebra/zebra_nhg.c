@@ -2691,6 +2691,30 @@ void zebra_nhg_sweep_table(struct hash *hash)
 	hash_iterate(hash, zebra_nhg_sweep_entry, NULL);
 }
 
+static void zebra_nhg_mark_keep_entry(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe = bucket->data;
+
+	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+}
+
+/*
+ * When we are shutting down and we have retain mode enabled
+ * in zebra the process is to mark each vrf that it's
+ * routes should not be deleted.  The problem with that
+ * is that shutdown actually free's up memory which
+ * causes the nexthop group's ref counts to go to zero
+ * we need a way to subtly tell the system to not remove
+ * the nexthop groups from the kernel at the same time.
+ * The easiest just looks like that we should not mark
+ * the nhg's as installed any more and when the ref count
+ * goes to zero we'll attempt to delete and do nothing
+ */
+void zebra_nhg_mark_keep(void)
+{
+	hash_iterate(zrouter.nhgs_id, zebra_nhg_mark_keep_entry, NULL);
+}
+
 /* Global control to disable use of kernel nexthops, if available. We can't
  * force the kernel to support nexthop ids, of course, but we can disable
  * zebra's use of them, for testing e.g. By default, if the kernel supports

@@ -576,8 +576,6 @@ extern void ospf_area_del_if(struct ospf_area *, struct ospf_interface *);
 
 extern void ospf_interface_area_set(struct ospf *, struct interface *);
 extern void ospf_interface_area_unset(struct ospf *, struct interface *);
-extern bool ospf_interface_area_is_already_set(struct ospf *ospf,
-					       struct interface *ifp);
 
 extern void ospf_route_map_init(void);
 

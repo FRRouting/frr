@@ -5300,6 +5300,7 @@ DEFUN (no_bgp_evpn_vrf_rt,
 	if (rt_type == RT_TYPE_IMPORT) {
 		if (!bgp_evpn_rt_matches_existing(bgp->vrf_import_rtl,
 						  ecomdel)) {
+			ecommunity_free(&ecomdel);
 			vty_out(vty,
 				"%% RT specified does not match configuration for this VRF\n");
 			return CMD_WARNING;
@@ -5308,6 +5309,7 @@ DEFUN (no_bgp_evpn_vrf_rt,
 	} else if (rt_type == RT_TYPE_EXPORT) {
 		if (!bgp_evpn_rt_matches_existing(bgp->vrf_export_rtl,
 						  ecomdel)) {
+			ecommunity_free(&ecomdel);
 			vty_out(vty,
 				"%% RT specified does not match configuration for this VRF\n");
 			return CMD_WARNING;
@@ -5329,12 +5331,14 @@ DEFUN (no_bgp_evpn_vrf_rt,
 		}
 
 		if (!found_ecomdel) {
+			ecommunity_free(&ecomdel);
 			vty_out(vty,
 				"%% RT specified does not match configuration for this VRF\n");
 			return CMD_WARNING;
 		}
 	}
 
+	ecommunity_free(&ecomdel);
 	return CMD_SUCCESS;
 }
 

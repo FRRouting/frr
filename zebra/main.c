@@ -171,12 +171,14 @@ static void sigint(void)
 
 	zebra_ptm_finish();
 
-	if (retain_mode)
+	if (retain_mode) {
+		zebra_nhg_mark_keep();
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			zvrf = vrf->info;
 			if (zvrf)
 				SET_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN);
 		}
+	}
 	if (zrouter.lsp_process_q)
 		work_queue_free_and_null(&zrouter.lsp_process_q);
 

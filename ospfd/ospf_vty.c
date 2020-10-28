@@ -212,9 +212,6 @@ DEFUN_NOSH (router_ospf,
 	struct ospf *ospf = NULL;
 	int ret = CMD_SUCCESS;
 	unsigned short instance = 0;
-	struct vrf *vrf = NULL;
-	struct route_node *rn;
-	struct interface *ifp;
 
 	ospf = ospf_cmd_lookup_ospf(vty, argv, argc, 1, &instance);
 	if (!ospf)
@@ -226,46 +223,12 @@ DEFUN_NOSH (router_ospf,
 		VTY_PUSH_CONTEXT_NULL(OSPF_NODE);
 		ret = CMD_NOT_MY_INSTANCE;
 	} else {
-		if (ospf->vrf_id != VRF_UNKNOWN)
-			ospf->oi_running = 1;
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"Config command 'router ospf %d' received, vrf %s id %u oi_running %u",
 				instance, ospf->name ? ospf->name : "NIL",
 				ospf->vrf_id, ospf->oi_running);
 		VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
-
-		/* Activate 'ip ospf area x' configured interfaces for given
-		 * vrf. Activate area on vrf x aware interfaces.
-		 * vrf_enable callback calls router_id_update which
-		 * internally will call ospf_if_update to trigger
-		 * network_run_state
-		 */
-		vrf = vrf_lookup_by_id(ospf->vrf_id);
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			struct ospf_if_params *params;
-
-			params = IF_DEF_PARAMS(ifp);
-			if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
-				for (rn = route_top(ospf->networks); rn;
-				     rn = route_next(rn)) {
-					if (rn->info != NULL) {
-						vty_out(vty,
-							"Interface %s has area config but please remove all network commands first.\n",
-							ifp->name);
-						return ret;
-					}
-				}
-				if (!ospf_interface_area_is_already_set(ospf,
-									ifp)) {
-					ospf_interface_area_set(ospf, ifp);
-					ospf->if_ospf_cli_count++;
-				}
-			}
-		}
-
-		ospf_router_id_update(ospf);
 	}
 
 	return ret;
@@ -1444,6 +1407,8 @@ DEFUN (ospf_area_stub,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* Flush the external LSAs from the specified area */
+	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
 	ospf_area_no_summary_unset(ospf, area_id);
 
 	return CMD_SUCCESS;
@@ -1566,6 +1531,8 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 			ospf_area_no_summary_unset(ospf, area_id);
 	}
 
+	/* Flush the external LSA for the specified area */
+	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
 	ospf_schedule_abr_task(ospf);
 
 	return CMD_SUCCESS;
@@ -1671,6 +1638,8 @@ DEFUN (no_ospf_area_nssa,
 	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
 				   argv[idx_ipv4_number]->arg);
 
+	/* Flush the NSSA LSA for the specified area */
+	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_NSSA_LSA);
 	ospf_area_nssa_unset(ospf, area_id, argc);
 
 	ospf_schedule_abr_task(ospf);
@@ -8052,6 +8021,7 @@ DEFUN (ip_ospf_area,
 	struct ospf *ospf = NULL;
 	unsigned short instance = 0;
 	char *areaid;
+	uint32_t count = 0;
 
 	if (argv_find(argv, argc, "(1-65535)", &idx))
 		instance = strtol(argv[idx]->arg, NULL, 10);
@@ -8065,13 +8035,39 @@ DEFUN (ip_ospf_area,
 		ospf = ospf_lookup_instance(instance);
 
 	if (instance && ospf == NULL) {
+		/*
+		 * At this point we know we have received
+		 * an instance and there is no ospf instance
+		 * associated with it.  This means we are
+		 * in a situation where we have an
+		 * ospf command that is setup for a different
+		 * process(instance).  We need to safely
+		 * remove the command from ourselves and
+		 * allow the other instance(process) handle
+		 * the configuration command.
+		 */
+		count = 0;
+
 		params = IF_DEF_PARAMS(ifp);
 		if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
 			UNSET_IF_PARAM(params, if_area);
-			ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-			ospf_interface_area_unset(ospf, ifp);
-			ospf->if_ospf_cli_count--;
+			count++;
 		}
+
+		for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn; rn = route_next(rn))
+			if ((params = rn->info) && OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
+				UNSET_IF_PARAM(params, if_area);
+				count++;
+			}
+
+		if (count > 0) {
+			ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
+			if (ospf) {
+				ospf_interface_area_unset(ospf, ifp);
+				ospf->if_ospf_cli_count -= count;
+			}
+		}
+
 		return CMD_NOT_MY_INSTANCE;
 	}
 
@@ -8083,6 +8079,16 @@ DEFUN (ip_ospf_area,
 	if (memcmp(ifp->name, "VLINK", 5) == 0) {
 		vty_out(vty, "Cannot enable OSPF on a virtual link.\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (ospf) {
+		for (rn = route_top(ospf->networks); rn; rn = route_next(rn)) {
+			if (rn->info != NULL) {
+				vty_out(vty,
+					"Please remove all network commands first.\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
 	}
 
 	params = IF_DEF_PARAMS(ifp);
@@ -8104,20 +8110,10 @@ DEFUN (ip_ospf_area,
 		params = ospf_get_if_params((ifp), (addr));
 		if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
 			vty_out(vty,
-				"Must remove previous area/address config before changing ospf area");
+				"Must remove previous area/address config before changing ospf area\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		ospf_if_update_params((ifp), (addr));
-	}
-
-	if (ospf) {
-		for (rn = route_top(ospf->networks); rn; rn = route_next(rn)) {
-			if (rn->info != NULL) {
-				vty_out(vty,
-					"Please remove all network commands first.\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-		}
 	}
 
 	/* enable ospf on this interface with area_id */
@@ -8162,7 +8158,7 @@ DEFUN (no_ip_ospf_area,
 	else
 		ospf = ospf_lookup_instance(instance);
 
-	if (ospf == NULL)
+	if (instance && ospf == NULL)
 		return CMD_NOT_MY_INSTANCE;
 
 	argv_find(argv, argc, "area", &idx);
@@ -8192,8 +8188,11 @@ DEFUN (no_ip_ospf_area,
 		ospf_if_update_params((ifp), (addr));
 	}
 
-	ospf_interface_area_unset(ospf, ifp);
-	ospf->if_ospf_cli_count--;
+	if (ospf) {
+		ospf_interface_area_unset(ospf, ifp);
+		ospf->if_ospf_cli_count--;
+	}
+
 	return CMD_SUCCESS;
 }
 

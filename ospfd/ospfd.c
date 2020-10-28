@@ -380,6 +380,8 @@ struct ospf *ospf_lookup_by_inst_name(unsigned short instance, const char *name)
 struct ospf *ospf_get(unsigned short instance, const char *name, bool *created)
 {
 	struct ospf *ospf;
+	struct vrf *vrf;
+	struct interface *ifp;
 
 	/* vrf name provided call inst and name based api
 	 * in case of no name pass default ospf instance */
@@ -393,10 +395,39 @@ struct ospf *ospf_get(unsigned short instance, const char *name, bool *created)
 		ospf = ospf_new(instance, name);
 		ospf_add(ospf);
 
-		if (ospf->router_id_static.s_addr == INADDR_ANY)
-			ospf_router_id_update(ospf);
-
 		ospf_opaque_type11_lsa_init(ospf);
+
+		if (ospf->vrf_id != VRF_UNKNOWN)
+			ospf->oi_running = 1;
+
+		/* Activate 'ip ospf area x' configured interfaces for given
+		 * vrf. Activate area on vrf x aware interfaces.
+		 * vrf_enable callback calls router_id_update which
+		 * internally will call ospf_if_update to trigger
+		 * network_run_state
+		 */
+		vrf = vrf_lookup_by_id(ospf->vrf_id);
+
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			struct ospf_if_params *params;
+			struct route_node *rn;
+			uint32_t count = 0;
+
+			params = IF_DEF_PARAMS(ifp);
+			if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
+				count++;
+
+			for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn; rn = route_next(rn))
+				if ((params = rn->info) && OSPF_IF_PARAM_CONFIGURED(params, if_area))
+					count++;
+
+			if (count > 0) {
+				ospf_interface_area_set(ospf, ifp);
+				ospf->if_ospf_cli_count += count;
+			}
+		}
+
+		ospf_router_id_update(ospf);
 	}
 
 	return ospf;
@@ -411,9 +442,6 @@ struct ospf *ospf_get_instance(unsigned short instance, bool *created)
 	if (ospf == NULL) {
 		ospf = ospf_new(instance, NULL /* VRF_DEFAULT*/);
 		ospf_add(ospf);
-
-		if (ospf->router_id_static.s_addr == INADDR_ANY)
-			ospf_router_id_update(ospf);
 
 		ospf_opaque_type11_lsa_init(ospf);
 	}
@@ -580,7 +608,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	struct route_node *rn;
 	struct ospf_nbr_nbma *nbr_nbma;
 	struct ospf_lsa *lsa;
-	struct interface *ifp;
 	struct ospf_interface *oi;
 	struct ospf_area *area;
 	struct ospf_vl_data *vl_data;
@@ -618,15 +645,6 @@ static void ospf_finish_final(struct ospf *ospf)
 		ospf_vl_delete(ospf, vl_data);
 
 	list_delete(&ospf->vlinks);
-
-	/* Remove any ospf interface config params */
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		struct ospf_if_params *params;
-
-		params = IF_DEF_PARAMS(ifp);
-		if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
-			UNSET_IF_PARAM(params, if_area);
-	}
 
 	/* Reset interface. */
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi))
@@ -1127,32 +1145,6 @@ void ospf_interface_area_unset(struct ospf *ospf, struct interface *ifp)
 
 	/* Update connected redistribute. */
 	update_redistributed(ospf, 0); /* interfaces possibly removed */
-}
-
-bool ospf_interface_area_is_already_set(struct ospf *ospf,
-					struct interface *ifp)
-{
-	struct route_node *rn_oi;
-
-	if (!ospf)
-		return false; /* Ospf not ready yet */
-
-	/* Find interfaces that may need to be removed. */
-	for (rn_oi = route_top(IF_OIFS(ifp)); rn_oi;
-	     rn_oi = route_next(rn_oi)) {
-		struct ospf_interface *oi = rn_oi->info;
-
-		if (oi == NULL)
-			continue;
-
-		if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-			continue;
-		/* at least one route covered by interface
-		 * that implies already done
-		 */
-		return true;
-	}
-	return false;
 }
 
 /* Check whether interface matches given network

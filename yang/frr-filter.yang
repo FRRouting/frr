@@ -158,9 +158,17 @@ module frr-filter {
                   description "Host to match";
                   type inet:ipv4-address;
                 }
-                leaf network {
-                  description "Network to match";
-                  type inet:ipv4-prefix;
+                container network {
+                  leaf address {
+                    mandatory true;
+                    description "Network address part.";
+                    type inet:ipv4-address;
+                  }
+                  leaf mask {
+                    mandatory true;
+                    description "Network mask/wildcard part.";
+                    type inet:ipv4-address;
+                  }
                 }
                 leaf source-any {
                   /*
@@ -178,9 +186,17 @@ module frr-filter {
                     description "Host to match";
                     type inet:ipv4-address;
                   }
-                  leaf destination-network {
-                    description "Network to match";
-                    type inet:ipv4-prefix;
+                  container destination-network {
+                    leaf address {
+                      mandatory true;
+                      description "Network address part.";
+                      type inet:ipv4-address;
+                    }
+                    leaf mask {
+                      mandatory true;
+                      description "Network mask/wildcard part.";
+                      type inet:ipv4-address;
+                    }
                   }
                   leaf destination-any {
                     description "Match any";
