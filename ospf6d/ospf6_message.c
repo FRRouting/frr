@@ -1701,7 +1701,7 @@ static void ospf6_send(struct in6_addr *src, struct in6_addr *dst,
 
 	/* send message */
 	if (oi->area->ospf6->fd != -1) {
-		len = ospf6_sendmsg(src, dst, &oi->interface->ifindex, iovector,
+		len = ospf6_sendmsg(src, dst, oi->interface->ifindex, iovector,
 				    oi->area->ospf6->fd);
 		if (len != ntohs(oh->length))
 			flog_err(EC_LIB_DEVELOPMENT,

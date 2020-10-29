@@ -28,9 +28,11 @@ extern int ospf6_serv_sock(struct ospf6 *ospf6);
 extern void ospf6_serv_close(int *ospf6_sock);
 extern int ospf6_sso(ifindex_t ifindex, struct in6_addr *group, int option);
 
-extern int ospf6_sendmsg(struct in6_addr *, struct in6_addr *, ifindex_t *,
-			 struct iovec *, int ospf6_sock);
-extern int ospf6_recvmsg(struct in6_addr *, struct in6_addr *, ifindex_t *,
-			 struct iovec *, int ospf6_sock);
+extern int ospf6_sendmsg(struct in6_addr *src, struct in6_addr *dst,
+			 ifindex_t ifindex, struct iovec *message,
+			 int ospf6_sock);
+extern int ospf6_recvmsg(struct in6_addr *src, struct in6_addr *dst,
+			 ifindex_t *ifindex, struct iovec *message,
+			 int ospf6_sock);
 
 #endif /* OSPF6_NETWORK_H */
