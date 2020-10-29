@@ -3324,6 +3324,14 @@ int bgp_delete(struct bgp *bgp)
 
 	assert(bgp);
 
+	/* make sure we withdraw any exported routes */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
+			   bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
+			   bgp);
+
+	bgp_vpn_leak_unimport(bgp);
+
 	hook_call(bgp_inst_delete, bgp);
 
 	THREAD_OFF(bgp->t_startup);
