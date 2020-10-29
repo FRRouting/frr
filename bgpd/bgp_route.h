@@ -680,4 +680,5 @@ extern int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi);
 extern bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				       uint8_t type, uint8_t stype,
 				       struct attr *attr, struct bgp_node *rn);
+void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr);
 #endif /* _QUAGGA_BGP_ROUTE_H */
