@@ -173,7 +173,6 @@ int bgp_router_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_APPLY:
 		bgp = nb_running_unset_entry(args->dnode);
 
-		bgp_vpn_leak_unimport(bgp);
 		bgp_delete(bgp);
 
 		break;
