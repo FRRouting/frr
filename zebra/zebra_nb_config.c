@@ -1552,7 +1552,7 @@ int lib_route_map_entry_set_action_source_v4_modify(
 		}
 		if (pif == NULL) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "is not a local adddress: %s",
+				 "is not a local address: %s",
 				 yang_dnode_get_string(args->dnode, NULL));
 			return NB_ERR_VALIDATION;
 		}
