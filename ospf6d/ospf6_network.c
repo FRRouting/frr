@@ -222,7 +222,8 @@ int ospf6_sendmsg(struct in6_addr *src, struct in6_addr *dst,
 
 	retval = sendmsg(ospf6_sock, &smsghdr, 0);
 	if (retval != iov_totallen(message))
-		zlog_warn("sendmsg failed: ifindex: %d: %s (%d)", ifindex,
+		zlog_warn("sendmsg failed: source: %pI6 Dest: %pI6 ifindex: %d: %s (%d)",
+			  src, dst, ifindex,
 			  safe_strerror(errno), errno);
 
 	return retval;
