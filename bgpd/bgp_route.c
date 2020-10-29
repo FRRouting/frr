@@ -1687,7 +1687,7 @@ void bgp_notify_conditional_adv_scanner(struct update_subgroup *subgrp)
 }
 
 
-static void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
+void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 {
 	if (family == AF_INET) {
 		attr->nexthop.s_addr = INADDR_ANY;
