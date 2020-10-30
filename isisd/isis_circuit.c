@@ -598,8 +598,20 @@ int isis_circuit_up(struct isis_circuit *circuit)
 	if (circuit->state == C_STATE_UP)
 		return ISIS_OK;
 
-	if (circuit->is_passive)
+	if (circuit->is_passive) {
+		/* make sure the union fields are initialized, else we
+		 * could end with garbage values from a previous circuit
+		 * type, which would then cause a segfault when building
+		 * LSPs or computing the SPF tree
+		 */
+		if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+			circuit->u.bc.adjdb[0] = list_new();
+			circuit->u.bc.adjdb[1] = list_new();
+		} else if (circuit->circ_type == CIRCUIT_T_P2P) {
+			circuit->u.p2p.neighbor = NULL;
+		}
 		return ISIS_OK;
+	}
 
 	if (circuit->area->lsp_mtu > isis_circuit_pdu_size(circuit)) {
 		flog_err(
