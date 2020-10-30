@@ -25,6 +25,13 @@ dnl -----------------------------------
 AC_CANONICAL_BUILD()
 AC_CANONICAL_HOST()
 
+AC_ARG_VAR([AR],[archiver command])
+AC_ARG_VAR([LD],[linker command])
+AC_ARG_VAR([OBJCOPY],[objcopy command])
+AC_ARG_VAR([OBJDUMP],[objdump command])
+AC_ARG_VAR([RANLIB],[ranlib command])
+AC_ARG_VAR([STRIP],[strip command])
+
 hosttools_clippy="false"
 build_clippy="true"
 
