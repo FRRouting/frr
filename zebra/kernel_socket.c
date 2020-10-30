@@ -1001,7 +1001,7 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 void rtm_read(struct rt_msghdr *rtm)
 {
 	int flags;
-	uint8_t zebra_flags;
+	uint32_t zebra_flags;
 	union sockunion dest, mask, gate;
 	char ifname[INTERFACE_NAMSIZ + 1];
 	short ifnlen = 0;

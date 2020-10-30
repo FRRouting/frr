@@ -366,7 +366,7 @@ extern void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re);
  * All rib_add function will not just add prefix into RIB, but
  * also implicitly withdraw equal prefix of same type. */
 extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
-		   unsigned short instance, int flags, struct prefix *p,
+		   unsigned short instance, uint32_t flags, struct prefix *p,
 		   struct prefix_ipv6 *src_p, const struct nexthop *nh,
 		   uint32_t nhe_id, uint32_t table_id, uint32_t metric,
 		   uint32_t mtu, uint8_t distance, route_tag_t tag);
@@ -382,10 +382,11 @@ extern int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 				 struct nhg_hash_entry *nhe);
 
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
-		       unsigned short instance, int flags, struct prefix *p,
-		       struct prefix_ipv6 *src_p, const struct nexthop *nh,
-		       uint32_t nhe_id, uint32_t table_id, uint32_t metric,
-		       uint8_t distance, bool fromkernel, bool connected_down);
+		       unsigned short instance, uint32_t flags,
+		       struct prefix *p, struct prefix_ipv6 *src_p,
+		       const struct nexthop *nh, uint32_t nhe_id,
+		       uint32_t table_id, uint32_t metric, uint8_t distance,
+		       bool fromkernel, bool connected_down);
 
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 				     union g_addr *addr,
