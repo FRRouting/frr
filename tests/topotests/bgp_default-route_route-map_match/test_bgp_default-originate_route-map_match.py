@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 
-#
-# bgp_default-originate_route-map.py
-# Part of NetDEF Topology Tests
-#
-# Copyright (c) 2019 by
+# Copyright (c) 2019-2020 by
 # Donatas Abraitis <donatas.abraitis@gmail.com>
 #
 # Permission to use, copy, modify, and/or distribute this software
@@ -23,15 +19,7 @@
 #
 
 """
-bgp_default-originate_route-map.py:
-
-Test if works the following commands:
-router bgp 65031
-  address-family ipv4 unicast
-    neighbor 192.168.255.2 default-originate route-map default
-
-route-map default permit 10
-  set metric 123
+Test if default-originate works with ONLY match operations.
 """
 
 import os
@@ -103,18 +91,18 @@ def test_bgp_default_originate_route_map():
         }
         return topotest.json_cmp(output, expected)
 
-    def _bgp_default_route_has_metric(router):
+    def _bgp_default_route_is_valid(router):
         output = json.loads(router.vtysh_cmd("show ip bgp 0.0.0.0/0 json"))
-        expected = {"paths": [{"metric": 123}]}
+        expected = {"paths": [{"valid": True}]}
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge, router)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
 
     assert result is None, 'Failed to see bgp convergence in "{}"'.format(router)
 
-    test_func = functools.partial(_bgp_default_route_has_metric, router)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    test_func = functools.partial(_bgp_default_route_is_valid, router)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
 
     assert (
         result is None
