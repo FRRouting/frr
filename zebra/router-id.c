@@ -331,7 +331,7 @@ DEFUN (ip_router_id_in_vrf,
        ip_router_id_in_vrf_cmd,
        "ip router-id A.B.C.D",
        IP_STR
-       "Manuall set the router-id\n"
+       "Manually set the router-id\n"
        "IP address to use for router-id\n")
 {
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
@@ -361,7 +361,7 @@ DEFUN (ipv6_router_id_in_vrf,
        ipv6_router_id_in_vrf_cmd,
        "ipv6 router-id X:X::X:X",
        IP6_STR
-       "Manuall set the IPv6 router-id\n"
+       "Manually set the IPv6 router-id\n"
        "IPV6 address to use for router-id\n")
 {
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
