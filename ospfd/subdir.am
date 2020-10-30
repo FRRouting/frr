@@ -51,6 +51,8 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_ri.c \
 	ospfd/ospf_route.c \
 	ospfd/ospf_routemap.c \
+	ospfd/ospf_routemap_nb.c \
+	ospfd/ospf_routemap_nb_config.c \
 	ospfd/ospf_spf.c \
 	ospfd/ospf_ti_lfa.c \
 	ospfd/ospf_sr.c \
@@ -100,6 +102,7 @@ noinst_HEADERS += \
 	ospfd/ospf_packet.h \
 	ospfd/ospf_ri.h \
 	ospfd/ospf_route.h \
+	ospfd/ospf_routemap_nb.h \
 	ospfd/ospf_spf.h \
 	ospfd/ospf_ti_lfa.h \
 	ospfd/ospf_sr.h \
@@ -119,4 +122,8 @@ ospfd_ospfd_snmp_la_LIBADD = lib/libfrrsnmp.la
 
 EXTRA_DIST += \
 	ospfd/ChangeLog.opaque.txt \
+	# end
+
+nodist_ospfd_ospfd_SOURCES = \
+	yang/frr-ospf-route-map.yang.c \
 	# end
