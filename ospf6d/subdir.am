@@ -34,6 +34,8 @@ ospf6d_libospf6_a_SOURCES = \
 	ospf6d/ospf6_abr.c \
 	ospf6d/ospf6_area.c \
 	ospf6d/ospf6_asbr.c \
+	ospf6d/ospf6_routemap_nb.c \
+	ospf6d/ospf6_routemap_nb_config.c \
 	ospf6d/ospf6_bfd.c \
 	ospf6d/ospf6_flood.c \
 	ospf6d/ospf6_interface.c \
@@ -66,6 +68,7 @@ noinst_HEADERS += \
 	ospf6d/ospf6_network.h \
 	ospf6d/ospf6_proto.h \
 	ospf6d/ospf6_route.h \
+	ospf6d/ospf6_routemap_nb.h \
 	ospf6d/ospf6_spf.h \
 	ospf6d/ospf6_top.h \
 	ospf6d/ospf6_zebra.h \
@@ -84,4 +87,9 @@ ospf6d_ospf6d_snmp_la_LIBADD = lib/libfrrsnmp.la
 
 clippy_scan += \
 	ospf6d/ospf6_asbr.c \
+	# end
+
+nodist_ospf6d_ospf6d_SOURCES = \
+	yang/frr-ospf-route-map.yang.c \
+	yang/frr-ospf6-route-map.yang.c \
 	# end
