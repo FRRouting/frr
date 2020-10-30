@@ -496,7 +496,8 @@ terminate_graph (CMD_YYLTYPE *locp, struct parser_ctx *ctx,
     zlog_debug ("----------");
     while (ctx->docstr && ctx->docstr[1] != '\0')
       zlog_debug ("%s", strsep(&ctx->docstr, "\n"));
-    zlog_debug ("----------\n");
+    zlog_debug ("----------");
+    assert(!"Excessive docstring while parsing");
   }
 
   graph_add_edge (finalnode, end_token_node);
@@ -510,6 +511,7 @@ doc_next (struct parser_ctx *ctx)
   if (*piece == 0x03)
   {
     zlog_debug ("Ran out of docstring while parsing '%s'", ctx->el->string);
+    assert(!"Ran out of docstring while parsing");
     piece = "";
   }
 
