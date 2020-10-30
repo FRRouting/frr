@@ -139,5 +139,6 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 void isis_adj_build_neigh_list(struct list *adjdb, struct list *list);
 void isis_adj_build_up_list(struct list *adjdb, struct list *list);
 int isis_adj_usage2levels(enum isis_adj_usage usage);
+int isis_bfd_startup_timer(struct thread *thread);
 
 #endif /* ISIS_ADJACENCY_H */
