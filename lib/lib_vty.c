@@ -213,15 +213,20 @@ DEFUN (frr_version,
 }
 
 static struct call_back {
+	time_t readin_time;
+
 	void (*start_config)(void);
 	void (*end_config)(void);
 } callback;
+
 
 DEFUN_HIDDEN (start_config,
 	      start_config_cmd,
 	      "start_configuration",
 	      "The Beginning of Configuration\n")
 {
+	callback.readin_time = monotime(NULL);
+
 	if (callback.start_config)
 		(*callback.start_config)();
 
@@ -233,6 +238,17 @@ DEFUN_HIDDEN (end_config,
 	      "end_configuration",
 	      "The End of Configuration\n")
 {
+	time_t readin_time;
+	char readin_time_str[MONOTIME_STRLEN];
+
+	readin_time = monotime(NULL);
+	readin_time -= callback.readin_time;
+
+	frrtime_to_interval(readin_time, readin_time_str,
+			    sizeof(readin_time_str));
+
+	zlog_info("Configuration Read in Took: %s", readin_time_str);
+
 	if (callback.end_config)
 		(*callback.end_config)();
 
