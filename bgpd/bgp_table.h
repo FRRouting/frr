@@ -102,8 +102,7 @@ struct bgp_node {
 #define BGP_NODE_LABEL_CHANGED          (1 << 2)
 #define BGP_NODE_REGISTERED_FOR_LABEL   (1 << 3)
 #define BGP_NODE_SELECT_DEFER           (1 << 4)
-	/* list node pointer */
-	struct listnode *rt_node;
+
 	struct bgp_addpath_node_data tx_addpath;
 
 	enum bgp_path_selection_reason reason;

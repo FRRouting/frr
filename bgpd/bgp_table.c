@@ -154,13 +154,8 @@ void bgp_delete_listnode(struct bgp_node *node)
 
 		if (bgp && rn && rn->lock == 1) {
 			/* Delete the route from the selection pending list */
-			if ((node->rt_node)
-			    && (bgp->gr_info[afi][safi].route_list)) {
-				list_delete_node(
-					bgp->gr_info[afi][safi].route_list,
-					node->rt_node);
-				node->rt_node = NULL;
-			}
+			bgp->gr_info[afi][safi].gr_deferred--;
+			UNSET_FLAG(node->flags, BGP_NODE_SELECT_DEFER);
 		}
 	}
 }
