@@ -1400,36 +1400,30 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 	vty_out(vty, "\n");
 }
 
-char *zebra_protodown_rc_str(enum protodown_reasons protodown_rc, char *pd_buf,
-			     uint32_t pd_buf_len)
+const char *zebra_protodown_rc_str(enum protodown_reasons protodown_rc,
+				   char *pd_buf, uint32_t pd_buf_len)
 {
 	bool first = true;
 
 	pd_buf[0] = '\0';
 
-	snprintf(pd_buf + strlen(pd_buf), pd_buf_len - strlen(pd_buf), "(");
+	strlcat(pd_buf, "(", pd_buf_len);
 
 	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY) {
 		if (first)
 			first = false;
 		else
-			snprintf(pd_buf + strlen(pd_buf),
-				 pd_buf_len - strlen(pd_buf), ",");
-		snprintf(pd_buf + strlen(pd_buf), pd_buf_len - strlen(pd_buf),
-			 "startup-delay");
+			strlcat(pd_buf, ",", pd_buf_len);
+		strlcat(pd_buf, "startup-delay", pd_buf_len);
 	}
 
 	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN) {
-		if (first)
-			first = false;
-		else
-			snprintf(pd_buf + strlen(pd_buf),
-				 pd_buf_len - strlen(pd_buf), ",");
-		snprintf(pd_buf + strlen(pd_buf), pd_buf_len - strlen(pd_buf),
-			 "uplinks-down");
+		if (!first)
+			strlcat(pd_buf, ",", pd_buf_len);
+		strlcat(pd_buf, "uplinks-down", pd_buf_len);
 	}
 
-	snprintf(pd_buf + strlen(pd_buf), pd_buf_len - strlen(pd_buf), ")");
+	strlcat(pd_buf, ")", pd_buf_len);
 
 	return pd_buf;
 }
