@@ -530,7 +530,9 @@ extern int cmd_execute_command(vector, struct vty *,
 			       const struct cmd_element **, int);
 extern int cmd_execute_command_strict(vector, struct vty *,
 				      const struct cmd_element **);
-extern void cmd_init(int);
+extern void cmd_init(int terminal);
+extern void cmd_init_config_callbacks(void (*start_config)(void),
+				      void (*end_config)(void));
 extern void cmd_terminate(void);
 extern void cmd_exit(struct vty *vty);
 extern int cmd_list_cmds(struct vty *vty, int do_permute);
