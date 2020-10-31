@@ -25,7 +25,6 @@
 %{!?with_pbrd:          %global  with_pbrd          1 }
 %{!?with_pimd:          %global  with_pimd          1 }
 %{!?with_vrrpd:         %global  with_vrrpd         1 }
-%{!?with_rpki:          %global  with_rpki          0 }
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 
@@ -192,9 +191,6 @@ Requires:       initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
 %endif
-%if %{with_rpki}
-BuildRequires:  librtr-devel >= 0.5
-%endif
 %if "%{initsystem}" == "systemd"
 BuildRequires:      systemd
 BuildRequires:      systemd-devel
@@ -259,6 +255,32 @@ Requires: %{name} = %{version}-%{release}
 %description devel
 The frr-devel package contains the header and object files neccessary for
 developing OSPF-API and frr applications.
+
+
+%package rpki-rtrlib
+Summary: BGP RPKI support (rtrlib)
+Group: System Environment/Daemons
+BuildRequires:  librtr-devel >= 0.5
+Requires: %{name} = %{version}-%{release}
+
+%description rpki-rtrlib
+Adds RPKI support to FRR's bgpd, allowing validation of BGP routes
+against cryptographic information stored in WHOIS databases.  This is
+used to prevent hijacking of networks on the wider internet.  It is only
+relevant to internet service providers using their own autonomous system
+number.
+
+
+%package snmp
+Summary: SNMP support
+Group: System Environment/Daemons
+BuildRequires: net-snmp-devel
+Requires: %{name} = %{version}-%{release}
+
+%description snmp
+Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
+through the AgentX protocol.  Provides read-only access to current
+routing state through standard SNMP MIBs.
 
 
 %prep
@@ -370,16 +392,13 @@ developing OSPF-API and frr applications.
 %if "%{initsystem}" == "systemd"
     --enable-systemd \
 %endif
-%if %{with_rpki}
     --enable-rpki \
-%else
-    --disable-rpki \
-%endif
 %if %{with_bfdd}
     --enable-bfdd \
 %else
     --disable-bfdd \
 %endif
+    --enable-snmp
     # end
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
@@ -425,10 +444,6 @@ ln -s %{_sbindir}/frrinit.sh %{buildroot}%{_initddir}/frr
 %endif
 
 install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
-# add rpki module to daemon
-%if %{with_rpki}
-    sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{buildroot}%{_sysconfdir}/frr/daemons
-%endif
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750 %{buildroot}%{rundir}
@@ -666,13 +681,11 @@ fi
 %if %{with_bfdd}
     %{_sbindir}/bfdd
 %endif
-%{_libdir}/lib*.so.0
-%{_libdir}/lib*.so.0.*
+%{_libdir}/libfrr.so*
+%{_libdir}/libfrrcares*
+%{_libdir}/libfrrospf*
 %if %{with_fpm}
     %{_libdir}/frr/modules/zebra_fpm.so
-%endif
-%if %{with_rpki}
-    %{_libdir}/frr/modules/bgpd_rpki.so
 %endif
 %{_libdir}/frr/modules/zebra_cumulus_mlag.so
 %{_libdir}/frr/modules/dplane_fpm_nl.so
@@ -706,10 +719,26 @@ fi
 %else
 %{_sbindir}/generate_support_bundle.pyc
 %{_sbindir}/generate_support_bundle.pyo
-%{_sbindir}/frr-reload.py
 %{_sbindir}/frr-reload.pyc
 %{_sbindir}/frr-reload.pyo
 %endif
+
+
+%post rpki-rtrlib
+# add rpki module to daemons
+sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{_sysconfdir}/frr/daemons
+
+%postun rpki-rtrlib
+# remove rpki module from daemons
+sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
+
+%files rpki-rtrlib
+%{_libdir}/frr/modules/bgpd_rpki.so
+
+
+%files snmp
+%{_libdir}/libfrrsnmp.so*
+%{_libdir}/frr/modules/*snmp.so
 
 
 %files devel
@@ -729,10 +758,288 @@ fi
 
 
 %changelog
+* Fri Oct 30 2020 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Moved RPKI to subpackage
+- Added SNMP subpackage
+
+* Tue Jun 30 2020 Martin Winter <mwinter@opensourcerouting.org> - 7.4
+- BGPd
+-    Use sequence numbers for community lists
+-    Fixes to nexthop groups
+-    Add feature to limit outgoing number of routes
+-    Per Neighbor Graceful Restart
+-    Multiple Graceful Restart fixes
+-    Support sub-Type-4 and sub-Type-5 for the VPNv4 SRv6 backend
+-    rfc7606 support: treat certain malformed routes as withdraw
+-    allow origin override for route aggregates
+-    rfc6608 support: Subcodes for BGP Finite State Machine Error
+-    rfc7607 support: Codification of AS 0 Processing
+-    rfc6286 support: Autonomous-System-Wide Unique BGP Identifier for BGP-4
+-    Unequal cost multipath (a.ka. weighted ECMP) with BGP link-bandwidth
+-    Enable rfc8212 by default except datacenter profile
+- staticd
+-    Add debug support
+- vtysh
+-    Add copy command to copy config from file into running config
+- LDPd
+-    adding support for LDP ordered label distribution control
+- ISISd
+-    IS-IS Segment Routing support
+- SHARPd
+-    add initial support to add/remove lsps
+- Zebra
+-    fix broadcast address in IPv4 networks with /31 mask
+-    Add Graceful Restart support for Protocol Daemon restarts
+- lib
+-    migrate route-maps to use northbound interface
+- plus countless bug fixes and other improvements
+
+* Wed May 06 2020 David Lamparter <equinox@opensourcerouting.org> - 7.3.1
+- upstream 7.3.1
+
+* Fri Feb 14 2020 Martin Winter <mwinter@opensourcerouting.org> - 7.3
+- BGPd
+-    EVPN PIP Support
+-    Route Aggregation code speed ups
+-    BGP Vector I/O speed ups
+-    New CLI: `set distance XXX`
+-    New CLI: `aggregate-address A.B.C.D/M route-map WORD`
+-    New CLI: `bgp reject-as-sets`
+-    New CLI: `advertise pip ...`
+-    New CLI: `match evpn rd ASN:NN_OR_IP-ADDRESS:NN`
+-    New CLI: `show bgp l2vpn evpn community|large-community X`
+-    New CLI: `show bgp l2vpn evpn A.B.C.D`
+-    Auto-completion for clear bgp command
+-    Add ability to set tcp socket buffer size
+- OSPFd
+-    Partial MPLS TE support
+- PBRd
+-    New CLI: `set vrf unchanged|NAME`
+- BFDd
+-    VRF Support
+-    New CLI: 'show bfd peers brief'
+-    New CLI: 'clear bfd peer ...'
+- PIMd
+-    Significant Speedups in accessing Internal Data for higher scale
+-    Support for joining any-source Multicast
+-    Updated CLI: 'show ip pim upstream-join-desired'
+-    New CLI: 'show ip pim channel'
+-    Debug Cleanup
+-    MLAG experimental support
+- VRRPd
+-    VRF Support
+-    Northbound Conversion- NHRPd
+- LDPd
+- vtysh
+-    New CLI: `banner motd line LINE...`
+- yang
+-    New CLI: `show yang operational-data XPATH`
+-    New CLI: `debug northbound`
+- Zebra
+-    Nexthop Group support
+-    New CLI: 'debug zebra nexthop [detail]'
+-    New CLI: 'show router-id'
+-    MLAG experimental support
+- watchfrr
+-    Additional status messages of system state to systemd
+-    New CLI: `watchfrr ignore DAEMON`
+- Others
+-    As always all daemons have received too many bug fixes to fully list
+-    There has been a significant focus on increasing test coverage
+- Change in Behavior:
+-    ISISd
+-       All areas created default automatically to level-1-2
+-    Zebra
+-       Nexthop Group Installation in Kernel is turned on by default
+        if the kernel supports-    New CLI: 'show nexthop-group rib [singleton]'
+-    Man Pages
+-       Renamed to frr-* to remove collision with other packages
+
+* Fri Jan 17 2020 Martin Winter <mwinter@opensourcerouting.org> - 7.2.1
+- BGPd
+-   Fix Addpath issue
+-   Do not apply eBGP policy for iBGP peers
+-   Show `ip` and `fqdn` in json output for `show [ip] bgp <route> json`
+-   Fix large route-distinguisher's format
+-   Fix `no bgp listen range ...` configuration command
+-   Autocomplete neighbor for clear bgp
+-   Reflect the distance in RIB when it is changed for an arbitrary afi/safi
+-   Notify "Peer De-configured" after entering 'no neighbor <neighbor> cmd
+-   Fix per afi/safi addpath peer counting
+-   Rework BGP dampening to be per AFI/SAFI
+-   Do not send next-hop as :: in MP_REACH_NLRI if no link-local exists
+-   Override peer's TTL only if peer-group is configured with TTL
+-   Remove error message for unkown afi/safi combination
+-   Keep the session down if maximum-prefix is reached
+- OSPFd
+-   Fix BFD down not tearing down OSPF adjacency for point-to-point net
+- BFDd
+-   Fix multiple VRF handling
+-   VRF security improvement
+- PIMd
+-   Fix rp crash
+- NHRPd
+-   Make sure `no ip nhrp map <something>` works as expected
+- LDPd
+-   Add missing sanity check in the parsing of label messages
+- Zebra
+-   Use correct state when installing evpn macs
+-   Capture dplane plugin flags
+- lib
+-   Fix interface config when vrf changes
+-   Fix Interface Infinite Loop Walk (for special interfaces such as bond)
+- snapcraft
+-   fix missing vrrpd daemon
+- Others
+-   Rename man pages (to avoid conflicts with other packages)
+-   Various other fixes for code cleanup and memory leaks
+
 * Fri Dec 27 2019 Donatas Abraitis <donatas.abraitis@gmail.com>
 - Add CentOS 8 support
 
-* Mon May 28 2018 Rafael Zalamena <rzalamena@opensourcerouting.org> - %{version}
+* Tue Oct 15 2019 Martin Winter <mwinter@opensourcerouting.org> - 7.2
+- ALL Daemons
+-   -N <namespace> to allow for config file locating when running FRR inside
+     of a namespace
+-   Impoved Testing across all daemons
+- BFD
+-   VRF Support
+-   Conversion to Northbound interface
+- BGP
+-   Aggregate-address add route-map support
+-   BMP Support
+-   Improved JSON output for many commands
+-   `show bgp afi safi summary failed` command
+-   `clear bop *` clears all peers
+-   Show FQDN for `show bgp ipv4 uni` commands
+-   Display BestPath selection reason as part of show commands
+- EIGRP
+-   Infrastructure changes to allow VRF's
+-   SIGHUP signals the config reload
+-   Conversion to Northbound interface
+- ISIS
+-   BFD Support
+-   Support for circuits with MTU > 8192
+- PBRD
+-   fwmark support as part of match criteria
+-   autocompletion of PBRMAPS
+-   Improved Nexthop Support
+- PIMD
+-   PIM-BSM receive support
+-   Improved debugging support
+-   Store ECMP paths that are not currently legal for use
+-   Disallow igmp query from a non-connected source
+-   Many new cli improvements and changes
+- VRRPD
+-   Add Support for RFC 3768 and RFC 5798
+- Route-Maps
+-   Add sequence numbers to access-lists
+-   Add `match ip next-hop type blackhole`
+-   Improved ability to notice dependency changes
+- SHARPD
+-   `sharp watch [import|nexthop]` you can now specify a prefix instead
+    of assuming a /32
+- STATICD
+-   Significantly Improved NHT
+- ZEBRA
+-   Many dataplane improvements for routes, neighbor table and EVPN
+-   NHT cli can now be specified per VRF and improved ability to control
+    NHT data being shown
+-   Removed duplicate processing of routes
+-   Improved debugablility
+-   RMAC and VxLan support for the FPM
+- LIB
+-   RCU support
+-   Nexthop Group Improvements
+-   `log-filter WORD` added
+- Building
+-   openssl support
+-   libcap should be used as part of build or significant slowdowns
+    will be experienced
+-   Lua builds have been fixed
+-   Improved Cross building
+
+* Mon Jun 17 2019 David Lamparter <equinox@opensourcerouting.org> - 7.1
+- gRPC northbound plugin
+- "table NNN" removed from zebra
+- more dataplane MT work
+- EVPN in non-default VRFs
+- RFC 8212 (default deny policy for eBGP)
+- RFC 8106 (IPv6 RA DNS options)
+
+* Wed May  8 2019 Martin Winter <mwinter@opensourcerouting.org> - 7.0.1
+- bgp:
+-   Don't send Updates with BGP Max-Prefix Overflow
+-   Make sure `next-hop-self all` backward compatible with force
+-   Fix as-path validation in "show bgp regexp"
+-   Fix interface-based peers to override peergroups
+-   Fix removing private AS numbers if local-as is used
+-   Fix show bgp labeled_unicast
+-   Add command to lookup prefixes in rpki table
+-   Fix peer count in "show bgp ipv6 summary"
+-   Add missing ipv6 only peer flag action
+-   Fix address family output in "show bgp [ipv4|ipv6] neighbors"
+-   Add missing checks for vpnv6 nexthops
+-   Fix nexthop for ipv6 vpn case
+- rip: Fix removal of passive interfaces
+- ospf:
+-   Fix json timer output
+-   Fix milliseconds in json output
+- bfd:
+-   Fix source port according RFC 5881, Sec 4
+-   Fix IPv6 link-local peer removal
+-   Fix interface clean up when deleting interface
+- pim: Fix interface clean up when deleting interface
+- nhrp: Fix interface clean up when deleting interface
+- lib:
+-   Workaround to get FRR building with libyang 0.x and 1.x
+-   Fix in priv handling
+-   Make priv elevation thread-safe
+- zebra:
+-   Pseudowire event recovery
+-   Fix race condition in label manager
+-   Fix system routes selection and next-hop tracking
+-   Set connected route metric based on devaddr metric
+-   Display metric for connected routes
+-   Add selected fib details to json output
+-   Always use replace if installing new route
+- watchfrr: Silently ignore declare failures (for backward compatibility)
+- RPM packages: Switch to new init script
+
+* Thu Feb 28 2019 Martin Winter <mwinter@opensourcerouting.org> - 7.0
+- Added libyang dependency: New work for northbound interface based on libyang
+- Fabricd: New Daemon based on https://datatracker.ietf.org/doc/draft-white-openfabric/
+- various bug fixes and other enhancements
+
+* Sun Oct  7 2018 Martin Winter <mwinter@opensourcerouting.org> - 6.0
+- Staticd: New daemon responsible for management of static routes
+- ISISd: Implement dst-src routing as per draft-ietf-isis-ipv6-dst-src-routing
+- BFDd: new daemon for BFD (Bidrectional Forwarding Detection). Responsible
+  for notifying link changes to make routing protocols converge faster.
+- various bug fixes
+
+* Thu Jul  5 2018 Martin Winter <mwinter@opensourcerouting.org> - 5.0.1
+- Support Automake 1.16.1
+- BGPd: Support for flowspec ICMP, DSCP, packet length, fragment and tcp flags
+- BGPd: fix rpki validation for ipv6
+- VRF: Workaround for kernel bug on Linux 4.14 and newer
+- Zebra: Fix interface based routes from zebra not marked up
+- Zebra: Fix large zebra memory usage when redistribute between protocols
+- Zebra: Allow route-maps to match on source instance
+- BGPd: Backport peer-attr overrides, peer-level enforce-first-as and filtered-routes fix
+- BGPd: fix for crash during display of filtered-routes
+- BGPd: Actually display labeled unicast routes received
+- Label Manager: Fix to work correctly behind a label manager proxy
+
+* Thu Jun  7 2018 Martin Winter <mwinter@opensourcerouting.org> - 5.0
+- PIM: Add a Multicast Trace Command draft-ietf-idmr-traceroute-ipm-05
+- IS-IS: Implement Three-Way Handshake as per RFC5303
+- BGPD: Implement VPN-VRF route leaking per RFC4364.
+- BGPD: Implement VRF with NETNS backend
+- BGPD: Flowspec
+- PBRD: Add a new Policy Based Routing Daemon
+
+* Mon May 28 2018 Rafael Zalamena <rzalamena@opensourcerouting.org>
 - Add BFDd support
 
 * Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org>
