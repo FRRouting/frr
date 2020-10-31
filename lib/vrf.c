@@ -1006,7 +1006,7 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *name)
 	 * case ifname = vrf in netns mode => return
 	 */
 	ifp = if_lookup_by_name(name, vrf_id);
-	if (!ifp)
+	if (!ifp || ifp->ifindex == IFINDEX_INTERNAL)
 		return fd;
 #ifdef SO_BINDTODEVICE
 	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name)+1);

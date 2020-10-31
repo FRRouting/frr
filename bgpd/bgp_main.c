@@ -270,8 +270,16 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 
 static int bgp_vrf_new(struct vrf *vrf)
 {
+	struct interface *ifp;
+
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
+	ifp = if_get_by_name(vrf->name, vrf->vrf_id);
+	if (ifp) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("VRF interface Created: %s(%u) ifindex %d",
+				   ifp->name, ifp->vrf_id, ifp->ifindex);
+	}
 
 	return 0;
 }
@@ -280,6 +288,11 @@ static int bgp_vrf_delete(struct vrf *vrf)
 {
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
+
+	/*
+	   No need to delete vrf here as it will be deleted when BGP client
+	   receives ZEBRA_VRF_DELETE message from zebra
+	*/
 
 	return 0;
 }
