@@ -18921,26 +18921,26 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			" neighbor %s path-attribute treat-as-withdraw %s\n",
 			addr, withdraw_attrs_str);
 
-	if (!CHECK_FLAG(peer->peer_gr_new_status_flag,
-			PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)) {
-
-		if (CHECK_FLAG(peer->peer_gr_new_status_flag,
-			       PEER_GRACEFUL_RESTART_NEW_STATE_HELPER)) {
-			vty_out(vty,
-				" neighbor %s graceful-restart-helper\n", addr);
-		} else if (CHECK_FLAG(
-				   peer->peer_gr_new_status_flag,
-				   PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)) {
-			vty_out(vty,
-				" neighbor %s graceful-restart\n", addr);
-		} else if (
-			(!(CHECK_FLAG(peer->peer_gr_new_status_flag,
-				      PEER_GRACEFUL_RESTART_NEW_STATE_HELPER))
-			 && !(CHECK_FLAG(
-				 peer->peer_gr_new_status_flag,
-				 PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)))) {
-			vty_out(vty, " neighbor %s graceful-restart-disable\n",
-				addr);
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		if (!CHECK_FLAG(peer->peer_gr_new_status_flag,
+				PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)) {
+			if (CHECK_FLAG(peer->peer_gr_new_status_flag,
+				       PEER_GRACEFUL_RESTART_NEW_STATE_HELPER)) {
+				vty_out(vty,
+					" neighbor %s graceful-restart-helper\n",
+					addr);
+			} else if (CHECK_FLAG(peer->peer_gr_new_status_flag,
+					      PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)) {
+				vty_out(vty, " neighbor %s graceful-restart\n",
+					addr);
+			} else if ((!(CHECK_FLAG(peer->peer_gr_new_status_flag,
+						 PEER_GRACEFUL_RESTART_NEW_STATE_HELPER)) &&
+				    !(CHECK_FLAG(peer->peer_gr_new_status_flag,
+						 PEER_GRACEFUL_RESTART_NEW_STATE_RESTART)))) {
+				vty_out(vty,
+					" neighbor %s graceful-restart-disable\n",
+					addr);
+			}
 		}
 	}
 }
