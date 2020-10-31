@@ -25,7 +25,6 @@
 %{!?with_pbrd:          %global  with_pbrd          1 }
 %{!?with_pimd:          %global  with_pimd          1 }
 %{!?with_vrrpd:         %global  with_vrrpd         1 }
-%{!?with_rpki:          %global  with_rpki          0 }
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 
@@ -192,9 +191,6 @@ Requires:       initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
 %endif
-%if %{with_rpki}
-BuildRequires:  librtr-devel >= 0.5
-%endif
 %if "%{initsystem}" == "systemd"
 BuildRequires:      systemd
 BuildRequires:      systemd-devel
@@ -259,6 +255,20 @@ Requires: %{name} = %{version}-%{release}
 %description devel
 The frr-devel package contains the header and object files neccessary for
 developing OSPF-API and frr applications.
+
+
+%package rpki-rtrlib
+Summary: BGP RPKI support (rtrlib)
+Group: System Environment/Daemons
+BuildRequires:  librtr-devel >= 0.5
+Requires: %{name} = %{version}-%{release}
+
+%description rpki-rtrlib
+Adds RPKI support to FRR's bgpd, allowing validation of BGP routes
+against cryptographic information stored in WHOIS databases.  This is
+used to prevent hijacking of networks on the wider internet.  It is only
+relevant to internet service providers using their own autonomous system
+number.
 
 
 %prep
@@ -370,11 +380,7 @@ developing OSPF-API and frr applications.
 %if "%{initsystem}" == "systemd"
     --enable-systemd \
 %endif
-%if %{with_rpki}
     --enable-rpki \
-%else
-    --disable-rpki \
-%endif
 %if %{with_bfdd}
     --enable-bfdd \
 %else
@@ -425,10 +431,6 @@ ln -s %{_sbindir}/frrinit.sh %{buildroot}%{_initddir}/frr
 %endif
 
 install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
-# add rpki module to daemon
-%if %{with_rpki}
-    sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{buildroot}%{_sysconfdir}/frr/daemons
-%endif
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750 %{buildroot}%{rundir}
@@ -671,9 +673,6 @@ fi
 %if %{with_fpm}
     %{_libdir}/frr/modules/zebra_fpm.so
 %endif
-%if %{with_rpki}
-    %{_libdir}/frr/modules/bgpd_rpki.so
-%endif
 %{_libdir}/frr/modules/zebra_cumulus_mlag.so
 %{_libdir}/frr/modules/dplane_fpm_nl.so
 %{_libdir}/frr/modules/zebra_irdp.so
@@ -710,6 +709,18 @@ fi
 %{_sbindir}/frr-reload.pyc
 %{_sbindir}/frr-reload.pyo
 %endif
+
+
+%post rpki-rtrlib
+# add rpki module to daemons
+sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{_sysconfdir}/frr/daemons
+
+%postun rpki-rtrlib
+# remove rpki module from daemons
+sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
+
+%files rpki-rtrlib
+%{_libdir}/frr/modules/bgpd_rpki.so
 
 
 %files devel
