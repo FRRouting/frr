@@ -271,6 +271,18 @@ relevant to internet service providers using their own autonomous system
 number.
 
 
+%package snmp
+Summary: SNMP support
+Group: System Environment/Daemons
+BuildRequires: net-snmp-devel
+Requires: %{name} = %{version}-%{release}
+
+%description snmp
+Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
+through the AgentX protocol.  Provides read-only access to current
+routing state through standard SNMP MIBs.
+
+
 %prep
 %setup -q -n frr-%{frrversion}
 
@@ -386,6 +398,7 @@ number.
 %else
     --disable-bfdd \
 %endif
+    --enable-snmp
     # end
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
@@ -668,8 +681,9 @@ fi
 %if %{with_bfdd}
     %{_sbindir}/bfdd
 %endif
-%{_libdir}/lib*.so.0
-%{_libdir}/lib*.so.0.*
+%{_libdir}/libfrr.so*
+%{_libdir}/libfrrcares*
+%{_libdir}/libfrrospf*
 %if %{with_fpm}
     %{_libdir}/frr/modules/zebra_fpm.so
 %endif
@@ -705,7 +719,6 @@ fi
 %else
 %{_sbindir}/generate_support_bundle.pyc
 %{_sbindir}/generate_support_bundle.pyo
-%{_sbindir}/frr-reload.py
 %{_sbindir}/frr-reload.pyc
 %{_sbindir}/frr-reload.pyo
 %endif
@@ -721,6 +734,11 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %files rpki-rtrlib
 %{_libdir}/frr/modules/bgpd_rpki.so
+
+
+%files snmp
+%{_libdir}/libfrrsnmp.so*
+%{_libdir}/frr/modules/*snmp.so
 
 
 %files devel
