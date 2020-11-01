@@ -62,7 +62,7 @@ static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 			       s->p, s->cache->ifp->name);
 
 			nhrp_route_announce(1, s->type, s->p, s->cache->ifp,
-					    NULL, 0);
+					    &s->cache->remote_addr, 0);
 			s->route_installed = 1;
 		}
 		break;
@@ -207,6 +207,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	struct nhrp_extension_header *ext;
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c = NULL;
+	struct nhrp_cache *c_dst_proto = NULL;
 	union sockunion *proto, cie_proto, *nbma, cie_nbma, nat_nbma;
 	struct prefix prefix, route_prefix;
 	struct zbuf extpl;
@@ -303,6 +304,22 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 		} else {
 			debugf(NHRP_DEBUG_COMMON,
 			       "Shortcut: no cache for nbma %s", buf[2]);
+		}
+
+		/* Update cache binding for dst_proto as well */
+		if (proto != &pp->dst_proto) {
+			c_dst_proto = nhrp_cache_get(pp->ifp, &pp->dst_proto, 1);
+			if (c_dst_proto) {
+				debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: cache found, update binding");
+				nhrp_cache_update_binding(c_dst_proto, NHRP_CACHE_DYNAMIC,
+						  holding_time,
+						  nhrp_peer_get(pp->ifp, nbma),
+						  htons(cie->mtu), nbma);
+			} else {
+				debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: no cache for nbma %s", buf[2]);
+			}
 		}
 	}
 
