@@ -708,3 +708,20 @@ static ssize_t printfrr_psu(char *buf, size_t bsz, const char *fmt,
 	fb.pos[0] = '\0';
 	return consumed;
 }
+
+int sockunion_is_null(const union sockunion *su)
+{
+	unsigned char null_s6_addr[16] = {0};
+
+	switch (sockunion_family(su)) {
+	case AF_UNSPEC:
+		return 1;
+	case AF_INET:
+		return (su->sin.sin_addr.s_addr == 0);
+	case AF_INET6:
+		return !memcmp(su->sin6.sin6_addr.s6_addr, null_s6_addr,
+			       sizeof(null_s6_addr));
+	default:
+		return 0;
+	}
+}

@@ -102,6 +102,7 @@ extern union sockunion *sockunion_getpeername(int);
 extern union sockunion *sockunion_dup(const union sockunion *);
 extern void sockunion_free(union sockunion *);
 extern void sockunion_init(union sockunion *);
+extern int sockunion_is_null(const union sockunion *su);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pSU"  (union sockunion *)

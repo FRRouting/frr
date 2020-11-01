@@ -56,7 +56,7 @@ static void nhrp_route_update_put(struct route_node *rn)
 	struct route_info *ri = rn->info;
 
 	if (!ri->ifp && !ri->nhrp_ifp
-	    && sockunion_family(&ri->via) == AF_UNSPEC) {
+	    && sockunion_is_null(&ri->via)) {
 		XFREE(MTYPE_NHRP_ROUTE, rn->info);
 		route_unlock_node(rn);
 	}
@@ -70,8 +70,7 @@ static void nhrp_route_update_zebra(const struct prefix *p,
 	struct route_node *rn;
 	struct route_info *ri;
 
-	rn = nhrp_route_update_get(
-		p, (sockunion_family(nexthop) != AF_UNSPEC) || ifp);
+	rn = nhrp_route_update_get(p, !sockunion_is_null(nexthop) || ifp);
 	if (rn) {
 		ri = rn->info;
 		ri->via = *nexthop;
@@ -225,7 +224,7 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 	       sockunion2str(&nexthop_addr, buf, sizeof(buf)),
 	       ifp ? ifp->name : "(none)");
 
-	nhrp_route_update_zebra(&api.prefix, &nexthop_addr, ifp);
+	nhrp_route_update_zebra(&api.prefix, &nexthop_addr, added ? ifp : NULL);
 	nhrp_shortcut_prefix_change(&api.prefix, !added);
 
 	return 0;
