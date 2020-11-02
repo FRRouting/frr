@@ -980,7 +980,7 @@ static int evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn,
 	} else if (p->prefix.route_type == BGP_EVPN_AD_ROUTE) {
 		ret = bgp_evpn_remote_es_evi_add(bgp, vpn, p);
 	} else {
-		switch (pi->attr->pmsi_tnl_type) {
+		switch (bgp_attr_get_pmsi_tnl_type(pi->attr)) {
 		case PMSI_TNLTYPE_INGR_REPL:
 			flood_control = VXLAN_FLOOD_HEAD_END_REPL;
 			break;
@@ -1711,7 +1711,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	/* PMSI is only needed for type-3 routes */
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
-		attr.pmsi_tnl_type = PMSI_TNLTYPE_INGR_REPL;
+		bgp_attr_set_pmsi_tnl_type(&attr, PMSI_TNLTYPE_INGR_REPL);
 	}
 
 	if (bgp_debug_zebra(NULL)) {
@@ -3738,12 +3738,13 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	 */
 	if (attr &&
 	    (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
-		if (attr->pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL &&
-			attr->pmsi_tnl_type != PMSI_TNLTYPE_PIM_SM) {
-			flog_warn(EC_BGP_EVPN_PMSI_PRESENT,
-				  "%u:%s - Rx EVPN Type-3 NLRI with unsupported PTA %d",
-				  peer->bgp->vrf_id, peer->host,
-				  attr->pmsi_tnl_type);
+		enum pta_type pmsi_tnl_type = bgp_attr_get_pmsi_tnl_type(attr);
+		if (pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL
+		    && pmsi_tnl_type != PMSI_TNLTYPE_PIM_SM) {
+			flog_warn(
+				EC_BGP_EVPN_PMSI_PRESENT,
+				"%u:%s - Rx EVPN Type-3 NLRI with unsupported PTA %d",
+				peer->bgp->vrf_id, peer->host, pmsi_tnl_type);
 		}
 	}
 

@@ -2785,7 +2785,7 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	}
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
-	attr->pmsi_tnl_type = tnl_type;
+	bgp_attr_set_pmsi_tnl_type(attr, tnl_type);
 	stream_get(&attr->label, peer->curr, BGP_LABEL_BYTES);
 
 	/* Forward read pointer of input stream. */
@@ -4110,7 +4110,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
 		stream_putc(s, 9); // Length
 		stream_putc(s, 0); // Flags
-		stream_putc(s, attr->pmsi_tnl_type);
+		stream_putc(s, bgp_attr_get_pmsi_tnl_type(attr));
 		stream_put(s, &(attr->label),
 			   BGP_LABEL_BYTES); // MPLS Label / VXLAN VNI
 		stream_put_ipv4(s, attr->nexthop.s_addr);
