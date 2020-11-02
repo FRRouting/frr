@@ -185,7 +185,7 @@ struct attr {
 	struct lcommunity *lcommunity;
 
 	/* Route-Reflector Cluster attribute */
-	struct cluster_list *cluster;
+	struct cluster_list *cluster1;
 
 	/* Unknown transitive attribute. */
 	struct transit *transit;
@@ -331,7 +331,7 @@ struct transit {
 
 #define BGP_CLUSTER_LIST_LENGTH(attr)                                          \
 	(((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))                 \
-		 ? (attr)->cluster->length                                     \
+		 ? bgp_attr_get_cluster((attr))->length                        \
 		 : 0)
 
 typedef enum {
@@ -490,5 +490,16 @@ static inline void bgp_attr_set_transit(struct attr *attr,
 					struct transit *transit)
 {
 	attr->transit = transit;
+}
+
+static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)
+{
+	return attr->cluster1;
+}
+
+static inline void bgp_attr_set_cluster(struct attr *attr,
+					struct cluster_list *cl)
+{
+	attr->cluster1 = cl;
 }
 #endif /* _QUAGGA_BGP_ATTR_H */

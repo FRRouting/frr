@@ -1439,14 +1439,15 @@ static bool bgp_community_filter(struct peer *peer, struct attr *attr)
 static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 {
 	struct in_addr cluster_id;
+	struct cluster_list *cluster = bgp_attr_get_cluster(attr);
 
-	if (attr->cluster) {
+	if (cluster) {
 		if (peer->bgp->config & BGP_CONFIG_CLUSTER_ID)
 			cluster_id = peer->bgp->cluster_id;
 		else
 			cluster_id = peer->bgp->router_id;
 
-		if (cluster_loop_check(attr->cluster, cluster_id))
+		if (cluster_loop_check(cluster, cluster_id))
 			return true;
 	}
 	return false;
@@ -10056,6 +10057,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 		}
 
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST)) {
+			struct cluster_list *cluster =
+				bgp_attr_get_cluster(attr);
 			int i;
 
 			if (json_paths) {
@@ -10063,13 +10066,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				json_cluster_list_list =
 					json_object_new_array();
 
-				for (i = 0; i < attr->cluster->length / 4;
-				     i++) {
+				for (i = 0; i < cluster->length / 4; i++) {
 					json_string = json_object_new_string(
-						inet_ntop(
-							AF_INET,
-							&attr->cluster->list[i],
-							buf, sizeof(buf)));
+						inet_ntop(AF_INET,
+							  &cluster->list[i],
+							  buf, sizeof(buf)));
 					json_object_array_add(
 						json_cluster_list_list,
 						json_string);
@@ -10081,7 +10082,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				 * do.  Add this someday if someone asks
 				 * for it.
 				 * json_object_string_add(json_cluster_list,
-				 * "string", attr->cluster->str);
+				 * "string", cluster->str);
 				 */
 				json_object_object_add(json_cluster_list,
 						       "list",
@@ -10091,10 +10092,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 			} else {
 				vty_out(vty, ", Cluster list: ");
 
-				for (i = 0; i < attr->cluster->length / 4;
-				     i++) {
+				for (i = 0; i < cluster->length / 4; i++) {
 					vty_out(vty, "%pI4 ",
-						&attr->cluster->list[i]);
+						&cluster->list[i]);
 				}
 			}
 		}
