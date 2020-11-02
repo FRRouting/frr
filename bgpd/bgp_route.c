@@ -13822,7 +13822,8 @@ DEFPY_YANG(bgp_distance_source,
 	   NO_STR
 	   "Define an administrative distance\n"
 	   "Distance value\n"
-	   "IP source prefix\n"
+	   "IPv4 source prefix\n"
+	   "IPv6 source prefix\n"
 	   "Access list name\n")
 {
 	afi_t afi;
