@@ -1756,8 +1756,8 @@ static struct ospf_lsa *ospf_lsa_translated_nssa_new(struct ospf *ospf,
 	    == NULL) {
 		if (IS_DEBUG_OSPF_NSSA)
 			zlog_debug(
-				"ospf_nssa_translate_originate(): Could not originate Translated Type-5 for %pI4",
-				&ei.p.prefix);
+				"%s: Could not originate Translated Type-5 for %pI4",
+				__func__, &ei.p.prefix);
 		return NULL;
 	}
 
@@ -1790,24 +1790,22 @@ struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 	if ((new = ospf_lsa_translated_nssa_new(ospf, type7)) == NULL) {
 		if (IS_DEBUG_OSPF_NSSA)
 			zlog_debug(
-				"ospf_translated_nssa_originate(): Could not translate Type-7, Id %pI4, to Type-5",
-				&type7->data->id);
+				"%s: Could not translate Type-7, Id %pI4, to Type-5",
+				__func__, &type7->data->id);
 		return NULL;
 	}
 
 	extnew = (struct as_external_lsa *)new->data;
 
 	if ((new = ospf_lsa_install(ospf, NULL, new)) == NULL) {
-		flog_warn(
-			EC_OSPF_LSA_INSTALL_FAILURE,
-			"ospf_lsa_translated_nssa_originate(): Could not install LSA id %pI4",
-			&type7->data->id);
+		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
+			  "%s: Could not install LSA id %pI4", __func__,
+			  &type7->data->id);
 		return NULL;
 	}
 
 	if (IS_DEBUG_OSPF_NSSA) {
-		zlog_debug(
-			"ospf_translated_nssa_originate(): translated Type 7, installed:");
+		zlog_debug("%s: translated Type 7, installed", __func__);
 		ospf_lsa_header_dump(new->data);
 		zlog_debug("   Network mask: %d", ip_masklen(extnew->mask));
 		zlog_debug("   Forward addr: %pI4",
