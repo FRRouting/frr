@@ -412,8 +412,9 @@ static void bgp_path_info_mpath_lb_update(struct bgp_path_info *path, bool set,
 	struct bgp_path_info_mpath *mpath;
 
 	if ((mpath = path->mpath) == NULL) {
-		if (!set)
+		if (!set || (cum_bw == 0 && !all_paths_lb))
 			return;
+
 		mpath = bgp_path_info_mpath_get(path);
 		if (!mpath)
 			return;
