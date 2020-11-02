@@ -915,10 +915,10 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 			api->action_num++;
 		}
 	}
-	if (path && path->attr && path->attr->ipv6_ecommunity) {
+	if (path && path->attr && bgp_attr_get_ipv6_ecommunity(path->attr)) {
 		struct ecommunity_val_ipv6 *ipv6_ecom_eval;
 
-		ecom = path->attr->ipv6_ecommunity;
+		ecom = bgp_attr_get_ipv6_ecommunity(path->attr);
 		for (i = 0; i < ecom->size; i++) {
 			ipv6_ecom_eval = (struct ecommunity_val_ipv6 *)
 				(ecom->val + (i * ecom->unit_size));
