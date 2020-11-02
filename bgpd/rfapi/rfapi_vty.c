@@ -456,7 +456,7 @@ void rfapiPrintAttrPtrs(void *stream, struct attr *attr)
 	struct vty *vty;
 	void *out;
 	const char *vty_newline;
-
+	struct transit *transit;
 	char buf[BUFSIZ];
 
 	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
@@ -479,8 +479,10 @@ void rfapiPrintAttrPtrs(void *stream, struct attr *attr)
 	   (attr->ecommunity ? attr->ecommunity->refcnt : 0), HVTYNL);
 	fp(out, "  cluster=%p, refcnt=%d%s", attr->cluster,
 	   (attr->cluster ? attr->cluster->refcnt : 0), HVTYNL);
-	fp(out, "  transit=%p, refcnt=%d%s", attr->transit,
-	   (attr->transit ? attr->transit->refcnt : 0), HVTYNL);
+
+	transit = bgp_attr_get_transit(attr);
+	fp(out, "  transit=%p, refcnt=%d%s", transit,
+	   (transit ? transit->refcnt : 0), HVTYNL);
 }
 
 /*

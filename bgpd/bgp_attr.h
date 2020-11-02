@@ -481,4 +481,14 @@ static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 	attr->ipv6_ecommunity = ipv6_ecomm;
 }
 
+static inline struct transit *bgp_attr_get_transit(const struct attr *attr)
+{
+	return attr->transit;
+}
+
+static inline void bgp_attr_set_transit(struct attr *attr,
+					struct transit *transit)
+{
+	attr->transit = transit;
+}
 #endif /* _QUAGGA_BGP_ATTR_H */

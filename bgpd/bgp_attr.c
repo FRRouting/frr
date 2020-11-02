@@ -667,8 +667,8 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(ecommunity_hash_make(bgp_attr_get_ipv6_ecommunity(attr)));
 	if (attr->cluster)
 		MIX(cluster_hash_key_make(attr->cluster));
-	if (attr->transit)
-		MIX(transit_hash_key_make(attr->transit));
+	if (bgp_attr_get_transit(attr))
+		MIX(transit_hash_key_make(bgp_attr_get_transit(attr)));
 	if (attr->encap_subtlvs)
 		MIX(encap_hash_key_make(attr->encap_subtlvs));
 #ifdef ENABLE_BGP_VNC
@@ -707,7 +707,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 			       == bgp_attr_get_ipv6_ecommunity(attr2)
 		    && attr1->lcommunity == attr2->lcommunity
 		    && attr1->cluster == attr2->cluster
-		    && attr1->transit == attr2->transit
+		    && bgp_attr_get_transit(attr1)
+			       == bgp_attr_get_transit(attr2)
 		    && attr1->rmap_table_id == attr2->rmap_table_id
 		    && (attr1->encap_tunneltype == attr2->encap_tunneltype)
 		    && encap_same(attr1->encap_subtlvs, attr2->encap_subtlvs)
@@ -859,11 +860,13 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		else
 			attr->cluster->refcnt++;
 	}
-	if (attr->transit) {
-		if (!attr->transit->refcnt)
-			attr->transit = transit_intern(attr->transit);
+
+	struct transit *transit = bgp_attr_get_transit(attr);
+	if (transit) {
+		if (!transit->refcnt)
+			bgp_attr_set_transit(attr, transit_intern(transit));
 		else
-			attr->transit->refcnt++;
+			transit->refcnt++;
 	}
 	if (attr->encap_subtlvs) {
 		if (!attr->encap_subtlvs->refcnt)
@@ -1066,8 +1069,11 @@ void bgp_attr_unintern_sub(struct attr *attr)
 		cluster_unintern(&attr->cluster);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
 
-	if (attr->transit)
-		transit_unintern(&attr->transit);
+	struct transit *transit = bgp_attr_get_transit(attr);
+	if (transit) {
+		transit_unintern(&transit);
+		bgp_attr_set_transit(attr, transit);
+	}
 
 	if (attr->encap_subtlvs)
 		encap_unintern(&attr->encap_subtlvs, ENCAP_SUBTLV_TYPE);
@@ -1154,9 +1160,11 @@ void bgp_attr_flush(struct attr *attr)
 		cluster_free(attr->cluster);
 		attr->cluster = NULL;
 	}
-	if (attr->transit && !attr->transit->refcnt) {
-		transit_free(attr->transit);
-		attr->transit = NULL;
+
+	struct transit *transit = bgp_attr_get_transit(attr);
+	if (transit && !transit->refcnt) {
+		transit_free(transit);
+		bgp_attr_set_transit(attr, NULL);
 	}
 	if (attr->encap_subtlvs && !attr->encap_subtlvs->refcnt) {
 		encap_free(attr->encap_subtlvs);
@@ -2848,10 +2856,9 @@ static bgp_attr_parse_ret_t bgp_attr_unknown(struct bgp_attr_parser_args *args)
 	SET_FLAG(*startp, BGP_ATTR_FLAG_PARTIAL);
 
 	/* Store transitive attribute to the end of attr->transit. */
-	if (!attr->transit)
-		attr->transit = XCALLOC(MTYPE_TRANSIT, sizeof(struct transit));
-
-	transit = attr->transit;
+	transit = bgp_attr_get_transit(attr);
+	if (!transit)
+		transit = XCALLOC(MTYPE_TRANSIT, sizeof(struct transit));
 
 	if (transit->val)
 		transit->val = XREALLOC(MTYPE_TRANSIT_VAL, transit->val,
@@ -2861,6 +2868,7 @@ static bgp_attr_parse_ret_t bgp_attr_unknown(struct bgp_attr_parser_args *args)
 
 	memcpy(transit->val + transit->length, startp, total);
 	transit->length += total;
+	bgp_attr_set_transit(attr, transit);
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2933,6 +2941,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 	struct aspath *as4_path = NULL;
 	as_t as4_aggregator = 0;
 	struct in_addr as4_aggregator_addr = {.s_addr = 0};
+	struct transit *transit;
 
 	/* Initialize bitmap. */
 	memset(seen, 0, BGP_ATTR_BITMAP_SIZE);
@@ -3298,10 +3307,11 @@ done:
 		aspath_unintern(&as4_path);
 	}
 
+	transit = bgp_attr_get_transit(attr);
 	if (ret != BGP_ATTR_PARSE_ERROR) {
 		/* Finally intern unknown attribute. */
-		if (attr->transit)
-			attr->transit = transit_intern(attr->transit);
+		if (transit)
+			bgp_attr_set_transit(attr, transit_intern(transit));
 		if (attr->encap_subtlvs)
 			attr->encap_subtlvs = encap_intern(attr->encap_subtlvs,
 							   ENCAP_SUBTLV_TYPE);
@@ -3311,17 +3321,18 @@ done:
 							 VNC_SUBTLV_TYPE);
 #endif
 	} else {
-		if (attr->transit) {
-			transit_free(attr->transit);
-			attr->transit = NULL;
+		if (transit) {
+			transit_free(transit);
+			bgp_attr_set_transit(attr, NULL);
 		}
 
 		bgp_attr_flush_encap(attr);
 	};
 
 	/* Sanity checks */
-	if (attr->transit)
-		assert(attr->transit->refcnt > 0);
+	transit = bgp_attr_get_transit(attr);
+	if (transit)
+		assert(transit->refcnt > 0);
 	if (attr->encap_subtlvs)
 		assert(attr->encap_subtlvs->refcnt > 0);
 #ifdef ENABLE_BGP_VNC
@@ -4131,8 +4142,9 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* Unknown transit attribute. */
-	if (attr->transit)
-		stream_put(s, attr->transit->val, attr->transit->length);
+	struct transit *transit = bgp_attr_get_transit(attr);
+	if (transit)
+		stream_put(s, transit->val, transit->length);
 
 	/* Return total size of attribute. */
 	return stream_get_endp(s) - cp;
