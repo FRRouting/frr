@@ -327,6 +327,9 @@ void ecommunity_unintern(struct ecommunity **ecom)
 {
 	struct ecommunity *ret;
 
+	if (!*ecom)
+		return;
+
 	if ((*ecom)->refcnt)
 		(*ecom)->refcnt--;
 

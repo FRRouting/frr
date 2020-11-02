@@ -1045,12 +1045,10 @@ void bgp_attr_unintern_sub(struct attr *attr)
 		community_unintern(&attr->community);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
 
-	if (attr->ecommunity)
-		ecommunity_unintern(&attr->ecommunity);
+	ecommunity_unintern(&attr->ecommunity);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 
-	if (attr->ipv6_ecommunity)
-		ecommunity_unintern(&attr->ipv6_ecommunity);
+	ecommunity_unintern(&attr->ipv6_ecommunity);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
 
 	if (attr->lcommunity)
@@ -1137,7 +1135,7 @@ void bgp_attr_flush(struct attr *attr)
 		community_free(&attr->community);
 	if (attr->ecommunity && !attr->ecommunity->refcnt)
 		ecommunity_free(&attr->ecommunity);
-	if (attr->ipv6_ecommunity && !attr->ipv6_ecommunity->refcnt)
+	if (attr->ipv6_ecommunity && !attr->ecommunity->refcnt)
 		ecommunity_free(&attr->ipv6_ecommunity);
 	if (attr->lcommunity && !attr->lcommunity->refcnt)
 		lcommunity_free(&attr->lcommunity);
