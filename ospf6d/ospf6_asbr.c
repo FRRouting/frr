@@ -951,54 +951,50 @@ static void ospf6_asbr_routemap_update(const char *mapname)
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
-			if (ospf6->rmap[type].name) {
-				ospf6->rmap[type].map =
-					route_map_lookup_by_name(
-						ospf6->rmap[type].name);
+			if (ospf6->rmap[type].name == NULL)
+				continue;
+			ospf6->rmap[type].map = route_map_lookup_by_name(
+					ospf6->rmap[type].name);
 
-				if (mapname
-				    && (strcmp(ospf6->rmap[type].name, mapname)
-					== 0)) {
-					if (ospf6->rmap[type].map) {
-						if (IS_OSPF6_DEBUG_ASBR)
-							zlog_debug(
-								"%s: route-map %s update, reset redist %s",
-								__func__,
-								mapname,
-								ZROUTE_NAME(
-									type));
+			if (mapname == NULL || strcmp(ospf6->rmap[type].name, mapname))
+				continue;
+			if (ospf6->rmap[type].map) {
+				if (IS_OSPF6_DEBUG_ASBR)
+					zlog_debug(
+							"%s: route-map %s update, reset redist %s",
+							__func__,
+							mapname,
+							ZROUTE_NAME(
+								type));
 
-						route_map_counter_increment(
+					route_map_counter_increment(
 							ospf6->rmap[type].map);
 
-						ospf6_asbr_distribute_list_update(
+					ospf6_asbr_distribute_list_update(
 							type, ospf6);
-					} else {
-						/*
-						 * if the mapname matches a
-						 * route-map on ospf6 but the
-						 * map doesn't exist, it is
-						 * being deleted. flush and then
-						 * readvertise
-						 */
-						if (IS_OSPF6_DEBUG_ASBR)
-							zlog_debug(
-								"%s: route-map %s deleted, reset redist %s",
-								__func__,
-								mapname,
-								ZROUTE_NAME(
-									type));
-						ospf6_asbr_redistribute_unset(
-							type, ospf6->vrf_id);
-						ospf6_asbr_routemap_set(
-							type, mapname,
-							ospf6->vrf_id);
-						ospf6_asbr_redistribute_set(
-							type, ospf6->vrf_id);
-					}
-				}
-			} else
-				ospf6->rmap[type].map = NULL;
+			} else {
+				/*
+				* if the mapname matches a
+				* route-map on ospf6 but the
+				* map doesn't exist, it is
+				* being deleted. flush and then
+				* readvertise
+				*/
+				if (IS_OSPF6_DEBUG_ASBR)
+					zlog_debug(
+							"%s: route-map %s deleted, reset redist %s",
+							__func__,
+							mapname,
+							ZROUTE_NAME(
+								type));
+				ospf6_asbr_redistribute_unset(
+						type, ospf6->vrf_id);
+				ospf6_asbr_routemap_set(
+						type, mapname,
+						ospf6->vrf_id);
+				ospf6_asbr_redistribute_set(
+						type, ospf6->vrf_id);
+			}
 		}
 	}
 }

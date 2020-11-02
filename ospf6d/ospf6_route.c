@@ -1084,7 +1084,7 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route)
 
 void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 {
-	char destination[PREFIX2STR_BUFFER], nexthop[64];
+	char destination[PREFIX2STR_BUFFER];
 	char area_id[16], id[16], adv_router[16], capa[16], options[16];
 	struct timeval now, res;
 	char duration[64];
@@ -1170,10 +1170,9 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
 		struct interface *ifp;
 		/* nexthop */
-		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
 
 		ifp = if_lookup_by_index_all_vrf(nh->ifindex);
-		vty_out(vty, "  %s %.*s\n", nexthop, IFNAMSIZ, ifp->name);
+		vty_out(vty, "  %pI6 %.*s\n", &nh->address, IFNAMSIZ, ifp->name);
 	}
 	vty_out(vty, "\n");
 }
