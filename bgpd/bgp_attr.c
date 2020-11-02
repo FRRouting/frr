@@ -761,6 +761,11 @@ static void attrhash_init(void)
  */
 static void attr_vfree(void *attr)
 {
+	struct attr *a = attr;
+
+	if (a->extra)
+		XFREE(MTYPE_ATTR, a->extra);
+
 	XFREE(MTYPE_ATTR, attr);
 }
 
@@ -821,6 +826,11 @@ static void *bgp_attr_hash_alloc(void *p)
 
 	attr->refcnt = 0;
 	return attr;
+}
+
+struct attr_extra *bgp_attr_extra_alloc(void)
+{
+	return XCALLOC(MTYPE_ATTR, sizeof(struct attr_extra));
 }
 
 /* Internet argument attribute. */
@@ -1157,6 +1167,8 @@ void bgp_attr_unintern(struct attr **pattr)
 	if (attr->refcnt == 0) {
 		ret = hash_release(attrhash, attr);
 		assert(ret != NULL);
+		if (attr->extra)
+			XFREE(MTYPE_ATTR, attr->extra);
 		XFREE(MTYPE_ATTR, attr);
 		*pattr = NULL;
 	}
