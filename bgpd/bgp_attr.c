@@ -665,8 +665,8 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(ecommunity_hash_make(attr->ecommunity));
 	if (bgp_attr_get_ipv6_ecommunity(attr))
 		MIX(ecommunity_hash_make(bgp_attr_get_ipv6_ecommunity(attr)));
-	if (attr->cluster)
-		MIX(cluster_hash_key_make(attr->cluster));
+	if (bgp_attr_get_cluster(attr))
+		MIX(cluster_hash_key_make(bgp_attr_get_cluster(attr)));
 	if (bgp_attr_get_transit(attr))
 		MIX(transit_hash_key_make(bgp_attr_get_transit(attr)));
 	if (attr->encap_subtlvs)
@@ -706,7 +706,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && bgp_attr_get_ipv6_ecommunity(attr1)
 			       == bgp_attr_get_ipv6_ecommunity(attr2)
 		    && attr1->lcommunity == attr2->lcommunity
-		    && attr1->cluster == attr2->cluster
+		    && bgp_attr_get_cluster(attr1)
+			       == bgp_attr_get_cluster(attr2)
 		    && bgp_attr_get_transit(attr1)
 			       == bgp_attr_get_transit(attr2)
 		    && attr1->rmap_table_id == attr2->rmap_table_id
@@ -854,11 +855,13 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		else
 			attr->lcommunity->refcnt++;
 	}
-	if (attr->cluster) {
-		if (!attr->cluster->refcnt)
-			attr->cluster = cluster_intern(attr->cluster);
+
+	struct cluster_list *cluster = bgp_attr_get_cluster(attr);
+	if (cluster) {
+		if (!cluster->refcnt)
+			bgp_attr_set_cluster(attr, cluster_intern(cluster));
 		else
-			attr->cluster->refcnt++;
+			cluster->refcnt++;
 	}
 
 	struct transit *transit = bgp_attr_get_transit(attr);
@@ -1043,6 +1046,7 @@ struct attr *bgp_attr_aggregate_intern(
 void bgp_attr_unintern_sub(struct attr *attr)
 {
 	struct ecommunity *ecomm;
+	struct cluster_list *cluster;
 
 	/* aspath refcount shoud be decrement. */
 	if (attr->aspath)
@@ -1065,8 +1069,11 @@ void bgp_attr_unintern_sub(struct attr *attr)
 		lcommunity_unintern(&attr->lcommunity);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
 
-	if (attr->cluster)
-		cluster_unintern(&attr->cluster);
+	cluster = bgp_attr_get_cluster(attr);
+	if (cluster) {
+		cluster_unintern(&cluster);
+		bgp_attr_set_cluster(attr, cluster);
+	}
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
 
 	struct transit *transit = bgp_attr_get_transit(attr);
@@ -1141,6 +1148,7 @@ void bgp_attr_unintern(struct attr **pattr)
 void bgp_attr_flush(struct attr *attr)
 {
 	struct ecommunity *ecomm;
+	struct cluster_list *cluster;
 
 	if (attr->aspath && !attr->aspath->refcnt) {
 		aspath_free(attr->aspath);
@@ -1156,9 +1164,11 @@ void bgp_attr_flush(struct attr *attr)
 	bgp_attr_set_ipv6_ecommunity(attr, NULL);
 	if (attr->lcommunity && !attr->lcommunity->refcnt)
 		lcommunity_free(&attr->lcommunity);
-	if (attr->cluster && !attr->cluster->refcnt) {
-		cluster_free(attr->cluster);
-		attr->cluster = NULL;
+
+	cluster = bgp_attr_get_cluster(attr);
+	if (cluster && !cluster->refcnt) {
+		cluster_free(cluster);
+		bgp_attr_set_cluster(attr, NULL);
 	}
 
 	struct transit *transit = bgp_attr_get_transit(attr);
@@ -1946,8 +1956,9 @@ bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	attr->cluster =
-		cluster_parse((struct in_addr *)stream_pnt(peer->curr), length);
+	bgp_attr_set_cluster(
+		attr, cluster_parse((struct in_addr *)stream_pnt(peer->curr),
+				    length));
 
 	/* XXX: Fix cluster_parse to use stream API and then remove this */
 	stream_forward_getp(peer->curr, length);
@@ -3915,6 +3926,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	/* Route Reflector. */
 	if (peer->sort == BGP_PEER_IBGP && from
 	    && from->sort == BGP_PEER_IBGP) {
+		struct cluster_list *cluster = bgp_attr_get_cluster(attr);
+
 		/* Originator ID. */
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_ORIGINATOR_ID);
@@ -3929,16 +3942,15 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_CLUSTER_LIST);
 
-		if (attr->cluster) {
-			stream_putc(s, attr->cluster->length + 4);
+		if (cluster) {
+			stream_putc(s, cluster->length + 4);
 			/* If this peer configuration's parent BGP has
 			 * cluster_id. */
 			if (bgp->config & BGP_CONFIG_CLUSTER_ID)
 				stream_put_in_addr(s, &bgp->cluster_id);
 			else
 				stream_put_in_addr(s, &bgp->router_id);
-			stream_put(s, attr->cluster->list,
-				   attr->cluster->length);
+			stream_put(s, cluster->list, cluster->length);
 		} else {
 			stream_putc(s, 4);
 			/* If this peer configuration's parent BGP has

@@ -429,13 +429,16 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 			   ", originator %pI4", &attr->originator_id);
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))) {
+		struct cluster_list *cluster;
 		int i;
 
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", clusterlist");
-		for (i = 0; i < attr->cluster->length / 4; i++)
+
+		cluster = bgp_attr_get_cluster(attr);
+		for (i = 0; i < cluster->length / 4; i++)
 			snprintfrr(buf + strlen(buf), size - strlen(buf),
-				   " %pI4", &attr->cluster->list[i]);
+				   " %pI4", &cluster->list[i]);
 	}
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)))
