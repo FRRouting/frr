@@ -39,6 +39,7 @@ can be achieved by amending the default view from SNMP
 :file:`/etc/snmp/snmpd.conf`:
 
 ::
+
    # This is the default view
    view all    included  .1 80
    # Remove ipRouteTable from view
