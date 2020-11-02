@@ -480,27 +480,56 @@ Disable checking if nexthop is connected on EBGP sessions
 Route Flap Dampening
 --------------------
 
-.. clicmd:: bgp dampening (1-45) (1-20000) (1-20000) (1-255)
+.. index:: [no] bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]
+.. clicmd:: [no] bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]
 
-   This command enables BGP route-flap dampening and specifies dampening parameters.
+   This command enables (with optionally specified dampening parameters) or
+   disables route-flap dampening for all routes of a BGP instance.
+
+.. index:: [no] neighbor PEER dampening [(1-45) [(1-20000) (1-20000) (1-255)]]
+.. clicmd:: [no] neighbor PEER dampening [(1-45) [(1-20000) (1-20000) (1-255)]]
+
+   This command enables (with optionally specified dampening parameters) or
+   disables route-flap dampening for all routes learned from a BGP peer.
+
+.. index:: [no] neighbor GROUP dampening [(1-45) [(1-20000) (1-20000) (1-255)]]
+.. clicmd:: [no] neighbor GROUP dampening [(1-45) [(1-20000) (1-20000) (1-255)]]
+
+   This command enables (with optionally specified dampening parameters) or
+   disables route-flap dampening for all routes learned from peers of a peer
+   group.
 
    half-life
-      Half-life time for the penalty
+      Half-life time for the penalty in minutes (default value: 15).
 
    reuse-threshold
-      Value to start reusing a route
+      Value to start reusing a route (default value: 750).
 
    suppress-threshold
-      Value to start suppressing a route
+      Value to start suppressing a route (default value: 2000).
 
    max-suppress
-      Maximum duration to suppress a stable route
+      Maximum duration to suppress a stable route in minutes (default value:
+      60).
 
    The route-flap damping algorithm is compatible with :rfc:`2439`. The use of
-   this command is not recommended nowadays.
+   these commands is not recommended nowadays.
 
    At the moment, route-flap dampening is not working per VRF and is working only
    for IPv4 unicast and multicast.
+
+   With different parameter sets configurable for BGP instances, peer groups and
+   peers, the active dampening profile for a route is chosen on the fly,
+   allowing for various changes in configuration (i.e. peer group memberships)
+   during runtime. The parameter sets are taking precedence in the following
+   order:
+
+   1. Peer
+   2. Peer group
+   3. BGP instance
+
+   The negating commands do not allow to exclude a peer/peer group from a peer
+   group/BGP instances configuration.
 
 .. seealso::
    https://www.ripe.net/publications/docs/ripe-378
