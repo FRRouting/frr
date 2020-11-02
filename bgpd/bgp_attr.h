@@ -515,4 +515,23 @@ static inline void bgp_attr_set_evpn_overlay(struct attr *attr,
 	memcpy(&attr->evpn_overlay, eo, sizeof(struct bgp_route_evpn));
 }
 
+static inline struct bgp_attr_encap_subtlv *
+bgp_attr_get_vnc_subtlvs(const struct attr *attr)
+{
+#ifdef ENABLE_BGP_VNC
+	return attr->vnc_subtlvs;
+#else
+	return NULL;
+#endif
+}
+
+static inline void
+bgp_attr_set_vnc_subtlvs(struct attr *attr,
+			 struct bgp_attr_encap_subtlv *vnc_subtlvs)
+{
+#ifdef ENABLE_BGP_VNC
+	attr->vnc_subtlvs = vnc_subtlvs;
+#endif
+}
+
 #endif /* _QUAGGA_BGP_ATTR_H */

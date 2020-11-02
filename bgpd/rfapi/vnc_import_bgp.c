@@ -468,7 +468,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 		plifetime = &lifetime;
 	}
 
-	encaptlvs = bpi->attr->vnc_subtlvs;
+	encaptlvs = bgp_attr_get_vnc_subtlvs(bpi->attr);
 	if (bpi->attr->encap_tunneltype != BGP_ENCAP_TYPE_RESERVED
 	    && bpi->attr->encap_tunneltype != BGP_ENCAP_TYPE_MPLS) {
 		opt = &optary[cur_opt++];

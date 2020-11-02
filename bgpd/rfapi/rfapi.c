@@ -744,7 +744,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		encaptlv->length = 4;
 		lt = htonl(*lifetime);
 		memcpy(encaptlv->value, &lt, 4);
-		attr.vnc_subtlvs = encaptlv;
+		bgp_attr_set_vnc_subtlvs(&attr, encaptlv);
 		vnc_zlog_debug_verbose(
 			"%s: set Encap Attr Prefix Lifetime to %d", __func__,
 			*lifetime);
@@ -754,7 +754,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	if (rfp_options) {
 
 		if (flags & RFAPI_AHR_RFPOPT_IS_VNCTLV) {
-
+			struct bgp_attr_encap_subtlv *vnc_subtlvs =
+				bgp_attr_get_vnc_subtlvs(&attr);
 			/*
 			 * this flag means we're passing a pointer to an
 			 * existing encap tlv chain which we should copy.
@@ -763,16 +764,15 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 			 */
 			encaptlv = encap_tlv_dup(
 				(struct bgp_attr_encap_subtlv *)rfp_options);
-			if (attr.vnc_subtlvs) {
-				attr.vnc_subtlvs->next = encaptlv;
-			} else {
-				attr.vnc_subtlvs = encaptlv;
-			}
-
+			if (vnc_subtlvs)
+				vnc_subtlvs->next = encaptlv;
+			else
+				bgp_attr_set_vnc_subtlvs(&attr, encaptlv);
 		} else {
 			struct bgp_tea_options *hop;
 			/* XXX max of one tlv present so far from above code */
-			struct bgp_attr_encap_subtlv *tail = attr.vnc_subtlvs;
+			struct bgp_attr_encap_subtlv *tail =
+				bgp_attr_get_vnc_subtlvs(&attr);
 
 			for (hop = rfp_options; hop; hop = hop->next) {
 
@@ -798,11 +798,11 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 				/*
 				 * add to end of subtlv chain
 				 */
-				if (tail) {
+				if (tail)
 					tail->next = encaptlv;
-				} else {
-					attr.vnc_subtlvs = encaptlv;
-				}
+				else
+					bgp_attr_set_vnc_subtlvs(&attr,
+								 encaptlv);
 				tail = encaptlv;
 			}
 		}
