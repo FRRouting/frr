@@ -9468,6 +9468,92 @@ DEFPY(no_neighbor_path_attribute_treat_as_withdraw,
 	return CMD_SUCCESS;
 }
 
+DEFPY(neighbor_damp,
+      neighbor_damp_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor dampening [(1-45)$half [(1-20000)$reuse (1-20000)$suppress (1-255)$max]]",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Enable neighbor route-flap dampening\n"
+      "Half-life time for the penalty\n"
+      "Value to start reusing a route\n"
+      "Value to start suppressing a route\n"
+      "Maximum duration to suppress a stable route\n")
+{
+	struct peer *peer = peer_and_group_lookup_vty(vty, neighbor);
+
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (!half)
+		half = DEFAULT_HALF_LIFE;
+	if (!reuse) {
+		reuse = DEFAULT_REUSE;
+		suppress = DEFAULT_SUPPRESS;
+		max = half * 4;
+	}
+	if (suppress < reuse) {
+		vty_out(vty, "Suppress value cannot be less than reuse value\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	bgp_peer_damp_enable(peer, bgp_node_afi(vty), bgp_node_safi(vty),
+			     half * 60, reuse, suppress, max * 60);
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_neighbor_damp,
+      no_neighbor_damp_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor dampening [HALF [REUSE SUPPRESS MAX]]",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Enable neighbor route-flap dampening\n"
+      "Half-life time for the penalty\n"
+      "Value to start reusing a route\n"
+      "Value to start suppressing a route\n"
+      "Maximum duration to suppress a stable route\n")
+{
+	struct peer *peer = peer_and_group_lookup_vty(vty, neighbor);
+
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+	bgp_peer_damp_disable(peer, bgp_node_afi(vty), bgp_node_safi(vty));
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ip_bgp_neighbor_damp_param,
+       show_ip_bgp_neighbor_damp_param_cmd,
+       "show [ip] bgp [<ipv4|ipv6> [unicast]] neighbors <A.B.C.D|X:X::X:X|WORD>$neighbor dampening parameters [json]$json",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_AFI_HELP_STR
+       "Address Family modifier\n"
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Neighbor route-flap dampening information\n"
+       "Display detail of configured dampening parameters\n"
+       JSON_STR)
+{
+	bool use_json = false;
+	int idx = 0;
+	afi_t afi = AFI_IP;
+	safi_t safi = SAFI_UNICAST;
+	struct peer *peer;
+
+	if (argv_find(argv, argc, "ip", &idx))
+		afi = AFI_IP;
+	if (argv_find(argv, argc, "ipv4", &idx))
+		afi = AFI_IP;
+	if (argv_find(argv, argc, "ipv6", &idx))
+		afi = AFI_IP6;
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING;
+	if (json)
+		use_json = true;
+	bgp_show_peer_dampening_parameters(vty, peer, afi, safi, use_json);
+	return CMD_SUCCESS;
+}
+
 static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
 			 struct ecommunity **list, bool is_rt6)
 {
@@ -19002,7 +19088,15 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	/* BGP flag dampening. */
 	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
-		bgp_config_write_damp(vty, afi, safi);
+		bgp_config_write_damp(vty, bgp, afi, safi);
+	for (ALL_LIST_ELEMENTS_RO(bgp->group, node, group))
+		if (peer_af_flag_check(group->conf, afi, safi,
+				       PEER_FLAG_CONFIG_DAMPENING))
+			bgp_config_write_peer_damp(vty, group->conf, afi, safi);
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
+		if (peer_af_flag_check(peer, afi, safi,
+				       PEER_FLAG_CONFIG_DAMPENING))
+			bgp_config_write_peer_damp(vty, peer, afi, safi);
 
 	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
 		bgp_config_write_peer_af(vty, bgp, group->conf, afi, safi);
@@ -21380,6 +21474,23 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &no_neighbor_soo_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_soo_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_soo_cmd);
+
+	/* "neighbor dampening" commands. */
+	install_element(BGP_NODE, &neighbor_damp_cmd);
+	install_element(BGP_NODE, &no_neighbor_damp_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_damp_cmd);
+	install_element(BGP_IPV4_NODE, &no_neighbor_damp_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_damp_cmd);
+	install_element(BGP_IPV4M_NODE, &no_neighbor_damp_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_damp_cmd);
+	install_element(BGP_IPV4L_NODE, &no_neighbor_damp_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_damp_cmd);
+	install_element(BGP_IPV6_NODE, &no_neighbor_damp_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_damp_cmd);
+	install_element(BGP_IPV6M_NODE, &no_neighbor_damp_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_damp_cmd);
+	install_element(BGP_IPV6L_NODE, &no_neighbor_damp_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_neighbor_damp_param_cmd);
 
 	/* address-family commands. */
 	install_element(BGP_NODE, &address_family_ipv4_safi_cmd);
