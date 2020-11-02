@@ -469,4 +469,16 @@ static inline void bgp_attr_set_pmsi_tnl_type(struct attr *attr,
 	attr->pmsi_tnl_type = pmsi_tnl_type;
 }
 
+static inline struct ecommunity *
+bgp_attr_get_ipv6_ecommunity(const struct attr *attr)
+{
+	return attr->ipv6_ecommunity;
+}
+
+static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
+						struct ecommunity *ipv6_ecomm)
+{
+	attr->ipv6_ecommunity = ipv6_ecomm;
+}
+
 #endif /* _QUAGGA_BGP_ATTR_H */
