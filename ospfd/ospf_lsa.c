@@ -1765,7 +1765,14 @@ static struct ospf_lsa *ospf_lsa_translated_nssa_new(struct ospf *ospf,
 	/* copy over Type-7 data to new */
 	extnew->e[0].tos = ext->e[0].tos;
 	extnew->e[0].route_tag = ext->e[0].route_tag;
-	extnew->e[0].fwd_addr.s_addr = ext->e[0].fwd_addr.s_addr;
+	if (type7->area->suppress_fa) {
+		extnew->e[0].fwd_addr.s_addr = 0;
+		if (IS_DEBUG_OSPF_NSSA)
+			zlog_debug(
+				"ospf_lsa_translated_nssa_new(): Suppress forwarding address for %pI4",
+				&ei.p.prefix);
+	} else
+		extnew->e[0].fwd_addr.s_addr = ext->e[0].fwd_addr.s_addr;
 	new->data->ls_seqnum = type7->data->ls_seqnum;
 
 	/* add translated flag, checksum and lock new lsa */
@@ -1777,7 +1784,8 @@ static struct ospf_lsa *ospf_lsa_translated_nssa_new(struct ospf *ospf,
 
 /* Originate Translated Type-5 for supplied Type-7 NSSA LSA */
 struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
-						struct ospf_lsa *type7)
+						struct ospf_lsa *type7,
+						struct ospf_lsa *type5)
 {
 	struct ospf_lsa *new;
 	struct as_external_lsa *extnew;
@@ -1795,6 +1803,10 @@ struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 	}
 
 	extnew = (struct as_external_lsa *)new->data;
+
+	/* Update LSA sequence number from translated Type-5 LSA */
+	if (type5)
+		new->data->ls_seqnum = lsa_seqnum_increment(type5);
 
 	if ((new = ospf_lsa_install(ospf, NULL, new)) == NULL) {
 		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
@@ -1823,6 +1835,8 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 					      struct ospf_lsa *type5)
 {
 	struct ospf_lsa *new = NULL;
+	struct as_external_lsa *extold = NULL;
+	uint32_t ls_seqnum = 0;
 
 	/* Sanity checks. */
 	assert(type7 || type5);
@@ -1887,6 +1901,12 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 		return NULL;
 	}
 
+	extold = (struct as_external_lsa *)type5->data;
+	if (type7->area->suppress_fa == 1) {
+		if (extold->e[0].fwd_addr.s_addr == 0)
+			ls_seqnum = ntohl(type5->data->ls_seqnum);
+	}
+
 	/* Delete LSA from neighbor retransmit-list. */
 	ospf_ls_retransmit_delete_nbr_as(ospf, type5);
 
@@ -1897,6 +1917,11 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 				"ospf_translated_nssa_refresh(): Could not translate Type-7 for %pI4 to Type-5",
 				&type7->data->id);
 		return NULL;
+	}
+
+	if (type7->area->suppress_fa == 1) {
+		if (extold->e[0].fwd_addr.s_addr == 0)
+			new->data->ls_seqnum = htonl(ls_seqnum + 1);
 	}
 
 	if (!(new = ospf_lsa_install(ospf, NULL, new))) {

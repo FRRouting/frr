@@ -1574,6 +1574,58 @@ DEFUN (ospf_area_nssa,
 	return ospf_area_nssa_cmd_handler(vty, argc, argv, 0, 0);
 }
 
+DEFUN(ospf_area_nssa_suppress_fa, ospf_area_nssa_suppress_fa_cmd,
+      "area <A.B.C.D|(0-4294967295)> nssa suppress-fa",
+      "OSPF area parameters\n"
+      "OSPF area ID in IP address format\n"
+      "OSPF area ID as a decimal value\n"
+      "Configure OSPF area as nssa\n"
+      "Suppress forwarding address\n")
+{
+	int idx_ipv4_number = 1;
+	struct in_addr area_id;
+	int format;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
+				   argv[idx_ipv4_number]->arg);
+
+	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
+				     format);
+	ospf_area_nssa_suppress_fa_set(ospf, area_id);
+
+	ospf_schedule_abr_task(ospf);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ospf_area_nssa_suppress_fa, no_ospf_area_nssa_suppress_fa_cmd,
+      "no area <A.B.C.D|(0-4294967295)> nssa suppress-fa",
+      NO_STR
+      "OSPF area parameters\n"
+      "OSPF area ID in IP address format\n"
+      "OSPF area ID as a decimal value\n"
+      "Configure OSPF area as nssa\n"
+      "Suppress forwarding address\n")
+{
+	int idx_ipv4_number = 2;
+	struct in_addr area_id;
+	int format;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	VTY_GET_OSPF_AREA_ID_NO_BB("nssa", area_id, format,
+				   argv[idx_ipv4_number]->arg);
+
+	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
+				     format);
+	ospf_area_nssa_suppress_fa_unset(ospf, area_id);
+
+	ospf_schedule_abr_task(ospf);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (ospf_area_nssa_no_summary,
        ospf_area_nssa_no_summary_cmd,
        "area <A.B.C.D|(0-4294967295)> nssa no-summary",
@@ -11823,6 +11875,10 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 					vty_out(vty,
 						" area %s nssa no-summary\n",
 						buf);
+				if (area->suppress_fa)
+					vty_out(vty,
+						" area %s nssa suppress-fa\n",
+						buf);
 			}
 
 			if (area->default_cost != 1)
@@ -12684,6 +12740,8 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &ospf_area_nssa_translate_cmd);
 	install_element(OSPF_NODE, &ospf_area_nssa_no_summary_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_nssa_no_summary_cmd);
+	install_element(OSPF_NODE, &ospf_area_nssa_suppress_fa_cmd);
+	install_element(OSPF_NODE, &no_ospf_area_nssa_suppress_fa_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_nssa_cmd);
 
 	install_element(OSPF_NODE, &ospf_area_default_cost_cmd);
