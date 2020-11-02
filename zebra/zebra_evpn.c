@@ -932,6 +932,8 @@ void zebra_evpn_read_mac_neigh(zebra_evpn_t *zevpn, struct interface *ifp)
 	macfdb_read_for_bridge(zns, ifp, zif->brslave_info.br_if);
 	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brslave_info.br_if);
 	if (vlan_if) {
+		/* Add SVI MAC */
+		zebra_evpn_acc_bd_svi_mac_add(vlan_if);
 
 		/* Add SVI MAC-IP */
 		if (advertise_svi_macip_enabled(zevpn)

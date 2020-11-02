@@ -180,6 +180,8 @@ struct zebra_evpn_access_bd {
 	struct list *mbr_zifs;
 	/* presence of zevpn activates the EVI on all the ESs in mbr_zifs */
 	zebra_evpn_t *zevpn;
+	/* SVI associated with the VLAN */
+	struct zebra_if *vlan_zif;
 };
 
 /* multihoming information stored in zrouter */
@@ -200,6 +202,10 @@ struct zebra_evpn_mh_info {
  * this flag when the first local ES is detected.
  */
 #define ZEBRA_EVPN_MH_ADV_REACHABLE_NEIGH_ONLY (1 << 2)
+/* If EVPN MH is enabled we advertise the SVI MAC address to avoid
+ * flooding of ARP replies rxed from the multi-homed host
+ */
+#define ZEBRA_EVPN_MH_ADV_SVI_MAC (1 << 3)
 
 	/* RB tree of Ethernet segments (used for EVPN-MH)  */
 	struct zebra_es_rb_head es_rb_tree;
@@ -285,6 +291,10 @@ static inline bool zebra_evpn_mh_do_adv_reachable_neigh_only(void)
 	return !!(zmh_info->flags & ZEBRA_EVPN_MH_ADV_REACHABLE_NEIGH_ONLY);
 }
 
+static inline bool zebra_evpn_mh_do_adv_svi_mac(void)
+{
+	return zmh_info && (zmh_info->flags & ZEBRA_EVPN_MH_ADV_SVI_MAC);
+}
 
 /*****************************************************************************/
 extern esi_t *zero_esi;
@@ -357,5 +367,8 @@ extern bool zebra_evpn_is_es_bond_member(struct interface *ifp);
 extern void zebra_evpn_mh_print(struct vty *vty);
 extern void zebra_evpn_mh_json(json_object *json);
 extern void zebra_evpn_l2_nh_show(struct vty *vty, bool uj);
+extern void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
+				      struct zebra_if *br_zif, bool is_up);
+extern void zebra_evpn_acc_bd_svi_mac_add(struct interface *vlan_if);
 
 #endif /* _ZEBRA_EVPN_MH_H */

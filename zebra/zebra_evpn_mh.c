@@ -524,9 +524,11 @@ static struct zebra_evpn_access_bd *zebra_evpn_acc_vl_find(vlanid_t vid)
 /* A new broadcast domain can be created when a VLAN member or VLAN<=>VxLAN_IF
  * mapping is added.
  */
-static struct zebra_evpn_access_bd *zebra_evpn_acc_vl_new(vlanid_t vid)
+static struct zebra_evpn_access_bd *
+zebra_evpn_acc_vl_new(vlanid_t vid, struct interface *br_if)
 {
 	struct zebra_evpn_access_bd *acc_bd;
+	struct interface *vlan_if;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("access vlan %d add", vid);
@@ -544,6 +546,16 @@ static struct zebra_evpn_access_bd *zebra_evpn_acc_vl_new(vlanid_t vid)
 		return NULL;
 	}
 
+	/* check if an svi exists for the vlan */
+	if (br_if) {
+		vlan_if = zvni_map_to_svi(vid, br_if);
+		if (vlan_if) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+				zlog_debug("vlan %d SVI %s set", vid,
+					   vlan_if->name);
+			acc_bd->vlan_zif = vlan_if->info;
+		}
+	}
 	return acc_bd;
 }
 
@@ -555,6 +567,9 @@ static void zebra_evpn_acc_vl_free(struct zebra_evpn_access_bd *acc_bd)
 {
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("access vlan %d del", acc_bd->vid);
+
+	if (acc_bd->vlan_zif && acc_bd->zevpn && acc_bd->zevpn->mac_table)
+		zebra_evpn_mac_svi_del(acc_bd->vlan_zif->ifp, acc_bd->zevpn);
 
 	/* cleanup resources maintained against the ES */
 	list_delete(&acc_bd->mbr_zifs);
@@ -584,6 +599,59 @@ static void zebra_evpn_acc_bd_free_on_deref(struct zebra_evpn_access_bd *acc_bd)
 	zebra_evpn_acc_vl_free(acc_bd);
 }
 
+/* called when a SVI is goes up/down */
+void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
+			       struct zebra_if *br_zif, bool is_up)
+{
+	struct zebra_evpn_access_bd *acc_bd;
+	struct zebra_l2info_bridge *br;
+	uint16_t vid;
+	struct zebra_if *tmp_br_zif = br_zif;
+
+	if (!tmp_br_zif) {
+		if (!vlan_zif->link)
+			return;
+
+		tmp_br_zif = vlan_zif->link->info;
+	}
+
+	br = &tmp_br_zif->l2info.br;
+	/* ignore vlan unaware bridges */
+	if (!br->vlan_aware)
+		return;
+
+	vid = vlan_zif->l2info.vl.vid;
+	acc_bd = zebra_evpn_acc_vl_find(vid);
+	if (!acc_bd)
+		return;
+
+	if (is_up) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("vlan %d SVI %s set", vid,
+				   vlan_zif->ifp->name);
+
+		acc_bd->vlan_zif = vlan_zif;
+		if (acc_bd->zevpn)
+			zebra_evpn_mac_svi_add(acc_bd->vlan_zif->ifp,
+					       acc_bd->zevpn);
+	} else if (acc_bd->vlan_zif) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("vlan %d SVI clear", vid);
+		acc_bd->vlan_zif = NULL;
+		if (acc_bd->zevpn && acc_bd->zevpn->mac_table)
+			zebra_evpn_mac_svi_del(vlan_zif->ifp, acc_bd->zevpn);
+	}
+}
+
+/* On some events macs are force-flushed. This api can be used to reinstate
+ * the svi-mac after such cleanup-events.
+ */
+void zebra_evpn_acc_bd_svi_mac_add(struct interface *vlan_if)
+{
+	zebra_evpn_acc_bd_svi_set(vlan_if->info, NULL,
+				  if_is_operative(vlan_if));
+}
+
 /* called when a EVPN-L2VNI is set or cleared against a BD */
 static void zebra_evpn_acc_bd_evpn_set(struct zebra_evpn_access_bd *acc_bd,
 		zebra_evpn_t *zevpn, zebra_evpn_t *old_zevpn)
@@ -604,6 +672,15 @@ static void zebra_evpn_acc_bd_evpn_set(struct zebra_evpn_access_bd *acc_bd,
 		else if (old_zevpn)
 			zebra_evpn_local_es_evi_del(zif->es_info.es, old_zevpn);
 	}
+
+	if (acc_bd->vlan_zif) {
+		if (zevpn)
+			zebra_evpn_mac_svi_add(acc_bd->vlan_zif->ifp,
+					       acc_bd->zevpn);
+		else if (old_zevpn && old_zevpn->mac_table)
+			zebra_evpn_mac_svi_del(acc_bd->vlan_zif->ifp,
+					       old_zevpn);
+	}
 }
 
 /* handle VLAN->VxLAN_IF association */
@@ -618,7 +695,8 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, struct zebra_if *vxlan_zif)
 
 	acc_bd = zebra_evpn_acc_vl_find(vid);
 	if (!acc_bd)
-		acc_bd = zebra_evpn_acc_vl_new(vid);
+		acc_bd = zebra_evpn_acc_vl_new(vid,
+					       vxlan_zif->brslave_info.br_if);
 
 	old_vxlan_zif = acc_bd->vxlan_zif;
 	acc_bd->vxlan_zif = vxlan_zif;
@@ -712,7 +790,7 @@ void zebra_evpn_vl_mbr_ref(uint16_t vid, struct zebra_if *zif)
 
 	acc_bd = zebra_evpn_acc_vl_find(vid);
 	if (!acc_bd)
-		acc_bd = zebra_evpn_acc_vl_new(vid);
+		acc_bd = zebra_evpn_acc_vl_new(vid, zif->brslave_info.br_if);
 
 	if (listnode_lookup(acc_bd->mbr_zifs, zif))
 		return;
@@ -754,6 +832,22 @@ void zebra_evpn_vl_mbr_deref(uint16_t vid, struct zebra_if *zif)
 
 	/* if there are no other references the access_bd can be freed */
 	zebra_evpn_acc_bd_free_on_deref(acc_bd);
+}
+
+static void zebra_evpn_acc_vl_adv_svi_mac_cb(struct hash_bucket *bucket,
+					     void *ctxt)
+{
+	struct zebra_evpn_access_bd *acc_bd = bucket->data;
+
+	if (acc_bd->vlan_zif && acc_bd->zevpn)
+		zebra_evpn_mac_svi_add(acc_bd->vlan_zif->ifp, acc_bd->zevpn);
+}
+
+/* called when advertise SVI MAC is enabled on the switch */
+static void zebra_evpn_acc_vl_adv_svi_mac_all(void)
+{
+	hash_iterate(zmh_info->evpn_vlan_table,
+		     zebra_evpn_acc_vl_adv_svi_mac_cb, NULL);
 }
 
 static void zebra_evpn_acc_vl_json_fill(struct zebra_evpn_access_bd *acc_bd,
@@ -800,6 +894,8 @@ static void zebra_evpn_acc_vl_show_entry_detail(struct vty *vty,
 		vty_out(vty, " VxLAN Interface: %s\n",
 				acc_bd->vxlan_zif ?
 				acc_bd->vxlan_zif->ifp->name : "-");
+		vty_out(vty, " SVI: %s\n",
+			acc_bd->vlan_zif ? acc_bd->vlan_zif->ifp->name : "-");
 		vty_out(vty, " L2-VNI: %d\n",
 				acc_bd->zevpn ? acc_bd->zevpn->vni : 0);
 		vty_out(vty, " Member Count: %d\n",
@@ -817,12 +913,11 @@ static void zebra_evpn_acc_vl_show_entry(struct vty *vty,
 	if (json) {
 		zebra_evpn_acc_vl_json_fill(acc_bd, json, false);
 	} else {
-		vty_out(vty, "%-5u %21s %-8d %u\n",
-				acc_bd->vid,
-				acc_bd->vxlan_zif ?
-				acc_bd->vxlan_zif->ifp->name : "-",
-				acc_bd->zevpn ? acc_bd->zevpn->vni : 0,
-				listcount(acc_bd->mbr_zifs));
+		vty_out(vty, "%-5u %-15s %-8d %-15s %u\n", acc_bd->vid,
+			acc_bd->vlan_zif ? acc_bd->vlan_zif->ifp->name : "-",
+			acc_bd->zevpn ? acc_bd->zevpn->vni : 0,
+			acc_bd->vxlan_zif ? acc_bd->vxlan_zif->ifp->name : "-",
+			listcount(acc_bd->mbr_zifs));
 	}
 }
 
@@ -856,8 +951,8 @@ void zebra_evpn_acc_vl_show(struct vty *vty, bool uj)
 	wctx.detail = false;
 
 	if (!uj)
-		vty_out(vty, "%-5s %21s %-8s %s\n",
-				"VLAN", "VxLAN-IF", "L2-VNI", "# Members");
+		vty_out(vty, "%-5s %-15s %-8s %-15s %s\n", "VLAN", "SVI",
+			"L2-VNI", "VXLAN-IF", "# Members");
 
 	hash_iterate(zmh_info->evpn_vlan_table, zebra_evpn_acc_vl_show_hash,
 			&wctx);
@@ -944,6 +1039,7 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
 	vlanid_t vid;
 	struct zebra_evpn_es *es;
 
+	zebra_evpn_acc_bd_svi_set(zif, NULL, false);
 	if (!bf_is_inited(zif->vlan_bitmap))
 		return;
 
@@ -1960,6 +2056,20 @@ static void zebra_evpn_mh_advertise_reach_neigh_only(void)
 	 */
 }
 
+/* On config of first local-ES turn on advertisement of local SVI-MAC */
+static void zebra_evpn_mh_advertise_svi_mac(void)
+{
+	if (zmh_info->flags & ZEBRA_EVPN_MH_ADV_SVI_MAC)
+		return;
+
+	zmh_info->flags |= ZEBRA_EVPN_MH_ADV_SVI_MAC;
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		zlog_debug("evpn-mh: advertise SVI MAC");
+
+	/* walk through all SVIs and see if we need to advertise the MAC */
+	zebra_evpn_acc_vl_adv_svi_mac_all();
+}
+
 static int zebra_evpn_es_df_delay_exp_cb(struct thread *t)
 {
 	struct zebra_evpn_es *es;
@@ -1974,6 +2084,17 @@ static int zebra_evpn_es_df_delay_exp_cb(struct thread *t)
 	return 0;
 }
 
+/* currently there is no global config to turn on MH instead we use
+ * the addition of the first local Ethernet Segment as the trigger to
+ * init MH specific processing
+ */
+static void zebra_evpn_mh_on_first_local_es(void)
+{
+	zebra_evpn_mh_dup_addr_detect_off();
+	zebra_evpn_mh_advertise_reach_neigh_only();
+	zebra_evpn_mh_advertise_svi_mac();
+}
+
 static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 		struct zebra_if *zif)
 {
@@ -1984,8 +2105,7 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 		zlog_debug("local es %s add; nhg %u if %s", es->esi_str,
 			   es->nhg_id, zif->ifp->name);
 
-	zebra_evpn_mh_dup_addr_detect_off();
-	zebra_evpn_mh_advertise_reach_neigh_only();
+	zebra_evpn_mh_on_first_local_es();
 
 	es->flags |= ZEBRA_EVPNES_LOCAL;
 	listnode_init(&es->local_es_listnode, es);

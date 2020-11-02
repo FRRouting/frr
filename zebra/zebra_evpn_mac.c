@@ -221,8 +221,8 @@ void zebra_evpn_deref_ip2mac(zebra_evpn_t *zevpn, zebra_mac_t *mac)
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 	}
 
-	/* If no neighbors, delete the MAC. */
-	if (list_isempty(mac->neigh_list))
+	/* If no references, delete the MAC. */
+	if (!zebra_evpn_mac_in_use(mac))
 		zebra_evpn_mac_del(zevpn, mac);
 }
 
@@ -583,6 +583,9 @@ void zebra_evpn_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY))
 			json_object_boolean_true_add(json_mac, "stickyMac");
 
+		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_SVI))
+			json_object_boolean_true_add(json_mac, "sviMac");
+
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW))
 			json_object_boolean_true_add(json_mac,
 						     "defaultGateway");
@@ -684,6 +687,9 @@ void zebra_evpn_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY))
 			vty_out(vty, " Sticky Mac ");
+
+		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_SVI))
+			vty_out(vty, " SVI-Mac ");
 
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW))
 			vty_out(vty, " Default-gateway Mac ");
@@ -2411,4 +2417,49 @@ int zebra_evpn_mac_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 	*macp = mac;
 
 	return 0;
+}
+
+void zebra_evpn_mac_svi_del(struct interface *ifp, zebra_evpn_t *zevpn)
+{
+	zebra_mac_t *mac;
+	struct ethaddr macaddr;
+
+	if (!zebra_evpn_mh_do_adv_svi_mac())
+		return;
+
+	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
+	mac = zebra_evpn_mac_lookup(zevpn, &macaddr);
+	if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_SVI)) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("SVI %s mac free", ifp->name);
+
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_SVI);
+		zebra_evpn_deref_ip2mac(mac->zevpn, mac);
+	}
+}
+
+void zebra_evpn_mac_svi_add(struct interface *ifp, zebra_evpn_t *zevpn)
+{
+	zebra_mac_t *mac = NULL;
+	struct ethaddr macaddr;
+	struct zebra_if *zif = ifp->info;
+
+	if (!zebra_evpn_mh_do_adv_svi_mac())
+		return;
+
+	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
+
+	/* dup check */
+	mac = zebra_evpn_mac_lookup(zevpn, &macaddr);
+	if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_SVI))
+		return;
+
+	/* add/update mac */
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		zlog_debug("SVI %s mac add", zif->ifp->name);
+
+	mac = NULL;
+	zebra_evpn_mac_gw_macip_add(ifp, zevpn, NULL, &mac, &macaddr, 0);
+	if (mac)
+		SET_FLAG(mac->flags, ZEBRA_MAC_SVI);
 }

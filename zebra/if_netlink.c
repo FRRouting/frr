@@ -561,6 +561,8 @@ static void netlink_interface_update_l2info(struct interface *ifp,
 
 		netlink_extract_vlan_info(link_data, &vlan_info);
 		zebra_l2_vlanif_update(ifp, &vlan_info);
+		zebra_evpn_acc_bd_svi_set(ifp->info, NULL,
+					  !!if_is_operative(ifp));
 	} else if (IS_ZEBRA_IF_VXLAN(ifp)) {
 		struct zebra_l2info_vxlan vxlan_info;
 

@@ -80,6 +80,8 @@ struct zebra_mac_t_ {
  * to advertise it as locally attached but with a "proxy" flag
  */
 #define ZEBRA_MAC_LOCAL_INACTIVE 0x800
+/* The MAC entry was created because of advertise_svi_mac */
+#define ZEBRA_MAC_SVI 0x1000
 
 #define ZEBRA_MAC_ALL_LOCAL_FLAGS (ZEBRA_MAC_LOCAL | ZEBRA_MAC_LOCAL_INACTIVE)
 #define ZEBRA_MAC_ALL_PEER_FLAGS                                               \
@@ -201,6 +203,12 @@ static inline void zebra_evpn_mac_clear_sync_info(zebra_mac_t *mac)
 	zebra_evpn_mac_stop_hold_timer(mac);
 }
 
+static inline bool zebra_evpn_mac_in_use(zebra_mac_t *mac)
+{
+	return !list_isempty(mac->neigh_list)
+	       || CHECK_FLAG(mac->flags, ZEBRA_MAC_SVI);
+}
+
 struct hash *zebra_mac_db_create(const char *desc);
 uint32_t num_valid_macs(zebra_evpn_t *zevi);
 uint32_t num_dup_detected_macs(zebra_evpn_t *zevi);
@@ -257,6 +265,8 @@ int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, zebra_mac_t *mac);
 int zebra_evpn_mac_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 				struct ipaddr *ip, zebra_mac_t **macp,
 				struct ethaddr *macaddr, vlanid_t vlan_id);
+void zebra_evpn_mac_svi_add(struct interface *ifp, zebra_evpn_t *zevpn);
+void zebra_evpn_mac_svi_del(struct interface *ifp, zebra_evpn_t *zevpn);
 
 #ifdef __cplusplus
 }
