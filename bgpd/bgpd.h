@@ -45,6 +45,7 @@
 #include "bgp_addpath_types.h"
 #include "bgp_nexthop.h"
 #include "bgp_io.h"
+#include "bgp_damp.h"
 
 #include "lib/bfd.h"
 
@@ -759,6 +760,9 @@ struct bgp {
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
 
+	/* BGP route flap dampening configuration */
+	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);
@@ -1327,6 +1331,9 @@ struct peer {
 	/* Last update packet sent time */
 	time_t pkt_stime[AFI_MAX][SAFI_MAX];
 
+	/* Peer / peer group route flap dampening configuration */
+	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
+
 	/* Peer Per AF flags */
 	/*
 	 * Please consult the comments for *flags_override*, *flags_invert* and
@@ -1365,6 +1372,7 @@ struct peer {
 #define PEER_FLAG_MAX_PREFIX_OUT            (1U << 27) /* outgoing maximum prefix */
 #define PEER_FLAG_MAX_PREFIX_FORCE          (1U << 28) /* maximum-prefix <num> force */
 #define PEER_FLAG_DISABLE_ADDPATH_RX        (1U << 29) /* disable-addpath-rx */
+#define PEER_FLAG_CONFIG_DAMPENING          (1U << 30) /* route flap dampening */
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
 
