@@ -33,6 +33,7 @@ PREDECL_LIST(zebra_announce);
 #include "bgp_addpath_types.h"
 #include "bgp_nexthop.h"
 #include "bgp_io.h"
+#include "bgp_damp.h"
 
 #include "lib/bfd.h"
 
@@ -834,6 +835,9 @@ struct bgp {
 
 	enum asnotation_mode asnotation;
 
+	/* BGP route flap dampening configuration */
+	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);
@@ -1508,6 +1512,9 @@ struct peer {
 	/* Last update packet sent time */
 	time_t pkt_stime[AFI_MAX][SAFI_MAX];
 
+	/* Peer / peer group route flap dampening configuration */
+	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
+
 	/* Peer Per AF flags */
 	/*
 	 * Please consult the comments for *flags_override*, *flags_invert* and
@@ -1549,6 +1556,7 @@ struct peer {
 #define PEER_FLAG_SOO (1ULL << 28)
 #define PEER_FLAG_SEND_EXT_COMMUNITY_RPKI (1ULL << 29)
 #define PEER_FLAG_ADDPATH_RX_PATHS_LIMIT (1ULL << 30)
+#define PEER_FLAG_CONFIG_DAMPENING (1U << 31)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
