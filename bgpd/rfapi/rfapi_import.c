@@ -298,10 +298,9 @@ static wq_item_status rfapi_deferred_close_workfunc(struct work_queue *q,
 int rfapiGetL2o(struct attr *attr, struct rfapi_l2address_option *l2o)
 {
 	if (attr) {
-
 		struct bgp_attr_encap_subtlv *pEncap;
 
-		for (pEncap = attr->vnc_subtlvs; pEncap;
+		for (pEncap = bgp_attr_get_vnc_subtlvs(attr); pEncap;
 		     pEncap = pEncap->next) {
 
 			if (pEncap->type == BGP_VNC_SUBTLV_TYPE_RFPOPTION) {
@@ -358,7 +357,7 @@ int rfapiGetVncLifetime(struct attr *attr, uint32_t *lifetime)
 
 	if (attr) {
 
-		for (pEncap = attr->vnc_subtlvs; pEncap;
+		for (pEncap = bgp_attr_get_vnc_subtlvs(attr); pEncap;
 		     pEncap = pEncap->next) {
 
 			if (pEncap->type
@@ -1337,7 +1336,8 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 		return NULL;
 	}
 
-	for (pEncap = bpi->attr->vnc_subtlvs; pEncap; pEncap = pEncap->next) {
+	for (pEncap = bgp_attr_get_vnc_subtlvs(bpi->attr); pEncap;
+	     pEncap = pEncap->next) {
 		switch (pEncap->type) {
 		case BGP_VNC_SUBTLV_TYPE_LIFETIME:
 			/* use configured lifetime, not attr lifetime */

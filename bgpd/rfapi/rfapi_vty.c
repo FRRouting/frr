@@ -596,7 +596,8 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 	}
 
 	/* RFP option lengths */
-	for (pEncap = bpi->attr->vnc_subtlvs; pEncap; pEncap = pEncap->next) {
+	for (pEncap = bgp_attr_get_vnc_subtlvs(bpi->attr); pEncap;
+	     pEncap = pEncap->next) {
 
 		if (pEncap->type == BGP_VNC_SUBTLV_TYPE_RFPOPTION) {
 			if (printed_1st_gol) {
