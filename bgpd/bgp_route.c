@@ -10221,9 +10221,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 
 	/* Line 10 display PMSI tunnel attribute, if present */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)) {
-		const char *str =
-			lookup_msg(bgp_pmsi_tnltype_str, attr->pmsi_tnl_type,
-				   PMSI_TNLTYPE_STR_DEFAULT);
+		const char *str = lookup_msg(bgp_pmsi_tnltype_str,
+					     bgp_attr_get_pmsi_tnl_type(attr),
+					     PMSI_TNLTYPE_STR_DEFAULT);
 
 		if (json_paths) {
 			json_pmsi = json_object_new_object();

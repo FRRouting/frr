@@ -457,4 +457,16 @@ static inline uint32_t mac_mobility_seqnum(struct attr *attr)
 {
 	return (attr) ? attr->mm_seqnum : 0;
 }
+
+static inline enum pta_type bgp_attr_get_pmsi_tnl_type(struct attr *attr)
+{
+	return attr->pmsi_tnl_type;
+}
+
+static inline void bgp_attr_set_pmsi_tnl_type(struct attr *attr,
+					      enum pta_type pmsi_tnl_type)
+{
+	attr->pmsi_tnl_type = pmsi_tnl_type;
+}
+
 #endif /* _QUAGGA_BGP_ATTR_H */

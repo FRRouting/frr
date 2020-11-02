@@ -440,7 +440,7 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
-			 ", pmsi tnltype %u", attr->pmsi_tnl_type);
+			 ", pmsi tnltype %u", bgp_attr_get_pmsi_tnl_type(attr));
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH)))
 		snprintf(buf + strlen(buf), size - strlen(buf), ", path %s",
