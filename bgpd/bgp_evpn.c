@@ -3943,11 +3943,13 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 	else
 		stream_put(s, &p_evpn_p->prefix_addr.ip.ipaddr_v6, 16);
 	if (attr) {
+		const struct bgp_route_evpn *evpn_overlay =
+			bgp_attr_get_evpn_overlay(attr);
+
 		if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
-			stream_put_ipv4(s,
-					attr->evpn_overlay.gw_ip.ipv4.s_addr);
+			stream_put_ipv4(s, evpn_overlay->gw_ip.ipv4.s_addr);
 		else
-			stream_put(s, &(attr->evpn_overlay.gw_ip.ipv6), 16);
+			stream_put(s, &(evpn_overlay->gw_ip.ipv6), 16);
 	} else {
 		if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
 			stream_put_ipv4(s, 0);

@@ -403,7 +403,9 @@ static bool overlay_index_same(const struct attr *a1, const struct attr *a2)
 		return false;
 	if (!a1 && !a2)
 		return true;
-	return !memcmp(&(a1->evpn_overlay), &(a2->evpn_overlay),
+
+	return !memcmp(bgp_attr_get_evpn_overlay(a1),
+		       bgp_attr_get_evpn_overlay(a2),
 		       sizeof(struct bgp_route_evpn));
 }
 

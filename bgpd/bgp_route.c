@@ -3372,17 +3372,22 @@ static void overlay_index_update(struct attr *attr,
 	if (!attr)
 		return;
 	if (gw_ip == NULL) {
-		memset(&(attr->evpn_overlay.gw_ip), 0, sizeof(union gw_addr));
+		struct bgp_route_evpn eo;
+
+		memset(&eo, 0, sizeof(eo));
+		bgp_attr_set_evpn_overlay(attr, &eo);
 	} else {
-		memcpy(&(attr->evpn_overlay.gw_ip), gw_ip,
-		       sizeof(union gw_addr));
+		struct bgp_route_evpn eo = {.gw_ip = *gw_ip};
+
+		bgp_attr_set_evpn_overlay(attr, &eo);
 	}
 }
 
 static bool overlay_index_equal(afi_t afi, struct bgp_path_info *path,
 				union gw_addr *gw_ip)
 {
-	union gw_addr *path_gw_ip, *path_gw_ip_remote;
+	const struct bgp_route_evpn *eo = bgp_attr_get_evpn_overlay(path->attr);
+	union gw_addr path_gw_ip, *path_gw_ip_remote;
 	union {
 		esi_t esi;
 		union gw_addr ip;
@@ -3391,7 +3396,7 @@ static bool overlay_index_equal(afi_t afi, struct bgp_path_info *path,
 	if (afi != AFI_L2VPN)
 		return true;
 
-	path_gw_ip = &(path->attr->evpn_overlay.gw_ip);
+	path_gw_ip = eo->gw_ip;
 
 	if (gw_ip == NULL) {
 		memset(&temp, 0, sizeof(temp));
@@ -3399,7 +3404,7 @@ static bool overlay_index_equal(afi_t afi, struct bgp_path_info *path,
 	} else
 		path_gw_ip_remote = gw_ip;
 
-	return !!memcmp(path_gw_ip, path_gw_ip_remote, sizeof(union gw_addr));
+	return !!memcmp(&path_gw_ip, path_gw_ip_remote, sizeof(union gw_addr));
 }
 
 /* Check if received nexthop is valid or not. */
@@ -4470,7 +4475,7 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 			struct bgp_path_info *pi;
 			uint32_t num_labels = 0;
 			mpls_label_t *label_pnt = NULL;
-			struct bgp_route_evpn evpn;
+			struct bgp_route_evpn evpn = {0};
 
 			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
 			     pi = pi->next)
@@ -4482,10 +4487,9 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 			if (num_labels)
 				label_pnt = &pi->extra->label[0];
 			if (pi)
-				memcpy(&evpn, &pi->attr->evpn_overlay,
+				memcpy(&evpn,
+				       bgp_attr_get_evpn_overlay(pi->attr),
 				       sizeof(evpn));
-			else
-				memset(&evpn, 0, sizeof(evpn));
 
 			ret = bgp_update(peer, bgp_dest_get_prefix(dest),
 					 ain->addpath_rx_id, ain->attr, afi,
@@ -8928,12 +8932,11 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 		}
 	}
 
+	const struct bgp_route_evpn *eo = bgp_attr_get_evpn_overlay(attr);
 	if (is_evpn_prefix_ipaddr_v4((struct prefix_evpn *)p)) {
-		inet_ntop(AF_INET, &(attr->evpn_overlay.gw_ip.ipv4), buf,
-			  BUFSIZ);
+		inet_ntop(AF_INET, &eo->gw_ip.ipv4, buf, BUFSIZ);
 	} else if (is_evpn_prefix_ipaddr_v6((struct prefix_evpn *)p)) {
-		inet_ntop(AF_INET6, &(attr->evpn_overlay.gw_ip.ipv6), buf,
-			  BUFSIZ);
+		inet_ntop(AF_INET6, &eo->gw_ip.ipv6, buf, BUFSIZ);
 	}
 
 	if (!json_path)

@@ -502,4 +502,17 @@ static inline void bgp_attr_set_cluster(struct attr *attr,
 {
 	attr->cluster1 = cl;
 }
+
+static inline const struct bgp_route_evpn *
+bgp_attr_get_evpn_overlay(const struct attr *attr)
+{
+	return &attr->evpn_overlay;
+}
+
+static inline void bgp_attr_set_evpn_overlay(struct attr *attr,
+					     struct bgp_route_evpn *eo)
+{
+	memcpy(&attr->evpn_overlay, eo, sizeof(struct bgp_route_evpn));
+}
+
 #endif /* _QUAGGA_BGP_ATTR_H */
