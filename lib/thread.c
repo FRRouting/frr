@@ -1233,9 +1233,9 @@ void thread_cancel(struct thread **thread)
 
 	master = (*thread)->master;
 
-	frrtrace(9, frr_libfrr, thread_cancel, master, thread->funcname,
-		 thread->schedfrom, thread->schedfrom_line, NULL, thread->u.fd,
-		 thread->u.val, thread->arg, thread->u.sands.tv_sec);
+	frrtrace(9, frr_libfrr, thread_cancel, master, (*thread)->funcname,
+		 (*thread)->schedfrom, (*thread)->schedfrom_line, NULL, (*thread)->u.fd,
+		 (*thread)->u.val, (*thread)->arg, (*thread)->u.sands.tv_sec);
 
 	assert(master->owner == pthread_self());
 
