@@ -40,11 +40,17 @@
 
 /* Memory type for context blocks */
 DEFINE_MTYPE_STATIC(ZEBRA, DP_CTX, "Zebra DPlane Ctx")
+DEFINE_MTYPE_STATIC(ZEBRA, DP_INTF, "Zebra DPlane Intf")
 DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider")
 
 #ifndef AOK
 #  define AOK 0
 #endif
+
+/* Control for collection of extra interface info with route updates; a plugin
+ * can enable the extra info via a dplane api.
+ */
+static bool dplane_collect_extra_intf_info;
 
 /* Enable test dataplane provider */
 /*#define DPLANE_TEST_PROVIDER 1 */
@@ -82,6 +88,18 @@ struct dplane_nexthop_info {
 	struct nexthop_group ng;
 	struct nh_grp nh_grp[MULTIPATH_NUM];
 	uint8_t nh_grp_count;
+};
+
+/*
+ * Optional extra info about interfaces used in route updates' nexthops.
+ */
+struct dplane_intf_extra {
+	vrf_id_t vrf_id;
+	uint32_t ifindex;
+	uint32_t flags;
+	uint32_t status;
+
+	TAILQ_ENTRY(dplane_intf_extra) link;
 };
 
 /*
@@ -127,8 +145,8 @@ struct dplane_route_info {
 	struct nexthop_group zd_old_ng;
 	struct nexthop_group old_backup_ng;
 
-	/* TODO -- use fixed array of nexthops, to avoid mallocs? */
-
+	/* Optional list of extra interface info */
+	TAILQ_HEAD(dp_intf_extra_q, dplane_intf_extra) intf_extra_q;
 };
 
 /*
@@ -507,6 +525,8 @@ void dplane_enable_sys_route_notifs(void)
  */
 static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 {
+	struct dplane_intf_extra *if_extra, *if_tmp;
+
 	/*
 	 * Some internal allocations may need to be freed, depending on
 	 * the type of info captured in the ctx.
@@ -547,6 +567,14 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 			nexthops_free(ctx->u.rinfo.old_backup_ng.nexthop);
 
 			ctx->u.rinfo.old_backup_ng.nexthop = NULL;
+		}
+
+		/* Optional extra interface info */
+		TAILQ_FOREACH_SAFE(if_extra, &ctx->u.rinfo.intf_extra_q,
+				   link, if_tmp) {
+			TAILQ_REMOVE(&ctx->u.rinfo.intf_extra_q, if_extra,
+				     link);
+			XFREE(MTYPE_DP_INTF, if_extra);
 		}
 
 		break;
@@ -1819,6 +1847,45 @@ dplane_ctx_get_br_port_backup_nhg_id(const struct zebra_dplane_ctx *ctx)
  * End of dplane context accessors
  */
 
+/* Optional extra info about interfaces in nexthops - a plugin must enable
+ * this extra info.
+ */
+const struct dplane_intf_extra *
+dplane_ctx_get_intf_extra(const struct zebra_dplane_ctx *ctx)
+{
+	return TAILQ_FIRST(&ctx->u.rinfo.intf_extra_q);
+}
+
+const struct dplane_intf_extra *
+dplane_ctx_intf_extra_next(const struct zebra_dplane_ctx *ctx,
+			   const struct dplane_intf_extra *ptr)
+{
+	return TAILQ_NEXT(ptr, link);
+}
+
+vrf_id_t dplane_intf_extra_get_vrfid(const struct dplane_intf_extra *ptr)
+{
+	return ptr->vrf_id;
+}
+
+uint32_t dplane_intf_extra_get_ifindex(const struct dplane_intf_extra *ptr)
+{
+	return ptr->ifindex;
+}
+
+uint32_t dplane_intf_extra_get_flags(const struct dplane_intf_extra *ptr)
+{
+	return ptr->flags;
+}
+
+uint32_t dplane_intf_extra_get_status(const struct dplane_intf_extra *ptr)
+{
+	return ptr->status;
+}
+
+/*
+ * End of interface extra info accessors
+ */
 
 /*
  * Retrieve the limit on the number of pending, unprocessed updates.
@@ -1887,9 +1954,13 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	struct zebra_vrf *zvrf;
 	struct nexthop *nexthop;
 	zebra_l3vni_t *zl3vni;
+	const struct interface *ifp;
+	struct dplane_intf_extra *if_extra;
 
 	if (!ctx || !rn || !re)
 		goto done;
+
+	TAILQ_INIT(&ctx->u.rinfo.intf_extra_q);
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
@@ -1951,6 +2022,27 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		if (zl3vni && is_l3vni_oper_up(zl3vni)) {
 			nexthop->nh_encap_type = NET_VXLAN;
 			nexthop->nh_encap.vni = zl3vni->vni;
+		}
+
+		/* Optionally capture extra interface info while we're in the
+		 * main zebra pthread - a plugin has to ask for this info.
+		 */
+		if (dplane_collect_extra_intf_info) {
+			ifp = if_lookup_by_index(nexthop->ifindex,
+						 nexthop->vrf_id);
+
+			if (ifp) {
+				if_extra = XCALLOC(
+					MTYPE_DP_INTF,
+					sizeof(struct dplane_intf_extra));
+				if_extra->vrf_id = nexthop->vrf_id;
+				if_extra->ifindex = nexthop->ifindex;
+				if_extra->flags = ifp->flags;
+				if_extra->status = ifp->status;
+
+				TAILQ_INSERT_TAIL(&ctx->u.rinfo.intf_extra_q,
+						  if_extra, link);
+			}
 		}
 	}
 
@@ -4241,6 +4333,14 @@ static void dplane_provider_init(void)
 bool dplane_is_in_shutdown(void)
 {
 	return zdplane_info.dg_is_shutdown;
+}
+
+/*
+ * Enable collection of extra info about interfaces in route updates.
+ */
+void dplane_enable_intf_extra_info(void)
+{
+	dplane_collect_extra_intf_info = true;
 }
 
 /*

@@ -204,6 +204,9 @@ void dplane_enable_sys_route_notifs(void);
  */
 TAILQ_HEAD(dplane_ctx_q, zebra_dplane_ctx);
 
+/* Declare a type for (optional) extended interface info objects. */
+TAILQ_HEAD(dplane_intf_extra_q, dplane_intf_extra);
+
 /* Allocate a context object */
 struct zebra_dplane_ctx *dplane_ctx_alloc(void);
 
@@ -312,6 +315,21 @@ const struct nexthop_group *dplane_ctx_get_ng(
 	const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *dplane_ctx_get_old_ng(
 	const struct zebra_dplane_ctx *ctx);
+
+/* Optional extra info about interfaces in nexthops - a plugin must enable
+ * this extra info.
+ */
+const struct dplane_intf_extra *
+dplane_ctx_get_intf_extra(const struct zebra_dplane_ctx *ctx);
+
+const struct dplane_intf_extra *
+dplane_ctx_intf_extra_next(const struct zebra_dplane_ctx *ctx,
+			   const struct dplane_intf_extra *ptr);
+
+vrf_id_t dplane_intf_extra_get_vrfid(const struct dplane_intf_extra *ptr);
+uint32_t dplane_intf_extra_get_ifindex(const struct dplane_intf_extra *ptr);
+uint32_t dplane_intf_extra_get_flags(const struct dplane_intf_extra *ptr);
+uint32_t dplane_intf_extra_get_status(const struct dplane_intf_extra *ptr);
 
 /* Backup nexthop information (list of nexthops) if present. */
 const struct nexthop_group *
@@ -742,6 +760,12 @@ void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 
 /* Enqueue a context directly to zebra main. */
 void dplane_provider_enqueue_to_zebra(struct zebra_dplane_ctx *ctx);
+
+/* Enable collection of extra info about interfaces in route updates;
+ * this allows a provider/plugin to see some extra info in route update
+ * context objects.
+ */
+void dplane_enable_intf_extra_info(void);
 
 /*
  * Initialize the dataplane modules at zebra startup. This is currently called
