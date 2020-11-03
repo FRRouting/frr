@@ -757,5 +757,5 @@ extern int bgp_distance_set(uint8_t distance, const char *ip_str,
 extern int bgp_distance_unset(uint8_t distance, const char *ip_str,
 			      const char *access_list_str, afi_t afi,
 			      safi_t safi, char *errmsg, size_t errmsg_len);
-
+extern void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr);
 #endif /* _QUAGGA_BGP_ROUTE_H */
