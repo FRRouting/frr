@@ -11467,9 +11467,6 @@ static void bgp_table_stats_rn(struct bgp_dest *dest, struct bgp_dest *top,
 	struct bgp_path_info *pi;
 	const struct prefix *rn_p;
 
-	if (dest == top)
-		return;
-
 	if (!bgp_dest_has_bgp_path_info_data(dest))
 		return;
 
