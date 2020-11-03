@@ -1001,6 +1001,8 @@ static int debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 				DEBUG_ON(lsa, LSA_INSTALL);
 			else if (strmatch(argv[arg_base]->text, "refresh"))
 				DEBUG_ON(lsa, LSA_REFRESH);
+			else if (strmatch(argv[arg_base]->text, "aggregate"))
+				DEBUG_ON(lsa, EXTNL_LSA_AGGR);
 		}
 
 		return CMD_SUCCESS;
@@ -1018,6 +1020,8 @@ static int debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 			TERM_DEBUG_ON(lsa, LSA_INSTALL);
 		else if (strmatch(argv[arg_base]->text, "refresh"))
 			TERM_DEBUG_ON(lsa, LSA_REFRESH);
+		else if (strmatch(argv[arg_base]->text, "aggregate"))
+			TERM_DEBUG_ON(lsa, EXTNL_LSA_AGGR);
 	}
 
 	return CMD_SUCCESS;
@@ -1025,21 +1029,23 @@ static int debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 
 DEFUN (debug_ospf_lsa,
        debug_ospf_lsa_cmd,
-       "debug ospf lsa [<generate|flooding|install|refresh>]",
+       "debug ospf lsa [<generate|flooding|install|refresh|aggregate>]",
        DEBUG_STR
        OSPF_STR
        "OSPF Link State Advertisement\n"
        "LSA Generation\n"
        "LSA Flooding\n"
        "LSA Install/Delete\n"
-       "LSA Refresh\n")
+       "LSA Refresh\n"
+       "External LSA Aggregation\n")
 {
 	return debug_ospf_lsa_common(vty, 3, argc, argv);
 }
 
 DEFUN (debug_ospf_instance_lsa,
        debug_ospf_instance_lsa_cmd,
-       "debug ospf (1-65535) lsa [<generate|flooding|install|refresh>]",
+       "debug ospf (1-65535) lsa "
+       "[<generate|flooding|install|refresh|aggregate>]",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1047,7 +1053,8 @@ DEFUN (debug_ospf_instance_lsa,
        "LSA Generation\n"
        "LSA Flooding\n"
        "LSA Install/Delete\n"
-       "LSA Refresh\n")
+       "LSA Refresh\n"
+       "External LSA Aggregation\n")
 {
 	int idx_number = 2;
 	unsigned short instance = 0;
@@ -1075,6 +1082,8 @@ static int no_debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 				DEBUG_OFF(lsa, LSA_INSTALL);
 			else if (strmatch(argv[arg_base]->text, "refresh"))
 				DEBUG_OFF(lsa, LSA_REFRESH);
+			else if (strmatch(argv[arg_base]->text, "aggregate"))
+				DEBUG_OFF(lsa, EXTNL_LSA_AGGR);
 		}
 
 		return CMD_SUCCESS;
@@ -1092,6 +1101,8 @@ static int no_debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 			TERM_DEBUG_OFF(lsa, LSA_INSTALL);
 		else if (strmatch(argv[arg_base]->text, "refresh"))
 			TERM_DEBUG_OFF(lsa, LSA_REFRESH);
+		else if (strmatch(argv[arg_base]->text, "aggregate"))
+			TERM_DEBUG_OFF(lsa, EXTNL_LSA_AGGR);
 	}
 
 	return CMD_SUCCESS;
@@ -1099,7 +1110,7 @@ static int no_debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 
 DEFUN (no_debug_ospf_lsa,
        no_debug_ospf_lsa_cmd,
-       "no debug ospf lsa [<generate|flooding|install|refresh>]",
+       "no debug ospf lsa [<generate|flooding|install|refresh|aggregate>]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1107,14 +1118,16 @@ DEFUN (no_debug_ospf_lsa,
        "LSA Generation\n"
        "LSA Flooding\n"
        "LSA Install/Delete\n"
-       "LSA Refres\n")
+       "LSA Refres\n"
+       "External LSA Aggregation\n")
 {
 	return no_debug_ospf_lsa_common(vty, 4, argc, argv);
 }
 
 DEFUN (no_debug_ospf_instance_lsa,
        no_debug_ospf_instance_lsa_cmd,
-       "no debug ospf (1-65535) lsa [<generate|flooding|install|refresh>]",
+       "no debug ospf (1-65535) lsa "
+       "[<generate|flooding|install|refresh|aggregate>]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1123,7 +1136,8 @@ DEFUN (no_debug_ospf_instance_lsa,
        "LSA Generation\n"
        "LSA Flooding\n"
        "LSA Install/Delete\n"
-       "LSA Refres\n")
+       "LSA Refres\n"
+       "External LSA Aggregation\n")
 {
 	int idx_number = 3;
 	unsigned short instance = 0;

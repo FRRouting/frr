@@ -1177,6 +1177,41 @@ dataplane.
    self router. Optional JSON output can be obtained by appending 'json' to the
    end of the command.
 
+External Route Summarisation
+============================
+This feature summarises originated external LSAs(Type-5 and Type-7).
+Summary Route will be originated on-behalf of all matched external LSAs.
+
+.. index:: [no] summary-address A.B.C.D/M [tag (1-4294967295)]
+.. clicmd:: [no] summary-address A.B.C.D/M [tag (1-4294967295)]
+
+   This command enable/disables summarisation for the configured address
+   range. Tag is the optional parameter. If tag configured Summary route
+   will be originated with the configured tag.
+
+.. index:: [no] summary-address A.B.C.D/M no-advertise
+.. clicmd:: [no] summary-address A.B.C.D/M no-advertise
+
+   This command to ensure not advertise the summary lsa for the matched
+   external LSAs.
+
+.. index:: aggregation timer (5-1800)
+.. clicmd:: aggregation timer (5-1800)
+
+   Configure aggregation delay timer interval. Summarisation starts only after
+   this delay timer expiry. By default, delay interval is 5 secs.
+
+.. index:: no aggregation timer
+.. clicmd:: no aggregation timer
+
+   Resetting the aggregation delay interval to default value.
+
+.. index:: show ip ospf [vrf <NAME|all>] summary-address [detail] [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] summary-address [detail] [json]
+
+   Show configuration for display all configured summary routes with
+   matching external LSA information.
+
 Debugging OSPF
 ==============
 
@@ -1278,6 +1313,11 @@ Debugging OSPF
 
 .. index:: show debugging ospf
 .. clicmd:: show debugging ospf
+
+.. index:: [no] debug ospf lsa aggregate
+.. clicmd:: [no] debug ospf lsa aggregate
+
+   Debug commnd to enable/disable external route summarisation specific debugs.
 
 OSPF Configuration Examples
 ===========================

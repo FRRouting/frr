@@ -154,6 +154,9 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 	struct ospf_interface *oi;
 	struct external_info *ei;
 	struct listnode *node;
+	struct as_external_lsa *al;
+	struct prefix_ipv4 p;
+	struct ospf_external_aggr_rt *aggr;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
@@ -222,12 +225,51 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 			ospf_translated_nssa_refresh(ospf, NULL, new);
 			return;
 		}
+
+		al = (struct as_external_lsa *)new->data;
+		p.family = AF_INET;
+		p.prefixlen = ip_masklen(al->mask);
+		p.prefix = new->data->id;
+
 		ei = ospf_external_info_check(ospf, new);
-		if (ei)
+		if (ei) {
+			if (ospf_external_aggr_match(ospf, &ei->p)) {
+				if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
+					zlog_debug(
+						"%s, Matching external aggregate route found for %pI4, so don't refresh it.",
+						__func__,
+						&ei->p.prefix);
+
+				/* Aggregated external route shouldn't
+				 * be in LSDB.
+				 */
+				if (!IS_LSA_MAXAGE(new))
+					ospf_lsa_flush_as(ospf, new);
+
+				return;
+			}
+
 			ospf_external_lsa_refresh(ospf, new, ei,
-						  LSA_REFRESH_FORCE);
-		else
-			ospf_lsa_flush_as(ospf, new);
+						  LSA_REFRESH_FORCE, false);
+		} else {
+			aggr = (struct ospf_external_aggr_rt *)
+				ospf_extrenal_aggregator_lookup(ospf, &p);
+			if (aggr) {
+				struct external_info ei_aggr;
+
+				memset(&ei_aggr, 0,
+					sizeof(struct external_info));
+				ei_aggr.p = aggr->p;
+				ei_aggr.tag = aggr->tag;
+				ei_aggr.instance = ospf->instance;
+				ei_aggr.route_map_set.metric = -1;
+				ei_aggr.route_map_set.metric_type = -1;
+
+				ospf_external_lsa_refresh(ospf, new, &ei_aggr,
+						  LSA_REFRESH_FORCE, true);
+			} else
+				ospf_lsa_flush_as(ospf, new);
+		}
 		break;
 	case OSPF_OPAQUE_AREA_LSA:
 		ospf_opaque_lsa_refresh(new);

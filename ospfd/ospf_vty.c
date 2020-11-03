@@ -9202,6 +9202,88 @@ DEFPY(ospf_gr_helper_planned_only,
 	return CMD_SUCCESS;
 }
 
+/* External Route Aggregation */
+DEFUN (ospf_external_route_aggregation,
+       ospf_external_route_aggregation_cmd,
+       "summary-address A.B.C.D/M [tag (1-4294967295)]",
+       "External summary address\n"
+       "Summary address prefix (a.b.c.d/m) \n"
+       "Router tag \n"
+       "Router tag value\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct prefix_ipv4 p;
+	int idx = 1;
+	route_tag_t tag = 0;
+	int ret = OSPF_SUCCESS;
+
+	str2prefix_ipv4(argv[idx]->arg, &p);
+
+	if (is_prefix_default(&p)) {
+		vty_out(vty,
+			"Default address shouldn't be configured as summary address.\n");
+		return CMD_SUCCESS;
+	}
+
+	/* Apply mask for given prefix. */
+	apply_mask((struct prefix *)&p);
+
+	if (!is_valid_summary_addr(&p)) {
+		vty_out(vty, "Not a valid summary address.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (argc > 2)
+		tag = strtoul(argv[idx + 2]->arg, NULL, 10);
+
+	ret = ospf_asbr_external_aggregator_set(ospf, &p, tag);
+	if (ret == OSPF_INVALID)
+		vty_out(vty, "Inavlid configuration!!\n");
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_external_route_aggregation,
+       no_ospf_external_route_aggregation_cmd,
+       "no summary-address A.B.C.D/M [tag (1-4294967295)]",
+       NO_STR
+       "External summary address\n"
+       "Summary address prefix (a.b.c.d/m)\n"
+       "Router tag\n"
+       "Router tag value\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct prefix_ipv4 p;
+	int idx = 2;
+	route_tag_t tag = 0;
+	int ret = OSPF_SUCCESS;
+
+	str2prefix_ipv4(argv[idx]->arg, &p);
+
+	if (is_prefix_default(&p)) {
+		vty_out(vty,
+			"Default address shouldn't be configured as summary address.\n");
+		return CMD_SUCCESS;
+	}
+
+	/* Apply mask for given prefix. */
+	apply_mask((struct prefix *)&p);
+
+	if (!is_valid_summary_addr(&p)) {
+		vty_out(vty, "Not a valid summary address.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (argc > 3)
+		tag = strtoul(argv[idx + 2]->arg, NULL, 10);
+
+	ret = ospf_asbr_external_aggregator_unset(ospf, &p, tag);
+	if (ret == OSPF_INVALID)
+		vty_out(vty, "Inavlid configuration!!\n");
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(no_ospf_gr_helper_planned_only,
       no_ospf_gr_helper_planned_only_cmd,
       "no graceful-restart helper planned-only",
@@ -9454,6 +9536,93 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 			}
 		}
 	}
+	return CMD_SUCCESS;
+}
+
+DEFUN (ospf_external_route_aggregation_no_adrvertise,
+       ospf_external_route_aggregation_no_adrvertise_cmd,
+       "summary-address A.B.C.D/M no-advertise",
+       "External summary address\n"
+       "Summary address prefix (a.b.c.d/m) \n"
+       "Don't advertise summary route \n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct prefix_ipv4 p;
+	int idx = 1;
+	int ret = OSPF_SUCCESS;
+
+	str2prefix_ipv4(argv[idx]->arg, &p);
+
+	if (is_prefix_default(&p)) {
+		vty_out(vty,
+			"Default address shouldn't be configured as summary address.\n");
+		return CMD_SUCCESS;
+	}
+
+	/* Apply mask for given prefix. */
+	apply_mask((struct prefix *)&p);
+
+	if (!is_valid_summary_addr(&p)) {
+		vty_out(vty, "Not a valid summary address.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = ospf_asbr_external_rt_no_advertise(ospf, &p);
+	if (ret == OSPF_INVALID)
+		vty_out(vty, "Inavlid configuration!!\n");
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_external_route_aggregation_no_adrvertise,
+       no_ospf_external_route_aggregation_no_adrvertise_cmd,
+       "no summary-address A.B.C.D/M no-advertise",
+       NO_STR
+       "External summary address\n"
+       "Summary address prefix (a.b.c.d/m) \n"
+       "Adverise summary route to the AS \n.")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct prefix_ipv4 p;
+	int idx = 2;
+	int ret = OSPF_SUCCESS;
+
+	str2prefix_ipv4(argv[idx]->arg, &p);
+
+	if (is_prefix_default(&p)) {
+		vty_out(vty,
+			"Default address shouldn't be configured as summary address.\n");
+		return CMD_SUCCESS;
+	}
+
+	/* Apply mask for given prefix. */
+	apply_mask((struct prefix *)&p);
+
+	if (!is_valid_summary_addr(&p)) {
+		vty_out(vty, "Not a valid summary address.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = ospf_asbr_external_rt_advertise(ospf, &p);
+	if (ret == OSPF_INVALID)
+		vty_out(vty, "Inavlid configuration!!\n");
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (ospf_route_aggregation_timer,
+       ospf_route_aggregation_timer_cmd,
+       "aggregation timer (5-1800)",
+       "External route aggregation\n"
+       "Delay timer (in seconds)\n"
+       "Timer interval(in seconds)\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	unsigned int interval = 0;
+
+	interval = strtoul(argv[2]->arg, NULL, 10);
+
+	ospf_external_aggregator_timer_set(ospf, interval);
 
 	return CMD_SUCCESS;
 }
@@ -9560,6 +9729,21 @@ DEFPY (show_ip_ospf_gr_helper,
 	return CMD_SUCCESS;
 }
 /* Graceful Restart HELPER commands end */
+DEFUN (no_ospf_route_aggregation_timer,
+       no_ospf_route_aggregation_timer_cmd,
+       "no aggregation timer",
+       NO_STR
+       "External route aggregation\n"
+       "Delay timer\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf_external_aggregator_timer_set(ospf, OSPF_EXTL_AGGR_DEFAULT_DELAY);
+
+	return CMD_SUCCESS;
+}
+
+/* External Route Aggregation End */
 
 static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
 {
@@ -10370,6 +10554,265 @@ static const char *const ospf_abr_type_str[] = {
 static const char *const ospf_shortcut_mode_str[] = {
 	"default", "enable", "disable"
 };
+static int ospf_vty_external_rt_walkcb(struct hash_bucket *backet,
+					void *arg)
+{
+	struct external_info *ei = backet->data;
+	struct vty *vty = (struct vty *)arg;
+	static unsigned int count;
+
+	vty_out(vty, "%-4pI4/%d, ", &ei->p.prefix, ei->p.prefixlen);
+	count++;
+
+	if (count % 5 == 0)
+		vty_out(vty, "\n");
+
+	if (OSPF_EXTERNAL_RT_COUNT(ei->aggr_route) == count)
+		count = 0;
+
+	return HASHWALK_CONTINUE;
+}
+
+static int ospf_json_external_rt_walkcb(struct hash_bucket *backet,
+					void *arg)
+{
+	struct external_info *ei = backet->data;
+	struct json_object *json = (struct json_object *)arg;
+	char buf[PREFIX2STR_BUFFER];
+	char exnalbuf[20];
+	static unsigned int count;
+
+	prefix2str(&ei->p, buf, sizeof(buf));
+
+	snprintf(exnalbuf, 20, "Exnl Addr-%d", count);
+
+	json_object_string_add(json, exnalbuf, buf);
+
+	count++;
+
+	if (OSPF_EXTERNAL_RT_COUNT(ei->aggr_route) == count)
+		count = 0;
+
+	return HASHWALK_CONTINUE;
+}
+
+static int ospf_show_summary_address(struct vty *vty, struct ospf *ospf,
+				     uint8_t use_vrf, json_object *json,
+				     bool uj, bool detail)
+{
+	struct route_node *rn;
+	json_object *json_vrf = NULL;
+	int mtype = 0;
+	int mval = 0;
+	static char header[] =
+		"Summary-address     Metric-type     Metric     Tag         External_Rt_count\n";
+
+	mtype = metric_type(ospf, 0, ospf->instance);
+	mval = metric_value(ospf, 0, ospf->instance);
+
+	if (!uj)
+		vty_out(vty, "%s\n", header);
+
+	if (uj) {
+		if (use_vrf)
+			json_vrf = json_object_new_object();
+		else
+			json_vrf = json;
+	}
+
+	if (ospf->instance) {
+		if (uj)
+			json_object_int_add(json, "ospfInstance",
+					    ospf->instance);
+		else
+			vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
+	}
+
+	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
+
+	if (!uj)
+		vty_out(vty, "aggregation delay interval :%d(in seconds)\n\n",
+			ospf->aggr_delay_interval);
+	else
+		json_object_int_add(json_vrf, "aggregation delay interval",
+				    ospf->aggr_delay_interval);
+
+	for (rn = route_top(ospf->rt_aggr_tbl); rn; rn = route_next(rn))
+		if (rn->info) {
+			struct ospf_external_aggr_rt *aggr = rn->info;
+			json_object *json_aggr = NULL;
+			char buf[PREFIX2STR_BUFFER];
+
+			prefix2str(&aggr->p, buf, sizeof(buf));
+
+			if (uj) {
+
+				json_aggr = json_object_new_object();
+
+				json_object_object_add(json_vrf, buf,
+						       json_aggr);
+
+				json_object_string_add(json_aggr,
+						       "Summary address", buf);
+
+				json_object_string_add(
+					json_aggr, "Metric-type",
+					(mtype == EXTERNAL_METRIC_TYPE_1)
+						? "E1"
+						: "E2");
+
+				json_object_int_add(json_aggr, "Metric", mval);
+
+				json_object_int_add(json_aggr, "Tag",
+						    aggr->tag);
+
+				json_object_int_add(
+					json_aggr, "External route count",
+					OSPF_EXTERNAL_RT_COUNT(aggr));
+
+				if (OSPF_EXTERNAL_RT_COUNT(aggr) && detail) {
+					hash_walk(
+						aggr->match_extnl_hash,
+						ospf_json_external_rt_walkcb,
+						json_aggr);
+				}
+
+			} else {
+				vty_out(vty, "%-20s", buf);
+
+				(mtype == EXTERNAL_METRIC_TYPE_1)
+					? vty_out(vty, "%-16s", "E1")
+					: vty_out(vty, "%-16s", "E2");
+				vty_out(vty, "%-11d", mval);
+
+				vty_out(vty, "%-12u", aggr->tag);
+
+				vty_out(vty, "%-5ld\n",
+					OSPF_EXTERNAL_RT_COUNT(aggr));
+
+				if (OSPF_EXTERNAL_RT_COUNT(aggr) && detail) {
+					vty_out(vty,
+						"Matched External routes:\n");
+					hash_walk(
+						aggr->match_extnl_hash,
+						ospf_vty_external_rt_walkcb,
+						vty);
+					vty_out(vty, "\n");
+				}
+
+				vty_out(vty, "\n");
+			}
+		}
+
+	if (uj) {
+		if (use_vrf) {
+			if (ospf->vrf_id == VRF_DEFAULT)
+				json_object_object_add(json, "default",
+						       json_vrf);
+			else
+				json_object_object_add(json, ospf->name,
+						       json_vrf);
+		}
+	} else
+		vty_out(vty, "\n");
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_ospf_external_aggregator,
+       show_ip_ospf_external_aggregator_cmd,
+       "show ip ospf [vrf <NAME|all>] summary-address [detail] [json]",
+       SHOW_STR IP_STR
+       "OSPF information\n"
+       VRF_CMD_HELP_STR
+       "All VRFs\n"
+       "Show external summary addresses\n"
+       "Detailed informtion\n"
+       JSON_STR)
+{
+	char *vrf_name = NULL;
+	bool all_vrf = false;
+	int ret = CMD_SUCCESS;
+	int idx_vrf = 0;
+	int idx = 0;
+	uint8_t use_vrf = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf *ospf = NULL;
+	json_object *json = NULL;
+	struct listnode *node = NULL;
+	int inst = 0;
+	bool detail = false;
+
+	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
+
+	if (uj)
+		json = json_object_new_object();
+
+	/* vrf input is provided */
+	if (vrf_name) {
+		use_vrf = 1;
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+				if (!ospf->oi_running)
+					continue;
+				ret = ospf_show_summary_address(
+					vty, ospf, use_vrf, json, uj, detail);
+			}
+
+			if (uj) {
+				vty_out(vty, "%s\n",
+					json_object_to_json_string_ext(
+						json, JSON_C_TO_STRING_PRETTY));
+				json_object_free(json);
+			}
+
+			return ret;
+		}
+
+		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
+
+		if (ospf == NULL || !ospf->oi_running) {
+			if (uj) {
+				vty_out(vty, "%s\n",
+					json_object_to_json_string_ext(
+						json, JSON_C_TO_STRING_PRETTY));
+				json_object_free(json);
+			} else
+				vty_out(vty, "%% OSPF instance not found\n");
+
+			return CMD_SUCCESS;
+		}
+		ret = ospf_show_summary_address(vty, ospf, use_vrf, json, uj,
+						detail);
+
+	} else {
+		/* Default Vrf */
+		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		if (ospf == NULL || !ospf->oi_running) {
+			if (uj) {
+				vty_out(vty, "%s\n",
+					json_object_to_json_string_ext(
+						json, JSON_C_TO_STRING_PRETTY));
+				json_object_free(json);
+			} else
+				vty_out(vty, "%% OSPF instance not found\n");
+
+			return CMD_SUCCESS;
+		}
+
+		ospf_show_summary_address(vty, ospf, use_vrf, json, uj, detail);
+	}
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+	return CMD_SUCCESS;
+}
 
 static const char *const ospf_int_type_str[] = {
 	"unknown", /* should never be used. */
@@ -10926,6 +11369,30 @@ static int config_write_ospf_gr_helper(struct vty *vty, struct ospf *ospf)
 		hash_walk(ospf->enable_rtr_list,
 			  ospf_cfg_write_helper_dis_rtr_walkcb, vty);
 	}
+	return 0;
+}
+
+static int config_write_ospf_external_aggregator(struct vty *vty,
+						 struct ospf *ospf)
+{
+	struct route_node *rn;
+
+	/* print 'summary-address A.B.C.D/M' */
+	for (rn = route_top(ospf->rt_aggr_tbl); rn; rn = route_next(rn))
+		if (rn->info) {
+			struct ospf_external_aggr_rt *aggr = rn->info;
+
+			vty_out(vty, " summary-address %pI4/%d ",
+				&aggr->p.prefix, aggr->p.prefixlen);
+			if (aggr->tag)
+				vty_out(vty, " tag %u ", aggr->tag);
+
+			if (CHECK_FLAG(aggr->flags,
+				       OSPF_EXTERNAL_AGGRT_NO_ADVERTISE))
+				vty_out(vty, " no-advertise");
+
+			vty_out(vty, "\n");
+		}
 
 	return 0;
 }
@@ -11099,6 +11566,9 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	/* Print gr helper configs */
 	config_write_ospf_gr_helper(vty, ospf);
 
+	/* Print external route aggregation. */
+	config_write_ospf_external_aggregator(vty, ospf);
+
 	/* passive-interface print. */
 	if (ospf->passive_interface_default == OSPF_IF_PASSIVE)
 		vty_out(vty, " passive-interface default\n");
@@ -11245,8 +11715,10 @@ void ospf_vty_show_init(void)
 
 	/* "show ip ospf gr-helper details" command */
 	install_element(VIEW_NODE, &show_ip_ospf_gr_helper_cmd);
-}
 
+	/* "show ip ospf summary-address" command */
+	install_element(VIEW_NODE, &show_ip_ospf_external_aggregator_cmd);
+}
 
 static int config_write_interface(struct vty *vty);
 /* ospfd's interface node. */
@@ -11370,6 +11842,17 @@ static void ospf_vty_zebra_init(void)
 	install_element(OSPF_NODE, &no_ospf_gr_helper_supported_grace_time_cmd);
 	install_element(OSPF_NODE, &ospf_gr_helper_planned_only_cmd);
 	install_element(OSPF_NODE, &no_ospf_gr_helper_planned_only_cmd);
+
+	/* External LSA summarisation config commands.*/
+	install_element(OSPF_NODE, &ospf_external_route_aggregation_cmd);
+	install_element(OSPF_NODE, &no_ospf_external_route_aggregation_cmd);
+	install_element(OSPF_NODE,
+			&ospf_external_route_aggregation_no_adrvertise_cmd);
+	install_element(OSPF_NODE,
+			&no_ospf_external_route_aggregation_no_adrvertise_cmd);
+	install_element(OSPF_NODE, &ospf_route_aggregation_timer_cmd);
+	install_element(OSPF_NODE, &no_ospf_route_aggregation_timer_cmd);
+
 #if 0
   install_element (OSPF_NODE, &ospf_distance_source_cmd);
   install_element (OSPF_NODE, &no_ospf_distance_source_cmd);

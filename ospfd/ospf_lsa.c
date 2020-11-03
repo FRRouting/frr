@@ -1977,10 +1977,6 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 		return NULL;
 	}
 
-	/* Check the AS-external-LSA should be originated. */
-	if (!ospf_redistribute_check(ospf, ei, NULL))
-		return NULL;
-
 	/* Create new AS-external-LSA instance. */
 	if ((new = ospf_external_lsa_new(ospf, ei, NULL)) == NULL) {
 		if (IS_DEBUG_OSPF_EVENT)
@@ -2056,6 +2052,7 @@ static struct external_info *ospf_default_external_info(struct ospf *ospf)
 void ospf_external_lsa_rid_change(struct ospf *ospf)
 {
 	struct external_info *ei;
+	struct ospf_external_aggr_rt *aggr;
 	int type;
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
@@ -2087,9 +2084,21 @@ void ospf_external_lsa_rid_change(struct ospf *ospf)
 						(struct prefix_ipv4 *)&ei->p))
 					continue;
 
-				if (!ospf_external_lsa_originate(ospf, ei))
+				if (!ospf_redistribute_check(ospf, ei, NULL))
+					continue;
+
+				aggr = ospf_external_aggr_match(ospf, &ei->p);
+				if (aggr) {
+					if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
+						zlog_debug(
+							"Originate Summary LSA after reset/router-ID change");
+					/* Here the LSA is originated as new */
+					ospf_originate_summary_lsa(ospf, aggr,
+								   ei);
+				} else if (!ospf_external_lsa_originate(ospf,
+									ei))
 					flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
-						"LSA: AS-external-LSA was not originated.");
+						  "LSA: AS-external-LSA was not originated.");
 			}
 		}
 	}
@@ -2191,8 +2200,9 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 	if (ei && lsa) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("LSA[Type5:0.0.0.0]: Refresh AS-external-LSA %p",
-				   (void *)lsa);
-		ospf_external_lsa_refresh(ospf, lsa, ei, LSA_REFRESH_FORCE);
+				(void *)lsa);
+		ospf_external_lsa_refresh(ospf, lsa, ei, LSA_REFRESH_FORCE,
+					  false);
 	} else if (ei && !lsa) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
@@ -2225,15 +2235,51 @@ void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
 			if (ei) {
 				if (!is_prefix_default(&ei->p)) {
 					struct ospf_lsa *lsa;
+					struct ospf_external_aggr_rt *aggr;
 
+					aggr = ospf_external_aggr_match(ospf,
+								&ei->p);
 					lsa = ospf_external_info_find_lsa(
-						ospf, &ei->p);
-					if (lsa)
+								ospf, &ei->p);
+					if (aggr) {
+						/* Check the AS-external-LSA
+						 * should be originated.
+						 */
+						if (!ospf_redistribute_check(
+							    ospf, ei, NULL)) {
+
+							ospf_unlink_ei_from_aggr(
+								ospf, aggr, ei);
+							continue;
+						}
+
+						if (IS_DEBUG_OSPF(
+							    lsa,
+							    EXTNL_LSA_AGGR))
+							zlog_debug(
+								"%s: Send Aggreate LSA (%pFX/%d)",
+								__func__,
+								&aggr->p.prefix,
+								aggr->p.prefixlen);
+
+						ospf_originate_summary_lsa(
+							ospf, aggr, ei);
+
+					} else if (lsa) {
+
+						if (IS_LSA_MAXAGE(lsa))
+							force = LSA_REFRESH_FORCE;
+
 						ospf_external_lsa_refresh(
-							ospf, lsa, ei, force);
-					else
+							ospf, lsa, ei, force,
+							false);
+					} else {
+						if (!ospf_redistribute_check(
+							    ospf, ei, NULL))
+							continue;
 						ospf_external_lsa_originate(
 							ospf, ei);
+					}
 				}
 			}
 		}
@@ -2243,21 +2289,25 @@ void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
 /* Refresh AS-external-LSA. */
 struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *ospf,
 					   struct ospf_lsa *lsa,
-					   struct external_info *ei, int force)
+					   struct external_info *ei, int force,
+					   bool is_aggr)
 {
 	struct ospf_lsa *new;
-	int changed;
+	int changed = 0;
 
 	/* Check the AS-external-LSA should be originated. */
-	if (!ospf_redistribute_check(ospf, ei, &changed)) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d:%pI4]: Could not be refreshed, redist check fail",
-				lsa->data->type, &lsa->data->id);
-		ospf_external_lsa_flush(ospf, ei->type, &ei->p,
-					ei->ifindex /*, ei->nexthop */);
-		return NULL;
-	}
+	if (!is_aggr)
+		if (!ospf_redistribute_check(ospf, ei, &changed)) {
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug(
+					"LSA[Type%d:%s] Could not be refreshed, redist check fail",
+					lsa->data->type,
+					inet_ntoa(lsa->data->id));
+
+			ospf_external_lsa_flush(ospf, ei->type, &ei->p,
+						ei->ifindex /*, ei->nexthop */);
+			return NULL;
+		}
 
 	if (!changed && !force) {
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
@@ -3447,7 +3497,11 @@ void ospf_schedule_lsa_flush_area(struct ospf_area *area, struct ospf_lsa *lsa)
 struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
 {
 	struct external_info *ei;
+	struct ospf_external_aggr_rt *aggr;
 	struct ospf_lsa *new = NULL;
+	struct as_external_lsa *al;
+	struct prefix_ipv4 p;
+
 	assert(CHECK_FLAG(lsa->flags, OSPF_LSA_SELF));
 	assert(IS_LSA_SELF(lsa));
 	assert(lsa->lock > 0);
@@ -3470,14 +3524,37 @@ struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
 		/* Translated from NSSA Type-5s are refreshed when
 		 * from refresh of Type-7 - do not refresh these directly.
 		 */
+
+		al = (struct as_external_lsa *)lsa->data;
+		p.family = AF_INET;
+		p.prefixlen = ip_masklen(al->mask);
+		p.prefix = lsa->data->id;
+
 		if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT))
 			break;
 		ei = ospf_external_info_check(ospf, lsa);
 		if (ei)
-			new = ospf_external_lsa_refresh(ospf, lsa, ei,
-							LSA_REFRESH_FORCE);
-		else
-			ospf_lsa_flush_as(ospf, lsa);
+			new = ospf_external_lsa_refresh(
+				ospf, lsa, ei, LSA_REFRESH_FORCE, false);
+		else {
+			aggr = (struct ospf_external_aggr_rt *)
+				ospf_extrenal_aggregator_lookup(ospf, &p);
+			if (aggr) {
+				struct external_info ei_aggr;
+
+				memset(&ei_aggr, 0,
+					sizeof(struct external_info));
+				ei_aggr.p = aggr->p;
+				ei_aggr.tag = aggr->tag;
+				ei_aggr.instance = ospf->instance;
+				ei_aggr.route_map_set.metric = -1;
+				ei_aggr.route_map_set.metric_type = -1;
+
+				ospf_external_lsa_refresh(ospf, lsa, &ei_aggr,
+						  LSA_REFRESH_FORCE, true);
+			} else
+				ospf_lsa_flush_as(ospf, lsa);
+		}
 		break;
 	case OSPF_OPAQUE_LINK_LSA:
 	case OSPF_OPAQUE_AREA_LSA:
