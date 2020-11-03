@@ -136,8 +136,8 @@ extern int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 extern void bgp_damp_info_free(struct bgp_damp_info **path,
 			       struct bgp_damp_config *bdc, int withdraw,
 			       afi_t afi, safi_t safi);
-extern void bgp_damp_info_clean(struct bgp_damp_config *bdc, afi_t afi,
-				safi_t safi);
+extern void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
+				afi_t afi, safi_t safi);
 extern void bgp_damp_config_clean(struct bgp_damp_config *bdc);
 extern int bgp_damp_decay(time_t tdiff, int penalty,
 			  struct bgp_damp_config *bdc);

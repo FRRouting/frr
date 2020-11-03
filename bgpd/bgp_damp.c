@@ -533,7 +533,8 @@ int bgp_damp_enable(struct bgp *bgp, afi_t afi, safi_t safi, time_t half,
 }
 
 /* Clean all the bgp_damp_info stored in reuse_list and no_reuse_list. */
-void bgp_damp_info_clean(struct bgp_damp_config *bdc, afi_t afi, safi_t safi)
+void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
+			 afi_t afi, safi_t safi)
 {
 	struct bgp_damp_info *bdi;
 	struct reuselist_node *rn;
@@ -545,6 +546,13 @@ void bgp_damp_info_clean(struct bgp_damp_config *bdc, afi_t afi, safi_t safi)
 		list = &bdc->reuse_list[i];
 		while ((rn = SLIST_FIRST(list)) != NULL) {
 			bdi = rn->info;
+			if (bdi->lastrecord == BGP_RECORD_UPDATE) {
+				bgp_aggregate_increment(bgp, &bdi->dest->p,
+							bdi->path, bdi->afi,
+							bdi->safi);
+				bgp_process(bgp, bdi->dest, bdi->afi,
+					    bdi->safi);
+			}
 			bgp_reuselist_del(list, &rn);
 			bgp_damp_info_free(&bdi, bdc, 1, afi, safi);
 		}
@@ -595,7 +603,7 @@ int bgp_damp_disable(struct bgp *bgp, afi_t afi, safi_t safi)
 	EVENT_OFF(bdc->t_reuse);
 
 	/* Clean BGP dampening information.  */
-	bgp_damp_info_clean(bdc, afi, safi);
+	bgp_damp_info_clean(bgp, bdc, afi, safi);
 
 	UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING);
 
@@ -910,7 +918,7 @@ void bgp_peer_damp_disable(struct peer *peer, afi_t afi, safi_t safi)
 	bdc = &peer->damp[afi][safi];
 	if (!bdc)
 		return;
-	bgp_damp_info_clean(bdc, afi, safi);
+	bgp_damp_info_clean(peer->bgp, bdc, afi, safi);
 	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_DAMPENING);
 }
 

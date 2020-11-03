@@ -15848,6 +15848,21 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 				while (pi) {
 					if (pi->extra && pi->extra->damp_info) {
 						pi_temp = pi->next;
+						struct bgp_damp_info *bdi =
+							pi->extra->damp_info;
+						if (bdi->lastrecord
+						    == BGP_RECORD_UPDATE) {
+							bgp_aggregate_increment(
+								bgp,
+								&bdi->dest->p,
+								bdi->path,
+								bdi->afi,
+								bdi->safi);
+							bgp_process(bgp,
+								    bdi->dest,
+								    bdi->afi,
+								    bdi->safi);
+						}
 						bgp_damp_info_free(
 							&pi->extra->damp_info,
 							&bgp->damp[afi][safi],
@@ -15874,7 +15889,7 @@ DEFUN (clear_ip_bgp_dampening,
        "Clear route flap dampening information\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_damp_info_clean(&bgp->damp[AFI_IP][SAFI_UNICAST], AFI_IP,
+	bgp_damp_info_clean(bgp, &bgp->damp[AFI_IP][SAFI_UNICAST], AFI_IP,
 			    SAFI_UNICAST);
 	return CMD_SUCCESS;
 }
