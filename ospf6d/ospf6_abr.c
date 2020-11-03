@@ -196,7 +196,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		if (ADV_ROUTER_IN_PREFIX(&route->prefix)
 		    == area->ospf6->router_id) {
 			zlog_debug(
-				"%s: Skipping ASBR announcement for ABR (%pFX)",
+				"%s: Skipping ASBR announcement for ABR (%pI4)",
 				__func__,
 				&ADV_ROUTER_IN_PREFIX(&route->prefix));
 			return 0;
@@ -208,7 +208,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		    || IS_OSPF6_DEBUG_ORIGINATE(INTER_ROUTER)) {
 			is_debug++;
 			zlog_debug(
-				"Originating summary in area %s for ASBR %pFX",
+				"Originating summary in area %s for ASBR %pI4",
 				area->name,
 				&ADV_ROUTER_IN_PREFIX(&route->prefix));
 		}
@@ -225,9 +225,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 				if (is_debug)
 					zlog_debug(
 						"%s: route %pFX with cost %u is not best, ignore.",
-						__func__,
-						&ADV_ROUTER_IN_PREFIX(
-							&route->prefix),
+						__func__, &route->prefix,
 						route->path.cost);
 				return 0;
 			}
@@ -402,8 +400,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 				if (is_debug)
 					zlog_debug(
 						"prefix %pFX was denied by export list",
-						&ADV_ROUTER_IN_PREFIX(
-							&route->prefix));
+						&route->prefix);
 				return 0;
 			}
 	}
@@ -415,7 +412,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			if (is_debug)
 				zlog_debug(
 					"prefix %pFX was denied by filter-list out",
-					&ADV_ROUTER_IN_PREFIX(&route->prefix));
+					&route->prefix);
 			return 0;
 		}
 

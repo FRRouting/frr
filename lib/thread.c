@@ -115,10 +115,9 @@ static void vty_out_cpu_thread_history(struct vty *vty,
 				       struct cpu_thread_history *a)
 {
 	vty_out(vty, "%5zu %10zu.%03zu %9zu %8zu %9zu %8zu %9zu",
-		(size_t)a->total_active, a->cpu.total / 1000,
-		a->cpu.total % 1000, (size_t)a->total_calls,
-		(size_t)(a->cpu.total / a->total_calls), a->cpu.max,
-		(size_t)(a->real.total / a->total_calls), a->real.max);
+		a->total_active, a->cpu.total / 1000, a->cpu.total % 1000,
+		a->total_calls,	(a->cpu.total / a->total_calls), a->cpu.max,
+		(a->real.total / a->total_calls), a->real.max);
 	vty_out(vty, " %c%c%c%c%c %s\n",
 		a->types & (1 << THREAD_READ) ? 'R' : ' ',
 		a->types & (1 << THREAD_WRITE) ? 'W' : ' ',

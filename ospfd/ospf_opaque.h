@@ -93,7 +93,7 @@ struct tlv_header {
 
 #define TLV_BODY_SIZE(tlvh) (ROUNDUP(ntohs((tlvh)->length), sizeof(uint32_t)))
 
-#define TLV_SIZE(tlvh)	(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))
+#define TLV_SIZE(tlvh)	(uint32_t)(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))
 
 #define TLV_HDR_TOP(lsah)                                                      \
 	(struct tlv_header *)((char *)(lsah) + OSPF_LSA_HEADER_SIZE)
