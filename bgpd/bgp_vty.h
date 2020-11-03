@@ -48,8 +48,7 @@ struct bgp;
 		bgp_show_neighbor_graceful_restart_remote_mode(vty, p, json);  \
 		bgp_show_neighnor_graceful_restart_flags(vty, p, json);        \
 		bgp_show_neighbor_graceful_restart_time(vty, p, json);         \
-		bgp_show_neighbor_graceful_restart_capability_per_afi_safi(    \
-			vty, p, json);                                         \
+		bgp_show_peer_gr_info_afi_safi(vty, p, json);                  \
 	} while (0)
 
 #define VTY_BGP_GR_DEFINE_LOOP_VARIABLE                                        \
@@ -127,6 +126,11 @@ struct bgp;
 	} while (0)
 
 extern void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi);
+
+/* Peer show flags */
+/* Value of 0 means show all information */
+#define VTY_BGP_PEER_SHOW_GR_INFO (1 << 0)
+
 extern void bgp_vty_init(void);
 extern void community_alias_vty(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
