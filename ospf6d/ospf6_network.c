@@ -124,21 +124,20 @@ int ospf6_serv_sock(struct ospf6 *ospf6)
 }
 
 /* ospf6 set socket option */
-int ospf6_sso(ifindex_t ifindex, struct in6_addr *group, int option)
+int ospf6_sso(ifindex_t ifindex, struct in6_addr *group, int option, int sockfd)
 {
 	struct ipv6_mreq mreq6;
 	int ret;
 	int bufsize = (8 * 1024 * 1024);
 
-	if (ospf6->fd == -1)
+	if (sockfd == -1)
 		return -1;
 
 	assert(ifindex);
 	mreq6.ipv6mr_interface = ifindex;
 	memcpy(&mreq6.ipv6mr_multiaddr, group, sizeof(struct in6_addr));
 
-	ret = setsockopt(ospf6->fd, IPPROTO_IPV6, option, &mreq6,
-			 sizeof(mreq6));
+	ret = setsockopt(sockfd, IPPROTO_IPV6, option, &mreq6, sizeof(mreq6));
 	if (ret < 0) {
 		flog_err_sys(
 			EC_LIB_SOCKET,
@@ -147,8 +146,8 @@ int ospf6_sso(ifindex_t ifindex, struct in6_addr *group, int option)
 		return ret;
 	}
 
-	setsockopt_so_sendbuf(ospf6->fd, bufsize);
-	setsockopt_so_recvbuf(ospf6->fd, bufsize);
+	setsockopt_so_sendbuf(sockfd, bufsize);
+	setsockopt_so_recvbuf(sockfd, bufsize);
 
 	return 0;
 }

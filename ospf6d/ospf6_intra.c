@@ -147,7 +147,7 @@ static void ospf6_router_lsa_options_set(struct ospf6_area *oa,
 	OSPF6_OPT_CLEAR_ALL(router_lsa->options);
 	memcpy(router_lsa->options, oa->options, 3);
 
-	if (ospf6_is_router_abr(ospf6))
+	if (ospf6_is_router_abr(oa->ospf6))
 		SET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_B);
 	else
 		UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_B);
@@ -987,7 +987,7 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
 				zlog_debug("    include %pFX", &route->prefix);
 			ospf6_route_add(ospf6_route_copy(route),
-					route_advertise);
+					route_advertise, oa->ospf6);
 		}
 	}
 
@@ -1008,7 +1008,7 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 					oa->lsdb);
 			}
 		}
-		ospf6_route_table_delete(route_advertise);
+		ospf6_route_table_delete(route_advertise, oa->ospf6);
 		return 0;
 	}
 
@@ -1088,7 +1088,7 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 		op = OSPF6_PREFIX_NEXT(op);
 	}
 
-	ospf6_route_table_delete(route_advertise);
+	ospf6_route_table_delete(route_advertise, oa->ospf6);
 
 	if (prefix_num == 0) {
 		if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
@@ -1254,7 +1254,8 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
 				zlog_debug("    include %pFX", &route->prefix);
 
-			ospf6_route_add(route, route_advertise);
+			ospf6_route_add(route, route_advertise,
+					oi->area->ospf6);
 			prefix_num--;
 		}
 		if (current != end && IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
@@ -1276,7 +1277,7 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 		prefix_num++;
 	}
 
-	ospf6_route_table_delete(route_advertise);
+	ospf6_route_table_delete(route_advertise, oi->area->ospf6);
 
 	if (prefix_num == 0) {
 		if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
@@ -1309,14 +1310,14 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 	return 0;
 }
 
-static void ospf6_intra_prefix_update_route_origin(struct ospf6_route *oa_route)
+static void ospf6_intra_prefix_update_route_origin(struct ospf6_route *oa_route,
+						   struct ospf6 *ospf6)
 {
 	struct ospf6_path *h_path;
 	struct ospf6_route *g_route, *nroute;
 
 	/* Update Global ospf6 route path */
-	g_route = ospf6_route_lookup(&oa_route->prefix,
-				     ospf6->route_table);
+	g_route = ospf6_route_lookup(&oa_route->prefix, ospf6->route_table);
 
 	assert(g_route);
 
@@ -1436,15 +1437,15 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 					 * nh_list
 					 */
 					if (oa->route_table->hook_add)
-						(*oa->route_table->hook_add)
-							(old_route);
+						(*oa->route_table->hook_add)(
+							old_route, oa->ospf6);
 
 					if (old_route->path.origin.id ==
 					route->path.origin.id &&
 					old_route->path.origin.adv_router ==
 						route->path.origin.adv_router) {
 						ospf6_intra_prefix_update_route_origin(
-								old_route);
+							old_route, oa->ospf6);
 					}
 					break;
 				}
@@ -1458,7 +1459,8 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 				}
 				if (oa->route_table->hook_remove)
 					ospf6_route_remove(old_route,
-						   oa->route_table);
+							   oa->route_table,
+							   oa->ospf6);
 				else
 					SET_FLAG(old_route->flag,
 						 OSPF6_ROUTE_REMOVE);
@@ -1591,7 +1593,8 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 			SET_FLAG(old_route->flag, OSPF6_ROUTE_ADD);
 			/* Update ospf6 route table and RIB/FIB */
 			if (oa->route_table->hook_add)
-				(*oa->route_table->hook_add)(old_route);
+				(*oa->route_table->hook_add)(old_route,
+							     oa->ospf6);
 			/* Delete the new route its info added to existing
 			 * route.
 			 */
@@ -1603,7 +1606,7 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 
 	if (!route_found) {
 		/* Add new route to existing node in ospf6 route table. */
-		ospf6_route_add(route, oa->route_table);
+		ospf6_route_add(route, oa->route_table, oa->ospf6);
 	}
 }
 
@@ -1739,7 +1742,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 					listcount(route->paths),
 					listcount(route->nh_list));
 			}
-			ospf6_route_add(route, oa->route_table);
+			ospf6_route_add(route, oa->route_table, oa->ospf6);
 		}
 		prefix_num--;
 	}
@@ -1821,7 +1824,7 @@ static void ospf6_intra_prefix_lsa_remove_update_route(struct ospf6_lsa *lsa,
 		 * nh_list
 		 */
 		if (oa->route_table->hook_add)
-			(*oa->route_table->hook_add)(route);
+			(*oa->route_table->hook_add)(route, oa->ospf6);
 
 		/* route's primary path is similar
 		 * to LSA, replace route's primary
@@ -1831,7 +1834,8 @@ static void ospf6_intra_prefix_lsa_remove_update_route(struct ospf6_lsa *lsa,
 		if ((route->path.origin.id == lsa->header->id) &&
 		    (route->path.origin.adv_router ==
 				lsa->header->adv_router)) {
-			ospf6_intra_prefix_update_route_origin(route);
+			ospf6_intra_prefix_update_route_origin(route,
+							       oa->ospf6);
 		}
 	}
 
@@ -1913,7 +1917,8 @@ void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa)
 						listcount(route->paths),
 						listcount(route->nh_list));
 				}
-				ospf6_route_remove(route, oa->route_table);
+				ospf6_route_remove(route, oa->route_table,
+						   oa->ospf6);
 			}
 		}
 		if (route)
@@ -1929,8 +1934,8 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 	struct ospf6_route *route, *nroute;
 	uint16_t type;
 	struct ospf6_lsa *lsa;
-	void (*hook_add)(struct ospf6_route *) = NULL;
-	void (*hook_remove)(struct ospf6_route *) = NULL;
+	void (*hook_add)(struct ospf6_route *, struct ospf6 *) = NULL;
+	void (*hook_remove)(struct ospf6_route *, struct ospf6 *) = NULL;
 
 	if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
 		zlog_debug("Re-examin intra-routes for area %s", oa->name);
@@ -1960,15 +1965,15 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 		}
 
 		if (CHECK_FLAG(route->flag, OSPF6_ROUTE_REMOVE))
-			ospf6_route_remove(route, oa->route_table);
+			ospf6_route_remove(route, oa->route_table, oa->ospf6);
 		else if (CHECK_FLAG(route->flag, OSPF6_ROUTE_ADD)
 			 || CHECK_FLAG(route->flag, OSPF6_ROUTE_CHANGE)) {
 			if (hook_add)
-				(*hook_add)(route);
+				(*hook_add)(route, oa->ospf6);
 			route->flag = 0;
 		} else {
 			/* Redo the summaries as things might have changed */
-			ospf6_abr_originate_summary(route);
+			ospf6_abr_originate_summary(route, oa->ospf6);
 			route->flag = 0;
 		}
 	}
@@ -2036,8 +2041,8 @@ static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
 void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 {
 	struct ospf6_route *brouter, *nbrouter, *copy;
-	void (*hook_add)(struct ospf6_route *) = NULL;
-	void (*hook_remove)(struct ospf6_route *) = NULL;
+	void (*hook_add)(struct ospf6_route *, struct ospf6 *) = NULL;
+	void (*hook_remove)(struct ospf6_route *, struct ospf6 *) = NULL;
 	uint32_t brouter_id;
 	char brouter_name[16];
 
@@ -2095,7 +2100,7 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 		copy = ospf6_route_copy(brouter);
 		copy->type = OSPF6_DEST_TYPE_ROUTER;
 		copy->path.area_id = oa->area_id;
-		ospf6_route_add(copy, oa->ospf6->brouter_table);
+		ospf6_route_add(copy, oa->ospf6->brouter_table, oa->ospf6);
 
 		if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(brouter_id)
 		    || IS_OSPF6_DEBUG_ROUTE(MEMORY)) {
@@ -2181,7 +2186,8 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 			 * removes brouters which are marked for remove.
 			 */
 			oa->intra_brouter_calc = 1;
-			ospf6_route_remove(brouter, oa->ospf6->brouter_table);
+			ospf6_route_remove(brouter, oa->ospf6->brouter_table,
+					   oa->ospf6);
 			brouter = NULL;
 		} else if (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_ADD)
 			   || CHECK_FLAG(brouter->flag, OSPF6_ROUTE_CHANGE)) {
@@ -2195,7 +2201,7 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 
 			/* newly added */
 			if (hook_add)
-				(*hook_add)(brouter);
+				(*hook_add)(brouter, oa->ospf6);
 		} else {
 			if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(
 				    brouter_id)
@@ -2204,7 +2210,7 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 				zlog_info("brouter %s still exists via area %s",
 					  brouter_name, oa->name);
 			/* But re-originate summaries */
-			ospf6_abr_originate_summary(brouter);
+			ospf6_abr_originate_summary(brouter, oa->ospf6);
 		}
 
 		if (brouter) {

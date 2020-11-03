@@ -23,9 +23,12 @@
 
 #include "qobj.h"
 #include "routemap.h"
-
 struct ospf6_master {
 
+	/* OSPFv3 instance. */
+	struct list *ospf6;
+	/* OSPFv3 thread master. */
+	struct thread_master *master;
 	in_addr_t zebra_router_id;
 };
 
@@ -128,12 +131,17 @@ extern struct ospf6 *ospf6;
 extern struct ospf6_master *om6;
 
 /* prototypes */
-extern void ospf6_master_init(void);
+extern void ospf6_master_init(struct thread_master *master);
 extern void ospf6_top_init(void);
 extern void ospf6_delete(struct ospf6 *o);
-extern void ospf6_router_id_update(void);
+extern void ospf6_router_id_update(struct ospf6 *ospf6);
 
 extern void ospf6_maxage_remove(struct ospf6 *o);
-extern void ospf6_instance_create(const char *name);
+extern struct ospf6 *ospf6_instance_create(const char *name);
+void ospf6_vrf_link(struct ospf6 *ospf6, struct vrf *vrf);
+void ospf6_vrf_unlink(struct ospf6 *ospf6, struct vrf *vrf);
+struct ospf6 *ospf6_lookup_by_vrf_id(vrf_id_t vrf_id);
+struct ospf6 *ospf6_lookup_by_vrf_name(const char *name);
+const char *ospf6_vrf_id_to_name(vrf_id_t vrf_id);
 
 #endif /* OSPF6_TOP_H */

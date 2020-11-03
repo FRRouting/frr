@@ -118,7 +118,7 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 	/* If all else fails, use default OSPF cost */
 	uint32_t cost;
 	uint32_t bw, refbw;
-
+	struct ospf6 *ospf6;
 	/* interface speed and bw can be 0 in some platforms,
 	 * use ospf default bw. If bw is configured then it would
 	 * be used.
@@ -130,6 +130,7 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 					      : OSPF6_INTERFACE_BANDWIDTH;
 	}
 
+	ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
 	refbw = ospf6 ? ospf6->ref_bandwidth : OSPF6_REFERENCE_BANDWIDTH;
 
 	/* A specifed ip ospf cost overrides a calculated one. */
@@ -259,7 +260,7 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	ospf6_lsdb_delete(oi->lsupdate_list);
 	ospf6_lsdb_delete(oi->lsack_list);
 
-	ospf6_route_table_delete(oi->route_connected);
+	ospf6_route_table_delete(oi->route_connected, oi->area->ospf6);
 
 	/* cut link */
 	oi->interface->info = NULL;
@@ -415,7 +416,7 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 		return;
 
 	/* update "route to advertise" interface route table */
-	ospf6_route_remove_all(oi->route_connected);
+	ospf6_route_remove_all(oi->route_connected, oi->area->ospf6);
 
 	for (ALL_LIST_ELEMENTS(oi->interface->connected, node, nnode, c)) {
 		if (c->address->family != AF_INET6)
@@ -459,7 +460,7 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 		inet_pton(AF_INET6, "::1", &nh_addr);
 		ospf6_route_add_nexthop(route, oi->interface->ifindex,
 					&nh_addr);
-		ospf6_route_add(route, oi->route_connected);
+		ospf6_route_add(route, oi->route_connected, oi->area->ospf6);
 	}
 
 	/* create new Link-LSA */
@@ -472,6 +473,7 @@ static void ospf6_interface_state_change(uint8_t next_state,
 					 struct ospf6_interface *oi)
 {
 	uint8_t prev_state;
+	struct ospf6 *ospf6;
 
 	prev_state = oi->state;
 	oi->state = next_state;
@@ -487,20 +489,21 @@ static void ospf6_interface_state_change(uint8_t next_state,
 			   ospf6_interface_state_str[next_state]);
 	}
 	oi->state_change++;
+	ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
 
 	if ((prev_state == OSPF6_INTERFACE_DR
 	     || prev_state == OSPF6_INTERFACE_BDR)
 	    && (next_state != OSPF6_INTERFACE_DR
 		&& next_state != OSPF6_INTERFACE_BDR))
 		ospf6_sso(oi->interface->ifindex, &alldrouters6,
-			  IPV6_LEAVE_GROUP);
+			  IPV6_LEAVE_GROUP, ospf6->fd);
 
 	if ((prev_state != OSPF6_INTERFACE_DR
 	     && prev_state != OSPF6_INTERFACE_BDR)
 	    && (next_state == OSPF6_INTERFACE_DR
 		|| next_state == OSPF6_INTERFACE_BDR))
 		ospf6_sso(oi->interface->ifindex, &alldrouters6,
-			  IPV6_JOIN_GROUP);
+			  IPV6_JOIN_GROUP, ospf6->fd);
 
 	OSPF6_ROUTER_LSA_SCHEDULE(oi->area);
 	if (next_state == OSPF6_INTERFACE_DOWN) {
@@ -677,6 +680,7 @@ static uint8_t dr_election(struct ospf6_interface *oi)
 int interface_up(struct thread *thread)
 {
 	struct ospf6_interface *oi;
+	struct ospf6 *ospf6;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 	assert(oi && oi->interface);
@@ -747,9 +751,14 @@ int interface_up(struct thread *thread)
 		return 0;
 	}
 #endif /* __FreeBSD__ */
+	if (oi->area->ospf6)
+		ospf6 = oi->area->ospf6;
+	else
+		ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
 
 	/* Join AllSPFRouters */
-	if (ospf6_sso(oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP)
+	if (ospf6_sso(oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP,
+		      ospf6->fd)
 	    < 0) {
 		if (oi->sso_try_cnt++ < OSPF6_INTERFACE_SSO_RETRY_MAX) {
 			zlog_info(
@@ -846,6 +855,7 @@ int interface_down(struct thread *thread)
 	struct ospf6_interface *oi;
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on;
+	struct ospf6 *ospf6;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 	assert(oi && oi->interface);
@@ -859,11 +869,11 @@ int interface_down(struct thread *thread)
 
 	/* Stop trying to set socket options. */
 	THREAD_OFF(oi->thread_sso);
-
+	ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
 	/* Leave AllSPFRouters */
 	if (oi->state > OSPF6_INTERFACE_DOWN)
 		ospf6_sso(oi->interface->ifindex, &allspfrouters6,
-			  IPV6_LEAVE_GROUP);
+			  IPV6_LEAVE_GROUP, ospf6->fd);
 
 	ospf6_interface_state_change(OSPF6_INTERFACE_DOWN, oi);
 

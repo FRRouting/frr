@@ -39,6 +39,7 @@
 #include "ospf6_asbr.h"
 #include "ospf6_zebra.h"
 #include "ospf6d.h"
+#include "ospf6_area.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_DISTANCE, "OSPF6 distance")
 
@@ -47,16 +48,49 @@ unsigned char conf_debug_ospf6_zebra = 0;
 /* information about zebra. */
 struct zclient *zclient = NULL;
 
+void ospf6_zebra_vrf_register(struct ospf6 *ospf6)
+{
+	if (!zclient || zclient->sock < 0 || !ospf6)
+		return;
+
+	if (ospf6->vrf_id != VRF_UNKNOWN) {
+		if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
+			zlog_debug("%s: Register VRF %s id %u", __func__,
+				   ospf6_vrf_id_to_name(ospf6->vrf_id),
+				   ospf6->vrf_id);
+		}
+		zclient_send_reg_requests(zclient, ospf6->vrf_id);
+	}
+}
+
+void ospf6_zebra_vrf_deregister(struct ospf6 *ospf6)
+{
+	if (!zclient || zclient->sock < 0 || !ospf6)
+		return;
+
+	if (ospf6->vrf_id != VRF_DEFAULT && ospf6->vrf_id != VRF_UNKNOWN) {
+		if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
+			zlog_debug("%s: De-Register VRF %s id %u to Zebra.",
+				   __func__,
+				   ospf6_vrf_id_to_name(ospf6->vrf_id),
+				   ospf6->vrf_id);
+		}
+		/* Deregister for router-id, interfaces,
+		 * redistributed routes. */
+		zclient_send_dereg_requests(zclient, ospf6->vrf_id);
+	}
+}
+
 /* Router-id update message from zebra. */
 static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix router_id;
-	struct ospf6 *o = ospf6;
+	struct ospf6 *o;
 
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
 
 	om6->zebra_router_id = router_id.u.prefix4.s_addr;
-
+	o = ospf6_lookup_by_vrf_id(vrf_id);
 	if (o == NULL)
 		return 0;
 
@@ -69,7 +103,7 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 				     INET_ADDRSTRLEN));
 	}
 
-	ospf6_router_id_update();
+	ospf6_router_id_update(o);
 
 	return 0;
 }
@@ -146,6 +180,9 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	struct zapi_route api;
 	unsigned long ifindex;
 	struct in6_addr *nexthop;
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_lookup_by_vrf_id(vrf_id);
 
 	if (ospf6 == NULL)
 		return 0;
@@ -173,9 +210,11 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		ospf6_asbr_redistribute_add(api.type, ifindex, &api.prefix,
-					    api.nexthop_num, nexthop, api.tag);
+					    api.nexthop_num, nexthop, api.tag,
+					    ospf6);
 	else
-		ospf6_asbr_redistribute_remove(api.type, ifindex, &api.prefix);
+		ospf6_asbr_redistribute_remove(api.type, ifindex, &api.prefix,
+					       ospf6);
 
 	return 0;
 }
@@ -210,7 +249,8 @@ DEFUN (show_zebra,
 
 #define ADD    0
 #define REM    1
-static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
+static void ospf6_zebra_route_update(int type, struct ospf6_route *request,
+				     struct ospf6 *ospf6)
 {
 	struct zapi_route api;
 	int nhcount;
@@ -280,8 +320,8 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
 	}
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
-	api.distance =
-		ospf6_distance_apply((struct prefix_ipv6 *)dest, request);
+	api.distance = ospf6_distance_apply((struct prefix_ipv6 *)dest, request,
+					    ospf6);
 
 	if (type == REM)
 		ret = zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
@@ -297,17 +337,19 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
 	return;
 }
 
-void ospf6_zebra_route_update_add(struct ospf6_route *request)
+void ospf6_zebra_route_update_add(struct ospf6_route *request,
+				  struct ospf6 *ospf6)
 {
-	ospf6_zebra_route_update(ADD, request);
+	ospf6_zebra_route_update(ADD, request, ospf6);
 }
 
-void ospf6_zebra_route_update_remove(struct ospf6_route *request)
+void ospf6_zebra_route_update_remove(struct ospf6_route *request,
+				     struct ospf6 *ospf6)
 {
-	ospf6_zebra_route_update(REM, request);
+	ospf6_zebra_route_update(REM, request, ospf6);
 }
 
-void ospf6_zebra_add_discard(struct ospf6_route *request)
+void ospf6_zebra_add_discard(struct ospf6_route *request, struct ospf6 *ospf6)
 {
 	struct zapi_route api;
 	struct prefix *dest = &request->prefix;
@@ -334,7 +376,8 @@ void ospf6_zebra_add_discard(struct ospf6_route *request)
 	}
 }
 
-void ospf6_zebra_delete_discard(struct ospf6_route *request)
+void ospf6_zebra_delete_discard(struct ospf6_route *request,
+				struct ospf6 *ospf6)
 {
 	struct zapi_route api;
 	struct prefix *dest = &request->prefix;
@@ -462,7 +505,8 @@ void ospf6_distance_reset(struct ospf6 *o)
 		}
 }
 
-uint8_t ospf6_distance_apply(struct prefix_ipv6 *p, struct ospf6_route * or)
+uint8_t ospf6_distance_apply(struct prefix_ipv6 *p, struct ospf6_route * or,
+			     struct ospf6 *ospf6)
 {
 	struct ospf6 *o;
 

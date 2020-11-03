@@ -258,7 +258,7 @@ static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa, caddr_t lsdesc,
 }
 
 static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
-			       caddr_t lsdesc)
+			       caddr_t lsdesc, struct ospf6 *ospf6)
 {
 	int i;
 	ifindex_t ifindex;
@@ -316,7 +316,8 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 }
 
 static int ospf6_spf_install(struct ospf6_vertex *v,
-			     struct ospf6_route_table *result_table)
+			     struct ospf6_route_table *result_table,
+			     struct ospf6 *ospf6)
 {
 	struct ospf6_route *route, *parent_route;
 	struct ospf6_vertex *prev;
@@ -416,11 +417,12 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 		listnode_add_sort(v->parent->child_list, v);
 	route->route_option = v;
 
-	ospf6_route_add(route, result_table);
+	ospf6_route_add(route, result_table, ospf6);
 	return 0;
 }
 
-void ospf6_spf_table_finish(struct ospf6_route_table *result_table)
+void ospf6_spf_table_finish(struct ospf6_route_table *result_table,
+			    struct ospf6 *ospf6)
 {
 	struct ospf6_route *route, *nroute;
 	struct ospf6_vertex *v;
@@ -428,7 +430,7 @@ void ospf6_spf_table_finish(struct ospf6_route_table *result_table)
 		nroute = ospf6_route_next(route);
 		v = (struct ospf6_vertex *)route->route_option;
 		ospf6_vertex_delete(v);
-		ospf6_route_remove(route, result_table);
+		ospf6_route_remove(route, result_table, ospf6);
 	}
 }
 
@@ -466,7 +468,7 @@ void ospf6_spf_calculation(uint32_t router_id,
 	struct ospf6_lsa *lsa;
 	struct in6_addr address;
 
-	ospf6_spf_table_finish(result_table);
+	ospf6_spf_table_finish(result_table, oa->ospf6);
 
 	/* Install the calculating router itself as the root of the SPF tree */
 	/* construct root vertex */
@@ -495,7 +497,7 @@ void ospf6_spf_calculation(uint32_t router_id,
 	while ((v = vertex_pqueue_pop(&candidate_list))) {
 		/* installing may result in merging or rejecting of the vertex
 		 */
-		if (ospf6_spf_install(v, result_table) < 0)
+		if (ospf6_spf_install(v, result_table, oa->ospf6) < 0)
 			continue;
 
 		/* Skip overloaded routers */
@@ -541,7 +543,7 @@ void ospf6_spf_calculation(uint32_t router_id,
 					w->nh_list,
 					ROUTER_LSDESC_GET_IFID(lsdesc), NULL);
 			else if (w->hops == 1 && v->hops == 0)
-				ospf6_nexthop_calc(w, v, lsdesc);
+				ospf6_nexthop_calc(w, v, lsdesc, oa->ospf6);
 			else
 				ospf6_copy_nexthops(w->nh_list, v->nh_list);
 
@@ -912,7 +914,7 @@ int config_write_ospf6_debug_spf(struct vty *vty)
 	return 0;
 }
 
-void ospf6_spf_config_write(struct vty *vty)
+void ospf6_spf_config_write(struct vty *vty, struct ospf6 *ospf6)
 {
 
 	if (ospf6->spf_delay != OSPF_SPF_DELAY_DEFAULT
