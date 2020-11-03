@@ -4493,6 +4493,16 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, struct prefix *p,
 		return -1;
 	}
 
+	/* VRR IP is advertised only if gw-macip-adv-enabled */
+	if (IS_ZEBRA_IF_MACVLAN(ifp)) {
+		if (!advertise_gw_macip_enabled(zevpn))
+			return 0;
+	} else {
+		/* SVI IP is advertised if gw or svi macip-adv-enabled */
+		if (!advertise_svi_macip_enabled(zevpn)
+		    && !advertise_gw_macip_enabled(zevpn))
+			return 0;
+	}
 
 	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
 

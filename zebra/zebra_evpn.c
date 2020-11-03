@@ -151,6 +151,9 @@ void zebra_evpn_print(zebra_evpn_t *zevpn, void **ctxt)
 						 buf, sizeof(buf)));
 		json_object_string_add(json, "advertiseGatewayMacip",
 				       zevpn->advertise_gw_macip ? "Yes" : "No");
+		json_object_string_add(json, "advertiseSviMacip",
+				       zevpn->advertise_svi_macip ? "Yes"
+								  : "No");
 		json_object_int_add(json, "numMacs", num_macs);
 		json_object_int_add(json, "numArpNd", num_neigh);
 	}
@@ -194,6 +197,8 @@ void zebra_evpn_print(zebra_evpn_t *zevpn, void **ctxt)
 			num_neigh);
 		vty_out(vty, " Advertise-gw-macip: %s\n",
 			zevpn->advertise_gw_macip ? "Yes" : "No");
+		vty_out(vty, " Advertise-svi-macip: %s\n",
+			zevpn->advertise_svi_macip ? "Yes" : "No");
 	}
 }
 
@@ -569,7 +574,9 @@ void zebra_evpn_gw_macip_add_for_evpn_hash(struct hash_bucket *bucket,
 		return;
 
 	/* Add primary SVI MAC-IP */
-	zebra_evpn_add_macip_for_intf(vlan_if, zevpn);
+	if (advertise_svi_macip_enabled(zevpn)
+	    || advertise_gw_macip_enabled(zevpn))
+		zebra_evpn_add_macip_for_intf(vlan_if, zevpn);
 
 	if (advertise_gw_macip_enabled(zevpn)) {
 		/* Add VRR MAC-IP - if any*/
@@ -927,12 +934,16 @@ void zebra_evpn_read_mac_neigh(zebra_evpn_t *zevpn, struct interface *ifp)
 	if (vlan_if) {
 
 		/* Add SVI MAC-IP */
-		zebra_evpn_add_macip_for_intf(vlan_if, zevpn);
+		if (advertise_svi_macip_enabled(zevpn)
+		    || advertise_gw_macip_enabled(zevpn))
+			zebra_evpn_add_macip_for_intf(vlan_if, zevpn);
 
 		/* Add VRR MAC-IP - if any*/
-		vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
-		if (vrr_if)
-			zebra_evpn_add_macip_for_intf(vrr_if, zevpn);
+		if (advertise_gw_macip_enabled(zevpn)) {
+			vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
+			if (vrr_if)
+				zebra_evpn_add_macip_for_intf(vrr_if, zevpn);
+		}
 
 		neigh_read_for_vlan(zns, vlan_if);
 	}
