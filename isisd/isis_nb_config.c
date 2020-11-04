@@ -1483,7 +1483,8 @@ int isis_instance_segment_routing_srgb_pre_validate(
 
 	/* Check that the block size does not exceed 65535 */
 	if ((srgb_ubound - srgb_lbound + 1) > 65535) {
-		zlog_warn(
+		snprintf(
+			args->errmsg, args->errmsg_len,
 			"New SR Global Block (%u/%u) exceed the limit of 65535",
 			srgb_lbound, srgb_ubound);
 		return NB_ERR_VALIDATION;
@@ -1491,7 +1492,8 @@ int isis_instance_segment_routing_srgb_pre_validate(
 
 	/* Validate SRGB against SRLB */
 	if (!((srgb_ubound < srlb_lbound) || (srgb_lbound > srlb_ubound))) {
-		zlog_warn(
+		snprintf(
+			args->errmsg, args->errmsg_len,
 			"New SR Global Block (%u/%u) conflict with Local Block (%u/%u)",
 			srgb_lbound, srgb_ubound, srlb_lbound, srlb_ubound);
 		return NB_ERR_VALIDATION;
@@ -1524,8 +1526,8 @@ int isis_instance_segment_routing_srgb_lower_bound_modify(
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(lower_bound)) {
-			zlog_warn("Invalid SRGB lower bound: %u",
-				  lower_bound);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid SRGB lower bound: %u", lower_bound);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1549,8 +1551,8 @@ int isis_instance_segment_routing_srgb_upper_bound_modify(
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
-			zlog_warn("Invalid SRGB upper bound: %u",
-				  upper_bound);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid SRGB upper bound: %u", upper_bound);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1581,15 +1583,16 @@ int isis_instance_segment_routing_srlb_pre_validate(
 
 	/* Check that the block size does not exceed 65535 */
 	if ((srlb_ubound - srlb_lbound + 1) > 65535) {
-		zlog_warn(
-			"New SR Local Block (%u/%u) exceed the limit of 65535",
-			srlb_lbound, srlb_ubound);
+		snprintf(args->errmsg, args->errmsg_len,
+			 "New SR Local Block (%u/%u) exceed the limit of 65535",
+			 srlb_lbound, srlb_ubound);
 		return NB_ERR_VALIDATION;
 	}
 
 	/* Validate SRLB against SRGB */
 	if (!((srlb_ubound < srgb_lbound) || (srlb_lbound > srgb_ubound))) {
-		zlog_warn(
+		snprintf(
+			args->errmsg, args->errmsg_len,
 			"New SR Local Block (%u/%u) conflict with Global Block (%u/%u)",
 			srlb_lbound, srlb_ubound, srgb_lbound, srgb_ubound);
 		return NB_ERR_VALIDATION;
@@ -1622,8 +1625,8 @@ int isis_instance_segment_routing_srlb_lower_bound_modify(
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(lower_bound)) {
-			zlog_warn("Invalid SRLB lower bound: %u",
-				  lower_bound);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid SRLB lower bound: %u", lower_bound);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1647,8 +1650,8 @@ int isis_instance_segment_routing_srlb_upper_bound_modify(
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
-			zlog_warn("Invalid SRLB upper bound: %u",
-				  upper_bound);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid SRLB upper bound: %u", upper_bound);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1764,14 +1767,16 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
 	switch (sid_type) {
 	case SR_SID_VALUE_TYPE_INDEX:
 		if (sid >= srgb_range) {
-			zlog_warn("SID index %u falls outside local SRGB range",
-				  sid);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "SID index %u falls outside local SRGB range",
+				 sid);
 			return NB_ERR_VALIDATION;
 		}
 		break;
 	case SR_SID_VALUE_TYPE_ABSOLUTE:
 		if (!IS_MPLS_UNRESERVED_LABEL(sid)) {
-			zlog_warn("Invalid absolute SID %u", sid);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid absolute SID %u", sid);
 			return NB_ERR_VALIDATION;
 		}
 		SET_FLAG(psid.flags, ISIS_PREFIX_SID_VALUE);
