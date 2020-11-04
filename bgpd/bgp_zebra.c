@@ -2366,6 +2366,7 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 {
 	struct prefix pfx;
 	uint8_t fam = AF_INET;
+	char ifname[INTERFACE_NAMSIZ];
 
 	if (pbra->nh.type == NEXTHOP_TYPE_IPV6)
 		fam = AF_INET6;
@@ -2407,7 +2408,7 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 	stream_put(s, &pfx.u.prefix, prefix_blen(&pfx));
 
 	stream_putw(s, 0);  /* dst port */
-
+	stream_putc(s, 0);  /* dsfield */
 	/* if pbr present, fwmark is not used */
 	if (pbr)
 		stream_putl(s, 0);
@@ -2416,7 +2417,8 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 
 	stream_putl(s, pbra->table_id);
 
-	stream_putl(s, 0); /* ifindex unused */
+	memset(ifname, 0, sizeof(ifname));
+	stream_put(s, ifname, INTERFACE_NAMSIZ); /* ifname unused */
 }
 
 static void bgp_encode_pbr_ipset_match(struct stream *s,
