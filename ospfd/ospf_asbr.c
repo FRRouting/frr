@@ -416,7 +416,7 @@ static void ospf_aggr_handle_external_info(void *data)
 
 	aggr = ospf_external_aggr_match(ospf, &ei->p);
 	if (aggr) {
-		lsa = ospf_originate_summary_lsa(ospf, aggr, ei);
+		(void)ospf_originate_summary_lsa(ospf, aggr, ei);
 		return;
 	}
 
@@ -424,7 +424,7 @@ static void ospf_aggr_handle_external_info(void *data)
 	if (lsa)
 		ospf_external_lsa_refresh(ospf, lsa, ei, LSA_REFRESH_FORCE, 1);
 	else
-		lsa = ospf_external_lsa_originate(ospf, ei);
+		(void)ospf_external_lsa_originate(ospf, ei);
 }
 
 static void ospf_aggr_unlink_external_info(void *data)
