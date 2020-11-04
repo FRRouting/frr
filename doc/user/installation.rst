@@ -31,8 +31,11 @@ From Source
 
 Building FRR from source is the best way to ensure you have the latest features
 and bug fixes. Details for each supported platform, including dependency
-package listings, permissions, and other gotchas, are in the developer's
-documentation. This section provides a brief overview on the process.
+package listings, permissions, and other gotchas, are in the `developer's
+documentation
+<http://docs.frrouting.org/projects/dev-guide/en/latest/building.html>`_. This
+section provides a brief overview on the process.
+
 
 Getting the Source
 ^^^^^^^^^^^^^^^^^^
