@@ -603,6 +603,9 @@ extern void bgp_announce_route(struct peer *, afi_t, safi_t);
 extern void bgp_stop_announce_route_timer(struct peer_af *paf);
 extern void bgp_announce_route_all(struct peer *);
 extern void bgp_default_originate(struct peer *, afi_t, safi_t, int);
+extern void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
+						const struct bgp_table *table,
+						const struct peer *peer);
 extern void bgp_soft_reconfig_in(struct peer *, afi_t, safi_t);
 extern void bgp_clear_route(struct peer *, afi_t, safi_t);
 extern void bgp_clear_route_all(struct peer *);
