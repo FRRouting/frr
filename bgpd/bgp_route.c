@@ -121,6 +121,7 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 };
 
 #define VRFID_NONE_STR "-"
+#define SOFT_RECONFIG_TASK_MAX_PREFIX 25000
 
 DEFINE_HOOK(bgp_process,
 	    (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
@@ -3140,6 +3141,14 @@ void bgp_process(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi)
 		return;
 	}
 
+	if (CHECK_FLAG(dest->flags, BGP_NODE_SOFT_RECONFIG)) {
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug(
+				"Soft reconfigure table in progress for route %p",
+				dest);
+		return;
+	}
+
 	if (wq == NULL)
 		return;
 
@@ -4590,6 +4599,60 @@ void bgp_announce_route_all(struct peer *peer)
 		bgp_announce_route(peer, afi, safi);
 }
 
+/* Flag or unflag bgp_dest to determine whether it should be treated by
+ * bgp_soft_reconfig_table_task.
+ * Flag if flag is true. Unflag if flag is false.
+ */
+static void bgp_soft_reconfig_table_flag(struct bgp_table *table, bool flag)
+{
+	struct bgp_dest *dest;
+	struct bgp_adj_in *ain;
+
+	if (!table)
+		return;
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		for (ain = dest->adj_in; ain; ain = ain->next) {
+			if (ain->peer != NULL)
+				break;
+		}
+		if (flag && ain != NULL && ain->peer != NULL)
+			SET_FLAG(dest->flags, BGP_NODE_SOFT_RECONFIG);
+		else
+			UNSET_FLAG(dest->flags, BGP_NODE_SOFT_RECONFIG);
+	}
+}
+
+static int bgp_soft_reconfig_table_update(struct peer *peer,
+					  struct bgp_dest *dest,
+					  struct bgp_adj_in *ain, afi_t afi,
+					  safi_t safi, struct prefix_rd *prd)
+{
+	struct bgp_path_info *pi;
+	uint32_t num_labels = 0;
+	mpls_label_t *label_pnt = NULL;
+	struct bgp_route_evpn evpn;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
+		if (pi->peer == peer)
+			break;
+
+	if (pi && pi->extra)
+		num_labels = pi->extra->num_labels;
+	if (num_labels)
+		label_pnt = &pi->extra->label[0];
+	if (pi)
+		memcpy(&evpn, bgp_attr_get_evpn_overlay(pi->attr),
+		       sizeof(evpn));
+	else
+		memset(&evpn, 0, sizeof(evpn));
+
+	return bgp_update(peer, bgp_dest_get_prefix(dest), ain->addpath_rx_id,
+			  ain->attr, afi, safi, ZEBRA_ROUTE_BGP,
+			  BGP_ROUTE_NORMAL, prd, label_pnt, num_labels, 1,
+			  &evpn);
+}
+
 static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 				    struct bgp_table *table,
 				    struct prefix_rd *prd)
@@ -4606,32 +4669,8 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 			if (ain->peer != peer)
 				continue;
 
-			struct bgp_path_info *pi;
-			uint32_t num_labels = 0;
-			mpls_label_t *label_pnt = NULL;
-			struct bgp_route_evpn evpn;
-
-			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
-			     pi = pi->next)
-				if (pi->peer == peer)
-					break;
-
-			if (pi && pi->extra)
-				num_labels = pi->extra->num_labels;
-			if (num_labels)
-				label_pnt = &pi->extra->label[0];
-			if (pi)
-				memcpy(&evpn,
-				       bgp_attr_get_evpn_overlay(pi->attr),
-				       sizeof(evpn));
-			else
-				memset(&evpn, 0, sizeof(evpn));
-
-			ret = bgp_update(peer, bgp_dest_get_prefix(dest),
-					 ain->addpath_rx_id, ain->attr, afi,
-					 safi, ZEBRA_ROUTE_BGP,
-					 BGP_ROUTE_NORMAL, prd, label_pnt,
-					 num_labels, 1, &evpn);
+			ret = bgp_soft_reconfig_table_update(peer, dest, ain,
+							     afi, safi, prd);
 
 			if (ret < 0) {
 				bgp_dest_unlock_node(dest);
@@ -4640,18 +4679,201 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 		}
 }
 
+/* Do soft reconfig table per bgp table.
+ * Walk on SOFT_RECONFIG_TASK_MAX_PREFIX bgp_dest,
+ * when BGP_NODE_SOFT_RECONFIG is set,
+ * reconfig bgp_dest for list of table->soft_reconfig_peers peers.
+ * Schedule a new thread to continue the job.
+ * Without splitting the full job into several part,
+ * vtysh waits for the job to finish before responding to a BGP command
+ */
+static int bgp_soft_reconfig_table_task(struct thread *thread)
+{
+	uint32_t iter, max_iter;
+	int ret;
+	struct bgp_dest *dest;
+	struct bgp_adj_in *ain;
+	struct peer *peer;
+	struct bgp_table *table;
+	struct prefix_rd *prd;
+	struct listnode *node, *nnode;
+
+	table = THREAD_ARG(thread);
+	prd = NULL;
+
+	max_iter = SOFT_RECONFIG_TASK_MAX_PREFIX;
+	if (table->soft_reconfig_init) {
+		/* first call of the function with a new srta structure.
+		 * Don't do any treatment this time on nodes
+		 * in order vtysh to respond quickly
+		 */
+		max_iter = 0;
+	}
+
+	for (iter = 0, dest = bgp_table_top(table); (dest && iter < max_iter);
+	     dest = bgp_route_next(dest)) {
+		if (!CHECK_FLAG(dest->flags, BGP_NODE_SOFT_RECONFIG))
+			continue;
+
+		UNSET_FLAG(dest->flags, BGP_NODE_SOFT_RECONFIG);
+
+		for (ain = dest->adj_in; ain; ain = ain->next) {
+			for (ALL_LIST_ELEMENTS(table->soft_reconfig_peers, node,
+					       nnode, peer)) {
+				if (ain->peer != peer)
+					continue;
+
+				ret = bgp_soft_reconfig_table_update(
+					peer, dest, ain, table->afi,
+					table->safi, prd);
+				iter++;
+
+				if (ret < 0) {
+					bgp_dest_unlock_node(dest);
+					listnode_delete(
+						table->soft_reconfig_peers,
+						peer);
+					bgp_announce_route(peer, table->afi,
+							   table->safi);
+					if (list_isempty(
+						    table->soft_reconfig_peers)) {
+						list_delete(
+							&table->soft_reconfig_peers);
+						bgp_soft_reconfig_table_flag(
+							table, false);
+						return 0;
+					}
+				}
+			}
+		}
+	}
+
+	/* we're either starting the initial iteration,
+	 * or we're going to continue an ongoing iteration
+	 */
+	if (dest || table->soft_reconfig_init) {
+		table->soft_reconfig_init = false;
+		thread_add_event(bm->master, bgp_soft_reconfig_table_task,
+				 table, 0, &table->soft_reconfig_thread);
+		return 0;
+	}
+	/* we're done, clean up the background iteration context info and
+	schedule route annoucement
+	*/
+	for (ALL_LIST_ELEMENTS(table->soft_reconfig_peers, node, nnode, peer)) {
+		listnode_delete(table->soft_reconfig_peers, peer);
+		bgp_announce_route(peer, table->afi, table->safi);
+	}
+
+	list_delete(&table->soft_reconfig_peers);
+
+	return 0;
+}
+
+
+/* Cancel soft_reconfig_table task matching bgp instance, bgp_table
+ * and peer.
+ * - bgp cannot be NULL
+ * - if table and peer are NULL, cancel all threads within the bgp instance
+ * - if table is NULL and peer is not,
+ * remove peer in all threads within the bgp instance
+ * - if peer is NULL, cancel all threads matching table within the bgp instance
+ */
+void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
+					 const struct bgp_table *table,
+					 const struct peer *peer)
+{
+	struct peer *npeer;
+	struct listnode *node, *nnode;
+	int afi, safi;
+	struct bgp_table *ntable;
+
+	if (!bgp)
+		return;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		ntable = bgp->rib[afi][safi];
+		if (!ntable)
+			continue;
+		if (table && table != ntable)
+			continue;
+
+		for (ALL_LIST_ELEMENTS(ntable->soft_reconfig_peers, node, nnode,
+				       npeer)) {
+			if (peer && peer != npeer)
+				continue;
+			listnode_delete(ntable->soft_reconfig_peers, npeer);
+		}
+
+		if (!ntable->soft_reconfig_peers
+		    || !list_isempty(ntable->soft_reconfig_peers))
+			continue;
+
+		list_delete(&ntable->soft_reconfig_peers);
+		bgp_soft_reconfig_table_flag(ntable, false);
+		BGP_TIMER_OFF(ntable->soft_reconfig_thread);
+	}
+}
+
 void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
 	struct bgp_table *table;
+	struct listnode *node, *nnode;
+	struct peer *npeer;
+	struct peer_af *paf;
 
 	if (peer->status != Established)
 		return;
 
 	if ((safi != SAFI_MPLS_VPN) && (safi != SAFI_ENCAP)
-	    && (safi != SAFI_EVPN))
-		bgp_soft_reconfig_table(peer, afi, safi, NULL, NULL);
-	else
+	    && (safi != SAFI_EVPN)) {
+		table = peer->bgp->rib[afi][safi];
+		if (!table)
+			return;
+
+		table->soft_reconfig_init = true;
+
+		if (!table->soft_reconfig_peers)
+			table->soft_reconfig_peers = list_new();
+		npeer = NULL;
+		/* add peer to the table soft_reconfig_peers if not already
+		 * there
+		 */
+		for (ALL_LIST_ELEMENTS(table->soft_reconfig_peers, node, nnode,
+				       npeer)) {
+			if (peer == npeer)
+				break;
+		}
+		if (peer != npeer)
+			listnode_add(table->soft_reconfig_peers, peer);
+
+		/* (re)flag all bgp_dest in table. Existing soft_reconfig_in job
+		 * on table would start back at the beginning.
+		 */
+		bgp_soft_reconfig_table_flag(table, true);
+
+		if (!table->soft_reconfig_thread)
+			thread_add_event(bm->master,
+					 bgp_soft_reconfig_table_task, table, 0,
+					 &table->soft_reconfig_thread);
+		/* Cancel bgp_announce_route_timer_expired threads.
+		 * bgp_announce_route_timer_expired threads have been scheduled
+		 * to announce routes as soon as the soft_reconfigure process
+		 * finishes.
+		 * In this case, soft_reconfigure is also scheduled by using
+		 * a thread but is planned after the
+		 * bgp_announce_route_timer_expired threads. It means that,
+		 * without cancelling the threads, the route announcement task
+		 * would run before the soft reconfiguration one. That would
+		 * useless and would block vtysh during several seconds. Route
+		 * announcements are rescheduled as soon as the soft_reconfigure
+		 * process finishes.
+		 */
+		paf = peer_af_find(peer, afi, safi);
+		if (paf)
+			bgp_stop_announce_route_timer(paf);
+	} else
 		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {
 			table = bgp_dest_get_bgp_table_info(dest);

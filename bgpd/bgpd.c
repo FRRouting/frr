@@ -914,6 +914,8 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 		return -1;
 
 	bgp = peer->bgp;
+	bgp_soft_reconfig_table_task_cancel(bgp, bgp->rib[afi][safi], peer);
+
 	bgp_stop_announce_route_timer(af);
 
 	if (PAF_SUBGRP(af)) {
@@ -2410,6 +2412,8 @@ int peer_delete(struct peer *peer)
 	bgp = peer->bgp;
 	accept_peer = CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 
+	bgp_soft_reconfig_table_task_cancel(bgp, NULL, peer);
+
 	bgp_keepalives_off(peer);
 	bgp_reads_off(peer);
 	bgp_writes_off(peer);
@@ -3600,6 +3604,8 @@ int bgp_delete(struct bgp *bgp)
 	struct graceful_restart_info *gr_info;
 
 	assert(bgp);
+
+	bgp_soft_reconfig_table_task_cancel(bgp, NULL, NULL);
 
 	/* make sure we withdraw any exported routes */
 	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
