@@ -1766,9 +1766,11 @@ DEFPY (show_route,
 		if (vrf_name)
 			VRF_GET_ID(vrf_id, vrf_name, !!json);
 		vrf = vrf_lookup_by_id(vrf_id);
-		if (vrf)
-			zvrf = vrf->info;
-		if (!vrf || !zvrf)
+		if (!vrf)
+			return CMD_SUCCESS;
+
+		zvrf = vrf->info;
+		if (!zvrf)
 			return CMD_SUCCESS;
 
 		if (table_all)
