@@ -97,8 +97,6 @@ submodule frr-bgp-neighbor {
 
     uses neighbor-update-source;
 
-    uses neighbor-remote-as;
-
     uses structure-neighbor-group-ebgp-multihop;
 
     uses neighbor-local-as-options;
@@ -124,7 +122,6 @@ submodule frr-bgp-neighbor {
 
         leaf enabled {
           type boolean;
-          default "false";
           description
             "This leaf indicates whether the IPv4 Unicast AFI, SAFI is
              enabled for the neighbour or group.";

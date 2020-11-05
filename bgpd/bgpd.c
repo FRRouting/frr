@@ -5485,8 +5485,8 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 	return 0;
 }
 
-int peer_local_as_set(struct peer *peer, as_t as, int no_prepend,
-		      int replace_as)
+int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
+		      bool replace_as)
 {
 	bool old_no_prepend, old_replace_as;
 	struct bgp *bgp = peer->bgp;
