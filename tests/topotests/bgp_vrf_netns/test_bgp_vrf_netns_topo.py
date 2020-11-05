@@ -143,8 +143,9 @@ def setup_module(module):
     for pname, peer in peer_list.items():
         peer_dir = os.path.join(CWD, pname)
         env_file = os.path.join(CWD, "exabgp.env")
+        other_files = [os.path.join(CWD, 'exabgp-helper.py')]
         logger.info("Running ExaBGP peer")
-        peer.start(peer_dir, env_file)
+        peer.start(peer_dir, env_file, other_files)
         logger.info(pname)
 
 
