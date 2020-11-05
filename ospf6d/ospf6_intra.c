@@ -1363,7 +1363,7 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 	struct ospf6_nexthop *nh, *rnh;
 	char buf[PREFIX2STR_BUFFER];
 	bool route_found = false;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	struct ospf6_lsa *lsa;
 	struct ospf6_intra_prefix_lsa *intra_prefix_lsa;
 
@@ -1565,12 +1565,20 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 					ifp = if_lookup_prefix(
 						&old_route->prefix,
 						oa->ospf6->vrf_id);
-					if (ifp)
-						ospf6_route_add_nexthop(
-								old_route,
+				}
+
+				if (ifp) {
+					/* Nexthop interface found */
+					ospf6_route_add_nexthop(old_route,
 								ifp->ifindex,
 								NULL);
 				} else {
+					/* The connected interfaces between
+					 * routers can be in different networks.
+					 * In this case the matching interface
+					 * is not found. Copy nexthops from the
+					 * link state entry
+					 */
 					ospf6_route_merge_nexthops(old_route,
 								   ls_entry);
 				}
@@ -1620,7 +1628,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 	struct ospf6_prefix *op;
 	char *start, *current, *end;
 	char buf[PREFIX2STR_BUFFER];
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	int direct_connect = 0;
 	struct ospf6_path *path;
 
@@ -1710,10 +1718,17 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 		if (direct_connect) {
 			ifp = if_lookup_prefix(&route->prefix,
 					       oa->ospf6->vrf_id);
-			if (ifp)
-				ospf6_route_add_nexthop(route, ifp->ifindex,
-							NULL);
+		}
+
+		if (ifp) {
+			/* Nexthop interface found */
+			ospf6_route_add_nexthop(route, ifp->ifindex, NULL);
 		} else {
+			/* The connected interfaces between routers can be in
+			 * different networks. In this case the matching
+			 * interface is not found. Copy nexthops from the
+			 * link state entry
+			 */
 			ospf6_route_copy_nexthops(route, ls_entry);
 		}
 
