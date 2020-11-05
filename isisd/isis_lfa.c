@@ -533,6 +533,14 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 		listnode_add_head(repair_list, &sid_pnode);
 
 		/* Apply repair list. */
+		if (listcount(repair_list)
+		    > spftree_pc->area->srdb.config.msd) {
+			zlog_warn(
+				"ISIS-TI-LFA: list of repair segments exceeds locally configured MSD (%u > %u)",
+				listcount(repair_list),
+				spftree_pc->area->srdb.config.msd);
+			return -1;
+		}
 		if (tilfa_repair_list_apply(spftree_pc, vertex_dest, vertex,
 					    repair_list)
 		    != 0)
@@ -735,7 +743,11 @@ int isis_lfa_check(struct isis_spftree *spftree_pc, struct isis_vertex *vertex)
 	isis_spf_node_list_clear(&used_pnodes);
 	list_delete(&repair_list);
 	if (ret != 0)
-		zlog_warn("ISIS-TI-LFA: failed to compute repair path(s)");
+		zlog_warn(
+			"ISIS-TI-LFA: failed to compute repair path(s) of %s %s w.r.t %s",
+			vtype2string(vertex->type), buf,
+			lfa_protected_resource2str(
+				&spftree_pc->lfa.protected_resource));
 
 	return ret;
 }
