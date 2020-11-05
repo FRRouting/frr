@@ -65,23 +65,24 @@ test_bgp_multiview_topo1.py: Simple FRR Route-Server Test
 import os
 import re
 import sys
-import pytest
 import glob
 from time import sleep
+from functools import partial
+import pytest
+
+# Save the Current Working Directory to find configuration files.
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, "../"))
+
+# pylint: disable=C0413
+# Import topogen and topotest helpers
+from lib import topotest
+from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topolog import logger
 
 from mininet.topo import Topo
-from mininet.net import Mininet
-from mininet.node import Node, OVSSwitch, Host
-from mininet.log import setLogLevel, info
-from mininet.cli import CLI
-from mininet.link import Intf
-
-from functools import partial
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from lib import topotest
-
-fatal_error = ""
 
 
 #####################################################
@@ -95,34 +96,29 @@ class NetworkTopo(Topo):
     "BGP Multiview Topology 1"
 
     def build(self, **_opts):
-
-        exabgpPrivateDirs = ["/etc/exabgp", "/var/run/exabgp", "/var/log"]
+        tgen = get_topogen(self)
 
         # Setup Routers
-        router = {}
-        for i in range(1, 2):
-            router[i] = topotest.addRouter(self, "r%s" % i)
+        router = tgen.add_router('r1')
 
         # Setup Provider BGP peers
         peer = {}
         for i in range(1, 9):
-            peer[i] = self.addHost(
-                "peer%s" % i,
-                ip="172.16.1.%s/24" % i,
-                defaultRoute="via 172.16.1.254",
-                privateDirs=exabgpPrivateDirs,
+            peer_ip = "172.16.1.{}".format(i)
+            peer_route = "via 172.16.1.254"
+            peer[i] = tgen.add_exabgp_peer(
+                "peer{}".format(i), ip=peer_ip, defaultRoute=peer_route
             )
 
         # Setup Switches
-        switch = {}
-        # First switch is for a dummy interface (for local network)
-        switch[0] = self.addSwitch("sw0", cls=topotest.LegacySwitch)
-        self.addLink(switch[0], router[1], intfName2="r1-stub")
-        # Second switch is for connection to all peering routers
-        switch[1] = self.addSwitch("sw1", cls=topotest.LegacySwitch)
-        self.addLink(switch[1], router[1], intfName2="r1-eth0")
-        for j in range(1, 9):
-            self.addLink(switch[1], peer[j], intfName2="peer%s-eth0" % j)
+        sw1 = tgen.add_switch('s1')
+        sw1.add_link(router)
+
+        sw2 = tgen.add_switch('s2')
+        sw2.add_link(router)
+
+        for i in range(1, 9):
+            sw2.add_link(peer[i])
 
 
 #####################################################
@@ -133,105 +129,55 @@ class NetworkTopo(Topo):
 
 
 def setup_module(module):
-    global topo, net
-
-    print("\n\n** %s: Setup Topology" % module.__name__)
-    print("******************************************\n")
-
-    print("Cleanup old Mininet runs")
-    os.system("sudo mn -c > /dev/null 2>&1")
-
-    thisDir = os.path.dirname(os.path.realpath(__file__))
-    topo = NetworkTopo()
-
-    net = Mininet(controller=None, topo=topo)
-    net.start()
+    tgen = Topogen(NetworkTopo, module.__name__)
+    tgen.start_topology()
 
     # Starting Routers
-    for i in range(1, 2):
-        net["r%s" % i].loadConf("zebra", "%s/r%s/zebra.conf" % (thisDir, i))
-        net["r%s" % i].loadConf("bgpd", "%s/r%s/bgpd.conf" % (thisDir, i))
-        net["r%s" % i].startRouter()
+    router = tgen.gears['r1']
+    router.load_config(
+        TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))
+    router.load_config(
+        TopoRouter.RD_BGP, os.path.join(CWD, "r1/bgpd.conf"))
+    router.start()
 
     # Starting PE Hosts and init ExaBGP on each of them
-    print("*** Starting BGP on all 8 Peers")
     for i in range(1, 9):
-        net["peer%s" % i].cmd("cp %s/exabgp.env /etc/exabgp/exabgp.env" % thisDir)
-        net["peer%s" % i].cmd("cp %s/peer%s/* /etc/exabgp/" % (thisDir, i))
-        net["peer%s" % i].cmd("chmod 644 /etc/exabgp/*")
-        net["peer%s" % i].cmd("chmod 755 /etc/exabgp/*.py")
-        net["peer%s" % i].cmd("chown -R exabgp:exabgp /etc/exabgp")
-        net["peer%s" % i].cmd("exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg")
-        print("peer%s" % i),
-    print("")
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+        pname = 'peer{}'.format(i)
+        peer = tgen.gears[pname]
+        peer_dir = os.path.join(CWD, pname)
+        env_file = os.path.join(CWD, "exabgp.env")
+        other_files = [os.path.join(CWD, 'exabgp-helper.py')]
+        peer.start(peer_dir, env_file, other_files)
 
 
 def teardown_module(module):
-    global net
-
-    print("\n\n** %s: Shutdown Topology" % module.__name__)
-    print("******************************************\n")
-
-    # Shutdown - clean up everything
-    print("*** Killing BGP on Peer routers")
-    # Killing ExaBGP
-    for i in range(1, 9):
-        net["peer%s" % i].cmd("kill `cat /var/run/exabgp/exabgp.pid`")
-
-    # End - Shutdown network
-    net.stop()
-
-
-def test_router_running():
-    global fatal_error
-    global net
-
-    # Skip if previous fatal error condition is raised
-    if fatal_error != "":
-        pytest.skip(fatal_error)
-
-    print("\n\n** Check if FRR is running on each Router node")
-    print("******************************************\n")
-
-    # Starting Routers
-    for i in range(1, 2):
-        fatal_error = net["r%s" % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+    tgen = get_topogen()
+    tgen.stop_topology()
 
 
 def test_bgp_converge():
     "Check for BGP converged on all peers and BGP views"
-
-    global fatal_error
-    global net
+    tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
-    if fatal_error != "":
-        pytest.skip(fatal_error)
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Wait for BGP to converge  (All Neighbors in either Full or TwoWay State)
-    print("\n\n** Verify for BGP to converge")
-    print("******************************************\n")
+    logger.info("\n\n** Verify for BGP to converge")
+    logger.info("******************************************\n")
     timeout = 125
     while timeout > 0:
-        print("Timeout in %s: " % timeout),
-        sys.stdout.flush()
+        logger.info("Timeout in %s: " % timeout)
         # Look for any node not yet converged
         for i in range(1, 2):
             for view in range(1, 4):
-                notConverged = net["r%s" % i].cmd(
+                notConverged = tgen.net["r%s" % i].cmd(
                     'vtysh -c "show ip bgp view %s summary" 2> /dev/null | grep ^[0-9] | grep -vP " 11\s+(\d+)$"'
                     % view
                 )
                 if notConverged:
-                    print("Waiting for r%s, view %s" % (i, view))
-                    sys.stdout.flush()
+                    logger.info("Waiting for r%s, view %s" % (i, view))
                     break
             if notConverged:
                 break
@@ -239,52 +185,36 @@ def test_bgp_converge():
             sleep(5)
             timeout -= 5
         else:
-            print("Done")
+            logger.info('Done')
             break
     else:
         # Bail out with error if a router fails to converge
-        bgpStatus = net["r%s" % i].cmd('vtysh -c "show ip bgp view %s summary"' % view)
+        bgpStatus = tgen.net["r%s" % i].cmd('vtysh -c "show ip bgp view %s summary"' % view)
         assert False, "BGP did not converge:\n%s" % bgpStatus
 
     # Wait for an extra 5s to announce all routes
-    print("Waiting 5s for routes to be announced")
-    sleep(5)
+    logger.info("Waiting 5s for routes to be announced")
+    topotest.sleep(5, 'waiting convergence')
 
-    print("BGP converged.")
-
-    # if timeout < 60:
-    #     # Only wait if we actually went through a convergence
-    #     print("\nwaiting 15s for routes to populate")
-    #     sleep(15)
-
-    # Make sure that all daemons are running
-    for i in range(1, 2):
-        fatal_error = net["r%s" % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+    logger.info("BGP converged.")
 
 
 def test_bgp_routingTable():
-    global fatal_error
-    global net
+    tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
-    if fatal_error != "":
-        pytest.skip(fatal_error)
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
-    thisDir = os.path.dirname(os.path.realpath(__file__))
-
-    print("\n\n** Verifying BGP Routing Tables")
-    print("******************************************\n")
+    logger.info("\n\n** Verifying BGP Routing Tables")
+    logger.info("******************************************\n")
     diffresult = {}
     for i in range(1, 2):
         for view in range(1, 4):
             success = 0
             # This glob pattern should work as long as number of views < 10
             for refTableFile in glob.glob(
-                "%s/r%s/show_ip_bgp_view_%s*.ref" % (thisDir, i, view)
+                "%s/r%s/show_ip_bgp_view_%s*.ref" % (CWD, i, view)
             ):
 
                 if os.path.isfile(refTableFile):
@@ -295,7 +225,7 @@ def test_bgp_routingTable():
 
                     # Actual output from router
                     actual = (
-                        net["r%s" % i]
+                        tgen.net["r%s" % i]
                         .cmd('vtysh -c "show ip bgp view %s" 2> /dev/null' % view)
                         .rstrip()
                     )
@@ -327,7 +257,7 @@ def test_bgp_routingTable():
                     diffresult[refTableFile] = diff
                 else:
                     success = 1
-                    print("template %s matched: r%s ok" % (refTableFile, i))
+                    logger.info("template %s matched: r%s ok" % (refTableFile, i))
                     break
 
             if not success:
@@ -342,70 +272,42 @@ def test_bgp_routingTable():
                     % (i, view, resultstr)
                 )
 
-    # Make sure that all daemons are running
-    for i in range(1, 2):
-        fatal_error = net["r%s" % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_shutdown_check_stderr():
-    global fatal_error
-    global net
+    tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
-    if fatal_error != "":
-        pytest.skip(fatal_error)
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     if os.environ.get("TOPOTESTS_CHECK_STDERR") is None:
-        print(
+        logger.info(
             "SKIPPED final check on StdErr output: Disabled (TOPOTESTS_CHECK_STDERR undefined)\n"
         )
         pytest.skip("Skipping test for Stderr output")
 
-    thisDir = os.path.dirname(os.path.realpath(__file__))
+    logger.info("\n\n** Verifying unexpected STDERR output from daemons")
+    logger.info("******************************************\n")
 
-    print("\n\n** Verifying unexpected STDERR output from daemons")
-    print("******************************************\n")
+    router = tgen.net['r1']
+    router.stopRouter()
 
-    net["r1"].stopRouter()
-
-    log = net["r1"].getStdErr("bgpd")
+    log = router.getStdErr("bgpd")
     if log:
-        print("\nBGPd StdErr Log:\n" + log)
-    log = net["r1"].getStdErr("zebra")
+        logger.info("\nBGPd StdErr Log:\n" + log)
+    log = router.getStdErr("zebra")
     if log:
-        print("\nZebra StdErr Log:\n" + log)
+        logger.info("\nZebra StdErr Log:\n" + log)
 
 
 def test_shutdown_check_memleak():
-    global fatal_error
-    global net
+    tgen = get_topogen()
+    if not tgen.is_memleak_enabled():
+        pytest.skip("Memory leak test/report is disabled")
 
-    # Skip if previous fatal error condition is raised
-    if fatal_error != "":
-        pytest.skip(fatal_error)
-
-    if os.environ.get("TOPOTESTS_CHECK_MEMLEAK") is None:
-        print(
-            "SKIPPED final check on Memory leaks: Disabled (TOPOTESTS_CHECK_MEMLEAK undefined)\n"
-        )
-        pytest.skip("Skipping test for memory leaks")
-
-    thisDir = os.path.dirname(os.path.realpath(__file__))
-
-    net["r1"].stopRouter()
-    net["r1"].report_memory_leaks(
-        os.environ.get("TOPOTESTS_CHECK_MEMLEAK"), os.path.basename(__file__)
-    )
+    tgen.report_memory_leaks()
 
 
 if __name__ == "__main__":
-
-    setLogLevel("info")
-    # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
-    # retval = pytest.main(["-s", "--tb=no"])
-    retval = pytest.main(["-s"])
-    sys.exit(retval)
+    args = ["-s"] + sys.argv[1:]
+    sys.exit(pytest.main(["-s"]))
