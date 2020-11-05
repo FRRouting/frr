@@ -2919,8 +2919,13 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	int cnt = 0;
 	struct afi_safi_info *thread_info;
 
-	if (bgp->gr_info[afi][safi].t_route_select)
+	if (bgp->gr_info[afi][safi].t_route_select) {
+		struct thread *t = bgp->gr_info[afi][safi].t_route_select;
+
+		thread_info = THREAD_ARG(t);
+		XFREE(MTYPE_TMP, thread_info);
 		BGP_TIMER_OFF(bgp->gr_info[afi][safi].t_route_select);
+	}
 
 	if (BGP_DEBUG(update, UPDATE_OUT)) {
 		zlog_debug("%s: processing route for %s : cnt %d", __func__,
