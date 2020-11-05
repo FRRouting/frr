@@ -265,8 +265,8 @@ struct graceful_restart_info {
 	uint32_t eor_received;
 	/* Deferral Timer */
 	struct thread *t_select_deferral;
-	/* Route list */
-	struct list *route_list;
+	/* Routes Deferred */
+	uint32_t gr_deferred;
 	/* Best route select */
 	struct thread *t_route_select;
 	/* AFI, SAFI enabled */

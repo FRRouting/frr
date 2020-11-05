@@ -371,14 +371,12 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 	 */
 	if (set_flag && table) {
 		if (bgp && (bgp->gr_info[afi][safi].t_select_deferral)) {
+			if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
+				bgp->gr_info[afi][safi].gr_deferred++;
 			SET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
-			if (dest->rt_node == NULL)
-				dest->rt_node = listnode_add(
-					bgp->gr_info[afi][safi].route_list,
-					dest);
 			if (BGP_DEBUG(update, UPDATE_OUT))
-				zlog_debug("DEFER route %pBD, dest %p, node %p",
-					   dest, dest, dest->rt_node);
+				zlog_debug("DEFER route %pBD, dest %p", dest,
+					   dest);
 			return 0;
 		}
 	}
@@ -2920,37 +2918,39 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	struct bgp_dest *dest;
 	int cnt = 0;
 	struct afi_safi_info *thread_info;
-	struct listnode *node = NULL, *nnode = NULL;
 
-	if (bgp->gr_info[afi][safi].t_route_select)
+	if (bgp->gr_info[afi][safi].t_route_select) {
+		struct thread *t = bgp->gr_info[afi][safi].t_route_select;
+
+		thread_info = THREAD_ARG(t);
+		XFREE(MTYPE_TMP, thread_info);
 		BGP_TIMER_OFF(bgp->gr_info[afi][safi].t_route_select);
+	}
 
 	if (BGP_DEBUG(update, UPDATE_OUT)) {
 		zlog_debug("%s: processing route for %s : cnt %d", __func__,
 			   get_afi_safi_str(afi, safi, false),
-			   listcount(bgp->gr_info[afi][safi].route_list));
+			   bgp->gr_info[afi][safi].gr_deferred);
 	}
 
 	/* Process the route list */
-	node = listhead(bgp->gr_info[afi][safi].route_list);
-	while (node) {
-		dest = listgetdata(node);
-		nnode = node->next;
-		list_delete_node(bgp->gr_info[afi][safi].route_list, node);
-		dest->rt_node = NULL;
+	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
+	     dest = bgp_route_next(dest)) {
+		if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
+			continue;
 
-		if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
-			UNSET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
-			bgp_process_main_one(bgp, dest, afi, safi);
-			cnt++;
-			if (cnt >= BGP_MAX_BEST_ROUTE_SELECT)
-				break;
+		UNSET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
+		bgp->gr_info[afi][safi].gr_deferred--;
+		bgp_process_main_one(bgp, dest, afi, safi);
+		cnt++;
+		if (cnt >= BGP_MAX_BEST_ROUTE_SELECT) {
+			bgp_dest_unlock_node(dest);
+			break;
 		}
-		node = nnode;
 	}
 
 	/* Send EOR message when all routes are processed */
-	if (list_isempty(bgp->gr_info[afi][safi].route_list)) {
+	if (bgp->gr_info[afi][safi].gr_deferred) {
 		bgp_send_delayed_eor(bgp);
 		/* Send route processing complete message to RIB */
 		bgp_zebra_update(afi, safi, bgp->vrf_id,
@@ -3287,13 +3287,7 @@ void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 			if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
 				UNSET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
 				bgp = pi->peer->bgp;
-				if ((dest->rt_node)
-				    && (bgp->gr_info[afi][safi].route_list)) {
-					list_delete_node(bgp->gr_info[afi][safi]
-								 .route_list,
-							 dest->rt_node);
-					dest->rt_node = NULL;
-				}
+				bgp->gr_info[afi][safi].gr_deferred--;
 			}
 		}
 	}
