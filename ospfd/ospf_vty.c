@@ -11361,8 +11361,7 @@ DEFUN (show_ip_ospf_external_aggregator,
 
 			return CMD_SUCCESS;
 		}
-		ret = ospf_show_summary_address(vty, ospf, use_vrf, json, uj,
-						detail);
+		ospf_show_summary_address(vty, ospf, use_vrf, json, uj, detail);
 
 	} else {
 		/* Default Vrf */
