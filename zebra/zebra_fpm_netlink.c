@@ -205,17 +205,8 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 
 			/* Add VNI to VxLAN encap info */
 			nhi.encap_info.vxlan_encap.vni = zl3vni->vni;
-			char buf[ETHER_ADDR_STRLEN];
 			memcpy(&nhi.encap_info.vxlan_encap.rmac, &nexthop->rmac,
 			       ETH_ALEN);
-			zfpm_debug(
-				"%s: NEWROUTE:%s/%d, Gateway:%s RMAC:%s VLAN:%d",
-				__FUNCTION__, prefix_addr_to_a(ri->prefix),
-				ri->prefix->prefixlen,
-				addr_to_a(ri->af, &nhi.gateway),
-				prefix_mac2str(&nhi.encap_info.vxlan_encap.rmac,
-					       buf, sizeof(buf)),
-				vid);
 		}
 	}
 
@@ -434,10 +425,9 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 			vxlan = &nhi->encap_info.vxlan_encap;
 			char buf[ETHER_ADDR_STRLEN];
 			zfpm_debug(
-				"%s: VNI:%d RMAC:%s VLAN:%d", __FUNCTION__,
+				"%s: VNI:%d RMAC:%s", __func__,
 				vxlan->vni,
-				prefix_mac2str(&vxlan->rmac, buf, sizeof(buf)),
-				vxlan->vlan);
+				prefix_mac2str(&vxlan->rmac, buf, sizeof(buf)));
 			nest = nl_attr_nest(&req->n, in_buf_len, RTA_ENCAP);
 			nl_attr_put32(&req->n, in_buf_len, VXLAN_VNI,
 				      vxlan->vni);
@@ -477,11 +467,10 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				      encap);
 			vxlan = &nhi->encap_info.vxlan_encap;
 			char rmac_buf[ETHER_ADDR_STRLEN];
-			zfpm_debug("%s: Multi VNI:%d RMAC:%s VLAN:%d",
-				   __FUNCTION__, vxlan->vni,
+			zfpm_debug("%s: Multi VNI:%d RMAC:%s",
+				   __func__, vxlan->vni,
 				   prefix_mac2str(&vxlan->rmac, rmac_buf,
-						  sizeof(rmac_buf)),
-				   vxlan->vlan);
+						  sizeof(rmac_buf)));
 			inner_nest =
 				nl_attr_nest(&req->n, in_buf_len, RTA_ENCAP);
 			nl_attr_put32(&req->n, in_buf_len, VXLAN_VNI,
