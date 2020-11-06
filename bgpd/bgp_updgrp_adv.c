@@ -726,7 +726,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	struct bgp *bgp;
 	struct attr attr;
 	struct attr *new_attr = &attr;
-	struct aspath *aspath;
 	struct prefix p;
 	struct peer *from;
 	struct bgp_node *rn;
@@ -751,7 +750,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	from = bgp->peer_self;
 
 	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
-	aspath = attr.aspath;
 
 	attr.local_pref = bgp->default_local_pref;
 
@@ -767,12 +765,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	}
 
 	if (peer->default_rmap[afi][safi].name) {
-		struct attr attr_tmp = attr;
-		struct bgp_path_info bpi_rmap = {0};
-
-		bpi_rmap.peer = bgp->peer_self;
-		bpi_rmap.attr = &attr_tmp;
-
 		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_DEFAULT);
 
 		/* Iterate over the RIB to see if we can announce
@@ -781,20 +773,48 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		 */
 		for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 		     rn = bgp_route_next(rn)) {
-			ret = route_map_apply(peer->default_rmap[afi][safi].map,
-					      bgp_node_get_prefix(rn), RMAP_BGP,
-					      &bpi_rmap);
+			if (!bgp_node_get_bgp_path_info(rn))
+				continue;
 
-			if (ret != RMAP_DENYMATCH)
+			for (pi = bgp_node_get_bgp_path_info(rn); pi;
+			     pi = pi->next) {
+				struct attr tmp_attr;
+				struct bgp_path_info tmp_pi;
+				struct bgp_path_info_extra tmp_pie;
+
+				tmp_attr = *pi->attr;
+
+				prep_for_rmap_apply(&tmp_pi, &tmp_pie, rn, pi,
+						    pi->peer, &tmp_attr);
+
+				ret = route_map_apply(
+					peer->default_rmap[afi][safi].map,
+					bgp_node_get_prefix(rn), RMAP_BGP,
+					&tmp_pi);
+
+				if (ret == RMAP_DENYMATCH) {
+					bgp_attr_flush(&tmp_attr);
+					continue;
+				} else {
+					new_attr = bgp_attr_intern(&tmp_attr);
+					new_attr->aspath = attr.aspath;
+
+					subgroup_announce_reset_nhop(
+						(peer_cap_enhe(peer, afi, safi)
+							 ? AF_INET6
+							 : AF_INET),
+						new_attr);
+
+					break;
+				}
+			}
+			if (ret == RMAP_PERMITMATCH)
 				break;
 		}
 		bgp->peer_self->rmap_type = 0;
-		new_attr = bgp_attr_intern(&attr_tmp);
 
-		if (ret == RMAP_DENYMATCH) {
-			bgp_attr_flush(&attr_tmp);
+		if (ret == RMAP_DENYMATCH)
 			withdraw = 1;
-		}
 	}
 
 	/* Check if the default route is in local BGP RIB which is
@@ -871,8 +891,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 			subgroup_default_update_packet(subgrp, new_attr, from);
 		}
 	}
-
-	aspath_unintern(&aspath);
 }
 
 /*
