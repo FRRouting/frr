@@ -4795,27 +4795,18 @@ DEFUN_YANG(neighbor_activate,
 {
 	int idx_peer = 1;
 	char base_xpath[XPATH_MAXLEN];
-	char abs_xpath[XPATH_MAXLEN];
-	char nbr_xpath[XPATH_MAXLEN];
 	char af_xpath[XPATH_MAXLEN];
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
 
 	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
 		 yang_afi_safi_value2identity(afi, safi));
-
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, nbr_xpath,
-				     sizeof(nbr_xpath), af_xpath)
+	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
+				     sizeof(base_xpath), af_xpath)
 	    < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(base_xpath, sizeof(base_xpath), "%s%s", VTY_CURR_XPATH,
-		 nbr_xpath + 1);
-
-	snprintf(abs_xpath, sizeof(abs_xpath), "%s%s/enabled", VTY_CURR_XPATH,
-		 nbr_xpath + 1);
-
-	nb_cli_enqueue_change(vty, abs_xpath, NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./enabled", NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, base_xpath);
 }
@@ -6944,7 +6935,6 @@ DEFUN_YANG (neighbor_update_source,
 	    < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	// NOTE: Check source_str prefix address
 	if (str2sockunion(argv[idx_peer_2]->arg, &su) == 0)
 		nb_cli_enqueue_change(vty, "./update-source/ip", NB_OP_MODIFY,
 				      argv[idx_peer_2]->arg);
@@ -6965,28 +6955,15 @@ DEFUN_YANG (no_neighbor_update_source,
 {
 	int idx_peer = 2;
 	char base_xpath[XPATH_MAXLEN];
-	char abs_xpath_ip[XPATH_MAXLEN];
-	char abs_xpath_intf[XPATH_MAXLEN];
 
 	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
 				     sizeof(base_xpath), NULL)
 	    < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(abs_xpath_ip, sizeof(abs_xpath_ip), "%s%s/update-source/ip",
-		 VTY_CURR_XPATH, base_xpath + 1);
-	snprintf(abs_xpath_intf, sizeof(abs_xpath_intf),
-		 "%s%s/update-source/interface", VTY_CURR_XPATH,
-		 base_xpath + 1);
-
-	if (yang_dnode_exists(vty->candidate_config->dnode, abs_xpath_ip)) {
-		nb_cli_enqueue_change(vty, "./update-source/ip", NB_OP_DESTROY,
-				      NULL);
-	} else if (yang_dnode_exists(vty->candidate_config->dnode,
-				     abs_xpath_intf)) {
-		nb_cli_enqueue_change(vty, "./update-source/interface",
-				      NB_OP_DESTROY, NULL);
-	}
+	nb_cli_enqueue_change(vty, "./update-source/ip", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./update-source/interface", NB_OP_DESTROY,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, base_xpath);
 }
