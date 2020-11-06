@@ -80,7 +80,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
 		memcpy(&sin6.sin6_addr, &bs->key.peer, sizeof(sin6.sin6_addr));
-		if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
+		if (bs->ifp && IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
 			sin6.sin6_scope_id = bs->ifp->ifindex;
 
 		sin6.sin6_port =
@@ -1051,7 +1051,7 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 	sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	memcpy(&sin6.sin6_addr, &bs->key.local, sizeof(sin6.sin6_addr));
-	if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
+	if (bs->ifp && IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
 		sin6.sin6_scope_id = bs->ifp->ifindex;
 
 	pcount = 0;
