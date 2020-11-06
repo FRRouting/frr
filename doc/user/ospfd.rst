@@ -390,6 +390,17 @@ Areas
     Prevents an *ospfd* ABR from injecting inter-area
     summaries into the specified stub area.
 
+.. clicmd:: area A.B.C.D nssa
+
+.. clicmd:: area (0-4294967295) nssa
+
+    Configure the area to be a NSSA (Not-So-Stubby Area). This is an area that
+    allows OSPF to import external routes into a stub area via a new LSA type
+    (type 7). An NSSA autonomous system boundary router (ASBR) will generate this
+    type of LSA. The area border router (ABR) translates the LSA type 7 into LSA
+    type 5, which is propagated into the OSPF domain. NSSA areas are defined in
+    RFC 3101.
+
 .. clicmd:: area A.B.C.D default-cost (0-16777215)
 
 
