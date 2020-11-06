@@ -9625,9 +9625,9 @@ DEFUN(
 	const struct lyd_node *igmp_enable_dnode;
 
 	if ((ret = bfd_validate_param(vty, argv[idx_number]->arg,
-					argv[idx_number_2]->arg,
-					argv[idx_number_3]->arg, &dm_val, &rx_val,
-					&tx_val))
+				      argv[idx_number_2]->arg,
+				      argv[idx_number_3]->arg, &dm_val, &rx_val,
+				      &tx_val))
 			!= CMD_SUCCESS)
 		return ret;
 
