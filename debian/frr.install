@@ -1,20 +1,20 @@
+debian/frr.conf usr/lib/tmpfiles.d
 etc/
-usr/bin/vtysh
+tools/frr-reload usr/lib/frr/
 usr/bin/mtracebis
+usr/bin/vtysh
 usr/lib/*/frr/libfrr.*
 usr/lib/*/frr/libfrrcares.*
 usr/lib/*/frr/libfrrospfapiclient.*
+usr/lib/*/frr/modules/bgpd_bmp.so
+usr/lib/*/frr/modules/dplane_fpm_nl.so
+usr/lib/*/frr/modules/zebra_cumulus_mlag.so
+usr/lib/*/frr/modules/zebra_fpm.so
+usr/lib/*/frr/modules/zebra_irdp.so
 usr/lib/frr/*.sh
 usr/lib/frr/*d
 usr/lib/frr/watchfrr
 usr/lib/frr/zebra
-usr/lib/*/frr/modules/zebra_cumulus_mlag.so
-usr/lib/*/frr/modules/dplane_fpm_nl.so
-usr/lib/*/frr/modules/zebra_irdp.so
-usr/lib/*/frr/modules/zebra_fpm.so
-usr/lib/*/frr/modules/bgpd_bmp.so
 usr/share/doc/frr/examples
 usr/share/man/
 usr/share/yang/
-tools/frr-reload usr/lib/frr/
-debian/frr.conf usr/lib/tmpfiles.d
