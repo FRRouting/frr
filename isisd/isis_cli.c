@@ -1128,6 +1128,54 @@ void cli_show_isis_spf_ietf_backoff(struct vty *vty, struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/spf/prefix-priorities/medium/access-list-name
+ */
+DEFPY_YANG(spf_prefix_priority, spf_prefix_priority_cmd,
+      "spf prefix-priority <critical|high|medium>$priority WORD$acl_name",
+      "SPF configuration\n"
+      "Configure a prefix priority list\n"
+      "Specify critical priority prefixes\n"
+      "Specify high priority prefixes\n"
+      "Specify medium priority prefixes\n"
+      "Access-list name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, XPATH_MAXLEN,
+		 "./spf/prefix-priorities/%s/access-list-name", priority);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, acl_name);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_spf_prefix_priority, no_spf_prefix_priority_cmd,
+      "no spf prefix-priority <critical|high|medium>$priority [WORD]",
+      NO_STR
+      "SPF configuration\n"
+      "Configure a prefix priority list\n"
+      "Specify critical priority prefixes\n"
+      "Specify high priority prefixes\n"
+      "Specify medium priority prefixes\n"
+      "Access-list name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, XPATH_MAXLEN,
+		 "./spf/prefix-priorities/%s/access-list-name", priority);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_spf_prefix_priority(struct vty *vty, struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	vty_out(vty, " spf prefix-priority %s %s\n",
+		dnode->parent->schema->name,
+		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/purge-originator
  */
 DEFPY_YANG(area_purge_originator, area_purge_originator_cmd, "[no] purge-originator",
@@ -1718,6 +1766,176 @@ void cli_show_isis_prefix_sid(struct vty *vty, struct lyd_node *dnode,
 	if (n_flag_clear)
 		vty_out(vty, " n-flag-clear");
 	vty_out(vty, "\n");
+}
+
+
+/*
+ * XPath: /frr-isisd:isis/instance/fast-reroute/level-{1,2}/lfa/priority-limit
+ */
+DEFPY_YANG (isis_frr_lfa_priority_limit,
+       isis_frr_lfa_priority_limit_cmd,
+       "[no] fast-reroute priority-limit <critical|high|medium>$priority [<level-1|level-2>$level]",
+       NO_STR
+       "Configure Fast ReRoute\n"
+       "Limit backup computation up to the prefix priority\n"
+       "Compute for critical priority prefixes only\n"
+       "Compute for critical & high priority prefixes\n"
+       "Compute for critical, high & medium priority prefixes\n"
+       "Set priority-limit for level-1 only\n"
+       "Set priority-limit for level-2 only\n")
+{
+	if (!level || strmatch(level, "level-1")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./fast-reroute/level-1/lfa/priority-limit",
+				NB_OP_DESTROY, NULL);
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./fast-reroute/level-1/lfa/priority-limit",
+				NB_OP_CREATE, priority);
+		}
+	}
+	if (!level || strmatch(level, "level-2")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./fast-reroute/level-2/lfa/priority-limit",
+				NB_OP_DESTROY, NULL);
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./fast-reroute/level-2/lfa/priority-limit",
+				NB_OP_CREATE, priority);
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_frr_lfa_priority_limit(struct vty *vty,
+					  struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	vty_out(vty, " fast-reroute priority-limit %s %s\n",
+		yang_dnode_get_string(dnode, NULL),
+		dnode->parent->parent->schema->name);
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/fast-reroute/level-{1,2}/lfa/tiebreaker
+ */
+DEFPY_YANG (isis_frr_lfa_tiebreaker,
+       isis_frr_lfa_tiebreaker_cmd,
+       "[no] fast-reroute lfa\
+          tiebreaker <downstream|lowest-backup-metric|node-protecting>$type\
+	  index (1-255)$index\
+	  [<level-1|level-2>$level]",
+       NO_STR
+       "Configure Fast ReRoute\n"
+       "LFA configuration\n"
+       "Configure tiebreaker for multiple backups\n"
+       "Prefer backup path via downstream node\n"
+       "Prefer backup path with lowest total metric\n"
+       "Prefer node protecting backup path\n"
+       "Set preference order among tiebreakers\n"
+       "Index\n"
+       "Configure tiebreaker for level-1 only\n"
+       "Configure tiebreaker for level-2 only\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	if (!level || strmatch(level, "level-1")) {
+		if (no) {
+			snprintf(
+				xpath, XPATH_MAXLEN,
+				"./fast-reroute/level-1/lfa/tiebreaker[index='%s']",
+				index_str);
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		} else {
+			snprintf(
+				xpath, XPATH_MAXLEN,
+				"./fast-reroute/level-1/lfa/tiebreaker[index='%s']/type",
+				index_str);
+			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, type);
+		}
+	}
+	if (!level || strmatch(level, "level-2")) {
+		if (no) {
+			snprintf(
+				xpath, XPATH_MAXLEN,
+				"./fast-reroute/level-2/lfa/tiebreaker[index='%s']",
+				index_str);
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		} else {
+			snprintf(
+				xpath, XPATH_MAXLEN,
+				"./fast-reroute/level-2/lfa/tiebreaker[index='%s']/type",
+				index_str);
+			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, type);
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_frr_lfa_tiebreaker(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vty_out(vty, " fast-reroute lfa tiebreaker %s index %s %s\n",
+		yang_dnode_get_string(dnode, "./type"),
+		yang_dnode_get_string(dnode, "./index"),
+		dnode->parent->parent->schema->name);
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/fast-reroute/level-{1,2}/lfa/load-sharing
+ */
+DEFPY_YANG (isis_frr_lfa_load_sharing,
+       isis_frr_lfa_load_sharing_cmd,
+       "[no] fast-reroute load-sharing disable [<level-1|level-2>$level]",
+       NO_STR
+       "Configure Fast ReRoute\n"
+       "Load share prefixes across multiple backups\n"
+       "Disable load sharing\n"
+       "Disable load sharing for level-1 only\n"
+       "Disable load sharing for level-2 only\n")
+{
+	if (!level || strmatch(level, "level-1")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty, "./fast-reroute/level-1/lfa/load-sharing",
+				NB_OP_DESTROY, "true");
+		} else {
+			nb_cli_enqueue_change(
+				vty, "./fast-reroute/level-1/lfa/load-sharing",
+				NB_OP_CREATE, "false");
+		}
+	}
+	if (!level || strmatch(level, "level-2")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty, "./fast-reroute/level-2/lfa/load-sharing",
+				NB_OP_DESTROY, "true");
+		} else {
+			nb_cli_enqueue_change(
+				vty, "./fast-reroute/level-2/lfa/load-sharing",
+				NB_OP_CREATE, "false");
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_frr_lfa_load_sharing(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " fast-reroute load-sharing disable %s\n",
+		dnode->parent->parent->schema->name);
 }
 
 /*
@@ -2377,7 +2595,164 @@ void cli_show_ip_isis_priority(struct vty *vty, struct lyd_node *dnode,
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/ti-lfa/enable
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/fast-reroute
+ */
+void cli_show_ip_isis_frr(struct vty *vty, struct lyd_node *dnode,
+			  bool show_defaults)
+{
+	bool l1_enabled, l2_enabled;
+	bool l1_node_protection, l2_node_protection;
+
+	/* Classic LFA */
+	l1_enabled = yang_dnode_get_bool(dnode, "./level-1/lfa/enable");
+	l2_enabled = yang_dnode_get_bool(dnode, "./level-2/lfa/enable");
+
+	if (l1_enabled || l2_enabled) {
+		if (l1_enabled == l2_enabled) {
+			vty_out(vty, " isis fast-reroute lfa\n");
+			vty_out(vty, "\n");
+		} else {
+			if (l1_enabled)
+				vty_out(vty,
+					" isis fast-reroute lfa level-1\n");
+			if (l2_enabled)
+				vty_out(vty,
+					" isis fast-reroute lfa level-2\n");
+		}
+	}
+
+	/* TI-LFA */
+	l1_enabled = yang_dnode_get_bool(dnode, "./level-1/ti-lfa/enable");
+	l2_enabled = yang_dnode_get_bool(dnode, "./level-2/ti-lfa/enable");
+	l1_node_protection =
+		yang_dnode_get_bool(dnode, "./level-1/ti-lfa/node-protection");
+	l2_node_protection =
+		yang_dnode_get_bool(dnode, "./level-2/ti-lfa/node-protection");
+
+	if (l1_enabled || l2_enabled) {
+		if (l1_enabled == l2_enabled
+		    && l1_node_protection == l2_node_protection) {
+			vty_out(vty, " isis fast-reroute ti-lfa");
+			if (l1_node_protection)
+				vty_out(vty, " node-protection");
+			vty_out(vty, "\n");
+		} else {
+			if (l1_enabled) {
+				vty_out(vty,
+					" isis fast-reroute ti-lfa level-1");
+				if (l1_node_protection)
+					vty_out(vty, " node-protection");
+				vty_out(vty, "\n");
+			}
+			if (l2_enabled) {
+				vty_out(vty,
+					" isis fast-reroute ti-lfa level-2");
+				if (l2_node_protection)
+					vty_out(vty, " node-protection");
+				vty_out(vty, "\n");
+			}
+		}
+	}
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-{1,2}/lfa/enable
+ */
+DEFPY(isis_lfa, isis_lfa_cmd,
+      "[no] isis fast-reroute lfa [level-1|level-2]$level",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Interface IP Fast-reroute configuration\n"
+      "Enable LFA computation\n"
+      "Enable LFA computation for Level 1 only\n"
+      "Enable LFA computation for Level 2 only\n")
+{
+	if (!level || strmatch(level, "level-1")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/lfa/enable",
+				NB_OP_MODIFY, "false");
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/lfa/enable",
+				NB_OP_MODIFY, "true");
+		}
+	}
+	if (!level || strmatch(level, "level-2")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/lfa/enable",
+				NB_OP_MODIFY, "false");
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/lfa/enable",
+				NB_OP_MODIFY, "true");
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-{1,2}/lfa/exclude-interface
+ */
+DEFPY(isis_lfa_exclude_interface, isis_lfa_exclude_interface_cmd,
+      "[no] isis fast-reroute lfa [level-1|level-2]$level exclude interface IFNAME$ifname",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Interface IP Fast-reroute configuration\n"
+      "Enable LFA computation\n"
+      "Enable LFA computation for Level 1 only\n"
+      "Enable LFA computation for Level 2 only\n"
+      "FRR exclusion information\n"
+      "Exclude an interface from computation\n"
+      "Interface name\n")
+{
+	if (!level || strmatch(level, "level-1")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/lfa/exclude-interface",
+				NB_OP_DESTROY, ifname);
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/lfa/exclude-interface",
+				NB_OP_CREATE, ifname);
+		}
+	}
+	if (!level || strmatch(level, "level-2")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/lfa/exclude-interface",
+				NB_OP_DESTROY, ifname);
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/lfa/exclude-interface",
+				NB_OP_CREATE, ifname);
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_frr_lfa_exclude_interface(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults)
+{
+	vty_out(vty, " isis fast-reroute lfa %s exclude interface %s\n",
+		dnode->parent->parent->schema->name,
+		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-{1,2}/ti-lfa/enable
  */
 DEFPY(isis_ti_lfa, isis_ti_lfa_cmd,
       "[no] isis fast-reroute ti-lfa [level-1|level-2]$level [node-protection$node_protection]",
@@ -2435,41 +2810,6 @@ DEFPY(isis_ti_lfa, isis_ti_lfa_cmd,
 	}
 
 	return nb_cli_apply_changes(vty, NULL);
-}
-
-void cli_show_ip_isis_ti_lfa(struct vty *vty, struct lyd_node *dnode,
-			     bool show_defaults)
-{
-	bool l1_enabled, l2_enabled;
-	bool l1_node_protection, l2_node_protection;
-
-	l1_enabled = yang_dnode_get_bool(dnode, "./level-1/ti-lfa/enable");
-	l2_enabled = yang_dnode_get_bool(dnode, "./level-2/ti-lfa/enable");
-	l1_node_protection =
-		yang_dnode_get_bool(dnode, "./level-1/ti-lfa/node-protection");
-	l2_node_protection =
-		yang_dnode_get_bool(dnode, "./level-2/ti-lfa/node-protection");
-
-	if (l1_enabled == l2_enabled
-	    && l1_node_protection == l2_node_protection) {
-		vty_out(vty, " isis fast-reroute ti-lfa");
-		if (l1_node_protection)
-			vty_out(vty, " node-protection");
-		vty_out(vty, "\n");
-	} else {
-		if (l1_enabled) {
-			vty_out(vty, " isis fast-reroute ti-lfa level-1");
-			if (l1_node_protection)
-				vty_out(vty, " node-protection");
-			vty_out(vty, "\n");
-		}
-		if (l2_enabled) {
-			vty_out(vty, " isis fast-reroute ti-lfa level-2");
-			if (l2_node_protection)
-				vty_out(vty, " node-protection");
-			vty_out(vty, "\n");
-		}
-	}
 }
 
 /*
@@ -2705,6 +3045,8 @@ void isis_cli_init(void)
 
 	install_element(ISIS_NODE, &spf_interval_cmd);
 	install_element(ISIS_NODE, &no_spf_interval_cmd);
+	install_element(ISIS_NODE, &spf_prefix_priority_cmd);
+	install_element(ISIS_NODE, &no_spf_prefix_priority_cmd);
 	install_element(ISIS_NODE, &spf_delay_ietf_cmd);
 	install_element(ISIS_NODE, &no_spf_delay_ietf_cmd);
 
@@ -2731,6 +3073,9 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_isis_sr_node_msd_cmd);
 	install_element(ISIS_NODE, &isis_sr_prefix_sid_cmd);
 	install_element(ISIS_NODE, &no_isis_sr_prefix_sid_cmd);
+	install_element(ISIS_NODE, &isis_frr_lfa_priority_limit_cmd);
+	install_element(ISIS_NODE, &isis_frr_lfa_tiebreaker_cmd);
+	install_element(ISIS_NODE, &isis_frr_lfa_load_sharing_cmd);
 
 	install_element(INTERFACE_NODE, &isis_passive_cmd);
 
@@ -2766,6 +3111,8 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &isis_priority_cmd);
 	install_element(INTERFACE_NODE, &no_isis_priority_cmd);
 
+	install_element(INTERFACE_NODE, &isis_lfa_cmd);
+	install_element(INTERFACE_NODE, &isis_lfa_exclude_interface_cmd);
 	install_element(INTERFACE_NODE, &isis_ti_lfa_cmd);
 
 	install_element(ISIS_NODE, &log_adj_changes_cmd);

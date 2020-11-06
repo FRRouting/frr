@@ -244,6 +244,10 @@ module frr-isisd {
     }
   }
 
+  typedef access-list-ref {
+    type string;
+  }
+
   grouping redistribute-attributes {
     description
       "Common optional attributes of any redistribute entry.";
@@ -333,6 +337,94 @@ module frr-isisd {
       default "none";
       description
         "SNP PDUs authentication.";
+    }
+  }
+
+  grouping global-config-lfa {
+    container lfa {
+      description
+        "LFA configuration.";
+
+      leaf load-sharing {
+        type boolean;
+        default "true";
+        description
+          "Load share prefixes across multiple backups.";
+      }
+      leaf priority-limit {
+        type enumeration {
+          enum "critical" {
+            value 0;
+            description
+              "Compute for critical priority prefixes only.";
+          }
+          enum "high" {
+            value 1;
+            description
+              "Compute for critical & high priority prefixes.";
+          }
+          enum "medium" {
+            value 2;
+            description
+              "Compute for critical, high & medium priority prefixes.";
+          }
+        }
+        description
+          "Limit backup computation up to the prefix priority.";
+      }
+      list tiebreaker {
+        key "index";
+        unique "type";
+        description
+          "Configure tiebreaker for multiple backups.";
+        leaf index {
+          type uint8 {
+            range "1..255";
+          }
+          description
+            "Preference order among tiebreakers.";
+        }
+        leaf type {
+          type enumeration {
+            enum "downstream" {
+              value 0;
+              description
+                "Prefer backup path via downstream node.";
+            }
+            enum "lowest-backup-metric" {
+              value 1;
+              description
+                "Prefer backup path with lowest total metric.";
+            }
+            enum "node-protecting" {
+              value 2;
+              description
+                "Prefer node protecting backup path.";
+            }
+          }
+          mandatory true;
+          description
+            "Tiebreaker type.";
+        }
+      }
+    }
+  }
+
+  grouping interface-config-lfa {
+    container lfa {
+      description
+        "LFA configuration.";
+      leaf enable {
+        type boolean;
+        default false;
+        description
+          "Enables LFA computation.";
+      }
+      leaf-list exclude-interface {
+        type frr-interface:interface-ref;
+        description
+          "Exclude an interface from computation.";
+      }
     }
   }
 
@@ -664,11 +756,21 @@ module frr-isisd {
       container level-1 {
         description
           "Level-1 IP Fast-reroute configuration.";
+        must "./lfa/enable = 'false' or ./ti-lfa/enable = 'false'" {
+          error-message
+            "Can't enable both classic LFA and TI-LFA in the same interface.";
+        }
+        uses interface-config-lfa;
         uses interface-config-ti-lfa;
       }
       container level-2 {
         description
           "Level-2 IP Fast-reroute configuration.";
+        must "./lfa/enable = 'false' or ./ti-lfa/enable = 'false'" {
+          error-message
+            "Can't enable both classic LFA and TI-LFA in the same interface.";
+        }
+        uses interface-config-lfa;
         uses interface-config-ti-lfa;
       }
     }
@@ -1095,6 +1197,42 @@ module frr-isisd {
               "Minimum time between consecutive level-2 SPFs.";
           }
         }
+
+        container prefix-priorities {
+          description
+            "SPF Prefix Priority configuration";
+
+          container critical {
+            description
+              "Critical prefix priority";
+            leaf access-list-name {
+              type access-list-ref;
+              description
+                "Access List to determine prefixes for
+                 this priority";
+            }
+          }
+          container high {
+            description
+              "High prefix priority";
+            leaf access-list-name {
+              type access-list-ref;
+              description
+                "Access List to determine prefixes for
+                 this priority";
+            }
+          }
+          container medium {
+            description
+              "Medium prefix priority";
+            leaf access-list-name {
+              type access-list-ref;
+              description
+                "Access List to determine prefixes for
+                 this priority";
+            }
+          }
+        }
       }
 
       container area-password {
@@ -1246,6 +1384,21 @@ module frr-isisd {
             type boolean;
             default "false";
           }
+        }
+      }
+
+      container fast-reroute {
+        description
+          "IP Fast-reroute configuration.";
+        container level-1 {
+          description
+            "Level-1 IP Fast-reroute configuration.";
+          uses global-config-lfa;
+        }
+        container level-2 {
+          description
+            "Level-2 IP Fast-reroute configuration.";
+          uses global-config-lfa;
         }
       }
 
