@@ -455,11 +455,12 @@ struct bgp {
 #define BGP_FLAG_DELETE_IN_PROGRESS       (1 << 22)
 #define BGP_FLAG_SELECT_DEFER_DISABLE     (1 << 23)
 #define BGP_FLAG_GR_DISABLE_EOR           (1 << 24)
-#define BGP_FLAG_EBGP_REQUIRES_POLICY (1 << 25)
-#define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME (1 << 26)
+#define BGP_FLAG_EBGP_REQUIRES_POLICY     (1 << 25)
+#define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME    (1 << 26)
 
 /* This flag is set if the instance is in administrative shutdown */
-#define BGP_FLAG_SHUTDOWN (1 << 27)
+#define BGP_FLAG_SHUTDOWN                 (1 << 27)
+#define BGP_FLAG_SUPPRESS_FIB_PENDING     (1 << 28)
 
 	enum global_mode GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE]
 				      [BGP_GLOBAL_GR_EVENT_CMD];
@@ -711,6 +712,9 @@ struct afi_safi_info {
 
 #define BGP_SELECT_DEFER_DISABLE(bgp)                                          \
 	(CHECK_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE))
+
+#define BGP_SUPPRESS_FIB_ENABLED(bgp)					       \
+	(CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING))
 
 /* BGP peer-group support. */
 struct peer_group {
@@ -1507,6 +1511,9 @@ DECLARE_QOBJ_TYPE(peer)
 	 || CHECK_FLAG((P)->sflags, PEER_STATUS_PREFIX_OVERFLOW)               \
 	 || CHECK_FLAG((P)->bgp->flags, BGP_FLAG_SHUTDOWN))
 
+#define PEER_ROUTE_ADV_DELAY(peer)  \
+	CHECK_FLAG(peer->thread_flags, PEER_THREAD_SUBGRP_ADV_DELAY)
+
 #define PEER_PASSWORD_MINLEN	(1)
 #define PEER_PASSWORD_MAXLEN	(80)
 
@@ -1677,6 +1684,7 @@ struct bgp_nlri {
 #define BGP_DEFAULT_STALEPATH_TIME             360
 #define BGP_DEFAULT_SELECT_DEFERRAL_TIME       360
 #define BGP_DEFAULT_RIB_STALE_TIME             500
+#define BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME  1
 
 /* BGP uptime string length.  */
 #define BGP_UPTIME_LEN 25
@@ -1853,6 +1861,7 @@ extern int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf,
 extern void bgp_router_id_zebra_bump(vrf_id_t, const struct prefix *);
 extern void bgp_router_id_static_set(struct bgp *, struct in_addr);
 
+extern void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set);
 extern int bgp_cluster_id_set(struct bgp *, struct in_addr *);
 extern int bgp_cluster_id_unset(struct bgp *);
 

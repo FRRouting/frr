@@ -109,6 +109,9 @@ struct community_list_handler *bgp_clist;
 
 unsigned int multipath_num = MULTIPATH_NUM;
 
+/* Number of bgp instances configured for suppress fib config */
+unsigned int bgp_suppress_fib_count;
+
 static void bgp_if_finish(struct bgp *bgp);
 static void peer_drop_dynamic_neighbor(struct peer *peer);
 
@@ -388,6 +391,43 @@ void bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
 	bgp_router_id_set(bgp,
 			  id.s_addr != INADDR_ANY ? &id : &bgp->router_id_zebra,
 			  true /* is config */);
+}
+
+/* Set the suppress fib pending for the bgp configuration */
+void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
+{
+	bool send_msg = false;
+
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+		return;
+
+	if (set) {
+		SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
+		/* Send msg to zebra for the first instance of bgp enabled
+		 * with suppress fib
+		 */
+		if (bgp_suppress_fib_count == 0)
+			send_msg = true;
+		bgp_suppress_fib_count++;
+	} else {
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
+		bgp_suppress_fib_count--;
+
+		/* Send msg to zebra if there are no instances enabled
+		 * with suppress fib
+		 */
+		if (bgp_suppress_fib_count == 0)
+			send_msg = true;
+	}
+	/* Send route notify request to RIB */
+	if (send_msg) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Sending ZEBRA_ROUTE_NOTIFY_REQUEST");
+
+		if (zclient)
+			zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST,
+					zclient, set);
+	}
 }
 
 /* BGP's cluster-id control. */

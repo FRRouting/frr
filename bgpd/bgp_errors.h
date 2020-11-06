@@ -99,6 +99,8 @@ enum bgp_log_refs {
 	EC_BGP_INVALID_NEXTHOP_LENGTH,
 	EC_BGP_DOPPELGANGER_CONFIG,
 	EC_BGP_ROUTER_ID_SAME,
+	EC_BGP_INVALID_BGP_INSTANCE,
+	EC_BGP_INVALID_ROUTE,
 };
 
 extern void bgp_error_init(void);

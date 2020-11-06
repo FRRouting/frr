@@ -1514,6 +1514,20 @@ void cli_show_router_bgp_router_id(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " bgp router-id %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+DEFPY (bgp_suppress_fib_pending,
+       bgp_suppress_fib_pending_cmd,
+       "[no] bgp suppress-fib-pending",
+       NO_STR
+       BGP_STR
+       "Advertise only routes that are programmed in kernel to peers\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp_suppress_fib_pending_set(bgp, !no);
+	return CMD_SUCCESS;
+}
+
+
 /* BGP Cluster ID.  */
 DEFUN_YANG(bgp_cluster_id,
 	   bgp_cluster_id_cmd,
@@ -16856,6 +16870,10 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " bgp router-id %pI4\n",
 				&bgp->router_id_static);
 
+		/* Suppress fib pending */
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING))
+			vty_out(vty, " bgp suppress-fib-pending\n");
+
 		/* BGP log-neighbor-changes. */
 		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
 		    != SAVE_BGP_LOG_NEIGHBOR_CHANGES)
@@ -17370,6 +17388,9 @@ void bgp_vty_init(void)
 	/* "bgp router-id" commands. */
 	install_element(BGP_NODE, &bgp_router_id_cmd);
 	install_element(BGP_NODE, &no_bgp_router_id_cmd);
+
+	/* "bgp suppress-fib-pending" command */
+	install_element(BGP_NODE, &bgp_suppress_fib_pending_cmd);
 
 	/* "bgp cluster-id" commands. */
 	install_element(BGP_NODE, &bgp_cluster_id_cmd);
