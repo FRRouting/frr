@@ -524,6 +524,13 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 	}
 }
 
+static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest)
+{
+	return (!(BGP_SUPPRESS_FIB_ENABLED(bgp) &&
+		  CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING) &&
+		 (!bgp_option_check(BGP_OPT_NO_FIB))));
+}
+
 /* called before bgp_process() */
 DECLARE_HOOK(bgp_process,
 	     (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
