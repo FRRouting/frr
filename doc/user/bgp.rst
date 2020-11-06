@@ -3412,6 +3412,48 @@ starting the daemon and the configuration gets saved, the option will persist
 unless removed from the configuration with the negating command prior to the
 configuration write operation.
 
+.. _bgp-suppress-fib:
+
+Suppressing routes not installed in FIB
+=======================================
+
+The FRR implementation of BGP advertises prefixes learnt from a peer to other
+peers even if the routes do not get installed in the FIB. There can be
+scenarios where the hardware tables in some of the routers (along the path from
+the source to destination) is full which will result in all routes not getting
+installed in the FIB. If these routes are advertised to the downstream routers
+then traffic will start flowing and will be dropped at the intermediate router.
+
+The solution is to provide a configurable option to check for the FIB install
+status of the prefixes and advertise to peers if the prefixes are successfully
+installed in the FIB. The advertisement of the prefixes are suppressed if it is
+not installed in FIB.
+
+The following conditions apply will apply when checking for route installation
+status in FIB:
+1. The advertisement or suppression of routes based on FIB install status
+   applies only for newly learnt routes from peer (routes which are not in
+   BGP local RIB).
+2. If the route received from peer already exists in BGP local RIB and route
+   attributes have changed (best path changed), the old path is deleted and
+   new path is installed in FIB. The FIB install status will not have any
+   effect. Therefore only when the route is received first time the checks
+   apply.
+3. The feature will not apply for routes learnt through other means like
+   redistribution to bgp from other protocols. This is applicable only to
+   peer learnt routes.
+4. If a route is installed in FIB and then gets deleted from the dataplane,
+   then routes will not be withdrawn from peers. This will be considered as
+   dataplane issue.
+5. The feature will slightly increase the time required to advertise the routes
+   to peers since the route install status needs to be received from the FIB
+6. If routes are received by the peer before the configuration is applied, then
+   the bgp sessions need to be reset for the configuration to take effect.
+7. If the route which is already installed in dataplane is removed for some
+   reason, sending withdraw message to peers is not currently supported.
+
+.. index:: [no] bgp suppress-fib-pending
+.. clicmd:: [no] bgp suppress-fib-pending
 
 .. _routing-policy:
 
