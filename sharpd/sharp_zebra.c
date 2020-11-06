@@ -216,6 +216,91 @@ int sharp_install_lsps_helper(bool install_p, bool update_p,
 	return ret;
 }
 
+/*
+ * route_add - Encodes a route to zebra
+ *
+ * This function returns true when the route was buffered
+ * by the underlying stream system
+ */
+static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
+		      uint32_t nhgid, const struct nexthop_group *nhg,
+		      const struct nexthop_group *backup_nhg)
+{
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
+	struct nexthop *nh;
+	int i = 0;
+
+	memset(&api, 0, sizeof(api));
+	api.vrf_id = vrf_id;
+	api.type = ZEBRA_ROUTE_SHARP;
+	api.instance = instance;
+	api.safi = SAFI_UNICAST;
+	memcpy(&api.prefix, p, sizeof(*p));
+
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+
+	/* Only send via ID if nhgroup has been successfully installed */
+	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_NHG);
+		api.nhgid = nhgid;
+	} else {
+		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+			api_nh = &api.nexthops[i];
+
+			zapi_nexthop_from_nexthop(api_nh, nh);
+
+			i++;
+		}
+		api.nexthop_num = i;
+	}
+
+	/* Include backup nexthops, if present */
+	if (backup_nhg && backup_nhg->nexthop) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
+
+		i = 0;
+		for (ALL_NEXTHOPS_PTR(backup_nhg, nh)) {
+			api_nh = &api.backup_nexthops[i];
+
+			zapi_backup_nexthop_from_nexthop(api_nh, nh);
+
+			i++;
+		}
+
+		api.backup_nexthop_num = i;
+	}
+
+	if (zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api) == 1)
+		return true;
+	else
+		return false;
+}
+
+/*
+ * route_delete - Encodes a route for deletion to zebra
+ *
+ * This function returns true when the route sent was
+ * buffered by the underlying stream system.
+ */
+static bool route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
+{
+	struct zapi_route api;
+
+	memset(&api, 0, sizeof(api));
+	api.vrf_id = vrf_id;
+	api.type = ZEBRA_ROUTE_SHARP;
+	api.safi = SAFI_UNICAST;
+	api.instance = instance;
+	memcpy(&api.prefix, p, sizeof(*p));
+
+	if (zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api) == 1)
+		return true;
+	else
+		return false;
+}
+
 void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 				 uint8_t instance, uint32_t nhgid,
 				 const struct nexthop_group *nhg,
@@ -406,74 +491,6 @@ void nhg_del(uint32_t id)
 	api_nhg.id = id;
 
 	zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
-}
-
-void route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
-	       uint32_t nhgid, const struct nexthop_group *nhg,
-	       const struct nexthop_group *backup_nhg)
-{
-	struct zapi_route api;
-	struct zapi_nexthop *api_nh;
-	struct nexthop *nh;
-	int i = 0;
-
-	memset(&api, 0, sizeof(api));
-	api.vrf_id = vrf_id;
-	api.type = ZEBRA_ROUTE_SHARP;
-	api.instance = instance;
-	api.safi = SAFI_UNICAST;
-	memcpy(&api.prefix, p, sizeof(*p));
-
-	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-
-	/* Only send via ID if nhgroup has been successfully installed */
-	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
-		SET_FLAG(api.message, ZAPI_MESSAGE_NHG);
-		api.nhgid = nhgid;
-	} else {
-		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
-			api_nh = &api.nexthops[i];
-
-			zapi_nexthop_from_nexthop(api_nh, nh);
-
-			i++;
-		}
-		api.nexthop_num = i;
-	}
-
-	/* Include backup nexthops, if present */
-	if (backup_nhg && backup_nhg->nexthop) {
-		SET_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
-
-		i = 0;
-		for (ALL_NEXTHOPS_PTR(backup_nhg, nh)) {
-			api_nh = &api.backup_nexthops[i];
-
-			zapi_backup_nexthop_from_nexthop(api_nh, nh);
-
-			i++;
-		}
-
-		api.backup_nexthop_num = i;
-	}
-
-	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
-}
-
-void route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
-{
-	struct zapi_route api;
-
-	memset(&api, 0, sizeof(api));
-	api.vrf_id = vrf_id;
-	api.type = ZEBRA_ROUTE_SHARP;
-	api.safi = SAFI_UNICAST;
-	api.instance = instance;
-	memcpy(&api.prefix, p, sizeof(*p));
-	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
-
-	return;
 }
 
 void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
