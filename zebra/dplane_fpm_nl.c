@@ -536,6 +536,13 @@ static int fpm_write(struct thread *t)
 
 		fnc->connecting = false;
 
+		/*
+		 * Starting with LSPs walk all FPM objects, marking them
+		 * as unsent and then replaying them.
+		 */
+		thread_add_timer(zrouter.master, fpm_lsp_reset, fnc, 0,
+				 &fnc->t_lspreset);
+
 		/* Permit receiving messages now. */
 		thread_add_read(fnc->fthread->master, fpm_read, fnc,
 				fnc->socket, &fnc->t_read);
@@ -658,9 +665,12 @@ static int fpm_connect(struct thread *t)
 	/*
 	 * Starting with LSPs walk all FPM objects, marking them
 	 * as unsent and then replaying them.
+	 *
+	 * If we are not connected, then delay the objects reset/send.
 	 */
-	thread_add_timer(zrouter.master, fpm_lsp_reset, fnc, 0,
-			 &fnc->t_lspreset);
+	if (!fnc->connecting)
+		thread_add_timer(zrouter.master, fpm_lsp_reset, fnc, 0,
+				 &fnc->t_lspreset);
 
 	return 0;
 }
