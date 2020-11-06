@@ -95,9 +95,9 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 #ifdef EXTREME_DEBUG
-	if (p->family == AF_INET)
+	if (c->address->family == AF_INET)
 		zlog_debug("connected IP address %pFX", c->address);
-	if (p->family == AF_INET6)
+	if (c->address->family == AF_INET6)
 		zlog_debug("connected IPv6 address %pFX", c->address);
 #endif /* EXTREME_DEBUG */
 
@@ -122,9 +122,9 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 #ifdef EXTREME_DEBUG
-	if (p->family == AF_INET)
+	if (c->address->family == AF_INET)
 		zlog_debug("disconnected IP address %pFX", c->address);
-	if (p->family == AF_INET6)
+	if (c->address->family == AF_INET6)
 		zlog_debug("disconnected IPv6 address %pFX", c->address);
 #endif /* EXTREME_DEBUG */
 
