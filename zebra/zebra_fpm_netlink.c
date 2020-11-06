@@ -205,17 +205,8 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 
 			/* Add VNI to VxLAN encap info */
 			nhi.encap_info.vxlan_encap.vni = zl3vni->vni;
-			char buf[ETHER_ADDR_STRLEN];
 			memcpy(&nhi.encap_info.vxlan_encap.rmac, &nexthop->rmac,
 			       ETH_ALEN);
-			zfpm_debug(
-				"%s: NEWROUTE:%s/%d, Gateway:%s RMAC:%s VLAN:%d",
-				__FUNCTION__, prefix_addr_to_a(ri->prefix),
-				ri->prefix->prefixlen,
-				addr_to_a(ri->af, &nhi.gateway),
-				prefix_mac2str(&nhi.encap_info.vxlan_encap.rmac,
-					       buf, sizeof(buf)),
-				vid);
 		}
 	}
 
