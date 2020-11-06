@@ -6273,11 +6273,10 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_destroy(
 static struct peer *bgp_peer_group_peer_lookup(struct bgp *bgp,
 					       const char *peer_str)
 {
-	struct peer *peer = NULL;
 	struct peer_group *group = NULL;
 
 	group = peer_group_lookup(bgp, peer_str);
-	return peer = group->conf;
+	return group->conf;
 }
 
 /*
