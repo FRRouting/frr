@@ -249,12 +249,12 @@ int zclient_socket_connect(struct zclient *zclient)
 	return sock;
 }
 
-static int zclient_failed(struct zclient *zclient)
+static enum zclient_send_status zclient_failed(struct zclient *zclient)
 {
 	zclient->fail++;
 	zclient_stop(zclient);
 	zclient_event(ZCLIENT_CONNECT, zclient);
-	return -1;
+	return ZCLIENT_SEND_FAILURE;
 }
 
 static int zclient_flush_data(struct thread *thread)
@@ -285,14 +285,15 @@ static int zclient_flush_data(struct thread *thread)
 }
 
 /*
- * -1 is a failure
- *  0 means we sent
- *  1 means we are buffering
+ * Returns:
+ * ZCLIENT_SEND_FAILED   - is a failure
+ * ZCLIENT_SEND_SUCCESS  - means we sent data to zebra
+ * ZCLIENT_SEND_BUFFERED - means we are buffering
  */
-int zclient_send_message(struct zclient *zclient)
+enum zclient_send_status zclient_send_message(struct zclient *zclient)
 {
 	if (zclient->sock < 0)
-		return -1;
+		return ZCLIENT_SEND_FAILURE;
 	switch (buffer_write(zclient->wb, zclient->sock,
 			     STREAM_DATA(zclient->obuf),
 			     stream_get_endp(zclient->obuf))) {
@@ -303,17 +304,15 @@ int zclient_send_message(struct zclient *zclient)
 		return zclient_failed(zclient);
 	case BUFFER_EMPTY:
 		THREAD_OFF(zclient->t_write);
-		return 0;
-		break;
+		return ZCLIENT_SEND_SUCCESS;
 	case BUFFER_PENDING:
 		thread_add_write(zclient->master, zclient_flush_data, zclient,
 				 zclient->sock, &zclient->t_write);
-		return 1;
-		break;
+		return ZCLIENT_SEND_BUFFERED;
 	}
 
 	/* should not get here */
-	return 0;
+	return ZCLIENT_SEND_SUCCESS;
 }
 
 /*
@@ -771,11 +770,11 @@ int zclient_send_rnh(struct zclient *zclient, int command,
  *
  * XXX: No attention paid to alignment.
  */
-int zclient_route_send(uint8_t cmd, struct zclient *zclient,
-		       struct zapi_route *api)
+enum zclient_send_status
+zclient_route_send(uint8_t cmd, struct zclient *zclient, struct zapi_route *api)
 {
 	if (zapi_route_encode(cmd, zclient->obuf, api) < 0)
-		return -1;
+		return ZCLIENT_SEND_FAILURE;
 	return zclient_send_message(zclient);
 }
 

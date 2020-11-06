@@ -669,6 +669,12 @@ enum zapi_iptable_notify_owner {
 	ZAPI_IPTABLE_FAIL_REMOVE,
 };
 
+enum zclient_send_status {
+	ZCLIENT_SEND_FAILURE = -1,
+	ZCLIENT_SEND_SUCCESS = 0,
+	ZCLIENT_SEND_BUFFERED = 1
+};
+
 static inline const char *
 zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 {
@@ -811,7 +817,7 @@ extern void zclient_redistribute_default(int command, struct zclient *,
  *  0 data was successfully sent
  *  1 data was buffered for future usage
  */
-extern int zclient_send_message(struct zclient *);
+extern enum zclient_send_status zclient_send_message(struct zclient *);
 
 /* create header for command, length to be filled in by user later */
 extern void zclient_create_header(struct stream *, uint16_t, vrf_id_t);
@@ -919,7 +925,8 @@ extern int zebra_send_pw(struct zclient *zclient, int command,
 extern int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS,
 				       struct zapi_pw_status *pw);
 
-extern int zclient_route_send(uint8_t, struct zclient *, struct zapi_route *);
+extern enum zclient_send_status zclient_route_send(uint8_t, struct zclient *,
+						   struct zapi_route *);
 extern int zclient_send_rnh(struct zclient *zclient, int command,
 			    const struct prefix *p, bool exact_match,
 			    vrf_id_t vrf_id);

@@ -289,7 +289,8 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 		api.backup_nexthop_num = i;
 	}
 
-	if (zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api) == 1)
+	if (zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api)
+	    == ZCLIENT_SEND_BUFFERED)
 		return true;
 	else
 		return false;
@@ -312,7 +313,8 @@ static bool route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
 	api.instance = instance;
 	memcpy(&api.prefix, p, sizeof(*p));
 
-	if (zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api) == 1)
+	if (zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api)
+	    == ZCLIENT_SEND_BUFFERED)
 		return true;
 	else
 		return false;
@@ -356,8 +358,6 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 			return;
 		}
 	}
-
-	return;
 }
 
 void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
@@ -409,8 +409,6 @@ static void sharp_remove_routes_restart(struct prefix *p, uint32_t count,
 			return;
 		}
 	}
-
-	return;
 }
 
 void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id,
@@ -454,12 +452,10 @@ static void sharp_zclient_buffer_ready(void)
 					     wb.instance, wb.nhgid, wb.nhg,
 					     wb.backup_nhg, wb.routes);
 		return;
-		break;
 	case SHARP_DELETE_ROUTES_RESTART:
 		sharp_remove_routes_restart(&wb.p, wb.count, wb.vrf_id,
 					    wb.instance, wb.routes);
 		return;
-		break;
 	}
 }
 
