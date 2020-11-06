@@ -401,6 +401,16 @@ Areas
     type 5, which is propagated into the OSPF domain. NSSA areas are defined in
     RFC 3101.
 
+.. clicmd:: area A.B.C.D nssa suppress-fa
+
+.. clicmd:: area (0-4294967295) nssa suppress-fa
+
+    Configure the router to set the forwarding address to 0.0.0.0 in all LSA type 5
+    translated from LSA type 7. The router needs to be elected the translator of the
+    area for this command to take effect. This feature causes routers that are
+    configured not to advertise forwarding addresses into the backbone to direct
+    forwarded traffic to the NSSA ABR translator.
+
 .. clicmd:: area A.B.C.D default-cost (0-16777215)
 
 
