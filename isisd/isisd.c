@@ -31,6 +31,7 @@
 #include "linklist.h"
 #include "if.h"
 #include "hash.h"
+#include "filter.h"
 #include "stream.h"
 #include "prefix.h"
 #include "table.h"
@@ -310,6 +311,10 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->lsp_frag_threshold = 90; /* not currently configurable */
 	area->lsp_mtu =
 		yang_get_default_uint16("/frr-isisd:isis/instance/lsp/mtu");
+	area->lfa_load_sharing[0] = yang_get_default_bool(
+		"/frr-isisd:isis/instance/fast-reroute/level-1/lfa/load-sharing");
+	area->lfa_load_sharing[1] = yang_get_default_bool(
+		"/frr-isisd:isis/instance/fast-reroute/level-2/lfa/load-sharing");
 #else
 	area->max_lsp_lifetime[0] = DEFAULT_LSP_LIFETIME;    /* 1200 */
 	area->max_lsp_lifetime[1] = DEFAULT_LSP_LIFETIME;    /* 1200 */
@@ -324,7 +329,13 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->newmetric = 1;
 	area->lsp_frag_threshold = 90;
 	area->lsp_mtu = DEFAULT_LSP_MTU;
+	area->lfa_load_sharing[0] = true;
+	area->lfa_load_sharing[1] = true;
 #endif /* ifndef FABRICD */
+	area->lfa_priority_limit[0] = SPF_PREFIX_PRIO_LOW;
+	area->lfa_priority_limit[1] = SPF_PREFIX_PRIO_LOW;
+	isis_lfa_tiebreakers_init(area, ISIS_LEVEL1);
+	isis_lfa_tiebreakers_init(area, ISIS_LEVEL2);
 
 	area_mt_init(area);
 
@@ -460,6 +471,16 @@ void isis_area_destroy(struct isis_area *area)
 		XFREE(MTYPE_ISIS_AREA_ADDR, addr);
 	}
 	area->area_addrs = NULL;
+
+	for (int i = SPF_PREFIX_PRIO_CRITICAL; i <= SPF_PREFIX_PRIO_MEDIUM;
+	     i++) {
+		struct spf_prefix_priority_acl *ppa;
+
+		ppa = &area->spf_prefix_priorities[i];
+		XFREE(MTYPE_ISIS_ACL_NAME, ppa->name);
+	}
+	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL1);
+	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL2);
 
 	thread_cancel(&area->t_tick);
 	thread_cancel(&area->t_lsp_refresh[0]);
@@ -603,6 +624,29 @@ void isis_terminate()
 
 	for (ALL_LIST_ELEMENTS(im->isis, node, nnode, isis))
 		isis_finish(isis);
+}
+
+void isis_filter_update(struct access_list *access)
+{
+	struct isis *isis;
+	struct isis_area *area;
+	struct listnode *node, *anode;
+
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+			for (int i = SPF_PREFIX_PRIO_CRITICAL;
+			     i <= SPF_PREFIX_PRIO_MEDIUM; i++) {
+				struct spf_prefix_priority_acl *ppa;
+
+				ppa = &area->spf_prefix_priorities[i];
+				ppa->list_v4 =
+					access_list_lookup(AFI_IP, ppa->name);
+				ppa->list_v6 =
+					access_list_lookup(AFI_IP6, ppa->name);
+			}
+			lsp_regenerate_schedule(area, area->is_type, 0);
+		}
+	}
 }
 
 #ifdef FABRICD

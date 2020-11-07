@@ -54,6 +54,7 @@ struct isis_vertex_adj {
 	struct isis_spf_adj *sadj;
 	struct isis_sr_psid_info sr;
 	struct mpls_label_stack *label_stack;
+	uint32_t lfa_metric;
 };
 
 /*
@@ -66,6 +67,7 @@ struct isis_vertex {
 		struct {
 			struct prefix_pair p;
 			struct isis_sr_psid_info sr;
+			enum spf_prefix_priority priority;
 		} ip;
 	} N;
 	uint32_t d_N;	  /* d(N) Distance from this IS      */
@@ -193,6 +195,11 @@ static void isis_vertex_del(struct isis_vertex *vertex)
 bool isis_vertex_adj_exists(const struct isis_spftree *spftree,
 			    const struct isis_vertex *vertex,
 			    const struct isis_spf_adj *sadj);
+void isis_vertex_adj_free(void *arg);
+struct isis_vertex_adj *
+isis_vertex_adj_add(struct isis_spftree *spftree, struct isis_vertex *vertex,
+		    struct list *vadj_list, struct isis_spf_adj *sadj,
+		    struct isis_prefix_sid *psid, bool last_hop);
 
 __attribute__((__unused__))
 static void isis_vertex_queue_clear(struct isis_vertex_queue *queue)

@@ -46,6 +46,7 @@ struct isis_spf_adj {
 	uint8_t flags;
 #define F_ISIS_SPF_ADJ_BROADCAST 0x01
 #define F_ISIS_SPF_ADJ_OLDMETRIC 0x02
+#define F_ISIS_SPF_ADJ_METRIC_INFINITY 0x04
 };
 
 struct isis_spftree *isis_spftree_new(struct isis_area *area,

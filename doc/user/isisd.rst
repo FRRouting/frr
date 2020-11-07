@@ -175,6 +175,35 @@ ISIS Timer
 
    Set minimum interval between consecutive SPF calculations in seconds.
 
+.. _isis-fast-reroute:
+
+ISIS Fast-Reroute
+=================
+
+.. index:: spf prefix-priority [critical | high | medium] WORD
+.. clicmd:: spf prefix-priority [critical | high | medium] WORD
+
+.. index:: spf prefix-priority [critical | high | medium] WORD
+.. clicmd:: no spf prefix-priority [critical | high | medium] [WORD]
+
+   Assign a priority to the prefixes that match the specified access-list.
+
+.. index:: fast-reroute priority-limit [critical | high | medium] [level-1 | level-2]
+.. clicmd:: [no] fast-reroute priority-limit [critical | high | medium] [level-1 | level-2]
+
+   Limit LFA backup computation up to the specified prefix priority.
+
+.. index:: fast-reroute lfa tiebreaker [downstream | lowest-backup-metric | node-protecting] index (1-255) [level-1 | level-2]
+.. clicmd:: [no] fast-reroute lfa tiebreaker [downstream | lowest-backup-metric | node-protecting] index (1-255) [level-1 | level-2]
+
+   Configure a tie-breaker for multiple LFA backups. Lower indexes are processed
+   first.
+
+.. index:: fast-reroute load-sharing disable [level-1 | level-2]
+.. clicmd:: [no] fast-reroute load-sharing disable [level-1 | level-2]
+
+   Disable load sharing across multiple LFA backups.
+
 .. _isis-region:
 
 ISIS region
@@ -355,6 +384,16 @@ ISIS interface
 
    Enable or disable :rfc:`5303` Three-Way Handshake for P2P adjacencies.
    Three-Way Handshake is enabled by default.
+
+.. index:: isis fast-reroute lfa [level-1 | level-2]
+.. clicmd:: [no] isis fast-reroute lfa [level-1 | level-2]
+
+   Enable per-prefix LFA fast reroute link protection.
+
+.. index:: isis fast-reroute lfa [level-1 | level-2] exclude interface IFNAME
+.. clicmd:: [no] isis fast-reroute lfa [level-1 | level-2] exclude interface IFNAME
+
+   Exclude an interface from the LFA backup nexthop computation.
 
 .. index:: isis fast-reroute ti-lfa [level-1|level-2] [node-protection]
 .. clicmd:: [no] isis fast-reroute ti-lfa [level-1|level-2] [node-protection]

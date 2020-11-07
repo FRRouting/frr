@@ -33,6 +33,7 @@
 #include "isisd/isis_sr.h"
 #include "isis_flags.h"
 #include "isis_lsp.h"
+#include "isis_lfa.h"
 #include "isis_memory.h"
 #include "qobj.h"
 #include "ldp_sync.h"
@@ -188,8 +189,15 @@ struct isis_area {
 	struct isis_sr_db srdb;
 	int ipv6_circuits;
 	bool purge_originator;
+	/* SPF prefix priorities. */
+	struct spf_prefix_priority_acl
+		spf_prefix_priorities[SPF_PREFIX_PRIO_MAX];
 	/* Fast Re-Route information. */
 	size_t lfa_protected_links[ISIS_LEVELS];
+	size_t lfa_load_sharing[ISIS_LEVELS];
+	enum spf_prefix_priority lfa_priority_limit[ISIS_LEVELS];
+	struct lfa_tiebreaker_tree_head lfa_tiebreakers[ISIS_LEVELS];
+	size_t tilfa_protected_links[ISIS_LEVELS];
 	/* Counters */
 	uint32_t circuit_state_changes;
 	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
@@ -231,6 +239,7 @@ struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,
 					  const char *vrf_name);
 int isis_area_get(struct vty *vty, const char *area_tag);
 void isis_area_destroy(struct isis_area *area);
+void isis_filter_update(struct access_list *access);
 void print_debug(struct vty *, int, int);
 struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
 			     struct isis *isis);

@@ -27,6 +27,7 @@
 #include "linklist.h"
 #include "log.h"
 #include "bfd.h"
+#include "filter.h"
 #include "spf_backoff.h"
 #include "lib_errors.h"
 #include "vrf.h"
@@ -632,14 +633,22 @@ int isis_instance_spf_minimum_interval_level_2_modify(
 int isis_instance_spf_prefix_priorities_critical_access_list_name_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	const char *acl_name;
+	struct spf_prefix_priority_acl *ppa;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	acl_name = yang_dnode_get_string(args->dnode, NULL);
+
+	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_CRITICAL];
+	XFREE(MTYPE_ISIS_ACL_NAME, ppa->name);
+	ppa->name = XSTRDUP(MTYPE_ISIS_ACL_NAME, acl_name);
+	ppa->list_v4 = access_list_lookup(AFI_IP, acl_name);
+	ppa->list_v6 = access_list_lookup(AFI_IP6, acl_name);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -647,14 +656,19 @@ int isis_instance_spf_prefix_priorities_critical_access_list_name_modify(
 int isis_instance_spf_prefix_priorities_critical_access_list_name_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	struct spf_prefix_priority_acl *ppa;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_CRITICAL];
+	XFREE(MTYPE_ISIS_ACL_NAME, ppa->name);
+	ppa->list_v4 = NULL;
+	ppa->list_v6 = NULL;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -665,14 +679,22 @@ int isis_instance_spf_prefix_priorities_critical_access_list_name_destroy(
 int isis_instance_spf_prefix_priorities_high_access_list_name_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	const char *acl_name;
+	struct spf_prefix_priority_acl *ppa;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	acl_name = yang_dnode_get_string(args->dnode, NULL);
+
+	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_HIGH];
+	XFREE(MTYPE_ISIS_ACL_NAME, ppa->name);
+	ppa->name = XSTRDUP(MTYPE_ISIS_ACL_NAME, acl_name);
+	ppa->list_v4 = access_list_lookup(AFI_IP, acl_name);
+	ppa->list_v6 = access_list_lookup(AFI_IP6, acl_name);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -680,14 +702,19 @@ int isis_instance_spf_prefix_priorities_high_access_list_name_modify(
 int isis_instance_spf_prefix_priorities_high_access_list_name_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	struct spf_prefix_priority_acl *ppa;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_HIGH];
+	XFREE(MTYPE_ISIS_ACL_NAME, ppa->name);
+	ppa->list_v4 = NULL;
+	ppa->list_v6 = NULL;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -698,14 +725,22 @@ int isis_instance_spf_prefix_priorities_high_access_list_name_destroy(
 int isis_instance_spf_prefix_priorities_medium_access_list_name_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	const char *acl_name;
+	struct spf_prefix_priority_acl *ppa;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	acl_name = yang_dnode_get_string(args->dnode, NULL);
+
+	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_MEDIUM];
+	XFREE(MTYPE_ISIS_ACL_NAME, ppa->name);
+	ppa->name = XSTRDUP(MTYPE_ISIS_ACL_NAME, acl_name);
+	ppa->list_v4 = access_list_lookup(AFI_IP, acl_name);
+	ppa->list_v6 = access_list_lookup(AFI_IP6, acl_name);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -713,14 +748,19 @@ int isis_instance_spf_prefix_priorities_medium_access_list_name_modify(
 int isis_instance_spf_prefix_priorities_medium_access_list_name_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	struct spf_prefix_priority_acl *ppa;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_MEDIUM];
+	XFREE(MTYPE_ISIS_ACL_NAME, ppa->name);
+	ppa->list_v4 = NULL;
+	ppa->list_v6 = NULL;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1395,14 +1435,14 @@ int isis_instance_multi_topology_ipv6_dstsrc_overload_modify(
 int isis_instance_fast_reroute_level_1_lfa_load_sharing_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->lfa_load_sharing[0] = yang_dnode_get_bool(args->dnode, NULL);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1413,14 +1453,14 @@ int isis_instance_fast_reroute_level_1_lfa_load_sharing_modify(
 int isis_instance_fast_reroute_level_1_lfa_priority_limit_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->lfa_priority_limit[0] = yang_dnode_get_enum(args->dnode, NULL);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1428,14 +1468,14 @@ int isis_instance_fast_reroute_level_1_lfa_priority_limit_modify(
 int isis_instance_fast_reroute_level_1_lfa_priority_limit_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->lfa_priority_limit[0] = SPF_PREFIX_PRIO_LOW;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1446,14 +1486,21 @@ int isis_instance_fast_reroute_level_1_lfa_priority_limit_destroy(
 int isis_instance_fast_reroute_level_1_lfa_tiebreaker_create(
 	struct nb_cb_create_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	uint8_t index;
+	enum lfa_tiebreaker_type type;
+	struct lfa_tiebreaker *tie_b;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	index = yang_dnode_get_uint8(args->dnode, "./index");
+	type = yang_dnode_get_enum(args->dnode, "./type");
+
+	tie_b = isis_lfa_tiebreaker_add(area, ISIS_LEVEL1, index, type);
+	nb_running_set_entry(args->dnode, tie_b);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1461,14 +1508,16 @@ int isis_instance_fast_reroute_level_1_lfa_tiebreaker_create(
 int isis_instance_fast_reroute_level_1_lfa_tiebreaker_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct lfa_tiebreaker *tie_b;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	tie_b = nb_running_unset_entry(args->dnode);
+	area = tie_b->area;
+	isis_lfa_tiebreaker_delete(area, ISIS_LEVEL1, tie_b);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1479,14 +1528,16 @@ int isis_instance_fast_reroute_level_1_lfa_tiebreaker_destroy(
 int isis_instance_fast_reroute_level_1_lfa_tiebreaker_type_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct lfa_tiebreaker *tie_b;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	tie_b = nb_running_get_entry(args->dnode, NULL, true);
+	area = tie_b->area;
+	tie_b->type = yang_dnode_get_enum(args->dnode, NULL);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1497,14 +1548,13 @@ int isis_instance_fast_reroute_level_1_lfa_tiebreaker_type_modify(
 int isis_instance_fast_reroute_level_2_lfa_load_sharing_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->lfa_load_sharing[1] = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -1515,14 +1565,13 @@ int isis_instance_fast_reroute_level_2_lfa_load_sharing_modify(
 int isis_instance_fast_reroute_level_2_lfa_priority_limit_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->lfa_priority_limit[1] = yang_dnode_get_enum(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -1530,14 +1579,13 @@ int isis_instance_fast_reroute_level_2_lfa_priority_limit_modify(
 int isis_instance_fast_reroute_level_2_lfa_priority_limit_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->lfa_priority_limit[1] = SPF_PREFIX_PRIO_LOW;
 
 	return NB_OK;
 }
@@ -1548,14 +1596,21 @@ int isis_instance_fast_reroute_level_2_lfa_priority_limit_destroy(
 int isis_instance_fast_reroute_level_2_lfa_tiebreaker_create(
 	struct nb_cb_create_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	uint8_t index;
+	enum lfa_tiebreaker_type type;
+	struct lfa_tiebreaker *tie_b;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	index = yang_dnode_get_uint8(args->dnode, "./index");
+	type = yang_dnode_get_enum(args->dnode, "./type");
+
+	tie_b = isis_lfa_tiebreaker_add(area, ISIS_LEVEL2, index, type);
+	nb_running_set_entry(args->dnode, tie_b);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1563,14 +1618,16 @@ int isis_instance_fast_reroute_level_2_lfa_tiebreaker_create(
 int isis_instance_fast_reroute_level_2_lfa_tiebreaker_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct lfa_tiebreaker *tie_b;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	tie_b = nb_running_unset_entry(args->dnode);
+	area = tie_b->area;
+	isis_lfa_tiebreaker_delete(area, ISIS_LEVEL2, tie_b);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1581,14 +1638,16 @@ int isis_instance_fast_reroute_level_2_lfa_tiebreaker_destroy(
 int isis_instance_fast_reroute_level_2_lfa_tiebreaker_type_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct lfa_tiebreaker *tie_b;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	tie_b = nb_running_get_entry(args->dnode, NULL, true);
+	area = tie_b->area;
+	tie_b->type = yang_dnode_get_enum(args->dnode, NULL);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3314,14 +3373,23 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 int lib_interface_isis_fast_reroute_level_1_lfa_enable_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->lfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
+	if (circuit->lfa_protection[0])
+		circuit->area->lfa_protected_links[0]++;
+	else {
+		assert(circuit->area->lfa_protected_links[0] > 0);
+		circuit->area->lfa_protected_links[0]--;
 	}
+
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3333,14 +3401,19 @@ int lib_interface_isis_fast_reroute_level_1_lfa_enable_modify(
 int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_create(
 	struct nb_cb_create_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+	const char *exclude_ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	exclude_ifname = yang_dnode_get_string(args->dnode, NULL);
+
+	isis_lfa_excluded_iface_add(circuit, ISIS_LEVEL1, exclude_ifname);
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3348,14 +3421,19 @@ int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_create(
 int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+	const char *exclude_ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	exclude_ifname = yang_dnode_get_string(args->dnode, NULL);
+
+	isis_lfa_excluded_iface_delete(circuit, ISIS_LEVEL1, exclude_ifname);
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3376,10 +3454,10 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify(
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->tilfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
 	if (circuit->tilfa_protection[0])
-		circuit->area->lfa_protected_links[0]++;
+		circuit->area->tilfa_protected_links[0]++;
 	else {
-		assert(circuit->area->lfa_protected_links[0] > 0);
-		circuit->area->lfa_protected_links[0]--;
+		assert(circuit->area->tilfa_protected_links[0] > 0);
+		circuit->area->tilfa_protected_links[0]--;
 	}
 
 	area = circuit->area;
@@ -3418,14 +3496,23 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify(
 int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->lfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
+	if (circuit->lfa_protection[1])
+		circuit->area->lfa_protected_links[1]++;
+	else {
+		assert(circuit->area->lfa_protected_links[1] > 0);
+		circuit->area->lfa_protected_links[1]--;
 	}
+
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3437,14 +3524,19 @@ int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(
 int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_create(
 	struct nb_cb_create_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+	const char *exclude_ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	exclude_ifname = yang_dnode_get_string(args->dnode, NULL);
+
+	isis_lfa_excluded_iface_add(circuit, ISIS_LEVEL2, exclude_ifname);
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3452,14 +3544,19 @@ int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_create(
 int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+	const char *exclude_ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	exclude_ifname = yang_dnode_get_string(args->dnode, NULL);
+
+	isis_lfa_excluded_iface_delete(circuit, ISIS_LEVEL2, exclude_ifname);
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3480,10 +3577,10 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify(
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->tilfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
 	if (circuit->tilfa_protection[1])
-		circuit->area->lfa_protected_links[1]++;
+		circuit->area->tilfa_protected_links[1]++;
 	else {
-		assert(circuit->area->lfa_protected_links[1] > 0);
-		circuit->area->lfa_protected_links[1]--;
+		assert(circuit->area->tilfa_protected_links[1] > 0);
+		circuit->area->tilfa_protected_links[1]--;
 	}
 
 	area = circuit->area;
