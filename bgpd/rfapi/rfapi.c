@@ -3688,20 +3688,16 @@ static void rfapi_print_exported(struct bgp *bgp)
 		if (!table)
 			continue;
 		fprintf(stderr, "%s: encap destn=%p\n", __func__, destn);
-		for (dest = bgp_table_top(table))
-			;
-		dest;
-		     dest = bgp_route_next(dest))
-		     {
-			     bpi = bgp_dest_get_bgp_path_info(dest);
-			     if (!bpi)
-				     continue;
-			     fprintf(stderr, "%s: dest=%p\n", __func__, dest);
-			     for (; bpi; bpi = bpi->next) {
-				     rfapiPrintBi((void *)2,
-						  bpi); /* 2 => stderr */
-			     }
-		     }
+		for (dest = bgp_table_top(table); dest;
+		     dest = bgp_route_next(dest)) {
+			bpi = bgp_dest_get_bgp_path_info(dest);
+			if (!bpi)
+				continue;
+			fprintf(stderr, "%s: dest=%p\n", __func__, dest);
+			for (; bpi; bpi = bpi->next) {
+				rfapiPrintBi((void *)2, bpi); /* 2 => stderr */
+			}
+		}
 	}
 }
 #endif /* defined(DEBUG_RFAPI) */
