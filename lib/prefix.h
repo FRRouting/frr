@@ -432,6 +432,7 @@ extern unsigned int prefix_bit(const uint8_t *prefix, const uint16_t bit_index);
 
 extern struct prefix *prefix_new(void);
 extern void prefix_free(struct prefix **p);
+extern void prefix_flowspec_allocate(struct prefix *p, uint8_t *pnt, int size);
 /*
  * Function to handle prefix_free being used as a del function.
  */
