@@ -34,7 +34,7 @@
 #include "bgpd/bgp_evpn_private.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BSM, "Mac Hash Entry");
-DEFINE_MTYPE_STATIC(BGPD, BSM_STRING, "Mac Hash Entry Interface String");
+DEFINE_MTYPE_STATIC(BGPD, BSM_STRING, "Mac Hash Entry Intf String");
 
 struct bgp_self_mac {
 	struct ethaddr macaddr;

@@ -45,7 +45,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_rd.h"
 
-DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Address Intf String");
+DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Addr Intf String");
 
 int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
 			      const struct bgp_nexthop_cache *b)
