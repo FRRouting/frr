@@ -904,8 +904,8 @@ DEFUN (debug_bgp_keepalive_peer,
        "debug bgp keepalives <A.B.C.D|X:X::X:X|WORD>",
        DEBUG_STR
        BGP_STR
-       "BGP Neighbor Events\n"
-       "BGP neighbor IP address to debug\n"
+       "BGP keepalives\n"
+       "BGP IPv4 neighbor to debug\n"
        "BGP IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
