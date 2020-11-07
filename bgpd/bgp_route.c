@@ -2934,7 +2934,8 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	}
 
 	/* Process the route list */
-	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
+	for (dest = bgp_table_top(bgp->rib[afi][safi]);
+	     dest && bgp->gr_info[afi][safi].gr_deferred != 0;
 	     dest = bgp_route_next(dest)) {
 		if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
 			continue;
@@ -2950,7 +2951,7 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	}
 
 	/* Send EOR message when all routes are processed */
-	if (bgp->gr_info[afi][safi].gr_deferred) {
+	if (!bgp->gr_info[afi][safi].gr_deferred) {
 		bgp_send_delayed_eor(bgp);
 		/* Send route processing complete message to RIB */
 		bgp_zebra_update(afi, safi, bgp->vrf_id,
