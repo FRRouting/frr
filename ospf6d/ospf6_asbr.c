@@ -50,7 +50,8 @@
 #include "lib/json.h"
 
 static void ospf6_asbr_redistribute_set(int type, vrf_id_t vrf_id);
-static void ospf6_asbr_redistribute_unset(int type, vrf_id_t vrf_id);
+static void ospf6_asbr_redistribute_unset(struct ospf6 *ospf6,
+					  struct ospf6_redist *red, int type);
 
 unsigned char conf_debug_ospf6_asbr = 0;
 
@@ -844,35 +845,28 @@ void ospf6_asbr_lsentry_remove(struct ospf6_route *asbr_entry,
 
 
 /* redistribute function */
-
-static void ospf6_asbr_routemap_set(int type, const char *mapname,
-				    uint32_t vrf_id)
+static void ospf6_asbr_routemap_set(struct ospf6_redist *red,
+				    const char *mapname)
 {
-	struct ospf6 *ospf6 = NULL;
-
-	ospf6 = ospf6_lookup_by_vrf_id(vrf_id);
-
-	if (ospf6 == NULL)
-		return;
-
-	if (ospf6->rmap[type].name) {
-		route_map_counter_decrement(ospf6->rmap[type].map);
-		free(ospf6->rmap[type].name);
+	if (ROUTEMAP_NAME(red)) {
+		route_map_counter_decrement(ROUTEMAP(red));
+		free(ROUTEMAP_NAME(red));
 	}
-	ospf6->rmap[type].name = strdup(mapname);
-	ospf6->rmap[type].map = route_map_lookup_by_name(mapname);
-	route_map_counter_increment(ospf6->rmap[type].map);
+
+	ROUTEMAP_NAME(red) = strdup(mapname);
+	ROUTEMAP(red) = route_map_lookup_by_name(mapname);
+	route_map_counter_increment(ROUTEMAP(red));
 }
 
-static void ospf6_asbr_routemap_unset(int type, struct ospf6 *ospf6)
+static void ospf6_asbr_routemap_unset(struct ospf6_redist *red)
 {
-	if (ospf6->rmap[type].name)
-		free(ospf6->rmap[type].name);
+	if (ROUTEMAP_NAME(red))
+		free(ROUTEMAP_NAME(red));
 
-	route_map_counter_decrement(ospf6->rmap[type].map);
+	route_map_counter_decrement(ROUTEMAP(red));
 
-	ospf6->rmap[type].name = NULL;
-	ospf6->rmap[type].map = NULL;
+	ROUTEMAP_NAME(red) = NULL;
+	ROUTEMAP(red) = NULL;
 }
 
 static int ospf6_asbr_routemap_update_timer(struct thread *thread)
@@ -880,6 +874,7 @@ static int ospf6_asbr_routemap_update_timer(struct thread *thread)
 	void **arg;
 	int arg_type;
 	struct ospf6 *ospf6;
+	struct ospf6_redist *red;
 
 	arg = THREAD_ARG(thread);
 	ospf6 = (struct ospf6 *)arg[0];
@@ -887,13 +882,14 @@ static int ospf6_asbr_routemap_update_timer(struct thread *thread)
 
 	ospf6->t_distribute_update = NULL;
 
-	if (ospf6->rmap[arg_type].name)
-		ospf6->rmap[arg_type].map =
-			route_map_lookup_by_name(ospf6->rmap[arg_type].name);
-	if (ospf6->rmap[arg_type].map) {
+	red = ospf6_redist_lookup(ospf6, arg_type, 0);
+
+	if (red && ROUTEMAP_NAME(red))
+		ROUTEMAP(red) = route_map_lookup_by_name(ROUTEMAP_NAME(red));
+	if (red && ROUTEMAP(red)) {
 		if (IS_OSPF6_DEBUG_ASBR)
 			zlog_debug("%s: route-map %s update, reset redist %s",
-				   __func__, ospf6->rmap[arg_type].name,
+				   __func__, ROUTEMAP_NAME(red),
 				   ZROUTE_NAME(arg_type));
 
 		ospf6_zebra_no_redistribute(arg_type, ospf6->vrf_id);
@@ -931,20 +927,23 @@ static void ospf6_asbr_routemap_update(const char *mapname)
 	int type;
 	struct listnode *node, *nnode;
 	struct ospf6 *ospf6 = NULL;
+	struct ospf6_redist *red;
 
 	if (om6 == NULL)
 		return;
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
-			if (ospf6->rmap[type].name == NULL)
+			red = ospf6_redist_lookup(ospf6, type, 0);
+			if (!red || (ROUTEMAP_NAME(red) == NULL))
 				continue;
-			ospf6->rmap[type].map = route_map_lookup_by_name(
-					ospf6->rmap[type].name);
+			ROUTEMAP(red) =
+				route_map_lookup_by_name(ROUTEMAP_NAME(red));
 
-			if (mapname == NULL || strcmp(ospf6->rmap[type].name, mapname))
+			if (mapname == NULL
+			    || strcmp(ROUTEMAP_NAME(red), mapname))
 				continue;
-			if (ospf6->rmap[type].map) {
+			if (ROUTEMAP(red)) {
 				if (IS_OSPF6_DEBUG_ASBR)
 					zlog_debug(
 							"%s: route-map %s update, reset redist %s",
@@ -953,11 +952,9 @@ static void ospf6_asbr_routemap_update(const char *mapname)
 							ZROUTE_NAME(
 								type));
 
-					route_map_counter_increment(
-							ospf6->rmap[type].map);
+				route_map_counter_increment(ROUTEMAP(red));
 
-					ospf6_asbr_distribute_list_update(
-							type, ospf6);
+				ospf6_asbr_distribute_list_update(type, ospf6);
 			} else {
 				/*
 				* if the mapname matches a
@@ -973,11 +970,8 @@ static void ospf6_asbr_routemap_update(const char *mapname)
 							mapname,
 							ZROUTE_NAME(
 								type));
-				ospf6_asbr_redistribute_unset(
-						type, ospf6->vrf_id);
-				ospf6_asbr_routemap_set(
-						type, mapname,
-						ospf6->vrf_id);
+				ospf6_asbr_redistribute_unset(ospf6, red, type);
+				ospf6_asbr_routemap_set(red, mapname);
 				ospf6_asbr_redistribute_set(
 						type, ospf6->vrf_id);
 			}
@@ -990,13 +984,15 @@ static void ospf6_asbr_routemap_event(const char *name)
 	int type;
 	struct listnode *node, *nnode;
 	struct ospf6 *ospf6;
+	struct ospf6_redist *red;
 
 	if (om6 == NULL)
 		return;
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
-			if ((ospf6->rmap[type].name)
-			    && (strcmp(ospf6->rmap[type].name, name) == 0))
+			red = ospf6_redist_lookup(ospf6, type, 0);
+			if (red && ROUTEMAP_NAME(red)
+			    && (strcmp(ROUTEMAP_NAME(red), name) == 0))
 				ospf6_asbr_distribute_list_update(type, ospf6);
 		}
 	}
@@ -1007,23 +1003,70 @@ int ospf6_asbr_is_asbr(struct ospf6 *o)
 	return o->external_table->count;
 }
 
+struct ospf6_redist *ospf6_redist_lookup(struct ospf6 *ospf6, int type,
+					 unsigned short instance)
+{
+	struct list *red_list;
+	struct listnode *node;
+	struct ospf6_redist *red;
+
+	red_list = ospf6->redist[type];
+	if (!red_list)
+		return (NULL);
+
+	for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
+		if (red->instance == instance)
+			return red;
+
+	return NULL;
+}
+
+static struct ospf6_redist *ospf6_redist_add(struct ospf6 *ospf6, int type,
+					     uint8_t instance)
+{
+	struct ospf6_redist *red;
+
+	red = ospf6_redist_lookup(ospf6, type, instance);
+	if (red)
+		return red;
+
+	if (!ospf6->redist[type])
+		ospf6->redist[type] = list_new();
+
+	red = XCALLOC(MTYPE_OSPF6_REDISTRIBUTE, sizeof(struct ospf6_redist));
+	red->instance = instance;
+	ROUTEMAP_NAME(red) = NULL;
+	ROUTEMAP(red) = NULL;
+
+	listnode_add(ospf6->redist[type], red);
+
+	return red;
+}
+
+static void ospf6_redist_del(struct ospf6 *ospf6, struct ospf6_redist *red,
+			     int type)
+{
+	if (red) {
+		listnode_delete(ospf6->redist[type], red);
+		if (!ospf6->redist[type]->count) {
+			list_delete(&ospf6->redist[type]);
+		}
+		XFREE(MTYPE_OSPF6_REDISTRIBUTE, red);
+	}
+}
+
 static void ospf6_asbr_redistribute_set(int type, vrf_id_t vrf_id)
 {
 	ospf6_zebra_redistribute(type, vrf_id);
 }
 
-static void ospf6_asbr_redistribute_unset(int type, vrf_id_t vrf_id)
+static void ospf6_asbr_redistribute_unset(struct ospf6 *ospf6,
+					  struct ospf6_redist *red, int type)
 {
 	struct ospf6_route *route;
 	struct ospf6_external_info *info;
-	struct ospf6 *ospf6 = NULL;
 
-	ospf6 = ospf6_lookup_by_vrf_id(vrf_id);
-
-	if (ospf6 == NULL)
-		return;
-
-	ospf6_zebra_no_redistribute(type, vrf_id);
+	ospf6_zebra_no_redistribute(type, ospf6->vrf_id);
 
 	for (route = ospf6_route_head(ospf6->external_table); route;
 	     route = ospf6_route_next(route)) {
@@ -1035,7 +1078,7 @@ static void ospf6_asbr_redistribute_unset(int type, vrf_id_t vrf_id)
 					       ospf6);
 	}
 
-	ospf6_asbr_routemap_unset(type, ospf6);
+	ospf6_asbr_routemap_unset(red);
 }
 
 /* When an area is unstubified, flood all the external LSAs in the area */
@@ -1068,6 +1111,12 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	char ibuf[16];
 	struct listnode *lnode, *lnnode;
 	struct ospf6_area *oa;
+	struct ospf6_redist *red;
+
+	red = ospf6_redist_lookup(ospf6, type, 0);
+
+	if (!red)
+		return;
 
 	if (!ospf6_zebra_is_redistribute(type, ospf6->vrf_id))
 		return;
@@ -1079,28 +1128,28 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 		zlog_debug("Redistribute %pFX (%s)", prefix, ZROUTE_NAME(type));
 
 	/* if route-map was specified but not found, do not advertise */
-	if (ospf6->rmap[type].name) {
-		if (ospf6->rmap[type].map == NULL)
+	if (ROUTEMAP_NAME(red)) {
+		if (ROUTEMAP(red) == NULL)
 			ospf6_asbr_routemap_update(NULL);
-		if (ospf6->rmap[type].map == NULL) {
+		if (ROUTEMAP(red) == NULL) {
 			zlog_warn(
 				"route-map \"%s\" not found, suppress redistributing",
-				ospf6->rmap[type].name);
+				ROUTEMAP_NAME(red));
 			return;
 		}
 	}
 
 	/* apply route-map */
-	if (ospf6->rmap[type].map) {
+	if (ROUTEMAP(red)) {
 		troute.route_option = &tinfo;
 		tinfo.ifindex = ifindex;
 		tinfo.tag = tag;
 
-		ret = route_map_apply(ospf6->rmap[type].map, prefix, &troute);
+		ret = route_map_apply(ROUTEMAP(red), prefix, &troute);
 		if (ret == RMAP_DENYMATCH) {
 			if (IS_OSPF6_DEBUG_ASBR)
 				zlog_debug("Denied by route-map \"%s\"",
-					   ospf6->rmap[type].name);
+					   ROUTEMAP_NAME(red));
 			ospf6_asbr_redistribute_remove(type, ifindex, prefix,
 						       ospf6);
 			return;
@@ -1111,7 +1160,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	if (match) {
 		info = match->route_option;
 		/* copy result of route-map */
-		if (ospf6->rmap[type].map) {
+		if (ROUTEMAP(red)) {
 			if (troute.path.metric_type)
 				match->path.metric_type =
 					troute.path.metric_type;
@@ -1164,7 +1213,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	info->id = ospf6->external_id++;
 
 	/* copy result of route-map */
-	if (ospf6->rmap[type].map) {
+	if (ROUTEMAP(red)) {
 		if (troute.path.metric_type)
 			route->path.metric_type = troute.path.metric_type;
 		if (troute.path.cost)
@@ -1272,6 +1321,7 @@ DEFUN (ospf6_redistribute,
        FRR_REDIST_HELP_STR_OSPF6D)
 {
 	int type;
+	struct ospf6_redist *red;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -1280,8 +1330,13 @@ DEFUN (ospf6_redistribute,
 	if (type < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	ospf6_asbr_redistribute_unset(type, ospf6->vrf_id);
+	red = ospf6_redist_add(ospf6, type, 0);
+	if (!red)
+		return CMD_SUCCESS;
+
+	ospf6_asbr_redistribute_unset(ospf6, red, type);
 	ospf6_asbr_redistribute_set(type, ospf6->vrf_id);
+
 	return CMD_SUCCESS;
 }
 
@@ -1296,6 +1351,7 @@ DEFUN (ospf6_redistribute_routemap,
 	int idx_protocol = 1;
 	int idx_word = 3;
 	int type;
+	struct ospf6_redist *red;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -1305,9 +1361,14 @@ DEFUN (ospf6_redistribute_routemap,
 	if (type < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	ospf6_asbr_redistribute_unset(type, ospf6->vrf_id);
-	ospf6_asbr_routemap_set(type, argv[idx_word]->arg, ospf6->vrf_id);
+	red = ospf6_redist_add(ospf6, type, 0);
+	if (!red)
+		return CMD_SUCCESS;
+
+	ospf6_asbr_redistribute_unset(ospf6, red, type);
+	ospf6_asbr_routemap_set(red, argv[idx_word]->arg);
 	ospf6_asbr_redistribute_set(type, ospf6->vrf_id);
+
 	return CMD_SUCCESS;
 }
 
@@ -1322,6 +1383,7 @@ DEFUN (no_ospf6_redistribute,
 {
 	int idx_protocol = 2;
 	int type;
+	struct ospf6_redist *red;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
@@ -1332,7 +1394,12 @@ DEFUN (no_ospf6_redistribute,
 	if (type < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	ospf6_asbr_redistribute_unset(type, ospf6->vrf_id);
+	red = ospf6_redist_lookup(ospf6, type, 0);
+	if (!red)
+		return CMD_SUCCESS;
+
+	ospf6_asbr_redistribute_unset(ospf6, red, type);
+	ospf6_redist_del(ospf6, red, type);
 
 	return CMD_SUCCESS;
 }
@@ -1340,16 +1407,18 @@ DEFUN (no_ospf6_redistribute,
 int ospf6_redistribute_config_write(struct vty *vty, struct ospf6 *ospf6)
 {
 	int type;
+	struct ospf6_redist *red;
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		red = ospf6_redist_lookup(ospf6, type, 0);
+		if (!red)
+			continue;
 		if (type == ZEBRA_ROUTE_OSPF6)
 			continue;
-		if (!ospf6_zebra_is_redistribute(type, ospf6->vrf_id))
-			continue;
 
-		if (ospf6->rmap[type].name)
+		if (ROUTEMAP_NAME(red))
 			vty_out(vty, " redistribute %s route-map %s\n",
-				ZROUTE_NAME(type), ospf6->rmap[type].name);
+				ZROUTE_NAME(type), ROUTEMAP_NAME(red));
 		else
 			vty_out(vty, " redistribute %s\n", ZROUTE_NAME(type));
 	}
@@ -1367,6 +1436,7 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6,
 	struct ospf6_route *route;
 	struct ospf6_external_info *info;
 	json_object *json_route;
+	struct ospf6_redist *red;
 
 	total = 0;
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
@@ -1384,9 +1454,11 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6,
 		vty_out(vty, "Redistributing External Routes from:\n");
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
-		if (type == ZEBRA_ROUTE_OSPF6)
+		red = ospf6_redist_lookup(ospf6, type, 0);
+
+		if (!red)
 			continue;
-		if (!ospf6_zebra_is_redistribute(type, ospf6->vrf_id))
+		if (type == ZEBRA_ROUTE_OSPF6)
 			continue;
 
 		if (use_json) {
@@ -1396,25 +1468,24 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6,
 					    nroute[type]);
 			json_object_boolean_add(json_route,
 						"routeMapNamePresent",
-						ospf6->rmap[type].name);
+						ROUTEMAP_NAME(red));
 		}
 
-		if (ospf6->rmap[type].name) {
+		if (ROUTEMAP_NAME(red)) {
 			if (use_json) {
 				json_object_string_add(json_route,
 						       "routeMapName",
-						       ospf6->rmap[type].name);
+						       ROUTEMAP_NAME(red));
 				json_object_boolean_add(json_route,
 							"routeMapFound",
-							ospf6->rmap[type].map);
+							ROUTEMAP(red));
 			} else
 				vty_out(vty,
 					"    %d: %s with route-map \"%s\"%s\n",
 					nroute[type], ZROUTE_NAME(type),
-					ospf6->rmap[type].name,
-					(ospf6->rmap[type].map
-						 ? ""
-						 : " (not found !)"));
+					ROUTEMAP_NAME(red),
+					(ROUTEMAP(red) ? ""
+						       : " (not found !)"));
 		} else {
 			if (!use_json)
 				vty_out(vty, "    %d: %s\n", nroute[type],
@@ -1980,15 +2051,21 @@ void ospf6_asbr_init(void)
 	install_element(OSPF6_NODE, &no_ospf6_redistribute_cmd);
 }
 
-void ospf6_asbr_redistribute_reset(vrf_id_t vrf_id)
+void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6)
 {
 	int type;
+	struct ospf6_redist *red;
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		red = ospf6_redist_lookup(ospf6, type, 0);
+		if (!red)
+			continue;
 		if (type == ZEBRA_ROUTE_OSPF6)
 			continue;
-		if (ospf6_zebra_is_redistribute(type, vrf_id))
-			ospf6_asbr_redistribute_unset(type, vrf_id);
+		if (ospf6_zebra_is_redistribute(type, ospf6->vrf_id)) {
+			ospf6_asbr_redistribute_unset(ospf6, red, type);
+			ospf6_redist_del(ospf6, red, type);
+		}
 	}
 }
 

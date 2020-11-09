@@ -38,6 +38,17 @@ enum {
 	OSPF6_LOG_ADJACENCY_DETAIL =	(1 << 1),
 };
 
+struct ospf6_redist {
+	uint8_t instance;
+	/* For redistribute route map. */
+	struct {
+		char *name;
+		struct route_map *map;
+	} route_map;
+#define ROUTEMAP_NAME(R) (R->route_map.name)
+#define ROUTEMAP(R) (R->route_map.map)
+};
+
 /* OSPFv3 top level data structure */
 struct ospf6 {
 	/* The relevant vrf_id */
@@ -71,11 +82,8 @@ struct ospf6 {
 	struct route_table *external_id_table;
 	uint32_t external_id;
 
-	/* redistribute route-map */
-	struct {
-		char *name;
-		struct route_map *map;
-	} rmap[ZEBRA_ROUTE_MAX];
+	/* OSPF6 redistribute configuration */
+	struct list *redist[ZEBRA_ROUTE_MAX];
 
 	uint8_t flag;
 

@@ -92,7 +92,7 @@ extern int ospf6_redistribute_config_write(struct vty *vty,
 					   struct ospf6 *ospf6);
 
 extern void ospf6_asbr_init(void);
-extern void ospf6_asbr_redistribute_reset(vrf_id_t vrf_id);
+extern void ospf6_asbr_redistribute_reset(struct ospf6 *ospf6);
 extern void ospf6_asbr_terminate(void);
 extern void ospf6_asbr_send_externals_to_area(struct ospf6_area *);
 
@@ -102,5 +102,6 @@ extern void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 					      struct ospf6_route *route,
 					      struct ospf6 *ospf6);
 extern void ospf6_asbr_distribute_list_update(int type, struct ospf6 *ospf6);
-
+struct ospf6_redist *ospf6_redist_lookup(struct ospf6 *ospf6, int type,
+					 unsigned short instance);
 #endif /* OSPF6_ASBR_H */
