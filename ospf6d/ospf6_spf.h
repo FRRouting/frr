@@ -23,6 +23,7 @@
 
 #include "typesafe.h"
 #include "ospf6_top.h"
+#include "lib/json.h"
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_spf;
@@ -147,7 +148,8 @@ extern void ospf6_spf_calculation(uint32_t router_id,
 extern void ospf6_spf_schedule(struct ospf6 *ospf, unsigned int reason);
 
 extern void ospf6_spf_display_subtree(struct vty *vty, const char *prefix,
-				      int rest, struct ospf6_vertex *v);
+				      int rest, struct ospf6_vertex *v,
+				      json_object *json_obj, bool use_json);
 
 extern void ospf6_spf_config_write(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_debug_spf(struct vty *vty);
