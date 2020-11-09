@@ -26,7 +26,7 @@ forms the initial command set for a routing beast as it is starting.
 Config files are generally found in |INSTALL_PREFIX_ETC|.
 
 Config Methods
-^^^^^^^^^^^^^^
+--------------
 
 There are two ways of configuring FRR.
 
