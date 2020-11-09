@@ -503,6 +503,7 @@ The following configuration is then generated for you:
     vrrp 5 ip 10.0.2.16
     vrrp 5 ipv6 2001:db8::370:7334
 
+
 VRRP is automatically activated. Global defaults, if set, are applied.
 
 You can then edit this configuration with **vtysh** as needed, and commit it by
@@ -516,6 +517,7 @@ My virtual routers are not seeing each others' advertisements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Check:
+
 - Is your kernel at least 5.1?
 - Did you set the macvlan devices to ``bridge`` mode?
 - If using IPv4 virtual addresses, does the parent of the macvlan devices have
