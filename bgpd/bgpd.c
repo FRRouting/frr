@@ -4439,6 +4439,10 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 	if (peer->sort == BGP_PEER_IBGP || peer->conf_if)
 		return 0;
 
+	/* is there anything to do? */
+	if (peer->ttl == ttl)
+		return 0;
+
 	/* see comment in peer_ttl_security_hops_set() */
 	if (ttl != MAXTTL) {
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
