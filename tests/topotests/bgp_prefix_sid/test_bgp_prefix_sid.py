@@ -92,6 +92,10 @@ def test_r1_receive_and_advertise_prefix_sid_type1():
     tgen = get_topogen()
     router = tgen.gears["r1"]
 
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     def _check_type1_r1(router, prefix, remoteLabel, labelIndex):
         output = router.vtysh_cmd(
             "show bgp ipv4 labeled-unicast {} json".format(prefix)
@@ -107,11 +111,11 @@ def test_r1_receive_and_advertise_prefix_sid_type1():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_check_type1_r1, router, "3.0.0.1/32", 800001, 1)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
     assert result is None, 'Failed _check_type1_r1 in "{}"'.format(router)
 
     test_func = functools.partial(_check_type1_r1, router, "3.0.0.2/32", 800002, 2)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
     assert result is None, 'Failed _check_type1_r1 in "{}"'.format(router)
 
 
@@ -137,16 +141,26 @@ def exabgp_get_update_prefix(filename, afi, nexthop, prefix):
             ret = ret.get(nexthop)
             if ret is None:
                 continue
-            ret = ret.get(prefix)
-            if ret is None:
+
+            # Look for prefix.
+            found = False
+            for entry in ret:
+                if entry['nlri'] == prefix:
+                    found = True
+                    break
+            if not found:
                 continue
+
             return output
         return "Not found"
 
 
 def test_peer2_receive_prefix_sid_type1():
     tgen = get_topogen()
-    peer2 = tgen.gears["peer2"]
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     def _check_type1_peer2(prefix, labelindex):
         output = exabgp_get_update_prefix(
@@ -155,27 +169,28 @@ def test_peer2_receive_prefix_sid_type1():
         expected = {
             "type": "update",
             "neighbor": {
-                "ip": "10.0.0.1",
+                "address": {
+                    "peer": "10.0.0.1"
+                },
                 "message": {
                     "update": {
                         "attribute": {
-                            "attribute-0x28-0xE0": "0x010007000000{:08x}".format(
-                                labelindex
-                            )
+                            "bgp-prefix-sid": {"sr-label-index": labelindex}
                         },
-                        "announce": {"ipv4 nlri-mpls": {"10.0.0.101": {}}},
+                        "announce": {"ipv4 nlri-mpls": {"10.0.0.101": []}},
                     }
                 },
             },
         }
+        logger.info("expected={}".format(expected))
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_check_type1_peer2, "3.0.0.1/32", labelindex=1)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    test_func = functools.partial(_check_type1_peer2, u"3.0.0.1/32", labelindex=1)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, 'Failed _check_type1_peer2 in "{}"'.format("peer2")
 
-    test_func = functools.partial(_check_type1_peer2, "3.0.0.2/32", labelindex=2)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    test_func = functools.partial(_check_type1_peer2, u"3.0.0.2/32", labelindex=2)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, 'Failed _check_type1_peer2 in "{}"'.format("peer2")
 
 
