@@ -350,10 +350,22 @@ void nhrp_zebra_init(void)
 	zclient_init(zclient, ZEBRA_ROUTE_NHRP, 0, &nhrpd_privs);
 }
 
+static void nhrp_table_node_cleanup(struct route_table *table,
+				    struct route_node *node)
+{
+	if (!node->info)
+		return;
+
+	XFREE(MTYPE_NHRP_ROUTE, node->info);
+}
+
 void nhrp_zebra_terminate(void)
 {
 	zclient_stop(zclient);
 	zclient_free(zclient);
+
+	zebra_rib[AFI_IP]->cleanup = nhrp_table_node_cleanup;
+	zebra_rib[AFI_IP6]->cleanup = nhrp_table_node_cleanup;
 	route_table_finish(zebra_rib[AFI_IP]);
 	route_table_finish(zebra_rib[AFI_IP6]);
 }
