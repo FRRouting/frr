@@ -2475,6 +2475,7 @@ def verify_rib(
     tag=None,
     metric=None,
     fib=None,
+    count_only=False
 ):
     """
     Data will be read from input_dict or input JSON file, API will generate
@@ -2492,6 +2493,8 @@ def verify_rib(
     * `next_hop`[optional]: next_hop which needs to be verified,
                            default: static
     * `protocol`[optional]: protocol, default = None
+    * `count_only`[optional]: count of nexthops only, not specific addresses,
+                              default = False
 
     Usage
     -----
@@ -2655,7 +2658,23 @@ def verify_rib(
                                     for rib_r in rib_routes_json[st_rt][0]["nexthops"]
                                 ]
 
-                                if found_hops:
+                                # Check only the count of nexthops
+                                if count_only:
+                                    if len(next_hop) == len(found_hops):
+                                        nh_found = True
+                                    else:
+                                        errormsg = (
+                                            "Nexthops are missing for "
+                                            "route {} in RIB of router {}: "
+                                            "expected {}, found {}\n".format(
+                                                st_rt, dut, len(next_hop),
+                                                len(found_hops)
+                                            )
+                                        )
+                                        return errormsg
+
+                                # Check the actual nexthops
+                                elif found_hops:
                                     missing_list_of_nexthops = set(
                                         found_hops
                                     ).difference(next_hop)
