@@ -265,7 +265,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	if (STREAM_READABLE(data) != 0) {
 		flog_err(
 			EC_BGP_UPDATE_RCV,
-			"%s [Error] Update packet error / VPN (%td data remaining after parsing)",
+			"%s [Error] Update packet error / VPN (%zu data remaining after parsing)",
 			peer->host, STREAM_READABLE(data));
 		return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 	}
