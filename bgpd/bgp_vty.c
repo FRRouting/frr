@@ -1456,6 +1456,12 @@ DEFUN (bgp_maxmed_onstartup,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx = 0;
 
+        if (bgp->maxmed_perpeer_onstartup_time != BGP_MAXMED_PERPEER_ONSTARTUP_TIME_DEFAULT) {
+                vty_out(vty,
+                        "%%Failed: confict with exist max-med on-peer-startup configure!\n");
+                return CMD_WARNING_CONFIG_FAILED;
+        }
+
 	argv_find(argv, argc, "(5-86400)", &idx);
 	bgp->v_maxmed_onstartup = strtoul(argv[idx]->arg, NULL, 10);
 	if (argv_find(argv, argc, "(0-4294967295)", &idx))
@@ -1492,6 +1498,69 @@ DEFUN (no_bgp_maxmed_onstartup,
 	bgp_maxmed_update(bgp);
 
 	return CMD_SUCCESS;
+}
+
+DEFUN (bgp_maxmed_onpeerstartup,
+        bgp_maxmed_onpeerstartup_cmd,
+        "bgp max-med on-peer-startup (5-86400) [(0-4294967295)]",
+        BGP_STR
+        "Advertise routes with max-med\n"
+        "Effective on a peer startup\n"
+        "Time (seconds) period for max-med\n"
+        "Max MED value to be used\n")
+{
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
+  int idx = 0;
+  struct peer *peer;
+  struct listnode *node, *nnode;
+
+  if (bgp->v_maxmed_onstartup != BGP_MAXMED_ONSTARTUP_UNCONFIGURED) {
+        vty_out(vty,
+                "%%Failed: confict with exist max-med on-startup configure!\n");
+        return CMD_WARNING_CONFIG_FAILED;
+  }
+
+  argv_find(argv, argc, "(5-86400)", &idx);
+  bgp->maxmed_perpeer_onstartup_time = strtoul(argv[idx]->arg, NULL, 10);
+  if (argv_find(argv, argc, "(0-4294967295)", &idx))
+        bgp->maxmed_perpeer_onstartup_value = strtoul(argv[idx]->arg, NULL, 10);
+  else
+        bgp->maxmed_perpeer_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
+
+  for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+        bgp_peer_maxmed_update(peer);
+  }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_maxmed_onpeerstartup,
+        no_bgp_maxmed_onpeerstartup_cmd,
+        "no bgp max-med on-peer-startup [(5-86400) [(0-4294967295)]]",
+        NO_STR
+        BGP_STR
+        "Advertise routes with max-med\n"
+        "Effective on a peer startup\n"
+        "Time (seconds) period for max-med\n"
+        "Max MED value to be used\n")
+{
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
+  struct peer *peer;
+  struct listnode *node, *nnode;
+
+  bgp->maxmed_perpeer_onstartup_time = BGP_MAXMED_PERPEER_ONSTARTUP_TIME_DEFAULT;
+  bgp->maxmed_perpeer_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
+
+  for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+        /* Cancel max-med onpeerstartup if its on */
+        if (peer->t_peerstartup) {
+                THREAD_TIMER_OFF(peer->t_peerstartup);
+         }
+         peer->maxmed_perpeer_active = 0;
+         bgp_peer_maxmed_update(peer);
+  }
+
+  return CMD_SUCCESS;
 }
 
 static int bgp_update_delay_config_vty(struct vty *vty, const char *delay,
@@ -13065,6 +13134,8 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_maxmed_admin_medv_cmd);
 	install_element(BGP_NODE, &bgp_maxmed_onstartup_cmd);
 	install_element(BGP_NODE, &no_bgp_maxmed_onstartup_cmd);
+        install_element(BGP_NODE, &bgp_maxmed_onpeerstartup_cmd);
+        install_element(BGP_NODE, &no_bgp_maxmed_onpeerstartup_cmd);
 
 	/* bgp disable-ebgp-connected-nh-check */
 	install_element(BGP_NODE, &bgp_disable_connected_route_check_cmd);

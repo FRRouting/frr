@@ -687,7 +687,7 @@ int subgroup_packets_to_build(struct update_subgroup *subgrp)
 }
 
 /* Make BGP update packet.  */
-struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
+struct bpacket *subgroup_update_packet(struct peer_af *paf)
 {
 	struct bpacket_attr_vec_arr vecarr;
 	struct bpacket *pkt;
@@ -716,6 +716,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	struct prefix_rd *prd = NULL;
 	mpls_label_t label = MPLS_INVALID_LABEL, *label_pnt = NULL;
 	uint32_t num_labels = 0;
+	struct update_subgroup *subgrp = PAF_SUBGRP(paf);
 
 	if (!subgrp)
 		return NULL;
@@ -787,7 +788,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			 * attr. */
 			total_attr_len = bgp_packet_attribute(
 				NULL, peer, s, adv->baa->attr, &vecarr, NULL,
-				afi, safi, from, NULL, NULL, 0, 0, 0);
+				afi, safi, from, NULL, NULL, 0, 0, 0, paf->peer);
 
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
@@ -1156,7 +1157,7 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	stream_putw(s, 0);
 	total_attr_len = bgp_packet_attribute(
 		NULL, peer, s, attr, &vecarr, &p, afi, safi, from, NULL, NULL,
-		0, addpath_encode, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+		0, addpath_encode, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, NULL);
 
 	/* Set Total Path Attribute Length. */
 	stream_putw_at(s, pos, total_attr_len);

@@ -886,8 +886,8 @@ static void update_subgroup_add_peer(struct update_subgroup *subgrp,
 
 	bpacket_queue_sanity_check(SUBGRP_PKTQ(subgrp));
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
-		zlog_debug("peer %s added to subgroup s%" PRIu64,
-				paf->peer->host, subgrp->id);
+                zlog_debug("update_subgroup_add_peer, peer %d %s added to subgroup s%" PRIu64,
+                        paf->peer, paf->peer->host, subgrp->id);
 }
 
 /*

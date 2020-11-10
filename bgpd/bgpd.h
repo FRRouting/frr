@@ -320,6 +320,10 @@ struct bgp {
 	uint8_t maxmed_active; /* 1/0 if max-med is active or not */
 	uint32_t maxmed_value; /* Max-med value when its active */
 
+        uint32_t maxmed_perpeer_onstartup_time; /* Duration of max-med on perpeer start-up */
+#define BGP_MAXMED_PERPEER_ONSTARTUP_TIME_DEFAULT  0 /* Off by default */
+        u_int32_t maxmed_perpeer_onstartup_value; /* Max-med value when active on perpeer start-up */
+
 	/* BGP update delay on startup */
 	struct thread *t_update_delay;
 	struct thread *t_establish_wait;
@@ -799,6 +803,10 @@ struct peer {
 	time_t uptime;       /* Last Up/Down time */
 	time_t readtime;     /* Last read time */
 	time_t resettime;    /* Last reset time */
+
+        u_char maxmed_perpeer_active;   /* 1/0 if max-med on perpeer is active or not */
+        u_int32_t maxmed_perpeer_value; /* Max-med value when its active */
+        struct thread *t_peerstartup; /* start-up timer on peer beginning */
 
 	char *conf_if;	 /* neighbor interface config name. */
 	struct interface *ifp; /* corresponding interface */

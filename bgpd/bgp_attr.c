@@ -3161,7 +3161,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				struct prefix *p, afi_t afi, safi_t safi,
 				struct peer *from, struct prefix_rd *prd,
 				mpls_label_t *label, uint32_t num_labels,
-				int addpath_encode, uint32_t addpath_tx_id)
+				int addpath_encode, uint32_t addpath_tx_id,
+				struct peer *rt_peer)
 {
 	size_t cp;
 	size_t aspath_sizep;
@@ -3169,6 +3170,11 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	int send_as4_path = 0;
 	int send_as4_aggregator = 0;
 	int use32bit = (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV)) ? 1 : 0;
+
+        if (!rt_peer) {
+                zlog_info("in bgp_packet_attribute, rt_peer is null");
+                rt_peer = peer;
+        }
 
 	if (!bgp)
 		bgp = peer->bgp;
@@ -3300,12 +3306,20 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 
 	/* MED attribute. */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)
-	    || bgp->maxmed_active) {
+	    || bgp->maxmed_active
+	    || rt_peer->maxmed_perpeer_active) {
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_MULTI_EXIT_DISC);
 		stream_putc(s, 4);
-		stream_putl(s, (bgp->maxmed_active ? bgp->maxmed_value
-						   : attr->med));
+                u_int32_t maxmed_value = attr->med;
+                if (rt_peer->maxmed_perpeer_active) {
+                        maxmed_value = rt_peer->maxmed_perpeer_value;
+                } else if (bgp->maxmed_active) {
+                        maxmed_value = bgp->maxmed_value;
+                } else {
+                        maxmed_value = attr->med;
+                }
+                stream_putl(s, maxmed_value);
 	}
 
 	/* Local preference. */

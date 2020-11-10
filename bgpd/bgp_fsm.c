@@ -874,6 +874,73 @@ static void bgp_maxmed_onstartup_process_status_change(struct peer *peer)
 	}
 }
 
+void bgp_peer_maxmed_update(struct peer *peer)
+{
+        u_char maxmed_active;
+        u_int32_t maxmed_value;
+ 
+        if (peer->bgp->v_maxmed_admin) {
+                maxmed_active = 1;
+                maxmed_value = peer->bgp->maxmed_admin_value;
+        }
+        else if (peer->t_peerstartup) {
+                maxmed_active = 1;
+                maxmed_value = peer->bgp->maxmed_perpeer_onstartup_value;
+        } else {
+                maxmed_active = 0;
+                maxmed_value = BGP_MAXMED_VALUE_DEFAULT;
+        }
+
+       if (peer->maxmed_perpeer_active != maxmed_active
+                || peer->maxmed_perpeer_value != maxmed_value) {
+                peer->maxmed_perpeer_active = maxmed_active;
+                peer->maxmed_perpeer_value = maxmed_value;
+                bgp_announce_peer(peer);
+        }
+}
+
+static int bgp_maxmed_onpeerstartup_timer(struct thread *thread)
+{
+        struct peer *peer;
+
+        zlog_info("Max med on peer startup ended - timer expired.");
+
+        peer = THREAD_ARG(thread);
+        THREAD_TIMER_OFF(peer->t_peerstartup);
+
+        bgp_peer_maxmed_update(peer);
+
+        return 0;
+}
+
+static void bgp_maxmed_onpeerstartup_begin(struct peer *peer)
+{
+        zlog_info("Begin maxmed onpeerstartup mode - timer %d seconds",
+                  peer->bgp->maxmed_perpeer_onstartup_time);
+
+        if (peer->t_peerstartup) {
+                THREAD_TIMER_OFF(peer->t_peerstartup);
+        }
+
+        thread_add_timer(bm->master, bgp_maxmed_onpeerstartup_timer, peer,
+                peer->bgp->maxmed_perpeer_onstartup_time, &peer->t_peerstartup);
+
+        peer->maxmed_perpeer_active = 1;
+        peer->maxmed_perpeer_value = peer->bgp->maxmed_perpeer_onstartup_value;
+
+        /* peer MED is set in vtysh command
+         * peer MED is set into UPDATE bgp_packet_attribute()
+         * Route announce to all peers should happen after this in
+         * bgp_establish() */
+ }
+
+static void bgp_maxmed_onpeerstartup_process_status_change(struct peer *peer)
+ {
+        if (peer->status == Established) {
+                bgp_maxmed_onpeerstartup_begin(peer);
+        }
+}
+
 /* The update delay timer expiry callback. */
 static int bgp_update_delay_timer(struct thread *thread)
 {
@@ -1033,6 +1100,8 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 		if (bgp_maxmed_onstartup_configured(peer->bgp)
 		    && bgp_maxmed_onstartup_applicable(peer->bgp))
 			bgp_maxmed_onstartup_process_status_change(peer);
+                else if (peer->bgp->maxmed_perpeer_onstartup_time > 0)
+                        bgp_maxmed_onpeerstartup_process_status_change(peer);
 		else
 			peer->bgp->maxmed_onstartup_over = 1;
 	}
