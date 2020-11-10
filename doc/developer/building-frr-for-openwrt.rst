@@ -51,7 +51,7 @@ to work and it may be needed to run a ``make`` for the entire build
 environment. Add ``V=s`` to get more debugging output.
 
 More information about OpenWrt buildsystem can be found `here
-<https://openwrt.org/docs/guide-developer/build-system/use-buildsystem>`_.
+<https://openwrt.org/docs/guide-developer/build-system/use-buildsystem>`__.
 
 Work with sources
 -----------------
@@ -59,7 +59,7 @@ Work with sources
 To update to a newer version, or change other options, you need to edit the ``feeds/packages/frr/Makefile``.
 
 More information about working with patches in OpenWrt buildsystem can be found `here
-<https://openwrt.org/docs/guide-developer/build-system/use-patches-with-buildsystem>`_.
+<https://openwrt.org/docs/guide-developer/build-system/use-patches-with-buildsystem>`__.
 
 Usage
 -----
