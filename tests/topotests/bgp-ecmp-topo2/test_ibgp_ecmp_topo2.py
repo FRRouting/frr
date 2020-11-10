@@ -293,6 +293,10 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
         input_dict_1 = {"r3": {"static_routes": [{"network": NETWORK[addr_type]}]}}
 
         logger.info("Verifying %s routes on r3", addr_type)
+
+        # Test only the count of nexthops, not the specific nexthop addresses -
+        # they're not deterministic
+        #
         result = verify_rib(
             tgen,
             addr_type,
@@ -300,7 +304,9 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
             input_dict_1,
             next_hop=NEXT_HOPS[addr_type][: int(ecmp_num)],
             protocol=protocol,
+            count_only=True
         )
+
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
