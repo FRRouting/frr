@@ -996,7 +996,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 		(oi->thread_send_lsack ? "on" : "off"));
 	for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
 		vty_out(vty, "      %s\n", lsa->name);
-	ospf6_bfd_show_info(vty, oi->bfd_info, 1);
+	ospf6_bfd_show_info(vty, oi->bfd_info, 1, NULL, false);
 	return 0;
 }
 

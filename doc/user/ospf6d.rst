@@ -179,10 +179,11 @@ Showing OSPF6 information
 
    To see OSPF interface configuration like costs.
 
-.. index:: show ipv6 ospf6 neighbor
-.. clicmd:: show ipv6 ospf6 neighbor
+.. index:: show ipv6 ospf6 neighbor [json]
+.. clicmd:: show ipv6 ospf6 neighbor [json]
 
-   Shows state and chosen (Backup) DR of neighbor.
+   Shows state and chosen (Backup) DR of neighbor. JSON output can be
+   obtained by appending 'json' at the end.
 
 .. index:: show ipv6 ospf6 request-list A.B.C.D
 .. clicmd:: show ipv6 ospf6 request-list A.B.C.D

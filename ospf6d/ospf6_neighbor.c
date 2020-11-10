@@ -44,6 +44,7 @@
 #include "ospf6_lsa.h"
 #include "ospf6_spf.h"
 #include "ospf6_zebra.h"
+#include "lib/json.h"
 
 DEFINE_HOOK(ospf6_neighbor_change,
 	    (struct ospf6_neighbor * on, int state, int next_state),
@@ -595,7 +596,8 @@ int inactivity_timer(struct thread *thread)
 
 /* vty functions */
 /* show neighbor structure */
-static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on)
+static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
+				json_object *json_array, bool use_json)
 {
 	char router_id[16];
 	char duration[64];
@@ -603,6 +605,7 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on)
 	char nstate[16];
 	char deadtime[64];
 	long h, m, s;
+	json_object *json_route;
 
 	/* Router-ID (Name) */
 	inet_ntop(AF_INET, &on->router_id, router_id, sizeof(router_id));
@@ -641,23 +644,43 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on)
 
 	/*
 	vty_out (vty, "%-15s %3d %11s %6s/%-12s %11s %s[%s]\n",
-		 "Neighbor ID", "Pri", "DeadTime", "State", "", "Duration",
-		 "I/F", "State");
+		 "Neighbor ID", "Pri", "DeadTime", "State", "IfState",
+	"Duration", "I/F", "State");
 	*/
+	if (use_json) {
+		json_route = json_object_new_object();
 
-	vty_out(vty, "%-15s %3d %11s %8s/%-12s %11s %s[%s]\n", router_id,
-		on->priority, deadtime, ospf6_neighbor_state_str[on->state],
-		nstate, duration, on->ospf6_if->interface->name,
-		ospf6_interface_state_str[on->ospf6_if->state]);
+		json_object_string_add(json_route, "neighborId", router_id);
+		json_object_int_add(json_route, "priority", on->priority);
+		json_object_string_add(json_route, "deadTime", deadtime);
+		json_object_string_add(json_route, "state",
+				       ospf6_neighbor_state_str[on->state]);
+		json_object_string_add(json_route, "ifState", nstate);
+		json_object_string_add(json_route, "duration", duration);
+		json_object_string_add(json_route, "interfaceName",
+				       on->ospf6_if->interface->name);
+		json_object_string_add(
+			json_route, "interfaceState",
+			ospf6_interface_state_str[on->ospf6_if->state]);
+
+		json_object_array_add(json_array, json_route);
+	} else
+		vty_out(vty, "%-15s %3d %11s %8s/%-12s %11s %s[%s]\n",
+			router_id, on->priority, deadtime,
+			ospf6_neighbor_state_str[on->state], nstate, duration,
+			on->ospf6_if->interface->name,
+			ospf6_interface_state_str[on->ospf6_if->state]);
 }
 
 static void ospf6_neighbor_show_drchoice(struct vty *vty,
-					 struct ospf6_neighbor *on)
+					 struct ospf6_neighbor *on,
+					 json_object *json_array, bool use_json)
 {
 	char router_id[16];
 	char drouter[16], bdrouter[16];
 	char duration[64];
 	struct timeval now, res;
+	json_object *json_route;
 
 	/*
 	    vty_out (vty, "%-15s %6s/%-11s %-15s %-15s %s[%s]\n",
@@ -673,19 +696,39 @@ static void ospf6_neighbor_show_drchoice(struct vty *vty,
 	timersub(&now, &on->last_changed, &res);
 	timerstring(&res, duration, sizeof(duration));
 
-	vty_out(vty, "%-15s %8s/%-11s %-15s %-15s %s[%s]\n", router_id,
-		ospf6_neighbor_state_str[on->state], duration, drouter,
-		bdrouter, on->ospf6_if->interface->name,
-		ospf6_interface_state_str[on->ospf6_if->state]);
+	if (use_json) {
+		json_route = json_object_new_object();
+		json_object_string_add(json_route, "routerId", router_id);
+		json_object_string_add(json_route, "state",
+				       ospf6_neighbor_state_str[on->state]);
+		json_object_string_add(json_route, "duration", duration);
+		json_object_string_add(json_route, "dRouter", drouter);
+		json_object_string_add(json_route, "bdRouter", bdrouter);
+		json_object_string_add(json_route, "interfaceName",
+				       on->ospf6_if->interface->name);
+		json_object_string_add(
+			json_route, "interfaceState",
+			ospf6_interface_state_str[on->ospf6_if->state]);
+
+		json_object_array_add(json_array, json_route);
+	} else
+		vty_out(vty, "%-15s %8s/%-11s %-15s %-15s %s[%s]\n", router_id,
+			ospf6_neighbor_state_str[on->state], duration, drouter,
+			bdrouter, on->ospf6_if->interface->name,
+			ospf6_interface_state_str[on->ospf6_if->state]);
 }
 
 static void ospf6_neighbor_show_detail(struct vty *vty,
-				       struct ospf6_neighbor *on)
+				       struct ospf6_neighbor *on,
+				       json_object *json, bool use_json)
 {
 	char drouter[16], bdrouter[16];
 	char linklocal_addr[64], duration[32];
 	struct timeval now, res;
 	struct ospf6_lsa *lsa, *lsanext;
+	json_object *json_neighbor;
+	json_object *json_array;
+	char db_desc_str[20];
 
 	inet_ntop(AF_INET6, &on->linklocal_addr, linklocal_addr,
 		  sizeof(linklocal_addr));
@@ -696,149 +739,333 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 	timersub(&now, &on->last_changed, &res);
 	timerstring(&res, duration, sizeof(duration));
 
-	vty_out(vty, " Neighbor %s\n", on->name);
-	vty_out(vty, "    Area %s via interface %s (ifindex %d)\n",
-		on->ospf6_if->area->name, on->ospf6_if->interface->name,
-		on->ospf6_if->interface->ifindex);
-	vty_out(vty, "    His IfIndex: %d Link-local address: %s\n",
-		on->ifindex, linklocal_addr);
-	vty_out(vty, "    State %s for a duration of %s\n",
-		ospf6_neighbor_state_str[on->state], duration);
-	vty_out(vty, "    His choice of DR/BDR %s/%s, Priority %d\n", drouter,
-		bdrouter, on->priority);
-	vty_out(vty, "    DbDesc status: %s%s%s SeqNum: %#lx\n",
-		(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT) ? "Initial "
-								: ""),
-		(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT) ? "More " : ""),
-		(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT) ? "Master"
-								 : "Slave"),
-		(unsigned long)ntohl(on->dbdesc_seqnum));
+	if (use_json) {
+		json_neighbor = json_object_new_object();
+		json_object_string_add(json_neighbor, "area",
+				       on->ospf6_if->area->name);
+		json_object_string_add(json_neighbor, "interface",
+				       on->ospf6_if->interface->name);
+		json_object_int_add(json_neighbor, "interfaceIndex",
+				    on->ospf6_if->interface->ifindex);
+		json_object_int_add(json_neighbor, "neighborInterfaceIndex",
+				    on->ifindex);
+		json_object_string_add(json_neighbor, "linkLocalAddress",
+				       linklocal_addr);
+		json_object_string_add(json_neighbor, "neighborState",
+				       ospf6_neighbor_state_str[on->state]);
+		json_object_string_add(json_neighbor, "neighborStateDuration",
+				       duration);
+		json_object_string_add(json_neighbor, "neighborDRouter",
+				       drouter);
+		json_object_string_add(json_neighbor, "neighborBdRouter",
+				       bdrouter);
+		snprintf(db_desc_str, sizeof(db_desc_str), "%s%s%s",
+			 (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)
+				  ? "Initial "
+				  : ""),
+			 (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT)
+				  ? "More"
+				  : ""),
+			 (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT)
+				  ? "Master"
+				  : "Slave"));
+		json_object_string_add(json_neighbor, "dbDescStatus",
+				       db_desc_str);
 
-	vty_out(vty, "    Summary-List: %d LSAs\n", on->summary_list->count);
-	for (ALL_LSDB(on->summary_list, lsa, lsanext))
-		vty_out(vty, "      %s\n", lsa->name);
+		json_object_int_add(json_neighbor, "dbDescSeqNumber",
+				    (unsigned long)ntohl(on->dbdesc_seqnum));
 
-	vty_out(vty, "    Request-List: %d LSAs\n", on->request_list->count);
-	for (ALL_LSDB(on->request_list, lsa, lsanext))
-		vty_out(vty, "      %s\n", lsa->name);
+		json_array = json_object_new_array();
+		json_object_int_add(json_neighbor, "summaryListCount",
+				    on->summary_list->count);
+		for (ALL_LSDB(on->summary_list, lsa, lsanext))
+			json_object_array_add(
+				json_array, json_object_new_string(lsa->name));
+		json_object_object_add(json_neighbor, "summaryListLsa",
+				       json_array);
 
-	vty_out(vty, "    Retrans-List: %d LSAs\n", on->retrans_list->count);
-	for (ALL_LSDB(on->retrans_list, lsa, lsanext))
-		vty_out(vty, "      %s\n", lsa->name);
+		json_array = json_object_new_array();
+		json_object_int_add(json_neighbor, "requestListCount",
+				    on->request_list->count);
+		for (ALL_LSDB(on->request_list, lsa, lsanext))
+			json_object_array_add(
+				json_array, json_object_new_string(lsa->name));
+		json_object_object_add(json_neighbor, "requestListLsa",
+				       json_array);
 
-	timerclear(&res);
-	if (on->thread_send_dbdesc)
-		timersub(&on->thread_send_dbdesc->u.sands, &now, &res);
-	timerstring(&res, duration, sizeof(duration));
-	vty_out(vty, "    %d Pending LSAs for DbDesc in Time %s [thread %s]\n",
-		on->dbdesc_list->count, duration,
-		(on->thread_send_dbdesc ? "on" : "off"));
-	for (ALL_LSDB(on->dbdesc_list, lsa, lsanext))
-		vty_out(vty, "      %s\n", lsa->name);
+		json_array = json_object_new_array();
+		json_object_int_add(json_neighbor, "reTransListCount",
+				    on->retrans_list->count);
+		for (ALL_LSDB(on->retrans_list, lsa, lsanext))
+			json_object_array_add(
+				json_array, json_object_new_string(lsa->name));
+		json_object_object_add(json_neighbor, "reTransListLsa",
+				       json_array);
 
-	timerclear(&res);
-	if (on->thread_send_lsreq)
-		timersub(&on->thread_send_lsreq->u.sands, &now, &res);
-	timerstring(&res, duration, sizeof(duration));
-	vty_out(vty, "    %d Pending LSAs for LSReq in Time %s [thread %s]\n",
-		on->request_list->count, duration,
-		(on->thread_send_lsreq ? "on" : "off"));
-	for (ALL_LSDB(on->request_list, lsa, lsanext))
-		vty_out(vty, "      %s\n", lsa->name);
 
-	timerclear(&res);
-	if (on->thread_send_lsupdate)
-		timersub(&on->thread_send_lsupdate->u.sands, &now, &res);
-	timerstring(&res, duration, sizeof(duration));
-	vty_out(vty,
-		"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
-		on->lsupdate_list->count, duration,
-		(on->thread_send_lsupdate ? "on" : "off"));
-	for (ALL_LSDB(on->lsupdate_list, lsa, lsanext))
-		vty_out(vty, "      %s\n", lsa->name);
+		timerclear(&res);
+		if (on->thread_send_dbdesc)
+			timersub(&on->thread_send_dbdesc->u.sands, &now, &res);
+		timerstring(&res, duration, sizeof(duration));
+		json_object_int_add(json_neighbor, "pendingLsaDbDescCount",
+				    on->dbdesc_list->count);
+		json_object_string_add(json_neighbor, "pendingLsaDbDescTime",
+				       duration);
+		json_object_string_add(json_neighbor, "dbDescSendThread",
+				       (on->thread_send_dbdesc ? "on" : "off"));
+		json_array = json_object_new_array();
+		for (ALL_LSDB(on->dbdesc_list, lsa, lsanext))
+			json_object_array_add(
+				json_array, json_object_new_string(lsa->name));
+		json_object_object_add(json_neighbor, "pendingLsaDbDesc",
+				       json_array);
 
-	timerclear(&res);
-	if (on->thread_send_lsack)
-		timersub(&on->thread_send_lsack->u.sands, &now, &res);
-	timerstring(&res, duration, sizeof(duration));
-	vty_out(vty, "    %d Pending LSAs for LSAck in Time %s [thread %s]\n",
-		on->lsack_list->count, duration,
-		(on->thread_send_lsack ? "on" : "off"));
-	for (ALL_LSDB(on->lsack_list, lsa, lsanext))
-		vty_out(vty, "      %s\n", lsa->name);
+		timerclear(&res);
+		if (on->thread_send_lsreq)
+			timersub(&on->thread_send_lsreq->u.sands, &now, &res);
+		timerstring(&res, duration, sizeof(duration));
+		json_object_int_add(json_neighbor, "pendingLsaLsReqCount",
+				    on->request_list->count);
+		json_object_string_add(json_neighbor, "pendingLsaLsReqTime",
+				       duration);
+		json_object_string_add(json_neighbor, "lsReqSendThread",
+				       (on->thread_send_lsreq ? "on" : "off"));
+		json_array = json_object_new_array();
+		for (ALL_LSDB(on->request_list, lsa, lsanext))
+			json_object_array_add(
+				json_array, json_object_new_string(lsa->name));
+		json_object_object_add(json_neighbor, "pendingLsaLsReq",
+				       json_array);
 
-	ospf6_bfd_show_info(vty, on->bfd_info, 0);
+
+		timerclear(&res);
+		if (on->thread_send_lsupdate)
+			timersub(&on->thread_send_lsupdate->u.sands, &now,
+				 &res);
+		timerstring(&res, duration, sizeof(duration));
+		json_object_int_add(json_neighbor, "pendingLsaLsUpdateCount",
+				    on->lsupdate_list->count);
+		json_object_string_add(json_neighbor, "pendingLsaLsUpdateTime",
+				       duration);
+		json_object_string_add(
+			json_neighbor, "lsUpdateSendThread",
+			(on->thread_send_lsupdate ? "on" : "off"));
+		json_array = json_object_new_array();
+		for (ALL_LSDB(on->lsupdate_list, lsa, lsanext))
+			json_object_array_add(
+				json_array, json_object_new_string(lsa->name));
+		json_object_object_add(json_neighbor, "pendingLsaLsUpdate",
+				       json_array);
+
+		timerclear(&res);
+		if (on->thread_send_lsack)
+			timersub(&on->thread_send_lsack->u.sands, &now, &res);
+		timerstring(&res, duration, sizeof(duration));
+		json_object_int_add(json_neighbor, "pendingLsaLsAckCount",
+				    on->lsack_list->count);
+		json_object_string_add(json_neighbor, "pendingLsaLsAckTime",
+				       duration);
+		json_object_string_add(json_neighbor, "lsAckSendThread",
+				       (on->thread_send_lsack ? "on" : "off"));
+		json_array = json_object_new_array();
+		for (ALL_LSDB(on->lsack_list, lsa, lsanext))
+			json_object_array_add(
+				json_array, json_object_new_string(lsa->name));
+		json_object_object_add(json_neighbor, "pendingLsaLsAck",
+				       json_array);
+
+		ospf6_bfd_show_info(vty, on->bfd_info, 0, json_neighbor,
+				    use_json);
+
+		json_object_object_add(json, on->name, json_neighbor);
+
+
+	} else {
+		vty_out(vty, " Neighbor %s\n", on->name);
+		vty_out(vty, "    Area %s via interface %s (ifindex %d)\n",
+			on->ospf6_if->area->name, on->ospf6_if->interface->name,
+			on->ospf6_if->interface->ifindex);
+		vty_out(vty, "    His IfIndex: %d Link-local address: %s\n",
+			on->ifindex, linklocal_addr);
+		vty_out(vty, "    State %s for a duration of %s\n",
+			ospf6_neighbor_state_str[on->state], duration);
+		vty_out(vty, "    His choice of DR/BDR %s/%s, Priority %d\n",
+			drouter, bdrouter, on->priority);
+		vty_out(vty, "    DbDesc status: %s%s%s SeqNum: %#lx\n",
+			(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)
+				 ? "Initial "
+				 : ""),
+			(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT)
+				 ? "More "
+				 : ""),
+			(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT)
+				 ? "Master"
+				 : "Slave"),
+			(unsigned long)ntohl(on->dbdesc_seqnum));
+
+		vty_out(vty, "    Summary-List: %d LSAs\n",
+			on->summary_list->count);
+		for (ALL_LSDB(on->summary_list, lsa, lsanext))
+			vty_out(vty, "      %s\n", lsa->name);
+
+		vty_out(vty, "    Request-List: %d LSAs\n",
+			on->request_list->count);
+		for (ALL_LSDB(on->request_list, lsa, lsanext))
+			vty_out(vty, "      %s\n", lsa->name);
+
+		vty_out(vty, "    Retrans-List: %d LSAs\n",
+			on->retrans_list->count);
+		for (ALL_LSDB(on->retrans_list, lsa, lsanext))
+			vty_out(vty, "      %s\n", lsa->name);
+
+		timerclear(&res);
+		if (on->thread_send_dbdesc)
+			timersub(&on->thread_send_dbdesc->u.sands, &now, &res);
+		timerstring(&res, duration, sizeof(duration));
+		vty_out(vty,
+			"    %d Pending LSAs for DbDesc in Time %s [thread %s]\n",
+			on->dbdesc_list->count, duration,
+			(on->thread_send_dbdesc ? "on" : "off"));
+		for (ALL_LSDB(on->dbdesc_list, lsa, lsanext))
+			vty_out(vty, "      %s\n", lsa->name);
+
+		timerclear(&res);
+		if (on->thread_send_lsreq)
+			timersub(&on->thread_send_lsreq->u.sands, &now, &res);
+		timerstring(&res, duration, sizeof(duration));
+		vty_out(vty,
+			"    %d Pending LSAs for LSReq in Time %s [thread %s]\n",
+			on->request_list->count, duration,
+			(on->thread_send_lsreq ? "on" : "off"));
+		for (ALL_LSDB(on->request_list, lsa, lsanext))
+			vty_out(vty, "      %s\n", lsa->name);
+
+		timerclear(&res);
+		if (on->thread_send_lsupdate)
+			timersub(&on->thread_send_lsupdate->u.sands, &now,
+				 &res);
+		timerstring(&res, duration, sizeof(duration));
+		vty_out(vty,
+			"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
+			on->lsupdate_list->count, duration,
+			(on->thread_send_lsupdate ? "on" : "off"));
+		for (ALL_LSDB(on->lsupdate_list, lsa, lsanext))
+			vty_out(vty, "      %s\n", lsa->name);
+
+		timerclear(&res);
+		if (on->thread_send_lsack)
+			timersub(&on->thread_send_lsack->u.sands, &now, &res);
+		timerstring(&res, duration, sizeof(duration));
+		vty_out(vty,
+			"    %d Pending LSAs for LSAck in Time %s [thread %s]\n",
+			on->lsack_list->count, duration,
+			(on->thread_send_lsack ? "on" : "off"));
+		for (ALL_LSDB(on->lsack_list, lsa, lsanext))
+			vty_out(vty, "      %s\n", lsa->name);
+
+		ospf6_bfd_show_info(vty, on->bfd_info, 0, NULL, use_json);
+	}
 }
 
 DEFUN (show_ipv6_ospf6_neighbor,
        show_ipv6_ospf6_neighbor_cmd,
-       "show ipv6 ospf6 neighbor [<detail|drchoice>]",
+       "show ipv6 ospf6 neighbor [<detail|drchoice>] [json]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        "Neighbor list\n"
        "Display details\n"
-       "Display DR choices\n")
+       "Display DR choices\n"
+       JSON_STR)
 {
 	int idx_type = 4;
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
 	struct listnode *i, *j, *k;
-	void (*showfunc)(struct vty *, struct ospf6_neighbor *);
 	struct ospf6 *ospf6;
+	json_object *json = NULL;
+	json_object *json_array = NULL;
+	bool uj = use_json(argc, argv);
+	void (*showfunc)(struct vty *, struct ospf6_neighbor *,
+			 json_object *json, bool use_json);
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
 	showfunc = ospf6_neighbor_show;
 
-	if (argc == 5) {
+	if ((uj && argc == 6) || (!uj && argc == 5)) {
 		if (!strncmp(argv[idx_type]->arg, "de", 2))
 			showfunc = ospf6_neighbor_show_detail;
 		else if (!strncmp(argv[idx_type]->arg, "dr", 2))
 			showfunc = ospf6_neighbor_show_drchoice;
 	}
 
-	if (showfunc == ospf6_neighbor_show)
-		vty_out(vty, "%-15s %3s %11s %8s/%-12s %11s %s[%s]\n",
-			"Neighbor ID", "Pri", "DeadTime", "State", "IfState",
-			"Duration", "I/F", "State");
-	else if (showfunc == ospf6_neighbor_show_drchoice)
-		vty_out(vty, "%-15s %8s/%-11s %-15s %-15s %s[%s]\n", "RouterID",
-			"State", "Duration", "DR", "BDR", "I/F", "State");
+	if (uj) {
+		json = json_object_new_object();
+		json_array = json_object_new_array();
+	} else {
+		if (showfunc == ospf6_neighbor_show)
+			vty_out(vty, "%-15s %3s %11s %8s/%-12s %11s %s[%s]\n",
+				"Neighbor ID", "Pri", "DeadTime", "State",
+				"IfState", "Duration", "I/F", "State");
+		else if (showfunc == ospf6_neighbor_show_drchoice)
+			vty_out(vty, "%-15s %8s/%-11s %-15s %-15s %s[%s]\n",
+				"RouterID", "State", "Duration", "DR", "BDR",
+				"I/F", "State");
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa))
 		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi))
-			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, k, on))
-				(*showfunc)(vty, on);
+			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, k, on)) {
+				if (showfunc == ospf6_neighbor_show_detail)
+					(*showfunc)(vty, on, json, uj);
+				else
+					(*showfunc)(vty, on, json_array, uj);
+			}
 
+	if (uj) {
+		if (showfunc != ospf6_neighbor_show_detail)
+			json_object_object_add(json, "neighbors", json_array);
+		else
+			json_object_free(json_array);
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 	return CMD_SUCCESS;
 }
 
 
 DEFUN (show_ipv6_ospf6_neighbor_one,
        show_ipv6_ospf6_neighbor_one_cmd,
-       "show ipv6 ospf6 neighbor A.B.C.D",
+       "show ipv6 ospf6 neighbor A.B.C.D [json]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        "Neighbor list\n"
        "Specify Router-ID as IPv4 address notation\n"
-      )
+       JSON_STR)
 {
 	int idx_ipv4 = 4;
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
 	struct listnode *i, *j, *k;
-	void (*showfunc)(struct vty *, struct ospf6_neighbor *);
+	void (*showfunc)(struct vty *, struct ospf6_neighbor *,
+			 json_object *json, bool use_json);
 	uint32_t router_id;
 	struct ospf6 *ospf6;
+	json_object *json = NULL;
+	bool uj = use_json(argc, argv);
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
 	showfunc = ospf6_neighbor_show_detail;
+	if (uj)
+		json = json_object_new_object();
 
 	if ((inet_pton(AF_INET, argv[idx_ipv4]->arg, &router_id)) != 1) {
 		vty_out(vty, "Router-ID is not parsable: %s\n",
@@ -849,8 +1076,15 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa))
 		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi))
 			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, k, on))
-				(*showfunc)(vty, on);
+				(*showfunc)(vty, on, json, uj);
 
+
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 	return CMD_SUCCESS;
 }
 
