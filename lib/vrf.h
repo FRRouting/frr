@@ -43,7 +43,7 @@ enum { IFLA_VRF_UNSPEC, IFLA_VRF_TABLE, __IFLA_VRF_MAX };
 #endif
 
 #define VRF_NAMSIZ      36
-#define NS_NAMSIZ       16
+#define NS_NAMSIZ 36
 
 /*
  * The command strings
