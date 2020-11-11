@@ -38,6 +38,10 @@ static void zebra_stable_node_cleanup(struct route_table *table,
 	struct static_nexthop *nh;
 	struct static_path *pn;
 	struct static_route_info *si;
+	struct route_table *src_table;
+	struct route_node *src_node;
+	struct static_path *src_pn;
+	struct static_route_info *src_si;
 
 	si = node->info;
 
@@ -51,6 +55,37 @@ static void zebra_stable_node_cleanup(struct route_table *table,
 			static_path_list_del(&si->path_list, pn);
 			XFREE(MTYPE_STATIC_PATH, pn);
 		}
+
+		/* clean up for dst table */
+		src_table = srcdest_srcnode_table(node);
+		if (src_table) {
+			/* This means the route_node is part of the top
+			 * hierarchy and refers to a destination prefix.
+			 */
+			for (src_node = route_top(src_table); src_node;
+			     src_node = route_next(src_node)) {
+				src_si = src_node->info;
+
+				frr_each_safe(static_path_list,
+					      &src_si->path_list, src_pn) {
+					frr_each_safe(static_nexthop_list,
+						      &src_pn->nexthop_list,
+						      nh) {
+						static_nexthop_list_del(
+							&src_pn->nexthop_list,
+							nh);
+						XFREE(MTYPE_STATIC_NEXTHOP, nh);
+					}
+					static_path_list_del(&src_si->path_list,
+							     src_pn);
+					XFREE(MTYPE_STATIC_PATH, src_pn);
+				}
+
+				XFREE(MTYPE_STATIC_ROUTE, src_node->info);
+			}
+		}
+
+		XFREE(MTYPE_STATIC_ROUTE, node->info);
 	}
 }
 
