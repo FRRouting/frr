@@ -1301,6 +1301,12 @@ def compare_context_objects(newconf, running):
             ):
                 continue
 
+            # same thing for a pseudowire sub-context inside an l2vpn context
+            elif (len(running_ctx_keys) > 1 and running_ctx_keys[0].startswith('l2vpn') and
+                  running_ctx_keys[1].startswith('member pseudowire') and
+                  (running_ctx_keys[:1], None) in lines_to_del):
+                continue
+
             # Non-global context
             elif running_ctx_keys and not any(
                 "address-family" in key for key in running_ctx_keys
