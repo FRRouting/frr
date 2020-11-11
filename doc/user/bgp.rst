@@ -955,6 +955,56 @@ Networks
    traditional did not check for existence.  For versions 7.4 and beyond
    both traditional and datacenter the network must exist.
 
+.. _ipv6-support:
+
+IPv6 Support
+------------
+
+.. index:: [no] neighbor A.B.C.D activate
+.. clicmd:: [no] neighbor A.B.C.D activate
+
+   This coonfiguration modifies whether to enable an address family for a
+   specific neighbor. By default only the IPv4 unicast address family is
+   enabled.
+
+   .. code-block:: frr
+
+      router bgp 1
+       address-family ipv6 unicast
+        neighbor 2001:0DB8::1 activate
+        network 2001:0DB8:5009::/64
+       exit-address-family
+
+   This configuration example says that network 2001:0DB8:5009::/64 will be
+   announced and enables the neighbor 2001:0DB8::1 to receive this announcement.
+
+.. index:: [no] bgp default ipv4-unicast
+.. clicmd:: [no] bgp default ipv4-unicast
+
+   By default, only the IPv4 unicast address family is announced to all
+   neighbors. Using the 'no bgp default ipv4-unicast' configuration overrides
+   this default so that all address families need to be enabled explicitly.
+
+   .. code-block:: frr
+
+      router bgp 1
+       no bgp default ipv4-unicast
+       neighbor 10.10.10.1 remote-as 2
+       neighbor 2001:0DB8::1 remote-as 3
+       address-family ipv4 unicast
+        neighbor 10.10.10.1 activate
+        network 192.168.1.0/24
+       exit-address-family
+       address-family ipv6 unicast
+        neighbor 2001:0DB8::1 activate
+        network 2001:0DB8:5009::/64
+       exit-address-family
+
+   This configuration demonstrates how the 'no bgp default ipv4-unicast' might
+   be used in a setup with two upstreams where each of the upstreams should only
+   receive either IPv4 or IPv6 annocuments.
+
+
 .. _bgp-route-aggregation:
 
 Route Aggregation
