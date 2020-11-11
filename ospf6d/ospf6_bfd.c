@@ -37,6 +37,7 @@
 #include "ospf6d.h"
 #include "ospf6_message.h"
 #include "ospf6_neighbor.h"
+#include "ospf6_top.h"
 #include "ospf6_interface.h"
 #include "ospf6_route.h"
 #include "ospf6_zebra.h"

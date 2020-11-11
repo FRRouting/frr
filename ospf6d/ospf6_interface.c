@@ -233,7 +233,7 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 	return oi;
 }
 
-void ospf6_interface_delete(struct ospf6_interface *oi)
+void ospf6_interface_delete(struct ospf6 *ospf6, struct ospf6_interface *oi)
 {
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on;
@@ -260,7 +260,7 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	ospf6_lsdb_delete(oi->lsupdate_list);
 	ospf6_lsdb_delete(oi->lsack_list);
 
-	ospf6_route_table_delete(oi->route_connected, oi->area->ospf6);
+	ospf6_route_table_delete(oi->route_connected, ospf6);
 
 	/* cut link */
 	oi->interface->info = NULL;
