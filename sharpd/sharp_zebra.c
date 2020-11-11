@@ -211,9 +211,10 @@ int sharp_install_lsps_helper(bool install_p, bool update_p,
 		cmd = ZEBRA_MPLS_LABELS_DELETE;
 	}
 
-	ret = zebra_send_mpls_labels(zclient, cmd, &zl);
+	if (zebra_send_mpls_labels(zclient, cmd, &zl) == ZCLIENT_SEND_FAILURE)
+		return -1;
 
-	return ret;
+	return 0;
 }
 
 enum where_to_restart {
@@ -590,7 +591,8 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 			command = ZEBRA_IMPORT_ROUTE_UNREGISTER;
 	}
 
-	if (zclient_send_rnh(zclient, command, p, connected, vrf_id) < 0)
+	if (zclient_send_rnh(zclient, command, p, connected, vrf_id)
+	    == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
 
@@ -776,7 +778,7 @@ void sharp_opaque_send(uint32_t type, uint32_t proto, uint32_t instance,
 			ret = zclient_send_opaque_unicast(zclient, type, proto,
 							  instance, session_id,
 							  buf, sizeof(buf));
-		if (ret < 0) {
+		if (ret == ZCLIENT_SEND_FAILURE) {
 			zlog_debug("%s: send_opaque() failed => %d",
 				   __func__, ret);
 			break;

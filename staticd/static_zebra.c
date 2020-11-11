@@ -331,7 +331,8 @@ void static_zebra_nht_register(struct route_node *rn, struct static_nexthop *nh,
 		static_nht_hash_free(nhtd);
 	}
 
-	if (zclient_send_rnh(zclient, cmd, &p, false, nh->nh_vrf_id) < 0)
+	if (zclient_send_rnh(zclient, cmd, &p, false, nh->nh_vrf_id)
+	    == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
 /*

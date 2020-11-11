@@ -392,8 +392,9 @@ void bgp_lp_get(
 	if (lp_fifo_count(&lp->requests) > lp->pending_count) {
 		if (!zclient || zclient->sock < 0)
 			return;
-		if (!zclient_send_get_label_chunk(zclient, 0, LP_CHUNK_SIZE,
-						  MPLS_LABEL_BASE_ANY))
+		if (zclient_send_get_label_chunk(zclient, 0, LP_CHUNK_SIZE,
+						 MPLS_LABEL_BASE_ANY)
+		    == ZCLIENT_SEND_FAILURE)
 			lp->pending_count += LP_CHUNK_SIZE;
 	}
 }

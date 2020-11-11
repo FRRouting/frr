@@ -3319,7 +3319,7 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 	}
 
 	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
-	    < 0) {
+	    == ZCLIENT_SEND_FAILURE) {
 		zlog_err("error sending capability");
 		ret = BGP_GR_FAILURE;
 	} else {
@@ -3361,7 +3361,7 @@ int bgp_zebra_update(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type)
 	api.cap = type;
 
 	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
-	    < 0) {
+	    == ZCLIENT_SEND_FAILURE) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("error sending capability");
 		return BGP_GR_FAILURE;
@@ -3393,7 +3393,7 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 	api.stale_removal_time = bgp->rib_stale_time;
 	api.vrf_id = bgp->vrf_id;
 	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
-	    < 0) {
+	    == ZCLIENT_SEND_FAILURE) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("error sending capability");
 		return BGP_GR_FAILURE;

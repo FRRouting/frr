@@ -61,7 +61,7 @@ static int zclient_lookup_connect(struct thread *t)
 		zlookup->fail = 0; /* reset counter on connection */
 	}
 
-	if (zclient_send_hello(zlookup) < 0) {
+	if (zclient_send_hello(zlookup) == ZCLIENT_SEND_FAILURE) {
 		if (close(zlookup->sock)) {
 			zlog_warn("%s: closing fd=%d: errno=%d %s", __func__,
 				  zlookup->sock, errno, safe_strerror(errno));
