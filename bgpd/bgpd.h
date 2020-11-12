@@ -460,6 +460,7 @@ struct bgp {
 /* This flag is set if the instance is in administrative shutdown */
 #define BGP_FLAG_SHUTDOWN                 (1 << 27)
 #define BGP_FLAG_SUPPRESS_FIB_PENDING     (1 << 28)
+#define BGP_FLAG_SUPPRESS_DUPLICATES      (1 << 29)
 
 	enum global_mode GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE]
 				      [BGP_GLOBAL_GR_EVENT_CMD];

@@ -119,6 +119,10 @@ FRR_CFG_DEFAULT_BOOL(BGP_EBGP_REQUIRES_POLICY,
 	{ .val_bool = false, .match_version = "< 7.4", },
 	{ .val_bool = true },
 )
+FRR_CFG_DEFAULT_BOOL(BGP_SUPPRESS_DUPLICATES,
+	{ .val_bool = false, .match_version = "< 7.6", },
+	{ .val_bool = true },
+)
 
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
@@ -475,6 +479,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_DETERMINISTIC_MED);
 		if (DFLT_BGP_EBGP_REQUIRES_POLICY)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
+		if (DFLT_BGP_SUPPRESS_DUPLICATES)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_SUPPRESS_DUPLICATES);
 
 		ret = BGP_SUCCESS;
 	}
@@ -864,6 +870,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 			  struct listnode **nnode, enum bgp_clear_type stype)
 {
 	int ret = 0;
+	struct peer_af *paf;
 
 	/* if afi/.safi not specified, spin thru all of them */
 	if ((afi == AFI_UNSPEC) && (safi == SAFI_UNSPEC)) {
@@ -871,6 +878,11 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 		safi_t tmp_safi;
 
 		FOREACH_AFI_SAFI (tmp_afi, tmp_safi) {
+			paf = peer_af_find(peer, tmp_afi, tmp_safi);
+			if (paf && paf->subgroup)
+				SET_FLAG(paf->subgroup->sflags,
+					 SUBGRP_STATUS_FORCE_UPDATES);
+
 			if (!peer->afc[tmp_afi][tmp_safi])
 				continue;
 
@@ -889,6 +901,11 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 			if (!peer->afc[afi][tmp_safi])
 				continue;
 
+			paf = peer_af_find(peer, afi, tmp_safi);
+			if (paf && paf->subgroup)
+				SET_FLAG(paf->subgroup->sflags,
+					 SUBGRP_STATUS_FORCE_UPDATES);
+
 			if (stype == BGP_CLEAR_SOFT_NONE)
 				ret = peer_clear(peer, nnode);
 			else
@@ -899,6 +916,11 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 	} else {
 		if (!peer->afc[afi][safi])
 			return 1;
+
+		paf = peer_af_find(peer, afi, safi);
+		if (paf && paf->subgroup)
+			SET_FLAG(paf->subgroup->sflags,
+				 SUBGRP_STATUS_FORCE_UPDATES);
 
 		if (stype == BGP_CLEAR_SOFT_NONE)
 			ret = peer_clear(peer, nnode);
@@ -2513,6 +2535,37 @@ DEFUN_YANG(no_bgp_always_compare_med,
 		NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_suppress_duplicates,
+	   bgp_suppress_duplicates_cmd,
+	   "bgp suppress-duplicates",
+	   "BGP specific commands\n"
+	   "Suppress duplicate updates if the route actually not changed\n")
+{
+	nb_cli_enqueue_change(vty, "./global/suppress-duplicates",
+			      NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_suppress_duplicates,
+	   no_bgp_suppress_duplicates_cmd,
+	   "no bgp suppress-duplicates",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "Suppress duplicate updates if the route actually not changed\n")
+{
+	nb_cli_enqueue_change(vty, "./global/suppress-duplicates",
+			      NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_router_bgp_suppress_duplicates(struct vty *vty,
+					      struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL) != SAVE_BGP_SUPPRESS_DUPLICATES)
+		vty_out(vty, " bgp suppress-duplicates\n");
 }
 
 DEFUN_YANG(bgp_ebgp_requires_policy,
@@ -16985,6 +17038,16 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->reject_as_sets)
 			vty_out(vty, " bgp reject-as-sets\n");
 
+		/* Suppress duplicate updates if the route actually not changed
+		 */
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)
+		    != SAVE_BGP_SUPPRESS_DUPLICATES)
+			vty_out(vty, " %sbgp suppress-duplicates\n",
+				CHECK_FLAG(bgp->flags,
+					   BGP_FLAG_SUPPRESS_DUPLICATES)
+					? ""
+					: "no ");
+
 		/* BGP default ipv4-unicast. */
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4))
 			vty_out(vty, " no bgp default ipv4-unicast\n");
@@ -17562,6 +17625,10 @@ void bgp_vty_init(void)
 	/* bgp ebgp-requires-policy */
 	install_element(BGP_NODE, &bgp_ebgp_requires_policy_cmd);
 	install_element(BGP_NODE, &no_bgp_ebgp_requires_policy_cmd);
+
+	/* bgp suppress-duplicates */
+	install_element(BGP_NODE, &bgp_suppress_duplicates_cmd);
+	install_element(BGP_NODE, &no_bgp_suppress_duplicates_cmd);
 
 	/* bgp reject-as-sets */
 	install_element(BGP_NODE, &bgp_reject_as_sets_cmd);

@@ -464,6 +464,7 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	struct peer *adv_peer;
 	struct peer_af *paf;
 	struct bgp *bgp;
+	uint32_t attr_hash = attrhash_key_make(attr);
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
@@ -487,6 +488,26 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			return;
 	}
 
+	/* Check if we are sending the same route. This is needed to
+	 * avoid duplicate UPDATES. For instance, filtering communities
+	 * at egress, neighbors will see duplicate UPDATES despite
+	 * the route wasn't changed actually.
+	 * Do not suppress BGP UPDATES for route-refresh.
+	 */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)
+	    && !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES)
+	    && adj->attr_hash == attr_hash) {
+		if (BGP_DEBUG(update, UPDATE_OUT)) {
+			char attr_str[BUFSIZ] = {0};
+
+			bgp_dump_attr(attr, attr_str, sizeof(attr_str));
+
+			zlog_debug("%s suppress UPDATE w/ attr: %s", peer->host,
+				   attr_str);
+		}
+		return;
+	}
+
 	if (adj->adv)
 		bgp_advertise_clean_subgroup(subgrp, adj);
 	adj->adv = bgp_advertise_new();
@@ -502,6 +523,7 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	else
 		adv->baa = baa_new();
 	adv->adj = adj;
+	adj->attr_hash = attr_hash;
 
 	/* Add new advertisement to advertisement attribute list. */
 	bgp_advertise_add(adv->baa, adv);
