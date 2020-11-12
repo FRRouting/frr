@@ -410,6 +410,12 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	struct interface *ifp;
 	rib_dest_t *dest;
 
+	if (IS_ZEBRA_DEBUG_NHT) {
+		zlog_debug("NextHopActive1: re %p re_flags %d set %d nexthop %s type %d flags %u",
+				re, re->flags, set, inet_ntoa(nexthop->gate.ipv4),
+				nexthop->type, nexthop->flags);
+	}
+
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
 	    || nexthop->type == NEXTHOP_TYPE_IPV6)
 		nexthop->ifindex = 0;

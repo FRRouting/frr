@@ -460,6 +460,8 @@ AC_ARG_ENABLE([clippy-only],
   AS_HELP_STRING([--enable-clippy-only], [Only build clippy]))
 AC_ARG_ENABLE([numeric_version],
   AS_HELP_STRING([--enable-numeric-version], [Only numeric digits allowed in version (for Alpine)]))
+AC_ARG_ENABLE([infiotnh],
+  AS_HELP_STRING([--enable-infiotnh], [Enable Infiot Specific overlay NH check]))
 AC_ARG_ENABLE([gcov],
   AS_HELP_STRING([--enable-gcov], [Add code coverage information]))
 AC_ARG_ENABLE(bfdd,
@@ -653,6 +655,26 @@ if test "$enable_protobuf" = "yes"; then
   AC_DEFINE(HAVE_PROTOBUF,, protobuf)
 fi
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$enable_protobuf" = "xyes"])
+
+#
+# Logic for Infiot Overlay NH status support
+# 
+if test "$enable_infiotnh" = "yes"; then
+  have_infiotnh=yes
+else
+  have_infiotnh=no
+fi
+
+if test "x$have_infiotnh" = "xyes"; then
+   AC_DEFINE(ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK,, infiotnh)
+fi
+
+AM_CONDITIONAL([ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK], [test "x$have_infiotnh" = "xyes"])
+
+#
+# End of logic for Infiot NH support.
+#
+
 
 #
 # Logic for old vpn commans support.
@@ -2083,6 +2105,7 @@ group for vty sockets   : ${enable_vty_group}
 config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
 zebra protobuf enabled  : ${enable_protobuf:-no}
+zebra custom nh check   : ${have_infiotnh:-no}
 
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."

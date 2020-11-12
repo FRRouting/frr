@@ -63,6 +63,17 @@ static void copy_state(struct rnh *rnh, struct route_entry *re,
 		t;                                                             \
 	})
 
+#define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+static int check_overlay_nexthop(struct prefix *pp, uint8_t *isreachable);
+DECLARE_HOOK(evaluate_custom_nexthop, (struct prefix *pp, uint8_t *isreachable),
+		(pp, isreachable));
+DEFINE_HOOK(evaluate_custom_nexthop, (struct prefix *pp, uint8_t *isreachable),
+		(pp, isreachable));
+extern struct prefix g_infovlay_prefix;
+extern struct trkr_client *g_infovlay_trkr;
+#endif
+
 static int compare_state(struct route_entry *r1, struct route_entry *r2);
 static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		       vrf_id_t vrf_id);
@@ -75,6 +86,9 @@ int zebra_rnh_ipv6_default_route = 0;
 void zebra_rnh_init(void)
 {
 	hook_register(zserv_client_close, zebra_client_cleanup_rnh);
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+	hook_register(evaluate_custom_nexthop, check_overlay_nexthop);
+#endif
 }
 
 static inline struct route_table *get_rnh_table(vrf_id_t vrfid, int family,
@@ -513,6 +527,58 @@ static void zebra_rnh_process_pbr_tables(int family,
 	}
 }
 
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+#include "tracker_api.h"
+static int check_overlay_nexthop(struct prefix *pp, uint8_t *isreachable)
+{
+	char via[PREFIX2STR_BUFFER];
+	char cntrname[256 + 1];
+
+	*isreachable = 1;
+
+	if (prefix_match(&g_infovlay_prefix, pp) == 0) {
+		return *isreachable;
+	}
+
+	// It is possible that when zebra starts, click has not created the
+	// SHM in which case the client initialization will fail in infnh_init.
+	// retry here
+	if (g_infovlay_trkr == NULL) {
+		trkr_client_create("click.tr", &g_infovlay_trkr);
+		if (g_infovlay_trkr == NULL) {
+			return *isreachable;
+		}
+	}
+	inet_ntop(pp->family, &pp->u.prefix, via, PREFIX2STR_BUFFER);
+	snprintf(cntrname, 256, "overlay.%s", via);
+	const trkr_t *trkr = trkr_client_get_trkr(g_infovlay_trkr, cntrname, 0, 1);
+	if (trkr && trkr->val == 0) {
+		*isreachable = 0;
+	}
+	if (IS_ZEBRA_DEBUG_NHT) {
+		zlog_debug("Infiot via: %s, cntrname %s val %lu", via, cntrname, 
+			trkr == NULL ? 1 : trkr->val);
+	}
+	return *isreachable;
+
+#if 0
+	inet_ntop(pp->family, &pp->u.prefix, via, PREFIX2STR_BUFFER);
+
+	zlog_debug("Infiot via: %s", via);
+	int state = 1;
+	if (strcmp(via, "169.254.1.2") == 0) {
+		FILE *fd = fopen("/tmp/state", "rb");
+		if (fd) {
+			fscanf(fd, "%d", &state);
+			zlog_debug("Infiot via: %s state %d", via, state);
+		}
+	}
+
+	return state;
+#endif
+}
+#endif
+
 /*
  * Determine appropriate route (route entry) resolving a tracked
  * nexthop.
@@ -552,6 +618,24 @@ zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid, int family,
 
 		/* Identify appropriate route entry. */
 		RNODE_FOREACH_RE (rn, re) {
+
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+			//char bufn[INET6_ADDRSTRLEN];
+			//prefix2str(&rn->p, bufn, INET6_ADDRSTRLEN);
+			uint8_t isreachable = 1;
+			//zlog_debug(
+			//	"%u:%s: RNH resolve re %p rn %p re_status=%d re_flags=%d "
+			//	"re_type=%d rnh_flags=%d",
+			//	vrfid, bufn, re, rn, re->status, re->flags, re->type, rnh->flags);
+
+			hook_call(evaluate_custom_nexthop, &nrn->p, &isreachable);
+			if (isreachable == 0) {
+				return NULL;	
+			}
+#endif
+			//if (!check_overlay(NULL, &nrn->p)) {
+			//	return NULL;
+			//}
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 				continue;
 			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))

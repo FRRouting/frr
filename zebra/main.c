@@ -202,6 +202,124 @@ struct quagga_signal_t zebra_signals[] = {
 	},
 };
 
+#define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+#include "tracker_api.h"
+#include "lib/json.h"
+
+void infnh_init(void);
+struct prefix g_infovlay_prefix;
+struct trkr_client *g_infovlay_trkr;
+uint8_t g_infovlay_cfgread = 0;
+#define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CFGPATH "/opt/infiot/etc/config/full.json"
+
+static int infnh_readcfg()
+{
+	int ok = 0;
+	FILE *fp = NULL;
+	ssize_t fsize = 0;
+	char *rawdata = NULL;
+	struct json_object *jsondata = NULL, *dcfg_overlay = NULL;
+	struct json_object *json_ovlay_ipv4 = NULL, *json_ovlay_netmask = NULL;
+
+	zlog_debug("reading infiot config");
+	fp = fopen(ZEBRA_INFIOT_CUSTOM_NEXTHOP_CFGPATH, "rb");
+	if (fp == NULL) {
+		zlog_debug("error reading infiot config file");
+		return ok;
+	}
+
+	fseek(fp, 0, SEEK_END);
+	fsize = ftell(fp);
+	if (fsize == 0) {
+		ok = 0;		
+		goto error;
+	}
+	rewind(fp);
+
+	// rawdata has to be a string (null terminated)
+	rawdata = (char *)calloc(1, (fsize + 1));
+	if (rawdata == NULL) {
+		ok = 0;
+		goto error;
+	}
+
+	fread(rawdata, 1, fsize, fp);
+	//zlog_debug("infiot rawdata %s", rawdata);
+	jsondata = json_tokener_parse(rawdata);
+	if (jsondata == NULL) {
+		ok = 0;
+		zlog_debug("error parsing config file");
+		goto error;
+	}
+
+	json_object_object_get_ex(jsondata, "dcfg_overlay", &dcfg_overlay);
+	if (dcfg_overlay == NULL) {
+		ok = 0;
+		zlog_debug("error parsing dcfg_overlay");
+		goto error;
+	}
+
+	json_object_object_get_ex(dcfg_overlay, "ovlay_ipv4", &json_ovlay_ipv4);
+	if (json_ovlay_ipv4 == NULL) {
+		ok = 0;
+		zlog_debug("error parsing ovlay_ipv4");
+		goto error;
+	}
+	const char *ovlay_ipv4_str = json_object_get_string(json_ovlay_ipv4);
+
+	json_object_object_get_ex(dcfg_overlay, "ovlay_netmask", &json_ovlay_netmask);
+	if (json_ovlay_netmask == NULL) {
+		ok = 0;
+		zlog_debug("error parsing ovlay_netmask");
+		goto error;
+	}
+	const char *ovlay_netmask_str = json_object_get_string(json_ovlay_netmask);
+	
+	struct in_addr nm, ipv4;
+	inet_pton(AF_INET, ovlay_netmask_str, &nm);
+	inet_pton(AF_INET, ovlay_ipv4_str, &ipv4);
+	g_infovlay_prefix.u.prefix4.s_addr = (ipv4.s_addr & nm.s_addr);
+
+	g_infovlay_prefix.family = AF_INET;
+	g_infovlay_prefix.prefixlen = ip_masklen(nm);
+	char bufn[INET6_ADDRSTRLEN];
+	prefix2str(&g_infovlay_prefix, bufn, INET6_ADDRSTRLEN);
+	//inet_pton(AF_INET, ovlay_ipv4_str, &g_infovlay_prefix.u.prefix4);
+
+	zlog_debug("ovlay ipv4: %s netmask: %d", bufn, g_infovlay_prefix.prefixlen);
+	ok = 1;
+
+error:
+	if (jsondata) {
+		json_object_put(jsondata);
+	}
+	if (rawdata) {
+		free(rawdata);
+	}
+	if (fp) {
+		fclose(fp);
+	}
+	return ok;
+
+}
+
+void infnh_init(void)
+{
+	zlog_debug("initializing infiot nexthop status cfgread %d",
+			   g_infovlay_cfgread);
+	if (g_infovlay_cfgread == 0) {
+		if (infnh_readcfg()) {
+			g_infovlay_cfgread = 1;
+		}
+	}
+
+	g_infovlay_trkr = NULL;
+	trkr_client_create("click.tr", &g_infovlay_trkr);
+	return;
+}
+#endif
+
 FRR_DAEMON_INFO(
 	zebra, ZEBRA, .vty_port = ZEBRA_VTY_PORT, .flags = FRR_NO_ZCLIENT,
 
@@ -387,6 +505,10 @@ int main(int argc, char **argv)
 	*  to that after daemon() completes (if ever called).
 	*/
 	frr_config_fork();
+
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+	infnh_init();
+#endif
 
 	/* After we have successfully acquired the pidfile, we can be sure
 	*  about being the only copy of zebra process, which is submitting

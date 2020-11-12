@@ -159,3 +159,8 @@ if DEV_BUILD
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_dt.c
 endif
 endif
+
+if ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+#zebra_zebra_LDFLAGS = -L../../../../../dplane/dcpltrkrs/dist/lib/ -ldcpltrkrs
+#zebra_zebra_CFLAGS = -I. -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib -I../../../../../dplane/dcpltrkrs/
+endif
