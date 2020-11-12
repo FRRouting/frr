@@ -472,6 +472,10 @@ AC_ARG_ENABLE([thread-sanitizer],
   AS_HELP_STRING([--enable-thread-sanitizer], [enable ThreadSanitizer support for detecting data races]))
 AC_ARG_ENABLE([memory-sanitizer],
   AS_HELP_STRING([--enable-memory-sanitizer], [enable MemorySanitizer support for detecting uninitialized memory reads]))
+AC_ARG_ENABLE([sbintargetdir],
+  AS_HELP_STRING([--enable-sbintargetdir], [configure different sbin dir in target]))
+AC_ARG_ENABLE([sysconftargetdir],
+  AS_HELP_STRING([--enable-sysconftargetdir], [configure different sysconf in target]))
 
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS(json-c/json.h)
@@ -1975,11 +1979,28 @@ test "x$exec_prefix" = xNONE && exec_prefix='${prefix}'
 
 dnl get the full path, recursing through variables...
 vtysh_bin="$bindir/vtysh"
+if test "${enable_sbintargetdir}" = "" ; then
+  vtysh_bin="$bindir/vtysh"
+else
+  vtysh_bin="/usr/bin/vtysh"
+fi
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval vtysh_bin="\"$vtysh_bin\""
 done
 AC_DEFINE_UNQUOTED(VTYSH_BIN_PATH, "$vtysh_bin",path to vtysh binary)
 AC_SUBST(vtysh_bin)
+
+if test "${enable_sbintargetdir}" = "" ; then
+  CFG_TARGET_SBIN="$sbindir"
+else
+  CFG_TARGET_SBIN="${enable_sbintargetdir}"
+fi
+
+if test "${enable_sysconftargetdir}" = "" ; then
+  CFG_TARGET_SYSCONF="$sysconfdir"
+else
+  CFG_TARGET_SYSCONF="${enable_sysconftargetdir}"
+fi
 
 CFG_SYSCONF="$sysconfdir"
 CFG_SBIN="$sbindir"
@@ -1988,15 +2009,19 @@ CFG_MODULE="$moduledir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
+	eval CFG_TARGET_SYSCONF="\"$CFG_TARGET_SYSCONF\""
+	eval CFG_TARGET_SBIN="\"$CFG_TARGET_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
 	eval CFG_MODULE="\"$CFG_MODULE\""
 done
 AC_SUBST(CFG_SYSCONF)
 AC_SUBST(CFG_SBIN)
+AC_SUBST(CFG_TARGET_SYSCONF)
+AC_SUBST(CFG_TARGET_SBIN)
 AC_SUBST(CFG_STATE)
 AC_SUBST(CFG_MODULE)
 AC_DEFINE_UNQUOTED(MODULE_PATH, "$CFG_MODULE", path to modules)
-AC_DEFINE_UNQUOTED(WATCHFRR_SH_PATH, "${CFG_SBIN%/}/watchfrr.sh", path to watchfrr.sh)
+AC_DEFINE_UNQUOTED(WATCHFRR_SH_PATH, "${CFG_TARGET_SBIN%/}/watchfrr.sh", path to watchfrr.sh)
 
 dnl ------------------------------------
 dnl Enable RPKI and add librtr to libs
@@ -2098,6 +2123,8 @@ linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLIN
 state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
+target sbin dir         : ${enable_sbintargetdir}
+target sysconf dir      : ${enable_sysconftargetdir}
 module directory        : ${CFG_MODULE}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
