@@ -7491,7 +7491,6 @@ void bgp_master_init(struct thread_master *master, const int buffer_size,
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 	bm->v_update_delay = BGP_UPDATE_DELAY_DEF;
 	bm->v_establish_wait = BGP_UPDATE_DELAY_DEF;
-	bm->list_soft_reconfig_table = list_new();
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
 	bm->wait_for_fib = false;
@@ -7682,7 +7681,6 @@ void bgp_terminate(void)
 	struct peer *peer;
 	struct listnode *node, *nnode;
 	struct listnode *mnode, *mnnode;
-	struct soft_reconfig_table_attr *srta;
 
 	QOBJ_UNREG(bm);
 
@@ -7705,16 +7703,6 @@ void bgp_terminate(void)
 			    || peer->status == OpenConfirm)
 				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_CEASE_PEER_UNCONFIG);
-
-	for (ALL_LIST_ELEMENTS(bm->list_soft_reconfig_table, mnode, mnnode,
-			       srta)) {
-		if (srta->thread) {
-			BGP_TIMER_OFF(srta->thread);
-		}
-		listnode_delete(bm->list_soft_reconfig_table, srta);
-		XFREE(MTYPE_SOFT_RECONFIG_ATTR, srta->thread);
-	}
-	list_delete(&bm->list_soft_reconfig_table);
 
 	if (bm->t_rmap_update)
 		BGP_TIMER_OFF(bm->t_rmap_update);

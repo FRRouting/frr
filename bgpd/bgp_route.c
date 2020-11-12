@@ -113,7 +113,8 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 };
 
 #define VRFID_NONE_STR "-"
-#define SOFT_RECONFIG_THREAD_MAX_PREFIX 100000
+#define SOFT_RECONFIG_THREAD_MAX_PREFIX 50000
+#define SOFT_RECONFIG_THREAD_SPLIT_DELAY_MS 50
 
 DEFINE_HOOK(bgp_process,
 	    (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
@@ -4539,12 +4540,10 @@ void bgp_announce_route_all(struct peer *peer)
 		bgp_announce_route(peer, afi, safi);
 }
 
-static void bgp_soft_reconfig_table_index(struct peer *peer, afi_t afi,
-					  safi_t safi, struct bgp_table *table,
-					  struct prefix_rd *prd,
-					  uint32_t min_idx, uint32_t max_idx)
+static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
+				    struct bgp_table *table,
+				    struct prefix_rd *prd)
 {
-	uint32_t idx;
 	int ret;
 	struct bgp_dest *dest;
 	struct bgp_adj_in *ain;
@@ -4552,9 +4551,7 @@ static void bgp_soft_reconfig_table_index(struct peer *peer, afi_t afi,
 	if (!table)
 		table = peer->bgp->rib[afi][safi];
 
-	for (idx = min_idx, dest = bgp_table_top(table);
-	     (dest && idx < (max_idx + 1));
-	     dest = bgp_route_next(dest), idx++) {
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
 		for (ain = dest->adj_in; ain; ain = ain->next) {
 			if (ain->peer != peer)
 				continue;
@@ -4591,104 +4588,114 @@ static void bgp_soft_reconfig_table_index(struct peer *peer, afi_t afi,
 				return;
 			}
 		}
-	}
 }
 
-int bgp_soft_reconfig_table_index_sequencer(struct thread *thread)
+static int bgp_soft_reconfig_table_index(struct thread *thread)
 {
-	struct soft_reconfig_table_attr *attr = THREAD_ARG(thread);
-	struct listnode *node, *nnode;
+	struct soft_reconfig_table *srta;
+	uint32_t idx, min_idx, max_idx;
+	int ret;
+	struct bgp_dest *dest;
+	struct bgp_adj_in *ain;
 
-	attr->thread = thread;
-	bgp_soft_reconfig_table_index(attr->peer, attr->afi, attr->safi, NULL,
-				      NULL, attr->min_idx, attr->max_idx);
-
-	listnode_delete(bm->list_soft_reconfig_table, attr);
-	XFREE(MTYPE_SOFT_RECONFIG_ATTR, attr);
-
-	for (ALL_LIST_ELEMENTS(bm->list_soft_reconfig_table, node, nnode,
-			       attr)) {
-		thread_add_timer_msec(bm->master,
-				      bgp_soft_reconfig_table_index_sequencer,
-				      attr, 100, &attr->thread);
-		break;
-	}
-	return 0;
-}
-
-static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
-				    struct bgp_table *table,
-				    struct prefix_rd *prd)
-{
-	uint32_t idx, p_idx;
-	struct soft_reconfig_table_attr attr, *nattr;
-	bool init_threads;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	struct bgp_table *table;
+	struct prefix_rd *prd;
 	unsigned long table_count;
 
-	if (table != NULL || prd != NULL) {
-		bgp_soft_reconfig_table_index(peer, afi, safi, table, prd, 0,
-					      0xffffffff);
-		return;
+	srta = THREAD_ARG(thread);
+	peer = srta->peer;
+	afi = srta->afi;
+	safi = srta->safi;
+	table = srta->table;
+	prd = srta->prd;
+	min_idx = srta->min_idx;
+	max_idx = srta->max_idx;
+
+	if (!table)
+		table = peer->bgp->rib[afi][safi];
+
+	for (idx = 0, dest = bgp_table_top(table);
+	     (dest && idx <= max_idx);
+	     dest = bgp_route_next(dest), idx++) {
+		if (idx < min_idx)
+			continue;
+
+		for (ain = dest->adj_in; ain; ain = ain->next) {
+			if (ain->peer != peer)
+				continue;
+
+			struct bgp_path_info *pi;
+			uint32_t num_labels = 0;
+			mpls_label_t *label_pnt = NULL;
+			struct bgp_route_evpn evpn;
+
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+			     pi = pi->next)
+				if (pi->peer == peer)
+					break;
+
+			if (pi && pi->extra)
+				num_labels = pi->extra->num_labels;
+			if (num_labels)
+				label_pnt = &pi->extra->label[0];
+			if (pi)
+				memcpy(&evpn, &pi->attr->evpn_overlay,
+				       sizeof(evpn));
+			else
+				memset(&evpn, 0, sizeof(evpn));
+
+			ret = bgp_update(peer, bgp_dest_get_prefix(dest),
+					 ain->addpath_rx_id, ain->attr, afi,
+					 safi, ZEBRA_ROUTE_BGP,
+					 BGP_ROUTE_NORMAL, prd, label_pnt,
+					 num_labels, 1, &evpn);
+
+			if (ret < 0) {
+				bgp_dest_unlock_node(dest);
+				return 0;
+			}
+		}
 	}
-	attr.peer = peer;
-	attr.afi = afi;
-	attr.safi = safi;
-	attr.thread = NULL;
-
-	init_threads = (bm->list_soft_reconfig_table->head == NULL);
-
-	table = peer->bgp->rib[afi][safi];
 
 	table_count = bgp_table_count(table);
 
-	for (idx = 0, p_idx = 0; (idx < table_count + 1); idx++) {
-		if (((idx % SOFT_RECONFIG_THREAD_MAX_PREFIX) == 0)
-		    || idx == table_count) {
-			nattr = XCALLOC(
-				MTYPE_SOFT_RECONFIG_ATTR,
-				sizeof(struct soft_reconfig_table_attr));
-			memcpy(nattr, &attr,
-			       sizeof(struct soft_reconfig_table_attr));
-			nattr->min_idx = p_idx;
-			nattr->max_idx = idx;
-			if (idx == table_count) {
-				/* max value to make sure we treat all prefixes
-				 * if some of them appear in between */
-				nattr->max_idx = 0xffffffff;
-			}
-			listnode_add(bm->list_soft_reconfig_table, nattr);
-			if ((idx == 0) && init_threads) {
-				/* start a thread to init nested threads
-				 * Soft reconfigure job is split into several
-				 * thread so that vtysh is usable in the
-				 * meantime. Useful for long duration
-				 * reconfiguration job that used to take more
-				 * than ten seconds (ie. with high number of
-				 * prefix and route-map) First thread has
-				 * min_idx and max_idx egals to 0 in order vtysh
-				 * to respond quickly
-				 */
-				thread_add_timer(
-					bm->master,
-					bgp_soft_reconfig_table_index_sequencer,
-					nattr, 0, &nattr->thread);
-			}
-			p_idx = idx;
-		}
-	}
+	if (!((min_idx == 0) && (max_idx == 0)))
+		srta->min_idx = srta->min_idx + SOFT_RECONFIG_THREAD_MAX_PREFIX;
+	srta->max_idx = srta->max_idx + SOFT_RECONFIG_THREAD_MAX_PREFIX;
+	if ((max_idx + SOFT_RECONFIG_THREAD_MAX_PREFIX) >= table_count)
+		srta->max_idx = UINT32_MAX;
+	if (max_idx != UINT32_MAX)
+		thread_add_timer_msec(bm->master, bgp_soft_reconfig_table_index, srta,
+							  SOFT_RECONFIG_THREAD_SPLIT_DELAY_MS,
+							  &srta->thread);
+	return 0;
 }
 
 void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
 	struct bgp_table *table;
+	struct soft_reconfig_table *srta;
+
+	srta = XCALLOC(MTYPE_SOFT_RECONFIG_TABLE, sizeof(struct soft_reconfig_table));
+	srta->peer = peer;
+	srta->afi = afi;
+	srta->safi = safi;
+	srta->table = NULL;
+	srta->prd = NULL;
+	srta->min_idx = 0;
+	srta->max_idx = 0;
+	srta->thread = NULL;
 
 	if (peer->status != Established)
 		return;
 
 	if ((safi != SAFI_MPLS_VPN) && (safi != SAFI_ENCAP)
 	    && (safi != SAFI_EVPN))
-		bgp_soft_reconfig_table(peer, afi, safi, NULL, NULL);
+		thread_add_timer(bm->master, bgp_soft_reconfig_table_index, srta, 0, &srta->thread);
 	else
 		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {

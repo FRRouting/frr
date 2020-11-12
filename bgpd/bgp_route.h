@@ -285,9 +285,6 @@ struct bgp_path_info_pair {
 	struct bgp_path_info *new;
 };
 
-int bgp_soft_reconfig_table_index_sequencer(struct thread *thread);
-
-
 /* BGP static route configuration. */
 struct bgp_static {
 	/* Backdoor configuration.  */

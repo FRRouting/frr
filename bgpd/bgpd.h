@@ -51,7 +51,7 @@
 /* Default interval for IPv6 RAs when triggered by BGP unnumbered neighbor. */
 #define BGP_UNNUM_DEFAULT_RA_INTERVAL 10
 
-DEFINE_MTYPE_STATIC(BGPD, SOFT_RECONFIG_ATTR,
+DEFINE_MTYPE_STATIC(BGPD, SOFT_RECONFIG_TABLE,
 		    "Attribute for soft_reconfig_table_index function");
 
 struct update_subgroup;
@@ -151,8 +151,6 @@ struct bgp_master {
 	uint32_t rmap_update_timer;   /* Route map update timer */
 #define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
-	struct list *list_soft_reconfig_table;
-
 	/* Id space for automatic RD derivation for an EVI/VRF */
 	bitfield_t rd_idspace;
 
@@ -190,15 +188,17 @@ struct bgp_rmap {
 	struct route_map *map;
 };
 
-struct soft_reconfig_table_attr {
+struct soft_reconfig_table {
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
+	struct bgp_table *table;
+	struct prefix_rd *prd;
 	uint32_t min_idx;
 	uint32_t max_idx;
 	struct thread *thread;
 };
-DECLARE_QOBJ_TYPE(soft_reconfig_table_attr)
+
 
 struct bgp_redist {
 	unsigned short instance;
