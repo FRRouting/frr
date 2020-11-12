@@ -2380,6 +2380,99 @@ static int iptable_notify_owner(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/* Process route notification messages from RIB */
+static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
+					zebra_size_t length, vrf_id_t vrf_id)
+{
+	struct prefix p;
+	enum zapi_route_notify_owner note;
+	uint32_t table_id;
+	char buf[PREFIX_STRLEN];
+	afi_t afi;
+	safi_t safi;
+	struct bgp_dest *dest;
+	struct bgp *bgp;
+	struct bgp_path_info *pi, *new_select;
+
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
+				      &afi, &safi)) {
+		zlog_err("%s : error in msg decode", __PRETTY_FUNCTION__);
+		return -1;
+	}
+
+	/* Get the bgp instance */
+	bgp = bgp_lookup_by_vrf_id(vrf_id);
+	if (!bgp) {
+		flog_err(EC_BGP_INVALID_BGP_INSTANCE,
+			 "%s : bgp instance not found vrf %d",
+			 __PRETTY_FUNCTION__, vrf_id);
+		return -1;
+	}
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		prefix2str(&p, buf, sizeof(buf));
+
+	/* Find the bgp route node */
+	dest = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi, &p,
+				   &bgp->vrf_prd);
+	if (!dest)
+		return -1;
+
+	bgp_dest_unlock_node(dest);
+
+	switch (note) {
+	case ZAPI_ROUTE_INSTALLED:
+		new_select = NULL;
+		/* Clear the flags so that route can be processed */
+		if (CHECK_FLAG(dest->flags,
+			       BGP_NODE_FIB_INSTALL_PENDING)) {
+			UNSET_FLAG(dest->flags,
+				   BGP_NODE_FIB_INSTALL_PENDING);
+			SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("route %s : INSTALLED", buf);
+			/* Find the best route */
+			for (pi = dest->info; pi; pi = pi->next) {
+				/* Process aggregate route */
+				bgp_aggregate_increment(bgp, &p, pi,
+							afi, safi);
+				if (CHECK_FLAG(pi->flags,
+					       BGP_PATH_SELECTED))
+					new_select = pi;
+			}
+			/* Advertise the route */
+			if (new_select)
+				group_announce_route(bgp, afi, safi,
+						     dest, new_select);
+			else {
+				flog_err(EC_BGP_INVALID_ROUTE,
+					 "selected route %s not found",
+					 buf);
+				return -1;
+			}
+		}
+		break;
+	case ZAPI_ROUTE_REMOVED:
+		/* Route deleted from dataplane, reset the installed flag
+		 * so that route can be reinstalled when client sends
+		 * route add later
+		 */
+		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+		break;
+	case ZAPI_ROUTE_FAIL_INSTALL:
+		/* Error will be logged by zebra module */
+		break;
+	case ZAPI_ROUTE_BETTER_ADMIN_WON:
+		/* No action required */
+		break;
+	case ZAPI_ROUTE_REMOVE_FAIL:
+		zlog_warn("%s: Route %s failure to remove",
+			  __func__, buf);
+		break;
+	}
+	return 0;
+}
+
 /* this function is used to forge ip rule,
  * - either for iptable/ipset using fwmark id
  * - or for sample ip rule cmd
@@ -2910,6 +3003,7 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->ipset_notify_owner = ipset_notify_owner;
 	zclient->ipset_entry_notify_owner = ipset_entry_notify_owner;
 	zclient->iptable_notify_owner = iptable_notify_owner;
+	zclient->route_notify_owner = bgp_zebra_route_notify_owner;
 	zclient->instance = instance;
 }
 

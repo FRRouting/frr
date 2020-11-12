@@ -792,9 +792,13 @@ void bgp_adjust_routeadv(struct peer *peer)
 			BGP_TIMER_OFF(peer->t_routeadv);
 
 		peer->synctime = bgp_clock();
-		thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets,
-				      peer, 0,
-				      &peer->t_generate_updgrp_packets);
+		/* If suppress fib pending is enabled, route is advertised to
+		 * peers when the status is received from the FIB. The delay
+		 * is added to update group packet generate which will allow
+		 * more routes to be sent in the update message
+		 */
+		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
+					  bgp_generate_updgrp_packets);
 		return;
 	}
 

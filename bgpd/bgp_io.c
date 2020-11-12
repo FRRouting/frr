@@ -149,12 +149,17 @@ static int bgp_process_writes(struct thread *thread)
 		fatal = true;
 	}
 
+	/* If suppress fib pending is enabled, route is advertised to peers when
+	 * the status is received from the FIB. The delay is added
+	 * to update group packet generate which will allow more routes to be
+	 * sent in the update message
+	 */
 	if (reschedule) {
 		thread_add_write(fpt->master, bgp_process_writes, peer,
 				 peer->fd, &peer->t_write);
 	} else if (!fatal) {
-		BGP_TIMER_ON(peer->t_generate_updgrp_packets,
-			     bgp_generate_updgrp_packets, 0);
+		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
+					  bgp_generate_updgrp_packets);
 	}
 
 	return 0;

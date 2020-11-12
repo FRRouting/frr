@@ -742,7 +742,8 @@ static int nhg_notify(uint16_t type, uint16_t instance, uint32_t id,
 static int route_notify_internal(const struct prefix *p, int type,
 				 uint16_t instance, vrf_id_t vrf_id,
 				 uint32_t table_id,
-				 enum zapi_route_notify_owner note)
+				 enum zapi_route_notify_owner note,
+				 afi_t afi, safi_t safi)
 {
 	struct zserv *client;
 	struct stream *s;
@@ -778,16 +779,21 @@ static int route_notify_internal(const struct prefix *p, int type,
 
 	stream_putl(s, table_id);
 
+	/* Encode AFI, SAFI in the message */
+	stream_putc(s, afi);
+	stream_putc(s, safi);
+
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zserv_send_message(client, s);
 }
 
 int zsend_route_notify_owner(struct route_entry *re, const struct prefix *p,
-			     enum zapi_route_notify_owner note)
+			     enum zapi_route_notify_owner note,
+			     afi_t afi, safi_t safi)
 {
 	return (route_notify_internal(p, re->type, re->instance, re->vrf_id,
-				      re->table, note));
+				      re->table, note, afi, safi));
 }
 
 /*
@@ -801,7 +807,19 @@ int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
 				      dplane_ctx_get_instance(ctx),
 				      dplane_ctx_get_vrf(ctx),
 				      dplane_ctx_get_table(ctx),
-				      note));
+				      note,
+				      dplane_ctx_get_afi(ctx),
+				      dplane_ctx_get_safi(ctx)));
+}
+
+static void zread_route_notify_request(ZAPI_HANDLER_ARGS)
+{
+	uint8_t notify;
+
+	STREAM_GETC(msg, notify);
+	client->notify_owner = notify;
+stream_failure:
+	return;
 }
 
 void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
@@ -3275,6 +3293,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover,
 	[ZEBRA_NHG_ADD] = zread_nhg_add,
 	[ZEBRA_NHG_DEL] = zread_nhg_del,
+	[ZEBRA_ROUTE_NOTIFY_REQUEST] = zread_route_notify_request,
 };
 
 /*

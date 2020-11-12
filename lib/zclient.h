@@ -218,6 +218,7 @@ typedef enum {
 	ZEBRA_OPAQUE_REGISTER,
 	ZEBRA_OPAQUE_UNREGISTER,
 	ZEBRA_NEIGH_DISCOVER,
+	ZEBRA_ROUTE_NOTIFY_REQUEST,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -778,6 +779,10 @@ extern int zebra_redistribute_send(int command, struct zclient *, afi_t,
 extern int zebra_redistribute_default_send(int command, struct zclient *zclient,
 					   afi_t afi, vrf_id_t vrf_id);
 
+/* Send route notify request to zebra */
+extern int zebra_route_notify_send(int command, struct zclient *zclient,
+				   bool set);
+
 /* If state has changed, update state and call zebra_redistribute_send. */
 extern void zclient_redistribute(int command, struct zclient *, afi_t, int type,
 				 unsigned short instance, vrf_id_t vrf_id);
@@ -910,7 +915,8 @@ bool zapi_nhg_notify_decode(struct stream *s, uint32_t *id,
 			    enum zapi_nhg_notify_owner *note);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
-			      enum zapi_route_notify_owner *note);
+			      enum zapi_route_notify_owner *note,
+			      afi_t *afi, safi_t *safi);
 bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 			     uint32_t *priority, uint32_t *unique, char *ifname,
 			     enum zapi_rule_notify_owner *note);

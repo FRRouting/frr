@@ -481,7 +481,8 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * know that they've lost
 	 */
 	if (old && (old != re) && (old->type != re->type))
-		zsend_route_notify_owner(old, p, ZAPI_ROUTE_BETTER_ADMIN_WON);
+		zsend_route_notify_owner(old, p, ZAPI_ROUTE_BETTER_ADMIN_WON,
+					 info->afi, info->safi);
 
 	/* Update fib selection */
 	dest->selected_fib = re;
@@ -1748,6 +1749,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	uint32_t seq;
 	rib_dest_t *dest;
 	bool fib_changed = false;
+	struct rib_table_info *info;
 
 	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
 	vrf = vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
@@ -1767,6 +1769,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 
 	dest = rib_dest_from_rnode(rn);
 	srcdest_rnode_prefixes(rn, &dest_pfx, &src_pfx);
+	info = srcdest_rnode_table_info(rn);
 
 	op = dplane_ctx_get_op(ctx);
 	status = dplane_ctx_get_status(ctx);
@@ -1906,7 +1909,8 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				SET_FLAG(old_re->status, ROUTE_ENTRY_FAILED);
 			if (re)
 				zsend_route_notify_owner(re, dest_pfx,
-							 ZAPI_ROUTE_FAIL_INSTALL);
+							 ZAPI_ROUTE_FAIL_INSTALL,
+							 info->afi, info->safi);
 
 			zlog_warn("%s(%u:%u):%pFX: Route install failed",
 				  VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),

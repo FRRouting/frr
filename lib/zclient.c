@@ -1494,9 +1494,12 @@ stream_failure:
 
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
-			      enum zapi_route_notify_owner *note)
+			      enum zapi_route_notify_owner *note,
+			      afi_t *afi, safi_t *safi)
 {
 	uint32_t t;
+	afi_t afi_val;
+	safi_t safi_val;
 
 	STREAM_GET(note, s, sizeof(*note));
 
@@ -1504,8 +1507,15 @@ bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 	STREAM_GETC(s, p->prefixlen);
 	STREAM_GET(&p->u.prefix, s, prefix_blen(p));
 	STREAM_GETL(s, t);
+	STREAM_GETC(s, afi_val);
+	STREAM_GETC(s, safi_val);
 
 	*tableid = t;
+
+	if (afi)
+		*afi = afi_val;
+	if (safi)
+		*safi = safi_val;
 
 	return true;
 
@@ -1809,6 +1819,22 @@ int zebra_redistribute_default_send(int command, struct zclient *zclient,
 
 	zclient_create_header(s, command, vrf_id);
 	stream_putc(s, afi);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
+/* Send route notify request to zebra */
+int zebra_route_notify_send(int command, struct zclient *zclient, bool set)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, command, 0);
+	stream_putc(s, !!set);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 

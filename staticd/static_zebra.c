@@ -110,7 +110,8 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 	enum zapi_route_notify_owner note;
 	uint32_t table_id;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note))
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
+				      NULL, NULL))
 		return -1;
 
 	switch (note) {

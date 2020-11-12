@@ -2497,10 +2497,13 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	struct attr attr;
 	afi_t afi;
 	safi_t safi;
+	struct bgp *bgp;
+	bool advertise;
 
 	p = bgp_dest_get_prefix(dest);
 	afi = SUBGRP_AFI(subgrp);
 	safi = SUBGRP_SAFI(subgrp);
+	bgp = SUBGRP_INST(subgrp);
 	onlypeer = ((SUBGRP_PCOUNT(subgrp) == 1) ? (SUBGRP_PFIRST(subgrp))->peer
 						 : NULL);
 
@@ -2515,13 +2518,23 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	memset(&attr, 0, sizeof(struct attr));
 	/* It's initialized in bgp_announce_check() */
 
-	/* Announcement to the subgroup.  If the route is filtered withdraw it.
+	/* Announcement to the subgroup. If the route is filtered withdraw it.
+	 * If BGP_NODE_FIB_INSTALL_PENDING is set and data plane install status
+	 * is pending (BGP_NODE_FIB_INSTALL_PENDING), do not advertise the
+	 * route
 	 */
+	advertise = bgp_check_advertise(bgp, dest);
+
 	if (selected) {
 		if (subgroup_announce_check(dest, selected, subgrp, p, &attr,
-					    false))
-			bgp_adj_out_set_subgroup(dest, subgrp, &attr, selected);
-		else
+					    false)) {
+			/* Route is selected, if the route is already installed
+			 * in FIB, then it is advertised
+			 */
+			if (advertise)
+				bgp_adj_out_set_subgroup(dest, subgrp, &attr,
+							 selected);
+		} else
 			bgp_adj_out_unset_subgroup(dest, subgrp, 1,
 						   addpath_tx_id);
 	}
@@ -3524,6 +3537,19 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		has_valid_label = (num_labels > 0) ? 1 : 0;
 	else
 		has_valid_label = bgp_is_valid_label(label);
+
+	/* The flag BGP_NODE_FIB_INSTALL_PENDING is for the following
+	 * condition :
+	 * Suppress fib is enabled
+	 * BGP_OPT_NO_FIB is not enabled
+	 * Route type is BGP_ROUTE_NORMAL (peer learnt routes)
+	 * Route is being installed first time (BGP_NODE_FIB_INSTALLED not set)
+	 */
+	if (BGP_SUPPRESS_FIB_ENABLED(bgp) &&
+	    (sub_type == BGP_ROUTE_NORMAL) &&
+	    (!bgp_option_check(BGP_OPT_NO_FIB)) &&
+	    (!CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED)))
+		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 
 	/* When peer's soft reconfiguration enabled.  Record input packet in
 	   Adj-RIBs-In.  */
@@ -6789,6 +6815,12 @@ void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 		if (dest_p->prefixlen <= p->prefixlen)
 			continue;
 
+		/* If suppress fib is enabled and route not installed
+		 * in FIB, skip the route
+		 */
+		if (!bgp_check_advertise(bgp, dest))
+			continue;
+
 		match = 0;
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
@@ -7282,6 +7314,12 @@ void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 		return;
 
 	if (BGP_PATH_HOLDDOWN(pi))
+		return;
+
+	/* If suppress fib is enabled and route not installed
+	 * in FIB, do not update the aggregate route
+	 */
+	if (!bgp_check_advertise(bgp, pi->net))
 		return;
 
 	child = bgp_node_get(table, p);
