@@ -962,7 +962,7 @@ Networks
    traditional did not check for existence.  For versions 7.4 and beyond
    both traditional and datacenter the network must exist.
 
-.. _ipv6-support:
+.. _bgp-ipv6-support:
 
 IPv6 Support
 ------------
@@ -970,7 +970,7 @@ IPv6 Support
 .. index:: [no] neighbor A.B.C.D activate
 .. clicmd:: [no] neighbor A.B.C.D activate
 
-   This coonfiguration modifies whether to enable an address family for a
+   This configuration modifies whether to enable an address family for a
    specific neighbor. By default only the IPv4 unicast address family is
    enabled.
 
