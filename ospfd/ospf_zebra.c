@@ -537,6 +537,7 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 {
 	struct zapi_labels zl;
 	struct zapi_nexthop *znh;
+	struct zapi_nexthop *znh_backup;
 	struct listnode *node;
 	struct ospf_path *path;
 
@@ -578,12 +579,42 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 			if (zl.nexthop_num >= MULTIPATH_NUM)
 				break;
 
+			/* TI-LFA backup path label stack comes first, if
+			 * present */
+			if (path->srni.backup_label_stack) {
+				znh_backup = &zl.backup_nexthops
+						      [zl.backup_nexthop_num++];
+				znh_backup->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+				znh_backup->gate.ipv4 =
+					path->srni.backup_nexthop;
+
+				znh_backup->label_num =
+					path->srni.backup_label_stack
+						->num_labels;
+				memcpy(znh_backup->labels,
+				       path->srni.backup_label_stack->label,
+				       sizeof(mpls_label_t)
+					       * znh_backup->label_num);
+			}
+
 			znh = &zl.nexthops[zl.nexthop_num++];
 			znh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 			znh->gate.ipv4 = path->nexthop;
 			znh->ifindex = path->ifindex;
 			znh->label_num = 1;
 			znh->labels[0] = path->srni.label_out;
+
+			/* Set TI-LFA backup nexthop info if present */
+			if (path->srni.backup_label_stack) {
+				SET_FLAG(zl.message, ZAPI_LABELS_HAS_BACKUPS);
+				SET_FLAG(znh->flags,
+					 ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
+
+				/* Just care about a single TI-LFA backup path
+				 * for now */
+				znh->backup_num = 1;
+				znh->backup_idx[0] = zl.backup_nexthop_num - 1;
+			}
 		}
 		break;
 	default:
