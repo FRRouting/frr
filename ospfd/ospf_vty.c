@@ -10155,8 +10155,8 @@ DEFUN (no_ospf_external_route_aggregation_no_adrvertise,
        "no summary-address A.B.C.D/M no-advertise",
        NO_STR
        "External summary address\n"
-       "Summary address prefix (a.b.c.d/m) \n"
-       "Adverise summary route to the AS \n.")
+       "Summary address prefix (a.b.c.d/m)\n"
+       "Advertise summary route to the AS \n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	struct prefix_ipv4 p;
