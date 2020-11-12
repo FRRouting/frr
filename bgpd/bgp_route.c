@@ -3538,6 +3538,9 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	else
 		has_valid_label = bgp_is_valid_label(label);
 
+	if (has_valid_label)
+		assert(label != NULL);
+
 	/* The flag BGP_NODE_FIB_INSTALL_PENDING is for the following
 	 * condition :
 	 * Suppress fib is enabled
