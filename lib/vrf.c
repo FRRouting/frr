@@ -214,6 +214,53 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	return vrf;
 }
 
+/* Update a VRF. If not found, create one.
+ * Arg:
+ *   name   - The name of the vrf.
+ *   vrf_id - The vrf_id of the vrf.
+ * Description: This function first finds the vrf using its name. If the vrf is
+ * found and the vrf-id of the existing vrf does not match the new vrf id, it
+ * will disable the existing vrf and update it with new vrf-id. If the vrf is
+ * not found, it will create the vrf with given name and the new vrf id.
+ */
+struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name)
+{
+	struct vrf *vrf = NULL;
+
+	/*Treat VRF add for existing vrf as update
+	 * Update VRF ID and also update in VRF ID table
+	 */
+	if (name)
+		vrf = vrf_lookup_by_name(name);
+	if (vrf && new_vrf_id != VRF_UNKNOWN && vrf->vrf_id != VRF_UNKNOWN
+	    && vrf->vrf_id != new_vrf_id) {
+		if (debug_vrf) {
+			zlog_debug(
+				"Vrf Update event: %s old id: %u, new id: %u",
+				name, vrf->vrf_id, new_vrf_id);
+		}
+
+		/*Disable the vrf to simulate implicit delete
+		 * so that all stale routes are deleted
+		 * This vrf will be enabled down the line
+		 */
+		vrf_disable(vrf);
+
+
+		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
+		vrf->vrf_id = new_vrf_id;
+		RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
+
+	} else {
+
+		/*
+		 * vrf_get is implied creation if it does not exist
+		 */
+		vrf = vrf_get(new_vrf_id, name);
+	}
+	return vrf;
+}
+
 /* Delete a VRF. This is called when the underlying VRF goes away, a
  * pre-configured VRF is deleted or when shutting down (vrf_terminate()).
  */

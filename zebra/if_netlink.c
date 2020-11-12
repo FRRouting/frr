@@ -301,7 +301,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 	struct ifinfomsg *ifi;
 	struct rtattr *linkinfo[IFLA_INFO_MAX + 1];
 	struct rtattr *attr[IFLA_VRF_MAX + 1];
-	struct vrf *vrf;
+	struct vrf *vrf = NULL;
 	struct zebra_vrf *zvrf;
 	uint32_t nl_table_id;
 
@@ -350,11 +350,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 			}
 		}
 
-		/*
-		 * vrf_get is implied creation if it does not exist
-		 */
-		vrf = vrf_get((vrf_id_t)ifi->ifi_index,
-			      name); // It would create vrf
+		vrf = vrf_update((vrf_id_t)ifi->ifi_index, name);
 		if (!vrf) {
 			flog_err(EC_LIB_INTERFACE, "VRF %s id %u not created",
 				 name, ifi->ifi_index);
