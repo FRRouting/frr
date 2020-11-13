@@ -126,6 +126,8 @@ void ospf_opaque_term(void)
 
 void ospf_opaque_finish(void)
 {
+	ospf_mpls_te_finish();
+
 	ospf_router_info_finish();
 
 	ospf_ext_finish();
