@@ -113,7 +113,7 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 };
 
 #define VRFID_NONE_STR "-"
-#define SOFT_RECONFIG_THREAD_MAX_PREFIX 50000
+#define SOFT_RECONFIG_THREAD_MAX_PREFIX 25000
 #define SOFT_RECONFIG_THREAD_SPLIT_DELAY_MS 50
 
 DEFINE_HOOK(bgp_process,
@@ -4590,20 +4590,24 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 		}
 }
 
-static int bgp_soft_reconfig_table_index(struct thread *thread)
+ /* Do soft reconfig table on a part of bgp table.
+  * Walk on SOFT_RECONFIG_THREAD_MAX_PREFIX nodes
+  * and schedule a new thread to continue the job.
+  * Without splitting the full job into several part,
+  * vtysh waits for the job to finish before responding to a BGP command
+  */
+static int bgp_soft_reconfig_table_thread(struct thread *thread)
 {
 	struct soft_reconfig_table *srta;
-	uint32_t idx, min_idx, max_idx;
+	uint32_t iter, max_iter;
 	int ret;
 	struct bgp_dest *dest;
 	struct bgp_adj_in *ain;
-
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
 	struct bgp_table *table;
 	struct prefix_rd *prd;
-	unsigned long table_count;
 
 	srta = THREAD_ARG(thread);
 	peer = srta->peer;
@@ -4611,17 +4615,22 @@ static int bgp_soft_reconfig_table_index(struct thread *thread)
 	safi = srta->safi;
 	table = srta->table;
 	prd = srta->prd;
-	min_idx = srta->min_idx;
-	max_idx = srta->max_idx;
+	dest = srta->dest;
 
 	if (!table)
 		table = peer->bgp->rib[afi][safi];
 
-	for (idx = 0, dest = bgp_table_top(table);
-	     (dest && idx <= max_idx);
-	     dest = bgp_route_next(dest), idx++) {
-		if (idx < min_idx)
-			continue;
+	max_iter = SOFT_RECONFIG_THREAD_MAX_PREFIX;
+	if (!srta->dest) {
+		/* first call of the function with a new srta structure.
+		 * Don't do any treatment this timeon nodes
+		 * in order vtysh to respond quickly
+		 */
+		max_iter = 0;
+	}
+
+	for (iter = 0; (dest && iter <= max_iter);
+	    dest = bgp_route_next(dest), iter++) {
 
 		for (ain = dest->adj_in; ain; ain = ain->next) {
 			if (ain->peer != peer)
@@ -4655,22 +4664,25 @@ static int bgp_soft_reconfig_table_index(struct thread *thread)
 
 			if (ret < 0) {
 				bgp_dest_unlock_node(dest);
+				XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
 				return 0;
 			}
 		}
 	}
 
-	table_count = bgp_table_count(table);
+	srta->dest = dest;
+	if ((max_iter == 0)) {
+		/* Initialize first bgp node for next scheduled call */
+		srta->dest = bgp_table_top(table);
+	}
 
-	if (!((min_idx == 0) && (max_idx == 0)))
-		srta->min_idx = srta->min_idx + SOFT_RECONFIG_THREAD_MAX_PREFIX;
-	srta->max_idx = srta->max_idx + SOFT_RECONFIG_THREAD_MAX_PREFIX;
-	if ((max_idx + SOFT_RECONFIG_THREAD_MAX_PREFIX) >= table_count)
-		srta->max_idx = UINT32_MAX;
-	if (max_idx != UINT32_MAX)
-		thread_add_timer_msec(bm->master, bgp_soft_reconfig_table_index, srta,
+	if (srta->dest) {
+		thread_add_timer_msec(bm->master, bgp_soft_reconfig_table_thread, srta,
 							  SOFT_RECONFIG_THREAD_SPLIT_DELAY_MS,
 							  &srta->thread);
+		return 0;
+	}
+	XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
 	return 0;
 }
 
@@ -4680,22 +4692,24 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 	struct bgp_table *table;
 	struct soft_reconfig_table *srta;
 
-	srta = XCALLOC(MTYPE_SOFT_RECONFIG_TABLE, sizeof(struct soft_reconfig_table));
-	srta->peer = peer;
-	srta->afi = afi;
-	srta->safi = safi;
-	srta->table = NULL;
-	srta->prd = NULL;
-	srta->min_idx = 0;
-	srta->max_idx = 0;
-	srta->thread = NULL;
-
 	if (peer->status != Established)
 		return;
 
 	if ((safi != SAFI_MPLS_VPN) && (safi != SAFI_ENCAP)
 	    && (safi != SAFI_EVPN))
-		thread_add_timer(bm->master, bgp_soft_reconfig_table_index, srta, 0, &srta->thread);
+	{
+		srta = XCALLOC(MTYPE_SOFT_RECONFIG_TABLE,
+					   sizeof(struct soft_reconfig_table));
+		srta->peer = peer;
+		srta->afi = afi;
+		srta->safi = safi;
+		srta->table = NULL;
+		srta->prd = NULL;
+		srta->dest = NULL;
+		srta->thread = NULL;
+		thread_add_timer(bm->master, bgp_soft_reconfig_table_thread,
+						 srta, 0, &srta->thread);
+	}
 	else
 		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {
