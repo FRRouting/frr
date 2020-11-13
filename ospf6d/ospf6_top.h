@@ -76,8 +76,11 @@ struct ospf6 {
 		char *name;
 		struct route_map *map;
 	} rmap[ZEBRA_ROUTE_MAX];
+	int redist_count;
 
 	uint8_t flag;
+#define OSPF6_FLAG_ABR          0x04
+#define OSPF6_FLAG_ASBR         0x08
 
 	/* Configuration bitmask, refer to enum above */
 	uint8_t config_flags;
@@ -118,6 +121,10 @@ struct ospf6 {
 	/* Used during ospf instance going down send LSDB
 	 * update to neighbors immediatly */
 	uint8_t inst_shutdown;
+
+	/* NSSA ABR */
+	uint8_t anyNSSA; /* Bump for every NSSA attached. */
+	struct thread *t_abr_task; /* ABR task timer. */
 
 	QOBJ_FIELDS
 };

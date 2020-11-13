@@ -181,6 +181,9 @@ extern void ospf6_interface_disable(struct ospf6_interface *);
 extern void ospf6_interface_if_add(struct interface *);
 extern void ospf6_interface_state_update(struct interface *);
 extern void ospf6_interface_connected_route_update(struct interface *);
+extern struct in6_addr *
+ospf6_interface_get_global_address(struct interface *ifp);
+
 
 /* interface event */
 extern int interface_up(struct thread *);

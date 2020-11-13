@@ -158,6 +158,15 @@ static void ospf6_router_lsa_options_set(struct ospf6_area *oa,
 		UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_E);
 	}
 
+	/* If the router is ASBR and the area-type is NSSA set the 
+	 * translate bit in router LSA.
+	 */
+	if (IS_AREA_NSSA(oa) && ospf6_asbr_is_asbr(oa->ospf6)) {
+		SET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_NT);
+	} else {
+		UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_NT);
+	}
+
 	UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_V);
 	UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_W);
 }

@@ -479,6 +479,10 @@ static void ospf6_flood_process(struct ospf6_neighbor *from,
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
 		    && IS_AREA_STUB(oa))
 			continue;
+		/* Check for NSSA LSA */
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7 &&
+				!IS_AREA_NSSA(oa))
+			continue;
 
 		ospf6_flood_area(from, lsa, oa);
 	}
@@ -517,7 +521,7 @@ static void ospf6_flood_clear_interface(struct ospf6_lsa *lsa,
 	}
 }
 
-static void ospf6_flood_clear_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
+void ospf6_flood_clear_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {
 	struct listnode *node, *nnode;
 	struct ospf6_interface *oi;

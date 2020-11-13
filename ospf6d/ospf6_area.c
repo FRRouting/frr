@@ -44,8 +44,24 @@
 #include "ospf6_abr.h"
 #include "ospf6_asbr.h"
 #include "ospf6d.h"
+#include "ospf6_nssa.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PLISTNAME, "Prefix list name")
+
+/* Utility functions. */
+int str2area_id(const char *str, struct in_addr *area_id, int *area_id_fmt)
+{
+        char *ep;
+
+        area_id->s_addr = htonl(strtoul(str, &ep, 10));
+        if (*ep && !inet_aton(str, area_id))
+                return -1;
+
+        *area_id_fmt =
+                *ep ? OSPF6_AREA_FMT_DECIMAL : OSPF6_AREA_FMT_DOTTEDQUAD;
+
+        return 0;
+}
 
 int ospf6_area_cmp(void *va, void *vb)
 {
@@ -1035,6 +1051,50 @@ DEFUN (no_ospf6_area_stub_no_summary,
 	return CMD_SUCCESS;
 }
 
+DEFUN (ospf6_area_nssa,
+       ospf6_area_nssa_cmd,
+       "area <A.B.C.D|(0-4294967295)> nssa",
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
+       "OSPF6 area ID as a decimal value\n"
+       "Configure OSPF area as nssa\n")
+{
+	int idx_ipv4_number = 1;
+	struct ospf6_area *area;
+
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
+
+	 if (!ospf6_area_nssa_set(ospf6, area)) {
+		 vty_out(vty,
+			 "First deconfigure all virtual link through this area\n");
+		 return CMD_WARNING_CONFIG_FAILED;
+	 }
+	 
+	 return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_area_nssa,
+       no_ospf6_area_nssa_cmd,
+       "no area <A.B.C.D|(0-4294967295)> nssa",
+       NO_STR
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
+       "OSPF6 area ID as a decimal value\n"
+       "Configure OSPF6 area as nssa\n")
+{
+	int idx_ipv4_number = 2;
+	struct ospf6_area *area;
+
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
+
+	ospf6_area_nssa_unset(ospf6, area);
+
+        return CMD_SUCCESS;
+}
+
+
 void ospf6_area_init(void)
 {
 	install_element(VIEW_NODE, &show_ipv6_ospf6_spf_tree_cmd);
@@ -1056,6 +1116,10 @@ void ospf6_area_init(void)
 
 	install_element(OSPF6_NODE, &area_filter_list_cmd);
 	install_element(OSPF6_NODE, &no_area_filter_list_cmd);
+
+	/* "area nssa" commands. */
+	install_element(OSPF6_NODE, &ospf6_area_nssa_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_area_nssa_cmd);
 }
 
 void ospf6_area_interface_delete(struct ospf6_interface *oi)

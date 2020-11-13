@@ -67,4 +67,5 @@ extern void ospf6_flood_interface(struct ospf6_neighbor *from,
 extern int ospf6_lsupdate_send_neighbor_now(struct ospf6_neighbor *on,
 					    struct ospf6_lsa *lsa);
 
+extern void ospf6_flood_clear_area(struct ospf6_lsa *lsa, struct ospf6_area *oa);
 #endif /* OSPF6_FLOOD_H */

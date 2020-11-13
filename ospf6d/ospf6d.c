@@ -44,6 +44,7 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
+#include "ospf6_nssa.h"
 
 struct route_node *route_prev(struct route_node *node)
 {
@@ -1268,6 +1269,7 @@ void ospf6_init(struct thread_master *master)
 	install_element_ospf6_debug_asbr();
 	install_element_ospf6_debug_abr();
 	install_element_ospf6_debug_flood();
+	install_element_ospf6_debug_nssa();
 
 	install_element_ospf6_clear_interface();
 

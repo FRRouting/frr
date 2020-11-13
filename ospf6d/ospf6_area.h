@@ -105,17 +105,26 @@ struct ospf6_area {
 
 	uint32_t full_nbrs; /* Fully adjacent neighbors. */
 	uint8_t intra_prefix_originate; /* Force intra_prefix lsa originate */
+	uint8_t NSSATranslatorRole; /* NSSA configured role */
+#define OSPF6_NSSA_ROLE_TRANSLATE 1
+#define OSPF6_NSSA_ROLE_CANDIDATE 2
+	uint8_t NSSATranslatorState; /* NSSA operational role */
+#define OSPF6_NSSA_TRANSLATE_DISABLED 0
+#define OSPF6_NSSA_TRANSLATE_ENABLED  1
 };
 
+#define OSPF6_AREA_DEFAULT    0x00
 #define OSPF6_AREA_ENABLE     0x01
 #define OSPF6_AREA_ACTIVE     0x02
 #define OSPF6_AREA_TRANSIT    0x04 /* TransitCapability */
 #define OSPF6_AREA_STUB       0x08
+#define OSPF6_AREA_NSSA       0x10
 
 #define IS_AREA_ENABLED(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_ENABLE))
 #define IS_AREA_ACTIVE(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_ACTIVE))
 #define IS_AREA_TRANSIT(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_TRANSIT))
 #define IS_AREA_STUB(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_STUB))
+#define IS_AREA_NSSA(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_NSSA))
 
 #define OSPF6_CMD_AREA_GET(str, oa, ospf6)                                     \
 	{                                                                      \
@@ -150,5 +159,6 @@ extern void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6);
 extern void ospf6_area_init(void);
 struct ospf6_interface;
 extern void ospf6_area_interface_delete(struct ospf6_interface *oi);
+int str2area_id(const char *str, struct in_addr *area_id, int *area_id_fmt);
 
 #endif /* OSPF_AREA_H */

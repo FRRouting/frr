@@ -58,6 +58,7 @@ struct ospf6_as_external_lsa {
 	/* followed by none or one external route tag */
 	/* followed by none or one referenced LS-ID */
 };
+struct ospf6 *o;
 
 #define OSPF6_ASBR_BIT_T  ntohl (0x01000000)
 #define OSPF6_ASBR_BIT_F  ntohl (0x02000000)
@@ -69,6 +70,8 @@ struct ospf6_as_external_lsa {
 		(E)->bits_metric &= htonl(0xff000000);                         \
 		(E)->bits_metric |= htonl(0x00ffffff) & htonl(C);              \
 	}
+
+#define IS_OSPF6_ASBR(O) ((o)->flag & OSPF6_FLAG_ASBR)
 
 extern void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa, struct ospf6 *ospf6);
 extern void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
@@ -102,5 +105,9 @@ extern void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 					      struct ospf6_route *route,
 					      struct ospf6 *ospf6);
 extern void ospf6_asbr_distribute_list_update(int type, struct ospf6 *ospf6);
+extern void ospf6_asbr_routemap_update(const char *mapname);
+extern void ospf6_as_external_lsa_originate(struct ospf6_route *route,
+					    struct ospf6 *ospf6);
+extern void ospf6_asbr_status_update(struct ospf6 *ospf6, int status);
 
 #endif /* OSPF6_ASBR_H */

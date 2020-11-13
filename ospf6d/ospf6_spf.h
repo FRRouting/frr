@@ -88,6 +88,7 @@ struct ospf6_vertex {
 #define OSPF6_SPF_FLAGS_LINK_LSA_REMOVED         (1 << 5)
 #define OSPF6_SPF_FLAGS_ROUTER_LSA_ORIGINATED    (1 << 6)
 #define OSPF6_SPF_FLAGS_NETWORK_LSA_ORIGINATED   (1 << 7)
+#define OSPF6_SPF_FLAG_ASBR_STATUS_CHANGE	 (1 << 8)
 
 static inline void ospf6_set_spf_reason(struct ospf6 *ospf, unsigned int reason)
 {

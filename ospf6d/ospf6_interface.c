@@ -1000,6 +1000,26 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 	return 0;
 }
 
+/* Find the global address to be used as a forwarding address in NSSA LSA.*/
+struct in6_addr *
+ospf6_interface_get_global_address(struct interface *ifp)
+{
+        struct listnode *n;
+        struct connected *c;
+        struct in6_addr *l = (struct in6_addr *)NULL;
+
+        /* for each connected address */
+        for (ALL_LIST_ELEMENTS_RO(ifp->connected, n, c)) {
+                /* if family not AF_INET6, ignore */
+                if (c->address->family != AF_INET6)
+                        continue;
+
+                if (!IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
+                        l = &c->address->u.prefix6;
+        }
+        return l;
+}
+
 /* show interface */
 DEFUN (show_ipv6_ospf6_interface,
        show_ipv6_ospf6_interface_ifname_cmd,

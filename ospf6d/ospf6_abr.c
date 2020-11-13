@@ -48,6 +48,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_abr.h"
 #include "ospf6d.h"
+#include "ospf6_nssa.h"
 
 unsigned char conf_debug_ospf6_abr;
 
@@ -56,14 +57,22 @@ int ospf6_is_router_abr(struct ospf6 *o)
 	struct listnode *node;
 	struct ospf6_area *oa;
 	int area_count = 0;
+	bool is_backbone;
 
 	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa))
 		if (IS_AREA_ENABLED(oa))
 			area_count++;
+	
+	if (o->backbone == oa)
+		is_backbone = true;
 
-	if (area_count > 1)
+	if ((area_count > 1) && (is_backbone)) {
+		SET_FLAG(ospf6->flag, OSPF6_FLAG_ABR);
 		return 1;
-	return 0;
+	} else {
+                UNSET_FLAG(ospf6->flag, OSPF6_FLAG_ABR);
+                return 0;
+        }
 }
 
 static int ospf6_abr_nexthops_belong_to_area(struct ospf6_route *route,
@@ -506,6 +515,9 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 	/* create LSA */
 	lsa = ospf6_lsa_create(lsa_header);
 
+	/* Reset the unapproved flag */
+	UNSET_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED);
+
 	/* Originate */
 	ospf6_lsa_originate_area(lsa, area);
 
@@ -576,8 +588,8 @@ ospf6_abr_range_summary_needs_update(struct ospf6_route *range, uint32_t cost)
 	return (redo_summary);
 }
 
-static void ospf6_abr_range_update(struct ospf6_route *range,
-				   struct ospf6 *ospf6)
+void ospf6_abr_range_update(struct ospf6_route *range,
+			    struct ospf6 *ospf6)
 {
 	uint32_t cost = 0;
 	struct listnode *node, *nnode;
