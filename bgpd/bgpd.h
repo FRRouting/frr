@@ -151,6 +151,8 @@ struct bgp_master {
 	uint32_t rmap_update_timer;   /* Route map update timer */
 #define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
+	struct list *soft_reconfig_table;
+
 	/* Id space for automatic RD derivation for an EVI/VRF */
 	bitfield_t rd_idspace;
 
@@ -196,6 +198,7 @@ struct soft_reconfig_table {
 	struct prefix_rd *prd;
 	struct bgp_dest *dest;
 	struct thread *thread;
+	uint32_t idx; /* debugging purpose */
 };
 
 

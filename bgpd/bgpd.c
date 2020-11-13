@@ -7491,6 +7491,7 @@ void bgp_master_init(struct thread_master *master, const int buffer_size,
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 	bm->v_update_delay = BGP_UPDATE_DELAY_DEF;
 	bm->v_establish_wait = BGP_UPDATE_DELAY_DEF;
+	bm->soft_reconfig_table = list_new();
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
 	bm->wait_for_fib = false;

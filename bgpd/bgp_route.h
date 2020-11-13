@@ -570,6 +570,8 @@ extern void bgp_announce_route(struct peer *, afi_t, safi_t);
 extern void bgp_stop_announce_route_timer(struct peer_af *paf);
 extern void bgp_announce_route_all(struct peer *);
 extern void bgp_default_originate(struct peer *, afi_t, safi_t, int);
+extern void
+bgp_soft_reconfig_table_thread_cancel(struct soft_reconfig_table *nsrta);
 extern void bgp_soft_reconfig_in(struct peer *, afi_t, safi_t);
 extern void bgp_clear_route(struct peer *, afi_t, safi_t);
 extern void bgp_clear_route_all(struct peer *);
