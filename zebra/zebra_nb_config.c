@@ -1552,12 +1552,14 @@ int lib_route_map_entry_set_action_source_v4_modify(
 			if (pif != NULL)
 				break;
 		}
-		if (pif == NULL) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "is not a local adddress: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
+		/*
+		 * On startup the local address *may* not have come up
+		 * yet.  We need to allow startup configuration of
+		 * set src or we are fudged.  Log it for future fun
+		 */
+		if (pif == NULL)
+			zlog_warn("set src %pI4 is not a local address",
+				  &p.u.prefix4);
 		return NB_OK;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
@@ -1620,12 +1622,14 @@ int lib_route_map_entry_set_action_source_v6_modify(
 			if (pif != NULL)
 				break;
 		}
-		if (pif == NULL) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "is not a local adddress: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
+		/*
+		 * On startup the local address *may* not have come up
+		 * yet.  We need to allow startup configuration of
+		 * set src or we are fudged.  Log it for future fun
+		 */
+		if (pif == NULL)
+			zlog_warn("set src %pI6 is not a local address",
+				  &p.u.prefix6);
 		return NB_OK;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
