@@ -24,7 +24,7 @@ frr (7.5) RELEASED; urgency=medium
     Beginning of MultiHoming Support
   ISIS
     Segment Routing Support
-  VRF Support
+    VRF Support
     Guard against adj timer display overflow
     Add support for Anycast-SIDs
     Add support for Topology Independent LFA (TI-LFA)
