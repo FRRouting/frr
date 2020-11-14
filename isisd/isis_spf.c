@@ -1727,6 +1727,11 @@ static struct isis_spf_run *isis_run_spf_arg(struct isis_area *area, int level)
 	return run;
 }
 
+void isis_spf_timer_free(void *run)
+{
+	XFREE(MTYPE_ISIS_SPF_RUN, run);
+}
+
 int _isis_spf_schedule(struct isis_area *area, int level,
 		       const char *func, const char *file, int line)
 {

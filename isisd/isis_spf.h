@@ -78,4 +78,5 @@ struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
 					   uint8_t *sysid,
 					   struct isis_spftree *spftree);
 
+void isis_spf_timer_free(void *run);
 #endif /* _ZEBRA_ISIS_SPF_H */

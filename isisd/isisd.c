@@ -442,7 +442,11 @@ void isis_area_destroy(struct isis_area *area)
 
 	spftree_area_del(area);
 
+	if (area->spf_timer[0])
+		isis_spf_timer_free(THREAD_ARG(area->spf_timer[0]));
 	thread_cancel(&area->spf_timer[0]);
+	if (area->spf_timer[1])
+		isis_spf_timer_free(THREAD_ARG(area->spf_timer[1]));
 	thread_cancel(&area->spf_timer[1]);
 
 	spf_backoff_free(area->spf_delay_ietf[0]);
@@ -2374,6 +2378,9 @@ static void area_resign_level(struct isis_area *area, int level)
 			area->spftree[tree][level - 1] = NULL;
 		}
 	}
+
+	if (area->spf_timer[level - 1])
+		isis_spf_timer_free(THREAD_ARG(area->spf_timer[level - 1]));
 
 	thread_cancel(&area->spf_timer[level - 1]);
 
