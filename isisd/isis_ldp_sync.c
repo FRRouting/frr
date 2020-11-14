@@ -429,20 +429,24 @@ void isis_ldp_sync_set_if_metric(struct isis_circuit *circuit, bool run_regen)
 			if (circuit->area->newmetric) {
 				ldp_sync_info->metric[0] =
 					circuit->te_metric[0];
-				circuit->te_metric[0] = LDP_ISIS_LSINFINITY;
+				circuit->te_metric[0] =
+					ISIS_WIDE_METRIC_INFINITY;
 			} else {
 				ldp_sync_info->metric[0] = circuit->metric[0];
-				circuit->metric[0] = LDP_ISIS_LSINFINITY_NL;
+				circuit->metric[0] =
+					ISIS_NARROW_METRIC_INFINITY;
 			}
 		}
 		if (circuit->is_type & IS_LEVEL_2) {
 			if (circuit->area->newmetric) {
 				ldp_sync_info->metric[1] =
 					circuit->te_metric[1];
-				circuit->te_metric[1] = LDP_ISIS_LSINFINITY;
+				circuit->te_metric[1] =
+					ISIS_WIDE_METRIC_INFINITY;
 			} else {
 				ldp_sync_info->metric[1] = circuit->metric[1];
-				circuit->metric[1] = LDP_ISIS_LSINFINITY_NL;
+				circuit->metric[1] =
+					ISIS_NARROW_METRIC_INFINITY;
 			}
 		}
 	} else {

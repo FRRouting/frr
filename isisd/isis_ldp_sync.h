@@ -20,9 +20,6 @@
 #ifndef _ZEBRA_ISIS_LDP_SYNC_H
 #define _ZEBRA_ISIS_LDP_SYNC_H
 
-#define LDP_ISIS_LSINFINITY 0xFFFFFE  /* wide link metric */
-#define LDP_ISIS_LSINFINITY_NL 62     /* narrow link metric */
-
 /* Macro to log debug message */
 #define ils_debug(...)                                                         \
 	do {                                                                   \
