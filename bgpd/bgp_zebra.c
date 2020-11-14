@@ -531,9 +531,9 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 				api.instance, &api.prefix, buf, nhtype, ifindex,
 				api.metric, api.tag);
 		} else {
-			zlog_debug("Rx route DEL VRF %u %s[%d] %s", vrf_id,
+			zlog_debug("Rx route DEL VRF %u %s[%d] %pFX", vrf_id,
 				   zebra_route_string(api.type), api.instance,
-				   buf);
+				   &api.prefix);
 		}
 	}
 
