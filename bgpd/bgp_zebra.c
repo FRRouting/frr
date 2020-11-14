@@ -2840,6 +2840,7 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 		stream_get(&esi, s, sizeof(esi_t));
 	} else {
 		state = stream_getl(s);
+		memset(&esi, 0, sizeof(esi_t));
 	}
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
