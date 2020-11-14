@@ -585,6 +585,7 @@ void isis_finish(struct isis *isis)
 			isis_vrf_unlink(isis, vrf);
 	}
 
+	isis_redist_free(isis);
 	list_delete(&isis->area_list);
 	list_delete(&isis->init_circ_list);
 	XFREE(MTYPE_ISIS, isis);
