@@ -1095,8 +1095,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 		tinfo.ifindex = ifindex;
 		tinfo.tag = tag;
 
-		ret = route_map_apply(ospf6->rmap[type].map, prefix, RMAP_OSPF6,
-				      &troute);
+		ret = route_map_apply(ospf6->rmap[type].map, prefix, &troute);
 		if (ret == RMAP_DENYMATCH) {
 			if (IS_OSPF6_DEBUG_ASBR)
 				zlog_debug("Denied by route-map \"%s\"",
@@ -1400,13 +1399,10 @@ static void ospf6_redistribute_show_config(struct vty *vty, struct ospf6 *ospf6)
 static enum route_map_cmd_result_t
 ospf6_routemap_rule_match_address_prefixlist(void *rule,
 					     const struct prefix *prefix,
-					     route_map_object_t type,
+
 					     void *object)
 {
 	struct prefix_list *plist;
-
-	if (type != RMAP_OSPF6)
-		return RMAP_NOMATCH;
 
 	plist = prefix_list_lookup(AFI_IP6, (char *)rule);
 	if (plist == NULL)
@@ -1440,18 +1436,16 @@ static const struct route_map_rule_cmd
    zero. */
 static enum route_map_cmd_result_t
 ospf6_routemap_rule_match_interface(void *rule, const struct prefix *prefix,
-				    route_map_object_t type, void *object)
+				    void *object)
 {
 	struct interface *ifp;
 	struct ospf6_external_info *ei;
 
-	if (type == RMAP_OSPF6) {
-		ei = ((struct ospf6_route *)object)->route_option;
-		ifp = if_lookup_by_name_all_vrf((char *)rule);
+	ei = ((struct ospf6_route *)object)->route_option;
+	ifp = if_lookup_by_name_all_vrf((char *)rule);
 
-		if (ifp != NULL && ei->ifindex == ifp->ifindex)
-			return RMAP_MATCH;
-	}
+	if (ifp != NULL && ei->ifindex == ifp->ifindex)
+		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
 }
@@ -1480,14 +1474,13 @@ static const struct route_map_rule_cmd
 
 /* Match function for matching route tags */
 static enum route_map_cmd_result_t
-ospf6_routemap_rule_match_tag(void *rule, const struct prefix *p,
-			      route_map_object_t type, void *object)
+ospf6_routemap_rule_match_tag(void *rule, const struct prefix *p, void *object)
 {
 	route_tag_t *tag = rule;
 	struct ospf6_route *route = object;
 	struct ospf6_external_info *info = route->route_option;
 
-	if (type == RMAP_OSPF6 && info->tag == *tag)
+	if (info->tag == *tag)
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
@@ -1503,13 +1496,10 @@ static const struct route_map_rule_cmd
 
 static enum route_map_cmd_result_t
 ospf6_routemap_rule_set_metric_type(void *rule, const struct prefix *prefix,
-				    route_map_object_t type, void *object)
+				    void *object)
 {
 	char *metric_type = rule;
 	struct ospf6_route *route = object;
-
-	if (type != RMAP_OSPF6)
-		return RMAP_OKAY;
 
 	if (strcmp(metric_type, "type-2") == 0)
 		route->path.metric_type = 2;
@@ -1541,13 +1531,10 @@ static const struct route_map_rule_cmd
 
 static enum route_map_cmd_result_t
 ospf6_routemap_rule_set_metric(void *rule, const struct prefix *prefix,
-			       route_map_object_t type, void *object)
+			       void *object)
 {
 	char *metric = rule;
 	struct ospf6_route *route = object;
-
-	if (type != RMAP_OSPF6)
-		return RMAP_OKAY;
 
 	route->path.cost = atoi(metric);
 	return RMAP_OKAY;
@@ -1578,14 +1565,11 @@ static const struct route_map_rule_cmd
 
 static enum route_map_cmd_result_t
 ospf6_routemap_rule_set_forwarding(void *rule, const struct prefix *prefix,
-				   route_map_object_t type, void *object)
+				   void *object)
 {
 	char *forwarding = rule;
 	struct ospf6_route *route = object;
 	struct ospf6_external_info *info = route->route_option;
-
-	if (type != RMAP_OSPF6)
-		return RMAP_OKAY;
 
 	if (inet_pton(AF_INET6, forwarding, &info->forwarding) != 1) {
 		memset(&info->forwarding, 0, sizeof(struct in6_addr));
@@ -1617,15 +1601,11 @@ static const struct route_map_rule_cmd
 };
 
 static enum route_map_cmd_result_t
-ospf6_routemap_rule_set_tag(void *rule, const struct prefix *p,
-			    route_map_object_t type, void *object)
+ospf6_routemap_rule_set_tag(void *rule, const struct prefix *p, void *object)
 {
 	route_tag_t *tag = rule;
 	struct ospf6_route *route = object;
 	struct ospf6_external_info *info = route->route_option;
-
-	if (type != RMAP_OSPF6)
-		return RMAP_OKAY;
 
 	info->tag = *tag;
 	return RMAP_OKAY;

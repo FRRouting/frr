@@ -124,7 +124,7 @@ static int is_running(void);
 static void route_match_free(void *rule);
 static enum route_map_cmd_result_t route_match(void *rule,
 					       const struct prefix *prefix,
-					       route_map_object_t type,
+
 					       void *object);
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp_dest *dest, afi_t afi, safi_t safi);
@@ -213,20 +213,18 @@ static void ipv6_addr_to_host_byte_order(const uint32_t *src, uint32_t *dest)
 
 static enum route_map_cmd_result_t route_match(void *rule,
 					       const struct prefix *prefix,
-					       route_map_object_t type,
 					       void *object)
 {
 	int *rpki_status = rule;
 	struct bgp_path_info *path;
 
-	if (type == RMAP_BGP) {
-		path = object;
+	path = object;
 
-		if (rpki_validate_prefix(path->peer, path->attr, prefix)
-		    == *rpki_status) {
-			return RMAP_MATCH;
-		}
+	if (rpki_validate_prefix(path->peer, path->attr, prefix)
+	    == *rpki_status) {
+		return RMAP_MATCH;
 	}
+
 	return RMAP_NOMATCH;
 }
 

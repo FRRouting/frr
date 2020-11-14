@@ -47,7 +47,7 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 
 			RESET_FLAG(dummy_attr.rmap_change_flags);
 
-			ret = route_map_apply(rmap, dest_p, RMAP_BGP, &path);
+			ret = route_map_apply(rmap, dest_p, &path);
 			if (ret != RMAP_PERMITMATCH)
 				bgp_attr_flush(&dummy_attr);
 			else {
@@ -112,7 +112,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 
 			RESET_FLAG(dummy_attr.rmap_change_flags);
 
-			if (route_map_apply(rmap, dest_p, RMAP_BGP, &path)
+			if (route_map_apply(rmap, dest_p, &path)
 			    != RMAP_PERMITMATCH) {
 				bgp_attr_flush(&dummy_attr);
 				continue;

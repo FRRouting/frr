@@ -823,8 +823,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 				ret = route_map_apply(
 					peer->default_rmap[afi][safi].map,
-					bgp_dest_get_prefix(dest), RMAP_BGP,
-					&tmp_pi);
+					bgp_dest_get_prefix(dest), &tmp_pi);
 
 				if (ret == RMAP_DENYMATCH) {
 					bgp_attr_flush(&tmp_attr);

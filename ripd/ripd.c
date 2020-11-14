@@ -462,7 +462,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	if (ri->routemap[RIP_FILTER_IN]) {
 		/* The object should be of the type of rip_info */
 		ret = route_map_apply(ri->routemap[RIP_FILTER_IN],
-				      (struct prefix *)&p, RMAP_RIP, &newinfo);
+				      (struct prefix *)&p, &newinfo);
 
 		if (ret == RMAP_DENYMATCH) {
 			if (IS_RIP_DEBUG_PACKET)
@@ -2251,7 +2251,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			if (ri->routemap[RIP_FILTER_OUT]) {
 				ret = route_map_apply(
 					ri->routemap[RIP_FILTER_OUT],
-					(struct prefix *)p, RMAP_RIP, rinfo);
+					(struct prefix *)p, rinfo);
 
 				if (ret == RMAP_DENYMATCH) {
 					if (IS_RIP_DEBUG_PACKET)
@@ -2267,7 +2267,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			    && rinfo->sub_type != RIP_ROUTE_INTERFACE) {
 				ret = route_map_apply(
 					rip->redist[rinfo->type].route_map.map,
-					(struct prefix *)p, RMAP_RIP, rinfo);
+					(struct prefix *)p, rinfo);
 
 				if (ret == RMAP_DENYMATCH) {
 					if (IS_RIP_DEBUG_PACKET)

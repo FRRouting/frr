@@ -1003,8 +1003,7 @@ struct attr *bgp_attr_aggregate_intern(
 
 		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_AGGREGATE);
 
-		ret = route_map_apply(aggregate->rmap.map, p, RMAP_BGP,
-				      &rmap_path);
+		ret = route_map_apply(aggregate->rmap.map, p, &rmap_path);
 
 		bgp->peer_self->rmap_type = 0;
 

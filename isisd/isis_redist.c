@@ -167,8 +167,7 @@ static void isis_redist_update_ext_reach(struct isis_area *area, int level,
 	area_info.metric = redist->metric;
 
 	if (redist->map_name) {
-		map_ret =
-			route_map_apply(redist->map, p, RMAP_ISIS, &area_info);
+		map_ret = route_map_apply(redist->map, p, &area_info);
 		if (map_ret == RMAP_DENYMATCH)
 			area_info.distance = 255;
 	}

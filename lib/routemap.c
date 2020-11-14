@@ -1530,8 +1530,7 @@ enum rmap_compile_rets route_map_delete_set(struct route_map_index *index,
 
 static enum route_map_cmd_result_t
 route_map_apply_match(struct route_map_rule_list *match_list,
-		      const struct prefix *prefix, route_map_object_t type,
-		      void *object)
+		      const struct prefix *prefix, void *object)
 {
 	enum route_map_cmd_result_t ret = RMAP_NOMATCH;
 	struct route_map_rule *match;
@@ -1555,7 +1554,7 @@ route_map_apply_match(struct route_map_rule_list *match_list,
 			 * If all result in NOOP, end-result is NOOP.
 			 */
 			ret = (*match->cmd->func_apply)(match->value, prefix,
-							type, object);
+							object);
 
 			/*
 			 * If the consolidated result of func_apply is:
@@ -1647,9 +1646,10 @@ static struct list *route_map_get_index_list(struct route_node **rn,
 /*
  * This function returns the route-map index that best matches the prefix.
  */
-static struct route_map_index *
-route_map_get_index(struct route_map *map, const struct prefix *prefix,
-		    route_map_object_t type, void *object, uint8_t *match_ret)
+static struct route_map_index *route_map_get_index(struct route_map *map,
+						   const struct prefix *prefix,
+						   void *object,
+						   uint8_t *match_ret)
 {
 	int ret = 0;
 	struct list *candidate_rmap_list = NULL;
@@ -1695,7 +1695,7 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 				break;
 
 			ret = route_map_apply_match(&index->match_list, prefix,
-						    type, object);
+						    object);
 
 			if (ret == RMAP_MATCH) {
 				*match_ret = ret;
@@ -2369,8 +2369,7 @@ void route_map_notify_pentry_dependencies(const char *affected_name,
    We need to make sure our route-map processing matches the above
 */
 route_map_result_t route_map_apply(struct route_map *map,
-				   const struct prefix *prefix,
-				   route_map_object_t type, void *object)
+				   const struct prefix *prefix, void *object)
 {
 	static int recursion = 0;
 	enum route_map_cmd_result_t match_ret = RMAP_NOMATCH;
@@ -2397,7 +2396,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 
 	if ((!map->optimization_disabled)
 	    && (map->ipv4_prefix_table || map->ipv6_prefix_table)) {
-		index = route_map_get_index(map, prefix, type, object,
+		index = route_map_get_index(map, prefix, object,
 					    (uint8_t *)&match_ret);
 		if (index) {
 			if (rmap_debug)
@@ -2431,7 +2430,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 			index->applied++;
 			/* Apply this index. */
 			match_ret = route_map_apply_match(&index->match_list,
-							  prefix, type, object);
+							  prefix, object);
 			if (rmap_debug) {
 				zlog_debug(
 					"Route-map: %s, sequence: %d, prefix: %pFX, result: %s",
@@ -2489,9 +2488,8 @@ route_map_result_t route_map_apply(struct route_map *map,
 					 * set succeeded or not. So, ignore
 					 * return code.
 					 */
-					(void) (*set->cmd->func_apply)(
-						set->value, prefix, type,
-						object);
+					(void)(*set->cmd->func_apply)(
+						set->value, prefix, object);
 
 				/* Call another route-map if available */
 				if (index->nextrm) {
@@ -2504,8 +2502,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 					{
 						recursion++;
 						ret = route_map_apply(
-							nextrm, prefix, type,
-							object);
+							nextrm, prefix, object);
 						recursion--;
 					}
 
