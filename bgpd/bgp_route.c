@@ -10672,6 +10672,7 @@ static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
 	int i;
 	char *str;
 	int first = 0;
+	int ret;
 
 	b = buffer_new(1024);
 	for (i = 0; i < argc; i++) {
@@ -10696,10 +10697,13 @@ static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, bgp, afi, safi,
+	ret = bgp_show(vty, bgp, afi, safi,
 			(exact ? bgp_show_type_lcommunity_exact
 			       : bgp_show_type_lcommunity),
 			lcom, uj, false);
+
+	lcommunity_free(&lcom);
+	return ret;
 }
 
 static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
