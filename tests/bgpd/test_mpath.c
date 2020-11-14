@@ -106,15 +106,13 @@ static struct bgp *bgp_create_fake(as_t *as, const char *name)
 	// bgp->group->cmp = (int (*)(void *, void *)) peer_group_cmp;
 
 	bgp_evpn_init(bgp);
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			bgp->route[afi][safi] = bgp_table_init(bgp, afi, safi);
-			bgp->aggregate[afi][safi] = bgp_table_init(
-				bgp, afi, safi);
-			bgp->rib[afi][safi] = bgp_table_init(bgp, afi, safi);
-			bgp->maxpaths[afi][safi].maxpaths_ebgp = MULTIPATH_NUM;
-			bgp->maxpaths[afi][safi].maxpaths_ibgp = MULTIPATH_NUM;
-		}
+	FOREACH_AFI_SAFI (afi, safi) {
+		bgp->route[afi][safi] = bgp_table_init(bgp, afi, safi);
+		bgp->aggregate[afi][safi] = bgp_table_init(bgp, afi, safi);
+		bgp->rib[afi][safi] = bgp_table_init(bgp, afi, safi);
+		bgp->maxpaths[afi][safi].maxpaths_ebgp = MULTIPATH_NUM;
+		bgp->maxpaths[afi][safi].maxpaths_ibgp = MULTIPATH_NUM;
+	}
 
 	bgp_scan_init(bgp);
 	bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
@@ -152,36 +150,33 @@ static int run_bgp_cfg_maximum_paths(testcase_t *t)
 	int test_result = TEST_PASSED;
 
 	bgp = t->tmp_data;
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			/* test bgp_maximum_paths_set */
-			api_result = bgp_maximum_paths_set(
-				bgp, afi, safi, BGP_PEER_EBGP, 10, 0);
-			EXPECT_TRUE(api_result == 0, test_result);
-			api_result = bgp_maximum_paths_set(
-				bgp, afi, safi, BGP_PEER_IBGP, 10, 0);
-			EXPECT_TRUE(api_result == 0, test_result);
-			EXPECT_TRUE(bgp->maxpaths[afi][safi].maxpaths_ebgp
-					    == 10,
-				    test_result);
-			EXPECT_TRUE(bgp->maxpaths[afi][safi].maxpaths_ibgp
-					    == 10,
-				    test_result);
+	FOREACH_AFI_SAFI (afi, safi) {
+		/* test bgp_maximum_paths_set */
+		api_result = bgp_maximum_paths_set(bgp, afi, safi,
+						   BGP_PEER_EBGP, 10, 0);
+		EXPECT_TRUE(api_result == 0, test_result);
+		api_result = bgp_maximum_paths_set(bgp, afi, safi,
+						   BGP_PEER_IBGP, 10, 0);
+		EXPECT_TRUE(api_result == 0, test_result);
+		EXPECT_TRUE(bgp->maxpaths[afi][safi].maxpaths_ebgp == 10,
+			    test_result);
+		EXPECT_TRUE(bgp->maxpaths[afi][safi].maxpaths_ibgp == 10,
+			    test_result);
 
-			/* test bgp_maximum_paths_unset */
-			api_result = bgp_maximum_paths_unset(bgp, afi, safi,
-							     BGP_PEER_EBGP);
-			EXPECT_TRUE(api_result == 0, test_result);
-			api_result = bgp_maximum_paths_unset(bgp, afi, safi,
-							     BGP_PEER_IBGP);
-			EXPECT_TRUE(api_result == 0, test_result);
-			EXPECT_TRUE((bgp->maxpaths[afi][safi].maxpaths_ebgp
-				     == MULTIPATH_NUM),
-				    test_result);
-			EXPECT_TRUE((bgp->maxpaths[afi][safi].maxpaths_ibgp
-				     == MULTIPATH_NUM),
-				    test_result);
-		}
+		/* test bgp_maximum_paths_unset */
+		api_result =
+			bgp_maximum_paths_unset(bgp, afi, safi, BGP_PEER_EBGP);
+		EXPECT_TRUE(api_result == 0, test_result);
+		api_result =
+			bgp_maximum_paths_unset(bgp, afi, safi, BGP_PEER_IBGP);
+		EXPECT_TRUE(api_result == 0, test_result);
+		EXPECT_TRUE((bgp->maxpaths[afi][safi].maxpaths_ebgp
+			     == MULTIPATH_NUM),
+			    test_result);
+		EXPECT_TRUE((bgp->maxpaths[afi][safi].maxpaths_ibgp
+			     == MULTIPATH_NUM),
+			    test_result);
+	}
 
 	return test_result;
 }

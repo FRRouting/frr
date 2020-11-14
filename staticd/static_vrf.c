@@ -238,14 +238,12 @@ int static_vrf_has_config(struct static_vrf *svrf)
 	 * NOTE: This is a don't care for the default VRF, but we go through
 	 * the motions to keep things consistent.
 	 */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			table = svrf->stable[afi][safi];
-			if (!table)
-				continue;
-			if (route_table_count(table))
-				return 1;
-		}
+	FOREACH_AFI_SAFI (afi, safi) {
+		table = svrf->stable[afi][safi];
+		if (!table)
+			continue;
+		if (route_table_count(table))
+			return 1;
 	}
 
 	return 0;

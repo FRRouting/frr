@@ -104,10 +104,6 @@ enum bgp_af_index {
 
 #define AF_FOREACH(af) for ((af) = BGP_AF_START; (af) < BGP_AF_MAX; (af)++)
 
-#define FOREACH_AFI_SAFI(afi, safi)                                            \
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-
 #define FOREACH_SAFI(safi)                                            \
 	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 

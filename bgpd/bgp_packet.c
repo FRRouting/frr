@@ -279,18 +279,17 @@ static void bgp_update_explicit_eors(struct peer *peer)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("Peer %s: Checking explicit EORs", peer->host);
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			if (peer->afc_nego[afi][safi]
-			    && !CHECK_FLAG(peer->af_sflags[afi][safi],
-					   PEER_STATUS_EOR_RECEIVED)) {
-				if (bgp_debug_neighbor_events(peer))
-					zlog_debug(
-						"   afi %d safi %d didn't receive EOR",
-						afi, safi);
-				return;
-			}
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (peer->afc_nego[afi][safi]
+		    && !CHECK_FLAG(peer->af_sflags[afi][safi],
+				   PEER_STATUS_EOR_RECEIVED)) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"   afi %d safi %d didn't receive EOR",
+					afi, safi);
+			return;
 		}
+	}
 
 	peer->update_delay_over = 1;
 	peer->bgp->explicit_eors++;

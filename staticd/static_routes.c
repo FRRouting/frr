@@ -546,19 +546,15 @@ void static_fixup_vrf_ids(struct static_vrf *enable_svrf)
 
 		svrf = vrf->info;
 		/* Install any static routes configured for this VRF. */
-		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				stable = svrf->stable[afi][safi];
-				if (!stable)
-					continue;
+		FOREACH_AFI_SAFI (afi, safi) {
+			stable = svrf->stable[afi][safi];
+			if (!stable)
+				continue;
 
-				static_fixup_vrf(enable_svrf, stable,
-						 afi, safi);
+			static_fixup_vrf(enable_svrf, stable, afi, safi);
 
-				if (enable_svrf == svrf)
-					static_enable_vrf(svrf, stable,
-							  afi, safi);
-			}
+			if (enable_svrf == svrf)
+				static_enable_vrf(svrf, stable, afi, safi);
 		}
 	}
 }
@@ -649,20 +645,17 @@ void static_cleanup_vrf_ids(struct static_vrf *disable_svrf)
 		svrf = vrf->info;
 
 		/* Uninstall any static routes configured for this VRF. */
-		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				struct route_table *stable;
+		FOREACH_AFI_SAFI (afi, safi) {
+			struct route_table *stable;
 
-				stable = svrf->stable[afi][safi];
-				if (!stable)
-					continue;
+			stable = svrf->stable[afi][safi];
+			if (!stable)
+				continue;
 
-				static_cleanup_vrf(disable_svrf, stable,
-						   afi, safi);
+			static_cleanup_vrf(disable_svrf, stable, afi, safi);
 
-				if (disable_svrf == svrf)
-					static_disable_vrf(stable, afi, safi);
-			}
+			if (disable_svrf == svrf)
+				static_disable_vrf(stable, afi, safi);
 		}
 	}
 }
@@ -725,14 +718,12 @@ void static_install_intf_nh(struct interface *ifp)
 			continue;
 
 		/* Install any static routes configured for this interface. */
-		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				stable = svrf->stable[afi][safi];
-				if (!stable)
-					continue;
+		FOREACH_AFI_SAFI (afi, safi) {
+			stable = svrf->stable[afi][safi];
+			if (!stable)
+				continue;
 
-				static_fixup_intf_nh(stable, ifp, afi, safi);
-			}
+			static_fixup_intf_nh(stable, ifp, afi, safi);
 		}
 	}
 }
