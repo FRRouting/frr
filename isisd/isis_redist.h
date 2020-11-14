@@ -62,4 +62,5 @@ void isis_redist_set(struct isis_area *area, int level, int family, int type,
 		     uint32_t metric, const char *routemap, int originate_type);
 void isis_redist_unset(struct isis_area *area, int level, int family, int type);
 
+void isis_redist_free(struct isis *isis);
 #endif
