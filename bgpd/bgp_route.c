@@ -241,6 +241,9 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 	if (e->bgp_orig)
 		bgp_unlock(e->bgp_orig);
 
+	if (e->aggr_suppressors)
+		list_delete(&e->aggr_suppressors);
+
 	if ((*extra)->bgp_fs_iprule)
 		list_delete(&((*extra)->bgp_fs_iprule));
 	if ((*extra)->bgp_fs_pbr)
