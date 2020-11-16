@@ -456,7 +456,8 @@ void rfapiPrintAttrPtrs(void *stream, struct attr *attr)
 	struct vty *vty;
 	void *out;
 	const char *vty_newline;
-
+	struct transit *transit;
+	struct cluster_list *cluster;
 	char buf[BUFSIZ];
 
 	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
@@ -477,10 +478,14 @@ void rfapiPrintAttrPtrs(void *stream, struct attr *attr)
 
 	fp(out, "  ecommunity=%p, refcnt=%d%s", attr->ecommunity,
 	   (attr->ecommunity ? attr->ecommunity->refcnt : 0), HVTYNL);
-	fp(out, "  cluster=%p, refcnt=%d%s", attr->cluster,
-	   (attr->cluster ? attr->cluster->refcnt : 0), HVTYNL);
-	fp(out, "  transit=%p, refcnt=%d%s", attr->transit,
-	   (attr->transit ? attr->transit->refcnt : 0), HVTYNL);
+
+	cluster = bgp_attr_get_cluster(attr);
+	fp(out, "  cluster=%p, refcnt=%d%s", cluster,
+	   (cluster ? cluster->refcnt : 0), HVTYNL);
+
+	transit = bgp_attr_get_transit(attr);
+	fp(out, "  transit=%p, refcnt=%d%s", transit,
+	   (transit ? transit->refcnt : 0), HVTYNL);
 }
 
 /*
@@ -591,7 +596,8 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 	}
 
 	/* RFP option lengths */
-	for (pEncap = bpi->attr->vnc_subtlvs; pEncap; pEncap = pEncap->next) {
+	for (pEncap = bgp_attr_get_vnc_subtlvs(bpi->attr); pEncap;
+	     pEncap = pEncap->next) {
 
 		if (pEncap->type == BGP_VNC_SUBTLV_TYPE_RFPOPTION) {
 			if (printed_1st_gol) {

@@ -1439,14 +1439,15 @@ static bool bgp_community_filter(struct peer *peer, struct attr *attr)
 static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 {
 	struct in_addr cluster_id;
+	struct cluster_list *cluster = bgp_attr_get_cluster(attr);
 
-	if (attr->cluster) {
+	if (cluster) {
 		if (peer->bgp->config & BGP_CONFIG_CLUSTER_ID)
 			cluster_id = peer->bgp->cluster_id;
 		else
 			cluster_id = peer->bgp->router_id;
 
-		if (cluster_loop_check(attr->cluster, cluster_id))
+		if (cluster_loop_check(cluster, cluster_id))
 			return true;
 	}
 	return false;
@@ -3383,17 +3384,22 @@ static void overlay_index_update(struct attr *attr,
 	if (!attr)
 		return;
 	if (gw_ip == NULL) {
-		memset(&(attr->evpn_overlay.gw_ip), 0, sizeof(union gw_addr));
+		struct bgp_route_evpn eo;
+
+		memset(&eo, 0, sizeof(eo));
+		bgp_attr_set_evpn_overlay(attr, &eo);
 	} else {
-		memcpy(&(attr->evpn_overlay.gw_ip), gw_ip,
-		       sizeof(union gw_addr));
+		struct bgp_route_evpn eo = {.gw_ip = *gw_ip};
+
+		bgp_attr_set_evpn_overlay(attr, &eo);
 	}
 }
 
 static bool overlay_index_equal(afi_t afi, struct bgp_path_info *path,
 				union gw_addr *gw_ip)
 {
-	union gw_addr *path_gw_ip, *path_gw_ip_remote;
+	const struct bgp_route_evpn *eo = bgp_attr_get_evpn_overlay(path->attr);
+	union gw_addr path_gw_ip, *path_gw_ip_remote;
 	union {
 		esi_t esi;
 		union gw_addr ip;
@@ -3402,7 +3408,7 @@ static bool overlay_index_equal(afi_t afi, struct bgp_path_info *path,
 	if (afi != AFI_L2VPN)
 		return true;
 
-	path_gw_ip = &(path->attr->evpn_overlay.gw_ip);
+	path_gw_ip = eo->gw_ip;
 
 	if (gw_ip == NULL) {
 		memset(&temp, 0, sizeof(temp));
@@ -3410,7 +3416,7 @@ static bool overlay_index_equal(afi_t afi, struct bgp_path_info *path,
 	} else
 		path_gw_ip_remote = gw_ip;
 
-	return !!memcmp(path_gw_ip, path_gw_ip_remote, sizeof(union gw_addr));
+	return !!memcmp(&path_gw_ip, path_gw_ip_remote, sizeof(union gw_addr));
 }
 
 /* Check if received nexthop is valid or not. */
@@ -4509,7 +4515,8 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 			if (num_labels)
 				label_pnt = &pi->extra->label[0];
 			if (pi)
-				memcpy(&evpn, &pi->attr->evpn_overlay,
+				memcpy(&evpn,
+				       bgp_attr_get_evpn_overlay(pi->attr),
 				       sizeof(evpn));
 			else
 				memset(&evpn, 0, sizeof(evpn));
@@ -8967,13 +8974,12 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 		}
 	}
 
-	if (is_evpn_prefix_ipaddr_v4((struct prefix_evpn *)p)) {
-		inet_ntop(AF_INET, &(attr->evpn_overlay.gw_ip.ipv4), buf,
-			  BUFSIZ);
-	} else if (is_evpn_prefix_ipaddr_v6((struct prefix_evpn *)p)) {
-		inet_ntop(AF_INET6, &(attr->evpn_overlay.gw_ip.ipv6), buf,
-			  BUFSIZ);
-	}
+	const struct bgp_route_evpn *eo = bgp_attr_get_evpn_overlay(attr);
+
+	if (is_evpn_prefix_ipaddr_v4((struct prefix_evpn *)p))
+		inet_ntop(AF_INET, &eo->gw_ip.ipv4, buf, BUFSIZ);
+	else if (is_evpn_prefix_ipaddr_v6((struct prefix_evpn *)p))
+		inet_ntop(AF_INET6, &eo->gw_ip.ipv6, buf, BUFSIZ);
 
 	if (!json_path)
 		vty_out(vty, "/%s", buf);
@@ -10059,6 +10065,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 		}
 
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST)) {
+			struct cluster_list *cluster =
+				bgp_attr_get_cluster(attr);
 			int i;
 
 			if (json_paths) {
@@ -10066,13 +10074,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				json_cluster_list_list =
 					json_object_new_array();
 
-				for (i = 0; i < attr->cluster->length / 4;
-				     i++) {
+				for (i = 0; i < cluster->length / 4; i++) {
 					json_string = json_object_new_string(
-						inet_ntop(
-							AF_INET,
-							&attr->cluster->list[i],
-							buf, sizeof(buf)));
+						inet_ntop(AF_INET,
+							  &cluster->list[i],
+							  buf, sizeof(buf)));
 					json_object_array_add(
 						json_cluster_list_list,
 						json_string);
@@ -10084,7 +10090,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				 * do.  Add this someday if someone asks
 				 * for it.
 				 * json_object_string_add(json_cluster_list,
-				 * "string", attr->cluster->str);
+				 * "string", cluster->str);
 				 */
 				json_object_object_add(json_cluster_list,
 						       "list",
@@ -10094,10 +10100,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 			} else {
 				vty_out(vty, ", Cluster list: ");
 
-				for (i = 0; i < attr->cluster->length / 4;
-				     i++) {
+				for (i = 0; i < cluster->length / 4; i++) {
 					vty_out(vty, "%pI4 ",
-						&attr->cluster->list[i]);
+						&cluster->list[i]);
 				}
 			}
 		}
@@ -10224,9 +10229,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 
 	/* Line 10 display PMSI tunnel attribute, if present */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)) {
-		const char *str =
-			lookup_msg(bgp_pmsi_tnltype_str, attr->pmsi_tnl_type,
-				   PMSI_TNLTYPE_STR_DEFAULT);
+		const char *str = lookup_msg(bgp_pmsi_tnltype_str,
+					     bgp_attr_get_pmsi_tnl_type(attr),
+					     PMSI_TNLTYPE_STR_DEFAULT);
 
 		if (json_paths) {
 			json_pmsi = json_object_new_object();
