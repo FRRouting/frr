@@ -3481,6 +3481,7 @@ not installed in FIB.
 
 The following conditions apply will apply when checking for route installation
 status in FIB:
+
 1. The advertisement or suppression of routes based on FIB install status
    applies only for newly learnt routes from peer (routes which are not in
    BGP local RIB).
