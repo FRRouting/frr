@@ -4194,7 +4194,7 @@ void vtysh_init_vty(void)
 	install_element(VRF_NODE, &vtysh_end_all_cmd);
 	install_element(VRF_NODE, &vtysh_exit_vrf_cmd);
 	install_element(VRF_NODE, &vtysh_quit_vrf_cmd);
-	
+
 	install_node(&rmap_node);
 	install_element(CONFIG_NODE, &vtysh_route_map_cmd);
 	install_element(RMAP_NODE, &vtysh_exit_rmap_cmd);
