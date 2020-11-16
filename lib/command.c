@@ -154,7 +154,8 @@ static bool vty_check_node_for_xpath_decrement(enum node_type target_node,
 		|| node == BGP_IPV4M_NODE || node == BGP_IPV6M_NODE
 		|| node == BGP_VPNV4_NODE || node == BGP_VPNV6_NODE
 		|| node == BGP_EVPN_NODE || node == BGP_IPV4L_NODE
-		|| node == BGP_IPV6L_NODE ))
+		|| node == BGP_IPV6L_NODE || node == BGP_FLOWSPECV4_NODE
+		|| node == BGP_FLOWSPECV6_NODE))
 		return false;
 
 	return true;
