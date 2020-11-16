@@ -763,6 +763,9 @@ static int bgp_evpn_type4_remote_routes_import(struct bgp *bgp,
 						install ? "install"
 							: "uninstall",
 						evp, es->esi_str);
+
+					bgp_dest_unlock_node(rd_dest);
+					bgp_dest_unlock_node(dest);
 					return ret;
 				}
 			}
