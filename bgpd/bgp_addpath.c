@@ -80,14 +80,12 @@ void bgp_addpath_init_bgp_data(struct bgp_addpath_bgp_data *d)
 	afi_t afi;
 	int i;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			for (i = 0; i < BGP_ADDPATH_MAX; i++) {
-				d->id_allocators[afi][safi][i] = NULL;
-				d->peercount[afi][safi][i] = 0;
-			}
-			d->total_peercount[afi][safi] = 0;
+	FOREACH_AFI_SAFI (afi, safi) {
+		for (i = 0; i < BGP_ADDPATH_MAX; i++) {
+			d->id_allocators[afi][safi][i] = NULL;
+			d->peercount[afi][safi][i] = 0;
 		}
+		d->total_peercount[afi][safi] = 0;
 	}
 }
 

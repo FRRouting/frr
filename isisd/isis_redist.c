@@ -380,6 +380,19 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 		}
 }
 
+void isis_redist_free(struct isis *isis)
+{
+	int i;
+
+	for (i = 0; i < REDIST_PROTOCOL_COUNT; i++) {
+		if (!isis->ext_info[i])
+			continue;
+
+		route_table_finish(isis->ext_info[i]);
+		isis->ext_info[i] = NULL;
+	}
+}
+
 void isis_redist_set(struct isis_area *area, int level, int family, int type,
 		     uint32_t metric, const char *routemap, int originate_type)
 {

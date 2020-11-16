@@ -531,9 +531,9 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 				api.instance, &api.prefix, buf, nhtype, ifindex,
 				api.metric, api.tag);
 		} else {
-			zlog_debug("Rx route DEL VRF %u %s[%d] %s", vrf_id,
+			zlog_debug("Rx route DEL VRF %u %s[%d] %pFX", vrf_id,
 				   zebra_route_string(api.type), api.instance,
-				   buf);
+				   &api.prefix);
 		}
 	}
 
@@ -2840,6 +2840,7 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 		stream_get(&esi, s, sizeof(esi_t));
 	} else {
 		state = stream_getl(s);
+		memset(&esi, 0, sizeof(esi_t));
 	}
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);

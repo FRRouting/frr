@@ -1094,6 +1094,15 @@ static void peer_free(struct peer *peer)
 		bgp_delete_connected_nexthop(family2afi(peer->su.sa.sa_family),
 					     peer);
 
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (peer->filter[afi][safi].advmap.aname)
+			XFREE(MTYPE_BGP_FILTER_NAME,
+			      peer->filter[afi][safi].advmap.aname);
+		if (peer->filter[afi][safi].advmap.cname)
+			XFREE(MTYPE_BGP_FILTER_NAME,
+			      peer->filter[afi][safi].advmap.cname);
+	}
+
 	XFREE(MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
 
 	XFREE(MTYPE_PEER_DESC, peer->desc);
@@ -1121,12 +1130,8 @@ static void peer_free(struct peer *peer)
 
 	bfd_info_free(&(peer->bfd_info));
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			bgp_addpath_set_peer_type(peer, afi, safi,
-						 BGP_ADDPATH_NONE);
-		}
-	}
+	FOREACH_AFI_SAFI (afi, safi)
+		bgp_addpath_set_peer_type(peer, afi, safi, BGP_ADDPATH_NONE);
 
 	bgp_unlock(peer->bgp);
 
