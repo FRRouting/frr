@@ -10832,6 +10832,14 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						  BGP_FLAG_SHUTDOWN))
 					json_object_string_add(json_peer, "state",
 							       "Idle (Admin)");
+				else if (peer->status == Active
+				    && CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE))
+					json_object_string_add(json_peer, "state",
+							       "Active (passive)");
+				else if (peer->status == Active
+				    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT))
+					json_object_string_add(json_peer, "state",
+							       "Active (NSF passive)");
 				else if (peer->afc_recv[afi][safi])
 					json_object_string_add(
 							       json_peer, "state",
