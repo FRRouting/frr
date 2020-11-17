@@ -72,7 +72,7 @@ static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 	if (LIST_EMPTY(&(bnc->paths)) && !bnc->nht_info) {
 		if (BGP_DEBUG(nht, NHT)) {
 			char buf[PREFIX2STR_BUFFER];
-			zlog_debug("bgp_unlink_nexthop: freeing bnc %s(%u)(%s)",
+			zlog_debug("%s: freeing bnc %s(%u)(%s)", __func__,
 				   bnc_str(bnc, buf, PREFIX2STR_BUFFER),
 				   bnc->srte_color, bnc->bgp->name_pretty);
 		}
