@@ -512,7 +512,11 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl)
 
 	if (bgp->advertise_autort_rfc8365)
 		vni |= EVPN_AUTORT_VXLAN;
-	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
+	if (bgp->autort_as) {
+		encode_route_target_as((bgp->autort_as & 0xFFFF), vni, &eval);
+	} else {
+		encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
+	}
 
 	ecomadd = ecommunity_new();
 	ecommunity_add_val(ecomadd, &eval, false, false);
@@ -4238,7 +4242,11 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl)
 
 	if (bgp->advertise_autort_rfc8365)
 		vni |= EVPN_AUTORT_VXLAN;
-	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
+	if (bgp->autort_as) {
+		encode_route_target_as((bgp->autort_as & 0xFFFF), vni, &eval);
+	} else {
+		encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
+	}
 
 	ecom_auto = ecommunity_new();
 	ecommunity_add_val(ecom_auto, &eval, false, false);

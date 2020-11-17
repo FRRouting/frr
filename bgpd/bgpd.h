@@ -614,6 +614,9 @@ struct bgp {
 	/* EVPN - use RFC 8365 to auto-derive RT */
 	int advertise_autort_rfc8365;
 
+	/* EVPN - auto-derive RT AS */
+	uint16_t autort_as;
+
 	/*
 	 * Flooding mechanism for BUM packets for VxLAN-EVPN.
 	 */
