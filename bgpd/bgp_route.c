@@ -13919,16 +13919,16 @@ void cli_show_bgp_global_afi_safi_unicast_admin_distance_route(
 			: "");
 }
 
-DEFPY_YANG(bgp_dampening,
-	   bgp_dampening_cmd,
-	   "[no] bgp dampening [(1-45)$halflife [(1-20000)$reuse (1-20000)$suppress (1-255)$max_supress]]",
-	   NO_STR
-	   "BGP Specific commands\n"
-	   "Enable route-flap dampening\n"
-	   "Half-life time for the penalty\n"
-	   "Value to start reusing a route\n"
-	   "Value to start suppressing a route\n"
-	   "Maximum duration to suppress a stable route\n")
+DEFPY_YANG(
+	bgp_dampening, bgp_dampening_cmd,
+	"[no] bgp dampening [(1-45)$halflife [(1-20000)$reuse (1-20000)$suppress (1-255)$max_suppress]]",
+	NO_STR
+	"BGP Specific commands\n"
+	"Enable route-flap dampening\n"
+	"Half-life time for the penalty\n"
+	"Value to start reusing a route\n"
+	"Value to start suppressing a route\n"
+	"Maximum duration to suppress a stable route\n")
 {
 	afi_t afi;
 	safi_t safi;
@@ -13947,7 +13947,7 @@ DEFPY_YANG(bgp_dampening,
 			nb_cli_enqueue_change(vty, "./suppress-above",
 					      NB_OP_MODIFY, suppress_str);
 			nb_cli_enqueue_change(vty, "./unreach-decay",
-					      NB_OP_MODIFY, max_supress_str);
+					      NB_OP_MODIFY, max_suppress_str);
 		} if (argc == 3) {
 			nb_cli_enqueue_change(vty, "./reach-decay",
 					      NB_OP_MODIFY, halflife_str);

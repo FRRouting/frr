@@ -344,7 +344,7 @@ submodule frr-bgp-common-structure {
         default "true";
         description
           "When set to 'true' sending Capability Negotiation in the open
-           message is supressed to this peer.";
+           message is suppressed to this peer.";
       }
 
       leaf override-capability {
@@ -807,9 +807,9 @@ submodule frr-bgp-common-structure {
 
       uses as-path-filter-list-policy-export;
 
-      uses unsupress-map-policy-import;
+      uses unsuppress-map-policy-import;
 
-      uses unsupress-map-policy-export;
+      uses unsuppress-map-policy-export;
     }
   }
 }

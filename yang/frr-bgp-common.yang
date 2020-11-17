@@ -87,14 +87,14 @@ submodule frr-bgp-common {
     }
   }
 
-  grouping unsupress-map-policy-import {
-    leaf unsupress-map-import {
+  grouping unsuppress-map-policy-import {
+    leaf unsuppress-map-import {
       type frr-route-map:route-map-ref;
     }
   }
 
-  grouping unsupress-map-policy-export {
-    leaf unsupress-map-export {
+  grouping unsuppress-map-policy-export {
+    leaf unsuppress-map-export {
       type frr-route-map:route-map-ref;
     }
   }

@@ -8844,7 +8844,7 @@ bgp_global_afi_safi_route_flap_validation(struct nb_cb_modify_args *args)
 	int reuse;
 	int suppress;
 
-	if (yang_dnode_exists(args->dnode, "../supress-above")
+	if (yang_dnode_exists(args->dnode, "../suppress-above")
 	    && yang_dnode_exists(args->dnode, "../reuse-above")) {
 		suppress =
 			yang_dnode_get_uint16(args->dnode, "../suppress-above");
@@ -15374,9 +15374,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_as_path
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-import
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-import
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15391,7 +15391,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupre
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -15408,9 +15408,9 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupre
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-export
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-export
  */
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_modify(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -15425,7 +15425,7 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupre
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_destroy(
+int bgp_neighbors_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23692,9 +23692,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-import
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-import
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23709,7 +23709,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -23726,9 +23726,9 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-export
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-export
  */
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_modify(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -23743,7 +23743,7 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_con
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_destroy(
+int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -32005,9 +32005,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_as_
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-import
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-import
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -32022,7 +32022,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_uns
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_import_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_import_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -32039,9 +32039,9 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_uns
 
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/unsupress-map-export
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/unsuppress-map-export
  */
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_modify(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -32056,7 +32056,7 @@ int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_uns
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsupress_map_export_destroy(
+int bgp_peer_groups_peer_group_afi_safis_afi_safi_ipv4_unicast_filter_config_unsuppress_map_export_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {

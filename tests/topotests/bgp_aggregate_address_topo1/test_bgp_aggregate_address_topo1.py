@@ -156,7 +156,7 @@ def test_bgp_aggregate_address_matching_med_only():
     assert result is None, assertmsg
 
 
-def test_bgp_aggregate_address_match_and_supress():
+def test_bgp_aggregate_address_match_and_suppress():
     "Test that the command matching-MED-only with suppression works."
 
     tgen = get_topogen()
@@ -206,12 +206,15 @@ def test_bgp_aggregate_address_suppress_map():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    expect_route('r2', {
-        "192.168.2.0/24": [{"protocol": "bgp"}],
-        "192.168.2.1/32": None,
-        "192.168.2.2/32": [{"protocol": "bgp"}],
-        "192.168.2.3/32": [{"protocol": "bgp"}],
-    })
+    expect_route(
+        "r2",
+        {
+            "192.168.2.0/24": [{"protocol": "bgp"}],
+            "192.168.2.1/32": None,
+            "192.168.2.2/32": [{"protocol": "bgp"}],
+            "192.168.2.3/32": [{"protocol": "bgp"}],
+        },
+    )
 
     # Change route map and test again.
     tgen.gears["r1"].vtysh_multicmd(
@@ -224,12 +227,15 @@ aggregate-address 192.168.2.0/24 suppress-map rm-sup-two
 """
     )
 
-    expect_route('r2', {
-        "192.168.2.0/24": [{"protocol": "bgp"}],
-        "192.168.2.1/32": [{"protocol": "bgp"}],
-        "192.168.2.2/32": None,
-        "192.168.2.3/32": [{"protocol": "bgp"}],
-    })
+    expect_route(
+        "r2",
+        {
+            "192.168.2.0/24": [{"protocol": "bgp"}],
+            "192.168.2.1/32": [{"protocol": "bgp"}],
+            "192.168.2.2/32": None,
+            "192.168.2.3/32": [{"protocol": "bgp"}],
+        },
+    )
 
 
 def test_bgp_aggregate_address_suppress_map_update_route_map():
@@ -248,12 +254,15 @@ aggregate-address 192.168.2.0/24 suppress-map rm-sup-three
 """
     )
 
-    expect_route('r2', {
-        "192.168.2.0/24": [{"protocol": "bgp"}],
-        "192.168.2.1/32": [{"protocol": "bgp"}],
-        "192.168.2.2/32": [{"protocol": "bgp"}],
-        "192.168.2.3/32": [{"protocol": "bgp"}],
-    })
+    expect_route(
+        "r2",
+        {
+            "192.168.2.0/24": [{"protocol": "bgp"}],
+            "192.168.2.1/32": [{"protocol": "bgp"}],
+            "192.168.2.2/32": [{"protocol": "bgp"}],
+            "192.168.2.3/32": [{"protocol": "bgp"}],
+        },
+    )
 
     # Create missing route map and test again.
     tgen.gears["r1"].vtysh_multicmd(
@@ -264,12 +273,15 @@ match ip address acl-sup-three
 """
     )
 
-    expect_route('r2', {
-        "192.168.2.0/24": [{"protocol": "bgp"}],
-        "192.168.2.1/32": [{"protocol": "bgp"}],
-        "192.168.2.2/32": [{"protocol": "bgp"}],
-        "192.168.2.3/32": None,
-    })
+    expect_route(
+        "r2",
+        {
+            "192.168.2.0/24": [{"protocol": "bgp"}],
+            "192.168.2.1/32": [{"protocol": "bgp"}],
+            "192.168.2.2/32": [{"protocol": "bgp"}],
+            "192.168.2.3/32": None,
+        },
+    )
 
 
 def test_memory_leak():
