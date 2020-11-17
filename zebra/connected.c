@@ -41,6 +41,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/zebra_router.h"
 
 /* communicate the withdrawal of a connected address */
 static void connected_withdraw(struct connected *ifc)
@@ -207,6 +208,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t metric;
+	uint32_t flags = 0;
 
 	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	if (!zvrf) {
@@ -251,11 +253,22 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 
 	metric = (ifc->metric < (uint32_t)METRIC_MAX) ?
 				ifc->metric : ifp->metric;
-	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
-		0, 0, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
 
-	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
-		0, 0, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
+	/*
+	 * Since we are hand creating the connected routes
+	 * in our main routing table, *if* we are working
+	 * in an offloaded environment then we need to
+	 * pretend like the route is offloaded so everything
+	 * else will work
+	 */
+	if (zrouter.asic_offloaded)
+		flags |= ZEBRA_FLAG_OFFLOADED;
+
+	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
+		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
+
+	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
+		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {

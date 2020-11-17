@@ -514,6 +514,13 @@ struct zapi_route {
  * offload situation.
  */
 #define ZEBRA_FLAG_OFFLOADED          0x100
+/*
+ * This flag tells everyone that the route has
+ * failed offloading.
+ * This flag makes no sense unless you are in an asic
+ * offload situation.
+ */
+#define ZEBRA_FLAG_OFFLOAD_FAILED     0x200
 
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;
