@@ -79,7 +79,7 @@ BFDd Commands
 
    `vrf` selects which domain we want to use.
 
-.. index:: no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrf_name}]
+.. index:: peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrf_name}]
 .. clicmd:: no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrf_name}]
 
     Stops and removes the selected peer.
@@ -91,7 +91,7 @@ BFDd Commands
    Creates a peer profile that can be configured in multiple peers.
 
 
-.. index:: no profile WORD
+.. index:: profile WORD
 .. clicmd:: no profile WORD
 
    Deletes a peer profile. Any peer using the profile will have their
@@ -151,7 +151,7 @@ BFD peers and profiles share the same BFD session configuration commands.
    Configures the minimal echo receive transmission interval that this
    system is capable of handling.
 
-.. index:: [no] echo-mode
+.. index:: echo-mode
 .. clicmd:: [no] echo-mode
 
    Enables or disables the echo transmission mode. This mode is disabled
@@ -164,14 +164,14 @@ BFD peers and profiles share the same BFD session configuration commands.
    Echo mode is not supported on multi-hop setups (see :rfc:`5883`
    section 3).
 
-.. index:: [no] shutdown
+.. index:: shutdown
 .. clicmd:: [no] shutdown
 
    Enables or disables the peer. When the peer is disabled an
    'administrative down' message is sent to the remote peer.
 
 
-.. index:: [no] passive-mode
+.. index:: passive-mode
 .. clicmd:: [no] passive-mode
 
    Mark session as passive: a passive session will not attempt to start
@@ -184,7 +184,7 @@ BFD peers and profiles share the same BFD session configuration commands.
 
    The default is active-mode (or ``no passive-mode``).
 
-.. index:: [no] minimum-ttl (1-254)
+.. index:: minimum-ttl (1-254)
 .. clicmd:: [no] minimum-ttl (1-254)
 
    For multi hop sessions only: configure the minimum expected TTL for
@@ -238,7 +238,7 @@ The following commands are available inside the BGP configuration node.
    the connection with its neighbor and, when it goes back up, notify
    BGP to try to connect to it.
 
-.. index:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd
+.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd
 .. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd
 
    Removes any notification registration for this neighbor.
@@ -253,7 +253,7 @@ The following commands are available inside the BGP configuration node.
    This is the case when graceful restart is enabled, and it is wished to
    ignore the BD event while waiting for the remote router to restart.
 
-.. index:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
+.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
 .. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
 
    Disallow to write CBIT independence in BFD outgoing packets. Also disallow
@@ -267,7 +267,7 @@ The following commands are available inside the BGP configuration node.
    BFD profile to the sessions it creates or that already exist.
 
 
-.. index:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
+.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
 .. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF
 
    Removes the BFD profile configuration from peer session(s).
@@ -287,7 +287,7 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: no isis bfd
+.. index:: isis bfd
 .. clicmd:: no isis bfd
 
    Removes any notification registration for this interface peers.
@@ -301,7 +301,7 @@ The following commands are available inside the interface configuration node.
 
    Use a BFD profile BFDPROF as provided in the BFD configuration.
 
-.. index:: no isis bfd profile BFDPROF
+.. index:: isis bfd profile BFDPROF
 .. clicmd:: no isis bfd profile BFDPROF
 
    Removes any BFD profile if present.
@@ -320,7 +320,7 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: no ip ospf bfd
+.. index:: ip ospf bfd
 .. clicmd:: no ip ospf bfd
 
    Removes any notification registration for this interface peers.
@@ -340,7 +340,7 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: no ipv6 ospf6 bfd
+.. index:: ipv6 ospf6 bfd
 .. clicmd:: no ipv6 ospf6 bfd
 
    Removes any notification registration for this interface peers.
@@ -360,7 +360,7 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-.. index:: no ip pim bfd
+.. index:: ip pim bfd
 .. clicmd:: no ip pim bfd
 
    Removes any notification registration for this interface peers.
@@ -619,19 +619,19 @@ sure you have `debugging` level enabled:
 You may also fine tune the debug messages by selecting one or more of the
 debug levels:
 
-.. index:: [no] debug bfd network
+.. index:: debug bfd network
 .. clicmd:: [no] debug bfd network
 
    Toggle network events: show messages about socket failures and unexpected
    BFD messages that may not belong to registered peers.
 
-.. index:: [no] debug bfd peer
+.. index:: debug bfd peer
 .. clicmd:: [no] debug bfd peer
 
    Toggle peer event log messages: show messages about peer creation/removal
    and state changes.
 
-.. index:: [no] debug bfd zebra
+.. index:: debug bfd zebra
 .. clicmd:: [no] debug bfd zebra
 
    Toggle zebra message events: show messages about interfaces, local

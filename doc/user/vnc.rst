@@ -149,7 +149,7 @@ Defaults section.
      exit-vnc
 
 
-.. index:: no vnc nve-group NAME
+.. index:: vnc nve-group NAME
 .. clicmd:: no vnc nve-group NAME
 
    Delete the NVE group named `name`.
@@ -322,7 +322,7 @@ L2 Group Configuration.
        exit-vnc
 
 
-.. index:: no vnc l2-group NAME
+.. index:: vnc l2-group NAME
 .. clicmd:: no vnc l2-group NAME
 
    Delete the L2 group named `name`.
@@ -338,7 +338,7 @@ The following statements are valid in a L2 group definition:
 .. index:: labels LABEL-LIST
 .. clicmd:: labels LABEL-LIST
 
-.. index:: no labels LABEL-LIST
+.. index:: labels LABEL-LIST
 .. clicmd:: no labels LABEL-LIST
 
    Add or remove labels associated with the group. `label-list` is a
@@ -490,7 +490,7 @@ Redistribution Command Syntax
 .. index:: vnc redistribute ipv4|ipv6 bgp-direct-to-nve-groups view VIEWNAME
 .. clicmd:: vnc redistribute ipv4|ipv6 bgp-direct-to-nve-groups view VIEWNAME
 
-.. index:: no vnc redistribute ipv4|ipv6 bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static
+.. index:: vnc redistribute ipv4|ipv6 bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static
 .. clicmd:: no vnc redistribute ipv4|ipv6 bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static
 
    Import (or do not import) prefixes from another routing protocols. Specify
@@ -511,7 +511,7 @@ Redistribution Command Syntax
 .. index:: vnc redistribute nve-group GROUP-NAME
 .. clicmd:: vnc redistribute nve-group GROUP-NAME
 
-.. index:: no vnc redistribute nve-group GROUP-NAME
+.. index:: vnc redistribute nve-group GROUP-NAME
 .. clicmd:: no vnc redistribute nve-group GROUP-NAME
 
    When using `nve-group` mode, assign (or do not assign) the NVE group

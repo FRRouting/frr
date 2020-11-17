@@ -83,7 +83,7 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: router ospf [(1-65535)] vrf NAME
 .. clicmd:: router ospf [(1-65535)] vrf NAME
 
-.. index:: no router ospf [(1-65535)] vrf NAME
+.. index:: router ospf [(1-65535)] vrf NAME
 .. clicmd:: no router ospf [(1-65535)] vrf NAME
 
    Enable or disable the OSPF process.
@@ -91,7 +91,7 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: ospf router-id A.B.C.D
 .. clicmd:: ospf router-id A.B.C.D
 
-.. index:: no ospf router-id [A.B.C.D]
+.. index:: ospf router-id [A.B.C.D]
 .. clicmd:: no ospf router-id [A.B.C.D]
 
    This sets the router-ID of the OSPF process. The router-ID may be an IP
@@ -104,7 +104,7 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: ospf abr-type TYPE
 .. clicmd:: ospf abr-type TYPE
 
-.. index:: no ospf abr-type TYPE
+.. index:: ospf abr-type TYPE
 .. clicmd:: no ospf abr-type TYPE
 
    `type` can be cisco|ibm|shortcut|standard. The "Cisco" and "IBM" types
@@ -140,7 +140,7 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: ospf rfc1583compatibility
 .. clicmd:: ospf rfc1583compatibility
 
-.. index:: no ospf rfc1583compatibility
+.. index:: ospf rfc1583compatibility
 .. clicmd:: no ospf rfc1583compatibility
 
    :rfc:`2328`, the successor to :rfc:`1583`, suggests according
@@ -155,7 +155,7 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: log-adjacency-changes [detail]
 .. clicmd:: log-adjacency-changes [detail]
 
-.. index:: no log-adjacency-changes [detail]
+.. index:: log-adjacency-changes [detail]
 .. clicmd:: no log-adjacency-changes [detail]
 
    Configures ospfd to log changes in adjacency. With the optional
@@ -165,7 +165,7 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: passive-interface INTERFACE
 .. clicmd:: passive-interface INTERFACE
 
-.. index:: no passive-interface INTERFACE
+.. index:: passive-interface INTERFACE
 .. clicmd:: no passive-interface INTERFACE
 
    Do not speak OSPF interface on the
@@ -180,7 +180,7 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: timers throttle spf (0-600000) (0-600000) (0-600000)
 .. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
 
-.. index:: no timers throttle spf
+.. index:: timers throttle spf
 .. clicmd:: no timers throttle spf
 
    This command sets the initial `delay`, the `initial-holdtime`
@@ -227,7 +227,7 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: max-metric router-lsa administrative
 .. clicmd:: max-metric router-lsa administrative
 
-.. index:: no max-metric router-lsa [on-startup|on-shutdown|administrative]
+.. index:: max-metric router-lsa [on-startup|on-shutdown|administrative]
 .. clicmd:: no max-metric router-lsa [on-startup|on-shutdown|administrative]
 
    This enables :rfc:`3137` support, where the OSPF process describes its
@@ -260,7 +260,7 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: auto-cost reference-bandwidth (1-4294967)
 .. clicmd:: auto-cost reference-bandwidth (1-4294967)
 
-.. index:: no auto-cost reference-bandwidth
+.. index:: auto-cost reference-bandwidth
 .. clicmd:: no auto-cost reference-bandwidth
 
    This sets the reference
@@ -279,10 +279,10 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: network A.B.C.D/M area (0-4294967295)
 .. clicmd:: network A.B.C.D/M area (0-4294967295)
 
-.. index:: no network A.B.C.D/M area A.B.C.D
+.. index:: network A.B.C.D/M area A.B.C.D
 .. clicmd:: no network A.B.C.D/M area A.B.C.D
 
-.. index:: no network A.B.C.D/M area (0-4294967295)
+.. index:: network A.B.C.D/M area (0-4294967295)
 .. clicmd:: no network A.B.C.D/M area (0-4294967295)
 
    This command specifies the OSPF enabled interface(s). If the interface has
@@ -313,7 +313,7 @@ To start OSPF process you have to specify the OSPF router.
 .. index:: proactive-arp
 .. clicmd:: proactive-arp
 
-.. index:: no proactive-arp
+.. index:: proactive-arp
 .. clicmd:: no proactive-arp
 
    This command enables or disables sending ARP requests to update neighbor
@@ -333,10 +333,10 @@ Areas
 .. index:: area (0-4294967295) range A.B.C.D/M
 .. clicmd:: area (0-4294967295) range A.B.C.D/M
 
-.. index:: no area A.B.C.D range A.B.C.D/M
+.. index:: area A.B.C.D range A.B.C.D/M
 .. clicmd:: no area A.B.C.D range A.B.C.D/M
 
-.. index:: no area (0-4294967295) range A.B.C.D/M
+.. index:: area (0-4294967295) range A.B.C.D/M
 .. clicmd:: no area (0-4294967295) range A.B.C.D/M
 
    Summarize intra area paths from specified area into one Type-3 summary-LSA
@@ -360,7 +360,7 @@ Areas
 .. index:: area A.B.C.D range IPV4_PREFIX not-advertise
 .. clicmd:: area A.B.C.D range IPV4_PREFIX not-advertise
 
-.. index:: no area A.B.C.D range IPV4_PREFIX not-advertise
+.. index:: area A.B.C.D range IPV4_PREFIX not-advertise
 .. clicmd:: no area A.B.C.D range IPV4_PREFIX not-advertise
 
    Instead of summarizing intra area paths filter them - i.e. intra area paths from this
@@ -370,7 +370,7 @@ Areas
 .. index:: area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
 .. clicmd:: area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
 
-.. index:: no area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
+.. index:: area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
 .. clicmd:: no area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
 
    Substitute summarized prefix with another prefix.
@@ -394,10 +394,10 @@ Areas
 .. index:: area (0-4294967295) virtual-link A.B.C.D
 .. clicmd:: area (0-4294967295) virtual-link A.B.C.D
 
-.. index:: no area A.B.C.D virtual-link A.B.C.D
+.. index:: area A.B.C.D virtual-link A.B.C.D
 .. clicmd:: no area A.B.C.D virtual-link A.B.C.D
 
-.. index:: no area (0-4294967295) virtual-link A.B.C.D
+.. index:: area (0-4294967295) virtual-link A.B.C.D
 .. clicmd:: no area (0-4294967295) virtual-link A.B.C.D
 
 .. index:: area A.B.C.D shortcut
@@ -406,10 +406,10 @@ Areas
 .. index:: area (0-4294967295) shortcut
 .. clicmd:: area (0-4294967295) shortcut
 
-.. index:: no area A.B.C.D shortcut
+.. index:: area A.B.C.D shortcut
 .. clicmd:: no area A.B.C.D shortcut
 
-.. index:: no area (0-4294967295) shortcut
+.. index:: area (0-4294967295) shortcut
 .. clicmd:: no area (0-4294967295) shortcut
 
    Configure the area as Shortcut capable. See :rfc:`3509`. This requires
@@ -421,10 +421,10 @@ Areas
 .. index:: area (0-4294967295) stub
 .. clicmd:: area (0-4294967295) stub
 
-.. index:: no area A.B.C.D stub
+.. index:: area A.B.C.D stub
 .. clicmd:: no area A.B.C.D stub
 
-.. index:: no area (0-4294967295) stub
+.. index:: area (0-4294967295) stub
 .. clicmd:: no area (0-4294967295) stub
 
    Configure the area to be a stub area. That is, an area where no router
@@ -440,10 +440,10 @@ Areas
 .. index:: area (0-4294967295) stub no-summary
 .. clicmd:: area (0-4294967295) stub no-summary
 
-.. index:: no area A.B.C.D stub no-summary
+.. index:: area A.B.C.D stub no-summary
 .. clicmd:: no area A.B.C.D stub no-summary
 
-.. index:: no area (0-4294967295) stub no-summary
+.. index:: area (0-4294967295) stub no-summary
 .. clicmd:: no area (0-4294967295) stub no-summary
 
     Prevents an *ospfd* ABR from injecting inter-area
@@ -452,7 +452,7 @@ Areas
 .. index:: area A.B.C.D default-cost (0-16777215)
 .. clicmd:: area A.B.C.D default-cost (0-16777215)
 
-.. index:: no area A.B.C.D default-cost (0-16777215)
+.. index:: area A.B.C.D default-cost (0-16777215)
 .. clicmd:: no area A.B.C.D default-cost (0-16777215)
 
    Set the cost of default-summary LSAs announced to stubby areas.
@@ -463,10 +463,10 @@ Areas
 .. index:: area (0-4294967295) export-list NAME
 .. clicmd:: area (0-4294967295) export-list NAME
 
-.. index:: no area A.B.C.D export-list NAME
+.. index:: area A.B.C.D export-list NAME
 .. clicmd:: no area A.B.C.D export-list NAME
 
-.. index:: no area (0-4294967295) export-list NAME
+.. index:: area (0-4294967295) export-list NAME
 .. clicmd:: no area (0-4294967295) export-list NAME
 
    Filter Type-3 summary-LSAs announced to other areas originated from intra-
@@ -496,10 +496,10 @@ Areas
 .. index:: area (0-4294967295) import-list NAME
 .. clicmd:: area (0-4294967295) import-list NAME
 
-.. index:: no area A.B.C.D import-list NAME
+.. index:: area A.B.C.D import-list NAME
 .. clicmd:: no area A.B.C.D import-list NAME
 
-.. index:: no area (0-4294967295) import-list NAME
+.. index:: area (0-4294967295) import-list NAME
 .. clicmd:: no area (0-4294967295) import-list NAME
 
    Same as export-list, but it applies to paths announced into specified area
@@ -517,16 +517,16 @@ Areas
 .. index:: area (0-4294967295) filter-list prefix NAME out
 .. clicmd:: area (0-4294967295) filter-list prefix NAME out
 
-.. index:: no area A.B.C.D filter-list prefix NAME in
+.. index:: area A.B.C.D filter-list prefix NAME in
 .. clicmd:: no area A.B.C.D filter-list prefix NAME in
 
-.. index:: no area A.B.C.D filter-list prefix NAME out
+.. index:: area A.B.C.D filter-list prefix NAME out
 .. clicmd:: no area A.B.C.D filter-list prefix NAME out
 
-.. index:: no area (0-4294967295) filter-list prefix NAME in
+.. index:: area (0-4294967295) filter-list prefix NAME in
 .. clicmd:: no area (0-4294967295) filter-list prefix NAME in
 
-.. index:: no area (0-4294967295) filter-list prefix NAME out
+.. index:: area (0-4294967295) filter-list prefix NAME out
 .. clicmd:: no area (0-4294967295) filter-list prefix NAME out
 
    Filtering Type-3 summary-LSAs to/from area using prefix lists. This command
@@ -538,10 +538,10 @@ Areas
 .. index:: area (0-4294967295) authentication
 .. clicmd:: area (0-4294967295) authentication
 
-.. index:: no area A.B.C.D authentication
+.. index:: area A.B.C.D authentication
 .. clicmd:: no area A.B.C.D authentication
 
-.. index:: no area (0-4294967295) authentication
+.. index:: area (0-4294967295) authentication
 .. clicmd:: no area (0-4294967295) authentication
 
    Specify that simple password authentication should be used for the given
@@ -569,7 +569,7 @@ Interfaces
 .. index:: ip ospf area AREA [ADDR]
 .. clicmd:: ip ospf area AREA [ADDR]
 
-.. index:: no ip ospf area [ADDR]
+.. index:: ip ospf area [ADDR]
 .. clicmd:: no ip ospf area [ADDR]
 
    Enable OSPF on the interface, optionally restricted to just the IP address
@@ -583,7 +583,7 @@ Interfaces
 .. index:: ip ospf authentication-key AUTH_KEY
 .. clicmd:: ip ospf authentication-key AUTH_KEY
 
-.. index:: no ip ospf authentication-key
+.. index:: ip ospf authentication-key
 .. clicmd:: no ip ospf authentication-key
 
    Set OSPF authentication key to a simple password. After setting `AUTH_KEY`,
@@ -612,7 +612,7 @@ Interfaces
 .. index:: ip ospf message-digest-key KEYID md5 KEY
 .. clicmd:: ip ospf message-digest-key KEYID md5 KEY
 
-.. index:: no ip ospf message-digest-key
+.. index:: ip ospf message-digest-key
 .. clicmd:: no ip ospf message-digest-key
 
    Set OSPF authentication key to a cryptographic password. The cryptographic
@@ -627,7 +627,7 @@ Interfaces
 .. index:: ip ospf cost (1-65535)
 .. clicmd:: ip ospf cost (1-65535)
 
-.. index:: no ip ospf cost
+.. index:: ip ospf cost
 .. clicmd:: no ip ospf cost
 
    Set link cost for the specified interface. The cost value is set to
@@ -639,7 +639,7 @@ Interfaces
 .. index:: ip ospf dead-interval minimal hello-multiplier (2-20)
 .. clicmd:: ip ospf dead-interval minimal hello-multiplier (2-20)
 
-.. index:: no ip ospf dead-interval
+.. index:: ip ospf dead-interval
 .. clicmd:: no ip ospf dead-interval
 
    Set number of seconds for RouterDeadInterval timer value used for Wait Timer
@@ -658,7 +658,7 @@ Interfaces
 .. index:: ip ospf hello-interval (1-65535)
 .. clicmd:: ip ospf hello-interval (1-65535)
 
-.. index:: no ip ospf hello-interval
+.. index:: ip ospf hello-interval
 .. clicmd:: no ip ospf hello-interval
 
    Set number of seconds for HelloInterval timer value. Setting this value,
@@ -679,7 +679,7 @@ Interfaces
    net.ipv4.conf.<interface name>.rp_filter value to 0.  In order for
    the ospf multicast packets to be delivered by the kernel.
 
-.. index:: no ip ospf network
+.. index:: ip ospf network
 .. clicmd:: no ip ospf network
 
    Set explicitly network type for specified interface.
@@ -687,7 +687,7 @@ Interfaces
 .. index:: ip ospf priority (0-255)
 .. clicmd:: ip ospf priority (0-255)
 
-.. index:: no ip ospf priority
+.. index:: ip ospf priority
 .. clicmd:: no ip ospf priority
 
    Set RouterPriority integer value. The router with the highest priority will
@@ -697,7 +697,7 @@ Interfaces
 .. index:: ip ospf retransmit-interval (1-65535)
 .. clicmd:: ip ospf retransmit-interval (1-65535)
 
-.. index:: no ip ospf retransmit interval
+.. index:: ip ospf retransmit interval
 .. clicmd:: no ip ospf retransmit interval
 
    Set number of seconds for RxmtInterval timer value. This value is used when
@@ -707,7 +707,7 @@ Interfaces
 .. index:: ip ospf transmit-delay (1-65535) [A.B.C.D]
 .. clicmd:: ip ospf transmit-delay (1-65535) [A.B.C.D]
 
-.. index:: no ip ospf transmit-delay [(1-65535)] [A.B.C.D]
+.. index:: ip ospf transmit-delay [(1-65535)] [A.B.C.D]
 .. clicmd:: no ip ospf transmit-delay [(1-65535)] [A.B.C.D]
 
    Set number of seconds for InfTransDelay value. LSAs' age should be
@@ -716,7 +716,7 @@ Interfaces
 .. index:: ip ospf area (A.B.C.D|(0-4294967295))
 .. clicmd:: ip ospf area (A.B.C.D|(0-4294967295))
 
-.. index:: no ip ospf area
+.. index:: ip ospf area
 .. clicmd:: no ip ospf area
 
    Enable ospf on an interface and set associated area.
@@ -762,7 +762,7 @@ Redistribution
 .. index:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214) route-map WORD
 .. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214) route-map WORD
 
-.. index:: no redistribute (kernel|connected|static|rip|bgp)
+.. index:: redistribute (kernel|connected|static|rip|bgp)
 .. clicmd:: no redistribute (kernel|connected|static|rip|bgp)
 
 .. _ospf-redistribute:
@@ -809,7 +809,7 @@ Redistribution
 .. index:: default-information originate always metric (0-16777214) metric-type (1|2) route-map WORD
 .. clicmd:: default-information originate always metric (0-16777214) metric-type (1|2) route-map WORD
 
-.. index:: no default-information originate
+.. index:: default-information originate
 .. clicmd:: no default-information originate
 
    Originate an AS-External (type-5) LSA describing a default route into all
@@ -820,7 +820,7 @@ Redistribution
 .. index:: distribute-list NAME out (kernel|connected|static|rip|ospf
 .. clicmd:: distribute-list NAME out (kernel|connected|static|rip|ospf
 
-.. index:: no distribute-list NAME out (kernel|connected|static|rip|ospf
+.. index:: distribute-list NAME out (kernel|connected|static|rip|ospf
 .. clicmd:: no distribute-list NAME out (kernel|connected|static|rip|ospf
 
 .. _ospf-distribute-list:
@@ -832,25 +832,25 @@ Redistribution
 .. index:: default-metric (0-16777214)
 .. clicmd:: default-metric (0-16777214)
 
-.. index:: no default-metric
+.. index:: default-metric
 .. clicmd:: no default-metric
 
 .. index:: distance (1-255)
 .. clicmd:: distance (1-255)
 
-.. index:: no distance (1-255)
+.. index:: distance (1-255)
 .. clicmd:: no distance (1-255)
 
 .. index:: distance ospf (intra-area|inter-area|external) (1-255)
 .. clicmd:: distance ospf (intra-area|inter-area|external) (1-255)
 
-.. index:: no distance ospf
+.. index:: distance ospf
 .. clicmd:: no distance ospf
 
 .. index:: router zebra
 .. clicmd:: router zebra
 
-.. index:: no router zebra
+.. index:: router zebra
 .. clicmd:: no router zebra
 
 Graceful Restart Helper
@@ -859,7 +859,7 @@ Graceful Restart Helper
 .. index:: graceful-restart helper-only [A.B.C.D]
 .. clicmd:: graceful-restart helper-only [A.B.C.D]
 
-.. index:: no graceful-restart helper-only [A.B.C.D]
+.. index:: graceful-restart helper-only [A.B.C.D]
 .. clicmd:: no graceful-restart helper-only [A.B.C.D]
 
    Configure Graceful Restart (RFC 3623) helper support.
@@ -872,7 +872,7 @@ Graceful Restart Helper
 .. index:: graceful-restart helper strict-lsa-checking
 .. clicmd:: graceful-restart helper strict-lsa-checking
 
-.. index:: no graceful-restart helper strict-lsa-checking
+.. index:: graceful-restart helper strict-lsa-checking
 .. clicmd:: no graceful-restart helper strict-lsa-checking
 
    If 'strict-lsa-checking' is configured then the helper will
@@ -883,7 +883,7 @@ Graceful Restart Helper
 .. index:: graceful-restart helper supported-grace-time
 .. clicmd:: graceful-restart helper supported-grace-time
 
-.. index:: no graceful-restart helper supported-grace-time
+.. index:: graceful-restart helper supported-grace-time
 .. clicmd:: no graceful-restart helper supported-grace-time
 
    Supports as HELPER for configured grace period.
@@ -891,7 +891,7 @@ Graceful Restart Helper
 .. index:: graceful-restart helper planned-only
 .. clicmd:: graceful-restart helper planned-only
 
-.. index:: no graceful-restart helper planned-only
+.. index:: graceful-restart helper planned-only
 .. clicmd:: no graceful-restart helper planned-only
 
    It helps to support as HELPER only for planned
@@ -983,10 +983,10 @@ Opaque LSA
 .. index:: capability opaque
 .. clicmd:: capability opaque
 
-.. index:: no ospf opaque-lsa
+.. index:: ospf opaque-lsa
 .. clicmd:: no ospf opaque-lsa
 
-.. index:: no capability opaque
+.. index:: capability opaque
 .. clicmd:: no capability opaque
 
    *ospfd* supports Opaque LSA (:rfc:`2370`) as partial support for
@@ -1031,7 +1031,7 @@ Traffic Engineering
 .. index:: mpls-te on
 .. clicmd:: mpls-te on
 
-.. index:: no mpls-te
+.. index:: mpls-te
 .. clicmd:: no mpls-te
 
    Enable Traffic Engineering LSA flooding.
@@ -1045,7 +1045,7 @@ Traffic Engineering
 .. index:: mpls-te inter-as area <area-id>|as
 .. clicmd:: mpls-te inter-as area <area-id>|as
 
-.. index:: no mpls-te inter-as
+.. index:: mpls-te inter-as
 .. clicmd:: no mpls-te inter-as
 
    Enable :rfc:`5392` support - Inter-AS TE v2 - to flood Traffic Engineering
@@ -1074,7 +1074,7 @@ Router Information
 .. index:: router-info [as | area]
 .. clicmd:: router-info [as | area]
 
-.. index:: no router-info
+.. index:: router-info
 .. clicmd:: no router-info
 
    Enable Router Information (:rfc:`4970`) LSA advertisement with AS scope
@@ -1086,31 +1086,31 @@ Router Information
 .. index:: pce address <A.B.C.D>
 .. clicmd:: pce address <A.B.C.D>
 
-.. index:: no pce address
+.. index:: pce address
 .. clicmd:: no pce address
 
 .. index:: pce domain as (0-65535)
 .. clicmd:: pce domain as (0-65535)
 
-.. index:: no pce domain as (0-65535)
+.. index:: pce domain as (0-65535)
 .. clicmd:: no pce domain as (0-65535)
 
 .. index:: pce neighbor as (0-65535)
 .. clicmd:: pce neighbor as (0-65535)
 
-.. index:: no pce neighbor as (0-65535)
+.. index:: pce neighbor as (0-65535)
 .. clicmd:: no pce neighbor as (0-65535)
 
 .. index:: pce flag BITPATTERN
 .. clicmd:: pce flag BITPATTERN
 
-.. index:: no pce flag
+.. index:: pce flag
 .. clicmd:: no pce flag
 
 .. index:: pce scope BITPATTERN
 .. clicmd:: pce scope BITPATTERN
 
-.. index:: no pce scope
+.. index:: pce scope
 .. clicmd:: no pce scope
 
    The commands are conform to :rfc:`5088` and allow OSPF router announce Path
@@ -1139,32 +1139,32 @@ Segment Routing
 This is an EXPERIMENTAL support of Segment Routing as per `RFC 8665` for MPLS
 dataplane.
 
-.. index:: [no] segment-routing on
+.. index:: segment-routing on
 .. clicmd:: [no] segment-routing on
 
    Enable Segment Routing. Even if this also activate routing information
    support, it is preferable to also activate routing information, and set
    accordingly the Area or AS flooding.
 
-.. index:: [no] segment-routing global-block (0-1048575) (0-1048575)
+.. index:: segment-routing global-block (0-1048575) (0-1048575)
 .. clicmd:: [no] segment-routing global-block (0-1048575) (0-1048575)
 
    Fix the Segment Routing Global Block i.e. the label range used by MPLS to
    store label in the MPLS FIB for Prefix SID.
 
-.. index:: [no] segment-routing local-block (0-1048575) (0-1048575)
+.. index:: segment-routing local-block (0-1048575) (0-1048575)
 .. clicmd:: [no] segment-routing local-block (0-1048575) (0-1048575)
 
    Fix the Segment Routing Local Block i.e. the label range used by MPLS to
    store label in the MPLS FIB for Adjacency SID.
 
-.. index:: [no] segment-routing node-msd (1-16)
+.. index:: segment-routing node-msd (1-16)
 .. clicmd:: [no] segment-routing node-msd (1-16)
 
    Fix the Maximum Stack Depth supported by the router. The value depend of the
    MPLS dataplane. E.g. for Linux kernel, since version 4.13 it is 32.
 
-.. index:: [no] segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag|explicit-null]
+.. index:: segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag|explicit-null]
 .. clicmd:: [no] segment-routing prefix A.B.C.D/M [index (0-65535)|no-php-flag|explicit-null]
 
    Set the Segment Routing index for the specified prefix. Note that, only
@@ -1186,14 +1186,14 @@ External Route Summarisation
 This feature summarises originated external LSAs(Type-5 and Type-7).
 Summary Route will be originated on-behalf of all matched external LSAs.
 
-.. index:: [no] summary-address A.B.C.D/M [tag (1-4294967295)]
+.. index:: summary-address A.B.C.D/M [tag (1-4294967295)]
 .. clicmd:: [no] summary-address A.B.C.D/M [tag (1-4294967295)]
 
    This command enable/disables summarisation for the configured address
    range. Tag is the optional parameter. If tag configured Summary route
    will be originated with the configured tag.
 
-.. index:: [no] summary-address A.B.C.D/M no-advertise
+.. index:: summary-address A.B.C.D/M no-advertise
 .. clicmd:: [no] summary-address A.B.C.D/M no-advertise
 
    This command to ensure not advertise the summary lsa for the matched
@@ -1205,7 +1205,7 @@ Summary Route will be originated on-behalf of all matched external LSAs.
    Configure aggregation delay timer interval. Summarisation starts only after
    this delay timer expiry. By default, delay interval is 5 secs.
 
-.. index:: no aggregation timer
+.. index:: aggregation timer
 .. clicmd:: no aggregation timer
 
    Resetting the aggregation delay interval to default value.
@@ -1222,7 +1222,7 @@ Debugging OSPF
 .. index:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 .. clicmd:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 
-.. index:: no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
+.. index:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 .. clicmd:: no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 
    Dump Packet for debugging
@@ -1233,10 +1233,10 @@ Debugging OSPF
 .. index:: debug ospf ism (status|events|timers)
 .. clicmd:: debug ospf ism (status|events|timers)
 
-.. index:: no debug ospf ism
+.. index:: debug ospf ism
 .. clicmd:: no debug ospf ism
 
-.. index:: no debug ospf ism (status|events|timers)
+.. index:: debug ospf ism (status|events|timers)
 .. clicmd:: no debug ospf ism (status|events|timers)
 
    Show debug information of Interface State Machine
@@ -1247,10 +1247,10 @@ Debugging OSPF
 .. index:: debug ospf nsm (status|events|timers)
 .. clicmd:: debug ospf nsm (status|events|timers)
 
-.. index:: no debug ospf nsm
+.. index:: debug ospf nsm
 .. clicmd:: no debug ospf nsm
 
-.. index:: no debug ospf nsm (status|events|timers)
+.. index:: debug ospf nsm (status|events|timers)
 .. clicmd:: no debug ospf nsm (status|events|timers)
 
    Show debug information of Network State Machine
@@ -1258,7 +1258,7 @@ Debugging OSPF
 .. index:: debug ospf event
 .. clicmd:: debug ospf event
 
-.. index:: no debug ospf event
+.. index:: debug ospf event
 .. clicmd:: no debug ospf event
 
    Show debug information of OSPF event
@@ -1266,7 +1266,7 @@ Debugging OSPF
 .. index:: debug ospf nssa
 .. clicmd:: debug ospf nssa
 
-.. index:: no debug ospf nssa
+.. index:: debug ospf nssa
 .. clicmd:: no debug ospf nssa
 
    Show debug information about Not So Stub Area
@@ -1277,10 +1277,10 @@ Debugging OSPF
 .. index:: debug ospf lsa (generate|flooding|refresh)
 .. clicmd:: debug ospf lsa (generate|flooding|refresh)
 
-.. index:: no debug ospf lsa
+.. index:: debug ospf lsa
 .. clicmd:: no debug ospf lsa
 
-.. index:: no debug ospf lsa (generate|flooding|refresh)
+.. index:: debug ospf lsa (generate|flooding|refresh)
 .. clicmd:: no debug ospf lsa (generate|flooding|refresh)
 
    Show debug detail of Link State messages
@@ -1288,7 +1288,7 @@ Debugging OSPF
 .. index:: debug ospf te
 .. clicmd:: debug ospf te
 
-.. index:: no debug ospf te
+.. index:: debug ospf te
 .. clicmd:: no debug ospf te
 
    Show debug information about Traffic Engineering LSA
@@ -1299,10 +1299,10 @@ Debugging OSPF
 .. index:: debug ospf zebra (interface|redistribute)
 .. clicmd:: debug ospf zebra (interface|redistribute)
 
-.. index:: no debug ospf zebra
+.. index:: debug ospf zebra
 .. clicmd:: no debug ospf zebra
 
-.. index:: no debug ospf zebra (interface|redistribute)
+.. index:: debug ospf zebra (interface|redistribute)
 .. clicmd:: no debug ospf zebra (interface|redistribute)
 
    Show debug information of ZEBRA API
@@ -1310,7 +1310,7 @@ Debugging OSPF
 .. index:: debug ospf graceful-restart helper
 .. clicmd:: debug ospf graceful-restart helper
 
-.. index:: no debug ospf graceful-restart helper
+.. index:: debug ospf graceful-restart helper
 .. clicmd:: no debug ospf graceful-restart helper
 
    Enable/disable debug information for OSPF Graceful Restart Helper
@@ -1318,7 +1318,7 @@ Debugging OSPF
 .. index:: show debugging ospf
 .. clicmd:: show debugging ospf
 
-.. index:: [no] debug ospf lsa aggregate
+.. index:: debug ospf lsa aggregate
 .. clicmd:: [no] debug ospf lsa aggregate
 
    Debug commnd to enable/disable external route summarisation specific debugs.

@@ -130,7 +130,7 @@ Here is the syntax for using AgentX:
 
 .. index:: agentx
 .. clicmd:: agentx
-.. index:: no agentx
+.. index:: agentx
 .. clicmd:: no agentx
 
 
