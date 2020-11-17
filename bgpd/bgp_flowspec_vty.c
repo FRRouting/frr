@@ -268,7 +268,7 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 	json_object *json_ecom_path = NULL;
 	json_object *json_time_path = NULL;
 	char timebuf[BGP_UPTIME_LEN];
-	struct ecommunity *ipv6_ecomm;
+	struct ecommunity *ipv6_ecomm = NULL;
 
 	if (p == NULL || p->family != AF_FLOWSPEC)
 		return;
@@ -300,7 +300,9 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 	if (!path)
 		return;
 
-	ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(path->attr);
+	if (path->attr)
+		ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(path->attr);
+
 	if (path->attr && (path->attr->ecommunity || ipv6_ecomm)) {
 		/* Print attribute */
 		attr = path->attr;
