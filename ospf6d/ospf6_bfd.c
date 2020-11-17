@@ -59,7 +59,7 @@ void ospf6_bfd_show_info(struct vty *vty, void *bfd_info, int param_only,
 			 json_object *json_obj, bool use_json)
 {
 	if (param_only)
-		bfd_show_param(vty, bfd_info, 1, 0, 0, NULL);
+		bfd_show_param(vty, bfd_info, 1, 0, use_json, json_obj);
 	else
 		bfd_show_info(vty, bfd_info, 0, 1, use_json, json_obj);
 }
