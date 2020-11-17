@@ -73,7 +73,7 @@ static void test_run_spf(struct vty *vty, struct ospf *ospf,
 
 		vty_out(vty,
 			"\nRouting Table without TI-LFA backup paths:\n\n");
-		ospf_route_table_print(vty, new_table);
+		print_route_table(vty, new_table);
 	}
 
 	if (verbose)
@@ -129,7 +129,8 @@ static void test_run_spf(struct vty *vty, struct ospf *ospf,
 	if (verbose)
 		vty_out(vty,
 			"\n\nFinal Routing Table including backup paths:\n\n");
-	ospf_route_table_print(vty, new_table);
+
+	print_route_table(vty, new_table);
 }
 
 static int test_run(struct vty *vty, struct ospf_topology *topology,
@@ -272,6 +273,7 @@ int main(int argc, char **argv)
 
 	/* Library inits. */
 	cmd_init(1);
+	cmd_hostname_set("test");
 	vty_init(master, false);
 	if (debug)
 		zlog_aux_init("NONE: ", LOG_DEBUG);

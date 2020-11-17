@@ -1,6 +1,4 @@
 import frrtest
 
-class TestOspfSPF(frrtest.TestMultiOut):
+class TestOspfSPF(frrtest.TestRefOut):
     program = './test_ospf_spf'
-
-TestOspfSPF.exit_cleanly()

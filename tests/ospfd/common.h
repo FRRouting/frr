@@ -37,4 +37,10 @@ extern struct ospf_topology topo3;
 extern struct ospf_topology topo4;
 extern struct zebra_privs_t ospfd_privs;
 
+/* For stable order in unit tests */
+extern int sort_paths(const void **path1, const void **path2);
+
+/* Print the routing table */
+extern void print_route_table(struct vty *vty, struct route_table *rt);
+
 #endif /* _COMMON_OSPF_H */

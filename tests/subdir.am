@@ -387,6 +387,8 @@ EXTRA_DIST += \
 	tests/isisd/test_isis_spf.refout \
 	tests/isisd/test_isis_vertex_queue.py \
 	tests/ospfd/test_ospf_spf.py \
+	tests/ospfd/test_ospf_spf.in \
+	tests/ospfd/test_ospf_spf.refout \
 	tests/lib/cli/test_commands.in \
 	tests/lib/cli/test_commands.py \
 	tests/lib/cli/test_commands.refout \

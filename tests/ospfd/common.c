@@ -4,8 +4,10 @@
 #include "lib/vty.h"
 #include "lib/mpls.h"
 #include "lib/if.h"
+#include "lib/table.h"
 
 #include "ospfd/ospfd.h"
+#include "ospfd/ospf_route.h"
 #include "ospfd/ospf_spf.h"
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_lsa.h"
@@ -31,6 +33,51 @@ struct ospf_topology *test_find_topology(const char *name)
 		return &topo4;
 
 	return NULL;
+}
+
+int sort_paths(const void **path1, const void **path2)
+{
+	const struct ospf_path *p1 = *path1;
+	const struct ospf_path *p2 = *path2;
+
+	return (p1->nexthop.s_addr - p2->nexthop.s_addr);
+}
+
+void print_route_table(struct vty *vty, struct route_table *rt)
+{
+	struct route_node *rn;
+	struct ospf_route * or ;
+	struct listnode *pnode;
+	struct ospf_path *path;
+	struct mpls_label_stack *label_stack;
+	char buf[MPLS_LABEL_STRLEN];
+
+	for (rn = route_top(rt); rn; rn = route_next(rn)) {
+		if ((or = rn->info) == NULL)
+			continue;
+
+		vty_out(vty, "N %-18pFX %-15pI4 %d\n", &rn->p,
+			& or->u.std.area_id, or->cost);
+
+		list_sort(or->paths, sort_paths);
+
+		for (ALL_LIST_ELEMENTS_RO(or->paths, pnode, path)) {
+			if (path->nexthop.s_addr == 0)
+				continue;
+
+			vty_out(vty, "  -> %pI4 with adv router %pI4",
+				&path->nexthop, &path->adv_router);
+
+			if (path->srni.backup_label_stack) {
+				label_stack = path->srni.backup_label_stack;
+				mpls_label2str(label_stack->num_labels,
+					       label_stack->label, buf,
+					       MPLS_LABEL_STRLEN, true);
+				vty_out(vty, " and backup path %s", buf);
+			}
+			vty_out(vty, "\n");
+		}
+	}
 }
 
 struct ospf_test_node *test_find_node(struct ospf_topology *topology,
