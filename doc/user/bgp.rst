@@ -1353,10 +1353,10 @@ Configuring Peers
 
    Optionally you can specify a shutdown message `MSG`.
 
-   Also, you can specify optionally _rtt_ in milliseconds to automatically
+   Also, you can specify optionally ``rtt`` in milliseconds to automatically
    shutdown the peer if round-trip-time becomes higher than defined.
 
-   Additional _count_ parameter is the number of keepalive messages to count
+   Additional ``count`` parameter is the number of keepalive messages to count
    before shutdown the peer if round-trip-time becomes higher than defined.
 
 .. index:: [no] neighbor PEER disable-connected-check
@@ -1470,7 +1470,7 @@ Configuring Peers
    granular and offers much smarter matching criterion than number of received
    prefixes, making it more suited to implementing policy.
 
-   If _force_ is set, then ALL prefixes are counted for maximum instead of
+   If ``force`` is set, then ALL prefixes are counted for maximum instead of
    accepted only. This is useful for cases where an inbound filter is applied,
    but you want maximum-prefix to act on ALL (including filtered) prefixes. This
    option requires `soft-reconfiguration inbound` to be enabled for the peer.
@@ -3172,16 +3172,16 @@ displays IPv6 routing table.
 
          Total number of prefixes 1
 
-   If _wide_ option is specified, then the prefix table's width is increased
+   If ``wide`` option is specified, then the prefix table's width is increased
    to fully display the prefix and the nexthop.
 
    This is especially handy dealing with IPv6 prefixes and
    if :clicmd:`[no] bgp default show-nexthop-hostname` is enabled.
 
-   If _all_ option is specified, _ip_ keyword is ignored, show bgp all and
+   If ``all`` option is specified, ``ip`` keyword is ignored, show bgp all and
    show ip bgp all commands display routes for all AFIs and SAFIs.
 
-   If _json_ option is specified, output is displayed in JSON format.
+   If ``json`` option is specified, output is displayed in JSON format.
 
 Some other commands provide additional options for filtering the output.
 
@@ -3275,18 +3275,18 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    from neighbor or filtered routes received from neighbor based on the
    option specified.
 
-   If _wide_ option is specified, then the prefix table's width is increased
+   If ``wide`` option is specified, then the prefix table's width is increased
    to fully display the prefix and the nexthop.
 
    This is especially handy dealing with IPv6 prefixes and
    if :clicmd:`[no] bgp default show-nexthop-hostname` is enabled.
 
-   If _all_ option is specified, _ip_ keyword is ignored and,
+   If ``all`` option is specified, ``ip`` keyword is ignored and,
    routes displayed for all AFIs and SAFIs.
-   if afi is specified, with _all_ option, routes will be displayed for
+   if afi is specified, with ``all`` option, routes will be displayed for
    each SAFI in the selcted AFI
 
-   If _json_ option is specified, output is displayed in JSON format.
+   If ``json`` option is specified, output is displayed in JSON format.
 
 .. _bgp-display-routes-by-community:
 
@@ -3320,18 +3320,18 @@ attribute.
    match the specified community list. When `exact-match` is specified, it
    displays only routes that have an exact match.
 
-   If _wide_ option is specified, then the prefix table's width is increased
+   If ``wide`` option is specified, then the prefix table's width is increased
    to fully display the prefix and the nexthop.
 
    This is especially handy dealing with IPv6 prefixes and
    if :clicmd:`[no] bgp default show-nexthop-hostname` is enabled.
 
-   If _all_ option is specified, _ip_ keyword is ignored and,
+   If ``all`` option is specified, ``ip`` keyword is ignored and,
    routes displayed for all AFIs and SAFIs.
-   if afi is specified, with _all_ option, routes will be displayed for
+   if afi is specified, with ``all`` option, routes will be displayed for
    each SAFI in the selcted AFI
 
-   If _json_ option is specified, output is displayed in JSON format.
+   If ``json`` option is specified, output is displayed in JSON format.
 
 .. _bgp-display-routes-by-lcommunity:
 
