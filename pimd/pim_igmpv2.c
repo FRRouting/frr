@@ -121,6 +121,13 @@ int igmp_v2_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		return -1;
 	}
 
+	if (igmp_validate_checksum(igmp_msg, igmp_msg_len) == -1) {
+		zlog_warn(
+			"Recv IGMPv2 REPORT from %s on %s: size=%d with invalid checksum",
+			from_str, ifp->name, igmp_msg_len);
+		return -1;
+	}
+
 	/* Collecting IGMP Rx stats */
 	igmp->rx_stats.report_v2++;
 
@@ -167,6 +174,13 @@ int igmp_v2_recv_leave(struct igmp_sock *igmp, struct in_addr from,
 		zlog_warn(
 			"Recv IGMPv2 LEAVE from %s on %s: size=%d other than correct=%d",
 			from_str, ifp->name, igmp_msg_len, IGMP_V12_MSG_SIZE);
+		return -1;
+	}
+
+	if (igmp_validate_checksum(igmp_msg, igmp_msg_len) == -1) {
+		zlog_warn(
+			"Recv IGMPv2 LEAVE from %s on %s with invalid checksum",
+			from_str, ifp->name);
 		return -1;
 	}
 

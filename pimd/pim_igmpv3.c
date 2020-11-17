@@ -1830,8 +1830,6 @@ void igmp_v3_recv_query(struct igmp_sock *igmp, const char *from_str,
 int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
-	uint16_t recv_checksum;
-	uint16_t checksum;
 	int num_groups;
 	uint8_t *group_record;
 	uint8_t *report_pastend = (uint8_t *)igmp_msg + igmp_msg_len;
@@ -1853,16 +1851,10 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		return -1;
 	}
 
-	recv_checksum = *(uint16_t *)(igmp_msg + IGMP_CHECKSUM_OFFSET);
-
-	/* for computing checksum */
-	*(uint16_t *)(igmp_msg + IGMP_CHECKSUM_OFFSET) = 0;
-
-	checksum = in_cksum(igmp_msg, igmp_msg_len);
-	if (checksum != recv_checksum) {
+	if (igmp_validate_checksum(igmp_msg, igmp_msg_len) == -1) {
 		zlog_warn(
-			"Recv IGMP report v3 from %s on %s: checksum mismatch: received=%x computed=%x",
-			from_str, ifp->name, recv_checksum, checksum);
+			"Recv IGMPv3 report from %s on %s with invalid checksum",
+			from_str, ifp->name);
 		return -1;
 	}
 
@@ -1880,9 +1872,8 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 
 	if (PIM_DEBUG_IGMP_PACKETS) {
 		zlog_debug(
-			"Recv IGMP report v3 from %s on %s: size=%d checksum=%x groups=%d",
-			from_str, ifp->name, igmp_msg_len, checksum,
-			num_groups);
+			"Recv IGMP report v3 from %s on %s: size=%d groups=%d",
+			from_str, ifp->name, igmp_msg_len, num_groups);
 	}
 
 	group_record = (uint8_t *)igmp_msg + IGMP_V3_REPORT_GROUPPRECORD_OFFSET;
