@@ -290,7 +290,7 @@ void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct agg_node *rn,
 		info.peer = peer;
 		info.attr = &hattr;
 		ret = route_map_apply(bgp->rfapi_cfg->routemap_export_bgp,
-				      prefix, RMAP_BGP, &info);
+				      prefix, &info);
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(&hattr);
 			return;
@@ -1033,7 +1033,7 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 						ret = route_map_apply(
 							rfgn->rfg
 								->routemap_export_bgp,
-							p, RMAP_BGP, &info);
+							p, &info);
 						if (ret == RMAP_DENYMATCH) {
 							bgp_attr_flush(&hattr);
 							continue;
@@ -1242,8 +1242,7 @@ static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 
 		info.peer = irfd->peer;
 		info.attr = &hattr;
-		ret = route_map_apply(rfg->routemap_export_bgp, p, RMAP_BGP,
-				      &info);
+		ret = route_map_apply(rfg->routemap_export_bgp, p, &info);
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(&hattr);
 			vnc_zlog_debug_verbose(
@@ -1691,8 +1690,7 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 		memset(&info, 0, sizeof(info));
 		info.peer = peer;
 		info.attr = &hattr;
-		ret = route_map_apply(hc->routemap_export_bgp, prefix, RMAP_BGP,
-				      &info);
+		ret = route_map_apply(hc->routemap_export_bgp, prefix, &info);
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(&hattr);
 			return;
@@ -1917,8 +1915,7 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 						info.attr = &hattr;
 						ret = route_map_apply(
 							hc->routemap_export_bgp,
-							dest_p, RMAP_BGP,
-							&info);
+							dest_p, &info);
 						if (ret == RMAP_DENYMATCH) {
 							bgp_attr_flush(&hattr);
 							vnc_zlog_debug_verbose(

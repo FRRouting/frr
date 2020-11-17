@@ -4210,7 +4210,7 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 						bgp_vrf->adv_cmd_rmap[afi][safi]
 							.map,
 						bgp_dest_get_prefix(dest),
-						RMAP_BGP, &tmp_pi);
+						&tmp_pi);
 					if (ret == RMAP_DENYMATCH) {
 						bgp_attr_flush(&tmp_attr);
 						continue;

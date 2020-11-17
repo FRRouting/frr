@@ -1504,7 +1504,7 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 		SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN);
 
 		/* Apply BGP route map to the attribute. */
-		ret = route_map_apply(rmap, p, RMAP_BGP, &rmap_path);
+		ret = route_map_apply(rmap, p, &rmap_path);
 
 		peer->rmap_type = 0;
 
@@ -1555,7 +1555,7 @@ static int bgp_output_modifier(struct peer *peer, const struct prefix *p,
 	SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT);
 
 	/* Apply BGP route map to the attribute. */
-	ret = route_map_apply(rmap, p, RMAP_BGP, &rmap_path);
+	ret = route_map_apply(rmap, p, &rmap_path);
 
 	peer->rmap_type = rmap_type;
 
@@ -2051,10 +2051,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 		if (bgp_path_suppressed(pi))
 			ret = route_map_apply(UNSUPPRESS_MAP(filter), p,
-					      RMAP_BGP, &rmap_path);
+					      &rmap_path);
 		else
 			ret = route_map_apply(ROUTE_MAP_OUT(filter), p,
-					      RMAP_BGP, &rmap_path);
+					      &rmap_path);
 
 		peer->rmap_type = 0;
 
@@ -2637,7 +2637,7 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 			RESET_FLAG(dummy_attr.rmap_change_flags);
 
 			ret = route_map_apply(bgp->adv_cmd_rmap[afi][safi].map,
-					      p, RMAP_BGP, &rmap_path);
+					      p, &rmap_path);
 
 			if (ret == RMAP_DENYMATCH) {
 				bgp_attr_flush(&dummy_attr);
@@ -5228,8 +5228,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_NETWORK);
 
-		ret = route_map_apply(bgp_static->rmap.map, p, RMAP_BGP,
-				      &rmap_path);
+		ret = route_map_apply(bgp_static->rmap.map, p, &rmap_path);
 
 		bgp->peer_self->rmap_type = 0;
 
@@ -5548,8 +5547,7 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 
 		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_NETWORK);
 
-		ret = route_map_apply(bgp_static->rmap.map, p, RMAP_BGP,
-				      &rmap_path);
+		ret = route_map_apply(bgp_static->rmap.map, p, &rmap_path);
 
 		bgp->peer_self->rmap_type = 0;
 
@@ -6400,7 +6398,7 @@ static bool aggr_suppress_map_test(struct bgp *bgp,
 	rmap_path.attr = &attr;
 
 	SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_AGGREGATE);
-	rmr = route_map_apply(aggregate->suppress_map, p, RMAP_BGP, &rmap_path);
+	rmr = route_map_apply(aggregate->suppress_map, p, &rmap_path);
 	bgp->peer_self->rmap_type = 0;
 
 	bgp_attr_flush(&attr);
@@ -7858,8 +7856,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			SET_FLAG(bgp->peer_self->rmap_type,
 				 PEER_RMAP_TYPE_REDISTRIBUTE);
 
-			ret = route_map_apply(red->rmap.map, p, RMAP_BGP,
-					      &rmap_path);
+			ret = route_map_apply(red->rmap.map, p, &rmap_path);
 
 			bgp->peer_self->rmap_type = 0;
 
@@ -10403,8 +10400,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				path.peer = pi->peer;
 				path.attr = &dummy_attr;
 
-				ret = route_map_apply(rmap, dest_p, RMAP_BGP,
-						      &path);
+				ret = route_map_apply(rmap, dest_p, &path);
 				if (ret == RMAP_DENYMATCH)
 					continue;
 			}
