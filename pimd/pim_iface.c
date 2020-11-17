@@ -1174,7 +1174,7 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 	zassert(pim_ifp);
 
 	/* join suppression disabled ? */
-	if (PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPRESSION(pim_ifp->options))
+	if (PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPPRESSION(pim_ifp->options))
 		return 0;
 
 	/* t_suppressed = t_periodic * rand(1.1, 1.4) */
