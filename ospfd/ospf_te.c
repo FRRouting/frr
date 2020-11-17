@@ -187,6 +187,7 @@ void ospf_mpls_te_finish(void)
 	// list_delete_all_node(OspfMplsTE.iflist);
 
 	OspfMplsTE.enabled = false;
+	ospf_mpls_te_unregister();
 	OspfMplsTE.inter_as = Off;
 }
 
@@ -2228,6 +2229,17 @@ DEFUN (no_ospf_mpls_te,
 	for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp))
 		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
 			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
+
+	/*
+	 * This resets the OspfMplsTE.inter_as to its initial state.
+	 * This is to avoid having an inter-as value different from
+	 * Off when mpls-te gets restarted (after being removed)
+	 */
+	if (OspfMplsTE.inter_as != Off) {
+		/* Deregister the Callbacks for Inter-AS support */
+		ospf_mpls_te_unregister();
+		OspfMplsTE.inter_as = Off;
+	}
 
 	return CMD_SUCCESS;
 }
