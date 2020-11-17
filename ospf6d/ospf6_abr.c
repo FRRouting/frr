@@ -67,10 +67,10 @@ int ospf6_is_router_abr(struct ospf6 *o)
 		is_backbone = true;
 
 	if ((area_count > 1) && (is_backbone)) {
-		SET_FLAG(ospf6->flag, OSPF6_FLAG_ABR);
+		SET_FLAG(o->flag, OSPF6_FLAG_ABR);
 		return 1;
 	} else {
-                UNSET_FLAG(ospf6->flag, OSPF6_FLAG_ABR);
+                UNSET_FLAG(o->flag, OSPF6_FLAG_ABR);
                 return 0;
         }
 }

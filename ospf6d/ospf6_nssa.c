@@ -1044,7 +1044,8 @@ static void ospf6_area_nssa_update(struct ospf6_area *area)
                  */
                 if (IS_AREA_NSSA(area)) {
 			zlog_debug("Normal area for if %s", area->name);
-			for (route = ospf6_route_head(ospf6->external_table); route; route = ospf6_route_next(route)) 
+			for (route = ospf6_route_head(area->ospf6->external_table); route;
+					route = ospf6_route_next(route))
 				ospf6_nssa_lsa_originate(route, area);
 
         	}

@@ -411,7 +411,8 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa)
 	handler = ospf6_get_lsa_handler(lsa->header->type);
 	if ((type == OSPF6_LSTYPE_INTER_PREFIX)
 	    || (type == OSPF6_LSTYPE_INTER_ROUTER)
-	    || (type == OSPF6_LSTYPE_AS_EXTERNAL)) {
+	    || (type == OSPF6_LSTYPE_AS_EXTERNAL)
+	    || (type == OSPF6_LSTYPE_TYPE_7)) {
 		vty_out(vty, "%-4s %-15s%-15s%4hu %8lx %30s\n",
 			ospf6_lstype_short_name(lsa->header->type), id,
 			adv_router, ospf6_lsa_age_current(lsa),

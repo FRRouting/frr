@@ -448,8 +448,13 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa, struct ospf6 *ospf6)
 {
 	struct ospf6_as_external_lsa *external;
 	struct prefix asbr_id;
-	struct ospf6_route *asbr_entry, *route, *old;
+	struct ospf6_route *asbr_entry, *route, *old = NULL;
 	struct ospf6_path *path;
+	int type;
+	struct ospf6_area *oa = NULL;
+
+	type = ntohs(lsa->header->type);
+	oa = lsa->lsdb->data;
 
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 		lsa->header);
@@ -529,18 +534,25 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa, struct ospf6 *ospf6)
 			&route->prefix, route->path.cost, route->path.u.cost_e2,
 			listcount(route->nh_list));
 
-	old = ospf6_route_lookup(&route->prefix, ospf6->route_table);
+	if (type == OSPF6_LSTYPE_AS_EXTERNAL)
+		old = ospf6_route_lookup(&route->prefix, ospf6->route_table);
+	else if (type == OSPF6_LSTYPE_TYPE_7)
+		old = ospf6_route_lookup(&route->prefix, oa->route_table);
 	if (!old) {
 		/* Add the new route to ospf6 instance route table. */
-		ospf6_route_add(route, ospf6->route_table, ospf6);
-	} else {
-		/* RFC 2328 16.4 (6)
-		 * ECMP: Keep new equal preference path in current
-		 * route's path list, update zebra with new effective
-		 * list along with addition of ECMP path.
-		 */
-		ospf6_asbr_update_route_ecmp_path(old, route, ospf6);
-	}
+		if (type == OSPF6_LSTYPE_AS_EXTERNAL)
+			ospf6_route_add(route, ospf6->route_table, ospf6);
+		else if (type == OSPF6_LSTYPE_TYPE_7)
+			ospf6_route_add(route, oa->route_table, ospf6);
+ 	} else {
+                 /* RFC 2328 16.4 (6)
+                  * ECMP: Keep new equal preference path in current
+                  * route's path list, update zebra with new effective
+                  * list along with addition of ECMP path.
+                  */
+                 ospf6_asbr_update_route_ecmp_path(old, route, ospf6);
+         }
+
 }
 
 void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
@@ -1964,11 +1976,20 @@ static struct ospf6_lsa_handler as_external_handler = {
 	.lh_get_prefix_str = ospf6_as_external_lsa_get_prefix_str,
 	.lh_debug = 0};
 
+static struct ospf6_lsa_handler nssa_external_handler = {
+	.lh_type = OSPF6_LSTYPE_TYPE_7,
+	.lh_name = "NSSA",
+	.lh_short_name = "Type7",
+	.lh_show = ospf6_as_external_lsa_show,
+	.lh_get_prefix_str = ospf6_as_external_lsa_get_prefix_str,
+	.lh_debug = 0};
+
 void ospf6_asbr_init(void)
 {
 	ospf6_routemap_init();
 
 	ospf6_install_lsa_handler(&as_external_handler);
+	ospf6_install_lsa_handler(&nssa_external_handler);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_redistribute_cmd);
 

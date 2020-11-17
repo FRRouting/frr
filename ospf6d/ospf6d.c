@@ -150,6 +150,9 @@ static uint16_t parse_type_spec(int idx_lsa, int argc, struct cmd_token **argv)
 			type = htons(OSPF6_LSTYPE_INTER_PREFIX);
 		else if (strmatch(argv[idx_lsa]->text, "link"))
 			type = htons(OSPF6_LSTYPE_LINK);
+		else if (strmatch(argv[idx_lsa]->text, "type-7"))
+			type = htons(OSPF6_LSTYPE_TYPE_7);
+
 	}
 
 	return type;
