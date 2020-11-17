@@ -36,6 +36,7 @@
 #include "frr_pthread.h"
 #include "lib_errors.h"
 #include "libfrr_trace.h"
+#include "libfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread")
 DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")
@@ -442,8 +443,14 @@ struct thread_master *thread_master_create(const char *name)
 	rv->name = XSTRDUP(MTYPE_THREAD_MASTER, name);
 
 	/* Initialize I/O task data structures */
-	getrlimit(RLIMIT_NOFILE, &limit);
-	rv->fd_limit = (int)limit.rlim_cur;
+
+	/* Use configured limit if present, ulimit otherwise. */
+	rv->fd_limit = frr_get_fd_limit();
+	if (rv->fd_limit == 0) {
+		getrlimit(RLIMIT_NOFILE, &limit);
+		rv->fd_limit = (int)limit.rlim_cur;
+	}
+
 	rv->read = XCALLOC(MTYPE_THREAD_POLL,
 			   sizeof(struct thread *) * rv->fd_limit);
 
