@@ -187,6 +187,13 @@ Showing OSPF6 information
    Shows state and chosen (Backup) DR of neighbor. JSON output can be
    obtained by appending 'json' at the end.
 
+.. index:: show ipv6 ospf6 interface traffic [json]
+.. clicmd:: show ipv6 ospf6 interface traffic [json]
+
+   Shows counts of different packets that have been recieved and transmitted
+   by the interfaces. JSON output can be obtained by appending "json" at the
+   end.
+
 .. index:: show ipv6 ospf6 request-list A.B.C.D
 .. clicmd:: show ipv6 ospf6 request-list A.B.C.D
 
