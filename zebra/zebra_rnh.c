@@ -167,7 +167,7 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, enum rnh_type type,
 		flog_warn(EC_ZEBRA_RNH_NO_TABLE,
 			  "%u: Add RNH %s type %s - table not found", vrfid,
 			  buf, rnh_type2str(type));
-		exists = false;
+		*exists = false;
 		return NULL;
 	}
 
