@@ -1743,9 +1743,12 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 
 	/* Handle case where a context more complex ctx is present.
 	 * input has no iface nor local-address, but a context may
-	 * exist
+	 * exist.
+	 *
+	 * Only applies to IPv4, because IPv6 requires either
+	 * local-address or interface.
 	 */
-	if (!bs.key.mhop) {
+	if (!bs.key.mhop && bs.key.family == AF_INET) {
 		ctx.result = NULL;
 		ctx.given = &bs;
 		hash_walk(bfd_key_hash, &bfd_key_lookup_ignore_partial_walker,
