@@ -121,8 +121,12 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 
 	if (code) {
 		ref = log_ref_get(code);
-		if (!ref)
+		if (!ref) {
+			if (top)
+				json_object_free(top);
+			list_delete(&errlist);
 			return;
+		}
 		listnode_add(errlist, ref);
 	}
 
