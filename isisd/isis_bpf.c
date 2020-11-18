@@ -215,7 +215,7 @@ int isis_sock_init(struct isis_circuit *circuit)
 
 int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 {
-	int bytesread = 0, bytestoread, offset, one = 1;
+	int bytesread = 0, bytestoread = 0, offset, one = 1;
 	uint8_t *buff_ptr;
 	struct bpf_hdr *bpf_hdr;
 
