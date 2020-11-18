@@ -6109,6 +6109,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 				json_object_object_add(json_oil, out_ifname,
 						       json_ifp_out);
 			} else {
+				proto[0] = '\0';
 				if (c_oil->oif_flags[oif_vif_index]
 				    & PIM_OIF_FLAG_PROTO_PIM) {
 					strlcpy(proto, "PIM", sizeof(proto));
