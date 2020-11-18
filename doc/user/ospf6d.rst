@@ -203,6 +203,12 @@ Showing OSPF6 information
    Shows state about what is being redistributed between zebra and OSPF6.
    JSON output can be obtained by appending "json" at the end.
 
+.. index:: show ipv6 ospf6 redistribute [json]
+.. clicmd:: show ipv6 ospf6 redistribute [json]
+
+   Shows the routes which are redistributed by the router. JSON output can
+   be obtained by appending 'json' at the end.
+
 OSPF6 Configuration Examples
 ============================
 
