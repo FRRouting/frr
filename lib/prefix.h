@@ -479,7 +479,7 @@ extern void apply_mask_ipv4(struct prefix_ipv4 *);
 #define PREFIX_COPY(DST, SRC)                                                  \
 	*((struct prefix *)(DST)) = *((const struct prefix *)(SRC))
 #define PREFIX_COPY_IPV4(DST, SRC)                                             \
-	*((struct prefix_ipv4 *)(DST)) = *((const struct prefix_ipv4 *)(SRC));
+	*((struct prefix_ipv4 *)(DST)) = *((const struct prefix_ipv4 *)(SRC))
 
 extern int prefix_ipv4_any(const struct prefix_ipv4 *);
 extern void apply_classful_mask_ipv4(struct prefix_ipv4 *);
@@ -499,7 +499,7 @@ extern int str2prefix_ipv6(const char *, struct prefix_ipv6 *);
 extern void apply_mask_ipv6(struct prefix_ipv6 *);
 
 #define PREFIX_COPY_IPV6(DST, SRC)                                             \
-	*((struct prefix_ipv6 *)(DST)) = *((const struct prefix_ipv6 *)(SRC));
+	*((struct prefix_ipv6 *)(DST)) = *((const struct prefix_ipv6 *)(SRC))
 
 extern int ip6_masklen(struct in6_addr);
 extern void masklen2ip6(const int, struct in6_addr *);

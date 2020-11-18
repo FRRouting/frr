@@ -68,9 +68,9 @@ static void ospf6_lsdb_set_key(struct prefix_ipv6 *key, const void *value,
 #ifdef DEBUG
 static void _lsdb_count_assert(struct ospf6_lsdb *lsdb)
 {
-	struct ospf6_lsa *debug;
+	struct ospf6_lsa *debug, *debugnext;
 	unsigned int num = 0;
-	for (ALL_LSDB(lsdb, debug))
+	for (ALL_LSDB(lsdb, debug, debugnext))
 		num++;
 
 	if (num == lsdb->count)
@@ -78,7 +78,7 @@ static void _lsdb_count_assert(struct ospf6_lsdb *lsdb)
 
 	zlog_debug("PANIC !! lsdb[%p]->count = %d, real = %d", lsdb,
 		   lsdb->count, num);
-	for (ALL_LSDB(lsdb, debug))
+	for (ALL_LSDB(lsdb, debug, debugnext))
 		zlog_debug("%s lsdb[%p]", debug->name, debug->lsdb);
 	zlog_debug("DUMP END");
 
