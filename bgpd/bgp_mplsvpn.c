@@ -1707,6 +1707,8 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	if (!is_inst_match)
 		listnode_add(to_bgp->vpn_policy[afi].import_vrf,
 				     vname);
+	else
+		XFREE(MTYPE_TMP, vname);
 
 	/* Check if the source vrf already exports to any vrf,
 	 * first time export requires to setup auto derived RD/RT values.
@@ -1729,6 +1731,9 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	if (!is_inst_match)
 		listnode_add(from_bgp->vpn_policy[afi].export_vrf,
 			     vname);
+	else
+		XFREE(MTYPE_TMP, vname);
+
 	/* Update import RT for current VRF using export RT of the VRF we're
 	 * importing from. First though, make sure "import_vrf" has that
 	 * set.
