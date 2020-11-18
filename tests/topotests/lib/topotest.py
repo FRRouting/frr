@@ -1318,7 +1318,12 @@ class Router(Node):
         # print "Daemons before:", self.daemons
         if daemon in self.daemons.keys():
             self.daemons[daemon] = 1
-            if param is not None:
+            option_daemon = os.getenv(daemon.upper()+'_PARAM')
+            if option_daemon:
+                if param is not None:
+                    option_daemon = option_daemon + ' ' + param
+                self.daemons_options[daemon] = option_daemon
+            elif param is not None:
                 self.daemons_options[daemon] = param
             if source is None:
                 self.cmd("touch /etc/%s/%s.conf" % (self.routertype, daemon))
