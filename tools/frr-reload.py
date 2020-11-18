@@ -250,12 +250,7 @@ class Config(object):
 
             # Compress duplicate whitespaces
             line = " ".join(line.split())
-
-            if ":" in line and not "ipv6 add":
-                qv6_line = get_normalized_ipv6_line(line)
-                self.lines.append(qv6_line)
-            else:
-                self.lines.append(line)
+            self.lines.append(line)
 
         self.load_contexts()
 
@@ -761,43 +756,6 @@ def lines_to_config(ctx_keys, line, delete):
             cmd.append("%s%s" % (" " * (len(ctx_keys) - 1), ctx_keys[-1]))
 
     return cmd
-
-
-def get_normalized_ipv6_line(line):
-    """
-    Return a normalized IPv6 line as produced by frr,
-    with all letters in lower case and trailing and leading
-    zeros removed, and only the network portion present if
-    the IPv6 word is a network
-    """
-    norm_line = ""
-    words = line.split(" ")
-    for word in words:
-        if ":" in word:
-            norm_word = None
-            if "/" in word:
-                try:
-                    if "ipaddress" not in sys.modules:
-                        v6word = IPNetwork(word)
-                        norm_word = "%s/%s" % (v6word.network, v6word.prefixlen)
-                    else:
-                        v6word = ip_network(word, strict=False)
-                        norm_word = "%s/%s" % (
-                            str(v6word.network_address),
-                            v6word.prefixlen,
-                        )
-                except ValueError:
-                    pass
-            if not norm_word:
-                try:
-                    norm_word = "%s" % IPv6Address(word)
-                except ValueError:
-                    norm_word = word
-        else:
-            norm_word = word
-        norm_line = norm_line + " " + norm_word
-
-    return norm_line.strip()
 
 
 def line_exist(lines, target_ctx_keys, target_line, exact_match=True):
