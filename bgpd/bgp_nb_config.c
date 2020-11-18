@@ -5213,7 +5213,8 @@ int bgp_neighbors_unnumbered_neighbor_neighbor_remote_as_remote_as_type_destroy(
 		peer = peer_lookup_by_conf_if(bgp, peer_str);
 
 		/* remote-as set to 0 and as_type to unspecified */
-		peer_as_change(peer, 0, AS_UNSPECIFIED);
+		if (peer)
+			peer_as_change(peer, 0, AS_UNSPECIFIED);
 
 		break;
 	}
