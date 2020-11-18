@@ -362,7 +362,7 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request,
 	else
 		ret = zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 
-	if (ret < 0)
+	if (ret == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET,
 			 "zclient_route_send() %s failed: %s",
 			 (type == REM ? "delete" : "add"),

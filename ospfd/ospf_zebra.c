@@ -1915,7 +1915,7 @@ int ospf_zebra_label_manager_connect(void)
 	set_nonblocking(zclient_sync->sock);
 
 	/* Send hello to notify zebra this is a synchronous client */
-	if (zclient_send_hello(zclient_sync) < 0) {
+	if (zclient_send_hello(zclient_sync) == ZCLIENT_SEND_FAILURE) {
 		zlog_warn("%s: failed sending hello for synchronous zclient!",
 			  __func__);
 		close(zclient_sync->sock);

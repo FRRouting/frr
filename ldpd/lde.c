@@ -2092,7 +2092,7 @@ static void zclient_sync_init(void)
 	sock_set_nonblock(zclient_sync->sock);
 
 	/* Send hello to notify zebra this is a synchronous client */
-	if (zclient_send_hello(zclient_sync) < 0) {
+	if (zclient_send_hello(zclient_sync) == ZCLIENT_SEND_FAILURE) {
 		log_warnx("Error sending hello for synchronous zclient!");
 		goto retry;
 	}

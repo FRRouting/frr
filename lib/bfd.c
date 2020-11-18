@@ -405,7 +405,7 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 			vrf_id_t vrf_id)
 {
 	struct stream *s;
-	int ret;
+	enum zclient_send_status ret;
 
 	/* Check socket. */
 	if (!zclient || zclient->sock < 0) {
@@ -426,7 +426,7 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 
 	ret = zclient_send_message(zclient);
 
-	if (ret < 0) {
+	if (ret == ZCLIENT_SEND_FAILURE) {
 		if (bfd_debug)
 			zlog_debug(
 				"bfd_client_sendmsg %ld: zclient_send_message() failed",
@@ -542,7 +542,7 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	/* Send message to zebra. */
-	if (zclient_send_message(zc) == -1) {
+	if (zclient_send_message(zc) == ZCLIENT_SEND_FAILURE) {
 		if (bfd_debug)
 			zlog_debug("%s: zclient_send_message failed", __func__);
 		return -1;

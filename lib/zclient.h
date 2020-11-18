@@ -54,6 +54,7 @@ typedef uint16_t zebra_size_t;
 
 /* For input/output buffer to zebra. */
 #define ZEBRA_MAX_PACKET_SIZ          16384U
+#define ZEBRA_SMALL_PACKET_SIZE       200U
 
 /* Zebra header size. */
 #define ZEBRA_HEADER_SIZE             10
@@ -320,6 +321,18 @@ struct zclient {
 	/* Pointer to the callback functions. */
 	void (*zebra_connected)(struct zclient *);
 	void (*zebra_capabilities)(struct zclient_capabilities *cap);
+
+	/*
+	 * When the zclient attempts to write the stream data to
+	 * it's named pipe to/from zebra, we may have a situation
+	 * where the other daemon has not fully drained the data
+	 * from the socket.  In this case provide a mechanism
+	 * where we will *still* buffer the data to be sent
+	 * and also provide a callback mechanism to the appropriate
+	 * place where we can signal that we're ready to receive
+	 * more data.
+	 */
+	void (*zebra_buffer_write_ready)(void);
 	int (*router_id_update)(ZAPI_CALLBACK_ARGS);
 	int (*interface_address_add)(ZAPI_CALLBACK_ARGS);
 	int (*interface_address_delete)(ZAPI_CALLBACK_ARGS);
@@ -663,6 +676,12 @@ enum zapi_iptable_notify_owner {
 	ZAPI_IPTABLE_FAIL_REMOVE,
 };
 
+enum zclient_send_status {
+	ZCLIENT_SEND_FAILURE = -1,
+	ZCLIENT_SEND_SUCCESS = 0,
+	ZCLIENT_SEND_BUFFERED = 1
+};
+
 static inline const char *
 zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 {
@@ -760,31 +779,33 @@ extern void redist_del_all_instances(struct redist_proto *red);
  * we have installed and play some special games
  * to get them both installed.
  */
-extern void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
-				   afi_t afi, mpls_label_t label,
-				   enum lsp_types_t ltype);
+extern enum zclient_send_status
+zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
+		       mpls_label_t label, enum lsp_types_t ltype);
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);
-extern int zclient_send_router_id_update(struct zclient *zclient,
-					 zebra_message_types_t type, afi_t afi,
-					 vrf_id_t vrf_id);
+extern enum zclient_send_status
+zclient_send_router_id_update(struct zclient *zclient,
+			      zebra_message_types_t type, afi_t afi,
+			      vrf_id_t vrf_id);
 
-extern void zclient_send_interface_radv_req(struct zclient *zclient,
-					    vrf_id_t vrf_id,
-					    struct interface *ifp, int enable,
-					    int ra_interval);
-extern int zclient_send_interface_protodown(struct zclient *zclient,
-					    vrf_id_t vrf_id,
-					    struct interface *ifp, bool down);
+extern enum zclient_send_status
+zclient_send_interface_radv_req(struct zclient *zclient, vrf_id_t vrf_id,
+				struct interface *ifp, int enable,
+				int ra_interval);
+extern enum zclient_send_status
+zclient_send_interface_protodown(struct zclient *zclient, vrf_id_t vrf_id,
+				 struct interface *ifp, bool down);
 
 /* Send redistribute command to zebra daemon. Do not update zclient state. */
-extern int zebra_redistribute_send(int command, struct zclient *, afi_t,
-				   int type, unsigned short instance,
-				   vrf_id_t vrf_id);
+extern enum zclient_send_status
+zebra_redistribute_send(int command, struct zclient *, afi_t, int type,
+			unsigned short instance, vrf_id_t vrf_id);
 
-extern int zebra_redistribute_default_send(int command, struct zclient *zclient,
-					   afi_t afi, vrf_id_t vrf_id);
+extern enum zclient_send_status
+zebra_redistribute_default_send(int command, struct zclient *zclient, afi_t afi,
+				vrf_id_t vrf_id);
 
 /* Send route notify request to zebra */
 extern int zebra_route_notify_send(int command, struct zclient *zclient,
@@ -798,9 +819,14 @@ extern void zclient_redistribute(int command, struct zclient *, afi_t, int type,
 extern void zclient_redistribute_default(int command, struct zclient *,
 					 afi_t, vrf_id_t vrf_id);
 
-/* Send the message in zclient->obuf to the zebra daemon (or enqueue it).
-   Returns 0 for success or -1 on an I/O error. */
-extern int zclient_send_message(struct zclient *);
+/*
+ * Send the message in zclient->obuf to the zebra daemon (or enqueue it).
+ * Returns:
+ * -1 on a I/O error
+ *  0 data was successfully sent
+ *  1 data was buffered for future usage
+ */
+extern enum zclient_send_status zclient_send_message(struct zclient *);
 
 /* create header for command, length to be filled in by user later */
 extern void zclient_create_header(struct stream *, uint16_t, vrf_id_t);
@@ -857,9 +883,9 @@ extern int zclient_read_header(struct stream *s, int sock, uint16_t *size,
  */
 extern bool zapi_parse_header(struct stream *zmsg, struct zmsghdr *hdr);
 
-extern void zclient_interface_set_master(struct zclient *client,
-					 struct interface *master,
-					 struct interface *slave);
+extern enum zclient_send_status
+zclient_interface_set_master(struct zclient *client, struct interface *master,
+			     struct interface *slave);
 extern struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t);
 extern struct connected *zebra_interface_address_read(int, struct stream *,
 						      vrf_id_t);
@@ -874,8 +900,9 @@ extern struct interface *zebra_interface_link_params_read(struct stream *s,
 							  vrf_id_t vrf_id);
 extern size_t zebra_interface_link_params_write(struct stream *,
 						struct interface *);
-extern int zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
-					uint32_t chunk_size, uint32_t base);
+extern enum zclient_send_status
+zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
+			     uint32_t chunk_size, uint32_t base);
 
 extern int lm_label_manager_connect(struct zclient *zclient, int async);
 extern int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
@@ -889,29 +916,32 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
 
-extern int zebra_send_sr_policy(struct zclient *zclient, int cmd,
-				struct zapi_sr_policy *zp);
+extern enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient,
+						     int cmd,
+						     struct zapi_sr_policy *zp);
 extern int zapi_sr_policy_encode(struct stream *s, int cmd,
 				 struct zapi_sr_policy *zp);
 extern int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp);
 extern int zapi_sr_policy_notify_status_decode(struct stream *s,
 					       struct zapi_sr_policy *zp);
 
-extern int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
-				  struct zapi_labels *zl);
+extern enum zclient_send_status zebra_send_mpls_labels(struct zclient *zclient,
+						       int cmd,
+						       struct zapi_labels *zl);
 extern int zapi_labels_encode(struct stream *s, int cmd,
 			      struct zapi_labels *zl);
 extern int zapi_labels_decode(struct stream *s, struct zapi_labels *zl);
 
-extern int zebra_send_pw(struct zclient *zclient, int command,
-			 struct zapi_pw *pw);
+extern enum zclient_send_status zebra_send_pw(struct zclient *zclient,
+					      int command, struct zapi_pw *pw);
 extern int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS,
 				       struct zapi_pw_status *pw);
 
-extern int zclient_route_send(uint8_t, struct zclient *, struct zapi_route *);
-extern int zclient_send_rnh(struct zclient *zclient, int command,
-			    const struct prefix *p, bool exact_match,
-			    vrf_id_t vrf_id);
+extern enum zclient_send_status zclient_route_send(uint8_t, struct zclient *,
+						   struct zapi_route *);
+extern enum zclient_send_status
+zclient_send_rnh(struct zclient *zclient, int command, const struct prefix *p,
+		 bool exact_match, vrf_id_t vrf_id);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
@@ -934,8 +964,8 @@ bool zapi_ipset_notify_decode(struct stream *s,
 
 extern int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 extern int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
-extern int zclient_nhg_send(struct zclient *zclient, int cmd,
-			    struct zapi_nhg *api_nhg);
+extern enum zclient_send_status
+zclient_nhg_send(struct zclient *zclient, int cmd, struct zapi_nhg *api_nhg);
 
 #define ZEBRA_IPSET_NAME_SIZE   32
 
@@ -962,8 +992,9 @@ const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
 extern bool zapi_error_decode(struct stream *s, enum zebra_error_types *error);
 
 /* Encode and decode restart capabilities */
-extern int32_t zclient_capabilities_send(uint32_t cmd, struct zclient *zclient,
-					 struct zapi_cap *api);
+extern enum zclient_send_status
+zclient_capabilities_send(uint32_t cmd, struct zclient *zclient,
+			  struct zapi_cap *api);
 extern int32_t zapi_capabilities_decode(struct stream *s, struct zapi_cap *api);
 
 static inline void zapi_route_set_blackhole(struct zapi_route *api,
@@ -976,12 +1007,13 @@ static inline void zapi_route_set_blackhole(struct zapi_route *api,
 	SET_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP);
 };
 
-extern void zclient_send_mlag_register(struct zclient *client,
-				       uint32_t bit_map);
-extern void zclient_send_mlag_deregister(struct zclient *client);
+extern enum zclient_send_status
+zclient_send_mlag_register(struct zclient *client, uint32_t bit_map);
+extern enum zclient_send_status
+zclient_send_mlag_deregister(struct zclient *client);
 
-extern void zclient_send_mlag_data(struct zclient *client,
-				   struct stream *client_s);
+extern enum zclient_send_status zclient_send_mlag_data(struct zclient *client,
+						       struct stream *client_s);
 
 /*
  * Send an OPAQUE message, contents opaque to zebra - but note that
@@ -991,13 +1023,15 @@ extern void zclient_send_mlag_data(struct zclient *client,
  * below to avoid sub-type collisions. Clients use the registration
  * apis to manage the specific opaque subtypes they want to receive.
  */
-int zclient_send_opaque(struct zclient *zclient, uint32_t type,
-			const uint8_t *data, size_t datasize);
+enum zclient_send_status zclient_send_opaque(struct zclient *zclient,
+					     uint32_t type, const uint8_t *data,
+					     size_t datasize);
 
-int zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
-				uint8_t proto, uint16_t instance,
-				uint32_t session_id, const uint8_t *data,
-				size_t datasize);
+enum zclient_send_status
+zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
+			    uint8_t proto, uint16_t instance,
+			    uint32_t session_id, const uint8_t *data,
+			    size_t datasize);
 
 /* Struct representing the decoded opaque header info */
 struct zapi_opaque_msg {
@@ -1027,8 +1061,10 @@ struct zapi_opaque_reg_info {
 /* Decode incoming opaque */
 int zclient_opaque_decode(struct stream *msg, struct zapi_opaque_msg *info);
 
-int zclient_register_opaque(struct zclient *zclient, uint32_t type);
-int zclient_unregister_opaque(struct zclient *zclient, uint32_t type);
+enum zclient_send_status zclient_register_opaque(struct zclient *zclient,
+						 uint32_t type);
+enum zclient_send_status zclient_unregister_opaque(struct zclient *zclient,
+						   uint32_t type);
 int zapi_opaque_reg_decode(struct stream *msg,
 			   struct zapi_opaque_reg_info *info);
 
@@ -1054,11 +1090,12 @@ enum zapi_opaque_registry {
 /* Send the hello message.
  * Returns 0 for success or -1 on an I/O error.
  */
-extern int zclient_send_hello(struct zclient *client);
+extern enum zclient_send_status zclient_send_hello(struct zclient *client);
 
-extern int zclient_send_neigh_discovery_req(struct zclient *zclient,
-					    const struct interface *ifp,
-					    const struct prefix *p);
+extern enum zclient_send_status
+zclient_send_neigh_discovery_req(struct zclient *zclient,
+				 const struct interface *ifp,
+				 const struct prefix *p);
 
 #ifdef __cplusplus
 }
