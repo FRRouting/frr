@@ -419,6 +419,7 @@ struct q_space {
 	struct list *vertex_list;
 	struct mpls_label_stack *label_stack;
 	struct in_addr nexthop;
+	struct list *pc_path;
 	struct q_spaces_item q_spaces_item;
 };
 

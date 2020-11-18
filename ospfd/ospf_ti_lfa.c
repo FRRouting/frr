@@ -69,39 +69,35 @@ static void ospf_ti_lfa_find_p_node(struct vertex *pc_node,
 				    struct q_space *q_space,
 				    struct ospf_ti_lfa_node_info *node_info)
 {
-	struct listnode *node;
-	struct vertex *p_node = NULL, *p_node_pc_parent;
+	struct listnode *curr_node;
+	struct vertex *p_node = NULL, *pc_node_parent, *p_node_pc_parent;
 	struct vertex_parent *pc_vertex_parent;
+
+	curr_node = listnode_lookup(q_space->pc_path, pc_node);
+	pc_node_parent = listgetdata(curr_node->next);
 
 	node_info->type = OSPF_TI_LFA_UNDEFINED_NODE;
 
-	for (ALL_LIST_ELEMENTS_RO(pc_node->parents, node, pc_vertex_parent)) {
-		p_node = ospf_spf_vertex_find(pc_vertex_parent->parent->id,
-					      p_space->vertex_list);
+	p_node = ospf_spf_vertex_find(pc_node_parent->id, p_space->vertex_list);
 
-		/* Just take the first discovered P node */
-		if (p_node)
-			break;
+	if (p_node) {
+		node_info->node = p_node;
+		node_info->type = OSPF_TI_LFA_P_NODE;
+
+		if (curr_node->next->next) {
+			p_node_pc_parent = listgetdata(curr_node->next->next);
+			pc_vertex_parent = ospf_spf_vertex_parent_find(
+				p_node_pc_parent->id, pc_node_parent);
+			node_info->nexthop = pc_vertex_parent->nexthop->router;
+		} else {
+			/*
+			 * It can happen that the P node is the root node itself
+			 * (hence there can be no parents). In this case we
+			 * don't need to set a nexthop.
+			 */
+			node_info->nexthop.s_addr = INADDR_ANY;
+		}
 	}
-
-	if (!p_node)
-		return;
-
-	node_info->node = p_node;
-	node_info->type = OSPF_TI_LFA_P_NODE;
-
-	/* For the nexthop we just use the first vertex parent */
-	p_node_pc_parent =
-		ospf_spf_vertex_find(p_node->id, p_space->pc_vertex_list);
-	pc_vertex_parent = listnode_head(p_node_pc_parent->parents);
-
-	/*
-	 * It can happen that the P node is the root node itself (hence there
-	 * can be no parents). In this case we don't need to set a nexthop.
-	 */
-	node_info->nexthop.s_addr = INADDR_ANY;
-	if (pc_vertex_parent)
-		node_info->nexthop = pc_vertex_parent->nexthop->router;
 }
 
 static void ospf_ti_lfa_find_q_node(struct vertex *pc_node,
@@ -109,45 +105,34 @@ static void ospf_ti_lfa_find_q_node(struct vertex *pc_node,
 				    struct q_space *q_space,
 				    struct ospf_ti_lfa_node_info *node_info)
 {
-	struct listnode *node;
-	struct vertex *p_node, *q_node, *q_space_parent = NULL;
+	struct listnode *curr_node, *next_node;
+	struct vertex *p_node, *q_node, *q_space_parent = NULL, *pc_node_parent;
 	struct vertex_parent *pc_vertex_parent;
+
+	curr_node = listnode_lookup(q_space->pc_path, pc_node);
+	next_node = curr_node->next;
+	pc_node_parent = listgetdata(next_node);
+	pc_vertex_parent =
+		ospf_spf_vertex_parent_find(pc_node_parent->id, pc_node);
 
 	p_node = ospf_spf_vertex_find(pc_node->id, p_space->vertex_list);
 	q_node = ospf_spf_vertex_find(pc_node->id, q_space->vertex_list);
-
-	/*
-	 * If we don't find the node in the Q space then there's really
-	 * something wrong (since we check the parent, see below).
-	 */
-	assert(q_node);
 
 	node_info->type = OSPF_TI_LFA_UNDEFINED_NODE;
 
 	if (p_node && q_node) {
 		node_info->node = pc_node;
 		node_info->type = OSPF_TI_LFA_PQ_NODE;
-
-		/* For the nexthop we just use the first vertex parent */
-		pc_vertex_parent = listnode_head(pc_node->parents);
 		node_info->nexthop = pc_vertex_parent->nexthop->router;
 		return;
 	}
 
-	if (pc_node->parents->count == 0)
-		return;
-
-	/* First check if the same link also exists in the Q space */
-	for (ALL_LIST_ELEMENTS_RO(pc_node->parents, node, pc_vertex_parent)) {
-		/*
-		 * Note that the Q space has the 'reverse' direction of the PC
-		 * SPF. Hence compare PC SPF parents to Q space children.
-		 */
-		q_space_parent = ospf_spf_vertex_find(
-			pc_vertex_parent->parent->id, q_node->children);
-		if (q_space_parent)
-			break;
-	}
+	/*
+	 * Note that the Q space has the 'reverse' direction of the PC
+	 * SPF. Hence compare PC SPF parent to Q space children.
+	 */
+	q_space_parent =
+		ospf_spf_vertex_find(pc_node_parent->id, q_node->children);
 
 	/*
 	 * If the Q space parent doesn't exist we 'hit' the border to the P
@@ -156,15 +141,12 @@ static void ospf_ti_lfa_find_q_node(struct vertex *pc_node,
 	if (!q_space_parent) {
 		node_info->node = pc_node;
 		node_info->type = OSPF_TI_LFA_Q_NODE;
-
-		/* For the nexthop we just use the first vertex parent */
-		pc_vertex_parent = listnode_head(pc_node->parents);
 		node_info->nexthop = pc_vertex_parent->nexthop->router;
 		return;
 	}
 
-	return ospf_ti_lfa_find_q_node(pc_vertex_parent->parent, p_space,
-				       q_space, node_info);
+	return ospf_ti_lfa_find_q_node(pc_node_parent, p_space, q_space,
+				       node_info);
 }
 
 static struct mpls_label_stack *
@@ -200,8 +182,7 @@ static void ospf_ti_lfa_generate_label_stack(struct p_space *p_space,
 	zlog_debug("%s: Generating Label stack for src %pI4 and dest %pI4.",
 		   __func__, &p_space->root->id, &q_space->root->id);
 
-	pc_node = ospf_spf_vertex_find(q_space->root->id,
-				       p_space->pc_vertex_list);
+	pc_node = listnode_head(q_space->pc_path);
 
 	if (!pc_node) {
 		zlog_debug(
@@ -279,6 +260,38 @@ static void ospf_ti_lfa_generate_label_stack(struct p_space *p_space,
 	q_space->nexthop = p_node_info.nexthop;
 }
 
+static struct list *
+ospf_ti_lfa_generate_post_convergence_path(struct list *pc_vertex_list,
+					   struct vertex *dest)
+{
+	struct list *pc_path;
+	struct vertex *current_vertex;
+	struct vertex_parent *parent;
+
+	pc_path = list_new();
+	current_vertex = ospf_spf_vertex_find(dest->id, pc_vertex_list);
+	if (!current_vertex) {
+		zlog_debug(
+			"%s: There seems to be no post convergence path (yet).",
+			__func__);
+		return pc_path;
+	}
+
+	listnode_add(pc_path, current_vertex);
+
+	/* Generate a backup path in reverse order */
+	for (;;) {
+		parent = listnode_head(current_vertex->parents);
+		if (!parent)
+			break;
+
+		listnode_add(pc_path, parent->parent);
+		current_vertex = parent->parent;
+	}
+
+	return pc_path;
+}
+
 static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 					  struct p_space *p_space,
 					  struct vertex *dest)
@@ -328,6 +341,8 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	q_space->root = area->spf;
 	q_space->vertex_list = area->spf_vertex_list;
 	q_space->label_stack = NULL;
+	q_space->pc_path = ospf_ti_lfa_generate_post_convergence_path(
+		p_space->pc_vertex_list, q_space->root);
 
 	/* 'Cut' the protected resource out of the new SPF tree */
 	ospf_spf_remove_resource(q_space->root, q_space->vertex_list,
@@ -684,6 +699,8 @@ void ospf_ti_lfa_free_p_spaces(struct ospf_area *area)
 	while ((p_space = p_spaces_pop(area->p_spaces))) {
 		while ((q_space = q_spaces_pop(p_space->q_spaces))) {
 			ospf_spf_cleanup(q_space->root, q_space->vertex_list);
+
+			list_delete(&q_space->pc_path);
 
 			XFREE(MTYPE_OSPF_Q_SPACE, q_space->label_stack);
 			XFREE(MTYPE_OSPF_Q_SPACE, q_space);
