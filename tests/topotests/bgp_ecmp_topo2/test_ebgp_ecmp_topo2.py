@@ -23,7 +23,7 @@
 
 """
 Following tests are covered to test ecmp functionality on EBGP.
-1. Verify routes installed as per maximum-paths configuration (8/16/32)
+1. Verify routes installed as per maximum-paths configuration (8/16)
 2. Disable/Shut selected paths nexthops and verify other next are installed in
    the RIB of DUT. Enable interfaces and verify RIB count.
 3. Verify BGP table and RIB in DUT after clear BGP routes and neighbors.
@@ -257,12 +257,12 @@ def static_or_nw(tgen, topo, tc_name, test_type, dut):
         )
 
 
-@pytest.mark.parametrize("ecmp_num", ["8", "16", "32"])
+@pytest.mark.parametrize("ecmp_num", ["8", "16"])
 @pytest.mark.parametrize("test_type", ["redist_static", "advertise_nw"])
 def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
     """
     Verify routes installed as per maximum-paths
-    configuration (8/16/32).
+    configuration (8/16).
     """
 
     tc_name = request.node.name
@@ -329,7 +329,7 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
     write_test_footer(tc_name)
 
 
-@pytest.mark.parametrize("ecmp_num", ["8", "16", "32"])
+@pytest.mark.parametrize("ecmp_num", ["8", "16"])
 @pytest.mark.parametrize("test_type", ["redist_static", "advertise_nw"])
 def test_ecmp_after_clear_bgp(request, ecmp_num, test_type):
     """ Verify BGP table and RIB in DUT after clear BGP routes and neighbors"""

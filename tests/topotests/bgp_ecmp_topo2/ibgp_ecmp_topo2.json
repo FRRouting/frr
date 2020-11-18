@@ -134,70 +134,6 @@
                 "r3-link16": {
                     "ipv4": "auto",
                     "ipv6": "auto"
-                },
-                "r3-link17": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link18": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link19": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link20": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link21": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link22": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link23": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link24": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link25": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link26": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link27": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link28": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link29": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link30": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link31": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r3-link32": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
                 }
             },
             "bgp": {
@@ -259,54 +195,6 @@
                                             "next_hop_self": true
                                         },
                                         "r2-link16": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link17": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link18": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link19": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link20": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link21": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link22": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link23": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link24": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link25": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link26": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link27": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link28": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link29": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link30": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link31": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link32": {
                                             "next_hop_self": true
                                         }
                                     }
@@ -375,54 +263,6 @@
                                             "next_hop_self": true
                                         },
                                         "r2-link16": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link17": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link18": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link19": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link20": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link21": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link22": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link23": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link24": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link25": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link26": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link27": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link28": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link29": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link30": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link31": {
-                                            "next_hop_self": true
-                                        },
-                                        "r2-link32": {
                                             "next_hop_self": true
                                         }
                                     }
@@ -508,70 +348,6 @@
                 "r2-link16": {
                     "ipv4": "auto",
                     "ipv6": "auto"
-                },
-                "r2-link17": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link18": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link19": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link20": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link21": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link22": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link23": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link24": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link25": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link26": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link27": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link28": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link29": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link30": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link31": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
-                },
-                "r2-link32": {
-                    "ipv4": "auto",
-                    "ipv6": "auto"
                 }
             },
             "route_maps": {
@@ -590,7 +366,7 @@
                     "ipv4": {
                         "unicast": {
                             "maximum_paths": {
-                                "ibgp": 32
+                                "ibgp": 16
                             },
                             "neighbor": {
                                 "r2": {
@@ -610,23 +386,7 @@
                                         "r3-link13": {},
                                         "r3-link14": {},
                                         "r3-link15": {},
-                                        "r3-link16": {},
-                                        "r3-link17": {},
-                                        "r3-link18": {},
-                                        "r3-link19": {},
-                                        "r3-link20": {},
-                                        "r3-link21": {},
-                                        "r3-link22": {},
-                                        "r3-link23": {},
-                                        "r3-link24": {},
-                                        "r3-link25": {},
-                                        "r3-link26": {},
-                                        "r3-link27": {},
-                                        "r3-link28": {},
-                                        "r3-link29": {},
-                                        "r3-link30": {},
-                                        "r3-link31": {},
-                                        "r3-link32": {}
+                                        "r3-link16": {}
                                     }
                                 }
                             }
@@ -635,7 +395,7 @@
                     "ipv6": {
                         "unicast": {
                             "maximum_paths": {
-                                "ibgp": 32
+                                "ibgp": 16
                             },
                             "neighbor": {
                                 "r2": {
@@ -731,102 +491,6 @@
                                             }]
                                         },
                                         "r3-link16": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link17": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link18": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link19": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link20": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link21": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link22": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link23": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link24": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link25": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link26": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link27": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link28": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link29": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link30": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link31": {
-                                            "route_maps": [{
-                                                "name": "rmap_global",
-                                                "direction": "in"
-                                            }]
-                                        },
-                                        "r3-link32": {
                                             "route_maps": [{
                                                 "name": "rmap_global",
                                                 "direction": "in"
