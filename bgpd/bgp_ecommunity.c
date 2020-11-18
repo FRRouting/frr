@@ -903,7 +903,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 	int str_size;
 	char *str_buf;
 
-	if (ecom->size == 0)
+	if (!ecom || ecom->size == 0)
 		return XCALLOC(MTYPE_ECOMMUNITY_STR, 1);
 
 	/* ecom strlen + space + null term */
