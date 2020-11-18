@@ -634,8 +634,28 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 				continue;
 			}
 
-			path->srni.backup_label_stack = q_space->label_stack;
-			path->srni.backup_nexthop = q_space->nexthop;
+			/* If there's a backup label stack, insert it*/
+			if (q_space->label_stack) {
+				/* Init the backup path data in path */
+				path->srni.backup_label_stack = XCALLOC(
+					MTYPE_OSPF_PATH,
+					sizeof(struct mpls_label_stack)
+						+ sizeof(mpls_label_t)
+							  * q_space->label_stack
+								    ->num_labels);
+
+				/* Copy over the label stack */
+				path->srni.backup_label_stack->num_labels =
+					q_space->label_stack->num_labels;
+				memcpy(path->srni.backup_label_stack->label,
+				       q_space->label_stack->label,
+				       sizeof(mpls_label_t)
+					       * q_space->label_stack
+							 ->num_labels);
+
+				/* Set the backup nexthop too */
+				path->srni.backup_nexthop = q_space->nexthop;
+			}
 
 			if (path->srni.backup_label_stack) {
 				mpls_label2str(q_space->label_stack->num_labels,
@@ -665,13 +685,10 @@ void ospf_ti_lfa_free_p_spaces(struct ospf_area *area)
 		while ((q_space = q_spaces_pop(p_space->q_spaces))) {
 			ospf_spf_cleanup(q_space->root, q_space->vertex_list);
 
-			/*
-			 * TODO: label stack is used for route installation
-			 * XFREE(MTYPE_OSPF_Q_SPACE, q_space->label_stack);
-			 */
-
+			XFREE(MTYPE_OSPF_Q_SPACE, q_space->label_stack);
 			XFREE(MTYPE_OSPF_Q_SPACE, q_space);
 		}
+
 		ospf_spf_cleanup(p_space->root, p_space->vertex_list);
 		ospf_spf_cleanup(p_space->pc_spf, p_space->pc_vertex_list);
 		XFREE(MTYPE_OSPF_P_SPACE, p_space->protected_resource);

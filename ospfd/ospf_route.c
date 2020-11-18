@@ -71,15 +71,31 @@ struct ospf_path *ospf_path_new(void)
 static struct ospf_path *ospf_path_dup(struct ospf_path *path)
 {
 	struct ospf_path *new;
+	int memsize;
 
 	new = ospf_path_new();
 	memcpy(new, path, sizeof(struct ospf_path));
+
+	/* optional TI-LFA backup paths */
+	if (path->srni.backup_label_stack) {
+		memsize = sizeof(struct mpls_label_stack)
+			  + (sizeof(mpls_label_t)
+			     * path->srni.backup_label_stack->num_labels);
+		new->srni.backup_label_stack =
+			XCALLOC(MTYPE_OSPF_PATH, memsize);
+		memcpy(new->srni.backup_label_stack,
+		       path->srni.backup_label_stack, memsize);
+	}
 
 	return new;
 }
 
 void ospf_path_free(struct ospf_path *op)
 {
+	/* optional TI-LFA backup paths */
+	if (op->srni.backup_label_stack)
+		XFREE(MTYPE_OSPF_PATH, op->srni.backup_label_stack);
+
 	XFREE(MTYPE_OSPF_PATH, op);
 }
 
