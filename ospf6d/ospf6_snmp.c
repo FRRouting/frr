@@ -1253,8 +1253,6 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 	} else {
 		/* We build a sorted list of interfaces */
 		ifslist = list_new();
-		if (!ifslist)
-			return NULL;
 		ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
 		FOR_ALL_INTERFACES (vrf, iif)
 			listnode_add_sort(ifslist, iif);
@@ -1282,6 +1280,7 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 		}
 
 		list_delete_all_node(ifslist);
+		list_delete(&ifslist);
 	}
 
 	if (!oi || !on)
