@@ -3324,6 +3324,14 @@ int bgp_delete(struct bgp *bgp)
 
 	assert(bgp);
 
+	/* make sure we withdraw any exported routes */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
+			   bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
+			   bgp);
+
+	bgp_vpn_leak_unimport(bgp);
+
 	hook_call(bgp_inst_delete, bgp);
 
 	THREAD_OFF(bgp->t_startup);
@@ -4437,6 +4445,10 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 	struct peer *peer1;
 
 	if (peer->sort == BGP_PEER_IBGP || peer->conf_if)
+		return 0;
+
+	/* is there anything to do? */
+	if (peer->ttl == ttl)
 		return 0;
 
 	/* see comment in peer_ttl_security_hops_set() */

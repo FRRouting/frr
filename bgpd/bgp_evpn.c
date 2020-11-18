@@ -2941,6 +2941,8 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf, int install)
 								   sizeof(buf)),
 							vrf_id_to_name(
 								bgp_vrf->vrf_id));
+						bgp_dest_unlock_node(rd_dest);
+						bgp_dest_unlock_node(dest);
 						return ret;
 					}
 				}
@@ -3020,6 +3022,9 @@ static int install_uninstall_routes_for_vni(struct bgp *bgp,
 								? "MACIP"
 								: "IMET",
 							vpn->vni);
+
+						bgp_dest_unlock_node(rd_dest);
+						bgp_dest_unlock_node(dest);
 						return ret;
 					}
 				}

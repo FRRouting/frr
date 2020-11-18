@@ -795,7 +795,10 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 							      : "delete",
 			   prefix2str(ifc->address, buf, sizeof(buf)));
 
-	bfdd_sessions_enable_address(ifc);
+	if (cmd == ZEBRA_INTERFACE_ADDRESS_ADD)
+		bfdd_sessions_enable_address(ifc);
+	else
+		connected_free(&ifc);
 
 	return 0;
 }

@@ -503,7 +503,61 @@ The following configuration is then generated for you:
     vrrp 5 ip 10.0.2.16
     vrrp 5 ipv6 2001:db8::370:7334
 
+
 VRRP is automatically activated. Global defaults, if set, are applied.
 
 You can then edit this configuration with **vtysh** as needed, and commit it by
 writing to the configuration file.
+
+
+Troubleshooting
+---------------
+
+My virtual routers are not seeing each others' advertisements
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Check:
+
+- Is your kernel at least 5.1?
+- Did you set the macvlan devices to ``bridge`` mode?
+- If using IPv4 virtual addresses, does the parent of the macvlan devices have
+  an IPv4 address?
+- If using IPv6 virtual addresses, is ``addrgenmode`` correctly set to
+  ``random`` and not the default ``eui64``?
+- Is a firewall (``iptables``) or policy (``ip rule``) dropping multicast
+  traffic?
+- Do you have unusual ``sysctls`` enabled that could affect the operation of
+  multicast traffic?
+- Are you running in ESXi? See below.
+
+
+My master router is not forwarding traffic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+There's several possible causes here. If you're sure your configuration is
+otherwise correct, the following sysctl likely needs to be turned on:
+
+.. code-block:: console
+
+   sysctl -w net.ipv4.conf.eth0.ignore_routes_with_linkdown=1
+
+Without this setting, it's possible to create topologies in which virtual
+routers holding mastership status will not forward traffic.
+
+Issue reference: https://github.com/FRRouting/frr/issues/7391
+
+
+My router is running in ESXi and VRRP isn't working
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, ESXi traffic security settings don't allow traffic to egress a VNIC
+that does not have the MAC address assigned to the VNIC. This breaks VRRP,
+since virtual MACs are the basis of the protocol.
+
+On ESXi before 6.7, you need to enable Promiscuous Mode in the ESXi settings.
+This is a significant security issue in some deployments so make sure you
+understand what you're doing. On 6.7 and later, you can use the MAC Learning
+feature instead, explained `here
+<https://www.virtuallyghetto.com/2018/04/native-mac-learning-in-vsphere-6-7-removes-the-need-for-promiscuous-mode-for-nested-esxi.html>`_.
+
+Issue reference: https://github.com/FRRouting/frr/issues/5386

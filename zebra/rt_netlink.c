@@ -3136,10 +3136,14 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	update_flags = dplane_ctx_mac_get_update_flags(ctx);
 	if (update_flags & DPLANE_MAC_REMOTE) {
 		flags |= NTF_SELF;
-		if (dplane_ctx_mac_is_sticky(ctx))
+		if (dplane_ctx_mac_is_sticky(ctx)) {
+			/* NUD_NOARP prevents the entry from expiring */
+			state |= NUD_NOARP;
+			/* sticky the entry from moving */
 			flags |= NTF_STICKY;
-		else
+		} else {
 			flags |= NTF_EXT_LEARNED;
+		}
 		/* if it was static-local previously we need to clear the
 		 * notify flags on replace with remote
 		 */

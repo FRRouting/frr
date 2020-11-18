@@ -25,10 +25,35 @@ forms the initial command set for a routing beast as it is starting.
 
 Config files are generally found in |INSTALL_PREFIX_ETC|.
 
-Each of the daemons has its own config file. The daemon name plus ``.conf`` is
-the default config file name. For example, zebra's default config file name is
-:file:`zebra.conf`. You can specify a config file using the :option:`-f` or
-:option:`--config_file` options when starting the daemon.
+Config Methods
+--------------
+
+There are two ways of configuring FRR.
+
+Traditionally each of the daemons had its own config file. The daemon name plus
+``.conf`` was the default config file name. For example, zebra's default config
+file was :file:`zebra.conf`. This method is deprecated.
+
+Because of the amount of config files this creates, and the tendency of one
+daemon to rely on others for certain functionality, most deployments now use
+"integrated" configuration. In this setup all configuration goes into a single
+file, typically :file:`/etc/frr/frr.conf`. When starting up FRR using an init
+script or systemd, ``vtysh`` is invoked to read the config file and send the
+appropriate portions to only the daemons interested in them. Running
+configuration updates are persisted back to this single file using ``vtysh``.
+This is the recommended method. To use this method, add the following line to
+:file:`/etc/frr/vtysh.conf`:
+
+.. code-block:: frr
+
+   service integrated-vtysh-config
+
+If you installed from source or used a package, this is probably already
+present.
+
+If desired, you can specify a config file using the :option:`-f` or
+:option:`--config_file` options when starting a daemon.
+
 
 .. _basic-config-commands:
 

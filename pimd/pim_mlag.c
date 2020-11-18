@@ -96,7 +96,7 @@ static void pim_mlag_inherit_mlag_flags(struct pim_upstream *up, bool is_df)
 	struct channel_oil *ch_oil = NULL;
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Updating DF for uptream:%s childs", __func__,
+		zlog_debug("%s: Updating DF for uptream:%s children", __func__,
 			   up->sg_str);
 
 

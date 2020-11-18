@@ -2633,7 +2633,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	 */
 	if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
 		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("SELECT_DEFER falg set for route %p", dest);
+			zlog_debug("SELECT_DEFER flag set for route %p", dest);
 		return;
 	}
 
@@ -10672,6 +10672,7 @@ static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
 	int i;
 	char *str;
 	int first = 0;
+	int ret;
 
 	b = buffer_new(1024);
 	for (i = 0; i < argc; i++) {
@@ -10696,10 +10697,13 @@ static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, bgp, afi, safi,
+	ret = bgp_show(vty, bgp, afi, safi,
 			(exact ? bgp_show_type_lcommunity_exact
 			       : bgp_show_type_lcommunity),
 			lcom, uj, false);
+
+	lcommunity_free(&lcom);
+	return ret;
 }
 
 static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
@@ -11466,9 +11470,6 @@ static void bgp_table_stats_rn(struct bgp_dest *dest, struct bgp_dest *top,
 	struct bgp_dest *pdest = bgp_dest_parent_nolock(dest);
 	struct bgp_path_info *pi;
 	const struct prefix *rn_p;
-
-	if (dest == top)
-		return;
 
 	if (!bgp_dest_has_bgp_path_info_data(dest))
 		return;

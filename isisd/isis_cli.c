@@ -1633,9 +1633,9 @@ DEFPY_YANG (isis_sr_prefix_sid,
        "Prefix SID\n"
        "IPv4 Prefix\n"
        "IPv6 Prefix\n"
-       "Specify the absolute value of Prefix Segement ID\n"
+       "Specify the absolute value of Prefix Segment ID\n"
        "The Prefix Segment ID value\n"
-       "Specify the index of Prefix Segement ID\n"
+       "Specify the index of Prefix Segment ID\n"
        "The Prefix Segment ID index\n"
        "Don't request Penultimate Hop Popping (PHP)\n"
        "Upstream neighbor must replace prefix-sid with explicit null label\n")
@@ -1671,9 +1671,9 @@ DEFPY_YANG (no_isis_sr_prefix_sid,
        "Prefix SID\n"
        "IPv4 Prefix\n"
        "IPv6 Prefix\n"
-       "Specify the absolute value of Prefix Segement ID\n"
+       "Specify the absolute value of Prefix Segment ID\n"
        "The Prefix Segment ID value\n"
-       "Specify the index of Prefix Segement ID\n"
+       "Specify the index of Prefix Segment ID\n"
        "The Prefix Segment ID index\n"
        "Don't request Penultimate Hop Popping (PHP)\n"
        "Upstream neighbor must replace prefix-sid with explicit null label\n")
