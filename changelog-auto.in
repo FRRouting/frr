@@ -6,7 +6,7 @@ frr (@VERSION@-0) UNRELEASED; urgency=medium
 
  -- FRRouting-Dev <dev@lists.frrouting.org>  Wed, 3 Nov 2020 23:10:00 +0200
 
-frr (7.5) RELEASED; urgency=medium
+frr (7.5-0) RELEASED; urgency=medium
   BFD
     Profile support
     Minimum ttl support
