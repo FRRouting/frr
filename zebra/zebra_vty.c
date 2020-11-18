@@ -1277,6 +1277,9 @@ DEFPY (show_ip_nht,
 	if (addr)
 		p = sockunion2hostprefix(addr, &prefix);
 
+	if (!p)
+		return CMD_WARNING;
+
 	zebra_print_rnh_table(vrf_id, afi, vty, rtype, p);
 	return CMD_SUCCESS;
 }

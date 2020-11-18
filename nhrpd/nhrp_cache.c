@@ -122,7 +122,8 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 	char buf[3][SU_ADDRSTRLEN];
 	struct nhrp_interface *nifp;
 
-	sockunion2hostprefix(&c->remote_addr, &pfx);
+	if (!sockunion2hostprefix(&c->remote_addr, &pfx))
+		return;
 
 	if (p && nhrp_peer_check(p, 1)) {
 		if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
@@ -186,7 +187,7 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 			c->nhrp_route_installed = 0;
 		}
 		if (c->route_installed) {
-			sockunion2hostprefix(&c->remote_addr, &pfx);
+			assert(sockunion2hostprefix(&c->remote_addr, &pfx));
 			notifier_call(&c->notifier_list, NOTIFY_CACHE_DOWN);
 			nhrp_route_announce(0, c->cur.type, &pfx, NULL, NULL,
 					    0);

@@ -1810,7 +1810,11 @@ static int vty_accept(struct thread *thread)
 	set_nonblocking(vty_sock);
 	set_cloexec(vty_sock);
 
-	sockunion2hostprefix(&su, &p);
+	if (!sockunion2hostprefix(&su, &p)) {
+		zlog_info("Vty unable to convert prefix from sockunion %s",
+			  sockunion2str(&su, buf, SU_ADDRSTRLEN));
+		return -1;
+	}
 
 	/* VTY's accesslist apply. */
 	if (p.family == AF_INET && vty_accesslist_name) {
