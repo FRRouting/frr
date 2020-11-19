@@ -251,7 +251,7 @@ class Config(object):
             # Compress duplicate whitespaces
             line = " ".join(line.split())
 
-            if ":" in line and not "ipv6 add":
+            if ":" in line and not "ipv6 add" in line:
                 qv6_line = get_normalized_ipv6_line(line)
                 self.lines.append(qv6_line)
             else:
