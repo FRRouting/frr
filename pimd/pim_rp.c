@@ -394,39 +394,6 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 	pim_zebra_update_all_interfaces(pim);
 }
 
-int pim_rp_new_config(struct pim_instance *pim, const char *rp,
-		      const char *group_range, const char *plist)
-{
-	int result = 0;
-	struct prefix group;
-	struct in_addr rp_addr;
-
-	if (group_range == NULL)
-		result = str2prefix("224.0.0.0/4", &group);
-	else {
-		result = str2prefix(group_range, &group);
-		if (result) {
-			struct prefix temp;
-
-			prefix_copy(&temp, &group);
-			apply_mask(&temp);
-			if (!prefix_same(&group, &temp))
-				return PIM_GROUP_BAD_ADDR_MASK_COMBO;
-		}
-	}
-
-	if (!result)
-		return PIM_GROUP_BAD_ADDRESS;
-
-	result = inet_pton(AF_INET, rp, &rp_addr);
-
-	if (result <= 0)
-		return PIM_RP_BAD_ADDRESS;
-
-	result = pim_rp_new(pim, rp_addr, group, plist, RP_SRC_STATIC);
-	return result;
-}
-
 int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	       struct prefix group, const char *plist,
 	       enum rp_source rp_src_flag)

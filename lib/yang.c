@@ -772,8 +772,7 @@ const struct lyd_node *yang_dnode_get_parent(const struct lyd_node *dnode,
 	return NULL;
 }
 
-/* API to check if the given node is last node in the list */
-static bool yang_is_last_list_dnode(const struct lyd_node *dnode)
+bool yang_is_last_list_dnode(const struct lyd_node *dnode)
 {
 	return (((dnode->next == NULL)
 	     || (dnode->next
@@ -785,8 +784,7 @@ static bool yang_is_last_list_dnode(const struct lyd_node *dnode)
 		    != 0)));
 }
 
-/* API to check if the given node is last node in the data tree level */
-static bool yang_is_last_level_dnode(const struct lyd_node *dnode)
+bool yang_is_last_level_dnode(const struct lyd_node *dnode)
 {
 	const struct lyd_node *parent;
 	const struct lys_node_list *snode;
