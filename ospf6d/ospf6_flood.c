@@ -40,6 +40,7 @@
 #include "ospf6_neighbor.h"
 
 #include "ospf6_flood.h"
+#include "ospf6_nssa.h"
 
 unsigned char conf_debug_ospf6_flooding;
 
@@ -213,12 +214,18 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 {
 	struct timeval now;
 	struct ospf6_lsa *old;
+	struct ospf6_area *area = NULL;
+
+	int more_recent = 0; 
 
 	/* Remove the old instance from all neighbors' Link state
 	   retransmission list (RFC2328 13.2 last paragraph) */
 	old = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
 				lsa->header->adv_router, lsa->lsdb);
 	if (old) {
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7)
+			zlog_debug("old LSA %s id %pI4",
+				   lsa->name, &lsa->header->id);
 		THREAD_OFF(old->expire);
 		THREAD_OFF(old->refresh);
 		ospf6_flood_clear(old);
@@ -264,6 +271,15 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	/* actually install */
 	lsa->installed = now;
 	ospf6_lsdb_add(lsa, lsa->lsdb);
+
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7) {
+		zlog_debug("Originating translated LSA %s id %pI4", lsa->name,
+				&lsa->header->id);
+		area = OSPF6_AREA(lsa->lsdb->data); 
+		ospf6_translated_nssa_refresh(area->ospf6, lsa, NULL);
+		ospf6_schedule_abr_task(area->ospf6);
+		//ospf6_translated_nssa_originate(area->ospf6, lsa);
+	}
 
 	return;
 }
@@ -477,7 +493,7 @@ static void ospf6_flood_process(struct ospf6_neighbor *from,
 			continue;
 
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
-		    && IS_AREA_STUB(oa))
+		    && (IS_AREA_STUB(oa) || IS_AREA_NSSA(oa)))
 			continue;
 		/* Check for NSSA LSA */
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7 &&
@@ -556,7 +572,11 @@ static void ospf6_flood_clear_process(struct ospf6_lsa *lsa,
 			continue;
 
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
-		    && IS_AREA_STUB(oa))
+		    && (IS_AREA_STUB(oa) || (IS_AREA_NSSA(oa))))
+			continue;
+		/* Check for NSSA LSA */
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7 &&
+				!IS_AREA_NSSA(oa))
 			continue;
 
 		ospf6_flood_clear_area(lsa, oa);

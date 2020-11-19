@@ -50,6 +50,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_spf.h"
 #include "ospf6d.h"
+#include "ospf6_nssa.h"
 
 DEFINE_QOBJ_TYPE(ospf6)
 
@@ -793,8 +794,10 @@ DEFUN (ospf6_interface_area,
 	ospf6_interface_enable(oi);
 
 	/* If the router is ABR, originate summary routes */
-	if (ospf6_is_router_abr(ospf6))
+	if (ospf6_is_router_abr(ospf6)) {
 		ospf6_abr_enable_area(oa);
+		ospf6_schedule_abr_task(oa->ospf6);
+	}
 
 	return CMD_SUCCESS;
 }

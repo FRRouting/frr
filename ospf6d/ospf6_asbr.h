@@ -71,7 +71,7 @@ struct ospf6 *o;
 		(E)->bits_metric |= htonl(0x00ffffff) & htonl(C);              \
 	}
 
-#define IS_OSPF6_ASBR(O) ((o)->flag & OSPF6_FLAG_ASBR)
+#define IS_OSPF6_ASBR(o) ((o)->flag & OSPF6_FLAG_ASBR)
 
 extern void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa, struct ospf6 *ospf6);
 extern void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,

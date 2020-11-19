@@ -1,25 +1,3 @@
-/*
- * OSPFv3 NSSA
- * Copyright (c) 2019-2020, Niral Networks.
- * Kaushik Nath
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
 #include <zebra.h>
 #include "log.h"
 #include "prefix.h"
@@ -78,7 +56,7 @@ static int ospf6_abr_nssa_am_elected(struct ospf6_area *oa)
                                 zlog_debug(
                                         "ospf6_abr_nssa_am_elected: router %pI4 asserts Nt",
                                         &lsa->header->id);
-                        return 0;
+                        return 1;
                 }
 
                 if (best == NULL)
@@ -93,7 +71,7 @@ static int ospf6_abr_nssa_am_elected(struct ospf6_area *oa)
                         (best) ? best : 0);
 
         if (best == NULL)
-                return 1;
+                return 0;
 
         if (IPV4_ADDR_CMP(&best, &oa->ospf6->router_id) < 0)
                 return 1;
@@ -111,12 +89,13 @@ static void ospf6_abr_nssa_check_status(struct ospf6 *ospf6)
         for (ALL_LIST_ELEMENTS(ospf6->area_list, lnode, nnode, area)) {
 		old_state = area->NSSATranslatorState;
 
-                if (area->flag != OSPF6_AREA_NSSA)
-                        continue;
-
                 if (IS_OSPF6_DEBUG_NSSA)
                         zlog_debug(
-                                "ospf6_abr_nssa_check_status: checking area %pI4", &area->area_id);
+                                "ospf6_abr_nssa_check_status: checking area %pI4 flag %x", 
+				&area->area_id, area->flag);
+
+                if (!IS_AREA_NSSA(area))
+                        continue;
 
                 if (!CHECK_FLAG(area->ospf6->flag, OSPF6_FLAG_ABR)) {
 			  if (IS_OSPF6_DEBUG_NSSA)
@@ -125,38 +104,35 @@ static void ospf6_abr_nssa_check_status(struct ospf6 *ospf6)
                         area->NSSATranslatorState =
                                 OSPF6_NSSA_TRANSLATE_DISABLED;
                 } else {
-                                /* We are a candidate for Translation */
-                                if (ospf6_abr_nssa_am_elected(area) > 0) {
+                        /* We are a candidate for Translation */
+			if (ospf6_abr_nssa_am_elected(area) > 0) {
                                         area->NSSATranslatorState =
                                                 OSPF6_NSSA_TRANSLATE_ENABLED;
 					  if (IS_OSPF6_DEBUG_NSSA)
                                                 zlog_debug(
                                                         "ospf6_abr_nssa_check_status: elected translator");
-                                } else {
-                                        area->NSSATranslatorState =
+			} else {
+				area->NSSATranslatorState =
 						OSPF6_NSSA_TRANSLATE_DISABLED;
 					  if (IS_OSPF6_DEBUG_NSSA)
                                                 zlog_debug(
                                                         "ospf6_abr_nssa_check_status: not elected");
-                                }
-                                break;
-                        }
-                }
-
-                /* RFC3101, 3.1:
+			}
+		}
+		/* RFC3101, 3.1:
                  * All NSSA border routers must set the E-bit in the Type-1
                  * router-LSAs
                  * of their directly attached non-stub areas, even when they are
                  * not
                  * translating.
                  */
-
-                if (old_state != area->NSSATranslatorState) {
+		if (old_state != area->NSSATranslatorState) {
                         if (old_state == OSPF6_NSSA_TRANSLATE_DISABLED)
                                 ospf6_asbr_status_update(ospf6, ++ospf6->redist_count);
                         else if (area->NSSATranslatorState == OSPF6_NSSA_TRANSLATE_DISABLED)
                                 ospf6_asbr_status_update(ospf6, --ospf6->redist_count);
                 }
+	}
 }
 
 /*Mark the summary LSA's as unapproved, when ABR status changes.*/
@@ -269,6 +245,7 @@ void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6)
                 for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id, lsa)) {
                                 if (CHECK_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED)) {
                                         lsa->header->age = htons(OSPF_LSA_MAXAGE);
+					THREAD_OFF(lsa->refresh);
                                         thread_execute(master, ospf6_lsa_expire, lsa, 0);
                 		}
 		}
@@ -278,6 +255,7 @@ void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6)
                 for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id, lsa)) {
                                 if (CHECK_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED)) {
                                         lsa->header->age = htons(OSPF_LSA_MAXAGE);
+					THREAD_OFF(lsa->refresh);
                                         thread_execute(master, ospf6_lsa_expire, lsa, 0);
                                 }
                 }
@@ -370,10 +348,10 @@ static void ospf6_abr_unapprove_translates(struct ospf6 *ospf6)
 }
 
 /* Generate the translated external lsa  from NSSA lsa */
-static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6 *ospf6,
+struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6 *ospf6,
 						       struct ospf6_lsa *type7)
 {
-        char buffer[OSPF6_MAX_LSASIZE];
+        char *buffer;
         struct ospf6_lsa *lsa;
         struct ospf6_as_external_lsa *ext, *extnew;
         struct ospf6_lsa_header *lsa_header;
@@ -383,8 +361,7 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6 *ospf6,
 	struct prefix prefix;
  	struct ospf6_route *match;
 
-
-        memset(buffer, 0, sizeof(buffer));
+	buffer = XCALLOC(MTYPE_OSPF6_LSA, OSPF6_MAX_LSASIZE);
         lsa_header = (struct ospf6_lsa_header *)buffer;
         extnew = (struct ospf6_as_external_lsa *)((caddr_t)lsa_header + sizeof(struct ospf6_lsa_header));
         ext = (struct ospf6_as_external_lsa *)((caddr_t)(type7->header) + sizeof(struct ospf6_lsa_header));
@@ -448,6 +425,7 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6 *ospf6,
         /* Originate */
         ospf6_lsa_originate_process(lsa, ospf6);
 
+	zlog_debug("******* %s lsa %p", __func__, lsa);
         return lsa;
 }
 
@@ -562,6 +540,9 @@ struct ospf6_lsa *ospf6_translated_nssa_originate(struct ospf6 *ospf6, struct os
 {
         struct ospf6_lsa *new;
 
+	if (ntohs(type7->header->type) != OSPF6_LSTYPE_TYPE_7)
+		return NULL;
+
         if ((new = ospf6_lsa_translated_nssa_new(ospf6, type7)) == NULL) {
                 if (IS_OSPF6_DEBUG_NSSA)
                         zlog_debug(
@@ -619,7 +600,7 @@ static int ospf6_abr_translate_nssa(struct ospf6_area *area, struct ospf6_lsa *l
 	}
 
         /* try find existing AS-External LSA for this prefix */
-        match = ospf6_route_lookup(&prefix, ospf6->external_table);
+        match = ospf6_route_lookup(&prefix, area->ospf6->external_table);
         if (match) {
                 old = ospf6_lsdb_lookup(OSPF6_LSTYPE_TYPE_7, match->path.origin.id, ospf6->router_id,
                                                                 ospf6->lsdb);
@@ -683,12 +664,17 @@ static void ospf6_abr_process_nssa_translates(struct ospf6 *ospf6)
         for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
 
 		/* skip if not translator */
-                if (!area->NSSATranslatorState)
+                if (!oa->NSSATranslatorState) {
+			zlog_debug("%s area %pI4 NSSATranslatorState %d", __func__, 
+					&oa->area_id, oa->NSSATranslatorState);
                         continue;
+		}
 
 		/* skip if not Nssa Area */
-                if (oa->flag != OSPF6_AREA_NSSA)
+                if (!IS_AREA_NSSA(oa)) {
+			zlog_debug("%s area %pI4 Flag %x", __func__, &oa->area_id, oa->flag);
                         continue;
+		}
 
                 if (IS_OSPF6_DEBUG_NSSA)
                         zlog_debug(
@@ -696,8 +682,11 @@ static void ospf6_abr_process_nssa_translates(struct ospf6 *ospf6)
                                 &oa->area_id);
 
 		type = htons(OSPF6_LSTYPE_TYPE_7);
-		for (ALL_LSDB_TYPED(oa->lsdb, type, lsa))
+		for (ALL_LSDB_TYPED(oa->lsdb, type, lsa)) {
+			zlog_debug("lsa %s , id %pI4 , adv router %pI4", lsa->name, 
+					&lsa->header->id, &lsa->header->adv_router);
                         ospf6_abr_translate_nssa(oa, lsa);
+		}
         }
 
         if (IS_OSPF6_DEBUG_NSSA)
@@ -797,11 +786,17 @@ static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
         if (IS_OSPF6_DEBUG_NSSA)
                 zlog_debug("Check for NSSA-ABR Tasks():");
 
-        if (!IS_OSPF6_ABR(ospf6))
+        if (!IS_OSPF6_ABR(ospf6)) {
+		if (IS_OSPF6_DEBUG_NSSA)
+			zlog_debug("%s  Not ABR", __func__);
                 return;
+	}
 
-        if (!ospf6->anyNSSA)
+        if (!ospf6->anyNSSA) {
+		if (IS_OSPF6_DEBUG_NSSA)
+			zlog_debug("%s  Not NSSA", __func__);
                 return;
+	}
 
         /* Each area must confirm TranslatorRole */
         if (IS_OSPF6_DEBUG_NSSA)
@@ -1174,10 +1169,10 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route, struct ospf6_area *area
         lsa_header->age = 0;
         lsa_header->type = htons(OSPF6_LSTYPE_TYPE_7);
         lsa_header->id = route->path.origin.id;
-        lsa_header->adv_router = ospf6->router_id;
+        lsa_header->adv_router = area->ospf6->router_id;
         lsa_header->seqnum =
                 ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
-                                    lsa_header->adv_router, ospf6->lsdb);
+                                    lsa_header->adv_router, area->ospf6->lsdb);
         lsa_header->length = htons((caddr_t)p - (caddr_t)lsa_header);
 
         /* LSA checksum */

@@ -7,6 +7,7 @@ noinst_LIBRARIES += ospf6d/libospf6.a
 sbin_PROGRAMS += ospf6d/ospf6d
 dist_examples_DATA += ospf6d/ospf6d.conf.sample
 vtysh_scan += \
+	ospf6d/ospf6_nssa.c \
 	ospf6d/ospf6_abr.c \
 	ospf6d/ospf6_asbr.c \
 	ospf6d/ospf6_area.c \
@@ -31,6 +32,7 @@ man8 += $(MANBUILD)/frr-ospf6d.8
 endif
 
 ospf6d_libospf6_a_SOURCES = \
+	ospf6d/ospf6_nssa.c \
 	ospf6d/ospf6_abr.c \
 	ospf6d/ospf6_area.c \
 	ospf6d/ospf6_asbr.c \
@@ -53,6 +55,7 @@ ospf6d_libospf6_a_SOURCES = \
 	# end
 
 noinst_HEADERS += \
+	ospf6d/ospf6_nssa.h \
 	ospf6d/ospf6_abr.h \
 	ospf6d/ospf6_area.h \
 	ospf6d/ospf6_asbr.h \

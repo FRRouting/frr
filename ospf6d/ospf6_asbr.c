@@ -1039,7 +1039,7 @@ void ospf6_asbr_status_update(struct ospf6 *ospf6, int status)
                 SET_FLAG(ospf6->flag, OSPF6_FLAG_ASBR);
         } else {
                 /* Already non ASBR. */
-                if (!IS_OSPF6_ASBR(ospf)) {
+                if (!IS_OSPF6_ASBR(ospf6)) {
                         zlog_info("ASBR[Status:%d]: Already non ASBR", status);
                         return;
                 }
@@ -1056,7 +1056,13 @@ void ospf6_asbr_status_update(struct ospf6 *ospf6, int status)
 
 static void ospf6_asbr_redistribute_set(int type, vrf_id_t vrf_id)
 {
+	struct ospf6 *ospf6 = NULL;
 	ospf6_zebra_redistribute(type, vrf_id);
+
+	ospf6 = ospf6_lookup_by_vrf_id(vrf_id);
+
+	if (!ospf6)
+		return;
 
 	ospf6_asbr_status_update(ospf6, ++ospf6->redist_count);
 
@@ -1086,6 +1092,7 @@ static void ospf6_asbr_redistribute_unset(int type, vrf_id_t vrf_id)
 	}
 
 	ospf6_asbr_routemap_unset(type, ospf6);
+	zlog_debug("%s: redist_count %d", __func__ , ospf6->redist_count);
 	ospf6_asbr_status_update(ospf6, --ospf6->redist_count);
 }
 
@@ -1263,8 +1270,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 	for (ALL_LIST_ELEMENTS(ospf6->area_list, lnode, lnnode, oa)) {
         	if (IS_AREA_NSSA(oa))
-			ospf6_nssa_lsa_originate(match, oa);
-                	//ospf6_as_external_lsa_originate(route, ospf6);
+			ospf6_nssa_lsa_originate(route, oa);
 	}
 	/* Router-Bit (ASBR Flag) may have to be updated */
 	for (ALL_LIST_ELEMENTS(ospf6->area_list, lnode, lnnode, oa))
@@ -1305,16 +1311,25 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 	}
 
 	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
-				htonl(info->id), ospf6->router_id, ospf6->lsdb);
-	if (lsa)
+			htonl(info->id), ospf6->router_id, ospf6->lsdb);
+	if (lsa) {
+		if (IS_OSPF6_DEBUG_ASBR) {
+			zlog_debug("withdraw type 5 LSA for route %pFX", prefix);
+		}
 		ospf6_lsa_purge(lsa);
+	}
 
-	 /* Delete the NSSA LSA */
-	 lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_TYPE_7),
-			 	htonl(info->id), ospf6->router_id, ospf6->lsdb);
-
-	if (lsa)
-		ospf6_lsa_purge(lsa);
+	/* Delete the NSSA LSA */
+	for (ALL_LIST_ELEMENTS(ospf6->area_list, lnode, lnnode, oa)) {
+		lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_TYPE_7),
+				htonl(info->id), ospf6->router_id, oa->lsdb);
+		if (lsa) {
+			if (IS_OSPF6_DEBUG_ASBR) {
+				zlog_debug("withdraw type 7 LSA for route %pFX", prefix);
+			}
+			ospf6_lsa_purge(lsa);
+		}
+	}
 
 	/* remove binding in external_id_table */
 	prefix_id.family = AF_INET;

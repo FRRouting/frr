@@ -59,17 +59,21 @@ int ospf6_is_router_abr(struct ospf6 *o)
 	int area_count = 0;
 	bool is_backbone;
 
-	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa))
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
+		zlog_debug("%s, area_id %pI4", __func__, &oa->area_id);
 		if (IS_AREA_ENABLED(oa))
 			area_count++;
-	
-	if (o->backbone == oa)
-		is_backbone = true;
+
+		if (o->backbone == oa)
+			is_backbone = true;
+	}
 
 	if ((area_count > 1) && (is_backbone)) {
+		zlog_debug("ospf6_is_router_abr : set flag OSPF6_FLAG_ABR");
 		SET_FLAG(o->flag, OSPF6_FLAG_ABR);
 		return 1;
 	} else {
+		zlog_debug("ospf6_is_router_abr: reset flag OSPF6_FLAG_ABR");
                 UNSET_FLAG(o->flag, OSPF6_FLAG_ABR);
                 return 0;
         }
