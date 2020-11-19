@@ -95,7 +95,7 @@ The first step to write a new test is to define the topology and initial
 configuration. User has to define topology and initial configuration in JSON
 file. Here is an example of JSON file::
 
-   BGP neihghborship with single phy-link, sample JSON file:
+   BGP neighborship with single phy-link, sample JSON file:
    {
    "ipv4base": "192.168.0.0",
    "ipv4mask": 30,
