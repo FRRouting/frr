@@ -234,7 +234,9 @@ DIST_PACKAGE_VERSION="$pkgver$extraver"
 gitts="$gitts"
 taropt="$taropt"
 EOF
-
+	sed -e "s%@VERSION@%$pkgver$extraver%" \
+		< changelog-auto.in \
+		> changelog-auto
 	exit 0
 fi
 
@@ -270,21 +272,25 @@ mv frr-${PACKAGE_VERSION}.tar.$zip "$outdir" || true
 lsfiles="frr-${PACKAGE_VERSION}.tar.$zip"
 
 if $debian; then
-	if ! $adjchangelog; then
-		GIT_DATE=$(git log --format=format:%ad -1 --date=rfc)
-		sed -e "s/@DATE@/$GIT_DATE/" \
-			< debian/changelog-auto \
-			> "$tmpdir/debian/changelog"
+	mkdir -p "$tmpdir/debian/source"
+	cat debian/changelog > "$tmpdir/debian/changelog"
+	if $adjchangelog; then
+		if grep -q 'autoconf changelog entry' debian/changelog; then
+			tail -n +9 debian/changelog > "$tmpdir/debian/changelog"
+		fi
 	fi
-	cat debian/changelog >> "$tmpdir/debian/changelog"
+	echo '3.0 (quilt)' > "$tmpdir/debian/source/format"
 	DEBVER="`dpkg-parsechangelog -l\"$tmpdir/debian/changelog\" -SVersion`"
 
 	eval $debsrc | tar -cho $taropt \
+		--exclude-vcs --exclude debian/source/format \
 		--exclude debian/changelog \
+		--exclude debian/changelog-auto \
+		--exclude debian/changelog-auto.in \
 		--exclude debian/subdir.am \
 		-T - -f ../frr_${DEBVER}.debian.tar
 	# add specially prepared files from above
-	tar -uf ../frr_${DEBVER}.debian.tar $taropt -C "$tmpdir" debian/changelog
+	tar -uf ../frr_${DEBVER}.debian.tar $taropt -C "$tmpdir" debian/source/format debian/changelog
 
 	test -f ../frr_${DEBVER}.debian.tar.$zip && rm -f ../frr_${DEBVER}.debian.tar.$zip
 	$ziptool ../frr_${DEBVER}.debian.tar

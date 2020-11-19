@@ -49,14 +49,23 @@ FRR Release Procedure
 
 5. Update Changelog for Debian Packages:
 
-   Update :file:`debian/changelog`:
+   Edit :file:`changelog-auto.in`:
 
-   - Run following with **last** release version number and debian revision
-     (usually -1) as argument to ``dch --newversion VERSION``. For example, if
-     ``<version>`` is ``7.3`` then you will run ``dch --newversion 7.3-1``.
+   - Change last (top of list) entry from ``@VERSION@`` to the **last**
+     released version number. For example, if ``<version>`` is ``7.3`` and the
+     last public release was ``7.2``, you would use ``7.2``, changing the file
+     like so::
 
-   - The ``dch`` will run an editor, and you should add the changelog text below
-     this entry, usually that would be: **New upstream version**.
+        frr (@VERSION@) RELEASED; urgency=medium
+
+     to::
+
+        frr (7.2) RELEASED; urgency=medium
+
+   - Add a new entry to the top of the list with a ``@VERSION@`` tag. Make sure
+     to watch the format.
+
+   - Add the changelog text below this entry.
 
    - Verify the changelog format using ``dpkg-parsechangelog``. In the
      repository root:
