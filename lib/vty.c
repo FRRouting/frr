@@ -1811,6 +1811,7 @@ static int vty_accept(struct thread *thread)
 	set_cloexec(vty_sock);
 
 	if (!sockunion2hostprefix(&su, &p)) {
+		close(vty_sock);
 		zlog_info("Vty unable to convert prefix from sockunion %s",
 			  sockunion2str(&su, buf, SU_ADDRSTRLEN));
 		return -1;
