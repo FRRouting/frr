@@ -1432,8 +1432,11 @@ static int ospf_spf_calculate_schedule_worker(struct thread *thread)
 
 	/* ABRs may require additional changes, see RFC 2328 16.7. */
 	monotime(&start_time);
-	if (IS_OSPF_ABR(ospf))
+	if (IS_OSPF_ABR(ospf)) {
+		if (ospf->anyNSSA)
+			ospf_abr_nssa_check_status(ospf);
 		ospf_abr_task(ospf);
+	}
 	abr_time = monotime_since(&start_time, NULL);
 
 	/* Schedule Segment Routing update */
