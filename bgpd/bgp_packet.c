@@ -1979,11 +1979,6 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 	subtype = stream_getc(s);
 	pkt_safi = stream_getc(s);
 
-	if (bgp_debug_update(peer, NULL, NULL, 0))
-		zlog_debug("%s rcvd REFRESH_REQ for afi/safi: %s/%s",
-			   peer->host, iana_afi2str(pkt_afi),
-			   iana_safi2str(pkt_safi));
-
 	/* Convert AFI, SAFI to internal values and check. */
 	if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
 		zlog_info(
@@ -2302,6 +2297,10 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 		if (peer->nsf[afi][safi])
 			bgp_clear_stale_route(peer, afi, safi);
 	} else {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s rcvd route-refresh (REQUEST) for %s/%s",
+				   peer->host, afi2str(afi), safi2str(safi));
+
 		/* In response to a "normal route refresh request" from the
 		 * peer, the speaker MUST send a BoRR message.
 		 */
