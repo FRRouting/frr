@@ -202,6 +202,26 @@ ip forwarding
         for ligne in lines:
             self.dlines[ligne] = True
 
+def get_normalized_es_id(line):
+    """
+    The es-id or es-sys-mac need to be converted to lower case
+    """
+    sub_strs = ["evpn mh es-id", "evpn mh es-sys-mac"]
+    for sub_str in sub_strs:
+        obj = re.match(sub_str + " (?P<esi>\S*)", line)
+        if obj:
+            line = "%s %s" % (sub_str, obj.group("esi").lower())
+            break
+    return line
+
+def get_normalized_mac_ip_line(line):
+    if line.startswith("evpn mh es"):
+        return get_normalized_es_id(line)
+
+    if not "ipv6 add" in line:
+        return get_normalized_ipv6_line(line)
+
+    return line
 
 class Config(object):
 
@@ -232,11 +252,10 @@ class Config(object):
             # Compress duplicate whitespaces
             line = ' '.join(line.split())
 
-            if ":" in line and not "ipv6 add" in line:
-                qv6_line = get_normalized_ipv6_line(line)
-                self.lines.append(qv6_line)
-            else:
-                self.lines.append(line)
+            if ":" in line:
+                line = get_normalized_mac_ip_line(line)
+
+            self.lines.append(line)
 
         self.load_contexts()
 
