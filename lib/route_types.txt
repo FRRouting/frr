@@ -45,48 +45,48 @@
 # If you add a new routing protocol here, make sure you also update
 # meta_queue_map in zebra_rib.c
 #
-##  type                cname      daemon  C    4  6  Redist short help  Restrictions
-ZEBRA_ROUTE_SYSTEM,     system,    NULL,   'X', 0, 0, 0,     "Reserved"
-ZEBRA_ROUTE_KERNEL,     kernel,    zebra,  'K', 1, 1, 1,     "kernel route"
-ZEBRA_ROUTE_CONNECT,    connected, zebra,  'C', 1, 1, 1,     "connected"
-ZEBRA_ROUTE_STATIC,     static,    zebra,  'S', 1, 1, 1,     "static"
-ZEBRA_ROUTE_RIP,        rip,       ripd,   'R', 1, 0, 1,     "RIP"
-ZEBRA_ROUTE_RIPNG,      ripng,     ripngd, 'R', 0, 1, 1,     "RIPng"
-ZEBRA_ROUTE_OSPF,       ospf,      ospfd,  'O', 1, 0, 1,     "OSPF"
-ZEBRA_ROUTE_OSPF6,      ospf6,     ospf6d, 'O', 0, 1, 1,     "OSPFv3"
-ZEBRA_ROUTE_ISIS,       isis,      isisd,  'I', 1, 1, 1,     "IS-IS"
-ZEBRA_ROUTE_BGP,        bgp,       bgpd,   'B', 1, 1, 1,     "BGP"
-ZEBRA_ROUTE_PIM,	pim,	   pimd,   'P', 0, 0, 0,     "PIM"
-ZEBRA_ROUTE_EIGRP,      eigrp,     eigrpd, 'E', 1, 0, 1,     "EIGRP"
-ZEBRA_ROUTE_NHRP,       nhrp,      nhrpd,  'N', 1, 1, 1,     "NHRP"
+##  type                cname      daemon  C    4  6  Redist short help       Enabled  Restrictions
+ZEBRA_ROUTE_SYSTEM,     system,    NULL,   'X', 0, 0, 0,     "Reserved",      none
+ZEBRA_ROUTE_KERNEL,     kernel,    zebra,  'K', 1, 1, 1,     "kernel route",  zebra
+ZEBRA_ROUTE_CONNECT,    connected, zebra,  'C', 1, 1, 1,     "connected",     zebra
+ZEBRA_ROUTE_STATIC,     static,    zebra,  'S', 1, 1, 1,     "static",        zebra
+ZEBRA_ROUTE_RIP,        rip,       ripd,   'R', 1, 0, 1,     "RIP",           ripd
+ZEBRA_ROUTE_RIPNG,      ripng,     ripngd, 'R', 0, 1, 1,     "RIPng",         ripngd
+ZEBRA_ROUTE_OSPF,       ospf,      ospfd,  'O', 1, 0, 1,     "OSPF",          ospfd
+ZEBRA_ROUTE_OSPF6,      ospf6,     ospf6d, 'O', 0, 1, 1,     "OSPFv3",        ospf6d
+ZEBRA_ROUTE_ISIS,       isis,      isisd,  'I', 1, 1, 1,     "IS-IS",         isisd
+ZEBRA_ROUTE_BGP,        bgp,       bgpd,   'B', 1, 1, 1,     "BGP",           bgpd
+ZEBRA_ROUTE_PIM,	pim,	   pimd,   'P', 0, 0, 0,     "PIM",           pimd
+ZEBRA_ROUTE_EIGRP,      eigrp,     eigrpd, 'E', 1, 0, 1,     "EIGRP",         eigrpd
+ZEBRA_ROUTE_NHRP,       nhrp,      nhrpd,  'N', 1, 1, 1,     "NHRP",          nhrpd
 # HSLS and OLSR both are AFI independent (so: 1, 1), however
 # we want to disable for them for general Quagga distribution.
 # This at least makes it trivial for users of these protocols
 # to 'switch on' redist support (direct numeric entry remaining
 # possible).
-ZEBRA_ROUTE_HSLS,       hsls,      hslsd,  'H', 0, 0, 0,     "HSLS"
-ZEBRA_ROUTE_OLSR,       olsr,      olsrd,  'o', 0, 0, 0,     "OLSR"
-ZEBRA_ROUTE_TABLE,      table,     zebra,  'T', 1, 1, 1,     "Table"
-ZEBRA_ROUTE_LDP,        ldp,       ldpd,   'L', 0, 0, 0,     "LDP"
+ZEBRA_ROUTE_HSLS,       hsls,      hslsd,  'H', 0, 0, 0,     "HSLS",          hslsd
+ZEBRA_ROUTE_OLSR,       olsr,      olsrd,  'o', 0, 0, 0,     "OLSR",          olsrd
+ZEBRA_ROUTE_TABLE,      table,     zebra,  'T', 1, 1, 1,     "Table",         zebra
+ZEBRA_ROUTE_LDP,        ldp,       ldpd,   'L', 0, 0, 0,     "LDP",           ldpd
 #vnc when sent to zebra 
-ZEBRA_ROUTE_VNC,        vnc,       NULL,   'v', 1, 1, 1,     "VNC"
+ZEBRA_ROUTE_VNC,        vnc,       NULL,   'v', 1, 1, 1,     "VNC",           bgpd-vnc
 # vnc when sent to bgp
-ZEBRA_ROUTE_VNC_DIRECT, vnc-direct,NULL,   'V', 1, 1, 1,     "VNC-Direct", bgpd
+ZEBRA_ROUTE_VNC_DIRECT, vnc-direct,NULL,   'V', 1, 1, 1,     "VNC-Direct",    bgpd-vnc, bgpd
 # vnc when sent to bgp (resolve NVE mode)
-ZEBRA_ROUTE_VNC_DIRECT_RH, vnc-rn, NULL,   'V', 0, 0, 0,     "VNC-RN"
+ZEBRA_ROUTE_VNC_DIRECT_RH, vnc-rn, NULL,   'V', 0, 0, 0,     "VNC-RN",        bgpd-vnc
 #  bgp unicast -> vnc 
-ZEBRA_ROUTE_BGP_DIRECT, bgp-direct, NULL,  'b', 0, 0, 0,     "BGP-Direct"
+ZEBRA_ROUTE_BGP_DIRECT, bgp-direct, NULL,  'b', 0, 0, 0,     "BGP-Direct",    bgpd-vnc
 #  bgp unicast -> vnc 
-ZEBRA_ROUTE_BGP_DIRECT_EXT, bgp-direct-to-nve-groups, NULL, 'e', 0, 0, 0, "BGP2VNC"
-ZEBRA_ROUTE_BABEL,      babel,     babeld, 'A', 1, 1, 1,     "Babel"
-ZEBRA_ROUTE_SHARP,      sharp,     sharpd, 'D', 1, 1, 1,     "SHARP"
-ZEBRA_ROUTE_PBR,        pbr,       pbrd,   'F', 1, 1, 0,     "PBR"
-ZEBRA_ROUTE_BFD,        bfd,       bfdd,   '-', 0, 0, 0,     "BFD"
-ZEBRA_ROUTE_OPENFABRIC, openfabric, fabricd,  'f', 1, 1, 1, "OpenFabric"
-ZEBRA_ROUTE_VRRP,       vrrp,      vrrpd,  '-', 0, 0, 0,     "VRRP"
-ZEBRA_ROUTE_NHG,        zebra,     none,  '-', 0, 0, 0,      "Nexthop Group"
-ZEBRA_ROUTE_SRTE,       srte,      none,   '-', 0, 0, 0,     "SR-TE"
-ZEBRA_ROUTE_ALL,        wildcard,  none,   '-', 0, 0, 0,     "-"
+ZEBRA_ROUTE_BGP_DIRECT_EXT, bgp-direct-to-nve-groups, NULL, 'e', 0, 0, 0, "BGP2VNC", bgpd-vnc
+ZEBRA_ROUTE_BABEL,      babel,     babeld, 'A', 1, 1, 1,     "Babel",         babeld
+ZEBRA_ROUTE_SHARP,      sharp,     sharpd, 'D', 1, 1, 1,     "SHARP",         sharpd
+ZEBRA_ROUTE_PBR,        pbr,       pbrd,   'F', 1, 1, 0,     "PBR",           pbrd
+ZEBRA_ROUTE_BFD,        bfd,       bfdd,   '-', 0, 0, 0,     "BFD",           bfdd
+ZEBRA_ROUTE_OPENFABRIC, openfabric, fabricd,  'f', 1, 1, 1,  "OpenFabric",    fabricd
+ZEBRA_ROUTE_VRRP,       vrrp,      vrrpd,  '-', 0, 0, 0,     "VRRP",          vrrpd
+ZEBRA_ROUTE_NHG,        zebra,     none,   '-', 0, 0, 0,     "Nexthop Group", none
+ZEBRA_ROUTE_SRTE,       srte,      none,   '-', 0, 0, 0,     "SR-TE",         none
+ZEBRA_ROUTE_ALL,        wildcard,  none,   '-', 0, 0, 0,     "-",             none
 
 
 ## help strings

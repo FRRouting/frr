@@ -2500,19 +2500,6 @@ AC_CONFIG_FILES([tools/watchfrr.sh], [chmod +x tools/watchfrr.sh])
 AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
 
-AC_CONFIG_COMMANDS([lib/route_types.h], [
-	dst="${ac_abs_top_builddir}/lib/route_types.h"
-	${PERL} "${ac_abs_top_srcdir}/lib/route_types.pl" \
-		< "${ac_abs_top_srcdir}/lib/route_types.txt" \
-		> "${dst}.tmp"
-	test -f "$dst" \
-		&& diff "${dst}.tmp" "${dst}" >/dev/null 2>/dev/null \
-		&& rm "${dst}.tmp" \
-		|| mv "${dst}.tmp" "${dst}"
-], [
-	PERL="$PERL"
-])
-
 AS_IF([test "$with_pkg_git_version" = "yes"], [
     AC_CONFIG_COMMANDS([lib/gitversion.h], [
 	dst="${ac_abs_top_builddir}/lib/gitversion.h"

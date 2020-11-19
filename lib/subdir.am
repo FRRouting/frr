@@ -470,8 +470,62 @@ lib/clippy-command_parse.$(OBJEXT): lib/command_lex.h
 lib/lib_clippy-command_lex.$(OBJEXT): lib/command_parse.h
 lib/lib_clippy-command_parse.$(OBJEXT): lib/command_lex.h
 
+rt_enabled =
+
+if BABELD
+rt_enabled += --enabled babeld
+endif
+if BFDD
+rt_enabled += --enabled bfdd
+endif
+if BGPD
+rt_enabled += --enabled bgpd
+if ENABLE_BGP_VNC
+rt_enabled += --enabled bgpd-vnc
+endif
+endif
+if EIGRPD
+rt_enabled += --enabled eigrpd
+endif
+if ISISD
+rt_enabled += --enabled isisd
+endif
+if FABRICD
+rt_enabled += --enabled fabricd
+endif
+if LDPD
+rt_enabled += --enabled ldpd
+endif
+if NHRPD
+rt_enabled += --enabled nhrpd
+endif
+if OSPFD
+rt_enabled += --enabled ospfd
+endif
+if OSPF6D
+rt_enabled += --enabled ospf6d
+endif
+if PBRD
+rt_enabled += --enabled pbrd
+endif
+if PIMD
+rt_enabled += --enabled pimd
+endif
+if RIPD
+rt_enabled += --enabled ripd
+endif
+if RIPNGD
+rt_enabled += --enabled ripngd
+endif
+if SHARPD
+rt_enabled += --enabled sharpd
+endif
+if ZEBRA
+rt_enabled += --enabled zebra
+endif
+
 lib/route_types.h: $(top_srcdir)/lib/route_types.txt $(top_srcdir)/lib/route_types.pl
-	$(PERL) $(top_srcdir)/lib/route_types.pl < $(top_srcdir)/lib/route_types.txt > $@
+	$(PERL) $(top_srcdir)/lib/route_types.pl $(rt_enabled) < $(top_srcdir)/lib/route_types.txt > $@
 DISTCLEANFILES += lib/route_types.h
 
 if GIT_VERSION
