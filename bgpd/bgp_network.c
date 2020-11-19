@@ -639,7 +639,9 @@ static int bgp_update_address(struct interface *ifp, const union sockunion *dst,
 	struct listnode *node;
 	int common;
 
-	sockunion2hostprefix(dst, &d);
+	if (!sockunion2hostprefix(dst, &d))
+		return 1;
+
 	sel = NULL;
 	common = -1;
 

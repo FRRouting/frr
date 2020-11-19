@@ -1351,7 +1351,10 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 	set_cloexec(bmp_sock);
 	shutdown(bmp_sock, SHUT_RD);
 
-	sockunion2hostprefix(&su, &p);
+	if (!sockunion2hostprefix(&su, &p)) {
+		close(bmp_sock);
+		return NULL;
+	}
 
 	acl = NULL;
 	switch (p.family) {

@@ -13699,7 +13699,9 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 		return pinfo->attr->distance;
 
 	/* Check source address. */
-	sockunion2hostprefix(&peer->su, &q);
+	if (!sockunion2hostprefix(&peer->su, &q))
+		return 0;
+
 	dest = bgp_node_match(bgp_distance_table[afi][safi], &q);
 	if (dest) {
 		bdistance = bgp_dest_get_bgp_distance_info(dest);

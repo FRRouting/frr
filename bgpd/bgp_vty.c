@@ -12442,9 +12442,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			if (dn_flag[0]) {
 				struct prefix prefix, *range = NULL;
 
-				sockunion2hostprefix(&(p->su), &prefix);
-				range = peer_group_lookup_dynamic_neighbor_range(
-					p->group, &prefix);
+				if (sockunion2hostprefix(&(p->su), &prefix))
+					range = peer_group_lookup_dynamic_neighbor_range(
+						p->group, &prefix);
 
 				if (range) {
 					prefix2str(range, buf1, sizeof(buf1));
@@ -12461,9 +12461,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			if (dn_flag[0]) {
 				struct prefix prefix, *range = NULL;
 
-				sockunion2hostprefix(&(p->su), &prefix);
-				range = peer_group_lookup_dynamic_neighbor_range(
-					p->group, &prefix);
+				if (sockunion2hostprefix(&(p->su), &prefix))
+					range = peer_group_lookup_dynamic_neighbor_range(
+						p->group, &prefix);
 
 				if (range) {
 					vty_out(vty,
