@@ -6,6 +6,73 @@ frr (@VERSION@-0) UNRELEASED; urgency=medium
 
  -- FRRouting-Dev <dev@lists.frrouting.org>  Thu, 25 Oct 2018 16:36:50 +0200
 
+frr (7.5-0) RELEASED; urgency=medium
+  BFD
+    Profile support
+    Minimum ttl support
+  BGP
+    rpki VRF support
+    GR fixes
+    Add wide option to display of routes
+    Add `maximum-prefix <num> force`
+    Add `bestpath-routes` to neighbor command
+    Add `bgp shutdown message MSG...` command
+    Add v6 Flowspec support
+    Add `neighbor <neigh> shutdown rtt` command
+    Allow update-delay to be applied globaly
+  EVPN
+    Beginning of MultiHoming Support
+  ISIS
+    Segment Routing Support
+    VRF Support
+    Guard against adj timer display overflow
+    Add support for Anycast-SIDs
+    Add support for Topology Independent LFA (TI-LFA)
+    Add `lsp-gen-interval 2` to isis configuration
+  OSPF
+    Segment Routing support for ECMP
+    Various LSA fixes
+    Prevent crash if transferring config amongst instances
+  PBR
+    Adding json support to commands
+    DSCP/ECN based PBR Matching
+  PIM
+    Add more json support to commands
+    Fix missing mesh-group commands
+    MSDP SA forwarding
+    Clear (s,g,rpt) ifchannel on (*, G) prune received
+    Fix igmp querier election and IP address mapping
+    Crash fix when RP is removed
+  STATIC
+    Northbound Support
+  YANG
+    Filter and route-map Support
+    OSPF model definition
+    BGP model definition
+  VTYSH
+    Speed up output across daemons
+    Fix build-time errors for some --enable flags
+    Speed up output of configuration across daemons
+  ZEBRA
+    nexthop group support for FPM
+    northbound support for rib model
+    Backup nexthop support
+    netlink batching support
+    Allow upper level protocols to request ARP
+    Add json output for zebra ES, ES-EVI and access vlan dumps
+
+  Upgrade to using libyang1.0.184
+
+  RPM
+    Moved RPKI to subpackage
+    Added SNMP subpackage
+
+  As always there are too many bugfixes to list individually.  This release
+  compromises just over 1k of commits by the community, with contributors from
+  70 people.
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Tue, 2 Nov 2020 08:04:23 +0400
+
 frr (6.0-2) testing; urgency=medium
 
   * add install-info to build deps
