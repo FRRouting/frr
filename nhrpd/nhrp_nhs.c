@@ -35,6 +35,7 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	union sockunion cie_nbma, cie_proto, *proto;
 	char buf[64];
 	int ok = 0, holdtime;
+	unsigned short mtu = 0;
 
 	nhrp_reqid_free(&nhrp_packet_reqid, &r->reqid);
 
@@ -57,6 +58,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 		      || (cie->code == NHRP_CODE_ADMINISTRATIVELY_PROHIBITED
 			  && nhs->hub)))
 			ok = 0;
+		mtu = ntohs(cie->mtu);
+		debugf(NHRP_DEBUG_COMMON, "NHS: CIE MTU: %d", mtu);
 	}
 
 	if (!ok)
@@ -96,7 +99,7 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	c = nhrp_cache_get(ifp, &p->dst_proto, 1);
 	if (c)
 		nhrp_cache_update_binding(c, NHRP_CACHE_NHS, holdtime,
-					  nhrp_peer_ref(r->peer), 0, NULL);
+					  nhrp_peer_ref(r->peer), mtu, NULL);
 }
 
 static int nhrp_reg_timeout(struct thread *t)
