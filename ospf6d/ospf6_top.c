@@ -124,12 +124,9 @@ struct ospf6 *ospf6_lookup_by_vrf_name(const char *name)
 
 static void ospf6_top_lsdb_hook_add(struct ospf6_lsa *lsa)
 {
-	struct ospf6 *ospf6 = NULL;
-
 	switch (ntohs(lsa->header->type)) {
 	case OSPF6_LSTYPE_AS_EXTERNAL:
-		ospf6 = ospf6_get_by_lsdb(lsa);
-		ospf6_asbr_lsa_add(lsa, ospf6);
+		ospf6_asbr_lsa_add(lsa);
 		break;
 
 	default:

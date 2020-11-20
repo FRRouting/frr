@@ -442,18 +442,21 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 	}
 }
 
-void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa, struct ospf6 *ospf6)
+void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 {
 	struct ospf6_as_external_lsa *external;
 	struct prefix asbr_id;
 	struct ospf6_route *asbr_entry, *route, *old;
 	struct ospf6_path *path;
+	struct ospf6 *ospf6;
 
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 		lsa->header);
 
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
 		zlog_debug("Calculate AS-External route for %s", lsa->name);
+
+	ospf6 = ospf6_get_by_lsdb(lsa);
 
 	if (lsa->header->adv_router == ospf6->router_id) {
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
@@ -822,7 +825,7 @@ void ospf6_asbr_lsentry_add(struct ospf6_route *asbr_entry, struct ospf6 *ospf6)
 	router = ospf6_linkstate_prefix_adv_router(&asbr_entry->prefix);
 	for (ALL_LSDB_TYPED_ADVRTR(ospf6->lsdb, type, router, lsa)) {
 		if (!OSPF6_LSA_IS_MAXAGE(lsa))
-			ospf6_asbr_lsa_add(lsa, ospf6);
+			ospf6_asbr_lsa_add(lsa);
 	}
 }
 
