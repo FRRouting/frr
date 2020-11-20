@@ -334,7 +334,7 @@ struct ospf_topology topo3 = {
 /*
  * +---------+                     +---------+
  * |         |                     |         |
- * |   RT1   |eth-rt4       eth-rt1|   RT5   |
+ * |   RT1   |eth-rt4       eth-rt1|   RT4   |
  * | 1.1.1.1 +---------------------+ 4.4.4.4 |
  * |         |  10.0.4.0/24 (10)   |         |
  * +---------+                     +---------+
@@ -444,6 +444,129 @@ struct ospf_topology topo4 = {
 							.network =
 								"10.0.4.2/24",
 							.metric = 10,
+							.label = 8,
+						},
+					},
+			},
+		},
+};
+
+/*
+ * +---------+                     +---------+
+ * |         |                     |         |
+ * |   RT1   |eth-rt4       eth-rt1|   RT4   |
+ * | 1.1.1.1 +---------------------+ 4.4.4.4 |
+ * |         |  10.0.4.0/24        |         |
+ * +---------+                     +---------+
+ *      |eth+rt2                 eth-rt3|
+ *      |                               |
+ *      |10.0.1.0/24                    |
+ *      |                    10.0.3.0/24|
+ *      |eth-rt1                 eth-rt4|
+ * +---------+                     +---------+
+ * |         |eth-rt3       eth-rt2|         |
+ * |   RT2   +---------------------+   RT3   |
+ * | 2.2.2.2 |     10.0.2.0/24     | 3.3.3.3 |
+ * |         |                     |         |
+ * +---------+                     +---------+
+ *
+ * Weights:
+ * - clockwise: 10
+ * - counterclockwise: 40
+ *
+ * This is an example where 3 (!) labels are needed for the protected
+ * link RT1<->RT2, e.g. the subnet 10.0.1.0/24, to reach RT4.
+ *
+ * Because the initial P and Q spaces will not be overlapping or
+ * adjacent for this case the TI-LFA will be applied recursively.
+ */
+struct ospf_topology topo5 = {
+	.nodes =
+		{
+			{
+				.hostname = "rt1",
+				.router_id = "1.1.1.1",
+				.label = 10,
+				.adjacencies =
+					{
+						{
+							.hostname = "rt2",
+							.network =
+								"10.0.1.1/24",
+							.metric = 40,
+							.label = 1,
+						},
+						{
+							.hostname = "rt4",
+							.network =
+								"10.0.4.1/24",
+							.metric = 10,
+							.label = 2,
+						},
+					},
+			},
+			{
+				.hostname = "rt2",
+				.router_id = "2.2.2.2",
+				.label = 20,
+				.adjacencies =
+					{
+						{
+							.hostname = "rt1",
+							.network =
+								"10.0.1.2/24",
+							.metric = 10,
+							.label = 3,
+						},
+						{
+							.hostname = "rt3",
+							.network =
+								"10.0.2.1/24",
+							.metric = 40,
+							.label = 4,
+						},
+					},
+			},
+			{
+				.hostname = "rt3",
+				.router_id = "3.3.3.3",
+				.label = 30,
+				.adjacencies =
+					{
+						{
+							.hostname = "rt2",
+							.network =
+								"10.0.2.2/24",
+							.metric = 10,
+							.label = 5,
+						},
+						{
+							.hostname = "rt4",
+							.network =
+								"10.0.3.1/24",
+							.metric = 40,
+							.label = 6,
+						},
+					},
+			},
+			{
+				.hostname = "rt4",
+				.router_id = "4.4.4.4",
+				.label = 40,
+				.adjacencies =
+					{
+						{
+							.hostname = "rt3",
+							.network =
+								"10.0.3.2/24",
+							.metric = 10,
+							.label = 7,
+						},
+						{
+							.hostname = "rt1",
+							.network =
+								"10.0.4.2/24",
+							.metric = 40,
 							.label = 8,
 						},
 					},

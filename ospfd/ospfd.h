@@ -390,6 +390,11 @@ struct ospf {
 };
 DECLARE_QOBJ_TYPE(ospf)
 
+enum ospf_ti_lfa_p_q_space_adjacency {
+	OSPF_TI_LFA_P_Q_SPACE_ADJACENT,
+	OSPF_TI_LFA_P_Q_SPACE_NON_ADJACENT,
+};
+
 enum ospf_ti_lfa_node_type {
 	OSPF_TI_LFA_UNDEFINED_NODE,
 	OSPF_TI_LFA_PQ_NODE,
@@ -401,6 +406,12 @@ struct ospf_ti_lfa_node_info {
 	struct vertex *node;
 	enum ospf_ti_lfa_node_type type;
 	struct in_addr nexthop;
+};
+
+struct ospf_ti_lfa_inner_backup_path_info {
+	struct ospf_ti_lfa_node_info p_node_info;
+	struct ospf_ti_lfa_node_info q_node_info;
+	struct mpls_label_stack *label_stack;
 };
 
 struct protected_resource {
@@ -420,6 +431,8 @@ struct q_space {
 	struct mpls_label_stack *label_stack;
 	struct in_addr nexthop;
 	struct list *pc_path;
+	struct ospf_ti_lfa_node_info *p_node_info;
+	struct ospf_ti_lfa_node_info *q_node_info;
 	struct q_spaces_item q_spaces_item;
 };
 

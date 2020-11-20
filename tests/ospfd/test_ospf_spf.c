@@ -166,7 +166,8 @@ DEFUN(test_ospf, test_ospf_cmd,
       "Root node to choose\n"
       "Hostname of the root node to choose\n"
       "Use Topology-Independent LFA\n"
-      "Use node protection (default is link protection)\n")
+      "Use node protection (default is link protection)\n"
+      "Verbose output\n")
 {
 	struct ospf_topology *topology;
 	struct ospf_test_node *root;

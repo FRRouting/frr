@@ -40,6 +40,11 @@ DECLARE_RBTREE_UNIQ(p_spaces, struct p_space, p_spaces_item,
 DECLARE_RBTREE_UNIQ(q_spaces, struct q_space, q_spaces_item,
 		    q_spaces_compare_func)
 
+static void
+ospf_ti_lfa_generate_p_space(struct ospf_area *area, struct vertex *child,
+			     struct protected_resource *protected_resource,
+			     bool recursive, struct list *pc_path);
+
 void ospf_print_protected_resource(
 	struct protected_resource *protected_resource, char *buf)
 {
@@ -64,10 +69,9 @@ void ospf_print_protected_resource(
 	}
 }
 
-static void ospf_ti_lfa_find_p_node(struct vertex *pc_node,
-				    struct p_space *p_space,
-				    struct q_space *q_space,
-				    struct ospf_ti_lfa_node_info *node_info)
+static enum ospf_ti_lfa_p_q_space_adjacency
+ospf_ti_lfa_find_p_node(struct vertex *pc_node, struct p_space *p_space,
+			struct q_space *q_space)
 {
 	struct listnode *curr_node;
 	struct vertex *p_node = NULL, *pc_node_parent, *p_node_pc_parent;
@@ -76,34 +80,39 @@ static void ospf_ti_lfa_find_p_node(struct vertex *pc_node,
 	curr_node = listnode_lookup(q_space->pc_path, pc_node);
 	pc_node_parent = listgetdata(curr_node->next);
 
-	node_info->type = OSPF_TI_LFA_UNDEFINED_NODE;
+	q_space->p_node_info->type = OSPF_TI_LFA_UNDEFINED_NODE;
 
 	p_node = ospf_spf_vertex_find(pc_node_parent->id, p_space->vertex_list);
 
 	if (p_node) {
-		node_info->node = p_node;
-		node_info->type = OSPF_TI_LFA_P_NODE;
+		q_space->p_node_info->node = p_node;
+		q_space->p_node_info->type = OSPF_TI_LFA_P_NODE;
 
 		if (curr_node->next->next) {
 			p_node_pc_parent = listgetdata(curr_node->next->next);
 			pc_vertex_parent = ospf_spf_vertex_parent_find(
 				p_node_pc_parent->id, pc_node_parent);
-			node_info->nexthop = pc_vertex_parent->nexthop->router;
+			q_space->p_node_info->nexthop =
+				pc_vertex_parent->nexthop->router;
 		} else {
 			/*
 			 * It can happen that the P node is the root node itself
 			 * (hence there can be no parents). In this case we
 			 * don't need to set a nexthop.
 			 */
-			node_info->nexthop.s_addr = INADDR_ANY;
+			q_space->p_node_info->nexthop.s_addr = INADDR_ANY;
 		}
+
+		return OSPF_TI_LFA_P_Q_SPACE_ADJACENT;
 	}
+
+	ospf_ti_lfa_find_p_node(pc_node_parent, p_space, q_space);
+	return OSPF_TI_LFA_P_Q_SPACE_NON_ADJACENT;
 }
 
 static void ospf_ti_lfa_find_q_node(struct vertex *pc_node,
 				    struct p_space *p_space,
-				    struct q_space *q_space,
-				    struct ospf_ti_lfa_node_info *node_info)
+				    struct q_space *q_space)
 {
 	struct listnode *curr_node, *next_node;
 	struct vertex *p_node, *q_node, *q_space_parent = NULL, *pc_node_parent;
@@ -118,12 +127,13 @@ static void ospf_ti_lfa_find_q_node(struct vertex *pc_node,
 	p_node = ospf_spf_vertex_find(pc_node->id, p_space->vertex_list);
 	q_node = ospf_spf_vertex_find(pc_node->id, q_space->vertex_list);
 
-	node_info->type = OSPF_TI_LFA_UNDEFINED_NODE;
+	q_space->q_node_info->type = OSPF_TI_LFA_UNDEFINED_NODE;
 
 	if (p_node && q_node) {
-		node_info->node = pc_node;
-		node_info->type = OSPF_TI_LFA_PQ_NODE;
-		node_info->nexthop = pc_vertex_parent->nexthop->router;
+		q_space->q_node_info->node = pc_node;
+		q_space->q_node_info->type = OSPF_TI_LFA_PQ_NODE;
+		q_space->q_node_info->nexthop =
+			pc_vertex_parent->nexthop->router;
 		return;
 	}
 
@@ -139,15 +149,31 @@ static void ospf_ti_lfa_find_q_node(struct vertex *pc_node,
 	 * space and hence got our Q node.
 	 */
 	if (!q_space_parent) {
-		node_info->node = pc_node;
-		node_info->type = OSPF_TI_LFA_Q_NODE;
-		node_info->nexthop = pc_vertex_parent->nexthop->router;
+		q_space->q_node_info->node = pc_node;
+		q_space->q_node_info->type = OSPF_TI_LFA_Q_NODE;
+		q_space->q_node_info->nexthop =
+			pc_vertex_parent->nexthop->router;
 		return;
 	}
 
-	return ospf_ti_lfa_find_q_node(pc_node_parent, p_space, q_space,
-				       node_info);
+	return ospf_ti_lfa_find_q_node(pc_node_parent, p_space, q_space);
 }
+
+static void ospf_ti_lfa_append_label_stack(struct mpls_label_stack *label_stack,
+					   mpls_label_t labels[],
+					   uint32_t num_labels)
+{
+	int i, offset, limit;
+
+	limit = label_stack->num_labels + num_labels;
+	offset = label_stack->num_labels;
+
+	for (i = label_stack->num_labels; i < limit; i++) {
+		label_stack->label[i] = labels[i - offset];
+		label_stack->num_labels++;
+	}
+}
+
 
 static struct mpls_label_stack *
 ospf_ti_lfa_create_label_stack(mpls_label_t labels[], uint32_t num_labels)
@@ -163,7 +189,7 @@ ospf_ti_lfa_create_label_stack(mpls_label_t labels[], uint32_t num_labels)
 
 	label_stack = XCALLOC(MTYPE_OSPF_Q_SPACE,
 			      sizeof(struct mpls_label_stack)
-				      + num_labels * sizeof(mpls_label_t));
+				      + MPLS_MAX_LABELS * sizeof(mpls_label_t));
 	label_stack->num_labels = num_labels;
 
 	for (i = 0; i < num_labels; i++)
@@ -172,12 +198,198 @@ ospf_ti_lfa_create_label_stack(mpls_label_t labels[], uint32_t num_labels)
 	return label_stack;
 }
 
-static void ospf_ti_lfa_generate_label_stack(struct p_space *p_space,
+static struct list *
+ospf_ti_lfa_map_path_to_pc_vertices(struct list *path,
+				    struct list *pc_vertex_list)
+{
+	struct listnode *node;
+	struct vertex *vertex, *pc_vertex;
+	struct list *pc_path;
+
+	pc_path = list_new();
+
+	for (ALL_LIST_ELEMENTS_RO(path, node, vertex)) {
+		pc_vertex = ospf_spf_vertex_find(vertex->id, pc_vertex_list);
+		listnode_add(pc_path, pc_vertex);
+	}
+
+	return pc_path;
+}
+
+static struct list *ospf_ti_lfa_cut_out_pc_path(struct list *pc_vertex_list,
+						struct list *pc_path,
+						struct vertex *p_node,
+						struct vertex *q_node)
+{
+	struct list *inner_pc_path;
+	struct vertex *current_vertex;
+	struct listnode *current_listnode;
+
+	inner_pc_path = list_new();
+	current_vertex = ospf_spf_vertex_find(q_node->id, pc_vertex_list);
+	current_listnode = listnode_lookup(pc_path, current_vertex);
+
+	/* Note that the post-convergence paths are reversed. */
+	for (;;) {
+		current_vertex = listgetdata(current_listnode);
+		listnode_add(inner_pc_path, current_vertex);
+
+		if (current_vertex->id.s_addr == p_node->id.s_addr)
+			break;
+
+		current_listnode = current_listnode->next;
+	}
+
+	return inner_pc_path;
+}
+
+static void ospf_ti_lfa_generate_inner_label_stack(
+	struct ospf_area *area, struct p_space *p_space,
+	struct q_space *q_space,
+	struct ospf_ti_lfa_inner_backup_path_info *inner_backup_path_info)
+{
+	struct route_table *new_table, *new_rtrs;
+	struct vertex *q_node;
+	struct vertex *start_vertex, *end_vertex;
+	struct vertex_parent *vertex_parent;
+	struct listnode *pc_p_node, *pc_q_node;
+	struct vertex *spf_orig;
+	struct list *vertex_list_orig;
+	struct p_spaces_head *p_spaces_orig;
+	struct p_space *inner_p_space;
+	struct q_space *inner_q_space;
+	struct ospf_ti_lfa_node_info *p_node_info, *q_node_info;
+	struct protected_resource *protected_resource;
+	struct list *inner_pc_path;
+	mpls_label_t start_label, end_label;
+
+	p_node_info = q_space->p_node_info;
+	q_node_info = q_space->q_node_info;
+	protected_resource = p_space->protected_resource;
+
+	start_vertex = p_node_info->node;
+	end_vertex = q_node_info->node;
+
+	/*
+	 * It can happen that the P node and/or the Q node are the root or
+	 * the destination, therefore we need to force one step forward (resp.
+	 * backward) using an Adjacency-SID.
+	 */
+	start_label = MPLS_INVALID_LABEL;
+	end_label = MPLS_INVALID_LABEL;
+	if (p_node_info->node->id.s_addr == p_space->root->id.s_addr) {
+		pc_p_node = listnode_lookup(q_space->pc_path, p_space->pc_spf);
+		start_vertex = listgetdata(pc_p_node->prev);
+		start_label = ospf_sr_get_adj_sid_by_id(&p_node_info->node->id,
+							&start_vertex->id);
+	}
+	if (q_node_info->node->id.s_addr == q_space->root->id.s_addr) {
+		pc_q_node = listnode_lookup(q_space->pc_path,
+					    listnode_head(q_space->pc_path));
+		end_vertex = listgetdata(pc_q_node->next);
+		end_label = ospf_sr_get_adj_sid_by_id(&end_vertex->id,
+						      &q_node_info->node->id);
+	}
+
+	/* Corner case: inner path is just one node */
+	if (start_vertex->id.s_addr == end_vertex->id.s_addr) {
+		inner_backup_path_info->label_stack =
+			ospf_ti_lfa_create_label_stack(&start_label, 1);
+		inner_backup_path_info->q_node_info.node = end_vertex;
+		inner_backup_path_info->q_node_info.type = OSPF_TI_LFA_PQ_NODE;
+		inner_backup_path_info->p_node_info.type =
+			OSPF_TI_LFA_UNDEFINED_NODE;
+		vertex_parent = ospf_spf_vertex_parent_find(p_space->root->id,
+							    end_vertex);
+		inner_backup_path_info->p_node_info.nexthop =
+			vertex_parent->nexthop->router;
+		return;
+	}
+
+	inner_pc_path = ospf_ti_lfa_cut_out_pc_path(p_space->pc_vertex_list,
+						    q_space->pc_path,
+						    start_vertex, end_vertex);
+
+	new_table = route_table_init();
+	new_rtrs = route_table_init();
+
+	/* Copy the current state ... */
+	spf_orig = area->spf;
+	vertex_list_orig = area->spf_vertex_list;
+	p_spaces_orig = area->p_spaces;
+
+	area->p_spaces =
+		XCALLOC(MTYPE_OSPF_P_SPACE, sizeof(struct p_spaces_head));
+
+	/* dry run true, root node false */
+	ospf_spf_calculate(area, start_vertex->lsa_p, new_table, new_rtrs, true,
+			   false);
+
+	q_node = ospf_spf_vertex_find(end_vertex->id, area->spf_vertex_list);
+
+	ospf_ti_lfa_generate_p_space(area, q_node, protected_resource, false,
+				     inner_pc_path);
+
+	/* There's just one P and Q space */
+	inner_p_space = p_spaces_pop(area->p_spaces);
+	inner_q_space = q_spaces_pop(inner_p_space->q_spaces);
+
+	/* Copy over inner backup path information from the inner q_space */
+
+	/* In case the outer P node is also the root of the P space */
+	if (start_label != MPLS_INVALID_LABEL) {
+		inner_backup_path_info->label_stack =
+			ospf_ti_lfa_create_label_stack(&start_label, 1);
+		ospf_ti_lfa_append_label_stack(
+			inner_backup_path_info->label_stack,
+			inner_q_space->label_stack->label,
+			inner_q_space->label_stack->num_labels);
+		inner_backup_path_info->p_node_info.node = start_vertex;
+		inner_backup_path_info->p_node_info.type = OSPF_TI_LFA_P_NODE;
+		vertex_parent = ospf_spf_vertex_parent_find(p_space->root->id,
+							    start_vertex);
+		inner_backup_path_info->p_node_info.nexthop =
+			vertex_parent->nexthop->router;
+	} else {
+		memcpy(inner_backup_path_info->label_stack,
+		       inner_q_space->label_stack,
+		       sizeof(struct mpls_label_stack)
+			       + sizeof(mpls_label_t)
+					 * inner_q_space->label_stack
+						   ->num_labels);
+		memcpy(&inner_backup_path_info->p_node_info,
+		       inner_q_space->p_node_info,
+		       sizeof(struct ospf_ti_lfa_node_info));
+	}
+
+	/* In case the outer Q node is also the root of the Q space */
+	if (end_label != MPLS_INVALID_LABEL) {
+		inner_backup_path_info->q_node_info.node = end_vertex;
+		inner_backup_path_info->q_node_info.type = OSPF_TI_LFA_Q_NODE;
+	} else {
+		memcpy(&inner_backup_path_info->q_node_info,
+		       inner_q_space->q_node_info,
+		       sizeof(struct ospf_ti_lfa_node_info));
+	}
+
+	/* Cleanup */
+	ospf_ti_lfa_free_p_spaces(area);
+	ospf_spf_cleanup(area->spf, area->spf_vertex_list);
+
+	/* ... and copy the current state back. */
+	area->spf = spf_orig;
+	area->spf_vertex_list = vertex_list_orig;
+	area->p_spaces = p_spaces_orig;
+}
+
+static void ospf_ti_lfa_generate_label_stack(struct ospf_area *area,
+					     struct p_space *p_space,
 					     struct q_space *q_space)
 {
-	struct ospf_ti_lfa_node_info p_node_info, q_node_info;
-	mpls_label_t labels[2];
+	enum ospf_ti_lfa_p_q_space_adjacency adjacency_result;
+	mpls_label_t labels[MPLS_MAX_LABELS];
 	struct vertex *pc_node;
+	struct ospf_ti_lfa_inner_backup_path_info inner_backup_path_info;
 
 	zlog_debug("%s: Generating Label stack for src %pI4 and dest %pI4.",
 		   __func__, &p_space->root->id, &q_space->root->id);
@@ -191,73 +403,189 @@ static void ospf_ti_lfa_generate_label_stack(struct p_space *p_space,
 		return;
 	}
 
-	ospf_ti_lfa_find_q_node(pc_node, p_space, q_space, &q_node_info);
-	if (q_node_info.type == OSPF_TI_LFA_UNDEFINED_NODE) {
+	ospf_ti_lfa_find_q_node(pc_node, p_space, q_space);
+	if (q_space->q_node_info->type == OSPF_TI_LFA_UNDEFINED_NODE) {
 		zlog_debug("%s: Q node not found!", __func__);
 		return;
 	}
 
 	/* Found a PQ node? Then we are done here. */
-	if (q_node_info.type == OSPF_TI_LFA_PQ_NODE) {
+	if (q_space->q_node_info->type == OSPF_TI_LFA_PQ_NODE) {
 		/*
 		 * If the PQ node is a child of the root, then we can use an
 		 * adjacency SID instead of a prefix SID for the backup path.
 		 */
 		if (ospf_spf_vertex_parent_find(p_space->root->id,
-						q_node_info.node))
+						q_space->q_node_info->node))
 			labels[0] = ospf_sr_get_adj_sid_by_id(
-				&p_space->root->id, &q_node_info.node->id);
+				&p_space->root->id,
+				&q_space->q_node_info->node->id);
 		else
 			labels[0] = ospf_sr_get_prefix_sid_by_id(
-				&q_node_info.node->id);
+				&q_space->q_node_info->node->id);
 
 		q_space->label_stack =
 			ospf_ti_lfa_create_label_stack(labels, 1);
-		q_space->nexthop = q_node_info.nexthop;
+		q_space->nexthop = q_space->q_node_info->nexthop;
 
 		return;
 	}
 
-	/* Otherwise find the adjacent P node. */
-	pc_node = ospf_spf_vertex_find(q_node_info.node->id,
+	/* Otherwise find a (hopefully adjacent) P node. */
+	pc_node = ospf_spf_vertex_find(q_space->q_node_info->node->id,
 				       p_space->pc_vertex_list);
-	ospf_ti_lfa_find_p_node(pc_node, p_space, q_space, &p_node_info);
-	if (p_node_info.type == OSPF_TI_LFA_UNDEFINED_NODE) {
+	adjacency_result = ospf_ti_lfa_find_p_node(pc_node, p_space, q_space);
+
+	if (q_space->p_node_info->type == OSPF_TI_LFA_UNDEFINED_NODE) {
 		zlog_debug("%s: P node not found!", __func__);
 		return;
 	}
 
 	/*
-	 * It can happen that the P node is the root itself, therefore we don't
-	 * need a label for it. So just one adjacency SID for the Q node.
+	 * This should be the regular case: P and Q space are adjacent or even
+	 * overlapping. This is guaranteed for link protection when used with
+	 * symmetric weights.
 	 */
-	if (p_node_info.node->id.s_addr == p_space->root->id.s_addr) {
-		labels[0] = ospf_sr_get_adj_sid_by_id(&p_space->root->id,
-						      &q_node_info.node->id);
+	if (adjacency_result == OSPF_TI_LFA_P_Q_SPACE_ADJACENT) {
+		/*
+		 * It can happen that the P node is the root itself, therefore
+		 * we don't need a label for it. So just one adjacency SID for
+		 * the Q node.
+		 */
+		if (q_space->p_node_info->node->id.s_addr
+		    == p_space->root->id.s_addr) {
+			labels[0] = ospf_sr_get_adj_sid_by_id(
+				&p_space->root->id,
+				&q_space->q_node_info->node->id);
+			q_space->label_stack =
+				ospf_ti_lfa_create_label_stack(labels, 1);
+			q_space->nexthop = q_space->q_node_info->nexthop;
+			return;
+		}
+
+		/*
+		 * Otherwise we have a P and also a Q node (which are adjacent).
+		 *
+		 * It can happen that the P node is a child of the root,
+		 * therefore we might just need the adjacency SID for the P node
+		 * instead of the prefix SID. For the Q node always take the
+		 * adjacency SID.
+		 */
+		if (ospf_spf_vertex_parent_find(p_space->root->id,
+						q_space->p_node_info->node))
+			labels[0] = ospf_sr_get_adj_sid_by_id(
+				&p_space->root->id,
+				&q_space->p_node_info->node->id);
+		else
+			labels[0] = ospf_sr_get_prefix_sid_by_id(
+				&q_space->p_node_info->node->id);
+
+		labels[1] = ospf_sr_get_adj_sid_by_id(
+			&q_space->p_node_info->node->id,
+			&q_space->q_node_info->node->id);
+
 		q_space->label_stack =
-			ospf_ti_lfa_create_label_stack(labels, 1);
-		q_space->nexthop = q_node_info.nexthop;
-		return;
+			ospf_ti_lfa_create_label_stack(labels, 2);
+		q_space->nexthop = q_space->p_node_info->nexthop;
+
+	} else {
+		/*
+		 * It can happen that the P and Q space are not adjacent when
+		 * e.g. node protection or asymmetric weights are used. In this
+		 * case the found P and Q nodes are used as a reference for
+		 * another run of the algorithm!
+		 *
+		 * After having found the inner label stack it is stitched
+		 * together with the outer labels.
+		 */
+		inner_backup_path_info.label_stack = XCALLOC(
+			MTYPE_OSPF_PATH,
+			sizeof(struct mpls_label_stack)
+				+ sizeof(mpls_label_t) * MPLS_MAX_LABELS);
+		ospf_ti_lfa_generate_inner_label_stack(area, p_space, q_space,
+						       &inner_backup_path_info);
+
+		/*
+		 * First stitch together the outer P node label with the inner
+		 * label stack.
+		 */
+		if (q_space->p_node_info->node->id.s_addr
+		    == p_space->root->id.s_addr) {
+			/*
+			 * It can happen that the P node is the root itself,
+			 * therefore we don't need a label for it. Just take
+			 * the inner label stack first.
+			 */
+			q_space->label_stack = ospf_ti_lfa_create_label_stack(
+				inner_backup_path_info.label_stack->label,
+				inner_backup_path_info.label_stack->num_labels);
+
+			/* Use the inner P or Q node for the nexthop */
+			if (inner_backup_path_info.p_node_info.type
+			    != OSPF_TI_LFA_UNDEFINED_NODE)
+				q_space->nexthop = inner_backup_path_info
+							   .p_node_info.nexthop;
+			else
+				q_space->nexthop = inner_backup_path_info
+							   .q_node_info.nexthop;
+
+		} else if (ospf_spf_vertex_parent_find(
+				   p_space->root->id,
+				   q_space->p_node_info->node)) {
+			/*
+			 * It can happen that the outer P node is a child of
+			 * the root, therefore we might just need the
+			 * adjacency SID for the outer P node instead of the
+			 * prefix SID. Then just append the inner label stack.
+			 */
+			labels[0] = ospf_sr_get_adj_sid_by_id(
+				&p_space->root->id,
+				&q_space->p_node_info->node->id);
+			q_space->label_stack =
+				ospf_ti_lfa_create_label_stack(labels, 1);
+			ospf_ti_lfa_append_label_stack(
+				q_space->label_stack,
+				inner_backup_path_info.label_stack->label,
+				inner_backup_path_info.label_stack->num_labels);
+			q_space->nexthop = q_space->p_node_info->nexthop;
+		} else {
+			/* The outer P node needs a Prefix-SID here */
+			labels[0] = ospf_sr_get_prefix_sid_by_id(
+				&q_space->p_node_info->node->id);
+			q_space->label_stack =
+				ospf_ti_lfa_create_label_stack(labels, 1);
+			ospf_ti_lfa_append_label_stack(
+				q_space->label_stack,
+				inner_backup_path_info.label_stack->label,
+				inner_backup_path_info.label_stack->num_labels);
+			q_space->nexthop = q_space->p_node_info->nexthop;
+		}
+
+		/* Now the outer Q node needs to be considered */
+		if (ospf_spf_vertex_parent_find(
+			    inner_backup_path_info.q_node_info.node->id,
+			    q_space->q_node_info->node)) {
+			/*
+			 * The outer Q node can be a child of the inner Q node,
+			 * hence just add an Adjacency-SID.
+			 */
+			labels[0] = ospf_sr_get_adj_sid_by_id(
+				&inner_backup_path_info.q_node_info.node->id,
+				&q_space->q_node_info->node->id);
+			ospf_ti_lfa_append_label_stack(q_space->label_stack,
+						       labels, 1);
+		} else {
+			/* Otherwise a Prefix-SID is needed */
+			labels[0] = ospf_sr_get_prefix_sid_by_id(
+				&q_space->q_node_info->node->id);
+			ospf_ti_lfa_append_label_stack(q_space->label_stack,
+						       labels, 1);
+		}
+		/*
+		 * Note that there's also the case where the inner and outer Q
+		 * node are the same, but then there's nothing to do!
+		 */
 	}
-
-	/*
-	 * Otherwise we have a P and also a Q node (which are adjacent).
-	 *
-	 * It can happen that the P node is a child of the root, therefore we
-	 * might just need the adjacency SID for the P node instead of the
-	 * prefix SID. For the Q node always take the adjacency SID.
-	 */
-	if (ospf_spf_vertex_parent_find(p_space->root->id, p_node_info.node))
-		labels[0] = ospf_sr_get_adj_sid_by_id(&p_space->root->id,
-						      &p_node_info.node->id);
-	else
-		labels[0] = ospf_sr_get_prefix_sid_by_id(&p_node_info.node->id);
-
-	labels[1] = ospf_sr_get_adj_sid_by_id(&p_node_info.node->id,
-					      &q_node_info.node->id);
-
-	q_space->label_stack = ospf_ti_lfa_create_label_stack(labels, 2);
-	q_space->nexthop = p_node_info.nexthop;
 }
 
 static struct list *
@@ -268,15 +596,15 @@ ospf_ti_lfa_generate_post_convergence_path(struct list *pc_vertex_list,
 	struct vertex *current_vertex;
 	struct vertex_parent *parent;
 
-	pc_path = list_new();
 	current_vertex = ospf_spf_vertex_find(dest->id, pc_vertex_list);
 	if (!current_vertex) {
 		zlog_debug(
 			"%s: There seems to be no post convergence path (yet).",
 			__func__);
-		return pc_path;
+		return NULL;
 	}
 
+	pc_path = list_new();
 	listnode_add(pc_path, current_vertex);
 
 	/* Generate a backup path in reverse order */
@@ -294,7 +622,8 @@ ospf_ti_lfa_generate_post_convergence_path(struct list *pc_vertex_list,
 
 static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 					  struct p_space *p_space,
-					  struct vertex *dest)
+					  struct vertex *dest, bool recursive,
+					  struct list *pc_path)
 {
 	struct listnode *node;
 	struct vertex *child;
@@ -302,19 +631,26 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	struct q_space *q_space, q_space_search;
 	char label_buf[MPLS_LABEL_STRLEN];
 	char res_buf[PROTECTED_RESOURCE_STRLEN];
+	bool node_protected;
 
 	ospf_print_protected_resource(p_space->protected_resource, res_buf);
+	node_protected =
+		p_space->protected_resource->type == OSPF_TI_LFA_NODE_PROTECTION
+		&& dest->id.s_addr
+			   == p_space->protected_resource->router_id.s_addr;
 
 	/*
 	 * If node protection is used, don't build a Q space for the protected
 	 * node of that particular P space. Move on with children instead.
 	 */
-	if (p_space->protected_resource->type == OSPF_TI_LFA_NODE_PROTECTION
-	    && dest->id.s_addr
-		       == p_space->protected_resource->router_id.s_addr) {
-		/* Recursively generate Q spaces for all children */
-		for (ALL_LIST_ELEMENTS_RO(dest->children, node, child))
-			ospf_ti_lfa_generate_q_spaces(area, p_space, child);
+	if (node_protected) {
+		if (recursive) {
+			/* Recursively generate Q spaces for all children */
+			for (ALL_LIST_ELEMENTS_RO(dest->children, node, child))
+				ospf_ti_lfa_generate_q_spaces(area, p_space,
+							      child, recursive,
+							      pc_path);
+		}
 		return;
 	}
 
@@ -324,6 +660,10 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 		return;
 
 	q_space = XCALLOC(MTYPE_OSPF_Q_SPACE, sizeof(struct q_space));
+	q_space->p_node_info = XCALLOC(MTYPE_OSPF_Q_SPACE,
+				       sizeof(struct ospf_ti_lfa_node_info));
+	q_space->q_node_info = XCALLOC(MTYPE_OSPF_Q_SPACE,
+				       sizeof(struct ospf_ti_lfa_node_info));
 
 	new_table = route_table_init();
 	new_rtrs = route_table_init();
@@ -341,8 +681,22 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	q_space->root = area->spf;
 	q_space->vertex_list = area->spf_vertex_list;
 	q_space->label_stack = NULL;
-	q_space->pc_path = ospf_ti_lfa_generate_post_convergence_path(
-		p_space->pc_vertex_list, q_space->root);
+
+	if (pc_path)
+		q_space->pc_path = ospf_ti_lfa_map_path_to_pc_vertices(
+			pc_path, p_space->pc_vertex_list);
+	else
+		q_space->pc_path = ospf_ti_lfa_generate_post_convergence_path(
+			p_space->pc_vertex_list, q_space->root);
+
+	/* If there's no backup path available then we are done here. */
+	if (!q_space->pc_path) {
+		zlog_info(
+			"%s: NO backup path found for root %pI4 and destination %pI4 for %s, aborting ...",
+			__func__, &p_space->root->id, &q_space->root->id,
+			res_buf);
+		return;
+	}
 
 	/* 'Cut' the protected resource out of the new SPF tree */
 	ospf_spf_remove_resource(q_space->root, q_space->vertex_list,
@@ -352,8 +706,7 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	 * Generate the smallest possible label stack from the root of the P
 	 * space to the root of the Q space.
 	 */
-	ospf_ti_lfa_generate_label_stack(p_space, q_space);
-
+	ospf_ti_lfa_generate_label_stack(area, p_space, q_space);
 
 	if (q_space->label_stack) {
 		mpls_label2str(q_space->label_stack->num_labels,
@@ -374,8 +727,11 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	q_spaces_add(p_space->q_spaces, q_space);
 
 	/* Recursively generate Q spaces for all children */
-	for (ALL_LIST_ELEMENTS_RO(dest->children, node, child))
-		ospf_ti_lfa_generate_q_spaces(area, p_space, child);
+	if (recursive) {
+		for (ALL_LIST_ELEMENTS_RO(dest->children, node, child))
+			ospf_ti_lfa_generate_q_spaces(area, p_space, child,
+						      recursive, pc_path);
+	}
 }
 
 static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
@@ -414,7 +770,8 @@ static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
 
 static void
 ospf_ti_lfa_generate_p_space(struct ospf_area *area, struct vertex *child,
-			     struct protected_resource *protected_resource)
+			     struct protected_resource *protected_resource,
+			     bool recursive, struct list *pc_path)
 {
 	struct vertex *spf_orig;
 	struct list *vertex_list, *vertex_list_orig;
@@ -449,7 +806,7 @@ ospf_ti_lfa_generate_p_space(struct ospf_area *area, struct vertex *child,
 	ospf_ti_lfa_generate_post_convergence_spf(area, p_space);
 
 	/* Generate the relevant Q spaces for this particular P space */
-	ospf_ti_lfa_generate_q_spaces(area, p_space, child);
+	ospf_ti_lfa_generate_q_spaces(area, p_space, child, recursive, pc_path);
 
 	/* Put the 'original' SPF tree back in place */
 	area->spf = spf_orig;
@@ -512,8 +869,8 @@ void ospf_ti_lfa_generate_p_spaces(struct ospf_area *area,
 					root->children);
 				if (child)
 					ospf_ti_lfa_generate_p_space(
-						area, child,
-						protected_resource);
+						area, child, protected_resource,
+						true, NULL);
 			}
 
 			continue;
@@ -561,8 +918,8 @@ void ospf_ti_lfa_generate_p_spaces(struct ospf_area *area,
 					protected_resource->link = l;
 
 					ospf_ti_lfa_generate_p_space(
-						area, child,
-						protected_resource);
+						area, child, protected_resource,
+						true, NULL);
 				}
 			}
 		}
@@ -700,8 +1057,11 @@ void ospf_ti_lfa_free_p_spaces(struct ospf_area *area)
 		while ((q_space = q_spaces_pop(p_space->q_spaces))) {
 			ospf_spf_cleanup(q_space->root, q_space->vertex_list);
 
-			list_delete(&q_space->pc_path);
+			if (q_space->pc_path)
+				list_delete(&q_space->pc_path);
 
+			XFREE(MTYPE_OSPF_Q_SPACE, q_space->p_node_info);
+			XFREE(MTYPE_OSPF_Q_SPACE, q_space->q_node_info);
 			XFREE(MTYPE_OSPF_Q_SPACE, q_space->label_stack);
 			XFREE(MTYPE_OSPF_Q_SPACE, q_space);
 		}

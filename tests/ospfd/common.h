@@ -35,6 +35,7 @@ extern struct ospf_topology topo1;
 extern struct ospf_topology topo2;
 extern struct ospf_topology topo3;
 extern struct ospf_topology topo4;
+extern struct ospf_topology topo5;
 extern struct zebra_privs_t ospfd_privs;
 
 /* For stable order in unit tests */
