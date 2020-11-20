@@ -104,7 +104,7 @@ The following commands are independent of a specific cache server.
 .. index:: rpki polling_period (1-3600)
 .. clicmd:: rpki polling_period (1-3600)
 
-.. index:: no rpki polling_period
+.. index:: rpki polling_period
 .. clicmd:: no rpki polling_period
 
    Set the number of seconds the router waits until the router asks the cache
@@ -117,7 +117,7 @@ The following commands are independent of a specific cache server.
 .. index:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] PREFERENCE
 .. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] PREFERENCE
 
-.. index:: no rpki cache (A.B.C.D|WORD) [PORT] PREFERENCE
+.. index:: rpki cache (A.B.C.D|WORD) [PORT] PREFERENCE
 .. clicmd:: no rpki cache (A.B.C.D|WORD) [PORT] PREFERENCE
 
    Add a cache server to the socket. By default, the connection between router
@@ -157,7 +157,7 @@ Validating BGP Updates
 .. index:: match rpki notfound|invalid|valid
 .. clicmd:: match rpki notfound|invalid|valid
 
-.. index:: no match rpki notfound|invalid|valid
+.. index:: match rpki notfound|invalid|valid
 .. clicmd:: no match rpki notfound|invalid|valid
 
     Create a clause for a route map to match prefixes with the specified RPKI
@@ -190,7 +190,7 @@ Debugging
 .. index:: debug rpki
 .. clicmd:: debug rpki
 
-.. index:: no debug rpki
+.. index:: debug rpki
 .. clicmd:: no debug rpki
 
    Enable or disable debugging output for RPKI.

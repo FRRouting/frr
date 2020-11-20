@@ -35,7 +35,7 @@ in the configuration:
 .. index:: router openfabric WORD
 .. clicmd:: router openfabric WORD
 
-.. index:: no router openfabric WORD
+.. index:: router openfabric WORD
 .. clicmd:: no router openfabric WORD
 
    Enable or disable the OpenFabric process by specifying the OpenFabric domain with
@@ -44,7 +44,7 @@ in the configuration:
 .. index:: net XX.XXXX. ... .XXX.XX
 .. clicmd:: net XX.XXXX. ... .XXX.XX
 
-.. index:: no net XX.XXXX. ... .XXX.XX
+.. index:: net XX.XXXX. ... .XXX.XX
 .. clicmd:: no net XX.XXXX. ... .XXX.XX
 
    Set/Unset network entity title (NET) provided in ISO format.
@@ -52,7 +52,7 @@ in the configuration:
 .. index:: domain-password [clear | md5] <password>
 .. clicmd:: domain-password [clear | md5] <password>
 
-.. index:: no domain-password
+.. index:: domain-password
 .. clicmd:: no domain-password
 
    Configure the authentication password for a domain, as clear text or md5 one.
@@ -60,7 +60,7 @@ in the configuration:
 .. index:: log-adjacency-changes
 .. clicmd:: log-adjacency-changes
 
-.. index:: no log-adjacency-changes
+.. index:: log-adjacency-changes
 .. clicmd:: no log-adjacency-changes
 
    Log changes in adjacency state.
@@ -68,7 +68,7 @@ in the configuration:
 .. index:: set-overload-bit
 .. clicmd:: set-overload-bit
 
-.. index:: no set-overload-bit
+.. index:: set-overload-bit
 .. clicmd:: no set-overload-bit
 
    Set overload bit to avoid any transit traffic.
@@ -76,7 +76,7 @@ in the configuration:
 .. index:: purge-originator
 .. clicmd:: purge-originator
 
-.. index:: no purge-originator
+.. index:: purge-originator
 .. clicmd:: no purge-originator
 
    Enable or disable :rfc:`6232` purge originator identification.
@@ -84,7 +84,7 @@ in the configuration:
 .. index:: fabric-tier (0-14)
 .. clicmd:: fabric-tier (0-14)
 
-.. index:: no fabric-tier
+.. index:: fabric-tier
 .. clicmd:: no fabric-tier
 
    Configure a static tier number to advertise as location in the fabric
@@ -97,7 +97,7 @@ OpenFabric Timer
 .. index:: lsp-gen-interval (1-120)
 .. clicmd:: lsp-gen-interval (1-120)
 
-.. index:: no lsp-gen-interval
+.. index:: lsp-gen-interval
 .. clicmd:: no lsp-gen-interval
 
    Set minimum interval in seconds between regenerating same LSP.
@@ -105,7 +105,7 @@ OpenFabric Timer
 .. index:: lsp-refresh-interval (1-65235)
 .. clicmd:: lsp-refresh-interval (1-65235)
 
-.. index:: no lsp-refresh-interval
+.. index:: lsp-refresh-interval
 .. clicmd:: no lsp-refresh-interval
 
    Set LSP refresh interval in seconds.
@@ -113,7 +113,7 @@ OpenFabric Timer
 .. index:: max-lsp-lifetime (360-65535)
 .. clicmd:: max-lsp-lifetime (360-65535)
 
-.. index:: no max-lsp-lifetime
+.. index:: max-lsp-lifetime
 .. clicmd:: no max-lsp-lifetime
 
    Set LSP maximum LSP lifetime in seconds.
@@ -121,7 +121,7 @@ OpenFabric Timer
 .. index:: spf-interval (1-120)
 .. clicmd:: spf-interval (1-120)
 
-.. index:: no spf-interval
+.. index:: spf-interval
 .. clicmd:: no spf-interval
 
    Set minimum interval between consecutive SPF calculations in seconds.
@@ -134,7 +134,7 @@ OpenFabric interface
 .. index:: ip router openfabric WORD
 .. clicmd:: ip router openfabric WORD
 
-.. index:: no ip router openfabric WORD
+.. index:: ip router openfabric WORD
 .. clicmd:: no ip router openfabric WORD
 
 .. _ip-router-openfabric-word:
@@ -146,7 +146,7 @@ OpenFabric interface
 .. index:: openfabric csnp-interval (1-600)
 .. clicmd:: openfabric csnp-interval (1-600)
 
-.. index:: no openfabric csnp-interval
+.. index:: openfabric csnp-interval
 .. clicmd:: no openfabric csnp-interval
 
    Set CSNP interval in seconds.
@@ -154,7 +154,7 @@ OpenFabric interface
 .. index:: openfabric hello-interval (1-600)
 .. clicmd:: openfabric hello-interval (1-600)
 
-.. index:: no openfabric hello-interval
+.. index:: openfabric hello-interval
 .. clicmd:: no openfabric hello-interval
 
    Set Hello interval in seconds.
@@ -162,7 +162,7 @@ OpenFabric interface
 .. index:: openfabric hello-multiplier (2-100)
 .. clicmd:: openfabric hello-multiplier (2-100)
 
-.. index:: no openfabric hello-multiplier
+.. index:: openfabric hello-multiplier
 .. clicmd:: no openfabric hello-multiplier
 
    Set multiplier for Hello holding time.
@@ -170,7 +170,7 @@ OpenFabric interface
 .. index:: openfabric metric (0-16777215)
 .. clicmd:: openfabric metric (0-16777215)
 
-.. index:: no openfabric metric
+.. index:: openfabric metric
 .. clicmd:: no openfabric metric
 
    Set interface metric value.
@@ -178,7 +178,7 @@ OpenFabric interface
 .. index:: openfabric passive
 .. clicmd:: openfabric passive
 
-.. index:: no openfabric passive
+.. index:: openfabric passive
 .. clicmd:: no openfabric passive
 
    Configure the passive mode for this interface.
@@ -186,7 +186,7 @@ OpenFabric interface
 .. index:: openfabric password [clear | md5] <password>
 .. clicmd:: openfabric password [clear | md5] <password>
 
-.. index:: no openfabric password
+.. index:: openfabric password
 .. clicmd:: no openfabric password
 
    Configure the authentication password (clear or encoded text) for the
@@ -195,7 +195,7 @@ OpenFabric interface
 .. index:: openfabric psnp-interval (1-120)
 .. clicmd:: openfabric psnp-interval (1-120)
 
-.. index:: no openfabric psnp-interval
+.. index:: openfabric psnp-interval
 .. clicmd:: no openfabric psnp-interval
 
    Set PSNP interval in seconds.
@@ -267,7 +267,7 @@ Debugging OpenFabric
 .. index:: debug openfabric adj-packets
 .. clicmd:: debug openfabric adj-packets
 
-.. index:: no debug openfabric adj-packets
+.. index:: debug openfabric adj-packets
 .. clicmd:: no debug openfabric adj-packets
 
 OpenFabric Adjacency related packets.
@@ -275,7 +275,7 @@ OpenFabric Adjacency related packets.
 .. index:: debug openfabric checksum-errors
 .. clicmd:: debug openfabric checksum-errors
 
-.. index:: no debug openfabric checksum-errors
+.. index:: debug openfabric checksum-errors
 .. clicmd:: no debug openfabric checksum-errors
 
 OpenFabric LSP checksum errors.
@@ -283,7 +283,7 @@ OpenFabric LSP checksum errors.
 .. index:: debug openfabric events
 .. clicmd:: debug openfabric events
 
-.. index:: no debug openfabric events
+.. index:: debug openfabric events
 .. clicmd:: no debug openfabric events
 
 OpenFabric Events.
@@ -291,7 +291,7 @@ OpenFabric Events.
 .. index:: debug openfabric local-updates
 .. clicmd:: debug openfabric local-updates
 
-.. index:: no debug openfabric local-updates
+.. index:: debug openfabric local-updates
 .. clicmd:: no debug openfabric local-updates
 
 OpenFabric local update packets.
@@ -299,7 +299,7 @@ OpenFabric local update packets.
 .. index:: debug openfabric lsp-gen
 .. clicmd:: debug openfabric lsp-gen
 
-.. index:: no debug openfabric lsp-gen
+.. index:: debug openfabric lsp-gen
 .. clicmd:: no debug openfabric lsp-gen
 
 Generation of own LSPs.
@@ -307,7 +307,7 @@ Generation of own LSPs.
 .. index:: debug openfabric lsp-sched
 .. clicmd:: debug openfabric lsp-sched
 
-.. index:: no debug openfabric lsp-sched
+.. index:: debug openfabric lsp-sched
 .. clicmd:: no debug openfabric lsp-sched
 
 Debug scheduling of generation of own LSPs.
@@ -315,7 +315,7 @@ Debug scheduling of generation of own LSPs.
 .. index:: debug openfabric packet-dump
 .. clicmd:: debug openfabric packet-dump
 
-.. index:: no debug openfabric packet-dump
+.. index:: debug openfabric packet-dump
 .. clicmd:: no debug openfabric packet-dump
 
 OpenFabric packet dump.
@@ -323,7 +323,7 @@ OpenFabric packet dump.
 .. index:: debug openfabric protocol-errors
 .. clicmd:: debug openfabric protocol-errors
 
-.. index:: no debug openfabric protocol-errors
+.. index:: debug openfabric protocol-errors
 .. clicmd:: no debug openfabric protocol-errors
 
 OpenFabric LSP protocol errors.
@@ -331,7 +331,7 @@ OpenFabric LSP protocol errors.
 .. index:: debug openfabric route-events
 .. clicmd:: debug openfabric route-events
 
-.. index:: no debug openfabric route-events
+.. index:: debug openfabric route-events
 .. clicmd:: no debug openfabric route-events
 
 OpenFabric Route related events.
@@ -339,7 +339,7 @@ OpenFabric Route related events.
 .. index:: debug openfabric snp-packets
 .. clicmd:: debug openfabric snp-packets
 
-.. index:: no debug openfabric snp-packets
+.. index:: debug openfabric snp-packets
 .. clicmd:: no debug openfabric snp-packets
 
 OpenFabric CSNP/PSNP packets.
@@ -353,13 +353,13 @@ OpenFabric CSNP/PSNP packets.
 .. index:: debug openfabric spf-triggers
 .. clicmd:: debug openfabric spf-triggers
 
-.. index:: no debug openfabric spf-events
+.. index:: debug openfabric spf-events
 .. clicmd:: no debug openfabric spf-events
 
-.. index:: no debug openfabric spf-statistics
+.. index:: debug openfabric spf-statistics
 .. clicmd:: no debug openfabric spf-statistics
 
-.. index:: no debug openfabric spf-triggers
+.. index:: debug openfabric spf-triggers
 .. clicmd:: no debug openfabric spf-triggers
 
 OpenFabric Shortest Path First Events, Timing and Statistic Data and triggering
@@ -368,7 +368,7 @@ events.
 .. index:: debug openfabric update-packets
 .. clicmd:: debug openfabric update-packets
 
-.. index:: no debug openfabric update-packets
+.. index:: debug openfabric update-packets
 .. clicmd:: no debug openfabric update-packets
 
 Update related packets.

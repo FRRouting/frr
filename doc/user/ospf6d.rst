@@ -32,7 +32,7 @@ OSPF6 router
 .. index:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
 .. clicmd:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
 
-.. index:: no timers throttle spf
+.. index:: timers throttle spf
 .. clicmd:: no timers throttle spf
 
    This command sets the initial `delay`, the `initial-holdtime`
@@ -71,7 +71,7 @@ OSPF6 router
 .. index:: auto-cost reference-bandwidth COST
 .. clicmd:: auto-cost reference-bandwidth COST
 
-.. index:: no auto-cost reference-bandwidth
+.. index:: auto-cost reference-bandwidth
 .. clicmd:: no auto-cost reference-bandwidth
 
    This sets the reference bandwidth for cost calculations, where this

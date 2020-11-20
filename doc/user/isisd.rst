@@ -33,7 +33,7 @@ ISIS router
 To start the ISIS process you have to specify the ISIS router. As of this
 writing, *isisd* does not support multiple ISIS processes.
 
-.. index:: [no] router isis WORD [vrf NAME]
+.. index:: router isis WORD [vrf NAME]
 .. clicmd:: [no] router isis WORD [vrf NAME]
 
    Enable or disable the ISIS process by specifying the ISIS domain with
@@ -44,7 +44,7 @@ writing, *isisd* does not support multiple ISIS processes.
 .. index:: net XX.XXXX. ... .XXX.XX
 .. clicmd:: net XX.XXXX. ... .XXX.XX
 
-.. index:: no net XX.XXXX. ... .XXX.XX
+.. index:: net XX.XXXX. ... .XXX.XX
 .. clicmd:: no net XX.XXXX. ... .XXX.XX
 
    Set/Unset network entity title (NET) provided in ISO format.
@@ -52,7 +52,7 @@ writing, *isisd* does not support multiple ISIS processes.
 .. index:: hostname dynamic
 .. clicmd:: hostname dynamic
 
-.. index:: no hostname dynamic
+.. index:: hostname dynamic
 .. clicmd:: no hostname dynamic
 
    Enable support for dynamic hostname.
@@ -63,10 +63,10 @@ writing, *isisd* does not support multiple ISIS processes.
 .. index:: domain-password [clear | md5] <password>
 .. clicmd:: domain-password [clear | md5] <password>
 
-.. index:: no area-password
+.. index:: area-password
 .. clicmd:: no area-password
 
-.. index:: no domain-password
+.. index:: domain-password
 .. clicmd:: no domain-password
 
    Configure the authentication password for an area, respectively a domain, as
@@ -75,7 +75,7 @@ writing, *isisd* does not support multiple ISIS processes.
 .. index:: log-adjacency-changes
 .. clicmd:: log-adjacency-changes
 
-.. index:: no log-adjacency-changes
+.. index:: log-adjacency-changes
 .. clicmd:: no log-adjacency-changes
 
    Log changes in adjacency state.
@@ -83,7 +83,7 @@ writing, *isisd* does not support multiple ISIS processes.
 .. index:: metric-style [narrow | transition | wide]
 .. clicmd:: metric-style [narrow | transition | wide]
 
-.. index:: no metric-style
+.. index:: metric-style
 .. clicmd:: no metric-style
 
    Set old-style (ISO 10589) or new-style packet formats:
@@ -98,7 +98,7 @@ writing, *isisd* does not support multiple ISIS processes.
 .. index:: set-overload-bit
 .. clicmd:: set-overload-bit
 
-.. index:: no set-overload-bit
+.. index:: set-overload-bit
 .. clicmd:: no set-overload-bit
 
    Set overload bit to avoid any transit traffic.
@@ -106,12 +106,12 @@ writing, *isisd* does not support multiple ISIS processes.
 .. index:: purge-originator
 .. clicmd:: purge-originator
 
-.. index:: no purge-originator
+.. index:: purge-originator
 .. clicmd:: no purge-originator
 
    Enable or disable :rfc:`6232` purge originator identification.
 
-.. index:: [no] lsp-mtu (128-4352)
+.. index:: lsp-mtu (128-4352)
 .. clicmd:: [no] lsp-mtu (128-4352)
 
    Configure the maximum size of generated LSPs, in bytes.
@@ -128,10 +128,10 @@ ISIS Timer
 .. index:: lsp-gen-interval [level-1 | level-2] (1-120)
 .. clicmd:: lsp-gen-interval [level-1 | level-2] (1-120)
 
-.. index:: no lsp-gen-interval
+.. index:: lsp-gen-interval
 .. clicmd:: no lsp-gen-interval
 
-.. index:: no lsp-gen-interval [level-1 | level-2]
+.. index:: lsp-gen-interval [level-1 | level-2]
 .. clicmd:: no lsp-gen-interval [level-1 | level-2]
 
    Set minimum interval in seconds between regenerating same LSP,
@@ -140,7 +140,7 @@ ISIS Timer
 .. index:: lsp-refresh-interval [level-1 | level-2] (1-65235)
 .. clicmd:: lsp-refresh-interval [level-1 | level-2] (1-65235)
 
-.. index:: no lsp-refresh-interval [level-1 | level-2]
+.. index:: lsp-refresh-interval [level-1 | level-2]
 .. clicmd:: no lsp-refresh-interval [level-1 | level-2]
 
    Set LSP refresh interval in seconds, globally, for an area (level-1) or a
@@ -152,10 +152,10 @@ ISIS Timer
 .. index:: max-lsp-lifetime [level-1 | level-2] (360-65535)
 .. clicmd:: max-lsp-lifetime [level-1 | level-2] (360-65535)
 
-.. index:: no max-lsp-lifetime
+.. index:: max-lsp-lifetime
 .. clicmd:: no max-lsp-lifetime
 
-.. index:: no max-lsp-lifetime [level-1 | level-2]
+.. index:: max-lsp-lifetime [level-1 | level-2]
 .. clicmd:: no max-lsp-lifetime [level-1 | level-2]
 
    Set LSP maximum LSP lifetime in seconds, globally, for an area (level-1) or
@@ -167,10 +167,10 @@ ISIS Timer
 .. index:: spf-interval [level-1 | level-2] (1-120)
 .. clicmd:: spf-interval [level-1 | level-2] (1-120)
 
-.. index:: no spf-interval
+.. index:: spf-interval
 .. clicmd:: no spf-interval
 
-.. index:: no spf-interval [level-1 | level-2]
+.. index:: spf-interval [level-1 | level-2]
 .. clicmd:: no spf-interval [level-1 | level-2]
 
    Set minimum interval between consecutive SPF calculations in seconds.
@@ -183,7 +183,7 @@ ISIS region
 .. index:: is-type [level-1 | level-1-2 | level-2-only]
 .. clicmd:: is-type [level-1 | level-1-2 | level-2-only]
 
-.. index:: no is-type
+.. index:: is-type
 .. clicmd:: no is-type
 
    Define the ISIS router behavior:
@@ -202,7 +202,8 @@ ISIS interface
 
 .. _ip-router-isis-word:
 
-.. index:: [no] <ip|ipv6> router isis WORD [vrf NAME]
+.. index:: ip router isis WORD [vrf NAME]
+.. index:: ipv6 router isis WORD [vrf NAME]
 .. clicmd:: [no] <ip|ipv6> router isis WORD [vrf NAME]
 
    Activate ISIS adjacency on this interface. Note that the name of ISIS
@@ -213,7 +214,7 @@ ISIS interface
 .. index:: isis circuit-type [level-1 | level-1-2 | level-2]
 .. clicmd:: isis circuit-type [level-1 | level-1-2 | level-2]
 
-.. index:: no isis circuit-type
+.. index:: isis circuit-type
 .. clicmd:: no isis circuit-type
 
    Configure circuit type for interface:
@@ -231,10 +232,10 @@ ISIS interface
 .. index:: isis csnp-interval (1-600) [level-1 | level-2]
 .. clicmd:: isis csnp-interval (1-600) [level-1 | level-2]
 
-.. index:: no isis csnp-interval
+.. index:: isis csnp-interval
 .. clicmd:: no isis csnp-interval
 
-.. index:: no isis csnp-interval [level-1 | level-2]
+.. index:: isis csnp-interval [level-1 | level-2]
 .. clicmd:: no isis csnp-interval [level-1 | level-2]
 
    Set CSNP interval in seconds globally, for an area (level-1) or a domain
@@ -251,10 +252,10 @@ ISIS interface
 .. index:: isis hello-interval (1-600) [level-1 | level-2]
 .. clicmd:: isis hello-interval (1-600) [level-1 | level-2]
 
-.. index:: no isis hello-interval
+.. index:: isis hello-interval
 .. clicmd:: no isis hello-interval
 
-.. index:: no isis hello-interval [level-1 | level-2]
+.. index:: isis hello-interval [level-1 | level-2]
 .. clicmd:: no isis hello-interval [level-1 | level-2]
 
    Set Hello interval in seconds globally, for an area (level-1) or a domain
@@ -266,10 +267,10 @@ ISIS interface
 .. index:: isis hello-multiplier (2-100) [level-1 | level-2]
 .. clicmd:: isis hello-multiplier (2-100) [level-1 | level-2]
 
-.. index:: no isis hello-multiplier
+.. index:: isis hello-multiplier
 .. clicmd:: no isis hello-multiplier
 
-.. index:: no isis hello-multiplier [level-1 | level-2]
+.. index:: isis hello-multiplier [level-1 | level-2]
 .. clicmd:: no isis hello-multiplier [level-1 | level-2]
 
    Set multiplier for Hello holding time globally, for an area (level-1) or a
@@ -281,10 +282,10 @@ ISIS interface
 .. index:: isis metric [(0-255) | (0-16777215)] [level-1 | level-2]
 .. clicmd:: isis metric [(0-255) | (0-16777215)] [level-1 | level-2]
 
-.. index:: no isis metric
+.. index:: isis metric
 .. clicmd:: no isis metric
 
-.. index:: no isis metric [level-1 | level-2]
+.. index:: isis metric [level-1 | level-2]
 .. clicmd:: no isis metric [level-1 | level-2]
 
    Set default metric value globally, for an area (level-1) or a domain
@@ -294,7 +295,7 @@ ISIS interface
 .. index:: isis network point-to-point
 .. clicmd:: isis network point-to-point
 
-.. index:: no isis network point-to-point
+.. index:: isis network point-to-point
 .. clicmd:: no isis network point-to-point
 
    Set network type to 'Point-to-Point' (broadcast by default).
@@ -302,7 +303,7 @@ ISIS interface
 .. index:: isis passive
 .. clicmd:: isis passive
 
-.. index:: no isis passive
+.. index:: isis passive
 .. clicmd:: no isis passive
 
    Configure the passive mode for this interface.
@@ -310,7 +311,7 @@ ISIS interface
 .. index:: isis password [clear | md5] <password>
 .. clicmd:: isis password [clear | md5] <password>
 
-.. index:: no isis password
+.. index:: isis password
 .. clicmd:: no isis password
 
    Configure the authentication password (clear or encoded text) for the
@@ -322,10 +323,10 @@ ISIS interface
 .. index:: isis priority (0-127) [level-1 | level-2]
 .. clicmd:: isis priority (0-127) [level-1 | level-2]
 
-.. index:: no isis priority
+.. index:: isis priority
 .. clicmd:: no isis priority
 
-.. index:: no isis priority [level-1 | level-2]
+.. index:: isis priority [level-1 | level-2]
 .. clicmd:: no isis priority [level-1 | level-2]
 
    Set priority for Designated Router election, globally, for the area
@@ -337,10 +338,10 @@ ISIS interface
 .. index:: isis psnp-interval (1-120) [level-1 | level-2]
 .. clicmd:: isis psnp-interval (1-120) [level-1 | level-2]
 
-.. index:: no isis psnp-interval
+.. index:: isis psnp-interval
 .. clicmd:: no isis psnp-interval
 
-.. index:: no isis psnp-interval [level-1 | level-2]
+.. index:: isis psnp-interval [level-1 | level-2]
 .. clicmd:: no isis psnp-interval [level-1 | level-2]
 
    Set PSNP interval in seconds globally, for an area (level-1) or a domain
@@ -349,13 +350,13 @@ ISIS interface
 .. index:: isis three-way-handshake
 .. clicmd:: isis three-way-handshake
 
-.. index:: no isis three-way-handshake
+.. index:: isis three-way-handshake
 .. clicmd:: no isis three-way-handshake
 
    Enable or disable :rfc:`5303` Three-Way Handshake for P2P adjacencies.
    Three-Way Handshake is enabled by default.
 
-.. index:: [no] isis fast-reroute ti-lfa [level-1|level-2] [node-protection]
+.. index:: isis fast-reroute ti-lfa [level-1|level-2] [node-protection]
 .. clicmd:: [no] isis fast-reroute ti-lfa [level-1|level-2] [node-protection]
 
    Enable per-prefix TI-LFA fast reroute link or node protection.
@@ -443,7 +444,7 @@ Traffic Engineering
 .. index:: mpls-te on
 .. clicmd:: mpls-te on
 
-.. index:: no mpls-te
+.. index:: mpls-te
 .. clicmd:: no mpls-te
 
    Enable Traffic Engineering LSP flooding.
@@ -451,7 +452,7 @@ Traffic Engineering
 .. index:: mpls-te router-address <A.B.C.D>
 .. clicmd:: mpls-te router-address <A.B.C.D>
 
-.. index:: no mpls-te router-address
+.. index:: mpls-te router-address
 .. clicmd:: no mpls-te router-address
 
    Configure stable IP address for MPLS-TE.
@@ -489,33 +490,33 @@ Known limitations:
  - No support for SRLB
  - Only one SRGB and default SPF Algorithm is supported
 
-.. index:: [no] segment-routing on
+.. index:: segment-routing on
 .. clicmd:: [no] segment-routing on
 
    Enable Segment Routing.
 
-.. index:: [no] segment-routing global-block (0-1048575) (0-1048575)
+.. index:: segment-routing global-block (0-1048575) (0-1048575)
 .. clicmd:: [no] segment-routing global-block (0-1048575) (0-1048575)
 
    Set the Segment Routing Global Block i.e. the label range used by MPLS
    to store label in the MPLS FIB for Prefix SID. Note that the block size
    may not exceed 65535.
 
-.. index:: [no] segment-routing local-block (0-1048575) (0-1048575)
+.. index:: segment-routing local-block (0-1048575) (0-1048575)
 .. clicmd:: [no] segment-routing local-block (0-1048575) (0-1048575)
 
    Set the Segment Routing Local Block i.e. the label range used by MPLS
    to store label in the MPLS FIB for Adjacency SID. Note that the block size
    may not exceed 65535.
 
-.. index:: [no] segment-routing node-msd (1-16)
+.. index:: segment-routing node-msd (1-16)
 .. clicmd:: [no] segment-routing node-msd (1-16)
 
    Set the Maximum Stack Depth supported by the router. The value depend of the
    MPLS dataplane. E.g. for Linux kernel, since version 4.13 the maximum value
    is 32.
 
-.. index:: [no] segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16-1048575)|index (0-65535)> [no-php-flag|explicit-null] [n-flag-clear]
+.. index:: segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16-1048575)|index (0-65535)> [no-php-flag|explicit-null] [n-flag-clear]
 .. clicmd:: [no] segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16-1048575)|index (0-65535) [no-php-flag|explicit-null] [n-flag-clear]
 
    Set the Segment Routing index or absolute label value for the specified
@@ -542,7 +543,7 @@ Debugging ISIS
 .. index:: debug isis adj-packets
 .. clicmd:: debug isis adj-packets
 
-.. index:: no debug isis adj-packets
+.. index:: debug isis adj-packets
 .. clicmd:: no debug isis adj-packets
 
    IS-IS Adjacency related packets.
@@ -550,7 +551,7 @@ Debugging ISIS
 .. index:: debug isis checksum-errors
 .. clicmd:: debug isis checksum-errors
 
-.. index:: no debug isis checksum-errors
+.. index:: debug isis checksum-errors
 .. clicmd:: no debug isis checksum-errors
 
    IS-IS LSP checksum errors.
@@ -558,7 +559,7 @@ Debugging ISIS
 .. index:: debug isis events
 .. clicmd:: debug isis events
 
-.. index:: no debug isis events
+.. index:: debug isis events
 .. clicmd:: no debug isis events
 
    IS-IS Events.
@@ -566,7 +567,7 @@ Debugging ISIS
 .. index:: debug isis local-updates
 .. clicmd:: debug isis local-updates
 
-.. index:: no debug isis local-updates
+.. index:: debug isis local-updates
 .. clicmd:: no debug isis local-updates
 
    IS-IS local update packets.
@@ -574,7 +575,7 @@ Debugging ISIS
 .. index:: debug isis packet-dump
 .. clicmd:: debug isis packet-dump
 
-.. index:: no debug isis packet-dump
+.. index:: debug isis packet-dump
 .. clicmd:: no debug isis packet-dump
 
    IS-IS packet dump.
@@ -582,7 +583,7 @@ Debugging ISIS
 .. index:: debug isis protocol-errors
 .. clicmd:: debug isis protocol-errors
 
-.. index:: no debug isis protocol-errors
+.. index:: debug isis protocol-errors
 .. clicmd:: no debug isis protocol-errors
 
    IS-IS LSP protocol errors.
@@ -590,7 +591,7 @@ Debugging ISIS
 .. index:: debug isis route-events
 .. clicmd:: debug isis route-events
 
-.. index:: no debug isis route-events
+.. index:: debug isis route-events
 .. clicmd:: no debug isis route-events
 
    IS-IS Route related events.
@@ -598,7 +599,7 @@ Debugging ISIS
 .. index:: debug isis snp-packets
 .. clicmd:: debug isis snp-packets
 
-.. index:: no debug isis snp-packets
+.. index:: debug isis snp-packets
 .. clicmd:: no debug isis snp-packets
 
    IS-IS CSNP/PSNP packets.
@@ -612,13 +613,13 @@ Debugging ISIS
 .. index:: debug isis spf-triggers
 .. clicmd:: debug isis spf-triggers
 
-.. index:: no debug isis spf-events
+.. index:: debug isis spf-events
 .. clicmd:: no debug isis spf-events
 
-.. index:: no debug isis spf-statistics
+.. index:: debug isis spf-statistics
 .. clicmd:: no debug isis spf-statistics
 
-.. index:: no debug isis spf-triggers
+.. index:: debug isis spf-triggers
 .. clicmd:: no debug isis spf-triggers
 
    IS-IS Shortest Path First Events, Timing and Statistic Data and triggering
@@ -627,7 +628,7 @@ Debugging ISIS
 .. index:: debug isis update-packets
 .. clicmd:: debug isis update-packets
 
-.. index:: no debug isis update-packets
+.. index:: debug isis update-packets
 .. clicmd:: no debug isis update-packets
 
    Update related packets.
@@ -635,7 +636,7 @@ Debugging ISIS
 .. index:: debug isis sr-events
 .. clicmd:: debug isis sr-events
 
-.. index:: no debug isis sr-events
+.. index:: debug isis sr-events
 .. clicmd:: no debug isis sr-events
 
    IS-IS Segment Routing events.
@@ -643,7 +644,7 @@ Debugging ISIS
 .. index:: debug isis ti-lfa
 .. clicmd:: debug isis ti-lfa
 
-.. index:: no debug isis ti-lfa
+.. index:: debug isis ti-lfa
 .. clicmd:: no debug isis ti-lfa
 
    IS-IS TI-LFA events.

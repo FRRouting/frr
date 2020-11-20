@@ -97,29 +97,29 @@ implementation.
 LDP Configuration
 ===================
 
-.. index:: [no] mpls ldp
+.. index:: mpls ldp
 .. clicmd:: [no] mpls ldp
 
    Enable or disable LDP daemon
 
-.. index:: [no] router-id A.B.C.D
+.. index:: router-id A.B.C.D
 .. clicmd:: [no] router-id A.B.C.D
 
    The following command located under MPLS router node configures the MPLS
    router-id of the local device.
 
-.. index:: [no] ordered-control
+.. index:: ordered-control
 .. clicmd:: [no] ordered-control
 
    Configure LDP Ordered Label Distribution Control.
 
-.. index:: [no] address-family [ipv4 | ipv6]
+.. index:: address-family [ipv4 | ipv6]
 .. clicmd:: [no] address-family [ipv4 | ipv6]
 
    Configure LDP for IPv4 or IPv6 address-family. Located under MPLS route node,
    this subnode permits configuring the LDP neighbors.
 
-.. index:: [no] interface IFACE
+.. index:: interface IFACE
 .. clicmd:: [no] interface IFACE
 
    Located under MPLS address-family node, use this command to enable or disable
@@ -127,14 +127,14 @@ LDP Configuration
    enabled. By default it is disabled. Once this command executed, the
    address-family interface node is configured.
 
-.. index:: [no] discovery transport-address A.B.C.D | A:B::C:D
+.. index:: discovery transport-address A.B.C.D | A:B::C:D
 .. clicmd:: [no] discovery transport-address A.B.C.D | A:B::C:D
 
    Located under mpls address-family interface node, use this command to set
    the IPv4 or IPv6 transport-address used by the LDP protocol to talk on this
    interface.
 
-.. index:: [no] neighbor A.B.C.D password PASSWORD
+.. index:: neighbor A.B.C.D password PASSWORD
 .. clicmd:: [no] neighbor A.B.C.D password PASSWORD
 
    The following command located under MPLS router node configures the router
@@ -142,7 +142,7 @@ LDP Configuration
    configured password. PASSWORD is a clear text password wit its digest sent
    through the network.
 
-.. index:: [no] neighbor A.B.C.D holdtime HOLDTIME
+.. index:: neighbor A.B.C.D holdtime HOLDTIME
 .. clicmd:: [no] neighbor A.B.C.D holdtime HOLDTIME
 
    The following command located under MPLS router node configures the holdtime
@@ -151,10 +151,10 @@ LDP Configuration
    this time of non response, the LDP established session will be considered as
    set to down. By default, no holdtime is configured for the LDP devices.
 
-.. index:: [no] discovery hello holdtime HOLDTIME
+.. index:: discovery hello holdtime HOLDTIME
 .. clicmd:: [no] discovery hello holdtime HOLDTIME
 
-.. index:: [no] discovery hello interval INTERVAL
+.. index:: discovery hello interval INTERVAL
 .. clicmd:: [no] discovery hello interval INTERVAL
 
    INTERVAL value ranges from 1 to 65535 seconds. Default value is 5 seconds.
@@ -162,7 +162,7 @@ LDP Configuration
    HOLDTIME value ranges from 1 to 65535 seconds. Default value is 15 seconds.
    That value is added as a TLV in the LDP messages.
 
-.. index:: [no] dual-stack transport-connection prefer ipv4
+.. index:: dual-stack transport-connection prefer ipv4
 .. clicmd:: [no] dual-stack transport-connection prefer ipv4
 
    When *ldpd* is configured for dual-stack operation, the transport connection
