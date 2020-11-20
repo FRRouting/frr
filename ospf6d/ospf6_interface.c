@@ -261,7 +261,7 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	ospf6_lsdb_delete(oi->lsupdate_list);
 	ospf6_lsdb_delete(oi->lsack_list);
 
-	ospf6_route_table_delete(oi->route_connected, oi->area->ospf6);
+	ospf6_route_table_delete(oi->route_connected);
 
 	/* cut link */
 	oi->interface->info = NULL;
@@ -417,7 +417,7 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 		return;
 
 	/* update "route to advertise" interface route table */
-	ospf6_route_remove_all(oi->route_connected, oi->area->ospf6);
+	ospf6_route_remove_all(oi->route_connected);
 
 	for (ALL_LIST_ELEMENTS(oi->interface->connected, node, nnode, c)) {
 		if (c->address->family != AF_INET6)
@@ -461,7 +461,7 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 		inet_pton(AF_INET6, "::1", &nh_addr);
 		ospf6_route_add_nexthop(route, oi->interface->ifindex,
 					&nh_addr);
-		ospf6_route_add(route, oi->route_connected, oi->area->ospf6);
+		ospf6_route_add(route, oi->route_connected);
 	}
 
 	/* create new Link-LSA */

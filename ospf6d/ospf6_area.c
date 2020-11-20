@@ -115,23 +115,25 @@ static void ospf6_area_lsdb_hook_remove(struct ospf6_lsa *lsa)
 	}
 }
 
-static void ospf6_area_route_hook_add(struct ospf6_route *route,
-				      struct ospf6 *ospf6)
+static void ospf6_area_route_hook_add(struct ospf6_route *route)
 {
+	struct ospf6_area *oa = route->table->scope;
+	struct ospf6 *ospf6 = oa->ospf6;
 	struct ospf6_route *copy;
 
 	copy = ospf6_route_copy(route);
-	ospf6_route_add(copy, ospf6->route_table, ospf6);
+	ospf6_route_add(copy, ospf6->route_table);
 }
 
-static void ospf6_area_route_hook_remove(struct ospf6_route *route,
-					 struct ospf6 *ospf6)
+static void ospf6_area_route_hook_remove(struct ospf6_route *route)
 {
+	struct ospf6_area *oa = route->table->scope;
+	struct ospf6 *ospf6 = oa->ospf6;
 	struct ospf6_route *copy;
 
 	copy = ospf6_route_lookup_identical(route, ospf6->route_table);
 	if (copy)
-		ospf6_route_remove(copy, ospf6->route_table, ospf6);
+		ospf6_route_remove(copy, ospf6->route_table);
 }
 
 static void ospf6_area_stub_update(struct ospf6_area *area)
@@ -284,13 +286,13 @@ void ospf6_area_delete(struct ospf6_area *oa)
 	ospf6_lsdb_delete(oa->lsdb_self);
 	ospf6_lsdb_delete(oa->temp_router_lsa_lsdb);
 
-	ospf6_spf_table_finish(oa->spf_table, oa->ospf6);
-	ospf6_route_table_delete(oa->spf_table, oa->ospf6);
-	ospf6_route_table_delete(oa->route_table, oa->ospf6);
+	ospf6_spf_table_finish(oa->spf_table);
+	ospf6_route_table_delete(oa->spf_table);
+	ospf6_route_table_delete(oa->route_table);
 
-	ospf6_route_table_delete(oa->range_table, oa->ospf6);
-	ospf6_route_table_delete(oa->summary_prefix, oa->ospf6);
-	ospf6_route_table_delete(oa->summary_router, oa->ospf6);
+	ospf6_route_table_delete(oa->range_table);
+	ospf6_route_table_delete(oa->summary_prefix);
+	ospf6_route_table_delete(oa->summary_router);
 
 	listnode_delete(oa->ospf6->area_list, oa);
 	oa->ospf6 = NULL;
@@ -351,8 +353,8 @@ void ospf6_area_disable(struct ospf6_area *oa)
 	ospf6_lsdb_remove_all(oa->lsdb);
 	ospf6_lsdb_remove_all(oa->lsdb_self);
 
-	ospf6_spf_table_finish(oa->spf_table, oa->ospf6);
-	ospf6_route_remove_all(oa->route_table, oa->ospf6);
+	ospf6_spf_table_finish(oa->spf_table);
+	ospf6_route_remove_all(oa->route_table);
 
 	THREAD_OFF(oa->thread_router_lsa);
 	THREAD_OFF(oa->thread_intra_prefix_lsa);
@@ -508,7 +510,7 @@ DEFUN (area_range,
 	zlog_debug("%s: for prefix %s, flag = %x", __func__,
 		   argv[idx_ipv6_prefixlen]->arg, range->flag);
 	if (range->rnode == NULL) {
-		ospf6_route_add(range, oa->range_table, oa->ospf6);
+		ospf6_route_add(range, oa->range_table);
 	}
 
 	if (ospf6_is_router_abr(ospf6)) {
@@ -569,7 +571,7 @@ DEFUN (no_area_range,
 		/* purge the old aggregated summary LSA */
 		ospf6_abr_originate_summary(range, oa->ospf6);
 	}
-	ospf6_route_remove(range, oa->range_table, oa->ospf6);
+	ospf6_route_remove(range, oa->range_table);
 
 	return CMD_SUCCESS;
 }
@@ -978,15 +980,15 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 
 	route = ospf6_route_lookup(&prefix, spf_table);
 	if (route == NULL) {
-		ospf6_spf_table_finish(spf_table, ospf6);
-		ospf6_route_table_delete(spf_table, ospf6);
+		ospf6_spf_table_finish(spf_table);
+		ospf6_route_table_delete(spf_table);
 		return CMD_SUCCESS;
 	}
 	root = (struct ospf6_vertex *)route->route_option;
 	ospf6_spf_display_subtree(vty, "", 0, root);
 
-	ospf6_spf_table_finish(spf_table, ospf6);
-	ospf6_route_table_delete(spf_table, ospf6);
+	ospf6_spf_table_finish(spf_table);
+	ospf6_route_table_delete(spf_table);
 
 	return CMD_SUCCESS;
 }

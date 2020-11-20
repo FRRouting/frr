@@ -287,7 +287,7 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 				 */
 				if (ospf6->route_table->hook_add)
 					(*ospf6->route_table->hook_add)(
-						old_route, ospf6);
+						old_route);
 
 				if (old_route->path.origin.id
 					    == route->path.origin.id
@@ -315,7 +315,7 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 						route->path.cost);
 				}
 				ospf6_route_remove(old_route,
-						   ospf6->route_table, ospf6);
+						   ospf6->route_table);
 			}
 		}
 		if (route_updated)
@@ -425,8 +425,7 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 
 			/* Update RIB/FIB */
 			if (ospf6->route_table->hook_add)
-				(*ospf6->route_table->hook_add)(old_route,
-								ospf6);
+				(*ospf6->route_table->hook_add)(old_route);
 
 			/* Delete the new route its info added to existing
 			 * route.
@@ -439,7 +438,7 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 
 	if (!route_found) {
 		/* Add new route to existing node in ospf6 route table. */
-		ospf6_route_add(route, ospf6->route_table, ospf6);
+		ospf6_route_add(route, ospf6->route_table);
 	}
 }
 
@@ -531,7 +530,7 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa, struct ospf6 *ospf6)
 	old = ospf6_route_lookup(&route->prefix, ospf6->route_table);
 	if (!old) {
 		/* Add the new route to ospf6 instance route table. */
-		ospf6_route_add(route, ospf6->route_table, ospf6);
+		ospf6_route_add(route, ospf6->route_table);
 	} else {
 		/* RFC 2328 16.4 (6)
 		 * ECMP: Keep new equal preference path in current
@@ -733,8 +732,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 					 */
 					if (oa->ospf6->route_table->hook_add)
 						(*oa->ospf6->route_table
-							  ->hook_add)(
-							route, oa->ospf6);
+							  ->hook_add)(route);
 
 					/* route's primary path is similar
 					 * to LSA, replace route's primary
@@ -758,8 +756,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 					}
 				} else {
 					ospf6_route_remove(
-						route, oa->ospf6->route_table,
-						oa->ospf6);
+						route, oa->ospf6->route_table);
 				}
 			}
 			continue;
@@ -799,7 +796,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				&route->prefix, route->path.cost, route->path.u.cost_e2,
 				listcount(route->nh_list));
 		}
-		ospf6_route_remove(route, oa->ospf6->route_table, oa->ospf6);
+		ospf6_route_remove(route, oa->ospf6->route_table);
 	}
 	if (route != NULL)
 		ospf6_route_unlock(route);
@@ -1191,7 +1188,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	node = route_node_get(ospf6->external_id_table, &prefix_id);
 	node->info = route;
 
-	route = ospf6_route_add(route, ospf6->external_table, ospf6);
+	route = ospf6_route_add(route, ospf6->external_table);
 	route->route_option = info;
 
 	if (IS_OSPF6_DEBUG_ASBR) {
@@ -1257,7 +1254,7 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 	route_unlock_node(node); /* to free the lookup lock */
 	route_unlock_node(node); /* to free the original lock */
 
-	ospf6_route_remove(match, ospf6->external_table, ospf6);
+	ospf6_route_remove(match, ospf6->external_table);
 	XFREE(MTYPE_OSPF6_EXTERNAL_INFO, info);
 
 	/* Router-Bit (ASBR Flag) may have to be updated */

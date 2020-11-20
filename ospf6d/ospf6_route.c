@@ -398,6 +398,7 @@ void ospf6_copy_paths(struct list *dst, struct list *src)
 struct ospf6_route *ospf6_route_create(void)
 {
 	struct ospf6_route *route;
+
 	route = XCALLOC(MTYPE_OSPF6_ROUTE, sizeof(struct ospf6_route));
 	route->nh_list = list_new();
 	route->nh_list->cmp = (int (*)(void *, void *))ospf6_nexthop_cmp;
@@ -590,8 +591,7 @@ static void route_table_assert(struct ospf6_route_table *table)
 #endif /*DEBUG*/
 
 struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
-				    struct ospf6_route_table *table,
-				    struct ospf6 *ospf6)
+				    struct ospf6_route_table *table)
 {
 	struct route_node *node, *nextnode, *prevnode;
 	struct ospf6_route *current = NULL;
@@ -700,7 +700,7 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 		ospf6_route_table_assert(table);
 
 		if (table->hook_add)
-			(*table->hook_add)(route, ospf6);
+			(*table->hook_add)(route);
 
 		return route;
 	}
@@ -755,7 +755,7 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 
 		SET_FLAG(route->flag, OSPF6_ROUTE_ADD);
 		if (table->hook_add)
-			(*table->hook_add)(route, ospf6);
+			(*table->hook_add)(route);
 
 		return route;
 	}
@@ -821,13 +821,13 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 
 	SET_FLAG(route->flag, OSPF6_ROUTE_ADD);
 	if (table->hook_add)
-		(*table->hook_add)(route, ospf6);
+		(*table->hook_add)(route);
 
 	return route;
 }
 
 void ospf6_route_remove(struct ospf6_route *route,
-			struct ospf6_route_table *table, struct ospf6 *ospf6)
+			struct ospf6_route_table *table)
 {
 	struct route_node *node;
 	struct ospf6_route *current;
@@ -882,7 +882,7 @@ void ospf6_route_remove(struct ospf6_route *route,
 
 	/* Note hook_remove may call ospf6_route_remove */
 	if (table->hook_remove)
-		(*table->hook_remove)(route, ospf6);
+		(*table->hook_remove)(route);
 
 	ospf6_route_unlock(route);
 }
@@ -1002,13 +1002,12 @@ struct ospf6_route *ospf6_route_match_next(struct prefix *prefix,
 	return next;
 }
 
-void ospf6_route_remove_all(struct ospf6_route_table *table,
-			    struct ospf6 *ospf6)
+void ospf6_route_remove_all(struct ospf6_route_table *table)
 {
 	struct ospf6_route *route;
 	for (route = ospf6_route_head(table); route;
 	     route = ospf6_route_next(route))
-		ospf6_route_remove(route, table, ospf6);
+		ospf6_route_remove(route, table);
 }
 
 struct ospf6_route_table *ospf6_route_table_create(int s, int t)
@@ -1021,10 +1020,9 @@ struct ospf6_route_table *ospf6_route_table_create(int s, int t)
 	return new;
 }
 
-void ospf6_route_table_delete(struct ospf6_route_table *table,
-			      struct ospf6 *ospf6)
+void ospf6_route_table_delete(struct ospf6_route_table *table)
 {
-	ospf6_route_remove_all(table, ospf6);
+	ospf6_route_remove_all(table);
 	bf_free(table->idspace);
 	route_table_finish(table->table);
 	XFREE(MTYPE_OSPF6_ROUTE, table);
