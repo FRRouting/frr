@@ -1245,6 +1245,8 @@ TI-LFA requires a proper Segment Routing configuration.
 
    Configured on the router level. Activates TI-LFA for all interfaces.
 
+   Note that so far only P2P interfaces are supported.
+
 Debugging OSPF
 ==============
 
