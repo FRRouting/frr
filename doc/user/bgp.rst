@@ -2574,6 +2574,32 @@ address-family:
 Ethernet Virtual Network - EVPN
 -------------------------------
 
+.. _bgp-evpn-route-target-auto-derivation:
+
+EVPN route target auto-derivation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+   When FRR learns about a local VNI and there is no explicit configuration
+   for that VNI in FRR, the route distinguisher (RD) and import
+   and export route targets (RTs) for this VNI are automatically derived;
+   the RD uses RouterId:VNI-Index and the import and export RTs use AS:VNI.
+
+.. index:: [no] autort rfc8365-compatible
+.. clicmd:: [no] autort rfc8365-compatible
+
+   RFC 8635 explains how RT auto-derivation should be done in section
+   5.1.2.1. In addition to encoding the VNI in the lowest bytes, a
+   3-bit field is used to encode a namespace. For VXLAN, we have to put 1
+   in this field. This is needed for proper interoperability with RT
+   auto-derivation in JunOS.
+
+.. index:: [no] autort as (1-65536)
+.. clicmd:: [no] autort as (1-65536)
+
+   By default, the auto derived AS (AS:VNI), use the bgp router AS.
+   This command allow to define another AS. Usefull for ebgp, when peers have
+   differents AS, but need to have same route-target AS:VNI.
+
 .. _bgp-evpn-advertise-pip:
 
 EVPN advertise-PIP
