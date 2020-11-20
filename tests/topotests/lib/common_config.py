@@ -1150,6 +1150,9 @@ def generate_ips(network, no_of_ips):
         if "/" in start_ipaddr:
             start_ip = start_ipaddr.split("/")[0]
             mask = int(start_ipaddr.split("/")[1])
+        else:
+            logger.debug("start_ipaddr {} must have a / in it".format(start_ipaddr))
+            assert(0)
 
         addr_type = validate_ip_address(start_ip)
         if addr_type == "ipv4":
@@ -2865,7 +2868,7 @@ def verify_rib(
 
                 for advertise_network_dict in advertise_network:
                     if "vrf" in advertise_network_dict:
-                        cmd = "{} vrf {} json".format(command, static_route["vrf"])
+                        cmd = "{} vrf {} json".format(command, advertise_network_dict["vrf"])
                     else:
                         cmd = "{} json".format(command)
 
