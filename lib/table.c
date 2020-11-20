@@ -131,6 +131,7 @@ static void route_table_free(struct route_table *rt)
 			else
 				node->l_right = NULL;
 		} else {
+			rt->top = NULL;
 			break;
 		}
 	}
