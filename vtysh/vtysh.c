@@ -2032,7 +2032,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_exit_all, vtysh_exit_all_cmd, "exit",
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_ALL, vtysh_quit_all, vtysh_quit_all_cmd, "quit",
+DEFUNSH(VTYSH_REALLYALL, vtysh_quit_all, vtysh_quit_all_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_all(self, vty, argc, argv);
