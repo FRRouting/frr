@@ -8028,24 +8028,24 @@ DEFUN (interface_no_ip_igmp,
        IFACE_IGMP_STR)
 {
 	const struct lyd_node *pim_enable_dnode;
-	char pim_if_xpath[XPATH_MAXLEN];
+	char pim_if_xpath[XPATH_MAXLEN + 20];
 
 	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
-			"%s/frr-pim:pim", VTY_CURR_XPATH);
+		 "%s/frr-pim:pim", VTY_CURR_XPATH);
 
 	pim_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-			"%s/pim-enable", pim_if_xpath);
+					  "%s/pim-enable", pim_if_xpath);
 	if (!pim_enable_dnode) {
 		nb_cli_enqueue_change(vty, pim_if_xpath, NB_OP_DESTROY, NULL);
 		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 	} else {
 		if (!yang_dnode_get_bool(pim_enable_dnode, ".")) {
 			nb_cli_enqueue_change(vty, pim_if_xpath, NB_OP_DESTROY,
-					NULL);
+					      NULL);
 			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 		} else
 			nb_cli_enqueue_change(vty, "./igmp-enable",
-					NB_OP_MODIFY, "false");
+					      NB_OP_MODIFY, "false");
 	}
 
 	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
@@ -8574,12 +8574,12 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
        IFACE_PIM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN];
+	char igmp_if_xpath[XPATH_MAXLEN + 20];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-			"%s/frr-igmp:igmp", VTY_CURR_XPATH);
+		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
 	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-			"%s/igmp-enable", igmp_if_xpath);
+					   "%s/igmp-enable", igmp_if_xpath);
 
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
@@ -8587,11 +8587,11 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
 	} else {
 		if (!yang_dnode_get_bool(igmp_enable_dnode, ".")) {
 			nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY,
-					NULL);
+					      NULL);
 			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 		} else
 			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
-					"false");
+					      "false");
 	}
 
 	return nb_cli_apply_changes(vty, "./frr-pim:pim");
@@ -8606,12 +8606,12 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
        IFACE_PIM_SM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN];
+	char igmp_if_xpath[XPATH_MAXLEN + 20];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
 		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
 	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-			"%s/igmp-enable", igmp_if_xpath);
+					   "%s/igmp-enable", igmp_if_xpath);
 
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
@@ -8619,11 +8619,11 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
 	} else {
 		if (!yang_dnode_get_bool(igmp_enable_dnode, ".")) {
 			nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY,
-					NULL);
+					      NULL);
 			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 		} else
 			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
-					"false");
+					      "false");
 	}
 
 	return nb_cli_apply_changes(vty, "./frr-pim:pim");
@@ -8637,12 +8637,12 @@ DEFUN (interface_no_ip_pim,
        PIM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN];
+	char igmp_if_xpath[XPATH_MAXLEN + 20];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-			"%s/frr-igmp:igmp", VTY_CURR_XPATH);
+		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
 	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-			"%s/igmp-enable", igmp_if_xpath);
+					   "%s/igmp-enable", igmp_if_xpath);
 
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
@@ -8650,11 +8650,11 @@ DEFUN (interface_no_ip_pim,
 	} else {
 		if (!yang_dnode_get_bool(igmp_enable_dnode, ".")) {
 			nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY,
-					NULL);
+					      NULL);
 			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 		} else
 			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
-					"false");
+					      "false");
 	}
 
 	return nb_cli_apply_changes(vty, "./frr-pim:pim");
@@ -8671,7 +8671,7 @@ DEFUN(interface_ip_pim_boundary_oil,
       "Prefix list to filter OIL with\n")
 {
 	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_MODIFY,
-			argv[4]->arg);
+			      argv[4]->arg);
 
 	return nb_cli_apply_changes(vty,
 			"./frr-pim:pim/address-family[address-family='%s']",
@@ -9482,29 +9482,29 @@ DEFUN (ip_pim_bfd,
 	char default_tx_interval[5];
 	char default_detect_mult[3];
 	const struct lyd_node *igmp_enable_dnode;
-	char bfd_xpath[XPATH_MAXLEN];
+	char bfd_xpath[XPATH_MAXLEN + 20];
 
 	igmp_enable_dnode = yang_dnode_get(vty->candidate_config->dnode,
-			"%s/frr-igmp:igmp/igmp-enable",
-			VTY_CURR_XPATH);
+					   "%s/frr-igmp:igmp/igmp-enable",
+					   VTY_CURR_XPATH);
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
-				"true");
+				      "true");
 	else {
 		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
 			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
-					"true");
+					      "true");
 	}
 
 	snprintf(default_rx_interval, sizeof(default_rx_interval), "%d",
-			BFD_DEF_MIN_RX);
+		 BFD_DEF_MIN_RX);
 	snprintf(default_tx_interval, sizeof(default_tx_interval), "%d",
-			BFD_DEF_MIN_TX);
+		 BFD_DEF_MIN_TX);
 	snprintf(default_detect_mult, sizeof(default_detect_mult), "%d",
-			BFD_DEF_DETECT_MULT);
+		 BFD_DEF_DETECT_MULT);
 
 	snprintf(bfd_xpath, sizeof(bfd_xpath), "%s/frr-pim:pim/bfd",
-			VTY_CURR_XPATH);
+		 VTY_CURR_XPATH);
 	bfd_info = nb_running_get_entry(NULL, bfd_xpath, false);
 
 	if (!bfd_info ||
