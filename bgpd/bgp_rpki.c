@@ -900,48 +900,47 @@ static int config_write(struct vty *vty)
 	struct listnode *cache_node;
 	struct cache *cache;
 
-	if (listcount(cache_list)) {
-		if (rpki_debug)
-			vty_out(vty, "debug rpki\n");
-
-		vty_out(vty, "!\n");
-		vty_out(vty, "rpki\n");
-		vty_out(vty, "  rpki polling_period %d\n", polling_period);
-		for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
-			switch (cache->type) {
-				struct tr_tcp_config *tcp_config;
-#if defined(FOUND_SSH)
-				struct tr_ssh_config *ssh_config;
-#endif
-			case TCP:
-				tcp_config = cache->tr_config.tcp_config;
-				vty_out(vty, "  rpki cache %s %s ",
-					tcp_config->host, tcp_config->port);
-				break;
-#if defined(FOUND_SSH)
-			case SSH:
-				ssh_config = cache->tr_config.ssh_config;
-				vty_out(vty, "  rpki cache %s %u %s %s %s ",
-					ssh_config->host, ssh_config->port,
-					ssh_config->username,
-					ssh_config->client_privkey_path,
-					ssh_config->server_hostkey_path != NULL
-						? ssh_config
-							  ->server_hostkey_path
-						: " ");
-				break;
-#endif
-			default:
-				break;
-			}
-
-			vty_out(vty, "preference %hhu\n", cache->preference);
-		}
-		vty_out(vty, "  exit\n");
-		return 1;
-	} else {
+	if (!listcount(cache_list))
 		return 0;
+
+	if (rpki_debug)
+		vty_out(vty, "debug rpki\n");
+
+	vty_out(vty, "!\n");
+	vty_out(vty, "rpki\n");
+	vty_out(vty, "  rpki polling_period %d\n", polling_period);
+	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
+		switch (cache->type) {
+			struct tr_tcp_config *tcp_config;
+#if defined(FOUND_SSH)
+			struct tr_ssh_config *ssh_config;
+#endif
+		case TCP:
+			tcp_config = cache->tr_config.tcp_config;
+			vty_out(vty, "  rpki cache %s %s ", tcp_config->host,
+				tcp_config->port);
+			break;
+#if defined(FOUND_SSH)
+		case SSH:
+			ssh_config = cache->tr_config.ssh_config;
+			vty_out(vty, "  rpki cache %s %u %s %s %s ",
+				ssh_config->host, ssh_config->port,
+				ssh_config->username,
+				ssh_config->client_privkey_path,
+				ssh_config->server_hostkey_path != NULL
+					? ssh_config->server_hostkey_path
+					: " ");
+			break;
+#endif
+		default:
+			break;
+		}
+
+		vty_out(vty, "preference %hhu\n", cache->preference);
 	}
+	vty_out(vty, "  exit\n");
+
+	return 1;
 }
 
 DEFUN_NOSH (rpki,
@@ -1275,53 +1274,49 @@ DEFUN (show_rpki_cache_connection,
        RPKI_OUTPUT_STRING
        "Show to which RPKI Cache Servers we have a connection\n")
 {
-	if (is_synchronized()) {
-		struct listnode *cache_node;
-		struct cache *cache;
-		struct rtr_mgr_group *group = get_connected_group();
+	if (!is_synchronized()) {
+		vty_out(vty, "No connection to RPKI cache server.\n");
 
-		if (!group) {
-			vty_out(vty, "Cannot find a connected group.\n");
-			return CMD_SUCCESS;
-		}
-		vty_out(vty, "Connected to group %d\n", group->preference);
-		for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
-			if (cache->preference == group->preference) {
-				struct tr_tcp_config *tcp_config;
+		return CMD_SUCCESS;
+	}
+
+	struct listnode *cache_node;
+	struct cache *cache;
+	struct rtr_mgr_group *group = get_connected_group();
+
+	if (!group) {
+		vty_out(vty, "Cannot find a connected group.\n");
+		return CMD_SUCCESS;
+	}
+	vty_out(vty, "Connected to group %d\n", group->preference);
+	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
+		if (cache->preference == group->preference) {
+			struct tr_tcp_config *tcp_config;
 #if defined(FOUND_SSH)
-				struct tr_ssh_config *ssh_config;
+			struct tr_ssh_config *ssh_config;
 #endif
 
-				switch (cache->type) {
-				case TCP:
-					tcp_config =
-						cache->tr_config.tcp_config;
-					vty_out(vty,
-						"rpki tcp cache %s %s pref %hhu\n",
-						tcp_config->host,
-						tcp_config->port,
-						cache->preference);
-					break;
+			switch (cache->type) {
+			case TCP:
+				tcp_config = cache->tr_config.tcp_config;
+				vty_out(vty, "rpki tcp cache %s %s pref %hhu\n",
+					tcp_config->host, tcp_config->port,
+					cache->preference);
+				break;
 
 #if defined(FOUND_SSH)
-				case SSH:
-					ssh_config =
-						cache->tr_config.ssh_config;
-					vty_out(vty,
-						"rpki ssh cache %s %u pref %hhu\n",
-						ssh_config->host,
-						ssh_config->port,
-						cache->preference);
-					break;
+			case SSH:
+				ssh_config = cache->tr_config.ssh_config;
+				vty_out(vty, "rpki ssh cache %s %u pref %hhu\n",
+					ssh_config->host, ssh_config->port,
+					cache->preference);
+				break;
 #endif
 
-				default:
-					break;
-				}
+			default:
+				break;
 			}
 		}
-	} else {
-		vty_out(vty, "No connection to RPKI cache server.\n");
 	}
 
 	return CMD_SUCCESS;
