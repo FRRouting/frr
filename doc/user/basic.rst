@@ -712,6 +712,12 @@ These options apply to all |PACKAGE_NAME| daemons.
 
    Enable the transactional CLI mode.
 
+.. option:: --limit-fds <number>
+
+   Limit the number of file descriptors that will be used internally
+   by the FRR daemons. By default, the daemons use the system ulimit
+   value.
+
 .. _loadable-module-support:
 
 Loadable Module Support
