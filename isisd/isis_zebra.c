@@ -207,35 +207,30 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 		api_nh->ifindex = nexthop->ifindex;
 
 		/* Add MPLS label(s). */
-		switch (type) {
-		case ISIS_NEXTHOP_MAIN:
-			if (nexthop->sr.present) {
-				api_nh->label_num = 1;
-				api_nh->labels[0] = nexthop->sr.label;
-			} else if (mpls_lsp)
+		if (nexthop->label_stack) {
+			api_nh->label_num = nexthop->label_stack->num_labels;
+			memcpy(api_nh->labels, nexthop->label_stack->label,
+			       sizeof(mpls_label_t) * api_nh->label_num);
+		} else if (nexthop->sr.present) {
+			api_nh->label_num = 1;
+			api_nh->labels[0] = nexthop->sr.label;
+		} else if (mpls_lsp) {
+			switch (type) {
+			case ISIS_NEXTHOP_MAIN:
 				/*
 				 * Do not use non-SR enabled nexthops to prevent
 				 * broken LSPs from being formed.
 				 */
 				continue;
-			break;
-		case ISIS_NEXTHOP_BACKUP:
-			if (nexthop->label_stack) {
-				api_nh->label_num =
-					nexthop->label_stack->num_labels;
-				memcpy(api_nh->labels,
-				       nexthop->label_stack->label,
-				       sizeof(mpls_label_t)
-					       * api_nh->label_num);
-			} else if (mpls_lsp) {
+			case ISIS_NEXTHOP_BACKUP:
 				/*
 				 * This is necessary because zebra requires
 				 * the nexthops of MPLS LSPs to be labeled.
 				 */
 				api_nh->label_num = 1;
 				api_nh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
+				break;
 			}
-			break;
 		}
 
 		/* Backup nexthop handling. */

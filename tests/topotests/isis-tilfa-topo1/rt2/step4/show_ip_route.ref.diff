@@ -1,5 +1,5 @@
---- rt2/step3/show_ip_route.ref	2020-09-25 17:48:05.274913964 -0300
-+++ rt2/step4/show_ip_route.ref	2020-09-25 17:49:01.763649797 -0300
+--- a/rt2/step3/show_ip_route.ref
++++ b/rt2/step4/show_ip_route.ref
 @@ -15,36 +15,10 @@
            "afi":"ipv4",
            "interfaceName":"eth-sw1",
@@ -147,7 +147,7 @@
            ]
          }
        ],
-@@ -248,40 +177,12 @@
+@@ -251,40 +180,12 @@
          {
            "ip":"10.0.1.1",
            "afi":"ipv4",

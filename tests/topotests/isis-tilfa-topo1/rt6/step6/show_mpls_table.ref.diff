@@ -1,5 +1,5 @@
---- rt6/step5/show_mpls_table.ref	2020-09-25 17:50:11.904564461 -0300
-+++ rt6/step6/show_mpls_table.ref	2020-09-25 17:51:14.893386692 -0300
+--- a/rt6/step5/show_mpls_table.ref
++++ b/rt6/step6/show_mpls_table.ref
 @@ -11,7 +11,7 @@
        },
        {
@@ -18,6 +18,24 @@
          "installed":true,
          "interface":"eth-rt5"
        }
+@@ -52,7 +52,7 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16020,
++        "outLabel":30020,
+         "nexthop":"10.0.8.5"
+       }
+     ]
+@@ -74,7 +74,7 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16021,
++        "outLabel":30021,
+         "interface":"eth-rt5"
+       }
+     ]
 @@ -85,7 +85,7 @@
      "nexthops":[
        {
@@ -36,3 +54,21 @@
          "installed":true,
          "interface":"eth-rt5",
          "backupIndex":[
+@@ -140,7 +140,7 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16040,
++        "outLabel":30040,
+         "nexthop":"10.0.8.5"
+       }
+     ]
+@@ -162,7 +162,7 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16041,
++        "outLabel":30041,
+         "interface":"eth-rt5"
+       }
+     ]
