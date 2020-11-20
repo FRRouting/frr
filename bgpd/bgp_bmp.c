@@ -1329,6 +1329,33 @@ static int bmp_stats(struct thread *thread)
 	return 0;
 }
 
+/* read from the BMP socket to detect session termination */
+static int bmp_read(struct thread *t)
+{
+	struct bmp *bmp = THREAD_ARG(t);
+	char buf[1024];
+	ssize_t n;
+
+	bmp->t_read = NULL;
+
+	n = read(bmp->socket, buf, sizeof(buf));
+	if (n >= 1) {
+		zlog_info("bmp[%s]: unexpectedly received %zu bytes", bmp->remote, n);
+	} else if (n == 0) {
+		/* the TCP session was terminated by the far end */
+		bmp_wrerr(bmp, NULL, true);
+		return 0;
+	} else if (!(errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
+		/* the TCP session experienced a fatal error, likely a timeout */
+		bmp_wrerr(bmp, NULL, false);
+		return -1;
+	}
+
+	thread_add_read(bm->master, bmp_read, bmp, bmp->socket, &bmp->t_read);
+
+	return 0;
+}
+
 static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 {
 	union sockunion su, *sumem;
@@ -1349,7 +1376,6 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 
 	set_nonblocking(bmp_sock);
 	set_cloexec(bmp_sock);
-	shutdown(bmp_sock, SHUT_RD);
 
 	if (!sockunion2hostprefix(&su, &p)) {
 		close(bmp_sock);
@@ -1403,6 +1429,7 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 	bmp->state = BMP_PeerUp;
 	bmp->pullwr = pullwr_new(bm->master, bmp_sock, bmp, bmp_wrfill,
 			bmp_wrerr);
+	thread_add_read(bm->master, bmp_read, bmp, bmp_sock, &bmp->t_read);
 	bmp_send_initiation(bmp);
 
 	return bmp;
@@ -1434,6 +1461,8 @@ static void bmp_close(struct bmp *bmp)
 {
 	struct bmp_queue_entry *bqe;
 	struct bmp_mirrorq *bmq;
+
+	THREAD_OFF(bmp->t_read);
 
 	if (bmp->active)
 		bmp_active_disconnected(bmp->active);
