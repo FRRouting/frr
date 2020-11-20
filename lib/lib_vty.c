@@ -255,11 +255,11 @@ DEFUN_HIDDEN (end_config,
 	return CMD_SUCCESS;
 }
 
-void cmd_init_config_callbacks(void (*start_config)(void),
-			       void (*end_config)(void))
+void cmd_init_config_callbacks(void (*start_config_cb)(void),
+			       void (*end_config_cb)(void))
 {
-	callback.start_config = start_config;
-	callback.end_config = end_config;
+	callback.start_config = start_config_cb;
+	callback.end_config = end_config_cb;
 }
 
 
