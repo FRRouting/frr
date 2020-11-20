@@ -1572,7 +1572,8 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id, int argc)
 			OSPF_NSSA_TRANS_STABLE_DEFAULT;
 		ospf_area_type_set(area, OSPF_AREA_DEFAULT);
 	} else {
-		area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
+		ospf_area_nssa_translator_role_set(ospf, area_id,
+						   OSPF_NSSA_ROLE_CANDIDATE);
 	}
 
 	ospf_area_check_free(ospf, area_id);
@@ -1589,7 +1590,19 @@ int ospf_area_nssa_translator_role_set(struct ospf *ospf,
 	if (area == NULL)
 		return 0;
 
-	area->NSSATranslatorRole = role;
+	if (role != area->NSSATranslatorRole) {
+		if ((area->NSSATranslatorRole == OSPF_NSSA_ROLE_ALWAYS)
+		    || (role == OSPF_NSSA_ROLE_ALWAYS)) {
+			/* RFC 3101 3.1
+			 * if new role is OSPF_NSSA_ROLE_ALWAYS we need to set
+			 * Nt bit, if the role was OSPF_NSSA_ROLE_ALWAYS we need
+			 * to clear Nt bit
+			 */
+			area->NSSATranslatorRole = role;
+			ospf_router_lsa_update_area(area);
+		} else
+			area->NSSATranslatorRole = role;
+	}
 
 	return 1;
 }
