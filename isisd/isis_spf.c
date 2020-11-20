@@ -1429,6 +1429,8 @@ static void init_spt(struct isis_spftree *spftree, int mtid)
 	list_delete_all_node(spftree->sadj_list);
 	isis_vertex_queue_clear(&spftree->tents);
 	isis_vertex_queue_clear(&spftree->paths);
+	memset(&spftree->lfa.protection_counters, 0,
+	       sizeof(spftree->lfa.protection_counters));
 
 	spftree->mtid = mtid;
 }
@@ -1525,9 +1527,23 @@ static void spf_path_process(struct isis_spftree *spftree,
 				pre_spftree = spftree->lfa.old.spftree;
 				route_table = pre_spftree->route_table_backup;
 				allow_ecmp = area->lfa_load_sharing[level - 1];
+				pre_spftree->lfa.protection_counters
+					.tilfa[vertex->N.ip.priority] += 1;
 			} else {
 				route_table = spftree->route_table;
 				allow_ecmp = true;
+
+				/*
+				 * Update LFA protection counters (ignore local
+				 * routes).
+				 */
+				if (vertex->depth > 1) {
+					spftree->lfa.protection_counters
+						.total[priority] += 1;
+					if (listcount(vertex->Adj_N) > 1)
+						spftree->lfa.protection_counters
+							.ecmp[priority] += 1;
+				}
 			}
 
 			isis_route_create(
@@ -2347,10 +2363,223 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	return CMD_SUCCESS;
 }
 
+static void isis_print_frr_summary_line(struct ttable *tt,
+					const char *protection,
+					uint32_t counters[SPF_PREFIX_PRIO_MAX])
+{
+	uint32_t critical, high, medium, low, total;
+
+	critical = counters[SPF_PREFIX_PRIO_CRITICAL];
+	high = counters[SPF_PREFIX_PRIO_HIGH];
+	medium = counters[SPF_PREFIX_PRIO_MEDIUM];
+	low = counters[SPF_PREFIX_PRIO_LOW];
+	total = critical + high + medium + low;
+
+	ttable_add_row(tt, "%s|%u|%u|%u|%u|%u", protection, critical, high,
+		       medium, low, total);
+}
+
+static void
+isis_print_frr_summary_line_coverage(struct ttable *tt, const char *protection,
+				     double counters[SPF_PREFIX_PRIO_MAX],
+				     double total)
+{
+	double critical, high, medium, low;
+
+	critical = counters[SPF_PREFIX_PRIO_CRITICAL] * 100;
+	high = counters[SPF_PREFIX_PRIO_HIGH] * 100;
+	medium = counters[SPF_PREFIX_PRIO_MEDIUM] * 100;
+	low = counters[SPF_PREFIX_PRIO_LOW] * 100;
+	total *= 100;
+
+	ttable_add_row(tt, "%s|%.2f%%|%.2f%%|%.2f%%|%.2f%%|%.2f%%", protection,
+		       critical, high, medium, low, total);
+}
+
+static void isis_print_frr_summary(struct vty *vty,
+				   struct isis_spftree *spftree)
+{
+	struct ttable *tt;
+	char *table;
+	const char *tree_id_text = NULL;
+	uint32_t protectd[SPF_PREFIX_PRIO_MAX] = {0};
+	uint32_t unprotected[SPF_PREFIX_PRIO_MAX] = {0};
+	double coverage[SPF_PREFIX_PRIO_MAX] = {0};
+	uint32_t protected_total = 0, grand_total = 0;
+	double coverage_total;
+
+	if (!spftree)
+		return;
+
+	switch (spftree->tree_id) {
+	case SPFTREE_IPV4:
+		tree_id_text = "IPv4";
+		break;
+	case SPFTREE_IPV6:
+		tree_id_text = "IPv6";
+		break;
+	case SPFTREE_DSTSRC:
+		tree_id_text = "IPv6 (dst-src routing)";
+		break;
+	case SPFTREE_COUNT:
+		assert(!"isis_print_frr_summary shouldn't be called with SPFTREE_COUNT as type");
+		return;
+	}
+
+	vty_out(vty, " IS-IS %s %s Fast ReRoute summary:\n\n",
+		circuit_t2string(spftree->level), tree_id_text);
+
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(
+		tt,
+		"Protection \\ Priority|Critical|High    |Medium  |Low     |Total");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	/* Compute unprotected and coverage totals. */
+	for (int priority = SPF_PREFIX_PRIO_CRITICAL;
+	     priority < SPF_PREFIX_PRIO_MAX; priority++) {
+		uint32_t *lfa = spftree->lfa.protection_counters.lfa;
+		uint32_t *rlfa = spftree->lfa.protection_counters.rlfa;
+		uint32_t *tilfa = spftree->lfa.protection_counters.tilfa;
+		uint32_t *ecmp = spftree->lfa.protection_counters.ecmp;
+		uint32_t *total = spftree->lfa.protection_counters.total;
+
+		protectd[priority] = lfa[priority] + rlfa[priority]
+				     + tilfa[priority] + ecmp[priority];
+		/* Safeguard to protect against possible inconsistencies. */
+		if (protectd[priority] > total[priority])
+			protectd[priority] = total[priority];
+		unprotected[priority] = total[priority] - protectd[priority];
+		protected_total += protectd[priority];
+		grand_total += total[priority];
+
+		if (!total[priority])
+			coverage[priority] = 0;
+		else
+			coverage[priority] =
+				protectd[priority] / (double)total[priority];
+	}
+
+	if (!grand_total)
+		coverage_total = 0;
+	else
+		coverage_total = protected_total / (double)grand_total;
+
+	/* Add rows. */
+	isis_print_frr_summary_line(tt, "Classic LFA",
+				    spftree->lfa.protection_counters.lfa);
+	isis_print_frr_summary_line(tt, "Remote LFA",
+				    spftree->lfa.protection_counters.rlfa);
+	isis_print_frr_summary_line(tt, "Topology Independent LFA",
+				    spftree->lfa.protection_counters.tilfa);
+	isis_print_frr_summary_line(tt, "ECMP",
+				    spftree->lfa.protection_counters.ecmp);
+	isis_print_frr_summary_line(tt, "Unprotected", unprotected);
+	isis_print_frr_summary_line_coverage(tt, "Protection coverage",
+					     coverage, coverage_total);
+
+	/* Dump the generated table. */
+	table = ttable_dump(tt, "\n");
+	vty_out(vty, "%s\n", table);
+	XFREE(MTYPE_TMP, table);
+	ttable_del(tt);
+}
+
+static void show_isis_frr_summary_common(struct vty *vty, int levels,
+					 struct isis *isis)
+{
+	struct listnode *node;
+	struct isis_area *area;
+
+	if (!isis->area_list || isis->area_list->count == 0)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		vty_out(vty, "Area %s:\n",
+			area->area_tag ? area->area_tag : "null");
+
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+			if ((level & levels) == 0)
+				continue;
+
+			if (area->ip_circuits > 0) {
+				isis_print_frr_summary(
+					vty,
+					area->spftree[SPFTREE_IPV4][level - 1]);
+			}
+			if (area->ipv6_circuits > 0) {
+				isis_print_frr_summary(
+					vty,
+					area->spftree[SPFTREE_IPV6][level - 1]);
+			}
+			if (isis_area_ipv6_dstsrc_enabled(area)) {
+				isis_print_frr_summary(
+					vty, area->spftree[SPFTREE_DSTSRC]
+							  [level - 1]);
+			}
+		}
+	}
+}
+
+DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
+      "show " PROTO_NAME
+      " [vrf <NAME|all>] fast-reroute summary"
+#ifndef FABRICD
+      " [<level-1|level-2>]"
+#endif
+      ,
+      SHOW_STR PROTO_HELP VRF_FULL_CMD_HELP_STR
+      "IS-IS FRR information\n"
+      "FRR summary\n"
+#ifndef FABRICD
+      "level-1 routes\n"
+      "level-2 routes\n"
+#endif
+)
+{
+	int levels;
+	struct isis *isis;
+	struct listnode *node;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	int idx = 0;
+
+	if (argv_find(argv, argc, "level-1", &idx))
+		levels = ISIS_LEVEL1;
+	else if (argv_find(argv, argc, "level-2", &idx))
+		levels = ISIS_LEVEL2;
+	else
+		levels = ISIS_LEVEL1 | ISIS_LEVEL2;
+
+	if (!im) {
+		vty_out(vty, "IS-IS Routing Process not enabled\n");
+		return CMD_SUCCESS;
+	}
+	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
+
+	if (vrf_name) {
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+				show_isis_frr_summary_common(vty, levels, isis);
+			return CMD_SUCCESS;
+		}
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis != NULL)
+			show_isis_frr_summary_common(vty, levels, isis);
+	}
+
+	return CMD_SUCCESS;
+}
+
 void isis_spf_init(void)
 {
 	install_element(VIEW_NODE, &show_isis_topology_cmd);
 	install_element(VIEW_NODE, &show_isis_route_cmd);
+	install_element(VIEW_NODE, &show_isis_frr_summary_cmd);
 
 	/* Register hook(s). */
 	hook_register(isis_adj_state_change_hook, spf_adj_state_change);

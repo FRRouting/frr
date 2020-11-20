@@ -469,6 +469,12 @@ Showing ISIS information
    Show the ISIS routing table, as determined by the most recent SPF
    calculation.
 
+.. index:: show isis fast-reroute summary [level-1|level-2]
+.. clicmd:: show isis fast-reroute summary [level-1|level-2]
+
+   Show information about the number of prefixes having LFA protection,
+   and network-wide LFA coverage.
+
 .. _isis-traffic-engineering:
 
 Traffic Engineering

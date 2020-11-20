@@ -1713,6 +1713,8 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 				  best_metric, vertex->depth, &vertex->N.ip.sr,
 				  filtered_lfa_list, allow_ecmp, area,
 				  spftree->route_table_backup);
+		spftree->lfa.protection_counters.lfa[vertex->N.ip.priority] +=
+			1;
 
 		list_delete(&filtered_lfa_list);
 		list_delete(&lfa_list);

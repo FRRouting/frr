@@ -348,6 +348,15 @@ struct isis_spftree {
 		/* P-space and Q-space. */
 		struct isis_spf_nodes p_space;
 		struct isis_spf_nodes q_space;
+
+		/* Protection counters. */
+		struct {
+			uint32_t lfa[SPF_PREFIX_PRIO_MAX];
+			uint32_t rlfa[SPF_PREFIX_PRIO_MAX];
+			uint32_t tilfa[SPF_PREFIX_PRIO_MAX];
+			uint32_t ecmp[SPF_PREFIX_PRIO_MAX];
+			uint32_t total[SPF_PREFIX_PRIO_MAX];
+		} protection_counters;
 	} lfa;
 	uint8_t flags;
 };
