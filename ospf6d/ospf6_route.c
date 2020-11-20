@@ -292,28 +292,28 @@ void ospf6_add_nexthop(struct list *nh_list, int ifindex, struct in6_addr *addr)
 
 void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 				     struct zapi_nexthop nexthops[],
-				     int entries)
+				     int entries, vrf_id_t vrf_id)
 {
 	struct ospf6_nexthop *nh;
 	struct listnode *node;
-	struct interface *ifp;
 	char buf[64];
 	int i;
 
 	if (route) {
 		i = 0;
 		for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
-			ifp = if_lookup_by_index_all_vrf(nh->ifindex);
 			if (IS_OSPF6_DEBUG_ZEBRA(SEND)) {
+				const char *ifname;
 				inet_ntop(AF_INET6, &nh->address, buf,
 					  sizeof(buf));
+				ifname = ifindex2ifname(nh->ifindex, vrf_id);
 				zlog_debug("  nexthop: %s%%%.*s(%d)", buf,
-					   IFNAMSIZ, ifp->name, nh->ifindex);
+					   IFNAMSIZ, ifname, nh->ifindex);
 			}
 			if (i >= entries)
 				return;
 
-			nexthops[i].vrf_id = ifp->vrf_id;
+			nexthops[i].vrf_id = vrf_id;
 			nexthops[i].ifindex = nh->ifindex;
 			if (!IN6_IS_ADDR_UNSPECIFIED(&nh->address)) {
 				nexthops[i].gate.ipv6 = nh->address;

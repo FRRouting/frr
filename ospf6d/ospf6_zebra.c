@@ -344,7 +344,8 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request,
 	api.prefix = *dest;
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	api.nexthop_num = MIN(nhcount, MULTIPATH_NUM);
-	ospf6_route_zebra_copy_nexthops(request, api.nexthops, api.nexthop_num);
+	ospf6_route_zebra_copy_nexthops(request, api.nexthops, api.nexthop_num,
+					api.vrf_id);
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 	api.metric = (request->path.metric_type == 2 ? request->path.u.cost_e2
 						     : request->path.cost);

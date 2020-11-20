@@ -280,7 +280,7 @@ extern int ospf6_route_cmp_nexthops(struct ospf6_route *a,
 				    struct ospf6_route *b);
 extern void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 					    struct zapi_nexthop nexthops[],
-					    int entries);
+					    int entries, vrf_id_t vrf_id);
 extern int ospf6_route_get_first_nh_index(struct ospf6_route *route);
 
 /* Hide abstraction of nexthop implementation in route from outsiders */
