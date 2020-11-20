@@ -1,0 +1,23 @@
+--- a/rt1/step10/show_ipv6_route.ref
++++ b/rt1/step11/show_ipv6_route.ref
+@@ -204,19 +204,13 @@
+           "backupIndex":[
+             0,
+             1,
+-            2,
+-            3
++            2
+           ]
+         }
+       ],
+       "backupNexthops":[
+         {
+           "afi":"ipv6",
+-          "interfaceName":"eth-rt3",
+-          "active":true
+-        },
+-        {
+-          "afi":"ipv6",
+           "interfaceName":"eth-rt4",
+           "active":true
+         },
