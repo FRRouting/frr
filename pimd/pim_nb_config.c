@@ -28,6 +28,8 @@
 #include "pim_ssm.h"
 #include "pim_ssmpingd.h"
 #include "pim_vxlan.h"
+#include "log.h"
+#include "lib_errors.h"
 
 static void pim_if_membership_clear(struct interface *ifp)
 {
@@ -2497,7 +2499,13 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		else if (yang_dnode_get(args->dnode, "./prefix-list")) {
 			plist = yang_dnode_get_string(args->dnode,
 					"./prefix-list");
-			str2prefix("224.0.0.0/4", &group);
+			if (!str2prefix("224.0.0.0/4", &group)) {
+				flog_err(
+					EC_LIB_DEVELOPMENT,
+					"Unable to convert 224.0.0.0/4 to prefix");
+				return NB_ERR_INCONSISTENCY;
+			}
+
 			result = pim_no_rp_cmd_worker(pim, rp_addr.ip._v4_addr,
 					group, plist,
 					args->errmsg,
@@ -2592,7 +2600,11 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		pim = vrf->info;
 		plist = yang_dnode_get_string(args->dnode, NULL);
 		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
-		str2prefix("224.0.0.0/4", &group);
+		if (!str2prefix("224.0.0.0/4", &group)) {
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "Unable to convert 224.0.0.0/4 to prefix");
+			return NB_ERR_INCONSISTENCY;
+		}
 		return pim_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
 				plist, args->errmsg, args->errmsg_len);
 	}
@@ -2619,7 +2631,11 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		pim = vrf->info;
 		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
 		plist = yang_dnode_get_string(args->dnode, NULL);
-		str2prefix("224.0.0.0/4", &group);
+		if (!str2prefix("224.0.0.0/4", &group)) {
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "Unable to convert 224.0.0.0/4 to prefix");
+			return NB_ERR_INCONSISTENCY;
+		}
 		return pim_no_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
 				plist, args->errmsg,
 				args->errmsg_len);
