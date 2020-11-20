@@ -771,7 +771,7 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 	bool has_valid_psid;
 
 	if (isis_lfa_excise_node_check(spftree, lsp->hdr.lsp_id)) {
-		if (IS_DEBUG_TILFA)
+		if (IS_DEBUG_LFA)
 			zlog_debug("ISIS-LFA: excising node %s",
 				   print_sys_hostname(lsp->hdr.lsp_id));
 		return ISIS_OK;
@@ -1140,7 +1140,7 @@ static void isis_spf_preload_tent(struct isis_spftree *spftree,
 			adj_id = sadj->id;
 
 		if (isis_lfa_excise_adj_check(spftree, adj_id)) {
-			if (IS_DEBUG_TILFA)
+			if (IS_DEBUG_LFA)
 				zlog_debug("ISIS-SPF: excising adjacency %s",
 					   isis_format_id(sadj->id,
 							  ISIS_SYS_ID_LEN + 1));

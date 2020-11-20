@@ -280,7 +280,7 @@ extern unsigned long debug_bfd;
 extern unsigned long debug_tx_queue;
 extern unsigned long debug_sr;
 extern unsigned long debug_ldp_sync;
-extern unsigned long debug_tilfa;
+extern unsigned long debug_lfa;
 
 #define DEBUG_ADJ_PACKETS                (1<<0)
 #define DEBUG_SNP_PACKETS                (1<<1)
@@ -296,7 +296,7 @@ extern unsigned long debug_tilfa;
 #define DEBUG_TX_QUEUE                   (1<<11)
 #define DEBUG_SR                         (1<<12)
 #define DEBUG_LDP_SYNC                   (1<<13)
-#define DEBUG_TILFA                      (1<<14)
+#define DEBUG_LFA                        (1<<14)
 
 /* Debug related macro. */
 #define IS_DEBUG_ADJ_PACKETS (debug_adj_pkt & DEBUG_ADJ_PACKETS)
@@ -313,7 +313,7 @@ extern unsigned long debug_tilfa;
 #define IS_DEBUG_TX_QUEUE (debug_tx_queue & DEBUG_TX_QUEUE)
 #define IS_DEBUG_SR (debug_sr & DEBUG_SR)
 #define IS_DEBUG_LDP_SYNC (debug_ldp_sync & DEBUG_LDP_SYNC)
-#define IS_DEBUG_TILFA (debug_tilfa & DEBUG_TILFA)
+#define IS_DEBUG_LFA (debug_lfa & DEBUG_LFA)
 
 #define lsp_debug(...)                                                         \
 	do {                                                                   \

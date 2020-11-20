@@ -438,10 +438,10 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 	uint32_t sid_index;
 	mpls_label_t label_qnode;
 
-	if (IS_DEBUG_TILFA) {
+	if (IS_DEBUG_LFA) {
 		vid2string(vertex, buf, sizeof(buf));
-		zlog_debug("ISIS-TI-LFA: vertex %s %s",
-			   vtype2string(vertex->type), buf);
+		zlog_debug("ISIS-LFA: vertex %s %s", vtype2string(vertex->type),
+			   buf);
 	}
 
 	/* Push original Prefix-SID label when necessary. */
@@ -450,9 +450,9 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 		assert(pvertex);
 
 		sid_index = vertex->N.ip.sr.sid.value;
-		if (IS_DEBUG_TILFA)
+		if (IS_DEBUG_LFA)
 			zlog_debug(
-				"ISIS-TI-LFA: pushing Prefix-SID to %pFX (index %u)",
+				"ISIS-LFA: pushing Prefix-SID to %pFX (index %u)",
 				&vertex->N.ip.p.dest, sid_index);
 		sid_dest.type = TILFA_SID_PREFIX;
 		sid_dest.value.index.value = sid_index;
@@ -481,14 +481,14 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 		label_qnode = tilfa_find_qnode_adj_sid(spftree_pc, vertex->N.id,
 						       vertex_child->N.id);
 		if (label_qnode == MPLS_INVALID_LABEL) {
-			zlog_warn("ISIS-TI-LFA: failed to find %s->%s Adj-SID",
+			zlog_warn("ISIS-LFA: failed to find %s->%s Adj-SID",
 				  print_sys_hostname(vertex->N.id),
 				  print_sys_hostname(vertex_child->N.id));
 			return -1;
 		}
-		if (IS_DEBUG_TILFA)
+		if (IS_DEBUG_LFA)
 			zlog_debug(
-				"ISIS-TI-LFA: pushing %s->%s Adj-SID (label %u)",
+				"ISIS-LFA: pushing %s->%s Adj-SID (label %u)",
 				print_sys_hostname(vertex->N.id),
 				print_sys_hostname(vertex_child->N.id),
 				label_qnode);
@@ -501,17 +501,17 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 	if (is_pnode) {
 		/* The same P-node can't be used more than once. */
 		if (isis_spf_node_find(used_pnodes, vertex->N.id)) {
-			if (IS_DEBUG_TILFA)
+			if (IS_DEBUG_LFA)
 				zlog_debug(
-					"ISIS-TI-LFA: skipping already used P-node");
+					"ISIS-LFA: skipping already used P-node");
 			return 0;
 		}
 		isis_spf_node_new(used_pnodes, vertex->N.id);
 
 		if (!vertex_child) {
-			if (IS_DEBUG_TILFA)
+			if (IS_DEBUG_LFA)
 				zlog_debug(
-					"ISIS-TI-LFA: destination is within Ext-P-Space");
+					"ISIS-LFA: destination is within Ext-P-Space");
 			return 0;
 		}
 
@@ -519,14 +519,14 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 			tilfa_find_pnode_prefix_sid(spftree_pc, vertex->N.id);
 		if (sid_index == UINT32_MAX) {
 			zlog_warn(
-				"ISIS-TI-LFA: failed to find Prefix-SID corresponding to PQ-node %s",
+				"ISIS-LFA: failed to find Prefix-SID corresponding to PQ-node %s",
 				print_sys_hostname(vertex->N.id));
 			return -1;
 		}
 
-		if (IS_DEBUG_TILFA)
+		if (IS_DEBUG_LFA)
 			zlog_debug(
-				"ISIS-TI-LFA: pushing Node-SID to %s (index %u)",
+				"ISIS-LFA: pushing Node-SID to %s (index %u)",
 				print_sys_hostname(vertex->N.id), sid_index);
 		sid_pnode.type = TILFA_SID_PREFIX;
 		sid_pnode.value.index.value = sid_index;
@@ -536,7 +536,7 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc,
 		if (listcount(repair_list)
 		    > spftree_pc->area->srdb.config.msd) {
 			zlog_warn(
-				"ISIS-TI-LFA: list of repair segments exceeds locally configured MSD (%u > %u)",
+				"ISIS-LFA: list of repair segments exceeds locally configured MSD (%u > %u)",
 				listcount(repair_list),
 				spftree_pc->area->srdb.config.msd);
 			return -1;
@@ -680,13 +680,13 @@ int isis_lfa_check(struct isis_spftree *spftree_pc, struct isis_vertex *vertex)
 	if (!spftree_pc->area->srdb.enabled)
 		return -1;
 
-	if (IS_DEBUG_TILFA)
+	if (IS_DEBUG_LFA)
 		vid2string(vertex, buf, sizeof(buf));
 
 	if (!lfa_check_needs_protection(spftree_pc, vertex)) {
-		if (IS_DEBUG_TILFA)
+		if (IS_DEBUG_LFA)
 			zlog_debug(
-				"ISIS-TI-LFA: %s %s unaffected by %s",
+				"ISIS-LFA: %s %s unaffected by %s",
 				vtype2string(vertex->type), buf,
 				lfa_protected_resource2str(
 					&spftree_pc->lfa.protected_resource));
@@ -705,9 +705,9 @@ int isis_lfa_check(struct isis_spftree *spftree_pc, struct isis_vertex *vertex)
 		if (adj
 		    && isis_sr_adj_sid_find(adj, spftree_pc->family,
 					    ISIS_SR_LAN_BACKUP)) {
-			if (IS_DEBUG_TILFA)
+			if (IS_DEBUG_LFA)
 				zlog_debug(
-					"ISIS-TI-LFA: %s %s already covered by node protection",
+					"ISIS-LFA: %s %s already covered by node protection",
 					vtype2string(vertex->type), buf);
 
 			return -1;
@@ -718,18 +718,18 @@ int isis_lfa_check(struct isis_spftree *spftree_pc, struct isis_vertex *vertex)
 
 		route_table = spftree_pc->lfa.old.spftree->route_table_backup;
 		if (route_node_lookup(route_table, &vertex->N.ip.p.dest)) {
-			if (IS_DEBUG_TILFA)
+			if (IS_DEBUG_LFA)
 				zlog_debug(
-					"ISIS-TI-LFA: %s %s already covered by node protection",
+					"ISIS-LFA: %s %s already covered by node protection",
 					vtype2string(vertex->type), buf);
 
 			return -1;
 		}
 	}
 
-	if (IS_DEBUG_TILFA)
+	if (IS_DEBUG_LFA)
 		zlog_debug(
-			"ISIS-TI-LFA: computing repair path(s) of %s %s w.r.t %s",
+			"ISIS-LFA: computing repair path(s) of %s %s w.r.t %s",
 			vtype2string(vertex->type), buf,
 			lfa_protected_resource2str(
 				&spftree_pc->lfa.protected_resource));
@@ -744,7 +744,7 @@ int isis_lfa_check(struct isis_spftree *spftree_pc, struct isis_vertex *vertex)
 	list_delete(&repair_list);
 	if (ret != 0)
 		zlog_warn(
-			"ISIS-TI-LFA: failed to compute repair path(s) of %s %s w.r.t %s",
+			"ISIS-LFA: failed to compute repair path(s) of %s %s w.r.t %s",
 			vtype2string(vertex->type), buf,
 			lfa_protected_resource2str(
 				&spftree_pc->lfa.protected_resource));
@@ -787,8 +787,8 @@ static bool vertex_is_affected(struct isis_spftree *spftree_root,
 		char buf1[VID2STR_BUFFER];
 		char buf2[VID2STR_BUFFER];
 
-		if (IS_DEBUG_TILFA)
-			zlog_debug("ISIS-TI-LFA: vertex %s parent %s",
+		if (IS_DEBUG_LFA)
+			zlog_debug("ISIS-LFA: vertex %s parent %s",
 				   vid2string(vertex, buf1, sizeof(buf1)),
 				   vid2string(pvertex, buf2, sizeof(buf2)));
 
@@ -865,15 +865,15 @@ static void lfa_calc_reach_nodes(struct isis_spftree *spftree,
 		if (isis_spf_node_find(nodes, vertex->N.id))
 			continue;
 
-		if (IS_DEBUG_TILFA)
-			zlog_debug("ISIS-TI-LFA: checking %s",
+		if (IS_DEBUG_LFA)
+			zlog_debug("ISIS-LFA: checking %s",
 				   vid2string(vertex, buf, sizeof(buf)));
 
 		if (!vertex_is_affected(spftree_root, adj_nodes, p_space,
 					vertex, resource)) {
-			if (IS_DEBUG_TILFA)
+			if (IS_DEBUG_LFA)
 				zlog_debug(
-					"ISIS-TI-LFA: adding %s",
+					"ISIS-LFA: adding %s",
 					vid2string(vertex, buf, sizeof(buf)));
 
 			isis_spf_node_new(nodes, vertex->N.id);
@@ -887,7 +887,7 @@ static void lfa_calc_reach_nodes(struct isis_spftree *spftree,
  *
  * @param spftree	IS-IS SPF tree
  *
- * @return		Pointer to new SPF tree structure. 
+ * @return		Pointer to new SPF tree structure.
  */
 struct isis_spftree *isis_spf_reverse_run(const struct isis_spftree *spftree)
 {
@@ -919,18 +919,17 @@ static void lfa_calc_pq_spaces(struct isis_spftree *spftree_pc,
 	spftree_reverse = spftree_pc->lfa.old.spftree_reverse;
 	adj_nodes = &spftree->adj_nodes;
 
-	if (IS_DEBUG_TILFA)
-		zlog_debug("ISIS-TI-LFA: computing P-space (self)");
+	if (IS_DEBUG_LFA)
+		zlog_debug("ISIS-LFA: computing P-space (self)");
 	lfa_calc_reach_nodes(spftree, spftree, adj_nodes, true, resource,
 			     &spftree_pc->lfa.p_space);
 
 	RB_FOREACH (adj_node, isis_spf_nodes, adj_nodes) {
 		if (spf_adj_node_is_affected(adj_node, resource,
 					     spftree->sysid)) {
-			if (IS_DEBUG_TILFA)
-				zlog_debug(
-					"ISIS-TI-LFA: computing Q-space (%s)",
-					print_sys_hostname(adj_node->sysid));
+			if (IS_DEBUG_LFA)
+				zlog_debug("ISIS-LFA: computing Q-space (%s)",
+					   print_sys_hostname(adj_node->sysid));
 
 			/*
 			 * Compute the reverse SPF in the behalf of the node
@@ -944,10 +943,9 @@ static void lfa_calc_pq_spaces(struct isis_spftree *spftree_pc,
 					     resource,
 					     &spftree_pc->lfa.q_space);
 		} else {
-			if (IS_DEBUG_TILFA)
-				zlog_debug(
-					"ISIS-TI-LFA: computing P-space (%s)",
-					print_sys_hostname(adj_node->sysid));
+			if (IS_DEBUG_LFA)
+				zlog_debug("ISIS-LFA: computing P-space (%s)",
+					   print_sys_hostname(adj_node->sysid));
 			lfa_calc_reach_nodes(adj_node->lfa.spftree, spftree,
 					     adj_nodes, true, resource,
 					     &adj_node->lfa.p_space);
@@ -973,8 +971,8 @@ struct isis_spftree *isis_tilfa_compute(struct isis_area *area,
 	struct isis_spftree *spftree_pc;
 	struct isis_spf_node *adj_node;
 
-	if (IS_DEBUG_TILFA)
-		zlog_debug("ISIS-TI-LFA: computing the P/Q spaces w.r.t. %s",
+	if (IS_DEBUG_LFA)
+		zlog_debug("ISIS-LFA: computing the P/Q spaces w.r.t. %s",
 			   lfa_protected_resource2str(resource));
 
 	/* Populate list of nodes affected by link failure. */
@@ -999,9 +997,9 @@ struct isis_spftree *isis_tilfa_compute(struct isis_area *area,
 	/* Compute the extended P-space and Q-space. */
 	lfa_calc_pq_spaces(spftree_pc, resource);
 
-	if (IS_DEBUG_TILFA)
+	if (IS_DEBUG_LFA)
 		zlog_debug(
-			"ISIS-TI-LFA: computing the post convergence SPT w.r.t. %s",
+			"ISIS-LFA: computing the post convergence SPT w.r.t. %s",
 			lfa_protected_resource2str(resource));
 
 	/* Re-run SPF in the local node to find the post-convergence paths. */
@@ -1031,8 +1029,8 @@ int isis_spf_run_neighbors(struct isis_spftree *spftree)
 		return -1;
 
 	RB_FOREACH (adj_node, isis_spf_nodes, &spftree->adj_nodes) {
-		if (IS_DEBUG_TILFA)
-			zlog_debug("ISIS-TI-LFA: running SPF on neighbor %s",
+		if (IS_DEBUG_LFA)
+			zlog_debug("ISIS-LFA: running SPF on neighbor %s",
 				   print_sys_hostname(adj_node->sysid));
 
 		/* Compute the SPT on behalf of the neighbor. */

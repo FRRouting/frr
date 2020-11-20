@@ -641,13 +641,13 @@ Debugging ISIS
 
    IS-IS Segment Routing events.
 
-.. index:: debug isis ti-lfa
-.. clicmd:: debug isis ti-lfa
+.. index:: debug isis lfa
+.. clicmd:: debug isis lfa
 
-.. index:: debug isis ti-lfa
-.. clicmd:: no debug isis ti-lfa
+.. index:: debug isis lfa
+.. clicmd:: no debug isis lfa
 
-   IS-IS TI-LFA events.
+   IS-IS LFA events.
 
 .. index:: show debugging isis
 .. clicmd:: show debugging isis
