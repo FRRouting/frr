@@ -4262,7 +4262,7 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_debug_memstats_cmd);
 
 	/* northbound */
-	install_element(VIEW_NODE, &show_yang_operational_data_cmd);
+	install_element(ENABLE_NODE, &show_yang_operational_data_cmd);
 	install_element(ENABLE_NODE, &debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);
 
