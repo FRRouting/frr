@@ -35,6 +35,8 @@ be specified (:ref:`common-invocation-options`).
    of ``0.0.0.0`` / ``::``. This can be useful to constrain bgpd to an internal
    address, or to run multiple bgpd processes on one host.
 
+   Note that this option implies the --no_kernel option, and no learned routes will be installed into the linux kernel.
+
 .. option:: -n, --no_kernel
 
    Do not install learned routes into the linux kernel.  This option is useful
