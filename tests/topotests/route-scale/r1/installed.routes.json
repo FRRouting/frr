@@ -6,11 +6,11 @@
       "type":"connected"
     },
     {
-      "fib":200000,
-      "rib":200000,
+      "fib":1000000,
+      "rib":1000000,
       "type":"sharp"
     }
   ],
-  "routesTotal":200032,
-  "routesTotalFib":200032
+  "routesTotal":1000032,
+  "routesTotalFib":1000032
 }
