@@ -151,9 +151,3 @@ pimd_mtracebis_SOURCES = pimd/mtracebis.c \
 			 pimd/mtracebis_netlink.c \
 			 pimd/mtracebis_routeget.c \
 			 # end
-
-nodist_pimd_pimd_SOURCES = \
-	yang/frr-pim.yang.c \
-	yang/frr-pim-rp.yang.c \
-	yang/frr-igmp.yang.c \
-	# end
