@@ -10,7 +10,7 @@
     ],
     "4.4.4.4":[
       {
-        "priority":1,
+        "priority":3,
         "state":"Full\/DR",
         "address":"10.0.2.4",
         "ifaceName":"r3-eth0:10.0.2.3"
