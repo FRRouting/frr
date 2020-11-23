@@ -907,31 +907,32 @@ def sleep(amount, reason=None):
     time.sleep(amount)
 
 
-def checkAddressSanitizerError(output, router, component):
+def checkAddressSanitizerError(output, router, component, logdir=""):
     "Checks for AddressSanitizer in output. If found, then logs it and returns true, false otherwise"
 
-    addressSantizerError = re.search(
-        "(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ", output
-    )
-    if addressSantizerError:
+    def processAddressSanitizerError(asanErrorRe, output, router, component):
         sys.stderr.write(
             "%s: %s triggered an exception by AddressSanitizer\n" % (router, component)
         )
         # Sanitizer Error found in log
-        pidMark = addressSantizerError.group(1)
+        pidMark = asanErrorRe.group(1)
         addressSantizerLog = re.search(
             "%s(.*)%s" % (pidMark, pidMark), output, re.DOTALL
         )
         if addressSantizerLog:
             callingTest = os.path.basename(
-                sys._current_frames().values()[0].f_back.f_back.f_globals["__file__"]
+                sys._current_frames().values()[0].f_back.f_back.f_back.f_back.f_back.f_globals["__file__"]
             )
-            callingProc = sys._getframe(2).f_code.co_name
+            callingProc = sys._getframe(5).f_code.co_name
             with open("/tmp/AddressSanitzer.txt", "a") as addrSanFile:
+                sys.stderr.write(
+                    "AddressSanitizer error in topotest `%s`, test `%s`, router `%s`\n\n"
+                    % (callingTest, callingProc, router)
+                )
                 sys.stderr.write(
                     "\n".join(addressSantizerLog.group(1).splitlines()) + "\n"
                 )
-                addrSanFile.write("## Error: %s\n\n" % addressSantizerError.group(2))
+                addrSanFile.write("## Error: %s\n\n" % asanErrorRe.group(2))
                 addrSanFile.write(
                     "### AddressSanitizer error in topotest `%s`, test `%s`, router `%s`\n\n"
                     % (callingTest, callingProc, router)
@@ -942,7 +943,29 @@ def checkAddressSanitizerError(output, router, component):
                     + "\n"
                 )
                 addrSanFile.write("\n---------------\n")
+        return
+
+
+    addressSantizerError = re.search(
+        "(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ", output
+    )
+    if addressSantizerError:
+        processAddressSanitizerError(addressSantizerError, output, router, component)
         return True
+
+    # No Address Sanitizer Error in Output. Now check for AddressSanitizer daemon file
+    if logdir:
+        filepattern=logdir+"/"+router+"/"+component+".asan.*"
+        sys.stderr.write("Log check for %s on %s, pattern %s\n" % (component, router, filepattern))
+        for file in glob.glob(filepattern):
+            with open(file, "r") as asanErrorFile:
+                asanError=asanErrorFile.read()
+            addressSantizerError = re.search(
+                "(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ", asanError
+                )
+            if addressSantizerError:
+                processAddressSanitizerError(addressSantizerError, asanError, router, component)
+                return True
     return False
 
 
@@ -1019,6 +1042,8 @@ class Router(Node):
         if not os.path.isdir(self.logdir):
             os.system("mkdir -p " + self.logdir + "/" + name)
             os.system("chmod -R go+rw /tmp/topotests")
+        # Erase logs of previous run
+            os.system("rm -rf " + self.logdir + "/" + name)
 
         self.daemondir = None
         self.hasmpls = False
@@ -1353,7 +1378,7 @@ class Router(Node):
             zebra_path = os.path.join(self.daemondir, "zebra")
             zebra_option = self.daemons_options["zebra"]
             self.cmd(
-                "{0} {1} --log stdout --log-level debug -s 90000000 -d > zebra.out 2> zebra.err".format(
+                "ASAN_OPTIONS=log_path=zebra.asan {0} {1} --log stdout --log-level debug -s 90000000 -d > zebra.out 2> zebra.err".format(
                     zebra_path, zebra_option, self.logdir, self.name
                 )
             )
@@ -1368,7 +1393,7 @@ class Router(Node):
             staticd_path = os.path.join(self.daemondir, "staticd")
             staticd_option = self.daemons_options["staticd"]
             self.cmd(
-                "{0} {1} --log stdout --log-level debug -d > staticd.out 2> staticd.err".format(
+                "ASAN_OPTIONS=log_path=staticd.asan {0} {1} --log stdout --log-level debug -d > staticd.out 2> staticd.err".format(
                     staticd_path, staticd_option, self.logdir, self.name
                 )
             )
@@ -1392,7 +1417,7 @@ class Router(Node):
 
             daemon_path = os.path.join(self.daemondir, daemon)
             self.cmd(
-                "{0} {1} --log stdout --log-level debug -d > {2}.out 2> {2}.err".format(
+                "ASAN_OPTIONS=log_path={2}.asan {0} {1} --log stdout --log-level debug -d > {2}.out 2> {2}.err".format(
                     daemon_path, self.daemons_options.get(daemon, ""), daemon
                 )
             )
@@ -1514,7 +1539,7 @@ class Router(Node):
                         reportMade = True
                 # Look for AddressSanitizer Errors and append to /tmp/AddressSanitzer.txt if found
                 if checkAddressSanitizerError(
-                    self.getStdErr(daemon), self.name, daemon
+                    self.getStdErr(daemon), self.name, daemon, self.logdir
                 ):
                     sys.stderr.write(
                         "%s: Daemon %s killed by AddressSanitizer" % (self.name, daemon)
@@ -1578,7 +1603,7 @@ class Router(Node):
 
                 # Look for AddressSanitizer Errors and append to /tmp/AddressSanitzer.txt if found
                 if checkAddressSanitizerError(
-                    self.getStdErr(daemon), self.name, daemon
+                    self.getStdErr(daemon), self.name, daemon, self.logdir
                 ):
                     return "%s: Daemon %s not running - killed by AddressSanitizer" % (
                         self.name,
