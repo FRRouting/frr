@@ -409,8 +409,6 @@ void bfd_session_disable(struct bfd_session *bs)
 	bfd_recvtimer_delete(bs);
 	bfd_xmttimer_delete(bs);
 	ptm_bfd_echo_stop(bs);
-	bs->vrf = NULL;
-	bs->ifp = NULL;
 
 	/* Set session down so it doesn't report UP and disabled. */
 	ptm_bfd_sess_dn(bs, BD_PATH_DOWN);
