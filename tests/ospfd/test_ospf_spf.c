@@ -288,7 +288,7 @@ int main(int argc, char **argv)
 	ospf_vty_init();
 	ospf_sr_init();
 
-	term_debug_ospf_event = 1;
+	term_debug_ospf_ti_lfa = 1;
 
 	/* Read input from .in file. */
 	vty_stdio(vty_do_exit);

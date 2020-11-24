@@ -33,6 +33,7 @@
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_ti_lfa.h"
+#include "ospfd/ospf_dump.h"
 
 
 DECLARE_RBTREE_UNIQ(p_spaces, struct p_space, p_spaces_item,
@@ -391,21 +392,25 @@ static void ospf_ti_lfa_generate_label_stack(struct ospf_area *area,
 	struct vertex *pc_node;
 	struct ospf_ti_lfa_inner_backup_path_info inner_backup_path_info;
 
-	zlog_debug("%s: Generating Label stack for src %pI4 and dest %pI4.",
-		   __func__, &p_space->root->id, &q_space->root->id);
+	if (IS_DEBUG_OSPF_TI_LFA)
+		zlog_debug(
+			"%s: Generating Label stack for src %pI4 and dest %pI4.",
+			__func__, &p_space->root->id, &q_space->root->id);
 
 	pc_node = listnode_head(q_space->pc_path);
 
 	if (!pc_node) {
-		zlog_debug(
-			"%s: There seems to be no post convergence path (yet).",
-			__func__);
+		if (IS_DEBUG_OSPF_TI_LFA)
+			zlog_debug(
+				"%s: There seems to be no post convergence path (yet).",
+				__func__);
 		return;
 	}
 
 	ospf_ti_lfa_find_q_node(pc_node, p_space, q_space);
 	if (q_space->q_node_info->type == OSPF_TI_LFA_UNDEFINED_NODE) {
-		zlog_debug("%s: Q node not found!", __func__);
+		if (IS_DEBUG_OSPF_TI_LFA)
+			zlog_debug("%s: Q node not found!", __func__);
 		return;
 	}
 
@@ -437,7 +442,8 @@ static void ospf_ti_lfa_generate_label_stack(struct ospf_area *area,
 	adjacency_result = ospf_ti_lfa_find_p_node(pc_node, p_space, q_space);
 
 	if (q_space->p_node_info->type == OSPF_TI_LFA_UNDEFINED_NODE) {
-		zlog_debug("%s: P node not found!", __func__);
+		if (IS_DEBUG_OSPF_TI_LFA)
+			zlog_debug("%s: P node not found!", __func__);
 		return;
 	}
 
@@ -598,9 +604,10 @@ ospf_ti_lfa_generate_post_convergence_path(struct list *pc_vertex_list,
 
 	current_vertex = ospf_spf_vertex_find(dest->id, pc_vertex_list);
 	if (!current_vertex) {
-		zlog_debug(
-			"%s: There seems to be no post convergence path (yet).",
-			__func__);
+		if (IS_DEBUG_OSPF_TI_LFA)
+			zlog_debug(
+				"%s: There seems to be no post convergence path (yet).",
+				__func__);
 		return NULL;
 	}
 
@@ -981,17 +988,19 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 			    || path->nexthop.s_addr == INADDR_ANY)
 				continue;
 
-			zlog_debug(
-				"%s: attempting to insert backup path for prefix %pFX, router id %pI4 and nexthop %pI4.",
-				__func__, &rn->p, &path->adv_router,
-				&path->nexthop);
+			if (IS_DEBUG_OSPF_TI_LFA)
+				zlog_debug(
+					"%s: attempting to insert backup path for prefix %pFX, router id %pI4 and nexthop %pI4.",
+					__func__, &rn->p, &path->adv_router,
+					&path->nexthop);
 
 			p_space = ospf_ti_lfa_get_p_space_by_path(area, path);
 			if (!p_space) {
-				zlog_debug(
-					"%s: P space not found for router id %pI4 and nexthop %pI4.",
-					__func__, &path->adv_router,
-					&path->nexthop);
+				if (IS_DEBUG_OSPF_TI_LFA)
+					zlog_debug(
+						"%s: P space not found for router id %pI4 and nexthop %pI4.",
+						__func__, &path->adv_router,
+						&path->nexthop);
 				continue;
 			}
 
@@ -1000,9 +1009,10 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 			q_space = q_spaces_find(p_space->q_spaces,
 						&q_space_search);
 			if (!q_space) {
-				zlog_debug(
-					"%s: Q space not found for advertising router %pI4.",
-					__func__, &path->adv_router);
+				if (IS_DEBUG_OSPF_TI_LFA)
+					zlog_debug(
+						"%s: Q space not found for advertising router %pI4.",
+						__func__, &path->adv_router);
 				continue;
 			}
 
@@ -1034,15 +1044,19 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 					       q_space->label_stack->label,
 					       label_buf, MPLS_LABEL_STRLEN,
 					       true);
-				zlog_debug(
-					"%s: inserted backup path %s for prefix %pFX, router id %pI4 and nexthop %pI4.",
-					__func__, label_buf, &rn->p,
-					&path->adv_router, &path->nexthop);
+				if (IS_DEBUG_OSPF_TI_LFA)
+					zlog_debug(
+						"%s: inserted backup path %s for prefix %pFX, router id %pI4 and nexthop %pI4.",
+						__func__, label_buf, &rn->p,
+						&path->adv_router,
+						&path->nexthop);
 			} else {
-				zlog_debug(
-					"%s: inserted NO backup path for prefix %pFX, router id %pI4 and nexthop %pI4.",
-					__func__, &rn->p, &path->adv_router,
-					&path->nexthop);
+				if (IS_DEBUG_OSPF_TI_LFA)
+					zlog_debug(
+						"%s: inserted NO backup path for prefix %pFX, router id %pI4 and nexthop %pI4.",
+						__func__, &rn->p,
+						&path->adv_router,
+						&path->nexthop);
 			}
 		}
 	}
