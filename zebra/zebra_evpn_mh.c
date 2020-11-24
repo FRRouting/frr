@@ -609,7 +609,7 @@ void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
 	struct zebra_if *tmp_br_zif = br_zif;
 
 	if (!tmp_br_zif) {
-		if (!vlan_zif->link)
+		if (!vlan_zif->link || !vlan_zif->link->info)
 			return;
 
 		tmp_br_zif = vlan_zif->link->info;
