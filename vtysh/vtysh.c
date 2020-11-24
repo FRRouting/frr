@@ -1720,11 +1720,16 @@ DEFUNSH(VTYSH_BGPD, address_family_evpn, address_family_evpn_cmd,
 }
 
 #if defined(HAVE_CUMULUS)
+#if CONFDATE > 20211115
+CPP_NOTICE("Use of `address-family evpn` is deprecated please remove don't forget frr-reload.py")
+#endif
 DEFUNSH_HIDDEN(VTYSH_BGPD, address_family_evpn2, address_family_evpn2_cmd,
 	       "address-family evpn",
 	       "Enter Address Family command mode\n"
 	       "EVPN Address family\n")
 {
+	vty_out(vty,
+		"This command is deprecated please convert to `address-family l2vpn evpn`\n");
 	vty->node = BGP_EVPN_NODE;
 	return CMD_SUCCESS;
 }
