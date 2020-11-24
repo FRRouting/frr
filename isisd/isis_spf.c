@@ -1158,9 +1158,9 @@ static void isis_spf_preload_tent(struct isis_spftree *spftree,
 						   : VTYPE_NONPSEUDO_TE_IS,
 					   sadj->id, sadj, metric, NULL,
 					   parent);
-		} else if (sadj->lan.lsp_pseudo) {
-			isis_spf_process_lsp(spftree, sadj->lan.lsp_pseudo,
-					     metric, 0, spftree->sysid, parent);
+		} else if (sadj->lsp) {
+			isis_spf_process_lsp(spftree, sadj->lsp, metric, 0,
+					     spftree->sysid, parent);
 		}
 	}
 }
@@ -1243,11 +1243,23 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 				   struct isis_ext_subtlvs *subtlvs)
 {
 	struct isis_spf_adj *sadj;
+	uint8_t lspid[ISIS_SYS_ID_LEN + 2];
+	struct isis_lsp *lsp;
 	uint8_t flags = 0;
 
 	/* Skip self in the pseudonode. */
 	if (desig_is_id && !memcmp(id, spftree->sysid, ISIS_SYS_ID_LEN))
 		return;
+
+	/* Find LSP from the adjacency. */
+	memcpy(lspid, id, ISIS_SYS_ID_LEN + 1);
+	LSP_FRAGMENT(lspid) = 0;
+	lsp = lsp_search(spftree->lspdb, lspid);
+	if (lsp == NULL || lsp->hdr.rem_lifetime == 0) {
+		zlog_warn("ISIS-SPF: No LSP found from root to L%d %s",
+			  spftree->level, rawlspid_print(id));
+		return;
+	}
 
 	sadj = XCALLOC(MTYPE_ISIS_SPF_ADJ, sizeof(*sadj));
 	memcpy(sadj->id, id, sizeof(sadj->id));
@@ -1260,6 +1272,7 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 		sadj->metric = metric;
 	if (oldmetric)
 		SET_FLAG(flags, F_ISIS_SPF_ADJ_OLDMETRIC);
+	sadj->lsp = lsp;
 	sadj->subtlvs = subtlvs;
 	sadj->flags = flags;
 
@@ -1294,24 +1307,8 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 	}
 
 	/* Parse pseudonode LSP too. */
-	if (LSP_PSEUDO_ID(id)) {
-		uint8_t lspid[ISIS_SYS_ID_LEN + 2];
-		struct isis_lsp *lsp_pseudo;
-
-		memcpy(lspid, id, ISIS_SYS_ID_LEN + 1);
-		LSP_FRAGMENT(lspid) = 0;
-		lsp_pseudo = lsp_search(spftree->lspdb, lspid);
-		if (lsp_pseudo == NULL || lsp_pseudo->hdr.rem_lifetime == 0) {
-			zlog_warn(
-				"ISIS-SPF: No LSP found from root to L%d DR %s",
-				spftree->level, rawlspid_print(id));
-			return;
-		}
-
-		sadj->lan.lsp_pseudo = lsp_pseudo;
-		spf_adj_list_parse_lsp(spftree, adj_list, lsp_pseudo, id,
-				       metric);
-	}
+	if (LSP_PSEUDO_ID(id))
+		spf_adj_list_parse_lsp(spftree, adj_list, lsp, id, metric);
 }
 
 static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
