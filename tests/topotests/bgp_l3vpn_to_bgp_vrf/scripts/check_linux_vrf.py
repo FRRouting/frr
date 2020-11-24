@@ -1,4 +1,4 @@
-from lutil import luCommand
+from lib.lutil import luCommand
 from customize import l3mdev_accept
 
 l3mdev_rtrs = ["r1", "r3", "r4", "ce4"]

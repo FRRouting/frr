@@ -1,4 +1,4 @@
-from lutil import luCommand
+from lib.lutil import luCommand
 
 luCommand("r1", 'vtysh -c "show bgp ipv4 vpn"', "", "none", "VPN SAFI")
 luCommand("r2", 'vtysh -c "show bgp ipv4 vpn"', "", "none", "VPN SAFI")

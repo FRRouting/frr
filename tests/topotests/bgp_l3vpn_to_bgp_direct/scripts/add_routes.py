@@ -1,4 +1,4 @@
-from lutil import luCommand
+from lib.lutil import luCommand
 
 luCommand(
     "r1", 'vtysh -c "show bgp next"', "99.0.0.. valid", "wait", "See CE static NH"

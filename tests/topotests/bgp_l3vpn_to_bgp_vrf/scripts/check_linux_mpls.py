@@ -1,4 +1,4 @@
-from lutil import luCommand, luLast
+from lib.lutil import luCommand, luLast
 from lib import topotest
 
 ret = luCommand(

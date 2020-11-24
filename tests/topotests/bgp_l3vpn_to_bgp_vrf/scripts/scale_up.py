@@ -1,4 +1,4 @@
-from lutil import luCommand
+from lib.lutil import luCommand
 
 num = 50000
 b = int(num / (256 * 256))

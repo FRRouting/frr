@@ -23,7 +23,7 @@ import time
 import datetime
 import json
 import math
-from topolog import logger
+from lib.topolog import logger
 from mininet.net import Mininet
 
 
