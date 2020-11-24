@@ -10813,25 +10813,68 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					json_object_int_add(json_peer,
 							    "pfxSnt",
 							    (PAF_SUBGRP(paf))->scount);
+
+				/* BGP FSM state */
 				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
 				    || CHECK_FLAG(peer->bgp->flags,
 						  BGP_FLAG_SHUTDOWN))
-					json_object_string_add(json_peer, "state",
+					json_object_string_add(json_peer,
+							       "state",
 							       "Idle (Admin)");
 				else if (peer->afc_recv[afi][safi])
 					json_object_string_add(
-							       json_peer, "state",
-							       lookup_msg(bgp_status_msg, peer->status,
-									  NULL));
-				else if (CHECK_FLAG(peer->sflags,
-						    PEER_STATUS_PREFIX_OVERFLOW))
-					json_object_string_add(json_peer, "state",
+						json_peer, "state",
+						lookup_msg(bgp_status_msg,
+							   peer->status, NULL));
+				else if (CHECK_FLAG(
+						 peer->sflags,
+						 PEER_STATUS_PREFIX_OVERFLOW))
+					json_object_string_add(json_peer,
+							       "state",
 							       "Idle (PfxCt)");
 				else
 					json_object_string_add(
-							       json_peer, "state",
-							       lookup_msg(bgp_status_msg, peer->status,
-									  NULL));
+						json_peer, "state",
+						lookup_msg(bgp_status_msg,
+							   peer->status, NULL));
+
+				/* BGP peer state */
+				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
+				    || CHECK_FLAG(peer->bgp->flags,
+						  BGP_FLAG_SHUTDOWN))
+					json_object_string_add(json_peer,
+							       "peerState",
+							       "Admin");
+				else if (CHECK_FLAG(
+						 peer->sflags,
+						 PEER_STATUS_PREFIX_OVERFLOW))
+					json_object_string_add(json_peer,
+							       "peerState",
+							       "PfxCt");
+				else if (CHECK_FLAG(peer->flags,
+						    PEER_FLAG_PASSIVE))
+					json_object_string_add(json_peer,
+							       "peerState",
+							       "Passive");
+				else if (CHECK_FLAG(peer->sflags,
+						    PEER_STATUS_NSF_WAIT))
+					json_object_string_add(json_peer,
+							       "peerState",
+							       "NSF passive");
+				else if (CHECK_FLAG(
+						 peer->bgp->flags,
+						 BGP_FLAG_EBGP_REQUIRES_POLICY)
+					 && (!bgp_inbound_policy_exists(peer,
+									filter)
+					     || !bgp_outbound_policy_exists(
+						     peer, filter)))
+					json_object_string_add(json_peer,
+							       "peerState",
+							       "Policy");
+				else
+					json_object_string_add(
+						json_peer, "peerState", "OK");
+
 				json_object_int_add(json_peer, "connectionsEstablished",
 						    peer->established);
 				json_object_int_add(json_peer, "connectionsDropped",
