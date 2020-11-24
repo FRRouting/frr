@@ -128,6 +128,9 @@ static void ospf_ti_lfa_find_q_node(struct vertex *pc_node,
 	p_node = ospf_spf_vertex_find(pc_node->id, p_space->vertex_list);
 	q_node = ospf_spf_vertex_find(pc_node->id, q_space->vertex_list);
 
+	/* The Q node is always present. */
+	assert(q_node);
+
 	q_space->q_node_info->type = OSPF_TI_LFA_UNDEFINED_NODE;
 
 	if (p_node && q_node) {
@@ -1040,10 +1043,11 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 			}
 
 			if (path->srni.backup_label_stack) {
-				mpls_label2str(q_space->label_stack->num_labels,
-					       q_space->label_stack->label,
-					       label_buf, MPLS_LABEL_STRLEN,
-					       true);
+				mpls_label2str(
+					path->srni.backup_label_stack
+						->num_labels,
+					path->srni.backup_label_stack->label,
+					label_buf, MPLS_LABEL_STRLEN, true);
 				if (IS_DEBUG_OSPF_TI_LFA)
 					zlog_debug(
 						"%s: inserted backup path %s for prefix %pFX, router id %pI4 and nexthop %pI4.",

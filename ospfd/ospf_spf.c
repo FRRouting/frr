@@ -1244,6 +1244,8 @@ static uint16_t get_reverse_distance(struct vertex *v,
 	struct router_lsa_link *w_link;
 	uint16_t distance = 0;
 
+	assert(w_lsa && w_lsa->data);
+
 	p = ((uint8_t *)w_lsa->data) + OSPF_LSA_HEADER_SIZE + 4;
 	lim = ((uint8_t *)w_lsa->data) + ntohs(w_lsa->data->length);
 
@@ -1268,7 +1270,8 @@ static uint16_t get_reverse_distance(struct vertex *v,
 	if (distance == 0)
 		distance = ntohs(l->m[0].metric);
 
-	zlog_debug("%s: reversed distance is %u", __func__, distance);
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: reversed distance is %u", __func__, distance);
 
 	return distance;
 }
