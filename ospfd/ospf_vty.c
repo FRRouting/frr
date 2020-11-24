@@ -2702,6 +2702,10 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 					json_object_boolean_true_add(
 						json_area,
 						"nssaTranslatorAlways");
+				else
+					json_object_boolean_true_add(
+						json_area,
+						"nssaTranslatorNever");
 			} else {
 				json_object_boolean_true_add(json_area, "abr");
 				if (area->NSSATranslatorRole
@@ -2716,29 +2720,32 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 			}
 		} else {
 			vty_out(vty,
-				"   It is an NSSA configuration. \n   Elected NSSA/ABR performs type-7/type-5 LSA translation. \n");
+				"   It is an NSSA configuration.\n   Elected NSSA/ABR performs type-7/type-5 LSA translation.\n");
 			if (!IS_OSPF_ABR(area->ospf))
 				vty_out(vty,
-					"   It is not ABR, therefore not Translator. \n");
+					"   It is not ABR, therefore not Translator.\n");
 			else if (area->NSSATranslatorState) {
 				vty_out(vty, "   We are an ABR and ");
 				if (area->NSSATranslatorRole
 				    == OSPF_NSSA_ROLE_CANDIDATE)
 					vty_out(vty,
-						"the NSSA Elected Translator. \n");
+						"the NSSA Elected Translator.\n");
 				else if (area->NSSATranslatorRole
 					 == OSPF_NSSA_ROLE_ALWAYS)
 					vty_out(vty,
-						"always an NSSA Translator. \n");
+						"always an NSSA Translator.\n");
+				else
+					vty_out(vty,
+						"never an NSSA Translator.\n");
 			} else {
 				vty_out(vty, "   We are an ABR, but ");
 				if (area->NSSATranslatorRole
 				    == OSPF_NSSA_ROLE_CANDIDATE)
 					vty_out(vty,
-						"not the NSSA Elected Translator. \n");
+						"not the NSSA Elected Translator.\n");
 				else
 					vty_out(vty,
-						"never an NSSA Translator. \n");
+						"never an NSSA Translator.\n");
 			}
 		}
 	}
