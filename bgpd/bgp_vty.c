@@ -4263,7 +4263,6 @@ int peer_conf_interface_create(struct bgp *bgp, const char *conf_if, afi_t afi,
 	struct peer *peer;
 	struct peer_group *group;
 	int ret = 0;
-	union sockunion su;
 
 	group = peer_group_lookup(bgp, conf_if);
 
@@ -4338,7 +4337,7 @@ int peer_conf_interface_create(struct bgp *bgp, const char *conf_if, afi_t afi,
 			return -1;
 		}
 
-		ret = peer_group_bind(bgp, &su, peer, group, &as);
+		ret = peer_group_bind(bgp, NULL, peer, group, &as);
 	}
 
 	return bgp_nb_errmsg_return(errmsg, errmsg_len, ret);
