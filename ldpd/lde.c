@@ -73,6 +73,7 @@ struct ldpd_conf	*ldeconf;
 struct nbr_tree		 lde_nbrs = RB_INITIALIZER(&lde_nbrs);
 
 static struct imsgev	*iev_ldpe;
+static struct imsgev    iev_main_sync_data;
 static struct imsgev	*iev_main, *iev_main_sync;
 
 /* lde privileges */
@@ -148,8 +149,8 @@ lde(void)
 		        &iev_main->ev_read);
 	iev_main->handler_write = ldp_write_handler;
 
-	if ((iev_main_sync = calloc(1, sizeof(struct imsgev))) == NULL)
-		fatal(NULL);
+	memset(&iev_main_sync_data, 0, sizeof(iev_main_sync_data));
+	iev_main_sync = &iev_main_sync_data;
 	imsg_init(&iev_main_sync->ibuf, LDPD_FD_SYNC);
 
 	/* create base configuration */
@@ -203,7 +204,6 @@ lde_shutdown(void)
 	if (iev_ldpe)
 		free(iev_ldpe);
 	free(iev_main);
-	free(iev_main_sync);
 
 	log_info("label decision engine exiting");
 
