@@ -380,7 +380,8 @@ def luInclude(filename, CallOnFail=None):
         LUtil.setCallOnFail(CallOnFail)
     if filename.endswith(".py"):
         LUtil.log("luInclude: execfile " + tstFile)
-        execfile(tstFile)
+        with open(tstFile) as infile:
+            exec(infile.read())
     else:
         LUtil.log("luInclude: execTestFile " + tstFile)
         LUtil.execTestFile(tstFile)
