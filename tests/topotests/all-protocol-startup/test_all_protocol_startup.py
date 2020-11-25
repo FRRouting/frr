@@ -1065,7 +1065,7 @@ def test_bgp_ipv4():
 
         if not success:
             resultstr = "No template matched.\n"
-            for f in diffresult.iterkeys():
+            for f in diffresult.keys():
                 resultstr += "template %s: r%s failed SHOW BGP IPv4 check:\n%s\n" % (
                     f,
                     i,
@@ -1134,7 +1134,7 @@ def test_bgp_ipv6():
 
         if not success:
             resultstr = "No template matched.\n"
-            for f in diffresult.iterkeys():
+            for f in diffresult.keys():
                 resultstr += "template %s: r%s failed SHOW BGP IPv6 check:\n%s\n" % (
                     f,
                     i,

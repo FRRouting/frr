@@ -332,7 +332,7 @@ def test_bgp_routingTable():
 
             if not success:
                 resultstr = "No template matched.\n"
-                for f in diffresult.iterkeys():
+                for f in diffresult.keys():
                     resultstr += (
                         "template %s: r%s failed Routing Table Check for view %s:\n%s\n"
                         % (f, i, view, diffresult[f])

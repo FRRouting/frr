@@ -1,5 +1,5 @@
-from lutil import luCommand
-from bgprib import bgpribRequireVpnRoutes, bgpribRequireUnicastRoutes
+from lib.lutil import luCommand
+from lib.bgprib import bgpribRequireVpnRoutes, bgpribRequireUnicastRoutes
 
 ########################################################################
 # CE routers: contain routes they originate

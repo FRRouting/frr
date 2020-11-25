@@ -23,7 +23,7 @@ import time
 import datetime
 import json
 import math
-from topolog import logger
+from lib.topolog import logger
 from mininet.net import Mininet
 
 
@@ -58,14 +58,14 @@ class lUtil:
     def log(self, str, level=6):
         if self.l_level > 0:
             if self.fout == "":
-                self.fout = open(self.fout_name, "w", 0)
+                self.fout = open(self.fout_name, "w")
             self.fout.write(str + "\n")
         if level <= self.l_level:
             print(str)
 
     def summary(self, str):
         if self.fsum == "":
-            self.fsum = open(self.fsum_name, "w", 0)
+            self.fsum = open(self.fsum_name, "w")
             self.fsum.write(
                 "\
 ******************************************************************************\n"
@@ -380,7 +380,8 @@ def luInclude(filename, CallOnFail=None):
         LUtil.setCallOnFail(CallOnFail)
     if filename.endswith(".py"):
         LUtil.log("luInclude: execfile " + tstFile)
-        execfile(tstFile)
+        with open(tstFile) as infile:
+            exec(infile.read())
     else:
         LUtil.log("luInclude: execTestFile " + tstFile)
         LUtil.execTestFile(tstFile)
