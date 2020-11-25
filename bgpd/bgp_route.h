@@ -102,6 +102,19 @@ enum bgp_show_adj_route_type {
 #define BGP_NLRI_PARSE_ERROR_EVPN_TYPE1_SIZE -15
 #define BGP_NLRI_PARSE_ERROR -32
 
+/* MAC-IP/type-2 path_info in the global routing table is linked to the
+ * destination ES
+ */
+struct bgp_path_es_info {
+	/* back pointer to the route */
+	struct bgp_path_info *pi;
+	vni_t vni;
+	/* destination ES */
+	struct bgp_evpn_es *es;
+	/* memory used for linking the path to the destination ES */
+	struct listnode es_listnode;
+};
+
 /* Ancillary information to struct bgp_path_info,
  * used for uncommonly used data (aggregation, MPLS, etc.)
  * and lazily allocated to save memory.
@@ -188,6 +201,8 @@ struct bgp_path_info_extra {
 	struct list *bgp_fs_pbr;
 	/* presence of FS pbr iprule based entry */
 	struct list *bgp_fs_iprule;
+	/* Destination Ethernet Segment links for EVPN MH */
+	struct bgp_path_es_info *es_info;
 };
 
 struct bgp_path_info {

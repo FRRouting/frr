@@ -34,6 +34,7 @@
 
 #define BGP_EVPN_CONS_CHECK_INTERVAL 60
 
+#define BGP_EVPN_MH_USE_ES_L3NHG_DEF true
 
 /* Ethernet Segment entry -
  * - Local and remote ESs are maintained in a global RB tree,
@@ -96,6 +97,14 @@ struct bgp_evpn_es {
 	/* List of ES-EVIs associated with this ES */
 	struct list *es_evi_list;
 
+	/* List of ES-VRFs associated with this ES */
+	struct list *es_vrf_list;
+
+	/* List of MAC-IP global routes using this ES as destination -
+	 * element is bgp_path_info_extra->es_info
+	 */
+	struct list *macip_path_list;
+
 	/* Number of remote VNIs referencing this ES */
 	uint32_t remote_es_evi_cnt;
 
@@ -142,6 +151,34 @@ struct bgp_evpn_es_vtep {
 	struct listnode es_listnode;
 };
 
+/* ES-VRF element needed for managing L3 NHGs. It is implicitly created
+ * when an ES-EVI is associated with a tenant VRF
+ */
+struct bgp_evpn_es_vrf {
+	struct bgp_evpn_es *es;
+	struct bgp *bgp_vrf;
+
+	uint32_t flags;
+/* NHG can only be activated if there are active VTEPs in the ES and
+ * there is a valid L3-VNI associated with the VRF
+ */
+#define BGP_EVPNES_VRF_NHG_ACTIVE (1 << 0)
+
+	/* memory used for adding the es_vrf to
+	 * es_vrf->bgp_vrf->es_vrf_rb_tree
+	 */
+	RB_ENTRY(bgp_evpn_es_vrf) rb_node;
+
+	/* memory used for linking the es_vrf to es_vrf->es->es_vrf_list */
+	struct listnode es_listnode;
+
+	uint32_t nhg_id;
+	uint32_t v6_nhg_id;
+
+	/* Number of ES-EVI entries associated with this ES-VRF */
+	uint32_t ref_cnt;
+};
+
 /* ES per-EVI info
  * - ES-EVIs are maintained per-L2-VNI (vpn->es_evi_rb_tree)
  * - ES-EVIs are also linked to the parent ES (es->es_evi_list)
@@ -175,6 +212,8 @@ struct bgp_evpn_es_evi {
 
 	/* list of PEs (bgp_evpn_es_evi_vtep) attached to the ES for this VNI */
 	struct list *es_evi_vtep_list;
+
+	struct bgp_evpn_es_vrf *es_vrf;
 };
 
 /* PE attached to an ES for a VNI. This entry is created when an EAD-per-ES
@@ -219,6 +258,9 @@ struct bgp_evpn_mh_info {
 	bool ead_evi_adv_for_down_links;
 	/* Enable ES consistency checking */
 	bool consistency_checking;
+	/* Use L3 NHGs for host routes in symmetric IRB */
+	bool install_l3nhg;
+	bool host_routes_use_l3nhg;
 };
 
 /****************************************************************************/
@@ -308,5 +350,19 @@ void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
 void bgp_evpn_es_evi_show(struct vty *vty, bool uj, bool detail);
 struct bgp_evpn_es *bgp_evpn_es_find(const esi_t *esi);
 extern bool bgp_evpn_is_esi_local(esi_t *esi);
+extern void bgp_evpn_vrf_es_init(struct bgp *bgp_vrf);
+extern void bgp_evpn_es_vrf_deref(struct bgp_evpn_es_evi *es_evi);
+extern void bgp_evpn_es_vrf_ref(struct bgp_evpn_es_evi *es_evi,
+				struct bgp *bgp_vrf);
+extern void bgp_evpn_path_es_info_free(struct bgp_path_es_info *es_info);
+extern void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info);
+extern void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni,
+				  esi_t *esi);
+extern bool bgp_evpn_es_is_vtep_active(esi_t *esi, struct in_addr nh);
+extern bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf,
+				     struct bgp_path_info *pi, uint32_t *nhg_p);
+extern void bgp_evpn_es_vrf_show(struct vty *vty, bool uj,
+				 struct bgp_evpn_es *es);
+extern void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj);
 
 #endif /* _FRR_BGP_EVPN_MH_H */

@@ -218,6 +218,9 @@ static inline struct list *bgpevpn_get_vrf_import_rtl(struct bgpevpn *vpn)
 	return vpn->bgp_vrf->vrf_import_rtl;
 }
 
+extern void bgp_evpn_es_evi_vrf_ref(struct bgpevpn *vpn);
+extern void bgp_evpn_es_evi_vrf_deref(struct bgpevpn *vpn);
+
 static inline void bgpevpn_unlink_from_l3vni(struct bgpevpn *vpn)
 {
 	/* bail if vpn is not associated to bgp_vrf */
@@ -226,6 +229,8 @@ static inline void bgpevpn_unlink_from_l3vni(struct bgpevpn *vpn)
 
 	UNSET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
 	listnode_delete(vpn->bgp_vrf->l2vnis, vpn);
+
+	bgp_evpn_es_evi_vrf_deref(vpn);
 
 	/* remove the backpointer to the vrf instance */
 	bgp_unlock(vpn->bgp_vrf);
@@ -255,6 +260,8 @@ static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 	if (bgp_vrf->l3vni &&
 	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
 		SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
+
+	bgp_evpn_es_evi_vrf_ref(vpn);
 }
 
 static inline int is_vni_configured(struct bgpevpn *vpn)
@@ -623,4 +630,13 @@ extern struct bgp_dest *
 bgp_global_evpn_node_lookup(struct bgp_table *table, afi_t afi, safi_t safi,
 			    const struct prefix_evpn *evp,
 			    struct prefix_rd *prd);
+extern struct bgp_node *bgp_global_evpn_node_get(struct bgp_table *table,
+						 afi_t afi, safi_t safi,
+						 const struct prefix_evpn *evp,
+						 struct prefix_rd *prd);
+extern struct bgp_node *
+bgp_global_evpn_node_lookup(struct bgp_table *table, afi_t afi, safi_t safi,
+			    const struct prefix_evpn *evp,
+			    struct prefix_rd *prd);
+extern void bgp_evpn_import_route_in_vrfs(struct bgp_path_info *pi, int import);
 #endif /* _BGP_EVPN_PRIVATE_H */
