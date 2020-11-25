@@ -7438,8 +7438,8 @@ DEFUN (no_ip_pim_rp,
 	int idx_rp = 4, idx_group = 5;
 	const char *group_str =
 		(argc == 6) ? argv[idx_group]->arg : "224.0.0.0/4";
-	char group_xpath[XPATH_MAXLEN];
-	char temp_xpath[XPATH_MAXLEN];
+	char group_list_xpath[XPATH_MAXLEN + 32];
+	char group_xpath[XPATH_MAXLEN + 64];
 	char rp_xpath[XPATH_MAXLEN];
 	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
@@ -7464,12 +7464,11 @@ DEFUN (no_ip_pim_rp,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
 		 argv[idx_rp]->arg);
 
-	snprintf(group_xpath, sizeof(group_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
-		 argv[idx_rp]->arg);
-	snprintf(temp_xpath, sizeof(temp_xpath), "/group-list[.='%s']",
-		 group_str);
-	strlcat(group_xpath, temp_xpath, sizeof(group_xpath));
+	snprintf(group_list_xpath, sizeof(group_list_xpath), "%s/group-list",
+		 rp_xpath);
+
+	snprintf(group_xpath, sizeof(group_xpath), "%s[.='%s']",
+		 group_list_xpath, group_str);
 
 	if (!yang_dnode_exists(vty->candidate_config->dnode, group_xpath)) {
 		vty_out(vty, "%% Unable to find specified RP\n");
@@ -7481,7 +7480,8 @@ DEFUN (no_ip_pim_rp,
 	if (yang_is_last_list_dnode(group_dnode))
 		nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
 	else
-		nb_cli_enqueue_change(vty, group_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, group_list_xpath, NB_OP_DESTROY,
+				      group_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -7571,8 +7571,7 @@ DEFUN (ip_pim_ssm_prefix_list,
 	} else
 		vrfname = VRF_DEFAULT_NAME;
 
-	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
-		 FRR_PIM_AF_XPATH,
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), FRR_PIM_AF_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
 	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
 
