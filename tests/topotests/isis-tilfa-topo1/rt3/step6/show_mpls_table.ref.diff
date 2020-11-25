@@ -1,5 +1,5 @@
---- rt3/step5/show_mpls_table.ref	2020-09-25 17:50:11.280556320 -0300
-+++ rt3/step6/show_mpls_table.ref	2020-09-25 17:51:14.281378700 -0300
+--- a/rt3/step5/show_mpls_table.ref
++++ b/rt3/step6/show_mpls_table.ref
 @@ -17,12 +17,12 @@
      "backupNexthops":[
        {

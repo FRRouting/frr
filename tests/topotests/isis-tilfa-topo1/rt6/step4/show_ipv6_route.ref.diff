@@ -1,6 +1,6 @@
---- rt6/step3/show_ipv6_route.ref	2020-09-25 17:48:07.434942087 -0300
-+++ rt6/step4/show_ipv6_route.ref	2020-09-25 17:49:03.847676958 -0300
-@@ -22,10 +22,7 @@
+--- a/rt6/step3/show_ipv6_route.ref
++++ b/rt6/step4/show_ipv6_route.ref
+@@ -13,10 +13,7 @@
            "fib":true,
            "afi":"ipv6",
            "interfaceName":"eth-rt4",
@@ -9,9 +9,9 @@
 -            16011
 -          ]
 +          "active":true
-         }
-       ]
-     }
+         },
+         {
+           "fib":true,
 @@ -47,9 +44,6 @@
            "active":true,
            "backupIndex":[
@@ -22,7 +22,19 @@
            ]
          }
        ],
-@@ -111,9 +105,6 @@
+@@ -92,10 +86,7 @@
+         {
+           "afi":"ipv6",
+           "interfaceName":"eth-rt4",
+-          "active":true,
+-          "labels":[
+-            16031
+-          ]
++          "active":true
+         }
+       ]
+     }
+@@ -117,9 +108,6 @@
            "active":true,
            "backupIndex":[
              0
@@ -32,3 +44,27 @@
            ]
          }
        ],
+@@ -127,10 +115,7 @@
+         {
+           "afi":"ipv6",
+           "interfaceName":"eth-rt5",
+-          "active":true,
+-          "labels":[
+-            16041
+-          ]
++          "active":true
+         }
+       ]
+     }
+@@ -162,10 +147,7 @@
+         {
+           "afi":"ipv6",
+           "interfaceName":"eth-rt4",
+-          "active":true,
+-          "labels":[
+-            16051
+-          ]
++          "active":true
+         }
+       ]
+     }

@@ -1,5 +1,5 @@
---- rt2/step2/show_ipv6_route.ref	2020-09-25 17:46:58.514045373 -0300
-+++ rt2/step3/show_ipv6_route.ref	2020-09-25 17:48:06.570930838 -0300
+--- a/rt2/step2/show_ipv6_route.ref
++++ b/rt2/step3/show_ipv6_route.ref
 @@ -14,10 +14,34 @@
            "afi":"ipv6",
            "interfaceName":"eth-sw1",

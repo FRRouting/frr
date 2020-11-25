@@ -1,5 +1,5 @@
---- rt2/step4/show_ipv6_route.ref	2020-09-25 17:49:02.995665853 -0300
-+++ rt2/step5/show_ipv6_route.ref	2020-09-25 17:50:13.636587060 -0300
+--- a/rt2/step4/show_ipv6_route.ref
++++ b/rt2/step5/show_ipv6_route.ref
 @@ -14,10 +14,34 @@
            "afi":"ipv6",
            "interfaceName":"eth-sw1",
@@ -100,10 +100,10 @@
            ]
          }
        ]
-@@ -107,13 +162,19 @@
+@@ -98,7 +153,10 @@
            "fib":true,
            "afi":"ipv6",
-           "interfaceName":"eth-rt4-2",
+           "interfaceName":"eth-rt4-1",
 -          "active":true
 +          "active":true,
 +          "labels":[
@@ -112,8 +112,10 @@
          },
          {
            "fib":true,
+@@ -113,7 +171,10 @@
+           "fib":true,
            "afi":"ipv6",
-           "interfaceName":"eth-rt4-1",
+           "interfaceName":"eth-rt4-2",
 -          "active":true
 +          "active":true,
 +          "labels":[

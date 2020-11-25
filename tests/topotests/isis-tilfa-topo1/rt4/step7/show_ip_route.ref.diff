@@ -1,6 +1,6 @@
---- rt4/step6/show_ip_route.ref	2020-09-25 17:51:15.725397558 -0300
-+++ rt4/step7/show_ip_route.ref	2020-09-25 17:52:02.614010084 -0300
-@@ -158,9 +158,6 @@
+--- a/rt4/step6/show_ip_route.ref
++++ b/rt4/step7/show_ip_route.ref
+@@ -161,9 +161,6 @@
            "active":true,
            "backupIndex":[
              0
@@ -10,3 +10,15 @@
            ]
          }
        ],
+@@ -172,10 +169,7 @@
+           "ip":"10.0.7.6",
+           "afi":"ipv4",
+           "interfaceName":"eth-rt6",
+-          "active":true,
+-          "labels":[
+-            16050
+-          ]
++          "active":true
+         }
+       ]
+     }

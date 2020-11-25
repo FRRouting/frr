@@ -41,7 +41,10 @@
           "ip":"10.0.6.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
-          "active":true
+          "active":true,
+          "labels":[
+            16010
+          ]
         }
       ]
     }
@@ -169,7 +172,10 @@
           "ip":"10.0.8.6",
           "afi":"ipv4",
           "interfaceName":"eth-rt6",
-          "active":true
+          "active":true,
+          "labels":[
+            16040
+          ]
         }
       ]
     }
@@ -203,7 +209,10 @@
           "ip":"10.0.6.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
-          "active":true
+          "active":true,
+          "labels":[
+            16060
+          ]
         }
       ]
     }

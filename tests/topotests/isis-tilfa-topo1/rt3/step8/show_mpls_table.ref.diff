@@ -1,5 +1,5 @@
---- rt3/step7/show_mpls_table.ref	2020-09-25 17:52:01.181991371 -0300
-+++ rt3/step8/show_mpls_table.ref	2020-09-25 17:53:19.135010448 -0300
+--- a/rt3/step7/show_mpls_table.ref
++++ b/rt3/step8/show_mpls_table.ref
 @@ -159,6 +159,68 @@
        }
      ]

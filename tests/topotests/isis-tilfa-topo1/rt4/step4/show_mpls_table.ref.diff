@@ -1,5 +1,5 @@
---- rt4/step3/show_mpls_table.ref	2020-09-25 17:48:04.418902820 -0300
-+++ rt4/step4/show_mpls_table.ref	2020-09-25 17:49:00.959639319 -0300
+--- a/rt4/step3/show_mpls_table.ref
++++ b/rt4/step4/show_mpls_table.ref
 @@ -7,26 +7,13 @@
          "type":"SR (IS-IS)",
          "outLabel":16010,
@@ -23,7 +23,7 @@
 -    "backupNexthops":[
 -      {
 -        "type":"SR (IS-IS)",
--        "outLabel":3,
+-        "outLabel":16010,
 -        "nexthop":"10.0.6.5"
 +        "nexthop":"10.0.2.2"
        }
@@ -52,7 +52,7 @@
 -    "backupNexthops":[
 -      {
 -        "type":"SR (IS-IS)",
--        "outLabel":3,
+-        "outLabel":16011,
 -        "interface":"eth-rt5"
 +        "interface":"eth-rt2-1"
        }
@@ -129,7 +129,7 @@
 -    "backupNexthops":[
 -      {
 -        "type":"SR (IS-IS)",
--        "outLabel":3,
+-        "outLabel":16050,
 -        "nexthop":"10.0.7.6"
 +        "nexthop":"10.0.6.5"
        }
@@ -148,7 +148,7 @@
 -    "backupNexthops":[
 -      {
 -        "type":"SR (IS-IS)",
--        "outLabel":3,
+-        "outLabel":16051,
 -        "interface":"eth-rt6"
 +        "interface":"eth-rt5"
        }
@@ -167,7 +167,7 @@
 -    "backupNexthops":[
 -      {
 -        "type":"SR (IS-IS)",
--        "outLabel":3,
+-        "outLabel":16060,
 -        "nexthop":"10.0.6.5"
 +        "nexthop":"10.0.7.6"
        }
@@ -186,7 +186,7 @@
 -    "backupNexthops":[
 -      {
 -        "type":"SR (IS-IS)",
--        "outLabel":3,
+-        "outLabel":16061,
 -        "interface":"eth-rt5"
 +        "interface":"eth-rt6"
        }

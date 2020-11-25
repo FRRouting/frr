@@ -170,15 +170,19 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 		return CMD_SUCCESS;
 	}
 	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-
-	if (!vrf_name && ifp->vrf_id == VRF_DEFAULT)
-		vrf_name = VRF_DEFAULT_NAME;
-
-	if (ifp->vrf_id != VRF_DEFAULT) {
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
-		if (vrf && !vrf_name)
-			vrf_name = vrf->name;
+	if (!vrf_name) {
+		if (ifp) {
+			if (ifp->vrf_id == VRF_DEFAULT)
+				vrf_name = VRF_DEFAULT_NAME;
+			else {
+				vrf = vrf_lookup_by_id(ifp->vrf_id);
+				if (vrf && !vrf_name)
+					vrf_name = vrf->name;
+			}
+		} else
+			vrf_name = VRF_DEFAULT_NAME;
 	}
+
 	area = isis_area_lookup_by_vrf(tag, vrf_name);
 	if (!area) {
 		isis_global_instance_create(vrf_name);
@@ -235,7 +239,7 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 	}
 
 	/* check if the interface is a loopback and if so set it as passive */
-	if (if_is_loopback(ifp))
+	if (ifp && if_is_loopback(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
 
@@ -263,14 +267,19 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 		return CMD_SUCCESS;
 
 	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (!vrf_name && ifp->vrf_id == VRF_DEFAULT)
-		vrf_name = VRF_DEFAULT_NAME;
-
-	if (ifp->vrf_id != VRF_DEFAULT) {
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
-		if (vrf && !vrf_name)
-			vrf_name = vrf->name;
+	if (!vrf_name) {
+		if (ifp) {
+			if (ifp->vrf_id == VRF_DEFAULT)
+				vrf_name = VRF_DEFAULT_NAME;
+			else {
+				vrf = vrf_lookup_by_id(ifp->vrf_id);
+				if (vrf && !vrf_name)
+					vrf_name = vrf->name;
+			}
+		} else
+			vrf_name = VRF_DEFAULT_NAME;
 	}
+
 	area = isis_area_lookup_by_vrf(tag, vrf_name);
 	if (!area) {
 		isis_global_instance_create(vrf_name);
@@ -326,7 +335,7 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 	}
 
 	/* check if the interface is a loopback and if so set it as passive */
-	if (if_is_loopback(ifp))
+	if (ifp && if_is_loopback(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
 

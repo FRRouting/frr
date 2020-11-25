@@ -1,5 +1,5 @@
---- rt5/step5/show_mpls_table.ref	2020-09-25 17:50:11.696561748 -0300
-+++ rt5/step6/show_mpls_table.ref	2020-09-25 17:51:14.685383977 -0300
+--- a/rt5/step5/show_mpls_table.ref
++++ b/rt5/step6/show_mpls_table.ref
 @@ -1,6 +1,6 @@
  {
 -  "16010":{

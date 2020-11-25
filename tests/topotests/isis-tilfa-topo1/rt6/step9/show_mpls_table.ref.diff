@@ -1,5 +1,5 @@
---- rt6/step8/show_mpls_table.ref	2020-09-25 17:53:19.799019132 -0300
-+++ rt6/step9/show_mpls_table.ref	2020-09-25 17:54:37.492035644 -0300
+--- a/rt6/step8/show_mpls_table.ref
++++ b/rt6/step9/show_mpls_table.ref
 @@ -167,8 +167,8 @@
        }
      ]
@@ -11,7 +11,13 @@
      "installed":true,
      "nexthops":[
        {
-@@ -189,8 +189,8 @@
+@@ -184,13 +184,13 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16050,
++        "outLabel":16500,
+         "nexthop":"10.0.7.4"
        }
      ]
    },
@@ -22,3 +28,12 @@
      "installed":true,
      "nexthops":[
        {
+@@ -206,7 +206,7 @@
+     "backupNexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":16051,
++        "outLabel":16501,
+         "interface":"eth-rt4"
+       }
+     ]

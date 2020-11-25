@@ -247,7 +247,7 @@
     "backupNexthops":[
       {
         "type":"SR (IS-IS)",
-        "outLabel":3,
+        "outLabel":16060,
         "nexthop":"10.0.1.3"
       }
     ]
@@ -278,7 +278,7 @@
     "backupNexthops":[
       {
         "type":"SR (IS-IS)",
-        "outLabel":3,
+        "outLabel":16061,
         "interface":"eth-sw1"
       }
     ]
