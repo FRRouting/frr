@@ -10810,9 +10810,12 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						    peer->pcount[afi][pfx_rcd_safi]);
 
 				if (paf && PAF_SUBGRP(paf))
-					json_object_int_add(json_peer,
-							    "pfxSnt",
-							    (PAF_SUBGRP(paf))->scount);
+					json_object_int_add(
+						json_peer, "pfxSnt",
+						(PAF_SUBGRP(paf))->scount);
+				else
+					json_object_int_add(json_peer, "pfxSnt",
+							    0);
 
 				/* BGP FSM state */
 				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)
