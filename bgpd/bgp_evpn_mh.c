@@ -1422,7 +1422,7 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 	/* find-create ES */
 	es = bgp_evpn_es_find(esi);
 	if (!es)
-		bgp_evpn_es_new(bgp_evpn, esi);
+		es = bgp_evpn_es_new(bgp_evpn, esi);
 
 	/* dup check */
 	if (es_info->es == es)
