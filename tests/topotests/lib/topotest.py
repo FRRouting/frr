@@ -1241,7 +1241,7 @@ class Router(Node):
         if self.checkRouterVersion("<", minErrorVersion):
             # ignore errors in old versions
             errors = ""
-        if assertOnError and len(errors) > 0:
+        if assertOnError and errors is not None and len(errors) > 0:
             assert "Errors found - details follow:" == 0, errors
         return errors
 

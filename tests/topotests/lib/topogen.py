@@ -336,7 +336,7 @@ class Topogen(object):
         for gear in self.gears.values():
             errors += gear.stop()
         if len(errors) > 0:
-            assert "Errors found post shutdown - details follow:" == 0, errors
+            logger.error("Errors found post shutdown - details follow: {}".format(errors))
 
         self.net.stop()
 
@@ -714,7 +714,7 @@ class TopoRouter(TopoGear):
         """
         self.logger.debug("stopping")
         self.__stop_internal(False, False)
-        return self.__stop_internal()
+        return self.__stop_internal(True, False)
 
     def startDaemons(self, daemons):
         """
