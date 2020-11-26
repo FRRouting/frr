@@ -301,6 +301,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(VRF_DEBUG_NODE, line);
 		else if (strncmp(line, "debug", strlen("debug")) == 0)
 			config = config_get(DEBUG_NODE, line);
+		else if (strncmp(line, "kernel-route", strlen("kernel-route")) == 0)
+			config = config_get(KERNEL_ROUTE_NODE, line);
 		else if (strncmp(line, "password", strlen("password")) == 0
 			 || strncmp(line, "enable password",
 				    strlen("enable password"))
@@ -344,7 +346,7 @@ void vtysh_config_parse_line(void *arg, const char *line)
 	 || (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE                  \
 	 || (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE                  \
 	 || (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE      \
-	 || (I) == MPLS_NODE)
+	 || (I) == MPLS_NODE) || (I) == KERNEL_ROUTE_NODE
 
 /* Display configuration to file pointer. */
 void vtysh_config_dump(void)

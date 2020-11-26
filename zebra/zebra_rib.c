@@ -395,6 +395,8 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 	nexthop_add(&nexthop->resolved, resolved_hop);
 }
 
+extern uint8_t g_skip_rtnetlink;
+
 /* If force flag is not set, do not modify falgs at all for uninstall
    the route from FIB. */
 static int nexthop_active(afi_t afi, struct route_entry *re,
@@ -411,9 +413,9 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	rib_dest_t *dest;
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		zlog_debug("NextHopActive1: re %p re_flags %d set %d nexthop %s type %d flags %u",
+		zlog_debug("NextHopActive1: re %p re_flags %d set %d nexthop %s type %d flags %u ifindex %d",
 				re, re->flags, set, inet_ntoa(nexthop->gate.ipv4),
-				nexthop->type, nexthop->flags);
+				nexthop->type, nexthop->flags, nexthop->ifindex);
 	}
 
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
@@ -479,6 +481,12 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	while (rn) {
 		route_unlock_node(rn);
 
+		if (g_skip_rtnetlink) {
+			zlog_debug("NextHopActive2: re %p re_flags %d set %d nexthop %s type %d flags %u",
+				re, re->flags, set, inet_ntoa(nexthop->gate.ipv4),
+				nexthop->type, nexthop->flags);
+			return 1;
+		}
 		/* Lookup should halt if we've matched against ourselves ('top',
 		 * if specified) - i.e., we cannot have a nexthop NH1 is
 		 * resolved by a route NH1. The exception is if the route is a

@@ -70,6 +70,7 @@
 #endif
 
 static vlanid_t filter_vlan = 0;
+static uint8_t g_rtnetlink_skip_install = 0;
 
 struct gw_family_t {
 	uint16_t filler;
@@ -89,6 +90,12 @@ struct in_addr ipv4_ll;
 void rt_netlink_init(void)
 {
 	inet_pton(AF_INET, ipv4_ll_buf, &ipv4_ll);
+}
+
+void rt_netlink_set_skip_install(uint8_t setflag)
+{
+	g_rtnetlink_skip_install = setflag;
+	return;
 }
 
 static inline int is_selfroute(int proto)
@@ -1810,6 +1817,28 @@ enum dp_req_result kernel_route_rib(struct route_node *rn,
 				    struct route_entry *new)
 {
 	int ret = 0;
+
+	zlog_debug("kernel_route_rib: skip netlink %u", g_rtnetlink_skip_install);
+	if (g_rtnetlink_skip_install) {
+		char buf[SRCDEST2STR_BUFFER + 1];
+		if (p) {
+			prefix2str(p, buf, SRCDEST2STR_BUFFER);
+			zlog_debug("kernel_route_rib: skip install/remove route p=%s to kernel", buf);
+		}
+		if (src_p) {
+			prefix2str(p, buf, SRCDEST2STR_BUFFER);
+			zlog_debug("kernel_route_rib: skip install/remove route src_p=%s to kernel", buf);
+		}
+		zlog_debug("kernel_route_rib: skip install/remove route to kernel");
+		if (new) {
+			kernel_route_rib_pass_fail(rn, p, new, DP_INSTALL_SUCCESS);
+		}
+
+		if (old) {
+			kernel_route_rib_pass_fail(rn, p, old, DP_DELETE_SUCCESS);
+		}
+		return DP_REQUEST_SUCCESS;
+	}
 
 	assert(old || new);
 

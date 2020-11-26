@@ -51,8 +51,10 @@
 #include "zebra/ipforward.h"
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_pbr.h"
+#include "zebra/rt_netlink.h"
 
 extern int allow_delete;
+uint8_t g_skip_rtnetlink = 0;
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 			    safi_t safi, bool use_fib, uint8_t use_json,
@@ -1535,6 +1537,53 @@ DEFUN (show_ipv6_mroute_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFUN (skip_kernel_route_install,
+	   skip_kernel_route_install_cmd,
+	   "kernel-route skip-install",
+	   "kernel-route attributes\n"
+	   "Skip installing kernel routes (continues to allow FPM)\n")
+{
+	g_skip_rtnetlink = 1;
+	rt_netlink_set_skip_install(g_skip_rtnetlink);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_skip_kernel_route_install,
+	   no_skip_kernel_route_install_cmd,
+	   "no kernel-route skip-install",
+	   NO_STR
+	   "kernel-route attributes\n"
+	   "Skip installing kernel routes (continues to allow FPM)\n")
+{
+	g_skip_rtnetlink = 0;
+	rt_netlink_set_skip_install(g_skip_rtnetlink);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_skip_kernel_route_install,
+	   show_skip_kernel_route_install_cmd,
+	   "show kernel-route skip-install",
+	   SHOW_STR
+	   "kernel-route attributes\n"
+	   "Show skip kernel route install state\n")
+{
+	vty_out(vty, "zebra skip_kernel_route_install %u\n", g_skip_rtnetlink);
+	return CMD_SUCCESS;
+}
+
+static int config_write_kernel_route(struct vty *vty)
+{
+	int write = 0;
+	if (g_skip_rtnetlink) {
+		vty_out(vty, "kernel-route skip-install\n");
+		write++;
+	}
+
+	return write;
+}
+
 DEFUN (allow_external_route_update,
        allow_external_route_update_cmd,
        "allow-external-route-update",
@@ -2592,6 +2641,9 @@ static struct cmd_node table_node = {TABLE_NODE,
 static struct cmd_node forwarding_node = {FORWARDING_NODE,
 					  "", /* This node has no interface. */
 					  1};
+static struct cmd_node kernel_routes_node = {KERNEL_ROUTE_NODE,
+					  "", /* This node has no interface. */
+					  1};
 
 /* Route VTY.  */
 void zebra_vty_init(void)
@@ -2620,6 +2672,11 @@ void zebra_vty_init(void)
 
 	install_node(&ip_node, zebra_ip_config);
 	install_node(&protocol_node, config_write_protocol);
+
+	install_node(&kernel_routes_node, config_write_kernel_route);
+	install_element(CONFIG_NODE, &skip_kernel_route_install_cmd);
+	install_element(CONFIG_NODE, &no_skip_kernel_route_install_cmd);
+	install_element(VIEW_NODE, &show_skip_kernel_route_install_cmd);
 
 	install_element(CONFIG_NODE, &allow_external_route_update_cmd);
 	install_element(CONFIG_NODE, &no_allow_external_route_update_cmd);

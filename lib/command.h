@@ -141,6 +141,7 @@ enum node_type {
 	BGP_FLOWSPECV6_NODE,	/* BGP IPv6 FLOWSPEC Address-Family */
 	BFD_NODE,		 /* BFD protocol mode. */
 	BFD_PEER_NODE,		 /* BFD peer configuration mode. */
+	KERNEL_ROUTE_NODE, /* Kernel Routing Attributes */
 	NODE_TYPE_MAX, /* maximum */
 };
 

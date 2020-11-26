@@ -146,6 +146,7 @@ const char *node_names[] = {
 				     */
 	"bfd",			 /* BFD_NODE */
 	"bfd peer",		 /* BFD_PEER_NODE */
+	"kernel-route"  /*KERNEL_ROUTE_NODE */
 };
 /* clang-format on */
 
