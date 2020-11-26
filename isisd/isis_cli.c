@@ -1948,6 +1948,62 @@ void cli_show_isis_frr_lfa_load_sharing(struct vty *vty, struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/fast-reroute/level-{1,2}/remote-lfa/prefix-list
+ */
+DEFPY_YANG (isis_frr_remote_lfa_plist,
+       isis_frr_remote_lfa_plist_cmd,
+       "fast-reroute remote-lfa prefix-list WORD$plist [<level-1|level-2>$level]",
+       "Configure Fast ReRoute\n"
+       "Enable remote LFA related configuration\n"
+       "Filter PQ node router ID based on prefix list\n"
+       "Prefix-list name\n"
+       "Enable router ID filtering for level-1 only\n"
+       "Enable router ID filtering for level-2 only\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(
+			vty, "./fast-reroute/level-1/remote-lfa/prefix-list",
+			NB_OP_MODIFY, plist);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(
+			vty, "./fast-reroute/level-2/remote-lfa/prefix-list",
+			NB_OP_MODIFY, plist);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (no_isis_frr_remote_lfa_plist,
+       no_isis_frr_remote_lfa_plist_cmd,
+       "no fast-reroute remote-lfa prefix-list [WORD] [<level-1|level-2>$level]",
+       NO_STR
+       "Configure Fast ReRoute\n"
+       "Enable remote LFA related configuration\n"
+       "Filter PQ node router ID based on prefix list\n"
+       "Prefix-list name\n"
+       "Enable router ID filtering for level-1 only\n"
+       "Enable router ID filtering for level-2 only\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(
+			vty, "./fast-reroute/level-1/remote-lfa/prefix-list",
+			NB_OP_DESTROY, NULL);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(
+			vty, "./fast-reroute/level-2/remote-lfa/prefix-list",
+			NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_frr_remote_lfa_plist(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults)
+{
+	vty_out(vty, " fast-reroute remote-lfa prefix-list %s %s\n",
+		yang_dnode_get_string(dnode, NULL),
+		dnode->parent->parent->schema->name);
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/passive
  */
 DEFPY_YANG(isis_passive, isis_passive_cmd, "[no] isis passive",
@@ -2630,6 +2686,25 @@ void cli_show_ip_isis_frr(struct vty *vty, struct lyd_node *dnode,
 		}
 	}
 
+	/* Remote LFA */
+	l1_enabled = yang_dnode_get_bool(dnode, "./level-1/remote-lfa/enable");
+	l2_enabled = yang_dnode_get_bool(dnode, "./level-2/remote-lfa/enable");
+
+	if (l1_enabled || l2_enabled) {
+		if (l1_enabled == l2_enabled) {
+			vty_out(vty,
+				" isis fast-reroute remote-lfa tunnel mpls-ldp\n");
+			vty_out(vty, "\n");
+		} else {
+			if (l1_enabled)
+				vty_out(vty,
+					" isis fast-reroute remote-lfa tunnel mpls-ldp level-1\n");
+			if (l2_enabled)
+				vty_out(vty,
+					" isis fast-reroute remote-lfa tunnel mpls-ldp level-2\n");
+		}
+	}
+
 	/* TI-LFA */
 	l1_enabled = yang_dnode_get_bool(dnode, "./level-1/ti-lfa/enable");
 	l2_enabled = yang_dnode_get_bool(dnode, "./level-2/ti-lfa/enable");
@@ -2758,6 +2833,104 @@ void cli_show_frr_lfa_exclude_interface(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " isis fast-reroute lfa %s exclude interface %s\n",
 		dnode->parent->parent->schema->name,
 		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-{1,2}/remote-lfa/enable
+ */
+DEFPY(isis_remote_lfa, isis_remote_lfa_cmd,
+      "[no] isis fast-reroute remote-lfa tunnel mpls-ldp [level-1|level-2]$level",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Interface IP Fast-reroute configuration\n"
+      "Enable remote LFA computation\n"
+      "Enable remote LFA computation using tunnels\n"
+      "Use MPLS LDP tunnel to reach the remote LFA node\n"
+      "Enable LFA computation for Level 1 only\n"
+      "Enable LFA computation for Level 2 only\n")
+{
+	if (!level || strmatch(level, "level-1")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/remote-lfa/enable",
+				NB_OP_MODIFY, "false");
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/remote-lfa/enable",
+				NB_OP_MODIFY, "true");
+		}
+	}
+	if (!level || strmatch(level, "level-2")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/remote-lfa/enable",
+				NB_OP_MODIFY, "false");
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/remote-lfa/enable",
+				NB_OP_MODIFY, "true");
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-{1,2}/remote-lfa/maximum-metric
+ */
+DEFPY(isis_remote_lfa_max_metric, isis_remote_lfa_max_metric_cmd,
+      "[no] isis fast-reroute remote-lfa maximum-metric (1-16777215)$metric [level-1|level-2]$level",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Interface IP Fast-reroute configuration\n"
+      "Enable remote LFA computation\n"
+      "Limit remote LFA node selection within the metric\n"
+      "Value of the metric\n"
+      "Enable LFA computation for Level 1 only\n"
+      "Enable LFA computation for Level 2 only\n")
+{
+	if (!level || strmatch(level, "level-1")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/remote-lfa/maximum-metric",
+				NB_OP_DESTROY, NULL);
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-1/remote-lfa/maximum-metric",
+				NB_OP_MODIFY, metric_str);
+		}
+	}
+	if (!level || strmatch(level, "level-2")) {
+		if (no) {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/remote-lfa/maximum-metric",
+				NB_OP_DESTROY, NULL);
+		} else {
+			nb_cli_enqueue_change(
+				vty,
+				"./frr-isisd:isis/fast-reroute/level-2/remote-lfa/maximum-metric",
+				NB_OP_MODIFY, metric_str);
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_frr_remote_lfa_max_metric(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults)
+{
+	vty_out(vty, " isis fast-reroute remote-lfa maximum-metric %s %s\n",
+		yang_dnode_get_string(dnode, NULL),
+		dnode->parent->parent->schema->name);
 }
 
 /*
@@ -3085,6 +3258,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &isis_frr_lfa_priority_limit_cmd);
 	install_element(ISIS_NODE, &isis_frr_lfa_tiebreaker_cmd);
 	install_element(ISIS_NODE, &isis_frr_lfa_load_sharing_cmd);
+	install_element(ISIS_NODE, &isis_frr_remote_lfa_plist_cmd);
+	install_element(ISIS_NODE, &no_isis_frr_remote_lfa_plist_cmd);
 
 	install_element(INTERFACE_NODE, &isis_passive_cmd);
 
@@ -3122,6 +3297,8 @@ void isis_cli_init(void)
 
 	install_element(INTERFACE_NODE, &isis_lfa_cmd);
 	install_element(INTERFACE_NODE, &isis_lfa_exclude_interface_cmd);
+	install_element(INTERFACE_NODE, &isis_remote_lfa_cmd);
+	install_element(INTERFACE_NODE, &isis_remote_lfa_max_metric_cmd);
 	install_element(INTERFACE_NODE, &isis_ti_lfa_cmd);
 
 	install_element(ISIS_NODE, &log_adj_changes_cmd);

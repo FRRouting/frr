@@ -1543,6 +1543,39 @@ int isis_instance_fast_reroute_level_1_lfa_tiebreaker_type_modify(
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/fast-reroute/level-1/remote-lfa/prefix-list
+ */
+int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-2/lfa/load-sharing
  */
 int isis_instance_fast_reroute_level_2_lfa_load_sharing_modify(
@@ -1648,6 +1681,39 @@ int isis_instance_fast_reroute_level_2_lfa_tiebreaker_type_modify(
 	area = tie_b->area;
 	tie_b->type = yang_dnode_get_enum(args->dnode, NULL);
 	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/fast-reroute/level-2/remote-lfa/prefix-list
+ */
+int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
 
 	return NB_OK;
 }
@@ -3439,6 +3505,60 @@ int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_destroy(
 
 /*
  * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/remote-lfa/enable
+ */
+int lib_interface_isis_fast_reroute_level_1_remote_lfa_enable_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/remote-lfa/maximum-metric
+ */
+int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+
+/*
+ * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/ti-lfa/enable
  */
 int lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify(
@@ -3556,6 +3676,59 @@ int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_destroy(
 	isis_lfa_excluded_iface_delete(circuit, ISIS_LEVEL2, exclude_ifname);
 	area = circuit->area;
 	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/remote-lfa/enable
+ */
+int lib_interface_isis_fast_reroute_level_2_remote_lfa_enable_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/remote-lfa/maximum-metric
+ */
+int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
 
 	return NB_OK;
 }

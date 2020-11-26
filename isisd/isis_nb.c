@@ -485,6 +485,14 @@ const struct frr_yang_module_info frr_isisd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-1/remote-lfa/prefix-list",
+			.cbs = {
+				.cli_show = cli_show_isis_frr_remote_lfa_plist,
+				.modify = isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_modify,
+				.destroy = isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-2/lfa/load-sharing",
 			.cbs = {
 				.cli_show = cli_show_isis_frr_lfa_load_sharing,
@@ -511,6 +519,14 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-2/lfa/tiebreaker/type",
 			.cbs = {
 				.modify = isis_instance_fast_reroute_level_2_lfa_tiebreaker_type_modify,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-2/remote-lfa/prefix-list",
+			.cbs = {
+				.cli_show = cli_show_isis_frr_remote_lfa_plist,
+				.modify = isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify,
+				.destroy = isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_destroy,
 			}
 		},
 		{
@@ -927,6 +943,20 @@ const struct frr_yang_module_info frr_isisd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/remote-lfa/enable",
+			.cbs = {
+				.modify = lib_interface_isis_fast_reroute_level_1_remote_lfa_enable_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/remote-lfa/maximum-metric",
+			.cbs = {
+				.cli_show = cli_show_frr_remote_lfa_max_metric,
+				.modify = lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_modify,
+				.destroy = lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/ti-lfa/enable",
 			.cbs = {
 				.modify = lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify,
@@ -950,6 +980,20 @@ const struct frr_yang_module_info frr_isisd_info = {
 				.cli_show = cli_show_frr_lfa_exclude_interface,
 				.create = lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_create,
 				.destroy = lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/remote-lfa/enable",
+			.cbs = {
+				.modify = lib_interface_isis_fast_reroute_level_2_remote_lfa_enable_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/remote-lfa/maximum-metric",
+			.cbs = {
+				.cli_show = cli_show_frr_remote_lfa_max_metric,
+				.modify = lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_modify,
+				.destroy = lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_destroy,
 			}
 		},
 		{
