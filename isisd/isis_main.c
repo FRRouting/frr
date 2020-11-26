@@ -246,6 +246,8 @@ int main(int argc, char **argv, char **envp)
 	access_list_delete_hook(isis_filter_update);
 	isis_vrf_init();
 	prefix_list_init();
+	prefix_list_add_hook(isis_prefix_list_update);
+	prefix_list_delete_hook(isis_prefix_list_update);
 	isis_init();
 	isis_circuit_init();
 #ifdef FABRICD

@@ -25,6 +25,8 @@
 #include "vrf.h"
 #include "table.h"
 #include "srcdest_table.h"
+#include "plist.h"
+#include "zclient.h"
 
 #include "isis_common.h"
 #include "isisd.h"
@@ -37,11 +39,13 @@
 #include "isis_mt.h"
 #include "isis_tlvs.h"
 #include "isis_spf_private.h"
-#include "isisd/isis_errors.h"
+#include "isis_zebra.h"
+#include "isis_errors.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_NODE, "ISIS SPF Node");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LFA_TIEBREAKER, "ISIS LFA Tiebreaker");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LFA_EXCL_IFACE, "ISIS LFA Excluded Interface");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_RLFA, "ISIS Remote LFA");
 
 static inline int isis_spf_node_compare(const struct isis_spf_node *a,
 					const struct isis_spf_node *b)
@@ -316,7 +320,7 @@ bool isis_lfa_excise_adj_check(const struct isis_spftree *spftree,
 {
 	const struct lfa_protected_resource *resource;
 
-	if (spftree->type != SPF_TYPE_TI_LFA)
+	if (spftree->type != SPF_TYPE_RLFA && spftree->type != SPF_TYPE_TI_LFA)
 		return false;
 
 	/*
@@ -832,14 +836,14 @@ spf_vertex_check_is_affected(const struct isis_vertex *vertex,
 	return false;
 }
 
-/* Check if a given TI-LFA post-convergence SPF vertex needs protection. */
-static bool tilfa_check_needs_protection(const struct isis_spftree *spftree_pc,
-					 const struct isis_vertex *vertex)
+/* Check if a given RLFA/TI-LFA post-convergence SPF vertex needs protection. */
+static bool lfa_check_needs_protection(const struct isis_spftree *spftree_pc,
+				       const struct isis_vertex *vertex)
 {
 	struct isis_vertex *vertex_old;
 
-	/* Only local adjacencies need Adj-SID protection. */
-	if (VTYPE_IS(vertex->type)
+	/* Only local adjacencies need TI-LFA Adj-SID protection. */
+	if (spftree_pc->type == SPF_TYPE_TI_LFA && VTYPE_IS(vertex->type)
 	    && !isis_adj_find(spftree_pc->area, spftree_pc->level,
 			      vertex->N.id))
 		return false;
@@ -847,6 +851,10 @@ static bool tilfa_check_needs_protection(const struct isis_spftree *spftree_pc,
 	vertex_old = isis_find_vertex(&spftree_pc->lfa.old.spftree->paths,
 				      &vertex->N, vertex->type);
 	if (!vertex_old)
+		return false;
+
+	/* Skip vertex if it's already protected by local LFA. */
+	if (CHECK_FLAG(vertex_old->flags, F_ISIS_VERTEX_LFA_PROTECTED))
 		return false;
 
 	return spf_vertex_check_is_affected(
@@ -877,7 +885,7 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc,
 	if (IS_DEBUG_LFA)
 		vid2string(vertex, buf, sizeof(buf));
 
-	if (!tilfa_check_needs_protection(spftree_pc, vertex)) {
+	if (!lfa_check_needs_protection(spftree_pc, vertex)) {
 		if (IS_DEBUG_LFA)
 			zlog_debug(
 				"ISIS-LFA: %s %s unaffected by %s",
@@ -1166,7 +1174,7 @@ struct isis_spftree *isis_tilfa_compute(struct isis_area *area,
 	struct isis_spf_node *adj_node;
 
 	if (IS_DEBUG_LFA)
-		zlog_debug("ISIS-LFA: computing the P/Q spaces w.r.t. %s",
+		zlog_debug("ISIS-LFA: computing TI-LFAs for %s",
 			   lfa_protected_resource2str(resource));
 
 	/* Populate list of nodes affected by link failure. */
@@ -1236,6 +1244,497 @@ int isis_spf_run_neighbors(struct isis_spftree *spftree)
 	}
 
 	return 0;
+}
+
+/* Find Router ID of PQ node. */
+static struct in_addr *rlfa_pq_node_rtr_id(struct isis_spftree *spftree,
+					   const struct isis_vertex *vertex_pq)
+{
+	struct isis_lsp *lsp;
+
+	lsp = isis_root_system_lsp(spftree->lspdb, vertex_pq->N.id);
+	if (!lsp)
+		return NULL;
+
+	if (lsp->tlvs->router_cap->router_id.s_addr == INADDR_ANY)
+		return NULL;
+
+	return &lsp->tlvs->router_cap->router_id;
+}
+
+/* Find PQ node by intersecting the P/Q spaces. This is a recursive function. */
+static const struct in_addr *
+rlfa_find_pq_node(struct isis_spftree *spftree_pc,
+		  struct isis_vertex *vertex_dest,
+		  const struct isis_vertex *vertex,
+		  const struct isis_vertex *vertex_child)
+{
+	struct isis_area *area = spftree_pc->area;
+	int level = spftree_pc->level;
+	struct isis_vertex *pvertex;
+	struct listnode *node;
+	bool is_pnode, is_qnode;
+
+	if (!vertex_child)
+		goto parents;
+	if (vertex->type != VTYPE_NONPSEUDO_IS
+	    && vertex->type != VTYPE_NONPSEUDO_TE_IS)
+		goto parents;
+	if (!VTYPE_IS(vertex_child->type))
+		vertex_child = NULL;
+
+	/* Check if node is part of the extended P-space and/or Q-space. */
+	is_pnode = lfa_ext_p_space_check(spftree_pc, vertex_dest, vertex);
+	is_qnode = lfa_q_space_check(spftree_pc, vertex);
+
+	if (is_pnode && is_qnode) {
+		const struct in_addr *rtr_id_pq;
+		uint32_t max_metric;
+		struct prefix_list *plist = NULL;
+
+		rtr_id_pq = rlfa_pq_node_rtr_id(spftree_pc, vertex);
+		if (!rtr_id_pq) {
+			if (IS_DEBUG_LFA) {
+				char buf[VID2STR_BUFFER];
+
+				vid2string(vertex, buf, sizeof(buf));
+				zlog_debug(
+					"ISIS-LFA: tentative PQ node (%s %s) doesn't have a router-ID",
+					vtype2string(vertex->type), buf);
+			}
+			goto parents;
+		}
+
+		max_metric = spftree_pc->lfa.remote.max_metric;
+		if (max_metric && vertex->d_N > max_metric) {
+			if (IS_DEBUG_LFA)
+				zlog_debug(
+					"ISIS-LFA: skipping PQ node %pI4 (maximum metric)",
+					rtr_id_pq);
+			goto parents;
+		}
+
+		plist = area->rlfa_plist[level - 1];
+		if (plist) {
+			struct prefix p;
+
+			p.family = AF_INET;
+			p.prefixlen = IPV4_MAX_BITLEN;
+			p.u.prefix4 = *rtr_id_pq;
+			if (prefix_list_apply(plist, &p) == PREFIX_DENY) {
+				if (IS_DEBUG_LFA)
+					zlog_debug(
+						"ISIS-LFA: PQ node %pI4 filtered by prefix-list",
+						rtr_id_pq);
+				goto parents;
+			}
+		}
+
+		if (IS_DEBUG_LFA)
+			zlog_debug("ISIS-LFA: found PQ node: %pI4", rtr_id_pq);
+
+		return rtr_id_pq;
+	}
+
+parents:
+	for (ALL_LIST_ELEMENTS_RO(vertex->parents, node, pvertex)) {
+		const struct in_addr *rtr_id_pq;
+
+		rtr_id_pq = rlfa_find_pq_node(spftree_pc, vertex_dest, pvertex,
+					      vertex);
+		if (rtr_id_pq)
+			return rtr_id_pq;
+	}
+
+	return NULL;
+}
+
+int rlfa_cmp(const struct rlfa *a, const struct rlfa *b)
+{
+	return prefix_cmp(&a->prefix, &b->prefix);
+}
+
+static struct rlfa *rlfa_add(struct isis_spftree *spftree,
+			     struct isis_vertex *vertex,
+			     struct in_addr pq_address)
+{
+	struct rlfa *rlfa;
+
+	assert(VTYPE_IP(vertex->type));
+	rlfa = XCALLOC(MTYPE_ISIS_RLFA, sizeof(*rlfa));
+	rlfa->prefix = vertex->N.ip.p.dest;
+	rlfa->vertex = vertex;
+	rlfa->pq_address = pq_address;
+	rlfa_tree_add(&spftree->lfa.remote.rlfas, rlfa);
+
+	return rlfa;
+}
+
+static void rlfa_delete(struct isis_spftree *spftree, struct rlfa *rlfa)
+{
+	rlfa_tree_del(&spftree->lfa.remote.rlfas, rlfa);
+	XFREE(MTYPE_ISIS_RLFA, rlfa);
+}
+
+static struct rlfa *rlfa_lookup(struct isis_spftree *spftree,
+				union prefixconstptr pu)
+{
+	struct rlfa s = {};
+
+	s.prefix = *pu.p;
+	return rlfa_tree_find(&spftree->lfa.remote.rlfas, &s);
+}
+
+static int isis_area_verify_routes_cb(struct thread *thread)
+{
+	struct isis_area *area = THREAD_ARG(thread);
+
+	if (IS_DEBUG_LFA)
+		zlog_debug("ISIS-LFA: updating RLFAs in the RIB");
+
+	isis_area_verify_routes(area);
+
+	return 0;
+}
+
+static mpls_label_t rlfa_nexthop_label(struct isis_spftree *spftree,
+				       struct isis_vertex_adj *vadj,
+				       struct zapi_rlfa_response *response)
+{
+	struct isis_spf_adj *sadj = vadj->sadj;
+	struct isis_adjacency *adj = sadj->adj;
+
+	/*
+	 * Special case to make unit tests work (use implicit-null labels
+	 * instead of artifical ones).
+	 */
+	if (CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES))
+		return MPLS_LABEL_IMPLICIT_NULL;
+
+	for (unsigned int i = 0; i < response->nexthop_num; i++) {
+		switch (response->nexthops[i].family) {
+		case AF_INET:
+			for (unsigned int j = 0; j < adj->ipv4_address_count;
+			     j++) {
+				struct in_addr addr = adj->ipv4_addresses[j];
+
+				if (!IPV4_ADDR_SAME(
+					    &addr,
+					    &response->nexthops[i].gate.ipv4))
+					continue;
+
+				return response->nexthops[i].label;
+			}
+			break;
+		case AF_INET6:
+			for (unsigned int j = 0; j < adj->ipv6_address_count;
+			     j++) {
+				struct in6_addr addr = adj->ipv6_addresses[j];
+
+				if (!IPV6_ADDR_SAME(
+					    &addr,
+					    &response->nexthops[i].gate.ipv6))
+					continue;
+
+				return response->nexthops[i].label;
+			}
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	return MPLS_INVALID_LABEL;
+}
+
+int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
+		       struct zapi_rlfa_response *response)
+{
+	struct isis_area *area = spftree->area;
+	struct isis_vertex *vertex = rlfa->vertex;
+	struct isis_vertex_adj *vadj;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(vertex->Adj_N, node, vadj)) {
+		mpls_label_t ldp_label;
+		struct mpls_label_stack *label_stack;
+		size_t num_labels = 0;
+		size_t i = 0;
+
+		ldp_label = rlfa_nexthop_label(spftree, vadj, response);
+		if (ldp_label == MPLS_INVALID_LABEL) {
+			if (IS_DEBUG_LFA)
+				zlog_debug(
+					"ISIS-LFA: failed to activate RLFA: missing LDP label to reach PQ node through %s",
+					sysid_print(vadj->sadj->id));
+			return -1;
+		}
+
+		if (ldp_label != MPLS_LABEL_IMPLICIT_NULL)
+			num_labels++;
+		if (response->pq_label != MPLS_LABEL_IMPLICIT_NULL)
+			num_labels++;
+		if (vadj->sr.present
+		    && vadj->sr.label != MPLS_LABEL_IMPLICIT_NULL)
+			num_labels++;
+
+		/* Allocate label stack. */
+		label_stack =
+			XCALLOC(MTYPE_ISIS_NEXTHOP_LABELS,
+				sizeof(struct mpls_label_stack)
+					+ num_labels * sizeof(mpls_label_t));
+		label_stack->num_labels = num_labels;
+
+		/* Push label allocated by the nexthop (outer label). */
+		if (ldp_label != MPLS_LABEL_IMPLICIT_NULL)
+			label_stack->label[i++] = ldp_label;
+		/* Push label allocated by the PQ node (inner label). */
+		if (response->pq_label != MPLS_LABEL_IMPLICIT_NULL)
+			label_stack->label[i++] = response->pq_label;
+		/* Preserve the original Prefix-SID label when it's present. */
+		if (vadj->sr.present
+		    && vadj->sr.label != MPLS_LABEL_IMPLICIT_NULL)
+			label_stack->label[i++] = vadj->sr.label;
+
+		vadj->label_stack = label_stack;
+	}
+
+	isis_route_create(&vertex->N.ip.p.dest, &vertex->N.ip.p.src,
+			  vertex->d_N, vertex->depth, &vertex->N.ip.sr,
+			  vertex->Adj_N, true, area,
+			  spftree->route_table_backup);
+	spftree->lfa.protection_counters.rlfa[vertex->N.ip.priority] += 1;
+
+	thread_cancel(&area->t_rlfa_rib_update);
+	thread_add_timer(master, isis_area_verify_routes_cb, area, 2,
+			 &area->t_rlfa_rib_update);
+
+	return 0;
+}
+
+void isis_rlfa_deactivate(struct isis_spftree *spftree, struct rlfa *rlfa)
+{
+	struct isis_area *area = spftree->area;
+	struct isis_vertex *vertex = rlfa->vertex;
+	struct route_node *rn;
+
+	rn = route_node_lookup(spftree->route_table_backup, &rlfa->prefix);
+	if (!rn)
+		return;
+	isis_route_delete(area, rn, spftree->route_table_backup);
+	spftree->lfa.protection_counters.rlfa[vertex->N.ip.priority] -= 1;
+
+	thread_cancel(&area->t_rlfa_rib_update);
+	thread_add_timer(master, isis_area_verify_routes_cb, area, 2,
+			 &area->t_rlfa_rib_update);
+}
+
+void isis_rlfa_list_init(struct isis_spftree *spftree)
+{
+	rlfa_tree_init(&spftree->lfa.remote.rlfas);
+}
+
+void isis_rlfa_list_clear(struct isis_spftree *spftree)
+{
+	while (rlfa_tree_count(&spftree->lfa.remote.rlfas) > 0) {
+		struct rlfa *rlfa;
+
+		rlfa = rlfa_tree_first(&spftree->lfa.remote.rlfas);
+		isis_rlfa_deactivate(spftree, rlfa);
+		rlfa_delete(spftree, rlfa);
+	}
+}
+
+void isis_rlfa_process_ldp_response(struct zapi_rlfa_response *response)
+{
+	struct isis *isis;
+	struct isis_area *area;
+	struct isis_spftree *spftree;
+	struct rlfa *rlfa;
+	enum spf_tree_id tree_id;
+	uint32_t spf_run_id;
+	int level;
+
+	if (response->igp.protocol != ZEBRA_ROUTE_ISIS)
+		return;
+
+	isis = isis_lookup_by_vrfid(response->igp.vrf_id);
+	if (!isis)
+		return;
+
+	area = isis_area_lookup(response->igp.isis.area_tag,
+				response->igp.vrf_id);
+	if (!area)
+		return;
+
+	tree_id = response->igp.isis.spf.tree_id;
+	if (tree_id != SPFTREE_IPV4 && tree_id != SPFTREE_IPV6) {
+		zlog_warn("ISIS-LFA: invalid SPF tree ID received from LDP");
+		return;
+	}
+
+	level = response->igp.isis.spf.level;
+	if (level != ISIS_LEVEL1 && level != ISIS_LEVEL2) {
+		zlog_warn("ISIS-LFA: invalid IS-IS level received from LDP");
+		return;
+	}
+
+	spf_run_id = response->igp.isis.spf.run_id;
+	spftree = area->spftree[tree_id][level - 1];
+	if (spftree->runcount != spf_run_id)
+		/* Outdated RLFA, ignore... */
+		return;
+
+	rlfa = rlfa_lookup(spftree, &response->destination);
+	if (!rlfa) {
+		zlog_warn(
+			"ISIS-LFA: couldn't find Remote-LFA %pFX received from LDP",
+			&response->destination);
+		return;
+	}
+
+	if (response->pq_label != MPLS_INVALID_LABEL) {
+		if (IS_DEBUG_LFA)
+			zlog_debug(
+				"ISIS-LFA: activating/updating RLFA for %pFX",
+				&rlfa->prefix);
+
+		if (isis_rlfa_activate(spftree, rlfa, response) != 0)
+			isis_rlfa_deactivate(spftree, rlfa);
+	} else {
+		if (IS_DEBUG_LFA)
+			zlog_debug("ISIS-LFA: deactivating RLFA for %pFX",
+				   &rlfa->prefix);
+
+		isis_rlfa_deactivate(spftree, rlfa);
+	}
+}
+
+void isis_ldp_rlfa_handle_client_close(struct zapi_client_close_info *info)
+{
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct isis_area *area;
+	struct listnode *node;
+
+	if (!isis)
+		return;
+
+	/* Check if the LDP main client session closed */
+	if (info->proto != ZEBRA_ROUTE_LDP || info->session_id == 0)
+		return;
+
+	if (IS_DEBUG_LFA)
+		zlog_debug("ISIS-LFA: LDP is down, deactivating all RLFAs");
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
+			     level++) {
+				struct isis_spftree *spftree;
+
+				spftree = area->spftree[tree][level - 1];
+				isis_rlfa_list_clear(spftree);
+			}
+		}
+	}
+}
+
+/**
+ * Check if the given SPF vertex needs protection and, if so, attempt to
+ * compute a Remote LFA for it.
+ *
+ * @param spftree_pc	The post-convergence SPF tree
+ * @param vertex	IS-IS SPF vertex to check
+ */
+void isis_rlfa_check(struct isis_spftree *spftree_pc,
+		     struct isis_vertex *vertex)
+{
+	struct isis_spftree *spftree_old = spftree_pc->lfa.old.spftree;
+	struct rlfa *rlfa;
+	const struct in_addr *rtr_id_pq;
+	char buf[VID2STR_BUFFER];
+
+	if (!lfa_check_needs_protection(spftree_pc, vertex)) {
+		if (IS_DEBUG_LFA)
+			zlog_debug(
+				"ISIS-LFA: %s %s unaffected by %s",
+				vtype2string(vertex->type),
+				vid2string(vertex, buf, sizeof(buf)),
+				lfa_protected_resource2str(
+					&spftree_pc->lfa.protected_resource));
+
+		return;
+	}
+
+	if (IS_DEBUG_LFA)
+		zlog_debug(
+			"ISIS-LFA: computing repair path(s) of %s %s w.r.t %s",
+			vtype2string(vertex->type),
+			vid2string(vertex, buf, sizeof(buf)),
+			lfa_protected_resource2str(
+				&spftree_pc->lfa.protected_resource));
+
+	/* Find PQ node. */
+	rtr_id_pq = rlfa_find_pq_node(spftree_pc, vertex, vertex, NULL);
+	if (!rtr_id_pq) {
+		if (IS_DEBUG_LFA)
+			zlog_debug("ISIS-LFA: no acceptable PQ node found");
+		return;
+	}
+
+	/* Store valid RLFA and store LDP label for the PQ node. */
+	rlfa = rlfa_add(spftree_old, vertex, *rtr_id_pq);
+
+	/* Register RLFA with LDP. */
+	if (isis_zebra_rlfa_register(spftree_old, rlfa) != 0)
+		rlfa_delete(spftree_old, rlfa);
+}
+
+/**
+ * Compute the Remote LFA backup paths for a given protected interface.
+ *
+ * @param area		  IS-IS area
+ * @param spftree	  IS-IS SPF tree
+ * @param spftree_reverse IS-IS Reverse SPF tree
+ * @param max_metric	  Remote LFA maximum metric
+ * @param resource	  Protected resource
+ *
+ * @return		  Pointer to the post-convergence SPF tree
+ */
+struct isis_spftree *isis_rlfa_compute(struct isis_area *area,
+				       struct isis_spftree *spftree,
+				       struct isis_spftree *spftree_reverse,
+				       uint32_t max_metric,
+				       struct lfa_protected_resource *resource)
+{
+	struct isis_spftree *spftree_pc;
+
+	if (IS_DEBUG_LFA)
+		zlog_debug("ISIS-LFA: computing remote LFAs for %s",
+			   lfa_protected_resource2str(resource));
+
+	/* Create post-convergence SPF tree. */
+	spftree_pc = isis_spftree_new(area, spftree->lspdb, spftree->sysid,
+				      spftree->level, spftree->tree_id,
+				      SPF_TYPE_RLFA, spftree->flags);
+	spftree_pc->lfa.old.spftree = spftree;
+	spftree_pc->lfa.old.spftree_reverse = spftree_reverse;
+	spftree_pc->lfa.remote.max_metric = max_metric;
+	spftree_pc->lfa.protected_resource = *resource;
+
+	/* Compute the extended P-space and Q-space. */
+	lfa_calc_pq_spaces(spftree_pc, resource);
+
+	if (IS_DEBUG_LFA)
+		zlog_debug(
+			"ISIS-LFA: computing the post convergence SPT w.r.t. %s",
+			lfa_protected_resource2str(resource));
+
+	/* Re-run SPF in the local node to find the post-convergence paths. */
+	isis_run_spf(spftree_pc);
+
+	return spftree_pc;
 }
 
 /* Calculate the distance from the root node to the given IP destination. */
@@ -1451,8 +1950,7 @@ static bool clfa_node_protecting_check(struct isis_spftree *spftree,
 }
 
 static struct list *
-isis_lfa_tiebreakers(struct isis_area *area, struct isis_circuit *circuit,
-		     struct isis_spftree *spftree,
+isis_lfa_tiebreakers(struct isis_area *area, struct isis_spftree *spftree,
 		     struct lfa_protected_resource *resource,
 		     struct isis_vertex *vertex,
 		     struct isis_spf_adj *sadj_primary, struct list *lfa_list)
@@ -1572,6 +2070,10 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 
 	resource->type = LFA_LINK_PROTECTION;
 
+	if (IS_DEBUG_LFA)
+		zlog_debug("ISIS-LFA: computing local LFAs for %s",
+			   lfa_protected_resource2str(resource));
+
 	for (ALL_QUEUE_ELEMENTS_RO(&spftree->paths, vnode, vertex)) {
 		struct list *lfa_list;
 		struct list *filtered_lfa_list;
@@ -1591,7 +2093,8 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 						  resource)) {
 			if (IS_DEBUG_LFA)
 				zlog_debug(
-					"ISIS-LFA: route unaffected by %s",
+					"ISIS-LFA: %s %s unaffected by %s",
+					vtype2string(vertex->type), buf,
 					lfa_protected_resource2str(resource));
 			continue;
 		}
@@ -1697,15 +2200,18 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 
 		if (list_isempty(lfa_list)) {
 			if (IS_DEBUG_LFA)
-				zlog_debug("ISIS-LFA: no valid LFAs found");
+				zlog_debug(
+					"ISIS-LFA: no valid local LFAs found");
 			list_delete(&lfa_list);
 			continue;
 		}
 
+		SET_FLAG(vertex->flags, F_ISIS_VERTEX_LFA_PROTECTED);
+
 		/* Check tie-breakers. */
 		filtered_lfa_list =
-			isis_lfa_tiebreakers(area, circuit, spftree, resource,
-					     vertex, sadj_primary, lfa_list);
+			isis_lfa_tiebreakers(area, spftree, resource, vertex,
+					     sadj_primary, lfa_list);
 
 		/* Create backup route using the best LFAs. */
 		allow_ecmp = area->lfa_load_sharing[level - 1];
@@ -1746,7 +2252,7 @@ static void isis_spf_run_tilfa(struct isis_area *area,
 }
 
 /**
- * Run the LFA/TI-LFA algorithms for all protected interfaces.
+ * Run the LFA/RLFA/TI-LFA algorithms for all protected interfaces.
  *
  * @param area		IS-IS area
  * @param spftree	IS-IS SPF tree
@@ -1756,13 +2262,11 @@ void isis_spf_run_lfa(struct isis_area *area, struct isis_spftree *spftree)
 	struct isis_spftree *spftree_reverse = NULL;
 	struct isis_circuit *circuit;
 	struct listnode *node;
-	bool tilfa_configured;
 	int level = spftree->level;
 
-	tilfa_configured = (area->tilfa_protected_links[level - 1] > 0);
-
 	/* Run reverse SPF locally. */
-	if (tilfa_configured)
+	if (area->rlfa_protected_links[level - 1] > 0
+	    || area->tilfa_protected_links[level - 1] > 0)
 		spftree_reverse = isis_spf_reverse_run(spftree);
 
 	/* Run forward SPF on all adjacent routers. */
@@ -1808,15 +2312,32 @@ void isis_spf_run_lfa(struct isis_area *area, struct isis_spftree *spftree)
 			continue;
 		}
 
-		if (circuit->lfa_protection[level - 1])
+		if (circuit->lfa_protection[level - 1]) {
+			/* Run local LFA. */
 			isis_lfa_compute(area, circuit, spftree, &resource);
-		else if (circuit->tilfa_protection[level - 1]) {
+
+			if (circuit->rlfa_protection[level - 1]) {
+				struct isis_spftree *spftree_pc;
+				uint32_t max_metric;
+
+				/* Run remote LFA. */
+				assert(spftree_reverse);
+				max_metric =
+					circuit->rlfa_max_metric[level - 1];
+				spftree_pc = isis_rlfa_compute(
+					area, spftree, spftree_reverse,
+					max_metric, &resource);
+				listnode_add(spftree->lfa.remote.pc_spftrees,
+					     spftree_pc);
+			}
+		} else if (circuit->tilfa_protection[level - 1]) {
+			/* Run TI-LFA. */
 			assert(spftree_reverse);
 			isis_spf_run_tilfa(area, circuit, spftree,
 					   spftree_reverse, &resource);
 		}
 	}
 
-	if (tilfa_configured)
+	if (spftree_reverse)
 		isis_spftree_del(spftree_reverse);
 }

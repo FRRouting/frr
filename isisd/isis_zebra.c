@@ -47,6 +47,8 @@
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_lsp.h"
+#include "isisd/isis_spf.h"
+#include "isisd/isis_spf_private.h"
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_adjacency.h"
@@ -540,6 +542,72 @@ void isis_zebra_redistribute_unset(afi_t afi, int type)
 				     type, 0, VRF_DEFAULT);
 }
 
+/**
+ * Register RLFA with LDP.
+ */
+int isis_zebra_rlfa_register(struct isis_spftree *spftree, struct rlfa *rlfa)
+{
+	struct isis_area *area = spftree->area;
+	struct zapi_rlfa_request zr = {};
+	int ret;
+
+	if (!zclient)
+		return 0;
+
+	zr.igp.vrf_id = area->isis->vrf_id;
+	zr.igp.protocol = ZEBRA_ROUTE_ISIS;
+	strlcpy(zr.igp.isis.area_tag, area->area_tag,
+		sizeof(zr.igp.isis.area_tag));
+	zr.igp.isis.spf.tree_id = spftree->tree_id;
+	zr.igp.isis.spf.level = spftree->level;
+	zr.igp.isis.spf.run_id = spftree->runcount;
+	zr.destination = rlfa->prefix;
+	zr.pq_address = rlfa->pq_address;
+
+	zlog_debug("ISIS-LFA: registering RLFA %pFX@%pI4 with LDP",
+		   &rlfa->prefix, &rlfa->pq_address);
+
+	ret = zclient_send_opaque_unicast(zclient, LDP_RLFA_REGISTER,
+					  ZEBRA_ROUTE_LDP, 0, 0,
+					  (const uint8_t *)&zr, sizeof(zr));
+	if (ret == ZCLIENT_SEND_FAILURE) {
+		zlog_warn("ISIS-LFA: failed to register RLFA with LDP");
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * Unregister all RLFAs from the given SPF tree with LDP.
+ */
+void isis_zebra_rlfa_unregister_all(struct isis_spftree *spftree)
+{
+	struct isis_area *area = spftree->area;
+	struct zapi_rlfa_igp igp = {};
+	int ret;
+
+	if (!zclient || spftree->type != SPF_TYPE_FORWARD
+	    || CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES))
+		return;
+
+	if (IS_DEBUG_LFA)
+		zlog_debug("ISIS-LFA: unregistering all RLFAs with LDP");
+
+	igp.vrf_id = area->isis->vrf_id;
+	igp.protocol = ZEBRA_ROUTE_ISIS;
+	strlcpy(igp.isis.area_tag, area->area_tag, sizeof(igp.isis.area_tag));
+	igp.isis.spf.tree_id = spftree->tree_id;
+	igp.isis.spf.level = spftree->level;
+	igp.isis.spf.run_id = spftree->runcount;
+
+	ret = zclient_send_opaque_unicast(zclient, LDP_RLFA_UNREGISTER_ALL,
+					  ZEBRA_ROUTE_LDP, 0, 0,
+					  (const uint8_t *)&igp, sizeof(igp));
+	if (ret == ZCLIENT_SEND_FAILURE)
+		zlog_warn("ISIS-LFA: failed to unregister RLFA with LDP");
+}
+
 /* Label Manager Functions */
 
 /**
@@ -659,6 +727,7 @@ void isis_zebra_vrf_register(struct isis *isis)
 static void isis_zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	zclient_register_opaque(zclient, LDP_RLFA_LABELS);
 }
 
 /*
@@ -670,6 +739,7 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	struct zapi_opaque_msg info;
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
+	struct zapi_rlfa_response rlfa;
 	int ret = 0;
 
 	s = zclient->ibuf;
@@ -684,6 +754,10 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	case LDP_IGP_SYNC_ANNOUNCE_UPDATE:
 		STREAM_GET(&announce, s, sizeof(announce));
 		ret = isis_ldp_sync_announce_update(announce);
+		break;
+	case LDP_RLFA_LABELS:
+		STREAM_GET(&rlfa, s, sizeof(rlfa));
+		isis_rlfa_process_ldp_response(&rlfa);
 		break;
 	default:
 		break;
@@ -704,6 +778,7 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 		return -1;
 
 	isis_ldp_sync_handle_client_close(&info);
+	isis_ldp_rlfa_handle_client_close(&info);
 
 	return ret;
 }
@@ -742,6 +817,7 @@ void isis_zebra_init(struct thread_master *master, int instance)
 
 void isis_zebra_stop(void)
 {
+	zclient_unregister_opaque(zclient, LDP_RLFA_LABELS);
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);
 	zclient_stop(zclient);

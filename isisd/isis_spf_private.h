@@ -76,7 +76,9 @@ struct isis_vertex {
 	struct list *parents;  /* list of parents for ECMP */
 	struct hash *firsthops; /* first two hops to neighbor */
 	uint64_t insert_counter;
+	uint8_t flags;
 };
+#define F_ISIS_VERTEX_LFA_PROTECTED	0x01
 
 /* Vertex Queue and associated functions */
 
@@ -348,6 +350,21 @@ struct isis_spftree {
 		/* P-space and Q-space. */
 		struct isis_spf_nodes p_space;
 		struct isis_spf_nodes q_space;
+
+		/* Remote LFA related information. */
+		struct {
+			/* List of RLFAs eligible to be installed. */
+			struct rlfa_tree_head rlfas;
+
+			/*
+			 * RLFA post-convergence SPTs (needed to activate RLFAs
+			 * once label information is received from LDP).
+			 */
+			struct list *pc_spftrees;
+
+			/* RLFA maximum metric (or zero if absent). */
+			uint32_t max_metric;
+		} remote;
 
 		/* Protection counters. */
 		struct {

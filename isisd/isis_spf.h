@@ -31,6 +31,7 @@ struct isis_spftree;
 enum spf_type {
 	SPF_TYPE_FORWARD = 1,
 	SPF_TYPE_REVERSE,
+	SPF_TYPE_RLFA,
 	SPF_TYPE_TI_LFA,
 };
 

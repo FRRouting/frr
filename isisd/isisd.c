@@ -32,6 +32,7 @@
 #include "if.h"
 #include "hash.h"
 #include "filter.h"
+#include "plist.h"
 #include "stream.h"
 #include "prefix.h"
 #include "table.h"
@@ -485,6 +486,7 @@ void isis_area_destroy(struct isis_area *area)
 	thread_cancel(&area->t_tick);
 	thread_cancel(&area->t_lsp_refresh[0]);
 	thread_cancel(&area->t_lsp_refresh[1]);
+	thread_cancel(&area->t_rlfa_rib_update);
 
 	thread_cancel_event(master, area);
 
@@ -645,6 +647,34 @@ void isis_filter_update(struct access_list *access)
 					access_list_lookup(AFI_IP6, ppa->name);
 			}
 			lsp_regenerate_schedule(area, area->is_type, 0);
+		}
+	}
+}
+
+void isis_prefix_list_update(struct prefix_list *plist)
+{
+	struct isis *isis;
+	struct isis_area *area;
+	struct listnode *node, *anode;
+
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
+			     level++) {
+				const char *plist_name =
+					prefix_list_name(plist);
+
+				if (!area->rlfa_plist_name[level - 1])
+					continue;
+
+				if (!strmatch(area->rlfa_plist_name[level - 1],
+					      plist_name))
+					continue;
+
+				area->rlfa_plist[level - 1] =
+					prefix_list_lookup(AFI_IP, plist_name);
+				lsp_regenerate_schedule(area, area->is_type, 0);
+			}
 		}
 	}
 }

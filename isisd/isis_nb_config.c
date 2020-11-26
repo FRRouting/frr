@@ -28,6 +28,7 @@
 #include "log.h"
 #include "bfd.h"
 #include "filter.h"
+#include "plist.h"
 #include "spf_backoff.h"
 #include "lib_errors.h"
 #include "vrf.h"
@@ -1548,14 +1549,18 @@ int isis_instance_fast_reroute_level_1_lfa_tiebreaker_type_modify(
 int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	const char *plist_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	plist_name = yang_dnode_get_string(args->dnode, NULL);
+
+	area->rlfa_plist_name[0] = XSTRDUP(MTYPE_ISIS_PLIST_NAME, plist_name);
+	area->rlfa_plist[0] = prefix_list_lookup(AFI_IP, plist_name);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1563,14 +1568,16 @@ int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_modify(
 int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	XFREE(MTYPE_ISIS_PLIST_NAME, area->rlfa_plist_name[0]);
+	area->rlfa_plist[0] = NULL;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1691,14 +1698,18 @@ int isis_instance_fast_reroute_level_2_lfa_tiebreaker_type_modify(
 int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	const char *plist_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	plist_name = yang_dnode_get_string(args->dnode, NULL);
+
+	area->rlfa_plist_name[1] = XSTRDUP(MTYPE_ISIS_PLIST_NAME, plist_name);
+	area->rlfa_plist[1] = prefix_list_lookup(AFI_IP, plist_name);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1706,14 +1717,16 @@ int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify(
 int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	XFREE(MTYPE_ISIS_PLIST_NAME, area->rlfa_plist_name[1]);
+	area->rlfa_plist[1] = NULL;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3510,14 +3523,23 @@ int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_destroy(
 int lib_interface_isis_fast_reroute_level_1_remote_lfa_enable_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->rlfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
+	if (circuit->rlfa_protection[0])
+		circuit->area->rlfa_protected_links[0]++;
+	else {
+		assert(circuit->area->rlfa_protected_links[0] > 0);
+		circuit->area->rlfa_protected_links[0]--;
 	}
+
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3529,14 +3551,17 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_enable_modify(
 int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->rlfa_max_metric[0] = yang_dnode_get_uint32(args->dnode, NULL);
+
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3544,18 +3569,20 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_modify(
 int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->rlfa_max_metric[0] = 0;
+
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
-
 
 /*
  * XPath:
@@ -3687,14 +3714,23 @@ int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_destroy(
 int lib_interface_isis_fast_reroute_level_2_remote_lfa_enable_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->rlfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
+	if (circuit->rlfa_protection[1])
+		circuit->area->rlfa_protected_links[1]++;
+	else {
+		assert(circuit->area->rlfa_protected_links[1] > 0);
+		circuit->area->rlfa_protected_links[1]--;
 	}
+
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3706,14 +3742,17 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_enable_modify(
 int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_modify(
 	struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->rlfa_max_metric[1] = yang_dnode_get_uint32(args->dnode, NULL);
+
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3721,14 +3760,17 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_modify(
 int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->rlfa_max_metric[1] = 0;
+
+	area = circuit->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }

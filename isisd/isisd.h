@@ -131,6 +131,7 @@ struct isis_area {
 	struct thread *t_tick; /* LSP walker */
 	struct thread *t_lsp_refresh[ISIS_LEVELS];
 	struct timeval last_lsp_refresh_event[ISIS_LEVELS];
+	struct thread *t_rlfa_rib_update;
 	/* t_lsp_refresh is used in two ways:
 	 * a) regular refresh of LSPs
 	 * b) (possibly throttled) updates to LSPs
@@ -197,6 +198,9 @@ struct isis_area {
 	size_t lfa_load_sharing[ISIS_LEVELS];
 	enum spf_prefix_priority lfa_priority_limit[ISIS_LEVELS];
 	struct lfa_tiebreaker_tree_head lfa_tiebreakers[ISIS_LEVELS];
+	char *rlfa_plist_name[ISIS_LEVELS];
+	struct prefix_list *rlfa_plist[ISIS_LEVELS];
+	size_t rlfa_protected_links[ISIS_LEVELS];
 	size_t tilfa_protected_links[ISIS_LEVELS];
 	/* Counters */
 	uint32_t circuit_state_changes;
@@ -240,6 +244,7 @@ struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,
 int isis_area_get(struct vty *vty, const char *area_tag);
 void isis_area_destroy(struct isis_area *area);
 void isis_filter_update(struct access_list *access);
+void isis_prefix_list_update(struct prefix_list *plist);
 void print_debug(struct vty *, int, int);
 struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
 			     struct isis *isis);
