@@ -26,8 +26,7 @@ from lib.topotest import json_cmp_result
 
 def pytest_addoption(parser):
     """
-    Add topology-only option to the topology tester. This option makes pytest
-    only run the setup_module() to setup the topology without running any tests.
+    Add CLI options to the topology tester.
     """
     parser.addoption(
         "--asan-abort",
@@ -129,6 +128,18 @@ def pytest_addoption(parser):
         "--vtysh-on-error",
         action="store_true",
         help="Spawn vtysh on all routers on test failure",
+    )
+
+    parser.addoption(
+        "--run-all",
+        action="store_true",
+        help="Run all tests, including those disabled by default",
+    )
+
+    parser.addoption(
+        "--run-skipped",
+        action="store_true",
+        help="Run only those tests which are disabled by default",
     )
 
 
@@ -364,6 +375,18 @@ def pytest_configure(config):
         pytest.exit("Cannot use --topology-only with distributed test mode")
     topotest_extra_config["topology_only"] = topology_only
 
+    run_all = config.getoption("--run-all")
+    topotest_extra_config["run_all"] = run_all
+
+    run_skipped = config.getoption("--run-skipped")
+    topotest_extra_config["run_skipped"] = run_skipped
+
+    # Register custom pytest marker, see
+    # https://docs.pytest.org/en/7.2.x/example/markers.html
+    config.addinivalue_line(
+        "markers", "skip_by_default: mark test as to be run only on request"
+    )
+
     # Check environment now that we have config
     if not diagnose_env(rundir):
         pytest.exit("environment has errors, please read the logs in %s" % rundir)
@@ -527,6 +550,29 @@ def pytest_runtest_makereport(item, call):
             print('Unrecognized input: "%s"' % user)
         else:
             break
+
+
+def pytest_collection_modifyitems(config, items):
+    # Determine whether/which tests should be skipped in this run, based
+    # on "@pytest.mark.skip_by_default" decorator, module-level
+    # "pytestmark = pytest.mark.skip_by_default" and --run-* options:
+    if topotest_extra_config["run_all"]:
+        skip_decorated = False
+        skip_undecorated = False
+        reason = "INTERNAL ERROR"
+    elif topotest_extra_config["run_skipped"]:
+        skip_decorated = False
+        skip_undecorated = True
+        reason = "not marked skip_by_default and option --run-skipped specified"
+    else:
+        skip_decorated = True
+        skip_undecorated = False
+        reason = "marked skip_by_default and neither option --run-all nor --run-skipped specified"
+
+    skip_marker = pytest.mark.skip(reason=reason)
+    for item in items:
+        if skip_decorated if ("skip_by_default" in item.keywords) else skip_undecorated:
+            item.add_marker(skip_marker)
 
 
 #
