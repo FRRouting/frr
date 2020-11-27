@@ -104,6 +104,8 @@ struct fpm_nl_ctx {
 	struct thread *t_dequeue;
 
 	/* zebra events. */
+	struct thread *t_lspreset;
+	struct thread *t_lspwalk;
 	struct thread *t_nhgreset;
 	struct thread *t_nhgwalk;
 	struct thread *t_ribreset;
@@ -156,6 +158,8 @@ enum fpm_nl_events {
 	/* Reconnect request by our own code to avoid races. */
 	FNE_INTERNAL_RECONNECT,
 
+	/* LSP walk finished. */
+	FNE_LSP_FINISHED,
 	/* Next hop groups walk finished. */
 	FNE_NHG_FINISHED,
 	/* RIB walk finished. */
@@ -177,6 +181,8 @@ enum fpm_nl_events {
  */
 static int fpm_process_event(struct thread *t);
 static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx);
+static int fpm_lsp_send(struct thread *t);
+static int fpm_lsp_reset(struct thread *t);
 static int fpm_nhg_send(struct thread *t);
 static int fpm_nhg_reset(struct thread *t);
 static int fpm_rib_send(struct thread *t);
@@ -450,6 +456,8 @@ static int fpm_connect(struct thread *t);
 static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 {
 	/* Cancel all zebra threads first. */
+	thread_cancel_async(zrouter.master, &fnc->t_lspreset, NULL);
+	thread_cancel_async(zrouter.master, &fnc->t_lspwalk, NULL);
 	thread_cancel_async(zrouter.master, &fnc->t_nhgreset, NULL);
 	thread_cancel_async(zrouter.master, &fnc->t_nhgwalk, NULL);
 	thread_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
@@ -678,13 +686,12 @@ static int fpm_connect(struct thread *t)
 	thread_add_write(fnc->fthread->master, fpm_write, fnc, sock,
 			 &fnc->t_write);
 
-	/* Mark all routes as unsent. */
-	if (fnc->use_nhg)
-		thread_add_timer(zrouter.master, fpm_nhg_reset, fnc, 0,
-				 &fnc->t_nhgreset);
-	else
-		thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
-				 &fnc->t_ribreset);
+	/*
+	 * Starting with LSPs walk all FPM objects, marking them
+	 * as unsent and then replaying them.
+	 */
+	thread_add_timer(zrouter.master, fpm_lsp_reset, fnc, 0,
+			 &fnc->t_lspreset);
 
 	return 0;
 }
@@ -793,7 +800,8 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_LSP_DELETE:
 		rv = netlink_lsp_msg_encoder(ctx, nl_buf, sizeof(nl_buf));
 		if (rv <= 0) {
-			zlog_err("%s: netlink_lsp_msg_encoder failed", __func__);
+			zlog_err("%s: netlink_lsp_msg_encoder failed",
+				 __func__);
 			return 0;
 		}
 
@@ -872,6 +880,70 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	/* Tell the thread to start writing. */
 	thread_add_write(fnc->fthread->master, fpm_write, fnc, fnc->socket,
 			 &fnc->t_write);
+
+	return 0;
+}
+
+/*
+ * LSP walk/send functions
+ */
+struct fpm_lsp_arg {
+	struct zebra_dplane_ctx *ctx;
+	struct fpm_nl_ctx *fnc;
+	bool complete;
+};
+
+static int fpm_lsp_send_cb(struct hash_bucket *bucket, void *arg)
+{
+	zebra_lsp_t *lsp = bucket->data;
+	struct fpm_lsp_arg *fla = arg;
+
+	/* Skip entries which have already been sent */
+	if (CHECK_FLAG(lsp->flags, LSP_FLAG_FPM))
+		return HASHWALK_CONTINUE;
+
+	dplane_ctx_reset(fla->ctx);
+	dplane_ctx_lsp_init(fla->ctx, DPLANE_OP_LSP_INSTALL, lsp);
+
+	if (fpm_nl_enqueue(fla->fnc, fla->ctx) == -1) {
+		fla->complete = false;
+		return HASHWALK_ABORT;
+	}
+
+	/* Mark entry as sent */
+	SET_FLAG(lsp->flags, LSP_FLAG_FPM);
+	return HASHWALK_CONTINUE;
+}
+
+static int fpm_lsp_send(struct thread *t)
+{
+	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
+	struct fpm_lsp_arg fla;
+
+	fla.fnc = fnc;
+	fla.ctx = dplane_ctx_alloc();
+	fla.complete = true;
+
+	hash_walk(zvrf->lsp_table, fpm_lsp_send_cb, &fla);
+
+	dplane_ctx_fini(&fla.ctx);
+
+	if (fla.complete) {
+		WALK_FINISH(fnc, FNE_LSP_FINISHED);
+
+		/* Now move onto routes */
+		if (fnc->use_nhg)
+			thread_add_timer(zrouter.master, fpm_nhg_reset, fnc, 0,
+					 &fnc->t_nhgreset);
+		else
+			thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
+					 &fnc->t_ribreset);
+	} else {
+		/* Didn't finish - reschedule LSP walk */
+		thread_add_timer(zrouter.master, fpm_lsp_send, fnc, 0,
+				 &fnc->t_lspwalk);
+	}
 
 	return 0;
 }
@@ -1086,6 +1158,29 @@ static int fpm_nhg_reset(struct thread *t)
 	return 0;
 }
 
+/*
+ * Resets the LSP FPM flag so we send all LSPs again.
+ */
+static void fpm_lsp_reset_cb(struct hash_bucket *bucket, void *arg)
+{
+	zebra_lsp_t *lsp = bucket->data;
+
+	UNSET_FLAG(lsp->flags, LSP_FLAG_FPM);
+}
+
+static int fpm_lsp_reset(struct thread *t)
+{
+	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
+
+	hash_iterate(zvrf->lsp_table, fpm_lsp_reset_cb, NULL);
+
+	/* Schedule next step: send LSPs */
+	thread_add_event(zrouter.master, fpm_lsp_send, fnc, 0, &fnc->t_lspwalk);
+
+	return 0;
+}
+
 /**
  * Resets the RIB FPM flags so we send all routes again.
  */
@@ -1248,6 +1343,10 @@ static int fpm_process_event(struct thread *t)
 
 		fnc->rmac_complete = true;
 		break;
+	case FNE_LSP_FINISHED:
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: LSP walk finished", __func__);
+		break;
 
 	default:
 		if (IS_ZEBRA_DEBUG_FPM)
@@ -1286,6 +1385,8 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 {
 	/* Disable all events and close socket. */
+	THREAD_OFF(fnc->t_lspreset);
+	THREAD_OFF(fnc->t_lspwalk);
 	THREAD_OFF(fnc->t_nhgreset);
 	THREAD_OFF(fnc->t_nhgwalk);
 	THREAD_OFF(fnc->t_ribreset);

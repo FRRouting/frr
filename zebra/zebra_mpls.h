@@ -116,6 +116,7 @@ struct zebra_lsp_t_ {
 #define LSP_FLAG_SCHEDULED        (1 << 0)
 #define LSP_FLAG_INSTALLED        (1 << 1)
 #define LSP_FLAG_CHANGED          (1 << 2)
+#define LSP_FLAG_FPM              (1 << 3)
 
 	/* Address-family of NHLFE - saved here for delete. All NHLFEs */
 	/* have to be of the same AF */
