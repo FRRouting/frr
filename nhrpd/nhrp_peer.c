@@ -271,6 +271,8 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 		return 0;
 	if (sockunion_family(&vc->local.nbma) == AF_UNSPEC)
 		return 0;
+	if (vc->ipsec)
+		return 1;
 
 	p->prio = establish > 1;
 	p->requested = 1;
