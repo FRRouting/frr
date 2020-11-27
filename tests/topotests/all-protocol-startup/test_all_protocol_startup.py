@@ -269,6 +269,9 @@ def test_error_messages_daemons():
                 error_logs += log
 
         log = net["r1"].getStdErr("nhrpd")
+        # NHRPD shows YANG model not embedded messages
+        # Ignore these
+        log = re.sub(r".*YANG model.*not embedded.*", "", log).rstrip()
         if log:
             error_logs += "r%s NHRPd StdErr Output:\n" % i
             error_logs += log
@@ -285,7 +288,7 @@ def test_error_messages_daemons():
 
         log = net["r%s" % i].getStdErr("zebra")
         if log:
-            error_logs += "r%s Zebra StdErr Output:\n"
+            error_logs += "r%s Zebra StdErr Output:\n" % i
             error_logs += log
 
     if error_logs:
