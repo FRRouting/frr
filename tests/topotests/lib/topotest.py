@@ -1065,7 +1065,7 @@ class Router(Node):
         if self.logdir is None:
             cur_test = os.environ["PYTEST_CURRENT_TEST"]
             self.logdir = "/tmp/topotests/" + cur_test[
-                0 : cur_test.find(".py")
+                cur_test.find("/")+1 : cur_test.find(".py")
             ].replace("/", ".")
 
         # If the logdir is not created, then create it and set the
@@ -1380,6 +1380,7 @@ class Router(Node):
 
         # Starts actual daemons without init (ie restart)
         # cd to per node directory
+        self.cmd("install -d {}/{}".format(self.logdir, self.name))
         self.cmd("cd {}/{}".format(self.logdir, self.name))
         self.cmd("umask 000")
 
