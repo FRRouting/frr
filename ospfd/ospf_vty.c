@@ -2790,6 +2790,15 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 					vty_out(vty,
 						"never an NSSA Translator.\n");
 			}
+			if (area->t_nssa_stability_timer != NULL) {
+				char timebuf[OSPF_TIME_DUMP_SIZE];
+
+				vty_out(vty,
+					"   Still in translator role expiring in %s.\n",
+					ospf_timer_dump(
+						area->t_nssa_stability_timer,
+						timebuf, sizeof(timebuf)));
+			}
 		}
 	}
 

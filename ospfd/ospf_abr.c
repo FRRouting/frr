@@ -434,6 +434,14 @@ void ospf_abr_nssa_check_status(struct ospf *ospf)
 						zlog_debug(
 							"ospf_abr_nssa_check_status: elected translator");
 				} else {
+					/* If we were translating, we need to
+					 * keep translating for some
+					 * NSSATranslatorStabilityInterval
+					 */
+					if (area->NSSATranslatorState
+					    == OSPF_NSSA_TRANSLATE_ENABLED)
+						ospf_nssa_stability_timer_set(
+							ospf, area);
 					area->NSSATranslatorState =
 						OSPF_NSSA_TRANSLATE_DISABLED;
 					if (IS_DEBUG_OSPF(nssa, NSSA))
@@ -956,7 +964,8 @@ static void ospf_abr_process_nssa_translates(struct ospf *ospf)
 		zlog_debug("ospf_abr_process_nssa_translates(): Start");
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
-		if (!area->NSSATranslatorState)
+		if ((!area->NSSATranslatorState)
+		    && (area->t_nssa_stability_timer == NULL))
 			continue; /* skip if not translator */
 
 		if (area->external_routing != OSPF_AREA_NSSA)

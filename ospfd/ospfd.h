@@ -553,6 +553,7 @@ struct ospf_area {
 	/* Threads. */
 	struct thread *t_stub_router;     /* Stub-router timer */
 	struct thread *t_opaque_lsa_self; /* Type-10 Opaque-LSAs origin. */
+	struct thread *t_nssa_stability_timer; /* NSSA Stability Timer. */
 
 	/* Statistics field. */
 	uint32_t spf_calculation; /* SPF Calculation Count. */
@@ -718,6 +719,8 @@ extern void ospf_vrf_link(struct ospf *ospf, struct vrf *vrf);
 extern void ospf_vrf_unlink(struct ospf *ospf, struct vrf *vrf);
 const char *ospf_vrf_id_to_name(vrf_id_t vrf_id);
 int ospf_area_nssa_no_summary_set(struct ospf *, struct in_addr);
+
+void ospf_nssa_stability_timer_set(struct ospf *ospf, struct ospf_area *area);
 
 const char *ospf_get_name(const struct ospf *ospf);
 extern struct ospf_interface *add_ospf_interface(struct connected *co,

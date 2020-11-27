@@ -1707,6 +1707,46 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id, int argc)
 	return 1;
 }
 
+static int ospf_nssa_stability_timer(struct thread *thread)
+{
+	struct ospf_area *area;
+
+	area = THREAD_ARG(thread);
+
+	area->t_nssa_stability_timer = NULL;
+	if (IS_DEBUG_OSPF_NSSA)
+		zlog_debug("%s: Timer (NSSA stability) expired for area %pI4",
+			   __func__, &area->area_id);
+
+	ospf_schedule_abr_task(area->ospf);
+
+	return 0;
+}
+
+void ospf_nssa_stability_timer_set(struct ospf *ospf, struct ospf_area *area)
+{
+	if (IS_DEBUG_OSPF_NSSA)
+		zlog_debug(
+			"%s: Set Timer (NSSA translator stability) for area %pI4",
+			__func__, &area->area_id);
+
+	thread_add_timer(master, ospf_nssa_stability_timer, area,
+			 area->NSSATranslatorStabilityInterval,
+			 &area->t_nssa_stability_timer);
+}
+
+static void ospf_nssa_stability_timer_unset(struct ospf *ospf,
+					    struct ospf_area *area)
+{
+	if (area->t_nssa_stability_timer != NULL) {
+		if (IS_DEBUG_OSPF_NSSA)
+			zlog_debug(
+				"%s: Cancel Timer (NSSA translator stability) for area %pI4",
+				__func__, &area->area_id);
+		thread_cancel(&area->t_nssa_stability_timer);
+	}
+}
+
 int ospf_area_nssa_translator_role_set(struct ospf *ospf,
 				       struct in_addr area_id, int role)
 {
@@ -1717,15 +1757,36 @@ int ospf_area_nssa_translator_role_set(struct ospf *ospf,
 		return 0;
 
 	if (role != area->NSSATranslatorRole) {
-		if ((area->NSSATranslatorRole == OSPF_NSSA_ROLE_ALWAYS)
-		    || (role == OSPF_NSSA_ROLE_ALWAYS)) {
+		if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_ALWAYS) {
 			/* RFC 3101 3.1
-			 * if new role is OSPF_NSSA_ROLE_ALWAYS we need to set
-			 * Nt bit, if the role was OSPF_NSSA_ROLE_ALWAYS we need
-			 * to clear Nt bit
+			 * if the role was OSPF_NSSA_ROLE_ALWAYS we need to
+			 * clear Nt bit. However RFC 3101 states the translator
+			 * should continue to perform its duties for the
+			 * additional time (TranslatorStabilityInterval)
+			 */
+			ospf_nssa_stability_timer_set(ospf, area);
+
+			/* We need to notify other routers we are stopping
+			 * translation via Nt bit
 			 */
 			area->NSSATranslatorRole = role;
 			ospf_router_lsa_update_area(area);
+
+		} else if (role == OSPF_NSSA_ROLE_ALWAYS) {
+			/* If stability timer is running call it off */
+			ospf_nssa_stability_timer_unset(ospf, area);
+
+			/* Notify other routers via Nt bit we are translators */
+			area->NSSATranslatorRole = role;
+			ospf_router_lsa_update_area(area);
+
+		} else if ((area->NSSATranslatorState
+			    == OSPF_NSSA_TRANSLATE_ENABLED)
+			   && (role == OSPF_NSSA_ROLE_NEVER)) {
+
+			/* Start the timer to keep translating some more time */
+			ospf_nssa_stability_timer_set(ospf, area);
+			area->NSSATranslatorRole = role;
 		} else
 			area->NSSATranslatorRole = role;
 	}
