@@ -43,6 +43,7 @@
 #include "zebra/debug.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_mpls.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_evpn.h"
 #include "zebra/zebra_evpn_mac.h"
@@ -790,6 +791,15 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
 	case DPLANE_OP_LSP_DELETE:
+		rv = netlink_lsp_msg_encoder(ctx, nl_buf, sizeof(nl_buf));
+		if (rv <= 0) {
+			zlog_err("%s: netlink_lsp_msg_encoder failed", __func__);
+			return 0;
+		}
+
+		nl_buf_len += (size_t)rv;
+		break;
+
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
 	case DPLANE_OP_ADDR_INSTALL:
