@@ -583,6 +583,21 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 			struct router_lsa_link *l2 = NULL;
 
 			if (l->m[0].type == LSA_LINK_TYPE_POINTOPOINT) {
+				struct ospf_interface *oi = NULL;
+				struct in_addr nexthop = {.s_addr = 0};
+
+				oi = ospf_if_lookup_by_lsa_pos(area, lsa_pos);
+				if (!oi) {
+					zlog_debug(
+						"%s: OI not found in LSA: lsa_pos: %d link_id:%s link_data:%s",
+						__func__, lsa_pos,
+						inet_ntop(AF_INET, &l->link_id,
+							  buf1, BUFSIZ),
+						inet_ntop(AF_INET,
+							  &l->link_data, buf2,
+							  BUFSIZ));
+					return 0;
+				}
 
 				/*
 				 * If the destination is a router which connects
@@ -629,17 +644,12 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 				 * as described above using a reverse lookup to
 				 * figure out the nexthop.
 				 */
+				if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
+					struct ospf_neighbor *nbr_w = NULL;
 
-				struct in_addr nexthop = {.s_addr = 0};
-				struct ospf_interface *oi = NULL;
-				struct ospf_neighbor *nbr_w = NULL;
-
-				/* Calculating node is root node, link is P2P */
-				if (area->spf_root_node) {
-					oi = ospf_if_lookup_by_lsa_pos(area,
-								       lsa_pos);
-					if (oi->type
-					    == OSPF_IFTYPE_POINTOPOINT) {
+					/* Calculating node is root node, link
+					 * is P2P */
+					if (area->spf_root_node) {
 						nbr_w = ospf_nbr_lookup_by_routerid(
 							oi->nbrs, &l->link_id);
 						if (nbr_w) {
@@ -647,20 +657,45 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 							nexthop = nbr_w->src;
 						}
 					}
-				}
 
-				/* Reverse lookup */
-				if (!added) {
+					/* Reverse lookup */
+					if (!added) {
+						while ((l2 = ospf_get_next_link(
+								w, v, l2))) {
+							if (match_stub_prefix(
+								    v->lsa,
+								    l->link_data,
+								    l2->link_data)) {
+								added = 1;
+								nexthop =
+									l2->link_data;
+								break;
+							}
+						}
+					}
+				} else if (oi->type
+					   == OSPF_IFTYPE_POINTOMULTIPOINT) {
+					struct prefix_ipv4 la;
+
+					la.family = AF_INET;
+					la.prefixlen = oi->address->prefixlen;
+
+					/*
+					 * V links to W on PtMP interface;
+					 * find the interface address on W
+					 */
 					while ((l2 = ospf_get_next_link(w, v,
 									l2))) {
-						if (match_stub_prefix(
-							    v->lsa,
-							    l->link_data,
-							    l2->link_data)) {
-							added = 1;
-							nexthop = l2->link_data;
-							break;
-						}
+						la.prefix = l2->link_data;
+
+						if (prefix_cmp((struct prefix
+									*)&la,
+							       oi->address)
+						    != 0)
+							continue;
+						added = 1;
+						nexthop = l2->link_data;
+						break;
 					}
 				}
 
@@ -672,8 +707,8 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 					return 1;
 				} else
 					zlog_info(
-						"%s: could not determine nexthop for link",
-						__func__);
+						"%s: could not determine nexthop for link %s",
+						__func__, oi->ifp->name);
 			} /* end point-to-point link from V to W */
 			else if (l->m[0].type == LSA_LINK_TYPE_VIRTUALLINK) {
 				/*
