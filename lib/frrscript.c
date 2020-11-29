@@ -205,6 +205,7 @@ fail:
 
 void frrscript_unload(struct frrscript *fs)
 {
+	lua_close(fs->L);
 	XFREE(MTYPE_TMP, fs->name);
 	XFREE(MTYPE_TMP, fs);
 }
