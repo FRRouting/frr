@@ -490,6 +490,15 @@ def test_ospf_ecmp_tc17_p0(request):
     write_test_footer(tc_name)
 
 
+def test_ospf_ecmp_check(request):
+    """
+    Test if tests are executed
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    assert 1 == 0, "Test Assert in test_ospf_ecmp.py"
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

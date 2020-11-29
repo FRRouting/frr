@@ -598,6 +598,14 @@ def test_ospf_redistribution_tc8_p1(request):
 
     write_test_footer(tc_name)
 
+def test_ospf_rte_calc_check(request):
+    """
+    Test if tests are executed
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    assert 1 == 0, "Test Assert in test_rte_calc.py"
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
