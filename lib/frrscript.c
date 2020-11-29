@@ -44,7 +44,10 @@ static unsigned int encoder_hash_key(const void *data)
 
 static bool encoder_hash_cmp(const void *d1, const void *d2)
 {
-	return !strcmp(d1, d2);
+	const struct encoder *e1 = d1;
+	const struct encoder *e2 = d2;
+
+	return strmatch(e1->typename, e2->typename);
 }
 
 static void *encoder_alloc(void *arg)
@@ -53,6 +56,7 @@ static void *encoder_alloc(void *arg)
 
 	struct encoder *e = XCALLOC(MTYPE_TMP, sizeof(struct encoder));
 	e->typename = XSTRDUP(MTYPE_TMP, tmp->typename);
+	e->encoder = tmp->encoder;
 
 	return e;
 }
@@ -81,20 +85,16 @@ int frrscript_lua_call(struct frrscript *fs, ...)
 	return ret;
 }
 
-void frrscript_register_type_encoder(const char *typename,
-				     encoder_func encoder)
+void frrscript_register_type_encoder(const char *typename, encoder_func encoder)
 {
-	struct encoder e = {
-		.typename = (char *) typename,
-		.encoder = NULL
-	};
+	struct encoder e = {.typename = (char *)typename, .encoder = encoder};
 
 	if (hash_lookup(encoder_hash, &e)) {
 		zlog_backtrace(LOG_ERR);
 		assert(!"Type encoder double-registered.");
 	}
 
-	hash_get(encoder_hash, &e, encoder_alloc);
+	assert(hash_get(encoder_hash, &e, encoder_alloc));
 }
 
 
