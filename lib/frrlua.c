@@ -70,7 +70,7 @@ int frrlua_table_get_integer(lua_State *L, const char *key)
  * datatypes.
  */
 
-void frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix)
+int frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix)
 {
 	char buffer[100];
 
@@ -81,10 +81,11 @@ void frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix)
 	lua_setfield(L, -2, "route");
 	lua_pushinteger(L, prefix->family);
 	lua_setfield(L, -2, "family");
-	lua_setglobal(L, "prefix");
+
+	return 0;
 }
 
-void frrlua_newtable_interface(lua_State *L, const struct interface *ifp)
+int frrlua_newtable_interface(lua_State *L, const struct interface *ifp)
 {
 	zlog_debug("frrlua: pushing interface table");
 
@@ -111,6 +112,8 @@ void frrlua_newtable_interface(lua_State *L, const struct interface *ifp)
 	lua_setfield(L, -2, "link_ifindex");
 	lua_pushinteger(L, ifp->ll_type);
 	lua_setfield(L, -2, "linklayer_type");
+
+	return 0;
 }
 
 /*
@@ -171,7 +174,7 @@ void frrlua_export_logging(lua_State *L)
 {
 	lua_newtable(L);
 	luaL_setfuncs(L, log_funcs, 0);
-	lua_setfield(L, -2, "log");
+	lua_setglobal(L, "log");
 }
 
 /*

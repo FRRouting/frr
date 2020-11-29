@@ -37,12 +37,12 @@ extern "C" {
  *
  * Additionally sets the global variable "prefix" to point at this table.
  */
-void frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix);
+int frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix);
 
 /*
  * Pushes a new table containing relevant fields from an interface structure.
  */
-void frrlua_newtable_interface(lua_State *L, const struct interface *ifp);
+int frrlua_newtable_interface(lua_State *L, const struct interface *ifp);
 
 /*
  * Retrieve a string from table on the top of the stack.
