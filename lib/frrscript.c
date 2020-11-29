@@ -30,7 +30,7 @@
 
 struct encoder {
 	char *typename;
-	int (*encoder)(struct lua_State *, const void *);
+	encoder_func encoder;
 };
 
 struct hash *encoder_hash;
@@ -82,7 +82,7 @@ int frrscript_lua_call(struct frrscript *fs, ...)
 }
 
 void frrscript_register_type_encoder(const char *typename,
-				     int (*encoder)(lua_State *L, void *))
+				     encoder_func encoder)
 {
 	struct encoder e = {
 		.typename = (char *) typename,

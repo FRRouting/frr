@@ -27,6 +27,8 @@ extern "C" {
 
 #define FRRSCRIPT_PATH "/etc/frr/scripts"
 
+typedef int (*encoder_func)(struct lua_State *, const void *);
+
 struct frrscript {
 	/* Script name */
 	char *name;
@@ -59,8 +61,7 @@ void frrscript_unload(struct frrscript *fs);
  *    associated with the chosen 'tname' to the provided stack.
  *
  */
-void frrscript_register_type_encoder(const char *tname,
-				     int (*encoder)(lua_State *, void *));
+void frrscript_register_type_encoder(const char *tname, encoder_func encoder);
 
 /*
  * Initialize scripting subsystem. Call this before anything else.
