@@ -78,7 +78,9 @@ int frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix)
 
 	lua_newtable(L);
 	lua_pushstring(L, prefix2str(prefix, buffer, 100));
-	lua_setfield(L, -2, "route");
+	lua_setfield(L, -2, "network");
+	lua_pushinteger(L, prefix->prefixlen);
+	lua_setfield(L, -2, "length");
 	lua_pushinteger(L, prefix->family);
 	lua_setfield(L, -2, "family");
 
