@@ -60,6 +60,7 @@
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_errors.h"
+#include "bgpd/bgp_script.h"
 #include "lib/routing_nb.h"
 #include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_evpn_mh.h"
@@ -505,6 +506,8 @@ int main(int argc, char **argv)
 	bgp_error_init();
 	/* Initializations. */
 	bgp_vrf_init();
+
+	bgp_script_init();
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);

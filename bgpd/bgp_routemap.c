@@ -65,6 +65,7 @@
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_mpath.h"
+#include "bgpd/bgp_script.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
@@ -341,8 +342,7 @@ static const struct route_map_rule_cmd route_match_peer_cmd = {
 
 enum frrlua_rm_status {
 	/*
-	 * Script function run failure.  This will translate into a
-	 * deny
+	 * Script function run failure.  This will translate into a deny
 	 */
 	LUA_RM_FAILURE = 0,
 	/*
@@ -350,122 +350,123 @@ enum frrlua_rm_status {
 	 */
 	LUA_RM_NOMATCH,
 	/*
-	 * Match was found but no changes were made to the
-	 * incoming data.
+	 * Match was found but no changes were made to the incoming data.
 	 */
 	LUA_RM_MATCH,
 	/*
-	 * Match was found and data was modified, so
-	 * figure out what changed
+	 * Match was found and data was modified, so figure out what changed
 	 */
 	LUA_RM_MATCH_AND_CHANGE,
 };
 
-static enum frrlua_rm_status frrlua_run_rm_rule(lua_State *L, const char *rule)
+static enum route_map_cmd_result_t
+route_match_script(void *rule, const struct prefix *prefix, void *object)
 {
-	int status;
+	const char *scriptname = rule;
+	struct bgp_path_info *path = (struct bgp_path_info *)object;
 
-	lua_getglobal(L, rule);
-	status = lua_pcall(L, 0, 1, 0);
-	if (status) {
-		zlog_debug("Executing Failure with function: %s: %d",
-			   rule, status);
-		return LUA_RM_FAILURE;
+	struct frrscript *fs = frrscript_load(scriptname, NULL);
+
+	if (!fs) {
+		zlog_err("Issue loading script rule; defaulting to no match");
+		return RMAP_NOMATCH;
 	}
 
-	status = lua_tonumber(L, -1);
-	return status;
-}
+	enum frrlua_rm_status status_failure = LUA_RM_FAILURE,
+			      status_nomatch = LUA_RM_NOMATCH,
+			      status_match = LUA_RM_MATCH,
+			      status_match_and_change = LUA_RM_MATCH_AND_CHANGE;
 
-static enum route_map_cmd_result_t
-route_match_command(void *rule, const struct prefix *prefix, void *object)
-{
+	/* Make result values available */
+	struct frrscript_env env[] = {
+		{"integer", "RM_FAILURE", &status_failure},
+		{"integer", "RM_NOMATCH", &status_nomatch},
+		{"integer", "RM_MATCH", &status_match},
+		{"integer", "RM_MATCH_AND_CHANGE", &status_match_and_change},
+		{"integer", "action", &status_failure},
+		{"prefix", "prefix", prefix},
+		{"attr", "attributes", path->attr},
+		{"peer", "peer", path->peer},
+		{}};
+
+	struct frrscript_env results[] = {
+		{"integer", "action"},
+		{"attr", "attributes"},
+		{},
+	};
+
+	int result = frrscript_call(fs, env);
+
+	if (result) {
+		zlog_err("Issue running script rule; defaulting to no match");
+		return RMAP_NOMATCH;
+	}
+
+	enum frrlua_rm_status *lrm_status =
+		frrscript_get_result(fs, &results[0]);
+
 	int status = RMAP_NOMATCH;
-	u_int32_t locpref = 0;
-	u_int32_t newlocpref = 0;
-	enum frrlua_rm_status lrm_status;
-	struct bgp_path_info *path = (struct bgp_path_info *)object;
-	lua_State *L = luaL_newstate();;
-	luaL_openlibs(L);
 
-	if (L == NULL)
-		return status;
-
-	/*
-	 * Setup the prefix information to pass in
-	 */
-	lua_pushprefix(L, prefix);
-	/*
-	 * Setup the bgp_path_info information
-	 */
-	lua_newtable(L);
-	lua_pushinteger(L, path->attr->med);
-	lua_setfield(L, -2, "metric");
-	lua_pushinteger(L, path->attr->nh_ifindex);
-	lua_setfield(L, -2, "ifindex");
-	lua_pushstring(L, path->attr->aspath->str);
-	lua_setfield(L, -2, "aspath");
-	lua_pushinteger(L, path->attr->local_pref);
-	lua_setfield(L, -2, "localpref");
-	zlog_debug("%s %d", path->attr->aspath->str, path->attr->nh_ifindex);
-	lua_setglobal(L, "nexthop");
-
-	zlog_debug("Set up nexthop information");
-	/*
-	 * Run the rule
-	 */
-	lrm_status = frrlua_run_rm_rule(L, rule);
-	switch (lrm_status) {
+	switch (*lrm_status) {
 	case LUA_RM_FAILURE:
-		zlog_debug("RM_FAILURE");
+		zlog_err(
+			"Executing route-map match script '%s' failed; defaulting to no match",
+			scriptname);
+		status = RMAP_NOMATCH;
 		break;
 	case LUA_RM_NOMATCH:
-		zlog_debug("RM_NOMATCH");
+		status = RMAP_NOMATCH;
 		break;
 	case LUA_RM_MATCH_AND_CHANGE:
-		zlog_debug("MATCH AND CHANGE");
-		lua_getglobal(L, "nexthop");
-		path->attr->med = frrlua_table_get_integer(L, "metric");
-		/*
-		 * This needs to be abstraced with the set function
-		 */
+		status = RMAP_MATCH;
+		zlog_debug("Updating attribute based on script's values");
+
+		uint32_t locpref = 0;
+		struct attr *newattr = frrscript_get_result(fs, &results[1]);
+
+		path->attr->med = newattr->med;
+
 		if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
 			locpref = path->attr->local_pref;
-		newlocpref = frrlua_table_get_integer(L, "localpref");
-		if (newlocpref != locpref) {
-			path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
-			path->attr->local_pref = newlocpref;
+		if (locpref != newattr->local_pref) {
+			SET_FLAG(path->attr->flag,
+				 ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
+			path->attr->local_pref = newattr->local_pref;
 		}
-		status = RMAP_MATCH;
+
+		aspath_free(newattr->aspath);
+		XFREE(MTYPE_TMP, newattr);
 		break;
 	case LUA_RM_MATCH:
-		zlog_debug("MATCH ONLY");
 		status = RMAP_MATCH;
 		break;
 	}
-	lua_close(L);
+
+	XFREE(MTYPE_TMP, lrm_status);
+	frrscript_unload(fs);
+
 	return status;
 }
 
-static void *route_match_command_compile(const char *arg)
+static void *route_match_script_compile(const char *arg)
 {
-	char *command;
+	char *scriptname;
 
-	command = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
-	return command;
+	scriptname = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+
+	return scriptname;
 }
 
-static void
-route_match_command_free(void *rule)
+static void route_match_script_free(void *rule)
 {
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-static const struct route_map_rule_cmd route_match_command_cmd = {
-	"command",
-	route_match_command,
-	route_match_command_compile,
-	route_match_command_free
+static const struct route_map_rule_cmd route_match_script_cmd = {
+	"script",
+	route_match_script,
+	route_match_script_compile,
+	route_match_script_free
 };
 #endif
 
@@ -4134,27 +4135,26 @@ DEFUN (no_match_peer,
 }
 
 #if defined(HAVE_LUA)
-DEFUN (match_command,
-       match_command_cmd,
-       "match command WORD",
-       MATCH_STR
-       "Run a command to match\n"
-       "The command to run\n")
-{
-	return bgp_route_match_add(vty, "command", argv[2]->arg,
-				   RMAP_EVENT_FILTER_ADDED);
-}
-
-DEFUN (no_match_command,
-       no_match_command_cmd,
-       "no match command WORD",
+DEFUN (match_script,
+       match_script_cmd,
+       "[no] match script WORD",
        NO_STR
        MATCH_STR
-       "Run a command to match\n"
-       "The command to run\n")
+       "Execute script to determine match\n"
+       "The script name to run, without .lua; e.g. 'myroutemap' to run myroutemap.lua\n")
 {
-	return bgp_route_match_delete(vty, "command", argv[3]->arg,
-				      RMAP_EVENT_FILTER_DELETED);
+	bool no = strmatch(argv[0]->text, "no");
+	int i = 0;
+	argv_find(argv, argc, "WORD", &i);
+	const char *script = argv[i]->arg;
+
+	if (no) {
+		return bgp_route_match_delete(vty, "script", script,
+					      RMAP_EVENT_FILTER_DELETED);
+	} else {
+		return bgp_route_match_add(vty, "script", script,
+					   RMAP_EVENT_FILTER_ADDED);
+	}
 }
 #endif
 
@@ -5671,7 +5671,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_peer_cmd);
 	route_map_install_match(&route_match_local_pref_cmd);
 #if defined(HAVE_LUA)
-	route_map_install_match(&route_match_command_cmd);
+	route_map_install_match(&route_match_script_cmd);
 #endif
 	route_map_install_match(&route_match_ip_address_cmd);
 	route_map_install_match(&route_match_ip_next_hop_cmd);
@@ -5836,8 +5836,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
 #if defined(HAVE_LUA)
-	install_element(RMAP_NODE, &match_command_cmd);
-	install_element(RMAP_NODE, &no_match_command_cmd);
+	install_element(RMAP_NODE, &match_script_cmd);
 #endif
 }
 

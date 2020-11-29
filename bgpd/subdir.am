@@ -95,6 +95,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_regex.c \
 	bgpd/bgp_route.c \
 	bgpd/bgp_routemap.c \
+	bgpd/bgp_script.c \
 	bgpd/bgp_table.c \
 	bgpd/bgp_updgrp.c \
 	bgpd/bgp_updgrp_adv.c \
@@ -174,6 +175,7 @@ noinst_HEADERS += \
 	bgpd/bgp_rd.h \
 	bgpd/bgp_regex.h \
 	bgpd/bgp_route.h \
+	bgpd/bgp_script.h \
 	bgpd/bgp_table.h \
 	bgpd/bgp_updgrp.h \
 	bgpd/bgp_vpn.h \
