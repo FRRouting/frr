@@ -110,22 +110,27 @@ int frrscript_lua_call(struct frrscript *fs, ...)
 	int ret = lua_pcall(fs->L, 0, nresults, 0);
 
 	switch (ret) {
+	case LUA_OK:
+		break;
 	case LUA_ERRRUN:
-		zlog_err("Script '%s' runtime error", fs->name);
+		zlog_err("Script '%s' runtime error: %s", fs->name, lua_tostring(fs->L, -1));
 		break;
 	case LUA_ERRMEM:
-		zlog_err("Script '%s' memory error", fs->name);
+		zlog_err("Script '%s' memory error: %s", fs->name, lua_tostring(fs->L, -1));
 		break;
 	case LUA_ERRERR:
-		zlog_err("Script '%s' error handler error", fs->name);
+		zlog_err("Script '%s' error handler error: %s", fs->name, lua_tostring(fs->L, -1));
 		break;
 	case LUA_ERRGCMM:
-		zlog_err("Script '%s' garbage collector error", fs->name);
+		zlog_err("Script '%s' garbage collector error: %s", fs->name, lua_tostring(fs->L, -1));
 		break;
 	default:
-		zlog_err("Script '%s' unknown error", fs->name);
+		zlog_err("Script '%s' unknown error: %s", fs->name, lua_tostring(fs->L, -1));
 		break;
 	}
+
+	if (ret != LUA_OK)
+		lua_pop(fs->L, 1);
 
 	/* After script returns, decode results */
 	for (int i = 0; i < nresults; i++) {
@@ -162,7 +167,31 @@ struct frrscript *frrscript_load(const char *name,
 	char fname[MAXPATHLEN];
 	snprintf(fname, sizeof(fname), FRRSCRIPT_PATH "/%s.lua", fs->name);
 
-	if (luaL_loadfile(fs->L, fname) != LUA_OK)
+	int ret = luaL_loadfile(fs->L, fname);
+
+	switch (ret) {
+	case LUA_OK:
+		break;
+	case LUA_ERRSYNTAX:
+		zlog_err("Failed loading script '%s': syntax error", fname);
+		break;
+	case LUA_ERRMEM:
+		zlog_err("Failed loading script '%s': out-of-memory error",
+			 fname);
+		break;
+	case LUA_ERRGCMM:
+		zlog_err("Failed loading script '%s': garbage collector error",
+			 fname);
+		break;
+	case LUA_ERRFILE:
+		zlog_err("Failed loading script '%s': file read error", fname);
+		break;
+	default:
+		zlog_err("Failed loading script '%s': unknown error", fname);
+		break;
+	}
+
+	if (ret != LUA_OK)
 		goto fail;
 
 	if (load_cb && (*load_cb)(fs) != 0)
