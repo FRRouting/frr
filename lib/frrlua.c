@@ -105,6 +105,62 @@ int lua_pushinterface(lua_State *L, const struct interface *ifp)
 	return 0;
 }
 
+int lua_pushinaddr(lua_State *L, const struct in_addr *addr)
+{
+	zlog_debug("frrlua: pushing inaddr table");
+
+	char buf[INET_ADDRSTRLEN];
+	inet_ntop(AF_INET, addr, buf, sizeof(buf));
+
+	lua_newtable(L);
+	lua_pushinteger(L, addr->s_addr);
+	lua_setfield(L, -2, "value");
+	lua_pushstring(L, buf);
+	lua_setfield(L, -2, "string");
+
+	return 0;
+}
+
+
+int lua_pushin6addr(lua_State *L, const struct in6_addr *addr)
+{
+	zlog_debug("frrlua: pushing in6addr table");
+
+	char buf[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, addr, buf, sizeof(buf));
+
+	lua_newtable(L);
+	lua_pushlstring(L, (const char *)addr->s6_addr, 16);
+	lua_setfield(L, -2, "value");
+	lua_pushstring(L, buf);
+	lua_setfield(L, -2, "string");
+
+	return 0;
+}
+
+int lua_pushsockunion(lua_State *L, const union sockunion *su)
+{
+	zlog_debug("frrlua: pushing sockunion table");
+
+	char buf[SU_ADDRSTRLEN];
+	sockunion2str(su, buf, sizeof(buf));
+
+	lua_newtable(L);
+	lua_pushlstring(L, (const char *)sockunion_get_addr(su),
+			sockunion_get_addrlen(su));
+	lua_setfield(L, -2, "value");
+	lua_pushstring(L, buf);
+	lua_setfield(L, -2, "string");
+
+	return 0;
+}
+
+int lua_pushtimet(lua_State *L, const time_t *time)
+{
+	lua_pushinteger(L, *time);
+	return 0;
+}
+
 /*
  * Logging.
  *

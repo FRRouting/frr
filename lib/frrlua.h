@@ -43,12 +43,26 @@ int lua_pushprefix(lua_State *L, const struct prefix *prefix);
 int lua_pushinterface(lua_State *L, const struct interface *ifp);
 
 /*
- * Retrieve a string from table on the top of the stack.
- *
- * key
- *    Key of string value in table
+ * Pushes a new table containing both numeric and string representations of an
+ * in_addr to the stack.
  */
-const char *frrlua_table_get_string(lua_State *L, const char *key);
+int lua_pushinaddr(lua_State *L, const struct in_addr *addr);
+
+/*
+ * Pushes a new table containing both numeric and string representations of an
+ * in6_addr to the stack.
+ */
+int lua_pushin6addr(lua_State *L, const struct in6_addr *addr);
+
+/*
+ * Pushes a time_t to the stack.
+ */
+int lua_pushtimet(lua_State *L, const time_t *time);
+
+/*
+ * Pushes a table representing a sockunion to the stack.
+ */
+int lua_pushsockunion(lua_State *L, const union sockunion *su);
 
 /*
  * Retrieve an integer from table on the top of the stack.
