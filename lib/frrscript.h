@@ -28,7 +28,7 @@ extern "C" {
 
 #define FRRSCRIPT_PATH "/etc/frr/scripts"
 
-typedef int (*encoder_func)(lua_State *, const void *);
+typedef void (*encoder_func)(lua_State *, const void *);
 
 struct frrscript {
 	/* Script name */

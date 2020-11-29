@@ -57,7 +57,7 @@ int frrlua_table_get_integer(lua_State *L, const char *key)
  * datatypes.
  */
 
-int lua_pushprefix(lua_State *L, const struct prefix *prefix)
+void lua_pushprefix(lua_State *L, const struct prefix *prefix)
 {
 	char buffer[100];
 
@@ -70,11 +70,9 @@ int lua_pushprefix(lua_State *L, const struct prefix *prefix)
 	lua_setfield(L, -2, "length");
 	lua_pushinteger(L, prefix->family);
 	lua_setfield(L, -2, "family");
-
-	return 0;
 }
 
-int lua_pushinterface(lua_State *L, const struct interface *ifp)
+void lua_pushinterface(lua_State *L, const struct interface *ifp)
 {
 	zlog_debug("frrlua: pushing interface table");
 
@@ -101,11 +99,9 @@ int lua_pushinterface(lua_State *L, const struct interface *ifp)
 	lua_setfield(L, -2, "link_ifindex");
 	lua_pushinteger(L, ifp->ll_type);
 	lua_setfield(L, -2, "linklayer_type");
-
-	return 0;
 }
 
-int lua_pushinaddr(lua_State *L, const struct in_addr *addr)
+void lua_pushinaddr(lua_State *L, const struct in_addr *addr)
 {
 	zlog_debug("frrlua: pushing inaddr table");
 
@@ -117,12 +113,10 @@ int lua_pushinaddr(lua_State *L, const struct in_addr *addr)
 	lua_setfield(L, -2, "value");
 	lua_pushstring(L, buf);
 	lua_setfield(L, -2, "string");
-
-	return 0;
 }
 
 
-int lua_pushin6addr(lua_State *L, const struct in6_addr *addr)
+void lua_pushin6addr(lua_State *L, const struct in6_addr *addr)
 {
 	zlog_debug("frrlua: pushing in6addr table");
 
@@ -134,11 +128,9 @@ int lua_pushin6addr(lua_State *L, const struct in6_addr *addr)
 	lua_setfield(L, -2, "value");
 	lua_pushstring(L, buf);
 	lua_setfield(L, -2, "string");
-
-	return 0;
 }
 
-int lua_pushsockunion(lua_State *L, const union sockunion *su)
+void lua_pushsockunion(lua_State *L, const union sockunion *su)
 {
 	zlog_debug("frrlua: pushing sockunion table");
 
@@ -151,14 +143,11 @@ int lua_pushsockunion(lua_State *L, const union sockunion *su)
 	lua_setfield(L, -2, "value");
 	lua_pushstring(L, buf);
 	lua_setfield(L, -2, "string");
-
-	return 0;
 }
 
-int lua_pushtimet(lua_State *L, const time_t *time)
+void lua_pushtimet(lua_State *L, const time_t *time)
 {
 	lua_pushinteger(L, *time);
-	return 0;
 }
 
 /*

@@ -35,34 +35,34 @@ extern "C" {
 /*
  * Pushes a new table containing relevant fields from a prefix structure.
  */
-int lua_pushprefix(lua_State *L, const struct prefix *prefix);
+void lua_pushprefix(lua_State *L, const struct prefix *prefix);
 
 /*
  * Pushes a new table containing relevant fields from an interface structure.
  */
-int lua_pushinterface(lua_State *L, const struct interface *ifp);
+void lua_pushinterface(lua_State *L, const struct interface *ifp);
 
 /*
  * Pushes a new table containing both numeric and string representations of an
  * in_addr to the stack.
  */
-int lua_pushinaddr(lua_State *L, const struct in_addr *addr);
+void lua_pushinaddr(lua_State *L, const struct in_addr *addr);
 
 /*
  * Pushes a new table containing both numeric and string representations of an
  * in6_addr to the stack.
  */
-int lua_pushin6addr(lua_State *L, const struct in6_addr *addr);
+void lua_pushin6addr(lua_State *L, const struct in6_addr *addr);
 
 /*
  * Pushes a time_t to the stack.
  */
-int lua_pushtimet(lua_State *L, const time_t *time);
+void lua_pushtimet(lua_State *L, const time_t *time);
 
 /*
  * Pushes a table representing a sockunion to the stack.
  */
-int lua_pushsockunion(lua_State *L, const union sockunion *su);
+void lua_pushsockunion(lua_State *L, const union sockunion *su);
 
 /*
  * Retrieve an integer from table on the top of the stack.
