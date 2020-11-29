@@ -18,6 +18,7 @@
  */
 
 #include <zebra.h>
+#include <stdarg.h>
 
 #include "frrscript.h"
 #include "memory.h"
@@ -73,13 +74,64 @@ static void encoder_free(struct encoder *e)
 
 int frrscript_lua_call(struct frrscript *fs, ...)
 {
-	/* Process arguments according to argspec in fs */
-	/* ... */
+	va_list vl;
+	va_start(vl, fs);
 
-	int ret = lua_pcall(fs->L, 0, 0, 0);
+	int nargs = va_arg(vl, int);
+	assert(nargs % 3 == 0);
 
-	/* Process stack result according to argspec in fs */
-	/* ... */
+	zlog_debug("%s: Script '%s' called with # args: %d", __func__, fs->name,
+		   nargs);
+
+	struct encoder e = {};
+	void *arg;
+	const char *bindname;
+
+	/* Encode script arguments */
+	for (int i = 0; i < nargs; i += 3) {
+		bindname = va_arg(vl, const char *);
+		e.typename = va_arg(vl, char *);
+		arg = va_arg(vl, void *);
+
+		zlog_debug("Script argument | Bind name: %s | Type: %s",
+			   bindname, e.typename);
+
+		struct encoder *enc = hash_lookup(encoder_hash, &e);
+		assert(enc
+		       && "No encoder for type; rerun with debug logs to see more");
+		enc->encoder(fs->L, arg);
+
+		lua_setglobal(fs->L, bindname);
+	}
+
+	int nresults = va_arg(vl, int);
+	zlog_debug("Expected script results: %d", nresults);
+
+	int ret = lua_pcall(fs->L, 0, nresults, 0);
+
+	switch (ret) {
+	case LUA_ERRRUN:
+		zlog_err("Script '%s' runtime error", fs->name);
+		break;
+	case LUA_ERRMEM:
+		zlog_err("Script '%s' memory error", fs->name);
+		break;
+	case LUA_ERRERR:
+		zlog_err("Script '%s' error handler error", fs->name);
+		break;
+	case LUA_ERRGCMM:
+		zlog_err("Script '%s' garbage collector error", fs->name);
+		break;
+	default:
+		zlog_err("Script '%s' unknown error", fs->name);
+		break;
+	}
+
+	/* After script returns, decode results */
+	for (int i = 0; i < nresults; i++) {
+		const char *resultname = va_arg(vl, const char *);
+		fprintf(stderr, "result: %s\n", resultname);
+	}
 
 	/* LUA_OK is 0, so we can just return lua_pcall's result directly */
 	return ret;
@@ -129,5 +181,12 @@ void frrscript_unload(struct frrscript *fs)
 
 void frrscript_init()
 {
-	encoder_hash = hash_create(encoder_hash_key, encoder_hash_cmp, "Lua type encoders");
+	encoder_hash = hash_create(encoder_hash_key, encoder_hash_cmp,
+				   "Lua type encoders");
+
+	/* Register core library types */
+	frrscript_register_type_encoder("prefix",
+					(encoder_func)frrlua_newtable_prefix);
+	frrscript_register_type_encoder(
+		"interface", (encoder_func)frrlua_newtable_interface);
 }

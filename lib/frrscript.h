@@ -75,8 +75,39 @@ int frrscript_lua_call(struct frrscript *fs, ...);
 
 /*
  * Call FRR script.
+ *
+ * Call it like this:
+ *
+ *   frrscript_call(fs, FRRSCRIPT_ARGS("cool_prefix", "prefix", p),
+ *                  FRRSCRIPT_RESULTS("result1", "result2"))
  */
 #define frrscript_call(fs, ...) frrscript_lua_call((fs), __VA_ARGS__)
+
+/*
+ * Macro that defines the arguments to a script.
+ *
+ * For each argument you want to pass to a script, pass *three* arguments to
+ * this function. The first should be name of the variable to bind the argument
+ * to in the script's environment. The second should be the type, as registered
+ * by frrscript_register_type_encoder(). The third should be the argument
+ * itself.
+ *
+ * This macro itself should be used as the second argument to frrscript_call().
+ */
+#define FRRSCRIPT_ARGS(...) PP_NARG(__VA_ARGS__), ##__VA_ARGS__
+
+/*
+ * Macro that defines the results from a script.
+ *
+ * Similar to FRRSCRIPT_ARGS, except this defines the results from a script.
+ *
+ * The first argument should be the name to bind the first result to and will
+ * be used after the script finishes to get that particular result value.
+ *
+ * This macro itself should be used as the third argument to frrscript_call().
+ * It may not be omitted.
+ */
+#define FRRSCRIPT_RESULTS(...) PP_NARG(__VA_ARGS__), ##__VA_ARGS__
 
 #ifdef __cplusplus
 }
