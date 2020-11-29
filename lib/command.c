@@ -2279,6 +2279,22 @@ done:
 	return CMD_SUCCESS;
 }
 
+#ifdef DEV_BUILD
+DEFUN(script,
+      script_cmd,
+      "script SCRIPT",
+      "Test command - execute a script\n"
+      "Script name (same as filename in /etc/frr/scripts/\n")
+{
+	struct frrscript *fs = frrscript_load(argv[2]->arg, NULL);
+	int ret = frrscript_call(fs, 42);
+
+	vty_out(vty, "Script result: %d\n", ret);
+
+	return CMD_SUCCESS;
+}
+#endif
+
 /* Set config filename.  Called from vty.c */
 void host_config_set(const char *filename)
 {

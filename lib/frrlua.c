@@ -26,6 +26,9 @@
 #include "frrlua.h"
 #include "log.h"
 #include "buffer.h"
+#include "frrscript.h"
+
+/* Lua stuff */
 
 /*
  * FRR convenience functions.

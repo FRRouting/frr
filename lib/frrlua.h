@@ -26,6 +26,7 @@
 #include "lauxlib.h"
 
 #include "prefix.h"
+#include "frrscript.h"
 
 #ifdef __cplusplus
 extern "C" {

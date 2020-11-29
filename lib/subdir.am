@@ -26,6 +26,7 @@ lib_libfrr_la_SOURCES = \
 	lib/filter_nb.c \
 	lib/frrcu.c \
 	lib/frrlua.c \
+	lib/frrscript.c \
 	lib/frr_pthread.c \
 	lib/frrstr.c \
 	lib/getopt.c \
@@ -184,6 +185,7 @@ pkginclude_HEADERS += \
 	lib/filter.h \
 	lib/freebsd-queue.h \
 	lib/frrlua.h \
+	lib/frrscript.h \
 	lib/frr_pthread.h \
 	lib/frratomic.h \
 	lib/frrcu.h \
