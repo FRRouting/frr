@@ -37,19 +37,6 @@
  * stack easier.
  */
 
-const char *frrlua_table_get_string(lua_State *L, const char *key)
-{
-	const char *str;
-
-	lua_pushstring(L, key);
-	lua_gettable(L, -2);
-
-	str = (const char *)lua_tostring(L, -1);
-	lua_pop(L, 1);
-
-	return str;
-}
-
 int frrlua_table_get_integer(lua_State *L, const char *key)
 {
 	int result;
@@ -70,7 +57,7 @@ int frrlua_table_get_integer(lua_State *L, const char *key)
  * datatypes.
  */
 
-int frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix)
+int lua_pushprefix(lua_State *L, const struct prefix *prefix)
 {
 	char buffer[100];
 
@@ -87,7 +74,7 @@ int frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix)
 	return 0;
 }
 
-int frrlua_newtable_interface(lua_State *L, const struct interface *ifp)
+int lua_pushinterface(lua_State *L, const struct interface *ifp)
 {
 	zlog_debug("frrlua: pushing interface table");
 

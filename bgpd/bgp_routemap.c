@@ -394,7 +394,7 @@ route_match_command(void *rule, const struct prefix *prefix, void *object)
 	/*
 	 * Setup the prefix information to pass in
 	 */
-	frrlua_newtable_prefix(L, prefix);
+	lua_pushprefix(L, prefix);
 	/*
 	 * Setup the bgp_path_info information
 	 */

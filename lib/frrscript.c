@@ -220,8 +220,7 @@ void frrscript_init()
 				   "Lua type encoders");
 
 	/* Register core library types */
-	frrscript_register_type_encoder("prefix",
-					(encoder_func)frrlua_newtable_prefix);
-	frrscript_register_type_encoder(
-		"interface", (encoder_func)frrlua_newtable_interface);
+	frrscript_register_type_encoder("prefix", (encoder_func)lua_pushprefix);
+	frrscript_register_type_encoder("interface",
+					(encoder_func)lua_pushinterface);
 }

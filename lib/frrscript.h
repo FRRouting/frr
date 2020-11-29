@@ -19,6 +19,7 @@
 #ifndef __FRRSCRIPT_H__
 #define __FRRSCRIPT_H__
 
+#include <lua.h>
 #include "frrlua.h"
 
 #ifdef __cplusplus
@@ -27,7 +28,7 @@ extern "C" {
 
 #define FRRSCRIPT_PATH "/etc/frr/scripts"
 
-typedef int (*encoder_func)(struct lua_State *, const void *);
+typedef int (*encoder_func)(lua_State *, const void *);
 
 struct frrscript {
 	/* Script name */

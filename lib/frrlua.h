@@ -21,9 +21,9 @@
 
 #if defined(HAVE_LUA)
 
-#include "lua.h"
-#include "lualib.h"
-#include "lauxlib.h"
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 
 #include "prefix.h"
 #include "frrscript.h"
@@ -34,15 +34,13 @@ extern "C" {
 
 /*
  * Pushes a new table containing relevant fields from a prefix structure.
- *
- * Additionally sets the global variable "prefix" to point at this table.
  */
-int frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix);
+int lua_pushprefix(lua_State *L, const struct prefix *prefix);
 
 /*
  * Pushes a new table containing relevant fields from an interface structure.
  */
-int frrlua_newtable_interface(lua_State *L, const struct interface *ifp);
+int lua_pushinterface(lua_State *L, const struct interface *ifp);
 
 /*
  * Retrieve a string from table on the top of the stack.
