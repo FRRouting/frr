@@ -43,6 +43,7 @@
 #include "frrcu.h"
 #include "frr_pthread.h"
 #include "defaults.h"
+#include "frrscript.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DEFINE_HOOK(frr_very_late_init, (struct thread_master * tm), (tm))
@@ -717,6 +718,7 @@ struct thread_master *frr_init(void)
 	lib_cmd_init();
 
 	frr_pthread_init();
+	frrscript_init();
 
 	log_ref_init();
 	log_ref_vty_init();
