@@ -220,7 +220,13 @@ void frrscript_init()
 				   "Lua type encoders");
 
 	/* Register core library types */
+	frrscript_register_type_encoder("integer", (encoder_func) lua_pushintegerp);
+	frrscript_register_type_encoder("string", (encoder_func) lua_pushstring);
 	frrscript_register_type_encoder("prefix", (encoder_func)lua_pushprefix);
 	frrscript_register_type_encoder("interface",
 					(encoder_func)lua_pushinterface);
+	frrscript_register_type_encoder("sockunion", (encoder_func) lua_pushsockunion);
+	frrscript_register_type_encoder("in_addr", (encoder_func) lua_pushinaddr);
+	frrscript_register_type_encoder("in6_addr", (encoder_func) lua_pushin6addr);
+	frrscript_register_type_encoder("time_t", (encoder_func) lua_pushtimet);
 }

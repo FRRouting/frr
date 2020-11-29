@@ -65,6 +65,12 @@ void lua_pushtimet(lua_State *L, const time_t *time);
 void lua_pushsockunion(lua_State *L, const union sockunion *su);
 
 /*
+ * Push integer. This just wraps lua_pushinteger(), but it takes a pointer, so
+ * as to be compatible with the encoder_func signature.
+ */
+void lua_pushintegerp(lua_State *L, const int *num);
+
+/*
  * Retrieve an integer from table on the top of the stack.
  *
  * key

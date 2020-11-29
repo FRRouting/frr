@@ -150,6 +150,11 @@ void lua_pushtimet(lua_State *L, const time_t *time)
 	lua_pushinteger(L, *time);
 }
 
+void lua_pushintegerp(lua_State *L, const int *num)
+{
+	lua_pushinteger(L, *num);
+}
+
 /*
  * Logging.
  *
