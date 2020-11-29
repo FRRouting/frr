@@ -49,6 +49,8 @@
 #include "northbound_cli.h"
 #include "network.h"
 
+#include "frrscript.h"
+
 DEFINE_MTYPE_STATIC(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
 
@@ -2286,10 +2288,18 @@ DEFUN(script,
       "Test command - execute a script\n"
       "Script name (same as filename in /etc/frr/scripts/\n")
 {
-	struct frrscript *fs = frrscript_load(argv[2]->arg, NULL);
-	int ret = frrscript_call(fs, 42);
+	struct prefix p;
+	str2prefix("1.2.3.4/24", &p);
 
-	vty_out(vty, "Script result: %d\n", ret);
+	struct frrscript *fs = frrscript_load(argv[1]->arg, NULL);
+
+	if (fs == NULL) {
+		vty_out(vty, "Script '/etc/frr/scripts/%s.lua' not found\n",
+			argv[1]->arg);
+	} else {
+		int ret = frrscript_call(fs, FRRSCRIPT_ARGS("cool", "prefix", &p), FRRSCRIPT_RESULTS());
+		vty_out(vty, "Script result: %d\n", ret);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -2389,6 +2399,10 @@ void cmd_init(int terminal)
 		install_element(VIEW_NODE, &echo_cmd);
 		install_element(VIEW_NODE, &autocomplete_cmd);
 		install_element(VIEW_NODE, &find_cmd);
+#ifdef DEV_BUILD
+		install_element(VIEW_NODE, &script_cmd);
+#endif
+
 
 		install_element(ENABLE_NODE, &config_end_cmd);
 		install_element(ENABLE_NODE, &config_disable_cmd);
