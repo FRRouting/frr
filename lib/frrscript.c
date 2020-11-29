@@ -173,21 +173,25 @@ struct frrscript *frrscript_load(const char *name,
 	case LUA_OK:
 		break;
 	case LUA_ERRSYNTAX:
-		zlog_err("Failed loading script '%s': syntax error", fname);
+		zlog_err("Failed loading script '%s': syntax error: %s", fname,
+			 lua_tostring(fs->L, -1));
 		break;
 	case LUA_ERRMEM:
-		zlog_err("Failed loading script '%s': out-of-memory error",
-			 fname);
+		zlog_err("Failed loading script '%s': out-of-memory error: %s",
+			 fname, lua_tostring(fs->L, -1));
 		break;
 	case LUA_ERRGCMM:
-		zlog_err("Failed loading script '%s': garbage collector error",
-			 fname);
+		zlog_err(
+			"Failed loading script '%s': garbage collector error: %s",
+			fname, lua_tostring(fs->L, -1));
 		break;
 	case LUA_ERRFILE:
-		zlog_err("Failed loading script '%s': file read error", fname);
+		zlog_err("Failed loading script '%s': file read error: %s",
+			 fname, lua_tostring(fs->L, -1));
 		break;
 	default:
-		zlog_err("Failed loading script '%s': unknown error", fname);
+		zlog_err("Failed loading script '%s': unknown error: %s", fname,
+			 lua_tostring(fs->L, -1));
 		break;
 	}
 
