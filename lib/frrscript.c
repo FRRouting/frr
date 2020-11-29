@@ -157,6 +157,7 @@ struct frrscript *frrscript_load(const char *name,
 
 	fs->name = XSTRDUP(MTYPE_TMP, name);
 	fs->L = luaL_newstate();
+	frrlua_export_logging(fs->L);
 
 	char fname[MAXPATHLEN];
 	snprintf(fname, sizeof(fname), FRRSCRIPT_PATH "/%s.lua", fs->name);
