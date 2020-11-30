@@ -3728,6 +3728,7 @@ static int handle_pw_result(struct zebra_dplane_ctx *ctx)
 	}
 
 done:
+	dplane_ctx_fini(&ctx);
 
 	return 0;
 }
