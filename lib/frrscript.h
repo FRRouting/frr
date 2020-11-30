@@ -19,6 +19,10 @@
 #ifndef __FRRSCRIPT_H__
 #define __FRRSCRIPT_H__
 
+#include <zebra.h>
+
+#ifdef HAVE_SCRIPTING
+
 #include <lua.h>
 #include "frrlua.h"
 
@@ -127,5 +131,7 @@ void *frrscript_get_result(struct frrscript *fs,
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+
+#endif /* HAVE_SCRIPTING */
 
 #endif /* __FRRSCRIPT_H__ */

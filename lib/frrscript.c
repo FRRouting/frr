@@ -16,8 +16,10 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-
 #include <zebra.h>
+
+#ifdef HAVE_SCRIPTING
+
 #include <stdarg.h>
 #include <lua.h>
 
@@ -26,6 +28,7 @@
 #include "memory.h"
 #include "hash.h"
 #include "log.h"
+
 
 DEFINE_MTYPE_STATIC(LIB, SCRIPT, "Scripting");
 
@@ -267,3 +270,5 @@ void frrscript_init()
 	/* Register core library types */
 	frrscript_register_type_codecs(frrscript_codecs_lib);
 }
+
+#endif /* HAVE_SCRIPTING */

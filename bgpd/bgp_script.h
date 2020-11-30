@@ -17,10 +17,18 @@
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
  * MA 02110-1301 USA
  */
+#ifndef __BGP_SCRIPT__
+#define __BGP_SCRIPT__
 
 #include <zebra.h>
+
+#ifdef HAVE_SCRIPTING
 
 /*
  * Initialize scripting stuff.
  */
 void bgp_script_init(void);
+
+#endif /* HAVE_SCRIPTING */
+
+#endif /* __BGP_SCRIPT__ */

@@ -19,7 +19,8 @@
  */
 
 #include <zebra.h>
-#include <lua.h>
+
+#ifdef HAVE_SCRIPTING
 
 #include "bgpd.h"
 #include "bgp_script.h"
@@ -27,6 +28,7 @@
 #include "bgp_aspath.h"
 #include "frratomic.h"
 #include "frrscript.h"
+#include "frrlua.h"
 
 static void lua_pushpeer(lua_State *L, const struct peer *peer)
 {
@@ -186,3 +188,5 @@ void bgp_script_init(void)
 {
 	frrscript_register_type_codecs(frrscript_codecs_bgpd);
 }
+
+#endif /* HAVE_SCRIPTING */

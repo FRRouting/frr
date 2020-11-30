@@ -19,7 +19,9 @@
 #ifndef __FRRLUA_H__
 #define __FRRLUA_H__
 
-#if defined(HAVE_LUA)
+#include <zebra.h>
+
+#ifdef HAVE_SCRIPTING
 
 #include <lua.h>
 #include <lualib.h>
@@ -166,5 +168,6 @@ char *frrlua_stackdump(lua_State *L);
 }
 #endif
 
-#endif /* HAVE_LUA */
+#endif /* HAVE_SCRIPTING */
+
 #endif /* __FRRLUA_H__ */

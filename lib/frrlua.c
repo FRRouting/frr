@@ -19,9 +19,11 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
 #include <zebra.h>
 
-#if defined(HAVE_LUA)
+#ifdef HAVE_SCRIPTING
+
 #include "prefix.h"
 #include "frrlua.h"
 #include "log.h"
@@ -371,4 +373,4 @@ char *frrlua_stackdump(lua_State *L)
 	return result;
 }
 
-#endif
+#endif /* HAVE_SCRIPTING */

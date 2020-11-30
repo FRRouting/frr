@@ -274,24 +274,22 @@ if test "$enable_clang_coverage" = "yes"; then
    ])
 fi
 
+if test "$enable_scripting" = "yes"; then
+   AX_PROG_LUA([5.3])
+   AX_LUA_HEADERS
+   AX_LUA_LIBS([
+      AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+      LIBS="$LIBS $LUA_LIB"
+   ])
+fi
+
 if test "$enable_dev_build" = "yes"; then
    AC_DEFINE([DEV_BUILD], [1], [Build for development])
    if test "$orig_cflags" = ""; then
       AC_C_FLAG([-g3])
       AC_C_FLAG([-O0])
    fi
-   if test "$enable_lua" = "yes"; then
-      AX_PROG_LUA([5.3])
-      AX_LUA_HEADERS
-      AX_LUA_LIBS([
-         AC_DEFINE([HAVE_LUA], [1], [Have support for Lua interpreter])
-         LIBS="$LIBS $LUA_LIB"
-      ])
-   fi
 else
-   if test "$enable_lua" = "yes"; then
-      AC_MSG_ERROR([Lua is not meant to be built/used outside of development at this time])
-   fi
    if test "$orig_cflags" = ""; then
       AC_C_FLAG([-g])
       AC_C_FLAG([-O2])
@@ -693,8 +691,8 @@ fi
 AC_ARG_ENABLE([dev_build],
     AS_HELP_STRING([--enable-dev-build], [build for development]))
 
-AC_ARG_ENABLE([lua],
-    AS_HELP_STRING([--enable-lua], [Build Lua scripting]))
+AC_ARG_ENABLE([scripting],
+    AS_HELP_STRING([--enable-scripting], [Build with scripting support]))
 
 if test "$enable_time_check" != "no" ; then
   if test "$enable_time_check" = "yes" -o "$enable_time_check" = "" ; then

@@ -338,7 +338,7 @@ static const struct route_map_rule_cmd route_match_peer_cmd = {
 	route_match_peer_free
 };
 
-#if defined(HAVE_LUA)
+#ifdef HAVE_SCRIPTING
 
 enum frrlua_rm_status {
 	/*
@@ -468,7 +468,8 @@ static const struct route_map_rule_cmd route_match_script_cmd = {
 	route_match_script_compile,
 	route_match_script_free
 };
-#endif
+
+#endif /* HAVE_SCRIPTING */
 
 /* `match ip address IP_ACCESS_LIST' */
 
@@ -4134,7 +4135,7 @@ DEFUN (no_match_peer,
 				      RMAP_EVENT_MATCH_DELETED);
 }
 
-#if defined(HAVE_LUA)
+#ifdef HAVE_SCRIPTING
 DEFUN (match_script,
        match_script_cmd,
        "[no] match script WORD",
@@ -4156,7 +4157,7 @@ DEFUN (match_script,
 					   RMAP_EVENT_FILTER_ADDED);
 	}
 }
-#endif
+#endif /* HAVE_SCRIPTING */
 
 /* match probability */
 DEFUN (match_probability,
@@ -5670,7 +5671,7 @@ void bgp_route_map_init(void)
 
 	route_map_install_match(&route_match_peer_cmd);
 	route_map_install_match(&route_match_local_pref_cmd);
-#if defined(HAVE_LUA)
+#ifdef HAVE_SCRIPTING
 	route_map_install_match(&route_match_script_cmd);
 #endif
 	route_map_install_match(&route_match_ip_address_cmd);
@@ -5835,7 +5836,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_prefer_global_cmd);
 	install_element(RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
-#if defined(HAVE_LUA)
+#ifdef HAVE_SCRIPTING
 	install_element(RMAP_NODE, &match_script_cmd);
 #endif
 }
