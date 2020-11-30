@@ -64,6 +64,7 @@ struct frrscript_codec frrscript_codecs_lib[] = {
 /* Type codecs */
 
 struct hash *codec_hash;
+char scriptdir[MAXPATHLEN];
 
 static unsigned int codec_hash_key(const void *data)
 {
@@ -213,7 +214,7 @@ struct frrscript *frrscript_load(const char *name,
 	frrlua_export_logging(fs->L);
 
 	char fname[MAXPATHLEN];
-	snprintf(fname, sizeof(fname), FRRSCRIPT_PATH "/%s.lua", fs->name);
+	snprintf(fname, sizeof(fname), "%s/%s.lua", scriptdir, fs->name);
 
 	int ret = luaL_loadfile(fs->L, fname);
 
@@ -262,10 +263,12 @@ void frrscript_unload(struct frrscript *fs)
 	XFREE(MTYPE_SCRIPT, fs);
 }
 
-void frrscript_init()
+void frrscript_init(const char *sd)
 {
 	codec_hash = hash_create(codec_hash_key, codec_hash_cmp,
 				 "Lua type encoders");
+
+	strlcpy(scriptdir, sd, sizeof(scriptdir));
 
 	/* Register core library types */
 	frrscript_register_type_codecs(frrscript_codecs_lib);

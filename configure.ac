@@ -138,6 +138,12 @@ AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directo
 ])
 AC_SUBST([moduledir], [$moduledir])
 
+AC_ARG_WITH([scriptdir], [AS_HELP_STRING([--with-scriptdir=DIR], [script directory (${libdir}/frr/scripts)])], [
+	scriptdir="$withval"
+], [
+	scriptdir="\${sysconfdir}/scripts"
+])
+AC_SUBST([scriptdir], [$scriptdir])
 
 AC_ARG_WITH([yangmodelsdir], [AS_HELP_STRING([--with-yangmodelsdir=DIR], [yang models directory (${datarootdir}/yang)])], [
 	yangmodelsdir="$withval"
@@ -2423,19 +2429,23 @@ CFG_SBIN="$sbindir"
 CFG_STATE="$frr_statedir"
 CFG_MODULE="$moduledir"
 CFG_YANGMODELS="$yangmodelsdir"
+CFG_SCRIPT="$scriptdir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
 	eval CFG_MODULE="\"$CFG_MODULE\""
 	eval CFG_YANGMODELS="\"$CFG_YANGMODELS\""
+	eval CFG_SCRIPT="\"$CFG_SCRIPT\""
 done
 AC_SUBST([CFG_SYSCONF])
 AC_SUBST([CFG_SBIN])
 AC_SUBST([CFG_STATE])
 AC_SUBST([CFG_MODULE])
+AC_SUBST([CFG_SCRIPT])
 AC_SUBST([CFG_YANGMODELS])
 AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
+AC_DEFINE_UNQUOTED([SCRIPT_PATH], ["$CFG_SCRIPT"], [path to scripts])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
 AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 
@@ -2546,6 +2556,7 @@ state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
 module directory        : ${CFG_MODULE}
+script directory        : ${CFG_SCRIPT}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}

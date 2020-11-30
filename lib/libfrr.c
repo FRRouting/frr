@@ -56,6 +56,7 @@ char frr_vtydir[256];
 const char frr_dbdir[] = DAEMON_DB_DIR;
 #endif
 const char frr_moduledir[] = MODULE_PATH;
+const char frr_scriptdir[] = SCRIPT_PATH;
 
 char frr_protoname[256] = "NONE";
 char frr_protonameinst[256] = "NONE";
@@ -101,6 +102,7 @@ static void opt_extend(const struct optspec *os)
 #define OPTION_DB_FILE   1006
 #define OPTION_LOGGING   1007
 #define OPTION_LIMIT_FDS 1008
+#define OPTION_SCRIPTDIR 1009
 
 static const struct option lo_always[] = {
 	{"help", no_argument, NULL, 'h'},
@@ -111,6 +113,7 @@ static const struct option lo_always[] = {
 	{"pathspace", required_argument, NULL, 'N'},
 	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
 	{"moduledir", required_argument, NULL, OPTION_MODULEDIR},
+	{"scriptdir", required_argument, NULL, OPTION_SCRIPTDIR},
 	{"log", required_argument, NULL, OPTION_LOG},
 	{"log-level", required_argument, NULL, OPTION_LOGLEVEL},
 	{"tcli", no_argument, NULL, OPTION_TCLI},
@@ -127,6 +130,7 @@ static const struct optspec os_always = {
 	"  -N, --pathspace    Insert prefix into config & socket paths\n"
 	"      --vty_socket   Override vty socket path\n"
 	"      --moduledir    Override modules directory\n"
+	"      --scriptdir    Override scripts directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
 	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
 	"      --tcli         Use transaction-based CLI\n"
@@ -534,6 +538,14 @@ static int frr_opt(int opt)
 		}
 		di->module_path = optarg;
 		break;
+	case OPTION_SCRIPTDIR:
+		if (di->script_path) {
+			fprintf(stderr, "--scriptdir option specified more than once!\n");
+			errors++;
+			break;
+		}
+		di->script_path = optarg;
+		break;
 	case OPTION_TCLI:
 		di->cli_mode = FRR_CLI_TRANSACTIONAL;
 		break;
@@ -719,7 +731,7 @@ struct thread_master *frr_init(void)
 
 	frr_pthread_init();
 #ifdef HAVE_SCRIPTING
-	frrscript_init();
+	frrscript_init(di->script_path ? di->script_path : frr_scriptdir);
 #endif
 
 	log_ref_init();

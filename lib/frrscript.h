@@ -30,8 +30,6 @@
 extern "C" {
 #endif
 
-#define FRRSCRIPT_PATH "/etc/frr/scripts"
-
 typedef void (*encoder_func)(lua_State *, const void *);
 typedef void *(*decoder_func)(lua_State *, int);
 
@@ -92,8 +90,11 @@ void frrscript_register_type_codecs(struct frrscript_codec *codecs);
 
 /*
  * Initialize scripting subsystem. Call this before anything else.
+ *
+ * scriptdir
+ *    Directory in which to look for scripts
  */
-void frrscript_init(void);
+void frrscript_init(const char *scriptdir);
 
 
 /*
