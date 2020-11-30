@@ -154,29 +154,33 @@ module frr-filter {
                 }
               }
               case cisco {
-                leaf host {
-                  description "Host to match";
-                  type inet:ipv4-address;
-                }
-                container network {
-                  leaf address {
-                    mandatory true;
-                    description "Network address part.";
+                choice standard-value {
+                  description "Source value to match";
+
+                  leaf host {
+                    description "Host to match";
                     type inet:ipv4-address;
                   }
-                  leaf mask {
-                    mandatory true;
-                    description "Network mask/wildcard part.";
-                    type inet:ipv4-address;
+                  container network {
+                    leaf address {
+                      mandatory true;
+                      description "Network address part.";
+                      type inet:ipv4-address;
+                    }
+                    leaf mask {
+                      mandatory true;
+                      description "Network mask/wildcard part.";
+                      type inet:ipv4-address;
+                    }
                   }
-                }
-                leaf source-any {
-                  /*
-                   * Was `any`, however it conflicts with `any` leaf
-                   * outside this choice.
-                   */
-                  description "Match any";
-                  type empty;
+                  leaf source-any {
+                    /*
+                     * Was `any`, however it conflicts with `any` leaf
+                     * outside this choice.
+                     */
+                    description "Match any";
+                    type empty;
+                  }
                 }
 
                 choice extended-value {
