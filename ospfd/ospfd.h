@@ -303,7 +303,7 @@ struct ospf {
 	uint32_t rx_lsa_count;
 
 	/* Counter of "ip ospf area x.x.x.x" used
-	 * for multual exclusion of network command under
+	 * for mutual exclusion of network command under
 	 * router ospf or ip ospf area x under interface. */
 	uint32_t if_ospf_cli_count;
 
