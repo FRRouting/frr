@@ -19,13 +19,15 @@
 
 #include <zebra.h>
 #include <stdarg.h>
+#include <lua.h>
 
 #include "frrscript.h"
+#include "frrlua.h"
 #include "memory.h"
 #include "hash.h"
 #include "log.h"
 
-#include "frrlua.h"
+DEFINE_MTYPE_STATIC(LIB, SCRIPT, "Scripting");
 
 /* Codecs */
 
@@ -80,8 +82,8 @@ static void *codec_alloc(void *arg)
 	struct frrscript_codec *tmp = arg;
 
 	struct frrscript_codec *e =
-		XCALLOC(MTYPE_TMP, sizeof(struct frrscript_codec));
-	e->typename = XSTRDUP(MTYPE_TMP, tmp->typename);
+		XCALLOC(MTYPE_SCRIPT, sizeof(struct frrscript_codec));
+	e->typename = XSTRDUP(MTYPE_SCRIPT, tmp->typename);
 	e->encoder = tmp->encoder;
 	e->decoder = tmp->decoder;
 
@@ -114,8 +116,7 @@ int frrscript_call(struct frrscript *fs, struct frrscript_env *env)
 			   bindname, c.typename);
 
 		struct frrscript_codec *codec = hash_lookup(codec_hash, &c);
-		assert(codec
-		       && "No encoder for type; rerun with debug logs to see more");
+		assert(codec && "No encoder for type");
 		codec->encoder(fs->L, arg);
 
 		lua_setglobal(fs->L, bindname);
@@ -165,6 +166,12 @@ void *frrscript_get_result(struct frrscript *fs,
 	struct frrscript_codec c = {.typename = result->typename};
 
 	struct frrscript_codec *codec = hash_lookup(codec_hash, &c);
+	assert(codec && "No encoder for type");
+
+	if (!codec->decoder) {
+		zlog_err("No script decoder for type '%s'", result->typename);
+		return NULL;
+	}
 
 	lua_getglobal(fs->L, result->name);
 	r = codec->decoder(fs->L, -1);
@@ -196,9 +203,9 @@ void frrscript_register_type_codecs(struct frrscript_codec *codecs)
 struct frrscript *frrscript_load(const char *name,
 				 int (*load_cb)(struct frrscript *))
 {
-	struct frrscript *fs = XCALLOC(MTYPE_TMP, sizeof(struct frrscript));
+	struct frrscript *fs = XCALLOC(MTYPE_SCRIPT, sizeof(struct frrscript));
 
-	fs->name = XSTRDUP(MTYPE_TMP, name);
+	fs->name = XSTRDUP(MTYPE_SCRIPT, name);
 	fs->L = luaL_newstate();
 	frrlua_export_logging(fs->L);
 
@@ -248,8 +255,8 @@ fail:
 void frrscript_unload(struct frrscript *fs)
 {
 	lua_close(fs->L);
-	XFREE(MTYPE_TMP, fs->name);
-	XFREE(MTYPE_TMP, fs);
+	XFREE(MTYPE_SCRIPT, fs->name);
+	XFREE(MTYPE_SCRIPT, fs);
 }
 
 void frrscript_init()
