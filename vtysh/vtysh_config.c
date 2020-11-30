@@ -485,8 +485,10 @@ void vtysh_config_dump(void)
 				 * are not under the VRF node.
 				 */
 				if (config->index == INTERFACE_NODE
-				    && list_isempty(config->line))
+				    && list_isempty(config->line)) {
+					config_del(config);
 					continue;
+				}
 
 				vty_out(vty, "%s\n", config->name);
 
