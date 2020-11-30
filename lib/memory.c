@@ -127,6 +127,12 @@ void *qstrdup(struct memtype *mt, const char *str)
 	return str ? mt_checkalloc(mt, strdup(str), strlen(str) + 1) : NULL;
 }
 
+void qcountfree(struct memtype *mt, void *ptr)
+{
+	if (ptr)
+		mt_count_free(mt, ptr);
+}
+
 void qfree(struct memtype *mt, void *ptr)
 {
 	if (ptr)
