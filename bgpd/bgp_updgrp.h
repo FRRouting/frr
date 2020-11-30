@@ -585,4 +585,21 @@ static inline int advertise_list_is_empty(struct update_subgroup *subgrp)
 	return 1;
 }
 
+/*
+ * Immediate announce or coalsece multiple peers?
+ */
+static inline bool peer_immediate_announce(struct peer *peer, afi_t afi, safi_t safi)
+{
+	/*
+	 * Immediate announce:
+	 *  a) We are restarting router - here, immediate means *after*
+	 *     we get all needed EORs
+	 *  b) Peering comes up and we're acting as a Helper router for
+	 *     the peer
+	 */
+	if (CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR) ||
+	    (peer->nsf[afi][safi] && peer->connection->t_gr_stale))
+		return true;
+	return false;
+}
 #endif /* _QUAGGA_BGP_UPDGRP_H */
