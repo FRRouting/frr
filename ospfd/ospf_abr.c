@@ -377,7 +377,7 @@ static int ospf_abr_nssa_am_elected(struct ospf_area *area)
 /* Check NSSA ABR status
  * assumes there are nssa areas
  */
-static void ospf_abr_nssa_check_status(struct ospf *ospf)
+void ospf_abr_nssa_check_status(struct ospf *ospf)
 {
 	struct ospf_area *area;
 	struct listnode *lnode, *nnode;
