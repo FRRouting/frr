@@ -26,7 +26,6 @@
 #include "frrlua.h"
 #include "log.h"
 #include "buffer.h"
-#include "frrscript.h"
 
 /* Lua stuff */
 
@@ -72,6 +71,17 @@ void lua_pushprefix(lua_State *L, const struct prefix *prefix)
 	lua_setfield(L, -2, "family");
 }
 
+void *lua_toprefix(lua_State *L, int idx)
+{
+	struct prefix *p = XCALLOC(MTYPE_TMP, sizeof(struct prefix));
+
+	lua_getfield(L, idx, "network");
+	str2prefix(lua_tostring(L, -1), p);
+	lua_pop(L, 1);
+
+	return p;
+}
+
 void lua_pushinterface(lua_State *L, const struct interface *ifp)
 {
 	zlog_debug("frrlua: pushing interface table");
@@ -101,6 +111,47 @@ void lua_pushinterface(lua_State *L, const struct interface *ifp)
 	lua_setfield(L, -2, "linklayer_type");
 }
 
+void *lua_tointerface(lua_State *L, int idx)
+{
+	struct interface *ifp = XCALLOC(MTYPE_TMP, sizeof(struct interface));
+
+	lua_getfield(L, idx, "name");
+	strlcpy(ifp->name, lua_tostring(L, -1), sizeof(ifp->name));
+	lua_pop(L, 1);
+	lua_getfield(L, idx, "ifindex");
+	ifp->ifindex = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, idx, "status");
+	ifp->status = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, idx, "flags");
+	ifp->flags = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, idx, "metric");
+	ifp->metric = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, idx, "speed");
+	ifp->speed = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, idx, "mtu");
+	ifp->mtu = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, idx, "mtu6");
+	ifp->mtu6 = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, idx, "bandwidth");
+	ifp->bandwidth = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, idx, "link_ifindex");
+	ifp->link_ifindex = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, idx, "linklayer_type");
+	ifp->ll_type = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	return ifp;
+}
+
 void lua_pushinaddr(lua_State *L, const struct in_addr *addr)
 {
 	zlog_debug("frrlua: pushing inaddr table");
@@ -113,6 +164,17 @@ void lua_pushinaddr(lua_State *L, const struct in_addr *addr)
 	lua_setfield(L, -2, "value");
 	lua_pushstring(L, buf);
 	lua_setfield(L, -2, "string");
+}
+
+void *lua_toinaddr(lua_State *L, int idx)
+{
+	struct in_addr *inaddr = XCALLOC(MTYPE_TMP, sizeof(struct in_addr));
+
+	lua_getfield(L, idx, "value");
+	inaddr->s_addr = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	return inaddr;
 }
 
 
@@ -130,6 +192,17 @@ void lua_pushin6addr(lua_State *L, const struct in6_addr *addr)
 	lua_setfield(L, -2, "string");
 }
 
+void *lua_toin6addr(lua_State *L, int idx)
+{
+	struct in6_addr *in6addr = XCALLOC(MTYPE_TMP, sizeof(struct in6_addr));
+
+	lua_getfield(L, idx, "string");
+	inet_pton(AF_INET6, lua_tostring(L, -1), in6addr);
+	lua_pop(L, 1);
+
+	return in6addr;
+}
+
 void lua_pushsockunion(lua_State *L, const union sockunion *su)
 {
 	zlog_debug("frrlua: pushing sockunion table");
@@ -145,14 +218,51 @@ void lua_pushsockunion(lua_State *L, const union sockunion *su)
 	lua_setfield(L, -2, "string");
 }
 
+void *lua_tosockunion(lua_State *L, int idx)
+{
+	union sockunion *su = XCALLOC(MTYPE_TMP, sizeof(union sockunion));
+
+	lua_getfield(L, idx, "string");
+	str2sockunion(lua_tostring(L, -1), su);
+
+	return su;
+}
+
 void lua_pushtimet(lua_State *L, const time_t *time)
 {
 	lua_pushinteger(L, *time);
 }
 
-void lua_pushintegerp(lua_State *L, const int *num)
+void *lua_totimet(lua_State *L, int idx)
+{
+	time_t *t = XCALLOC(MTYPE_TMP, sizeof(time_t));
+
+	*t = lua_tointeger(L, idx);
+
+	return t;
+}
+
+void lua_pushintegerp(lua_State *L, const long long *num)
 {
 	lua_pushinteger(L, *num);
+}
+
+void *lua_tointegerp(lua_State *L, int idx)
+{
+	int isnum;
+	long long *num = XCALLOC(MTYPE_TMP, sizeof(long long));
+
+	*num = lua_tonumberx(L, idx, &isnum);
+	assert(isnum);
+
+	return num;
+}
+
+void *lua_tostringp(lua_State *L, int idx)
+{
+	char *string = XSTRDUP(MTYPE_TMP, lua_tostring(L, idx));
+
+	return string;
 }
 
 /*

@@ -33,42 +33,104 @@ extern "C" {
 #endif
 
 /*
- * Pushes a new table containing relevant fields from a prefix structure.
+ * Converts a prefix to a Lua value and pushes it on the stack.
  */
 void lua_pushprefix(lua_State *L, const struct prefix *prefix);
 
 /*
- * Pushes a new table containing relevant fields from an interface structure.
+ * Converts the Lua value at idx to a prefix.
+ *
+ * Returns:
+ *    struct prefix allocated with MTYPE_TMP
+ */
+void *lua_toprefix(lua_State *L, int idx);
+
+/*
+ * Converts an interface to a Lua value and pushes it on the stack.
  */
 void lua_pushinterface(lua_State *L, const struct interface *ifp);
 
 /*
- * Pushes a new table containing both numeric and string representations of an
- * in_addr to the stack.
+ * Converts the Lua value at idx to an interface.
+ *
+ * Returns:
+ *    struct interface allocated with MTYPE_TMP. This interface is not hooked
+ *    to anything, nor is it inserted in the global interface tree.
+ */
+void *lua_tointerface(lua_State *L, int idx);
+
+/*
+ * Converts an in_addr to a Lua value and pushes it on the stack.
  */
 void lua_pushinaddr(lua_State *L, const struct in_addr *addr);
 
 /*
- * Pushes a new table containing both numeric and string representations of an
- * in6_addr to the stack.
+ * Converts the Lua value at idx to an in_addr.
+ *
+ * Returns:
+ *    struct in_addr allocated with MTYPE_TMP.
+ */
+void *lua_toinaddr(lua_State *L, int idx);
+
+/*
+ * Converts an in6_addr to a Lua value and pushes it on the stack.
  */
 void lua_pushin6addr(lua_State *L, const struct in6_addr *addr);
 
 /*
- * Pushes a time_t to the stack.
+ * Converts the Lua value at idx to an in6_addr.
+ *
+ * Returns:
+ *    struct in6_addr allocated with MTYPE_TMP.
+ */
+void *lua_toin6addr(lua_State *L, int idx);
+
+/*
+ * Converts a time_t to a Lua value and pushes it on the stack.
  */
 void lua_pushtimet(lua_State *L, const time_t *time);
 
 /*
- * Pushes a table representing a sockunion to the stack.
+ * Converts the Lua value at idx to a time_t.
+ *
+ * Returns:
+ *    time_t allocated with MTYPE_TMP.
+ */
+void *lua_totimet(lua_State *L, int idx);
+
+/*
+ * Converts a sockunion to a Lua value and pushes it on the stack.
  */
 void lua_pushsockunion(lua_State *L, const union sockunion *su);
 
 /*
- * Push integer. This just wraps lua_pushinteger(), but it takes a pointer, so
- * as to be compatible with the encoder_func signature.
+ * Converts the Lua value at idx to a sockunion.
+ *
+ * Returns:
+ *    sockunion allocated with MTYPE_TMP.
  */
-void lua_pushintegerp(lua_State *L, const int *num);
+void *lua_tosockunion(lua_State *L, int idx);
+
+/*
+ * Converts an int to a Lua value and pushes it on the stack.
+ */
+void lua_pushintegerp(lua_State *L, const long long *num);
+
+/*
+ * Converts the Lua value at idx to an int.
+ *
+ * Returns:
+ *    int allocated with MTYPE_TMP.
+ */
+void *lua_tointegerp(lua_State *L, int idx);
+
+/*
+ * Pop string.
+ *
+ * Sets *string to a copy of the string at the top of the stack. The copy is
+ * allocated with MTYPE_TMP and the caller is responsible for freeing it.
+ */
+void *lua_tostringp(lua_State *L, int idx);
 
 /*
  * Retrieve an integer from table on the top of the stack.

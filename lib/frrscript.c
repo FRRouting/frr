@@ -27,133 +27,171 @@
 
 #include "frrlua.h"
 
-/* Type encoders */
+/* Codecs */
 
-struct encoder {
-	char *typename;
-	encoder_func encoder;
-};
+struct frrscript_codec frrscript_codecs_lib[] = {
+	{.typename = "integer",
+	 .encoder = (encoder_func)lua_pushintegerp,
+	 .decoder = lua_tointegerp},
+	{.typename = "string",
+	 .encoder = (encoder_func)lua_pushstring,
+	 .decoder = lua_tostringp},
+	{.typename = "prefix",
+	 .encoder = (encoder_func)lua_pushprefix,
+	 .decoder = lua_toprefix},
+	{.typename = "interface",
+	 .encoder = (encoder_func)lua_pushinterface,
+	 .decoder = lua_tointerface},
+	{.typename = "in_addr",
+	 .encoder = (encoder_func)lua_pushinaddr,
+	 .decoder = lua_toinaddr},
+	{.typename = "in6_addr",
+	 .encoder = (encoder_func)lua_pushin6addr,
+	 .decoder = lua_toin6addr},
+	{.typename = "sockunion",
+	 .encoder = (encoder_func)lua_pushsockunion,
+	 .decoder = lua_tosockunion},
+	{.typename = "time_t",
+	 .encoder = (encoder_func)lua_pushtimet,
+	 .decoder = lua_totimet},
+	{}};
 
-struct hash *encoder_hash;
+/* Type codecs */
 
-static unsigned int encoder_hash_key(const void *data)
+struct hash *codec_hash;
+
+static unsigned int codec_hash_key(const void *data)
 {
-	const struct encoder *e = data;
+	const struct frrscript_codec *c = data;
 
-	return string_hash_make(e->typename);
+	return string_hash_make(c->typename);
 }
 
-static bool encoder_hash_cmp(const void *d1, const void *d2)
+static bool codec_hash_cmp(const void *d1, const void *d2)
 {
-	const struct encoder *e1 = d1;
-	const struct encoder *e2 = d2;
+	const struct frrscript_codec *e1 = d1;
+	const struct frrscript_codec *e2 = d2;
 
 	return strmatch(e1->typename, e2->typename);
 }
 
-static void *encoder_alloc(void *arg)
+static void *codec_alloc(void *arg)
 {
-	struct encoder *tmp = arg;
+	struct frrscript_codec *tmp = arg;
 
-	struct encoder *e = XCALLOC(MTYPE_TMP, sizeof(struct encoder));
+	struct frrscript_codec *e =
+		XCALLOC(MTYPE_TMP, sizeof(struct frrscript_codec));
 	e->typename = XSTRDUP(MTYPE_TMP, tmp->typename);
 	e->encoder = tmp->encoder;
+	e->decoder = tmp->decoder;
 
 	return e;
 }
 
 #if 0
-static void encoder_free(struct encoder *e)
+static void codec_free(struct codec *c)
 {
-	XFREE(MTYPE_TMP, e->typename);
-	XFREE(MTYPE_TMP, e);
+	XFREE(MTYPE_TMP, c->typename);
+	XFREE(MTYPE_TMP, c);
 }
 #endif
 
 /* Generic script APIs */
 
-int frrscript_lua_call(struct frrscript *fs, ...)
+int frrscript_call(struct frrscript *fs, struct frrscript_env *env)
 {
-	va_list vl;
-	va_start(vl, fs);
-
-	int nargs = va_arg(vl, int);
-	assert(nargs % 3 == 0);
-
-	zlog_debug("%s: Script '%s' called with # args: %d", __func__, fs->name,
-		   nargs);
-
-	struct encoder e = {};
-	void *arg;
+	struct frrscript_codec c = {};
+	const void *arg;
 	const char *bindname;
 
 	/* Encode script arguments */
-	for (int i = 0; i < nargs; i += 3) {
-		bindname = va_arg(vl, const char *);
-		e.typename = va_arg(vl, char *);
-		arg = va_arg(vl, void *);
+	for (int i = 0; env && env[i].val != NULL; i++) {
+		bindname = env[i].name;
+		c.typename = env[i].typename;
+		arg = env[i].val;
 
 		zlog_debug("Script argument | Bind name: %s | Type: %s",
-			   bindname, e.typename);
+			   bindname, c.typename);
 
-		struct encoder *enc = hash_lookup(encoder_hash, &e);
-		assert(enc
+		struct frrscript_codec *codec = hash_lookup(codec_hash, &c);
+		assert(codec
 		       && "No encoder for type; rerun with debug logs to see more");
-		enc->encoder(fs->L, arg);
+		codec->encoder(fs->L, arg);
 
 		lua_setglobal(fs->L, bindname);
 	}
 
-	int nresults = va_arg(vl, int);
-	zlog_debug("Expected script results: %d", nresults);
-
-	int ret = lua_pcall(fs->L, 0, nresults, 0);
+	int ret = lua_pcall(fs->L, 0, 0, 0);
 
 	switch (ret) {
 	case LUA_OK:
 		break;
 	case LUA_ERRRUN:
-		zlog_err("Script '%s' runtime error: %s", fs->name, lua_tostring(fs->L, -1));
+		zlog_err("Script '%s' runtime error: %s", fs->name,
+			 lua_tostring(fs->L, -1));
 		break;
 	case LUA_ERRMEM:
-		zlog_err("Script '%s' memory error: %s", fs->name, lua_tostring(fs->L, -1));
+		zlog_err("Script '%s' memory error: %s", fs->name,
+			 lua_tostring(fs->L, -1));
 		break;
 	case LUA_ERRERR:
-		zlog_err("Script '%s' error handler error: %s", fs->name, lua_tostring(fs->L, -1));
+		zlog_err("Script '%s' error handler error: %s", fs->name,
+			 lua_tostring(fs->L, -1));
 		break;
 	case LUA_ERRGCMM:
-		zlog_err("Script '%s' garbage collector error: %s", fs->name, lua_tostring(fs->L, -1));
+		zlog_err("Script '%s' garbage collector error: %s", fs->name,
+			 lua_tostring(fs->L, -1));
 		break;
 	default:
-		zlog_err("Script '%s' unknown error: %s", fs->name, lua_tostring(fs->L, -1));
+		zlog_err("Script '%s' unknown error: %s", fs->name,
+			 lua_tostring(fs->L, -1));
 		break;
 	}
 
-	if (ret != LUA_OK)
+	if (ret != LUA_OK) {
 		lua_pop(fs->L, 1);
-
-	/* After script returns, decode results */
-	for (int i = 0; i < nresults; i++) {
-		const char *resultname = va_arg(vl, const char *);
-		fprintf(stderr, "result: %s\n", resultname);
+		goto done;
 	}
 
+done:
 	/* LUA_OK is 0, so we can just return lua_pcall's result directly */
 	return ret;
 }
 
-void frrscript_register_type_encoder(const char *typename, encoder_func encoder)
+void *frrscript_get_result(struct frrscript *fs,
+			   const struct frrscript_env *result)
 {
-	struct encoder e = {.typename = (char *)typename, .encoder = encoder};
+	void *r;
+	struct frrscript_codec c = {.typename = result->typename};
 
-	if (hash_lookup(encoder_hash, &e)) {
-		zlog_backtrace(LOG_ERR);
-		assert(!"Type encoder double-registered.");
-	}
+	struct frrscript_codec *codec = hash_lookup(codec_hash, &c);
 
-	assert(hash_get(encoder_hash, &e, encoder_alloc));
+	lua_getglobal(fs->L, result->name);
+	r = codec->decoder(fs->L, -1);
+	lua_pop(fs->L, 1);
+
+	return r;
 }
 
+void frrscript_register_type_codec(struct frrscript_codec *codec)
+{
+	struct frrscript_codec c = *codec;
+
+	zlog_debug("Registering codec for '%s'", codec->typename);
+
+	if (hash_lookup(codec_hash, &c)) {
+		zlog_backtrace(LOG_ERR);
+		assert(!"Type codec double-registered.");
+	}
+
+	assert(hash_get(codec_hash, &c, codec_alloc));
+}
+
+void frrscript_register_type_codecs(struct frrscript_codec *codecs)
+{
+	for (int i = 0; codecs[i].typename != NULL; i++)
+		frrscript_register_type_codec(&codecs[i]);
+}
 
 struct frrscript *frrscript_load(const char *name,
 				 int (*load_cb)(struct frrscript *))
@@ -216,17 +254,9 @@ void frrscript_unload(struct frrscript *fs)
 
 void frrscript_init()
 {
-	encoder_hash = hash_create(encoder_hash_key, encoder_hash_cmp,
-				   "Lua type encoders");
+	codec_hash = hash_create(codec_hash_key, codec_hash_cmp,
+				 "Lua type encoders");
 
 	/* Register core library types */
-	frrscript_register_type_encoder("integer", (encoder_func) lua_pushintegerp);
-	frrscript_register_type_encoder("string", (encoder_func) lua_pushstring);
-	frrscript_register_type_encoder("prefix", (encoder_func)lua_pushprefix);
-	frrscript_register_type_encoder("interface",
-					(encoder_func)lua_pushinterface);
-	frrscript_register_type_encoder("sockunion", (encoder_func) lua_pushsockunion);
-	frrscript_register_type_encoder("in_addr", (encoder_func) lua_pushinaddr);
-	frrscript_register_type_encoder("in6_addr", (encoder_func) lua_pushin6addr);
-	frrscript_register_type_encoder("time_t", (encoder_func) lua_pushtimet);
+	frrscript_register_type_codecs(frrscript_codecs_lib);
 }

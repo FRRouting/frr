@@ -29,6 +29,13 @@ extern "C" {
 #define FRRSCRIPT_PATH "/etc/frr/scripts"
 
 typedef void (*encoder_func)(lua_State *, const void *);
+typedef void *(*decoder_func)(lua_State *, int);
+
+struct frrscript_codec {
+	const char *typename;
+	encoder_func encoder;
+	decoder_func decoder;
+};
 
 struct frrscript {
 	/* Script name */
@@ -38,6 +45,16 @@ struct frrscript {
 	struct lua_State *L;
 };
 
+struct frrscript_env {
+	/* Value type */
+	const char *typename;
+
+	/* Binding name */
+	const char *name;
+
+	/* Value */
+	const void *val;
+};
 
 /*
  * Create new FRR script.
@@ -51,64 +68,61 @@ struct frrscript *frrscript_load(const char *name,
 void frrscript_unload(struct frrscript *fs);
 
 /*
- * Register a Lua encoder for a type.
+ * Register a Lua codec for a type.
  *
  * tname
  *    Name of type; e.g., "peer", "ospf_interface", etc. Chosen at will.
  *
- * encoder
- *    Function pointer to encoder function. Encoder function should push a Lua
+ * codec(s)
+ *    Function pointer to codec struct. Encoder function should push a Lua
  *    table representing the passed argument - which will have the C type
- *    associated with the chosen 'tname' to the provided stack.
+ *    associated with the chosen 'tname' to the provided stack. The decoder
+ *    function should pop a value from the top of the stack and return a heap
+ *    chunk containing that value. Allocations should be made with MTYPE_TMP.
+ *
+ *    If using the plural function variant, pass a NULL-terminated array.
  *
  */
-void frrscript_register_type_encoder(const char *tname, encoder_func encoder);
+void frrscript_register_type_codec(struct frrscript_codec *codec);
+void frrscript_register_type_codecs(struct frrscript_codec *codecs);
 
 /*
  * Initialize scripting subsystem. Call this before anything else.
  */
 void frrscript_init(void);
 
-/*
- * Forward decl for frrscript_lua_call
- */
-int frrscript_lua_call(struct frrscript *fs, ...);
 
 /*
- * Call FRR script.
+ * Call script.
  *
- * Call it like this:
+ * fs
+ *    The script to call; this is obtained from frrscript_load().
  *
- *   frrscript_call(fs, FRRSCRIPT_ARGS("cool_prefix", "prefix", p),
- *                  FRRSCRIPT_RESULTS("result1", "result2"))
+ * env
+ *    The script's environment. Specify this as an array of frrscript_env.
+ *
+ * Returns:
+ *    0 if the script ran successfully, nonzero otherwise.
  */
-#define frrscript_call(fs, ...) frrscript_lua_call((fs), __VA_ARGS__)
+int frrscript_call(struct frrscript *fs, struct frrscript_env *env);
+
 
 /*
- * Macro that defines the arguments to a script.
+ * Get result from finished script.
  *
- * For each argument you want to pass to a script, pass *three* arguments to
- * this function. The first should be name of the variable to bind the argument
- * to in the script's environment. The second should be the type, as registered
- * by frrscript_register_type_encoder(). The third should be the argument
- * itself.
+ * fs
+ *    The script. This script must have been run already.
  *
- * This macro itself should be used as the second argument to frrscript_call().
+ * result
+ *    The result to extract from the script.
+ *    This reuses the frrscript_env type, but only the typename and name fields
+ *    need to be set. The value is returned directly.
+ *
+ * Returns:
+ *    The script result of the specified name and type, or NULL.
  */
-#define FRRSCRIPT_ARGS(...) PP_NARG(__VA_ARGS__), ##__VA_ARGS__
-
-/*
- * Macro that defines the results from a script.
- *
- * Similar to FRRSCRIPT_ARGS, except this defines the results from a script.
- *
- * The first argument should be the name to bind the first result to and will
- * be used after the script finishes to get that particular result value.
- *
- * This macro itself should be used as the third argument to frrscript_call().
- * It may not be omitted.
- */
-#define FRRSCRIPT_RESULTS(...) PP_NARG(__VA_ARGS__), ##__VA_ARGS__
+void *frrscript_get_result(struct frrscript *fs,
+			   const struct frrscript_env *result);
 
 #ifdef __cplusplus
 }

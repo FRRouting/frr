@@ -2297,7 +2297,7 @@ DEFUN(script,
 		vty_out(vty, "Script '/etc/frr/scripts/%s.lua' not found\n",
 			argv[1]->arg);
 	} else {
-		int ret = frrscript_call(fs, FRRSCRIPT_ARGS("cool", "prefix", &p), FRRSCRIPT_RESULTS());
+		int ret = frrscript_call(fs, NULL);
 		vty_out(vty, "Script result: %d\n", ret);
 	}
 
