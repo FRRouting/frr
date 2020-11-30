@@ -454,6 +454,17 @@ Reject routes with AS_SET or AS_CONFED_SET types
 
    This command enables rejection of incoming and outgoing routes having AS_SET or AS_CONFED_SET type.
 
+Suppress duplicate updates
+--------------------------
+
+.. index:: [no] bgp suppress-duplicates
+.. clicmd:: [no] bgp suppress-duplicates
+
+   For example, BGP routers can generate multiple identical announcements with
+   empty community attributes if stripped at egress. This is an undesired behavior.
+   Suppress duplicate updates if the route actually not changed.
+   Default: enabled.
+
 Disable checking if nexthop is connected on EBGP sessions
 ---------------------------------------------------------
 
