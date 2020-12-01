@@ -60,12 +60,12 @@ int frrlua_table_get_integer(lua_State *L, const char *key)
 
 void lua_pushprefix(lua_State *L, const struct prefix *prefix)
 {
-	char buffer[100];
+	char buffer[PREFIX_STRLEN];
 
 	zlog_debug("frrlua: pushing prefix table");
 
 	lua_newtable(L);
-	lua_pushstring(L, prefix2str(prefix, buffer, 100));
+	lua_pushstring(L, prefix2str(prefix, buffer, PREFIX_STRLEN));
 	lua_setfield(L, -2, "network");
 	lua_pushinteger(L, prefix->prefixlen);
 	lua_setfield(L, -2, "length");
