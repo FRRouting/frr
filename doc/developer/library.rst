@@ -15,6 +15,6 @@ Library Facilities (libfrr)
    hooks
    cli
    modules
-   lua
+   scripting
 
 

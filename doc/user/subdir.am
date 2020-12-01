@@ -34,6 +34,7 @@ user_RSTFILES = \
 	doc/user/routemap.rst \
 	doc/user/routeserver.rst \
 	doc/user/rpki.rst \
+	doc/user/scripting.rst \
 	doc/user/setup.rst \
 	doc/user/sharp.rst \
 	doc/user/snmp.rst \

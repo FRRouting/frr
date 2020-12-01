@@ -29,6 +29,7 @@ Basics
    ipv6
    kernel
    snmp
+   scripting
 .. modules
 
 #########
