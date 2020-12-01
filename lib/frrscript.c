@@ -116,9 +116,6 @@ int frrscript_call(struct frrscript *fs, struct frrscript_env *env)
 		c.typename = env[i].typename;
 		arg = env[i].val;
 
-		zlog_debug("Script argument | Bind name: %s | Type: %s",
-			   bindname, c.typename);
-
 		struct frrscript_codec *codec = hash_lookup(codec_hash, &c);
 		assert(codec && "No encoder for type");
 		codec->encoder(fs->L, arg);
@@ -187,8 +184,6 @@ void *frrscript_get_result(struct frrscript *fs,
 void frrscript_register_type_codec(struct frrscript_codec *codec)
 {
 	struct frrscript_codec c = *codec;
-
-	zlog_debug("Registering codec for '%s'", codec->typename);
 
 	if (hash_lookup(codec_hash, &c)) {
 		zlog_backtrace(LOG_ERR);

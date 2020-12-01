@@ -62,8 +62,6 @@ void lua_pushprefix(lua_State *L, const struct prefix *prefix)
 {
 	char buffer[PREFIX_STRLEN];
 
-	zlog_debug("frrlua: pushing prefix table");
-
 	lua_newtable(L);
 	lua_pushstring(L, prefix2str(prefix, buffer, PREFIX_STRLEN));
 	lua_setfield(L, -2, "network");
@@ -86,8 +84,6 @@ void *lua_toprefix(lua_State *L, int idx)
 
 void lua_pushinterface(lua_State *L, const struct interface *ifp)
 {
-	zlog_debug("frrlua: pushing interface table");
-
 	lua_newtable(L);
 	lua_pushstring(L, ifp->name);
 	lua_setfield(L, -2, "name");
@@ -156,8 +152,6 @@ void *lua_tointerface(lua_State *L, int idx)
 
 void lua_pushinaddr(lua_State *L, const struct in_addr *addr)
 {
-	zlog_debug("frrlua: pushing inaddr table");
-
 	char buf[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, addr, buf, sizeof(buf));
 
@@ -182,8 +176,6 @@ void *lua_toinaddr(lua_State *L, int idx)
 
 void lua_pushin6addr(lua_State *L, const struct in6_addr *addr)
 {
-	zlog_debug("frrlua: pushing in6addr table");
-
 	char buf[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, addr, buf, sizeof(buf));
 
@@ -207,8 +199,6 @@ void *lua_toin6addr(lua_State *L, int idx)
 
 void lua_pushsockunion(lua_State *L, const union sockunion *su)
 {
-	zlog_debug("frrlua: pushing sockunion table");
-
 	char buf[SU_ADDRSTRLEN];
 	sockunion2str(su, buf, sizeof(buf));
 
