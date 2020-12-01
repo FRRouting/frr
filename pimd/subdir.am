@@ -61,7 +61,6 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_tlv.c \
 	pimd/pim_upstream.c \
 	pimd/pim_util.c \
-	pimd/pim_version.c \
 	pimd/pim_vty.c \
 	pimd/pim_zebra.c \
 	pimd/pim_zlookup.c \
@@ -119,7 +118,6 @@ noinst_HEADERS += \
 	pimd/pim_tlv.h \
 	pimd/pim_upstream.h \
 	pimd/pim_util.h \
-	pimd/pim_version.h \
 	pimd/pim_vty.h \
 	pimd/pim_zebra.h \
 	pimd/pim_zlookup.h \
