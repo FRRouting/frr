@@ -311,12 +311,6 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check to see if the nexthop group on the route you tried to install is valid."
 	},
 	{
-		.code = EC_ZEBRA_IF_LOOKUP_FAILED,
-		.title = "Zebra interface lookup failed",
-		.description = "Zebra attempted to look up a interface for a particular vrf_id and interface index, but didn't find anything.",
-		.suggestion = "If you entered a command to trigger this error, make sure you entered the arguments correctly. Check your config file for any potential errors. If these look correct, seek help.",
-	},
-	{
 		.code = EC_ZEBRA_NS_NO_DEFAULT,
 		.title = "Zebra NameSpace failed to find Default",
 		.description = "Zebra NameSpace subsystem failed to find a Default namespace during initialization.",
