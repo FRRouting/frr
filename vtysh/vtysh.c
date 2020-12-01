@@ -1144,12 +1144,10 @@ static char *command_generator(const char *text, int state)
 		cmd_free_strvec(vline);
 	}
 
-	if (matched && matched[index])
-		/*
-		 * this is free()'d by readline, but we leak 1 count of
-		 * MTYPE_COMPLETION
-		 */
+	if (matched && matched[index]) {
+		XCOUNTFREE(MTYPE_COMPLETION, matched[index]);
 		return matched[index++];
+	}
 
 	XFREE(MTYPE_TMP, matched);
 
