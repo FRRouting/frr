@@ -1364,7 +1364,8 @@ void process_remote_macip_add(vni_t vni, struct ethaddr *macaddr,
 	/* Locate EVPN hash entry - expected to exist. */
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
-		zlog_warn("Unknown VNI %u upon remote MACIP ADD", vni);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Unknown VNI %u upon remote MACIP ADD", vni);
 		return;
 	}
 
