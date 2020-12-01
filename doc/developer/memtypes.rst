@@ -131,3 +131,10 @@ Usage
    - if ptr is NULL, no operation is performed (as is guaranteed by system
      implementations.)  Do not surround XFREE with ``if (ptr != NULL)``
      checks.
+
+.. c:function:: void XCOUNTFREE(struct memtype *mtype, void *ptr)
+
+   This macro is used to count the ``ptr`` as freed without actually freeing
+   it. This may be needed in some very specific cases, for example, when the
+   ``ptr`` was allocated using any of the above wrappers and will be freed
+   by some external library using simple ``free()``.
