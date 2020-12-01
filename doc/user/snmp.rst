@@ -11,7 +11,9 @@ a SNMP agent using the the AgentX protocol (:rfc:`2741`) and make the
 routing protocol MIBs available through it.
 
 Note that SNMP Support needs to be enabled at compile-time and loaded as module
-on daemon startup. Refer to :ref:`loadable-module-support` on the latter.
+on daemon startup. Refer to :ref:`loadable-module-support` on the latter.  If
+you do not start the daemons with snmp module support snmp will not work
+properly.
 
 .. _getting-and-installing-an-snmp-agent:
 
