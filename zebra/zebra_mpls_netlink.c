@@ -28,8 +28,8 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/kernel_netlink.h"
 
-static ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
-				       size_t buflen)
+ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+				size_t buflen)
 {
 	int cmd;
 
