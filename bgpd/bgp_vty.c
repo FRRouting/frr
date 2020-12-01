@@ -6576,15 +6576,6 @@ DEFUN_YANG (neighbor_attr_unchanged,
 	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-ALIAS_HIDDEN(
-	neighbor_attr_unchanged, neighbor_attr_unchanged_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [{as-path|next-hop|med}]",
-	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"BGP attribute is propagated unchanged to this neighbor\n"
-	"As-path attribute\n"
-	"Nexthop attribute\n"
-	"Med attribute\n")
-
 DEFUN_YANG (no_neighbor_attr_unchanged,
 	    no_neighbor_attr_unchanged_cmd,
 	    "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [{as-path|next-hop|med}]",
@@ -6656,15 +6647,6 @@ DEFUN_YANG (no_neighbor_attr_unchanged,
 
 	return nb_cli_apply_changes(vty, base_xpath);
 }
-
-ALIAS_HIDDEN(
-	no_neighbor_attr_unchanged, no_neighbor_attr_unchanged_hidden_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [{as-path|next-hop|med}]",
-	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"BGP attribute is propagated unchanged to this neighbor\n"
-	"As-path attribute\n"
-	"Nexthop attribute\n"
-	"Med attribute\n")
 
 /* neighbor ebgp-multihop. */
 DEFUN_YANG (neighbor_ebgp_multihop,
@@ -17732,8 +17714,6 @@ void bgp_vty_init(void)
 	install_element(BGP_EVPN_NODE, &no_neighbor_soft_reconfiguration_cmd);
 
 	/* "neighbor attribute-unchanged" commands.  */
-	install_element(BGP_NODE, &neighbor_attr_unchanged_hidden_cmd);
-	install_element(BGP_NODE, &no_neighbor_attr_unchanged_hidden_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_attr_unchanged_cmd);
 	install_element(BGP_IPV4_NODE, &no_neighbor_attr_unchanged_cmd);
 	install_element(BGP_IPV4M_NODE, &neighbor_attr_unchanged_cmd);
