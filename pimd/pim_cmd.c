@@ -7438,8 +7438,8 @@ DEFUN (no_ip_pim_rp,
 	int idx_rp = 4, idx_group = 5;
 	const char *group_str =
 		(argc == 6) ? argv[idx_group]->arg : "224.0.0.0/4";
-	char group_xpath[XPATH_MAXLEN];
-	char temp_xpath[XPATH_MAXLEN];
+	char group_list_xpath[XPATH_MAXLEN + 32];
+	char group_xpath[XPATH_MAXLEN + 64];
 	char rp_xpath[XPATH_MAXLEN];
 	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
@@ -7464,12 +7464,11 @@ DEFUN (no_ip_pim_rp,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
 		 argv[idx_rp]->arg);
 
-	snprintf(group_xpath, sizeof(group_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
-		 argv[idx_rp]->arg);
-	snprintf(temp_xpath, sizeof(temp_xpath), "/group-list[.='%s']",
-		 group_str);
-	strlcat(group_xpath, temp_xpath, sizeof(group_xpath));
+	snprintf(group_list_xpath, sizeof(group_list_xpath), "%s/group-list",
+		 rp_xpath);
+
+	snprintf(group_xpath, sizeof(group_xpath), "%s[.='%s']",
+		 group_list_xpath, group_str);
 
 	if (!yang_dnode_exists(vty->candidate_config->dnode, group_xpath)) {
 		vty_out(vty, "%% Unable to find specified RP\n");
@@ -7481,7 +7480,8 @@ DEFUN (no_ip_pim_rp,
 	if (yang_is_last_list_dnode(group_dnode))
 		nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
 	else
-		nb_cli_enqueue_change(vty, group_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, group_list_xpath, NB_OP_DESTROY,
+				      group_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -7571,8 +7571,7 @@ DEFUN (ip_pim_ssm_prefix_list,
 	} else
 		vrfname = VRF_DEFAULT_NAME;
 
-	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
-		 FRR_PIM_AF_XPATH,
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), FRR_PIM_AF_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
 	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
 
@@ -9836,11 +9835,12 @@ DEFUN (no_ip_msdp_mesh_group_member,
 {
 	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
-	char temp_xpath[XPATH_MAXLEN];
-	char mesh_group_xpath[XPATH_MAXLEN];
-	char group_member_xpath[XPATH_MAXLEN];
-	char source_xpath[XPATH_MAXLEN];
-	char mesh_group_name_xpath[XPATH_MAXLEN];
+	char pim_af_xpath[XPATH_MAXLEN];
+	char mesh_group_xpath[XPATH_MAXLEN + 32];
+	char group_member_list_xpath[XPATH_MAXLEN + 64];
+	char group_member_xpath[XPATH_MAXLEN + 128];
+	char source_xpath[XPATH_MAXLEN + 64];
+	char mesh_group_name_xpath[XPATH_MAXLEN + 64];
 	const char *mesh_group_name;
 	const struct lyd_node *member_dnode;
 
@@ -9857,30 +9857,23 @@ DEFUN (no_ip_msdp_mesh_group_member,
 	} else
 		vrfname = VRF_DEFAULT_NAME;
 
-	snprintf(mesh_group_xpath, sizeof(mesh_group_xpath),
-		 FRR_PIM_AF_XPATH,
+	snprintf(pim_af_xpath, sizeof(pim_af_xpath), FRR_PIM_AF_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(mesh_group_xpath, "/msdp-mesh-group", sizeof(mesh_group_xpath));
 
-	snprintf(group_member_xpath, sizeof(group_member_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	snprintf(temp_xpath, sizeof(temp_xpath),
-		 "/msdp-mesh-group/member-ip[.='%s']", argv[6]->arg);
-	strlcat(group_member_xpath, temp_xpath, sizeof(group_member_xpath));
+	snprintf(mesh_group_xpath, sizeof(mesh_group_xpath),
+		 "%s/msdp-mesh-group", pim_af_xpath);
+
+	snprintf(group_member_list_xpath, sizeof(group_member_list_xpath),
+		 "%s/msdp-mesh-group/member-ip", pim_af_xpath);
+
+	snprintf(group_member_xpath, sizeof(group_member_xpath), "%s[.='%s']",
+		 group_member_list_xpath, argv[6]->arg);
 
 	snprintf(source_xpath, sizeof(source_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	snprintf(temp_xpath, sizeof(temp_xpath),
-		 "/msdp-mesh-group/source-ip");
-	strlcat(source_xpath, temp_xpath, sizeof(source_xpath));
+		 "%s/msdp-mesh-group/source-ip", pim_af_xpath);
 
 	snprintf(mesh_group_name_xpath, sizeof(mesh_group_name_xpath),
-		 FRR_PIM_AF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
-		sizeof(mesh_group_name_xpath));
+		 "%s/msdp-mesh-group/mesh-group-name", pim_af_xpath);
 
 	if (yang_dnode_exists(running_config->dnode, mesh_group_name_xpath)
 	    == true) {
@@ -9904,12 +9897,12 @@ DEFUN (no_ip_msdp_mesh_group_member,
 						      NB_OP_DESTROY, NULL);
 				return nb_cli_apply_changes(vty, NULL);
 			}
-			nb_cli_enqueue_change(vty, group_member_xpath,
-					      NB_OP_DESTROY, NULL);
+			nb_cli_enqueue_change(vty, group_member_list_xpath,
+					      NB_OP_DESTROY, argv[6]->arg);
 			return nb_cli_apply_changes(vty, NULL);
 		}
-		nb_cli_enqueue_change(vty, group_member_xpath,
-				      NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, group_member_list_xpath,
+				      NB_OP_DESTROY, argv[6]->arg);
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
