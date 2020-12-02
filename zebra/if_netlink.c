@@ -782,6 +782,12 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return -1;
 	name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
 
+	if (!zebra_if_allowed(name)) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: ignoring interface %s", __func__, name);
+		return 0;
+	}
+
 	if (tb[IFLA_IFALIAS])
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
 
@@ -1442,6 +1448,15 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 			if (ifp == NULL) {
 				/* unknown interface */
+
+				if (!zebra_if_allowed(name)) {
+					if (IS_ZEBRA_DEBUG_KERNEL)
+						zlog_debug(
+							"%s: ignoring interface %s",
+							__func__, name);
+					return 0;
+				}
+
 				ifp = if_get_by_name(name, vrf_id);
 			} else {
 				/* pre-configured interface, learnt now */

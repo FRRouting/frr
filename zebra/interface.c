@@ -21,6 +21,8 @@
 
 #include <zebra.h>
 
+#include <fnmatch.h>
+
 #include "if.h"
 #include "lib_errors.h"
 #include "vty.h"
@@ -62,6 +64,7 @@ DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 	    (vty, ifp))
 
+extern char *interface_pattern;
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
@@ -292,6 +295,34 @@ void if_unlink_per_ns(struct interface *ifp)
 	ifp->node->info = NULL;
 	route_unlock_node(ifp->node);
 	ifp->node = NULL;
+}
+
+bool zebra_if_allowed(const char *name)
+{
+	char *tokens, *token;
+	bool allowed;
+
+	if (!interface_pattern)
+		return true;
+
+	tokens = strdup(interface_pattern);
+	if (!tokens)
+		return true; /* it is safer to be permissive */
+
+	for (token = strtok(tokens, ","); token != NULL;
+	     token = strtok(NULL, ",")) {
+		allowed = true;
+
+		if (token[0] == '-') {
+			allowed = false;
+			token++;
+		}
+
+		if (fnmatch(token, name, 0) == 0)
+			return allowed;
+	}
+
+	return false;
 }
 
 /* Look up an interface by identifier within a NS */

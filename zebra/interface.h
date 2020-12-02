@@ -439,6 +439,8 @@ DECLARE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 
 extern void zebra_if_init(void);
 
+extern bool zebra_if_allowed(const char *name);
+
 extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *, uint32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
 						  const char *);
