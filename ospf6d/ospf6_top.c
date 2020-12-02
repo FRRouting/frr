@@ -124,12 +124,9 @@ struct ospf6 *ospf6_lookup_by_vrf_name(const char *name)
 
 static void ospf6_top_lsdb_hook_add(struct ospf6_lsa *lsa)
 {
-	struct ospf6 *ospf6 = NULL;
-
 	switch (ntohs(lsa->header->type)) {
 	case OSPF6_LSTYPE_AS_EXTERNAL:
-		ospf6 = ospf6_get_by_lsdb(lsa);
-		ospf6_asbr_lsa_add(lsa, ospf6);
+		ospf6_asbr_lsa_add(lsa);
 		break;
 
 	default:
@@ -149,24 +146,27 @@ static void ospf6_top_lsdb_hook_remove(struct ospf6_lsa *lsa)
 	}
 }
 
-static void ospf6_top_route_hook_add(struct ospf6_route *route,
-				     struct ospf6 *ospf6)
+static void ospf6_top_route_hook_add(struct ospf6_route *route)
 {
+	struct ospf6 *ospf6 = route->table->scope;
+
 	ospf6_abr_originate_summary(route, ospf6);
 	ospf6_zebra_route_update_add(route, ospf6);
 }
 
-static void ospf6_top_route_hook_remove(struct ospf6_route *route,
-					struct ospf6 *ospf6)
+static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 {
+	struct ospf6 *ospf6 = route->table->scope;
+
 	route->flag |= OSPF6_ROUTE_REMOVE;
 	ospf6_abr_originate_summary(route, ospf6);
 	ospf6_zebra_route_update_remove(route, ospf6);
 }
 
-static void ospf6_top_brouter_hook_add(struct ospf6_route *route,
-				       struct ospf6 *ospf6)
+static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 {
+	struct ospf6 *ospf6 = route->table->scope;
+
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL) ||
 	    IS_OSPF6_DEBUG_BROUTER) {
 		uint32_t brouter_id;
@@ -186,9 +186,10 @@ static void ospf6_top_brouter_hook_add(struct ospf6_route *route,
 	ospf6_abr_originate_summary(route, ospf6);
 }
 
-static void ospf6_top_brouter_hook_remove(struct ospf6_route *route,
-					  struct ospf6 *ospf6)
+static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 {
+	struct ospf6 *ospf6 = route->table->scope;
+
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL) ||
 	    IS_OSPF6_DEBUG_BROUTER) {
 		uint32_t brouter_id;
@@ -301,6 +302,8 @@ void ospf6_delete(struct ospf6 *o)
 	ospf6_disable(o);
 	ospf6_del(o);
 
+	ospf6_serv_close(&o->fd);
+
 	for (ALL_LIST_ELEMENTS(o->area_list, node, nnode, oa))
 		ospf6_area_delete(oa);
 
@@ -310,10 +313,10 @@ void ospf6_delete(struct ospf6 *o)
 	ospf6_lsdb_delete(o->lsdb);
 	ospf6_lsdb_delete(o->lsdb_self);
 
-	ospf6_route_table_delete(o->route_table, o);
-	ospf6_route_table_delete(o->brouter_table, o);
+	ospf6_route_table_delete(o->route_table);
+	ospf6_route_table_delete(o->brouter_table);
 
-	ospf6_route_table_delete(o->external_table, o);
+	ospf6_route_table_delete(o->external_table);
 	route_table_finish(o->external_id_table);
 
 	ospf6_distance_reset(o);
@@ -338,8 +341,8 @@ static void ospf6_disable(struct ospf6 *o)
 		ospf6_asbr_redistribute_reset(o->vrf_id);
 
 		ospf6_lsdb_remove_all(o->lsdb);
-		ospf6_route_remove_all(o->route_table, o);
-		ospf6_route_remove_all(o->brouter_table, o);
+		ospf6_route_remove_all(o->route_table);
+		ospf6_route_remove_all(o->brouter_table);
 
 		THREAD_OFF(o->maxage_remover);
 		THREAD_OFF(o->t_spf_calc);
@@ -457,7 +460,6 @@ DEFUN (no_router_ospf6,
 	if (ospf6 == NULL)
 		vty_out(vty, "OSPFv3 is not configured\n");
 	else {
-		ospf6_serv_close(&ospf6->fd);
 		ospf6_delete(ospf6);
 		ospf6 = NULL;
 	}

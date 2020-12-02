@@ -139,8 +139,7 @@ static inline unsigned int ospf6_lsremove_to_spf_reason(struct ospf6_lsa *lsa)
 	return (reason);
 }
 
-extern void ospf6_spf_table_finish(struct ospf6_route_table *result_table,
-				   struct ospf6 *ospf6);
+extern void ospf6_spf_table_finish(struct ospf6_route_table *result_table);
 extern void ospf6_spf_calculation(uint32_t router_id,
 				  struct ospf6_route_table *result_table,
 				  struct ospf6_area *oa);

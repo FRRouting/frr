@@ -68,7 +68,7 @@ extern void ospf6_abr_originate_summary(struct ospf6_route *route,
 					struct ospf6 *ospf6);
 extern void ospf6_abr_examin_summary(struct ospf6_lsa *lsa,
 				     struct ospf6_area *oa);
-extern void ospf6_abr_defaults_to_stub(struct ospf6 *);
+extern void ospf6_abr_defaults_to_stub(struct ospf6 *ospf6);
 extern void ospf6_abr_examin_brouter(uint32_t router_id,
 				     struct ospf6_route *route,
 				     struct ospf6 *ospf6);
@@ -81,12 +81,10 @@ extern void install_element_ospf6_debug_abr(void);
 extern int ospf6_abr_config_write(struct vty *vty);
 extern void ospf6_abr_old_route_remove(struct ospf6_lsa *lsa,
 				       struct ospf6_route *old,
-				       struct ospf6_route_table *table,
-				       struct ospf6 *ospf6);
+				       struct ospf6_route_table *table);
 extern void ospf6_abr_old_path_update(struct ospf6_route *old_route,
 				      struct ospf6_route *route,
-				      struct ospf6_route_table *table,
-				      struct ospf6 *ospf6);
+				      struct ospf6_route_table *table);
 extern void ospf6_abr_init(void);
 
 #endif /*OSPF6_ABR_H*/

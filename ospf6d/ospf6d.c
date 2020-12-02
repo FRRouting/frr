@@ -1237,8 +1237,6 @@ static void ospf6_plist_del(struct prefix_list *plist)
 /* Install ospf related commands. */
 void ospf6_init(struct thread_master *master)
 {
-	struct ospf6 *ospf6;
-
 	ospf6_top_init();
 	ospf6_area_init();
 	ospf6_interface_init();
@@ -1302,8 +1300,4 @@ void ospf6_init(struct thread_master *master)
 		VIEW_NODE,
 		&show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_database_aggr_router_cmd);
-
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-	if (ospf6 == NULL)
-		ospf6_instance_create(VRF_DEFAULT_NAME);
 }
