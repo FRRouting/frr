@@ -365,6 +365,8 @@ def test_vrf_with_multiple_links_p1(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify routes are installed with same nexthop in different" " VRFs")
+    result = verify_bgp_convergence(tgen, topo_modify)
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
         dut = "r4"
@@ -656,6 +658,9 @@ def test_vrf_with_multiple_links_p1(request):
     result = create_router_bgp(tgen, topo_modify, input_dict_5)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
+    result = verify_bgp_convergence(tgen, topo_modify)
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
     for addr_type in ADDR_TYPES:
         dut = "r3"
         peer = "r2"
@@ -739,6 +744,8 @@ def test_vrf_with_multiple_links_p1(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("R3 should install prefixes from both next-hops (R2 and R4)")
+    result = verify_bgp_convergence(tgen, topo_modify)
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
         dut = "r3"
@@ -998,6 +1005,9 @@ def test_vrf_with_multiple_links_p1(request):
 
     result = create_router_bgp(tgen, topo_modify, input_dict_6)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_bgp_convergence(tgen, topo_modify)
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
         dut = "r3"
@@ -1716,6 +1726,9 @@ def test_vrf_vlan_routing_table_p1(request):
         " have duplicate entries within VRF RED_A on router RED-1"
     )
 
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
     for addr_type in ADDR_TYPES:
         dut = "r3"
         input_dict_1 = {
@@ -1940,6 +1953,9 @@ def test_vrf_route_leaking_next_hop_interface_flapping_p1(request):
     result = create_router_bgp(tgen, topo, input_dict_3)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
     step("VRF RED_A should install a route for vrf RED_B's " "loopback ip.")
     for addr_type in ADDR_TYPES:
         dut = "red1"
@@ -2130,6 +2146,9 @@ def test_restart_bgpd_daemon_p1(request):
 
     result = create_router_bgp(tgen, topo, input_dict_3)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase () :Failed\n Error {}". format(tc_name, result)
 
     step("Kill BGPd daemon on R1.")
     kill_router_daemons(tgen, "r1", ["bgpd"])
@@ -2335,6 +2354,8 @@ def test_delete_and_re_add_vrf_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("Verifying RIB and FIB before deleting VRFs")
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
         dut = "r2"
