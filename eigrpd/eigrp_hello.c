@@ -745,12 +745,6 @@ void eigrp_hello_send(struct eigrp_interface *ei, uint8_t flags,
 {
 	struct eigrp_packet *ep = NULL;
 
-	/* If this is passive interface, do not send EIGRP Hello.
-	   if ((EIGRP_IF_PASSIVE_STATUS (ei) == EIGRP_IF_PASSIVE) ||
-	   (ei->type != EIGRP_IFTYPE_NBMA))
-	   return;
-	*/
-
 	if (IS_DEBUG_EIGRP_PACKET(0, SEND))
 		zlog_debug("Queueing [Hello] Interface(%s)", IF_NAME(ei));
 
