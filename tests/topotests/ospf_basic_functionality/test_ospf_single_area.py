@@ -776,6 +776,298 @@ def test_ospf_show_p1(request):
     write_test_footer(tc_name)
 
 
+
+def test_ospf_dead_tc11_p0(request):
+    """
+    OSPF timers.
+
+    Verify OSPF interface timer dead interval functionality
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    global topo
+    step("Bring up the base config as per the topology")
+    reset_config_on_routers(tgen)
+
+    step("modify dead interval from default value to some other value on r1")
+
+    topo1 = {
+        'r1': {
+            'links': {
+                'r0': {
+                    'interface': topo['routers']['r1']['links']['r0'][
+                        'interface'],
+                    'ospf': {
+                        'hello_interval': 12,
+                        'dead_interval': 48
+                    }
+                }
+            }
+        }
+    }
+
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+    tc_name, result)
+
+    step(
+        "verify that new timer value is configured and applied using "
+        "the show ip ospf interface command.")
+    dut = 'r1'
+    input_dict= {
+        'r1': {
+            'links':{
+                'r0': {
+                    'ospf':{
+                        'timerDeadSecs': 48
+                    }
+                }
+            }
+        }
+    }
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+        tc_name, result)
+
+    step(
+        "modify dead interval from default value to r1"
+        "dead interval timer on r2")
+
+    topo1 = {
+        'r0': {
+            'links': {
+                'r1': {
+                    'interface': topo['routers']['r0']['links']['r1'][
+                        'interface'],
+                    'ospf': {
+                        'dead_interval': 48,
+                        'hello_interval': 12
+                    }
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+    tc_name, result)
+
+
+    step("verify that new timer value is configured.")
+    input_dict= {
+        'r0': {
+            'links':{
+                'r1': {
+                    'ospf':{
+                        'timerDeadSecs': 48
+                    }
+                }
+            }
+        }
+    }
+    dut = 'r0'
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+        tc_name, result)
+
+    step("verify that ospf neighbours are  full")
+    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
+    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
+                                      " {}".format(ospf_covergence))
+
+    step(
+        "reconfigure the default dead interval timer value to "
+        "default on r1 and r2")
+    topo1 = {
+        'r0': {
+            'links': {
+                'r1': {
+                    'interface': topo['routers']['r0']['links']['r1'][
+                        'interface'],
+                    'ospf': {
+                    'dead_interval': 40
+                    }
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+    tc_name, result)
+
+    topo1 = {
+        'r1': {
+            'links': {
+                'r0': {
+                    'interface': topo['routers']['r1']['links']['r0'][
+                        'interface'],
+                    'ospf': {
+                    'dead_interval': 40
+                    }
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+    tc_name, result)
+
+    step("verify that new timer value is configured.")
+    input_dict= {
+        'r0': {
+            'links':{
+                'r1': {
+                    'ospf':{
+                        'timerDeadSecs': 40
+                    }
+                }
+            }
+        }
+    }
+    dut = 'r0'
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+        tc_name, result)
+
+
+    step("verify that ospf neighbours are  full")
+    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
+    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
+                                      " {}".format(ospf_covergence))
+
+
+    step(" Configure dead timer = 65535 on r1 and r2")
+
+    topo1 = {
+        'r0': {
+            'links': {
+                'r1': {
+                    'interface': topo['routers']['r0']['links']['r1'][
+                        'interface'],
+                    'ospf': {
+                    'dead_interval': 65535
+                    }
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+    tc_name, result)
+
+    topo1 = {
+        'r1': {
+            'links': {
+                'r0': {
+                    'interface': topo['routers']['r1']['links']['r0'][
+                        'interface'],
+                    'ospf': {
+                    'dead_interval': 65535
+                    }
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+    tc_name, result)
+
+    step("verify that new timer value is configured.")
+    input_dict= {
+        'r0': {
+            'links':{
+                'r1': {
+                    'ospf':{
+                        'timerDeadSecs': 65535
+                    }
+                }
+            }
+        }
+    }
+    dut = 'r0'
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+        tc_name, result)
+
+    step("verify that ospf neighbours are  full")
+    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
+    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
+                                      " {}".format(ospf_covergence))
+
+
+    step(" Try configuring timer values outside range for example 65536")
+    topo1 = {
+        'r0': {
+            'links': {
+                'r1': {
+                    'interface': topo['routers']['r0']['links']['r1'][
+                        'interface'],
+                    'ospf': {
+                    'dead_interval': 65536
+                    }
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+    tc_name, result)
+
+    step("Unconfigure the dead timer from the interface from r1 and r2.")
+
+    topo1 = {
+        'r1': {
+            'links': {
+                'r0': {
+                    'interface': topo['routers']['r1']['links']['r0'][
+                        'interface'],
+                    'ospf': {
+                    'dead_interval': 65535
+                    },
+                    'delete': True
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+    tc_name, result)
+
+    step(
+        "Verify that timer value is deleted from intf & "
+        "set to default value 40 sec.")
+    input_dict= {
+        'r1': {
+            'links':{
+                'r0': {
+                    'ospf':{
+                        'timerDeadSecs': 40
+                    }
+                }
+            }
+        }
+    }
+    dut = 'r1'
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+        tc_name, result)
+
+    write_test_footer(tc_name)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
