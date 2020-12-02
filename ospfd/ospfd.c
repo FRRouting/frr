@@ -377,11 +377,49 @@ struct ospf *ospf_lookup_by_inst_name(unsigned short instance, const char *name)
 	return NULL;
 }
 
+static void ospf_init(struct ospf *ospf)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	ospf_opaque_type11_lsa_init(ospf);
+
+	if (ospf->vrf_id != VRF_UNKNOWN)
+		ospf->oi_running = 1;
+
+	/* Activate 'ip ospf area x' configured interfaces for given
+	 * vrf. Activate area on vrf x aware interfaces.
+	 * vrf_enable callback calls router_id_update which
+	 * internally will call ospf_if_update to trigger
+	 * network_run_state
+	 */
+	vrf = vrf_lookup_by_id(ospf->vrf_id);
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		struct ospf_if_params *params;
+		struct route_node *rn;
+		uint32_t count = 0;
+
+		params = IF_DEF_PARAMS(ifp);
+		if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
+			count++;
+
+		for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn; rn = route_next(rn))
+			if ((params = rn->info) && OSPF_IF_PARAM_CONFIGURED(params, if_area))
+				count++;
+
+		if (count > 0) {
+			ospf_interface_area_set(ospf, ifp);
+			ospf->if_ospf_cli_count += count;
+		}
+	}
+
+	ospf_router_id_update(ospf);
+}
+
 struct ospf *ospf_get(unsigned short instance, const char *name, bool *created)
 {
 	struct ospf *ospf;
-	struct vrf *vrf;
-	struct interface *ifp;
 
 	/* vrf name provided call inst and name based api
 	 * in case of no name pass default ospf instance */
@@ -395,39 +433,7 @@ struct ospf *ospf_get(unsigned short instance, const char *name, bool *created)
 		ospf = ospf_new(instance, name);
 		ospf_add(ospf);
 
-		ospf_opaque_type11_lsa_init(ospf);
-
-		if (ospf->vrf_id != VRF_UNKNOWN)
-			ospf->oi_running = 1;
-
-		/* Activate 'ip ospf area x' configured interfaces for given
-		 * vrf. Activate area on vrf x aware interfaces.
-		 * vrf_enable callback calls router_id_update which
-		 * internally will call ospf_if_update to trigger
-		 * network_run_state
-		 */
-		vrf = vrf_lookup_by_id(ospf->vrf_id);
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			struct ospf_if_params *params;
-			struct route_node *rn;
-			uint32_t count = 0;
-
-			params = IF_DEF_PARAMS(ifp);
-			if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
-				count++;
-
-			for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn; rn = route_next(rn))
-				if ((params = rn->info) && OSPF_IF_PARAM_CONFIGURED(params, if_area))
-					count++;
-
-			if (count > 0) {
-				ospf_interface_area_set(ospf, ifp);
-				ospf->if_ospf_cli_count += count;
-			}
-		}
-
-		ospf_router_id_update(ospf);
+		ospf_init(ospf);
 	}
 
 	return ospf;
@@ -443,7 +449,7 @@ struct ospf *ospf_get_instance(unsigned short instance, bool *created)
 		ospf = ospf_new(instance, NULL /* VRF_DEFAULT*/);
 		ospf_add(ospf);
 
-		ospf_opaque_type11_lsa_init(ospf);
+		ospf_init(ospf);
 	}
 
 	return ospf;
