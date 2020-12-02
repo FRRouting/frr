@@ -10742,7 +10742,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					vty_out(vty, "EstdCnt DropCnt ResetTime Reason\n");
 				else
 					vty_out(vty,
-						"V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt\n");
+						"V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n");
 			}
 		}
 
@@ -10881,6 +10881,9 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						    peer->established);
 				json_object_int_add(json_peer, "connectionsDropped",
 						    peer->dropped);
+				if (peer->desc)
+					json_object_string_add(
+						json_peer, "desc", peer->desc);
 			}
 			/* Avoid creating empty peer dicts in JSON */
 			if (json_peer == NULL)
@@ -10995,6 +10998,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 					vty_out(vty, " %8u", 0);
 				}
+				if (peer->desc)
+					vty_out(vty, " %s", peer->desc);
+				else
+					vty_out(vty, " N/A");
 				vty_out(vty, "\n");
 			}
 
