@@ -8072,6 +8072,62 @@ enum bgp_display_type {
 	normal_list,
 };
 
+static const char *
+bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
+{
+	switch (reason) {
+	case bgp_path_selection_none:
+		return "Nothing to Select";
+	case bgp_path_selection_first:
+		return "First path received";
+	case bgp_path_selection_evpn_sticky_mac:
+		return "EVPN Sticky Mac";
+	case bgp_path_selection_evpn_seq:
+		return "EVPN sequence number";
+	case bgp_path_selection_evpn_lower_ip:
+		return "EVPN lower IP";
+	case bgp_path_selection_evpn_local_path:
+		return "EVPN local ES path";
+	case bgp_path_selection_evpn_non_proxy:
+		return "EVPN non proxy";
+	case bgp_path_selection_weight:
+		return "Weight";
+	case bgp_path_selection_local_pref:
+		return "Local Pref";
+	case bgp_path_selection_local_route:
+		return "Local Route";
+	case bgp_path_selection_confed_as_path:
+		return "Confederation based AS Path";
+	case bgp_path_selection_as_path:
+		return "AS Path";
+	case bgp_path_selection_origin:
+		return "Origin";
+	case bgp_path_selection_med:
+		return "MED";
+	case bgp_path_selection_peer:
+		return "Peer Type";
+	case bgp_path_selection_confed:
+		return "Confed Peer Type";
+	case bgp_path_selection_igp_metric:
+		return "IGP Metric";
+	case bgp_path_selection_older:
+		return "Older Path";
+	case bgp_path_selection_router_id:
+		return "Router ID";
+	case bgp_path_selection_cluster_length:
+		return "Cluser length";
+	case bgp_path_selection_stale:
+		return "Path Staleness";
+	case bgp_path_selection_local_configured:
+		return "Locally configured route";
+	case bgp_path_selection_neighbor_ip:
+		return "Neighbor IP";
+	case bgp_path_selection_default:
+		return "Nothing left to compare";
+	}
+	return "Invalid (internal error)";
+}
+
 /* Print the short form route status for a bgp_path_info */
 static void route_vty_short_status_out(struct vty *vty,
 				       struct bgp_path_info *path,
@@ -8100,8 +8156,12 @@ static void route_vty_short_status_out(struct vty *vty,
 		if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED))
 			json_object_boolean_true_add(json_path, "damped");
 
-		if (CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
+		if (CHECK_FLAG(path->flags, BGP_PATH_SELECTED)) {
 			json_object_boolean_true_add(json_path, "bestpath");
+			json_object_string_add(json_path, "selectionReason",
+					       bgp_path_selection_reason2str(
+						       path->net->reason));
+		}
 
 		if (CHECK_FLAG(path->flags, BGP_PATH_MULTIPATH))
 			json_object_boolean_true_add(json_path, "multipath");
@@ -9252,62 +9312,6 @@ static void route_vty_out_tx_ids(struct vty *vty,
 			d->addpath_tx_id[i],
 			i < BGP_ADDPATH_MAX - 1 ? " " : "\n");
 	}
-}
-
-static const char *bgp_path_selection_reason2str(
-	enum bgp_path_selection_reason reason)
-{
-	switch (reason) {
-	case bgp_path_selection_none:
-		return "Nothing to Select";
-	case bgp_path_selection_first:
-		return "First path received";
-	case bgp_path_selection_evpn_sticky_mac:
-		return "EVPN Sticky Mac";
-	case bgp_path_selection_evpn_seq:
-		return "EVPN sequence number";
-	case bgp_path_selection_evpn_lower_ip:
-		return "EVPN lower IP";
-	case bgp_path_selection_evpn_local_path:
-		return "EVPN local ES path";
-	case bgp_path_selection_evpn_non_proxy:
-		return "EVPN non proxy";
-	case bgp_path_selection_weight:
-		return "Weight";
-	case bgp_path_selection_local_pref:
-		return "Local Pref";
-	case bgp_path_selection_local_route:
-		return "Local Route";
-	case bgp_path_selection_confed_as_path:
-		return "Confederation based AS Path";
-	case bgp_path_selection_as_path:
-		return "AS Path";
-	case bgp_path_selection_origin:
-		return "Origin";
-	case bgp_path_selection_med:
-		return "MED";
-	case bgp_path_selection_peer:
-		return "Peer Type";
-	case bgp_path_selection_confed:
-		return "Confed Peer Type";
-	case bgp_path_selection_igp_metric:
-		return "IGP Metric";
-	case bgp_path_selection_older:
-		return "Older Path";
-	case bgp_path_selection_router_id:
-		return "Router ID";
-	case bgp_path_selection_cluster_length:
-		return "Cluser length";
-	case bgp_path_selection_stale:
-		return "Path Staleness";
-	case bgp_path_selection_local_configured:
-		return "Locally configured route";
-	case bgp_path_selection_neighbor_ip:
-		return "Neighbor IP";
-	case bgp_path_selection_default:
-		return "Nothing left to compare";
-	}
-	return "Invalid (internal error)";
 }
 
 static void route_vty_out_detail_es_info(struct vty *vty,
