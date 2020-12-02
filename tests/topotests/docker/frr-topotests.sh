@@ -41,6 +41,9 @@ if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
 	TOPOTEST_AUTOLOAD       If set to 1, the script will try to load necessary
 	                        kernel modules without asking for confirmation first.
 
+	TOPOTEST_NOLOAD         If set to 1, don't try to load necessary kernel
+	                        modules and don't even ask.
+
 	TOPOTEST_BUILDCACHE     Docker volume used for caching multiple FRR builds
 	                        over container runs. By default a
 	                        \`topotest-buildcache\` volume will be created for
@@ -85,35 +88,37 @@ fi
 
 export PATH="$PATH:/sbin:/usr/sbin:/usr/local/sbin"
 
-for module in mpls-router mpls-iptunnel; do
-	if modprobe -n $module 2> /dev/null; then
-		:
-	else
-		# If the module doesn't exist, we cannot do anything about it
-		continue
-	fi
-
-	if [ $(grep -c ${module/-/_} /proc/modules) -ne 0 ]; then
-		# If the module is loaded, we don't have to do anything
-		continue
-	fi
-
-	if [ "$TOPOTEST_AUTOLOAD" != "1" ]; then
-		echo "To run all the possible tests, we need to load $module."
-		echo -n "Do you want to proceed? [y/n] "
-		read answer
-		if [ x"$answer" != x"y" ]; then
-			echo "Not loading."
+if [ "$TOPOTEST_NOLOAD" != "1" ]; then
+	for module in mpls-router mpls-iptunnel; do
+		if modprobe -n $module 2> /dev/null; then
+			:
+		else
+			# If the module doesn't exist, we cannot do anything about it
 			continue
 		fi
-	fi
 
-	if [ x"$(whoami)" = x"root" ]; then
-		modprobe $module
-	else
-		sudo modprobe $module
-	fi
-done
+		if [ $(grep -c ${module/-/_} /proc/modules) -ne 0 ]; then
+			# If the module is loaded, we don't have to do anything
+			continue
+		fi
+
+		if [ "$TOPOTEST_AUTOLOAD" != "1" ]; then
+			echo "To run all the possible tests, we need to load $module."
+			echo -n "Do you want to proceed? [y/n] "
+			read answer
+			if [ x"$answer" != x"y" ]; then
+				echo "Not loading."
+				continue
+			fi
+		fi
+
+		if [ x"$(whoami)" = x"root" ]; then
+			modprobe $module
+		else
+			sudo modprobe $module
+		fi
+	done
+fi
 
 if [ -z "$TOPOTEST_LOGS" ]; then
 	mkdir -p /tmp/topotest_logs
