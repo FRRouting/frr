@@ -8148,6 +8148,7 @@ DEFUN (no_ip_ospf_area,
 	struct ospf_if_params *params;
 	unsigned short instance = 0;
 	struct in_addr addr;
+	struct in_addr area_id;
 
 	if (argv_find(argv, argc, "(1-65535)", &idx))
 		instance = strtol(argv[idx]->arg, NULL, 10);
@@ -8175,6 +8176,7 @@ DEFUN (no_ip_ospf_area,
 	} else
 		params = IF_DEF_PARAMS(ifp);
 
+	area_id = params->if_area;
 	if (!OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
 		vty_out(vty,
 			"Can't find specified interface area configuration.\n");
@@ -8190,6 +8192,7 @@ DEFUN (no_ip_ospf_area,
 	if (ospf) {
 		ospf_interface_area_unset(ospf, ifp);
 		ospf->if_ospf_cli_count--;
+		ospf_area_check_free(ospf, area_id);
 	}
 
 	return CMD_SUCCESS;
