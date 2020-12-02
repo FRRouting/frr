@@ -990,7 +990,7 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
     # No Address Sanitizer Error in Output. Now check for AddressSanitizer daemon file
     if logdir:
         filepattern=logdir+"/"+router+"/"+component+".asan.*"
-        sys.stderr.write("Log check for %s on %s, pattern %s\n" % (component, router, filepattern))
+        logger.debug("Log check for %s on %s, pattern %s\n" % (component, router, filepattern))
         for file in glob.glob(filepattern):
             with open(file, "r") as asanErrorFile:
                 asanError=asanErrorFile.read()
