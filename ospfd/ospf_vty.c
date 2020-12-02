@@ -11399,6 +11399,30 @@ static const char *const ospf_int_type_str[] = {
 	"loopback"
 };
 
+static const char *interface_config_auth_str(struct ospf_if_params *params)
+{
+	if (!OSPF_IF_PARAM_CONFIGURED(params, auth_type)
+	    || params->auth_type == OSPF_AUTH_NOTSET)
+		return NULL;
+
+	/* Translation tables are not that much help
+	 * here due to syntax
+	 * of the simple option */
+	switch (params->auth_type) {
+
+	case OSPF_AUTH_NULL:
+		return " null";
+
+	case OSPF_AUTH_SIMPLE:
+		return "";
+
+	case OSPF_AUTH_CRYPTOGRAPHIC:
+		return " message-digest";
+	}
+
+	return "";
+}
+
 static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 {
 	struct listnode *node;
@@ -11406,6 +11430,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 	struct crypt_key *ck;
 	struct route_node *rn = NULL;
 	struct ospf_if_params *params;
+	const char *auth_str;
 	int write = 0;
 	struct ospf *ospf = vrf->info;
 
@@ -11443,32 +11468,8 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			}
 
 			/* OSPF interface authentication print */
-			if (OSPF_IF_PARAM_CONFIGURED(params, auth_type)
-			    && params->auth_type != OSPF_AUTH_NOTSET) {
-				const char *auth_str;
-
-				/* Translation tables are not that much help
-				* here due to syntax
-				* of the simple option */
-				switch (params->auth_type) {
-
-				case OSPF_AUTH_NULL:
-					auth_str = " null";
-					break;
-
-				case OSPF_AUTH_SIMPLE:
-					auth_str = "";
-					break;
-
-				case OSPF_AUTH_CRYPTOGRAPHIC:
-					auth_str = " message-digest";
-					break;
-
-				default:
-					auth_str = "";
-					break;
-				}
-
+			auth_str = interface_config_auth_str(params);
+			if (auth_str) {
 				vty_out(vty, " ip ospf authentication%s",
 					auth_str);
 				if (params != IF_DEF_PARAMS(ifp) && rn)
@@ -11819,6 +11820,7 @@ static int config_write_virtual_link(struct vty *vty, struct ospf *ospf)
 {
 	struct listnode *node;
 	struct ospf_vl_data *vl_data;
+	const char *auth_str;
 	char buf[INET_ADDRSTRLEN];
 
 	/* Virtual-Link print */
@@ -11851,6 +11853,13 @@ static int config_write_virtual_link(struct vty *vty, struct ospf *ospf)
 			else
 				vty_out(vty, " area %s virtual-link %pI4\n", buf,
 					&vl_data->vl_peer);
+			/* Auth type */
+			auth_str = interface_config_auth_str(
+				IF_DEF_PARAMS(oi->ifp));
+			if (auth_str)
+				vty_out(vty,
+					" area %s virtual-link %pI4 authentication%s\n",
+					buf, &vl_data->vl_peer, auth_str);
 			/* Auth key */
 			if (IF_DEF_PARAMS(vl_data->vl_oi->ifp)->auth_simple[0]
 			    != '\0')
