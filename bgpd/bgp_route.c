@@ -13702,7 +13702,7 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 			   afi_t afi, safi_t safi, struct bgp *bgp)
 {
 	struct bgp_dest *dest;
-	struct prefix q;
+	struct prefix q = {0};
 	struct peer *peer;
 	struct bgp_distance *bdistance;
 	struct access_list *alist;
@@ -13716,8 +13716,11 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 	if (pinfo->attr->distance)
 		return pinfo->attr->distance;
 
-	/* Check source address. */
-	if (!sockunion2hostprefix(&peer->su, &q))
+	/* Check source address.
+	 * Note: for aggregate route, peer can have unspec af type.
+	 */
+	if (pinfo->sub_type != BGP_ROUTE_AGGREGATE
+	    && !sockunion2hostprefix(&peer->su, &q))
 		return 0;
 
 	dest = bgp_node_match(bgp_distance_table[afi][safi], &q);

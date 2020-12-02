@@ -526,10 +526,10 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 			inet_ntop(api.prefix.family, &nexthop, buf,
 				  sizeof(buf));
 			zlog_debug(
-				"Rx route ADD VRF %u %s[%d] %pFX nexthop %s (type %d if %u) metric %u tag %" ROUTE_TAG_PRI,
+				"Rx route ADD VRF %u %s[%d] %pFX nexthop %s (type %d if %u) metric %u distance %u tag %" ROUTE_TAG_PRI,
 				vrf_id, zebra_route_string(api.type),
 				api.instance, &api.prefix, buf, nhtype, ifindex,
-				api.metric, api.tag);
+				api.metric, api.distance, api.tag);
 		} else {
 			zlog_debug("Rx route DEL VRF %u %s[%d] %pFX", vrf_id,
 				   zebra_route_string(api.type), api.instance,
