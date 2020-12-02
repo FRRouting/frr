@@ -216,6 +216,15 @@ struct zebra_dplane_ctx *dplane_ctx_alloc(void);
  */
 void dplane_ctx_reset(struct zebra_dplane_ctx *ctx);
 
+/*
+ * Allow zebra code to walk the queue of pending contexts, evaluate each one
+ * using a callback function. The caller can supply an optional void* arg also.
+ * If the function returns 'true', the context will be dequeued and freed
+ * without being processed.
+ */
+int dplane_clean_ctx_queue(bool (*context_cb)(struct zebra_dplane_ctx *ctx,
+					      void *arg), void *val);
+
 /* Return a dataplane results context block after use; the caller's pointer will
  * be cleared.
  */

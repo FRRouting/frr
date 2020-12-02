@@ -4327,6 +4327,49 @@ static void dplane_provider_init(void)
 #endif	/* DPLANE_TEST_PROVIDER */
 }
 
+/*
+ * Allow zebra code to walk the queue of pending contexts, evaluate each one
+ * using a callback function. If the function returns 'true', the context
+ * will be dequeued and freed without being processed.
+ */
+int dplane_clean_ctx_queue(bool (*context_cb)(struct zebra_dplane_ctx *ctx,
+					      void *arg), void *val)
+{
+	struct zebra_dplane_ctx *ctx, *temp;
+	struct dplane_ctx_q work_list;
+
+	TAILQ_INIT(&work_list);
+
+	if (context_cb == NULL)
+		goto done;
+
+	/* Walk the pending context queue under the dplane lock. */
+	DPLANE_LOCK();
+
+	TAILQ_FOREACH_SAFE(ctx, &zdplane_info.dg_update_ctx_q, zd_q_entries,
+			   temp) {
+		if (context_cb(ctx, val)) {
+			TAILQ_REMOVE(&zdplane_info.dg_update_ctx_q, ctx,
+				     zd_q_entries);
+			TAILQ_INSERT_TAIL(&work_list, ctx, zd_q_entries);
+		}
+	}
+
+	DPLANE_UNLOCK();
+
+	/* Now free any contexts selected by the caller, without holding
+	 * the lock.
+	 */
+	TAILQ_FOREACH_SAFE(ctx, &work_list, zd_q_entries, temp) {
+		TAILQ_REMOVE(&work_list, ctx, zd_q_entries);
+		dplane_ctx_fini(&ctx);
+	}
+
+done:
+
+	return 0;
+}
+
 /* Indicates zebra shutdown/exit is in progress. Some operations may be
  * simplified or skipped during shutdown processing.
  */
