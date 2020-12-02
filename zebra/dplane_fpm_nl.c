@@ -136,6 +136,8 @@ struct fpm_nl_ctx {
 
 		/* Amount of data plane context processed. */
 		_Atomic uint32_t dplane_contexts;
+		_Atomic uint32_t dplane_contexts_failed;
+
 		/* Amount of data plane contexts enqueued. */
 		_Atomic uint32_t ctxqueue_len;
 		/* Peak amount of data plane contexts enqueued. */
@@ -180,7 +182,6 @@ enum fpm_nl_events {
  * Prototypes.
  */
 static int fpm_process_event(struct thread *t);
-static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx);
 static int fpm_lsp_send(struct thread *t);
 static int fpm_lsp_reset(struct thread *t);
 static int fpm_nhg_send(struct thread *t);
@@ -350,6 +351,8 @@ DEFUN(fpm_show_counters, fpm_show_counters_cmd,
 	SHOW_COUNTER("Connection errors", gfnc->counters.connection_errors);
 	SHOW_COUNTER("Data plane items processed",
 		     gfnc->counters.dplane_contexts);
+	SHOW_COUNTER("Data plane items process Failure",
+		     gfnc->counters.dplane_contexts_failed);
 	SHOW_COUNTER("Data plane items enqueued",
 		     gfnc->counters.ctxqueue_len);
 	SHOW_COUNTER("Data plane items queue peak",
@@ -383,6 +386,8 @@ DEFUN(fpm_show_counters_json, fpm_show_counters_json_cmd,
 			    gfnc->counters.connection_errors);
 	json_object_int_add(jo, "data-plane-contexts",
 			    gfnc->counters.dplane_contexts);
+	json_object_int_add(jo, "dataPlaneContextsFailed",
+			    gfnc->counters.dplane_contexts_failed);
 	json_object_int_add(jo, "data-plane-contexts-queue",
 			    gfnc->counters.ctxqueue_len);
 	json_object_int_add(jo, "data-plane-contexts-queue-peak",
@@ -1260,7 +1265,10 @@ static int fpm_process_queue(struct thread *t)
 		if (ctx == NULL)
 			break;
 
-		fpm_nl_enqueue(fnc, ctx);
+		if (fpm_nl_enqueue(fnc, ctx) == -1)
+			atomic_fetch_add_explicit(
+				&fnc->counters.dplane_contexts_failed, 1,
+				memory_order_relaxed);
 
 		/* Account the processed entries. */
 		atomic_fetch_add_explicit(&fnc->counters.dplane_contexts, 1,
