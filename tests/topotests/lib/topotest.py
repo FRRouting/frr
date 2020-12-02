@@ -919,10 +919,10 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
         )
         # Sanitizer Error found in log
         pidMark = asanErrorRe.group(1)
-        addressSantizerLog = re.search(
+        addressSanitizerLog = re.search(
             "%s(.*)%s" % (pidMark, pidMark), output, re.DOTALL
         )
-        if addressSantizerLog:
+        if addressSanitizerLog:
             # Find Calling Test. Could be multiple steps back
             testframe=sys._current_frames().values()[0]
             level=0
@@ -964,7 +964,7 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
                     % (callingTest, callingProc, router)
                 )
                 sys.stderr.write(
-                    "\n".join(addressSantizerLog.group(1).splitlines()) + "\n"
+                    "\n".join(addressSanitizerLog.group(1).splitlines()) + "\n"
                 )
                 addrSanFile.write("## Error: %s\n\n" % asanErrorRe.group(2))
                 addrSanFile.write(
@@ -973,18 +973,18 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
                 )
                 addrSanFile.write(
                     "    "
-                    + "\n    ".join(addressSantizerLog.group(1).splitlines())
+                    + "\n    ".join(addressSanitizerLog.group(1).splitlines())
                     + "\n"
                 )
                 addrSanFile.write("\n---------------\n")
         return
 
 
-    addressSantizerError = re.search(
+    addressSanitizerError = re.search(
         "(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ", output
     )
-    if addressSantizerError:
-        processAddressSanitizerError(addressSantizerError, output, router, component)
+    if addressSanitizerError:
+        processAddressSanitizerError(addressSanitizerError, output, router, component)
         return True
 
     # No Address Sanitizer Error in Output. Now check for AddressSanitizer daemon file
@@ -994,11 +994,11 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
         for file in glob.glob(filepattern):
             with open(file, "r") as asanErrorFile:
                 asanError=asanErrorFile.read()
-            addressSantizerError = re.search(
+            addressSanitizerError = re.search(
                 "(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ", asanError
                 )
-            if addressSantizerError:
-                processAddressSanitizerError(addressSantizerError, asanError, router, component)
+            if addressSanitizerError:
+                processAddressSanitizerError(addressSanitizerError, asanError, router, component)
                 return True
     return False
 
