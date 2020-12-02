@@ -1992,7 +1992,10 @@ static void zevpn_add_to_l3vni_list(struct hash_bucket *bucket, void *ctxt)
 }
 
 /*
- *  handle transition of vni from l2 to l3 and vice versa
+ * Handle transition of vni from l2 to l3 and vice versa.
+ * This function handles only the L2VNI add/delete part of
+ * the above transition.
+ * L3VNI add/delete is handled by the calling functions.
  */
 static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 					     int add)
@@ -2033,11 +2036,71 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 			return -1;
 		}
 	} else {
-		/* TODO_MITESH: This needs to be thought through. We don't have
-		 * enough information at this point to reprogram the vni as
-		 * l2-vni. One way is to store the required info in l3-vni and
-		 * used it solely for this purpose
-		 */
+		struct zebra_ns *zns;
+		struct route_node *rn;
+		struct interface *ifp;
+		struct zebra_if *zif;
+		struct zebra_l2info_vxlan *vxl;
+		struct interface *vlan_if;
+		bool found = false;
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Adding L2-VNI %u - transition from L3-VNI",
+				   vni);
+
+		/* Find VxLAN interface for this VNI. */
+		zns = zebra_ns_lookup(NS_DEFAULT);
+		for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
+			ifp = (struct interface *)rn->info;
+			if (!ifp)
+				continue;
+			zif = ifp->info;
+			if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+				continue;
+
+			vxl = &zif->l2info.vxl;
+			if (vxl->vni == vni) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_err(
+					"Adding L2-VNI - Failed to find VxLAN interface for VNI %u",
+					vni);
+			return -1;
+		}
+
+		/* Create VNI hash entry for L2VNI */
+		zevpn = zebra_evpn_lookup(vni);
+		if (zevpn)
+			return 0;
+
+		zevpn = zebra_evpn_add(vni);
+		if (!zevpn) {
+			flog_err(EC_ZEBRA_VNI_ADD_FAILED,
+				 "Adding L2-VNI - Failed to add VNI hash, VNI %u",
+				 vni);
+
+			return -1;
+		}
+
+		/* Find bridge interface for the VNI */
+		vlan_if = zvni_map_to_svi(vxl->access_vlan,
+					  zif->brslave_info.br_if);
+		if (vlan_if)
+			zevpn->vrf_id = vlan_if->vrf_id;
+
+		zevpn->vxlan_if = ifp;
+		zevpn->local_vtep_ip = vxl->vtep_ip;
+
+		/* Inform BGP if the VNI is up and mapped to a bridge. */
+		if (if_is_operative(ifp) && zif->brslave_info.br_if) {
+			zebra_evpn_send_add_to_client(zevpn);
+			zebra_evpn_read_mac_neigh(zevpn, ifp);
+		}
 	}
 
 	return 0;
@@ -5201,6 +5264,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 
 	if (add) {
 
+		/* Remove L2VNI if present */
 		zebra_vxlan_handle_vni_transition(zvrf, vni, add);
 
 		/* check if the vni is already present under zvrf */
@@ -5295,6 +5359,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 		zvrf->l3vni = 0;
 		zl3vni_del(zl3vni);
 
+		/* Add L2VNI for this VNI */
 		zebra_vxlan_handle_vni_transition(zvrf, vni, add);
 	}
 	return 0;
