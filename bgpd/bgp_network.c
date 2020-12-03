@@ -457,8 +457,16 @@ static int bgp_accept(struct thread *thread)
 			BGP_TIMER_OFF(
 				peer1->t_start); /* created in peer_create() */
 
-			if (peer_active(peer1))
-				BGP_EVENT_ADD(peer1, TCP_connection_open);
+			if (peer_active(peer1)) {
+				if (CHECK_FLAG(peer1->flags,
+					       PEER_FLAG_TIMER_DELAYOPEN))
+					BGP_EVENT_ADD(
+						peer1,
+						TCP_connection_open_w_delay);
+				else
+					BGP_EVENT_ADD(peer1,
+						      TCP_connection_open);
+			}
 
 			return 0;
 		}
@@ -595,7 +603,10 @@ static int bgp_accept(struct thread *thread)
 	}
 
 	if (peer_active(peer)) {
-		BGP_EVENT_ADD(peer, TCP_connection_open);
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+			BGP_EVENT_ADD(peer, TCP_connection_open_w_delay);
+		else
+			BGP_EVENT_ADD(peer, TCP_connection_open);
 	}
 
 	return 0;

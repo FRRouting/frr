@@ -491,12 +491,13 @@ time_t bgp_clock(void)
 
 /* BGP timer configuration.  */
 void bgp_timers_set(struct bgp *bgp, uint32_t keepalive, uint32_t holdtime,
-		    uint32_t connect_retry)
+		    uint32_t connect_retry, uint32_t delayopen)
 {
 	bgp->default_keepalive =
 		(keepalive < holdtime / 3 ? keepalive : holdtime / 3);
 	bgp->default_holdtime = holdtime;
 	bgp->default_connect_retry = connect_retry;
+	bgp->default_delayopen = delayopen;
 }
 
 /* mostly for completeness - CLI uses its own defaults */
@@ -505,6 +506,7 @@ void bgp_timers_unset(struct bgp *bgp)
 	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
 	bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
 	bgp->default_connect_retry = BGP_DEFAULT_CONNECT_RETRY;
+	bgp->default_delayopen = BGP_DEFAULT_DELAYOPEN;
 }
 
 /* BGP confederation configuration.  */
@@ -1410,10 +1412,12 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->holdtime = peer_src->holdtime;
 	peer_dst->keepalive = peer_src->keepalive;
 	peer_dst->connect = peer_src->connect;
+	peer_dst->delayopen = peer_src->delayopen;
 	peer_dst->v_holdtime = peer_src->v_holdtime;
 	peer_dst->v_keepalive = peer_src->v_keepalive;
 	peer_dst->routeadv = peer_src->routeadv;
 	peer_dst->v_routeadv = peer_src->v_routeadv;
+	peer_dst->v_delayopen = peer_src->v_delayopen;
 
 	/* password apply */
 	if (peer_src->password && !peer_dst->password)
@@ -2575,6 +2579,14 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 			peer->v_connect = conf->connect;
 		else
 			peer->v_connect = peer->bgp->default_connect_retry;
+	}
+
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_TIMER_DELAYOPEN)) {
+		PEER_ATTR_INHERIT(peer, group, delayopen);
+		if (CHECK_FLAG(conf->flags, PEER_FLAG_TIMER_DELAYOPEN))
+			peer->v_delayopen = conf->delayopen;
+		else
+			peer->v_delayopen = peer->bgp->default_delayopen;
 	}
 
 	/* advertisement-interval apply */
@@ -4018,6 +4030,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_ROUTEADV, 0, peer_change_none},
 	{PEER_FLAG_TIMER, 0, peer_change_none},
 	{PEER_FLAG_TIMER_CONNECT, 0, peer_change_none},
+	{PEER_FLAG_TIMER_DELAYOPEN, 0, peer_change_none},
 	{PEER_FLAG_PASSWORD, 0, peer_change_none},
 	{PEER_FLAG_LOCAL_AS, 0, peer_change_none},
 	{PEER_FLAG_LOCAL_AS_NO_PREPEND, 0, peer_change_none},
@@ -5398,6 +5411,90 @@ int peer_advertise_interval_unset(struct peer *peer)
 		update_group_adjust_peer_afs(member);
 		if (member->status == Established)
 			bgp_announce_route_all(member);
+	}
+
+	return 0;
+}
+
+/* set the peers RFC 4271 DelayOpen session attribute flag and DelayOpenTimer
+ * interval
+ */
+int peer_timers_delayopen_set(struct peer *peer, uint32_t delayopen)
+{
+	struct peer *member;
+	struct listnode *node;
+
+	/* Set peers session attribute flag and timer interval. */
+	peer_flag_set(peer, PEER_FLAG_TIMER_DELAYOPEN);
+	peer->delayopen = delayopen;
+	peer->v_delayopen = delayopen;
+
+	/* Skip group mechanics for regular peers. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return 0;
+
+	/* Set flag and configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override,
+			       PEER_FLAG_TIMER_DELAYOPEN))
+			continue;
+
+		/* Set session attribute flag and timer intervals on peer-group
+		 * member.
+		 */
+		SET_FLAG(member->flags, PEER_FLAG_TIMER_DELAYOPEN);
+		member->delayopen = delayopen;
+		member->v_delayopen = delayopen;
+	}
+
+	return 0;
+}
+
+/* unset the peers RFC 4271 DelayOpen session attribute flag and reset the
+ * DelayOpenTimer interval to the default value.
+ */
+int peer_timers_delayopen_unset(struct peer *peer)
+{
+	struct peer *member;
+	struct listnode *node;
+
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_flag_inherit(peer, PEER_FLAG_TIMER_DELAYOPEN);
+		PEER_ATTR_INHERIT(peer, peer->group, delayopen);
+	} else {
+		/* Otherwise remove session attribute flag and set timer
+		 * interval to default value.
+		 */
+		peer_flag_unset(peer, PEER_FLAG_TIMER_DELAYOPEN);
+		peer->delayopen = peer->bgp->default_delayopen;
+	}
+
+	/* Set timer value to zero */
+	peer->v_delayopen = 0;
+
+	/* Skip peer-group mechanics for regular peers. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return 0;
+
+	/* Remove flag and configuration from all peer-group members, unless
+	 * they are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override,
+			       PEER_FLAG_TIMER_DELAYOPEN))
+			continue;
+
+		/* Remove session attribute flag, reset the timer interval to
+		 * the default value and set the timer value to zero.
+		 */
+		UNSET_FLAG(member->flags, PEER_FLAG_TIMER_DELAYOPEN);
+		member->delayopen = peer->bgp->default_delayopen;
+		member->v_delayopen = 0;
 	}
 
 	return 0;
