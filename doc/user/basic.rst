@@ -549,6 +549,11 @@ Terminal Mode Commands
    When executing this command from ``vtysh``, each of the daemons' memory
    usage is printed sequentially.
 
+.. index:: show history
+.. clicmd:: show history
+
+   Dump the vtysh cli history.
+
 .. index:: logmsg LEVEL MESSAGE
 .. clicmd:: logmsg LEVEL MESSAGE
 
