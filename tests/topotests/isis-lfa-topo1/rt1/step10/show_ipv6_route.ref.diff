@@ -1,0 +1,46 @@
+--- a/rt1/step9/show_ipv6_route.ref
++++ b/rt1/step10/show_ipv6_route.ref
+@@ -16,7 +16,8 @@
+           "active":true,
+           "backupIndex":[
+             0,
+-            1
++            1,
++            2
+           ]
+         }
+       ],
+@@ -30,6 +31,11 @@
+           "afi":"ipv6",
+           "interfaceName":"eth-rt5",
+           "active":true
++        },
++        {
++          "afi":"ipv6",
++          "interfaceName":"eth-rt6",
++          "active":true
+         }
+       ]
+     }
+@@ -198,7 +204,8 @@
+           "backupIndex":[
+             0,
+             1,
+-            2
++            2,
++            3
+           ]
+         }
+       ],
+@@ -217,6 +224,11 @@
+           "afi":"ipv6",
+           "interfaceName":"eth-rt5",
+           "active":true
++        },
++        {
++          "afi":"ipv6",
++          "interfaceName":"eth-rt6",
++          "active":true
+         }
+       ]
+     }

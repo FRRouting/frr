@@ -39,13 +39,14 @@ struct isis_spf_adj {
 	struct isis_adjacency *adj;
 	uint32_t metric;
 	struct isis_ext_subtlvs *subtlvs;
+	struct isis_lsp *lsp;
 	struct {
 		uint8_t desig_is_id[ISIS_SYS_ID_LEN + 1];
-		struct isis_lsp *lsp_pseudo;
 	} lan;
 	uint8_t flags;
 #define F_ISIS_SPF_ADJ_BROADCAST 0x01
 #define F_ISIS_SPF_ADJ_OLDMETRIC 0x02
+#define F_ISIS_SPF_ADJ_METRIC_INFINITY 0x04
 };
 
 struct isis_spftree *isis_spftree_new(struct isis_area *area,

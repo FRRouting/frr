@@ -31,6 +31,7 @@
 #include "linklist.h"
 #include "if.h"
 #include "hash.h"
+#include "filter.h"
 #include "stream.h"
 #include "prefix.h"
 #include "table.h"
@@ -77,7 +78,7 @@ unsigned long debug_bfd;
 unsigned long debug_tx_queue;
 unsigned long debug_sr;
 unsigned long debug_ldp_sync;
-unsigned long debug_tilfa;
+unsigned long debug_lfa;
 
 DEFINE_QOBJ_TYPE(isis_area)
 
@@ -310,6 +311,10 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->lsp_frag_threshold = 90; /* not currently configurable */
 	area->lsp_mtu =
 		yang_get_default_uint16("/frr-isisd:isis/instance/lsp/mtu");
+	area->lfa_load_sharing[0] = yang_get_default_bool(
+		"/frr-isisd:isis/instance/fast-reroute/level-1/lfa/load-sharing");
+	area->lfa_load_sharing[1] = yang_get_default_bool(
+		"/frr-isisd:isis/instance/fast-reroute/level-2/lfa/load-sharing");
 #else
 	area->max_lsp_lifetime[0] = DEFAULT_LSP_LIFETIME;    /* 1200 */
 	area->max_lsp_lifetime[1] = DEFAULT_LSP_LIFETIME;    /* 1200 */
@@ -324,7 +329,13 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->newmetric = 1;
 	area->lsp_frag_threshold = 90;
 	area->lsp_mtu = DEFAULT_LSP_MTU;
+	area->lfa_load_sharing[0] = true;
+	area->lfa_load_sharing[1] = true;
 #endif /* ifndef FABRICD */
+	area->lfa_priority_limit[0] = SPF_PREFIX_PRIO_LOW;
+	area->lfa_priority_limit[1] = SPF_PREFIX_PRIO_LOW;
+	isis_lfa_tiebreakers_init(area, ISIS_LEVEL1);
+	isis_lfa_tiebreakers_init(area, ISIS_LEVEL2);
 
 	area_mt_init(area);
 
@@ -460,6 +471,16 @@ void isis_area_destroy(struct isis_area *area)
 		XFREE(MTYPE_ISIS_AREA_ADDR, addr);
 	}
 	area->area_addrs = NULL;
+
+	for (int i = SPF_PREFIX_PRIO_CRITICAL; i <= SPF_PREFIX_PRIO_MEDIUM;
+	     i++) {
+		struct spf_prefix_priority_acl *ppa;
+
+		ppa = &area->spf_prefix_priorities[i];
+		XFREE(MTYPE_ISIS_ACL_NAME, ppa->name);
+	}
+	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL1);
+	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL2);
 
 	thread_cancel(&area->t_tick);
 	thread_cancel(&area->t_lsp_refresh[0]);
@@ -603,6 +624,29 @@ void isis_terminate()
 
 	for (ALL_LIST_ELEMENTS(im->isis, node, nnode, isis))
 		isis_finish(isis);
+}
+
+void isis_filter_update(struct access_list *access)
+{
+	struct isis *isis;
+	struct isis_area *area;
+	struct listnode *node, *anode;
+
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+			for (int i = SPF_PREFIX_PRIO_CRITICAL;
+			     i <= SPF_PREFIX_PRIO_MEDIUM; i++) {
+				struct spf_prefix_priority_acl *ppa;
+
+				ppa = &area->spf_prefix_priorities[i];
+				ppa->list_v4 =
+					access_list_lookup(AFI_IP, ppa->name);
+				ppa->list_v6 =
+					access_list_lookup(AFI_IP6, ppa->name);
+			}
+			lsp_regenerate_schedule(area, area->is_type, 0);
+		}
+	}
 }
 
 #ifdef FABRICD
@@ -1199,8 +1243,8 @@ void print_debug(struct vty *vty, int flags, int onoff)
 	if (flags & DEBUG_SR)
 		vty_out(vty, "IS-IS Segment Routing events debugging is %s\n",
 			onoffs);
-	if (flags & DEBUG_TILFA)
-		vty_out(vty, "IS-IS TI-LFA events debugging is %s\n", onoffs);
+	if (flags & DEBUG_LFA)
+		vty_out(vty, "IS-IS LFA events debugging is %s\n", onoffs);
 	if (flags & DEBUG_UPDATE_PACKETS)
 		vty_out(vty, "IS-IS Update related packet debugging is %s\n",
 			onoffs);
@@ -1295,8 +1339,8 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug " PROTO_NAME " sr-events\n");
 		write++;
 	}
-	if (IS_DEBUG_TILFA) {
-		vty_out(vty, "debug " PROTO_NAME " ti-lfa\n");
+	if (IS_DEBUG_LFA) {
+		vty_out(vty, "debug " PROTO_NAME " lfa\n");
 		write++;
 	}
 	if (IS_DEBUG_UPDATE_PACKETS) {
@@ -1529,29 +1573,29 @@ DEFUN (no_debug_isis_srevents,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_isis_tilfa,
-       debug_isis_tilfa_cmd,
-       "debug " PROTO_NAME " ti-lfa",
+DEFUN (debug_isis_lfa,
+       debug_isis_lfa_cmd,
+       "debug " PROTO_NAME " lfa",
        DEBUG_STR
        PROTO_HELP
-       "IS-IS TI-LFA Events\n")
+       "IS-IS LFA Events\n")
 {
-	debug_tilfa |= DEBUG_TILFA;
-	print_debug(vty, DEBUG_TILFA, 1);
+	debug_lfa |= DEBUG_LFA;
+	print_debug(vty, DEBUG_LFA, 1);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_isis_tilfa,
-       no_debug_isis_tilfa_cmd,
-       "no debug " PROTO_NAME " ti-lfa",
+DEFUN (no_debug_isis_lfa,
+       no_debug_isis_lfa_cmd,
+       "no debug " PROTO_NAME " lfa",
        NO_STR
        UNDEBUG_STR
        PROTO_HELP
-       "IS-IS TI-LFA Events\n")
+       "IS-IS LFA Events\n")
 {
-	debug_tilfa &= ~DEBUG_TILFA;
-	print_debug(vty, DEBUG_TILFA, 0);
+	debug_lfa &= ~DEBUG_LFA;
+	print_debug(vty, DEBUG_LFA, 0);
 
 	return CMD_SUCCESS;
 }
@@ -2892,8 +2936,8 @@ void isis_init(void)
 	install_element(ENABLE_NODE, &no_debug_isis_spfevents_cmd);
 	install_element(ENABLE_NODE, &debug_isis_srevents_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_srevents_cmd);
-	install_element(ENABLE_NODE, &debug_isis_tilfa_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_tilfa_cmd);
+	install_element(ENABLE_NODE, &debug_isis_lfa_cmd);
+	install_element(ENABLE_NODE, &no_debug_isis_lfa_cmd);
 	install_element(ENABLE_NODE, &debug_isis_rtevents_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_rtevents_cmd);
 	install_element(ENABLE_NODE, &debug_isis_events_cmd);
@@ -2923,8 +2967,8 @@ void isis_init(void)
 	install_element(CONFIG_NODE, &no_debug_isis_spfevents_cmd);
 	install_element(CONFIG_NODE, &debug_isis_srevents_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_srevents_cmd);
-	install_element(CONFIG_NODE, &debug_isis_tilfa_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_tilfa_cmd);
+	install_element(CONFIG_NODE, &debug_isis_lfa_cmd);
+	install_element(CONFIG_NODE, &no_debug_isis_lfa_cmd);
 	install_element(CONFIG_NODE, &debug_isis_rtevents_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_rtevents_cmd);
 	install_element(CONFIG_NODE, &debug_isis_events_cmd);

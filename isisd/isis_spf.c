@@ -32,6 +32,7 @@
 #include "termtable.h"
 #include "memory.h"
 #include "prefix.h"
+#include "filter.h"
 #include "if.h"
 #include "hash.h"
 #include "table.h"
@@ -216,7 +217,7 @@ struct isis_vertex *isis_spf_prefix_sid_lookup(struct isis_spftree *spftree,
 	return hash_lookup(spftree->prefix_sids, &lookup);
 }
 
-static void isis_vertex_adj_free(void *arg)
+void isis_vertex_adj_free(void *arg)
 {
 	struct isis_vertex_adj *vadj = arg;
 
@@ -246,10 +247,10 @@ static struct isis_vertex *isis_vertex_new(struct isis_spftree *spftree,
 	return vertex;
 }
 
-static struct isis_vertex_adj *isis_vertex_adj_add(struct isis_spftree *spftree,
-						   struct isis_vertex *vertex,
-						   struct isis_spf_adj *sadj,
-						   struct isis_prefix_sid *psid)
+struct isis_vertex_adj *
+isis_vertex_adj_add(struct isis_spftree *spftree, struct isis_vertex *vertex,
+		    struct list *vadj_list, struct isis_spf_adj *sadj,
+		    struct isis_prefix_sid *psid, bool last_hop)
 {
 	struct isis_vertex_adj *vadj;
 
@@ -262,9 +263,6 @@ static struct isis_vertex_adj *isis_vertex_adj_add(struct isis_spftree *spftree,
 				"ISIS-SPF: ignoring different Prefix-SID for route %pFX",
 				&vertex->N.ip.p.dest);
 		else {
-			bool last_hop;
-
-			last_hop = (vertex->depth == 2);
 			vadj->sr.sid = *psid;
 			vadj->sr.label = sr_prefix_out_label(
 				spftree->lspdb, vertex->N.ip.p.dest.family,
@@ -273,7 +271,7 @@ static struct isis_vertex_adj *isis_vertex_adj_add(struct isis_spftree *spftree,
 				vadj->sr.present = true;
 		}
 	}
-	listnode_add(vertex->Adj_N, vadj);
+	listnode_add(vadj_list, vadj);
 
 	return vadj;
 }
@@ -528,6 +526,7 @@ isis_spf_add2tent(struct isis_spftree *spftree, enum vertextype vtype, void *id,
 {
 	struct isis_vertex *vertex;
 	struct listnode *node;
+	bool last_hop;
 	char buff[VID2STR_BUFFER];
 
 	vertex = isis_find_vertex(&spftree->paths, id, vtype);
@@ -593,14 +592,16 @@ isis_spf_add2tent(struct isis_spftree *spftree, enum vertextype vtype, void *id,
 	if (CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC))
 		vertex_update_firsthops(vertex, parent);
 
+	last_hop = (vertex->depth == 2);
 	if (parent && parent->Adj_N && listcount(parent->Adj_N) > 0) {
 		struct isis_vertex_adj *parent_vadj;
 
 		for (ALL_LIST_ELEMENTS_RO(parent->Adj_N, node, parent_vadj))
-			isis_vertex_adj_add(spftree, vertex, parent_vadj->sadj,
-					    psid);
+			isis_vertex_adj_add(spftree, vertex, vertex->Adj_N,
+					    parent_vadj->sadj, psid, last_hop);
 	} else if (sadj) {
-		isis_vertex_adj_add(spftree, vertex, sadj, psid);
+		isis_vertex_adj_add(spftree, vertex, vertex->Adj_N, sadj, psid,
+				    last_hop);
 	}
 
 #ifdef EXTREME_DEBUG
@@ -628,9 +629,13 @@ static void isis_spf_add_local(struct isis_spftree *spftree,
 	if (vertex) {
 		/* C.2.5   c) */
 		if (vertex->d_N == cost) {
-			if (sadj)
-				isis_vertex_adj_add(spftree, vertex, sadj,
-						    psid);
+			if (sadj) {
+				bool last_hop = (vertex->depth == 2);
+
+				isis_vertex_adj_add(spftree, vertex,
+						    vertex->Adj_N, sadj, psid,
+						    last_hop);
+			}
 			/*       d) */
 			if (!CHECK_FLAG(spftree->flags,
 					F_SPFTREE_NO_ADJACENCIES)
@@ -718,11 +723,16 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 			struct isis_vertex_adj *parent_vadj;
 			for (ALL_LIST_ELEMENTS_RO(parent->Adj_N, node,
 						  parent_vadj))
-				if (!isis_vertex_adj_exists(spftree, vertex,
-							    parent_vadj->sadj))
+				if (!isis_vertex_adj_exists(
+					    spftree, vertex,
+					    parent_vadj->sadj)) {
+					bool last_hop = (vertex->depth == 2);
+
 					isis_vertex_adj_add(spftree, vertex,
+							    vertex->Adj_N,
 							    parent_vadj->sadj,
-							    psid);
+							    psid, last_hop);
+				}
 			if (CHECK_FLAG(spftree->flags,
 				       F_SPFTREE_HOPCOUNT_METRIC))
 				vertex_update_firsthops(vertex, parent);
@@ -771,7 +781,7 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 	bool has_valid_psid;
 
 	if (isis_lfa_excise_node_check(spftree, lsp->hdr.lsp_id)) {
-		if (IS_DEBUG_TILFA)
+		if (IS_DEBUG_LFA)
 			zlog_debug("ISIS-LFA: excising node %s",
 				   print_sys_hostname(lsp->hdr.lsp_id));
 		return ISIS_OK;
@@ -1140,7 +1150,7 @@ static void isis_spf_preload_tent(struct isis_spftree *spftree,
 			adj_id = sadj->id;
 
 		if (isis_lfa_excise_adj_check(spftree, adj_id)) {
-			if (IS_DEBUG_TILFA)
+			if (IS_DEBUG_LFA)
 				zlog_debug("ISIS-SPF: excising adjacency %s",
 					   isis_format_id(sadj->id,
 							  ISIS_SYS_ID_LEN + 1));
@@ -1158,9 +1168,9 @@ static void isis_spf_preload_tent(struct isis_spftree *spftree,
 						   : VTYPE_NONPSEUDO_TE_IS,
 					   sadj->id, sadj, metric, NULL,
 					   parent);
-		} else if (sadj->lan.lsp_pseudo) {
-			isis_spf_process_lsp(spftree, sadj->lan.lsp_pseudo,
-					     metric, 0, spftree->sysid, parent);
+		} else if (sadj->lsp) {
+			isis_spf_process_lsp(spftree, sadj->lsp, metric, 0,
+					     spftree->sysid, parent);
 		}
 	}
 }
@@ -1243,11 +1253,23 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 				   struct isis_ext_subtlvs *subtlvs)
 {
 	struct isis_spf_adj *sadj;
+	uint8_t lspid[ISIS_SYS_ID_LEN + 2];
+	struct isis_lsp *lsp;
 	uint8_t flags = 0;
 
 	/* Skip self in the pseudonode. */
 	if (desig_is_id && !memcmp(id, spftree->sysid, ISIS_SYS_ID_LEN))
 		return;
+
+	/* Find LSP from the adjacency. */
+	memcpy(lspid, id, ISIS_SYS_ID_LEN + 1);
+	LSP_FRAGMENT(lspid) = 0;
+	lsp = lsp_search(spftree->lspdb, lspid);
+	if (lsp == NULL || lsp->hdr.rem_lifetime == 0) {
+		zlog_warn("ISIS-SPF: No LSP found from root to L%d %s",
+			  spftree->level, rawlspid_print(id));
+		return;
+	}
 
 	sadj = XCALLOC(MTYPE_ISIS_SPF_ADJ, sizeof(*sadj));
 	memcpy(sadj->id, id, sizeof(sadj->id));
@@ -1260,8 +1282,13 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 		sadj->metric = metric;
 	if (oldmetric)
 		SET_FLAG(flags, F_ISIS_SPF_ADJ_OLDMETRIC);
+	sadj->lsp = lsp;
 	sadj->subtlvs = subtlvs;
 	sadj->flags = flags;
+
+	if ((oldmetric && metric == ISIS_NARROW_METRIC_INFINITY)
+	    || (!oldmetric && metric == ISIS_WIDE_METRIC_INFINITY))
+		SET_FLAG(flags, F_ISIS_SPF_ADJ_METRIC_INFINITY);
 
 	/* Set real adjacency. */
 	if (!CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES)
@@ -1294,24 +1321,8 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 	}
 
 	/* Parse pseudonode LSP too. */
-	if (LSP_PSEUDO_ID(id)) {
-		uint8_t lspid[ISIS_SYS_ID_LEN + 2];
-		struct isis_lsp *lsp_pseudo;
-
-		memcpy(lspid, id, ISIS_SYS_ID_LEN + 1);
-		LSP_FRAGMENT(lspid) = 0;
-		lsp_pseudo = lsp_search(spftree->lspdb, lspid);
-		if (lsp_pseudo == NULL || lsp_pseudo->hdr.rem_lifetime == 0) {
-			zlog_warn(
-				"ISIS-SPF: No LSP found from root to L%d DR %s",
-				spftree->level, rawlspid_print(id));
-			return;
-		}
-
-		sadj->lan.lsp_pseudo = lsp_pseudo;
-		spf_adj_list_parse_lsp(spftree, adj_list, lsp_pseudo, id,
-				       metric);
-	}
+	if (LSP_PSEUDO_ID(id))
+		spf_adj_list_parse_lsp(spftree, adj_list, lsp, id, metric);
 }
 
 static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
@@ -1418,32 +1429,65 @@ static void init_spt(struct isis_spftree *spftree, int mtid)
 	list_delete_all_node(spftree->sadj_list);
 	isis_vertex_queue_clear(&spftree->tents);
 	isis_vertex_queue_clear(&spftree->paths);
+	memset(&spftree->lfa.protection_counters, 0,
+	       sizeof(spftree->lfa.protection_counters));
 
 	spftree->mtid = mtid;
+}
+
+static enum spf_prefix_priority
+spf_prefix_priority(struct isis_spftree *spftree, struct isis_vertex *vertex)
+{
+	struct isis_area *area = spftree->area;
+	struct prefix *prefix = &vertex->N.ip.p.dest;
+
+	for (int priority = SPF_PREFIX_PRIO_CRITICAL;
+	     priority <= SPF_PREFIX_PRIO_MEDIUM; priority++) {
+		struct spf_prefix_priority_acl *ppa;
+		enum filter_type ret = FILTER_PERMIT;
+
+		ppa = &area->spf_prefix_priorities[priority];
+		switch (spftree->family) {
+		case AF_INET:
+			ret = access_list_apply(ppa->list_v4, prefix);
+			break;
+		case AF_INET6:
+			ret = access_list_apply(ppa->list_v6, prefix);
+			break;
+		default:
+			break;
+		}
+
+		if (ret == FILTER_PERMIT)
+			return priority;
+	}
+
+	/* Assign medium priority to loopback prefixes by default. */
+	if (is_host_route(prefix))
+		return SPF_PREFIX_PRIO_MEDIUM;
+
+	return SPF_PREFIX_PRIO_LOW;
 }
 
 static void spf_path_process(struct isis_spftree *spftree,
 			     struct isis_vertex *vertex)
 {
 	struct isis_area *area = spftree->area;
+	int level = spftree->level;
 	char buff[VID2STR_BUFFER];
 
-	if (VTYPE_IS(vertex->type)
+	if (spftree->type == SPF_TYPE_TI_LFA && VTYPE_IS(vertex->type)
 	    && !CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES)) {
 		if (listcount(vertex->Adj_N) > 0) {
-			if (spftree->type == SPF_TYPE_TI_LFA) {
-				struct isis_adjacency *adj;
+			struct isis_adjacency *adj;
 
-				if (isis_lfa_check(spftree, vertex) != 0)
-					return;
+			if (isis_tilfa_check(spftree, vertex) != 0)
+				return;
 
-				adj = isis_adj_find(area, spftree->level,
-						    vertex->N.id);
-				if (adj)
-					sr_adj_sid_add_single(
-						adj, spftree->family, true,
-						vertex->Adj_N);
-			}
+			adj = isis_adj_find(area, level, vertex->N.id);
+			if (adj)
+				sr_adj_sid_add_single(adj, spftree->family,
+						      true, vertex->Adj_N);
 		} else if (IS_DEBUG_SPF_EVENTS)
 			zlog_debug(
 				"ISIS-SPF: no adjacencies, do not install backup Adj-SID for %s depth %d dist %d",
@@ -1453,21 +1497,59 @@ static void spf_path_process(struct isis_spftree *spftree,
 
 	if (VTYPE_IP(vertex->type)
 	    && !CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ROUTES)) {
+		enum spf_prefix_priority priority;
+
+		priority = spf_prefix_priority(spftree, vertex);
+		vertex->N.ip.priority = priority;
 		if (vertex->depth == 1 || listcount(vertex->Adj_N) > 0) {
 			struct route_table *route_table;
+			bool allow_ecmp;
 
 			if (spftree->type == SPF_TYPE_TI_LFA) {
-				if (isis_lfa_check(spftree, vertex) != 0)
-					return;
-				route_table = spftree->lfa.old.spftree
-						      ->route_table_backup;
-			} else
-				route_table = spftree->route_table;
+				struct isis_spftree *pre_spftree;
 
-			isis_route_create(&vertex->N.ip.p.dest,
-					  &vertex->N.ip.p.src, vertex->d_N,
-					  vertex->depth, &vertex->N.ip.sr,
-					  vertex->Adj_N, area, route_table);
+				if (priority
+				    > area->lfa_priority_limit[level - 1]) {
+					if (IS_DEBUG_LFA)
+						zlog_debug(
+							"ISIS-LFA: skipping %s %s (low prefix priority)",
+							vtype2string(
+								vertex->type),
+							vid2string(
+								vertex, buff,
+								sizeof(buff)));
+					return;
+				}
+
+				if (isis_tilfa_check(spftree, vertex) != 0)
+					return;
+
+				pre_spftree = spftree->lfa.old.spftree;
+				route_table = pre_spftree->route_table_backup;
+				allow_ecmp = area->lfa_load_sharing[level - 1];
+				pre_spftree->lfa.protection_counters
+					.tilfa[vertex->N.ip.priority] += 1;
+			} else {
+				route_table = spftree->route_table;
+				allow_ecmp = true;
+
+				/*
+				 * Update LFA protection counters (ignore local
+				 * routes).
+				 */
+				if (vertex->depth > 1) {
+					spftree->lfa.protection_counters
+						.total[priority] += 1;
+					if (listcount(vertex->Adj_N) > 1)
+						spftree->lfa.protection_counters
+							.ecmp[priority] += 1;
+				}
+			}
+
+			isis_route_create(
+				&vertex->N.ip.p.dest, &vertex->N.ip.p.src,
+				vertex->d_N, vertex->depth, &vertex->N.ip.sr,
+				vertex->Adj_N, allow_ecmp, area, route_table);
 		} else if (IS_DEBUG_SPF_EVENTS)
 			zlog_debug(
 				"ISIS-SPF: no adjacencies, do not install route for %s depth %d dist %d",
@@ -1641,7 +1723,8 @@ static void isis_run_spf_with_protection(struct isis_area *area,
 	isis_run_spf(spftree);
 
 	/* Run LFA protection if configured. */
-	if (area->lfa_protected_links[spftree->level - 1] > 0)
+	if (area->lfa_protected_links[spftree->level - 1] > 0
+	    || area->tilfa_protected_links[spftree->level - 1] > 0)
 		isis_spf_run_lfa(area, spftree);
 }
 
@@ -2281,10 +2364,223 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	return CMD_SUCCESS;
 }
 
+static void isis_print_frr_summary_line(struct ttable *tt,
+					const char *protection,
+					uint32_t counters[SPF_PREFIX_PRIO_MAX])
+{
+	uint32_t critical, high, medium, low, total;
+
+	critical = counters[SPF_PREFIX_PRIO_CRITICAL];
+	high = counters[SPF_PREFIX_PRIO_HIGH];
+	medium = counters[SPF_PREFIX_PRIO_MEDIUM];
+	low = counters[SPF_PREFIX_PRIO_LOW];
+	total = critical + high + medium + low;
+
+	ttable_add_row(tt, "%s|%u|%u|%u|%u|%u", protection, critical, high,
+		       medium, low, total);
+}
+
+static void
+isis_print_frr_summary_line_coverage(struct ttable *tt, const char *protection,
+				     double counters[SPF_PREFIX_PRIO_MAX],
+				     double total)
+{
+	double critical, high, medium, low;
+
+	critical = counters[SPF_PREFIX_PRIO_CRITICAL] * 100;
+	high = counters[SPF_PREFIX_PRIO_HIGH] * 100;
+	medium = counters[SPF_PREFIX_PRIO_MEDIUM] * 100;
+	low = counters[SPF_PREFIX_PRIO_LOW] * 100;
+	total *= 100;
+
+	ttable_add_row(tt, "%s|%.2f%%|%.2f%%|%.2f%%|%.2f%%|%.2f%%", protection,
+		       critical, high, medium, low, total);
+}
+
+static void isis_print_frr_summary(struct vty *vty,
+				   struct isis_spftree *spftree)
+{
+	struct ttable *tt;
+	char *table;
+	const char *tree_id_text = NULL;
+	uint32_t protectd[SPF_PREFIX_PRIO_MAX] = {0};
+	uint32_t unprotected[SPF_PREFIX_PRIO_MAX] = {0};
+	double coverage[SPF_PREFIX_PRIO_MAX] = {0};
+	uint32_t protected_total = 0, grand_total = 0;
+	double coverage_total;
+
+	if (!spftree)
+		return;
+
+	switch (spftree->tree_id) {
+	case SPFTREE_IPV4:
+		tree_id_text = "IPv4";
+		break;
+	case SPFTREE_IPV6:
+		tree_id_text = "IPv6";
+		break;
+	case SPFTREE_DSTSRC:
+		tree_id_text = "IPv6 (dst-src routing)";
+		break;
+	case SPFTREE_COUNT:
+		assert(!"isis_print_frr_summary shouldn't be called with SPFTREE_COUNT as type");
+		return;
+	}
+
+	vty_out(vty, " IS-IS %s %s Fast ReRoute summary:\n\n",
+		circuit_t2string(spftree->level), tree_id_text);
+
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(
+		tt,
+		"Protection \\ Priority|Critical|High    |Medium  |Low     |Total");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	/* Compute unprotected and coverage totals. */
+	for (int priority = SPF_PREFIX_PRIO_CRITICAL;
+	     priority < SPF_PREFIX_PRIO_MAX; priority++) {
+		uint32_t *lfa = spftree->lfa.protection_counters.lfa;
+		uint32_t *rlfa = spftree->lfa.protection_counters.rlfa;
+		uint32_t *tilfa = spftree->lfa.protection_counters.tilfa;
+		uint32_t *ecmp = spftree->lfa.protection_counters.ecmp;
+		uint32_t *total = spftree->lfa.protection_counters.total;
+
+		protectd[priority] = lfa[priority] + rlfa[priority]
+				     + tilfa[priority] + ecmp[priority];
+		/* Safeguard to protect against possible inconsistencies. */
+		if (protectd[priority] > total[priority])
+			protectd[priority] = total[priority];
+		unprotected[priority] = total[priority] - protectd[priority];
+		protected_total += protectd[priority];
+		grand_total += total[priority];
+
+		if (!total[priority])
+			coverage[priority] = 0;
+		else
+			coverage[priority] =
+				protectd[priority] / (double)total[priority];
+	}
+
+	if (!grand_total)
+		coverage_total = 0;
+	else
+		coverage_total = protected_total / (double)grand_total;
+
+	/* Add rows. */
+	isis_print_frr_summary_line(tt, "Classic LFA",
+				    spftree->lfa.protection_counters.lfa);
+	isis_print_frr_summary_line(tt, "Remote LFA",
+				    spftree->lfa.protection_counters.rlfa);
+	isis_print_frr_summary_line(tt, "Topology Independent LFA",
+				    spftree->lfa.protection_counters.tilfa);
+	isis_print_frr_summary_line(tt, "ECMP",
+				    spftree->lfa.protection_counters.ecmp);
+	isis_print_frr_summary_line(tt, "Unprotected", unprotected);
+	isis_print_frr_summary_line_coverage(tt, "Protection coverage",
+					     coverage, coverage_total);
+
+	/* Dump the generated table. */
+	table = ttable_dump(tt, "\n");
+	vty_out(vty, "%s\n", table);
+	XFREE(MTYPE_TMP, table);
+	ttable_del(tt);
+}
+
+static void show_isis_frr_summary_common(struct vty *vty, int levels,
+					 struct isis *isis)
+{
+	struct listnode *node;
+	struct isis_area *area;
+
+	if (!isis->area_list || isis->area_list->count == 0)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		vty_out(vty, "Area %s:\n",
+			area->area_tag ? area->area_tag : "null");
+
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+			if ((level & levels) == 0)
+				continue;
+
+			if (area->ip_circuits > 0) {
+				isis_print_frr_summary(
+					vty,
+					area->spftree[SPFTREE_IPV4][level - 1]);
+			}
+			if (area->ipv6_circuits > 0) {
+				isis_print_frr_summary(
+					vty,
+					area->spftree[SPFTREE_IPV6][level - 1]);
+			}
+			if (isis_area_ipv6_dstsrc_enabled(area)) {
+				isis_print_frr_summary(
+					vty, area->spftree[SPFTREE_DSTSRC]
+							  [level - 1]);
+			}
+		}
+	}
+}
+
+DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
+      "show " PROTO_NAME
+      " [vrf <NAME|all>] fast-reroute summary"
+#ifndef FABRICD
+      " [<level-1|level-2>]"
+#endif
+      ,
+      SHOW_STR PROTO_HELP VRF_FULL_CMD_HELP_STR
+      "IS-IS FRR information\n"
+      "FRR summary\n"
+#ifndef FABRICD
+      "level-1 routes\n"
+      "level-2 routes\n"
+#endif
+)
+{
+	int levels;
+	struct isis *isis;
+	struct listnode *node;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	int idx = 0;
+
+	if (argv_find(argv, argc, "level-1", &idx))
+		levels = ISIS_LEVEL1;
+	else if (argv_find(argv, argc, "level-2", &idx))
+		levels = ISIS_LEVEL2;
+	else
+		levels = ISIS_LEVEL1 | ISIS_LEVEL2;
+
+	if (!im) {
+		vty_out(vty, "IS-IS Routing Process not enabled\n");
+		return CMD_SUCCESS;
+	}
+	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
+
+	if (vrf_name) {
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+				show_isis_frr_summary_common(vty, levels, isis);
+			return CMD_SUCCESS;
+		}
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis != NULL)
+			show_isis_frr_summary_common(vty, levels, isis);
+	}
+
+	return CMD_SUCCESS;
+}
+
 void isis_spf_init(void)
 {
 	install_element(VIEW_NODE, &show_isis_topology_cmd);
 	install_element(VIEW_NODE, &show_isis_route_cmd);
+	install_element(VIEW_NODE, &show_isis_frr_summary_cmd);
 
 	/* Register hook(s). */
 	hook_register(isis_adj_state_change_hook, spf_adj_state_change);
