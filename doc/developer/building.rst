@@ -15,6 +15,7 @@ Building FRR
    building-frr-for-debian8
    building-frr-for-debian9
    building-frr-for-fedora
+   building-frr-for-opensuse
    building-frr-for-freebsd10
    building-frr-for-freebsd11
    building-frr-for-freebsd9
