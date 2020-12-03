@@ -393,6 +393,29 @@ void bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
 			  true /* is config */);
 }
 
+void bm_wait_for_fib_set(bool set)
+{
+	bool send_msg = false;
+
+	if (bm->wait_for_fib == set)
+		return;
+
+	bm->wait_for_fib = set;
+	if (set) {
+		if (bgp_suppress_fib_count == 0)
+			send_msg = true;
+		bgp_suppress_fib_count++;
+	} else {
+		bgp_suppress_fib_count--;
+		if (bgp_suppress_fib_count == 0)
+			send_msg = true;
+	}
+
+	if (send_msg && zclient)
+		zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST,
+					zclient, set);
+}
+
 /* Set the suppress fib pending for the bgp configuration */
 void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 {
@@ -7419,6 +7442,7 @@ void bgp_master_init(struct thread_master *master, const int buffer_size)
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
 	bm->send_extra_data_to_zebra = true;
+	bm->wait_for_fib = false;
 
 	bgp_mac_init();
 	/* init the rd id space.

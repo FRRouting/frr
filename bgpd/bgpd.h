@@ -159,6 +159,9 @@ struct bgp_master {
 	/* How big should we set the socket buffer size */
 	uint32_t socket_buffer;
 
+	/* Should we do wait for fib install globally? */
+	bool wait_for_fib;
+
 	/* EVPN multihoming */
 	struct bgp_evpn_mh_info *mh_info;
 
@@ -719,8 +722,9 @@ struct afi_safi_info {
 #define BGP_SELECT_DEFER_DISABLE(bgp)                                          \
 	(CHECK_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE))
 
-#define BGP_SUPPRESS_FIB_ENABLED(bgp)					       \
-	(CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING))
+#define BGP_SUPPRESS_FIB_ENABLED(bgp)                                          \
+	(CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING)                 \
+	 || bm->wait_for_fib)
 
 /* BGP peer-group support. */
 struct peer_group {
@@ -1879,6 +1883,7 @@ extern int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf,
 extern void bgp_router_id_zebra_bump(vrf_id_t, const struct prefix *);
 extern void bgp_router_id_static_set(struct bgp *, struct in_addr);
 
+extern void bm_wait_for_fib_set(bool set);
 extern void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set);
 extern int bgp_cluster_id_set(struct bgp *, struct in_addr *);
 extern int bgp_cluster_id_unset(struct bgp *);
