@@ -11,6 +11,7 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-debian8.rst \
 	doc/developer/building-frr-for-debian9.rst \
 	doc/developer/building-frr-for-fedora.rst \
+	doc/developer/building-frr-for-opensuse.rst \
 	doc/developer/building-frr-for-freebsd10.rst \
 	doc/developer/building-frr-for-freebsd11.rst \
 	doc/developer/building-frr-for-freebsd9.rst \
