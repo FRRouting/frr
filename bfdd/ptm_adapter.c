@@ -703,7 +703,7 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 			continue;
 
 		bfd_session_disable(bs);
-
+		bs->ifp = NULL;
 	}
 }
 
@@ -752,6 +752,7 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf)
 			continue;
 
 		bfd_session_disable(bs);
+		bs->vrf = NULL;
 	}
 }
 
