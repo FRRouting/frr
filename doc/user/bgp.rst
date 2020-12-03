@@ -3523,6 +3523,11 @@ status in FIB:
 .. index:: bgp suppress-fib-pending
 .. clicmd:: [no] bgp suppress-fib-pending
 
+   This command is applicable at the global level and at an individual
+   bgp level.  If applied at the global level all bgp instances will
+   wait for fib installation before announcing routes and there is no
+   way to turn it off for a particular bgp vrf.
+
 .. _routing-policy:
 
 Routing Policy
