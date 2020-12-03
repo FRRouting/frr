@@ -2502,6 +2502,20 @@ DEFPY (evpn_mh_startup_delay,
 			no ? true : false);
 }
 
+DEFPY(evpn_mh_redirect_off, evpn_mh_redirect_off_cmd,
+      "[no$no] evpn mh redirect-off",
+      NO_STR
+      "EVPN\n"
+      "Multihoming\n"
+      "ES bond redirect for fast-failover off\n")
+{
+	bool redirect_off;
+
+	redirect_off = no ? false : true;
+
+	return zebra_evpn_mh_redirect_off(vty, redirect_off);
+}
+
 DEFUN (default_vrf_vni_mapping,
        default_vrf_vni_mapping_cmd,
        "vni " CMD_VNI_RANGE "[prefix-routes-only]",
@@ -2681,6 +2695,21 @@ DEFUN (show_evpn_global,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_l2_nh,
+      show_evpn_l2_nh_cmd,
+      "show evpn l2-nh [json$json]",
+      SHOW_STR
+      "EVPN\n"
+      "Layer2 nexthops\n"
+      JSON_STR)
+{
+	bool uj = !!json;
+
+	zebra_evpn_l2_nh_show(vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_evpn_es,
       show_evpn_es_cmd,
       "show evpn es [NAME$esi_str|detail$detail] [json$json]",
@@ -2688,8 +2717,8 @@ DEFPY(show_evpn_es,
       "EVPN\n"
       "Ethernet Segment\n"
       "ES ID\n"
-      JSON_STR
-      "Detailed information\n")
+      "Detailed information\n"
+      JSON_STR)
 {
 	esi_t esi;
 	bool uj = !!json;
@@ -4028,6 +4057,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_detail_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_l2_nh_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_evi_cmd);
 	install_element(VIEW_NODE, &show_evpn_access_vlan_cmd);
@@ -4060,6 +4090,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &evpn_mh_mac_holdtime_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_neigh_holdtime_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_startup_delay_cmd);
+	install_element(CONFIG_NODE, &evpn_mh_redirect_off_cmd);
 	install_element(CONFIG_NODE, &default_vrf_vni_mapping_cmd);
 	install_element(CONFIG_NODE, &no_default_vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &vrf_vni_mapping_cmd);

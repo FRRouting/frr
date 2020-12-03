@@ -2761,10 +2761,6 @@ static ssize_t netlink_neigh_update_msg_encode(
 			return 0;
 	}
 
-	if (nhg_id) {
-		if (!nl_attr_put32(&req->n, datalen, NDA_NH_ID, nhg_id))
-			return 0;
-	}
 	if (nfy) {
 		if (!nl_attr_put(&req->n, datalen, NDA_NOTIFY,
 				&nfy_flags, sizeof(nfy_flags)))
@@ -2777,9 +2773,16 @@ static ssize_t netlink_neigh_update_msg_encode(
 			return 0;
 	}
 
-	ipa_len = IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
-	if (!nl_attr_put(&req->n, datalen, NDA_DST, &ip->ip.addr, ipa_len))
-		return 0;
+	if (nhg_id) {
+		if (!nl_attr_put32(&req->n, datalen, NDA_NH_ID, nhg_id))
+			return 0;
+	} else {
+		ipa_len =
+			IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
+		if (!nl_attr_put(&req->n, datalen, NDA_DST, &ip->ip.addr,
+				 ipa_len))
+			return 0;
+	}
 
 	if (op == DPLANE_OP_MAC_INSTALL || op == DPLANE_OP_MAC_DELETE) {
 		vlanid_t vid = dplane_ctx_mac_get_vlan(ctx);
@@ -2953,8 +2956,9 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		}
 
 		if (IS_ZEBRA_IF_VXLAN(ifp))
-			return zebra_vxlan_check_del_local_mac(ifp, br_if, &mac,
-							       vid);
+			return zebra_vxlan_dp_network_mac_add(
+				ifp, br_if, &mac, vid, nhg_id, sticky,
+				!!(ndm->ndm_flags & NTF_EXT_LEARNED));
 
 		return zebra_vxlan_local_mac_add_update(ifp, br_if, &mac, vid,
 				sticky, local_inactive, dp_static);
@@ -2982,8 +2986,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	}
 
 	if (IS_ZEBRA_IF_VXLAN(ifp))
-		return zebra_vxlan_check_readd_remote_mac(ifp, br_if, &mac,
-							  vid);
+		return zebra_vxlan_dp_network_mac_del(ifp, br_if, &mac, vid);
 
 	return zebra_vxlan_local_mac_del(ifp, br_if, &mac, vid);
 }
