@@ -39,7 +39,7 @@ extern "C" {
 
 #define LDP_IGP_SYNC_HOLDDOWN_DEFAULT 0
 
-#define LDP_IGP_SYNC_HELLO_TIMEOUT 1
+#define LDP_IGP_SYNC_HELLO_TIMEOUT 5
 
 /* LDP-IGP Sync structures */
 struct ldp_sync_info_cmd {
