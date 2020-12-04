@@ -1267,7 +1267,7 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 	lsp = lsp_search(spftree->lspdb, lspid);
 	if (lsp == NULL || lsp->hdr.rem_lifetime == 0) {
 		zlog_warn("ISIS-SPF: No LSP found from root to L%d %s",
-			  spftree->level, rawlspid_print(id));
+			  spftree->level, rawlspid_print(lspid));
 		return;
 	}
 
