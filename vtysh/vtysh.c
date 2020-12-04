@@ -2676,6 +2676,22 @@ DEFUNSH(VTYSH_ALL, debug_nb,
 	return CMD_SUCCESS;
 }
 
+DEFUN (vtysh_show_history,
+       vtysh_show_history_cmd,
+       "show history",
+       SHOW_STR
+       "The list of commands stored in history\n")
+{
+	HIST_ENTRY **hlist = history_list();
+	int i = 0;
+
+	while (hlist[i]) {
+		vty_out(vty, "%s\n", hlist[i]->line);
+		i++;
+	}
+	return CMD_SUCCESS;
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
@@ -4270,6 +4286,7 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &debug_nb_cmd);
 
 	/* misc lib show commands */
+	install_element(VIEW_NODE, &vtysh_show_history_cmd);
 	install_element(VIEW_NODE, &vtysh_show_memory_cmd);
 	install_element(VIEW_NODE, &vtysh_show_modules_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_cmd);
