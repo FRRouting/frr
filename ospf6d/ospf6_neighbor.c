@@ -1075,9 +1075,10 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa))
 		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi))
-			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, k, on))
-				(*showfunc)(vty, on, json, uj);
-
+			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, k, on)) {
+				if (router_id == on->router_id)
+					(*showfunc)(vty, on, json, uj);
+			}
 
 	if (uj) {
 		vty_out(vty, "%s\n",
