@@ -105,6 +105,9 @@ extern int zsend_sr_policy_notify_status(uint32_t color,
 					 struct ipaddr *endpoint, char *name,
 					 int status);
 
+extern int zsend_client_close_notify(
+	struct zserv *client, struct zserv *closed_client);
+
 #ifdef __cplusplus
 }
 #endif

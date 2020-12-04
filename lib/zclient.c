@@ -3528,6 +3528,23 @@ stream_failure:
 	return -1;
 }
 
+/* Utility to decode client close notify info */
+int zapi_client_close_notify_decode(struct stream *s,
+                   struct zapi_client_close_info *info)
+{
+	memset(info, 0, sizeof(*info));
+
+	STREAM_GETC(s, info->proto);
+	STREAM_GETW(s, info->instance);
+	STREAM_GETL(s, info->session_id);
+
+	return 0;
+
+stream_failure:
+
+	return -1;
+}
+
 /* Zebra client message read function. */
 static int zclient_read(struct thread *thread)
 {
@@ -3868,6 +3885,12 @@ static int zclient_read(struct thread *thread)
 		if (zclient->sr_policy_notify_status)
 			(*zclient->sr_policy_notify_status)(command, zclient,
 							    length, vrf_id);
+		break;
+	case ZEBRA_CLIENT_CLOSE_NOTIFY:
+		if (zclient->zebra_client_close_notify)
+			(*zclient->zebra_client_close_notify)(command,
+						zclient, length, vrf_id);
+		break;
 	default:
 		break;
 	}

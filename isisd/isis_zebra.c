@@ -670,7 +670,6 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	struct zapi_opaque_msg info;
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
-	struct ldp_igp_sync_hello hello;
 	int ret = 0;
 
 	s = zclient->ibuf;
@@ -686,15 +685,25 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		STREAM_GET(&announce, s, sizeof(announce));
 		ret = isis_ldp_sync_announce_update(announce);
 		break;
-	case LDP_IGP_SYNC_HELLO_UPDATE:
-		STREAM_GET(&hello, s, sizeof(hello));
-		ret = isis_ldp_sync_hello_update(hello);
-		break;
 	default:
 		break;
 	}
 
 stream_failure:
+
+	return ret;
+}
+
+static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
+{
+	int ret = 0;
+
+	struct zapi_client_close_info info;
+
+	if (zapi_client_close_notify_decode(zclient->ibuf, &info) < 0)
+		return -1;
+
+	isis_ldp_sync_handle_client_close(&info);
 
 	return ret;
 }
@@ -727,6 +736,8 @@ void isis_zebra_init(struct thread_master *master, int instance)
 	zclient_sync->privs = &isisd_privs;
 
 	zclient->opaque_msg_handler = isis_opaque_msg_handler;
+
+	zclient->zebra_client_close_notify = isis_zebra_client_close_notify;
 }
 
 void isis_zebra_stop(void)

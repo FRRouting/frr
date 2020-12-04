@@ -1300,6 +1300,21 @@ DEFUN (show_zebra_client_summary,
 	return CMD_SUCCESS;
 }
 
+static int zserv_client_close_cb(struct zserv *closed_client)
+{
+	struct listnode *node, *nnode;
+	struct zserv *client = NULL;
+
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		if (client->proto == closed_client->proto)
+			continue;
+
+		zsend_client_close_notify(client, closed_client);
+	}
+
+	return 0;
+}
+
 void zserv_init(void)
 {
 	/* Client list init. */
@@ -1312,4 +1327,6 @@ void zserv_init(void)
 
 	install_element(ENABLE_NODE, &show_zebra_client_cmd);
 	install_element(ENABLE_NODE, &show_zebra_client_summary_cmd);
+
+	hook_register(zserv_client_close, zserv_client_close_cb);
 }

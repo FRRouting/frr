@@ -40,7 +40,6 @@ extern void ospf_ldp_sync_if_remove(struct interface *ifp, bool remove);
 extern void ospf_ldp_sync_if_down(struct interface *ifp);
 extern void ospf_ldp_sync_if_complete(struct interface *ifp);
 extern void ospf_ldp_sync_holddown_timer_add(struct interface *ifp);
-extern void ospf_ldp_sync_hello_timer_add(struct ospf *ospf);
 extern void ospf_ldp_sync_ldp_fail(struct interface *ifp);
 extern void ospf_ldp_sync_show_info(struct vty *vty, struct ospf *ospf,
 				    json_object *json_vrf, bool use_json);
@@ -49,7 +48,8 @@ extern void ospf_ldp_sync_if_write_config(struct vty *vty,
 					  struct ospf_if_params *params);
 extern int ospf_ldp_sync_state_update(struct ldp_igp_sync_if_state state);
 extern int ospf_ldp_sync_announce_update(struct ldp_igp_sync_announce announce);
-extern int ospf_ldp_sync_hello_update(struct ldp_igp_sync_hello hello);
+extern void ospf_ldp_sync_handle_client_close(
+	struct zapi_client_close_info *info);
 extern void ospf_ldp_sync_state_req_msg(struct interface *ifp);
 extern void ospf_ldp_sync_init(void);
 extern void ospf_ldp_sync_gbl_exit(struct ospf *ospf, bool remove);

@@ -220,6 +220,7 @@ typedef enum {
 	ZEBRA_OPAQUE_UNREGISTER,
 	ZEBRA_NEIGH_DISCOVER,
 	ZEBRA_ROUTE_NOTIFY_REQUEST,
+	ZEBRA_CLIENT_CLOSE_NOTIFY,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -377,6 +378,7 @@ struct zclient {
 	int (*opaque_register_handler)(ZAPI_CALLBACK_ARGS);
 	int (*opaque_unregister_handler)(ZAPI_CALLBACK_ARGS);
 	int (*sr_policy_notify_status)(ZAPI_CALLBACK_ARGS);
+	int (*zebra_client_close_notify)(ZAPI_CALLBACK_ARGS);
 };
 
 /* Zebra API message flag. */
@@ -1083,8 +1085,6 @@ enum zapi_opaque_registry {
 	LDP_IGP_SYNC_IF_STATE_UPDATE = 4,
 	/* Announce that LDP is up  */
 	LDP_IGP_SYNC_ANNOUNCE_UPDATE = 5,
-	/* Heartbeat indicating that LDP is running */
-	LDP_IGP_SYNC_HELLO_UPDATE = 6,
 };
 
 /* Send the hello message.
@@ -1096,6 +1096,17 @@ extern enum zclient_send_status
 zclient_send_neigh_discovery_req(struct zclient *zclient,
 				 const struct interface *ifp,
 				 const struct prefix *p);
+
+struct zapi_client_close_info {
+	/* Client session tuple */
+	uint8_t proto;
+	uint16_t instance;
+	uint32_t session_id;
+};
+
+/* Decode incoming client close notify */
+extern int zapi_client_close_notify_decode(struct stream *s,
+	struct zapi_client_close_info *info);
 
 #ifdef __cplusplus
 }
