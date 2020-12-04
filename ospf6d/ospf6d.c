@@ -44,6 +44,7 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
+#include "lib/json.h"
 
 struct route_node *route_prev(struct route_node *node)
 {
@@ -154,53 +155,249 @@ static uint16_t parse_type_spec(int idx_lsa, int argc, struct cmd_token **argv)
 	return type;
 }
 
+void ospf6_lsdb_show(struct vty *vty, enum ospf_lsdb_show_level level,
+		     uint16_t *type, uint32_t *id, uint32_t *adv_router,
+		     struct ospf6_lsdb *lsdb)
+{
+	struct ospf6_lsa *lsa;
+	const struct route_node *end = NULL;
+	void (*showfunc)(struct vty *, struct ospf6_lsa *) = NULL;
+
+	switch (level) {
+	case OSPF6_LSDB_SHOW_LEVEL_DETAIL:
+		showfunc = ospf6_lsa_show;
+		break;
+	case OSPF6_LSDB_SHOW_LEVEL_INTERNAL:
+		showfunc = ospf6_lsa_show_internal;
+		break;
+	case OSPF6_LSDB_SHOW_LEVEL_DUMP:
+		showfunc = ospf6_lsa_show_dump;
+		break;
+	case OSPF6_LSDB_SHOW_LEVEL_NORMAL:
+	default:
+		showfunc = ospf6_lsa_show_summary;
+	}
+
+	if (type && id && adv_router) {
+		lsa = ospf6_lsdb_lookup(*type, *id, *adv_router, lsdb);
+		if (lsa) {
+			if (level == OSPF6_LSDB_SHOW_LEVEL_NORMAL)
+				ospf6_lsa_show(vty, lsa);
+			else
+				(*showfunc)(vty, lsa);
+		}
+		return;
+	}
+
+	if (level == OSPF6_LSDB_SHOW_LEVEL_NORMAL)
+		ospf6_lsa_show_summary_header(vty);
+
+	end = ospf6_lsdb_head(lsdb, !!type + !!(type && adv_router),
+			      type ? *type : 0, adv_router ? *adv_router : 0,
+			      &lsa);
+	while (lsa) {
+		if ((!adv_router || lsa->header->adv_router == *adv_router)
+		    && (!id || lsa->header->id == *id))
+			(*showfunc)(vty, lsa);
+
+		lsa = ospf6_lsdb_next(end, lsa);
+	}
+}
+
+static void ospf6_lsdb_show_wrapper(struct vty *vty,
+				    enum ospf_lsdb_show_level level,
+				    uint16_t *type, uint32_t *id,
+				    uint32_t *adv_router, bool uj,
+				    struct ospf6 *ospf6)
+{
+	struct listnode *i, *j;
+	struct ospf6 *o = ospf6;
+	struct ospf6_area *oa;
+	struct ospf6_interface *oi;
+	json_object *json = NULL;
+	json_object *json_array = NULL;
+	json_object *json_obj = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_array = json_object_new_array();
+	}
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa)) {
+		if (uj) {
+			json_obj = json_object_new_object();
+			json_object_string_add(json_obj, "areaId", oa->name);
+		} else
+			vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
+		ospf6_lsdb_show(vty, level, type, id, adv_router, oa->lsdb);
+		if (uj)
+			json_object_array_add(json_array, json_obj);
+	}
+	if (uj)
+		json_object_object_add(json, "areaScopedLinkStateDb",
+				       json_array);
+
+	if (uj)
+		json_array = json_object_new_array();
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa)) {
+		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
+			if (uj) {
+				json_obj = json_object_new_object();
+				json_object_string_add(json_obj, "areaId",
+						       oa->name);
+				json_object_string_add(json_obj, "interface",
+						       oi->interface->name);
+			} else
+				vty_out(vty, IF_LSDB_TITLE_FORMAT,
+					oi->interface->name, oa->name);
+			ospf6_lsdb_show(vty, level, type, id, adv_router,
+					oi->lsdb);
+			if (uj)
+				json_object_array_add(json_array, json_obj);
+		}
+	}
+	if (uj)
+		json_object_object_add(json, "interfaceScopedLinkStateDb",
+				       json_array);
+	if (uj) {
+		json_array = json_object_new_array();
+		json_obj = json_object_new_object();
+	} else
+		vty_out(vty, AS_LSDB_TITLE_FORMAT);
+
+	ospf6_lsdb_show(vty, level, type, id, adv_router, o->lsdb);
+
+	if (uj) {
+		json_object_array_add(json_array, json_obj);
+		json_object_object_add(json, "asScopedLinkStateDb", json_array);
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else
+		vty_out(vty, "\n");
+}
+
+static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
+					 enum ospf_lsdb_show_level level,
+					 uint16_t *type, uint32_t *id,
+					 uint32_t *adv_router, bool uj,
+					 struct ospf6 *ospf6)
+{
+	struct listnode *i, *j;
+	struct ospf6 *o = ospf6;
+	struct ospf6_area *oa;
+	struct ospf6_interface *oi;
+	json_object *json = NULL;
+	json_object *json_array = NULL;
+	json_object *json_obj = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_array = json_object_new_array();
+	}
+
+	switch (OSPF6_LSA_SCOPE(*type)) {
+	case OSPF6_SCOPE_AREA:
+		for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa)) {
+			if (uj) {
+				json_obj = json_object_new_object();
+				json_object_string_add(json_obj, "areaId",
+						       oa->name);
+			} else
+				vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
+
+			ospf6_lsdb_show(vty, level, type, id, adv_router,
+					oa->lsdb);
+			if (uj)
+				json_object_array_add(json_array, json_obj);
+		}
+		if (uj)
+			json_object_object_add(json, "areaScopedLinkStateDb",
+					       json_array);
+		break;
+
+	case OSPF6_SCOPE_LINKLOCAL:
+		for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa)) {
+			for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
+				if (uj) {
+					json_obj = json_object_new_object();
+					json_object_string_add(
+						json_obj, "areaId", oa->name);
+					json_object_string_add(
+						json_obj, "interface",
+						oi->interface->name);
+				} else
+					vty_out(vty, IF_LSDB_TITLE_FORMAT,
+						oi->interface->name, oa->name);
+
+				ospf6_lsdb_show(vty, level, type, id,
+						adv_router, oi->lsdb);
+
+				if (uj)
+					json_object_array_add(json_array,
+							      json_obj);
+			}
+		}
+		if (uj)
+			json_object_object_add(
+				json, "interfaceScopedLinkStateDb", json_array);
+		break;
+
+	case OSPF6_SCOPE_AS:
+		if (uj)
+			json_obj = json_object_new_object();
+		else
+			vty_out(vty, AS_LSDB_TITLE_FORMAT);
+
+		ospf6_lsdb_show(vty, level, type, id, adv_router, o->lsdb);
+		if (uj) {
+			json_object_array_add(json_array, json_obj);
+			json_object_object_add(json, "asScopedLinkStateDb",
+					       json_array);
+		}
+		break;
+
+	default:
+		assert(0);
+		break;
+	}
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else
+		vty_out(vty, "\n");
+}
+
 DEFUN (show_ipv6_ospf6_database,
        show_ipv6_ospf6_database_cmd,
-       "show ipv6 ospf6 database [<detail|dump|internal>]",
+       "show ipv6 ospf6 database [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
        "Display Link state database\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
-       "Display LSA's internal information\n")
+       "Display LSA's internal information\n"
+        JSON_STR)
 {
 	int idx_level = 4;
 	int level;
-	struct listnode *i, *j;
+	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
-
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
 
 	level = parse_show_level(idx_level, argc, argv);
-
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-		ospf6_lsdb_show(vty, level, NULL, NULL, NULL, oa->lsdb);
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-			vty_out(vty, IF_LSDB_TITLE_FORMAT, oi->interface->name,
-				oa->name);
-			ospf6_lsdb_show(vty, level, NULL, NULL, NULL, oi->lsdb);
-		}
-	}
-
-	vty_out(vty, AS_LSDB_TITLE_FORMAT);
-	ospf6_lsdb_show(vty, level, NULL, NULL, NULL, ospf6->lsdb);
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_show_wrapper(vty, level, NULL, NULL, NULL, uj, ospf6);
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ipv6_ospf6_database_type,
-       show_ipv6_ospf6_database_type_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [<detail|dump|internal>]",
+DEFUN (show_ipv6_ospf6_database_type, show_ipv6_ospf6_database_type_cmd,
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -217,16 +414,14 @@ DEFUN (show_ipv6_ospf6_database_type,
        "Display details of LSAs\n"
        "Dump LSAs\n"
        "Display LSA's internal information\n"
-      )
+       JSON_STR)
 {
 	int idx_lsa = 4;
 	int idx_level = 5;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint16_t type = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
@@ -235,43 +430,13 @@ DEFUN (show_ipv6_ospf6_database_type,
 	type = parse_type_spec(idx_lsa, argc, argv);
 	level = parse_show_level(idx_level, argc, argv);
 
-	switch (OSPF6_LSA_SCOPE(type)) {
-	case OSPF6_SCOPE_AREA:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-			ospf6_lsdb_show(vty, level, &type, NULL, NULL,
-					oa->lsdb);
-		}
-		break;
-
-	case OSPF6_SCOPE_LINKLOCAL:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-				vty_out(vty, IF_LSDB_TITLE_FORMAT,
-					oi->interface->name, oa->name);
-				ospf6_lsdb_show(vty, level, &type, NULL, NULL,
-						oi->lsdb);
-			}
-		}
-		break;
-
-	case OSPF6_SCOPE_AS:
-		vty_out(vty, AS_LSDB_TITLE_FORMAT);
-		ospf6_lsdb_show(vty, level, &type, NULL, NULL, ospf6->lsdb);
-		break;
-
-	default:
-		assert(0);
-		break;
-	}
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_type_show_wrapper(vty, level, &type, NULL, NULL, uj, ospf6);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_database_id,
        show_ipv6_ospf6_database_id_cmd,
-       "show ipv6 ospf6 database <*|linkstate-id> A.B.C.D [<detail|dump|internal>]",
+       "show ipv6 ospf6 database <*|linkstate-id> A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -281,16 +446,15 @@ DEFUN (show_ipv6_ospf6_database_id,
        "Specify Link state ID as IPv4 address notation\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
-       "Display LSA's internal information\n")
+       "Display LSA's internal information\n"
+       JSON_STR)
 {
 	int idx_ipv4 = 5;
 	int idx_level = 6;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint32_t id = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
@@ -300,30 +464,14 @@ DEFUN (show_ipv6_ospf6_database_id,
 		inet_pton(AF_INET, argv[idx_ipv4]->arg, &id);
 
 	level = parse_show_level(idx_level, argc, argv);
+	ospf6_lsdb_show_wrapper(vty, level, NULL, &id, NULL, uj, ospf6);
 
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-		ospf6_lsdb_show(vty, level, NULL, &id, NULL, oa->lsdb);
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-			vty_out(vty, IF_LSDB_TITLE_FORMAT, oi->interface->name,
-				oa->name);
-			ospf6_lsdb_show(vty, level, NULL, &id, NULL, oi->lsdb);
-		}
-	}
-
-	vty_out(vty, AS_LSDB_TITLE_FORMAT);
-	ospf6_lsdb_show(vty, level, NULL, &id, NULL, ospf6->lsdb);
-
-	vty_out(vty, "\n");
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_database_router,
        show_ipv6_ospf6_database_router_cmd,
-       "show ipv6 ospf6 database <*|adv-router> * A.B.C.D <detail|dump|internal>",
+       "show ipv6 ospf6 database <*|adv-router> * A.B.C.D <detail|dump|internal> [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -334,16 +482,15 @@ DEFUN (show_ipv6_ospf6_database_router,
        "Specify Advertising Router as IPv4 address notation\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
-       "Display LSA's internal information\n")
+       "Display LSA's internal information\n"
+       JSON_STR)
 {
 	int idx_ipv4 = 6;
 	int idx_level = 7;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint32_t adv_router = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
@@ -351,24 +498,7 @@ DEFUN (show_ipv6_ospf6_database_router,
 	inet_pton(AF_INET, argv[idx_ipv4]->arg, &adv_router);
 	level = parse_show_level(idx_level, argc, argv);
 
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-		ospf6_lsdb_show(vty, level, NULL, NULL, &adv_router, oa->lsdb);
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-			vty_out(vty, IF_LSDB_TITLE_FORMAT, oi->interface->name,
-				oa->name);
-			ospf6_lsdb_show(vty, level, NULL, NULL, &adv_router,
-					oi->lsdb);
-		}
-	}
-
-	vty_out(vty, AS_LSDB_TITLE_FORMAT);
-	ospf6_lsdb_show(vty, level, NULL, NULL, &adv_router, ospf6->lsdb);
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_show_wrapper(vty, level, NULL, NULL, &adv_router, uj, ospf6);
 	return CMD_SUCCESS;
 }
 
@@ -420,7 +550,7 @@ DEFUN_HIDDEN (show_ipv6_ospf6_database_aggr_router,
 
 DEFUN (show_ipv6_ospf6_database_type_id,
        show_ipv6_ospf6_database_type_id_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> linkstate-id A.B.C.D [<detail|dump|internal>]",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> linkstate-id A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -439,18 +569,16 @@ DEFUN (show_ipv6_ospf6_database_type_id,
        "Display details of LSAs\n"
        "Dump LSAs\n"
        "Display LSA's internal information\n"
-      )
+       JSON_STR)
 {
 	int idx_lsa = 4;
 	int idx_ipv4 = 6;
 	int idx_level = 7;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint16_t type = 0;
 	uint32_t id = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
@@ -460,42 +588,13 @@ DEFUN (show_ipv6_ospf6_database_type_id,
 	inet_pton(AF_INET, argv[idx_ipv4]->arg, &id);
 	level = parse_show_level(idx_level, argc, argv);
 
-	switch (OSPF6_LSA_SCOPE(type)) {
-	case OSPF6_SCOPE_AREA:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-			ospf6_lsdb_show(vty, level, &type, &id, NULL, oa->lsdb);
-		}
-		break;
-
-	case OSPF6_SCOPE_LINKLOCAL:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-				vty_out(vty, IF_LSDB_TITLE_FORMAT,
-					oi->interface->name, oa->name);
-				ospf6_lsdb_show(vty, level, &type, &id, NULL,
-						oi->lsdb);
-			}
-		}
-		break;
-
-	case OSPF6_SCOPE_AS:
-		vty_out(vty, AS_LSDB_TITLE_FORMAT);
-		ospf6_lsdb_show(vty, level, &type, &id, NULL, ospf6->lsdb);
-		break;
-
-	default:
-		assert(0);
-		break;
-	}
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_type_show_wrapper(vty, level, &type, &id, NULL, uj, ospf6);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_database_type_router,
        show_ipv6_ospf6_database_type_router_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> <*|adv-router> A.B.C.D [<detail|dump|internal>]",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> <*|adv-router> A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -515,18 +614,16 @@ DEFUN (show_ipv6_ospf6_database_type_router,
        "Display details of LSAs\n"
        "Dump LSAs\n"
        "Display LSA's internal information\n"
-      )
+       JSON_STR)
 {
 	int idx_lsa = 4;
 	int idx_ipv4 = 6;
 	int idx_level = 7;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint16_t type = 0;
 	uint32_t adv_router = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
@@ -535,45 +632,15 @@ DEFUN (show_ipv6_ospf6_database_type_router,
 	inet_pton(AF_INET, argv[idx_ipv4]->arg, &adv_router);
 	level = parse_show_level(idx_level, argc, argv);
 
-	switch (OSPF6_LSA_SCOPE(type)) {
-	case OSPF6_SCOPE_AREA:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-			ospf6_lsdb_show(vty, level, &type, NULL, &adv_router,
-					oa->lsdb);
-		}
-		break;
-
-	case OSPF6_SCOPE_LINKLOCAL:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-				vty_out(vty, IF_LSDB_TITLE_FORMAT,
-					oi->interface->name, oa->name);
-				ospf6_lsdb_show(vty, level, &type, NULL,
-						&adv_router, oi->lsdb);
-			}
-		}
-		break;
-
-	case OSPF6_SCOPE_AS:
-		vty_out(vty, AS_LSDB_TITLE_FORMAT);
-		ospf6_lsdb_show(vty, level, &type, NULL, &adv_router,
-				ospf6->lsdb);
-		break;
-
-	default:
-		assert(0);
-		break;
-	}
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_type_show_wrapper(vty, level, &type, NULL, &adv_router, uj,
+				     ospf6);
 	return CMD_SUCCESS;
 }
 
 
 DEFUN (show_ipv6_ospf6_database_id_router,
        show_ipv6_ospf6_database_id_router_cmd,
-       "show ipv6 ospf6 database * A.B.C.D A.B.C.D [<detail|dump|internal>]",
+       "show ipv6 ospf6 database * A.B.C.D A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -584,18 +651,16 @@ DEFUN (show_ipv6_ospf6_database_id_router,
        "Display details of LSAs\n"
        "Dump LSAs\n"
        "Display LSA's internal information\n"
-      )
+       JSON_STR)
 {
 	int idx_ls_id = 5;
 	int idx_adv_rtr = 6;
 	int idx_level = 7;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint32_t id = 0;
 	uint32_t adv_router = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -603,31 +668,14 @@ DEFUN (show_ipv6_ospf6_database_id_router,
 	inet_pton(AF_INET, argv[idx_adv_rtr]->arg, &adv_router);
 	level = parse_show_level(idx_level, argc, argv);
 
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-		ospf6_lsdb_show(vty, level, NULL, &id, &adv_router, oa->lsdb);
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-			vty_out(vty, IF_LSDB_TITLE_FORMAT, oi->interface->name,
-				oa->name);
-			ospf6_lsdb_show(vty, level, NULL, &id, &adv_router,
-					oi->lsdb);
-		}
-	}
-
-	vty_out(vty, AS_LSDB_TITLE_FORMAT);
-	ospf6_lsdb_show(vty, level, NULL, &id, &adv_router, ospf6->lsdb);
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_show_wrapper(vty, level, NULL, &id, &adv_router, uj, ospf6);
 	return CMD_SUCCESS;
 }
 
 
 DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
        show_ipv6_ospf6_database_adv_router_linkstate_id_cmd,
-       "show ipv6 ospf6 database adv-router A.B.C.D linkstate-id A.B.C.D [<detail|dump|internal>]",
+       "show ipv6 ospf6 database adv-router A.B.C.D linkstate-id A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -638,18 +686,17 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
        "Specify Link state ID as IPv4 address notation\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
-       "Display LSA's internal information\n")
+       "Display LSA's internal information\n"
+       JSON_STR)
 {
 	int idx_adv_rtr = 5;
 	int idx_ls_id = 7;
 	int idx_level = 8;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint32_t id = 0;
 	uint32_t adv_router = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
@@ -658,30 +705,13 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
 	inet_pton(AF_INET, argv[idx_ls_id]->arg, &id);
 	level = parse_show_level(idx_level, argc, argv);
 
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-		ospf6_lsdb_show(vty, level, NULL, &id, &adv_router, oa->lsdb);
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-			vty_out(vty, IF_LSDB_TITLE_FORMAT, oi->interface->name,
-				oa->name);
-			ospf6_lsdb_show(vty, level, NULL, &id, &adv_router,
-					oi->lsdb);
-		}
-	}
-
-	vty_out(vty, AS_LSDB_TITLE_FORMAT);
-	ospf6_lsdb_show(vty, level, NULL, &id, &adv_router, ospf6->lsdb);
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_show_wrapper(vty, level, NULL, &id, &adv_router, uj, ospf6);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_database_type_id_router,
        show_ipv6_ospf6_database_type_id_router_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D A.B.C.D [<dump|internal>]",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D A.B.C.D [<dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -698,20 +728,19 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
        "Specify Link state ID as IPv4 address notation\n"
        "Specify Advertising Router as IPv4 address notation\n"
        "Dump LSAs\n"
-       "Display LSA's internal information\n")
+       "Display LSA's internal information\n"
+       JSON_STR)
 {
 	int idx_lsa = 4;
 	int idx_ls_id = 5;
 	int idx_adv_rtr = 6;
 	int idx_level = 7;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint16_t type = 0;
 	uint32_t id = 0;
 	uint32_t adv_router = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
@@ -722,45 +751,15 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
 	inet_pton(AF_INET, argv[idx_adv_rtr]->arg, &adv_router);
 	level = parse_show_level(idx_level, argc, argv);
 
-	switch (OSPF6_LSA_SCOPE(type)) {
-	case OSPF6_SCOPE_AREA:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-			ospf6_lsdb_show(vty, level, &type, &id, &adv_router,
-					oa->lsdb);
-		}
-		break;
-
-	case OSPF6_SCOPE_LINKLOCAL:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-				vty_out(vty, IF_LSDB_TITLE_FORMAT,
-					oi->interface->name, oa->name);
-				ospf6_lsdb_show(vty, level, &type, &id,
-						&adv_router, oi->lsdb);
-			}
-		}
-		break;
-
-	case OSPF6_SCOPE_AS:
-		vty_out(vty, AS_LSDB_TITLE_FORMAT);
-		ospf6_lsdb_show(vty, level, &type, &id, &adv_router,
-				ospf6->lsdb);
-		break;
-
-	default:
-		assert(0);
-		break;
-	}
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_type_show_wrapper(vty, level, &type, &id, &adv_router, uj,
+				     ospf6);
 	return CMD_SUCCESS;
 }
 
 
 DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
        show_ipv6_ospf6_database_type_adv_router_linkstate_id_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> adv-router A.B.C.D linkstate-id A.B.C.D [<dump|internal>]",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> adv-router A.B.C.D linkstate-id A.B.C.D [<dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -779,20 +778,19 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
        "Search by Link state ID\n"
        "Specify Link state ID as IPv4 address notation\n"
        "Dump LSAs\n"
-       "Display LSA's internal information\n")
+       "Display LSA's internal information\n"
+       JSON_STR)
 {
 	int idx_lsa = 4;
 	int idx_adv_rtr = 6;
 	int idx_ls_id = 8;
 	int idx_level = 9;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint16_t type = 0;
 	uint32_t id = 0;
 	uint32_t adv_router = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
@@ -803,44 +801,14 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 	inet_pton(AF_INET, argv[idx_ls_id]->arg, &id);
 	level = parse_show_level(idx_level, argc, argv);
 
-	switch (OSPF6_LSA_SCOPE(type)) {
-	case OSPF6_SCOPE_AREA:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-			ospf6_lsdb_show(vty, level, &type, &id, &adv_router,
-					oa->lsdb);
-		}
-		break;
-
-	case OSPF6_SCOPE_LINKLOCAL:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-				vty_out(vty, IF_LSDB_TITLE_FORMAT,
-					oi->interface->name, oa->name);
-				ospf6_lsdb_show(vty, level, &type, &id,
-						&adv_router, oi->lsdb);
-			}
-		}
-		break;
-
-	case OSPF6_SCOPE_AS:
-		vty_out(vty, AS_LSDB_TITLE_FORMAT);
-		ospf6_lsdb_show(vty, level, &type, &id, &adv_router,
-				ospf6->lsdb);
-		break;
-
-	default:
-		assert(0);
-		break;
-	}
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_type_show_wrapper(vty, level, &type, &id, &adv_router, uj,
+				     ospf6);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_database_self_originated,
        show_ipv6_ospf6_database_self_originated_cmd,
-       "show ipv6 ospf6 database self-originated [<detail|dump|internal>]",
+       "show ipv6 ospf6 database self-originated [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -848,46 +816,28 @@ DEFUN (show_ipv6_ospf6_database_self_originated,
        "Display Self-originated LSAs\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
-       "Display LSA's internal information\n")
+       "Display LSA's internal information\n"
+       JSON_STR)
 {
 	int idx_level = 5;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint32_t adv_router = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
 	level = parse_show_level(idx_level, argc, argv);
 	adv_router = ospf6->router_id;
 
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-		ospf6_lsdb_show(vty, level, NULL, NULL, &adv_router, oa->lsdb);
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-			vty_out(vty, IF_LSDB_TITLE_FORMAT, oi->interface->name,
-				oa->name);
-			ospf6_lsdb_show(vty, level, NULL, NULL, &adv_router,
-					oi->lsdb);
-		}
-	}
-
-	vty_out(vty, AS_LSDB_TITLE_FORMAT);
-	ospf6_lsdb_show(vty, level, NULL, NULL, &adv_router, ospf6->lsdb);
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_show_wrapper(vty, level, NULL, NULL, &adv_router, uj, ospf6);
 	return CMD_SUCCESS;
 }
 
 
 DEFUN (show_ipv6_ospf6_database_type_self_originated,
        show_ipv6_ospf6_database_type_self_originated_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> self-originated [<detail|dump|internal>]",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> self-originated [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -904,17 +854,16 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
        "Display Self-originated LSAs\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
-       "Display LSA's internal information\n")
+       "Display LSA's internal information\n"
+       JSON_STR)
 {
 	int idx_lsa = 4;
 	int idx_level = 6;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint16_t type = 0;
 	uint32_t adv_router = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -923,44 +872,14 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
 
 	adv_router = ospf6->router_id;
 
-	switch (OSPF6_LSA_SCOPE(type)) {
-	case OSPF6_SCOPE_AREA:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-			ospf6_lsdb_show(vty, level, &type, NULL, &adv_router,
-					oa->lsdb);
-		}
-		break;
-
-	case OSPF6_SCOPE_LINKLOCAL:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-				vty_out(vty, IF_LSDB_TITLE_FORMAT,
-					oi->interface->name, oa->name);
-				ospf6_lsdb_show(vty, level, &type, NULL,
-						&adv_router, oi->lsdb);
-			}
-		}
-		break;
-
-	case OSPF6_SCOPE_AS:
-		vty_out(vty, AS_LSDB_TITLE_FORMAT);
-		ospf6_lsdb_show(vty, level, &type, NULL, &adv_router,
-				ospf6->lsdb);
-		break;
-
-	default:
-		assert(0);
-		break;
-	}
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_type_show_wrapper(vty, level, &type, NULL, &adv_router, uj,
+				     ospf6);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
        show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> self-originated linkstate-id A.B.C.D [<detail|dump|internal>]",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> self-originated linkstate-id A.B.C.D [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -979,19 +898,18 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
        "Specify Link state ID as IPv4 address notation\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
-       "Display LSA's internal information\n")
+       "Display LSA's internal information\n"
+       JSON_STR)
 {
 	int idx_lsa = 4;
 	int idx_ls_id = 7;
 	int idx_level = 8;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint16_t type = 0;
 	uint32_t adv_router = 0;
 	uint32_t id = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -1000,44 +918,14 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 	level = parse_show_level(idx_level, argc, argv);
 	adv_router = ospf6->router_id;
 
-	switch (OSPF6_LSA_SCOPE(type)) {
-	case OSPF6_SCOPE_AREA:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-			ospf6_lsdb_show(vty, level, &type, &id, &adv_router,
-					oa->lsdb);
-		}
-		break;
-
-	case OSPF6_SCOPE_LINKLOCAL:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-				vty_out(vty, IF_LSDB_TITLE_FORMAT,
-					oi->interface->name, oa->name);
-				ospf6_lsdb_show(vty, level, &type, &id,
-						&adv_router, oi->lsdb);
-			}
-		}
-		break;
-
-	case OSPF6_SCOPE_AS:
-		vty_out(vty, AS_LSDB_TITLE_FORMAT);
-		ospf6_lsdb_show(vty, level, &type, &id, &adv_router,
-				ospf6->lsdb);
-		break;
-
-	default:
-		assert(0);
-		break;
-	}
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_type_show_wrapper(vty, level, &type, &id, &adv_router, uj,
+				     ospf6);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
        show_ipv6_ospf6_database_type_id_self_originated_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D self-originated [<detail|dump|internal>]",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D self-originated [<detail|dump|internal>] [json]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -1055,19 +943,18 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
        "Display Self-originated LSAs\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
-       "Display LSA's internal information\n")
+       "Display LSA's internal information\n"
+       JSON_STR)
 {
 	int idx_lsa = 4;
 	int idx_ls_id = 5;
 	int idx_level = 7;
 	int level;
-	struct listnode *i, *j;
-	struct ospf6 *ospf6;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
 	uint16_t type = 0;
 	uint32_t adv_router = 0;
 	uint32_t id = 0;
+	bool uj = use_json(argc, argv);
+	struct ospf6 *ospf6;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
 	OSPF6_CMD_CHECK_RUNNING(ospf6);
@@ -1076,38 +963,8 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
 	level = parse_show_level(idx_level, argc, argv);
 	adv_router = ospf6->router_id;
 
-	switch (OSPF6_LSA_SCOPE(type)) {
-	case OSPF6_SCOPE_AREA:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-			ospf6_lsdb_show(vty, level, &type, &id, &adv_router,
-					oa->lsdb);
-		}
-		break;
-
-	case OSPF6_SCOPE_LINKLOCAL:
-		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa)) {
-			for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
-				vty_out(vty, IF_LSDB_TITLE_FORMAT,
-					oi->interface->name, oa->name);
-				ospf6_lsdb_show(vty, level, &type, &id,
-						&adv_router, oi->lsdb);
-			}
-		}
-		break;
-
-	case OSPF6_SCOPE_AS:
-		vty_out(vty, AS_LSDB_TITLE_FORMAT);
-		ospf6_lsdb_show(vty, level, &type, &id, &adv_router,
-				ospf6->lsdb);
-		break;
-
-	default:
-		assert(0);
-		break;
-	}
-
-	vty_out(vty, "\n");
+	ospf6_lsdb_type_show_wrapper(vty, level, &type, &id, &adv_router, uj,
+				     ospf6);
 	return CMD_SUCCESS;
 }
 

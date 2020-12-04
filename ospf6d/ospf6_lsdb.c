@@ -346,55 +346,6 @@ int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb)
 	return (reschedule);
 }
 
-void ospf6_lsdb_show(struct vty *vty, enum ospf_lsdb_show_level level,
-		     uint16_t *type, uint32_t *id, uint32_t *adv_router,
-		     struct ospf6_lsdb *lsdb)
-{
-	struct ospf6_lsa *lsa;
-	const struct route_node *end = NULL;
-	void (*showfunc)(struct vty *, struct ospf6_lsa *) = NULL;
-
-	switch (level) {
-	case OSPF6_LSDB_SHOW_LEVEL_DETAIL:
-		showfunc = ospf6_lsa_show;
-		break;
-	case OSPF6_LSDB_SHOW_LEVEL_INTERNAL:
-		showfunc = ospf6_lsa_show_internal;
-		break;
-	case OSPF6_LSDB_SHOW_LEVEL_DUMP:
-		showfunc = ospf6_lsa_show_dump;
-		break;
-	case OSPF6_LSDB_SHOW_LEVEL_NORMAL:
-	default:
-		showfunc = ospf6_lsa_show_summary;
-	}
-
-	if (type && id && adv_router) {
-		lsa = ospf6_lsdb_lookup(*type, *id, *adv_router, lsdb);
-		if (lsa) {
-			if (level == OSPF6_LSDB_SHOW_LEVEL_NORMAL)
-				ospf6_lsa_show(vty, lsa);
-			else
-				(*showfunc)(vty, lsa);
-		}
-		return;
-	}
-
-	if (level == OSPF6_LSDB_SHOW_LEVEL_NORMAL)
-		ospf6_lsa_show_summary_header(vty);
-
-	end = ospf6_lsdb_head(lsdb, !!type + !!(type && adv_router),
-			      type ? *type : 0, adv_router ? *adv_router : 0,
-			      &lsa);
-	while (lsa) {
-		if ((!adv_router || lsa->header->adv_router == *adv_router)
-		    && (!id || lsa->header->id == *id))
-			(*showfunc)(vty, lsa);
-
-		lsa = ospf6_lsdb_next(end, lsa);
-	}
-}
-
 uint32_t ospf6_new_ls_id(uint16_t type, uint32_t adv_router,
 			 struct ospf6_lsdb *lsdb)
 {
