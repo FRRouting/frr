@@ -538,6 +538,7 @@ void bgp_lp_event_zebra_up(void)
 	struct lp_lcb *lcb;
 	int lm_init_ok;
 
+	lp->reconnect_count++;
 	/*
 	 * Get label chunk allocation request dispatched to zebra
 	 */
@@ -606,4 +607,371 @@ void bgp_lp_event_zebra_up(void)
 
 		skiplist_delete_first(lp->inuse);
 	}
+}
+
+DEFUN(show_bgp_labelpool_summary, show_bgp_labelpool_summary_cmd,
+      "show bgp labelpool summary [json]",
+      SHOW_STR BGP_STR
+      "BGP Labelpool information\n"
+      "BGP Labelpool summary\n" JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+
+	if (!lp) {
+		if (uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "No existing BGP labelpool\n");
+		return (CMD_WARNING);
+	}
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_int_add(json, "Ledger", skiplist_count(lp->ledger));
+		json_object_int_add(json, "InUse", skiplist_count(lp->inuse));
+		json_object_int_add(json, "Requests",
+				    lp_fifo_count(&lp->requests));
+		json_object_int_add(json, "LabelChunks", listcount(lp->chunks));
+		json_object_int_add(json, "Pending", lp->pending_count);
+		json_object_int_add(json, "Reconnects", lp->reconnect_count);
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else {
+		vty_out(vty, "Labelpool Summary\n");
+		vty_out(vty, "-----------------\n");
+		vty_out(vty, "%-13s %d\n",
+			"Ledger:", skiplist_count(lp->ledger));
+		vty_out(vty, "%-13s %d\n", "InUse:", skiplist_count(lp->inuse));
+		vty_out(vty, "%-13s %zu\n",
+			"Requests:", lp_fifo_count(&lp->requests));
+		vty_out(vty, "%-13s %d\n",
+			"LabelChunks:", listcount(lp->chunks));
+		vty_out(vty, "%-13s %d\n", "Pending:", lp->pending_count);
+		vty_out(vty, "%-13s %d\n", "Reconnects:", lp->reconnect_count);
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_bgp_labelpool_ledger, show_bgp_labelpool_ledger_cmd,
+      "show bgp labelpool ledger [json]",
+      SHOW_STR BGP_STR
+      "BGP Labelpool information\n"
+      "BGP Labelpool ledger\n" JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL, *json_elem = NULL;
+	struct lp_lcb *lcb = NULL;
+	struct bgp_path_info *pi;
+	void *cursor = NULL;
+	const struct prefix *p;
+	int rc, count;
+
+	if (!lp) {
+		if (uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "No existing BGP labelpool\n");
+		return (CMD_WARNING);
+	}
+
+	if (uj) {
+		count = skiplist_count(lp->ledger);
+		if (!count) {
+			vty_out(vty, "{}\n");
+			return CMD_SUCCESS;
+		}
+		json = json_object_new_array();
+	} else {
+		vty_out(vty, "Prefix                Label\n");
+		vty_out(vty, "---------------------------\n");
+	}
+
+	for (rc = skiplist_next(lp->ledger, (void **)&pi, (void **)&lcb,
+				&cursor);
+	     !rc; rc = skiplist_next(lp->ledger, (void **)&pi, (void **)&lcb,
+				     &cursor)) {
+		if (uj) {
+			json_elem = json_object_new_object();
+			json_object_array_add(json, json_elem);
+		}
+		switch (lcb->type) {
+		case LP_TYPE_BGP_LU:
+			if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+				if (uj) {
+					json_object_string_add(
+						json_elem, "prefix", "INVALID");
+					json_object_int_add(json_elem, "label",
+							    lcb->label);
+				} else
+					vty_out(vty, "%-18s         %u\n",
+						"INVALID", lcb->label);
+			else {
+				char buf[PREFIX2STR_BUFFER];
+				p = bgp_dest_get_prefix(pi->net);
+				prefix2str(p, buf, sizeof(buf));
+				if (uj) {
+					json_object_string_add(json_elem,
+							       "prefix", buf);
+					json_object_int_add(json_elem, "label",
+							    lcb->label);
+				} else
+					vty_out(vty, "%-18s    %u\n", buf,
+						lcb->label);
+			}
+			break;
+		case LP_TYPE_VRF:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "VRF");
+				json_object_int_add(json_elem, "label",
+						    lcb->label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "VRF",
+					lcb->label);
+
+			break;
+		}
+	}
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
+      "show bgp labelpool inuse [json]",
+      SHOW_STR BGP_STR
+      "BGP Labelpool information\n"
+      "BGP Labelpool inuse\n" JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL, *json_elem = NULL;
+	struct bgp_path_info *pi;
+	mpls_label_t label;
+	struct lp_lcb *lcb;
+	void *cursor = NULL;
+	const struct prefix *p;
+	int rc, count;
+
+	if (!lp) {
+		vty_out(vty, "No existing BGP labelpool\n");
+		return (CMD_WARNING);
+	}
+	if (!lp) {
+		if (uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "No existing BGP labelpool\n");
+		return (CMD_WARNING);
+	}
+
+	if (uj) {
+		count = skiplist_count(lp->inuse);
+		if (!count) {
+			vty_out(vty, "{}\n");
+			return CMD_SUCCESS;
+		}
+		json = json_object_new_array();
+	} else {
+		vty_out(vty, "Prefix                Label\n");
+		vty_out(vty, "---------------------------\n");
+	}
+	for (rc = skiplist_next(lp->inuse, (void **)&label, (void **)&pi,
+				&cursor);
+	     !rc; rc = skiplist_next(lp->ledger, (void **)&label, (void **)&pi,
+				     &cursor)) {
+		if (skiplist_search(lp->ledger, pi, (void **)&lcb))
+			continue;
+
+		if (uj) {
+			json_elem = json_object_new_object();
+			json_object_array_add(json, json_elem);
+		}
+
+		switch (lcb->type) {
+		case LP_TYPE_BGP_LU:
+			if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+				if (uj) {
+					json_object_string_add(
+						json_elem, "prefix", "INVALID");
+					json_object_int_add(json_elem, "label",
+							    label);
+				} else
+					vty_out(vty, "INVALID         %u\n",
+						label);
+			else {
+				char buf[PREFIX2STR_BUFFER];
+				p = bgp_dest_get_prefix(pi->net);
+				prefix2str(p, buf, sizeof(buf));
+				if (uj) {
+					json_object_string_add(json_elem,
+							       "prefix", buf);
+					json_object_int_add(json_elem, "label",
+							    label);
+				} else
+					vty_out(vty, "%-18s    %u\n", buf,
+						label);
+			}
+			break;
+		case LP_TYPE_VRF:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "VRF");
+				json_object_int_add(json_elem, "label", label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "VRF",
+					label);
+			break;
+		}
+	}
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_bgp_labelpool_requests, show_bgp_labelpool_requests_cmd,
+      "show bgp labelpool requests [json]",
+      SHOW_STR BGP_STR
+      "BGP Labelpool information\n"
+      "BGP Labelpool requests\n" JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL, *json_elem = NULL;
+	struct bgp_path_info *pi;
+	const struct prefix *p;
+	char buf[PREFIX2STR_BUFFER];
+	struct lp_fifo *item, *next;
+	int count;
+
+	if (!lp) {
+		if (uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "No existing BGP labelpool\n");
+		return (CMD_WARNING);
+	}
+
+	if (uj) {
+		count = lp_fifo_count(&lp->requests);
+		if (!count) {
+			vty_out(vty, "{}\n");
+			return CMD_SUCCESS;
+		}
+		json = json_object_new_array();
+	} else {
+		vty_out(vty, "Prefix         \n");
+		vty_out(vty, "----------------\n");
+	}
+
+	for (item = lp_fifo_first(&lp->requests); item; item = next) {
+		next = lp_fifo_next_safe(&lp->requests, item);
+		pi = item->lcb.labelid;
+		if (uj) {
+			json_elem = json_object_new_object();
+			json_object_array_add(json, json_elem);
+		}
+		switch (item->lcb.type) {
+		case LP_TYPE_BGP_LU:
+			if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID)) {
+				if (uj)
+					json_object_string_add(
+						json_elem, "prefix", "INVALID");
+				else
+					vty_out(vty, "INVALID\n");
+			} else {
+				p = bgp_dest_get_prefix(pi->net);
+				prefix2str(p, buf, sizeof(buf));
+				if (uj)
+					json_object_string_add(json_elem,
+							       "prefix", buf);
+				else
+					vty_out(vty, "%-18s\n", buf);
+			}
+			break;
+		case LP_TYPE_VRF:
+			if (uj)
+				json_object_string_add(json_elem, "prefix",
+						       "VRF");
+			else
+				vty_out(vty, "VRF\n");
+			break;
+		}
+	}
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_bgp_labelpool_chunks, show_bgp_labelpool_chunks_cmd,
+      "show bgp labelpool chunks [json]",
+      SHOW_STR BGP_STR
+      "BGP Labelpool information\n"
+      "BGP Labelpool chunks\n" JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL, *json_elem;
+	struct listnode *node;
+	struct lp_chunk *chunk;
+	int count;
+
+	if (!lp) {
+		if (uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "No existing BGP labelpool\n");
+		return (CMD_WARNING);
+	}
+
+	if (uj) {
+		count = listcount(lp->chunks);
+		if (!count) {
+			vty_out(vty, "{}\n");
+			return CMD_SUCCESS;
+		}
+		json = json_object_new_array();
+	} else {
+		vty_out(vty, "First    Last\n");
+		vty_out(vty, "--------------\n");
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(lp->chunks, node, chunk)) {
+		if (uj) {
+			json_elem = json_object_new_object();
+			json_object_array_add(json, json_elem);
+			json_object_int_add(json_elem, "first", chunk->first);
+			json_object_int_add(json_elem, "last", chunk->last);
+		} else
+			vty_out(vty, "%-10u %-10u\n", chunk->first,
+				chunk->last);
+	}
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+	return CMD_SUCCESS;
+}
+
+void bgp_lp_vty_init(void)
+{
+	install_element(VIEW_NODE, &show_bgp_labelpool_summary_cmd);
+	install_element(VIEW_NODE, &show_bgp_labelpool_ledger_cmd);
+	install_element(VIEW_NODE, &show_bgp_labelpool_inuse_cmd);
+	install_element(VIEW_NODE, &show_bgp_labelpool_requests_cmd);
+	install_element(VIEW_NODE, &show_bgp_labelpool_chunks_cmd);
 }

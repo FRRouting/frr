@@ -18,6 +18,7 @@ vtysh_scan += \
 	bgpd/bgp_evpn_mh.c \
 	bgpd/bgp_evpn_vty.c \
 	bgpd/bgp_filter.c \
+	bgpd/bgp_labelpool.c \
 	bgpd/bgp_mplsvpn.c \
 	bgpd/bgp_nexthop.c \
 	bgpd/bgp_route.c \
