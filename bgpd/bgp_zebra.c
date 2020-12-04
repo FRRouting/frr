@@ -1176,7 +1176,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	int nh_othervrf = 0;
 	char buf_prefix[PREFIX_STRLEN];	/* filled in if we are debugging */
 	bool is_evpn;
-	int nh_updated;
+	bool nh_updated = false;
 	bool do_wt_ecmp;
 	uint64_t cum_bw = 0;
 	uint32_t nhg_id = 0;
