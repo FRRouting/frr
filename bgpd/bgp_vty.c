@@ -10499,6 +10499,25 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 	}
 }
 
+/* If the peer's description includes whitespaces
+ * then return the first occurrence. Also strip description
+ * to the given size if needed.
+ */
+static char *bgp_peer_description_stripped(char *desc, uint32_t size)
+{
+	static char stripped[BUFSIZ];
+	char *pnt;
+	uint32_t len = size > strlen(desc) ? strlen(desc) : size;
+
+	pnt = strchr(desc, ' ');
+	if (pnt)
+		len = size > (uint32_t)(pnt - desc) ? (uint32_t)(pnt - desc)
+						    : size;
+
+	strlcpy(stripped, desc, len + 1);
+
+	return stripped;
+}
 
 /* Show BGP peer's summary information. */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
@@ -11075,7 +11094,9 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					vty_out(vty, " %8u", 0);
 				}
 				if (peer->desc)
-					vty_out(vty, " %s", peer->desc);
+					vty_out(vty, " %s",
+						bgp_peer_description_stripped(
+							peer->desc, 20));
 				else
 					vty_out(vty, " N/A");
 				vty_out(vty, "\n");
