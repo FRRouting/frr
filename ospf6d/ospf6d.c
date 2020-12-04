@@ -157,11 +157,14 @@ static uint16_t parse_type_spec(int idx_lsa, int argc, struct cmd_token **argv)
 
 void ospf6_lsdb_show(struct vty *vty, enum ospf_lsdb_show_level level,
 		     uint16_t *type, uint32_t *id, uint32_t *adv_router,
-		     struct ospf6_lsdb *lsdb)
+		     struct ospf6_lsdb *lsdb, json_object *json_obj,
+		     bool use_json)
 {
 	struct ospf6_lsa *lsa;
 	const struct route_node *end = NULL;
-	void (*showfunc)(struct vty *, struct ospf6_lsa *) = NULL;
+	void (*showfunc)(struct vty *, struct ospf6_lsa *, json_object *,
+			 bool) = NULL;
+	json_object *json_array = NULL;
 
 	switch (level) {
 	case OSPF6_LSDB_SHOW_LEVEL_DETAIL:
@@ -178,18 +181,24 @@ void ospf6_lsdb_show(struct vty *vty, enum ospf_lsdb_show_level level,
 		showfunc = ospf6_lsa_show_summary;
 	}
 
+	if (use_json)
+		json_array = json_object_new_array();
+
 	if (type && id && adv_router) {
 		lsa = ospf6_lsdb_lookup(*type, *id, *adv_router, lsdb);
 		if (lsa) {
 			if (level == OSPF6_LSDB_SHOW_LEVEL_NORMAL)
-				ospf6_lsa_show(vty, lsa);
+				ospf6_lsa_show(vty, lsa, json_array, use_json);
 			else
-				(*showfunc)(vty, lsa);
+				(*showfunc)(vty, lsa, json_array, use_json);
 		}
+
+		if (use_json)
+			json_object_object_add(json_obj, "lsa", json_array);
 		return;
 	}
 
-	if (level == OSPF6_LSDB_SHOW_LEVEL_NORMAL)
+	if ((level == OSPF6_LSDB_SHOW_LEVEL_NORMAL) && !use_json)
 		ospf6_lsa_show_summary_header(vty);
 
 	end = ospf6_lsdb_head(lsdb, !!type + !!(type && adv_router),
@@ -198,10 +207,12 @@ void ospf6_lsdb_show(struct vty *vty, enum ospf_lsdb_show_level level,
 	while (lsa) {
 		if ((!adv_router || lsa->header->adv_router == *adv_router)
 		    && (!id || lsa->header->id == *id))
-			(*showfunc)(vty, lsa);
-
+			(*showfunc)(vty, lsa, json_array, use_json);
 		lsa = ospf6_lsdb_next(end, lsa);
 	}
+
+	if (use_json)
+		json_object_object_add(json_obj, "lsa", json_array);
 }
 
 static void ospf6_lsdb_show_wrapper(struct vty *vty,
@@ -228,7 +239,8 @@ static void ospf6_lsdb_show_wrapper(struct vty *vty,
 			json_object_string_add(json_obj, "areaId", oa->name);
 		} else
 			vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
-		ospf6_lsdb_show(vty, level, type, id, adv_router, oa->lsdb);
+		ospf6_lsdb_show(vty, level, type, id, adv_router, oa->lsdb,
+				json_obj, uj);
 		if (uj)
 			json_object_array_add(json_array, json_obj);
 	}
@@ -250,7 +262,7 @@ static void ospf6_lsdb_show_wrapper(struct vty *vty,
 				vty_out(vty, IF_LSDB_TITLE_FORMAT,
 					oi->interface->name, oa->name);
 			ospf6_lsdb_show(vty, level, type, id, adv_router,
-					oi->lsdb);
+					oi->lsdb, json_obj, uj);
 			if (uj)
 				json_object_array_add(json_array, json_obj);
 		}
@@ -264,7 +276,8 @@ static void ospf6_lsdb_show_wrapper(struct vty *vty,
 	} else
 		vty_out(vty, AS_LSDB_TITLE_FORMAT);
 
-	ospf6_lsdb_show(vty, level, type, id, adv_router, o->lsdb);
+	ospf6_lsdb_show(vty, level, type, id, adv_router, o->lsdb, json_obj,
+			uj);
 
 	if (uj) {
 		json_object_array_add(json_array, json_obj);
@@ -308,7 +321,7 @@ static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
 				vty_out(vty, AREA_LSDB_TITLE_FORMAT, oa->name);
 
 			ospf6_lsdb_show(vty, level, type, id, adv_router,
-					oa->lsdb);
+					oa->lsdb, json_obj, uj);
 			if (uj)
 				json_object_array_add(json_array, json_obj);
 		}
@@ -332,7 +345,8 @@ static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
 						oi->interface->name, oa->name);
 
 				ospf6_lsdb_show(vty, level, type, id,
-						adv_router, oi->lsdb);
+						adv_router, oi->lsdb, json_obj,
+						uj);
 
 				if (uj)
 					json_object_array_add(json_array,
@@ -350,7 +364,8 @@ static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
 		else
 			vty_out(vty, AS_LSDB_TITLE_FORMAT);
 
-		ospf6_lsdb_show(vty, level, type, id, adv_router, o->lsdb);
+		ospf6_lsdb_show(vty, level, type, id, adv_router, o->lsdb,
+				json_obj, uj);
 		if (uj) {
 			json_object_array_add(json_array, json_obj);
 			json_object_object_add(json, "asScopedLinkStateDb",
@@ -538,7 +553,7 @@ DEFUN_HIDDEN (show_ipv6_ospf6_database_aggr_router,
 			return CMD_SUCCESS;
 		}
 		ospf6_lsdb_show(vty, level, &type, NULL, NULL,
-				oa->temp_router_lsa_lsdb);
+				oa->temp_router_lsa_lsdb, NULL, false);
 		/* Remove the temp cache */
 		ospf6_remove_temp_router_lsa(oa);
 	}
