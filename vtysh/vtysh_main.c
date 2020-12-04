@@ -153,7 +153,7 @@ static void usage(int status)
 			progname);
 	else
 		printf("Usage : %s [OPTION...]\n\n"
-		       "Integrated shell for FRR. \n\n"
+		       "Integrated shell for FRR (version " FRR_VERSION "). \n\n"
 		       "-b, --boot               Execute boot startup configuration\n"
 		       "-c, --command            Execute argument as command\n"
 		       "-d, --daemon             Connect only to the specified daemon\n"
