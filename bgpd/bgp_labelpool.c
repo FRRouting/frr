@@ -461,6 +461,9 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 				zlog_debug("%s: labelid %p: request no longer in effect",
 						__func__, labelid);
 			}
+			/* if this was a BGP_LU request, unlock path info node
+			 */
+			check_bgp_lu_cb_unlock(lcb);
 			goto finishedrequest;
 		}
 
