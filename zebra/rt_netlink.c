@@ -22,9 +22,18 @@
 
 #ifdef HAVE_NETLINK
 
+/* The following definition is to workaround an issue in the Linux kernel
+ * header files with redefinition of 'struct in6_addr' in both
+ * netinet/in.h and linux/in6.h.
+ * Reference - https://sourceware.org/ml/libc-alpha/2013-01/msg00599.html
+ */
+#define _LINUX_IN6_H
+
 #include <net/if_arp.h>
 #include <linux/lwtunnel.h>
 #include <linux/mpls_iptunnel.h>
+#include <linux/seg6_iptunnel.h>
+#include <linux/seg6_local.h>
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
 #include <linux/nexthop.h>
@@ -38,6 +47,8 @@
 #include "if.h"
 #include "log.h"
 #include "prefix.h"
+#include "plist.h"
+#include "plist_int.h"
 #include "connected.h"
 #include "table.h"
 #include "memory.h"
@@ -1269,6 +1280,50 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					      sizeof(label_buf)))
 		return false;
 
+	if (nexthop->nh_seg6local_ctx) {
+		uint32_t action;
+		uint16_t encap;
+		struct rtattr *nest;
+		const struct seg6local_context *ctx;
+
+		ctx = nexthop->nh_seg6local_ctx;
+		action = nexthop->nh_seg6local_action;
+		encap = LWTUNNEL_ENCAP_SEG6_LOCAL;
+		nl_attr_put(nlmsg, req_size, RTA_ENCAP_TYPE, &encap,
+			  sizeof(uint16_t));
+
+		nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
+		switch (nexthop->nh_seg6local_action) {
+		case ZEBRA_SEG6_LOCAL_ACTION_END:
+			nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_ACTION,
+				  SEG6_LOCAL_ACTION_END);
+			break;
+		case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+			nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_ACTION,
+				  SEG6_LOCAL_ACTION_END_X);
+			nl_attr_put(nlmsg, req_size, SEG6_LOCAL_NH6, &ctx->nh6,
+				  sizeof(struct in6_addr));
+			break;
+		case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+			nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_ACTION,
+				  SEG6_LOCAL_ACTION_END_T);
+			nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_TABLE,
+				      ctx->table);
+			break;
+		case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+			nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_ACTION,
+				  SEG6_LOCAL_ACTION_END_DX4);
+			nl_attr_put(nlmsg, req_size, SEG6_LOCAL_NH4, &ctx->nh4,
+				  sizeof(struct in_addr));
+			break;
+		default:
+			zlog_err("%s: unsupport seg6local behaviour action=%u",
+				 __func__, action);
+			break;
+		}
+		nl_attr_nest_end(nlmsg, nest);
+	}
+
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
 		rtmsg->rtm_flags |= RTNH_F_ONLINK;
 
@@ -2245,6 +2300,59 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					    num_labels * sizeof(mpls_lse_t)))
 					return 0;
 
+				nl_attr_nest_end(&req->n, nest);
+			}
+
+			if (nh->nh_seg6local_ctx) {
+				uint32_t action;
+				uint16_t encap;
+				struct rtattr *nest;
+				const struct seg6local_context *ctx;
+
+				req->nhm.nh_family = AF_INET6;
+				action = nh->nh_seg6local_action;
+				ctx = nh->nh_seg6local_ctx;
+				encap = LWTUNNEL_ENCAP_SEG6_LOCAL;
+				nl_attr_put(&req->n, buflen, NHA_ENCAP_TYPE,
+					  &encap, sizeof(uint16_t));
+
+				nest = nl_attr_nest(&req->n, buflen,
+						    NHA_ENCAP | NLA_F_NESTED);
+				switch (action) {
+				case SEG6_LOCAL_ACTION_END:
+					nl_attr_put32(&req->n, buflen,
+						  SEG6_LOCAL_ACTION,
+						  SEG6_LOCAL_ACTION_END);
+					break;
+				case SEG6_LOCAL_ACTION_END_X:
+					nl_attr_put32(&req->n, buflen,
+						  SEG6_LOCAL_ACTION,
+						  SEG6_LOCAL_ACTION_END_X);
+					nl_attr_put(&req->n, buflen,
+						  SEG6_LOCAL_NH6, &ctx->nh6,
+						  sizeof(struct in6_addr));
+					break;
+				case SEG6_LOCAL_ACTION_END_T:
+					nl_attr_put32(&req->n, buflen,
+						      SEG6_LOCAL_ACTION,
+						      SEG6_LOCAL_ACTION_END_T);
+					nl_attr_put32(&req->n, buflen,
+						      SEG6_LOCAL_TABLE,
+						      ctx->table);
+					break;
+				case SEG6_LOCAL_ACTION_END_DX4:
+					nl_attr_put32(&req->n, buflen,
+						  SEG6_LOCAL_ACTION,
+						  SEG6_LOCAL_ACTION_END_DX4);
+					nl_attr_put(&req->n, buflen,
+						  SEG6_LOCAL_NH4, &ctx->nh4,
+						  sizeof(struct in_addr));
+					break;
+				default:
+					zlog_err("%s: unsupport seg6local behaviour action=%u",
+						 __func__, action);
+					break;
+				}
 				nl_attr_nest_end(&req->n, nest);
 			}
 

@@ -1695,6 +1695,18 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 					   &api_nh->labels[0]);
 		}
 
+		if (CHECK_FLAG(flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE)
+		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
+			if (IS_ZEBRA_DEBUG_RECV)
+				zlog_debug("%s: adding seg6local action %s",
+					   __func__,
+					   seg6local_action2str(
+						   api_nh->seg6local_action));
+
+			nexthop_add_seg6local(nexthop, api_nh->seg6local_action,
+					      &api_nh->seg6local_ctx);
+		}
+
 		if (IS_ZEBRA_DEBUG_RECV) {
 			labelbuf[0] = '\0';
 			nhbuf[0] = '\0';
