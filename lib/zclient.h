@@ -396,6 +396,7 @@ struct zclient {
  */
 #define ZAPI_MESSAGE_TABLEID 0x0100
 #define ZAPI_MESSAGE_SRTE 0x0200
+#define ZAPI_MESSAGE_OPAQUE 0x0400
 
 #define ZSERV_VERSION 6
 /* Zserv protocol message header */
@@ -569,6 +570,12 @@ struct zapi_route {
 
 	/* SR-TE color (used for nexthop updates only). */
 	uint32_t srte_color;
+
+#define ZAPI_MESSAGE_OPAQUE_LENGTH 1024
+	struct {
+		uint16_t length;
+		uint8_t data[ZAPI_MESSAGE_OPAQUE_LENGTH];
+	} opaque;
 };
 
 struct zapi_labels {
