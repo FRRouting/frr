@@ -129,7 +129,9 @@ struct fec_node {
 	uint32_t		 pw_remote_status;
 
 	void			*data;		/* fec specific data */
+	uint8_t			 flags;
 };
+#define F_FEC_NHS_CHANGED	0x01
 
 #define CHUNK_SIZE		64
 struct label_chunk {
