@@ -41,6 +41,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_fsm.h"
@@ -1408,6 +1409,14 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	}
 
 	is_add = (valid_nh_count || nhg_id) ? true : false;
+
+	if (is_add && bm->send_extra_data_to_zebra) {
+		struct aspath *aspath = info->attr->aspath;
+
+		SET_FLAG(api.message, ZAPI_MESSAGE_OPAQUE);
+		api.opaque.length = strlen(aspath->str) + 1;
+		memcpy(api.opaque.data, aspath->str, api.opaque.length);
+	}
 
 	/*
 	 * When we create an aggregate route we must also

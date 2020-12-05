@@ -434,6 +434,13 @@ static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 			vty_out(vty, "    Opaque Data: %s",
 				(char *)re->opaque->data);
 		break;
+	case ZEBRA_ROUTE_BGP:
+		if (json)
+			json_object_string_add(json, "asPath",
+					       (char *)re->opaque->data);
+		else
+			vty_out(vty, "    AS-Path: %s",
+				(char *)re->opaque->data);
 	default:
 		break;
 	}
