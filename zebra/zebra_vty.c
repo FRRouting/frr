@@ -426,6 +426,14 @@ static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 		return;
 
 	switch (re->type) {
+	case ZEBRA_ROUTE_SHARP:
+		if (json)
+			json_object_string_add(json, "opaque",
+					       (char *)re->opaque->data);
+		else
+			vty_out(vty, "    Opaque Data: %s",
+				(char *)re->opaque->data);
+		break;
 	default:
 		break;
 	}
