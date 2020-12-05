@@ -3470,6 +3470,15 @@ starting the daemon and the configuration gets saved, the option will persist
 unless removed from the configuration with the negating command prior to the
 configuration write operation.
 
+.. index:: [no] bgp send-extra-data zebra
+.. clicmd:: [no] bgp send-extra-data zebra
+
+   This Command turns off the ability of BGP to send extra data to zebra.
+In this case it's the AS-Path being used for the path.  The default behavior
+in BGP is to send this data and to turn it off enter the no form of the command.
+If extra data was sent to zebra, and this command is turned on there is no
+effort to clean up this data in the rib.
+
 .. _bgp-suppress-fib:
 
 Suppressing routes not installed in FIB
