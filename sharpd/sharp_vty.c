@@ -161,7 +161,12 @@ DEFPY (install_routes,
        "sharp install routes [vrf NAME$vrf_name]\
 	  <A.B.C.D$start4|X:X::X:X$start6>\
 	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
-	   nexthop-group NHGNAME$nexthop_group>\
+	   nexthop-group NHGNAME$nexthop_group|\
+	   nexthop-seg6local NAME$seg6l_oif\
+	     <End$seg6l_end|\
+	      End_X$seg6l_endx X:X::X:X$seg6l_endx_nh6|\
+	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
+	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4>>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
 	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
@@ -176,6 +181,15 @@ DEFPY (install_routes,
        "V6 Nexthop address to use\n"
        "Nexthop-Group to use\n"
        "The Name of the nexthop-group\n"
+       "Nexthop-seg6local to use\n"
+       "Output device to use\n"
+       "SRv6 End function to use\n"
+       "SRv6 End.X function to use\n"
+       "V6 Nexthop address to use\n"
+       "SRv6 End.T function to use\n"
+       "Redirect table id to use\n"
+       "SRv6 End.DX4 function to use\n"
+       "V4 Nexthop address to use\n"
        "Backup nexthop to use(Can be an IPv4 or IPv6 address)\n"
        "Backup V4 Nexthop address to use\n"
        "Backup V6 Nexthop address to use\n"
@@ -261,6 +275,29 @@ DEFPY (install_routes,
 			sg.r.backup_nhop.vrf_id = vrf->vrf_id;
 			sg.r.backup_nhop_group.nexthop = bnhgc->nhg.nexthop;
 		}
+	} else if (seg6l_oif) {
+		struct seg6local_context ctx;
+		enum seg6local_action_t action;
+		memset(&ctx, 0, sizeof(struct seg6local_context));
+		if (seg6l_enddx4) {
+			action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
+			ctx.nh4 = seg6l_enddx4_nh4;
+		} else if (seg6l_endx) {
+			action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+			ctx.nh6 = seg6l_endx_nh6;
+		} else if (seg6l_endt) {
+			action = ZEBRA_SEG6_LOCAL_ACTION_END_T;
+			ctx.table = seg6l_endt_table;
+		} else {
+			action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		}
+
+		sg.r.nhop.type = NEXTHOP_TYPE_IFINDEX;
+		sg.r.nhop.ifindex = ifname2ifindex(seg6l_oif, vrf->vrf_id);
+		sg.r.nhop.vrf_id = vrf->vrf_id;
+		sg.r.nhop_group.nexthop = &sg.r.nhop;
+		nexthop_add_seg6local(&sg.r.nhop, action, &ctx);
+		SET_FLAG(route_flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE);
 	} else {
 		if (nexthop4.s_addr != INADDR_ANY) {
 			sg.r.nhop.gate.ipv4 = nexthop4;
