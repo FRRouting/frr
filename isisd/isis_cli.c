@@ -1915,22 +1915,22 @@ DEFPY_YANG (isis_frr_lfa_load_sharing,
 		if (no) {
 			nb_cli_enqueue_change(
 				vty, "./fast-reroute/level-1/lfa/load-sharing",
-				NB_OP_DESTROY, "true");
+				NB_OP_MODIFY, "true");
 		} else {
 			nb_cli_enqueue_change(
 				vty, "./fast-reroute/level-1/lfa/load-sharing",
-				NB_OP_CREATE, "false");
+				NB_OP_MODIFY, "false");
 		}
 	}
 	if (!level || strmatch(level, "level-2")) {
 		if (no) {
 			nb_cli_enqueue_change(
 				vty, "./fast-reroute/level-2/lfa/load-sharing",
-				NB_OP_DESTROY, "true");
+				NB_OP_MODIFY, "true");
 		} else {
 			nb_cli_enqueue_change(
 				vty, "./fast-reroute/level-2/lfa/load-sharing",
-				NB_OP_CREATE, "false");
+				NB_OP_MODIFY, "false");
 		}
 	}
 
