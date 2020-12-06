@@ -189,6 +189,7 @@ DEFPY (install_routes,
 	struct prefix prefix;
 	uint32_t rts;
 	uint32_t nhgid = 0;
+	uint32_t route_flags = 0;
 
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
@@ -297,7 +298,7 @@ DEFPY (install_routes,
 	rts = routes;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid,
 				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
-				    rts);
+				    rts, route_flags);
 
 	return CMD_SUCCESS;
 }

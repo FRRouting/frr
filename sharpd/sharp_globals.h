@@ -40,6 +40,9 @@ struct sharp_routes {
 	uint32_t removed_routes;
 	int32_t repeat;
 
+	/* ZAPI_ROUTE's flag */
+	uint32_t flags;
+
 	uint8_t inst;
 	vrf_id_t vrf_id;
 
