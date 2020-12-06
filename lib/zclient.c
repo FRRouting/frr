@@ -804,8 +804,7 @@ static int zapi_nexthop_seg6local_cmp(const struct zapi_nexthop *next1,
 	if (next1->seg6local_action < next2->seg6local_action)
 		return -1;
 
-	return memcmp(&next1->seg6local_ctx,
-		      &next2->seg6local_ctx,
+	return memcmp(&next1->seg6local_ctx, &next2->seg6local_ctx,
 		      sizeof(struct seg6local_context));
 }
 
@@ -1690,8 +1689,7 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 		memcpy(znh->backup_idx, nh->backup_idx, znh->backup_num);
 	}
 
-	if (nh->nh_seg6local_action != 0 &&
-	    nh->nh_seg6local_ctx != NULL) {
+	if (nh->nh_seg6local_action != 0 && nh->nh_seg6local_ctx != NULL) {
 		znh->seg6local_action = nh->nh_seg6local_action;
 		memcpy(&znh->seg6local_ctx, nh->nh_seg6local_ctx,
 		       sizeof(struct seg6local_context));

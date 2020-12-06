@@ -67,7 +67,7 @@ static int _nexthop_labels_cmp(const struct nexthop *nh1,
 }
 
 static int _nexthop_seg6local_cmp(const struct nexthop *nh1,
-		                  const struct nexthop *nh2)
+				  const struct nexthop *nh2)
 {
 	if (nh1->nh_seg6local_action > nh2->nh_seg6local_action)
 		return 1;
@@ -84,8 +84,7 @@ static int _nexthop_seg6local_cmp(const struct nexthop *nh1,
 	if (!nh1->nh_seg6local_ctx && nh2->nh_seg6local_ctx)
 		return -1;
 
-	return memcmp(nh1->nh_seg6local_ctx,
-		      nh2->nh_seg6local_ctx,
+	return memcmp(nh1->nh_seg6local_ctx, nh2->nh_seg6local_ctx,
 		      sizeof(struct seg6local_context));
 }
 
