@@ -1114,6 +1114,7 @@ def diagnose_env_linux():
             logger.warning(
                 "BGP topologies are still using exabgp version 3, expect failures"
             )
+        p.close()
 
     # We want to catch all exceptions
     # pylint: disable=W0702
@@ -1122,6 +1123,7 @@ def diagnose_env_linux():
 
     # After we logged the output to file, remove the handler.
     logger.removeHandler(fhandler)
+    fhandler.close()
 
     return ret
 
