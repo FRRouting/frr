@@ -158,6 +158,8 @@ uint32_t	 lde_update_label(struct fec_node *);
 void		 lde_free_label(uint32_t label);
 void		 lde_send_change_klabel(struct fec_node *, struct fec_nh *);
 void		 lde_send_delete_klabel(struct fec_node *, struct fec_nh *);
+void		 lde_fec2prefix(const struct fec *fec, struct prefix *prefix);
+void		 lde_prefix2fec(const struct prefix *prefix, struct fec *fec);
 void		 lde_fec2map(struct fec *, struct map *);
 void		 lde_map2fec(struct map *, struct in_addr, struct fec *);
 void		 lde_send_labelmapping(struct lde_nbr *, struct fec_node *,

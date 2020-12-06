@@ -183,7 +183,8 @@ adj_itimer(struct thread *thread)
 
 	if (adj->source.type == HELLO_TARGETED) {
 		if (!(adj->source.target->flags & F_TNBR_CONFIGURED) &&
-		    adj->source.target->pw_count == 0) {
+		    adj->source.target->pw_count == 0 &&
+		    adj->source.target->rlfa_count == 0) {
 			/* remove dynamic targeted neighbor */
 			tnbr_del(leconf, adj->source.target);
 			return (0);
@@ -259,7 +260,7 @@ struct tnbr *
 tnbr_check(struct ldpd_conf *xconf, struct tnbr *tnbr)
 {
 	if (!(tnbr->flags & (F_TNBR_CONFIGURED|F_TNBR_DYNAMIC)) &&
-	    tnbr->pw_count == 0) {
+	    tnbr->pw_count == 0 && tnbr->rlfa_count == 0) {
 		tnbr_del(xconf, tnbr);
 		return (NULL);
 	}

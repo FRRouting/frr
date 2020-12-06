@@ -114,12 +114,16 @@ static void
 ldp_zebra_opaque_register(void)
 {
 	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
+	zclient_register_opaque(zclient, LDP_RLFA_REGISTER);
+	zclient_register_opaque(zclient, LDP_RLFA_UNREGISTER_ALL);
 }
 
 static void
 ldp_zebra_opaque_unregister(void)
 {
 	zclient_unregister_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
+	zclient_unregister_opaque(zclient, LDP_RLFA_REGISTER);
+	zclient_unregister_opaque(zclient, LDP_RLFA_UNREGISTER_ALL);
 }
 
 int
@@ -147,12 +151,29 @@ ldp_sync_zebra_send_announce(void)
 		return 0;
 }
 
+int ldp_zebra_send_rlfa_labels(struct zapi_rlfa_response *rlfa_labels)
+{
+	int ret;
+
+	ret = zclient_send_opaque(zclient, LDP_RLFA_LABELS,
+				  (const uint8_t *)rlfa_labels,
+				  sizeof(*rlfa_labels));
+	if (ret == ZCLIENT_SEND_FAILURE) {
+		log_warn("failed to send RLFA labels to IGP");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int
 ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct zapi_opaque_msg info;
 	struct ldp_igp_sync_if_state_req state_req;
+	struct zapi_rlfa_igp igp;
+	struct zapi_rlfa_request rlfa;
 
         s = zclient->ibuf;
 
@@ -164,6 +185,14 @@ ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		STREAM_GET(&state_req, s, sizeof(state_req));
 		main_imsg_compose_ldpe(IMSG_LDP_SYNC_IF_STATE_REQUEST, 0, &state_req,
 			    sizeof(state_req));
+		break;
+	case LDP_RLFA_REGISTER:
+		STREAM_GET(&rlfa, s, sizeof(rlfa));
+		main_imsg_compose_both(IMSG_RLFA_REG, &rlfa, sizeof(rlfa));
+		break;
+	case LDP_RLFA_UNREGISTER_ALL:
+		STREAM_GET(&igp, s, sizeof(igp));
+		main_imsg_compose_both(IMSG_RLFA_UNREG_ALL, &igp, sizeof(igp));
 		break;
 	default:
 		break;

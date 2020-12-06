@@ -634,6 +634,52 @@ struct zapi_pw_status {
 	uint32_t status;
 };
 
+/* IGP instance data associated to a RLFA. */
+struct zapi_rlfa_igp {
+	vrf_id_t vrf_id;
+	int protocol;
+	union {
+		struct {
+			char area_tag[32];
+			struct {
+				int tree_id;
+				int level;
+				unsigned int run_id;
+			} spf;
+		} isis;
+	};
+};
+
+/* IGP -> LDP RLFA (un)registration message. */
+struct zapi_rlfa_request {
+	/* IGP instance data. */
+	struct zapi_rlfa_igp igp;
+
+	/* Destination prefix. */
+	struct prefix destination;
+
+	/* PQ node address. */
+	struct in_addr pq_address;
+};
+
+/* LDP -> IGP RLFA label update. */
+struct zapi_rlfa_response {
+	/* IGP instance data. */
+	struct zapi_rlfa_igp igp;
+
+	/* Destination prefix. */
+	struct prefix destination;
+
+	/* Resolved LDP labels. */
+	mpls_label_t pq_label;
+	uint16_t nexthop_num;
+	struct {
+		int family;
+		union g_addr gate;
+		mpls_label_t label;
+	} nexthops[MULTIPATH_NUM];
+};
+
 enum zapi_route_notify_owner {
 	ZAPI_ROUTE_FAIL_INSTALL,
 	ZAPI_ROUTE_BETTER_ADMIN_WON,
@@ -1091,6 +1137,12 @@ enum zapi_opaque_registry {
 	LDP_IGP_SYNC_IF_STATE_UPDATE = 4,
 	/* Announce that LDP is up  */
 	LDP_IGP_SYNC_ANNOUNCE_UPDATE = 5,
+	/* Register RLFA with LDP */
+	LDP_RLFA_REGISTER = 7,
+	/* Unregister all RLFAs with LDP */
+	LDP_RLFA_UNREGISTER_ALL = 8,
+	/* Announce LDP labels associated to a previously registered RLFA */
+	LDP_RLFA_LABELS = 9,
 };
 
 /* Send the hello message.

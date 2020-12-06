@@ -23,6 +23,7 @@
 #include "ldpe.h"
 #include "lde.h"
 #include "log.h"
+#include "rlfa.h"
 
 #include "mpls.h"
 
@@ -609,6 +610,10 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln, int rcvd_label_mapping)
 			break;
 		}
 	}
+
+	/* Update RLFA clients. */
+	lde_rlfa_update_clients(&fec, ln, map->label);
+
 	/* LMp.13 & LMp.16: Record the mapping from this peer */
 	if (me == NULL)
 		me = lde_map_add(ln, fn, 0);
@@ -866,6 +871,9 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 		fnh->remote_label = NO_LABEL;
 	}
 
+	/* Update RLFA clients. */
+	lde_rlfa_update_clients(&fec, ln, MPLS_INVALID_LABEL);
+
 	/* LWd.2: send label release */
 	lde_send_labelrelease(ln, fn, NULL, map->label);
 
@@ -947,6 +955,9 @@ lde_check_withdraw_wcard(struct map *map, struct lde_nbr *ln)
 			lde_send_delete_klabel(fn, fnh);
 			fnh->remote_label = NO_LABEL;
 		}
+
+		/* Update RLFA clients. */
+		lde_rlfa_update_clients(f, ln, MPLS_INVALID_LABEL);
 
 		/* LWd.3: check previously received label mapping */
 		if (me && (map->label == NO_LABEL ||

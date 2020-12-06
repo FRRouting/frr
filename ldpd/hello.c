@@ -67,7 +67,8 @@ send_hello(enum hello_type type, struct iface_af *ia, struct tnbr *tnbr)
 		af = tnbr->af;
 		holdtime = tnbr_get_hello_holdtime(tnbr);
 		flags = F_HELLO_TARGETED;
-		if ((tnbr->flags & F_TNBR_CONFIGURED) || tnbr->pw_count)
+		if ((tnbr->flags & F_TNBR_CONFIGURED) || tnbr->pw_count
+		    || tnbr->rlfa_count)
 			flags |= F_HELLO_REQ_TARG;
 		fd = (ldp_af_global_get(&global, af))->ldp_edisc_socket;
 

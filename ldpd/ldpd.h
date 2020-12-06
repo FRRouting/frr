@@ -157,7 +157,10 @@ enum imsg_type {
 	IMSG_FILTER_UPDATE,
 	IMSG_NBR_SHUTDOWN,
 	IMSG_LDP_SYNC_IF_STATE_REQUEST,
-	IMSG_LDP_SYNC_IF_STATE_UPDATE
+	IMSG_LDP_SYNC_IF_STATE_UPDATE,
+	IMSG_RLFA_REG,
+	IMSG_RLFA_UNREG_ALL,
+	IMSG_RLFA_LABELS,
 };
 
 struct ldpd_init {
@@ -373,6 +376,7 @@ struct tnbr {
 	union ldpd_addr		 addr;
 	int			 state;
 	uint16_t		 pw_count;
+	uint32_t		 rlfa_count;
 	uint8_t			 flags;
 	QOBJ_FIELDS
 };
@@ -875,6 +879,8 @@ extern char			 ctl_sock_path[MAXPATHLEN];
 void		 ldp_zebra_init(struct thread_master *);
 void		 ldp_zebra_destroy(void);
 int		 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *);
+int		 ldp_zebra_send_rlfa_labels(struct zapi_rlfa_response *
+		    rlfa_labels);
 
 /* compatibility */
 #ifndef __OpenBSD__
