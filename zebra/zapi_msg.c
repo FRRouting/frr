@@ -2522,6 +2522,22 @@ int zsend_sr_policy_notify_status(uint32_t color, struct ipaddr *endpoint,
 	return zserv_send_message(client, s);
 }
 
+/* Send client close notify to client */
+int zsend_client_close_notify(struct zserv *client, struct zserv *closed_client)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_CLIENT_CLOSE_NOTIFY, VRF_DEFAULT);
+
+	stream_putc(s, closed_client->proto);
+	stream_putw(s, closed_client->instance);
+	stream_putl(s, closed_client->session_id);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zserv_send_message(client, s);
+}
+
 /* Send response to a table manager connect request to client */
 static void zread_table_manager_connect(struct zserv *client,
 					struct stream *msg, vrf_id_t vrf_id)
