@@ -1319,8 +1319,43 @@ DEFPY_YANG(
 	"Maximum prefix length\n")
 {
 	int64_t sseq;
+	int arg_idx = 0;
+	struct plist_dup_args pda = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
+
+	/*
+	 * Backward compatibility: don't complain about duplicated values,
+	 * just silently accept.
+	 */
+	if (seq_str == NULL) {
+		pda.pda_type = "ipv4";
+		pda.pda_name = name;
+		if (prefix_str) {
+			pda.pda_xpath[arg_idx] = "./ipv4-prefix";
+			pda.pda_value[arg_idx] = prefix_str;
+			arg_idx++;
+			if (ge_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv4-prefix-length-greater-or-equal";
+				pda.pda_value[arg_idx] = ge_str;
+				arg_idx++;
+			}
+			if (le_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv4-prefix-length-lesser-or-equal";
+				pda.pda_value[arg_idx] = le_str;
+				arg_idx++;
+			}
+		} else {
+			pda.pda_xpath[0] = "./any";
+			pda.pda_value[0] = "";
+		}
+
+		/* Duplicated entry without sequence, just quit. */
+		if (plist_is_dup(vty->candidate_config->dnode, &pda))
+			return CMD_SUCCESS;
+	}
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
@@ -1479,8 +1514,43 @@ DEFPY_YANG(
 	"Minimum prefix length\n")
 {
 	int64_t sseq;
+	int arg_idx = 0;
+	struct plist_dup_args pda = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
+
+	/*
+	 * Backward compatibility: don't complain about duplicated values,
+	 * just silently accept.
+	 */
+	if (seq_str == NULL) {
+		pda.pda_type = "ipv6";
+		pda.pda_name = name;
+		if (prefix_str) {
+			pda.pda_xpath[arg_idx] = "./ipv6-prefix";
+			pda.pda_value[arg_idx] = prefix_str;
+			arg_idx++;
+			if (ge_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv6-prefix-length-greater-or-equal";
+				pda.pda_value[arg_idx] = ge_str;
+				arg_idx++;
+			}
+			if (le_str) {
+				pda.pda_xpath[arg_idx] =
+					"./ipv6-prefix-length-lesser-or-equal";
+				pda.pda_value[arg_idx] = le_str;
+				arg_idx++;
+			}
+		} else {
+			pda.pda_xpath[0] = "./any";
+			pda.pda_value[0] = "";
+		}
+
+		/* Duplicated entry without sequence, just quit. */
+		if (plist_is_dup(vty->candidate_config->dnode, &pda))
+			return CMD_SUCCESS;
+	}
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
