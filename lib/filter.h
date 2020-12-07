@@ -203,6 +203,33 @@ struct acl_dup_args {
  */
 bool acl_is_dup(const struct lyd_node *dnode, struct acl_dup_args *ada);
 
+struct plist_dup_args {
+	/** Access list type ("ipv4" or "ipv6"). */
+	const char *pda_type;
+	/** Access list name. */
+	const char *pda_name;
+
+#define PDA_MAX_VALUES 4
+	/** Entry XPath for value. */
+	const char *pda_xpath[PDA_MAX_VALUES];
+	/** Entry value to match. */
+	const char *pda_value[PDA_MAX_VALUES];
+
+	/** Duplicated entry found in list? */
+	bool pda_found;
+
+	/** (Optional) Already existing `dnode`. */
+	const struct lyd_node *pda_entry_dnode;
+};
+
+/**
+ * Check for duplicated entries using the candidate configuration.
+ *
+ * \param vty so we can get the candidate config.
+ * \param pda the arguments to check.
+ */
+bool plist_is_dup(const struct lyd_node *dnode, struct plist_dup_args *pda);
+
 /* filter_cli.c */
 struct lyd_node;
 struct vty;
