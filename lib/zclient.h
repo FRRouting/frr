@@ -389,14 +389,13 @@ struct zclient {
 /* Backup nexthops are present */
 #define ZAPI_MESSAGE_BACKUP_NEXTHOPS 0x40
 #define ZAPI_MESSAGE_NHG 0x80
-
 /*
  * This should only be used by a DAEMON that needs to communicate
  * the table being used is not in the VRF.  You must pass the
  * default vrf, else this will be ignored.
  */
-#define ZAPI_MESSAGE_TABLEID 0x0080
-#define ZAPI_MESSAGE_SRTE 0x0100
+#define ZAPI_MESSAGE_TABLEID 0x0100
+#define ZAPI_MESSAGE_SRTE 0x0200
 
 #define ZSERV_VERSION 6
 /* Zserv protocol message header */
