@@ -49,6 +49,21 @@ static int nhrp_if_new_hook(struct interface *ifp)
 
 static int nhrp_if_delete_hook(struct interface *ifp)
 {
+	struct nhrp_interface *nifp = ifp->info;
+
+	debugf(NHRP_DEBUG_IF, "Deleted interface (%s)", ifp->name);
+
+	nhrp_cache_interface_del(ifp);
+	nhrp_nhs_interface_del(ifp);
+	nhrp_peer_interface_del(ifp);
+
+	if (nifp->ipsec_profile)
+		free(nifp->ipsec_profile);
+	if (nifp->ipsec_fallback_profile)
+		free(nifp->ipsec_fallback_profile);
+	if (nifp->source)
+		free(nifp->source);
+
 	XFREE(MTYPE_NHRP_IF, ifp->info);
 	return 0;
 }

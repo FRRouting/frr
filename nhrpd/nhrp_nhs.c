@@ -382,6 +382,24 @@ int nhrp_nhs_free(struct nhrp_nhs *nhs)
 	return 0;
 }
 
+void nhrp_nhs_interface_del(struct interface *ifp)
+{
+	struct nhrp_interface *nifp = ifp->info;
+	struct nhrp_nhs *nhs, *tmp;
+	afi_t afi;
+
+	for (afi = 0; afi < AFI_MAX; afi++) {
+		debugf(NHRP_DEBUG_COMMON, "Cleaning up nhs entries (%d)",
+		       !list_empty(&nifp->afi[afi].nhslist_head));
+
+		list_for_each_entry_safe(nhs, tmp, &nifp->afi[afi].nhslist_head,
+					 nhslist_entry)
+		{
+			nhrp_nhs_free(nhs);
+		}
+	}
+}
+
 void nhrp_nhs_terminate(void)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);

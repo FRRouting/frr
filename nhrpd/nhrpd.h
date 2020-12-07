@@ -343,6 +343,7 @@ void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
 		      void (*cb)(struct nhrp_nhs *, struct nhrp_registration *,
 				 void *),
 		      void *ctx);
+void nhrp_nhs_interface_del(struct interface *ifp);
 
 void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp);
 void nhrp_route_announce(int add, enum nhrp_cache_type type,
@@ -366,6 +367,7 @@ void nhrp_shortcut_foreach(afi_t afi,
 void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force);
 void nhrp_shortcut_prefix_change(const struct prefix *p, int deleted);
 
+void nhrp_cache_interface_del(struct interface *ifp);
 void nhrp_cache_config_free(struct nhrp_cache_config *c);
 struct nhrp_cache_config *nhrp_cache_config_get(struct interface *ifp,
 						union sockunion *remote_addr,
@@ -446,6 +448,7 @@ struct nhrp_reqid *nhrp_reqid_lookup(struct nhrp_reqid_pool *, uint32_t reqid);
 
 int nhrp_packet_init(void);
 
+void nhrp_peer_interface_del(struct interface *ifp);
 struct nhrp_peer *nhrp_peer_get(struct interface *ifp,
 				const union sockunion *remote_nbma);
 struct nhrp_peer *nhrp_peer_ref(struct nhrp_peer *p);

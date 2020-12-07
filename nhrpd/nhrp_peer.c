@@ -38,10 +38,16 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir);
 
 static void nhrp_peer_check_delete(struct nhrp_peer *p)
 {
+	char buf[2][256];
 	struct nhrp_interface *nifp = p->ifp->info;
 
 	if (p->ref || notifier_active(&p->notifier_list))
 		return;
+
+	debugf(NHRP_DEBUG_COMMON, "Deleting peer ref:%d remote:%s local:%s",
+	       p->ref,
+	       sockunion2str(&p->vc->remote.nbma, buf[0], sizeof(buf[0])),
+	       sockunion2str(&p->vc->local.nbma, buf[1], sizeof(buf[1])));
 
 	THREAD_OFF(p->t_fallback);
 	hash_release(nifp->peer_hash, p);
@@ -183,6 +189,27 @@ static void *nhrp_peer_create(void *data)
 				  nhrp_peer_ifp_notify);
 
 	return p;
+}
+
+static void do_peer_hash_free(struct hash_bucket *hb,
+			      void *arg __attribute__((__unused__)))
+{
+	struct nhrp_peer *p = hb->data;
+	nhrp_peer_check_delete(p);
+}
+
+void nhrp_peer_interface_del(struct interface *ifp)
+{
+	struct nhrp_interface *nifp = ifp->info;
+
+	debugf(NHRP_DEBUG_COMMON, "Cleaning up undeleted peer entries (%lu)",
+	       nifp->peer_hash ? nifp->peer_hash->count : 0);
+
+	if (nifp->peer_hash) {
+		hash_iterate(nifp->peer_hash, do_peer_hash_free, NULL);
+		assert(nifp->peer_hash->count == 0);
+		hash_free(nifp->peer_hash);
+	}
 }
 
 struct nhrp_peer *nhrp_peer_get(struct interface *ifp,

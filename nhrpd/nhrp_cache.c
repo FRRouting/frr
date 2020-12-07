@@ -69,12 +69,13 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 {
 	struct nhrp_interface *nifp = c->ifp->info;
 
-	zassert(c->cur.type == NHRP_CACHE_INVALID && c->cur.peer == NULL);
-	zassert(c->new.type == NHRP_CACHE_INVALID && c->new.peer == NULL);
+	debugf(NHRP_DEBUG_COMMON, "Deleting cache entry");
 	nhrp_cache_counts[c->cur.type]--;
 	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
 	zassert(!notifier_active(&c->notifier_list));
 	hash_release(nifp->cache_hash, c);
+	THREAD_OFF(c->t_timeout);
+	THREAD_OFF(c->t_auth);
 	XFREE(MTYPE_NHRP_CACHE, c);
 }
 
@@ -140,6 +141,41 @@ struct nhrp_cache_config *nhrp_cache_config_get(struct interface *ifp,
 			create ? nhrp_cache_config_alloc : NULL);
 }
 
+static void do_nhrp_cache_free(struct hash_bucket *hb,
+			       void *arg __attribute__((__unused__)))
+{
+	struct nhrp_cache *c = hb->data;
+
+	nhrp_cache_free(c);
+}
+
+static void do_nhrp_cache_config_free(struct hash_bucket *hb,
+				      void *arg __attribute__((__unused__)))
+{
+	struct nhrp_cache_config *cc = hb->data;
+
+	nhrp_cache_config_free(cc);
+}
+
+void nhrp_cache_interface_del(struct interface *ifp)
+{
+	struct nhrp_interface *nifp = ifp->info;
+
+	debugf(NHRP_DEBUG_COMMON, "Cleaning up undeleted cache entries (%lu)",
+	       nifp->cache_hash ? nifp->cache_hash->count : 0);
+
+	if (nifp->cache_hash) {
+		hash_iterate(nifp->cache_hash, do_nhrp_cache_free, NULL);
+		hash_free(nifp->cache_hash);
+	}
+
+	if (nifp->cache_config_hash) {
+		hash_iterate(nifp->cache_config_hash, do_nhrp_cache_config_free,
+			     NULL);
+		hash_free(nifp->cache_config_hash);
+	}
+}
+
 struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
 				  union sockunion *remote_addr, int create)
 {
@@ -164,6 +200,7 @@ struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
 static int nhrp_cache_do_free(struct thread *t)
 {
 	struct nhrp_cache *c = THREAD_ARG(t);
+
 	c->t_timeout = NULL;
 	nhrp_cache_free(c);
 	return 0;
@@ -172,6 +209,7 @@ static int nhrp_cache_do_free(struct thread *t)
 static int nhrp_cache_do_timeout(struct thread *t)
 {
 	struct nhrp_cache *c = THREAD_ARG(t);
+
 	c->t_timeout = NULL;
 	if (c->cur.type != NHRP_CACHE_INVALID)
 		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
