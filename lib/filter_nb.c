@@ -265,6 +265,88 @@ static bool acl_zebra_is_dup(const struct lyd_node *dnode,
 	return acl_is_dup(entry_dnode, &ada);
 }
 
+static int _plist_is_dup(const struct lyd_node *dnode, void *arg)
+{
+	struct plist_dup_args *pda = arg;
+	int idx;
+
+	/* This entry is the caller, so skip it. */
+	if (pda->pda_entry_dnode
+	    && pda->pda_entry_dnode == dnode)
+		return YANG_ITER_CONTINUE;
+
+	/* Check if all values match. */
+	for (idx = 0; idx < PDA_MAX_VALUES; idx++) {
+		/* No more values. */
+		if (pda->pda_xpath[idx] == NULL)
+			break;
+
+		/* Not same type, just skip it. */
+		if (!yang_dnode_exists(dnode, pda->pda_xpath[idx]))
+			return YANG_ITER_CONTINUE;
+
+		/* Check if different value. */
+		if (strcmp(yang_dnode_get_string(dnode, pda->pda_xpath[idx]),
+			   pda->pda_value[idx]))
+			return YANG_ITER_CONTINUE;
+	}
+
+	pda->pda_found = true;
+
+	return YANG_ITER_STOP;
+}
+
+bool plist_is_dup(const struct lyd_node *dnode, struct plist_dup_args *pda)
+{
+	pda->pda_found = false;
+
+	yang_dnode_iterate(
+		_plist_is_dup, pda, dnode,
+		"/frr-filter:lib/prefix-list[type='%s'][name='%s']/entry",
+		pda->pda_type, pda->pda_name);
+
+	return pda->pda_found;
+}
+
+static bool plist_is_dup_nb(const struct lyd_node *dnode)
+{
+	const struct lyd_node *entry_dnode =
+		yang_dnode_get_parent(dnode, "entry");
+	struct plist_dup_args pda = {};
+	int idx = 0, arg_idx = 0;
+	static const char *entries[] = {
+		"./ipv4-prefix",
+		"./ipv4-prefix-length-greater-or-equal",
+		"./ipv4-prefix-length-lesser-or-equal",
+		"./ipv6-prefix",
+		"./ipv6-prefix-length-greater-or-equal",
+		"./ipv6-prefix-length-lesser-or-equal",
+		"./any",
+		NULL
+	};
+
+	/* Initialize. */
+	pda.pda_type = yang_dnode_get_string(entry_dnode, "../type");
+	pda.pda_name = yang_dnode_get_string(entry_dnode, "../name");
+	pda.pda_entry_dnode = entry_dnode;
+
+	/* Load all values/XPaths. */
+	while (entries[idx] != NULL) {
+		if (!yang_dnode_exists(entry_dnode, entries[idx])) {
+			idx++;
+			continue;
+		}
+
+		pda.pda_xpath[arg_idx] = entries[idx];
+		pda.pda_value[arg_idx] =
+			yang_dnode_get_string(entry_dnode, entries[idx]);
+		arg_idx++;
+		idx++;
+	}
+
+	return plist_is_dup(entry_dnode, &pda);
+}
+
 /*
  * XPath: /frr-filter:lib/access-list
  */
@@ -1076,15 +1158,12 @@ lib_prefix_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
 	struct prefix p;
 
 	if (args->event == NB_EV_VALIDATE) {
-		/*
-		 * TODO: validate prefix_entry_dup_check() passes.
-		 *
-		 * This needs to be implemented using YANG lyd_node
-		 * navigation, because the `priv` data structures are not
-		 * available at `NB_EV_VALIDATE` phase. An easier
-		 * alternative would be mark `ipvx-prefix` as unique
-		 * (see RFC 7950, Section 7.8.3. The list "unique" Statement).
-		 */
+		if (plist_is_dup_nb(args->dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "duplicated prefix list value: %s",
+				 yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
 	}
 
@@ -1147,6 +1226,16 @@ static int lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_modify(
 	    prefix_list_length_validate(args) != NB_OK)
 		return NB_ERR_VALIDATION;
 
+	if (args->event == NB_EV_VALIDATE) {
+		if (plist_is_dup_nb(args->dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "duplicated prefix list value: %s",
+				 yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -1196,6 +1285,16 @@ static int lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_modify(
 	    prefix_list_length_validate(args) != NB_OK)
 		return NB_ERR_VALIDATION;
 
+	if (args->event == NB_EV_VALIDATE) {
+		if (plist_is_dup_nb(args->dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "duplicated prefix list value: %s",
+				 yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -1240,6 +1339,16 @@ static int lib_prefix_list_entry_any_create(struct nb_cb_create_args *args)
 {
 	struct prefix_list_entry *ple;
 	int type;
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (plist_is_dup_nb(args->dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "duplicated prefix list value: %s",
+				 yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
