@@ -16,6 +16,7 @@
 #include "netlink.h"
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE, "NHRP cache entry")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE_CONFIG, "NHRP cache config entry")
 
 unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
 
@@ -75,6 +76,68 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 	zassert(!notifier_active(&c->notifier_list));
 	hash_release(nifp->cache_hash, c);
 	XFREE(MTYPE_NHRP_CACHE, c);
+}
+
+static unsigned int nhrp_cache_config_protocol_key(const void *peer_data)
+{
+	const struct nhrp_cache_config *p = peer_data;
+	return sockunion_hash(&p->remote_addr);
+}
+
+static bool nhrp_cache_config_protocol_cmp(const void *cache_data,
+					   const void *key_data)
+{
+	const struct nhrp_cache_config *a = cache_data;
+	const struct nhrp_cache_config *b = key_data;
+
+	if (!sockunion_same(&a->remote_addr, &b->remote_addr))
+		return false;
+	if (a->ifp != b->ifp)
+		return false;
+	return true;
+}
+
+static void *nhrp_cache_config_alloc(void *data)
+{
+	struct nhrp_cache_config *p, *key = data;
+
+	p = XCALLOC(MTYPE_NHRP_CACHE_CONFIG, sizeof(struct nhrp_cache_config));
+
+	*p = (struct nhrp_cache_config){
+		.remote_addr = key->remote_addr,
+		.ifp = key->ifp,
+	};
+	return p;
+}
+
+void nhrp_cache_config_free(struct nhrp_cache_config *c)
+{
+	struct nhrp_interface *nifp = c->ifp->info;
+
+	hash_release(nifp->cache_config_hash, c);
+	XFREE(MTYPE_NHRP_CACHE_CONFIG, c);
+}
+
+struct nhrp_cache_config *nhrp_cache_config_get(struct interface *ifp,
+						union sockunion *remote_addr,
+						int create)
+{
+	struct nhrp_interface *nifp = ifp->info;
+	struct nhrp_cache_config key;
+
+	if (!nifp->cache_config_hash) {
+		nifp->cache_config_hash =
+			hash_create(nhrp_cache_config_protocol_key,
+				    nhrp_cache_config_protocol_cmp,
+				    "NHRP Config Cache");
+		if (!nifp->cache_config_hash)
+			return NULL;
+	}
+	key.remote_addr = *remote_addr;
+	key.ifp = ifp;
+
+	return hash_get(nifp->cache_config_hash, &key,
+			create ? nhrp_cache_config_alloc : NULL);
 }
 
 struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
@@ -424,9 +487,20 @@ struct nhrp_cache_iterator_ctx {
 	void *ctx;
 };
 
+struct nhrp_cache_config_iterator_ctx {
+	void (*cb)(struct nhrp_cache_config *, void *);
+	void *ctx;
+};
+
 static void nhrp_cache_iterator(struct hash_bucket *b, void *ctx)
 {
 	struct nhrp_cache_iterator_ctx *ic = ctx;
+	ic->cb(b->data, ic->ctx);
+}
+
+static void nhrp_cache_config_iterator(struct hash_bucket *b, void *ctx)
+{
+	struct nhrp_cache_config_iterator_ctx *ic = ctx;
 	ic->cb(b->data, ic->ctx);
 }
 
@@ -440,6 +514,18 @@ void nhrp_cache_foreach(struct interface *ifp,
 
 	if (nifp->cache_hash)
 		hash_iterate(nifp->cache_hash, nhrp_cache_iterator, &ic);
+}
+
+void nhrp_cache_config_foreach(struct interface *ifp,
+			       void (*cb)(struct nhrp_cache_config *, void *), void *ctx)
+{
+	struct nhrp_interface *nifp = ifp->info;
+	struct nhrp_cache_config_iterator_ctx ic = {
+		.cb = cb, .ctx = ctx,
+	};
+
+	if (nifp->cache_config_hash)
+		hash_iterate(nifp->cache_config_hash, nhrp_cache_config_iterator, &ic);
 }
 
 void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *n,

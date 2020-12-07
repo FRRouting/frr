@@ -197,6 +197,13 @@ enum nhrp_cache_type {
 extern const char *const nhrp_cache_type_str[];
 extern unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
 
+struct nhrp_cache_config {
+	struct interface *ifp;
+	union sockunion remote_addr;
+	enum nhrp_cache_type type;
+	union sockunion nbma;
+};
+
 struct nhrp_cache {
 	struct interface *ifp;
 	union sockunion remote_addr;
@@ -280,6 +287,7 @@ struct nhrp_interface {
 	uint32_t grekey;
 
 	struct hash *peer_hash;
+	struct hash *cache_config_hash;
 	struct hash *cache_hash;
 
 	struct notifier_list notifier_list;
@@ -358,10 +366,16 @@ void nhrp_shortcut_foreach(afi_t afi,
 void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force);
 void nhrp_shortcut_prefix_change(const struct prefix *p, int deleted);
 
+void nhrp_cache_config_free(struct nhrp_cache_config *c);
+struct nhrp_cache_config *nhrp_cache_config_get(struct interface *ifp,
+						union sockunion *remote_addr,
+						int create);
 struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
 				  union sockunion *remote_addr, int create);
 void nhrp_cache_foreach(struct interface *ifp,
 			void (*cb)(struct nhrp_cache *, void *), void *ctx);
+void nhrp_cache_config_foreach(struct interface *ifp,
+			       void (*cb)(struct nhrp_cache_config *, void *), void *ctx);
 void nhrp_cache_set_used(struct nhrp_cache *, int);
 int nhrp_cache_update_binding(struct nhrp_cache *, enum nhrp_cache_type type,
 			      int holding_time, struct nhrp_peer *p,
