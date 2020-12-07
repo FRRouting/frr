@@ -1731,7 +1731,7 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 	inet_ntop(bs.key.family, &bs.key.peer, peer_buf,
 		  sizeof(peer_buf));
 	/* Handle cases where local-address is optional. */
-	if (bs.key.family == AF_INET) {
+	if (memcmp(&bs.key.local, &zero_addr, sizeof(bs.key.local))) {
 		memset(&bs.key.local, 0, sizeof(bs.key.local));
 		bsp = hash_lookup(bfd_key_hash, &bs);
 		if (bsp) {
