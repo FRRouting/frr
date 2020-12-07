@@ -1524,21 +1524,16 @@ DEFUN(no_debug_ospf_ldp_sync,
 	return CMD_SUCCESS;
 }
 
-DEFPY (debug_ospf_gr,
-       debug_ospf_gr_cmd,
-       "[no$no] debug ospf graceful-restart helper",
-       NO_STR
-       DEBUG_STR OSPF_STR
-       "Gracefull restart\n"
-       "Helper Information\n")
+DEFPY(debug_ospf_gr, debug_ospf_gr_cmd, "[no$no] debug ospf graceful-restart",
+      NO_STR DEBUG_STR OSPF_STR "OSPF Graceful Restart\n")
 {
 	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(gr, GR_HELPER);
+		CONF_DEBUG_ON(gr, GR);
 
 	if (!no)
-		TERM_DEBUG_ON(gr, GR_HELPER);
+		TERM_DEBUG_ON(gr, GR);
 	else
-		TERM_DEBUG_OFF(gr, GR_HELPER);
+		TERM_DEBUG_OFF(gr, GR);
 
 	return CMD_SUCCESS;
 }
@@ -1706,9 +1701,9 @@ static int show_debugging_ospf_common(struct vty *vty, struct ospf *ospf)
 	if (IS_DEBUG_OSPF(ldp_sync, LDP_SYNC) == OSPF_DEBUG_LDP_SYNC)
 		vty_out(vty, "  OSPF ldp-sync debugging is on\n");
 
-	/* Show debug status for GR helper. */
-	if (IS_DEBUG_OSPF(gr, GR_HELPER) == OSPF_DEBUG_GR_HELPER)
-		vty_out(vty, "  OSPF Graceful Restart Helper debugging is on\n");
+	/* Show debug status for GR. */
+	if (IS_DEBUG_OSPF(gr, GR) == OSPF_DEBUG_GR)
+		vty_out(vty, "  OSPF Graceful Restart debugging is on\n");
 
 	vty_out(vty, "\n");
 
@@ -1897,9 +1892,9 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
-	/* debug ospf gr helper */
-	if (IS_CONF_DEBUG_OSPF(gr, GR_HELPER) == OSPF_DEBUG_GR_HELPER) {
-		vty_out(vty, "debug ospf%s graceful-restart helper\n", str);
+	/* debug ospf gr */
+	if (IS_CONF_DEBUG_OSPF(gr, GR) == OSPF_DEBUG_GR) {
+		vty_out(vty, "debug ospf%s graceful-restart\n", str);
 		write = 1;
 	}
 

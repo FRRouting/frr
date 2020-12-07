@@ -4269,7 +4269,7 @@ void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	struct ospf_interface *oi = nbr->oi;
 
 	if (IS_GRACE_LSA(lsa)) {
-		if (IS_DEBUG_OSPF_GR_HELPER)
+		if (IS_DEBUG_OSPF_GR)
 			zlog_debug("%s, Sending GRACE ACK to Restarter.",
 				   __PRETTY_FUNCTION__);
 	}

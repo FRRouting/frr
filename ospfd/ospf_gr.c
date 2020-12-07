@@ -47,9 +47,10 @@ int ospf_gr_init(void)
 {
 	int rc;
 
-	zlog_debug(
-		"GR (%s): Initializing nonstop forwarding (NSF) / Graceful Restart",
-		__func__);
+	if (IS_DEBUG_OSPF_GR)
+		zlog_debug(
+			"GR (%s): Initializing nonstop forwarding (NSF) / Graceful Restart",
+			__func__);
 
 	rc = ospf_register_opaque_functab(
 		OSPF_OPAQUE_LINK_LSA, OPAQUE_TYPE_GRACE_LSA,
@@ -80,8 +81,6 @@ int ospf_gr_init(void)
 void ospf_gr_term(void)
 {
 	ospf_delete_opaque_functab(OSPF_OPAQUE_LINK_LSA, OPAQUE_TYPE_GRACE_LSA);
-
-	return;
 }
 
 static struct ospf_lsa *ospf_gr_lsa_lookup(struct ospf *ospf)
@@ -106,8 +105,9 @@ static int ospf_gr_prepare_timer(struct thread *thread)
 	struct ospf *ospf = (struct ospf *)THREAD_ARG(thread);
 	struct ospf_lsa *lsa;
 
-	zlog_debug(
-		"[GR] Prepared restart timer expired, flushing all self-originated Grace-LSAs.");
+	if (IS_DEBUG_OSPF_GR)
+		zlog_debug(
+			"[GR] Prepared restart timer expired, flushing all self-originated Grace-LSAs.");
 
 	ospf->gr_info.t_prepare = NULL;
 	ospf->gr_info.prepare_running = false;
@@ -115,11 +115,16 @@ static int ospf_gr_prepare_timer(struct thread *thread)
 	lsa = ospf_gr_lsa_lookup(ospf);
 	if (lsa)
 		ospf_opaque_lsa_flush_schedule(lsa);
-	else
-		zlog_debug("[GR] no self-originated Grace-LSAs to flush!");
+	else {
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"[GR] no self-originated Grace-LSAs to flush!");
+	}
 
 	if (ospf->present_zebra_gr_state == ZEBRA_GR_ENABLED) {
-		zlog_debug("[GR] Un-stalling the RIB");
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug("[GR] Un-stalling the RIB");
+
 		if (ospf_zebra_gr_disable(ospf))
 			return CMD_WARNING;
 	}
@@ -219,8 +224,9 @@ static struct ospf_lsa *ospf_gr_lsa_new(struct ospf_interface *oi)
 	new = ospf_lsa_new_and_data(length);
 	assert(new);
 
-	zlog_debug("LSA[Type%d:%s]: Create an Opaque-LSA/GR instance", lsa_type,
-		   inet_ntoa(lsa_id));
+	if (IS_DEBUG_OSPF_GR)
+		zlog_debug("LSA[Type%d:%s]: Create an Opaque-LSA/GR instance",
+			   lsa_type, inet_ntoa(lsa_id));
 
 	new->area = oi->area;
 	new->oi = oi;
@@ -238,16 +244,19 @@ static struct ospf_lsa *ospf_gr_lsa_originate(struct ospf_interface *oi,
 	struct ospf_area *area;
 
 	if (oi->state == ISM_Down) {
-		zlog_debug(
-			"%s:Originating Grace LSA on Down interface %s (abort)",
-			__func__, IF_NAME(oi));
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"%s:Originating Grace LSA on Down interface %s (abort)",
+				__func__, IF_NAME(oi));
 		goto out;
 	}
 
 	/* Create new Grace-LSA instance. */
 	new = ospf_gr_lsa_new(oi);
 	if (!new) {
-		zlog_warn("ospf_gr_lsa_generate: ospf_gr_lsa_new() failed");
+		if (IS_DEBUG_OSPF_GR)
+			zlog_warn(
+				"ospf_gr_lsa_generate: ospf_gr_lsa_new() failed");
 		goto out;
 	}
 
@@ -262,7 +271,9 @@ static struct ospf_lsa *ospf_gr_lsa_originate(struct ospf_interface *oi,
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(oi->ospf, oi, new) == NULL) {
-		zlog_warn("ospf_gr_lsa_generate: ospf_lsa_install() failed");
+		if (IS_DEBUG_OSPF_GR)
+			zlog_warn(
+				"ospf_gr_lsa_generate: ospf_lsa_install() failed");
 		ospf_lsa_unlock(&new);
 		goto out;
 	}
@@ -312,18 +323,22 @@ static void ospf_gr_prepare(struct ospf *ospf, uint32_t period)
 	struct listnode *node = NULL;
 	struct ospf_interface *oi = NULL;
 
-	zlog_debug("[GR] NSF PREPARE with the period %u second(s)", period);
+	if (IS_DEBUG_OSPF_GR)
+		zlog_debug("[GR] NSF PREPARE with the period %u second(s)",
+			   period);
 
 	if (!ospf->gr_info.restart_support
 	    || ospf->present_zebra_gr_state != ZEBRA_GR_ENABLED) {
-		zlog_debug(
-			"[GR] The graceful restart capability is not active!");
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"[GR] The graceful restart capability is not active!");
 		return;
 	}
 
 	if (ospf->gr_info.prepare_running) {
-		zlog_debug(
-			"[GR] The prepared restart has already been committed!");
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"[GR] The prepared restart has already been committed!");
 		return;
 	}
 
@@ -359,7 +374,8 @@ DEFUN(graceful_restart,
 			OSPF_GR_DEFAULT_GRACE_PERIOD;
 
 	if (!ospf->gr_info.restart_support)
-		zlog_debug("GR: OFF -> ON");
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug("GR: OFF -> ON");
 
 	ospf->gr_info.restart_support = true;
 
@@ -378,7 +394,8 @@ DEFUN(no_graceful_restart,
 
 	ospf->gr_info.restart_support = false;
 
-	zlog_debug("GR: ON -> OFF");
+	if (IS_DEBUG_OSPF_GR)
+		zlog_debug("GR: ON -> OFF");
 
 	return CMD_SUCCESS;
 }
@@ -409,8 +426,9 @@ DEFUN(graceful_restart_prepare,
 			OSPF_GR_DEFAULT_PREPARE_PERIOD;
 
 	if (!ospf->gr_info.prepare_running)
-		zlog_debug("GR PREPARE: OFF -> ON with period %d",
-			   ospf->gr_info.prepare_period);
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug("GR PREPARE: OFF -> ON with period %d",
+				   ospf->gr_info.prepare_period);
 
 	if (ospf->present_zebra_gr_state == ZEBRA_GR_ENABLED
 	    && ospf->rib_stale_time != ospf->gr_info.grace_period) {
@@ -444,7 +462,7 @@ DEFUN(no_graceful_restart_prepare,
 			return CMD_WARNING;
 	}
 
-	if (ospf->gr_info.prepare_running)
+	if (ospf->gr_info.prepare_running && IS_DEBUG_OSPF_GR)
 		zlog_debug("GR PREPARE: ON -> OFF");
 
 	ospf->gr_info.prepare_running = false;

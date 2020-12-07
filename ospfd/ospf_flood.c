@@ -385,7 +385,7 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 		if (IS_LSA_MAXAGE(new)) {
 
 			/*  Handling Max age grace LSA.*/
-			if (IS_DEBUG_OSPF_GR_HELPER)
+			if (IS_DEBUG_OSPF_GR)
 				zlog_debug(
 					"%s, Received a maxage GRACE-LSA from router %pI4",
 					__PRETTY_FUNCTION__,
@@ -394,14 +394,14 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 			if (current) {
 				ospf_process_maxage_grace_lsa(ospf, new, nbr);
 			} else {
-				if (IS_DEBUG_OSPF_GR_HELPER)
+				if (IS_DEBUG_OSPF_GR)
 					zlog_debug(
 						"%s, Grace LSA doesn't exist in lsdb, so discarding grace lsa",
 						__PRETTY_FUNCTION__);
 				return -1;
 			}
 		} else {
-			if (IS_DEBUG_OSPF_GR_HELPER)
+			if (IS_DEBUG_OSPF_GR)
 				zlog_debug(
 					"%s, Received a GRACE-LSA from router %pI4",
 					__PRETTY_FUNCTION__,
@@ -409,7 +409,7 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 
 			if (ospf_process_grace_lsa(ospf, new, nbr)
 			    == OSPF_GR_NOT_HELPER) {
-				if (IS_DEBUG_OSPF_GR_HELPER)
+				if (IS_DEBUG_OSPF_GR)
 					zlog_debug(
 						"%s, Not moving to HELPER role, So discarding grace LSA",
 						__PRETTY_FUNCTION__);
