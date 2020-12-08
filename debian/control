@@ -29,8 +29,8 @@ Build-Depends: bison,
                python3-dev,
                python3-pytest <!nocheck>,
                python3-sphinx,
-	       liblua5.3-dev,
-               texinfo (>= 4.7)
+               texinfo (>= 4.7),
+               liblua5.3-dev <!pkg.frr.nolua>
 Standards-Version: 4.5.0.3
 Homepage: https://www.frrouting.org/
 Vcs-Browser: https://github.com/FRRouting/frr/tree/debian/master

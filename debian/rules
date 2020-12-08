@@ -29,6 +29,12 @@ else
   CONF_SYSTEMD=--enable-systemd=no
 endif
 
+ifeq ($(filter pkg.frr.nolua,$(DEB_BUILD_PROFILES)),)
+  CONF_LUA=--enable-scripting
+else
+  CONF_LUA=--disable-scripting
+endif
+
 export PYTHON=python3
 
 %:
@@ -49,6 +55,7 @@ override_dh_auto_configure:
 		\
 		$(CONF_SYSTEMD) \
 		$(CONF_RPKI) \
+		$(CONF_LUA) \
 		--with-libpam \
 		--enable-doc \
 		--enable-doc-html \
