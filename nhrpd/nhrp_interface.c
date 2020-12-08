@@ -327,7 +327,8 @@ struct map_ctx {
 	bool enabled;
 };
 
-static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc, void *data)
+static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc,
+					     void *data)
 {
 	struct map_ctx *ctx = data;
 	struct interface *ifp = cc->ifp;
@@ -344,15 +345,20 @@ static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc, void 
 	c = nhrp_cache_get(ifp, &cc->remote_addr, ctx->enabled ? 1 : 0);
 	if (!c && !ctx->enabled)
 		return;
+
 	/* suppress */
 	if (!ctx->enabled) {
 		if (c && c->map) {
-			nhrp_cache_update_binding(c, c->cur.type, -1,
-						  nhrp_peer_get(ifp, &nbma_addr), 0, NULL);
+			nhrp_cache_update_binding(
+				c, c->cur.type, -1,
+				nhrp_peer_get(ifp, &nbma_addr), 0, NULL);
 		}
 		return;
 	}
-	/* create */
+
+	/* Newly created */
+	assert(c != NULL);
+
 	c->map = 1;
 	if (cc->type == NHRP_CACHE_LOCAL)
 		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0,
