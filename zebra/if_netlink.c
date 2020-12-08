@@ -559,7 +559,7 @@ static void netlink_interface_update_l2info(struct interface *ifp,
 		struct zebra_l2info_bridge bridge_info;
 
 		netlink_extract_bridge_info(link_data, &bridge_info);
-		zebra_l2_bridge_add_update(ifp, &bridge_info, add);
+		zebra_l2_bridge_add_update(ifp, &bridge_info, add, link_nsid);
 	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
 		struct zebra_l2info_vlan vlan_info;
 
@@ -1637,7 +1637,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			zebra_l2if_update_bond(ifp, false);
 		/* Special handling for bridge or VxLAN interfaces. */
 		if (IS_ZEBRA_IF_BRIDGE(ifp))
-			zebra_l2_bridge_del(ifp);
+			zebra_l2_bridge_del(ifp, link_nsid);
 		else if (IS_ZEBRA_IF_VXLAN(ifp))
 			zebra_l2_vxlanif_del(ifp);
 

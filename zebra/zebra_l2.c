@@ -51,17 +51,12 @@
 /* static function declarations */
 
 /* Private functions */
-static void map_slaves_to_bridge(struct interface *br_if, int link)
+static void map_slaves_to_bridge(struct interface *br_if, int link,
+				 ns_id_t ns_id)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
-	struct zebra_vrf *zvrf;
-	struct zebra_ns *zns;
 
-	zvrf = zebra_vrf_lookup_by_id(br_if->vrf_id);
-	assert(zvrf);
-	zns = zvrf->zns;
-	assert(zns);
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct zebra_if *zif;
@@ -81,7 +76,7 @@ static void map_slaves_to_bridge(struct interface *br_if, int link)
 
 			if (link) {
 				if (br_slave->bridge_ifindex == br_if->ifindex &&
-				    br_slave->ns_id == zns->ns_id)
+				    br_slave->ns_id == ns_id)
 					br_slave->br_if = br_if;
 			} else {
 				if (br_slave->br_if == br_if)
@@ -211,7 +206,7 @@ void zebra_l2if_update_bond(struct interface *ifp, bool add)
  */
 void zebra_l2_bridge_add_update(struct interface *ifp,
 				struct zebra_l2info_bridge *bridge_info,
-				int add)
+				int add, ns_id_t ns_id)
 {
 	struct zebra_if *zif;
 
@@ -222,16 +217,16 @@ void zebra_l2_bridge_add_update(struct interface *ifp,
 	memcpy(&zif->l2info.br, bridge_info, sizeof(*bridge_info));
 
 	/* Link all slaves to this bridge */
-	map_slaves_to_bridge(ifp, 1);
+	map_slaves_to_bridge(ifp, 1, ns_id);
 }
 
 /*
  * Handle Bridge interface delete.
  */
-void zebra_l2_bridge_del(struct interface *ifp)
+void zebra_l2_bridge_del(struct interface *ifp, ns_id_t ns_id)
 {
 	/* Unlink all slaves to this bridge */
-	map_slaves_to_bridge(ifp, 0);
+	map_slaves_to_bridge(ifp, 0, ns_id);
 }
 
 /*
