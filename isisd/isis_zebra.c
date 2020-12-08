@@ -699,6 +699,20 @@ stream_failure:
 	return ret;
 }
 
+static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
+{
+	int ret = 0;
+
+	struct zapi_client_close_info info;
+
+	if (zapi_client_close_notify_decode(zclient->ibuf, &info) < 0)
+		return -1;
+
+	isis_ldp_sync_handle_client_close(&info);
+
+	return ret;
+}
+
 void isis_zebra_init(struct thread_master *master, int instance)
 {
 	/* Initialize asynchronous zclient. */
@@ -727,6 +741,8 @@ void isis_zebra_init(struct thread_master *master, int instance)
 	zclient_sync->privs = &isisd_privs;
 
 	zclient->opaque_msg_handler = isis_opaque_msg_handler;
+
+	zclient->zebra_client_close_notify = isis_zebra_client_close_notify;
 }
 
 void isis_zebra_stop(void)

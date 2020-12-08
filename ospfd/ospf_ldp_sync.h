@@ -50,6 +50,8 @@ extern void ospf_ldp_sync_if_write_config(struct vty *vty,
 extern int ospf_ldp_sync_state_update(struct ldp_igp_sync_if_state state);
 extern int ospf_ldp_sync_announce_update(struct ldp_igp_sync_announce announce);
 extern int ospf_ldp_sync_hello_update(struct ldp_igp_sync_hello hello);
+extern void
+ospf_ldp_sync_handle_client_close(struct zapi_client_close_info *info);
 extern void ospf_ldp_sync_state_req_msg(struct interface *ifp);
 extern void ospf_ldp_sync_init(void);
 extern void ospf_ldp_sync_gbl_exit(struct ospf *ospf, bool remove);

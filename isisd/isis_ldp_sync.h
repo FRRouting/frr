@@ -20,6 +20,8 @@
 #ifndef _ZEBRA_ISIS_LDP_SYNC_H
 #define _ZEBRA_ISIS_LDP_SYNC_H
 
+#include "zclient.h"
+
 /* Macro to log debug message */
 #define ils_debug(...)                                                         \
 	do {                                                                   \
@@ -36,6 +38,8 @@ extern void isis_ldp_sync_if_start(struct isis_circuit *circuit,
 extern void isis_ldp_sync_if_remove(struct isis_circuit *circuit, bool remove);
 extern void isis_ldp_sync_if_complete(struct isis_circuit *circuit);
 extern void isis_ldp_sync_holddown_timer_add(struct isis_circuit *circuit);
+extern void
+isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info);
 extern void isis_ldp_sync_hello_timer_add(void);
 extern void isis_ldp_sync_ldp_fail(struct isis_circuit *circuit);
 extern int isis_ldp_sync_state_update(struct ldp_igp_sync_if_state state);

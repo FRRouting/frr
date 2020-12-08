@@ -1986,6 +1986,20 @@ stream_failure:
 	return ret;
 }
 
+static int ospf_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
+{
+	int ret = 0;
+
+	struct zapi_client_close_info info;
+
+	if (zapi_client_close_notify_decode(zclient->ibuf, &info) < 0)
+		return -1;
+
+	ospf_ldp_sync_handle_client_close(&info);
+
+	return ret;
+}
+
 void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 {
 	/* Allocate zebra structure. */
@@ -2021,6 +2035,8 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	prefix_list_delete_hook(ospf_prefix_list_update);
 
 	zclient->opaque_msg_handler = ospf_opaque_msg_handler;
+
+	zclient->zebra_client_close_notify = ospf_zebra_client_close_notify;
 }
 
 void ospf_zebra_send_arp(const struct interface *ifp, const struct prefix *p)
