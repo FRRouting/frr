@@ -1016,6 +1016,45 @@ def test_bgp_ipv6_summary():
     # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
+def test_nht():
+    print("\n\n**** Test that nexthop tracking is at least nominally working ****\n")
+
+    thisDir = os.path.dirname(os.path.realpath(__file__))
+
+    for i in range(1, 2):
+        nhtFile = "%s/r%s/ip_nht.ref" % (thisDir, i)
+        expected = open(nhtFile).read().rstrip()
+        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+
+        actual = (net["r%s" %i].cmd('vtysh -c "show ip nht" 2> /dev/null').rstrip())
+        actual = re.sub(r"fd [0-9][0-9]", "fd XX", actual)
+        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+
+        diff = topotest.get_textdiff(actual, expected,
+                                     title1="Actual `show ip nht`",
+                                     title2="Expected `show ip nht`")
+
+        if diff:
+            assert 0, "r%s failed ip nht check:\n%s\n" % (i, diff)
+        else:
+            print("show ip nht is ok\n")
+
+        nhtFile = "%s/r%s/ipv6_nht.ref" % (thisDir, i)
+        expected = open(nhtFile).read().rstrip()
+        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+
+        actual = (net["r%s" %i].cmd('vtysh -c "show ipv6 nht" 2> /dev/null').rstrip())
+        actual = re.sub(r"fd [0-9][0-9]", "fd XX", actual)
+        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+
+        diff = topotest.get_textdiff(actual, expected,
+                                     title1="Actual `show ip nht`",
+                                     title2="Expected `show ip nht`")
+
+        if diff:
+            assert 0, "r%s failed ipv6 nht check:\n%s\n" % (i, diff)
+        else:
+            print("show ipv6 nht is ok\n")
 
 def test_bgp_ipv4():
     global fatal_error

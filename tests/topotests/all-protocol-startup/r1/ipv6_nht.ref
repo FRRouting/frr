@@ -1,0 +1,13 @@
+fc00::2
+ resolved via connected
+ is directly connected, r1-eth0
+ Client list: static(fd XX)
+fc00:0:0:8::1000
+ resolved via connected
+ is directly connected, r1-eth8
+ Client list: bgp(fd XX)
+fc00:0:0:8::2000(Connected)
+ resolved via connected
+ is directly connected, r1-eth8
+ Client list: bgp(fd XX)
+ 
