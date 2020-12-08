@@ -361,6 +361,25 @@ is interpreted as the Administrative Distance and the low three bytes
 are read in as the metric.  This special case is to facilitate VRF
 default routes.
 
+Route Replace Semantics
+=======================
+
+When using the Linux Kernel as a forwarding plane, routes are installed
+with a metric of 20 to the kernel.  Please note that the kernel's metric
+value bears no resemblence to FRR's RIB metric or admin distance.  It
+merely is a way for the Linux Kernel to decide which route to use if it
+has multiple routes for the same prefix from multiple sources.  An example
+here would be if someone else was running another routing suite besides
+FRR at the same time, the kernel must choose what route to use to forward
+on.  FRR choose the value of 20 because of two reasons.  FRR wanted a
+value small enough to be choosen but large enough that the operator could
+allow route prioritization by the kernel when multiple routing suites are
+being run and FRR wanted to take advantage of Route Replace semantics that
+the linux kernel offers.  In order for Route Replacement semantics to
+work FRR must use the same metric when issuing the replace command.
+Currently FRR only supports Route Replace semantics using the Linux
+Kernel.
+
 Virtual Routing and Forwarding
 ==============================
 
