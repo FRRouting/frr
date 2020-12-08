@@ -882,14 +882,12 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc,
 	if (!spftree_pc->area->srdb.enabled)
 		return -1;
 
-	if (IS_DEBUG_LFA)
-		vid2string(vertex, buf, sizeof(buf));
-
 	if (!lfa_check_needs_protection(spftree_pc, vertex)) {
 		if (IS_DEBUG_LFA)
 			zlog_debug(
 				"ISIS-LFA: %s %s unaffected by %s",
-				vtype2string(vertex->type), buf,
+				vtype2string(vertex->type),
+				vid2string(vertex, buf, sizeof(buf)),
 				lfa_protected_resource2str(
 					&spftree_pc->lfa.protected_resource));
 
@@ -910,7 +908,8 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc,
 			if (IS_DEBUG_LFA)
 				zlog_debug(
 					"ISIS-LFA: %s %s already covered by node protection",
-					vtype2string(vertex->type), buf);
+					vtype2string(vertex->type),
+					vid2string(vertex, buf, sizeof(buf)));
 
 			return -1;
 		}
@@ -923,7 +922,8 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc,
 			if (IS_DEBUG_LFA)
 				zlog_debug(
 					"ISIS-LFA: %s %s already covered by node protection",
-					vtype2string(vertex->type), buf);
+					vtype2string(vertex->type),
+					vid2string(vertex, buf, sizeof(buf)));
 
 			return -1;
 		}
@@ -932,7 +932,8 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc,
 	if (IS_DEBUG_LFA)
 		zlog_debug(
 			"ISIS-LFA: computing repair path(s) of %s %s w.r.t %s",
-			vtype2string(vertex->type), buf,
+			vtype2string(vertex->type),
+			vid2string(vertex, buf, sizeof(buf)),
 			lfa_protected_resource2str(
 				&spftree_pc->lfa.protected_resource));
 
@@ -947,7 +948,8 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc,
 	if (ret != 0)
 		zlog_warn(
 			"ISIS-LFA: failed to compute repair path(s) of %s %s w.r.t %s",
-			vtype2string(vertex->type), buf,
+			vtype2string(vertex->type),
+			vid2string(vertex, buf, sizeof(buf)),
 			lfa_protected_resource2str(
 				&spftree_pc->lfa.protected_resource));
 
