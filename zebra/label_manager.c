@@ -335,8 +335,7 @@ static struct label_manager_chunk *assign_label_chunk(uint8_t proto,
 		}
 		/* check if we hadve a "hole" behind us that we can squeeze into
 		 */
-		if ((lmc->start > prev_end)
-		    && (lmc->start - prev_end >= size)) {
+		if ((lmc->start > prev_end) && (lmc->start - prev_end > size)) {
 			lmc = create_label_chunk(proto, instance, session_id,
 						 keep, prev_end + 1,
 						 prev_end + size);
