@@ -1274,11 +1274,11 @@ DEFPY (show_ip_nht,
 		VRF_GET_ID(vrf_id, vrf_name, false);
 
 	memset(&prefix, 0, sizeof(prefix));
-	if (addr)
+	if (addr) {
 		p = sockunion2hostprefix(addr, &prefix);
-
-	if (!p)
-		return CMD_WARNING;
+		if (!p)
+			return CMD_WARNING;
+	}
 
 	zebra_print_rnh_table(vrf_id, afi, vty, rtype, p);
 	return CMD_SUCCESS;
