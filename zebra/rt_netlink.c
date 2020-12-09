@@ -453,7 +453,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
-	struct seg6local_context seg6l_ctx = {0};
+	struct seg6local_context seg6l_ctx = {{0}};
 
 	vrf_id_t nh_vrf_id = vrf_id;
 	size_t sz = (afi == AFI_IP) ? 4 : 16;
@@ -525,7 +525,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
-	struct seg6local_context seg6l_ctx = {0};
+	struct seg6local_context seg6l_ctx = {{0}};
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
 
 	int len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
