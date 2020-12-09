@@ -995,7 +995,6 @@ int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
 int zsend_assign_label_chunk_response(struct zserv *client, vrf_id_t vrf_id,
 				      struct label_manager_chunk *lmc)
 {
-	int ret;
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_GET_LABEL_CHUNK, vrf_id);
@@ -1015,16 +1014,13 @@ int zsend_assign_label_chunk_response(struct zserv *client, vrf_id_t vrf_id,
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	ret = writen(client->sock, s->data, stream_get_endp(s));
-	stream_free(s);
-	return ret;
+	return zserv_send_message(client, s);
 }
 
 /* Send response to a label manager connect request to client */
 int zsend_label_manager_connect_response(struct zserv *client, vrf_id_t vrf_id,
 					 unsigned short result)
 {
-	int ret;
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_LABEL_MANAGER_CONNECT, vrf_id);
@@ -1041,10 +1037,7 @@ int zsend_label_manager_connect_response(struct zserv *client, vrf_id_t vrf_id,
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	ret = writen(client->sock, s->data, stream_get_endp(s));
-	stream_free(s);
-
-	return ret;
+	return zserv_send_message(client, s);
 }
 
 /* Send response to a get table chunk request to client */
