@@ -3762,7 +3762,7 @@ def verify_attributes_for_evpn_routes(
                                 logger.info(
                                     "[DUT %s]: Verifying RD value for"
                                     " EVPN route: %s [PASSED]|| "
-                                    "Found Exprected: %s",
+                                    "Found Expected: %s",
                                     dut,
                                     route,
                                     rd,
@@ -3808,34 +3808,33 @@ def verify_attributes_for_evpn_routes(
                                 continue
                             router_id = afi_data["routerId"]
 
+                        found = False
                         rd = "{}:{}".format(router_id, vni_dict[vrf])
-                        if rd in evpn_rd_value_json:
-                            rd_value_json = evpn_rd_value_json[rd]
-                            if rd_value_json["rd"] != rd:
-                                errormsg = (
-                                    "[DUT: %s] Failed: Verifying"
-                                    " RD value for EVPN route: %s"
-                                    "[FAILED]!!, EXPECTED  : %s "
-                                    " FOUND : %s"
-                                    % (dut, route, rd, rd_value_json["rd"])
-                                )
-                                return errormsg
+                        for _rd, rd_value_json in evpn_rd_value_json.items():
+                            if (
+                                str(rd_value_json["rd"].split(":")[0])
+                                != rd.split(":")[0]
+                            ):
+                                continue
 
-                            else:
-                                logger.info(
-                                    "[DUT %s]: Verifying RD value for"
-                                    " EVPN route: %s [PASSED]|| "
-                                    "Found Exprected: %s",
-                                    dut,
-                                    route,
-                                    rd,
-                                )
-                                return True
+                            if int(rd_value_json["rd"].split(":")[1]) > 0:
+                                found = True
 
+                        if found:
+                            logger.info(
+                                "[DUT %s]: Verifying RD value for"
+                                " EVPN route: %s "
+                                "Found Expected: %s",
+                                dut,
+                                route,
+                                rd_value_json["rd"],
+                            )
+                            return True
                         else:
                             errormsg = (
-                                "[DUT: %s] RD : %s is not present"
-                                " in cli json output" % (dut, rd)
+                                "[DUT: %s] Failed: Verifying"
+                                " RD value for EVPN route: %s"
+                                " FOUND : %s" % (dut, route, rd_value_json["rd"])
                             )
                             return errormsg
 
@@ -3908,7 +3907,7 @@ def verify_attributes_for_evpn_routes(
                                                 "[DUT %s]: Verifying "
                                                 "RT value for EVPN "
                                                 "route: %s [PASSED]||"
-                                                "Found Exprected: %s",
+                                                "Found Expected: %s",
                                                 dut,
                                                 route,
                                                 rt_input,
@@ -3957,7 +3956,7 @@ def verify_attributes_for_evpn_routes(
                                                 "[DUT %s]: Verifying RT"
                                                 " value for EVPN route:"
                                                 " %s [PASSED]|| "
-                                                "Found Exprected: %s",
+                                                "Found Expected: %s",
                                                 dut,
                                                 route,
                                                 rt_input,
@@ -4001,7 +4000,7 @@ def verify_attributes_for_evpn_routes(
                                         "[DUT %s]: RD: %s, Verifying "
                                         "ethTag value for EVPN route:"
                                         " %s [PASSED]|| "
-                                        "Found Exprected: %s",
+                                        "Found Expected: %s",
                                         dut,
                                         _rd,
                                         route,
@@ -4041,7 +4040,7 @@ def verify_attributes_for_evpn_routes(
                                         "[DUT %s]: RD: %s, Verifying "
                                         "ipLen value for EVPN route:"
                                         " %s [PASSED]|| "
-                                        "Found Exprected: %s",
+                                        "Found Expected: %s",
                                         dut,
                                         _rd,
                                         route,
