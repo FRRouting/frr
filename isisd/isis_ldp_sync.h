@@ -40,11 +40,9 @@ extern void isis_ldp_sync_if_complete(struct isis_circuit *circuit);
 extern void isis_ldp_sync_holddown_timer_add(struct isis_circuit *circuit);
 extern void
 isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info);
-extern void isis_ldp_sync_hello_timer_add(void);
 extern void isis_ldp_sync_ldp_fail(struct isis_circuit *circuit);
 extern int isis_ldp_sync_state_update(struct ldp_igp_sync_if_state state);
 extern int isis_ldp_sync_announce_update(struct ldp_igp_sync_announce announce);
-extern int isis_ldp_sync_hello_update(struct ldp_igp_sync_hello hello);
 extern void isis_ldp_sync_state_req_msg(struct isis_circuit *circuit);
 extern void isis_ldp_sync_set_if_metric(struct isis_circuit *circuit,
 					bool run_regen);

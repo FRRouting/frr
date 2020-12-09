@@ -2305,7 +2305,6 @@ int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
 		/* register with opaque client to recv LDP-IGP Sync msgs */
 		zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
 		zclient_register_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
-		zclient_register_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE);
 
 		if (!CHECK_FLAG(isis->ldp_sync_cmd.flags,
 				LDP_SYNC_FLAG_ENABLE)) {
