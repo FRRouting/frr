@@ -253,6 +253,33 @@ void ospf_ldp_sync_if_complete(struct interface *ifp)
 	}
 }
 
+void ospf_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
+{
+	struct ospf *ospf;
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	/* if ospf is not enabled or LDP-SYNC is not configured ignore */
+	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	if (ospf == NULL
+	    || !CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
+		return;
+
+	/* Check if the LDP main client session closed */
+	if (info->proto != ZEBRA_ROUTE_LDP || info->session_id == 0)
+		return;
+
+	/* Handle the zebra notification that the LDP client session closed.
+	 *  set cost to LSInfinity
+	 *  send request to LDP for LDP-SYNC state for each interface
+	 */
+	zlog_err("ldp_sync: LDP down");
+
+	vrf = vrf_lookup_by_id(ospf->vrf_id);
+	FOR_ALL_INTERFACES (vrf, ifp)
+		ospf_ldp_sync_if_start(ifp, true);
+}
+
 void ospf_ldp_sync_ldp_fail(struct interface *ifp)
 {
 	struct ospf_if_params *params;
@@ -264,7 +291,7 @@ void ospf_ldp_sync_ldp_fail(struct interface *ifp)
 	params = IF_DEF_PARAMS(ifp);
 	ldp_sync_info = params->ldp_sync_info;
 
-	/* LDP failed to send hello:
+	/* LDP client close detected:
 	 *  stop holddown timer
 	 *  set cost of interface to LSInfinity so traffic will use different
 	 *  interface until LDP has learned all labels from peer
