@@ -60,6 +60,7 @@
 #include "zebra/connected.h"
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
+#include "zebra/zebra_srv6.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, OPAQUE, "Opaque Data");
 
@@ -1131,6 +1132,29 @@ static int zsend_table_manager_connect_response(struct zserv *client,
 	/* result */
 	stream_putc(s, result);
 
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zserv_send_message(client, s);
+}
+
+static int zsend_srv6_manager_connect_response(struct zserv *client,
+						vrf_id_t vrf_id,
+						uint16_t result)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_CONNECT, vrf_id);
+
+	/* proto */
+	stream_putc(s, client->proto);
+
+	/* instance */
+	stream_putw(s, client->instance);
+
+	/* result */
+	stream_putc(s, result);
+
+	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zserv_send_message(client, s);
@@ -2624,6 +2648,74 @@ int zsend_client_close_notify(struct zserv *client, struct zserv *closed_client)
 	return zserv_send_message(client, s);
 }
 
+/* Send response to a srv6 manager connect request to client */
+static void zread_srv6_manager_connect(struct zserv *client,
+				       struct stream *msg, vrf_id_t vrf_id)
+{
+	struct stream *s;
+	uint8_t proto;
+	uint16_t instance;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	s = msg;
+
+	/* Get data. */
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
+
+	/* accept only dynamic routing protocols */
+	if ((proto >= ZEBRA_ROUTE_MAX) || (proto <= ZEBRA_ROUTE_STATIC)) {
+		flog_err(EC_ZEBRA_TM_WRONG_PROTO,
+			 "client %d has wrong protocol %s", client->sock,
+			 zebra_route_string(proto));
+		zsend_srv6_manager_connect_response(client, vrf_id, 1);
+		return;
+	}
+	zlog_notice("client %d with vrf %s(%u) instance %u connected as %s",
+		    client->sock, VRF_LOGNAME(vrf), vrf_id, instance,
+		    zebra_route_string(proto));
+	client->proto = proto;
+	client->instance = instance;
+
+	/*
+	 * Release previous locators of same protocol and instance.
+	 * This is done in case it restarted from an unexpected shutdown.
+	 */
+	release_daemon_srv6_locator_chunks(client);
+
+	zsend_srv6_manager_connect_response(client, vrf_id, 0);
+
+stream_failure:
+	return;
+}
+
+int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
+						  vrf_id_t vrf_id,
+						  struct srv6_locator *loc)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK, vrf_id);
+
+	/* proto */
+	stream_putc(s, client->proto);
+
+	/* instance */
+	stream_putw(s, client->instance);
+
+	if (loc) {
+		stream_putw(s, strlen(loc->name));
+		stream_put(s, loc->name, strlen(loc->name));
+		stream_putw(s, loc->prefix.prefixlen);
+		stream_put(s, &loc->prefix.prefix, 16);
+	}
+
+	/* Write packet size. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zserv_send_message(client, s);
+}
+
 /* Send response to a table manager connect request to client */
 static void zread_table_manager_connect(struct zserv *client,
 					struct stream *msg, vrf_id_t vrf_id)
@@ -2830,6 +2922,77 @@ static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
 			zread_get_table_chunk(client, msg, zvrf_id(zvrf));
 		else if (hdr->command == ZEBRA_RELEASE_TABLE_CHUNK)
 			zread_release_table_chunk(client, msg);
+	}
+}
+
+static void zread_srv6_manager_get_locator_chunk(struct zserv *client,
+						 struct stream *msg,
+						 vrf_id_t vrf_id)
+{
+	struct stream *s = msg;
+	uint8_t proto;
+	uint16_t instance;
+	uint16_t len;
+	char locator_name[SRV6_LOCNAME_SIZE] = {0};
+
+	/* Get data. */
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
+	STREAM_GETW(s, len);
+	STREAM_GET(locator_name, s, len);
+
+	assert(proto == client->proto && instance == client->instance);
+
+	/* call hook to get a chunk using wrapper */
+	struct srv6_locator *loc = NULL;
+	srv6_manager_get_locator_chunk_call(&loc, client, locator_name, vrf_id);
+
+stream_failure:
+	return;
+}
+
+static void zread_srv6_manager_release_locator_chunk(struct zserv *client,
+						     struct stream *msg,
+						     vrf_id_t vrf_id)
+{
+	struct stream *s = msg;
+	uint8_t proto;
+	uint16_t instance;
+	uint16_t len;
+	char locator_name[SRV6_LOCNAME_SIZE] = {0};
+
+	/* Get data. */
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
+	STREAM_GETW(s, len);
+	STREAM_GET(locator_name, s, len);
+
+	assert(proto == client->proto && instance == client->instance);
+
+	/* call hook to release a chunk using wrapper */
+	srv6_manager_release_locator_chunk_call(client, locator_name, vrf_id);
+
+stream_failure:
+	return;
+}
+
+static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
+{
+	switch (hdr->command) {
+	case ZEBRA_SRV6_MANAGER_CONNECT:
+		zread_srv6_manager_connect(client, msg, zvrf_id(zvrf));
+		break;
+	case ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK:
+		zread_srv6_manager_get_locator_chunk(client, msg,
+						     zvrf_id(zvrf));
+		break;
+	case ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK:
+		zread_srv6_manager_release_locator_chunk(client, msg,
+							 zvrf_id(zvrf));
+		break;
+	default:
+		zlog_err("%s: unknown SRv6 Mamanger command", __func__);
+		break;
 	}
 }
 
@@ -3592,6 +3755,9 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MLAG_CLIENT_REGISTER] = zebra_mlag_client_register,
 	[ZEBRA_MLAG_CLIENT_UNREGISTER] = zebra_mlag_client_unregister,
 	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
+	[ZEBRA_SRV6_MANAGER_CONNECT] = zread_srv6_manager_request,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] = zread_srv6_manager_request,
+	[ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK] = zread_srv6_manager_request,
 	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities,
 	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover,
 	[ZEBRA_NHG_ADD] = zread_nhg_add,

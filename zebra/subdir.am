@@ -93,6 +93,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_mpls_openbsd.c \
 	zebra/zebra_mpls_null.c \
 	zebra/zebra_mpls_vty.c \
+	zebra/zebra_srv6.c \
 	zebra/zebra_srv6_vty.c \
 	zebra/zebra_mroute.c \
 	zebra/zebra_nb.c \
@@ -163,6 +164,7 @@ noinst_HEADERS += \
 	zebra/zebra_mlag.h \
 	zebra/zebra_mlag_vty.h \
 	zebra/zebra_mpls.h \
+	zebra/zebra_srv6.h \
 	zebra/zebra_srv6_vty.h \
 	zebra/zebra_mroute.h \
 	zebra/zebra_nb.h \
