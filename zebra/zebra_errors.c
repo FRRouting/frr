@@ -786,6 +786,12 @@ static struct log_ref ferr_zebra_err[] = {
 		.suggestion = "Use different table id's for the VRF's in question"
 	},
 	{
+		.code = EC_ZEBRA_SRV6M_UNRELEASED_LOCATOR_CHUNK,
+		.title = "Zebra did not free any srv6 locator chunks",
+		.description = "Zebra's srv6-locator chunk cleanup procedure ran, but no srv6 locator chunks were released.",
+		.suggestion = "Ignore this error.",
+	},
+	{
 		.code = END_FERR,
 	}
 };
