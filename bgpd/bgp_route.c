@@ -13755,9 +13755,13 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 		if (bgp->distance_ebgp[afi][safi])
 			return bgp->distance_ebgp[afi][safi];
 		return ZEBRA_EBGP_DISTANCE_DEFAULT;
-	} else {
+	} else if (peer->sort == BGP_PEER_IBGP) {
 		if (bgp->distance_ibgp[afi][safi])
 			return bgp->distance_ibgp[afi][safi];
+		return ZEBRA_IBGP_DISTANCE_DEFAULT;
+	} else {
+		if (bgp->distance_local[afi][safi])
+			return bgp->distance_local[afi][safi];
 		return ZEBRA_IBGP_DISTANCE_DEFAULT;
 	}
 }
