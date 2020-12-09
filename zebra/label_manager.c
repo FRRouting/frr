@@ -313,7 +313,7 @@ static struct label_manager_chunk *assign_label_chunk(uint8_t proto,
 {
 	struct label_manager_chunk *lmc;
 	struct listnode *node;
-	uint32_t prev_end = 0;
+	uint32_t prev_end = MPLS_LABEL_UNRESERVED_MIN;
 
 	/* handle chunks request with a specific base label */
 	if (base != MPLS_LABEL_BASE_ANY)
