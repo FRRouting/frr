@@ -29,10 +29,10 @@ else
   CONF_SYSTEMD=--enable-systemd=no
 endif
 
-ifeq ($(filter pkg.frr.nolua,$(DEB_BUILD_PROFILES)),)
-  CONF_LUA=--enable-scripting
-else
+ifeq ($(filter pkg.frr.lua,$(DEB_BUILD_PROFILES)),)
   CONF_LUA=--disable-scripting
+else
+  CONF_LUA=--enable-scripting
 endif
 
 export PYTHON=python3
