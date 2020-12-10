@@ -2665,6 +2665,8 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 	nexthops_free(re->fib_ng.nexthop);
 
+	XFREE(MTYPE_OPAQUE, re->opaque);
+
 	XFREE(MTYPE_RE, re);
 }
 
@@ -2748,7 +2750,7 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	if (nexthop->weight)
 		snprintf(wgt_str, sizeof(wgt_str), "wgt %d,", nexthop->weight);
 
-	zlog_debug("%s: %s %s[%u] vrf %s(%u) %s%s with flags %s%s%s%s%s",
+	zlog_debug("%s: %s %s[%u] vrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s",
 		   straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
 		   nexthop->ifindex, vrf ? vrf->name : "Unknown",
 		   nexthop->vrf_id,
@@ -2767,7 +2769,13 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 		    : ""),
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE)
 		    ? "DUPLICATE "
-		    : ""));
+		    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RNH_FILTERED)
+		    ? "FILTERED " : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)
+		    ? "BACKUP " : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE)
+		    ? "SRTE " : ""));
 
 }
 

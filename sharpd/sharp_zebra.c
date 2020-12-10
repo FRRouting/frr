@@ -232,6 +232,7 @@ struct buffer_delay {
 	const struct nexthop_group *nhg;
 	const struct nexthop_group *backup_nhg;
 	enum where_to_restart restart;
+	char *opaque;
 } wb;
 
 /*
@@ -242,7 +243,7 @@ struct buffer_delay {
  */
 static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 		      uint32_t nhgid, const struct nexthop_group *nhg,
-		      const struct nexthop_group *backup_nhg)
+		      const struct nexthop_group *backup_nhg, char *opaque)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -290,6 +291,13 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 		api.backup_nexthop_num = i;
 	}
 
+	if (strlen(opaque)) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_OPAQUE);
+		api.opaque.length = strlen(opaque) + 1;
+		assert(api.opaque.length <= ZAPI_MESSAGE_OPAQUE_LENGTH);
+		memcpy(api.opaque.data, opaque, api.opaque.length);
+	}
+
 	if (zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api)
 	    == ZCLIENT_SEND_BUFFERED)
 		return true;
@@ -326,7 +334,7 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 					 uint32_t nhgid,
 					 const struct nexthop_group *nhg,
 					 const struct nexthop_group *backup_nhg,
-					 uint32_t routes)
+					 uint32_t routes, char *opaque)
 {
 	uint32_t temp, i;
 	bool v4 = false;
@@ -339,7 +347,7 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 
 	for (i = count; i < routes; i++) {
 		bool buffered = route_add(p, vrf_id, (uint8_t)instance, nhgid,
-					  nhg, backup_nhg);
+					  nhg, backup_nhg, opaque);
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
 		else
@@ -354,6 +362,7 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 			wb.nhgid = nhgid;
 			wb.nhg = nhg;
 			wb.backup_nhg = backup_nhg;
+			wb.opaque = opaque;
 			wb.restart = SHARP_INSTALL_ROUTES_RESTART;
 
 			return;
@@ -365,7 +374,7 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 				 uint8_t instance, uint32_t nhgid,
 				 const struct nexthop_group *nhg,
 				 const struct nexthop_group *backup_nhg,
-				 uint32_t routes)
+				 uint32_t routes, char *opaque)
 {
 	zlog_debug("Inserting %u routes", routes);
 
@@ -375,7 +384,7 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 
 	monotime(&sg.r.t_start);
 	sharp_install_routes_restart(p, 0, vrf_id, instance, nhgid, nhg,
-				     backup_nhg, routes);
+				     backup_nhg, routes, opaque);
 }
 
 static void sharp_remove_routes_restart(struct prefix *p, uint32_t count,
@@ -441,7 +450,7 @@ static void handle_repeated(bool installed)
 		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
 					    sg.r.nhgid, &sg.r.nhop_group,
 					    &sg.r.backup_nhop_group,
-					    sg.r.total_routes);
+					    sg.r.total_routes, sg.r.opaque);
 	}
 }
 
@@ -449,9 +458,9 @@ static void sharp_zclient_buffer_ready(void)
 {
 	switch (wb.restart) {
 	case SHARP_INSTALL_ROUTES_RESTART:
-		sharp_install_routes_restart(&wb.p, wb.count, wb.vrf_id,
-					     wb.instance, wb.nhgid, wb.nhg,
-					     wb.backup_nhg, wb.routes);
+		sharp_install_routes_restart(
+			&wb.p, wb.count, wb.vrf_id, wb.instance, wb.nhgid,
+			wb.nhg, wb.backup_nhg, wb.routes, wb.opaque);
 		return;
 	case SHARP_DELETE_ROUTES_RESTART:
 		sharp_remove_routes_restart(&wb.p, wb.count, wb.vrf_id,

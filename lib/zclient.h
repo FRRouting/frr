@@ -391,14 +391,14 @@ struct zclient {
 /* Backup nexthops are present */
 #define ZAPI_MESSAGE_BACKUP_NEXTHOPS 0x40
 #define ZAPI_MESSAGE_NHG 0x80
-
 /*
  * This should only be used by a DAEMON that needs to communicate
  * the table being used is not in the VRF.  You must pass the
  * default vrf, else this will be ignored.
  */
-#define ZAPI_MESSAGE_TABLEID 0x0080
-#define ZAPI_MESSAGE_SRTE 0x0100
+#define ZAPI_MESSAGE_TABLEID 0x0100
+#define ZAPI_MESSAGE_SRTE 0x0200
+#define ZAPI_MESSAGE_OPAQUE 0x0400
 
 #define ZSERV_VERSION 6
 /* Zserv protocol message header */
@@ -572,6 +572,12 @@ struct zapi_route {
 
 	/* SR-TE color (used for nexthop updates only). */
 	uint32_t srte_color;
+
+#define ZAPI_MESSAGE_OPAQUE_LENGTH 1024
+	struct {
+		uint16_t length;
+		uint8_t data[ZAPI_MESSAGE_OPAQUE_LENGTH];
+	} opaque;
 };
 
 struct zapi_labels {

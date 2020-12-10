@@ -1973,6 +1973,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_MTU))
 		re->mtu = api.mtu;
 
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_OPAQUE)) {
+		re->opaque = XMALLOC(MTYPE_OPAQUE,
+				     sizeof(struct opaque) + api.opaque.length);
+		re->opaque->length = api.opaque.length;
+		memcpy(re->opaque->data, api.opaque.data, re->opaque->length);
+	}
+
 	afi = family2afi(api.prefix.family);
 	if (afi != AFI_IP6 && CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
 		flog_warn(EC_ZEBRA_RX_SRCDEST_WRONG_AFI,

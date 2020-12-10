@@ -1596,6 +1596,19 @@ DEFPY (no_bgp_norib,
 	return CMD_SUCCESS;
 }
 
+DEFPY (no_bgp_send_extra_data,
+       no_bgp_send_extra_data_cmd,
+       "[no] bgp send-extra-data zebra",
+       NO_STR
+       BGP_STR
+       "Extra data to Zebra for display/use\n"
+       "To zebra\n")
+{
+	bgp_option_send_extra_data(!!no);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_YANG(bgp_confederation_identifier,
 	   bgp_confederation_identifier_cmd,
 	   "bgp confederation identifier (1-4294967295)",
@@ -16930,6 +16943,9 @@ int bgp_config_write(struct vty *vty)
 	if (bgp_option_check(BGP_OPT_NO_FIB))
 		vty_out(vty, "bgp no-rib\n");
 
+	if (bm->send_extra_data_to_zebra)
+		vty_out(vty, "no bgp send-extra-data zebra\n");
+
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 
@@ -17484,6 +17500,8 @@ void bgp_vty_init(void)
 	/* "bgp no-rib" commands. */
 	install_element(CONFIG_NODE, &bgp_norib_cmd);
 	install_element(CONFIG_NODE, &no_bgp_norib_cmd);
+
+	install_element(CONFIG_NODE, &no_bgp_send_extra_data_cmd);
 
 	/* "bgp confederation" commands. */
 	install_element(BGP_NODE, &bgp_confederation_identifier_cmd);

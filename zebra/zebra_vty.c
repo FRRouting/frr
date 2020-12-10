@@ -419,6 +419,33 @@ static void show_nexthop_detail_helper(struct vty *vty,
 	}
 }
 
+static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
+				       struct json_object *json)
+{
+	if (!re->opaque)
+		return;
+
+	switch (re->type) {
+	case ZEBRA_ROUTE_SHARP:
+		if (json)
+			json_object_string_add(json, "opaque",
+					       (char *)re->opaque->data);
+		else
+			vty_out(vty, "    Opaque Data: %s",
+				(char *)re->opaque->data);
+		break;
+	case ZEBRA_ROUTE_BGP:
+		if (json)
+			json_object_string_add(json, "asPath",
+					       (char *)re->opaque->data);
+		else
+			vty_out(vty, "    AS-Path: %s",
+				(char *)re->opaque->data);
+	default:
+		break;
+	}
+}
+
 /* New RIB.  Detailed information for IPv4 route. */
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng)
@@ -495,6 +522,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
 				show_nh_backup_helper(vty, re, nexthop);
 		}
+		zebra_show_ip_route_opaque(vty, re, NULL);
+
 		vty_out(vty, "\n");
 	}
 }
@@ -927,6 +956,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			json_object_object_add(json_route, "backupNexthops",
 					       json_nexthops);
 		}
+		zebra_show_ip_route_opaque(NULL, re, json_route);
 
 		json_object_array_add(json, json_route);
 		return;

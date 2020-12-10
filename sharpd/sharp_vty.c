@@ -163,7 +163,7 @@ DEFPY (install_routes,
 	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
 	   nexthop-group NHGNAME$nexthop_group>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
-	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
+	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -183,7 +183,9 @@ DEFPY (install_routes,
        "Instance to use\n"
        "Instance\n"
        "Should we repeat this command\n"
-       "How many times to repeat this command\n")
+       "How many times to repeat this command\n"
+       "What opaque data to send down\n"
+       "The opaque data\n")
 {
 	struct vrf *vrf;
 	struct prefix prefix;
@@ -292,12 +294,17 @@ DEFPY (install_routes,
 		sg.r.backup_nhop_group.nexthop = &sg.r.backup_nhop;
 	}
 
+	if (opaque)
+		strlcpy(sg.r.opaque, opaque, ZAPI_MESSAGE_OPAQUE_LENGTH);
+	else
+		sg.r.opaque[0] = '\0';
+
 	sg.r.inst = instance;
 	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid,
 				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
-				    rts);
+				    rts, sg.r.opaque);
 
 	return CMD_SUCCESS;
 }

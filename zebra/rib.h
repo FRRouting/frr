@@ -84,6 +84,11 @@ struct rnh {
 
 PREDECL_LIST(re_list)
 
+struct opaque {
+	uint16_t length;
+	uint8_t data[];
+};
+
 struct route_entry {
 	/* Link list. */
 	struct re_list_item next;
@@ -157,6 +162,8 @@ struct route_entry {
 
 	/* Distance. */
 	uint8_t distance;
+
+	struct opaque *opaque;
 };
 
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
