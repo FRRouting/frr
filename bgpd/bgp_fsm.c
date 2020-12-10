@@ -1772,7 +1772,12 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		peer->af_cap[afi][safi] = 0;
 
 		/* peer address family status flags*/
-		peer->af_sflags[afi][safi] = 0;
+		/* Don't clear WAIT_EOR */
+		if (CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR)) {
+			peer->af_sflags[afi][safi] = 0;
+			SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
+		} else
+			peer->af_sflags[afi][safi] = 0;
 
 		/* Received ORF prefix-filter */
 		peer->orf_plist[afi][safi] = NULL;
