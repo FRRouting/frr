@@ -740,6 +740,7 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 	} else
 		ecom = ecommunity_dup(&ecom_encap);
 	attr->ecommunity = ecom;
+	attr->encap_tunneltype = tnl_type;
 
 	/* Add the export RTs for L3VNI/VRF */
 	vrf_export_rtl = bgp_vrf->vrf_export_rtl;
@@ -796,6 +797,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 
 	/* Add Encap */
 	attr->ecommunity = ecommunity_dup(&ecom_encap);
+	attr->encap_tunneltype = tnl_type;
 
 	/* Add the export RTs for L2VNI */
 	for (ALL_LIST_ELEMENTS(vpn->export_rtl, node, nnode, ecom))
