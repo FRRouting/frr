@@ -1682,6 +1682,7 @@ zebra_route_map_check(int family, int rib_type, uint8_t instance,
 		      struct zebra_vrf *zvrf, route_tag_t tag)
 {
 	struct route_map *rmap = NULL;
+	char *rm_name;
 	route_map_result_t ret = RMAP_PERMITMATCH;
 	struct nh_rmap_obj nh_obj;
 
@@ -1692,10 +1693,20 @@ zebra_route_map_check(int family, int rib_type, uint8_t instance,
 	nh_obj.metric = 0;
 	nh_obj.tag = tag;
 
-	if (rib_type >= 0 && rib_type < ZEBRA_ROUTE_MAX)
+	if (rib_type >= 0 && rib_type < ZEBRA_ROUTE_MAX) {
+		rm_name = PROTO_RM_NAME(zvrf, family, rib_type);
 		rmap = PROTO_RM_MAP(zvrf, family, rib_type);
-	if (!rmap && PROTO_RM_NAME(zvrf, family, ZEBRA_ROUTE_MAX))
+
+		if (rm_name && !rmap)
+			return RMAP_DENYMATCH;
+	}
+	if (!rmap) {
+		rm_name = PROTO_RM_NAME(zvrf, family, ZEBRA_ROUTE_MAX);
 		rmap = PROTO_RM_MAP(zvrf, family, ZEBRA_ROUTE_MAX);
+
+		if (rm_name && !rmap)
+			return RMAP_DENYMATCH;
+	}
 	if (rmap) {
 		ret = route_map_apply(rmap, p, &nh_obj);
 	}
