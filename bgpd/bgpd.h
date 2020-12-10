@@ -187,6 +187,8 @@ struct bgp_master {
 #define BM_FLAG_GRACEFUL_RESTART	 (1 << 6)
 #define BM_FLAG_GR_COMPLETE		 (1 << 7)
 #define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
+#define BM_FLAG_CONFIG_LOADED		 (1 << 9)
+
 
 #define BM_FLAG_GR_CONFIGURED (BM_FLAG_GR_RESTARTER | BM_FLAG_GR_DISABLED)
 
