@@ -1085,8 +1085,6 @@ enum zapi_opaque_registry {
 	LDP_IGP_SYNC_IF_STATE_UPDATE = 4,
 	/* Announce that LDP is up  */
 	LDP_IGP_SYNC_ANNOUNCE_UPDATE = 5,
-	/* Heartbeat indicating that LDP is running */
-	LDP_IGP_SYNC_HELLO_UPDATE = 6,
 };
 
 /* Send the hello message.

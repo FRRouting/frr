@@ -51,8 +51,6 @@ static void 	ldp_zebra_opaque_register(void);
 static void 	ldp_zebra_opaque_unregister(void);
 static int 	ldp_sync_zebra_send_announce(void);
 static int 	ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
-static void 	ldp_sync_zebra_start_hello_timer(void);
-static int 	ldp_sync_zebra_hello(struct thread *thread);
 static void 	ldp_sync_zebra_init(void);
 
 static struct zclient	*zclient;
@@ -176,38 +174,10 @@ stream_failure:
 }
 
 static void
-ldp_sync_zebra_start_hello_timer(void)
-{
-	thread_add_timer_msec(master, ldp_sync_zebra_hello, NULL, 250, NULL);
-}
-
-static int
-ldp_sync_zebra_hello(struct thread *thread)
-{
-	static unsigned int sequence = 0;
-	struct ldp_igp_sync_hello hello;
-
-	sequence++;
-
-	hello.proto = ZEBRA_ROUTE_LDP;
-	hello.sequence = sequence;
-
-	zclient_send_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE,
-		(const uint8_t *) &hello, sizeof(hello));
-
-	ldp_sync_zebra_start_hello_timer();
-
-	return (0);
-}
-
-static void
 ldp_sync_zebra_init(void)
 {
 	ldp_sync_zebra_send_announce();
-
-	ldp_sync_zebra_start_hello_timer();
 }
-
 
 static int
 ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)

@@ -1956,7 +1956,6 @@ static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	struct zapi_opaque_msg info;
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
-	struct ldp_igp_sync_hello hello;
 	int ret = 0;
 
 	s = zclient->ibuf;
@@ -1972,10 +1971,6 @@ static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	case LDP_IGP_SYNC_ANNOUNCE_UPDATE:
 		STREAM_GET(&announce, s, sizeof(announce));
 		ret = ospf_ldp_sync_announce_update(announce);
-		break;
-	case LDP_IGP_SYNC_HELLO_UPDATE:
-		STREAM_GET(&hello, s, sizeof(hello));
-		ret = ospf_ldp_sync_hello_update(hello);
 		break;
 	default:
 		break;
