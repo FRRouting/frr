@@ -94,14 +94,6 @@ int lm_client_connect_response(uint8_t proto, uint16_t instance,
 int lm_get_chunk_response(struct label_manager_chunk *lmc, struct zserv *client,
 			  vrf_id_t vrf_id);
 
-/* convenience function to allocate an lmc to be consumed by the above API */
-struct label_manager_chunk *create_label_chunk(uint8_t proto,
-					       unsigned short instance,
-					       uint32_t session_id,
-					       uint8_t keep, uint32_t start,
-					       uint32_t end);
-void delete_label_chunk(void *val);
-
 /* register/unregister callbacks for hooks */
 void lm_hooks_register(void);
 void lm_hooks_unregister(void);
@@ -115,13 +107,6 @@ struct label_manager {
 };
 
 void label_manager_init(void);
-struct label_manager_chunk *assign_label_chunk(uint8_t proto,
-					       unsigned short instance,
-					       uint32_t session_id,
-					       uint8_t keep, uint32_t size,
-					       uint32_t base);
-int release_label_chunk(uint8_t proto, unsigned short instance,
-			uint32_t session_id, uint32_t start, uint32_t end);
 int lm_client_disconnect_cb(struct zserv *client);
 int release_daemon_label_chunks(struct zserv *client);
 void label_manager_close(void);
