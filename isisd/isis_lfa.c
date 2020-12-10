@@ -988,13 +988,6 @@ static bool vertex_is_affected(struct isis_spftree *spftree_root,
 		struct isis_vertex *vertex_child;
 		struct isis_vertex_adj *vadj;
 		bool reverse = false;
-		char buf1[VID2STR_BUFFER];
-		char buf2[VID2STR_BUFFER];
-
-		if (IS_DEBUG_LFA)
-			zlog_debug("ISIS-LFA: vertex %s parent %s",
-				   vid2string(vertex, buf1, sizeof(buf1)),
-				   vid2string(pvertex, buf2, sizeof(buf2)));
 
 		if (p_space && resource->type == LFA_NODE_PROTECTION) {
 			if (isis_spf_node_find(&resource->nodes, vertex->N.id))
@@ -1068,10 +1061,6 @@ static void lfa_calc_reach_nodes(struct isis_spftree *spftree,
 		/* Don't add the same node twice. */
 		if (isis_spf_node_find(nodes, vertex->N.id))
 			continue;
-
-		if (IS_DEBUG_LFA)
-			zlog_debug("ISIS-LFA: checking %s",
-				   vid2string(vertex, buf, sizeof(buf)));
 
 		if (!vertex_is_affected(spftree_root, adj_nodes, p_space,
 					vertex, resource)) {
