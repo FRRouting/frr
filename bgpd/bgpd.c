@@ -9264,6 +9264,21 @@ void bgp_gr_apply_running_config(void)
 	}
 }
 
+void bgp_gr_start_peers(void)
+{
+	struct peer *peer = NULL;
+	struct bgp *bgp = NULL;
+	struct listnode *node, *nnode;
+	struct listnode *node2, *nnode2;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		for (ALL_LIST_ELEMENTS(bgp->peer, node2, nnode2, peer)) {
+			if (!BGP_PEER_START_SUPPRESSED(peer))
+				BGP_EVENT_ADD(peer->connection, BGP_Start);
+		}
+	}
+}
+
 /* Hash of peers in clearing info object */
 static int peer_clearing_hash_cmp(const struct peer *p1, const struct peer *p2)
 {

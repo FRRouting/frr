@@ -20668,6 +20668,9 @@ static void bgp_config_end(void)
 
 	SET_FLAG(bm->flags, BM_FLAG_CONFIG_LOADED);
 
+	if (bgp_in_graceful_restart())
+		bgp_gr_start_peers();
+
 	event_cancel(&t_bgp_cfg);
 
 	/* Start a new timer to make sure we don't send EoR
