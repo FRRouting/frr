@@ -497,7 +497,7 @@ void isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 				circuit_lookup_by_ifp(ifp, area->circuit_list);
 			if (circuit == NULL)
 				continue;
-			isis_ldp_sync_if_start(circuit, true);
+			isis_ldp_sync_ldp_fail(circuit);
 		}
 	}
 }
