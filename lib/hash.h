@@ -103,7 +103,7 @@ struct hash {
  *
  * hash_cmp
  *    comparison function used for resolving collisions; when called with two
- *    data items, should return nonzero if the two items are equal and 0
+ *    data items, should return true if the two items are equal and false
  *    otherwise
  *
  * name
