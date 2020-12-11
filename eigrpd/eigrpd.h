@@ -76,7 +76,4 @@ extern struct eigrp *eigrp_get(uint16_t as, vrf_id_t vrf_id);
 extern struct eigrp *eigrp_lookup(vrf_id_t vrf_id);
 extern void eigrp_router_id_update(struct eigrp *eigrp);
 
-/* eigrp_northbound.c */
-extern const struct frr_yang_module_info frr_eigrpd_info;
-
 #endif /* _ZEBRA_EIGRPD_H */

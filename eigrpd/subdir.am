@@ -70,6 +70,7 @@ noinst_HEADERS += \
 	eigrpd/eigrp_structs.h \
 	eigrpd/eigrp_vrf.h \
 	eigrpd/eigrp_vty.h \
+	eigrpd/eigrp_yang.h \
 	eigrpd/eigrp_zebra.h \
 	# end
 
