@@ -49,6 +49,7 @@
 #include "routemap.h"
 #include "vty.h"
 
+#include "eigrpd/eigrp_types.h"
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
 #include "eigrpd/eigrp_interface.h"
@@ -62,6 +63,7 @@
 #include "eigrpd/eigrp_fsm.h"
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_memory.h"
+#include "eigrpd/eigrp_metric.h"
 
 bool eigrp_update_prefix_apply(struct eigrp *eigrp, struct eigrp_interface *ei,
 			       int in, struct prefix *prefix)

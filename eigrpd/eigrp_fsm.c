@@ -77,6 +77,7 @@
 #include "linklist.h"
 #include "vty.h"
 
+#include "eigrpd/eigrp_types.h"
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
 #include "eigrpd/eigrp_interface.h"
@@ -88,6 +89,7 @@
 #include "eigrpd/eigrp_dump.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
+#include "eigrpd/eigrp_metric.h"
 
 /*
  * Prototypes

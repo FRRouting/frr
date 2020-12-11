@@ -55,6 +55,8 @@
 #include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_fsm.h"
 #include "eigrpd/eigrp_dump.h"
+#include "eigrpd/eigrp_types.h"
+#include "eigrpd/eigrp_metric.h"
 
 struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 				     struct prefix *p)
@@ -494,34 +496,4 @@ struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *eigrp,
 	}
 
 	return NULL;
-}
-
-uint32_t eigrp_bandwidth_to_scaled(uint32_t bandwidth)
-{
-	uint64_t temp_bandwidth = (256ull * 10000000) / bandwidth;
-
-	temp_bandwidth = temp_bandwidth < EIGRP_MAX_METRIC ? temp_bandwidth
-							   : EIGRP_MAX_METRIC;
-
-	return (uint32_t)temp_bandwidth;
-}
-
-uint32_t eigrp_scaled_to_bandwidth(uint32_t scaled)
-{
-	uint64_t temp_scaled = scaled * (256ull * 10000000);
-
-	temp_scaled =
-		temp_scaled < EIGRP_MAX_METRIC ? temp_scaled : EIGRP_MAX_METRIC;
-
-	return (uint32_t)temp_scaled;
-}
-
-uint32_t eigrp_delay_to_scaled(uint32_t delay)
-{
-	return delay * 256;
-}
-
-uint32_t eigrp_scaled_to_delay(uint32_t scaled)
-{
-	return scaled / 256;
 }

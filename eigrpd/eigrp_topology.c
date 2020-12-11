@@ -39,6 +39,7 @@
 #include "vty.h"
 #include "lib_errors.h"
 
+#include "eigrpd/eigrp_types.h"
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
 #include "eigrpd/eigrp_interface.h"
@@ -51,6 +52,7 @@
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
 #include "eigrpd/eigrp_memory.h"
+#include "eigrpd/eigrp_metric.h"
 
 static int eigrp_route_descriptor_cmp(struct eigrp_route_descriptor *rd1,
 				      struct eigrp_route_descriptor *rd2);

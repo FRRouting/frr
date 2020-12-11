@@ -25,6 +25,7 @@ eigrpd_libeigrp_a_SOURCES = \
 	eigrpd/eigrp_hello.c \
 	eigrpd/eigrp_interface.c \
 	eigrpd/eigrp_memory.c \
+	eigrpd/eigrp_metric.c \
 	eigrpd/eigrp_neighbor.c \
 	eigrpd/eigrp_network.c \
 	eigrpd/eigrp_northbound.c \
@@ -63,11 +64,13 @@ noinst_HEADERS += \
 	eigrpd/eigrp_interface.h \
 	eigrpd/eigrp_macros.h \
 	eigrpd/eigrp_memory.h \
+	eigrpd/eigrp_metric.h \
 	eigrpd/eigrp_neighbor.h \
 	eigrpd/eigrp_network.h \
 	eigrpd/eigrp_packet.h \
 	eigrpd/eigrp_snmp.h \
 	eigrpd/eigrp_structs.h \
+	eigrpd/eigrp_types.h \
 	eigrpd/eigrp_vrf.h \
 	eigrpd/eigrp_vty.h \
 	eigrpd/eigrp_yang.h \
