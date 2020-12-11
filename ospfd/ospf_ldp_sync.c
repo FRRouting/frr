@@ -231,7 +231,7 @@ void ospf_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 
 	vrf = vrf_lookup_by_id(ospf->vrf_id);
 	FOR_ALL_INTERFACES (vrf, ifp)
-		ospf_ldp_sync_if_start(ifp, true);
+		ospf_ldp_sync_ldp_fail(ifp);
 }
 
 void ospf_ldp_sync_ldp_fail(struct interface *ifp)
