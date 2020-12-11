@@ -1254,6 +1254,15 @@ static int fpm_process_queue(struct thread *t)
 		thread_add_timer(fnc->fthread->master, fpm_process_queue,
 				 fnc, 0, &fnc->t_dequeue);
 
+	/*
+	 * Let the dataplane thread know if there are items in the
+	 * output queue to be processed. Otherwise they may sit
+	 * until the dataplane thread gets scheduled for new,
+	 * unrelated work.
+	 */
+	if (dplane_provider_out_ctx_queue_len(fnc->prov) > 0)
+		dplane_provider_work_ready();
+
 	return 0;
 }
 
