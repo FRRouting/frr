@@ -37,26 +37,6 @@
 #include "eigrpd/eigrp_const.h"
 #include "eigrpd/eigrp_macros.h"
 
-/* EIGRP master for system wide configuration and variables. */
-struct eigrp_master {
-	/* EIGRP instance. */
-	struct list *eigrp;
-
-	/* EIGRP thread master. */
-	struct thread_master *master;
-
-	/* Zebra interface list. */
-	struct list *iflist;
-
-	/* EIGRP start time. */
-	time_t start_time;
-
-	/* Various EIGRP global configuration. */
-	uint8_t options;
-
-#define EIGRP_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */
-};
-
 struct eigrp_metrics {
 	uint32_t delay;
 	uint32_t bandwidth;
