@@ -1115,7 +1115,8 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 
 			/*
 			 * 'update' context objects take two consecutive
-			 * sequence numbers.
+			 * sequence numbers. the DELETE operation uses the
+			 * second, higher seq value.
 			 */
 			if (dplane_ctx_is_update(ctx)
 			    && dplane_ctx_get_ns(ctx)->nls.seq + 1 == seq) {
@@ -1274,6 +1275,10 @@ enum netlink_msg_status netlink_batch_add_msg(
 			return FRR_NETLINK_ERROR;
 	}
 
+	/* Some operations use two messages - a preemptive 'delete' associated
+	 * with an add/update for a route, for example. This preemptive message
+	 * uses a second netlink sequence number.
+	 */
 	seq = dplane_ctx_get_ns(ctx)->nls.seq;
 	if (ignore_res)
 		seq++;
