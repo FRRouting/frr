@@ -55,6 +55,7 @@ clippy_scan += \
 	# end
 
 noinst_HEADERS += \
+	eigrpd/eigrp_cli.h \
 	eigrpd/eigrp_const.h \
 	eigrpd/eigrp_errors.h \
 	eigrpd/eigrp_filter.h \
