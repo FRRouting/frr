@@ -888,9 +888,12 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 					pkt_afi = afi_int2iana(afi);
 					pkt_safi = safi_int2iana(safi);
 					zlog_debug(
-						"u%" PRIu64 ":s%" PRIu64" send MP_REACH for afi/safi %d/%d",
+						"u%" PRIu64 ":s%" PRIu64
+						" send MP_REACH for afi/safi %s/%s",
 						subgrp->update_group->id,
-						subgrp->id, pkt_afi, pkt_safi);
+						subgrp->id,
+						iana_afi2str(pkt_afi),
+						iana_safi2str(pkt_safi));
 				}
 
 				send_attr_printed = 1;
@@ -1046,9 +1049,12 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 				if (bgp_debug_update(NULL, NULL,
 						     subgrp->update_group, 0))
 					zlog_debug(
-						"u%" PRIu64 ":s%" PRIu64" send MP_UNREACH for afi/safi %d/%d",
+						"u%" PRIu64 ":s%" PRIu64
+						" send MP_UNREACH for afi/safi %s/%s",
 						subgrp->update_group->id,
-						subgrp->id, pkt_afi, pkt_safi);
+						subgrp->id,
+						iana_afi2str(pkt_afi),
+						iana_safi2str(pkt_safi));
 			}
 
 			bgp_packet_mpunreach_prefix(s, dest_p, afi, safi, prd,
