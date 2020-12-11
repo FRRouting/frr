@@ -2644,11 +2644,11 @@ Ethernet Segments
 An Ethernet Segment can be configured by specifying a system-MAC and a
 local discriminatior against the bond interface on the PE (via zebra) -
 
-.. index:: evpn mh es-id [(1-16777215)$es_lid]
-.. clicmd:: [no] evpn mh es-id [(1-16777215)$es_lid]
+.. index:: evpn mh es-id (1-16777215)
+.. clicmd:: [no] evpn mh es-id (1-16777215)
 
-.. index:: evpn mh es-sys-mac [X:X:X:X:X:X$mac]
-.. clicmd:: [no$no] evpn mh es-sys-mac [X:X:X:X:X:X$mac]
+.. index:: evpn mh es-sys-mac X:X:X:X:X:X
+.. clicmd:: [no] evpn mh es-sys-mac X:X:X:X:X:X
 
 The sys-mac and local discriminator are used for generating a 10-byte,
 Type-3 Ethernet Segment ID.
@@ -2671,8 +2671,8 @@ forward BUM traffic received via the overlay network. This implementation
 uses a preference based DF election specified by draft-ietf-bess-evpn-pref-df.
 The DF preference is configurable per-ES (via zebra) -
 
-.. index:: evpn mh es-df-pref [(1-16777215)$df_pref]
-.. clicmd:: [no] evpn mh es-df-pref [(1-16777215)$df_pref]
+.. index:: evpn mh es-df-pref (1-16777215)
+.. clicmd:: [no] evpn mh es-df-pref (1-16777215)
 
 BUM traffic is rxed via the overlay by all PEs attached to a server but
 only the DF can forward the de-capsulated traffic to the access port. To
@@ -2709,14 +2709,14 @@ been introduced for the express purpose of efficient ES failovers.
   on via the following BGP config -
 
 .. index:: use-es-l3nhg
-.. clicmd:: [no$no] use-es-l3nhg
+.. clicmd:: [no] use-es-l3nhg
 
 - Local ES (MAC/Neigh) failover via ES-redirect.
   On dataplanes that do not have support for ES-redirect the feature can be
   turned off via the following zebra config -
 
 .. index:: evpn mh redirect-off
-.. clicmd:: [no$no] evpn mh redirect-off
+.. clicmd:: [no] evpn mh redirect-off
 
 Uplink/Core tracking
 """"""""""""""""""""
@@ -2737,11 +2737,11 @@ the ES peer (PE2) goes down PE1 continues to advertise hosts learnt from PE2
 for a holdtime during which it attempts to establish local reachability of
 the host. This holdtime is configurable via the following zebra commands -
 
-.. index:: evpn mh neigh-holdtime (0-86400)$duration
-.. clicmd:: [no$no] evpn mh neigh-holdtime (0-86400)$duration
+.. index:: evpn mh neigh-holdtime (0-86400)
+.. clicmd:: [no] evpn mh neigh-holdtime (0-86400)
 
-.. index:: evpn mh mac-holdtime (0-86400)$duration
-.. clicmd:: [no$no] evpn mh mac-holdtime (0-86400)$duration
+.. index:: evpn mh mac-holdtime (0-86400)
+.. clicmd:: [no] evpn mh mac-holdtime (0-86400)
 
 Startup delay
 """""""""""""
@@ -2750,8 +2750,8 @@ and EVPN network to converge before enabling the ESs. For this duration the
 ES bonds are held protodown. The startup delay is configurable via the
 following zebra command -
 
-.. index:: evpn mh startup-delay(0-3600)$duration
-.. clicmd:: [no] evpn mh startup-delay(0-3600)$duration
+.. index:: evpn mh startup-delay (0-3600)
+.. clicmd:: [no] evpn mh startup-delay (0-3600)
 
 +Support with VRF network namespace backend
 +^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
