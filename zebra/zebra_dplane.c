@@ -3900,6 +3900,12 @@ int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
 	return ret;
 }
 
+uint32_t dplane_provider_out_ctx_queue_len(struct zebra_dplane_provider *prov)
+{
+	return atomic_load_explicit(&(prov->dp_out_counter),
+				    memory_order_relaxed);
+}
+
 /*
  * Enqueue and maintain associated counter
  */

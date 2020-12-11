@@ -763,6 +763,9 @@ struct zebra_dplane_ctx *dplane_provider_dequeue_in_ctx(
 int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
 				    struct dplane_ctx_q *listp);
 
+/* Current completed work queue length */
+uint32_t dplane_provider_out_ctx_queue_len(struct zebra_dplane_provider *prov);
+
 /* Enqueue completed work, maintain associated counter and locking */
 void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 				     struct zebra_dplane_ctx *ctx);
