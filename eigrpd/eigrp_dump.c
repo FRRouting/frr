@@ -236,7 +236,8 @@ void show_ip_eigrp_topology_header(struct vty *vty, struct eigrp *eigrp)
 		"Codes: P - Passive, A - Active, U - Update, Q - Query, R - Reply\n       r - reply Status, s - sia Status\n\n");
 }
 
-void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
+void show_ip_eigrp_prefix_descriptor(struct vty *vty,
+				     struct eigrp_prefix_descriptor *tn)
 {
 	struct list *successors = eigrp_topology_get_successor(tn);
 
@@ -251,14 +252,15 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 		list_delete(&successors);
 }
 
-void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,
-				 struct eigrp_nexthop_entry *te, bool *first)
+void show_ip_eigrp_route_descriptor(struct vty *vty, struct eigrp *eigrp,
+				    struct eigrp_route_descriptor *te,
+				    bool *first)
 {
 	if (te->reported_distance == EIGRP_MAX_METRIC)
 		return;
 
 	if (*first) {
-		show_ip_eigrp_prefix_entry(vty, te->prefix);
+		show_ip_eigrp_prefix_descriptor(vty, te->prefix);
 		*first = false;
 	}
 

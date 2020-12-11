@@ -380,7 +380,7 @@ uint32_t eigrp_calculate_metrics(struct eigrp *eigrp,
 }
 
 uint32_t eigrp_calculate_total_metrics(struct eigrp *eigrp,
-				       struct eigrp_nexthop_entry *entry)
+				       struct eigrp_route_descriptor *entry)
 {
 	struct eigrp_interface *ei = entry->ei;
 

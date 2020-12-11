@@ -56,8 +56,9 @@ extern void eigrp_fifo_reset(struct eigrp_fifo *);
 extern void eigrp_send_packet_reliably(struct eigrp_neighbor *);
 
 extern struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *);
-extern uint16_t eigrp_add_internalTLV_to_stream(struct stream *,
-						struct eigrp_prefix_entry *);
+extern uint16_t
+eigrp_add_internalTLV_to_stream(struct stream *s,
+				struct eigrp_prefix_descriptor *pe);
 extern uint16_t eigrp_add_authTLV_MD5_to_stream(struct stream *,
 						struct eigrp_interface *);
 extern uint16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *,
@@ -113,8 +114,8 @@ extern uint32_t eigrp_query_send_all(struct eigrp *);
 /*
  * These externs are found in eigrp_reply.c
  */
-extern void eigrp_send_reply(struct eigrp_neighbor *,
-			     struct eigrp_prefix_entry *);
+extern void eigrp_send_reply(struct eigrp_neighbor *neigh,
+			     struct eigrp_prefix_descriptor *pe);
 extern void eigrp_reply_receive(struct eigrp *, struct ip *,
 				struct eigrp_header *, struct stream *,
 				struct eigrp_interface *, int);
@@ -122,8 +123,8 @@ extern void eigrp_reply_receive(struct eigrp *, struct ip *,
 /*
  * These externs are found in eigrp_siaquery.c
  */
-extern void eigrp_send_siaquery(struct eigrp_neighbor *,
-				struct eigrp_prefix_entry *);
+extern void eigrp_send_siaquery(struct eigrp_neighbor *neigh,
+				struct eigrp_prefix_descriptor *pe);
 extern void eigrp_siaquery_receive(struct eigrp *, struct ip *,
 				   struct eigrp_header *, struct stream *,
 				   struct eigrp_interface *, int);
@@ -131,8 +132,8 @@ extern void eigrp_siaquery_receive(struct eigrp *, struct ip *,
 /*
  * These externs are found in eigrp_siareply.c
  */
-extern void eigrp_send_siareply(struct eigrp_neighbor *,
-				struct eigrp_prefix_entry *);
+extern void eigrp_send_siareply(struct eigrp_neighbor *neigh,
+				struct eigrp_prefix_descriptor *pe);
 extern void eigrp_siareply_receive(struct eigrp *, struct ip *,
 				   struct eigrp_header *, struct stream *,
 				   struct eigrp_interface *, int);

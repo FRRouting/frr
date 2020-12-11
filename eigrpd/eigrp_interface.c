@@ -229,8 +229,8 @@ void eigrp_del_if_params(struct eigrp_if_params *eip)
 
 int eigrp_if_up(struct eigrp_interface *ei)
 {
-	struct eigrp_prefix_entry *pe;
-	struct eigrp_nexthop_entry *ne;
+	struct eigrp_prefix_descriptor *pe;
+	struct eigrp_route_descriptor *ne;
 	struct eigrp_metrics metric;
 	struct eigrp_interface *ei2;
 	struct listnode *node, *nnode;
@@ -263,14 +263,14 @@ int eigrp_if_up(struct eigrp_interface *ei)
 
 	/*Add connected entry to topology table*/
 
-	ne = eigrp_nexthop_entry_new();
+	ne = eigrp_route_descriptor_new();
 	ne->ei = ei;
 	ne->reported_metric = metric;
 	ne->total_metric = metric;
 	ne->distance = eigrp_calculate_metrics(eigrp, metric);
 	ne->reported_distance = 0;
 	ne->adv_router = eigrp->neighbor_self;
-	ne->flags = EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG;
+	ne->flags = EIGRP_ROUTE_DESCRIPTOR_SUCCESSOR_FLAG;
 
 	struct prefix dest_addr;
 
@@ -280,7 +280,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 					      &dest_addr);
 
 	if (pe == NULL) {
-		pe = eigrp_prefix_entry_new();
+		pe = eigrp_prefix_descriptor_new();
 		pe->serno = eigrp->serno;
 		pe->destination = (struct prefix *)prefix_ipv4_new();
 		prefix_copy(pe->destination, &dest_addr);
@@ -292,10 +292,10 @@ int eigrp_if_up(struct eigrp_interface *ei)
 		pe->state = EIGRP_FSM_STATE_PASSIVE;
 		pe->fdistance = eigrp_calculate_metrics(eigrp, metric);
 		pe->req_action |= EIGRP_FSM_NEED_UPDATE;
-		eigrp_prefix_entry_add(eigrp->topology_table, pe);
+		eigrp_prefix_descriptor_add(eigrp->topology_table, pe);
 		listnode_add(eigrp->topology_changes_internalIPV4, pe);
 
-		eigrp_nexthop_entry_add(eigrp, pe, ne);
+		eigrp_route_descriptor_add(eigrp, pe, ne);
 
 		for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei2)) {
 			eigrp_update_send(ei2);
@@ -307,7 +307,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 		struct eigrp_fsm_action_message msg;
 
 		ne->prefix = pe;
-		eigrp_nexthop_entry_add(eigrp, pe, ne);
+		eigrp_route_descriptor_add(eigrp, pe, ne);
 
 		msg.packet_type = EIGRP_OPC_UPDATE;
 		msg.eigrp = eigrp;
@@ -416,7 +416,7 @@ uint8_t eigrp_default_iftype(struct interface *ifp)
 void eigrp_if_free(struct eigrp_interface *ei, int source)
 {
 	struct prefix dest_addr;
-	struct eigrp_prefix_entry *pe;
+	struct eigrp_prefix_descriptor *pe;
 	struct eigrp *eigrp = ei->eigrp;
 
 	if (source == INTERFACE_DOWN_BY_VTY) {
@@ -429,7 +429,8 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
 					      &dest_addr);
 	if (pe)
-		eigrp_prefix_entry_delete(eigrp, eigrp->topology_table, pe);
+		eigrp_prefix_descriptor_delete(eigrp, eigrp->topology_table,
+					       pe);
 
 	eigrp_if_down(ei);
 

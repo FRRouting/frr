@@ -265,8 +265,8 @@ route_match_metric(void *rule, struct prefix *prefix, route_map_object_t type,
 	//  uint32_t *metric;
 	//  uint32_t  check;
 	//  struct rip_info *rinfo;
-	//  struct eigrp_nexthop_entry *te;
-	//  struct eigrp_prefix_entry *pe;
+	//  struct eigrp_route_descriptor *te;
+	//  struct eigrp_prefix_descriptor *pe;
 	//  struct listnode *node, *node2, *nnode, *nnode2;
 	//  struct eigrp *e;
 	//
