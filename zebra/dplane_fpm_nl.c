@@ -1355,7 +1355,7 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 			if (peak_queue < cur_queue)
 				atomic_store_explicit(
 					&fnc->counters.ctxqueue_len_peak,
-					peak_queue, memory_order_relaxed);
+					cur_queue, memory_order_relaxed);
 			continue;
 		}
 
