@@ -2219,12 +2219,13 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			/* Address family check.  */
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s CAPABILITY has %s MP_EXT CAP for afi/safi: %u/%u",
+					"%s CAPABILITY has %s MP_EXT CAP for afi/safi: %s/%s",
 					peer->host,
 					action == CAPABILITY_ACTION_SET
 						? "Advertising"
 						: "Removing",
-					pkt_afi, pkt_safi);
+					iana_afi2str(pkt_afi),
+					iana_safi2str(pkt_safi));
 
 			if (action == CAPABILITY_ACTION_SET) {
 				peer->afc_recv[afi][safi] = 1;
