@@ -609,9 +609,8 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 				return NULL;
 			}
 
-			if (cnt < pos) {
-				current =
-					start + pos * OSPF6_PREFIX_SIZE(prefix);
+			if (cnt < (pos - 1)) {
+				current += OSPF6_PREFIX_SIZE(prefix);
 				cnt++;
 			} else {
 				memset(&in6, 0, sizeof(in6));
@@ -796,7 +795,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 				    + sizeof(struct ospf6_lsa_header));
 
 		prefixnum = ntohs(intra_prefix_lsa->prefix_num);
-		if (pos > prefixnum)
+		if ((pos + 1) > prefixnum)
 			return NULL;
 
 		start = (char *)intra_prefix_lsa
@@ -812,8 +811,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 			}
 
 			if (cnt < pos) {
-				current =
-					start + pos * OSPF6_PREFIX_SIZE(prefix);
+				current += OSPF6_PREFIX_SIZE(prefix);
 				cnt++;
 			} else {
 				memset(&in6, 0, sizeof(in6));
