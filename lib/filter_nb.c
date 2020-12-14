@@ -1148,24 +1148,10 @@ static int lib_prefix_list_entry_action_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-/*
- * XPath: /frr-filter:lib/prefix-list/entry/ipv4-prefix
- */
-static int
-lib_prefix_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
+static int lib_prefix_list_entry_prefix_modify(struct nb_cb_modify_args *args)
 {
 	struct prefix_list_entry *ple;
 	struct prefix p;
-
-	if (args->event == NB_EV_VALIDATE) {
-		if (plist_is_dup_nb(args->dnode)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "duplicated prefix list value: %s",
-				 yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
-		return NB_OK;
-	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1193,8 +1179,7 @@ lib_prefix_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-static int
-lib_prefix_list_entry_ipv4_prefix_destroy(struct nb_cb_destroy_args *args)
+static int lib_prefix_list_entry_prefix_destroy(struct nb_cb_destroy_args *args)
 {
 	struct prefix_list_entry *ple;
 
@@ -1212,6 +1197,67 @@ lib_prefix_list_entry_ipv4_prefix_destroy(struct nb_cb_destroy_args *args)
 	prefix_list_entry_update_finish(ple);
 
 	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/prefix-list/entry/ipv4-prefix
+ */
+static int
+lib_prefix_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
+{
+
+	if (args->event == NB_EV_VALIDATE) {
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	return lib_prefix_list_entry_prefix_modify(args);
+}
+
+static int
+lib_prefix_list_entry_ipv4_prefix_destroy(struct nb_cb_destroy_args *args)
+{
+
+	if (args->event == NB_EV_VALIDATE) {
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	return lib_prefix_list_entry_prefix_destroy(args);
+}
+
+/*
+ * XPath: /frr-filter:lib/prefix-list/entry/ipv6-prefix
+ */
+static int
+lib_prefix_list_entry_ipv6_prefix_modify(struct nb_cb_modify_args *args)
+{
+
+	if (args->event == NB_EV_VALIDATE) {
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	return lib_prefix_list_entry_prefix_modify(args);
+}
+
+static int
+lib_prefix_list_entry_ipv6_prefix_destroy(struct nb_cb_destroy_args *args)
+{
+
+	if (args->event == NB_EV_VALIDATE) {
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	return lib_prefix_list_entry_prefix_destroy(args);
 }
 
 /*
@@ -1256,6 +1302,19 @@ static int lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct prefix_list_entry *ple;
+	const char *af_type;
+
+	if (args->event == NB_EV_VALIDATE) {
+		const struct lyd_node *entry_dnode =
+			yang_dnode_get_parent(args->dnode, "prefix-list");
+		af_type = yang_dnode_get_string(entry_dnode, "./type");
+		if (strcmp(af_type, "ipv4")) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "prefix-list type %s is mismatched.", af_type);
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1315,7 +1374,182 @@ static int lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct prefix_list_entry *ple;
+	const char *af_type;
 
+	if (args->event == NB_EV_VALIDATE) {
+		const struct lyd_node *entry_dnode =
+			yang_dnode_get_parent(args->dnode, "prefix-list");
+		af_type = yang_dnode_get_string(entry_dnode, "./type");
+		if (strcmp(af_type, "ipv4")) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "prefix-list type %s is mismatched.", af_type);
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
+	ple->ge = 0;
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/prefix-list/entry/ipv6-prefix-length-greater-or-equal
+ */
+static int lib_prefix_list_entry_ipv6_prefix_length_greater_or_equal_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct prefix_list_entry *ple;
+	const char *af_type;
+
+	if (args->event == NB_EV_VALIDATE
+	    && prefix_list_length_validate(args) != NB_OK)
+		return NB_ERR_VALIDATION;
+
+	if (args->event == NB_EV_VALIDATE) {
+		const struct lyd_node *entry_dnode =
+			yang_dnode_get_parent(args->dnode, "prefix-list");
+		af_type = yang_dnode_get_string(entry_dnode, "./type");
+		if (strcmp(af_type, "ipv6")) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "prefix-list type %s is mismatched.", af_type);
+			return NB_ERR_VALIDATION;
+		}
+
+		if (plist_is_dup_nb(args->dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "duplicated prefix list value: %s",
+				 yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
+	ple->ge = yang_dnode_get_uint8(args->dnode, NULL);
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
+
+	return NB_OK;
+}
+
+static int lib_prefix_list_entry_ipv6_prefix_length_greater_or_equal_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct prefix_list_entry *ple;
+	const char *af_type;
+
+	if (args->event == NB_EV_VALIDATE) {
+		const struct lyd_node *entry_dnode =
+			yang_dnode_get_parent(args->dnode, "prefix-list");
+		af_type = yang_dnode_get_string(entry_dnode, "./type");
+		if (strcmp(af_type, "ipv6")) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "prefix-list type %s is mismatched.", af_type);
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
+	ple->le = 0;
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/prefix-list/entry/ipv6-prefix-length-lesser-or-equal
+ */
+static int lib_prefix_list_entry_ipv6_prefix_length_lesser_or_equal_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct prefix_list_entry *ple;
+	const char *af_type;
+
+	if (args->event == NB_EV_VALIDATE
+	    && prefix_list_length_validate(args) != NB_OK)
+		return NB_ERR_VALIDATION;
+
+	if (args->event == NB_EV_VALIDATE) {
+		const struct lyd_node *entry_dnode =
+			yang_dnode_get_parent(args->dnode, "prefix-list");
+		af_type = yang_dnode_get_string(entry_dnode, "./type");
+		if (strcmp(af_type, "ipv6")) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "prefix-list type %s is mismatched.", af_type);
+			return NB_ERR_VALIDATION;
+		}
+		if (plist_is_dup_nb(args->dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "duplicated prefix list value: %s",
+				 yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Start prefix entry update procedure. */
+	prefix_list_entry_update_start(ple);
+
+	ple->le = yang_dnode_get_uint8(args->dnode, NULL);
+
+	/* Finish prefix entry update procedure. */
+	prefix_list_entry_update_finish(ple);
+
+	return NB_OK;
+}
+
+static int lib_prefix_list_entry_ipv6_prefix_length_lesser_or_equal_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct prefix_list_entry *ple;
+	const char *af_type;
+
+	if (args->event == NB_EV_VALIDATE) {
+		const struct lyd_node *entry_dnode =
+			yang_dnode_get_parent(args->dnode, "prefix-list");
+		af_type = yang_dnode_get_string(entry_dnode, "./type");
+		if (strcmp(af_type, "ipv6")) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "prefix-list type %s is mismatched.", af_type);
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -1583,22 +1817,22 @@ const struct frr_yang_module_info frr_filter_info = {
 		{
 			.xpath = "/frr-filter:lib/prefix-list/entry/ipv6-prefix",
 			.cbs = {
-				.modify = lib_prefix_list_entry_ipv4_prefix_modify,
-				.destroy = lib_prefix_list_entry_ipv4_prefix_destroy,
+				.modify = lib_prefix_list_entry_ipv6_prefix_modify,
+				.destroy = lib_prefix_list_entry_ipv6_prefix_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-filter:lib/prefix-list/entry/ipv6-prefix-length-greater-or-equal",
 			.cbs = {
-				.modify = lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_modify,
-				.destroy = lib_prefix_list_entry_ipv4_prefix_length_greater_or_equal_destroy,
+				.modify = lib_prefix_list_entry_ipv6_prefix_length_greater_or_equal_modify,
+				.destroy = lib_prefix_list_entry_ipv6_prefix_length_greater_or_equal_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-filter:lib/prefix-list/entry/ipv6-prefix-length-lesser-or-equal",
 			.cbs = {
-				.modify = lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_modify,
-				.destroy = lib_prefix_list_entry_ipv4_prefix_length_lesser_or_equal_destroy,
+				.modify = lib_prefix_list_entry_ipv6_prefix_length_lesser_or_equal_modify,
+				.destroy = lib_prefix_list_entry_ipv6_prefix_length_lesser_or_equal_destroy,
 			}
 		},
 		{
