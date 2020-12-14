@@ -1410,7 +1410,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 	is_add = (valid_nh_count || nhg_id) ? true : false;
 
-	if (is_add && bm->send_extra_data_to_zebra) {
+	if (is_add && CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA)) {
 		struct aspath *aspath = info->attr->aspath;
 
 		SET_FLAG(api.message, ZAPI_MESSAGE_OPAQUE);

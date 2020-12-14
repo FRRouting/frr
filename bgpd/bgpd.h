@@ -171,9 +171,7 @@ struct bgp_master {
 
 	uint32_t flags;
 #define BM_FLAG_GRACEFUL_SHUTDOWN        (1 << 0)
-
-	/* Send extra data to zebra like aspath */
-	bool send_extra_data_to_zebra;
+#define BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA (1 << 1)
 
 	bool terminating;	/* global flag that sigint terminate seen */
 	QOBJ_FIELDS
@@ -2253,8 +2251,6 @@ static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
 }
 
 extern void bgp_unset_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
-
-extern void bgp_option_send_extra_data(bool send);
 
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);

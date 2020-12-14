@@ -7418,11 +7418,6 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 	return buf;
 }
 
-void bgp_option_send_extra_data(bool send)
-{
-	bm->send_extra_data_to_zebra = send;
-}
-
 void bgp_master_init(struct thread_master *master, const int buffer_size)
 {
 	qobj_init();
@@ -7441,8 +7436,9 @@ void bgp_master_init(struct thread_master *master, const int buffer_size)
 	bm->v_establish_wait = BGP_UPDATE_DELAY_DEF;
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
-	bm->send_extra_data_to_zebra = true;
 	bm->wait_for_fib = false;
+
+	SET_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA);
 
 	bgp_mac_init();
 	/* init the rd id space.

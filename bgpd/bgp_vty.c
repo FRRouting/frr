@@ -1616,7 +1616,10 @@ DEFPY (no_bgp_send_extra_data,
        "Extra data to Zebra for display/use\n"
        "To zebra\n")
 {
-	bgp_option_send_extra_data(!!no);
+	if (no)
+		UNSET_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA);
+	else
+		SET_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA);
 
 	return CMD_SUCCESS;
 }
@@ -16958,7 +16961,7 @@ int bgp_config_write(struct vty *vty)
 	if (bgp_option_check(BGP_OPT_NO_FIB))
 		vty_out(vty, "bgp no-rib\n");
 
-	if (bm->send_extra_data_to_zebra)
+	if (!CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
 		vty_out(vty, "no bgp send-extra-data zebra\n");
 
 	/* BGP configuration. */
