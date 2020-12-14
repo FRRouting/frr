@@ -2300,9 +2300,9 @@ struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *ospf,
 		if (!ospf_redistribute_check(ospf, ei, &changed)) {
 			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 				zlog_debug(
-					"LSA[Type%d:%s] Could not be refreshed, redist check fail",
+					"LSA[Type%d:%pI4] Could not be refreshed, redist check fail",
 					lsa->data->type,
-					inet_ntoa(lsa->data->id));
+					&lsa->data->id);
 
 			ospf_external_lsa_flush(ospf, ei->type, &ei->p,
 						ei->ifindex /*, ei->nexthop */);
