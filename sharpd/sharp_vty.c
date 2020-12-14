@@ -207,7 +207,7 @@ DEFPY (install_routes,
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.backup_nhop_group, 0, sizeof(sg.r.nhop_group));
 
-	if (start4.s_addr != 0) {
+	if (start4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
 		prefix.prefixlen = 32;
 		prefix.u.prefix4 = start4;
@@ -362,7 +362,7 @@ DEFPY (remove_routes,
 
 	memset(&prefix, 0, sizeof(prefix));
 
-	if (start4.s_addr != 0) {
+	if (start4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
 		prefix.prefixlen = 32;
 		prefix.u.prefix4 = start4;
@@ -672,7 +672,7 @@ DEFPY (neigh_discover,
 
 	memset(&prefix, 0, sizeof(prefix));
 
-	if (dst4.s_addr != 0) {
+	if (dst4.s_addr != INADDR_ANY) {
 		prefix.family = AF_INET;
 		prefix.prefixlen = 32;
 		prefix.u.prefix4 = dst4;

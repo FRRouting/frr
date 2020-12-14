@@ -115,9 +115,9 @@ void ospf_router_id_update(struct ospf *ospf)
 		disruptive.
 	     3. Last choice: just go with whatever the zebra daemon recommends.
 	*/
-	if (ospf->router_id_static.s_addr != 0)
+	if (ospf->router_id_static.s_addr != INADDR_ANY)
 		router_id = ospf->router_id_static;
-	else if (ospf->router_id.s_addr != 0)
+	else if (ospf->router_id.s_addr != INADDR_ANY)
 		router_id = ospf->router_id;
 	else
 		router_id = ospf->router_id_zebra;

@@ -335,8 +335,8 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			char local_buff[INET6_ADDRSTRLEN];
 
 			local_buff[0] = '\0';
-			if (p->u.prefix_flowspec.family == AF_INET &&
-			    attr->nexthop.s_addr != 0)
+			if (p->u.prefix_flowspec.family == AF_INET
+			    && attr->nexthop.s_addr != INADDR_ANY)
 				inet_ntop(AF_INET,
 					  &attr->nexthop.s_addr,
 					  local_buff,

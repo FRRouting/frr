@@ -345,7 +345,7 @@ int pim_static_write_mroute(struct pim_instance *pim, struct vty *vty,
 					struct interface *oifp =
 						pim_if_find_by_vif_index(pim,
 									 i);
-					if (sroute->source.s_addr == 0)
+					if (sroute->source.s_addr == INADDR_ANY)
 						vty_out(vty,
 							" ip mroute %s %s\n",
 							oifp->name, gbuf);

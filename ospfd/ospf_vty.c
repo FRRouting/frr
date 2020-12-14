@@ -10450,7 +10450,8 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 				if (if_lookup_by_index(path->ifindex,
 						       ospf->vrf_id)) {
 
-					if (path->nexthop.s_addr == 0) {
+					if (path->nexthop.s_addr
+					    == INADDR_ANY) {
 						if (json) {
 							json_object_string_add(
 								json_nexthop,
@@ -10595,7 +10596,8 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 				}
 				if (if_lookup_by_index(path->ifindex,
 						       ospf->vrf_id)) {
-					if (path->nexthop.s_addr == 0) {
+					if (path->nexthop.s_addr
+					    == INADDR_ANY) {
 						if (json) {
 							json_object_string_add(
 								json_nexthop,
@@ -10723,7 +10725,7 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 			}
 
 			if (if_lookup_by_index(path->ifindex, ospf->vrf_id)) {
-				if (path->nexthop.s_addr == 0) {
+				if (path->nexthop.s_addr == INADDR_ANY) {
 					if (json) {
 						json_object_string_add(
 							json_nexthop, "ip",
@@ -12092,7 +12094,7 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	}
 
 	/* Router ID print. */
-	if (ospf->router_id_static.s_addr != 0)
+	if (ospf->router_id_static.s_addr != INADDR_ANY)
 		vty_out(vty, " ospf router-id %pI4\n",
 			&ospf->router_id_static);
 

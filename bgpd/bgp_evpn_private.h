@@ -515,7 +515,7 @@ static inline void evpn_type1_prefix_global_copy(struct prefix_evpn *global_p,
 {
 	memcpy(global_p, vni_p, sizeof(*global_p));
 	global_p->prefix.ead_addr.ip.ipa_type = 0;
-	global_p->prefix.ead_addr.ip.ipaddr_v4.s_addr = 0;
+	global_p->prefix.ead_addr.ip.ipaddr_v4.s_addr = INADDR_ANY;
 }
 
 /* EAD prefix in the global table doesn't include the VTEP-IP so

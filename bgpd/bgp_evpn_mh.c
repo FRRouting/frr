@@ -1078,7 +1078,7 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	/* EAD route prefix doesn't include the nexthop in the global
 	 * table
 	 */
-	vtep_ip.s_addr = 0;
+	vtep_ip.s_addr = INADDR_ANY;
 	build_evpn_type1_prefix(&p, eth_tag, &esi, vtep_ip);
 	/* Process the route. */
 	if (attr) {
