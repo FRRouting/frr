@@ -3140,6 +3140,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	bgp->as = *as;
 
+	bgp->soft_reconfig_table = list_new();
+
 #ifdef ENABLE_BGP_VNC
 	if (inst_type != BGP_INSTANCE_TYPE_VRF) {
 		bgp->rfapi = bgp_rfapi_new(bgp);
@@ -7491,7 +7493,6 @@ void bgp_master_init(struct thread_master *master, const int buffer_size,
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 	bm->v_update_delay = BGP_UPDATE_DELAY_DEF;
 	bm->v_establish_wait = BGP_UPDATE_DELAY_DEF;
-	bm->soft_reconfig_table = list_new();
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
 	bm->wait_for_fib = false;

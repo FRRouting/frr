@@ -4688,12 +4688,48 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 	return 0;
 }
 
-void bgp_soft_reconfig_table_thread_cancel(struct soft_reconfig_table *nsrta)
+/* Flag or unflag bgp_dest to determine whether it should be treated by
+ * bgp_soft_reconfig_table_thread.
+ * Flag if flag is true. Unflag if flag is false.
+ */
+static void bgp_soft_reconfig_table_flag(struct soft_reconfig_table *srta,
+					 bool flag)
+{
+	struct bgp_dest *dest;
+	struct bgp_adj_in *ain;
+	struct bgp_table *table;
+
+	if (!srta)
+		return;
+
+	table = srta->table;
+
+	if (!table)
+		table = srta->peer->bgp->rib[srta->afi][srta->safi];
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		for (ain = dest->adj_in; ain; ain = ain->next) {
+			if (ain->peer != srta->peer)
+				continue;
+		}
+		if (flag) {
+			listnode_add(dest->soft_reconfig_table, srta);
+		} else {
+			listnode_delete(dest->soft_reconfig_table, srta);
+		}
+	}
+}
+
+void bgp_soft_reconfig_table_thread_cancel(struct soft_reconfig_table *nsrta,
+					   struct bgp *bgp)
 {
 	struct soft_reconfig_table *srta;
 	struct listnode *node, *nnode;
-	/* if nsrta is NULL, cancel all soft_reconfig_table thread */
-	for (ALL_LIST_ELEMENTS(bm->soft_reconfig_table, node, nnode, srta)) {
+
+	/* if nsrta is NULL, cancel all soft_reconfig_table threads on bgp
+	 * instance.
+	 */
+	for (ALL_LIST_ELEMENTS(bgp->soft_reconfig_table, node, nnode, srta)) {
 		if ((nsrta)
 		    && ((nsrta->peer != srta->peer) || (nsrta->afi != srta->afi)
 			|| (nsrta->safi != srta->safi)
@@ -4702,7 +4738,7 @@ void bgp_soft_reconfig_table_thread_cancel(struct soft_reconfig_table *nsrta)
 			|| (nsrta->dest != srta->dest)))
 			continue;
 		BGP_TIMER_OFF(nsrta->thread);
-		listnode_delete(bm->soft_reconfig_table, nsrta);
+		listnode_delete(bgp->soft_reconfig_table, nsrta);
 		XFREE(MTYPE_SOFT_RECONFIG_TABLE, nsrta->thread);
 	}
 }
@@ -4728,8 +4764,8 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 		srta->dest = NULL;
 		srta->thread = NULL;
 		srta->idx = 0;
-		bgp_soft_reconfig_table_thread_cancel(srta);
-		listnode_add(bm->soft_reconfig_table, srta);
+		bgp_soft_reconfig_table_thread_cancel(srta, peer->bgp);
+		listnode_add(peer->bgp->soft_reconfig_table, srta);
 		thread_add_timer(bm->master, bgp_soft_reconfig_table_thread,
 				 srta, 0, &srta->thread);
 	} else
