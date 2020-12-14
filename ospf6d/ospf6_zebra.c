@@ -49,6 +49,23 @@ unsigned char conf_debug_ospf6_zebra = 0;
 /* information about zebra. */
 struct zclient *zclient = NULL;
 
+void ospf6_set_redist_vrf_bitmaps(struct ospf6 *ospf6)
+{
+	int type;
+	struct list *red_list;
+
+	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		red_list = ospf6->redist[type];
+		if (!red_list)
+			continue;
+		if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+			zlog_debug(
+				"%s: setting redist vrf %d bitmap for type %d",
+				__func__, ospf6->vrf_id, type);
+		ospf6_zebra_redistribute(type, ospf6->vrf_id);
+	}
+}
+
 void ospf6_zebra_vrf_register(struct ospf6 *ospf6)
 {
 	if (!zclient || zclient->sock < 0 || !ospf6)

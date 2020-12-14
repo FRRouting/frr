@@ -1976,8 +1976,8 @@ DEFUNSH(VTYSH_BABELD, router_babel, router_babel_cmd, "router babel",
 #endif /* HAVE_BABELD */
 
 #ifdef HAVE_OSPF6D
-DEFUNSH(VTYSH_OSPF6D, router_ospf6, router_ospf6_cmd, "router ospf6",
-	ROUTER_STR OSPF6_STR)
+DEFUNSH(VTYSH_OSPF6D, router_ospf6, router_ospf6_cmd, "router ospf6 [vrf NAME]",
+	ROUTER_STR OSPF6_STR VRF_CMD_HELP_STR)
 {
 	vty->node = OSPF6_NODE;
 	return CMD_SUCCESS;
