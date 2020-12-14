@@ -3365,6 +3365,54 @@ DEFUN (show_ip_ospf_instance,
 	return ret;
 }
 
+static void ospf_interface_auth_show(struct vty *vty, struct ospf_interface *oi,
+				     json_object *json, bool use_json)
+{
+	int auth_type;
+
+	auth_type = OSPF_IF_PARAM(oi, auth_type);
+
+	switch (auth_type) {
+	case OSPF_AUTH_NULL:
+		if (use_json)
+			json_object_string_add(json, "authentication",
+					       "authenticationNone");
+		else
+			vty_out(vty, "  Authentication NULL is enabled\n");
+		break;
+	case OSPF_AUTH_SIMPLE: {
+		if (use_json)
+			json_object_string_add(json, "authentication",
+					       "authenticationSimplePassword");
+		else
+			vty_out(vty,
+				"  Simple password authentication enabled\n");
+		break;
+	}
+	case OSPF_AUTH_CRYPTOGRAPHIC: {
+		struct crypt_key *ckey;
+
+		if (list_isempty(OSPF_IF_PARAM(oi, auth_crypt)))
+			return;
+
+		ckey = listgetdata(listtail(OSPF_IF_PARAM(oi, auth_crypt)));
+		if (ckey) {
+			if (use_json) {
+				json_object_string_add(json, "authentication",
+						       "authenticationMessageDigest");
+			} else {
+				vty_out(vty,
+					"  Cryptographic authentication enabled\n");
+				vty_out(vty, "  Algorithm:MD5\n");
+			}
+		}
+		break;
+	}
+	default:
+		break;
+	}
+}
+
 static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				       struct interface *ifp,
 				       json_object *json_interface_sub,
@@ -3686,6 +3734,9 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				ospf_nbr_count(oi, 0),
 				ospf_nbr_count(oi, NSM_Full));
 		ospf_bfd_interface_show(vty, ifp, json_interface_sub, use_json);
+
+		/* OSPF Authentication information */
+		ospf_interface_auth_show(vty, oi, json_interface_sub, use_json);
 	}
 }
 
