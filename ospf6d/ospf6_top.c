@@ -849,7 +849,7 @@ DEFUN (no_ospf6_interface_area,
 		return CMD_SUCCESS;
 	}
 
-	thread_execute(master, interface_down, oi, 0);
+	ospf6_interface_disable(oi);
 
 	oa = oi->area;
 	listnode_delete(oi->area->if_list, oi);
@@ -860,6 +860,7 @@ DEFUN (no_ospf6_interface_area,
 		UNSET_FLAG(oa->flag, OSPF6_AREA_ENABLE);
 		ospf6_abr_disable_area(oa);
 	}
+	ospf6_interface_delete(oi);
 
 	return CMD_SUCCESS;
 }
