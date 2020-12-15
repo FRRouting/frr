@@ -116,7 +116,7 @@ static void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
 				struct in_addr mcast_grp);
 static void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
 				struct in_addr mcast_grp);
-static void zebra_vxlan_sg_cleanup(struct hash_bucket *bucket, void *arg);
+static void zebra_vxlan_cleanup_sg_table(struct zebra_vrf *zvrf);
 
 bool zebra_evpn_do_dup_addr_detect(struct zebra_vrf *zvrf)
 {
@@ -5784,7 +5784,7 @@ void zebra_vxlan_cleanup_tables(struct zebra_vrf *zvrf)
 	if (!zvrf)
 		return;
 	hash_iterate(zvrf->evpn_table, zebra_evpn_vxlan_cleanup_all, zvrf);
-	hash_iterate(zvrf->vxlan_sg_table, zebra_vxlan_sg_cleanup, NULL);
+	zebra_vxlan_cleanup_sg_table(zvrf);
 
 	if (zvrf == evpn_zvrf)
 		zebra_evpn_es_cleanup();
@@ -5797,6 +5797,11 @@ void zebra_vxlan_close_tables(struct zebra_vrf *zvrf)
 		return;
 	hash_iterate(zvrf->evpn_table, zebra_evpn_vxlan_cleanup_all, zvrf);
 	hash_free(zvrf->evpn_table);
+	if (zvrf->vxlan_sg_table) {
+		zebra_vxlan_cleanup_sg_table(zvrf);
+		hash_free(zvrf->vxlan_sg_table);
+		zvrf->vxlan_sg_table = NULL;
+	}
 }
 
 /* init the l3vni table */
@@ -6045,11 +6050,48 @@ static void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
 	zebra_vxlan_sg_do_ref(zvrf, local_vtep_ip, mcast_grp);
 }
 
+static void zebra_vxlan_xg_pre_cleanup(struct hash_bucket *backet, void *arg)
+{
+	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)backet->data;
+
+	/* increment the ref count against (*,G) to prevent them from being
+	 * deleted
+	 */
+	if (vxlan_sg->sg.src.s_addr == INADDR_ANY)
+		++vxlan_sg->ref_cnt;
+}
+
+static void zebra_vxlan_xg_post_cleanup(struct hash_bucket *backet, void *arg)
+{
+	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)backet->data;
+
+	/* decrement the dummy ref count against (*,G) to delete them */
+	if (vxlan_sg->sg.src.s_addr == INADDR_ANY) {
+		if (vxlan_sg->ref_cnt)
+			--vxlan_sg->ref_cnt;
+		if (!vxlan_sg->ref_cnt)
+			zebra_vxlan_sg_del(vxlan_sg);
+	}
+}
+
 static void zebra_vxlan_sg_cleanup(struct hash_bucket *backet, void *arg)
 {
 	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)backet->data;
 
 	zebra_vxlan_sg_del(vxlan_sg);
+}
+
+static void zebra_vxlan_cleanup_sg_table(struct zebra_vrf *zvrf)
+{
+	/* increment the ref count against (*,G) to prevent them from being
+	 * deleted
+	 */
+	hash_iterate(zvrf->vxlan_sg_table, zebra_vxlan_xg_pre_cleanup, NULL);
+
+	hash_iterate(zvrf->vxlan_sg_table, zebra_vxlan_sg_cleanup, NULL);
+
+	/* decrement the dummy ref count against the XG entries */
+	hash_iterate(zvrf->vxlan_sg_table, zebra_vxlan_xg_post_cleanup, NULL);
 }
 
 static void zebra_vxlan_sg_replay_send(struct hash_bucket *backet, void *arg)
