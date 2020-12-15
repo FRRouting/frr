@@ -479,7 +479,7 @@ void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
 		dnode = set->set.d[i];
 		ret = (*cb)(dnode, arg);
 		if (ret == YANG_ITER_STOP)
-			return;
+			break;
 	}
 
 	ly_set_free(set);
