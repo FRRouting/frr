@@ -325,7 +325,8 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 
 		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
 		if (!dnode) {
-			/* Silently return */
+			vty_out(vty,
+				"%% Refusing to remove a non-existent route\n");
 			return CMD_SUCCESS;
 		}
 
