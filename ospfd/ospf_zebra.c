@@ -210,7 +210,7 @@ static void ospf_zebra_add_nexthop(struct ospf *ospf, struct ospf_path *path,
 		api_nh_backup = &api->backup_nexthops[api->backup_nexthop_num];
 		api_nh_backup->vrf_id = ospf->vrf_id;
 
-		api_nh_backup->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+		api_nh_backup->type = NEXTHOP_TYPE_IPV4;
 		api_nh_backup->gate.ipv4 = path->srni.backup_nexthop;
 
 		api_nh_backup->label_num =
@@ -579,22 +579,33 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 			if (zl.nexthop_num >= MULTIPATH_NUM)
 				break;
 
-			/* TI-LFA backup path label stack comes first, if
-			 * present */
+			/*
+			 * TI-LFA backup path label stack comes first, if
+			 * present.
+			 */
 			if (path->srni.backup_label_stack) {
 				znh_backup = &zl.backup_nexthops
 						      [zl.backup_nexthop_num++];
-				znh_backup->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+				znh_backup->type = NEXTHOP_TYPE_IPV4;
 				znh_backup->gate.ipv4 =
 					path->srni.backup_nexthop;
+
+				memcpy(znh_backup->labels,
+				       path->srni.backup_label_stack->label,
+				       sizeof(mpls_label_t)
+					       * path->srni.backup_label_stack
+							 ->num_labels);
 
 				znh_backup->label_num =
 					path->srni.backup_label_stack
 						->num_labels;
-				memcpy(znh_backup->labels,
-				       path->srni.backup_label_stack->label,
-				       sizeof(mpls_label_t)
-					       * znh_backup->label_num);
+				if (path->srni.label_out
+					    != MPLS_LABEL_IPV4_EXPLICIT_NULL
+				    && path->srni.label_out
+					       != MPLS_LABEL_IMPLICIT_NULL)
+					znh_backup->labels
+						[znh_backup->label_num++] =
+						path->srni.label_out;
 			}
 
 			znh = &zl.nexthops[zl.nexthop_num++];
