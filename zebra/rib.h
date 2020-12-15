@@ -166,6 +166,11 @@ struct route_entry {
 	struct opaque *opaque;
 };
 
+#define RKERNEL_ROUTE(type) ((type) == ZEBRA_ROUTE_KERNEL)
+
+#define RSYSTEM_ROUTE(type)                                                    \
+	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT)
+
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
 
 #define RIB_KERNEL_ROUTE(R) RKERNEL_ROUTE((R)->type)

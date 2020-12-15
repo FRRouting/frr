@@ -703,6 +703,9 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	switch (op) {
 	case DPLANE_OP_ROUTE_UPDATE:
 	case DPLANE_OP_ROUTE_DELETE:
+		if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx)))
+			break;
+
 		rv = netlink_route_multipath_msg_encode(RTM_DELROUTE, ctx,
 							nl_buf, sizeof(nl_buf),
 							true, fnc->use_nhg);
@@ -721,6 +724,9 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 		/* FALL THROUGH */
 	case DPLANE_OP_ROUTE_INSTALL:
+		if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx)))
+			break;
+
 		rv = netlink_route_multipath_msg_encode(
 			RTM_NEWROUTE, ctx, &nl_buf[nl_buf_len],
 			sizeof(nl_buf) - nl_buf_len, true, fnc->use_nhg);

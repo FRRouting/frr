@@ -1452,6 +1452,12 @@ static int zfpm_trigger_update(struct route_node *rn, const char *reason)
 		return 0;
 	}
 
+	if (dest->selected_fib && RIB_SYSTEM_ROUTE(dest->selected_fib)) {
+		zfpm_debug("%pRN Skipping update for System Route", rn);
+		zfpm_g->stats.redundant_triggers++;
+		return 0;
+	}
+
 	if (reason) {
 		zfpm_debug("%pFX triggering update to FPM - Reason: %s", &rn->p,
 			   reason);
