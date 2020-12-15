@@ -88,6 +88,13 @@ struct zebra_evpn_es {
 	 * advertised via the ESR
 	 */
 	uint16_t df_pref;
+
+	/* When a new ES is configured it is held in a non-DF state
+	 * for 3 seconds. This allows the peer Type-4 routes to be
+	 * imported before running the DF election.
+	 */
+#define ZEBRA_EVPN_MH_DF_DELAY_TIME 3 /* seconds */
+	struct thread *df_delay_timer;
 };
 RB_HEAD(zebra_es_rb_head, zebra_evpn_es);
 RB_PROTOTYPE(zebra_es_rb_head, zebra_evpn_es, rb_node, zebra_es_rb_cmp);
