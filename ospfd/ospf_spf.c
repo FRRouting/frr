@@ -1238,7 +1238,7 @@ ospf_rtrs_print (struct route_table *rtrs)
 
           for (ALL_LIST_ELEMENTS_RO (or->paths, pnode, path))
             {
-              if (path->nexthop.s_addr == 0)
+              if (path->nexthop.s_addr == INADDR_ANY)
                 {
                   if (IS_DEBUG_OSPF_EVENT)
                     zlog_debug ("   directly attached to %s\r",

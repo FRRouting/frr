@@ -973,7 +973,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		 */
 		if (area->newmetric) {
 			if (IS_MPLS_TE(area->mta)
-			    && area->mta->router_id.s_addr != 0)
+			    && area->mta->router_id.s_addr != INADDR_ANY)
 				id.s_addr = area->mta->router_id.s_addr;
 			lsp_debug(
 				"ISIS (%s): Adding router ID also as TE router ID tlv.",

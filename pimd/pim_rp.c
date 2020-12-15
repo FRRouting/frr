@@ -1319,7 +1319,7 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 			continue;
 
 		for (nh_node = pnc.nexthop; nh_node; nh_node = nh_node->next) {
-			if (nh_node->gate.ipv4.s_addr != 0)
+			if (nh_node->gate.ipv4.s_addr != INADDR_ANY)
 				continue;
 
 			struct interface *ifp1 = if_lookup_by_index(

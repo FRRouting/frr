@@ -16982,7 +16982,7 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " no bgp fast-external-failover\n");
 
 		/* BGP router ID. */
-		if (bgp->router_id_static.s_addr != 0)
+		if (bgp->router_id_static.s_addr != INADDR_ANY)
 			vty_out(vty, " bgp router-id %pI4\n",
 				&bgp->router_id_static);
 

@@ -575,7 +575,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		}
 
 		if (IN6_IS_ADDR_UNSPECIFIED(mod_v6nhg)) {
-			if (peer->nexthop.v4.s_addr) {
+			if (peer->nexthop.v4.s_addr != INADDR_ANY) {
 				ipv4_to_ipv4_mapped_ipv6(mod_v6nhg,
 							 peer->nexthop.v4);
 			}

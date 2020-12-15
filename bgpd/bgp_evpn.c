@@ -2898,7 +2898,7 @@ bgp_evpn_skip_vrf_import_of_local_es(const struct prefix_evpn *evp,
 		if (pi->attr)
 			nh = pi->attr->nexthop;
 		else
-			nh.s_addr = 0;
+			nh.s_addr = INADDR_ANY;
 		if (install && !bgp_evpn_es_is_vtep_active(esi, nh)) {
 			if (BGP_DEBUG(evpn_mh, EVPN_MH_RT)) {
 				char esi_buf[ESI_STR_LEN];

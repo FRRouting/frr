@@ -279,7 +279,7 @@ int bgp_global_router_id_destroy(struct nb_cb_destroy_args *args)
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 
-	router_id.s_addr = 0;
+	router_id.s_addr = INADDR_ANY;
 	bgp_router_id_static_set(bgp, router_id);
 
 	return NB_OK;

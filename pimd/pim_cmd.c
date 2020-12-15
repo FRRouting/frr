@@ -4560,8 +4560,8 @@ DEFPY (show_ip_pim_join,
 		return CMD_WARNING;
 	}
 
-	if (s_or_g.s_addr != 0) {
-		if (g.s_addr != 0) {
+	if (s_or_g.s_addr != INADDR_ANY) {
+		if (g.s_addr != INADDR_ANY) {
 			sg.src = s_or_g;
 			sg.grp = g;
 		} else
@@ -5180,8 +5180,8 @@ DEFPY (show_ip_pim_upstream,
 		return CMD_WARNING;
 	}
 
-	if (s_or_g.s_addr != 0) {
-		if (g.s_addr != 0) {
+	if (s_or_g.s_addr != INADDR_ANY) {
+		if (g.s_addr != INADDR_ANY) {
 			sg.src = s_or_g;
 			sg.grp = g;
 		} else
@@ -5872,11 +5872,11 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		if (!c_oil->installed)
 			continue;
 
-		if (sg->grp.s_addr != 0 &&
-		    sg->grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr)
+		if (sg->grp.s_addr != INADDR_ANY
+		    && sg->grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr)
 			continue;
-		if (sg->src.s_addr != 0 &&
-		    sg->src.s_addr != c_oil->oil.mfcc_origin.s_addr)
+		if (sg->src.s_addr != INADDR_ANY
+		    && sg->src.s_addr != c_oil->oil.mfcc_origin.s_addr)
 			continue;
 
 		pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, grp_str,
@@ -6232,8 +6232,8 @@ DEFPY (show_ip_mroute,
 		return CMD_WARNING;
 	}
 
-	if (s_or_g.s_addr != 0) {
-		if (g.s_addr != 0) {
+	if (s_or_g.s_addr != INADDR_ANY) {
+		if (g.s_addr != INADDR_ANY) {
 			sg.src = s_or_g;
 			sg.grp = g;
 		} else

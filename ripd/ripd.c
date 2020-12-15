@@ -495,7 +495,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 		rte->metric = RIP_METRIC_INFINITY;
 
 	/* Set nexthop pointer. */
-	if (rte->nexthop.s_addr == 0)
+	if (rte->nexthop.s_addr == INADDR_ANY)
 		nexthop = &from->sin_addr;
 	else
 		nexthop = &rte->nexthop;
@@ -592,7 +592,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 			/* Only routes directly connected to an interface
 			 * (nexthop == 0)
 			 * may have a valid NULL distance */
-			if (rinfo->nh.gate.ipv4.s_addr != 0)
+			if (rinfo->nh.gate.ipv4.s_addr != INADDR_ANY)
 				old_dist = old_dist
 						   ? old_dist
 						   : ZEBRA_RIP_DISTANCE_DEFAULT;
@@ -2156,7 +2156,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					memcpy(&classfull, &rp->p,
 					       sizeof(struct prefix_ipv4));
 					apply_classful_mask_ipv4(&classfull);
-					if (rp->p.u.prefix4.s_addr != 0
+					if (rp->p.u.prefix4.s_addr != INADDR_ANY
 					    && classfull.prefixlen
 						       != rp->p.prefixlen)
 						continue;
