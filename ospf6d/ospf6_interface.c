@@ -507,6 +507,7 @@ static void ospf6_interface_state_change(uint8_t next_state,
 			  IPV6_JOIN_GROUP, ospf6->fd);
 
 	OSPF6_ROUTER_LSA_SCHEDULE(oi->area);
+	OSPF6_LINK_LSA_SCHEDULE(oi);
 	if (next_state == OSPF6_INTERFACE_DOWN) {
 		OSPF6_NETWORK_LSA_EXECUTE(oi);
 		OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi);
