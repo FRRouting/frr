@@ -5858,7 +5858,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty, "IP Multicast Routing Table\n");
 		vty_out(vty, "Flags: S - Sparse, C - Connected, P - Pruned\n");
 		vty_out(vty,
-			"       R - RP-bit set, F - Register flag, T - SPT-bit set\n");
+			"       R - SGRpt Pruned, F - Register flag, T - SPT-bit set\n");
 		vty_out(vty,
 			"\nSource          Group           Flags   Proto  Input            Output           TTL  Uptime\n");
 	}
