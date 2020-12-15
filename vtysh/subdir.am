@@ -17,7 +17,6 @@ vtysh_vtysh_SOURCES = \
 nodist_vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_cmd.c \
 	# end
-CLEANFILES += vtysh/vtysh_cmd.c
 
 noinst_HEADERS += \
 	vtysh/vtysh.h \
@@ -29,6 +28,11 @@ vtysh_vtysh_LDADD = lib/libfrr.la $(LIBCAP) $(LIBREADLINE) $(LIBS) $(LIBPAM)
 EXTRA_DIST += vtysh/daemons.pl
 
 BUILT_SOURCES += vtysh/vtysh_daemons.h
+
+CLEANFILES += \
+	vtysh/vtysh_cmd.c \
+	vtysh/vtysh_daemons.h \
+	# end
 
 # force vtysh_daemons.h
 $(vtysh_vtysh_OBJECTS): vtysh/vtysh_daemons.h
