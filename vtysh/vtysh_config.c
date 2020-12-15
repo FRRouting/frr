@@ -528,12 +528,12 @@ static int vtysh_read_file(FILE *confp)
 	vtysh_execute_no_pager("enable");
 	vtysh_execute_no_pager("configure terminal");
 
-	vtysh_execute_no_pager("start_configuration");
+	vtysh_execute_no_pager("XFRR_start_configuration");
 
 	/* Execute configuration file. */
 	ret = vtysh_config_from_file(vty, confp);
 
-	vtysh_execute_no_pager("end_configuration");
+	vtysh_execute_no_pager("XFRR_end_configuration");
 
 	vtysh_execute_no_pager("end");
 	vtysh_execute_no_pager("disable");

@@ -222,7 +222,7 @@ static struct call_back {
 
 DEFUN_HIDDEN (start_config,
 	      start_config_cmd,
-	      "start_configuration",
+	      "XFRR_start_configuration",
 	      "The Beginning of Configuration\n")
 {
 	callback.readin_time = monotime(NULL);
@@ -235,7 +235,7 @@ DEFUN_HIDDEN (start_config,
 
 DEFUN_HIDDEN (end_config,
 	      end_config_cmd,
-	      "end_configuration",
+	      "XFRR_end_configuration",
 	      "The End of Configuration\n")
 {
 	time_t readin_time;
