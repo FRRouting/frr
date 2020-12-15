@@ -459,7 +459,7 @@ int main(int argc, char **argv, char **env)
 		/* Read vtysh configuration file before connecting to daemons.
 		 * (file may not be readable to calling user in SUID mode) */
 		suid_on();
-		vtysh_read_config(vtysh_config);
+		vtysh_read_config(vtysh_config, dryrun);
 		suid_off();
 	}
 	/* Error code library system */
@@ -478,9 +478,9 @@ int main(int argc, char **argv, char **env)
 	/* Start execution only if not in dry-run mode */
 	if (dryrun && !cmd) {
 		if (inputfile) {
-			ret = vtysh_read_config(inputfile);
+			ret = vtysh_read_config(inputfile, dryrun);
 		} else {
-			ret = vtysh_read_config(frr_config);
+			ret = vtysh_read_config(frr_config, dryrun);
 		}
 
 		exit(ret);
@@ -561,7 +561,7 @@ int main(int argc, char **argv, char **env)
 
 	if (inputfile) {
 		vtysh_flock_config(inputfile);
-		ret = vtysh_read_config(inputfile);
+		ret = vtysh_read_config(inputfile, dryrun);
 		vtysh_unflock_config();
 		exit(ret);
 	}
@@ -670,7 +670,7 @@ int main(int argc, char **argv, char **env)
 	/* Boot startup configuration file. */
 	if (boot_flag) {
 		vtysh_flock_config(frr_config);
-		ret = vtysh_read_config(frr_config);
+		ret = vtysh_read_config(frr_config, dryrun);
 		vtysh_unflock_config();
 		if (ret) {
 			fprintf(stderr,
