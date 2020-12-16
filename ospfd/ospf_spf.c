@@ -847,17 +847,22 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 				struct ospf_interface *oi = NULL;
 				struct in_addr nexthop = {.s_addr = 0};
 
-				oi = ospf_if_lookup_by_lsa_pos(area, lsa_pos);
-				if (!oi) {
-					zlog_debug(
-						"%s: OI not found in LSA: lsa_pos: %d link_id:%s link_data:%s",
-						__func__, lsa_pos,
-						inet_ntop(AF_INET, &l->link_id,
-							  buf1, BUFSIZ),
-						inet_ntop(AF_INET,
-							  &l->link_data, buf2,
-							  BUFSIZ));
-					return 0;
+				if (area->spf_root_node) {
+					oi = ospf_if_lookup_by_lsa_pos(area,
+								       lsa_pos);
+					if (!oi) {
+						zlog_debug(
+							"%s: OI not found in LSA: lsa_pos: %d link_id:%s link_data:%s",
+							__func__, lsa_pos,
+							inet_ntop(AF_INET,
+								  &l->link_id,
+								  buf1, BUFSIZ),
+							inet_ntop(AF_INET,
+								  &l->link_data,
+								  buf2,
+								  BUFSIZ));
+						return 0;
+					}
 				}
 
 				/*
@@ -905,7 +910,21 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 				 * as described above using a reverse lookup to
 				 * figure out the nexthop.
 				 */
-				if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
+
+				/*
+				 * HACK: we don't know (yet) how to distinguish
+				 * between P2P and P2MP interfaces by just
+				 * looking at LSAs, which is important for
+				 * TI-LFA since you want to do SPF calculations
+				 * from the perspective of other nodes. Since
+				 * TI-LFA is currently not implemented for P2MP
+				 * we just check here if it is enabled and then
+				 * blindly assume that P2P is used. Ultimately
+				 * the interface code needs to be removed
+				 * somehow.
+				 */
+				if (area->ospf->ti_lfa_enabled
+				    || (oi && oi->type == OSPF_IFTYPE_POINTOPOINT)) {
 					struct ospf_neighbor *nbr_w = NULL;
 
 					/* Calculating node is root node, link
@@ -934,7 +953,7 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 							}
 						}
 					}
-				} else if (oi->type
+				} else if (oi && oi->type
 					   == OSPF_IFTYPE_POINTOMULTIPOINT) {
 					struct prefix_ipv4 la;
 
@@ -979,7 +998,7 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 				} else
 					zlog_info(
 						"%s: could not determine nexthop for link %s",
-						__func__, oi->ifp->name);
+						__func__, oi ? oi->ifp->name : "");
 			} /* end point-to-point link from V to W */
 			else if (l->m[0].type == LSA_LINK_TYPE_VIRTUALLINK) {
 				/*

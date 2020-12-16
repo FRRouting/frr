@@ -43,6 +43,7 @@ static struct ospf *test_init(struct ospf_test_node *root)
 	inet_aton(root->router_id, &router_id);
 	ospf->router_id = router_id;
 	ospf->router_id_static = router_id;
+	ospf->ti_lfa_enabled = true;
 
 	return ospf;
 }
