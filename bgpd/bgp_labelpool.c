@@ -394,7 +394,7 @@ void bgp_lp_get(
 			return;
 		if (zclient_send_get_label_chunk(zclient, 0, LP_CHUNK_SIZE,
 						 MPLS_LABEL_BASE_ANY)
-		    == ZCLIENT_SEND_FAILURE)
+		    != ZCLIENT_SEND_FAILURE)
 			lp->pending_count += LP_CHUNK_SIZE;
 	}
 }
