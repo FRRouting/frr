@@ -4598,7 +4598,7 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
  */
 static int bgp_soft_reconfig_table_thread(struct thread *thread)
 {
-	struct soft_reconfig_table *srta;
+	struct soft_reconfig_table *srta, *tmp_srta;
 	uint32_t iter, max_iter;
 	int ret;
 	struct bgp_dest *dest;
@@ -4608,6 +4608,8 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 	safi_t safi;
 	struct bgp_table *table;
 	struct prefix_rd *prd;
+	struct listnode *node, *nnode;
+	bool srta_found;
 
 	srta = THREAD_ARG(thread);
 	peer = srta->peer;
@@ -4630,7 +4632,19 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 	}
 
 	for (iter = 0; (dest && iter <= max_iter);
-	     dest = bgp_route_next(dest), iter++) {
+	     dest = bgp_route_next(dest)) {
+		srta_found = false;
+		for (ALL_LIST_ELEMENTS(dest->soft_reconfig_table, node, nnode,
+				       tmp_srta)) {
+			if (tmp_srta != srta)
+				continue;
+			srta_found = true;
+		}
+		if (!srta_found)
+			continue;
+
+		listnode_delete(dest->soft_reconfig_table, srta);
+		iter++;
 
 		for (ain = dest->adj_in; ain; ain = ain->next) {
 			if (ain->peer != peer)
@@ -4679,6 +4693,7 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 	}
 
 	if (srta->dest) {
+		srta->dest = bgp_table_top(table);
 		thread_add_timer_msec(
 			bm->master, bgp_soft_reconfig_table_thread, srta,
 			SOFT_RECONFIG_THREAD_SPLIT_DELAY_MS, &srta->thread);
@@ -4712,11 +4727,10 @@ static void bgp_soft_reconfig_table_flag(struct soft_reconfig_table *srta,
 			if (ain->peer != srta->peer)
 				continue;
 		}
-		if (flag) {
+		if (flag)
 			listnode_add(dest->soft_reconfig_table, srta);
-		} else {
+		else
 			listnode_delete(dest->soft_reconfig_table, srta);
-		}
 	}
 }
 
@@ -4766,6 +4780,7 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 		srta->idx = 0;
 		bgp_soft_reconfig_table_thread_cancel(srta, peer->bgp);
 		listnode_add(peer->bgp->soft_reconfig_table, srta);
+		bgp_soft_reconfig_table_flag(srta, true);
 		thread_add_timer(bm->master, bgp_soft_reconfig_table_thread,
 				 srta, 0, &srta->thread);
 	} else

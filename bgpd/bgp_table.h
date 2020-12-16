@@ -109,6 +109,12 @@ struct bgp_node {
 	struct bgp_addpath_node_data tx_addpath;
 
 	enum bgp_path_selection_reason reason;
+
+	/* list of soft_reconfig_table attributes.
+	 * Used to flag the bgp_node in order to be treated by
+	 * soft_reconfig_table_thread.
+	 */
+	struct list *soft_reconfig_table;
 };
 
 extern void bgp_delete_listnode(struct bgp_dest *dest);

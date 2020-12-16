@@ -69,6 +69,8 @@ static struct route_node *bgp_node_create(route_table_delegate_t *delegate,
 	struct bgp_node *node;
 	node = XCALLOC(MTYPE_BGP_NODE, sizeof(struct bgp_node));
 
+	node->soft_reconfig_table = list_new();
+
 	RB_INIT(bgp_adj_out_rb, &node->adj_out);
 	return bgp_dest_to_rnode(node);
 }
