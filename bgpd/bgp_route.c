@@ -4678,6 +4678,8 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 
 			if (ret < 0) {
 				bgp_dest_unlock_node(dest);
+				listnode_delete(peer->bgp->soft_reconfig_table,
+						srta);
 				XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
 				return 0;
 			}
@@ -4699,6 +4701,7 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 			SOFT_RECONFIG_THREAD_SPLIT_DELAY_MS, &srta->thread);
 		return 0;
 	}
+	listnode_delete(peer->bgp->soft_reconfig_table, srta);
 	XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
 	return 0;
 }
@@ -4751,9 +4754,10 @@ void bgp_soft_reconfig_table_thread_cancel(struct soft_reconfig_table *nsrta,
 			|| (nsrta->prd != srta->prd)
 			|| (nsrta->dest != srta->dest)))
 			continue;
-		BGP_TIMER_OFF(nsrta->thread);
-		listnode_delete(bgp->soft_reconfig_table, nsrta);
-		XFREE(MTYPE_SOFT_RECONFIG_TABLE, nsrta->thread);
+		BGP_TIMER_OFF(srta->thread);
+		bgp_soft_reconfig_table_flag(srta, false);
+		listnode_delete(bgp->soft_reconfig_table, srta);
+		XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
 	}
 }
 
