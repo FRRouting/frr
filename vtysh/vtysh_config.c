@@ -515,7 +515,7 @@ void vtysh_config_dump(void)
 }
 
 /* Read up configuration file from file_name. */
-static int vtysh_read_file(FILE *confp)
+static int vtysh_read_file(FILE *confp, bool dry_run)
 {
 	struct vty *vty;
 	int ret;
@@ -528,12 +528,14 @@ static int vtysh_read_file(FILE *confp)
 	vtysh_execute_no_pager("enable");
 	vtysh_execute_no_pager("configure terminal");
 
-	vtysh_execute_no_pager("start_configuration");
+	if (!dry_run)
+		vtysh_execute_no_pager("XFRR_start_configuration");
 
 	/* Execute configuration file. */
 	ret = vtysh_config_from_file(vty, confp);
 
-	vtysh_execute_no_pager("end_configuration");
+	if (!dry_run)
+		vtysh_execute_no_pager("XFRR_end_configuration");
 
 	vtysh_execute_no_pager("end");
 	vtysh_execute_no_pager("disable");
@@ -544,7 +546,7 @@ static int vtysh_read_file(FILE *confp)
 }
 
 /* Read up configuration file from config_default_dir. */
-int vtysh_read_config(const char *config_default_dir)
+int vtysh_read_config(const char *config_default_dir, bool dry_run)
 {
 	FILE *confp = NULL;
 	int ret;
@@ -557,7 +559,7 @@ int vtysh_read_config(const char *config_default_dir)
 		return CMD_ERR_NO_FILE;
 	}
 
-	ret = vtysh_read_file(confp);
+	ret = vtysh_read_file(confp, dry_run);
 	fclose(confp);
 
 	return (ret);
