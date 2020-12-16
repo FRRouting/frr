@@ -4686,15 +4686,7 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 		}
 	}
 
-	srta->idx += iter;
-
-	srta->dest = dest;
-	if ((max_iter == 0)) {
-		/* Initialize first bgp node for next scheduled call */
-		srta->dest = bgp_table_top(table);
-	}
-
-	if (srta->dest) {
+	if ((dest) || (max_iter == 0)) {
 		srta->dest = bgp_table_top(table);
 		thread_add_timer_msec(
 			bm->master, bgp_soft_reconfig_table_thread, srta,
@@ -4781,7 +4773,6 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 		srta->prd = NULL;
 		srta->dest = NULL;
 		srta->thread = NULL;
-		srta->idx = 0;
 		bgp_soft_reconfig_table_thread_cancel(srta, peer->bgp);
 		listnode_add(peer->bgp->soft_reconfig_table, srta);
 		bgp_soft_reconfig_table_flag(srta, true);
@@ -4805,6 +4796,7 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 			bgp_soft_reconfig_table(peer, afi, safi, table, &prd);
 		}
 }
+
 
 struct bgp_clear_node_queue {
 	struct bgp_dest *dest;

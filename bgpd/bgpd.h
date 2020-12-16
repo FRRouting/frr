@@ -196,7 +196,6 @@ struct soft_reconfig_table {
 	struct prefix_rd *prd;
 	struct bgp_dest *dest;
 	struct thread *thread;
-	uint32_t idx; /* debugging purpose */
 };
 
 
