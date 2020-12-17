@@ -4563,15 +4563,16 @@ static void bgp_soft_reconfig_table_flag(struct soft_reconfig_table *srta,
 		for (ain = dest->adj_in; ain; ain = ain->next) {
 			if (ain->peer != srta->peer)
 				continue;
-		}
-		if (!dest->soft_reconfig_table)
-			dest->soft_reconfig_table = list_new();
-		if (flag)
-			listnode_add(dest->soft_reconfig_table, srta);
-		else {
-			listnode_delete(dest->soft_reconfig_table, srta);
-			if (list_isempty(dest->soft_reconfig_table))
-				list_delete(&dest->soft_reconfig_table);
+			if (!dest->soft_reconfig_table)
+				dest->soft_reconfig_table = list_new();
+			if (flag)
+				listnode_add(dest->soft_reconfig_table, srta);
+			else {
+				listnode_delete(dest->soft_reconfig_table,
+						srta);
+				if (list_isempty(dest->soft_reconfig_table))
+					list_delete(&dest->soft_reconfig_table);
+			}
 		}
 	}
 }
