@@ -197,10 +197,6 @@ static int bgp_conditional_adv_timer(struct thread *t)
 			continue;
 
 		FOREACH_AFI_SAFI (afi, safi) {
-			if (strmatch(get_afi_safi_str(afi, safi, true),
-				     "Unknown"))
-				continue;
-
 			if (!peer->afc_nego[afi][safi])
 				continue;
 

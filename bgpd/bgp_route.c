@@ -11739,10 +11739,6 @@ DEFPY (show_ip_bgp_json,
 				      ? AFI_IP
 				      : AFI_IP6;
 			FOREACH_SAFI (safi) {
-				if (strmatch(get_afi_safi_str(afi, safi, true),
-					     "Unknown"))
-					continue;
-
 				if (!bgp_afi_safi_peer_exists(bgp, afi, safi))
 					continue;
 
@@ -11773,10 +11769,6 @@ DEFPY (show_ip_bgp_json,
 		} else {
 			/* show <ip> bgp all: for each AFI and SAFI*/
 			FOREACH_AFI_SAFI (afi, safi) {
-				if (strmatch(get_afi_safi_str(afi, safi, true),
-					     "Unknown"))
-					continue;
-
 				if (!bgp_afi_safi_peer_exists(bgp, afi, safi))
 					continue;
 
@@ -13318,10 +13310,6 @@ DEFPY (show_ip_bgp_instance_neighbor_advertised_route,
 		afi = CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_IP) ? AFI_IP
 								  : AFI_IP6;
 		FOREACH_SAFI (safi) {
-			if (strmatch(get_afi_safi_str(afi, safi, true),
-				     "Unknown"))
-				continue;
-
 			if (!bgp_afi_safi_peer_exists(bgp, afi, safi))
 				continue;
 
@@ -13341,10 +13329,6 @@ DEFPY (show_ip_bgp_instance_neighbor_advertised_route,
 		}
 	} else {
 		FOREACH_AFI_SAFI (afi, safi) {
-			if (strmatch(get_afi_safi_str(afi, safi, true),
-				     "Unknown"))
-				continue;
-
 			if (!bgp_afi_safi_peer_exists(bgp, afi, safi))
 				continue;
 
