@@ -782,7 +782,9 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "  gate %s, if %s\n",
 				inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
 					  sizeof(buf)),
-				ifindex2ifname(nexthop->ifindex, bgp->vrf_id));
+				ifindex2ifname(bnc->ifindex ? bnc->ifindex
+							    : nexthop->ifindex,
+					       bgp->vrf_id));
 			break;
 		case NEXTHOP_TYPE_IPV4:
 			vty_out(vty, "  gate %s\n",
@@ -791,13 +793,17 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
 			vty_out(vty, "  if %s\n",
-				ifindex2ifname(nexthop->ifindex, bgp->vrf_id));
+				ifindex2ifname(bnc->ifindex ? bnc->ifindex
+							    : nexthop->ifindex,
+					       bgp->vrf_id));
 			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			vty_out(vty, "  gate %s, if %s\n",
 				inet_ntop(AF_INET, &nexthop->gate.ipv4, buf,
 					  sizeof(buf)),
-				ifindex2ifname(nexthop->ifindex, bgp->vrf_id));
+				ifindex2ifname(bnc->ifindex ? bnc->ifindex
+							    : nexthop->ifindex,
+					       bgp->vrf_id));
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
 			vty_out(vty, "  blackhole\n");

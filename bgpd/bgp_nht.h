@@ -90,4 +90,9 @@ extern void bgp_nht_register_nexthops(struct bgp *bgp);
 extern void bgp_nht_reg_enhe_cap_intfs(struct peer *peer);
 extern void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer);
 
+extern void bgp_nht_ifp_up(struct interface *ifp);
+extern void bgp_nht_ifp_down(struct interface *ifp);
+
+extern void bgp_nht_interface_events(struct peer *peer);
+
 #endif /* _BGP_NHT_H */

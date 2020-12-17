@@ -41,6 +41,9 @@ PREDECL_RBTREE_UNIQ(bgp_nexthop_cache);
 
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache {
+	/* The ifindex of the outgoing interface *if* it's a v6 LL */
+	ifindex_t ifindex;
+
 	/* RB-tree entry. */
 	struct bgp_nexthop_cache_item entry;
 
