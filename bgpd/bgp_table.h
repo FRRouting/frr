@@ -104,6 +104,7 @@ struct bgp_node {
 #define BGP_NODE_SELECT_DEFER           (1 << 4)
 #define BGP_NODE_FIB_INSTALL_PENDING    (1 << 5)
 #define BGP_NODE_FIB_INSTALLED          (1 << 6)
+#define BGP_NODE_LABEL_REQUESTED        (1 << 7)
 
 	struct bgp_addpath_node_data tx_addpath;
 

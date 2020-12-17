@@ -120,148 +120,29 @@ mpls_label_t bgp_adv_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 	return dest->local_label;
 }
 
-/**
- * This is passed as the callback function to bgp_labelpool.c:bgp_lp_get()
- * by bgp_reg_dereg_for_label() when a label needs to be obtained from
- * label pool.
- * Note that it will reject the allocated label if a label index is found,
- * because the label index supposes predictable labels
- */
-int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
-			       bool allocated)
+static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
+					    uint32_t label_index)
 {
-	struct bgp_path_info *pi;
-	struct bgp_dest *dest;
-
-	pi = labelid;
-	/* Is this path still valid? */
-	if (!bgp_path_info_unlock(pi)) {
-		if (BGP_DEBUG(labelpool, LABELPOOL))
-			zlog_debug(
-				"%s: bgp_path_info is no longer valid, ignoring",
-				__func__);
-		return -1;
-	}
-
-	dest = pi->net;
-
-	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: FEC %pRN label=%u, allocated=%d", __func__,
-			   bgp_dest_to_rnode(dest), new_label, allocated);
-
-	if (!allocated) {
-		/*
-		 * previously-allocated label is now invalid
-		 */
-		if (pi->attr->label_index == MPLS_INVALID_LABEL_INDEX
-		    && pi->attr->label != MPLS_LABEL_NONE
-		    && CHECK_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL)) {
-			bgp_unregister_for_label(dest);
-			label_ntop(MPLS_LABEL_IMPLICIT_NULL, 1,
-				   &dest->local_label);
-			bgp_set_valid_label(&dest->local_label);
-		}
-		return 0;
-	}
-
-	/*
-	 * label index is assigned, this should be handled by SR-related code,
-	 * so retry FEC registration and then reject label allocation for
-	 * it to be released to label pool
-	 */
-	if (pi->attr->label_index != MPLS_INVALID_LABEL_INDEX) {
-		flog_err(
-			EC_BGP_LABEL,
-			"%s: FEC %pRN Rejecting allocated label %u as Label Index is %u",
-			__func__, bgp_dest_to_rnode(dest), new_label,
-			pi->attr->label_index);
-
-		bgp_register_for_label(pi->net, pi);
-
-		return -1;
-	}
-
-	if (pi->attr->label != MPLS_INVALID_LABEL) {
-		if (new_label == pi->attr->label) {
-			/* already have same label, accept but do nothing */
-			return 0;
-		}
-		/* Shouldn't happen: different label allocation */
-		flog_err(EC_BGP_LABEL,
-			 "%s: %pRN had label %u but got new assignment %u",
-			 __func__, bgp_dest_to_rnode(dest), pi->attr->label,
-			 new_label);
-		/* continue means use new one */
-	}
-
-	label_ntop(new_label, 1, &dest->local_label);
-	bgp_set_valid_label(&dest->local_label);
-
-	/*
-	 * Get back to registering the FEC
-	 */
-	bgp_register_for_label(pi->net, pi);
-
-	return 0;
-}
-
-void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
-			     bool reg)
-{
-	bool with_label_index = false;
 	struct stream *s;
-	const struct prefix *p;
-	mpls_label_t *local_label;
 	int command;
+	const struct prefix *p;
 	uint16_t flags = 0;
 	size_t flags_pos = 0;
+	mpls_label_t *local_label = &(dest->local_label);
+	bool have_label_to_reg =
+		bgp_is_valid_label(local_label)
+		&& label_pton(local_label) != MPLS_LABEL_IMPLICIT_NULL;
 
 	p = bgp_dest_get_prefix(dest);
-	local_label = &(dest->local_label);
-	/* this prevents the loop when we're called by
-	 * bgp_reg_for_label_callback()
-	 */
-	bool have_label_to_reg = bgp_is_valid_label(local_label)
-			&& label_pton(local_label) != MPLS_LABEL_IMPLICIT_NULL;
-
-	if (reg) {
-		assert(pi);
-		/*
-		 * Determine if we will let zebra should derive label from
-		 * label index instead of bgpd requesting from label pool
-		 */
-		if (CHECK_FLAG(pi->attr->flag,
-			    ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID))
-			&& pi->attr->label_index != BGP_INVALID_LABEL_INDEX) {
-			with_label_index = true;
-		} else {
-			/*
-			 * If no label index was provided -- assume any label
-			 * from label pool will do. This means that label index
-			 * always takes precedence over auto-assigned labels.
-			 */
-			if (!have_label_to_reg) {
-				if (BGP_DEBUG(labelpool, LABELPOOL))
-					zlog_debug(
-						"%s: Requesting label from LP for %pFX",
-						__func__, p);
-
-				/* bgp_reg_for_label_callback() will call back
-				 * __func__ when it gets a label from the pool.
-				 * This means we'll never register FECs without
-				 * valid labels.
-				 */
-				bgp_lp_get(LP_TYPE_BGP_LU, pi,
-				    bgp_reg_for_label_callback);
-				return;
-			}
-		}
-	}
 
 	/* Check socket. */
 	if (!zclient || zclient->sock < 0)
 		return;
 
+	if (BGP_DEBUG(labelpool, LABELPOOL))
+		zlog_debug("%s: FEC %sregister %pRN label_index=%u label=%u",
+			   __func__, reg ? "" : "un", bgp_dest_to_rnode(dest),
+			   label_index, label_pton(local_label));
 	/* If the route node has a local_label assigned or the
 	 * path node has an MPLS SR label index allowing zebra to
 	 * derive the label, proceed with registration. */
@@ -274,12 +155,13 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 	stream_putw(s, PREFIX_FAMILY(p));
 	stream_put_prefix(s, p);
 	if (reg) {
-		if (have_label_to_reg) {
+		/* label index takes precedence over auto-assigned label. */
+		if (label_index != 0) {
+			flags |= ZEBRA_FEC_REGISTER_LABEL_INDEX;
+			stream_putl(s, label_index);
+		} else if (have_label_to_reg) {
 			flags |= ZEBRA_FEC_REGISTER_LABEL;
 			stream_putl(s, label_pton(local_label));
-		} else if (with_label_index) {
-			flags |= ZEBRA_FEC_REGISTER_LABEL_INDEX;
-			stream_putl(s, pi->attr->label_index);
 		}
 		SET_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL);
 	} else
@@ -295,6 +177,111 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 		stream_putw_at(s, flags_pos, flags);
 
 	zclient_send_message(zclient);
+}
+
+/**
+ * This is passed as the callback function to bgp_labelpool.c:bgp_lp_get()
+ * by bgp_reg_dereg_for_label() when a label needs to be obtained from
+ * label pool.
+ * Note that it will reject the allocated label if a label index is found,
+ * because the label index supposes predictable labels
+ */
+int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
+			       bool allocated)
+{
+	struct bgp_dest *dest;
+
+	dest = labelid;
+
+	/*
+	 * if the route had been removed or the request has gone then reject
+	 * the allocated label. The requesting code will have done what is
+	 * required to allocate the correct label
+	 */
+	if (!CHECK_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED)) {
+		bgp_dest_unlock_node(dest);
+		return -1;
+	}
+
+	bgp_dest_unlock_node(dest);
+
+	if (BGP_DEBUG(labelpool, LABELPOOL))
+		zlog_debug("%s: FEC %pRN label=%u, allocated=%d", __func__,
+			   bgp_dest_to_rnode(dest), new_label, allocated);
+
+	if (!allocated) {
+		/*
+		 * previously-allocated label is now invalid, set to implicit
+		 * null until new label arrives
+		 */
+		if (CHECK_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL)) {
+			UNSET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
+			label_ntop(MPLS_LABEL_IMPLICIT_NULL, 1,
+				   &dest->local_label);
+			bgp_set_valid_label(&dest->local_label);
+		}
+	}
+
+	label_ntop(new_label, 1, &dest->local_label);
+	bgp_set_valid_label(&dest->local_label);
+
+	/*
+	 * Get back to registering the FEC
+	 */
+	bgp_send_fec_register_label_msg(dest, true, 0);
+
+	return 0;
+}
+
+void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
+			     bool reg)
+{
+	bool with_label_index = false;
+	const struct prefix *p;
+	bool have_label_to_reg =
+		bgp_is_valid_label(&dest->local_label)
+		&& label_pton(&dest->local_label) != MPLS_LABEL_IMPLICIT_NULL;
+
+	p = bgp_dest_get_prefix(dest);
+
+	if (reg) {
+		assert(pi);
+		/*
+		 * Determine if we will let zebra should derive label from
+		 * label index instead of bgpd requesting from label pool
+		 */
+		if (CHECK_FLAG(pi->attr->flag,
+			    ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID))
+			&& pi->attr->label_index != BGP_INVALID_LABEL_INDEX) {
+			with_label_index = true;
+			UNSET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
+		} else {
+			/*
+			 * If no label has been registered -- assume any label
+			 * from label pool will do. This means that label index
+			 * always takes precedence over auto-assigned labels.
+			 */
+			if (!have_label_to_reg) {
+				SET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
+				if (BGP_DEBUG(labelpool, LABELPOOL))
+					zlog_debug(
+						"%s: Requesting label from LP for %pFX",
+						__func__, p);
+				/* bgp_reg_for_label_callback() will deal with
+				 * fec registration when it gets a label from
+				 * the pool. This means we'll never register
+				 * FECs withoutvalid labels.
+				 */
+				bgp_lp_get(LP_TYPE_BGP_LU, dest,
+					   bgp_reg_for_label_callback);
+				return;
+			}
+		}
+	} else
+		UNSET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
+
+	bgp_send_fec_register_label_msg(
+		dest, reg, with_label_index ? pi->attr->label_index : 0);
 }
 
 static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen,

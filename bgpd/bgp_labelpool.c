@@ -182,18 +182,18 @@ void bgp_lp_init(struct thread_master *master, struct labelpool *pool)
 	lp->callback_q->spec.max_retries = 0;
 }
 
-/* check if a label callback was for a BGP LU path, and if so, unlock it */
+/* check if a label callback was for a BGP LU node, and if so, unlock it */
 static void check_bgp_lu_cb_unlock(struct lp_lcb *lcb)
 {
 	if (lcb->type == LP_TYPE_BGP_LU)
-		bgp_path_info_unlock(lcb->labelid);
+		bgp_dest_unlock_node(lcb->labelid);
 }
 
-/* check if a label callback was for a BGP LU path, and if so, lock it */
+/* check if a label callback was for a BGP LU node, and if so, lock it */
 static void check_bgp_lu_cb_lock(struct lp_lcb *lcb)
 {
 	if (lcb->type == LP_TYPE_BGP_LU)
-		bgp_path_info_lock(lcb->labelid);
+		bgp_dest_lock_node(lcb->labelid);
 }
 
 void bgp_lp_finish(void)
@@ -356,7 +356,7 @@ void bgp_lp_get(
 		q->labelid = lcb->labelid;
 		q->allocated = true;
 
-		/* if this is a LU request, lock path info before queueing */
+		/* if this is a LU request, lock node before queueing */
 		check_bgp_lu_cb_lock(lcb);
 
 		work_queue_add(lp->callback_q, q);
@@ -384,7 +384,7 @@ void bgp_lp_get(
 		sizeof(struct lp_fifo));
 
 	lf->lcb = *lcb;
-	/* if this is a LU request, lock path info before queueing */
+	/* if this is a LU request, lock node before queueing */
 	check_bgp_lu_cb_lock(lcb);
 
 	lp_fifo_add_tail(&lp->requests, lf);
@@ -461,7 +461,7 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 				zlog_debug("%s: labelid %p: request no longer in effect",
 						__func__, labelid);
 			}
-			/* if this was a BGP_LU request, unlock path info node
+			/* if this was a BGP_LU request, unlock node
 			 */
 			check_bgp_lu_cb_unlock(lcb);
 			goto finishedrequest;
@@ -475,7 +475,7 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 						__func__, labelid,
 						lcb->label, lcb->label, lcb);
 			}
-			/* if this was a BGP_LU request, unlock path info node
+			/* if this was a BGP_LU request, unlock node
 			 */
 			check_bgp_lu_cb_unlock(lcb);
 
@@ -667,7 +667,7 @@ DEFUN(show_bgp_labelpool_ledger, show_bgp_labelpool_ledger_cmd,
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL, *json_elem = NULL;
 	struct lp_lcb *lcb = NULL;
-	struct bgp_path_info *pi;
+	struct bgp_dest *dest;
 	void *cursor = NULL;
 	const struct prefix *p;
 	int rc, count;
@@ -692,9 +692,9 @@ DEFUN(show_bgp_labelpool_ledger, show_bgp_labelpool_ledger_cmd,
 		vty_out(vty, "---------------------------\n");
 	}
 
-	for (rc = skiplist_next(lp->ledger, (void **)&pi, (void **)&lcb,
+	for (rc = skiplist_next(lp->ledger, (void **)&dest, (void **)&lcb,
 				&cursor);
-	     !rc; rc = skiplist_next(lp->ledger, (void **)&pi, (void **)&lcb,
+	     !rc; rc = skiplist_next(lp->ledger, (void **)&dest, (void **)&lcb,
 				     &cursor)) {
 		if (uj) {
 			json_elem = json_object_new_object();
@@ -702,7 +702,7 @@ DEFUN(show_bgp_labelpool_ledger, show_bgp_labelpool_ledger_cmd,
 		}
 		switch (lcb->type) {
 		case LP_TYPE_BGP_LU:
-			if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+			if (!CHECK_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED))
 				if (uj) {
 					json_object_string_add(
 						json_elem, "prefix", "INVALID");
@@ -713,7 +713,7 @@ DEFUN(show_bgp_labelpool_ledger, show_bgp_labelpool_ledger_cmd,
 						"INVALID", lcb->label);
 			else {
 				char buf[PREFIX2STR_BUFFER];
-				p = bgp_dest_get_prefix(pi->net);
+				p = bgp_dest_get_prefix(dest);
 				prefix2str(p, buf, sizeof(buf));
 				if (uj) {
 					json_object_string_add(json_elem,
@@ -755,7 +755,7 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 {
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL, *json_elem = NULL;
-	struct bgp_path_info *pi;
+	struct bgp_dest *dest;
 	mpls_label_t label;
 	struct lp_lcb *lcb;
 	void *cursor = NULL;
@@ -785,11 +785,11 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 		vty_out(vty, "Prefix                Label\n");
 		vty_out(vty, "---------------------------\n");
 	}
-	for (rc = skiplist_next(lp->inuse, (void **)&label, (void **)&pi,
+	for (rc = skiplist_next(lp->inuse, (void **)&label, (void **)&dest,
 				&cursor);
-	     !rc; rc = skiplist_next(lp->ledger, (void **)&label, (void **)&pi,
-				     &cursor)) {
-		if (skiplist_search(lp->ledger, pi, (void **)&lcb))
+	     !rc; rc = skiplist_next(lp->ledger, (void **)&label,
+				     (void **)&dest, &cursor)) {
+		if (skiplist_search(lp->ledger, dest, (void **)&lcb))
 			continue;
 
 		if (uj) {
@@ -799,7 +799,7 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 
 		switch (lcb->type) {
 		case LP_TYPE_BGP_LU:
-			if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+			if (!CHECK_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED))
 				if (uj) {
 					json_object_string_add(
 						json_elem, "prefix", "INVALID");
@@ -810,7 +810,7 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 						label);
 			else {
 				char buf[PREFIX2STR_BUFFER];
-				p = bgp_dest_get_prefix(pi->net);
+				p = bgp_dest_get_prefix(dest);
 				prefix2str(p, buf, sizeof(buf));
 				if (uj) {
 					json_object_string_add(json_elem,
@@ -850,7 +850,7 @@ DEFUN(show_bgp_labelpool_requests, show_bgp_labelpool_requests_cmd,
 {
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL, *json_elem = NULL;
-	struct bgp_path_info *pi;
+	struct bgp_dest *dest;
 	const struct prefix *p;
 	char buf[PREFIX2STR_BUFFER];
 	struct lp_fifo *item, *next;
@@ -878,21 +878,22 @@ DEFUN(show_bgp_labelpool_requests, show_bgp_labelpool_requests_cmd,
 
 	for (item = lp_fifo_first(&lp->requests); item; item = next) {
 		next = lp_fifo_next_safe(&lp->requests, item);
-		pi = item->lcb.labelid;
+		dest = item->lcb.labelid;
 		if (uj) {
 			json_elem = json_object_new_object();
 			json_object_array_add(json, json_elem);
 		}
 		switch (item->lcb.type) {
 		case LP_TYPE_BGP_LU:
-			if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID)) {
+			if (!CHECK_FLAG(dest->flags,
+					BGP_NODE_LABEL_REQUESTED)) {
 				if (uj)
 					json_object_string_add(
 						json_elem, "prefix", "INVALID");
 				else
 					vty_out(vty, "INVALID\n");
 			} else {
-				p = bgp_dest_get_prefix(pi->net);
+				p = bgp_dest_get_prefix(dest);
 				prefix2str(p, buf, sizeof(buf));
 				if (uj)
 					json_object_string_add(json_elem,
