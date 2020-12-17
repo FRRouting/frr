@@ -3155,7 +3155,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	bgp->as = *as;
 
-	bgp->soft_reconfig_table = list_new();
+	bgp->soft_reconfig_table = NULL;
 
 #ifdef ENABLE_BGP_VNC
 	if (inst_type != BGP_INSTANCE_TYPE_VRF) {

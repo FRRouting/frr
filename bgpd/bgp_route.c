@@ -4707,6 +4707,12 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 					listnode_delete(
 						peer->bgp->soft_reconfig_table,
 						srta);
+					if (list_isempty(
+						    peer->bgp
+							    ->soft_reconfig_table))
+						list_delete(
+							&peer->bgp
+								 ->soft_reconfig_table);
 					XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
 					return 0;
 				}
@@ -4723,6 +4729,8 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 	}
 	bgp_soft_reconfig_table_flag(srta, false);
 	listnode_delete(peer->bgp->soft_reconfig_table, srta);
+	if (list_isempty(peer->bgp->soft_reconfig_table))
+		list_delete(&peer->bgp->soft_reconfig_table);
 	XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
 	return 0;
 }
@@ -4748,6 +4756,8 @@ void bgp_soft_reconfig_table_thread_cancel(struct soft_reconfig_table *nsrta,
 		BGP_TIMER_OFF(srta->thread);
 		bgp_soft_reconfig_table_flag(srta, false);
 		listnode_delete(bgp->soft_reconfig_table, srta);
+		if (list_isempty(bgp->soft_reconfig_table))
+			list_delete(&bgp->soft_reconfig_table);
 		XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
 	}
 }
@@ -4773,6 +4783,8 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 		srta->init = true;
 		srta->thread = NULL;
 		bgp_soft_reconfig_table_thread_cancel(srta, peer->bgp);
+		if (!peer->bgp->soft_reconfig_table)
+			peer->bgp->soft_reconfig_table = list_new();
 		listnode_add(peer->bgp->soft_reconfig_table, srta);
 		bgp_soft_reconfig_table_flag(srta, true);
 		thread_add_timer(bm->master, bgp_soft_reconfig_table_thread,
