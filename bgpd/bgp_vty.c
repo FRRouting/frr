@@ -209,34 +209,38 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 
 static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 {
-	if (afi == AFI_IP && safi == SAFI_UNICAST)
-		return "IPv4 Unicast";
-	else if (afi == AFI_IP && safi == SAFI_MULTICAST)
-		return "IPv4 Multicast";
-	else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
-		return "IPv4 Labeled Unicast";
-	else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
-		return "IPv4 VPN";
-	else if (afi == AFI_IP && safi == SAFI_ENCAP)
-		return "IPv4 Encap";
-	else if (afi == AFI_IP && safi == SAFI_FLOWSPEC)
-		return "IPv4 Flowspec";
-	else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
-		return "IPv6 Unicast";
-	else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
-		return "IPv6 Multicast";
-	else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
-		return "IPv6 Labeled Unicast";
-	else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
-		return "IPv6 VPN";
-	else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
-		return "IPv6 Encap";
-	else if (afi == AFI_IP6 && safi == SAFI_FLOWSPEC)
-		return "IPv6 Flowspec";
-	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		return "L2VPN EVPN";
-	else
-		return "Unknown";
+	if (afi == AFI_IP) {
+		if (safi == SAFI_UNICAST)
+			return "IPv4 Unicast";
+		if (safi == SAFI_MULTICAST)
+			return "IPv4 Multicast";
+		if (safi == SAFI_LABELED_UNICAST)
+			return "IPv4 Labeled Unicast";
+		if (safi == SAFI_MPLS_VPN)
+			return "IPv4 VPN";
+		if (safi == SAFI_ENCAP)
+			return "IPv4 Encap";
+		if (safi == SAFI_FLOWSPEC)
+			return "IPv4 Flowspec";
+	} else if (afi == AFI_IP6) {
+		if (safi == SAFI_UNICAST)
+			return "IPv6 Unicast";
+		if (safi == SAFI_MULTICAST)
+			return "IPv6 Multicast";
+		if (safi == SAFI_LABELED_UNICAST)
+			return "IPv6 Labeled Unicast";
+		if (safi == SAFI_MPLS_VPN)
+			return "IPv6 VPN";
+		if (safi == SAFI_ENCAP)
+			return "IPv6 Encap";
+		if (safi == SAFI_FLOWSPEC)
+			return "IPv6 Flowspec";
+	} else if (afi == AFI_L2VPN) {
+		if (safi == SAFI_EVPN)
+			return "L2VPN EVPN";
+	}
+
+	return "Unknown";
 }
 
 /*
@@ -247,34 +251,38 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
  */
 static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 {
-	if (afi == AFI_IP && safi == SAFI_UNICAST)
-		return "ipv4Unicast";
-	else if (afi == AFI_IP && safi == SAFI_MULTICAST)
-		return "ipv4Multicast";
-	else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
-		return "ipv4LabeledUnicast";
-	else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
-		return "ipv4Vpn";
-	else if (afi == AFI_IP && safi == SAFI_ENCAP)
-		return "ipv4Encap";
-	else if (afi == AFI_IP && safi == SAFI_FLOWSPEC)
-		return "ipv4Flowspec";
-	else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
-		return "ipv6Unicast";
-	else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
-		return "ipv6Multicast";
-	else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
-		return "ipv6LabeledUnicast";
-	else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
-		return "ipv6Vpn";
-	else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
-		return "ipv6Encap";
-	else if (afi == AFI_IP6 && safi == SAFI_FLOWSPEC)
-		return "ipv6Flowspec";
-	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		return "l2VpnEvpn";
-	else
-		return "Unknown";
+	if (afi == AFI_IP) {
+		if (safi == SAFI_UNICAST)
+			return "ipv4Unicast";
+		if (safi == SAFI_MULTICAST)
+			return "ipv4Multicast";
+		if (safi == SAFI_LABELED_UNICAST)
+			return "ipv4LabeledUnicast";
+		if (safi == SAFI_MPLS_VPN)
+			return "ipv4Vpn";
+		if (safi == SAFI_ENCAP)
+			return "ipv4Encap";
+		if (safi == SAFI_FLOWSPEC)
+			return "ipv4Flowspec";
+	} else if (afi == AFI_IP6) {
+		if (safi == SAFI_UNICAST)
+			return "ipv6Unicast";
+		if (safi == SAFI_MULTICAST)
+			return "ipv6Multicast";
+		if (safi == SAFI_LABELED_UNICAST)
+			return "ipv6LabeledUnicast";
+		if (safi == SAFI_MPLS_VPN)
+			return "ipv6Vpn";
+		if (safi == SAFI_ENCAP)
+			return "ipv6Encap";
+		if (safi == SAFI_FLOWSPEC)
+			return "ipv6Flowspec";
+	} else if (afi == AFI_L2VPN) {
+		if (safi == SAFI_EVPN)
+			return "l2VpnEvpn";
+	}
+
+	return "Unknown";
 }
 
 /* return string maps to afi-safi specific container names
@@ -282,30 +290,34 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
  */
 const char *bgp_afi_safi_get_container_str(afi_t afi, safi_t safi)
 {
-	if (afi == AFI_IP && safi == SAFI_UNICAST)
-		return "ipv4-unicast";
-	else if (afi == AFI_IP && safi == SAFI_MULTICAST)
-		return "ipv4-multicast";
-	else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
-		return "ipv4-labeled-unicast";
-	else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
-		return "l3vpn-ipv4-unicast";
-	else if (afi == AFI_IP && safi == SAFI_FLOWSPEC)
-		return "ipv4-flowspec";
-	else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
-		return "ipv6-unicast";
-	else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
-		return "ipv6-multicast";
-	else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
-		return "ipv6-labeled-unicast";
-	else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
-		return "l3vpn-ipv6-unicast";
-	else if (afi == AFI_IP6 && safi == SAFI_FLOWSPEC)
-		return "ipv6-flowspec";
-	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		return "l2vpn-evpn";
-	else
-		return "Unknown";
+	if (afi == AFI_IP) {
+		if (safi == SAFI_UNICAST)
+			return "ipv4-unicast";
+		if (safi == SAFI_MULTICAST)
+			return "ipv4-multicast";
+		if (safi == SAFI_LABELED_UNICAST)
+			return "ipv4-labeled-unicast";
+		if (safi == SAFI_MPLS_VPN)
+			return "l3vpn-ipv4-unicast";
+		if (safi == SAFI_FLOWSPEC)
+			return "ipv4-flowspec";
+	} else if (afi == AFI_IP6) {
+		if (safi == SAFI_UNICAST)
+			return "ipv6-unicast";
+		if (safi == SAFI_MULTICAST)
+			return "ipv6-multicast";
+		if (safi == SAFI_LABELED_UNICAST)
+			return "ipv6-labeled-unicast";
+		if (safi == SAFI_MPLS_VPN)
+			return "l3vpn-ipv6-unicast";
+		if (safi == SAFI_FLOWSPEC)
+			return "ipv6-flowspec";
+	} else if (afi == AFI_L2VPN) {
+		if (safi == SAFI_EVPN)
+			return "l2vpn-evpn";
+	}
+
+	return "Unknown";
 }
 
 /* Utility function to get address family from current node.  */
