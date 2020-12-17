@@ -4540,6 +4540,42 @@ void bgp_announce_route_all(struct peer *peer)
 		bgp_announce_route(peer, afi, safi);
 }
 
+/* Flag or unflag bgp_dest to determine whether it should be treated by
+ * bgp_soft_reconfig_table_thread.
+ * Flag if flag is true. Unflag if flag is false.
+ */
+static void bgp_soft_reconfig_table_flag(struct soft_reconfig_table *srta,
+					 bool flag)
+{
+	struct bgp_dest *dest;
+	struct bgp_adj_in *ain;
+	struct bgp_table *table;
+
+	if (!srta)
+		return;
+
+	table = srta->table;
+
+	if (!table)
+		table = srta->peer->bgp->rib[srta->afi][srta->safi];
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		for (ain = dest->adj_in; ain; ain = ain->next) {
+			if (ain->peer != srta->peer)
+				continue;
+		}
+		if (!dest->soft_reconfig_table)
+			dest->soft_reconfig_table = list_new();
+		if (flag)
+			listnode_add(dest->soft_reconfig_table, srta);
+		else {
+			listnode_delete(dest->soft_reconfig_table, srta);
+			if (list_isempty(dest->soft_reconfig_table))
+				list_delete(&dest->soft_reconfig_table);
+		}
+	}
+}
+
 static int bgp_soft_reconfig_table_update(struct peer *peer,
 					  struct bgp_dest *dest,
 					  struct bgp_adj_in *ain, afi_t afi,
@@ -4663,6 +4699,7 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 
 			if (ret < 0) {
 				bgp_dest_unlock_node(dest);
+				bgp_soft_reconfig_table_flag(srta, false);
 				listnode_delete(peer->bgp->soft_reconfig_table,
 						srta);
 				XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
@@ -4678,45 +4715,10 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 			SOFT_RECONFIG_THREAD_SPLIT_DELAY_MS, &srta->thread);
 		return 0;
 	}
+	bgp_soft_reconfig_table_flag(srta, false);
 	listnode_delete(peer->bgp->soft_reconfig_table, srta);
 	XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
 	return 0;
-}
-
-/* Flag or unflag bgp_dest to determine whether it should be treated by
- * bgp_soft_reconfig_table_thread.
- * Flag if flag is true. Unflag if flag is false.
- */
-static void bgp_soft_reconfig_table_flag(struct soft_reconfig_table *srta,
-					 bool flag)
-{
-	struct bgp_dest *dest;
-	struct bgp_adj_in *ain;
-	struct bgp_table *table;
-
-	if (!srta)
-		return;
-
-	table = srta->table;
-
-	if (!table)
-		table = srta->peer->bgp->rib[srta->afi][srta->safi];
-
-	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
-		for (ain = dest->adj_in; ain; ain = ain->next) {
-			if (ain->peer != srta->peer)
-				continue;
-		}
-		if (!dest->soft_reconfig_table)
-			dest->soft_reconfig_table = list_new();
-		if (flag)
-			listnode_add(dest->soft_reconfig_table, srta);
-		else {
-			listnode_delete(dest->soft_reconfig_table, srta);
-			if (list_isempty(dest->soft_reconfig_table))
-				list_delete(&dest->soft_reconfig_table);
-		}
-	}
 }
 
 void bgp_soft_reconfig_table_thread_cancel(struct soft_reconfig_table *nsrta,
