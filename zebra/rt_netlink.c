@@ -1286,6 +1286,26 @@ static bool _netlink_route_encode_nexthop_src(const struct nexthop *nexthop,
 	return true;
 }
 
+static size_t fill_seg6ipt_encap(char *buffer, size_t buflen,
+				 struct in6_addr *seg)
+{
+	struct seg6_iptunnel_encap *ipt;
+	struct ipv6_sr_hdr *srh;
+	const size_t srhlen = 24;
+	memset(buffer, 0, buflen);
+
+	ipt = (struct seg6_iptunnel_encap *)buffer;
+	ipt->mode = SEG6_IPTUN_MODE_ENCAP;
+	srh = ipt->srh;
+	srh->hdrlen = (srhlen >> 3) - 1;
+	srh->type = 4;
+	srh->segments_left = 0;
+	srh->first_segment = 0;
+	memcpy(&srh->segments[0], seg, sizeof(struct in6_addr));
+
+	return srhlen + 4;
+}
+
 /* This function takes a nexthop as argument and adds
  * the appropriate netlink attributes to an existing
  * netlink message.
@@ -1364,6 +1384,21 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 				 __func__, nexthop->nh_seg6local_action);
 			break;
 		}
+		nl_attr_nest_end(nlmsg, nest);
+	}
+
+	if (nexthop->nh_seg6_segs) {
+		char tun_buf[4096];
+		size_t tun_len;
+		struct rtattr *nest;
+
+		nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
+			      LWTUNNEL_ENCAP_SEG6);
+		nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
+		tun_len = fill_seg6ipt_encap(tun_buf, sizeof(tun_buf),
+					     nexthop->nh_seg6_segs);
+		nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRH,
+			    tun_buf, tun_len);
 		nl_attr_nest_end(nlmsg, nest);
 	}
 
@@ -2419,6 +2454,23 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						 __func__, action);
 					break;
 				}
+				nl_attr_nest_end(&req->n, nest);
+			}
+
+			if (nh->nh_seg6_segs) {
+				char tun_buf[4096];
+				size_t tun_len;
+				struct rtattr *nest;
+
+				nl_attr_put16(&req->n, buflen, NHA_ENCAP_TYPE,
+					      LWTUNNEL_ENCAP_SEG6);
+				nest = nl_attr_nest(&req->n, buflen,
+						    NHA_ENCAP | NLA_F_NESTED);
+				tun_len = fill_seg6ipt_encap(tun_buf,
+						sizeof(tun_buf),
+						nh->nh_seg6_segs);
+				nl_attr_put(&req->n, buflen, SEG6_IPTUNNEL_SRH,
+						tun_buf, tun_len);
 				nl_attr_nest_end(&req->n, nest);
 			}
 
