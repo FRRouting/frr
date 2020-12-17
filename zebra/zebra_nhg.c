@@ -1006,6 +1006,7 @@ static void nhg_ctx_free(struct nhg_ctx **ctx)
 
 	nexthop_del_labels(nh);
 	nexthop_del_seg6local(nh);
+	nexthop_del_seg6(nh);
 
 done:
 	XFREE(MTYPE_NHG_CTX, *ctx);
@@ -1370,6 +1371,7 @@ static struct nhg_hash_entry *depends_find_singleton(const struct nexthop *nh,
 	/* The copy may have allocated labels; free them if necessary. */
 	nexthop_del_labels(&lookup);
 	nexthop_del_seg6local(&lookup);
+	nexthop_del_seg6(&lookup);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: nh %pNHv => %p (%u)",

@@ -637,6 +637,11 @@ static void show_route_nexthop_helper(struct vty *vty,
 			buf);
 	}
 
+	if (nexthop->nh_seg6_segs) {
+		inet_ntop(AF_INET6, nexthop->nh_seg6_segs, buf, sizeof(buf));
+		vty_out(vty, ", seg6 %s", buf);
+	}
+
 	if (nexthop->weight)
 		vty_out(vty, ", weight %u", nexthop->weight);
 
@@ -660,6 +665,7 @@ static void show_nexthop_json_helper(json_object *json_nexthop,
 	json_object *json_labels = NULL;
 	json_object *json_backups = NULL;
 	json_object *json_seg6local = NULL;
+	json_object *json_seg6 = NULL;
 	int i;
 
 	json_object_int_add(json_nexthop, "flags",
@@ -845,6 +851,13 @@ static void show_nexthop_json_helper(json_object *json_nexthop,
 			seg6local_action2str(nexthop->nh_seg6local_action));
 		json_object_object_add(json_nexthop, "seg6local",
 				       json_seg6local);
+	}
+
+	if (nexthop->nh_seg6_segs) {
+		json_seg6 = json_object_new_object();
+		inet_ntop(AF_INET6, nexthop->nh_seg6_segs, buf, sizeof(buf));
+		json_object_string_add(json_seg6, "segs", buf);
+		json_object_object_add(json_nexthop, "seg6", json_seg6);
 	}
 }
 
