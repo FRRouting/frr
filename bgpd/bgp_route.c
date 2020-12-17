@@ -4668,21 +4668,20 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 	safi = srta->safi;
 	table = srta->table;
 	prd = srta->prd;
-	dest = srta->dest;
 
 	if (!table)
 		table = peer->bgp->rib[afi][safi];
 
 	max_iter = SOFT_RECONFIG_THREAD_MAX_PREFIX;
-	if (!srta->dest) {
+	if (srta->init) {
 		/* first call of the function with a new srta structure.
-		 * Don't do any treatment this timeon nodes
+		 * Don't do any treatment this time on nodes
 		 * in order vtysh to respond quickly
 		 */
 		max_iter = 0;
 	}
 
-	for (iter = 0; (dest && iter <= max_iter);
+	for (iter = 0, dest = bgp_table_top(table); (dest && iter <= max_iter);
 	     dest = bgp_route_next(dest)) {
 		for (ALL_LIST_ELEMENTS(dest->soft_reconfig_table, node, nnode,
 				       tmp_srta)) {
@@ -4715,8 +4714,8 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 		}
 	}
 
-	if ((dest) || (max_iter == 0)) {
-		srta->dest = bgp_table_top(table);
+	if (dest || srta->init) {
+		srta->init = false;
 		thread_add_timer_msec(
 			bm->master, bgp_soft_reconfig_table_thread, srta,
 			SOFT_RECONFIG_THREAD_SPLIT_DELAY_MS, &srta->thread);
@@ -4742,8 +4741,7 @@ void bgp_soft_reconfig_table_thread_cancel(struct soft_reconfig_table *nsrta,
 		    && ((nsrta->peer != srta->peer) || (nsrta->afi != srta->afi)
 			|| (nsrta->safi != srta->safi)
 			|| (nsrta->table != srta->table)
-			|| (nsrta->prd != srta->prd)
-			|| (nsrta->dest != srta->dest)))
+			|| (nsrta->prd != srta->prd)))
 			continue;
 		BGP_TIMER_OFF(srta->thread);
 		bgp_soft_reconfig_table_flag(srta, false);
@@ -4770,7 +4768,7 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 		srta->safi = safi;
 		srta->table = NULL;
 		srta->prd = NULL;
-		srta->dest = NULL;
+		srta->init = true;
 		srta->thread = NULL;
 		bgp_soft_reconfig_table_thread_cancel(srta, peer->bgp);
 		listnode_add(peer->bgp->soft_reconfig_table, srta);

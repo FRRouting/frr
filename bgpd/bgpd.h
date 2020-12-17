@@ -194,7 +194,7 @@ struct soft_reconfig_table {
 	safi_t safi;
 	struct bgp_table *table;
 	struct prefix_rd *prd;
-	struct bgp_dest *dest;
+	bool init;
 	struct thread *thread;
 };
 
