@@ -35,8 +35,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_advertise.h"
-
-const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
+#include "bgpd/bgp_vty.h"
 
 /* Global variable to access damping configuration */
 static struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];

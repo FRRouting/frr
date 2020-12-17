@@ -19,8 +19,7 @@
  */
 
 #include "bgpd/bgp_conditional_adv.h"
-
-const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
+#include "bgpd/bgp_vty.h"
 
 static route_map_result_t
 bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
