@@ -4661,7 +4661,6 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 	struct bgp_table *table;
 	struct prefix_rd *prd;
 	struct listnode *node, *nnode;
-	bool srta_found;
 
 	srta = THREAD_ARG(thread);
 	peer = srta->peer;
@@ -4685,35 +4684,33 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 
 	for (iter = 0; (dest && iter <= max_iter);
 	     dest = bgp_route_next(dest)) {
-		srta_found = false;
 		for (ALL_LIST_ELEMENTS(dest->soft_reconfig_table, node, nnode,
 				       tmp_srta)) {
 			if (tmp_srta != srta)
 				continue;
-			srta_found = true;
-		}
-		if (!srta_found)
-			continue;
 
-		listnode_delete(dest->soft_reconfig_table, srta);
-		if (list_isempty(dest->soft_reconfig_table))
-			list_delete(&dest->soft_reconfig_table);
-		iter++;
+			listnode_delete(dest->soft_reconfig_table, srta);
+			if (list_isempty(dest->soft_reconfig_table))
+				list_delete(&dest->soft_reconfig_table);
+			iter++;
 
-		for (ain = dest->adj_in; ain; ain = ain->next) {
-			if (ain->peer != peer)
-				continue;
+			for (ain = dest->adj_in; ain; ain = ain->next) {
+				if (ain->peer != peer)
+					continue;
 
-			ret = bgp_soft_reconfig_table_update(peer, dest, ain,
-							     afi, safi, prd);
+				ret = bgp_soft_reconfig_table_update(
+					peer, dest, ain, afi, safi, prd);
 
-			if (ret < 0) {
-				bgp_dest_unlock_node(dest);
-				bgp_soft_reconfig_table_flag(srta, false);
-				listnode_delete(peer->bgp->soft_reconfig_table,
+				if (ret < 0) {
+					bgp_dest_unlock_node(dest);
+					bgp_soft_reconfig_table_flag(srta,
+								     false);
+					listnode_delete(
+						peer->bgp->soft_reconfig_table,
 						srta);
-				XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
-				return 0;
+					XFREE(MTYPE_SOFT_RECONFIG_TABLE, srta);
+					return 0;
+				}
 			}
 		}
 	}
