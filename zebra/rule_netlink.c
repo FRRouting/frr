@@ -79,7 +79,15 @@ netlink_rule_msg_encode(int cmd, const struct zebra_dplane_ctx *ctx,
 	if (buflen < sizeof(*req))
 		return 0;
 	memset(req, 0, sizeof(*req));
-	family = PREFIX_FAMILY(src_ip);
+
+	/* Assume ipv4 if no src/dst set, we only support ipv4/ipv6 */
+	if (PREFIX_FAMILY(src_ip))
+		family = PREFIX_FAMILY(src_ip);
+	else if (PREFIX_FAMILY(dst_ip))
+		family = PREFIX_FAMILY(dst_ip);
+	else
+		family = AF_INET;
+
 	bytelen = (family == AF_INET ? 4 : 16);
 
 	req->n.nlmsg_type = cmd;
