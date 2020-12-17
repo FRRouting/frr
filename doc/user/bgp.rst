@@ -798,6 +798,38 @@ The following functionality is provided by graceful restart:
  <--------------------------------------------------------------------->
 
 
+.. _bgp-GR-preserve-forwarding-state:
+
+BGP-GR Preserve-Forwarding State
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+BGP OPEN message carrying optional capabilities for Graceful Restart has
+8 bit “Flags for Address Family” for given AFI and SAFI. This field contains
+bit flags relating to routes that were advertised with the given AFI and SAFI.
+
+.. code-block:: frr
+
+   0 1 2 3 4 5 6 7
+   +-+-+-+-+-+-+-+-+
+   |F|   Reserved  |
+   +-+-+-+-+-+-+-+-+
+
+The most significant bit is defined as the Forwarding State (F) bit, which
+can be used to indicate whether the forwarding state for routes that were
+advertised with the given AFI and SAFI has indeed been preserved during the
+previous BGP restart. When set (value 1), the bit indicates that the
+forwarding state has been preserved.
+The remaining bits are reserved and MUST be set to zero by the sender and
+ignored by the receiver.
+
+.. index:: bgp graceful-restart preserve-fw-state
+.. clicmd:: bgp graceful-restart preserve-fw-state
+
+FRR gives us the option to enable/disable the "F" flag using this specific
+vty command. However, it doesn't have the option to enable/disable
+this flag only for specific AFI/SAFI i.e. when this command is used, it
+applied to all the supported AFI/SAFI combinations for this peer.
+
 .. _bgp-end-of-rib-message:
 
 End-of-RIB (EOR) message
