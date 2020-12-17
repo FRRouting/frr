@@ -187,6 +187,9 @@ static int nhrp_config_write(struct vty *vty)
 	if (netlink_nflog_group) {
 		vty_out(vty, "nhrp nflog-group %d\n", netlink_nflog_group);
 	}
+	if (netlink_mcast_nflog_group)
+		vty_out(vty, "nhrp multicast-nflog-group %d\n",
+			netlink_mcast_nflog_group);
 
 	return 0;
 }
@@ -254,6 +257,31 @@ DEFUN(no_nhrp_nflog_group, no_nhrp_nflog_group_cmd,
 	"NFLOG group number\n")
 {
 	netlink_set_nflog_group(0);
+	return CMD_SUCCESS;
+}
+
+DEFUN(nhrp_multicast_nflog_group, nhrp_multicast_nflog_group_cmd,
+	"nhrp multicast-nflog-group (1-65535)",
+	NHRP_STR
+	"Specify NFLOG group number for Multicast Packets\n"
+	"NFLOG group number\n")
+{
+	uint32_t nfgroup;
+
+	nfgroup = strtoul(argv[2]->arg, NULL, 10);
+	netlink_mcast_set_nflog_group(nfgroup);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_nhrp_multicast_nflog_group, no_nhrp_multicast_nflog_group_cmd,
+	"no nhrp multicast-nflog-group [(1-65535)]",
+	NO_STR
+	NHRP_STR
+	"Specify NFLOG group number\n"
+	"NFLOG group number\n")
+{
+	netlink_mcast_set_nflog_group(0);
 	return CMD_SUCCESS;
 }
 
@@ -1234,6 +1262,8 @@ void nhrp_config_init(void)
 	install_element(CONFIG_NODE, &no_nhrp_event_socket_cmd);
 	install_element(CONFIG_NODE, &nhrp_nflog_group_cmd);
 	install_element(CONFIG_NODE, &no_nhrp_nflog_group_cmd);
+	install_element(CONFIG_NODE, &nhrp_multicast_nflog_group_cmd);
+	install_element(CONFIG_NODE, &no_nhrp_multicast_nflog_group_cmd);
 
 	/* interface specific commands */
 	install_node(&nhrp_interface_node);

@@ -13,6 +13,7 @@ union sockunion;
 struct interface;
 
 extern int netlink_nflog_group;
+extern int netlink_mcast_nflog_group;
 extern int netlink_req_fd;
 
 void netlink_init(void);

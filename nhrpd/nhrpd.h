@@ -24,7 +24,6 @@ DECLARE_MGROUP(NHRPD);
 
 #define NHRP_VTY_PORT		2610
 #define NHRP_DEFAULT_CONFIG	"nhrpd.conf"
-#define MCAST_NFLOG_GROUP 224
 
 extern struct thread_master *master;
 
@@ -367,6 +366,7 @@ void nhrp_multicast_interface_del(struct interface *ifp);
 void nhrp_multicast_foreach(struct interface *ifp, afi_t afi,
 			    void (*cb)(struct nhrp_multicast *, void *),
 			    void *ctx);
+void netlink_mcast_set_nflog_group(int nlgroup);
 
 void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp);
 void nhrp_route_announce(int add, enum nhrp_cache_type type,

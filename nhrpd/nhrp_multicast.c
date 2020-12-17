@@ -30,7 +30,7 @@
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_MULTICAST, "NHRP Multicast")
 
-static int netlink_mcast_nflog_group;
+int netlink_mcast_nflog_group;
 static int netlink_mcast_log_fd = -1;
 static struct thread *netlink_mcast_log_thread;
 
@@ -201,15 +201,7 @@ static void netlink_mcast_log_register(int fd, int group)
 	zbuf_free(zb);
 }
 
-static int nhrp_multicast_free(struct interface *ifp,
-			       struct nhrp_multicast *mcast)
-{
-	list_del(&mcast->list_entry);
-	XFREE(MTYPE_NHRP_MULTICAST, mcast);
-	return 0;
-}
-
-static void netlink_mcast_set_nflog_group(struct interface *ifp, int nlgroup)
+void netlink_mcast_set_nflog_group(int nlgroup)
 {
 	if (netlink_mcast_log_fd >= 0) {
 		THREAD_OFF(netlink_mcast_log_thread);
@@ -232,6 +224,14 @@ static void netlink_mcast_set_nflog_group(struct interface *ifp, int nlgroup)
 	}
 }
 
+static int nhrp_multicast_free(struct interface *ifp,
+			       struct nhrp_multicast *mcast)
+{
+	list_del(&mcast->list_entry);
+	XFREE(MTYPE_NHRP_MULTICAST, mcast);
+	return 0;
+}
+
 int nhrp_multicast_add(struct interface *ifp, afi_t afi,
 		       union sockunion *nbma_addr)
 {
@@ -251,9 +251,6 @@ int nhrp_multicast_add(struct interface *ifp, afi_t afi,
 		.afi = afi, .ifp = ifp, .nbma_addr = *nbma_addr,
 	};
 	list_add_tail(&mcast->list_entry, &nifp->afi[afi].mcastlist_head);
-
-	if (netlink_mcast_log_fd == -1)
-		netlink_mcast_set_nflog_group(ifp, MCAST_NFLOG_GROUP);
 
 	sockunion2str(nbma_addr, buf, sizeof(buf));
 	debugf(NHRP_DEBUG_COMMON, "Adding multicast entry (%s)", buf);
