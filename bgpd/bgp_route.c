@@ -4727,15 +4727,17 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 	return 0;
 }
 
+
+/* Within bgp instance bgp:
+ *   - cancel all soft_reconfig_table threads that match nsrta attributes.
+ *   - if nsrta is NULL, cancel all soft_reconfig_table threads.
+ */
 void bgp_soft_reconfig_table_thread_cancel(struct soft_reconfig_table *nsrta,
 					   struct bgp *bgp)
 {
 	struct soft_reconfig_table *srta;
 	struct listnode *node, *nnode;
 
-	/* if nsrta is NULL, cancel all soft_reconfig_table threads on bgp
-	 * instance.
-	 */
 	for (ALL_LIST_ELEMENTS(bgp->soft_reconfig_table, node, nnode, srta)) {
 		if ((nsrta)
 		    && ((nsrta->peer != srta->peer) || (nsrta->afi != srta->afi)
