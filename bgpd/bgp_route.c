@@ -4650,6 +4650,8 @@ static int bgp_soft_reconfig_table_thread(struct thread *thread)
 			continue;
 
 		listnode_delete(dest->soft_reconfig_table, srta);
+		if (list_isempty(dest->soft_reconfig_table))
+			list_delete(&dest->soft_reconfig_table);
 		iter++;
 
 		for (ain = dest->adj_in; ain; ain = ain->next) {
@@ -4705,10 +4707,15 @@ static void bgp_soft_reconfig_table_flag(struct soft_reconfig_table *srta,
 			if (ain->peer != srta->peer)
 				continue;
 		}
+		if (!dest->soft_reconfig_table)
+			dest->soft_reconfig_table = list_new();
 		if (flag)
 			listnode_add(dest->soft_reconfig_table, srta);
-		else
+		else {
 			listnode_delete(dest->soft_reconfig_table, srta);
+			if (list_isempty(dest->soft_reconfig_table))
+				list_delete(&dest->soft_reconfig_table);
+		}
 	}
 }
 
