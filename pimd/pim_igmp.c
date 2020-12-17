@@ -558,8 +558,8 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 					   igmp_msg, igmp_msg_len);
 
 	case PIM_IGMP_V2_LEAVE_GROUP:
-		return igmp_v2_recv_leave(igmp, ip_hdr->ip_src, from_str,
-					  igmp_msg, igmp_msg_len);
+		return igmp_v2_recv_leave(igmp, ip_hdr, from_str, igmp_msg,
+					  igmp_msg_len);
 
 	case PIM_IGMP_MTRACE_RESPONSE:
 		return igmp_mtrace_recv_response(igmp, ip_hdr, ip_hdr->ip_src,
