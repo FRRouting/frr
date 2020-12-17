@@ -1634,6 +1634,12 @@ static int bgp_connect_fail(struct peer *peer)
 		return -1;
 	}
 
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
+
 	return (bgp_stop(peer));
 }
 

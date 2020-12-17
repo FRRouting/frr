@@ -250,6 +250,8 @@ static int bgp_ifp_up(struct interface *ifp)
 		bgp_nbr_connected_add(bgp, nc);
 
 	hook_call(bgp_vrf_status_changed, bgp, ifp);
+	bgp_nht_ifp_up(ifp);
+
 	return 0;
 }
 
@@ -305,6 +307,8 @@ static int bgp_ifp_down(struct interface *ifp)
 	}
 
 	hook_call(bgp_vrf_status_changed, bgp, ifp);
+	bgp_nht_ifp_down(ifp);
+
 	return 0;
 }
 

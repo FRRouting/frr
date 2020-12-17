@@ -97,4 +97,8 @@ extern void bgp_l3nhg_id_free(uint32_t nhg_id);
 extern void bgp_l3nhg_init(void);
 void bgp_l3nhg_finish(void);
 
+extern void bgp_nht_ifp_up(struct interface *ifp);
+extern void bgp_nht_ifp_down(struct interface *ifp);
+
+extern void bgp_nht_interface_events(struct peer *peer);
 #endif /* _BGP_NHT_H */
