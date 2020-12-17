@@ -3090,6 +3090,15 @@ void bgp_process(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi)
 		return;
 	}
 
+	if (dest->soft_reconfig_table
+	    && !list_isempty(dest->soft_reconfig_table)) {
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug(
+				"Soft reconfigure table in progress for route %p",
+				dest);
+		return;
+	}
+
 	if (wq == NULL)
 		return;
 
