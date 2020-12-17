@@ -550,8 +550,21 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 	struct pim_upstream *up;
 
 	ch = pim_ifchannel_find(ifp, sg);
-	if (ch)
+	if (ch) {
+		if (up_flags == PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
+			PIM_IF_FLAG_SET_PROTO_PIM(ch->flags);
+
+		if (up_flags == PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
+			PIM_IF_FLAG_SET_PROTO_IGMP(ch->flags);
+
+		if (ch->upstream)
+			ch->upstream->flags |= up_flags;
+		else if (PIM_DEBUG_EVENTS)
+			zlog_debug("%s:%s No Upstream found", __func__,
+				   pim_str_sg_dump(sg));
+
 		return ch;
+	}
 
 	pim_ifp = ifp->info;
 
@@ -642,6 +655,12 @@ static void ifjoin_to_noinfo(struct pim_ifchannel *ch, bool ch_del)
 {
 	pim_forward_stop(ch, !ch_del);
 	pim_ifchannel_ifjoin_switch(__func__, ch, PIM_IFJOIN_NOINFO);
+
+	if (ch->upstream)
+		PIM_UPSTREAM_FLAG_UNSET_SRC_PIM(ch->upstream->flags);
+
+	PIM_IF_FLAG_UNSET_PROTO_PIM(ch->flags);
+
 	if (ch_del)
 		delete_on_noinfo(ch);
 }
@@ -1272,6 +1291,13 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 			 * parent' delete_no_info */
 		}
 	}
+
+	/* Resettng the IGMP flags here */
+	if (orig->upstream)
+		PIM_UPSTREAM_FLAG_UNSET_SRC_IGMP(orig->upstream->flags);
+
+	PIM_IF_FLAG_UNSET_PROTO_IGMP(orig->flags);
+
 	delete_on_noinfo(orig);
 }
 
