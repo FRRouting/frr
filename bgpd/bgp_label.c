@@ -277,8 +277,11 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 				return;
 			}
 		}
-	} else
+	} else {
 		UNSET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
+		bgp_lp_release(LP_TYPE_BGP_LU, dest,
+			       label_pton(&dest->local_label));
+	}
 
 	bgp_send_fec_register_label_msg(
 		dest, reg, with_label_index ? pi->attr->label_index : 0);
