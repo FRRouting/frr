@@ -810,6 +810,13 @@ static int zapi_nexthop_seg6local_cmp(const struct zapi_nexthop *next1,
 		      sizeof(struct seg6local_context));
 }
 
+static int zapi_nexthop_seg6_cmp(const struct zapi_nexthop *next1,
+				 const struct zapi_nexthop *next2)
+{
+	return memcmp(&next1->seg6_segs, &next2->seg6_segs,
+		      sizeof(struct in6_addr));
+}
+
 static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
 				      const struct zapi_nexthop *next2)
 {
@@ -914,6 +921,10 @@ static int zapi_nexthop_cmp(const void *item1, const void *item2)
 		return ret;
 
 	ret = zapi_nexthop_seg6local_cmp(next1, next2);
+	if (ret != 0)
+		return ret;
+
+	ret = zapi_nexthop_seg6_cmp(next1, next2);
 
 	return ret;
 }
@@ -1015,6 +1026,10 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_write(s, &api_nh->seg6local_ctx,
 			     sizeof(struct seg6local_context));
 	}
+
+	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_SEG6_ROUTE))
+		stream_write(s, &api_nh->seg6_segs,
+			     sizeof(struct in6_addr));
 
 done:
 	return ret;
@@ -1302,6 +1317,10 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 		STREAM_GET(&api_nh->seg6local_ctx, s,
 			   sizeof(struct seg6local_context));
 	}
+
+	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_SEG6_ROUTE))
+		STREAM_GET(&api_nh->seg6_segs, s,
+			   sizeof(struct in6_addr));
 
 	/* Success */
 	ret = 0;
@@ -1645,6 +1664,7 @@ stream_failure:
 
 struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 {
+	uint8_t zero[16] = {0};
 	struct nexthop *n = nexthop_new();
 
 	n->type = znh->type;
@@ -1670,6 +1690,9 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 	if (znh->seg6local_action != 0)
 		nexthop_add_seg6local(n, znh->seg6local_action,
 				      &znh->seg6local_ctx);
+
+	if (memcmp(&znh->seg6_segs, zero, sizeof(struct in6_addr)) != 0)
+		nexthop_add_seg6(n, &znh->seg6_segs);
 
 	return n;
 }
@@ -1720,6 +1743,10 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 		memcpy(&znh->seg6local_ctx, nh->nh_seg6local_ctx,
 		       sizeof(struct seg6local_context));
 	}
+
+	if (nh->nh_seg6_segs != NULL)
+		memcpy(&znh->seg6_segs, nh->nh_seg6_segs,
+		       sizeof(struct in6_addr));
 
 	return 0;
 }

@@ -144,6 +144,9 @@ struct nexthop {
 	/* SRv6 localsid info for Endpoint-behaviour */
 	enum seg6local_action_t nh_seg6local_action;
 	struct seg6local_context *nh_seg6local_ctx;
+
+	/* SRv6 Headend-behaviour */
+	struct in6_addr *nh_seg6_segs;
 };
 
 /* Utility to append one nexthop to another. */
@@ -165,6 +168,8 @@ void nexthop_del_labels(struct nexthop *);
 void nexthop_add_seg6local(struct nexthop *nexthop, uint32_t action,
 			   const struct seg6local_context *ctx);
 void nexthop_del_seg6local(struct nexthop *nexthop);
+void nexthop_add_seg6(struct nexthop *nexthop, const struct in6_addr* segs);
+void nexthop_del_seg6(struct nexthop *nexthop);
 
 /*
  * Allocate a new nexthop object and initialize it from various args.
