@@ -336,7 +336,9 @@ class Topogen(object):
         for gear in self.gears.values():
             errors += gear.stop()
         if len(errors) > 0:
-            logger.error("Errors found post shutdown - details follow: {}".format(errors))
+            logger.error(
+                "Errors found post shutdown - details follow: {}".format(errors)
+            )
 
         self.net.stop()
 

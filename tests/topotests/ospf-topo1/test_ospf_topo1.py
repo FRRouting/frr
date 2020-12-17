@@ -310,7 +310,10 @@ def test_ospf_json():
             # r4 has more interfaces for area 0.0.0.1
             if router.name == "r4":
                 expected["areas"]["0.0.0.1"].update(
-                    {"areaIfActiveCounter": 2, "areaIfTotalCounter": 2,}
+                    {
+                        "areaIfActiveCounter": 2,
+                        "areaIfTotalCounter": 2,
+                    }
                 )
 
         # router 3 has an additional area
@@ -372,16 +375,25 @@ def test_ospf_link_down_kernel_route():
         }
         if router.name == "r1" or router.name == "r2":
             expected.update(
-                {"10.0.10.0/24": None, "172.16.0.0/24": None, "172.16.1.0/24": None,}
+                {
+                    "10.0.10.0/24": None,
+                    "172.16.0.0/24": None,
+                    "172.16.1.0/24": None,
+                }
             )
         elif router.name == "r3" or router.name == "r4":
             expected.update(
-                {"10.0.1.0/24": None, "10.0.2.0/24": None,}
+                {
+                    "10.0.1.0/24": None,
+                    "10.0.2.0/24": None,
+                }
             )
         # Route '10.0.3.0' is no longer available for r4 since it is down.
         if router.name == "r4":
             expected.update(
-                {"10.0.3.0/24": None,}
+                {
+                    "10.0.3.0/24": None,
+                }
             )
         assertmsg = 'OSPF IPv4 route mismatch in router "{}" after link down'.format(
             router.name
@@ -443,12 +455,17 @@ def test_ospf6_link_down_kernel_route():
             )
         elif router.name == "r3" or router.name == "r4":
             expected.update(
-                {"2001:db8:1::/64": None, "2001:db8:2::/64": None,}
+                {
+                    "2001:db8:1::/64": None,
+                    "2001:db8:2::/64": None,
+                }
             )
         # Route '2001:db8:3::/64' is no longer available for r4 since it is down.
         if router.name == "r4":
             expected.update(
-                {"2001:db8:3::/64": None,}
+                {
+                    "2001:db8:3::/64": None,
+                }
             )
         assertmsg = 'OSPF IPv6 route mismatch in router "{}" after link down'.format(
             router.name

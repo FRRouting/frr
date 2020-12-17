@@ -268,12 +268,20 @@ def test_rmap_match_prefix_list_permit_in_and_outbound_prefixes_p0():
             "prefix_lists": {
                 "ipv4": {
                     "pf_list_1_ipv4": [
-                        {"seqid": 10, "network": "any", "action": "permit",}
+                        {
+                            "seqid": 10,
+                            "network": "any",
+                            "action": "permit",
+                        }
                     ]
                 },
                 "ipv6": {
                     "pf_list_1_ipv6": [
-                        {"seqid": 10, "network": "any", "action": "permit",}
+                        {
+                            "seqid": 10,
+                            "network": "any",
+                            "action": "permit",
+                        }
                     ]
                 },
             }
@@ -472,7 +480,11 @@ def test_modify_set_match_clauses_in_rmap_p0():
             "prefix_lists": {
                 "ipv4": {
                     "pf_list_1_ipv4": [
-                        {"seqid": 10, "network": "any", "action": "permit",}
+                        {
+                            "seqid": 10,
+                            "network": "any",
+                            "action": "permit",
+                        }
                     ],
                     "pf_list_2_ipv4": [
                         {"seqid": 10, "network": "any", "action": "permit"}
@@ -480,7 +492,11 @@ def test_modify_set_match_clauses_in_rmap_p0():
                 },
                 "ipv6": {
                     "pf_list_1_ipv6": [
-                        {"seqid": 10, "network": "any", "action": "permit",}
+                        {
+                            "seqid": 10,
+                            "network": "any",
+                            "action": "permit",
+                        }
                     ],
                     "pf_list_2_ipv6": [
                         {"seqid": 10, "network": "any", "action": "permit"}
@@ -506,7 +522,9 @@ def test_modify_set_match_clauses_in_rmap_p0():
                                     "prefix_lists": "pf_list_1_{}".format(addr_type)
                                 }
                             },
-                            "set": {"locPrf": 150,},
+                            "set": {
+                                "locPrf": 150,
+                            },
                         }
                     ],
                     "rmap_match_pf_2_{}".format(addr_type): [
@@ -666,7 +684,9 @@ def test_modify_set_match_clauses_in_rmap_p0():
                                     "prefix_lists": "pf_list_1_{}".format(addr_type)
                                 }
                             },
-                            "set": {"locPrf": 1000,},
+                            "set": {
+                                "locPrf": 1000,
+                            },
                         }
                     ],
                     "rmap_match_pf_2_{}".format(addr_type): [
@@ -816,12 +836,20 @@ def test_modify_prefix_list_referenced_by_rmap_p0():
             "prefix_lists": {
                 "ipv4": {
                     "pf_list_1_ipv4": [
-                        {"seqid": 10, "network": "any", "action": "permit",}
+                        {
+                            "seqid": 10,
+                            "network": "any",
+                            "action": "permit",
+                        }
                     ]
                 },
                 "ipv6": {
                     "pf_list_1_ipv6": [
-                        {"seqid": 100, "network": "any", "action": "permit",}
+                        {
+                            "seqid": 100,
+                            "network": "any",
+                            "action": "permit",
+                        }
                     ]
                 },
             }
@@ -1090,7 +1118,9 @@ def test_remove_prefix_list_referenced_by_rmap_p0():
                                     "prefix_lists": "pf_list_1_{}".format(addr_type)
                                 }
                             },
-                            "set": {"locPrf": 150,},
+                            "set": {
+                                "locPrf": 150,
+                            },
                         }
                     ],
                     "rmap_match_pf_2_{}".format(addr_type): [
@@ -1894,7 +1924,9 @@ def test_multiple_match_statement_in_route_map_logical_ANDed_p1():
                                     "prefix_lists": "pf_list_1_{}".format(addr_type)
                                 }
                             },
-                            "set": {"locPrf": 150,},
+                            "set": {
+                                "locPrf": 150,
+                            },
                         }
                     ]
                 }
@@ -1921,7 +1953,9 @@ def test_multiple_match_statement_in_route_map_logical_ANDed_p1():
                                     }
                                 }
                             },
-                            "set": {"locPrf": 150,},
+                            "set": {
+                                "locPrf": 150,
+                            },
                         }
                     ]
                 }
@@ -2048,7 +2082,9 @@ def test_add_remove_rmap_to_specific_neighbor_p0():
                                     "prefix_lists": "pf_list_1_{}".format(addr_type)
                                 }
                             },
-                            "set": {"locPrf": 150,},
+                            "set": {
+                                "locPrf": 150,
+                            },
                         }
                     ]
                 }
@@ -3505,7 +3541,9 @@ def test_create_rmap_match_prefix_list_to_deny_in_and_outbound_prefixes_p0():
                                     "prefix_lists": "pf_list_1_{}".format(addr_type)
                                 }
                             },
-                            "set": {"locPrf": 150,},
+                            "set": {
+                                "locPrf": 150,
+                            },
                         }
                     ],
                     "rmap_match_pf_2_{}".format(addr_type): [

@@ -658,10 +658,11 @@ def test_evpn_mac():
         assertmsg = '"{}" remote MAC content incorrect'.format(tor.name)
         assert result is None, assertmsg
 
+
 def check_df_role(dut, esi, role):
-    '''
+    """
     Return error string if the df role on the dut is different
-    '''
+    """
     es_json = dut.vtysh_cmd("show evpn es %s json" % esi)
     es = json.loads(es_json)
 
@@ -676,12 +677,13 @@ def check_df_role(dut, esi, role):
 
     return None
 
+
 def test_evpn_df():
-    '''
+    """
     1. Check the DF role on all the PEs on rack-1.
     2. Increase the DF preference on the non-DF and check if it becomes
        the DF winner.
-    '''
+    """
 
     tgen = get_topogen()
 
@@ -720,10 +722,11 @@ def test_evpn_df():
 
     # tgen.mininet_cli()
 
+
 def check_protodown_rc(dut, protodown_rc):
-    '''
+    """
     check if specified protodown reason code is set
-    '''
+    """
 
     out = dut.vtysh_cmd("show evpn json")
 
@@ -739,13 +742,14 @@ def check_protodown_rc(dut, protodown_rc):
 
     return None
 
+
 def test_evpn_uplink_tracking():
-    '''
+    """
     1. Wait for access ports to come out of startup-delay
     2. disable uplinks and check if access ports have been protodowned
     3. enable uplinks and check if access ports have been moved out
        of protodown
-    '''
+    """
 
     tgen = get_topogen()
 
@@ -777,6 +781,7 @@ def test_evpn_uplink_tracking():
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
     assert result is None, assertmsg
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

@@ -1152,7 +1152,7 @@ def generate_ips(network, no_of_ips):
             mask = int(start_ipaddr.split("/")[1])
         else:
             logger.debug("start_ipaddr {} must have a / in it".format(start_ipaddr))
-            assert(0)
+            assert 0
 
         addr_type = validate_ip_address(start_ip)
         if addr_type == "ipv4":
@@ -2562,7 +2562,7 @@ def verify_rib(
     tag=None,
     metric=None,
     fib=None,
-    count_only=False
+    count_only=False,
 ):
     """
     Data will be read from input_dict or input JSON file, API will generate
@@ -2754,8 +2754,10 @@ def verify_rib(
                                             "Nexthops are missing for "
                                             "route {} in RIB of router {}: "
                                             "expected {}, found {}\n".format(
-                                                st_rt, dut, len(next_hop),
-                                                len(found_hops)
+                                                st_rt,
+                                                dut,
+                                                len(next_hop),
+                                                len(found_hops),
                                             )
                                         )
                                         return errormsg
@@ -2802,7 +2804,11 @@ def verify_rib(
                                     errormsg = (
                                         "[DUT: {}]: tag value {}"
                                         " is not matched for"
-                                        " route {} in RIB \n".format(dut, _tag, st_rt,)
+                                        " route {} in RIB \n".format(
+                                            dut,
+                                            _tag,
+                                            st_rt,
+                                        )
                                     )
                                     return errormsg
 
@@ -2819,7 +2825,11 @@ def verify_rib(
                                     errormsg = (
                                         "[DUT: {}]: metric value "
                                         "{} is not matched for "
-                                        "route {} in RIB \n".format(dut, metric, st_rt,)
+                                        "route {} in RIB \n".format(
+                                            dut,
+                                            metric,
+                                            st_rt,
+                                        )
                                     )
                                     return errormsg
 
@@ -2868,7 +2878,9 @@ def verify_rib(
 
                 for advertise_network_dict in advertise_network:
                     if "vrf" in advertise_network_dict:
-                        cmd = "{} vrf {} json".format(command, advertise_network_dict["vrf"])
+                        cmd = "{} vrf {} json".format(
+                            command, advertise_network_dict["vrf"]
+                        )
                     else:
                         cmd = "{} json".format(command)
 
@@ -2946,6 +2958,7 @@ def verify_rib(
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
+
 
 @retry(attempts=6, wait=2, return_is_str=True)
 def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):

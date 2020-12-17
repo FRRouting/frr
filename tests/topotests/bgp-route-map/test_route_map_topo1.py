@@ -807,7 +807,9 @@ def test_route_map_multiple_seq_different_match_set_clause_p0(request):
                                         "prefix_lists": "pf_list_2_{}".format(addr_type)
                                     }
                                 },
-                                "set": {"locPrf": 150,},
+                                "set": {
+                                    "locPrf": 150,
+                                },
                             },
                             {
                                 "action": "permit",
@@ -906,7 +908,17 @@ def test_route_map_multiple_seq_different_match_set_clause_p0(request):
         dut = "r3"
         protocol = "bgp"
         input_dict = {
-            "r3": {"route_maps": {"rmap_match_pf_list1": [{"set": {"metric": 50,}}],}}
+            "r3": {
+                "route_maps": {
+                    "rmap_match_pf_list1": [
+                        {
+                            "set": {
+                                "metric": 50,
+                            }
+                        }
+                    ],
+                }
+            }
         }
 
         static_routes = [NETWORK[adt][0]]
@@ -1093,7 +1105,14 @@ def test_route_map_set_only_no_match_p0(request):
         input_dict_4 = {
             "r3": {
                 "route_maps": {
-                    "rmap_match_pf_1": [{"action": "permit", "set": {"metric": 50,}}]
+                    "rmap_match_pf_1": [
+                        {
+                            "action": "permit",
+                            "set": {
+                                "metric": 50,
+                            },
+                        }
+                    ]
                 }
             }
         }
@@ -1210,7 +1229,13 @@ def test_route_map_match_only_no_set_p0(request):
                 "r1": {
                     "route_maps": {
                         "rmap_match_pf_1_{}".format(addr_type): [
-                            {"action": "permit", "set": {"metric": 50, "locPrf": 150,}}
+                            {
+                                "action": "permit",
+                                "set": {
+                                    "metric": 50,
+                                    "locPrf": 150,
+                                },
+                            }
                         ]
                     }
                 }

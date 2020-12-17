@@ -238,9 +238,10 @@ def test_next_hop_attribute(request):
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n Error: "
-            "{} routes are not present in RIB".format(addr_type, tc_name)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n Error: " "{} routes are not present in RIB".format(
+            addr_type, tc_name
         )
 
     # Configure next-hop-self to bgp neighbor

@@ -310,8 +310,10 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
     assertmsg = "local learned mac wrong type: {} ".format(mac_type)
     assert mac_type == "local", assertmsg
 
-    assertmsg = "learned address mismatch with configured address host: {} learned: {}".format(
-        ip_addr, learned_ip
+    assertmsg = (
+        "learned address mismatch with configured address host: {} learned: {}".format(
+            ip_addr, learned_ip
+        )
     )
     assert ip_addr == learned_ip, assertmsg
 

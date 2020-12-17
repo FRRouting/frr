@@ -107,16 +107,25 @@ def test_json_intersect_multilevel_true():
     dcomplete = {
         "i1": "item1",
         "i2": "item2",
-        "i3": {"i100": "item100",},
+        "i3": {
+            "i100": "item100",
+        },
         "i4": {
-            "i41": {"i411": "item411",},
-            "i42": {"i421": "item421", "i422": "item422",},
+            "i41": {
+                "i411": "item411",
+            },
+            "i42": {
+                "i421": "item421",
+                "i422": "item422",
+            },
         },
     }
 
     dsub1 = {
         "i1": "item1",
-        "i3": {"i100": "item100",},
+        "i3": {
+            "i100": "item100",
+        },
         "i10": None,
     }
     dsub2 = {
@@ -126,10 +135,36 @@ def test_json_intersect_multilevel_true():
     }
     dsub3 = {
         "i2": "item2",
-        "i4": {"i41": {"i411": "item411",}, "i42": {"i422": "item422", "i450": None,}},
+        "i4": {
+            "i41": {
+                "i411": "item411",
+            },
+            "i42": {
+                "i422": "item422",
+                "i450": None,
+            },
+        },
     }
-    dsub4 = {"i2": "item2", "i4": {"i41": {}, "i42": {"i450": None,}}}
-    dsub5 = {"i2": "item2", "i3": {"i100": "item100",}, "i4": {"i42": {"i450": None,}}}
+    dsub4 = {
+        "i2": "item2",
+        "i4": {
+            "i41": {},
+            "i42": {
+                "i450": None,
+            },
+        },
+    }
+    dsub5 = {
+        "i2": "item2",
+        "i3": {
+            "i100": "item100",
+        },
+        "i4": {
+            "i42": {
+                "i450": None,
+            }
+        },
+    }
 
     assert json_cmp(dcomplete, dsub1) is None
     assert json_cmp(dcomplete, dsub2) is None
@@ -144,17 +179,26 @@ def test_json_intersect_multilevel_false():
     dcomplete = {
         "i1": "item1",
         "i2": "item2",
-        "i3": {"i100": "item100",},
+        "i3": {
+            "i100": "item100",
+        },
         "i4": {
-            "i41": {"i411": "item411",},
-            "i42": {"i421": "item421", "i422": "item422",},
+            "i41": {
+                "i411": "item411",
+            },
+            "i42": {
+                "i421": "item421",
+                "i422": "item422",
+            },
         },
     }
 
     # Incorrect sub-level value
     dsub1 = {
         "i1": "item1",
-        "i3": {"i100": "item00",},
+        "i3": {
+            "i100": "item00",
+        },
         "i10": None,
     }
     # Inexistent sub-level
@@ -166,14 +210,41 @@ def test_json_intersect_multilevel_false():
     # Inexistent sub-level value
     dsub3 = {
         "i1": "item1",
-        "i3": {"i100": None,},
+        "i3": {
+            "i100": None,
+        },
     }
     # Inexistent sub-sub-level value
-    dsub4 = {"i4": {"i41": {"i412": "item412",}, "i42": {"i421": "item421",}}}
+    dsub4 = {
+        "i4": {
+            "i41": {
+                "i412": "item412",
+            },
+            "i42": {
+                "i421": "item421",
+            },
+        }
+    }
     # Invalid sub-sub-level value
-    dsub5 = {"i4": {"i41": {"i411": "item411",}, "i42": {"i421": "item420000",}}}
+    dsub5 = {
+        "i4": {
+            "i41": {
+                "i411": "item411",
+            },
+            "i42": {
+                "i421": "item420000",
+            },
+        }
+    }
     # sub-sub-level should be value
-    dsub6 = {"i4": {"i41": {"i411": "item411",}, "i42": "foobar",}}
+    dsub6 = {
+        "i4": {
+            "i41": {
+                "i411": "item411",
+            },
+            "i42": "foobar",
+        }
+    }
 
     assert json_cmp(dcomplete, dsub1) is not None
     assert json_cmp(dcomplete, dsub2) is not None
@@ -187,7 +258,15 @@ def test_json_with_list_sucess():
     "Test successful json comparisons that have lists."
 
     dcomplete = {
-        "list": [{"i1": "item 1", "i2": "item 2",}, {"i10": "item 10",},],
+        "list": [
+            {
+                "i1": "item 1",
+                "i2": "item 2",
+            },
+            {
+                "i10": "item 10",
+            },
+        ],
         "i100": "item 100",
     }
 
@@ -197,12 +276,19 @@ def test_json_with_list_sucess():
     }
     # Test list correct list items
     dsub2 = {
-        "list": [{"i1": "item 1",},],
+        "list": [
+            {
+                "i1": "item 1",
+            },
+        ],
         "i100": "item 100",
     }
     # Test list correct list size
     dsub3 = {
-        "list": [{}, {},],
+        "list": [
+            {},
+            {},
+        ],
     }
 
     assert json_cmp(dcomplete, dsub1) is None
@@ -214,7 +300,15 @@ def test_json_with_list_failure():
     "Test failed json comparisons that have lists."
 
     dcomplete = {
-        "list": [{"i1": "item 1", "i2": "item 2",}, {"i10": "item 10",},],
+        "list": [
+            {
+                "i1": "item 1",
+                "i2": "item 2",
+            },
+            {
+                "i10": "item 10",
+            },
+        ],
         "i100": "item 100",
     }
 
@@ -224,12 +318,20 @@ def test_json_with_list_failure():
     }
     # Test list incorrect list items
     dsub2 = {
-        "list": [{"i1": "item 2",},],
+        "list": [
+            {
+                "i1": "item 2",
+            },
+        ],
         "i100": "item 100",
     }
     # Test list correct list size
     dsub3 = {
-        "list": [{}, {}, {},],
+        "list": [
+            {},
+            {},
+            {},
+        ],
     }
 
     assert json_cmp(dcomplete, dsub1) is not None
@@ -241,20 +343,52 @@ def test_json_list_start_success():
     "Test JSON encoded data that starts with a list that should succeed."
 
     dcomplete = [
-        {"id": 100, "value": "abc",},
-        {"id": 200, "value": "abcd",},
-        {"id": 300, "value": "abcde",},
+        {
+            "id": 100,
+            "value": "abc",
+        },
+        {
+            "id": 200,
+            "value": "abcd",
+        },
+        {
+            "id": 300,
+            "value": "abcde",
+        },
     ]
 
-    dsub1 = [{"id": 100, "value": "abc",}]
+    dsub1 = [
+        {
+            "id": 100,
+            "value": "abc",
+        }
+    ]
 
-    dsub2 = [{"id": 100, "value": "abc",}, {"id": 200, "value": "abcd",}]
+    dsub2 = [
+        {
+            "id": 100,
+            "value": "abc",
+        },
+        {
+            "id": 200,
+            "value": "abcd",
+        },
+    ]
 
-    dsub3 = [{"id": 300, "value": "abcde",}]
+    dsub3 = [
+        {
+            "id": 300,
+            "value": "abcde",
+        }
+    ]
 
     dsub4 = []
 
-    dsub5 = [{"id": 100,}]
+    dsub5 = [
+        {
+            "id": 100,
+        }
+    ]
 
     assert json_cmp(dcomplete, dsub1) is None
     assert json_cmp(dcomplete, dsub2) is None
@@ -272,13 +406,44 @@ def test_json_list_start_failure():
         {"id": 300, "value": "abcde"},
     ]
 
-    dsub1 = [{"id": 100, "value": "abcd",}]
+    dsub1 = [
+        {
+            "id": 100,
+            "value": "abcd",
+        }
+    ]
 
-    dsub2 = [{"id": 100, "value": "abc",}, {"id": 200, "value": "abc",}]
+    dsub2 = [
+        {
+            "id": 100,
+            "value": "abc",
+        },
+        {
+            "id": 200,
+            "value": "abc",
+        },
+    ]
 
-    dsub3 = [{"id": 100, "value": "abc",}, {"id": 350, "value": "abcde",}]
+    dsub3 = [
+        {
+            "id": 100,
+            "value": "abc",
+        },
+        {
+            "id": 350,
+            "value": "abcde",
+        },
+    ]
 
-    dsub4 = [{"value": "abcx",}, {"id": 300, "value": "abcde",}]
+    dsub4 = [
+        {
+            "value": "abcx",
+        },
+        {
+            "id": 300,
+            "value": "abcde",
+        },
+    ]
 
     assert json_cmp(dcomplete, dsub1) is not None
     assert json_cmp(dcomplete, dsub2) is not None
