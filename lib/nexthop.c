@@ -37,6 +37,7 @@
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop");
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label");
 DEFINE_MTYPE_STATIC(LIB, NH_SEG6LOCAL, "Nexthop seg6local");
+DEFINE_MTYPE_STATIC(LIB, NH_SEG6, "Nexthop seg6");
 
 static int _nexthop_labels_cmp(const struct nexthop *nh1,
 			       const struct nexthop *nh2)
@@ -86,6 +87,22 @@ static int _nexthop_seg6local_cmp(const struct nexthop *nh1,
 
 	return memcmp(nh1->nh_seg6local_ctx, nh2->nh_seg6local_ctx,
 		      sizeof(struct seg6local_context));
+}
+
+static int _nexthop_seg6_cmp(const struct nexthop *nh1,
+			     const struct nexthop *nh2)
+{
+	if (!nh1->nh_seg6_segs && !nh2->nh_seg6_segs)
+		return 0;
+
+	if (nh1->nh_seg6_segs && !nh2->nh_seg6_segs)
+		return 1;
+
+	if (!nh1->nh_seg6_segs && nh2->nh_seg6_segs)
+		return -1;
+
+	return memcmp(nh1->nh_seg6_segs, nh2->nh_seg6_segs,
+		      sizeof(struct in6_addr));
 }
 
 int nexthop_g_addr_cmp(enum nexthop_types_t type, const union g_addr *addr1,
@@ -225,6 +242,10 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 		return ret;
 
 	ret = _nexthop_seg6local_cmp(next1, next2);
+	if (ret != 0)
+		return ret;
+
+	ret = _nexthop_seg6_cmp(next1, next2);
 
 	return ret;
 }
@@ -281,6 +302,7 @@ void nexthop_free(struct nexthop *nexthop)
 {
 	nexthop_del_labels(nexthop);
 	nexthop_del_seg6local(nexthop);
+	nexthop_del_seg6(nexthop);
 	if (nexthop->resolved)
 		nexthops_free(nexthop->resolved);
 	XFREE(MTYPE_NEXTHOP, nexthop);
@@ -472,6 +494,21 @@ void nexthop_del_seg6local(struct nexthop *nexthop)
 	nexthop->nh_seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 }
 
+void nexthop_add_seg6(struct nexthop *nexthop, const struct in6_addr *segs)
+{
+	struct in6_addr *nh_segs;
+
+	nh_segs = XCALLOC(MTYPE_NH_SEG6, sizeof(struct in6_addr));
+	if (segs)
+		*nh_segs = *segs;
+	nexthop->nh_seg6_segs = nh_segs;
+}
+
+void nexthop_del_seg6(struct nexthop *nexthop)
+{
+	XFREE(MTYPE_NH_SEG6, nexthop->nh_seg6_segs);
+}
+
 const char *nexthop2str(const struct nexthop *nexthop, char *str, int size)
 {
 	switch (nexthop->type) {
@@ -623,6 +660,10 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 			    sizeof(nexthop->nh_seg6local_ctx), key);
 	}
 
+	if (nexthop->nh_seg6_segs)
+		key = jhash(nexthop->nh_seg6_segs,
+			    sizeof(nexthop->nh_seg6_segs), key);
+
 	return key;
 }
 
@@ -679,6 +720,9 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 	if (nexthop->nh_seg6local_ctx)
 		nexthop_add_seg6local(copy, nexthop->nh_seg6local_action,
 				      nexthop->nh_seg6local_ctx);
+
+	if (nexthop->nh_seg6_segs)
+		nexthop_add_seg6(copy, nexthop->nh_seg6_segs);
 }
 
 void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
