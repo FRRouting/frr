@@ -1171,6 +1171,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	unsigned int valid_nh_count = 0;
 	int has_valid_label = 0;
 	bool allow_recursion = false;
+	int has_valid_sid = 0;
 	uint8_t distance;
 	struct peer *peer;
 	struct bgp_path_info *mpinfo;
@@ -1395,8 +1396,19 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		       sizeof(struct ethaddr));
 		api_nh->weight = nh_weight;
 
+		if (mpinfo->extra
+		    && !sid_zero(&mpinfo->extra->sid[0])
+		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+			has_valid_sid = 1;
+			memcpy(&api_nh->seg6_segs, &mpinfo->extra->sid[0],
+			       sizeof(api_nh->seg6_segs));
+		}
+
 		valid_nh_count++;
 	}
+
+	if (has_valid_sid && !(CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)))
+		SET_FLAG(api.flags, ZEBRA_FLAG_SEG6_ROUTE);
 
 	is_add = (valid_nh_count || nhg_id) ? true : false;
 
@@ -1453,6 +1465,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		char eth_buf[ETHER_ADDR_STRLEN + 7] = {'\0'};
 		char buf1[ETHER_ADDR_STRLEN];
 		char label_buf[20];
+		char sid_buf[20];
+		char segs_buf[256];
 		int i;
 
 		zlog_debug(
@@ -1495,15 +1509,22 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE))
 				snprintf(label_buf, sizeof(label_buf),
 					"label %u", api_nh->labels[0]);
+			if (has_valid_sid
+			    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+				inet_ntop(AF_INET6, &api_nh->seg6_segs,
+					  sid_buf, sizeof(sid_buf));
+				snprintf(segs_buf, sizeof(segs_buf), "segs %s",
+					 sid_buf);
+			}
 			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)
 			    && !is_zero_mac(&api_nh->rmac))
 				snprintf(eth_buf, sizeof(eth_buf), " RMAC %s",
 					 prefix_mac2str(&api_nh->rmac,
 							buf1, sizeof(buf1)));
-			zlog_debug("  nhop [%d]: %s if %u VRF %u wt %u %s %s",
+			zlog_debug("  nhop [%d]: %s if %u VRF %u wt %u %s %s %s",
 				   i + 1, nh_buf, api_nh->ifindex,
 				   api_nh->vrf_id, api_nh->weight,
-				   label_buf, eth_buf);
+				   label_buf, segs_buf, eth_buf);
 		}
 
 		int recursion_flag = 0;
