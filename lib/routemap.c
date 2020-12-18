@@ -2590,6 +2590,11 @@ static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 	tmp_dep_data.rname = arg;
 	dep_data = hash_release(dep->dep_rmap_hash, &tmp_dep_data);
 	if (dep_data) {
+		if (rmap_debug)
+			zlog_debug("Clearing reference for %s to %s count: %d",
+				   dep->dep_name, tmp_dep_data.rname,
+				   dep_data->refcnt);
+
 		XFREE(MTYPE_ROUTE_MAP_NAME, dep_data->rname);
 		XFREE(MTYPE_ROUTE_MAP_DEP_DATA, dep_data);
 	}
@@ -2604,6 +2609,9 @@ static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 static void route_map_clear_all_references(char *rmap_name)
 {
 	int i;
+
+	if (rmap_debug)
+		zlog_debug("Clearing references for %s", rmap_name);
 
 	for (i = 1; i < ROUTE_MAP_DEP_MAX; i++) {
 		hash_iterate(route_map_dep_hash[i], route_map_clear_reference,
