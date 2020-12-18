@@ -170,7 +170,8 @@ DEFPY (install_routes,
 	      End_X$seg6l_endx X:X::X:X$seg6l_endx_nh6|\
 	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
 	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4|\
-	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table>>\
+	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table>|\
+	   nexthop-seg6$nh_seg6 X:X::X:X$seg6_nh6 encap X:X::X:X$seg6_seg>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
 	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD]",
        "Sharp routing Protocol\n"
@@ -196,6 +197,10 @@ DEFPY (install_routes,
        "V4 Nexthop address to use\n"
        "SRv6 End.DT6 function to use\n"
        "Redirect table id to use\n"
+       "Nexthop-seg6 to use\n"
+       "V6 Nexthop address to use\n"
+       "Encap mode\n"
+       "Segment List to use\n"
        "Backup nexthop to use(Can be an IPv4 or IPv6 address)\n"
        "Backup V4 Nexthop address to use\n"
        "Backup V6 Nexthop address to use\n"
@@ -309,6 +314,14 @@ DEFPY (install_routes,
 		sg.r.nhop_group.nexthop = &sg.r.nhop;
 		nexthop_add_seg6local(&sg.r.nhop, action, &ctx);
 		SET_FLAG(route_flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE);
+	} else if (nh_seg6) {
+		sg.r.nhop.type = NEXTHOP_TYPE_IPV6;
+		sg.r.nhop.gate.ipv6 = seg6_nh6;
+		sg.r.nhop.vrf_id = vrf->vrf_id;
+		sg.r.nhop_group.nexthop = &sg.r.nhop;
+
+		nexthop_add_seg6(&sg.r.nhop, &seg6_seg);
+		SET_FLAG(route_flags, ZEBRA_FLAG_SEG6_ROUTE);
 	} else {
 		if (nexthop4.s_addr != INADDR_ANY) {
 			sg.r.nhop.gate.ipv4 = nexthop4;
