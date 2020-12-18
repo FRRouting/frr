@@ -1223,15 +1223,15 @@ static int fpm_process_queue(struct thread *t)
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct zebra_dplane_ctx *ctx;
 
-	frr_mutex_lock_autounlock(&fnc->ctxqueue_mutex);
-
 	while (true) {
 		/* No space available yet. */
 		if (STREAM_WRITEABLE(fnc->obuf) < NL_PKT_BUF_SIZE)
 			break;
 
 		/* Dequeue next item or quit processing. */
-		ctx = dplane_ctx_dequeue(&fnc->ctxqueue);
+		frr_with_mutex (&fnc->ctxqueue_mutex) {
+			ctx = dplane_ctx_dequeue(&fnc->ctxqueue);
+		}
 		if (ctx == NULL)
 			break;
 
@@ -1435,12 +1435,17 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 		 * anyway.
 		 */
 		if (fnc->socket != -1 && fnc->connecting == false) {
-			frr_mutex_lock_autounlock(&fnc->ctxqueue_mutex);
-			dplane_ctx_enqueue_tail(&fnc->ctxqueue, ctx);
-
-			/* Account the number of contexts. */
+			/*
+			 * Update the number of queued contexts *before*
+			 * enqueueing, to ensure counter consistency.
+			 */
 			atomic_fetch_add_explicit(&fnc->counters.ctxqueue_len,
 						  1, memory_order_relaxed);
+
+			frr_with_mutex (&fnc->ctxqueue_mutex) {
+				dplane_ctx_enqueue_tail(&fnc->ctxqueue, ctx);
+			}
+
 			cur_queue = atomic_load_explicit(
 				&fnc->counters.ctxqueue_len,
 				memory_order_relaxed);
