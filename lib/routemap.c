@@ -1347,7 +1347,7 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 					get_route_map_delete_event(type);
 				route_map_upd8_dependency(
 							delete_rmap_event_type,
-							rule_key,
+							rule->rule_str,
 							index->map->name);
 			}
 
