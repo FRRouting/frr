@@ -1,0 +1,104 @@
+{
+  "2001:4::/64": [
+    {
+      "prefix": "2001:4::/64",
+      "protocol": "bgp",
+      "vrfId": 7,
+      "vrfName": "vrf20",
+      "selected": true,
+      "destSelected": true,
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "table": 20,
+      "internalStatus": 16,
+      "internalFlags": 1032,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceIndex": 5,
+          "interfaceName": "eth0",
+          "vrf": "default",
+          "active": true,
+          "labels": [
+            3
+          ],
+          "weight": 1,
+          "seg6": {
+            "segs": "2001:db8:2:2::200"
+          }
+        }
+      ],
+      "asPath": "2"
+    }
+  ],
+  "2001:5::/64": [
+    {
+      "prefix": "2001:5::/64",
+      "protocol": "connected",
+      "vrfId": 7,
+      "vrfName": "vrf20",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "table": 20,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceIndex": 4,
+          "interfaceName": "eth3",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:6::/64": [
+    {
+      "prefix": "2001:6::/64",
+      "protocol": "bgp",
+      "vrfId": 7,
+      "vrfName": "vrf20",
+      "selected": true,
+      "destSelected": true,
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "table": 20,
+      "internalStatus": 16,
+      "internalFlags": 1032,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceIndex": 5,
+          "interfaceName": "eth0",
+          "vrf": "default",
+          "active": true,
+          "labels": [
+            3
+          ],
+          "weight": 1,
+          "seg6": {
+            "segs": "2001:db8:2:2::200"
+          }
+        }
+      ],
+      "asPath": "2"
+    }
+  ]
+}
