@@ -441,6 +441,29 @@ parse_encap_seg6local(struct rtattr *tb,
 	return act;
 }
 
+static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
+{
+	struct rtattr *tb_encap[256] = {0};
+	struct seg6_iptunnel_encap *ipt = NULL;
+	struct in6_addr *segments = NULL;
+
+	netlink_parse_rtattr_nested(tb_encap, 256, tb);
+
+	/*
+	 * TODO: It's not support multiple SID list.
+	 */
+	if (tb_encap[SEG6_IPTUNNEL_SRH]) {
+		ipt = (struct seg6_iptunnel_encap *)
+			RTA_DATA(tb_encap[SEG6_IPTUNNEL_SRH]);
+		segments = ipt->srh[0].segments;
+		*segs = segments[0];
+		return 1;
+	}
+
+	return 0;
+}
+
+
 static struct nexthop
 parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		      enum blackhole_type bh_type, int index, void *prefsrc,
@@ -452,6 +475,8 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context seg6l_ctx = {{0}};
+	struct in6_addr seg6_segs = {0};
+	int num_segs = 0;
 
 	vrf_id_t nh_vrf_id = vrf_id;
 	size_t sz = (afi == AFI_IP) ? 4 : 16;
@@ -496,6 +521,11 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		       == LWTUNNEL_ENCAP_SEG6_LOCAL) {
 		seg6l_act = parse_encap_seg6local(tb[RTA_ENCAP], &seg6l_ctx);
 	}
+	if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
+	    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
+		       == LWTUNNEL_ENCAP_SEG6) {
+		num_segs = parse_encap_seg6(tb[RTA_ENCAP], &seg6_segs);
+	}
 
 	if (rtm->rtm_flags & RTNH_F_ONLINK)
 		SET_FLAG(nh.flags, NEXTHOP_FLAG_ONLINK);
@@ -505,6 +535,9 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 
 	if (seg6l_act != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 		nexthop_add_seg6local(&nh, seg6l_act, &seg6l_ctx);
+
+	if (num_segs)
+		nexthop_add_seg6(&nh, &seg6_segs);
 
 	return nh;
 }
@@ -524,6 +557,8 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context seg6l_ctx = {{0}};
+	struct in6_addr seg6_segs = {0};
+	int num_segs = 0;
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
 
 	int len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
@@ -574,6 +609,12 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 				seg6l_act = parse_encap_seg6local(
 					rtnh_tb[RTA_ENCAP], &seg6l_ctx);
 			}
+			if (rtnh_tb[RTA_ENCAP] && rtnh_tb[RTA_ENCAP_TYPE]
+			    && *(uint16_t *)RTA_DATA(rtnh_tb[RTA_ENCAP_TYPE])
+				       == LWTUNNEL_ENCAP_SEG6) {
+				num_segs = parse_encap_seg6(rtnh_tb[RTA_ENCAP],
+							   &seg6_segs);
+			}
 		}
 
 		if (gate && rtm->rtm_family == AF_INET) {
@@ -602,6 +643,9 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 			if (seg6l_act != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 				nexthop_add_seg6local(nh, seg6l_act,
 						      &seg6l_ctx);
+
+			if (num_segs)
+				nexthop_add_seg6(nh, &seg6_segs);
 
 			if (rtnh->rtnh_flags & RTNH_F_ONLINK)
 				SET_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK);
