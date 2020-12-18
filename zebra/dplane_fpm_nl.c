@@ -1223,6 +1223,7 @@ static int fpm_process_queue(struct thread *t)
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct zebra_dplane_ctx *ctx;
 	bool no_bufs = false;
+	uint64_t processed_contexts = 0;
 
 	while (true) {
 		/* No space available yet. */
@@ -1241,14 +1242,17 @@ static int fpm_process_queue(struct thread *t)
 		fpm_nl_enqueue(fnc, ctx);
 
 		/* Account the processed entries. */
-		atomic_fetch_add_explicit(&fnc->counters.dplane_contexts, 1,
-					  memory_order_relaxed);
+		processed_contexts++;
 		atomic_fetch_sub_explicit(&fnc->counters.ctxqueue_len, 1,
 					  memory_order_relaxed);
 
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 		dplane_provider_enqueue_out_ctx(fnc->prov, ctx);
 	}
+
+	/* Update count of processed contexts */
+	atomic_fetch_add_explicit(&fnc->counters.dplane_contexts,
+				  processed_contexts, memory_order_relaxed);
 
 	/* Re-schedule if we ran out of buffer space */
 	if (no_bufs)
