@@ -2014,16 +2014,6 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop)) {
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
-		/* Check for available encapsulations. */
-		if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE))
-			continue;
-
-		zl3vni = zl3vni_from_vrf(nexthop->vrf_id);
-		if (zl3vni && is_l3vni_oper_up(zl3vni)) {
-			nexthop->nh_encap_type = NET_VXLAN;
-			nexthop->nh_encap.vni = zl3vni->vni;
-		}
-
 		/* Optionally capture extra interface info while we're in the
 		 * main zebra pthread - a plugin has to ask for this info.
 		 */
@@ -2043,6 +2033,16 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 				TAILQ_INSERT_TAIL(&ctx->u.rinfo.intf_extra_q,
 						  if_extra, link);
 			}
+		}
+
+		/* Check for available evpn encapsulations. */
+		if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE))
+			continue;
+
+		zl3vni = zl3vni_from_vrf(nexthop->vrf_id);
+		if (zl3vni && is_l3vni_oper_up(zl3vni)) {
+			nexthop->nh_encap_type = NET_VXLAN;
+			nexthop->nh_encap.vni = zl3vni->vni;
 		}
 	}
 
