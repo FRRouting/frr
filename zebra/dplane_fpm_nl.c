@@ -1421,7 +1421,7 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 	struct zebra_dplane_ctx *ctx;
 	struct fpm_nl_ctx *fnc;
 	int counter, limit;
-	uint64_t cur_queue, peak_queue;
+	uint64_t cur_queue, peak_queue = 0, stored_peak_queue;
 
 	fnc = dplane_provider_get_data(prov);
 	limit = dplane_provider_get_work_limit(prov);
@@ -1449,19 +1449,21 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 			cur_queue = atomic_load_explicit(
 				&fnc->counters.ctxqueue_len,
 				memory_order_relaxed);
-			peak_queue = atomic_load_explicit(
-				&fnc->counters.ctxqueue_len_peak,
-				memory_order_relaxed);
 			if (peak_queue < cur_queue)
-				atomic_store_explicit(
-					&fnc->counters.ctxqueue_len_peak,
-					cur_queue, memory_order_relaxed);
+				peak_queue = cur_queue;
 			continue;
 		}
 
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 		dplane_provider_enqueue_out_ctx(prov, ctx);
 	}
+
+	/* Update peak queue length, if we just observed a new peak */
+	stored_peak_queue = atomic_load_explicit(
+		&fnc->counters.ctxqueue_len_peak, memory_order_relaxed);
+	if (stored_peak_queue < peak_queue)
+		atomic_store_explicit(&fnc->counters.ctxqueue_len_peak,
+				      peak_queue, memory_order_relaxed);
 
 	if (atomic_load_explicit(&fnc->counters.ctxqueue_len,
 				 memory_order_relaxed)
