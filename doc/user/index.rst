@@ -50,6 +50,7 @@ Protocols
    nhrpd
    ospfd
    ospf6d
+   pathd
    pim
    pbr
    ripd

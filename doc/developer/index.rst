@@ -18,3 +18,4 @@ FRRouting Developer's Guide
    ospf
    zebra
    vtysh
+   pathd

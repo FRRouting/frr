@@ -560,6 +560,8 @@ AC_ARG_ENABLE([fabricd],
   AS_HELP_STRING([--disable-fabricd], [do not build fabricd]))
 AC_ARG_ENABLE([vrrpd],
   AS_HELP_STRING([--disable-vrrpd], [do not build vrrpd]))
+AC_ARG_ENABLE([pathd],
+  AS_HELP_STRING([--disable-pathd], [do not build pathd]))
 AC_ARG_ENABLE([bgp-announce],
   AS_HELP_STRING([--disable-bgp-announce], [turn off BGP route announcement]))
 AC_ARG_ENABLE([bgp-vnc],
@@ -625,6 +627,8 @@ AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([fpm],
   AS_HELP_STRING([--enable-fpm], [enable Forwarding Plane Manager support]))
+AC_ARG_ENABLE([pcep],
+  AS_HELP_STRING([--enable-pcep], [enable PCEP support for pathd]))
 AC_ARG_ENABLE([systemd],
   AS_HELP_STRING([--enable-systemd], [enable Systemd support]))
 AC_ARG_ENABLE([werror],
@@ -1675,6 +1679,14 @@ else
   esac
 fi
 
+AS_IF([test "$enable_pathd" != "no"], [
+  AC_DEFINE([HAVE_PATHD], [1], [pathd])
+])
+
+AS_IF([test "$enable_pcep" != "no"], [
+  AC_DEFINE([HAVE_PATHD_PCEP], [1], [pathd-pcep])
+])
+
 if test "$ac_cv_lib_json_c_json_object_get" = "no" -a "$BFDD" = "bfdd"; then
   AC_MSG_ERROR(["you must use json-c library to use bfdd"])
 fi
@@ -2467,6 +2479,18 @@ AM_CONDITIONAL([IRDP], [$IRDP])
 AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
+
+dnl PCEP plugin
+AM_CONDITIONAL([HAVE_PATHD_PCEP], [test "$enable_pcep" = "yes"])
+AS_IF([test "$enable_pcep" = "yes"], [
+  AC_CHECK_LIB([pcep_pcc], [initialize_pcc], [
+    PATHD_PCEP_LIBS="-lpcep_pcc"
+  ],[
+    AC_MSG_ERROR([PCEP library libpcep_pcc not found])
+  ])
+  AC_SUBST([PATHD_PCEP_LIBS])
+])
+
 dnl daemons
 AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
 AM_CONDITIONAL([ZEBRA], [test "$enable_zebra" != "no"])
@@ -2489,6 +2513,7 @@ AM_CONDITIONAL([SHARPD], [test "$enable_sharpd" = "yes"])
 AM_CONDITIONAL([STATICD], [test "$enable_staticd" != "no"])
 AM_CONDITIONAL([FABRICD], [test "$enable_fabricd" != "no"])
 AM_CONDITIONAL([VRRPD], [test "$enable_vrrpd" != "no"])
+AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
 
 AC_CONFIG_FILES([Makefile],[
 	test "$enable_dev_build" = "yes" && makefile_devbuild="--dev-build"
