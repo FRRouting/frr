@@ -2767,12 +2767,19 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 		memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
 		tmp_dep_data.rname = rname;
 		dep_data = hash_lookup(dep->dep_rmap_hash, &tmp_dep_data);
-
-		if (!dep_data)
+		/*
+		 * If dep_data is NULL then something has gone seriously
+		 * wrong in route-map handling.  Note it and prevent
+		 * the crash.
+		 */
+		if (!dep_data) {
+			zlog_warn(
+				"route-map dependency for route-map %s: %s is not correct",
+				rmap_name, dep_name);
 			goto out;
+		}
 
-		if (dep_data->refcnt)
-			dep_data->refcnt--;
+		dep_data->refcnt--;
 
 		if (!dep_data->refcnt) {
 			ret_dep_data = hash_release(dep->dep_rmap_hash,
