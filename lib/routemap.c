@@ -2586,22 +2586,18 @@ static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 	struct route_map_dep *dep = bucket->data;
 	struct route_map_dep_data *dep_data = NULL, tmp_dep_data;
 
-	if (arg) {
-		memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
-		tmp_dep_data.rname = arg;
-		dep_data = hash_release(dep->dep_rmap_hash,
-					&tmp_dep_data);
-		if (dep_data) {
-			XFREE(MTYPE_ROUTE_MAP_NAME, dep_data->rname);
-			XFREE(MTYPE_ROUTE_MAP_DEP_DATA, dep_data);
-		}
-		if (!dep->dep_rmap_hash->count) {
-			dep = hash_release(dep->this_hash,
-					   (void *)dep->dep_name);
-			hash_free(dep->dep_rmap_hash);
-			XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
-			XFREE(MTYPE_ROUTE_MAP_DEP, dep);
-		}
+	memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
+	tmp_dep_data.rname = arg;
+	dep_data = hash_release(dep->dep_rmap_hash, &tmp_dep_data);
+	if (dep_data) {
+		XFREE(MTYPE_ROUTE_MAP_NAME, dep_data->rname);
+		XFREE(MTYPE_ROUTE_MAP_DEP_DATA, dep_data);
+	}
+	if (!dep->dep_rmap_hash->count) {
+		dep = hash_release(dep->this_hash, (void *)dep->dep_name);
+		hash_free(dep->dep_rmap_hash);
+		XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
+		XFREE(MTYPE_ROUTE_MAP_DEP, dep);
 	}
 }
 
