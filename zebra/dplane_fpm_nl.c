@@ -1222,11 +1222,14 @@ static int fpm_process_queue(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct zebra_dplane_ctx *ctx;
+	bool no_bufs = false;
 
 	while (true) {
 		/* No space available yet. */
-		if (STREAM_WRITEABLE(fnc->obuf) < NL_PKT_BUF_SIZE)
+		if (STREAM_WRITEABLE(fnc->obuf) < NL_PKT_BUF_SIZE) {
+			no_bufs = true;
 			break;
+		}
 
 		/* Dequeue next item or quit processing. */
 		frr_with_mutex (&fnc->ctxqueue_mutex) {
@@ -1247,10 +1250,8 @@ static int fpm_process_queue(struct thread *t)
 		dplane_provider_enqueue_out_ctx(fnc->prov, ctx);
 	}
 
-	/* Check for more items in the queue. */
-	if (atomic_load_explicit(&fnc->counters.ctxqueue_len,
-				 memory_order_relaxed)
-	    > 0)
+	/* Re-schedule if we ran out of buffer space */
+	if (no_bufs)
 		thread_add_timer(fnc->fthread->master, fpm_process_queue,
 				 fnc, 0, &fnc->t_dequeue);
 
