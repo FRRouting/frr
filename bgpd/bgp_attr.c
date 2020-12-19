@@ -4122,7 +4122,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* SRv6 Service Information Attribute. */
-	if (afi == AFI_IP && safi == SAFI_MPLS_VPN) {
+	if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_MPLS_VPN) {
 		if (attr->srv6_l3vpn) {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
 					       | BGP_ATTR_FLAG_TRANS);

@@ -685,6 +685,33 @@ static void setlabels(struct bgp_path_info *bpi,
 }
 
 /*
+ * make encoded route SIDs match specified encoded sid set
+ */
+static void setsids(struct bgp_path_info *bpi,
+		      struct in6_addr *sid,
+		      uint32_t num_sids)
+{
+	uint32_t i;
+	struct bgp_path_info_extra *extra;
+
+	if (num_sids)
+		assert(sid);
+	assert(num_sids <= BGP_MAX_SIDS);
+
+	if (!num_sids) {
+		if (bpi->extra)
+			bpi->extra->num_sids = 0;
+		return;
+	}
+
+	extra = bgp_path_info_extra_get(bpi);
+	for (i = 0; i < num_sids; i++) {
+		memcpy(&extra->sid[i], &sid[i], sizeof(struct in6_addr));
+	}
+	extra->num_sids = num_sids;
+}
+
+/*
  * returns pointer to new bgp_path_info upon success
  */
 static struct bgp_path_info *
@@ -699,6 +726,10 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	struct bgp_path_info *bpi;
 	struct bgp_path_info *bpi_ultimate;
 	struct bgp_path_info *new;
+
+	uint32_t num_sids = 0;
+	if (new_attr->srv6_l3vpn || new_attr->srv6_vpn)
+		num_sids = 1;
 
 	if (debug)
 		zlog_debug(
@@ -777,6 +808,16 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		if (!labelssame)
 			setlabels(bpi, label, num_labels);
 
+		/*
+		 * rewrite sid
+		 */
+		if (num_sids) {
+			if (new_attr->srv6_l3vpn)
+				setsids(bpi, &new_attr->srv6_l3vpn->sid, num_sids);
+			else if (new_attr->srv6_vpn)
+				setsids(bpi, &new_attr->srv6_vpn->sid, num_sids);
+		}
+
 		if (nexthop_self_flag)
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ANNC_NH_SELF);
 
@@ -838,6 +879,16 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		bgp_path_info_set_flag(bn, new, BGP_PATH_ANNC_NH_SELF);
 
 	bgp_path_info_extra_get(new);
+
+	/*
+	 * rewrite sid
+	 */
+	if (num_sids) {
+		if (new_attr->srv6_l3vpn)
+			setsids(new, &new_attr->srv6_l3vpn->sid, num_sids);
+		else if (new_attr->srv6_vpn)
+			setsids(new, &new_attr->srv6_vpn->sid, num_sids);
+	}
 
 	if (num_labels)
 		setlabels(new, label, num_labels);
@@ -1094,6 +1145,17 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 	/* Set originator ID to "me" */
 	SET_FLAG(static_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
 	static_attr.originator_id = bgp_vpn->router_id;
+
+	/* Set SID for SRv6 VPN */
+	if (!sid_zero(bgp_vrf->vpn_policy[afi].tovpn_sid)) {
+		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
+				sizeof(struct bgp_attr_srv6_l3vpn)* 100);
+		static_attr.srv6_l3vpn->sid_flags = 0x00;
+		static_attr.srv6_l3vpn->endpoint_behavior = 0xffff;
+		memcpy(&static_attr.srv6_l3vpn->sid,
+		       bgp_vrf->vpn_policy[afi].tovpn_sid,
+		       sizeof(static_attr.srv6_l3vpn->sid));
+	}
 
 
 	new_attr = bgp_attr_intern(
