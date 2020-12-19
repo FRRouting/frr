@@ -2976,6 +2976,60 @@ static int bgp_ifp_create(struct interface *ifp)
 	return 0;
 }
 
+static void bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s = NULL;
+	uint8_t proto;
+	uint16_t instance;
+	uint16_t len;
+	char name[256] = {0};
+	struct prefix_ipv6 *chunk = NULL;
+	chunk = prefix_ipv6_new();
+
+	s = zclient->ibuf;
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
+
+	STREAM_GETW(s, len);
+	STREAM_GET(name, s, len);
+
+	STREAM_GETW(s, chunk->prefixlen);
+	STREAM_GET(&chunk->prefix, s, 16);
+
+	if (zclient->redist_default != proto) {
+		zlog_err("Got SRv6 Manager msg with wrong proto %u", proto);
+		return;
+	}
+	if (zclient->instance != instance) {
+		zlog_err("Got SRv6 Manager msg with wrong instance %u", proto);
+		return;
+	}
+
+	struct bgp *bgp = bgp_get_default();
+	if (strcmp(bgp->srv6_locator_name, name) != 0) {
+		zlog_info("name unmatch %s:%s",
+			  bgp->srv6_locator_name, name);
+		return;
+	}
+
+	struct listnode *node;
+	struct prefix_ipv6 *c;
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, c)) {
+		if (!prefix_cmp(c, chunk))
+			return;
+	}
+
+	listnode_add(bgp->srv6_locator_chunks, chunk);
+	vpn_leak_postchange_all();
+	return;
+
+stream_failure:
+	free(chunk);
+
+	zlog_err("%s: can't get locator_chunk!!", __func__);
+	return;
+}
+
 void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 {
 	zclient_num_connects = 0;
@@ -3018,6 +3072,7 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->iptable_notify_owner = iptable_notify_owner;
 	zclient->route_notify_owner = bgp_zebra_route_notify_owner;
 	zclient->instance = instance;
+	zclient->process_srv6_locator_chunk = bgp_zebra_process_srv6_locator_chunk;
 }
 
 void bgp_zebra_destroy(void)
@@ -3414,4 +3469,9 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("send capabilty success");
 	return BGP_GR_SUCCESS;
+}
+
+int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
+{
+	return srv6_manager_get_locator_chunk(zclient, name);
 }

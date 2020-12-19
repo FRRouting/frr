@@ -9870,6 +9870,29 @@ DEFUN_NOSH (bgp_segment_routing_srv6,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_srv6_locator,
+       bgp_srv6_locator_cmd,
+       "locator NAME$name",
+       "Specify SRv6 locator\n"
+       "Specify SRv6 locator\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (strlen(bgp->srv6_locator_name) > 0
+	    && strcmp(name, bgp->srv6_locator_name) != 0) {
+		vty_out(vty, "srv6 locator is already configured\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	} else
+		snprintf(bgp->srv6_locator_name,
+			 sizeof(bgp->srv6_locator_name), "%s", name);
+
+	int ret = bgp_zebra_srv6_manager_get_locator_chunk(name);
+	if (ret < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (exit_address_family,
        exit_address_family_cmd,
        "exit-address-family",
@@ -17887,6 +17910,14 @@ int bgp_config_write(struct vty *vty)
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
 			vty_out(vty, " bgp shutdown\n");
 
+		if (bgp->srv6_enabled) {
+			vty_frame(vty, " !\n segment-routing srv6\n");
+			if (bgp->srv6_locator_name)
+				vty_out(vty, "  locator %s\n",
+					bgp->srv6_locator_name);
+		}
+
+
 		/* IPv4 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);
 
@@ -19461,6 +19492,7 @@ void bgp_vty_init(void)
 
 	/* srv6 commands */
 	install_element(BGP_NODE, &bgp_segment_routing_srv6_cmd);
+	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);
 }
 
 #include "memory.h"
