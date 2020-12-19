@@ -9885,6 +9885,7 @@ DEFUN_NOSH (bgp_segment_routing_srv6,
             "Segment-Routing SRv6 configuration\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp->srv6_enabled = true;
 	vty->node = BGP_SRV6_NODE;
 	return CMD_SUCCESS;
 }
