@@ -436,6 +436,45 @@ enum zclient_send_status zclient_send_vrf_label(struct zclient *zclient,
 	return zclient_send_message(zclient);
 }
 
+enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
+		const struct in6_addr *sid, ifindex_t oif,
+		enum seg6local_action_t action,
+		const struct seg6local_context *context)
+{
+	struct prefix_ipv6 p;
+	struct zapi_route api;
+	struct nexthop nh;
+
+	memset(&p, 0, sizeof(p));
+	p.family = AF_INET6;
+	p.prefixlen = 128;
+	p.prefix = *sid;
+
+	memset(&api, 0, sizeof(api));
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_BGP;
+	api.instance = 0;
+	api.safi = SAFI_UNICAST;
+	memcpy(&api.prefix, &p, sizeof(p));
+
+	if (action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+		return zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	SET_FLAG(api.flags, ZEBRA_FLAG_SEG6LOCAL_ROUTE);
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+
+	memset(&nh, 0, sizeof(nh));
+	nh.type = NEXTHOP_TYPE_IFINDEX;
+	nh.ifindex = oif;
+	nexthop_add_seg6local(&nh, action, context);
+
+	zapi_nexthop_from_nexthop(&api.nexthops[0], &nh);
+	api.nexthop_num = 1;
+
+	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+}
+
 /* Send register requests to zebra daemon for the information in a VRF. */
 void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 {
