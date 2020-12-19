@@ -11442,12 +11442,33 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_nexthop_destroy(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vpn_modify(
 	struct nb_cb_modify_args *args)
 {
+	bool is_enable = false;
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		if (BGP_INSTANCE_TYPE_VRF != bgp->inst_type
+		    && BGP_INSTANCE_TYPE_DEFAULT != bgp->inst_type) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"import|export vpn valid only for bgp vrf or default instance");
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		if (yang_dnode_get_bool(args->dnode, NULL))
+			is_enable = true;
+
+		return bgp_global_afi_safi_ip_unicast_vpn_config_import_export_vpn_modify(
+			args, "import", is_enable);
 		break;
 	}
 
@@ -11461,12 +11482,32 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vpn_modify(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_vpn_modify(
 	struct nb_cb_modify_args *args)
 {
+	bool is_enable = false;
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		if (BGP_INSTANCE_TYPE_VRF != bgp->inst_type
+		    && BGP_INSTANCE_TYPE_DEFAULT != bgp->inst_type) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"import|export vpn valid only for bgp vrf or default instance");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		if (yang_dnode_get_bool(args->dnode, NULL))
+			is_enable = true;
+
+		return bgp_global_afi_safi_ip_unicast_vpn_config_import_export_vpn_modify(
+			args, "export", is_enable);
 		break;
 	}
 
