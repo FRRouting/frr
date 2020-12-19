@@ -47,6 +47,7 @@
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_memory.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -356,6 +357,85 @@ void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi)
 	bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent = label;
 }
 
+/*
+ * This function informs zebra of the srv6-function this vrf sets on routes
+ * leaked to VPN. Zebra should install this srv6-function in the kernel with
+ * an action of "End.DT4/6's IP FIB to route the PDU."
+ */
+void vpn_leak_zebra_vrf_sid_update(struct bgp *bgp, afi_t afi)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+	enum seg6local_action_t act;
+	struct seg6local_context ctx = {{0}};
+	struct in6_addr *tovpn_sid = NULL;
+	struct in6_addr *tovpn_sid_ls = NULL;
+	struct vrf *vrf;
+	char buf[256] = {0};
+
+	if (bgp->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: afi %s: vrf_id not set, "
+				   "can't set zebra vrf label",
+				   __func__, bgp->name_pretty, afi2str(afi));
+		return;
+	}
+
+	tovpn_sid = bgp->vpn_policy[afi].tovpn_sid;
+	if (!tovpn_sid) {
+		if (debug)
+			zlog_debug("%s: vrf %s: afi %s: sid not set", __func__,
+				   bgp->name_pretty, afi2str(afi));
+		return;
+	}
+
+	if (debug) {
+		inet_ntop(AF_INET6, tovpn_sid, buf, sizeof(buf));
+		zlog_debug("%s: vrf %s: afi %s: setting sid %s for vrf id %d",
+			   __func__, bgp->name_pretty, afi2str(afi), buf,
+			   bgp->vrf_id);
+	}
+
+	vrf = vrf_lookup_by_id(bgp->vrf_id);
+	if (!vrf)
+		return;
+
+	ctx.table = vrf->data.l.table_id;
+	act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+		: ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	zclient_send_localsid(zclient, tovpn_sid, bgp->vrf_id, act, &ctx);
+
+	tovpn_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+	*tovpn_sid_ls = *tovpn_sid;
+	bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent = tovpn_sid_ls;
+}
+
+/*
+ * If zebra tells us vrf has become unconfigured, tell zebra not to
+ * use this srv6-function to forward to the vrf anymore
+ */
+void vpn_leak_zebra_vrf_sid_withdraw(struct bgp *bgp, afi_t afi)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+
+	if (bgp->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: afi %s: vrf_id not set, "
+				   "can't set zebra vrf label",
+				   __func__, bgp->name_pretty, afi2str(afi));
+		return;
+	}
+
+	if (debug)
+		zlog_debug("%s: deleting sid for vrf %s afi (id=%d)", __func__,
+			   bgp->name_pretty, bgp->vrf_id);
+
+	zclient_send_localsid(zclient,
+		bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent,
+		bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL);
+	XFREE(MTYPE_BGP_SRV6_SID,
+	      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
+}
+
 int vpn_leak_label_callback(
 	mpls_label_t label,
 	void *labelid,
@@ -415,6 +495,123 @@ int vpn_leak_label_callback(
 		vp->afi, bgp_get_default(), vp->bgp);
 
 	return 0;
+}
+
+static void sid_register(struct bgp *bgp, const struct in6_addr *sid,
+			 const char *locator_name)
+{
+	struct bgp_srv6_function *func;
+	func = XCALLOC(MTYPE_BGP_SRV6_FUNCTION,
+		       sizeof(struct bgp_srv6_function));
+	func->sid = *sid;
+	snprintf(func->locator_name, sizeof(func->locator_name),
+		 "%s", locator_name);
+	listnode_add(bgp->srv6_functions, func);
+}
+
+static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
+{
+	struct listnode *node;
+	struct bgp_srv6_function *func;
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func))
+		if (sid_same(&func->sid, sid))
+			return true;
+	return false;
+}
+
+/* if index != 0: try to allocate as index-mode
+ * else: try to allocate as auto-mode */
+static bool alloc_new_sid(struct bgp *bgp, uint32_t index,
+			  struct in6_addr *sid)
+{
+	struct listnode *node;
+	struct prefix_ipv6 *chunk;
+	struct in6_addr sid_buf;
+	bool alloced = false;
+
+	if (!bgp || !sid)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
+		sid_buf = chunk->prefix;
+		if (index != 0) {
+			sid_buf.s6_addr[15] = index;
+			if (sid_exist(bgp, &sid_buf))
+				return false;
+			alloced = true;
+			break;
+		} else {
+			for (size_t i=1; i<255; i++) {
+				sid_buf.s6_addr16[7] = i;
+				if (sid_exist(bgp, &sid_buf))
+					continue;
+				alloced = true;
+				break;
+			}
+		}
+	}
+
+	if (!alloced)
+		return false;
+
+	sid_register(bgp, &sid_buf, bgp->srv6_locator_name);
+	*sid = sid_buf;
+	return true;
+}
+
+void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
+	bool alloced = false;
+	char buf[256];
+	struct in6_addr *sid;
+	uint32_t tovpn_sid_index = 0;
+	bool tovpn_sid_auto = false;
+
+	if (debug)
+		zlog_debug("%s: try to allocate new SID for vrf %s: afi %s",
+			   __func__, bgp_vrf->name_pretty, afi2str(afi));
+
+	/* skip when tovpn sid is already allocated on vrf instance */
+	if (bgp_vrf->vpn_policy[afi].tovpn_sid)
+		return;
+
+	/* skip when bgp vpn instance ins't allocated
+	 * or srv6 locator chunk isn't allocated */
+	if (!bgp_vpn || !bgp_vpn->srv6_locator_chunks || !bgp_vrf)
+		return;
+
+	tovpn_sid_index = bgp_vrf->vpn_policy[afi].tovpn_sid_index;
+	tovpn_sid_auto = CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+				    BGP_VPN_POLICY_TOVPN_SID_AUTO);
+
+	/* skip when VPN isn't configured on vrf-instance */
+	if (tovpn_sid_index == 0 && !tovpn_sid_auto)
+		return;
+
+	/* check invalid case both configured index and auto */
+	if (tovpn_sid_index != 0 && tovpn_sid_index) {
+		zlog_err("%s: index-mode and auto-mode both selected. ignored.",
+			 __func__);
+		return;
+	}
+
+	sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+	alloced = alloc_new_sid(bgp_vpn, tovpn_sid_index, sid);
+	if (!alloced) {
+		zlog_debug("%s: not allocated new sid for vrf %s: afi %s",
+			   __func__, bgp_vrf->name_pretty, afi2str(afi));
+		return;
+	}
+
+	if (debug) {
+		inet_ntop(AF_INET6, sid, buf, sizeof(buf));
+		zlog_debug("%s: new sid %s allocated for vrf %s: afi %s",
+			   __func__, buf, bgp_vrf->name_pretty,
+			   afi2str(afi));
+	}
+	bgp_vrf->vpn_policy[afi].tovpn_sid = sid;
+	return;
 }
 
 static bool ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
