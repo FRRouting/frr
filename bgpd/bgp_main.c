@@ -318,6 +318,8 @@ static int bgp_vrf_enable(struct vrf *vrf)
 		bgp_instance_up(bgp);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
 		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP,
 				    bgp_get_default(), bgp);
 		vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, AFI_IP,
