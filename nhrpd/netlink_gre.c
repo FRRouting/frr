@@ -80,6 +80,56 @@ static int __netlink_gre_get_data(struct zbuf *zb, struct zbuf *data,
 	return 0;
 }
 
+static int netlink_gre_get_mtu(struct zbuf *zb, int ifindex, unsigned int *mtu)
+{
+	struct nlmsghdr *n;
+	struct ifinfomsg *ifi;
+	struct zbuf payload, rtapayload;
+	struct rtattr *rta;
+	unsigned int *pmtu;
+
+	n = znl_nlmsg_push(zb, RTM_GETLINK, NLM_F_REQUEST);
+	ifi = znl_push(zb, sizeof(*ifi));
+	*ifi = (struct ifinfomsg){
+		.ifi_index = ifindex,
+	};
+	znl_nlmsg_complete(zb, n);
+
+	if (zbuf_send(zb, netlink_req_fd) < 0
+	    || zbuf_recv(zb, netlink_req_fd) < 0)
+		return -1;
+
+	n = znl_nlmsg_pull(zb, &payload);
+	if (!n)
+		return -2;
+
+	if (n->nlmsg_type != RTM_NEWLINK)
+		return -3;
+
+	ifi = znl_pull(&payload, sizeof(struct ifinfomsg));
+	if (!ifi)
+		return -4;
+
+	if (ifi->ifi_index != ifindex)
+		return -5;
+
+	while ((rta = znl_rta_pull(&payload, &rtapayload)) != NULL)
+		if (rta->rta_type == IFLA_MTU)
+			break;
+	if (!rta)
+		return -6;
+
+	pmtu = znl_pull(&rtapayload, sizeof(unsigned int));
+	if (!pmtu)
+		return -7;
+
+	*mtu = *pmtu;
+
+	debugf(NHRP_DEBUG_KERNEL, "netlink_gre_get_mtu: %d (ifindex=%u)", *mtu, ifindex);
+
+	return 0;
+}
+
 void netlink_gre_get_info(unsigned int ifindex, uint32_t *gre_key,
 			  unsigned int *link_index, struct in_addr *saddr)
 {
@@ -119,15 +169,27 @@ void netlink_gre_set_link(unsigned int ifindex, unsigned int link_index)
 	struct zbuf *zr = zbuf_alloc(8192), data, rtapl;
 	struct zbuf *zb = zbuf_alloc(8192);
 	size_t len;
+	unsigned int mtu = 0;
+	int ret;
 
 	if (__netlink_gre_get_data(zr, &data, ifindex) < 0)
 		goto err;
+
+	ret = netlink_gre_get_mtu(zb, ifindex, &mtu);
+	if (ret < 0) {
+		debugf(NHRP_DEBUG_KERNEL, "netlink_gre_get_mtu failed (%d)", ret);
+	}
 
 	n = znl_nlmsg_push(zb, RTM_NEWLINK, NLM_F_REQUEST);
 	ifi = znl_push(zb, sizeof(*ifi));
 	*ifi = (struct ifinfomsg){
 		.ifi_index = ifindex,
 	};
+
+	/* LTE-1921: Preserve MTU */
+	if (mtu)
+		znl_rta_push_u32(zb, IFLA_MTU, mtu);
+
 	rta_info = znl_rta_nested_push(zb, IFLA_LINKINFO);
 	znl_rta_push(zb, IFLA_INFO_KIND, "gre", 3);
 	rta_data = znl_rta_nested_push(zb, IFLA_INFO_DATA);
