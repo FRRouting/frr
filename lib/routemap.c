@@ -1347,7 +1347,7 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 					get_route_map_delete_event(type);
 				route_map_upd8_dependency(
 							delete_rmap_event_type,
-							rule_key,
+							rule->rule_str,
 							index->map->name);
 			}
 
@@ -2586,28 +2586,32 @@ static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 	struct route_map_dep *dep = bucket->data;
 	struct route_map_dep_data *dep_data = NULL, tmp_dep_data;
 
-	if (arg) {
-		memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
-		tmp_dep_data.rname = arg;
-		dep_data = hash_release(dep->dep_rmap_hash,
-					&tmp_dep_data);
-		if (dep_data) {
-			XFREE(MTYPE_ROUTE_MAP_NAME, dep_data->rname);
-			XFREE(MTYPE_ROUTE_MAP_DEP_DATA, dep_data);
-		}
-		if (!dep->dep_rmap_hash->count) {
-			dep = hash_release(dep->this_hash,
-					   (void *)dep->dep_name);
-			hash_free(dep->dep_rmap_hash);
-			XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
-			XFREE(MTYPE_ROUTE_MAP_DEP, dep);
-		}
+	memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
+	tmp_dep_data.rname = arg;
+	dep_data = hash_release(dep->dep_rmap_hash, &tmp_dep_data);
+	if (dep_data) {
+		if (rmap_debug)
+			zlog_debug("Clearing reference for %s to %s count: %d",
+				   dep->dep_name, tmp_dep_data.rname,
+				   dep_data->refcnt);
+
+		XFREE(MTYPE_ROUTE_MAP_NAME, dep_data->rname);
+		XFREE(MTYPE_ROUTE_MAP_DEP_DATA, dep_data);
+	}
+	if (!dep->dep_rmap_hash->count) {
+		dep = hash_release(dep->this_hash, (void *)dep->dep_name);
+		hash_free(dep->dep_rmap_hash);
+		XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
+		XFREE(MTYPE_ROUTE_MAP_DEP, dep);
 	}
 }
 
 static void route_map_clear_all_references(char *rmap_name)
 {
 	int i;
+
+	if (rmap_debug)
+		zlog_debug("Clearing references for %s", rmap_name);
 
 	for (i = 1; i < ROUTE_MAP_DEP_MAX; i++) {
 		hash_iterate(route_map_dep_hash[i], route_map_clear_reference,
@@ -2763,12 +2767,19 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 		memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
 		tmp_dep_data.rname = rname;
 		dep_data = hash_lookup(dep->dep_rmap_hash, &tmp_dep_data);
-
-		if (!dep_data)
+		/*
+		 * If dep_data is NULL then something has gone seriously
+		 * wrong in route-map handling.  Note it and prevent
+		 * the crash.
+		 */
+		if (!dep_data) {
+			zlog_warn(
+				"route-map dependency for route-map %s: %s is not correct",
+				rmap_name, dep_name);
 			goto out;
+		}
 
-		if (dep_data->refcnt)
-			dep_data->refcnt--;
+		dep_data->refcnt--;
 
 		if (!dep_data->refcnt) {
 			ret_dep_data = hash_release(dep->dep_rmap_hash,
