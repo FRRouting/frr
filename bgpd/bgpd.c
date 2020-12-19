@@ -1327,6 +1327,20 @@ int bgp_peer_gr_init(struct peer *peer)
 	return BGP_GR_SUCCESS;
 }
 
+static void bgp_srv6_init(struct bgp *bgp)
+{
+	bgp->srv6_enabled = false;
+	memset(bgp->srv6_locator_name, 0, sizeof(bgp->srv6_locator_name));
+	bgp->srv6_locator_chunks = list_new();
+	bgp->srv6_functions = list_new();
+}
+
+static void bgp_srv6_cleanup(struct bgp *bgp)
+{
+	list_delete(&bgp->srv6_locator_chunks);
+	list_delete(&bgp->srv6_functions);
+}
+
 /* Allocate new peer object, implicitely locked.  */
 struct peer *peer_new(struct bgp *bgp)
 {
@@ -3238,6 +3252,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp_evpn_init(bgp);
 	bgp_evpn_vrf_es_init(bgp);
 	bgp_pbr_init(bgp);
+	bgp_srv6_init(bgp);
 
 	/*initilize global GR FSM */
 	bgp_global_gr_init(bgp);
@@ -3754,6 +3769,7 @@ void bgp_free(struct bgp *bgp)
 
 	bgp_evpn_cleanup(bgp);
 	bgp_pbr_cleanup(bgp);
+	bgp_srv6_cleanup(bgp);
 	XFREE(MTYPE_BGP_EVPN_INFO, bgp->evpn_info);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
