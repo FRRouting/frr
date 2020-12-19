@@ -9964,6 +9964,65 @@ DEFPY (bgp_srv6_locator,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_bgp_srv6,
+       show_bgp_srv6_cmd,
+       "show bgp segment-routing srv6",
+       SHOW_STR
+       BGP_STR
+       "BGP Segment Routing\n"
+       "BGP Segment Routing SRv6\n")
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	struct prefix_ipv6 *chunk;
+	struct bgp_srv6_function *func;
+	struct in6_addr *tovpn4_sid;
+	struct in6_addr *tovpn6_sid;
+	char buf[256];
+	char buf_tovpn4_sid[256];
+	char buf_tovpn6_sid[256];
+
+	bgp = bgp_get_default();
+	if (!bgp || !bgp->srv6_locator_name)
+		return CMD_SUCCESS;
+
+	vty_out(vty, "locator_name: %s\n", bgp->srv6_locator_name);
+	vty_out(vty, "locator_chunks:\n");
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
+		prefix2str(chunk, buf, sizeof(buf));
+		vty_out(vty, "- %s\n", buf);
+	}
+
+	vty_out(vty, "functions:\n");
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func)) {
+		inet_ntop(AF_INET6, &func->sid, buf, sizeof(buf));
+		vty_out(vty, "- sid: %s\n", buf);
+		vty_out(vty, "  locator: %s\n", func->locator_name);
+	}
+
+	vty_out(vty, "bgps:\n");
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		vty_out(vty, "- name: %s\n",
+			bgp->name ? bgp->name : "default");
+
+		tovpn4_sid = bgp->vpn_policy[AFI_IP].tovpn_sid;
+		tovpn6_sid = bgp->vpn_policy[AFI_IP6].tovpn_sid;
+		if (tovpn4_sid)
+			inet_ntop(AF_INET6, tovpn4_sid, buf_tovpn4_sid,
+				  sizeof(buf_tovpn4_sid));
+		if (tovpn6_sid)
+			inet_ntop(AF_INET6, tovpn6_sid, buf_tovpn6_sid,
+				  sizeof(buf_tovpn6_sid));
+
+		vty_out(vty, "  vpn_policy[AFI_IP].tovpn_sid: %s\n",
+			tovpn4_sid ? buf_tovpn4_sid : "none");
+		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %s\n",
+			tovpn6_sid ? buf_tovpn6_sid : "none");
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (exit_address_family,
        exit_address_family_cmd,
        "exit-address-family",
@@ -19562,6 +19621,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_neighbor_tcp_mss_cmd);
 
 	/* srv6 commands */
+	install_element(VIEW_NODE, &show_bgp_srv6_cmd);
 	install_element(BGP_NODE, &bgp_segment_routing_srv6_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
