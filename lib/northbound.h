@@ -552,7 +552,7 @@ struct nb_node {
  * from working properly on shared libraries. For those compilers, use a fixed
  * size array to work around the problem.
  */
-#define YANG_MODULE_MAX_NODES 1400
+#define YANG_MODULE_MAX_NODES 2000
 
 struct frr_yang_module_info {
 	/* YANG module name. */
