@@ -5528,7 +5528,6 @@ DEFUN_YANG (neighbor_nexthop_self,
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
 
-
 	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
 		 yang_afi_safi_value2identity(afi, safi));
 
@@ -5566,7 +5565,6 @@ DEFUN_YANG(neighbor_nexthop_self_force,
 	char attr_xpath[XPATH_MAXLEN];
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
-
 
 	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
 		 yang_afi_safi_value2identity(afi, safi));
@@ -5651,7 +5649,6 @@ DEFUN_YANG (no_neighbor_nexthop_self_force,
 	char attr_xpath[XPATH_MAXLEN];
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
-
 
 	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
 		 yang_afi_safi_value2identity(afi, safi));
@@ -5810,7 +5807,6 @@ DEFUN_YANG (neighbor_remove_private_as_all,
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
 
-
 	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
 		 yang_afi_safi_value2identity(afi, safi));
 
@@ -5849,7 +5845,6 @@ DEFUN_YANG (neighbor_remove_private_as_replace_as,
 	char attr_xpath[XPATH_MAXLEN];
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
-
 
 	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
 		 yang_afi_safi_value2identity(afi, safi));
@@ -5890,7 +5885,6 @@ DEFUN_YANG (neighbor_remove_private_as_all_replace_as,
 	char attr_xpath[XPATH_MAXLEN];
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
-
 
 	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
 		 yang_afi_safi_value2identity(afi, safi));
@@ -5972,7 +5966,6 @@ DEFUN_YANG (no_neighbor_remove_private_as_all,
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
 
-
 	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
 		 yang_afi_safi_value2identity(afi, safi));
 
@@ -6012,7 +6005,6 @@ DEFUN_YANG (no_neighbor_remove_private_as_replace_as,
 	char attr_xpath[XPATH_MAXLEN];
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
-
 
 	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
 		 yang_afi_safi_value2identity(afi, safi));
@@ -6054,7 +6046,6 @@ DEFUN_YANG (no_neighbor_remove_private_as_all_replace_as,
 	char attr_xpath[XPATH_MAXLEN];
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
-
 
 	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
 		 yang_afi_safi_value2identity(afi, safi));
@@ -6344,7 +6335,6 @@ DEFUN_YANG (neighbor_soft_reconfiguration,
 	char soft_xpath[XPATH_MAXLEN];
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
-
 
 	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
 		 yang_afi_safi_value2identity(afi, safi));
@@ -7732,100 +7722,49 @@ ALIAS_HIDDEN(
 	"Filter outgoing updates\n")
 
 /* Set prefix list to the peer. */
-static int peer_prefix_list_set_vty(struct vty *vty, const char *ip_str,
-				    afi_t afi, safi_t safi,
-				    const char *name_str,
-				    const char *direct_str)
+DEFPY_YANG(
+	neighbor_prefix_list, neighbor_prefix_list_cmd,
+	"[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor_str prefix-list WORD$prefix_str <in|out>$direction",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	"Filter updates to/from this neighbor\n"
+	"Name of a prefix list\n"
+	"Filter incoming updates\n"
+	"Filter outgoing updates\n")
 {
-	int ret;
-	int direct = FILTER_IN;
-	struct peer *peer;
+	char base_xpath[XPATH_MAXLEN];
+	char af_xpath[XPATH_MAXLEN];
+	char plist_xpath[80];
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
 
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
+	snprintf(af_xpath, sizeof(af_xpath), FRR_BGP_AF_XPATH,
+		 yang_afi_safi_value2identity(afi, safi));
+	if (peer_and_group_lookup_nb(vty, neighbor_str, base_xpath,
+				     sizeof(base_xpath), af_xpath)
+	    < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	/* Check filter direction. */
-	if (strncmp(direct_str, "i", 1) == 0)
-		direct = FILTER_IN;
-	else if (strncmp(direct_str, "o", 1) == 0)
-		direct = FILTER_OUT;
+	if (strmatch(direction, "in"))
+		snprintf(plist_xpath, sizeof(plist_xpath),
+			 "./%s/filter-config/plist-import",
+			 bgp_afi_safi_get_container_str(afi, safi));
+	else if (strmatch(direction, "out"))
+		snprintf(plist_xpath, sizeof(plist_xpath),
+			 "./%s/filter-config/plist-export",
+			 bgp_afi_safi_get_container_str(afi, safi));
 
-	ret = peer_prefix_list_set(peer, afi, safi, direct, name_str);
+	if (!no)
+		nb_cli_enqueue_change(vty, plist_xpath, NB_OP_MODIFY,
+				      prefix_str);
+	else
+		nb_cli_enqueue_change(vty, plist_xpath, NB_OP_DESTROY, NULL);
 
-	return bgp_vty_return(vty, ret);
-}
-
-static int peer_prefix_list_unset_vty(struct vty *vty, const char *ip_str,
-				      afi_t afi, safi_t safi,
-				      const char *direct_str)
-{
-	int ret;
-	struct peer *peer;
-	int direct = FILTER_IN;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	/* Check filter direction. */
-	if (strncmp(direct_str, "i", 1) == 0)
-		direct = FILTER_IN;
-	else if (strncmp(direct_str, "o", 1) == 0)
-		direct = FILTER_OUT;
-
-	ret = peer_prefix_list_unset(peer, afi, safi, direct);
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (neighbor_prefix_list,
-       neighbor_prefix_list_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> prefix-list WORD <in|out>",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Filter updates to/from this neighbor\n"
-       "Name of a prefix list\n"
-       "Filter incoming updates\n"
-       "Filter outgoing updates\n")
-{
-	int idx_peer = 1;
-	int idx_word = 3;
-	int idx_in_out = 4;
-	return peer_prefix_list_set_vty(
-		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
-		argv[idx_word]->arg, argv[idx_in_out]->arg);
+	return nb_cli_apply_changes(vty, base_xpath);
 }
 
 ALIAS_HIDDEN(neighbor_prefix_list, neighbor_prefix_list_hidden_cmd,
 	     "neighbor <A.B.C.D|X:X::X:X|WORD> prefix-list WORD <in|out>",
 	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Filter updates to/from this neighbor\n"
-	     "Name of a prefix list\n"
-	     "Filter incoming updates\n"
-	     "Filter outgoing updates\n")
-
-DEFUN (no_neighbor_prefix_list,
-       no_neighbor_prefix_list_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> prefix-list WORD <in|out>",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Filter updates to/from this neighbor\n"
-       "Name of a prefix list\n"
-       "Filter incoming updates\n"
-       "Filter outgoing updates\n")
-{
-	int idx_peer = 2;
-	int idx_in_out = 5;
-	return peer_prefix_list_unset_vty(vty, argv[idx_peer]->arg,
-					  bgp_node_afi(vty), bgp_node_safi(vty),
-					  argv[idx_in_out]->arg);
-}
-
-ALIAS_HIDDEN(no_neighbor_prefix_list, no_neighbor_prefix_list_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> prefix-list WORD <in|out>",
-	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Filter updates to/from this neighbor\n"
 	     "Name of a prefix list\n"
 	     "Filter incoming updates\n"
@@ -18483,27 +18422,16 @@ void bgp_vty_init(void)
 
 	/* "neighbor prefix-list" commands. */
 	install_element(BGP_NODE, &neighbor_prefix_list_hidden_cmd);
-	install_element(BGP_NODE, &no_neighbor_prefix_list_hidden_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_prefix_list_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_prefix_list_cmd);
 	install_element(BGP_IPV4M_NODE, &neighbor_prefix_list_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_prefix_list_cmd);
 	install_element(BGP_IPV4L_NODE, &neighbor_prefix_list_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_prefix_list_cmd);
 	install_element(BGP_IPV6_NODE, &neighbor_prefix_list_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_prefix_list_cmd);
 	install_element(BGP_IPV6M_NODE, &neighbor_prefix_list_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_prefix_list_cmd);
 	install_element(BGP_IPV6L_NODE, &neighbor_prefix_list_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_prefix_list_cmd);
 	install_element(BGP_VPNV4_NODE, &neighbor_prefix_list_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_prefix_list_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_prefix_list_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_prefix_list_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &neighbor_prefix_list_cmd);
-	install_element(BGP_FLOWSPECV4_NODE, &no_neighbor_prefix_list_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_prefix_list_cmd);
-	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_prefix_list_cmd);
 
 	/* "neighbor filter-list" commands. */
 	install_element(BGP_NODE, &neighbor_filter_list_hidden_cmd);
