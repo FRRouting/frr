@@ -726,6 +726,13 @@ Clear commands reset various variables.
 
    Rescan PIM OIL (output interface list).
 
+.. index:: clear ip pim [vrf NAME] bsr-data
+.. clicmd:: clear ip pim [vrf NAME] bsr-data
+
+   This command will clear the BSM scope data struct. This command also
+   removes the next hop tracking for the bsr and resets the upstreams
+   for the dynamically learnt RPs.
+
 PIM EVPN configuration
 ======================
 To use PIM in the underlay for overlay BUM forwarding associate a multicast
