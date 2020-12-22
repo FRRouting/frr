@@ -75,9 +75,6 @@ struct fpm_nl_ctx {
 	int socket;
 	bool disabled;
 	bool connecting;
-	bool nhg_complete;
-	bool rib_complete;
-	bool rmac_complete;
 	bool use_nhg;
 	struct sockaddr_storage addr;
 
@@ -377,7 +374,6 @@ static int fpm_write_config(struct vty *vty)
 	struct sockaddr_in *sin;
 	struct sockaddr_in6 *sin6;
 	int written = 0;
-	char addrstr[INET6_ADDRSTRLEN];
 
 	if (gfnc->disabled)
 		return written;
@@ -386,8 +382,7 @@ static int fpm_write_config(struct vty *vty)
 	case AF_INET:
 		written = 1;
 		sin = (struct sockaddr_in *)&gfnc->addr;
-		inet_ntop(AF_INET, &sin->sin_addr, addrstr, sizeof(addrstr));
-		vty_out(vty, "fpm address %s", addrstr);
+		vty_out(vty, "fpm address %pI4", &sin->sin_addr);
 		if (sin->sin_port != htons(SOUTHBOUND_DEFAULT_PORT))
 			vty_out(vty, " port %d", ntohs(sin->sin_port));
 
@@ -396,8 +391,7 @@ static int fpm_write_config(struct vty *vty)
 	case AF_INET6:
 		written = 1;
 		sin6 = (struct sockaddr_in6 *)&gfnc->addr;
-		inet_ntop(AF_INET, &sin6->sin6_addr, addrstr, sizeof(addrstr));
-		vty_out(vty, "fpm address %s", addrstr);
+		vty_out(vty, "fpm address %pI6", &sin6->sin6_addr);
 		if (sin6->sin6_port != htons(SOUTHBOUND_DEFAULT_PORT))
 			vty_out(vty, " port %d", ntohs(sin6->sin6_port));
 
@@ -542,6 +536,13 @@ static int fpm_write(struct thread *t)
 
 		fnc->connecting = false;
 
+		/*
+		 * Starting with LSPs walk all FPM objects, marking them
+		 * as unsent and then replaying them.
+		 */
+		thread_add_timer(zrouter.master, fpm_lsp_reset, fnc, 0,
+				 &fnc->t_lspreset);
+
 		/* Permit receiving messages now. */
 		thread_add_read(fnc->fthread->master, fpm_read, fnc,
 				fnc->socket, &fnc->t_read);
@@ -664,9 +665,12 @@ static int fpm_connect(struct thread *t)
 	/*
 	 * Starting with LSPs walk all FPM objects, marking them
 	 * as unsent and then replaying them.
+	 *
+	 * If we are not connected, then delay the objects reset/send.
 	 */
-	thread_add_timer(zrouter.master, fpm_lsp_reset, fnc, 0,
-			 &fnc->t_lspreset);
+	if (!fnc->connecting)
+		thread_add_timer(zrouter.master, fpm_lsp_reset, fnc, 0,
+				 &fnc->t_lspreset);
 
 	return 0;
 }
@@ -908,12 +912,8 @@ static int fpm_lsp_send(struct thread *t)
 		WALK_FINISH(fnc, FNE_LSP_FINISHED);
 
 		/* Now move onto routes */
-		if (fnc->use_nhg)
-			thread_add_timer(zrouter.master, fpm_nhg_reset, fnc, 0,
-					 &fnc->t_nhgreset);
-		else
-			thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
-					 &fnc->t_ribreset);
+		thread_add_timer(zrouter.master, fpm_nhg_reset, fnc, 0,
+				 &fnc->t_nhgreset);
 	} else {
 		/* Didn't finish - reschedule LSP walk */
 		thread_add_timer(zrouter.master, fpm_lsp_send, fnc, 0,
@@ -966,7 +966,8 @@ static int fpm_nhg_send(struct thread *t)
 	fna.complete = true;
 
 	/* Send next hops. */
-	hash_walk(zrouter.nhgs_id, fpm_nhg_send_cb, &fna);
+	if (fnc->use_nhg)
+		hash_walk(zrouter.nhgs_id, fpm_nhg_send_cb, &fna);
 
 	/* `free()` allocated memory. */
 	dplane_ctx_fini(&fna.ctx);
@@ -1124,7 +1125,6 @@ static int fpm_nhg_reset(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 
-	fnc->nhg_complete = false;
 	hash_iterate(zrouter.nhgs_id, fpm_nhg_reset_cb, NULL);
 
 	/* Schedule next step: send next hop groups. */
@@ -1167,8 +1167,6 @@ static int fpm_rib_reset(struct thread *t)
 	struct route_table *rt;
 	rib_tables_iter_t rt_iter;
 
-	fnc->rib_complete = false;
-
 	rt_iter.state = RIB_TABLES_ITER_S_INIT;
 	while ((rt = rib_tables_iter_next(&rt_iter))) {
 		for (rn = route_top(rt); rn; rn = srcdest_route_next(rn)) {
@@ -1208,7 +1206,6 @@ static int fpm_rmac_reset(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 
-	fnc->rmac_complete = false;
 	hash_iterate(zrouter.l3vni_table, fpm_unset_l3vni_table, NULL);
 
 	/* Schedule next event: send RMAC entries. */
@@ -1317,20 +1314,14 @@ static int fpm_process_event(struct thread *t)
 		if (IS_ZEBRA_DEBUG_FPM)
 			zlog_debug("%s: next hop groups walk finished",
 				   __func__);
-
-		fnc->nhg_complete = true;
 		break;
 	case FNE_RIB_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)
 			zlog_debug("%s: RIB walk finished", __func__);
-
-		fnc->rib_complete = true;
 		break;
 	case FNE_RMAC_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)
 			zlog_debug("%s: RMAC walk finished", __func__);
-
-		fnc->rmac_complete = true;
 		break;
 	case FNE_LSP_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)

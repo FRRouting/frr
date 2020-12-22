@@ -550,6 +550,7 @@ end
             "dump ",
             "enable ",
             "frr ",
+            "fpm ",
             "hostname ",
             "ip ",
             "ipv6 ",
