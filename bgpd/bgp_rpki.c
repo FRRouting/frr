@@ -1188,7 +1188,8 @@ static int rpki_create_socket(struct cache *cache)
 	struct addrinfo *res = NULL;
 	char *host, *port;
 	struct rpki_vrf *rpki_vrf = cache->rpki_vrf;
-	int ret;
+	int ret, cancel_state;
+	struct timeval timeout;
 
 	if (rpki_vrf->vrfname == NULL)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -1242,13 +1243,21 @@ static int rpki_create_socket(struct cache *cache)
 	if (socket <= 0)
 		return 0;
 
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &cancel_state);
+	timeout.tv_sec  = 30;  // after 30 seconds connect() will timeout
+	timeout.tv_usec = 0;
+	setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
 	if (connect(socket, res->ai_addr, res->ai_addrlen) == -1) {
 		if (res)
 			freeaddrinfo(res);
+		close(socket);
+		pthread_setcancelstate(cancel_state, NULL);
 		return 0;
 	}
 	if (res)
 		freeaddrinfo(res);
+	pthread_setcancelstate(cancel_state, NULL);
 	return socket;
 }
 
