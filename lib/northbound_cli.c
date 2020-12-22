@@ -114,26 +114,6 @@ void nb_cli_pending_commit_check(struct vty *vty)
 	}
 }
 
-static bool nb_cli_backoff_start(struct vty *vty)
-{
-	struct timeval now, delta;
-
-	/*
-	 * Start the configuration backoff timer only if 100 YANG-modeled
-	 * commands or more were entered within the last second.
-	 */
-	monotime(&now);
-	if (monotime_since(&vty->backoff_start, &delta) >= 1000000) {
-		vty->backoff_start = now;
-		vty->backoff_cmd_count = 1;
-		return false;
-	}
-	if (++vty->backoff_cmd_count < 100)
-		return false;
-
-	return true;
-}
-
 static int nb_cli_schedule_command(struct vty *vty)
 {
 	/* Append command to dynamically sized buffer of scheduled commands. */
@@ -155,8 +135,24 @@ static int nb_cli_schedule_command(struct vty *vty)
 
 	/* Schedule the commit operation. */
 	THREAD_OFF(vty->t_pending_commit);
-	thread_add_timer_msec(master, nb_cli_pending_commit_cb, vty, 100,
-			      &vty->t_pending_commit);
+
+	/*
+	 * If we reached the maximum command batch size then apply all
+	 * commands and reset the batch size. No timers are needed in
+	 * this case because we might not receive commands anymore.
+	 *
+	 * Otherwise schedule a timer to flush the command list. We
+	 * must reschedule the timer every time we enter here to delay
+	 * their execution until the command stream stops or reaches
+	 * the maximum amount.
+	 */
+	vty->backoff_cmd_count++;
+	if (vty->backoff_cmd_count >= NB_CMD_BATCH_SIZE) {
+		(void)nb_cli_classic_commit(vty);
+		nb_cli_pending_commit_clear(vty);
+	} else
+		thread_add_timer_msec(master, nb_cli_pending_commit_cb, vty,
+				      100, &vty->t_pending_commit);
 
 	return CMD_SUCCESS;
 }
@@ -276,9 +272,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	 * faster.
 	 */
 	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
-		if (vty->t_pending_commit || nb_cli_backoff_start(vty))
-			return nb_cli_schedule_command(vty);
-		return nb_cli_classic_commit(vty);
+		return nb_cli_schedule_command(vty);
 	}
 
 	return CMD_SUCCESS;
