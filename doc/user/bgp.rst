@@ -3473,7 +3473,7 @@ configuration write operation.
 .. index:: [no] bgp send-extra-data zebra
 .. clicmd:: [no] bgp send-extra-data zebra
 
-   This Command turns off the ability of BGP to send extra data to zebra.
+This Command turns off the ability of BGP to send extra data to zebra.
 In this case it's the AS-Path being used for the path.  The default behavior
 in BGP is to send this data and to turn it off enter the no form of the command.
 If extra data was sent to zebra, and this command is turned on there is no
