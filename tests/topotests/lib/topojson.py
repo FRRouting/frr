@@ -96,6 +96,7 @@ def build_topo_from_json(tgen, topo):
     for router in listRouters:
         topo["routers"][router]["nextIfname"] = 0
 
+    router_count = 0
     while listRouters != []:
         curRouter = listRouters.pop(0)
         # Physical Interfaces
@@ -116,13 +117,14 @@ def build_topo_from_json(tgen, topo):
                 currRouter_lo_json = topo["routers"][curRouter]["links"][destRouterLink]
                 # Loopback interfaces
                 if "type" in data and data["type"] == "loopback":
+                    router_count += 1
                     if (
                         "ipv4" in currRouter_lo_json
                         and currRouter_lo_json["ipv4"] == "auto"
                     ):
                         currRouter_lo_json["ipv4"] = "{}{}.{}/{}".format(
                             topo["lo_prefix"]["ipv4"],
-                            number_to_row(curRouter),
+                            router_count,
                             number_to_column(curRouter),
                             topo["lo_prefix"]["v4mask"],
                         )
@@ -132,7 +134,7 @@ def build_topo_from_json(tgen, topo):
                     ):
                         currRouter_lo_json["ipv6"] = "{}{}:{}/{}".format(
                             topo["lo_prefix"]["ipv6"],
-                            number_to_row(curRouter),
+                            router_count,
                             number_to_column(curRouter),
                             topo["lo_prefix"]["v6mask"],
                         )
@@ -164,6 +166,14 @@ def build_topo_from_json(tgen, topo):
                         curRouter, destRouter, topo["routers"][curRouter]["nextIfname"]
                     )
                     destRouter_link_json["interface"] = "{}-{}-eth{}".format(
+                        destRouter, curRouter, topo["routers"][destRouter]["nextIfname"]
+                    )
+
+                    # add link interface
+                    destRouter_link_json["peer-interface"] = "{}-{}-eth{}".format(
+                        curRouter, destRouter, topo["routers"][curRouter]["nextIfname"]
+                    )
+                    currRouter_link_json["peer-interface"] = "{}-{}-eth{}".format(
                         destRouter, curRouter, topo["routers"][destRouter]["nextIfname"]
                     )
 
