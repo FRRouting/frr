@@ -1649,7 +1649,7 @@ class Router(Node):
 
         return errors
 
-    def checkRouterCores(self, reportLeaks=True, reportOnce=False):
+    def checkRouterCores(self, reportLeaks=False, reportOnce=False):
         if reportOnce and not self.reportCores:
             return
         reportMade = False
