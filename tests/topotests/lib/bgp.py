@@ -2129,7 +2129,9 @@ def verify_bgp_attributes(
             dict_to_test = []
             tmp_list = []
 
-            if "route_maps" in input_dict.values()[0]:
+            dict_list = list(input_dict.values())[0]
+
+            if "route_maps" in dict_list:
                 for rmap_router in input_dict.keys():
                     for rmap, values in input_dict[rmap_router]["route_maps"].items():
                         if rmap == rmap_name:
