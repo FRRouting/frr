@@ -1388,7 +1388,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # verify that the daemon, if specified, is valid
-    if args.daemon and args.daemon not in ['zebra', 'bgpd', 'fabricd', 'isisd', 'ospf6d', 'ospfd', 'pbrd', 'pimd', 'ripd', 'ripngd', 'sharpd', 'staticd', 'vrrpd', 'ldpd']:
+    if args.daemon and args.daemon not in ['zebra', 'bgpd', 'fabricd', 'isisd', 'ospf6d', 'ospfd', 'pbrd', 'pimd', 'ripd', 'ripngd', 'sharpd', 'staticd', 'vrrpd', 'ldpd', 'bfdd']:
         log.error("Daemon %s is not a valid option for 'show running-config'" % args.daemon)
         sys.exit(1)
 
