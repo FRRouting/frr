@@ -1393,6 +1393,8 @@ def compare_context_objects(newconf, running):
     lines_to_del = []
     pollist_to_del = []
     seglist_to_del = []
+    pceconf_to_del = []
+    pcclist_to_del = []
     candidates_to_add = []
     delete_bgpd = False
 
@@ -1478,9 +1480,8 @@ def compare_context_objects(newconf, running):
 
             # Segment routing and traffic engineering never need to be deleted
             elif (
-                len(running_ctx_keys) > 1
+                running_ctx_keys[0].startswith('segment-routing')
                 and len(running_ctx_keys) < 3
-                and running_ctx_keys[0].startswith('segment-routing')
             ):
                 continue
 
@@ -1510,6 +1511,23 @@ def compare_context_objects(newconf, running):
             ):
                 pollist_to_del.append((running_ctx_keys, None))
 
+            # pce-config must be deleted after the pce, to be sure we add them
+            # to a separate array that is going to be appended at the end
+            elif (
+                len(running_ctx_keys) >= 4
+                and running_ctx_keys[0].startswith('segment-routing')
+                and running_ctx_keys[3].startswith('pce-config')
+            ):
+                pceconf_to_del.append((running_ctx_keys, None))
+
+            # pcc must be deleted after the pce and pce-config too
+            elif (
+                len(running_ctx_keys) >= 4
+                and running_ctx_keys[0].startswith('segment-routing')
+                and running_ctx_keys[3].startswith('pcc')
+            ):
+                pcclist_to_del.append((running_ctx_keys, None))
+
             # Non-global context
             elif running_ctx_keys and not any(
                 "address-family" in key for key in running_ctx_keys
@@ -1531,6 +1549,14 @@ def compare_context_objects(newconf, running):
     # if we have some segment list commands to delete, append them to lines_to_del
     if len(seglist_to_del) > 0:
         lines_to_del.extend(seglist_to_del)
+
+    # if we have some pce list commands to delete, append them to lines_to_del
+    if len(pceconf_to_del) > 0:
+        lines_to_del.extend(pceconf_to_del)
+
+    # if we have some pcc list commands to delete, append them to lines_to_del
+    if len(pcclist_to_del) > 0:
+        lines_to_del.extend(pcclist_to_del)
 
     # Find the lines within each context to add
     # Find the lines within each context to del
