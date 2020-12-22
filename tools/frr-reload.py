@@ -1765,6 +1765,7 @@ if __name__ == "__main__":
         "vrrpd",
         "ldpd",
         "pathd",
+        "bfdd",
     ]:
         msg = "Daemon %s is not a valid option for 'show running-config'" % args.daemon
         print(msg)
