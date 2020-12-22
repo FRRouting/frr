@@ -136,6 +136,7 @@ struct vty {
 
 	/* Dynamic transaction information. */
 	size_t backoff_cmd_count;
+	size_t backoff_cmd_max;
 	struct thread *t_pending_commit;
 	char *pending_cmds_buf;
 	size_t pending_cmds_buflen;

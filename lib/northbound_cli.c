@@ -147,7 +147,7 @@ static int nb_cli_schedule_command(struct vty *vty)
 	 * the maximum amount.
 	 */
 	vty->backoff_cmd_count++;
-	if (vty->backoff_cmd_count >= NB_CMD_BATCH_SIZE) {
+	if (vty->backoff_cmd_count >= vty->backoff_cmd_max) {
 		(void)nb_cli_classic_commit(vty);
 		nb_cli_pending_commit_clear(vty);
 	} else

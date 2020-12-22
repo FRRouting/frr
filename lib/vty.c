@@ -2041,6 +2041,7 @@ static int vtysh_accept(struct thread *thread)
 	vty->wfd = sock;
 	vty->type = VTY_SHELL_SERV;
 	vty->node = VIEW_NODE;
+	vty->backoff_cmd_max = NB_CMD_BATCH_SIZE;
 
 	vty_event(VTYSH_READ, sock, vty);
 
