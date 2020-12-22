@@ -1156,14 +1156,17 @@ static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 	}
 
 	if (pcc_info->is_best_multi_pce) {
-		vty_out(vty, " MultiPCE precedence %d, best candidate\n",
+		vty_out(vty, " Precedence %d, best candidate\n",
 			((pcc_info->precedence > 0) ? pcc_info->precedence
 						    : DEFAULT_PCE_PRECEDENCE));
 	} else {
-		vty_out(vty, " MultiPCE precedence %d\n",
+		vty_out(vty, " Precedence %d\n",
 			((pcc_info->precedence > 0) ? pcc_info->precedence
 						    : DEFAULT_PCE_PRECEDENCE));
 	}
+	vty_out(vty, " Confidence %s\n",
+		((pcc_info->previous_best) ? "low"
+		 : "normal"));
 
 	/* PCEPlib pcep session values, get a thread safe copy of the counters
 	 */
