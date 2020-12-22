@@ -684,26 +684,6 @@ end
                 log.debug("LINE %-50s: entering new context, %-50s", line, ctx_keys)
 
             elif (
-                line.startswith("peer ")
-                and len(ctx_keys) == 4
-                and ctx_keys[0].startswith("segment-routing")
-                and ctx_keys[1].startswith("traffic-eng")
-                and ctx_keys[2].startswith("pcep")
-                and ctx_keys[3].startswith("pcc")
-            ):
-                # If there is no precedence, we add the default one (255) so
-                # the line is not removed and added back
-                m = re.search('peer ([^ ]*)', line)
-                if (m != None):
-                    (name,) = m.groups()
-                    line = "peer %s precedence 255" % (name,)
-
-                current_context_lines.append(line)
-                log.debug(
-                    "LINE %-50s: append to current_context_lines, %-50s", line, ctx_keys
-                )
-
-            elif (
                 line.startswith("address-family ")
                 or line.startswith("vnc defaults")
                 or line.startswith("vnc l2-group")
@@ -1508,7 +1488,7 @@ def compare_context_objects(newconf, running):
             elif (
                 len(running_ctx_keys) == 3
                 and running_ctx_keys[0].startswith('segment-routing')
-                and running_ctx_keys[2].startswith('pcep4')
+                and running_ctx_keys[2].startswith('pcep')
             ):
                 continue
 
