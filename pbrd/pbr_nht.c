@@ -718,6 +718,7 @@ pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
 				     struct pbr_nht_individual *pnhi)
 {
 	bool is_valid = pnhc->valid;
+	bool all_done = false;
 
 	/*
 	 * If we have an interface down event, let's note that
@@ -735,13 +736,13 @@ pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
 
 		switch (pnhc->nexthop.type) {
 		case NEXTHOP_TYPE_BLACKHOLE:
-			goto done;
+			all_done = true;
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			is_valid = if_is_up(pnhi->ifp);
-			goto done;
+			all_done = true;
 			break;
 		case NEXTHOP_TYPE_IPV4:
 			p.family = AF_INET;
@@ -755,6 +756,10 @@ pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
 			       sizeof(struct in6_addr));
 			break;
 		}
+
+		/* Early exit in a couple of cases. */
+		if (all_done)
+			goto done;
 
 		FOR_ALL_INTERFACES_ADDRESSES (pnhi->ifp, connected, node) {
 			if (prefix_match(connected->address, &p)) {
